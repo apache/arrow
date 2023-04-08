@@ -86,7 +86,7 @@ func (a *Int64) ValueString(i int) string {
 		return NullValueStr
 	}
 
-	return fmt.Sprintf("%d", a.values[i])
+	return fmt.Sprintf("%v", a.values[i])
 }
 
 func (a *Int64) GetOneForMarshal(i int) interface{} {
@@ -182,7 +182,7 @@ func (a *Uint64) ValueString(i int) string {
 		return NullValueStr
 	}
 
-	return fmt.Sprintf("%d", a.values[i])
+	return fmt.Sprintf("%v", a.values[i])
 }
 
 func (a *Uint64) GetOneForMarshal(i int) interface{} {
@@ -278,7 +278,7 @@ func (a *Float64) ValueString(i int) string {
 		return NullValueStr
 	}
 
-	return fmt.Sprintf("%d", a.values[i])
+	return fmt.Sprintf("%v", a.values[i])
 }
 
 func (a *Float64) GetOneForMarshal(i int) interface{} {
@@ -374,7 +374,7 @@ func (a *Int32) ValueString(i int) string {
 		return NullValueStr
 	}
 
-	return fmt.Sprintf("%d", a.values[i])
+	return fmt.Sprintf("%v", a.values[i])
 }
 
 func (a *Int32) GetOneForMarshal(i int) interface{} {
@@ -470,7 +470,7 @@ func (a *Uint32) ValueString(i int) string {
 		return NullValueStr
 	}
 
-	return fmt.Sprintf("%d", a.values[i])
+	return fmt.Sprintf("%v", a.values[i])
 }
 
 func (a *Uint32) GetOneForMarshal(i int) interface{} {
@@ -566,7 +566,7 @@ func (a *Float32) ValueString(i int) string {
 		return NullValueStr
 	}
 
-	return fmt.Sprintf("%d", a.values[i])
+	return fmt.Sprintf("%v", a.values[i])
 }
 
 func (a *Float32) GetOneForMarshal(i int) interface{} {
@@ -662,7 +662,7 @@ func (a *Int16) ValueString(i int) string {
 		return NullValueStr
 	}
 
-	return fmt.Sprintf("%d", a.values[i])
+	return fmt.Sprintf("%v", a.values[i])
 }
 
 func (a *Int16) GetOneForMarshal(i int) interface{} {
@@ -758,7 +758,7 @@ func (a *Uint16) ValueString(i int) string {
 		return NullValueStr
 	}
 
-	return fmt.Sprintf("%d", a.values[i])
+	return fmt.Sprintf("%v", a.values[i])
 }
 
 func (a *Uint16) GetOneForMarshal(i int) interface{} {
@@ -854,7 +854,7 @@ func (a *Int8) ValueString(i int) string {
 		return NullValueStr
 	}
 
-	return fmt.Sprintf("%d", float64(a.values[i])) // prevent uint8 from being seen as binary data
+	return fmt.Sprintf("%v", float64(a.values[i])) // prevent uint8 from being seen as binary data
 }
 
 func (a *Int8) GetOneForMarshal(i int) interface{} {
@@ -950,7 +950,7 @@ func (a *Uint8) ValueString(i int) string {
 		return NullValueStr
 	}
 
-	return fmt.Sprintf("%d", float64(a.values[i])) // prevent uint8 from being seen as binary data
+	return fmt.Sprintf("%v", float64(a.values[i])) // prevent uint8 from being seen as binary data
 }
 
 func (a *Uint8) GetOneForMarshal(i int) interface{} {

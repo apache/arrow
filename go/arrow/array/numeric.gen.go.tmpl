@@ -98,7 +98,7 @@ func (a *{{.Name}}) ValueString(i int) string {
 {{else if (eq .Size "1")}}
 	return fmt.Sprintf("%d", float64(a.values[i])) // prevent uint8 from being seen as binary data
 {{else}}
-	return fmt.Sprintf("%d", a.values[i])
+	return fmt.Sprintf("%v", a.values[i])
 {{end -}}
 }
 

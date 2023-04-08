@@ -342,7 +342,7 @@ func (b *{{.Name}}Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *{{.Name}}Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
