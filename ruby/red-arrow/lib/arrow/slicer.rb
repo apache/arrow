@@ -185,7 +185,7 @@ module Arrow
                                             ignore_case)
         else
           message =
-             "pattern must be either String or Regexp not #{pattern}.class"
+             "pattern must be either String or Regexp: #{pattern.inspect}"
           raise ArgumentError, message
         end 
       end
