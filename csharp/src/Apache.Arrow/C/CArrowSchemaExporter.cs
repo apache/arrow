@@ -16,11 +16,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.C
@@ -88,7 +86,8 @@ namespace Apache.Arrow.C
         {
             ExportType(field.DataType, schema);
             schema->name = StringUtil.ToCStringUtf8(field.Name);
-            schema->metadata = field.HasMetadata ? ExportMetadata(field.Metadata) : null;
+            // TODO: field metadata
+            schema->metadata = null;
             schema->flags = GetFlags(field.DataType, field.IsNullable);
         }
 
@@ -108,10 +107,7 @@ namespace Apache.Arrow.C
         public static unsafe void ExportSchema(Schema schema, CArrowSchema* out_schema)
         {
             var structType = new StructType(schema.FieldsList);
-            if (schema.HasMetadata)
-            {
-                out_schema->metadata = ExportMetadata(schema.Metadata);
-            }
+            // TODO: top-level metadata
             ExportType(structType, out_schema);
         }
 
@@ -244,43 +240,6 @@ namespace Apache.Arrow.C
             {
                 return null;
             }
-        }
-
-        private static unsafe byte* ExportMetadata(IReadOnlyDictionary<string, string> metadata)
-        {
-            int size = 4;
-            foreach (KeyValuePair<string, string> pair in metadata)
-            {
-                size += 8;
-                size += Encoding.UTF8.GetByteCount(pair.Key);
-                size += Encoding.UTF8.GetByteCount(pair.Value);
-            }
-
-            byte* result = (byte*)Marshal.AllocCoTaskMem(size);
-
-            Marshal.WriteInt32((IntPtr)result, metadata.Count);
-            byte* ptr = result + 4;
-            foreach (KeyValuePair<string, string> pair in metadata)
-            {
-                WriteString(ref ptr, pair.Key);
-                WriteString(ref ptr, pair.Value);
-            }
-
-            Debug.Assert(ptr - result == size);
-
-            return result;
-        }
-
-        private static unsafe void WriteString(ref byte* ptr, string str)
-        {
-            int size = Encoding.UTF8.GetByteCount(str);
-            Marshal.WriteInt32((IntPtr)ptr, size);
-            ptr += 4;
-            fixed (char* s = str)
-            {
-                Encoding.UTF8.GetBytes(s, str.Length, ptr, size);
-            }
-            ptr += size;
         }
 
         private static unsafe void ReleaseCArrowSchema(CArrowSchema* schema)
