@@ -173,9 +173,21 @@ module Arrow
                                           @column, pattern, ignore_case)
       end
 
-      def match_substring?(substring, ignore_case: false)
-        MatchSubstringFamilyCondition.new("match_substring",
-                                          @column, substring, ignore_case)
+      def match_substring?(pattern, ignore_case: false)
+        case pattern
+        when String
+          MatchSubstringFamilyCondition.new("match_substring",
+                                            @column, pattern, ignore_case)
+        when Regexp
+          MatchSubstringFamilyCondition.new("match_substring_regex",
+                                            @column,
+                                            pattern.source,
+                                            ignore_case)
+        else
+          message =
+             "pattern must be either String or Regexp not #{pattern}.class"
+          raise ArgumentError, message
+        end 
       end
 
       def match_substring_regex?(pattern, ignore_case: false)

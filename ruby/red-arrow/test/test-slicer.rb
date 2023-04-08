@@ -553,6 +553,26 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
+    test("match_substring?(regexp)") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.match_substring?(/[dr]ow/)
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	Arrow 
+1	(null)
+2	window
+      TABLE
+    end
+
+    test("match_substring?(invalid_pattern)") do
+      assert_raise(ArgumentError) do
+        sliced_table = @table.slice do |slicer|
+          slicer.string.match_substring?(["arr"])
+        end
+      end
+    end  
+
     test("match_substring_regex?") do
       sliced_table = @table.slice do |slicer|
         slicer.string.match_substring_regex?("[dr]ow")
