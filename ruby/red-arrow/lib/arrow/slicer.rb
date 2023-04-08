@@ -168,7 +168,7 @@ module Arrow
                                           @column, substring, ignore_case)
       end
 
-      def match_like(pattern, ignore_case: false)
+      def match_like?(pattern, ignore_case: false)
         MatchSubstringFamilyCondition.new("match_like",
                                           @column, pattern, ignore_case)
       end
