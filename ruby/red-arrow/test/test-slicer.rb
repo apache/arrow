@@ -565,6 +565,19 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
+    test("match_substring?(/String/i") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.match_substring?(/arr/i)
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	array 
+1	Arrow 
+2	carrot
+3	(null)
+      TABLE
+    end
+
     test("match_substring?(invalid_pattern)") do
       message =
         'pattern must be either String or Regexp: ["arr"]'
