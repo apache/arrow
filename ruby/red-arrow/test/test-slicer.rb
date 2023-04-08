@@ -567,7 +567,7 @@ class SlicerTest < Test::Unit::TestCase
 
     test("match_substring?(invalid_pattern)") do
       assert_raise(ArgumentError) do
-        sliced_table = @table.slice do |slicer|
+        @table.slice do |slicer|
           slicer.string.match_substring?(["arr"])
         end
       end
