@@ -38,8 +38,6 @@ type ExtensionArray interface {
 	ExtensionType() arrow.ExtensionType
 	// Storage returns the underlying storage array for this array.
 	Storage() arrow.Array
-	// ValueString returns a string represenation of the value at the given index for the extension array.
-	ValueString(i int) string
 	// by having a non-exported function in the interface, it means that
 	// consumers must embed ExtensionArrayBase in their structs in order
 	// to fulfill this interface.
