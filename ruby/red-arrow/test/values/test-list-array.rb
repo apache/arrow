@@ -476,12 +476,29 @@ module ValuesListArrayTests
     assert_equal(values, target.values)
   end
 
-  def test_sparse
+  def remove_union_field_names(values)
+    values.collect do |value|
+      if value.nil?
+        value
+      else
+        value.collect do |v|
+          if v.nil?
+            v
+          else
+            v.values[0]
+          end
+        end
+      end
+    end
+  end
+
+  def test_sparse_union
     omit("Need to add support for SparseUnionArrayBuilder")
     values = [
       [
         {"field1" => true},
         nil,
+        {"field2" => 29},
         {"field2" => nil},
       ],
       nil,
@@ -501,15 +518,16 @@ module ValuesListArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_union_field_names(values),
+                 target.values)
   end
 
-  def test_dense
-    omit("Need to add support for DenseUnionArrayBuilder")
+  def test_dense_union
     values = [
       [
         {"field1" => true},
         nil,
+        {"field2" => 29},
         {"field2" => nil},
       ],
       nil,
@@ -529,7 +547,8 @@ module ValuesListArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_union_field_names(values),
+                 target.values)
   end
 
   def test_dictionary
