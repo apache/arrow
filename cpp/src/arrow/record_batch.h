@@ -104,6 +104,8 @@ class ARROW_EXPORT RecordBatch {
               const EqualOptions& opts = EqualOptions::Defaults()) const;
 
   /// \brief Determine if two record batches are approximately equal
+  ///
+  /// \param[in] other the RecordBatch to compare with
   /// \param[in] opts the options for equality comparisons
   bool ApproxEquals(const RecordBatch& other,
                     const EqualOptions& opts = EqualOptions::Defaults()) const;
