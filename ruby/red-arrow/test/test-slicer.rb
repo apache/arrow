@@ -553,7 +553,7 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("match_substring?(regexp)") do
+    test("match_substring?(Regexp)") do
       sliced_table = @table.slice do |slicer|
         slicer.string.match_substring?(/[dr]ow/)
       end
