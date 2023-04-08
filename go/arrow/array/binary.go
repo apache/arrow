@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/goccy/go-json"
@@ -62,6 +63,13 @@ func (a *Binary) ValueString(i int) string {
 		return NullValueStr
 	}
 	return base64.RawURLEncoding.EncodeToString(a.Value(i))
+}
+
+// ValueStr returns the string at index i without performing additional allocations.
+// The string is only valid for the lifetime of the Binary array.
+func (a *Binary) ValueStr(i int) string {
+	b := a.Value(i)
+	return *(*string)(unsafe.Pointer(&b))
 }
 
 func (a *Binary) ValueOffset(i int) int {
@@ -197,6 +205,10 @@ func (a *LargeBinary) ValueString(i int) string {
 		return NullValueStr
 	}
 	return base64.StdEncoding.EncodeToString(a.Value(i))
+}
+func (a *LargeBinary) ValueStr(i int) string {
+	b := a.Value(i)
+	return *(*string)(unsafe.Pointer(&b))
 }
 
 func (a *LargeBinary) ValueOffset(i int) int64 {
