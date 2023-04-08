@@ -62,7 +62,7 @@ func (a *Binary) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	return base64.RawURLEncoding.EncodeToString(a.Value(i))
+	return base64.StdEncoding.EncodeToString(a.Value(i))
 }
 
 // ValueStr returns the string at index i without performing additional allocations.
