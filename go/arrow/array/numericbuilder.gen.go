@@ -222,7 +222,7 @@ func (b *Int64Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Int64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -431,7 +431,7 @@ func (b *Uint64Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Uint64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -640,7 +640,7 @@ func (b *Float64Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Float64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -849,7 +849,7 @@ func (b *Int32Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Int32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1058,7 +1058,7 @@ func (b *Uint32Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Uint32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1267,7 +1267,7 @@ func (b *Float32Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Float32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1476,7 +1476,7 @@ func (b *Int16Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Int16Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1685,7 +1685,7 @@ func (b *Uint16Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Uint16Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1894,7 +1894,7 @@ func (b *Int8Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Int8Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2103,7 +2103,7 @@ func (b *Uint8Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Uint8Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2315,7 +2315,7 @@ func (b *TimestampBuilder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *TimestampBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2526,7 +2526,7 @@ func (b *Time32Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Time32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2737,7 +2737,7 @@ func (b *Time64Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Time64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2946,7 +2946,7 @@ func (b *Date32Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Date32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -3155,7 +3155,7 @@ func (b *Date64Builder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *Date64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -3388,7 +3388,7 @@ func (b *DurationBuilder) UnmarshalOne(dec *json.Decoder) error {
 
 func (b *DurationBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
+		if err := b.unmarshalOne(dec); err != nil {
 			return err
 		}
 	}

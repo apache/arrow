@@ -47,7 +47,6 @@ func (a *Int64) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Int64) Value(i int) int64 { return a.values[i] }
-func (a *Int64) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i))}
 
 // Values returns the values.
 func (a *Int64) Int64Values() []int64 { return a.values }
@@ -80,6 +79,14 @@ func (a *Int64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Int64) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	return fmt.Sprintf("%d", a.values[i])
 }
 
 func (a *Int64) GetOneForMarshal(i int) interface{} {
@@ -136,7 +143,6 @@ func (a *Uint64) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Uint64) Value(i int) uint64 { return a.values[i] }
-func (a *Uint64) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
 
 // Values returns the values.
 func (a *Uint64) Uint64Values() []uint64 { return a.values }
@@ -169,6 +175,14 @@ func (a *Uint64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Uint64) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	return fmt.Sprintf("%d", a.values[i])
 }
 
 func (a *Uint64) GetOneForMarshal(i int) interface{} {
@@ -225,7 +239,6 @@ func (a *Float64) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Float64) Value(i int) float64 { return a.values[i] }
-func (a *Float64) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
 
 // Values returns the values.
 func (a *Float64) Float64Values() []float64 { return a.values }
@@ -258,6 +271,14 @@ func (a *Float64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Float64) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	return fmt.Sprintf("%d", a.values[i])
 }
 
 func (a *Float64) GetOneForMarshal(i int) interface{} {
@@ -314,7 +335,6 @@ func (a *Int32) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Int32) Value(i int) int32 { return a.values[i] }
-func (a *Int32) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
 
 // Values returns the values.
 func (a *Int32) Int32Values() []int32 { return a.values }
@@ -347,6 +367,14 @@ func (a *Int32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Int32) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	return fmt.Sprintf("%d", a.values[i])
 }
 
 func (a *Int32) GetOneForMarshal(i int) interface{} {
@@ -403,7 +431,6 @@ func (a *Uint32) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Uint32) Value(i int) uint32 { return a.values[i] }
-func (a *Uint32) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
 
 // Values returns the values.
 func (a *Uint32) Uint32Values() []uint32 { return a.values }
@@ -436,6 +463,14 @@ func (a *Uint32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Uint32) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	return fmt.Sprintf("%d", a.values[i])
 }
 
 func (a *Uint32) GetOneForMarshal(i int) interface{} {
@@ -492,7 +527,6 @@ func (a *Float32) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Float32) Value(i int) float32 { return a.values[i] }
-func (a *Float32) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
 
 // Values returns the values.
 func (a *Float32) Float32Values() []float32 { return a.values }
@@ -525,6 +559,14 @@ func (a *Float32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Float32) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	return fmt.Sprintf("%d", a.values[i])
 }
 
 func (a *Float32) GetOneForMarshal(i int) interface{} {
@@ -581,7 +623,6 @@ func (a *Int16) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Int16) Value(i int) int16 { return a.values[i] }
-func (a *Int16) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
 
 // Values returns the values.
 func (a *Int16) Int16Values() []int16 { return a.values }
@@ -614,6 +655,14 @@ func (a *Int16) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Int16) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	return fmt.Sprintf("%d", a.values[i])
 }
 
 func (a *Int16) GetOneForMarshal(i int) interface{} {
@@ -670,8 +719,6 @@ func (a *Uint16) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Uint16) Value(i int) uint16 { return a.values[i] }
-func (a *Uint16) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
-
 
 // Values returns the values.
 func (a *Uint16) Uint16Values() []uint16 { return a.values }
@@ -704,6 +751,14 @@ func (a *Uint16) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Uint16) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	return fmt.Sprintf("%d", a.values[i])
 }
 
 func (a *Uint16) GetOneForMarshal(i int) interface{} {
@@ -760,7 +815,6 @@ func (a *Int8) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Int8) Value(i int) int8 { return a.values[i] }
-func (a *Int8) ValueString(i int) string { return fmt.Sprintf("%q", a.Value(i)) }
 
 // Values returns the values.
 func (a *Int8) Int8Values() []int8 { return a.values }
@@ -793,6 +847,14 @@ func (a *Int8) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Int8) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	return fmt.Sprintf("%d", float64(a.values[i])) // prevent uint8 from being seen as binary data
 }
 
 func (a *Int8) GetOneForMarshal(i int) interface{} {
@@ -849,7 +911,6 @@ func (a *Uint8) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Uint8) Value(i int) uint8 { return a.values[i] }
-func (a *Uint8) ValueString(i int) string { return fmt.Sprintf("%q", a.Value(i)) }
 
 // Values returns the values.
 func (a *Uint8) Uint8Values() []uint8 { return a.values }
@@ -882,6 +943,14 @@ func (a *Uint8) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Uint8) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	return fmt.Sprintf("%d", float64(a.values[i])) // prevent uint8 from being seen as binary data
 }
 
 func (a *Uint8) GetOneForMarshal(i int) interface{} {
@@ -938,7 +1007,6 @@ func (a *Timestamp) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Timestamp) Value(i int) arrow.Timestamp { return a.values[i] }
-func (a *Timestamp) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
 
 // Values returns the values.
 func (a *Timestamp) TimestampValues() []arrow.Timestamp { return a.values }
@@ -971,6 +1039,13 @@ func (a *Timestamp) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Timestamp) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.values[i].ToTime(a.DataType().(*arrow.TimestampType).Unit).Format("2006-01-02 15:04:05.999999999")
 }
 
 func (a *Timestamp) GetOneForMarshal(i int) interface{} {
@@ -1022,7 +1097,6 @@ func (a *Time32) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Time32) Value(i int) arrow.Time32 { return a.values[i] }
-func (a *Time32) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i))}
 
 // Values returns the values.
 func (a *Time32) Time32Values() []arrow.Time32 { return a.values }
@@ -1055,6 +1129,13 @@ func (a *Time32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Time32) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.values[i].ToTime(a.DataType().(*arrow.Time32Type).Unit).Format("15:04:05.999999999")
 }
 
 func (a *Time32) GetOneForMarshal(i int) interface{} {
@@ -1106,7 +1187,6 @@ func (a *Time64) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Time64) Value(i int) arrow.Time64 { return a.values[i] }
-func (a *Time64) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
 
 // Values returns the values.
 func (a *Time64) Time64Values() []arrow.Time64 { return a.values }
@@ -1139,6 +1219,13 @@ func (a *Time64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Time64) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.values[i].ToTime(a.DataType().(*arrow.Time64Type).Unit).Format("15:04:05.999999999")
 }
 
 func (a *Time64) GetOneForMarshal(i int) interface{} {
@@ -1190,7 +1277,6 @@ func (a *Date32) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Date32) Value(i int) arrow.Date32 { return a.values[i] }
-func (a *Date32) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
 
 // Values returns the values.
 func (a *Date32) Date32Values() []arrow.Date32 { return a.values }
@@ -1223,6 +1309,13 @@ func (a *Date32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Date32) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.values[i].ToTime().Format("2006-01-02")
 }
 
 func (a *Date32) GetOneForMarshal(i int) interface{} {
@@ -1274,7 +1367,6 @@ func (a *Date64) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Date64) Value(i int) arrow.Date64 { return a.values[i] }
-func (a *Date64) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i))}
 
 // Values returns the values.
 func (a *Date64) Date64Values() []arrow.Date64 { return a.values }
@@ -1307,6 +1399,13 @@ func (a *Date64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Date64) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.values[i].ToTime().Format("2006-01-02")
 }
 
 func (a *Date64) GetOneForMarshal(i int) interface{} {
@@ -1358,8 +1457,6 @@ func (a *Duration) Reset(data *Data) {
 
 // Value returns the value at the specified index.
 func (a *Duration) Value(i int) arrow.Duration { return a.values[i] }
-func (a *Duration) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
-
 
 // Values returns the values.
 func (a *Duration) DurationValues() []arrow.Duration { return a.values }
@@ -1392,6 +1489,14 @@ func (a *Duration) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Duration) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	// return value and suffix as a string such as "12345ms"
+	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*arrow.DurationType).Unit.String())
 }
 
 func (a *Duration) GetOneForMarshal(i int) interface{} {

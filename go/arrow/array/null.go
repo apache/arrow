@@ -59,7 +59,7 @@ func NewNullData(data arrow.ArrayData) *Null {
 }
 
 func (a *Null) ValueString(i int) string {
-	return "(null)"
+	return NullValueStr
 }
 
 func (a *Null) String() string {

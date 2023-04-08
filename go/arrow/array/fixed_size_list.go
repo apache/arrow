@@ -48,7 +48,7 @@ func (a *FixedSizeList) ListValues() arrow.Array { return a.values }
 
 func (a *FixedSizeList) ValueString(i int) string {
 	if !a.IsValid(i) {
-		return "(null)"
+		return NullValueStr
 	}
 	sub := a.newListValue(i)
 	return fmt.Sprintf("%v", sub)

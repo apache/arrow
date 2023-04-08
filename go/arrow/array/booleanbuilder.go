@@ -83,7 +83,7 @@ func (b *BooleanBuilder) AppendEmptyValue() {
 }
 
 func (b *BooleanBuilder) AppendFromString(s string) error {
-	if s == "(null)" {
+	if s == NullValueStr {
 		b.AppendNull()
 		return nil
 	}

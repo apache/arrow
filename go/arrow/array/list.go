@@ -53,6 +53,9 @@ func NewListData(data arrow.ArrayData) *List {
 func (a *List) ListValues() arrow.Array { return a.values }
 
 func (a *List) ValueString(i int) string {
+	if !a.IsValid(i) {
+		return NullValueStr
+	}
 	return fmt.Sprintf("%v", a.newListValue(i))
 }
 
@@ -180,6 +183,9 @@ func NewLargeListData(data arrow.ArrayData) *LargeList {
 func (a *LargeList) ListValues() arrow.Array { return a.values }
 
 func (a *LargeList) ValueString(i int) string {
+	if !a.IsValid(i) {
+		return NullValueStr
+	}
 	return fmt.Sprintf("%v", a.newListValue(i))
 }
 func (a *LargeList) String() string {

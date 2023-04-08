@@ -82,6 +82,26 @@ func (a *{{.Name}}) setData(data *Data) {
 	}
 }
 
+func (a *{{.Name}}) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+{{if or (eq .Name "Date32") (eq .Name "Date64") -}}
+	return a.values[i].ToTime().Format("2006-01-02")
+{{else if or (eq .Name "Time32") (eq .Name "Time64") -}}
+	return a.values[i].ToTime(a.DataType().(*{{.QualifiedType}}Type).Unit).Format("15:04:05.999999999")
+{{else if or (eq .Name "Timestamp") -}}
+	return a.values[i].ToTime(a.DataType().(*{{.QualifiedType}}Type).Unit).Format("2006-01-02 15:04:05.999999999")
+{{else if (eq .Name "Duration") -}}	
+	// return value and suffix as a string such as "12345ms"
+	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*{{.QualifiedType}}Type).Unit.String())	
+{{else if (eq .Size "1")}}
+	return fmt.Sprintf("%d", float64(a.values[i])) // prevent uint8 from being seen as binary data
+{{else}}
+	return fmt.Sprintf("%d", a.values[i])
+{{end -}}
+}
+
 func (a *{{.Name}}) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
@@ -106,7 +126,7 @@ func (a *{{.Name}}) MarshalJSON() ([]byte, error) {
 {{if .QualifiedType -}}
 	vals := make([]interface{}, a.Len())
 	for i := range a.values {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 {{else -}}
 	vals := make([]interface{}, a.Len())

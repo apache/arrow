@@ -56,7 +56,12 @@ func NewMonthIntervalData(data arrow.ArrayData) *MonthInterval {
 }
 
 func (a *MonthInterval) Value(i int) arrow.MonthInterval            { return a.values[i] }
-func (a *MonthInterval) ValueString(i int) string { return fmt.Sprintf("%v", a.Value(i)) }
+func (a *MonthInterval) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return fmt.Sprintf("%v", a.Value(i))
+}
 func (a *MonthInterval) MonthIntervalValues() []arrow.MonthInterval { return a.values }
 
 func (a *MonthInterval) String() string {
@@ -322,7 +327,12 @@ func NewDayTimeIntervalData(data arrow.ArrayData) *DayTimeInterval {
 }
 
 func (a *DayTimeInterval) Value(i int) arrow.DayTimeInterval              { return a.values[i] }
-func (a *DayTimeInterval) ValueString(i int) string { return fmt.Sprintf("%q", a.Value(i)) }
+func (a *DayTimeInterval) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return fmt.Sprintf("%q", a.Value(i))
+}
 func (a *DayTimeInterval) DayTimeIntervalValues() []arrow.DayTimeInterval { return a.values }
 
 func (a *DayTimeInterval) String() string {
@@ -585,7 +595,13 @@ func NewMonthDayNanoIntervalData(data arrow.ArrayData) *MonthDayNanoInterval {
 }
 
 func (a *MonthDayNanoInterval) Value(i int) arrow.MonthDayNanoInterval { return a.values[i] }
-func (a *MonthDayNanoInterval) ValueString(i int) string { return fmt.Sprintf("%q", a.Value(i))}
+func (a *MonthDayNanoInterval) ValueString(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return fmt.Sprintf("%q", a.Value(i))
+}
+
 func (a *MonthDayNanoInterval) MonthDayNanoIntervalValues() []arrow.MonthDayNanoInterval {
 	return a.values
 }

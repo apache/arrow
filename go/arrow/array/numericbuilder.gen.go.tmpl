@@ -360,7 +360,7 @@ func (b *{{.Name}}Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 {{end}}
 
