@@ -2738,7 +2738,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     int32_t data_size = 0;
     const int32_t* length_ptr =
         reinterpret_cast<const int32_t*>(buffered_length_->data()) + length_idx_;
-    int bytes_left = decoder_->bytes_left();
+    int bytes_offset = len_ - decoder_->bytes_left();
     for (int i = 0; i < max_values; ++i) {
       int32_t len = length_ptr[i];
       if (ARROW_PREDICT_FALSE(len < 0)) {
@@ -2753,7 +2753,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     if (ARROW_PREDICT_FALSE(!decoder_->Advance(8 * static_cast<int64_t>(data_size)))) {
       ParquetException::EofException();
     }
-    const uint8_t* data_ptr = data_ + (len_ - bytes_left);
+    const uint8_t* data_ptr = data_ + bytes_offset;
     for (int i = 0; i < max_values; ++i) {
       buffer[i].ptr = data_ptr;
       data_ptr += buffer[i].len;
@@ -3062,11 +3062,9 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     num_valid_values_ = num_prefix;
 
     int bytes_left = decoder_->bytes_left();
+    // If len < bytes_left, prefix_len_decoder.Decode will throw exception.
+    DCHECK_GE(len, bytes_left);
     int suffix_begins = len - bytes_left;
-    if (suffix_begins < 0) {
-      throw ParquetException(
-          "Wrong data in DeltaByteArrayDecoder: bytes_left more than length");
-    }
     // at this time, the decoder_ will be at the start of the encoded suffix data.
     suffix_decoder_.SetData(num_values, data + suffix_begins, bytes_left);
 
