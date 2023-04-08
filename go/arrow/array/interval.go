@@ -19,6 +19,7 @@ package array
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -273,6 +274,20 @@ func (b *MonthIntervalBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *MonthIntervalBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(arrow.MonthInterval(v))
+	return nil
+}
+ 
 func (b *MonthIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var v *arrow.MonthInterval
 	if err := dec.Decode(&v); err != nil {
@@ -540,6 +555,20 @@ func (b *DayTimeIntervalBuilder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *DayTimeIntervalBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	var v arrow.DayTimeInterval
+	if err := json.Unmarshal([]byte(s), &v); err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(v)
+	return nil
 }
 
 func (b *DayTimeIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {
@@ -813,6 +842,19 @@ func (b *MonthDayNanoIntervalBuilder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *MonthDayNanoIntervalBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	var v arrow.MonthDayNanoInterval
+	if err := json.Unmarshal([]byte(s), &v); err != nil {
+		return err
+	}
+	b.Append(v)
+	return nil
 }
 
 func (b *MonthDayNanoIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {

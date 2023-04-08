@@ -82,7 +82,7 @@ func (b *BooleanBuilder) AppendEmptyValue() {
 	b.UnsafeAppend(false)
 }
 
-func (b *BooleanBuilder) AppendFromString(s string) error {
+func (b *BooleanBuilder) AppendValueFromString(s string) error {
 	if s == NullValueStr {
 		b.AppendNull()
 		return nil

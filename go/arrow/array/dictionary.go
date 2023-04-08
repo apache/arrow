@@ -741,6 +741,10 @@ func (b *dictionaryBuilder) Unmarshal(dec *json.Decoder) error {
 	return b.AppendArray(arr)
 }
 
+func (b *dictionaryBuilder) AppendValueFromString(s string) error {
+	return errors.New("AppendValueFromString to dictionary not yet implemented")
+}
+
 func (b *dictionaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	return errors.New("unmarshal json to dictionary not yet implemented")
 }

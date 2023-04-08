@@ -547,6 +547,11 @@ func (b *baseListBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *baseListBuilder) AppendValueFromString(s string) error {
+	dec := json.NewDecoder(strings.NewReader(s))
+	return b.UnmarshalOne(dec)
+}
+
 func (b *baseListBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {

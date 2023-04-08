@@ -82,16 +82,12 @@ func (a *Struct) NumField() int           { return len(a.fields) }
 func (a *Struct) Field(i int) arrow.Array { return a.fields[i] }
 
 func (a *Struct) ValueString(i int) string {
-	v := a.fields[i]
-	structBitmap := a.NullBitmapBytes()
-	if arrow.IsUnion(v.DataType().ID()) {
-		return fmt.Sprintf("%v", v)
-	} else if !bytes.Equal(structBitmap, v.NullBitmapBytes()) {
-		masked := a.newStructFieldWithParentValidityMask(i)
-		defer masked.Release()
-		return fmt.Sprintf("%v", masked)
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
+		return ""
 	}
-	return fmt.Sprintf("%v", v)
+	return buf.String()
 }
 
 func (a *Struct) String() string {
@@ -362,6 +358,14 @@ func (b *StructBuilder) newData() (data *Data) {
 	b.reset()
 
 	return
+}
+
+func (b *StructBuilder) AppendValueFromString(s string) error {
+	if !strings.HasPrefix(s, "{") && !strings.HasSuffix(s, "}") {
+		return fmt.Errorf("invalid string for struct")
+	}
+	dec := json.NewDecoder(strings.NewReader(s))
+	return b.UnmarshalOne(dec)
 }
 
 func (b *StructBuilder) UnmarshalOne(dec *json.Decoder) error {

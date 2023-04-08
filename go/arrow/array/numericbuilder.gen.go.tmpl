@@ -184,6 +184,124 @@ func (b *{{.Name}}Builder) newData() (data *Data) {
 	return
 }
 
+func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+  {{if or (eq .Name "Date32") -}}
+  	tm, err := time.Parse("2006-01-02", s)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(arrow.Date32FromTime(tm))
+  {{else if or (eq .Name "Date64") -}}
+  	tm, err := time.Parse("2006-01-02", s)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(arrow.Date64FromTime(tm))  
+  {{else if or (eq .Name "Time32") -}}
+  	val, err := arrow.Time32FromString(s, b.dtype.Unit)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(val)
+  {{else if or (eq .Name "Time64") -}}
+    val, err := arrow.Time64FromString(s, b.dtype.Unit)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(val)
+  {{else if or (eq .Name "Timestamp") -}}
+  	v, err := arrow.TimestampFromString(s, b.dtype.Unit)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(v)
+  {{else if (eq .Name "Duration") -}}	
+    return fmt.Errorf("AppendValueFromString not implemented for Duration")
+  {{else if or (eq .Name "Int8") -}}
+    v, err := strconv.ParseInt(s, 10, 8)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(int8(v))
+  {{else if or (eq .Name "Int16") -}}
+    v, err := strconv.ParseInt(s, 10, 16)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(int16(v))
+  {{else if or (eq .Name "Int32") -}}
+    v, err := strconv.ParseInt(s, 10, 32)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(int32(v))
+  {{else if or (eq .Name "Int64") -}}
+    v, err := strconv.ParseInt(s, 10, 64)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(int64(v))
+  {{else if or (eq .Name "Uint8") -}}
+  	v, err := strconv.ParseUint(s, 10, 8)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(uint8(v))
+  {{else if or (eq .Name "Uint16") -}}
+  	v, err := strconv.ParseUint(s, 10, 16)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(uint16(v))
+  {{else if or (eq .Name "Uint32") -}}
+  	v, err := strconv.ParseUint(s, 10, 32)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(uint32(v))
+  {{else if or (eq .Name "Uint64") -}}
+  	v, err := strconv.ParseUint(s, 10, 64)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(uint64(v))
+  {{else if or (eq .Name "Float32") -}}
+    v, err := strconv.ParseFloat(s, 32)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(float32(v))
+  {{else if or (eq .Name "Float64") -}}
+    v, err := strconv.ParseFloat(s, 64)
+    if err != nil {
+      b.AppendNull()
+      return err
+    }
+    b.Append(float64(v))
+  {{else}}
+    return fmt.Errorf("AppendValueFromString not implemented for {{.Name}}")
+  {{end -}}
+	return nil
+}
+
 func (b *{{.Name}}Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {

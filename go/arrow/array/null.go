@@ -118,8 +118,8 @@ func (b *NullBuilder) AppendNull() {
 	b.builder.nulls++
 }
 
-func (b *NullBuilder) AppendFromString(s string) error {
-	if s == "null" {
+func (b *NullBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
 		b.AppendNull()
 		return nil
 	}

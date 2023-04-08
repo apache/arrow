@@ -302,6 +302,19 @@ func (b *BinaryBuilder) appendNextOffset() {
 	b.appendOffsetVal(numBytes)
 }
 
+func (b *BinaryBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	decodedVal, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return fmt.Errorf("could not decode base64 string: %w", err)
+	}
+	b.Append(decodedVal)
+	return nil
+}
+
 func (b *BinaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {

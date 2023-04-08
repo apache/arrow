@@ -267,6 +267,20 @@ func (b *Decimal128Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Decimal128Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	val, err := decimal128.FromString(s, b.dtype.Precision, b.dtype.Scale)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(val)
+	return nil
+}
+
 func (b *Decimal128Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {

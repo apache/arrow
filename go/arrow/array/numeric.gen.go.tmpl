@@ -95,8 +95,14 @@ func (a *{{.Name}}) ValueString(i int) string {
 {{else if (eq .Name "Duration") -}}	
 	// return value and suffix as a string such as "12345ms"
 	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*{{.QualifiedType}}Type).Unit.String())	
-{{else if (eq .Size "1")}}
-	return fmt.Sprintf("%d", float64(a.values[i])) // prevent uint8 from being seen as binary data
+{{else if or (eq .Name "Int8") (eq .Name "Int16") (eq .Name "Int32") (eq .Name "Int64") -}}
+  return strconv.FormatInt(int64(a.Value(i)), 10)
+{{else if or (eq .Name "Uint8") (eq .Name "Uint16") (eq .Name "Uint32") (eq .Name "Uint64") -}}
+  return strconv.FormatUint(uint64(a.Value(i)), 10)
+{{else if or (eq .Name "Float32") -}}
+  return strconv.FormatFloat(float64(a.Value(i)), 'g', -1, 32)
+{{else if or (eq .Name "Float64") -}}
+  return strconv.FormatFloat(float64(a.Value(i)), 'g', -1, 64)
 {{else}}
 	return fmt.Sprintf("%v", a.values[i])
 {{end -}}

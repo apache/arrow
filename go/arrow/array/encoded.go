@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -404,6 +405,11 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 		[]arrow.ArrayData{runEnds.Data(), values.Data()}, 0, 0)
 	b.reset()
 	return
+}
+
+func (b *RunEndEncodedBuilder) AppendValueFromString(s string) error {
+	dec := json.NewDecoder(strings.NewReader(s))
+	return b.UnmarshalOne(dec)
 }
 
 func (b *RunEndEncodedBuilder) UnmarshalOne(dec *json.Decoder) error {

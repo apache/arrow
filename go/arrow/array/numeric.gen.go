@@ -20,6 +20,7 @@ package array
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -85,8 +86,7 @@ func (a *Int64) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-
-	return fmt.Sprintf("%v", a.values[i])
+	return strconv.FormatInt(int64(a.Value(i)), 10)
 }
 
 func (a *Int64) GetOneForMarshal(i int) interface{} {
@@ -181,8 +181,7 @@ func (a *Uint64) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-
-	return fmt.Sprintf("%v", a.values[i])
+	return strconv.FormatUint(uint64(a.Value(i)), 10)
 }
 
 func (a *Uint64) GetOneForMarshal(i int) interface{} {
@@ -277,8 +276,7 @@ func (a *Float64) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-
-	return fmt.Sprintf("%v", a.values[i])
+	return strconv.FormatFloat(float64(a.Value(i)), 'g', -1, 64)
 }
 
 func (a *Float64) GetOneForMarshal(i int) interface{} {
@@ -373,8 +371,7 @@ func (a *Int32) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-
-	return fmt.Sprintf("%v", a.values[i])
+	return strconv.FormatInt(int64(a.Value(i)), 10)
 }
 
 func (a *Int32) GetOneForMarshal(i int) interface{} {
@@ -469,8 +466,7 @@ func (a *Uint32) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-
-	return fmt.Sprintf("%v", a.values[i])
+	return strconv.FormatUint(uint64(a.Value(i)), 10)
 }
 
 func (a *Uint32) GetOneForMarshal(i int) interface{} {
@@ -565,8 +561,7 @@ func (a *Float32) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-
-	return fmt.Sprintf("%v", a.values[i])
+	return strconv.FormatFloat(float64(a.Value(i)), 'g', -1, 32)
 }
 
 func (a *Float32) GetOneForMarshal(i int) interface{} {
@@ -661,8 +656,7 @@ func (a *Int16) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-
-	return fmt.Sprintf("%v", a.values[i])
+	return strconv.FormatInt(int64(a.Value(i)), 10)
 }
 
 func (a *Int16) GetOneForMarshal(i int) interface{} {
@@ -757,8 +751,7 @@ func (a *Uint16) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-
-	return fmt.Sprintf("%v", a.values[i])
+	return strconv.FormatUint(uint64(a.Value(i)), 10)
 }
 
 func (a *Uint16) GetOneForMarshal(i int) interface{} {
@@ -853,8 +846,7 @@ func (a *Int8) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-
-	return fmt.Sprintf("%v", float64(a.values[i])) // prevent uint8 from being seen as binary data
+	return strconv.FormatInt(int64(a.Value(i)), 10)
 }
 
 func (a *Int8) GetOneForMarshal(i int) interface{} {
@@ -949,8 +941,7 @@ func (a *Uint8) ValueString(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-
-	return fmt.Sprintf("%v", float64(a.values[i])) // prevent uint8 from being seen as binary data
+	return strconv.FormatUint(uint64(a.Value(i)), 10)
 }
 
 func (a *Uint8) GetOneForMarshal(i int) interface{} {
