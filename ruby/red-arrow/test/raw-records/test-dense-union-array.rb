@@ -79,7 +79,11 @@ module RawRecordsDenseUnionArrayTests
   def remove_field_names(records)
     records.collect do |record|
       record.collect do |column|
-        column.values[0]
+        if column.nil?
+          column
+        else
+          column.values[0]
+        end
       end
     end
   end
@@ -497,12 +501,11 @@ module RawRecordsDenseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    assert_equal(remove_field_names(records),
+    assert_equal(remove_field_names(remove_field_names(records)),
                  target.raw_records)
   end
 
   def test_dense_union
-    omit("Need to add support for DenseUnionArrayBuilder")
     records = [
       [{"0" => {"field1" => true}}],
       [{"1" => nil}],
@@ -523,7 +526,7 @@ module RawRecordsDenseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    assert_equal(remove_field_names(records),
+    assert_equal(remove_field_names(remove_field_names(records)),
                  target.raw_records)
   end
 

@@ -383,10 +383,30 @@ module ValuesMapArrayTests
     assert_equal(values, target.values)
   end
 
+  def remove_union_field_names(values)
+    values.collect do |value|
+      if value.nil?
+        value
+      else
+        val = {}
+        value.each do |k, v|
+          v = v.values[0] unless v.nil?
+          val[k] = v
+        end
+        val
+      end
+    end
+  end
+
   def test_sparse_union
     omit("Need to add support for SparseUnionArrayBuilder")
     values = [
-      {"key1" => {"field1" => true}, "key2" => nil, "key3" => {"field2" => nil}},
+      {
+        "key1" => {"field1" => true},
+        "key2" => nil,
+        "key3" => {"field2" => 29},
+        "key4" => {"field2" => nil},
+      },
       nil,
     ]
     target = build({
@@ -404,13 +424,18 @@ module ValuesMapArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_union_field_names(values),
+                 target.values)
   end
 
   def test_dense_union
-    omit("Need to add support for DenseUnionArrayBuilder")
     values = [
-      {"key1" => {"field1" => true}, "key2" => nil, "key3" => {"field2" => nil}},
+      {
+        "key1" => {"field1" => true},
+        "key2" => nil,
+        "key3" => {"field2" => 29},
+        "key4" => {"field2" => nil},
+      },
       nil,
     ]
     target = build({
@@ -428,7 +453,8 @@ module ValuesMapArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_union_field_names(values),
+                 target.values)
   end
 
   def test_dictionary

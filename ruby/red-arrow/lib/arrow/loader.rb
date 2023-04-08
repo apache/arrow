@@ -71,6 +71,7 @@ module Arrow
       require "arrow/decimal256-array-builder"
       require "arrow/decimal256-data-type"
       require "arrow/dense-union-array"
+      require "arrow/dense-union-array-builder"
       require "arrow/dense-union-data-type"
       require "arrow/dictionary-array"
       require "arrow/dictionary-data-type"
