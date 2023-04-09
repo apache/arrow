@@ -19,12 +19,13 @@ package file_test
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/schema"
-	"github.com/stretchr/testify/require"
 	"io"
 	"math/rand"
 	"testing"
+
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/stretchr/testify/require"
 
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/internal/utils"
