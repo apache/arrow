@@ -173,16 +173,18 @@ module Arrow
                                           @column, pattern, ignore_case)
       end
 
-      def match_substring?(pattern, ignore_case: false)
+      def match_substring?(pattern, ignore_case: nil)
         case pattern
         when String
+          ignore_case = false if ignore_case.nil?
           MatchSubstringFamilyCondition.new("match_substring",
                                             @column, pattern, ignore_case)
         when Regexp
+          ignore_case = pattern.casefold? if ignore_case.nil?
           MatchSubstringFamilyCondition.new("match_substring_regex",
                                             @column,
                                             pattern.source,
-                                            pattern.casefold?)
+                                            ignore_case)
         else
           message =
              "pattern must be either String or Regexp: #{pattern.inspect}"
