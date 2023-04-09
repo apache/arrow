@@ -179,7 +179,12 @@ cdef class BooleanScalar(Scalar):
         cdef CBooleanScalar* sp = <CBooleanScalar*> self.wrapped.get()
         return sp.value if sp.is_valid else None
 
-
+    def __bool__(self):
+        if not self.as_py():
+            return False 
+        else:
+            return True
+           
 cdef class UInt8Scalar(Scalar):
     """
     Concrete class for uint8 scalars.
