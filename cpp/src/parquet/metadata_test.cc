@@ -318,9 +318,10 @@ TEST(Metadata, TestAddKeyValueMetadata) {
   file_writer->AddKeyValueMetadata(kv_meta_added);
   file_writer->Close();
 
-  // Key value metadata that will be ignored since file writer is closed.
+  // Throw if appending key value metadata to closed file.
   auto kv_meta_ignored = std::make_shared<KeyValueMetadata>();
   kv_meta_ignored->Append("test_key_4", "test_value_4");
+  EXPECT_THROW(file_writer->AddKeyValueMetadata(kv_meta_ignored), ParquetException);
 
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
   auto source = std::make_shared<::arrow::io::BufferReader>(buffer);

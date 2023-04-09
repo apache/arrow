@@ -1740,7 +1740,6 @@ void RowGroupMetaDataBuilder::Finish(int64_t total_bytes_written,
 }
 
 // file metadata
-// TODO(PARQUET-595) Support key_value_metadata
 class FileMetaDataBuilder::FileMetaDataBuilderImpl {
  public:
   explicit FileMetaDataBuilderImpl(const SchemaDescriptor* schema,
@@ -1900,6 +1899,13 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
   std::unique_ptr<RowGroupMetaDataBuilder> current_row_group_builder_;
   const SchemaDescriptor* schema_;
 };
+
+std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
+    const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
+    std::shared_ptr<const KeyValueMetadata> /* key_value_metadata */) {
+  return std::unique_ptr<FileMetaDataBuilder>(
+      new FileMetaDataBuilder(schema, std::move(props)));
+}
 
 std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
     const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props) {

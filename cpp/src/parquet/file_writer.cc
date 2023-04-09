@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 #include "parquet/column_writer.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
@@ -377,10 +378,11 @@ class FileSerializer : public ParquetFileWriter::Contents {
   RowGroupWriter* AppendBufferedRowGroup() override { return AppendRowGroup(true); }
 
   void AddKeyValueMetadata(
-      std::shared_ptr<const KeyValueMetadata> key_value_metadata) override {
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) override {
     if (key_value_metadata_ == nullptr) {
       key_value_metadata_ = std::move(key_value_metadata);
     } else if (key_value_metadata != nullptr) {
+      ARROW_DCHECK(key_value_metadata != nullptr);
       key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
     }
   }
@@ -623,9 +625,11 @@ RowGroupWriter* ParquetFileWriter::AppendRowGroup(int64_t num_rows) {
 }
 
 void ParquetFileWriter::AddKeyValueMetadata(
-    std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
   if (contents_) {
-    contents_->AddKeyValueMetadata(std::move(key_value_metadata));
+    contents_->AddKeyValueMetadata(key_value_metadata);
+  } else {
+    throw ParquetException("Cannot add key-value metadata to closed file");
   }
 }
 

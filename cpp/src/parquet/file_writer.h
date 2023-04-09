@@ -164,7 +164,7 @@ class PARQUET_EXPORT ParquetFileWriter {
     }
 
     virtual void AddKeyValueMetadata(
-        std::shared_ptr<const KeyValueMetadata> key_value_metadata) = 0;
+        const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) = 0;
 
     // Return const-pointer to make it clear that this object is not to be copied
     const SchemaDescriptor* schema() const { return &schema_; }
@@ -215,8 +215,9 @@ class PARQUET_EXPORT ParquetFileWriter {
   /// \brief Add key-value metadata to the file.
   /// \param[in] key_value_metadata the metadata to add.
   /// \note This will overwrite any existing metadata with the same key.
-  /// It will not take effect if Close() has been called.
-  void AddKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata);
+  /// \throw ParquetException if Close() has been called.
+  void AddKeyValueMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata);
 
   /// Number of columns.
   ///
