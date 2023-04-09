@@ -163,8 +163,37 @@ module Arrow
         RejectCondition.new(@column, block)
       end
 
-      def match_substring(substring, ignore_case: false)
-        MatchSubstringFamilyCondition.new("match_substring",
+      def end_with?(substring, ignore_case: false)
+        MatchSubstringFamilyCondition.new("ends_with",
+                                          @column, substring, ignore_case)
+      end
+
+      def match_like?(pattern, ignore_case: false)
+        MatchSubstringFamilyCondition.new("match_like",
+                                          @column, pattern, ignore_case)
+      end
+
+      def match_substring?(pattern, ignore_case: nil)
+        case pattern
+        when String
+          ignore_case = false if ignore_case.nil?
+          MatchSubstringFamilyCondition.new("match_substring",
+                                            @column, pattern, ignore_case)
+        when Regexp
+          ignore_case = pattern.casefold? if ignore_case.nil?
+          MatchSubstringFamilyCondition.new("match_substring_regex",
+                                            @column,
+                                            pattern.source,
+                                            ignore_case)
+        else
+          message =
+             "pattern must be either String or Regexp: #{pattern.inspect}"
+          raise ArgumentError, message
+        end 
+      end
+
+      def start_with?(substring, ignore_case: false)
+        MatchSubstringFamilyCondition.new("starts_with",
                                           @column, substring, ignore_case)
       end
     end
