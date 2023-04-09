@@ -180,11 +180,12 @@ cdef class BooleanScalar(Scalar):
         return sp.value if sp.is_valid else None
 
     def __bool__(self):
-        if not self.as_py():
-            return False
+        if self.is_valid:
+            return self.as_py()
         else:
-            return True
+            raise TypeError("Boolean value of null is ambiguous.")
 
+           
 cdef class UInt8Scalar(Scalar):
     """
     Concrete class for uint8 scalars.
