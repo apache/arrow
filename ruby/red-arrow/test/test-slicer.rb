@@ -565,7 +565,7 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("match_substring?(/String/i") do
+    test("match_substring?(/String/i)") do
       sliced_table = @table.slice do |slicer|
         slicer.string.match_substring?(/arr/i)
       end
