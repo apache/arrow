@@ -55,18 +55,28 @@ class ARROW_EXPORT Array {
   virtual ~Array() = default;
 
   /// \brief Return true if value at index is null. Does not boundscheck
-  bool IsNull(int64_t i) const {
-    return null_bitmap_data_ != NULLPTR
-               ? !bit_util::GetBit(null_bitmap_data_, i + data_->offset)
-               : data_->null_count == data_->length;
-  }
+  bool IsNull(int64_t i) const { return !IsValid(i); }
 
   /// \brief Return true if value at index is valid (not null). Does not
   /// boundscheck
   bool IsValid(int64_t i) const {
-    return null_bitmap_data_ != NULLPTR
-               ? bit_util::GetBit(null_bitmap_data_, i + data_->offset)
-               : data_->null_count != data_->length;
+    if (null_bitmap_data_ != NULLPTR) {
+      return bit_util::GetBit(null_bitmap_data_, i + data_->offset);
+    }
+    // Dispatching with a few conditionals like this makes IsNull more
+    // efficient for how it is used in practice. Making IsNull virtual
+    // would add a vtable lookup to every call and prevent inlining +
+    // a potential inner-branch removal.
+    if (type_id() == Type::SPARSE_UNION) {
+      return !internal::IsNullSparseUnion(*data_, i);
+    }
+    if (type_id() == Type::DENSE_UNION) {
+      return !internal::IsNullDenseUnion(*data_, i);
+    }
+    if (type_id() == Type::RUN_END_ENCODED) {
+      return !internal::IsNullRunEndEncoded(*data_, i);
+    }
+    return data_->null_count != data_->length;
   }
 
   /// \brief Return a Scalar containing the value of this array at i
@@ -84,6 +94,17 @@ class ARROW_EXPORT Array {
   /// count will be computed and cached on the first invocation of this
   /// function
   int64_t null_count() const;
+
+  /// \brief Computes the logical null count for arrays of all types including
+  /// those that do not have a validity bitmap like union and run-end encoded
+  /// arrays
+  ///
+  /// If the array has a validity bitmap, this function behaves the same as
+  /// null_count(). For types that have no validity bitmap, this function will
+  /// recompute the null count every time it is called.
+  ///
+  /// \see GetNullCount
+  int64_t ComputeLogicalNullCount() const;
 
   std::shared_ptr<DataType> type() const { return data_->type; }
   Type::type type_id() const { return data_->type->id(); }

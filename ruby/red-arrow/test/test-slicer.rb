@@ -484,4 +484,119 @@ class SlicerTest < Test::Unit::TestCase
 7	   256	true   
     TABLE
   end
+
+  sub_test_case "MatchSubstringOptions family" do
+    def setup
+      @table = Arrow::Table.new(
+        string: ["array", "Arrow", "carrot", nil, "window"]
+      )
+    end
+
+    test("end_with?") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.end_with?("ow")
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	Arrow 
+1	(null)
+2	window
+      TABLE
+    end
+
+    test("match_like?") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.match_like?("_rr%")
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	array 
+1	Arrow 
+2	(null)
+      TABLE
+    end
+
+    test("match_substring?") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.match_substring?("arr")
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	array 
+1	carrot
+2	(null)
+      TABLE
+    end
+
+    test("match_substring?(ignore_case:)") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.match_substring?("arr", ignore_case: true)
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	array 
+1	Arrow 
+2	carrot
+3	(null)
+      TABLE
+    end
+
+    test("!match_substring?") do
+      sliced_table = @table.slice do |slicer|
+        !slicer.string.match_substring?("arr")
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	Arrow 
+1	(null)
+2	window
+      TABLE
+    end
+
+    test("match_substring?(Regexp)") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.match_substring?(/[dr]ow/)
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	Arrow 
+1	(null)
+2	window
+      TABLE
+    end
+
+    test("match_substring?(/String/i)") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.match_substring?(/arr/i)
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	array 
+1	Arrow 
+2	carrot
+3	(null)
+      TABLE
+    end
+
+    test("match_substring? - invalid") do
+      message =
+        'pattern must be either String or Regexp: ["arr"]'
+      assert_raise(ArgumentError.new(message)) do
+        @table.slice do |slicer|
+          slicer.string.match_substring?(["arr"])
+        end
+      end
+    end  
+
+    test("start_with?") do
+      sliced_table = @table.slice do |slicer|
+        slicer.string.start_with?("ca")
+      end
+      assert_equal(<<~TABLE, sliced_table.to_s)
+	string
+0	carrot
+1	(null)
+      TABLE
+    end
+  end
 end

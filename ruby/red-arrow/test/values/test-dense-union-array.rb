@@ -66,7 +66,11 @@ module ValuesDenseUnionArrayTests
 
   def remove_field_names(values)
     values.collect do |value|
-      value.values[0]
+      if value.nil?
+        value
+      else
+        value.values[0]
+      end
     end
   end
 
@@ -462,10 +466,10 @@ module ValuesDenseUnionArrayTests
   end
 
   def test_sparse_union
-    omit("Need to add support for SparseUnionArrayBuilder")
     values = [
       {"0" => {"field1" => true}},
       {"1" => nil},
+      {"0" => {"field2" => 29}},
       {"0" => {"field2" => nil}},
     ]
     target = build({
@@ -483,15 +487,15 @@ module ValuesDenseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(remove_field_names(values),
+    assert_equal(remove_field_names(remove_field_names(values)),
                  target.values)
   end
 
   def test_dense_union
-    omit("Need to add support for DenseUnionArrayBuilder")
     values = [
       {"0" => {"field1" => true}},
       {"1" => nil},
+      {"0" => {"field2" => 29}},
       {"0" => {"field2" => nil}},
     ]
     target = build({
@@ -509,25 +513,23 @@ module ValuesDenseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(remove_field_names(values),
+    assert_equal(remove_field_names(remove_field_names(values)),
                  target.values)
   end
 
   def test_dictionary
-    omit("Need to add support for DictionaryArrayBuilder")
     values = [
       {"0" => "Ruby"},
       {"1" => nil},
       {"0" => "GLib"},
     ]
-    dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({
-                                        type: :dictionary,
-                                        index_data_type: :int8,
-                                        dictionary: dictionary,
-                                        ordered: true,
-                                      },
-                                      values)
+                     type: :dictionary,
+                     index_data_type: :int8,
+                     value_data_type: :string,
+                     ordered: false,
+                   },
+                   values)
     assert_equal(remove_field_names(values),
                  target.values)
   end
