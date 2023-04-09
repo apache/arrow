@@ -441,7 +441,6 @@ module RawRecordsStructArrayTests
   end
 
   def test_sparse_union
-    omit("Need to add support for SparseUnionArrayBuilder")
     records = [
       [{"field" => {"field1" => true}}],
       [nil],
@@ -464,7 +463,7 @@ module RawRecordsStructArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    assert_equal(remove_union_fields(records),
+    assert_equal(remove_union_field_names(records),
                  target.raw_records)
   end
 

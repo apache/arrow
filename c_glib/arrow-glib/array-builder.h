@@ -1581,7 +1581,26 @@ struct _GArrowDenseUnionArrayBuilderClass
 
 GARROW_AVAILABLE_IN_12_0
 GArrowDenseUnionArrayBuilder *
-garrow_dense_union_array_builder_new(void);
+garrow_dense_union_array_builder_new(GArrowDenseUnionDataType *data_type,
+                                     GError **error);
+
+
+#define GARROW_TYPE_SPARSE_UNION_ARRAY_BUILDER   \
+  (garrow_sparse_union_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSparseUnionArrayBuilder,
+                         garrow_sparse_union_array_builder,
+                         GARROW,
+                         SPARSE_UNION_ARRAY_BUILDER,
+                         GArrowUnionArrayBuilder)
+struct _GArrowSparseUnionArrayBuilderClass
+{
+  GArrowUnionArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_12_0
+GArrowSparseUnionArrayBuilder *
+garrow_sparse_union_array_builder_new(GArrowSparseUnionDataType *data_type,
+                                      GError **error);
 
 
 G_END_DECLS

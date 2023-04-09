@@ -413,7 +413,6 @@ module RawRecordsMapArrayTests
   end
 
   def test_sparse_union
-    omit("Need to add support for SparseUnionArrayBuilder")
     records = [
       [
         {

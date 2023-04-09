@@ -399,7 +399,6 @@ module ValuesMapArrayTests
   end
 
   def test_sparse_union
-    omit("Need to add support for SparseUnionArrayBuilder")
     values = [
       {
         "key1" => {"field1" => true},
