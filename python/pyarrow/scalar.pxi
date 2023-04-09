@@ -181,10 +181,10 @@ cdef class BooleanScalar(Scalar):
 
     def __bool__(self):
         if not self.as_py():
-            return False 
+            return False
         else:
             return True
-           
+
 cdef class UInt8Scalar(Scalar):
     """
     Concrete class for uint8 scalars.
