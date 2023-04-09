@@ -470,10 +470,10 @@ module RawRecordsSparseUnionArrayTests
   end
 
   def test_sparse_union
-    omit("Need to add support for SparseUnionArrayBuilder")
     records = [
       [{"0" => {"field1" => true}}],
       [{"1" => nil}],
+      [{"0" => {"field2" => 29}}],
       [{"0" => {"field2" => nil}}],
     ]
     target = build({
@@ -499,6 +499,7 @@ module RawRecordsSparseUnionArrayTests
     records = [
       [{"0" => {"field1" => true}}],
       [{"1" => nil}],
+      [{"0" => {"field2" => 29}}],
       [{"0" => {"field2" => nil}}],
     ]
     target = build({
