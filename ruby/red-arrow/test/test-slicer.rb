@@ -457,8 +457,7 @@ class SlicerTest < Test::Unit::TestCase
       assert_equal(<<~TABLE, sliced_table.to_s)
 	string
 0	Arrow 
-1	(null)
-2	window
+1	window
       TABLE
     end
 
@@ -470,7 +469,6 @@ class SlicerTest < Test::Unit::TestCase
 	string
 0	array 
 1	Arrow 
-2	(null)
       TABLE
     end
 
@@ -515,8 +513,7 @@ class SlicerTest < Test::Unit::TestCase
       assert_equal(<<~TABLE, sliced_table.to_s)
 	string
 0	Arrow 
-1	(null)
-2	window
+1	window
       TABLE
     end
 
@@ -529,7 +526,6 @@ class SlicerTest < Test::Unit::TestCase
 0	array 
 1	Arrow 
 2	carrot
-3	(null)
       TABLE
     end
 
@@ -550,7 +546,6 @@ class SlicerTest < Test::Unit::TestCase
       assert_equal(<<~TABLE, sliced_table.to_s)
 	string
 0	carrot
-1	(null)
       TABLE
     end
   end
