@@ -16,7 +16,7 @@
 # under the License.
 
 module Arrow
-  class DenseUnionArrayBuilder
+  class SparseUnionArrayBuilder
     alias_method :append_value_raw, :append_value
 
     # @overload append_value
@@ -42,7 +42,14 @@ module Arrow
         key = value.keys[0]
         child_info = child_infos[key]
         append_value_raw(child_info[:id])
-        child_info[:builder].append(value.values[0])
+        child_infos.each do |child_key, child_info|
+          builder = child_info[:builder]
+          if child_key == key
+            builder.append(value.values[0])
+          else
+            builder.append_null
+          end
+        end
       end
     end
   end

@@ -436,7 +436,6 @@ module ValuesStructArrayTests
   end
 
   def test_sparse_union
-    omit("Need to add support for SparseUnionArrayBuilder")
     values = [
       {"field" => {"field1" => true}},
       nil,

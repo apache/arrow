@@ -476,6 +476,9 @@ G_BEGIN_DECLS
  *
  * #GArrowDenseUnionArrayBuilder is the class to create a new
  * #GArrowDenseUnionArray.
+ *
+ * #GArrowSparseUnionArrayBuilder is the class to create a new
+ * #GArrowSparseUnionArray.
  */
 
 struct GArrowArrayBuilderPrivate {
@@ -6561,8 +6564,16 @@ garrow_union_array_builder_append_child(GArrowUnionArrayBuilder *builder,
  * @value: A type ID value.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Append an element to the union array. This must be followed by an
+ * Append an element to the union array.
+ *
+ * If @builder is #GArrowDenseUnionArrayBuilder, this must be followed by an
  * append to the appropriate child builder.
+ *
+ * If @builder is #GArrowSparseUnionArrayBuilder, this must be
+ * followed by appends to all child builders. The corresponding child
+ * builder must be appended to independently after this method is
+ * called, and all other child builders must have null or empty value
+ * appended.
  *
  * Returns: %TRUE on success, %FALSE if there was an error.
  *
@@ -6573,18 +6584,44 @@ garrow_union_array_builder_append_value(GArrowUnionArrayBuilder *builder,
                                         gint8 value,
                                         GError **error)
 {
+  auto arrow_builder =
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder));
+  arrow::Status status;
   if (GARROW_IS_DENSE_UNION_ARRAY_BUILDER(builder)) {
-    auto arrow_builder =
-      std::static_pointer_cast<arrow::DenseUnionBuilder>(
-        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
-    auto status = arrow_builder->Append(value);
-    return garrow_error_check(error,
-                              status,
-                              "[union-array-builder][append-value]");
+    auto arrow_union_builder =
+      std::static_pointer_cast<arrow::DenseUnionBuilder>(arrow_builder);
+    status = arrow_union_builder->Append(value);
+  } else {
+    auto arrow_union_builder =
+      std::static_pointer_cast<arrow::SparseUnionBuilder>(arrow_builder);
+    status = arrow_union_builder->Append(value);
   }
-  return false;
+  return garrow_error_check(error,
+                            status,
+                            "[union-array-builder][append-value]");
 }
 
+
+G_END_DECLS
+template <typename BUILDER>
+GArrowArrayBuilder *
+garrow_union_array_builder_new(GArrowUnionDataType *data_type,
+                               GType builder_gtype,
+                               const gchar *context,
+                               GError **error)
+{
+  if (data_type) {
+    auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+    return garrow_array_builder_new(arrow_data_type, error, context);
+  } else {
+    auto memory_pool = arrow::default_memory_pool();
+    auto arrow_builder =
+      std::static_pointer_cast<arrow::ArrayBuilder>(
+        std::make_shared<BUILDER>(memory_pool));
+    return garrow_array_builder_new_raw(&arrow_builder, builder_gtype);
+  }
+}
+G_BEGIN_DECLS
 
 G_DEFINE_TYPE(GArrowDenseUnionArrayBuilder,
               garrow_dense_union_array_builder,
@@ -6602,22 +6639,75 @@ garrow_dense_union_array_builder_class_init(GArrowDenseUnionArrayBuilderClass *k
 
 /**
  * garrow_dense_union_array_builder_new:
+ * @data_type: (nullable): #GArrowDenseUnionDataType for the dense
+ *   union. If this is %NULL, you start an empty children dense
+ *   union. You can add children by
+ *   multiple `garrow_union_array_builder_append_child()` calls.
+ * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable): A newly created #GArrowDenseUnionArrayBuilder.
+ * Returns: (nullable): A newly created #GArrowDenseUnionArrayBuilder
+ *   on success, %NULL on error.
  *
  * Since: 12.0.0
  */
 GArrowDenseUnionArrayBuilder *
-garrow_dense_union_array_builder_new(void)
+garrow_dense_union_array_builder_new(GArrowDenseUnionDataType *data_type,
+                                     GError **error)
 {
-  auto memory_pool = arrow::default_memory_pool();
-  auto arrow_builder =
-    std::static_pointer_cast<arrow::ArrayBuilder>(
-      std::make_shared<arrow::DenseUnionBuilder>(memory_pool));
   auto builder =
-    garrow_array_builder_new_raw(&arrow_builder,
-                                 GARROW_TYPE_DENSE_UNION_ARRAY_BUILDER);
+    garrow_union_array_builder_new<arrow::DenseUnionBuilder>(
+      GARROW_UNION_DATA_TYPE(data_type),
+      GARROW_TYPE_DENSE_UNION_ARRAY_BUILDER,
+      "[dense-union-array-builder][new]",
+      error);
+  if (!builder) {
+    return nullptr;
+  }
   return GARROW_DENSE_UNION_ARRAY_BUILDER(builder);
+}
+
+
+G_DEFINE_TYPE(GArrowSparseUnionArrayBuilder,
+              garrow_sparse_union_array_builder,
+              GARROW_TYPE_UNION_ARRAY_BUILDER)
+
+static void
+garrow_sparse_union_array_builder_init(GArrowSparseUnionArrayBuilder *builder)
+{
+}
+
+static void
+garrow_sparse_union_array_builder_class_init(GArrowSparseUnionArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_sparse_union_array_builder_new:
+ * @data_type: (nullable): #GArrowSparseUnionDataType for the sparse
+ *   union. If this is %NULL, you start an empty children sparse
+ *   union. You can add children by
+ *   multiple `garrow_union_array_builder_append_child()` calls.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowSparseUnionArrayBuilder
+ *   on success, %NULL on error.
+ *
+ * Since: 12.0.0
+ */
+GArrowSparseUnionArrayBuilder *
+garrow_sparse_union_array_builder_new(GArrowSparseUnionDataType *data_type,
+                                     GError **error)
+{
+  auto builder =
+    garrow_union_array_builder_new<arrow::SparseUnionBuilder>(
+      GARROW_UNION_DATA_TYPE(data_type),
+      GARROW_TYPE_SPARSE_UNION_ARRAY_BUILDER,
+      "[sparse-union-array-builder][new]",
+      error);
+  if (!builder) {
+    return nullptr;
+  }
+  return GARROW_SPARSE_UNION_ARRAY_BUILDER(builder);
 }
 
 
@@ -6745,6 +6835,9 @@ garrow_array_builder_new_raw(std::shared_ptr<arrow::ArrayBuilder> *arrow_builder
       break;
     case arrow::Type::type::DENSE_UNION:
       type = GARROW_TYPE_DENSE_UNION_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::SPARSE_UNION:
+      type = GARROW_TYPE_SPARSE_UNION_ARRAY_BUILDER;
       break;
     default:
       type = GARROW_TYPE_ARRAY_BUILDER;

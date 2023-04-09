@@ -112,6 +112,7 @@ module Arrow
       require "arrow/sort-options"
       require "arrow/source-node-options"
       require "arrow/sparse-union-array"
+      require "arrow/sparse-union-array-builder"
       require "arrow/sparse-union-data-type"
       require "arrow/string-dictionary-array-builder"
       require "arrow/string-array-builder"
@@ -137,6 +138,7 @@ module Arrow
       require "arrow/timestamp-array"
       require "arrow/timestamp-array-builder"
       require "arrow/timestamp-data-type"
+      require "arrow/union-array-builder"
       require "arrow/writable"
     end
 
