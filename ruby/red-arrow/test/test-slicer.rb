@@ -578,7 +578,7 @@ class SlicerTest < Test::Unit::TestCase
       TABLE
     end
 
-    test("match_substring?(invalid_pattern)") do
+    test("match_substring? - invalid") do
       message =
         'pattern must be either String or Regexp: ["arr"]'
       assert_raise(ArgumentError.new(message)) do
