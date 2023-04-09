@@ -158,6 +158,12 @@ def test_bool():
     assert true.as_py() is True
     assert false.as_py() is False
 
+    # ARROW-34987
+    assert bool(false) is False
+    assert bool(true) is True
+    with pytest.raises(TypeError):
+        bool(pa.scalar(None, type=pa.bool_()))
+
 
 def test_numerics():
     # int64
