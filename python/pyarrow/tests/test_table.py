@@ -1989,6 +1989,7 @@ def test_table_select():
     assert result.equals(expected)
 
 
+@pytest.mark.acero
 def test_table_group_by():
     def sorted_by_keys(d):
         # Ensure a guaranteed order of keys for aggregation results.

@@ -1448,6 +1448,7 @@ def test_write_to_dataset_no_partitions_s3fs(
     "ignore:'ParquetDataset:FutureWarning",
     "ignore:'partition_filename_cb':FutureWarning")
 @pytest.mark.pandas
+@pytest.mark.dataset
 @parametrize_legacy_dataset_not_supported
 def test_write_to_dataset_with_partitions_and_custom_filenames(
     tempdir, use_legacy_dataset
