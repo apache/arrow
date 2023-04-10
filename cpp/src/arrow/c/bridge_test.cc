@@ -417,6 +417,10 @@ TEST_F(TestSchemaExport, Map) {
       map(int8(), utf8(), /*keys_sorted=*/true), {"+m", "+s", "c", "u"},
       {"", "entries", "key", "value"},
       {ARROW_FLAG_NULLABLE | ARROW_FLAG_MAP_KEYS_SORTED, 0, 0, ARROW_FLAG_NULLABLE});
+
+  // Exports field names and nullability
+  TestNested(map(int8(), field("something", utf8(), false)), {"+m", "+s", "c", "u"},
+             {"", "entries", "key", "something"}, {ARROW_FLAG_NULLABLE, 0, 0, 0});
 }
 
 TEST_F(TestSchemaExport, Union) {
@@ -2802,6 +2806,17 @@ TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
 
 TEST_F(TestSchemaRoundtrip, Map) {
   TestWithTypeFactory([&]() { return map(utf8(), int32()); });
+  TestWithTypeFactory([&]() { return map(utf8(), field("value", int32(), false)); });
+  // Field names are brought in line with the spec on import.
+  TestWithTypeFactory(
+      [&]() {
+        return MapType::Make(field("some_entries",
+                                   struct_({field("some_key", utf8(), false),
+                                            field("some_value", int32())}),
+                                   false))
+            .ValueOrDie();
+      },
+      [&]() { return map(utf8(), int32()); });
   TestWithTypeFactory([&]() { return map(list(utf8()), int32()); });
   TestWithTypeFactory([&]() { return list(map(list(utf8()), int32())); });
 }

@@ -1102,7 +1102,13 @@ struct SchemaImporter {
     }
 
     bool keys_sorted = (c_struct_->flags & ARROW_FLAG_MAP_KEYS_SORTED);
-    type_ = map(value_type->field(0)->type(), value_type->field(1)->type(), keys_sorted);
+    bool values_nullable = value_type->field(1)->nullable();
+    // Some implementations of Arrow (such as Rust) use a non-standard field name
+    // for key ("keys") and value ("values") fields. For simplicity, we override
+    // them on import.
+    auto values_field =
+        ::arrow::field("value", value_type->field(1)->type(), values_nullable);
+    type_ = map(value_type->field(0)->type(), values_field, keys_sorted);
     return Status::OK();
   }
 
