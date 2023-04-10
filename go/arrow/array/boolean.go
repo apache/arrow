@@ -55,7 +55,7 @@ func (a *Boolean) Value(i int) bool {
 	return bitutil.BitIsSet(a.values, a.array.data.offset+i)
 }
 
-func (a *Boolean) ValueString(i int) string {
+func (a *Boolean) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	} else {

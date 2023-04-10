@@ -286,7 +286,7 @@ func TestBooleanStringer(t *testing.T) {
 	if got := out.String(); got != want {
 		t.Fatalf("invalid stringer:\ngot= %q\nwant=%q", got, want)
 	}
-	assert.Equal(t, "true", arr.ValueString(0))
-	assert.Equal(t, "false", arr.ValueString(1))
-	assert.Equal(t, "(null)", arr.ValueString(2))
+	assert.Equal(t, "true", arr.ValueStr(0))
+	assert.Equal(t, "false", arr.ValueStr(1))
+	assert.Equal(t, "(null)", arr.ValueStr(2))
 }

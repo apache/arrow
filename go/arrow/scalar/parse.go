@@ -321,7 +321,7 @@ func fromListScalar(s ListScalar, v reflect.Value) error {
 		reflect.Copy(v, reflect.ValueOf(arr.Float64Values()))
 	case *array.Binary:
 		for i := 0; i < arr.Len(); i++ {
-			v.Index(i).SetString(arr.ValueString(i))
+			v.Index(i).SetString(arr.ValueStr(i))
 		}
 	case *array.String:
 		for i := 0; i < arr.Len(); i++ {
@@ -348,8 +348,8 @@ func fromListScalar(s ListScalar, v reflect.Value) error {
 			metaKeys = make([]string, end-start)
 			metaValues = make([]string, end-start)
 			for j := start; j < end; j++ {
-				metaKeys = append(metaKeys, keys.ValueString(int(j)))
-				metaValues = append(metaValues, values.ValueString(int(j)))
+				metaKeys = append(metaKeys, keys.ValueStr(int(j)))
+				metaValues = append(metaValues, values.ValueStr(int(j)))
 			}
 
 			m := arrow.NewMetadata(metaKeys, metaValues)

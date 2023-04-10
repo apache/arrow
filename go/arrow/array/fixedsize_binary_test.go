@@ -52,7 +52,7 @@ func TestFixedSizeBinary(t *testing.T) {
 	assert.Equal(t, 4, a.Len())
 	assert.Equal(t, 1, a.NullN())
 	assert.Equal(t, []byte("7654321"), a.Value(0))
-	assert.Equal(t, "YWJjZGVmZw==", a.ValueString(3))
+	assert.Equal(t, "YWJjZGVmZw==", a.ValueStr(3))
 	assert.Equal(t, zero, a.Value(1))
 	assert.Equal(t, true, a.IsNull(1))
 	assert.Equal(t, false, a.IsValid(1))

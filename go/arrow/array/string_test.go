@@ -64,7 +64,7 @@ func TestStringArray(t *testing.T) {
 	arr.Retain()
 	arr.Release()
 
-	assert.Equal(t, "hello", arr.ValueString(0))
+	assert.Equal(t, "hello", arr.ValueStr(0))
 
 	if got, want := arr.Len(), len(want); got != want {
 		t.Fatalf("invalid len: got=%d, want=%d", got, want)

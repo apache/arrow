@@ -295,13 +295,13 @@ func TestStructArrayStringer(t *testing.T) {
 	arr := sb.NewArray().(*array.Struct)
 	defer arr.Release()
 
-	assert.Equal(t, "{\"f1\":1.1,\"f2\":1}\n", arr.ValueString(4))
+	assert.Equal(t, "{\"f1\":1.1,\"f2\":1}\n", arr.ValueStr(4))
 	want := "{[1.1 (null) 1.3 1.4 1.1] [1 2 (null) 4 1]}"
 	got := arr.String()
 	if got != want {
 		t.Fatalf("invalid string representation:\ngot = %q\nwant= %q", got, want)
 	}
-	// assert.Equal(t, "[1.1 (null) 1.3 1.4]", arr.ValueString(0))
+	// assert.Equal(t, "[1.1 (null) 1.3 1.4]", arr.ValueStr(0))
 }
 
 func TestStructArraySlice(t *testing.T) {

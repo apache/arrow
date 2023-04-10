@@ -185,7 +185,7 @@ func (e *ExtensionArrayBase) setData(data *Data) {
 
 // ValueString returns the value at index i as a string.
 // This needs to be implemented by the extension array type.
-func (e *ExtensionArrayBase) ValueString(i int) string {
+func (e *ExtensionArrayBase) ValueStr(i int) string {
 	panic("arrow/array: ValueString wasn't implemented by this extension array type")
 }
 

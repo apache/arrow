@@ -200,13 +200,13 @@ func (a *LargeBinary) Value(i int) []byte {
 	return a.valueBytes[a.valueOffsets[idx]:a.valueOffsets[idx+1]]
 }
 
-func (a *LargeBinary) ValueString(i int) string {
+func (a *LargeBinary) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
 	return base64.StdEncoding.EncodeToString(a.Value(i))
 }
-func (a *LargeBinary) ValueStr(i int) string {
+func (a *LargeBinary) ValueString(i int) string {
 	b := a.Value(i)
 	return *(*string)(unsafe.Pointer(&b))
 }

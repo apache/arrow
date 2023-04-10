@@ -61,7 +61,7 @@ type Builder interface {
 	// AppendEmptyValue adds a new zero value of the appropriate type
 	AppendEmptyValue()
 
-	// AppendValueFromString adds a new value from a string. Inverse of array.ValueString(i int) string
+	// AppendValueFromString adds a new value from a string. Inverse of array.ValueStr(i int) string
 	AppendValueFromString(string) error
 
 	// Reserve ensures there is enough space for appending n elements

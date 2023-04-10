@@ -48,7 +48,7 @@ func NewDecimal256Data(data arrow.ArrayData) *Decimal256 {
 }
 
 func (a *Decimal256) Value(i int) decimal256.Num { return a.values[i] }
-func (a *Decimal256) ValueString(i int) string {
+func (a *Decimal256) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	} else {

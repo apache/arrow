@@ -57,7 +57,7 @@ func NewMonthIntervalData(data arrow.ArrayData) *MonthInterval {
 }
 
 func (a *MonthInterval) Value(i int) arrow.MonthInterval            { return a.values[i] }
-func (a *MonthInterval) ValueString(i int) string {
+func (a *MonthInterval) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -342,7 +342,7 @@ func NewDayTimeIntervalData(data arrow.ArrayData) *DayTimeInterval {
 }
 
 func (a *DayTimeInterval) Value(i int) arrow.DayTimeInterval              { return a.values[i] }
-func (a *DayTimeInterval) ValueString(i int) string {
+func (a *DayTimeInterval) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -624,7 +624,7 @@ func NewMonthDayNanoIntervalData(data arrow.ArrayData) *MonthDayNanoInterval {
 }
 
 func (a *MonthDayNanoInterval) Value(i int) arrow.MonthDayNanoInterval { return a.values[i] }
-func (a *MonthDayNanoInterval) ValueString(i int) string {
+func (a *MonthDayNanoInterval) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}

@@ -82,7 +82,7 @@ func (a *Int64) setData(data *Data) {
 	}
 }
 
-func (a *Int64) ValueString(i int) string {
+func (a *Int64) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -177,7 +177,7 @@ func (a *Uint64) setData(data *Data) {
 	}
 }
 
-func (a *Uint64) ValueString(i int) string {
+func (a *Uint64) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -272,7 +272,7 @@ func (a *Float64) setData(data *Data) {
 	}
 }
 
-func (a *Float64) ValueString(i int) string {
+func (a *Float64) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -367,7 +367,7 @@ func (a *Int32) setData(data *Data) {
 	}
 }
 
-func (a *Int32) ValueString(i int) string {
+func (a *Int32) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -462,7 +462,7 @@ func (a *Uint32) setData(data *Data) {
 	}
 }
 
-func (a *Uint32) ValueString(i int) string {
+func (a *Uint32) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -557,7 +557,7 @@ func (a *Float32) setData(data *Data) {
 	}
 }
 
-func (a *Float32) ValueString(i int) string {
+func (a *Float32) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -652,7 +652,7 @@ func (a *Int16) setData(data *Data) {
 	}
 }
 
-func (a *Int16) ValueString(i int) string {
+func (a *Int16) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -747,7 +747,7 @@ func (a *Uint16) setData(data *Data) {
 	}
 }
 
-func (a *Uint16) ValueString(i int) string {
+func (a *Uint16) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -842,7 +842,7 @@ func (a *Int8) setData(data *Data) {
 	}
 }
 
-func (a *Int8) ValueString(i int) string {
+func (a *Int8) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -937,7 +937,7 @@ func (a *Uint8) setData(data *Data) {
 	}
 }
 
-func (a *Uint8) ValueString(i int) string {
+func (a *Uint8) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -1032,7 +1032,7 @@ func (a *Timestamp) setData(data *Data) {
 	}
 }
 
-func (a *Timestamp) ValueString(i int) string {
+func (a *Timestamp) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -1122,7 +1122,7 @@ func (a *Time32) setData(data *Data) {
 	}
 }
 
-func (a *Time32) ValueString(i int) string {
+func (a *Time32) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -1212,7 +1212,7 @@ func (a *Time64) setData(data *Data) {
 	}
 }
 
-func (a *Time64) ValueString(i int) string {
+func (a *Time64) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -1302,7 +1302,7 @@ func (a *Date32) setData(data *Data) {
 	}
 }
 
-func (a *Date32) ValueString(i int) string {
+func (a *Date32) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -1392,7 +1392,7 @@ func (a *Date64) setData(data *Data) {
 	}
 }
 
-func (a *Date64) ValueString(i int) string {
+func (a *Date64) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
@@ -1482,7 +1482,7 @@ func (a *Duration) setData(data *Data) {
 	}
 }
 
-func (a *Duration) ValueString(i int) string {
+func (a *Duration) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}

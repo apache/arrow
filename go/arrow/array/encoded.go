@@ -193,7 +193,7 @@ func (r *RunEndEncoded) GetPhysicalLength() int {
 	return encoded.GetPhysicalLength(r.data)
 }
 
-func (r *RunEndEncoded) ValueString(i int) string {
+func (r *RunEndEncoded) ValueStr(i int) string {
 	value := r.values.(arraymarshal).GetOneForMarshal(i)
 	if byts, ok := value.(json.RawMessage); ok {
 		value = string(byts)

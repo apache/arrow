@@ -105,8 +105,8 @@ type Array interface {
 	// IsValid returns true if value at index is not null.
 	// NOTE: IsValid will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
 	IsValid(i int) bool
-	// ValueString returns the value at index as a string.
-	ValueString(i int) string
+	// ValueStr returns the value at index as a string.
+	ValueStr(i int) string
 
 	// Get single value to be marshalled with `json.Marshal`
 	GetOneForMarshal(i int) interface{}

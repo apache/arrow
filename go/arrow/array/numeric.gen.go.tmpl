@@ -82,7 +82,7 @@ func (a *{{.Name}}) setData(data *Data) {
 	}
 }
 
-func (a *{{.Name}}) ValueString(i int) string {
+func (a *{{.Name}}) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}

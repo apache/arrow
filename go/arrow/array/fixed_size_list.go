@@ -46,7 +46,7 @@ func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
 
 func (a *FixedSizeList) ListValues() arrow.Array { return a.values }
 
-func (a *FixedSizeList) ValueString(i int) string {
+func (a *FixedSizeList) ValueStr(i int) string {
 	if !a.IsValid(i) {
 		return NullValueStr
 	}

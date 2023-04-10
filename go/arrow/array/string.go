@@ -53,7 +53,7 @@ func (a *String) Value(i int) string {
 	i = i + a.array.data.offset
 	return a.values[a.offsets[i]:a.offsets[i+1]]
 }
-func (a *String) ValueString(i int) string {
+func (a *String) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return "(null)"
 	} else {
@@ -195,7 +195,7 @@ func (a *LargeString) Value(i int) string {
 	i = i + a.array.data.offset
 	return a.values[a.offsets[i]:a.offsets[i+1]]
 }
-func (a *LargeString) ValueString(i int) string { return fmt.Sprintf("%q", a.Value(i)) }
+func (a *LargeString) ValueStr(i int) string { return fmt.Sprintf("%q", a.Value(i)) }
 
 // ValueOffset returns the offset of the value at index i.
 func (a *LargeString) ValueOffset(i int) int64 {

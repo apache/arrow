@@ -81,7 +81,7 @@ func NewStructData(data arrow.ArrayData) *Struct {
 func (a *Struct) NumField() int           { return len(a.fields) }
 func (a *Struct) Field(i int) arrow.Array { return a.fields[i] }
 
-func (a *Struct) ValueString(i int) string {
+func (a *Struct) ValueStr(i int) string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {

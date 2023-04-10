@@ -58,7 +58,7 @@ func NewNullData(data arrow.ArrayData) *Null {
 	return a
 }
 
-func (a *Null) ValueString(i int) string {
+func (a *Null) ValueStr(i int) string {
 	return NullValueStr
 }
 

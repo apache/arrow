@@ -253,8 +253,8 @@ func (d *Dictionary) CanCompareIndices(other *Dictionary) bool {
 	return ArraySliceEqual(d.Dictionary(), 0, minlen, other.Dictionary(), 0, minlen)
 }
 
-func (d *Dictionary) ValueString(i int) string {
-	return d.Dictionary().ValueString(d.GetValueIndex(i))
+func (d *Dictionary) ValueStr(i int) string {
+	return d.Dictionary().ValueStr(d.GetValueIndex(i))
 }
 
 func (d *Dictionary) String() string {

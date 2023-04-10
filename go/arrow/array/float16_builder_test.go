@@ -56,7 +56,7 @@ func TestNewFloat16Builder(t *testing.T) {
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewFloat16Array()
-	assert.Equal(t, "1", a.ValueString(0))
+	assert.Equal(t, "1", a.ValueStr(0))
 	// check state of builder after NewFloat16Array
 	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewFloat16Array did not reset state")
 	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewFloat16Array did not reset state")

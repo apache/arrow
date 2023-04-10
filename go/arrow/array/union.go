@@ -350,7 +350,7 @@ func (a *SparseUnion) Value(i int) string {
 	return fmt.Sprintf("{%s=%v}", field.Name, f.(arraymarshal).GetOneForMarshal(i))
 }
 
-func (a *SparseUnion) ValueString(i int) string {
+func (a *SparseUnion) ValueStr(i int) string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
@@ -616,7 +616,7 @@ func (a *DenseUnion) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (a *DenseUnion) ValueString(i int) string {
+func (a *DenseUnion) ValueStr(i int) string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {

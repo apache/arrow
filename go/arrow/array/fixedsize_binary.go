@@ -52,7 +52,7 @@ func (a *FixedSizeBinary) Value(i int) []byte {
 	)
 	return a.valueBytes[beg:end]
 }
-func (a *FixedSizeBinary) ValueString(i int) string {
+func (a *FixedSizeBinary) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
