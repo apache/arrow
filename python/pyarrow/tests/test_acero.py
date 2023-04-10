@@ -21,15 +21,18 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.compute import field
 
-from pyarrow.acero import (
-    Declaration,
-    TableSourceNodeOptions,
-    FilterNodeOptions,
-    ProjectNodeOptions,
-    AggregateNodeOptions,
-    OrderByNodeOptions,
-    HashJoinNodeOptions,
-)
+try:
+    from pyarrow.acero import (
+        Declaration,
+        TableSourceNodeOptions,
+        FilterNodeOptions,
+        ProjectNodeOptions,
+        AggregateNodeOptions,
+        OrderByNodeOptions,
+        HashJoinNodeOptions,
+    )
+except ImportError:
+    pass
 
 try:
     import pyarrow.dataset as ds
@@ -46,6 +49,7 @@ def table_source():
     return table_source
 
 
+@pytest.mark.acero
 def test_declaration():
 
     table = pa.table({'a': [1, 2, 3], 'b': [4, 5, 6]})
@@ -67,12 +71,14 @@ def test_declaration():
     assert result.equals(table.slice(1, 2))
 
 
+@pytest.mark.acero
 def test_declaration_repr(table_source):
 
     assert "TableSourceNode" in str(table_source)
     assert "TableSourceNode" in repr(table_source)
 
 
+@pytest.mark.acero
 def test_declaration_to_reader(table_source):
     with table_source.to_reader() as reader:
         assert reader.schema == pa.schema([("a", pa.int64()), ("b", pa.int64())])
@@ -81,6 +87,7 @@ def test_declaration_to_reader(table_source):
     assert result.equals(expected)
 
 
+@pytest.mark.acero
 def test_table_source():
     with pytest.raises(TypeError):
         TableSourceNodeOptions(pa.record_batch([pa.array([1, 2, 3])], ["a"]))
@@ -93,6 +100,7 @@ def test_table_source():
         _ = decl.to_table()
 
 
+@pytest.mark.acero
 def test_filter(table_source):
     # referencing unknown field
     decl = Declaration.from_sequence([
@@ -109,6 +117,7 @@ def test_filter(table_source):
         FilterNodeOptions(None)
 
 
+@pytest.mark.acero
 def test_project(table_source):
     # default name from expression
     decl = Declaration.from_sequence([
@@ -141,6 +150,7 @@ def test_project(table_source):
         _ = decl.to_table()
 
 
+@pytest.mark.acero
 def test_aggregate_scalar(table_source):
     decl = Declaration.from_sequence([
         table_source,
@@ -192,6 +202,7 @@ def test_aggregate_scalar(table_source):
         _ = decl.to_table()
 
 
+@pytest.mark.acero
 def test_aggregate_hash():
     table = pa.table({'a': [1, 2, None], 'b': ["foo", "bar", "foo"]})
     table_opts = TableSourceNodeOptions(table)
@@ -238,6 +249,7 @@ def test_aggregate_hash():
         _ = decl.to_table()
 
 
+@pytest.mark.acero
 def test_order_by():
     table = pa.table({'a': [1, 2, 3, 4], 'b': [1, 3, None, 2]})
     table_source = Declaration("table_source", TableSourceNodeOptions(table))
@@ -275,6 +287,7 @@ def test_order_by():
         _ = OrderByNodeOptions([("b", "ascending")], null_placement="start")
 
 
+@pytest.mark.acero
 def test_hash_join():
     left = pa.table({'key': [1, 2, 3], 'a': [4, 5, 6]})
     left_source = Declaration("table_source", options=TableSourceNodeOptions(left))
