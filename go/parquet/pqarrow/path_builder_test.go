@@ -370,7 +370,6 @@ func TestNestedExtensionListsWithSomeNulls(t *testing.T) {
 
 	nestedBldr := bldr.ValueBuilder().(*array.ListBuilder)
 	vb := nestedBldr.ValueBuilder().(*types.UUIDBuilder)
-	defer vb.Release()
 
 	uuid1 := uuid.New()
 	uuid3 := uuid.New()
