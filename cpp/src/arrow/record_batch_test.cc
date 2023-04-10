@@ -90,30 +90,36 @@ TEST_F(TestRecordBatch, EqualsOptions) {
 
   std::vector<std::shared_ptr<Field>> fields = {f};
   auto schema = ::arrow::schema(fields);
-  {
-    std::shared_ptr<Array> array1, array2;
-    ArrayFromVector<FloatType>(float32(), {true, true}, {0.5, NAN}, &array1);
-    ArrayFromVector<FloatType>(float32(), {true, true}, {0.5, NAN}, &array2);
-    auto b1 = RecordBatch::Make(schema, length, {array1});
-    auto b2 = RecordBatch::Make(schema, length, {array2});
 
-    EXPECT_FALSE(b1->Equals(*b2, false, EqualOptions::Defaults().nans_equal(false)));
-    EXPECT_TRUE(b1->Equals(*b2, false, EqualOptions::Defaults().nans_equal(true)));
-  }
-  {
-    std::shared_ptr<Array> array1, array2;
-    ArrayFromVector<FloatType>(float32(), {true, true}, {0.5, NAN}, &array1);
-    ArrayFromVector<FloatType>(float32(), {true, true}, {0.501, NAN}, &array2);
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<FloatType>(float32(), {true, true}, {0.5, NAN}, &array1);
+  ArrayFromVector<FloatType>(float32(), {true, true}, {0.5, NAN}, &array2);
+  auto b1 = RecordBatch::Make(schema, length, {array1});
+  auto b2 = RecordBatch::Make(schema, length, {array2});
 
-    auto b1 = RecordBatch::Make(schema, length, {array1});
-    auto b2 = RecordBatch::Make(schema, length, {array2});
+  EXPECT_FALSE(b1->Equals(*b2, false, EqualOptions::Defaults().nans_equal(false)));
+  EXPECT_TRUE(b1->Equals(*b2, false, EqualOptions::Defaults().nans_equal(true)));
+}
 
-    EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(false)));
-    EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true)));
+TEST_F(TestRecordBatch, ApproxEqualsOptions) {
+  int length = 2;
+  auto f = field("f", float32());
 
-    EXPECT_TRUE(
-        b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true).atol(0.1)));
-  }
+  auto metadata = key_value_metadata({"foo"}, {"bar"});
+
+  std::vector<std::shared_ptr<Field>> fields = {f};
+  auto schema = ::arrow::schema(fields);
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<FloatType>(float32(), {true, true}, {0.5, NAN}, &array1);
+  ArrayFromVector<FloatType>(float32(), {true, true}, {0.501, NAN}, &array2);
+
+  auto b1 = RecordBatch::Make(schema, length, {array1});
+  auto b2 = RecordBatch::Make(schema, length, {array2});
+
+  EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(false)));
+  EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true)));
+
+  EXPECT_TRUE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true).atol(0.1)));
 }
 
 TEST_F(TestRecordBatch, Validate) {
