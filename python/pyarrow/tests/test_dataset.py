@@ -809,7 +809,7 @@ def test_file_format_pickling():
         ds.JsonFileFormat(parse_options=pa.json.ParseOptions(newlines_in_values=True,
             unexpected_field_behavior="ignore")),
         ds.JsonFileFormat(read_options=pa.json.ReadOptions(
-            use_threads=False,block_size=14)),
+            use_threads=False,block_size=14)), 
     ]
     try:
         formats.append(ds.OrcFileFormat())
@@ -844,7 +844,7 @@ def test_fragment_scan_options_pickling():
         ds.JsonFragmentScanOptions(pa.json.ParseOptions(newlines_in_values=False,
             unexpected_field_behavior="error")),
         ds.JsonFragmentScanOptions(
-            read_options=pa.json.ReadOptions(use_threads=True,block_size=512)),
+            read_options=pa.json.ReadOptions(use_threads=True,block_size=512)), 
     ]
 
     if pq is not None:
@@ -981,8 +981,11 @@ def test_make_csv_fragment_from_buffer(dataset_reader):
     pickled = pickle.loads(pickle.dumps(fragment))
     assert dataset_reader.to_table(pickled).equals(fragment.to_table())
 
+
 def test_make_json_fragment_from_buffer(dataset_reader):
-    content = '{"alpha" : "a", "num": 12, "animal" : "dog"}\n' + '{"alpha" : "b", "num": 11, "animal" : "cat"}\n' + '{"alpha" : "c", "num": 10, "animal" : "rabbit"}\n'
+    content = '{"alpha" : "a", "num": 12, "animal" : "dog"}\n' 
+    + '{"alpha" : "b", "num": 11, "animal" : "cat"}\n' 
+    + '{"alpha" : "c", "num": 10, "animal" : "rabbit"}\n'
     buffer = pa.py_buffer(content.encode('utf-8'))
 
     json_format = ds.JsonFileFormat()
@@ -3202,6 +3205,7 @@ def test_csv_fragment_options(tempdir, dataset_reader):
     assert result.equals(
         pa.table({'col0': pa.array(['foo', 'spam', 'MYNULL'])}))
 
+
 @pytest.mark.pandas
 def test_json_format(tempdir, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
@@ -3222,6 +3226,7 @@ def test_json_format(tempdir, dataset_reader):
     result = dataset_reader.to_table(dataset)
     assert result.equals(table)
 
+
 def test_json_format_options(tempdir, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
                       'b': pa.array([.1, .2, .3], type="float64")})
@@ -3230,7 +3235,7 @@ def test_json_format_options(tempdir, dataset_reader):
     out = table.to_pandas().to_json(orient='records')[1:-1].replace('},{', '}\n{')
     with open(path, 'w') as f:
         f.write(out)
-    
+
     dataset = ds.dataset(path, format=ds.JsonFileFormat(
         read_options=pa.json.ReadOptions(block_size=64)))
     result = dataset_reader.to_table(dataset)
@@ -3247,13 +3252,15 @@ def test_json_fragment_options(tempdir, dataset_reader):
     out = table.to_pandas().to_json(orient='records')[1:-1].replace('},{', '}\n{')
     with open(path, 'w') as f:
         f.write(out)
-    
-    options =  ds.JsonFragmentScanOptions(read_options=pa.json.ReadOptions(block_size=64))
+
+    options = ds.JsonFragmentScanOptions(
+        read_options=pa.json.ReadOptions(block_size=64))
     dataset = ds.dataset(path, format=ds.JsonFileFormat(options))
     result = dataset_reader.to_table(dataset)
     assert result.equals(
         pa.table({'a': pa.array([1, 2, 3], type="int64"),
                       'b': pa.array([.1, .2, .3], type="float64")}))
+
 
 def test_encoding(tempdir, dataset_reader):
     path = str(tempdir / 'test.csv')
