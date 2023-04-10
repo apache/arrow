@@ -72,7 +72,7 @@ func TotalArraySize(arr arrow.Array) int64 {
 	return totalArraySize(arr, seenBuffer)
 }
 
-// TotalArraySize The sum of bytes in each buffer referenced by the Record.
+// TotalArraySize return the sum of bytes in each buffer referenced by the Record.
 func TotalRecordSize(record arrow.Record) int64 {
 	seenBuffer := make(map[*memory.Buffer]struct{})
 	return totalRecordSize(record, seenBuffer)
