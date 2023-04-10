@@ -388,7 +388,7 @@ outputs:
         # ^^^^^^^ TESTS THAT SHOULDN'T HAVE TO BE SKIPPED ^^^^^^^
 
         # crossbow CI: reduce to one python version, except on (unemulated) linux, where it's fast enough
-        - pytest -v -rfEs -k "not ({{ tests_to_skip }})"  # [linux64 or (py==310)]
+        - pytest -v -rfEs -k "not ({{ tests_to_skip }})"  # [linux64 or (py==310 and build_platform==target_platform)]
 
     about:
       home: http://github.com/apache/arrow
