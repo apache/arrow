@@ -292,6 +292,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
       ExecContext* exec_ctx, size_t concurrency) {
+    // Copy (need to modify options pointer below)
     std::vector<Aggregate> aggregates(aggs);
     std::vector<int> segment_field_ids(segment_keys.size());
     std::vector<TypeHolder> segment_key_types(segment_keys.size());
@@ -374,15 +375,12 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       fields[base + i] = field(aggregates[i].name, out_type.GetSharedPtr());
     }
 
-    return AggregateNodeArgs<ScalarAggregateKernel>{schema(std::move(fields)),
-                                                    {},
-                                                    std::move(segment_field_ids),
-                                                    std::move(segmenter),
-                                                    std::move(target_fieldsets),
-                                                    std::move(aggregates),
-                                                    std::move(kernels),
-                                                    std::move(kernel_intypes),
-                                                    std::move(states)};
+    return AggregateNodeArgs<ScalarAggregateKernel>{
+        schema(std::move(fields)),
+        /*grouping_key_field_ids=*/{}, std::move(segment_field_ids),
+        std::move(segmenter),          std::move(target_fieldsets),
+        std::move(aggregates),         std::move(kernels),
+        std::move(kernel_intypes),     std::move(states)};
   }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -693,7 +691,7 @@ class GroupByNode : public ExecNode, public TracedNode {
                                                   std::move(aggs),
                                                   std::move(agg_kernels),
                                                   std::move(agg_src_types),
-                                                  {}};
+                                                  /*states=*/{}};
   }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -704,12 +702,12 @@ class GroupByNode : public ExecNode, public TracedNode {
     const auto& aggregate_options = checked_cast<const AggregateNodeOptions&>(options);
     const auto& keys = aggregate_options.keys;
     const auto& segment_keys = aggregate_options.segment_keys;
-    // Copy (need to modify options pointer below)
     auto aggs = aggregate_options.aggregates;
 
     if (plan->query_context()->exec_context()->executor()->GetCapacity() > 1 &&
         segment_keys.size() > 0) {
-      return Status::NotImplemented("Segmented aggregation in a multi-threaded plan");
+      return Status::NotImplemented(
+          "Segmented aggregation in a multi-threaded execution context");
     }
 
     const auto& input_schema = input->output_schema();
