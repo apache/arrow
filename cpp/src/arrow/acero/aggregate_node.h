@@ -24,7 +24,6 @@
 
 #include "arrow/acero/visibility.h"
 #include "arrow/compute/api_aggregate.h"
-#include "arrow/compute/row/grouper.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/type_fwd.h"
 
