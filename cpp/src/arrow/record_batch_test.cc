@@ -84,7 +84,7 @@ TEST_F(TestRecordBatch, Equals) {
 
 TEST_F(TestRecordBatch, EqualsOptions) {
   int length = 2;
-  auto f = field("f", float32());
+  auto f = field("f", float64());
 
   auto metadata = key_value_metadata({"foo"}, {"bar"});
 
@@ -92,8 +92,8 @@ TEST_F(TestRecordBatch, EqualsOptions) {
   auto schema = ::arrow::schema(fields);
 
   std::shared_ptr<Array> array1, array2;
-  ArrayFromVector<FloatType>(float32(), {true, true}, {0.5, NAN}, &array1);
-  ArrayFromVector<FloatType>(float32(), {true, true}, {0.5, NAN}, &array2);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array1);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array2);
   auto b1 = RecordBatch::Make(schema, length, {array1});
   auto b2 = RecordBatch::Make(schema, length, {array2});
 
@@ -103,15 +103,15 @@ TEST_F(TestRecordBatch, EqualsOptions) {
 
 TEST_F(TestRecordBatch, ApproxEqualsOptions) {
   int length = 2;
-  auto f = field("f", float32());
+  auto f = field("f", float64());
 
   auto metadata = key_value_metadata({"foo"}, {"bar"});
 
   std::vector<std::shared_ptr<Field>> fields = {f};
   auto schema = ::arrow::schema(fields);
   std::shared_ptr<Array> array1, array2;
-  ArrayFromVector<FloatType>(float32(), {true, true}, {0.5, NAN}, &array1);
-  ArrayFromVector<FloatType>(float32(), {true, true}, {0.501, NAN}, &array2);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array1);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.501, NAN}, &array2);
 
   auto b1 = RecordBatch::Make(schema, length, {array1});
   auto b2 = RecordBatch::Make(schema, length, {array2});
