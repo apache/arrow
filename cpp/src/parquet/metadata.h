@@ -524,7 +524,8 @@ struct PageIndexLocation {
 class PARQUET_EXPORT FileMetaDataBuilder {
  public:
   // API convenience to get a MetaData builder
-  PARQUET_DEPRECATED("Deprecated. Use overload without KeyValueMetadata instead.")
+  PARQUET_DEPRECATED(
+      "Deprecated in 12.0.0. Use overload without KeyValueMetadata instead.")
   static std::unique_ptr<FileMetaDataBuilder> Make(
       const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
       std::shared_ptr<const KeyValueMetadata> key_value_metadata);
@@ -547,8 +548,9 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   std::unique_ptr<FileCryptoMetaData> GetCryptoMetaData();
 
  private:
-  explicit FileMetaDataBuilder(const SchemaDescriptor* schema,
-                               std::shared_ptr<WriterProperties> props);
+  explicit FileMetaDataBuilder(
+      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
+      std::shared_ptr<const KeyValueMetadata> key_value_metadata = NULLPTR);
   // PIMPL Idiom
   class FileMetaDataBuilderImpl;
   std::unique_ptr<FileMetaDataBuilderImpl> impl_;
