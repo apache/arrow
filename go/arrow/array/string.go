@@ -277,11 +277,7 @@ func (a *LargeString) GetOneForMarshal(i int) interface{} {
 func (a *LargeString) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		if a.IsValid(i) {
-			vals[i] = a.Value(i)
-		} else {
-			vals[i] = nil
-		}
+		vals[i] = a.GetOneForMarshal(i)
 	}
 	return json.Marshal(vals)
 }
