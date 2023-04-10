@@ -14,13 +14,14 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Arrays
 {
-    public class FixedSizeBinaryArray : Array
+    public class FixedSizeBinaryArray : Array, IEnumerable<byte[]>
     {
         public FixedSizeBinaryArray(ArrayData data)
             : base(data)
@@ -68,6 +69,20 @@ namespace Apache.Arrow.Arrays
 
             int size = ((FixedSizeBinaryType)Data.DataType).ByteWidth;
             return ValueBuffer.Span.Slice(index * size, size);
+        }
+
+        // IEnumerable methods
+        public IEnumerator<byte[]> GetEnumerator()
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                yield return IsNull(i) ? null : GetBytes(i).ToArray();
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
 
         public abstract class BuilderBase<TArray, TBuilder> : IArrowArrayBuilder<byte[], TArray, TBuilder>

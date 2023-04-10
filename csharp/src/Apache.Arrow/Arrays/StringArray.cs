@@ -15,13 +15,14 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Apache.Arrow
 {
-    public class StringArray: BinaryArray
+    public class StringArray: BinaryArray, IEnumerable<string>
     {
         public static readonly Encoding DefaultEncoding = Encoding.UTF8;
 
@@ -90,6 +91,20 @@ namespace Apache.Arrow
                 fixed (byte* data = &MemoryMarshal.GetReference(bytes))
                     return encoding.GetString(data, bytes.Length);
             }
+        }
+
+        // IEnumerable methods
+        public new IEnumerator<string> GetEnumerator()
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                yield return GetString(i);
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }

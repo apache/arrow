@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
@@ -22,10 +23,14 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class Decimal256Array : FixedSizeBinaryArray
+    public class Decimal256Array : FixedSizeBinaryArray, IEnumerable<decimal?>
     {
         public class Builder : BuilderBase<Decimal256Array, Builder>
         {
+            public Builder(int precision, int scale)
+                : this(new Decimal256Type(precision, scale))
+            { }
+
             public Builder(Decimal256Type type) : base(type, 32)
             {
                 DataType = type;
@@ -91,6 +96,20 @@ namespace Apache.Arrow
             }
 
             return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
+        }
+
+        // IEnumerable methods
+        public new IEnumerator<decimal?> GetEnumerator()
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                yield return GetValue(i);
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }

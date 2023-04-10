@@ -14,12 +14,13 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace Apache.Arrow
 {
-    public abstract class PrimitiveArray<T> : Array
+    public abstract class PrimitiveArray<T> : Array, IEnumerable<T?>
         where T : struct
     {
         protected PrimitiveArray(ArrayData data)
@@ -65,6 +66,20 @@ namespace Apache.Arrow
             }
 
             return list;
+        }
+
+        // IEnumerable methods
+        public IEnumerator<T?> GetEnumerator()
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                yield return GetValue(i);
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }
