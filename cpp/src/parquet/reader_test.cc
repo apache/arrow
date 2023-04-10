@@ -1291,6 +1291,22 @@ struct PageIndexReaderParam {
   PageIndexSelection index_selection;
 };
 
+// For valgrind
+std::ostream& operator<<(std::ostream& out, const PageIndexReaderParam& params) {
+  out << "PageIndexReaderParam{row_group_indices = ";
+  for (const auto& i : params.row_group_indices) {
+    out << i << ", ";
+  }
+  out << "column_indices = ";
+  for (const auto& i : params.column_indices) {
+    out << i << ", ";
+  }
+
+  out << "index_selection = " << params.index_selection << "}";
+
+  return out;
+}
+
 class ParameterizedPageIndexReaderTest
     : public ::testing::TestWithParam<PageIndexReaderParam> {};
 
