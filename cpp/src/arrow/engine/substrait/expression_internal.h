@@ -40,11 +40,6 @@ Result<FieldRef> DirectReferenceFromProto(const substrait::Expression::FieldRefe
                                           const ExtensionSet&, const ConversionOptions&);
 
 ARROW_ENGINE_EXPORT
-Result<compute::Expression> FromProto(const substrait::Expression::FieldReference*,
-                                      const ExtensionSet&, const ConversionOptions&,
-                                      std::optional<compute::Expression>);
-
-ARROW_ENGINE_EXPORT
 Result<compute::Expression> FromProto(const substrait::Expression&, const ExtensionSet&,
                                       const ConversionOptions&);
 
