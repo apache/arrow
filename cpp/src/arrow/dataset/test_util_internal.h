@@ -432,8 +432,14 @@ struct TestFormatParams {
 
   static std::vector<TestFormatParams> Values() {
     std::vector<TestFormatParams> values;
+    // Use a reduced number of batches in valgrind to avoid timeouts.
+#ifndef ARROW_VALGRIND
+    int num_batches = 16;
+#else
+    int num_batches = 4;
+#endif
     for (const bool use_threads : std::vector<bool>{true, false}) {
-      values.push_back(TestFormatParams{use_threads, 16, 1024});
+      values.push_back(TestFormatParams{use_threads, num_batches, 1024});
     }
     return values;
   }
