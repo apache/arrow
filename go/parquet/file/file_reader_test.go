@@ -23,20 +23,19 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/schema"
-	"github.com/stretchr/testify/require"
-
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/internal/utils"
+	"github.com/apache/arrow/go/v12/parquet"
 	"github.com/apache/arrow/go/v12/parquet/compress"
 	"github.com/apache/arrow/go/v12/parquet/file"
 	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
 	format "github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/v12/parquet/internal/thrift"
 	"github.com/apache/arrow/go/v12/parquet/metadata"
+	"github.com/apache/arrow/go/v12/parquet/schema"
 	libthrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
