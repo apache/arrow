@@ -18,6 +18,7 @@ package array
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
 )
@@ -46,6 +47,69 @@ type Edit struct {
 //
 // ]
 type Edits []Edit
+
+// String returns a simple string representation of the edit script.
+func (e Edits) String() string {
+	return fmt.Sprintf("%v", []Edit(e))
+}
+
+// UnifiedDiff returns a string representation of the diff of base and target in Unified Diff format.
+func (e Edits) UnifiedDiff(base, target arrow.Array) string {
+	var s strings.Builder
+	baseIndex := int64(0)
+	targetIndex := int64(0)
+	wrotePosition := false
+	for i := 0; i < len(e); i++ {
+		if i > 0 {
+			if !wrotePosition {
+				s.WriteString(fmt.Sprintf("@@ -%d, +%d @@\n", baseIndex, targetIndex))
+				wrotePosition = true
+			}
+			if e[i].Insert {
+				s.WriteString(fmt.Sprintf("+%v\n", stringAt(target, targetIndex)))
+				targetIndex++
+			} else {
+				s.WriteString(fmt.Sprintf("-%v\n", stringAt(base, baseIndex)))
+				baseIndex++
+			}
+		}
+		for j := int64(0); j < e[i].RunLength; j++ {
+			baseIndex++
+			targetIndex++
+			wrotePosition = false
+		}
+	}
+	return s.String()
+}
+
+func stringAt(arr arrow.Array, i int64) string {
+	if arr.IsNull(int(i)) {
+		return "null"
+	}
+	dt := arr.DataType()
+	switch {
+	case arrow.TypeEqual(dt, arrow.PrimitiveTypes.Float32):
+		return fmt.Sprintf("%f", arr.(*Float32).Value(int(i)))
+	case arrow.TypeEqual(dt, arrow.PrimitiveTypes.Float64):
+		return fmt.Sprintf("%f", arr.(*Float64).Value(int(i)))
+	case arrow.TypeEqual(dt, arrow.PrimitiveTypes.Date32):
+		return arr.(*Date32).Value(int(i)).FormattedString()
+	case arrow.TypeEqual(dt, arrow.PrimitiveTypes.Date64):
+		return arr.(*Date64).Value(int(i)).FormattedString()
+	case arrow.TypeEqual(dt, arrow.FixedWidthTypes.Timestamp_s):
+		return arr.(*Timestamp).Value(int(i)).ToTime(arrow.Second).String()
+	case arrow.TypeEqual(dt, arrow.FixedWidthTypes.Timestamp_ms):
+		return arr.(*Timestamp).Value(int(i)).ToTime(arrow.Millisecond).String()
+	case arrow.TypeEqual(dt, arrow.FixedWidthTypes.Timestamp_us):
+		return arr.(*Timestamp).Value(int(i)).ToTime(arrow.Microsecond).String()
+	case arrow.TypeEqual(dt, arrow.FixedWidthTypes.Timestamp_ns):
+		return arr.(*Timestamp).Value(int(i)).ToTime(arrow.Nanosecond).String()
+	}
+	s := NewSlice(arr, i, i+1)
+	defer s.Release()
+	st, _ := s.MarshalJSON()
+	return strings.Trim(string(st[1:len(st)-1]), "\n")
+}
 
 // Diff compares two arrays, returning an edit script which expresses the difference
 // between them. The edit script can be applied to the base array to produce the target.

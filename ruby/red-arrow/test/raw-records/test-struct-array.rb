@@ -426,12 +426,26 @@ module RawRecordsStructArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def remove_union_field_names(records)
+    records.collect do |record|
+      record.collect do |column|
+        if column.nil?
+          column
+        else
+          value = column["field"]
+          value = value.values[0] unless value.nil?
+          {"field" => value}
+        end
+      end
+    end
+  end
+
   def test_sparse_union
-    omit("Need to add support for SparseUnionArrayBuilder")
     records = [
       [{"field" => {"field1" => true}}],
       [nil],
       [{"field" => nil}],
+      [{"field" => {"field2" => 29}}],
       [{"field" => {"field2" => nil}}],
     ]
     target = build({
@@ -449,15 +463,16 @@ module RawRecordsStructArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_union_field_names(records),
+                 target.raw_records)
   end
 
   def test_dense_union
-    omit("Need to add support for DenseUnionArrayBuilder")
     records = [
       [{"field" => {"field1" => true}}],
       [nil],
       [{"field" => nil}],
+      [{"field" => {"field2" => 29}}],
       [{"field" => {"field2" => nil}}],
     ]
     target = build({
@@ -475,23 +490,22 @@ module RawRecordsStructArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_union_field_names(records),
+                 target.raw_records)
   end
 
   def test_dictionary
-    omit("Need to add support for DictionaryArrayBuilder")
     records = [
       [{"field" => "Ruby"}],
       [nil],
       [{"field" => nil}],
       [{"field" => "GLib"}],
     ]
-    dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({
                      type: :dictionary,
                      index_data_type: :int8,
-                     dictionary: dictionary,
-                     ordered: true,
+                     value_data_type: :string,
+                     ordered: false,
                    },
                    records)
     assert_equal(records, target.raw_records)

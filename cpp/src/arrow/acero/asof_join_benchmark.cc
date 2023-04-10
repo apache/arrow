@@ -19,8 +19,8 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/acero/options.h"
 #include "arrow/acero/test_util_internal.h"
-#include "arrow/dataset/file_parquet.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 

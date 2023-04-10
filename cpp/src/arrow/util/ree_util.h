@@ -53,6 +53,9 @@ Status ValidateRunEndEncodedChildren(const RunEndEncodedType& type,
                                      const std::shared_ptr<ArrayData>& values_data,
                                      int64_t null_count, int64_t logical_offset);
 
+/// \brief Compute the logical null count of an REE array
+int64_t LogicalNullCount(const ArraySpan& span);
+
 namespace internal {
 
 /// \brief Uses binary-search to find the physical offset given a logical offset

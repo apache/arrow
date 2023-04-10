@@ -22,11 +22,6 @@
 Dataset
 =======
 
-.. warning::
-
-    The ``pyarrow.dataset`` module is experimental (specifically the classes),
-    and a stable API is not yet guaranteed.
-
 Factory functions
 -----------------
 
