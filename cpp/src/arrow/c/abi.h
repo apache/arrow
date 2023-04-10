@@ -286,7 +286,7 @@ struct ArrowDeviceArrayStream {
   ///
   /// \param[in] self The ArrowDeviceArrayStream object itself
   /// \return pointer to a null-terminated character array describing
-  /// the last error, or NULL if no description is available.  
+  /// the last error, or NULL if no description is available.
   const char* (*get_last_error)(struct ArrowDeviceArrayStream* self);
 
   /// \brief Release callback: release the stream's own resources.
