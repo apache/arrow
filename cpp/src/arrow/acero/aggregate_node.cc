@@ -712,7 +712,7 @@ class GroupByNode : public ExecNode, public TracedNode {
       return Status::NotImplemented("Segmented aggregation in a multi-threaded plan");
     }
 
-    auto input_schema = input->output_schema();
+    const auto& input_schema = input->output_schema();
     auto exec_ctx = plan->query_context()->exec_context();
 
     ARROW_ASSIGN_OR_RAISE(auto args, MakeAggregateNodeArgs(input_schema, keys,
