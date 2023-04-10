@@ -222,6 +222,7 @@ func (sc *Schema) Equal(o *Schema) bool {
 	return true
 }
 
+// AddField adds a field at the given index and return a new schema.
 func (s *Schema) AddField(i int, field Field) (*Schema, error) {
 	if i < 0 || i > len(s.fields) {
 		return nil, fmt.Errorf("arrow: invalid field index %d", i)
