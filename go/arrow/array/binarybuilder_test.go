@@ -55,7 +55,7 @@ func TestBinaryBuilder(t *testing.T) {
 	assert.NoError(t, ab.AppendValueFromString("Zm9v"))
 
 	ar := ab.NewBinaryArray()
-	assert.Equal(t, ar.ValueStr(5), "Zm9v")
+	assert.Equal(t, "Zm9v", ar.ValueString(5))
 
 	ab.Release()
 	ar.Release()
