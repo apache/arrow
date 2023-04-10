@@ -40,7 +40,7 @@ using compute::ExecContext;
 ///
 /// The output schema is determined by the aggregation kernels, which may depend on the
 /// ExecContext argument. To guarantee correct results, the same ExecContext argument
-/// should be using in execution.
+/// should be used in execution.
 ///
 /// \param[in] input_schema the schema of the input to the node
 /// \param[in] keys the grouping keys for the aggregation
