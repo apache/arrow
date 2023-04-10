@@ -48,7 +48,7 @@ func TestTotalArrayReusedBuffers(t *testing.T) {
 		{Name: "a", Type: arrow.FixedWidthTypes.Boolean},
 	}, nil), []arrow.Array{arr}, 1)
 	defer rec1.Release()
-	
+
 	// both records should have the same size as rec is using the same buffer
 	assert.Equal(t, int64(5), util.TotalRecordSize(rec1))
 }
@@ -56,7 +56,7 @@ func TestTotalArrayReusedBuffers(t *testing.T) {
 func TestTotalArraySizeBasic(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
-	
+
 	noNulls, _, err := array.FromJSON(mem,
 		arrow.PrimitiveTypes.Int16,
 		strings.NewReader("[1, 2, 3]"))
@@ -83,7 +83,7 @@ func TestTotalArraySizeBasic(t *testing.T) {
 func TestTotalArraySizeNested(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
-	
+
 	arrayWithChildren, _, err := array.FromJSON(mem,
 		arrow.ListOf(arrow.PrimitiveTypes.Int64),
 		strings.NewReader("[[0, 1, 2, 3, 4], [5], null]"))
@@ -95,7 +95,7 @@ func TestTotalArraySizeNested(t *testing.T) {
 func TestTotalArraySizeRecord(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
-	
+
 	recordBldr := array.NewRecordBuilder(mem, arrow.NewSchema([]arrow.Field{
 		{Name: "a", Type: arrow.PrimitiveTypes.Int32},
 		{Name: "b", Type: arrow.PrimitiveTypes.Int64},
@@ -108,4 +108,3 @@ func TestTotalArraySizeRecord(t *testing.T) {
 
 	assert.Equal(t, int64(44), util.TotalRecordSize(record))
 }
-

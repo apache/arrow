@@ -27,7 +27,7 @@ func isArrayDataNil(arrayData arrow.ArrayData) bool {
 		return true
 	}
 	if v, ok := arrayData.(*array.Data); ok {
-    return v == nil
+		return v == nil
 	}
 	panic("unknown ArrayData type")
 }
@@ -36,13 +36,13 @@ func totalArrayDataSize(arrayData arrow.ArrayData, seenBuffers map[*memory.Buffe
 	var sum int64
 	var void = struct{}{}
 	for _, buf := range arrayData.Buffers() {
-    if buf == nil {
-        continue
-    }
-    if _, ok := seenBuffers[buf]; !ok {
-        sum += int64(buf.Len())
-        seenBuffers[buf] = void
-    }
+		if buf == nil {
+			continue
+		}
+		if _, ok := seenBuffers[buf]; !ok {
+			sum += int64(buf.Len())
+			seenBuffers[buf] = void
+		}
 	}
 	for _, child := range arrayData.Children() {
 		sum += totalArrayDataSize(child, seenBuffers)
@@ -52,12 +52,11 @@ func totalArrayDataSize(arrayData arrow.ArrayData, seenBuffers map[*memory.Buffe
 		sum += totalArrayDataSize(dict, seenBuffers)
 	}
 	return sum
-} 
-
+}
 
 func totalArraySize(arr arrow.Array, seenBuffers map[*memory.Buffer]struct{}) int64 {
 	return totalArrayDataSize(arr.Data(), seenBuffers)
-} 
+}
 
 func totalRecordSize(record arrow.Record, seenBuffers map[*memory.Buffer]struct{}) int64 {
 	var sum int64
@@ -65,9 +64,9 @@ func totalRecordSize(record arrow.Record, seenBuffers map[*memory.Buffer]struct{
 		sum += totalArraySize(c, seenBuffers)
 	}
 	return sum
-} 
+}
 
-// TotalArraySize The sum of bytes in each buffer referenced by the Array.
+// TotalArraySize returns the sum of the number of bytes in each buffer referenced by the Array.
 func TotalArraySize(arr arrow.Array) int64 {
 	seenBuffer := make(map[*memory.Buffer]struct{})
 	return totalArraySize(arr, seenBuffer)

@@ -77,6 +77,7 @@ func NewRecordReader(schema *arrow.Schema, recs []arrow.Record) (*simpleRecords,
 func (rs *simpleRecords) Retain() {
 	atomic.AddInt64(&rs.refCount, 1)
 }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 // Release may be called simultaneously from multiple goroutines.
