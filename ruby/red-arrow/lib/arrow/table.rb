@@ -316,8 +316,6 @@ module Arrow
         end
       end
 
-      filter_options = Arrow::FilterOptions.new
-      filter_options.null_selection_behavior = :emit_null
       sliced_tables = []
       slicers.each do |slicer|
         slicer = slicer.evaluate if slicer.respond_to?(:evaluate)
@@ -339,7 +337,7 @@ module Arrow
           to += n_rows if to < 0
           sliced_tables << slice_by_range(from, to)
         when ::Array, BooleanArray, ChunkedArray
-          sliced_tables << filter(slicer, filter_options)
+          sliced_tables << filter(slicer)
         else
           message = "slicer must be Integer, Range, (from, to), " +
             "Arrow::ChunkedArray of Arrow::BooleanArray, " +
