@@ -3065,7 +3065,8 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
                  int64_t valid_bits_offset) override {
     if (valid_bits != NULLPTR) {
       PARQUET_ASSIGN_OR_THROW(
-          buffer_, ::arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
+          auto buffer_,
+          ::arrow::AllocateBuffer(num_values * sizeof(T), this->memory_pool()));
       T* data = reinterpret_cast<T*>(buffer_->mutable_data());
       int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
           src, num_values, valid_bits, valid_bits_offset, data);
@@ -3122,13 +3123,12 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   DeltaBitPackEncoder<Int32Type> prefix_length_encoder_;
   DeltaLengthByteArrayEncoder<ByteArrayType> suffix_encoder_;
   std::string last_value_;
-  std::unique_ptr<::arrow::Buffer> buffer_;
   const ByteArray kEmpty;
 };
 
 template <typename DType>
 void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
-  throw Status::Invalid("Put not implemented for " + this->descr_->ToString());
+  throw ParquetException("Put not implemented for " + this->descr_->ToString());
 }
 
 template <>
@@ -3144,7 +3144,7 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
     // Convert to ByteArray, so we can pass to the suffix_encoder_.
     const ByteArray value = src[i];
     if (ARROW_PREDICT_FALSE(value.len >= static_cast<int32_t>(kMaxByteArraySize))) {
-      throw Status::Invalid("Parquet cannot store strings with size 2GB or more");
+      throw ParquetException("Parquet cannot store strings with size 2GB or more");
     }
 
     auto view = string_view{reinterpret_cast<const char*>(value.ptr),
