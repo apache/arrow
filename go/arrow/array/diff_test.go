@@ -26,6 +26,7 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
@@ -460,5 +461,418 @@ func validateEditScript(t *testing.T, edits array.Edits, base, target arrow.Arra
 	}
 	if baseIndex != int64(base.Len()) || targetIndex != int64(target.Len()) {
 		t.Fatalf("edit script (%v) when applied to base %v does not produce target %v", edits, base, target)
+	}
+}
+
+type diffStringTestCase struct {
+	dataType arrow.DataType
+
+	name       string
+	baseJSON   string
+	targetJSON string
+	want       string
+}
+
+func (s *diffStringTestCase) check(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	base, _, err := array.FromJSON(mem, s.dataType, strings.NewReader(s.baseJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer base.Release()
+
+	target, _, err := array.FromJSON(mem, s.dataType, strings.NewReader(s.targetJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer target.Release()
+
+	edits, err := array.Diff(base, target)
+	if err != nil {
+		t.Fatalf("got unexpected error %v", err)
+	}
+	got := edits.UnifiedDiff(base, target)
+	if got != s.want {
+		t.Errorf("got:\n%v\n, want:\n%v", got, s.want)
+	}
+}
+
+func TestEdits_UnifiedDiff(t *testing.T) {
+	msPerDay := 24 * 60 * 60 * 1000
+	cases := []diffStringTestCase{
+		{
+			name:       "no changes",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["give", "me", "a", "break"]`,
+			targetJSON: `["give", "me", "a", "break"]`,
+			want:       ``,
+		},
+		{
+			name:       "insert one",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["give", "a", "break"]`,
+			targetJSON: `["give", "me", "a", "break"]`,
+			want: `@@ -1, +1 @@
++"me"
+`,
+		},
+		{
+			name:       "delete one",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["give", "me", "a", "break"]`,
+			targetJSON: `["give", "a", "break"]`,
+			want: `@@ -1, +1 @@
+-"me"
+`,
+		},
+		{
+			name:       "change one",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["give", "a", "break"]`,
+			targetJSON: `["gimme", "a", "break"]`,
+			want: `@@ -0, +0 @@
+-"give"
++"gimme"
+`,
+		},
+		{
+			name:       "null out one",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["give", "a", "break"]`,
+			targetJSON: `["give", "a", null]`,
+			want: `@@ -2, +2 @@
+-"break"
++null
+`,
+		},
+		{
+			name:       "strings with escaped chars",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["newline:\\n", "quote:'", "backslash:\\\\"]`,
+			targetJSON: `["newline:\\n", "tab:\\t", "quote:\\\"", "backslash:\\\\"]`,
+			want: `@@ -1, +1 @@
+-"quote:'"
++"tab:\\t"
++"quote:\\\""
+`,
+		},
+		{
+			name:       "date32",
+			dataType:   arrow.PrimitiveTypes.Date32,
+			baseJSON:   `[0, 1, 2, 31, 4]`,
+			targetJSON: `[0, 1, 31, 2, 4]`,
+			want: `@@ -2, +2 @@
+-1970-01-03
+@@ -4, +3 @@
++1970-01-03
+`,
+		},
+		{
+			name:       "date64",
+			dataType:   arrow.PrimitiveTypes.Date64,
+			baseJSON:   fmt.Sprintf(`[%d, %d, %d, %d, %d]`, 0*msPerDay, 1*msPerDay, 2*msPerDay, 31*msPerDay, 4*msPerDay),
+			targetJSON: fmt.Sprintf(`[%d, %d, %d, %d, %d]`, 0*msPerDay, 1*msPerDay, 31*msPerDay, 2*msPerDay, 4*msPerDay),
+			want: `@@ -2, +2 @@
+-1970-01-03
+@@ -4, +3 @@
++1970-01-03
+`,
+		},
+		{
+			name:       "timestamp_s",
+			dataType:   arrow.FixedWidthTypes.Timestamp_s,
+			baseJSON:   fmt.Sprintf(`[0, 1, %d, 2, 4]`, 678+(5+60*(4+60*(3+24*int64(1))))),
+			targetJSON: fmt.Sprintf(`[0, 1, 2, %d, 4]`, 678+(5+60*(4+60*(3+24*int64(1))))),
+			want: `@@ -2, +2 @@
+-1970-01-02 03:15:23 +0000 UTC
+@@ -4, +3 @@
++1970-01-02 03:15:23 +0000 UTC
+`,
+		},
+		{
+			name:       "timestamp_ms",
+			dataType:   arrow.FixedWidthTypes.Timestamp_ms,
+			baseJSON:   fmt.Sprintf(`[0, 1, %d, 2, 4]`, 678+1000*(5+60*(4+60*(3+24*int64(1))))),
+			targetJSON: fmt.Sprintf(`[0, 1, 2, %d, 4]`, 678+1000*(5+60*(4+60*(3+24*int64(1))))),
+			want: `@@ -2, +2 @@
+-1970-01-02 03:04:05.678 +0000 UTC
+@@ -4, +3 @@
++1970-01-02 03:04:05.678 +0000 UTC
+`,
+		},
+		{
+			name:       "timestamp_us",
+			dataType:   arrow.FixedWidthTypes.Timestamp_us,
+			baseJSON:   fmt.Sprintf(`[0, 1, %d, 2, 4]`, 678+1000000*(5+60*(4+60*(3+24*int64(1))))),
+			targetJSON: fmt.Sprintf(`[0, 1, 2, %d, 4]`, 678+1000000*(5+60*(4+60*(3+24*int64(1))))),
+			want: `@@ -2, +2 @@
+-1970-01-02 03:04:05.000678 +0000 UTC
+@@ -4, +3 @@
++1970-01-02 03:04:05.000678 +0000 UTC
+`,
+		},
+		{
+			name:       "timestamp_ns",
+			dataType:   arrow.FixedWidthTypes.Timestamp_ns,
+			baseJSON:   fmt.Sprintf(`[0, 1, %d, 2, 4]`, 678+1000000000*(5+60*(4+60*(3+24*int64(1))))),
+			targetJSON: fmt.Sprintf(`[0, 1, 2, %d, 4]`, 678+1000000000*(5+60*(4+60*(3+24*int64(1))))),
+			want: `@@ -2, +2 @@
+-1970-01-02 03:04:05.000000678 +0000 UTC
+@@ -4, +3 @@
++1970-01-02 03:04:05.000000678 +0000 UTC
+`,
+		},
+		{
+			name:       "lists",
+			dataType:   arrow.ListOf(arrow.PrimitiveTypes.Int32),
+			baseJSON:   `[[2, 3, 1], [], [13], []]`,
+			targetJSON: `[[2, 3, 1], [5, 9], [], [13]]`,
+			want: `@@ -1, +1 @@
++[5,9]
+@@ -3, +4 @@
+-[]
+`,
+		},
+		{
+			name:     "maps",
+			dataType: arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32),
+			baseJSON: `[
+			[{"key": "foo", "value": 2}, {"key": "bar", "value": 3}, {"key": "baz", "value": 1}],
+			[{"key": "quux", "value": 13}]
+			[]
+		]`,
+			targetJSON: `[
+			[{"key": "foo", "value": 2}, {"key": "bar", "value": 3}, {"key": "baz", "value": 1}],
+			[{"key": "ytho", "value": 11}],
+			[{"key": "quux", "value": 13}]
+			[]
+		]`,
+			want: `@@ -1, +1 @@
++[{"key":"ytho","value":11}]
+`,
+		},
+		{
+			name: "structs",
+			dataType: arrow.StructOf(
+				[]arrow.Field{
+					{Name: "foo", Type: arrow.BinaryTypes.String, Nullable: true},
+					{Name: "bar", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+				}...,
+			),
+			baseJSON:   `[{"foo": "!", "bar": 3}, {}, {"bar": 13}]`,
+			targetJSON: `[{"foo": null, "bar": 2}, {}, {"bar": 13}]`,
+			want: `@@ -0, +0 @@
+-{"bar":3,"foo":"!"}
++{"bar":2,"foo":null}
+`,
+		},
+		{
+			name: "unions",
+			dataType: arrow.UnionOf(arrow.SparseMode,
+				[]arrow.Field{
+					{Name: "foo", Type: arrow.BinaryTypes.String},
+					{Name: "bar", Type: arrow.PrimitiveTypes.Int32},
+				},
+				[]arrow.UnionTypeCode{2, 5},
+			),
+			baseJSON:   `[[2, "!"], [5, 3], [5, 13]]`,
+			targetJSON: `[[2, "!"], [2, "3"], [5, 13]]`,
+			want: `@@ -1, +1 @@
+-[5,3]
++[2,"3"]
+`,
+		},
+		{
+			name:       "string",
+			dataType:   arrow.BinaryTypes.String,
+			baseJSON:   `["h", "l", "l", "o", "o"]`,
+			targetJSON: `["h", "e", "l", "l", "o", "0"]`,
+			want: `@@ -1, +1 @@
++"e"
+@@ -4, +5 @@
+-"o"
++"0"
+`,
+		},
+		{
+			name:       "int8",
+			dataType:   arrow.PrimitiveTypes.Int8,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "int16",
+			dataType:   arrow.PrimitiveTypes.Int16,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "int32",
+			dataType:   arrow.PrimitiveTypes.Int32,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "int64",
+			dataType:   arrow.PrimitiveTypes.Int64,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "uint8",
+			dataType:   arrow.PrimitiveTypes.Uint8,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "uint16",
+			dataType:   arrow.PrimitiveTypes.Uint16,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "uint32",
+			dataType:   arrow.PrimitiveTypes.Uint32,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "uint64",
+			dataType:   arrow.PrimitiveTypes.Uint64,
+			baseJSON:   `[0, 1, 2, 3, 5, 8, 11, 13, 17]`,
+			targetJSON: `[2, 3, 5, 7, 11, 13, 17, 19]`,
+			want: `@@ -0, +0 @@
+-0
+-1
+@@ -5, +3 @@
+-8
++7
+@@ -9, +7 @@
++19
+`,
+		},
+		{
+			name:       "float32",
+			dataType:   arrow.PrimitiveTypes.Float32,
+			baseJSON:   `[0.1, 0.3, -0.5]`,
+			targetJSON: `[0.1, -0.5, 0.3]`,
+			want: `@@ -1, +1 @@
+-0.300000
+@@ -3, +2 @@
++0.300000
+`,
+		},
+		{
+			name:       "float64",
+			dataType:   arrow.PrimitiveTypes.Float64,
+			baseJSON:   `[0.1, 0.3, -0.5]`,
+			targetJSON: `[0.1, -0.5, 0.3]`,
+			want: `@@ -1, +1 @@
+-0.300000
+@@ -3, +2 @@
++0.300000
+`,
+		},
+		{
+			name:       "equal nulls",
+			dataType:   arrow.PrimitiveTypes.Int32,
+			baseJSON:   `[null, null]`,
+			targetJSON: `[null, null]`,
+			want:       ``,
+		},
+		{
+			name:       "nulls",
+			dataType:   arrow.PrimitiveTypes.Int32,
+			baseJSON:   `[1, null, null, null]`,
+			targetJSON: `[null, 1, null, 2]`,
+			want: `@@ -0, +0 @@
+-1
+@@ -2, +1 @@
+-null
++1
+@@ -4, +3 @@
++2
+`,
+		},
+		{
+			name:       "extensions",
+			dataType:   types.NewUUIDType(),
+			baseJSON:   `["00000000-0000-0000-0000-000000000000", "00000000-0000-0000-0000-000000000001"]`,
+			targetJSON: `["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]`,
+			want: `@@ -0, +0 @@
+-"00000000-0000-0000-0000-000000000000"
+@@ -2, +1 @@
++"00000000-0000-0000-0000-000000000002"
+`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, tc.check)
 	}
 }
