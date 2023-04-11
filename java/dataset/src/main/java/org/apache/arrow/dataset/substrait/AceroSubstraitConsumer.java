@@ -81,7 +81,6 @@ public final class AceroSubstraitConsumer {
 
   /**
    * Read binary Substrait plan, execute and return an ArrowReader to read Schema and ArrowRecordBatches.
-   * Needed to define a mapping name of Tables and theirs ArrowReader representation.
    *
    * @param plan                  the binary Substrait plan.
    * @param namedTables A mapping of named tables referenced by the plan to an ArrowReader providing the data
