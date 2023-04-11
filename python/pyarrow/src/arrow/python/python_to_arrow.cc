@@ -1099,6 +1099,7 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
   if (PySequence_Check(obj)) {
     // obj is already a sequence
     int64_t real_size = static_cast<int64_t>(PySequence_Size(obj));
+    RETURN_IF_PYERROR();
     if (*size < 0) {
       *size = real_size;
     } else {
