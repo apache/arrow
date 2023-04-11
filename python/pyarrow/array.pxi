@@ -1459,6 +1459,9 @@ cdef class Array(_PandasConvertible):
         supported for primitive arrays with the same memory layout as NumPy
         (i.e. integers, floating point, ..) and without any nulls.
 
+        For the extension arrays, this method simply delegates to the
+        underlying storage array.
+
         Parameters
         ----------
         zero_copy_only : bool, default True
@@ -1682,10 +1685,9 @@ cdef wrap_array_output(PyObject* output):
     cdef object obj = PyObject_to_object(output)
 
     if isinstance(obj, dict):
-        return pandas_api.categorical_type(obj['indices'],
-                                           categories=obj['dictionary'],
-                                           ordered=obj['ordered'],
-                                           fastpath=True)
+        return _pandas_api.categorical_type.from_codes(
+            obj['indices'], categories=obj['dictionary'], ordered=obj['ordered']
+        )
     else:
         return obj
 
@@ -3071,23 +3073,6 @@ cdef class ExtensionArray(Array):
 
         # otherwise convert the storage array with the base implementation
         return Array._to_pandas(self.storage, options, **kwargs)
-
-    def to_numpy(self, **kwargs):
-        """
-        Convert extension array to a numpy ndarray.
-
-        This method simply delegates to the underlying storage array.
-
-        Parameters
-        ----------
-        **kwargs : dict, optional
-            See `Array.to_numpy` for parameter description.
-
-        See Also
-        --------
-        Array.to_numpy
-        """
-        return self.storage.to_numpy(**kwargs)
 
 
 cdef dict _array_classes = {

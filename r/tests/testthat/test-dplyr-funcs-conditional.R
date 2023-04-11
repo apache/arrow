@@ -18,6 +18,7 @@
 library(dplyr, warn.conflicts = FALSE)
 suppressPackageStartupMessages(library(bit64))
 
+skip_if_not_available("acero")
 
 tbl <- example_data
 tbl$verses <- verses[[1]]

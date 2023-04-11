@@ -386,9 +386,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           return Status::Invalid("Invalid NamedTable Source");
         }
 
-        return ProcessEmit(std::move(read),
-                           DeclarationInfo{std::move(source_decl), base_schema},
-                           std::move(base_schema));
+        return ProcessEmit(read, DeclarationInfo{std::move(source_decl), base_schema},
+                           base_schema);
       }
 
       if (!read.has_local_files()) {
@@ -534,8 +533,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           acero::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
           base_schema};
 
-      return ProcessEmit(std::move(read), std::move(scan_declaration),
-                         std::move(base_schema));
+      return ProcessEmit(read, scan_declaration, base_schema);
     }
 
     case substrait::Rel::RelTypeCase::kFilter: {
@@ -560,8 +558,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           }),
           input.output_schema};
 
-      return ProcessEmit(std::move(filter), std::move(filter_declaration),
-                         input.output_schema);
+      return ProcessEmit(filter, filter_declaration, input.output_schema);
     }
 
     case substrait::Rel::RelTypeCase::kProject: {
@@ -614,8 +611,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           }),
           project_schema};
 
-      return ProcessEmit(std::move(project), std::move(project_declaration),
-                         std::move(project_schema));
+      return ProcessEmit(project, project_declaration, project_schema);
     }
 
     case substrait::Rel::RelTypeCase::kJoin: {
@@ -721,8 +717,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       DeclarationInfo join_declaration{std::move(join_dec), join_schema};
 
-      return ProcessEmit(std::move(join), std::move(join_declaration),
-                         std::move(join_schema));
+      return ProcessEmit(join, join_declaration, join_schema);
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
       const auto& aggregate = rel.aggregate();
@@ -829,7 +824,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           emit_order.push_back(emit_idx);
         }
       }
-      return ProcessExtensionEmit(std::move(ext_decl_info), emit_order,
+      return ProcessExtensionEmit(ext_decl_info, emit_order,
                                   *ext_rel_info.field_output_indices);
     }
 
@@ -872,8 +867,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
 
       auto set_declaration = DeclarationInfo{union_declr, union_schema};
-      return ProcessEmit(std::move(set), std::move(set_declaration),
-                         std::move(union_schema));
+      return ProcessEmit(set, set_declaration, union_schema);
     }
 
     default:

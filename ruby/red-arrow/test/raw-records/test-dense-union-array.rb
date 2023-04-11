@@ -79,7 +79,11 @@ module RawRecordsDenseUnionArrayTests
   def remove_field_names(records)
     records.collect do |record|
       record.collect do |column|
-        column.values[0]
+        if column.nil?
+          column
+        else
+          column.values[0]
+        end
       end
     end
   end
@@ -476,10 +480,10 @@ module RawRecordsDenseUnionArrayTests
   end
 
   def test_sparse_union
-    omit("Need to add support for SparseUnionArrayBuilder")
     records = [
       [{"0" => {"field1" => true}}],
       [{"1" => nil}],
+      [{"0" => {"field2" => 29}}],
       [{"0" => {"field2" => nil}}],
     ]
     target = build({
@@ -497,15 +501,15 @@ module RawRecordsDenseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    assert_equal(remove_field_names(records),
+    assert_equal(remove_field_names(remove_field_names(records)),
                  target.raw_records)
   end
 
   def test_dense_union
-    omit("Need to add support for DenseUnionArrayBuilder")
     records = [
       [{"0" => {"field1" => true}}],
       [{"1" => nil}],
+      [{"0" => {"field2" => 29}}],
       [{"0" => {"field2" => nil}}],
     ]
     target = build({
@@ -523,25 +527,23 @@ module RawRecordsDenseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    assert_equal(remove_field_names(records),
+    assert_equal(remove_field_names(remove_field_names(records)),
                  target.raw_records)
   end
 
   def test_dictionary
-    omit("Need to add support for DictionaryArrayBuilder")
     records = [
       [{"0" => "Ruby"}],
       [{"1" => nil}],
       [{"0" => "GLib"}],
     ]
-    dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({
-                                        type: :dictionary,
-                                        index_data_type: :int8,
-                                        dictionary: dictionary,
-                                        ordered: true,
-                                      },
-                                      records)
+                     type: :dictionary,
+                     index_data_type: :int8,
+                     value_data_type: :string,
+                     ordered: false,
+                   },
+                   records)
     assert_equal(remove_field_names(records),
                  target.raw_records)
   end
