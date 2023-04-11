@@ -16,10 +16,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -81,7 +78,7 @@ namespace Apache.Arrow.Arrays
             int size = ((FixedSizeBinaryType)Data.DataType).ByteWidth;
 
             return Enumerable.Range(0, Length)
-            .Select(i => IsNull(i) ? null : ValueBuffer.Span.Slice(i * size, size).ToArray())
+                .Select(i => IsNull(i) ? null : ValueBuffer.Span.Slice(i * size, size).ToArray())
                 .GetEnumerator();
         }
 
