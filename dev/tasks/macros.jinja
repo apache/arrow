@@ -134,8 +134,8 @@ on:
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      path=$(ls {{ pattern }})
-      curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+      gem install gemfury
+      fury push ${path} --account ${CROSSBOW_GEMFURY_ORG} --api-token ${CROSSBOW_GEMFURY_TOKEN}
     env:
       CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
       CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}

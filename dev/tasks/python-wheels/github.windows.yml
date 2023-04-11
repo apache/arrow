@@ -41,11 +41,6 @@ jobs:
       {{ macros.github_login_ghcr()|indent }}
       {{ macros.github_install_archery()|indent }}
 
-      - name: Update curl
-        shell: cmd
-        run: |
-          vcpkg.exe install curl:x64-windows
-
       - name: Build wheel
         shell: cmd
         run: |
