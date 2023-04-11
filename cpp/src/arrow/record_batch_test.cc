@@ -31,6 +31,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -79,6 +80,44 @@ TEST_F(TestRecordBatch, Equals) {
   // Different metadata
   ASSERT_TRUE(b1->Equals(*b2));
   ASSERT_FALSE(b1->Equals(*b2, /*check_metadata=*/true));
+}
+
+TEST_F(TestRecordBatch, EqualOptions) {
+  int length = 2;
+  auto f = field("f", float64());
+
+  std::vector<std::shared_ptr<Field>> fields = {f};
+  auto schema = ::arrow::schema(fields);
+
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array1);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array2);
+  auto b1 = RecordBatch::Make(schema, length, {array1});
+  auto b2 = RecordBatch::Make(schema, length, {array2});
+
+  EXPECT_FALSE(b1->Equals(*b2, /*check_metadata=*/false,
+                          EqualOptions::Defaults().nans_equal(false)));
+  EXPECT_TRUE(b1->Equals(*b2, /*check_metadata=*/false,
+                         EqualOptions::Defaults().nans_equal(true)));
+}
+
+TEST_F(TestRecordBatch, ApproxEqualOptions) {
+  int length = 2;
+  auto f = field("f", float64());
+
+  std::vector<std::shared_ptr<Field>> fields = {f};
+  auto schema = ::arrow::schema(fields);
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array1);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.501, NAN}, &array2);
+
+  auto b1 = RecordBatch::Make(schema, length, {array1});
+  auto b2 = RecordBatch::Make(schema, length, {array2});
+
+  EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(false)));
+  EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true)));
+
+  EXPECT_TRUE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true).atol(0.1)));
 }
 
 TEST_F(TestRecordBatch, Validate) {
