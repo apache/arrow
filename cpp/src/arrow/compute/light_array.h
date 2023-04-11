@@ -33,6 +33,14 @@
 namespace arrow {
 namespace compute {
 
+
+// Forward declaration of KeyColumnArray for convenience of creating a type alias
+class KeyColumnArray;
+class KeyColumnPseudoSpan;
+using KeyColumnVector = std::vector<KeyColumnArray>;
+using KeyColumnSpanVector = std::vector<KeyColumnPseudoSpan>;
+
+
 /// \brief Context needed by various execution engine operations
 ///
 /// In the execution engine this context is provided by either the node or the
@@ -201,7 +209,7 @@ ARROW_EXPORT Result<KeyColumnMetadata> ColumnMetadataFromDataType(const DataType
 ///
 /// The caller should ensure this is only called on "key" columns.
 /// \see ColumnMetadataFromDataType for details
-ARROW_EXPORT Result<std::vector<KeyColumnArray>> ColumnArraysFromArraySpan(
+ARROW_EXPORT Result<KeyColumnVector> ColumnArraysFromArraySpan(
     const ArraySpan& array_span, int64_t num_rows);
 
 /// \brief Create KeyColumnArray from ArrayData
@@ -239,7 +247,7 @@ ARROW_EXPORT Status ColumnMetadatasFromExecBatch(
 /// \see ColumnArrayFromArrayData for more details
 ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
                                               int64_t num_rows,
-                                              std::vector<KeyColumnArray>* column_arrays);
+                                              KeyColumnVector* column_arrays);
 
 /// \brief Create KeyColumnArray instances from an ExecBatch
 ///
@@ -248,7 +256,54 @@ ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t st
 /// All columns in `batch` must be eligible "key" columns and have an array shape
 /// \see ColumnArrayFromArrayData for more details
 ARROW_EXPORT Status ColumnArraysFromExecBatch(const ExecBatch& batch,
-                                              std::vector<KeyColumnArray>* column_arrays);
+                                              KeyColumnVector* column_arrays);
+
+/// \brief A variant of \see KeyColumnArray that owns some buffers.
+///
+/// When flattening some Array types into a KeyColumnArray, some buffers need to be
+/// modified (such as offsets and validity bitmaps) without affecting the represented
+/// Array. KeyColumnArray and \see ResizableArrayData assume that all buffers are either
+/// owned or non-owned, but neither allow for some buffers to be owned.
+///
+/// The implementation of this is based on KeyColumnArray, but provides some extra
+/// functions to free any owned buffers.
+struct ARROW_EXPORT KeyColumnPseudoSpan {
+  /// \brief Disable default constructor
+  KeyColumnPseudoSpan() = delete;
+
+  /// \brief Constructor that takes a list of Buffers and a list of pointers (views) so
+  /// that the parent constructor (KeyColumnArray) can be invoked directly.
+  ///
+  /// Ideally, a KeyColumnPseudoSpan can look just like a KeyColumnArray, and we use this
+  /// constructor to make that easier. By giving the buffers and views at the same time,
+  /// the parent constructor can be called and the owned buffers can be stored without
+  /// having to worry about assigning to member variables after construction.
+  KeyColumnPseudoSpan(MemoryPool* pool = default_memory_pool())
+    : pool_(pool),
+      view_(nullptr) {}
+
+  /// \brief Destructor calls `Clear()` which is based on \see ResizableArrayData.
+  ~KeyColumnPseudoSpan() { Clear(); }
+
+  /// \brief Resets the owned buffers in this pseudo span.
+  void Clear();
+
+  Result<uint8_t*> CreateBuffer(int buf_ndx, int64_t buf_size);
+  KeyColumnArray& CreateView(const KeyColumnMetadata& meta, int64_t len,
+                             const uint8_t* buf_validity = nullptr,
+                             const uint8_t* buf_fixedlen = nullptr,
+                             const uint8_t* buf_varlen = nullptr,
+                             int bit_offset_validity = 0, int bit_offset_fixed = 0);
+
+  // member variables
+  public:
+    MemoryPool* pool_;
+    KeyColumnArray* view_;
+
+  private:
+    static constexpr int kMaxBuffers = 3;
+    std::unique_ptr<Buffer> owned_buffers_[kMaxBuffers];
+};
 
 /// A lightweight resizable array for "key" columns
 ///

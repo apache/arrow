@@ -151,6 +151,114 @@ Result<KeyColumnMetadata> ColumnMetadataFromDataType(
   return ColumnMetadataFromDataType(type.get());
 }
 
+/**
+ * Constructs metadata that tells hashing functions how to iterate over the
+ * KeyColumnArray.
+ *
+ * This function assumes ColumnMetadataFromDataType has already failed, which makes this
+ * function distinct because it should only be called when the input Array is flattened in
+ * a particular way.
+ */
+Result<KeyColumnMetadata> ColumnMetadataFromListType(const DataType* type) {
+  if (type->id() == Type::LIST || type->id() == Type::MAP) {
+    return KeyColumnMetadata(false, sizeof(uint32_t));
+  }
+  else if (type->id() == Type::LARGE_LIST) {
+    return KeyColumnMetadata(false, sizeof(uint64_t));
+  }
+  // Caller attempted to create a KeyColumnArray from an invalid type
+  return Status::TypeError("Unsupported column data type ", type->name(),
+                           " used with KeyColumnMetadata");
+}
+
+Result<KeyColumnMetadata> ColumnMetadataFromListType(
+    const std::shared_ptr<DataType>& type) {
+  return ColumnMetadataFromListType(type.get());
+}
+
+/**
+ * Coalesces children of a StructArray into a flattened list of KeyColumnArrays. When
+ * hashing a StructArray, we want to co-index a list of KeyColumnArrays so that values in
+ * the same row are combined.
+ */
+Result<KeyColumnVector> ColumnArraysFromStructArray(const ArraySpan& array_span,
+                                                    int64_t num_rows) {
+  KeyColumnVector flattened_spans;
+  flattened_spans.reserve(array_span.child_data.size());
+
+  // Recurse on each child of the ArraySpan in DFS-order
+  for (size_t child_ndx = 0; child_ndx < array_span.child_data.size(); ++child_ndx) {
+    auto child_span = array_span.child_data[child_ndx];
+    ARROW_ASSIGN_OR_RAISE(auto child_keycols,
+                          ColumnArraysFromArraySpan(child_span, num_rows));
+
+    flattened_spans.insert(flattened_spans.end(), child_keycols.begin(),
+                           child_keycols.end());
+  }
+
+  return flattened_spans;
+}
+
+/**
+ * Flattens the data in a ListArray into a list of KeyColumnArrays so that each element in
+ * the ListArray is properly treated as a row value. Due to semantics of nulls in nested
+ * arrays and their non-impact on a hash value, nulls in nested arrays are dropped when
+ * flattened. If a list is null, then that row is considered null and is preserved.
+ *
+ * The values buffer of a list type should be propagated to the caller as is, but the
+ * parent offsets and offsets of the current ArraySpan must be coalesced. Essentially, for
+ * the purposes of hashing, we don't care about internal structure of a row value so we
+ * flatten the offsets.
+ */
+// TODO: recurse to: (1) flatten offsets, (2) eventually bottom out and grab var data
+template <typename OffsetType>
+Result<KeyColumnSpanVector> ColumnArraysFromListArray(const ArraySpan& array_span,
+                                                      int64_t num_rows,
+                                                      const OffsetType* parent_offsets) {
+  // Construct KeyColumnMetadata
+  ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata metadata,
+                        ColumnMetadataFromListType(array_span.type));
+
+  ARROW_LOG(INFO) << "[ListArray] Child count: "
+                  << std::to_string(array_span.child_data.size());
+
+  // ListArrays have only 1 child
+  auto child_span = array_span.child_data[0];
+  uint8_t* buffer_validity = nullptr;
+  /*
+   * TODO: Currently unsupported.
+   * figure out how the validity bitmap affects flattened lists
+  if (child_span.GetBuffer(0) != nullptr) {
+    buffer_validity = (uint8_t*)child_span.GetBuffer(0)->data();
+  }
+  */
+
+  // For simple lists or lists containing only list types, this should point to the child
+  // buffer with all of the values
+  uint8_t* buffer_varlength = nullptr;
+  if (child_span.num_buffers() > 2 && child_span.GetBuffer(2) != NULLPTR) {
+    ARROW_LOG(INFO) << "found list array data";
+    buffer_varlength = (uint8_t*)child_span.GetBuffer(2)->data();
+  }
+  else {
+    ARROW_LOG(INFO) << "child array does not have list array data";
+  }
+
+  // TODO
+  // Lists get flattened to 1 KeyColumnArray; Maps get flattened to 2 (key and value)
+  KeyColumnSpanVector flattened_spans;
+
+
+  KeyColumnArray column_array =
+      KeyColumnArray(metadata, child_span.offset + num_rows, buffer_validity,
+                     child_span.GetBuffer(1)->data(), buffer_varlength);
+
+  flattened_spans.push_back(column_array.Slice(child_span.offset, num_rows));
+
+  return flattened_spans;
+}
+
+
 Result<KeyColumnArray> ColumnArrayFromArraySpan(const ArraySpan& array_span,
                                                 int64_t num_rows) {
   ARROW_ASSIGN_OR_RAISE(KeyColumnMetadata metadata,
@@ -173,9 +281,9 @@ Result<KeyColumnArray> ColumnArrayFromArraySpan(const ArraySpan& array_span,
   return column_array.Slice(array_span.offset, num_rows);
 }
 
-Result<std::vector<KeyColumnArray>> ColumnArraysFromArraySpan(const ArraySpan& array_span,
-                                                              int64_t num_rows) {
-  std::vector<KeyColumnArray> flattened_spans;
+Result<KeyColumnVector> ColumnArraysFromArraySpan(const ArraySpan& array_span,
+                                                  int64_t num_rows) {
+  KeyColumnVector flattened_spans;
   flattened_spans.reserve(1 + array_span.child_data.size());
 
   // Construct a KeyColumnArray from the given ArraySpan
@@ -184,15 +292,46 @@ Result<std::vector<KeyColumnArray>> ColumnArraysFromArraySpan(const ArraySpan& a
     flattened_spans.push_back(*keycol_result);
   }
 
-  // Recurse on each child of the ArraySpan in DFS-order
-  // recursion will only be deeper than 3 levels if we have a double-nested type.
-  for (size_t child_ndx = 0; child_ndx < array_span.child_data.size(); ++child_ndx) {
-    auto child_span = array_span.child_data[child_ndx];
-    ARROW_ASSIGN_OR_RAISE(auto child_keycols,
-                          ColumnArraysFromArraySpan(child_span, num_rows));
+  // If ArraySpan data type is not supported, check for supported nested types.
+  else if (is_nested(array_span.type->id())) {
+    switch (array_span.type->id()) {
+      case Type::LIST:
+      case Type::MAP: {
+        const uint32_t* list_offsets = (const uint32_t*) array_span.GetBuffer(1)->data();
+        ARROW_ASSIGN_OR_RAISE(auto list_keycols,
+                              ColumnArraysFromListArray(array_span, num_rows,
+                                                        list_offsets));
 
-    flattened_spans.insert(flattened_spans.end(), child_keycols.begin(),
-                           child_keycols.end());
+        flattened_spans.insert(flattened_spans.end(), list_keycols.begin(),
+                               list_keycols.end());
+        break;
+      }
+
+      case Type::LARGE_LIST: {
+        const uint64_t* list_offsets = (const uint64_t*) array_span.GetBuffer(1)->data();
+        ARROW_ASSIGN_OR_RAISE(auto list_keycols,
+                              ColumnArraysFromListArray(array_span, num_rows,
+                                                        list_offsets));
+
+        flattened_spans.insert(flattened_spans.end(), list_keycols.begin(),
+                               list_keycols.end());
+        break;
+      }
+
+      case Type::STRUCT: {
+        ARROW_ASSIGN_OR_RAISE(auto struct_keycols,
+                              ColumnArraysFromStructArray(array_span, num_rows));
+
+        flattened_spans.insert(flattened_spans.end(), struct_keycols.begin(),
+                               struct_keycols.end());
+        break;
+      }
+
+      default:
+        // unsupported types include: unions, fixed size list
+        ARROW_WARN_NOT_OK(keycol_result.status(), "Unsupported nested type for hashing");
+        break;
+    }
   }
 
   return flattened_spans;
@@ -234,7 +373,7 @@ Status ColumnMetadatasFromExecBatch(const ExecBatch& batch,
 
 Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
                                  int64_t num_rows,
-                                 std::vector<KeyColumnArray>* column_arrays) {
+                                 KeyColumnVector* column_arrays) {
   int num_columns = static_cast<int>(batch.values.size());
   column_arrays->resize(num_columns);
   for (int i = 0; i < num_columns; ++i) {
@@ -247,11 +386,69 @@ Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
   return Status::OK();
 }
 
-Status ColumnArraysFromExecBatch(const ExecBatch& batch,
-                                 std::vector<KeyColumnArray>* column_arrays) {
+
+Status ColumnArraysFromExecBatch(const ExecBatch& batch, KeyColumnVector* column_arrays) {
   return ColumnArraysFromExecBatch(batch, 0, static_cast<int>(batch.length),
                                    column_arrays);
 }
+
+
+/// \brief Clears owned Buffers from the KeyColumnPseudoSpan.
+///
+/// Drops the unique pointer by calling reset(), deferring deallocation to the Buffer's
+/// deconstructor.
+void KeyColumnPseudoSpan::Clear() {
+  view_ = nullptr;
+  for (int buffer_ndx = 0; buffer_ndx < kMaxBuffers; ++buffer_ndx) {
+    if (owned_buffers_[buffer_ndx] != nullptr) {
+      owned_buffers_[buffer_ndx].reset();
+    }
+  }
+}
+
+/// \brief Creates a \see Buffer owned by the KeyColumnPseudoSpan.
+///
+/// A mutable pointer to the buffer memory is returned so that the data can be set. The
+/// Buffer should be used when creating a KeyColumnArray (read-only view for hashing).
+Result<uint8_t*> KeyColumnPseudoSpan::CreateBuffer(int buf_ndx, int64_t buf_size) {
+  ARROW_ASSIGN_OR_RAISE(owned_buffers_[buf_ndx], AllocateBuffer(buf_size, pool_));
+
+  return owned_buffers_[buf_ndx]->mutable_data();
+}
+
+/// \brief Creates a KeyColumnArray that can be passed to Hashing32 or Hashing64 functions
+/// in key_hash.h.
+///
+/// This function takes the same arguments as a read-only KeyColumnArray but views into
+/// owned Buffers are substitued for any null input buffers.
+KeyColumnArray& KeyColumnPseudoSpan::CreateView(const KeyColumnMetadata& meta,
+                                                int64_t len,
+                                                const uint8_t* buf_validity,
+                                                const uint8_t* buf_fixedlen,
+                                                const uint8_t* buf_varlen,
+                                                int bit_offset_validity,
+                                                int bit_offset_fixed) {
+  const uint8_t* view_validity { buf_validity };
+  if (buf_validity == nullptr && owned_buffers_[0]) {
+    view_validity = owned_buffers_[0]->data();
+  }
+
+  const uint8_t* view_fixedlen { buf_fixedlen };
+  if (buf_fixedlen == nullptr && owned_buffers_[1]) {
+    view_fixedlen = owned_buffers_[1]->data();
+  }
+
+  const uint8_t* view_varlen { buf_varlen };
+  if (buf_varlen == nullptr && owned_buffers_[2]) {
+    view_varlen = owned_buffers_[2]->data();
+  }
+
+  *view_ = KeyColumnArray(meta, len, view_validity, view_fixedlen, view_varlen,
+                          bit_offset_validity, bit_offset_fixed);
+
+  return *view_;
+}
+
 
 void ResizableArrayData::Init(const std::shared_ptr<DataType>& data_type,
                               MemoryPool* pool, int log_num_rows_min) {
