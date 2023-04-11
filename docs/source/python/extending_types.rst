@@ -363,8 +363,8 @@ Canonical extension types
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the :ref:`format_canonical_extensions` under the section **Official List**
-there is a list of canonical extension types. Here you can find an example of how
-to implement and how to use the listed canonical extension types.
+there is a list of canonical extension types. Here we list examples of how to
+use the listed canonical extension types.
 
 Fixed size tensor
 """""""""""""""""
@@ -382,7 +382,7 @@ extension type:
 
    >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
    >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
-   >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
+   >>> tensor_array = pa.ExtensionArray.from_storage(tensor_type, storage)
 
 Create another array of tensors with different value type:
 
