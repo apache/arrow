@@ -199,6 +199,11 @@ cdef class ExtensionType(BaseExtensionType):
         const CPyExtensionType* cpy_ext_type
 
 
+cdef class FixedShapeTensorType(BaseExtensionType):
+    cdef:
+        const CFixedShapeTensorType* tensor_ext_type
+
+
 cdef class PyExtensionType(ExtensionType):
     pass
 
