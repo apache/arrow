@@ -113,18 +113,31 @@ ParquetFileFormat$create <- function(...,
 #' @format NULL
 #' @rdname FileFormat
 #' @export
+IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
+
+#' JSON dataset file format
+#'
+#' @description
+#' A `JsonFileFormat` is a [FileFormat] subclass which holds information about how to
+#' read and parse the files included in a JSON `Dataset`.
+#'
+#' @section Factory:
+#' `JsonFileFormat$create()` can take options in the form of lists passed through as `parse_options`,
+#'  or `read_options` parameters.
+#'
+#' @return A `JsonFileFormat` object
+#' @rdname JsonFileFormat
+#' @name JsonFileFormat
+#' @seealso [FileFormat]
+#' @examplesIf arrow_with_dataset()
+#'
+#' @export
 JsonFileFormat <- R6Class("JsonFileFormat", inherit = FileFormat)
-JsonFileFormat$create <- function(...,
-                                     dict_columns = character(0)) {
+JsonFileFormat$create <- function(...) {
   options <- JsonFragmentScanOptions$create(...)
   #dataset___JsonFileFormat__Make(options, dict_columns)
 }
 
-#' @usage NULL
-#' @format NULL
-#' @rdname FileFormat
-#' @export
-IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 
 #' CSV dataset file format
 #'
@@ -513,6 +526,8 @@ FragmentScanOptions$create <- function(format, ...) {
     CsvFragmentScanOptions$create(...)
   } else if (format == "parquet") {
     ParquetFragmentScanOptions$create(...)
+  } else if (format == "json") {
+    JsonFragmentScanOptions$create(...)
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)
   }
@@ -550,10 +565,8 @@ ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
 #' @rdname FragmentScanOptions
 #' @export
 JsonFragmentScanOptions <- R6Class("JsonFragmentScanOptions", inherit = FragmentScanOptions)
-JsonFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
-                                              buffer_size = 8196,
-                                              pre_buffer = TRUE) {
-  dataset___JsonFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer)
+JsonFragmentScanOptions$create <- function(parse_options, read_options) {
+  dataset___JsonFragmentScanOptions__Make(parse_options, read_options)
 }
 
 JsonFragmentScanOptions$create
