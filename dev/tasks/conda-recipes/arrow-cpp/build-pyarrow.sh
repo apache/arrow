@@ -1,7 +1,5 @@
 #!/bin/sh
-
-set -e
-set -x
+set -ex
 
 # Build dependencies
 export ARROW_HOME=$PREFIX
