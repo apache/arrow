@@ -301,7 +301,7 @@ func (b *MapBuilder) ValueBuilder() Builder {
 }
 
 func (b *MapBuilder) AppendValueFromString(s string) error {
-	panic("not implemented")	
+	return arrow.ErrNotImplemented	
 }
 
 func (b *MapBuilder) UnmarshalOne(dec *json.Decoder) error {

@@ -183,10 +183,10 @@ func (e *ExtensionArrayBase) setData(data *Data) {
 	e.storage = MakeFromData(storageData)
 }
 
-// ValueString returns the value at index i as a string.
+// ValueStr returns the value at index i as a string.
 // This needs to be implemented by the extension array type.
 func (e *ExtensionArrayBase) ValueStr(i int) string {
-	panic("arrow/array: ValueString wasn't implemented by this extension array type")
+	panic("arrow/array: ValueStr wasn't implemented by this extension array type")
 }
 
 // no-op function that exists simply to force embedding this in any extension array types.

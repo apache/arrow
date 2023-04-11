@@ -38,7 +38,7 @@ func TestBinaryBuilder(t *testing.T) {
 			ab.AppendNull()
 		} else {
 			ab.Append(v)
-			
+
 		}
 	}
 
@@ -59,7 +59,6 @@ func TestBinaryBuilder(t *testing.T) {
 
 	ab.Release()
 	ar.Release()
-
 
 	// check state of builder after NewBinaryArray
 	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewBinaryArray did not reset state")

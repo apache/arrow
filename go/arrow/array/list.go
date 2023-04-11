@@ -429,9 +429,6 @@ func (b *baseListBuilder) AppendEmptyValue() {
 	b.Append(true)
 }
 
-// func (b *ListBuilder) AppendFromString(s string) {
-// 	b.AppendFromStringArray([]string{s})
-// }
 func (b *ListBuilder) AppendValues(offsets []int32, valid []bool) {
 	b.Reserve(len(valid))
 	b.offsets.(*Int32Builder).AppendValues(offsets, nil)

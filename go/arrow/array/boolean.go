@@ -18,6 +18,7 @@ package array
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -59,7 +60,7 @@ func (a *Boolean) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	} else {
-		return fmt.Sprintf("%v", a.Value(i))
+		return strconv.FormatBool(a.Value(i))
 	}
 }
 
