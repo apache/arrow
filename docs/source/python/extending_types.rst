@@ -388,9 +388,9 @@ Create another array of tensors with different value type:
 
 .. code-block:: python
 
-   >>> tensor_type2 = pa.fixed_shape_tensor(pa.float32(), (2, 2))
+   >>> tensor_type_2 = pa.fixed_shape_tensor(pa.float32(), (2, 2))
    >>> storage2 = pa.array(arr, pa.list_(pa.float32(), 4))
-   >>> tensor2 = pa.ExtensionArray.from_storage(tensor_type2, storage2)
+   >>> tensor_array_2 = pa.ExtensionArray.from_storage(tensor_type_2, storage2)
 
 Create a ``pyarrow.Table`` with random data and two tensor arrays:
 
@@ -400,14 +400,14 @@ Create a ``pyarrow.Table`` with random data and two tensor arrays:
    ...     pa.array([1, 2, 3]),
    ...     pa.array(['foo', 'bar', None]),
    ...     pa.array([True, None, True]),
-   ...     tensor,
-   ...     tensor2
+   ...     tensor_array,
+   ...     tensor_array_2
    ... ]
    >>> my_schema = pa.schema([('f0', pa.int8()),
    ...                        ('f1', pa.string()),
    ...                        ('f2', pa.bool_()),
    ...                        ('tensors_int', tensor_type),
-   ...                        ('tensors_float', tensor_type2)])
+   ...                        ('tensors_float', tensor_type_2)])
    >>> table = pa.Table.from_arrays(data, schema=my_schema)
    >>> table
    pyarrow.Table
@@ -427,7 +427,7 @@ Convert a tensor array to numpy ndarray (tensor):
 
 .. code-block:: python
 
-   >>> numpy_tensor = tensor2.to_numpy_ndarray()
+   >>> numpy_tensor = tensor_array_2.to_numpy_ndarray()
    >>> numpy_tensor
    array([[[  1.,   2.],
          [  3.,   4.]],
