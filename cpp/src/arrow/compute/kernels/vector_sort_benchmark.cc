@@ -192,15 +192,27 @@ static void ArraySortIndicesBool(benchmark::State& state) {
   ArraySortFuncBoolBenchmark(state, SortRunner(state));
 }
 
-static void ArraySortIndicesString(benchmark::State& state) {
+static void ArraySortIndicesStringNarrow(benchmark::State& state) {
   const auto min_length = 0;
-  const auto max_length = 32;
+  const auto max_length = 16;
   ArraySortFuncStringBenchmark(state, SortRunner(state), min_length, max_length);
 }
 
-static void ArrayRankString(benchmark::State& state) {
+static void ArraySortIndicesStringWide(benchmark::State& state) {
   const auto min_length = 0;
-  const auto max_length = 32;
+  const auto max_length = 64;
+  ArraySortFuncStringBenchmark(state, SortRunner(state), min_length, max_length);
+}
+
+static void ArrayRankStringNarrow(benchmark::State& state) {
+  const auto min_length = 0;
+  const auto max_length = 16;
+  ArraySortFuncStringBenchmark(state, RankRunner(state), min_length, max_length);
+}
+
+static void ArrayRankStringWide(benchmark::State& state) {
+  const auto min_length = 0;
+  const auto max_length = 64;
   ArraySortFuncStringBenchmark(state, RankRunner(state), min_length, max_length);
 }
 
@@ -375,7 +387,8 @@ void ArraySortIndicesSetArgs(benchmark::internal::Benchmark* bench) {
 BENCHMARK(ArraySortIndicesInt64Narrow)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ArraySortIndicesInt64Wide)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ArraySortIndicesBool)->Apply(ArraySortIndicesSetArgs);
-BENCHMARK(ArraySortIndicesString)->Apply(ArraySortIndicesSetArgs);
+BENCHMARK(ArraySortIndicesStringNarrow)->Apply(ArraySortIndicesSetArgs);
+BENCHMARK(ArraySortIndicesStringWide)->Apply(ArraySortIndicesSetArgs);
 
 BENCHMARK(ChunkedArraySortIndicesInt64Narrow)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ChunkedArraySortIndicesInt64Wide)->Apply(ArraySortIndicesSetArgs);
@@ -447,7 +460,8 @@ void ArrayRankSetArgs(benchmark::internal::Benchmark* bench) {
 
 BENCHMARK(ArrayRankInt64Narrow)->Apply(ArrayRankSetArgs);
 BENCHMARK(ArrayRankInt64Wide)->Apply(ArrayRankSetArgs);
-BENCHMARK(ArrayRankString)->Apply(ArrayRankSetArgs);
+BENCHMARK(ArrayRankStringNarrow)->Apply(ArrayRankSetArgs);
+BENCHMARK(ArrayRankStringWide)->Apply(ArrayRankSetArgs);
 BENCHMARK(ChunkedArrayRankInt64Narrow)->Apply(ArrayRankSetArgs);
 BENCHMARK(ChunkedArrayRankInt64Wide)->Apply(ArrayRankSetArgs);
 
