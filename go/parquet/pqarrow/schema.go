@@ -1079,9 +1079,7 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 						inferred.Field.Type = dd
 					} else {
 						// We'll be here if the extension isn't registered.
-						// Optional? maybe skip this error and leave the type as is?
-						err = fmt.Errorf("extension type %q not registered", extName)
-						return
+						// This isn't an error. Leave the type as-is and maintain existing metadata
 					}
 				}
 			}
