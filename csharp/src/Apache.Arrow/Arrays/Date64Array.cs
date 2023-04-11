@@ -15,6 +15,9 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Apache.Arrow
 {
@@ -23,7 +26,7 @@ namespace Apache.Arrow
     /// stored as the number of milliseconds since the dawn of (UNIX) time, excluding leap seconds, in multiples of
     /// 86400000.
     /// </summary>
-    public class Date64Array: PrimitiveArray<long>
+    public class Date64Array: PrimitiveArray<long>, IEnumerable<DateTimeOffset?>
     {
         private const long MillisecondsPerDay = 86400000;
 
@@ -112,6 +115,19 @@ namespace Apache.Arrow
             return value.HasValue
                 ? DateTimeOffset.FromUnixTimeMilliseconds(value.Value)
                 : default(DateTimeOffset?);
+        }
+
+        // IEnumerable methods
+        public new IEnumerator<DateTimeOffset?> GetEnumerator()
+        {
+            return Enumerable.Range(0, Length)
+                .Select(GetDateTimeOffset)
+                .GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }

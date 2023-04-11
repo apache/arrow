@@ -14,7 +14,11 @@
 // limitations under the License.
 
 using Apache.Arrow.Types;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace Apache.Arrow
 {
@@ -22,7 +26,7 @@ namespace Apache.Arrow
     /// The <see cref="Time64Array"/> class holds an array of <see cref="Int64" />, where each value is
     /// stored as the number of microseconds/nanoseconds (depending on the Time64Type) since midnight.
     /// </summary>
-    public class Time64Array : PrimitiveArray<long>
+    public class Time64Array : PrimitiveArray<long>, IEnumerable<TimeSpan?>
     {
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Time64Array"/> objects.
@@ -112,6 +116,40 @@ namespace Apache.Arrow
                 TimeUnit.Nanosecond => value,
                 _ => throw new InvalidDataException($"Unsupported time unit for Time64Type: {unit}")
             };
+        }
+
+        // IEnumerable methods
+        public new IEnumerator<TimeSpan?> GetEnumerator()
+        {
+            TimeUnit unit = ((Time64Type)Data.DataType).Unit;
+
+            // Ticks are 10e7
+            switch (unit)
+            {
+                case TimeUnit.Microsecond:
+                    return Enumerable.Range(0, Length)
+                        .Select(i =>
+                        {
+                            long? value = GetValue(i);
+                            return value.HasValue ? (TimeSpan?)TimeSpan.FromTicks(value.Value * 10) : null;
+                        })
+                        .GetEnumerator();
+                case TimeUnit.Nanosecond:
+                    return Enumerable.Range(0, Length)
+                        .Select(i =>
+                        {
+                            long? value = GetValue(i);
+                            return value.HasValue ? (TimeSpan?)TimeSpan.FromTicks(value.Value / 100) : null;
+                        })
+                        .GetEnumerator();
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for TimeType: {unit}");
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }

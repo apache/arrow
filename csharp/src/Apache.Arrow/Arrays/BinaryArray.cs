@@ -13,13 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Apache.Arrow.Memory;
-using System.Collections;
-using System.Reflection;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -359,10 +359,9 @@ namespace Apache.Arrow
         // IEnumerable methods
         public IEnumerator<byte[]> GetEnumerator()
         {
-            for (int i = 0; i < Length; i++)
-            {
-                yield return IsNull(i) ? null : GetBytes(i).ToArray();
-            }
+            return Enumerable.Range(0, Length)
+                .Select(i => IsNull(i) ? null : ValueBuffer.Span.Slice(ValueOffsets[i], GetValueLength(i)).ToArray())
+                .GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()

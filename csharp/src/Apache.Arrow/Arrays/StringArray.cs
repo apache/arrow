@@ -13,12 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -96,10 +97,7 @@ namespace Apache.Arrow
         // IEnumerable methods
         public new IEnumerator<string> GetEnumerator()
         {
-            for (int i = 0; i < Length; i++)
-            {
-                yield return GetString(i);
-            }
+            return Enumerable.Range(0, Length).Select(i => GetString(i)).GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()

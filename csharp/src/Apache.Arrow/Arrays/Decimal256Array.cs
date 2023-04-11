@@ -17,6 +17,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Numerics;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
@@ -101,10 +102,7 @@ namespace Apache.Arrow
         // IEnumerable methods
         public new IEnumerator<decimal?> GetEnumerator()
         {
-            for (int i = 0; i < Length; i++)
-            {
-                yield return GetValue(i);
-            }
+            return Enumerable.Range(0, Length).Select(GetValue).GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()

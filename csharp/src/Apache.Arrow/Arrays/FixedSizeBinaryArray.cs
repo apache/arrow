@@ -16,6 +16,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -74,10 +78,11 @@ namespace Apache.Arrow.Arrays
         // IEnumerable methods
         public IEnumerator<byte[]> GetEnumerator()
         {
-            for (int i = 0; i < Length; i++)
-            {
-                yield return IsNull(i) ? null : GetBytes(i).ToArray();
-            }
+            int size = ((FixedSizeBinaryType)Data.DataType).ByteWidth;
+
+            return Enumerable.Range(0, Length)
+            .Select(i => IsNull(i) ? null : ValueBuffer.Span.Slice(i * size, size).ToArray())
+                .GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator()

@@ -15,6 +15,9 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Apache.Arrow
 {
@@ -22,7 +25,7 @@ namespace Apache.Arrow
     /// The <see cref="Date32Array"/> class holds an array of dates in the <c>Date32</c> format, where each date is
     /// stored as the number of days since the dawn of (UNIX) time.
     /// </summary>
-    public class Date32Array : PrimitiveArray<int>
+    public class Date32Array : PrimitiveArray<int>, IEnumerable<DateTimeOffset?>
     {
         private static readonly DateTime _epochDate = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
@@ -107,6 +110,19 @@ namespace Apache.Arrow
             return value.HasValue
                 ? new DateTimeOffset(_epochDate.AddDays(value.Value), TimeSpan.Zero)
                 : default(DateTimeOffset?);
+        }
+
+        // IEnumerable methods
+        public new IEnumerator<DateTimeOffset?> GetEnumerator()
+        {
+            return Enumerable.Range(0, Length)
+                .Select(GetDateTimeOffset)
+                .GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }

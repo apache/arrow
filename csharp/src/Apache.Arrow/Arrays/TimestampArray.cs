@@ -13,14 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class TimestampArray: PrimitiveArray<long>
+    public class TimestampArray: PrimitiveArray<long>, IEnumerable<DateTimeOffset?>
     {
         private static readonly DateTimeOffset s_epoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, 0, TimeSpan.Zero);
 
@@ -143,6 +146,19 @@ namespace Apache.Arrow
             }
 
             return GetTimestampUnchecked(index);
+        }
+
+        // IEnumerable methods
+        public new IEnumerator<DateTimeOffset?> GetEnumerator()
+        {
+            return Enumerable.Range(0, Length)
+                .Select(GetTimestamp)
+                .GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
 
     }

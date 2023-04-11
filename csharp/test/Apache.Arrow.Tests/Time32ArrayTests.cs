@@ -13,46 +13,50 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System.Linq;
+using System;
+using Apache.Arrow.Types;
 using Xunit;
 
 namespace Apache.Arrow.Tests
 {
-    public class PrimitiveArrayTests
+    public class Time32ArrayTests
     {
         public class IEnumerableArray
         {
             [Fact]
-            public void PrimitiveArray_ShouldBe_IEnumerable()
+            public void Time32Array_Seconds_ShouldBe_IEnumerable()
             {
                 // Build test array
-                Int32Array array = new Int32Array.Builder()
-                    .Append(1).AppendNull().Append(-12)
+                Time32Array array = new Time32Array.Builder(TimeUnit.Second)
+                    .Append(1).AppendNull().Append(-1)
                     .Build();
 
-                int?[] expected = new int?[] { 1, null, -12 };
+                TimeSpan?[] expected = new TimeSpan?[] { TimeSpan.FromSeconds(1), null, TimeSpan.FromSeconds(-1) };
 
                 int i = 0;
-                foreach (int? value in array)
+                foreach (TimeSpan? value in array)
                 {
                     Assert.Equal(expected[i], value);
                     i++;
                 }
             }
-        }
 
-        public class IEnumeratorArray
-        {
             [Fact]
-            public void PrimitiveArray_Should_Use_System_Linq()
+            public void Time32Array_MilliSeconds_ShouldBe_IEnumerable()
             {
                 // Build test array
-                Int32Array array = new Int32Array.Builder()
-                    .Append(1).AppendNull().Append(-12)
+                Time32Array array = new Time32Array.Builder(TimeUnit.Millisecond)
+                    .Append(1).AppendNull().Append(-1)
                     .Build();
 
-                Assert.Equal(new int?[] { 2 }, array.Select(i => i * 2).Where(i => i == 2).ToArray());
-                Assert.Equal(array.Sum(), -11);
+                TimeSpan?[] expected = new TimeSpan?[] { TimeSpan.FromMilliseconds(1), null, TimeSpan.FromMilliseconds(-1) };
+
+                int i = 0;
+                foreach (TimeSpan? value in array)
+                {
+                    Assert.Equal(expected[i], value);
+                    i++;
+                }
             }
         }
     }
