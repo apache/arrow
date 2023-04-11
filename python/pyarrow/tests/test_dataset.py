@@ -983,9 +983,9 @@ def test_make_csv_fragment_from_buffer(dataset_reader):
 
 
 def test_make_json_fragment_from_buffer(dataset_reader):
-    content = '{"alpha" : "a", "num": 12, "animal" : "dog"}\n' 
-    + '{"alpha" : "b", "num": 11, "animal" : "cat"}\n' 
-    + '{"alpha" : "c", "num": 10, "animal" : "rabbit"}\n'
+    content = '{"alpha" : "a", "num": 12, "animal" : "dog"}\n' + \
+        '{"alpha" : "b", "num": 11, "animal" : "cat"}\n' + \
+        '{"alpha" : "c", "num": 10, "animal" : "rabbit"}\n'
     buffer = pa.py_buffer(content.encode('utf-8'))
 
     json_format = ds.JsonFileFormat()
@@ -3239,9 +3239,7 @@ def test_json_format_options(tempdir, dataset_reader):
     dataset = ds.dataset(path, format=ds.JsonFileFormat(
         read_options=pa.json.ReadOptions(block_size=64)))
     result = dataset_reader.to_table(dataset)
-    assert result.equals(
-        pa.table({'a': pa.array([1, 2, 3], type="int64"),
-                      'b': pa.array([.1, .2, .3], type="float64")}))
+    assert result.equals(table)
 
 
 def test_json_fragment_options(tempdir, dataset_reader):
@@ -3257,9 +3255,7 @@ def test_json_fragment_options(tempdir, dataset_reader):
         read_options=pa.json.ReadOptions(block_size=64))
     dataset = ds.dataset(path, format=ds.JsonFileFormat(options))
     result = dataset_reader.to_table(dataset)
-    assert result.equals(
-        pa.table({'a': pa.array([1, 2, 3], type="int64"),
-                      'b': pa.array([.1, .2, .3], type="float64")}))
+    assert result.equals(table)
 
 
 def test_encoding(tempdir, dataset_reader):

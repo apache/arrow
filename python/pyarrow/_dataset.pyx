@@ -2230,6 +2230,7 @@ cdef class JsonFileFormat(FileFormat):
         if options.type_name == 'json':
             self.json_format.default_fragment_scan_options = options.wrapped
             self.default_fragment_scan_options.read_options = options.read_options
+            self.default_fragment_scan_options.parse_options = options.parse_options
         else:
             super()._set_default_fragment_scan_options(options)
 
@@ -2285,8 +2286,8 @@ cdef class JsonFragmentScanOptions(FragmentScanOptions):
 
     @property
     def read_options(self):
-        read_options = JsonReadOptions.wrap(self.json_options.read_options)
-        return read_options
+        return JsonReadOptions.wrap(self.json_options.read_options)
+         
 
     @read_options.setter
     def read_options(self, JsonReadOptions read_options not None):

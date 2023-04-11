@@ -97,7 +97,7 @@ cdef class ReadOptions(_Weakrefable):
     @staticmethod
     cdef ReadOptions wrap(CJSONReadOptions options):
         out = ReadOptions()
-        out.options=options #shallow copy
+        out.options = options #shallow copy
         return out
 
 
