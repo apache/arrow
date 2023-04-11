@@ -22,7 +22,7 @@
 jobs:
   build:
     name: "Build wheel for Windows"
-    runs-on: windows-2022
+    runs-on: windows-2019
     env:
       # archery uses this environment variable
       PYTHON: "{{ python_version }}"
@@ -40,6 +40,11 @@ jobs:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_ghcr()|indent }}
       {{ macros.github_install_archery()|indent }}
+
+      - name: Update curl
+        shell: cmd
+        run: |
+          vcpkg.exe install curl:x64-windows
 
       - name: Build wheel
         shell: cmd
