@@ -726,5 +726,7 @@ test_that("we only preserve metadata of input to arrow_table when passed a singl
   # GH-35038 - passing in multiple arguments doesn't affect return type
   out3 <- as.data.frame(arrow_table(df, name = "1"))
   out4 <- as.data.frame(arrow_table(name = "1", df))
-  expect_identical(class(out3), class(out4))
+
+  expect_s3_class(out3, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
+  expect_s3_class(out4, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
 })
