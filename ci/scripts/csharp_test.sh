@@ -27,7 +27,7 @@ if [ -z "${PYTHON}" ]; then
     export PYTHON=python3
   else
     export PYTHON=python
-  fi 
+  fi
 fi
 ${PYTHON} -m pip install pyarrow find-libpython
 export PYTHONNET_PYDLL=$(${PYTHON} -m find_libpython)
