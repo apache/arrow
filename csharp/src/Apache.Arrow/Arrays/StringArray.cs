@@ -16,7 +16,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using Apache.Arrow.Types;
@@ -97,12 +96,38 @@ namespace Apache.Arrow
         // IEnumerable methods
         public new IEnumerator<string> GetEnumerator()
         {
-            return Enumerable.Range(0, Length).Select(i => GetString(i)).GetEnumerator();
+            return new Enumerator(this);
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        private class Enumerator : IEnumerator<string>
+        {
+            private int Position;
+            private StringArray Array;
+
+            public Enumerator(StringArray array)
+            {
+                Array = array;
+                Position = -1;
+            }
+
+            string IEnumerator<string>.Current => Array.GetString(Position);
+
+            object IEnumerator.Current => Array.GetString(Position);
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Array.Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
         }
     }
 }

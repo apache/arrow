@@ -17,8 +17,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Numerics;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
@@ -101,12 +99,38 @@ namespace Apache.Arrow
         // IEnumerable methods
         public new IEnumerator<decimal?> GetEnumerator()
         {
-            return Enumerable.Range(0, Length).Select(GetValue).GetEnumerator();
+            return new Enumerator(this);
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        private class Enumerator : IEnumerator<decimal?>
+        {
+            private int Position;
+            private Decimal128Array Array;
+
+            public Enumerator(Decimal128Array array)
+            {
+                Array = array;
+                Position = -1;
+            }
+
+            decimal? IEnumerator<decimal?>.Current => Array.GetValue(Position);
+
+            object IEnumerator.Current => Array.GetValue(Position);
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Array.Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
         }
     }
 }

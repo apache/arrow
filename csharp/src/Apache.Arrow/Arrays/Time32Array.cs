@@ -17,7 +17,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
@@ -126,29 +125,50 @@ namespace Apache.Arrow
             switch (unit)
             {
                 case TimeUnit.Second:
-                    return Enumerable.Range(0, Length)
-                        .Select(i =>
-                        {
-                            int? value = GetValue(i);
-                            return value.HasValue ? (TimeSpan?)TimeSpan.FromSeconds(value.Value) : null;
-                        })
-                        .GetEnumerator();
+                    return new Enumerator(this, TimeSpanFromSeconds);
                 case TimeUnit.Millisecond:
-                    return Enumerable.Range(0, Length)
-                        .Select(i =>
-                        {
-                            int? value = GetValue(i);
-                            return value.HasValue ? (TimeSpan?)TimeSpan.FromMilliseconds(value.Value) : null;
-                        })
-                        .GetEnumerator();
+                    return new Enumerator(this, TimeSpanFromMilliseconds);
                 default:
                     throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}");
             }
         }
 
+        private static TimeSpan? TimeSpanFromSeconds(int? seconds) =>
+            seconds.HasValue ? TimeSpan.FromSeconds(seconds.Value) : null;
+        private static TimeSpan? TimeSpanFromMilliseconds(int? millis) =>
+            millis.HasValue ? TimeSpan.FromMilliseconds(millis.Value) : null;
+
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        private class Enumerator : IEnumerator<TimeSpan?>
+        {
+            private int Position;
+            private Time32Array Array;
+            private Func<int?, TimeSpan?> Convert;
+
+            public Enumerator(Time32Array array, Func<int?, TimeSpan?> convert)
+            {
+                Array = array;
+                Convert = convert;
+                Position = -1;
+            }
+
+            TimeSpan? IEnumerator<TimeSpan?>.Current => Convert(Array.GetValue(Position));
+
+            object IEnumerator.Current => Convert(Array.GetValue(Position));
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Array.Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
         }
     }
 }

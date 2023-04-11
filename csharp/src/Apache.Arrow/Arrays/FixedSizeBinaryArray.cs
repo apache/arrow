@@ -16,7 +16,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -68,6 +67,11 @@ namespace Apache.Arrow.Arrays
                 return ReadOnlySpan<byte>.Empty;
             }
 
+            return GetBytesUnchecked(index);
+        }
+
+        public ReadOnlySpan<byte> GetBytesUnchecked(int index)
+        {
             int size = ((FixedSizeBinaryType)Data.DataType).ByteWidth;
             return ValueBuffer.Span.Slice(index * size, size);
         }
@@ -75,16 +79,40 @@ namespace Apache.Arrow.Arrays
         // IEnumerable methods
         public IEnumerator<byte[]> GetEnumerator()
         {
-            int size = ((FixedSizeBinaryType)Data.DataType).ByteWidth;
-
-            return Enumerable.Range(0, Length)
-                .Select(i => IsNull(i) ? null : ValueBuffer.Span.Slice(i * size, size).ToArray())
-                .GetEnumerator();
+            return new Enumerator(this);
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        private class Enumerator : IEnumerator<byte[]>
+        {
+            private int Position;
+            private FixedSizeBinaryArray Array;
+
+            public Enumerator(FixedSizeBinaryArray array)
+            {
+                Array = array;
+                Position = -1;
+            }
+
+            byte[] IEnumerator<byte[]>.Current => Array.IsNull(Position) ?
+                null : Array.GetBytesUnchecked(Position).ToArray();
+
+            object IEnumerator.Current => Array.IsNull(Position) ?
+                null : Array.GetBytesUnchecked(Position).ToArray();
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Array.Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
         }
 
         public abstract class BuilderBase<TArray, TBuilder> : IArrowArrayBuilder<byte[], TArray, TBuilder>

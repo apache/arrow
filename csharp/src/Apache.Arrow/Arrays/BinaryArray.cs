@@ -16,7 +16,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
@@ -353,20 +352,51 @@ namespace Apache.Arrow
                 return ReadOnlySpan<byte>.Empty;
             }
 
+            return GetBytesUnchecked(index);
+        }
+
+        public ReadOnlySpan<byte> GetBytesUnchecked(int index)
+        {
             return ValueBuffer.Span.Slice(ValueOffsets[index], GetValueLength(index));
         }
 
         // IEnumerable methods
         public IEnumerator<byte[]> GetEnumerator()
         {
-            return Enumerable.Range(0, Length)
-                .Select(i => IsNull(i) ? null : ValueBuffer.Span.Slice(ValueOffsets[i], GetValueLength(i)).ToArray())
-                .GetEnumerator();
+            return new Enumerator(this);
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        private class Enumerator: IEnumerator<byte[]>
+        {
+            private int Position;
+            private BinaryArray Array;
+
+            public Enumerator(BinaryArray array)
+            {
+                Array = array;
+                Position = -1;
+            }
+
+            byte[] IEnumerator<byte[]>.Current => Array.IsNull(Position) ?
+                null : Array.GetBytesUnchecked(Position).ToArray();
+
+            object IEnumerator.Current => Array.IsNull(Position) ?
+                null : Array.GetBytesUnchecked(Position).ToArray();
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Array.Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
         }
     }
 }

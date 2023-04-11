@@ -13,11 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -115,14 +114,38 @@ namespace Apache.Arrow
         // IEnumerable methods
         public new IEnumerator<DateTimeOffset?> GetEnumerator()
         {
-            return Enumerable.Range(0, Length)
-                .Select(GetDateTimeOffset)
-                .GetEnumerator();
+            return new Enumerator(this);
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        private class Enumerator : IEnumerator<DateTimeOffset?>
+        {
+            private int Position;
+            private Date32Array Array;
+
+            public Enumerator(Date32Array array)
+            {
+                Array = array;
+                Position = -1;
+            }
+
+            DateTimeOffset? IEnumerator<DateTimeOffset?>.Current => Array.GetDateTimeOffset(Position);
+
+            object IEnumerator.Current => Array.GetDateTimeOffset(Position);
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Array.Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
         }
     }
 }

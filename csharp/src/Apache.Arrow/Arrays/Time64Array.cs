@@ -13,12 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -127,29 +126,50 @@ namespace Apache.Arrow
             switch (unit)
             {
                 case TimeUnit.Microsecond:
-                    return Enumerable.Range(0, Length)
-                        .Select(i =>
-                        {
-                            long? value = GetValue(i);
-                            return value.HasValue ? (TimeSpan?)TimeSpan.FromTicks(value.Value * 10) : null;
-                        })
-                        .GetEnumerator();
+                    return new Enumerator(this, TimeSpanFromMicroseconds);
                 case TimeUnit.Nanosecond:
-                    return Enumerable.Range(0, Length)
-                        .Select(i =>
-                        {
-                            long? value = GetValue(i);
-                            return value.HasValue ? (TimeSpan?)TimeSpan.FromTicks(value.Value / 100) : null;
-                        })
-                        .GetEnumerator();
+                    return new Enumerator(this, TimeSpanFromNanoseconds);
                 default:
                     throw new InvalidDataException($"Unsupported time unit for TimeType: {unit}");
             }
         }
 
+        private static TimeSpan? TimeSpanFromMicroseconds(long? micros) =>
+            micros.HasValue ? TimeSpan.FromTicks(micros.Value * 10) : null;
+        private static TimeSpan? TimeSpanFromNanoseconds(long? nanos) =>
+            nanos.HasValue ? TimeSpan.FromTicks(nanos.Value / 100) : null;
+
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        private class Enumerator : IEnumerator<TimeSpan?>
+        {
+            private int Position;
+            private Time64Array Array;
+            private Func<long?, TimeSpan?> Convert;
+
+            public Enumerator(Time64Array array, Func<long?, TimeSpan?> convert)
+            {
+                Array = array;
+                Convert = convert;
+                Position = -1;
+            }
+
+            TimeSpan? IEnumerator<TimeSpan?>.Current => Convert(Array.GetValue(Position));
+
+            object IEnumerator.Current => Convert(Array.GetValue(Position));
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Array.Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
         }
     }
 }

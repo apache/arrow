@@ -13,14 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
-using System;
-using System.Collections.Generic;
 
 namespace Apache.Arrow
 {
-    public class BooleanArray: Array
+    public class BooleanArray: Array, IEnumerable<bool?>
     {
         public class Builder : IArrowArrayBuilder<bool, BooleanArray, Builder>
         {
@@ -189,6 +190,43 @@ namespace Apache.Arrow
             return IsNull(index)
                 ? (bool?)null
                 : BitUtility.GetBit(ValueBuffer.Span, index + Offset);
+        }
+
+        // IEnumerable methods
+        public new IEnumerator<bool?> GetEnumerator()
+        {
+            return new Enumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private class Enumerator : IEnumerator<bool?>
+        {
+            private int Position;
+            private BooleanArray Array;
+
+            public Enumerator(BooleanArray array)
+            {
+                Array = array;
+                Position = -1;
+            }
+
+            bool? IEnumerator<bool?>.Current => Array.GetValue(Position);
+
+            object IEnumerator.Current => Array.GetValue(Position);
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Array.Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
         }
     }
 }

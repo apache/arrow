@@ -16,7 +16,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 
 namespace Apache.Arrow
@@ -72,12 +71,38 @@ namespace Apache.Arrow
         // IEnumerable methods
         public IEnumerator<T?> GetEnumerator()
         {
-            return Enumerable.Range(0, Length).Select(GetValue).GetEnumerator();
+            return new Enumerator(this);
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
+        }
+
+        private class Enumerator : IEnumerator<T?>
+        {
+            private int Position;
+            private PrimitiveArray<T> Array;
+
+            public Enumerator(PrimitiveArray<T> array)
+            {
+                Array = array;
+                Position = -1;
+            }
+
+            T? IEnumerator<T?>.Current => Array.GetValue(Position);
+
+            object IEnumerator.Current => Array.GetValue(Position);
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Array.Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
         }
     }
 }

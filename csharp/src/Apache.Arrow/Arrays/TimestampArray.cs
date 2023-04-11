@@ -18,7 +18,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
@@ -151,9 +150,7 @@ namespace Apache.Arrow
         // IEnumerable methods
         public new IEnumerator<DateTimeOffset?> GetEnumerator()
         {
-            return Enumerable.Range(0, Length)
-                .Select(GetTimestamp)
-                .GetEnumerator();
+            return new Enumerator(this);
         }
 
         IEnumerator IEnumerable.GetEnumerator()
@@ -161,5 +158,30 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
+        private class Enumerator : IEnumerator<DateTimeOffset?>
+        {
+            private int Position;
+            private TimestampArray Array;
+
+            public Enumerator(TimestampArray array)
+            {
+                Array = array;
+                Position = -1;
+            }
+
+            DateTimeOffset? IEnumerator<DateTimeOffset?>.Current => Array.GetTimestamp(Position);
+
+            object IEnumerator.Current => Array.GetTimestamp(Position);
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Array.Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
+        }
     }
 }
