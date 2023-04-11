@@ -3075,6 +3075,115 @@ cdef class ExtensionArray(Array):
         return Array._to_pandas(self.storage, options, **kwargs)
 
 
+class FixedShapeTensorArray(ExtensionArray):
+    """
+    Concrete class for fixed shape tensor extension arrays.
+
+    Examples
+    --------
+    Define the extension type for tensor array
+
+    >>> import pyarrow as pa
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), [2, 2])
+
+    Create an extension array
+
+    >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+    >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
+    >>> pa.ExtensionArray.from_storage(tensor_type, storage)
+    <pyarrow.lib.FixedShapeTensorArray object at ...>
+    [
+      [
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        10,
+        20,
+        30,
+        40
+      ],
+      [
+        100,
+        200,
+        300,
+        400
+      ]
+    ]
+    """
+
+    def to_numpy_ndarray(self):
+        """
+        Convert fixed shape tensor extension array to a numpy array (with dim+1).
+
+        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
+        """
+        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
+            np_flat = np.asarray(self.storage.values)
+            numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape))
+            return numpy_tensor
+        else:
+            raise ValueError(
+                'Only non-permuted tensors can be converted to numpy tensors.')
+
+    @staticmethod
+    def from_numpy_ndarray(obj):
+        """
+        Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
+        The first dimension of ndarray will become the length of the fixed
+        shape tensor array.
+
+        Numpy array needs to be C-contiguous in memory
+        (``obj.flags["C_CONTIGUOUS"]==True``).
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arr = np.array(
+        ...         [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
+        ...         dtype=np.float32)
+        >>> pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
+        <pyarrow.lib.FixedShapeTensorArray object at ...>
+        [
+          [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        ]
+        """
+        if not obj.flags["C_CONTIGUOUS"]:
+            raise ValueError('The data in the numpy array need to be in a single, '
+                             'C-style contiguous segment.')
+
+        arrow_type = from_numpy_dtype(obj.dtype)
+        shape = obj.shape[1:]
+        size = obj.size / obj.shape[0]
+
+        return ExtensionArray.from_storage(
+            fixed_shape_tensor(arrow_type, shape),
+            FixedSizeListArray.from_arrays(np.ravel(obj, order='C'), size)
+        )
+
+
 cdef dict _array_classes = {
     _Type_NA: NullArray,
     _Type_BOOL: BooleanArray,

@@ -118,6 +118,8 @@ cdef api object pyarrow_wrap_data_type(
         cpy_ext_type = dynamic_cast[_CPyExtensionTypePtr](ext_type)
         if cpy_ext_type != nullptr:
             return cpy_ext_type.GetInstance()
+        elif ext_type.extension_name() == b"arrow.fixed_shape_tensor":
+            out = FixedShapeTensorType.__new__(FixedShapeTensorType)
         else:
             out = BaseExtensionType.__new__(BaseExtensionType)
     else:
