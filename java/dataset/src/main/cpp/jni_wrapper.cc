@@ -16,6 +16,7 @@
 // under the License.
 
 #include <mutex>
+#include <utility>
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
@@ -24,6 +25,7 @@
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/ipc/api.h"
 #include "arrow/util/iterator.h"
 #include "jni_util.h"
@@ -520,7 +522,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_releaseBuffe
  * Signature: (Ljava/lang/String;II)J
  */
 JNIEXPORT jlong JNICALL
-Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
+Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory__Ljava_lang_String_2I(
     JNIEnv* env, jobject, jstring uri, jint file_format_id) {
   JNI_METHOD_START
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
@@ -529,6 +531,59 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
   std::shared_ptr<arrow::dataset::DatasetFactory> d =
       JniGetOrThrow(arrow::dataset::FileSystemDatasetFactory::Make(
           JStringToCString(env, uri), file_format, options));
+  return CreateNativeRef(d);
+  JNI_METHOD_END(-1L)
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_file_JniWrapper
+ * Method:    makeFileSystemDatasetFactory
+ * Signature: ([Ljava/lang/String;II)J
+ */
+JNIEXPORT jlong JNICALL
+Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory___3Ljava_lang_String_2I(
+    JNIEnv* env, jobject, jobjectArray uris, jint file_format_id) {
+  JNI_METHOD_START
+
+  using FsPathPair = std::pair<std::shared_ptr<arrow::fs::FileSystem>, std::string>;
+
+  std::shared_ptr<arrow::dataset::FileFormat> file_format =
+      JniGetOrThrow(GetFileFormat(file_format_id));
+  arrow::dataset::FileSystemFactoryOptions options;
+
+  std::vector<std::string> uri_vec = ToStringVector(env, uris);
+
+  // If not all URIs, throw exception
+  if (!std::all_of(uri_vec.begin(), uri_vec.end(), arrow::fs::internal::IsLikelyUri)) {
+    JniThrow("All sources must be valid URIs.");
+  }
+
+  std::vector<FsPathPair> filesystems;
+  filesystems.reserve(uri_vec.size());
+  std::transform(uri_vec.begin(), uri_vec.end(), std::back_inserter(filesystems),
+    [](const auto& s) -> FsPathPair {
+    std::string output_path;
+    auto fs = JniGetOrThrow(arrow::fs::FileSystemFromUri(s, &output_path));
+    return {fs, output_path};
+  });
+
+  // If all URIs, ensure that they all share a FileSystem type
+  if (std::unique(filesystems.begin(), filesystems.end(),
+        [] (const auto& p1, const auto& p2) {
+          return p1.first->type_name() == p2.first->type_name();
+        }) - filesystems.begin() != 1) {
+    JniThrow("Different filesystems are not supported in a multi-file dataset.");
+  }
+
+  // Retrieve output paths
+  std::transform(filesystems.begin(), filesystems.end(), uri_vec.begin(),
+    [] (auto& p) {
+    return p.second;
+  });
+
+  std::shared_ptr<arrow::dataset::DatasetFactory> d =
+      JniGetOrThrow(arrow::dataset::FileSystemDatasetFactory::Make(
+        filesystems[0].first, uri_vec, file_format, options));
   return CreateNativeRef(d);
   JNI_METHOD_END(-1L)
 }
