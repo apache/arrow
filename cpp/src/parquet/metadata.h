@@ -523,12 +523,12 @@ struct PageIndexLocation {
 
 class PARQUET_EXPORT FileMetaDataBuilder {
  public:
-  // API convenience to get a MetaData builder
-  PARQUET_DEPRECATED(
-      "Deprecated in 12.0.0. Use overload without KeyValueMetadata instead.")
+  ARROW_DEPRECATED("Deprecated in 12.0.0. Use overload without KeyValueMetadata instead.")
   static std::unique_ptr<FileMetaDataBuilder> Make(
       const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
       std::shared_ptr<const KeyValueMetadata> key_value_metadata);
+
+  // API convenience to get a MetaData builder
   static std::unique_ptr<FileMetaDataBuilder> Make(
       const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props);
 
