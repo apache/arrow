@@ -108,49 +108,64 @@ namespace Apache.Arrow
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
+        // Get DateTimeOffset methods
         public DateTimeOffset GetTimestampUnchecked(int index)
         {
             var type = (TimestampType) Data.DataType;
-            long value = Values[index];
-
-            long ticks;
+            long ticks = Values[index];
 
             switch (type.Unit)
             {
                 case TimeUnit.Nanosecond:
-                    ticks = value / 100;
-                    break;
+                    return EpochNanosecondsToDateTimeOffset(ticks);
                 case TimeUnit.Microsecond:
-                    ticks = value * 10;
-                    break;
+                    return EpochMicrosecondsToDateTimeOffset(ticks);
                 case TimeUnit.Millisecond:
-                    ticks = value * TimeSpan.TicksPerMillisecond;
-                    break;
+                    return EpochMillisecondsToDateTimeOffset(ticks);
                 case TimeUnit.Second:
-                    ticks = value * TimeSpan.TicksPerSecond;
-                    break;
+                    return EpochSecondsToDateTimeOffset(ticks);
                 default:
-                    throw new InvalidDataException(
-                        $"Unsupported timestamp unit <{type.Unit}>");
+                    throw new InvalidDataException($"Unsupported timestamp unit <{type.Unit}>");
             }
-
-            return new DateTimeOffset(s_epoch.Ticks + ticks, TimeSpan.Zero);
         }
 
-        public DateTimeOffset? GetTimestamp(int index)
-        {
-            if (IsNull(index))
-            {
-                return null;
-            }
+        public DateTimeOffset GetTimestampUnchecked(int index, Func<long, DateTimeOffset> convert) =>
+            convert(Values[index]);
 
-            return GetTimestampUnchecked(index);
-        }
+        public DateTimeOffset? GetTimestamp(int index) =>
+            IsNull(index) ? null : GetTimestampUnchecked(index);
+
+        public DateTimeOffset? GetTimestamp(int index, Func<long, DateTimeOffset> convert) =>
+            IsNull(index) ? null : GetTimestampUnchecked(index, convert);
+
+        // Static convert methods
+        private static DateTimeOffset EpochSecondsToDateTimeOffset(long ticks) =>
+            new DateTimeOffset(s_epoch.Ticks + ticks * TimeSpan.TicksPerSecond, TimeSpan.Zero);
+        private static DateTimeOffset EpochMillisecondsToDateTimeOffset(long ticks) =>
+            new DateTimeOffset(s_epoch.Ticks + ticks * TimeSpan.TicksPerMillisecond, TimeSpan.Zero);
+        private static DateTimeOffset EpochMicrosecondsToDateTimeOffset(long ticks) =>
+            new DateTimeOffset(s_epoch.Ticks + ticks * 10, TimeSpan.Zero);
+        private static DateTimeOffset EpochNanosecondsToDateTimeOffset(long ticks) =>
+            new DateTimeOffset(s_epoch.Ticks + ticks / 100, TimeSpan.Zero);
 
         // IEnumerable methods
         public new IEnumerator<DateTimeOffset?> GetEnumerator()
         {
-            return new Enumerator(this);
+            var type = (TimestampType)Data.DataType;
+
+            switch (type.Unit)
+            {
+                case TimeUnit.Nanosecond:
+                    return new Enumerator(this, EpochNanosecondsToDateTimeOffset);
+                case TimeUnit.Microsecond:
+                    return new Enumerator(this, EpochMicrosecondsToDateTimeOffset);
+                case TimeUnit.Millisecond:
+                    return new Enumerator(this, EpochMillisecondsToDateTimeOffset);
+                case TimeUnit.Second:
+                    return new Enumerator(this, EpochSecondsToDateTimeOffset);
+                default:
+                    throw new InvalidDataException($"Unsupported timestamp unit <{type.Unit}>");
+            }
         }
 
         IEnumerator IEnumerable.GetEnumerator()
@@ -162,14 +177,16 @@ namespace Apache.Arrow
         {
             private int Position;
             private TimestampArray Array;
+            private Func<long, DateTimeOffset> Convert;
 
-            public Enumerator(TimestampArray array)
+            public Enumerator(TimestampArray array, Func<long, DateTimeOffset> convert)
             {
                 Array = array;
+                Convert = convert;
                 Position = -1;
             }
 
-            DateTimeOffset? IEnumerator<DateTimeOffset?>.Current => Array.GetTimestamp(Position);
+            DateTimeOffset? IEnumerator<DateTimeOffset?>.Current => Array.GetTimestamp(Position, Convert);
 
             object IEnumerator.Current => Array.GetTimestamp(Position);
 

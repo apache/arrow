@@ -133,6 +133,7 @@ namespace Apache.Arrow
             }
         }
 
+        // Static convert methods
         private static TimeSpan? TimeSpanFromSeconds(int? seconds) =>
             seconds.HasValue ? TimeSpan.FromSeconds(seconds.Value) : null;
         private static TimeSpan? TimeSpanFromMilliseconds(int? millis) =>

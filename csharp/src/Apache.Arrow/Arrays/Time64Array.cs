@@ -134,6 +134,7 @@ namespace Apache.Arrow
             }
         }
 
+        // Static convert methods
         private static TimeSpan? TimeSpanFromMicroseconds(long? micros) =>
             micros.HasValue ? TimeSpan.FromTicks(micros.Value * 10) : null;
         private static TimeSpan? TimeSpanFromNanoseconds(long? nanos) =>
