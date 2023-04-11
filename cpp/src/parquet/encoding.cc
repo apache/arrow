@@ -3260,6 +3260,7 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
   explicit DeltaByteArrayDecoderImpl(const ColumnDescriptor* descr,
                                      MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_BYTE_ARRAY),
+        pool_(pool),
         prefix_len_decoder_(nullptr, pool),
         suffix_decoder_(nullptr, pool),
         last_value_in_previous_page_(""),
@@ -3400,6 +3401,8 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
     return Status::OK();
   }
 
+  MemoryPool* pool_;
+
  private:
   std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> prefix_len_decoder_;
@@ -3428,6 +3431,7 @@ class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoderImpl<FLBAType>,
  public:
   using Base = DeltaByteArrayDecoderImpl<FLBAType>;
   using Base::DeltaByteArrayDecoderImpl;
+  using Base::pool_;
 
   int Decode(ByteArray* buffer, int max_values) {
     return GetInternal(buffer, max_values);
@@ -3439,7 +3443,8 @@ class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoderImpl<FLBAType>,
                              &decoded_values_size)) {
       throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
     }
-    std::vector<uint8_t> decode_values(decoded_values_size);
+    ArrowPoolVector<uint8_t> decode_values(decoded_values_size,
+                                           ::arrow::stl::allocator<uint8_t>(pool_));
     auto decode_buf = reinterpret_cast<ByteArray*>(decode_values.data());
 
     max_values = GetInternal(decode_buf, max_values);
