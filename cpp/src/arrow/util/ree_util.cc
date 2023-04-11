@@ -84,11 +84,9 @@ void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_
   const auto type_id = RunEndsArray(span).type->id();
   if (type_id == Type::INT16) {
     SetLogicalNullBits<int16_t>(span, out_bitmap, out_offset);
-  }
-  else if (type_id == Type::INT32) {
+  } else if (type_id == Type::INT32) {
     SetLogicalNullBits<int32_t>(span, out_bitmap, out_offset);
-  }
-  else {
+  } else {
     DCHECK_EQ(type_id, Type::INT64);
     SetLogicalNullBits<int64_t>(span, out_bitmap, out_offset);
   }

@@ -27,9 +27,11 @@ int64_t LogicalSparseUnionNullCount(const ArraySpan& span);
 /// \brief Compute the number of of logical nulls in a dense union array
 int64_t LogicalDenseUnionNullCount(const ArraySpan& span);
 
-void SetLogicalSparseUnionNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset);
+void SetLogicalSparseUnionNullBits(const ArraySpan& span, uint8_t* out_bitmap,
+                                   int64_t out_offset);
 
-void SetLogicalDenseUnionNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset);
+void SetLogicalDenseUnionNullBits(const ArraySpan& span, uint8_t* out_bitmap,
+                                  int64_t out_offset);
 
 }  // namespace union_util
 }  // namespace arrow
