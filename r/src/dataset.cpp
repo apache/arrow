@@ -334,6 +334,16 @@ dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buf
   return options;
 }
 
+// [[dataset::export]]
+std::shared_ptr<ds::JsonFragmentScanOptions> dataset___JsonFragmentScanOptions__Make(
+    const std::shared_ptr<arrow::json::ParseOptions>& parse_options,
+    const std::shared_ptr<arrow::json::ReadOptions>& read_options) {
+  auto options = std::make_shared<ds::JsonFragmentScanOptions>();
+  options->parse_options = *parse_options;
+  options->read_options = *read_options;
+  return options;
+}
+
 // DirectoryPartitioning, HivePartitioning
 
 ds::SegmentEncoding GetSegmentEncoding(const std::string& segment_encoding) {

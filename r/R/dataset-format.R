@@ -78,12 +78,14 @@ FileFormat$create <- function(format, schema = NULL, ...) {
   opt_names <- names(list(...))
   if (format %in% c("csv", "text") || any(opt_names %in% c("delim", "delimiter"))) {
     CsvFileFormat$create(schema = schema, ...)
-  } else if (format == c("tsv")) {
+  } else if (format == "tsv") {
     CsvFileFormat$create(delimiter = "\t", schema = schema, ...)
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
     dataset___IpcFileFormat__Make()
+  } else if (format == "json") {
+    JsonFileFormat$create(...)
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)
   }
@@ -105,6 +107,17 @@ ParquetFileFormat$create <- function(...,
                                      dict_columns = character(0)) {
   options <- ParquetFragmentScanOptions$create(...)
   dataset___ParquetFileFormat__Make(options, dict_columns)
+}
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FileFormat
+#' @export
+JsonFileFormat <- R6Class("JsonFileFormat", inherit = FileFormat)
+JsonFileFormat$create <- function(...,
+                                     dict_columns = character(0)) {
+  options <- JsonFragmentScanOptions$create(...)
+  #dataset___JsonFileFormat__Make(options, dict_columns)
 }
 
 #' @usage NULL
@@ -531,6 +544,19 @@ ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
                                               pre_buffer = TRUE) {
   dataset___ParquetFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer)
 }
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FragmentScanOptions
+#' @export
+JsonFragmentScanOptions <- R6Class("JsonFragmentScanOptions", inherit = FragmentScanOptions)
+JsonFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
+                                              buffer_size = 8196,
+                                              pre_buffer = TRUE) {
+  dataset___JsonFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer)
+}
+
+JsonFragmentScanOptions$create
 
 #' Format-specific write options
 #'
