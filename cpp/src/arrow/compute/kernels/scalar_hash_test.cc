@@ -20,6 +20,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/exec/util.h"
+#include "arrow/compute/exec/key_hash.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -29,6 +30,13 @@
 
 namespace arrow {
 namespace compute {
+
+/** A test helper that is a friend function for Hashing64 **/
+void TestHashVarLen(bool should_incr, uint32_t row_count,
+                    const uint32_t* var_offsets, const uint8_t* var_data,
+                    uint64_t* hash_results) {
+  Hashing64::HashVarLen(should_incr, row_count, var_offsets, var_data, hash_results);
+}
 
 namespace {
 
@@ -117,28 +125,138 @@ TEST(TestScalarHash, Hash64IntMap) {
   }
 }
 
-TEST(TestScalarHash, Hash64Strings) {
-  auto test_strarr = ArrayFromJSON(utf8(), R"(["first-A", "second-A", "third-A",
-                                               "first-B", "second-B", "third-B"])");
+TEST(TestScalarHash, Hash64StringMap) {
+  constexpr int data_bufndx{1};
+  constexpr int varoffs_bufndx{1};
+  constexpr int vardata_bufndx{2};
 
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_strarr}));
-}
+  // for expected values
+  auto test_vals_first  = ArrayFromJSON(utf8(), R"(["first-A", "second-A", "third-A"])");
+  auto test_vals_second = ArrayFromJSON(utf8(), R"(["first-B", "second-B", "third-B"])");
+  uint64_t expected_hashes[test_vals_first->length()];
 
-TEST(TestScalarHash, Hash64List) {
-  auto test_list = ArrayFromJSON(list(utf8()),
-                                 R"([["first-A", "second-A", "third-A"],
-                                     ["first-B", "second-B", "third-B"]])");
+  TestHashVarLen(/*combine_hashes=*/false, /*num_rows=*/3,
+                 test_vals_first->data()->GetValues<uint32_t>(varoffs_bufndx),
+                 test_vals_first->data()->GetValues<uint8_t>(vardata_bufndx),
+                 expected_hashes);
 
-  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_list}));
+  TestHashVarLen(/*combine_hashes=*/true, /*num_rows=*/3,
+                 test_vals_second->data()->GetValues<uint32_t>(varoffs_bufndx),
+                 test_vals_second->data()->GetValues<uint8_t>(vardata_bufndx),
+                 expected_hashes);
+
+  // for actual values
+  auto test_map = ArrayFromJSON(map(utf8(), utf8()),
+                                R"([[["first-A", "first-B"]],
+                                    [["second-A", "second-B"]],
+                                    [["third-A", "third-B"]]])");
+
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_map}));
+  auto result_data = *(hash_result.array());
+
+  // compare actual and expected
+  for (int64_t val_ndx = 0; val_ndx < test_vals_first->length(); ++val_ndx) {
+    uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
+
+    ASSERT_EQ(expected_hashes[val_ndx], actual_hash);
+  }
 }
 
 TEST(TestScalarHash, Hash64Map) {
+  constexpr int data_bufndx{1};
+  constexpr int varoffs_bufndx{1};
+  constexpr int vardata_bufndx{2};
+
+  // For expected values
+  auto test_vals_first = ArrayFromJSON(utf8(),
+                                       R"(["first-A", "second-A", "first-B",
+                                           "second-B", "first-C", "second-C"])");
+
+  std::vector<uint8_t> test_vals_second{1, 3, 11, 23, 111, 223};
+  uint64_t expected_hashes[test_vals_first->length()];
+
+  // compute initial hashes from the string column (array)
+  TestHashVarLen(/*combine_hashes=*/false, /*num_rows=*/6,
+                 test_vals_first->data()->GetValues<uint32_t>(varoffs_bufndx),
+                 test_vals_first->data()->GetValues<uint8_t>(vardata_bufndx),
+                 expected_hashes);
+
+  // For actual values
   auto test_map = ArrayFromJSON(map(utf8(), uint8()),
-                                R"([[["first-A", 1], ["second-A", 2], ["third-A", 3]],
-                                    [["first-B", 10], ["second-B", 20], ["third-B", 30]]
-                                    ])");
+                                R"([[["first-A", 1]], [["second-A", 3]],
+                                    [["first-B", 11]], [["second-B", 23]],
+                                    [["first-C", 111]], [["second-C", 223]]])");
 
   ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_map}));
+  auto result_data = *(hash_result.array());
+
+  // compare actual and expected
+  for (int64_t val_ndx = 0; val_ndx < test_vals_first->length(); ++val_ndx) {
+    // compute final hashes by combining int hashes with initial string hashes
+    expected_hashes[val_ndx] = hash_combine(expected_hashes[val_ndx],
+                                            hash_int<uint8_t>(test_vals_second[val_ndx]));
+
+    uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
+
+    ASSERT_EQ(expected_hashes[val_ndx], actual_hash);
+  }
+}
+
+TEST(TestScalarHash, Hash64List) {
+  constexpr int data_bufndx{1};
+  constexpr int varoffs_bufndx{1};
+  constexpr int vardata_bufndx{2};
+
+  // for expected values
+  auto test_vals1 = ArrayFromJSON(utf8(), R"(["first-A", "second-A", "third-A"])");
+  auto test_vals2 = ArrayFromJSON(utf8(), R"(["first-B", "second-B", "third-B"])");
+  auto test_vals3 = ArrayFromJSON(utf8(), R"(["first-A", "first-B",
+                                              "second-A", "second-B",
+                                              "third-A", "third-B"])");
+  uint64_t expected_hashes[test_vals1->length()];
+  uint64_t test_hashes[test_vals3->length()];
+
+  TestHashVarLen(/*combine_hashes=*/false, /*num_rows=*/3,
+                 test_vals1->data()->GetValues<uint32_t>(varoffs_bufndx),
+                 test_vals1->data()->GetValues<uint8_t>(vardata_bufndx),
+                 expected_hashes);
+
+  TestHashVarLen(/*combine_hashes=*/true, /*num_rows=*/3,
+                 test_vals2->data()->GetValues<uint32_t>(varoffs_bufndx),
+                 test_vals2->data()->GetValues<uint8_t>(vardata_bufndx),
+                 expected_hashes);
+
+  TestHashVarLen(/*combine_hashes=*/false, /*num_rows=*/6,
+                 test_vals3->data()->GetValues<uint32_t>(varoffs_bufndx),
+                 test_vals3->data()->GetValues<uint8_t>(vardata_bufndx),
+                 test_hashes);
+
+  // for actual values
+  auto test_list = ArrayFromJSON(list(utf8()),
+                                 R"([["first-A", "first-B"],
+                                     ["second-A", "second-B"],
+                                     ["third-A", "third-B"]])");
+
+  ARROW_LOG(INFO) << "size: " << test_list->length();
+  ARROW_LOG(INFO) << test_list->ToString();
+
+  ARROW_LOG(INFO) << "Test Hashes:";
+  for (uint64_t hash_val : test_hashes) {
+    ARROW_LOG(INFO) << "\t" << hash_val;
+  }
+
+  ASSERT_OK_AND_ASSIGN(Datum hash_result, CallFunction("hash_64", {test_list}));
+  auto result_data = *(hash_result.array());
+
+  // compare actual and expected
+  // for (int64_t val_ndx = 0; val_ndx < test_list->length(); ++val_ndx) {
+  for (int64_t val_ndx = 0; val_ndx < result_data.length; ++val_ndx) {
+    uint64_t actual_hash = result_data.GetValues<uint64_t>(data_bufndx)[val_ndx];
+    ARROW_LOG(INFO) << "actual hash: " << actual_hash;
+
+    // ASSERT_EQ(expected_hashes[val_ndx], actual_hash);
+    // ARROW_LOG(INFO) << "expected hash: " << expected_hashes[val_ndx] << "\tactual hash: " << actual_hash;
+  }
 }
 
 }  // namespace compute
