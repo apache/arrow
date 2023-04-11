@@ -47,6 +47,25 @@ int64_t LogicalNullCount(const ArraySpan& span) {
   return null_count;
 }
 
+template <typename RunEndCType>
+void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset) {
+  const auto& values = ValuesArray(span);
+  const auto& values_bitmap = values.buffers[0].data;
+
+  RunEndEncodedArraySpan<RunEndCType> ree_span(span);
+  auto end = ree_span.end();
+  for (auto it = ree_span.begin(); it != end; ++it) {
+    const bool is_null =
+        values_bitmap &&
+        !bit_util::GetBit(values_bitmap, values.offset + it.index_into_array());
+    if (is_null) {
+      for (int64_t i = 0; i < it.run_length(); i++) {
+        bit_util::SetBit(out_bitmap, it.logical_position() + i + out_offset);
+      }
+    }
+  }
+}
+
 }  // namespace
 
 int64_t LogicalNullCount(const ArraySpan& span) {
@@ -59,6 +78,20 @@ int64_t LogicalNullCount(const ArraySpan& span) {
   }
   DCHECK_EQ(type_id, Type::INT64);
   return LogicalNullCount<int64_t>(span);
+}
+
+void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset) {
+  const auto type_id = RunEndsArray(span).type->id();
+  if (type_id == Type::INT16) {
+    SetLogicalNullBits<int16_t>(span, out_bitmap, out_offset);
+  }
+  else if (type_id == Type::INT32) {
+    SetLogicalNullBits<int32_t>(span, out_bitmap, out_offset);
+  }
+  else {
+    DCHECK_EQ(type_id, Type::INT64);
+    SetLogicalNullBits<int64_t>(span, out_bitmap, out_offset);
+  }
 }
 
 int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_offset) {

@@ -22,6 +22,8 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/union_util.h"
+#include "arrow/util/ree_util.h"
 
 namespace arrow {
 
@@ -100,6 +102,17 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   } else {
     // Input has no nulls => output is entirely false.
     bit_util::SetBitsTo(out_bitmap, out_span->offset, out_span->length, false);
+  }
+
+  const auto t = arr.type->id();
+  if (t == Type::SPARSE_UNION) {
+    union_util::SetLogicalSparseUnionNullBits(arr, out_bitmap, out_span->offset);
+  }
+  else if (t == Type::DENSE_UNION) {
+    union_util::SetLogicalDenseUnionNullBits(arr, out_bitmap, out_span->offset);
+  }
+  else if (t == Type::RUN_END_ENCODED) {
+    ree_util::SetLogicalNullBits(arr, out_bitmap, out_span->offset);
   }
 
   if (is_floating(arr.type->id()) && options.nan_is_null) {

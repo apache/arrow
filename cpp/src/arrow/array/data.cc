@@ -305,8 +305,12 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
   Type::type type_id = value.type->id();
 
   // Populate null count and validity bitmap (only for non-union/null types)
-  this->null_count = value.is_valid ? 0 : 1;
-  if (!is_union(type_id) && type_id != Type::NA) {
+  if (type_id == Type::NA) {
+    this->null_count = value.is_valid ? 0 : 1;
+  } else if (is_union(type_id)) {
+    this->null_count = 0;
+  } else {
+    this->null_count = value.is_valid ? 0 : 1;
     this->buffers[0].data = value.is_valid ? &kTrueBit : &kFalseBit;
     this->buffers[0].size = 1;
   }
