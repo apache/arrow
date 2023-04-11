@@ -272,9 +272,8 @@ func (s *Stmt) setParameters(args []driver.NamedValue) error {
 				return fmt.Errorf("schema: %w", err)
 			}
 			fields = append(fields, arrow.Field{
-				Name:     arg.Name,
-				Type:     dt,
-				Nullable: true,
+				Name: arg.Name,
+				Type: dt,
 			})
 		}
 		schema = arrow.NewSchema(fields, nil)
