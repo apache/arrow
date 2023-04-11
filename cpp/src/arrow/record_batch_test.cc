@@ -82,11 +82,9 @@ TEST_F(TestRecordBatch, Equals) {
   ASSERT_FALSE(b1->Equals(*b2, /*check_metadata=*/true));
 }
 
-TEST_F(TestRecordBatch, EqualsOptions) {
+TEST_F(TestRecordBatch, EqualOptions) {
   int length = 2;
   auto f = field("f", float64());
-
-  auto metadata = key_value_metadata({"foo"}, {"bar"});
 
   std::vector<std::shared_ptr<Field>> fields = {f};
   auto schema = ::arrow::schema(fields);
@@ -97,15 +95,15 @@ TEST_F(TestRecordBatch, EqualsOptions) {
   auto b1 = RecordBatch::Make(schema, length, {array1});
   auto b2 = RecordBatch::Make(schema, length, {array2});
 
-  EXPECT_FALSE(b1->Equals(*b2, false, EqualOptions::Defaults().nans_equal(false)));
-  EXPECT_TRUE(b1->Equals(*b2, false, EqualOptions::Defaults().nans_equal(true)));
+  EXPECT_FALSE(b1->Equals(*b2, /*check_metadata=*/false,
+                          EqualOptions::Defaults().nans_equal(false)));
+  EXPECT_TRUE(b1->Equals(*b2, /*check_metadata=*/false,
+                         EqualOptions::Defaults().nans_equal(true)));
 }
 
-TEST_F(TestRecordBatch, ApproxEqualsOptions) {
+TEST_F(TestRecordBatch, ApproxEqualOptions) {
   int length = 2;
   auto f = field("f", float64());
-
-  auto metadata = key_value_metadata({"foo"}, {"bar"});
 
   std::vector<std::shared_ptr<Field>> fields = {f};
   auto schema = ::arrow::schema(fields);
