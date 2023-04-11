@@ -3119,7 +3119,7 @@ class FixedShapeTensorArray(ExtensionArray):
         """
         Convert fixed shape tensor extension array to a numpy array (with dim+1).
 
-        Note: ``permutation`` should be non-trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
+        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
         """
         if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
             np_flat = np.asarray(self.storage.values)
