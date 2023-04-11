@@ -58,6 +58,8 @@ const char* r6_class_name<ds::FileFormat>::get(
     return "IpcFileFormat";
   } else if (type_name == "csv") {
     return "CsvFileFormat";
+  } else if (type_name == "json") {
+    return "JsonFileFormat";
   } else {
     return "FileFormat";
   }
@@ -316,6 +318,16 @@ std::shared_ptr<ds::CsvFragmentScanOptions> dataset___CsvFragmentScanOptions__Ma
 }
 
 // [[dataset::export]]
+std::shared_ptr<ds::JsonFragmentScanOptions> dataset___JsonFragmentScanOptions__Make(
+    const std::shared_ptr<arrow::json::ParseOptions>& parse_options,
+    const std::shared_ptr<arrow::json::ReadOptions>& read_options) {
+  auto options = std::make_shared<ds::JsonFragmentScanOptions>();
+  options->parse_options = *parse_options;
+  options->read_options = *read_options;
+  return options;
+}
+
+// [[dataset::export]]
 std::shared_ptr<ds::ParquetFragmentScanOptions>
 dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size,
                                            bool pre_buffer) {
@@ -331,16 +343,6 @@ dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buf
     options->arrow_reader_properties->set_cache_options(
         arrow::io::CacheOptions::LazyDefaults());
   }
-  return options;
-}
-
-// [[dataset::export]]
-std::shared_ptr<ds::JsonFragmentScanOptions> dataset___JsonFragmentScanOptions__Make(
-    const std::shared_ptr<arrow::json::ParseOptions>& parse_options,
-    const std::shared_ptr<arrow::json::ReadOptions>& read_options) {
-  auto options = std::make_shared<ds::JsonFragmentScanOptions>();
-  options->parse_options = *parse_options;
-  options->read_options = *read_options;
   return options;
 }
 
