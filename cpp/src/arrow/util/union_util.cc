@@ -55,7 +55,8 @@ int64_t LogicalDenseUnionNullCount(const ArraySpan& span) {
   return null_count;
 }
 
-void SetLogicalSparseUnionNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset) {
+void SetLogicalSparseUnionNullBits(const ArraySpan& span, uint8_t* out_bitmap,
+                                   int64_t out_offset) {
   const auto* sparse_union_type =
       internal::checked_cast<const SparseUnionType*>(span.type);
   DCHECK_LE(span.child_data.size(), 128);
@@ -69,7 +70,8 @@ void SetLogicalSparseUnionNullBits(const ArraySpan& span, uint8_t* out_bitmap, i
   }
 }
 
-void SetLogicalDenseUnionNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset) {
+void SetLogicalDenseUnionNullBits(const ArraySpan& span, uint8_t* out_bitmap,
+                                  int64_t out_offset) {
   const auto* dense_union_type = internal::checked_cast<const DenseUnionType*>(span.type);
   DCHECK_LE(span.child_data.size(), 128);
 
