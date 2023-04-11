@@ -1685,10 +1685,9 @@ cdef wrap_array_output(PyObject* output):
     cdef object obj = PyObject_to_object(output)
 
     if isinstance(obj, dict):
-        return pandas_api.categorical_type(obj['indices'],
-                                           categories=obj['dictionary'],
-                                           ordered=obj['ordered'],
-                                           fastpath=True)
+        return _pandas_api.categorical_type.from_codes(
+            obj['indices'], categories=obj['dictionary'], ordered=obj['ordered']
+        )
     else:
         return obj
 
