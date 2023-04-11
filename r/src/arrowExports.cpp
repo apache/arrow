@@ -988,19 +988,17 @@ extern "C" SEXP _arrow_ExecPlanReader__PlanStatus(SEXP reader_sexp){
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ACERO)
-std::shared_ptr<ExecPlanReader> ExecPlan_run(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, cpp11::list sort_options, cpp11::strings metadata, int64_t head);
-extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP metadata_sexp, SEXP head_sexp){
+std::shared_ptr<ExecPlanReader> ExecPlan_run(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, cpp11::strings metadata);
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP metadata_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type final_node(final_node_sexp);
-	arrow::r::Input<cpp11::list>::type sort_options(sort_options_sexp);
 	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
-	arrow::r::Input<int64_t>::type head(head_sexp);
-	return cpp11::as_sexp(ExecPlan_run(plan, final_node, sort_options, metadata, head));
+	return cpp11::as_sexp(ExecPlan_run(plan, final_node, metadata));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP sort_options_sexp, SEXP metadata_sexp, SEXP head_sexp){
+extern "C" SEXP _arrow_ExecPlan_run(SEXP plan_sexp, SEXP final_node_sexp, SEXP metadata_sexp){
 	Rf_error("Cannot call ExecPlan_run(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -1051,6 +1049,14 @@ extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
 }
 #endif
 
+// compute-exec.cpp
+bool ExecNode_has_ordered_batches(const std::shared_ptr<acero::ExecNode>& node);
+extern "C" SEXP _arrow_ExecNode_has_ordered_batches(SEXP node_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type node(node_sexp);
+	return cpp11::as_sexp(ExecNode_has_ordered_batches(node));
+END_CPP11
+}
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<acero::ExecNode> ExecNode_Scan(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, cpp11::list projection);
@@ -1184,6 +1190,39 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ExecNode_Union(SEXP input_sexp, SEXP right_data_sexp){
 	Rf_error("Cannot call ExecNode_Union(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
+std::shared_ptr<acero::ExecNode> ExecNode_Fetch(const std::shared_ptr<acero::ExecNode>& input, int64_t offset, int64_t limit);
+extern "C" SEXP _arrow_ExecNode_Fetch(SEXP input_sexp, SEXP offset_sexp, SEXP limit_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<int64_t>::type offset(offset_sexp);
+	arrow::r::Input<int64_t>::type limit(limit_sexp);
+	return cpp11::as_sexp(ExecNode_Fetch(input, offset, limit));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_Fetch(SEXP input_sexp, SEXP offset_sexp, SEXP limit_sexp){
+	Rf_error("Cannot call ExecNode_Fetch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
+std::shared_ptr<acero::ExecNode> ExecNode_OrderBy(const std::shared_ptr<acero::ExecNode>& input, cpp11::list sort_options);
+extern "C" SEXP _arrow_ExecNode_OrderBy(SEXP input_sexp, SEXP sort_options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type input(input_sexp);
+	arrow::r::Input<cpp11::list>::type sort_options(sort_options_sexp);
+	return cpp11::as_sexp(ExecNode_OrderBy(input, sort_options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExecNode_OrderBy(SEXP input_sexp, SEXP sort_options_sexp){
+	Rf_error("Cannot call ExecNode_OrderBy(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -5555,10 +5594,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__from_ExecPlanReader", (DL_FUNC) &_arrow_Table__from_ExecPlanReader, 1}, 
 		{ "_arrow_ExecPlanReader__Plan", (DL_FUNC) &_arrow_ExecPlanReader__Plan, 1}, 
 		{ "_arrow_ExecPlanReader__PlanStatus", (DL_FUNC) &_arrow_ExecPlanReader__PlanStatus, 1}, 
-		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 5}, 
+		{ "_arrow_ExecPlan_run", (DL_FUNC) &_arrow_ExecPlan_run, 3}, 
 		{ "_arrow_ExecPlan_ToString", (DL_FUNC) &_arrow_ExecPlan_ToString, 1}, 
 		{ "_arrow_ExecPlan_UnsafeDelete", (DL_FUNC) &_arrow_ExecPlan_UnsafeDelete, 1}, 
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
+		{ "_arrow_ExecNode_has_ordered_batches", (DL_FUNC) &_arrow_ExecNode_has_ordered_batches, 1}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
 		{ "_arrow_ExecPlan_Write", (DL_FUNC) &_arrow_ExecPlan_Write, 14}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
@@ -5566,6 +5606,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 3}, 
 		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 9}, 
 		{ "_arrow_ExecNode_Union", (DL_FUNC) &_arrow_ExecNode_Union, 2}, 
+		{ "_arrow_ExecNode_Fetch", (DL_FUNC) &_arrow_ExecNode_Fetch, 3}, 
+		{ "_arrow_ExecNode_OrderBy", (DL_FUNC) &_arrow_ExecNode_OrderBy, 2}, 
 		{ "_arrow_ExecNode_SourceNode", (DL_FUNC) &_arrow_ExecNode_SourceNode, 2}, 
 		{ "_arrow_ExecNode_TableSourceNode", (DL_FUNC) &_arrow_ExecNode_TableSourceNode, 2}, 
 		{ "_arrow_substrait__internal__SubstraitToJSON", (DL_FUNC) &_arrow_substrait__internal__SubstraitToJSON, 1}, 

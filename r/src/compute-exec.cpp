@@ -224,35 +224,13 @@ std::string ExecPlanReader__PlanStatus(const std::shared_ptr<ExecPlanReader>& re
 // [[acero::export]]
 std::shared_ptr<ExecPlanReader> ExecPlan_run(
     const std::shared_ptr<acero::ExecPlan>& plan,
-    const std::shared_ptr<acero::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1) {
+    const std::shared_ptr<acero::ExecNode>& final_node, cpp11::strings metadata) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
-  // Sorting uses a different sink node; there is no general sort yet
-  if (sort_options.size() > 0) {
-    if (head >= 0) {
-      // Use the SelectK node to take only what we need
-      MakeExecNodeOrStop(
-          "select_k_sink", plan.get(), {final_node.get()},
-          acero::SelectKSinkNodeOptions{
-              arrow::compute::SelectKOptions(
-                  head, std::dynamic_pointer_cast<compute::SortOptions>(
-                            make_compute_options("sort_indices", sort_options))
-                            ->sort_keys),
-              &sink_gen});
-    } else {
-      MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
-                         acero::OrderBySinkNodeOptions{
-                             *std::dynamic_pointer_cast<compute::SortOptions>(
-                                 make_compute_options("sort_indices", sort_options)),
-                             &sink_gen});
-    }
-  } else {
-    MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
-                       acero::SinkNodeOptions{&sink_gen});
-  }
+  MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
+                     acero::SinkNodeOptions{&sink_gen});
 
   StopIfNotOk(plan->Validate());
 
@@ -281,6 +259,11 @@ void ExecPlan_UnsafeDelete(const std::shared_ptr<acero::ExecPlan>& plan) {
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
     const std::shared_ptr<acero::ExecNode>& node) {
   return node->output_schema();
+}
+
+// [[arrow::export]]
+bool ExecNode_has_ordered_batches(const std::shared_ptr<acero::ExecNode>& node) {
+  return !node->ordering().is_unordered();
 }
 
 #if defined(ARROW_R_WITH_DATASET)
@@ -458,6 +441,23 @@ std::shared_ptr<acero::ExecNode> ExecNode_Union(
     const std::shared_ptr<acero::ExecNode>& input,
     const std::shared_ptr<acero::ExecNode>& right_data) {
   return MakeExecNodeOrStop("union", input->plan(), {input.get(), right_data.get()}, {});
+}
+
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_Fetch(
+    const std::shared_ptr<acero::ExecNode>& input, int64_t offset, int64_t limit) {
+  return MakeExecNodeOrStop("fetch", input->plan(), {input.get()},
+                            acero::FetchNodeOptions{offset, limit});
+}
+
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_OrderBy(
+    const std::shared_ptr<acero::ExecNode>& input, cpp11::list sort_options) {
+  return MakeExecNodeOrStop(
+      "order_by", input->plan(), {input.get()},
+      acero::OrderByNodeOptions{std::dynamic_pointer_cast<compute::SortOptions>(
+                                    make_compute_options("sort_indices", sort_options))
+                                    ->AsOrdering()});
 }
 
 // [[acero::export]]
