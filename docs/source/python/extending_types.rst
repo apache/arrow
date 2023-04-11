@@ -463,76 +463,10 @@ Convert a list of numpy ndarrays (tensors) to a tensor array:
      ]
    ]
 
-Both optional parameters, ``permutation`` and ``dim_names`` are meant to provide the user
-with the information about the logical layout of the data compared to the physical layout
-and are **not used** when converting fixed shape tensor extension array to numpy ndarray.
-
-If the user needs to use the information of the optional parameters on numpy ndarrays,
-for example to revert the logical view to be equal to the physical view, one could do
-the following:
-
-.. code-block:: python
-
-   >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), (2, 2), permutation=[1,0])
-   >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
-   >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
-   >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
-
-First you convert the tensor array to ndarray (``permutation`` is not used
-in the conversion):
-
-.. code-block:: python
-
-   >>> tensor.to_numpy_ndarray()
-   array([[[  1,   2],
-         [  3,   4]],
-         [[ 10,  20],
-         [ 30,  40]],
-         [[100, 200],
-         [300, 400]]], dtype=int32)
-
-Before using the permutation parameter to transpose the numpy ndarray we received,
-we first need to do some small recalculation.
-
-The dimension of the ndarray is one dimension higher as the first dimension is
-always the array of tensors. For that we need to increment the values of the
-permutation parameter and add the first dimension (dimension of the array of tensors):
-
 .. note::
 
-    The first dimension we are adding should always equal ``0`` due to the design of
-    the storage type of the extension, which is ``FixedSizeList`` and where the first
-    dimension is the array of individual tensors with given shape.
+   Both optional parameters, ``permutation`` and ``dim_names``, are meant to provide the user
+   with the information about the logical layout of the data compared to the physical layout.
 
-.. code-block:: python
-
-   >>> permutation = [x+1 for x in tensor.type.permutation]
-   >>> permutation
-   [2, 1]
-   >>> permutation.insert(0,0)
-   >>> permutation
-   [0, 2, 1]
-   >>> tensor.to_numpy_ndarray().transpose(permutation)
-   array([[[  1,   3],
-         [  2,   4]],
-         [[ 10,  30],
-         [ 20,  40]],
-         [[100, 300],
-         [200, 400]]], dtype=int32)
-
-In case we have a tensor array with ``dim_names`` parameter defined we can use
-permutation to change the logical layout. For example, if we have a tensor array
-with ``dim_names=['C', 'H', 'W']`` which is ``NCHW`` format where:
-
-* N: number of images which is in our case the length of an array
-* H: height of the image
-* W: width of the image
-* C: number of channels of the image
-
-and we want to transpose the numpy ndarray to use ``NHWC``format, we could use
-permutations as we have above. The permutation array would in this case be
-``[0, 2, 3, 1]`` where the first dimension will stay same, the second dimension
-will be the third dimension of the original layout (which is the second element in
-``dim_names``), the third dimension will be the forth dimension of the original
-layout (which is the third element in ``dim_names``) and the last dimension will
-be the second dimension of the original layout (first element of ``dim_names``).
+   The conversion to numpy ndarray is only possible for trivial permutations (``None`` or
+   ``[0, 1, ... N-1]`` where ``N`` is the number of tensor dimensions).
