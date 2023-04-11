@@ -89,7 +89,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
           arrowReader.getVectorSchemaRoot().getSchema().toString());
       int rowcount = 0;
       while (arrowReader.loadNextBatch()) {
-        rowcount = arrowReader.getVectorSchemaRoot().getRowCount();
+        rowcount += arrowReader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(3, rowcount);
     }
@@ -122,7 +122,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
             arrowReader.getVectorSchemaRoot().getSchema().toString());
         int rowcount = 0;
         while (arrowReader.loadNextBatch()) {
-          rowcount = arrowReader.getVectorSchemaRoot().getRowCount();
+          rowcount += arrowReader.getVectorSchemaRoot().getRowCount();
         }
         assertEquals(3, rowcount);
       }
@@ -160,7 +160,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
             arrowReader.getVectorSchemaRoot().getSchema().toString());
         int rowcount = 0;
         while (arrowReader.loadNextBatch()) {
-          rowcount = arrowReader.getVectorSchemaRoot().getRowCount();
+          rowcount += arrowReader.getVectorSchemaRoot().getRowCount();
         }
         assertEquals(3, rowcount);
       }
@@ -207,7 +207,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
             arrowReader.getVectorSchemaRoot().getSchema().toString());
         int rowcount = 0;
         while (arrowReader.loadNextBatch()) {
-          rowcount = arrowReader.getVectorSchemaRoot().getRowCount();
+          rowcount += arrowReader.getVectorSchemaRoot().getRowCount();
         }
         assertEquals(3, rowcount);
       }
