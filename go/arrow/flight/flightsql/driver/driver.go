@@ -19,7 +19,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -33,12 +32,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-)
-
-var (
-	ErrNotSupported          = errors.New("not supported")
-	ErrOutOfRange            = errors.New("index out of range")
-	ErrTransactionInProgress = errors.New("transaction still in progress")
 )
 
 type Rows struct {
