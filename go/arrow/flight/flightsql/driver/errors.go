@@ -21,4 +21,6 @@ var (
 	ErrNotSupported          = errors.New("not supported")
 	ErrOutOfRange            = errors.New("index out of range")
 	ErrTransactionInProgress = errors.New("transaction still in progress")
+	ErrRegistryEntryExists   = errors.New("entry already exists")
+	ErrRegistryNoEntry       = errors.New("entry not registered")
 )
