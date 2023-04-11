@@ -230,7 +230,6 @@ set(ARROW_SRCS
     util/time.cc
     util/tracing.cc
     util/trie.cc
-    util/union_util.cc
     util/unreachable.cc
     util/uri.cc
     util/utf8.cc
