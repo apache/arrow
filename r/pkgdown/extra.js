@@ -118,7 +118,7 @@ $(window).bind("pageshow", function(event) {
         // Load JSON file mapping between docs version and R package version
         $.getJSON("https://arrow.apache.org/docs/r/versions.json", function( data ) {
           // get the current page's version number:
-    		  var displayed_version = $('.version').text();
+    		  var displayed_version = $('.version').innerText;
     		  // Create a dropdown selector and add the appropriate attributes
           const sel = document.createElement("select");
           sel.name = "version-selector";
