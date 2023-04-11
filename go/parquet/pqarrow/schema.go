@@ -1077,10 +1077,8 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 							return
 						}
 						inferred.Field.Type = dd
-					} else {
-						// We'll be here if the extension isn't registered.
-						// This isn't an error. Leave the type as-is and maintain existing metadata
 					}
+					// If ext is nil, the extension isn't registered. In that case the type as-is and maintain existing metadata
 				}
 			}
 

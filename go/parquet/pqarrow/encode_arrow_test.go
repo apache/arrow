@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/bitutil"
 	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/ipc"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/internal/bitutils"
 	"github.com/apache/arrow/go/v12/internal/types"
@@ -1643,6 +1644,92 @@ func (ps *ParquetIOTestSuite) TestArrowExtensionTypeRoundTrip() {
 	defer tbl.Release()
 
 	ps.roundTripTable(mem, tbl, true)
+}
+
+func (ps *ParquetIOTestSuite) TestArrowUnknownExtensionTypeRoundTrip() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	var written, expected arrow.Table
+
+	{
+		// Prepare `written` table with the extension type registered.
+		extType := types.NewUUIDType()
+		bldr := array.NewExtensionBuilder(mem, extType)
+		defer bldr.Release()
+
+		bldr.Builder.(*array.FixedSizeBinaryBuilder).AppendValues(
+			[][]byte{nil, []byte("abcdefghijklmno0"), []byte("abcdefghijklmno1"), []byte("abcdefghijklmno2")},
+			[]bool{false, true, true, true})
+
+		arr := bldr.NewArray()
+		defer arr.Release()
+
+		if arrow.GetExtensionType("uuid") != nil {
+			ps.NoError(arrow.UnregisterExtensionType("uuid"))
+		}
+
+		fld := arrow.Field{Name: "uuid", Type: arr.DataType(), Nullable: true}
+		cnk := arrow.NewChunked(arr.DataType(), []arrow.Array{arr})
+		defer arr.Release() // NewChunked
+		written = array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil), []arrow.Column{*arrow.NewColumn(fld, cnk)}, -1)
+		defer cnk.Release() // NewColumn
+		defer written.Release()
+	}
+
+	{
+		// Prepare `expected` table with the extension type unregistered in the underlying type.
+		bldr := array.NewFixedSizeBinaryBuilder(mem, &arrow.FixedSizeBinaryType{ByteWidth: 16})
+		defer bldr.Release()
+		bldr.AppendValues(
+			[][]byte{nil, []byte("abcdefghijklmno0"), []byte("abcdefghijklmno1"), []byte("abcdefghijklmno2")},
+			[]bool{false, true, true, true})
+
+		arr := bldr.NewArray()
+		defer arr.Release()
+
+		fld := arrow.Field{Name: "uuid", Type: arr.DataType(), Nullable: true}
+		cnk := arrow.NewChunked(arr.DataType(), []arrow.Array{arr})
+		defer arr.Release() // NewChunked
+		expected = array.NewTable(arrow.NewSchema([]arrow.Field{fld}, nil), []arrow.Column{*arrow.NewColumn(fld, cnk)}, -1)
+		defer cnk.Release() // NewColumn
+		defer expected.Release()
+	}
+
+	// sanity check before going deeper
+	ps.Equal(expected.NumCols(), written.NumCols())
+	ps.Equal(expected.NumRows(), written.NumRows())
+
+	// just like roundTripTable() but different written vs. expected tables
+	var buf bytes.Buffer
+	props := pqarrow.NewArrowWriterProperties(pqarrow.WithStoreSchema(), pqarrow.WithAllocator(mem))
+
+	writeProps := parquet.NewWriterProperties(parquet.WithAllocator(mem))
+	ps.Require().NoError(pqarrow.WriteTable(written, &buf, written.NumRows(), writeProps, props))
+
+	reader := ps.createReader(mem, buf.Bytes())
+	defer reader.ParquetReader().Close()
+
+	tbl := ps.readTable(reader)
+	defer tbl.Release()
+
+	ps.Equal(expected.NumCols(), tbl.NumCols())
+	ps.Equal(expected.NumRows(), tbl.NumRows())
+
+	exChunk := expected.Column(0).Data()
+	tblChunk := tbl.Column(0).Data()
+
+	ps.Equal(len(exChunk.Chunks()), len(tblChunk.Chunks()))
+	exc := exChunk.Chunk(0)
+	tbc := tblChunk.Chunk(0)
+	ps.Truef(array.Equal(exc, tbc), "expected: %T %s\ngot: %T %s", exc, exc, tbc, tbc)
+
+	expectedMd := arrow.MetadataFrom(map[string]string{
+		ipc.ExtensionTypeKeyName:     "uuid",
+		ipc.ExtensionMetadataKeyName: "uuid-serialized",
+		"PARQUET:field_id":           "-1",
+	})
+	ps.Truef(expectedMd.Equal(tbl.Column(0).Field().Metadata), "expected: %v\ngot: %v", expectedMd, tbl.Column(0).Field().Metadata)
 }
 
 func TestWriteTableMemoryAllocation(t *testing.T) {
