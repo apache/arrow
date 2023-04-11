@@ -194,12 +194,12 @@ func (r *RunEndEncoded) GetPhysicalLength() int {
 }
 
 func (r *RunEndEncoded) ValueStr(i int) string {
-	value := r.values.(arraymarshal).GetOneForMarshal(i)
+	value := r.values.GetOneForMarshal(i)
 	if byts, ok := value.(json.RawMessage); ok {
 		value = string(byts)
 	}
 	return fmt.Sprintf("{%d -> %v}",
-		r.ends.(arraymarshal).GetOneForMarshal(i),
+		r.ends.GetOneForMarshal(i),
 		value)
 }
 func (r *RunEndEncoded) String() string {

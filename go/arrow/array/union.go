@@ -347,7 +347,7 @@ func (a *SparseUnion) Value(i int) string {
 	fieldList := a.unionType.Fields()
 	field := fieldList[a.ChildID(i)]
 	f := a.Field(a.ChildID(i))
-	return fmt.Sprintf("{%s=%v}", field.Name, f.(arraymarshal).GetOneForMarshal(i))
+	return fmt.Sprintf("{%s=%v}", field.Name, f.GetOneForMarshal(i))
 }
 
 func (a *SparseUnion) ValueStr(i int) string {
