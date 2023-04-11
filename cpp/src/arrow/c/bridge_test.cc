@@ -35,6 +35,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
@@ -3364,6 +3365,16 @@ class TestArrayStreamRoundtrip : public BaseArrayStreamTest {
     ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
     ASSERT_EQ(batch, nullptr);
   }
+
+  void AssertReaderClosed(const std::shared_ptr<RecordBatchReader>& reader) {
+    ASSERT_THAT(reader->Next(),
+                Raises(StatusCode::Invalid, ::testing::HasSubstr("already been closed")));
+  }
+
+  void AssertReaderClose(const std::shared_ptr<RecordBatchReader>& reader) {
+    ASSERT_OK(reader->Close());
+    AssertReaderClosed(reader);
+  }
 };
 
 TEST_F(TestArrayStreamRoundtrip, Simple) {
@@ -3379,6 +3390,20 @@ TEST_F(TestArrayStreamRoundtrip, Simple) {
     AssertReaderNext(reader, *batches[1]);
     AssertReaderEnd(reader);
     AssertReaderEnd(reader);
+    AssertReaderClose(reader);
+  });
+}
+
+TEST_F(TestArrayStreamRoundtrip, CloseEarly) {
+  auto orig_schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(orig_schema, {ArrayFromJSON(int32(), "[1, 2]"),
+                                           ArrayFromJSON(int32(), "[4, 5, null]")});
+
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, orig_schema));
+
+  Roundtrip(std::move(reader), [&](const std::shared_ptr<RecordBatchReader>& reader) {
+    AssertReaderNext(reader, *batches[0]);
+    AssertReaderClose(reader);
   });
 }
 
