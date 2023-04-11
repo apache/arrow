@@ -2573,7 +2573,6 @@ namespace {
 
 std::mutex aws_init_lock;
 Aws::SDKOptions aws_options;
-bool aws_initialized = false;
 
 struct AwsInstance : public ::arrow::internal::Executor::Resource {
   explicit AwsInstance(const S3GlobalOptions& options) {
@@ -2633,7 +2632,6 @@ struct AwsInstance : public ::arrow::internal::Executor::Resource {
 };
 
 std::shared_ptr<AwsInstance> CreateAwsInstance(const S3GlobalOptions& options) {
-  aws_initialized = true;
   auto instance = std::make_shared<AwsInstance>(options);
   // Don't let S3 be shutdown until all Arrow threads are done using it
   arrow::internal::GetCpuThreadPool()->KeepAlive(instance);
@@ -2645,6 +2643,8 @@ std::shared_ptr<AwsInstance>* GetAwsInstance(const S3GlobalOptions& options) {
   static auto instance = CreateAwsInstance(options);
   return &instance;
 }
+
+bool IsAwsInitialized() { return !!GetAwsInstance({}); }
 
 }  // namespace
 
@@ -2660,7 +2660,7 @@ Status EnsureS3Initialized() { return InitializeS3({S3LogLevel::Fatal}); }
 
 Status FinalizeS3() {
   std::lock_guard lock(aws_init_lock);
-  if (aws_initialized) {
+  if (IsAwsInitialized()) {
     GetAwsInstance({})->reset();
   }
   return Status::OK();
@@ -2670,7 +2670,7 @@ Status EnsureS3Finalized() { return FinalizeS3(); }
 
 bool IsS3Initialized() {
   std::lock_guard lock(aws_init_lock);
-  return aws_initialized;
+  return IsAwsInitialized();
 }
 
 // -----------------------------------------------------------------------
