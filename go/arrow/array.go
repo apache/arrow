@@ -106,6 +106,9 @@ type Array interface {
 	// NOTE: IsValid will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
 	IsValid(i int) bool
 
+	// Get single value to be marshalled with `json.Marshal`
+	GetOneForMarshal(i int) interface{}
+
 	Data() ArrayData
 
 	// Len returns the number of elements in the array.

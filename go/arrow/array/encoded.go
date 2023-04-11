@@ -200,12 +200,12 @@ func (r *RunEndEncoded) String() string {
 			buf.WriteByte(',')
 		}
 
-		value := r.values.(arraymarshal).GetOneForMarshal(i)
+		value := r.values.GetOneForMarshal(i)
 		if byts, ok := value.(json.RawMessage); ok {
 			value = string(byts)
 		}
 		fmt.Fprintf(&buf, "{%d -> %v}",
-			r.ends.(arraymarshal).GetOneForMarshal(i),
+			r.ends.GetOneForMarshal(i),
 			value)
 	}
 
@@ -215,7 +215,7 @@ func (r *RunEndEncoded) String() string {
 
 func (r *RunEndEncoded) GetOneForMarshal(i int) interface{} {
 	physIndex := encoded.FindPhysicalIndex(r.data, i+r.data.offset)
-	return r.values.(arraymarshal).GetOneForMarshal(physIndex)
+	return r.values.GetOneForMarshal(physIndex)
 }
 
 func (r *RunEndEncoded) MarshalJSON() ([]byte, error) {

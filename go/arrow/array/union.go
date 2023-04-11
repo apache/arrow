@@ -323,7 +323,7 @@ func (a *SparseUnion) GetOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return []interface{}{typeID, data.(arraymarshal).GetOneForMarshal(i)}
+	return []interface{}{typeID, data.GetOneForMarshal(i)}
 }
 
 func (a *SparseUnion) MarshalJSON() ([]byte, error) {
@@ -355,7 +355,7 @@ func (a *SparseUnion) String() string {
 
 		field := fieldList[a.ChildID(i)]
 		f := a.Field(a.ChildID(i))
-		fmt.Fprintf(&b, "{%s=%v}", field.Name, f.(arraymarshal).GetOneForMarshal(i))
+		fmt.Fprintf(&b, "{%s=%v}", field.Name, f.GetOneForMarshal(i))
 	}
 	b.WriteByte(']')
 	return b.String()
@@ -581,7 +581,7 @@ func (a *DenseUnion) GetOneForMarshal(i int) interface{} {
 		return nil
 	}
 
-	return []interface{}{typeID, data.(arraymarshal).GetOneForMarshal(int(offsets[i]))}
+	return []interface{}{typeID, data.GetOneForMarshal(int(offsets[i]))}
 }
 
 func (a *DenseUnion) MarshalJSON() ([]byte, error) {
@@ -615,7 +615,7 @@ func (a *DenseUnion) String() string {
 
 		field := fieldList[a.ChildID(i)]
 		f := a.Field(a.ChildID(i))
-		fmt.Fprintf(&b, "{%s=%v}", field.Name, f.(arraymarshal).GetOneForMarshal(int(offsets[i])))
+		fmt.Fprintf(&b, "{%s=%v}", field.Name, f.GetOneForMarshal(int(offsets[i])))
 	}
 	b.WriteByte(']')
 	return b.String()

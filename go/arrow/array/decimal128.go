@@ -91,6 +91,7 @@ func (a *Decimal128) GetOneForMarshal(i int) interface{} {
 	return f.Text('g', int(typ.Precision))
 }
 
+// ["1.23", ]
 func (a *Decimal128) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
