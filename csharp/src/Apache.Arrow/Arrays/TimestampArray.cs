@@ -188,7 +188,7 @@ namespace Apache.Arrow
 
             DateTimeOffset? IEnumerator<DateTimeOffset?>.Current => Array.GetTimestamp(Position, Convert);
 
-            object IEnumerator.Current => Array.GetTimestamp(Position);
+            object IEnumerator.Current => Array.GetTimestamp(Position, Convert);
 
             public bool MoveNext()
             {
