@@ -20,7 +20,9 @@
 package driver_test
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -31,6 +33,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/flight"
 	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
 	"github.com/apache/arrow/go/v12/arrow/flight/flightsql/driver"
@@ -651,4 +655,162 @@ func TestSqliteBackend(t *testing.T) {
 	s.stopServer = func(server flight.Server) { server.Shutdown() }
 
 	suite.Run(t, s)
+}
+
+func TestPreparedStatementSchema(t *testing.T) {
+	// Setup the expected test
+	backend := &MockServer{
+		PreparedStatementParameterSchema: arrow.NewSchema([]arrow.Field{{Type: &arrow.StringType{}, Nullable: false}}, nil),
+		DataSchema: arrow.NewSchema([]arrow.Field{
+			{Name: "time", Type: &arrow.Time64Type{Unit: arrow.Nanosecond}, Nullable: true},
+			{Name: "value", Type: &arrow.Int64Type{}, Nullable: false},
+		}, nil),
+		Data: "[]",
+	}
+
+	// Instantiate a mock server
+	server := flight.NewServerWithMiddleware(nil)
+	server.RegisterFlightService(flightsql.NewFlightServer(backend))
+	require.NoError(t, server.Init("localhost:0"))
+	server.SetShutdownOnSignals(os.Interrupt, os.Kill)
+	go server.Serve()
+	defer server.Shutdown()
+
+	// Configure client
+	cfg := driver.DriverConfig{
+		Timeout: 5 * time.Second,
+		Address: server.Addr().String(),
+	}
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Do query
+	stmt, err := db.Prepare("SELECT * FROM foo WHERE name LIKE ?")
+	require.NoError(t, err)
+
+	_, err = stmt.Query()
+	require.ErrorContains(t, err, "expected 1 arguments, got 0")
+
+	// Test for error issues by driver
+	_, err = stmt.Query(23)
+	require.ErrorContains(t, err, "invalid value type int64 for builder *array.StringBuilder")
+
+	rows, err := stmt.Query("master")
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+}
+
+func TestPreparedStatementNoSchema(t *testing.T) {
+	// Setup the expected test
+	backend := &MockServer{
+		DataSchema: arrow.NewSchema([]arrow.Field{
+			{Name: "time", Type: &arrow.Time64Type{Unit: arrow.Nanosecond}, Nullable: true},
+			{Name: "value", Type: &arrow.Int64Type{}, Nullable: false},
+		}, nil),
+		Data:                            "[]",
+		ExpectedPreparedStatementSchema: arrow.NewSchema([]arrow.Field{{Type: &arrow.StringType{}, Nullable: false}}, nil),
+	}
+
+	// Instantiate a mock server
+	server := flight.NewServerWithMiddleware(nil)
+	server.RegisterFlightService(flightsql.NewFlightServer(backend))
+	require.NoError(t, server.Init("localhost:0"))
+	server.SetShutdownOnSignals(os.Interrupt, os.Kill)
+	go server.Serve()
+	defer server.Shutdown()
+
+	// Configure client
+	cfg := driver.DriverConfig{
+		Timeout: 5 * time.Second,
+		Address: server.Addr().String(),
+	}
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Do query
+	stmt, err := db.Prepare("SELECT * FROM foo WHERE name LIKE ?")
+	require.NoError(t, err)
+
+	_, err = stmt.Query()
+	require.NoError(t, err, "expected 1 arguments, got 0")
+
+	// Test for error issued by server due to missing parameter schema
+	_, err = stmt.Query(23)
+	require.ErrorContains(t, err, "parameter schema: unexpected")
+
+	rows, err := stmt.Query("master")
+	require.NoError(t, err)
+	require.NotNil(t, rows)
+}
+
+// Mockup database server
+type MockServer struct {
+	flightsql.BaseServer
+	DataSchema                       *arrow.Schema
+	PreparedStatementParameterSchema *arrow.Schema
+	PreparedStatementError           string
+	Data                             string
+
+	ExpectedPreparedStatementSchema *arrow.Schema
+}
+
+func (s *MockServer) CreatePreparedStatement(ctx context.Context, req flightsql.ActionCreatePreparedStatementRequest) (flightsql.ActionCreatePreparedStatementResult, error) {
+	if s.PreparedStatementError != "" {
+		return flightsql.ActionCreatePreparedStatementResult{}, errors.New(s.PreparedStatementError)
+	}
+	return flightsql.ActionCreatePreparedStatementResult{
+		Handle:          []byte("prepared"),
+		DatasetSchema:   s.DataSchema,
+		ParameterSchema: s.PreparedStatementParameterSchema,
+	}, nil
+}
+
+func (s *MockServer) DoPutPreparedStatementQuery(ctx context.Context, qry flightsql.PreparedStatementQuery, r flight.MessageReader, w flight.MetadataWriter) error {
+	if s.ExpectedPreparedStatementSchema != nil {
+		if !s.ExpectedPreparedStatementSchema.Equal(r.Schema()) {
+			return errors.New("parameter schema: unexpected")
+		}
+		return nil
+	}
+
+	if s.PreparedStatementParameterSchema != nil && !s.PreparedStatementParameterSchema.Equal(r.Schema()) {
+		return fmt.Errorf("parameter schema: %w", arrow.ErrInvalid)
+	}
+
+	return nil
+}
+
+func (s *MockServer) DoGetStatement(ctx context.Context, ticket flightsql.StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error) {
+	record, _, err := array.RecordFromJSON(memory.DefaultAllocator, s.DataSchema, strings.NewReader(s.Data))
+	if err != nil {
+		return nil, nil, err
+	}
+	chunk := make(chan flight.StreamChunk)
+	go func() {
+		defer close(chunk)
+		chunk <- flight.StreamChunk{
+			Data: record,
+			Desc: nil,
+			Err:  nil,
+		}
+	}()
+	return s.DataSchema, chunk, nil
+}
+
+func (s *MockServer) GetFlightInfoPreparedStatement(ctx context.Context, stmt flightsql.PreparedStatementQuery, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	handle := stmt.GetPreparedStatementHandle()
+	ticket, err := flightsql.CreateStatementQueryTicket(handle)
+	if err != nil {
+		return nil, err
+	}
+	return &flight.FlightInfo{
+		FlightDescriptor: desc,
+		Endpoint: []*flight.FlightEndpoint{
+			{Ticket: &flight.Ticket{Ticket: ticket}},
+		},
+		TotalRecords: -1,
+		TotalBytes:   -1,
+	}, nil
 }
