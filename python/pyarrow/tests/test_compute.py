@@ -1656,6 +1656,44 @@ def test_is_null():
     assert result.equals(expected)
 
 
+def test_is_null_union():
+    arr = pa.UnionArray.from_sparse(
+        pa.array([0, 1, 0, 0, 1], type=pa.int8()),
+        [
+            pa.array([0.0, 1.1, None, 3.3, 4.4]),
+            pa.array([True, None, False, True, False]),
+        ]
+    )
+    assert arr.to_pylist() == [0.0, None, None, 3.3, False]
+    result = arr.is_null()
+    expected = pa.array([False, True, True, False, False])
+    assert result.equals(expected)
+
+    arr = pa.UnionArray.from_dense(
+        pa.array([0, 1, 0, 0, 0, 1, 1], type=pa.int8()),
+        pa.array([0, 0, 1, 2, 3, 1, 2], type=pa.int32()),
+        [
+            pa.array([0.0, 1.1, None, 3.3]),
+            pa.array([True, None, False])
+        ]
+    )
+    assert arr.to_pylist() == [0.0, True, 1.1, None, 3.3, None, False]
+    result = arr.is_null()
+    expected = pa.array([False, False, False, True, False, True, False])
+    assert result.equals(expected)
+
+
+@pytest.mark.parametrize("typ", ["int16", "int32", "int64"])
+def test_is_null_run_end_encoded(typ):
+    decoded = pa.array([1, 1, 1, None, 2, 2, None, None, 1])
+    arr = pc.run_end_encode(decoded, run_end_type=typ)
+    result = arr.is_null()
+    expected = pa.array([False, False, False, True, False, False, True, True, False])
+    assert result.equals(expected)
+    result = arr.slice(2, 5).is_null()
+    assert result.equals(expected.slice(2, 5))
+
+
 def test_is_nan():
     arr = pa.array([1, 2, 3, None, np.nan])
     result = arr.is_nan()

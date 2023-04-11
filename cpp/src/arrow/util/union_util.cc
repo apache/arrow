@@ -55,4 +55,33 @@ int64_t LogicalDenseUnionNullCount(const ArraySpan& span) {
   return null_count;
 }
 
+void SetLogicalSparseUnionNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset) {
+  const auto* sparse_union_type =
+      internal::checked_cast<const SparseUnionType*>(span.type);
+  DCHECK_LE(span.child_data.size(), 128);
+
+  const int8_t* types = span.GetValues<int8_t>(1);  // NOLINT
+  for (int64_t i = 0; i < span.length; i++) {
+    const int8_t child_id = sparse_union_type->child_ids()[types[span.offset + i]];
+    if (span.child_data[child_id].IsNull(i)) {
+      bit_util::SetBit(out_bitmap, i + out_offset);
+    }
+  }
+}
+
+void SetLogicalDenseUnionNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_offset) {
+  const auto* dense_union_type = internal::checked_cast<const DenseUnionType*>(span.type);
+  DCHECK_LE(span.child_data.size(), 128);
+
+  const int8_t* types = span.GetValues<int8_t>(1);      // NOLINT
+  const int32_t* offsets = span.GetValues<int32_t>(2);  // NOLINT
+  for (int64_t i = 0; i < span.length; i++) {
+    const int8_t child_id = dense_union_type->child_ids()[types[span.offset + i]];
+    const int32_t offset = offsets[span.offset + i];
+    if (span.child_data[child_id].IsNull(offset)) {
+      bit_util::SetBit(out_bitmap, i + out_offset);
+    }
+  }
+}
+
 }  // namespace arrow::union_util
