@@ -281,11 +281,15 @@ std::unordered_map<std::string, std::shared_ptr<arrow::Table>> LoadNamedTables(J
     auto j_string_key = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, pos));
     pos++;
     auto j_string_value = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, pos));
-    long memory_address = 0;
+    uintptr_t memory_address = 0;
     try {
       memory_address = std::stol(JStringToCString(env, j_string_value));
+    } catch(const std::runtime_error& re) {
+      JniThrow("Failed to parse memory address from string value. Runtime error: " + std::string(re.what()));
+    } catch(const std::exception& ex) {
+      JniThrow("Failed to parse memory address from string value. Error: " + std::string(ex.what()));
     } catch (...) {
-      JniThrow("Failed to parse memory address from string value");
+      JniThrow("Failed to parse memory address from string value.");
     }
     auto* arrow_stream_in = reinterpret_cast<ArrowArrayStream*>(memory_address);
     std::shared_ptr<arrow::RecordBatchReader> readerIn = JniGetOrThrow(arrow::ImportRecordBatchReader(arrow_stream_in));

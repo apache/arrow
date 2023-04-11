@@ -41,11 +41,9 @@ public final class AceroSubstraitConsumer {
   }
 
   /**
-   * Read plain-text Substrait plan, execute and return an ArrowReader to read Schema and ArrowRecordBatches.
-   * Needed to define a mapping name of Tables and theirs ArrowReader representation.
+   * Run Substrait plan.
    *
    * @param plan The JSON Substrait plan.
-
    * @return the ArrowReader to iterate for record batches.
    */
   public ArrowReader runQuery(String plan) throws Exception {
@@ -53,8 +51,7 @@ public final class AceroSubstraitConsumer {
   }
 
   /**
-   * Read plain-text Substrait plan, execute and return an ArrowReader to read Schema and ArrowRecordBatches.
-   * Needed to define a mapping name of Tables and theirs ArrowReader representation.
+   * Run Substrait plan.
    *
    * @param plan The JSON Substrait plan.
    * @param namedTables A mapping of named tables referenced by the plan to an ArrowReader providing the data
@@ -69,8 +66,7 @@ public final class AceroSubstraitConsumer {
   }
 
   /**
-   * Read binary Substrait plan, execute and return an ArrowReader to read Schema and ArrowRecordBatches.
-   * Needed to define a mapping name of Tables and theirs ArrowReader representation.
+   * Run Substrait plan.
    *
    * @param plan                  the binary Substrait plan.
    * @return the ArrowReader to iterate for record batches.

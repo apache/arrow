@@ -28,7 +28,7 @@ Executing Substrait Plans
 Plans can reference data in files via URIs, or "named tables" that must be provided along with the plan.
 
 Here is an example of a Java program that queries a Parquet file using Java Substrait
-(this example use `Java Substrait`_ project to compile a SQL query to a Substrait plan):
+(this example use `Substrait Java`_ project to compile a SQL query to a Substrait plan):
 
 .. code-block:: Java
 
@@ -103,5 +103,5 @@ Here is an example of a Java program that queries a Parquet file using Java Subs
     1	ARGENTINA	1	al foxes promise slyly according to the regular accounts. bold requests alon
 
 .. _`Substrait`: https://substrait.io/
-.. _`Java Substrait`: https://github.com/substrait-io/substrait-java
+.. _`Substrait Java`: https://github.com/substrait-io/substrait-java
 .. _`Acero`: https://arrow.apache.org/docs/cpp/streaming_execution.html
