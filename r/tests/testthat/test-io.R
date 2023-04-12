@@ -244,4 +244,3 @@ test_that("reencoding input stream errors for invalid characters", {
 
   unlink(temp_utf8)
 })
-

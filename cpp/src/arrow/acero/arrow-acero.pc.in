@@ -22,6 +22,6 @@ libdir=@ARROW_PKG_CONFIG_LIBDIR@
 Name: Apache Arrow Acero Engine
 Description: Apache Arrow's Acero Engine.
 Version: @ARROW_VERSION@
-Requires: @ARROW_ACERO_PKG_CONFIG_REQUIRES@
+Requires: arrow
 Libs: -L${libdir} -larrow_acero
 Cflags.private: -DARROW_ACERO_STATIC

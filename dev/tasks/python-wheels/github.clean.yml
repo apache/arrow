@@ -32,4 +32,4 @@ jobs:
         shell: bash
         run: |
           gem install --user-install gemfury
-          ruby ./ci/scripts/gemfury_clean.rb
+          ruby arrow/ci/scripts/gemfury_clean.rb

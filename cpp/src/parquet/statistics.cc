@@ -610,6 +610,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (HasNullCount()) {
       s.set_null_count(this->null_count());
     }
+    // num_values_ is reliable and it means number of non-null values.
+    s.all_null_value = num_values_ == 0;
     return s;
   }
 
@@ -625,7 +627,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   T min_;
   T max_;
   ::arrow::MemoryPool* pool_;
-  int64_t num_values_ = 0;
+  int64_t num_values_ = 0;  // # of non-null values.
   EncodedStatistics statistics_;
   std::shared_ptr<TypedComparator<DType>> comparator_;
   std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;

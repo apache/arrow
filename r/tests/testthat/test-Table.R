@@ -711,3 +711,22 @@ test_that("as_arrow_table() errors on data.frame with NULL names", {
   names(df) <- NULL
   expect_error(as_arrow_table(df), "Input data frame columns must be named")
 })
+
+test_that("we only preserve metadata of input to arrow_table when passed a single data.frame", {
+  # data.frame in, data.frame out
+  df <- data.frame(x = 1)
+  out1 <- as.data.frame(arrow_table(df))
+  expect_s3_class(out1, "data.frame", exact = TRUE)
+
+  # tibble in, tibble out
+  tib <- tibble::tibble(x = 1)
+  out2 <- as.data.frame(arrow_table(tib))
+  expect_s3_class(out2, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
+
+  # GH-35038 - passing in multiple arguments doesn't affect return type
+  out3 <- as.data.frame(arrow_table(df, name = "1"))
+  out4 <- as.data.frame(arrow_table(name = "1", df))
+
+  expect_s3_class(out3, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
+  expect_s3_class(out4, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
+})

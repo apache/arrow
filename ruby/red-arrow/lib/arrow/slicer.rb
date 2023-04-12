@@ -162,6 +162,40 @@ module Arrow
       def reject(&block)
         RejectCondition.new(@column, block)
       end
+
+      def end_with?(substring, ignore_case: false)
+        MatchSubstringFamilyCondition.new("ends_with",
+                                          @column, substring, ignore_case)
+      end
+
+      def match_like?(pattern, ignore_case: false)
+        MatchSubstringFamilyCondition.new("match_like",
+                                          @column, pattern, ignore_case)
+      end
+
+      def match_substring?(pattern, ignore_case: nil)
+        case pattern
+        when String
+          ignore_case = false if ignore_case.nil?
+          MatchSubstringFamilyCondition.new("match_substring",
+                                            @column, pattern, ignore_case)
+        when Regexp
+          ignore_case = pattern.casefold? if ignore_case.nil?
+          MatchSubstringFamilyCondition.new("match_substring_regex",
+                                            @column,
+                                            pattern.source,
+                                            ignore_case)
+        else
+          message =
+             "pattern must be either String or Regexp: #{pattern.inspect}"
+          raise ArgumentError, message
+        end 
+      end
+
+      def start_with?(substring, ignore_case: false)
+        MatchSubstringFamilyCondition.new("starts_with",
+                                          @column, substring, ignore_case)
+      end
     end
 
     class NotColumnCondition < Condition
@@ -349,6 +383,33 @@ module Arrow
           end
         end
         BooleanArray.new(raw_array)
+      end
+    end
+
+    class MatchSubstringFamilyCondition < Condition
+      def initialize(function, column, pattern, ignore_case, invert: false)
+        @function = function
+        @column = column
+        @options = MatchSubstringOptions.new
+        @options.pattern = pattern
+        @options.ignore_case = ignore_case
+        @invert = invert
+      end
+
+      def !@
+        MatchSubstringFamilyCondition.new(@function,
+                                          @column,
+                                          @options.pattern,
+                                          @options.ignore_case?,
+                                          invert: !@invert)
+      end
+
+      def evaluate
+        datum = Function.find(@function).execute([@column.data], @options)
+        if @invert
+          datum = Function.find("invert").execute([datum])
+        end
+        datum.value
       end
     end
   end
