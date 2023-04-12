@@ -113,7 +113,6 @@ namespace Apache.Arrow
         {
             var type = (TimestampType) Data.DataType;
 
-            // TODO: parse timezone from DataType, default is UTC
             switch (type.Unit)
             {
                 case TimeUnit.Nanosecond:
@@ -152,7 +151,7 @@ namespace Apache.Arrow
         public new IEnumerator<DateTimeOffset?> GetEnumerator()
         {
             var type = (TimestampType)Data.DataType;
-            // TODO: parse timezone from DataType, default is UTC
+            // DateTimeOffset yielded in UTC
 
             switch (type.Unit)
             {
