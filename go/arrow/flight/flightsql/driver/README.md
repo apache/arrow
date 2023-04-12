@@ -33,9 +33,9 @@ connection pooling, transactions combined with ease of use (see (#usage)).
 
 ---------------------------------------
 
-## Prerequisits
+## Prerequisites
 
-* Go 1.19+
+* Go 1.17+
 * Installation via `go get -u github.com/apache/arrow/go/v12/arrow/flight/flightsql`
 * Backend speaking FlightSQL
 
@@ -111,6 +111,23 @@ to limit the maximum time an operation can take. This prevents calls that wait
 forever, e.g. if the backend is down or a query is taking very long. When
 not set, the driver will use an _infinite_ timeout.
 
+#### `tls`
+
+The `tls` parameter allows to enable and customize Transport-Layer-Security
+settings. There are some special values for the parameters:
+
+* `disabled` or `false` will disable TLS for this server connection. In this
+  case all other settings are ignored.
+* `enabled` or `true` will force TLS for this server connection. In this case
+  the system settings for trusted CAs etc will be used.
+* `skip-verify` will enable TLS for this server connection but will not verify
+  the server certificate. **This is a security risk and should not be used!**
+
+Any other value will be interpreted as the name of a custom configuration. Those
+configurations must be registered either by
+[creating the DSN from configuration](#driver-config-usage) or by calling
+`RegisterTLSConfig()` (see [TLS setup](#tls-setup) for details).
+
 ## Driver config usage
 
 Alternatively to specifying the DSN directly you can fill the `DriverConfig`
@@ -148,4 +165,62 @@ func main() {
 
 ## TLS setup
 
-Currently TLS is not yet supported and will be added later.
+By specifying the [`tls` parameter](#tls) you can enable
+Transport-Layer-Security. Using `tls=enabled` the system settings are used for
+verifying the server's certificate. Custom TLS configurations, e.g. when using
+self-signed certificates, are referenced by a user-selected name. The underlying
+TLS configuration needs to be registered (using the same name) in two ways.
+
+### TLS setup using `DriverConfig`
+
+The first way is to create a `DriverConfig` with the `TLSConfig` field set to
+the custom config and `TLSConfigName` set to the chosen name. For example
+
+```golang
+    ...
+
+    config := flightsql.DriverConfig{
+        Address: "localhost:12345",
+        TLSEnabled:    true,
+        TLSConfigName: "myconfig",
+        TLSConfig: &tls.Config{
+            MinVersion: tls.VersionTLS12,
+        },
+    }
+    dsn := config.DSN()
+
+    ...
+```
+
+will enable TLS forcing the minimum TLS version to 1.2. This custom config will
+be registered with the name `myconfig` and the resulting DSN reads
+
+```text
+flightsql://localhost:12345?tls=myconfig`
+```
+
+If the `TLSConfigName` is omitted a random unique name (UUID) is generated and
+referenced in the DSN. This prevents errors from using an already registered
+name leading to errors.
+
+### TLS setup using manual registration
+
+The second alternative is the manual registration of the custom TLS
+configuration. In this case you need to call `RegisterTLSConfig()` in your code
+
+```golang
+    myconfig := &tls.Config{MinVersion: tls.VersionTLS12}
+    if err := flightsql.RegisterTLSConfig("myconfig", myconfig); err != nil {
+        ...
+    }
+    dsn := "flightsql://localhost:12345?tls=myconfig"
+
+    ...
+```
+
+This will register the custom configuration, constraining the minimim TLS
+version, as `myconfig` and then references the registered configuration by
+name in the DSN. You can reuse the same TLS configuration by registering once
+and then reference in multiple DSNs. Registering multiple configurations with
+the same name will throw an error to prevent unintended side-effects due to the
+driver-global registry.

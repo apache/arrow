@@ -19,8 +19,52 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/url"
+	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
+
+// TLS configuration registry
+var (
+	tlsConfigRegistry = map[string]*tls.Config{
+		"skip-verify": {InsecureSkipVerify: true},
+	}
+	tlsRegistryMutex sync.Mutex
+)
+
+func RegisterTLSConfig(name string, cfg *tls.Config) error {
+	tlsRegistryMutex.Lock()
+	defer tlsRegistryMutex.Unlock()
+
+	// Prevent name collisions
+	if _, found := tlsConfigRegistry[name]; found {
+		return ErrRegistryEntryExists
+	}
+	tlsConfigRegistry[name] = cfg
+
+	return nil
+}
+
+func UnregisterTLSConfig(name string) error {
+	tlsRegistryMutex.Lock()
+	defer tlsRegistryMutex.Unlock()
+
+	if _, found := tlsConfigRegistry[name]; !found {
+		return ErrRegistryNoEntry
+	}
+
+	delete(tlsConfigRegistry, name)
+	return nil
+}
+
+func GetTLSConfig(name string) (*tls.Config, bool) {
+	tlsRegistryMutex.Lock()
+	defer tlsRegistryMutex.Unlock()
+
+	cfg, found := tlsConfigRegistry[name]
+	return cfg, found
+}
 
 type DriverConfig struct {
 	Address  string
@@ -30,14 +74,15 @@ type DriverConfig struct {
 	Timeout  time.Duration
 	Params   map[string]string
 
-	TLSEnabled bool
-	TLSConfig  *tls.Config
+	TLSEnabled    bool
+	TLSConfigName string
+	TLSConfig     *tls.Config
 }
 
 func NewDriverConfigFromDSN(dsn string) (*DriverConfig, error) {
 	u, err := url.Parse(dsn)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid URL: %w", err)
 	}
 
 	// Sanity checks on the given connection string
@@ -83,6 +128,21 @@ func NewDriverConfigFromDSN(dsn string) (*DriverConfig, error) {
 			if err != nil {
 				return nil, err
 			}
+		case "tls":
+			switch v {
+			case "true", "enabled":
+				config.TLSEnabled = true
+			case "false", "disabled":
+				config.TLSEnabled = false
+			default:
+				config.TLSEnabled = true
+				config.TLSConfigName = v
+				cfg, found := GetTLSConfig(config.TLSConfigName)
+				if !found {
+					return nil, fmt.Errorf("%q TLS %w", config.TLSConfigName, ErrRegistryNoEntry)
+				}
+				config.TLSConfig = cfg
+			}
 		default:
 			config.Params[key] = v
 		}
@@ -111,6 +171,30 @@ func (config *DriverConfig) DSN() string {
 	}
 	if config.Timeout > 0 {
 		values.Add("timeout", config.Timeout.String())
+	}
+	if config.TLSEnabled {
+		switch config.TLSConfigName {
+		case "skip-verify":
+			values.Add("tls", "skip-verify")
+		case "":
+			// Use system defaults if no config is given
+			if config.TLSConfig == nil {
+				values.Add("tls", "enabled")
+				break
+			}
+			// We got a custom TLS configuration but no name, create a unique one
+			config.TLSConfigName = uuid.NewString()
+			fallthrough
+		default:
+			values.Add("tls", config.TLSConfigName)
+			if config.TLSConfig != nil {
+				// Ignore the returned error as we do not care if the config
+				// was registered before. If this fails and the config is not
+				// yet registered, the driver will error out when parsing the
+				// DSN.
+				_ = RegisterTLSConfig(config.TLSConfigName, config.TLSConfig)
+			}
+		}
 	}
 	for k, v := range config.Params {
 		values.Add(k, v)
