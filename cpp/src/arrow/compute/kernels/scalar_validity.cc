@@ -120,18 +120,18 @@ template <typename RunEndCType>
 void SetREELogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap,
                            int64_t out_offset) {
   const auto& values = arrow::ree_util::ValuesArray(span);
-  const auto& values_bitmap = values.buffers[0].data;
+  const auto* values_bitmap = values.MayHaveNulls() ? values.buffers[0].data : NULLPTR;
+
+  if (!values_bitmap) {
+    return;
+  }
 
   arrow::ree_util::RunEndEncodedArraySpan<RunEndCType> ree_span(span);
   auto end = ree_span.end();
   for (auto it = ree_span.begin(); it != end; ++it) {
-    const bool is_null =
-        values_bitmap &&
-        !bit_util::GetBit(values_bitmap, values.offset + it.index_into_array());
-    if (is_null) {
-      for (int64_t i = 0; i < it.run_length(); i++) {
-        bit_util::SetBit(out_bitmap, it.logical_position() + i + out_offset);
-      }
+    if (!bit_util::GetBit(values_bitmap, values.offset + it.index_into_array())) {
+      bit_util::SetBitsTo(out_bitmap, it.logical_position() + out_offset, it.run_length(),
+                          true);
     }
   }
 }
