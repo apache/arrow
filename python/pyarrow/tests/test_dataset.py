@@ -3235,6 +3235,11 @@ def test_json_format_options(tempdir, dataset_reader):
     out = table.to_pandas().to_json(orient='records')[1:-1].replace('},{', '}\n{')
     with open(path, 'w') as f:
         f.write(out)
+    
+    with pytest.raises(ValueError,
+                    match="try to increase block size"):
+        dataset = ds.dataset(path, format=ds.JsonFileFormat(
+            read_options=pa.json.ReadOptions(block_size=4)))
 
     dataset = ds.dataset(path, format=ds.JsonFileFormat(
         read_options=pa.json.ReadOptions(block_size=64)))
@@ -3250,6 +3255,12 @@ def test_json_fragment_options(tempdir, dataset_reader):
     out = table.to_pandas().to_json(orient='records')[1:-1].replace('},{', '}\n{')
     with open(path, 'w') as f:
         f.write(out)
+
+    with pytest.raises(ValueError,
+                match="try to increase block size"):
+        options = ds.JsonFragmentScanOptions(
+            read_options=pa.json.ReadOptions(block_size=4))
+        dataset = ds.dataset(path, format=ds.JsonFileFormat(options))
 
     options = ds.JsonFragmentScanOptions(
         read_options=pa.json.ReadOptions(block_size=64))
