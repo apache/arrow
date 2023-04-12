@@ -30,7 +30,7 @@ namespace Apache.Arrow.Types
 
         public TimeUnit Unit { get; }
         public string Timezone { get; }
-        public TimeZoneInfo TimeZoneInfo => ParseTimeZone(Timezone);
+        public TimeZoneInfo TimeZoneInfo => ParseTimeZone(Timezone) ?? TimeZoneInfo.Utc;
 
         public bool IsTimeZoneAware => !string.IsNullOrWhiteSpace(Timezone);
 
@@ -72,10 +72,8 @@ namespace Apache.Arrow.Types
                         int hours = int.Parse(offsetParts[0].Substring(1));
                         int minutes = int.Parse(offsetParts[1]);
 
-                        TimeSpan baseOffset;
-
-                        if (sign == '+') baseOffset = new TimeSpan(hours, minutes, 0);
-                        else baseOffset = TimeSpan.FromMinutes(-1 * (hours * 60 + minutes));
+                        TimeSpan baseOffset = sign == '+' ?
+                            new TimeSpan(hours, minutes, 0) : TimeSpan.FromMinutes(-1 * (hours * 60 + minutes));
 
                         return TimeZoneInfo.CreateCustomTimeZone(tz, baseOffset, tz, tz);
 #else
