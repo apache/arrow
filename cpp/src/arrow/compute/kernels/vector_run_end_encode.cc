@@ -698,7 +698,7 @@ class RunEndDecodingLoop {
     const ree_util::RunEndEncodedArraySpan<RunEndCType> ree_array_span(input_array_);
     int64_t write_offset = 0;
     int64_t output_valid_count = 0;
-    for (auto it = ree_array_span.begin(); it != ree_array_span.end(); ++it) {
+    for (auto it = ree_array_span.begin(); !it.is_end(ree_array_span); ++it) {
       const int64_t read_offset = values_offset_ + it.index_into_array();
       const int64_t run_length = it.run_length();
       ValueRepr value;
