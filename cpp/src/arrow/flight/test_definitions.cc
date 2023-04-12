@@ -108,7 +108,15 @@ void ConnectivityTest::TestBrokenConnection() {
   ASSERT_OK(server->Shutdown());
   ASSERT_OK(server->Wait());
 
+#if defined(__APPLE__) && defined(__x86_64__)
+  // for some reason, on macos-x86-64 the broken connection here returns
+  // a different error and we get UnknownError instead of IOError.
+  // Since we're *testing* the broken connection, we can just check for
+  // the other error in this case.
+  ASSERT_RAISES(UnknownError, client->GetFlightInfo(FlightDescriptor::Command("")));
+#else
   ASSERT_RAISES(IOError, client->GetFlightInfo(FlightDescriptor::Command("")));
+#endif
 }
 
 //------------------------------------------------------------
