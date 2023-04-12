@@ -554,8 +554,9 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory___3Lj
   std::vector<std::string> uri_vec = ToStringVector(env, uris);
 
   // If not all URIs, throw exception
-  if (!std::all_of(uri_vec.begin(), uri_vec.end(), arrow::fs::internal::IsLikelyUri)) {
-    JniThrow("All sources must be valid URIs.");
+  if (auto elem = std::find_if_not(uri_vec.begin(), uri_vec.end(), arrow::fs::internal::IsLikelyUri);
+      elem != uri_vec.end()) {
+    JniThrow("Unrecognized file type in URI: " + *elem);
   }
 
   std::vector<FsPathPair> filesystems;
