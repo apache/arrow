@@ -173,32 +173,20 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private class Enumerator : IEnumerator<DateTimeOffset?>
+        private new class Enumerator : Array.Enumerator, IEnumerator<DateTimeOffset?>
         {
-            private int Position;
             private TimestampArray Array;
             private Func<long, DateTimeOffset> Convert;
 
-            public Enumerator(TimestampArray array, Func<long, DateTimeOffset> convert)
+            public Enumerator(TimestampArray array, Func<long, DateTimeOffset> convert) : base(array.Length)
             {
                 Array = array;
                 Convert = convert;
-                Position = -1;
             }
 
             DateTimeOffset? IEnumerator<DateTimeOffset?>.Current => Array.GetTimestamp(Position, Convert);
 
             object IEnumerator.Current => Array.GetTimestamp(Position, Convert);
-
-            public bool MoveNext()
-            {
-                Position++;
-                return (Position < Array.Length);
-            }
-
-            public void Reset() => Position = -1;
-
-            public void Dispose() { }
         }
     }
 }

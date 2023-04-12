@@ -107,30 +107,18 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private class Enumerator : IEnumerator<decimal?>
+        private new class Enumerator : Array.Enumerator, IEnumerator<decimal?>
         {
-            private int Position;
             private Decimal128Array Array;
 
-            public Enumerator(Decimal128Array array)
+            public Enumerator(Decimal128Array array) : base(array.Length)
             {
                 Array = array;
-                Position = -1;
             }
 
             decimal? IEnumerator<decimal?>.Current => Array.GetValue(Position);
 
             object IEnumerator.Current => Array.GetValue(Position);
-
-            public bool MoveNext()
-            {
-                Position++;
-                return (Position < Array.Length);
-            }
-
-            public void Reset() => Position = -1;
-
-            public void Dispose() { }
         }
     }
 }

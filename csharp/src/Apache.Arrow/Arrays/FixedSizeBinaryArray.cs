@@ -87,15 +87,13 @@ namespace Apache.Arrow.Arrays
             return GetEnumerator();
         }
 
-        private class Enumerator : IEnumerator<byte[]>
+        private new class Enumerator : Array.Enumerator, IEnumerator<byte[]>
         {
-            private int Position;
             private FixedSizeBinaryArray Array;
 
-            public Enumerator(FixedSizeBinaryArray array)
+            public Enumerator(FixedSizeBinaryArray array) : base(array.Length)
             {
                 Array = array;
-                Position = -1;
             }
 
             byte[] IEnumerator<byte[]>.Current => Array.IsNull(Position) ?
@@ -103,16 +101,6 @@ namespace Apache.Arrow.Arrays
 
             object IEnumerator.Current => Array.IsNull(Position) ?
                 null : Array.GetBytesUnchecked(Position).ToArray();
-
-            public bool MoveNext()
-            {
-                Position++;
-                return (Position < Array.Length);
-            }
-
-            public void Reset() => Position = -1;
-
-            public void Dispose() { }
         }
 
         public abstract class BuilderBase<TArray, TBuilder> : IArrowArrayBuilder<byte[], TArray, TBuilder>

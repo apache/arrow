@@ -104,30 +104,19 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private class Enumerator : IEnumerator<string>
+        private new class Enumerator : Array.Enumerator, IEnumerator<string>
         {
-            private int Position;
             private StringArray Array;
 
-            public Enumerator(StringArray array)
+            public Enumerator(StringArray array) :
+                base(array.Length)
             {
                 Array = array;
-                Position = -1;
             }
 
             string IEnumerator<string>.Current => Array.GetString(Position);
 
             object IEnumerator.Current => Array.GetString(Position);
-
-            public bool MoveNext()
-            {
-                Position++;
-                return (Position < Array.Length);
-            }
-
-            public void Reset() => Position = -1;
-
-            public void Dispose() { }
         }
     }
 }

@@ -145,32 +145,20 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private class Enumerator : IEnumerator<TimeSpan?>
+        private new class Enumerator : Array.Enumerator, IEnumerator<TimeSpan?>
         {
-            private int Position;
             private Time64Array Array;
             private Func<long?, TimeSpan?> Convert;
 
-            public Enumerator(Time64Array array, Func<long?, TimeSpan?> convert)
+            public Enumerator(Time64Array array, Func<long?, TimeSpan?> convert) : base(array.Length)
             {
                 Array = array;
                 Convert = convert;
-                Position = -1;
             }
 
             TimeSpan? IEnumerator<TimeSpan?>.Current => Convert(Array.GetValue(Position));
 
             object IEnumerator.Current => Convert(Array.GetValue(Position));
-
-            public bool MoveNext()
-            {
-                Position++;
-                return (Position < Array.Length);
-            }
-
-            public void Reset() => Position = -1;
-
-            public void Dispose() { }
         }
     }
 }

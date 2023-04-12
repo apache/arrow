@@ -14,6 +14,8 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace Apache.Arrow
@@ -86,6 +88,28 @@ namespace Apache.Arrow
             {
                 Data.Dispose();
             }
+        }
+
+        public abstract class Enumerator
+        {
+            public int Position;
+            public int Length;
+
+            public Enumerator(int length)
+            {
+                Length = length;
+                Position = -1;
+            }
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
         }
     }
 }

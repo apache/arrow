@@ -371,15 +371,13 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private class Enumerator: IEnumerator<byte[]>
+        private new class Enumerator: Array.Enumerator, IEnumerator<byte[]>
         {
-            private int Position;
             private BinaryArray Array;
 
-            public Enumerator(BinaryArray array)
+            public Enumerator(BinaryArray array) : base(array.Length)
             {
                 Array = array;
-                Position = -1;
             }
 
             byte[] IEnumerator<byte[]>.Current => Array.IsNull(Position) ?
@@ -387,16 +385,6 @@ namespace Apache.Arrow
 
             object IEnumerator.Current => Array.IsNull(Position) ?
                 null : Array.GetBytesUnchecked(Position).ToArray();
-
-            public bool MoveNext()
-            {
-                Position++;
-                return (Position < Array.Length);
-            }
-
-            public void Reset() => Position = -1;
-
-            public void Dispose() { }
         }
     }
 }

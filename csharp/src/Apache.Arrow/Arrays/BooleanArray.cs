@@ -203,30 +203,18 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private class Enumerator : IEnumerator<bool?>
+        private new class Enumerator : Array.Enumerator, IEnumerator<bool?>
         {
-            private int Position;
             private BooleanArray Array;
 
-            public Enumerator(BooleanArray array)
+            public Enumerator(BooleanArray array) : base(array.Length)
             {
                 Array = array;
-                Position = -1;
             }
 
             bool? IEnumerator<bool?>.Current => Array.GetValue(Position);
 
             object IEnumerator.Current => Array.GetValue(Position);
-
-            public bool MoveNext()
-            {
-                Position++;
-                return (Position < Array.Length);
-            }
-
-            public void Reset() => Position = -1;
-
-            public void Dispose() { }
         }
     }
 }
