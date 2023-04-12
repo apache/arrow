@@ -3534,8 +3534,7 @@ func (b *DurationBuilder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	return fmt.Errorf("AppendValueFromString not implemented for Duration")
-	return nil
+	return fmt.Errorf("%w: AppendValueFromString not implemented for Duration", arrow.ErrNotImplemented)
 }
 
 func (b *DurationBuilder) UnmarshalOne(dec *json.Decoder) error {

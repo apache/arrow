@@ -234,7 +234,7 @@ func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
     }
     b.Append({{.name}}(v))
   {{else if or (eq .Name "Uint8") (eq .Name "Uint16") (eq .Name "Uint32") (eq .Name "Uint64") -}}
-    v, err := strconv.ParseInt(s, 10, {{.Size}})
+    v, err := strconv.ParseUint(s, 10, {{.Size}})
     if err != nil {
         b.AppendNull()
         return err
