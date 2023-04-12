@@ -33,7 +33,7 @@ connection pooling, transactions combined with ease of use (see (#usage)).
 
 ---------------------------------------
 
-## Prerequisits
+## Prerequisites
 
 * Go 1.17+
 * Installation via `go get -u github.com/apache/arrow/go/v12/arrow/flight/flightsql`
