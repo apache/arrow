@@ -22,11 +22,15 @@ from .test_extension_type import IntegerType
 
 try:
     import pyarrow.dataset as ds
+except ImportError:
+    pass
+
+try:
     from pyarrow.acero import _perform_join, _filter_table
 except ImportError:
     pass
 
-pytestmark = pytest.mark.dataset
+pytestmark = pytest.mark.acero
 
 
 def test_joins_corner_cases():
@@ -89,7 +93,8 @@ def test_joins_corner_cases():
     })
 ])
 @pytest.mark.parametrize("use_threads", [True, False])
-@pytest.mark.parametrize("use_datasets", [False, True])
+@pytest.mark.parametrize("use_datasets",
+                         [False, pytest.param(True, marks=pytest.mark.dataset)])
 def test_joins(jointype, expected, use_threads, use_datasets):
     # Allocate table here instead of using parametrize
     # this prevents having arrow allocated memory forever around.
