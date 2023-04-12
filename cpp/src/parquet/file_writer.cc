@@ -382,7 +382,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
     if (key_value_metadata_ == nullptr) {
       key_value_metadata_ = std::move(key_value_metadata);
     } else if (key_value_metadata != nullptr) {
-      ARROW_DCHECK(key_value_metadata != nullptr);
       key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
     }
   }
