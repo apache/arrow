@@ -112,18 +112,18 @@ namespace Apache.Arrow
         public DateTimeOffset GetTimestampUnchecked(int index)
         {
             var type = (TimestampType) Data.DataType;
-            long ticks = Values[index];
 
+            // TODO: parse timezone from DataType, default is UTC
             switch (type.Unit)
             {
                 case TimeUnit.Nanosecond:
-                    return EpochNanosecondsToDateTimeOffset(ticks);
+                    return GetTimestampUnchecked(index, EpochNanosecondsToDateTimeOffset);
                 case TimeUnit.Microsecond:
-                    return EpochMicrosecondsToDateTimeOffset(ticks);
+                    return GetTimestampUnchecked(index, EpochMicrosecondsToDateTimeOffset);
                 case TimeUnit.Millisecond:
-                    return EpochMillisecondsToDateTimeOffset(ticks);
+                    return GetTimestampUnchecked(index, EpochMillisecondsToDateTimeOffset);
                 case TimeUnit.Second:
-                    return EpochSecondsToDateTimeOffset(ticks);
+                    return GetTimestampUnchecked(index, EpochSecondsToDateTimeOffset);
                 default:
                     throw new InvalidDataException($"Unsupported timestamp unit <{type.Unit}>");
             }
@@ -152,6 +152,7 @@ namespace Apache.Arrow
         public new IEnumerator<DateTimeOffset?> GetEnumerator()
         {
             var type = (TimestampType)Data.DataType;
+            // TODO: parse timezone from DataType, default is UTC
 
             switch (type.Unit)
             {
