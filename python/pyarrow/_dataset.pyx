@@ -39,7 +39,6 @@ from pyarrow._json cimport ParseOptions as JsonParseOptions
 from pyarrow._json cimport ReadOptions as JsonReadOptions
 
 
-
 _orc_fileformat = None
 _orc_imported = False
 
@@ -2201,9 +2200,9 @@ cdef class JsonFileFormat(FileFormat):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self,default_fragment_scan_options=None,
-                JsonParseOptions parse_options=None,
-                JsonReadOptions read_options=None):
+    def __init__(self, default_fragment_scan_options=None,
+                 JsonParseOptions parse_options=None,
+                 JsonReadOptions read_options=None):
         self.init(shared_ptr[CFileFormat](new CJsonFileFormat()))
         if parse_options is not None or read_options is not None:
             if default_fragment_scan_options is not None:
@@ -2221,7 +2220,7 @@ cdef class JsonFileFormat(FileFormat):
             raise TypeError('`default_fragment_scan_options` must be either '
                             'a dictionary or an instance of '
                             'JsonFragmentScanOptions')
-    
+
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
         self.json_format = <CJsonFileFormat*> sp.get()
@@ -2236,8 +2235,8 @@ cdef class JsonFileFormat(FileFormat):
 
     def equals(self, JsonFileFormat other):
         return (other and
-            self.default_fragment_scan_options ==
-            other.default_fragment_scan_options)
+                self.default_fragment_scan_options ==
+                other.default_fragment_scan_options)
 
     def __reduce__(self):
         return JsonFileFormat, (self.default_fragment_scan_options,)
@@ -2263,8 +2262,8 @@ cdef class JsonFragmentScanOptions(FragmentScanOptions):
      # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self,JsonParseOptions parse_options=None,
-     JsonReadOptions read_options=None):
+    def __init__(self, JsonParseOptions parse_options=None,
+                 JsonReadOptions read_options=None):
         self.init(shared_ptr[CFragmentScanOptions](
             new CJsonFragmentScanOptions()))
         if parse_options is not None:
@@ -2287,7 +2286,6 @@ cdef class JsonFragmentScanOptions(FragmentScanOptions):
     @property
     def read_options(self):
         return JsonReadOptions.wrap(self.json_options.read_options)
-         
 
     @read_options.setter
     def read_options(self, JsonReadOptions read_options not None):

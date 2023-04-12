@@ -278,7 +278,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CJsonFileFormat "arrow::dataset::JsonFileFormat"(CFileFormat):
         pass
-    
+
     cdef cppclass CJsonFragmentScanOptions "arrow::dataset::JsonFragmentScanOptions"(CFragmentScanOptions):
         CJSONParseOptions parse_options
         CJSONReadOptions read_options

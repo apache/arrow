@@ -81,23 +81,23 @@ cdef class ReadOptions(_Weakrefable):
             self.use_threads,
             self.block_size
         )
-    
+
     def equals(self, ReadOptions other):
         return (
             self.use_threads == other.use_threads and
             self.block_size == other.block_size
         )
-    
+
     def __eq__(self, other):
         try:
             return self.equals(other)
         except TypeError:
             return False
-    
+
     @staticmethod
     cdef ReadOptions wrap(CJSONReadOptions options):
         out = ReadOptions()
-        out.options = options #shallow copy
+        out.options = options  # shallow copy
         return out
 
 
@@ -210,7 +210,7 @@ cdef class ParseOptions(_Weakrefable):
             )
 
         self.options.unexpected_field_behavior = v
-    
+
     def equals(self, ParseOptions other):
         return (
             self.explicit_schema == other.explicit_schema and
@@ -223,13 +223,12 @@ cdef class ParseOptions(_Weakrefable):
             return self.equals(other)
         except TypeError:
             return False
-    
+
     @staticmethod
     cdef ParseOptions wrap(CJSONParseOptions options):
         out = ParseOptions()
-        out.options = options #shallow copy
+        out.options = options  # shallow copy
         return out
-        
 
 
 cdef _get_reader(input_file, shared_ptr[CInputStream]* out):

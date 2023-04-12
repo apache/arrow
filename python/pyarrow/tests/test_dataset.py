@@ -806,10 +806,11 @@ def test_file_format_pickling():
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
             skip_rows=3, block_size=2**20)),
         ds.JsonFileFormat(),
-        ds.JsonFileFormat(parse_options=pa.json.ParseOptions(newlines_in_values=True,
-            unexpected_field_behavior="ignore")),
+        ds.JsonFileFormat(
+            parse_options=pa.json.ParseOptions(newlines_in_values=True,
+                                               unexpected_field_behavior="ignore")),
         ds.JsonFileFormat(read_options=pa.json.ReadOptions(
-            use_threads=False,block_size=14)), 
+            use_threads=False, block_size=14)),
     ]
     try:
         formats.append(ds.OrcFileFormat())
@@ -841,10 +842,11 @@ def test_fragment_scan_options_pickling():
         ds.CsvFragmentScanOptions(
             read_options=pa.csv.ReadOptions(block_size=2**16)),
         ds.JsonFragmentScanOptions(),
-        ds.JsonFragmentScanOptions(pa.json.ParseOptions(newlines_in_values=False,
-            unexpected_field_behavior="error")),
         ds.JsonFragmentScanOptions(
-            read_options=pa.json.ReadOptions(use_threads=True,block_size=512)), 
+            pa.json.ParseOptions(newlines_in_values=False,
+                                 unexpected_field_behavior="error")),
+        ds.JsonFragmentScanOptions(
+            read_options=pa.json.ReadOptions(use_threads=True, block_size=512)),
     ]
 
     if pq is not None:
@@ -3235,9 +3237,9 @@ def test_json_format_options(tempdir, dataset_reader):
     out = table.to_pandas().to_json(orient='records')[1:-1].replace('},{', '}\n{')
     with open(path, 'w') as f:
         f.write(out)
-    
+
     with pytest.raises(ValueError,
-                    match="try to increase block size"):
+                       match="try to increase block size"):
         dataset = ds.dataset(path, format=ds.JsonFileFormat(
             read_options=pa.json.ReadOptions(block_size=4)))
 
@@ -3257,7 +3259,7 @@ def test_json_fragment_options(tempdir, dataset_reader):
         f.write(out)
 
     with pytest.raises(ValueError,
-                match="try to increase block size"):
+                       match="try to increase block size"):
         options = ds.JsonFragmentScanOptions(
             read_options=pa.json.ReadOptions(block_size=4))
         dataset = ds.dataset(path, format=ds.JsonFileFormat(options))

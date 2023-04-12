@@ -31,7 +31,6 @@ cdef class ParseOptions(_Weakrefable):
 cdef class ReadOptions(_Weakrefable):
     cdef:
         CJSONReadOptions options
-    
+
     @staticmethod
     cdef ReadOptions wrap(CJSONReadOptions options)
-
