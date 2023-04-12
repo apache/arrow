@@ -87,14 +87,10 @@ namespace Apache.Arrow.Arrays
             return GetEnumerator();
         }
 
-        private new class Enumerator : Array.Enumerator, IEnumerator<byte[]>
+        private new class Enumerator : Array.Enumerator<FixedSizeBinaryArray>, IEnumerator<byte[]>
         {
-            private FixedSizeBinaryArray Array;
-
-            public Enumerator(FixedSizeBinaryArray array) : base(array.Length)
-            {
-                Array = array;
-            }
+            public Enumerator(FixedSizeBinaryArray array) : base(array)
+            { }
 
             byte[] IEnumerator<byte[]>.Current => Array.IsNull(Position) ?
                 null : Array.GetBytesUnchecked(Position).ToArray();

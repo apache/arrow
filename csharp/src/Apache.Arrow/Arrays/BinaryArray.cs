@@ -371,14 +371,10 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private new class Enumerator: Array.Enumerator, IEnumerator<byte[]>
+        private new class Enumerator: Array.Enumerator<BinaryArray>, IEnumerator<byte[]>
         {
-            private BinaryArray Array;
-
-            public Enumerator(BinaryArray array) : base(array.Length)
-            {
-                Array = array;
-            }
+            public Enumerator(BinaryArray array) : base(array)
+            { }
 
             byte[] IEnumerator<byte[]>.Current => Array.IsNull(Position) ?
                 null : Array.GetBytesUnchecked(Position).ToArray();

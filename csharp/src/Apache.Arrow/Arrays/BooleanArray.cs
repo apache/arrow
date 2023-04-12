@@ -203,14 +203,10 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private new class Enumerator : Array.Enumerator, IEnumerator<bool?>
+        private new class Enumerator : Array.Enumerator<BooleanArray>, IEnumerator<bool?>
         {
-            private BooleanArray Array;
-
-            public Enumerator(BooleanArray array) : base(array.Length)
-            {
-                Array = array;
-            }
+            public Enumerator(BooleanArray array) : base(array)
+            { }
 
             bool? IEnumerator<bool?>.Current => Array.GetValue(Position);
 

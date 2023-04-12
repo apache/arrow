@@ -173,14 +173,12 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private new class Enumerator : Array.Enumerator, IEnumerator<DateTimeOffset?>
+        private new class Enumerator : Array.Enumerator<TimestampArray>, IEnumerator<DateTimeOffset?>
         {
-            private TimestampArray Array;
             private Func<long, DateTimeOffset> Convert;
 
-            public Enumerator(TimestampArray array, Func<long, DateTimeOffset> convert) : base(array.Length)
+            public Enumerator(TimestampArray array, Func<long, DateTimeOffset> convert) : base(array)
             {
-                Array = array;
                 Convert = convert;
             }
 

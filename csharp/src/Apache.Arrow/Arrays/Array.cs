@@ -88,21 +88,22 @@ namespace Apache.Arrow
             }
         }
 
-        public abstract class Enumerator
+        public abstract class Enumerator<TArray>
+            where TArray : Array
         {
             public int Position;
-            public int Length;
+            public TArray Array;
 
-            public Enumerator(int length)
+            public Enumerator(TArray array)
             {
-                Length = length;
+                Array = array;
                 Position = -1;
             }
 
             public bool MoveNext()
             {
                 Position++;
-                return (Position < Length);
+                return (Position < Array.Length);
             }
 
             public void Reset() => Position = -1;

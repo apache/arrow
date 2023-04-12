@@ -145,14 +145,12 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private new class Enumerator : Array.Enumerator, IEnumerator<TimeSpan?>
+        private new class Enumerator : Array.Enumerator<Time64Array>, IEnumerator<TimeSpan?>
         {
-            private Time64Array Array;
             private Func<long?, TimeSpan?> Convert;
 
-            public Enumerator(Time64Array array, Func<long?, TimeSpan?> convert) : base(array.Length)
+            public Enumerator(Time64Array array, Func<long?, TimeSpan?> convert) : base(array)
             {
-                Array = array;
                 Convert = convert;
             }
 

@@ -79,14 +79,10 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private new class Enumerator : Array.Enumerator, IEnumerator<T?>
+        private new class Enumerator : Array.Enumerator<PrimitiveArray<T>>, IEnumerator<T?>
         {
-            private PrimitiveArray<T> Array;
-
-            public Enumerator(PrimitiveArray<T> array) : base(array.Length)
-            {
-                Array = array;
-            }
+            public Enumerator(PrimitiveArray<T> array) : base(array)
+            { }
 
             T? IEnumerator<T?>.Current => Array.GetValue(Position);
 

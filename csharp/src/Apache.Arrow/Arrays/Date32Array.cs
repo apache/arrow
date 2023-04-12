@@ -122,14 +122,10 @@ namespace Apache.Arrow
             return GetEnumerator();
         }
 
-        private new class Enumerator : Array.Enumerator, IEnumerator<DateTimeOffset?>
+        private new class Enumerator : Array.Enumerator<Date32Array>, IEnumerator<DateTimeOffset?>
         {
-            private Date32Array Array;
-
-            public Enumerator(Date32Array array) : base(array.Length)
-            {
-                Array = array;
-            }
+            public Enumerator(Date32Array array) : base(array)
+            { }
 
             DateTimeOffset? IEnumerator<DateTimeOffset?>.Current => Array.GetDateTimeOffset(Position);
 
