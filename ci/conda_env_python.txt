@@ -21,7 +21,6 @@ cffi
 cython
 cloudpickle
 fsspec
-gdb
 hypothesis
 numpy>=1.16.6
 pytest
