@@ -461,14 +461,13 @@ class ConcatenateImpl {
   Status Visit(const ExtensionType& e) {
     ArrayDataVector storage_data(in_.size());
     for (size_t i = 0; i < in_.size(); ++i) {
-      auto storage = in_[i]->Copy();
-      storage->type = e.storage_type();
-      storage_data[i] = storage;
+      storage_data[i] = in_[i]->Copy();
+      storage_data[i]->type = e.storage_type();
     }
     std::shared_ptr<ArrayData> out_storage;
     RETURN_NOT_OK(ConcatenateImpl(storage_data, pool_).Concatenate(&out_storage));
     out_storage->type = in_[0]->type;
-    *out_ = *out_storage;
+    out_ = std::move(out_storage);
     return Status::OK();
   }
 
