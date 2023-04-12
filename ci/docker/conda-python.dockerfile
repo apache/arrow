@@ -22,12 +22,10 @@ FROM ${repo}:${arch}-conda-cpp
 # install python specific packages
 ARG python=3.8
 COPY ci/conda_env_python.txt \
-     ci/conda_env_python_unix.txt \
      ci/conda_env_sphinx.txt \
      /arrow/ci/
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
-        --file arrow/ci/conda_env_python_unix.txt \
         --file arrow/ci/conda_env_sphinx.txt \
         $([ "$python" == "3.7" ] && echo "pickle5") \
         python=${python} \
