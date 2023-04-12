@@ -301,15 +301,15 @@ std::unordered_map<std::string, std::shared_ptr<arrow::Table>> LoadNamedTables(J
 
 /// Find the arrow Table associated with a given table name
 std::shared_ptr<arrow::Table> GetTableByName(const std::vector<std::string>& names,
-    std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader) {
-  std::shared_ptr<arrow::Table> output_table;
-  for (const auto& name : names) {
-    output_table = map_table_to_reader[name];
-    if (output_table == nullptr) {
-      JniThrow("Table name " + name + " is needed to execute the Substrait plan");
-    }
+    const std::unordered_map<std::string, std::shared_ptr<arrow::Table>>& tables) {
+  if (names.size() != 1) {
+    JniThrow("Tables with hierarchical names are not supported");
   }
-  return output_table;
+  const auto& it = tables.find(names[0]);
+  if (it == tables.end()) {
+    JniThrow("Table is referenced, but not provided: " + names[0]);
+  }
+  return it->second;
 }
 
 /*
