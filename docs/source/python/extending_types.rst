@@ -362,21 +362,25 @@ extension type to a pandas ``ExtensionArray`` that can be stored in a DataFrame.
 Canonical extension types
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In the :ref:`format_canonical_extensions` under the section **Official List**
-there is a list of canonical extension types. Here we list examples of how to
-use the listed canonical extension types.
+You can find the official list of canonical extension types in the
+:ref:`format_canonical_extensions` section. Here we add examples on how to
+use them in pyarrow.
 
 Fixed size tensor
 """""""""""""""""
 
-Define fixed shape tensor extension type:
+To create an array of tensors with equal shape (fixed shape tensor array) we
+first need to define a fixed shape tensor extension type with value type
+and shape:
 
 .. code-block:: python
 
    >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
 
-Create an array of tensors with storage array and defined fixed shape tensor
-extension type:
+Then we need the storage array with :func:`pyarrow.list_` type where ``value_type```
+is the fixed shape tensor value type and list size is a product of ``tensor_type``
+shape elements. Then we can create an array of tensors with
+``pa.ExtensionArray.from_storage()`` method:
 
 .. code-block:: python
 
@@ -384,15 +388,16 @@ extension type:
    >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
    >>> tensor_array = pa.ExtensionArray.from_storage(tensor_type, storage)
 
-Create another array of tensors with different value type:
+We can also create another array of tensors with different value type:
 
 .. code-block:: python
 
    >>> tensor_type_2 = pa.fixed_shape_tensor(pa.float32(), (2, 2))
-   >>> storage2 = pa.array(arr, pa.list_(pa.float32(), 4))
-   >>> tensor_array_2 = pa.ExtensionArray.from_storage(tensor_type_2, storage2)
+   >>> storage_2 = pa.array(arr, pa.list_(pa.float32(), 4))
+   >>> tensor_array_2 = pa.ExtensionArray.from_storage(tensor_type_2, storage_2)
 
-Create a ``pyarrow.Table`` with random data and two tensor arrays:
+Extension arrays can be used as columns in  ``pyarrow.Table`` or
+``pyarrow.RecordBatch``:
 
 .. code-block:: python
 
@@ -423,7 +428,7 @@ Create a ``pyarrow.Table`` with random data and two tensor arrays:
    tensors_int: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
    tensors_float: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
 
-Convert a tensor array to numpy ndarray (tensor):
+We can also convert a tensor array to a numpy ndarray:
 
 .. code-block:: python
 
@@ -436,7 +441,16 @@ Convert a tensor array to numpy ndarray (tensor):
          [[100., 200.],
          [300., 400.]]])
 
-Convert a list of numpy ndarrays (tensors) to a tensor array:
+.. note::
+
+   Both optional parameters, ``permutation`` and ``dim_names``, are meant to provide the user
+   with the information about the logical layout of the data compared to the physical layout.
+
+   The conversion to numpy ndarray is only possible for trivial permutations (``None`` or
+   ``[0, 1, ... N-1]`` where ``N`` is the number of tensor dimensions).
+
+And also the other way around, we can convert a list of numpy ndarrays to a fixed shape tensor
+array:
 
 .. code-block:: python
 
@@ -463,10 +477,23 @@ Convert a list of numpy ndarrays (tensors) to a tensor array:
      ]
    ]
 
-.. note::
+The extension type can also have ``permutation`` and ``dim_names`` defined. For
+example
 
-   Both optional parameters, ``permutation`` and ``dim_names``, are meant to provide the user
-   with the information about the logical layout of the data compared to the physical layout.
+.. code-block:: python
 
-   The conversion to numpy ndarray is only possible for trivial permutations (``None`` or
-   ``[0, 1, ... N-1]`` where ``N`` is the number of tensor dimensions).
+    >>> tensor_type = pa.fixed_shape_tensor(pa.float64(), [2, 2, 3], permutation=[0, 2, 1])
+
+or
+
+.. code-block:: python
+
+    >>> tensor_type = pa.fixed_shape_tensor(pa.bool_(), [2, 2, 3], dim_names=['C', 'H', 'W'])
+
+for ``NCHW`` format where:
+
+* N: number of images which is in our case the length of an array and is always on
+  the first dimension
+* C: number of channels of the image
+* H: height of the image
+* W: width of the image
