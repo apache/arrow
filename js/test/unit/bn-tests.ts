@@ -42,6 +42,12 @@ describe(`BN`, () => {
 
         const i3 = new BN(new Int32Array([0x11111111, 0x11111111, 0x11111111]), true);
         expect(i3.toString()).toBe('5281877500950955839569596689');
+
+        const i4 = new BN(new Int16Array([0xFFFF, 0xFFFF]), true);
+        expect(i4.toString()).toBe('-1');
+
+        const i5 = new BN(new Int32Array([0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF]), true);
+        expect(i5.toString()).toBe('-2');
     });
 
     test(`toString for unsigned numbers`, () => {
@@ -51,10 +57,21 @@ describe(`BN`, () => {
         const u2 = new BN(new Uint32Array([0xFFFFFFFF, 0xFFFFFFFF]), false);
         expect(u2.toString()).toBe('18446744073709551615');
 
-        const u3 = new BN(new Uint32Array([0x11111111, 0x11111111, 0x11111111]), true);
+        const u3 = new BN(new Uint32Array([0x11111111, 0x11111111, 0x11111111]), false);
         expect(u3.toString()).toBe('5281877500950955839569596689');
 
         const u4 = new BN(new Uint16Array([0xFFFF, 0xFFFF]), false);
         expect(u4.toString()).toBe('4294967295');
+    });
+
+    test(`toString for decimals`, () => {
+        const d1 = BN.decimal(new Uint16Array([1, 2, 3, 4, 5, 6, 7, 8]));
+        expect(d1.toString()).toBe('41538929472669868031141181829283841');
+
+        const d2 = BN.decimal(new Uint32Array([0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]));
+        expect(d2.toString()).toBe('-2');
+
+        const d3 = BN.decimal(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0x80000000]));
+        expect(d3.toString()).toBe('-170141183460469231731687303715884105728');
     });
 });

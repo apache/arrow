@@ -97,7 +97,30 @@ export const bigNumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T
         return `${bigIntArray[0]}`;
     }
 
-    return unsignedBigNumToString(a);
+    // unsigned numbers
+    if (!a.signed) {
+        return unsignedBigNumToString(a);
+    }
+
+    const array = new Uint16Array(a.buffer, a.byteOffset, a.byteLength / 2);
+
+    // detect positive numbers
+    const highOrderWord = new Int16Array([array[array.length - 1]])[0];
+    if (highOrderWord >= 0) {
+        return unsignedBigNumToString(a);
+    }
+
+    // flip the negative value
+    let carry = 1;
+    for (let i = 0; i < array.length; i++) {
+        const elem = array[i];
+        const updated = ~elem + carry;
+        array.set([updated], i);
+        carry &= elem === 0 ? 1 : 0;
+    }
+
+    const negated = unsignedBigNumToString(<any>array);
+    return `-${negated}`;
 });
 
 /** @ignore */
