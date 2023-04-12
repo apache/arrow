@@ -246,6 +246,9 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 
 		}
 		if err := reader.Err(); err != nil {
+			if err == io.EOF {
+				break
+			}
 			return &rows, err
 		}
 	}
