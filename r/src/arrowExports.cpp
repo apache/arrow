@@ -1050,6 +1050,7 @@ extern "C" SEXP _arrow_ExecNode_output_schema(SEXP node_sexp){
 #endif
 
 // compute-exec.cpp
+#if defined(ARROW_R_WITH_ACERO)
 bool ExecNode_has_ordered_batches(const std::shared_ptr<acero::ExecNode>& node);
 extern "C" SEXP _arrow_ExecNode_has_ordered_batches(SEXP node_sexp){
 BEGIN_CPP11
@@ -1057,6 +1058,12 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ExecNode_has_ordered_batches(node));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_ExecNode_has_ordered_batches(SEXP node_sexp){
+	Rf_error("Cannot call ExecNode_has_ordered_batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<acero::ExecNode> ExecNode_Scan(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<ds::Dataset>& dataset, const std::shared_ptr<compute::Expression>& filter, cpp11::list projection);

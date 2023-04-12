@@ -261,7 +261,7 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
   return node->output_schema();
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 bool ExecNode_has_ordered_batches(const std::shared_ptr<acero::ExecNode>& node) {
   return !node->ordering().is_unordered();
 }
