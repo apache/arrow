@@ -55,7 +55,7 @@ namespace Apache.Arrow.Types
         // Static methods
         public static TimeZoneInfo? ParseTimeZone(string tz)
         {
-            if (string.IsNullOrEmpty(tz)) return null;
+            if (string.IsNullOrWhiteSpace(tz)) return null;
 
             // Static offset like +00:00 or -00:00
             if (Regex.IsMatch(tz, @"^([+-]\d{2}):([0-9]\d)$"))
