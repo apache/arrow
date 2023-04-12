@@ -2242,7 +2242,7 @@ cdef class JsonFileFormat(FileFormat):
         return JsonFileFormat, (self.default_fragment_scan_options,)
 
     def __repr__(self):
-        return f"<JsonFileFormat>"
+        return "<JsonFileFormat>"
 
 
 cdef class JsonFragmentScanOptions(FragmentScanOptions):
