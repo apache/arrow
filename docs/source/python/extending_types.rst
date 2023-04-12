@@ -435,11 +435,11 @@ We can also convert a tensor array to a numpy ndarray:
    >>> numpy_tensor = tensor_array_2.to_numpy_ndarray()
    >>> numpy_tensor
    array([[[  1.,   2.],
-         [  3.,   4.]],
-         [[ 10.,  20.],
-         [ 30.,  40.]],
-         [[100., 200.],
-         [300., 400.]]])
+           [  3.,   4.]],
+          [[ 10.,  20.],
+           [ 30.,  40.]],
+          [[100., 200.],
+           [300., 400.]]])
 
 .. note::
 
@@ -476,6 +476,23 @@ array:
        400
      ]
    ]
+
+With the conversion the first dimension of the ndarray becomes the length of the pyarrow extension
+array. We can see in the example that ndarray of shape ``(3, 2, 2)`` becomes an arrow array of
+length 3 with tensor elements of shape ``(2, 2)``.
+
+.. code-block:: python
+
+   # ndarray of shape (3, 2, 2)
+   >>> numpy_tensor.shape
+   (3, 2, 2)
+
+   # arrow array of length 3 with tensor elements of shape (2, 2)
+   >>> pyarrow_tensor_array = pa.FixedShapeTensorArray.from_numpy_ndarray(numpy_tensor)
+   >>> len(pyarrow_tensor_array)
+   3
+   >>> pyarrow_tensor_array.type.shape
+   [2, 2]
 
 The extension type can also have ``permutation`` and ``dim_names`` defined. For
 example
