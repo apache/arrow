@@ -356,11 +356,9 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 
 	// pass pairs of reader and column index to the channel for the
 	// goroutines to read the data
-	for idx, r := range readers {
-		defer func(r *ColumnReader) {
-			r.Release()
-		}(r)
-		ch <- readerInfo{r, idx}
+	for idx := range readers {
+		defer readers[idx].Release()
+		ch <- readerInfo{readers[idx], idx}
 	}
 	close(ch)
 
