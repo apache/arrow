@@ -428,7 +428,7 @@ Extension arrays can be used as columns in  ``pyarrow.Table`` or
    tensors_int: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
    tensors_float: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
 
-We can also convert a tensor array to a numpy ndarray:
+We can also convert a tensor array to a single multi-dimensional numpy ndarray:
 
 .. code-block:: python
 
@@ -449,8 +449,7 @@ We can also convert a tensor array to a numpy ndarray:
    The conversion to numpy ndarray is only possible for trivial permutations (``None`` or
    ``[0, 1, ... N-1]`` where ``N`` is the number of tensor dimensions).
 
-And also the other way around, we can convert a list of numpy ndarrays to a fixed shape tensor
-array:
+And also the other way around, we can convert a numpy ndarray to a fixed shape tensor array:
 
 .. code-block:: python
 
