@@ -1470,7 +1470,7 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
                         partition_by, partition_filename_callback,
                         use_legacy_dataset=use_legacy_dataset)
 
-    dataset = pq.ParquetDataset(path)
+    dataset = pq.ParquetDataset(path, use_legacy_dataset=use_legacy_dataset)
 
     # ARROW-3538: Ensure partition filenames match the given pattern
     # defined in the local function partition_filename_callback
