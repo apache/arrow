@@ -214,7 +214,7 @@ func (UUIDType) Deserialize(storageType arrow.DataType, data string) (arrow.Exte
 	if string(data) != "uuid-serialized" {
 		return nil, fmt.Errorf("type identifier did not match: '%s'", string(data))
 	}
-	if !storageTypeEqual(storageType, &arrow.FixedSizeBinaryType{ByteWidth: 16}) {
+	if !arrow.TypeEqual(storageType, &arrow.FixedSizeBinaryType{ByteWidth: 16}) {
 		return nil, fmt.Errorf("invalid storage type for UUIDType: %s", storageType.Name())
 	}
 	return NewUUIDType(), nil
@@ -511,18 +511,6 @@ func (SmallintType) Deserialize(storageType arrow.DataType, data string) (arrow.
 		return nil, fmt.Errorf("invalid storage type for SmallintType: %s", storageType)
 	}
 	return NewSmallintType(), nil
-}
-
-// storageTypeEqual checks if the underlying storage of two DataType are the same,
-// optionally checking metadata equality for STRUCT types by passing to TypeEqual
-func storageTypeEqual(left, right arrow.DataType, opts ...arrow.TypeEqualOption) bool {
-	if leftExt, ok := left.(arrow.ExtensionType); ok {
-		left = leftExt.StorageType()
-	}
-	if rightExt, ok := right.(arrow.ExtensionType); ok {
-		right = rightExt.StorageType()
-	}
-	return arrow.TypeEqual(left, right, opts...)
 }
 
 var (

@@ -960,13 +960,16 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 	case arrow.EXTENSION:
 		extType := origin.Type.(arrow.ExtensionType)
 		modified, err = applyOriginalStorageMetadata(arrow.Field{
-			Type: extType.StorageType(),
-			Metadata: arrow.NewMetadata(
-				[]string{ipc.ExtensionTypeKeyName, ipc.ExtensionMetadataKeyName},
-				[]string{extType.ExtensionName(), extType.Serialize()}),
+			Type:     extType.StorageType(),
+			Metadata: origin.Metadata,
 		}, inferred)
 		if err != nil {
 			return
+		}
+
+		if !arrow.TypeEqual(extType.StorageType(), inferred.Field.Type) {
+			return modified, fmt.Errorf("%w: mismatch storage type '%s' for extension type '%s'",
+				arrow.ErrInvalid, inferred.Field.Type, extType)
 		}
 
 		inferred.Field.Type = extType
@@ -1066,22 +1069,6 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 				final[k] = inferred.Field.Metadata.Values()[idx]
 			}
 			inferred.Field.Metadata = arrow.MetadataFrom(final)
-
-			if extName, ok := final[ipc.ExtensionTypeKeyName]; ok {
-				if extMeta, ok := final[ipc.ExtensionMetadataKeyName]; ok {
-					ext := arrow.GetExtensionType(extName)
-					if ext != nil {
-						dd, err2 := ext.Deserialize(inferred.Field.Type, extMeta)
-						if err2 != nil {
-							err = err2
-							return
-						}
-						inferred.Field.Type = dd
-					}
-					// If ext is nil, the extension isn't registered. In that case the type as-is and maintain existing metadata
-				}
-			}
-
 		} else {
 			inferred.Field.Metadata = meta
 		}
