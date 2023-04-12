@@ -51,7 +51,7 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-  ab.AppendValueFromString(11)
+	ab.AppendValueFromString(11)
 
 	// check state of builder before New{{.Name}}Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")

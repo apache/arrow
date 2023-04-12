@@ -50,8 +50,7 @@ func (a *FixedSizeList) ValueStr(i int) string {
 	if !a.IsValid(i) {
 		return NullValueStr
 	}
-	sub := a.newListValue(i)
-	return fmt.Sprintf("%v", sub)
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
 }
 func (a *FixedSizeList) String() string {
 	o := new(strings.Builder)

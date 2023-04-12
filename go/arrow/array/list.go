@@ -56,7 +56,7 @@ func (a *List) ValueStr(i int) string {
 	if !a.IsValid(i) {
 		return NullValueStr
 	}
-	return fmt.Sprintf("%v", a.newListValue(i))
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
 }
 
 func (a *List) String() string {
@@ -186,7 +186,7 @@ func (a *LargeList) ValueStr(i int) string {
 	if !a.IsValid(i) {
 		return NullValueStr
 	}
-	return fmt.Sprintf("%v", a.newListValue(i))
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
 }
 func (a *LargeList) String() string {
 	o := new(strings.Builder)

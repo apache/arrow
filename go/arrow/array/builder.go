@@ -85,7 +85,6 @@ type Builder interface {
 	UnmarshalOne(*json.Decoder) error
 	Unmarshal(*json.Decoder) error
 
-
 	newData() *Data
 }
 

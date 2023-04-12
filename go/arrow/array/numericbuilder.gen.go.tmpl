@@ -225,79 +225,30 @@ func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
     }
     b.Append(v)
   {{else if (eq .Name "Duration") -}}	
-    return fmt.Errorf("AppendValueFromString not implemented for Duration")
-  {{else if or (eq .Name "Int8") -}}
-    v, err := strconv.ParseInt(s, 10, 8)
+    return fmt.Errorf("%w: AppendValueFromString not implemented for Duration", ErrNotImplemented)
+  {{else if or (eq .Name "Int8") (eq .Name "Int16") (eq .Name "Int32") (eq .Name "Int64") -}}
+    v, err := strconv.ParseInt(s, 10, {{.Size}})
+    if err != nil {
+        b.AppendNull()
+        return err
+    }
+    b.Append({{.name}}(v))
+  {{else if or (eq .Name "Uint8") (eq .Name "Uint16") (eq .Name "Uint32") (eq .Name "Uint64") -}}
+    v, err := strconv.ParseInt(s, 10, {{.Size}})
+    if err != nil {
+        b.AppendNull()
+        return err
+    }
+    b.Append({{.name}}(v))
+  {{else if or (eq .Name "Float32") (eq .Name "Float64") -}}
+    v, err := strconv.ParseFloat(s, {{.Size}})
     if err != nil {
       b.AppendNull()
       return err
     }
-    b.Append(int8(v))
-  {{else if or (eq .Name "Int16") -}}
-    v, err := strconv.ParseInt(s, 10, 16)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(int16(v))
-  {{else if or (eq .Name "Int32") -}}
-    v, err := strconv.ParseInt(s, 10, 32)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(int32(v))
-  {{else if or (eq .Name "Int64") -}}
-    v, err := strconv.ParseInt(s, 10, 64)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(int64(v))
-  {{else if or (eq .Name "Uint8") -}}
-  	v, err := strconv.ParseUint(s, 10, 8)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(uint8(v))
-  {{else if or (eq .Name "Uint16") -}}
-  	v, err := strconv.ParseUint(s, 10, 16)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(uint16(v))
-  {{else if or (eq .Name "Uint32") -}}
-  	v, err := strconv.ParseUint(s, 10, 32)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(uint32(v))
-  {{else if or (eq .Name "Uint64") -}}
-  	v, err := strconv.ParseUint(s, 10, 64)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(uint64(v))
-  {{else if or (eq .Name "Float32") -}}
-    v, err := strconv.ParseFloat(s, 32)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(float32(v))
-  {{else if or (eq .Name "Float64") -}}
-    v, err := strconv.ParseFloat(s, 64)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(float64(v))
+    b.Append({{.name}}(v))
   {{else}}
-    return fmt.Errorf("AppendValueFromString not implemented for {{.Name}}")
+    return fmt.Errorf("%w: AppendValueFromString not implemented for {{.Name}}", ErrNotImplemented)
   {{end -}}
 	return nil
 }

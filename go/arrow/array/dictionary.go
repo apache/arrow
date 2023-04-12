@@ -742,7 +742,7 @@ func (b *dictionaryBuilder) Unmarshal(dec *json.Decoder) error {
 }
 
 func (b *dictionaryBuilder) AppendValueFromString(s string) error {
-	return errors.New("AppendValueFromString to dictionary not yet implemented")
+	return fmt.Errorf("%w: AppendValueFromString to dictionary not yet implemented", arrow.ErrNotImplemented)
 }
 
 func (b *dictionaryBuilder) UnmarshalOne(dec *json.Decoder) error {

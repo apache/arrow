@@ -1126,6 +1126,7 @@ func (a *Time32) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
+	a.values[i].FormattedString(a.DataType().(*arrow.Time32Type).Unit)
 	return a.values[i].ToTime(a.DataType().(*arrow.Time32Type).Unit).Format("15:04:05.999999999")
 }
 
