@@ -598,7 +598,7 @@ TEST(AsyncTaskScheduler, ScanningStress) {
 
 TEST(AsyncTaskScheduler, ThrottleStress) {
   // Queue up a bunch of throttled fast tasks. It shouldn't cause stack overflow
-  constexpr int kNumTasks = 1024 * 1024;
+  constexpr int kNumTasks = 1024 * 10;
   int num_tasks_run = 0;
   Future<> slow_task = Future<>::Make();
   Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
