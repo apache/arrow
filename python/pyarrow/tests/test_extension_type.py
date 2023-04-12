@@ -630,6 +630,22 @@ def test_casting_dict_array_to_extension_type():
                                UUID('30313233-3435-3637-3839-616263646566')]
 
 
+def test_concat():
+    arr1 = pa.array([1, 2, 3], IntegerType())
+    arr2 = pa.array([4, 5, 6], IntegerType())
+
+    result = pa.concat_arrays([arr1, arr2])
+    expected = pa.array([1, 2, 3, 4, 5, 6], IntegerType())
+    assert result.equals(expected)
+
+    # nested in a struct
+    struct_arr1 = pa.StructArray.from_arrays([arr1], names=["a"])
+    struct_arr2 = pa.StructArray.from_arrays([arr2], names=["a"])
+    result = pa.concat_arrays([struct_arr1, struct_arr2])
+    expected = pa.StructArray.from_arrays([expected], names=["a"])
+    assert result.equals(expected)
+
+
 def test_null_storage_type():
     ext_type = AnnotatedType(pa.null(), {"key": "value"})
     storage = pa.array([None] * 10, pa.null())
