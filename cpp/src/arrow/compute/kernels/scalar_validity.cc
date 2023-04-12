@@ -22,8 +22,8 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/ree_util.h"
-#include "arrow/util/union_util.h"
 
 namespace arrow {
 
@@ -84,6 +84,71 @@ static void SetNanBits(const ArraySpan& arr, uint8_t* out_bitmap, int64_t out_of
   }
 }
 
+static void SetSparseUnionLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap,
+                                          int64_t out_offset) {
+  const auto* sparse_union_type =
+      ::arrow::internal::checked_cast<const SparseUnionType*>(span.type);
+  DCHECK_LE(span.child_data.size(), 128);
+
+  const int8_t* types = span.GetValues<int8_t>(1);  // NOLINT
+  for (int64_t i = 0; i < span.length; i++) {
+    const int8_t child_id = sparse_union_type->child_ids()[types[span.offset + i]];
+    if (span.child_data[child_id].IsNull(i)) {
+      bit_util::SetBit(out_bitmap, i + out_offset);
+    }
+  }
+}
+
+static void SetDenseUnionLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap,
+                                         int64_t out_offset) {
+  const auto* dense_union_type =
+      ::arrow::internal::checked_cast<const DenseUnionType*>(span.type);
+  DCHECK_LE(span.child_data.size(), 128);
+
+  const int8_t* types = span.GetValues<int8_t>(1);      // NOLINT
+  const int32_t* offsets = span.GetValues<int32_t>(2);  // NOLINT
+  for (int64_t i = 0; i < span.length; i++) {
+    const int8_t child_id = dense_union_type->child_ids()[types[span.offset + i]];
+    const int32_t offset = offsets[span.offset + i];
+    if (span.child_data[child_id].IsNull(offset)) {
+      bit_util::SetBit(out_bitmap, i + out_offset);
+    }
+  }
+}
+
+template <typename RunEndCType>
+void SetREELogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap,
+                           int64_t out_offset) {
+  const auto& values = arrow::ree_util::ValuesArray(span);
+  const auto& values_bitmap = values.buffers[0].data;
+
+  arrow::ree_util::RunEndEncodedArraySpan<RunEndCType> ree_span(span);
+  auto end = ree_span.end();
+  for (auto it = ree_span.begin(); it != end; ++it) {
+    const bool is_null =
+        values_bitmap &&
+        !bit_util::GetBit(values_bitmap, values.offset + it.index_into_array());
+    if (is_null) {
+      for (int64_t i = 0; i < it.run_length(); i++) {
+        bit_util::SetBit(out_bitmap, it.logical_position() + i + out_offset);
+      }
+    }
+  }
+}
+
+void SetREELogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap,
+                           int64_t out_offset) {
+  const auto type_id = arrow::ree_util::RunEndsArray(span).type->id();
+  if (type_id == Type::INT16) {
+    SetREELogicalNullBits<int16_t>(span, out_bitmap, out_offset);
+  } else if (type_id == Type::INT32) {
+    SetREELogicalNullBits<int32_t>(span, out_bitmap, out_offset);
+  } else {
+    DCHECK_EQ(type_id, Type::INT64);
+    SetREELogicalNullBits<int64_t>(span, out_bitmap, out_offset);
+  }
+}
+
 Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& arr = batch[0].array;
   ArraySpan* out_span = out->array_span_mutable();
@@ -106,11 +171,11 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 
   const auto t = arr.type->id();
   if (t == Type::SPARSE_UNION) {
-    union_util::SetLogicalSparseUnionNullBits(arr, out_bitmap, out_span->offset);
+    SetSparseUnionLogicalNullBits(arr, out_bitmap, out_span->offset);
   } else if (t == Type::DENSE_UNION) {
-    union_util::SetLogicalDenseUnionNullBits(arr, out_bitmap, out_span->offset);
+    SetDenseUnionLogicalNullBits(arr, out_bitmap, out_span->offset);
   } else if (t == Type::RUN_END_ENCODED) {
-    ree_util::SetLogicalNullBits(arr, out_bitmap, out_span->offset);
+    SetREELogicalNullBits(arr, out_bitmap, out_span->offset);
   }
 
   if (is_floating(arr.type->id()) && options.nan_is_null) {
