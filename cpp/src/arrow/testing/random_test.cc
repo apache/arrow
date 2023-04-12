@@ -499,43 +499,44 @@ TEST(RandomList, Basics) {
   }
 }
 
-TEST(RandomNestedBatchOf, Basics) {
+TEST(RandomChildFieldNullablity, List) {
   random::RandomArrayGenerator rng(42);
-  {
-    auto item = std::make_shared<arrow::Field>("item", arrow::int8(), true);
-    auto nestListField = std::make_shared<arrow::Field>("list", arrow::list(item), false);
-    auto listField =
-        std::make_shared<arrow::Field>("list", arrow::list(nestListField), true);
-    auto array = rng.ArrayOf(*listField, 428);
-    ARROW_EXPECT_OK(array->ValidateFull());
 
-    auto batch = rng.BatchOf({listField}, 428);
-    ARROW_EXPECT_OK(batch->ValidateFull());
-  }
-  {
-    auto item = std::make_shared<arrow::Field>("item", arrow::int8(), true);
-    auto nestStructField =
-        std::make_shared<arrow::Field>("struct", arrow::struct_({item}), false);
-    auto structField =
-        std::make_shared<arrow::Field>("struct", arrow::struct_({nestStructField}), true);
-    auto array = rng.ArrayOf(*structField, 428);
-    ARROW_EXPECT_OK(array->ValidateFull());
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_list_field = arrow::field("list", arrow::list(item), false);
+  auto list_field = arrow::field("list", arrow::list(nest_list_field), true);
+  auto array = rng.ArrayOf(*list_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
 
-    auto batch = rng.BatchOf({structField}, 428);
-    ARROW_EXPECT_OK(batch->ValidateFull());
-  }
-  {
-    auto item = std::make_shared<arrow::Field>("item", arrow::int8(), true);
-    auto nestMapField = std::make_shared<arrow::Field>(
-        "map", arrow::map(arrow::int8(), item, false), false);
-    auto mapField = std::make_shared<arrow::Field>(
-        "struct", arrow::map(arrow::int8(), nestMapField, false), true);
-    auto array = rng.ArrayOf(*mapField, 428);
-    ARROW_EXPECT_OK(array->ValidateFull());
+  auto batch = rng.BatchOf({list_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
 
-    auto batch = rng.BatchOf({mapField}, 428);
-    ARROW_EXPECT_OK(batch->ValidateFull());
-  }
+TEST(RandomChildFieldNullablity, Struct) {
+  random::RandomArrayGenerator rng(42);
+
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_struct_field = arrow::field("struct", arrow::struct_({item}), false);
+  auto struct_field = arrow::field("struct", arrow::struct_({nest_struct_field}), true);
+  auto array = rng.ArrayOf(*struct_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({struct_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
+
+TEST(RandomChildFieldNullablity, Map) {
+  random::RandomArrayGenerator rng(42);
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_map_field =
+      arrow::field("map", arrow::map(arrow::int8(), item, false), false);
+  auto map_field =
+      arrow::field("struct", arrow::map(arrow::int8(), nest_map_field, false), true);
+  auto array = rng.ArrayOf(*map_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({map_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
 }
 
 TEST(RandomRunEndEncoded, Basics) {

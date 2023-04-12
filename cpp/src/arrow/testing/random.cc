@@ -916,11 +916,11 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
 
     case Type::type::STRUCT: {
       ArrayVector child_arrays(field.type()->num_fields());
-      FieldVector child_fields;
+      FieldVector child_fields(field.type()->num_fields());
       for (int i = 0; i < field.type()->num_fields(); i++) {
         const auto& child_field = field.type()->field(i);
         child_arrays[i] = ArrayOf(*child_field, length, alignment, memory_pool);
-        child_fields.push_back(child_field);
+        child_fields[i] = child_field;
       }
       return *StructArray::Make(
           child_arrays, child_fields,
