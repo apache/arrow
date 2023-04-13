@@ -18,6 +18,7 @@ package array
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -53,6 +54,14 @@ func (a *Boolean) Value(i int) bool {
 		panic("arrow/array: index out of range")
 	}
 	return bitutil.BitIsSet(a.values, a.array.data.offset+i)
+}
+
+func (a *Boolean) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	} else {
+		return strconv.FormatBool(a.Value(i))
+	}
 }
 
 func (a *Boolean) String() string {

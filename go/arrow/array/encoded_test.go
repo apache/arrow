@@ -250,6 +250,7 @@ func TestRunEndEncodedBuilder(t *testing.T) {
 	assert.Equal(t, "of", strValues.Value(3))
 	assert.Equal(t, "RLE", strValues.Value(4))
 	assert.True(t, strValues.IsNull(5))
+	assert.Equal(t, "Hello", strValues.ValueStr(0))
 }
 
 func TestREEBuilderOverflow(t *testing.T) {

@@ -42,14 +42,17 @@ func TestFixedSizeBinary(t *testing.T) {
 	}
 	valid := []bool{true, false, true}
 	b.AppendValues(values, valid)
+	// encoded abcdefg base64
+	assert.NoError(t, b.AppendValueFromString("YWJjZGVmZw=="))
 
 	b.Retain()
 	b.Release()
 
 	a := b.NewFixedSizeBinaryArray()
-	assert.Equal(t, 3, a.Len())
+	assert.Equal(t, 4, a.Len())
 	assert.Equal(t, 1, a.NullN())
 	assert.Equal(t, []byte("7654321"), a.Value(0))
+	assert.Equal(t, "YWJjZGVmZw==", a.ValueStr(3))
 	assert.Equal(t, zero, a.Value(1))
 	assert.Equal(t, true, a.IsNull(1))
 	assert.Equal(t, false, a.IsValid(1))

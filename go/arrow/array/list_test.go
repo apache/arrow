@@ -23,6 +23,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestListArray(t *testing.T) {
@@ -289,6 +290,7 @@ func TestListArraySlice(t *testing.T) {
 			if got, want := arr.String(), `[[0 1 2] (null) [] [3 4 5 6]]`; got != want {
 				t.Fatalf("got=%q, want=%q", got, want)
 			}
+			assert.Equal(t, "[0,1,2]", arr.ValueStr(0))
 
 			sub := array.NewSlice(arr, 1, 4).(array.ListLike)
 			defer sub.Release()

@@ -18,6 +18,7 @@ package array
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"unsafe"
@@ -56,7 +57,15 @@ func (a *Binary) Value(i int) []byte {
 	return a.valueBytes[a.valueOffsets[idx]:a.valueOffsets[idx+1]]
 }
 
-// ValueString returns the string at index i without performing additional allocations.
+// ValueString returns the string at index i
+func (a *Binary) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return base64.StdEncoding.EncodeToString(a.Value(i))
+}
+
+// ValueStr returns the string at index i without performing additional allocations.
 // The string is only valid for the lifetime of the Binary array.
 func (a *Binary) ValueString(i int) string {
 	b := a.Value(i)
@@ -191,6 +200,12 @@ func (a *LargeBinary) Value(i int) []byte {
 	return a.valueBytes[a.valueOffsets[idx]:a.valueOffsets[idx+1]]
 }
 
+func (a *LargeBinary) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return base64.StdEncoding.EncodeToString(a.Value(i))
+}
 func (a *LargeBinary) ValueString(i int) string {
 	b := a.Value(i)
 	return *(*string)(unsafe.Pointer(&b))
