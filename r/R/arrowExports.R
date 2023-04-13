@@ -720,6 +720,10 @@ dataset___CsvFragmentScanOptions__Make <- function(convert_options, read_options
   .Call(`_arrow_dataset___CsvFragmentScanOptions__Make`, convert_options, read_options)
 }
 
+dataset___JsonFragmentScanOptions__Make <- function(parse_options, read_options) {
+  .Call(`_arrow_dataset___JsonFragmentScanOptions__Make`, parse_options, read_options)
+}
+
 dataset___ParquetFragmentScanOptions__Make <- function(use_buffered_stream, buffer_size, pre_buffer) {
   .Call(`_arrow_dataset___ParquetFragmentScanOptions__Make`, use_buffered_stream, buffer_size, pre_buffer)
 }
