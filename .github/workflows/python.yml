@@ -173,6 +173,8 @@ jobs:
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt
+          python -m pip uninstall pytest
+          python -m pip install pytest==7.2
       - name: Build
         shell: bash
         run: |
