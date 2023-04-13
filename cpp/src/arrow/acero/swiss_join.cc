@@ -473,6 +473,12 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     (*first_target_row_id)[sources.size()] = num_rows;
   }
 
+  if (num_bytes > std::numeric_limits<uint32_t>::max()) {
+    return Status::Invalid(
+        "There are more than 2^32 bytes of key data.  Acero cannot "
+        "process a join of this magnitude");
+  }
+
   // Allocate target memory
   //
   target->rows_.Clean();
