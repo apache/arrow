@@ -322,7 +322,7 @@ class ThrottledAsyncTaskSchedulerImpl
       return true;
     } else {
       lk.unlock();
-      return SubmitTask(std::move(task), latched_cost);
+      return SubmitTask(std::move(task), latched_cost, /*in_continue=*/false);
     }
   }
 
@@ -331,18 +331,30 @@ class ThrottledAsyncTaskSchedulerImpl
   const util::tracing::Span& span() const override { return target_->span(); }
 
  private:
-  bool SubmitTask(std::unique_ptr<Task> task, int latched_cost) {
+  bool SubmitTask(std::unique_ptr<Task> task, int latched_cost, bool in_continue) {
     // Wrap the task with a wrapper that runs it and then checks to see if there are any
     // queued tasks
     std::string_view name = task->name();
     return target_->AddSimpleTask(
-        [latched_cost, inner_task = std::move(task),
+        [latched_cost, in_continue, inner_task = std::move(task),
          self = shared_from_this()]() mutable -> Result<Future<>> {
           ARROW_ASSIGN_OR_RAISE(Future<> inner_fut, (*inner_task)());
-          return inner_fut.Then([latched_cost, self = std::move(self)] {
+          if (!inner_fut.TryAddCallback([&] {
+                return [latched_cost, self = std::move(self)](const Status& st) -> void {
+                  if (st.ok()) {
+                    self->throttle_->Release(latched_cost);
+                    self->ContinueTasks();
+                  }
+                };
+              })) {
+            // If the task is already finished then don't run ContinueTasks
+            // if we are already running it so we can avoid stack overflow
             self->throttle_->Release(latched_cost);
-            self->ContinueTasks();
-          });
+            if (!in_continue) {
+              self->ContinueTasks();
+            }
+          }
+          return inner_fut;
         },
         name);
   }
@@ -371,7 +383,7 @@ class ThrottledAsyncTaskSchedulerImpl
       } else {
         std::unique_ptr<Task> next_task = queue_->Pop();
         lk.unlock();
-        if (!SubmitTask(std::move(next_task), next_cost)) {
+        if (!SubmitTask(std::move(next_task), next_cost, /*in_continue=*/true)) {
           return;
         }
         lk.lock();
