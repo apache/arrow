@@ -167,15 +167,16 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   } else {
     // Input has no nulls => output is entirely false.
     bit_util::SetBitsTo(out_bitmap, out_span->offset, out_span->length, false);
-  }
-
-  const auto t = arr.type->id();
-  if (t == Type::SPARSE_UNION) {
-    SetSparseUnionLogicalNullBits(arr, out_bitmap, out_span->offset);
-  } else if (t == Type::DENSE_UNION) {
-    SetDenseUnionLogicalNullBits(arr, out_bitmap, out_span->offset);
-  } else if (t == Type::RUN_END_ENCODED) {
-    SetREELogicalNullBits(arr, out_bitmap, out_span->offset);
+    // Except for union/ree which never has physical nulls, but can have logical
+    // nulls from the child arrays -> set those bits to true
+    const auto t = arr.type->id();
+    if (t == Type::SPARSE_UNION) {
+      SetSparseUnionLogicalNullBits(arr, out_bitmap, out_span->offset);
+    } else if (t == Type::DENSE_UNION) {
+      SetDenseUnionLogicalNullBits(arr, out_bitmap, out_span->offset);
+    } else if (t == Type::RUN_END_ENCODED) {
+      SetREELogicalNullBits(arr, out_bitmap, out_span->offset);
+    }
   }
 
   if (is_floating(arr.type->id()) && options.nan_is_null) {

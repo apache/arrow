@@ -304,7 +304,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
 
   Type::type type_id = value.type->id();
 
-  // Populate null count and validity bitmap (only for non-union/ree/null types)
+  // Populate null count and validity bitmap
   if (type_id == Type::NA) {
     this->null_count = 1;
   } else if (is_union(type_id) || type_id == Type::RUN_END_ENCODED) {
@@ -429,7 +429,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
   } else if (type_id == Type::RUN_END_ENCODED) {
     const auto& scalar = checked_cast<const RunEndEncodedScalar&>(value);
     this->child_data.resize(2);
-    auto run_end_type = scalar.run_end_type();
+    auto& run_end_type = scalar.run_end_type();
     auto run_end = MakeScalar(run_end_type, 1).ValueOrDie();
     this->child_data[0].FillFromScalar(*run_end);
     this->child_data[1].FillFromScalar(*scalar.value);
