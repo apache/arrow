@@ -161,6 +161,9 @@ struct PageIndexSelection {
   bool offset_index = false;
 };
 
+PARQUET_EXPORT
+std::ostream& operator<<(std::ostream& out, const PageIndexSelection& params);
+
 struct RowGroupIndexReadRange {
   /// Base start and total size of column index of all column chunks in a row group.
   /// If none of the column chunks have column index, it is set to std::nullopt.
