@@ -136,6 +136,9 @@ articles:
       - developers/writing_bindings
       - developers/install_details
       - developers/data_object_layout
+  - title: Docs
+    contents:
+      - prevdocs
 
 reference:
   - title: Multi-file datasets
@@ -288,5 +291,6 @@ footer:
     right: built_with
   components:
     older_versions: "[Older versions of these docs](https://arrow.apache.org/docs/r/versions.html)"
+
 
 
