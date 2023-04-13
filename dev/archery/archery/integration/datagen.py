@@ -664,6 +664,26 @@ class LargeStringField(StringField):
         return OrderedDict([('name', 'largeutf8')])
 
 
+class BinaryViewField(BinaryField):
+
+    @property
+    def column_class(self):
+        return BinaryViewColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'binaryview')])
+
+
+class StringViewField(StringField):
+
+    @property
+    def column_class(self):
+        return StringViewColumn
+
+    def _get_type(self):
+        return OrderedDict([('name', 'utf8view')])
+
+
 class Schema(object):
 
     def __init__(self, fields, metadata=None):
@@ -741,6 +761,67 @@ class LargeBinaryColumn(_BaseBinaryColumn, _LargeOffsetsMixin):
 
 class LargeStringColumn(_BaseStringColumn, _LargeOffsetsMixin):
     pass
+
+
+class BinaryViewColumn(PrimitiveColumn):
+
+    def _encode_value(self, x):
+        return frombytes(binascii.hexlify(x).upper())
+
+    def _get_buffers(self):
+        char_buffers = []
+        DEFAULT_BUFFER_SIZE = 32 # ¯\_(ツ)_/¯
+        INLINE_SIZE = 12
+
+        data = []
+        for i, v in enumerate(self.values):
+            if not self.is_valid[i]:
+                v = b''
+            assert isinstance(v, bytes)
+
+            if len(v) > INLINE_SIZE:
+                offset = 0
+                if len(v) > DEFAULT_BUFFER_SIZE:
+                    char_buffers.append(v)
+                else:
+                    if len(char_buffers) == 0:
+                        char_buffers.append(v)
+                    elif len(char_buffers[-1]) + len(v) > DEFAULT_BUFFER_SIZE:
+                        char_buffers.append(v)
+                    else:
+                        offset = len(char_buffers[-1])
+                        char_buffers[-1] += v
+                        assert len(char_buffers[-1]) <= DEFAULT_BUFFER_SIZE
+
+                buffer_index = len(char_buffers) - 1
+                prefix = self._encode_value(v[:4].ljust(4, b'\0'))
+                data.append(OrderedDict([
+                    ('SIZE', len(v)),
+                    ('PREFIX', prefix),
+                    ('BUFFER_INDEX', buffer_index),
+                    ('OFFSET', offset),
+                ]))
+            else:
+                inlined = self._encode_value(v.ljust(12, b'\0'))
+                data.append(OrderedDict([
+                    ('SIZE', len(v)),
+                    ('INLINED', inlined),
+                ]))
+ 
+        return [
+            ('VALIDITY', [int(x) for x in self.is_valid]),
+            ('DATA', data),
+            ('VARIADIC_BUFFERS', [
+                frombytes(binascii.hexlify(buffer).upper())
+                for buffer in char_buffers
+            ]),
+        ]
+
+
+class StringViewColumn(BinaryViewColumn):
+
+    def _encode_value(self, x):
+        return frombytes(x)
 
 
 class FixedSizeBinaryColumn(PrimitiveColumn):
@@ -1541,6 +1622,15 @@ def generate_run_end_encoded_case():
     return _generate_file("run_end_encoded", fields, batch_sizes)
 
 
+def generate_view_case():
+    fields = [
+        BinaryViewField('bv'),
+        StringViewField('sv'),
+    ]
+    batch_sizes = [0, 7, 256]
+    return _generate_file("view", fields, batch_sizes)
+
+
 def generate_nested_large_offsets_case():
     fields = [
         LargeListField('large_list_nullable', get_field('item', 'int32')),
@@ -1737,6 +1827,12 @@ def get_generated_json_files(tempdir=None):
         .skip_category('JS'),
 
         generate_run_end_encoded_case()
+        .skip_category('C#')
+        .skip_category('Java')
+        .skip_category('JS')
+        .skip_category('Rust'),
+
+        generate_view_case()
         .skip_category('C#')
         .skip_category('Java')
         .skip_category('JS')

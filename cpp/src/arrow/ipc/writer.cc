@@ -176,7 +176,8 @@ class RecordBatchSerializer {
   // Override this for writing dictionary metadata
   virtual Status SerializeMetadata(int64_t num_rows) {
     return WriteRecordBatchMessage(num_rows, out_->body_length, custom_metadata_,
-                                   field_nodes_, buffer_meta_, options_, &out_->metadata);
+                                   field_nodes_, buffer_meta_, variadic_counts_, options_,
+                                   &out_->metadata);
   }
 
   bool ShouldCompress(int64_t uncompressed_size, int64_t compressed_size) const {
@@ -293,6 +294,8 @@ class RecordBatchSerializer {
       offset += size + padding;
     }
 
+    variadic_counts_ = out_->variadic_counts;
+
     out_->body_length = offset - buffer_start_offset_;
     DCHECK(bit_util::IsMultipleOf8(out_->body_length));
 
@@ -401,49 +404,14 @@ class RecordBatchSerializer {
   }
 
   Status Visit(const BinaryViewArray& array) {
-    // a separate helper doesn't make sense here since we've already done the work
-    // to copy the bitmap
-    out_->body_buffers.emplace_back();
-    ARROW_ASSIGN_OR_RAISE(
-        out_->body_buffers.back(),
-        AllocateBuffer(sizeof(int32_t) * (array.length() + 1), options_.memory_pool));
+    auto headers = SliceBuffer(array.values(), array.offset() * sizeof(StringHeader),
+                               array.length() * sizeof(StringHeader));
+    out_->body_buffers.emplace_back(std::move(headers));
 
-    auto* offsets = out_->body_buffers.back()->mutable_data_as<int32_t>();
-    offsets[0] = 0;
-    auto AppendOffset = [&](size_t size) mutable {
-      // ignore overflow for now
-      offsets[1] = arrow::internal::SafeSignedAdd(offsets[0], static_cast<int32_t>(size));
-      ++offsets;
-    };
-
-    int64_t size = 0;
-    VisitArraySpanInline<BinaryViewType>(
-        *array.data(),
-        [&](std::string_view v) {
-          size += static_cast<int64_t>(v.size());
-          AppendOffset(v.size());
-        },
-        [&] { AppendOffset(0); });
-
-    if (size > std::numeric_limits<int32_t>::max()) {
-      return Status::Invalid(
-          "Input view array viewed more characters than are representable with 32 bit "
-          "offsets, unable to serialize");
+    out_->variadic_counts.emplace_back(array.data()->buffers.size() - 2);
+    for (size_t i = 2; i < array.data()->buffers.size(); ++i) {
+      out_->body_buffers.emplace_back(array.data()->buffers[i]);
     }
-
-    out_->body_buffers.emplace_back();
-    ARROW_ASSIGN_OR_RAISE(out_->body_buffers.back(),
-                          AllocateBuffer(size, options_.memory_pool));
-
-    VisitArraySpanInline<BinaryViewType>(
-        *array.data(),
-        [chars = out_->body_buffers.back()->mutable_data_as<char>()](
-            std::string_view v) mutable {
-          v.copy(chars, v.size());
-          chars += v.size();
-        },
-        [] {});
-
     return Status::OK();
   }
 
@@ -634,6 +602,7 @@ class RecordBatchSerializer {
 
   std::vector<internal::FieldMetadata> field_nodes_;
   std::vector<internal::BufferMetadata> buffer_meta_;
+  std::vector<int64_t> variadic_counts_;
 
   const IpcWriteOptions& options_;
   int64_t max_recursion_depth_;
@@ -650,8 +619,8 @@ class DictionarySerializer : public RecordBatchSerializer {
 
   Status SerializeMetadata(int64_t num_rows) override {
     return WriteDictionaryMessage(dictionary_id_, is_delta_, num_rows, out_->body_length,
-                                  custom_metadata_, field_nodes_, buffer_meta_, options_,
-                                  &out_->metadata);
+                                  custom_metadata_, field_nodes_, buffer_meta_,
+                                  variadic_counts_, options_, &out_->metadata);
   }
 
   Status Assemble(const std::shared_ptr<Array>& dictionary) {

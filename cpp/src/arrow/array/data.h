@@ -384,6 +384,7 @@ struct ARROW_EXPORT ArraySpan {
   ArraySpan(const ArrayData& data) {  // NOLINT implicit conversion
     SetMembers(data);
   }
+  /// Warning: this produces an ArraySpan which cannot be safely moved/copied!
   explicit ArraySpan(const Scalar& data) { FillFromScalar(data); }
 
   /// If dictionary-encoded, put dictionary in the first entry
@@ -391,6 +392,7 @@ struct ARROW_EXPORT ArraySpan {
 
   /// \brief Populate ArraySpan to look like an array of length 1 pointing at
   /// the data members of a Scalar value
+  /// Warning: this produces an ArraySpan which cannot be safely moved/copied!
   void FillFromScalar(const Scalar& value);
 
   void SetMembers(const ArrayData& data);
@@ -472,6 +474,8 @@ struct ARROW_EXPORT ArraySpan {
       this->null_count = this->length;
     } else if (this->MayHaveNulls()) {
       this->null_count = kUnknownNullCount;
+    } else {
+      this->null_count = 0;
     }
   }
 

@@ -149,26 +149,38 @@ template <typename T>
 struct ArraySpanInlineVisitor<T, enable_if_binary_view_like<T>> {
   using c_type = std::string_view;
 
+  static std::string_view GetView(const StringHeader& s,
+                                  const std::shared_ptr<Buffer>* char_buffers) {
+    if (!s.IsInline()) {
+      const auto& buffer = char_buffers[s.GetBufferIndex()];
+      return std::string_view{buffer->data_as<char>() + s.GetBufferOffset(), s.size()};
+    }
+    return std::string_view{s.GetInlineData(), s.size()};
+  }
+
+  static const std::shared_ptr<Buffer>* GetCharBuffers(const ArraySpan& arr) {
+    return reinterpret_cast<const std::shared_ptr<Buffer>*>(arr.buffers[2].data);
+  }
+
   template <typename ValidFunc, typename NullFunc>
   static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
                             NullFunc&& null_func) {
     if (arr.length == 0) {
       return Status::OK();
     }
-    const StringHeader* headers;
-    if (arr.buffers[1].data == NULLPTR) {
-      headers = NULLPTR;
+    auto* s = arr.GetValues<StringHeader>(1);
+    if (checked_cast<const BinaryViewType*>(arr.type)->has_raw_pointers()) {
+      return VisitBitBlocks(
+          arr.buffers[0].data, arr.offset, arr.length,
+          [&](int64_t index) { return valid_func(std::string_view{s[index]}); },
+          [&]() { return null_func(); });
     } else {
-      // Do not apply the array offset to the values array; the value_offsets
-      // index the non-sliced values array.
-      headers = arr.GetValues<StringHeader>(1);
+      auto* char_buffers = GetCharBuffers(arr);
+      return VisitBitBlocks(
+          arr.buffers[0].data, arr.offset, arr.length,
+          [&](int64_t index) { return valid_func(GetView(s[index], char_buffers)); },
+          [&]() { return null_func(); });
     }
-    return VisitBitBlocks(
-        arr.buffers[0].data, arr.offset, arr.length,
-        [&](int64_t(index)) {
-          return valid_func(static_cast<std::string_view>(headers[index]));
-        },
-        [&]() { return null_func(); });
   }
 
   template <typename ValidFunc, typename NullFunc>
@@ -177,21 +189,19 @@ struct ArraySpanInlineVisitor<T, enable_if_binary_view_like<T>> {
     if (arr.length == 0) {
       return;
     }
-    const StringHeader* headers;
-    if (arr.buffers[1].data == NULLPTR) {
-      headers = NULLPTR;
+    auto* s = arr.GetValues<StringHeader>(1);
+    if (checked_cast<const BinaryViewType*>(arr.type)->has_raw_pointers()) {
+      VisitBitBlocksVoid(
+          arr.buffers[0].data, arr.offset, arr.length,
+          [&](int64_t index) { valid_func(std::string_view{s[index]}); },
+          std::forward<NullFunc>(null_func));
     } else {
-      // Do not apply the array offset to the values array; the value_offsets
-      // index the non-sliced values array.
-      headers = arr.GetValues<StringHeader>(1);
+      auto* char_buffers = GetCharBuffers(arr);
+      VisitBitBlocksVoid(
+          arr.buffers[0].data, arr.offset, arr.length,
+          [&](int64_t index) { valid_func(GetView(s[index], char_buffers)); },
+          std::forward<NullFunc>(null_func));
     }
-
-    VisitBitBlocksVoid(
-        arr.buffers[0].data, arr.offset, arr.length,
-        [&](int64_t(index)) {
-          valid_func(static_cast<std::string_view>(headers[index]));
-        },
-        std::forward<NullFunc>(null_func));
   }
 };
 
@@ -324,9 +334,8 @@ typename internal::call_traits::enable_if_return<ValidFunc, void>::type
 VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
                       int64_t num_values, int64_t null_count, ValidFunc&& valid_func,
                       NullFunc&& null_func) {
-  ARROW_UNUSED(null_count);
-  internal::OptionalBitBlockCounter bit_counter(valid_bits, valid_bits_offset,
-                                                num_values);
+  internal::OptionalBitBlockCounter bit_counter(null_count == 0 ? NULLPTR : valid_bits,
+                                                valid_bits_offset, num_values);
   int64_t position = 0;
   int64_t offset_position = valid_bits_offset;
   while (position < num_values) {

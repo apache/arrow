@@ -42,6 +42,11 @@ using internal::checked_cast;
 
 // ----------------------------------------------------------------------
 // Binary/StringView
+BinaryViewBuilder::BinaryViewBuilder(const std::shared_ptr<DataType>& type,
+                                     MemoryPool* pool)
+    : BinaryViewBuilder(pool) {
+  ARROW_CHECK(!checked_cast<const BinaryViewType&>(*type).has_raw_pointers());
+}
 
 Status BinaryViewBuilder::AppendValues(const std::vector<std::string>& values,
                                        const uint8_t* valid_bytes) {
@@ -63,8 +68,8 @@ Status BinaryViewBuilder::AppendValues(const std::vector<std::string>& values,
       }
     }
   } else {
-    for (std::size_t i = 0; i < values.size(); ++i) {
-      UnsafeAppend(values[i]);
+    for (const auto& value : values) {
+      UnsafeAppend(value);
     }
   }
   UnsafeAppendToBitmap(valid_bytes, values.size());
@@ -211,8 +216,8 @@ const uint8_t* FixedSizeBinaryBuilder::GetValue(int64_t i) const {
 
 std::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
   const uint8_t* data_ptr = byte_builder_.data();
-  return std::string_view(reinterpret_cast<const char*>(data_ptr + i * byte_width_),
-                          byte_width_);
+  return {reinterpret_cast<const char*>(data_ptr + i * byte_width_),
+          static_cast<size_t>(byte_width_)};
 }
 
 // ----------------------------------------------------------------------
@@ -259,10 +264,10 @@ Status ChunkedStringBuilder::Finish(ArrayVector* out) {
   RETURN_NOT_OK(ChunkedBinaryBuilder::Finish(out));
 
   // Change data type to string/utf8
-  for (size_t i = 0; i < out->size(); ++i) {
-    std::shared_ptr<ArrayData> data = (*out)[i]->data();
+  for (auto& chunk : *out) {
+    std::shared_ptr<ArrayData> data = chunk->data()->Copy();
     data->type = ::arrow::utf8();
-    (*out)[i] = std::make_shared<StringArray>(data);
+    chunk = std::make_shared<StringArray>(std::move(data));
   }
   return Status::OK();
 }

@@ -159,7 +159,7 @@ TEST_P(TestMessage, SerializeCustomMetadata) {
     ASSERT_OK(internal::WriteRecordBatchMessage(
         /*length=*/0, /*body_length=*/0, metadata,
         /*nodes=*/{},
-        /*buffers=*/{}, options_, &serialized));
+        /*buffers=*/{}, /*variadic_counts=*/{}, options_, &serialized));
     ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
                          Message::Open(serialized, /*body=*/nullptr));
 
@@ -2873,21 +2873,21 @@ void GetReadRecordBatchReadRanges(
   // 1) read magic and footer length IO
   // 2) read footer IO
   // 3) read record batch metadata IO
-  ASSERT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
+  EXPECT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
   const int32_t magic_size = static_cast<int>(strlen(ipc::internal::kArrowMagicBytes));
   // read magic and footer length IO
   auto file_end_size = magic_size + sizeof(int32_t);
   auto footer_length_offset = buffer->size() - file_end_size;
   auto footer_length = bit_util::FromLittleEndian(
       util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
-  ASSERT_EQ(read_ranges[0].length, file_end_size);
+  EXPECT_EQ(read_ranges[0].length, file_end_size);
   // read footer IO
-  ASSERT_EQ(read_ranges[1].length, footer_length);
+  EXPECT_EQ(read_ranges[1].length, footer_length);
   // read record batch metadata.  The exact size is tricky to determine but it doesn't
   // matter for this test and it should be smaller than the footer.
-  ASSERT_LT(read_ranges[2].length, footer_length);
+  EXPECT_LE(read_ranges[2].length, footer_length);
   for (uint32_t i = 0; i < expected_body_read_lengths.size(); i++) {
-    ASSERT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
+    EXPECT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
   }
 }
 

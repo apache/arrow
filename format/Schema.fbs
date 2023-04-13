@@ -22,6 +22,7 @@
 /// Version 1.1 - Add Decimal256.
 /// Version 1.2 - Add Interval MONTH_DAY_NANO.
 /// Version 1.3 - Add Run-End Encoded.
+/// Version 1.4 - Add BinaryView and Utf8View.
 
 namespace org.apache.arrow.flatbuf;
 
@@ -170,6 +171,17 @@ table LargeUtf8 {
 /// extremely large data values.
 table LargeBinary {
 }
+
+/// Same as Utf8, but string characters are delimited with a packed
+/// length/pointer instead of offsets.
+table Utf8View {
+}
+
+/// Same as Binary, but string characters are delimited with a packed
+/// length/pointeBinary of offsets.
+table BinaryView {
+}
+
 
 table FixedSizeBinary {
   /// Number of bytes per value
@@ -427,6 +439,8 @@ union Type {
   LargeUtf8,
   LargeList,
   RunEndEncoded,
+  BinaryView,
+  Utf8View,
 }
 
 /// ----------------------------------------------------------------------

@@ -28,6 +28,7 @@
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/span.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/visit_data_inline.h"
@@ -38,8 +39,7 @@ using internal::StringFormatter;
 using util::InitializeUTF8;
 using util::ValidateUTF8Inline;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -55,7 +55,7 @@ struct NumericToStringCastFunctor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ArraySpan& input = batch[0].array;
     FormatterType formatter(input.type);
-    BuilderType builder(input.type->GetSharedPtr(), ctx->memory_pool());
+    BuilderType builder(TypeTraits<O>::type_singleton(), ctx->memory_pool());
     RETURN_NOT_OK(VisitArraySpanInline<I>(
         input,
         [&](value_type v) {
@@ -79,7 +79,7 @@ struct DecimalToStringCastFunctor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ArraySpan& input = batch[0].array;
     FormatterType formatter(input.type);
-    BuilderType builder(input.type->GetSharedPtr(), ctx->memory_pool());
+    BuilderType builder(TypeTraits<O>::type_singleton(), ctx->memory_pool());
     RETURN_NOT_OK(VisitArraySpanInline<I>(
         input,
         [&](std::string_view bytes) {
@@ -107,7 +107,7 @@ struct TemporalToStringCastFunctor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ArraySpan& input = batch[0].array;
     FormatterType formatter(input.type);
-    BuilderType builder(input.type->GetSharedPtr(), ctx->memory_pool());
+    BuilderType builder(TypeTraits<O>::type_singleton(), ctx->memory_pool());
     RETURN_NOT_OK(VisitArraySpanInline<I>(
         input,
         [&](value_type v) {
@@ -132,7 +132,7 @@ struct TemporalToStringCastFunctor<O, TimestampType> {
     const ArraySpan& input = batch[0].array;
     const auto& timezone = GetInputTimezone(*input.type);
     const auto& ty = checked_cast<const TimestampType&>(*input.type);
-    BuilderType builder(input.type->GetSharedPtr(), ctx->memory_pool());
+    BuilderType builder(TypeTraits<O>::type_singleton(), ctx->memory_pool());
 
     // Preallocate
     int64_t string_length = 19;  // YYYY-MM-DD HH:MM:SS
@@ -337,7 +337,6 @@ Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
   }
 
   if constexpr (kInputViews && kOutputOffsets) {
-    // copy the input's null bitmap if necessary
     if (input.MayHaveNulls()) {
       ARROW_ASSIGN_OR_RAISE(
           output->buffers[0],
@@ -349,76 +348,61 @@ Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
 
     using offset_type = typename O::offset_type;
 
-    auto* offsets = output->buffers[1]->mutable_data_as<offset_type>();
-    offsets[0] = 0;
-    auto AppendOffset = [&](size_t size) mutable {
-      offsets[1] = offsets[0] + static_cast<offset_type>(size);
-      ++offsets;
-    };
+    auto* offset = output->buffers[1]->mutable_data_as<offset_type>();
+    offset[0] = 0;
 
-    // TODO(bkietz) if ArraySpan::buffers were a SmallVector, we could have access to all
-    // the character data buffers here and reserve character data accordingly.
+    util::span char_buffers{
+        reinterpret_cast<const std::shared_ptr<Buffer>*>(input.buffers[2].data),
+        static_cast<size_t>(input.buffers[2].size / sizeof(std::shared_ptr<Buffer>))};
+    int64_t char_count = 0;
+    for (const auto& buf : char_buffers) {
+      char_count += buf->size();
+    }
     BufferBuilder char_builder{ctx->memory_pool()};
+    RETURN_NOT_OK(char_builder.Reserve(char_count));
 
-    // sweep through L1-sized chunks to reduce the frequency of allocation and overflow
-    // checking
-    int64_t chunk_size = ctx->exec_context()->cpu_info()->CacheSize(
-                             ::arrow::internal::CpuInfo::CacheLevel::L1) /
-                         sizeof(StringHeader) / 4;
-
-    RETURN_NOT_OK(::arrow::internal::VisitSlices(
-        input, chunk_size, [&](const ArraySpan& input_slice) {
-          size_t num_appended_chars = 0;
-          int64_t num_chars = char_builder.length();
-          VisitArraySpanInline<I>(
-              input_slice, [&](std::string_view v) { num_appended_chars += v.size(); },
-              [] {});
-
+    RETURN_NOT_OK(VisitArraySpanInline<StringViewType>(
+        input,
+        [&](std::string_view v) {
           if constexpr (std::is_same_v<offset_type, int32_t>) {
-            if (ARROW_PREDICT_FALSE(char_builder.length() + num_appended_chars >
+            if (ARROW_PREDICT_FALSE(char_builder.length() + v.size() >
                                     std::numeric_limits<int32_t>::max())) {
               return Status::Invalid("Failed casting from ", input.type->ToString(),
                                      " to ", out->type()->ToString(),
                                      ": input array viewed too many characters");
             }
           }
-          RETURN_NOT_OK(char_builder.Reserve(static_cast<int64_t>(num_appended_chars)));
-
-          VisitArraySpanInline<I>(
-              input_slice,
-              [&](std::string_view v) {
-                char_builder.UnsafeAppend(v);
-                AppendOffset(v.size());
-              },
-              [&] { AppendOffset(0); });
-
-          if (check_utf8) {
-            if (ARROW_PREDICT_FALSE(
-                    !ValidateUTF8Inline(char_builder.data() + num_chars,
-                                        static_cast<int64_t>(num_appended_chars)))) {
-              return Status::Invalid("Invalid UTF8 sequence");
-            }
-          }
+          offset[1] = static_cast<offset_type>(offset[0] + v.size());
+          ++offset;
+          return char_builder.Append(v);
+        },
+        [&] {
+          offset[1] = offset[0];
+          ++offset;
           return Status::OK();
         }));
 
+    RETURN_NOT_OK(SimpleUtf8Validation());
     return char_builder.Finish(&output->buffers[2]);
   }
 
   if constexpr ((kInputOffsets || kInputFixed) && kOutputViews) {
-    // FIXME(bkietz) when outputting views, we *could* output into slices,
+    // TODO(bkietz) when outputting views, we *could* output into slices,
     // provided we have a threadsafe place to stash accumulated buffers
     // of character data.
-
     if (input.MayHaveNulls()) {
       ARROW_ASSIGN_OR_RAISE(
           output->buffers[0],
           arrow::internal::CopyBitmap(ctx->memory_pool(), input.buffers[0].data,
                                       input.offset, input.length));
+    } else {
+      output->buffers[0] = nullptr;
     }
 
-    // FIXME(bkietz) segfault due to null buffer owner
-    // output->buffers[2] = input.GetBuffer(kInputFixed ? 1 : 2);
+    // Borrow the input's character buffer
+    output->buffers.resize(3);
+    output->buffers[2] = input.GetBuffer(kInputFixed ? 1 : 2);
+    auto* buffer_data = output->buffers[2]->data_as<char>();
 
     auto* headers = output->buffers[1]->mutable_data_as<StringHeader>();
     if (check_utf8) {
@@ -426,7 +410,8 @@ Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
       return VisitArraySpanInline<I>(
           input,
           [&](std::string_view v) {
-            *headers++ = StringHeader{v};
+            new (headers++)
+                StringHeader{v.data(), static_cast<uint32_t>(v.size()), 0, buffer_data};
             return validator.VisitValue(v);
           },
           [&] {
@@ -435,7 +420,11 @@ Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
           });
     } else {
       VisitArraySpanInline<I>(
-          input, [&](std::string_view v) { *headers++ = StringHeader{v}; },
+          input,
+          [&](std::string_view v) {
+            new (headers++)
+                StringHeader{v.data(), static_cast<uint32_t>(v.size()), 0, buffer_data};
+          },
           [&] { *headers++ = StringHeader{}; });
       return Status::OK();
     }
@@ -627,6 +616,5 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   };
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

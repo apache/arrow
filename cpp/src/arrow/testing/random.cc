@@ -430,11 +430,11 @@ std::shared_ptr<Array> RandomArrayGenerator::BinaryWithRepeats(
 
 std::shared_ptr<Array> RandomArrayGenerator::StringView(int64_t size, int32_t min_length,
                                                         int32_t max_length,
-                                                        double null_probability, 
+                                                        double null_probability,
                                                         int64_t alignment,
                                                         MemoryPool* memory_pool) {
-  return GenerateBinaryArray<StringViewType, uint32_t>(this, size, min_length, max_length,
-                                                       null_probability, alignment, memory_pool);
+  return GenerateBinaryArray<StringViewType, uint32_t>(
+      this, size, min_length, max_length, null_probability, alignment, memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::StringWithRepeats(
@@ -856,8 +856,15 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
           GetMetadata<int32_t>(field.metadata().get(), "min_length", 0);
       const auto max_length =
           GetMetadata<int32_t>(field.metadata().get(), "max_length", 20);
-      return *StringView(length, min_length, max_length, null_probability)
-                  ->View(field.type());
+
+      auto out = StringView(length, min_length, max_length, null_probability, alignment);
+
+      if (internal::checked_cast<const BinaryViewType&>(*field.type())
+              .has_raw_pointers()) {
+        ABORT_NOT_OK(internal::SwapStringHeaderPointers(
+            *out->data(), out->data()->buffers[1]->mutable_data_as<StringHeader>()));
+      }
+      return out->View(field.type()).ValueOrDie();
     }
 
     case Type::type::DECIMAL128:

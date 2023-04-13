@@ -24,16 +24,22 @@
 #include <utility>
 #include <vector>
 
-namespace arrow {
-namespace internal {
+#include "arrow/util/span.h"
+
+namespace arrow::internal {
 
 template <typename T, typename Cmp = std::less<T>>
-std::vector<int64_t> ArgSort(const std::vector<T>& values, Cmp&& cmp = {}) {
+std::vector<int64_t> ArgSort(arrow::util::span<T> values, Cmp&& cmp = {}) {
   std::vector<int64_t> indices(values.size());
   std::iota(indices.begin(), indices.end(), 0);
   std::sort(indices.begin(), indices.end(),
             [&](int64_t i, int64_t j) -> bool { return cmp(values[i], values[j]); });
   return indices;
+}
+
+template <typename Range, typename... Cmp>
+std::vector<int64_t> ArgSort(const Range& values, Cmp&&... cmp) {
+  return ArgSort(arrow::util::span{values}, std::forward<Cmp>(cmp)...);
 }
 
 template <typename T>
@@ -74,5 +80,4 @@ size_t Permute(const std::vector<int64_t>& indices, std::vector<T>* values) {
   return cycle_count;
 }
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal

@@ -46,6 +46,8 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/range.h"
+#include "arrow/util/span.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_array_inline.h"
@@ -103,6 +105,11 @@ std::string GetTimeUnitName(TimeUnit::type unit) {
       break;
   }
   return "UNKNOWN";
+}
+
+std::string_view GetStringView(const rj::Value& str) {
+  DCHECK(str.IsString());
+  return {str.GetString(), str.GetStringLength()};
 }
 
 class SchemaWriter {
@@ -387,8 +394,8 @@ class SchemaWriter {
   Status Visit(const TimeType& type) { return WritePrimitive("time", type); }
   Status Visit(const StringType& type) { return WriteVarBytes("utf8", type); }
   Status Visit(const BinaryType& type) { return WriteVarBytes("binary", type); }
-  Status Visit(const StringViewType& type) { return WritePrimitive("utf8_view", type); }
-  Status Visit(const BinaryViewType& type) { return WritePrimitive("binary_view", type); }
+  Status Visit(const StringViewType& type) { return WritePrimitive("utf8view", type); }
+  Status Visit(const BinaryViewType& type) { return WritePrimitive("binaryview", type); }
   Status Visit(const LargeStringType& type) { return WriteVarBytes("largeutf8", type); }
   Status Visit(const LargeBinaryType& type) { return WriteVarBytes("largebinary", type); }
   Status Visit(const FixedSizeBinaryType& type) {
@@ -535,22 +542,19 @@ class ArrayWriter {
     }
   }
 
-  // Binary, encode to hexadecimal.
-  template <typename ArrayType>
-  enable_if_binary_like<typename ArrayType::TypeClass> WriteDataValues(
-      const ArrayType& arr) {
+  template <typename ArrayType, typename Type = typename ArrayType::TypeClass>
+  std::enable_if_t<is_base_binary_type<Type>::value ||
+                   is_fixed_size_binary_type<Type>::value>
+  WriteDataValues(const ArrayType& arr) {
     for (int64_t i = 0; i < arr.length(); ++i) {
-      writer_->String(HexEncode(arr.GetView(i)));
-    }
-  }
-
-  // UTF8 string, write as is
-  template <typename ArrayType>
-  enable_if_string_like<typename ArrayType::TypeClass> WriteDataValues(
-      const ArrayType& arr) {
-    for (int64_t i = 0; i < arr.length(); ++i) {
-      auto view = arr.GetView(i);
-      writer_->String(view.data(), static_cast<rj::SizeType>(view.size()));
+      if constexpr (Type::is_utf8) {
+        // UTF8 string, write as is
+        auto view = arr.GetView(i);
+        writer_->String(view.data(), static_cast<rj::SizeType>(view.size()));
+      } else {
+        // Binary, encode to hexadecimal.
+        writer_->String(HexEncode(arr.GetView(i)));
+      }
     }
   }
 
@@ -649,6 +653,52 @@ class ArrayWriter {
     writer_->EndArray();
   }
 
+  template <typename ArrayType, bool IsUtf8 = ArrayType::TypeClass::is_utf8>
+  void WriteStringHeaderField(const ArrayType& array) {
+    writer_->Key(kData);
+    writer_->StartArray();
+    for (int64_t i = 0; i < array.length(); ++i) {
+      auto s = array.raw_values()[i];
+      writer_->StartObject();
+      writer_->Key("SIZE");
+      writer_->Int64(s.size());
+      if (s.IsInline()) {
+        writer_->Key("INLINED");
+        if constexpr (IsUtf8) {
+          writer_->String(s.GetInlineData(), StringHeader::kInlineSize);
+        } else {
+          writer_->String(HexEncode(s.GetInlineData(), StringHeader::kInlineSize));
+        }
+      } else {
+        writer_->Key("PREFIX");
+        if constexpr (IsUtf8) {
+          writer_->String(s.GetPrefix().data(), StringHeader::kPrefixSize);
+        } else {
+          writer_->String(HexEncode(s.GetPrefix().data(), StringHeader::kPrefixSize));
+        }
+        writer_->Key("BUFFER_INDEX");
+        writer_->Int64(s.GetBufferIndex());
+        writer_->Key("OFFSET");
+        writer_->Int64(s.GetBufferOffset());
+      }
+      writer_->EndObject();
+    }
+    writer_->EndArray();
+  }
+
+  void WriteVariadicBuffersField(const BinaryViewArray& arr) {
+    writer_->Key("VARIADIC_BUFFERS");
+    writer_->StartArray();
+    const auto& buffers = arr.data()->buffers;
+    for (size_t i = 2; i < buffers.size(); ++i) {
+      // Encode the character buffers into hexadecimal strings.
+      // Even for arrays which contain utf-8, portions of the buffer not
+      // referenced by any view may be invalid.
+      writer_->String(buffers[i]->ToHexString());
+    }
+    writer_->EndArray();
+  }
+
   void WriteValidityField(const Array& arr) {
     writer_->Key("VALIDITY");
     writer_->StartArray();
@@ -689,8 +739,10 @@ class ArrayWriter {
   }
 
   template <typename ArrayType>
-  enable_if_t<std::is_base_of<PrimitiveArray, ArrayType>::value, Status> Visit(
-      const ArrayType& array) {
+  enable_if_t<std::is_base_of<PrimitiveArray, ArrayType>::value &&
+                  !is_binary_view_like_type<typename ArrayType::TypeClass>::value,
+              Status>
+  Visit(const ArrayType& array) {
     WriteValidityField(array);
     WriteDataField(array);
     SetNoChildren();
@@ -703,6 +755,21 @@ class ArrayWriter {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     WriteDataField(array);
+    SetNoChildren();
+    return Status::OK();
+  }
+
+  template <typename ArrayType>
+  enable_if_binary_view_like<typename ArrayType::TypeClass, Status> Visit(
+      const ArrayType& array) {
+    if (array.has_raw_pointers()) {
+      return Status::NotImplemented("serialization of ", array.type()->ToString());
+    }
+
+    WriteValidityField(array);
+    WriteStringHeaderField(array);
+    WriteVariadicBuffersField(array);
+
     SetNoChildren();
     return Status::OK();
   }
@@ -1068,6 +1135,10 @@ Status GetType(const RjObject& json_type,
     *type = utf8();
   } else if (type_name == "binary") {
     *type = binary();
+  } else if (type_name == "utf8view") {
+    *type = utf8_view();
+  } else if (type_name == "binaryview") {
+    *type = binary_view();
   } else if (type_name == "largeutf8") {
     *type = large_utf8();
   } else if (type_name == "largebinary") {
@@ -1344,7 +1415,7 @@ class ArrayReader {
       int64_t offset_end = ParseOffset(json_offsets[i + 1]);
       DCHECK(offset_end >= offset_start);
 
-      if (T::is_utf8) {
+      if constexpr (T::is_utf8) {
         auto str = val.GetString();
         DCHECK(std::string(str).size() == static_cast<size_t>(offset_end - offset_start));
         RETURN_NOT_OK(builder.Append(str));
@@ -1370,8 +1441,97 @@ class ArrayReader {
     return FinishBuilder(&builder);
   }
 
-  Status Visit(const BinaryViewType& type) {
-    return Status::NotImplemented("Binary / string view");
+  template <typename ViewType>
+  enable_if_binary_view_like<ViewType, Status> Visit(const ViewType& type) {
+    ARROW_ASSIGN_OR_RAISE(const auto json_views, GetDataArray(obj_));
+    ARROW_ASSIGN_OR_RAISE(const auto json_variadic_bufs,
+                          GetMemberArray(obj_, "VARIADIC_BUFFERS"));
+
+    using internal::Zip;
+    using util::span;
+
+    BufferVector buffers;
+    buffers.resize(json_variadic_bufs.Size() + 2);
+    for (auto [json_buf, buf] : Zip(json_variadic_bufs, span{buffers}.subspan(2))) {
+      auto hex_string = GetStringView(json_buf);
+      ARROW_ASSIGN_OR_RAISE(
+          buf, AllocateBuffer(static_cast<int64_t>(hex_string.size()) / 2, pool_));
+      RETURN_NOT_OK(ParseHexValues(hex_string, buf->mutable_data()));
+    }
+
+    TypedBufferBuilder<bool> validity_builder{pool_};
+    RETURN_NOT_OK(validity_builder.Resize(length_));
+    for (bool is_valid : is_valid_) {
+      validity_builder.UnsafeAppend(is_valid);
+    }
+    ARROW_ASSIGN_OR_RAISE(buffers[0], validity_builder.Finish());
+
+    ARROW_ASSIGN_OR_RAISE(buffers[1],
+                          AllocateBuffer(length_ * sizeof(StringHeader), pool_));
+
+    span headers{buffers[1]->mutable_data_as<StringHeader>(),
+                 static_cast<size_t>(length_)};
+
+    int64_t null_count = 0;
+    for (auto [json_view, header, is_valid] : Zip(json_views, headers, is_valid_)) {
+      if (!is_valid) {
+        header = {};
+        ++null_count;
+        continue;
+      }
+
+      DCHECK(json_view.IsObject());
+      const auto& json_view_obj = json_view.GetObject();
+
+      auto json_size = json_view_obj.FindMember("SIZE");
+      RETURN_NOT_INT("SIZE", json_size, json_view_obj);
+      auto size = static_cast<uint32_t>(json_size->value.GetInt64());
+
+      if (StringHeader::IsInline(size)) {
+        auto json_inlined = json_view_obj.FindMember("INLINED");
+        RETURN_NOT_STRING("INLINED", json_inlined, json_view_obj);
+        if constexpr (ViewType::is_utf8) {
+          DCHECK_EQ(json_inlined->value.GetStringLength(), StringHeader::kInlineSize);
+          header = StringHeader{json_inlined->value.GetString(), size};
+        } else {
+          DCHECK_EQ(json_inlined->value.GetStringLength(), StringHeader::kInlineSize * 2);
+          std::array<char, StringHeader::kInlineSize> inlined;
+          RETURN_NOT_OK(ParseHexValues(GetStringView(json_inlined->value),
+                                       reinterpret_cast<uint8_t*>(inlined.data())));
+          header = StringHeader{inlined.data(), size};
+        }
+        continue;
+      }
+
+      auto json_prefix = json_view_obj.FindMember("PREFIX");
+      auto json_buffer_index = json_view_obj.FindMember("BUFFER_INDEX");
+      auto json_offset = json_view_obj.FindMember("OFFSET");
+      RETURN_NOT_STRING("PREFIX", json_prefix, json_view_obj);
+      RETURN_NOT_INT("BUFFER_INDEX", json_buffer_index, json_view_obj);
+      RETURN_NOT_INT("OFFSET", json_offset, json_view_obj);
+
+      std::array<char, StringHeader::kPrefixSize> prefix;
+      if constexpr (ViewType::is_utf8) {
+        DCHECK_EQ(json_prefix->value.GetStringLength(), StringHeader::kPrefixSize);
+        auto prefix_ptr = json_prefix->value.GetString();
+        prefix = {prefix_ptr[0], prefix_ptr[1], prefix_ptr[2], prefix_ptr[3]};
+      } else {
+        DCHECK_EQ(json_prefix->value.GetStringLength(), StringHeader::kPrefixSize * 2);
+        RETURN_NOT_OK(ParseHexValues(GetStringView(json_prefix->value),
+                                     reinterpret_cast<uint8_t*>(prefix.data())));
+      }
+
+      header = StringHeader{size, prefix,
+                            static_cast<uint32_t>(json_buffer_index->value.GetInt64()),
+                            static_cast<uint32_t>(json_offset->value.GetInt64())};
+
+      DCHECK_LE(header.GetBufferIndex(), buffers.size() - 2);
+      DCHECK_LE(static_cast<int64_t>(header.GetBufferOffset() + header.size()),
+                buffers[header.GetBufferIndex() + 2]->size());
+    }
+
+    data_ = ArrayData::Make(type_, length_, std::move(buffers), null_count);
+    return Status::OK();
   }
 
   Status Visit(const DayTimeIntervalType& type) {

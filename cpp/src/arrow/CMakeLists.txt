@@ -226,6 +226,7 @@ set(ARROW_SRCS
     util/ree_util.cc
     util/string.cc
     util/string_builder.cc
+    util/string_header.cc
     util/task_group.cc
     util/tdigest.cc
     util/thread_pool.cc

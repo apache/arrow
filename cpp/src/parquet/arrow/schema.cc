@@ -341,11 +341,13 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       break;
     case ArrowTypeId::LARGE_STRING:
     case ArrowTypeId::STRING:
+    case ArrowTypeId::STRING_VIEW:
       type = ParquetType::BYTE_ARRAY;
       logical_type = LogicalType::String();
       break;
     case ArrowTypeId::LARGE_BINARY:
     case ArrowTypeId::BINARY:
+    case ArrowTypeId::BINARY_VIEW:
       type = ParquetType::BYTE_ARRAY;
       break;
     case ArrowTypeId::FIXED_SIZE_BINARY: {
@@ -948,7 +950,11 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
 
   if ((origin_type->id() == ::arrow::Type::LARGE_BINARY &&
        inferred_type->id() == ::arrow::Type::BINARY) ||
+      (origin_type->id() == ::arrow::Type::BINARY_VIEW &&
+       inferred_type->id() == ::arrow::Type::BINARY) ||
       (origin_type->id() == ::arrow::Type::LARGE_STRING &&
+       inferred_type->id() == ::arrow::Type::STRING) ||
+      (origin_type->id() == ::arrow::Type::STRING_VIEW &&
        inferred_type->id() == ::arrow::Type::STRING)) {
     // Read back binary-like arrays with the intended offset width.
     inferred->field = inferred->field->WithType(origin_type);

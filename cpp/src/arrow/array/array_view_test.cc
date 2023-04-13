@@ -126,6 +126,38 @@ TEST(TestArrayView, StringAsBinary) {
   CheckView(expected, arr);
 }
 
+TEST(TestArrayView, StringViewAsBinaryView) {
+  for (auto json : {
+           R"(["foox", "barz", null])",
+           R"(["foox", "barz_not_inlined", null])",
+       }) {
+    auto arr = ArrayFromJSON(utf8_view(), json);
+    auto expected = ArrayFromJSON(binary_view(), json);
+    CheckView(arr, expected);
+    CheckView(expected, arr);
+  }
+}
+
+TEST(TestArrayView, StringViewAsBinaryViewInStruct) {
+  auto padl = ArrayFromJSON(list(int16()), "[[0, -1], [], [42]]");
+  auto padr = ArrayFromJSON(utf8(), R"(["foox", "barz", null])");
+
+  for (auto json : {
+           R"(["foox", "barz", null])",
+           R"(["foox", "barz_not_inlined", null])",
+       }) {
+    auto arr =
+        StructArray::Make({padl, ArrayFromJSON(utf8_view(), json), padr}, {"", "", ""})
+            .ValueOrDie();
+    auto expected =
+        StructArray::Make({padl, ArrayFromJSON(binary_view(), json), padr}, {"", "", ""})
+            .ValueOrDie();
+
+    CheckView(arr, expected);
+    CheckView(expected, arr);
+  }
+}
+
 TEST(TestArrayView, PrimitiveWrongSize) {
   auto arr = ArrayFromJSON(int16(), "[0, -1, 42]");
   CheckViewFails(arr, int8());

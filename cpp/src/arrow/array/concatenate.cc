@@ -229,30 +229,41 @@ class ConcatenateImpl {
     return ConcatenateBuffers(value_buffers, pool_).Value(&out_->buffers[2]);
   }
 
-  Status Visit(const BinaryViewType&) {
-    bool any_opted_out_of_view_validation = false;
+  Status Visit(const BinaryViewType& type) {
     out_->buffers.resize(2);
 
     for (const auto& in_data : in_) {
       auto begin = in_data->buffers.begin() + 2;
       auto end = in_data->buffers.end();
 
-      if (BinaryViewArray::OptedOutOfViewValidation(*in_data)) {
-        any_opted_out_of_view_validation = true;
-        --end;
-      }
-
       for (auto it = begin; it != end; ++it) {
         out_->buffers.push_back(*it);
       }
     }
 
-    if (any_opted_out_of_view_validation) {
-      out_->buffers = BinaryViewArray::DoNotValidateViews(std::move(out_->buffers));
+    ARROW_ASSIGN_OR_RAISE(auto header_buffers, Buffers(1, sizeof(StringHeader)));
+    ARROW_ASSIGN_OR_RAISE(auto header_buffer, ConcatenateBuffers(header_buffers, pool_));
+
+    if (!type.has_raw_pointers()) {
+      auto* s = header_buffer->mutable_data_as<StringHeader>();
+
+      size_t preceding_buffer_count = 0;
+
+      int64_t i = in_[0]->length;
+      for (size_t in_index = 1; in_index < in_.size(); ++in_index) {
+        preceding_buffer_count += in_[in_index - 1]->buffers.size() - 2;
+
+        for (int64_t end_i = i + in_[in_index]->length; i < end_i; ++i) {
+          if (s[i].IsInline()) continue;
+          auto buffer_index =
+              static_cast<uint32_t>(s[i].GetBufferIndex() + preceding_buffer_count);
+          s[i].SetIndexOffset(buffer_index, s[i].GetBufferOffset());
+        }
+      }
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto header_buffers, Buffers(1, sizeof(StringHeader)));
-    return ConcatenateBuffers(header_buffers, pool_).Value(&out_->buffers[1]);
+    out_->buffers[1] = std::move(header_buffer);
+    return Status::OK();
   }
 
   Status Visit(const ListType&) {
@@ -629,6 +640,10 @@ class ConcatenateImpl {
 Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool) {
   if (arrays.size() == 0) {
     return Status::Invalid("Must pass at least one array");
+  }
+
+  if (arrays.size() == 1) {
+    return arrays[0];
   }
 
   // gather ArrayData of input arrays

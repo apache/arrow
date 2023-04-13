@@ -199,7 +199,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
 
   Type::type type_id = this->type->id();
   if (type_id == Type::EXTENSION) {
-    const ExtensionType* ext_type = checked_cast<const ExtensionType*>(this->type);
+    auto* ext_type = checked_cast<const ExtensionType*>(this->type);
     type_id = ext_type->storage_type()->id();
   }
 
@@ -212,6 +212,14 @@ void ArraySpan::SetMembers(const ArrayData& data) {
   // Makes sure any other buffers are seen as null / non-existent
   for (int i = static_cast<int>(data.buffers.size()); i < 3; ++i) {
     this->buffers[i] = {};
+  }
+
+  if (type_id == Type::STRING_VIEW || type_id == Type::BINARY_VIEW) {
+    // store the span of character buffers in the third buffer
+    this->buffers[2].data =
+        const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(data.buffers.data() + 2));
+    this->buffers[2].size =
+        static_cast<int64_t>(data.buffers.size() - 2) * sizeof(std::shared_ptr<Buffer>);
   }
 
   if (type_id == Type::DICTIONARY) {
@@ -248,6 +256,8 @@ int GetNumBuffers(const DataType& type) {
     case Type::LARGE_BINARY:
     case Type::STRING:
     case Type::LARGE_STRING:
+    case Type::STRING_VIEW:
+    case Type::BINARY_VIEW:
     case Type::DENSE_UNION:
       return 3;
     case Type::EXTENSION:
@@ -330,12 +340,12 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
   } else if (is_base_binary_like(type_id)) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
     this->buffers[1].data = reinterpret_cast<uint8_t*>(this->scratch_space);
-    const uint8_t* data_buffer = nullptr;
-    int64_t data_size = 0;
-    if (scalar.is_valid) {
-      data_buffer = scalar.value->data();
-      data_size = scalar.value->size();
-    }
+    static auto kEmptyBuffer = Buffer::FromString("");
+    const auto& value = scalar.is_valid ? scalar.value : kEmptyBuffer;
+    this->buffers[2].data = const_cast<uint8_t*>(value->data());
+    this->buffers[2].size = value->size();
+    this->buffers[2].owner = &value;
+    int64_t data_size = this->buffers[2].size;
     if (is_binary_like(type_id)) {
       SetOffsetsForScalar<int32_t>(this, reinterpret_cast<int32_t*>(this->scratch_space),
                                    data_size);
@@ -344,18 +354,24 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       SetOffsetsForScalar<int64_t>(this, reinterpret_cast<int64_t*>(this->scratch_space),
                                    data_size);
     }
-    this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
-    this->buffers[2].size = data_size;
   } else if (type_id == Type::BINARY_VIEW || type_id == Type::STRING_VIEW) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
+
     this->buffers[1].data = reinterpret_cast<uint8_t*>(this->scratch_space);
     if (scalar.is_valid) {
-      *reinterpret_cast<StringHeader*>(this->buffers[1].data) = {scalar.value->data(),
-                                                                 scalar.value->size()};
-      this->buffers[2].data = const_cast<uint8_t*>(scalar.value->data());
-      this->buffers[2].size = scalar.value->size();
+      if (checked_cast<const BinaryViewType*>(type)->has_raw_pointers()) {
+        new (this->scratch_space) StringHeader{scalar.value->data_as<char>(),
+                                               static_cast<uint32_t>(scalar.value->size())};
+      } else {
+        new (this->scratch_space) StringHeader{scalar.value->data_as<char>(),
+                                               static_cast<uint32_t>(scalar.value->size()),
+                                               0, scalar.value->data_as<char>()};
+      }
+      this->buffers[2].data =
+          const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&scalar.value));
+      this->buffers[2].size = sizeof(std::shared_ptr<Buffer>);
     } else {
-      *reinterpret_cast<StringHeader*>(this->buffers[1].data) = {};
+      new (this->scratch_space) StringHeader{};
     }
   } else if (type_id == Type::FIXED_SIZE_BINARY) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
@@ -698,7 +714,8 @@ struct ViewDataImpl {
       }
 
       RETURN_NOT_OK(CheckInputAvailable());
-      const auto& in_spec = in_layouts[in_layout_idx].buffers[in_buffer_idx];
+      const auto& in_layout = in_layouts[in_layout_idx];
+      const auto& in_spec = in_layout.buffers[in_buffer_idx];
       if (out_spec != in_spec) {
         return InvalidView("incompatible layouts");
       }
@@ -709,6 +726,18 @@ struct ViewDataImpl {
       DCHECK_GT(in_data_item->buffers.size(), in_buffer_idx);
       out_buffers.push_back(in_data_item->buffers[in_buffer_idx]);
       ++in_buffer_idx;
+
+      if (in_buffer_idx == in_layout.buffers.size()) {
+        if (out_layout.variadic_spec != in_layout.variadic_spec) {
+          return InvalidView("incompatible layouts");
+        }
+
+        if (in_layout.variadic_spec) {
+          for (; in_buffer_idx < in_data_item->buffers.size(); ++in_buffer_idx) {
+            out_buffers.push_back(in_data_item->buffers[in_buffer_idx]);
+          }
+        }
+      }
       AdjustInputPointer();
     }
 

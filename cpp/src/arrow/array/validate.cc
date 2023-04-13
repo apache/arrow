@@ -33,139 +33,13 @@
 #include "arrow/util/ree_util.h"
 #include "arrow/util/sort.h"
 #include "arrow/util/string.h"
+#include "arrow/util/string_header.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/util/utf8.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow::internal {
-
-/// visitor will be called once for each non-inlined StringHeader.
-/// It will be passed the index of each non-inlined StringHeader,
-/// as well as a `const shared_ptr<Buffer>&` of the buffer
-/// wherein the viewed memory resides, or nullptr if the viewed memory
-/// is not in a buffer managed by this array.
-template <typename Visitor>
-Status VisitNonInlinedViewsAndOwningBuffers(const ArrayData& data,
-                                            const Visitor& visitor) {
-  auto* headers = data.buffers[1]->data_as<StringHeader>();
-
-  static const std::shared_ptr<Buffer> kNullBuffer = nullptr;
-
-  if (data.buffers.size() == 2 ||
-      (data.buffers.size() == 3 && data.buffers.back() == nullptr)) {
-    // there are no character buffers, just visit a null buffer
-    for (int64_t i = 0; i < data.length; ++i) {
-      if (headers[i].IsInline()) continue;
-      RETURN_NOT_OK(visitor(i, kNullBuffer));
-    }
-    return Status::OK();
-  }
-
-  auto IsSubrangeOf = [](std::string_view super, StringHeader sub) {
-    return super.data() <= sub.data() &&
-           super.data() + super.size() >= sub.data() + sub.size();
-  };
-
-  std::vector<std::string_view> buffers;
-  std::vector<const std::shared_ptr<Buffer>*> owning_buffers;
-  for (auto it = data.buffers.begin() + 2; it != data.buffers.end(); ++it) {
-    if (*it != nullptr) {
-      buffers.emplace_back(**it);
-      owning_buffers.push_back(&*it);
-    }
-  }
-
-  const int not_found = static_cast<int>(buffers.size());
-
-  auto DoVisit = [&](auto get_buffer) {
-    DCHECK(!buffers.empty());
-
-    // owning_buffers[not_found] points to the null placeholder
-    owning_buffers.push_back(&kNullBuffer);
-
-    std::string_view buffer_containing_previous_view = buffers.front();
-    int buffer_i = 0;
-
-    for (int64_t i = 0; i < data.length; ++i) {
-      if (headers[i].IsInline()) continue;
-
-      if (ARROW_PREDICT_TRUE(IsSubrangeOf(buffer_containing_previous_view, headers[i]))) {
-        // Fast path: for most string view arrays, we'll have runs
-        // of views into the same buffer.
-      } else {
-        buffer_i = get_buffer(headers[i]);
-        if (buffer_i != not_found) {
-          // if we didn't find a buffer which owns headers[i], we can hope
-          // that there was just one out of line string and check
-          // buffer_containing_previous_view next iteration
-          buffer_containing_previous_view = buffers[buffer_i];
-        }
-      }
-
-      RETURN_NOT_OK(visitor(i, *owning_buffers[buffer_i]));
-    }
-    return Status::OK();
-  };
-
-  // Simplest check for view-in-buffer: loop through buffers and check each one.
-  auto Linear = [&](StringHeader view) {
-    int i = 0;
-    for (std::string_view buffer : buffers) {
-      if (IsSubrangeOf(buffer, view)) return i;
-      ++i;
-    }
-    return not_found;
-  };
-
-  if (buffers.size() <= 32) {
-    // If there are few buffers to search through, sorting/binary search is not
-    // worthwhile. TODO(bkietz) benchmark this and get a less magic number here.
-    return DoVisit(Linear);
-  }
-
-  auto DataPtrLess = [](std::string_view l, std::string_view r) {
-    return l.data() < r.data();
-  };
-
-  {
-    auto sort_indices = ArgSort(buffers, DataPtrLess);
-    Permute(sort_indices, &buffers);
-    Permute(sort_indices, &owning_buffers);
-  }
-
-  bool non_overlapping =
-      buffers.end() !=
-      std::adjacent_find(buffers.begin(), buffers.end(),
-                         [](std::string_view before, std::string_view after) {
-                           return before.data() + before.size() <= after.data();
-                         });
-  if (ARROW_PREDICT_FALSE(!non_overlapping)) {
-    // Using a binary search with overlapping buffers would not *uniquely* identify
-    // a potentially-containing buffer. Moreover this should be a fairly rare case
-    // so optimizing for it seems premature.
-    return DoVisit(Linear);
-  }
-
-  // More sophisticated check for view-in-buffer: binary search through the buffers.
-  return DoVisit([&](StringHeader view) {
-    // Find the first buffer whose data starts after the data in view-
-    // only buffers *before* this could contain view. Since we've additionally
-    // checked that the buffers do not overlap, only the buffer *immediately before*
-    // this could contain view.
-    int one_past_potential_super =
-        static_cast<int>(std::upper_bound(buffers.begin(), buffers.end(),
-                                          std::string_view{view}, DataPtrLess) -
-                         buffers.begin());
-
-    if (one_past_potential_super == 0) return not_found;
-
-    int i = one_past_potential_super - 1;
-    if (IsSubrangeOf(buffers[i], view)) return i;
-
-    return not_found;
-  });
-}
 
 namespace {
 
@@ -750,20 +624,49 @@ struct ValidateArrayImpl {
                              " and offset: ", data.offset);
     }
 
-    if (!full_validation || BinaryViewArray::OptedOutOfViewValidation(data)) {
+    if (!full_validation) {
       return Status::OK();
     }
 
-    return VisitNonInlinedViewsAndOwningBuffers(
-        data, [&](int64_t i, const std::shared_ptr<Buffer>& owner) {
-          if (ARROW_PREDICT_TRUE(owner != nullptr)) return Status::OK();
+    if (type.has_raw_pointers()) {
+      // TODO(bkietz) validate as with conversions?
+      return Status::OK();
+    }
 
-          auto* ptr = data.buffers[1]->data_as<StringHeader>()[i].data();
-          return Status::Invalid(
-              "String view at slot ", i, " @",
-              arrow::HexEncode(reinterpret_cast<uint8_t*>(&ptr), sizeof(ptr)),
-              " views memory not resident in any buffer managed by the array");
-        });
+    auto* s = data.GetValues<StringHeader>(1);
+    for (int64_t i = 0; i < data.length; ++i, ++s) {
+      if (data.IsNull(i)) continue;
+
+      if (s->IsInline()) continue;
+
+      size_t buffer_index = s->GetBufferIndex();
+      if (ARROW_PREDICT_FALSE(buffer_index + 2 >= data.buffers.size())) {
+        return Status::IndexError("String view at slot ", i, " references buffer ",
+                                  buffer_index, " but there are only ",
+                                  data.buffers.size() - 2, " character buffers");
+      }
+
+      size_t begin = s->GetBufferOffset();
+      size_t end = begin + s->size();
+      const auto& buffer = data.buffers[buffer_index + 2];
+      auto size = static_cast<size_t>(buffer->size());
+      if (ARROW_PREDICT_FALSE(end > size)) {
+        return Status::IndexError("String view at slot ", i, " references range ", begin,
+                                  "-", end, " of buffer ", buffer_index,
+                                  " but that buffer is only ", size, " bytes long");
+      }
+
+      const char* data = buffer->data_as<char>() + begin;
+      if (ARROW_PREDICT_FALSE(
+              std::memcmp(data, s->GetInlineData(), StringHeader::kPrefixSize) != 0)) {
+        return Status::Invalid("String view at slot ", i, " has inlined prefix 0x",
+                               HexEncode(s->GetInlineData(), StringHeader::kPrefixSize),
+                               " but the out-of-line character data begins with 0x",
+                               HexEncode(data, StringHeader::kPrefixSize));
+      }
+    }
+
+    return Status::OK();
   }
 
   template <typename ListType>

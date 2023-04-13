@@ -437,6 +437,10 @@ std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
   if (::arrow::is_binary_like(values.type_id())) {
     ::arrow::VisitArraySpanInline<::arrow::BinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
+  } else if (values.type_id() == ::arrow::Type::BINARY_VIEW ||
+             values.type_id() == ::arrow::Type::STRING_VIEW) {
+    ::arrow::VisitArraySpanInline<::arrow::BinaryViewType>(
+        *values.data(), std::move(valid_func), std::move(null_func));
   } else {
     DCHECK(::arrow::is_large_binary_like(values.type_id()));
     ::arrow::VisitArraySpanInline<::arrow::LargeBinaryType>(

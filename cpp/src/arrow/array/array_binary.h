@@ -230,22 +230,6 @@ class ARROW_EXPORT BinaryViewArray : public PrimitiveArray {
 
   explicit BinaryViewArray(const std::shared_ptr<ArrayData>& data);
 
-  /// By default, ValidateFull() will check each view in a BinaryViewArray or
-  /// StringViewArray to ensure it references a memory range owned by one of the array's
-  /// buffers.
-  ///
-  /// If the last character buffer is null, ValidateFull will skip this step. Use this
-  /// for arrays which view memory elsewhere.
-  static BufferVector DoNotValidateViews(BufferVector char_buffers) {
-    char_buffers.push_back(NULLPTR);
-    return char_buffers;
-  }
-
-  static bool OptedOutOfViewValidation(const ArrayData& data) {
-    return data.buffers.back() == NULLPTR;
-  }
-  bool OptedOutOfViewValidation() const { return OptedOutOfViewValidation(*data_); }
-
   BinaryViewArray(int64_t length, std::shared_ptr<Buffer> data, BufferVector char_buffers,
                   std::shared_ptr<Buffer> null_bitmap = NULLPTR,
                   int64_t null_count = kUnknownNullCount, int64_t offset = 0)
@@ -260,10 +244,19 @@ class ARROW_EXPORT BinaryViewArray : public PrimitiveArray {
     return reinterpret_cast<const StringHeader*>(raw_values_) + data_->offset;
   }
 
-  const StringHeader& Value(int64_t i) const { return raw_values()[i]; }
-
   // For API compatibility with BinaryArray etc.
-  std::string_view GetView(int64_t i) const { return std::string_view(Value(i)); }
+  std::string_view GetView(int64_t i) const {
+    const auto& s = raw_values()[i];
+    if (raw_pointers_) {
+      return std::string_view{s};
+    }
+    if (s.IsInline()) {
+      return {s.GetInlineData(), s.size()};
+    }
+    auto* char_buffers = data_->buffers.data() + 2;
+    return {char_buffers[s.GetBufferIndex()]->data_as<char>() + s.GetBufferOffset(),
+            s.size()};
+  }
 
   // EXPERIMENTAL
   std::optional<std::string_view> operator[](int64_t i) const {
@@ -273,8 +266,18 @@ class ARROW_EXPORT BinaryViewArray : public PrimitiveArray {
   IteratorType begin() const { return IteratorType(*this); }
   IteratorType end() const { return IteratorType(*this, length()); }
 
+  bool has_raw_pointers() const { return raw_pointers_; }
+
  protected:
   using PrimitiveArray::PrimitiveArray;
+
+  void SetData(const std::shared_ptr<ArrayData>& data) {
+    PrimitiveArray::SetData(data);
+    raw_pointers_ =
+        internal::checked_cast<const BinaryViewType&>(*type()).has_raw_pointers();
+  }
+
+  bool raw_pointers_ = false;
 };
 
 /// Concrete Array class for variable-size string view (utf-8) data using

@@ -601,13 +601,17 @@ std::string FixedSizeListType::ToString() const {
 
 std::string BinaryType::ToString() const { return "binary"; }
 
-std::string BinaryViewType::ToString() const { return "binary_view"; }
+std::string BinaryViewType::ToString() const {
+  return raw_pointers_ ? "binary_view[RAW POINTERS]" : "binary_view";
+}
 
 std::string LargeBinaryType::ToString() const { return "large_binary"; }
 
 std::string StringType::ToString() const { return "string"; }
 
-std::string StringViewType::ToString() const { return "string_view"; }
+std::string StringViewType::ToString() const {
+  return raw_pointers_ ? "string_view[RAW POINTERS]" : "string_view";
+}
 
 std::string LargeStringType::ToString() const { return "large_string"; }
 
@@ -2541,13 +2545,23 @@ TYPE_FACTORY(float16, HalfFloatType)
 TYPE_FACTORY(float32, FloatType)
 TYPE_FACTORY(float64, DoubleType)
 TYPE_FACTORY(utf8, StringType)
-TYPE_FACTORY(utf8_view, StringViewType)
 TYPE_FACTORY(large_utf8, LargeStringType)
 TYPE_FACTORY(binary, BinaryType)
-TYPE_FACTORY(binary_view, BinaryViewType)
 TYPE_FACTORY(large_binary, LargeBinaryType)
 TYPE_FACTORY(date64, Date64Type)
 TYPE_FACTORY(date32, Date32Type)
+
+const std::shared_ptr<DataType>& utf8_view(bool has_raw_pointers) {                              
+  static std::shared_ptr<DataType> io = std::make_shared<StringViewType>(); 
+  static std::shared_ptr<DataType> raw = std::make_shared<StringViewType>(true); 
+  return has_raw_pointers ? raw : io;                                                       
+}
+
+const std::shared_ptr<DataType>& binary_view(bool has_raw_pointers) {                              
+  static std::shared_ptr<DataType> io = std::make_shared<BinaryViewType>(); 
+  static std::shared_ptr<DataType> raw = std::make_shared<BinaryViewType>(true); 
+  return has_raw_pointers ? raw : io;                                                       
+}
 
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width) {
   return std::make_shared<FixedSizeBinaryType>(byte_width);

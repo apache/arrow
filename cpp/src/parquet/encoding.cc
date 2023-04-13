@@ -43,6 +43,7 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
+#include "arrow/util/span.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/exception.h"
@@ -150,8 +151,18 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  protected:
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    const int64_t total_bytes =
-        array.value_offset(array.length()) - array.value_offset(0);
+    constexpr bool kIsView =
+        ::arrow::is_binary_view_like_type<typename ArrayType::TypeClass>::value;
+
+    int64_t total_bytes = 0;
+    if constexpr (kIsView) {
+      for (const auto& char_buffer :
+           ::arrow::util::span{array.data()->buffers}.subspan(2)) {
+        total_bytes += char_buffer->size();
+      }
+    } else {
+      total_bytes = array.value_offset(array.length()) - array.value_offset(0);
+    }
     PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + array.length() * sizeof(uint32_t)));
 
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
@@ -160,7 +171,11 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
-          UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
+          if constexpr (kIsView) {
+            Put(view);
+          } else {
+            UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
+          }
           return Status::OK();
         },
         []() { return Status::OK(); }));
@@ -241,7 +256,9 @@ void PlainEncoder<DType>::Put(const ::arrow::Array& values) {
 }
 
 void AssertBaseBinary(const ::arrow::Array& values) {
-  if (!::arrow::is_base_binary_like(values.type_id())) {
+  if (!::arrow::is_base_binary_like(values.type_id()) &&
+      values.type()->id() != ::arrow::Type::STRING_VIEW &&
+      values.type()->id() != ::arrow::Type::BINARY_VIEW) {
     throw ParquetException("Only BaseBinaryArray and subclasses supported");
   }
 }
@@ -252,6 +269,9 @@ inline void PlainEncoder<ByteArrayType>::Put(const ::arrow::Array& values) {
 
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
+  } else if (values.type_id() == ::arrow::Type::BINARY_VIEW ||
+             values.type_id() == ::arrow::Type::STRING_VIEW) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   } else {
     DCHECK(::arrow::is_large_binary_like(values.type_id()));
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
@@ -793,6 +813,9 @@ void DictEncoderImpl<ByteArrayType>::Put(const ::arrow::Array& values) {
   AssertBaseBinary(values);
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
+  } else if (values.type_id() == ::arrow::Type::BINARY_VIEW ||
+             values.type_id() == ::arrow::Type::STRING_VIEW) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   } else {
     DCHECK(::arrow::is_large_binary_like(values.type_id()));
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));

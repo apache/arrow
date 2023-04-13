@@ -85,5 +85,26 @@ Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
 ARROW_EXPORT
 std::vector<ArrayVector> RechunkArraysConsistently(const std::vector<ArrayVector>&);
 
+/// Convert between index/offset and raw pointer StringHeaders.
+///
+/// This function can be used to overwrite a buffer of StringHeader if desired,
+/// IE it is supported for `in.buffers[1].data == out`.
+///
+/// Note that calling this function is not necessary if all StringHeaders happen to be
+/// Inline; this is usually efficiently detectable by checking for an absence of any
+/// character buffers.
+///
+/// Will raise IndexError if a header views memory outside the provided character buffers.
+ARROW_EXPORT
+Status SwapStringHeaderPointers(const ArraySpan& in, StringHeader* out);
+
+/// Fill a buffer of index/offset StringHeader from a dense string array
+ARROW_EXPORT
+void StringHeadersFromStrings(const ArraySpan& strings, StringHeader* io);
+
+/// Fill a buffer of raw pointer StringHeader from a dense string array
+ARROW_EXPORT
+void RawPointerStringHeadersFromStrings(const ArraySpan& strings, StringHeader* raw);
+
 }  // namespace internal
 }  // namespace arrow

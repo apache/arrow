@@ -90,6 +90,16 @@ Status ParseHexValue(const char* data, uint8_t* out) {
   return Status::OK();
 }
 
+Status ParseHexValues(std::string_view hex_string, uint8_t* out) {
+  if (hex_string.size() % 2 != 0) {
+    return Status::Invalid("Expected base16 hex string");
+  }
+  for (size_t j = 0; j < hex_string.size() / 2; ++j) {
+    RETURN_NOT_OK(ParseHexValue(hex_string.data() + j * 2, out + j));
+  }
+  return Status::OK();
+}
+
 namespace internal {
 
 std::vector<std::string_view> SplitString(std::string_view v, char delimiter,

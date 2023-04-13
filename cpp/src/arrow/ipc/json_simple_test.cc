@@ -327,6 +327,8 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestString, TestStrings, StringType);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestBinary, TestStrings, BinaryType);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestLargeString, TestStrings, LargeStringType);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestLargeBinary, TestStrings, LargeBinaryType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestStringView, TestStrings, StringViewType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestBinaryView, TestStrings, BinaryViewType);
 
 TEST(TestNull, Basics) {
   std::shared_ptr<DataType> type = null();

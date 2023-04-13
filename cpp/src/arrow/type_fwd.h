@@ -472,13 +472,13 @@ ARROW_EXPORT const std::shared_ptr<DataType>& float64();
 /// \brief Return a StringType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& utf8();
 /// \brief Return a StringViewType instance
-ARROW_EXPORT const std::shared_ptr<DataType>& utf8_view();
+ARROW_EXPORT const std::shared_ptr<DataType>& utf8_view(bool has_raw_pointers = false);
 /// \brief Return a LargeStringType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& large_utf8();
 /// \brief Return a BinaryType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& binary();
 /// \brief Return a BinaryViewType instance
-ARROW_EXPORT const std::shared_ptr<DataType>& binary_view();
+ARROW_EXPORT const std::shared_ptr<DataType>& binary_view(bool has_raw_pointers = false);
 /// \brief Return a LargeBinaryType instance
 ARROW_EXPORT const std::shared_ptr<DataType>& large_binary();
 /// \brief Return a Date32Type instance

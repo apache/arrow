@@ -27,6 +27,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/array/validate.h"
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -39,6 +40,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
@@ -366,50 +368,176 @@ TYPED_TEST(TestStringArray, TestValidateOffsets) { this->TestValidateOffsets(); 
 
 TYPED_TEST(TestStringArray, TestValidateData) { this->TestValidateData(); }
 
+namespace string_header_helpers {
+
+StringHeader Inline(std::string_view chars) {
+  assert(StringHeader::IsInline(chars.size()));
+  return StringHeader{chars};
+}
+
+StringHeader NotInline(std::string_view prefix, size_t length, size_t buffer_index,
+                       size_t offset) {
+  assert(prefix.size() == 4);
+  assert(!StringHeader::IsInline(length));
+  StringHeader s{prefix.data(), length};
+  s.SetIndexOffset(buffer_index, offset);
+  return s;
+}
+
+Result<std::shared_ptr<StringViewArray>> MakeArray(
+    BufferVector char_buffers, const std::vector<StringHeader>& headers,
+    bool validate = true) {
+  auto length = static_cast<int64_t>(headers.size());
+  ARROW_ASSIGN_OR_RAISE(auto headers_buf, CopyBufferFromVector(headers));
+  auto arr = std::make_shared<StringViewArray>(length, std::move(headers_buf),
+                                               std::move(char_buffers));
+  if (validate) {
+    RETURN_NOT_OK(arr->ValidateFull());
+  }
+  return arr;
+}
+
+Result<std::shared_ptr<StringViewArray>> MakeArrayFromRawPointerViews(
+    BufferVector char_buffers, const std::vector<StringHeader>& raw) {
+  ARROW_ASSIGN_OR_RAISE(auto raw_buf, CopyBufferFromVector(raw));
+  StringViewArray raw_arr{static_cast<int64_t>(raw.size()), std::move(raw_buf),
+                          char_buffers};
+  raw_arr.data()->type = utf8_view(/*has_raw_pointers=*/true);
+
+  ARROW_ASSIGN_OR_RAISE(auto io_buf, AllocateBuffer(raw.size() * sizeof(StringHeader)));
+  RETURN_NOT_OK(internal::SwapStringHeaderPointers(
+      *raw_arr.data(), io_buf->mutable_data_as<StringHeader>()));
+
+  auto arr = std::make_shared<StringViewArray>(raw.size(), std::move(io_buf),
+                                               std::move(char_buffers));
+  RETURN_NOT_OK(arr->ValidateFull());
+  return arr;
+}
+
+}  // namespace string_header_helpers
+
 TEST(StringViewArray, Validate) {
-  auto MakeArray = [](std::vector<StringHeader> headers, BufferVector char_buffers) {
-    auto length = static_cast<int64_t>(headers.size());
-    return StringViewArray(length, Buffer::Wrap(std::move(headers)),
-                           std::move(char_buffers));
-  };
+  using string_header_helpers::Inline;
+  using string_header_helpers::MakeArray;
+  using string_header_helpers::NotInline;
+
+  // Since this is a test of validation, we need to be able to construct invalid arrays.
+  auto buffer_s = Buffer::FromString("supercalifragilistic(sp?)");
+  auto buffer_y = Buffer::FromString("yyyyyyyyyyyyyyyyyyyyyyyyy");
 
   // empty array is valid
-  EXPECT_THAT(MakeArray({}, {}).ValidateFull(), Ok());
+  EXPECT_THAT(MakeArray({}, {}), Ok());
+
+  // empty array with some character buffers is valid
+  EXPECT_THAT(MakeArray({buffer_s, buffer_y}, {}), Ok());
 
   // inline views need not have a corresponding buffer
-  EXPECT_THAT(MakeArray({"hello", "world", "inline me"}, {}).ValidateFull(), Ok());
+  EXPECT_THAT(MakeArray({}, {Inline("hello"), Inline("world"), Inline("inline me")}),
+              Ok());
+
+  // non-inline views are expected to reference only buffers managed by the array
+  EXPECT_THAT(
+      MakeArray({buffer_s, buffer_y}, {NotInline("supe", buffer_s->size(), 0, 0),
+                                       NotInline("yyyy", buffer_y->size(), 1, 0)}),
+      Ok());
+
+  // views may not reference char buffers not present in the array
+  EXPECT_THAT(MakeArray({}, {NotInline("supe", buffer_s->size(), 0, 0)}),
+              Raises(StatusCode::IndexError));
+  // ... or ranges which overflow the referenced char buffer
+  EXPECT_THAT(MakeArray({buffer_s}, {NotInline("supe", buffer_s->size() + 50, 0, 0)}),
+              Raises(StatusCode::IndexError));
+
+  // Additionally, the prefixes of non-inline views must match the character buffer
+  EXPECT_THAT(
+      MakeArray({buffer_s, buffer_y}, {NotInline("SUPE", buffer_s->size(), 0, 0),
+                                       NotInline("yyyy", buffer_y->size(), 1, 0)}),
+      Raises(StatusCode::Invalid));
+
+  // Invalid string views which are masked by a null bit do not cause validation to fail
+  auto invalid_but_masked = MakeArray({buffer_s},
+                                      {NotInline("SUPE", buffer_s->size(), 0, 0),
+                                       NotInline("yyyy", 50, 40, 30)},
+                                      /*validate=*/false)
+                                .ValueOrDie()
+                                ->data();
+  invalid_but_masked->null_count = 2;
+  invalid_but_masked->buffers[0] = *AllocateEmptyBitmap(2);
+  EXPECT_THAT(internal::ValidateArrayFull(*invalid_but_masked), Ok());
+
+  // overlapping views are allowed
+  EXPECT_THAT(MakeArray({buffer_s},
+                        {
+                            NotInline("supe", buffer_s->size(), 0, 0),
+                            NotInline("uper", buffer_s->size() - 1, 0, 1),
+                            NotInline("perc", buffer_s->size() - 2, 0, 2),
+                            NotInline("erca", buffer_s->size() - 3, 0, 3),
+                        }),
+              Ok());
+}
+
+TEST(StringViewArray, BinaryViewArrayFromRawPointerViews) {
+  using string_header_helpers::Inline;
+  using string_header_helpers::MakeArray;
+  using string_header_helpers::MakeArrayFromRawPointerViews;
+  using string_header_helpers::NotInline;
+
+  auto Roundtrip = [&](Result<std::shared_ptr<StringViewArray>> maybe_arr) {
+    ARROW_ASSIGN_OR_RAISE(auto arr, maybe_arr);
+
+    std::vector<StringHeader> raw(arr->length());
+    RETURN_NOT_OK(
+        internal::SwapStringHeaderPointers(*arr->data(), raw.data()));
+    for (size_t i = 0; i < raw.size(); ++i) {
+      if (std::string_view{raw[i]} != arr->GetView(i)) {
+        return Status::Invalid("Produced incorrect raw pointer headers");
+      }
+    }
+
+    BufferVector char_buffers{arr->data()->buffers.begin() + 2,
+                              arr->data()->buffers.end()};
+    ARROW_ASSIGN_OR_RAISE(auto round_tripped,
+                          MakeArrayFromRawPointerViews(std::move(char_buffers), raw));
+
+    if (round_tripped->Equals(arr)) {
+      return Status::OK();
+    }
+    return Status::Invalid("not equal");
+  };
+
+  EXPECT_THAT(
+      Roundtrip(MakeArray({}, {Inline("hello"), Inline("world"), Inline("inline me")})),
+      Ok());
 
   auto buffer_s = Buffer::FromString("supercalifragilistic(sp?)");
   auto buffer_y = Buffer::FromString("yyyyyyyyyyyyyyyyyyyyyyyyy");
 
-  // non-inline views are expected to reside in a buffer managed by the array
-  EXPECT_THAT(MakeArray({StringHeader(std::string_view{*buffer_s}),
-                         StringHeader(std::string_view{*buffer_y})},
-                        {buffer_s, buffer_y})
-                  .ValidateFull(),
+  EXPECT_THAT(Roundtrip(MakeArray({buffer_s, buffer_y},
+                                  {
+                                      NotInline("supe", buffer_s->size(), 0, 0),
+                                      Inline("hello"),
+                                      NotInline("yyyy", buffer_y->size(), 1, 0),
+                                      Inline("world"),
+                                      NotInline("uper", buffer_s->size() - 1, 0, 1),
+                                  })),
               Ok());
 
-  // overlapping views and buffers are allowed
-  EXPECT_THAT(MakeArray({StringHeader(std::string_view{*buffer_s}),
-                         StringHeader(std::string_view{*buffer_s}.substr(5, 5)),
-                         StringHeader(std::string_view{*buffer_s}.substr(9, 4))},
-                        {buffer_s, SliceBuffer(buffer_s, 1, 1), SliceBuffer(buffer_s, 3, 6)})
-                  .ValidateFull(),
-              Ok());
+  // use a larger number of buffers to test the binary search case
+  BufferVector buffers;
+  std::vector<StringHeader> headers;
+  for (size_t i = 0; i < 40; ++i) {
+    buffers.push_back(Buffer::FromString(std::string(13, 'c')));
+    headers.push_back(NotInline("cccc", 13, i, 0));
+  }
+  EXPECT_THAT(Roundtrip(MakeArray(buffers, headers)), Ok());
 
-  EXPECT_THAT(MakeArray({StringHeader(std::string_view{*buffer_s}),
-                         // if a view points outside the buffers, that is invalid
-                         StringHeader("from a galaxy far, far away"),
-                         StringHeader(std::string_view{*buffer_y})},
-                        {buffer_s, buffer_y})
-                  .ValidateFull(),
-              Raises(StatusCode::Invalid));
-
-  // ... unless specifically overridden
   EXPECT_THAT(
-      MakeArray({"from a galaxy far, far away"}, StringViewArray::DoNotValidateViews({}))
-          .ValidateFull(),
-      Ok());
+      MakeArrayFromRawPointerViews({buffer_s, buffer_y},
+                                   {
+                                       "not inlined, outside buffers",
+                                   }),
+      Raises(StatusCode::IndexError,
+             testing::HasSubstr("pointed outside the provided character buffers")));
 }
 
 template <typename T>

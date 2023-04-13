@@ -88,9 +88,7 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const BinaryViewArray& a) {
-    StringHeader header = a.Value(index_);
-    std::string_view view{header};
-    return Finish(std::string{view});
+    return Finish(std::string{a.GetView(index_)});
   }
 
   Status Visit(const FixedSizeBinaryArray& a) { return Finish(a.GetString(index_)); }

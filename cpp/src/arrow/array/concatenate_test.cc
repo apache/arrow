@@ -94,7 +94,12 @@ class ConcatenateTest : public ::testing::Test {
         factory(size, null_probability, &array);
         ASSERT_OK(array->ValidateFull());
         auto expected = array->Slice(offsets.front(), offsets.back() - offsets.front());
+        ASSERT_OK(expected->ValidateFull());
         auto slices = this->Slices(array, offsets);
+        for (auto slice : slices) {
+          ASSERT_OK(slice->ValidateFull());
+        }
+        ASSERT_OK(expected->ValidateFull());
         ASSERT_OK_AND_ASSIGN(auto actual, Concatenate(slices));
         AssertArraysEqual(*expected, *actual);
         if (actual->data()->buffers[0]) {
@@ -160,6 +165,16 @@ TEST_F(ConcatenateTest, StringViewType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
     *out = rng_.StringView(size, /*min_length =*/0, /*max_length =*/15, null_probability);
     ASSERT_OK((**out).ValidateFull());
+  });
+
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    *out = rng_.StringView(size, /*min_length =*/0, /*max_length =*/15, null_probability);
+    const ArrayData& io = *(*out)->data();
+    auto raw_buf = AllocateBuffer(io.buffers[1]->size()).ValueOrDie();
+    ABORT_NOT_OK(
+        internal::SwapStringHeaderPointers(io, raw_buf->mutable_data_as<StringHeader>()));
+    (*out)->data()->buffers[1] = std::move(raw_buf);
+    (*out)->data()->type = utf8_view(/*has_raw_pointers=*/true);
   });
 }
 

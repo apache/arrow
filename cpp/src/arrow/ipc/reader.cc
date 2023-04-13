@@ -244,6 +244,15 @@ class ArrayLoader {
     }
   }
 
+  Result<size_t> GetVariadicCount(int i) {
+    auto* variadic_counts = metadata_->variadicCounts();
+    CHECK_FLATBUFFERS_NOT_NULL(variadic_counts, "RecordBatch.variadicCounts");
+    if (i >= static_cast<int>(variadic_counts->size())) {
+      return Status::IOError("variadic_count_index out of range.");
+    }
+    return static_cast<size_t>(variadic_counts->Get(i));
+  }
+
   Status GetFieldMetadata(int field_index, ArrayData* out) {
     auto nodes = metadata_->nodes();
     CHECK_FLATBUFFERS_NOT_NULL(nodes, "Table.nodes");
@@ -349,9 +358,18 @@ class ArrayLoader {
   }
 
   Status Visit(const BinaryViewType& type) {
-    // View arrays are serialized as the corresponding dense array.
-    // We can't produce the view array yet; the buffers may still be compressed.
-    return LoadBinary(type.id() == Type::STRING_VIEW ? Type::STRING : Type::BINARY);
+    out_->buffers.resize(2);
+
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
+
+    ARROW_ASSIGN_OR_RAISE(auto character_buffer_count,
+                          GetVariadicCount(variadic_count_index_++));
+    out_->buffers.resize(character_buffer_count + 2);
+    for (size_t i = 0; i < character_buffer_count; ++i) {
+      RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[i + 2]));
+    }
+    return Status::OK();
   }
 
   Status Visit(const FixedSizeBinaryType& type) {
@@ -446,6 +464,7 @@ class ArrayLoader {
   int buffer_index_ = 0;
   int field_index_ = 0;
   bool skip_io_ = false;
+  int variadic_count_index_ = 0;
 
   BatchDataReadRequest read_request_;
   const Field* field_ = nullptr;
@@ -525,49 +544,6 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
       });
 }
 
-Status ConvertViewArrays(const IpcReadOptions& options, ArrayDataVector* fields) {
-  struct StringViewAccumulator {
-    using DataPtrVector = std::vector<ArrayData*>;
-
-    void AppendFrom(const ArrayDataVector& fields) {
-      for (const auto& field : fields) {
-        if (field->type->id() == Type::STRING_VIEW ||
-            field->type->id() == Type::BINARY_VIEW) {
-          view_arrays_.push_back(field.get());
-        }
-        AppendFrom(field->child_data);
-      }
-    }
-
-    DataPtrVector Get(const ArrayDataVector& fields) && {
-      AppendFrom(fields);
-      return std::move(view_arrays_);
-    }
-
-    DataPtrVector view_arrays_;
-  };
-
-  auto view_arrays = StringViewAccumulator{}.Get(*fields);
-
-  return ::arrow::internal::OptionalParallelFor(
-      options.use_threads, static_cast<int>(view_arrays.size()), [&](int i) {
-        ArrayData* data = view_arrays[i];
-
-        // the only thing we need to fix here is replacing offsets with headers
-        ARROW_ASSIGN_OR_RAISE(
-            auto header_buffer,
-            AllocateBuffer(data->length * sizeof(StringHeader), options.memory_pool));
-
-        auto* headers = header_buffer->mutable_data_as<StringHeader>();
-        VisitArraySpanInline<BinaryType>(
-            *data, [&](std::string_view v) { *headers++ = StringHeader{v}; },
-            [&] { *headers++ = StringHeader{}; });
-
-        data->buffers[1] = std::move(header_buffer);
-        return Status::OK();
-      });
-}
-
 Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     const flatbuf::RecordBatch* metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>* inclusion_mask, const IpcReadContext& context,
@@ -616,13 +592,12 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
     RETURN_NOT_OK(
         DecompressBuffers(context.compression, context.options, &filtered_columns));
   }
-  RETURN_NOT_OK(ConvertViewArrays(context.options, &filtered_columns));
 
   // swap endian in a set of ArrayData if necessary (swap_endian == true)
   if (context.swap_endian) {
-    for (int i = 0; i < static_cast<int>(filtered_columns.size()); ++i) {
-      ARROW_ASSIGN_OR_RAISE(filtered_columns[i],
-                            arrow::internal::SwapEndianArrayData(filtered_columns[i]));
+    for (auto& filtered_column : filtered_columns) {
+      ARROW_ASSIGN_OR_RAISE(filtered_column,
+                            arrow::internal::SwapEndianArrayData(filtered_column));
     }
   }
   return RecordBatch::Make(std::move(filtered_schema), metadata->length(),
@@ -866,11 +841,10 @@ Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
   const Field dummy_field("", value_type);
   RETURN_NOT_OK(loader.Load(&dummy_field, dict_data.get()));
 
-  ArrayDataVector dict_fields{dict_data};
   if (compression != Compression::UNCOMPRESSED) {
+    ArrayDataVector dict_fields{dict_data};
     RETURN_NOT_OK(DecompressBuffers(compression, context.options, &dict_fields));
   }
-  RETURN_NOT_OK(ConvertViewArrays(context.options, &dict_fields));
 
   // swap endian in dict_data if necessary (swap_endian == true)
   if (context.swap_endian) {

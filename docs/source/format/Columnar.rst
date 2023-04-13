@@ -21,7 +21,7 @@
 Arrow Columnar Format
 *********************
 
-*Version: 1.3*
+*Version: 1.4*
 
 The "Arrow Columnar Format" includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
@@ -106,8 +106,10 @@ the different physical layouts defined by Arrow:
 * **Primitive (fixed-size)**: a sequence of values each having the
   same byte or bit width
 * **Variable-size Binary**: a sequence of values each having a variable
-  byte length. Two variants of this layout are supported using 32-bit
-  and 64-bit length encoding.
+  byte length. Three variants of this layout are supported using
+  * 32-bit offset encoding
+  * 64-bit offset encoding
+  * 128-bit view-or-inline encoding
 * **Fixed-size List**: a nested layout where each value has the same
   number of elements taken from a child data type.
 * **Variable-size List**: a nested layout where each value is a
@@ -349,6 +351,38 @@ will be represented as follows: ::
     | Bytes 0-6      | Bytes 7-63           |
     |----------------|----------------------|
     | joemark        | unspecified          |
+
+Variable-size Binary View Layout
+--------------------------------
+
+Each value in this layout consists of 0 or more bytes. These characters'
+locations are indicated using a **views** buffer, which may point to one
+of potentially several **data** buffers or may contain the characters
+inline.
+
+The views buffer contains `length` view structures with the following layout:
+
+::
+
+    * Short strings, length <= 12
+      | Bytes 0-3  | Bytes 4-15                            |
+      |------------|---------------------------------------|
+      | length     | data (padded with 0)                  |
+
+    * Long strings, length > 12
+      | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 |
+      |------------|------------|------------|-------------|
+      | length     | prefix     | buf. index | offset      |
+
+For the long string case, the buffer index indicates which character buffer
+stores the characters and the offset indicates where in that buffer the
+characters begin. All integers (length, buffer index, and offset) are unsigned.
+The half-open range ``[offset, offset + length)`` must be entirely contained
+within the indicated buffer. Views must be aligned to an 8-byte boundary. This
+restriction enables more efficient interoperation with systems where the index
+and offset are replaced by a raw pointer.
+
+This layout is adapted from TU Munich's `UmbraDB`_.
 
 .. _variable-size-list-layout:
 
@@ -885,6 +919,7 @@ of memory buffers for each layout.
 
    "Primitive",validity,data,
    "Variable Binary",validity,offsets,data
+   "Variable Binary - View",validity,offsets,*multiple_data_buffers
    "List",validity,offsets,
    "Fixed-size List",validity,,
    "Struct",validity,,
@@ -1346,3 +1381,4 @@ the Arrow spec.
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
 .. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
 .. _Parquet: https://parquet.apache.org/docs/
+.. _UmbraDB: https://db.in.tum.de/~freitag/papers/p29-neumann-cidr20.pdf

@@ -351,26 +351,29 @@ static Status MakeBinaryArrayWithUniqueValues(int64_t length, bool include_nulls
   return builder.Finish(out);
 }
 
-Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out, bool with_nulls) {
+Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out, bool with_nulls,
+                                  bool with_view_types) {
   const int64_t length = 500;
 
   ArrayVector arrays;
   FieldVector fields;
 
-  using namespace std::string_literals;
-  for (auto MakeArray : {
-           &MakeBinaryArrayWithUniqueValues<StringBuilder>,
-           &MakeBinaryArrayWithUniqueValues<BinaryBuilder>,
-           &MakeBinaryArrayWithUniqueValues<LargeStringBuilder>,
-           &MakeBinaryArrayWithUniqueValues<LargeBinaryBuilder>,
-           &MakeBinaryArrayWithUniqueValues<StringViewBuilder>,
-           &MakeBinaryArrayWithUniqueValues<BinaryViewBuilder>,
-       }) {
+  auto AppendColumn = [&](auto& MakeArray) {
     arrays.emplace_back();
     RETURN_NOT_OK(MakeArray(length, with_nulls, default_memory_pool(), &arrays.back()));
 
     const auto& type = arrays.back()->type();
     fields.push_back(field(type->ToString(), type));
+    return Status::OK();
+  };
+
+  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<StringBuilder>));
+  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<BinaryBuilder>));
+  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<LargeStringBuilder>));
+  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<LargeBinaryBuilder>));
+  if (with_view_types) {
+    RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<StringViewBuilder>));
+    RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<BinaryViewBuilder>));
   }
 
   *out = RecordBatch::Make(schema(std::move(fields)), length, std::move(arrays));

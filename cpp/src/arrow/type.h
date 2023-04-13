@@ -23,6 +23,7 @@
 #include <iosfwd>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <variant>
@@ -727,7 +728,8 @@ class ARROW_EXPORT BinaryViewType : public DataType {
 
   static constexpr const char* type_name() { return "binary_view"; }
 
-  BinaryViewType() : BinaryViewType(Type::BINARY_VIEW) {}
+  explicit BinaryViewType(bool has_raw_pointers = false)
+      : BinaryViewType(Type::BINARY_VIEW, has_raw_pointers) {}
 
   DataTypeLayout layout() const override {
     return DataTypeLayout(
@@ -738,11 +740,16 @@ class ARROW_EXPORT BinaryViewType : public DataType {
   std::string ToString() const override;
   std::string name() const override { return "binary_view"; }
 
+  bool has_raw_pointers() const { return raw_pointers_; }
+
  protected:
   std::string ComputeFingerprint() const override;
 
   // Allow subclasses like StringType to change the logical type.
-  explicit BinaryViewType(Type::type logical_type) : DataType(logical_type) {}
+  explicit BinaryViewType(Type::type logical_type, bool has_raw_pointers)
+      : DataType(logical_type), raw_pointers_(has_raw_pointers) {}
+
+  bool raw_pointers_ = false;
 };
 
 /// \brief Concrete type class for large variable-size binary data
@@ -800,7 +807,7 @@ class ARROW_EXPORT StringViewType : public BinaryViewType {
 
   static constexpr const char* type_name() { return "utf8_view"; }
 
-  StringViewType() : BinaryViewType(Type::STRING_VIEW) {}
+  explicit StringViewType(bool has_raw_pointers = false) : BinaryViewType(Type::STRING_VIEW, has_raw_pointers) {}
 
   std::string ToString() const override;
   std::string name() const override { return "utf8_view"; }

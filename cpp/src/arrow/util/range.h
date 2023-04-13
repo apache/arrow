@@ -23,9 +23,9 @@
 #include <numeric>
 #include <utility>
 #include <vector>
+#include <tuple>
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 /// Create a vector containing the values from start up to stop
 template <typename T>
@@ -151,5 +151,55 @@ LazyRange<Generator> MakeLazyRange(Generator&& gen, int64_t length) {
   return LazyRange<Generator>(std::forward<Generator>(gen), length);
 }
 
-}  // namespace internal
-}  // namespace arrow
+/// \brief A helper for iterating multiple ranges simultaneously, modelled after python's
+/// built-in zip() function.
+///
+/// \code {.cpp}
+/// const std::vector<SomeTable>& tables = ...
+/// std::function<std::vector<std::string>()> GetNames = ...
+/// for (auto&& [table, name] : Zip(tables, GetNames())) {
+///   static_assert(std::is_same_v<decltype(table), const SomeTable&>);
+///   static_assert(std::is_same_v<decltype(name), std::string&>);
+///   // temporaries (like this vector of strings) are kept alive for the
+///   // duration of a loop and are safely movable).
+///   RegisterTableWithName(std::move(name), &table);
+/// }
+/// \endcode
+template <typename Ranges, typename Indices>
+struct Zip;
+
+template <typename... Ranges>
+Zip(Ranges&&...) -> Zip<std::tuple<Ranges...>, std::index_sequence_for<Ranges...>>;
+
+template <typename... Ranges, size_t... I>
+struct Zip<std::tuple<Ranges...>, std::index_sequence<I...>> {
+  explicit Zip(Ranges... ranges) : ranges_(std::forward<Ranges>(ranges)...) {}
+
+  std::tuple<Ranges...> ranges_;
+
+  using sentinel = std::tuple<decltype(std::get<I>(ranges_).end())...>;
+
+  struct iterator : std::tuple<decltype(std::get<I>(ranges_).begin())...> {
+    using std::tuple<decltype(std::get<I>(ranges_).begin())...>::tuple;
+
+    constexpr auto operator*() {
+      return std::tuple<decltype(*std::get<I>(*this))...>{*std::get<I>(*this)...};
+    }
+
+    constexpr iterator& operator++() {
+      (++std::get<I>(*this), ...);
+      return *this;
+    }
+
+    constexpr bool operator!=(const sentinel& s) const {
+      bool all_iterators_valid = (... && (std::get<I>(*this) != std::get<I>(s)));
+      return all_iterators_valid;
+    }
+  };
+
+  constexpr iterator begin() { return {std::get<I>(ranges_).begin()...}; }
+
+  constexpr sentinel end() { return {std::get<I>(ranges_).end()...}; }
+};
+
+}  // namespace arrow::internal

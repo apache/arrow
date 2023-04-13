@@ -160,6 +160,7 @@ auto values = ::testing::Values(
     field("uint32", uint32()), field("int32", int32()), field("uint64", uint64()),
     field("int64", int64()), field("float16", float16()), field("float32", float32()),
     field("float64", float64()), field("string", utf8()), field("binary", binary()),
+    field("string_view", utf8_view()), field("binary_view", binary_view()),
     field("fixed_size_binary", fixed_size_binary(8)),
     field("decimal128", decimal128(8, 3)), field("decimal128", decimal128(29, -5)),
     field("decimal256", decimal256(16, 4)), field("decimal256", decimal256(57, -6)),

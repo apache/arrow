@@ -53,6 +53,14 @@ Status CopyBufferFromVector(const std::vector<T>& values, MemoryPool* pool,
   return Status::OK();
 }
 
+template <typename T>
+Result<std::shared_ptr<Buffer>> CopyBufferFromVector(
+    const std::vector<T>& values, MemoryPool* pool = default_memory_pool()) {
+  std::shared_ptr<Buffer> out;
+  RETURN_NOT_OK(CopyBufferFromVector(values, pool, &out));
+  return out;
+}
+
 // Sets approximately pct_null of the first n bytes in null_bytes to zero
 // and the rest to non-zero (true) values.
 ARROW_TESTING_EXPORT void random_null_bytes(int64_t n, double pct_null,

@@ -188,9 +188,8 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) FieldNode FLATBUFFERS_FINAL_CLASS {
   int64_t null_count_;
 
  public:
-  FieldNode()
-      : length_(0),
-        null_count_(0) {
+  FieldNode() {
+    memset(static_cast<void *>(this), 0, sizeof(FieldNode));
   }
   FieldNode(int64_t _length, int64_t _null_count)
       : length_(flatbuffers::EndianScalar(_length)),
@@ -250,6 +249,7 @@ struct BodyCompressionBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  BodyCompressionBuilder &operator=(const BodyCompressionBuilder &);
   flatbuffers::Offset<BodyCompression> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<BodyCompression>(end);
@@ -276,7 +276,8 @@ struct RecordBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_LENGTH = 4,
     VT_NODES = 6,
     VT_BUFFERS = 8,
-    VT_COMPRESSION = 10
+    VT_COMPRESSION = 10,
+    VT_VARIADICCOUNTS = 12
   };
   /// number of records / rows. The arrays in the batch should all have this
   /// length
@@ -300,6 +301,13 @@ struct RecordBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::flatbuf::BodyCompression *compression() const {
     return GetPointer<const org::apache::arrow::flatbuf::BodyCompression *>(VT_COMPRESSION);
   }
+  /// Some types such as Utf8View are represented using a variable number of buffers.
+  /// For each such Field in the pre-ordered flattened logical schema, there will be
+  /// an entry in variadicCounts to indicate the number of extra buffers which belong
+  /// to that Field.
+  const flatbuffers::Vector<int64_t> *variadicCounts() const {
+    return GetPointer<const flatbuffers::Vector<int64_t> *>(VT_VARIADICCOUNTS);
+  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int64_t>(verifier, VT_LENGTH) &&
@@ -309,6 +317,8 @@ struct RecordBatch FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
            verifier.VerifyVector(buffers()) &&
            VerifyOffset(verifier, VT_COMPRESSION) &&
            verifier.VerifyTable(compression()) &&
+           VerifyOffset(verifier, VT_VARIADICCOUNTS) &&
+           verifier.VerifyVector(variadicCounts()) &&
            verifier.EndTable();
   }
 };
@@ -329,10 +339,14 @@ struct RecordBatchBuilder {
   void add_compression(flatbuffers::Offset<org::apache::arrow::flatbuf::BodyCompression> compression) {
     fbb_.AddOffset(RecordBatch::VT_COMPRESSION, compression);
   }
+  void add_variadicCounts(flatbuffers::Offset<flatbuffers::Vector<int64_t>> variadicCounts) {
+    fbb_.AddOffset(RecordBatch::VT_VARIADICCOUNTS, variadicCounts);
+  }
   explicit RecordBatchBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  RecordBatchBuilder &operator=(const RecordBatchBuilder &);
   flatbuffers::Offset<RecordBatch> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<RecordBatch>(end);
@@ -345,9 +359,11 @@ inline flatbuffers::Offset<RecordBatch> CreateRecordBatch(
     int64_t length = 0,
     flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::FieldNode *>> nodes = 0,
     flatbuffers::Offset<flatbuffers::Vector<const org::apache::arrow::flatbuf::Buffer *>> buffers = 0,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::BodyCompression> compression = 0) {
+    flatbuffers::Offset<org::apache::arrow::flatbuf::BodyCompression> compression = 0,
+    flatbuffers::Offset<flatbuffers::Vector<int64_t>> variadicCounts = 0) {
   RecordBatchBuilder builder_(_fbb);
   builder_.add_length(length);
+  builder_.add_variadicCounts(variadicCounts);
   builder_.add_compression(compression);
   builder_.add_buffers(buffers);
   builder_.add_nodes(nodes);
@@ -359,15 +375,18 @@ inline flatbuffers::Offset<RecordBatch> CreateRecordBatchDirect(
     int64_t length = 0,
     const std::vector<org::apache::arrow::flatbuf::FieldNode> *nodes = nullptr,
     const std::vector<org::apache::arrow::flatbuf::Buffer> *buffers = nullptr,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::BodyCompression> compression = 0) {
+    flatbuffers::Offset<org::apache::arrow::flatbuf::BodyCompression> compression = 0,
+    const std::vector<int64_t> *variadicCounts = nullptr) {
   auto nodes__ = nodes ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::FieldNode>(*nodes) : 0;
   auto buffers__ = buffers ? _fbb.CreateVectorOfStructs<org::apache::arrow::flatbuf::Buffer>(*buffers) : 0;
+  auto variadicCounts__ = variadicCounts ? _fbb.CreateVector<int64_t>(*variadicCounts) : 0;
   return org::apache::arrow::flatbuf::CreateRecordBatch(
       _fbb,
       length,
       nodes__,
       buffers__,
-      compression);
+      compression,
+      variadicCounts__);
 }
 
 /// For sending dictionary encoding information. Any Field can be
@@ -422,6 +441,7 @@ struct DictionaryBatchBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  DictionaryBatchBuilder &operator=(const DictionaryBatchBuilder &);
   flatbuffers::Offset<DictionaryBatch> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<DictionaryBatch>(end);
@@ -538,6 +558,7 @@ struct MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
+  MessageBuilder &operator=(const MessageBuilder &);
   flatbuffers::Offset<Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Message>(end);

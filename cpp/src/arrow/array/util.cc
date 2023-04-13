@@ -43,6 +43,9 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/sort.h"
+#include "arrow/util/span.h"
+#include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -267,12 +270,45 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_t<std::is_same<BinaryViewType, T>::value ||
-                  std::is_same<StringViewType, T>::value,
-              Status>
-  Visit(const T& type) {
-    return Status::NotImplemented("Binary / string view");
+  Status Visit(const BinaryViewType& type) {
+    if (type.has_raw_pointers()) {
+      return Status::NotImplemented(
+          "Swapping endianness of binary / string view with raw pointers");
+    }
+
+    auto* s = data_->buffers[1]->data_as<StringHeader>();
+    ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size()));
+    auto* new_s = new_buffer->mutable_data_as<StringHeader>();
+
+    // NOTE: data_->length not trusted (see warning above)
+    const int64_t length = data_->buffers[1]->size() / sizeof(StringHeader);
+
+    for (int64_t i = 0; i < length; i++) {
+      uint32_t size = s[i].size();
+#if ARROW_LITTLE_ENDIAN
+      size = bit_util::FromBigEndian(size);
+#else
+      size = bit_util::FromLittleEndian(size);
+#endif
+      if (StringHeader::IsInline(size)) {
+        new_s[i] = s[i];
+        std::memcpy(static_cast<void*>(&new_s[i]), &size, sizeof(uint32_t));
+        continue;
+      }
+
+      uint32_t buffer_index = s[i].GetBufferIndex();
+      uint32_t offset = s[i].GetBufferOffset();
+#if ARROW_LITTLE_ENDIAN
+      buffer_index = bit_util::FromBigEndian(buffer_index);
+      offset = bit_util::FromBigEndian(offset);
+#else
+      buffer_index = bit_util::FromLittleEndian(buffer_index);
+      offset = bit_util::FromLittleEndian(offset);
+#endif
+      new_s[i] = StringHeader{size, s[i].GetPrefix(), buffer_index, offset};
+    }
+    out_->buffers[1] = std::move(new_buffer);
+    return Status::OK();
   }
 
   Status Visit(const ListType& type) {
@@ -594,7 +630,7 @@ class NullArrayFactory {
   }
 
   MemoryPool* pool_;
-  std::shared_ptr<DataType> type_;
+  const std::shared_ptr<DataType>& type_;
   int64_t length_;
   std::shared_ptr<ArrayData> out_;
   std::shared_ptr<Buffer> buffer_;
@@ -967,6 +1003,222 @@ std::vector<ArrayVector> RechunkArraysConsistently(
   }
 
   return rechunked_groups;
+}
+
+namespace {
+Status FromRawPointerStringHeaders(const ArraySpan& raw,
+                                   util::span<const std::shared_ptr<Buffer>> char_buffers,
+                                   StringHeader* io) {
+  DCHECK_NE(char_buffers.size(), 0);
+
+  auto IsInBuffer = [](const Buffer& buffer, StringHeader s) {
+    return buffer.data_as<char>() <= s.data() &&
+           buffer.data_as<char>() + buffer.size() >= s.data() + s.size();
+  };
+
+  auto Write = [&](auto find_containing_buffer) {
+    // Given `find_containing_buffer` which looks up the index of a buffer containing
+    // a StringHeader, write an equivalent buffer of index/offset string views.
+    static const Buffer kEmptyBuffer{""};
+    const Buffer* buffer_containing_previous_view = &kEmptyBuffer;
+    uint32_t buffer_index;
+
+    auto* raw_ptr = raw.GetValues<StringHeader>(1);
+
+    bool all_valid = true;
+    VisitNullBitmapInline(
+        raw.buffers[0].data, raw.offset, raw.length, raw.null_count,
+        [&] {
+          // Copied to a local variable, so even if io == raw_ptr
+          // we can modify safely.
+          auto s = *raw_ptr++;
+
+          if (!s.IsInline()) {
+            // Fast path: for most string view arrays, we'll have runs
+            // of views into the same buffer.
+            if (ARROW_PREDICT_FALSE(!IsInBuffer(*buffer_containing_previous_view, s))) {
+              auto found = find_containing_buffer(s);
+              if (ARROW_PREDICT_FALSE(!found)) {
+                all_valid = false;
+                return;
+              }
+              // Assume that we're at the start of a run of views into
+              // char_buffers[buffer_index]; adjust the fast path's pointer accordingly
+              buffer_index = *found;
+              buffer_containing_previous_view = char_buffers[buffer_index].get();
+            }
+
+            s.SetIndexOffset(
+                buffer_index,
+                s.data() - char_buffers[buffer_index]->template data_as<char>());
+          }
+          *io++ = s;
+        },
+        [&] {
+          ++raw_ptr;
+          *io++ = {};
+        });
+
+    if (!all_valid) {
+      return Status::IndexError(
+          "A header pointed outside the provided character buffers");
+    }
+    return Status::OK();
+  };
+
+  auto LinearSearch = [&](StringHeader s) -> std::optional<uint32_t> {
+    uint32_t buffer_index = 0;
+    for (const auto& char_buffer : char_buffers) {
+      if (IsInBuffer(*char_buffer, s)) return buffer_index;
+      ++buffer_index;
+    }
+    return {};
+  };
+
+  if (char_buffers.size() <= 32) {
+    // If there are few buffers to search through, sorting/binary search is not
+    // worthwhile. TODO(bkietz) benchmark this and get a less magic number here.
+    return Write(LinearSearch);
+  }
+
+  auto sort_indices = ArgSort(
+      char_buffers, [](const auto& l, const auto& r) { return l->data() < r->data(); });
+
+  auto first_overlapping = std::adjacent_find(
+      sort_indices.begin(), sort_indices.end(), [&](int64_t before, int64_t after) {
+        return char_buffers[before]->data() + char_buffers[before]->size() <=
+               char_buffers[after]->data();
+      });
+  if (ARROW_PREDICT_FALSE(first_overlapping != sort_indices.end())) {
+    // Using a binary search with overlapping buffers would not *uniquely* identify
+    // a potentially-containing buffer. Moreover this should be a fairly rare case
+    // so optimizing for it seems premature.
+    return Write(LinearSearch);
+  }
+
+  auto BinarySearch = [&](StringHeader s) -> std::optional<uint32_t> {
+    // Find the first buffer whose data starts after the data in view-
+    // only buffers *before* this could contain view. Since we've additionally
+    // checked that the buffers do not overlap, only the buffer *immediately before*
+    // this could contain view.
+    auto one_past_potential_super =
+        std::upper_bound(sort_indices.begin(), sort_indices.end(), s,
+                         [&](const StringHeader& s, int64_t i) {
+                           return IsInBuffer(*char_buffers[i], s);
+                         });
+
+    if (ARROW_PREDICT_FALSE(one_past_potential_super == sort_indices.begin())) {
+      return {};
+    }
+
+    auto buffer_index = *(one_past_potential_super - 1);
+    const auto& char_buffer = *char_buffers[buffer_index];
+    if (ARROW_PREDICT_TRUE(IsInBuffer(char_buffer, s))) return buffer_index;
+
+    return {};
+  };
+
+  return Write(BinarySearch);
+}
+
+Status ToRawPointerStringHeaders(const ArraySpan& io,
+                                 util::span<const std::shared_ptr<Buffer>> char_buffers,
+                                 StringHeader* raw) {
+  DCHECK_NE(char_buffers.size(), 0);
+
+  uint32_t buffer_index = 0;
+  const char* buffer_data = char_buffers[0]->data_as<char>();
+  auto* io_ptr = io.GetValues<StringHeader>(1);
+
+  bool all_valid = true;
+  VisitNullBitmapInline(
+      io.buffers[0].data, io.offset, io.length, io.null_count,
+      [&] {
+        // Copied to a local variable, so even if raw == io_ptr
+        // we can modify safely.
+        auto s = *io_ptr++;
+
+        if (!s.IsInline()) {
+          // Fast path: for most string view arrays, we'll have runs
+          // of views into the same buffer.
+          if (ARROW_PREDICT_FALSE(s.GetBufferIndex() != buffer_index)) {
+            if (ARROW_PREDICT_FALSE(s.GetBufferIndex() >= char_buffers.size())) {
+              all_valid = false;
+              return;
+            }
+            // Assume that we're at the start of a run of views into
+            // char_buffers[buffer_index]; adjust the fast path's pointer accordingly
+            buffer_index = s.GetBufferIndex();
+            buffer_data = char_buffers[buffer_index]->data_as<char>();
+          }
+          s.SetRawPointer(buffer_data + s.GetBufferOffset());
+        }
+        *raw++ = s;
+      },
+      [&] {
+        ++io_ptr;
+        *raw++ = {};
+      });
+
+  if (!all_valid) {
+    return Status::IndexError("A header pointed outside the provided character buffers");
+  }
+  return Status::OK();
+}
+}  // namespace
+
+Status SwapStringHeaderPointers(const ArraySpan& in, StringHeader* out) {
+  util::span char_buffers{
+      reinterpret_cast<const std::shared_ptr<Buffer>*>(in.buffers[2].data),
+      static_cast<size_t>(in.buffers[2].size / sizeof(std::shared_ptr<Buffer>))};
+
+  if (char_buffers.size() == 0) {
+    // If there are no character buffers, then all string views must be inline.
+    // In this case the buffer does not require swizzling between pointers and
+    // index/offsets.
+    auto* in_ptr = in.GetValues<StringHeader>(1);
+
+    bool all_inline = true;
+    VisitNullBitmapInline(
+        in.buffers[0].data, in.offset, in.length, in.null_count,
+        [&] {
+          all_inline = all_inline && in_ptr->IsInline();
+          auto s = *in_ptr++;
+          *out++ = s;
+        },
+        [&] {
+          ++in_ptr;
+          *out++ = {};
+        });
+    if (ARROW_PREDICT_FALSE(!all_inline)) {
+      return Status::IndexError(
+          "A header was not inline when no character buffers were provided");
+    }
+    return Status::OK();
+  }
+
+  return checked_cast<const BinaryViewType*>(in.type)->has_raw_pointers()
+             ? FromRawPointerStringHeaders(in, char_buffers, out)
+             : ToRawPointerStringHeaders(in, char_buffers, out);
+}
+
+void StringHeadersFromStrings(const ArraySpan& strings, StringHeader* s) {
+  auto* buffer_data = reinterpret_cast<const char*>(strings.buffers[2].data);
+  VisitArraySpanInline<StringType>(
+      strings,
+      [&](std::string_view v) {
+        *s++ = StringHeader{v.data(), static_cast<uint32_t>(v.size()), 0, buffer_data};
+      },
+      [&] { *s++ = StringHeader{}; });
+}
+
+void RawPointerStringHeadersFromStrings(const ArraySpan& strings, StringHeader* s) {
+  VisitArraySpanInline<StringType>(
+      strings,
+      [&](std::string_view v) {
+        *s++ = StringHeader{v.data(), static_cast<uint32_t>(v.size())};
+      },
+      [&] { *s++ = StringHeader{}; });
 }
 
 }  // namespace internal
