@@ -59,5 +59,60 @@ namespace Apache.Arrow.Tests
                 }
             }
         }
+
+        public class Builder
+        {
+            [Fact]
+            public void Builder_Should_Build_WithIEnumerables()
+            {
+                string[][] expected = new string[][]
+                {
+                    new string[] { "john", null, "doe" },
+                    new string[] { null, null, null },
+                    new string[] { null, "elon", "musk" }
+                };
+
+                // Build test array
+                ListArray array = new ListArray.Builder(new StringType())
+                    .Append(expected[0]).Append(expected[1]).Append(expected[2])
+                    .Build();
+
+                // Assert
+                Assert.Equal(expected.Length, array.Length);
+
+                int i = 0;
+                foreach (IArrowArray value in array)
+                {
+                    var values = (StringArray)value;
+                    Assert.Equal(expected[i], values.ToArray());
+                    i++;
+                }
+            }
+
+            [Fact]
+            public void Builder_Should_Build_WithIEnumerablesRange()
+            {
+                string[][] expected = new string[][]
+                {
+                    new string[] { "john", null, "doe" },
+                    new string[] { null, null, null },
+                    new string[] { null, "elon", "musk" }
+                };
+
+                // Build test array
+                ListArray array = new ListArray.Builder(new StringType()).AppendRange(expected).Build();
+
+                // Assert
+                Assert.Equal(expected.Length, array.Length);
+
+                int i = 0;
+                foreach (IArrowArray value in array)
+                {
+                    var values = (StringArray)value;
+                    Assert.Equal(expected[i], values.ToArray());
+                    i++;
+                }
+            }
+        }
     }
 }

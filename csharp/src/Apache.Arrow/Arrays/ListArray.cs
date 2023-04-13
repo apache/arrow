@@ -68,6 +68,60 @@ namespace Apache.Arrow
                 return this;
             }
 
+            public Builder Append<T>(IEnumerable<T> values, System.Text.Encoding encoding = null)
+            {
+                if (values == null)
+                {
+                    AppendNull();
+                }
+                else
+                {
+                    var type = DataType as ListType;
+
+                    switch (type.ValueDataType.TypeId)
+                    {
+                        case ArrowTypeId.String:
+                            var valueBuilder = ValueBuilder as StringArray.Builder;
+                            Append();
+                            valueBuilder.AppendRange(values as IEnumerable<string>, encoding);
+                            break;
+                        default:
+                            throw new NotImplementedException($"Cannot AppendRange with {typeof(T)}, need to do it manually with this.Append()");
+                    }
+                }
+
+                return this;
+            }
+
+            public Builder AppendRange<T>(IEnumerable<T> values, System.Text.Encoding encoding = null)
+            {
+                var type = DataType as ListType;
+
+                switch (type.ValueDataType.TypeId)
+                {
+                    case ArrowTypeId.String:
+                        var valueBuilder = ValueBuilder as StringArray.Builder;
+
+                        foreach (var value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                valueBuilder.AppendRange(value as IEnumerable<string>, encoding);
+                            }
+                        }
+                        break;
+                    default:
+                        throw new NotImplementedException($"Cannot AppendRange with {typeof(T)}, need to do it manually with this.Append()");
+                }
+
+                return this;
+            }
+
             public Builder AppendNull()
             {
                 ValueOffsetsBufferBuilder.Append(ValueBuilder.Length);
