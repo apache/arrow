@@ -1668,6 +1668,8 @@ def test_is_null_union():
     result = arr.is_null()
     expected = pa.array([False, True, True, False, False])
     assert result.equals(expected)
+    result = arr.slice(1, 2).is_null()
+    assert result.equals(expected.slice(1, 2))
 
     arr = pa.UnionArray.from_dense(
         pa.array([0, 1, 0, 0, 0, 1, 1], type=pa.int8()),
@@ -1681,6 +1683,8 @@ def test_is_null_union():
     result = arr.is_null()
     expected = pa.array([False, False, False, True, False, True, False])
     assert result.equals(expected)
+    result = arr.slice(1, 3).is_null()
+    assert result.equals(expected.slice(1, 3))
 
 
 @pytest.mark.parametrize("typ", ["int16", "int32", "int64"])
