@@ -127,8 +127,8 @@ public class TestFileSystemDataset extends TestNativeDataset {
   @Test
   public void testMultipleParquetInvalidUri() throws Exception {
     RuntimeException exc = assertThrows(RuntimeException.class,
-            () -> new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
-                    FileFormat.PARQUET, new String[]{"https://example.com", "file:///test/location"}));
+        () -> new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.PARQUET, new String[]{"https://example.com", "file:///test/location"}));
     Assertions.assertEquals("Unrecognized filesystem type in URI: https://example.com", exc.getMessage());
   }
 
