@@ -144,6 +144,8 @@ std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
   } else {
     copy->null_count = null_count != 0 ? kUnknownNullCount : 0;
   }
+  for (auto& child : copy->child_data) 
+    child = child->Slice(copy->offset, copy->length);
   return copy;
 }
 

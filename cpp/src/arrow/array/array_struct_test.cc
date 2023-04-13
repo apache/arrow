@@ -303,6 +303,17 @@ TEST(StructArray, FlattenOfSlice) {
   ASSERT_OK(arr->ValidateFull());
 }
 
+TEST(StructArray, ChildSlice) {
+  auto a = ArrayFromJSON(int32(), "[4, 5, 6, 7]");
+  auto type = struct_({field("a", int32())});
+  auto children = std::vector<std::shared_ptr<Array>>{a};
+  auto arr = std::make_shared<StructArray>(type, 4, children)->data();
+  auto slice_arr = arr->Slice(1, 2);
+  auto actual = MakeArray(slice_arr->child_data[0]);
+  AssertArraysEqual(*ArrayFromJSON(int32(), "[5, 6]"), *actual,
+                    /*verbose=*/true);
+}
+
 // ----------------------------------------------------------------------------------
 // Struct test
 class TestStructBuilder : public ::testing::Test {
