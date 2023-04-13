@@ -14,6 +14,9 @@
 // limitations under the License.
 
 
+using System.IO;
+using System;
+
 namespace Apache.Arrow.Types
 {
     public sealed class Time64Type : TimeType
