@@ -16,6 +16,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -93,7 +94,7 @@ namespace Apache.Arrow
                 return this;
             }
 
-            public Builder AppendRange<T>(IEnumerable<T> values, System.Text.Encoding encoding = null)
+            public Builder AppendRange<T>(IEnumerable<IEnumerable<T>> values, System.Text.Encoding encoding = null)
             {
                 var type = DataType as ListType;
 
@@ -102,7 +103,7 @@ namespace Apache.Arrow
                     case ArrowTypeId.String:
                         var valueBuilder = ValueBuilder as StringArray.Builder;
 
-                        foreach (var value in values)
+                        foreach (IEnumerable<T> value in values)
                         {
                             if (value == null)
                             {
