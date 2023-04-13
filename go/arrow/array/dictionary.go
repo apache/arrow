@@ -253,6 +253,10 @@ func (d *Dictionary) CanCompareIndices(other *Dictionary) bool {
 	return ArraySliceEqual(d.Dictionary(), 0, minlen, other.Dictionary(), 0, minlen)
 }
 
+func (d *Dictionary) ValueStr(i int) string {
+	return d.Dictionary().ValueStr(d.GetValueIndex(i))
+}
+
 func (d *Dictionary) String() string {
 	return fmt.Sprintf("{ dictionary: %v\n  indices: %v }", d.Dictionary(), d.Indices())
 }
@@ -735,6 +739,10 @@ func (b *dictionaryBuilder) Unmarshal(dec *json.Decoder) error {
 	arr := bldr.NewArray()
 	defer arr.Release()
 	return b.AppendArray(arr)
+}
+
+func (b *dictionaryBuilder) AppendValueFromString(s string) error {
+	return fmt.Errorf("%w: AppendValueFromString to dictionary not yet implemented", arrow.ErrNotImplemented)
 }
 
 func (b *dictionaryBuilder) UnmarshalOne(dec *json.Decoder) error {

@@ -51,9 +51,10 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendValueFromString(11)
 
 	// check state of builder before New{{.Name}}Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.New{{.Name}}Array()
@@ -65,7 +66,7 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []{{or .QualifiedType .Type}}{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.{{.Name}}Values(), "unexpected {{.Name}}Values")
+	assert.Equal(t, []{{or .QualifiedType .Type}}{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.{{.Name}}Values(), "unexpected {{.Name}}Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
 	assert.Len(t, a.{{.Name}}Values(), 10, "unexpected length of {{.Name}}Values")
 

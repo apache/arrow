@@ -46,6 +46,12 @@ func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
 
 func (a *FixedSizeList) ListValues() arrow.Array { return a.values }
 
+func (a *FixedSizeList) ValueStr(i int) string {
+	if !a.IsValid(i) {
+		return NullValueStr
+	}
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
+}
 func (a *FixedSizeList) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -276,6 +282,12 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 	b.reset()
 
 	return
+}
+
+
+func (b *FixedSizeListBuilder) AppendValueFromString(s string) error {
+	dec := json.NewDecoder(strings.NewReader(s))
+	return b.UnmarshalOne(dec)
 }
 
 func (b *FixedSizeListBuilder) UnmarshalOne(dec *json.Decoder) error {
