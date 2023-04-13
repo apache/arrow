@@ -431,6 +431,13 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
         this->child_data[i].FillFromScalar(*scalar.value[i]);
       }
     }
+  } else if (type_id == Type::RUN_END_ENCODED) {
+    const auto& scalar = checked_cast<const RunEndEncodedScalar&>(value);
+    this->child_data.resize(2);
+    auto run_end_type = scalar.run_end_type();
+    auto run_end = MakeScalar(run_end_type, 1).ValueOrDie();
+    this->child_data[0].FillFromScalar(*run_end);
+    this->child_data[1].FillFromScalar(*scalar.value);
   } else if (type_id == Type::EXTENSION) {
     // Pass through storage
     const auto& scalar = checked_cast<const ExtensionScalar&>(value);

@@ -110,15 +110,15 @@ TEST_F(TestBooleanValidityKernels, IsNullUnion) {
   CheckScalarUnary("is_null", arr2, expected);
 }
 
-// TEST_F(TestBooleanValidityKernels, IsNullRunEndEncoded) {
-//   auto run_ends = ArrayFromJSON(int32(), R"([2, 3, 5, 7])");
-//   auto values = ArrayFromJSON(int64(), R"([1, 2, null, 3])");
-//   ASSERT_OK_AND_ASSIGN(auto ree_array, RunEndEncodedArray::Make(7, run_ends, values));
-//   ASSERT_OK(ree_array->ValidateFull());
-//   auto expected =
-//       ArrayFromJSON(boolean(), "[false, false, false, true, true, false, false]");
-//   CheckScalarUnary("is_null", ree_array, expected);
-// }
+TEST_F(TestBooleanValidityKernels, IsNullRunEndEncoded) {
+  auto run_ends = ArrayFromJSON(int32(), R"([2, 3, 5, 7])");
+  auto values = ArrayFromJSON(int64(), R"([1, 2, null, 3])");
+  ASSERT_OK_AND_ASSIGN(auto ree_array, RunEndEncodedArray::Make(7, run_ends, values));
+  ASSERT_OK(ree_array->ValidateFull());
+  auto expected =
+      ArrayFromJSON(boolean(), "[false, false, false, true, true, false, false]");
+  CheckScalarUnary("is_null", ree_array, expected);
+}
 
 TEST(TestValidityKernels, IsFinite) {
   for (const auto& ty : IntTypes()) {
