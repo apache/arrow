@@ -116,7 +116,7 @@ export const bigNumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T
     for (let i = 0; i < array.length; i++) {
         const elem = array[i];
         const updated = ~elem + carry;
-        array.set([updated], i);
+        array[i] = updated;
         carry &= elem === 0 ? 1 : 0;
     }
 
