@@ -188,11 +188,11 @@ namespace Apache.Arrow
                         break;
                     // Struct like: get all properties
                     case var struct_ when (valueType.IsValueType && !valueType.IsEnum && !valueType.IsPrimitive):
-                        FieldInfo[] fieldInfos = struct_.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                        PropertyInfo[] properties = struct_.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
                         DataType(new StructType(
-                            fieldInfos
-                                .Select(field => new Builder().Name(field.Name).DataType(field.FieldType, timezone).Build())
+                            properties
+                                .Select(property => new Builder().Name(property.Name).DataType(property.PropertyType, timezone).Build())
                                 .ToArray()
                         ));
                         break;

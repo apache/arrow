@@ -120,6 +120,39 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(typeof(Int32Type), k.GetType());
                 Assert.Equal(typeof(StringType), v.GetType());
             }
+
+            [Fact]
+            public void DataType_Should_InferDataType_From_Structure()
+            {
+                // Arrange
+                Field builder = new Field.Builder().Name("test").DataType(typeof(TestStruct)).Build();
+                var dtype = builder.DataType as StructType;
+                Field Name = dtype.Fields[0];
+                Field value = dtype.Fields[1];
+                Field aBc = dtype.Fields[2];
+
+                // Assert
+                Assert.Equal(3, dtype.Fields.Count);
+
+                Assert.Equal(typeof(StringType), Name.DataType.GetType());
+                Assert.Equal("Name", Name.Name);
+                Assert.True(Name.IsNullable);
+
+                Assert.Equal(typeof(Decimal128Type), value.DataType.GetType());
+                Assert.Equal("value", value.Name);
+                Assert.True(value.IsNullable);
+
+                Assert.Equal(typeof(Int32Type), aBc.DataType.GetType());
+                Assert.Equal("aBc", aBc.Name);
+                Assert.False(aBc.IsNullable);
+            }
+
+            public struct TestStruct
+            {
+                public string Name { get; set; }
+                public decimal? value { get; set; }
+                public int aBc { get; set; }
+            }
 # endif
         }
     }
