@@ -17,13 +17,14 @@
 
 #include "parquet/file_writer.h"
 
-#include <cstddef>
 #include <memory>
 #include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 #include "parquet/column_writer.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
@@ -338,7 +339,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
       auto file_encryption_properties = properties_->file_encryption_properties();
 
       if (file_encryption_properties == nullptr) {  // Non encrypted file.
-        file_metadata_ = metadata_->Finish();
+        file_metadata_ = metadata_->Finish(key_value_metadata_);
         WriteFileMetaData(*file_metadata_, sink_.get());
       } else {  // Encrypted file
         CloseEncryptedFile(file_encryption_properties);
@@ -376,6 +377,15 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   RowGroupWriter* AppendBufferedRowGroup() override { return AppendRowGroup(true); }
 
+  void AddKeyValueMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) override {
+    if (key_value_metadata_ == nullptr) {
+      key_value_metadata_ = std::move(key_value_metadata);
+    } else if (key_value_metadata != nullptr) {
+      key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
+    }
+  }
+
   ~FileSerializer() override {
     try {
       Close();
@@ -394,7 +404,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
         properties_(std::move(properties)),
         num_row_groups_(0),
         num_rows_(0),
-        metadata_(FileMetaDataBuilder::Make(&schema_, properties_, key_value_metadata_)) {
+        metadata_(FileMetaDataBuilder::Make(&schema_, properties_)) {
     PARQUET_ASSIGN_OR_THROW(int64_t position, sink_->Tell());
     if (position == 0) {
       StartFile();
@@ -407,7 +417,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
     // Encrypted file with encrypted footer
     if (file_encryption_properties->encrypted_footer()) {
       // encrypted footer
-      file_metadata_ = metadata_->Finish();
+      file_metadata_ = metadata_->Finish(key_value_metadata_);
 
       PARQUET_ASSIGN_OR_THROW(int64_t position, sink_->Tell());
       uint64_t metadata_start = static_cast<uint64_t>(position);
@@ -422,7 +432,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
           sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4));
       PARQUET_THROW_NOT_OK(sink_->Write(kParquetEMagic, 4));
     } else {  // Encrypted file with plaintext footer
-      file_metadata_ = metadata_->Finish();
+      file_metadata_ = metadata_->Finish(key_value_metadata_);
       auto footer_signing_encryptor = file_encryptor_->GetFooterSigningEncryptor();
       WriteEncryptedFileMetadata(*file_metadata_, sink_.get(), footer_signing_encryptor,
                                  false);
@@ -611,6 +621,15 @@ RowGroupWriter* ParquetFileWriter::AppendBufferedRowGroup() {
 
 RowGroupWriter* ParquetFileWriter::AppendRowGroup(int64_t num_rows) {
   return AppendRowGroup();
+}
+
+void ParquetFileWriter::AddKeyValueMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
+  if (contents_) {
+    contents_->AddKeyValueMetadata(key_value_metadata);
+  } else {
+    throw ParquetException("Cannot add key-value metadata to closed file");
+  }
 }
 
 const std::shared_ptr<WriterProperties>& ParquetFileWriter::properties() const {
