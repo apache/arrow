@@ -102,7 +102,7 @@ export const bigNumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T
         return unsignedBigNumToString(a);
     }
 
-    const array = new Uint16Array(a.buffer, a.byteOffset, a.byteLength / 2);
+    let array = new Uint16Array(a.buffer, a.byteOffset, a.byteLength / 2);
 
     // detect positive numbers
     const highOrderWord = new Int16Array([array[array.length - 1]])[0];
@@ -111,6 +111,7 @@ export const bigNumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T
     }
 
     // flip the negative value
+    array = array.slice();
     let carry = 1;
     for (let i = 0; i < array.length; i++) {
         const elem = array[i];

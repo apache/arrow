@@ -73,5 +73,8 @@ describe(`BN`, () => {
 
         const d3 = BN.decimal(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0x80000000]));
         expect(d3.toString()).toBe('-170141183460469231731687303715884105728');
+
+        const d4 = BN.decimal(new Uint32Array([0x9D91E773, 0x4BB90CED, 0xAB2354CC, 0x54278E9B]));
+        expect(d4.toString()).toBe('111860543658909349380118287427608635251');
     });
 });

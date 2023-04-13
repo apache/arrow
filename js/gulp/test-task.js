@@ -41,6 +41,7 @@ const testFiles = [
     `test/unit/`,
     // `test/unit/bit-tests.ts`,
     // `test/unit/int-tests.ts`,
+    // `test/unit/bn-tests.ts`,
     // `test/unit/math-tests.ts`,
     // `test/unit/table-tests.ts`,
     // `test/unit/generated-data-tests.ts`,
