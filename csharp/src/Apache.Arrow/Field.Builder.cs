@@ -16,6 +16,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
@@ -179,29 +181,20 @@ namespace Apache.Arrow
 
                         break;
                     // IEnumerable: List, Array, ...
-                    // Dictionary: IEnumerable<KeyValuePair<?,?>>
                     case var list when typeof(IEnumerable).IsAssignableFrom(valueType):
                         Type elementType = list.GetGenericArguments()[0];
 
-                        switch (elementType)
-                        {
-                            case var kv when (elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>)):
-                                // Dictionary
-                                genericArgs = kv.GetGenericArguments();
+                        DataType(new ListType(new Builder().Name("item").DataType(elementType, timezone).Build()));
+                        break;
+                    // Struct like: get all properties
+                    case var struct_ when (valueType.IsValueType && !valueType.IsEnum && !valueType.IsPrimitive):
+                        FieldInfo[] fieldInfos = struct_.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-                                DataType(new StructType(
-                                    new Field[]
-                                    {
-                                        new Builder().Name("key").DataType(genericArgs[0], timezone).Build(),
-                                        new Builder().Name("value").DataType(genericArgs[1], timezone).Build(),
-                                    }
-                                ));
-                                break;
-                            default:
-                                // List
-                                DataType(new ListType(new Builder().Name("item").DataType(elementType, timezone).Build()));
-                                break;
-                        }
+                        DataType(new StructType(
+                            fieldInfos
+                                .Select(field => new Builder().Name(field.Name).DataType(field.FieldType, timezone).Build())
+                                .ToArray()
+                        ));
                         break;
 # endif
                     // Error
