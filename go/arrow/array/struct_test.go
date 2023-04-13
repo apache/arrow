@@ -301,7 +301,6 @@ func TestStructArrayStringer(t *testing.T) {
 	if got != want {
 		t.Fatalf("invalid string representation:\ngot = %q\nwant= %q", got, want)
 	}
-	// assert.Equal(t, "[1.1 (null) 1.3 1.4]", arr.ValueStr(0))
 }
 
 func TestStructArraySlice(t *testing.T) {
