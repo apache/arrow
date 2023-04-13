@@ -264,28 +264,27 @@ struct RunEndEncodeExec {
     }
   }
 
-  template <typename ValueType>
   static Status DoExecOnScalar(KernelContext* ctx, const ExecSpan& span,
                                ExecResult* result) {
-    auto state = checked_cast<const RunEndEncondingState*>(ctx->state());
+    const auto* state = checked_cast<const RunEndEncondingState*>(ctx->state());
+    const Scalar* input_scalar = span.values[0].scalar;
+    const auto& input_type = input_scalar->type;
 
-    static_assert(is_null_type<ValueType>() || is_boolean_type<ValueType>() ||
-                      has_c_type<ValueType>() ||
-                      is_fixed_size_binary(ValueType::type_id) ||
-                      is_base_binary_like(ValueType::type_id),
-                  "Compile-time instantiation is not supported by the implementation");
-    if constexpr (ValueType::type_id == Type::NA) {
+    if (input_type->id() == Type::NA) {
       ARROW_ASSIGN_OR_RAISE(
           auto output_array_data,
           ree_util::MakeNullREEArray(state->run_end_type, 1, ctx->memory_pool()));
       result->value = std::move(output_array_data);
     } else {
       DCHECK(span.values[0].is_scalar());
-      const Scalar* input_scalar = span.values[0].scalar;
       const bool is_valid = input_scalar->is_valid;
 
       int64_t data_buffer_size = 0;
-      if constexpr (is_base_binary_like(ValueType::type_id)) {
+      if (is_fixed_size_binary(input_type->id())) {
+        const auto* fixed_size_binary_scalar =
+            checked_cast<const FixedSizeBinaryScalar*>(input_scalar);
+        data_buffer_size = fixed_size_binary_scalar->value->size();
+      } else if (is_base_binary_like(input_type->id())) {
         if (is_valid) {
           const auto* base_binary_scalar =
               checked_cast<const BaseBinaryScalar*>(input_scalar);
@@ -296,48 +295,14 @@ struct RunEndEncodeExec {
       }
       ARROW_ASSIGN_OR_RAISE(
           auto output_array_data,
-          ree_util::PreallocateREEArray(std::make_shared<RunEndEncodedType>(
-                                            state->run_end_type, input_scalar->type),
-                                        /*has_validity_buffer=*/false, 1, 1,
-                                        /*physical_null_count=*/is_valid ? 0 : 1,
-                                        ctx->memory_pool(), data_buffer_size));
+          ree_util::PreallocateREEArray(
+              std::make_shared<RunEndEncodedType>(state->run_end_type, input_type),
+              /*has_validity_buffer=*/false, 1, 1,
+              /*physical_null_count=*/is_valid ? 0 : 1, ctx->memory_pool(),
+              data_buffer_size));
 
-      // Initialize the output pointers
       auto* output_values_array_data = output_array_data->child_data[1].get();
-      auto* output_values = output_values_array_data->buffers[1]->mutable_data();
-
-      // Write the single run value
-      if constexpr (is_boolean_type<ValueType>()) {
-        const auto* bool_scalar = checked_cast<const BooleanScalar*>(input_scalar);
-        bit_util::SetBitTo(output_values, 0, bool_scalar->value);
-      } else if constexpr (has_c_type<ValueType>()) {
-        const auto* primitive_scalar =
-            checked_cast<const ::arrow::internal::PrimitiveScalar<ValueType>*>(
-                input_scalar);
-        reinterpret_cast<typename ValueType::c_type*>(output_values)[0] =
-            primitive_scalar->value;
-      } else if constexpr (is_fixed_size_binary(ValueType::type_id)) {
-        const auto* fixed_size_binary_scalar =
-            checked_cast<const FixedSizeBinaryScalar*>(input_scalar);
-        if (is_valid) {
-          memcpy(output_values, fixed_size_binary_scalar->value->data(),
-                 input_scalar->type->byte_width());
-        }
-      } else if constexpr (is_base_binary_like(ValueType::type_id)) {
-        using offset_type = typename ValueType::offset_type;
-        auto* output_offsets =
-            output_values_array_data->template GetMutableValues<offset_type>(1, 0);
-        DCHECK_EQ(output_offsets[0], 0);
-        output_offsets[1] = static_cast<offset_type>(data_buffer_size);
-        if (data_buffer_size) {
-          const auto* base_binary_scalar =
-              checked_cast<const BaseBinaryScalar*>(input_scalar);
-          memcpy(output_values, base_binary_scalar->value->data(),
-                 base_binary_scalar->value->size());
-        }
-      }
-
-      // Write the run-end of 1
+      ArraySpan(*output_values_array_data).FillFromScalar(*input_scalar);
       ree_util::WriteSingleRunEnd(output_array_data->child_data[0].get(), 1);
 
       result->value = std::move(output_array_data);
@@ -363,7 +328,7 @@ struct RunEndEncodeExec {
           return DoExecOnArray<Int64Type, ValueType>(ctx, span, result);
       }
     } else {
-      return DoExecOnScalar<ValueType>(ctx, span, result);
+      return DoExecOnScalar(ctx, span, result);
     }
   }
 
@@ -515,7 +480,8 @@ Status RunEndDecodeNullREEArray(KernelContext* ctx, const ArraySpan& input_array
 
 struct RunEndDecodeExec {
   template <typename RunEndType, typename ValueType>
-  static Status DoExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+  static Status DoExecOnArray(KernelContext* ctx, const ExecSpan& span,
+                              ExecResult* result) {
     DCHECK(span.values[0].is_array());
     auto& input_array = span.values[0].array;
     if constexpr (ValueType::type_id == Type::NA) {
@@ -532,20 +498,35 @@ struct RunEndDecodeExec {
     }
   }
 
+  static Status DoExecOnScalar(KernelContext* ctx, const ExecSpan& span,
+                               ExecResult* result) {
+    DCHECK(span.values[0].is_scalar());
+    const auto* ree_input_scalar =
+        checked_cast<const RunEndEncodedScalar*>(span.values[0].scalar);
+    result->value = ArraySpan(*ree_input_scalar->value).ToArrayData();
+    return Status::OK();
+  }
+
   template <typename ValueType>
   static Status Exec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
     const auto& ree_type = checked_cast<const RunEndEncodedType*>(span.values[0].type());
-    switch (ree_type->run_end_type()->id()) {
-      case Type::INT16:
-        return DoExec<Int16Type, ValueType>(ctx, span, result);
-      case Type::INT32:
-        return DoExec<Int32Type, ValueType>(ctx, span, result);
-      case Type::INT64:
-        return DoExec<Int64Type, ValueType>(ctx, span, result);
-      default:
-        break;
+    const auto& run_end_type = ree_type->run_end_type();
+    if (!is_run_end_type(run_end_type->id())) {
+      return Status::Invalid("Invalid run end type: ", *run_end_type);
     }
-    return Status::Invalid("Invalid run end type: ", *ree_type->run_end_type());
+    if (span.values[0].is_array()) {
+      switch (run_end_type->id()) {
+        case Type::INT16:
+          return DoExecOnArray<Int16Type, ValueType>(ctx, span, result);
+        case Type::INT32:
+          return DoExecOnArray<Int32Type, ValueType>(ctx, span, result);
+        default:
+          DCHECK_EQ(run_end_type->id(), Type::INT64);
+          return DoExecOnArray<Int64Type, ValueType>(ctx, span, result);
+      }
+    } else {
+      return DoExecOnScalar(ctx, span, result);
+    }
   }
 
   /// \brief The OutputType::Resolver of the "run_end_decode" function.

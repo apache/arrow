@@ -195,6 +195,60 @@ TEST_P(TestRunEndEncodeDecode, EncodeDecodeArray) {
   }
 }
 
+TEST_P(TestRunEndEncodeDecode, EncodeDecodeScalar) {
+  auto [data, run_end_type] = GetParam();
+
+  // Get the first scalar from the input array.
+  auto input_datum = data.InputDatum();
+  std::shared_ptr<Array> input_chunk;
+  if (input_datum.is_chunked_array()) {
+    if (input_datum.chunked_array()->num_chunks() == 0) {
+      return;
+    }
+    input_chunk = input_datum.chunked_array()->chunk(0);
+  } else {
+    input_chunk = MakeArray(input_datum.array());
+  }
+  if (input_chunk->length() == 0) {
+    return;
+  }
+  EXPECT_OK_AND_ASSIGN(auto input_scalar, input_chunk->GetScalar(0));
+
+  // Run-end encode the Scalar.
+  ASSERT_OK_AND_ASSIGN(Datum encoded_datum,
+                       RunEndEncode(input_scalar, RunEndEncodeOptions{run_end_type}));
+  ASSERT_TRUE(encoded_datum.is_array());
+  auto encoded = MakeArray(encoded_datum.array());
+
+  // Check the encoded array.
+  ASSERT_EQ(encoded->length(), 1);
+  ASSERT_OK(encoded->ValidateFull());
+  auto run_ends_array = MakeArray(encoded->data()->child_data[0]);
+  auto values_array = MakeArray(encoded->data()->child_data[1]);
+  auto expected_run_ends = ArrayFromJSON(run_end_type, "[1]");
+  auto expected_values = data.expected_values[0]->Slice(0, 1);
+  ASSERT_ARRAYS_EQUAL(*run_ends_array, *expected_run_ends);
+  ASSERT_ARRAYS_EQUAL(*expected_values, *values_array);
+  ASSERT_EQ(encoded->data()->buffers.size(), 1);
+  ASSERT_EQ(encoded->data()->buffers[0], NULLPTR);
+  ASSERT_EQ(encoded->data()->child_data.size(), 2);
+  ASSERT_EQ(run_ends_array->data()->buffers[0], NULLPTR);
+  ASSERT_EQ(run_ends_array->length(), 1);
+  ASSERT_EQ(run_ends_array->offset(), 0);
+  ASSERT_EQ(encoded->data()->length, 1);
+  ASSERT_EQ(encoded->data()->offset, 0);
+  ASSERT_EQ(*encoded->data()->type, RunEndEncodedType(run_end_type, data.input->type()));
+  ASSERT_EQ(encoded->data()->null_count, 0);
+
+  // Decode the encoded array.
+  ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunEndDecode(encoded));
+  ASSERT_TRUE(decoded_datum.is_array());
+  auto decoded = MakeArray(decoded_datum.array());
+  ASSERT_OK(decoded->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(auto output_scalar, decoded->GetScalar(0));
+  ASSERT_TRUE(output_scalar->Equals(*input_scalar));
+}
+
 // Encoding an input with an offset results in a completely new encoded array without an
 // offset. This means the EncodeDecodeArray test will never actually decode an array
 // with an offset, even though we have inputs with offsets. This test slices one element
