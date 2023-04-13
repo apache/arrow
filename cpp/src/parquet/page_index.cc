@@ -914,4 +914,10 @@ std::unique_ptr<PageIndexBuilder> PageIndexBuilder::Make(const SchemaDescriptor*
   return std::make_unique<PageIndexBuilderImpl>(schema);
 }
 
+std::ostream& operator<<(std::ostream& out, const PageIndexSelection& selection) {
+  out << "PageIndexSelection{column_index = " << selection.column_index
+      << ", offset_index = " << selection.offset_index << "}";
+  return out;
+}
+
 }  // namespace parquet
