@@ -49,7 +49,7 @@ namespace Apache.Arrow.Types
                 case TimeUnit.Nanosecond:
                     return ts.Ticks * 100;
                 default:
-                    throw new InvalidDataException($"Unsupported time unit for TimeType: {unit}");
+                    throw new InvalidDataException($"Unsupported time unit for TimeType: {Unit}");
             }
         }
 
@@ -66,7 +66,7 @@ namespace Apache.Arrow.Types
                 case TimeUnit.Nanosecond:
                     return Convert.ToInt32(ts.Ticks * 100);
                 default:
-                    throw new InvalidDataException($"Unsupported time unit for TimeType: {unit}");
+                    throw new InvalidDataException($"Unsupported time unit for TimeType: {Unit}");
             }
         }
     }
