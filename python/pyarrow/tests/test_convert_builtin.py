@@ -133,6 +133,18 @@ def test_failing_iterator():
         pa.array((1 // 0 for x in range(10)), size=10)
 
 
+class ObjectWithOnlyGetitem:
+    def __getitem__(self, key):
+        return 3
+
+
+def test_object_with_getitem():
+    # https://github.com/apache/arrow/issues/34944
+    # considered as sequence because of __getitem__, but has no length
+    with pytest.raises(TypeError, match="has no len()"):
+        pa.array(ObjectWithOnlyGetitem())
+
+
 def _as_list(xs):
     return xs
 

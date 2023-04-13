@@ -15,7 +15,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Apache.Arrow.C;
 using Apache.Arrow.Types;
 using Python.Runtime;
@@ -33,6 +35,13 @@ namespace Apache.Arrow.Tests
             Skip.If(!pythonSet && !inCIJob, "PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
 
             PythonEngine.Initialize();
+
+            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
+                !PythonEngine.PythonPath.Contains("dlls", StringComparison.OrdinalIgnoreCase))
+            {
+                dynamic sys = Py.Import("sys");
+                sys.path.append(Path.Combine(Path.GetDirectoryName(Environment.GetEnvironmentVariable("PYTHONNET_PYDLL")), "DLLs"));
+            }
         }
 
         private static Schema GetTestSchema()

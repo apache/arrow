@@ -36,6 +36,8 @@ from pyarrow._fs cimport FileSystem, FileSelector
 from pyarrow._csv cimport (
     ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
+from pyarrow._json cimport ParseOptions as JsonParseOptions
+from pyarrow._json cimport ReadOptions as JsonReadOptions
 
 
 _DEFAULT_BATCH_SIZE = 2**17
@@ -983,7 +985,7 @@ cdef class FileSystemDataset(Dataset):
         The top-level schema of the Dataset.
     format : FileFormat
         File format of the fragments, currently only ParquetFileFormat,
-        IpcFileFormat, and CsvFileFormat are supported.
+        IpcFileFormat, CsvFileFormat, and JsonFileFormat are supported.
     filesystem : FileSystem
         FileSystem of the fragments.
     root_partition : Expression, optional
@@ -1078,7 +1080,7 @@ cdef class FileSystemDataset(Dataset):
             The top-level schema of the DataDataset.
         format : FileFormat
             File format to create fragments from, currently only
-            ParquetFileFormat, IpcFileFormat, and CsvFileFormat are supported.
+            ParquetFileFormat, IpcFileFormat, CsvFileFormat, and JsonFileFormat are supported.
         filesystem : FileSystem
             The filesystem which files are from.
         partitions : list[Expression], optional
@@ -1179,6 +1181,7 @@ cdef class FileFormat(_Weakrefable):
         classes = {
             'ipc': IpcFileFormat,
             'csv': CsvFileFormat,
+            'json': JsonFileFormat,
             'parquet': _get_parquet_symbol('ParquetFileFormat'),
             'orc': _get_orc_fileformat(),
         }
@@ -1315,10 +1318,11 @@ cdef class Fragment(_Weakrefable):
         type_name = frombytes(sp.get().type_name())
 
         classes = {
-            # IpcFileFormat, CsvFileFormat and OrcFileFormat do not have
+            # IpcFileFormat, CsvFileFormat, JsonFileFormat and OrcFileFormat do not have
             # corresponding subclasses of FileFragment
             'ipc': FileFragment,
             'csv': FileFragment,
+            'json': FileFragment,
             'orc': FileFragment,
             'parquet': _get_parquet_symbol('ParquetFileFragment'),
         }
@@ -1928,6 +1932,7 @@ cdef class FragmentScanOptions(_Weakrefable):
 
         classes = {
             'csv': CsvFragmentScanOptions,
+            'json': JsonFragmentScanOptions,
             'parquet': _get_parquet_symbol('ParquetFragmentScanOptions'),
         }
 
@@ -2182,6 +2187,126 @@ cdef class CsvFileWriteOptions(FileWriteOptions):
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         FileWriteOptions.init(self, sp)
         self.csv_options = <CCsvFileWriteOptions*> sp.get()
+
+
+cdef class JsonFileFormat(FileFormat):
+    """
+    FileFormat for JSON files.
+
+    Parameters
+    ----------
+    default_fragment_scan_options : JsonFragmentScanOptions
+        Default options for fragments scan.
+    parse_options : pyarrow.json.ParseOptions
+        Options regarding json parsing.
+    read_options : pyarrow.json.ReadOptions
+        General read options.
+    """
+    cdef:
+        CJsonFileFormat* json_format
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, default_fragment_scan_options=None,
+                 JsonParseOptions parse_options=None,
+                 JsonReadOptions read_options=None):
+        self.init(shared_ptr[CFileFormat](new CJsonFileFormat()))
+        if parse_options is not None or read_options is not None:
+            if default_fragment_scan_options is not None:
+                raise ValueError('If `default_fragment_scan_options` is '
+                                 'given, cannot specify read_options')
+            self.default_fragment_scan_options = JsonFragmentScanOptions(
+                parse_options=parse_options,
+                read_options=read_options)
+        elif isinstance(default_fragment_scan_options, dict):
+            self.default_fragment_scan_options = JsonFragmentScanOptions(
+                **default_fragment_scan_options)
+        elif isinstance(default_fragment_scan_options, JsonFragmentScanOptions):
+            self.default_fragment_scan_options = default_fragment_scan_options
+        elif default_fragment_scan_options is not None:
+            raise TypeError('`default_fragment_scan_options` must be either '
+                            'a dictionary or an instance of '
+                            'JsonFragmentScanOptions')
+
+    cdef void init(self, const shared_ptr[CFileFormat]& sp):
+        FileFormat.init(self, sp)
+        self.json_format = <CJsonFileFormat*> sp.get()
+
+    cdef _set_default_fragment_scan_options(self, FragmentScanOptions options):
+        if options.type_name == 'json':
+            self.json_format.default_fragment_scan_options = options.wrapped
+            self.default_fragment_scan_options.read_options = options.read_options
+            self.default_fragment_scan_options.parse_options = options.parse_options
+        else:
+            super()._set_default_fragment_scan_options(options)
+
+    def equals(self, JsonFileFormat other):
+        return (other and
+                self.default_fragment_scan_options ==
+                other.default_fragment_scan_options)
+
+    def __reduce__(self):
+        return JsonFileFormat, (self.default_fragment_scan_options,)
+
+    def __repr__(self):
+        return "<JsonFileFormat>"
+
+
+cdef class JsonFragmentScanOptions(FragmentScanOptions):
+    """
+    Scan-specific options for JSON fragments.
+
+    Parameters
+    ----------
+    parse_options : pyarrow.json.ParseOptions
+        Options regarding JSON parsing.
+    read_options : pyarrow.json.ReadOptions
+        General read options.
+    """
+    cdef:
+        CJsonFragmentScanOptions* json_options
+
+     # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, JsonParseOptions parse_options=None,
+                 JsonReadOptions read_options=None):
+        self.init(shared_ptr[CFragmentScanOptions](
+            new CJsonFragmentScanOptions()))
+        if parse_options is not None:
+            self.parse_options = parse_options
+        if read_options is not None:
+            self.read_options = read_options
+
+    cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
+        FragmentScanOptions.init(self, sp)
+        self.json_options = <CJsonFragmentScanOptions*> sp.get()
+
+    @property
+    def parse_options(self):
+        return JsonParseOptions.wrap(self.json_options.parse_options)
+
+    @parse_options.setter
+    def parse_options(self, JsonParseOptions parse_options not None):
+        self.json_options.parse_options = parse_options.options
+
+    @property
+    def read_options(self):
+        return JsonReadOptions.wrap(self.json_options.read_options)
+
+    @read_options.setter
+    def read_options(self, JsonReadOptions read_options not None):
+        self.json_options.read_options = read_options.options
+
+    def equals(self, JsonFragmentScanOptions other):
+        return (
+            other and
+            self.read_options.equals(other.read_options) and
+            self.parse_options.equals(other.parse_options))
+
+    def __reduce__(self):
+        return JsonFragmentScanOptions, (self.parse_options, self.read_options)
 
 
 cdef class Partitioning(_Weakrefable):

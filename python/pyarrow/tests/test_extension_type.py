@@ -630,6 +630,22 @@ def test_casting_dict_array_to_extension_type():
                                UUID('30313233-3435-3637-3839-616263646566')]
 
 
+def test_concat():
+    arr1 = pa.array([1, 2, 3], IntegerType())
+    arr2 = pa.array([4, 5, 6], IntegerType())
+
+    result = pa.concat_arrays([arr1, arr2])
+    expected = pa.array([1, 2, 3, 4, 5, 6], IntegerType())
+    assert result.equals(expected)
+
+    # nested in a struct
+    struct_arr1 = pa.StructArray.from_arrays([arr1], names=["a"])
+    struct_arr2 = pa.StructArray.from_arrays([arr2], names=["a"])
+    result = pa.concat_arrays([struct_arr1, struct_arr2])
+    expected = pa.StructArray.from_arrays([expected], names=["a"])
+    assert result.equals(expected)
+
+
 def test_null_storage_type():
     ext_type = AnnotatedType(pa.null(), {"key": "value"})
     storage = pa.array([None] * 10, pa.null())
@@ -1142,6 +1158,102 @@ def test_cpp_extension_in_python(tmpdir):
     reconstructed_array = batch.column(0)
     assert reconstructed_array.type == uuid_type
     assert reconstructed_array == array
+
+
+def test_tensor_type():
+    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 3])
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+    assert tensor_type.storage_type == pa.list_(pa.int8(), 6)
+    assert tensor_type.shape == [2, 3]
+    assert tensor_type.dim_names is None
+    assert tensor_type.permutation is None
+
+    tensor_type = pa.fixed_shape_tensor(pa.float64(), [2, 2, 3],
+                                        permutation=[0, 2, 1])
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+    assert tensor_type.storage_type == pa.list_(pa.float64(), 12)
+    assert tensor_type.shape == [2, 2, 3]
+    assert tensor_type.dim_names is None
+    assert tensor_type.permutation == [0, 2, 1]
+
+    tensor_type = pa.fixed_shape_tensor(pa.bool_(), [2, 2, 3],
+                                        dim_names=['C', 'H', 'W'])
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+    assert tensor_type.storage_type == pa.list_(pa.bool_(), 12)
+    assert tensor_type.shape == [2, 2, 3]
+    assert tensor_type.dim_names == ['C', 'H', 'W']
+    assert tensor_type.permutation is None
+
+
+def test_tensor_class_methods():
+    tensor_type = pa.fixed_shape_tensor(pa.float32(), [2, 3])
+    storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]],
+                       pa.list_(pa.float32(), 6))
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    expected = np.array(
+        [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
+    result = arr.to_numpy_ndarray()
+    np.testing.assert_array_equal(result, expected)
+
+    arr = np.array(
+        [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
+        dtype=np.float32, order="C")
+    tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
+    assert isinstance(tensor_array_from_numpy.type, pa.FixedShapeTensorType)
+    assert tensor_array_from_numpy.type.value_type == pa.float32()
+    assert tensor_array_from_numpy.type.shape == [2, 3]
+
+    arr = np.array(
+        [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
+        dtype=np.float32, order="F")
+    with pytest.raises(ValueError, match="C-style contiguous segment"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
+
+    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1])
+    storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.int8(), 12))
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    with pytest.raises(ValueError, match="non-permuted tensors"):
+        arr.to_numpy_ndarray()
+
+
+@pytest.mark.parametrize("tensor_type", (
+    pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
+    pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1]),
+    pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], dim_names=['C', 'H', 'W'])
+))
+def test_tensor_type_ipc(tensor_type):
+    storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.int8(), 12))
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    # check the built array has exactly the expected clss
+    tensor_class = tensor_type.__arrow_ext_class__()
+    assert type(arr) == tensor_class
+
+    buf = ipc_write_batch(batch)
+    del batch
+    batch = ipc_read_batch(buf)
+
+    result = batch.column(0)
+    # check the deserialized array class is the expected one
+    assert type(result) == tensor_class
+    assert result.type.extension_name == "arrow.fixed_shape_tensor"
+    assert arr.storage.to_pylist() == [[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]]
+
+    # we get back an actual TensorType
+    assert isinstance(result.type, pa.FixedShapeTensorType)
+    assert result.type.value_type == pa.int8()
+    assert result.type.shape == [2, 2, 3]
+
+
+def test_tensor_type_equality():
+    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3])
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+
+    tensor_type2 = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3])
+    tensor_type3 = pa.fixed_shape_tensor(pa.uint8(), [2, 2, 3])
+    assert tensor_type == tensor_type2
+    assert not tensor_type == tensor_type3
 
 
 @pytest.mark.pandas

@@ -27,8 +27,11 @@
 
 #include <gmock/gmock.h>
 
+#include "arrow/array.h"
 #include "arrow/memory_pool.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -379,6 +382,197 @@ TEST(TestFieldPath, Basics) {
                                   FieldPath({s.num_fields() * 2}).Get(s));
 }
 
+TEST(TestFieldPath, GetForTable) {
+  using testing::HasSubstr;
+
+  constexpr int kNumRows = 4;
+  auto f0 = field("a", int32());
+  auto f1 = field("b", int32());
+  auto f2 = field("c", struct_({f1}));
+  auto f3 = field("d", struct_({f0, f2}));
+  auto table_schema = schema({f0, f1, f2, f3});
+
+  // Each column has a different chunking
+  ChunkedArrayVector columns(4);
+  columns[0] = ChunkedArrayFromJSON(f0->type(), {"[0,1,2,3]"});
+  columns[1] = ChunkedArrayFromJSON(f1->type(), {"[3,2,1]", "[0]"});
+  columns[2] =
+      ChunkedArrayFromJSON(f2->type(), {R"([{"b":3},{"b":2}])", R"([{"b":1},{"b":0}])"});
+  columns[3] = ChunkedArrayFromJSON(
+      f3->type(), {R"([{"a":0,"c":{"b":3}},{"a":1,"c":{"b":2}}])",
+                   R"([{"a":2,"c":{"b":1}}])", R"([{"a":3,"c":{"b":0}}])"});
+  auto table = Table::Make(table_schema, columns, kNumRows);
+  ASSERT_OK(table->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto v0, FieldPath({0}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v1, FieldPath({1}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v2, FieldPath({2}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v2_0, FieldPath({2, 0}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v3, FieldPath({3}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v3_0, FieldPath({3, 0}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v3_1, FieldPath({3, 1}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v3_1_0, FieldPath({3, 1, 0}).Get(*table));
+
+  EXPECT_EQ(v0->num_chunks(), columns[0]->num_chunks());
+  EXPECT_EQ(v1->num_chunks(), columns[1]->num_chunks());
+  EXPECT_EQ(v2->num_chunks(), columns[2]->num_chunks());
+  EXPECT_EQ(v2_0->num_chunks(), columns[2]->num_chunks());
+  EXPECT_EQ(v3->num_chunks(), columns[3]->num_chunks());
+  EXPECT_EQ(v3_0->num_chunks(), columns[3]->num_chunks());
+  EXPECT_EQ(v3_1->num_chunks(), columns[3]->num_chunks());
+  EXPECT_EQ(v3_1_0->num_chunks(), columns[3]->num_chunks());
+
+  EXPECT_TRUE(columns[0]->Equals(v0));
+  EXPECT_TRUE(columns[0]->Equals(v3_0));
+
+  EXPECT_TRUE(columns[1]->Equals(v1));
+  EXPECT_TRUE(columns[1]->Equals(v2_0));
+  EXPECT_TRUE(columns[1]->Equals(v3_1_0));
+
+  EXPECT_TRUE(columns[2]->Equals(v2));
+  EXPECT_TRUE(columns[2]->Equals(v3_1));
+
+  EXPECT_TRUE(columns[3]->Equals(v3));
+
+  for (const auto& path :
+       {FieldPath({4, 1, 0}), FieldPath({3, 2, 0}), FieldPath{3, 1, 1}}) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, HasSubstr("index out of range"),
+                                    path.Get(*table));
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("empty indices cannot be traversed"),
+                                  FieldPath().Get(*table));
+}
+
+TEST(TestFieldPath, GetForChunkedArray) {
+  using testing::HasSubstr;
+
+  auto f0 = field("a", int32());
+  auto f1 = field("b", int32());
+  auto f2 = field("c", struct_({f1}));
+  auto f3 = field("d", struct_({f0, f2}));
+  auto type = struct_({f0, f1, f3});
+
+  auto column0 = ChunkedArrayFromJSON(f0->type(), {"[0,1,2,3]"});
+  auto column1 = ChunkedArrayFromJSON(f1->type(), {"[3,2,1,0]"});
+  auto column2_1 =
+      ChunkedArrayFromJSON(f2->type(), {R"([{"b":3},{"b":2},{"b":1},{"b":0}])"});
+  auto chunked_array = ChunkedArrayFromJSON(
+      type,
+      {
+          R"([{"a":0,"b":3,"d":{"a":0,"c":{"b":3}}}])",
+          R"([{"a":1,"b":2,"d":{"a":1,"c":{"b":2}}},{"a":2,"b":1,"d":{"a":2,"c":{"b":1}}}])",
+          R"([{"a":3,"b":0,"d":{"a":3,"c":{"b":0}}}])",
+      });
+  ASSERT_OK(chunked_array->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto v0, FieldPath({0}).Get(*chunked_array));
+  ASSERT_OK_AND_ASSIGN(auto v1, FieldPath({1}).Get(*chunked_array));
+  ASSERT_OK_AND_ASSIGN(auto v2_0, FieldPath({2, 0}).Get(*chunked_array));
+  ASSERT_OK_AND_ASSIGN(auto v2_1, FieldPath({2, 1}).Get(*chunked_array));
+  ASSERT_OK_AND_ASSIGN(auto v2_1_0, FieldPath({2, 1, 0}).Get(*chunked_array));
+
+  for (const auto& v : {v0, v1, v2_0, v2_1, v2_1_0}) {
+    EXPECT_EQ(v->num_chunks(), chunked_array->num_chunks());
+  }
+
+  EXPECT_TRUE(column0->Equals(v0));
+  EXPECT_TRUE(column0->Equals(v2_0));
+
+  EXPECT_TRUE(column1->Equals(v1));
+  EXPECT_TRUE(column1->Equals(v2_1_0));
+  EXPECT_FALSE(column1->Equals(v2_1));
+
+  EXPECT_TRUE(column2_1->Equals(v2_1));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  HasSubstr("Get child data of non-struct chunked array"),
+                                  FieldPath({0}).Get(*column0));
+}
+
+TEST(TestFieldPath, GetForChunkedArrayWithNulls) {
+  auto int_field = field("i", int32());
+  auto int_chunked_array =
+      ChunkedArrayFromJSON(int_field->type(), {"[0,1]", "[2,null]", "[3,4]"});
+
+  ASSERT_OK_AND_ASSIGN(auto null_bitmap, AllocateEmptyBitmap(2));
+  ArrayVector struct_chunks;
+  for (const auto& int_chunk : int_chunked_array->chunks()) {
+    ASSERT_OK_AND_ASSIGN(auto chunk,
+                         StructArray::Make({int_chunk}, {int_field}, null_bitmap, 2));
+    struct_chunks.push_back(chunk);
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto struct_chunked_array, ChunkedArray::Make(struct_chunks));
+  ASSERT_OK(struct_chunked_array->ValidateFull());
+  // The top-level null bitmap shouldn't affect the validity of the returned child field.
+  ASSERT_OK_AND_ASSIGN(auto int_child, FieldPath({0}).Get(*struct_chunked_array));
+  ASSERT_TRUE(int_chunked_array->Equals(int_child));
+}
+
+TEST(TestFieldPath, GetForEmptyChunked) {
+  FieldVector fields = {
+      field("i", int32()),
+      field("s", struct_({field("b", boolean()), field("f", float32())}))};
+  std::shared_ptr<ChunkedArray> child;
+
+  // Empty ChunkedArray with no chunks
+  ChunkedArray chunked_array({}, struct_(fields));
+  ASSERT_OK(chunked_array.ValidateFull());
+  ASSERT_EQ(chunked_array.num_chunks(), 0);
+  ASSERT_OK_AND_ASSIGN(child, FieldPath({1, 1}).Get(chunked_array));
+  AssertTypeEqual(float32(), child->type());
+  ASSERT_EQ(child->length(), 0);
+
+  // Empty Table with no column chunks
+  ChunkedArrayVector table_columns;
+  for (const auto& f : fields) {
+    table_columns.push_back(std::make_shared<ChunkedArray>(ArrayVector{}, f->type()));
+  }
+  auto table = Table::Make(schema(fields), table_columns, 0);
+  ASSERT_OK(table->ValidateFull());
+  for (const auto& column : table->columns()) {
+    ASSERT_EQ(column->num_chunks(), 0);
+  }
+  ASSERT_OK_AND_ASSIGN(child, FieldPath({1, 1}).Get(*table));
+  AssertTypeEqual(float32(), child->type());
+  ASSERT_EQ(child->length(), 0);
+}
+
+TEST(TestFieldPath, GetForRecordBatch) {
+  using testing::HasSubstr;
+
+  constexpr int kNumRows = 100;
+  auto f0 = field("alpha", int32());
+  auto f1 = field("beta", int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta", int32());
+  auto schema = arrow::schema({f0, f1, f2, f3});
+
+  arrow::random::RandomArrayGenerator gen_{42};
+  auto a0 = gen_.ArrayOf(int32(), kNumRows);
+  auto a1 = gen_.ArrayOf(int32(), kNumRows);
+  auto a2 = gen_.ArrayOf(int32(), kNumRows);
+  auto a3 = gen_.ArrayOf(int32(), kNumRows);
+  auto array_vector = ArrayVector({a0, a1, a2, a3});
+
+  auto record_batch_ptr = arrow::RecordBatch::Make(schema, kNumRows, array_vector);
+  ASSERT_OK(record_batch_ptr->ValidateFull());
+
+  // retrieving an array FieldPath is equivalent to RecordBatch::column
+  auto num_columns = record_batch_ptr->num_columns();
+  auto record_batch_schema = record_batch_ptr->schema();
+  for (int index = 0; index < num_columns; ++index) {
+    ASSERT_OK_AND_EQ(record_batch_schema->field(index), FieldPath({index}).Get(*schema));
+    ASSERT_OK_AND_ASSIGN(auto field_path_column,
+                         FieldPath({index}).Get(*record_batch_ptr));
+    EXPECT_TRUE(field_path_column->Equals(record_batch_ptr->column(index)));
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("empty indices cannot be traversed"),
+                                  FieldPath().Get(*record_batch_ptr));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, HasSubstr("index out of range"),
+                                  FieldPath({num_columns * 2}).Get(*record_batch_ptr));
+}
+
 TEST(TestFieldRef, Basics) {
   auto f0 = field("alpha", int32());
   auto f1 = field("beta", int32());
@@ -396,6 +590,71 @@ TEST(TestFieldRef, Basics) {
   // lookup by name returns the Indices of both matching fields
   EXPECT_THAT(FieldRef("alpha").FindAll(s), ElementsAre(FieldPath{0}, FieldPath{2}));
   EXPECT_THAT(FieldRef("beta").FindAll(s), ElementsAre(FieldPath{1}, FieldPath{3}));
+}
+
+TEST(TestFieldRef, FindAllForTable) {
+  constexpr int kNumRows = 100;
+  auto f0 = field("alpha", int32());
+  auto f1 = field("beta", int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta", int32());
+  auto schema = arrow::schema({f0, f1, f2, f3});
+
+  arrow::random::RandomArrayGenerator gen_{42};
+  auto a0 = gen_.ArrayOf(int32(), kNumRows);
+  auto a1 = gen_.ArrayOf(int32(), kNumRows);
+  auto a2 = gen_.ArrayOf(int32(), kNumRows);
+  auto a3 = gen_.ArrayOf(int32(), kNumRows);
+
+  auto table_ptr = Table::Make(schema, {a0, a1, a2, a3});
+  ASSERT_OK(table_ptr->ValidateFull());
+
+  // lookup by index returns Indices{index}
+  auto schema_num_fields = table_ptr->schema()->num_fields();
+  for (int index = 0; index < schema_num_fields; ++index) {
+    EXPECT_THAT(FieldRef(index).FindAll(*table_ptr), ElementsAre(FieldPath{index}));
+  }
+  // out of range index results in a failure to match
+  EXPECT_THAT(FieldRef(schema_num_fields * 2).FindAll(*table_ptr), ElementsAre());
+
+  //// lookup by name returns the Indices of both matching fields
+  EXPECT_THAT(FieldRef("alpha").FindAll(*table_ptr),
+              ElementsAre(FieldPath{0}, FieldPath{2}));
+  EXPECT_THAT(FieldRef("beta").FindAll(*table_ptr),
+              ElementsAre(FieldPath{1}, FieldPath{3}));
+}
+
+TEST(TestFieldRef, FindAllForRecordBatch) {
+  constexpr int kNumRows = 100;
+  auto f0 = field("alpha", int32());
+  auto f1 = field("beta", int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta", int32());
+  auto schema = arrow::schema({f0, f1, f2, f3});
+
+  arrow::random::RandomArrayGenerator gen_{42};
+  auto a0 = gen_.ArrayOf(int32(), kNumRows);
+  auto a1 = gen_.ArrayOf(int32(), kNumRows);
+  auto a2 = gen_.ArrayOf(int32(), kNumRows);
+  auto a3 = gen_.ArrayOf(int32(), kNumRows);
+
+  auto record_batch_ptr = RecordBatch::Make(schema, kNumRows, {a0, a1, a2, a3});
+  ASSERT_OK(record_batch_ptr->ValidateFull());
+
+  // lookup by index returns Indices{index}
+  auto schema_num_fields = record_batch_ptr->schema()->num_fields();
+  for (int index = 0; index < schema_num_fields; ++index) {
+    EXPECT_THAT(FieldRef(index).FindAll(*record_batch_ptr),
+                ElementsAre(FieldPath{index}));
+  }
+  // out of range index results in a failure to match
+  EXPECT_THAT(FieldRef(schema_num_fields * 2).FindAll(*record_batch_ptr), ElementsAre());
+
+  //// lookup by name returns the Indices of both matching fields
+  EXPECT_THAT(FieldRef("alpha").FindAll(*record_batch_ptr),
+              ElementsAre(FieldPath{0}, FieldPath{2}));
+  EXPECT_THAT(FieldRef("beta").FindAll(*record_batch_ptr),
+              ElementsAre(FieldPath{1}, FieldPath{3}));
 }
 
 TEST(TestFieldRef, FromDotPath) {

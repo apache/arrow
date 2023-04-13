@@ -2828,8 +2828,12 @@ class TestConvertMisc:
 
     def test_table_batch_empty_dataframe(self):
         df = pd.DataFrame({})
-        _check_pandas_roundtrip(df)
-        _check_pandas_roundtrip(df, as_batch=True)
+        _check_pandas_roundtrip(df, preserve_index=None)
+        _check_pandas_roundtrip(df, preserve_index=None, as_batch=True)
+
+        expected = pd.DataFrame(columns=pd.Index([]))
+        _check_pandas_roundtrip(df, expected, preserve_index=False)
+        _check_pandas_roundtrip(df, expected, preserve_index=False, as_batch=True)
 
         df2 = pd.DataFrame({}, index=[0, 1, 2])
         _check_pandas_roundtrip(df2, preserve_index=True)
