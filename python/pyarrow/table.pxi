@@ -1450,8 +1450,8 @@ cdef _sanitize_arrays(arrays, names, schema, metadata,
             converted_arrays.append(item)
     return converted_arrays
 
-cdef class _Table(_PandasConvertible):
-    """Internal: An interface for common table operations."""
+cdef class _Tabular(_PandasConvertible):
+    """Internal: An interface for common operations on tabular objects."""
 
     def __init__(self):
         raise TypeError("This object is not instantiable, "
@@ -1459,18 +1459,29 @@ cdef class _Table(_PandasConvertible):
 
     def drop_null(self):
         """
-        Remove missing values from a Table.
+        Remove rows that contain missing values from a Table or RecordBatch.
+
         See :func:`pyarrow.compute.drop_null` for full usage.
+
+        Returns
+        -------
+        Table or RecordBatch
+            A tabular object with the same schema, with rows containing
+            no missing values.
 
         Examples
         --------
+
+        Table
+
         >>> import pyarrow as pa
         >>> import pandas as pd
         >>> df = pd.DataFrame({'year': [None, 2022, 2019, 2021],
         ...                   'n_legs': [2, 4, 5, 100],
         ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
         >>> table = pa.Table.from_pandas(df)
-        >>> table.drop_null()
+        >>> table = table.drop_null()
+        >>> table
         pyarrow.Table
         year: double
         n_legs: int64
@@ -1479,34 +1490,57 @@ cdef class _Table(_PandasConvertible):
         year: [[2022,2021]]
         n_legs: [[4,100]]
         animals: [["Horse","Centipede"]]
+
+        RecordBatch
+
+        >>> recordbatch = pa.RecordBatch.from_pandas(df)
+        >>> recordbatch = recordbatch.drop_null()
+        >>> recordbatch.columns
+        [<pyarrow.lib.DoubleArray object at 0x142b92c80>
+        [
+          2022,
+          2021
+        ], <pyarrow.lib.Int64Array object at 0x142b92ce0>
+        [
+          4,
+          100
+        ], <pyarrow.lib.StringArray object at 0x142b92d40>
+        [
+          "Horse",
+          "Centipede"
+        ]]
         """
         return _pc().drop_null(self)
 
     def take(self, object indices):
         """
-        Select rows from the table.
+        Select rows from a Table or RecordBatch.
 
         See :func:`pyarrow.compute.take` for full usage.
 
         Parameters
         ----------
         indices : Array or array-like
-            The indices in the table whose rows will be returned.
+            The indices in the tabular object whose rows will be returned.
 
         Returns
         -------
-        taken : Table
-            A table with the same schema, containing the taken rows.
+        Table or RecordBatch
+            A tabular object with the same schema, containing the taken rows.
 
         Examples
         --------
+
+        Table
+
         >>> import pyarrow as pa
         >>> import pandas as pd
         >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
         ...                    'n_legs': [2, 4, 5, 100],
         ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table = pa.Table.from_pandas(df)
-        >>> table.take([1,3])
+        >>> table = table.take([1,3])
+        >>> table
         pyarrow.Table
         year: int64
         n_legs: int64
@@ -1515,11 +1549,30 @@ cdef class _Table(_PandasConvertible):
         year: [[2022,2021]]
         n_legs: [[4,100]]
         animals: [["Horse","Centipede"]]
+
+        RecordBatch
+
+        >>> recordbatch = pa.RecordBatch.from_pandas(df)
+        >>> recordbatch = recordbatch.take([1,3])
+        >>> recordbatch.columns
+        [<pyarrow.lib.Int64Array object at 0x142b53640>
+        [
+          2022,
+          2021
+        ], <pyarrow.lib.Int64Array object at 0x142b53520>
+        [
+          4,
+          100
+        ], <pyarrow.lib.StringArray object at 0x142b92c20>
+        [
+          "Horse",
+          "Centipede"
+        ]]
         """
         return _pc().take(self, indices)
 
 
-cdef class RecordBatch(_Table):
+cdef class RecordBatch(_Tabular):
     """
     Batch of rows of columns of equal length
 
@@ -2783,7 +2836,7 @@ def table_to_blocks(options, Table table, categories, extension_columns):
     return PyObject_to_object(result_obj)
 
 
-cdef class Table(_Table):
+cdef class Table(_Tabular):
     """
     A collection of top-level named, equal length Arrow arrays.
 
