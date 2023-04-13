@@ -14,12 +14,14 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class ListArray : Array
+    public class ListArray : Array, IEnumerable<IArrowArray>
     {
         public class Builder : IArrowArrayBuilder<ListArray, Builder>
         {
@@ -195,6 +197,27 @@ namespace Apache.Arrow
                 Values?.Dispose();
             }
             base.Dispose(disposing);
+        }
+
+        // IEnumerable methods
+        public IEnumerator<IArrowArray> GetEnumerator()
+        {
+            return new Enumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private new class Enumerator : Array.Enumerator<ListArray>, IEnumerator<IArrowArray>
+        {
+            public Enumerator(ListArray array) : base(array)
+            { }
+
+            IArrowArray IEnumerator<IArrowArray>.Current => Array.GetSlicedValues(Position);
+
+            object IEnumerator.Current => Array.GetSlicedValues(Position);
         }
     }
 }

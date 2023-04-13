@@ -94,6 +94,18 @@ namespace Apache.Arrow
         }
 
         // IEnumerable methods
+        public string[] ToArray()
+        {
+            string[] alloc = new string[Length];
+
+            for (int i = 0; i < Length; i++)
+            {
+                alloc[i] = GetString(i);
+            }
+
+            return alloc;
+        }
+
         public new IEnumerator<string> GetEnumerator()
         {
             return new Enumerator(this);
