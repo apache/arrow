@@ -266,7 +266,7 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
 
 /// Unpack the named tables passed through JNI.
 ///
-/// Named tables are encoded as a string array, where every two elements 
+/// Named tables are encoded as a string array, where every two elements
 /// encode (1) the table name and (2) the address of an ArrowArrayStream
 /// containing the table data.  This function will eagerly read all
 /// tables into Tables.
@@ -635,12 +635,14 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
  * Method:    executeSerializedPlanLocalFiles
  * Signature: (Ljava/lang/String;J)V
  */
-JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanLocalFiles__Ljava_lang_String_2J (
+JNIEXPORT void JNICALL
+    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanLocalFiles__Ljava_lang_String_2J (
     JNIEnv* env, jobject, jstring plan, jlong c_arrow_array_stream_address_out) {
   JNI_METHOD_START
   auto* arrow_stream = reinterpret_cast<ArrowArrayStream*>(c_arrow_array_stream_address_out);
   std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::engine::SerializeJsonPlan(JStringToCString(env, plan)));
-  std::shared_ptr<arrow::RecordBatchReader> reader = JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer));
+  std::shared_ptr<arrow::RecordBatchReader> reader =
+    JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer));
   JniAssertOkOrThrow(arrow::ExportRecordBatchReader(reader, arrow_stream));
   JNI_METHOD_END()
 }
@@ -650,7 +652,8 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
  * Method:    executeSerializedPlanLocalFiles
  * Signature: (Ljava/nio/ByteBuffer;J)V
  */
-JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanLocalFiles__Ljava_nio_ByteBuffer_2J (
+JNIEXPORT void JNICALL
+    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanLocalFiles__Ljava_nio_ByteBuffer_2J (
     JNIEnv* env, jobject, jobject plan, jlong c_arrow_array_stream_address_out) {
   JNI_METHOD_START
   auto* arrow_stream = reinterpret_cast<ArrowArrayStream*>(c_arrow_array_stream_address_out);
@@ -660,7 +663,8 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
   std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
   std::memcpy(buffer->mutable_data(), buff, length);
   // execute plan
-  std::shared_ptr<arrow::RecordBatchReader> reader = JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer));
+  std::shared_ptr<arrow::RecordBatchReader> reader =
+    JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer));
   JniAssertOkOrThrow(arrow::ExportRecordBatchReader(reader, arrow_stream));
   JNI_METHOD_END()
 }
@@ -670,13 +674,17 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
  * Method:    executeSerializedPlanNamedTables
  * Signature: (Ljava/lang/String;[Ljava/lang/String;J)V
  */
-JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanNamedTables__Ljava_lang_String_2_3Ljava_lang_String_2J (
-    JNIEnv* env, jobject, jstring plan, jobjectArray table_to_memory_address_input, jlong memory_address_output) {
+JNIEXPORT void JNICALL
+    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanNamedTables__Ljava_lang_String_2_3Ljava_lang_String_2J (
+    JNIEnv* env, jobject, jstring plan, jobjectArray table_to_memory_address_input,
+    jlong memory_address_output) {
   JNI_METHOD_START
   // get mapping of table name to memory address
-  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader = LoadNamedTables(env, table_to_memory_address_input);
+  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader =
+    LoadNamedTables(env, table_to_memory_address_input);
   // create table provider
-  arrow::engine::NamedTableProvider table_provider = [&map_table_to_reader](const std::vector<std::string>& names, const arrow::Schema&) {
+  arrow::engine::NamedTableProvider table_provider =
+    [&map_table_to_reader](const std::vector<std::string>& names, const arrow::Schema&) {
     std::shared_ptr<arrow::Table> output_table = GetTableByName(names, map_table_to_reader);
     std::shared_ptr<arrow::acero::ExecNodeOptions> options =
       std::make_shared<arrow::acero::TableSourceNodeOptions>(std::move(output_table));
@@ -685,10 +693,12 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
   arrow::engine::ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
   // execute plan
-  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::engine::SerializeJsonPlan(JStringToCString(env, plan)));
-  std::shared_ptr<arrow::RecordBatchReader> readerOut = JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, nullptr, nullptr, conversion_options));
+  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::engine::SerializeJsonPlan(
+    JStringToCString(env, plan)));
+  std::shared_ptr<arrow::RecordBatchReader> reader_out =
+    JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, nullptr, nullptr, conversion_options));
   auto* arrow_stream_out = reinterpret_cast<ArrowArrayStream*>(memory_address_output);
-  JniAssertOkOrThrow(arrow::ExportRecordBatchReader(readerOut, arrow_stream_out));
+  JniAssertOkOrThrow(arrow::ExportRecordBatchReader(reader_out, arrow_stream_out));
   JNI_METHOD_END()
 }
 
@@ -697,13 +707,17 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
  * Method:    executeSerializedPlanNamedTables
  * Signature: (Ljava/nio/ByteBuffer;[Ljava/lang/String;J)V
  */
-JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanNamedTables__Ljava_nio_ByteBuffer_2_3Ljava_lang_String_2J (
-    JNIEnv* env, jobject, jobject plan, jobjectArray table_to_memory_address_input, jlong memory_address_output) {
+JNIEXPORT void JNICALL
+    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanNamedTables__Ljava_nio_ByteBuffer_2_3Ljava_lang_String_2J (
+    JNIEnv* env, jobject, jobject plan, jobjectArray table_to_memory_address_input,
+    jlong memory_address_output) {
   JNI_METHOD_START
   // get mapping of table name to memory address
-  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader = LoadNamedTables(env, table_to_memory_address_input);
+  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader =
+    LoadNamedTables(env, table_to_memory_address_input);
   // create table provider
-  arrow::engine::NamedTableProvider table_provider = [&map_table_to_reader](const std::vector<std::string>& names, const arrow::Schema&) {
+  arrow::engine::NamedTableProvider table_provider =
+    [&map_table_to_reader](const std::vector<std::string>& names, const arrow::Schema&) {
     std::shared_ptr<arrow::Table> output_table = GetTableByName(names, map_table_to_reader);
     std::shared_ptr<arrow::acero::ExecNodeOptions> options =
       std::make_shared<arrow::acero::TableSourceNodeOptions>(std::move(output_table));
@@ -717,8 +731,9 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_substrait_JniWrapper_execut
   std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
   std::memcpy(buffer->mutable_data(), buff, length);
   // execute plan
-  std::shared_ptr<arrow::RecordBatchReader> readerOut = JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, nullptr, nullptr, conversion_options));
+  std::shared_ptr<arrow::RecordBatchReader> reader_out =
+    JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, nullptr, nullptr, conversion_options));
   auto* arrow_stream_out = reinterpret_cast<ArrowArrayStream*>(memory_address_output);
-  JniAssertOkOrThrow(arrow::ExportRecordBatchReader(readerOut, arrow_stream_out));
+  JniAssertOkOrThrow(arrow::ExportRecordBatchReader(reader_out, arrow_stream_out));
   JNI_METHOD_END()
 }
