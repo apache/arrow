@@ -243,11 +243,18 @@ class JsonScanMixin {
   T* const this_ = static_cast<T*>(this);
 };
 
-class TestJsonFormat
-    : public FileFormatFixtureMixin<JsonFormatHelper, json::kMaxParserNumRows> {};
+// Use a reduced number of rows in valgrind to avoid timeouts.
+#ifndef ARROW_VALGRIND
+constexpr static int64_t kTestMaxNumRows = json::kMaxParserNumRows;
+#else
+constexpr static int64_t kTestMaxNumRows = 1024;
+#endif
+
+class TestJsonFormat : public FileFormatFixtureMixin<JsonFormatHelper, kTestMaxNumRows> {
+};
 
 class TestJsonFormatV2
-    : public FileFormatFixtureMixinV2<JsonFormatHelper, json::kMaxParserNumRows> {};
+    : public FileFormatFixtureMixinV2<JsonFormatHelper, kTestMaxNumRows> {};
 
 class TestJsonScan : public FileFormatScanMixin<JsonFormatHelper>,
                      public JsonScanMixin<TestJsonScan> {
