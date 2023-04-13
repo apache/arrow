@@ -14,8 +14,8 @@
 // limitations under the License.
 
 
-using System.IO;
 using System;
+using System.IO;
 
 namespace Apache.Arrow.Types
 {
