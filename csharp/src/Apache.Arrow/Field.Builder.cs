@@ -159,26 +159,11 @@ namespace Apache.Arrow
                     case var dict when typeof(IDictionary).IsAssignableFrom(valueType):
                         genericArgs = dict.GetGenericArguments();
 
-                        try
-                        {
-                            DataType(new DictionaryType(
-                                new Builder().DataType(genericArgs[0], timezone)._type,
-                                new Builder().DataType(genericArgs[1], timezone)._type,
-                                false
-                            ));
-                        }
-                        catch (ArgumentException)
-                        {
-                            // throw new ArgumentException($"{nameof(indexType)} must be integer");
-                            DataType(new StructType(
-                                new Field[]
-                                {
-                                    new Builder().Name("key").DataType(genericArgs[0], timezone).Build(),
-                                    new Builder().Name("value").DataType(genericArgs[1], timezone).Build(),
-                                }
-                            ));
-                        }
-
+                        DataType(new DictionaryType(
+                            new Builder().DataType(genericArgs[0], timezone)._type,
+                            new Builder().DataType(genericArgs[1], timezone)._type,
+                            false
+                        ));
                         break;
                     // IEnumerable: List, Array, ...
                     case var list when typeof(IEnumerable).IsAssignableFrom(valueType):
