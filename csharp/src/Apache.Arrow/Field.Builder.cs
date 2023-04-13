@@ -55,6 +55,8 @@ namespace Apache.Arrow
 
             public Builder DataType(Type valueType, string timezone = null)
             {
+                Type[] genericArgs;
+
                 switch (valueType)
                 {
                     // Binary
@@ -151,10 +153,55 @@ namespace Apache.Arrow
                         DataType(new Time64Type(TimeUnit.Nanosecond));
                         break;
 #if NETCOREAPP
-                    // ListType: Enumerable, List, Array, ...
+                    // Dictionary: IDictionary<?,?>
+                    case var dict when typeof(IDictionary).IsAssignableFrom(valueType):
+                        genericArgs = dict.GetGenericArguments();
+
+                        try
+                        {
+                            DataType(new DictionaryType(
+                                new Builder().DataType(genericArgs[0], timezone)._type,
+                                new Builder().DataType(genericArgs[1], timezone)._type,
+                                false
+                            ));
+                        }
+                        catch (ArgumentException)
+                        {
+                            // throw new ArgumentException($"{nameof(indexType)} must be integer");
+                            DataType(new StructType(
+                                new Field[]
+                                {
+                                    new Builder().Name("key").DataType(genericArgs[0], timezone).Build(),
+                                    new Builder().Name("value").DataType(genericArgs[1], timezone).Build(),
+                                }
+                            ));
+                        }
+
+                        break;
+                    // IEnumerable: List, Array, ...
+                    // Dictionary: IEnumerable<KeyValuePair<?,?>>
                     case var list when typeof(IEnumerable).IsAssignableFrom(valueType):
                         Type elementType = list.GetGenericArguments()[0];
-                        DataType(new ListType(new Builder().Name("item").DataType(elementType, timezone).Build()));
+
+                        switch (elementType)
+                        {
+                            case var kv when (elementType.IsGenericType && elementType.GetGenericTypeDefinition() == typeof(KeyValuePair<,>)):
+                                // Dictionary
+                                genericArgs = kv.GetGenericArguments();
+
+                                DataType(new StructType(
+                                    new Field[]
+                                    {
+                                        new Builder().Name("key").DataType(genericArgs[0], timezone).Build(),
+                                        new Builder().Name("value").DataType(genericArgs[1], timezone).Build(),
+                                    }
+                                ));
+                                break;
+                            default:
+                                // List
+                                DataType(new ListType(new Builder().Name("item").DataType(elementType, timezone).Build()));
+                                break;
+                        }
                         break;
 # endif
                     // Error

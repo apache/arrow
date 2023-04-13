@@ -106,6 +106,20 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(typeof(StringType), child.DataType.GetType());
                 Assert.True(dtype.Fields[0].IsNullable);
             }
+
+            [Fact]
+            public void DataType_Should_InferDataType_From_Dictionary()
+            {
+                // Arrange
+                Field builder = new Field.Builder().Name("test").DataType(typeof(Dictionary<int, string>)).Build();
+                var dtype = builder.DataType as DictionaryType;
+                var k = dtype.IndexType as Int32Type;
+                var v = dtype.ValueType as StringType;
+
+                // Assert
+                Assert.Equal(typeof(Int32Type), k.GetType());
+                Assert.Equal(typeof(StringType), v.GetType());
+            }
 # endif
         }
     }
