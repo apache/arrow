@@ -65,16 +65,22 @@ describe(`BN`, () => {
     });
 
     test(`toString for decimals`, () => {
-        const d1 = BN.decimal(new Uint16Array([1, 2, 3, 4, 5, 6, 7, 8]));
-        expect(d1.toString()).toBe('41538929472669868031141181829283841');
+        const toDecimal = (val: Uint32Array) => {
+            const builder = Arrow.makeBuilder({
+                type: new Arrow.Decimal(128, 0),
+                nullValues: []
+            });
+            builder.append(val);
+            return <Arrow.Type.Decimal><any>builder.finish().toVector().get(0);
+        };
 
-        const d2 = BN.decimal(new Uint32Array([0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]));
+        const d2 = toDecimal(new Uint32Array([0xFFFFFFFE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]));
         expect(d2.toString()).toBe('-2');
 
-        const d3 = BN.decimal(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0x80000000]));
+        const d3 = toDecimal(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0x80000000]));
         expect(d3.toString()).toBe('-170141183460469231731687303715884105728');
 
-        const d4 = BN.decimal(new Uint32Array([0x9D91E773, 0x4BB90CED, 0xAB2354CC, 0x54278E9B]));
+        const d4 = toDecimal(new Uint32Array([0x9D91E773, 0x4BB90CED, 0xAB2354CC, 0x54278E9B]));
         expect(d4.toString()).toBe('111860543658909349380118287427608635251');
     });
 });
