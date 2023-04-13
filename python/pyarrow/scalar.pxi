@@ -880,6 +880,25 @@ cdef class DictionaryScalar(Scalar):
         return self.value.as_py() if self.is_valid else None
 
 
+cdef class RunEndEncodedScalar(Scalar):
+    """
+    Concrete class for RunEndEncoded scalars.
+    """
+    @property
+    def value(self):
+        """
+        Return underlying value as a scalar.
+        """
+        cdef CRunEndEncodedScalar* sp = <CRunEndEncodedScalar*> self.wrapped.get()
+        return Scalar.wrap(sp.value)
+
+    def as_py(self):
+        """
+        Return underlying value as a Python object.
+        """
+        return self.value.as_py()
+
+
 cdef class UnionScalar(Scalar):
     """
     Concrete class for Union scalars.
@@ -1010,6 +1029,7 @@ cdef dict _scalar_classes = {
     _Type_STRUCT: StructScalar,
     _Type_MAP: MapScalar,
     _Type_DICTIONARY: DictionaryScalar,
+    _Type_RUN_END_ENCODED: RunEndEncodedScalar,
     _Type_SPARSE_UNION: UnionScalar,
     _Type_DENSE_UNION: UnionScalar,
     _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalScalar,

@@ -233,7 +233,8 @@ class JsonScanMixin {
     // inter-fragment parallelism (when threading is enabled).
     JsonFragmentScanOptions json_options;
     json_options.read_options.use_threads = true;
-    json_options.read_options.block_size = 256;
+    // Should amount to roughly 60 blocks per fragment.
+    json_options.read_options.block_size = 1 << 13;
     this_->SetJsonOptions(std::move(json_options));
     this_->TestScan();
   }

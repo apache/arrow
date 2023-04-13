@@ -400,7 +400,7 @@ func (p *pathBuilder) Visit(arr arrow.Array) error {
 		p.maybeAddNullable(arr)
 		larr := arr.(*array.FixedSizeList)
 		listSize := larr.DataType().(*arrow.FixedSizeListType).Len()
-		// technically we could encoded fixed sized lists with two level encodings
+		// technically we could encode fixed sized lists with two level encodings
 		// but we always use 3 level encoding, so we increment def levels as well
 		p.info.maxDefLevel++
 		p.info.maxRepLevel++
@@ -440,7 +440,7 @@ func (p *pathBuilder) Visit(arr arrow.Array) error {
 		}
 		return nil
 	case arrow.EXTENSION:
-		return xerrors.New("extension types not implemented yet")
+		return p.Visit(arr.(array.ExtensionArray).Storage())
 	case arrow.SPARSE_UNION, arrow.DENSE_UNION:
 		return xerrors.New("union types aren't supported in parquet")
 	default:

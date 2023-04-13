@@ -15,12 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# This file is called from a test in test_serialization.py.
+# cython: language_level = 3
 
-import sys
+from pyarrow.includes.libarrow cimport *
+from pyarrow.lib cimport _Weakrefable
 
-import pyarrow as pa
 
-with open(sys.argv[1], 'rb') as f:
-    data = f.read()
-    pa.deserialize(data)
+cdef class ParseOptions(_Weakrefable):
+    cdef:
+        CJSONParseOptions options
+
+    @staticmethod
+    cdef ParseOptions wrap(CJSONParseOptions options)
+
+cdef class ReadOptions(_Weakrefable):
+    cdef:
+        CJSONReadOptions options
+
+    @staticmethod
+    cdef ReadOptions wrap(CJSONReadOptions options)

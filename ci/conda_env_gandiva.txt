@@ -16,4 +16,4 @@
 # under the License.
 
 clang>=11
-llvmdev>=11,<16
+llvmdev>=11

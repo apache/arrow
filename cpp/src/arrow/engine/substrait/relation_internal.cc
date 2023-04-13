@@ -28,6 +28,7 @@
 #include <variant>
 #include <vector>
 
+#include "arrow/acero/aggregate_node.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/compute/api_aggregate.h"
@@ -294,7 +295,7 @@ Status DiscoverFilesFromDir(const std::shared_ptr<fs::LocalFileSystem>& local_fs
 
 namespace internal {
 
-Result<ParsedMeasure> ParseAggregateMeasure(
+Result<compute::Aggregate> ParseAggregateMeasure(
     const substrait::AggregateRel::Measure& agg_measure, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options, bool is_hash,
     const std::shared_ptr<Schema> input_schema) {
@@ -314,50 +315,16 @@ Result<ParsedMeasure> ParseAggregateMeasure(
       ARROW_ASSIGN_OR_RAISE(converter, ext_set.registry()->GetSubstraitAggregateToArrow(
                                            aggregate_call.id()));
     }
-    ARROW_ASSIGN_OR_RAISE(compute::Aggregate arrow_agg, converter(aggregate_call));
-
-    // find aggregate field ids from schema
-    const auto& target = arrow_agg.target;
-    std::vector<int> fieldset;
-    fieldset.reserve(target.size());
-    for (const auto& field_ref : target) {
-      ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
-      fieldset.push_back(match[0]);
-    }
-
-    return ParsedMeasure{std::move(arrow_agg), std::move(fieldset)};
+    return converter(aggregate_call);
   } else {
     return Status::Invalid("substrait::AggregateFunction not provided");
   }
 }
 
 ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
-    acero::Declaration input_decl, std::shared_ptr<Schema> input_schema,
-    const int measure_size, std::vector<compute::Aggregate> aggregates,
-    std::vector<std::vector<int>> agg_src_fieldsets, std::vector<FieldRef> keys,
-    std::vector<int> key_field_ids, std::vector<FieldRef> segment_keys,
-    std::vector<int> segment_key_field_ids, const ExtensionSet& ext_set,
-    const ConversionOptions& conversion_options) {
-  FieldVector output_fields;
-  output_fields.reserve(key_field_ids.size() + segment_key_field_ids.size() +
-                        measure_size);
-  // extract aggregate fields to output schema
-  for (const auto& agg_src_fieldset : agg_src_fieldsets) {
-    for (int field : agg_src_fieldset) {
-      output_fields.emplace_back(input_schema->field(field));
-    }
-  }
-  // extract key fields to output schema
-  for (int key_field_id : key_field_ids) {
-    output_fields.emplace_back(input_schema->field(key_field_id));
-  }
-  // extract segment key fields to output schema
-  for (int segment_key_field_id : segment_key_field_ids) {
-    output_fields.emplace_back(input_schema->field(segment_key_field_id));
-  }
-
-  std::shared_ptr<Schema> aggregate_schema = schema(std::move(output_fields));
-
+    acero::Declaration input_decl, std::shared_ptr<Schema> aggregate_schema,
+    std::vector<compute::Aggregate> aggregates, std::vector<FieldRef> keys,
+    std::vector<FieldRef> segment_keys) {
   return DeclarationInfo{
       acero::Declaration::Sequence(
           {std::move(input_decl),
@@ -419,9 +386,8 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           return Status::Invalid("Invalid NamedTable Source");
         }
 
-        return ProcessEmit(std::move(read),
-                           DeclarationInfo{std::move(source_decl), base_schema},
-                           std::move(base_schema));
+        return ProcessEmit(read, DeclarationInfo{std::move(source_decl), base_schema},
+                           base_schema);
       }
 
       if (!read.has_local_files()) {
@@ -567,8 +533,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           acero::Declaration{"scan", dataset::ScanNodeOptions{ds, scan_options}},
           base_schema};
 
-      return ProcessEmit(std::move(read), std::move(scan_declaration),
-                         std::move(base_schema));
+      return ProcessEmit(read, scan_declaration, base_schema);
     }
 
     case substrait::Rel::RelTypeCase::kFilter: {
@@ -593,8 +558,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           }),
           input.output_schema};
 
-      return ProcessEmit(std::move(filter), std::move(filter_declaration),
-                         input.output_schema);
+      return ProcessEmit(filter, filter_declaration, input.output_schema);
     }
 
     case substrait::Rel::RelTypeCase::kProject: {
@@ -647,8 +611,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           }),
           project_schema};
 
-      return ProcessEmit(std::move(project), std::move(project_declaration),
-                         std::move(project_schema));
+      return ProcessEmit(project, project_declaration, project_schema);
     }
 
     case substrait::Rel::RelTypeCase::kJoin: {
@@ -754,8 +717,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       DeclarationInfo join_declaration{std::move(join_dec), join_schema};
 
-      return ProcessEmit(std::move(join), std::move(join_declaration),
-                         std::move(join_schema));
+      return ProcessEmit(join, join_declaration, join_schema);
     }
     case substrait::Rel::RelTypeCase::kAggregate: {
       const auto& aggregate = rel.aggregate();
@@ -776,22 +738,17 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       // prepare output schema from aggregates
       auto input_schema = input.output_schema;
-      // store key fields to be used when output schema is created
-      std::vector<int> key_field_ids;
       std::vector<FieldRef> keys;
       if (aggregate.groupings_size() > 0) {
         const substrait::AggregateRel::Grouping& group = aggregate.groupings(0);
         int grouping_expr_size = group.grouping_expressions_size();
         keys.reserve(grouping_expr_size);
-        key_field_ids.reserve(grouping_expr_size);
         for (int exp_id = 0; exp_id < grouping_expr_size; exp_id++) {
           ARROW_ASSIGN_OR_RAISE(
               compute::Expression expr,
               FromProto(group.grouping_expressions(exp_id), ext_set, conversion_options));
           const FieldRef* field_ref = expr.field_ref();
           if (field_ref) {
-            ARROW_ASSIGN_OR_RAISE(auto match, field_ref->FindOne(*input_schema));
-            key_field_ids.emplace_back(std::move(match[0]));
             keys.emplace_back(std::move(*field_ref));
           } else {
             return Status::Invalid(
@@ -803,27 +760,25 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       const int measure_size = aggregate.measures_size();
       std::vector<compute::Aggregate> aggregates;
       aggregates.reserve(measure_size);
-      // store aggregate fields to be used when output schema is created
-      std::vector<std::vector<int>> agg_src_fieldsets;
-      agg_src_fieldsets.reserve(measure_size);
       for (int measure_id = 0; measure_id < measure_size; measure_id++) {
         const auto& agg_measure = aggregate.measures(measure_id);
         ARROW_ASSIGN_OR_RAISE(
-            auto parsed_measure,
+            auto aggregate,
             internal::ParseAggregateMeasure(agg_measure, ext_set, conversion_options,
                                             /*is_hash=*/!keys.empty(), input_schema));
-        aggregates.push_back(std::move(parsed_measure.aggregate));
-        agg_src_fieldsets.push_back(std::move(parsed_measure.fieldset));
+        aggregates.push_back(std::move(aggregate));
       }
+
+      ARROW_ASSIGN_OR_RAISE(auto aggregate_schema,
+                            acero::aggregate::MakeOutputSchema(
+                                input_schema, keys, /*segment_keys=*/{}, aggregates));
 
       ARROW_ASSIGN_OR_RAISE(
           auto aggregate_declaration,
-          internal::MakeAggregateDeclaration(
-              std::move(input.declaration), std::move(input_schema), measure_size,
-              std::move(aggregates), std::move(agg_src_fieldsets), std::move(keys),
-              std::move(key_field_ids), {}, {}, ext_set, conversion_options));
+          internal::MakeAggregateDeclaration(std::move(input.declaration),
+                                             aggregate_schema, std::move(aggregates),
+                                             std::move(keys), /*segment_keys=*/{}));
 
-      auto aggregate_schema = aggregate_declaration.output_schema;
       return ProcessEmit(std::move(aggregate), std::move(aggregate_declaration),
                          std::move(aggregate_schema));
     }
@@ -869,7 +824,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           emit_order.push_back(emit_idx);
         }
       }
-      return ProcessExtensionEmit(std::move(ext_decl_info), emit_order,
+      return ProcessExtensionEmit(ext_decl_info, emit_order,
                                   *ext_rel_info.field_output_indices);
     }
 
@@ -912,8 +867,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
 
       auto set_declaration = DeclarationInfo{union_declr, union_schema};
-      return ProcessEmit(std::move(set), std::move(set_declaration),
-                         std::move(union_schema));
+      return ProcessEmit(set, set_declaration, union_schema);
     }
 
     default:

@@ -17,6 +17,7 @@
 package arrow
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v12/arrow/internal/debug"
@@ -42,20 +43,19 @@ type Table interface {
 // To get strongly typed data from a Column, you need to iterate the
 // chunks and type assert each individual Array. For example:
 //
-// 		switch column.DataType().ID {
-//		case arrow.INT32:
-//			for _, c := range column.Data().Chunks() {
-//				arr := c.(*array.Int32)
-//				// do something with arr
-//			}
-//		case arrow.INT64:
-//			for _, c := range column.Data().Chunks() {
-//				arr := c.(*array.Int64)
-//				// do something with arr
-//			}
-//		case ...
+//	switch column.DataType().ID {
+//	case arrow.INT32:
+//		for _, c := range column.Data().Chunks() {
+//			arr := c.(*array.Int32)
+//			// do something with arr
 //		}
-//
+//	case arrow.INT64:
+//		for _, c := range column.Data().Chunks() {
+//			arr := c.(*array.Int64)
+//			// do something with arr
+//		}
+//	case ...
+//	}
 type Column struct {
 	field Field
 	data  *Chunked
@@ -69,7 +69,7 @@ type Column struct {
 // of the ref counting.
 func NewColumnFromArr(field Field, arr Array) Column {
 	if !TypeEqual(field.Type, arr.DataType()) {
-		panic("arrow/array: inconsistent data type")
+		panic(fmt.Errorf("%w: arrow/array: inconsistent data type %s vs %s", ErrInvalid, field.Type, arr.DataType()))
 	}
 
 	arr.Retain()
@@ -98,7 +98,7 @@ func NewColumn(field Field, chunks *Chunked) *Column {
 
 	if !TypeEqual(col.data.DataType(), col.field.Type) {
 		col.data.Release()
-		panic("arrow/array: inconsistent data type")
+		panic(fmt.Errorf("%w: arrow/array: inconsistent data type %s vs %s", ErrInvalid, col.data.DataType(), col.field.Type))
 	}
 
 	return &col
@@ -148,9 +148,9 @@ func NewChunked(dtype DataType, chunks []Array) *Chunked {
 		if chunk == nil {
 			continue
 		}
-		
+
 		if !TypeEqual(chunk.DataType(), dtype) {
-			panic("arrow/array: mismatch data type")
+			panic(fmt.Errorf("%w: arrow/array: mismatch data type %s vs %s", ErrInvalid, chunk.DataType().String(), dtype.String()))
 		}
 		chunk.Retain()
 		arr.chunks = append(arr.chunks, chunk)

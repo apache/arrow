@@ -20,6 +20,7 @@
 #include <google/protobuf/util/json_util.h>
 #include <mutex>
 
+#include "arrow/acero/aggregate_node.h"
 #include "arrow/acero/asof_join_node.h"
 #include "arrow/acero/options.h"
 #include "arrow/engine/substrait/expression_internal.h"
@@ -187,50 +188,38 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
 
     auto input_schema = inputs[0].output_schema;
 
-    // store key fields to be used when output schema is created
-    std::vector<int> key_field_ids;
     std::vector<FieldRef> keys;
     for (auto& ref : seg_agg_rel.grouping_keys()) {
       ARROW_ASSIGN_OR_RAISE(auto field_ref,
                             DirectReferenceFromProto(&ref, ext_set, conv_opts));
-      ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
-      key_field_ids.emplace_back(std::move(match[0]));
       keys.emplace_back(std::move(field_ref));
     }
 
-    // store segment key fields to be used when output schema is created
-    std::vector<int> segment_key_field_ids;
     std::vector<FieldRef> segment_keys;
     for (auto& ref : seg_agg_rel.segment_keys()) {
       ARROW_ASSIGN_OR_RAISE(auto field_ref,
                             DirectReferenceFromProto(&ref, ext_set, conv_opts));
-      ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*input_schema));
-      segment_key_field_ids.emplace_back(std::move(match[0]));
       segment_keys.emplace_back(std::move(field_ref));
     }
 
     std::vector<compute::Aggregate> aggregates;
     aggregates.reserve(seg_agg_rel.measures_size());
-    std::vector<std::vector<int>> agg_src_fieldsets;
-    agg_src_fieldsets.reserve(seg_agg_rel.measures_size());
     for (auto agg_measure : seg_agg_rel.measures()) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto parsed_measure,
-          internal::ParseAggregateMeasure(agg_measure, ext_set, conv_opts,
-                                          /*is_hash=*/!keys.empty(), input_schema));
-      aggregates.push_back(std::move(parsed_measure.aggregate));
-      agg_src_fieldsets.push_back(std::move(parsed_measure.fieldset));
+      ARROW_ASSIGN_OR_RAISE(auto aggregate, internal::ParseAggregateMeasure(
+                                                agg_measure, ext_set, conv_opts,
+                                                /*is_hash=*/!keys.empty(), input_schema));
+      aggregates.push_back(std::move(aggregate));
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto decl_info,
-                          internal::MakeAggregateDeclaration(
-                              std::move(inputs[0].declaration), std::move(input_schema),
-                              seg_agg_rel.measures_size(), std::move(aggregates),
-                              std::move(agg_src_fieldsets), std::move(keys),
-                              std::move(key_field_ids), std::move(segment_keys),
-                              std::move(segment_key_field_ids), ext_set, conv_opts));
+    ARROW_ASSIGN_OR_RAISE(
+        auto output_schema,
+        acero::aggregate::MakeOutputSchema(input_schema, keys, segment_keys, aggregates));
 
-    const auto& output_schema = decl_info.output_schema;
+    ARROW_ASSIGN_OR_RAISE(auto decl_info, internal::MakeAggregateDeclaration(
+                                              std::move(inputs[0].declaration),
+                                              output_schema, std::move(aggregates),
+                                              std::move(keys), std::move(segment_keys)));
+
     size_t out_size = output_schema->num_fields();
     std::vector<int> field_output_indices(out_size);
     for (int i = 0; i < static_cast<int>(out_size); i++) {

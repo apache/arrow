@@ -32,7 +32,7 @@ import (
 )
 
 // WriteTable is a convenience function to create and write a full array.Table to a parquet file. The schema
-// and columns will be determined by the schema of the table, writing the file out to the the provided writer.
+// and columns will be determined by the schema of the table, writing the file out to the provided writer.
 // The chunksize will be utilized in order to determine the size of the row groups.
 func WriteTable(tbl arrow.Table, w io.Writer, chunkSize int64, props *parquet.WriterProperties, arrprops ArrowWriterProperties) error {
 	writer, err := NewFileWriter(tbl.Schema(), w, props, arrprops)

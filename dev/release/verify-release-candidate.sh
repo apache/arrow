@@ -366,8 +366,8 @@ install_csharp() {
     local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
     local dotnet_download_url=$( \
       curl -sL ${dotnet_download_thank_you_url} | \
-        grep 'window\.open' | \
-        grep -E -o '[^"]+' | \
+        grep 'directLink' | \
+        grep -E -o 'https://download[^"]+' | \
         sed -n 2p)
     mkdir -p ${csharp_bin}
     curl -sL ${dotnet_download_url} | \

@@ -1,5 +1,9 @@
+BUILD:
+- aarch64-conda_cos7-linux-gnu
+aws_crt_cpp:
+- 0.19.8
 aws_sdk_cpp:
-- 1.9.379
+- 1.10.57
 bzip2:
 - '1'
 c_ares:
@@ -8,18 +12,16 @@ c_compiler:
 - gcc
 c_compiler_version:
 - '11'
+cdt_arch:
+- aarch64
 cdt_name:
-- cos6
+- cos7
 channel_sources:
 - conda-forge
 channel_targets:
 - conda-forge main
-cuda_compiler:
-- nvcc
 cuda_compiler_version:
 - None
-cuda_compiler_version_min:
-- '10.2'
 cxx_compiler:
 - gxx
 cxx_compiler_version:
@@ -31,11 +33,11 @@ gflags:
 glog:
 - '0.6'
 google_cloud_cpp:
-- 2.5.0
+- 2.8.0
 libabseil:
-- '20220623.0'
+- '20230125'
 libgrpc:
-- '1.51'
+- '1.52'
 libprotobuf:
 - '3.21'
 lz4_c:
@@ -48,7 +50,7 @@ numpy:
 openssl:
 - '3'
 orc:
-- 1.8.0
+- 1.8.3
 pin_run_as_build:
   python:
     min_pin: x.x
@@ -59,13 +61,15 @@ python:
 - 3.8.* *_cpython
 - 3.9.* *_cpython
 re2:
-- 2022.06.01
+- 2023.02.02
 snappy:
 - '1'
 target_platform:
-- linux-64
+- linux-aarch64
 thrift_cpp:
-- 0.16.0
+- 0.18.1
+ucx:
+- 1.14.0
 zip_keys:
 - - c_compiler_version
   - cxx_compiler_version
