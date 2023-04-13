@@ -552,6 +552,9 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory___3Lj
   arrow::dataset::FileSystemFactoryOptions options;
 
   std::vector<std::string> uri_vec = ToStringVector(env, uris);
+  if (uri_vec.size() == 0) {
+    JniThrow("No URIs provided.");
+  }
 
   // If not all URIs, throw exception
   if (auto elem = std::find_if_not(uri_vec.begin(), uri_vec.end(), arrow::fs::internal::IsLikelyUri);
