@@ -35,6 +35,9 @@ export PYTHONDEVMODE=1
 # Enable memory debug checks.
 export ARROW_DEBUG_MEMORY_POOL=trap
 
+# Retain directories only for tests with outcome error or failed
+export PYTEST_ADDOPTS="-o tmp_path_retention_policy=failed"
+
 # By default, force-test all optional components
 : ${PYARROW_TEST_ACERO:=${ARROW_ACERO:-ON}}
 : ${PYARROW_TEST_CUDA:=${ARROW_CUDA:-ON}}
