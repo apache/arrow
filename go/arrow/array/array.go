@@ -27,6 +27,7 @@ import (
 const (
 	// UnknownNullCount specifies the NullN should be calculated from the null bitmap buffer.
 	UnknownNullCount = -1
+	NullValueStr = "(null)"
 )
 
 type array struct {
