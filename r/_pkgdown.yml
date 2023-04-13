@@ -136,6 +136,9 @@ articles:
       - developers/writing_bindings
       - developers/install_details
       - developers/data_object_layout
+  - title: Docs
+    contents:
+      - prevdocs
 
 reference:
   - title: Multi-file datasets
@@ -281,3 +284,12 @@ repo:
     source: https://github.com/apache/arrow/blob/main/r/
     issue: https://github.com/apache/arrow/issues/
     user: https://github.com/
+
+footer:
+  structure:
+    left: older_versions
+    right: built_with
+  components:
+    older_versions: "[Older versions of these docs](./articles/prevdocs.html)"
+
+
