@@ -1480,7 +1480,7 @@ cdef class _Tabular(_PandasConvertible):
 
         Examples
         --------
-        Table (also works identically for RecordBatch)
+        Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
         >>> import pandas as pd
@@ -1518,8 +1518,7 @@ cdef class _Tabular(_PandasConvertible):
 
         Examples
         --------
-
-        Table
+        Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
         >>> import pandas as pd
@@ -1536,11 +1535,6 @@ cdef class _Tabular(_PandasConvertible):
         year: [[2022,2021]]
         n_legs: [[4,100]]
         animals: [["Horse","Centipede"]]
-
-        RecordBatch
-
-        >>> recordbatch = pa.RecordBatch.from_pandas(df)
-        >>> recordbatch.take([1,3])
         """
         return _pc().take(self, indices)
 
@@ -1826,16 +1820,11 @@ cdef class RecordBatch(_Tabular):
         except TypeError:
             return NotImplemented
 
-    # def to_string(self, show_metadata=False):
-    #     # Use less verbose schema output.
-    #     schema_as_string = self.schema.to_string(
-    #         show_field_metadata=show_metadata,
-    #         show_schema_metadata=show_metadata
-    #     )
-    #     return 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
-
-    # def __repr__(self):
-    #     return self.to_string()
+    def __repr__(self):
+        # TODO remove this and update pytests/doctests for
+        # RecordBatch.to_string(preview_cols=10) usage in
+        # parent class
+        return self.to_string()
 
     def validate(self, *, full=False):
         """
@@ -2963,45 +2952,6 @@ cdef class Table(_Tabular):
     def __init__(self):
         raise TypeError("Do not call Table's constructor directly, use one of "
                         "the `Table.from_*` functions instead.")
-
-    # def to_string(self, *, show_metadata=False, preview_cols=0):
-    #     """
-    #     Return human-readable string representation of Table.
-
-    #     Parameters
-    #     ----------
-    #     show_metadata : bool, default False
-    #         Display Field-level and Schema-level KeyValueMetadata.
-    #     preview_cols : int, default 0
-    #         Display values of the columns for the first N columns.
-
-    #     Returns
-    #     -------
-    #     str
-    #     """
-    #     # Use less verbose schema output.
-    #     schema_as_string = self.schema.to_string(
-    #         show_field_metadata=show_metadata,
-    #         show_schema_metadata=show_metadata
-    #     )
-    #     title = 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
-    #     pieces = [title]
-    #     if preview_cols:
-    #         pieces.append('----')
-    #         for i in range(min(self.num_columns, preview_cols)):
-    #             pieces.append('{}: {}'.format(
-    #                 self.field(i).name,
-    #                 self.column(i).to_string(indent=0, skip_new_lines=True)
-    #             ))
-    #         if preview_cols < self.num_columns:
-    #             pieces.append('...')
-    #     return '\n'.join(pieces)
-
-    # def __repr__(self):
-    #     if self.table == NULL:
-    #         raise ValueError("Table's internal pointer is NULL, do not use "
-    #                          "any methods or attributes on this object")
-    #     return self.to_string(preview_cols=10)
 
     cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
