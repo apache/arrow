@@ -30,9 +30,18 @@ namespace Apache.Arrow.Tests
         public CDataSchemaPythonTest()
         {
             bool inCIJob = Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
+            bool inVerificationJob = Environment.GetEnvironmentVariable("TEST_CSHARP") == "1";
             bool pythonSet = Environment.GetEnvironmentVariable("PYTHONNET_PYDLL") != null;
             // We only skip if this is not in CI
-            Skip.If(!pythonSet && !inCIJob, "PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
+            if (inCIJob && !inVerificationJob && !pythonSet)
+            {
+                throw new Exception("PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
+            }
+            else
+            {
+                Skip.If(!pythonSet, "PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
+            }
+
 
             PythonEngine.Initialize();
 
