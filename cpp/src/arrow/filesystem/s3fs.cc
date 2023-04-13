@@ -2571,11 +2571,38 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
 
 namespace {
 
-std::mutex aws_init_lock;
 Aws::SDKOptions aws_options;
 
 struct AwsInstance : public ::arrow::internal::Executor::Resource {
-  explicit AwsInstance(const S3GlobalOptions& options) {
+  AwsInstance() : is_initialized_(false), is_finalized_(false) {}
+  ~AwsInstance() { Finalize(); }
+
+  // Returns true iff the instance was newly initialized with `options`
+  Result<bool> EnsureInitialized(const S3GlobalOptions& options) {
+    bool expected = false;
+    if (is_finalized_.load()) {
+      return Status::Invalid("Attempt to initialize S3 after it has been finalized");
+    }
+    if (is_initialized_.compare_exchange_strong(expected, true)) {
+      DoInitialize(options);
+      return true;
+    }
+    return false;
+  }
+
+  bool IsInitialized() { return !is_finalized_ && is_initialized_; }
+
+  void Finalize() {
+    bool expected = true;
+    is_finalized_.store(true);
+    if (is_initialized_.compare_exchange_strong(expected, false)) {
+      RegionResolver::ResetDefaultInstance();
+      Aws::ShutdownAPI(aws_options);
+    }
+  }
+
+ private:
+  void DoInitialize(const S3GlobalOptions& options) {
     Aws::Utils::Logging::LogLevel aws_log_level;
 
 #define LOG_LEVEL_CASE(level_name)                             \
@@ -2625,53 +2652,52 @@ struct AwsInstance : public ::arrow::internal::Executor::Resource {
     Aws::InitAPI(aws_options);
   }
 
-  ~AwsInstance() {
-    RegionResolver::ResetDefaultInstance();
-    Aws::ShutdownAPI(aws_options);
-  }
+  std::atomic<bool> is_initialized_;
+  std::atomic<bool> is_finalized_;
 };
 
-std::shared_ptr<AwsInstance> CreateAwsInstance(const S3GlobalOptions& options) {
-  auto instance = std::make_shared<AwsInstance>(options);
+std::shared_ptr<AwsInstance> CreateAwsInstance() {
+  auto instance = std::make_shared<AwsInstance>();
   // Don't let S3 be shutdown until all Arrow threads are done using it
   arrow::internal::GetCpuThreadPool()->KeepAlive(instance);
   io::internal::GetIOThreadPool()->KeepAlive(instance);
   return instance;
 }
 
-std::shared_ptr<AwsInstance>* GetAwsInstance(const S3GlobalOptions& options) {
-  static auto instance = CreateAwsInstance(options);
-  return &instance;
+AwsInstance& GetAwsInstance() {
+  static auto instance = CreateAwsInstance();
+  return *instance;
 }
 
-bool IsAwsInitialized() { return !!GetAwsInstance({}); }
+Result<bool> EnsureAwsInstanceInitialized(const S3GlobalOptions& options) {
+  return GetAwsInstance().EnsureInitialized(options);
+}
 
 }  // namespace
 
 Status InitializeS3(const S3GlobalOptions& options) {
-  std::lock_guard lock(aws_init_lock);
-  if (!(*GetAwsInstance(options))) {
-    return Status::Invalid("S3 has already been initialized and finalized");
+  ARROW_ASSIGN_OR_RAISE(bool successfully_initialized,
+                        EnsureAwsInstanceInitialized(options));
+  if (!successfully_initialized) {
+    return Status::Invalid(
+        "S3 was already initialized.  It is safe to use but the options passed in this "
+        "call have been ignored.");
   }
   return Status::OK();
 }
 
-Status EnsureS3Initialized() { return InitializeS3({S3LogLevel::Fatal}); }
+Status EnsureS3Initialized() {
+  return EnsureAwsInstanceInitialized({S3LogLevel::Fatal}).status();
+}
 
 Status FinalizeS3() {
-  std::lock_guard lock(aws_init_lock);
-  if (IsAwsInitialized()) {
-    GetAwsInstance({})->reset();
-  }
+  GetAwsInstance().Finalize();
   return Status::OK();
 }
 
 Status EnsureS3Finalized() { return FinalizeS3(); }
 
-bool IsS3Initialized() {
-  std::lock_guard lock(aws_init_lock);
-  return IsAwsInitialized();
-}
+bool IsS3Initialized() { return GetAwsInstance().IsInitialized(); }
 
 // -----------------------------------------------------------------------
 // Top-level utility functions
