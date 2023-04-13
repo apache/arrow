@@ -135,7 +135,8 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 JsonFileFormat <- R6Class("JsonFileFormat", inherit = FileFormat)
 JsonFileFormat$create <- function(...) {
   options <- JsonFragmentScanOptions$create(...)
-  #dataset___JsonFileFormat__Make(options, dict_columns)
+  check_schema(options[["schema"]], options[["read_options"]]$column_names)
+  dataset___JsonFileFormat__Make(options$parse_options, options$read_options)
 }
 
 
@@ -568,8 +569,6 @@ JsonFragmentScanOptions <- R6Class("JsonFragmentScanOptions", inherit = Fragment
 JsonFragmentScanOptions$create <- function(parse_options, read_options) {
   dataset___JsonFragmentScanOptions__Make(parse_options, read_options)
 }
-
-JsonFragmentScanOptions$create
 
 #' Format-specific write options
 #'
