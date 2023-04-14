@@ -190,7 +190,7 @@ func (b *FixedSizeBinaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var val []byte
 	switch v := t.(type) {
 	case string:
-		data, err := base64.RawStdEncoding.DecodeString(v)
+		data, err := base64.StdEncoding.DecodeString(v)
 		if err != nil {
 			return err
 		}
