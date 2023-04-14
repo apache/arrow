@@ -4579,8 +4579,14 @@ def test_does_not_mutate_timedelta_nested():
 
 
 def test_roundtrip_nested_map_table_with_pydicts():
-    schema = pa.schema(
-        [pa.field("a", pa.list_(pa.map_(pa.int8(), pa.struct([pa.field("b", pa.binary())]))))])
+    schema = pa.schema([
+        pa.field(
+            "a",
+            pa.list_(
+                pa.map_(pa.int8(), pa.struct([pa.field("b", pa.binary())]))
+            )
+        )
+    ])
     table = pa.table([[
         [[(1, None)]],
         None,
@@ -4597,7 +4603,11 @@ def test_roundtrip_nested_map_table_with_pydicts():
                                      [(3, {"b": None}), (4, {"b": b"def"})]]]}
     )
     expected_as_pydicts_df = pd.DataFrame(
-        {"a": [[{1: None}], None, [{2: {"b": b"abc"}}, {3: {"b": None}, 4: {"b": b"def"}}]]}
+        {"a": [
+            [{1: None}],
+            None,
+            [{2: {"b": b"abc"}}, {3: {"b": None}, 4: {"b": b"def"}}],
+        ]}
     )
 
     default_df = table.to_pandas()
