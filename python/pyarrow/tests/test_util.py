@@ -80,6 +80,7 @@ def func_d(whatever):
 def func_e(whatever):
     pass
 
+
 @doc(method="func_f")
 def func_f(whatever):
     """
