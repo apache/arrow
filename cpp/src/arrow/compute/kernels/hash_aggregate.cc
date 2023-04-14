@@ -327,10 +327,25 @@ struct GroupedCountImpl : public GroupedAggregator {
                   }
                 });
           } else {
-            // Types without validity bitmaps require special handling of nulls.
+            // Array without validity bitmaps require special handling of nulls.
             const bool all_valid = !input.MayHaveLogicalNulls();
-            for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
-              counts[*g_begin] += all_valid || input.IsValid(i);
+            if (all_valid) {
+              for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
+                counts[*g_begin] += 1;
+              }
+            } else {
+              switch (input.type->id()) {
+                case Type::RUN_END_ENCODED:
+                  for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
+                    counts[*g_begin] += input.IsValidFast<RunEndEncodedType>(i);
+                  }
+                  break;
+                default:  // Generic and forward-compatible version.
+                  for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
+                    counts[*g_begin] += input.IsValid(i);
+                  }
+                  break;
+              }
             }
           }
         }
@@ -347,8 +362,17 @@ struct GroupedCountImpl : public GroupedAggregator {
             }
           } else {
             // Arrays without validity bitmaps require special handling of nulls.
-            for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
-              counts[*g_begin] += input.IsNull(i);
+            switch (input.type->id()) {
+              case Type::RUN_END_ENCODED:
+                for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
+                  counts[*g_begin] += input.IsNullFast<RunEndEncodedType>(i);
+                }
+                break;
+              default:  // Generic and forward-compatible version.
+                for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
+                  counts[*g_begin] += input.IsNull(i);
+                }
+                break;
             }
           }
         }
