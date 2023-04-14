@@ -45,12 +45,12 @@ import (
 //
 // For example, the array:
 //
-//      ["foo", "bar", "foo", "bar", "foo", "bar"]
+//	["foo", "bar", "foo", "bar", "foo", "bar"]
 //
 // with dictionary ["bar", "foo"], would have the representation of:
 //
-//      indices: [1, 0, 1, 0, 1, 0]
-//      dictionary: ["bar", "foo"]
+//	indices: [1, 0, 1, 0, 1, 0]
+//	dictionary: ["bar", "foo"]
 //
 // The indices in principle may be any integer type.
 type Dictionary struct {
@@ -1561,7 +1561,7 @@ func (u *unifier) GetResultWithIndexType(indexType arrow.DataType) (arrow.Array,
 	case arrow.INT16:
 		toobig = dictLen > math.MaxInt16
 	case arrow.UINT32:
-		toobig = dictLen > math.MaxUint32
+		toobig = int64(dictLen) > int64(math.MaxUint32)
 	case arrow.INT32:
 		toobig = dictLen > math.MaxInt32
 	case arrow.UINT64:
