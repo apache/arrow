@@ -442,11 +442,54 @@ func (c *Connection) PrepareContext(ctx context.Context, query string) (driver.S
 		return nil, err
 	}
 
-	return &Stmt{
+	s := &Stmt{
 		stmt:    stmt,
 		client:  c.client,
 		timeout: c.timeout,
-	}, nil
+	}
+
+	return s, nil
+}
+
+func (c *Connection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if len(args) > 0 {
+		// We cannot pass arguments to the client so we skip a direct query.
+		// This will force the sql-framework to prepare and execute queries.
+		return nil, driver.ErrSkip
+	}
+
+	if _, set := ctx.Deadline(); !set && c.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
+		defer cancel()
+	}
+
+	info, err := c.client.Execute(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	rows := Rows{}
+	for _, endpoint := range info.Endpoint {
+		reader, err := c.client.DoGet(ctx, endpoint.GetTicket())
+		if err != nil {
+			return nil, fmt.Errorf("getting ticket failed: %w", err)
+		}
+
+		rows.schema = reader.Schema()
+		for reader.Next() {
+			record := reader.Record()
+			record.Retain()
+			rows.records = append(rows.records, record)
+
+		}
+		if err := reader.Err(); err != nil {
+			return &rows, err
+		}
+	}
+
+	return &rows, nil
+
 }
 
 // Close invalidates and potentially stops any current
