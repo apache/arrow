@@ -92,8 +92,6 @@ type simpleTable struct {
 	schema *arrow.Schema
 }
 
-var _ arrow.Table = (*simpleTable)(nil)
-
 // NewTable returns a new basic, non-lazy in-memory table.
 // If rows is negative, the number of rows will be inferred from the height
 // of the columns.
