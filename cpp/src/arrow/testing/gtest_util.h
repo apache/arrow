@@ -341,6 +341,7 @@ ARROW_TESTING_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
                                      const std::vector<std::string>& json);
 
+ARROW_TESTING_EXPORT
 Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
     const Table& table, const std::vector<int>& column_indices);
 
