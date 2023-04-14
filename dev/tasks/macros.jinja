@@ -131,7 +131,6 @@ on:
 {% endmacro %}
 
 {%- macro github_upload_gemfury(pattern) -%}
-  {%- if arrow.is_default_branch() -%}
   - name: Upload package to Gemfury
     shell: bash
     run: |
@@ -140,7 +139,6 @@ on:
       ruby arrow/ci/scripts/gemfury_upload.rb $(ls {{ pattern }})
     env:
       GEMFURY_API_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
-  {% endif %}
 {% endmacro %}
 
 {%- macro azure_checkout_arrow() -%}
