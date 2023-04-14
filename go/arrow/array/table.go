@@ -92,6 +92,8 @@ type simpleTable struct {
 	schema *arrow.Schema
 }
 
+var _ arrow.Table = (*simpleTable)(nil)
+
 // NewTable returns a new basic, non-lazy in-memory table.
 // If rows is negative, the number of rows will be inferred from the height
 // of the columns.
@@ -132,9 +134,9 @@ func NewTable(schema *arrow.Schema, cols []arrow.Column, rows int64) *simpleTabl
 // of slices of arrow.Array.
 //
 // Like other NewTable functions this can panic if:
-//  - len(schema.Fields) != len(data)
-//  - the total length of each column's array slice (ie: number of rows
-//    in the column) aren't the same for all columns.
+//   - len(schema.Fields) != len(data)
+//   - the total length of each column's array slice (ie: number of rows
+//     in the column) aren't the same for all columns.
 func NewTableFromSlice(schema *arrow.Schema, data [][]arrow.Array) *simpleTable {
 	if len(data) != len(schema.Fields()) {
 		panic("array/table: mismatch in number of columns and data for creating a table")
@@ -197,9 +199,9 @@ func NewTableFromRecords(schema *arrow.Schema, recs []arrow.Record) *simpleTable
 	return NewTable(schema, cols, -1)
 }
 
-func (tbl *simpleTable) Schema() *arrow.Schema      { return tbl.schema }
+func (tbl *simpleTable) Schema() *arrow.Schema { return tbl.schema }
 
-func (tbl *simpleTable) AddColumn(i int, field arrow.Field, column arrow.Column) (*simpleTable, error) {
+func (tbl *simpleTable) AddColumn(i int, field arrow.Field, column arrow.Column) (arrow.Table, error) {
 	if int64(column.Len()) != tbl.rows {
 		return nil, fmt.Errorf("arrow/array: column length mismatch: %d != %d", column.Len(), tbl.rows)
 	}
