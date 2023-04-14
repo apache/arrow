@@ -793,7 +793,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
                 values_length, alignment, memory_pool);                              \
     const auto offsets = OffsetsFromLengthsArray(lengths.get(), force_empty_nulls,   \
                                                  alignment, memory_pool);            \
-    return *ARRAY_TYPE::FromArrays(*offsets, *values);                               \
+    return *ARRAY_TYPE::FromArrays(field.type(), *offsets, *values);                 \
   }
 
   const double null_probability =
@@ -916,14 +916,14 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
 
     case Type::type::STRUCT: {
       ArrayVector child_arrays(field.type()->num_fields());
-      std::vector<std::string> field_names;
+      FieldVector child_fields(field.type()->num_fields());
       for (int i = 0; i < field.type()->num_fields(); i++) {
         const auto& child_field = field.type()->field(i);
         child_arrays[i] = ArrayOf(*child_field, length, alignment, memory_pool);
-        field_names.push_back(child_field->name());
+        child_fields[i] = child_field;
       }
       return *StructArray::Make(
-          child_arrays, field_names,
+          child_arrays, child_fields,
           NullBitmap(length, null_probability, alignment, memory_pool));
     }
 
