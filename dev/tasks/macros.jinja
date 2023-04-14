@@ -136,7 +136,7 @@ on:
     run: |
       gem install --user-install gemfury
       path=$(ls {{ pattern }})
-      ruby arrow/ci/scripts/gemfury_upload.rb $(ls {{ pattern }})
+      ruby arrow/ci/scripts/gemfury_upload.rb ${path}
     env:
       GEMFURY_API_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
 {% endmacro %}
