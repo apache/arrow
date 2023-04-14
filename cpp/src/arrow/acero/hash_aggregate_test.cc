@@ -4776,8 +4776,8 @@ void TestSegmentKey(GroupByFunction group_by, const std::shared_ptr<Table>& tabl
 }
 
 Result<std::shared_ptr<Table>> GetSingleSegmentInputAsChunked() {
-  auto table = TableFromJSON(schema({field("argument", float64()), field("key", int64()),
-                                     field("segment_key", int64())}),
+  auto table = TableFromJSON(schema({field("segment_key", int64()), field("key", int64()),
+                                     field("argument", float64())}),
                              {R"([{"argument": 1.0,   "key": 1,    "segment_key": 1},
                          {"argument": null,  "key": 1,    "segment_key": 1}
                         ])",
@@ -4830,8 +4830,8 @@ Result<std::shared_ptr<ChunkedArray>> GetSingleSegmentScalarOutput() {
 
 Result<std::shared_ptr<ChunkedArray>> GetSingleSegmentKeyOutput() {
   return ChunkedArrayFromJSON(struct_({
-                                  field("key_0", int64()),
                                   field("key_1", int64()),
+                                  field("key_0", int64()),
                                   field("hash_count", int64()),
                                   field("hash_sum", float64()),
                                   field("hash_min_max", struct_({
@@ -4840,16 +4840,16 @@ Result<std::shared_ptr<ChunkedArray>> GetSingleSegmentKeyOutput() {
                                                         })),
                               }),
                               {R"([
-    [1,    1, 2, 4.25,   {"min": 1.0,   "max": 3.25} ],
-    [2,    1, 3, -0.125, {"min": -0.25, "max": 0.125}],
-    [3,    1, 0, null,   {"min": null,  "max": null} ],
-    [null, 1, 2, 4.75,   {"min": 0.75,  "max": 4.0}  ]
+    [1, 1,    2, 4.25,   {"min": 1.0,   "max": 3.25} ],
+    [1, 2,    3, -0.125, {"min": -0.25, "max": 0.125}],
+    [1, 3,    0, null,   {"min": null,  "max": null} ],
+    [1, null, 2, 4.75,   {"min": 0.75,  "max": 4.0}  ]
   ])",
                                R"([
-    [1,    0, 2, 4.25,   {"min": 1.0,   "max": 3.25} ],
-    [2,    0, 3, -0.125, {"min": -0.25, "max": 0.125}],
-    [3,    0, 0, null,   {"min": null,  "max": null} ],
-    [null, 0, 2, 4.75,   {"min": 0.75,  "max": 4.0}  ]
+    [0, 1,    2, 4.25,   {"min": 1.0,   "max": 3.25} ],
+    [0, 2,    3, -0.125, {"min": -0.25, "max": 0.125}],
+    [0, 3,    0, null,   {"min": null,  "max": null} ],
+    [0, null, 2, 4.75,   {"min": 0.75,  "max": 4.0}  ]
   ])"});
 }
 
@@ -4906,7 +4906,7 @@ Result<std::shared_ptr<Table>> GetEmptySegmentKeysInputAsCombined() {
 Result<std::shared_ptr<Array>> GetEmptySegmentKeyOutput() {
   ARROW_ASSIGN_OR_RAISE(auto chunked, GetSingleSegmentKeyOutput());
   ARROW_ASSIGN_OR_RAISE(auto table, Table::FromChunkedStructArray(chunked));
-  ARROW_ASSIGN_OR_RAISE(auto removed, table->RemoveColumn(1));
+  ARROW_ASSIGN_OR_RAISE(auto removed, table->RemoveColumn(0));
   auto sliced = removed->Slice(0, 4);
   ARROW_ASSIGN_OR_RAISE(auto batch, sliced->CombineChunksToBatch());
   return batch->ToStructArray();
@@ -4927,14 +4927,13 @@ TEST_P(SegmentedKeyGroupBy, EmptySegmentKeyCombined) {
   TestEmptySegmentKey(GetParam(), GetEmptySegmentKeysInputAsCombined);
 }
 
-// adds a named copy of the last (single-segment-key) column to the obtained table
+// adds a named copy of the first (single-segment-key) column to the obtained table
 Result<std::shared_ptr<Table>> GetMultiSegmentInput(
     std::function<Result<std::shared_ptr<Table>>()> get_table,
     const std::string& add_name) {
   ARROW_ASSIGN_OR_RAISE(auto table, get_table());
-  int last = table->num_columns() - 1;
-  auto add_field = field(add_name, table->schema()->field(last)->type());
-  return table->AddColumn(table->num_columns(), add_field, table->column(last));
+  auto add_field = field(add_name, table->schema()->field(0)->type());
+  return table->AddColumn(table->num_columns(), add_field, table->column(0));
 }
 
 Result<std::shared_ptr<Table>> GetMultiSegmentInputAsChunked(
@@ -4947,12 +4946,12 @@ Result<std::shared_ptr<Table>> GetMultiSegmentInputAsCombined(
   return GetMultiSegmentInput(GetSingleSegmentInputAsCombined, add_name);
 }
 
-// adds a named copy of the last (single-segment-key) column to the expected output table
+// adds a named copy of the first(single-segment-key) column to the expected output table
 Result<std::shared_ptr<ChunkedArray>> GetMultiSegmentKeyOutput(
     const std::string& add_name) {
   ARROW_ASSIGN_OR_RAISE(auto chunked, GetSingleSegmentKeyOutput());
   ARROW_ASSIGN_OR_RAISE(auto table, Table::FromChunkedStructArray(chunked));
-  int existing_key_field_idx = 1;
+  int existing_key_field_idx = 0;
   auto add_field =
       field(add_name, table->schema()->field(existing_key_field_idx)->type());
   ARROW_ASSIGN_OR_RAISE(auto added,
