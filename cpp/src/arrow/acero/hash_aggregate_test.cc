@@ -1411,7 +1411,7 @@ TEST_P(GroupBy, CountOnly) {
   // NOTE: the "key" column (1) does not appear in the possible run-end
   // encoding transformations because GroupBy kernels do not support run-end
   // encoded key arrays.
-  for (const auto& re_encode_cols : std::vector<std::vector<int>>{{}}) {
+  for (const auto& re_encode_cols : std::vector<std::vector<int>>{{}, {0}}) {
     for (bool use_threads : {/*true, */ false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
       for (size_t i = 0; i < possible_count_options.size(); i++) {
