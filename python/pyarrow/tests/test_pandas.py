@@ -2162,6 +2162,64 @@ class TestConvertListTypes:
                                     DeprecationWarning)
             tm.assert_series_equal(series, expected)
 
+    def test_to_list_of_maps_pandas_sliced(self):
+        """
+        A slightly more rigorous test for chunk/slice combinations
+        """
+
+        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
+                (Version(pd.__version__) < Version("2.0.0"))):
+            # TODO: regression in pandas with numpy 1.25dev
+            # https://github.com/pandas-dev/pandas/issues/50360
+            pytest.skip("Regression in pandas with numpy 1.25")
+
+        keys_1 = pa.array(['foo', 'bar'])
+        keys_2 = pa.array(['baz', 'qux', 'quux'])
+        keys_3 = pa.array(['quz'])
+
+        items_1 = pa.array(
+            [['a', 'b'], ['c', 'd']],
+            pa.list_(pa.string()),
+        )
+        items_2 = pa.array(
+            [[], None, [None, 'e']],
+            pa.list_(pa.string()),
+        )
+        items_3 = pa.array(
+            [['f', 'g']],
+            pa.list_(pa.string()),
+        )
+
+        map_chunk_1 = pa.MapArray.from_arrays([0, 2], keys_1, items_1)
+        map_chunk_2 = pa.MapArray.from_arrays([0, 3], keys_2, items_2)
+        map_chunk_3 = pa.MapArray.from_arrays([0, 1], keys_3, items_3)
+        data = pa.chunked_array([
+            pa.ListArray.from_arrays([0, 1], map_chunk_1),
+            pa.ListArray.from_arrays([0, 1], map_chunk_2),
+            pa.ListArray.from_arrays([0, 1], map_chunk_3),
+        ])
+
+        series = data.to_pandas()
+        expected = pd.Series([
+            [[('foo', ['a', 'b']), ('bar', ['c', 'd'])]],
+            [[('baz', []), ('qux', None), ('quux', [None, 'e'])]],
+            [[('quz', ['f', 'g'])]],
+        ])
+
+        series_sliced = data.slice(1, 3).to_pandas()
+        expected_sliced = pd.Series([
+            [[('baz', []), ('qux', None), ('quux', [None, 'e'])]],
+            [[('quz', ['f', 'g'])]],
+        ])
+
+        # pandas.testing generates a
+        # DeprecationWarning: elementwise comparison failed
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "elementwise comparison failed",
+                                    DeprecationWarning)
+            tm.assert_series_equal(series, expected)
+            tm.assert_series_equal(series_sliced, expected_sliced)
+
     @pytest.mark.parametrize('t,data,expected', [
         (
             pa.int64,
@@ -4621,3 +4679,135 @@ def test_roundtrip_nested_map_table_with_pydicts():
 
     table_as_pydicts_roundtrip = pa.Table.from_pandas(as_pydicts_df, schema=schema)
     assert table.equals(table_as_pydicts_roundtrip)
+
+
+def test_roundtrip_nested_map_array_with_pydicts_sliced():
+    """
+    Slightly more robust test with chunking and slicing
+    """
+    keys_1 = pa.array(['foo', 'bar'])
+    keys_2 = pa.array(['baz', 'qux', 'quux', 'quz'])
+    keys_3 = pa.array([], pa.string())
+
+    items_1 = pa.array(
+        [['a', 'b'], ['c', 'd']],
+        pa.list_(pa.string()),
+    )
+    items_2 = pa.array(
+        [[], None, [None, 'e'], ['f', 'g']],
+        pa.list_(pa.string()),
+    )
+    items_3 = pa.array(
+        [],
+        pa.list_(pa.string()),
+    )
+
+    map_chunk_1 = pa.MapArray.from_arrays([0, 2], keys_1, items_1)
+    map_chunk_2 = pa.MapArray.from_arrays([0, 3, 4], keys_2, items_2)
+    map_chunk_3 = pa.MapArray.from_arrays([0, 0], keys_3, items_3)
+    chunked_array = pa.chunked_array([
+        pa.ListArray.from_arrays([0, 1], map_chunk_1).slice(0),
+        pa.ListArray.from_arrays([0, 1], map_chunk_2.slice(1)).slice(0),
+        pa.ListArray.from_arrays([0, 0], map_chunk_3).slice(0),
+    ])
+
+    series_default = chunked_array.to_pandas()
+    expected_series_default = pd.Series([
+        [[('foo', ['a', 'b']), ('bar', ['c', 'd'])]],
+        [[('quz', ['f', 'g'])]],
+        [],
+    ])
+
+    series_pydicts = chunked_array.to_pandas(maps_as_pydicts=True)
+    expected_series_pydicts = pd.Series([
+        [{'foo': ['a', 'b'], 'bar': ['c', 'd']}],
+        [{'quz': ['f', 'g']}],
+        [],
+    ])
+
+    sliced = chunked_array.slice(1, 3)
+    series_default_sliced = sliced.to_pandas()
+    expected_series_default_sliced = pd.Series([
+        [[('quz', ['f', 'g'])]],
+        [],
+    ])
+
+    series_pydicts_sliced = sliced.to_pandas(maps_as_pydicts=True)
+    expected_series_pydicts_sliced = pd.Series([
+        [{'quz': ['f', 'g']}],
+        [],
+    ])
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", "elementwise comparison failed",
+                                DeprecationWarning)
+        tm.assert_series_equal(series_default, expected_series_default)
+        tm.assert_series_equal(series_pydicts, expected_series_pydicts)
+        tm.assert_series_equal(series_default_sliced, expected_series_default_sliced)
+        tm.assert_series_equal(series_pydicts_sliced, expected_series_pydicts_sliced)
+
+    ty = pa.list_(pa.map_(pa.string(), pa.list_(pa.string())))
+
+    def assert_roundtrip(series: pd.Series, data) -> None:
+        array_roundtrip = pa.chunked_array(pa.Array.from_pandas(series, type=ty))
+        assert data.equals(array_roundtrip)
+
+    assert_roundtrip(series_default, chunked_array)
+    assert_roundtrip(series_pydicts, chunked_array)
+    assert_roundtrip(series_default_sliced, sliced)
+    assert_roundtrip(series_pydicts_sliced, sliced)
+
+
+def test_roundtrip_map_array_with_pydicts_duplicate_keys():
+    keys = pa.array(['foo', 'bar', 'foo'])
+    items = pa.array(
+        [['a', 'b'], ['c', 'd'], ['1', '2']],
+        pa.list_(pa.string()),
+    )
+    offsets = [0, 3]
+    maps = pa.MapArray.from_arrays(offsets, keys, items)
+    ty = pa.map_(pa.string(), pa.list_(pa.string()))
+
+    # ------------------------
+    # With maps as pydicts
+    series_pydicts = maps.to_pandas(maps_as_pydicts=True)
+    # some data loss occurs for duplicate keys
+    expected_series_pydicts = pd.Series([
+        {'foo': ['1', '2'], 'bar': ['c', 'd']},
+    ])
+    tm.assert_series_equal(series_pydicts, expected_series_pydicts)
+    # roundtrip is not possible because of data loss
+    assert not maps.equals(pa.Array.from_pandas(series_pydicts, type=ty))
+
+    # ------------------------
+    # With default assoc list of tuples
+    series_default = maps.to_pandas()
+    expected_series_default = pd.Series([
+        [('foo', ['a', 'b']), ('bar', ['c', 'd']), ('foo', ['1', '2'])],
+    ])
+    tm.assert_series_equal(series_default, expected_series_default)
+    assert maps.equals(pa.Array.from_pandas(series_default, type=ty))
+
+
+def test_unhashable_map_keys_with_pydicts():
+    keys = pa.array(
+        [['a', 'b'], ['c', 'd'], [], ['e'], [None, 'f'], ['g', 'h']],
+        pa.list_(pa.string()),
+    )
+    items = pa.array(['foo', 'bar', 'baz', 'qux', 'quux', 'quz'])
+    offsets = [0, 2, 6]
+    maps = pa.MapArray.from_arrays(offsets, keys, items)
+
+    # ------------------------
+    # With maps as pydicts
+    with pytest.raises(TypeError):
+        maps.to_pandas(maps_as_pydicts=True)
+
+    # ------------------------
+    # With default assoc list of tuples
+    series = maps.to_pandas()
+    expected_series_default = pd.Series([
+        [(['a', 'b'], 'foo'), (['c', 'd'], 'bar')],
+        [([], 'baz'), (['e'], 'qux'), ([None, 'f'], 'quux'), (['g', 'h'], 'quz')],
+    ])
+    tm.assert_series_equal(series, expected_series_default)
