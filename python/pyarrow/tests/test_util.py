@@ -80,6 +80,22 @@ def func_d(whatever):
 def func_e(whatever):
     pass
 
+@doc(method="func_f")
+def func_f(whatever):
+    """
+    This is the {method} method.
+
+    {{ We can escape curly braces like this. }}
+
+    Examples
+    --------
+    We should replace curly brace usage in doctests.
+
+    >>> dict(x = "x", y = "y")
+    >>> set((1, 2, 3))
+    """
+    pass
+
 
 def test_docstring_formatting():
     docstr = textwrap.dedent(
@@ -146,6 +162,24 @@ def test_inherit_docstring_template_from_callable():
         """
     )
     assert func_e.__doc__ == docstr
+
+
+def test_escaping_in_docstring():
+    docstr = textwrap.dedent(
+        """
+        This is the func_f method.
+
+        { We can escape curly braces like this. }
+
+        Examples
+        --------
+        We should replace curly brace usage in doctests.
+
+        >>> dict(x = "x", y = "y")
+        >>> set((1, 2, 3))
+        """
+    )
+    assert func_f.__doc__ == docstr
 
 
 def exhibit_signal_refcycle():

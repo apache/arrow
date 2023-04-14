@@ -61,7 +61,7 @@ def is_boolean(t):
     return t.id == lib.Type_BOOL
 
 
-@doc(is_null, datatype="integer")
+@doc(is_null, datatype="any integer")
 def is_integer(t):
     return t.id in _INTEGER_TYPES
 
@@ -258,7 +258,7 @@ def is_date64(t):
     return t.id == lib.Type_DATE64
 
 
-@doc(is_null, datatype="logical map")
+@doc(is_null, datatype="map")
 def is_map(t):
     return t.id == lib.Type_MAP
 
