@@ -45,6 +45,7 @@
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_overflow.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tdigest.h"
 #include "arrow/util/thread_pool.h"
@@ -305,6 +306,56 @@ struct GroupedCountImpl : public GroupedAggregator {
     return Status::OK();
   }
 
+  template <bool count_valid>
+  struct RunEndEncodedCountImpl {
+    /// Count the number of valid or invalid values in a run-end-encoded array.
+    ///
+    /// \param[in] input the run-end-encoded array
+    /// \param[out] counts the counts being accumulated
+    /// \param[in] g the group ids of the values in the array
+    template <typename RunEndCType>
+    void DoCount(const ArraySpan& input, int64_t* counts, const uint32_t* g) {
+      ree_util::RunEndEncodedArraySpan<RunEndCType> ree_span(input);
+      const auto* physical_validity = ree_util::ValuesArray(input).GetValues<uint8_t>(0);
+      auto end = ree_span.end();
+      for (auto it = ree_span.begin(); it != end; ++it) {
+        const bool is_valid = bit_util::GetBit(physical_validity, it.index_into_array());
+        if constexpr (count_valid) {
+          if (is_valid) {
+            for (int64_t i = 0; i < it.run_length(); ++i, ++g) {
+              counts[*g] += 1;
+            }
+          } else {
+            g += it.run_length();
+          }
+        } else {
+          if (!is_valid) {
+            for (int64_t i = 0; i < it.run_length(); ++i, ++g) {
+              counts[*g] += 1;
+            }
+          } else {
+            g += it.run_length();
+          }
+        }
+      }
+    }
+
+    void operator()(const ArraySpan& input, int64_t* counts, const uint32_t* g) {
+      auto ree_type = checked_cast<const RunEndEncodedType*>(input.type);
+      switch (ree_type->run_end_type()->id()) {
+        case Type::INT16:
+          DoCount<int16_t>(input, counts, g);
+          break;
+        case Type::INT32:
+          DoCount<int32_t>(input, counts, g);
+          break;
+        default:
+          DoCount<int64_t>(input, counts, g);
+          break;
+      }
+    }
+  };
+
   Status Consume(const ExecSpan& batch) override {
     auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
     auto g_begin = batch[1].array.GetValues<uint32_t>(1);
@@ -336,9 +387,7 @@ struct GroupedCountImpl : public GroupedAggregator {
             } else {
               switch (input.type->id()) {
                 case Type::RUN_END_ENCODED:
-                  for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
-                    counts[*g_begin] += input.IsValidFast<RunEndEncodedType>(i);
-                  }
+                  RunEndEncodedCountImpl<true>{}(input, counts, g_begin);
                   break;
                 default:  // Generic and forward-compatible version.
                   for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
@@ -364,9 +413,7 @@ struct GroupedCountImpl : public GroupedAggregator {
             // Arrays without validity bitmaps require special handling of nulls.
             switch (input.type->id()) {
               case Type::RUN_END_ENCODED:
-                for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
-                  counts[*g_begin] += input.IsNullFast<RunEndEncodedType>(i);
-                }
+                RunEndEncodedCountImpl<false>{}(input, counts, g_begin);
                 break;
               default:  // Generic and forward-compatible version.
                 for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
