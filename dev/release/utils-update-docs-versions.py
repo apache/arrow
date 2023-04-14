@@ -90,9 +90,12 @@ with open(r_versions_path, 'w') as json_file:
     json_file.write("\n")
 
 # Load the updated versions JSON file
-data = json.load(r_versions_path)
+with open(r_versions_path) as json_file:
+    data = json.load(json_file)
 
 # Write HTML to file
 with open(r_html_path, 'w') as html_file:
+    html_file.write('<!DOCTYPE html>\n<html>\n<body>')
     for i in data:
-        html_file.write('<p><a href="../' + i['version'] + 'r/">' + i['name'] + '</a></p>')
+        html_file.write('<p><a href="../' + i['version'] + 'r/">' + i['name'] + '</a></p>\n')
+    html_file.write('</body>\n</html>\n')
