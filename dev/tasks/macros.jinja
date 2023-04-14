@@ -135,6 +135,7 @@ on:
     shell: bash
     run: |
       gem install gemfury
+      path=$(ls {{ pattern }})
       fury push ${path} --account ${CROSSBOW_GEMFURY_ORG} --api-token ${CROSSBOW_GEMFURY_TOKEN}
     env:
       CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
