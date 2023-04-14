@@ -64,14 +64,14 @@ static inline void AdjustNonNullable(Type::type type_id, int64_t length,
 
 namespace internal {
 
-bool IsNullSparseUnion(const ArrayData& data, int64_t i) {
+ARROW_EXPORT bool IsNullSparseUnion(const ArrayData& data, int64_t i) {
   auto* union_type = checked_cast<const SparseUnionType*>(data.type.get());
   const auto* types = reinterpret_cast<const int8_t*>(data.buffers[1]->data());
   const int child_id = union_type->child_ids()[types[data.offset + i]];
   return data.child_data[child_id]->IsNull(i);
 }
 
-bool IsNullDenseUnion(const ArrayData& data, int64_t i) {
+ARROW_EXPORT bool IsNullDenseUnion(const ArrayData& data, int64_t i) {
   auto* union_type = checked_cast<const DenseUnionType*>(data.type.get());
   const auto* types = reinterpret_cast<const int8_t*>(data.buffers[1]->data());
   const int child_id = union_type->child_ids()[types[data.offset + i]];
@@ -80,15 +80,15 @@ bool IsNullDenseUnion(const ArrayData& data, int64_t i) {
   return data.child_data[child_id]->IsNull(child_offset);
 }
 
-bool IsNullRunEndEncoded(const ArrayData& data, int64_t i) {
+ARROW_EXPORT bool IsNullRunEndEncoded(const ArrayData& data, int64_t i) {
   return ArraySpan(data).IsNullRunEndEncoded(i);
 }
 
-bool UnionMayHaveLogicalNulls(const ArrayData& data) {
+ARROW_EXPORT bool UnionMayHaveLogicalNulls(const ArrayData& data) {
   return ArraySpan(data).MayHaveLogicalNulls();
 }
 
-bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
+ARROW_EXPORT bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
   return ArraySpan(data).MayHaveLogicalNulls();
 }
 
