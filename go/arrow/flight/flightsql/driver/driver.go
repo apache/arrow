@@ -19,6 +19,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -491,7 +492,12 @@ func readEndpoint(ctx context.Context, client *flightsql.Client, endpoint *fligh
 		records = append(records, record)
 
 	}
-	return schema, records, reader.Err()
+
+	if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {
+		return nil, nil, err
+	}
+
+	return schema, records, nil
 }
 
 // Close invalidates and potentially stops any current
