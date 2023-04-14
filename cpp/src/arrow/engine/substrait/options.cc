@@ -208,11 +208,13 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       aggregates.push_back(std::move(aggregate));
     }
 
+    ARROW_ASSIGN_OR_RAISE(auto aggregate_schema,
+                          acero::aggregate::MakeOutputSchema(
+                              input_schema, keys, /*segment_keys=*/{}, aggregates));
+
     return internal::MakeAggregateDeclaration(
-        std::move(inputs[0].declaration), std::move(input_schema),
-        seg_agg_rel.measures_size(), std::move(aggregates), std::move(agg_src_fieldsets),
-        std::move(keys), std::move(key_field_ids), std::move(segment_keys),
-        std::move(segment_key_field_ids), ext_set, conv_opts);
+        std::move(inputs[0].declaration), std::move(aggregate_schema),
+        std::move(aggregates), std::move(keys), std::move(segment_keys));
   }
 };
 
