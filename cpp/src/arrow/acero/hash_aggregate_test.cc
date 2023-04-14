@@ -1367,7 +1367,9 @@ TEST_P(GroupBy, CountOnly) {
           [null,  1]])",
       R"([[0.0,   2],
           [null,  3],
+          [null,  2],
           [4.0,   null],
+          [3.25,  1],
           [3.25,  1],
           [0.125, 2]])",
       R"([[-0.25, 2],
@@ -1386,23 +1388,23 @@ TEST_P(GroupBy, CountOnly) {
   const auto expected_results = std::vector<std::string>{
       // Results ("key_0", "hash_count")
       // nullptr = skip_nulls
-      R"([[1, 2],
+      R"([[1, 3],
           [2, 3],
           [3, 0],
           [null, 2]])",
       // skip_nulls
-      R"([[1, 2],
+      R"([[1, 3],
           [2, 3],
           [3, 0],
           [null, 2]])",
       // only_nulls
       R"([[1, 1],
-          [2, 0],
+          [2, 1],
           [3, 2],
           [null, 0]])",
       // count_all
-      R"([[1, 3],
-          [2, 3],
+      R"([[1, 4],
+          [2, 4],
           [3, 2],
           [null, 2]])",
   };
@@ -1413,6 +1415,8 @@ TEST_P(GroupBy, CountOnly) {
     for (bool use_threads : {/*true, */ false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
       for (size_t i = 0; i < possible_count_options.size(); i++) {
+        SCOPED_TRACE(possible_count_options[i] ? possible_count_options[i]->ToString()
+                                               : "default");
         auto table = TableFromJSON(
             schema({field("argument", float64()), field("key", int64())}), json);
 
@@ -1431,10 +1435,10 @@ TEST_P(GroupBy, CountOnly) {
                                          use_threads));
         SortBy({"key_0"}, &aggregated_and_grouped);
 
-        AssertDatumsEqual(ArrayFromJSON(struct_({field("key_0", int64()),
+        AssertDatumsEqual(aggregated_and_grouped,
+                          ArrayFromJSON(struct_({field("key_0", int64()),
                                                  field("hash_count", int64())}),
                                         expected_results[i]),
-                          aggregated_and_grouped,
                           /*verbose=*/true);
       }
     }
