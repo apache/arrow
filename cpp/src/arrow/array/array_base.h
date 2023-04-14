@@ -77,6 +77,29 @@ class ARROW_EXPORT Array {
     return data_->null_count != data_->length;
   }
 
+  template <typename ArrowType>
+  bool IsNullFast(int64_t i) const {
+    return !IsValidFast<ArrowType>(i);
+  }
+
+  template <typename ArrowType>
+  bool IsValidFast(int64_t i) const {
+    if constexpr (ArrowType::type_id == Type::NA) {
+      return false;
+    } else if constexpr (ArrowType::type_id == Type::SPARSE_UNION) {
+      return !internal::IsNullSparseUnion(*data_, i);
+    } else if constexpr (ArrowType::type_id == Type::DENSE_UNION) {
+      return !internal::IsNullDenseUnion(*data_, i);
+    } else if constexpr (ArrowType::type_id == Type::RUN_END_ENCODED) {
+      return !internal::IsNullRunEndEncoded(*data_, i);
+    } else {
+      if (null_bitmap_data_ != NULLPTR) {
+        return bit_util::GetBit(null_bitmap_data_, i + data_->offset);
+      }
+      return data_->null_count != data_->length;
+    }
+  }
+
   /// \brief Return a Scalar containing the value of this array at i
   Result<std::shared_ptr<Scalar>> GetScalar(int64_t i) const;
 

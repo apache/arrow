@@ -329,6 +329,8 @@ TEST_F(TestArray, TestIsNullIsValid) {
   for (size_t i = 0; i < null_bitmap.size(); ++i) {
     EXPECT_EQ(null_bitmap[i] != 0, !arr->IsNull(i)) << i;
     EXPECT_EQ(null_bitmap[i] != 0, arr->IsValid(i)) << i;
+    EXPECT_EQ(null_bitmap[i] != 0, !arr->IsNullFast<Int32Type>(i)) << i;
+    EXPECT_EQ(null_bitmap[i] != 0, arr->IsValidFast<Int32Type>(i)) << i;
   }
 }
 
@@ -341,6 +343,8 @@ TEST_F(TestArray, TestIsNullIsValidNoNulls) {
   for (size_t i = 0; i < size; ++i) {
     EXPECT_TRUE(arr->IsValid(i));
     EXPECT_FALSE(arr->IsNull(i));
+    EXPECT_TRUE(arr->IsValidFast<Int32Type>(i));
+    EXPECT_FALSE(arr->IsNullFast<Int32Type>(i));
   }
 }
 
@@ -428,6 +432,25 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       for (int64_t i = 0; i < length; ++i) {
         ASSERT_TRUE(array->IsNull(i));
         ASSERT_FALSE(array->IsValid(i));
+        switch (type->id()) {
+          case Type::NA:
+            ASSERT_TRUE(array->IsNullFast<NullType>(i));
+            break;
+          case Type::SPARSE_UNION:
+            ASSERT_TRUE(array->IsNullFast<SparseUnionType>(i));
+            break;
+          case Type::DENSE_UNION:
+            ASSERT_TRUE(array->IsNullFast<DenseUnionType>(i));
+            break;
+          case Type::RUN_END_ENCODED:
+            ASSERT_TRUE(array->IsNullFast<RunEndEncodedType>(i));
+            break;
+          case Type::INT32:  // a non-special type for IsNullFast
+            ASSERT_TRUE(array->IsNullFast<Int32Type>(i));
+            break;
+          default:
+            break;
+        }
       }
     }
   }
@@ -1788,6 +1811,7 @@ TEST(TestBooleanBuilder, AppendNullsAdvanceBuilder) {
   ASSERT_TRUE(barr.Value(0));
   ASSERT_FALSE(barr.Value(1));
   ASSERT_TRUE(barr.IsNull(2));
+  ASSERT_TRUE(barr.IsNullFast<BooleanType>(2));
   ASSERT_TRUE(barr.Value(3));
 }
 
@@ -1821,9 +1845,11 @@ TEST(TestBooleanBuilder, TestStdBoolVectorAppend) {
   for (int i = 0; i < length; ++i) {
     if (is_valid[i]) {
       ASSERT_FALSE(arr.IsNull(i));
+      ASSERT_FALSE(arr.IsNullFast<BooleanType>(i));
       ASSERT_EQ(values[i], arr.Value(i));
     } else {
       ASSERT_TRUE(arr.IsNull(i));
+      ASSERT_TRUE(arr.IsNullFast<BooleanType>(i));
     }
     ASSERT_EQ(values[i], arr_nn.Value(i));
   }

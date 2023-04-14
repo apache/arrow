@@ -197,6 +197,29 @@ struct ARROW_EXPORT ArrayData {
     return null_count.load() != length;
   }
 
+  template <typename ArrowType>
+  bool IsNullFast(int64_t i) const {
+    return !IsValidFast<ArrowType>(i);
+  }
+
+  template <typename ArrowType>
+  bool IsValidFast(int64_t i) const {
+    if constexpr (ArrowType::type_id == Type::NA) {
+      return false;
+    } else if constexpr (ArrowType::type_id == Type::SPARSE_UNION) {
+      return !internal::IsNullSparseUnion(*this, i);
+    } else if constexpr (ArrowType::type_id == Type::DENSE_UNION) {
+      return !internal::IsNullDenseUnion(*this, i);
+    } else if constexpr (ArrowType::type_id == Type::RUN_END_ENCODED) {
+      return !internal::IsNullRunEndEncoded(*this, i);
+    } else {
+      if (buffers[0] != NULLPTR) {
+        return bit_util::GetBit(buffers[0]->data(), i + offset);
+      }
+      return null_count.load() != length;
+    }
+  }
+
   // Access a buffer's data as a typed C pointer
   template <typename T>
   inline const T* GetValues(int i, int64_t absolute_offset) const {
@@ -442,6 +465,29 @@ struct ARROW_EXPORT ArraySpan {
       return !IsNullRunEndEncoded(i);
     }
     return this->null_count != this->length;
+  }
+
+  template <typename ArrowType>
+  inline bool IsNullFast(int64_t i) const {
+    return !IsValidFast<ArrowType>(i);
+  }
+
+  template <typename ArrowType>
+  inline bool IsValidFast(int64_t i) const {
+    if constexpr (ArrowType::type_id == Type::NA) {
+      return false;
+    } else if constexpr (ArrowType::type_id == Type::SPARSE_UNION) {
+      return !IsNullSparseUnion(i);
+    } else if constexpr (ArrowType::type_id == Type::DENSE_UNION) {
+      return !IsNullDenseUnion(i);
+    } else if constexpr (ArrowType::type_id == Type::RUN_END_ENCODED) {
+      return !IsNullRunEndEncoded(i);
+    } else {
+      if (this->buffers[0].data != NULLPTR) {
+        return bit_util::GetBit(this->buffers[0].data, i + this->offset);
+      }
+      return this->null_count != this->length;
+    }
   }
 
   std::shared_ptr<ArrayData> ToArrayData() const;
