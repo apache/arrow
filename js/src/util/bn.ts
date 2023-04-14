@@ -98,7 +98,7 @@ export const bigNumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T
     }
 
     // unsigned numbers
-    if (!a.signed) {
+    if (!a['signed']) {
         return unsignedBigNumToString(a);
     }
 
