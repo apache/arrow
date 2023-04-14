@@ -159,7 +159,7 @@ s3_finalizer <- new.env(parent = emptyenv())
   # Registers a callback to run at session exit
   # This can't be done in .onUnload or .onDetach because those hooks are
   # not guaranteed to run (e.g. they only run if the user unloads arrow)
-  reg.finalizer(s3_finalizer, finalize_s3, onexit=TRUE)
+  reg.finalizer(s3_finalizer, finalize_s3, onexit = TRUE)
 
   invisible()
 }
