@@ -21,6 +21,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include "arrow/acero/aggregate_node.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
@@ -76,6 +77,19 @@ using compute::Segment;
 namespace acero {
 
 namespace {
+
+template <typename KernelType>
+struct AggregateNodeArgs {
+  std::shared_ptr<Schema> output_schema;
+  std::vector<int> grouping_key_field_ids;
+  std::vector<int> segment_key_field_ids;
+  std::unique_ptr<RowSegmenter> segmenter;
+  std::vector<std::vector<int>> target_fieldsets;
+  std::vector<Aggregate> aggregates;
+  std::vector<const KernelType*> kernels;
+  std::vector<std::vector<TypeHolder>> kernel_intypes;
+  std::vector<std::vector<std::unique_ptr<KernelState>>> states;
+};
 
 std::vector<TypeHolder> ExtendWithGroupIdType(const std::vector<TypeHolder>& in_types) {
   std::vector<TypeHolder> aggr_in_types;
@@ -274,36 +288,22 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
         kernel_intypes_(std::move(kernel_intypes)),
         states_(std::move(states)) {}
 
-  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "ScalarAggregateNode"));
-
-    const auto& aggregate_options = checked_cast<const AggregateNodeOptions&>(options);
-    auto aggregates = aggregate_options.aggregates;
-    const auto& keys = aggregate_options.keys;
-    const auto& segment_keys = aggregate_options.segment_keys;
-
-    if (keys.size() > 0) {
-      return Status::Invalid("Scalar aggregation with some key");
-    }
-    if (plan->query_context()->exec_context()->executor()->GetCapacity() > 1 &&
-        segment_keys.size() > 0) {
-      return Status::NotImplemented("Segmented aggregation in a multi-threaded plan");
-    }
-
-    const auto& input_schema = *inputs[0]->output_schema();
-    auto exec_ctx = plan->query_context()->exec_context();
-
+  static Result<AggregateNodeArgs<ScalarAggregateKernel>> MakeAggregateNodeArgs(
+      const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
+      const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
+      ExecContext* exec_ctx, size_t concurrency) {
+    // Copy (need to modify options pointer below)
+    std::vector<Aggregate> aggregates(aggs);
     std::vector<int> segment_field_ids(segment_keys.size());
     std::vector<TypeHolder> segment_key_types(segment_keys.size());
     for (size_t i = 0; i < segment_keys.size(); i++) {
-      ARROW_ASSIGN_OR_RAISE(FieldPath match, segment_keys[i].FindOne(input_schema));
+      ARROW_ASSIGN_OR_RAISE(FieldPath match, segment_keys[i].FindOne(*input_schema));
       if (match.indices().size() > 1) {
         // ARROW-18369: Support nested references as segment ids
         return Status::Invalid("Nested references cannot be used as segment ids");
       }
       segment_field_ids[i] = match[0];
-      segment_key_types[i] = input_schema.field(match[0])->type().get();
+      segment_key_types[i] = input_schema->field(match[0])->type().get();
     }
 
     ARROW_ASSIGN_OR_RAISE(auto segmenter,
@@ -317,16 +317,15 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
 
     // Output the segment keys first, followed by the aggregates
     for (size_t i = 0; i < segment_keys.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(fields[i],
-                            segment_keys[i].GetOne(*inputs[0]->output_schema()));
+      ARROW_ASSIGN_OR_RAISE(fields[i], segment_keys[i].GetOne(*input_schema));
     }
 
     std::vector<std::vector<int>> target_fieldsets(kernels.size());
     std::size_t base = segment_keys.size();
     for (size_t i = 0; i < kernels.size(); ++i) {
-      const auto& target_fieldset = aggregate_options.aggregates[i].target;
+      const auto& target_fieldset = aggregates[i].target;
       for (const auto& target : target_fieldset) {
-        ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(target).FindOne(input_schema));
+        ARROW_ASSIGN_OR_RAISE(auto match, FieldRef(target).FindOne(*input_schema));
         target_fieldsets[i].push_back(match[0]);
       }
 
@@ -346,7 +345,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
 
       std::vector<TypeHolder> in_types;
       for (const auto& target : target_fieldsets[i]) {
-        in_types.emplace_back(input_schema.field(target)->type().get());
+        in_types.emplace_back(input_schema->field(target)->type().get());
       }
       kernel_intypes[i] = in_types;
       ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
@@ -362,7 +361,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       }
 
       KernelContext kernel_ctx{exec_ctx};
-      states[i].resize(plan->query_context()->max_concurrency());
+      states[i].resize(concurrency);
       RETURN_NOT_OK(Kernel::InitAll(
           &kernel_ctx,
           KernelInitArgs{kernels[i], kernel_intypes[i], aggregates[i].options.get()},
@@ -373,14 +372,47 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       ARROW_ASSIGN_OR_RAISE(auto out_type, kernels[i]->signature->out_type().Resolve(
                                                &kernel_ctx, kernel_intypes[i]));
 
-      fields[base + i] =
-          field(aggregate_options.aggregates[i].name, out_type.GetSharedPtr());
+      fields[base + i] = field(aggregates[i].name, out_type.GetSharedPtr());
     }
 
+    return AggregateNodeArgs<ScalarAggregateKernel>{
+        schema(std::move(fields)),
+        /*grouping_key_field_ids=*/{}, std::move(segment_field_ids),
+        std::move(segmenter),          std::move(target_fieldsets),
+        std::move(aggregates),         std::move(kernels),
+        std::move(kernel_intypes),     std::move(states)};
+  }
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "ScalarAggregateNode"));
+
+    const auto& aggregate_options = checked_cast<const AggregateNodeOptions&>(options);
+    auto aggregates = aggregate_options.aggregates;
+    const auto& keys = aggregate_options.keys;
+    const auto& segment_keys = aggregate_options.segment_keys;
+
+    if (keys.size() > 0) {
+      return Status::Invalid("Scalar aggregation with some key");
+    }
+    if (plan->query_context()->exec_context()->executor()->GetCapacity() > 1 &&
+        segment_keys.size() > 0) {
+      return Status::NotImplemented("Segmented aggregation in a multi-threaded plan");
+    }
+
+    const auto& input_schema = inputs[0]->output_schema();
+    auto exec_ctx = plan->query_context()->exec_context();
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto args,
+        MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggregates, exec_ctx,
+                              /*concurrency=*/plan->query_context()->max_concurrency()));
+
     return plan->EmplaceNode<ScalarAggregateNode>(
-        plan, std::move(inputs), schema(std::move(fields)), std::move(segmenter),
-        std::move(segment_field_ids), std::move(target_fieldsets), std::move(aggregates),
-        std::move(kernels), std::move(kernel_intypes), std::move(states));
+        plan, std::move(inputs), std::move(args.output_schema), std::move(args.segmenter),
+        std::move(args.segment_key_field_ids), std::move(args.target_fieldsets),
+        std::move(args.aggregates), std::move(args.kernels),
+        std::move(args.kernel_intypes), std::move(args.states));
   }
 
   const char* kind_name() const override { return "ScalarAggregateNode"; }
@@ -564,25 +596,10 @@ class GroupByNode : public ExecNode, public TracedNode {
     return Status::OK();
   }
 
-  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "GroupByNode"));
-
-    auto input = inputs[0];
-    const auto& aggregate_options = checked_cast<const AggregateNodeOptions&>(options);
-    const auto& keys = aggregate_options.keys;
-    const auto& segment_keys = aggregate_options.segment_keys;
-    // Copy (need to modify options pointer below)
-    auto aggs = aggregate_options.aggregates;
-
-    if (plan->query_context()->exec_context()->executor()->GetCapacity() > 1 &&
-        segment_keys.size() > 0) {
-      return Status::NotImplemented("Segmented aggregation in a multi-threaded plan");
-    }
-
-    // Get input schema
-    auto input_schema = input->output_schema();
-
+  static Result<AggregateNodeArgs<HashAggregateKernel>> MakeAggregateNodeArgs(
+      const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
+      const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
+      ExecContext* ctx) {
     // Find input field indices for key fields
     std::vector<int> key_field_ids(keys.size());
     for (size_t i = 0; i < keys.size(); ++i) {
@@ -632,8 +649,6 @@ class GroupByNode : public ExecNode, public TracedNode {
       segment_key_types[i] = input_schema->field(segment_key_field_id)->type().get();
     }
 
-    auto ctx = plan->query_context()->exec_context();
-
     ARROW_ASSIGN_OR_RAISE(auto segmenter,
                           RowSegmenter::Make(std::move(segment_key_types),
                                              /*nullable_keys=*/false, ctx));
@@ -665,14 +680,47 @@ class GroupByNode : public ExecNode, public TracedNode {
     }
     base += segment_keys.size();
     for (size_t i = 0; i < aggs.size(); ++i) {
-      output_fields[base + i] =
-          agg_result_fields[i]->WithName(aggregate_options.aggregates[i].name);
+      output_fields[base + i] = agg_result_fields[i]->WithName(aggs[i].name);
     }
 
+    return AggregateNodeArgs<HashAggregateKernel>{schema(std::move(output_fields)),
+                                                  std::move(key_field_ids),
+                                                  std::move(segment_key_field_ids),
+                                                  std::move(segmenter),
+                                                  std::move(agg_src_fieldsets),
+                                                  std::move(aggs),
+                                                  std::move(agg_kernels),
+                                                  std::move(agg_src_types),
+                                                  /*states=*/{}};
+  }
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "GroupByNode"));
+
+    auto input = inputs[0];
+    const auto& aggregate_options = checked_cast<const AggregateNodeOptions&>(options);
+    const auto& keys = aggregate_options.keys;
+    const auto& segment_keys = aggregate_options.segment_keys;
+    auto aggs = aggregate_options.aggregates;
+
+    if (plan->query_context()->exec_context()->executor()->GetCapacity() > 1 &&
+        segment_keys.size() > 0) {
+      return Status::NotImplemented(
+          "Segmented aggregation in a multi-threaded execution context");
+    }
+
+    const auto& input_schema = input->output_schema();
+    auto exec_ctx = plan->query_context()->exec_context();
+
+    ARROW_ASSIGN_OR_RAISE(auto args, MakeAggregateNodeArgs(input_schema, keys,
+                                                           segment_keys, aggs, exec_ctx));
+
     return input->plan()->EmplaceNode<GroupByNode>(
-        input, schema(std::move(output_fields)), std::move(key_field_ids),
-        std::move(segment_key_field_ids), std::move(segmenter), std::move(agg_src_types),
-        std::move(agg_src_fieldsets), std::move(aggs), std::move(agg_kernels));
+        input, std::move(args.output_schema), std::move(args.grouping_key_field_ids),
+        std::move(args.segment_key_field_ids), std::move(args.segmenter),
+        std::move(args.kernel_intypes), std::move(args.target_fieldsets),
+        std::move(args.aggregates), std::move(args.kernels));
   }
 
   Status ResetKernelStates() {
@@ -980,6 +1028,27 @@ class GroupByNode : public ExecNode, public TracedNode {
 };
 
 }  // namespace
+
+namespace aggregate {
+
+Result<std::shared_ptr<Schema>> MakeOutputSchema(
+    const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
+    const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggregates,
+    ExecContext* exec_ctx) {
+  if (keys.empty()) {
+    ARROW_ASSIGN_OR_RAISE(auto args, ScalarAggregateNode::MakeAggregateNodeArgs(
+                                         input_schema, keys, segment_keys, aggregates,
+                                         exec_ctx, /*concurrency=*/1));
+    return std::move(args.output_schema);
+  } else {
+    ARROW_ASSIGN_OR_RAISE(
+        auto args, GroupByNode::MakeAggregateNodeArgs(input_schema, keys, segment_keys,
+                                                      aggregates, exec_ctx));
+    return std::move(args.output_schema);
+  }
+}
+
+}  // namespace aggregate
 
 namespace internal {
 

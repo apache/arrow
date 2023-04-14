@@ -50,6 +50,8 @@ func TestBinary(t *testing.T) {
 	assert.Equal(t, []byte("AAA"), a.Value(0))
 	assert.Equal(t, []byte{}, a.Value(1))
 	assert.Equal(t, []byte("BBBB"), a.Value(2))
+	assert.Equal(t, "QUFB", a.ValueStr(0))
+	assert.Equal(t, "(null)", a.ValueStr(1))
 	a.Release()
 
 	// Test builder reset and NewArray API.
@@ -60,6 +62,8 @@ func TestBinary(t *testing.T) {
 	assert.Equal(t, []byte("AAA"), a.Value(0))
 	assert.Equal(t, []byte{}, a.Value(1))
 	assert.Equal(t, []byte("BBBB"), a.Value(2))
+	assert.Equal(t, "QUFB", a.ValueStr(0))
+	assert.Equal(t, "(null)", a.ValueStr(1))
 	a.Release()
 
 	b.Release()
@@ -92,6 +96,8 @@ func TestLargeBinary(t *testing.T) {
 	assert.Equal(t, []byte("AAA"), a.Value(0))
 	assert.Equal(t, []byte{}, a.Value(1))
 	assert.Equal(t, []byte("BBBB"), a.Value(2))
+	assert.Equal(t, "QUFB", a.ValueStr(0))
+	assert.Equal(t, "(null)", a.ValueStr(1))
 	a.Release()
 
 	// Test builder reset and NewArray API.
@@ -102,6 +108,8 @@ func TestLargeBinary(t *testing.T) {
 	assert.Equal(t, []byte("AAA"), a.Value(0))
 	assert.Equal(t, []byte{}, a.Value(1))
 	assert.Equal(t, []byte("BBBB"), a.Value(2))
+	assert.Equal(t, "QUFB", a.ValueStr(0))
+	assert.Equal(t, "(null)", a.ValueStr(1))
 	a.Release()
 
 	b.Release()

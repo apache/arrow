@@ -208,7 +208,8 @@ class PARQUET_EXPORT WriterProperties {
           data_page_version_(ParquetDataPageVersion::V1),
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
-          page_checksum_enabled_(false) {}
+          page_checksum_enabled_(false),
+          write_page_index_(false) {}
     virtual ~Builder() {}
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
@@ -501,6 +502,28 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
+    /// Enable writing page index.
+    ///
+    /// Page index contains statistics for data pages and can be used to skip pages
+    /// when scanning data in ordered and unordered columns.
+    ///
+    /// Please check the link below for more details:
+    /// https://github.com/apache/parquet-format/blob/master/PageIndex.md
+    ///
+    /// Default disabled.
+    Builder* enable_write_page_index() {
+      write_page_index_ = true;
+      return this;
+    }
+
+    /// Disable writing page index.
+    ///
+    /// Default disabled.
+    Builder* disable_write_page_index() {
+      write_page_index_ = false;
+      return this;
+    }
+
     /// \brief Build the WriterProperties with the builder parameters.
     /// \return The WriterProperties defined by the builder.
     std::shared_ptr<WriterProperties> build() {
@@ -526,7 +549,8 @@ class PARQUET_EXPORT WriterProperties {
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
           pagesize_, version_, created_by_, page_checksum_enabled_,
           std::move(file_encryption_properties_), default_column_properties_,
-          column_properties, data_page_version_, store_decimal_as_integer_));
+          column_properties, data_page_version_, store_decimal_as_integer_,
+          write_page_index_));
     }
 
    private:
@@ -540,6 +564,7 @@ class PARQUET_EXPORT WriterProperties {
     std::string created_by_;
     bool store_decimal_as_integer_;
     bool page_checksum_enabled_;
+    bool write_page_index_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
@@ -573,6 +598,8 @@ class PARQUET_EXPORT WriterProperties {
   inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
 
   inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
+
+  inline bool write_page_index() const { return write_page_index_; }
 
   inline Encoding::type dictionary_index_encoding() const {
     if (parquet_version_ == ParquetVersion::PARQUET_1_0) {
@@ -642,7 +669,8 @@ class PARQUET_EXPORT WriterProperties {
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
-      ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer)
+      ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
+      bool write_page_index)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -653,6 +681,7 @@ class PARQUET_EXPORT WriterProperties {
         parquet_created_by_(created_by),
         store_decimal_as_integer_(store_short_decimal_as_integer),
         page_checksum_enabled_(page_write_checksum_enabled),
+        write_page_index_(write_page_index),
         file_encryption_properties_(file_encryption_properties),
         default_column_properties_(default_column_properties),
         column_properties_(column_properties) {}
@@ -667,6 +696,7 @@ class PARQUET_EXPORT WriterProperties {
   std::string parquet_created_by_;
   bool store_decimal_as_integer_;
   bool page_checksum_enabled_;
+  bool write_page_index_;
 
   std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 

@@ -131,6 +131,19 @@ struct REETestData {
   std::string description;
 };
 
+// For valgrind
+std::ostream& operator<<(std::ostream& out, const REETestData& test_data) {
+  out << "REETestData{description = " << test_data.description
+      << ", input = " << test_data.input->ToString() << ", expected_values = ";
+
+  for (const auto& expected_value : test_data.expected_values) {
+    out << expected_value->ToString() << ", ";
+  }
+
+  out << ", chunked = " << test_data.chunked << "}";
+  return out;
+}
+
 }  // namespace
 
 class TestRunEndEncodeDecode : public ::testing::TestWithParam<

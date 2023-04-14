@@ -295,6 +295,18 @@ static inline format::CompressionCodec::type ToThrift(Compression::type type) {
   }
 }
 
+static inline format::BoundaryOrder::type ToThrift(BoundaryOrder::type type) {
+  switch (type) {
+    case BoundaryOrder::Unordered:
+    case BoundaryOrder::Ascending:
+    case BoundaryOrder::Descending:
+      return static_cast<format::BoundaryOrder::type>(type);
+    default:
+      DCHECK(false) << "Cannot reach here";
+      return format::BoundaryOrder::UNORDERED;
+  }
+}
+
 static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   format::Statistics statistics;
   if (stats.has_min) {

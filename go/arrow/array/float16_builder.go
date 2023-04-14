@@ -176,6 +176,20 @@ func (b *Float16Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Float16Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseFloat(s, 32)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(float16.New(float32(v)))
+	return nil
+}
+
 func (b *Float16Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {

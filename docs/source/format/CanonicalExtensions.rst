@@ -72,6 +72,8 @@ same rules as laid out above, and provide backwards compatibility guarantees.
 Official List
 =============
 
+.. _fixed_shape_tensor_extension:
+
 Fixed shape tensor
 ==================
 

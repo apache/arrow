@@ -1989,6 +1989,7 @@ def test_table_select():
     assert result.equals(expected)
 
 
+@pytest.mark.acero
 def test_table_group_by():
     def sorted_by_keys(d):
         # Ensure a guaranteed order of keys for aggregation results.
@@ -2156,7 +2157,7 @@ def test_table_to_recordbatchreader():
     assert reader.read_next_batch().num_rows == 1
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2183,7 +2184,7 @@ def test_table_join():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_unique_key():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2210,7 +2211,7 @@ def test_table_join_unique_key():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_collisions():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2234,7 +2235,7 @@ def test_table_join_collisions():
     ], names=["colA", "colB", "colVals", "colB", "colVals"])
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_filter_expression():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2258,7 +2259,7 @@ def test_table_filter_expression():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_many_columns():
     t1 = pa.table({
         "colA": [1, 2, 6],

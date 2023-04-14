@@ -230,6 +230,7 @@ set(ARROW_SRCS
     util/time.cc
     util/tracing.cc
     util/trie.cc
+    util/union_util.cc
     util/unreachable.cc
     util/uri.cc
     util/utf8.cc
@@ -401,6 +402,7 @@ list(APPEND
      compute/registry.cc
      compute/kernels/codegen_internal.cc
      compute/kernels/row_encoder.cc
+     compute/kernels/ree_util_internal.cc
      compute/kernels/scalar_cast_boolean.cc
      compute/kernels/scalar_cast_dictionary.cc
      compute/kernels/scalar_cast_extension.cc
@@ -717,18 +719,16 @@ if(ARROW_TESTING)
                 arrow::flatbuffers
                 rapidjson::rapidjson
                 arrow_shared
-                GTest::gtest
+                ${ARROW_GTEST_GTEST}
                 SHARED_INSTALL_INTERFACE_LIBS
                 Arrow::arrow_shared
-                GTest::gtest
                 STATIC_LINK_LIBS
                 arrow::flatbuffers
                 rapidjson::rapidjson
                 arrow_static
-                GTest::gtest
+                ${ARROW_GTEST_GTEST}
                 STATIC_INSTALL_INTERFACE_LIBS
-                Arrow::arrow_static
-                GTest::gtest)
+                Arrow::arrow_static)
 
   add_custom_target(arrow_testing)
   add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})

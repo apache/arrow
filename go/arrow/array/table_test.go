@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -157,7 +158,17 @@ func TestChunkedInvalid(t *testing.T) {
 		if e == nil {
 			t.Fatalf("expected a panic")
 		}
-		if got, want := e.(string), "arrow/array: mismatch data type"; got != want {
+
+		err, ok := e.(error)
+		if !ok {
+			t.Fatalf("expected an error")
+		}
+
+		if !errors.Is(err, arrow.ErrInvalid) {
+			t.Fatalf("should be an ErrInvalid")
+		}
+
+		if got, want := err.Error(), fmt.Sprintf("%s: arrow/array: mismatch data type float64 vs int32", arrow.ErrInvalid); got != want {
 			t.Fatalf("invalid error. got=%q, want=%q", got, want)
 		}
 	}()
@@ -313,7 +324,7 @@ func TestColumn(t *testing.T) {
 				return c
 			}(),
 			field: arrow.Field{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
-			err:   fmt.Errorf("arrow/array: inconsistent data type"),
+			err:   fmt.Errorf("%w: arrow/array: inconsistent data type float64 vs float32", arrow.ErrInvalid),
 		},
 	} {
 		t.Run("", func(t *testing.T) {

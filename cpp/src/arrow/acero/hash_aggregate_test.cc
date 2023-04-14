@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/acero/aggregate_node.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/test_util_internal.h"
@@ -86,6 +87,78 @@ using compute::TDigestOptions;
 using compute::VarianceOptions;
 
 namespace acero {
+
+TEST(AggregateSchema, NoKeys) {
+  auto input_schema = schema({field("x", int32())});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("is a hash aggregate function"),
+      aggregate::MakeOutputSchema(input_schema, {}, {},
+                                  {{"hash_count", nullptr, "x", "hash_count"}}));
+  ASSERT_OK_AND_ASSIGN(auto output_schema,
+                       aggregate::MakeOutputSchema(input_schema, {}, {},
+                                                   {{"count", nullptr, "x", "count"}}));
+  AssertSchemaEqual(schema({field("count", int64())}), output_schema);
+}
+
+TEST(AggregateSchema, SingleKey) {
+  auto input_schema = schema({field("x", int32()), field("y", int32())});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("is a scalar aggregate function"),
+      aggregate::MakeOutputSchema(input_schema, {FieldRef("y")}, {},
+                                  {{"count", nullptr, "x", "count"}}));
+  ASSERT_OK_AND_ASSIGN(
+      auto output_schema,
+      aggregate::MakeOutputSchema(input_schema, {FieldRef("y")}, {},
+                                  {{"hash_count", nullptr, "x", "hash_count"}}));
+  AssertSchemaEqual(schema({field("y", int32()), field("hash_count", int64())}),
+                    output_schema);
+}
+
+TEST(AggregateSchema, DoubleKey) {
+  auto input_schema =
+      schema({field("x", int32()), field("y", int32()), field("z", int32())});
+  ASSERT_OK_AND_ASSIGN(
+      auto output_schema,
+      aggregate::MakeOutputSchema(input_schema, {FieldRef("z"), FieldRef("y")}, {},
+                                  {{"hash_count", nullptr, "x", "hash_count"}}));
+  AssertSchemaEqual(
+      schema({field("z", int32()), field("y", int32()), field("hash_count", int64())}),
+      output_schema);
+}
+
+TEST(AggregateSchema, SingleSegmentKey) {
+  auto input_schema = schema({field("x", int32()), field("y", int32())});
+  ASSERT_OK_AND_ASSIGN(auto output_schema,
+                       aggregate::MakeOutputSchema(input_schema, {}, {FieldRef("y")},
+                                                   {{"count", nullptr, "x", "count"}}));
+  AssertSchemaEqual(schema({field("y", int32()), field("count", int64())}),
+                    output_schema);
+}
+
+TEST(AggregateSchema, DoubleSegmentKey) {
+  auto input_schema =
+      schema({field("x", int32()), field("y", int32()), field("z", int32())});
+  ASSERT_OK_AND_ASSIGN(
+      auto output_schema,
+      aggregate::MakeOutputSchema(input_schema, {}, {FieldRef("z"), FieldRef("y")},
+                                  {{"count", nullptr, "x", "count"}}));
+  AssertSchemaEqual(
+      schema({field("z", int32()), field("y", int32()), field("count", int64())}),
+      output_schema);
+}
+
+TEST(AggregateSchema, SingleKeyAndSegmentKey) {
+  auto input_schema =
+      schema({field("x", int32()), field("y", int32()), field("z", int32())});
+  ASSERT_OK_AND_ASSIGN(
+      auto output_schema,
+      aggregate::MakeOutputSchema(input_schema, {FieldRef("y")}, {FieldRef("z")},
+                                  {{"hash_count", nullptr, "x", "hash_count"}}));
+  AssertSchemaEqual(
+      schema({field("y", int32()), field("z", int32()), field("hash_count", int64())}),
+      output_schema);
+}
+
 namespace {
 
 using GroupByFunction = std::function<Result<Datum>(

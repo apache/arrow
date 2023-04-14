@@ -1155,6 +1155,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         vector[shared_ptr[CScalar]] value
         int child_id
 
+    cdef cppclass CRunEndEncodedScalar" arrow::RunEndEncodedScalar"(CScalar):
+        shared_ptr[CScalar] value
+
     cdef cppclass CExtensionScalar" arrow::ExtensionScalar"(CScalar):
         CExtensionScalar(shared_ptr[CScalar] storage,
                          shared_ptr[CDataType], c_bool is_valid)
@@ -2617,6 +2620,27 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
         CExtensionArray(shared_ptr[CDataType], shared_ptr[CArray] storage)
 
         shared_ptr[CArray] storage()
+
+
+cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension":
+    cdef cppclass CFixedShapeTensorType \
+            " arrow::extension::FixedShapeTensorType"(CExtensionType):
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,
+                                            const vector[int64_t]& shape,
+                                            const vector[int64_t]& permutation,
+                                            const vector[c_string]& dim_names)
+
+        CResult[shared_ptr[CDataType]] Deserialize(const shared_ptr[CDataType] storage_type,
+                                                   const c_string& serialized_data) const
+
+        c_string Serialize() const
+
+        const shared_ptr[CDataType] value_type()
+        const vector[int64_t] shape()
+        const vector[int64_t] permutation()
+        const vector[c_string] dim_names()
 
 
 cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:

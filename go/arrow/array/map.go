@@ -300,6 +300,10 @@ func (b *MapBuilder) ValueBuilder() Builder {
 	return b.listBuilder.ValueBuilder()
 }
 
+func (b *MapBuilder) AppendValueFromString(s string) error {
+	return arrow.ErrNotImplemented	
+}
+
 func (b *MapBuilder) UnmarshalOne(dec *json.Decoder) error {
 	return b.listBuilder.UnmarshalOne(dec)
 }
