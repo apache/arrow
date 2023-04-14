@@ -879,8 +879,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
           coerce_timestamps_unit_(::arrow::TimeUnit::SECOND),
           truncated_timestamps_allowed_(false),
           store_schema_(false),
-          // TODO: At some point we should flip this.
-          compliant_nested_types_(false),
+          compliant_nested_types_(true),
           engine_version_(V2),
           use_threads_(kArrowDefaultUseThreads),
           executor_(NULLPTR) {}
