@@ -24,15 +24,10 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 )
 
-type arraymarshal interface {
-	arrow.Array
-
-	GetOneForMarshal(i int) interface{}
-}
-
 const (
 	// UnknownNullCount specifies the NullN should be calculated from the null bitmap buffer.
 	UnknownNullCount = -1
+	NullValueStr = "(null)"
 )
 
 type array struct {

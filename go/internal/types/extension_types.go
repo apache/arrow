@@ -122,7 +122,7 @@ type UUIDArray struct {
 	array.ExtensionArrayBase
 }
 
-func (a UUIDArray) ValueString(i int) string {
+func (a UUIDArray) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return "(null)"
 	}
@@ -209,13 +209,13 @@ func (UUIDType) ExtensionName() string { return "uuid" }
 func (UUIDType) Serialize() string { return "uuid-serialized" }
 
 // Deserialize expects storageType to be FixedSizeBinaryType{ByteWidth: 16} and the data to be
-// "uuid-serialized" in order to correctly create a UuidType for testing deserialize.
+// "uuid-serialized" in order to correctly create a UUIDType for testing deserialize.
 func (UUIDType) Deserialize(storageType arrow.DataType, data string) (arrow.ExtensionType, error) {
 	if string(data) != "uuid-serialized" {
 		return nil, fmt.Errorf("type identifier did not match: '%s'", string(data))
 	}
 	if !arrow.TypeEqual(storageType, &arrow.FixedSizeBinaryType{ByteWidth: 16}) {
-		return nil, fmt.Errorf("invalid storage type for UuidType: %s", storageType.Name())
+		return nil, fmt.Errorf("invalid storage type for UUIDType: %s", storageType.Name())
 	}
 	return NewUUIDType(), nil
 }
@@ -235,7 +235,7 @@ type Parametric1Array struct {
 	array.ExtensionArrayBase
 }
 
-func (a Parametric1Array) ValueString(i int) string {
+func (a Parametric1Array) ValueStr(i int) string {
 	arr := a.Storage().(*array.Int32)
 	if a.IsNull(i) {
 		return "(null)"
@@ -250,7 +250,7 @@ type Parametric2Array struct {
 	array.ExtensionArrayBase
 }
 
-func (a Parametric2Array) ValueString(i int) string {
+func (a Parametric2Array) ValueStr(i int) string {
 	arr := a.Storage().(*array.Int32)
 	if a.IsNull(i) {
 		return "(null)"
@@ -258,14 +258,12 @@ func (a Parametric2Array) ValueString(i int) string {
 	return fmt.Sprintf("%d", arr.Value(i))
 }
 
-
 // A type where ExtensionName is always the same
 type Parametric1Type struct {
 	arrow.ExtensionBase
 
 	param int32
 }
-
 
 func NewParametric1Type(p int32) *Parametric1Type {
 	ret := &Parametric1Type{param: p}
@@ -370,7 +368,7 @@ type ExtStructArray struct {
 	array.ExtensionArrayBase
 }
 
-func (a ExtStructArray) ValueString(i int) string {
+func (a ExtStructArray) ValueStr(i int) string {
 	arr := a.Storage().(*array.Struct)
 	if a.IsNull(i) {
 		return "(null)"
@@ -427,7 +425,7 @@ type DictExtensionArray struct {
 	array.ExtensionArrayBase
 }
 
-func (a DictExtensionArray) ValueString(i int) string {
+func (a DictExtensionArray) ValueStr(i int) string {
 	arr := a.Storage().(*array.Dictionary)
 	if a.IsNull(i) {
 		return "(null)"
@@ -478,7 +476,7 @@ type SmallintArray struct {
 	array.ExtensionArrayBase
 }
 
-func (a SmallintArray) ValueString(i int) string {
+func (a SmallintArray) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return "(null)"
 	}
@@ -516,13 +514,11 @@ func (SmallintType) Deserialize(storageType arrow.DataType, data string) (arrow.
 }
 
 var (
-	_ arrow.ExtensionType  = (*UUIDType)(nil)
 	_ arrow.ExtensionType  = (*Parametric1Type)(nil)
 	_ arrow.ExtensionType  = (*Parametric2Type)(nil)
 	_ arrow.ExtensionType  = (*ExtStructType)(nil)
 	_ arrow.ExtensionType  = (*DictExtensionType)(nil)
 	_ arrow.ExtensionType  = (*SmallintType)(nil)
-	_ array.ExtensionArray = (*UUIDArray)(nil)
 	_ array.ExtensionArray = (*Parametric1Array)(nil)
 	_ array.ExtensionArray = (*Parametric2Array)(nil)
 	_ array.ExtensionArray = (*ExtStructArray)(nil)

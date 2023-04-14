@@ -118,6 +118,11 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
     set(ARROW_PACKAGE_PREFIX $ENV{CONDA_PREFIX})
   endif()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
+  # GoogleTest provided by conda can't be used on macOS because it's
+  # built with C++14. So we accept auto fallback only for GoogleTest.
+  if("${GTest_SOURCE}" STREQUAL "")
+    set(GTest_SOURCE "AUTO")
+  endif()
   message(STATUS "Using CONDA_PREFIX for ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
 else()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE}")

@@ -22,7 +22,9 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/flight"
+	"github.com/apache/arrow/go/v12/arrow/ipc"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/types"
 	"github.com/apache/arrow/go/v12/parquet"
 	"github.com/apache/arrow/go/v12/parquet/metadata"
 	"github.com/apache/arrow/go/v12/parquet/pqarrow"
@@ -32,13 +34,20 @@ import (
 )
 
 func TestGetOriginSchemaBase64(t *testing.T) {
+	uuidType := types.NewUUIDType()
 	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
+	extMd := arrow.NewMetadata([]string{ipc.ExtensionMetadataKeyName, ipc.ExtensionTypeKeyName, "PARQUET:field_id"}, []string{uuidType.Serialize(), uuidType.ExtensionName(), "-1"})
 	origArrSc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
 		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
+		{Name: "uuid", Type: uuidType, Metadata: extMd},
 	}, nil)
 
 	arrSerializedSc := flight.SerializeSchema(origArrSc, memory.DefaultAllocator)
+	if err := arrow.RegisterExtensionType(uuidType); err != nil {
+		t.Fatal(err)
+	}
+	defer arrow.UnregisterExtensionType(uuidType.ExtensionName())
 	pqschema, err := pqarrow.ToParquet(origArrSc, nil, pqarrow.DefaultWriterProps())
 	require.NoError(t, err)
 
@@ -59,6 +68,40 @@ func TestGetOriginSchemaBase64(t *testing.T) {
 			assert.True(t, origArrSc.Equal(arrsc))
 		})
 	}
+}
+
+func TestGetOriginSchemaUnregisteredExtension(t *testing.T) {
+	uuidType := types.NewUUIDType()
+	if err := arrow.RegisterExtensionType(uuidType); err != nil {
+		t.Fatal(err)
+	}
+
+	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
+	origArrSc := arrow.NewSchema([]arrow.Field{
+		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
+		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
+		{Name: "uuid", Type: uuidType, Metadata: md},
+	}, nil)
+	pqschema, err := pqarrow.ToParquet(origArrSc, nil, pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+
+	arrSerializedSc := flight.SerializeSchema(origArrSc, memory.DefaultAllocator)
+	kv := metadata.NewKeyValueMetadata()
+	kv.Append("ARROW:schema", base64.StdEncoding.EncodeToString(arrSerializedSc))
+
+	arrow.UnregisterExtensionType(uuidType.ExtensionName())
+	arrsc, err := pqarrow.FromParquet(pqschema, nil, kv)
+	require.NoError(t, err)
+
+	extMd := arrow.NewMetadata([]string{ipc.ExtensionMetadataKeyName, ipc.ExtensionTypeKeyName, "PARQUET:field_id"},
+		[]string{uuidType.Serialize(), uuidType.ExtensionName(), "-1"})
+	expArrSc := arrow.NewSchema([]arrow.Field{
+		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
+		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
+		{Name: "uuid", Type: uuidType.StorageType(), Metadata: extMd},
+	}, nil)
+
+	assert.Truef(t, expArrSc.Equal(arrsc), "expected: %s\ngot: %s", expArrSc, arrsc)
 }
 
 func TestToParquetWriterConfig(t *testing.T) {

@@ -27,8 +27,8 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/bitutil"
 	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -1173,7 +1173,7 @@ func TestDictionaryGetValueIndex(t *testing.T) {
 			const offset = 1
 			slicedDictArr := array.NewSlice(dictArr, offset, int64(dictArr.Len()))
 			defer slicedDictArr.Release()
-
+			assert.EqualValues(t, "10", slicedDictArr.(*array.Dictionary).ValueStr(0))
 			for i := 0; i < indices.Len(); i++ {
 				assert.EqualValues(t, i64Index.Value(i), dictArr.GetValueIndex(i))
 				if i < slicedDictArr.Len() {

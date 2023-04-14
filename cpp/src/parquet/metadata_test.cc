@@ -21,6 +21,7 @@
 
 #include "arrow/util/key_value_metadata.h"
 #include "parquet/file_reader.h"
+#include "parquet/file_writer.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/test_util.h"
@@ -284,14 +285,60 @@ TEST(Metadata, TestKeyValueMetadata) {
   auto kvmeta = std::make_shared<KeyValueMetadata>();
   kvmeta->Append("test_key", "test_value");
 
-  auto f_builder = FileMetaDataBuilder::Make(&schema, props, kvmeta);
+  auto f_builder = FileMetaDataBuilder::Make(&schema, props);
 
   // Read the metadata
-  auto f_accessor = f_builder->Finish();
+  auto f_accessor = f_builder->Finish(kvmeta);
 
   // Key value metadata
   ASSERT_TRUE(f_accessor->key_value_metadata());
   EXPECT_TRUE(f_accessor->key_value_metadata()->Equals(*kvmeta));
+}
+
+TEST(Metadata, TestAddKeyValueMetadata) {
+  schema::NodeVector fields;
+  fields.push_back(schema::Int32("int_col", Repetition::REQUIRED));
+  auto schema = std::static_pointer_cast<schema::GroupNode>(
+      schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  auto kv_meta = std::make_shared<KeyValueMetadata>();
+  kv_meta->Append("test_key_1", "test_value_1");
+  kv_meta->Append("test_key_2", "test_value_2_");
+
+  auto sink = CreateOutputStream();
+  auto writer_props = parquet::WriterProperties::Builder().disable_dictionary()->build();
+  auto file_writer =
+      parquet::ParquetFileWriter::Open(sink, schema, writer_props, kv_meta);
+
+  // Key value metadata that will be added to the file.
+  auto kv_meta_added = std::make_shared<KeyValueMetadata>();
+  kv_meta_added->Append("test_key_2", "test_value_2");
+  kv_meta_added->Append("test_key_3", "test_value_3");
+
+  file_writer->AddKeyValueMetadata(kv_meta_added);
+  file_writer->Close();
+
+  // Throw if appending key value metadata to closed file.
+  auto kv_meta_ignored = std::make_shared<KeyValueMetadata>();
+  kv_meta_ignored->Append("test_key_4", "test_value_4");
+  EXPECT_THROW(file_writer->AddKeyValueMetadata(kv_meta_ignored), ParquetException);
+
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+
+  ASSERT_NE(nullptr, file_reader->metadata());
+  ASSERT_NE(nullptr, file_reader->metadata()->key_value_metadata());
+  auto read_kv_meta = file_reader->metadata()->key_value_metadata();
+
+  // Verify keys that were added before file writer was closed are present.
+  for (int i = 1; i <= 3; ++i) {
+    auto index = std::to_string(i);
+    PARQUET_ASSIGN_OR_THROW(auto value, read_kv_meta->Get("test_key_" + index));
+    EXPECT_EQ("test_value_" + index, value);
+  }
+  // Verify keys that were added after file writer was closed are not present.
+  EXPECT_FALSE(read_kv_meta->Contains("test_key_4"));
 }
 
 TEST(Metadata, TestHasBloomFilter) {

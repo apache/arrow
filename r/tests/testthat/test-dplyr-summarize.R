@@ -616,17 +616,21 @@ test_that("min() and max() on character strings", {
       collect(),
     tbl,
   )
-  compare_dplyr_binding(
-    .input %>%
-      group_by(fct) %>%
-      summarize(
-        min_chr = min(chr, na.rm = TRUE),
-        max_chr = max(chr, na.rm = TRUE)
-      ) %>%
-      arrange(min_chr) %>%
-      collect(),
-    tbl,
-  )
+  withr::with_options(list(arrow.summarise.sort = FALSE), {
+    # TODO(#29887 / ARROW-14313) sorting on dictionary columns not supported
+    # so turn off arrow.summarise.sort so that we don't order_by fct after summarize
+    compare_dplyr_binding(
+      .input %>%
+        group_by(fct) %>%
+        summarize(
+          min_chr = min(chr, na.rm = TRUE),
+          max_chr = max(chr, na.rm = TRUE)
+        ) %>%
+        arrange(min_chr) %>%
+        collect(),
+      tbl,
+    )
+  })
 })
 
 test_that("summarise() with !!sym()", {

@@ -23,6 +23,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFixedSizeListArray(t *testing.T) {
@@ -171,6 +172,8 @@ func TestFixedSizeListArrayStringer(t *testing.T) {
 	if got, want := arr.String(), want; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
+	assert.Equal(t, "[0,1,2]", arr.ValueStr(0))
+	assert.Equal(t, "(null)", arr.ValueStr(1))
 }
 
 func TestFixedSizeListArraySlice(t *testing.T) {

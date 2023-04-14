@@ -41,7 +41,13 @@ try:
     import pyarrow.dataset as ds
     from pyarrow._dataset import ScanNodeOptions
 except ImportError:
-    ds = None
+    class DatasetModuleStub:
+        class Dataset:
+            pass
+
+        class InMemoryDataset:
+            pass
+    ds = DatasetModuleStub
 
 
 def _dataset_to_decl(dataset, use_threads=True):

@@ -426,6 +426,355 @@ class PageIndexReaderImpl : public PageIndexReader {
   std::unordered_map<int32_t, RowGroupIndexReadRange> index_read_ranges_;
 };
 
+/// \brief Internal state of page index builder.
+enum class BuilderState {
+  /// Created but not yet write any data.
+  kCreated,
+  /// Some data are written but not yet finished.
+  kStarted,
+  /// All data are written and no more write is allowed.
+  kFinished,
+  /// The builder has corrupted data or empty data and therefore discarded.
+  kDiscarded
+};
+
+template <typename DType>
+class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
+ public:
+  using T = typename DType::c_type;
+
+  explicit ColumnIndexBuilderImpl(const ColumnDescriptor* descr) : descr_(descr) {
+    /// Initialize the null_counts vector as set. Invalid null_counts vector from
+    /// any page will invalidate the null_counts vector of the column index.
+    column_index_.__isset.null_counts = true;
+    column_index_.boundary_order = format::BoundaryOrder::UNORDERED;
+  }
+
+  void AddPage(const EncodedStatistics& stats) override {
+    if (state_ == BuilderState::kFinished) {
+      throw ParquetException("Cannot add page to finished ColumnIndexBuilder.");
+    } else if (state_ == BuilderState::kDiscarded) {
+      /// The offset index is discarded. Do nothing.
+      return;
+    }
+
+    state_ = BuilderState::kStarted;
+
+    if (stats.all_null_value) {
+      column_index_.null_pages.emplace_back(true);
+      column_index_.min_values.emplace_back("");
+      column_index_.max_values.emplace_back("");
+    } else if (stats.has_min && stats.has_max) {
+      const size_t page_ordinal = column_index_.null_pages.size();
+      non_null_page_indices_.emplace_back(page_ordinal);
+      column_index_.min_values.emplace_back(stats.min());
+      column_index_.max_values.emplace_back(stats.max());
+      column_index_.null_pages.emplace_back(false);
+    } else {
+      /// This is a non-null page but it lacks of meaningful min/max values.
+      /// Discard the column index.
+      state_ = BuilderState::kDiscarded;
+      return;
+    }
+
+    if (column_index_.__isset.null_counts && stats.has_null_count) {
+      column_index_.null_counts.emplace_back(stats.null_count);
+    } else {
+      column_index_.__isset.null_counts = false;
+      column_index_.null_counts.clear();
+    }
+  }
+
+  void Finish() override {
+    switch (state_) {
+      case BuilderState::kCreated: {
+        /// No page is added. Discard the column index.
+        state_ = BuilderState::kDiscarded;
+        return;
+      }
+      case BuilderState::kFinished:
+        throw ParquetException("ColumnIndexBuilder is already finished.");
+      case BuilderState::kDiscarded:
+        // The column index is discarded. Do nothing.
+        return;
+      case BuilderState::kStarted:
+        break;
+    }
+
+    state_ = BuilderState::kFinished;
+
+    /// Clear null_counts vector because at least one page does not provide it.
+    if (!column_index_.__isset.null_counts) {
+      column_index_.null_counts.clear();
+    }
+
+    /// Decode min/max values according to the data type.
+    const size_t non_null_page_count = non_null_page_indices_.size();
+    std::vector<T> min_values, max_values;
+    min_values.resize(non_null_page_count);
+    max_values.resize(non_null_page_count);
+    auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
+    for (size_t i = 0; i < non_null_page_count; ++i) {
+      auto page_ordinal = non_null_page_indices_.at(i);
+      Decode<DType>(decoder, column_index_.min_values.at(page_ordinal), &min_values, i);
+      Decode<DType>(decoder, column_index_.max_values.at(page_ordinal), &max_values, i);
+    }
+
+    /// Decide the boundary order from decoded min/max values.
+    auto boundary_order = DetermineBoundaryOrder(min_values, max_values);
+    column_index_.__set_boundary_order(ToThrift(boundary_order));
+  }
+
+  void WriteTo(::arrow::io::OutputStream* sink) const override {
+    if (state_ == BuilderState::kFinished) {
+      ThriftSerializer{}.Serialize(&column_index_, sink);
+    }
+  }
+
+  std::unique_ptr<ColumnIndex> Build() const override {
+    if (state_ == BuilderState::kFinished) {
+      return std::make_unique<TypedColumnIndexImpl<DType>>(*descr_, column_index_);
+    }
+    return nullptr;
+  }
+
+ private:
+  BoundaryOrder::type DetermineBoundaryOrder(const std::vector<T>& min_values,
+                                             const std::vector<T>& max_values) const {
+    DCHECK_EQ(min_values.size(), max_values.size());
+    if (min_values.empty()) {
+      return BoundaryOrder::Unordered;
+    }
+
+    std::shared_ptr<TypedComparator<DType>> comparator;
+    try {
+      comparator = MakeComparator<DType>(descr_);
+    } catch (const ParquetException&) {
+      /// Simply return unordered for unsupported comparator.
+      return BoundaryOrder::Unordered;
+    }
+
+    /// Check if both min_values and max_values are in ascending order.
+    bool is_ascending = true;
+    for (size_t i = 1; i < min_values.size(); ++i) {
+      if (comparator->Compare(min_values[i], min_values[i - 1]) ||
+          comparator->Compare(max_values[i], max_values[i - 1])) {
+        is_ascending = false;
+        break;
+      }
+    }
+    if (is_ascending) {
+      return BoundaryOrder::Ascending;
+    }
+
+    /// Check if both min_values and max_values are in descending order.
+    bool is_descending = true;
+    for (size_t i = 1; i < min_values.size(); ++i) {
+      if (comparator->Compare(min_values[i - 1], min_values[i]) ||
+          comparator->Compare(max_values[i - 1], max_values[i])) {
+        is_descending = false;
+        break;
+      }
+    }
+    if (is_descending) {
+      return BoundaryOrder::Descending;
+    }
+
+    /// Neither ascending nor descending is detected.
+    return BoundaryOrder::Unordered;
+  }
+
+  const ColumnDescriptor* descr_;
+  format::ColumnIndex column_index_;
+  std::vector<size_t> non_null_page_indices_;
+  BuilderState state_ = BuilderState::kCreated;
+};
+
+class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
+ public:
+  OffsetIndexBuilderImpl() = default;
+
+  void AddPage(int64_t offset, int32_t compressed_page_size,
+               int64_t first_row_index) override {
+    if (state_ == BuilderState::kFinished) {
+      throw ParquetException("Cannot add page to finished OffsetIndexBuilder.");
+    } else if (state_ == BuilderState::kDiscarded) {
+      /// The offset index is discarded. Do nothing.
+      return;
+    }
+
+    state_ = BuilderState::kStarted;
+
+    format::PageLocation page_location;
+    page_location.__set_offset(offset);
+    page_location.__set_compressed_page_size(compressed_page_size);
+    page_location.__set_first_row_index(first_row_index);
+    offset_index_.page_locations.emplace_back(std::move(page_location));
+  }
+
+  void Finish(int64_t final_position) override {
+    switch (state_) {
+      case BuilderState::kCreated: {
+        /// No pages are added. Simply discard the offset index.
+        state_ = BuilderState::kDiscarded;
+        break;
+      }
+      case BuilderState::kStarted: {
+        /// Adjust page offsets according the final position.
+        if (final_position > 0) {
+          for (auto& page_location : offset_index_.page_locations) {
+            page_location.__set_offset(page_location.offset + final_position);
+          }
+        }
+        state_ = BuilderState::kFinished;
+        break;
+      }
+      case BuilderState::kFinished:
+      case BuilderState::kDiscarded:
+        throw ParquetException("OffsetIndexBuilder is already finished");
+    }
+  }
+
+  void WriteTo(::arrow::io::OutputStream* sink) const override {
+    if (state_ == BuilderState::kFinished) {
+      ThriftSerializer{}.Serialize(&offset_index_, sink);
+    }
+  }
+
+  std::unique_ptr<OffsetIndex> Build() const override {
+    if (state_ == BuilderState::kFinished) {
+      return std::make_unique<OffsetIndexImpl>(offset_index_);
+    }
+    return nullptr;
+  }
+
+ private:
+  format::OffsetIndex offset_index_;
+  BuilderState state_ = BuilderState::kCreated;
+};
+
+class PageIndexBuilderImpl final : public PageIndexBuilder {
+ public:
+  explicit PageIndexBuilderImpl(const SchemaDescriptor* schema) : schema_(schema) {}
+
+  void AppendRowGroup() override {
+    if (finished_) {
+      throw ParquetException(
+          "Cannot call AppendRowGroup() to finished PageIndexBuilder.");
+    }
+
+    // Append new builders of next row group.
+    const auto num_columns = static_cast<size_t>(schema_->num_columns());
+    column_index_builders_.emplace_back();
+    offset_index_builders_.emplace_back();
+    column_index_builders_.back().resize(num_columns);
+    offset_index_builders_.back().resize(num_columns);
+
+    DCHECK_EQ(column_index_builders_.size(), offset_index_builders_.size());
+    DCHECK_EQ(column_index_builders_.back().size(), num_columns);
+    DCHECK_EQ(offset_index_builders_.back().size(), num_columns);
+  }
+
+  ColumnIndexBuilder* GetColumnIndexBuilder(int32_t i) override {
+    CheckState(i);
+    std::unique_ptr<ColumnIndexBuilder>& builder = column_index_builders_.back()[i];
+    if (builder == nullptr) {
+      builder = ColumnIndexBuilder::Make(schema_->Column(i));
+    }
+    return builder.get();
+  }
+
+  OffsetIndexBuilder* GetOffsetIndexBuilder(int32_t i) override {
+    CheckState(i);
+    std::unique_ptr<OffsetIndexBuilder>& builder = offset_index_builders_.back()[i];
+    if (builder == nullptr) {
+      builder = OffsetIndexBuilder::Make();
+    }
+    return builder.get();
+  }
+
+  void Finish() override { finished_ = true; }
+
+  void WriteTo(::arrow::io::OutputStream* sink,
+               PageIndexLocation* location) const override {
+    if (!finished_) {
+      throw ParquetException("Cannot call WriteTo() to unfinished PageIndexBuilder.");
+    }
+
+    location->column_index_location.clear();
+    location->offset_index_location.clear();
+
+    /// Serialize column index ordered by row group ordinal and then column ordinal.
+    SerializeIndex(column_index_builders_, sink, &location->column_index_location);
+
+    /// Serialize offset index ordered by row group ordinal and then column ordinal.
+    SerializeIndex(offset_index_builders_, sink, &location->offset_index_location);
+  }
+
+ private:
+  /// Make sure column ordinal is not out of bound and the builder is in good state.
+  void CheckState(int32_t column_ordinal) const {
+    if (finished_) {
+      throw ParquetException("PageIndexBuilder is already finished.");
+    }
+    if (column_ordinal < 0 || column_ordinal >= schema_->num_columns()) {
+      throw ParquetException("Invalid column ordinal: ", column_ordinal);
+    }
+    if (offset_index_builders_.empty() || column_index_builders_.empty()) {
+      throw ParquetException("No row group appended to PageIndexBuilder.");
+    }
+  }
+
+  template <typename Builder>
+  void SerializeIndex(
+      const std::vector<std::vector<std::unique_ptr<Builder>>>& page_index_builders,
+      ::arrow::io::OutputStream* sink,
+      std::map<size_t, std::vector<std::optional<IndexLocation>>>* location) const {
+    const auto num_columns = static_cast<size_t>(schema_->num_columns());
+
+    /// Serialize the same kind of page index row group by row group.
+    for (size_t row_group = 0; row_group < page_index_builders.size(); ++row_group) {
+      const auto& row_group_page_index_builders = page_index_builders[row_group];
+      DCHECK_EQ(row_group_page_index_builders.size(), num_columns);
+
+      bool has_valid_index = false;
+      std::vector<std::optional<IndexLocation>> locations(num_columns, std::nullopt);
+
+      /// In the same row group, serialize the same kind of page index column by column.
+      for (size_t column = 0; column < num_columns; ++column) {
+        const auto& column_page_index_builder = row_group_page_index_builders[column];
+        if (column_page_index_builder != nullptr) {
+          /// Try serializing the page index.
+          PARQUET_ASSIGN_OR_THROW(int64_t pos_before_write, sink->Tell());
+          column_page_index_builder->WriteTo(sink);
+          PARQUET_ASSIGN_OR_THROW(int64_t pos_after_write, sink->Tell());
+          int64_t len = pos_after_write - pos_before_write;
+
+          /// The page index is not serialized and skip reporting its location
+          if (len == 0) {
+            continue;
+          }
+
+          if (len > std::numeric_limits<int32_t>::max()) {
+            throw ParquetException("Page index size overflows to INT32_MAX");
+          }
+          locations[column] = {pos_before_write, static_cast<int32_t>(len)};
+          has_valid_index = true;
+        }
+      }
+
+      if (has_valid_index) {
+        location->emplace(row_group, std::move(locations));
+      }
+    }
+  }
+
+  const SchemaDescriptor* schema_;
+  std::vector<std::vector<std::unique_ptr<ColumnIndexBuilder>>> column_index_builders_;
+  std::vector<std::vector<std::unique_ptr<OffsetIndexBuilder>>> offset_index_builders_;
+  bool finished_ = false;
+};
+
 }  // namespace
 
 RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
@@ -529,6 +878,46 @@ std::shared_ptr<PageIndexReader> PageIndexReader::Make(
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   return std::make_shared<PageIndexReaderImpl>(input, file_metadata, properties,
                                                std::move(file_decryptor));
+}
+
+std::unique_ptr<ColumnIndexBuilder> ColumnIndexBuilder::Make(
+    const ColumnDescriptor* descr) {
+  switch (descr->physical_type()) {
+    case Type::BOOLEAN:
+      return std::make_unique<ColumnIndexBuilderImpl<BooleanType>>(descr);
+    case Type::INT32:
+      return std::make_unique<ColumnIndexBuilderImpl<Int32Type>>(descr);
+    case Type::INT64:
+      return std::make_unique<ColumnIndexBuilderImpl<Int64Type>>(descr);
+    case Type::INT96:
+      return std::make_unique<ColumnIndexBuilderImpl<Int96Type>>(descr);
+    case Type::FLOAT:
+      return std::make_unique<ColumnIndexBuilderImpl<FloatType>>(descr);
+    case Type::DOUBLE:
+      return std::make_unique<ColumnIndexBuilderImpl<DoubleType>>(descr);
+    case Type::BYTE_ARRAY:
+      return std::make_unique<ColumnIndexBuilderImpl<ByteArrayType>>(descr);
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      return std::make_unique<ColumnIndexBuilderImpl<FLBAType>>(descr);
+    case Type::UNDEFINED:
+      return nullptr;
+  }
+  ::arrow::Unreachable("Cannot make ColumnIndexBuilder of an unknown type");
+  return nullptr;
+}
+
+std::unique_ptr<OffsetIndexBuilder> OffsetIndexBuilder::Make() {
+  return std::make_unique<OffsetIndexBuilderImpl>();
+}
+
+std::unique_ptr<PageIndexBuilder> PageIndexBuilder::Make(const SchemaDescriptor* schema) {
+  return std::make_unique<PageIndexBuilderImpl>(schema);
+}
+
+std::ostream& operator<<(std::ostream& out, const PageIndexSelection& selection) {
+  out << "PageIndexSelection{column_index = " << selection.column_index
+      << ", offset_index = " << selection.offset_index << "}";
+  return out;
 }
 
 }  // namespace parquet

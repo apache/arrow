@@ -404,6 +404,12 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// {i} will be replaced by an auto incremented integer.
   std::string basename_template;
 
+  /// A functor which will be applied on an incremented counter.  The result will be
+  /// inserted into the basename_template in place of {i}.
+  ///
+  /// This can be used, for example, to left-pad the file counter.
+  std::function<std::string(int)> basename_template_functor;
+
   /// If greater than 0 then this will limit the maximum number of files that can be left
   /// open. If an attempt is made to open too many files then the least recently used file
   /// will be closed.  If this setting is set too low you may end up fragmenting your data

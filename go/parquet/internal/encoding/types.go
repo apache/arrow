@@ -339,6 +339,12 @@ func (b *BufferWriter) Finish() *memory.Buffer {
 	return buf
 }
 
+// Release the underlying buffer and not allocate anything else. To re-use this buffer, Reset() or Finish() should be called
+func (b *BufferWriter) Release() {
+	b.buffer.Release()
+	b.buffer = nil
+}
+
 func (b *BufferWriter) Truncate() {
 	b.pos = 0
 	b.offset = 0

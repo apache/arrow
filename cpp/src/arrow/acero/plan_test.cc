@@ -1640,7 +1640,7 @@ TEST(ExecPlanExecution, SegmentedAggregationWithOneSegment) {
                        DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
 
   auto expected = ExecBatchFromJSON({int32(), int32(), int64(), float64()},
-                                    R"([[1, 1, 6, 2], [2, 1, 6, 2]])");
+                                    R"([[1, 1, 6, 2], [1, 2, 6, 2]])");
   AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
                                       {expected});
 }
@@ -1670,7 +1670,7 @@ TEST(ExecPlanExecution, SegmentedAggregationWithTwoSegments) {
 
   auto expected = ExecBatchFromJSON(
       {int32(), int32(), int64(), float64()},
-      R"([[1, 1, 3, 1.5], [2, 1, 1, 1], [1, 2, 3, 3], [2, 2, 5, 2.5]])");
+      R"([[1, 1, 3, 1.5], [1, 2, 1, 1], [2, 1, 3, 3], [2, 2, 5, 2.5]])");
   AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
                                       {expected});
 }

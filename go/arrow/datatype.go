@@ -286,6 +286,16 @@ func IsUnsignedInteger(t Type) bool {
 	return false
 }
 
+// IsSignedInteger is a helper that returns true if the type ID provided is
+// one of the int integral types (int8, int16, int32, int64)
+func IsSignedInteger(t Type) bool {
+	switch t {
+	case INT8, INT16, INT32, INT64:
+		return true
+	}
+	return false
+}
+
 // IsFloating is a helper that returns true if the type ID provided is
 // one of Float16, Float32, or Float64
 func IsFloating(t Type) bool {

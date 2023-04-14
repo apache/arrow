@@ -232,8 +232,7 @@ Status RunEndEncodedBuilder::DoAppendArray(const ArraySpan& to_append) {
   RETURN_NOT_OK(ReservePhysical(physical_length));
 
   // Append all the run ends from to_append
-  const auto end = ree_span.end();
-  for (auto it = ree_span.iterator(0, physical_offset); it != end; ++it) {
+  for (auto it = ree_span.iterator(0, physical_offset); !it.is_end(ree_span); ++it) {
     const int64_t run_end = committed_logical_length_ + it.run_length();
     RETURN_NOT_OK(DoAppendRunEnd<RunEndCType>(run_end));
     UpdateDimensions(run_end, 0);

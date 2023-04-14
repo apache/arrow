@@ -55,7 +55,9 @@ TEST(CXX_STANDARD, MatcherStringView) {
               LINK_LIBRARIES GTest::gtest_main)
   set(CMAKE_TRY_COMPILE_TARGET_TYPE ${KEEP_CMAKE_TRY_COMPILE_TARGET_TYPE})
   if(NOT GTestAlt_CXX_STANDARD_AVAILABLE)
-    message(STATUS "GTest can't be used with ${CMAKE_CXX_STANDARD}")
-    set(GTestAlt_FOUND FALSE)
+    message(STATUS "GTest can't be used with C++${CMAKE_CXX_STANDARD}. Use -DGTest_SOURCE=BUNDLED."
+    )
+    find_package_handle_standard_args(GTestAlt
+                                      REQUIRED_VARS GTestAlt_CXX_STANDARD_AVAILABLE)
   endif()
 endif()
