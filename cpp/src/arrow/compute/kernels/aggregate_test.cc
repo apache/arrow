@@ -1502,6 +1502,77 @@ TEST(TestNullMeanKernel, Basics) {
 }
 
 //
+// First / Last
+//
+
+template <typename ArrowType>
+class TestPrimitiveFirstLastKernel : public ::testing::Test {
+  using Traits = TypeTraits<ArrowType>;
+  using ArrayType = typename Traits::ArrayType;
+  using c_type = typename ArrowType::c_type;
+  using ScalarType = typename Traits::ScalarType;
+
+ public:
+  void AssertFirstLastIs(const Datum& array, c_type expected_first, c_type expected_last,
+                         const ScalarAggregateOptions& options) {
+    ASSERT_OK_AND_ASSIGN(Datum out, FirstLast(array, options));
+    const StructScalar& value = out.scalar_as<StructScalar>();
+
+    {
+      const auto& out_first = checked_cast<const ScalarType&>(*value.value[0]);
+      ASSERT_EQ(expected_first, out_first.value);
+
+      const auto& out_last = checked_cast<const ScalarType&>(*value.value[1]);
+      ASSERT_EQ(expected_last, out_last.value);
+    }
+
+    {
+      ASSERT_OK_AND_ASSIGN(out, CallFunction("first", {array}, &options));
+      const auto& out_first = out.scalar_as<ScalarType>();
+      ASSERT_EQ(expected_first, out_first.value);
+
+      ASSERT_OK_AND_ASSIGN(out, CallFunction("last", {array}, &options));
+      const auto& out_last = out.scalar_as<ScalarType>();
+      ASSERT_EQ(expected_last, out_last.value);
+    }
+  }
+
+  void AssertFirstLastIs(const std::string& json, c_type expected_first,
+                         c_type expected_last, const ScalarAggregateOptions& options) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertFirstLastIs(array, expected_first, expected_last, options);
+  }
+
+  void AssertFirstLastIs(const std::vector<std::string>& json, c_type expected_min,
+                         c_type expected_max, const ScalarAggregateOptions& options) {
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertFirstLastIs(array, expected_min, expected_max, options);
+  }
+
+  std::shared_ptr<DataType> type_singleton() {
+    return default_type_instance<ArrowType>();
+  }
+};
+
+template <typename ArrowType>
+class TestIntegerFirstLastKernel : public TestPrimitiveFirstLastKernel<ArrowType> {};
+
+template <typename ArrowType>
+class TestFloatingFirstLastKernel : public TestPrimitiveFirstLastKernel<ArrowType> {};
+
+TYPED_TEST_SUITE(TestPrimitiveFirstLastKernel, PrimitiveArrowTypes);
+TYPED_TEST(TestPrimitiveFirstLastKernel, Basics) {
+  ScalarAggregateOptions options;
+  std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 8, null, 3, 4]"};
+  auto item_ty = default_type_instance<TypeParam>();
+  auto ty = struct_({field("first", item_ty), field("last", item_ty)});
+
+  this->AssertFirstLastIs("[5, 1, 2, 3, 4]", 5, 4, options);
+  this->AssertFirstLastIs("[5, null, 2, 3, null]", 5, 3, options);
+  this->AssertFirstLastIs(chunked_input1, 5, 4, options);
+}
+
+//
 // Min / Max
 //
 

@@ -402,7 +402,7 @@ Result<Datum> RunGroupBy(const BatchesWithSchema& input,
                          const std::vector<std::string>& segment_key_names,
                          const std::vector<Aggregate>& aggregates, bool use_threads,
                          bool segmented = false, bool naive = false) {
-  if (segment_key_names.size() > 0) {
+  if (!use_threads) {
     ARROW_ASSIGN_OR_RAISE(auto thread_pool, arrow::internal::ThreadPool::Make(1));
     ExecContext seq_ctx(default_memory_pool(), thread_pool.get());
     return RunGroupBy(input, key_names, segment_key_names, aggregates, &seq_ctx,

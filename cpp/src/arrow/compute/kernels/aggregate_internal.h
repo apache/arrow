@@ -110,11 +110,11 @@ enum class MinOrMax : uint8_t { Min = 0, Max };
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func,
-                  SimdLevel::type simd_level = SimdLevel::NONE);
+                  SimdLevel::type simd_level = SimdLevel::NONE, bool ordered = false);
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFinalize finalize, ScalarAggregateFunction* func,
-                  SimdLevel::type simd_level = SimdLevel::NONE);
+                  SimdLevel::type simd_level = SimdLevel::NONE, bool ordered = false);
 
 using arrow::internal::VisitSetBitRunsVoid;
 

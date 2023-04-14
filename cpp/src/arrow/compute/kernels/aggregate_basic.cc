@@ -46,9 +46,10 @@ Status AggregateFinalize(KernelContext* ctx, Datum* out) {
 }  // namespace
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
-                  ScalarAggregateFunction* func, SimdLevel::type simd_level) {
+                  ScalarAggregateFunction* func, SimdLevel::type simd_level,
+                  const bool ordered) {
   ScalarAggregateKernel kernel(std::move(sig), std::move(init), AggregateConsume,
-                               AggregateMerge, AggregateFinalize);
+                               AggregateMerge, AggregateFinalize, ordered);
   // Set the simd level
   kernel.simd_level = simd_level;
   DCHECK_OK(func->AddKernel(std::move(kernel)));
@@ -56,9 +57,9 @@ void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFinalize finalize, ScalarAggregateFunction* func,
-                  SimdLevel::type simd_level) {
+                  SimdLevel::type simd_level, const bool ordered) {
   ScalarAggregateKernel kernel(std::move(sig), std::move(init), AggregateConsume,
-                               AggregateMerge, std::move(finalize));
+                               AggregateMerge, std::move(finalize), ordered);
   // Set the simd level
   kernel.simd_level = simd_level;
   DCHECK_OK(func->AddKernel(std::move(kernel)));
@@ -475,9 +476,8 @@ void AddFirstOrLastAggKernel(ScalarAggregateFunction* func,
     return Status::OK();
   };
 
-  // Note SIMD level is always NONE, but the convenience kernel will
-  // dispatch to an appropriate implementation
-  AddAggKernel(std::move(sig), std::move(init), std::move(finalize), func);
+  AddAggKernel(std::move(sig), std::move(init), std::move(finalize), func,
+               SimdLevel::NONE, /*ordered*/ true);
 }
 
 // ----------------------------------------------------------------------
@@ -889,9 +889,9 @@ void AddFirstLastKernel(KernelInit init, internal::detail::GetTypeId get_id,
 
 void AddFirstLastKernels(KernelInit init,
                          const std::vector<std::shared_ptr<DataType>>& types,
-                         ScalarAggregateFunction* func, SimdLevel::type simd_level) {
+                         ScalarAggregateFunction* func) {
   for (const auto& ty : types) {
-    AddFirstLastKernel(init, ty, func, simd_level);
+    AddFirstLastKernel(init, ty, func, SimdLevel::NONE);
   }
 }
 
@@ -1081,7 +1081,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
       "first_last", Arity::Unary(), first_last_doc, &default_scalar_aggregate_options);
   auto first_last_func = func.get();
 
-  AddFirstLastKernels(FirstLastInit, NumericTypes(), func.get(), SimdLevel::NONE);
+  AddFirstLastKernels(FirstLastInit, {boolean()}, func.get());
+  AddFirstLastKernels(FirstLastInit, PrimitiveTypes(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // Add first/last as convience functions

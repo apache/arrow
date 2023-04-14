@@ -294,6 +294,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       ExecContext* exec_ctx, size_t concurrency) {
     // Copy (need to modify options pointer below)
     std::vector<Aggregate> aggregates(aggs);
+
     std::vector<int> segment_field_ids(segment_keys.size());
     std::vector<TypeHolder> segment_key_types(segment_keys.size());
     for (size_t i = 0; i < segment_keys.size(); i++) {
@@ -350,7 +351,14 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       kernel_intypes[i] = in_types;
       ARROW_ASSIGN_OR_RAISE(const Kernel* kernel,
                             function->DispatchExact(kernel_intypes[i]));
-      kernels[i] = static_cast<const ScalarAggregateKernel*>(kernel);
+      const ScalarAggregateKernel* agg_kernel =
+          static_cast<const ScalarAggregateKernel*>(kernel);
+      if (concurrency > 1 && agg_kernel->ordered) {
+        return Status::NotImplemented(
+            "Using ordered aggregator in multiple threaded execution is not supported");
+      }
+
+      kernels[i] = agg_kernel;
 
       if (aggregates[i].options == nullptr) {
         DCHECK(!function->doc().options_required);
@@ -391,12 +399,13 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     auto aggregates = aggregate_options.aggregates;
     const auto& keys = aggregate_options.keys;
     const auto& segment_keys = aggregate_options.segment_keys;
+    const auto concurreny =
+        plan->query_context()->exec_context()->executor()->GetCapacity();
 
     if (keys.size() > 0) {
       return Status::Invalid("Scalar aggregation with some key");
     }
-    if (plan->query_context()->exec_context()->executor()->GetCapacity() > 1 &&
-        segment_keys.size() > 0) {
+    if (concurreny > 1 && segment_keys.size() > 0) {
       return Status::NotImplemented("Segmented aggregation in a multi-threaded plan");
     }
 
@@ -406,7 +415,16 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     ARROW_ASSIGN_OR_RAISE(
         auto args,
         MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggregates, exec_ctx,
-                              /*concurrency=*/plan->query_context()->max_concurrency()));
+                              /*concurrency=*/concurreny));
+
+    if (concurreny > 1) {
+      for (auto& kernel : args.kernels) {
+        if (kernel->ordered) {
+          return Status::NotImplemented(
+              "Using ordered aggregator in multiple threaded execution is not supported");
+        }
+      }
+    }
 
     return plan->EmplaceNode<ScalarAggregateNode>(
         plan, std::move(inputs), std::move(args.output_schema), std::move(args.segmenter),
@@ -703,9 +721,9 @@ class GroupByNode : public ExecNode, public TracedNode {
     const auto& keys = aggregate_options.keys;
     const auto& segment_keys = aggregate_options.segment_keys;
     auto aggs = aggregate_options.aggregates;
+    auto concurreny = plan->query_context()->exec_context()->executor()->GetCapacity();
 
-    if (plan->query_context()->exec_context()->executor()->GetCapacity() > 1 &&
-        segment_keys.size() > 0) {
+    if (concurreny > 1 && segment_keys.size() > 0) {
       return Status::NotImplemented(
           "Segmented aggregation in a multi-threaded execution context");
     }
@@ -715,6 +733,15 @@ class GroupByNode : public ExecNode, public TracedNode {
 
     ARROW_ASSIGN_OR_RAISE(auto args, MakeAggregateNodeArgs(input_schema, keys,
                                                            segment_keys, aggs, exec_ctx));
+
+    if (concurreny > 1) {
+      for (auto kernel : args.kernels) {
+        if (kernel->ordered) {
+          return Status::NotImplemented(
+              "Using ordered aggregator in multiple threaded execution is not supported");
+        }
+      }
+    }
 
     return input->plan()->EmplaceNode<GroupByNode>(
         input, std::move(args.output_schema), std::move(args.grouping_key_field_ids),

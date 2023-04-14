@@ -278,6 +278,62 @@ template <typename ArrowType, SimdLevel::type SimdLevel, typename Enable = void>
 struct FirstLastState {};
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
+struct FirstLastState<ArrowType, SimdLevel, enable_if_boolean<ArrowType>> {
+  using ThisType = FirstLastState<ArrowType, SimdLevel>;
+  using T = typename ArrowType::c_type;
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+
+  ThisType& operator+=(const ThisType& rhs) {
+    this->has_nulls |= rhs.has_nulls;
+    this->first = this->has_values ? this->first : rhs.first;
+    this->last = rhs.has_values ? rhs.last : this->last;
+    this->has_values |= rhs.has_values;
+    return *this;
+  }
+
+  void MergeOne(T value) {
+    if (!has_values) {
+      this->first = value;
+      has_values = true;
+    }
+    this->last = value;
+  }
+
+  T first = false;
+  T last = false;
+  bool has_values = false;
+  bool has_nulls = false;
+};
+
+template <typename ArrowType, SimdLevel::type SimdLevel>
+struct FirstLastState<ArrowType, SimdLevel, enable_if_physical_integer<ArrowType>> {
+  using ThisType = FirstLastState<ArrowType, SimdLevel>;
+  using T = typename ArrowType::c_type;
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+
+  ThisType& operator+=(const ThisType& rhs) {
+    this->has_nulls |= rhs.has_nulls;
+    this->first = this->has_values ? this->first : rhs.first;
+    this->last = rhs.has_values ? rhs.last : this->last;
+    this->has_values |= rhs.has_values;
+    return *this;
+  }
+
+  void MergeOne(T value) {
+    if (!has_values) {
+      this->first = value;
+      has_values = true;
+    }
+    this->last = value;
+  }
+
+  T first = std::numeric_limits<T>::infinity();
+  T last = std::numeric_limits<T>::infinity();
+  bool has_values = false;
+  bool has_nulls = false;
+};
+
+template <typename ArrowType, SimdLevel::type SimdLevel>
 struct FirstLastState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>> {
   using ThisType = FirstLastState<ArrowType, SimdLevel>;
   using T = typename ArrowType::c_type;
@@ -285,20 +341,23 @@ struct FirstLastState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>>
 
   ThisType& operator+=(const ThisType& rhs) {
     this->has_nulls |= rhs.has_nulls;
-    this->first = this->first.has_value() ? this->first : rhs.first;
-    this->last = rhs.last.has_value() ? rhs.last : this->last;
+    this->first = this->has_values ? this->first : rhs.first;
+    this->last = rhs.has_values ? rhs.last : this->last;
+    this->has_values |= rhs.has_values;
     return *this;
   }
 
   void MergeOne(T value) {
-    if (!this->first.has_value()) {
+    if (!has_values) {
       this->first = value;
+      has_values = true;
     }
     this->last = value;
   }
 
-  std::optional<T> first = std::nullopt;
-  std::optional<T> last = std::nullopt;
+  T first = std::numeric_limits<T>::infinity();
+  T last = std::numeric_limits<T>::infinity();
+  bool has_values = false;
   bool has_nulls = false;
 };
 
@@ -366,10 +425,9 @@ struct FirstLastImpl : public ScalarAggregator {
       // (null, null)
       auto null_scalar = MakeNullScalar(child_type);
       values = {null_scalar, null_scalar};
-    } else if (state.first.has_value()) {
-      ARROW_ASSIGN_OR_RAISE(auto first_scalar,
-                            MakeScalar(child_type, state.first.value()));
-      ARROW_ASSIGN_OR_RAISE(auto last_scalar, MakeScalar(child_type, state.last.value()));
+    } else if (state.has_values) {
+      ARROW_ASSIGN_OR_RAISE(auto first_scalar, MakeScalar(child_type, state.first));
+      ARROW_ASSIGN_OR_RAISE(auto last_scalar, MakeScalar(child_type, state.last));
       values = {first_scalar, last_scalar};
     } else {
       auto null_scalar = MakeNullScalar(child_type);
@@ -754,9 +812,26 @@ struct FirstLastInitState {
     return Status::NotImplemented("No first/last implemented for ", ty);
   }
 
+  Status Visit(const HalfFloatType& ty) {
+    return Status::NotImplemented("No first/last implemented for ", ty);
+  }
+
+  Status Visit(const BooleanType&) {
+    state.reset(new FirstLastImpl<BooleanType, SimdLevel>(out_type, options));
+    return Status::OK();
+  }
+
   template <typename Type>
-  enable_if_floating_point<Type, Status> Visit(const Type&) {
-    state.reset(new FirstLastImpl<Type, SimdLevel>(out_type, options));
+  enable_if_physical_integer<Type, Status> Visit(const Type&) {
+    using PhysicalType = typename Type::PhysicalType;
+    state.reset(new FirstLastImpl<PhysicalType, SimdLevel>(out_type, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_physical_floating_point<Type, Status> Visit(const Type&) {
+    using PhysicalType = typename Type::PhysicalType;
+    state.reset(new FirstLastImpl<PhysicalType, SimdLevel>(out_type, options));
     return Status::OK();
   }
 

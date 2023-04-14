@@ -105,22 +105,19 @@ Result<TypeHolder> ResolveGroupOutputType(KernelContext* ctx,
 }
 
 HashAggregateKernel MakeKernel(std::shared_ptr<KernelSignature> signature,
-                               KernelInit init) {
-  HashAggregateKernel kernel;
-  kernel.init = std::move(init);
-  kernel.signature = std::move(signature);
-  kernel.resize = HashAggregateResize;
-  kernel.consume = HashAggregateConsume;
-  kernel.merge = HashAggregateMerge;
-  kernel.finalize = HashAggregateFinalize;
+                               KernelInit init, const bool ordered = false) {
+  HashAggregateKernel kernel(std::move(signature), std::move(init), HashAggregateResize,
+                             HashAggregateConsume, HashAggregateMerge,
+                             HashAggregateFinalize, ordered);
   return kernel;
 }
 
-HashAggregateKernel MakeKernel(InputType argument_type, KernelInit init) {
+HashAggregateKernel MakeKernel(InputType argument_type, KernelInit init,
+                               const bool ordered = false) {
   return MakeKernel(
       KernelSignature::Make({std::move(argument_type), InputType(Type::UINT32)},
                             OutputType(ResolveGroupOutputType)),
-      std::move(init));
+      std::move(init), ordered);
 }
 
 HashAggregateKernel MakeUnaryKernel(KernelInit init) {
@@ -1416,6 +1413,7 @@ HashAggregateKernel MakeFirstOrLastKernel(HashAggregateFunction* first_last_func
     *out = temp.array_as<StructArray>()->field(static_cast<uint8_t>(first_or_last));
     return Status::OK();
   };
+  kernel.ordered = true;
   return kernel;
 }
 
@@ -1423,16 +1421,20 @@ struct GroupedFirstLastFactory {
   template <typename T>
   enable_if_physical_integer<T, Status> Visit(const T&) {
     using PhysicalType = typename T::PhysicalType;
-    kernel = MakeKernel(std::move(argument_type), FirstLastInit<PhysicalType>);
+    kernel = MakeKernel(std::move(argument_type), FirstLastInit<PhysicalType>,
+                        /*ordered*/ true);
     return Status::OK();
   }
+
   Status Visit(const FloatType&) {
-    kernel = MakeKernel(std::move(argument_type), FirstLastInit<FloatType>);
+    kernel =
+        MakeKernel(std::move(argument_type), FirstLastInit<FloatType>, /*ordered*/ true);
     return Status::OK();
   }
 
   Status Visit(const DoubleType&) {
-    kernel = MakeKernel(std::move(argument_type), FirstLastInit<DoubleType>);
+    kernel =
+        MakeKernel(std::move(argument_type), FirstLastInit<DoubleType>, /*ordered*/ true);
     return Status::OK();
   }
 
