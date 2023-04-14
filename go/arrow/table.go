@@ -33,6 +33,10 @@ type Table interface {
 	NumCols() int64
 	Column(i int) *Column
 
+	// AddColumn adds a new column to the table and a corresponding field (of the same type)
+	// to its schema, at the specified position. Returns the new table with updated columns and schema.
+	AddColumn(pos int, f Field, c Column) (Table, error)
+
 	Retain()
 	Release()
 }
