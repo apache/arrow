@@ -69,11 +69,9 @@ class ARROW_EXPORT Array {
     // a potential inner-branch removal.
     if (type_id() == Type::SPARSE_UNION) {
       return !internal::IsNullSparseUnion(*data_, i);
-    }
-    if (type_id() == Type::DENSE_UNION) {
+    } else if (type_id() == Type::DENSE_UNION) {
       return !internal::IsNullDenseUnion(*data_, i);
-    }
-    if (type_id() == Type::RUN_END_ENCODED) {
+    } else if (type_id() == Type::RUN_END_ENCODED) {
       return !internal::IsNullRunEndEncoded(*data_, i);
     }
     return data_->null_count != data_->length;

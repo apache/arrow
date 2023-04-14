@@ -180,20 +180,18 @@ struct ARROW_EXPORT ArrayData {
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
-  bool IsNull(int64_t i) const { return !IsValid(i); }
+  inline bool IsNull(int64_t i) const { return !IsValid(i); }
 
-  bool IsValid(int64_t i) const {
+  inline bool IsValid(int64_t i) const {
     if (buffers[0] != NULLPTR) {
       return bit_util::GetBit(buffers[0]->data(), i + offset);
     }
     const auto type = this->type->id();
     if (type == Type::SPARSE_UNION) {
       return !internal::IsNullSparseUnion(*this, i);
-    }
-    if (type == Type::DENSE_UNION) {
+    } else if (type == Type::DENSE_UNION) {
       return !internal::IsNullDenseUnion(*this, i);
-    }
-    if (type == Type::RUN_END_ENCODED) {
+    } else if (type == Type::RUN_END_ENCODED) {
       return !internal::IsNullRunEndEncoded(*this, i);
     }
     return null_count.load() != length;
@@ -434,19 +432,16 @@ struct ARROW_EXPORT ArraySpan {
   inline bool IsValid(int64_t i) const {
     if (this->buffers[0].data != NULLPTR) {
       return bit_util::GetBit(this->buffers[0].data, i + this->offset);
-    } else {
-      const auto type = this->type->id();
-      if (type == Type::SPARSE_UNION) {
-        return !IsNullSparseUnion(i);
-      }
-      if (type == Type::DENSE_UNION) {
-        return !IsNullDenseUnion(i);
-      }
-      if (type == Type::RUN_END_ENCODED) {
-        return !IsNullRunEndEncoded(i);
-      }
-      return this->null_count != this->length;
     }
+    const auto type = this->type->id();
+    if (type == Type::SPARSE_UNION) {
+      return !IsNullSparseUnion(i);
+    } else if (type == Type::DENSE_UNION) {
+      return !IsNullDenseUnion(i);
+    } else if (type == Type::RUN_END_ENCODED) {
+      return !IsNullRunEndEncoded(i);
+    }
+    return this->null_count != this->length;
   }
 
   std::shared_ptr<ArrayData> ToArrayData() const;
