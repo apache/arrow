@@ -788,6 +788,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
           null_placement = IsSortNullsFirst(sort.direction())
                                ? compute::NullPlacement::AtStart
                                : compute::NullPlacement::AtEnd;
+          first = false;
         } else {
           if ((null_placement == compute::NullPlacement::AtStart &&
                !IsSortNullsFirst(sort.direction())) ||

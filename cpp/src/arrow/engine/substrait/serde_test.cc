@@ -5379,6 +5379,109 @@ TEST(Substrait, SortAndFetch) {
   CheckRoundTripResult(std::move(output_table), buf, {}, conversion_options);
 }
 
+TEST(Substrait, MixedSort) {
+  // Substrait allows two sort keys with differing direction but Acero
+  // does not.  We should detect this and reject it.
+  std::string substrait_json = R"({
+  "version": {
+    "major_number": 9999,
+    "minor_number": 9999,
+    "patch_number": 9999
+  },
+  "relations": [
+    {
+      "rel": {
+        "sort": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": [
+                  "A",
+                  "B"
+                ],
+                "struct": {
+                  "types": [
+                    {
+                      "i32": {}
+                    },
+                    {
+                      "i32": {}
+                    }
+                  ]
+                }
+              },
+              "namedTable": {
+                "names": [
+                  "table"
+                ]
+              }
+            }
+          },
+          "sorts": [
+            {
+              "expr": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {}
+                }
+              },
+              "direction": "SORT_DIRECTION_ASC_NULLS_FIRST"
+            },
+            {
+              "expr": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {}
+                }
+              },
+              "direction": "SORT_DIRECTION_ASC_NULLS_LAST"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "extension_uris": [],
+  "extensions": []
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto test_schema = schema({field("A", int32()), field("B", int32())});
+
+  auto input_table = TableFromJSON(test_schema, {R"([
+      [null, null],
+      [5, 8],
+      [null, null],
+      [null, null],
+      [3, 4],
+      [9, 6],
+      [4, 5]
+  ])"});
+
+  NamedTableProvider table_provider = [&](const std::vector<std::string>& names,
+                                          const Schema&) {
+    std::shared_ptr<acero::ExecNodeOptions> options =
+        std::make_shared<acero::TableSourceNodeOptions>(input_table);
+    return acero::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  ASSERT_THAT(
+      DeserializePlan(*buf, /*registry=*/nullptr, /*ext_set_out=*/nullptr,
+                      conversion_options),
+      Raises(StatusCode::NotImplemented, testing::HasSubstr("mixed null placement")));
+}
+
 TEST(Substrait, PlanWithExtension) {
   // This demos an extension relation
   std::string substrait_json = R"({
