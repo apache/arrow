@@ -26,6 +26,7 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/flight"
 	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 
@@ -226,24 +227,14 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 
 	rows := Rows{}
 	for _, endpoint := range info.Endpoint {
-		reader, err := s.client.DoGet(ctx, endpoint.GetTicket())
+		schema, records, err := readEndpoint(ctx, s.client, endpoint)
 		if err != nil {
-			return nil, fmt.Errorf("getting ticket failed: %w", err)
-		}
-
-		rows.schema = reader.Schema()
-		for reader.Next() {
-			record := reader.Record()
-			record.Retain()
-			rows.records = append(rows.records, record)
-
-		}
-		if err := reader.Err(); err != nil {
-			if err == io.EOF {
-				break
-			}
 			return &rows, err
 		}
+		if rows.schema == nil {
+			rows.schema = schema
+		}
+		rows.records = append(rows.records, records...)
 	}
 
 	return &rows, nil
@@ -471,25 +462,36 @@ func (c *Connection) QueryContext(ctx context.Context, query string, args []driv
 
 	rows := Rows{}
 	for _, endpoint := range info.Endpoint {
-		reader, err := c.client.DoGet(ctx, endpoint.GetTicket())
+		schema, records, err := readEndpoint(ctx, c.client, endpoint)
 		if err != nil {
-			return nil, fmt.Errorf("getting ticket failed: %w", err)
-		}
-
-		rows.schema = reader.Schema()
-		for reader.Next() {
-			record := reader.Record()
-			record.Retain()
-			rows.records = append(rows.records, record)
-
-		}
-		if err := reader.Err(); err != nil {
 			return &rows, err
 		}
+		if rows.schema == nil {
+			rows.schema = schema
+		}
+		rows.records = append(rows.records, records...)
 	}
 
 	return &rows, nil
 
+}
+
+func readEndpoint(ctx context.Context, client *flightsql.Client, endpoint *flight.FlightEndpoint) (*arrow.Schema, []arrow.Record, error) {
+	reader, err := client.DoGet(ctx, endpoint.GetTicket())
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting ticket failed: %w", err)
+	}
+	defer reader.Release()
+
+	schema := reader.Schema()
+	var records []arrow.Record
+	for reader.Next() {
+		record := reader.Record()
+		record.Retain()
+		records = append(records, record)
+
+	}
+	return schema, records, reader.Err()
 }
 
 // Close invalidates and potentially stops any current
