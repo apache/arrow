@@ -510,14 +510,23 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("2021-07-02");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("America/Sao_Paulo"));
-    Date result = accessor.getDate(calendar);
+    {
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("America/Sao_Paulo"));
+      Date result = accessor.getDate(calendar);
+      calendar.setTime(result);
 
-    calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
-    calendar.setTime(result);
+      collector.checkThat(dateTimeFormat.format(calendar.getTime()),
+          equalTo("2021-07-01T21:00:00.000Z"));
+    }
 
-    collector.checkThat(dateTimeFormat.format(calendar.getTime()),
-        equalTo("2021-07-02T03:00:00.000Z"));
+    {
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
+      Date result = accessor.getDate(calendar);
+      calendar.setTime(result);
+
+      collector.checkThat(dateTimeFormat.format(calendar.getTime()),
+          equalTo("2021-07-02T00:00:00.000Z"));
+    }
   }
 
   @Test
@@ -547,13 +556,21 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("02:30:00");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("America/Sao_Paulo"));
-    Time result = accessor.getTime(calendar);
+    {
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("America/Sao_Paulo"));
+      Time result = accessor.getTime(calendar);
+      calendar.setTime(result);
 
-    calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
-    calendar.setTime(result);
+      collector.checkThat(timeFormat.format(calendar.getTime()), equalTo("23:30:00.000Z"));
+    }
 
-    collector.checkThat(timeFormat.format(calendar.getTime()), equalTo("05:30:00.000Z"));
+    {
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
+      Time result = accessor.getTime(calendar);
+      calendar.setTime(result);
+
+      collector.checkThat(timeFormat.format(calendar.getTime()), equalTo("02:30:00.000Z"));
+    }
   }
 
   @Test
@@ -584,14 +601,23 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("2021-07-02 02:30:00.000");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("America/Sao_Paulo"));
-    Timestamp result = accessor.getTimestamp(calendar);
+    {
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("America/Sao_Paulo"));
+      Timestamp result = accessor.getTimestamp(calendar);
+      calendar.setTime(result);
 
-    calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
-    calendar.setTime(result);
+      collector.checkThat(dateTimeFormat.format(calendar.getTime()),
+          equalTo("2021-07-01T23:30:00.000Z"));
+    }
 
-    collector.checkThat(dateTimeFormat.format(calendar.getTime()),
-        equalTo("2021-07-02T05:30:00.000Z"));
+    {
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
+      Timestamp result = accessor.getTimestamp(calendar);
+      calendar.setTime(result);
+
+      collector.checkThat(dateTimeFormat.format(calendar.getTime()),
+          equalTo("2021-07-02T02:30:00.000Z"));
+    }
   }
 
   private void assertGetBoolean(Text value, boolean expectedResult) throws SQLException {

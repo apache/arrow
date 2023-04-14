@@ -67,7 +67,7 @@ public class DateTimeUtilsTest {
     TimeZone.setDefault(alternateTimezone);
 
     try { // Trying to guarantee timezone returns to its original value
-      final long expectedEpochMillis = epochMillis + offset;
+      final long expectedEpochMillis = epochMillis - offset;
       final long actualEpochMillis = DateTimeUtils.applyCalendarOffset(epochMillis, Calendar.getInstance(
           defaultTimezone));
 

@@ -36,7 +36,7 @@ public class DateTimeUtils {
   }
 
   /**
-   * Subtracts given Calendar's TimeZone offset from epoch milliseconds.
+   * Adds given Calendar's TimeZone offset from epoch milliseconds.
    */
   public static long applyCalendarOffset(long milliseconds, Calendar calendar) {
     if (calendar == null) {
@@ -47,7 +47,7 @@ public class DateTimeUtils {
     final TimeZone defaultTz = TimeZone.getDefault();
 
     if (tz != defaultTz) {
-      milliseconds -= tz.getOffset(milliseconds) - defaultTz.getOffset(milliseconds);
+      milliseconds += tz.getOffset(milliseconds) - defaultTz.getOffset(milliseconds);
     }
 
     return milliseconds;

@@ -137,7 +137,7 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
 
       long offset = timeZone.getOffset(resultWithoutCalendar.getTime());
 
-      collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
+      collector.checkThat(result.getTime() - resultWithoutCalendar.getTime(), is(offset));
       collector.checkThat(accessor.wasNull(), is(false));
     });
   }
@@ -170,7 +170,7 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
 
       long offset = timeZone.getOffset(resultWithoutCalendar.getTime());
 
-      collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
+      collector.checkThat(result.getTime() - resultWithoutCalendar.getTime(), is(offset));
       collector.checkThat(accessor.wasNull(), is(false));
     });
   }
