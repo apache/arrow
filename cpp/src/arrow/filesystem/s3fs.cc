@@ -2571,8 +2571,6 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
 
 namespace {
 
-Aws::SDKOptions aws_options;
-
 struct AwsInstance : public ::arrow::internal::Executor::Resource {
   AwsInstance() : is_initialized_(false), is_finalized_(false) {}
   ~AwsInstance() { Finalize(); }
@@ -2597,7 +2595,7 @@ struct AwsInstance : public ::arrow::internal::Executor::Resource {
     is_finalized_.store(true);
     if (is_initialized_.compare_exchange_strong(expected, false)) {
       RegionResolver::ResetDefaultInstance();
-      Aws::ShutdownAPI(aws_options);
+      Aws::ShutdownAPI(aws_options_);
     }
   }
 
@@ -2624,7 +2622,7 @@ struct AwsInstance : public ::arrow::internal::Executor::Resource {
 #undef LOG_LEVEL_CASE
 
 #ifdef ARROW_S3_HAS_CRT
-    aws_options.ioOptions.clientBootstrap_create_fn =
+    aws_options_.ioOptions.clientBootstrap_create_fn =
         [ev_threads = options.num_event_loop_threads]() {
           // https://github.com/aws/aws-sdk-cpp/blob/1.11.15/src/aws-cpp-sdk-core/source/Aws.cpp#L65
           Aws::Crt::Io::EventLoopGroup event_loop_group(ev_threads);
@@ -2636,22 +2634,23 @@ struct AwsInstance : public ::arrow::internal::Executor::Resource {
           return client_bootstrap;
         };
 #endif
-    aws_options.loggingOptions.logLevel = aws_log_level;
+    aws_options_.loggingOptions.logLevel = aws_log_level;
     // By default the AWS SDK logs to files, log to console instead
-    aws_options.loggingOptions.logger_create_fn = [] {
+    aws_options_.loggingOptions.logger_create_fn = [this] {
       return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
-          aws_options.loggingOptions.logLevel);
+          aws_options_.loggingOptions.logLevel);
     };
 #if (defined(AWS_SDK_VERSION_MAJOR) &&                          \
      (AWS_SDK_VERSION_MAJOR > 1 || AWS_SDK_VERSION_MINOR > 9 || \
       (AWS_SDK_VERSION_MINOR == 9 && AWS_SDK_VERSION_PATCH >= 272)))
     // ARROW-18290: escape all special chars for compatibility with non-AWS S3 backends.
     // This configuration options is only available with AWS SDK 1.9.272 and later.
-    aws_options.httpOptions.compliantRfc3986Encoding = true;
+    aws_options_.httpOptions.compliantRfc3986Encoding = true;
 #endif
-    Aws::InitAPI(aws_options);
+    Aws::InitAPI(aws_options_);
   }
 
+  Aws::SDKOptions aws_options_;
   std::atomic<bool> is_initialized_;
   std::atomic<bool> is_finalized_;
 };
