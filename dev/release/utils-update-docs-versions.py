@@ -99,4 +99,3 @@ with open(r_html_path, 'w') as html_file:
     for i in data:
         html_file.write('<p><a href="../' + i['version'] + 'r/">' + i['name'] + '</a></p>\n')
     html_file.write('</body>\n</html>\n')
-
