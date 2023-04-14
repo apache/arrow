@@ -313,6 +313,30 @@ func TestSchema(t *testing.T) {
 	}
 }
 
+func TestSchemaAddField(t *testing.T) {
+	s := NewSchema([]Field{
+		{Name: "f1", Type: PrimitiveTypes.Int32},
+		{Name: "f2", Type: PrimitiveTypes.Int64},
+	}, nil)
+
+	_, err := s.AddField(3, Field{Name: "f3", Type: PrimitiveTypes.Int32})
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+
+	s, err = s.AddField(2, Field{Name: "f3", Type: PrimitiveTypes.Int32})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got, want := len(s.Fields()), 3; got != want {
+		t.Fatalf("invalid number of fields. got=%d, want=%d", got, want)
+	}
+	got, want := s.Field(2), Field{Name: "f3", Type: PrimitiveTypes.Int32};
+	if !got.Equal(want) {
+		t.Fatalf("invalid field: got=%#v, want=%#v", got, want)
+	}
+}
+
 func TestSchemaEqual(t *testing.T) {
 	fields := []Field{
 		{Name: "f1", Type: PrimitiveTypes.Int32},
