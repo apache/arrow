@@ -155,7 +155,7 @@ TEST(AggregateSchema, SingleKeyAndSegmentKey) {
       aggregate::MakeOutputSchema(input_schema, {FieldRef("y")}, {FieldRef("z")},
                                   {{"hash_count", nullptr, "x", "hash_count"}}));
   AssertSchemaEqual(
-      schema({field("y", int32()), field("z", int32()), field("hash_count", int64())}),
+      schema({field("z", int32()), field("y", int32()), field("hash_count", int64())}),
       output_schema);
 }
 
