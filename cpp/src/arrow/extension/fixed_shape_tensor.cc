@@ -268,14 +268,14 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> arr,
                         FixedSizeListArray::FromArrays(value_array, cell_size));
   std::shared_ptr<Array> ext_arr = ExtensionType::WrapArray(ext_type, arr);
-  return std::reinterpret_pointer_cast<FixedShapeTensorArray>(ext_arr);
+  return std::static_pointer_cast<FixedShapeTensorArray>(ext_arr);
 }
 
 const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   // To convert an array of n dimensional tensors to a n+1 dimensional tensor we
   // interpret the array's length as the first dimension the new tensor.
 
-  auto ext_arr = internal::checked_pointer_cast<FixedSizeListArray>(this->storage());
+  auto ext_arr = std::static_pointer_cast<FixedSizeListArray>(this->storage());
   auto ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
   ARROW_RETURN_IF(!is_fixed_width(*ext_arr->value_type()),
                   Status::Invalid(ext_arr->value_type()->ToString(),
