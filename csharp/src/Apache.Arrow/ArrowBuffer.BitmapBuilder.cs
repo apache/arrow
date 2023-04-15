@@ -70,7 +70,6 @@ namespace Apache.Arrow
                 Memory = new byte[BitUtility.ByteCount(capacity)];
                 Capacity = capacity;
             }
-                        
             /// <summary>
             /// Append a single bit.
             /// </summary>
