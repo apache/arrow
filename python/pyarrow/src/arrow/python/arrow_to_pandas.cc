@@ -877,6 +877,31 @@ Status ConvertMapHelper(
   return Status::OK();
 }
 
+// A more helpful error message around TypeErrors that may stem from unhashable keys
+Status CheckMapAsPydictsError() {
+  if (ARROW_PREDICT_TRUE(!PyErr_Occurred())) {
+    return Status::OK();
+  }
+
+  if (PyErr_ExceptionMatches(PyExc_TypeError)) {
+    // Modify the error string directly, so it is re-raised
+    // with our additional info.
+    //
+    // There are not many interesting things happening when this
+    // is hit. This is intended to only be called directly after
+    // PyDict_SetItem, where a finite set of errors could occur.
+    PyObject *type, *value, *traceback;
+    PyErr_Fetch(&type, &value, &traceback);
+    std::string message;
+    RETURN_NOT_OK(internal::PyObject_StdStringStr(value, &message));
+    message += ". If keys are not hashable, then you must use `maps_as_pydicts=False`";
+
+    // resets the error
+    PyErr_SetString(PyExc_TypeError, message.c_str());
+  }
+  return ConvertPyError();
+}
+
 Status ConvertMap(PandasOptions options, const ChunkedArray& data,
                   PyObject** out_values) {
   // Get columns of underlying key/item arrays
@@ -951,7 +976,7 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
         [&dict_item]([[maybe_unused]] int64_t idx, OwnedRef& key_value, OwnedRef& item_value) {
           auto setitem_result =
               PyDict_SetItem(dict_item.obj(), key_value.obj(), item_value.obj());
-          RETURN_IF_PYERROR();
+          ARROW_RETURN_NOT_OK(CheckMapAsPydictsError());
           // returns -1 if there are internal errors around hashing/resizing
           return setitem_result == 0 ?
             Status::OK() :
