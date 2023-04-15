@@ -22,8 +22,6 @@ namespace Apache.Arrow
 {
     public class TimestampArray: PrimitiveArray<long>
     {
-        private static readonly DateTimeOffset s_epoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, 0, TimeSpan.Zero);
-
         public class Builder: PrimitiveArrayBuilder<DateTimeOffset, long, TimestampArray, Builder>
         {
             internal class TimestampBuilder : PrimitiveArrayBuilder<long, TimestampArray, TimestampBuilder>
@@ -70,7 +68,7 @@ namespace Apache.Arrow
                 // - Compute time span between epoch and specified time
                 // - Compute time divisions per tick
 
-                TimeSpan timeSpan = value - s_epoch;
+                TimeSpan timeSpan = value - Types.Convert.EpochDateTimeOffset;
                 long ticks = timeSpan.Ticks;
 
                 switch (DataType.Unit)
@@ -128,9 +126,7 @@ namespace Apache.Arrow
         {
             get
             {
-                if (index < 0)
-                    return this[Length + index];
-                return GetTimestamp(index);
+                return index < 0 ? this[Length + index] : GetTimestamp(index);
             }
             // TODO: Implement setter
             //set
