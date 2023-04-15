@@ -15,7 +15,10 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 
 namespace Apache.Arrow
 {
@@ -49,6 +52,124 @@ namespace Apache.Arrow
             public Builder DataType(IArrowType type)
             {
                 _type = type ?? NullType.Default;
+                return this;
+            }
+
+            // Build DataType from C# Type
+            public Builder DataType(System.Type valueType, string timezone = null)
+            {
+                System.Type[] genericArgs;
+                System.Type child = System.Nullable.GetUnderlyingType(valueType);
+                Type elementType;
+
+                if (child != null)
+                {
+                    // Nullable Type
+                    DataType(child, timezone);
+                    Nullable(true);
+                    return this;
+                }
+
+                // Not Nullable Type
+                Nullable(false);
+
+                switch (valueType)
+                {
+                    // Binary
+                    case var _ when valueType == typeof(byte):
+                        DataType(new BinaryType());
+                        break;
+                    case var _ when valueType == typeof(IEnumerable<byte>):
+                        DataType(new BinaryType());
+                        Nullable(true);
+                        break;
+                    // Boolean
+                    case var _ when valueType == typeof(bool):
+                        DataType(new BooleanType());
+                        break;
+                    // String
+                    case var _ when valueType == typeof(string):
+                        DataType(new StringType());
+                        Nullable(true);
+                        break;
+                    // Integers
+                    case var _ when valueType == typeof(short):
+                        DataType(new Int16Type());
+                        break;
+                    case var _ when valueType == typeof(int):
+                        DataType(new Int32Type());
+                        break;
+                    case var _ when valueType == typeof(long):
+                        DataType(new Int64Type());
+                        break;
+                    // Unisgned Integers
+                    case var _ when valueType == typeof(ushort):
+                        DataType(new UInt16Type());
+                        break;
+                    case var _ when valueType == typeof(uint):
+                        DataType(new UInt32Type());
+                        break;
+                    case var _ when valueType == typeof(ulong):
+                        DataType(new UInt64Type());
+                        break;
+                    // Decimal
+                    case var _ when valueType == typeof(decimal):
+                        DataType(new Decimal128Type(38, 18));
+                        break;
+                    // Double
+                    case var _ when valueType == typeof(double):
+                        DataType(new DoubleType());
+                        break;
+                    // DateTime
+                    case var _ when valueType == typeof(DateTime) || valueType == typeof(DateTimeOffset):
+                        DataType(new TimestampType(TimeUnit.Nanosecond, timezone));
+                        break;
+                    // Time
+                    case var _ when valueType == typeof(TimeSpan):
+                        DataType(new Time64Type(TimeUnit.Nanosecond));
+                        break;
+#if NETCOREAPP3_1_OR_GREATER
+                    // Dictionary: IDictionary<?,?>
+                    case var dict when typeof(IDictionary).IsAssignableFrom(valueType):
+                        genericArgs = dict.GetGenericArguments();
+
+                        DataType(new DictionaryType(
+                            new Builder().DataType(genericArgs[0], timezone)._type,
+                            new Builder().DataType(genericArgs[1], timezone)._type,
+                            false
+                        ));
+
+                        Nullable(true);
+
+                        break;
+                    // IEnumerable: List, Array, ...
+                    case var list when typeof(IEnumerable).IsAssignableFrom(valueType):
+                        elementType = list.GetGenericArguments()[0];
+
+                        DataType(new ListType(new Builder().Name("item").DataType(elementType, timezone).Build()));
+
+                        Nullable(true);
+                        break;
+                    // Struct like: get all properties
+                    case var structure when (valueType.IsValueType && !valueType.IsEnum && !valueType.IsPrimitive):
+                        if (string.IsNullOrEmpty(_name))
+                            Name(structure.Name);
+
+                        PropertyInfo[] properties = structure.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+                        DataType(new StructType(
+                            properties
+                                .Select(property => new Builder().Name(property.Name).DataType(property.PropertyType, timezone).Build())
+                                .ToArray()
+                        ));
+
+                        break;
+#endif
+                    // Error
+                    default:
+                        throw new InvalidCastException($"Cannot convert System.Type<{valueType}> to ArrowType");
+                }
+
                 return this;
             }
 

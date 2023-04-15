@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace Apache.Arrow
 {
@@ -56,6 +57,20 @@ namespace Apache.Arrow
                 _fields.Add(field);
                 return this;
             }
+
+#if NETCOREAPP3_1_OR_GREATER
+            public Builder Struct(Type structure, string timezone = null)
+            {
+                PropertyInfo[] properties = structure.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+                foreach (PropertyInfo property in properties)
+                {
+                    Field(new Arrow.Field.Builder().Name(property.Name).DataType(property.PropertyType, timezone).Build());
+                }
+
+                return this;
+            }
+#endif
 
             public Builder Metadata(string key, string value)
             {

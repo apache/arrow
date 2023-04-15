@@ -262,6 +262,32 @@ namespace Apache.Arrow.Tests
                 Assert.Throws<EqualException>(() => SchemaComparer.Compare(schema2, schema3));
             }
 
+#if NETCOREAPP3_1_OR_GREATER
+            [Fact]
+            public void Schema_Should_BuildFromStruct()
+            {
+                Schema schema = new Schema.Builder().Struct(typeof(TestStruct)).Build();
+                Field Name = schema.FieldsList[0];
+                Field value = schema.FieldsList[1];
+                Field aBc = schema.FieldsList[2];
+
+                // Assert
+                Assert.Equal(3, schema.FieldsList.Count);
+
+                Assert.Equal(typeof(StringType), Name.DataType.GetType());
+                Assert.Equal("Name", Name.Name);
+                Assert.True(Name.IsNullable);
+
+                Assert.Equal(typeof(Decimal128Type), value.DataType.GetType());
+                Assert.Equal("value", value.Name);
+                Assert.True(value.IsNullable);
+
+                Assert.Equal(typeof(Int32Type), aBc.DataType.GetType());
+                Assert.Equal("aBc", aBc.Name);
+                Assert.False(aBc.IsNullable);
+            }
+#endif
+
             [Theory]
             [MemberData(nameof(SampleSchema1))]
             public void FieldsHaveExpectedValues(string name, IArrowType type, bool nullable)
@@ -282,6 +308,13 @@ namespace Apache.Arrow.Tests
                 yield return new object[] {"f0", Int32Type.Default, true};
                 yield return new object[] {"f1", DoubleType.Default, true};
                 yield return new object[] {"f2", Int64Type.Default, false};
+            }
+
+            public struct TestStruct
+            {
+                public string Name { get; set; }
+                public decimal? value { get; set; }
+                public int aBc { get; set; }
             }
         }
     }
