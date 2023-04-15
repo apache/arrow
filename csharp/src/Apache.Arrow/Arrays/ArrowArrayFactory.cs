@@ -90,126 +90,126 @@ namespace Apache.Arrow
         }
 
         // Binary
-        public static IArrowArray BuildArray(IEnumerable<string> values)
+        public static StringArray BuildArray(IEnumerable<string> values)
         {
             return new StringArray.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<byte[]> values)
+        public static BinaryArray BuildArray(IEnumerable<byte[]> values)
         {
             return new BinaryArray.Builder().AppendRange(values).Build();
         }
 
         // Boolean
-        public static IArrowArray BuildArray(IEnumerable<bool> values)
+        public static BooleanArray BuildArray(IEnumerable<bool> values)
         {
             return new BooleanArray.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<bool?> values)
+        public static BooleanArray BuildArray(IEnumerable<bool?> values)
         {
             return new BooleanArray.Builder().AppendRange(values).Build();
         }
 
         // Integers
-        public static IArrowArray BuildArray(IEnumerable<sbyte> values)
+        public static Int8Array BuildArray(IEnumerable<sbyte> values)
         {
             return new Int8Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<sbyte?> values)
+        public static Int8Array BuildArray(IEnumerable<sbyte?> values)
         {
             return new Int8Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<short> values)
+        public static Int16Array BuildArray(IEnumerable<short> values)
         {
             return new Int16Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<short?> values)
+        public static Int16Array BuildArray(IEnumerable<short?> values)
         {
             return new Int16Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<int> values)
+        public static Int32Array BuildArray(IEnumerable<int> values)
         {
             return new Int32Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<int?> values)
+        public static Int32Array BuildArray(IEnumerable<int?> values)
         {
             return new Int32Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<long> values)
+        public static Int64Array BuildArray(IEnumerable<long> values)
         {
             return new Int64Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<long?> values)
+        public static Int64Array BuildArray(IEnumerable<long?> values)
         {
             return new Int64Array.Builder().AppendRange(values).Build();
         }
 
         // Unsigned Integers
-        public static IArrowArray BuildArray(IEnumerable<ushort> values)
+        public static UInt16Array BuildArray(IEnumerable<ushort> values)
         {
             return new UInt16Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<ushort?> values)
+        public static UInt16Array BuildArray(IEnumerable<ushort?> values)
         {
             return new UInt16Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<uint> values)
+        public static UInt32Array BuildArray(IEnumerable<uint> values)
         {
             return new UInt32Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<uint?> values)
+        public static UInt32Array BuildArray(IEnumerable<uint?> values)
         {
             return new UInt32Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<ulong> values)
+        public static UInt64Array BuildArray(IEnumerable<ulong> values)
         {
             return new UInt64Array.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<ulong?> values)
+        public static UInt64Array BuildArray(IEnumerable<ulong?> values)
         {
             return new UInt64Array.Builder().AppendRange(values).Build();
         }
 
         // Floats
-        public static IArrowArray BuildArray(IEnumerable<float> values)
+        public static FloatArray BuildArray(IEnumerable<float> values)
         {
             return new FloatArray.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<float?> values)
+        public static FloatArray BuildArray(IEnumerable<float?> values)
         {
             return new FloatArray.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<double> values)
+        public static DoubleArray BuildArray(IEnumerable<double> values)
         {
             return new DoubleArray.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<double?> values)
+        public static DoubleArray BuildArray(IEnumerable<double?> values)
         {
             return new DoubleArray.Builder().AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<decimal> values)
+        public static Decimal128Array BuildArray(IEnumerable<decimal> values)
         {
             return new Decimal128Array.Builder(new Decimal128Type(38, 18)).AppendRange(values).Build();
         }
 
-        public static IArrowArray BuildArray(IEnumerable<decimal?> values)
+        public static Decimal128Array BuildArray(IEnumerable<decimal?> values)
         {
             return new Decimal128Array.Builder(new Decimal128Type(38, 18)).AppendRange(values).Build();
         }
