@@ -15,6 +15,8 @@
 
 
 using System;
+using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Apache.Arrow.Types
 {
@@ -28,6 +30,7 @@ namespace Apache.Arrow.Types
 
         public TimeUnit Unit { get; }
         public string Timezone { get; }
+        public TimeZoneInfo TimeZoneInfo => ParseTimeZone(Timezone) ?? TimeZoneInfo.Utc;
 
         public bool IsTimeZoneAware => !string.IsNullOrWhiteSpace(Timezone);
 
@@ -48,5 +51,40 @@ namespace Apache.Arrow.Types
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+
+        // Static methods
+        public static TimeZoneInfo? ParseTimeZone(string tz)
+        {
+            if (string.IsNullOrWhiteSpace(tz)) return null;
+
+            // Static offset like +00:00 or -00:00
+            if (Regex.IsMatch(tz, @"^([+-]\d{2}):([0-9]\d)$"))
+            {
+                switch (tz)
+                {
+                    case "-00:00":
+                    case "+00:00":
+                        return TimeZoneInfo.Utc;
+                    default:
+#if NETCOREAPP
+                        string[] offsetParts = tz.Split(':');
+                        char sign = offsetParts[0].First();
+                        int hours = int.Parse(offsetParts[0].Substring(1));
+                        int minutes = int.Parse(offsetParts[1]);
+
+                        TimeSpan baseOffset = sign == '+' ?
+                            new TimeSpan(hours, minutes, 0) : TimeSpan.FromMinutes(-1 * (hours * 60 + minutes));
+
+                        return TimeZoneInfo.CreateCustomTimeZone(tz, baseOffset, tz, tz);
+#else
+                        return null;
+#endif
+                }
+            }
+            else // or IANA like Europe/Paris
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById(tz);
+            }
+        }
     }
 }

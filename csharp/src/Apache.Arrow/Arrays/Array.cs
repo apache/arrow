@@ -87,5 +87,28 @@ namespace Apache.Arrow
                 Data.Dispose();
             }
         }
+
+        public abstract class Enumerator<TArray>
+            where TArray : Array
+        {
+            public int Position;
+            public TArray Array;
+
+            public Enumerator(TArray array)
+            {
+                Array = array;
+                Position = -1;
+            }
+
+            public bool MoveNext()
+            {
+                Position++;
+                return (Position < Array.Length);
+            }
+
+            public void Reset() => Position = -1;
+
+            public void Dispose() { }
+        }
     }
 }

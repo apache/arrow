@@ -13,8 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -22,7 +25,7 @@ namespace Apache.Arrow
     /// The <see cref="Time64Array"/> class holds an array of <see cref="Int64" />, where each value is
     /// stored as the number of microseconds/nanoseconds (depending on the Time64Type) since midnight.
     /// </summary>
-    public class Time64Array : PrimitiveArray<long>
+    public class Time64Array : PrimitiveArray<long>, IEnumerable<TimeSpan?>
     {
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Time64Array"/> objects.
@@ -112,6 +115,48 @@ namespace Apache.Arrow
                 TimeUnit.Nanosecond => value,
                 _ => throw new InvalidDataException($"Unsupported time unit for Time64Type: {unit}")
             };
+        }
+
+        // IEnumerable methods
+        public new IEnumerator<TimeSpan?> GetEnumerator()
+        {
+            TimeUnit unit = ((Time64Type)Data.DataType).Unit;
+
+            // Ticks are 10e7
+            switch (unit)
+            {
+                case TimeUnit.Microsecond:
+                    return new Enumerator(this, TimeSpanFromMicroseconds);
+                case TimeUnit.Nanosecond:
+                    return new Enumerator(this, TimeSpanFromNanoseconds);
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for TimeType: {unit}");
+            }
+        }
+
+        // Static convert methods
+        private static TimeSpan? TimeSpanFromMicroseconds(long? micros) =>
+            micros.HasValue ? TimeSpan.FromTicks(micros.Value * 10) : null;
+        private static TimeSpan? TimeSpanFromNanoseconds(long? nanos) =>
+            nanos.HasValue ? TimeSpan.FromTicks(nanos.Value / 100) : null;
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private new class Enumerator : Array.Enumerator<Time64Array>, IEnumerator<TimeSpan?>
+        {
+            private Func<long?, TimeSpan?> Convert;
+
+            public Enumerator(Time64Array array, Func<long?, TimeSpan?> convert) : base(array)
+            {
+                Convert = convert;
+            }
+
+            TimeSpan? IEnumerator<TimeSpan?>.Current => Convert(Array.GetValue(Position));
+
+            object IEnumerator.Current => Convert(Array.GetValue(Position));
         }
     }
 }

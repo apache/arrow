@@ -13,8 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -22,7 +25,7 @@ namespace Apache.Arrow
     /// The <see cref="Time32Array"/> class holds an array of <see cref="Int32" />, where each value is
     /// stored as the number of seconds/ milliseconds (depending on the Time32Type) since midnight.
     /// </summary>
-    public class Time32Array : PrimitiveArray<int>
+    public class Time32Array : PrimitiveArray<int>, IEnumerable<TimeSpan?>
     {
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Time32Array"/> objects.
@@ -112,6 +115,47 @@ namespace Apache.Arrow
                 TimeUnit.Millisecond => value,
                 _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
             };
+        }
+
+        // IEnumerable methods
+        public new IEnumerator<TimeSpan?> GetEnumerator()
+        {
+            TimeUnit unit = ((Time32Type)Data.DataType).Unit;
+
+            switch (unit)
+            {
+                case TimeUnit.Second:
+                    return new Enumerator(this, TimeSpanFromSeconds);
+                case TimeUnit.Millisecond:
+                    return new Enumerator(this, TimeSpanFromMilliseconds);
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}");
+            }
+        }
+
+        // Static convert methods
+        private static TimeSpan? TimeSpanFromSeconds(int? seconds) =>
+            seconds.HasValue ? TimeSpan.FromSeconds(seconds.Value) : null;
+        private static TimeSpan? TimeSpanFromMilliseconds(int? millis) =>
+            millis.HasValue ? TimeSpan.FromMilliseconds(millis.Value) : null;
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private new class Enumerator : Array.Enumerator<Time32Array>, IEnumerator<TimeSpan?>
+        {
+            private Func<int?, TimeSpan?> Convert;
+
+            public Enumerator(Time32Array array, Func<int?, TimeSpan?> convert) : base(array)
+            {
+                Convert = convert;
+            }
+
+            TimeSpan? IEnumerator<TimeSpan?>.Current => Convert(Array.GetValue(Position));
+
+            object IEnumerator.Current => Convert(Array.GetValue(Position));
         }
     }
 }

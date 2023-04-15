@@ -14,12 +14,15 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class ListArray : Array
+    public class ListArray : Array, IEnumerable<IArrowArray>
     {
         public class Builder : IArrowArrayBuilder<ListArray, Builder>
         {
@@ -62,6 +65,234 @@ namespace Apache.Arrow
             {
                 ValueOffsetsBufferBuilder.Append(ValueBuilder.Length);
                 ValidityBufferBuilder.Append(true);
+
+                return this;
+            }
+
+            public Builder Append<T>(IEnumerable<T> values, System.Text.Encoding encoding = null)
+            {
+                return AppendRange(new List<IEnumerable<T>> { values }, encoding);
+            }
+
+            public Builder AppendRange<T>(IEnumerable<IEnumerable<T>> values, System.Text.Encoding encoding = null)
+            {
+                var type = DataType as ListType;
+
+                switch (type.ValueDataType.TypeId)
+                {
+                    case ArrowTypeId.Binary:
+                        var binBuilder = ValueBuilder as BinaryArray.Builder;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                binBuilder.AppendRange(value as IEnumerable<byte[]>);
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.String:
+                        var strBuilder = ValueBuilder as StringArray.Builder;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                strBuilder.AppendRange(value as IEnumerable<string>, encoding);
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.Int16:
+                        var int16Builder = ValueBuilder as Int16Array.Builder;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                int16Builder.AppendRange(value as IEnumerable<short>);
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.Int32:
+                        var int32Builder = ValueBuilder as Int32Array.Builder;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                int32Builder.AppendRange(value as IEnumerable<int>);
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.Int64:
+                        var int64Builder = ValueBuilder as Int64Array.Builder;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                int64Builder.AppendRange(value as IEnumerable<long>);
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.Double:
+                        var doubleBuilder = ValueBuilder as DoubleArray.Builder;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                doubleBuilder.AppendRange(value as IEnumerable<double>);
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.Decimal128:
+                        var d128Builder = ValueBuilder as Decimal128Array.Builder;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                d128Builder.AppendRange(value as IEnumerable<decimal>);
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.Decimal256:
+                        var d256Builder = ValueBuilder as Decimal256Array.Builder;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                d256Builder.AppendRange(value as IEnumerable<decimal>);
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.Boolean:
+                        var boolBuilder = ValueBuilder as BooleanArray.Builder;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                boolBuilder.AppendRange(value as IEnumerable<bool>);
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.Timestamp:
+                        var tsBuilder = ValueBuilder as TimestampArray.Builder;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                tsBuilder.AppendRange(value as IEnumerable<DateTimeOffset>);
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.Time64:
+                        var t64Builder = ValueBuilder as Time64Array.Builder;
+                        var t64Type = (Time64Type)DataType;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                t64Builder.AppendRange((value as IEnumerable<TimeSpan>).Select(t64Type.ToLong));
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.Time32:
+                        var t32Builder = ValueBuilder as Time32Array.Builder;
+                        var t32Type = (Time32Type)DataType;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                t32Builder.AppendRange((value as IEnumerable<TimeSpan>).Select(t32Type.ToInt));
+                            }
+                        }
+                        break;
+                    case ArrowTypeId.List:
+                        var listBuilder = ValueBuilder as ListArray.Builder;
+
+                        foreach (IEnumerable<T> value in values)
+                        {
+                            if (value == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                listBuilder.AppendRange(value as IEnumerable<IEnumerable<T>>, encoding);
+                            }
+                        }
+                        break;
+                    default:
+                        throw new NotImplementedException($"Cannot AppendRange with {typeof(T)}, need to do it manually with this.Append()");
+                }
 
                 return this;
             }
@@ -195,6 +426,27 @@ namespace Apache.Arrow
                 Values?.Dispose();
             }
             base.Dispose(disposing);
+        }
+
+        // IEnumerable methods
+        public IEnumerator<IArrowArray> GetEnumerator()
+        {
+            return new Enumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private new class Enumerator : Array.Enumerator<ListArray>, IEnumerator<IArrowArray>
+        {
+            public Enumerator(ListArray array) : base(array)
+            { }
+
+            IArrowArray IEnumerator<IArrowArray>.Current => Array.GetSlicedValues(Position);
+
+            object IEnumerator.Current => Array.GetSlicedValues(Position);
         }
     }
 }

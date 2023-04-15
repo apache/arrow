@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 namespace Apache.Arrow.Types
 {
     public sealed class Time32Type : TimeType

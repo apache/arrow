@@ -13,8 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -22,7 +24,7 @@ namespace Apache.Arrow
     /// The <see cref="Date32Array"/> class holds an array of dates in the <c>Date32</c> format, where each date is
     /// stored as the number of days since the dawn of (UNIX) time.
     /// </summary>
-    public class Date32Array : PrimitiveArray<int>
+    public class Date32Array : PrimitiveArray<int>, IEnumerable<DateTimeOffset?>
     {
         private static readonly DateTime _epochDate = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
 
@@ -107,6 +109,27 @@ namespace Apache.Arrow
             return value.HasValue
                 ? new DateTimeOffset(_epochDate.AddDays(value.Value), TimeSpan.Zero)
                 : default(DateTimeOffset?);
+        }
+
+        // IEnumerable methods
+        public new IEnumerator<DateTimeOffset?> GetEnumerator()
+        {
+            return new Enumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private new class Enumerator : Array.Enumerator<Date32Array>, IEnumerator<DateTimeOffset?>
+        {
+            public Enumerator(Date32Array array) : base(array)
+            { }
+
+            DateTimeOffset? IEnumerator<DateTimeOffset?>.Current => Array.GetDateTimeOffset(Position);
+
+            object IEnumerator.Current => Array.GetDateTimeOffset(Position);
         }
     }
 }

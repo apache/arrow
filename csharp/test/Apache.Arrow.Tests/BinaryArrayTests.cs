@@ -13,19 +13,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Arrow.Types
+using System;
+using Xunit;
+
+namespace Apache.Arrow.Tests
 {
-    public sealed class Time64Type : TimeType
+    public class BinaryArrayTests
     {
-        public static readonly Time64Type Default = new Time64Type();
+        public class IEnumerableArray
+        {
+            [Fact]
+            public void BinaryArray_ShouldBe_IEnumerable()
+            {
+                byte[] bvalue = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05 };
 
-        public override ArrowTypeId TypeId => ArrowTypeId.Time64;
-        public override string Name => "time64";
-        public override int BitWidth => 64;
+                // Build test array
+                BinaryArray array = new BinaryArray.Builder()
+                    .Append(bvalue.AsSpan<byte>()).AppendNull()
+                    .Build();
 
-        public Time64Type(TimeUnit unit = TimeUnit.Millisecond)
-            : base(unit) { }
+                byte[][] expected = new byte[][] { bvalue, null };
 
-        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+                int i = 0;
+                foreach (byte[] value in array)
+                {
+                    Assert.Equal(expected[i], value);
+                    i++;
+                }
+            }
+        }
     }
 }

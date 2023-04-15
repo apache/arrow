@@ -14,6 +14,9 @@
 // limitations under the License.
 
 
+using System;
+using System.IO;
+
 namespace Apache.Arrow.Types
 {
     public enum TimeUnit
@@ -31,6 +34,40 @@ namespace Apache.Arrow.Types
         protected TimeType(TimeUnit unit)
         {
             Unit = unit;
+        }
+
+        public long ToLong(TimeSpan ts)
+        {
+            switch (Unit)
+            {
+                case TimeUnit.Second:
+                    return Convert.ToInt64(ts.TotalSeconds);
+                case TimeUnit.Millisecond:
+                    return Convert.ToInt64(ts.TotalMilliseconds);
+                case TimeUnit.Microsecond:
+                    return ts.Ticks / 10;
+                case TimeUnit.Nanosecond:
+                    return ts.Ticks * 100;
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for TimeType: {Unit}");
+            }
+        }
+
+        public int ToInt(TimeSpan ts)
+        {
+            switch (Unit)
+            {
+                case TimeUnit.Second:
+                    return Convert.ToInt32(ts.TotalSeconds);
+                case TimeUnit.Millisecond:
+                    return Convert.ToInt32(ts.TotalMilliseconds);
+                case TimeUnit.Microsecond:
+                    return Convert.ToInt32(ts.Ticks / 10);
+                case TimeUnit.Nanosecond:
+                    return Convert.ToInt32(ts.Ticks * 100);
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for TimeType: {Unit}");
+            }
         }
     }
 }

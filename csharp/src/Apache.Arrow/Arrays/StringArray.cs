@@ -13,15 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class StringArray: BinaryArray
+    public class StringArray: BinaryArray, IEnumerable<string>
     {
         public static readonly Encoding DefaultEncoding = Encoding.UTF8;
 
@@ -90,6 +91,39 @@ namespace Apache.Arrow
                 fixed (byte* data = &MemoryMarshal.GetReference(bytes))
                     return encoding.GetString(data, bytes.Length);
             }
+        }
+
+        // IEnumerable methods
+        public string[] ToArray()
+        {
+            string[] alloc = new string[Length];
+
+            for (int i = 0; i < Length; i++)
+            {
+                alloc[i] = GetString(i);
+            }
+
+            return alloc;
+        }
+
+        public new IEnumerator<string> GetEnumerator()
+        {
+            return new Enumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private new class Enumerator : Array.Enumerator<StringArray>, IEnumerator<string>
+        {
+            public Enumerator(StringArray array) : base(array)
+            { }
+
+            string IEnumerator<string>.Current => Array.GetString(Position);
+
+            object IEnumerator.Current => Array.GetString(Position);
         }
     }
 }

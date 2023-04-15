@@ -14,13 +14,14 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Arrays
 {
-    public class FixedSizeBinaryArray : Array
+    public class FixedSizeBinaryArray : Array, IEnumerable<byte[]>
     {
         public FixedSizeBinaryArray(ArrayData data)
             : base(data)
@@ -66,8 +67,36 @@ namespace Apache.Arrow.Arrays
                 return ReadOnlySpan<byte>.Empty;
             }
 
+            return GetBytesUnchecked(index);
+        }
+
+        public ReadOnlySpan<byte> GetBytesUnchecked(int index)
+        {
             int size = ((FixedSizeBinaryType)Data.DataType).ByteWidth;
             return ValueBuffer.Span.Slice(index * size, size);
+        }
+
+        // IEnumerable methods
+        public IEnumerator<byte[]> GetEnumerator()
+        {
+            return new Enumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private new class Enumerator : Array.Enumerator<FixedSizeBinaryArray>, IEnumerator<byte[]>
+        {
+            public Enumerator(FixedSizeBinaryArray array) : base(array)
+            { }
+
+            byte[] IEnumerator<byte[]>.Current => Array.IsNull(Position) ?
+                null : Array.GetBytesUnchecked(Position).ToArray();
+
+            object IEnumerator.Current => Array.IsNull(Position) ?
+                null : Array.GetBytesUnchecked(Position).ToArray();
         }
 
         public abstract class BuilderBase<TArray, TBuilder> : IArrowArrayBuilder<byte[], TArray, TBuilder>

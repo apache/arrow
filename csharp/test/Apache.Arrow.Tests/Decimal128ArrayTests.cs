@@ -257,5 +257,26 @@ namespace Apache.Arrow.Tests
                 }
             }
         }
+
+        public class IEnumerableArray
+        {
+            [Fact]
+            public void Decimal128Array_ShouldBe_IEnumerable()
+            {
+                // Build test array
+                Decimal128Array array = new Decimal128Array.Builder(15, 5)
+                    .Append((decimal)1.12345).AppendNull().Append((decimal)-12.98765)
+                    .Build();
+
+                decimal?[] expected = new decimal?[] { (decimal)1.12345, null, (decimal)-12.98765 };
+
+                int i = 0;
+                foreach (decimal? value in array)
+                {
+                    Assert.Equal(expected[i], value);
+                    i++;
+                }
+            }
+        }
     }
 }

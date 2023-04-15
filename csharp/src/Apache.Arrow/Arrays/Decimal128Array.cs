@@ -14,18 +14,22 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Numerics;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class Decimal128Array : FixedSizeBinaryArray
+    public class Decimal128Array : FixedSizeBinaryArray, IEnumerable<decimal?>
     {
         public class Builder : BuilderBase<Decimal128Array, Builder>
         {
+            public Builder(int precision, int scale)
+                : this(new Decimal128Type(precision, scale))
+            { }
+
             public Builder(Decimal128Type type) : base(type, 16)
             {
                 DataType = type;
@@ -90,6 +94,27 @@ namespace Apache.Arrow
                 return null;
             }
             return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
+        }
+
+        // IEnumerable methods
+        public new IEnumerator<decimal?> GetEnumerator()
+        {
+            return new Enumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private new class Enumerator : Array.Enumerator<Decimal128Array>, IEnumerator<decimal?>
+        {
+            public Enumerator(Decimal128Array array) : base(array)
+            { }
+
+            decimal? IEnumerator<decimal?>.Current => Array.GetValue(Position);
+
+            object IEnumerator.Current => Array.GetValue(Position);
         }
     }
 }

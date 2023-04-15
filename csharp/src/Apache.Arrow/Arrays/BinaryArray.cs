@@ -13,15 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Apache.Arrow.Memory;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class BinaryArray : Array
+    public class BinaryArray : Array, IEnumerable<byte[]>
     {
         public class Builder : BuilderBase<BinaryArray, Builder>
         {
@@ -351,8 +352,35 @@ namespace Apache.Arrow
                 return ReadOnlySpan<byte>.Empty;
             }
 
+            return GetBytesUnchecked(index);
+        }
+
+        public ReadOnlySpan<byte> GetBytesUnchecked(int index)
+        {
             return ValueBuffer.Span.Slice(ValueOffsets[index], GetValueLength(index));
         }
 
+        // IEnumerable methods
+        public IEnumerator<byte[]> GetEnumerator()
+        {
+            return new Enumerator(this);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private new class Enumerator: Array.Enumerator<BinaryArray>, IEnumerator<byte[]>
+        {
+            public Enumerator(BinaryArray array) : base(array)
+            { }
+
+            byte[] IEnumerator<byte[]>.Current => Array.IsNull(Position) ?
+                null : Array.GetBytesUnchecked(Position).ToArray();
+
+            object IEnumerator.Current => Array.IsNull(Position) ?
+                null : Array.GetBytesUnchecked(Position).ToArray();
+        }
     }
 }
