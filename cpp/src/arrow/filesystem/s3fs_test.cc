@@ -185,7 +185,7 @@ class S3TestMixin : public AwsTestMixin {
     Status connect_status;
     int retries = kNumServerRetries;
     do {
-      InitServerAndClient();
+      ASSERT_OK(InitServerAndClient());
       connect_status = OutcomeToStatus("ListBuckets", client_->ListBuckets());
     } while (!connect_status.ok() && --retries > 0);
     ASSERT_OK(connect_status);
@@ -198,8 +198,8 @@ class S3TestMixin : public AwsTestMixin {
   }
 
  protected:
-  void InitServerAndClient() {
-    ASSERT_OK_AND_ASSIGN(minio_, GetMinioEnv()->GetOneServer());
+  Status InitServerAndClient() {
+    ARROW_ASSIGN_OR_RAISE(minio_, GetMinioEnv()->GetOneServer());
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     client_config_->scheme = Aws::Http::Scheme::HTTP;
@@ -211,6 +211,7 @@ class S3TestMixin : public AwsTestMixin {
         new Aws::S3::S3Client(credentials_, *client_config_,
                               Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
                               use_virtual_addressing));
+    return Status::OK();
   }
 
   // How many times to try launching a server in a row before decreeing failure
