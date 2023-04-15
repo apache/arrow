@@ -46,6 +46,11 @@ namespace Apache.Arrow
                 return Append(bytes);
             }
 
+            public Builder Append(decimal? value)
+            {
+                return value.HasValue ? Append(value.Value) : AppendNull();
+            }
+
             public Builder AppendRange(IEnumerable<decimal> values)
             {
                 if (values == null)
@@ -61,6 +66,15 @@ namespace Apache.Arrow
                 return Instance;
             }
 
+            public Builder AppendRange(IEnumerable<decimal?> values)
+            {
+                foreach (decimal? d in values)
+                {
+                    Append(d);
+                }
+
+                return Instance;
+            }
             public Builder Set(int index, decimal value)
             {
                 Span<byte> bytes = stackalloc byte[DataType.ByteWidth];

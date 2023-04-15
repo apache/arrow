@@ -137,6 +137,15 @@ namespace Apache.Arrow
             return Instance;
         }
 
+        public TBuilder Append(T? value)
+        {
+            if (value.HasValue)
+                Append(value.Value);
+            else
+                AppendNull();
+            return Instance;
+        }
+
         public TBuilder Append(ReadOnlySpan<T> span)
         {
             int len = ValueBuffer.Length;
@@ -150,6 +159,15 @@ namespace Apache.Arrow
             int len = ValueBuffer.Length;
             ValueBuffer.AppendRange(values);
             ValidityBuffer.AppendRange(Enumerable.Repeat(true, ValueBuffer.Length - len));
+            return Instance;
+        }
+
+        public TBuilder AppendRange(IEnumerable<T?> values)
+        {
+            foreach (T? value in values)
+            {
+                Append(value);
+            }
             return Instance;
         }
 

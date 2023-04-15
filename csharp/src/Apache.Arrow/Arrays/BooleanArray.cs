@@ -68,6 +68,15 @@ namespace Apache.Arrow
                 return this;
             }
 
+            public Builder AppendRange(IEnumerable<bool?> values)
+            {
+                foreach (bool? value in values)
+                {
+                    NullableAppend(value);
+                }
+                return this;
+            }
+
             public Builder AppendNull()
             {
                 return NullableAppend(null);
