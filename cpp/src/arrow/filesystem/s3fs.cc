@@ -2573,7 +2573,7 @@ namespace {
 
 struct AwsInstance : public ::arrow::internal::Executor::Resource {
   AwsInstance() : is_initialized_(false), is_finalized_(false) {}
-  ~AwsInstance() { Finalize(); }
+  ~AwsInstance() { Finalize(/*from_destructor=*/true); }
 
   // Returns true iff the instance was newly initialized with `options`
   Result<bool> EnsureInitialized(const S3GlobalOptions& options) {
@@ -2590,12 +2590,17 @@ struct AwsInstance : public ::arrow::internal::Executor::Resource {
 
   bool IsInitialized() { return !is_finalized_ && is_initialized_; }
 
-  void Finalize() {
+  void Finalize(bool from_destructor = false) {
     bool expected = true;
     is_finalized_.store(true);
     if (is_initialized_.compare_exchange_strong(expected, false)) {
-      RegionResolver::ResetDefaultInstance();
-      Aws::ShutdownAPI(aws_options_);
+      if (from_destructor) {
+        ARROW_LOG(WARNING)
+            << " arrow::fs::FinalizeS3 was not called even though S3 was initialized.  "
+               "This could lead to a segmentation fault at exit";
+        RegionResolver::ResetDefaultInstance();
+        Aws::ShutdownAPI(aws_options_);
+      }
     }
   }
 
