@@ -17,7 +17,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Apache.Arrow.Arrays;
-using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow

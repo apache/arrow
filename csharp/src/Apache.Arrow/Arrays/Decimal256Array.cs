@@ -16,7 +16,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Numerics;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
