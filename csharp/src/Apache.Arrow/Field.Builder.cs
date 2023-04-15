@@ -93,6 +93,9 @@ namespace Apache.Arrow
                         Nullable(true);
                         break;
                     // Integers
+                    case var _ when valueType == typeof(sbyte):
+                        DataType(new Int8Type());
+                        break;
                     case var _ when valueType == typeof(short):
                         DataType(new Int16Type());
                         break;
@@ -115,6 +118,10 @@ namespace Apache.Arrow
                     // Decimal
                     case var _ when valueType == typeof(decimal):
                         DataType(new Decimal128Type(38, 18));
+                        break;
+                    // Float
+                    case var _ when valueType == typeof(float):
+                        DataType(new FloatType());
                         break;
                     // Double
                     case var _ when valueType == typeof(double):
