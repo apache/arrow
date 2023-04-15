@@ -968,8 +968,12 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
   } else {
     // Use a native pydict
     OwnedRef dict_item;
-    return ConvertMapHelper(
-        [&dict_item]([[maybe_unused]] int64_t) {
+    Py_ssize_t total_dict_len{0};
+    Py_ssize_t total_raw_len{0};
+
+    auto status = ConvertMapHelper(
+        [&dict_item, &total_raw_len](int64_t num_pairs) {
+          total_raw_len += num_pairs;
           dict_item.reset(PyDict_New());
           return CheckPyError();
         },
@@ -984,12 +988,26 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
                 "Unexpected failure inserting Arrow (key, value) pair into Python dict"
             );
         },
-        [&dict_item]{ return dict_item.detach(); },
+        [&dict_item, &total_dict_len]{
+          total_dict_len += PyDict_Size(dict_item.obj());
+          return dict_item.detach();
+        },
         data,
         py_keys,
         py_items,
         item_arrays,
         out_values);
+
+    if (status.ok() && (total_dict_len < total_raw_len)) {
+      const char* message = "After conversion of Arrow map to pydict, "
+          "detected possible data loss due to duplicate keys. "
+          "Input length is [%lld], total pydict length is [%lld].";
+      std::array<char, 256> buf;
+      std::snprintf(buf.data(), buf.size(), message, total_raw_len, total_dict_len);
+      ARROW_LOG(WARNING) << buf.data();
+    }
+
+    return status;
   }
 }
 
