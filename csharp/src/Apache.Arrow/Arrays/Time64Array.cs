@@ -147,10 +147,10 @@ namespace Apache.Arrow
         {
             return TimeType.Unit switch
             {
-                TimeUnit.Second => new(this, (a, i) => a[i]),
-                TimeUnit.Millisecond => new(this, (a, i) => a[i]),
-                TimeUnit.Microsecond => new(this, (a, i) => a[i]),
-                TimeUnit.Nanosecond => new(this, (a, i) => a[i]),
+                TimeUnit.Second => new(this, (a, i) => a.IsValid(i) ? a.SecondsToTimeSpan(i) : null),
+                TimeUnit.Millisecond => new(this, (a, i) => a.IsValid(i) ? a.MillisecondsToTimeSpan(i) : null),
+                TimeUnit.Microsecond => new(this, (a, i) => a.IsValid(i) ? a.MicrosecondsToTimeSpan(i) : null),
+                TimeUnit.Nanosecond => new(this, (a, i) => a.IsValid(i) ? a.SecondsToTimeSpan(i) : null),
                 _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
             };
         }
