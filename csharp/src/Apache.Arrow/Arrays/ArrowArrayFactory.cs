@@ -14,10 +14,8 @@
 // limitations under the License.
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using Apache.Arrow.Arrays;
-using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
