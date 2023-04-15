@@ -128,6 +128,8 @@ namespace Apache.Arrow
         {
             get
             {
+                if (index < 0)
+                    return this[Length + index];
                 return GetTimestamp(index);
             }
             // TODO: Implement setter

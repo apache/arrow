@@ -119,6 +119,9 @@ namespace Apache.Arrow
         {
             get
             {
+                if (index < 0)
+                    return this[Length + index];
+
                 if (IsValid(index))
                 {
                     return TimeType.Unit switch

@@ -388,7 +388,7 @@ namespace Apache.Arrow
         }
 
         // Accessors
-        public Accessor<BinaryArray, byte[]> Items() => new(this, (a, i) => a.IsValid(i) ? null : a.GetValueBytes(i).ToArray());
+        public Accessor<BinaryArray, byte[]> Items() => new(this, (a, i) => a.IsValid(i) ? a.GetValueBytes(i).ToArray() : null);
         public Accessor<BinaryArray, byte[]> NotNullItems() => new(this, (a, i) => a.GetValueBytes(i).ToArray());
     }
 }
