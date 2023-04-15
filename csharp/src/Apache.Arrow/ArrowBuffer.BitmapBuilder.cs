@@ -17,7 +17,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Apache.Arrow.Memory;
-using FlatBuffers;
 
 namespace Apache.Arrow
 {
@@ -70,6 +69,7 @@ namespace Apache.Arrow
                 Memory = new byte[BitUtility.ByteCount(capacity)];
                 Capacity = capacity;
             }
+
             /// <summary>
             /// Append a single bit.
             /// </summary>

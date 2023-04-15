@@ -192,6 +192,18 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(16, builder.SetBitCount);
                 Assert.Equal(0, builder.UnsetBitCount);
             }
+
+            [Fact]
+            public void ThrowsWhenLengthIsTooBig()
+            {
+                // Arrange
+                var builder = new ArrowBuffer.BitmapBuilder();
+                builder.AppendRange(Enumerable.Repeat(true, 8));
+
+                // Act
+                Assert.Throws<ArgumentException>(() => builder.Append(new byte[] { 0b0010111 }, 9));
+                Assert.Throws<ArgumentException>(() => builder.Append(new byte[] { 0, 1, 3, 4 }, 33));
+            }
         }
 
         public class AppendRange
