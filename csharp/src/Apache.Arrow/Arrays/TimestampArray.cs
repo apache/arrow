@@ -106,44 +106,65 @@ namespace Apache.Arrow
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
-        public DateTimeOffset GetTimestampUnchecked(int index)
-        {
-            var type = (TimestampType) Data.DataType;
-            long value = Values[index];
-
-            long ticks;
-
-            switch (type.Unit)
-            {
-                case TimeUnit.Nanosecond:
-                    ticks = value / 100;
-                    break;
-                case TimeUnit.Microsecond:
-                    ticks = value * 10;
-                    break;
-                case TimeUnit.Millisecond:
-                    ticks = value * TimeSpan.TicksPerMillisecond;
-                    break;
-                case TimeUnit.Second:
-                    ticks = value * TimeSpan.TicksPerSecond;
-                    break;
-                default:
-                    throw new InvalidDataException(
-                        $"Unsupported timestamp unit <{type.Unit}>");
-            }
-
-            return new DateTimeOffset(s_epoch.Ticks + ticks, TimeSpan.Zero);
-        }
+        public TimestampType TimeType => (TimestampType)Data.DataType;
 
         public DateTimeOffset? GetTimestamp(int index)
         {
-            if (IsNull(index))
+            if (IsValid(index))
             {
-                return null;
+                return TimeType.Unit switch
+                {
+                    TimeUnit.Second => (DateTimeOffset?)UnixSecondsToDateTimeOffset(index),
+                    TimeUnit.Millisecond => (DateTimeOffset?)UnixMillisecondsToDateTimeOffset(index),
+                    TimeUnit.Microsecond => (DateTimeOffset?)UnixMicrosecondsToDateTimeOffset(index),
+                    TimeUnit.Nanosecond => (DateTimeOffset?)UnixNanosecondsToDateTimeOffset(index),
+                    _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
+                };
             }
-
-            return GetTimestampUnchecked(index);
+            return null;
         }
 
+        public new DateTimeOffset? this[int index]
+        {
+            get
+            {
+                return GetTimestamp(index);
+            }
+            // TODO: Implement setter
+            //set
+            //{
+            //    data[index] = value;
+            //}
+        }
+
+        // Accessors
+        public new Accessor<TimestampArray, DateTimeOffset?> Items()
+        {
+            return TimeType.Unit switch
+            {
+                TimeUnit.Second => new(this, (a, i) => a.IsValid(i) ? a.UnixSecondsToDateTimeOffset(i) : null),
+                TimeUnit.Millisecond => new(this, (a, i) => a.IsValid(i) ? a.UnixMillisecondsToDateTimeOffset(i) : null),
+                TimeUnit.Microsecond => new(this, (a, i) => a.IsValid(i) ? a.UnixMicrosecondsToDateTimeOffset(i) : null),
+                TimeUnit.Nanosecond => new(this, (a, i) => a.IsValid(i) ? a.UnixNanosecondsToDateTimeOffset(i) : null),
+                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
+            };
+        }
+        public new Accessor<TimestampArray, DateTimeOffset> NotNullItems()
+        {
+            return TimeType.Unit switch
+            {
+                TimeUnit.Second => new(this, (a, i) => a.UnixSecondsToDateTimeOffset(i)),
+                TimeUnit.Millisecond => new(this, (a, i) => a.UnixMillisecondsToDateTimeOffset(i)),
+                TimeUnit.Microsecond => new(this, (a, i) => a.UnixMicrosecondsToDateTimeOffset(i)),
+                TimeUnit.Nanosecond => new(this, (a, i) => a.UnixNanosecondsToDateTimeOffset(i)),
+                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
+            };
+        }
+
+        // Static Methods to Convert ticks to date/time instances
+        public DateTimeOffset UnixSecondsToDateTimeOffset(int index) => Types.Convert.UnixSecondsToDateTimeOffset(Values[index]);
+        public DateTimeOffset UnixMillisecondsToDateTimeOffset(int index) => Types.Convert.UnixMillisecondsToDateTimeOffset(Values[index]);
+        public DateTimeOffset UnixMicrosecondsToDateTimeOffset(int index) => Types.Convert.UnixMicrosecondsToDateTimeOffset(Values[index]);
+        public DateTimeOffset UnixNanosecondsToDateTimeOffset(int index) => Types.Convert.UnixNanosecondsToDateTimeOffset(Values[index]);
     }
 }

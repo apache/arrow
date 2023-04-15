@@ -54,11 +54,6 @@ namespace Apache.Arrow.Arrays
         /// </exception>
         public ReadOnlySpan<byte> GetBytes(int index)
         {
-            if (index < 0 || index >= Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
-
             if (IsNull(index))
             {
                 // Note that `return null;` is valid syntax, but would be misleading as `null` in the context of a span
@@ -66,6 +61,11 @@ namespace Apache.Arrow.Arrays
                 return ReadOnlySpan<byte>.Empty;
             }
 
+            return GetValueBytes(index);
+        }
+
+        public ReadOnlySpan<byte> GetValueBytes(int index)
+        {
             int size = ((FixedSizeBinaryType)Data.DataType).ByteWidth;
             return ValueBuffer.Span.Slice(index * size, size);
         }
@@ -222,5 +222,22 @@ namespace Apache.Arrow.Arrays
             }
 
         }
+
+        public ReadOnlySpan<byte> this[int index]
+        {
+            get
+            {
+                return index < 0 ? GetBytes(Length + index) : GetBytes(index);
+            }
+            // TODO: Implement setter
+            //set
+            //{
+            //    data[index] = value;
+            //}
+        }
+
+        // Accessors
+        public Accessor<FixedSizeBinaryArray, byte[]> Items() => new(this, (a, i) => a.IsValid(i) ? null : a.GetValueBytes(i).ToArray());
+        public Accessor<FixedSizeBinaryArray, byte[]> NotNullItems() => new(this, (a, i) => a.GetValueBytes(i).ToArray());
     }
 }

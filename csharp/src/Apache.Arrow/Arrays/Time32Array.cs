@@ -13,8 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
+using System;
 using System.IO;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -68,6 +69,8 @@ namespace Apache.Arrow
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
+        public Time32Type TimeType => (Time32Type)Data.DataType;
+
         /// <summary>
         /// Get the time at the specified index as seconds
         /// </summary>
@@ -82,12 +85,11 @@ namespace Apache.Arrow
                 return null;
             }
 
-            var unit = ((Time32Type) Data.DataType).Unit;
-            return unit switch
+            return TimeType.Unit switch
             {
                 TimeUnit.Second => value,
                 TimeUnit.Millisecond => value / 1_000,
-                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
+                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}")
             };
         }
 
@@ -105,13 +107,66 @@ namespace Apache.Arrow
                 return null;
             }
 
-            var unit = ((Time32Type)Data.DataType).Unit;
-            return unit switch
+            return TimeType.Unit switch
             {
                 TimeUnit.Second => value * 1_000,
                 TimeUnit.Millisecond => value,
-                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
+                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}")
             };
         }
+
+        public new TimeSpan? this[int index]
+        {
+            get
+            {
+                if (IsValid(index))
+                {
+                    return TimeType.Unit switch
+                    {
+                        TimeUnit.Second => (TimeSpan?)SecondsToTimeSpan(index),
+                        TimeUnit.Millisecond => (TimeSpan?)MillisecondsToTimeSpan(index),
+                        TimeUnit.Microsecond => (TimeSpan?)MicrosecondsToTimeSpan(index),
+                        TimeUnit.Nanosecond => (TimeSpan?)NanosecondsToTimeSpan(index),
+                        _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
+                    };
+                }
+                return null;
+            }
+            // TODO: Implement setter
+            //set
+            //{
+            //    data[index] = value;
+            //}
+        }
+
+        // Accessors
+        public new Accessor<Time32Array, TimeSpan?> Items()
+        {
+            return TimeType.Unit switch
+            {
+                TimeUnit.Second => new(this, (a, i) => a[i]),
+                TimeUnit.Millisecond => new(this, (a, i) => a[i]),
+                TimeUnit.Microsecond => new(this, (a, i) => a[i]),
+                TimeUnit.Nanosecond => new(this, (a, i) => a[i]),
+                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
+            };
+        }
+        public new Accessor<Time32Array, TimeSpan> NotNullItems()
+        {
+            return TimeType.Unit switch
+            {
+                TimeUnit.Second => new(this, (a, i) => a.SecondsToTimeSpan(i)),
+                TimeUnit.Millisecond => new(this, (a, i) => a.MillisecondsToTimeSpan(i)),
+                TimeUnit.Microsecond => new(this, (a, i) => a.MicrosecondsToTimeSpan(i)),
+                TimeUnit.Nanosecond => new(this, (a, i) => a.NanosecondsToTimeSpan(i)),
+                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
+            };
+        }
+
+        // Static Methods to Convert ticks to date/time instances
+        public TimeSpan SecondsToTimeSpan(int index) => Types.Convert.SecondsToTimeSpan(Values[index]);
+        public TimeSpan MillisecondsToTimeSpan(int index) => Types.Convert.MillisecondsToTimeSpan(Values[index]);
+        public TimeSpan MicrosecondsToTimeSpan(int index) => Types.Convert.MicrosecondsToTimeSpan(Values[index]);
+        public TimeSpan NanosecondsToTimeSpan(int index) => Types.Convert.NanosecondsToTimeSpan(Values[index]);
     }
 }

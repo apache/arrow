@@ -188,7 +188,29 @@ namespace Apache.Arrow
         {
             return IsNull(index)
                 ? (bool?)null
-                : BitUtility.GetBit(ValueBuffer.Span, index + Offset);
+                : GetValueBoolean(index);
         }
+
+        public bool GetValueBoolean(int index)
+        {
+            return BitUtility.GetBit(ValueBuffer.Span, index + Offset);
+        }
+
+        public bool? this[int index]
+        {
+            get
+            {
+                return index < 0 ? GetValue(Length + index) : GetValue(index);
+            }
+            // TODO: Implement setter
+            //set
+            //{
+            //    data[index] = value;
+            //}
+        }
+
+        // Accessors
+        public Accessor<BooleanArray, bool?> Items() => new(this, (a, i) => a.IsValid(i) ? null : a.GetValueBoolean(i));
+        public Accessor<BooleanArray, bool> NotNullItems() => new(this, (a, i) => a.GetValueBoolean(i));
     }
 }

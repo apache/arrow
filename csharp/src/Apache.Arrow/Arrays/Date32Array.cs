@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -24,8 +24,6 @@ namespace Apache.Arrow
     /// </summary>
     public class Date32Array : PrimitiveArray<int>
     {
-        private static readonly DateTime _epochDate = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
-
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Date32Array"/> objects.
         /// </summary>
@@ -46,7 +44,7 @@ namespace Apache.Arrow
 
             protected override int Convert(DateTime dateTime)
             {
-                return (int)(dateTime.Date - _epochDate).TotalDays;
+                return (int)dateTime.ToUnixDays();
             }
 
             protected override int Convert(DateTimeOffset dateTimeOffset)
@@ -55,7 +53,7 @@ namespace Apache.Arrow
                 // of time that have elapsed since the UNIX epoch.  This is the same as converting it to UTC first and
                 // then taking the date element from that.  It is not the same as what would result from looking at the
                 // DateTimeOffset.Date property.
-                return (int)(dateTimeOffset.UtcDateTime.Date - _epochDate).TotalDays;
+                return (int)dateTimeOffset.ToUnixDays();
             }
         }
 
@@ -89,10 +87,7 @@ namespace Apache.Arrow
         /// </returns>
         public DateTime? GetDateTime(int index)
         {
-            int? value = GetValue(index);
-            return value.HasValue
-                ? _epochDate.AddDays(value.Value)
-                : default(DateTime?);
+            return IsValid(index) ? UnixDaysToDateTime(index) : null;
         }
 
         /// <summary>
@@ -103,10 +98,17 @@ namespace Apache.Arrow
         /// </returns>
         public DateTimeOffset? GetDateTimeOffset(int index)
         {
-            int? value = GetValue(index);
-            return value.HasValue
-                ? new DateTimeOffset(_epochDate.AddDays(value.Value), TimeSpan.Zero)
-                : default(DateTimeOffset?);
+            return IsValid(index) ? UnixDaysToDateTimeOffset(index) : null;
         }
+
+        public new DateTimeOffset? this[int index] => index < 0 ? GetDateTimeOffset(Length + index) : GetDateTimeOffset(index);
+
+        // Accessors
+        public new Accessor<Date32Array, DateTimeOffset?> Items() => new(this, (a, i) => IsValid(i) ? a.UnixDaysToDateTimeOffset(i) : null);
+        public new Accessor<Date32Array, DateTimeOffset> NotNullItems() => new(this, (a, i) => a.UnixDaysToDateTimeOffset(i));
+
+        // Static Methods to Convert ticks to date/time instances
+        public DateTime UnixDaysToDateTime(int index) => Types.Convert.UnixDaysToDateTime(Values[index]);
+        public DateTimeOffset UnixDaysToDateTimeOffset(int index) => Types.Convert.UnixDaysToDateTimeOffset(Values[index]);
     }
 }

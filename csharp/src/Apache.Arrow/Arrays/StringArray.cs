@@ -13,11 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System.Text;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -70,26 +69,21 @@ namespace Apache.Arrow
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
-        public string GetString(int index, Encoding encoding = default)
+        public new string this[int index]
         {
-            encoding = encoding ?? DefaultEncoding;
-
-            ReadOnlySpan<byte> bytes = GetBytes(index);
-
-            if (bytes == default)
+            get
             {
-                return null;
+                return index < 0 ? GetString(Length + index) : GetString(index);
             }
-            if (bytes.Length == 0)
-            {
-                return string.Empty;
-            }
-
-            unsafe
-            {
-                fixed (byte* data = &MemoryMarshal.GetReference(bytes))
-                    return encoding.GetString(data, bytes.Length);
-            }
+            // TODO: Implement setter
+            //set
+            //{
+            //    data[index] = value;
+            //}
         }
+
+        // Accessors
+        public new Accessor<StringArray, string> Items() => new(this, (a, i) => a.GetString(i));
+        public new Accessor<StringArray, string> NotNullItems() => new(this, (a, i) => a.GetString(i));
     }
 }

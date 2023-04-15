@@ -94,9 +94,8 @@ namespace Apache.Arrow
         /// </returns>
         public DateTime? GetDateTime(int index)
         {
-            long? value = GetValue(index);
-            return value.HasValue
-                ? DateTimeOffset.FromUnixTimeMilliseconds(value.Value).Date
+            return IsValid(index)
+                ? UnixMillisecondsToDateTimeOffset(index).Date
                 : default(DateTime?);
         }
 
@@ -108,10 +107,18 @@ namespace Apache.Arrow
         /// </returns>
         public DateTimeOffset? GetDateTimeOffset(int index)
         {
-            long? value = GetValue(index);
-            return value.HasValue
-                ? DateTimeOffset.FromUnixTimeMilliseconds(value.Value)
+            return IsValid(index)
+                ? UnixMillisecondsToDateTimeOffset(index)
                 : default(DateTimeOffset?);
         }
+
+        public new DateTimeOffset? this[int index] => index < 0 ? GetDateTimeOffset(Length + index) : GetDateTimeOffset(index);
+
+        // Accessors
+        public new Accessor<Date64Array, DateTimeOffset?> Items() => new(this, (a, i) => a.GetDateTimeOffset(i));
+        public new Accessor<Date64Array, DateTimeOffset> NotNullItems() => new(this, (a, i) => a.UnixMillisecondsToDateTimeOffset(i));
+
+        // Static Methods to Convert ticks to date/time instances
+        public DateTimeOffset UnixMillisecondsToDateTimeOffset(int index) => Types.Convert.UnixMillisecondsToDateTimeOffset(Values[index]);
     }
 }

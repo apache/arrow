@@ -14,6 +14,8 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace Apache.Arrow
@@ -85,6 +87,64 @@ namespace Apache.Arrow
             if (disposing)
             {
                 Data.Dispose();
+            }
+        }
+
+        public class Accessor<TArray, TItem> : IEnumerable<TItem>
+            where TArray : IArrowArray
+        {
+            public readonly TArray Array;
+            private readonly Func<TArray, int, TItem> _getter;
+
+            public Accessor(TArray array, Func<TArray, int, TItem> getter)
+            {
+                Array = array;
+                _getter = getter;
+            }
+
+            public TItem Get(int index) => _getter(Array, index);
+
+            public TItem this[int index]
+            {
+                get
+                {
+                    return index < 0 ? Get(Array.Length + index) : Get(index);
+                }
+                // TODO: Implement setter
+                //set
+                //{
+                //    data[index] = value;
+                //}
+            }
+
+            public int Length => Array.Length;
+
+            // IEnum methods
+            public IEnumerator<TItem> GetEnumerator() => new Enumerator(this);
+            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+            private class Enumerator : IEnumerator<TItem>
+            {
+                private readonly Accessor<TArray, TItem> _accessor;
+                private int _index;
+
+                public Enumerator(Accessor<TArray, TItem> accessor)
+                {
+                    _accessor = accessor;
+                    _index = -1;
+                }
+
+                public TItem Current => _accessor.Get(_index);
+
+                object IEnumerator.Current => Current;
+
+                public void Dispose() { }
+                public bool MoveNext()
+                {
+                    _index++;
+                    return _index < _accessor.Array.Length;
+                }
+                public void Reset() => _index = -1;
             }
         }
     }

@@ -26,6 +26,10 @@ namespace Apache.Arrow
     {
         public class Builder : BuilderBase<Decimal256Array, Builder>
         {
+            public Builder(int precision, int scale) : this(new Decimal256Type(precision, scale))
+            {
+            }
+
             public Builder(Decimal256Type type) : base(type, 32)
             {
                 DataType = type;
@@ -79,9 +83,10 @@ namespace Apache.Arrow
         }
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
-        public int Scale => ((Decimal256Type)Data.DataType).Scale;
-        public int Precision => ((Decimal256Type)Data.DataType).Precision;
-        public int ByteWidth => ((Decimal256Type)Data.DataType).ByteWidth;
+        public Decimal256Type DecimalType => ((Decimal256Type)Data.DataType);
+        public int Scale => DecimalType.Scale;
+        public int Precision => DecimalType.Precision;
+        public int ByteWidth => DecimalType.ByteWidth;
 
         public decimal? GetValue(int index)
         {
@@ -89,8 +94,26 @@ namespace Apache.Arrow
             {
                 return null;
             }
-
-            return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
+            return GetDecimal(index);
         }
+
+        public decimal GetDecimal(int index) => DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
+
+        public new decimal? this[int index]
+        {
+            get
+            {
+                return GetValue(index);
+            }
+            // TODO: Implement setter
+            //set
+            //{
+            //    data[index] = value;
+            //}
+        }
+
+        // Accessors
+        public new Accessor<Decimal256Array, decimal?> Items() => new(this, (a, i) => a[i]);
+        public new Accessor<Decimal256Array, decimal> NotNullItems() => new(this, (a, i) => a.GetDecimal(i));
     }
 }

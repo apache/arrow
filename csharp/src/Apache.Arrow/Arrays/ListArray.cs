@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -188,6 +189,22 @@ namespace Apache.Arrow
             return array.Slice(ValueOffsets[index], GetValueLength(index));
         }
 
+        public IArrowArray GetArray(int index)
+        {
+            if (!(Values is Array array))
+            {
+                return default;
+            }
+
+            ReadOnlySpan<int> offsets = ValueOffsets;
+            return array.Slice(offsets[index], offsets[index + 1] - offsets[index]);
+        }
+
+        public TArray GetArray<TArray>(int index) where TArray : Array
+        {
+            return GetArray(index) as TArray;
+        }
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -196,5 +213,22 @@ namespace Apache.Arrow
             }
             base.Dispose(disposing);
         }
+
+        public IArrowArray this[int index]
+        {
+            get
+            {
+                return index < 0 ? GetSlicedValues(Length + index) : GetSlicedValues(index);
+            }
+            // TODO: Implement setter
+            //set
+            //{
+            //    data[index] = value;
+            //}
+        }
+
+        // Accessors
+        public Accessor<ListArray, TArray> Items<TArray>() where TArray : Array => new(this, (a, i) => a.GetArray<TArray>(i));
+        public Accessor<ListArray, TArray> NotNullItems<TArray>() where TArray : Array => new(this, (a, i) => a.IsValid(i) ? a.GetArray<TArray>(i) : null);
     }
 }

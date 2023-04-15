@@ -41,6 +41,5 @@ namespace Apache.Arrow
         }
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
-
     }
 }

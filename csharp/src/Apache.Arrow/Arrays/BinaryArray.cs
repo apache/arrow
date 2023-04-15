@@ -18,6 +18,8 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Apache.Arrow.Memory;
+using System.Runtime.InteropServices;
+using System.Text;
 
 namespace Apache.Arrow
 {
@@ -339,11 +341,6 @@ namespace Apache.Arrow
         /// </exception>
         public ReadOnlySpan<byte> GetBytes(int index)
         {
-            if (index < 0 || index >= Length)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index));
-            }
-
             if (IsNull(index))
             {
                 // Note that `return null;` is valid syntax, but would be misleading as `null` in the context of a span
@@ -351,8 +348,47 @@ namespace Apache.Arrow
                 return ReadOnlySpan<byte>.Empty;
             }
 
-            return ValueBuffer.Span.Slice(ValueOffsets[index], GetValueLength(index));
+            return GetValueBytes(index);
         }
 
+        public ReadOnlySpan<byte> GetValueBytes(int index)
+        {
+            ReadOnlySpan<int> offsets = ValueOffsets;
+            return ValueBuffer.Span.Slice(offsets[index], offsets[index + 1] - offsets[index]);
+        }
+
+        public string GetString(int index, Encoding encoding = default)
+        {
+            encoding ??= StringArray.DefaultEncoding;
+
+            if (IsValid(index))
+            {
+                ReadOnlySpan<byte> bytes = GetValueBytes(index);
+
+                unsafe
+                {
+                    fixed (byte* data = &MemoryMarshal.GetReference(bytes))
+                        return encoding.GetString(data, bytes.Length);
+                }
+            }
+            return null;
+        }
+
+        public ReadOnlySpan<byte> this[int index]
+        {
+            get
+            {
+                return index < 0 ? GetBytes(Length + index) : GetBytes(index);
+            }
+            // TODO: Implement setter
+            //set
+            //{
+            //    data[index] = value;
+            //}
+        }
+
+        // Accessors
+        public Accessor<BinaryArray, byte[]> Items() => new(this, (a, i) => a.IsValid(i) ? null : a.GetValueBytes(i).ToArray());
+        public Accessor<BinaryArray, byte[]> NotNullItems() => new(this, (a, i) => a.GetValueBytes(i).ToArray());
     }
 }

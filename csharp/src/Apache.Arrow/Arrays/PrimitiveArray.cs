@@ -66,5 +66,22 @@ namespace Apache.Arrow
 
             return list;
         }
+
+        public T? this[int index]
+        {
+            get
+            {
+                return index < 0 ? GetValue(Length + index) : GetValue(index);
+            }
+            // TODO: Implement setter
+            //set
+            //{
+            //    data[index] = value;
+            //}
+        }
+
+        // Accessors
+        public Accessor<PrimitiveArray<T>, T?> Items() => new(this, (a, i) => a[i]);
+        public Accessor<PrimitiveArray<T>, T> NotNullItems() => new(this, (a, i) => a.Values[i]);
     }
 }
