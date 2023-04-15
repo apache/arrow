@@ -351,6 +351,13 @@ std::string fs___S3FileSystem__region(const std::shared_ptr<fs::S3FileSystem>& f
 
 #endif
 
+// [[arrow::export]]
+void FinalizeS3() {
+#if defined(ARROW_R_WITH_S3)
+  StopIfNotOk(fs::FinalizeS3());
+#endif
+}
+
 #if defined(ARROW_R_WITH_GCS)
 
 #include <arrow/filesystem/gcsfs.h>

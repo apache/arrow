@@ -335,6 +335,9 @@ struct ARROW_EXPORT S3GlobalOptions {
 
 /// Initialize the S3 APIs.  It is required to call this function at least once
 /// before using S3FileSystem.
+///
+/// Once this function is called you MUST call FinalizeS3 before the end of the
+/// application in order to avoid a segmentation fault at shutdown.
 ARROW_EXPORT
 Status InitializeS3(const S3GlobalOptions& options);
 
