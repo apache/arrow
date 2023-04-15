@@ -4775,7 +4775,6 @@ def test_roundtrip_map_array_with_pydicts_duplicate_keys():
     expected_series_pydicts = pd.Series([
         {'foo': ['1', '2'], 'bar': ['c', 'd']},
     ])
-    tm.assert_series_equal(series_pydicts, expected_series_pydicts)
     # roundtrip is not possible because of data loss
     assert not maps.equals(pa.Array.from_pandas(series_pydicts, type=ty))
 
@@ -4785,8 +4784,27 @@ def test_roundtrip_map_array_with_pydicts_duplicate_keys():
     expected_series_default = pd.Series([
         [('foo', ['a', 'b']), ('bar', ['c', 'd']), ('foo', ['1', '2'])],
     ])
-    tm.assert_series_equal(series_default, expected_series_default)
     assert maps.equals(pa.Array.from_pandas(series_default, type=ty))
+
+    # custom comparison for compatibility w/ Pandas 1.0.0
+    # would otherwise run:
+    #   tm.assert_series_equal(series_pydicts, expected_series_pydicts)
+    assert len(series_pydicts) == len(expected_series_pydicts)
+    for row1, row2 in zip(series_pydicts, expected_series_pydicts):
+        assert len(row1) == len(row2)
+        for tup1, tup2 in zip(row1.items(), row2.items()):
+            assert tup1[0] == tup2[0]
+            assert np.array_equal(tup1[1], tup2[1])
+
+    # custom comparison for compatibility w/ Pandas 1.0.0
+    # would otherwise run:
+    #   tm.assert_series_equal(series_default, expected_series_default)
+    assert len(series_default) == len(expected_series_default)
+    for row1, row2 in zip(series_default, expected_series_default):
+        assert len(row1) == len(row2)
+        for tup1, tup2 in zip(row1, row2):
+            assert tup1[0] == tup2[0]
+            assert np.array_equal(tup1[1], tup2[1])
 
 
 def test_unhashable_map_keys_with_pydicts():
@@ -4810,4 +4828,13 @@ def test_unhashable_map_keys_with_pydicts():
         [(['a', 'b'], 'foo'), (['c', 'd'], 'bar')],
         [([], 'baz'), (['e'], 'qux'), ([None, 'f'], 'quux'), (['g', 'h'], 'quz')],
     ])
-    tm.assert_series_equal(series, expected_series_default)
+
+    # custom comparison for compatibility w/ Pandas 1.0.0
+    # would otherwise run:
+    #   tm.assert_series_equal(series, expected_series_default)
+    assert len(series) == len(expected_series_default)
+    for row1, row2 in zip(series, expected_series_default):
+        assert len(row1) == len(row2)
+        for tup1, tup2 in zip(row1, row2):
+            assert np.array_equal(tup1[0], tup2[0])
+            assert tup1[1] == tup2[1]
