@@ -210,7 +210,7 @@ namespace Apache.Arrow
         }
 
         // Accessors
-        public Accessor<BooleanArray, bool?> Items() => Items<BooleanArray, bool?>((a, i) => a.IsValid(i) ? null : a.GetValueBoolean(i));
+        public Accessor<BooleanArray, bool?> Items() => Items<BooleanArray, bool?>((a, i) => a.IsValid(i) ? a.GetValueBoolean(i) : null);
         public Accessor<BooleanArray, bool> NotNullItems() => Items<BooleanArray, bool>((a, i) => a.GetValueBoolean(i));
     }
 }
