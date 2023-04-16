@@ -22,6 +22,8 @@
   # drop problems attributes (most likely from readr)
   x[["attributes"]][["problems"]] <- NULL
 
+  x <- remove_default_df_metadata(x)
+
   out <- serialize(x, NULL, ascii = TRUE)
 
   # if the metadata is over 100 kB, compress
@@ -62,6 +64,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
     expr = {
       columns_metadata <- r_metadata$columns
       if (is.data.frame(x)) {
+        # if columns metadata exists, apply it here
         if (length(names(x)) && !is.null(columns_metadata)) {
           for (name in intersect(names(columns_metadata), names(x))) {
             x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
@@ -221,4 +224,28 @@ get_r_metadata_from_old_schema <- function(new_schema, old_schema) {
     r_meta$columns <- r_meta$columns[keep]
   }
   r_meta
+}
+
+remove_default_df_metadata <- function(x) {
+  # if the column attributes are NULL (the default), drop them
+  if (all(vapply(x$columns, is.null, logical(1)))) {
+    x$columns <- NULL
+  }
+
+  # don't need to preserve data.frame on roundtrip
+  if (identical(x$attributes$class, "data.frame")) {
+    x$attributes$class <- NULL
+
+    # if there are no other attributes, remove this entirely
+    if (is_empty(x$attributes)) {
+      x$attributes <- NULL
+    }
+  }
+
+  # if there are no elements left in x, set to NULL
+  if(is_empty(x)){
+    x <- NULL
+  }
+
+  x
 }

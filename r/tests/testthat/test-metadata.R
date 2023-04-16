@@ -391,3 +391,15 @@ test_that("grouped_df non-arrow metadata is preserved", {
     "look I'm still here!"
   )
 })
+
+test_that("Only non-default metadata is saved", {
+  df <- data.frame(x = 1:5)
+  df_arrow <- arrow_table(df)
+  expect_null(df_arrow$r_metadata)
+
+  df <- data.frame(x = 1:5)
+  attributes(df)$foo = "bar"
+  df_arrow <- arrow_table(df)
+  expect_identical(df_arrow$r_metadata, list(attributes = list(foo = "bar")))
+
+})
