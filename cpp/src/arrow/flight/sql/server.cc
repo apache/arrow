@@ -515,7 +515,7 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
 
 arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
   pb::sql::ActionSetSessionOptionsResult pb_result;
-  for (SetSessionOptionResult& res : result.results) {
+  for (const SetSessionOptionResult res : result.results) {
     switch (res) {
       case SetSessionOptionResult::kUnspecified:
         pb_result.add_results(
@@ -541,37 +541,37 @@ arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
 arrow::Result<Result> PackActionResult(ActionGetSessionOptionsResult result) {
   pb::sql::ActionGetSessionOptionsResult pb_result;
   for (const SessionOption& in_opt : result.session_options) {
-    pb::sql::SessionOption& opt = *pb_result.add_session_options();
+    pb::sql::SessionOption* opt = pb_result.add_session_options();
     const std::string& name = in_opt.option_name;
-    opt.set_option_name(name);
+    opt->set_option_name(name);
 
     const SessionOptionValue& value = in_opt.option_value;
     if (value.index() == std::variant_npos)
       return Status::Invalid("Undefined SessionOptionValue type ");
     switch ((SessionOptionValueType)(value.index())) {
       case SessionOptionValueType::kString:
-        opt.set_string_value(std::get<std::string>(value));
+        opt->set_string_value(std::get<std::string>(value));
         break;
       case SessionOptionValueType::kBool:
-        opt.set_bool_value(std::get<bool>(value));
+        opt->set_bool_value(std::get<bool>(value));
         break;
       case SessionOptionValueType::kInt32:
-        opt.set_int32_value(std::get<int32_t>(value));
+        opt->set_int32_value(std::get<int32_t>(value));
         break;
       case SessionOptionValueType::kInt64:
-        opt.set_int64_value(std::get<int64_t>(value));
+        opt->set_int64_value(std::get<int64_t>(value));
         break;
       case SessionOptionValueType::kFloat:
-        opt.set_float_value(std::get<float>(value));
+        opt->set_float_value(std::get<float>(value));
         break;
       case SessionOptionValueType::kDouble:
-        opt.set_double_value(std::get<double>(value));
+        opt->set_double_value(std::get<double>(value));
         break;
       case SessionOptionValueType::kStringList:
-        pb::sql::SessionOption::StringListValue& string_list_value =
-            *opt.mutable_string_list_value();
+        pb::sql::SessionOption::StringListValue* string_list_value =
+            opt->mutable_string_list_value();
         for (const std::string& s : std::get<std::vector<std::string>>(value))
-          string_list_value.add_values(s);
+          string_list_value->add_values(s);
         break;
     }
   }
