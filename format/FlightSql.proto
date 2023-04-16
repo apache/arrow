@@ -1271,7 +1271,7 @@ message CommandGetTableTypes {
  *  table_name: utf8 not null,
  *  column_name: utf8 not null,
  *  key_name: utf8,
- *  key_sequence: int not null
+ *  key_sequence: int32 not null
  * >
  * The returned data should be ordered by catalog_name, db_schema_name, table_name, key_name, then key_sequence.
  */
@@ -1321,7 +1321,7 @@ enum UpdateDeleteRules {
  *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
- *  key_sequence: int not null,
+ *  key_sequence: int32 not null,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
  *  update_rule: uint8 not null,
@@ -1367,7 +1367,7 @@ message CommandGetExportedKeys {
  *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
- *  key_sequence: int not null,
+ *  key_sequence: int32 not null,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
  *  update_rule: uint8 not null,
@@ -1420,7 +1420,7 @@ message CommandGetImportedKeys {
  *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
- *  key_sequence: int not null,
+ *  key_sequence: int32 not null,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
  *  update_rule: uint8 not null,
