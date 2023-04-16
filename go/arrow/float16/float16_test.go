@@ -127,6 +127,7 @@ func TestGreater(t *testing.T) {
 		want bool
 	}{
 		{Num{bits: 0x3c00}, Num{bits: 0x4000}, false}, // 1 > 2 = false
+		{Num{bits: 0x4900}, Num{bits: 0x4900}, false}, // 10 == 10 = false
 		{Num{bits: 0x4248}, Num{bits: 0x3245}, true},  // 3.141 > 0.196 = true
 	} {
 		t.Run("greater", func(t *testing.T) {
@@ -145,6 +146,7 @@ func TestLess(t *testing.T) {
 		want bool
 	}{
 		{Num{bits: 0x3c00}, Num{bits: 0x4000}, true},  // 1 < 2 = true
+		{Num{bits: 0x4900}, Num{bits: 0x4900}, false}, // 10 == 10 = false
 		{Num{bits: 0x4248}, Num{bits: 0x3245}, false}, // 3.141 < 0.196 = false
 	} {
 		t.Run("less", func(t *testing.T) {
@@ -156,17 +158,18 @@ func TestLess(t *testing.T) {
 	}
 }
 
-func TestEqual(t *testing.T) {
+func TestCmp(t *testing.T) {
 	for _, tc := range []struct {
 		n    Num
 		rhs  Num
-		want bool
+		want int
 	}{
-		{Num{bits: 0x3c00}, Num{bits: 0x3c00}, true},  // 2 == 2 = true
-		{Num{bits: 0x4248}, Num{bits: 0x3245}, false}, // 3.141 == 0.196 = false
+		{Num{bits: 0x3c00}, Num{bits: 0x4000}, -1}, // cmp(1, 2) = -1
+		{Num{bits: 0x4900}, Num{bits: 0x4900}, 0}, // cmp(10, 10) = 0
+		{Num{bits: 0x4248}, Num{bits: 0x3245}, 1},  // cmp(3.141, 0.196) = 1
 	} {
-		t.Run("equal", func(t *testing.T) {
-			n := tc.n.Equal(tc.rhs)
+		t.Run("cmp", func(t *testing.T) {
+			n := tc.n.Cmp(tc.rhs)
 			if got, want := n, tc.want; got != want {
 				t.Fatalf("invalid value. got=%v, want=%v", got, want)
 			}

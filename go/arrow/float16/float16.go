@@ -86,26 +86,27 @@ func (n Num) Div(rhs Num) Num {
 	return New(n.Float32() / rhs.Float32())
 }
 
+// Greater returns true if the value represented by n is > other
 func (n Num) Greater(other Num) bool {
 	return n.Float32() > other.Float32()
 }
 
+// GreaterEqual returns true if the value represented by n is >= other
 func (n Num) GreaterEqual(other Num) bool {
 	return n.Float32() >= other.Float32()
 }
 
-func (n Num) Equal(other Num) bool {
-	return n.Float32() == other.Float32()
-}
-
+// Less returns true if the value represented by n is < other
 func (n Num) Less(other Num) bool {
 	return n.Float32() < other.Float32()
 }
 
+// LessEqual returns true if the value represented by n is <= other
 func (n Num) LessEqual(other Num) bool {
 	return n.Float32() <= other.Float32()
 }
 
+// Max returns the largest Decimal128 that was passed in the arguments
 func Max(first Num, rest ...Num) Num {
 	answer := first
 	for _, number := range rest {
@@ -116,6 +117,7 @@ func Max(first Num, rest ...Num) Num {
 	return answer
 }
 
+// Min returns the smallest Decimal128 that was passed in the arguments
 func Min(first Num, rest ...Num) Num {
 	answer := first
 	for _, number := range rest {
@@ -124,6 +126,21 @@ func Min(first Num, rest ...Num) Num {
 		}
 	}
 	return answer
+}
+
+// Cmp compares the numbers represented by n and other and returns:
+//
+//	+1 if n > other
+//	 0 if n == other
+//	-1 if n < other
+func (n Num) Cmp(other Num) int {
+	switch {
+	case n.Greater(other):
+		return 1
+	case n.Less(other):
+		return -1
+	}
+	return 0
 }
 
 func (n Num) Abs() Num {
