@@ -130,7 +130,7 @@ namespace Apache.Arrow
                         TimeUnit.Millisecond => (TimeSpan?)MillisecondsToTimeSpan(index),
                         TimeUnit.Microsecond => (TimeSpan?)MicrosecondsToTimeSpan(index),
                         TimeUnit.Nanosecond => (TimeSpan?)NanosecondsToTimeSpan(index),
-                        _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
+                        _ => throw new InvalidDataException($"Unsupported time unit for Time64Type: {TimeType.Unit}"),
                     };
                 }
                 return null;
