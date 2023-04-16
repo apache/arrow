@@ -151,7 +151,7 @@ namespace Apache.Arrow
                 TimeUnit.Millisecond => Items<Time64Array, TimeSpan?>((a, i) => a.IsValid(i) ? a.MillisecondsToTimeSpan(i) : null),
                 TimeUnit.Microsecond => Items<Time64Array, TimeSpan?>((a, i) => a.IsValid(i) ? a.MicrosecondsToTimeSpan(i) : null),
                 TimeUnit.Nanosecond => Items<Time64Array, TimeSpan?>((a, i) => a.IsValid(i) ? a.NanosecondsToTimeSpan(i) : null),
-                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
+                _ => throw new InvalidDataException($"Unsupported time unit for Time64Type: {TimeType.Unit}"),
             };
         }
         public new Accessor<Time64Array, TimeSpan> NotNullItems()
@@ -162,7 +162,7 @@ namespace Apache.Arrow
                 TimeUnit.Millisecond => Items<Time64Array, TimeSpan>((a, i) => a.MillisecondsToTimeSpan(i)),
                 TimeUnit.Microsecond => Items<Time64Array, TimeSpan>((a, i) => a.MicrosecondsToTimeSpan(i)),
                 TimeUnit.Nanosecond => Items<Time64Array, TimeSpan>((a, i) => a.NanosecondsToTimeSpan(i)),
-                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
+                _ => throw new InvalidDataException($"Unsupported time unit for Time64Type: {TimeType.Unit}"),
             };
         }
 
