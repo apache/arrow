@@ -66,5 +66,83 @@ func (f Num) Float32() float32 {
 	return math.Float32frombits((sn << 31) | (res << 23) | (fc << 13))
 }
 
+func (n Num) Negate() Num {
+	return Num{bits: n.bits ^ 0x8000}
+}
+
+func (n Num) Add(rhs Num) Num {
+	return New(n.Float32() + rhs.Float32())
+}
+
+func (n Num) Sub(rhs Num) Num {
+	return New(n.Float32() - rhs.Float32())
+}
+
+func (n Num) Mul(rhs Num) Num {
+	return New(n.Float32() * rhs.Float32())
+}
+
+func (n Num) Div(rhs Num) Num {
+	return New(n.Float32() / rhs.Float32())
+}
+
+func (n Num) Greater(other Num) bool {
+	return n.Float32() > other.Float32()
+}
+
+func (n Num) GreaterEqual(other Num) bool {
+	return n.Float32() >= other.Float32()
+}
+
+func (n Num) Equal(other Num) bool {
+	return n.Float32() == other.Float32()
+}
+
+func (n Num) Less(other Num) bool {
+	return n.Float32() < other.Float32()
+}
+
+func (n Num) LessEqual(other Num) bool {
+	return n.Float32() <= other.Float32()
+}
+
+func Max(first Num, rest ...Num) Num {
+	answer := first
+	for _, number := range rest {
+		if number.Greater(answer) {
+			answer = number
+		}
+	}
+	return answer
+}
+
+func Min(first Num, rest ...Num) Num {
+	answer := first
+	for _, number := range rest {
+		if number.Less(answer) {
+			answer = number
+		}
+	}
+	return answer
+}
+
+func (n Num) Abs() Num {
+	switch n.Sign() {
+	case -1:
+		return n.Negate()
+	}
+	return n
+}
+
+func (n Num) Sign() int {
+	f := n.Float32()
+	if f > 0 {
+		return 1
+	} else if f == 0 {
+		return 0
+	}
+	return -1
+}
+
 func (f Num) Uint16() uint16 { return f.bits }
 func (f Num) String() string { return strconv.FormatFloat(float64(f.Float32()), 'g', -1, 32) }
