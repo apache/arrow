@@ -102,7 +102,7 @@ namespace Apache.Arrow
         {
             get
             {
-                return GetValue(index);
+                return index < 0 ? GetValue(Length + index) : GetValue(index);
             }
             // TODO: Implement setter
             //set
@@ -112,7 +112,7 @@ namespace Apache.Arrow
         }
 
         // Accessors
-        public new Accessor<Decimal128Array, decimal?> Items() => new(this, (a, i) => a[i]);
-        public new Accessor<Decimal128Array, decimal> NotNullItems() => new(this, (a, i) => a.GetDecimal(i));
+        public new Accessor<Decimal128Array, decimal?> Items() => Items<Decimal128Array, decimal?>((a, i) => a.GetValue(i));
+        public new Accessor<Decimal128Array, decimal> NotNullItems() => Items<Decimal128Array, decimal>((a, i) => a.GetDecimal(i));
     }
 }

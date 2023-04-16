@@ -90,6 +90,8 @@ namespace Apache.Arrow
             }
         }
 
+        public Accessor<TArray, TItem> Items<TArray, TItem>(Func<TArray, int, TItem> getter) where TArray : Array => new(this as TArray, getter);
+
         public class Accessor<TArray, TItem> : IEnumerable<TItem>
             where TArray : IArrowArray
         {

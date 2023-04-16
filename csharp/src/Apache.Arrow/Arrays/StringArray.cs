@@ -83,7 +83,7 @@ namespace Apache.Arrow
         }
 
         // Accessors
-        public new Accessor<StringArray, string> Items() => new(this, (a, i) => a.GetString(i));
-        public new Accessor<StringArray, string> NotNullItems() => new(this, (a, i) => a.GetString(i));
+        public new Accessor<StringArray, string> Items() => Items<StringArray, string>((a, i) => a.GetString(i));
+        public new Accessor<StringArray, string> NotNullItems() => Items<StringArray, string>((a, i) => a.GetString(i));
     }
 }

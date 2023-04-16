@@ -81,7 +81,7 @@ namespace Apache.Arrow
         }
 
         // Accessors
-        public Accessor<PrimitiveArray<T>, T?> Items() => new(this, (a, i) => a[i]);
-        public Accessor<PrimitiveArray<T>, T> NotNullItems() => new(this, (a, i) => a.Values[i]);
+        public Accessor<PrimitiveArray<T>, T?> Items() => Items<PrimitiveArray<T>, T?>((a, i) => a.GetValue(i));
+        public Accessor<PrimitiveArray<T>, T> NotNullItems() => Items<PrimitiveArray<T>, T>((a, i) => a.Values[i]);
     }
 }

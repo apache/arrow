@@ -115,8 +115,8 @@ namespace Apache.Arrow
         public new DateTimeOffset? this[int index] => index < 0 ? GetDateTimeOffset(Length + index) : GetDateTimeOffset(index);
 
         // Accessors
-        public new Accessor<Date64Array, DateTimeOffset?> Items() => new(this, (a, i) => a.GetDateTimeOffset(i));
-        public new Accessor<Date64Array, DateTimeOffset> NotNullItems() => new(this, (a, i) => a.UnixMillisecondsToDateTimeOffset(i));
+        public new Accessor<Date64Array, DateTimeOffset?> Items() => Items<Date64Array, DateTimeOffset?>((a, i) => a.GetDateTimeOffset(i));
+        public new Accessor<Date64Array, DateTimeOffset> NotNullItems() => Items<Date64Array, DateTimeOffset>((a, i) => a.UnixMillisecondsToDateTimeOffset(i));
 
         // Static Methods to Convert ticks to date/time instances
         public DateTimeOffset UnixMillisecondsToDateTimeOffset(int index) => Types.Convert.UnixMillisecondsToDateTimeOffset(Values[index]);

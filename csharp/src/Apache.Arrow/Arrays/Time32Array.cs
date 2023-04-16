@@ -147,10 +147,10 @@ namespace Apache.Arrow
         {
             return TimeType.Unit switch
             {
-                TimeUnit.Second => new(this, (a, i) => a.IsValid(i) ? a.SecondsToTimeSpan(i) : null),
-                TimeUnit.Millisecond => new(this, (a, i) => a.IsValid(i) ? a.MillisecondsToTimeSpan(i) : null),
-                TimeUnit.Microsecond => new(this, (a, i) => a.IsValid(i) ? a.MicrosecondsToTimeSpan(i) : null),
-                TimeUnit.Nanosecond => new(this, (a, i) => a.IsValid(i) ? a.NanosecondsToTimeSpan(i) : null),
+                TimeUnit.Second => Items<Time32Array, TimeSpan?>((a, i) => a.IsValid(i) ? a.SecondsToTimeSpan(i) : null),
+                TimeUnit.Millisecond => Items<Time32Array, TimeSpan?>((a, i) => a.IsValid(i) ? a.MillisecondsToTimeSpan(i) : null),
+                TimeUnit.Microsecond => Items<Time32Array, TimeSpan?>((a, i) => a.IsValid(i) ? a.MicrosecondsToTimeSpan(i) : null),
+                TimeUnit.Nanosecond => Items<Time32Array, TimeSpan?>((a, i) => a.IsValid(i) ? a.NanosecondsToTimeSpan(i) : null),
                 _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
             };
         }
@@ -158,10 +158,10 @@ namespace Apache.Arrow
         {
             return TimeType.Unit switch
             {
-                TimeUnit.Second => new(this, (a, i) => a.SecondsToTimeSpan(i)),
-                TimeUnit.Millisecond => new(this, (a, i) => a.MillisecondsToTimeSpan(i)),
-                TimeUnit.Microsecond => new(this, (a, i) => a.MicrosecondsToTimeSpan(i)),
-                TimeUnit.Nanosecond => new(this, (a, i) => a.NanosecondsToTimeSpan(i)),
+                TimeUnit.Second => Items<Time32Array, TimeSpan>((a, i) => a.SecondsToTimeSpan(i)),
+                TimeUnit.Millisecond => Items<Time32Array, TimeSpan>((a, i) => a.MillisecondsToTimeSpan(i)),
+                TimeUnit.Microsecond => Items<Time32Array, TimeSpan>((a, i) => a.MicrosecondsToTimeSpan(i)),
+                TimeUnit.Nanosecond => Items<Time32Array, TimeSpan>((a, i) => a.NanosecondsToTimeSpan(i)),
                 _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
             };
         }

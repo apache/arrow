@@ -140,10 +140,10 @@ namespace Apache.Arrow
         {
             return TimeType.Unit switch
             {
-                TimeUnit.Second => new(this, (a, i) => a.IsValid(i) ? a.UnixSecondsToDateTimeOffset(i) : null),
-                TimeUnit.Millisecond => new(this, (a, i) => a.IsValid(i) ? a.UnixMillisecondsToDateTimeOffset(i) : null),
-                TimeUnit.Microsecond => new(this, (a, i) => a.IsValid(i) ? a.UnixMicrosecondsToDateTimeOffset(i) : null),
-                TimeUnit.Nanosecond => new(this, (a, i) => a.IsValid(i) ? a.UnixNanosecondsToDateTimeOffset(i) : null),
+                TimeUnit.Second => Items<TimestampArray, DateTimeOffset?>((a, i) => a.IsValid(i) ? a.UnixSecondsToDateTimeOffset(i) : null),
+                TimeUnit.Millisecond => Items<TimestampArray, DateTimeOffset?>((a, i) => a.IsValid(i) ? a.UnixMillisecondsToDateTimeOffset(i) : null),
+                TimeUnit.Microsecond => Items<TimestampArray, DateTimeOffset?>((a, i) => a.IsValid(i) ? a.UnixMicrosecondsToDateTimeOffset(i) : null),
+                TimeUnit.Nanosecond => Items<TimestampArray, DateTimeOffset?>((a, i) => a.IsValid(i) ? a.UnixNanosecondsToDateTimeOffset(i) : null),
                 _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
             };
         }
@@ -151,10 +151,10 @@ namespace Apache.Arrow
         {
             return TimeType.Unit switch
             {
-                TimeUnit.Second => new(this, (a, i) => a.UnixSecondsToDateTimeOffset(i)),
-                TimeUnit.Millisecond => new(this, (a, i) => a.UnixMillisecondsToDateTimeOffset(i)),
-                TimeUnit.Microsecond => new(this, (a, i) => a.UnixMicrosecondsToDateTimeOffset(i)),
-                TimeUnit.Nanosecond => new(this, (a, i) => a.UnixNanosecondsToDateTimeOffset(i)),
+                TimeUnit.Second => Items<TimestampArray, DateTimeOffset>((a, i) => a.UnixSecondsToDateTimeOffset(i)),
+                TimeUnit.Millisecond => Items<TimestampArray, DateTimeOffset>((a, i) => a.UnixMillisecondsToDateTimeOffset(i)),
+                TimeUnit.Microsecond => Items<TimestampArray, DateTimeOffset>((a, i) => a.UnixMicrosecondsToDateTimeOffset(i)),
+                TimeUnit.Nanosecond => Items<TimestampArray, DateTimeOffset>((a, i) => a.UnixNanosecondsToDateTimeOffset(i)),
                 _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}"),
             };
         }
