@@ -365,14 +365,25 @@ func (n Num) BigInt() *big.Int {
 	return toBigIntPositive(n)
 }
 
+// Greater returns true if the value represented by n is > other
 func (n Num) Greater(other Num) bool {
-	return other.Less(n)
+	switch {
+	case n.arr[3] != other.arr[3]:
+		return int64(n.arr[3]) > int64(other.arr[3])
+	case n.arr[2] != other.arr[2]:
+		return n.arr[2] > other.arr[2]
+	case n.arr[1] != other.arr[1]:
+		return n.arr[1] > other.arr[1]
+	}
+	return n.arr[0] > other.arr[0]
 }
 
+// GreaterEqual returns true if the value represented by n is >= other
 func (n Num) GreaterEqual(other Num) bool {
 	return !n.Less(other)
 }
 
+// Less returns true if the value represented by n is < other
 func (n Num) Less(other Num) bool {
 	switch {
 	case n.arr[3] != other.arr[3]:
@@ -383,6 +394,48 @@ func (n Num) Less(other Num) bool {
 		return n.arr[1] < other.arr[1]
 	}
 	return n.arr[0] < other.arr[0]
+}
+
+// LessEqual returns true if the value represented by n is <= other
+func (n Num) LessEqual(other Num) bool {
+	return !n.Greater(other)
+}
+
+// Max returns the largest Decimal256 that was passed in the arguments
+func Max(first Num, rest ...Num) Num {
+	answer := first
+	for _, number := range rest {
+		if number.Greater(answer) {
+			answer = number
+		}
+	}
+	return answer
+}
+
+// Min returns the smallest Decimal256 that was passed in the arguments
+func Min(first Num, rest ...Num) Num {
+	answer := first
+	for _, number := range rest {
+		if number.Less(answer) {
+			answer = number
+		}
+	}
+	return answer
+}
+
+// Cmp compares the numbers represented by n and other and returns:
+//
+//	+1 if n > other
+//	 0 if n == other
+//	-1 if n < other
+func (n Num) Cmp(other Num) int {
+	switch {
+	case n.Greater(other):
+		return 1
+	case n.Less(other):
+		return -1
+	}
+	return 0
 }
 
 func (n Num) IncreaseScaleBy(increase int32) Num {
