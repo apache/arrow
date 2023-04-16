@@ -19,6 +19,7 @@ package array
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"reflect"
@@ -319,7 +320,10 @@ func (b *BinaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	case string:
 		data, err := base64.StdEncoding.DecodeString(v)
 		if err != nil {
-			return err
+			data, err = hex.DecodeString(v)
+			if err != nil {
+				return err
+			}
 		}
 		b.Append(data)
 	case []byte:

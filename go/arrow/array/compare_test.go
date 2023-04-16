@@ -110,6 +110,48 @@ func TestArrayApproxEqual(t *testing.T) {
 	}
 }
 
+func TestArrayApproxEqualStrings(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		a1   interface{}
+		a2   interface{}
+		want bool
+	}{
+		{
+			name: "string",
+			a1:   []string{"a", "b"},
+			a2:   []string{"a", "b"},
+			want: true,
+		},
+		{
+			name: "string",
+			a1:   []string{"a", "b\x00"},
+			a2:   []string{"a", "b"},
+			want: true,
+		},
+		{
+			name: "string",
+			a1:   []string{"a", "b\x00"},
+			a2:   []string{"a\x00", "b"},
+			want: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer mem.AssertSize(t, 0)
+
+			a1 := arrayOf(mem, tc.a1, nil)
+			defer a1.Release()
+			a2 := arrayOf(mem, tc.a2, nil)
+			defer a2.Release()
+
+			if got, want := array.ApproxEqual(a1, a2), tc.want; got != want {
+				t.Fatalf("invalid comparison: got=%v, want=%v\na1: %v\na2: %v\n", got, want, a1, a2)
+			}
+		})
+	}
+}
+
 func TestArrayApproxEqualFloats(t *testing.T) {
 	f16sFrom := func(vs []float64) []float16.Num {
 		o := make([]float16.Num, len(vs))
@@ -328,7 +370,12 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
 
 		bldr.AppendValues(a, valids)
 		return bldr.NewFloat64Array()
+	case []string:
+		bldr := array.NewStringBuilder(mem)
+		defer bldr.Release()
 
+		bldr.AppendValues(a, valids)
+		return bldr.NewStringArray()
 	default:
 		panic(fmt.Errorf("arrdata: invalid data slice type %T", a))
 	}

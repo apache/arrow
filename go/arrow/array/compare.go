@@ -19,6 +19,7 @@ package array
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/float16"
@@ -494,13 +495,13 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 		return arrayEqualBinary(l, r)
 	case *String:
 		r := right.(*String)
-		return arrayEqualString(l, r)
+		return arrayApproxEqualString(l, r)
 	case *LargeBinary:
 		r := right.(*LargeBinary)
 		return arrayEqualLargeBinary(l, r)
 	case *LargeString:
 		r := right.(*LargeString)
-		return arrayEqualLargeString(l, r)
+		return arrayApproxEqualLargeString(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -624,6 +625,34 @@ func validityBitmapEqual(left, right arrow.Array) bool {
 	}
 	for i := 0; i < n; i++ {
 		if left.IsNull(i) != right.IsNull(i) {
+			return false
+		}
+	}
+	return true
+}
+
+func stripNulls(s string) string {
+	return strings.ReplaceAll(s, "\x00", "")
+}
+
+func arrayApproxEqualString(left, right *String) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if stripNulls(left.Value(i)) != stripNulls(right.Value(i)) {
+			return false
+		}
+	}
+	return true
+}
+
+func arrayApproxEqualLargeString(left, right *LargeString) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if stripNulls(left.Value(i)) != stripNulls(right.Value(i)) {
 			return false
 		}
 	}
