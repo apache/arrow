@@ -37,6 +37,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -364,7 +365,341 @@ TEST(TestField, TestMerge) {
   }
 }
 
-TEST(TestFieldPath, Basics) {
+struct FieldPathTestCase {
+  struct OutputValues {
+    explicit OutputValues(std::vector<int> indices = {})
+        : path(FieldPath(std::move(indices))) {}
+
+    template <typename T>
+    auto&& Get() const;
+
+    FieldPath path;
+    std::shared_ptr<Field> field;
+    std::shared_ptr<Array> array;
+    std::shared_ptr<ChunkedArray> chunked_array;
+  };
+
+  static constexpr int kNumColumns = 2;
+  static constexpr int kNumRows = 100;
+  static constexpr int kRandomSeed = 0xbeef;
+
+  // Input for the FieldPath::Get functions in multiple forms
+  std::shared_ptr<Schema> schema;
+  std::shared_ptr<DataType> type;
+  std::shared_ptr<Array> array;
+  std::shared_ptr<RecordBatch> record_batch;
+  std::shared_ptr<ChunkedArray> chunked_array;
+  std::shared_ptr<Table> table;
+
+  template <typename T>
+  auto&& GetInput() const;
+
+  // Number of chunks for each column in the input Table
+  const std::array<int, kNumColumns> num_column_chunks = {15, 20};
+  // Number of chunks in the input ChunkedArray
+  const int num_chunks = 15;
+
+  // Expected outputs for each child;
+  OutputValues v0{{0}}, v1{{1}};
+  OutputValues v1_0{{1, 0}}, v1_1{{1, 1}};
+  OutputValues v1_1_0{{1, 1, 0}}, v1_1_1{{1, 1, 1}};
+  // Expected outputs for nested children with null flattening applied
+  OutputValues v1_0_flat{{1, 0}}, v1_1_flat{{1, 1}};
+  OutputValues v1_1_0_flat{{1, 1, 0}}, v1_1_1_flat{{1, 1, 1}};
+
+  static Result<FieldPathTestCase> Make() {
+    // Generate test input based on a single schema. First by creating a StructArray,
+    // then deriving the other input types (ChunkedArray, RecordBatch, Table, etc) from
+    // it. We also compute the expected outputs for each child individually (for each
+    // output type).
+    FieldPathTestCase out;
+    random::RandomArrayGenerator gen(kRandomSeed);
+
+    // Define child fields and input schema
+    out.v1_1_1.field = field("b", boolean());
+    out.v1_1_0.field = field("f", float32());
+    out.v1_1.field = field("s1", struct_({out.v1_1_0.field, out.v1_1_1.field}));
+    out.v1_0.field = field("i", int32());
+    out.v1.field = field("s0", struct_({out.v1_0.field, out.v1_1.field}));
+    out.v0.field = field("u", utf8());
+    out.schema = arrow::schema({out.v0.field, out.v1.field});
+    out.type = struct_(out.schema->fields());
+
+    // Create null bitmaps for the struct fields independent of its childrens'
+    // bitmaps. For FieldPath::GetFlattened, parent/child bitmaps should be combined
+    // - for FieldPath::Get, higher-level nulls are ignored.
+    auto bitmap1_1 = gen.NullBitmap(kNumRows, 0.15);
+    auto bitmap1 = gen.NullBitmap(kNumRows, 0.30);
+
+    // Generate raw leaf arrays
+    out.v1_1_1.array = gen.ArrayOf(out.v1_1_1.field->type(), kNumRows);
+    out.v1_1_0.array = gen.ArrayOf(out.v1_1_0.field->type(), kNumRows);
+    out.v1_0.array = gen.ArrayOf(out.v1_0.field->type(), kNumRows);
+    out.v0.array = gen.ArrayOf(out.v0.field->type(), kNumRows);
+    // Make struct fields from leaf arrays (we use the custom bitmaps here)
+    ARROW_ASSIGN_OR_RAISE(
+        out.v1_1.array,
+        StructArray::Make({out.v1_1_0.array, out.v1_1_1.array},
+                          {out.v1_1_0.field, out.v1_1_1.field}, bitmap1_1));
+    ARROW_ASSIGN_OR_RAISE(out.v1.array,
+                          StructArray::Make({out.v1_0.array, out.v1_1.array},
+                                            {out.v1_0.field, out.v1_1.field}, bitmap1));
+
+    // Not used to create the test input, but pre-compute flattened versions of nested
+    // arrays for comparisons in the GetFlattened tests.
+    ARROW_ASSIGN_OR_RAISE(
+        out.v1_0_flat.array,
+        checked_pointer_cast<StructArray>(out.v1.array)->GetFlattenedField(0));
+    ARROW_ASSIGN_OR_RAISE(
+        out.v1_1_flat.array,
+        checked_pointer_cast<StructArray>(out.v1.array)->GetFlattenedField(1));
+    ARROW_ASSIGN_OR_RAISE(
+        out.v1_1_0_flat.array,
+        checked_pointer_cast<StructArray>(out.v1_1_flat.array)->GetFlattenedField(0));
+    ARROW_ASSIGN_OR_RAISE(
+        out.v1_1_1_flat.array,
+        checked_pointer_cast<StructArray>(out.v1_1_flat.array)->GetFlattenedField(1));
+    // Sanity check
+    ARROW_CHECK(!out.v1_0_flat.array->Equals(out.v1_0.array));
+    ARROW_CHECK(!out.v1_1_flat.array->Equals(out.v1_1.array));
+    ARROW_CHECK(!out.v1_1_0_flat.array->Equals(out.v1_1_0.array));
+    ARROW_CHECK(!out.v1_1_1_flat.array->Equals(out.v1_1_1.array));
+
+    // Finalize the input Array
+    ARROW_ASSIGN_OR_RAISE(out.array, StructArray::Make({out.v0.array, out.v1.array},
+                                                       {out.v0.field, out.v1.field}));
+    ARROW_RETURN_NOT_OK(out.array->ValidateFull());
+    // Finalize the input RecordBatch
+    ARROW_ASSIGN_OR_RAISE(out.record_batch, RecordBatch::FromStructArray(out.array));
+    ARROW_RETURN_NOT_OK(out.record_batch->ValidateFull());
+    // Finalize the input ChunkedArray
+    out.chunked_array = SliceToChunkedArray(*out.array, out.num_chunks);
+    ARROW_RETURN_NOT_OK(out.chunked_array->ValidateFull());
+
+    // For each expected child array, create a chunked equivalent (we use a different
+    // chunk layout for each top-level column to make the Table test more interesting)
+    for (OutputValues* v :
+         {&out.v0, &out.v1, &out.v1_0, &out.v1_1, &out.v1_1_0, &out.v1_1_1,
+          &out.v1_0_flat, &out.v1_1_flat, &out.v1_1_0_flat, &out.v1_1_1_flat}) {
+      v->chunked_array =
+          SliceToChunkedArray(*v->array, out.num_column_chunks[v->path[0]]);
+    }
+    // Finalize the input Table
+    out.table =
+        Table::Make(out.schema, {out.v0.chunked_array, out.v1.chunked_array}, kNumRows);
+    ARROW_RETURN_NOT_OK(out.table->ValidateFull());
+
+    return std::move(out);
+  }
+
+  static std::shared_ptr<ChunkedArray> SliceToChunkedArray(const Array& array,
+                                                           int num_chunks) {
+    ARROW_CHECK(num_chunks > 0 && array.length() >= num_chunks);
+    ArrayVector chunks;
+    chunks.reserve(num_chunks);
+    for (int64_t inc = array.length() / num_chunks, beg = 0,
+                 end = inc + array.length() % num_chunks;
+         end <= array.length(); beg = end, end += inc) {
+      chunks.push_back(array.SliceSafe(beg, end - beg).ValueOrDie());
+    }
+    ARROW_CHECK_EQ(static_cast<int>(chunks.size()), num_chunks);
+    return ChunkedArray::Make(std::move(chunks)).ValueOrDie();
+  }
+};
+
+template <>
+auto&& FieldPathTestCase::GetInput<Schema>() const {
+  return this->schema;
+}
+template <>
+auto&& FieldPathTestCase::GetInput<DataType>() const {
+  return this->type;
+}
+template <>
+auto&& FieldPathTestCase::GetInput<Array>() const {
+  return this->array;
+}
+template <>
+auto&& FieldPathTestCase::GetInput<ArrayData>() const {
+  return this->array->data();
+}
+template <>
+auto&& FieldPathTestCase::GetInput<ChunkedArray>() const {
+  return this->chunked_array;
+}
+template <>
+auto&& FieldPathTestCase::GetInput<RecordBatch>() const {
+  return this->record_batch;
+}
+template <>
+auto&& FieldPathTestCase::GetInput<Table>() const {
+  return this->table;
+}
+
+template <>
+auto&& FieldPathTestCase::OutputValues::Get<Field>() const {
+  return this->field;
+}
+template <>
+auto&& FieldPathTestCase::OutputValues::Get<Array>() const {
+  return this->array;
+}
+template <>
+auto&& FieldPathTestCase::OutputValues::Get<ArrayData>() const {
+  return this->array->data();
+}
+template <>
+auto&& FieldPathTestCase::OutputValues::Get<ChunkedArray>() const {
+  return this->chunked_array;
+}
+
+class FieldPathTestFixture : public ::testing::Test {
+ protected:
+  template <typename T>
+  using OutputType = typename decltype(std::declval<FieldPath>()
+                                           .Get(std::declval<T>())
+                                           .ValueOrDie())::element_type;
+
+  template <typename I>
+  void AssertOutputsEqual(const std::shared_ptr<Field>& expected,
+                          const std::shared_ptr<Field>& actual) const {
+    AssertFieldEqual(*expected, *actual);
+  }
+  template <typename I>
+  void AssertOutputsEqual(const std::shared_ptr<Array>& expected,
+                          const std::shared_ptr<Array>& actual) const {
+    AssertArraysEqual(*expected, *actual);
+  }
+  template <typename I>
+  void AssertOutputsEqual(const std::shared_ptr<ChunkedArray>& expected,
+                          const std::shared_ptr<ChunkedArray>& actual) const {
+    if constexpr (std::is_same_v<I, ChunkedArray>) {
+      EXPECT_EQ(case_->chunked_array->num_chunks(), actual->num_chunks());
+    } else {
+      EXPECT_EQ(expected->num_chunks(), actual->num_chunks());
+    }
+    AssertChunkedEquivalent(*expected, *actual);
+  }
+
+  static const FieldPathTestCase* GenerateTestCase() {
+    static const auto maybe_test_case = FieldPathTestCase::Make();
+    return &maybe_test_case.ValueOrDie();
+  }
+
+  static inline const FieldPathTestCase* case_ = GenerateTestCase();
+};
+
+class TestFieldPath : public FieldPathTestFixture {
+ protected:
+  template <typename I, typename O = OutputType<I>>
+  using GetFn = std::function<Result<std::shared_ptr<O>>(const FieldPath&, const I&)>;
+
+  template <typename I>
+  static auto DoGet(const FieldPath& path, const I& input) {
+    return path.Get(input);
+  }
+  template <typename I>
+  static auto DoGetFlattened(const FieldPath& path, const I& input) {
+    return path.GetFlattened(input);
+  }
+
+  template <typename I>
+  void TestGetWithInvalidIndex(GetFn<I> get_fn) const {
+    const auto& input = case_->GetInput<I>();
+    for (const auto& path :
+         {FieldPath({2, 1, 0}), FieldPath({1, 2, 0}), FieldPath{1, 1, 2}}) {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          IndexError, ::testing::HasSubstr("index out of range"), get_fn(path, *input));
+    }
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("empty indices cannot be traversed"),
+        get_fn(FieldPath(), *input));
+  }
+
+  template <typename I>
+  void TestGetWithNonStructArray(GetFn<I> get_fn) const {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        NotImplemented, ::testing::HasSubstr("Get child data of non-struct array"),
+        get_fn(FieldPath({1, 1, 0}), *case_->v1_1_0.Get<I>()));
+  }
+
+  template <typename I, typename O = OutputType<I>>
+  void TestGet() const {
+    const auto& input = case_->GetInput<I>();
+    ASSERT_OK_AND_ASSIGN(auto v0, FieldPath({0}).Get(*input));
+    ASSERT_OK_AND_ASSIGN(auto v1, FieldPath({1}).Get(*input));
+    ASSERT_OK_AND_ASSIGN(auto v1_0, FieldPath({1, 0}).Get(*input));
+    ASSERT_OK_AND_ASSIGN(auto v1_1, FieldPath({1, 1}).Get(*input));
+    ASSERT_OK_AND_ASSIGN(auto v1_1_0, FieldPath({1, 1, 0}).Get(*input));
+    ASSERT_OK_AND_ASSIGN(auto v1_1_1, FieldPath({1, 1, 1}).Get(*input));
+
+    AssertOutputsEqual<I>(case_->v0.Get<O>(), v0);
+    AssertOutputsEqual<I>(case_->v1.Get<O>(), v1);
+    AssertOutputsEqual<I>(case_->v1_0.Get<O>(), v1_0);
+    AssertOutputsEqual<I>(case_->v1_1.Get<O>(), v1_1);
+    AssertOutputsEqual<I>(case_->v1_1_0.Get<O>(), v1_1_0);
+    AssertOutputsEqual<I>(case_->v1_1_1.Get<O>(), v1_1_1);
+  }
+
+  template <typename I, typename O = OutputType<I>>
+  void TestGetFlattened() const {
+    const auto& input = case_->GetInput<I>();
+    ASSERT_OK_AND_ASSIGN(auto v0, FieldPath({0}).GetFlattened(*input));
+    ASSERT_OK_AND_ASSIGN(auto v1, FieldPath({1}).GetFlattened(*input));
+    ASSERT_OK_AND_ASSIGN(auto v1_0, FieldPath({1, 0}).GetFlattened(*input));
+    ASSERT_OK_AND_ASSIGN(auto v1_1, FieldPath({1, 1}).GetFlattened(*input));
+    ASSERT_OK_AND_ASSIGN(auto v1_1_0, FieldPath({1, 1, 0}).GetFlattened(*input));
+    ASSERT_OK_AND_ASSIGN(auto v1_1_1, FieldPath({1, 1, 1}).GetFlattened(*input));
+
+    AssertOutputsEqual<I>(case_->v0.Get<O>(), v0);
+    AssertOutputsEqual<I>(case_->v1.Get<O>(), v1);
+    AssertOutputsEqual<I>(case_->v1_0_flat.Get<O>(), v1_0);
+    AssertOutputsEqual<I>(case_->v1_1_flat.Get<O>(), v1_1);
+    AssertOutputsEqual<I>(case_->v1_1_0_flat.Get<O>(), v1_1_0);
+    AssertOutputsEqual<I>(case_->v1_1_1_flat.Get<O>(), v1_1_1);
+  }
+};
+
+TEST_F(TestFieldPath, GetWithInvalidIndex) {
+  TestGetWithInvalidIndex<Schema>(DoGet<Schema>);
+  TestGetWithInvalidIndex<DataType>(DoGet<DataType>);
+  TestGetWithInvalidIndex<Array>(DoGet<Array>);
+  TestGetWithInvalidIndex<ArrayData>(DoGet<ArrayData>);
+  TestGetWithInvalidIndex<ChunkedArray>(DoGet<ChunkedArray>);
+  TestGetWithInvalidIndex<RecordBatch>(DoGet<RecordBatch>);
+  TestGetWithInvalidIndex<Table>(DoGet<Table>);
+
+  TestGetWithInvalidIndex<Array>(DoGetFlattened<Array>);
+  TestGetWithInvalidIndex<ArrayData>(DoGetFlattened<ArrayData>);
+  TestGetWithInvalidIndex<ChunkedArray>(DoGetFlattened<ChunkedArray>);
+  TestGetWithInvalidIndex<RecordBatch>(DoGetFlattened<RecordBatch>);
+  TestGetWithInvalidIndex<Table>(DoGetFlattened<Table>);
+}
+
+TEST_F(TestFieldPath, GetWithNonStructArray) {
+  TestGetWithNonStructArray<Array>(DoGet<Array>);
+  TestGetWithNonStructArray<ArrayData>(DoGet<ArrayData>);
+  TestGetWithNonStructArray<ChunkedArray>(DoGet<ChunkedArray>);
+
+  TestGetWithNonStructArray<Array>(DoGetFlattened<Array>);
+  TestGetWithNonStructArray<ArrayData>(DoGetFlattened<ArrayData>);
+  TestGetWithNonStructArray<ChunkedArray>(DoGetFlattened<ChunkedArray>);
+}
+
+TEST_F(TestFieldPath, GetFromSchema) { TestGet<Schema>(); }
+TEST_F(TestFieldPath, GetFromDataType) { TestGet<DataType>(); }
+
+TEST_F(TestFieldPath, GetFromArray) { TestGet<Array>(); }
+TEST_F(TestFieldPath, GetFromChunkedArray) { TestGet<ChunkedArray>(); }
+TEST_F(TestFieldPath, GetFromRecordBatch) { TestGet<RecordBatch>(); }
+TEST_F(TestFieldPath, GetFromTable) { TestGet<Table>(); }
+
+TEST_F(TestFieldPath, GetFlattenedFromArray) { TestGetFlattened<Array>(); }
+TEST_F(TestFieldPath, GetFlattenedFromChunkedArray) { TestGetFlattened<ChunkedArray>(); }
+TEST_F(TestFieldPath, GetFlattenedFromRecordBatch) { TestGetFlattened<RecordBatch>(); }
+TEST_F(TestFieldPath, GetFlattenedFromTable) { TestGetFlattened<Table>(); }
+
+TEST_F(TestFieldPath, Basics) {
   auto f0 = field("alpha", int32());
   auto f1 = field("beta", int32());
   auto f2 = field("alpha", int32());
@@ -375,141 +710,9 @@ TEST(TestFieldPath, Basics) {
   for (int index = 0; index < s.num_fields(); ++index) {
     ASSERT_OK_AND_EQ(s.field(index), FieldPath({index}).Get(s));
   }
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("empty indices cannot be traversed"),
-                                  FieldPath().Get(s));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, testing::HasSubstr("index out of range"),
-                                  FieldPath({s.num_fields() * 2}).Get(s));
 }
 
-TEST(TestFieldPath, GetForTable) {
-  using testing::HasSubstr;
-
-  constexpr int kNumRows = 4;
-  auto f0 = field("a", int32());
-  auto f1 = field("b", int32());
-  auto f2 = field("c", struct_({f1}));
-  auto f3 = field("d", struct_({f0, f2}));
-  auto table_schema = schema({f0, f1, f2, f3});
-
-  // Each column has a different chunking
-  ChunkedArrayVector columns(4);
-  columns[0] = ChunkedArrayFromJSON(f0->type(), {"[0,1,2,3]"});
-  columns[1] = ChunkedArrayFromJSON(f1->type(), {"[3,2,1]", "[0]"});
-  columns[2] =
-      ChunkedArrayFromJSON(f2->type(), {R"([{"b":3},{"b":2}])", R"([{"b":1},{"b":0}])"});
-  columns[3] = ChunkedArrayFromJSON(
-      f3->type(), {R"([{"a":0,"c":{"b":3}},{"a":1,"c":{"b":2}}])",
-                   R"([{"a":2,"c":{"b":1}}])", R"([{"a":3,"c":{"b":0}}])"});
-  auto table = Table::Make(table_schema, columns, kNumRows);
-  ASSERT_OK(table->ValidateFull());
-
-  ASSERT_OK_AND_ASSIGN(auto v0, FieldPath({0}).Get(*table));
-  ASSERT_OK_AND_ASSIGN(auto v1, FieldPath({1}).Get(*table));
-  ASSERT_OK_AND_ASSIGN(auto v2, FieldPath({2}).Get(*table));
-  ASSERT_OK_AND_ASSIGN(auto v2_0, FieldPath({2, 0}).Get(*table));
-  ASSERT_OK_AND_ASSIGN(auto v3, FieldPath({3}).Get(*table));
-  ASSERT_OK_AND_ASSIGN(auto v3_0, FieldPath({3, 0}).Get(*table));
-  ASSERT_OK_AND_ASSIGN(auto v3_1, FieldPath({3, 1}).Get(*table));
-  ASSERT_OK_AND_ASSIGN(auto v3_1_0, FieldPath({3, 1, 0}).Get(*table));
-
-  EXPECT_EQ(v0->num_chunks(), columns[0]->num_chunks());
-  EXPECT_EQ(v1->num_chunks(), columns[1]->num_chunks());
-  EXPECT_EQ(v2->num_chunks(), columns[2]->num_chunks());
-  EXPECT_EQ(v2_0->num_chunks(), columns[2]->num_chunks());
-  EXPECT_EQ(v3->num_chunks(), columns[3]->num_chunks());
-  EXPECT_EQ(v3_0->num_chunks(), columns[3]->num_chunks());
-  EXPECT_EQ(v3_1->num_chunks(), columns[3]->num_chunks());
-  EXPECT_EQ(v3_1_0->num_chunks(), columns[3]->num_chunks());
-
-  EXPECT_TRUE(columns[0]->Equals(v0));
-  EXPECT_TRUE(columns[0]->Equals(v3_0));
-
-  EXPECT_TRUE(columns[1]->Equals(v1));
-  EXPECT_TRUE(columns[1]->Equals(v2_0));
-  EXPECT_TRUE(columns[1]->Equals(v3_1_0));
-
-  EXPECT_TRUE(columns[2]->Equals(v2));
-  EXPECT_TRUE(columns[2]->Equals(v3_1));
-
-  EXPECT_TRUE(columns[3]->Equals(v3));
-
-  for (const auto& path :
-       {FieldPath({4, 1, 0}), FieldPath({3, 2, 0}), FieldPath{3, 1, 1}}) {
-    EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, HasSubstr("index out of range"),
-                                    path.Get(*table));
-  }
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("empty indices cannot be traversed"),
-                                  FieldPath().Get(*table));
-}
-
-TEST(TestFieldPath, GetForChunkedArray) {
-  using testing::HasSubstr;
-
-  auto f0 = field("a", int32());
-  auto f1 = field("b", int32());
-  auto f2 = field("c", struct_({f1}));
-  auto f3 = field("d", struct_({f0, f2}));
-  auto type = struct_({f0, f1, f3});
-
-  auto column0 = ChunkedArrayFromJSON(f0->type(), {"[0,1,2,3]"});
-  auto column1 = ChunkedArrayFromJSON(f1->type(), {"[3,2,1,0]"});
-  auto column2_1 =
-      ChunkedArrayFromJSON(f2->type(), {R"([{"b":3},{"b":2},{"b":1},{"b":0}])"});
-  auto chunked_array = ChunkedArrayFromJSON(
-      type,
-      {
-          R"([{"a":0,"b":3,"d":{"a":0,"c":{"b":3}}}])",
-          R"([{"a":1,"b":2,"d":{"a":1,"c":{"b":2}}},{"a":2,"b":1,"d":{"a":2,"c":{"b":1}}}])",
-          R"([{"a":3,"b":0,"d":{"a":3,"c":{"b":0}}}])",
-      });
-  ASSERT_OK(chunked_array->ValidateFull());
-
-  ASSERT_OK_AND_ASSIGN(auto v0, FieldPath({0}).Get(*chunked_array));
-  ASSERT_OK_AND_ASSIGN(auto v1, FieldPath({1}).Get(*chunked_array));
-  ASSERT_OK_AND_ASSIGN(auto v2_0, FieldPath({2, 0}).Get(*chunked_array));
-  ASSERT_OK_AND_ASSIGN(auto v2_1, FieldPath({2, 1}).Get(*chunked_array));
-  ASSERT_OK_AND_ASSIGN(auto v2_1_0, FieldPath({2, 1, 0}).Get(*chunked_array));
-
-  for (const auto& v : {v0, v1, v2_0, v2_1, v2_1_0}) {
-    EXPECT_EQ(v->num_chunks(), chunked_array->num_chunks());
-  }
-
-  EXPECT_TRUE(column0->Equals(v0));
-  EXPECT_TRUE(column0->Equals(v2_0));
-
-  EXPECT_TRUE(column1->Equals(v1));
-  EXPECT_TRUE(column1->Equals(v2_1_0));
-  EXPECT_FALSE(column1->Equals(v2_1));
-
-  EXPECT_TRUE(column2_1->Equals(v2_1));
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
-                                  HasSubstr("Get child data of non-struct chunked array"),
-                                  FieldPath({0}).Get(*column0));
-}
-
-TEST(TestFieldPath, GetForChunkedArrayWithNulls) {
-  auto int_field = field("i", int32());
-  auto int_chunked_array =
-      ChunkedArrayFromJSON(int_field->type(), {"[0,1]", "[2,null]", "[3,4]"});
-
-  ASSERT_OK_AND_ASSIGN(auto null_bitmap, AllocateEmptyBitmap(2));
-  ArrayVector struct_chunks;
-  for (const auto& int_chunk : int_chunked_array->chunks()) {
-    ASSERT_OK_AND_ASSIGN(auto chunk,
-                         StructArray::Make({int_chunk}, {int_field}, null_bitmap, 2));
-    struct_chunks.push_back(chunk);
-  }
-
-  ASSERT_OK_AND_ASSIGN(auto struct_chunked_array, ChunkedArray::Make(struct_chunks));
-  ASSERT_OK(struct_chunked_array->ValidateFull());
-  // The top-level null bitmap shouldn't affect the validity of the returned child field.
-  ASSERT_OK_AND_ASSIGN(auto int_child, FieldPath({0}).Get(*struct_chunked_array));
-  ASSERT_TRUE(int_chunked_array->Equals(int_child));
-}
-
-TEST(TestFieldPath, GetForEmptyChunked) {
+TEST_F(TestFieldPath, GetFromEmptyChunked) {
   FieldVector fields = {
       field("i", int32()),
       field("s", struct_({field("b", boolean()), field("f", float32())}))};
@@ -536,41 +739,6 @@ TEST(TestFieldPath, GetForEmptyChunked) {
   ASSERT_OK_AND_ASSIGN(child, FieldPath({1, 1}).Get(*table));
   AssertTypeEqual(float32(), child->type());
   ASSERT_EQ(child->length(), 0);
-}
-
-TEST(TestFieldPath, GetForRecordBatch) {
-  using testing::HasSubstr;
-
-  constexpr int kNumRows = 100;
-  auto f0 = field("alpha", int32());
-  auto f1 = field("beta", int32());
-  auto f2 = field("alpha", int32());
-  auto f3 = field("beta", int32());
-  auto schema = arrow::schema({f0, f1, f2, f3});
-
-  arrow::random::RandomArrayGenerator gen_{42};
-  auto a0 = gen_.ArrayOf(int32(), kNumRows);
-  auto a1 = gen_.ArrayOf(int32(), kNumRows);
-  auto a2 = gen_.ArrayOf(int32(), kNumRows);
-  auto a3 = gen_.ArrayOf(int32(), kNumRows);
-  auto array_vector = ArrayVector({a0, a1, a2, a3});
-
-  auto record_batch_ptr = arrow::RecordBatch::Make(schema, kNumRows, array_vector);
-  ASSERT_OK(record_batch_ptr->ValidateFull());
-
-  // retrieving an array FieldPath is equivalent to RecordBatch::column
-  auto num_columns = record_batch_ptr->num_columns();
-  auto record_batch_schema = record_batch_ptr->schema();
-  for (int index = 0; index < num_columns; ++index) {
-    ASSERT_OK_AND_EQ(record_batch_schema->field(index), FieldPath({index}).Get(*schema));
-    ASSERT_OK_AND_ASSIGN(auto field_path_column,
-                         FieldPath({index}).Get(*record_batch_ptr));
-    EXPECT_TRUE(field_path_column->Equals(record_batch_ptr->column(index)));
-  }
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("empty indices cannot be traversed"),
-                                  FieldPath().Get(*record_batch_ptr));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, HasSubstr("index out of range"),
-                                  FieldPath({num_columns * 2}).Get(*record_batch_ptr));
 }
 
 TEST(TestFieldRef, Basics) {
@@ -693,7 +861,7 @@ TEST(TestFieldRef, DotPathRoundTrip) {
   check_roundtrip(FieldRef("foo", 1, FieldRef("bar", 2, 3), FieldRef()));
 }
 
-TEST(TestFieldPath, Nested) {
+TEST_F(TestFieldPath, Nested) {
   auto f0 = field("alpha", int32());
   auto f1_0 = field("alpha", int32());
   auto f1 = field("beta", struct_({f1_0}));
