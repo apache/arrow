@@ -14,7 +14,6 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -41,7 +40,7 @@ namespace Apache.Arrow.Tests
                     var array = builder.Build();
 
                     Assert.Equal(3, array.Length);
-                    Assert.Equal(array.Data.Buffers[1].Length, array.ByteWidth * 3);
+                    Assert.Equal(array.Data.Buffers[1].Length, array.ByteWidth * 3 + array.ByteWidth - 1);
                     Assert.Null(array.GetValue(0));
                     Assert.Null(array.GetValue(1));
                     Assert.Null(array.GetValue(2));
@@ -121,7 +120,7 @@ namespace Apache.Arrow.Tests
                 public void AppendFractionalDecimal()
                 {
                     // Arrange
-                    var builder = new Decimal128Array.Builder(new Decimal128Type(26, 20));
+                    var builder = new Decimal256Array.Builder(new Decimal256Type(26, 20));
                     decimal fraction = 0.99999999999990999992M;
                     // Act
                     builder.Append(fraction);

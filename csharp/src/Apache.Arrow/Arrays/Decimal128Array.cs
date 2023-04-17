@@ -16,7 +16,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Numerics;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
@@ -26,7 +25,7 @@ namespace Apache.Arrow
     {
         public class Builder : BuilderBase<Decimal128Array, Builder>
         {
-            public Builder(Decimal128Type type) : base(type, 16)
+            public Builder(Decimal128Type type) : base(type, type.ByteWidth)
             {
                 DataType = type;
             }

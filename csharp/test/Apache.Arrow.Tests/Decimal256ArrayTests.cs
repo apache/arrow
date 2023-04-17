@@ -41,7 +41,7 @@ namespace Apache.Arrow.Tests
                     var array = builder.Build();
 
                     Assert.Equal(3, array.Length);
-                    Assert.Equal(array.Data.Buffers[1].Length, array.ByteWidth * 3);
+                    Assert.Equal(array.Data.Buffers[1].Length, array.ByteWidth * 3 + array.ByteWidth - 1);
                     Assert.Null(array.GetValue(0));
                     Assert.Null(array.GetValue(1));
                     Assert.Null(array.GetValue(2));
