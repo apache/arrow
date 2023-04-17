@@ -101,7 +101,7 @@ if(TARGET Arrow::arrow_static AND NOT TARGET Arrow::arrow_bundled_dependencies)
   foreach(CONFIGURATION ${arrow_static_configurations})
     string(TOUPPER "${CONFIGURATION}" CONFIGURATION)
     get_target_property(arrow_static_location Arrow::arrow_static
-                        LOCATION_${CONFIGURATION})
+                        IMPORTED_LOCATION_${CONFIGURATION})
     get_filename_component(arrow_lib_dir "${arrow_static_location}" DIRECTORY)
     set_target_properties(Arrow::arrow_bundled_dependencies
                           PROPERTIES IMPORTED_LOCATION_${CONFIGURATION}
