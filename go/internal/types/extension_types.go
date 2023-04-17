@@ -124,7 +124,7 @@ func (b *UUIDBuilder) AppendValueFromString(s string) error {
 	}
 	u, err := uuid.Parse(s)
 	if err != nil {
-		return fmt.Errorf("invalid uuid: %w", err)
+		return fmt.Errorf("%w: invalid uuid: %v", arrow.ErrInvalid, err)
 	}
 	b.Append(u)
 	return nil
