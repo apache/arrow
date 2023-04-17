@@ -338,6 +338,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 			{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
 			{Name: "binary", Type: arrow.BinaryTypes.Binary},
 			{Name: "uuid", Type: types.NewUUIDType()},
+			{Name: "json", Type: types.NewJSONType()},
 		},
 		nil,
 	)
@@ -388,6 +389,7 @@ rec[0]["ts"]: [1652054461000]
 rec[0]["list(i64)"]: [[1 2 3]]
 rec[0]["binary"]: ["\x00\x01\x02"]
 rec[0]["uuid"]: ["00000000-0000-0000-0000-000000000001"]
+rec[0]["json"]: ["{"a":1,"b":2}"]
 rec[1]["bool"]: [false]
 rec[1]["i8"]: [-2]
 rec[1]["i16"]: [-2]
@@ -404,6 +406,7 @@ rec[1]["ts"]: [1652140799000]
 rec[1]["list(i64)"]: [[]]
 rec[1]["binary"]: [""]
 rec[1]["uuid"]: ["00000000-0000-0000-0000-000000000002"]
+rec[1]["json"]: ["{"c":3,"d":4}"]
 rec[2]["bool"]: [(null)]
 rec[2]["i8"]: [(null)]
 rec[2]["i16"]: [(null)]
@@ -420,6 +423,7 @@ rec[2]["ts"]: [(null)]
 rec[2]["list(i64)"]: [(null)]
 rec[2]["binary"]: [(null)]
 rec[2]["uuid"]: [(null)]
+rec[2]["json"]: [(null)]
 `
 	got, want := out.String(), want
 	require.Equal(t, want, got)

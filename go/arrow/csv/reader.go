@@ -35,7 +35,6 @@ import (
 	"github.com/apache/arrow/go/v12/arrow/decimal256"
 	"github.com/apache/arrow/go/v12/arrow/internal/debug"
 	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -783,8 +782,7 @@ func (r *Reader) parseExtension(field array.Builder, str string) {
 		field.AppendNull()
 		return
 	}
-	dec := json.NewDecoder(strings.NewReader(`"` + str + `"`))
-	if err := field.UnmarshalOne(dec); err != nil {
+	if err := field.AppendValueFromString(str); err != nil {
 		r.err = err
 		return
 	}
@@ -886,7 +884,7 @@ func tryParse(val string, dt arrow.DataType) error {
 		}
 		return nil
 	case *arrow.BinaryType:
-		_, err := base64.RawStdEncoding.DecodeString(val)
+		_, err := base64.StdEncoding.DecodeString(val)
 		return err
 	}
 	panic("shouldn't end up here")
