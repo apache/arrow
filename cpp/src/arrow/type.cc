@@ -1139,10 +1139,12 @@ ChunkedColumnVector ChunkedColumn::FlattenZeroCopy() const {
     const auto& child_type = type()->field(column_idx)->type();
     ArrayDataVector chunks(num_chunks());
     for (int chunk_idx = 0; chunk_idx < num_chunks(); ++chunk_idx) {
-      const auto& child_data = chunk(chunk_idx)->child_data;
-      DCHECK_EQ(columns.size(), child_data.size());
-      DCHECK(child_type->Equals(child_data[column_idx]->type));
-      chunks[chunk_idx] = child_data[column_idx];
+      const auto& parent = chunk(chunk_idx);
+      const auto& children = parent->child_data;
+      DCHECK_EQ(columns.size(), children.size());
+      auto child = children[column_idx]->Slice(parent->offset, parent->length);
+      DCHECK(child_type->Equals(child->type));
+      chunks[chunk_idx] = child;
     }
     columns[column_idx] =
         std::make_shared<ChunkedArrayData>(child_type, std::move(chunks));
