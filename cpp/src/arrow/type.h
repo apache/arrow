@@ -1699,6 +1699,18 @@ class ARROW_EXPORT FieldPath {
   /// \brief Retrieve the referenced child from a ChunkedArray
   Result<std::shared_ptr<ChunkedArray>> Get(const ChunkedArray& chunked_array) const;
 
+  /// \brief Retrieve the referenced child/column from an Array, ArrayData, ChunkedArray,
+  /// RecordBatch, or Table
+  ///
+  /// Unlike `FieldPath::Get`, these variants are not zero-copy and the retrieved child's
+  /// null bitmap is ANDed with its parent's
+  Result<std::shared_ptr<Array>> GetFlattened(const Array& array) const;
+  Result<std::shared_ptr<ArrayData>> GetFlattened(const ArrayData& data) const;
+  Result<std::shared_ptr<ChunkedArray>> GetFlattened(
+      const ChunkedArray& chunked_array) const;
+  Result<std::shared_ptr<Array>> GetFlattened(const RecordBatch& batch) const;
+  Result<std::shared_ptr<ChunkedArray>> GetFlattened(const Table& table) const;
+
  private:
   std::vector<int> indices_;
 };

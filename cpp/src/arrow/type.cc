@@ -1080,7 +1080,7 @@ class ChunkedColumn {
 
   const std::shared_ptr<DataType>& type() const { return type_; }
 
-  ChunkedColumnVector Flatten() const;
+  ChunkedColumnVector FlattenZeroCopy() const;
 
   Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() const {
     if (num_chunks() == 0) {
@@ -1131,7 +1131,7 @@ class ChunkedArrayData : public ChunkedColumn {
 // Return a vector of ChunkedColumns - one for each struct field.
 // Unlike ChunkedArray::Flatten, this is zero-copy and doesn't merge parent/child
 // validity bitmaps.
-ChunkedColumnVector ChunkedColumn::Flatten() const {
+ChunkedColumnVector ChunkedColumn::FlattenZeroCopy() const {
   DCHECK_EQ(type()->id(), Type::STRUCT);
 
   ChunkedColumnVector columns(type()->num_fields());
@@ -1152,7 +1152,11 @@ ChunkedColumnVector ChunkedColumn::Flatten() const {
 }
 
 struct FieldPathGetImpl {
+  static const DataType& GetType(const Array& array) { return *array.type(); }
   static const DataType& GetType(const ArrayData& data) { return *data.type; }
+  static const DataType& GetType(const ChunkedArray& chunked_array) {
+    return *chunked_array.type();
+  }
   static const DataType& GetType(const ChunkedColumn& column) { return *column.type(); }
 
   static void Summarize(const FieldVector& fields, std::stringstream* ss) {
@@ -1170,6 +1174,10 @@ struct FieldPathGetImpl {
       *ss << GetType(*column) << ", ";
     }
     *ss << "}";
+  }
+
+  static Status NonStructError() {
+    return Status::NotImplemented("Get child data of non-struct array");
   }
 
   template <typename T>
@@ -1211,7 +1219,7 @@ struct FieldPathGetImpl {
     const T* out;
     while (true) {
       if (children == nullptr) {
-        return Status::NotImplemented("Get child data of non-struct array");
+        return NonStructError();
       }
 
       auto index = (*path)[depth];
@@ -1262,7 +1270,7 @@ struct FieldPathGetImpl {
                                 if (parent->type()->id() != Type::STRUCT) {
                                   return nullptr;
                                 }
-                                children = parent->Flatten();
+                                children = parent->FlattenZeroCopy();
                                 return &children;
                               }));
 
@@ -1279,6 +1287,31 @@ struct FieldPathGetImpl {
           }
           return &data->child_data;
         });
+  }
+
+  static Status Flatten(const Array& array, ArrayVector* out) {
+    return checked_cast<const StructArray&>(array).Flatten().Value(out);
+  }
+  static Status Flatten(const ChunkedArray& chunked_array, ChunkedArrayVector* out) {
+    return chunked_array.Flatten().Value(out);
+  }
+
+  template <typename T>
+  static Result<T> GetFlattened(const FieldPath* path,
+                                const std::vector<T>& toplevel_children) {
+    std::vector<T> children;
+    Status error;
+    auto result = FieldPathGetImpl::Get(
+        path, &toplevel_children,
+        [&children, &error](const T& parent) -> const std::vector<T>* {
+          if (parent->type()->id() != Type::STRUCT) {
+            return nullptr;
+          }
+          error = Flatten(*parent, &children);
+          return error.ok() ? &children : nullptr;
+        });
+    ARROW_RETURN_NOT_OK(error);
+    return result;
   }
 };
 
@@ -1330,7 +1363,7 @@ Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
 
 Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
   if (data.type->id() != Type::STRUCT) {
-    return Status::NotImplemented("Get child data of non-struct array");
+    return FieldPathGetImpl::NonStructError();
   }
   return FieldPathGetImpl::Get(this, data.child_data);
 }
@@ -1338,10 +1371,44 @@ Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
 Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(
     const ChunkedArray& chunked_array) const {
   if (chunked_array.type()->id() != Type::STRUCT) {
-    return Status::NotImplemented("Get child data of non-struct chunked array");
+    return FieldPathGetImpl::NonStructError();
   }
-  auto columns = ChunkedArrayRef(chunked_array).Flatten();
+  auto columns = ChunkedArrayRef(chunked_array).FlattenZeroCopy();
   return FieldPathGetImpl::Get(this, columns);
+}
+
+Result<std::shared_ptr<Array>> FieldPath::GetFlattened(const Array& array) const {
+  if (array.type_id() != Type::STRUCT) {
+    return FieldPathGetImpl::NonStructError();
+  }
+  auto&& struct_array = checked_cast<const StructArray&>(array);
+  if (struct_array.null_count() == 0) {
+    return FieldPathGetImpl::GetFlattened(this, struct_array.fields());
+  }
+  ARROW_ASSIGN_OR_RAISE(auto children, struct_array.Flatten());
+  return FieldPathGetImpl::GetFlattened(this, children);
+}
+
+Result<std::shared_ptr<ArrayData>> FieldPath::GetFlattened(const ArrayData& data) const {
+  ARROW_ASSIGN_OR_RAISE(auto array, GetFlattened(*MakeArray(data.Copy())));
+  return array->data();
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::GetFlattened(
+    const ChunkedArray& chunked_array) const {
+  if (chunked_array.type()->id() != Type::STRUCT) {
+    return FieldPathGetImpl::NonStructError();
+  }
+  ARROW_ASSIGN_OR_RAISE(auto children, chunked_array.Flatten());
+  return FieldPathGetImpl::GetFlattened(this, children);
+}
+
+Result<std::shared_ptr<Array>> FieldPath::GetFlattened(const RecordBatch& batch) const {
+  return FieldPathGetImpl::GetFlattened(this, batch.columns());
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::GetFlattened(const Table& table) const {
+  return FieldPathGetImpl::GetFlattened(this, table.columns());
 }
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {}
