@@ -290,28 +290,42 @@ func TestCSVReaderParseError(t *testing.T) {
 
 func TestCSVReader(t *testing.T) {
 	tests := []struct {
-		Name   string
-		File   string
-		Header bool
-	}{{
-		Name:   "NoHeader",
-		File:   "testdata/types.csv",
-		Header: false,
-	}, {
-		Name:   "Header",
-		File:   "testdata/header.csv",
-		Header: true,
-	}}
+		Name             string
+		File             string
+		Header           bool
+		StringsCanBeNull bool
+	}{
+		{
+			Name:   "NoHeader",
+			File:   "testdata/types.csv",
+			Header: false,
+		}, {
+			Name:   "Header",
+			File:   "testdata/header.csv",
+			Header: true,
+		},
+		{
+			Name:             "NoHeader_StringsCanBeNull",
+			File:             "testdata/types.csv",
+			Header:           false,
+			StringsCanBeNull: true,
+		}, {
+			Name:             "Header_StringsCanBeNull",
+			File:             "testdata/header.csv",
+			Header:           true,
+			StringsCanBeNull: true,
+		},
+	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			testCSVReader(t, test.File, test.Header)
+			testCSVReader(t, test.File, test.Header, test.StringsCanBeNull)
 		})
 	}
 }
 
 var defaultNullValues = []string{"", "NULL", "null", "N/A"}
 
-func testCSVReader(t *testing.T, filepath string, withHeader bool) {
+func testCSVReader(t *testing.T, filepath string, withHeader bool, stringsCanBeNull bool) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
@@ -345,7 +359,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 		csv.WithAllocator(mem),
 		csv.WithComment('#'), csv.WithComma(';'),
 		csv.WithHeader(withHeader),
-		csv.WithNullReader(true, defaultNullValues...),
+		csv.WithNullReader(stringsCanBeNull, defaultNullValues...),
 	)
 	defer r.Release()
 
@@ -372,7 +386,14 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
 	}
 
-	want := `rec[0]["bool"]: [true]
+	str1Value := `""`
+	str2Value := `"null"`
+	if stringsCanBeNull {
+		str1Value = "(null)"
+		str2Value = "(null)"
+	}
+
+	want := fmt.Sprintf(`rec[0]["bool"]: [true]
 rec[0]["i8"]: [-1]
 rec[0]["i16"]: [-1]
 rec[0]["i32"]: [-1]
@@ -399,7 +420,7 @@ rec[1]["u32"]: [2]
 rec[1]["u64"]: [2]
 rec[1]["f32"]: [2.2]
 rec[1]["f64"]: [2.2]
-rec[1]["str"]: ["str-2"]
+rec[1]["str"]: [%s]
 rec[1]["ts"]: [1652140799000]
 rec[1]["list(i64)"]: [[]]
 rec[1]["binary"]: [(null)]
@@ -415,12 +436,12 @@ rec[2]["u32"]: [(null)]
 rec[2]["u64"]: [(null)]
 rec[2]["f32"]: [(null)]
 rec[2]["f64"]: [(null)]
-rec[2]["str"]: [(null)]
+rec[2]["str"]: [%s]
 rec[2]["ts"]: [(null)]
 rec[2]["list(i64)"]: [(null)]
 rec[2]["binary"]: [(null)]
 rec[2]["uuid"]: [(null)]
-`
+`, str1Value, str2Value)
 	got, want := out.String(), want
 	require.Equal(t, want, got)
 
@@ -434,7 +455,7 @@ rec[2]["uuid"]: [(null)]
 			csv.WithAllocator(mem),
 			csv.WithComment('#'), csv.WithComma(';'),
 			csv.WithHeader(withHeader),
-			csv.WithNullReader(true),
+			csv.WithNullReader(stringsCanBeNull),
 		)
 
 		r.Next()
