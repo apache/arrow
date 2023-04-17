@@ -367,15 +367,7 @@ func (n Num) BigInt() *big.Int {
 
 // Greater returns true if the value represented by n is > other
 func (n Num) Greater(other Num) bool {
-	switch {
-	case n.arr[3] != other.arr[3]:
-		return int64(n.arr[3]) > int64(other.arr[3])
-	case n.arr[2] != other.arr[2]:
-		return n.arr[2] > other.arr[2]
-	case n.arr[1] != other.arr[1]:
-		return n.arr[1] > other.arr[1]
-	}
-	return n.arr[0] > other.arr[0]
+	return other.Less(n)
 }
 
 // GreaterEqual returns true if the value represented by n is >= other

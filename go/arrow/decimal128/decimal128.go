@@ -334,7 +334,7 @@ func (n Num) BigInt() *big.Int {
 
 // Greater returns true if the value represented by n is > other
 func (n Num) Greater(other Num) bool {
-	return n.hi > other.hi || (n.hi == other.hi && n.lo > other.lo)
+	return other.Less(n)
 }
 
 // GreaterEqual returns true if the value represented by n is >= other
