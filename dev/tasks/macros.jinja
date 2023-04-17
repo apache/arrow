@@ -131,6 +131,11 @@ on:
 {% endmacro %}
 
 {%- macro github_upload_gemfury(pattern) -%}
+  - name: Set up Ruby by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt update
+      sudo apt install -y ruby-full
   - name: Upload package to Gemfury
     shell: bash
     run: |
