@@ -100,12 +100,60 @@ static void ChunkedArraySortFuncInt64Benchmark(benchmark::State& state,
 }
 
 template <typename Runner>
+static void ChunkedArraySortFuncStringBenchmark(benchmark::State& state,
+                                                const Runner& runner, int32_t min_length,
+                                                int32_t max_length) {
+  RegressionArgs args(state);
+
+  // The array_size is derived from these two equations:
+  //
+  //     size = array_size * (1.0 - args.null_proportion) * string_mean_length
+  //     string_mean_length = (max_length + min_length) / 2.0
+  const double valid_proportion = 1.0 - args.null_proportion;
+  const double array_size =
+      (valid_proportion > std::numeric_limits<double>::epsilon())
+          ? (args.size * 2) / (valid_proportion * (max_length + min_length))
+          : (args.size * 2) / (max_length + min_length);
+
+  const auto n_chunks = 10;
+  const auto array_chunk_size = static_cast<int64_t>(std::round(array_size / n_chunks));
+  auto rand = random::RandomArrayGenerator(kSeed);
+
+  ArrayVector chunks;
+  for (auto i = 0; i < n_chunks; ++i) {
+    auto values =
+        rand.String(array_chunk_size, min_length, max_length, args.null_proportion);
+    chunks.push_back(std::move(values));
+  }
+
+  ArraySortFuncBenchmark(state, runner, std::make_shared<ChunkedArray>(chunks));
+}
+
+template <typename Runner>
 static void ArraySortFuncBoolBenchmark(benchmark::State& state, const Runner& runner) {
   RegressionArgs args(state);
 
   const int64_t array_size = args.size * 8;
   auto rand = random::RandomArrayGenerator(kSeed);
   auto values = rand.Boolean(array_size, 0.5, args.null_proportion);
+
+  ArraySortFuncBenchmark(state, runner, values);
+}
+
+template <typename Runner>
+static void ArraySortFuncStringBenchmark(benchmark::State& state, const Runner& runner,
+                                         int32_t min_length, int32_t max_length) {
+  RegressionArgs args(state);
+
+  const double valid_proportion = 1.0 - args.null_proportion;
+  const double array_size =
+      (valid_proportion > std::numeric_limits<double>::epsilon())
+          ? (args.size * 2) / (valid_proportion * (max_length + min_length))
+          : (args.size * 2) / (max_length + min_length);
+  const auto array_size_i = static_cast<int64_t>(std::round(array_size));
+
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto values = rand.String(array_size_i, min_length, max_length, args.null_proportion);
 
   ArraySortFuncBenchmark(state, runner, values);
 }
@@ -144,6 +192,30 @@ static void ArraySortIndicesBool(benchmark::State& state) {
   ArraySortFuncBoolBenchmark(state, SortRunner(state));
 }
 
+static void ArraySortIndicesStringNarrow(benchmark::State& state) {
+  const auto min_length = 0;
+  const auto max_length = 16;
+  ArraySortFuncStringBenchmark(state, SortRunner(state), min_length, max_length);
+}
+
+static void ArraySortIndicesStringWide(benchmark::State& state) {
+  const auto min_length = 0;
+  const auto max_length = 64;
+  ArraySortFuncStringBenchmark(state, SortRunner(state), min_length, max_length);
+}
+
+static void ArrayRankStringNarrow(benchmark::State& state) {
+  const auto min_length = 0;
+  const auto max_length = 16;
+  ArraySortFuncStringBenchmark(state, RankRunner(state), min_length, max_length);
+}
+
+static void ArrayRankStringWide(benchmark::State& state) {
+  const auto min_length = 0;
+  const auto max_length = 64;
+  ArraySortFuncStringBenchmark(state, RankRunner(state), min_length, max_length);
+}
+
 static void ChunkedArraySortIndicesInt64Narrow(benchmark::State& state) {
   ChunkedArraySortFuncInt64Benchmark(state, SortRunner(state), -100, 100);
 }
@@ -152,6 +224,12 @@ static void ChunkedArraySortIndicesInt64Wide(benchmark::State& state) {
   const auto min = std::numeric_limits<int64_t>::min();
   const auto max = std::numeric_limits<int64_t>::max();
   ChunkedArraySortFuncInt64Benchmark(state, SortRunner(state), min, max);
+}
+
+static void ChunkedArraySortIndicesString(benchmark::State& state) {
+  const auto min_length = 0;
+  const auto max_length = 32;
+  ChunkedArraySortFuncStringBenchmark(state, SortRunner(state), min_length, max_length);
 }
 
 //
@@ -309,9 +387,12 @@ void ArraySortIndicesSetArgs(benchmark::internal::Benchmark* bench) {
 BENCHMARK(ArraySortIndicesInt64Narrow)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ArraySortIndicesInt64Wide)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ArraySortIndicesBool)->Apply(ArraySortIndicesSetArgs);
+BENCHMARK(ArraySortIndicesStringNarrow)->Apply(ArraySortIndicesSetArgs);
+BENCHMARK(ArraySortIndicesStringWide)->Apply(ArraySortIndicesSetArgs);
 
 BENCHMARK(ChunkedArraySortIndicesInt64Narrow)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ChunkedArraySortIndicesInt64Wide)->Apply(ArraySortIndicesSetArgs);
+BENCHMARK(ChunkedArraySortIndicesString)->Apply(ArraySortIndicesSetArgs);
 
 BENCHMARK(RecordBatchSortIndicesInt64Narrow)
     ->ArgsProduct({
@@ -379,6 +460,8 @@ void ArrayRankSetArgs(benchmark::internal::Benchmark* bench) {
 
 BENCHMARK(ArrayRankInt64Narrow)->Apply(ArrayRankSetArgs);
 BENCHMARK(ArrayRankInt64Wide)->Apply(ArrayRankSetArgs);
+BENCHMARK(ArrayRankStringNarrow)->Apply(ArrayRankSetArgs);
+BENCHMARK(ArrayRankStringWide)->Apply(ArrayRankSetArgs);
 BENCHMARK(ChunkedArrayRankInt64Narrow)->Apply(ArrayRankSetArgs);
 BENCHMARK(ChunkedArrayRankInt64Wide)->Apply(ArrayRankSetArgs);
 
