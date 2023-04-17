@@ -132,6 +132,22 @@ Schema <- R6Class("Schema",
       call2("schema", !!!codes)
     },
     WithNames = function(names) {
+      if (!inherits(names, "character")) {
+        abort(
+          paste("Replacement names must be character vector, not", class(names)[1])
+        )
+      }
+
+      if (length(names) != length(self$names)) {
+        abort(
+          c(
+            "Replacement names must contain same number of items as current names",
+            i = paste("Current names length:", length(self$names)),
+            x = paste("Replacement names length:", length(names))
+          )
+        )
+      }
+
       existing_metadata <- self$metadata
       renamed_schema <- Schema__WithNames(self, names)
 

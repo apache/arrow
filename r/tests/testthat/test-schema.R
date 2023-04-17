@@ -266,11 +266,8 @@ test_that("schema name assignment", {
   expect_identical(names(schm), c("x", "y", "z"))
   names(schm) <- c("a", "b", "c")
   expect_identical(names(schm), c("a", "b", "c"))
-  expect_error(names(schm) <- "f")
-  expect_error(names(schm) <- letters)
-  expect_error(names(schm) <- character(0))
-  expect_error(names(schm) <- NULL)
-  expect_error(names(schm) <- c(TRUE, FALSE))
+  expect_error(names(schm) <- "f", regexp = "Replacement names must contain same number of items as current names")
+  expect_error(names(schm) <- NULL, regexp = "Replacement names must be character vector, not NULL")
 
   # Test that R metadata is updated appropriately
   df <- data.frame(x = 1:3, y = c("a", "b", "c"))
