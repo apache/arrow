@@ -894,7 +894,8 @@ Status CheckMapAsPydictsError() {
     PyErr_Fetch(&type, &value, &traceback);
     std::string message;
     RETURN_NOT_OK(internal::PyObject_StdStringStr(value, &message));
-    message += ". If keys are not hashable, then you must use `maps_as_pydicts=False`";
+    message += ". If keys are not hashable, then you must use the option "
+        "[maps_as_pydicts=False (default)]";
 
     // resets the error
     PyErr_SetString(PyExc_TypeError, message.c_str());
@@ -984,7 +985,7 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
           // returns -1 if there are internal errors around hashing/resizing
           return setitem_result == 0 ?
             Status::OK() :
-            Status::UnknownError(
+            Status::UnknownError("[maps_as_pydicts=True] "
                 "Unexpected failure inserting Arrow (key, value) pair into Python dict"
             );
         },
@@ -999,9 +1000,10 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
         out_values);
 
     if (status.ok() && (total_dict_len < total_raw_len)) {
-      const char* message = "After conversion of Arrow map to pydict, "
-          "detected possible data loss due to duplicate keys. "
-          "Input length is [%lld], total pydict length is [%lld].";
+      const char* message = "[maps_as_pydicts=True] "
+          "After conversion of Arrow maps to pydicts, "
+          "detected data loss due to duplicate keys. "
+          "Original input length is [%lld], total converted pydict length is [%lld].";
       std::array<char, 256> buf;
       std::snprintf(buf.data(), buf.size(), message, total_raw_len, total_dict_len);
       ARROW_LOG(WARNING) << buf.data();
