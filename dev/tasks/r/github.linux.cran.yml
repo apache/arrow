@@ -44,6 +44,8 @@ jobs:
 
       - name: Docker Run
         shell: bash
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8)}}
         # setting ARROW_SOURCE_HOME='' here ensures that we use the cpp source copied into tools/
         run: archery docker run -e ARROW_SOURCE_HOME='' r
       - name: Dump install logs

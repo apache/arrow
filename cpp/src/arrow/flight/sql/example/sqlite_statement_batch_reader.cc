@@ -54,10 +54,6 @@
   case TYPE_CLASS##Type::type_id: {                                       \
     using c_type = typename TYPE_CLASS##Type::c_type;                     \
     auto builder = reinterpret_cast<TYPE_CLASS##Builder*>(array_builder); \
-    if (sqlite3_column_type(stmt_, i) == SQLITE_NULL) {                   \
-      ARROW_RETURN_NOT_OK(builder->AppendNull());                         \
-      break;                                                              \
-    }                                                                     \
     const sqlite3_int64 value = sqlite3_column_int64(STMT, COLUMN);       \
     ARROW_RETURN_NOT_OK(builder->Append(static_cast<c_type>(value)));     \
     break;                                                                \
@@ -66,10 +62,6 @@
 #define FLOAT_BUILDER_CASE(TYPE_CLASS, STMT, COLUMN)                          \
   case TYPE_CLASS##Type::type_id: {                                           \
     auto builder = reinterpret_cast<TYPE_CLASS##Builder*>(array_builder);     \
-    if (sqlite3_column_type(stmt_, i) == SQLITE_NULL) {                       \
-      ARROW_RETURN_NOT_OK(builder->AppendNull());                             \
-      break;                                                                  \
-    }                                                                         \
     const double value = sqlite3_column_double(STMT, COLUMN);                 \
     ARROW_RETURN_NOT_OK(                                                      \
         builder->Append(static_cast<const TYPE_CLASS##Type::c_type>(value))); \
@@ -82,7 +74,7 @@ namespace sql {
 namespace example {
 
 // Batch size for SQLite statement results
-static constexpr int kMaxBatchSize = 1024;
+static constexpr int32_t kMaxBatchSize = 16384;
 
 std::shared_ptr<Schema> SqliteStatementBatchReader::schema() const { return schema_; }
 
@@ -95,8 +87,12 @@ SqliteStatementBatchReader::SqliteStatementBatchReader(
 
 arrow::Result<std::shared_ptr<SqliteStatementBatchReader>>
 SqliteStatementBatchReader::Create(const std::shared_ptr<SqliteStatement>& statement_) {
+  ARROW_RETURN_NOT_OK(statement_->Reset());
+  if (!statement_->parameters().empty()) {
+    // If there are parameters, infer the schema after binding the first row
+    ARROW_RETURN_NOT_OK(statement_->Bind(0, 0));
+  }
   ARROW_RETURN_NOT_OK(statement_->Step());
-
   ARROW_ASSIGN_OR_RAISE(auto schema, statement_->GetSchema());
 
   std::shared_ptr<SqliteStatementBatchReader> result(
@@ -108,10 +104,8 @@ SqliteStatementBatchReader::Create(const std::shared_ptr<SqliteStatement>& state
 arrow::Result<std::shared_ptr<SqliteStatementBatchReader>>
 SqliteStatementBatchReader::Create(const std::shared_ptr<SqliteStatement>& statement,
                                    const std::shared_ptr<Schema>& schema) {
-  std::shared_ptr<SqliteStatementBatchReader> result(
+  return std::shared_ptr<SqliteStatementBatchReader>(
       new SqliteStatementBatchReader(statement, schema));
-
-  return result;
 }
 
 Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
@@ -127,61 +121,89 @@ Status SqliteStatementBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
     ARROW_RETURN_NOT_OK(MakeBuilder(default_memory_pool(), field_type, &builders[i]));
   }
 
-  if (!already_executed_) {
-    ARROW_ASSIGN_OR_RAISE(rc_, statement_->Reset());
-    ARROW_ASSIGN_OR_RAISE(rc_, statement_->Step());
-    already_executed_ = true;
-  }
-
   int64_t rows = 0;
-  while (rows < kMaxBatchSize && rc_ == SQLITE_ROW) {
-    rows++;
-    for (int i = 0; i < num_fields; i++) {
-      const std::shared_ptr<Field>& field = schema_->field(i);
-      const std::shared_ptr<DataType>& field_type = field->type();
-      ArrayBuilder* array_builder = builders[i].get();
-
-      // NOTE: This is not the optimal way of building Arrow vectors.
-      // That would be to presize the builders to avoiding several resizing operations
-      // when appending values and also to build one vector at a time.
-      switch (field_type->id()) {
-        // XXX This doesn't handle overflows when converting to the target
-        // integer type.
-        INT_BUILDER_CASE(Int64, stmt_, i)
-        INT_BUILDER_CASE(UInt64, stmt_, i)
-        INT_BUILDER_CASE(Int32, stmt_, i)
-        INT_BUILDER_CASE(UInt32, stmt_, i)
-        INT_BUILDER_CASE(Int16, stmt_, i)
-        INT_BUILDER_CASE(UInt16, stmt_, i)
-        INT_BUILDER_CASE(Int8, stmt_, i)
-        INT_BUILDER_CASE(UInt8, stmt_, i)
-        FLOAT_BUILDER_CASE(Double, stmt_, i)
-        FLOAT_BUILDER_CASE(Float, stmt_, i)
-        FLOAT_BUILDER_CASE(HalfFloat, stmt_, i)
-        BINARY_BUILDER_CASE(Binary, stmt_, i)
-        BINARY_BUILDER_CASE(LargeBinary, stmt_, i)
-        STRING_BUILDER_CASE(String, stmt_, i)
-        STRING_BUILDER_CASE(LargeString, stmt_, i)
-        default:
-          return Status::NotImplemented("Not implemented SQLite data conversion to ",
-                                        field_type->name());
+  while (true) {
+    if (!already_executed_) {
+      ARROW_ASSIGN_OR_RAISE(rc_, statement_->Reset());
+      if (!statement_->parameters().empty()) {
+        if (batch_index_ >= statement_->parameters().size()) {
+          *out = nullptr;
+          break;
+        }
+        ARROW_RETURN_NOT_OK(statement_->Bind(batch_index_, row_index_));
       }
+      ARROW_ASSIGN_OR_RAISE(rc_, statement_->Step());
+      already_executed_ = true;
     }
 
-    ARROW_ASSIGN_OR_RAISE(rc_, statement_->Step());
-  }
+    while (rows < kMaxBatchSize && rc_ == SQLITE_ROW) {
+      rows++;
+      for (int i = 0; i < num_fields; i++) {
+        const std::shared_ptr<Field>& field = schema_->field(i);
+        const std::shared_ptr<DataType>& field_type = field->type();
+        ArrayBuilder* array_builder = builders[i].get();
 
-  if (rows > 0) {
-    std::vector<std::shared_ptr<Array>> arrays(builders.size());
-    for (int i = 0; i < num_fields; i++) {
-      ARROW_RETURN_NOT_OK(builders[i]->Finish(&arrays[i]));
+        if (sqlite3_column_type(stmt_, i) == SQLITE_NULL) {
+          ARROW_RETURN_NOT_OK(array_builder->AppendNull());
+          continue;
+        }
+
+        switch (field_type->id()) {
+          // XXX This doesn't handle overflows when converting to the target
+          // integer type.
+          INT_BUILDER_CASE(Int64, stmt_, i)
+          INT_BUILDER_CASE(UInt64, stmt_, i)
+          INT_BUILDER_CASE(Int32, stmt_, i)
+          INT_BUILDER_CASE(UInt32, stmt_, i)
+          INT_BUILDER_CASE(Int16, stmt_, i)
+          INT_BUILDER_CASE(UInt16, stmt_, i)
+          INT_BUILDER_CASE(Int8, stmt_, i)
+          INT_BUILDER_CASE(UInt8, stmt_, i)
+          FLOAT_BUILDER_CASE(Double, stmt_, i)
+          FLOAT_BUILDER_CASE(Float, stmt_, i)
+          FLOAT_BUILDER_CASE(HalfFloat, stmt_, i)
+          BINARY_BUILDER_CASE(Binary, stmt_, i)
+          BINARY_BUILDER_CASE(LargeBinary, stmt_, i)
+          STRING_BUILDER_CASE(String, stmt_, i)
+          STRING_BUILDER_CASE(LargeString, stmt_, i)
+          default:
+            return Status::NotImplemented("Not implemented SQLite data conversion to ",
+                                          field_type->name());
+        }
+      }
+
+      ARROW_ASSIGN_OR_RAISE(rc_, statement_->Step());
     }
 
-    *out = RecordBatch::Make(schema_, rows, arrays);
-  } else {
-    *out = NULLPTR;
-  }
+    // If we still have bind parameters, bind again and retry
+    const std::vector<std::shared_ptr<RecordBatch>>& params = statement_->parameters();
+    if (!params.empty() && rc_ == SQLITE_DONE && batch_index_ < params.size()) {
+      row_index_++;
+      if (row_index_ < params[batch_index_]->num_rows()) {
+        already_executed_ = false;
+      } else {
+        batch_index_++;
+        row_index_ = 0;
+        if (batch_index_ < params.size()) {
+          already_executed_ = false;
+        }
+      }
 
+      if (!already_executed_ && rows < kMaxBatchSize) continue;
+    }
+
+    if (rows > 0) {
+      std::vector<std::shared_ptr<Array>> arrays(builders.size());
+      for (int i = 0; i < num_fields; i++) {
+        ARROW_RETURN_NOT_OK(builders[i]->Finish(&arrays[i]));
+      }
+
+      *out = RecordBatch::Make(schema_, rows, arrays);
+    } else {
+      *out = nullptr;
+    }
+    break;
+  }
   return Status::OK();
 }
 

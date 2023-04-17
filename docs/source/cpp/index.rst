@@ -22,5 +22,6 @@ C++ Implementation
    :maxdepth: 2
 
    getting_started
+   user_guide
    Examples <examples/index>
    api

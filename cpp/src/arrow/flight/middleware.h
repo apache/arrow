@@ -23,20 +23,19 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/status.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
-
 namespace flight {
 
 /// \brief Headers sent from the client or server.
 ///
 /// Header values are ordered.
-using CallHeaders = std::multimap<util::string_view, util::string_view>;
+using CallHeaders = std::multimap<std::string_view, std::string_view>;
 
 /// \brief A write-only wrapper around headers for an RPC call.
 class ARROW_FLIGHT_EXPORT AddCallHeaders {
@@ -66,6 +65,10 @@ enum class FlightMethod : char {
   DoExchange = 9,
 };
 
+/// \brief Get a human-readable name for a Flight method.
+ARROW_FLIGHT_EXPORT
+std::string ToString(FlightMethod method);
+
 /// \brief Information about an instance of a Flight RPC.
 struct ARROW_FLIGHT_EXPORT CallInfo {
  public:
@@ -74,5 +77,4 @@ struct ARROW_FLIGHT_EXPORT CallInfo {
 };
 
 }  // namespace flight
-
 }  // namespace arrow

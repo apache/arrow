@@ -36,6 +36,9 @@ rpmbuild_options=
 if grep -q amazon /etc/system-release-cpe; then
   distribution=$(cut -d ":" -f 5 /etc/system-release-cpe | tr '_' '-')
   distribution_version=$(cut -d ":" -f 6 /etc/system-release-cpe)
+elif grep -q oracle /etc/system-release-cpe; then
+  distribution=oracle-linux
+  distribution_version=$(cut -d ":" -f 5 /etc/system-release-cpe)
 else
   distribution=$(cut -d ":" -f 4 /etc/system-release-cpe)
   distribution_version=$(cut -d ":" -f 5 /etc/system-release-cpe)
@@ -63,7 +66,7 @@ if which ccache > /dev/null 2>&1; then
   export CCACHE_COMPRESSLEVEL=6
   export CCACHE_MAXSIZE=500M
   export CCACHE_DIR="${PWD}/ccache"
-  ccache --show-stats
+  ccache --show-stats --verbose || :
   if [ -d "${lib_directory}/ccache" ]; then
     PATH="${lib_directory}/ccache:$PATH"
   fi
@@ -126,6 +129,8 @@ run cp \
     /host/tmp/${PACKAGE}.spec \
     rpmbuild/SPECS/
 
+df -h
+
 run cat <<BUILD > build.sh
 #!/usr/bin/env bash
 
@@ -155,8 +160,10 @@ else
   fi
 fi
 
+df -h
+
 if which ccache > /dev/null 2>&1; then
-  ccache --show-stats
+  ccache --show-stats --verbose || :
 fi
 
 run mv rpmbuild/RPMS/*/* "${rpm_dir}/"

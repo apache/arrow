@@ -235,4 +235,20 @@ public interface BufferAllocator extends AutoCloseable {
   default RoundingPolicy getRoundingPolicy() {
     return DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY;
   }
+
+  /**
+   * EXPERIMENTAL: Wrap an allocation created outside this BufferAllocator.
+   *
+   * <p>This is useful to integrate allocations from native code into the same memory management framework as
+   * Java-allocated buffers, presenting users a consistent API. The created buffer will be tracked by this allocator
+   * and can be transferred like Java-allocated buffers.
+   *
+   * <p>The underlying allocation will be closed when all references to the buffer are released. If this method throws,
+   * the underlying allocation will also be closed.
+   *
+   * @param allocation The underlying allocation.
+   */
+  default ArrowBuf wrapForeignAllocation(ForeignAllocation allocation) {
+    throw new UnsupportedOperationException();
+  }
 }

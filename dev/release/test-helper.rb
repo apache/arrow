@@ -19,6 +19,7 @@ require "English"
 require "cgi/util"
 require "fileutils"
 require "find"
+require 'net/http'
 require "json"
 require "open-uri"
 require "rexml/document"
@@ -94,6 +95,10 @@ module GitRunnable
 end
 
 module VersionDetectable
+  def release_type
+    (data || {})[:release_type] || :major
+  end
+
   def detect_versions
     top_dir = Pathname(__dir__).parent.parent
     cpp_cmake_lists = top_dir + "cpp" + "CMakeLists.txt"
@@ -102,14 +107,31 @@ module VersionDetectable
     @release_version = @snapshot_version.gsub(/-SNAPSHOT\z/, "")
     @release_compatible_version = @release_version.split(".")[0, 2].join(".")
     @so_version = compute_so_version(@release_version)
-    @next_version = @release_version.gsub(/\A\d+/) {|major| major.succ}
+    next_version_components = @release_version.split(".")
+    case release_type
+    when :major
+      next_version_components[0].succ!
+    when :minor
+      next_version_components[1].succ!
+    when :patch
+      next_version_components[2].succ!
+    else
+      raise "unknown release type: #{release_type.inspect}"
+    end
+    @next_version = next_version_components.join(".")
     @next_major_version = @next_version.split(".")[0]
     @next_compatible_version = @next_version.split(".")[0, 2].join(".")
     @next_snapshot_version = "#{@next_version}-SNAPSHOT"
     @next_so_version = compute_so_version(@next_version)
     r_description = top_dir + "r" + "DESCRIPTION"
     @previous_version = r_description.read[/^Version: (.+?)\.9000$/, 1]
-    @previous_compatible_version = @previous_version.split(".")[0, 2].join(".")
+    if @previous_version
+      @previous_compatible_version = @previous_version.split(".")[0, 2].join(".")
+    else
+      @previous_compatible_version = nil
+    end
+    r_versions = top_dir + "r" + "pkgdown" + "assets" + "versions.json"
+    @previous_r_version = r_versions.read[/"name": "(.+?) \(release\)"/, 1]
   end
 
   def compute_so_version(version)

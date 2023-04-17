@@ -23,8 +23,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -53,6 +53,13 @@ func (a *String) Value(i int) string {
 	i = i + a.array.data.offset
 	return a.values[a.offsets[i]:a.offsets[i+1]]
 }
+func (a *String) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return "(null)"
+	} else {
+		return a.Value(i)
+	}
+}
 
 // ValueOffset returns the offset of the value at index i.
 func (a *String) ValueOffset(i int) int {
@@ -60,6 +67,10 @@ func (a *String) ValueOffset(i int) int {
 		panic("arrow/array: index out of range")
 	}
 	return int(a.offsets[i+a.array.data.offset])
+}
+
+func (a *String) ValueOffset64(i int) int64 {
+	return int64(a.ValueOffset(i))
 }
 
 func (a *String) ValueOffsets() []int32 {
@@ -128,7 +139,7 @@ func (a *String) setData(data *Data) {
 	}
 }
 
-func (a *String) getOneForMarshal(i int) interface{} {
+func (a *String) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.Value(i)
 	}
@@ -184,6 +195,7 @@ func (a *LargeString) Value(i int) string {
 	i = i + a.array.data.offset
 	return a.values[a.offsets[i]:a.offsets[i+1]]
 }
+func (a *LargeString) ValueStr(i int) string { return a.Value(i) }
 
 // ValueOffset returns the offset of the value at index i.
 func (a *LargeString) ValueOffset(i int) int64 {
@@ -191,6 +203,10 @@ func (a *LargeString) ValueOffset(i int) int64 {
 		panic("arrow/array: index out of range")
 	}
 	return a.offsets[i+a.array.data.offset]
+}
+
+func (a *LargeString) ValueOffset64(i int) int64 {
+	return a.ValueOffset(i)
 }
 
 func (a *LargeString) ValueOffsets() []int64 {
@@ -259,7 +275,7 @@ func (a *LargeString) setData(data *Data) {
 	}
 }
 
-func (a *LargeString) getOneForMarshal(i int) interface{} {
+func (a *LargeString) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.Value(i)
 	}
@@ -269,11 +285,7 @@ func (a *LargeString) getOneForMarshal(i int) interface{} {
 func (a *LargeString) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		if a.IsValid(i) {
-			vals[i] = a.Value(i)
-		} else {
-			vals[i] = nil
-		}
+		vals[i] = a.GetOneForMarshal(i)
 	}
 	return json.Marshal(vals)
 }
@@ -303,6 +315,8 @@ func NewStringBuilder(mem memory.Allocator) *StringBuilder {
 	return b
 }
 
+func (b *StringBuilder) Type() arrow.DataType { return arrow.BinaryTypes.String }
+
 // Append appends a string to the builder.
 func (b *StringBuilder) Append(v string) {
 	b.BinaryBuilder.Append([]byte(v))
@@ -320,6 +334,10 @@ func (b *StringBuilder) Value(i int) string {
 	return string(b.BinaryBuilder.Value(i))
 }
 
+// func (b *StringBuilder) UnsafeAppend(v string) {
+// 	b.BinaryBuilder.UnsafeAppend([]byte(v))
+// }
+
 // NewArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
 // so it can be used to build a new array.
 func (b *StringBuilder) NewArray() arrow.Array {
@@ -335,7 +353,7 @@ func (b *StringBuilder) NewStringArray() (a *String) {
 	return
 }
 
-func (b *StringBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *StringBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -356,9 +374,9 @@ func (b *StringBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *StringBuilder) unmarshal(dec *json.Decoder) error {
+func (b *StringBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -376,7 +394,7 @@ func (b *StringBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("string builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 // A LargeStringBuilder is used to build a LargeString array using the Append methods.
@@ -393,6 +411,8 @@ func NewLargeStringBuilder(mem memory.Allocator) *LargeStringBuilder {
 	}
 	return b
 }
+
+func (b *LargeStringBuilder) Type() arrow.DataType { return arrow.BinaryTypes.LargeString }
 
 // Append appends a string to the builder.
 func (b *LargeStringBuilder) Append(v string) {
@@ -411,6 +431,10 @@ func (b *LargeStringBuilder) Value(i int) string {
 	return string(b.BinaryBuilder.Value(i))
 }
 
+// func (b *LargeStringBuilder) UnsafeAppend(v string) {
+// 	b.BinaryBuilder.UnsafeAppend([]byte(v))
+// }
+
 // NewArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
 // so it can be used to build a new array.
 func (b *LargeStringBuilder) NewArray() arrow.Array {
@@ -426,7 +450,7 @@ func (b *LargeStringBuilder) NewLargeStringArray() (a *LargeString) {
 	return
 }
 
-func (b *LargeStringBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *LargeStringBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -447,9 +471,9 @@ func (b *LargeStringBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *LargeStringBuilder) unmarshal(dec *json.Decoder) error {
+func (b *LargeStringBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -467,12 +491,21 @@ func (b *LargeStringBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("string builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
+}
+
+type StringLikeBuilder interface {
+	Builder
+	Append(string)
+	UnsafeAppend([]byte)
+	ReserveData(int)
 }
 
 var (
-	_ arrow.Array = (*String)(nil)
-	_ arrow.Array = (*LargeString)(nil)
-	_ Builder     = (*StringBuilder)(nil)
-	_ Builder     = (*LargeStringBuilder)(nil)
+	_ arrow.Array       = (*String)(nil)
+	_ arrow.Array       = (*LargeString)(nil)
+	_ Builder           = (*StringBuilder)(nil)
+	_ Builder           = (*LargeStringBuilder)(nil)
+	_ StringLikeBuilder = (*StringBuilder)(nil)
+	_ StringLikeBuilder = (*LargeStringBuilder)(nil)
 )

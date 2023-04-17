@@ -45,7 +45,7 @@ Status ToDateHolder::Make(const FunctionNode& node,
     return Status::Invalid(
         "'to_date' function requires a string literal as the second parameter");
   }
-  auto pattern = arrow::util::get<std::string>(literal_pattern->holder());
+  auto pattern = std::get<std::string>(literal_pattern->holder());
 
   int suppress_errors = 0;
   if (node.children().size() == 3) {
@@ -63,7 +63,7 @@ Status ToDateHolder::Make(const FunctionNode& node,
           "The (optional) third parameter to 'to_date' function needs to an integer "
           "literal to indicate whether to suppress the error");
     }
-    suppress_errors = arrow::util::get<int>(literal_suppress_errors->holder());
+    suppress_errors = std::get<int>(literal_suppress_errors->holder());
   }
 
   return Make(pattern, suppress_errors, holder);

@@ -18,34 +18,33 @@
 const https = require('https');
 
 /**
- * Given the title of a PullRequest return the ID of the JIRA issue
+ * Given the title of a PullRequest return the Issue
+ *
  * @param {String} title 
- * @returns {String} the ID of the associated JIRA issue
+ * @returns {Issue} or null if no issue detected.
+ *
+ * @typedef {Object} Issue
+ * @property {string} kind - The kind of issue: minor, jira or github
+ * @property {string} id   - The id of the issue:
+ *                            PARQUET-XXXX for jira
+ *                            The numeric issue id for github
  */
-function detectJIRAID(title) {
+function detectIssue(title) {
     if (!title) {
         return null;
-    }
-    const matched = /^(WIP:?\s*)?((ARROW|PARQUET)-\d+)/.exec(title);
-    if (!matched) {
-        return null;
-    }
-    return matched[2];
-}
-
-/**
- * Given the title of a PullRequest checks if it contains a JIRA issue ID
- * @param {String} title 
- * @returns {Boolean} true if it starts with a JIRA ID or MINOR:
- */
-function haveJIRAID(title) {
-    if (!title) {
-      return false;
     }
     if (title.startsWith("MINOR: ")) {
-      return true;
+        return {"kind": "minor"};
     }
-    return /^(WIP:?\s*)?(ARROW|PARQUET)-\d+/.test(title);
+    const matched_jira = /^(WIP:?\s*)?((PARQUET)-\d+)/.exec(title);
+    if (matched_jira) {
+        return {"kind": "jira", "id": matched_jira[2]};
+    }
+    const matched_gh = /^(WIP:?\s*)?GH-(\d+)/.exec(title);
+    if (matched_gh) {
+        return {"kind": "github", "id": matched_gh[2]};
+    }
+    return null;
 }
 
 /**
@@ -69,8 +68,27 @@ async function getJiraInfo(jiraID) {
     });
 }
 
+/**
+ * Retrieves information about a GitHub issue.
+ * @param {String} issueID
+ * @returns {Object} the information about a GitHub issue.
+ */
+ async function getGitHubInfo(github, context, issueID, pullRequestNumber) {
+    try {
+        const response = await github.issues.get({
+            issue_number: issueID,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+        })
+        return response.data
+    } catch (error) {
+        console.log(`${error.name}: ${error.code}`);
+        return false
+    }
+}
+
 module.exports = {
-    detectJIRAID,
-    haveJIRAID,
-    getJiraInfo
+    detectIssue,
+    getJiraInfo,
+    getGitHubInfo
 };

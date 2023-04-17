@@ -499,7 +499,7 @@ class GZipCodec : public Codec {
 }  // namespace
 
 std::unique_ptr<Codec> MakeGZipCodec(int compression_level, GZipFormat::type format) {
-  return std::unique_ptr<Codec>(new GZipCodec(compression_level, format));
+  return std::make_unique<GZipCodec>(compression_level, format);
 }
 
 }  // namespace internal

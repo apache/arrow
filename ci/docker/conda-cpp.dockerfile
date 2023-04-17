@@ -22,6 +22,10 @@ FROM ${repo}:${arch}-conda
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_minio.sh latest /opt/conda
 
+# Unless overriden use Python 3.10
+# Google GCS fails building with Python 3.11 at the moment.
+ARG python=3.10
+
 # install the required conda packages into the test environment
 COPY ci/conda_env_cpp.txt \
      ci/conda_env_gandiva.txt \
@@ -31,6 +35,7 @@ RUN mamba install -q -y \
         --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         doxygen \
+        python=${python} \
         valgrind && \
     mamba clean --all
 
@@ -38,7 +43,11 @@ RUN mamba install -q -y \
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
-ENV ARROW_BUILD_TESTS=ON \
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
+ENV ARROW_ACERO=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=CONDA \
     ARROW_FLIGHT=ON \
@@ -48,7 +57,6 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_HOME=$CONDA_PREFIX \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA=ON \
     ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \
@@ -59,7 +67,6 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
-    CMAKE_CXX_STANDARD=17 \
     GTest_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \

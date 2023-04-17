@@ -57,11 +57,16 @@ class WriteStats(_WriteStats):
 
     Parameters
     ----------
-    num_messages : number of messages.
-    num_record_batches : number of record batches.
-    num_dictionary_batches : number of dictionary batches.
-    num_dictionary_deltas : delta of dictionaries.
-    num_replaced_dictionaries : number of replaced dictionaries.
+    num_messages : int
+        Number of messages.
+    num_record_batches : int
+        Number of record batches.
+    num_dictionary_batches : int
+        Number of dictionary batches.
+    num_dictionary_deltas : int
+        Delta of dictionaries.
+    num_replaced_dictionaries : int
+        Number of replaced dictionaries.
     """
     __slots__ = ()
 
@@ -84,11 +89,16 @@ class ReadStats(_ReadStats):
 
     Parameters
     ----------
-    num_messages : number of messages.
-    num_record_batches : number of record batches.
-    num_dictionary_batches : number of dictionary batches.
-    num_dictionary_deltas : delta of dictionaries.
-    num_replaced_dictionaries : number of replaced dictionaries.
+    num_messages : int
+        Number of messages.
+    num_record_batches : int
+        Number of record batches.
+    num_dictionary_batches : int
+        Number of dictionary batches.
+    num_dictionary_deltas : int
+        Delta of dictionaries.
+    num_replaced_dictionaries : int
+        Number of replaced dictionaries.
     """
     __slots__ = ()
 
@@ -106,16 +116,15 @@ cdef class IpcReadOptions(_Weakrefable):
 
     Parameters
     ----------
+    ensure_native_endian : bool, default True
+        Whether to convert incoming data to platform-native endianness.
     use_threads : bool
         Whether to use the global CPU thread pool to parallelize any
-        computational tasks like decompression.
-    ensure_native_endian : bool
-        Whether to convert incoming data to platform-native endianness.
-        Default is true.
+        computational tasks like decompression
     included_fields : list
         If empty (the default), return all deserialized fields.
         If non-empty, the values are the indices of fields to read on
-        the top-level schema.
+        the top-level schema
     """
     __slots__ = ()
 
@@ -243,9 +252,14 @@ cdef class IpcWriteOptions(_Weakrefable):
         if value is None:
             self.c_options.codec.reset()
         elif isinstance(value, str):
+            codec_type = _ensure_compression(value)
+            if codec_type != CCompressionType_ZSTD and codec_type != CCompressionType_LZ4_FRAME:
+                raise ValueError("Compression type must be lz4, zstd or None")
             self.c_options.codec = shared_ptr[CCodec](GetResultValue(
-                CCodec.Create(_ensure_compression(value))).release())
+                CCodec.Create(codec_type)).release())
         elif isinstance(value, Codec):
+            if value.name != "lz4" and value.name != "zstd":
+                raise ValueError("Compression type must be lz4, zstd or None")
             self.c_options.codec = (<Codec>value).wrapped
         else:
             raise TypeError(
@@ -406,7 +420,7 @@ cdef class MessageReader(_Weakrefable):
 
         Parameters
         ----------
-        source
+        source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
             A readable source, like an InputStream
         """
         cdef:
@@ -472,17 +486,22 @@ cdef class _CRecordBatchWriter(_Weakrefable):
         else:
             raise ValueError(type(table_or_batch))
 
-    def write_batch(self, RecordBatch batch):
+    def write_batch(self, RecordBatch batch, custom_metadata=None):
         """
         Write RecordBatch to stream.
 
         Parameters
         ----------
         batch : RecordBatch
+        custom_metadata : mapping or KeyValueMetadata
+            Keys and values must be string-like / coercible to bytes
         """
+        metadata = ensure_metadata(custom_metadata, allow_none=True)
+        c_meta = pyarrow_unwrap_metadata(metadata)
+
         with nogil:
             check_status(self.writer.get()
-                         .WriteRecordBatch(deref(batch.batch)))
+                         .WriteRecordBatch(deref(batch.batch), c_meta))
 
     def write_table(self, Table table, max_chunksize=None):
         """
@@ -655,15 +674,6 @@ cdef class RecordBatchReader(_Weakrefable):
 
         return pyarrow_wrap_schema(c_schema)
 
-    def get_next_batch(self):
-        """DEPRECATED: return the next record batch.
-
-        Use read_next_batch instead."""
-        import warnings
-        warnings.warn('Please use read_next_batch instead of '
-                      'get_next_batch', FutureWarning)
-        return self.read_next_batch()
-
     def read_next_batch(self):
         """
         Read next RecordBatch from the stream.
@@ -686,6 +696,46 @@ cdef class RecordBatchReader(_Weakrefable):
             raise StopIteration
 
         return pyarrow_wrap_batch(batch)
+
+    def read_next_batch_with_custom_metadata(self):
+        """
+        Read next RecordBatch from the stream along with its custom metadata.
+
+        Raises
+        ------
+        StopIteration:
+            At end of stream.
+
+        Returns
+        -------
+        batch : RecordBatch
+        custom_metadata : KeyValueMetadata
+        """
+        cdef:
+            CRecordBatchWithMetadata batch_with_metadata
+
+        with nogil:
+            batch_with_metadata = GetResultValue(self.reader.get().ReadNext())
+
+        if batch_with_metadata.batch.get() == NULL:
+            raise StopIteration
+
+        return _wrap_record_batch_with_metadata(batch_with_metadata)
+
+    def iter_batches_with_custom_metadata(self):
+        """
+        Iterate over record batches from the stream along with their custom
+        metadata.
+
+        Yields
+        ------
+        RecordBatchWithMetadata
+        """
+        while True:
+            try:
+                yield self.read_next_batch_with_custom_metadata()
+            except StopIteration:
+                return
 
     def read_all(self):
         """
@@ -761,7 +811,7 @@ cdef class RecordBatchReader(_Weakrefable):
         return self
 
     @staticmethod
-    def from_batches(schema, batches):
+    def from_batches(Schema schema not None, batches):
         """
         Create RecordBatchReader from an iterable of batches.
 
@@ -831,6 +881,27 @@ cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
         with nogil:
             self.writer = GetResultValue(
                 MakeFileWriter(c_sink, schema.sp_schema, self.options))
+
+_RecordBatchWithMetadata = namedtuple(
+    'RecordBatchWithMetadata',
+    ('batch', 'custom_metadata'))
+
+
+class RecordBatchWithMetadata(_RecordBatchWithMetadata):
+    """RecordBatch with its custom metadata
+
+    Parameters
+    ----------
+    batch : RecordBatch
+    custom_metadata : KeyValueMetadata
+    """
+    __slots__ = ()
+
+
+@staticmethod
+cdef _wrap_record_batch_with_metadata(CRecordBatchWithMetadata c):
+    return RecordBatchWithMetadata(pyarrow_wrap_batch(c.batch),
+                                   pyarrow_wrap_metadata(c.custom_metadata))
 
 
 cdef class _RecordBatchFileReader(_Weakrefable):
@@ -907,6 +978,33 @@ cdef class _RecordBatchFileReader(_Weakrefable):
     # TODO(wesm): ARROW-503: Function was renamed. Remove after a period of
     # time has passed
     get_record_batch = get_batch
+
+    def get_batch_with_custom_metadata(self, int i):
+        """
+        Read the record batch with the given index along with
+        its custom metadata
+
+        Parameters
+        ----------
+        i : int
+            The index of the record batch in the IPC file.
+
+        Returns
+        -------
+        batch : RecordBatch
+        custom_metadata : KeyValueMetadata
+        """
+        cdef:
+            CRecordBatchWithMetadata batch_with_metadata
+
+        if i < 0 or i >= self.num_record_batches:
+            raise ValueError('Batch number {0} out of range'.format(i))
+
+        with nogil:
+            batch_with_metadata = GetResultValue(
+                self.reader.get().ReadRecordBatchWithCustomMetadata(i))
+
+        return _wrap_record_batch_with_metadata(batch_with_metadata)
 
     def read_all(self):
         """
@@ -1091,21 +1189,24 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     cdef:
         shared_ptr[CSchema] result
         shared_ptr[CRandomAccessFile] cpp_file
+        Message message
         CDictionaryMemo temp_memo
         CDictionaryMemo* arg_dict_memo
-
-    if isinstance(obj, Message):
-        raise NotImplementedError(type(obj))
-
-    get_reader(obj, False, &cpp_file)
 
     if dictionary_memo is not None:
         arg_dict_memo = dictionary_memo.memo
     else:
         arg_dict_memo = &temp_memo
 
-    with nogil:
-        result = GetResultValue(ReadSchema(cpp_file.get(), arg_dict_memo))
+    if isinstance(obj, Message):
+        message = obj
+        with nogil:
+            result = GetResultValue(ReadSchema(
+                deref(message.message.get()), arg_dict_memo))
+    else:
+        get_reader(obj, False, &cpp_file)
+        with nogil:
+            result = GetResultValue(ReadSchema(cpp_file.get(), arg_dict_memo))
 
     return pyarrow_wrap_schema(result)
 

@@ -23,6 +23,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -43,7 +44,6 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
 #include "arrow/util/string.h"
-#include "arrow/util/string_view.h"
 #include "arrow/vendored/datetime.h"
 #include "arrow/visit_type_inline.h"
 
@@ -116,6 +116,10 @@ struct ValueComparatorVisitor {
 
   Status Visit(const DictionaryType&) {
     return Status::NotImplemented("dictionary type");
+  }
+
+  Status Visit(const RunEndEncodedType&) {
+    return Status::NotImplemented("run-end encoded type");
   }
 
   ValueComparator Create(const DataType& type) {
@@ -382,6 +386,8 @@ Result<std::shared_ptr<StructArray>> Diff(const Array& base, const Array& target
     return Diff(*base_storage, *target_storage, pool);
   } else if (base.type()->id() == Type::DICTIONARY) {
     return Status::NotImplemented("diffing arrays of type ", *base.type());
+  } else if (base.type()->id() == Type::RUN_END_ENCODED) {
+    return Status::NotImplemented("diffing arrays of type ", *base.type());
   } else {
     return QuadraticSpaceMyersDiff(base, target, pool).Diff();
   }
@@ -399,8 +405,8 @@ class MakeFormatterImpl {
   }
 
  private:
-  template <typename VISITOR>
-  friend Status VisitTypeInline(const DataType&, VISITOR*);
+  template <typename VISITOR, typename... ARGS>
+  friend Status VisitTypeInline(const DataType&, VISITOR*, ARGS&&... args);
 
   // factory implementation
   Status Visit(const BooleanType&) {
@@ -630,6 +636,10 @@ class MakeFormatterImpl {
   }
 
   Status Visit(const MonthIntervalType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const RunEndEncodedType& t) {
     return Status::NotImplemented("formatting diffs between arrays of type ", t);
   }
 

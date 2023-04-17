@@ -20,10 +20,10 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
+#include <string_view>
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -31,7 +31,7 @@ namespace util {
 
 // Convert a UTF8 string to a wstring (either UTF16 or UTF32, depending
 // on the wchar_t width).
-ARROW_EXPORT Result<std::wstring> UTF8ToWideString(const std::string& source);
+ARROW_EXPORT Result<std::wstring> UTF8ToWideString(std::string_view source);
 
 // Similarly, convert a wstring to a UTF8 string.
 ARROW_EXPORT Result<std::string> WideStringToUTF8(const std::wstring& source);
@@ -41,7 +41,7 @@ ARROW_EXPORT void InitializeUTF8();
 
 ARROW_EXPORT bool ValidateUTF8(const uint8_t* data, int64_t size);
 
-ARROW_EXPORT bool ValidateUTF8(const util::string_view& str);
+ARROW_EXPORT bool ValidateUTF8(std::string_view str);
 
 // Skip UTF8 byte order mark, if any.
 ARROW_EXPORT

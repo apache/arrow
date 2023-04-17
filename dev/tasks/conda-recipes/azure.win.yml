@@ -3,7 +3,7 @@
 jobs:
 - job: win
   pool:
-    vmImage: windows-2019
+    vmImage: windows-2022
   timeoutInMinutes: 360
   variables:
     CONFIG: {{ config }}
@@ -13,28 +13,6 @@ jobs:
     UPLOAD_PACKAGES: False
 
   steps:
-    - script: |
-        choco install vcpython27 -fdv -y --debug
-      condition: contains(variables['CONFIG'], 'vs2008')
-      displayName: Install vcpython27.msi (if needed)
-
-    - powershell: |
-        Set-PSDebug -Trace 1
-        $batchcontent = @"
-        ECHO ON
-        SET vcpython=C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0
-        DIR "%vcpython%"
-        CALL "%vcpython%\vcvarsall.bat" %*
-        "@
-        $batchDir = "C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0\VC"
-        $batchPath = "$batchDir" + "\vcvarsall.bat"
-        New-Item -Path $batchPath -ItemType "file" -Force
-        Set-Content -Value $batchcontent -Path $batchPath
-        Get-ChildItem -Path $batchDir
-        Get-ChildItem -Path ($batchDir + '\..')
-      condition: contains(variables['CONFIG'], 'vs2008')
-      displayName: Patch vs2008 (if needed)
-
     - task: PythonScript@0
       displayName: 'Download Miniforge'
       inputs:
@@ -48,12 +26,13 @@ jobs:
     - script: |
         start /wait "" %BUILD_ARTIFACTSTAGINGDIRECTORY%\Miniforge.exe /InstallationType=JustMe /RegisterPython=0 /S /D=C:\Miniforge
       displayName: Install Miniforge
+
     - powershell: Write-Host "##vso[task.prependpath]C:\Miniforge\Scripts"
       displayName: Add conda to PATH
 
     - script: |
         call activate base
-        mamba.exe install 'python=3.9' conda-build conda pip boa 'conda-forge-ci-setup=3' -c conda-forge --strict-channel-priority --yes
+        mamba.exe install 'python=3.10' conda-build conda pip boa 'conda-forge-ci-setup=3' -c conda-forge --strict-channel-priority --yes
       displayName: Install conda-build
 
     - script: set PYTHONUNBUFFERED=1
@@ -83,7 +62,6 @@ jobs:
       workingDirectory: arrow\dev\tasks\conda-recipes
       env:
         PYTHONUNBUFFERED: 1
-      condition: not(contains(variables['CONFIG'], 'vs2008'))
 
     - script: |
         call activate base
@@ -94,5 +72,5 @@ jobs:
         PYTHONUNBUFFERED: 1
       condition: contains(variables['R_CONFIG'], 'win')
 
-    {{ macros.azure_upload_releases("D:\\bld\\win-64\\*.tar.bz2")|indent(2) }}
-    {{ macros.azure_upload_anaconda("D:\\bld\\win-64\\*.tar.bz2")|indent(2) }}
+    {{ macros.azure_upload_releases("D:\\bld\\win-64\\*.conda")|indent(2) }}
+    {{ macros.azure_upload_anaconda("D:\\bld\\win-64\\*.conda")|indent(2) }}

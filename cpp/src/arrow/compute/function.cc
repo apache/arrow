@@ -26,7 +26,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function_internal.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/util/cpu_info.h"
@@ -96,6 +96,18 @@ static Status CheckArityImpl(const Function& func, int num_args) {
 Status Function::CheckArity(size_t num_args) const {
   return CheckArityImpl(*this, static_cast<int>(num_args));
 }
+
+namespace {
+
+Status CheckOptions(const Function& function, const FunctionOptions* options) {
+  if (options == nullptr && function.doc().options_required) {
+    return Status::Invalid("Function '", function.name(),
+                           "' cannot be called without options");
+  }
+  return Status::OK();
+}
+
+}  // namespace
 
 namespace detail {
 
@@ -167,6 +179,118 @@ const Kernel* DispatchExactImpl(const Function* func,
   return nullptr;
 }
 
+struct FunctionExecutorImpl : public FunctionExecutor {
+  FunctionExecutorImpl(std::vector<TypeHolder> in_types, const Kernel* kernel,
+                       std::unique_ptr<detail::KernelExecutor> executor,
+                       const Function& func)
+      : in_types(std::move(in_types)),
+        kernel(kernel),
+        kernel_ctx(default_exec_context(), kernel),
+        executor(std::move(executor)),
+        func(func),
+        state(),
+        options(NULLPTR),
+        inited(false) {}
+  virtual ~FunctionExecutorImpl() {}
+
+  Status KernelInit(const FunctionOptions* options) {
+    RETURN_NOT_OK(CheckOptions(func, options));
+    if (options == NULLPTR) {
+      options = func.default_options();
+    }
+    if (kernel->init) {
+      ARROW_ASSIGN_OR_RAISE(state,
+                            kernel->init(&kernel_ctx, {kernel, in_types, options}));
+      kernel_ctx.SetState(state.get());
+    }
+
+    RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, in_types, options}));
+    this->options = options;
+    inited = true;
+    return Status::OK();
+  }
+
+  Status Init(const FunctionOptions* options, ExecContext* exec_ctx) override {
+    if (exec_ctx == NULLPTR) {
+      exec_ctx = default_exec_context();
+    }
+    kernel_ctx = KernelContext{exec_ctx, kernel};
+    return KernelInit(options);
+  }
+
+  Result<Datum> Execute(const std::vector<Datum>& args, int64_t passed_length) override {
+    util::tracing::Span span;
+
+    auto func_kind = func.kind();
+    const auto& func_name = func.name();
+    START_COMPUTE_SPAN(span, func_name,
+                       {{"function.name", func_name},
+                        {"function.options", options ? options->ToString() : "<NULLPTR>"},
+                        {"function.kind", func_kind}});
+
+    if (in_types.size() != args.size()) {
+      return Status::Invalid("Execution of '", func_name, "' expected ", in_types.size(),
+                             " arguments but got ", args.size());
+    }
+    if (!inited) {
+      ARROW_RETURN_NOT_OK(Init(NULLPTR, default_exec_context()));
+    }
+    ExecContext* ctx = kernel_ctx.exec_context();
+    // Cast arguments if necessary
+    std::vector<Datum> args_with_cast(args.size());
+    for (size_t i = 0; i != args.size(); ++i) {
+      const auto& in_type = in_types[i];
+      auto arg = args[i];
+      if (in_type != args[i].type()) {
+        ARROW_ASSIGN_OR_RAISE(arg, Cast(args[i], CastOptions::Safe(in_type), ctx));
+      }
+      args_with_cast[i] = std::move(arg);
+    }
+
+    detail::DatumAccumulator listener;
+
+    ExecBatch input(std::move(args_with_cast), /*length=*/0);
+    if (input.num_values() == 0) {
+      if (passed_length != -1) {
+        input.length = passed_length;
+      }
+    } else {
+      bool all_same_length = false;
+      int64_t inferred_length = detail::InferBatchLength(input.values, &all_same_length);
+      input.length = inferred_length;
+      if (func_kind == Function::SCALAR) {
+        if (passed_length != -1 && passed_length != inferred_length) {
+          return Status::Invalid(
+              "Passed batch length for execution did not match actual"
+              " length of values for execution of scalar function '",
+              func_name, "'");
+        }
+      } else if (func_kind == Function::VECTOR) {
+        auto vkernel = static_cast<const VectorKernel*>(kernel);
+        if (!all_same_length && vkernel->can_execute_chunkwise) {
+          return Status::Invalid("Arguments for execution of vector kernel function '",
+                                 func_name, "' must all be the same length");
+        }
+      }
+    }
+    RETURN_NOT_OK(executor->Execute(input, &listener));
+    const auto out = executor->WrapResults(input.values, listener.values());
+#ifndef NDEBUG
+    DCHECK_OK(executor->CheckResultType(out, func_name.c_str()));
+#endif
+    return out;
+  }
+
+  std::vector<TypeHolder> in_types;
+  const Kernel* kernel;
+  KernelContext kernel_ctx;
+  std::unique_ptr<detail::KernelExecutor> executor;
+  const Function& func;
+  std::unique_ptr<KernelState> state;
+  const FunctionOptions* options;
+  bool inited;
+};
+
 }  // namespace detail
 
 Result<const Kernel*> Function::DispatchExact(
@@ -187,114 +311,34 @@ Result<const Kernel*> Function::DispatchBest(std::vector<TypeHolder>* values) co
   return DispatchExact(*values);
 }
 
-namespace {
-
-Status CheckAllArrayOrScalar(const std::vector<Datum>& values) {
-  for (const auto& value : values) {
-    if (!value.is_value()) {
-      return Status::Invalid("Tried executing function with non-value type: ",
-                             value.ToString());
-    }
-  }
-  return Status::OK();
-}
-
-Status CheckOptions(const Function& function, const FunctionOptions* options) {
-  if (options == nullptr && function.doc().options_required) {
-    return Status::Invalid("Function '", function.name(),
-                           "' cannot be called without options");
-  }
-  return Status::OK();
-}
-
-Result<Datum> ExecuteInternal(const Function& func, std::vector<Datum> args,
-                              int64_t passed_length, const FunctionOptions* options,
-                              ExecContext* ctx) {
-  std::unique_ptr<ExecContext> default_ctx;
-  if (options == nullptr) {
-    RETURN_NOT_OK(CheckOptions(func, options));
-    options = func.default_options();
-  }
-  if (ctx == nullptr) {
-    default_ctx.reset(new ExecContext());
-    ctx = default_ctx.get();
-  }
-
-  util::tracing::Span span;
-
-  START_COMPUTE_SPAN(span, func.name(),
-                     {{"function.name", func.name()},
-                      {"function.options", options ? options->ToString() : "<NULLPTR>"},
-                      {"function.kind", func.kind()}});
-
-  // type-check Datum arguments here. Really we'd like to avoid this as much as
-  // possible
-  RETURN_NOT_OK(CheckAllArrayOrScalar(args));
-  std::vector<TypeHolder> in_types(args.size());
-  for (size_t i = 0; i != args.size(); ++i) {
-    in_types[i] = args[i].type().get();
-  }
-
+Result<std::shared_ptr<FunctionExecutor>> Function::GetBestExecutor(
+    std::vector<TypeHolder> inputs) const {
   std::unique_ptr<detail::KernelExecutor> executor;
-  if (func.kind() == Function::SCALAR) {
+  if (kind() == Function::SCALAR) {
     executor = detail::KernelExecutor::MakeScalar();
-  } else if (func.kind() == Function::VECTOR) {
+  } else if (kind() == Function::VECTOR) {
     executor = detail::KernelExecutor::MakeVector();
-  } else if (func.kind() == Function::SCALAR_AGGREGATE) {
+  } else if (kind() == Function::SCALAR_AGGREGATE) {
     executor = detail::KernelExecutor::MakeScalarAggregate();
   } else {
     return Status::NotImplemented("Direct execution of HASH_AGGREGATE functions");
   }
 
-  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, func.DispatchBest(&in_types));
+  ARROW_ASSIGN_OR_RAISE(const Kernel* kernel, DispatchBest(&inputs));
 
-  // Cast arguments if necessary
-  for (size_t i = 0; i != args.size(); ++i) {
-    if (in_types[i] != args[i].type()) {
-      ARROW_ASSIGN_OR_RAISE(args[i], Cast(args[i], CastOptions::Safe(in_types[i]), ctx));
-    }
-  }
+  return std::make_shared<detail::FunctionExecutorImpl>(std::move(inputs), kernel,
+                                                        std::move(executor), *this);
+}
 
-  KernelContext kernel_ctx{ctx, kernel};
+namespace {
 
-  std::unique_ptr<KernelState> state;
-  if (kernel->init) {
-    ARROW_ASSIGN_OR_RAISE(state, kernel->init(&kernel_ctx, {kernel, in_types, options}));
-    kernel_ctx.SetState(state.get());
-  }
-
-  RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, in_types, options}));
-
-  detail::DatumAccumulator listener;
-
-  ExecBatch input(std::move(args), /*length=*/0);
-  if (input.num_values() == 0) {
-    if (passed_length != -1) {
-      input.length = passed_length;
-    }
-  } else {
-    bool all_same_length = false;
-    int64_t inferred_length = detail::InferBatchLength(input.values, &all_same_length);
-    input.length = inferred_length;
-    if (func.kind() == Function::SCALAR) {
-      if (passed_length != -1 && passed_length != inferred_length) {
-        return Status::Invalid(
-            "Passed batch length for execution did not match actual"
-            " length of values for scalar function execution");
-      }
-    } else if (func.kind() == Function::VECTOR) {
-      auto vkernel = static_cast<const VectorKernel*>(kernel);
-      if (!(all_same_length || !vkernel->can_execute_chunkwise)) {
-        return Status::Invalid("Vector kernel arguments must all be the same length");
-      }
-    }
-  }
-  RETURN_NOT_OK(executor->Execute(input, &listener));
-  const auto out = executor->WrapResults(input.values, listener.values());
-#ifndef NDEBUG
-  DCHECK_OK(executor->CheckResultType(out, func.name().c_str()));
-#endif
-  return out;
+Result<Datum> ExecuteInternal(const Function& func, std::vector<Datum> args,
+                              int64_t passed_length, const FunctionOptions* options,
+                              ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(auto inputs, internal::GetFunctionArgumentTypes(args));
+  ARROW_ASSIGN_OR_RAISE(auto func_exec, func.GetBestExecutor(inputs));
+  ARROW_RETURN_NOT_OK(func_exec->Init(options, ctx));
+  return func_exec->Execute(args, passed_length);
 }
 
 }  // namespace

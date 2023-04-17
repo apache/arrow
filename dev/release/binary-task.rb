@@ -292,7 +292,7 @@ class BinaryTask
 
     def request(method, headers, url, body: nil, &block)
       request = build_request(method, url, headers, body: body)
-      if ENV["DRY_RUN"]
+      if ENV["DRY_RUN"] == "yes"
         case request
         when Net::HTTP::Get, Net::HTTP::Head
         else
@@ -1085,9 +1085,9 @@ class BinaryTask
     [
       ["debian", "bullseye", "main"],
       ["debian", "bookworm", "main"],
-      ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "jammy", "main"],
+      ["ubuntu", "kinetic", "main"],
     ]
   end
 
@@ -1302,10 +1302,13 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
             Dir.glob("#{source_dir_prefix}*/**/*") do |path|
               next if File.directory?(path)
               base_name = File.basename(path)
-              if base_name.start_with?("apache-arrow-apt-source")
-                package_name = "apache-arrow-apt-source"
-              else
-                package_name = "apache-arrow"
+              package_name = ENV["DEB_PACKAGE_NAME"]
+              if package_name.nil? or package_name.empty?
+                if base_name.start_with?("apache-arrow-apt-source")
+                  package_name = "apache-arrow-apt-source"
+                else
+                  package_name = "apache-arrow"
+                end
               end
               destination_path = [
                 pool_dir,
@@ -1552,24 +1555,28 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       target_dir = "#{incoming_dir}/#{distribution}/#{distribution_version}"
       target_dir = Pathname(target_dir)
       next unless target_dir.directory?
-      Dir.glob("#{target_dir}/**/repodata") do |repodata|
-        rm_rf(repodata, verbose: verbose?)
-      end
-      target_dir.glob("*") do |arch_dir|
-        next unless arch_dir.directory?
-        base_repodata_dir = [
-          base_dir,
-          distribution,
-          distribution_version,
-          File.basename(arch_dir),
-          "repodata",
-        ].join("/")
-        if File.exist?(base_repodata_dir)
+
+      base_target_dir = Pathname(base_dir) + distribution + distribution_version
+      if base_target_dir.exist?
+        base_target_dir.glob("*") do |base_arch_dir|
+          next unless base_arch_dir.directory?
+
+          base_repodata_dir = base_arch_dir + "repodata"
+          next unless base_repodata_dir.exist?
+
+          target_repodata_dir = target_dir + base_arch_dir.basename + "repodata"
+          rm_rf(target_repodata_dir, verbose: verbose?)
+          mkdir_p(target_repodata_dir.parent, verbose: verbose?)
           cp_r(base_repodata_dir,
-               arch_dir.to_s,
+               target_repodata_dir,
                preserve: true,
                verbose: verbose?)
         end
+      end
+
+      target_dir.glob("*") do |arch_dir|
+        next unless arch_dir.directory?
+
         packages = Tempfile.new("createrepo-c-packages")
         Pathname.glob("#{arch_dir}/*/*.rpm") do |rpm|
           relative_rpm = rpm.relative_path_from(arch_dir)
@@ -1997,6 +2004,196 @@ Success! The release binaries are available here:
   https://apache.jfrog.io/artifactory/arrow/r#{suffix}/#{version}
   https://apache.jfrog.io/artifactory/arrow/ubuntu#{suffix}/
         SUMMARY
+      end
+    end
+  end
+end
+
+class LocalBinaryTask < BinaryTask
+  def initialize(packages, top_source_directory)
+    @packages = packages
+    @top_source_directory = top_source_directory
+    super()
+  end
+
+  def define
+    define_apt_test_task
+    define_yum_test_task
+  end
+
+  private
+  def resolve_docker_image(target)
+    case target
+    when /-(?:arm64|aarch64)\z/
+      target = Regexp.last_match.pre_match
+      platform = "linux/arm64"
+    else
+      platform = "linux/amd64"
+    end
+
+    case target
+    when /\Acentos-(\d+)-stream\z/
+      centos_stream_version = $1
+      image = "quay.io/centos/centos:stream#{centos_stream_version}"
+    else
+      case platform
+      when "linux/arm64"
+        image = "arm64v8/"
+      else
+        image = ""
+      end
+      target = target.gsub(/\Aamazon-linux/, "amazonlinux")
+      image << target.gsub(/-/, ":")
+    end
+
+    [platform, image]
+  end
+
+  def verify_apt_sh
+    "/host/dev/release/verify-apt.sh"
+  end
+
+  def verify_yum_sh
+    "/host/dev/release/verify-yum.sh"
+  end
+
+  def verify(target)
+    verify_command_line = [
+      "docker",
+      "run",
+      "--log-driver", "none",
+      "--rm",
+      "--security-opt", "seccomp=unconfined",
+      "--volume", "#{@top_source_directory}:/host:delegated",
+    ]
+    if $stdin.tty?
+      verify_command_line << "--interactive"
+      verify_command_line << "--tty"
+    else
+      verify_command_line.concat(["--attach", "STDOUT"])
+      verify_command_line.concat(["--attach", "STDERR"])
+    end
+    platform, docker_image = resolve_docker_image(target)
+    docker_info = JSON.parse(`docker info --format '{{json .}}'`)
+    case [platform, docker_info["Architecture"]]
+    when ["linux/amd64", "x86_64"],
+         ["linux/arm64", "aarch64"]
+      # Do nothing
+    else
+      verify_command_line.concat(["--platform", platform])
+    end
+    verify_command_line << docker_image
+    case target
+    when /\Adebian-/, /\Aubuntu-/
+      verify_command_line << verify_apt_sh
+    else
+      verify_command_line << verify_yum_sh
+    end
+    verify_command_line << version
+    verify_command_line << "local"
+    sh(*verify_command_line)
+  end
+
+  def apt_test_targets
+    targets = (ENV["APT_TARGETS"] || "").split(",")
+    targets = apt_test_targets_default if targets.empty?
+    targets
+  end
+
+  def apt_test_targets_default
+    # Disable arm64 targets by default for now
+    # because they require some setups on host.
+    [
+      "debian-buster",
+      # "debian-buster-arm64",
+      "debian-bullseye",
+      # "debian-bullseye-arm64",
+      "debian-bookworm",
+      # "debian-bookworm-arm64",
+      "ubuntu-focal",
+      # "ubuntu-focal-arm64",
+      "ubuntu-impish",
+      # "ubuntu-impish-arm64",
+    ]
+  end
+
+  def define_apt_test_task
+    namespace :apt do
+      desc "Test deb packages"
+      task :test do
+        repositories_dir = "apt/repositories"
+        unless @packages.empty?
+          rm_rf(repositories_dir)
+          @packages.each do |package|
+            package_repositories = "#{package}/apt/repositories"
+            next unless File.exist?(package_repositories)
+            sh("rsync", "-av", "#{package_repositories}/", repositories_dir)
+          end
+        end
+        Dir.glob("#{repositories_dir}/ubuntu/pool/*") do |code_name_dir|
+          universe_dir = "#{code_name_dir}/universe"
+          next unless File.exist?(universe_dir)
+          mv(universe_dir, "#{code_name_dir}/main")
+        end
+        base_dir = "nonexistent"
+        merged_dir = "apt/merged"
+        apt_update(base_dir, repositories_dir, merged_dir)
+        Dir.glob("#{merged_dir}/*/dists/*") do |dists_code_name_dir|
+          prefix = dists_code_name_dir.split("/")[-3..-1].join("/")
+          mv(Dir.glob("#{dists_code_name_dir}/*Release*"),
+             "#{repositories_dir}/#{prefix}")
+        end
+        apt_test_targets.each do |target|
+          verify(target)
+        end
+      end
+    end
+  end
+
+  def yum_test_targets
+    targets = (ENV["YUM_TARGETS"] || "").split(",")
+    targets = yum_test_targets_default if targets.empty?
+    targets
+  end
+
+  def yum_test_targets_default
+    # Disable aarch64 targets by default for now
+    # because they require some setups on host.
+    [
+      "almalinux-9",
+      # "almalinux-9-aarch64",
+      "almalinux-8",
+      # "almalinux-8-aarch64",
+      "amazon-linux-2",
+      # "amazon-linux-2-aarch64",
+      "centos-9-stream",
+      # "centos-9-stream-aarch64",
+      "centos-8-stream",
+      # "centos-8-stream-aarch64",
+      "centos-7",
+      # "centos-7-aarch64",
+    ]
+  end
+
+  def define_yum_test_task
+    namespace :yum do
+      desc "Test RPM packages"
+      task :test do
+        repositories_dir = "yum/repositories"
+        unless @packages.empty?
+          rm_rf(repositories_dir)
+          @packages.each do |package|
+            package_repositories = "#{package}/yum/repositories"
+            next unless File.exist?(package_repositories)
+            sh("rsync", "-av", "#{package_repositories}/", repositories_dir)
+          end
+        end
+        rpm_sign(repositories_dir)
+        base_dir = "nonexistent"
+        yum_update(base_dir, repositories_dir)
+        yum_test_targets.each do |target|
+          verify(target)
+        end
       end
     end
   end

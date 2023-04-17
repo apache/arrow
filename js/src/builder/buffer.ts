@@ -29,7 +29,7 @@ import {
     any;
 
 /** @ignore */
-const roundLengthUpToNearest64Bytes = (len: number, BPE: number) => ((((len * BPE) + 63) & ~63) || 64) / BPE;
+const roundLengthUpToNearest64Bytes = (len: number, BPE: number) => ((((Math.ceil(len) * BPE) + 63) & ~63) || 64) / BPE;
 /** @ignore */
 const sliceOrExtendArray = <T extends TypedArray | BigIntArray>(arr: T, len = 0) => (
     arr.length >= len ? arr.subarray(0, len) : memcpy(new (arr.constructor as any)(len), arr, 0)
@@ -48,7 +48,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
         this.stride = stride;
         this.BYTES_PER_ELEMENT = buffer.BYTES_PER_ELEMENT;
         this.ArrayType = buffer.constructor as ArrayCtor<T>;
-        this._resize(this.length = Math.trunc(buffer.length / stride));
+        this._resize(this.length = Math.ceil(buffer.length / stride));
     }
 
     public buffer: T;
@@ -57,7 +57,9 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
     public readonly ArrayType: ArrayCtor<T>;
     public readonly BYTES_PER_ELEMENT: number;
 
-    public get byteLength() { return Math.trunc(this.length * this.stride * this.BYTES_PER_ELEMENT); }
+    public get byteLength() {
+        return Math.ceil(this.length * this.stride) * this.BYTES_PER_ELEMENT;
+    }
     public get reservedLength() { return this.buffer.length / this.stride; }
     public get reservedByteLength() { return this.buffer.byteLength; }
 
@@ -153,29 +155,3 @@ export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
         return super.flush(length + 1);
     }
 }
-
-// /** @ignore */
-// export class WideBufferBuilder<T extends TypedArray, R extends BigIntArray> extends BufferBuilder<T, DataValue<T>> {
-//     public buffer64!: R;
-//     protected _ArrayType64!: BigIntArrayConstructor<R>;
-//     public get ArrayType64() {
-//         return this._ArrayType64 || (this._ArrayType64 = <BigIntArrayConstructor<R>> (this.buffer instanceof Int32Array ? BigInt64Array : BigUint64Array));
-//     }
-//     public set(index: number, value: DataValue<T>) {
-//         this.reserve(index - this.length + 1);
-//         switch (typeof value) {
-//             case 'bigint': this.buffer64[index] = value; break;
-//             case 'number': this.buffer[index * this.stride] = value; break;
-//             default: this.buffer.set(value as TypedArray, index * this.stride);
-//         }
-//         return this;
-//     }
-//     protected _resize(newLength: number) {
-//         const data = super._resize(newLength);
-//         const length = data.byteLength / (this.BYTES_PER_ELEMENT * this.stride);
-//         if (BigIntAvailable) {
-//             this.buffer64 = new this.ArrayType64(data.buffer, data.byteOffset, length);
-//         }
-//         return data;
-//     }
-// }

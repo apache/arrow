@@ -178,10 +178,10 @@ function batchesToString(state: ToStringState, schema: Schema) {
                 maxColWidths = state.maxColWidths;
                 for (const row of batch) {
                     if (state.closed) { break; } else if (!row) { continue; }
-                    if (rowId++ % 350 === 0) {
+                    if (rowId % 350 === 0) {
                         this.push(`${formatRow(header, maxColWidths, sep)}\n`);
                     }
-                    this.push(`${formatRow([rowId, ...row.toArray()].map(v => valueToString(v)), maxColWidths, sep)}\n`);
+                    this.push(`${formatRow([rowId++, ...row.toArray()].map(v => valueToString(v)), maxColWidths, sep)}\n`);
                 }
             }
             cb();

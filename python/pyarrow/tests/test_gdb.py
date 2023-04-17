@@ -154,7 +154,7 @@ class GdbSession:
         # but it's not available on old GDB versions (such as 8.1.1),
         # so instead parse the stack trace for a matching frame number.
         out = self.run_command("info stack")
-        pat = r"(?mi)^#(\d+)\s+.* in " + re.escape(func_name) + " "
+        pat = r"(?mi)^#(\d+)\s+.* in " + re.escape(func_name) + r"\b"
         m = re.search(pat, out)
         if m is None:
             pytest.fail(f"Could not select frame for function {func_name}")
@@ -264,20 +264,6 @@ def test_status(gdb_arrow):
         'detail=[custom-detail-id] "This is a detail"))')
 
 
-def test_string_view(gdb_arrow):
-    check_stack_repr(gdb_arrow, "string_view_empty",
-                     "arrow::util::string_view of size 0")
-    check_stack_repr(gdb_arrow, "string_view_abc",
-                     'arrow::util::string_view of size 3, "abc"')
-    check_stack_repr(
-        gdb_arrow, "string_view_special_chars",
-        r'arrow::util::string_view of size 12, "foo\"bar\000\r\n\t\037"')
-    check_stack_repr(
-        gdb_arrow, "string_view_very_long",
-        'arrow::util::string_view of size 5006, '
-        '"abc", \'K\' <repeats 5000 times>...')
-
-
 def test_buffer_stack(gdb_arrow):
     check_stack_repr(gdb_arrow, "buffer_null",
                      "arrow::Buffer of size 0, read-only")
@@ -295,26 +281,6 @@ def test_buffer_heap(gdb_arrow):
                     'arrow::Buffer of size 3, read-only, "abc"')
     check_heap_repr(gdb_arrow, "heap_buffer_mutable.get()",
                     'arrow::Buffer of size 3, mutable, "abc"')
-
-
-def test_optionals(gdb_arrow):
-    check_stack_repr(gdb_arrow, "int_optional",
-                     "arrow::util::optional<int>(42)")
-    check_stack_repr(gdb_arrow, "null_int_optional",
-                     "arrow::util::optional<int>(nullopt)")
-
-
-def test_variants(gdb_arrow):
-    check_stack_repr(
-        gdb_arrow, "int_variant",
-        "arrow::util::Variant of index 0 (actual type int), value 42")
-    check_stack_repr(
-        gdb_arrow, "bool_variant",
-        "arrow::util::Variant of index 1 (actual type bool), value false")
-    check_stack_repr(
-        gdb_arrow, "string_variant",
-        re.compile(r'^arrow::util::Variant of index 2 \(actual type '
-                   r'std::.*string.*\), value .*"hello".*'))
 
 
 def test_decimals(gdb_arrow):

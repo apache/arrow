@@ -50,7 +50,6 @@ cmake $ARROW_DIR/cpp \
     -DARROW_JSON=ON \
     -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
-    -DARROW_PLASMA=ON \
     -DARROW_WITH_BROTLI=ON \
     -DARROW_WITH_BZ2=ON \
     -DARROW_WITH_LZ4=ON \
@@ -102,7 +101,7 @@ echo
 
 rm -rf $EXAMPLE_BUILD_DIR
 mkdir -p $EXAMPLE_BUILD_DIR
-${CXX:-c++} \
+${CXX:-c++} -std=c++17 \
   -o $EXAMPLE_BUILD_DIR/arrow-example \
   $EXAMPLE_DIR/example.cc \
   $(PKG_CONFIG_PATH=$ARROW_BUILD_DIR/lib/pkgconfig \

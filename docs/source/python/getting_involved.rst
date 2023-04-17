@@ -30,9 +30,9 @@ integrations in other projects, we'd be happy to have you involved:
   `dev-subscribe@arrow.apache.org <mailto:dev-subscribe@arrow.apache.org>`_.
   Share your ideas and use cases for the project or read through the
   `Archive <http://mail-archives.apache.org/mod_mbox/arrow-dev/>`_.
-* Follow our activity on `JIRA <https://issues.apache.org/jira/browse/ARROW>`_
+* Follow our activity on `GitHub <https://github.com/apache/arrow/issues>`_
 * Learn the `Format / Specification
-  <https://github.com/apache/arrow/tree/master/format>`_
+  <https://github.com/apache/arrow/tree/main/format>`_
 
 
 .. _py_arch_overview:
@@ -47,7 +47,7 @@ less complex to use. So while in some cases it might be easy to map what's
 in C++ to what's in Python, in many cases the C++ classes and methods are
 used as foundations to build easier to use entities.
 
-.. image:: py_arch_overview.svg
+.. image:: /python/images/py_arch_overview.svg
    :alt: Four layers of PyArrow architecture: .py, .pyx, .pxd and low level C++ code.
 
 * The ``*.py`` files in the pyarrow package are usually where the entities
@@ -69,7 +69,8 @@ used as foundations to build easier to use entities.
   for usage in Cython. Here the C++ classes and methods are declared as they are
   so that in the other ``.pyx`` files they can be used to implement Python classes,
   functions and helpers.
-* PyArrow is also based on dedicated pieces of code that are written into Arrow itself.
-  Those live into ``cpp/src/arrow/python`` directory and provide the low level
+* Apart from Arrow C++ library, which dependence is mentioned in the previous line,
+  PyArrow is also based on PyArrow C++, dedicated pieces of code that live in
+  ``python/pyarrow/src/arrow/python`` directory and provide the low level
   code for capabilities like converting to and from numpy or pandas and the classes
   that allow to use Python objects and callbacks in C++.

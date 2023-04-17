@@ -11,13 +11,12 @@
        || defined(__amd64) || defined(__aarch64__) || defined(_M_ARM64) \
        || defined(__MINGW64__)                                          \
        || defined(__s390x__)                                            \
-       || (defined(__ppc64__) || defined(__PPC64__) || defined(__ppc64le__) || defined(__PPC64LE__)) \
-       || defined(__EMSCRIPTEN__))
-#define FASTFLOAT_64BIT
+       || (defined(__ppc64__) || defined(__PPC64__) || defined(__ppc64le__) || defined(__PPC64LE__)) )
+#define FASTFLOAT_64BIT 1
 #elif (defined(__i386) || defined(__i386__) || defined(_M_IX86)   \
      || defined(__arm__) || defined(_M_ARM)                   \
-     || defined(__MINGW32__))
-#define FASTFLOAT_32BIT
+     || defined(__MINGW32__) || defined(__EMSCRIPTEN__))
+#define FASTFLOAT_32BIT 1
 #else
   // Need to check incrementally, since SIZE_MAX is a size_t, avoid overflow.
   // We can never tell the register width, but the SIZE_MAX is a good approximation.
@@ -25,9 +24,9 @@
   #if SIZE_MAX == 0xffff
     #error Unknown platform (16-bit, unsupported)
   #elif SIZE_MAX == 0xffffffff
-    #define FASTFLOAT_32BIT
+    #define FASTFLOAT_32BIT 1
   #elif SIZE_MAX == 0xffffffffffffffff
-    #define FASTFLOAT_64BIT
+    #define FASTFLOAT_64BIT 1
   #else
     #error Unknown platform (not 32-bit, not 64-bit?)
   #endif
@@ -41,7 +40,9 @@
 #define FASTFLOAT_VISUAL_STUDIO 1
 #endif
 
-#ifdef _WIN32
+#if defined __BYTE_ORDER__ && defined __ORDER_BIG_ENDIAN__
+#define FASTFLOAT_IS_BIG_ENDIAN (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
+#elif defined _WIN32
 #define FASTFLOAT_IS_BIG_ENDIAN 0
 #else
 #if defined(__APPLE__) || defined(__FreeBSD__)
@@ -183,8 +184,9 @@ fastfloat_really_inline uint64_t _umul128(uint64_t ab, uint64_t cd,
 fastfloat_really_inline value128 full_multiplication(uint64_t a,
                                                      uint64_t b) {
   value128 answer;
-#ifdef _M_ARM64
+#if defined(_M_ARM64) && !defined(__MINGW32__)
   // ARM64 has native support for 64-bit multiplications, no need to emulate
+  // But MinGW on ARM64 doesn't have native support for 64-bit multiplications
   answer.high = __umulh(a, b);
   answer.low = a * b;
 #elif defined(FASTFLOAT_32BIT) || (defined(_WIN64) && !defined(__clang__))
@@ -219,6 +221,50 @@ constexpr static double powers_of_ten_double[] = {
     1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22};
 constexpr static float powers_of_ten_float[] = {1e0, 1e1, 1e2, 1e3, 1e4, 1e5,
                                                 1e6, 1e7, 1e8, 1e9, 1e10};
+// used for max_mantissa_double and max_mantissa_float
+constexpr uint64_t constant_55555 = 5 * 5 * 5 * 5 * 5;
+// Largest integer value v so that (5**index * v) <= 1<<53.
+// 0x10000000000000 == 1 << 53
+constexpr static uint64_t max_mantissa_double[] = {
+      0x10000000000000,
+      0x10000000000000 / 5,
+      0x10000000000000 / (5 * 5),
+      0x10000000000000 / (5 * 5 * 5),
+      0x10000000000000 / (5 * 5 * 5 * 5),
+      0x10000000000000 / (constant_55555),
+      0x10000000000000 / (constant_55555 * 5),
+      0x10000000000000 / (constant_55555 * 5 * 5),
+      0x10000000000000 / (constant_55555 * 5 * 5 * 5),
+      0x10000000000000 / (constant_55555 * 5 * 5 * 5 * 5),
+      0x10000000000000 / (constant_55555 * constant_55555),
+      0x10000000000000 / (constant_55555 * constant_55555 * 5),
+      0x10000000000000 / (constant_55555 * constant_55555 * 5 * 5),
+      0x10000000000000 / (constant_55555 * constant_55555 * 5 * 5 * 5),
+      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555),
+      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5),
+      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5 * 5),
+      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5),
+      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5 * 5),
+      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555),
+      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5),
+      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5 * 5),
+      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5),
+      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5 * 5)};
+  // Largest integer value v so that (5**index * v) <= 1<<24.
+  // 0x1000000 == 1<<24
+  constexpr static uint64_t max_mantissa_float[] = {
+      0x1000000,
+      0x1000000 / 5,
+      0x1000000 / (5 * 5),
+      0x1000000 / (5 * 5 * 5),
+      0x1000000 / (5 * 5 * 5 * 5),
+      0x1000000 / (constant_55555),
+      0x1000000 / (constant_55555 * 5),
+      0x1000000 / (constant_55555 * 5 * 5),
+      0x1000000 / (constant_55555 * 5 * 5 * 5),
+      0x1000000 / (constant_55555 * 5 * 5 * 5 * 5),
+      0x1000000 / (constant_55555 * constant_55555),
+      0x1000000 / (constant_55555 * constant_55555 * 5)};
 
 template <typename T> struct binary_format {
   using equiv_uint = typename std::conditional<sizeof(T) == 4, uint32_t, uint64_t>::type;
@@ -227,11 +273,12 @@ template <typename T> struct binary_format {
   static inline constexpr int minimum_exponent();
   static inline constexpr int infinite_power();
   static inline constexpr int sign_index();
-  static inline constexpr int min_exponent_fast_path();
+  static inline constexpr int min_exponent_fast_path(); // used when fegetround() == FE_TONEAREST
   static inline constexpr int max_exponent_fast_path();
   static inline constexpr int max_exponent_round_to_even();
   static inline constexpr int min_exponent_round_to_even();
-  static inline constexpr uint64_t max_mantissa_fast_path();
+  static inline constexpr uint64_t max_mantissa_fast_path(int64_t power);
+  static inline constexpr uint64_t max_mantissa_fast_path(); // used when fegetround() == FE_TONEAREST
   static inline constexpr int largest_power_of_ten();
   static inline constexpr int smallest_power_of_ten();
   static inline constexpr T exact_power_of_ten(int64_t power);
@@ -240,6 +287,22 @@ template <typename T> struct binary_format {
   static inline constexpr equiv_uint mantissa_mask();
   static inline constexpr equiv_uint hidden_bit_mask();
 };
+
+template <> inline constexpr int binary_format<double>::min_exponent_fast_path() {
+#if (FLT_EVAL_METHOD != 1) && (FLT_EVAL_METHOD != 0)
+  return 0;
+#else
+  return -22;
+#endif
+}
+
+template <> inline constexpr int binary_format<float>::min_exponent_fast_path() {
+#if (FLT_EVAL_METHOD != 1) && (FLT_EVAL_METHOD != 0)
+  return 0;
+#else
+  return -10;
+#endif
+}
 
 template <> inline constexpr int binary_format<double>::mantissa_explicit_bits() {
   return 52;
@@ -281,33 +344,29 @@ template <> inline constexpr int binary_format<float>::infinite_power() {
 template <> inline constexpr int binary_format<double>::sign_index() { return 63; }
 template <> inline constexpr int binary_format<float>::sign_index() { return 31; }
 
-template <> inline constexpr int binary_format<double>::min_exponent_fast_path() {
-#if (FLT_EVAL_METHOD != 1) && (FLT_EVAL_METHOD != 0)
-  return 0;
-#else
-  return -22;
-#endif
-}
-template <> inline constexpr int binary_format<float>::min_exponent_fast_path() {
-#if (FLT_EVAL_METHOD != 1) && (FLT_EVAL_METHOD != 0)
-  return 0;
-#else
-  return -10;
-#endif
-}
-
 template <> inline constexpr int binary_format<double>::max_exponent_fast_path() {
   return 22;
 }
 template <> inline constexpr int binary_format<float>::max_exponent_fast_path() {
   return 10;
 }
-
 template <> inline constexpr uint64_t binary_format<double>::max_mantissa_fast_path() {
   return uint64_t(2) << mantissa_explicit_bits();
 }
+template <> inline constexpr uint64_t binary_format<double>::max_mantissa_fast_path(int64_t power) {
+  // caller is responsible to ensure that
+  // power >= 0 && power <= 22
+  //
+  return max_mantissa_double[power];
+}
 template <> inline constexpr uint64_t binary_format<float>::max_mantissa_fast_path() {
   return uint64_t(2) << mantissa_explicit_bits();
+}
+template <> inline constexpr uint64_t binary_format<float>::max_mantissa_fast_path(int64_t power) {
+  // caller is responsible to ensure that
+  // power >= 0 && power <= 10
+  //
+  return max_mantissa_float[power];
 }
 
 template <>

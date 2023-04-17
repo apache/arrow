@@ -93,13 +93,19 @@ COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow && \
     R -e "install.packages('pkgdown')"
 
-ENV ARROW_BUILD_STATIC=OFF \
+ENV ARROW_ACERO=ON \
+    ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
+    ARROW_COMPUTE=ON \
+    ARROW_CSV=ON \
+    ARROW_DATASET=ON \
+    ARROW_FILESYSTEM=ON \
     ARROW_FLIGHT=ON \
     ARROW_GCS=ON \
     ARROW_GLIB_VAPI=false \
-    ARROW_PYTHON=ON \
+    ARROW_HDFS=ON \
+    ARROW_JSON=ON \
     ARROW_S3=ON \
     ARROW_USE_GLOG=OFF \
     CMAKE_UNITY_BUILD=ON

@@ -24,7 +24,7 @@
 # - JDK >=7
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
-# - Go >= 1.15
+# - Go >= 1.17
 # - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
@@ -189,23 +189,24 @@ test_apt() {
                 "arm64v8/debian:bullseye" \
                 "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
-                "ubuntu:bionic" \
-                "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
-                "arm64v8/ubuntu:jammy"; do \
+                "arm64v8/ubuntu:jammy" \
+                "ubuntu:kinetic" \
+                "arm64v8/ubuntu:kinetic"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
           case "${target}" in
-          arm64v8/debian:buster|arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
-            ;; # OK
-          *)
-            # qemu-user-static in Ubuntu 20.04 has a crash bug:
-            #   https://bugs.launchpad.net/qemu/+bug/1749393
-            continue
-            ;;
+            arm64v8/ubuntu:focal)
+              : # OK
+              ;;
+            *)
+              # qemu-user-static in Ubuntu 20.04 has a crash bug:
+              #   https://bugs.launchpad.net/qemu/+bug/1749393
+              continue
+              ;;
           esac
         else
           continue
@@ -213,6 +214,7 @@ test_apt() {
         ;;
     esac
     if ! docker run --rm -v "${ARROW_DIR}":/arrow:delegated \
+           --security-opt="seccomp=unconfined" \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
@@ -325,7 +327,9 @@ install_nodejs() {
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-    nvm install --lts
+    # ARROW-18335: "gulp bundle" failed with Node.js 18.
+    # nvm install --lts
+    nvm install 16
     show_info "Installed NodeJS $(node --version)"
   fi
 
@@ -341,18 +345,15 @@ install_csharp() {
 
   show_info "Ensuring that C# is installed..."
 
-  if which dotnet > /dev/null 2>&1; then
+  if dotnet --version | grep 7\.0 > /dev/null 2>&1; then
     local csharp_bin=$(dirname $(which dotnet))
-    if ! which sourcelink > /dev/null 2>&1; then
-      local dotnet_tools_dir=$HOME/.dotnet/tools
-      if [ -d "${dotnet_tools_dir}" ]; then
-        PATH="${dotnet_tools_dir}:$PATH"
-      fi
-    fi
     show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
+    if which dotnet > /dev/null 2>&1; then
+      show_info "dotnet found but it is the wrong version and will be ignored."
+    fi
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=6.0.202
+    local dotnet_version=7.0.102
     local dotnet_platform=
     case "$(uname)" in
       Linux)
@@ -365,8 +366,8 @@ install_csharp() {
     local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
     local dotnet_download_url=$( \
       curl -sL ${dotnet_download_thank_you_url} | \
-        grep 'window\.open' | \
-        grep -E -o '[^"]+' | \
+        grep 'directLink' | \
+        grep -E -o 'https://download[^"]+' | \
         sed -n 2p)
     mkdir -p ${csharp_bin}
     curl -sL ${dotnet_download_url} | \
@@ -376,10 +377,11 @@ install_csharp() {
   fi
 
   # Ensure to have sourcelink installed
-  if ! which sourcelink > /dev/null 2>&1; then
-    dotnet tool install --tool-path ${csharp_bin} sourcelink
+  if ! dotnet tool list | grep sourcelink > /dev/null 2>&1; then
+    dotnet new tool-manifest
+    dotnet tool install --local sourcelink
     PATH=${csharp_bin}:${PATH}
-    if ! sourcelink --help > /dev/null 2>&1; then
+    if ! dotnet tool run sourcelink --help > /dev/null 2>&1; then
       export DOTNET_ROOT=${csharp_bin}
     fi
   fi
@@ -396,10 +398,12 @@ install_go() {
 
   if command -v go > /dev/null; then
     show_info "Found $(go version) at $(command -v go)"
+    export GOPATH=${ARROW_TMPDIR}/gopath
+    mkdir -p $GOPATH
     return 0
   fi
 
-  local version=1.16.12
+  local version=1.17.13
   show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
@@ -427,6 +431,7 @@ install_go() {
   export GOPATH=${prefix}/gopath
   export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
 
+  mkdir -p $GOPATH
   show_info "$(go version) installed at $(which go)"
 
   GO_ALREADY_INSTALLED=1
@@ -582,6 +587,7 @@ test_and_install_cpp() {
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
+    CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
@@ -599,19 +605,20 @@ test_and_install_cpp() {
     -DARROW_BUILD_INTEGRATION=ON \
     -DARROW_BUILD_TESTS=ON \
     -DARROW_BUILD_UTILITIES=ON \
+    -DARROW_COMPUTE=ON \
+    -DARROW_CSV=ON \
     -DARROW_CUDA=${ARROW_CUDA} \
     -DARROW_DATASET=ON \
     -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-$DEFAULT_DEPENDENCY_SOURCE} \
-    -DARROW_FLIGHT_SQL=${ARROW_FLIGHT_SQL} \
+    -DARROW_FILESYSTEM=ON \
     -DARROW_FLIGHT=${ARROW_FLIGHT} \
+    -DARROW_FLIGHT_SQL=${ARROW_FLIGHT_SQL} \
     -DARROW_GANDIVA=${ARROW_GANDIVA} \
     -DARROW_GCS=${ARROW_GCS} \
     -DARROW_HDFS=ON \
     -DARROW_JSON=ON \
     -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
-    -DARROW_PLASMA=${ARROW_PLASMA} \
-    -DARROW_PYTHON=ON \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
     -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
@@ -641,7 +648,6 @@ test_and_install_cpp() {
   local pythonpath=$(python -c "import site; print(site.getsitepackages()[0])")
 
   LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
-    --exclude-regex "plasma-serialization_tests" \
     --label-regex unittest \
     --output-on-failure \
     --parallel $NPROC \
@@ -656,6 +662,10 @@ test_python() {
   # Build and test Python
   maybe_setup_virtualenv cython numpy setuptools_scm setuptools || exit 1
   maybe_setup_conda --file ci/conda_env_python.txt || exit 1
+
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
+  fi
 
   export PYARROW_PARALLEL=$NPROC
   export PYARROW_WITH_DATASET=1
@@ -674,9 +684,6 @@ test_python() {
   fi
   if [ "${ARROW_GCS}" = "ON" ]; then
     export PYARROW_WITH_GCS=1
-  fi
-  if [ "${ARROW_PLASMA}" = "ON" ]; then
-    export PYARROW_WITH_PLASMA=1
   fi
   if [ "${ARROW_S3}" = "ON" ]; then
     export PYARROW_WITH_S3=1
@@ -709,9 +716,6 @@ import pyarrow.parquet
   fi
   if [ "${ARROW_GCS}" == "ON" ]; then
     python -c "import pyarrow._gcsfs"
-  fi
-  if [ "${ARROW_PLASMA}" == "ON" ]; then
-    python -c "import pyarrow.plasma"
   fi
   if [ "${ARROW_S3}" == "ON" ]; then
     python -c "import pyarrow._s3fs"
@@ -787,9 +791,6 @@ test_ruby() {
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     modules="${modules} red-gandiva"
   fi
-  if [ "${ARROW_PLASMA}" = "ON" ]; then
-    modules="${modules} red-plasma"
-  fi
 
   for module in ${modules}; do
     pushd ${module}
@@ -819,8 +820,12 @@ test_csharp() {
     mv ../.git dummy.git
   fi
 
-  sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
-  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
+  if [ "${SOURCE_KIND}" = "local" ]; then
+    echo "Skipping sourelink verification on local build"
+  else
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
+  fi
 
   popd
 }
@@ -829,10 +834,11 @@ test_js() {
   show_header "Build and test JavaScript libraries"
 
   maybe_setup_nodejs || exit 1
-  maybe_setup_conda nodejs=17 || exit 1
+  maybe_setup_conda nodejs=16 || exit 1
 
   if ! command -v yarn &> /dev/null; then
-    npm install -g yarn
+    npm install yarn
+    PATH=$PWD/node_modules/yarn/bin:$PATH
   fi
 
   pushd js
@@ -851,9 +857,10 @@ test_go() {
   maybe_setup_go || exit 1
   maybe_setup_conda compilers go=1.17 || exit 1
 
-  pushd go/arrow
+  pushd go
   go get -v ./...
   go test ./...
+  go install ./...
   go clean -modcache
   popd
 }
@@ -935,8 +942,9 @@ ensure_source_directory() {
 
 test_source_distribution() {
   export ARROW_HOME=$ARROW_TMPDIR/install
+  export CMAKE_PREFIX_PATH=$ARROW_HOME${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
   export PARQUET_HOME=$ARROW_TMPDIR/install
-  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig:${PKG_CONFIG_PATH:-}
+  export PKG_CONFIG_PATH=$ARROW_HOME/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}
 
   if [ "$(uname)" == "Darwin" ]; then
     NPROC=$(sysctl -n hw.ncpu)
@@ -1006,7 +1014,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="3.7m 3.8 3.9 3.10"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10 3.11}"
   local platform_tags="manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for python in ${python_versions}; do
@@ -1015,7 +1023,7 @@ test_linux_wheels() {
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
       CONDA_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
       VENV_ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
-      pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
+      pip install pyarrow-${TEST_PYARROW_VERSION:-${VERSION}}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ARROW_GCS=${check_gcs} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
@@ -1028,12 +1036,12 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.8 3.9 3.10"
+    local python_versions="3.8 3.9 3.10 3.11"
     local platform_tags="macosx_11_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.7m 3.8 3.9 3.10"
-    local platform_tags="macosx_10_9_x86_64 macosx_10_13_x86_64"
+    local python_versions="3.7m 3.8 3.9 3.10 3.11"
+    local platform_tags="macosx_10_14_x86_64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -1054,48 +1062,37 @@ test_macos_wheels() {
         ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
-
-  # verify arm64 and universal2 wheels using an universal2 python binary
-  # the interpreter should be installed from python.org:
-  #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
-  if [ "$(uname -m)" = "arm64" ]; then
-    for pyver in "3.9 3.10"; do
-      local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
-
-      # create and activate a virtualenv for testing as arm64
-      for arch in "arm64" "x86_64"; do
-        VENV_ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
-        # install pyarrow's universal2 wheel
-        pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
-        # check the imports and execute the unittests
-        INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
-          arch -${arch} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
-      done
-    done
-  fi
 }
 
 test_wheels() {
   show_header "Downloading Python wheels"
   maybe_setup_conda python || exit 1
 
-  local download_dir=${ARROW_TMPDIR}/binaries
-  mkdir -p ${download_dir}
-
-  if [ "$(uname)" == "Darwin" ]; then
-    local filter_regex=.*macosx.*
+  local wheels_dir=
+  if [ "${SOURCE_KIND}" = "local" ]; then
+    wheels_dir="${ARROW_SOURCE_DIR}/python/repaired_wheels"
   else
-    local filter_regex=.*manylinux.*
+    local download_dir=${ARROW_TMPDIR}/binaries
+    mkdir -p ${download_dir}
+
+    if [ "$(uname)" == "Darwin" ]; then
+      local filter_regex=.*macosx.*
+    else
+      local filter_regex=.*manylinux.*
+    fi
+
+    ${PYTHON:-python3} \
+      $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+      --package_type python \
+      --regex=${filter_regex} \
+      --dest=${download_dir}
+
+    verify_dir_artifact_signatures ${download_dir}
+
+    wheels_dir=${download_dir}/python-rc/${VERSION}-rc${RC_NUMBER}
   fi
 
-  ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
-         --package_type python \
-         --regex=${filter_regex} \
-         --dest=${download_dir}
-
-  verify_dir_artifact_signatures ${download_dir}
-
-  pushd ${download_dir}/python-rc/${VERSION}-rc${RC_NUMBER}
+  pushd ${wheels_dir}
 
   if [ "$(uname)" == "Darwin" ]; then
     test_macos_wheels
@@ -1110,7 +1107,7 @@ test_jars() {
   show_header "Testing Java JNI jars"
   maybe_setup_conda maven python || exit 1
 
-  local download_dir=jars
+  local download_dir=${ARROW_TMPDIR}/jars
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
@@ -1181,7 +1178,6 @@ fi
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_GCS:=OFF}
-: ${ARROW_PLASMA:=ON}
 : ${ARROW_S3:=OFF}
 
 TEST_SUCCESS=no
@@ -1193,5 +1189,5 @@ test_binary_distribution
 
 TEST_SUCCESS=yes
 
-echo 'Release candidate looks good!'
+echo "Release candidate ${VERSION}-RC${RC_NUMBER} looks good!"
 exit 0

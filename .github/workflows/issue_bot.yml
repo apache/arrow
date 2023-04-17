@@ -1,0 +1,64 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Issue Bot
+
+on:
+  issues:
+    types:
+      - opened
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  label_components:
+    name: Label Components
+    if: github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            let split_body = context.payload.issue.body.split('### Component(s)');
+            if (split_body.length != 2) throw new Error('No components found!');
+
+            let component_labels = split_body[1]
+              .split(',')
+              .map(component => component.trim())
+              .map(component => "Component: " + component);
+
+            let repo_labels = await github.rest.issues.listLabelsForRepo({
+              "owner": context.repo.owner,
+              "repo": context.repo.repo,
+              "per_page": 100,
+            });
+
+            // this removes non-existent labels
+            component_labels = component_labels.filter(
+              label => repo_labels.data.some(repo_label => repo_label.name === label)
+            );
+          
+            if (component_labels.length == 0) throw new Error('No components found!');
+
+            await github.rest.issues.addLabels({
+              "owner": context.repo.owner,
+              "repo": context.repo.repo,
+              "issue_number": context.payload.issue.number,
+              "labels": component_labels,
+            });

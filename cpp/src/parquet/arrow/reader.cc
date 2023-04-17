@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -35,7 +36,6 @@
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
@@ -60,6 +60,7 @@ using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::RecordBatchReader;
 using arrow::ResizableBuffer;
+using arrow::Result;
 using arrow::Status;
 using arrow::StructArray;
 using arrow::Table;
@@ -203,6 +204,15 @@ class FileReaderImpl : public FileReader {
                         const std::shared_ptr<std::unordered_set<int>>& included_leaves,
                         const std::vector<int>& row_groups,
                         std::unique_ptr<ColumnReaderImpl>* out) {
+    // Should be covered by GetRecordBatchReader checks but
+    // manifest_.schema_fields is a separate variable so be extra careful.
+    if (ARROW_PREDICT_FALSE(i < 0 ||
+                            static_cast<size_t>(i) >= manifest_.schema_fields.size())) {
+      return Status::Invalid("Column index out of bounds (got ", i,
+                             ", should be "
+                             "between 0 and ",
+                             manifest_.schema_fields.size(), ")");
+    }
     auto ctx = std::make_shared<ReaderContext>();
     ctx->reader = reader_.get();
     ctx->pool = pool_;
@@ -336,6 +346,11 @@ class FileReaderImpl : public FileReader {
                                 Iota(reader_->metadata()->num_columns()), out);
   }
 
+  Status GetRecordBatchReader(std::unique_ptr<RecordBatchReader>* out) override {
+    return GetRecordBatchReader(Iota(num_row_groups()),
+                                Iota(reader_->metadata()->num_columns()), out);
+  }
+
   ::arrow::Result<::arrow::AsyncGenerator<std::shared_ptr<::arrow::RecordBatch>>>
   GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                           const std::vector<int> row_group_indices,
@@ -416,8 +431,7 @@ class RowGroupReaderImpl : public RowGroupReader {
       : impl_(impl), row_group_index_(row_group_index) {}
 
   std::shared_ptr<ColumnChunkReader> Column(int column_index) override {
-    return std::shared_ptr<ColumnChunkReader>(
-        new ColumnChunkReaderImpl(impl_, row_group_index_, column_index));
+    return std::make_shared<ColumnChunkReaderImpl>(impl_, row_group_index_, column_index);
   }
 
   Status ReadTable(const std::vector<int>& column_indices,
@@ -828,7 +842,7 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
     auto storage_field = arrow_field->WithType(
         checked_cast<const ExtensionType&>(*arrow_field->type()).storage_type());
     RETURN_NOT_OK(GetReader(field, storage_field, ctx, out));
-    out->reset(new ExtensionReader(arrow_field, std::move(*out)));
+    *out = std::make_unique<ExtensionReader>(arrow_field, std::move(*out));
     return Status::OK();
   }
 
@@ -842,7 +856,8 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
     }
     std::unique_ptr<FileColumnIterator> input(
         ctx->iterator_factory(field.column_index, ctx->reader));
-    out->reset(new LeafReader(ctx, arrow_field, std::move(input), field.level_info));
+    *out = std::make_unique<LeafReader>(ctx, arrow_field, std::move(input),
+                                        field.level_info);
   } else if (type_id == ::arrow::Type::LIST || type_id == ::arrow::Type::MAP ||
              type_id == ::arrow::Type::FIXED_SIZE_LIST ||
              type_id == ::arrow::Type::LARGE_LIST) {
@@ -882,22 +897,22 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
       }
       // Map types are list<struct<key, value>> so use ListReader
       // for reconstruction.
-      out->reset(new ListReader<int32_t>(ctx, list_field, field.level_info,
-                                         std::move(child_reader)));
+      *out = std::make_unique<ListReader<int32_t>>(ctx, list_field, field.level_info,
+                                                   std::move(child_reader));
     } else if (type_id == ::arrow::Type::LIST) {
       if (!reader_child_type->Equals(schema_child_type)) {
         list_field = list_field->WithType(::arrow::list(reader_child_type));
       }
 
-      out->reset(new ListReader<int32_t>(ctx, list_field, field.level_info,
-                                         std::move(child_reader)));
+      *out = std::make_unique<ListReader<int32_t>>(ctx, list_field, field.level_info,
+                                                   std::move(child_reader));
     } else if (type_id == ::arrow::Type::LARGE_LIST) {
       if (!reader_child_type->Equals(schema_child_type)) {
         list_field = list_field->WithType(::arrow::large_list(reader_child_type));
       }
 
-      out->reset(new ListReader<int64_t>(ctx, list_field, field.level_info,
-                                         std::move(child_reader)));
+      *out = std::make_unique<ListReader<int64_t>>(ctx, list_field, field.level_info,
+                                                   std::move(child_reader));
     } else if (type_id == ::arrow::Type::FIXED_SIZE_LIST) {
       if (!reader_child_type->Equals(schema_child_type)) {
         auto& fixed_list_type =
@@ -907,8 +922,8 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
             list_field->WithType(::arrow::fixed_size_list(reader_child_type, list_size));
       }
 
-      out->reset(new FixedSizeListReader(ctx, list_field, field.level_info,
-                                         std::move(child_reader)));
+      *out = std::make_unique<FixedSizeListReader>(ctx, list_field, field.level_info,
+                                                   std::move(child_reader));
     } else {
       return Status::UnknownError("Unknown list type: ", field.field->ToString());
     }
@@ -935,15 +950,15 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
       child_fields.push_back(child_field);
       child_readers.emplace_back(std::move(child_reader));
     }
-    if (child_fields.size() == 0) {
+    if (child_fields.empty()) {
       *out = nullptr;
       return Status::OK();
     }
     auto filtered_field =
         ::arrow::field(arrow_field->name(), ::arrow::struct_(child_fields),
                        arrow_field->nullable(), arrow_field->metadata());
-    out->reset(new StructReader(ctx, filtered_field, field.level_info,
-                                std::move(child_readers)));
+    *out = std::make_unique<StructReader>(ctx, filtered_field, field.level_info,
+                                          std::move(child_readers));
   } else {
     return Status::Invalid("Unsupported nested type: ", arrow_field->ToString());
   }
@@ -994,7 +1009,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
       }
     }
 
-    *out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>(
+    *out = std::make_unique<RowGroupRecordBatchReader>(
         ::arrow::MakeVectorIterator(std::move(batches)), std::move(batch_schema));
 
     return Status::OK();
@@ -1038,7 +1053,7 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
             [table, table_reader] { return table_reader->Next(); });
       });
 
-  *out = ::arrow::internal::make_unique<RowGroupRecordBatchReader>(
+  *out = std::make_unique<RowGroupRecordBatchReader>(
       ::arrow::MakeFlattenIterator(std::move(batches)), std::move(batch_schema));
 
   return Status::OK();
@@ -1109,9 +1124,12 @@ class RowGroupGenerator {
     } else {
       auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
       if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
-      row_group_read = ready.Then([=]() -> ::arrow::Future<RecordBatchGenerator> {
-        return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
-      });
+      row_group_read =
+          ready.Then([this, reader, row_group,
+                      column_indices = std::move(
+                          column_indices)]() -> ::arrow::Future<RecordBatchGenerator> {
+            return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
+          });
     }
     in_flight_reads_.push({std::move(row_group_read), num_rows});
   }
@@ -1194,7 +1212,7 @@ Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_facto
   ctx->filter_leaves = false;
   std::unique_ptr<ColumnReaderImpl> result;
   RETURN_NOT_OK(GetReader(manifest_.schema_fields[i], ctx, &result));
-  out->reset(result.release());
+  *out = std::move(result);
   return Status::OK();
 }
 
@@ -1264,10 +1282,17 @@ std::shared_ptr<RowGroupReader> FileReaderImpl::RowGroup(int row_group_index) {
 // ----------------------------------------------------------------------
 // Public factory functions
 
+Status FileReader::GetRecordBatchReader(std::shared_ptr<RecordBatchReader>* out) {
+  std::unique_ptr<RecordBatchReader> tmp;
+  RETURN_NOT_OK(GetRecordBatchReader(&tmp));
+  out->reset(tmp.release());
+  return Status::OK();
+}
+
 Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                         std::shared_ptr<RecordBatchReader>* out) {
   std::unique_ptr<RecordBatchReader> tmp;
-  ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, &tmp));
+  RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, &tmp));
   out->reset(tmp.release());
   return Status::OK();
 }
@@ -1276,7 +1301,7 @@ Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indice
                                         const std::vector<int>& column_indices,
                                         std::shared_ptr<RecordBatchReader>* out) {
   std::unique_ptr<RecordBatchReader> tmp;
-  ARROW_RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
+  RETURN_NOT_OK(GetRecordBatchReader(row_group_indices, column_indices, &tmp));
   out->reset(tmp.release());
   return Status::OK();
 }
@@ -1285,7 +1310,7 @@ Status FileReader::Make(::arrow::MemoryPool* pool,
                         std::unique_ptr<ParquetFileReader> reader,
                         const ArrowReaderProperties& properties,
                         std::unique_ptr<FileReader>* out) {
-  out->reset(new FileReaderImpl(pool, std::move(reader), properties));
+  *out = std::make_unique<FileReaderImpl>(pool, std::move(reader), properties);
   return static_cast<FileReaderImpl*>(out->get())->Init();
 }
 
@@ -1307,6 +1332,14 @@ Status FileReaderBuilder::Open(std::shared_ptr<::arrow::io::RandomAccessFile> fi
   return Status::OK();
 }
 
+Status FileReaderBuilder::OpenFile(const std::string& path, bool memory_map,
+                                   const ReaderProperties& properties,
+                                   std::shared_ptr<FileMetaData> metadata) {
+  PARQUET_CATCH_NOT_OK(raw_reader_ = ParquetReader::OpenFile(path, memory_map, properties,
+                                                             std::move(metadata)));
+  return Status::OK();
+}
+
 FileReaderBuilder* FileReaderBuilder::memory_pool(::arrow::MemoryPool* pool) {
   pool_ = pool;
   return this;
@@ -1320,6 +1353,12 @@ FileReaderBuilder* FileReaderBuilder::properties(
 
 Status FileReaderBuilder::Build(std::unique_ptr<FileReader>* out) {
   return FileReader::Make(pool_, std::move(raw_reader_), properties_, out);
+}
+
+Result<std::unique_ptr<FileReader>> FileReaderBuilder::Build() {
+  std::unique_ptr<FileReader> out;
+  RETURN_NOT_OK(FileReader::Make(pool_, std::move(raw_reader_), properties_, &out));
+  return out;
 }
 
 Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,
@@ -1346,13 +1385,23 @@ Status FuzzReader(std::unique_ptr<FileReader> reader) {
 
 Status FuzzReader(const uint8_t* data, int64_t size) {
   auto buffer = std::make_shared<::arrow::Buffer>(data, size);
-  auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
-  FileReaderBuilder builder;
-  RETURN_NOT_OK(builder.Open(std::move(file)));
+  Status st;
+  for (auto batch_size : std::vector<std::optional<int>>{std::nullopt, 1, 13, 300}) {
+    auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
+    FileReaderBuilder builder;
+    ArrowReaderProperties properties;
+    if (batch_size) {
+      properties.set_batch_size(batch_size.value());
+    }
+    builder.properties(properties);
 
-  std::unique_ptr<FileReader> reader;
-  RETURN_NOT_OK(builder.Build(&reader));
-  return FuzzReader(std::move(reader));
+    RETURN_NOT_OK(builder.Open(std::move(file)));
+
+    std::unique_ptr<FileReader> reader;
+    RETURN_NOT_OK(builder.Build(&reader));
+    st &= FuzzReader(std::move(reader));
+  }
+  return st;
 }
 
 }  // namespace internal

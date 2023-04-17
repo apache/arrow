@@ -16,7 +16,7 @@ import * as flatbuffers from 'flatbuffers';
 export class FieldNode {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):FieldNode {
+  __init(i:number, bb:flatbuffers.ByteBuffer):FieldNode {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -26,7 +26,7 @@ __init(i:number, bb:flatbuffers.ByteBuffer):FieldNode {
  * The number of value slots in the Arrow array at this level of a nested
  * tree
  */
-length():flatbuffers.Long {
+length():bigint {
   return this.bb!.readInt64(this.bb_pos);
 }
 
@@ -35,7 +35,7 @@ length():flatbuffers.Long {
  * to write their physical validity bitmap out as a materialized buffer,
  * instead setting the length of the bitmap buffer to 0.
  */
-nullCount():flatbuffers.Long {
+nullCount():bigint {
   return this.bb!.readInt64(this.bb_pos + 8);
 }
 
@@ -43,10 +43,10 @@ static sizeOf():number {
   return 16;
 }
 
-static createFieldNode(builder:flatbuffers.Builder, length: flatbuffers.Long, null_count: flatbuffers.Long):flatbuffers.Offset {
+static createFieldNode(builder:flatbuffers.Builder, length: bigint, null_count: bigint):flatbuffers.Offset {
   builder.prep(8, 16);
-  builder.writeInt64(null_count);
-  builder.writeInt64(length);
+  builder.writeInt64(BigInt(null_count ?? 0));
+  builder.writeInt64(BigInt(length ?? 0));
   return builder.offset();
 }
 

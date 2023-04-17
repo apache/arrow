@@ -21,10 +21,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,7 +44,8 @@ func TestStringArray(t *testing.T) {
 	sb.Retain()
 	sb.Release()
 
-	sb.AppendValues(want[:2], nil)
+	assert.NoError(t, sb.AppendValueFromString(want[0]))
+	sb.AppendValues(want[1:2], nil)
 
 	sb.AppendNull()
 	sb.Append(want[3])
@@ -62,6 +63,8 @@ func TestStringArray(t *testing.T) {
 
 	arr.Retain()
 	arr.Release()
+
+	assert.Equal(t, "hello", arr.ValueStr(0))
 
 	if got, want := arr.Len(), len(want); got != want {
 		t.Fatalf("invalid len: got=%d, want=%d", got, want)

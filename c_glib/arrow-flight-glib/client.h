@@ -105,6 +105,16 @@ gboolean
 gaflight_client_close(GAFlightClient *client,
                       GError **error);
 
+GARROW_AVAILABLE_IN_12_0
+gboolean
+gaflight_client_authenticate_basic_token(GAFlightClient *client,
+                                         const gchar *user,
+                                         const gchar *password,
+                                         GAFlightCallOptions *options,
+                                         gchar **bearer_name,
+                                         gchar **bearer_value,
+                                         GError **error);
+
 GARROW_AVAILABLE_IN_5_0
 GList *
 gaflight_client_list_flights(GAFlightClient *client,

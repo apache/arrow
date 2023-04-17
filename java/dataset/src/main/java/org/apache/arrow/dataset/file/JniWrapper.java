@@ -45,4 +45,23 @@ public class JniWrapper {
    */
   public native long makeFileSystemDatasetFactory(String uri, int fileFormat);
 
+  /**
+   * Write the content in a {@link org.apache.arrow.c.ArrowArrayStream} into files. This internally
+   * depends on C++ write API: FileSystemDataset::Write.
+   *
+   * @param streamAddress the ArrowArrayStream address
+   * @param fileFormat target file format (ID)
+   * @param uri target file uri
+   * @param partitionColumns columns used to partition output files
+   * @param maxPartitions maximum partitions to be included in written files
+   * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is current partition
+   *                         ID around all written files.
+   */
+  public native void writeFromScannerToFile(long streamAddress,
+                                            long fileFormat,
+                                            String uri,
+                                            String[] partitionColumns,
+                                            int maxPartitions,
+                                            String baseNameTemplate);
+
 }

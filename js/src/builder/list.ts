@@ -39,7 +39,7 @@ export class ListBuilder<T extends DataType = any, TNull = any> extends Variable
         const offsets = this._offsets;
         const [child] = this.children;
         for (const [index, value] of pending) {
-            if (value === undefined) {
+            if (typeof value === 'undefined') {
                 offsets.set(index, 0);
             } else {
                 const n = value.length;

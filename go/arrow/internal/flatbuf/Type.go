@@ -48,6 +48,7 @@ const (
 	TypeLargeBinary     Type = 19
 	TypeLargeUtf8       Type = 20
 	TypeLargeList       Type = 21
+	TypeRunEndEncoded   Type = 22
 )
 
 var EnumNamesType = map[Type]string{
@@ -73,6 +74,7 @@ var EnumNamesType = map[Type]string{
 	TypeLargeBinary:     "LargeBinary",
 	TypeLargeUtf8:       "LargeUtf8",
 	TypeLargeList:       "LargeList",
+	TypeRunEndEncoded:   "RunEndEncoded",
 }
 
 var EnumValuesType = map[string]Type{
@@ -98,6 +100,7 @@ var EnumValuesType = map[string]Type{
 	"LargeBinary":     TypeLargeBinary,
 	"LargeUtf8":       TypeLargeUtf8,
 	"LargeList":       TypeLargeList,
+	"RunEndEncoded":   TypeRunEndEncoded,
 }
 
 func (v Type) String() string {

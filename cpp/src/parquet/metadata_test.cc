@@ -20,8 +20,11 @@
 #include <gtest/gtest.h>
 
 #include "arrow/util/key_value_metadata.h"
+#include "parquet/file_reader.h"
+#include "parquet/file_writer.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
+#include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
@@ -282,14 +285,113 @@ TEST(Metadata, TestKeyValueMetadata) {
   auto kvmeta = std::make_shared<KeyValueMetadata>();
   kvmeta->Append("test_key", "test_value");
 
-  auto f_builder = FileMetaDataBuilder::Make(&schema, props, kvmeta);
+  auto f_builder = FileMetaDataBuilder::Make(&schema, props);
 
   // Read the metadata
-  auto f_accessor = f_builder->Finish();
+  auto f_accessor = f_builder->Finish(kvmeta);
 
   // Key value metadata
   ASSERT_TRUE(f_accessor->key_value_metadata());
   EXPECT_TRUE(f_accessor->key_value_metadata()->Equals(*kvmeta));
+}
+
+TEST(Metadata, TestAddKeyValueMetadata) {
+  schema::NodeVector fields;
+  fields.push_back(schema::Int32("int_col", Repetition::REQUIRED));
+  auto schema = std::static_pointer_cast<schema::GroupNode>(
+      schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  auto kv_meta = std::make_shared<KeyValueMetadata>();
+  kv_meta->Append("test_key_1", "test_value_1");
+  kv_meta->Append("test_key_2", "test_value_2_");
+
+  auto sink = CreateOutputStream();
+  auto writer_props = parquet::WriterProperties::Builder().disable_dictionary()->build();
+  auto file_writer =
+      parquet::ParquetFileWriter::Open(sink, schema, writer_props, kv_meta);
+
+  // Key value metadata that will be added to the file.
+  auto kv_meta_added = std::make_shared<KeyValueMetadata>();
+  kv_meta_added->Append("test_key_2", "test_value_2");
+  kv_meta_added->Append("test_key_3", "test_value_3");
+
+  file_writer->AddKeyValueMetadata(kv_meta_added);
+  file_writer->Close();
+
+  // Throw if appending key value metadata to closed file.
+  auto kv_meta_ignored = std::make_shared<KeyValueMetadata>();
+  kv_meta_ignored->Append("test_key_4", "test_value_4");
+  EXPECT_THROW(file_writer->AddKeyValueMetadata(kv_meta_ignored), ParquetException);
+
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+
+  ASSERT_NE(nullptr, file_reader->metadata());
+  ASSERT_NE(nullptr, file_reader->metadata()->key_value_metadata());
+  auto read_kv_meta = file_reader->metadata()->key_value_metadata();
+
+  // Verify keys that were added before file writer was closed are present.
+  for (int i = 1; i <= 3; ++i) {
+    auto index = std::to_string(i);
+    PARQUET_ASSIGN_OR_THROW(auto value, read_kv_meta->Get("test_key_" + index));
+    EXPECT_EQ("test_value_" + index, value);
+  }
+  // Verify keys that were added after file writer was closed are not present.
+  EXPECT_FALSE(read_kv_meta->Contains("test_key_4"));
+}
+
+TEST(Metadata, TestHasBloomFilter) {
+  std::string dir_string(parquet::test::get_data_dir());
+  std::string path = dir_string + "/data_index_bloom_encoding_stats.parquet";
+  auto reader = ParquetFileReader::OpenFile(path, false);
+  auto file_metadata = reader->metadata();
+  ASSERT_EQ(1, file_metadata->num_row_groups());
+  auto row_group_metadata = file_metadata->RowGroup(0);
+  ASSERT_EQ(1, row_group_metadata->num_columns());
+  auto col_chunk_metadata = row_group_metadata->ColumnChunk(0);
+  auto bloom_filter_offset = col_chunk_metadata->bloom_filter_offset();
+  ASSERT_TRUE(bloom_filter_offset.has_value());
+  ASSERT_EQ(192, bloom_filter_offset);
+}
+
+TEST(Metadata, TestReadPageIndex) {
+  std::string dir_string(parquet::test::get_data_dir());
+  std::string path = dir_string + "/alltypes_tiny_pages.parquet";
+  auto reader = ParquetFileReader::OpenFile(path, false);
+  auto file_metadata = reader->metadata();
+  ASSERT_EQ(1, file_metadata->num_row_groups());
+  auto row_group_metadata = file_metadata->RowGroup(0);
+  ASSERT_EQ(13, row_group_metadata->num_columns());
+  std::vector<int64_t> ci_offsets = {323583, 327502, 328009, 331928, 335847,
+                                     339766, 350345, 354264, 364843, 384342,
+                                     -1,     386473, 390392};
+  std::vector<int32_t> ci_lengths = {3919,  507,   3919, 3919, 3919, 10579, 3919,
+                                     10579, 19499, 2131, -1,   3919, 3919};
+  std::vector<int64_t> oi_offsets = {394311, 397814, 398637, 401888, 405139,
+                                     408390, 413670, 416921, 422201, 431936,
+                                     435457, 446002, 449253};
+  std::vector<int32_t> oi_lengths = {3503, 823,  3251, 3251,  3251, 5280, 3251,
+                                     5280, 9735, 3521, 10545, 3251, 3251};
+  for (int i = 0; i < row_group_metadata->num_columns(); ++i) {
+    auto col_chunk_metadata = row_group_metadata->ColumnChunk(i);
+    auto ci_location = col_chunk_metadata->GetColumnIndexLocation();
+    if (i == 10) {
+      // column_id 10 does not have column index
+      ASSERT_FALSE(ci_location.has_value());
+    } else {
+      ASSERT_TRUE(ci_location.has_value());
+    }
+    if (ci_location.has_value()) {
+      ASSERT_EQ(ci_offsets.at(i), ci_location->offset);
+      ASSERT_EQ(ci_lengths.at(i), ci_location->length);
+    }
+    auto oi_location = col_chunk_metadata->GetOffsetIndexLocation();
+    ASSERT_TRUE(oi_location.has_value());
+    ASSERT_EQ(oi_offsets.at(i), oi_location->offset);
+    ASSERT_EQ(oi_lengths.at(i), oi_location->length);
+    ASSERT_FALSE(col_chunk_metadata->bloom_filter_offset().has_value());
+  }
 }
 
 TEST(ApplicationVersion, Basics) {

@@ -395,10 +395,33 @@ module RawRecordsMapArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def remove_union_field_names(records)
+    records.collect do |record|
+      record.collect do |column|
+        if column.nil?
+          column
+        else
+          value = {}
+          column.each do |k, v|
+            v = v.values[0] unless v.nil?
+            value[k] = v
+          end
+          value
+        end
+      end
+    end
+  end
+
   def test_sparse_union
-    omit("Need to add support for SparseUnionArrayBuilder")
     records = [
-      [{"key1" => {"field" => true, "key2" => nil, "key3" => {"field" => nil}}}],
+      [
+        {
+          "key1" => {"field1" => true},
+          "key2" => nil,
+          "key3" => {"field2" => 29},
+          "key4" => {"field2" => nil},
+        },
+      ],
       [nil],
     ]
     target = build({
@@ -416,13 +439,20 @@ module RawRecordsMapArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_union_field_names(records),
+                 target.raw_records)
   end
 
   def test_dense_union
-    omit("Need to add support for DenseUnionArrayBuilder")
     records = [
-      [{"key1" => {"field1" => true}, "key2" => nil, "key3" => {"field2" => nil}}],
+      [
+        {
+          "key1" => {"field1" => true},
+          "key2" => nil,
+          "key3" => {"field2" => 29},
+          "key4" => {"field2" => nil},
+        },
+      ],
       [nil],
     ]
     target = build({
@@ -440,21 +470,20 @@ module RawRecordsMapArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    assert_equal(records, target.raw_records)
+    assert_equal(remove_union_field_names(records),
+                 target.raw_records)
   end
 
   def test_dictionary
-    omit("Need to add support for DictionaryArrayBuilder")
     records = [
       [{"key1" => "Ruby", "key2" => nil, "key3" => "GLib"}],
       [nil],
     ]
-    dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({
                      type: :dictionary,
                      index_data_type: :int8,
-                     dictionary: dictionary,
-                     ordered: true,
+                     value_data_type: :string,
+                     ordered: false,
                    },
                    records)
     assert_equal(records, target.raw_records)

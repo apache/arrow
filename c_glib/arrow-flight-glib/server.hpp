@@ -27,6 +27,21 @@
 arrow::flight::FlightDataStream *
 gaflight_data_stream_get_raw(GAFlightDataStream *stream);
 
+GAFlightServerAuthSender *
+gaflight_server_auth_sender_new_raw(
+  arrow::flight::ServerAuthSender *flight_sender);
+arrow::flight::ServerAuthSender *
+gaflight_server_auth_sender_get_raw(GAFlightServerAuthSender *sender);
+
+GAFlightServerAuthReader *
+gaflight_server_auth_reader_new_raw(
+  arrow::flight::ServerAuthReader *flight_reader);
+arrow::flight::ServerAuthReader *
+gaflight_server_auth_reader_get_raw(GAFlightServerAuthReader *reader);
+
+std::shared_ptr<arrow::flight::ServerAuthHandler>
+gaflight_server_auth_handler_get_raw(GAFlightServerAuthHandler *handler);
+
 arrow::flight::FlightServerOptions *
 gaflight_server_options_get_raw(GAFlightServerOptions *options);
 

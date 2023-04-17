@@ -16,5 +16,7 @@
 
 /*
 Package memory provides support for allocating and manipulating memory at a low level.
+
+The build tag 'mallocator' will switch the default allocator to one backed by libc malloc. This also requires CGO.
 */
 package memory

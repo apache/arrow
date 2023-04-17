@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"hash/maphash"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 type Kind int8
@@ -344,10 +344,18 @@ func (memo *Memo) AddDelta(id int64, v arrow.ArrayData) {
 	memo.id2dict[id] = append(d, v)
 }
 
+// AddOrReplace puts the provided dictionary into the memo table. If it
+// already exists, then the new data will replace it. Otherwise it is added
+// to the memo table.
 func (memo *Memo) AddOrReplace(id int64, v arrow.ArrayData) bool {
 	d, ok := memo.id2dict[id]
 	if ok {
-		d = append(d, v)
+		// replace the dictionary and release any existing ones
+		for _, dict := range d {
+			dict.Release()
+		}
+		d[0] = v
+		d = d[:1]
 	} else {
 		d = []arrow.ArrayData{v}
 	}

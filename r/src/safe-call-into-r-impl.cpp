@@ -21,24 +21,33 @@
 #include <functional>
 #include <thread>
 
-MainRThread& GetMainRThread() {
+MainRThread& MainRThread::GetInstance() {
   static MainRThread main_r_thread;
   return main_r_thread;
 }
 
 // [[arrow::export]]
-void InitializeMainRThread() { GetMainRThread().Initialize(); }
+void InitializeMainRThread() { MainRThread::GetInstance().Initialize(); }
+
+// [[arrow::export]]
+void DeinitializeMainRThread() { MainRThread::GetInstance().Deinitialize(); }
+
+// [[arrow::export]]
+bool SetEnableSignalStopSource(bool enabled) {
+  bool was_enabled = MainRThread::GetInstance().SignalStopSourceEnabled();
+  if (was_enabled && !enabled) {
+    MainRThread::GetInstance().DisableSignalStopSource();
+  } else if (!was_enabled && enabled) {
+    MainRThread::GetInstance().EnableSignalStopSource();
+  }
+
+  return was_enabled;
+}
 
 // [[arrow::export]]
 bool CanRunWithCapturedR() {
 #if defined(HAS_UNWIND_PROTECT)
-  static int on_old_windows = -1;
-  if (on_old_windows == -1) {
-    cpp11::function on_old_windows_fun = cpp11::package("arrow")["on_old_windows"];
-    on_old_windows = on_old_windows_fun();
-  }
-
-  return !on_old_windows && GetMainRThread().Executor() == nullptr;
+  return MainRThread::GetInstance().Executor() == nullptr;
 #else
   return false;
 #endif
@@ -48,31 +57,28 @@ bool CanRunWithCapturedR() {
 std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
                               std::string opt) {
   if (opt == "async_with_executor") {
-    std::thread* thread_ptr;
+    std::thread thread;
 
-    auto result =
-        RunWithCapturedR<std::string>([&thread_ptr, r_fun_that_returns_a_string]() {
-          auto fut = arrow::Future<std::string>::Make();
-          thread_ptr = new std::thread([fut, r_fun_that_returns_a_string]() mutable {
-            auto result = SafeCallIntoR<std::string>([&] {
-              return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string());
-            });
+    auto result = RunWithCapturedR<std::string>([&thread, r_fun_that_returns_a_string]() {
+      auto fut = arrow::Future<std::string>::Make();
+      thread = std::thread([&fut, r_fun_that_returns_a_string]() {
+        auto result = SafeCallIntoR<std::string>(
+            [&] { return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string()); });
 
-            fut.MarkFinished(result);
-          });
+        fut.MarkFinished(result);
+      });
 
-          return fut;
-        });
+      return fut;
+    });
 
-    thread_ptr->join();
-    delete thread_ptr;
+    if (thread.joinable()) {
+      thread.join();
+    }
 
     return arrow::ValueOrStop(result);
   } else if (opt == "async_without_executor") {
-    std::thread* thread_ptr;
-
     auto fut = arrow::Future<std::string>::Make();
-    thread_ptr = new std::thread([fut, r_fun_that_returns_a_string]() mutable {
+    std::thread thread([&fut, r_fun_that_returns_a_string]() {
       auto result = SafeCallIntoR<std::string>(
           [&] { return cpp11::as_cpp<std::string>(r_fun_that_returns_a_string()); });
 
@@ -83,8 +89,7 @@ std::string TestSafeCallIntoR(cpp11::function r_fun_that_returns_a_string,
       }
     });
 
-    thread_ptr->join();
-    delete thread_ptr;
+    thread.join();
 
     // We should be able to get this far, but fut will contain an error
     // because it tried to evaluate R code from another thread

@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -28,8 +29,8 @@
 #include "arrow/json/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -37,7 +38,7 @@ using internal::checked_cast;
 
 namespace json {
 
-using util::string_view;
+using std::string_view;
 
 void AssertUnconvertedStructArraysEqual(const StructArray& expected,
                                         const StructArray& actual);
@@ -134,6 +135,24 @@ TEST(BlockParserWithSchema, SkipFieldsOutsideSchema) {
                      {field("hello", utf8()), field("yo", utf8())},
                      {"[\"3.5\", \"3.25\", \"3.125\", \"0.0\"]",
                       "[\"thing\", null, \"\xe5\xbf\x8d\", null]"});
+}
+
+TEST(BlockParserWithSchema, UnquotedDecimal) {
+  auto options = ParseOptions::Defaults();
+  options.explicit_schema =
+      schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+  AssertParseColumns(options, unquoted_decimal_src(),
+                     {field("price", utf8()), field("cost", utf8())},
+                     {R"(["30.04", "1.23"])", R"(["30.001", "1.229"])"});
+}
+
+TEST(BlockParserWithSchema, MixedDecimal) {
+  auto options = ParseOptions::Defaults();
+  options.explicit_schema =
+      schema({field("price", decimal(9, 2)), field("cost", decimal(9, 3))});
+  AssertParseColumns(options, mixed_decimal_src(),
+                     {field("price", utf8()), field("cost", utf8())},
+                     {R"(["30.04", "1.23"])", R"(["30.001", "1.229"])"});
 }
 
 class BlockParserTypeError : public ::testing::TestWithParam<UnexpectedFieldBehavior> {
@@ -246,6 +265,47 @@ TEST(BlockParser, Null) {
        field("struct", struct_({field("plain", null())}))},
       {"[null, null]", "[[], []]", "[[], [null]]",
        R"([{"plain": null}, {"plain": null}])"});
+}
+
+TEST(BlockParser, InferNewFields) {
+  std::string src = R"(
+    {}
+    {"a": true}
+    {"a": false, "b": true}
+  )";
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  for (const auto& s : {schema({field("a", boolean()), field("b", boolean())}),
+                        std::shared_ptr<Schema>(nullptr)}) {
+    options.explicit_schema = s;
+    AssertParseColumns(options, src, {field("a", boolean()), field("b", boolean())},
+                       {"[null, true, false]", "[null, null, true]"});
+  }
+}
+
+TEST(BlockParser, InferNewFieldsInMiddle) {
+  std::string src = R"(
+    {"a": true, "b": false}
+    {"a": false, "c": "foo", "b": true}
+    {"b": false}
+  )";
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  for (const auto& s : {schema({field("a", boolean()), field("b", boolean())}),
+                        std::shared_ptr<Schema>(nullptr)}) {
+    options.explicit_schema = s;
+    AssertParseColumns(
+        options, src, {field("a", boolean()), field("b", boolean()), field("c", utf8())},
+        {"[true, false, null]", "[false, true, false]", "[null, \"foo\", null]"});
+  }
+}
+
+TEST(BlockParser, FailOnInvalidEOF) {
+  std::shared_ptr<Array> parsed;
+  auto status = ParseFromString(ParseOptions::Defaults(), "}", &parsed);
+  ASSERT_RAISES(Invalid, status);
+  EXPECT_THAT(status.message(),
+              ::testing::StartsWith("JSON parse error: The document is empty"));
 }
 
 TEST(BlockParser, AdHoc) {

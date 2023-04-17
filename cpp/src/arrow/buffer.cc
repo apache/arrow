@@ -185,7 +185,13 @@ Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length, MemoryPool* pool)
 }
 
 Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(bit_util::BytesForBits(length), pool));
+  return AllocateEmptyBitmap(length, kDefaultBufferAlignment, pool);
+}
+
+Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, int64_t alignment,
+                                                    MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto buf,
+                        AllocateBuffer(bit_util::BytesForBits(length), alignment, pool));
   memset(buf->mutable_data(), 0, static_cast<size_t>(buf->size()));
   return std::move(buf);
 }

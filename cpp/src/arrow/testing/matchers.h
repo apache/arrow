@@ -71,6 +71,8 @@ class AnyOfJSONMatcher {
   template <typename arg_type>
   operator testing::Matcher<arg_type>() const {  // NOLINT runtime/explicit
     struct Impl : testing::MatcherInterface<const arg_type&> {
+      static_assert(std::is_same<arg_type, std::shared_ptr<Scalar>>(),
+                    "AnyOfJSON only supported for std::shared_ptr<Scalar>");
       Impl(std::shared_ptr<DataType> type, std::string array_json)
           : type_(std::move(type)), array_json_(std::move(array_json)) {
         array = ArrayFromJSON(type_, array_json_);
@@ -98,7 +100,7 @@ class AnyOfJSONMatcher {
             return false;
           }
 
-          if (scalar->Equals(arg)) return true;
+          if (scalar->Equals(*arg)) return true;
         }
         *result_listener << "Argument scalar: '" << arg->ToString()
                          << "' matches no scalar from " << array->ToString();
@@ -220,14 +222,14 @@ class ResultMatcher {
 class ErrorMatcher {
  public:
   explicit ErrorMatcher(StatusCode code,
-                        util::optional<testing::Matcher<std::string>> message_matcher)
+                        std::optional<testing::Matcher<std::string>> message_matcher)
       : code_(code), message_matcher_(std::move(message_matcher)) {}
 
   template <typename Res>
   operator testing::Matcher<Res>() const {  // NOLINT runtime/explicit
     struct Impl : testing::MatcherInterface<const Res&> {
       explicit Impl(StatusCode code,
-                    util::optional<testing::Matcher<std::string>> message_matcher)
+                    std::optional<testing::Matcher<std::string>> message_matcher)
           : code_(code), message_matcher_(std::move(message_matcher)) {}
 
       void DescribeTo(::std::ostream* os) const override {
@@ -270,7 +272,7 @@ class ErrorMatcher {
       }
 
       const StatusCode code_;
-      const util::optional<testing::Matcher<std::string>> message_matcher_;
+      const std::optional<testing::Matcher<std::string>> message_matcher_;
     };
 
     return testing::Matcher<Res>(new Impl(code_, message_matcher_));
@@ -278,7 +280,7 @@ class ErrorMatcher {
 
  private:
   const StatusCode code_;
-  const util::optional<testing::Matcher<std::string>> message_matcher_;
+  const std::optional<testing::Matcher<std::string>> message_matcher_;
 };
 
 class OkMatcher {
@@ -324,7 +326,7 @@ inline OkMatcher Ok() { return {}; }
 
 // Returns a matcher that matches the StatusCode of a Status or Result<T>.
 // Do not use Raises(StatusCode::OK) to match a non error code.
-inline ErrorMatcher Raises(StatusCode code) { return ErrorMatcher(code, util::nullopt); }
+inline ErrorMatcher Raises(StatusCode code) { return ErrorMatcher(code, std::nullopt); }
 
 // Returns a matcher that matches the StatusCode and message of a Status or Result<T>.
 template <typename MessageMatcher>
@@ -412,7 +414,7 @@ DataEqMatcher DataEq(Data&& dat) {
 
 /// Constructs an array with ArrayFromJSON against which arguments are matched
 inline DataEqMatcher DataEqArray(const std::shared_ptr<DataType>& type,
-                                 util::string_view json) {
+                                 std::string_view json) {
   return DataEq(ArrayFromJSON(type, json));
 }
 
@@ -421,7 +423,7 @@ template <typename T, typename ArrayType = typename TypeTraits<T>::ArrayType,
           typename BuilderType = typename TypeTraits<T>::BuilderType,
           typename ValueType =
               typename ::arrow::stl::detail::DefaultValueAccessor<ArrayType>::ValueType>
-DataEqMatcher DataEqArray(T type, const std::vector<util::optional<ValueType>>& values) {
+DataEqMatcher DataEqArray(T type, const std::vector<std::optional<ValueType>>& values) {
   // FIXME(bkietz) broken until DataType is move constructible
   BuilderType builder(std::make_shared<T>(std::move(type)), default_memory_pool());
   DCHECK_OK(builder.Reserve(static_cast<int64_t>(values.size())));
@@ -430,14 +432,10 @@ DataEqMatcher DataEqArray(T type, const std::vector<util::optional<ValueType>>& 
   static const bool need_safe_append = !is_fixed_width(T::type_id);
 
   for (auto value : values) {
-    if (value) {
-      if (need_safe_append) {
-        builder.UnsafeAppend(*value);
-      } else {
-        DCHECK_OK(builder.Append(*value));
-      }
+    if (need_safe_append) {
+      DCHECK_OK(builder.AppendOrNull(value));
     } else {
-      builder.UnsafeAppendNull();
+      builder.UnsafeAppendOrNull(value);
     }
   }
 
@@ -446,14 +444,14 @@ DataEqMatcher DataEqArray(T type, const std::vector<util::optional<ValueType>>& 
 
 /// Constructs a scalar with ScalarFromJSON against which arguments are matched
 inline DataEqMatcher DataEqScalar(const std::shared_ptr<DataType>& type,
-                                  util::string_view json) {
+                                  std::string_view json) {
   return DataEq(ScalarFromJSON(type, json));
 }
 
 /// Constructs a scalar against which arguments are matched
 template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
           typename ValueType = typename ScalarType::ValueType>
-DataEqMatcher DataEqScalar(T type, util::optional<ValueType> value) {
+DataEqMatcher DataEqScalar(T type, std::optional<ValueType> value) {
   ScalarType expected(std::make_shared<T>(std::move(type)));
 
   if (value) {

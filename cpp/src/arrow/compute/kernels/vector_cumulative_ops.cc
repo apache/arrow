@@ -22,7 +22,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/visit_type_inline.h"
@@ -59,9 +59,9 @@ struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
           auto casted_start,
           Cast(Datum(start), args.inputs[0], CastOptions::Safe(), ctx->exec_context()));
       auto new_options = OptionsType(casted_start.scalar(), options->skip_nulls);
-      return ::arrow::internal::make_unique<State>(new_options);
+      return std::make_unique<State>(new_options);
     }
-    return ::arrow::internal::make_unique<State>(*options);
+    return std::make_unique<State>(*options);
   }
 };
 

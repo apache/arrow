@@ -10,18 +10,19 @@
 # benefit from the improvement.
 
 set -xeuo pipefail
+export FEEDSTOCK_ROOT="${FEEDSTOCK_ROOT:-/home/conda/feedstock_root}"
 
 output_dir=${1}
 
 export PYTHONUNBUFFERED=1
-export FEEDSTOCK_ROOT="${FEEDSTOCK_ROOT:-/home/conda/feedstock_root}"
+export RECIPE_ROOT="${RECIPE_ROOT:-/home/conda/recipe_root}"
 export CI_SUPPORT="${FEEDSTOCK_ROOT}/.ci_support"
 export CONFIG_FILE="${CI_SUPPORT}/${CONFIG}.yaml"
 
 cat >~/.condarc <<CONDARC
 
 conda-build:
- root-dir: ${output_dir}
+  root-dir: ${output_dir}
 
 CONDARC
 
@@ -29,12 +30,16 @@ mamba install --update-specs --yes --quiet "conda-forge-ci-setup=3" conda-build 
 mamba update --update-specs --yes --quiet "conda-forge-ci-setup=3" conda-build pip boa -c conda-forge
 
 # set up the condarc
-setup_conda_rc "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
+setup_conda_rc "${FEEDSTOCK_ROOT}" "${RECIPE_ROOT}" "${CONFIG_FILE}"
 
 source run_conda_forge_build_setup
 
 # make the build number clobber
-make_build_number "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
+make_build_number "${FEEDSTOCK_ROOT}" "${RECIPE_ROOT}" "${CONFIG_FILE}"
+
+if [[ "${HOST_PLATFORM}" != "${BUILD_PLATFORM}" ]] && [[ "${HOST_PLATFORM}" != linux-* ]] && [[ "${BUILD_WITH_CONDA_DEBUG:-0}" != 1 ]]; then
+    EXTRA_CB_OPTIONS="${EXTRA_CB_OPTIONS:-} --no-test"
+fi
 
 export CONDA_BLD_PATH="${output_dir}"
 
@@ -43,13 +48,15 @@ conda mambabuild \
     "${FEEDSTOCK_ROOT}/parquet-cpp" \
     -m "${CI_SUPPORT}/${CONFIG}.yaml" \
     --clobber-file "${CI_SUPPORT}/clobber_${CONFIG}.yaml" \
-    --output-folder "${output_dir}"
+    --output-folder "${output_dir}" \
+    ${EXTRA_CB_OPTIONS:-}
 
 if [ ! -z "${R_CONFIG:-}" ]; then
   conda mambabuild \
       "${FEEDSTOCK_ROOT}/r-arrow" \
       -m "${CI_SUPPORT}/r/${R_CONFIG}.yaml" \
-      --output-folder "${output_dir}"
+      --output-folder "${output_dir}" \
+      ${EXTRA_CB_OPTIONS:-}
 fi
 
 

@@ -71,7 +71,7 @@ test_that("make_readable_file() works for non-filesystem URLs", {
   skip_if_offline()
 
   readable_file <- make_readable_file(
-    "https://github.com/apache/arrow/raw/master/r/inst/v0.7.1.parquet"
+    "https://github.com/apache/arrow/raw/main/r/inst/v0.7.1.parquet"
   )
   expect_r6_class(readable_file, "InputStream")
   expect_identical(rawToChar(as.raw(readable_file$Read(3))), "PAR")

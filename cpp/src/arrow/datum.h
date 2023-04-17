@@ -22,6 +22,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/array/data.h"
@@ -30,7 +31,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/variant.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -51,9 +51,9 @@ struct ARROW_EXPORT Datum {
   // current variant does not have a length.
   static constexpr int64_t kUnknownLength = -1;
 
-  util::Variant<Empty, std::shared_ptr<Scalar>, std::shared_ptr<ArrayData>,
-                std::shared_ptr<ChunkedArray>, std::shared_ptr<RecordBatch>,
-                std::shared_ptr<Table>>
+  std::variant<Empty, std::shared_ptr<Scalar>, std::shared_ptr<ArrayData>,
+               std::shared_ptr<ChunkedArray>, std::shared_ptr<RecordBatch>,
+               std::shared_ptr<Table>>
       value;
 
   /// \brief Empty datum, to be populated elsewhere
@@ -86,20 +86,25 @@ struct ARROW_EXPORT Datum {
   explicit Datum(const Table& value);
 
   // Cast from subtypes of Array or Scalar to Datum
-  template <typename T, bool IsArray = std::is_base_of<Array, T>::value,
-            bool IsScalar = std::is_base_of<Scalar, T>::value,
+  template <typename T, bool IsArray = std::is_base_of_v<Array, T>,
+            bool IsScalar = std::is_base_of_v<Scalar, T>,
             typename = enable_if_t<IsArray || IsScalar>>
   Datum(std::shared_ptr<T> value)  // NOLINT implicit conversion
       : Datum(std::shared_ptr<typename std::conditional<IsArray, Array, Scalar>::type>(
             std::move(value))) {}
 
   // Cast from subtypes of Array or Scalar to Datum
-  template <typename T, typename TV = typename std::remove_reference<T>::type,
-            bool IsArray = std::is_base_of<Array, T>::value,
-            bool IsScalar = std::is_base_of<Scalar, T>::value,
+  template <typename T, typename TV = typename std::remove_reference_t<T>,
+            bool IsArray = std::is_base_of_v<Array, T>,
+            bool IsScalar = std::is_base_of_v<Scalar, T>,
             typename = enable_if_t<IsArray || IsScalar>>
   Datum(T&& value)  // NOLINT implicit conversion
       : Datum(std::make_shared<TV>(std::forward<T>(value))) {}
+
+  // Many Scalars are copyable, let that happen
+  template <typename T, typename = enable_if_t<std::is_base_of_v<Scalar, T>>>
+  Datum(const T& value)  // NOLINT implicit conversion
+      : Datum(std::make_shared<T>(value)) {}
 
   // Convenience constructors
   explicit Datum(bool value);
@@ -115,6 +120,12 @@ struct ARROW_EXPORT Datum {
   explicit Datum(double value);
   explicit Datum(std::string value);
   explicit Datum(const char* value);
+
+  // Forward to convenience constructors for a DurationScalar from std::chrono::duration
+  template <template <typename, typename> class StdDuration, typename Rep,
+            typename Period,
+            typename = decltype(DurationScalar{StdDuration<Rep, Period>{}})>
+  explicit Datum(StdDuration<Rep, Period> d) : Datum{DurationScalar(d)} {}
 
   Datum::Kind kind() const {
     switch (this->value.index()) {
@@ -136,7 +147,7 @@ struct ARROW_EXPORT Datum {
   }
 
   const std::shared_ptr<ArrayData>& array() const {
-    return util::get<std::shared_ptr<ArrayData>>(this->value);
+    return std::get<std::shared_ptr<ArrayData>>(this->value);
   }
 
   /// \brief The sum of bytes in each buffer referenced by the datum
@@ -149,19 +160,19 @@ struct ARROW_EXPORT Datum {
   std::shared_ptr<Array> make_array() const;
 
   const std::shared_ptr<ChunkedArray>& chunked_array() const {
-    return util::get<std::shared_ptr<ChunkedArray>>(this->value);
+    return std::get<std::shared_ptr<ChunkedArray>>(this->value);
   }
 
   const std::shared_ptr<RecordBatch>& record_batch() const {
-    return util::get<std::shared_ptr<RecordBatch>>(this->value);
+    return std::get<std::shared_ptr<RecordBatch>>(this->value);
   }
 
   const std::shared_ptr<Table>& table() const {
-    return util::get<std::shared_ptr<Table>>(this->value);
+    return std::get<std::shared_ptr<Table>>(this->value);
   }
 
   const std::shared_ptr<Scalar>& scalar() const {
-    return util::get<std::shared_ptr<Scalar>>(this->value);
+    return std::get<std::shared_ptr<Scalar>>(this->value);
   }
 
   template <typename ExactType>
@@ -215,9 +226,9 @@ struct ARROW_EXPORT Datum {
   bool operator!=(const Datum& other) const { return !Equals(other); }
 
   std::string ToString() const;
-
-  ARROW_EXPORT friend void PrintTo(const Datum&, std::ostream*);
 };
+
+ARROW_EXPORT void PrintTo(const Datum&, std::ostream*);
 
 ARROW_EXPORT std::string ToString(Datum::Kind kind);
 

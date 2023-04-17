@@ -70,18 +70,16 @@ ARG cmake=3.11.4
 RUN wget -nv -O - https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz | tar -xzf - -C /opt
 ENV PATH=/opt/cmake-${cmake}-Linux-x86_64/bin:$PATH
 
-ENV ARROW_BUILD_TESTS=ON \
+ENV ARROW_ACERO=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
-    ARROW_GANDIVA_JAVA=ON \
     ARROW_GANDIVA=ON \
     ARROW_HOME=/usr/local \
     ARROW_JAVA_CDATA=ON \
-    ARROW_JNI=ON \
+    ARROW_JAVA_JNI=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA_JAVA_CLIENT=ON \
-    ARROW_PLASMA=ON \
     ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     CC=gcc \

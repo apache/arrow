@@ -73,7 +73,13 @@ expect_feather_roundtrip <- function(write_fun) {
 test_that("feather read/write round trip", {
   expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 1))
   expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2))
+  expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2, compression = TRUE))
+  expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2, compression = "uncompressed"))
+  expect_feather_roundtrip(function(x, f) write_feather(x, f, version = 2, compression = FALSE))
   expect_feather_roundtrip(function(x, f) write_ipc_file(x, f))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = TRUE))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = "uncompressed"))
+  expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, compression = FALSE))
   expect_feather_roundtrip(function(x, f) write_feather(x, f, chunk_size = 32))
   expect_feather_roundtrip(function(x, f) write_ipc_file(x, f, chunk_size = 32))
   if (codec_is_available("lz4")) {
@@ -320,4 +326,13 @@ test_that("Error is created when feather reads a parquet file", {
 
 test_that("The read_ipc_file function is an alias of read_feather", {
   expect_identical(read_ipc_file, read_feather)
+})
+
+test_that("Can read Feather files from a URL", {
+  skip_if_offline()
+  skip_on_cran()
+  feather_url <- "https://github.com/apache/arrow-testing/raw/master/data/arrow-ipc-stream/integration/1.0.0-littleendian/generated_datetime.arrow_file" # nolint
+  fu <- read_feather(feather_url)
+  expect_true(tibble::is_tibble(fu))
+  expect_identical(dim(fu), c(17L, 15L))
 })

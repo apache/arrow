@@ -32,14 +32,14 @@ Status StraddlingTooLarge() {
 
 class NewlineBoundaryFinder : public BoundaryFinder {
  public:
-  Status FindFirst(util::string_view partial, util::string_view block,
+  Status FindFirst(std::string_view partial, std::string_view block,
                    int64_t* out_pos) override {
     auto pos = block.find_first_of(newline_delimiters);
-    if (pos == util::string_view::npos) {
+    if (pos == std::string_view::npos) {
       *out_pos = kNoDelimiterFound;
     } else {
       auto end = block.find_first_not_of(newline_delimiters, pos);
-      if (end == util::string_view::npos) {
+      if (end == std::string_view::npos) {
         end = block.length();
       }
       *out_pos = static_cast<int64_t>(end);
@@ -47,13 +47,13 @@ class NewlineBoundaryFinder : public BoundaryFinder {
     return Status::OK();
   }
 
-  Status FindLast(util::string_view block, int64_t* out_pos) override {
+  Status FindLast(std::string_view block, int64_t* out_pos) override {
     auto pos = block.find_last_of(newline_delimiters);
-    if (pos == util::string_view::npos) {
+    if (pos == std::string_view::npos) {
       *out_pos = kNoDelimiterFound;
     } else {
       auto end = block.find_first_not_of(newline_delimiters, pos);
-      if (end == util::string_view::npos) {
+      if (end == std::string_view::npos) {
         end = block.length();
       }
       *out_pos = static_cast<int64_t>(end);
@@ -61,15 +61,15 @@ class NewlineBoundaryFinder : public BoundaryFinder {
     return Status::OK();
   }
 
-  Status FindNth(util::string_view partial, util::string_view block, int64_t count,
+  Status FindNth(std::string_view partial, std::string_view block, int64_t count,
                  int64_t* out_pos, int64_t* num_found) override {
-    DCHECK(partial.find_first_of(newline_delimiters) == util::string_view::npos);
+    DCHECK(partial.find_first_of(newline_delimiters) == std::string_view::npos);
 
     int64_t found = 0;
     int64_t pos = kNoDelimiterFound;
 
     auto cur_pos = block.find_first_of(newline_delimiters);
-    while (cur_pos != util::string_view::npos) {
+    while (cur_pos != std::string_view::npos) {
       if (block[cur_pos] == '\r' && cur_pos + 1 < block.length() &&
           block[cur_pos + 1] == '\n') {
         cur_pos += 2;
@@ -108,7 +108,7 @@ Chunker::Chunker(std::shared_ptr<BoundaryFinder> delimiter)
 Status Chunker::Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* whole,
                         std::shared_ptr<Buffer>* partial) {
   int64_t last_pos = -1;
-  RETURN_NOT_OK(boundary_finder_->FindLast(util::string_view(*block), &last_pos));
+  RETURN_NOT_OK(boundary_finder_->FindLast(std::string_view(*block), &last_pos));
   if (last_pos == BoundaryFinder::kNoDelimiterFound) {
     // No delimiter found
     *whole = SliceBuffer(block, 0, 0);
@@ -132,8 +132,8 @@ Status Chunker::ProcessWithPartial(std::shared_ptr<Buffer> partial,
     return Status::OK();
   }
   int64_t first_pos = -1;
-  RETURN_NOT_OK(boundary_finder_->FindFirst(util::string_view(*partial),
-                                            util::string_view(*block), &first_pos));
+  RETURN_NOT_OK(boundary_finder_->FindFirst(std::string_view(*partial),
+                                            std::string_view(*block), &first_pos));
   if (first_pos == BoundaryFinder::kNoDelimiterFound) {
     // No delimiter in block => the current object is too large for block size
     return StraddlingTooLarge();
@@ -155,8 +155,8 @@ Status Chunker::ProcessFinal(std::shared_ptr<Buffer> partial,
     return Status::OK();
   }
   int64_t first_pos = -1;
-  RETURN_NOT_OK(boundary_finder_->FindFirst(util::string_view(*partial),
-                                            util::string_view(*block), &first_pos));
+  RETURN_NOT_OK(boundary_finder_->FindFirst(std::string_view(*partial),
+                                            std::string_view(*block), &first_pos));
   if (first_pos == BoundaryFinder::kNoDelimiterFound) {
     // No delimiter in block => it's entirely a completion of partial
     *completion = block;
@@ -175,7 +175,7 @@ Status Chunker::ProcessSkip(std::shared_ptr<Buffer> partial,
   int64_t pos;
   int64_t num_found;
   ARROW_RETURN_NOT_OK(boundary_finder_->FindNth(
-      util::string_view(*partial), util::string_view(*block), *count, &pos, &num_found));
+      std::string_view(*partial), std::string_view(*block), *count, &pos, &num_found));
   if (pos == BoundaryFinder::kNoDelimiterFound) {
     return StraddlingTooLarge();
   }

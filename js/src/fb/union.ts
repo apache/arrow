@@ -14,7 +14,7 @@ import { UnionMode } from './union-mode.js';
 export class Union {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Union {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Union {
   this.bb_pos = i;
   this.bb = bb;
   return this;

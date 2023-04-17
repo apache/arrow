@@ -20,6 +20,7 @@ import decimal
 import json
 import multiprocessing as mp
 import sys
+import warnings
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta, timezone
@@ -69,7 +70,7 @@ def _alltypes_example(size=100):
         # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
         # us, ns
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
-                              dtype='datetime64[ms]'),
+                              dtype='datetime64[ms]').astype("datetime64[ns]"),
         'str': [str(x) for x in range(size)],
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'empty_str': [''] * size
@@ -95,9 +96,12 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     if expected is None:
         expected = df
 
-    tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
-                          check_index_type=('equiv' if preserve_index
-                                            else False))
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", "elementwise comparison failed", DeprecationWarning)
+        tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
+                              check_index_type=('equiv' if preserve_index
+                                                else False))
 
 
 def _check_series_roundtrip(s, type_=None, expected_pa_type=None):
@@ -188,8 +192,7 @@ class TestConvertMetadata:
 
         df = pd.DataFrame(
             np.random.randn(5, 3),
-            columns=pd.date_range(
-                "2021-01-01", "2021-01-3", freq="D", tz="CET")
+            columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz="CET")
         )
         _check_pandas_roundtrip(df, preserve_index=True)
 
@@ -239,10 +242,9 @@ class TestConvertMetadata:
         # attributes -> can be removed if support < pd 0.25 is dropped
         df = pd.DataFrame(np.random.randn(4, 2), columns=['a', 'b'])
 
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="error")
             _check_pandas_roundtrip(df, preserve_index=True)
-
-        assert len(record) == 0, [r.message for r in record]
 
     def test_multiindex_columns(self):
         columns = pd.MultiIndex.from_arrays([
@@ -290,10 +292,9 @@ class TestConvertMetadata:
         columns = pd.MultiIndex.from_arrays([['one', 'two'], ['X', 'Y']])
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')], columns=columns)
 
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="error")
             _check_pandas_roundtrip(df, preserve_index=True)
-
-        assert len(record) == 0, [r.message for r in record]
 
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
@@ -447,6 +448,11 @@ class TestConvertMetadata:
                                         preserve_index=True)
 
     def test_binary_column_name(self):
+        if Version("2.0.0") <= Version(pd.__version__) < Version("2.1.0"):
+            # TODO: regression in pandas, hopefully fixed in next version
+            # https://issues.apache.org/jira/browse/ARROW-18394
+            # https://github.com/pandas-dev/pandas/issues/50127
+            pytest.skip("Regression in pandas 2.0.0")
         column_data = ['い']
         key = 'あ'.encode()
         data = {key: column_data}
@@ -1016,7 +1022,7 @@ class TestConvertDateTimeLikeTypes:
                 '2007-07-13T01:23:34.123',
                 '2006-01-13T12:34:56.432',
                 '2010-08-13T05:46:57.437'],
-                dtype='datetime64[ms]')
+                dtype='datetime64[ms]').astype("datetime64[ns]")
         })
         df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
         _check_pandas_roundtrip(df)
@@ -1071,13 +1077,10 @@ class TestConvertDateTimeLikeTypes:
         pytz = pytest.importorskip("pytz")
         from datetime import timezone
 
-        if Version(pd.__version__) > Version("0.25.0"):
-            # older pandas versions fail on datetime.timezone.utc (as in input)
-            # vs pytz.UTC (as in result)
-            values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
-            # also test with index to ensure both paths roundtrip (ARROW-9962)
-            df = pd.DataFrame({'datetime': values}, index=values)
-            _check_pandas_roundtrip(df, preserve_index=True)
+        values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
+        # also test with index to ensure both paths roundtrip (ARROW-9962)
+        df = pd.DataFrame({'datetime': values}, index=values)
+        _check_pandas_roundtrip(df, preserve_index=True)
 
         # datetime.timezone is going to be pytz.FixedOffset
         hours = 1
@@ -1497,8 +1500,11 @@ class TestConvertDateTimeLikeTypes:
                 pd.NaT
             ]
         })
-        _check_pandas_roundtrip(df)
-        _check_serialize_components_roundtrip(df)
+        # 'check_dtype=False' because pandas >= 2 uses datetime.timezone
+        # instead of pytz.FixedOffset, and thus the dtype is not exactly
+        # identical (pyarrow still defaults to pytz)
+        # TODO remove if https://github.com/apache/arrow/issues/15047 is fixed
+        _check_pandas_roundtrip(df, check_dtype=False)
 
     def test_timedeltas_no_nulls(self):
         df = pd.DataFrame({
@@ -2114,7 +2120,13 @@ class TestConvertListTypes:
         ])
 
         series = pd.Series(data.to_pandas())
-        tm.assert_series_equal(series, expected)
+
+        # pandas.testing generates a
+        # DeprecationWarning: elementwise comparison failed
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "elementwise comparison failed",
+                                    DeprecationWarning)
+            tm.assert_series_equal(series, expected)
 
     @pytest.mark.parametrize('t,data,expected', [
         (
@@ -2167,9 +2179,16 @@ class TestConvertListTypes:
         s = (pa.array([[[1, 2, 3], [4]], None],
                       type=pa.large_list(pa.large_list(pa.int64())))
              .to_pandas())
-        tm.assert_series_equal(
-            s, pd.Series([[[1, 2, 3], [4]], None], dtype=object),
-            check_names=False)
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore",
+                                    "Creating an ndarray from ragged nested",
+                                    np.VisibleDeprecationWarning)
+            warnings.filterwarnings("ignore", "elementwise comparison failed",
+                                    DeprecationWarning)
+            tm.assert_series_equal(
+                s, pd.Series([[[1, 2, 3], [4]], None], dtype=object),
+                check_names=False)
 
     def test_large_binary_list(self):
         for list_type_factory in (pa.list_, pa.large_list):
@@ -2267,6 +2286,51 @@ class TestConvertListTypes:
 
         actual = arr.to_pandas()
         tm.assert_series_equal(actual, expected, check_names=False)
+
+    def test_list_no_duplicate_base(self):
+        # ARROW-18400
+        arr = pa.array([[1, 2], [3, 4, 5], None, [6, None], [7, 8]])
+        chunked_arr = pa.chunked_array([arr.slice(0, 3), arr.slice(3, 1)])
+
+        np_arr = chunked_arr.to_numpy()
+
+        expected = np.array([[1., 2.], [3., 4., 5.], None,
+                            [6., np.NaN]], dtype="object")
+        for left, right in zip(np_arr, expected):
+            if right is None:
+                assert left == right
+            else:
+                npt.assert_array_equal(left, right)
+
+        expected_base = np.array([[1., 2., 3., 4., 5., 6., np.NaN]])
+        npt.assert_array_equal(np_arr[0].base, expected_base)
+
+        np_arr_sliced = chunked_arr.slice(1, 3).to_numpy()
+
+        expected = np.array([[3, 4, 5], None, [6, np.NaN]], dtype="object")
+        for left, right in zip(np_arr_sliced, expected):
+            if right is None:
+                assert left == right
+            else:
+                npt.assert_array_equal(left, right)
+
+        expected_base = np.array([[3., 4., 5., 6., np.NaN]])
+        npt.assert_array_equal(np_arr_sliced[0].base, expected_base)
+
+    def test_list_values_behind_null(self):
+        arr = pa.ListArray.from_arrays(
+            offsets=pa.array([0, 2, 4, 6]),
+            values=pa.array([1, 2, 99, 99, 3, None]),
+            mask=pa.array([False, True, False])
+        )
+        np_arr = arr.to_numpy(zero_copy_only=False)
+
+        expected = np.array([[1., 2.], None, [3., np.NaN]], dtype="object")
+        for left, right in zip(np_arr, expected):
+            if right is None:
+                assert left == right
+            else:
+                npt.assert_array_equal(left, right)
 
 
 class TestConvertStructTypes:
@@ -2505,7 +2569,8 @@ class TestZeroCopyConversion:
     def test_zero_copy_dictionaries(self):
         arr = pa.DictionaryArray.from_arrays(
             np.array([0, 0]),
-            np.array([5]))
+            np.array([5], dtype="int64"),
+        )
 
         result = arr.to_pandas(zero_copy_only=True)
         values = pd.Categorical([5, 5])
@@ -2718,7 +2783,7 @@ class TestConvertMisc:
         cases.append(boolean_objects)
 
         cases.append(np.arange("2016-01-01T00:00:00.001", N * K,
-                               dtype='datetime64[ms]')
+                               dtype='datetime64[ms]').astype("datetime64[ns]")
                      .reshape(N, K).copy())
 
         strided_mask = (random_numbers > 0).astype(bool)[:, 0]
@@ -2763,8 +2828,12 @@ class TestConvertMisc:
 
     def test_table_batch_empty_dataframe(self):
         df = pd.DataFrame({})
-        _check_pandas_roundtrip(df)
-        _check_pandas_roundtrip(df, as_batch=True)
+        _check_pandas_roundtrip(df, preserve_index=None)
+        _check_pandas_roundtrip(df, preserve_index=None, as_batch=True)
+
+        expected = pd.DataFrame(columns=pd.Index([]))
+        _check_pandas_roundtrip(df, expected, preserve_index=False)
+        _check_pandas_roundtrip(df, expected, preserve_index=False, as_batch=True)
 
         df2 = pd.DataFrame({}, index=[0, 1, 2])
         _check_pandas_roundtrip(df2, preserve_index=True)
@@ -2857,58 +2926,26 @@ def _fully_loaded_dataframe_example():
         6: [True, False] * 5,
         7: np.random.randn(10),
         8: np.random.randint(0, 100, size=10),
-        9: pd.period_range('2013', periods=10, freq='M')
+        9: pd.period_range('2013', periods=10, freq='M'),
+        10: pd.interval_range(start=1, freq=1, periods=10),
     }
-
-    if Version(pd.__version__) >= Version('0.21'):
-        # There is an issue with pickling IntervalIndex in pandas 0.20.x
-        data[10] = pd.interval_range(start=1, freq=1, periods=10)
-
     return pd.DataFrame(data, index=index)
 
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
 def test_roundtrip_with_bytes_unicode(columns):
+    if Version("2.0.0") <= Version(pd.__version__) < Version("2.1.0"):
+        # TODO: regression in pandas, hopefully fixed in next version
+        # https://issues.apache.org/jira/browse/ARROW-18394
+        # https://github.com/pandas-dev/pandas/issues/50127
+        pytest.skip("Regression in pandas 2.0.0")
+
     df = pd.DataFrame(columns=columns)
     table1 = pa.Table.from_pandas(df)
     table2 = pa.Table.from_pandas(table1.to_pandas())
     assert table1.equals(table2)
     assert table1.schema.equals(table2.schema)
     assert table1.schema.metadata == table2.schema.metadata
-
-
-def _check_serialize_components_roundtrip(pd_obj):
-    with pytest.warns(FutureWarning):
-        ctx = pa.default_serialization_context()
-
-    with pytest.warns(FutureWarning):
-        components = ctx.serialize(pd_obj).to_components()
-    with pytest.warns(FutureWarning):
-        deserialized = ctx.deserialize_components(components)
-
-    if isinstance(pd_obj, pd.DataFrame):
-        tm.assert_frame_equal(pd_obj, deserialized)
-    else:
-        tm.assert_series_equal(pd_obj, deserialized)
-
-
-@pytest.mark.skipif(
-    Version('1.16.0') <= Version(np.__version__) < Version('1.16.1'),
-    reason='Until numpy/numpy#12745 is resolved')
-def test_serialize_deserialize_pandas():
-    # ARROW-1784, serialize and deserialize DataFrame by decomposing
-    # BlockManager
-    df = _fully_loaded_dataframe_example()
-    _check_serialize_components_roundtrip(df)
-
-
-def test_serialize_deserialize_empty_pandas():
-    # ARROW-7996, serialize and deserialize empty pandas objects
-    df = pd.DataFrame({'col1': [], 'col2': [], 'col3': []})
-    _check_serialize_components_roundtrip(df)
-
-    series = pd.Series([], dtype=np.float32, name='col')
-    _check_serialize_components_roundtrip(series)
 
 
 def _pytime_from_micros(val):
@@ -2940,16 +2977,6 @@ def test_convert_unsupported_type_error_message():
     msg = 'Conversion failed for column a with type object'
     with pytest.raises(ValueError, match=msg):
         pa.Table.from_pandas(df)
-
-    # period unsupported for pandas <= 0.25
-    if Version(pd.__version__) <= Version('0.25'):
-        df = pd.DataFrame({
-            'a': pd.period_range('2000-01-01', periods=20),
-        })
-
-        msg = 'Conversion failed for column a with type (period|object)'
-        with pytest.raises((TypeError, ValueError), match=msg):
-            pa.Table.from_pandas(df)
 
 
 # ----------------------------------------------------------------------
@@ -3173,7 +3200,7 @@ def test_table_from_pandas_schema_index_columns():
     schema = pa.schema([
         ('a', pa.int64()),
         ('b', pa.float64()),
-        ('index', pa.int32()),
+        ('index', pa.int64()),
     ])
 
     # schema includes index with name not in dataframe
@@ -3206,7 +3233,7 @@ def test_table_from_pandas_schema_index_columns():
 
     # schema has different order (index column not at the end)
     schema = pa.schema([
-        ('index', pa.int32()),
+        ('index', pa.int64()),
         ('a', pa.int64()),
         ('b', pa.float64()),
     ])
@@ -3813,10 +3840,11 @@ def test_dictionary_from_pandas_specified_type():
     with pytest.raises(pa.ArrowInvalid):
         result = pa.array(cat, type=typ)
 
-    # mismatching order -> raise error (for now a deprecation warning)
+    # mismatching order -> raise error
     typ = pa.dictionary(
         index_type=pa.int8(), value_type=pa.string(), ordered=True)
-    with pytest.warns(FutureWarning, match="The 'ordered' flag of the passed"):
+    msg = "The 'ordered' flag of the passed categorical values "
+    with pytest.raises(ValueError, match=msg):
         result = pa.array(cat, type=typ)
     assert result.to_pylist() == ['a', 'b']
 
@@ -3846,45 +3874,53 @@ def test_dictionary_from_pandas_specified_type():
     assert result.to_pylist() == ['a', 'b']
 
 
+def test_convert_categories_to_array_with_string_pyarrow_dtype():
+    # gh-33727: categories should be converted to pa.Array
+    if Version(pd.__version__) < Version("1.3.0"):
+        pytest.skip("PyArrow backed string data type introduced in pandas 1.3.0")
+
+    df = pd.DataFrame({"x": ["foo", "bar", "foo"]}, dtype="string[pyarrow]")
+    df = df.astype("category")
+    indices = pa.array(df['x'].cat.codes)
+    dictionary = pa.array(df["x"].cat.categories.values)
+    assert isinstance(dictionary, pa.Array)
+
+    expected = pa.Array.from_pandas(df['x'])
+    result = pa.DictionaryArray.from_arrays(indices, dictionary)
+    assert result == expected
+
+
 # ----------------------------------------------------------------------
 # Array protocol in pandas conversions tests
 
 
 def test_array_protocol():
-    if Version(pd.__version__) < Version('0.24.0'):
-        pytest.skip('IntegerArray only introduced in 0.24')
-
     df = pd.DataFrame({'a': pd.Series([1, 2, None], dtype='Int64')})
 
-    if Version(pd.__version__) < Version('0.26.0.dev'):
-        # with pandas<=0.25, trying to convert nullable integer errors
-        with pytest.raises(TypeError):
-            pa.table(df)
-    else:
-        # __arrow_array__ added to pandas IntegerArray in 0.26.0.dev
+    # __arrow_array__ added to pandas IntegerArray in 0.26.0.dev
 
-        # default conversion
-        result = pa.table(df)
-        expected = pa.array([1, 2, None], pa.int64())
-        assert result[0].chunk(0).equals(expected)
+    # default conversion
+    result = pa.table(df)
+    expected = pa.array([1, 2, None], pa.int64())
+    assert result[0].chunk(0).equals(expected)
 
-        # with specifying schema
-        schema = pa.schema([('a', pa.float64())])
-        result = pa.table(df, schema=schema)
-        expected2 = pa.array([1, 2, None], pa.float64())
-        assert result[0].chunk(0).equals(expected2)
+    # with specifying schema
+    schema = pa.schema([('a', pa.float64())])
+    result = pa.table(df, schema=schema)
+    expected2 = pa.array([1, 2, None], pa.float64())
+    assert result[0].chunk(0).equals(expected2)
 
-        # pass Series to pa.array
-        result = pa.array(df['a'])
-        assert result.equals(expected)
-        result = pa.array(df['a'], type=pa.float64())
-        assert result.equals(expected2)
+    # pass Series to pa.array
+    result = pa.array(df['a'])
+    assert result.equals(expected)
+    result = pa.array(df['a'], type=pa.float64())
+    assert result.equals(expected2)
 
-        # pass actual ExtensionArray to pa.array
-        result = pa.array(df['a'].values)
-        assert result.equals(expected)
-        result = pa.array(df['a'].values, type=pa.float64())
-        assert result.equals(expected2)
+    # pass actual ExtensionArray to pa.array
+    result = pa.array(df['a'].values)
+    assert result.equals(expected)
+    result = pa.array(df['a'].values, type=pa.float64())
+    assert result.equals(expected2)
 
 
 class DummyExtensionType(pa.PyExtensionType):
@@ -3905,9 +3941,6 @@ def PandasArray__arrow_array__(self, type=None):
 
 def test_array_protocol_pandas_extension_types(monkeypatch):
     # ARROW-7022 - ensure protocol works for Period / Interval extension dtypes
-
-    if Version(pd.__version__) < Version('0.24.0'):
-        pytest.skip('Period/IntervalArray only introduced in 0.24')
 
     storage = pa.array([1, 2, 3], type=pa.int64())
     expected = pa.ExtensionArray.from_storage(DummyExtensionType(), storage)
@@ -3955,9 +3988,6 @@ def _Int64Dtype__from_arrow__(self, array):
 
 
 def test_convert_to_extension_array(monkeypatch):
-    if Version(pd.__version__) < Version("0.26.0.dev"):
-        pytest.skip("Conversion from IntegerArray to arrow not yet supported")
-
     import pandas.core.internals as _int
 
     # table converted from dataframe with extension types (so pandas_metadata
@@ -4011,18 +4041,9 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # converting extension type to linked pandas ExtensionDtype/Array
     import pandas.core.internals as _int
 
-    if Version(pd.__version__) < Version("0.24.0"):
-        pytest.skip("ExtensionDtype introduced in pandas 0.24")
-
     storage = pa.array([1, 2, 3, 4], pa.int64())
     arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)
     table = pa.table({'a': arr})
-
-    if Version(pd.__version__) < Version("0.26.0.dev"):
-        # ensure pandas Int64Dtype has the protocol method (for older pandas)
-        monkeypatch.setattr(
-            pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
-            raising=False)
 
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
@@ -4038,9 +4059,7 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
     # (remove the version added above and the actual version for recent pandas)
-    if Version(pd.__version__) < Version("0.26.0.dev"):
-        monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
-    elif Version(pd.__version__) < Version("1.3.0.dev"):
+    if Version(pd.__version__) < Version("1.3.0.dev"):
         monkeypatch.delattr(
             pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
     else:
@@ -4057,9 +4076,6 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
 
 
 def test_to_pandas_extension_dtypes_mapping():
-    if Version(pd.__version__) < Version("0.26.0.dev"):
-        pytest.skip("Conversion to pandas IntegerArray not yet supported")
-
     table = pa.table({'a': pa.array([1, 2, 3], pa.int64())})
 
     # default use numpy dtype
@@ -4101,9 +4117,6 @@ def test_array_to_pandas():
 
 
 def test_roundtrip_empty_table_with_extension_dtype_index():
-    if Version(pd.__version__) < Version("1.0.0"):
-        pytest.skip("ExtensionDtype to_pandas method missing")
-
     df = pd.DataFrame(index=pd.interval_range(start=0, end=3))
     table = pa.table(df)
     table.to_pandas().index == pd.Index([{'left': 0, 'right': 1},
@@ -4112,10 +4125,28 @@ def test_roundtrip_empty_table_with_extension_dtype_index():
                                         dtype='object')
 
 
+@pytest.mark.parametrize("index", ["a", ["a", "b"]])
+def test_to_pandas_types_mapper_index(index):
+    if Version(pd.__version__) < Version("1.5.0"):
+        pytest.skip("ArrowDtype missing")
+    df = pd.DataFrame(
+        {
+            "a": [1, 2],
+            "b": [3, 4],
+            "c": [5, 6],
+        },
+        dtype=pd.ArrowDtype(pa.int64()),
+    ).set_index(index)
+    expected = df.copy()
+    table = pa.table(df)
+    result = table.to_pandas(types_mapper=pd.ArrowDtype)
+    tm.assert_frame_equal(result, expected)
+
+
 def test_array_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
     if Version(pd.__version__) < Version("1.2.0"):
-        pytest.skip("ExtensionDtype to_pandas method missing")
+        pytest.skip("Float64Dtype extension dtype missing")
 
     data = pa.array([1, 2, 3], pa.int64())
 
@@ -4139,7 +4170,7 @@ def test_array_to_pandas_types_mapper():
 def test_chunked_array_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
     if Version(pd.__version__) < Version("1.2.0"):
-        pytest.skip("ExtensionDtype to_pandas method missing")
+        pytest.skip("Float64Dtype extension dtype missing")
 
     data = pa.chunked_array([pa.array([1, 2, 3], pa.int64())])
     assert isinstance(data, pa.ChunkedArray)
@@ -4425,6 +4456,7 @@ def make_df_with_timestamps():
 
 
 @pytest.mark.parquet
+@pytest.mark.filterwarnings("ignore:Parquet format '2.0':FutureWarning")
 def test_timestamp_as_object_parquet(tempdir):
     # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
     # of information if the timestamp_as_object option is True.
@@ -4471,6 +4503,18 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
         assert result[0] == expected
 
 
+def test_timestamp_as_object_fixed_offset():
+    # ARROW-16547 to_pandas with timestamp_as_object=True and FixedOffset
+    pytz = pytest.importorskip("pytz")
+    import datetime
+    timezone = pytz.FixedOffset(120)
+    dt = timezone.localize(datetime.datetime(2022, 5, 12, 16, 57))
+
+    table = pa.table({"timestamp_col": pa.array([dt])})
+    result = table.to_pandas(timestamp_as_object=True)
+    assert pa.table(result) == table
+
+
 def test_threaded_pandas_import():
     invoke_script("pandas_threaded_import.py")
 
@@ -4485,3 +4529,16 @@ def test_does_not_mutate_timedelta_dtype():
     t.to_pandas()
 
     assert np.dtype(np.timedelta64) == expected
+
+
+def test_does_not_mutate_timedelta_nested():
+    # ARROW-17893: dataframe with timedelta and a list of dictionary
+    # also with timedelta produces wrong result with to_pandas
+
+    from datetime import timedelta
+    timedelta_1 = [{"timedelta_1": timedelta(seconds=12, microseconds=1)}]
+    timedelta_2 = [timedelta(hours=3, minutes=40, seconds=23)]
+    table = pa.table({"timedelta_1": timedelta_1, "timedelta_2": timedelta_2})
+    df = table.to_pandas()
+
+    assert df["timedelta_2"][0].to_pytimedelta() == timedelta_2[0]

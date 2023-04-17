@@ -60,6 +60,7 @@ Status FromProto(const pb::SchemaResult& pb_result, std::string* result);
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* info);
 
 Status ToProto(const FlightDescriptor& descr, pb::FlightDescriptor* pb_descr);
+Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint);
 Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info);
 Status ToProto(const ActionType& type, pb::ActionType* pb_type);
 Status ToProto(const Action& action, pb::Action* pb_action);

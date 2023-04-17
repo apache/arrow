@@ -17,3 +17,6 @@
 
 CRT=-ucrt
 include Makevars.win
+
+# XXX for some reason, this variable doesn't seem propagated from Makevars.win
+CXX_STD=CXX17

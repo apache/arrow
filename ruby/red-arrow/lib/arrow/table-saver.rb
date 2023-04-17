@@ -51,6 +51,7 @@ module Arrow
         raise ArgumentError, message
       end
       __send__(custom_save_method)
+      @table
     end
 
     private

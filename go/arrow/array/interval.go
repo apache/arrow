@@ -19,13 +19,14 @@ package array
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -56,6 +57,12 @@ func NewMonthIntervalData(data arrow.ArrayData) *MonthInterval {
 }
 
 func (a *MonthInterval) Value(i int) arrow.MonthInterval            { return a.values[i] }
+func (a *MonthInterval) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return fmt.Sprintf("%v", a.Value(i))
+}
 func (a *MonthInterval) MonthIntervalValues() []arrow.MonthInterval { return a.values }
 
 func (a *MonthInterval) String() string {
@@ -87,7 +94,7 @@ func (a *MonthInterval) setData(data *Data) {
 	}
 }
 
-func (a *MonthInterval) getOneForMarshal(i int) interface{} {
+func (a *MonthInterval) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.values[i]
 	}
@@ -136,6 +143,8 @@ func NewMonthIntervalBuilder(mem memory.Allocator) *MonthIntervalBuilder {
 	return &MonthIntervalBuilder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *MonthIntervalBuilder) Type() arrow.DataType { return arrow.FixedWidthTypes.MonthInterval }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *MonthIntervalBuilder) Release() {
@@ -162,6 +171,10 @@ func (b *MonthIntervalBuilder) Append(v arrow.MonthInterval) {
 func (b *MonthIntervalBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *MonthIntervalBuilder) AppendEmptyValue() {
+	b.Append(arrow.MonthInterval(0))
 }
 
 func (b *MonthIntervalBuilder) UnsafeAppend(v arrow.MonthInterval) {
@@ -261,7 +274,21 @@ func (b *MonthIntervalBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *MonthIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *MonthIntervalBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(arrow.MonthInterval(v))
+	return nil
+}
+ 
+func (b *MonthIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var v *arrow.MonthInterval
 	if err := dec.Decode(&v); err != nil {
 		return err
@@ -275,9 +302,9 @@ func (b *MonthIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *MonthIntervalBuilder) unmarshal(dec *json.Decoder) error {
+func (b *MonthIntervalBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -298,7 +325,7 @@ func (b *MonthIntervalBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("month interval builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 // A type which represents an immutable sequence of arrow.DayTimeInterval values.
@@ -315,6 +342,12 @@ func NewDayTimeIntervalData(data arrow.ArrayData) *DayTimeInterval {
 }
 
 func (a *DayTimeInterval) Value(i int) arrow.DayTimeInterval              { return a.values[i] }
+func (a *DayTimeInterval) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return fmt.Sprintf("%q", a.Value(i))
+}
 func (a *DayTimeInterval) DayTimeIntervalValues() []arrow.DayTimeInterval { return a.values }
 
 func (a *DayTimeInterval) String() string {
@@ -346,7 +379,7 @@ func (a *DayTimeInterval) setData(data *Data) {
 	}
 }
 
-func (a *DayTimeInterval) getOneForMarshal(i int) interface{} {
+func (a *DayTimeInterval) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.values[i]
 	}
@@ -393,6 +426,8 @@ func NewDayTimeIntervalBuilder(mem memory.Allocator) *DayTimeIntervalBuilder {
 	return &DayTimeIntervalBuilder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *DayTimeIntervalBuilder) Type() arrow.DataType { return arrow.FixedWidthTypes.DayTimeInterval }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *DayTimeIntervalBuilder) Release() {
@@ -419,6 +454,10 @@ func (b *DayTimeIntervalBuilder) Append(v arrow.DayTimeInterval) {
 func (b *DayTimeIntervalBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *DayTimeIntervalBuilder) AppendEmptyValue() {
+	b.Append(arrow.DayTimeInterval{})
 }
 
 func (b *DayTimeIntervalBuilder) UnsafeAppend(v arrow.DayTimeInterval) {
@@ -518,7 +557,21 @@ func (b *DayTimeIntervalBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *DayTimeIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *DayTimeIntervalBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	var v arrow.DayTimeInterval
+	if err := json.Unmarshal([]byte(s), &v); err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(v)
+	return nil
+}
+
+func (b *DayTimeIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var v *arrow.DayTimeInterval
 	if err := dec.Decode(&v); err != nil {
 		return err
@@ -532,9 +585,9 @@ func (b *DayTimeIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *DayTimeIntervalBuilder) unmarshal(dec *json.Decoder) error {
+func (b *DayTimeIntervalBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -554,7 +607,7 @@ func (b *DayTimeIntervalBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("day_time interval builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 // A type which represents an immutable sequence of arrow.DayTimeInterval values.
@@ -571,6 +624,13 @@ func NewMonthDayNanoIntervalData(data arrow.ArrayData) *MonthDayNanoInterval {
 }
 
 func (a *MonthDayNanoInterval) Value(i int) arrow.MonthDayNanoInterval { return a.values[i] }
+func (a *MonthDayNanoInterval) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return fmt.Sprintf("%q", a.Value(i))
+}
+
 func (a *MonthDayNanoInterval) MonthDayNanoIntervalValues() []arrow.MonthDayNanoInterval {
 	return a.values
 }
@@ -604,7 +664,7 @@ func (a *MonthDayNanoInterval) setData(data *Data) {
 	}
 }
 
-func (a *MonthDayNanoInterval) getOneForMarshal(i int) interface{} {
+func (a *MonthDayNanoInterval) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.values[i]
 	}
@@ -651,6 +711,10 @@ func NewMonthDayNanoIntervalBuilder(mem memory.Allocator) *MonthDayNanoIntervalB
 	return &MonthDayNanoIntervalBuilder{builder: builder{refCount: 1, mem: mem}}
 }
 
+func (b *MonthDayNanoIntervalBuilder) Type() arrow.DataType {
+	return arrow.FixedWidthTypes.MonthDayNanoInterval
+}
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *MonthDayNanoIntervalBuilder) Release() {
@@ -677,6 +741,10 @@ func (b *MonthDayNanoIntervalBuilder) Append(v arrow.MonthDayNanoInterval) {
 func (b *MonthDayNanoIntervalBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *MonthDayNanoIntervalBuilder) AppendEmptyValue() {
+	b.Append(arrow.MonthDayNanoInterval{})
 }
 
 func (b *MonthDayNanoIntervalBuilder) UnsafeAppend(v arrow.MonthDayNanoInterval) {
@@ -776,7 +844,20 @@ func (b *MonthDayNanoIntervalBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *MonthDayNanoIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *MonthDayNanoIntervalBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	var v arrow.MonthDayNanoInterval
+	if err := json.Unmarshal([]byte(s), &v); err != nil {
+		return err
+	}
+	b.Append(v)
+	return nil
+}
+
+func (b *MonthDayNanoIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var v *arrow.MonthDayNanoInterval
 	if err := dec.Decode(&v); err != nil {
 		return err
@@ -790,9 +871,9 @@ func (b *MonthDayNanoIntervalBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *MonthDayNanoIntervalBuilder) unmarshal(dec *json.Decoder) error {
+func (b *MonthDayNanoIntervalBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -813,7 +894,7 @@ func (b *MonthDayNanoIntervalBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("month_day_nano interval builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

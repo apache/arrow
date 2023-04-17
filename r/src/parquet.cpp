@@ -300,9 +300,9 @@ std::shared_ptr<parquet::arrow::FileWriter> parquet___arrow___ParquetFileWriter_
     const std::shared_ptr<arrow::io::OutputStream>& sink,
     const std::shared_ptr<parquet::WriterProperties>& properties,
     const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_properties) {
-  std::unique_ptr<parquet::arrow::FileWriter> writer;
-  PARQUET_THROW_NOT_OK(parquet::arrow::FileWriter::Open(
-      *schema, gc_memory_pool(), sink, properties, arrow_properties, &writer));
+  std::unique_ptr<parquet::arrow::FileWriter> writer =
+      ValueOrStop(parquet::arrow::FileWriter::Open(*schema, gc_memory_pool(), sink,
+                                                   properties, arrow_properties));
   return std::move(writer);
 }
 

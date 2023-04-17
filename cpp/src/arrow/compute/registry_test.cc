@@ -27,7 +27,6 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace compute {
@@ -184,7 +183,7 @@ class ExampleOptionsType : public FunctionOptionsType {
   }
   std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
     const auto& opts = static_cast<const ExampleOptions<kExampleSeqNum>&>(options);
-    return arrow::internal::make_unique<ExampleOptions<kExampleSeqNum>>(opts.value);
+    return std::make_unique<ExampleOptions<kExampleSeqNum>>(opts.value);
   }
 };
 template <int kExampleSeqNum>

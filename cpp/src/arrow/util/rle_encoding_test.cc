@@ -173,6 +173,40 @@ TEST(BitArray, TestMixed) {
   }
 }
 
+// Write up to 'num_vals' values with width 'bit_width' and reads them back.
+static void TestPutValue(int bit_width, uint64_t num_vals) {
+  // The max value representable in `bit_width` bits.
+  const uint64_t max = std::numeric_limits<uint64_t>::max() >> (64 - bit_width);
+  num_vals = std::min(num_vals, max);
+  int len = static_cast<int>(bit_util::BytesForBits(bit_width * num_vals));
+  EXPECT_GT(len, 0);
+
+  std::vector<uint8_t> buffer(len);
+  bit_util::BitWriter writer(buffer.data(), len);
+  for (uint64_t i = max - num_vals; i < max; i++) {
+    bool result = writer.PutValue(i, bit_width);
+    EXPECT_TRUE(result);
+  }
+  writer.Flush();
+  EXPECT_EQ(writer.bytes_written(), len);
+
+  bit_util::BitReader reader(buffer.data(), len);
+  for (uint64_t i = max - num_vals; i < max; i++) {
+    int64_t val = 0;
+    bool result = reader.GetValue(bit_width, &val);
+    EXPECT_TRUE(result);
+    EXPECT_EQ(val, i);
+  }
+  EXPECT_EQ(reader.bytes_left(), 0);
+}
+
+TEST(BitUtil, RoundTripIntValues) {
+  for (int width = 1; width < 64; width++) {
+    TestPutValue(width, 1);
+    TestPutValue(width, 1024);
+  }
+}
+
 // Validates encoding of values by encoding and decoding them.  If
 // expected_encoding != NULL, also validates that the encoded buffer is
 // exactly 'expected_encoding'.

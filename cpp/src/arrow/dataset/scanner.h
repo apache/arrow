@@ -25,8 +25,8 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/compute/exec/expression.h"
-#include "arrow/compute/exec/options.h"
+#include "arrow/acero/options.h"
+#include "arrow/compute/expression.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/projector.h"
@@ -54,6 +54,7 @@ constexpr int64_t kDefaultBatchSize = 1 << 17;  // 128Ki rows
 // This will yield 64 batches ~ 8Mi rows
 constexpr int32_t kDefaultBatchReadahead = 16;
 constexpr int32_t kDefaultFragmentReadahead = 4;
+constexpr int32_t kDefaultBytesReadahead = 1 << 25;  // 32MiB
 
 /// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
@@ -82,7 +83,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Maximum row count for scanned batches.
   int64_t batch_size = kDefaultBatchSize;
 
-  /// How many batches to read ahead within a file
+  /// How many batches to read ahead within a fragment.
   ///
   /// Set to 0 to disable batch readahead
   ///
@@ -122,7 +123,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// filter expression. Examples:
   ///
   /// - `SELECT a, b WHERE a < 2 && c > 1` => ["a", "b", "a", "c"]
-  /// - `SELECT a + b < 3 WHERE a > 1` => ["a", "b"]
+  /// - `SELECT a + b < 3 WHERE a > 1` => ["a", "b", "a"]
   ///
   /// This is needed for expression where a field may not be directly
   /// used in the final projection but is still required to evaluate the
@@ -133,8 +134,133 @@ struct ARROW_DS_EXPORT ScanOptions {
   std::vector<FieldRef> MaterializedFields() const;
 
   /// Parameters which control when the plan should pause for a slow consumer
-  compute::BackpressureOptions backpressure =
-      compute::BackpressureOptions::DefaultBackpressure();
+  acero::BackpressureOptions backpressure =
+      acero::BackpressureOptions::DefaultBackpressure();
+};
+
+/// Scan-specific options, which can be changed between scans of the same dataset.
+///
+/// A dataset consists of one or more individual fragments.  A fragment is anything
+/// that is indepedently scannable, often a file.
+///
+/// Batches from all fragments will be converted to a single schema. This unified
+/// schema is referred to as the "dataset schema" and is the output schema for
+/// this node.
+///
+/// Individual fragments may have schemas that are different from the dataset
+/// schema.  This is sometimes referred to as the physical or fragment schema.
+/// Conversion from the fragment schema to the dataset schema is a process
+/// known as evolution.
+struct ARROW_DS_EXPORT ScanV2Options : public acero::ExecNodeOptions {
+  explicit ScanV2Options(std::shared_ptr<Dataset> dataset)
+      : dataset(std::move(dataset)) {}
+
+  /// \brief The dataset to scan
+  std::shared_ptr<Dataset> dataset;
+  /// \brief A row filter
+  ///
+  /// The filter expression should be written against the dataset schema.
+  /// The filter must be unbound.
+  ///
+  /// This is an opportunistic pushdown filter.  Filtering capabilities will
+  /// vary between formats.  If a format is not capable of applying the filter
+  /// then it will ignore it.
+  ///
+  /// Each fragment will do its best to filter the data based on the information
+  /// (partitioning guarantees, statistics) available to it.  If it is able to
+  /// apply some filtering then it will indicate what filtering it was able to
+  /// apply by attaching a guarantee to the batch.
+  ///
+  /// For example, if a filter is x < 50 && y > 40 then a batch may be able to
+  /// apply a guarantee x < 50.  Post-scan filtering would then only need to
+  /// consider y > 40 (for this specific batch).  The next batch may not be able
+  /// to attach any guarantee and both clauses would need to be applied to that batch.
+  ///
+  /// A single guarantee-aware filtering operation should generally be applied to all
+  /// resulting batches.  The scan node is not responsible for this.
+  ///
+  /// Fields that are referenced by the filter should be included in the `columns` vector.
+  /// The scan node will not automatically fetch fields referenced by the filter
+  /// expression. \see AddFieldsNeededForFilter
+  ///
+  /// If the filter references fields that are not included in `columns` this may or may
+  /// not be an error, depending on the format.
+  compute::Expression filter = compute::literal(true);
+
+  /// \brief The columns to scan
+  ///
+  /// This is not a simple list of top-level column indices but instead a set of paths
+  /// allowing for partial selection of columns
+  ///
+  /// These paths refer to the dataset schema
+  ///
+  /// For example, consider the following dataset schema:
+  ///   schema({
+  ///     field("score", int32()),
+  ///           "marker", struct_({
+  ///              field("color", utf8()),
+  ///              field("location", struct_({
+  ///                  field("x", float64()),
+  ///                  field("y", float64())
+  ///              })
+  ///          })
+  ///   })
+  ///
+  /// If `columns` is {{0}, {1,1,0}} then the output schema is:
+  ///   schema({field("score", int32()), field("x", float64())})
+  ///
+  /// If `columns` is {{1,1,1}, {1,1}} then the output schema is:
+  ///   schema({
+  ///       field("y", float64()),
+  ///       field("location", struct_({
+  ///           field("x", float64()),
+  ///           field("y", float64())
+  ///       })
+  ///   })
+  std::vector<FieldPath> columns;
+
+  /// \brief Target number of bytes to read ahead in a fragment
+  ///
+  /// This limit involves some amount of estimation.  Formats typically only know
+  /// batch boundaries in terms of rows (not decoded bytes) and so an estimation
+  /// must be done to guess the average row size.  Other formats like CSV and JSON
+  /// must make even more generalized guesses.
+  ///
+  /// This is a best-effort guide.  Some formats may need to read ahead further,
+  /// for example, if scanning a parquet file that has batches with 100MiB of data
+  /// then the actual readahead will be at least 100MiB
+  ///
+  /// Set to 0 to disable readhead.  When disabled, the scanner will read the
+  /// dataset one batch at a time
+  ///
+  /// This limit applies across all fragments.  If the limit is 32MiB and the
+  /// fragment readahead allows for 20 fragments to be read at once then the
+  /// total readahead will still be 32MiB and NOT 20 * 32MiB.
+  int32_t target_bytes_readahead = kDefaultBytesReadahead;
+
+  /// \brief Number of fragments to read ahead
+  ///
+  /// Higher readahead will potentially lead to more efficient I/O but will lead
+  /// to the scan operation using more RAM.  The default is fairly conservative
+  /// and designed for fast local disks (or slow local spinning disks which cannot
+  /// handle much parallelism anyways).  When using a highly parallel remote filesystem
+  /// you will likely want to increase these values.
+  ///
+  /// Set to 0 to disable fragment readahead.  When disabled the dataset will be scanned
+  /// one fragment at a time.
+  int32_t fragment_readahead = kDefaultFragmentReadahead;
+  /// \brief Options specific to the file format
+  const FragmentScanOptions* format_options = NULLPTR;
+
+  /// \brief Utility method to get a selection representing all columns in a dataset
+  static std::vector<FieldPath> AllColumns(const Schema& dataset_schema);
+
+  /// \brief Utility method to add fields needed for the current filter
+  ///
+  /// This method adds any fields that are needed by `filter` which are not already
+  /// included in the list of columns.  Any new fields added will be added to the end
+  /// in no particular order.
+  static Status AddFieldsNeededForFilter(ScanV2Options* options);
 };
 
 /// \brief Describes a projection
@@ -293,6 +419,7 @@ class ARROW_DS_EXPORT Scanner {
   /// This method will push down the predicate and compute the result based on fragment
   /// metadata if possible.
   virtual Result<int64_t> CountRows() = 0;
+  virtual Future<int64_t> CountRowsAsync() = 0;
   /// \brief Convert the Scanner to a RecordBatchReader so it can be
   /// easily used with APIs that expect a reader.
   virtual Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader() = 0;
@@ -373,9 +500,6 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///        ThreadPool found in ScanOptions;
   Status UseThreads(bool use_threads = true);
 
-  /// \brief Limit how many fragments the scanner will read at once
-  Status FragmentReadahead(int fragment_readahead);
-
   /// \brief Set the maximum number of rows per RecordBatch.
   ///
   /// \param[in] batch_size the maximum number of rows.
@@ -384,6 +508,24 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// This option provides a control limiting the memory owned by any RecordBatch.
   Status BatchSize(int64_t batch_size);
 
+  /// \brief Set the number of batches to read ahead within a fragment.
+  ///
+  /// \param[in] batch_readahead How many batches to read ahead within a fragment
+  /// \returns an error if this number is less than 0.
+  ///
+  /// This option provides a control on the RAM vs I/O tradeoff.
+  /// It might not be supported by all file formats, in which case it will
+  /// simply be ignored.
+  Status BatchReadahead(int32_t batch_readahead);
+
+  /// \brief Set the number of fragments to read ahead
+  ///
+  /// \param[in] fragment_readahead How many fragments to read ahead
+  /// \returns an error if this number is less than 0.
+  ///
+  /// This option provides a control on the RAM vs I/O tradeoff.
+  Status FragmentReadahead(int32_t fragment_readahead);
+
   /// \brief Set the pool from which materialized and scanned arrays will be allocated.
   Status Pool(MemoryPool* pool);
 
@@ -391,7 +533,10 @@ class ARROW_DS_EXPORT ScannerBuilder {
   Status FragmentScanOptions(std::shared_ptr<FragmentScanOptions> fragment_scan_options);
 
   /// \brief Override default backpressure configuration
-  Status Backpressure(compute::BackpressureOptions backpressure);
+  Status Backpressure(acero::BackpressureOptions backpressure);
+
+  /// \brief Return the current scan options for the builder.
+  Result<std::shared_ptr<ScanOptions>> GetScanOptions();
 
   /// \brief Return the constructed now-immutable Scanner object
   Result<std::shared_ptr<Scanner>> Finish();
@@ -409,7 +554,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
 /// Does not construct associated filter or project nodes.
 /// Yielded batches will be augmented with fragment/batch indices to enable stable
 /// ordering for simple ExecPlans.
-class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
+class ARROW_DS_EXPORT ScanNodeOptions : public acero::ExecNodeOptions {
  public:
   explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
                            std::shared_ptr<ScanOptions> scan_options,
@@ -426,7 +571,8 @@ class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
 /// @}
 
 namespace internal {
-ARROW_DS_EXPORT void InitializeScanner(arrow::compute::ExecFactoryRegistry* registry);
+ARROW_DS_EXPORT void InitializeScanner(arrow::acero::ExecFactoryRegistry* registry);
+ARROW_DS_EXPORT void InitializeScannerV2(arrow::acero::ExecFactoryRegistry* registry);
 }  // namespace internal
 }  // namespace dataset
 }  // namespace arrow

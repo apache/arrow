@@ -16,116 +16,45 @@
 // under the License.
 
 #include "arrow/engine/substrait/util.h"
+
+#include <algorithm>
+#include <optional>
+#include <string_view>
+#include <utility>
+
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
+#include "arrow/buffer.h"
+#include "arrow/compute/exec.h"
+#include "arrow/compute/type_fwd.h"
+#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/relation.h"
+#include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/type_fwd.h"
+#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/async_util.h"
+#include "arrow/util/future.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
 namespace engine {
 
-namespace substrait {
-
-namespace {
-
-/// \brief A SinkNodeConsumer specialized to output ExecBatches via PushGenerator
-class SubstraitSinkConsumer : public compute::SinkNodeConsumer {
- public:
-  explicit SubstraitSinkConsumer(
-      arrow::PushGenerator<util::optional<compute::ExecBatch>>::Producer producer)
-      : producer_(std::move(producer)) {}
-
-  Status Consume(compute::ExecBatch batch) override {
-    // Consume a batch of data
-    bool did_push = producer_.Push(batch);
-    if (!did_push) return Status::Invalid("Producer closed already");
-    return Status::OK();
-  }
-
-  Status Init(const std::shared_ptr<Schema>& schema,
-              compute::BackpressureControl* backpressure_control) override {
-    schema_ = schema;
-    return Status::OK();
-  }
-
-  Future<> Finish() override {
-    ARROW_UNUSED(producer_.Close());
-    return Future<>::MakeFinished();
-  }
-
-  std::shared_ptr<Schema> schema() { return schema_; }
-
- private:
-  arrow::PushGenerator<util::optional<compute::ExecBatch>>::Producer producer_;
-  std::shared_ptr<Schema> schema_;
-};
-
-/// \brief An executor to run a Substrait Query
-/// This interface is provided as a utility when creating language
-/// bindings for consuming a Substrait plan.
-class SubstraitExecutor {
- public:
-  explicit SubstraitExecutor(std::shared_ptr<compute::ExecPlan> plan,
-                             compute::ExecContext exec_context)
-      : plan_(std::move(plan)), plan_started_(false), exec_context_(exec_context) {}
-
-  ~SubstraitExecutor() { ARROW_UNUSED(this->Close()); }
-
-  Result<std::shared_ptr<RecordBatchReader>> Execute() {
-    for (const compute::Declaration& decl : declarations_) {
-      RETURN_NOT_OK(decl.AddToPlan(plan_.get()).status());
-    }
-    RETURN_NOT_OK(plan_->Validate());
-    plan_started_ = true;
-    RETURN_NOT_OK(plan_->StartProducing());
-    auto schema = sink_consumer_->schema();
-    std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-        std::move(schema), std::move(generator_), exec_context_.memory_pool());
-    return sink_reader;
-  }
-
-  Status Close() {
-    if (plan_started_) return plan_->finished().status();
-    return Status::OK();
-  }
-
-  Status Init(const Buffer& substrait_buffer, const ExtensionIdRegistry* registry) {
-    if (substrait_buffer.size() == 0) {
-      return Status::Invalid("Empty substrait plan is passed.");
-    }
-    sink_consumer_ = std::make_shared<SubstraitSinkConsumer>(generator_.producer());
-    std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory = [&] {
-      return sink_consumer_;
-    };
-    ARROW_ASSIGN_OR_RAISE(
-        declarations_,
-        engine::DeserializePlans(substrait_buffer, consumer_factory, registry));
-    return Status::OK();
-  }
-
- private:
-  arrow::PushGenerator<util::optional<compute::ExecBatch>> generator_;
-  std::vector<compute::Declaration> declarations_;
-  std::shared_ptr<compute::ExecPlan> plan_;
-  bool plan_started_;
-  compute::ExecContext exec_context_;
-  std::shared_ptr<SubstraitSinkConsumer> sink_consumer_;
-};
-
-}  // namespace
-
 Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
-    const Buffer& substrait_buffer, const ExtensionIdRegistry* extid_registry,
-    compute::FunctionRegistry* func_registry) {
-  // TODO(ARROW-15732)
-  compute::ExecContext exec_context(arrow::default_memory_pool(),
-                                    ::arrow::internal::GetCpuThreadPool(), func_registry);
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(&exec_context));
-  SubstraitExecutor executor(std::move(plan), exec_context);
-  RETURN_NOT_OK(executor.Init(substrait_buffer, extid_registry));
-  ARROW_ASSIGN_OR_RAISE(auto sink_reader, executor.Execute());
-  // check closing here, not in destructor, to expose error to caller
-  RETURN_NOT_OK(executor.Close());
-  return sink_reader;
+    const Buffer& substrait_buffer, const ExtensionIdRegistry* registry,
+    compute::FunctionRegistry* func_registry, const ConversionOptions& conversion_options,
+    bool use_threads, MemoryPool* memory_pool) {
+  ARROW_ASSIGN_OR_RAISE(PlanInfo plan_info,
+                        DeserializePlan(substrait_buffer, registry,
+                                        /*ext_set_out=*/nullptr, conversion_options));
+  acero::QueryOptions query_options;
+  query_options.memory_pool = memory_pool;
+  query_options.function_registry = func_registry;
+  query_options.use_threads = use_threads;
+  query_options.field_names = plan_info.names;
+  return acero::DeclarationToReader(std::move(plan_info.root.declaration),
+                                    std::move(query_options));
 }
 
 Result<std::shared_ptr<Buffer>> SerializeJsonPlan(const std::string& substrait_json) {
@@ -136,18 +65,10 @@ std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry() {
   return nested_extension_id_registry(default_extension_id_registry());
 }
 
-Status RegisterFunction(ExtensionIdRegistry& registry, const std::string& id_uri,
-                        const std::string& id_name,
-                        const std::string& arrow_function_name) {
-  return registry.RegisterFunction(id_uri, id_name, arrow_function_name);
-}
-
 const std::string& default_extension_types_uri() {
-  static std::string uri = engine::kArrowExtTypesUri.to_string();
+  static std::string uri(engine::kArrowExtTypesUri);
   return uri;
 }
-
-}  // namespace substrait
 
 }  // namespace engine
 

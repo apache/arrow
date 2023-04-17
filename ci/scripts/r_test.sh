@@ -27,7 +27,7 @@ pushd ${source_dir}
 printenv
 
 # Run the nixlibs.R test suite, which is not included in the installed package
- ${R_BIN} -e 'setwd("tools"); testthat::test_dir(".")'
+${R_BIN} -e 'setwd("tools"); testthat::test_dir(".")'
 
 # Before release, we always copy the relevant parts of the cpp source into the
 # package. In some CI checks, we will use this version of the source:
@@ -77,11 +77,6 @@ export ARROW_DEBUG_MEMORY_POOL=trap
 export TEXMFCONFIG=/tmp/texmf-config
 export TEXMFVAR=/tmp/texmf-var
 
-if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
-  # enable the devtoolset version to use it
-  source /opt/rh/devtoolset-$DEVTOOLSET_VERSION/enable
-fi
-
 # Make sure we aren't writing to the home dir (CRAN _hates_ this but there is no official check)
 BEFORE=$(ls -alh ~/)
 
@@ -92,14 +87,6 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   } else {
     args <- c('--no-manual', '--ignore-vignettes')
     build_args <- '--no-build-vignettes'
-
-    if (nzchar(Sys.which('minio'))) {
-      message('Running minio for S3 tests (if build supports them)')
-      minio_dir <- tempfile()
-      dir.create(minio_dir)
-      pid_minio <- sys::exec_background('minio', c('server', minio_dir))
-      on.exit(tools::pskill(pid_minio), add = TRUE)
-    }
   }
 
   if (requireNamespace('reticulate', quietly = TRUE) && reticulate::py_module_available('pyarrow')) {

@@ -25,7 +25,7 @@
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -70,6 +70,7 @@ class TestOrcFileFormatScan : public FileFormatScanMixin<OrcFormatHelper> {};
 
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestOrcFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestOrcFileFormatScan, ScanNoReadahead) { TestScanNoReadahead(); }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedNested) {
   TestScanProjectedNested();

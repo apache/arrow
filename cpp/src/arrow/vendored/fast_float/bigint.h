@@ -18,7 +18,7 @@ namespace fast_float {
 // we might have platforms where `CHAR_BIT` is not 8, so let's avoid
 // doing `8 * sizeof(limb)`.
 #if defined(FASTFLOAT_64BIT) && !defined(__sparc)
-#define FASTFLOAT_64BIT_LIMB
+#define FASTFLOAT_64BIT_LIMB 1
 typedef uint64_t limb;
 constexpr size_t limb_bits = 64;
 #else

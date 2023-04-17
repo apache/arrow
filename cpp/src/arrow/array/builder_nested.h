@@ -51,14 +51,16 @@ class BaseListBuilder : public ArrayBuilder {
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
   BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
-                  const std::shared_ptr<DataType>& type)
-      : ArrayBuilder(pool),
-        offsets_builder_(pool),
+                  const std::shared_ptr<DataType>& type,
+                  int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool, alignment),
+        offsets_builder_(pool, alignment),
         value_builder_(value_builder),
         value_field_(type->field(0)->WithType(NULLPTR)) {}
 
-  BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder)
-      : BaseListBuilder(pool, value_builder, list(value_builder->type())) {}
+  BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
+                  int64_t alignment = kDefaultBufferAlignment)
+      : BaseListBuilder(pool, value_builder, list(value_builder->type()), alignment) {}
 
   Status Resize(int64_t capacity) override {
     if (capacity > maximum_elements()) {
@@ -129,9 +131,13 @@ class BaseListBuilder : public ArrayBuilder {
   Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     const offset_type* offsets = array.GetValues<offset_type>(1);
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
+    const bool all_valid = !array.MayHaveLogicalNulls();
+    const uint8_t* validity = array.HasValidityBitmap() ? array.buffers[0].data : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
-      if (!validity || bit_util::GetBit(validity, array.offset + row)) {
+      const bool is_valid =
+          all_valid || (validity && bit_util::GetBit(validity, array.offset + row)) ||
+          array.IsValid(row);
+      if (is_valid) {
         ARROW_RETURN_NOT_OK(Append());
         int64_t slot_length = offsets[row + 1] - offsets[row];
         ARROW_RETURN_NOT_OK(value_builder_->AppendArraySlice(array.child_data[0],
@@ -299,9 +305,13 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     const int32_t* offsets = array.GetValues<int32_t>(1);
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
+    const bool all_valid = !array.MayHaveLogicalNulls();
+    const uint8_t* validity = array.HasValidityBitmap() ? array.buffers[0].data : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
-      if (!validity || bit_util::GetBit(validity, array.offset + row)) {
+      const bool is_valid =
+          all_valid || (validity && bit_util::GetBit(validity, array.offset + row)) ||
+          array.IsValid(row);
+      if (is_valid) {
         ARROW_RETURN_NOT_OK(Append());
         const int64_t slot_length = offsets[row + 1] - offsets[row];
         // Add together the inner StructArray offset to the Map/List offset

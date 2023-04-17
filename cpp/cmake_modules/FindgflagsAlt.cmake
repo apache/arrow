@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(gflagsAlt_FOUND)
+  return()
+endif()
+
 set(find_package_args)
 if(gflagsAlt_FIND_VERSION)
   list(APPEND find_package_args ${gflagsAlt_FIND_VERSION})

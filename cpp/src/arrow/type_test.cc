@@ -27,8 +27,11 @@
 
 #include <gmock/gmock.h>
 
+#include "arrow/array.h"
 #include "arrow/memory_pool.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -128,6 +131,12 @@ TEST(TestField, Equals) {
   AssertFieldEqual(f0, f0_with_meta1);
   AssertFieldEqual(f0, f0_with_meta2);
   AssertFieldEqual(f0_with_meta1, f0_with_meta2);
+
+  // operator==(), where check_metadata == false
+  ASSERT_EQ(f0, f0_other);
+  ASSERT_NE(f0, f0_nn);
+  ASSERT_EQ(f0, f0_with_meta1);
+  ASSERT_EQ(f0_with_meta1, f0_with_meta2);
 }
 
 #define ASSERT_COMPATIBLE_IMPL(NAME, TYPE, PLURAL)                        \
@@ -373,6 +382,197 @@ TEST(TestFieldPath, Basics) {
                                   FieldPath({s.num_fields() * 2}).Get(s));
 }
 
+TEST(TestFieldPath, GetForTable) {
+  using testing::HasSubstr;
+
+  constexpr int kNumRows = 4;
+  auto f0 = field("a", int32());
+  auto f1 = field("b", int32());
+  auto f2 = field("c", struct_({f1}));
+  auto f3 = field("d", struct_({f0, f2}));
+  auto table_schema = schema({f0, f1, f2, f3});
+
+  // Each column has a different chunking
+  ChunkedArrayVector columns(4);
+  columns[0] = ChunkedArrayFromJSON(f0->type(), {"[0,1,2,3]"});
+  columns[1] = ChunkedArrayFromJSON(f1->type(), {"[3,2,1]", "[0]"});
+  columns[2] =
+      ChunkedArrayFromJSON(f2->type(), {R"([{"b":3},{"b":2}])", R"([{"b":1},{"b":0}])"});
+  columns[3] = ChunkedArrayFromJSON(
+      f3->type(), {R"([{"a":0,"c":{"b":3}},{"a":1,"c":{"b":2}}])",
+                   R"([{"a":2,"c":{"b":1}}])", R"([{"a":3,"c":{"b":0}}])"});
+  auto table = Table::Make(table_schema, columns, kNumRows);
+  ASSERT_OK(table->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto v0, FieldPath({0}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v1, FieldPath({1}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v2, FieldPath({2}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v2_0, FieldPath({2, 0}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v3, FieldPath({3}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v3_0, FieldPath({3, 0}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v3_1, FieldPath({3, 1}).Get(*table));
+  ASSERT_OK_AND_ASSIGN(auto v3_1_0, FieldPath({3, 1, 0}).Get(*table));
+
+  EXPECT_EQ(v0->num_chunks(), columns[0]->num_chunks());
+  EXPECT_EQ(v1->num_chunks(), columns[1]->num_chunks());
+  EXPECT_EQ(v2->num_chunks(), columns[2]->num_chunks());
+  EXPECT_EQ(v2_0->num_chunks(), columns[2]->num_chunks());
+  EXPECT_EQ(v3->num_chunks(), columns[3]->num_chunks());
+  EXPECT_EQ(v3_0->num_chunks(), columns[3]->num_chunks());
+  EXPECT_EQ(v3_1->num_chunks(), columns[3]->num_chunks());
+  EXPECT_EQ(v3_1_0->num_chunks(), columns[3]->num_chunks());
+
+  EXPECT_TRUE(columns[0]->Equals(v0));
+  EXPECT_TRUE(columns[0]->Equals(v3_0));
+
+  EXPECT_TRUE(columns[1]->Equals(v1));
+  EXPECT_TRUE(columns[1]->Equals(v2_0));
+  EXPECT_TRUE(columns[1]->Equals(v3_1_0));
+
+  EXPECT_TRUE(columns[2]->Equals(v2));
+  EXPECT_TRUE(columns[2]->Equals(v3_1));
+
+  EXPECT_TRUE(columns[3]->Equals(v3));
+
+  for (const auto& path :
+       {FieldPath({4, 1, 0}), FieldPath({3, 2, 0}), FieldPath{3, 1, 1}}) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, HasSubstr("index out of range"),
+                                    path.Get(*table));
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("empty indices cannot be traversed"),
+                                  FieldPath().Get(*table));
+}
+
+TEST(TestFieldPath, GetForChunkedArray) {
+  using testing::HasSubstr;
+
+  auto f0 = field("a", int32());
+  auto f1 = field("b", int32());
+  auto f2 = field("c", struct_({f1}));
+  auto f3 = field("d", struct_({f0, f2}));
+  auto type = struct_({f0, f1, f3});
+
+  auto column0 = ChunkedArrayFromJSON(f0->type(), {"[0,1,2,3]"});
+  auto column1 = ChunkedArrayFromJSON(f1->type(), {"[3,2,1,0]"});
+  auto column2_1 =
+      ChunkedArrayFromJSON(f2->type(), {R"([{"b":3},{"b":2},{"b":1},{"b":0}])"});
+  auto chunked_array = ChunkedArrayFromJSON(
+      type,
+      {
+          R"([{"a":0,"b":3,"d":{"a":0,"c":{"b":3}}}])",
+          R"([{"a":1,"b":2,"d":{"a":1,"c":{"b":2}}},{"a":2,"b":1,"d":{"a":2,"c":{"b":1}}}])",
+          R"([{"a":3,"b":0,"d":{"a":3,"c":{"b":0}}}])",
+      });
+  ASSERT_OK(chunked_array->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto v0, FieldPath({0}).Get(*chunked_array));
+  ASSERT_OK_AND_ASSIGN(auto v1, FieldPath({1}).Get(*chunked_array));
+  ASSERT_OK_AND_ASSIGN(auto v2_0, FieldPath({2, 0}).Get(*chunked_array));
+  ASSERT_OK_AND_ASSIGN(auto v2_1, FieldPath({2, 1}).Get(*chunked_array));
+  ASSERT_OK_AND_ASSIGN(auto v2_1_0, FieldPath({2, 1, 0}).Get(*chunked_array));
+
+  for (const auto& v : {v0, v1, v2_0, v2_1, v2_1_0}) {
+    EXPECT_EQ(v->num_chunks(), chunked_array->num_chunks());
+  }
+
+  EXPECT_TRUE(column0->Equals(v0));
+  EXPECT_TRUE(column0->Equals(v2_0));
+
+  EXPECT_TRUE(column1->Equals(v1));
+  EXPECT_TRUE(column1->Equals(v2_1_0));
+  EXPECT_FALSE(column1->Equals(v2_1));
+
+  EXPECT_TRUE(column2_1->Equals(v2_1));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  HasSubstr("Get child data of non-struct chunked array"),
+                                  FieldPath({0}).Get(*column0));
+}
+
+TEST(TestFieldPath, GetForChunkedArrayWithNulls) {
+  auto int_field = field("i", int32());
+  auto int_chunked_array =
+      ChunkedArrayFromJSON(int_field->type(), {"[0,1]", "[2,null]", "[3,4]"});
+
+  ASSERT_OK_AND_ASSIGN(auto null_bitmap, AllocateEmptyBitmap(2));
+  ArrayVector struct_chunks;
+  for (const auto& int_chunk : int_chunked_array->chunks()) {
+    ASSERT_OK_AND_ASSIGN(auto chunk,
+                         StructArray::Make({int_chunk}, {int_field}, null_bitmap, 2));
+    struct_chunks.push_back(chunk);
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto struct_chunked_array, ChunkedArray::Make(struct_chunks));
+  ASSERT_OK(struct_chunked_array->ValidateFull());
+  // The top-level null bitmap shouldn't affect the validity of the returned child field.
+  ASSERT_OK_AND_ASSIGN(auto int_child, FieldPath({0}).Get(*struct_chunked_array));
+  ASSERT_TRUE(int_chunked_array->Equals(int_child));
+}
+
+TEST(TestFieldPath, GetForEmptyChunked) {
+  FieldVector fields = {
+      field("i", int32()),
+      field("s", struct_({field("b", boolean()), field("f", float32())}))};
+  std::shared_ptr<ChunkedArray> child;
+
+  // Empty ChunkedArray with no chunks
+  ChunkedArray chunked_array({}, struct_(fields));
+  ASSERT_OK(chunked_array.ValidateFull());
+  ASSERT_EQ(chunked_array.num_chunks(), 0);
+  ASSERT_OK_AND_ASSIGN(child, FieldPath({1, 1}).Get(chunked_array));
+  AssertTypeEqual(float32(), child->type());
+  ASSERT_EQ(child->length(), 0);
+
+  // Empty Table with no column chunks
+  ChunkedArrayVector table_columns;
+  for (const auto& f : fields) {
+    table_columns.push_back(std::make_shared<ChunkedArray>(ArrayVector{}, f->type()));
+  }
+  auto table = Table::Make(schema(fields), table_columns, 0);
+  ASSERT_OK(table->ValidateFull());
+  for (const auto& column : table->columns()) {
+    ASSERT_EQ(column->num_chunks(), 0);
+  }
+  ASSERT_OK_AND_ASSIGN(child, FieldPath({1, 1}).Get(*table));
+  AssertTypeEqual(float32(), child->type());
+  ASSERT_EQ(child->length(), 0);
+}
+
+TEST(TestFieldPath, GetForRecordBatch) {
+  using testing::HasSubstr;
+
+  constexpr int kNumRows = 100;
+  auto f0 = field("alpha", int32());
+  auto f1 = field("beta", int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta", int32());
+  auto schema = arrow::schema({f0, f1, f2, f3});
+
+  arrow::random::RandomArrayGenerator gen_{42};
+  auto a0 = gen_.ArrayOf(int32(), kNumRows);
+  auto a1 = gen_.ArrayOf(int32(), kNumRows);
+  auto a2 = gen_.ArrayOf(int32(), kNumRows);
+  auto a3 = gen_.ArrayOf(int32(), kNumRows);
+  auto array_vector = ArrayVector({a0, a1, a2, a3});
+
+  auto record_batch_ptr = arrow::RecordBatch::Make(schema, kNumRows, array_vector);
+  ASSERT_OK(record_batch_ptr->ValidateFull());
+
+  // retrieving an array FieldPath is equivalent to RecordBatch::column
+  auto num_columns = record_batch_ptr->num_columns();
+  auto record_batch_schema = record_batch_ptr->schema();
+  for (int index = 0; index < num_columns; ++index) {
+    ASSERT_OK_AND_EQ(record_batch_schema->field(index), FieldPath({index}).Get(*schema));
+    ASSERT_OK_AND_ASSIGN(auto field_path_column,
+                         FieldPath({index}).Get(*record_batch_ptr));
+    EXPECT_TRUE(field_path_column->Equals(record_batch_ptr->column(index)));
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("empty indices cannot be traversed"),
+                                  FieldPath().Get(*record_batch_ptr));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, HasSubstr("index out of range"),
+                                  FieldPath({num_columns * 2}).Get(*record_batch_ptr));
+}
+
 TEST(TestFieldRef, Basics) {
   auto f0 = field("alpha", int32());
   auto f1 = field("beta", int32());
@@ -392,6 +592,71 @@ TEST(TestFieldRef, Basics) {
   EXPECT_THAT(FieldRef("beta").FindAll(s), ElementsAre(FieldPath{1}, FieldPath{3}));
 }
 
+TEST(TestFieldRef, FindAllForTable) {
+  constexpr int kNumRows = 100;
+  auto f0 = field("alpha", int32());
+  auto f1 = field("beta", int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta", int32());
+  auto schema = arrow::schema({f0, f1, f2, f3});
+
+  arrow::random::RandomArrayGenerator gen_{42};
+  auto a0 = gen_.ArrayOf(int32(), kNumRows);
+  auto a1 = gen_.ArrayOf(int32(), kNumRows);
+  auto a2 = gen_.ArrayOf(int32(), kNumRows);
+  auto a3 = gen_.ArrayOf(int32(), kNumRows);
+
+  auto table_ptr = Table::Make(schema, {a0, a1, a2, a3});
+  ASSERT_OK(table_ptr->ValidateFull());
+
+  // lookup by index returns Indices{index}
+  auto schema_num_fields = table_ptr->schema()->num_fields();
+  for (int index = 0; index < schema_num_fields; ++index) {
+    EXPECT_THAT(FieldRef(index).FindAll(*table_ptr), ElementsAre(FieldPath{index}));
+  }
+  // out of range index results in a failure to match
+  EXPECT_THAT(FieldRef(schema_num_fields * 2).FindAll(*table_ptr), ElementsAre());
+
+  //// lookup by name returns the Indices of both matching fields
+  EXPECT_THAT(FieldRef("alpha").FindAll(*table_ptr),
+              ElementsAre(FieldPath{0}, FieldPath{2}));
+  EXPECT_THAT(FieldRef("beta").FindAll(*table_ptr),
+              ElementsAre(FieldPath{1}, FieldPath{3}));
+}
+
+TEST(TestFieldRef, FindAllForRecordBatch) {
+  constexpr int kNumRows = 100;
+  auto f0 = field("alpha", int32());
+  auto f1 = field("beta", int32());
+  auto f2 = field("alpha", int32());
+  auto f3 = field("beta", int32());
+  auto schema = arrow::schema({f0, f1, f2, f3});
+
+  arrow::random::RandomArrayGenerator gen_{42};
+  auto a0 = gen_.ArrayOf(int32(), kNumRows);
+  auto a1 = gen_.ArrayOf(int32(), kNumRows);
+  auto a2 = gen_.ArrayOf(int32(), kNumRows);
+  auto a3 = gen_.ArrayOf(int32(), kNumRows);
+
+  auto record_batch_ptr = RecordBatch::Make(schema, kNumRows, {a0, a1, a2, a3});
+  ASSERT_OK(record_batch_ptr->ValidateFull());
+
+  // lookup by index returns Indices{index}
+  auto schema_num_fields = record_batch_ptr->schema()->num_fields();
+  for (int index = 0; index < schema_num_fields; ++index) {
+    EXPECT_THAT(FieldRef(index).FindAll(*record_batch_ptr),
+                ElementsAre(FieldPath{index}));
+  }
+  // out of range index results in a failure to match
+  EXPECT_THAT(FieldRef(schema_num_fields * 2).FindAll(*record_batch_ptr), ElementsAre());
+
+  //// lookup by name returns the Indices of both matching fields
+  EXPECT_THAT(FieldRef("alpha").FindAll(*record_batch_ptr),
+              ElementsAre(FieldPath{0}, FieldPath{2}));
+  EXPECT_THAT(FieldRef("beta").FindAll(*record_batch_ptr),
+              ElementsAre(FieldPath{1}, FieldPath{3}));
+}
+
 TEST(TestFieldRef, FromDotPath) {
   ASSERT_OK_AND_EQ(FieldRef("alpha"), FieldRef::FromDotPath(R"(.alpha)"));
 
@@ -408,10 +673,24 @@ TEST(TestFieldRef, FromDotPath) {
 
   ASSERT_OK_AND_EQ(FieldRef(R"([y]\tho.\)"), FieldRef::FromDotPath(R"(.\[y\]\\tho\.\)"));
 
-  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"()"));
+  ASSERT_OK_AND_EQ(FieldRef(), FieldRef::FromDotPath(R"()"));
+
   ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"(alpha)"));
   ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([134234)"));
   ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([1stuf])"));
+}
+
+TEST(TestFieldRef, DotPathRoundTrip) {
+  auto check_roundtrip = [](const FieldRef& ref) {
+    auto dot_path = ref.ToDotPath();
+    ASSERT_OK_AND_EQ(ref, FieldRef::FromDotPath(dot_path));
+  };
+
+  check_roundtrip(FieldRef());
+  check_roundtrip(FieldRef("foo"));
+  check_roundtrip(FieldRef("foo", 1, "bar", 2, 3));
+  check_roundtrip(FieldRef(1, 2, 3));
+  check_roundtrip(FieldRef("foo", 1, FieldRef("bar", 2, 3), FieldRef()));
 }
 
 TEST(TestFieldPath, Nested) {
@@ -450,6 +729,42 @@ TEST(TestFieldRef, Nested) {
               ElementsAre(FieldPath{2, 1, 0}, FieldPath{2, 1, 1}));
 }
 
+TEST(TestFieldRef, Flatten) {
+  FieldRef ref;
+
+  auto assert_name = [](const FieldRef& ref, const std::string& expected) {
+    ASSERT_TRUE(ref.IsName());
+    ASSERT_EQ(*ref.name(), expected);
+  };
+
+  auto assert_path = [](const FieldRef& ref, const std::vector<int>& expected) {
+    ASSERT_TRUE(ref.IsFieldPath());
+    ASSERT_EQ(ref.field_path()->indices(), expected);
+  };
+
+  auto assert_nested = [](const FieldRef& ref, const std::vector<FieldRef>& expected) {
+    ASSERT_TRUE(ref.IsNested());
+    ASSERT_EQ(*ref.nested_refs(), expected);
+  };
+
+  assert_path(FieldRef(), {});
+  assert_path(FieldRef(1, 2, 3), {1, 2, 3});
+  // If all leaves are field paths, they are fully flattened
+  assert_path(FieldRef(1, FieldRef(2, 3)), {1, 2, 3});
+  assert_path(FieldRef(1, FieldRef(2, 3), FieldRef(), FieldRef(FieldRef(4), FieldRef(5))),
+              {1, 2, 3, 4, 5});
+  assert_path(FieldRef(FieldRef(), FieldRef(FieldRef(), FieldRef())), {});
+
+  assert_name(FieldRef("foo"), "foo");
+
+  // Nested empty field refs are optimized away
+  assert_nested(FieldRef("foo", 1, FieldRef(), FieldRef(FieldRef(), "bar")),
+                {FieldRef("foo"), FieldRef(1), FieldRef("bar")});
+  // For now, subsequences of indices are not concatenated
+  assert_nested(FieldRef("foo", FieldRef("bar"), FieldRef(1, 2), FieldRef(3)),
+                {FieldRef("foo"), FieldRef("bar"), FieldRef(1, 2), FieldRef(3)});
+}
+
 using TestSchema = ::testing::Test;
 
 TEST_F(TestSchema, Basics) {
@@ -472,6 +787,8 @@ TEST_F(TestSchema, Basics) {
   auto schema3 = std::make_shared<Schema>(fields3);
   AssertSchemaEqual(schema, schema2);
   AssertSchemaNotEqual(schema, schema3);
+  ASSERT_EQ(*schema, *schema2);
+  ASSERT_NE(*schema, *schema3);
 
   ASSERT_EQ(schema->fingerprint(), schema2->fingerprint());
   ASSERT_NE(schema->fingerprint(), schema3->fingerprint());
@@ -1204,6 +1521,8 @@ TEST(TestLargeListType, Basics) {
 }
 
 TEST(TestMapType, Basics) {
+  auto md = key_value_metadata({"foo"}, {"foo value"});
+
   std::shared_ptr<DataType> kt = std::make_shared<StringType>();
   std::shared_ptr<DataType> it = std::make_shared<UInt8Type>();
 
@@ -1236,6 +1555,41 @@ TEST(TestMapType, Basics) {
           "some_entries",
           struct_({field("some_key", kt, false), field("some_value", mt)}), false)));
   AssertTypeEqual(mt3, *mt5);
+  // ...unless we explicitly ask about them.
+  ASSERT_FALSE(mt3.Equals(mt5, /*check_metadata=*/true));
+
+  // nullability of value type matters in comparisons
+  MapType map_type_non_nullable(kt, field("value", it, /*nullable=*/false));
+  AssertTypeNotEqual(map_type, map_type_non_nullable);
+}
+
+TEST(TestMapType, Metadata) {
+  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md3 = key_value_metadata({"foo"}, {"foo value"});
+
+  auto t1 = map(utf8(), field("value", int32(), md1));
+  auto t2 = map(utf8(), field("value", int32(), md2));
+  auto t3 = map(utf8(), field("value", int32(), md3));
+  auto t4 =
+      std::make_shared<MapType>(field("key", utf8(), md1), field("value", int32(), md2));
+  ASSERT_OK_AND_ASSIGN(auto t5,
+                       MapType::Make(field("some_entries",
+                                           struct_({field("some_key", utf8(), false),
+                                                    field("some_value", int32(), md2)}),
+                                           false, md2)));
+
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeEqual(*t1, *t2, /*check_metadata=*/true);
+
+  AssertTypeEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t3, /*check_metadata=*/true);
+
+  AssertTypeEqual(*t1, *t4);
+  AssertTypeNotEqual(*t1, *t4, /*check_metadata=*/true);
+
+  AssertTypeEqual(*t1, *t5);
+  AssertTypeNotEqual(*t1, *t5, /*check_metadata=*/true);
 }
 
 TEST(TestFixedSizeListType, Basics) {
@@ -1420,15 +1774,26 @@ TEST(TestListType, Equals) {
   auto t1 = list(utf8());
   auto t2 = list(utf8());
   auto t3 = list(binary());
-  auto t4 = large_list(binary());
-  auto t5 = large_list(binary());
-  auto t6 = large_list(float64());
+  auto t4 = list(field("item", utf8(), /*nullable=*/false));
+  auto tl1 = large_list(binary());
+  auto tl2 = large_list(binary());
+  auto tl3 = large_list(float64());
 
   AssertTypeEqual(*t1, *t2);
   AssertTypeNotEqual(*t1, *t3);
-  AssertTypeNotEqual(*t3, *t4);
-  AssertTypeEqual(*t4, *t5);
-  AssertTypeNotEqual(*t5, *t6);
+  AssertTypeNotEqual(*t1, *t4);
+  AssertTypeNotEqual(*t3, *tl1);
+  AssertTypeEqual(*tl1, *tl2);
+  AssertTypeNotEqual(*tl2, *tl3);
+
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+  std::shared_ptr<Field> inner_field = std::make_shared<Field>("non_default_name", vt);
+
+  ListType list_type(vt);
+  ListType list_type_named(inner_field);
+
+  AssertTypeEqual(list_type, list_type_named);
+  ASSERT_FALSE(list_type.Equals(list_type_named, /*check_metadata=*/true));
 }
 
 TEST(TestListType, Metadata) {
@@ -1820,5 +2185,81 @@ TEST(TypesTest, TestDecimalEquals) {
   AssertTypeNotEqual(t5, t8);
   AssertTypeNotEqual(t5, t10);
 }
+
+TEST(TypesTest, TestRunEndEncodedType) {
+  auto int8_ree_expected = std::make_shared<RunEndEncodedType>(int32(), list(int8()));
+  auto int8_ree_type = run_end_encoded(int32(), list(int8()));
+  auto int32_ree_type = run_end_encoded(int32(), list(int32()));
+
+  ASSERT_EQ(*int8_ree_expected, *int8_ree_type);
+  ASSERT_NE(*int8_ree_expected, *int32_ree_type);
+
+  ASSERT_EQ(int8_ree_type->id(), Type::RUN_END_ENCODED);
+  ASSERT_EQ(int32_ree_type->id(), Type::RUN_END_ENCODED);
+
+  auto int8_ree_type_cast = std::dynamic_pointer_cast<RunEndEncodedType>(int8_ree_type);
+  auto int32_ree_type_cast = std::dynamic_pointer_cast<RunEndEncodedType>(int32_ree_type);
+  ASSERT_EQ(*int8_ree_type_cast->value_type(), *list(int8()));
+  ASSERT_EQ(*int32_ree_type_cast->value_type(), *list(int32()));
+
+  ASSERT_TRUE(int8_ree_type_cast->field(0)->Equals(Field("run_ends", int32(), false)));
+  ASSERT_TRUE(int8_ree_type_cast->field(1)->Equals(Field("values", list(int8()), true)));
+
+  auto int16_int32_ree_type = run_end_encoded(int16(), list(int32()));
+  auto int64_int32_ree_type = run_end_encoded(int64(), list(int32()));
+  ASSERT_NE(*int32_ree_type, *int16_int32_ree_type);
+  ASSERT_NE(*int32_ree_type, *int64_int32_ree_type);
+  ASSERT_NE(*int16_int32_ree_type, *int64_int32_ree_type);
+
+  ASSERT_EQ(int16_int32_ree_type->ToString(),
+            "run_end_encoded<run_ends: int16, values: list<item: int32>>");
+  ASSERT_EQ(int8_ree_type->ToString(),
+            "run_end_encoded<run_ends: int32, values: list<item: int8>>");
+  ASSERT_EQ(int64_int32_ree_type->ToString(),
+            "run_end_encoded<run_ends: int64, values: list<item: int32>>");
+}
+
+#define TEST_PREDICATE(all_types, type_predicate)                 \
+  for (auto type : all_types) {                                   \
+    ASSERT_EQ(type_predicate(type->id()), type_predicate(*type)); \
+  }
+
+TEST(TypesTest, TestMembership) {
+  std::vector<std::shared_ptr<DataType>> all_types;
+  for (auto type : NumericTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : TemporalTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : IntervalTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : PrimitiveTypes()) {
+    all_types.push_back(type);
+  }
+  TEST_PREDICATE(all_types, is_integer);
+  TEST_PREDICATE(all_types, is_signed_integer);
+  TEST_PREDICATE(all_types, is_unsigned_integer);
+  TEST_PREDICATE(all_types, is_floating);
+  TEST_PREDICATE(all_types, is_numeric);
+  TEST_PREDICATE(all_types, is_decimal);
+  TEST_PREDICATE(all_types, is_primitive);
+  TEST_PREDICATE(all_types, is_base_binary_like);
+  TEST_PREDICATE(all_types, is_binary_like);
+  TEST_PREDICATE(all_types, is_large_binary_like);
+  TEST_PREDICATE(all_types, is_binary);
+  TEST_PREDICATE(all_types, is_string);
+  TEST_PREDICATE(all_types, is_temporal);
+  TEST_PREDICATE(all_types, is_interval);
+  TEST_PREDICATE(all_types, is_dictionary);
+  TEST_PREDICATE(all_types, is_fixed_size_binary);
+  TEST_PREDICATE(all_types, is_fixed_width);
+  TEST_PREDICATE(all_types, is_list_like);
+  TEST_PREDICATE(all_types, is_nested);
+  TEST_PREDICATE(all_types, is_union);
+}
+
+#undef TEST_PREDICATE
 
 }  // namespace arrow

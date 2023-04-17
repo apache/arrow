@@ -31,8 +31,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef cppclass CFileInfo "arrow::fs::FileInfo":
         CFileInfo()
-        CFileInfo(CFileInfo&&)
-        CFileInfo& operator=(CFileInfo&&)
+        CFileInfo(CFileInfo)
+        CFileInfo& operator=(CFileInfo)
         CFileInfo(const CFileInfo&)
         CFileInfo& operator=(const CFileInfo&)
 
@@ -129,6 +129,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef struct CS3GlobalOptions "arrow::fs::S3GlobalOptions":
         CS3LogLevel log_level
+        int num_event_loop_threads
 
     cdef cppclass CS3ProxyOptions "arrow::fs::S3ProxyOptions":
         c_string scheme
@@ -150,8 +151,17 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CS3CredentialsKind_WebIdentity \
             "arrow::fs::S3CredentialsKind::WebIdentity"
 
+    cdef cppclass CS3RetryStrategy "arrow::fs::S3RetryStrategy":
+        @staticmethod
+        shared_ptr[CS3RetryStrategy] GetAwsDefaultRetryStrategy(int64_t max_attempts)
+
+        @staticmethod
+        shared_ptr[CS3RetryStrategy] GetAwsStandardRetryStrategy(int64_t max_attempts)
+
     cdef cppclass CS3Options "arrow::fs::S3Options":
         c_string region
+        double connect_timeout
+        double request_timeout
         c_string endpoint_override
         c_string scheme
         c_bool background_writes
@@ -164,6 +174,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         int load_frequency
         CS3ProxyOptions proxy_options
         CS3CredentialsKind credentials_kind
+        shared_ptr[CS3RetryStrategy] retry_strategy
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
                                 const c_string& secret_key,
@@ -198,6 +209,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef CStatus CInitializeS3 "arrow::fs::InitializeS3"(
         const CS3GlobalOptions& options)
+    cdef CStatus CEnsureS3Initialized "arrow::fs::EnsureS3Initialized"()
     cdef CStatus CFinalizeS3 "arrow::fs::FinalizeS3"()
 
     cdef CResult[c_string] ResolveS3BucketRegion(const c_string& bucket)
@@ -213,7 +225,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_string default_bucket_location
-        c_optional[double] retry_limit_seconds
+        optional[double] retry_limit_seconds
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_bool Equals(const CS3Options& other)
 

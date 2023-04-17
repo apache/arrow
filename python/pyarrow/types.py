@@ -296,6 +296,17 @@ def is_nested(t):
     return t.id in _NESTED_TYPES
 
 
+def is_run_end_encoded(t):
+    """
+    Return True if value is an instance of a run-end encoded type.
+
+    Parameters
+    ----------
+    t : DataType
+    """
+    return t.id == lib.Type_RUN_END_ENCODED
+
+
 def is_temporal(t):
     """
     Return True if value is an instance of date, time, timestamp or duration.

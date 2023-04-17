@@ -17,7 +17,7 @@
 
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/cast_internal.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/extension_type.h"
 #include "arrow/util/checked_cast.h"
 

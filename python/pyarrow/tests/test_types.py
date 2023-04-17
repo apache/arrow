@@ -83,7 +83,10 @@ def get_many_types():
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
         pa.union([pa.field('a', pa.binary(10), nullable=False),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-        pa.dictionary(pa.int32(), pa.string())
+        pa.dictionary(pa.int32(), pa.string()),
+        pa.run_end_encoded(pa.int16(), pa.int32()),
+        pa.run_end_encoded(pa.int32(), pa.string()),
+        pa.run_end_encoded(pa.int64(), pa.uint8())
     )
 
 
@@ -207,6 +210,11 @@ def test_is_union():
                                         pa.field('c', pa.string())],
                                        mode=mode))
     assert not types.is_union(pa.list_(pa.int32()))
+
+
+def test_is_run_end_encoded():
+    assert types.is_run_end_encoded(pa.run_end_encoded(pa.int32(), pa.int64()))
+    assert not types.is_run_end_encoded(pa.utf8())
 
 
 # TODO(wesm): is_map, once implemented
@@ -518,6 +526,21 @@ def test_list_type():
     assert ty.value_type == pa.int64()
     assert ty.value_field == pa.field("item", pa.int64(), nullable=True)
 
+    # nullability matters in comparison
+    ty_non_nullable = pa.list_(pa.field("item", pa.int64(), nullable=False))
+    assert ty != ty_non_nullable
+
+    # field names don't matter by default
+    ty_named = pa.list_(pa.field("element", pa.int64()))
+    assert ty == ty_named
+    assert not ty.equals(ty_named, check_metadata=True)
+
+    # metadata doesn't matter by default
+    ty_metadata = pa.list_(
+        pa.field("item", pa.int64(), metadata={"hello": "world"}))
+    assert ty == ty_metadata
+    assert not ty.equals(ty_metadata, check_metadata=True)
+
     with pytest.raises(TypeError):
         pa.list_(None)
 
@@ -539,6 +562,23 @@ def test_map_type():
     assert ty.key_field == pa.field("key", pa.utf8(), nullable=False)
     assert ty.item_type == pa.int32()
     assert ty.item_field == pa.field("value", pa.int32(), nullable=True)
+
+    # nullability matters in comparison
+    ty_non_nullable = pa.map_(pa.utf8(), pa.field(
+        "value", pa.int32(), nullable=False))
+    assert ty != ty_non_nullable
+
+    # field names don't matter by default
+    ty_named = pa.map_(pa.field("x", pa.utf8(), nullable=False),
+                       pa.field("y", pa.int32()))
+    assert ty == ty_named
+    assert not ty.equals(ty_named, check_metadata=True)
+
+    # metadata doesn't matter by default
+    ty_metadata = pa.map_(pa.utf8(), pa.field(
+        "value", pa.int32(), metadata={"hello": "world"}))
+    assert ty == ty_metadata
+    assert not ty.equals(ty_metadata, check_metadata=True)
 
     with pytest.raises(TypeError):
         pa.map_(None)
@@ -577,13 +617,23 @@ def test_struct_type():
 
     assert ty['b'] == ty[2]
 
+    assert ty['b'] == ty.field('b')
+
+    assert ty[2] == ty.field(2)
+
     # Not found
     with pytest.raises(KeyError):
         ty['c']
 
+    with pytest.raises(KeyError):
+        ty.field('c')
+
     # Neither integer nor string
     with pytest.raises(TypeError):
         ty[None]
+
+    with pytest.raises(TypeError):
+        ty.field(None)
 
     for a, b in zip(ty, fields):
         a == b
@@ -634,6 +684,7 @@ def test_union_type():
     def check_fields(ty, fields):
         assert ty.num_fields == len(fields)
         assert [ty[i] for i in range(ty.num_fields)] == fields
+        assert [ty.field(i) for i in range(ty.num_fields)] == fields
 
     fields = [pa.field('x', pa.list_(pa.int32())),
               pa.field('y', pa.binary())]
@@ -775,6 +826,24 @@ def test_fields_weakrefable():
     assert wr() is None
 
 
+def test_run_end_encoded_type():
+    ty = pa.run_end_encoded(pa.int64(), pa.utf8())
+    assert isinstance(ty, pa.RunEndEncodedType)
+    assert ty.run_end_type == pa.int64()
+    assert ty.value_type == pa.utf8()
+    assert ty.num_buffers == 1  # buffers expected to be {NULLPTR}
+    assert ty.num_fields == 2
+
+    with pytest.raises(TypeError):
+        pa.run_end_encoded(pa.int64(), None)
+
+    with pytest.raises(TypeError):
+        pa.run_end_encoded(None, pa.utf8())
+
+    with pytest.raises(ValueError):
+        pa.run_end_encoded(pa.int8(), pa.utf8())
+
+
 @pytest.mark.parametrize('t,check_func', [
     (pa.date32(), types.is_date32),
     (pa.date64(), types.is_date64),
@@ -844,6 +913,31 @@ def test_decimal_overflow():
     for i in (0, -1, 77):
         with pytest.raises(ValueError):
             pa.decimal256(i, 0)
+
+
+def test_timedelta_overflow():
+    # microsecond resolution, overflow
+    d = datetime.timedelta(days=-106751992, seconds=71945, microseconds=224192)
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(d)
+
+    # microsecond resolution, overflow
+    d = datetime.timedelta(days=106751991, seconds=14454, microseconds=775808)
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(d)
+
+    # nanosecond resolution, overflow
+    d = datetime.timedelta(days=-106752, seconds=763, microseconds=145224)
+    with pytest.raises(pa.ArrowInvalid):
+        pa.scalar(d, type=pa.duration('ns'))
+
+    # microsecond resolution, not overflow
+    pa.scalar(d, type=pa.duration('us')).as_py() == d
+
+    # second/millisecond resolution, not overflow
+    for d in [datetime.timedelta.min, datetime.timedelta.max]:
+        pa.scalar(d, type=pa.duration('ms')).as_py() == d
+        pa.scalar(d, type=pa.duration('s')).as_py() == d
 
 
 def test_type_equality_operators():
@@ -1120,3 +1214,10 @@ def test_hashing(items):
 
     for i, item in enumerate(items):
         assert container[item] == i
+
+
+def test_types_come_back_with_specific_type():
+    for arrow_type in get_many_types():
+        schema = pa.schema([pa.field("field_name", arrow_type)])
+        type_back = schema.field("field_name").type
+        assert type(type_back) is type(arrow_type)

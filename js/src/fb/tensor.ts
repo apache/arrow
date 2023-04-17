@@ -10,7 +10,7 @@ import { Type } from './type.js';
 export class Tensor {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Tensor {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Tensor {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -34,8 +34,7 @@ typeType():Type {
  * The type of data contained in a value cell. Currently only fixed-width
  * value types are supported, no strings or nested types
  */
-// @ts-ignore
-type<T extends flatbuffers.Table>(obj:any):any|null {
+type(obj:any):any|null {
   const offset = this.bb!.__offset(this.bb_pos, 6);
   return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
 }
@@ -57,9 +56,9 @@ shapeLength():number {
  * Non-negative byte offsets to advance one value cell along each dimension
  * If omitted, default to row-major order (C-like).
  */
-strides(index: number):flatbuffers.Long|null {
+strides(index: number):bigint|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.readInt64(this.bb!.__vector(this.bb_pos + offset) + index * 8) : this.bb!.createLong(0, 0);
+  return offset ? this.bb!.readInt64(this.bb!.__vector(this.bb_pos + offset) + index * 8) : BigInt(0);
 }
 
 stridesLength():number {
@@ -107,7 +106,7 @@ static addStrides(builder:flatbuffers.Builder, stridesOffset:flatbuffers.Offset)
   builder.addFieldOffset(3, stridesOffset, 0);
 }
 
-static createStridesVector(builder:flatbuffers.Builder, data:flatbuffers.Long[]):flatbuffers.Offset {
+static createStridesVector(builder:flatbuffers.Builder, data:bigint[]):flatbuffers.Offset {
   builder.startVector(8, data.length, 8);
   for (let i = data.length - 1; i >= 0; i--) {
     builder.addInt64(data[i]!);

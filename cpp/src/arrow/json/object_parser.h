@@ -18,9 +18,10 @@
 #pragma once
 
 #include <memory>
+#include <string_view>
+#include <unordered_map>
 
 #include "arrow/result.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -34,10 +35,14 @@ class ARROW_EXPORT ObjectParser {
   ObjectParser();
   ~ObjectParser();
 
-  Status Parse(arrow::util::string_view json);
+  Status Parse(std::string_view json);
 
   Result<std::string> GetString(const char* key) const;
+
   Result<bool> GetBool(const char* key) const;
+
+  // Get all members of the object as a map from string keys to string values
+  Result<std::unordered_map<std::string, std::string>> GetStringMap() const;
 
  private:
   class Impl;

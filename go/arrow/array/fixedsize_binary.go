@@ -18,10 +18,11 @@ package array
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/goccy/go-json"
 )
 
@@ -51,6 +52,12 @@ func (a *FixedSizeBinary) Value(i int) []byte {
 	)
 	return a.valueBytes[beg:end]
 }
+func (a *FixedSizeBinary) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return base64.StdEncoding.EncodeToString(a.Value(i))
+}
 
 func (a *FixedSizeBinary) String() string {
 	o := new(strings.Builder)
@@ -79,7 +86,7 @@ func (a *FixedSizeBinary) setData(data *Data) {
 
 }
 
-func (a *FixedSizeBinary) getOneForMarshal(i int) interface{} {
+func (a *FixedSizeBinary) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}

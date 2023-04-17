@@ -21,20 +21,16 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/memory_pool.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/cpu_info.h"
+#include "arrow/util/logging.h"  // IWYU pragma: keep
 
 namespace arrow {
 
-using internal::CpuInfo;
-
-static const CpuInfo* cpu_info = CpuInfo::GetInstance();
-
-static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L1);
-static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L2);
-static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L3);
-static const int64_t kCantFitInL3Size = kL3Size * 4;
-static const std::vector<int64_t> kMemorySizes = {kL1Size, kL2Size, kL3Size,
-                                                  kCantFitInL3Size};
+// Benchmark changed its parameter type between releases from
+// int to int64_t. As it doesn't have version macros, we need
+// to apply C++ template magic.
 
 template <typename Func>
 struct BenchmarkArgsType;
@@ -46,11 +42,21 @@ struct BenchmarkArgsType<benchmark::internal::Benchmark* (
   using type = Values;
 };
 
-// Benchmark changed its parameter type between releases from
-// int to int64_t. As it doesn't have version macros, we need
-// to apply C++ template magic.
 using ArgsType =
     typename BenchmarkArgsType<decltype(&benchmark::internal::Benchmark::Args)>::type;
+
+using internal::CpuInfo;
+
+static const CpuInfo* cpu_info = CpuInfo::GetInstance();
+
+static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L1);
+static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L2);
+static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L3);
+static const int64_t kCantFitInL3Size = kL3Size * 4;
+static const std::vector<int64_t> kMemorySizes = {kL1Size, kL2Size, kL3Size,
+                                                  kCantFitInL3Size};
+// 0 is treated as "no nulls"
+static const std::vector<ArgsType> kInverseNullProportions = {10000, 100, 10, 2, 1, 0};
 
 struct GenericItemsArgs {
   // number of items processed per iteration
@@ -82,10 +88,8 @@ void BenchmarkSetArgsWithSizes(benchmark::internal::Benchmark* bench,
                                const std::vector<int64_t>& sizes = kMemorySizes) {
   bench->Unit(benchmark::kMicrosecond);
 
-  // 0 is treated as "no nulls"
   for (const auto size : sizes) {
-    for (const auto inverse_null_proportion :
-         std::vector<ArgsType>({10000, 100, 10, 2, 1, 0})) {
+    for (const auto inverse_null_proportion : kInverseNullProportions) {
       bench->Args({static_cast<ArgsType>(size), inverse_null_proportion});
     }
   }
@@ -133,6 +137,68 @@ struct RegressionArgs {
  private:
   benchmark::State& state_;
   bool size_is_bytes_;
+};
+
+class MemoryPoolMemoryManager : public benchmark::MemoryManager {
+  void Start() override {
+    memory_pool = std::make_shared<ProxyMemoryPool>(default_memory_pool());
+
+    MemoryPool* default_pool = default_memory_pool();
+    global_allocations_start = default_pool->num_allocations();
+  }
+
+  void Stop(benchmark::MemoryManager::Result* result) override {
+    // If num_allocations is still zero, we assume that the memory pool wasn't passed down
+    // so we should record them.
+    MemoryPool* default_pool = default_memory_pool();
+    int64_t new_default_allocations =
+        default_pool->num_allocations() - global_allocations_start;
+
+    // Only record metrics metrics if (1) there were allocations and (2) we
+    // recorded at least one.
+    if (new_default_allocations > 0 && memory_pool->num_allocations() > 0) {
+      if (new_default_allocations > memory_pool->num_allocations()) {
+        // If we missed some, let's report that.
+        int64_t missed_allocations =
+            new_default_allocations - memory_pool->num_allocations();
+        ARROW_LOG(WARNING) << "BenchmarkMemoryTracker recorded some allocations "
+                           << "for a benchmark, but missed " << missed_allocations
+                           << " allocations.\n";
+      }
+
+      result->max_bytes_used = memory_pool->max_memory();
+      result->total_allocated_bytes = memory_pool->total_bytes_allocated();
+      result->num_allocs = memory_pool->num_allocations();
+    }
+  }
+
+ public:
+  std::shared_ptr<::arrow::ProxyMemoryPool> memory_pool;
+
+ protected:
+  int64_t global_allocations_start;
+};
+
+/// \brief Track memory pool allocations in benchmarks.
+///
+/// Instantiate as a global variable to register the hooks into Google Benchmark
+/// to collect memory metrics. Before each benchmark, a new ProxyMemoryPool is
+/// created. It can then be accessed with memory_pool(). Once the benchmark is
+/// complete, the hook will record the maximum memory used, the total bytes
+/// allocated, and the total number of allocations. If no allocations were seen,
+/// (for example, if you forgot to pass down the memory pool), then these metrics
+/// will not be saved.
+///
+/// Since this is used as one global variable, this will not work if multiple
+/// benchmarks are run concurrently or for multi-threaded benchmarks (ones
+/// that use `->ThreadRange(...)`).
+class BenchmarkMemoryTracker {
+ public:
+  BenchmarkMemoryTracker() : manager_() { ::benchmark::RegisterMemoryManager(&manager_); }
+  ::arrow::MemoryPool* memory_pool() const { return manager_.memory_pool.get(); }
+
+ protected:
+  ::arrow::MemoryPoolMemoryManager manager_;
 };
 
 }  // namespace arrow

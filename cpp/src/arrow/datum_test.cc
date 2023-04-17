@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <chrono>
 #include <memory>
 #include <string>
 
@@ -101,6 +102,30 @@ TEST(Datum, Constructors) {
   Datum val6;
   val6 = std::move(val4);
   Check(val6);
+
+  AssertDatumsEqual(Datum{std::chrono::nanoseconds{1235}},
+                    Datum{DurationScalar{1235, TimeUnit::NANO}});
+
+  AssertDatumsEqual(Datum{std::chrono::microseconds{58}},
+                    Datum{DurationScalar{58, TimeUnit::MICRO}});
+
+  AssertDatumsEqual(Datum{std::chrono::milliseconds{952}},
+                    Datum{DurationScalar{952, TimeUnit::MILLI}});
+
+  AssertDatumsEqual(Datum{std::chrono::seconds{625}},
+                    Datum{DurationScalar{625, TimeUnit::SECOND}});
+
+  AssertDatumsEqual(Datum{std::chrono::minutes{2}},
+                    Datum{DurationScalar{120, TimeUnit::SECOND}});
+
+  // finer than nanoseconds; we can't represent this without truncation
+  using picoseconds = std::chrono::duration<int64_t, std::pico>;
+  static_assert(!std::is_constructible_v<Datum, picoseconds>);
+
+  // between seconds and milliseconds; we could represent this as milliseconds safely, but
+  // it's a pain to support
+  using centiseconds = std::chrono::duration<int64_t, std::centi>;
+  static_assert(!std::is_constructible_v<Datum, centiseconds>);
 }
 
 TEST(Datum, NullCount) {

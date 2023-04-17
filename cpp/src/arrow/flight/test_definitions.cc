@@ -108,7 +108,11 @@ void ConnectivityTest::TestBrokenConnection() {
   ASSERT_OK(server->Shutdown());
   ASSERT_OK(server->Wait());
 
-  ASSERT_RAISES(IOError, client->GetFlightInfo(FlightDescriptor::Command("")));
+  auto status = client->GetFlightInfo(FlightDescriptor::Command(""));
+  ASSERT_NOT_OK(status);
+  ASSERT_THAT(
+      status.status().code(),
+      ::testing::AnyOf(::arrow::StatusCode::IOError, ::arrow::StatusCode::UnknownError));
 }
 
 //------------------------------------------------------------
@@ -854,8 +858,8 @@ Status AppMetadataTestServer::DoGet(const ServerCallContext& context,
     RETURN_NOT_OK(ExampleIntBatches(&batches));
   }
   ARROW_ASSIGN_OR_RAISE(auto batch_reader, RecordBatchReader::Make(batches));
-  *data_stream = std::unique_ptr<FlightDataStream>(new NumberingStream(
-      std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader))));
+  *data_stream = std::make_unique<NumberingStream>(
+      std::make_unique<RecordBatchStream>(batch_reader));
   return Status::OK();
 }
 Status AppMetadataTestServer::DoPut(const ServerCallContext& context,
@@ -1011,7 +1015,7 @@ class IpcOptionsTestServer : public FlightServerBase {
     RecordBatchVector batches;
     RETURN_NOT_OK(ExampleNestedBatches(&batches));
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make(batches));
-    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
+    *data_stream = std::make_unique<RecordBatchStream>(reader);
     return Status::OK();
   }
 
@@ -1200,7 +1204,7 @@ class CudaTestServer : public FlightServerBase {
                std::unique_ptr<FlightDataStream>* data_stream) override {
     RETURN_NOT_OK(ExampleIntBatches(&batches_));
     ARROW_ASSIGN_OR_RAISE(auto batch_reader, RecordBatchReader::Make(batches_));
-    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
+    *data_stream = std::make_unique<RecordBatchStream>(batch_reader);
     return Status::OK();
   }
 

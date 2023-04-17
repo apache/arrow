@@ -29,6 +29,9 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtil;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
@@ -65,19 +68,27 @@ public abstract class ArrowWriter implements AutoCloseable {
   protected IpcOption option;
 
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
-    this (root, provider, out, IpcOption.DEFAULT);
+    this(root, provider, out, IpcOption.DEFAULT);
+  }
+
+  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
+    this(root, provider, out, option, NoCompressionCodec.Factory.INSTANCE, CompressionUtil.CodecType.NO_COMPRESSION);
   }
 
   /**
    * Note: fields are not closed when the writer is closed.
    *
-   * @param root     the vectors to write to the output
-   * @param provider where to find the dictionaries
-   * @param out      the output where to write
-   * @param option   IPC write options
+   * @param root               the vectors to write to the output
+   * @param provider           where to find the dictionaries
+   * @param out                the output where to write
+   * @param option             IPC write options
+   * @param compressionFactory Compression codec factory
+   * @param codecType          Compression codec
    */
-  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
-    this.unloader = new VectorUnloader(root);
+  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option,
+                        CompressionCodec.Factory compressionFactory, CompressionUtil.CodecType codecType) {
+    this.unloader = new VectorUnloader(
+        root, /*includeNullCount*/ true, compressionFactory.createCodec(codecType), /*alignBuffers*/ true);
     this.out = new WriteChannel(out);
     this.option = option;
 

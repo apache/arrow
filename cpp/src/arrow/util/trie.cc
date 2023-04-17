@@ -91,7 +91,7 @@ Status TrieBuilder::AppendChildNode(Trie::Node* parent, uint8_t ch, Trie::Node&&
 }
 
 Status TrieBuilder::CreateChildNode(Trie::Node* parent, uint8_t ch,
-                                    util::string_view substring) {
+                                    std::string_view substring) {
   const auto kMaxSubstringLength = Trie::kMaxSubstringLength;
 
   while (substring.length() > kMaxSubstringLength) {
@@ -112,7 +112,7 @@ Status TrieBuilder::CreateChildNode(Trie::Node* parent, uint8_t ch,
 }
 
 Status TrieBuilder::CreateChildNode(Trie::Node* parent, char ch,
-                                    util::string_view substring) {
+                                    std::string_view substring) {
   return CreateChildNode(parent, static_cast<uint8_t>(ch), substring);
 }
 
@@ -147,7 +147,7 @@ Status TrieBuilder::SplitNode(fast_index_type node_index, fast_index_type split_
   return Status::OK();
 }
 
-Status TrieBuilder::Append(util::string_view s, bool allow_duplicate) {
+Status TrieBuilder::Append(std::string_view s, bool allow_duplicate) {
   // Find or create node for string
   fast_index_type node_index = 0;
   fast_index_type pos = 0;

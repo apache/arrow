@@ -327,6 +327,30 @@ cdef class ChunkedArray(_PandasConvertible):
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
+    def is_nan(self):
+        """
+        Return boolean array indicating the NaN values.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arr = pa.chunked_array([[2, np.nan, 4], [4, None, 100]])
+        >>> arr.is_nan()
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            false,
+            true,
+            false,
+            false,
+            null,
+            false
+          ]
+        ]
+        """
+        return _pc().is_nan(self)
+
     def is_valid(self):
         """
         Return boolean array indicating the non-null values.
@@ -366,7 +390,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Parameters
         ----------
-        fill_value
+        fill_value : any
             The replacement value for null entries.
 
         Returns
@@ -434,6 +458,17 @@ cdef class ChunkedArray(_PandasConvertible):
         return result
 
     def _to_pandas(self, options, types_mapper=None, **kwargs):
+        pandas_dtype = None
+        try:
+            pandas_dtype = self.type.to_pandas_dtype()
+        except NotImplementedError:
+            pass
+
+        # pandas ExtensionDtype that implements conversion from pyarrow
+        if hasattr(pandas_dtype, '__from_arrow__'):
+            arr = pandas_dtype.__from_arrow__(self)
+            return pandas_api.series(arr)
+
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def to_numpy(self):
@@ -455,13 +490,6 @@ cdef class ChunkedArray(_PandasConvertible):
             PyObject* out
             PandasOptions c_options
             object values
-
-        if self.type.id == _Type_EXTENSION:
-            storage_array = chunked_array(
-                [chunk.storage for chunk in self.iterchunks()],
-                type=self.type.storage_type
-            )
-            return storage_array.to_numpy()
 
         with nogil:
             check_status(
@@ -530,7 +558,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Parameters
         ----------
-        null_encoding
+        null_encoding : str, default "mask"
             How to handle null entries.
 
         Returns
@@ -697,7 +725,10 @@ cdef class ChunkedArray(_PandasConvertible):
           100
         ]
         """
-        return concat_arrays(self.chunks)
+        if self.num_chunks == 0:
+            return array([], type=self.type)
+        else:
+            return concat_arrays(self.chunks)
 
     def unique(self):
         """
@@ -850,7 +881,7 @@ cdef class ChunkedArray(_PandasConvertible):
         ----------
         mask : Array or array-like
             The boolean mask to filter the chunked array with.
-        null_selection_behavior
+        null_selection_behavior : str, default "drop"
             How nulls in the mask should be handled.
 
         Returns
@@ -1035,6 +1066,29 @@ cdef class ChunkedArray(_PandasConvertible):
         ]
         """
         return _pc().drop_null(self)
+
+    def sort(self, order="ascending", **kwargs):
+        """
+        Sort the ChunkedArray
+
+        Parameters
+        ----------
+        order : str, default "ascending"
+            Which order to sort values in.
+            Accepted values are "ascending", "descending".
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        result : ChunkedArray
+        """
+        indices = _pc().sort_indices(
+            self,
+            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+        )
+        return self.take(indices)
 
     def unify_dictionaries(self, MemoryPool memory_pool=None):
         """
@@ -1300,7 +1354,8 @@ def chunked_array(arrays, type=None):
     cdef:
         Array arr
         vector[shared_ptr[CArray]] c_arrays
-        shared_ptr[CChunkedArray] sp_chunked_array
+        shared_ptr[CChunkedArray] c_result
+        shared_ptr[CDataType] c_type
 
     type = ensure_type(type, allow_none=True)
 
@@ -1315,25 +1370,13 @@ def chunked_array(arrays, type=None):
             # subsequent arrays to the firstly inferred array type
             # it also spares the inference overhead after the first chunk
             type = arr.type
-        else:
-            if arr.type != type:
-                raise TypeError(
-                    "All array chunks must have type {}".format(type)
-                )
 
         c_arrays.push_back(arr.sp_array)
 
-    if c_arrays.size() == 0 and type is None:
-        raise ValueError("When passing an empty collection of arrays "
-                         "you must also pass the data type")
-
-    sp_chunked_array.reset(
-        new CChunkedArray(c_arrays, pyarrow_unwrap_data_type(type))
-    )
+    c_type = pyarrow_unwrap_data_type(type)
     with nogil:
-        check_status(sp_chunked_array.get().Validate())
-
-    return pyarrow_wrap_chunked_array(sp_chunked_array)
+        c_result = GetResultValue(CChunkedArray.Make(c_arrays, c_type))
+    return pyarrow_wrap_chunked_array(c_result)
 
 
 cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
@@ -1501,6 +1544,39 @@ cdef class RecordBatch(_PandasConvertible):
     cdef void init(self, const shared_ptr[CRecordBatch]& batch):
         self.sp_batch = batch
         self.batch = batch.get()
+
+    # ----------------------------------------------------------------------
+    def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True):
+        """
+        Return the dataframe interchange object implementing the interchange protocol.
+
+        Parameters
+        ----------
+        nan_as_null : bool, default False
+            Whether to tell the DataFrame to overwrite null values in the data
+            with ``NaN`` (or ``NaT``).
+        allow_copy : bool, default True
+            Whether to allow memory copying when exporting. If set to False
+            it would cause non-zero-copy exports to fail.
+
+        Returns
+        -------
+        DataFrame interchange object
+            The object which consuming library can use to ingress the dataframe.
+
+        Notes
+        -----
+        Details on the interchange protocol:
+        https://data-apis.org/dataframe-protocol/latest/index.html
+        `nan_as_null` currently has no effect; once support for nullable extension
+        dtypes is added, this value should be propagated to columns.
+        """
+
+        from pyarrow.interchange.dataframe import _PyArrowDataFrame
+
+        return _PyArrowDataFrame(self, nan_as_null, allow_copy)
+
+    # ----------------------------------------------------------------------
 
     @staticmethod
     def from_pydict(mapping, schema=None, metadata=None):
@@ -2010,7 +2086,7 @@ cdef class RecordBatch(_PandasConvertible):
         >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
         ...                                     names=["n_legs", "animals"])
         >>> batch.serialize()
-        <pyarrow.lib.Buffer object at ...>
+        <pyarrow.Buffer address=0x... size=... is_cpu=True is_mutable=True>
         """
         cdef shared_ptr[CBuffer] buffer
         cdef CIpcWriteOptions options = CIpcWriteOptions.Defaults()
@@ -2088,7 +2164,7 @@ cdef class RecordBatch(_PandasConvertible):
         ----------
         mask : Array or array-like
             The boolean mask to filter the record batch with.
-        null_selection_behavior
+        null_selection_behavior : str, default "drop"
             How nulls in the mask should be handled.
 
         Returns
@@ -2238,6 +2314,85 @@ cdef class RecordBatch(_PandasConvertible):
         4     100  Centipede
         """
         return _pc().drop_null(self)
+
+    def select(self, object columns):
+        """
+        Select columns of the RecordBatch.
+
+        Returns a new RecordBatch with the specified columns, and metadata
+        preserved.
+
+        Parameters
+        ----------
+        columns : list-like
+            The column names or integer indices to select.
+
+        Returns
+        -------
+        RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> batch = pa.record_batch([n_legs, animals],
+        ...                          names=["n_legs", "animals"])
+
+        Select columns my indices:
+
+        >>> batch.select([1])
+        pyarrow.RecordBatch
+        animals: string
+
+        Select columns by names:
+
+        >>> batch.select(["n_legs"])
+        pyarrow.RecordBatch
+        n_legs: int64
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+            vector[int] c_indices
+
+        for idx in columns:
+            idx = self._ensure_integer_index(idx)
+            idx = _normalize_index(idx, self.num_columns)
+            c_indices.push_back(<int> idx)
+
+        with nogil:
+            c_batch = GetResultValue(self.batch.SelectColumns(move(c_indices)))
+
+        return pyarrow_wrap_batch(c_batch)
+
+    def sort_by(self, sorting, **kwargs):
+        """
+        Sort the RecordBatch by one or multiple columns.
+
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        RecordBatch
+            A new record batch sorted according to the sort keys.
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        indices = _pc().sort_indices(
+            self,
+            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
+        )
+        return self.take(indices)
 
     def to_pydict(self):
         """
@@ -2505,6 +2660,20 @@ cdef class RecordBatch(_PandasConvertible):
             c_record_batch = GetResultValue(
                 CRecordBatch.FromStructArray(struct_array.sp_array))
         return pyarrow_wrap_batch(c_record_batch)
+
+    def to_struct_array(self):
+        """
+        Convert to a struct array.
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_record_batch
+            shared_ptr[CArray] c_array
+
+        c_record_batch = pyarrow_unwrap_batch(self)
+        with nogil:
+            c_array = GetResultValue(
+                <CResult[shared_ptr[CArray]]>deref(c_record_batch).ToStructArray())
+        return pyarrow_wrap_array(c_array)
 
     def _export_to_c(self, out_ptr, out_schema_ptr=0):
         """
@@ -2817,6 +2986,36 @@ cdef class Table(_PandasConvertible):
 
         return self.column(key)
 
+    # ----------------------------------------------------------------------
+    def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True):
+        """
+        Return the dataframe interchange object implementing the interchange protocol.
+        Parameters
+        ----------
+        nan_as_null : bool, default False
+            Whether to tell the DataFrame to overwrite null values in the data
+            with ``NaN`` (or ``NaT``).
+        allow_copy : bool, default True
+            Whether to allow memory copying when exporting. If set to False
+            it would cause non-zero-copy exports to fail.
+        Returns
+        -------
+        DataFrame interchange object
+            The object which consuming library can use to ingress the dataframe.
+        Notes
+        -----
+        Details on the interchange protocol:
+        https://data-apis.org/dataframe-protocol/latest/index.html
+        `nan_as_null` currently has no effect; once support for nullable extension
+        dtypes is added, this value should be propagated to columns.
+        """
+
+        from pyarrow.interchange.dataframe import _PyArrowDataFrame
+
+        return _PyArrowDataFrame(self, nan_as_null, allow_copy)
+
+    # ----------------------------------------------------------------------
+
     def slice(self, offset=0, length=None):
         """
         Compute zero-copy slice of this Table.
@@ -2894,7 +3093,7 @@ cdef class Table(_PandasConvertible):
         ----------
         mask : Array or array-like or .Expression
             The boolean mask or the :class:`.Expression` to filter the table with.
-        null_selection_behavior
+        null_selection_behavior : str, default "drop"
             How nulls in the mask should be handled, does nothing if
             an :class:`.Expression` is used.
 
@@ -2950,8 +3149,7 @@ cdef class Table(_PandasConvertible):
         animals: [["Flamingo","Horse",null]]
         """
         if isinstance(mask, _pc().Expression):
-            return _pc()._exec_plan._filter_table(self, mask,
-                                                  output_type=Table)
+            return _pac()._filter_table(self, mask)
         else:
             return _pc().filter(self, mask, null_selection_behavior)
 
@@ -3409,6 +3607,9 @@ cdef class Table(_PandasConvertible):
                              .format(self.schema.names, target_schema.names))
 
         for column, field in zip(self.itercolumns(), target_schema):
+            if not field.nullable and column.null_count > 0:
+                raise ValueError("Casting field {!r} with null values to non-nullable"
+                                 .format(field.name))
             casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 
@@ -4573,24 +4774,24 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(c_table)
 
-    def drop(self, columns):
+    def drop_columns(self, columns):
         """
         Drop one or more columns and return a new table.
 
         Parameters
         ----------
-        columns : list of str
-            List of field names referencing existing columns.
+        columns : str or list[str]
+            Field name(s) referencing existing column(s).
 
         Raises
         ------
         KeyError
-            If any of the passed columns name are not existing.
+            If any of the passed column names do not exist.
 
         Returns
         -------
         Table
-            New table without the columns.
+            New table without the column(s).
 
         Examples
         --------
@@ -4602,19 +4803,22 @@ cdef class Table(_PandasConvertible):
 
         Drop one column:
 
-        >>> table.drop(["animals"])
+        >>> table.drop_columns("animals")
         pyarrow.Table
         n_legs: int64
         ----
         n_legs: [[2,4,5,100]]
 
-        Drop more columns:
+        Drop one or more columns:
 
-        >>> table.drop(["n_legs", "animals"])
+        >>> table.drop_columns(["n_legs", "animals"])
         pyarrow.Table
         ...
         ----
         """
+        if isinstance(columns, str):
+            columns = [columns]
+
         indices = []
         for col in columns:
             idx = self.schema.get_field_index(col)
@@ -4630,6 +4834,24 @@ cdef class Table(_PandasConvertible):
             table = table.remove_column(idx)
 
         return table
+
+    def drop(self, columns):
+        """
+        Drop one or more columns and return a new table.
+
+        Alias of Table.drop_columns, but kept for backwards compatibility.
+
+        Parameters
+        ----------
+        columns : str or list[str]
+            Field name(s) referencing existing column(s).
+
+        Returns
+        -------
+        Table
+            New table without the column(s).
+        """
+        return self.drop_columns(columns)
 
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.
@@ -4661,15 +4883,15 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.group_by('year').aggregate([('n_legs', 'sum')])
         pyarrow.Table
-        n_legs_sum: int64
         year: int64
+        n_legs_sum: int64
         ----
-        n_legs_sum: [[2,6,104,5]]
         year: [[2020,2022,2021,2019]]
+        n_legs_sum: [[2,6,104,5]]
         """
         return TableGroupBy(self, keys)
 
-    def sort_by(self, sorting):
+    def sort_by(self, sorting, **kwargs):
         """
         Sort the table by one or multiple columns.
 
@@ -4680,6 +4902,9 @@ cdef class Table(_PandasConvertible):
             a list of multiple sorting conditions where
             each entry is a tuple with column name
             and sorting order ("ascending" or "descending")
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
 
         Returns
         -------
@@ -4710,7 +4935,7 @@ cdef class Table(_PandasConvertible):
 
         indices = _pc().sort_indices(
             self,
-            sort_keys=sorting
+            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
         )
         return self.take(indices)
 
@@ -4740,16 +4965,16 @@ cdef class Table(_PandasConvertible):
             ("left semi", "right semi", "left anti", "right anti",
             "inner", "left outer", "right outer", "full outer")
         left_suffix : str, default None
-            Which suffix to add to right column names. This prevents confusion
+            Which suffix to add to left column names. This prevents confusion
             when the columns in left and right tables have colliding names.
         right_suffix : str, default None
-            Which suffic to add to the left column names. This prevents confusion
+            Which suffix to add to the right column names. This prevents confusion
             when the columns in left and right tables have colliding names.
         coalesce_keys : bool, default True
             If the duplicated keys should be omitted from one of the sides
             in the join result.
         use_threads : bool, default True
-            Whenever to use multithreading or not.
+            Whether to use multithreading or not.
 
         Returns
         -------
@@ -4823,10 +5048,12 @@ cdef class Table(_PandasConvertible):
         """
         if right_keys is None:
             right_keys = keys
-        return _pc()._exec_plan._perform_join(join_type, self, keys, right_table, right_keys,
-                                              left_suffix=left_suffix, right_suffix=right_suffix,
-                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
-                                              output_type=Table)
+        return _pac()._perform_join(
+            join_type, self, keys, right_table, right_keys,
+            left_suffix=left_suffix, right_suffix=right_suffix,
+            use_threads=use_threads, coalesce_keys=coalesce_keys,
+            output_type=Table
+        )
 
 
 def _reconstruct_table(arrays, schema):
@@ -5263,11 +5490,11 @@ class TableGroupBy:
 
     >>> pa.TableGroupBy(t,"keys").aggregate([("values", "sum")])
     pyarrow.Table
-    values_sum: int64
     keys: string
+    values_sum: int64
     ----
-    values_sum: [[3,7,5]]
     keys: [["a","b","c"]]
+    values_sum: [[3,7,5]]
     """
 
     def __init__(self, table, keys):
@@ -5285,8 +5512,16 @@ class TableGroupBy:
         ----------
         aggregations : list[tuple(str, str)] or \
 list[tuple(str, str, FunctionOptions)]
-            List of tuples made of aggregation column names followed
-            by function names and optionally aggregation function options.
+            List of tuples, where each tuple is one aggregation specification
+            and consists of: aggregation column name followed
+            by function name and optionally aggregation function option.
+            Pass empty list to get a single row for each group.
+            The column name can be a string, an empty list or a list of
+            column names, for unary, nullary and n-ary aggregation functions
+            respectively.
+
+            For the list of function names and respective aggregation
+            function options see :ref:`py-grouped-aggrs`.
 
         Returns
         -------
@@ -5300,38 +5535,91 @@ list[tuple(str, str, FunctionOptions)]
         ...       pa.array(["a", "a", "b", "b", "c"]),
         ...       pa.array([1, 2, 3, 4, 5]),
         ... ], names=["keys", "values"])
+
+        Sum the column "values" over the grouped column "keys":
+
         >>> t.group_by("keys").aggregate([("values", "sum")])
         pyarrow.Table
+        keys: string
         values_sum: int64
+        ----
+        keys: [["a","b","c"]]
+        values_sum: [[3,7,5]]
+
+        Count the rows over the grouped column "keys":
+
+        >>> t.group_by("keys").aggregate([([], "count_all")])
+        pyarrow.Table
+        keys: string
+        count_all: int64
+        ----
+        keys: [["a","b","c"]]
+        count_all: [[2,2,1]]
+
+        Do multiple aggregations:
+
+        >>> t.group_by("keys").aggregate([
+        ...    ("values", "sum"),
+        ...    ("keys", "count")
+        ... ])
+        pyarrow.Table
+        keys: string
+        values_sum: int64
+        keys_count: int64
+        ----
+        keys: [["a","b","c"]]
+        values_sum: [[3,7,5]]
+        keys_count: [[2,2,1]]
+
+        Count the number of non-null values for column "values"
+        over the grouped column "keys":
+
+        >>> import pyarrow.compute as pc
+        >>> t.group_by(["keys"]).aggregate([
+        ...    ("values", "count", pc.CountOptions(mode="only_valid"))
+        ... ])
+        pyarrow.Table
+        keys: string
+        values_count: int64
+        ----
+        keys: [["a","b","c"]]
+        values_count: [[2,2,1]]
+
+        Get a single row for each group in column "keys":
+
+        >>> t.group_by("keys").aggregate([])
+        pyarrow.Table
         keys: string
         ----
-        values_sum: [[3,7,5]]
         keys: [["a","b","c"]]
         """
-        columns = [a[0] for a in aggregations]
-        aggrfuncs = [
-            (a[1], a[2]) if len(a) > 2 else (a[1], None)
-            for a in aggregations
-        ]
-
         group_by_aggrs = []
-        for aggr in aggrfuncs:
-            if not aggr[0].startswith("hash_"):
-                aggr = ("hash_" + aggr[0], aggr[1])
-            group_by_aggrs.append(aggr)
+        for aggr in aggregations:
+            # Set opt to None if not specified
+            if len(aggr) == 2:
+                target, func = aggr
+                opt = None
+            else:
+                target, func, opt = aggr
+            # Ensure target is a list
+            if not isinstance(target, (list, tuple)):
+                target = [target]
+            # Ensure aggregate function is hash_ if needed
+            if len(self.keys) > 0 and not func.startswith("hash_"):
+                func = "hash_" + func
+            if len(self.keys) == 0 and func.startswith("hash_"):
+                func = func[5:]
+            # Determine output field name
+            func_nohash = func if not func.startswith("hash_") else func[5:]
+            if len(target) == 0:
+                aggr_name = func_nohash
+            else:
+                aggr_name = "_".join(target) + "_" + func_nohash
+            # Calculate target indices by resolving field names
+            target_indices = [
+                self._table.schema.get_field_index(f) for f in target]
+            group_by_aggrs.append((target_indices, func, opt, aggr_name))
 
-        # Build unique names for aggregation result columns
-        # so that it's obvious what they refer to.
-        column_names = [
-            aggr_name.replace("hash", col_name)
-            for col_name, (aggr_name, _) in zip(columns, group_by_aggrs)
-        ] + self.keys
-
-        result = _pc()._group_by(
-            [self._table[c] for c in columns],
-            [self._table[k] for k in self.keys],
-            group_by_aggrs
-        )
-
-        t = Table.from_batches([RecordBatch.from_struct_array(result)])
-        return t.rename_columns(column_names)
+        key_indices = [
+            self._table.schema.get_field_index(k) for k in self.keys]
+        return _pac()._group_by(self._table, group_by_aggrs, key_indices)

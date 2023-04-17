@@ -226,7 +226,7 @@ class ARROW_EXPORT CPUMemoryManager : public MemoryManager {
   MemoryPool* pool_;
 
   friend std::shared_ptr<MemoryManager> CPUDevice::memory_manager(MemoryPool* pool);
-  friend ARROW_EXPORT std::shared_ptr<MemoryManager> default_cpu_memory_manager();
+  ARROW_FRIEND_EXPORT friend std::shared_ptr<MemoryManager> default_cpu_memory_manager();
 };
 
 /// \brief Return the default CPU MemoryManager instance

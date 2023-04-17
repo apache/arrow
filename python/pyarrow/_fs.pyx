@@ -78,6 +78,12 @@ cdef CFileType _unwrap_file_type(FileType ty) except *:
     assert 0
 
 
+def _file_type_to_string(ty):
+    # Python 3.11 changed str(IntEnum) to return the string representation
+    # of the integer value: https://github.com/python/cpython/issues/94763
+    return f"{ty.__class__.__name__}.{ty._name_}"
+
+
 cdef class FileInfo(_Weakrefable):
     """
     FileSystem entry info.
@@ -185,9 +191,10 @@ cdef class FileInfo(_Weakrefable):
             except ValueError:
                 return ''
 
-        s = '<FileInfo for {!r}: type={}'.format(self.path, str(self.type))
+        s = (f'<FileInfo for {self.path!r}: '
+             f'type={_file_type_to_string(self.type)}')
         if self.is_file:
-            s += ', size={}'.format(self.size)
+            s += f', size={self.size}'
         s += '>'
         return s
 
@@ -418,7 +425,7 @@ cdef class FileSystem(_Weakrefable):
         """
         Create a new FileSystem from URI or Path.
 
-        Recognized URI schemes are "file", "mock", "s3fs", "hdfs" and "viewfs".
+        Recognized URI schemes are "file", "mock", "s3fs", "gs", "gcs", "hdfs" and "viewfs".
         In addition, the argument can be a pathlib.Path object, or a string
         describing an absolute local path.
 
@@ -788,7 +795,7 @@ cdef class FileSystem(_Weakrefable):
         -------
         stream : NativeFile
 
-        Examples        
+        Examples
         --------
         Print the data from the file with `open_input_stream()`:
 
@@ -905,7 +912,7 @@ cdef class FileSystem(_Weakrefable):
         -------
         stream : NativeFile
 
-        Examples        
+        Examples
         --------
         Append new data to a FileSystem subclass with nonempty file:
 
@@ -1127,7 +1134,7 @@ cdef class SubTreeFileSystem(FileSystem):
     >>> from pyarrow import fs
     >>> local = fs.LocalFileSystem()
     >>> with local.open_output_stream('/tmp/local_fs.dat') as stream:
-    ...     stream.write(b'data') 
+    ...     stream.write(b'data')
     4
 
     Create a directory and a SubTreeFileSystem instance:
@@ -1228,17 +1235,17 @@ cdef class PyFileSystem(FileSystem):
     Create an fsspec-based filesystem object for GitHub:
 
     >>> from fsspec.implementations import github
-    >>> gfs = github.GithubFileSystem('apache', 'arrow', sha='ec51aec4d15035f4d9d6a1c4346d0a2b9a37fb75')
+    >>> gfs = github.GithubFileSystem('apache', 'arrow') # doctest: +SKIP
 
     Get a PyArrow FileSystem object:
 
     >>> from pyarrow.fs import PyFileSystem, FSSpecHandler
-    >>> pa_fs = PyFileSystem(FSSpecHandler(gfs))
+    >>> pa_fs = PyFileSystem(FSSpecHandler(gfs)) # doctest: +SKIP
 
     Use :func:`~pyarrow.fs.FileSystem` functionality ``get_file_info()``:
 
-    >>> pa_fs.get_file_info('README.md')
-    <FileInfo for 'README.md': type=FileType.File, size=5302>
+    >>> pa_fs.get_file_info('README.md') # doctest: +SKIP
+    <FileInfo for 'README.md': type=FileType.File, size=...>
     """
 
     def __init__(self, handler):
@@ -1583,9 +1590,6 @@ def _copy_files(FileSystem source_fs, str source_path,
         vector[CFileLocator] c_sources
         CFileLocator c_destination
         vector[CFileLocator] c_destinations
-        FileSystem fs
-        CStatus c_status
-        shared_ptr[CFileSystem] c_fs
 
     c_source.filesystem = source_fs.unwrap()
     c_source.path = tobytes(source_path)

@@ -29,7 +29,7 @@ ggandiva_literal_node_get(GGandivaLiteralNode *node)
 {
   auto gandiva_literal_node =
     std::static_pointer_cast<gandiva::LiteralNode>(ggandiva_node_get_raw(GGANDIVA_NODE(node)));
-  return arrow::util::get<Type>(gandiva_literal_node->holder());
+  return std::get<Type>(gandiva_literal_node->holder());
 }
 
 G_BEGIN_DECLS

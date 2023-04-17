@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/memory_pool_internal.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
 
 // We can't put the jemalloc memory pool implementation into
@@ -81,13 +82,14 @@ namespace memory_pool {
 
 namespace internal {
 
-Status JemallocAllocator::AllocateAligned(int64_t size, uint8_t** out) {
+Status JemallocAllocator::AllocateAligned(int64_t size, int64_t alignment,
+                                          uint8_t** out) {
   if (size == 0) {
     *out = kZeroSizeArea;
     return Status::OK();
   }
   *out = reinterpret_cast<uint8_t*>(
-      mallocx(static_cast<size_t>(size), MALLOCX_ALIGN(kAlignment)));
+      mallocx(static_cast<size_t>(size), MALLOCX_ALIGN(static_cast<size_t>(alignment))));
   if (*out == NULL) {
     return Status::OutOfMemory("malloc of size ", size, " failed");
   }
@@ -95,19 +97,20 @@ Status JemallocAllocator::AllocateAligned(int64_t size, uint8_t** out) {
 }
 
 Status JemallocAllocator::ReallocateAligned(int64_t old_size, int64_t new_size,
-                                            uint8_t** ptr) {
+                                            int64_t alignment, uint8_t** ptr) {
   uint8_t* previous_ptr = *ptr;
   if (previous_ptr == kZeroSizeArea) {
     DCHECK_EQ(old_size, 0);
-    return AllocateAligned(new_size, ptr);
+    return AllocateAligned(new_size, alignment, ptr);
   }
   if (new_size == 0) {
-    DeallocateAligned(previous_ptr, old_size);
+    DeallocateAligned(previous_ptr, old_size, alignment);
     *ptr = kZeroSizeArea;
     return Status::OK();
   }
-  *ptr = reinterpret_cast<uint8_t*>(
-      rallocx(*ptr, static_cast<size_t>(new_size), MALLOCX_ALIGN(kAlignment)));
+  *ptr =
+      reinterpret_cast<uint8_t*>(rallocx(*ptr, static_cast<size_t>(new_size),
+                                         MALLOCX_ALIGN(static_cast<size_t>(alignment))));
   if (*ptr == NULL) {
     *ptr = previous_ptr;
     return Status::OutOfMemory("realloc of size ", new_size, " failed");
@@ -115,11 +118,12 @@ Status JemallocAllocator::ReallocateAligned(int64_t old_size, int64_t new_size,
   return Status::OK();
 }
 
-void JemallocAllocator::DeallocateAligned(uint8_t* ptr, int64_t size) {
+void JemallocAllocator::DeallocateAligned(uint8_t* ptr, int64_t size, int64_t alignment) {
   if (ptr == kZeroSizeArea) {
     DCHECK_EQ(size, 0);
   } else {
-    dallocx(ptr, MALLOCX_ALIGN(kAlignment));
+    sdallocx(ptr, static_cast<size_t>(size),
+             MALLOCX_ALIGN(static_cast<size_t>(alignment)));
   }
 }
 
@@ -152,5 +156,70 @@ Status jemalloc_set_decay_ms(int ms) {
 }
 
 #undef RETURN_IF_JEMALLOC_ERROR
+
+Result<int64_t> jemalloc_get_stat(const char* name) {
+  size_t sz;
+  int err;
+
+  // Update the statistics cached by mallctl.
+  if (std::strcmp(name, "stats.allocated") == 0 ||
+      std::strcmp(name, "stats.active") == 0 ||
+      std::strcmp(name, "stats.metadata") == 0 ||
+      std::strcmp(name, "stats.resident") == 0 ||
+      std::strcmp(name, "stats.mapped") == 0 ||
+      std::strcmp(name, "stats.retained") == 0) {
+    uint64_t epoch;
+    sz = sizeof(epoch);
+    mallctl("epoch", &epoch, &sz, &epoch, sz);
+  }
+
+  // Depending on the stat being queried and on the platform, we could need
+  // to pass a uint32_t or uint64_t pointer. Try both.
+  {
+    uint64_t value = 0;
+    sz = sizeof(value);
+    err = mallctl(name, &value, &sz, nullptr, 0);
+    if (!err) {
+      return value;
+    }
+  }
+  // EINVAL means the given value length (`sz`) was incorrect.
+  if (err == EINVAL) {
+    uint32_t value = 0;
+    sz = sizeof(value);
+    err = mallctl(name, &value, &sz, nullptr, 0);
+    if (!err) {
+      return value;
+    }
+  }
+
+  return arrow::internal::IOErrorFromErrno(err, "Failed retrieving ", &name);
+}
+
+Status jemalloc_peak_reset() {
+  int err = mallctl("thread.peak.reset", nullptr, nullptr, nullptr, 0);
+  return err ? arrow::internal::IOErrorFromErrno(err, "Failed resetting thread.peak.")
+             : Status::OK();
+}
+
+Result<std::string> jemalloc_stats_string(const char* opts) {
+  std::string stats;
+  auto write_cb = [&stats](const char* str) { stats.append(str); };
+  ARROW_UNUSED(jemalloc_stats_print(write_cb, opts));
+  return stats;
+}
+
+Status jemalloc_stats_print(const char* opts) {
+  malloc_stats_print(nullptr, nullptr, opts);
+  return Status::OK();
+}
+
+Status jemalloc_stats_print(std::function<void(const char*)> write_cb, const char* opts) {
+  auto cb_wrapper = [](void* opaque, const char* str) {
+    (*static_cast<std::function<void(const char*)>*>(opaque))(str);
+  };
+  malloc_stats_print(cb_wrapper, &write_cb, opts);
+  return Status::OK();
+}
 
 }  // namespace arrow

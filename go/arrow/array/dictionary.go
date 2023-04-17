@@ -25,14 +25,14 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
-	"github.com/apache/arrow/go/v9/arrow/float16"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/internal/hashing"
-	"github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/float16"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/internal/hashing"
+	"github.com/apache/arrow/go/v12/internal/utils"
 	"github.com/goccy/go-json"
 )
 
@@ -213,12 +213,14 @@ func (d *Dictionary) Release() {
 func (d *Dictionary) setData(data *Data) {
 	d.array.setData(data)
 
-	if data.dictionary == nil {
-		panic("arrow/array: no dictionary set in Data for Dictionary array")
-	}
-
 	dictType := data.dtype.(*arrow.DictionaryType)
-	debug.Assert(arrow.TypeEqual(dictType.ValueType, data.dictionary.DataType()), "mismatched dictionary value types")
+	if data.dictionary == nil {
+		if data.length > 0 {
+			panic("arrow/array: no dictionary set in Data for Dictionary array")
+		}
+	} else {
+		debug.Assert(arrow.TypeEqual(dictType.ValueType, data.dictionary.DataType()), "mismatched dictionary value types")
+	}
 
 	indexData := NewData(dictType.IndexType, data.length, data.buffers, data.childData, data.nulls, data.offset)
 	defer indexData.Release()
@@ -251,6 +253,10 @@ func (d *Dictionary) CanCompareIndices(other *Dictionary) bool {
 	return ArraySliceEqual(d.Dictionary(), 0, minlen, other.Dictionary(), 0, minlen)
 }
 
+func (d *Dictionary) ValueStr(i int) string {
+	return d.Dictionary().ValueStr(d.GetValueIndex(i))
+}
+
 func (d *Dictionary) String() string {
 	return fmt.Sprintf("{ dictionary: %v\n  indices: %v }", d.Dictionary(), d.Indices())
 }
@@ -279,18 +285,18 @@ func (d *Dictionary) GetValueIndex(i int) int {
 	return -1
 }
 
-func (d *Dictionary) getOneForMarshal(i int) interface{} {
+func (d *Dictionary) GetOneForMarshal(i int) interface{} {
 	if d.IsNull(i) {
 		return nil
 	}
 	vidx := d.GetValueIndex(i)
-	return d.Dictionary().(arraymarshal).getOneForMarshal(vidx)
+	return d.Dictionary().GetOneForMarshal(vidx)
 }
 
 func (d *Dictionary) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, d.Len())
 	for i := 0; i < d.Len(); i++ {
-		vals[i] = d.getOneForMarshal(i)
+		vals[i] = d.GetOneForMarshal(i)
 	}
 	return json.Marshal(vals)
 }
@@ -382,7 +388,7 @@ func createMemoTable(mem memory.Allocator, dt arrow.DataType) (ret hashing.MemoT
 		ret = hashing.NewFloat32MemoTable(0)
 	case arrow.FLOAT64:
 		ret = hashing.NewFloat64MemoTable(0)
-	case arrow.BINARY, arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128, arrow.INTERVAL_DAY_TIME, arrow.INTERVAL_MONTH_DAY_NANO:
+	case arrow.BINARY, arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128, arrow.DECIMAL256, arrow.INTERVAL_DAY_TIME, arrow.INTERVAL_MONTH_DAY_NANO:
 		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.Binary))
 	case arrow.STRING:
 		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.String))
@@ -400,6 +406,7 @@ type DictionaryBuilder interface {
 	NewDictionaryArray() *Dictionary
 	NewDelta() (indices, delta arrow.Array, err error)
 	AppendArray(arrow.Array) error
+	AppendIndices([]int, []bool)
 	ResetFull()
 }
 
@@ -620,6 +627,13 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 		}
 		return ret
 	case arrow.DECIMAL256:
+		ret := &Decimal256DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Decimal256)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.LIST:
 	case arrow.STRUCT:
 	case arrow.SPARSE_UNION:
@@ -656,6 +670,8 @@ func NewDictionaryBuilder(mem memory.Allocator, dt *arrow.DictionaryType) Dictio
 	return NewDictionaryBuilderWithDict(mem, dt, nil)
 }
 
+func (b *dictionaryBuilder) Type() arrow.DataType { return b.dt }
+
 func (b *dictionaryBuilder) Release() {
 	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
 
@@ -673,6 +689,11 @@ func (b *dictionaryBuilder) AppendNull() {
 	b.length += 1
 	b.nulls += 1
 	b.idxBuilder.AppendNull()
+}
+
+func (b *dictionaryBuilder) AppendEmptyValue() {
+	b.length += 1
+	b.idxBuilder.AppendEmptyValue()
 }
 
 func (b *dictionaryBuilder) Reserve(n int) {
@@ -704,14 +725,14 @@ func (b *dictionaryBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("dictionary builder must upack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
-func (b *dictionaryBuilder) unmarshal(dec *json.Decoder) error {
+func (b *dictionaryBuilder) Unmarshal(dec *json.Decoder) error {
 	bldr := NewBuilder(b.mem, b.dt.ValueType)
 	defer bldr.Release()
 
-	if err := bldr.unmarshal(dec); err != nil {
+	if err := bldr.Unmarshal(dec); err != nil {
 		return err
 	}
 
@@ -720,7 +741,11 @@ func (b *dictionaryBuilder) unmarshal(dec *json.Decoder) error {
 	return b.AppendArray(arr)
 }
 
-func (b *dictionaryBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *dictionaryBuilder) AppendValueFromString(s string) error {
+	return fmt.Errorf("%w: AppendValueFromString to dictionary not yet implemented", arrow.ErrNotImplemented)
+}
+
+func (b *dictionaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	return errors.New("unmarshal json to dictionary not yet implemented")
 }
 
@@ -728,19 +753,24 @@ func (b *dictionaryBuilder) NewArray() arrow.Array {
 	return b.NewDictionaryArray()
 }
 
-func (b *dictionaryBuilder) NewDictionaryArray() *Dictionary {
-	a := &Dictionary{}
-	a.refCount = 1
-
+func (b *dictionaryBuilder) newData() *Data {
 	indices, dict, err := b.newWithDictOffset(0)
 	if err != nil {
 		panic(err)
 	}
-	defer indices.Release()
 
 	indices.dtype = b.dt
 	indices.dictionary = dict
+	return indices
+}
+
+func (b *dictionaryBuilder) NewDictionaryArray() *Dictionary {
+	a := &Dictionary{}
+	a.refCount = 1
+
+	indices := b.newData()
 	a.setData(indices)
+	indices.Release()
 	return a
 }
 
@@ -752,7 +782,7 @@ func (b *dictionaryBuilder) newWithDictOffset(offset int) (indices, dict *Data, 
 	indices.Retain()
 
 	b.deltaOffset = b.memoTable.Size()
-	dict, err = getDictArrayData(b.mem, b.dt.ValueType, b.memoTable, offset)
+	dict, err = GetDictArrayData(b.mem, b.dt.ValueType, b.memoTable, offset)
 	b.reset()
 	return
 }
@@ -862,6 +892,60 @@ func (b *dictionaryBuilder) AppendArray(arr arrow.Array) error {
 		}
 	}
 	return nil
+}
+
+func (b *dictionaryBuilder) AppendIndices(indices []int, valid []bool) {
+	b.length += len(indices)
+	switch idxbldr := b.idxBuilder.Builder.(type) {
+	case *Int8Builder:
+		vals := make([]int8, len(indices))
+		for i, v := range indices {
+			vals[i] = int8(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Int16Builder:
+		vals := make([]int16, len(indices))
+		for i, v := range indices {
+			vals[i] = int16(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Int32Builder:
+		vals := make([]int32, len(indices))
+		for i, v := range indices {
+			vals[i] = int32(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Int64Builder:
+		vals := make([]int64, len(indices))
+		for i, v := range indices {
+			vals[i] = int64(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Uint8Builder:
+		vals := make([]uint8, len(indices))
+		for i, v := range indices {
+			vals[i] = uint8(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Uint16Builder:
+		vals := make([]uint16, len(indices))
+		for i, v := range indices {
+			vals[i] = uint16(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Uint32Builder:
+		vals := make([]uint32, len(indices))
+		for i, v := range indices {
+			vals[i] = uint32(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	case *Uint64Builder:
+		vals := make([]uint64, len(indices))
+		for i, v := range indices {
+			vals[i] = uint64(v)
+		}
+		idxbldr.AppendValues(vals, valid)
+	}
 }
 
 type NullDictionaryBuilder struct {
@@ -1230,6 +1314,24 @@ func (b *Decimal128DictionaryBuilder) InsertDictValues(arr *Decimal128) (err err
 	return
 }
 
+type Decimal256DictionaryBuilder struct {
+	dictionaryBuilder
+}
+
+func (b *Decimal256DictionaryBuilder) Append(v decimal128.Num) error {
+	return b.appendValue((*(*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&v)))[:])
+}
+func (b *Decimal256DictionaryBuilder) InsertDictValues(arr *Decimal256) (err error) {
+	data := arrow.Decimal256Traits.CastToBytes(arr.values)
+	for len(data) > 0 {
+		if err = b.insertDictValue(data[:arrow.Decimal256SizeBytes]); err != nil {
+			break
+		}
+		data = data[arrow.Decimal256SizeBytes:]
+	}
+	return
+}
+
 type MonthDayNanoDictionaryBuilder struct {
 	dictionaryBuilder
 }
@@ -1434,7 +1536,7 @@ func (u *unifier) GetResult() (outType arrow.DataType, outDict arrow.Array, err 
 	}
 	outType = &arrow.DictionaryType{IndexType: indexType, ValueType: u.valueType}
 
-	dictData, err := getDictArrayData(u.mem, u.valueType, u.memoTable, 0)
+	dictData, err := GetDictArrayData(u.mem, u.valueType, u.memoTable, 0)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1472,7 +1574,7 @@ func (u *unifier) GetResultWithIndexType(indexType arrow.DataType) (arrow.Array,
 		return nil, errors.New("arrow/array: cannot combine dictionaries. unified dictionary requires a larger index type")
 	}
 
-	dictData, err := getDictArrayData(u.mem, u.valueType, u.memoTable, 0)
+	dictData, err := GetDictArrayData(u.mem, u.valueType, u.memoTable, 0)
 	if err != nil {
 		return nil, err
 	}

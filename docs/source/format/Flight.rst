@@ -185,7 +185,7 @@ can customize for their needs.
   connection as stateful (a "login" pattern).
 
   .. warning:: Unless a token is validated on every call, this pattern
-               is not secure, especially in the presenence of a layer
+               is not secure, especially in the presence of a layer
                7 load balancer, as is common with gRPC, or if gRPC
                transparently reconnects the client.
 

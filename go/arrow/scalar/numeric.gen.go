@@ -20,10 +20,13 @@ package scalar
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"	
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/decimal256"
 )
 
 type Int8 struct {
@@ -81,6 +84,12 @@ func (s *Int8) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.Decimal128Type:
+		return NewDecimal128Scalar(decimal128.FromI64(int64(s.Value)), dt), nil
+	case *arrow.Decimal256Type:
+		return NewDecimal256Scalar(decimal256.FromI64(int64(s.Value)), dt), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type int8 to type %s", dt)
@@ -145,6 +154,12 @@ func (s *Int16) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.Decimal128Type:
+		return NewDecimal128Scalar(decimal128.FromI64(int64(s.Value)), dt), nil
+	case *arrow.Decimal256Type:
+		return NewDecimal256Scalar(decimal256.FromI64(int64(s.Value)), dt), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type int16 to type %s", dt)
@@ -209,6 +224,12 @@ func (s *Int32) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.Decimal128Type:
+		return NewDecimal128Scalar(decimal128.FromI64(int64(s.Value)), dt), nil
+	case *arrow.Decimal256Type:
+		return NewDecimal256Scalar(decimal256.FromI64(int64(s.Value)), dt), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type int32 to type %s", dt)
@@ -273,6 +294,12 @@ func (s *Int64) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.Decimal128Type:
+		return NewDecimal128Scalar(decimal128.FromI64(int64(s.Value)), dt), nil
+	case *arrow.Decimal256Type:
+		return NewDecimal256Scalar(decimal256.FromI64(int64(s.Value)), dt), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type int64 to type %s", dt)
@@ -337,6 +364,12 @@ func (s *Uint8) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.Decimal128Type:
+		return NewDecimal128Scalar(decimal128.FromI64(int64(s.Value)), dt), nil
+	case *arrow.Decimal256Type:
+		return NewDecimal256Scalar(decimal256.FromI64(int64(s.Value)), dt), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type uint8 to type %s", dt)
@@ -401,6 +434,12 @@ func (s *Uint16) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.Decimal128Type:
+		return NewDecimal128Scalar(decimal128.FromI64(int64(s.Value)), dt), nil
+	case *arrow.Decimal256Type:
+		return NewDecimal256Scalar(decimal256.FromI64(int64(s.Value)), dt), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type uint16 to type %s", dt)
@@ -465,6 +504,12 @@ func (s *Uint32) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.Decimal128Type:
+		return NewDecimal128Scalar(decimal128.FromI64(int64(s.Value)), dt), nil
+	case *arrow.Decimal256Type:
+		return NewDecimal256Scalar(decimal256.FromI64(int64(s.Value)), dt), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type uint32 to type %s", dt)
@@ -529,6 +574,12 @@ func (s *Uint64) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.Decimal128Type:
+		return NewDecimal128Scalar(decimal128.FromU64(s.Value), dt), nil
+	case *arrow.Decimal256Type:
+		return NewDecimal256Scalar(decimal256.FromU64(s.Value), dt), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type uint64 to type %s", dt)
@@ -549,6 +600,17 @@ func (s *Float32) Data() []byte {
 
 func (s *Float32) equals(rhs Scalar) bool {
 	return s.Value == rhs.(*Float32).Value
+}
+
+func (s *Float32) approxEquals(rhs Scalar, eq equalOption) bool {
+	v1 := float64(s.Value)
+	v2 := float64(rhs.(*Float32).Value)
+	switch {
+	case eq.nansEq:
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
+	default:
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol
+	}
 }
 
 func (s *Float32) value() interface{} {
@@ -593,6 +655,20 @@ func (s *Float32) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.Decimal128Type:
+		v, err := decimal128.FromFloat32(s.Value, dt.Precision, dt.Scale)
+		if err != nil {
+			return nil, err
+		}
+		return NewDecimal128Scalar(v, dt), nil
+	case *arrow.Decimal256Type:
+		v, err := decimal256.FromFloat32(s.Value, dt.Precision, dt.Scale)
+		if err != nil {
+			return nil, err
+		}
+		return NewDecimal256Scalar(v, dt), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type float32 to type %s", dt)
@@ -613,6 +689,17 @@ func (s *Float64) Data() []byte {
 
 func (s *Float64) equals(rhs Scalar) bool {
 	return s.Value == rhs.(*Float64).Value
+}
+
+func (s *Float64) approxEquals(rhs Scalar, eq equalOption) bool {
+	v1 := float64(s.Value)
+	v2 := float64(rhs.(*Float64).Value)
+	switch {
+	case eq.nansEq:
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
+	default:
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol
+	}
 }
 
 func (s *Float64) value() interface{} {
@@ -657,6 +744,20 @@ func (s *Float64) CastTo(dt arrow.DataType) (Scalar, error) {
 		return NewMonthIntervalScalar(arrow.MonthInterval(s.Value)), nil
 	case *arrow.StringType:
 		return NewStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.LargeStringType:
+		return NewLargeStringScalar(fmt.Sprintf("%v", s.Value)), nil
+	case *arrow.Decimal128Type:
+		v, err := decimal128.FromFloat64(s.Value, dt.Precision, dt.Scale)
+		if err != nil {
+			return nil, err
+		}
+		return NewDecimal128Scalar(v, dt), nil
+	case *arrow.Decimal256Type:
+		v, err := decimal256.FromFloat64(s.Value, dt.Precision, dt.Scale)
+		if err != nil {
+			return nil, err
+		}
+		return NewDecimal256Scalar(v, dt), nil
 	}
 
 	return nil, fmt.Errorf("invalid scalar cast from type float64 to type %s", dt)

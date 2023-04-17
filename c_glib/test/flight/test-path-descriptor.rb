@@ -22,7 +22,7 @@ class TestFlightPathDescriptor < Test::Unit::TestCase
 
   def test_to_s
     descriptor = ArrowFlight::PathDescriptor.new(["a", "b", "c"])
-    assert_equal("FlightDescriptor<path = 'a/b/c'>",
+    assert_equal("<FlightDescriptor path='a/b/c'>",
                  descriptor.to_s)
   end
 

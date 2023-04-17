@@ -57,6 +57,8 @@ G_BEGIN_DECLS
  *
  * #GArrowUInt64Scalar is a class for a 64-bit unsigned integer scalar.
  *
+ * #GArrowHalfFloatScalar is a class for a 16-bit floating point scalar.
+ *
  * #GArrowFloatScalar is a class for a 32-bit floating point scalar.
  *
  * #GArrowDoubleScalar is a class for a 64-bit floating point scalar.
@@ -250,9 +252,8 @@ garrow_scalar_parse(GArrowDataType *data_type,
                     GError **error)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  auto arrow_data =
-    arrow::util::string_view(reinterpret_cast<const char *>(data),
-                             size);
+  auto arrow_data = std::string_view(reinterpret_cast<const char *>(data),
+                                     size);
   auto arrow_scalar_result = arrow::Scalar::Parse(arrow_data_type, arrow_data);
   if (garrow::check(error, arrow_scalar_result, "[scalar][parse]")) {
     auto arrow_scalar = *arrow_scalar_result;
@@ -339,10 +340,10 @@ garrow_scalar_equal_options(GArrowScalar *scalar,
     if (is_approx) {
       return arrow_scalar->ApproxEquals(*arrow_other_scalar, *arrow_options);
     } else {
-      return arrow_scalar->Equals(arrow_other_scalar, *arrow_options);
+      return arrow_scalar->Equals(*arrow_other_scalar, *arrow_options);
     }
   } else {
-    return arrow_scalar->Equals(arrow_other_scalar);
+    return arrow_scalar->Equals(*arrow_other_scalar);
   }
 }
 
@@ -360,7 +361,8 @@ gchar *
 garrow_scalar_to_string(GArrowScalar *scalar)
 {
   const auto arrow_scalar = garrow_scalar_get_raw(scalar);
-  return g_strdup(arrow_scalar->ToString().c_str());
+  const auto string = arrow_scalar->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -863,6 +865,55 @@ garrow_uint64_scalar_get_value(GArrowUInt64Scalar *scalar)
 {
   const auto arrow_scalar =
     std::static_pointer_cast<arrow::UInt64Scalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  return arrow_scalar->value;
+}
+
+
+G_DEFINE_TYPE(GArrowHalfFloatScalar,
+              garrow_half_float_scalar,
+              GARROW_TYPE_SCALAR)
+
+static void
+garrow_half_float_scalar_init(GArrowHalfFloatScalar *object)
+{
+}
+
+static void
+garrow_half_float_scalar_class_init(GArrowHalfFloatScalarClass *klass)
+{
+}
+
+/**
+ * garrow_half_float_scalar_new:
+ * @value: The value of this scalar.
+ *
+ * Returns: A newly created #GArrowHalfFloatScalar.
+ *
+ * Since: 11.0.0
+ */
+GArrowHalfFloatScalar *
+garrow_half_float_scalar_new(guint16 value)
+{
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::HalfFloatScalar>(value));
+  return GARROW_HALF_FLOAT_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
+}
+
+/**
+ * garrow_half_float_scalar_get_value:
+ * @scalar: A #GArrowHalfFloatScalar.
+ *
+ * Returns: The value of this scalar.
+ *
+ * Since: 11.0.0
+ */
+guint16
+garrow_half_float_scalar_get_value(GArrowHalfFloatScalar *scalar)
+{
+  const auto arrow_scalar =
+    std::static_pointer_cast<arrow::HalfFloatScalar>(
       garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
@@ -2551,6 +2602,9 @@ garrow_scalar_new_raw_valist(std::shared_ptr<arrow::Scalar> *arrow_scalar,
     break;
   case arrow::Type::type::UINT64:
     type = GARROW_TYPE_UINT64_SCALAR;
+    break;
+  case arrow::Type::type::HALF_FLOAT:
+    type = GARROW_TYPE_HALF_FLOAT_SCALAR;
     break;
   case arrow::Type::type::FLOAT:
     type = GARROW_TYPE_FLOAT_SCALAR;

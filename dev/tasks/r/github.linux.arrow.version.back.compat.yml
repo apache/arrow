@@ -31,13 +31,22 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
-      - uses: r-lib/actions/setup-r@v1
+      - uses: r-lib/actions/setup-r@v2
+      - name: Prepare PKG_CONFIG_PATH for Homebrew
+        run: |
+          # zstd is installed by Homebrew on GitHub Actions.
+          echo "PKG_CONFIG_PATH=$(brew --prefix)/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}" \
+            >> "$GITHUB_ENV"
       - name: Install dependencies
         run: |
           install.packages(c("remotes", "glue", "sys"))
           remotes::install_deps("arrow/r", dependencies = TRUE)
         shell: Rscript {0}
+      - name: Install sccache
+        run: arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
       - name: Install Arrow
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           cd arrow/r
           R CMD INSTALL .
@@ -64,6 +73,9 @@ jobs:
         config:
         # We use the R version that was released at the time of the arrow release in order
         # to make sure we can download binaries from RSPM.
+        - { old_arrow_version: '10.0.1', r: '4.2' }
+        - { old_arrow_version: '9.0.0', r: '4.2' }
+        - { old_arrow_version: '8.0.0', r: '4.2' }
         - { old_arrow_version: '7.0.0', r: '4.1' }
         - { old_arrow_version: '6.0.1', r: '4.1' }
         - { old_arrow_version: '5.0.0', r: '4.1' }
@@ -78,7 +90,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
-      - uses: r-lib/actions/setup-r@v1
+      - uses: r-lib/actions/setup-r@v2
         with:
           r-version: {{ '${{ matrix.config.r }}' }}
       - name: Install old Arrow

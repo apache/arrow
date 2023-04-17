@@ -19,9 +19,11 @@ require "arrow/raw-table-converter"
 
 module Arrow
   class RecordBatch
-    include ColumnContainable
-    include RecordContainable
     include Enumerable
+
+    include ColumnContainable
+    include InputReferable
+    include RecordContainable
 
     class << self
       def new(*args)
@@ -56,7 +58,9 @@ module Arrow
     #
     # @since 0.12.0
     def to_table
-      Table.new(schema, [self])
+      table = Table.new(schema, [self])
+      share_input(table)
+      table
     end
 
     def respond_to_missing?(name, include_private)

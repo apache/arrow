@@ -24,14 +24,15 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "arrow/array/data.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
-#include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
@@ -39,16 +40,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-namespace internal {
-
-class CpuInfo;
-
-}  // namespace internal
-
 namespace compute {
-
-class FunctionOptions;
-class FunctionRegistry;
 
 // It seems like 64K might be a good default chunksize to use for execution
 // based on the experience of other query processing systems. The current
@@ -127,8 +119,6 @@ class ARROW_EXPORT ExecContext {
   bool use_threads_ = true;
 };
 
-ARROW_EXPORT ExecContext* default_exec_context();
-
 // TODO: Consider standardizing on uint16 selection vectors and only use them
 // when we can ensure that each value is 64K length or smaller
 
@@ -161,6 +151,9 @@ class ARROW_EXPORT SelectionVector {
   const int32_t* indices_;
 };
 
+/// An index to represent that a batch does not belong to an ordered stream
+constexpr int64_t kUnsequencedIndex = -1;
+
 /// \brief A unit of work for kernel execution. It contains a collection of
 /// Array and Scalar values and an optional SelectionVector indicating that
 /// there is an unmaterialized filter that either must be materialized, or (if
@@ -174,6 +167,10 @@ class ARROW_EXPORT SelectionVector {
 /// TODO: Datum uses arrow/util/variant.h which may be a bit heavier-weight
 /// than is desirable for this class. Microbenchmarks would help determine for
 /// sure. See ARROW-8928.
+
+/// \addtogroup execnode-components
+/// @{
+
 struct ARROW_EXPORT ExecBatch {
   ExecBatch() = default;
   ExecBatch(std::vector<Datum> values, int64_t length)
@@ -181,7 +178,16 @@ struct ARROW_EXPORT ExecBatch {
 
   explicit ExecBatch(const RecordBatch& batch);
 
-  static Result<ExecBatch> Make(std::vector<Datum> values);
+  /// \brief Infer the ExecBatch length from values.
+  static Result<int64_t> InferLength(const std::vector<Datum>& values);
+
+  /// Creates an ExecBatch with length-validation.
+  ///
+  /// If any value is given, then all values must have a common length. If the given
+  /// length is negative, then the length of the ExecBatch is set to this common length,
+  /// or to 1 if no values are given. Otherwise, the given length must equal the common
+  /// length, if any value is given.
+  static Result<ExecBatch> Make(std::vector<Datum> values, int64_t length = -1);
 
   Result<std::shared_ptr<RecordBatch>> ToRecordBatch(
       std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool()) const;
@@ -212,6 +218,12 @@ struct ARROW_EXPORT ExecBatch {
   /// whether any values are Scalar.
   int64_t length = 0;
 
+  /// \brief index of this batch in a sorted stream of batches
+  ///
+  /// This index must be strictly monotonic starting at 0 without gaps or
+  /// it can be set to kUnsequencedIndex if there is no meaningful order
+  int64_t index = kUnsequencedIndex;
+
   /// \brief The sum of bytes in each buffer referenced by the batch
   ///
   /// Note: Scalars are not counted
@@ -234,6 +246,8 @@ struct ARROW_EXPORT ExecBatch {
 
   ExecBatch Slice(int64_t offset, int64_t length) const;
 
+  Result<ExecBatch> SelectValues(const std::vector<int>& ids) const;
+
   /// \brief A convenience for returning the types from the batch.
   std::vector<TypeHolder> GetTypes() const {
     std::vector<TypeHolder> result;
@@ -244,12 +258,12 @@ struct ARROW_EXPORT ExecBatch {
   }
 
   std::string ToString() const;
-
-  ARROW_EXPORT friend void PrintTo(const ExecBatch&, std::ostream*);
 };
 
 inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals(r); }
 inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
+
+ARROW_EXPORT void PrintTo(const ExecBatch&, std::ostream*);
 
 struct ExecValue {
   ArraySpan array = {};
@@ -309,7 +323,7 @@ struct ExecValue {
 
 struct ARROW_EXPORT ExecResult {
   // The default value of the variant is ArraySpan
-  util::Variant<ArraySpan, std::shared_ptr<ArrayData>> value;
+  std::variant<ArraySpan, std::shared_ptr<ArrayData>> value;
 
   int64_t length() const {
     if (this->is_array_span()) {
@@ -327,13 +341,13 @@ struct ARROW_EXPORT ExecResult {
     }
   }
 
-  ArraySpan* array_span() const {
-    return const_cast<ArraySpan*>(&util::get<ArraySpan>(this->value));
-  }
+  const ArraySpan* array_span() const { return &std::get<ArraySpan>(this->value); }
+  ArraySpan* array_span_mutable() { return &std::get<ArraySpan>(this->value); }
+
   bool is_array_span() const { return this->value.index() == 0; }
 
   const std::shared_ptr<ArrayData>& array_data() const {
-    return util::get<std::shared_ptr<ArrayData>>(this->value);
+    return std::get<std::shared_ptr<ArrayData>>(this->value);
   }
 
   bool is_array_data() const { return this->value.index() == 1; }
@@ -400,6 +414,8 @@ struct ARROW_EXPORT ExecSpan {
   std::vector<ExecValue> values;
 };
 
+/// @}
+
 /// \defgroup compute-call-function One-shot calls to compute functions
 ///
 /// @{
@@ -433,6 +449,31 @@ Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
 ARROW_EXPORT
 Result<Datum> CallFunction(const std::string& func_name, const ExecBatch& batch,
                            ExecContext* ctx = NULLPTR);
+
+/// @}
+
+/// \defgroup compute-function-executor One-shot calls to obtain function executors
+///
+/// @{
+
+/// \brief One-shot executor provider for all types of functions.
+///
+/// This function creates and initializes a `FunctionExecutor` appropriate
+/// for the given function name, input types and function options.
+ARROW_EXPORT
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, std::vector<TypeHolder> in_types,
+    const FunctionOptions* options = NULLPTR, FunctionRegistry* func_registry = NULLPTR);
+
+/// \brief One-shot executor provider for all types of functions.
+///
+/// This function creates and initializes a `FunctionExecutor` appropriate
+/// for the given function name, input types (taken from the Datum arguments)
+/// and function options.
+ARROW_EXPORT
+Result<std::shared_ptr<FunctionExecutor>> GetFunctionExecutor(
+    const std::string& func_name, const std::vector<Datum>& args,
+    const FunctionOptions* options = NULLPTR, FunctionRegistry* func_registry = NULLPTR);
 
 /// @}
 

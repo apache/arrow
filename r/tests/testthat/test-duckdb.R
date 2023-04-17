@@ -17,6 +17,8 @@
 
 skip_if_not_available("dataset")
 skip_on_cran()
+# DuckDB 0.7.1-1 may have errors with R<4.0
+skip_on_r_older_than("4.0")
 
 # this test needs to be the first one since all other test blocks are skipped
 # if duckdb is not installed
@@ -202,6 +204,10 @@ dbExecute(con, "PRAGMA threads=2")
 on.exit(dbDisconnect(con, shutdown = TRUE), add = TRUE)
 
 test_that("Joining, auto-cleanup enabled", {
+  # ARROW-17643, ARROW-17818: A change in duckdb 0.5.0 caused this test to fail
+  # TODO: ARROW-17809 Follow up with the latest duckdb release to solve the issue
+  skip("ARROW-17818: Latest DuckDB causes this test to fail")
+
   ds <- InMemoryDataset$create(example_data)
 
   table_one_name <- "my_arrow_table_1"

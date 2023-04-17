@@ -31,7 +31,7 @@ To build the MATLAB Interface to Apache Arrow from source, the following softwar
 
 1. [MATLAB](https://www.mathworks.com/products/get-matlab.html)
 2. [CMake](https://cmake.org/cmake/help/latest/)
-3. C++ compiler which supports C++11 (e.g. [`gcc`](https://gcc.gnu.org/) on Linux, [`Xcode`](https://developer.apple.com/xcode/) on macOS, or [`Visual Studio`](https://visualstudio.microsoft.com/) on Windows)
+3. C++ compiler which supports C++17 (e.g. [`gcc`](https://gcc.gnu.org/) on Linux, [`Xcode`](https://developer.apple.com/xcode/) on macOS, or [`Visual Studio`](https://visualstudio.microsoft.com/) on Windows)
 4. [Git](https://git-scm.com/)
 
 ## Setup

@@ -38,12 +38,13 @@ if ! git remote | grep -q --fixed-strings ${github_user}; then
 fi
 
 echo "Updating working copy"
-git fetch --all --prune --tags --force -j$(nproc)
+git fetch --all --prune --tags --force
 
 branch=apache-arrow-${version}
 echo "Creating branch: ${branch}"
+git checkout master
 git branch -D ${branch} || :
-git checkout -b ${branch} origin/master
+git checkout -b ${branch}
 
 echo "Updating apache-arrow formulae"
 brew bump-formula-pr \
@@ -64,6 +65,19 @@ brew bump-formula-pr \
      --verbose \
      --write-only \
      apache-arrow-glib
+
+for dependency in $(grep -l -r 'depends_on "apache-arrow"' Formula); do
+  dependency=${dependency#Formula/}
+  dependency=${dependency%.rb}
+  if [ ${dependency} = "apache-arrow-glib" ]; then
+    continue
+  fi
+  echo "Bumping revision of ${dependency} formulae"
+  brew bump-revision --message "(apache-arrow ${version})" ${dependency}
+done
+
+# Force homebrew to not install from API but local checkout
+export HOMEBREW_NO_INSTALL_FROM_API=1
 
 echo "Testing apache-arrow formulae"
 brew uninstall apache-arrow apache-arrow-glib || :

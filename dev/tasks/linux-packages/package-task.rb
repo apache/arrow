@@ -77,20 +77,6 @@ class PackageTask
     ENV["DEBUG"] != "no"
   end
 
-  def git_directory?(directory)
-    candidate_paths = [".git", "HEAD"]
-    candidate_paths.any? do |candidate_path|
-      File.exist?(File.join(directory, candidate_path))
-    end
-  end
-
-  def latest_commit_time(git_directory)
-    return nil unless git_directory?(git_directory)
-    cd(git_directory) do
-      return Time.iso8601(`git log -n 1 --format=%aI`.chomp).utc
-    end
-  end
-
   def download(url, output_path)
     if File.directory?(output_path)
       base_name = url.split("/").last
@@ -173,7 +159,8 @@ class PackageTask
     if File.exist?(File.join(id, "Dockerfile"))
       docker_context = id
     else
-      from = File.readlines(File.join(id, "from")).find do |line|
+      lines = File.readlines(File.join(id, "from"), encoding: "UTF-8")
+      from = lines.find do |line|
         /^[a-z-]/i =~ line
       end
       from_components = from.chomp.split
@@ -284,12 +271,12 @@ class PackageTask
       # "debian-bullseye-arm64",
       "debian-bookworm",
       # "debian-bookworm-arm64",
-      "ubuntu-bionic",
-      # "ubuntu-bionic-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
+      "ubuntu-kinetic",
+      # "ubuntu-kinetic-arm64",
     ]
   end
 
@@ -323,7 +310,7 @@ class PackageTask
     cp_r(source_debian_dir, prepared_debian_dir)
     control_in_path = "#{prepared_debian_dir}/control.in"
     if File.exist?(control_in_path)
-      control_in = File.read(control_in_path)
+      control_in = File.read(control_in_path, encoding: "UTF-8")
       rm_f(control_in_path)
       File.open("#{prepared_debian_dir}/control", "w") do |control|
         prepared_control = apt_prepare_debian_control(control_in, target)
@@ -490,7 +477,7 @@ RELEASE=#{@rpm_release}
     end
 
     spec = "#{tmp_dir}/#{@rpm_package}.spec"
-    spec_in_data = File.read(yum_spec_in_path)
+    spec_in_data = File.read(yum_spec_in_path, encoding: "UTF-8")
     spec_data = substitute_content(spec_in_data) do |key, matched|
       yum_expand_variable(key) || matched
     end
@@ -583,7 +570,7 @@ RELEASE=#{@rpm_release}
 
   def update_content(path)
     if File.exist?(path)
-      content = File.read(path)
+      content = File.read(path, encoding: "UTF-8")
     else
       content = ""
     end

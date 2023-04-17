@@ -23,6 +23,10 @@
 # - PYTHON_OTHER_LIBS
 # - NUMPY_INCLUDE_DIRS
 
+if(Python3Alt_FOUND)
+  return()
+endif()
+
 set(Python3Alt_FIND_PACKAGE_OPTIONS)
 set(Python3Alt_NumPy_FIND_PACKAGE_OPTIONS)
 if(Python3Alt_FIND_VERSION)

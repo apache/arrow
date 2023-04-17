@@ -150,9 +150,7 @@ static void BenchmarkAndImpl(benchmark::State& state, DoAnd&& do_and) {
 
   for (auto _ : state) {
     do_and({bitmap_1, bitmap_2}, &bitmap_3);
-    auto total =
-        internal::CountSetBits(bitmap_3.data(), bitmap_3.offset(), bitmap_3.length());
-    benchmark::DoNotOptimize(total);
+    benchmark::ClobberMemory();
   }
   state.SetBytesProcessed(state.iterations() * nbytes);
 }

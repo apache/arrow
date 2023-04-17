@@ -111,12 +111,12 @@ Status GetTestResourceRoot(std::string* out) {
   return Status::OK();
 }
 
-util::optional<std::string> GetTestTimezoneDatabaseRoot() {
+std::optional<std::string> GetTestTimezoneDatabaseRoot() {
   const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
   if (!c_root) {
-    return util::optional<std::string>();
+    return std::optional<std::string>();
   }
-  return util::make_optional(std::string(c_root));
+  return std::make_optional(std::string(c_root));
 }
 
 Status InitTestTimezoneDatabase() {
@@ -125,7 +125,7 @@ Status InitTestTimezoneDatabase() {
   if (!maybe_tzdata.has_value()) return Status::OK();
 
   auto tzdata_path = std::string(maybe_tzdata.value());
-  arrow::GlobalOptions options = {util::make_optional(tzdata_path)};
+  arrow::GlobalOptions options = {std::make_optional(tzdata_path)};
   ARROW_RETURN_NOT_OK(arrow::Initialize(options));
   return Status::OK();
 }

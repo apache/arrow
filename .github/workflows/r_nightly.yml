@@ -20,10 +20,6 @@ name: Upload R Nightly builds
 # to nightlies.apache.org. Due to authorization requirements, this upload can't be done 
 # from the crossbow repository.
 
-# This removes all permissions from the token
-permissions:
-  contents: none
-
 on:
   workflow_dispatch:
     inputs:
@@ -40,6 +36,9 @@ on:
     #Crossbow packaging runs at 0 8 * * *
     - cron: '0 14 * * *'
 
+permissions:
+  contents: read
+
 jobs:
   upload:
     if: github.repository == 'apache/arrow'
@@ -51,7 +50,7 @@ jobs:
           fetch-depth: 1
           path: arrow
           repository: apache/arrow
-          ref: master
+          ref: main
           submodules: recursive
       - name: Checkout Crossbow
         uses: actions/checkout@v3

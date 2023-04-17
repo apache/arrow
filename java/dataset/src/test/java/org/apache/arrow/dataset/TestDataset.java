@@ -28,7 +28,6 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import org.apache.arrow.dataset.scanner.ScanOptions;
-import org.apache.arrow.dataset.scanner.ScanTask;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
@@ -63,9 +62,7 @@ public abstract class TestDataset {
     final Dataset dataset = factory.finish();
     final Scanner scanner = dataset.newScan(options);
     try {
-      final List<ArrowRecordBatch> ret = stream(scanner.scan())
-          .flatMap(t -> stream(collectTaskData(t)))
-          .collect(Collectors.toList());
+      final List<ArrowRecordBatch> ret = collectTaskData(scanner);
       AutoCloseables.close(scanner, dataset);
       return ret;
     } catch (RuntimeException e) {
@@ -75,8 +72,8 @@ public abstract class TestDataset {
     }
   }
 
-  protected List<ArrowRecordBatch> collectTaskData(ScanTask scanTask) {
-    try (ArrowReader reader = scanTask.execute()) {
+  protected List<ArrowRecordBatch> collectTaskData(Scanner scan) {
+    try (ArrowReader reader = scan.scanBatches()) {
       List<ArrowRecordBatch> batches = new ArrayList<>();
       while (reader.loadNextBatch()) {
         VectorSchemaRoot root = reader.getVectorSchemaRoot();

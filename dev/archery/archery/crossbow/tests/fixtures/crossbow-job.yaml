@@ -5,7 +5,9 @@ target: !Target
   branch: refs/pull/4435/merge
   remote: https://github.com/apache/arrow
   version: 0.13.0.dev306
+  r_version: 0.12.0.100000306
   no_rc_version: 0.13.0.dev306
+  no_rc_r_version: 0.12.0.100000306
 tasks:
   docker-cpp-cmake32: !Task
     ci: circle

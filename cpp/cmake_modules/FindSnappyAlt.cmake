@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(SnappyAlt_FOUND)
+  return()
+endif()
+
 set(find_package_args)
 if(SnappyAlt_FIND_VERSION)
   list(APPEND find_package_args ${SnappyAlt_FIND_VERSION})

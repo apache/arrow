@@ -138,7 +138,7 @@ inline uint64_t round(decimal &h) {
   }
   bool round_up = false;
   if (dp < h.num_digits) {
-    round_up = h.digits[dp] >= 5; // normally, we round up  
+    round_up = h.digits[dp] >= 5; // normally, we round up
     // but we may need to round to even!
     if ((h.digits[dp] == 5) && (dp + 1 == h.num_digits)) {
       round_up = h.truncated || ((dp > 0) && (1 & h.digits[dp - 1]));
@@ -267,7 +267,7 @@ adjusted_mantissa compute_float(decimal &d) {
     return answer;
   } else if(d.decimal_point >= 310) {
     // We have something at least as large as 0.1e310 which is
-    // always infinite.  
+    // always infinite.
     answer.power2 = binary::infinite_power();
     answer.mantissa = 0;
     return answer;

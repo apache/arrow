@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("LocalFilesystem", {
   fs <- LocalFileSystem$create()
   expect_identical(fs$type_name, "local")

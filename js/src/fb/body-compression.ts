@@ -14,7 +14,7 @@ import { CompressionType } from './compression-type.js';
 export class BodyCompression {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):BodyCompression {
+  __init(i:number, bb:flatbuffers.ByteBuffer):BodyCompression {
   this.bb_pos = i;
   this.bb = bb;
   return this;

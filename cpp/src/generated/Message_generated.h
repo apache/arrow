@@ -188,8 +188,9 @@ FLATBUFFERS_MANUALLY_ALIGNED_STRUCT(8) FieldNode FLATBUFFERS_FINAL_CLASS {
   int64_t null_count_;
 
  public:
-  FieldNode() {
-    memset(static_cast<void *>(this), 0, sizeof(FieldNode));
+  FieldNode()
+      : length_(0),
+        null_count_(0) {
   }
   FieldNode(int64_t _length, int64_t _null_count)
       : length_(flatbuffers::EndianScalar(_length)),
@@ -218,7 +219,8 @@ struct BodyCompression FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
     VT_CODEC = 4,
     VT_METHOD = 6
   };
-  /// Compressor library
+  /// Compressor library.
+  /// For LZ4_FRAME, each compressed buffer must consist of a single frame.
   org::apache::arrow::flatbuf::CompressionType codec() const {
     return static_cast<org::apache::arrow::flatbuf::CompressionType>(GetField<int8_t>(VT_CODEC, 0));
   }
@@ -248,7 +250,6 @@ struct BodyCompressionBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  BodyCompressionBuilder &operator=(const BodyCompressionBuilder &);
   flatbuffers::Offset<BodyCompression> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<BodyCompression>(end);
@@ -332,7 +333,6 @@ struct RecordBatchBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  RecordBatchBuilder &operator=(const RecordBatchBuilder &);
   flatbuffers::Offset<RecordBatch> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<RecordBatch>(end);
@@ -422,7 +422,6 @@ struct DictionaryBatchBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  DictionaryBatchBuilder &operator=(const DictionaryBatchBuilder &);
   flatbuffers::Offset<DictionaryBatch> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<DictionaryBatch>(end);
@@ -539,7 +538,6 @@ struct MessageBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  MessageBuilder &operator=(const MessageBuilder &);
   flatbuffers::Offset<Message> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Message>(end);

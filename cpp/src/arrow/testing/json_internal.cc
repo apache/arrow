@@ -228,7 +228,7 @@ class SchemaWriter {
   template <typename T>
   enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
               is_base_binary_type<T>::value || is_base_list_type<T>::value ||
-              is_struct_type<T>::value>
+              is_struct_type<T>::value || is_run_end_encoded_type<T>::value>
   WriteTypeMetadata(const T& type) {}
 
   void WriteTypeMetadata(const MapType& type) {
@@ -437,6 +437,11 @@ class SchemaWriter {
 
   Status Visit(const DictionaryType& type) { return VisitType(*type.value_type()); }
 
+  Status Visit(const RunEndEncodedType& type) {
+    WriteName("runendencoded", type);
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionType& type) { return Status::NotImplemented(type.name()); }
 
  private:
@@ -472,7 +477,7 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  void WriteRawNumber(util::string_view v) {
+  void WriteRawNumber(std::string_view v) {
     // Avoid RawNumber() as it misleadingly adds quotes
     // (see https://github.com/Tencent/rapidjson/pull/1155)
     writer_->RawValue(v.data(), v.size(), rj::kNumberType);
@@ -503,7 +508,7 @@ class ArrayWriter {
     static const std::string null_string = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        fmt(arr.Value(i), [&](util::string_view repr) {
+        fmt(arr.Value(i), [&](std::string_view repr) {
           writer_->String(repr.data(), static_cast<rj::SizeType>(repr.size()));
         });
       } else {
@@ -630,7 +635,7 @@ class ArrayWriter {
       // Represent 64-bit integers as strings, as JSON numbers cannot represent
       // them exactly.
       ::arrow::internal::StringFormatter<typename CTypeTraits<T>::ArrowType> formatter;
-      auto append = [this](util::string_view v) {
+      auto append = [this](std::string_view v) {
         writer_->String(v.data(), static_cast<rj::SizeType>(v.size()));
         return Status::OK();
       };
@@ -741,6 +746,16 @@ class ArrayWriter {
       children.emplace_back(array.field(i));
     }
     return WriteChildren(type.fields(), children);
+  }
+
+  Status Visit(const RunEndEncodedArray& array) {
+    const auto& ree_type = checked_cast<const RunEndEncodedType&>(*array.type());
+    ARROW_ASSIGN_OR_RAISE(auto run_ends, array.LogicalRunEnds(default_memory_pool()));
+    const std::vector<std::shared_ptr<Array>> children = {
+        std::move(run_ends),
+        array.LogicalValues(),
+    };
+    return WriteChildren(ree_type.fields(), children);
   }
 
   Status Visit(const ExtensionArray& array) { return VisitArrayValues(*array.storage()); }
@@ -1005,6 +1020,36 @@ Status GetUnion(const RjObject& json_type,
   return Status::OK();
 }
 
+Status GetRunEndEncoded(const RjObject& json_type,
+                        const std::vector<std::shared_ptr<Field>>& children,
+                        std::shared_ptr<DataType>* type) {
+  if (children.size() != 2) {
+    return Status::Invalid("Run-end encoded array must have exactly 2 fields, but got ",
+                           children.size());
+  }
+  if (children[0]->name() != "run_ends") {
+    return Status::Invalid(
+        "First child of run-end encoded array must be called run_ends, but got: ",
+        children[0]->name());
+  }
+  if (children[1]->name() != "values") {
+    return Status::Invalid(
+        "Second child of run-end encoded array must be called values, but got: ",
+        children[1]->name());
+  }
+  if (!is_run_end_type(children[0]->type()->id())) {
+    return Status::Invalid(
+        "Only int16, int32, and int64 types are supported"
+        " as run ends array type, but got: ",
+        children[0]->type());
+  }
+  if (children[0]->nullable()) {
+    return Status::Invalid("Run ends array should not be nullable");
+  }
+  *type = run_end_encoded(children[0]->type(), children[1]->type());
+  return Status::OK();
+}
+
 Status GetType(const RjObject& json_type,
                const std::vector<std::shared_ptr<Field>>& children,
                std::shared_ptr<DataType>* type) {
@@ -1058,6 +1103,8 @@ Status GetType(const RjObject& json_type,
     *type = struct_(children);
   } else if (type_name == "union") {
     return GetUnion(json_type, children, type);
+  } else if (type_name == "runendencoded") {
+    return GetRunEndEncoded(json_type, children, type);
   } else {
     return Status::Invalid("Unrecognized type name: ", type_name);
   }
@@ -1539,6 +1586,13 @@ class ArrayReader {
 
     data_->type = field_->type();
     // data_->dictionary will be filled later by ResolveDictionaries()
+    return Status::OK();
+  }
+
+  Status Visit(const RunEndEncodedType& type) {
+    RETURN_NOT_OK(InitializeData(1));
+    RETURN_NOT_OK(GetNullBitmap());
+    RETURN_NOT_OK(GetChildren(obj_, type));
     return Status::OK();
   }
 

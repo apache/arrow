@@ -59,9 +59,14 @@ add_arrow_lib(arrow_cuda
               arrow_shared
               ${ARROW_CUDA_LINK_LIBS}
               ${ARROW_CUDA_SHARED_LINK_LIBS}
+              SHARED_INSTALL_INTERFACE_LIBS
+              Arrow::arrow_shared
               # Static arrow_cuda must also link against CUDA shared libs
               STATIC_LINK_LIBS
               ${ARROW_CUDA_LINK_LIBS}
+              ${ARROW_CUDA_SHARED_LINK_LIBS}
+              STATIC_INSTALL_INTERFACE_LIBS
+              Arrow::arrow_static
               ${ARROW_CUDA_SHARED_LINK_LIBS})
 
 add_dependencies(arrow_cuda ${ARROW_CUDA_LIBRARIES})
@@ -93,7 +98,7 @@ endif()
 if(ARROW_BUILD_BENCHMARKS)
   add_arrow_benchmark(cuda_benchmark PREFIX "arrow-gpu")
   target_link_libraries(arrow-gpu-cuda-benchmark
-                        PUBLIC ${ARROW_CUDA_LIBRARY} GTest::gtest
+                        PUBLIC ${ARROW_CUDA_LIBRARY} ${ARROW_GTEST_GTEST}
                                ${ARROW_BENCHMARK_LINK_LIBS})
   add_dependencies(arrow_cuda-benchmarks arrow-gpu-cuda-benchmark)
 endif()

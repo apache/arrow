@@ -13,11 +13,10 @@
 # "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
-# under the License.
-
-skip_if(on_old_windows())
 
 library(dplyr, warn.conflicts = FALSE)
+
+skip_if_not_available("acero")
 
 withr::local_options(list(arrow.summarise.sort = FALSE))
 

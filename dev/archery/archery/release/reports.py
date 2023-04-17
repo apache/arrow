@@ -27,14 +27,15 @@ class ReleaseCuration(JinjaReport):
         'release',
         'within',
         'outside',
-        'nojira',
+        'noissue',
         'parquet',
         'nopatch',
-        'minimal'
+        'minimal',
+        'minor'
     ]
 
 
-class JiraChangelog(JinjaReport):
+class ReleaseChangelog(JinjaReport):
     templates = {
         'markdown': 'release_changelog.md.j2',
         'html': 'release_changelog.html.j2'

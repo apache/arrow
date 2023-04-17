@@ -296,7 +296,7 @@ TEST(PathUtil, Globber) {
   ASSERT_FALSE(wildcards.Matches("/bucket0/foo/ab/a.parquet"));
 }
 
-TEST(InternalUtil, GlobFiles) {
+void TestGlobFiles(const std::string& base_dir) {
   auto fs = std::make_shared<MockFileSystem>(TimePoint{});
 
   auto check_entries = [](const std::vector<FileInfo>& infos,
@@ -308,27 +308,26 @@ TEST(InternalUtil, GlobFiles) {
     ASSERT_EQ(actual, expected);
   };
 
-  ASSERT_OK(fs->CreateDir("A/CD"));
-  ASSERT_OK(fs->CreateDir("AB/CD"));
-  ASSERT_OK(fs->CreateDir("AB/CD/ab"));
-  CreateFile(fs.get(), "A/CD/ab.txt", "data");
-  CreateFile(fs.get(), "AB/CD/a.txt", "data");
-  CreateFile(fs.get(), "AB/CD/abc.txt", "data");
-  CreateFile(fs.get(), "AB/CD/ab/c.txt", "data");
+  ASSERT_OK(fs->CreateDir(base_dir + "A/CD"));
+  ASSERT_OK(fs->CreateDir(base_dir + "AB/CD"));
+  ASSERT_OK(fs->CreateDir(base_dir + "AB/CD/ab"));
+  CreateFile(fs.get(), base_dir + "A/CD/ab.txt", "data");
+  CreateFile(fs.get(), base_dir + "AB/CD/a.txt", "data");
+  CreateFile(fs.get(), base_dir + "AB/CD/abc.txt", "data");
+  CreateFile(fs.get(), base_dir + "AB/CD/ab/c.txt", "data");
 
   FileInfoVector infos;
-  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, "A*/CD/?b*.txt"));
+  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, base_dir + "A*/CD/?b*.txt"));
   ASSERT_EQ(infos.size(), 2);
-  check_entries(infos, {"A/CD/ab.txt", "AB/CD/abc.txt"});
+  check_entries(infos, {base_dir + "A/CD/ab.txt", base_dir + "AB/CD/abc.txt"});
 
-  // Leading slash is optional but doesn't change behavior
-  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, "/A*/CD/?b*.txt"));
-  ASSERT_EQ(infos.size(), 2);
-  check_entries(infos, {"A/CD/ab.txt", "AB/CD/abc.txt"});
-
-  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, "A*/CD/?/b*.txt"));
+  ASSERT_OK_AND_ASSIGN(infos, GlobFiles(fs, base_dir + "A*/CD/?/b*.txt"));
   ASSERT_EQ(infos.size(), 0);
 }
+
+TEST(InternalUtil, GlobFilesWithoutLeadingSlash) { TestGlobFiles(""); }
+
+TEST(InternalUtil, GlobFilesWithLeadingSlash) { TestGlobFiles("/"); }
 
 ////////////////////////////////////////////////////////////////////////////
 // Generic MockFileSystem tests

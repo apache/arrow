@@ -28,25 +28,45 @@ set(ARROW_DATASET_SRCS
     partition.cc
     plan.cc
     projector.cc
-    scanner.cc)
+    scanner.cc
+    scan_node.cc)
 
-set(ARROW_DATASET_LINK_STATIC arrow_static ${ARROW_STATIC_LINK_LIBS})
-set(ARROW_DATASET_LINK_SHARED arrow_shared)
+set(ARROW_DATASET_PKG_CONFIG_REQUIRES "arrow-acero")
+if(ARROW_PARQUET)
+  string(APPEND ARROW_DATASET_PKG_CONFIG_REQUIRES " parquet")
+endif()
+
+set(ARROW_DATASET_STATIC_LINK_LIBS)
+set(ARROW_DATASET_SHARED_LINK_LIBS)
+set(ARROW_DATASET_STATIC_INSTALL_INTERFACE_LIBS)
+set(ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_CSV)
-  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_csv.cc)
+  list(APPEND ARROW_DATASET_SRCS file_csv.cc)
+endif()
+
+if(ARROW_JSON)
+  list(APPEND ARROW_DATASET_SRCS file_json.cc)
 endif()
 
 if(ARROW_ORC)
-  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_orc.cc)
+  list(APPEND ARROW_DATASET_SRCS file_orc.cc)
 endif()
 
 if(ARROW_PARQUET)
-  set(ARROW_DATASET_LINK_STATIC ${ARROW_DATASET_LINK_STATIC} parquet_static)
-  set(ARROW_DATASET_LINK_SHARED ${ARROW_DATASET_LINK_SHARED} parquet_shared)
-  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_parquet.cc)
-  set(ARROW_DATASET_PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/parquet)
+  list(APPEND ARROW_DATASET_STATIC_LINK_LIBS parquet_static)
+  list(APPEND ARROW_DATASET_SHARED_LINK_LIBS parquet_shared)
+  list(APPEND ARROW_DATASET_STATIC_INSTALL_INTERFACE_LIBS Parquet::parquet_static)
+  list(APPEND ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS Parquet::parquet_shared)
+  list(APPEND ARROW_DATASET_SRCS file_parquet.cc)
+  list(APPEND ARROW_DATASET_PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/parquet)
 endif()
+
+list(APPEND ARROW_DATASET_STATIC_INSTALL_INTERFACE_LIBS ArrowAcero::arrow_acero_static)
+list(APPEND ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS ArrowAcero::arrow_acero_shared)
+
+list(APPEND ARROW_DATASET_STATIC_LINK_LIBS arrow_acero_static ${ARROW_STATIC_LINK_LIBS})
+list(APPEND ARROW_DATASET_SHARED_LINK_LIBS arrow_acero_shared)
 
 add_arrow_lib(arrow_dataset
               CMAKE_PACKAGE_NAME
@@ -64,9 +84,17 @@ add_arrow_lib(arrow_dataset
               PRIVATE_INCLUDES
               ${ARROW_DATASET_PRIVATE_INCLUDES}
               SHARED_LINK_LIBS
-              ${ARROW_DATASET_LINK_SHARED}
+              ${ARROW_DATASET_SHARED_LINK_LIBS}
+              SHARED_INSTALL_INTERFACE_LIBS
+              ${ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS}
               STATIC_LINK_LIBS
-              ${ARROW_DATASET_LINK_STATIC})
+              ${ARROW_DATASET_STATIC_LINK_LIBS}
+              STATIC_INSTALL_INTERFACE_LIBS
+              ${ARROW_DATASET_STATIC_INSTALL_INTERFACE_LIBS})
+
+if(ARROW_BUILD_STATIC AND WIN32)
+  target_compile_definitions(arrow_dataset_static PUBLIC ARROW_DS_STATIC)
+endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})
@@ -106,6 +134,10 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
                  ${ARROW_DATASET_TEST_LINK_LIBS}
                  PREFIX
                  ${PREFIX}
+                 SOURCES
+                 ${REL_TEST_NAME}.cc
+                 test_util_internal.cc
+                 ../acero/test_util_internal.cc
                  LABELS
                  ${LABELS}
                  ${ARG_UNPARSED_ARGUMENTS})
@@ -118,9 +150,14 @@ add_arrow_dataset_test(file_ipc_test)
 add_arrow_dataset_test(file_test)
 add_arrow_dataset_test(partition_test)
 add_arrow_dataset_test(scanner_test)
+add_arrow_dataset_test(subtree_test)
 
 if(ARROW_CSV)
   add_arrow_dataset_test(file_csv_test)
+endif()
+
+if(ARROW_JSON)
+  add_arrow_dataset_test(file_json_test)
 endif()
 
 if(ARROW_ORC)

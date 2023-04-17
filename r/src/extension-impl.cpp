@@ -80,7 +80,7 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
   // an event loop from wherever this *might* be called is high and hard to
   // predict. As a compromise, just create the instance when it is safe to
   // do so.
-  if (GetMainRThread().IsMainThread()) {
+  if (MainRThread::GetInstance().IsMainThread()) {
     r6_instance();
   }
 

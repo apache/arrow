@@ -176,6 +176,9 @@ Array$create <- function(x, type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
+  if (is.null(x) && is.null(type)) {
+    type <- null()
+  }
   if (inherits(x, "Scalar")) {
     out <- x$as_array()
     if (!is.null(type)) {
@@ -300,23 +303,32 @@ as_arrow_array.data.frame <- function(x, ..., type = NULL) {
     fields <- type$fields()
     names <- map_chr(fields, "name")
     types <- map(fields, "type")
-    arrays <- Map(as_arrow_array, x, types)
+    arrays <- Map(as_arrow_array, x, type = types)
     names(arrays) <- names
-
-    # TODO(ARROW-16266): a hack because there is no StructArray$create() yet
-    batch <- record_batch(!!!arrays)
-    array_ptr <- allocate_arrow_array()
-    schema_ptr <- allocate_arrow_schema()
-    on.exit({
-      delete_arrow_array(array_ptr)
-      delete_arrow_schema(schema_ptr)
-    })
-
-    batch$export_to_c(array_ptr, schema_ptr)
-    Array$import_from_c(array_ptr, schema_ptr)
+    StructArray$create(!!!arrays)
   } else {
     stop_cant_convert_array(x, type)
   }
+}
+
+#' @export
+as_arrow_array.vctrs_list_of <- function(x, ..., type = NULL) {
+  type <- type %||% infer_type(x)
+  if (!inherits(type, "ListType") && !inherits(type, "LargeListType")) {
+    stop_cant_convert_array(x, type)
+  }
+
+  as_arrow_array(unclass(x), type = type)
+}
+
+#' @export
+as_arrow_array.blob <- function(x, ..., type = NULL) {
+  type <- type %||% infer_type(x)
+  if (!type$Equals(binary()) && !type$Equals(large_binary())) {
+    stop_cant_convert_array(x, type)
+  }
+
+  as_arrow_array(unclass(x), type = type)
 }
 
 stop_cant_convert_array <- function(x, type) {
@@ -326,7 +338,7 @@ stop_cant_convert_array <- function(x, type) {
         "Can't create Array from object of type %s",
         paste(class(x), collapse = " / ")
       ),
-      call = rlang::caller_env()
+      call = caller_env()
     )
   } else {
     abort(
@@ -335,7 +347,7 @@ stop_cant_convert_array <- function(x, type) {
         format(type$code()),
         paste(class(x), collapse = " / ")
       ),
-      call = rlang::caller_env()
+      call = caller_env()
     )
   }
 }
@@ -426,6 +438,11 @@ StructArray <- R6Class("StructArray",
     Flatten = function() StructArray__Flatten(self)
   )
 )
+
+StructArray$create <- function(...) {
+  data <- record_batch(...)
+  StructArray__from_RecordBatch(data)
+}
 
 
 #' @export

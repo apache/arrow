@@ -24,7 +24,8 @@ from pyarrow.tests.parquet.common import parametrize_legacy_dataset
 
 try:
     import pyarrow.parquet as pq
-    from pyarrow.tests.parquet.common import _read_table, _test_dataframe
+    from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
+                                              _range_integers)
 except ImportError:
     pq = None
 
@@ -202,6 +203,40 @@ def test_parquet_writer_write_wrappers(tempdir, filesystem):
     tm.assert_frame_equal(result, df)
 
 
+@pytest.mark.large_memory
+@pytest.mark.pandas
+def test_parquet_writer_chunk_size(tempdir):
+    default_chunk_size = 1024 * 1024
+    abs_max_chunk_size = 64 * 1024 * 1024
+
+    def check_chunk_size(data_size, chunk_size, expect_num_chunks):
+        table = pa.Table.from_arrays([
+            _range_integers(data_size, 'b')
+        ], names=['x'])
+        pq.write_table(table, tempdir / 'test.parquet', row_group_size=chunk_size)
+        metadata = pq.read_metadata(tempdir / 'test.parquet')
+        assert metadata.num_row_groups == expect_num_chunks
+        latched_chunk_size = min(chunk_size, abs_max_chunk_size)
+        # First chunks should be full size
+        for chunk_idx in range(expect_num_chunks - 1):
+            assert metadata.row_group(chunk_idx).num_rows == latched_chunk_size
+        # Last chunk may be smaller
+        remainder = data_size - (chunk_size * (expect_num_chunks - 1))
+        if remainder == 0:
+            assert metadata.row_group(
+                expect_num_chunks - 1).num_rows == latched_chunk_size
+        else:
+            assert metadata.row_group(expect_num_chunks - 1).num_rows == remainder
+
+    check_chunk_size(default_chunk_size * 2, default_chunk_size - 100, 3)
+    check_chunk_size(default_chunk_size * 2, default_chunk_size, 2)
+    check_chunk_size(default_chunk_size * 2, default_chunk_size + 100, 2)
+    check_chunk_size(default_chunk_size + 100, default_chunk_size + 100, 1)
+    # Even though the chunk size requested is large enough it will be capped
+    # by the absolute max chunk size
+    check_chunk_size(abs_max_chunk_size * 2, abs_max_chunk_size * 2, 2)
+
+
 @pytest.mark.pandas
 @pytest.mark.parametrize("filesystem", [
     None,
@@ -325,3 +360,24 @@ def test_parquet_writer_with_caller_provided_filesystem(use_legacy_dataset):
         expected_msg = ("filesystem passed but where is file-like, so"
                         " there is nothing to open with filesystem.")
         assert str(err_info) == expected_msg
+
+
+def test_parquet_writer_store_schema(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+
+    # default -> write schema information
+    path1 = tempdir / 'test_with_schema.parquet'
+    with pq.ParquetWriter(path1, table.schema) as writer:
+        writer.write_table(table)
+
+    meta = pq.read_metadata(path1)
+    assert b'ARROW:schema' in meta.metadata
+    assert meta.metadata[b'ARROW:schema']
+
+    # disable adding schema information
+    path2 = tempdir / 'test_without_schema.parquet'
+    with pq.ParquetWriter(path2, table.schema, store_schema=False) as writer:
+        writer.write_table(table)
+
+    meta = pq.read_metadata(path2)
+    assert meta.metadata is None

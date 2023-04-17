@@ -14,7 +14,7 @@ import { KeyValue } from './key-value.js';
 export class Schema {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Schema {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Schema {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -62,9 +62,9 @@ customMetadataLength():number {
 /**
  * Features used in the stream/file.
  */
-features(index: number):flatbuffers.Long|null {
+features(index: number):bigint|null {
   const offset = this.bb!.__offset(this.bb_pos, 10);
-  return offset ? this.bb!.readInt64(this.bb!.__vector(this.bb_pos + offset) + index * 8) : this.bb!.createLong(0, 0);
+  return offset ? this.bb!.readInt64(this.bb!.__vector(this.bb_pos + offset) + index * 8) : BigInt(0);
 }
 
 featuresLength():number {
@@ -116,7 +116,7 @@ static addFeatures(builder:flatbuffers.Builder, featuresOffset:flatbuffers.Offse
   builder.addFieldOffset(3, featuresOffset, 0);
 }
 
-static createFeaturesVector(builder:flatbuffers.Builder, data:flatbuffers.Long[]):flatbuffers.Offset {
+static createFeaturesVector(builder:flatbuffers.Builder, data:bigint[]):flatbuffers.Offset {
   builder.startVector(8, data.length, 8);
   for (let i = data.length - 1; i >= 0; i--) {
     builder.addInt64(data[i]!);

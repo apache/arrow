@@ -52,8 +52,6 @@ RUN \
     openssl-devel \
     pkg-config \
     python39 \
-    python39-devel \
-    python39-numpy \
     python39-pip \
     re2-devel \
     # rapidjson-devel \

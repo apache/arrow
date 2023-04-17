@@ -20,25 +20,41 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
-#include "arrow/buffer.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/options.h"
-#include "arrow/dataset/file_base.h"
-#include "arrow/engine/substrait/extension_set.h"
+#include "arrow/compute/type_fwd.h"
+#include "arrow/dataset/type_fwd.h"
 #include "arrow/engine/substrait/options.h"
+#include "arrow/engine/substrait/relation.h"
+#include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"
-#include "arrow/util/string_view.h"
+#include "arrow/status.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace engine {
 
+/// \brief Serialize an Acero Plan to a binary protobuf Substrait message
+///
+/// \param[in] declaration the Acero declaration to serialize.
+/// This declaration is the sink relation of the Acero plan.
+/// \param[in,out] ext_set the extension mapping to use; may be updated to add
+/// \param[in] conversion_options options to control how the conversion is done
+///
+/// \return a buffer containing the protobuf serialization of the Acero relation
+ARROW_ENGINE_EXPORT
+Result<std::shared_ptr<Buffer>> SerializePlan(
+    const acero::Declaration& declaration, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
+
 /// Factory function type for generating the node that consumes the batches produced by
 /// each toplevel Substrait relation when deserializing a Substrait Plan.
-using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>()>;
+using ConsumerFactory = std::function<std::shared_ptr<acero::SinkNodeConsumer>()>;
 
 /// \brief Deserializes a Substrait Plan message to a list of ExecNode declarations
 ///
@@ -55,7 +71,7 @@ using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>
 /// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
-ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
+ARROW_ENGINE_EXPORT Result<std::vector<acero::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
@@ -75,8 +91,8 @@ ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
 /// Plan is returned here.
 /// \return an ExecNode corresponding to the single toplevel relation in the Substrait
 /// Plan
-Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
-    const Buffer& buf, const std::shared_ptr<compute::SinkNodeConsumer>& consumer,
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<acero::ExecPlan>> DeserializePlan(
+    const Buffer& buf, const std::shared_ptr<acero::SinkNodeConsumer>& consumer,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
 
@@ -99,7 +115,7 @@ using WriteOptionsFactory = std::function<std::shared_ptr<dataset::WriteNodeOpti
 /// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
-ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
+ARROW_ENGINE_EXPORT Result<std::vector<acero::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
@@ -119,9 +135,26 @@ ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlans(
 /// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return a vector of ExecNode declarations, one for each toplevel relation in the
 /// Substrait Plan
-ARROW_ENGINE_EXPORT Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<acero::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<dataset::WriteNodeOptions>& write_options,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
+    const ConversionOptions& conversion_options = {});
+
+/// \brief Deserializes a Substrait Plan message to a Declaration
+///
+/// The plan will not contain any sink nodes and will be suitable for use in any
+/// of the arrow::compute::DeclarationToXyz methods.
+///
+/// \param[in] buf a buffer containing the protobuf serialization of a Substrait Plan
+/// message
+/// \param[in] registry an extension-id-registry to use, or null for the default one.
+/// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
+/// Plan is returned here.
+/// \param[in] conversion_options options to control how the conversion is to be done.
+/// \return A declaration representing the Substrait plan
+ARROW_ENGINE_EXPORT Result<PlanInfo> DeserializePlan(
+    const Buffer& buf, const ExtensionIdRegistry* registry = NULLPTR,
+    ExtensionSet* ext_set_out = NULLPTR,
     const ConversionOptions& conversion_options = {});
 
 /// \brief Deserializes a Substrait Type message to the corresponding Arrow type
@@ -202,6 +235,17 @@ Result<std::shared_ptr<Buffer>> SerializeExpression(
     const compute::Expression& expr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options = {});
 
+/// \brief Serialize an Acero Declaration to a binary protobuf Substrait message
+///
+/// \param[in] declaration the Acero declaration to serialize
+/// \param[in,out] ext_set the extension mapping to use; may be updated to add
+/// \param[in] conversion_options options to control how the conversion is done
+///
+/// \return a buffer containing the protobuf serialization of the Acero relation
+ARROW_ENGINE_EXPORT Result<std::shared_ptr<Buffer>> SerializeRelation(
+    const acero::Declaration& declaration, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
+
 /// \brief Deserializes a Substrait Rel (relation) message to an ExecNode declaration
 ///
 /// \param[in] buf a buffer containing the protobuf serialization of a Substrait
@@ -210,7 +254,7 @@ Result<std::shared_ptr<Buffer>> SerializeExpression(
 /// surrounding Plan message
 /// \param[in] conversion_options options to control how the conversion is to be done.
 /// \return the corresponding ExecNode declaration
-ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializeRelation(
+ARROW_ENGINE_EXPORT Result<acero::Declaration> DeserializeRelation(
     const Buffer& buf, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options = {});
 
@@ -227,7 +271,7 @@ namespace internal {
 /// \param[in] r_buf buffer containing the second protobuf serialization to compare
 /// \return success if equivalent, failure if not
 ARROW_ENGINE_EXPORT
-Status CheckMessagesEquivalent(util::string_view message_name, const Buffer& l_buf,
+Status CheckMessagesEquivalent(std::string_view message_name, const Buffer& l_buf,
                                const Buffer& r_buf);
 
 /// \brief Utility function to convert a JSON serialization of a Substrait message to
@@ -235,10 +279,17 @@ Status CheckMessagesEquivalent(util::string_view message_name, const Buffer& l_b
 ///
 /// \param[in] type_name the name of the Substrait message type to convert
 /// \param[in] json the JSON string to convert
+/// \param[in] ignore_unknown_fields if true then unknown fields will be ignored and
+///            will not cause an error
+///
+///            This should generally be true to allow consumption of plans from newer
+///            producers but setting to false can be useful if you are testing
+///            conformance to a specific Substrait version
 /// \return a buffer filled with the binary protobuf serialization of message
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
-                                                  util::string_view json);
+Result<std::shared_ptr<Buffer>> SubstraitFromJSON(std::string_view type_name,
+                                                  std::string_view json,
+                                                  bool ignore_unknown_fields = true);
 
 /// \brief Utility function to convert a binary protobuf serialization of a Substrait
 /// message to JSON
@@ -247,7 +298,7 @@ Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
 /// \param[in] buf the buffer containing the binary protobuf serialization of the message
 /// \return a JSON string representing the message
 ARROW_ENGINE_EXPORT
-Result<std::string> SubstraitToJSON(util::string_view type_name, const Buffer& buf);
+Result<std::string> SubstraitToJSON(std::string_view type_name, const Buffer& buf);
 
 }  // namespace internal
 }  // namespace engine

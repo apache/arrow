@@ -35,7 +35,7 @@
 namespace arrow {
 namespace json {
 
-using util::string_view;
+using std::string_view;
 
 using internal::checked_cast;
 using internal::GetCpuThreadPool;

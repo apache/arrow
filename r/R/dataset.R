@@ -123,7 +123,8 @@
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
-#' @seealso `vignette("dataset", package = "arrow")`
+#' @seealso \href{https://arrow.apache.org/docs/r/articles/dataset.html}{
+#' datasets article}
 #' @include arrow-object.R
 #' @examplesIf arrow_with_dataset() & arrow_with_parquet()
 #' # Set up directory for examples
@@ -131,8 +132,7 @@
 #' dir.create(tf)
 #' on.exit(unlink(tf))
 #'
-#' data <- dplyr::group_by(mtcars, cyl)
-#' write_dataset(data, tf)
+#' write_dataset(mtcars, tf, partitioning = "cyl")
 #'
 #' # You can specify a directory containing the files for your dataset and
 #' # open_dataset will scan all files in your directory.
@@ -145,7 +145,7 @@
 #' tf2 <- tempfile()
 #' dir.create(tf2)
 #' on.exit(unlink(tf2))
-#' write_dataset(data, tf2, format = "ipc")
+#' write_dataset(mtcars, tf2, format = "ipc")
 #' # This line will results in errors when you try to work with the data
 #' \dontrun{
 #' open_dataset(tf2)
@@ -221,12 +221,136 @@ open_dataset <- function(sources,
     # Default is _not_ to inspect/unify schemas
     factory$Finish(schema, isTRUE(unify_schemas)),
     # n = 4 because we want the error to show up as being from open_dataset()
-    # and not handle_parquet_io_error()
+    # and not augment_io_error_msg()
     error = function(e, call = caller_env(n = 4)) {
-      handle_parquet_io_error(e, format, call)
+      augment_io_error_msg(e, call, format = format)
     }
   )
 }
+
+#' Open a multi-file dataset of CSV or other delimiter-separated format
+#'
+#' A wrapper around [open_dataset] which explicitly includes parameters mirroring [read_csv_arrow()],
+#' [read_delim_arrow()], and [read_tsv_arrow()] to allow for easy switching between functions
+#' for opening single files and functions for opening datasets.
+#'
+#' @inheritParams open_dataset
+#' @inheritParams read_delim_arrow
+#'
+#' @section Options currently supported by [read_delim_arrow()] which are not supported here:
+#' * `file` (instead, please specify files in `sources`)
+#' * `col_select` (instead, subset columns after dataset creation)
+#' * `quoted_na`
+#' * `as_data_frame` (instead, convert to data frame after dataset creation)
+#' * `parse_options`
+#'
+#' @examplesIf arrow_with_dataset()
+#' # Set up directory for examples
+#' tf <- tempfile()
+#' dir.create(tf)
+#' df <- data.frame(x = c("1", "2", "NULL"))
+#'
+#' file_path <- file.path(tf, "file1.txt")
+#' write.table(df, file_path, sep = ",", row.names = FALSE)
+#'
+#' read_csv_arrow(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
+#' open_csv_dataset(file_path, na = c("", "NA", "NULL"), col_names = "y", skip = 1)
+#'
+#' unlink(tf)
+#' @seealso [open_dataset()]
+#' @export
+open_delim_dataset <- function(sources,
+                               schema = NULL,
+                               partitioning = hive_partition(),
+                               hive_style = NA,
+                               unify_schemas = NULL,
+                               factory_options = list(),
+                               delim = ",",
+                               quote = "\"",
+                               escape_double = TRUE,
+                               escape_backslash = FALSE,
+                               col_names = TRUE,
+                               col_types = NULL,
+                               na = c("", "NA"),
+                               skip_empty_rows = TRUE,
+                               skip = 0L,
+                               convert_options = NULL,
+                               read_options = NULL,
+                               timestamp_parsers = NULL) {
+  open_dataset(
+    sources = sources,
+    schema = schema,
+    partitioning = partitioning,
+    hive_style = hive_style,
+    unify_schemas = unify_schemas,
+    factory_options = factory_options,
+    format = "text",
+    delim = delim,
+    quote = quote,
+    escape_double = escape_double,
+    escape_backslash = escape_backslash,
+    col_names = col_names,
+    col_types = col_types,
+    na = na,
+    skip_empty_rows = skip_empty_rows,
+    skip = skip,
+    convert_options = convert_options,
+    read_options = read_options,
+    timestamp_parsers = timestamp_parsers
+  )
+}
+
+#' @rdname open_delim_dataset
+#' @export
+open_csv_dataset <- function(sources,
+                             schema = NULL,
+                             partitioning = hive_partition(),
+                             hive_style = NA,
+                             unify_schemas = NULL,
+                             factory_options = list(),
+                             quote = "\"",
+                             escape_double = TRUE,
+                             escape_backslash = FALSE,
+                             col_names = TRUE,
+                             col_types = NULL,
+                             na = c("", "NA"),
+                             skip_empty_rows = TRUE,
+                             skip = 0L,
+                             convert_options = NULL,
+                             read_options = NULL,
+                             timestamp_parsers = NULL) {
+  mc <- match.call()
+  mc$delim <- ","
+  mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))
+  eval.parent(mc)
+}
+
+#' @rdname open_delim_dataset
+#' @export
+open_tsv_dataset <- function(sources,
+                             schema = NULL,
+                             partitioning = hive_partition(),
+                             hive_style = NA,
+                             unify_schemas = NULL,
+                             factory_options = list(),
+                             quote = "\"",
+                             escape_double = TRUE,
+                             escape_backslash = FALSE,
+                             col_names = TRUE,
+                             col_types = NULL,
+                             na = c("", "NA"),
+                             skip_empty_rows = TRUE,
+                             skip = 0L,
+                             convert_options = NULL,
+                             read_options = NULL,
+                             timestamp_parsers = NULL) {
+  mc <- match.call()
+  mc$delim <- "\t"
+  mc[[1]] <- get("open_delim_dataset", envir = asNamespace("arrow"))
+  eval.parent(mc)
+}
+
+
 
 #' Multi-file datasets
 #'
@@ -397,6 +521,11 @@ dim.Dataset <- function(x) c(x$num_rows, x$num_cols)
 
 #' @export
 c.Dataset <- function(...) Dataset$create(list(...))
+
+#' @export
+as.data.frame.Dataset <- function(x, row.names = NULL, optional = FALSE, ...) {
+  collect.Dataset(x)
+}
 
 #' @export
 head.Dataset <- function(x, n = 6L, ...) {

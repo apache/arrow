@@ -103,10 +103,7 @@ class ARROW_EXPORT RecordBatchWriter {
   /// \return Status
   virtual Status WriteRecordBatch(
       const RecordBatch& batch,
-      const std::shared_ptr<const KeyValueMetadata>& custom_metadata) {
-    return Status::NotImplemented(
-        "Write record batch with custom metadata not implemented");
-  }
+      const std::shared_ptr<const KeyValueMetadata>& custom_metadata);
 
   /// \brief Write possibly-chunked table by creating sequence of record batches
   /// \param[in] table table to write

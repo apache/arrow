@@ -5,7 +5,7 @@ import * as flatbuffers from 'flatbuffers';
 export class FixedSizeList {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):FixedSizeList {
+  __init(i:number, bb:flatbuffers.ByteBuffer):FixedSizeList {
   this.bb_pos = i;
   this.bb = bb;
   return this;

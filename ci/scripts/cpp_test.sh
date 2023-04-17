@@ -52,25 +52,22 @@ case "$(uname)" in
     n_jobs=${NUMBER_OF_PROCESSORS:-1}
     # TODO: Enable these crashed tests.
     # https://issues.apache.org/jira/browse/ARROW-9072
-    exclude_tests="gandiva-internals-test"
+    exclude_tests="gandiva-binary-test"
+    exclude_tests="${exclude_tests}|gandiva-boolean-expr-test"
+    exclude_tests="${exclude_tests}|gandiva-date-time-test"
+    exclude_tests="${exclude_tests}|gandiva-decimal-single-test"
+    exclude_tests="${exclude_tests}|gandiva-decimal-test"
+    exclude_tests="${exclude_tests}|gandiva-filter-project-test"
+    exclude_tests="${exclude_tests}|gandiva-filter-test"
+    exclude_tests="${exclude_tests}|gandiva-hash-test"
+    exclude_tests="${exclude_tests}|gandiva-if-expr-test"
+    exclude_tests="${exclude_tests}|gandiva-in-expr-test"
+    exclude_tests="${exclude_tests}|gandiva-internals-test"
+    exclude_tests="${exclude_tests}|gandiva-literal-test"
+    exclude_tests="${exclude_tests}|gandiva-null-validity-test"
+    exclude_tests="${exclude_tests}|gandiva-precompiled-test"
     exclude_tests="${exclude_tests}|gandiva-projector-test"
     exclude_tests="${exclude_tests}|gandiva-utf8-test"
-    if [ "${MSYSTEM}" = "MINGW32" ]; then
-      exclude_tests="${exclude_tests}|gandiva-binary-test"
-      exclude_tests="${exclude_tests}|gandiva-boolean-expr-test"
-      exclude_tests="${exclude_tests}|gandiva-date-time-test"
-      exclude_tests="${exclude_tests}|gandiva-decimal-single-test"
-      exclude_tests="${exclude_tests}|gandiva-decimal-test"
-      exclude_tests="${exclude_tests}|gandiva-filter-project-test"
-      exclude_tests="${exclude_tests}|gandiva-filter-test"
-      exclude_tests="${exclude_tests}|gandiva-hash-test"
-      exclude_tests="${exclude_tests}|gandiva-if-expr-test"
-      exclude_tests="${exclude_tests}|gandiva-in-expr-test"
-      exclude_tests="${exclude_tests}|gandiva-literal-test"
-      exclude_tests="${exclude_tests}|gandiva-null-validity-test"
-      exclude_tests="${exclude_tests}|gandiva-precompiled-test"
-      exclude_tests="${exclude_tests}|gandiva-projector-test"
-    fi
     ctest_options+=(--exclude-regex "${exclude_tests}")
     ;;
   *)
@@ -80,14 +77,14 @@ esac
 
 pushd ${build_dir}
 
-if ! which python > /dev/null 2>&1; then
-  export PYTHON=python3
+if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
+  export PYTHON="${PYTHON:-python3}"
 fi
 ctest \
     --label-regex unittest \
     --output-on-failure \
     --parallel ${n_jobs} \
-    --timeout 300 \
+    --timeout ${ARROW_CTEST_TIMEOUT:-300} \
     "${ctest_options[@]}" \
     $@
 

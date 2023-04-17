@@ -7,9 +7,25 @@
 \description{
 class arrow::DataType
 }
-\section{Methods}{
+\section{R6 Methods}{
 
-
-TODO
+\itemize{
+\item \verb{$ToString()}: String representation of the DataType
+\item \verb{$Equals(other)}: Is the DataType equal to \code{other}
+\item \verb{$fields()}: The children fields associated with this type
+\item \verb{$code()}: Produces an R call of the data type.
 }
 
+There are also some active bindings:
+\itemize{
+\item \verb{$id}: integer Arrow type id.
+\item \verb{$name}: string Arrow type name.
+\item \verb{$num_fields}: number of child fields.
+}
+}
+
+\seealso{
+\code{\link[=infer_type]{infer_type()}}
+
+\code{\link{data-type}}
+}

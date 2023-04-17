@@ -30,6 +30,7 @@ RUN dnf update -y && \
         ccache \
         clang-devel \
         cmake \
+        curl \
         curl-devel \
         flatbuffers-devel \
         gcc \
@@ -71,11 +72,15 @@ RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
-ENV ARROW_BUILD_TESTS=ON \
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
+ENV absl_SOURCE=BUNDLED \
+    ARROW_ACERO=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \
-    ARROW_GANDIVA_JAVA=ON \
     ARROW_GANDIVA=ON \
     ARROW_GCS=ON \
     ARROW_HOME=/usr/local \

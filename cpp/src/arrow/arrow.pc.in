@@ -26,7 +26,9 @@ full_so_version=@ARROW_FULL_SO_VERSION@
 Name: Apache Arrow
 Description: Arrow is a set of technologies that enable big-data systems to process and move data fast.
 Version: @ARROW_VERSION@
+Requires:@ARROW_PC_REQUIRES@
 Requires.private:@ARROW_PC_REQUIRES_PRIVATE@
-Libs: -L${libdir} -larrow
+Libs: -L${libdir} -larrow@ARROW_PC_LIBS@
 Libs.private:@ARROW_PC_LIBS_PRIVATE@
-Cflags: -I${includedir}
+Cflags: -I${includedir}@ARROW_PC_CFLAGS@
+Cflags.private:@ARROW_PC_CFLAGS_PRIVATE@

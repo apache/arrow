@@ -25,6 +25,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #if defined(sun) || defined(__sun)
 #include <stdlib.h>
@@ -40,7 +41,6 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
-#include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"
@@ -59,7 +59,7 @@ namespace memory_pool {
 
 namespace internal {
 
-alignas(kAlignment) int64_t zero_size_area[1] = {kDebugXorSuffix};
+alignas(kDefaultBufferAlignment) int64_t zero_size_area[1] = {kDebugXorSuffix};
 
 }  // namespace internal
 
@@ -103,8 +103,8 @@ const std::vector<SupportedBackend>& SupportedBackends() {
 
 // Return the MemoryPoolBackend selected by the user through the
 // ARROW_DEFAULT_MEMORY_POOL environment variable, if any.
-util::optional<MemoryPoolBackend> UserSelectedBackend() {
-  static auto user_selected_backend = []() -> util::optional<MemoryPoolBackend> {
+std::optional<MemoryPoolBackend> UserSelectedBackend() {
+  static auto user_selected_backend = []() -> std::optional<MemoryPoolBackend> {
     auto unsupported_backend = [](const std::string& name) {
       std::vector<std::string> supported;
       for (const auto backend : SupportedBackends()) {
@@ -224,12 +224,14 @@ bool IsDebugEnabled() {
 template <typename WrappedAllocator>
 class DebugAllocator {
  public:
-  static Status AllocateAligned(int64_t size, uint8_t** out) {
+  static Status AllocateAligned(int64_t size, int64_t alignment, uint8_t** out) {
     if (size == 0) {
       *out = memory_pool::internal::kZeroSizeArea;
     } else {
       ARROW_ASSIGN_OR_RAISE(int64_t raw_size, RawSize(size));
-      RETURN_NOT_OK(WrappedAllocator::AllocateAligned(raw_size, out));
+      DCHECK(raw_size > size) << "bug in raw size computation: " << raw_size
+                              << " for size " << size;
+      RETURN_NOT_OK(WrappedAllocator::AllocateAligned(raw_size, alignment, out));
       InitAllocatedArea(*out, size);
     }
     return Status::OK();
@@ -237,29 +239,32 @@ class DebugAllocator {
 
   static void ReleaseUnused() { WrappedAllocator::ReleaseUnused(); }
 
-  static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+  static Status ReallocateAligned(int64_t old_size, int64_t new_size, int64_t alignment,
+                                  uint8_t** ptr) {
     CheckAllocatedArea(*ptr, old_size, "reallocation");
     if (*ptr == memory_pool::internal::kZeroSizeArea) {
-      return AllocateAligned(new_size, ptr);
+      return AllocateAligned(new_size, alignment, ptr);
     }
     if (new_size == 0) {
       // Note that an overflow check isn't needed as `old_size` is supposed to have
       // been successfully passed to AllocateAligned() before.
-      WrappedAllocator::DeallocateAligned(*ptr, old_size + kOverhead);
+      WrappedAllocator::DeallocateAligned(*ptr, old_size + kOverhead, alignment);
       *ptr = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
     ARROW_ASSIGN_OR_RAISE(int64_t raw_new_size, RawSize(new_size));
-    RETURN_NOT_OK(
-        WrappedAllocator::ReallocateAligned(old_size + kOverhead, raw_new_size, ptr));
+    DCHECK(raw_new_size > new_size)
+        << "bug in raw size computation: " << raw_new_size << " for size " << new_size;
+    RETURN_NOT_OK(WrappedAllocator::ReallocateAligned(old_size + kOverhead, raw_new_size,
+                                                      alignment, ptr));
     InitAllocatedArea(*ptr, new_size);
     return Status::OK();
   }
 
-  static void DeallocateAligned(uint8_t* ptr, int64_t size) {
+  static void DeallocateAligned(uint8_t* ptr, int64_t size, int64_t alignment) {
     CheckAllocatedArea(ptr, size, "deallocation");
     if (ptr != memory_pool::internal::kZeroSizeArea) {
-      WrappedAllocator::DeallocateAligned(ptr, size + kOverhead);
+      WrappedAllocator::DeallocateAligned(ptr, size + kOverhead, alignment);
     }
   }
 
@@ -295,7 +300,7 @@ class SystemAllocator {
  public:
   // Allocate memory according to the alignment requirements for Arrow
   // (as of May 2016 64 bytes)
-  static Status AllocateAligned(int64_t size, uint8_t** out) {
+  static Status AllocateAligned(int64_t size, int64_t alignment, uint8_t** out) {
     if (size == 0) {
       *out = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
@@ -303,19 +308,19 @@ class SystemAllocator {
 #ifdef _WIN32
     // Special code path for Windows
     *out = reinterpret_cast<uint8_t*>(
-        _aligned_malloc(static_cast<size_t>(size), memory_pool::internal::kAlignment));
+        _aligned_malloc(static_cast<size_t>(size), static_cast<size_t>(alignment)));
     if (!*out) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
 #elif defined(sun) || defined(__sun)
     *out = reinterpret_cast<uint8_t*>(
-        memalign(memory_pool::internal::kAlignment, static_cast<size_t>(size)));
+        memalign(static_cast<size_t>(alignment), static_cast<size_t>(size)));
     if (!*out) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
 #else
     const int result =
-        posix_memalign(reinterpret_cast<void**>(out), memory_pool::internal::kAlignment,
+        posix_memalign(reinterpret_cast<void**>(out), static_cast<size_t>(alignment),
                        static_cast<size_t>(size));
     if (result == ENOMEM) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
@@ -323,20 +328,21 @@ class SystemAllocator {
 
     if (result == EINVAL) {
       return Status::Invalid("invalid alignment parameter: ",
-                             memory_pool::internal::kAlignment);
+                             static_cast<size_t>(alignment));
     }
 #endif
     return Status::OK();
   }
 
-  static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+  static Status ReallocateAligned(int64_t old_size, int64_t new_size, int64_t alignment,
+                                  uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
     if (previous_ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(old_size, 0);
-      return AllocateAligned(new_size, ptr);
+      return AllocateAligned(new_size, alignment, ptr);
     }
     if (new_size == 0) {
-      DeallocateAligned(previous_ptr, old_size);
+      DeallocateAligned(previous_ptr, old_size, alignment);
       *ptr = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
@@ -344,7 +350,7 @@ class SystemAllocator {
 
     // Allocate new chunk
     uint8_t* out = nullptr;
-    RETURN_NOT_OK(AllocateAligned(new_size, &out));
+    RETURN_NOT_OK(AllocateAligned(new_size, alignment, &out));
     DCHECK(out);
     // Copy contents and release old memory chunk
     memcpy(out, *ptr, static_cast<size_t>(std::min(new_size, old_size)));
@@ -357,7 +363,7 @@ class SystemAllocator {
     return Status::OK();
   }
 
-  static void DeallocateAligned(uint8_t* ptr, int64_t size) {
+  static void DeallocateAligned(uint8_t* ptr, int64_t size, int64_t /*alignment*/) {
     if (ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(size, 0);
     } else {
@@ -383,13 +389,13 @@ class SystemAllocator {
 // Helper class directing allocations to the mimalloc allocator.
 class MimallocAllocator {
  public:
-  static Status AllocateAligned(int64_t size, uint8_t** out) {
+  static Status AllocateAligned(int64_t size, int64_t alignment, uint8_t** out) {
     if (size == 0) {
       *out = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
     *out = reinterpret_cast<uint8_t*>(
-        mi_malloc_aligned(static_cast<size_t>(size), memory_pool::internal::kAlignment));
+        mi_malloc_aligned(static_cast<size_t>(size), static_cast<size_t>(alignment)));
     if (*out == NULL) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
@@ -398,19 +404,20 @@ class MimallocAllocator {
 
   static void ReleaseUnused() { mi_collect(true); }
 
-  static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+  static Status ReallocateAligned(int64_t old_size, int64_t new_size, int64_t alignment,
+                                  uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
     if (previous_ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(old_size, 0);
-      return AllocateAligned(new_size, ptr);
+      return AllocateAligned(new_size, alignment, ptr);
     }
     if (new_size == 0) {
-      DeallocateAligned(previous_ptr, old_size);
+      DeallocateAligned(previous_ptr, old_size, alignment);
       *ptr = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
-    *ptr = reinterpret_cast<uint8_t*>(mi_realloc_aligned(
-        previous_ptr, static_cast<size_t>(new_size), memory_pool::internal::kAlignment));
+    *ptr = reinterpret_cast<uint8_t*>(
+        mi_realloc_aligned(previous_ptr, static_cast<size_t>(new_size), alignment));
     if (*ptr == NULL) {
       *ptr = previous_ptr;
       return Status::OutOfMemory("realloc of size ", new_size, " failed");
@@ -418,7 +425,7 @@ class MimallocAllocator {
     return Status::OK();
   }
 
-  static void DeallocateAligned(uint8_t* ptr, int64_t size) {
+  static void DeallocateAligned(uint8_t* ptr, int64_t size, int64_t /*alignment*/) {
     if (ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(size, 0);
     } else {
@@ -448,14 +455,14 @@ class BaseMemoryPoolImpl : public MemoryPool {
  public:
   ~BaseMemoryPoolImpl() override {}
 
-  Status Allocate(int64_t size, uint8_t** out) override {
+  Status Allocate(int64_t size, int64_t alignment, uint8_t** out) override {
     if (size < 0) {
       return Status::Invalid("negative malloc size");
     }
     if (static_cast<uint64_t>(size) >= std::numeric_limits<size_t>::max()) {
       return Status::OutOfMemory("malloc size overflows size_t");
     }
-    RETURN_NOT_OK(Allocator::AllocateAligned(size, out));
+    RETURN_NOT_OK(Allocator::AllocateAligned(size, alignment, out));
 #ifndef NDEBUG
     // Poison data
     if (size > 0) {
@@ -469,14 +476,15 @@ class BaseMemoryPoolImpl : public MemoryPool {
     return Status::OK();
   }
 
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
+  Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
+                    uint8_t** ptr) override {
     if (new_size < 0) {
       return Status::Invalid("negative realloc size");
     }
     if (static_cast<uint64_t>(new_size) >= std::numeric_limits<size_t>::max()) {
       return Status::OutOfMemory("realloc overflows size_t");
     }
-    RETURN_NOT_OK(Allocator::ReallocateAligned(old_size, new_size, ptr));
+    RETURN_NOT_OK(Allocator::ReallocateAligned(old_size, new_size, alignment, ptr));
 #ifndef NDEBUG
     // Poison data
     if (new_size > old_size) {
@@ -490,7 +498,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
     return Status::OK();
   }
 
-  void Free(uint8_t* buffer, int64_t size) override {
+  void Free(uint8_t* buffer, int64_t size, int64_t alignment) override {
 #ifndef NDEBUG
     // Poison data
     if (size > 0) {
@@ -499,9 +507,9 @@ class BaseMemoryPoolImpl : public MemoryPool {
       buffer[size - 1] = kDeallocPoison;
     }
 #endif
-    Allocator::DeallocateAligned(buffer, size);
+    Allocator::DeallocateAligned(buffer, size, alignment);
 
-    stats_.UpdateAllocatedBytes(-size);
+    stats_.UpdateAllocatedBytes(-size, /*is_free*/ true);
   }
 
   void ReleaseUnused() override { Allocator::ReleaseUnused(); }
@@ -509,6 +517,12 @@ class BaseMemoryPoolImpl : public MemoryPool {
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
 
   int64_t max_memory() const override { return stats_.max_memory(); }
+
+  int64_t total_bytes_allocated() const override {
+    return stats_.total_bytes_allocated();
+  }
+
+  int64_t num_allocations() const override { return stats_.num_allocations(); }
 
  protected:
   internal::MemoryPoolStats stats_;
@@ -663,8 +677,29 @@ MemoryPool* default_memory_pool() {
 
 #ifndef ARROW_JEMALLOC
 Status jemalloc_set_decay_ms(int ms) {
-  return Status::Invalid("jemalloc support is not built");
+  return Status::NotImplemented("jemalloc support is not built");
 }
+
+Result<int64_t> jemalloc_get_stat(const char* name) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Status jemalloc_peak_reset() {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Status jemalloc_stats_print(const char* opts) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Status jemalloc_stats_print(std::function<void(const char*)> write_cb, const char* opts) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
+Result<std::string> jemalloc_stats_string(const char* opts) {
+  return Status::NotImplemented("jemalloc support is not built");
+}
+
 #endif
 
 ///////////////////////////////////////////////////////////////////////
@@ -672,22 +707,23 @@ Status jemalloc_set_decay_ms(int ms) {
 
 LoggingMemoryPool::LoggingMemoryPool(MemoryPool* pool) : pool_(pool) {}
 
-Status LoggingMemoryPool::Allocate(int64_t size, uint8_t** out) {
-  Status s = pool_->Allocate(size, out);
-  std::cout << "Allocate: size = " << size << std::endl;
+Status LoggingMemoryPool::Allocate(int64_t size, int64_t alignment, uint8_t** out) {
+  Status s = pool_->Allocate(size, alignment, out);
+  std::cout << "Allocate: size = " << size << ", alignment = " << alignment << std::endl;
   return s;
 }
 
-Status LoggingMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+Status LoggingMemoryPool::Reallocate(int64_t old_size, int64_t new_size,
+                                     int64_t alignment, uint8_t** ptr) {
   Status s = pool_->Reallocate(old_size, new_size, ptr);
-  std::cout << "Reallocate: old_size = " << old_size << " - new_size = " << new_size
-            << std::endl;
+  std::cout << "Reallocate: old_size = " << old_size << ", new_size = " << new_size
+            << ", alignment = " << alignment << std::endl;
   return s;
 }
 
-void LoggingMemoryPool::Free(uint8_t* buffer, int64_t size) {
-  pool_->Free(buffer, size);
-  std::cout << "Free: size = " << size << std::endl;
+void LoggingMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
+  pool_->Free(buffer, size, alignment);
+  std::cout << "Free: size = " << size << ", alignment = " << alignment << std::endl;
 }
 
 int64_t LoggingMemoryPool::bytes_allocated() const {
@@ -702,6 +738,18 @@ int64_t LoggingMemoryPool::max_memory() const {
   return mem;
 }
 
+int64_t LoggingMemoryPool::total_bytes_allocated() const {
+  int64_t mem = pool_->total_bytes_allocated();
+  std::cout << "total_bytes_allocated: " << mem << std::endl;
+  return mem;
+}
+
+int64_t LoggingMemoryPool::num_allocations() const {
+  int64_t mem = pool_->num_allocations();
+  std::cout << "num_allocations: " << mem << std::endl;
+  return mem;
+}
+
 std::string LoggingMemoryPool::backend_name() const { return pool_->backend_name(); }
 
 ///////////////////////////////////////////////////////////////////////
@@ -711,26 +759,31 @@ class ProxyMemoryPool::ProxyMemoryPoolImpl {
  public:
   explicit ProxyMemoryPoolImpl(MemoryPool* pool) : pool_(pool) {}
 
-  Status Allocate(int64_t size, uint8_t** out) {
-    RETURN_NOT_OK(pool_->Allocate(size, out));
+  Status Allocate(int64_t size, int64_t alignment, uint8_t** out) {
+    RETURN_NOT_OK(pool_->Allocate(size, alignment, out));
     stats_.UpdateAllocatedBytes(size);
     return Status::OK();
   }
 
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
-    RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, ptr));
+  Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
+                    uint8_t** ptr) {
+    RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, alignment, ptr));
     stats_.UpdateAllocatedBytes(new_size - old_size);
     return Status::OK();
   }
 
-  void Free(uint8_t* buffer, int64_t size) {
-    pool_->Free(buffer, size);
-    stats_.UpdateAllocatedBytes(-size);
+  void Free(uint8_t* buffer, int64_t size, int64_t alignment) {
+    pool_->Free(buffer, size, alignment);
+    stats_.UpdateAllocatedBytes(-size, /*is_free=*/true);
   }
 
   int64_t bytes_allocated() const { return stats_.bytes_allocated(); }
 
   int64_t max_memory() const { return stats_.max_memory(); }
+
+  int64_t total_bytes_allocated() const { return stats_.total_bytes_allocated(); }
+
+  int64_t num_allocations() const { return stats_.num_allocations(); }
 
   std::string backend_name() const { return pool_->backend_name(); }
 
@@ -745,21 +798,28 @@ ProxyMemoryPool::ProxyMemoryPool(MemoryPool* pool) {
 
 ProxyMemoryPool::~ProxyMemoryPool() {}
 
-Status ProxyMemoryPool::Allocate(int64_t size, uint8_t** out) {
-  return impl_->Allocate(size, out);
+Status ProxyMemoryPool::Allocate(int64_t size, int64_t alignment, uint8_t** out) {
+  return impl_->Allocate(size, alignment, out);
 }
 
-Status ProxyMemoryPool::Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
-  return impl_->Reallocate(old_size, new_size, ptr);
+Status ProxyMemoryPool::Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
+                                   uint8_t** ptr) {
+  return impl_->Reallocate(old_size, new_size, alignment, ptr);
 }
 
-void ProxyMemoryPool::Free(uint8_t* buffer, int64_t size) {
-  return impl_->Free(buffer, size);
+void ProxyMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
+  return impl_->Free(buffer, size, alignment);
 }
 
 int64_t ProxyMemoryPool::bytes_allocated() const { return impl_->bytes_allocated(); }
 
 int64_t ProxyMemoryPool::max_memory() const { return impl_->max_memory(); }
+
+int64_t ProxyMemoryPool::total_bytes_allocated() const {
+  return impl_->total_bytes_allocated();
+}
+
+int64_t ProxyMemoryPool::num_allocations() const { return impl_->num_allocations(); }
 
 std::string ProxyMemoryPool::backend_name() const { return impl_->backend_name(); }
 
@@ -777,8 +837,9 @@ std::vector<std::string> SupportedMemoryBackendNames() {
 /// A Buffer whose lifetime is tied to a particular MemoryPool
 class PoolBuffer final : public ResizableBuffer {
  public:
-  explicit PoolBuffer(std::shared_ptr<MemoryManager> mm, MemoryPool* pool)
-      : ResizableBuffer(nullptr, 0, std::move(mm)), pool_(pool) {}
+  explicit PoolBuffer(std::shared_ptr<MemoryManager> mm, MemoryPool* pool,
+                      int64_t alignment)
+      : ResizableBuffer(nullptr, 0, std::move(mm)), pool_(pool), alignment_(alignment) {}
 
   ~PoolBuffer() override {
     // Avoid calling pool_->Free if the global pools are destroyed
@@ -789,7 +850,7 @@ class PoolBuffer final : public ResizableBuffer {
     // no guarantee of destructor order between thread/memory pools)
     uint8_t* ptr = mutable_data();
     if (ptr && !global_state.is_finalizing()) {
-      pool_->Free(ptr, capacity_);
+      pool_->Free(ptr, capacity_, alignment_);
     }
   }
 
@@ -801,9 +862,9 @@ class PoolBuffer final : public ResizableBuffer {
     if (!ptr || capacity > capacity_) {
       int64_t new_capacity = bit_util::RoundUpToMultipleOf64(capacity);
       if (ptr) {
-        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &ptr));
+        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, alignment_, &ptr));
       } else {
-        RETURN_NOT_OK(pool_->Allocate(new_capacity, &ptr));
+        RETURN_NOT_OK(pool_->Allocate(new_capacity, alignment_, &ptr));
       }
       data_ = ptr;
       capacity_ = new_capacity;
@@ -822,7 +883,7 @@ class PoolBuffer final : public ResizableBuffer {
       int64_t new_capacity = bit_util::RoundUpToMultipleOf64(new_size);
       if (capacity_ != new_capacity) {
         // Buffer hasn't got yet the requested size.
-        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, &ptr));
+        RETURN_NOT_OK(pool_->Reallocate(capacity_, new_capacity, alignment_, &ptr));
         data_ = ptr;
         capacity_ = new_capacity;
       }
@@ -834,7 +895,7 @@ class PoolBuffer final : public ResizableBuffer {
     return Status::OK();
   }
 
-  static std::shared_ptr<PoolBuffer> MakeShared(MemoryPool* pool) {
+  static std::shared_ptr<PoolBuffer> MakeShared(MemoryPool* pool, int64_t alignment) {
     std::shared_ptr<MemoryManager> mm;
     if (pool == nullptr) {
       pool = default_memory_pool();
@@ -842,10 +903,10 @@ class PoolBuffer final : public ResizableBuffer {
     } else {
       mm = CPUDevice::memory_manager(pool);
     }
-    return std::make_shared<PoolBuffer>(std::move(mm), pool);
+    return std::make_shared<PoolBuffer>(std::move(mm), pool, alignment);
   }
 
-  static std::unique_ptr<PoolBuffer> MakeUnique(MemoryPool* pool) {
+  static std::unique_ptr<PoolBuffer> MakeUnique(MemoryPool* pool, int64_t alignment) {
     std::shared_ptr<MemoryManager> mm;
     if (pool == nullptr) {
       pool = default_memory_pool();
@@ -853,11 +914,12 @@ class PoolBuffer final : public ResizableBuffer {
     } else {
       mm = CPUDevice::memory_manager(pool);
     }
-    return std::unique_ptr<PoolBuffer>(new PoolBuffer(std::move(mm), pool));
+    return std::make_unique<PoolBuffer>(std::move(mm), pool, alignment);
   }
 
  private:
   MemoryPool* pool_;
+  int64_t alignment_;
 };
 
 namespace {
@@ -874,13 +936,26 @@ inline Result<BufferPtr> ResizePoolBuffer(PoolBufferPtr&& buffer, const int64_t 
 }  // namespace
 
 Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size, MemoryPool* pool) {
-  return ResizePoolBuffer<std::unique_ptr<Buffer>>(PoolBuffer::MakeUnique(pool), size);
+  return AllocateBuffer(size, kDefaultBufferAlignment, pool);
+}
+
+Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size,
+                                               const int64_t alignment,
+                                               MemoryPool* pool) {
+  return ResizePoolBuffer<std::unique_ptr<Buffer>>(
+      PoolBuffer::MakeUnique(pool, alignment), size);
 }
 
 Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t size,
                                                                  MemoryPool* pool) {
-  return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(PoolBuffer::MakeUnique(pool),
-                                                            size);
+  return AllocateResizableBuffer(size, kDefaultBufferAlignment, pool);
+}
+
+Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t size,
+                                                                 const int64_t alignment,
+                                                                 MemoryPool* pool) {
+  return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(
+      PoolBuffer::MakeUnique(pool, alignment), size);
 }
 
 }  // namespace arrow

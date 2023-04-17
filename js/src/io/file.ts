@@ -27,7 +27,7 @@ export class RandomAccessFile extends ByteStream {
     constructor(buffer: ArrayBufferViewInput, byteLength?: number) {
         super();
         this.buffer = toUint8Array(buffer);
-        this.size = typeof byteLength === 'undefined' ? this.buffer!.byteLength : byteLength;
+        this.size = byteLength === undefined ? this.buffer!.byteLength : byteLength;
     }
     public readInt32(position: number) {
         const { buffer, byteOffset } = this.readAt(position, 4);

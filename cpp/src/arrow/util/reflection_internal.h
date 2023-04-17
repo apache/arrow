@@ -18,37 +18,14 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
 
 #include "arrow/type_traits.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace internal {
-
-template <size_t...>
-struct index_sequence {};
-
-template <size_t N, size_t Head = N, size_t... Tail>
-struct make_index_sequence_impl;
-
-template <size_t N>
-using make_index_sequence = typename make_index_sequence_impl<N>::type;
-
-template <typename... T>
-using index_sequence_for = make_index_sequence<sizeof...(T)>;
-
-template <size_t N, size_t... I>
-struct make_index_sequence_impl<N, 0, I...> {
-  using type = index_sequence<I...>;
-};
-
-template <size_t N, size_t H, size_t... I>
-struct make_index_sequence_impl : make_index_sequence_impl<N, H - 1, H - 1, I...> {};
-
-static_assert(std::is_same<index_sequence<>, make_index_sequence<0>>::value, "");
-static_assert(std::is_same<index_sequence<0, 1, 2>, make_index_sequence<3>>::value, "");
 
 template <typename...>
 struct all_same : std::true_type {};
@@ -63,13 +40,14 @@ template <typename One, typename Other, typename... Rest>
 struct all_same<One, Other, Rest...> : std::false_type {};
 
 template <size_t... I, typename... T, typename Fn>
-void ForEachTupleMemberImpl(const std::tuple<T...>& tup, Fn&& fn, index_sequence<I...>) {
-  (void)std::make_tuple((fn(std::get<I>(tup), I), std::ignore)...);
+void ForEachTupleMemberImpl(const std::tuple<T...>& tup, Fn&& fn,
+                            std::index_sequence<I...>) {
+  (..., fn(std::get<I>(tup), I));
 }
 
 template <typename... T, typename Fn>
 void ForEachTupleMember(const std::tuple<T...>& tup, Fn&& fn) {
-  ForEachTupleMemberImpl(tup, fn, index_sequence_for<T...>());
+  ForEachTupleMemberImpl(tup, fn, std::index_sequence_for<T...>());
 }
 
 template <typename C, typename T>
@@ -81,14 +59,14 @@ struct DataMemberProperty {
 
   void set(Class* obj, Type value) const { (*obj).*ptr_ = std::move(value); }
 
-  constexpr util::string_view name() const { return name_; }
+  constexpr std::string_view name() const { return name_; }
 
-  util::string_view name_;
+  std::string_view name_;
   Type Class::*ptr_;
 };
 
 template <typename Class, typename Type>
-constexpr DataMemberProperty<Class, Type> DataMember(util::string_view name,
+constexpr DataMemberProperty<Class, Type> DataMember(std::string_view name,
                                                      Type Class::*ptr) {
   return {name, ptr};
 }

@@ -65,9 +65,6 @@ class ARROW_EXPORT FunctionOptions : public util::EqualityComparable<FunctionOpt
   const char* type_name() const { return options_type()->type_name(); }
 
   bool Equals(const FunctionOptions& other) const;
-  using util::EqualityComparable<FunctionOptions>::Equals;
-  using util::EqualityComparable<FunctionOptions>::operator==;
-  using util::EqualityComparable<FunctionOptions>::operator!=;
   std::string ToString() const;
   std::unique_ptr<FunctionOptions> Copy() const;
   /// \brief Serialize an options struct to a buffer.
@@ -159,6 +156,29 @@ struct ARROW_EXPORT FunctionDoc {
   static const FunctionDoc& Empty();
 };
 
+/// \brief An executor of a function with a preconfigured kernel
+class ARROW_EXPORT FunctionExecutor {
+ public:
+  virtual ~FunctionExecutor() = default;
+  /// \brief Initialize or re-initialize the preconfigured kernel
+  ///
+  /// This method may be called zero or more times. Depending on how
+  /// the FunctionExecutor was obtained, it may already have been initialized.
+  virtual Status Init(const FunctionOptions* options = NULLPTR,
+                      ExecContext* exec_ctx = NULLPTR) = 0;
+  /// \brief Execute the preconfigured kernel with arguments that must fit it
+  ///
+  /// The method requires the arguments be castable to the preconfigured types.
+  ///
+  /// \param[in] args Arguments to execute the function on
+  /// \param[in] length Length of arguments batch or -1 to default it. If the
+  /// function has no parameters, this determines the batch length, defaulting
+  /// to 0. Otherwise, if the function is scalar, this must equal the argument
+  /// batch's inferred length or be -1 to default to it. This is ignored for
+  /// vector functions.
+  virtual Result<Datum> Execute(const std::vector<Datum>& args, int64_t length = -1) = 0;
+};
+
 /// \brief Base class for compute functions. Function implementations contain a
 /// collection of "kernels" which are implementations of the function for
 /// specific argument types. Selecting a viable kernel for executing a function
@@ -224,6 +244,13 @@ class ARROW_EXPORT Function {
   /// value descriptors; callers are responsible for casting inputs to the type
   /// required by the kernel.
   virtual Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* values) const;
+
+  /// \brief Get a function executor with a best-matching kernel
+  ///
+  /// The returned executor will by default work with the default FunctionOptions
+  /// and KernelContext. If you want to change that, call `FunctionExecutor::Init`.
+  virtual Result<std::shared_ptr<FunctionExecutor>> GetBestExecutor(
+      std::vector<TypeHolder> inputs) const;
 
   /// \brief Execute the function eagerly with the passed input arguments with
   /// kernel dispatch, batch iteration, and memory allocation details taken

@@ -9,7 +9,7 @@ import * as flatbuffers from 'flatbuffers';
 export class Buffer {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Buffer {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Buffer {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -19,7 +19,7 @@ __init(i:number, bb:flatbuffers.ByteBuffer):Buffer {
  * The relative offset into the shared memory page where the bytes for this
  * buffer starts
  */
-offset():flatbuffers.Long {
+offset():bigint {
   return this.bb!.readInt64(this.bb_pos);
 }
 
@@ -30,7 +30,7 @@ offset():flatbuffers.Long {
  * after a buffer, but such padding bytes do not need to be accounted for in
  * the size here.
  */
-length():flatbuffers.Long {
+length():bigint {
   return this.bb!.readInt64(this.bb_pos + 8);
 }
 
@@ -38,10 +38,10 @@ static sizeOf():number {
   return 16;
 }
 
-static createBuffer(builder:flatbuffers.Builder, offset: flatbuffers.Long, length: flatbuffers.Long):flatbuffers.Offset {
+static createBuffer(builder:flatbuffers.Builder, offset: bigint, length: bigint):flatbuffers.Offset {
   builder.prep(8, 16);
-  builder.writeInt64(length);
-  builder.writeInt64(offset);
+  builder.writeInt64(BigInt(length ?? 0));
+  builder.writeInt64(BigInt(offset ?? 0));
   return builder.offset();
 }
 

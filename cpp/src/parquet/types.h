@@ -20,11 +20,11 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <memory>
 #include <sstream>
 #include <string>
-
-#include "arrow/util/string_view.h"
+#include <string_view>
 
 #include "parquet/platform.h"
 #include "parquet/type_fwd.h"
@@ -532,13 +532,24 @@ class ColumnOrder {
   ColumnOrder::type column_order_;
 };
 
+/// \brief BoundaryOrder is a proxy around format::BoundaryOrder.
+struct BoundaryOrder {
+  enum type {
+    Unordered = 0,
+    Ascending = 1,
+    Descending = 2,
+    // Should always be last element
+    UNDEFINED = 3
+  };
+};
+
 // ----------------------------------------------------------------------
 
 struct ByteArray {
   ByteArray() : len(0), ptr(NULLPTR) {}
   ByteArray(uint32_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
 
-  ByteArray(::arrow::util::string_view view)  // NOLINT implicit conversion
+  ByteArray(::std::string_view view)  // NOLINT implicit conversion
       : ByteArray(static_cast<uint32_t>(view.size()),
                   reinterpret_cast<const uint8_t*>(view.data())) {}
   uint32_t len;
@@ -743,7 +754,7 @@ PARQUET_EXPORT std::string ConvertedTypeToString(ConvertedType::type t);
 PARQUET_EXPORT std::string TypeToString(Type::type t);
 
 PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type,
-                                           ::arrow::util::string_view val);
+                                           ::std::string_view val);
 
 PARQUET_EXPORT int GetTypeByteSize(Type::type t);
 

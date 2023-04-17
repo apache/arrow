@@ -22,7 +22,7 @@
 namespace arrow {
 namespace internal {
 
-#if __cplusplus >= 201703L
+#if __cpp_lib_launder
 using std::launder;
 #else
 template <class T>

@@ -39,7 +39,7 @@ homebrew_version=$(
   curl \
     --fail \
     --no-progress-meter \
-    https://raw.githubusercontent.com/Homebrew/homebrew-core/master/Formula/apache-arrow-glib.rb | \
+    https://raw.githubusercontent.com/Homebrew/homebrew-core/HEAD/Formula/apache-arrow-glib.rb | \
     grep url | \
     grep -o "[0-9]*\.[0-9]*\.[0-9]*" | \
     head -n 1)

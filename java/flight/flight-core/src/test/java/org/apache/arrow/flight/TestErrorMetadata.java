@@ -17,11 +17,14 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import org.apache.arrow.flight.perf.impl.PerfOuterClass;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -46,11 +49,8 @@ public class TestErrorMetadata {
                 .build();
     StatusRuntimeExceptionProducer producer = new StatusRuntimeExceptionProducer(perf);
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         final FlightServer s =
-             FlightTestUtil.getStartedServer(
-               (location) -> {
-                 return FlightServer.builder(allocator, location, producer).build();
-               });
+         final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), producer).build()
+             .start();
          final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
       final CallStatus flightStatus = FlightTestUtil.assertCode(FlightStatusCode.CANCELLED, () -> {
         FlightStream stream = client.getStream(new Ticket("abs".getBytes()));
@@ -58,21 +58,21 @@ public class TestErrorMetadata {
       });
       PerfOuterClass.Perf newPerf = null;
       ErrorFlightMetadata metadata = flightStatus.metadata();
-      Assert.assertNotNull(metadata);
-      Assert.assertEquals(2, metadata.keys().size());
-      Assert.assertTrue(metadata.containsKey("grpc-status-details-bin"));
+      Assertions.assertNotNull(metadata);
+      Assertions.assertEquals(2, metadata.keys().size());
+      Assertions.assertTrue(metadata.containsKey("grpc-status-details-bin"));
       Status status = marshaller.parseBytes(metadata.getByte("grpc-status-details-bin"));
       for (Any details : status.getDetailsList()) {
         if (details.is(PerfOuterClass.Perf.class)) {
           try {
             newPerf = details.unpack(PerfOuterClass.Perf.class);
           } catch (InvalidProtocolBufferException e) {
-            Assert.fail();
+            Assertions.fail();
           }
         }
       }
-      Assert.assertNotNull(newPerf);
-      Assert.assertEquals(perf, newPerf);
+      Assertions.assertNotNull(newPerf);
+      Assertions.assertEquals(perf, newPerf);
     }
   }
 
@@ -80,26 +80,25 @@ public class TestErrorMetadata {
   @Test
   public void testFlightMetadata() throws Exception {
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         final FlightServer s =
-                 FlightTestUtil.getStartedServer(
-                   (location) -> FlightServer.builder(allocator, location, new CallStatusProducer()).build());
+         final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), new CallStatusProducer())
+             .build().start();
          final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
       CallStatus flightStatus = FlightTestUtil.assertCode(FlightStatusCode.INVALID_ARGUMENT, () -> {
         FlightStream stream = client.getStream(new Ticket(new byte[0]));
         stream.next();
       });
       ErrorFlightMetadata metadata = flightStatus.metadata();
-      Assert.assertNotNull(metadata);
-      Assert.assertEquals("foo", metadata.get("x-foo"));
-      Assert.assertArrayEquals(new byte[]{1}, metadata.getByte("x-bar-bin"));
+      Assertions.assertNotNull(metadata);
+      Assertions.assertEquals("foo", metadata.get("x-foo"));
+      Assertions.assertArrayEquals(new byte[]{1}, metadata.getByte("x-bar-bin"));
 
       flightStatus = FlightTestUtil.assertCode(FlightStatusCode.INVALID_ARGUMENT, () -> {
         client.getInfo(FlightDescriptor.command(new byte[0]));
       });
       metadata = flightStatus.metadata();
-      Assert.assertNotNull(metadata);
-      Assert.assertEquals("foo", metadata.get("x-foo"));
-      Assert.assertArrayEquals(new byte[]{1}, metadata.getByte("x-bar-bin"));
+      Assertions.assertNotNull(metadata);
+      Assertions.assertEquals("foo", metadata.get("x-foo"));
+      Assertions.assertArrayEquals(new byte[]{1}, metadata.getByte("x-bar-bin"));
     }
   }
 

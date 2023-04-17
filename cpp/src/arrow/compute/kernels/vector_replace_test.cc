@@ -26,7 +26,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/make_unique.h"
+
+#include <memory>
 
 namespace arrow {
 namespace compute {
@@ -157,7 +158,7 @@ class TestReplaceKernel : public ::testing::Test {
       const typename TypeTraits<T>::ArrayType& array, const BooleanArray& mask,
       const typename TypeTraits<T>::ArrayType& replacements) {
     auto length = array.length();
-    auto builder = arrow::internal::make_unique<typename TypeTraits<T>::BuilderType>(
+    auto builder = std::make_unique<typename TypeTraits<T>::BuilderType>(
         default_type_instance<T>(), default_memory_pool());
     int64_t replacement_offset = 0;
     for (int64_t i = 0; i < length; ++i) {
@@ -419,7 +420,7 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskRandom) {
       rand.ArrayOf(boolean(), length, /*null_probability=*/0.01));
   const int64_t num_replacements = std::count_if(
       mask->begin(), mask->end(),
-      [](util::optional<bool> value) { return value.has_value() && *value; });
+      [](std::optional<bool> value) { return value.has_value() && *value; });
   auto replacements = checked_pointer_cast<ArrayType>(
       rand.ArrayOf(*field("a", ty, options), num_replacements));
   auto expected = this->NaiveImpl(*array, *mask, *replacements);
@@ -1045,7 +1046,7 @@ TYPED_TEST(TestReplaceBinary, ReplaceWithMaskRandom) {
       rand.ArrayOf(boolean(), length, /*null_probability=*/0.01));
   const int64_t num_replacements = std::count_if(
       mask->begin(), mask->end(),
-      [](util::optional<bool> value) { return value.has_value() && *value; });
+      [](std::optional<bool> value) { return value.has_value() && *value; });
   auto replacements = checked_pointer_cast<ArrayType>(
       rand.ArrayOf(*field("a", ty, options), num_replacements));
   auto expected = this->NaiveImpl(*array, *mask, *replacements);

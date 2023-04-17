@@ -124,6 +124,8 @@ static inline Result<ipc::IpcReadOptions> GetReadOptions(
   return options;
 }
 
+IpcFileFormat::IpcFileFormat() : FileFormat(std::make_shared<IpcFragmentScanOptions>()) {}
+
 Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
   RETURN_NOT_OK(source.Open().status());
   return OpenReader(source).ok();
@@ -169,21 +171,24 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
     }
     WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(
         generator, "arrow::dataset::IpcFileFormat::ScanBatchesAsync::Next");
+    if (readahead_level == 0) {
+      return MakeChunkedBatchGenerator(std::move(generator), options->batch_size);
+    }
     auto batch_generator = MakeReadaheadGenerator(std::move(generator), readahead_level);
     return MakeChunkedBatchGenerator(std::move(batch_generator), options->batch_size);
   };
   return MakeFromFuture(open_reader.Then(reopen_reader).Then(open_generator));
 }
 
-Future<util::optional<int64_t>> IpcFileFormat::CountRows(
+Future<std::optional<int64_t>> IpcFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     const std::shared_ptr<ScanOptions>& options) {
   if (ExpressionHasFieldRefs(predicate)) {
-    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
   }
   auto self = checked_pointer_cast<IpcFileFormat>(shared_from_this());
   return DeferNotOk(options->io_context.executor()->Submit(
-      [self, file]() -> Result<util::optional<int64_t>> {
+      [self, file]() -> Result<std::optional<int64_t>> {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(file->source()));
         return reader->CountRows();
       }));

@@ -33,7 +33,7 @@ AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-man
           -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
 # pkg-config --libs libcurl
 GCS_LIBS="-lcurl -lnormaliz -lssh2 -lgdi32 -lssl -lcrypto -lcrypt32 -lwldap32 \
-          -lz -lws2_32"
+          -lz -lws2_32 -lnghttp2"
 
 function configure_release() {
   VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
@@ -59,11 +59,11 @@ function configure_release() {
   # NOTE: If you make changes to the libraries below, you should also change
   # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
   PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC \
-              -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET \
-              -DARROW_R_WITH_JSON"
+              -DARROW_ACERO_STATIC -DARROW_R_WITH_PARQUET -DARROW_R_WITH_ACERO \
+              -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON"
   PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
-  PKG_LIBS="$PKG_LIBS -lparquet -larrow_dataset -larrow -larrow_bundled_dependencies \
+  PKG_LIBS="$PKG_LIBS -larrow_dataset -larrow_acero -lparquet -larrow -larrow_bundled_dependencies \
             -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lbz2 ${BROTLI_LIBS} -lole32 \
             ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 
@@ -80,7 +80,7 @@ function configure_release() {
 
 # Returns 1 if CMAKE options is set "ON", otherwise 0
 function cmake_option() {
-  ARROW_OPTS_CMAKE="$ARROW_HOME/lib/cmake/arrow/ArrowOptions.cmake"
+  ARROW_OPTS_CMAKE="$ARROW_HOME/lib/cmake/Arrow/ArrowOptions.cmake"
   grep -cm1 "set($1 \"ON\")" $ARROW_OPTS_CMAKE
 }
 
@@ -96,6 +96,11 @@ function configure_dev() {
   if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
     PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES parquet"
+  fi
+
+  if [ $(cmake_option ARROW_ACERO) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ACERO"
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-acero"
   fi
 
   if [ $(cmake_option ARROW_DATASET) -eq 1 ]; then
@@ -139,7 +144,12 @@ if [ "$ARROW_R_CXXFLAGS" ]; then
   PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
 fi
 
-echo "*** Writing Makevars.win"
+echo "*** Writing $(pwd)/src/Makevars.win"
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars.win
+
+echo "*** Contents of $(pwd)/src/Makevars.win"
+cat src/Makevars.win
+echo "*** /End contents"
+
 # Success
 exit 0

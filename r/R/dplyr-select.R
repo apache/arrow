@@ -21,14 +21,12 @@
 tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 select.arrow_dplyr_query <- function(.data, ...) {
-  check_select_helpers(enexprs(...))
-  column_select(as_adq(.data), !!!enquos(...))
+  column_select(.data, enquos(...), op = "select")
 }
 select.Dataset <- select.ArrowTabular <- select.RecordBatchReader <- select.arrow_dplyr_query
 
 rename.arrow_dplyr_query <- function(.data, ...) {
-  check_select_helpers(enexprs(...))
-  column_select(as_adq(.data), !!!enquos(...), .FUN = vars_rename)
+  column_select(.data, enquos(...), op = "rename")
 }
 rename.Dataset <- rename.ArrowTabular <- rename.RecordBatchReader <- rename.arrow_dplyr_query
 
@@ -39,38 +37,16 @@ rename_with.arrow_dplyr_query <- function(.data, .fn, .cols = everything(), ...)
 }
 rename_with.Dataset <- rename_with.ArrowTabular <- rename_with.RecordBatchReader <- rename_with.arrow_dplyr_query
 
-column_select <- function(.data, ..., .FUN = vars_select) {
-  # .FUN is either tidyselect::vars_select or tidyselect::vars_rename
-  # It operates on the names() of selected_columns, i.e. the column names
-  # factoring in any renaming that may already have happened
-  out <- .FUN(names(.data), !!!enquos(...))
-  # Make sure that the resulting selected columns map back to the original data,
-  # as in when there are multiple renaming steps
-  .data$selected_columns <- set_names(.data$selected_columns[out], names(out))
-
-  # If we've renamed columns, we need to project that renaming into other
-  # query parameters we've collected
-  renamed <- out[names(out) != out]
-  if (length(renamed)) {
-    # Massage group_by
-    gbv <- .data$group_by_vars
-    renamed_groups <- gbv %in% renamed
-    gbv[renamed_groups] <- names(renamed)[match(gbv[renamed_groups], renamed)]
-    .data$group_by_vars <- gbv
-    # No need to massage filters because those contain references to Arrow objects
-  }
-  .data
-}
-
 relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL) {
   # The code in this function is adapted from the code in dplyr::relocate.data.frame
-  # at https://github.com/tidyverse/dplyr/blob/master/R/relocate.R
+  # at https://github.com/tidyverse/dplyr/blob/main/R/relocate.R
   # TODO: revisit this after https://github.com/tidyverse/dplyr/issues/5829
 
   .data <- as_adq(.data)
 
   # Assign the schema to the expressions
-  map(.data$selected_columns, ~ (.$schema <- .data$.data$schema))
+  schema <- .data$.data$schema
+  walk(.data$selected_columns, ~ (.$schema <- schema))
 
   # Create a mask for evaluating expressions in tidyselect helpers
   mask <- new_environment(.cache$functions, parent = caller_env())
@@ -115,18 +91,39 @@ relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL
 }
 relocate.Dataset <- relocate.ArrowTabular <- relocate.RecordBatchReader <- relocate.arrow_dplyr_query
 
-check_select_helpers <- function(exprs) {
-  # Throw an error if unsupported tidyselect selection helpers in `exprs`
-  exprs <- lapply(exprs, function(x) if (is_quosure(x)) quo_get_expr(x) else x)
-  unsup_select_helpers <- "where"
-  funs_in_exprs <- unlist(lapply(exprs, all_funs))
-  unsup_funs <- funs_in_exprs[funs_in_exprs %in% unsup_select_helpers]
-  if (length(unsup_funs)) {
-    stop(
-      "Unsupported selection ",
-      ngettext(length(unsup_funs), "helper: ", "helpers: "),
-      oxford_paste(paste0(unsup_funs, "()"), quote = FALSE),
-      call. = FALSE
-    )
+column_select <- function(.data, select_expression, op = c("select", "rename")) {
+  op <- match.arg(op)
+
+  .data <- as_adq(.data)
+  sim_df <- as.data.frame(implicit_schema(.data))
+  old_names <- names(sim_df)
+
+  if (op == "select") {
+    out <- eval_select(expr(c(!!!select_expression)), sim_df)
+    # select only columns from `out`
+    subset <- out
+  } else if (op == "rename") {
+    out <- eval_rename(expr(c(!!!select_expression)), sim_df)
+    # select all columns as only renaming
+    subset <- set_names(seq_along(old_names), old_names)
+    names(subset)[out] <- names(out)
   }
+
+  .data$selected_columns <- set_names(.data$selected_columns[subset], names(subset))
+
+  # check if names have updated
+  new_names <- old_names
+  new_names[out] <- names(out)
+  names_compared <- set_names(old_names, new_names)
+  renamed <- names_compared[old_names != new_names]
+
+  # Update names in group_by if changed in select() or rename()
+  if (length(renamed)) {
+    gbv <- .data$group_by_vars
+    renamed_groups <- gbv %in% renamed
+    gbv[renamed_groups] <- names(renamed)[match(gbv[renamed_groups], renamed)]
+    .data$group_by_vars <- gbv
+  }
+
+  .data
 }

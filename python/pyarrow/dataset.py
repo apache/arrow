@@ -23,9 +23,12 @@ from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 from pyarrow._dataset import (  # noqa
     CsvFileFormat,
     CsvFragmentScanOptions,
+    JsonFileFormat,
+    JsonFragmentScanOptions,
     Dataset,
     DatasetFactory,
     DirectoryPartitioning,
+    FeatherFileFormat,
     FilenamePartitioning,
     FileFormat,
     FileFragment,
@@ -46,7 +49,8 @@ from pyarrow._dataset import (  # noqa
     UnionDataset,
     UnionDatasetFactory,
     WrittenFile,
-    _get_partition_keys,
+    get_partition_keys,
+    get_partition_keys as _get_partition_keys,  # keep for backwards compatibility
     _filesystemdataset_write,
 )
 # keep Expression functionality exposed here for backwards compatibility
@@ -150,6 +154,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
     Returns
     -------
     Partitioning or PartitioningFactory
+        The partioning scheme
 
     Examples
     --------
@@ -284,14 +289,18 @@ def _ensure_format(obj):
         if not _parquet_available:
             raise ValueError(_parquet_msg)
         return ParquetFileFormat()
-    elif obj in {"ipc", "arrow", "feather"}:
+    elif obj in {"ipc", "arrow"}:
         return IpcFileFormat()
+    elif obj == "feather":
+        return FeatherFileFormat()
     elif obj == "csv":
         return CsvFileFormat()
     elif obj == "orc":
         if not _orc_available:
             raise ValueError(_orc_msg)
         return OrcFileFormat()
+    elif obj == "json":
+        return JsonFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 
@@ -469,6 +478,14 @@ def _union_dataset(children, schema=None, **kwargs):
         # unify the children datasets' schemas
         schema = pa.unify_schemas([child.schema for child in children])
 
+    for child in children:
+        if getattr(child, "_scan_options", None):
+            raise ValueError(
+                "Creating an UnionDataset from filtered or projected Datasets "
+                "is currently not supported. Union the unfiltered datasets "
+                "and apply the filter to the resulting union."
+            )
+
     # create datasets with the requested schema
     children = [child.replace_schema(schema) for child in children]
 
@@ -513,6 +530,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     Returns
     -------
     FileSystemDataset
+        The dataset corresponding to the given metadata
     """
     from pyarrow.fs import LocalFileSystem, _ensure_filesystem
 
@@ -584,7 +602,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
     format : FileFormat or str
-        Currently "parquet", "ipc"/"arrow"/"feather", "csv", and "orc" are
+        Currently "parquet", "ipc"/"arrow"/"feather", "csv", "json", and "orc" are
         supported. For Feather, only version 2 files are supported.
     filesystem : FileSystem or URI string, default None
         If a single path is given as source and filesystem is None, then the
@@ -964,7 +982,7 @@ Table/RecordBatch, or iterable of RecordBatch
     # was converted to one of those two. So we can grab the schema
     # to build the partitioning object from Dataset.
     if isinstance(data, Scanner):
-        partitioning_schema = data.dataset_schema
+        partitioning_schema = data.projected_schema
     else:
         partitioning_schema = data.schema
     partitioning = _ensure_write_partitioning(partitioning,

@@ -228,7 +228,8 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
   // "top level" attributes, only relevant if the first object is not named and a data
   // frame
   cpp11::strings names = Rf_getAttrib(lst, R_NamesSymbol);
-  if (names[0] == "" && Rf_inherits(VECTOR_ELT(lst, 0), "data.frame")) {
+  if (names[0] == "" && Rf_inherits(VECTOR_ELT(lst, 0), "data.frame") &&
+      Rf_xlength(lst) == 1) {
     SEXP top_level = metadata[0] = arrow_attributes(VECTOR_ELT(lst, 0), true);
     if (!Rf_isNull(top_level) && XLENGTH(top_level) > 0) {
       has_top_level_metadata = true;
@@ -300,6 +301,20 @@ std::shared_ptr<arrow::Table> Table__from_record_batches(
   }
 
   return tab;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__from_schema(
+    const std::shared_ptr<arrow::Schema>& schema) {
+  int64_t num_fields = schema->num_fields();
+
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(num_fields);
+  for (int i = 0; i < num_fields; i++) {
+    auto maybe_column = arrow::ChunkedArray::Make({}, schema->field(i)->type());
+    columns[i] = ValueOrStop(maybe_column);
+  }
+
+  return (arrow::Table::Make(schema, std::move(columns)));
 }
 
 // [[arrow::export]]

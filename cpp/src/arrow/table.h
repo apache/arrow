@@ -286,7 +286,24 @@ struct ARROW_EXPORT ConcatenateTablesOptions {
   static ConcatenateTablesOptions Defaults() { return {}; }
 };
 
-/// \brief Construct table from multiple input tables.
+/// \brief Construct a new table from multiple input tables.
+///
+/// The new table is assembled from existing column chunks without copying,
+/// if schemas are identical. If schemas do not match exactly and
+/// unify_schemas is enabled in options (off by default), an attempt is
+/// made to unify them, and then column chunks are converted to their
+/// respective unified datatype, which will probably incur a copy.
+/// :func:`arrow::PromoteTableToSchema` is used to unify schemas.
+///
+/// Tables are concatenated in order they are provided in and the order of
+/// rows within tables will be preserved.
+///
+/// \param[in] tables a std::vector of Tables to be concatenated
+/// \param[in] options specify how to unify schema of input tables
+/// \param[in] memory_pool MemoryPool to be used if null-filled arrays need to
+/// be created or if existing column chunks need to endure type conversion
+/// \return new Table
+
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> ConcatenateTables(
     const std::vector<std::shared_ptr<Table>>& tables,

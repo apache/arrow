@@ -28,6 +28,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <thread>
 #include <utility>
 
@@ -39,7 +40,6 @@
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -353,7 +353,9 @@ RecordBatchStream::RecordBatchStream(const std::shared_ptr<RecordBatchReader>& r
   impl_.reset(new RecordBatchStreamImpl(reader, options));
 }
 
-RecordBatchStream::~RecordBatchStream() {}
+RecordBatchStream::~RecordBatchStream() {
+  ARROW_WARN_NOT_OK(impl_->Close(), "Failed to close FlightDataStream");
+}
 
 Status RecordBatchStream::Close() { return impl_->Close(); }
 

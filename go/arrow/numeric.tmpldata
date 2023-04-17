@@ -66,7 +66,10 @@
     "name": "int8",
     "Type": "int8",
     "Default": "0",
-    "Size": "1"
+    "Size": "1",
+    "Opt": {
+      "BufferBuilder": true
+    }
   },
   {
     "Name": "Uint8",

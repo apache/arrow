@@ -33,8 +33,10 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/ordering.h"
 #include "arrow/compute/registry.h"
 #include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -43,7 +45,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -55,6 +56,68 @@ namespace detail {
 using ::arrow::internal::BitmapEquals;
 using ::arrow::internal::CopyBitmap;
 using ::arrow::internal::CountSetBits;
+
+TEST(ExecBatch, SliceBasics) {
+  int64_t length = 4, cut_length = 2, left_length = length - cut_length;
+  ExecBatch batch{{Int32Scalar(0), ArrayFromJSON(utf8(), R"(["a", "b", "c", "d"])"),
+                   ChunkedArrayFromJSON(float64(), {"[1.1]", "[2.2]", "[3.3]", "[4.4]"})},
+                  length};
+  std::vector<ExecBatch> expected_sliced{
+      {{Int32Scalar(0), ArrayFromJSON(utf8(), R"(["a", "b"])"),
+        ChunkedArrayFromJSON(float64(), {"[1.1]", "[2.2]"})},
+       cut_length},
+      {{Int32Scalar(0), ArrayFromJSON(utf8(), R"(["c", "d"])"),
+        ChunkedArrayFromJSON(float64(), {"[3.3]", "[4.4]"})},
+       left_length}};
+  std::vector<ExecBatch> actual_sliced = {batch.Slice(0, cut_length),
+                                          batch.Slice(cut_length, left_length)};
+  for (size_t i = 0; i < expected_sliced.size(); i++) {
+    ASSERT_EQ(expected_sliced[i].length, actual_sliced[i].length);
+    ASSERT_EQ(expected_sliced[i].values.size(), actual_sliced[i].values.size());
+    for (size_t j = 0; j < expected_sliced[i].values.size(); j++) {
+      AssertDatumsEqual(expected_sliced[i].values[j], actual_sliced[i].values[j]);
+    }
+    ASSERT_EQ(expected_sliced[i].ToString(), actual_sliced[i].ToString());
+  }
+}
+
+TEST(ExecBatch, ToRecordBatch) {
+  auto i32_array = ArrayFromJSON(int32(), "[0, 1, 2]");
+  auto utf8_array = ArrayFromJSON(utf8(), R"(["a", "b", "c"])");
+  ExecBatch exec_batch({Datum(i32_array), Datum(utf8_array)}, 3);
+
+  auto right_schema = schema({field("a", int32()), field("b", utf8())});
+  ASSERT_OK_AND_ASSIGN(auto right_record_batch, exec_batch.ToRecordBatch(right_schema));
+  ASSERT_OK(right_record_batch->ValidateFull());
+  auto expected_batch = RecordBatchFromJSON(right_schema, R"([
+      {"a": 0, "b": "a"},
+      {"a": 1, "b": "b"},
+      {"a": 2, "b": "c"}
+      ])");
+  AssertBatchesEqual(*right_record_batch, *expected_batch);
+
+  // With a scalar column
+  auto utf8_scalar = ScalarFromJSON(utf8(), R"("z")");
+  exec_batch = ExecBatch({Datum(i32_array), Datum(utf8_scalar)}, 3);
+  ASSERT_OK_AND_ASSIGN(right_record_batch, exec_batch.ToRecordBatch(right_schema));
+  ASSERT_OK(right_record_batch->ValidateFull());
+  expected_batch = RecordBatchFromJSON(right_schema, R"([
+      {"a": 0, "b": "z"},
+      {"a": 1, "b": "z"},
+      {"a": 2, "b": "z"}
+      ])");
+  AssertBatchesEqual(*right_record_batch, *expected_batch);
+
+  // Wrong number of fields in schema
+  auto reject_schema =
+      schema({field("a", int32()), field("b", utf8()), field("c", float64())});
+  ASSERT_RAISES(Invalid, exec_batch.ToRecordBatch(reject_schema));
+
+  // Wrong-kind exec batch (not really valid, but test it here anyway)
+  ExecBatch miskinded_batch({Datum()}, 0);
+  auto null_schema = schema({field("a", null())});
+  ASSERT_RAISES(TypeError, miskinded_batch.ToRecordBatch(null_schema));
+}
 
 TEST(ExecContext, BasicWorkings) {
   {
@@ -766,7 +829,11 @@ TEST_F(TestExecSpanIterator, ChunkedArrays) {
 }
 
 TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
-  auto carr = std::shared_ptr<ChunkedArray>(new ChunkedArray({}, int32()));
+  auto carr = std::make_shared<ChunkedArray>(ArrayVector{}, int32());
+  auto dict_arr =
+      std::make_shared<ChunkedArray>(ArrayVector{}, dictionary(int32(), utf8()));
+  auto nested_arr = std::make_shared<ChunkedArray>(
+      ArrayVector{}, struct_({field("x", int32()), field("y", int64())}));
 
   auto CheckArgs = [&](const ExecBatch& batch) {
     ExecSpanIterator iterator;
@@ -774,6 +841,19 @@ TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
     ExecSpan iter_span;
     ASSERT_TRUE(iterator.Next(&iter_span));
     ASSERT_EQ(0, iter_span.length);
+    for (int col_idx = 0; col_idx < iter_span.num_values(); col_idx++) {
+      const ExecValue& val = iter_span.values[col_idx];
+      ASSERT_TRUE(val.is_array());
+      const ArraySpan& span = val.array;
+      if (span.type->id() == Type::DICTIONARY) {
+        ASSERT_EQ(1, span.child_data.size());
+        ASSERT_EQ(0, span.dictionary().length);
+      } else {
+        for (const auto& child : span.child_data) {
+          ASSERT_EQ(0, child.length);
+        }
+      }
+    }
     ASSERT_FALSE(iterator.Next(&iter_span));
   };
 
@@ -782,6 +862,14 @@ TEST_F(TestExecSpanIterator, ZeroLengthInputs) {
 
   // Zero-length ChunkedArray with zero chunks
   input.values = {Datum(carr)};
+  CheckArgs(input);
+
+  // Zero-length ChunkedArray with zero chunks, dictionary
+  input.values = {Datum(dict_arr)};
+  CheckArgs(input);
+
+  // Zero-length ChunkedArray with zero chunks, nested
+  input.values = {Datum(nested_arr)};
   CheckArgs(input);
 
   // Zero-length array
@@ -812,7 +900,7 @@ Status ExecCopyArraySpan(KernelContext*, const ExecSpan& batch, ExecResult* out)
   DCHECK_EQ(1, batch.num_values());
   int value_size = batch[0].type()->byte_width();
   const ArraySpan& arg0 = batch[0].array;
-  ArraySpan* out_arr = out->array_span();
+  ArraySpan* out_arr = out->array_span_mutable();
   uint8_t* dst = out_arr->buffers[1].data + out_arr->offset * value_size;
   const uint8_t* src = arg0.buffers[1].data + arg0.offset * value_size;
   std::memcpy(dst, src, batch.length * value_size);
@@ -823,7 +911,7 @@ Status ExecComputedBitmap(KernelContext* ctx, const ExecSpan& batch, ExecResult*
   // Propagate nulls not used. Check that the out bitmap isn't the same already
   // as the input bitmap
   const ArraySpan& arg0 = batch[0].array;
-  ArraySpan* out_arr = out->array_span();
+  ArraySpan* out_arr = out->array_span_mutable();
   if (CountSetBits(arg0.buffers[0].data, arg0.offset, batch.length) > 0) {
     // Check that the bitmap has not been already copied over
     DCHECK(!BitmapEquals(arg0.buffers[0].data, arg0.offset, out_arr->buffers[0].data,
@@ -883,7 +971,7 @@ class ExampleOptionsType : public FunctionOptionsType {
   }
   std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
     const auto& opts = static_cast<const ExampleOptions&>(options);
-    return arrow::internal::make_unique<ExampleOptions>(opts.value);
+    return std::make_unique<ExampleOptions>(opts.value);
   }
 };
 ExampleOptions::ExampleOptions(std::shared_ptr<Scalar> value)
@@ -897,7 +985,7 @@ struct ExampleState : public KernelState {
 Result<std::unique_ptr<KernelState>> InitStateful(KernelContext*,
                                                   const KernelInitArgs& args) {
   auto func_options = static_cast<const ExampleOptions*>(args.options);
-  return std::unique_ptr<KernelState>(new ExampleState{func_options->value});
+  return std::make_unique<ExampleState>(func_options ? func_options->value : nullptr);
 }
 
 Status ExecStateful(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -906,7 +994,7 @@ Status ExecStateful(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   int32_t multiplier = checked_cast<const Int32Scalar&>(*state->value).value;
 
   const ArraySpan& arg0 = batch[0].array;
-  ArraySpan* out_arr = out->array_span();
+  ArraySpan* out_arr = out->array_span_mutable();
   const int32_t* arg0_data = arg0.GetValues<int32_t>(1);
   int32_t* dst = out_arr->GetValues<int32_t>(1);
   for (int64_t i = 0; i < arg0.length; ++i) {
@@ -918,7 +1006,7 @@ Status ExecStateful(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
 Status ExecAddInt32(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const int32_t* left_data = batch[0].array.GetValues<int32_t>(1);
   const int32_t* right_data = batch[1].array.GetValues<int32_t>(1);
-  int32_t* out_data = out->array_span()->GetValues<int32_t>(1);
+  int32_t* out_data = out->array_span_mutable()->GetValues<int32_t>(1);
   for (int64_t i = 0; i < batch.length; ++i) {
     *out_data++ = *left_data++ + *right_data++;
   }
@@ -1011,36 +1099,134 @@ class TestCallScalarFunction : public TestComputeInternals {
 
 bool TestCallScalarFunction::initialized_ = false;
 
-TEST_F(TestCallScalarFunction, ArgumentValidation) {
+class FunctionCaller {
+ public:
+  virtual ~FunctionCaller() = default;
+
+  virtual Result<Datum> Call(const std::vector<Datum>& args,
+                             const FunctionOptions* options,
+                             ExecContext* ctx = NULLPTR) = 0;
+  virtual Result<Datum> Call(const std::vector<Datum>& args,
+                             ExecContext* ctx = NULLPTR) = 0;
+};
+
+using FunctionCallerMaker = std::function<Result<std::shared_ptr<FunctionCaller>>(
+    const std::string& func_name, std::vector<TypeHolder> in_types)>;
+
+class SimpleFunctionCaller : public FunctionCaller {
+ public:
+  explicit SimpleFunctionCaller(const std::string& func_name) : func_name(func_name) {}
+
+  static Result<std::shared_ptr<FunctionCaller>> Make(const std::string& func_name) {
+    return std::make_shared<SimpleFunctionCaller>(func_name);
+  }
+
+  static Result<std::shared_ptr<FunctionCaller>> Maker(const std::string& func_name,
+                                                       std::vector<TypeHolder> in_types) {
+    return Make(func_name);
+  }
+
+  Result<Datum> Call(const std::vector<Datum>& args, const FunctionOptions* options,
+                     ExecContext* ctx) override {
+    return CallFunction(func_name, args, options, ctx);
+  }
+  Result<Datum> Call(const std::vector<Datum>& args, ExecContext* ctx) override {
+    return CallFunction(func_name, args, ctx);
+  }
+
+  std::string func_name;
+};
+
+class ExecFunctionCaller : public FunctionCaller {
+ public:
+  explicit ExecFunctionCaller(std::shared_ptr<FunctionExecutor> func_exec)
+      : func_exec(std::move(func_exec)) {}
+
+  static Result<std::shared_ptr<FunctionCaller>> Make(
+      const std::string& func_name, const std::vector<Datum>& args,
+      const FunctionOptions* options = nullptr,
+      FunctionRegistry* func_registry = nullptr) {
+    ARROW_ASSIGN_OR_RAISE(auto func_exec,
+                          GetFunctionExecutor(func_name, args, options, func_registry));
+    return std::make_shared<ExecFunctionCaller>(std::move(func_exec));
+  }
+
+  static Result<std::shared_ptr<FunctionCaller>> Make(
+      const std::string& func_name, std::vector<TypeHolder> in_types,
+      const FunctionOptions* options = nullptr,
+      FunctionRegistry* func_registry = nullptr) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto func_exec, GetFunctionExecutor(func_name, in_types, options, func_registry));
+    return std::make_shared<ExecFunctionCaller>(std::move(func_exec));
+  }
+
+  static Result<std::shared_ptr<FunctionCaller>> Maker(const std::string& func_name,
+                                                       std::vector<TypeHolder> in_types) {
+    return Make(func_name, std::move(in_types));
+  }
+
+  Result<Datum> Call(const std::vector<Datum>& args, const FunctionOptions* options,
+                     ExecContext* ctx) override {
+    ARROW_RETURN_NOT_OK(func_exec->Init(options, ctx));
+    return func_exec->Execute(args);
+  }
+  Result<Datum> Call(const std::vector<Datum>& args, ExecContext* ctx) override {
+    return Call(args, nullptr, ctx);
+  }
+
+  std::shared_ptr<FunctionExecutor> func_exec;
+};
+
+class TestCallScalarFunctionArgumentValidation : public TestCallScalarFunction {
+ protected:
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+
+void TestCallScalarFunctionArgumentValidation::DoTest(FunctionCallerMaker caller_maker) {
+  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {int32()}));
+
   // Copy accepts only a single array argument
   Datum d1(GetInt32Array(10));
 
   // Too many args
   std::vector<Datum> args = {d1, d1};
-  ASSERT_RAISES(Invalid, CallFunction("test_copy", args));
+  ASSERT_RAISES(Invalid, test_copy->Call(args));
 
   // Too few
   args = {};
-  ASSERT_RAISES(Invalid, CallFunction("test_copy", args));
+  ASSERT_RAISES(Invalid, test_copy->Call(args));
 
   // Cannot do scalar
   Datum d1_scalar(std::make_shared<Int32Scalar>(5));
-  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("test_copy", {d1}));
-  ASSERT_OK_AND_ASSIGN(result, CallFunction("test_copy", {d1_scalar}));
+  ASSERT_OK_AND_ASSIGN(auto result, test_copy->Call({d1}));
+  ASSERT_OK_AND_ASSIGN(result, test_copy->Call({d1_scalar}));
 }
 
-TEST_F(TestCallScalarFunction, PreallocationCases) {
+TEST_F(TestCallScalarFunctionArgumentValidation, SimpleCall) {
+  TestCallScalarFunctionArgumentValidation::DoTest(SimpleFunctionCaller::Maker);
+}
+
+TEST_F(TestCallScalarFunctionArgumentValidation, ExecCall) {
+  TestCallScalarFunctionArgumentValidation::DoTest(ExecFunctionCaller::Maker);
+}
+
+class TestCallScalarFunctionPreallocationCases : public TestCallScalarFunction {
+ protected:
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+
+void TestCallScalarFunctionPreallocationCases::DoTest(FunctionCallerMaker caller_maker) {
   double null_prob = 0.2;
 
   auto arr = GetUInt8Array(100, null_prob);
 
-  auto CheckFunction = [&](std::string func_name) {
+  auto CheckFunction = [&](std::shared_ptr<FunctionCaller> test_copy) {
     ResetContexts();
 
     // The default should be a single array output
     {
       std::vector<Datum> args = {Datum(arr)};
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_copy->Call(args));
       ASSERT_EQ(Datum::ARRAY, result.kind());
       AssertArraysEqual(*arr, *result.make_array());
     }
@@ -1050,7 +1236,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_exec_chunksize(80);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_copy->Call(args, exec_ctx_.get()));
       AssertArraysEqual(*arr, *result.make_array());
     }
 
@@ -1058,16 +1244,16 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
       // Chunksize not multiple of 8
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_exec_chunksize(11);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_copy->Call(args, exec_ctx_.get()));
       AssertArraysEqual(*arr, *result.make_array());
     }
 
     // Input is chunked, output has one big chunk
     {
-      auto carr = std::shared_ptr<ChunkedArray>(
-          new ChunkedArray({arr->Slice(0, 10), arr->Slice(10)}));
+      auto carr =
+          std::make_shared<ChunkedArray>(ArrayVector{arr->Slice(0, 10), arr->Slice(10)});
       std::vector<Datum> args = {Datum(carr)};
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_copy->Call(args, exec_ctx_.get()));
       std::shared_ptr<ChunkedArray> actual = result.chunked_array();
       ASSERT_EQ(1, actual->num_chunks());
       AssertChunkedEquivalent(*carr, *actual);
@@ -1078,7 +1264,7 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
       std::vector<Datum> args = {Datum(arr)};
       exec_ctx_->set_preallocate_contiguous(false);
       exec_ctx_->set_exec_chunksize(40);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_copy->Call(args, exec_ctx_.get()));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
@@ -1088,11 +1274,28 @@ TEST_F(TestCallScalarFunction, PreallocationCases) {
     }
   };
 
-  CheckFunction("test_copy");
-  CheckFunction("test_copy_computed_bitmap");
+  ASSERT_OK_AND_ASSIGN(auto test_copy, caller_maker("test_copy", {uint8()}));
+  CheckFunction(test_copy);
+  ASSERT_OK_AND_ASSIGN(auto test_copy_computed_bitmap,
+                       caller_maker("test_copy_computed_bitmap", {uint8()}));
+  CheckFunction(test_copy_computed_bitmap);
 }
 
-TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
+TEST_F(TestCallScalarFunctionPreallocationCases, SimpleCaller) {
+  TestCallScalarFunctionPreallocationCases::DoTest(SimpleFunctionCaller::Maker);
+}
+
+TEST_F(TestCallScalarFunctionPreallocationCases, ExecCaller) {
+  TestCallScalarFunctionPreallocationCases::DoTest(ExecFunctionCaller::Maker);
+}
+
+class TestCallScalarFunctionBasicNonStandardCases : public TestCallScalarFunction {
+ protected:
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+
+void TestCallScalarFunctionBasicNonStandardCases::DoTest(
+    FunctionCallerMaker caller_maker) {
   // Test a handful of cases
   //
   // * Validity bitmap computed by kernel rather than using PropagateNulls
@@ -1104,19 +1307,19 @@ TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
   auto arr = GetUInt8Array(1000, null_prob);
   std::vector<Datum> args = {Datum(arr)};
 
-  auto CheckFunction = [&](std::string func_name) {
+  auto CheckFunction = [&](std::shared_ptr<FunctionCaller> test_nopre) {
     ResetContexts();
 
     // The default should be a single array output
     {
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_nopre->Call(args));
       AssertArraysEqual(*arr, *result.make_array(), true);
     }
 
     // Split execution into 3 chunks
     {
       exec_ctx_->set_exec_chunksize(400);
-      ASSERT_OK_AND_ASSIGN(Datum result, CallFunction(func_name, args, exec_ctx_.get()));
+      ASSERT_OK_AND_ASSIGN(Datum result, test_nopre->Call(args, exec_ctx_.get()));
       ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
       const ChunkedArray& carr = *result.chunked_array();
       ASSERT_EQ(3, carr.num_chunks());
@@ -1126,29 +1329,100 @@ TEST_F(TestCallScalarFunction, BasicNonStandardCases) {
     }
   };
 
-  CheckFunction("test_nopre_data");
-  CheckFunction("test_nopre_validity_or_data");
+  ASSERT_OK_AND_ASSIGN(auto test_nopre_data, caller_maker("test_nopre_data", {uint8()}));
+  CheckFunction(test_nopre_data);
+  ASSERT_OK_AND_ASSIGN(auto test_nopre_validity_or_data,
+                       caller_maker("test_nopre_validity_or_data", {uint8()}));
+  CheckFunction(test_nopre_validity_or_data);
 }
 
-TEST_F(TestCallScalarFunction, StatefulKernel) {
+TEST_F(TestCallScalarFunctionBasicNonStandardCases, SimpleCall) {
+  TestCallScalarFunctionBasicNonStandardCases::DoTest(SimpleFunctionCaller::Maker);
+}
+
+TEST_F(TestCallScalarFunctionBasicNonStandardCases, ExecCall) {
+  TestCallScalarFunctionBasicNonStandardCases::DoTest(ExecFunctionCaller::Maker);
+}
+
+class TestCallScalarFunctionStatefulKernel : public TestCallScalarFunction {
+ protected:
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+
+void TestCallScalarFunctionStatefulKernel::DoTest(FunctionCallerMaker caller_maker) {
+  ASSERT_OK_AND_ASSIGN(auto test_stateful, caller_maker("test_stateful", {int32()}));
+
   auto input = ArrayFromJSON(int32(), "[1, 2, 3, null, 5]");
   auto multiplier = std::make_shared<Int32Scalar>(2);
   auto expected = ArrayFromJSON(int32(), "[2, 4, 6, null, 10]");
 
   ExampleOptions options(multiplier);
   std::vector<Datum> args = {Datum(input)};
-  ASSERT_OK_AND_ASSIGN(Datum result, CallFunction("test_stateful", args, &options));
+  ASSERT_OK_AND_ASSIGN(Datum result, test_stateful->Call(args, &options));
   AssertArraysEqual(*expected, *result.make_array());
 }
 
-TEST_F(TestCallScalarFunction, ScalarFunction) {
+TEST_F(TestCallScalarFunctionStatefulKernel, Simplecall) {
+  TestCallScalarFunctionStatefulKernel::DoTest(SimpleFunctionCaller::Maker);
+}
+
+TEST_F(TestCallScalarFunctionStatefulKernel, ExecCall) {
+  TestCallScalarFunctionStatefulKernel::DoTest(ExecFunctionCaller::Maker);
+}
+
+class TestCallScalarFunctionScalarFunction : public TestCallScalarFunction {
+ protected:
+  void DoTest(FunctionCallerMaker caller_maker);
+};
+
+void TestCallScalarFunctionScalarFunction::DoTest(FunctionCallerMaker caller_maker) {
+  ASSERT_OK_AND_ASSIGN(auto test_scalar_add_int32,
+                       caller_maker("test_scalar_add_int32", {int32(), int32()}));
+
   std::vector<Datum> args = {Datum(std::make_shared<Int32Scalar>(5)),
                              Datum(std::make_shared<Int32Scalar>(7))};
-  ASSERT_OK_AND_ASSIGN(Datum result, CallFunction("test_scalar_add_int32", args));
+  ASSERT_OK_AND_ASSIGN(Datum result, test_scalar_add_int32->Call(args));
   ASSERT_EQ(Datum::SCALAR, result.kind());
 
   auto expected = std::make_shared<Int32Scalar>(12);
   ASSERT_TRUE(expected->Equals(*result.scalar()));
+}
+
+TEST_F(TestCallScalarFunctionScalarFunction, SimpleCall) {
+  TestCallScalarFunctionScalarFunction::DoTest(SimpleFunctionCaller::Maker);
+}
+
+TEST_F(TestCallScalarFunctionScalarFunction, ExecCall) {
+  TestCallScalarFunctionScalarFunction::DoTest(ExecFunctionCaller::Maker);
+}
+
+TEST(Ordering, IsSuborderOf) {
+  Ordering a{{SortKey{3}, SortKey{1}, SortKey{7}}};
+  Ordering b{{SortKey{3}, SortKey{1}}};
+  Ordering c{{SortKey{1}, SortKey{7}}};
+  Ordering d{{SortKey{1}, SortKey{7}}, NullPlacement::AtEnd};
+  Ordering imp = Ordering::Implicit();
+  Ordering unordered = Ordering::Unordered();
+
+  std::vector<Ordering> orderings = {a, b, c, d, imp, unordered};
+
+  auto CheckOrdering = [&](const Ordering& ordering, std::vector<bool> expected) {
+    for (std::size_t other_idx = 0; other_idx < orderings.size(); other_idx++) {
+      const auto& other = orderings[other_idx];
+      if (expected[other_idx]) {
+        ASSERT_TRUE(ordering.IsSuborderOf(other));
+      } else {
+        ASSERT_FALSE(ordering.IsSuborderOf(other));
+      }
+    }
+  };
+
+  CheckOrdering(a, {true, false, false, false, false, false});
+  CheckOrdering(b, {true, true, false, false, false, false});
+  CheckOrdering(c, {false, false, true, false, false, false});
+  CheckOrdering(d, {false, false, false, true, false, false});
+  CheckOrdering(imp, {false, false, false, false, false, false});
+  CheckOrdering(unordered, {true, true, true, true, true, true});
 }
 
 }  // namespace detail

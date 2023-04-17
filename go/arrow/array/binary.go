@@ -18,13 +18,20 @@ package array
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
+	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/goccy/go-json"
 )
+
+type BinaryLike interface {
+	arrow.Array
+	ValueBytes() []byte
+	ValueOffset64(int) int64
+}
 
 // A type which represents an immutable sequence of variable-length binary strings.
 type Binary struct {
@@ -50,7 +57,15 @@ func (a *Binary) Value(i int) []byte {
 	return a.valueBytes[a.valueOffsets[idx]:a.valueOffsets[idx+1]]
 }
 
-// ValueString returns the string at index i without performing additional allocations.
+// ValueString returns the string at index i
+func (a *Binary) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return base64.StdEncoding.EncodeToString(a.Value(i))
+}
+
+// ValueStr returns the string at index i without performing additional allocations.
 // The string is only valid for the lifetime of the Binary array.
 func (a *Binary) ValueString(i int) string {
 	b := a.Value(i)
@@ -62,6 +77,10 @@ func (a *Binary) ValueOffset(i int) int {
 		panic("arrow/array: index out of range")
 	}
 	return int(a.valueOffsets[a.array.data.offset+i])
+}
+
+func (a *Binary) ValueOffset64(i int) int64 {
+	return int64(a.ValueOffset(i))
 }
 
 func (a *Binary) ValueLen(i int) int {
@@ -131,7 +150,7 @@ func (a *Binary) setData(data *Data) {
 	}
 }
 
-func (a *Binary) getOneForMarshal(i int) interface{} {
+func (a *Binary) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -141,7 +160,7 @@ func (a *Binary) getOneForMarshal(i int) interface{} {
 func (a *Binary) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 	// golang marshal standard says that []byte will be marshalled
 	// as a base64-encoded string
@@ -181,6 +200,12 @@ func (a *LargeBinary) Value(i int) []byte {
 	return a.valueBytes[a.valueOffsets[idx]:a.valueOffsets[idx+1]]
 }
 
+func (a *LargeBinary) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return base64.StdEncoding.EncodeToString(a.Value(i))
+}
 func (a *LargeBinary) ValueString(i int) string {
 	b := a.Value(i)
 	return *(*string)(unsafe.Pointer(&b))
@@ -191,6 +216,10 @@ func (a *LargeBinary) ValueOffset(i int) int64 {
 		panic("arrow/array: index out of range")
 	}
 	return a.valueOffsets[a.array.data.offset+i]
+}
+
+func (a *LargeBinary) ValueOffset64(i int) int64 {
+	return a.ValueOffset(i)
 }
 
 func (a *LargeBinary) ValueLen(i int) int {
@@ -260,7 +289,7 @@ func (a *LargeBinary) setData(data *Data) {
 	}
 }
 
-func (a *LargeBinary) getOneForMarshal(i int) interface{} {
+func (a *LargeBinary) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -270,7 +299,7 @@ func (a *LargeBinary) getOneForMarshal(i int) interface{} {
 func (a *LargeBinary) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 	// golang marshal standard says that []byte will be marshalled
 	// as a base64-encoded string

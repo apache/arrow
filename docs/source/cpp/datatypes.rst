@@ -140,7 +140,7 @@ function for any numeric (integer or float) array:
              typename CType = typename DataType::c_type>
    arrow::enable_if_number<DataType, CType> SumArray(const ArrayType& array) {
      CType sum = 0;
-     for (arrow::util::optional<CType> value : array) {
+     for (std::optional<CType> value : array) {
        if (value.has_value()) {
          sum += value.value();
        }
@@ -192,7 +192,7 @@ here is how one might sum across columns of arbitrary numeric types:
    
      template <typename ArrayType, typename T = typename ArrayType::TypeClass>
      arrow::enable_if_number<T, arrow::Status> Visit(const ArrayType& array) {
-       for (arrow::util::optional<typename T::c_type> value : array) {
+       for (std::optional<typename T::c_type> value : array) {
          if (value.has_value()) {
            partial += static_cast<double>(value.value());
          }

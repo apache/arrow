@@ -39,7 +39,7 @@ Apache Arrow is the emerging standard for large in-memory columnar data ([Spark]
 
 Check out our [API documentation][5] to learn more about how to use Apache Arrow's JS implementation. You can also learn by example by checking out some of the following resources:
 
-* [/js/test/unit](https://github.com/apache/arrow/tree/master/js/test/unit) - Unit tests for Table and Vector
+* [/js/test/unit](https://github.com/apache/arrow/tree/main/js/test/unit) - Unit tests for Table and Vector
 
 ## Cookbook
 
@@ -173,20 +173,21 @@ integrations in other projects, we'd be happy to have you involved:
 
 * Join the mailing list: send an email to
   [dev-subscribe@arrow.apache.org][1]. Share your ideas and use cases for the
-  project.
-* [Follow our activity on JIRA][3]
+  project
+* Follow our activity on [GitHub issues][3]
 * [Learn the format][2]
 * Contribute code to one of the reference implementations
 
-We prefer to receive contributions in the form of GitHub pull requests. Please send pull requests against the [github.com/apache/arrow][4] repository.
+We prefer to receive contributions in the form of GitHub pull requests.
+Please send pull requests against the [github.com/apache/arrow][4] repository.
 
-If you are looking for some ideas on what to contribute, check out the [JIRA
+If you are looking for some ideas on what to contribute, check out the [GitHub
 issues][3] for the Apache Arrow project. Comment on the issue and/or contact
 [dev@arrow.apache.org](https://mail-archives.apache.org/mod_mbox/arrow-dev/)
 with your questions and ideas.
 
 If you’d like to report a bug but don’t have time to fix it, you can still post
-it on JIRA, or email the mailing list
+it on GitHub issues, or email the mailing list
 [dev@arrow.apache.org](https://mail-archives.apache.org/mod_mbox/arrow-dev/)
 
 ## Packaging
@@ -246,10 +247,10 @@ Full list of broader Apache Arrow [projects & organizations](https://arrow.apach
 
 # License
 
-[Apache 2.0](https://github.com/apache/arrow/blob/master/LICENSE)
+[Apache 2.0](https://github.com/apache/arrow/blob/main/LICENSE)
 
 [1]: mailto:dev-subscribe@arrow.apache.org
-[2]: https://github.com/apache/arrow/tree/master/format
-[3]: https://issues.apache.org/jira/browse/ARROW
+[2]: https://github.com/apache/arrow/tree/main/format
+[3]: https://github.com/apache/arrow/issues
 [4]: https://github.com/apache/arrow
 [5]: https://arrow.apache.org/docs/js/

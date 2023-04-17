@@ -84,8 +84,7 @@ namespace red_arrow {
       VISIT(UInt16)
       VISIT(UInt32)
       VISIT(UInt64)
-      // TODO
-      // VISIT(HalfFloat)
+      VISIT(HalfFloat)
       VISIT(Float)
       VISIT(Double)
       VISIT(Binary)

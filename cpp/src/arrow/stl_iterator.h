@@ -20,6 +20,7 @@
 #include <cassert>
 #include <cstddef>
 #include <iterator>
+#include <optional>
 #include <utility>
 
 #include "arrow/chunked_array.h"
@@ -27,7 +28,6 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace stl {
@@ -49,7 +49,7 @@ template <typename ArrayType,
           typename ValueAccessor = detail::DefaultValueAccessor<ArrayType>>
 class ArrayIterator {
  public:
-  using value_type = arrow::util::optional<typename ValueAccessor::ValueType>;
+  using value_type = std::optional<typename ValueAccessor::ValueType>;
   using difference_type = int64_t;
   using pointer = value_type*;
   using reference = value_type&;
@@ -138,7 +138,7 @@ template <typename ArrayType,
           typename ValueAccessor = detail::DefaultValueAccessor<ArrayType>>
 class ChunkedArrayIterator {
  public:
-  using value_type = arrow::util::optional<typename ValueAccessor::ValueType>;
+  using value_type = std::optional<typename ValueAccessor::ValueType>;
   using difference_type = int64_t;
   using pointer = value_type*;
   using reference = value_type&;

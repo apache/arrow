@@ -45,7 +45,7 @@ struct parse_options {
  * Like the C++17 standard, the `fast_float::from_chars` functions take an optional last argument of
  * the type `fast_float::chars_format`. It is a bitset value: we check whether
  * `fmt & fast_float::chars_format::fixed` and `fmt & fast_float::chars_format::scientific` are set
- * to determine whether we allowe the fixed point and scientific notation respectively.
+ * to determine whether we allow the fixed point and scientific notation respectively.
  * The default is  `fast_float::chars_format::general` which allows both `fixed` and `scientific`.
  */
 template<typename T>
@@ -61,6 +61,5 @@ from_chars_result from_chars_advanced(const char *first, const char *last,
 
 }
 } // namespace arrow_vendored
-
 #include "parse_number.h"
 #endif // FASTFLOAT_FAST_FLOAT_H

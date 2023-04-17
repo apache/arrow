@@ -52,8 +52,6 @@ RUN \
     openssl-devel \
     pkg-config \
     python39 \
-    python39-devel \
-    python39-numpy \
     python39-pip \
     re2-devel \
     rapidjson-devel \
@@ -61,7 +59,6 @@ RUN \
     snappy-devel \
     tar \
     thrift-devel \
-    utf8proc-devel \
     vala \
     zlib-devel && \
   dnf clean ${quiet} all

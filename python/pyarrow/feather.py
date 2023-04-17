@@ -24,12 +24,6 @@ from pyarrow.lib import (Codec, Table,  # noqa
 import pyarrow.lib as ext
 from pyarrow import _feather
 from pyarrow._feather import FeatherError  # noqa: F401
-from pyarrow.vendored.version import Version
-
-
-def _check_pandas_version():
-    if _pandas_api.loose_version < Version('0.17.0'):
-        raise ImportError("feather requires pandas >= 0.17.0")
 
 
 class FeatherDataset:
@@ -96,7 +90,6 @@ class FeatherDataset:
         pandas.DataFrame
             Content of the file as a pandas DataFrame (of columns)
         """
-        _check_pandas_version()
         return self.read_table(columns=columns).to_pandas(
             use_threads=use_threads)
 
@@ -145,7 +138,6 @@ def write_feather(df, dest, compression=None, compression_level=None,
         limited legacy format
     """
     if _pandas_api.have_pandas:
-        _check_pandas_version()
         if (_pandas_api.has_sparse and
                 isinstance(df, _pandas_api.pd.SparseDataFrame)):
             df = df.to_dense()
@@ -204,7 +196,8 @@ def write_feather(df, dest, compression=None, compression_level=None,
         raise
 
 
-def read_feather(source, columns=None, use_threads=True, memory_map=False):
+def read_feather(source, columns=None, use_threads=True,
+                 memory_map=False, **kwargs):
     """
     Read a pandas.DataFrame from Feather format. To read as pyarrow.Table use
     feather.read_table.
@@ -222,15 +215,17 @@ def read_feather(source, columns=None, use_threads=True, memory_map=False):
         reading from Feather format.
     memory_map : boolean, default False
         Use memory mapping when opening file on disk, when source is a str.
+    **kwargs
+        Additional keyword arguments passed on to `pyarrow.Table.to_pandas`.
 
     Returns
     -------
     df : pandas.DataFrame
+        The contents of the Feather file as a pandas.DataFrame
     """
-    _check_pandas_version()
     return (read_table(
         source, columns=columns, memory_map=memory_map,
-        use_threads=use_threads).to_pandas(use_threads=use_threads))
+        use_threads=use_threads).to_pandas(use_threads=use_threads, **kwargs))
 
 
 def read_table(source, columns=None, memory_map=False, use_threads=True):
@@ -252,6 +247,7 @@ def read_table(source, columns=None, memory_map=False, use_threads=True):
     Returns
     -------
     table : pyarrow.Table
+        The contents of the Feather file as a pyarrow.Table
     """
     reader = _feather.FeatherReader(
         source, use_memory_map=memory_map, use_threads=use_threads)

@@ -22,17 +22,17 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow"
 )
 
 // Writer wraps encoding/csv.Writer and writes arrow.Record based on a schema.
 type Writer struct {
-	w         *csv.Writer
-	schema    *arrow.Schema
-	header    bool
-	once      sync.Once
-	nullValue string
+	boolFormatter func(bool) string
+	header        bool
+	nullValue     string
+	once          sync.Once
+	schema        *arrow.Schema
+	w             *csv.Writer
 }
 
 // NewWriter returns a writer that writes arrow.Records to the CSV file
@@ -40,13 +40,15 @@ type Writer struct {
 //
 // NewWriter panics if the given schema contains fields that have types that are not
 // primitive types.
+// For BinaryType the writer will use base64 encoding with padding as per base64.StdEncoding.
 func NewWriter(w io.Writer, schema *arrow.Schema, opts ...Option) *Writer {
 	validate(schema)
 
 	ww := &Writer{
-		w:         csv.NewWriter(w),
-		schema:    schema,
-		nullValue: "NULL", // override by passing WithNullWriter() as an option
+		boolFormatter: strconv.FormatBool, // override by passing WithBoolWriter() as an option
+		nullValue:     "NULL",             // override by passing WithNullWriter() as an option
+		schema:        schema,
+		w:             csv.NewWriter(w),
 	}
 	for _, opt := range opts {
 		opt(ww)
@@ -79,115 +81,9 @@ func (w *Writer) Write(record arrow.Record) error {
 	}
 
 	for j, col := range record.Columns() {
-		switch w.schema.Field(j).Type.(type) {
-		case *arrow.BooleanType:
-			arr := col.(*array.Boolean)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatBool(arr.Value(i))
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Int8Type:
-			arr := col.(*array.Int8)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Int16Type:
-			arr := col.(*array.Int16)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Int32Type:
-			arr := col.(*array.Int32)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Int64Type:
-			arr := col.(*array.Int64)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatInt(int64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Uint8Type:
-			arr := col.(*array.Uint8)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Uint16Type:
-			arr := col.(*array.Uint16)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Uint32Type:
-			arr := col.(*array.Uint32)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Uint64Type:
-			arr := col.(*array.Uint64)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatUint(uint64(arr.Value(i)), 10)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Float32Type:
-			arr := col.(*array.Float32)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 32)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.Float64Type:
-			arr := col.(*array.Float64)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = strconv.FormatFloat(float64(arr.Value(i)), 'g', -1, 64)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
-		case *arrow.StringType:
-			arr := col.(*array.String)
-			for i := 0; i < arr.Len(); i++ {
-				if arr.IsValid(i) {
-					recs[i][j] = arr.Value(i)
-				} else {
-					recs[i][j] = w.nullValue
-				}
-			}
+		rows := w.transformColToStringArr(w.schema.Field(j).Type, col)
+		for i, row := range rows {
+			recs[i][j] = row
 		}
 	}
 

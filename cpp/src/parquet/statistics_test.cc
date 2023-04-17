@@ -133,14 +133,14 @@ TEST(Comparison, UnsignedByteArray) {
   ASSERT_TRUE(comparator->Compare(s1ba, s2ba));
 
   // Multi-byte UTF-8 characters
-  s1 = u8"braten";
-  s2 = u8"bügeln";
+  s1 = "braten";
+  s2 = "bügeln";
   s1ba = ByteArrayFromString(s1);
   s2ba = ByteArrayFromString(s2);
   ASSERT_TRUE(comparator->Compare(s1ba, s2ba));
 
-  s1 = u8"ünk123456";  // ü = 252
-  s2 = u8"ănk123456";  // ă = 259
+  s1 = "ünk123456";  // ü = 252
+  s2 = "ănk123456";  // ă = 259
   s1ba = ByteArrayFromString(s1);
   s2ba = ByteArrayFromString(s2);
   ASSERT_TRUE(comparator->Compare(s1ba, s2ba));
@@ -859,8 +859,8 @@ void TestStatisticsSortOrder<ByteArrayType>::SetValues() {
   int max_byte_array_len = 10;
   size_t nbytes = NUM_VALUES * max_byte_array_len;
   values_buf_.resize(nbytes);
-  std::vector<std::string> vals = {u8"c123", u8"b123", u8"a123", u8"d123", u8"e123",
-                                   u8"f123", u8"g123", u8"h123", u8"i123", u8"ü123"};
+  std::vector<std::string> vals = {"c123", "b123", "a123", "d123", "e123",
+                                   "f123", "g123", "h123", "i123", "ü123"};
 
   uint8_t* base = &values_buf_.data()[0];
   for (int i = 0; i < NUM_VALUES; i++) {
@@ -922,7 +922,7 @@ void TestByteArrayStatisticsFromArrow() {
   using ArrayType = typename TypeTraits::ArrayType;
 
   auto values = ArrayFromJSON(TypeTraits::type_singleton(),
-                              u8"[\"c123\", \"b123\", \"a123\", null, "
+                              "[\"c123\", \"b123\", \"a123\", null, "
                               "null, \"f123\", \"g123\", \"h123\", \"i123\", \"ü123\"]");
 
   const auto& typed_values = static_cast<const ArrayType&>(*values);

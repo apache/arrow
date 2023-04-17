@@ -18,7 +18,7 @@
 #pragma once
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -482,6 +482,14 @@ struct NegateChecked {
   static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
                                                         Status*) {
     return arg.Negate();
+  }
+};
+
+struct Exp {
+  template <typename T, typename Arg>
+  static T Call(KernelContext*, Arg exp, Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    return std::exp(exp);
   }
 };
 

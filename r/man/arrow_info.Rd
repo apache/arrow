@@ -3,6 +3,7 @@
 \name{arrow_info}
 \alias{arrow_info}
 \alias{arrow_available}
+\alias{arrow_with_acero}
 \alias{arrow_with_dataset}
 \alias{arrow_with_substrait}
 \alias{arrow_with_parquet}
@@ -14,6 +15,8 @@
 arrow_info()
 
 arrow_available()
+
+arrow_with_acero()
 
 arrow_with_dataset()
 
@@ -38,7 +41,7 @@ This function summarizes a number of build-time configurations and run-time
 settings for the Arrow package. It may be useful for diagnostics.
 }
 \seealso{
-If any capabilities are \code{FALSE}, see
-\code{vignette("install", package = "arrow")} for guidance on reinstalling the
-package.
+If any capabilities are \code{FALSE}, see the
+\href{https://arrow.apache.org/docs/r/articles/install.html}{install guide}
+for guidance on reinstalling the package.
 }

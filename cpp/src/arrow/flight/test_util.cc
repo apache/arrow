@@ -30,11 +30,12 @@
 // We need Windows fixes before including Boost
 #include "arrow/util/windows_compatibility.h"
 
+#include <gtest/gtest.h>
 #include <boost/filesystem.hpp>
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
 // boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
 // cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
-#include <gtest/gtest.h>
 #include <boost/process.hpp>
 
 #include "arrow/array.h"
@@ -204,7 +205,7 @@ class FlightTestServer : public FlightServerBase {
       // For test purposes, if we get criteria, return no results
       flights.clear();
     }
-    *listings = std::unique_ptr<FlightListing>(new SimpleFlightListing(flights));
+    *listings = std::make_unique<SimpleFlightListing>(flights);
     return Status::OK();
   }
 
@@ -220,7 +221,7 @@ class FlightTestServer : public FlightServerBase {
 
     for (const auto& info : flights) {
       if (info.descriptor().Equals(request)) {
-        *out = std::unique_ptr<FlightInfo>(new FlightInfo(info));
+        *out = std::make_unique<FlightInfo>(info);
         return Status::OK();
       }
     }
@@ -240,21 +241,19 @@ class FlightTestServer : public FlightServerBase {
       // Make batch > 2GiB in size
       ARROW_ASSIGN_OR_RAISE(auto batch, VeryLargeBatch());
       ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({batch}));
-      *data_stream =
-          std::unique_ptr<FlightDataStream>(new RecordBatchStream(std::move(reader)));
+      *data_stream = std::make_unique<RecordBatchStream>(std::move(reader));
       return Status::OK();
     }
     if (request.ticket == "ticket-stream-error") {
       auto reader = std::make_shared<ErrorRecordBatchReader>();
-      *data_stream =
-          std::unique_ptr<FlightDataStream>(new RecordBatchStream(std::move(reader)));
+      *data_stream = std::make_unique<RecordBatchStream>(std::move(reader));
       return Status::OK();
     }
 
     std::shared_ptr<RecordBatchReader> batch_reader;
     RETURN_NOT_OK(GetBatchForFlight(request, &batch_reader));
 
-    *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
+    *data_stream = std::make_unique<RecordBatchStream>(batch_reader);
     return Status::OK();
   }
 
@@ -465,13 +464,13 @@ class FlightTestServer : public FlightServerBase {
       result.body = Buffer::FromString(std::move(value));
       results.push_back(result);
     }
-    *out = std::unique_ptr<ResultStream>(new SimpleResultStream(std::move(results)));
+    *out = std::make_unique<SimpleResultStream>(std::move(results));
     return Status::OK();
   }
 
   Status RunAction2(std::unique_ptr<ResultStream>* out) {
     // Empty
-    *out = std::unique_ptr<ResultStream>(new SimpleResultStream({}));
+    *out = std::make_unique<SimpleResultStream>(std::vector<Result>{});
     return Status::OK();
   }
 
@@ -499,8 +498,7 @@ class FlightTestServer : public FlightServerBase {
 
     for (const auto& info : flights) {
       if (info.descriptor().Equals(request)) {
-        *schema =
-            std::unique_ptr<SchemaResult>(new SchemaResult(info.serialized_schema()));
+        *schema = std::make_unique<SchemaResult>(info.serialized_schema());
         return Status::OK();
       }
     }
@@ -509,17 +507,15 @@ class FlightTestServer : public FlightServerBase {
 };
 
 std::unique_ptr<FlightServerBase> ExampleTestServer() {
-  return std::unique_ptr<FlightServerBase>(new FlightTestServer);
+  return std::make_unique<FlightTestServer>();
 }
 
-Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
-                      const std::vector<FlightEndpoint>& endpoints, int64_t total_records,
-                      int64_t total_bytes, FlightInfo::Data* out) {
-  out->descriptor = descriptor;
-  out->endpoints = endpoints;
-  out->total_records = total_records;
-  out->total_bytes = total_bytes;
-  return internal::SchemaToString(schema, &out->schema);
+FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
+                          const std::vector<FlightEndpoint>& endpoints,
+                          int64_t total_records, int64_t total_bytes) {
+  EXPECT_OK_AND_ASSIGN(auto info, FlightInfo::Make(schema, descriptor, endpoints,
+                                                   total_records, total_bytes));
+  return info;
 }
 
 NumberingStream::NumberingStream(std::unique_ptr<FlightDataStream> stream)
@@ -587,8 +583,6 @@ std::vector<FlightInfo> ExampleFlightInfo() {
   Location location4 = *Location::ForGrpcTcp("foo4.bar.com", 12345);
   Location location5 = *Location::ForGrpcTcp("foo5.bar.com", 12345);
 
-  FlightInfo::Data flight1, flight2, flight3, flight4;
-
   FlightEndpoint endpoint1({{"ticket-ints-1"}, {location1}});
   FlightEndpoint endpoint2({{"ticket-ints-2"}, {location2}});
   FlightEndpoint endpoint3({{"ticket-cmd"}, {location3}});
@@ -605,13 +599,12 @@ std::vector<FlightInfo> ExampleFlightInfo() {
   auto schema3 = ExampleDictSchema();
   auto schema4 = ExampleFloatSchema();
 
-  ARROW_EXPECT_OK(
-      MakeFlightInfo(*schema1, descr1, {endpoint1, endpoint2}, 1000, 100000, &flight1));
-  ARROW_EXPECT_OK(MakeFlightInfo(*schema2, descr2, {endpoint3}, 1000, 100000, &flight2));
-  ARROW_EXPECT_OK(MakeFlightInfo(*schema3, descr3, {endpoint4}, -1, -1, &flight3));
-  ARROW_EXPECT_OK(MakeFlightInfo(*schema4, descr4, {endpoint5}, 1000, 100000, &flight4));
-  return {FlightInfo(flight1), FlightInfo(flight2), FlightInfo(flight3),
-          FlightInfo(flight4)};
+  return {
+      MakeFlightInfo(*schema1, descr1, {endpoint1, endpoint2}, 1000, 100000),
+      MakeFlightInfo(*schema2, descr2, {endpoint3}, 1000, 100000),
+      MakeFlightInfo(*schema3, descr3, {endpoint4}, -1, -1),
+      MakeFlightInfo(*schema4, descr4, {endpoint5}, 1000, 100000),
+  };
 }
 
 Status ExampleIntBatches(RecordBatchVector* out) {

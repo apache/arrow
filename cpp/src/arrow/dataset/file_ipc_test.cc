@@ -25,7 +25,7 @@
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
@@ -135,6 +135,7 @@ class TestIpcFileFormatScan : public FileFormatScanMixin<IpcFormatHelper> {};
 
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestIpcFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestIpcFileFormatScan, ScanNoReadahead) { TestScanNoReadahead(); }
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjectedNested) {
   TestScanProjectedNested();

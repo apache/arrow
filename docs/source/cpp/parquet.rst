@@ -32,6 +32,309 @@ is a space-efficient columnar storage format for complex data.  The Parquet
 C++ implementation is part of the Apache Arrow project and benefits
 from tight integration with the Arrow C++ classes and facilities.
 
+Reading Parquet files
+=====================
+
+The :class:`arrow::FileReader` class reads data into Arrow Tables and Record
+Batches.
+
+The :class:`StreamReader` class allows for data to be read using a C++ input
+stream approach to read fields column by column and row by row.  This approach
+is offered for ease of use and type-safety.  It is of course also useful when
+data must be streamed as files are read and written incrementally.
+
+Please note that the performance of the :class:`StreamReader` will not
+be as good due to the type checking and the fact that column values
+are processed one at a time.
+
+FileReader
+----------
+
+To read Parquet data into Arrow structures, use :class:`arrow::FileReader`.
+To construct, it requires a :class:`::arrow::io::RandomAccessFile` instance 
+representing the input file. To read the whole file at once, 
+use :func:`arrow::FileReader::ReadTable`:
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
+   :language: cpp
+   :start-after: arrow::Status ReadFullFile(
+   :end-before: return arrow::Status::OK();
+   :emphasize-lines: 9-10,14
+   :dedent: 2
+
+Finer-grained options are available through the
+:class:`arrow::FileReaderBuilder` helper class, which accepts the :class:`ReaderProperties`
+and :class:`ArrowReaderProperties` classes.
+
+For reading as a stream of batches, use the :func:`arrow::FileReader::GetRecordBatchReader`
+method to retrieve a :class:`arrow::RecordBatchReader`. It will use the batch 
+size set in :class:`ArrowReaderProperties`.
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
+   :language: cpp
+   :start-after: arrow::Status ReadInBatches(
+   :end-before: return arrow::Status::OK();
+   :emphasize-lines: 25
+   :dedent: 2
+
+.. seealso::
+
+   For reading multi-file datasets or pushing down filters to prune row groups,
+   see :ref:`Tabular Datasets<cpp-dataset>`.
+
+Performance and Memory Efficiency
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For remote filesystems, use read coalescing (pre-buffering) to reduce number of API calls:
+
+.. code-block:: cpp
+
+   auto arrow_reader_props = parquet::ArrowReaderProperties();
+   reader_properties.set_prebuffer(true);
+
+The defaults are generally tuned towards good performance, but parallel column
+decoding is off by default. Enable it in the constructor of :class:`ArrowReaderProperties`:
+
+.. code-block:: cpp
+
+   auto arrow_reader_props = parquet::ArrowReaderProperties(/*use_threads=*/true);
+
+If memory efficiency is more important than performance, then:
+
+#. Do *not* turn on read coalescing (pre-buffering) in :class:`parquet::ArrowReaderProperties`.
+#. Read data in batches using :func:`arrow::FileReader::GetRecordBatchReader`.
+#. Turn on ``enable_buffered_stream`` in :class:`parquet::ReaderProperties`.
+
+In addition, if you know certain columns contain many repeated values, you can
+read them as :term:`dictionary encoded<dictionary-encoding>` columns. This is 
+enabled with the ``set_read_dictionary`` setting on :class:`ArrowReaderProperties`. 
+If the files were written with Arrow C++ and the ``store_schema`` was activated,
+then the original Arrow schema will be automatically read and will override this
+setting.
+
+StreamReader
+------------
+
+The :class:`StreamReader` allows for Parquet files to be read using
+standard C++ input operators which ensures type-safety.
+
+Please note that types must match the schema exactly i.e. if the
+schema field is an unsigned 16-bit integer then you must supply a
+``uint16_t`` type.
+
+Exceptions are used to signal errors.  A :class:`ParquetException` is
+thrown in the following circumstances:
+
+* Attempt to read field by supplying the incorrect type.
+
+* Attempt to read beyond end of row.
+
+* Attempt to read beyond end of file.
+
+.. code-block:: cpp
+
+   #include "arrow/io/file.h"
+   #include "parquet/stream_reader.h"
+
+   {
+      std::shared_ptr<arrow::io::ReadableFile> infile;
+
+      PARQUET_ASSIGN_OR_THROW(
+         infile,
+         arrow::io::ReadableFile::Open("test.parquet"));
+
+      parquet::StreamReader stream{parquet::ParquetFileReader::Open(infile)};
+
+      std::string article;
+      float price;
+      uint32_t quantity;
+
+      while ( !stream.eof() )
+      {
+         stream >> article >> price >> quantity >> parquet::EndRow;
+         // ...
+      }
+   }
+
+Writing Parquet files
+=====================
+
+WriteTable
+----------
+
+The :func:`arrow::WriteTable` function writes an entire
+:class:`::arrow::Table` to an output file.
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
+   :language: cpp
+   :start-after: arrow::Status WriteFullFile(
+   :end-before: return arrow::Status::OK();
+   :emphasize-lines: 19-21
+   :dedent: 2
+
+.. note::
+
+   Column compression is off by default in C++. See :ref:`below <parquet-writer-properties>` 
+   for how to choose a compression codec in the writer properties.
+
+To write out data batch-by-batch, use :class:`arrow::FileWriter`.
+
+.. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
+   :language: cpp
+   :start-after: arrow::Status WriteInBatches(
+   :end-before: return arrow::Status::OK();
+   :emphasize-lines: 23-25,32,36
+   :dedent: 2
+
+StreamWriter
+------------
+
+The :class:`StreamWriter` allows for Parquet files to be written using
+standard C++ output operators, similar to reading with the :class:`StreamReader`
+class. This type-safe approach also ensures that rows are written without 
+omitting fields and allows for new row groups to be created automatically 
+(after certain volume of data) or explicitly by using the :type:`EndRowGroup` 
+stream modifier.
+
+Exceptions are used to signal errors.  A :class:`ParquetException` is
+thrown in the following circumstances:
+
+* Attempt to write a field using an incorrect type.
+
+* Attempt to write too many fields in a row.
+
+* Attempt to skip a required field.
+
+.. code-block:: cpp
+
+   #include "arrow/io/file.h"
+   #include "parquet/stream_writer.h"
+
+   {
+      std::shared_ptr<arrow::io::FileOutputStream> outfile;
+
+      PARQUET_ASSIGN_OR_THROW(
+         outfile,
+         arrow::io::FileOutputStream::Open("test.parquet"));
+
+      parquet::WriterProperties::Builder builder;
+      std::shared_ptr<parquet::schema::GroupNode> schema;
+
+      // Set up builder with required compression type etc.
+      // Define schema.
+      // ...
+
+      parquet::StreamWriter os{
+         parquet::ParquetFileWriter::Open(outfile, schema, builder.build())};
+
+      // Loop over some data structure which provides the required
+      // fields to be written and write each row.
+      for (const auto& a : getArticles())
+      {
+         os << a.name() << a.price() << a.quantity() << parquet::EndRow;
+      }
+   }
+
+.. _parquet-writer-properties:
+
+Writer properties
+-----------------
+
+To configure how Parquet files are written, use the :class:`WriterProperties::Builder`:
+
+.. code-block:: cpp
+
+   #include "parquet/arrow/writer.h"
+   #include "arrow/util/type_fwd.h"
+
+   using parquet::WriterProperties;
+   using parquet::ParquetVersion;
+   using parquet::ParquetDataPageVersion;
+   using arrow::Compression;
+
+   std::shared_ptr<WriterProperties> props = WriterProperties::Builder()
+      .max_row_group_length(64 * 1024)
+      .created_by("My Application")
+      .version(ParquetVersion::PARQUET_2_6)
+      .data_page_version(ParquetDataPageVersion::V2)
+      .compression(Compression::SNAPPY)
+      .build();
+
+The ``max_row_group_length`` sets an upper bound on the number of rows per row
+group that takes precedent over the ``chunk_size`` passed in the write methods.
+
+You can set the version of Parquet to write with ``version``, which determines
+which logical types are available. In addition, you can set the data page version
+with ``data_page_version``. It's V1 by default; setting to V2 will allow more
+optimal compression (skipping compressing pages where there isn't a space 
+benefit), but not all readers support this data page version.
+
+Compression is off by default, but to get the most out of Parquet, you should 
+also choose a compression codec. You can choose one for the whole file or 
+choose one for individual columns. If you choose a mix, the file-level option
+will apply to columns that don't have a specific compression codec. See 
+:class:`::arrow::Compression` for options.
+
+Column data encodings can likewise be applied at the file-level or at the 
+column level. By default, the writer will attempt to dictionary encode all 
+supported columns, unless the dictionary grows too large. This behavior can
+be changed at file-level or at the column level with ``disable_dictionary()``.
+When not using dictionary encoding, it will fallback to the encoding set for 
+the column or the overall file; by default ``Encoding::PLAIN``, but this can
+be changed with ``encoding()``.
+
+.. code-block:: cpp
+
+   #include "parquet/arrow/writer.h"
+   #include "arrow/util/type_fwd.h"
+
+   using parquet::WriterProperties;
+   using arrow::Compression;
+   using parquet::Encoding;
+
+   std::shared_ptr<WriterProperties> props = WriterProperties::Builder()
+     .compression(Compression::SNAPPY)        // Fallback
+     ->compression("colA", Compression::ZSTD) // Only applies to column "colA"
+     ->encoding(Encoding::BIT_PACKED)         // Fallback
+     ->encoding("colB", Encoding::RLE)        // Only applies to column "colB"
+     ->disable_dictionary("colB")             // Never dictionary-encode column "colB"
+     ->build();
+
+Statistics are enabled by default for all columns. You can disable statistics for
+all columns or specific columns using ``disable_statistics`` on the builder.
+There is a ``max_statistics_size`` which limits the maximum number of bytes that
+may be used for min and max values, useful for types like strings or binary blobs.
+
+There are also Arrow-specific settings that can be configured with
+:class:`parquet::ArrowWriterProperties`:
+
+.. code-block:: cpp
+
+   #include "parquet/arrow/writer.h"
+
+   using parquet::ArrowWriterProperties;
+
+   std::shared_ptr<ArrowWriterProperties> arrow_props = ArrowWriterProperties::Builder()
+      .enable_deprecated_int96_timestamps() // default False
+      ->store_schema() // default False
+      ->enable_compliant_nested_types() // default False
+      ->build();
+
+These options mostly dictate how Arrow types are converted to Parquet types.
+Turning on ``store_schema`` will cause the writer to store the serialized Arrow
+schema within the file metadata. Since there is no bijection between Parquet
+schemas and Arrow schemas, storing the Arrow schema allows the Arrow reader
+to more faithfully recreate the original data. This mapping from Parquet types
+back to original Arrow types includes:
+
+* Reading timestamps with original timezone information (Parquet does not
+  support time zones);
+* Reading Arrow types from their storage types (such as Duration from int64
+  columns);
+* Reading string and binary columns back into large variants with 64-bit offsets;
+* Reading back columns as dictionary encoded (whether an Arrow column and
+  the serialized Parquet version are dictionary encoded are independent).
+
 Supported Parquet features
 ==========================
 
@@ -95,14 +398,15 @@ Encodings
 +--------------------------+----------+----------+---------+
 | BYTE_STREAM_SPLIT        | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
-| DELTA_BINARY_PACKED      | ✓        |          |         |
+| DELTA_BINARY_PACKED      | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
 | DELTA_BYTE_ARRAY         | ✓        |          |         |
 +--------------------------+----------+----------+---------+
-| DELTA_LENGTH_BYTE_ARRAY  | ✓        |          |         |
+| DELTA_LENGTH_BYTE_ARRAY  | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
 
-* \(1) Only supported for encoding definition and repetition levels, not values.
+* \(1) Only supported for encoding definition and repetition levels,
+  and boolean values.
 
 * \(2) On the write path, RLE_DICTIONARY is only enabled if Parquet format version
   2.4 or greater is selected in :func:`WriterProperties::version`.
@@ -264,172 +568,26 @@ More specifically, Parquet C++ supports:
 * EncryptionWithFooterKey and EncryptionWithColumnKey modes.
 * Encrypted Footer and Plaintext Footer modes.
 
+Miscellaneous
+-------------
 
-Reading Parquet files
-=====================
++--------------------------+----------+----------+---------+
+| Feature                  | Reading  | Writing  | Notes   |
++==========================+==========+==========+=========+
+| Column Index             | ✓        |          | \(1)    |
++--------------------------+----------+----------+---------+
+| Offset Index             | ✓        |          | \(1)    |
++--------------------------+----------+----------+---------+
+| Bloom Filter             | ✓        | ✓        | \(2)    |
++--------------------------+----------+----------+---------+
+| CRC checksums            | ✓        | ✓        | \(3)    |
++--------------------------+----------+----------+---------+
 
-The :class:`arrow::FileReader` class reads data for an entire
-file or row group into an :class:`::arrow::Table`.
+* \(1) Access to the Column and Offset Index structures is provided, but
+  data read APIs do not currently make any use of them.
 
-The :class:`StreamReader` and :class:`StreamWriter` classes allow for
-data to be written using a C++ input/output streams approach to
-read/write fields column by column and row by row.  This approach is
-offered for ease of use and type-safety.  It is of course also useful
-when data must be streamed as files are read and written
-incrementally.
+* \(2) APIs are provided for creating, serializing and deserializing Bloom
+  Filters, but they are not integrated into data read APIs.
 
-Please note that the performance of the :class:`StreamReader` and
-:class:`StreamWriter` classes will not be as good due to the type
-checking and the fact that column values are processed one at a time.
-
-FileReader
-----------
-
-The Parquet :class:`arrow::FileReader` requires a
-:class:`::arrow::io::RandomAccessFile` instance representing the input
-file.
-
-.. code-block:: cpp
-
-   #include "arrow/parquet/arrow/reader.h"
-
-   {
-      // ...
-      arrow::Status st;
-      arrow::MemoryPool* pool = default_memory_pool();
-      std::shared_ptr<arrow::io::RandomAccessFile> input = ...;
-
-      // Open Parquet file reader
-      std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
-      st = parquet::arrow::OpenFile(input, pool, &arrow_reader);
-      if (!st.ok()) {
-         // Handle error instantiating file reader...
-      }
-
-      // Read entire file as a single Arrow table
-      std::shared_ptr<arrow::Table> table;
-      st = arrow_reader->ReadTable(&table);
-      if (!st.ok()) {
-         // Handle error reading Parquet data...
-      }
-   }
-
-Finer-grained options are available through the
-:class:`arrow::FileReaderBuilder` helper class.
-
-.. TODO write section about performance and memory efficiency
-
-StreamReader
-------------
-
-The :class:`StreamReader` allows for Parquet files to be read using
-standard C++ input operators which ensures type-safety.
-
-Please note that types must match the schema exactly i.e. if the
-schema field is an unsigned 16-bit integer then you must supply a
-uint16_t type.
-
-Exceptions are used to signal errors.  A :class:`ParquetException` is
-thrown in the following circumstances:
-
-* Attempt to read field by supplying the incorrect type.
-
-* Attempt to read beyond end of row.
-
-* Attempt to read beyond end of file.
-
-.. code-block:: cpp
-
-   #include "arrow/io/file.h"
-   #include "parquet/stream_reader.h"
-
-   {
-      std::shared_ptr<arrow::io::ReadableFile> infile;
-
-      PARQUET_ASSIGN_OR_THROW(
-         infile,
-         arrow::io::ReadableFile::Open("test.parquet"));
-
-      parquet::StreamReader os{parquet::ParquetFileReader::Open(infile)};
-
-      std::string article;
-      float price;
-      uint32_t quantity;
-
-      while ( !os.eof() )
-      {
-         os >> article >> price >> quantity >> parquet::EndRow;
-         // ...
-      }
-   }
-
-Writing Parquet files
-=====================
-
-WriteTable
-----------
-
-The :func:`arrow::WriteTable` function writes an entire
-:class:`::arrow::Table` to an output file.
-
-.. code-block:: cpp
-
-   #include "parquet/arrow/writer.h"
-
-   {
-      std::shared_ptr<arrow::io::FileOutputStream> outfile;
-      PARQUET_ASSIGN_OR_THROW(
-         outfile,
-         arrow::io::FileOutputStream::Open("test.parquet"));
-
-      PARQUET_THROW_NOT_OK(
-         parquet::arrow::WriteTable(table, arrow::default_memory_pool(), outfile, 3));
-   }
-
-StreamWriter
-------------
-
-The :class:`StreamWriter` allows for Parquet files to be written using
-standard C++ output operators.  This type-safe approach also ensures
-that rows are written without omitting fields and allows for new row
-groups to be created automatically (after certain volume of data) or
-explicitly by using the :type:`EndRowGroup` stream modifier.
-
-Exceptions are used to signal errors.  A :class:`ParquetException` is
-thrown in the following circumstances:
-
-* Attempt to write a field using an incorrect type.
-
-* Attempt to write too many fields in a row.
-
-* Attempt to skip a required field.
-
-.. code-block:: cpp
-
-   #include "arrow/io/file.h"
-   #include "parquet/stream_writer.h"
-
-   {
-      std::shared_ptr<arrow::io::FileOutputStream> outfile;
-
-      PARQUET_ASSIGN_OR_THROW(
-         outfile,
-         arrow::io::FileOutputStream::Open("test.parquet"));
-
-      parquet::WriterProperties::Builder builder;
-      std::shared_ptr<parquet::schema::GroupNode> schema;
-
-      // Set up builder with required compression type etc.
-      // Define schema.
-      // ...
-
-      parquet::StreamWriter os{
-         parquet::ParquetFileWriter::Open(outfile, schema, builder.build())};
-
-      // Loop over some data structure which provides the required
-      // fields to be written and write each row.
-      for (const auto& a : getArticles())
-      {
-         os << a.name() << a.price() << a.quantity() << parquet::EndRow;
-      }
-   }
+* \(3) For now, only the checksums of V1 Data Pages and Dictionary Pages
+  are computed.

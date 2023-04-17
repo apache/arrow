@@ -82,6 +82,13 @@ Type <- enum("Type::type",
 )
 
 TYPES_WITH_NAN <- Type[c("HALF_FLOAT", "FLOAT", "DOUBLE")]
+TYPES_NUMERIC <- Type[
+  c(
+    "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32",
+    "INT64", "UINT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
+    "DECIMAL128", "DECIMAL256"
+    )
+  ]
 
 #' @rdname enums
 #' @export
@@ -89,9 +96,7 @@ StatusCode <- enum("StatusCode",
   OK = 0L, OutOfMemory = 1L, KeyError = 2L, TypeError = 3L,
   Invalid = 4L, IOError = 5L, CapacityError = 6L, IndexError = 7L,
   UnknownError = 9L, NotImplemented = 10L, SerializationError = 11L,
-  PythonError = 12L, RError = 13L,
-  PlasmaObjectExists = 20L, PlasmaObjectNotFound = 21L,
-  PlasmaStoreFull = 22L, PlasmaObjectAlreadySealed = 23L
+  PythonError = 12L, RError = 13L
 )
 
 #' @rdname enums

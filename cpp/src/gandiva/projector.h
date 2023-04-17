@@ -85,7 +85,7 @@ class GANDIVA_EXPORT Projector {
   /// \param[in] pool memory pool used to allocate output arrays (if required).
   /// \param[out] output the vector of allocated/populated arrays.
   Status Evaluate(const arrow::RecordBatch& batch, arrow::MemoryPool* pool,
-                  arrow::ArrayVector* output);
+                  arrow::ArrayVector* output) const;
 
   /// Evaluate the specified record batch, and populate the output arrays. The output
   /// arrays of sufficient capacity must be allocated by the caller.
@@ -93,7 +93,7 @@ class GANDIVA_EXPORT Projector {
   /// \param[in] batch the record batch. schema should be the same as the one in 'Make'
   /// \param[in,out] output vector of arrays, the arrays are allocated by the caller and
   ///                populated by Evaluate.
-  Status Evaluate(const arrow::RecordBatch& batch, const ArrayDataVector& output);
+  Status Evaluate(const arrow::RecordBatch& batch, const ArrayDataVector& output) const;
 
   /// Evaluate the specified record batch, and return the allocated and populated output
   /// arrays. The output arrays will be allocated from the memory pool 'pool', and added
@@ -105,7 +105,7 @@ class GANDIVA_EXPORT Projector {
   /// \param[out] output the vector of allocated/populated arrays.
   Status Evaluate(const arrow::RecordBatch& batch,
                   const SelectionVector* selection_vector, arrow::MemoryPool* pool,
-                  arrow::ArrayVector* output);
+                  arrow::ArrayVector* output) const;
 
   /// Evaluate the specified record batch, and populate the output arrays at the filtered
   /// positions. The output arrays of sufficient capacity must be allocated by the caller.
@@ -115,7 +115,8 @@ class GANDIVA_EXPORT Projector {
   /// \param[in,out] output vector of arrays, the arrays are allocated by the caller and
   ///                 populated by Evaluate.
   Status Evaluate(const arrow::RecordBatch& batch,
-                  const SelectionVector* selection_vector, const ArrayDataVector& output);
+                  const SelectionVector* selection_vector,
+                  const ArrayDataVector& output) const;
 
   std::string DumpIR();
 
@@ -129,14 +130,14 @@ class GANDIVA_EXPORT Projector {
 
   /// Allocate an ArrowData of length 'length'.
   Status AllocArrayData(const DataTypePtr& type, int64_t num_records,
-                        arrow::MemoryPool* pool, ArrayDataPtr* array_data);
+                        arrow::MemoryPool* pool, ArrayDataPtr* array_data) const;
 
   /// Validate that the ArrayData has sufficient capacity to accommodate 'num_records'.
   Status ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
-                                   const arrow::Field& field, int64_t num_records);
+                                   const arrow::Field& field, int64_t num_records) const;
 
   /// Validate the common args for Evaluate() APIs.
-  Status ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch);
+  Status ValidateEvaluateArgsCommon(const arrow::RecordBatch& batch) const;
 
   std::unique_ptr<LLVMGenerator> llvm_generator_;
   SchemaPtr schema_;

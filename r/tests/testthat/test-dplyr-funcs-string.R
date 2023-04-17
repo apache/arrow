@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
 skip_if_not_available("utf8proc")
+skip_if_not_available("acero")
 
 library(dplyr, warn.conflicts = FALSE)
 library(lubridate)
@@ -62,7 +62,8 @@ test_that("paste, paste0, and str_c", {
     .input %>%
       transmute(
         a = paste0(v, w),
-        a2 = base::paste0(v, w)) %>%
+        a2 = base::paste0(v, w)
+      ) %>%
       collect(),
     df
   )
@@ -140,12 +141,10 @@ test_that("paste, paste0, and str_c", {
     call_binding("paste", x, y, sep = NA_character_),
     "Invalid separator"
   )
-  # emits null in str_c() (consistent with stringr::str_c())
-  compare_dplyr_binding(
-    .input %>%
-      transmute(str_c(x, y, sep = NA_character_)) %>%
-      collect(),
-    df
+  # In next release of stringr (late 2022), str_c also errors
+  expect_error(
+    call_binding("str_c", x, y, sep = NA_character_),
+    "`sep` must be a single string, not `NA`."
   )
 
   # sep passed in dots to paste0 (which doesn't take a sep argument)
@@ -848,64 +847,53 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
 test_that("str_like", {
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
 
-  # TODO: After new version of stringr with str_like has been released, update all
-  # these tests to use compare_dplyr_binding
-
   # No match - entire string
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "baz")) %>%
       collect(),
-    tibble(x = c(FALSE, FALSE))
+    df
   )
   # with namespacing
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = stringr::str_like(x, "baz")) %>%
       collect(),
-    tibble(x = c(FALSE, FALSE))
+    df
   )
 
   # Match - entire string
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "Foo and bar")) %>%
       collect(),
-    tibble(x = c(TRUE, FALSE))
+    df
   )
 
   # Wildcard
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "f%", ignore_case = TRUE)) %>%
       collect(),
-    tibble(x = c(TRUE, FALSE))
+    df
   )
 
   # Ignore case
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "f%", ignore_case = FALSE)) %>%
       collect(),
-    tibble(x = c(FALSE, FALSE))
+    df
   )
 
   # Single character
-  expect_equal(
-    df %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(x = str_like(x, "_a%")) %>%
       collect(),
-    tibble(x = c(FALSE, TRUE))
+    df
   )
 
-  # This will give an error until a new version of stringr with str_like has been released
-  skip_if_not(packageVersion("stringr") > "1.4.0")
   compare_dplyr_binding(
     .input %>%
       mutate(x = str_like(x, "%baz%")) %>%
@@ -956,7 +944,7 @@ test_that("str_pad", {
   )
 })
 
-test_that("substr", {
+test_that("substr with string()", {
   df <- tibble(x = "Apache Arrow")
 
   compare_dplyr_binding(
@@ -1033,6 +1021,31 @@ test_that("substr", {
   expect_error(
     call_binding("substr", "Apache Arrow", 1, c(2, 3)),
     "`stop` must be length 1 - other lengths are not supported in Arrow"
+  )
+})
+
+test_that("substr with binary()", {
+  batch <- record_batch(x = list(charToRaw("Apache Arrow")))
+
+  # Check a field reference input
+  expect_identical(
+    batch %>%
+      transmute(y = substr(x, 1, 3)) %>%
+      collect() %>%
+      # because of the arrow_binary class
+      mutate(y = unclass(y)),
+    tibble::tibble(y = list(charToRaw("Apa")))
+  )
+
+  # Check a Scalar input
+  scalar <- Scalar$create(batch$x)
+  expect_identical(
+    batch %>%
+      transmute(y = substr(scalar, 1, 3)) %>%
+      collect() %>%
+      # because of the arrow_binary class
+      mutate(y = unclass(y)),
+    tibble::tibble(y = list(charToRaw("Apa")))
   )
 })
 
@@ -1395,5 +1408,61 @@ test_that("str_trim()", {
       ) %>%
       collect(),
     tbl
+  )
+})
+
+test_that("str_remove and str_remove_all", {
+  df <- tibble(x = c("Foo", "bar"))
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove_all(x, "^F")) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove_all(x, regex("^F"))) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = str_remove(x, "^F[a-z]{2}")) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove(x, regex("^f[A-Z]{2}", ignore_case = TRUE))) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        x = str_remove_all(x, fixed("o")),
+        x2 = stringr::str_remove_all(x, fixed("o"))
+      ) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(
+        x = str_remove(x, fixed("O")),
+        x2 = stringr::str_remove(x, fixed("O"))
+      ) %>%
+      collect(),
+    df
+  )
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_remove(x, fixed("O", ignore_case = TRUE))) %>%
+      collect(),
+    df
   )
 })

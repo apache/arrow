@@ -28,8 +28,14 @@ The fundamental data structure in Arrow is an Array, which holds a sequence of v
 consists of memory holding the data and an additional validity bitmap that indicates if the corresponding entry in the
 array is valid (not null). If the array has no null entries, it is possible to omit this bitmap.
 
+Requirements
+
+Despite the go.mod stating go1.18, everything except for the compute package
+is able to be built with go1.17 (and most is also compatible with go1.16).
 */
 package arrow
+
+const PkgVersion = "12.0.0-SNAPSHOT"
 
 //go:generate go run _tools/tmpl/main.go -i -data=numeric.tmpldata type_traits_numeric.gen.go.tmpl type_traits_numeric.gen_test.go.tmpl array/numeric.gen.go.tmpl array/numericbuilder.gen.go.tmpl array/bufferbuilder_numeric.gen.go.tmpl
 //go:generate go run _tools/tmpl/main.go -i -data=datatype_numeric.gen.go.tmpldata datatype_numeric.gen.go.tmpl tensor/numeric.gen.go.tmpl tensor/numeric.gen_test.go.tmpl
@@ -38,3 +44,4 @@ package arrow
 
 // stringer
 //go:generate stringer -type=Type
+//go:generate stringer -type=UnionMode -linecomment

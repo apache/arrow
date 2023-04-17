@@ -44,10 +44,10 @@ using internal::checked_cast;
 // Fixed width binary
 
 FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
-                                               MemoryPool* pool)
-    : ArrayBuilder(pool),
+                                               MemoryPool* pool, int64_t alignment)
+    : ArrayBuilder(pool, alignment),
       byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()),
-      byte_builder_(pool) {}
+      byte_builder_(pool, alignment) {}
 
 void FixedSizeBinaryBuilder::CheckValueSize(int64_t size) {
   DCHECK_EQ(size, byte_width_) << "Appending wrong size to FixedSizeBinaryBuilder";
@@ -123,10 +123,10 @@ const uint8_t* FixedSizeBinaryBuilder::GetValue(int64_t i) const {
   return data_ptr + i * byte_width_;
 }
 
-util::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
+std::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
   const uint8_t* data_ptr = byte_builder_.data();
-  return util::string_view(reinterpret_cast<const char*>(data_ptr + i * byte_width_),
-                           byte_width_);
+  return std::string_view(reinterpret_cast<const char*>(data_ptr + i * byte_width_),
+                          byte_width_);
 }
 
 // ----------------------------------------------------------------------

@@ -68,8 +68,8 @@ class ARROW_EXPORT PlatformFilename {
   Result<PlatformFilename> Real() const;
 
   // These functions can fail for character encoding reasons.
-  static Result<PlatformFilename> FromString(const std::string& file_name);
-  Result<PlatformFilename> Join(const std::string& child_name) const;
+  static Result<PlatformFilename> FromString(std::string_view file_name);
+  Result<PlatformFilename> Join(std::string_view child_name) const;
 
   PlatformFilename Join(const PlatformFilename& child_name) const;
 
@@ -409,6 +409,12 @@ uint64_t GetThreadId();
 /// This function supports Windows, Linux, and Mac and will return 0 otherwise
 ARROW_EXPORT
 int64_t GetCurrentRSS();
+
+/// \brief Get the total memory available to the system in bytes
+///
+/// This function supports Windows, Linux, and Mac and will return 0 otherwise
+ARROW_EXPORT
+int64_t GetTotalMemoryBytes();
 
 }  // namespace internal
 }  // namespace arrow

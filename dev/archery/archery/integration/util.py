@@ -17,7 +17,6 @@
 
 import contextlib
 import io
-import os
 import random
 import socket
 import subprocess
@@ -35,11 +34,6 @@ def guid():
 # SKIP categories
 SKIP_ARROW = 'arrow'
 SKIP_FLIGHT = 'flight'
-
-ARROW_ROOT_DEFAULT = os.environ.get(
-    'ARROW_ROOT',
-    os.path.abspath(__file__).rsplit("/", 5)[0]
-)
 
 
 class _Printer:

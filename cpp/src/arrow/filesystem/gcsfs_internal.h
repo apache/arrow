@@ -51,7 +51,7 @@ ARROW_EXPORT Result<google::cloud::storage::WithObjectMetadata> ToObjectMetadata
 ARROW_EXPORT Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
     google::cloud::storage::ObjectMetadata const& m);
 
-ARROW_EXPORT std::int64_t Depth(arrow::util::string_view path);
+ARROW_EXPORT std::int64_t Depth(std::string_view path);
 
 }  // namespace internal
 }  // namespace fs

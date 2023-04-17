@@ -31,6 +31,13 @@ Abstract Function classes
    :content-only:
    :members:
 
+Function execution
+------------------
+
+.. doxygengroup:: compute-functions-executor
+   :content-only:
+   :members:
+
 Function registry
 -----------------
 
@@ -66,6 +73,11 @@ Streaming Execution Operators
 .. doxygenenum:: arrow::compute::JoinKeyCmp
 
 .. doxygengroup:: execnode-options
+   :content-only:
+   :members:
+   :undoc-members:
+
+.. doxygengroup:: execnode-components
    :content-only:
    :members:
    :undoc-members:

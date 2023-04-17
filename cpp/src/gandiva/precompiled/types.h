@@ -195,6 +195,8 @@ gdv_int32 mem_compare(const char* left, gdv_int32 left_len, const char* right,
                       gdv_int32 right_len);
 
 gdv_int32 mod_int64_int32(gdv_int64 left, gdv_int32 right);
+gdv_uint32 mod_uint32_uint32(gdv_uint32 left, gdv_uint32 right);
+gdv_uint64 mod_uint64_uint64(gdv_uint64 left, gdv_uint64 right);
 gdv_float64 mod_float64_float64(gdv_int64 context, gdv_float64 left, gdv_float64 right);
 
 gdv_int64 pmod_int64_int64(int64_t context, gdv_int64 left, gdv_int64 right);
@@ -220,6 +222,8 @@ gdv_int64 negative_daytimeinterval(gdv_int64 context, gdv_day_time_interval inte
 gdv_int64 divide_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
 
 gdv_int64 div_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
+gdv_uint32 div_uint32_uint32(gdv_int64 context, gdv_uint32 in1, gdv_uint32 in2);
+gdv_uint64 div_uint64_uint64(gdv_int64 context, gdv_uint64 in1, gdv_uint64 in2);
 gdv_float32 div_float32_float32(gdv_int64 context, gdv_float32 in1, gdv_float32 in2);
 gdv_float64 div_float64_float64(gdv_int64 context, gdv_float64 in1, gdv_float64 in2);
 
@@ -227,10 +231,18 @@ gdv_int32 sign_int32(gdv_int32 in);
 gdv_int64 sign_int64(gdv_int64 in);
 gdv_float32 sign_float32(gdv_float32 in);
 gdv_float64 sign_float64(gdv_float64 in);
+gdv_int32 abs_int32(gdv_int32 in);
+gdv_int64 abs_int64(gdv_int64 in);
+gdv_float32 abs_float32(gdv_float32 in);
+gdv_float64 abs_float64(gdv_float64 in);
 gdv_float32 ceiling_float32(gdv_float32 in);
 gdv_float64 ceiling_float64(gdv_float64 in);
 gdv_float32 floor_float32(gdv_float32 in);
 gdv_float64 floor_float64(gdv_float64 in);
+gdv_float64 sqrt_int32(gdv_int32 in);
+gdv_float64 sqrt_int64(gdv_int64 in);
+gdv_float64 sqrt_float32(gdv_float32 in);
+gdv_float64 sqrt_float64(gdv_float64 in);
 
 gdv_float32 round_float32(gdv_float32);
 gdv_float64 round_float64(gdv_float64);

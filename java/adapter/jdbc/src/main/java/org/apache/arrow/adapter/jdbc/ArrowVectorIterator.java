@@ -183,13 +183,14 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   }
 
   /**
-   * Clean up resources.
+   * Clean up resources ONLY WHEN THE {@link VectorSchemaRoot} HOLDING EACH BATCH IS REUSED. If a new VectorSchemaRoot
+   * is created for each batch, each root must be closed manually by the client code.
    */
   @Override
   public void close() {
     if (config.isReuseVectorSchemaRoot()) {
       nextBatch.close();
+      compositeConsumer.close();
     }
-    compositeConsumer.close();
   }
 }

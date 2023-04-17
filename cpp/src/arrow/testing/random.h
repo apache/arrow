@@ -47,30 +47,41 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///
   /// \param[in] size the size of the bitmap to generate
   /// \param[in] null_probability the probability of a bit being zero
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Buffer
-  std::shared_ptr<Buffer> NullBitmap(int64_t size, double null_probability = 0);
+  std::shared_ptr<Buffer> NullBitmap(int64_t size, double null_probability = 0,
+                                     int64_t alignment = kDefaultBufferAlignment,
+                                     MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random BooleanArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] true_probability the probability of a value being 1 / bit-set
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Boolean(int64_t size, double true_probability,
-                                 double null_probability = 0);
-
+                                 double null_probability = 0,
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 MemoryPool* memory_pool = default_memory_pool());
   /// \brief Generate a random UInt8Array
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> UInt8(int64_t size, uint8_t min, uint8_t max,
-                               double null_probability = 0);
+                               double null_probability = 0,
+                               int64_t alignment = kDefaultBufferAlignment,
+                               MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random Int8Array
   ///
@@ -78,10 +89,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Int8(int64_t size, int8_t min, int8_t max,
-                              double null_probability = 0);
+                              double null_probability = 0,
+                              int64_t alignment = kDefaultBufferAlignment,
+                              MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random UInt16Array
   ///
@@ -89,10 +104,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> UInt16(int64_t size, uint16_t min, uint16_t max,
-                                double null_probability = 0);
+                                double null_probability = 0,
+                                int64_t alignment = kDefaultBufferAlignment,
+                                MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random Int16Array
   ///
@@ -100,10 +119,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Int16(int64_t size, int16_t min, int16_t max,
-                               double null_probability = 0);
+                               double null_probability = 0,
+                               int64_t alignment = kDefaultBufferAlignment,
+                               MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random UInt32Array
   ///
@@ -111,10 +134,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> UInt32(int64_t size, uint32_t min, uint32_t max,
-                                double null_probability = 0);
+                                double null_probability = 0,
+                                int64_t alignment = kDefaultBufferAlignment,
+                                MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random Int32Array
   ///
@@ -122,10 +149,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Int32(int64_t size, int32_t min, int32_t max,
-                               double null_probability = 0);
+                               double null_probability = 0,
+                               int64_t alignment = kDefaultBufferAlignment,
+                               MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random UInt64Array
   ///
@@ -133,10 +164,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> UInt64(int64_t size, uint64_t min, uint64_t max,
-                                double null_probability = 0);
+                                double null_probability = 0,
+                                int64_t alignment = kDefaultBufferAlignment,
+                                MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random Int64Array
   ///
@@ -144,10 +179,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Int64(int64_t size, int64_t min, int64_t max,
-                               double null_probability = 0);
+                               double null_probability = 0,
+                               int64_t alignment = kDefaultBufferAlignment,
+                               MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random HalfFloatArray
   ///
@@ -155,10 +194,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] min the lower bound of the distribution
   /// \param[in] max the upper bound of the distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Float16(int64_t size, int16_t min, int16_t max,
-                                 double null_probability = 0);
+                                 double null_probability = 0,
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random FloatArray
   ///
@@ -167,10 +210,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
   /// \param[in] nan_probability the probability of a value being NaN
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Float32(int64_t size, float min, float max,
-                                 double null_probability = 0, double nan_probability = 0);
+                                 double null_probability = 0, double nan_probability = 0,
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random DoubleArray
   ///
@@ -179,10 +226,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
   /// \param[in] nan_probability the probability of a value being NaN
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Float64(int64_t size, double min, double max,
-                                 double null_probability = 0, double nan_probability = 0);
+                                 double null_probability = 0, double nan_probability = 0,
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random Date64Array
   ///
@@ -190,51 +241,57 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] min the lower bound of the uniform distribution
   /// \param[in] max the upper bound of the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Date64(int64_t size, int64_t min, int64_t max,
-                                double null_probability = 0);
+                                double null_probability = 0,
+                                int64_t alignment = kDefaultBufferAlignment,
+                                MemoryPool* memory_pool = default_memory_pool());
 
   template <typename ArrowType, typename CType = typename ArrowType::c_type>
   std::shared_ptr<Array> Numeric(int64_t size, CType min, CType max,
-                                 double null_probability = 0) {
+                                 double null_probability = 0,
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 MemoryPool* memory_pool = default_memory_pool()) {
     switch (ArrowType::type_id) {
       case Type::UINT8:
         return UInt8(size, static_cast<uint8_t>(min), static_cast<uint8_t>(max),
-                     null_probability);
+                     null_probability, alignment, memory_pool);
       case Type::INT8:
         return Int8(size, static_cast<int8_t>(min), static_cast<int8_t>(max),
-                    null_probability);
+                    null_probability, alignment, memory_pool);
       case Type::UINT16:
         return UInt16(size, static_cast<uint16_t>(min), static_cast<uint16_t>(max),
-                      null_probability);
+                      null_probability, alignment, memory_pool);
       case Type::INT16:
         return Int16(size, static_cast<int16_t>(min), static_cast<int16_t>(max),
-                     null_probability);
+                     null_probability, alignment, memory_pool);
       case Type::UINT32:
         return UInt32(size, static_cast<uint32_t>(min), static_cast<uint32_t>(max),
-                      null_probability);
+                      null_probability, alignment, memory_pool);
       case Type::INT32:
         return Int32(size, static_cast<int32_t>(min), static_cast<int32_t>(max),
-                     null_probability);
+                     null_probability, alignment, memory_pool);
       case Type::UINT64:
         return UInt64(size, static_cast<uint64_t>(min), static_cast<uint64_t>(max),
-                      null_probability);
+                      null_probability, alignment, memory_pool);
       case Type::INT64:
         return Int64(size, static_cast<int64_t>(min), static_cast<int64_t>(max),
-                     null_probability);
+                     null_probability, alignment, memory_pool);
       case Type::HALF_FLOAT:
         return Float16(size, static_cast<int16_t>(min), static_cast<int16_t>(max),
-                       null_probability);
+                       null_probability, alignment, memory_pool);
       case Type::FLOAT:
         return Float32(size, static_cast<float>(min), static_cast<float>(max),
-                       null_probability);
+                       null_probability, /*nan_probability=*/0, alignment, memory_pool);
       case Type::DOUBLE:
         return Float64(size, static_cast<double>(min), static_cast<double>(max),
-                       null_probability);
+                       null_probability, /*nan_probability=*/0, alignment, memory_pool);
       case Type::DATE64:
         return Date64(size, static_cast<int64_t>(min), static_cast<int64_t>(max),
-                      null_probability);
+                      null_probability, alignment, memory_pool);
       default:
         return nullptr;
     }
@@ -246,10 +303,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///            (must be an instance of Decimal128Type)
   /// \param[in] size the size of the array to generate
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Decimal128(std::shared_ptr<DataType> type, int64_t size,
-                                    double null_probability = 0);
+                                    double null_probability = 0,
+                                    int64_t alignment = kDefaultBufferAlignment,
+                                    MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random Decimal256Array
   ///
@@ -257,10 +318,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///            (must be an instance of Decimal256Type)
   /// \param[in] size the size of the array to generate
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Decimal256(std::shared_ptr<DataType> type, int64_t size,
-                                    double null_probability = 0);
+                                    double null_probability = 0,
+                                    int64_t alignment = kDefaultBufferAlignment,
+                                    MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate an array of offsets (for use in e.g. ListArray::FromArrays)
   ///
@@ -269,15 +334,21 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] last_offset the last offset value (usually the size of the child array)
   /// \param[in] null_probability the probability of an offset being null
   /// \param[in] force_empty_nulls if true, null offsets must have 0 "length"
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Offsets(int64_t size, int32_t first_offset, int32_t last_offset,
                                  double null_probability = 0,
-                                 bool force_empty_nulls = false);
+                                 bool force_empty_nulls = false,
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 MemoryPool* memory_pool = default_memory_pool());
 
   std::shared_ptr<Array> LargeOffsets(int64_t size, int64_t first_offset,
                                       int64_t last_offset, double null_probability = 0,
-                                      bool force_empty_nulls = false);
+                                      bool force_empty_nulls = false,
+                                      int64_t alignment = kDefaultBufferAlignment,
+                                      MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random StringArray
   ///
@@ -287,10 +358,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] max_length the upper bound of the string length
   ///            determined by the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> String(int64_t size, int32_t min_length, int32_t max_length,
-                                double null_probability = 0);
+                                double null_probability = 0,
+                                int64_t alignment = kDefaultBufferAlignment,
+                                MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random LargeStringArray
   ///
@@ -300,10 +375,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] max_length the upper bound of the string length
   ///            determined by the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> LargeString(int64_t size, int32_t min_length, int32_t max_length,
-                                     double null_probability = 0);
+                                     double null_probability = 0,
+                                     int64_t alignment = kDefaultBufferAlignment,
+                                     MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random StringArray with repeated values
   ///
@@ -315,26 +394,34 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] max_length the upper bound of the string length
   ///            determined by the uniform distribution
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> StringWithRepeats(int64_t size, int64_t unique,
-                                           int32_t min_length, int32_t max_length,
-                                           double null_probability = 0);
+  std::shared_ptr<Array> StringWithRepeats(
+      int64_t size, int64_t unique, int32_t min_length, int32_t max_length,
+      double null_probability = 0, int64_t alignment = kDefaultBufferAlignment,
+      MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Like StringWithRepeats but return BinaryArray
-  std::shared_ptr<Array> BinaryWithRepeats(int64_t size, int64_t unique,
-                                           int32_t min_length, int32_t max_length,
-                                           double null_probability = 0);
+  std::shared_ptr<Array> BinaryWithRepeats(
+      int64_t size, int64_t unique, int32_t min_length, int32_t max_length,
+      double null_probability = 0, int64_t alignment = kDefaultBufferAlignment,
+      MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random FixedSizeBinaryArray
   ///
   /// \param[in] size the size of the array to generate
   /// \param[in] byte_width the byte width of fixed-size binary items
   /// \param[in] null_probability the probability of a value being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> FixedSizeBinary(int64_t size, int32_t byte_width,
-                                         double null_probability = 0);
+                                         double null_probability = 0,
+                                         int64_t alignment = kDefaultBufferAlignment,
+                                         MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random ListArray
   ///
@@ -342,11 +429,14 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size The size of the generated list array
   /// \param[in] null_probability the probability of a list value being null
   /// \param[in] force_empty_nulls if true, null list entries must have 0 length
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> List(const Array& values, int64_t size,
-                              double null_probability = 0,
-                              bool force_empty_nulls = false);
+                              double null_probability = 0, bool force_empty_nulls = false,
+                              int64_t alignment = kDefaultBufferAlignment,
+                              MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random MapArray
   ///
@@ -355,11 +445,26 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] size The size of the generated map array
   /// \param[in] null_probability the probability of a map value being null
   /// \param[in] force_empty_nulls if true, null map entries must have 0 length
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   ///
   /// \return a generated Array
   std::shared_ptr<Array> Map(const std::shared_ptr<Array>& keys,
                              const std::shared_ptr<Array>& items, int64_t size,
-                             double null_probability = 0, bool force_empty_nulls = false);
+                             double null_probability = 0, bool force_empty_nulls = false,
+                             int64_t alignment = kDefaultBufferAlignment,
+                             MemoryPool* memory_pool = default_memory_pool());
+
+  /// \brief Generate a random RunEndEncodedArray
+  ///
+  /// \param[in] value_type The DataType of the encoded values
+  /// \param[in] logical_size The logical length of the generated array
+  /// \param[in] null_probability the probability of a value being null
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> RunEndEncoded(std::shared_ptr<DataType> value_type,
+                                       int64_t logical_size,
+                                       double null_probability = 0.0);
 
   /// \brief Generate a random SparseUnionArray
   ///
@@ -368,7 +473,11 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///
   /// \param[in] fields Vector of Arrays containing the data for each union field
   /// \param[in] size The size of the generated sparse union array
-  std::shared_ptr<Array> SparseUnion(const ArrayVector& fields, int64_t size);
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
+  std::shared_ptr<Array> SparseUnion(const ArrayVector& fields, int64_t size,
+                                     int64_t alignment = kDefaultBufferAlignment,
+                                     MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random DenseUnionArray
   ///
@@ -378,7 +487,11 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   ///
   /// \param[in] fields Vector of Arrays containing the data for each union field
   /// \param[in] size The size of the generated sparse union array
-  std::shared_ptr<Array> DenseUnion(const ArrayVector& fields, int64_t size);
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
+  std::shared_ptr<Array> DenseUnion(const ArrayVector& fields, int64_t size,
+                                    int64_t alignment = kDefaultBufferAlignment,
+                                    MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a random Array of the specified type, size, and null_probability.
   ///
@@ -391,13 +504,19 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] type the type of Array to generate
   /// \param[in] size the size of the Array to generate
   /// \param[in] null_probability the probability of a slot being null
+  /// \param[in] alignment alignment for memory allocations (in bytes)
+  /// \param[in] memory_pool memory pool to allocate memory from
   /// \return a generated Array
   std::shared_ptr<Array> ArrayOf(std::shared_ptr<DataType> type, int64_t size,
-                                 double null_probability = 0);
+                                 double null_probability = 0,
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate an array with random data based on the given field. See BatchOf
   /// for usage info.
-  std::shared_ptr<Array> ArrayOf(const Field& field, int64_t size);
+  std::shared_ptr<Array> ArrayOf(const Field& field, int64_t size,
+                                 int64_t alignment = kDefaultBufferAlignment,
+                                 MemoryPool* memory_pool = default_memory_pool());
 
   /// \brief Generate a record batch with random data of the specified length.
   ///
@@ -444,7 +563,10 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// For MapType:
   /// - values (int32_t): the number of key-value pairs to generate, which will be
   ///   partitioned among the array values.
-  std::shared_ptr<arrow::RecordBatch> BatchOf(const FieldVector& fields, int64_t size);
+  std::shared_ptr<arrow::RecordBatch> BatchOf(
+      const FieldVector& fields, int64_t size,
+      int64_t alignment = kDefaultBufferAlignment,
+      MemoryPool* memory_pool = default_memory_pool());
 
   SeedType seed() { return seed_distribution_(seed_rng_); }
 
@@ -455,13 +577,17 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
 
 /// Generate an array with random data. See RandomArrayGenerator::BatchOf.
 ARROW_TESTING_EXPORT
-std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields, int64_t size,
-                                                  SeedType seed);
+std::shared_ptr<arrow::RecordBatch> GenerateBatch(
+    const FieldVector& fields, int64_t size, SeedType seed,
+    int64_t alignment = kDefaultBufferAlignment,
+    MemoryPool* memory_pool = default_memory_pool());
 
 /// Generate an array with random data. See RandomArrayGenerator::BatchOf.
 ARROW_TESTING_EXPORT
-std::shared_ptr<arrow::Array> GenerateArray(const Field& field, int64_t size,
-                                            SeedType seed);
+std::shared_ptr<arrow::Array> GenerateArray(
+    const Field& field, int64_t size, SeedType seed,
+    int64_t alignment = kDefaultBufferAlignment,
+    MemoryPool* memory_pool = default_memory_pool());
 
 }  // namespace random
 

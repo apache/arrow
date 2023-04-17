@@ -21,7 +21,7 @@
 Arrow Columnar Format
 *********************
 
-*Version: 1.0*
+*Version: 1.3*
 
 The "Arrow Columnar Format" includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
@@ -120,6 +120,12 @@ the different physical layouts defined by Arrow:
 * **Sparse** and **Dense Union**: a nested layout representing a
   sequence of values, each of which can have type chosen from a
   collection of child array types.
+* **Dictionary-Encoded**: a layout consisting of a sequence of
+  integers (any bit-width) which represent indexes into a dictionary
+  which could be of any type.
+* **Run-End Encoded (REE)**: a nested layout consisting of two child arrays,
+  one representing values, and one representing the logical index where
+  the run of a corresponding value ends.
 * **Null**: a sequence of all null values, having null logical type
 
 The Arrow columnar memory layout only applies to *data* and not
@@ -318,6 +324,8 @@ location for all values is valid and well defined.
 Generally the first slot in the offsets array is 0, and the last slot
 is the length of the values array. When serializing this layout, we
 recommend normalizing the offsets to start at 0.
+
+.. _variable-size-list-layout:
 
 Variable-size List Layout
 -------------------------
@@ -765,6 +773,87 @@ application.
 We discuss dictionary encoding as it relates to serialization further
 below.
 
+.. _run-end-encoded-layout:
+
+Run-End Encoded Layout
+----------------------
+
+Run-end encoding (REE) is a variation of run-length encoding (RLE). These
+encodings are well-suited for representing data containing sequences of the
+same value, called runs. In run-end encoding, each run is represented as a
+value and an integer giving the index in the array where the run ends.
+
+Any array can be run-end encoded. A run-end encoded array has no buffers
+by itself, but has two child arrays. The first child array, called the run ends array,
+holds either 16, 32, or 64-bit signed integers. The actual values of each run
+are held in the second child array.
+For the purposes of determining field names and schemas, these child arrays
+are prescribed the standard names of **run_ends** and **values** respectively.
+
+The values in the first child array represent the accumulated length of all runs 
+from the first to the current one, i.e. the logical index where the
+current run ends. This allows relatively efficient random access from a logical
+index using binary search. The length of an individual run can be determined by
+subtracting two adjacent values. (Contrast this with run-length encoding, in
+which the lengths of the runs are represented directly, and in which random
+access is less efficient.) 
+
+.. note::
+   Because the ``run_ends`` child array cannot have nulls, it's reasonable
+   to consider why the ``run_ends`` are a child array instead of just a
+   buffer, like the offsets for a :ref:`variable-size-list-layout`. This
+   layout was considered, but it was decided to use the child arrays. 
+
+   Child arrays allow us to keep the "logical length" (the decoded length)
+   associated with the parent array and the "physical length" (the number
+   of run ends) associated with the child arrays.  If ``run_ends`` was a
+   buffer in the parent array then the size of the buffer would be unrelated
+   to the length of the array and this would be confusing.
+
+
+A run must have have a length of at least 1. This means the values in the
+run ends array all are positive and in strictly ascending order. A run end cannot be
+null.
+
+The REE parent has no validity bitmap, and it's null count field should always be 0.
+Null values are encoded as runs with the value null.
+
+As an example, you could have the following data: ::
+
+    type: Float32
+    [1.0, 1.0, 1.0, 1.0, null, null, 2.0]
+
+In Run-end-encoded form, this could appear as:
+
+::
+
+    * Length: 7, Null count: 0
+    * Child Arrays:
+
+      * run_ends (Int32):
+        * Length: 3, Null count: 0 (Run Ends cannot be null)
+        * Validity bitmap buffer: Not required (if it exists, it should be all 1s)
+        * Values buffer
+
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-63           |
+          |-------------|-------------|-------------|-----------------------|
+          | 4           | 6           | 7           | unspecified (padding) |
+
+      * values (Float32):
+        * Length: 3, Null count: 1
+        * Validity bitmap buffer:
+
+          | Byte 0 (validity bitmap) | Bytes 1-63            |
+          |--------------------------|-----------------------|
+          | 00000101                 | 0 (padding)           |
+
+        * Values buffer
+
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-63           |
+          |-------------|-------------|-------------|-----------------------|
+          | 1.0         | unspecified | 2.0         | unspecified (padding) |
+
+
 Buffer Listing for Each Layout
 ------------------------------
 
@@ -784,6 +873,7 @@ of memory buffers for each layout.
    "Dense Union",type ids,offsets,
    "Null",,,
    "Dictionary-encoded",validity,data (indices),
+   "Run-end encoded",,,
 
 Logical Types
 =============
@@ -1167,6 +1257,11 @@ structure. These extension keys are:
 * ``'ARROW:extension:metadata'`` for a serialized representation
   of the ``ExtensionType`` necessary to reconstruct the custom type
 
+.. note::
+   Extension names beginning with ``arrow.`` are reserved for
+   :ref:`canonical extension types <format_canonical_extensions>`,
+   they should not be used for third-party extension types.
+
 This extension metadata can annotate any of the built-in Arrow logical
 types. The intent is that an implementation that does not support an
 extension type can still handle the underlying data. For example a
@@ -1190,6 +1285,10 @@ extension types:
   metadata indicating the market trading calendar the data corresponds
   to
 
+.. seealso::
+   :ref:`format_canonical_extensions`
+
+
 Implementation guidelines
 =========================
 
@@ -1197,8 +1296,8 @@ An execution engine (or framework, or UDF executor, or storage engine,
 etc) can implement only a subset of the Arrow spec and/or extend it
 given the following constraints:
 
-Implementing a subset the spec
-------------------------------
+Implementing a subset of the spec
+---------------------------------
 
 * **If only producing (and not consuming) arrow vectors**: Any subset
   of the vector spec and the corresponding metadata can be implemented.
@@ -1219,10 +1318,10 @@ data, these custom vectors should be converted to a type that exist in
 the Arrow spec.
 
 .. _Flatbuffers: http://github.com/google/flatbuffers
-.. _Flatbuffers protocol definition files: https://github.com/apache/arrow/tree/master/format
-.. _Schema.fbs: https://github.com/apache/arrow/blob/master/format/Schema.fbs
-.. _Message.fbs: https://github.com/apache/arrow/blob/master/format/Message.fbs
-.. _File.fbs: https://github.com/apache/arrow/blob/master/format/File.fbs
+.. _Flatbuffers protocol definition files: https://github.com/apache/arrow/tree/main/format
+.. _Schema.fbs: https://github.com/apache/arrow/blob/main/format/Schema.fbs
+.. _Message.fbs: https://github.com/apache/arrow/blob/main/format/Message.fbs
+.. _File.fbs: https://github.com/apache/arrow/blob/main/format/File.fbs
 .. _least-significant bit (LSB) numbering: https://en.wikipedia.org/wiki/Bit_numbering
 .. _Intel performance guide: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness

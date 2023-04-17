@@ -25,9 +25,9 @@
 #' value whether or not the C++ library was built with support for them.
 #' @export
 #' @importFrom utils packageVersion
-#' @seealso If any capabilities are `FALSE`, see
-#' `vignette("install", package = "arrow")` for guidance on reinstalling the
-#' package.
+#' @seealso If any capabilities are `FALSE`, see the
+#' \href{https://arrow.apache.org/docs/r/articles/install.html}{install guide}
+#' for guidance on reinstalling the package.
 arrow_info <- function() {
   opts <- options()
   pool <- default_memory_pool()
@@ -39,6 +39,7 @@ arrow_info <- function() {
     version = packageVersion("arrow"),
     options = opts[grep("^arrow\\.", names(opts))],
     capabilities = c(
+      acero = arrow_with_acero(),
       dataset = arrow_with_dataset(),
       substrait = arrow_with_substrait(),
       parquet = arrow_with_parquet(),
@@ -81,13 +82,15 @@ arrow_available <- function() {
 
 #' @rdname arrow_info
 #' @export
-arrow_with_dataset <- function() {
-  if (on_old_windows()) {
-    # 32-bit rtools 3.5 does not properly implement the std::thread expectations
-    # but we can't just disable ARROW_DATASET in that build,
-    # so report it as "off" here.
+arrow_with_acero <- function() {
+  tryCatch(.Call(`_acero_available`), error = function(e) {
     return(FALSE)
-  }
+  })
+}
+
+#' @rdname arrow_info
+#' @export
+arrow_with_dataset <- function() {
   tryCatch(.Call(`_dataset_available`), error = function(e) {
     return(FALSE)
   })

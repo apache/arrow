@@ -172,14 +172,10 @@ def _apply_options(cmd, options):
               help="Build the Arrow IPC extensions.")
 @click.option("--with-json", default=None, type=BOOL,
               help="Build the Arrow JSON parser module.")
-@click.option("--with-jni", default=None, type=BOOL,
-              help="Build the Arrow JNI lib.")
 @click.option("--with-mimalloc", default=None, type=BOOL,
               help="Build the Arrow mimalloc based allocator.")
 @click.option("--with-parquet", default=None, type=BOOL,
               help="Build with Parquet file support.")
-@click.option("--with-plasma", default=None, type=BOOL,
-              help="Build with Plasma object store support.")
 @click.option("--with-python", default=None, type=BOOL,
               help="Build the Arrow CPython extesions.")
 @click.option("--with-r", default=None, type=BOOL,
@@ -531,7 +527,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
               help="Hide counters field in diff report.")
 @click.argument("contender", metavar="[<contender>",
                 default=ArrowSources.WORKSPACE, required=False)
-@click.argument("baseline", metavar="[<baseline>]]", default="origin/master",
+@click.argument("baseline", metavar="[<baseline>]]", default="origin/HEAD",
                 required=False)
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
@@ -544,7 +540,8 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
 
     The caller can optionally specify both the contender and the baseline. If
     unspecified, the contender will default to the current workspace (like git)
-    and the baseline will default to master.
+    and the baseline will default to the mainline development branch (i.e.
+    default git branch).
 
     Each target (contender or baseline) can either be a git revision
     (commit, tag, special values like HEAD) or a cmake build directory. This
@@ -561,16 +558,18 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
     Examples:
 
     \b
-    # Compare workspace (contender) with master (baseline)
+    # Compare workspace (contender) against the mainline development branch
+    # (baseline)
     \b
     archery benchmark diff
 
     \b
-    # Compare master (contender) with latest version (baseline)
+    # Compare the mainline development branch (contender) against the latest
+    # version (baseline)
     \b
     export LAST=$(git tag -l "apache-arrow-[0-9]*" | sort -rV | head -1)
     \b
-    archery benchmark diff master "$LAST"
+    archery benchmark diff <default-branch> "$LAST"
 
     \b
     # Compare g++7 (contender) with clang++-8 (baseline) builds
@@ -774,18 +773,28 @@ def integration(with_all=False, random_seed=12345, **args):
 
 
 @archery.command()
+@click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
+              help='OAuth token for responding comment in the arrow repo')
+@click.option('--committers-file', '-c', type=click.File('r', encoding='utf8'))
 @click.option('--event-name', '-n', required=True)
 @click.option('--event-payload', '-p', type=click.File('r', encoding='utf8'),
               default='-', required=True)
-@click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
-              help='OAuth token for responding comment in the arrow repo')
-def trigger_bot(event_name, event_payload, arrow_token):
-    from .bot import CommentBot, actions
+def trigger_bot(arrow_token, committers_file, event_name, event_payload):
+    from .bot import CommentBot, PullRequestWorkflowBot, actions
+    from ruamel.yaml import YAML
 
     event_payload = json.loads(event_payload.read())
-
-    bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
-    bot.handle(event_name, event_payload)
+    if 'comment' in event_name:
+        bot = CommentBot(name='github-actions', handler=actions, token=arrow_token)
+        bot.handle(event_name, event_payload)
+    else:
+        committers = None
+        if committers_file:
+            committers = [committer['alias']
+                          for committer in YAML().load(committers_file)]
+        bot = PullRequestWorkflowBot(event_name, event_payload, token=arrow_token,
+                                     committers=committers)
+        bot.handle()
 
 
 @archery.group("linking")

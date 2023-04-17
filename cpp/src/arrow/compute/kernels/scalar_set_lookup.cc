@@ -18,7 +18,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
@@ -67,8 +67,11 @@ struct SetLookupState : public KernelState {
     auto visit_valid = [&](T v) {
       const auto memo_size = static_cast<int32_t>(memo_index_to_value_index.size());
       int32_t unused_memo_index;
-      auto on_found = [&](int32_t memo_index) { DCHECK_LT(memo_index, memo_size); };
-      auto on_not_found = [&](int32_t memo_index) {
+      // (capture `memo_size` by value because of ARROW-17567)
+      auto on_found = [&, memo_size](int32_t memo_index) {
+        DCHECK_LT(memo_index, memo_size);
+      };
+      auto on_not_found = [&, memo_size](int32_t memo_index) {
         DCHECK_EQ(memo_index, memo_size);
         memo_index_to_value_index.push_back(index);
       };
@@ -79,8 +82,10 @@ struct SetLookupState : public KernelState {
     };
     auto visit_null = [&]() {
       const auto memo_size = static_cast<int32_t>(memo_index_to_value_index.size());
-      auto on_found = [&](int32_t memo_index) { DCHECK_LT(memo_index, memo_size); };
-      auto on_not_found = [&](int32_t memo_index) {
+      auto on_found = [&, memo_size](int32_t memo_index) {
+        DCHECK_LT(memo_index, memo_size);
+      };
+      auto on_not_found = [&, memo_size](int32_t memo_index) {
         DCHECK_EQ(memo_index, memo_size);
         memo_index_to_value_index.push_back(index);
       };
@@ -321,7 +326,7 @@ struct IndexInVisitor {
 };
 
 Status ExecIndexIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return IndexInVisitor(ctx, batch[0].array, out->array_span()).Execute();
+  return IndexInVisitor(ctx, batch[0].array, out->array_span_mutable()).Execute();
 }
 
 // ----------------------------------------------------------------------
@@ -403,7 +408,7 @@ struct IsInVisitor {
 };
 
 Status ExecIsIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return IsInVisitor(ctx, batch[0].array, out->array_span()).Execute();
+  return IsInVisitor(ctx, batch[0].array, out->array_span_mutable()).Execute();
 }
 
 // Unary set lookup kernels available for the following input types

@@ -4,5 +4,5 @@ set -euxo pipefail
 
 echo "PKG_CPPFLAGS=-DNDEBUG -I\"${LIBRARY_PREFIX}/include\" -I\"${PREFIX}/include\" -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET -DARROW_R_WITH_S3 -DARROW_R_WITH_JSON" > src/Makevars.win
 echo "PKG_CXXFLAGS=\$(CXX_VISIBILITY)" >> src/Makevars.win
-echo 'CXX_STD=CXX11' >> src/Makevars.win
+echo 'CXX_STD=CXX17' >> src/Makevars.win
 echo "PKG_LIBS=-L\"${LIBRARY_PREFIX}/lib\" -larrow_dataset -lparquet -larrow" >> src/Makevars.win

@@ -81,7 +81,6 @@ const createTypeScriptPackageJson = (target, format) => (orig) => ({
     sideEffects: false,
     esm: { mode: `auto`, sourceMap: true },
     dependencies: {
-        '@types/flatbuffers': '*',
         '@types/node': '*',
         ...orig.dependencies
     }

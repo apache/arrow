@@ -692,5 +692,41 @@ test_that("num_rows method not susceptible to integer overflow", {
   expect_type(big_table$num_rows, "double")
 
   expect_identical(big_string_array$data()$buffers[[3]]$size, 2148007936)
+})
 
+test_that("can create empty table from schema", {
+  schema <- schema(
+    col1 = float64(),
+    col2 = string(),
+    col3 = vctrs_extension_type(integer())
+  )
+  out <- Table$create(schema = schema)
+  expect_r6_class(out, "Table")
+  expect_equal(nrow(out), 0)
+  expect_equal(out$schema, schema)
+})
+
+test_that("as_arrow_table() errors on data.frame with NULL names", {
+  df <- data.frame(a = 1, b = "two")
+  names(df) <- NULL
+  expect_error(as_arrow_table(df), "Input data frame columns must be named")
+})
+
+test_that("we only preserve metadata of input to arrow_table when passed a single data.frame", {
+  # data.frame in, data.frame out
+  df <- data.frame(x = 1)
+  out1 <- as.data.frame(arrow_table(df))
+  expect_s3_class(out1, "data.frame", exact = TRUE)
+
+  # tibble in, tibble out
+  tib <- tibble::tibble(x = 1)
+  out2 <- as.data.frame(arrow_table(tib))
+  expect_s3_class(out2, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
+
+  # GH-35038 - passing in multiple arguments doesn't affect return type
+  out3 <- as.data.frame(arrow_table(df, name = "1"))
+  out4 <- as.data.frame(arrow_table(name = "1", df))
+
+  expect_s3_class(out3, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
+  expect_s3_class(out4, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
 })

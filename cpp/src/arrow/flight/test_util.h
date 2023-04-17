@@ -30,7 +30,6 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
-#include "arrow/util/make_unique.h"
 
 #include "arrow/flight/client.h"
 #include "arrow/flight/client_auth.h"
@@ -108,7 +107,7 @@ Status MakeServer(const Location& location, std::unique_ptr<FlightServerBase>* s
                   std::function<Status(FlightServerOptions*)> make_server_options,
                   std::function<Status(FlightClientOptions*)> make_client_options,
                   Args&&... server_args) {
-  *server = arrow::internal::make_unique<T>(std::forward<Args>(server_args)...);
+  *server = std::make_unique<T>(std::forward<Args>(server_args)...);
   FlightServerOptions server_options(location);
   RETURN_NOT_OK(make_server_options(&server_options));
   RETURN_NOT_OK((*server)->Init(server_options));
@@ -191,9 +190,9 @@ ARROW_FLIGHT_EXPORT
 std::vector<ActionType> ExampleActionTypes();
 
 ARROW_FLIGHT_EXPORT
-Status MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
-                      const std::vector<FlightEndpoint>& endpoints, int64_t total_records,
-                      int64_t total_bytes, FlightInfo::Data* out);
+FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
+                          const std::vector<FlightEndpoint>& endpoints,
+                          int64_t total_records, int64_t total_bytes);
 
 // ----------------------------------------------------------------------
 // A pair of authentication handlers that check for a predefined password

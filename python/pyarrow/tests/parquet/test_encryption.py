@@ -109,7 +109,7 @@ def write_encrypted_parquet(path, table, encryption_config,
                             kms_connection_config, crypto_factory):
     file_encryption_properties = crypto_factory.file_encryption_properties(
         kms_connection_config, encryption_config)
-    assert(file_encryption_properties is not None)
+    assert file_encryption_properties is not None
     with pq.ParquetWriter(
             path, table.schema,
             encryption_properties=file_encryption_properties) as writer:
@@ -120,13 +120,13 @@ def read_encrypted_parquet(path, decryption_config,
                            kms_connection_config, crypto_factory):
     file_decryption_properties = crypto_factory.file_decryption_properties(
         kms_connection_config, decryption_config)
-    assert(file_decryption_properties is not None)
+    assert file_decryption_properties is not None
     meta = pq.read_metadata(
         path, decryption_properties=file_decryption_properties)
-    assert(meta.num_columns == 3)
+    assert meta.num_columns == 3
     schema = pq.read_schema(
         path, decryption_properties=file_decryption_properties)
-    assert(len(schema.names) == 3)
+    assert len(schema.names) == 3
 
     result = pq.ParquetFile(
         path, decryption_properties=file_decryption_properties)
@@ -350,14 +350,14 @@ def test_encrypted_parquet_write_kms_factory_type_error(
 
 def test_encrypted_parquet_encryption_configuration():
     def validate_encryption_configuration(encryption_config):
-        assert(FOOTER_KEY_NAME == encryption_config.footer_key)
-        assert(["a", "b"] == encryption_config.column_keys[COL_KEY_NAME])
-        assert("AES_GCM_CTR_V1" == encryption_config.encryption_algorithm)
-        assert(encryption_config.plaintext_footer)
-        assert(not encryption_config.double_wrapping)
-        assert(timedelta(minutes=10.0) == encryption_config.cache_lifetime)
-        assert(not encryption_config.internal_key_material)
-        assert(192 == encryption_config.data_key_length_bits)
+        assert FOOTER_KEY_NAME == encryption_config.footer_key
+        assert ["a", "b"] == encryption_config.column_keys[COL_KEY_NAME]
+        assert "AES_GCM_CTR_V1" == encryption_config.encryption_algorithm
+        assert encryption_config.plaintext_footer
+        assert not encryption_config.double_wrapping
+        assert timedelta(minutes=10.0) == encryption_config.cache_lifetime
+        assert not encryption_config.internal_key_material
+        assert 192 == encryption_config.data_key_length_bits
 
     encryption_config = pe.EncryptionConfiguration(
         footer_key=FOOTER_KEY_NAME,
@@ -386,20 +386,20 @@ def test_encrypted_parquet_encryption_configuration():
 def test_encrypted_parquet_decryption_configuration():
     decryption_config = pe.DecryptionConfiguration(
         cache_lifetime=timedelta(minutes=10.0))
-    assert(timedelta(minutes=10.0) == decryption_config.cache_lifetime)
+    assert timedelta(minutes=10.0) == decryption_config.cache_lifetime
 
     decryption_config_1 = pe.DecryptionConfiguration()
     decryption_config_1.cache_lifetime = timedelta(minutes=10.0)
-    assert(timedelta(minutes=10.0) == decryption_config_1.cache_lifetime)
+    assert timedelta(minutes=10.0) == decryption_config_1.cache_lifetime
 
 
 def test_encrypted_parquet_kms_configuration():
     def validate_kms_connection_config(kms_connection_config):
-        assert("Instance1" == kms_connection_config.kms_instance_id)
-        assert("URL1" == kms_connection_config.kms_instance_url)
-        assert("MyToken" == kms_connection_config.key_access_token)
-        assert({"key1": "key_material_1", "key2": "key_material_2"} ==
-               kms_connection_config.custom_kms_conf)
+        assert "Instance1" == kms_connection_config.kms_instance_id
+        assert "URL1" == kms_connection_config.kms_instance_url
+        assert "MyToken" == kms_connection_config.key_access_token
+        assert ({"key1": "key_material_1", "key2": "key_material_2"} ==
+                kms_connection_config.custom_kms_conf)
 
     kms_connection_config = pe.KmsConnectionConfig(
         kms_instance_id="Instance1",
@@ -524,7 +524,7 @@ def test_encrypted_parquet_loop(tempdir, data_table, basic_encryption_config):
         # Read with decryption properties
         file_decryption_properties = crypto_factory.file_decryption_properties(
             kms_connection_config, decryption_config)
-        assert(file_decryption_properties is not None)
+        assert file_decryption_properties is not None
 
         result = pq.ParquetFile(
             path, decryption_properties=file_decryption_properties)

@@ -31,6 +31,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -47,6 +48,7 @@ TEST_F(TestRecordBatch, Equals) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8());
   auto f2 = field("f2", int16());
+  auto f2b = field("f2b", int16());
 
   auto metadata = key_value_metadata({"foo"}, {"bar"});
 
@@ -54,6 +56,7 @@ TEST_F(TestRecordBatch, Equals) {
   auto schema = ::arrow::schema({f0, f1, f2});
   auto schema2 = ::arrow::schema({f0, f1});
   auto schema3 = ::arrow::schema({f0, f1, f2}, metadata);
+  auto schema4 = ::arrow::schema({f0, f1, f2b});
 
   random::RandomArrayGenerator gen(42);
 
@@ -65,14 +68,56 @@ TEST_F(TestRecordBatch, Equals) {
   auto b2 = RecordBatch::Make(schema3, length, {a0, a1, a2});
   auto b3 = RecordBatch::Make(schema2, length, {a0, a1});
   auto b4 = RecordBatch::Make(schema, length, {a0, a1, a1});
+  auto b5 = RecordBatch::Make(schema4, length, {a0, a1, a2});
 
   ASSERT_TRUE(b1->Equals(*b1));
   ASSERT_FALSE(b1->Equals(*b3));
   ASSERT_FALSE(b1->Equals(*b4));
 
+  // Same values and types, but different field names
+  ASSERT_FALSE(b1->Equals(*b5));
+
   // Different metadata
   ASSERT_TRUE(b1->Equals(*b2));
   ASSERT_FALSE(b1->Equals(*b2, /*check_metadata=*/true));
+}
+
+TEST_F(TestRecordBatch, EqualOptions) {
+  int length = 2;
+  auto f = field("f", float64());
+
+  std::vector<std::shared_ptr<Field>> fields = {f};
+  auto schema = ::arrow::schema(fields);
+
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array1);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array2);
+  auto b1 = RecordBatch::Make(schema, length, {array1});
+  auto b2 = RecordBatch::Make(schema, length, {array2});
+
+  EXPECT_FALSE(b1->Equals(*b2, /*check_metadata=*/false,
+                          EqualOptions::Defaults().nans_equal(false)));
+  EXPECT_TRUE(b1->Equals(*b2, /*check_metadata=*/false,
+                         EqualOptions::Defaults().nans_equal(true)));
+}
+
+TEST_F(TestRecordBatch, ApproxEqualOptions) {
+  int length = 2;
+  auto f = field("f", float64());
+
+  std::vector<std::shared_ptr<Field>> fields = {f};
+  auto schema = ::arrow::schema(fields);
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array1);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.501, NAN}, &array2);
+
+  auto b1 = RecordBatch::Make(schema, length, {array1});
+  auto b2 = RecordBatch::Make(schema, length, {array2});
+
+  EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(false)));
+  EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true)));
+
+  EXPECT_TRUE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true).atol(0.1)));
 }
 
 TEST_F(TestRecordBatch, Validate) {
@@ -325,6 +370,19 @@ TEST_F(TestRecordBatch, ToFromEmptyStructArray) {
   ASSERT_TRUE(batch1->Equals(*batch2));
 }
 
+TEST_F(TestRecordBatch, FromSlicedStructArray) {
+  static constexpr int64_t kLength = 10;
+  std::shared_ptr<Array> x_arr = ArrayFromJSON(int64(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  StructArray struct_array(struct_({field("x", int64())}), kLength, {x_arr});
+  std::shared_ptr<Array> sliced = struct_array.Slice(5, 3);
+  ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::FromStructArray(sliced));
+
+  std::shared_ptr<Array> expected_arr = ArrayFromJSON(int64(), "[5, 6, 7]");
+  std::shared_ptr<RecordBatch> expected =
+      RecordBatch::Make(schema({field("x", int64())}), 3, {expected_arr});
+  AssertBatchesEqual(*expected, *batch);
+}
+
 TEST_F(TestRecordBatch, FromStructArrayInvalidType) {
   random::RandomArrayGenerator gen(42);
   ASSERT_RAISES(TypeError, RecordBatch::FromStructArray(gen.ArrayOf(int32(), 6)));
@@ -333,7 +391,11 @@ TEST_F(TestRecordBatch, FromStructArrayInvalidType) {
 TEST_F(TestRecordBatch, FromStructArrayInvalidNullCount) {
   auto struct_array =
       ArrayFromJSON(struct_({field("f1", int32())}), R"([{"f1": 1}, null])");
-  ASSERT_RAISES(Invalid, RecordBatch::FromStructArray(struct_array));
+  ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::FromStructArray(struct_array));
+  std::shared_ptr<Array> expected_arr = ArrayFromJSON(int32(), "[1, null]");
+  std::shared_ptr<RecordBatch> expected =
+      RecordBatch::Make(schema({field("f1", int32())}), 2, {expected_arr});
+  AssertBatchesEqual(*expected, *batch);
 }
 
 TEST_F(TestRecordBatch, MakeEmpty) {

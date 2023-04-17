@@ -1,100 +1,28 @@
-diff --git a/ports/abseil/fix-universal2.patch b/ports/abseil/fix-universal2.patch
-new file mode 100644
-index 0000000000..c729e7ae48
---- /dev/null
-+++ b/ports/abseil/fix-universal2.patch
-@@ -0,0 +1,55 @@
-+diff --git a/absl/copts/AbseilConfigureCopts.cmake b/absl/copts/AbseilConfigureCopts.cmake
-+index 942ce90a4..15d6c895f 100644
-+--- a/absl/copts/AbseilConfigureCopts.cmake
-++++ b/absl/copts/AbseilConfigureCopts.cmake
-+@@ -12,7 +12,49 @@ else()
-+   set(ABSL_BUILD_DLL FALSE)
-+ endif()
-+
-+-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
-++if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES [[Clang]])
-++  # Some CMake targets (not known at the moment of processing) could be set to
-++  # compile for multiple architectures as specified by the OSX_ARCHITECTURES
-++  # property, which is target-specific.  We should neither inspect nor rely on
-++  # any CMake property or variable to detect an architecture, in particular:
-++  #
-++  #   - CMAKE_OSX_ARCHITECTURES
-++  #     is just an initial value for OSX_ARCHITECTURES; set too early.
-++  #
-++  #   - OSX_ARCHITECTURES
-++  #     is a per-target property; targets could be defined later, and their
-++  #     properties could be modified any time later.
-++  #
-++  #   - CMAKE_SYSTEM_PROCESSOR
-++  #     does not reflect multiple architectures at all.
-++  #
-++  # When compiling for multiple architectures, a build system can invoke a
-++  # compiler either
-++  #
-++  #   - once: a single command line for multiple architectures (Ninja build)
-++  #   - twice: two command lines per each architecture (Xcode build system)
-++  #
-++  # If case of Xcode, it would be possible to set an Xcode-specific attributes
-++  # like XCODE_ATTRIBUTE_OTHER_CPLUSPLUSFLAGS[arch=arm64] or similar.
-++  #
-++  # In both cases, the viable strategy is to pass all arguments at once, allowing
-++  # the compiler to dispatch arch-specific arguments to a designated backend.
-++  set(ABSL_RANDOM_RANDEN_COPTS "")
-++  foreach(_arch IN ITEMS "x86_64" "arm64")
-++    string(TOUPPER "${_arch}" _arch_uppercase)
-++    string(REPLACE "X86_64" "X64" _arch_uppercase ${_arch_uppercase})
-++    foreach(_flag IN LISTS ABSL_RANDOM_HWAES_${_arch_uppercase}_FLAGS)
-++      list(APPEND ABSL_RANDOM_RANDEN_COPTS "-Xarch_${_arch}" "${_flag}")
-++    endforeach()
-++  endforeach()
-++  # If a compiler happens to deal with an argument for a currently unused
-++  # architecture, it will warn about an unused command line argument.
-++  option(ABSL_RANDOM_RANDEN_COPTS_WARNING OFF
-++         "Warn if one of ABSL_RANDOM_RANDEN_COPTS is unused")
-++  if(ABSL_RANDOM_RANDEN_COPTS AND NOT ABSL_RANDOM_RANDEN_COPTS_WARNING)
-++    list(APPEND ABSL_RANDOM_RANDEN_COPTS "-Wno-unused-command-line-argument")
-++  endif()
-++elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|AMD64")
-+   if (MSVC)
-+     set(ABSL_RANDOM_RANDEN_COPTS "${ABSL_RANDOM_HWAES_MSVC_X64_FLAGS}")
-+   else()
-diff --git a/ports/abseil/portfile.cmake b/ports/abseil/portfile.cmake
-index 1289eed36a..b010a69f13 100644
---- a/ports/abseil/portfile.cmake
-+++ b/ports/abseil/portfile.cmake
-@@ -15,6 +15,7 @@ vcpkg_from_github(
-         # detection can cause ABI issues depending on which compiler options
-         # are enabled for consuming user code
- 	    fix-cxx-standard.patch
-+        fix-universal2.patch
- )
- 
- vcpkg_check_features(OUT_FEATURE_OPTIONS FEATURE_OPTIONS
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index f81d0c491d..e5ea9cef57 100644
+index 5a14562..924b1b7 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -88,6 +88,10 @@ vcpkg_cmake_configure(
-         -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
-         -DENABLE_DEBUG=ON
+@@ -87,8 +87,11 @@ vcpkg_cmake_configure(
+         -DENABLE_MANUAL=OFF
          -DCURL_CA_FALLBACK=ON
+         -DCURL_USE_LIBPSL=OFF
 +        -DCURL_CA_PATH=none
 +        -DCURL_CA_BUNDLE=none
-+    OPTIONS_DEBUG
-+        ${EXTRA_ARGS_DEBUG}
-     OPTIONS_RELEASE
-         ${OPTIONS_RELEASE}
      OPTIONS_DEBUG
+         -DENABLE_DEBUG=ON
++        ${EXTRA_ARGS_DEBUG}
+ )
+ vcpkg_cmake_install()
+ vcpkg_copy_pdbs()
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 45b8c706db..b409d8a7be 100644
+index df95a08..d740ce7 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
-@@ -4,6 +4,7 @@ vcpkg_from_github(
-     REF 1.1.9
-     SHA512 f1f8a90f5f7f23310423574b1d8c9acb84c66ea620f3999d1060395205e5760883476837aba02f0aa913af60819e34c625d8308c18a5d7a9c4e190f35968b024
+@@ -9,6 +9,7 @@ vcpkg_from_github(
      HEAD_REF master
-+    PATCHES "snappy-disable-bmi.patch"
+     PATCHES
+         fix_clang-cl_build.patch
++        "snappy-disable-bmi.patch"
  )
  
  vcpkg_cmake_configure(
@@ -123,3 +51,16 @@ index 0000000000..a57ce0c22f
 + }
 + 
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
+diff --git a/scripts/cmake/vcpkg_find_acquire_program.cmake b/scripts/cmake/vcpkg_find_acquire_program.cmake
+index 4611af6..d11936f 100644
+--- a/scripts/cmake/vcpkg_find_acquire_program.cmake
++++ b/scripts/cmake/vcpkg_find_acquire_program.cmake
+@@ -239,7 +239,7 @@ function(vcpkg_find_acquire_program program)
+             set(paths_to_search "${DOWNLOADS}/tools/python/${tool_subdirectory}")
+             vcpkg_list(SET post_install_command "${CMAKE_COMMAND}" -E rm python310._pth)
+         else()
+-            set(program_name python3)
++            set(program_name python)
+             set(brew_package_name "python")
+             set(apt_package_name "python3")
+         endif()

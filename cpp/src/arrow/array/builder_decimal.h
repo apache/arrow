@@ -39,7 +39,8 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
   using ValueType = Decimal128;
 
   explicit Decimal128Builder(const std::shared_ptr<DataType>& type,
-                             MemoryPool* pool = default_memory_pool());
+                             MemoryPool* pool = default_memory_pool(),
+                             int64_t alignment = kDefaultBufferAlignment);
 
   using FixedSizeBinaryBuilder::Append;
   using FixedSizeBinaryBuilder::AppendValues;
@@ -47,7 +48,7 @@ class ARROW_EXPORT Decimal128Builder : public FixedSizeBinaryBuilder {
 
   Status Append(Decimal128 val);
   void UnsafeAppend(Decimal128 val);
-  void UnsafeAppend(util::string_view val);
+  void UnsafeAppend(std::string_view val);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
@@ -69,7 +70,8 @@ class ARROW_EXPORT Decimal256Builder : public FixedSizeBinaryBuilder {
   using ValueType = Decimal256;
 
   explicit Decimal256Builder(const std::shared_ptr<DataType>& type,
-                             MemoryPool* pool = default_memory_pool());
+                             MemoryPool* pool = default_memory_pool(),
+                             int64_t alignment = kDefaultBufferAlignment);
 
   using FixedSizeBinaryBuilder::Append;
   using FixedSizeBinaryBuilder::AppendValues;
@@ -77,7 +79,7 @@ class ARROW_EXPORT Decimal256Builder : public FixedSizeBinaryBuilder {
 
   Status Append(const Decimal256& val);
   void UnsafeAppend(const Decimal256& val);
-  void UnsafeAppend(util::string_view val);
+  void UnsafeAppend(std::string_view val);
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 

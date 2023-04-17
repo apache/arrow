@@ -10,8 +10,10 @@ source:
   path: ../../../../
 
 build:
+  # 4.1 not usable anymore unless https://github.com/conda-forge/r-base-feedstock/pull/236 gets merged
+  skip: true  # [unix and (r_base == "4.1")]
   merge_build_host: true  # [win]
-  number: 1
+  number: 0
   rpaths:
     - lib/R/lib/
     - lib/
@@ -25,7 +27,6 @@ requirements:
     - r-purrr                    # [build_platform != target_platform]
     - r-rlang                    # [build_platform != target_platform]
     - r-tidyselect               # [build_platform != target_platform]
-    - python 3.9                 # [build_platform != target_platform]
     - {{ compiler('c') }}        # [not win]
     - {{ compiler('cxx') }}      # [not win]
     - {{ compiler('r_clang') }}  # [win]
@@ -38,8 +39,8 @@ requirements:
   host:
     # Needs to be here, otherwise merge_build_host runs into issues
     - pkg-config  # [win]
+    - libarrow {{ version }}
     - r-base
-    - arrow-cpp {{ version }}
     - r-r6
     - r-cpp11
     - r-assertthat

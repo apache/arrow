@@ -48,11 +48,16 @@ First, let's populate a :class:`VectorSchemaRoot` with a small batch of records
     VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors);
 
 Now, we can begin writing a stream containing some number of these batches. For this we use :class:`ArrowStreamWriter`
-(DictionaryProvider used for any vectors that are dictionary encoded is optional and can be null))::
+(DictionaryProvider used for any vectors that are dictionary encoded is optional and can be null))
 
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ArrowStreamWriter writer = new ArrowStreamWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));
+.. code-block:: Java
 
+    try (
+      ByteArrayOutputStream out = new ByteArrayOutputStream();
+      ArrowStreamWriter writer = new ArrowStreamWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));
+    ) {
+      // ... do write into the ArrowStreamWriter
+    }
 
 Here we used an in-memory stream, but this could have been a socket or some other IO stream. Then we can do
 
@@ -69,88 +74,95 @@ Here we used an in-memory stream, but this could have been a socket or some othe
       VarCharVector childVector2 = (VarCharVector)root.getVector(1);
       childVector1.reset();
       childVector2.reset();
-      ... do some populate work here, could be different for each batch
+      // ... do some populate work here, could be different for each batch
       writer.writeBatch();
     }
 
-    // end
     writer.end();
 
-Note since the :class:`VectorSchemaRoot` in writer is a container that can hold batches, batches flow through
-:class:`VectorSchemaRoot` as part of a pipeline, so we need to populate data before `writeBatch` so that later batches
+Note that, since the :class:`VectorSchemaRoot` in the writer is a container that can hold batches, batches flow through
+:class:`VectorSchemaRoot` as part of a pipeline, so we need to populate data before `writeBatch`, so that later batches
 could overwrite previous ones.
 
 Now the :class:`ByteArrayOutputStream` contains the complete stream which contains 5 record batches.
-We can read such a stream with :class:`ArrowStreamReader`, note that :class:`VectorSchemaRoot` within
-reader will be loaded with new values on every call to :class:`loadNextBatch()`
+We can read such a stream with :class:`ArrowStreamReader`. Note that the :class:`VectorSchemaRoot` within the reader
+will be loaded with new values on every call to :class:`loadNextBatch()`
 
 .. code-block:: Java
 
     try (ArrowStreamReader reader = new ArrowStreamReader(new ByteArrayInputStream(out.toByteArray()), allocator)) {
-      Schema schema = reader.getVectorSchemaRoot().getSchema();
+      // This will be loaded with new values on every call to loadNextBatch
+      VectorSchemaRoot readRoot = reader.getVectorSchemaRoot();
+      Schema schema = readRoot.getSchema();
       for (int i = 0; i < 5; i++) {
-        // This will be loaded with new values on every call to loadNextBatch
-        VectorSchemaRoot readBatch = reader.getVectorSchemaRoot();
         reader.loadNextBatch();
-        ... do something with readBatch
+        // ... do something with readRoot
       }
-
     }
 
 Here we also give a simple example with dictionary encoded vectors
 
 .. code-block:: Java
 
+    // create provider
     DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
-    // create dictionary and provider
-    final VarCharVector dictVector = new VarCharVector("dict", allocator);
-    dictVector.allocateNewSafe();
-    dictVector.setSafe(0, "aa".getBytes());
-    dictVector.setSafe(1, "bb".getBytes());
-    dictVector.setSafe(2, "cc".getBytes());
-    dictVector.setValueCount(3);
 
-    Dictionary dictionary =
-        new Dictionary(dictVector, new DictionaryEncoding(1L, false, /*indexType=*/null));
-    provider.put(dictionary);
+    try (
+      final VarCharVector dictVector = new VarCharVector("dict", allocator);
+      final VarCharVector vector = new VarCharVector("vector", allocator);
+    ) {
+      // create dictionary vector
+      dictVector.allocateNewSafe();
+      dictVector.setSafe(0, "aa".getBytes());
+      dictVector.setSafe(1, "bb".getBytes());
+      dictVector.setSafe(2, "cc".getBytes());
+      dictVector.setValueCount(3);
 
-    // create vector and encode it
-    final VarCharVector vector = new VarCharVector("vector", allocator);
-    vector.allocateNewSafe();
-    vector.setSafe(0, "bb".getBytes());
-    vector.setSafe(1, "bb".getBytes());
-    vector.setSafe(2, "cc".getBytes());
-    vector.setSafe(3, "aa".getBytes());
-    vector.setValueCount(4);
+      // create dictionary
+      Dictionary dictionary =
+          new Dictionary(dictVector, new DictionaryEncoding(1L, false, /*indexType=*/null));
+      provider.put(dictionary);
 
-    // get the encoded vector
-    IntVector encodedVector = (IntVector) DictionaryEncoder.encode(vector, dictionary);
+      // create original data vector
+      vector.allocateNewSafe();
+      vector.setSafe(0, "bb".getBytes());
+      vector.setSafe(1, "bb".getBytes());
+      vector.setSafe(2, "cc".getBytes());
+      vector.setSafe(3, "aa".getBytes());
+      vector.setValueCount(4);
 
-    // create VectorSchemaRoot
-    List<Field> fields = Arrays.asList(encodedVector.getField());
-    List<FieldVector> vectors = Arrays.asList(encodedVector);
-    VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors);
-
-    // write data
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ArrowStreamWriter writer = new ArrowStreamWriter(root, provider, Channels.newChannel(out));
-    writer.start();
-    writer.writeBatch();
-    writer.end();
-
-    // read data
-    try (ArrowStreamReader reader = new ArrowStreamReader(new ByteArrayInputStream(out.toByteArray()), allocator)) {
-      reader.loadNextBatch();
-      VectorSchemaRoot readRoot = reader.getVectorSchemaRoot();
       // get the encoded vector
-      IntVector intVector = (IntVector) readRoot.getVector(0);
+      IntVector encodedVector = (IntVector) DictionaryEncoder.encode(vector, dictionary);
 
-      // get dictionaries and decode the vector
-      Map<Long, Dictionary> dictionaryMap = reader.getDictionaryVectors();
-      long dictionaryId = intVector.getField().getDictionary().getId();
-      VarCharVector varCharVector =
-          (VarCharVector) DictionaryEncoder.decode(intVector, dictionaryMap.get(dictionaryId));
+      ByteArrayOutputStream out = new ByteArrayOutputStream();
 
+      // create VectorSchemaRoot
+      List<Field> fields = Arrays.asList(encodedVector.getField());
+      List<FieldVector> vectors = Arrays.asList(encodedVector);
+      try (VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors)) {
+
+          // write data
+          ArrowStreamWriter writer = new ArrowStreamWriter(root, provider, Channels.newChannel(out));
+          writer.start();
+          writer.writeBatch();
+          writer.end();
+      }
+
+      // read data
+      try (ArrowStreamReader reader = new ArrowStreamReader(new ByteArrayInputStream(out.toByteArray()), allocator)) {
+        reader.loadNextBatch();
+        VectorSchemaRoot readRoot = reader.getVectorSchemaRoot();
+        // get the encoded vector
+        IntVector intVector = (IntVector) readRoot.getVector(0);
+
+        // get dictionaries and decode the vector
+        Map<Long, Dictionary> dictionaryMap = reader.getDictionaryVectors();
+        long dictionaryId = intVector.getField().getDictionary().getId();
+        try (VarCharVector varCharVector =
+            (VarCharVector) DictionaryEncoder.decode(intVector, dictionaryMap.get(dictionaryId))) {
+          // ... use decoded vector
+        }
+      }
     }
 
 Writing and Reading Random Access Files
@@ -159,17 +171,20 @@ The :class:`ArrowFileWriter` has the same API as :class:`ArrowStreamWriter`
 
 .. code-block:: Java
 
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ArrowFileWriter writer = new ArrowFileWriter(root, null, Channels.newChannel(out));
-    writer.start();
-    // write the first batch
-    writer.writeBatch();
-    // write another four batches.
-    for (int i = 0; i < 4; i++) {
-      ... do populate work
+    try (
+      ByteArrayOutputStream out = new ByteArrayOutputStream();
+      ArrowFileWriter writer = new ArrowFileWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));
+    ) {
+      writer.start();
+      // write the first batch
       writer.writeBatch();
+      // write another four batches.
+      for (int i = 0; i < 4; i++) {
+        // ... do populate work
+        writer.writeBatch();
+      }
+      writer.end();
     }
-    writer.end();
 
 The difference between :class:`ArrowFileReader` and :class:`ArrowStreamReader` is that the input source
 must have a ``seek`` method for random access. Because we have access to the entire payload, we know the

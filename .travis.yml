@@ -41,45 +41,6 @@ env: &global_env
 
 jobs:
   include:
-    - name: "C++ on ARM"
-      os: linux
-      arch: arm64-graviton2
-      # This is required for arm64-graviton2.
-      # https://docs.travis-ci.com/user/multi-cpu-architectures/#example-multi-architecture-build-matrix
-      group: edge
-      # This is required for arm64-graviton2.
-      # https://docs.travis-ci.com/user/multi-cpu-architectures/#testing-on-multiple-cpu-architectures
-      virt: vm
-      env:
-        <<: *global_env
-        ARCH: arm64v8
-        ARROW_CI_MODULES: "CPP"
-        DOCKER_IMAGE_ID: ubuntu-cpp
-        # ARROW_USE_GLOG=OFF is needed to avoid build error caused by
-        # glog and CMAKE_UNITY_BUILD=ON.
-        DOCKER_RUN_ARGS: >-
-          "
-          -e ARROW_BUILD_STATIC=OFF
-          -e ARROW_ORC=OFF
-          -e ARROW_USE_GLOG=OFF
-          -e CMAKE_UNITY_BUILD=ON
-          "
-        # The LLVM's APT repository doesn't provide arm64 binaries.
-        # We should use LLVM provided by Ubuntu.
-        LLVM: "10"
-        UBUNTU: "20.04"
-
-    - name: "Go on ARM"
-      os: linux
-      arch: arm64-graviton2
-      group: edge
-      virt: vm
-      env:
-        <<: *global_env
-        ARCH: arm64v8
-        ARROW_CI_MODULES: "GO"
-        DOCKER_IMAGE_ID: debian-go
-
     - name: "C++ on s390x"
       os: linux
       arch: s390x
@@ -109,6 +70,7 @@ jobs:
           "
         # The LLVM's APT repository causes download error for s390x binary
         # We should use the LLVM provided by the default APT repository
+        CLANG_TOOLS: "10"
         LLVM: "10"
         UBUNTU: "20.04"
 
@@ -158,9 +120,16 @@ jobs:
           -e Protobuf_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
           "
+        # The LLVM's APT repository causes download error for s390x binary
+        # We should use the LLVM provided by the default APT repository
+        CLANG_TOOLS: "10"
+        LLVM: "10"
+        UBUNTU: "20.04"
 
   allow_failures:
     - name: "Java on s390x"
+    - name: "C++ on s390x"
+    - name: "Python on s390x"
 
 before_install:
   - eval "$(python ci/detect-changes.py)"
@@ -182,6 +151,7 @@ install:
   - sudo -H pip3 install -e dev/archery[docker]
 
 script:
+  - export ARCHERY_DEFAULT_BRANCH=$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)
   - |
     archery docker run \
       ${DOCKER_RUN_ARGS} \

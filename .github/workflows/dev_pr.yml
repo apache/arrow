@@ -29,9 +29,15 @@ on:
       - edited
       - synchronize
 
-# NOTE: not using the "cancel-in-progress" feature here as the group key
-# does not have enough information for linking it to a particular PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.event.number }}
+  cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  
 jobs:
   process:
     name: Process
@@ -41,9 +47,8 @@ jobs:
 
       - name: Comment JIRA link
         if: |
-          github.event_name == 'pull_request_target' &&
-            (github.event.action == 'opened' ||
-             github.event.action == 'edited')
+          (github.event.action == 'opened' ||
+           github.event.action == 'edited')
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -53,9 +58,8 @@ jobs:
 
       - name: Check title
         if: |
-          github.event_name == 'pull_request_target' &&
-            (github.event.action == 'opened' ||
-             github.event.action == 'edited')
+          (github.event.action == 'opened' ||
+           github.event.action == 'edited')
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -63,25 +67,23 @@ jobs:
             const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/dev_pr/title_check.js`);
             script({github, context});
 
-      - name: Check Jira Issue
+      - name: Check Issue
         if: |
-          github.event_name == 'pull_request_target' &&
-            (github.event.action == 'opened' ||
-             github.event.action == 'edited')
+          (github.event.action == 'opened' ||
+           github.event.action == 'edited')
         uses: actions/github-script@v3
         with:
           debug: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/dev_pr/jira_check.js`);
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/dev_pr/issue_check.js`);
             script({github, context});
 
       - name: Assign GitHub labels
         if: |
-          github.event_name == 'pull_request_target' &&
-            (github.event.action == 'opened' ||
-             github.event.action == 'synchronize')
-        uses: actions/labeler@2.2.0
+          (github.event.action == 'opened' ||
+           github.event.action == 'synchronize')
+        uses: actions/labeler@v4
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/workflows/dev_pr/labeler.yml

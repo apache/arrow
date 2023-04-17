@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <string_view>
+
 #include "arrow/array.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -25,7 +27,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/functional.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace internal {
@@ -41,55 +42,44 @@ struct ArraySpanInlineVisitor<T, enable_if_has_c_type<T>> {
   template <typename ValidFunc, typename NullFunc>
   static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
                             NullFunc&& null_func) {
-    const c_type* data = arr.GetValues<c_type>(1);
-    auto visit_valid = [&](int64_t i) { return valid_func(data[i]); };
-    return VisitBitBlocks(arr.buffers[0].data, arr.offset, arr.length,
-                          std::move(visit_valid), std::forward<NullFunc>(null_func));
+    if constexpr (std::is_same_v<T, BooleanType>) {
+      int64_t offset = arr.offset;
+      const uint8_t* data = arr.buffers[1].data;
+      return VisitBitBlocks(
+          arr.buffers[0].data, offset, arr.length,
+          [&](int64_t i) { return valid_func(bit_util::GetBit(data, offset + i)); },
+          std::forward<NullFunc>(null_func));
+    } else {
+      const c_type* data = arr.GetValues<c_type>(1);
+      auto visit_valid = [&](int64_t i) { return valid_func(data[i]); };
+      return VisitBitBlocks(arr.buffers[0].data, arr.offset, arr.length,
+                            std::move(visit_valid), std::forward<NullFunc>(null_func));
+    }
   }
 
   template <typename ValidFunc, typename NullFunc>
   static void VisitVoid(const ArraySpan& arr, ValidFunc&& valid_func,
                         NullFunc&& null_func) {
-    using c_type = typename T::c_type;
-    const c_type* data = arr.GetValues<c_type>(1);
-    auto visit_valid = [&](int64_t i) { valid_func(data[i]); };
-    VisitBitBlocksVoid(arr.buffers[0].data, arr.offset, arr.length,
-                       std::move(visit_valid), std::forward<NullFunc>(null_func));
-  }
-};
-
-// Boolean
-template <>
-struct ArraySpanInlineVisitor<BooleanType> {
-  using c_type = bool;
-
-  template <typename ValidFunc, typename NullFunc>
-  static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
-                            NullFunc&& null_func) {
-    int64_t offset = arr.offset;
-    const uint8_t* data = arr.buffers[1].data;
-    return VisitBitBlocks(
-        arr.buffers[0].data, offset, arr.length,
-        [&](int64_t i) { return valid_func(bit_util::GetBit(data, offset + i)); },
-        std::forward<NullFunc>(null_func));
-  }
-
-  template <typename ValidFunc, typename NullFunc>
-  static void VisitVoid(const ArraySpan& arr, ValidFunc&& valid_func,
-                        NullFunc&& null_func) {
-    int64_t offset = arr.offset;
-    const uint8_t* data = arr.buffers[1].data;
-    VisitBitBlocksVoid(
-        arr.buffers[0].data, offset, arr.length,
-        [&](int64_t i) { valid_func(bit_util::GetBit(data, offset + i)); },
-        std::forward<NullFunc>(null_func));
+    if constexpr (std::is_same_v<T, BooleanType>) {
+      int64_t offset = arr.offset;
+      const uint8_t* data = arr.buffers[1].data;
+      VisitBitBlocksVoid(
+          arr.buffers[0].data, offset, arr.length,
+          [&](int64_t i) { valid_func(bit_util::GetBit(data, offset + i)); },
+          std::forward<NullFunc>(null_func));
+    } else {
+      const c_type* data = arr.GetValues<c_type>(1);
+      auto visit_valid = [&](int64_t i) { valid_func(data[i]); };
+      VisitBitBlocksVoid(arr.buffers[0].data, arr.offset, arr.length,
+                         std::move(visit_valid), std::forward<NullFunc>(null_func));
+    }
   }
 };
 
 // Binary, String...
 template <typename T>
 struct ArraySpanInlineVisitor<T, enable_if_base_binary<T>> {
-  using c_type = util::string_view;
+  using c_type = std::string_view;
 
   template <typename ValidFunc, typename NullFunc>
   static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
@@ -114,7 +104,7 @@ struct ArraySpanInlineVisitor<T, enable_if_base_binary<T>> {
         arr.buffers[0].data, arr.offset, arr.length,
         [&](int64_t i) {
           ARROW_UNUSED(i);
-          auto value = util::string_view(data + cur_offset, *offsets - cur_offset);
+          auto value = std::string_view(data + cur_offset, *offsets - cur_offset);
           cur_offset = *offsets++;
           return valid_func(value);
         },
@@ -146,8 +136,8 @@ struct ArraySpanInlineVisitor<T, enable_if_base_binary<T>> {
     VisitBitBlocksVoid(
         arr.buffers[0].data, arr.offset, arr.length,
         [&](int64_t i) {
-          auto value = util::string_view(reinterpret_cast<const char*>(data + offsets[i]),
-                                         offsets[i + 1] - offsets[i]);
+          auto value = std::string_view(reinterpret_cast<const char*>(data + offsets[i]),
+                                        offsets[i + 1] - offsets[i]);
           valid_func(value);
         },
         std::forward<NullFunc>(null_func));
@@ -157,7 +147,7 @@ struct ArraySpanInlineVisitor<T, enable_if_base_binary<T>> {
 // FixedSizeBinary, Decimal128
 template <typename T>
 struct ArraySpanInlineVisitor<T, enable_if_fixed_size_binary<T>> {
-  using c_type = util::string_view;
+  using c_type = std::string_view;
 
   template <typename ValidFunc, typename NullFunc>
   static Status VisitStatus(const ArraySpan& arr, ValidFunc&& valid_func,
@@ -168,7 +158,7 @@ struct ArraySpanInlineVisitor<T, enable_if_fixed_size_binary<T>> {
     return VisitBitBlocks(
         arr.buffers[0].data, arr.offset, arr.length,
         [&](int64_t i) {
-          auto value = util::string_view(data, byte_width);
+          auto value = std::string_view(data, byte_width);
           data += byte_width;
           return valid_func(value);
         },
@@ -187,7 +177,7 @@ struct ArraySpanInlineVisitor<T, enable_if_fixed_size_binary<T>> {
     VisitBitBlocksVoid(
         arr.buffers[0].data, arr.offset, arr.length,
         [&](int64_t i) {
-          valid_func(util::string_view(data, byte_width));
+          valid_func(std::string_view(data, byte_width));
           data += byte_width;
         },
         [&]() {
@@ -222,7 +212,7 @@ VisitArraySpanInline(const ArraySpan& arr, ValidFunc&& valid_func, NullFunc&& nu
 // The scalar value's type depends on the array data type:
 // - the type's `c_type`, if any
 // - for boolean arrays, a `bool`
-// - for binary, string and fixed-size binary arrays, a `util::string_view`
+// - for binary, string and fixed-size binary arrays, a `std::string_view`
 
 template <typename T>
 struct ArraySpanVisitor {

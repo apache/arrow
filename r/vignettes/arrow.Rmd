@@ -1,227 +1,221 @@
 ---
-title: "Using the Arrow C++ Library in R"
-description: "This document describes the low-level interface to the Apache Arrow C++ library in R and reviews the patterns and conventions of the R package."
+title: "Get started with Arrow"
+description: >
+  An overview of the Apache Arrow project and the arrow R package
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Using the Arrow C++ Library in R}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
-The Apache Arrow C++ library provides rich, powerful features for working with columnar data. The `arrow` R package provides both a low-level interface to the C++ library and some higher-level, R-flavored tools for working with it. This vignette provides an overview of how the pieces fit together, and it describes the conventions that the classes and methods follow in R.
+Apache Arrow is a software development platform for building high performance applications that process and transport large data sets. It is designed to improve the performance of data analysis methods, and to increase the efficiency of moving data from one system or programming language to another.
 
-# Features
+The arrow package provides a standard way to use Apache Arrow in R. It provides a low-level interface to the [Arrow C++ library](https://arrow.apache.org/docs/cpp), and some higher-level tools for working with it in a way designed to feel natural to R users. This article provides an overview of how the pieces fit together, and it describes the conventions that the classes and methods follow in R.
 
-## Multi-file datasets
+## Package conventions
 
-The `arrow` package lets you work efficiently with large, multi-file datasets
-using `dplyr` methods. See `vignette("dataset", package = "arrow")` for an overview.
+The arrow R package builds on top of the Arrow C++ library, and C++ is an object oriented language. As a consequence, the core logic of the Arrow C++ library is encapsulated in classes and methods. In the arrow R package these are implemented as [`R6`](https://r6.r-lib.org) classes that all adopt "TitleCase" naming conventions. Some examples of these include:
 
-## Reading and writing files
+- Two-dimensional, tabular data structures such as `Table`, `RecordBatch`, and `Dataset`
+- One-dimensional, vector-like data structures such as `Array` and `ChunkedArray`
+- Classes for reading, writing, and streaming data such as `ParquetFileReader` and `CsvTableReader`
 
-`arrow` provides some simple functions for using the Arrow C++ library to read and write files.
-These functions are designed to drop into your normal R workflow
-without requiring any knowledge of the Arrow C++ library
-and use naming conventions and arguments that follow popular R packages, particularly `readr`.
-The readers return `data.frame`s
-(or if you use the `tibble` package, they will act like `tbl_df`s),
-and the writers take `data.frame`s.
+This low-level interface allows you to interact with the Arrow C++ library in a very flexible way, but in many common situations you may never need to use it at all, because arrow also supplies a high-level interface using functions that follow a "snake_case" naming convention. Some examples of this include:
 
-Importantly, `arrow` provides basic read and write support for the [Apache
-Parquet](https://parquet.apache.org/) columnar data file format.
+- `arrow_table()` allows you to create Arrow tables without directly using the `Table` object
+- `read_parquet()` allows you to open Parquet files without directly using the `ParquetFileReader` object
 
-```r
-library(arrow)
-df <- read_parquet("path/to/file.parquet")
+All the examples used in this article rely on this high-level interface.
+
+For developers interested in learning more about the package structure, see the [developer guide](./developing.html).
+
+
+## Tabular data in Arrow 
+
+A critical component of Apache Arrow is its in-memory columnar format, a standardized, language-agnostic specification for representing structured, table-like datasets in-memory. In the arrow R package, the `Table` class is used to store these objects. Tables are roughly analogous to data frames and have similar behavior. The `arrow_table()` function allows you to generate new Arrow Tables in much the same way that `data.frame()` is used to create new data frames:
+
+```{r}
+library(arrow, warn.conflicts = FALSE)
+
+dat <- arrow_table(x = 1:3, y = c("a", "b", "c"))
+dat
 ```
 
-Just as you can read, you can write Parquet files:
+You can use `[` to specify subsets of Arrow Table in the same way you would for a data frame:
 
-```r
-write_parquet(df, "path/to/different_file.parquet")
+```{r}
+dat[1:2, 1:2]
 ```
 
-The `arrow` package also includes a faster and more robust implementation of the
-[Feather](https://github.com/wesm/feather) file format, providing `read_feather()` and
-`write_feather()`. This implementation depends
-on the same underlying C++ library as the Python version does,
-resulting in more reliable and consistent behavior across the two languages, as
-well as [improved performance](https://wesmckinney.com/blog/feather-arrow-future/).
-`arrow` also by default writes the Feather V2 format
-([the Arrow IPC file format](https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format)),
-which supports a wider range of data types, as well as compression.
+Along the same lines, the `$` operator can be used to extract named columns:
 
-For CSV and line-delimited JSON, there are `read_csv_arrow()` and `read_json_arrow()`, respectively.
-While `read_csv_arrow()` currently has fewer parsing options for dealing with
-every CSV format variation in the wild, for the files it can read, it is
-often significantly faster than other R CSV readers, such as
-`base::read.csv`, `readr::read_csv`, and `data.table::fread`.
+```{r}
+dat$y
+```
 
-## Working with Arrow data in Python
+Note the output: individual columns in an Arrow Table are represented as Chunked Arrays, which are one-dimensional data structures in Arrow that are roughly analogous to vectors in R. 
 
-Using [`reticulate`](https://rstudio.github.io/reticulate/), `arrow` lets you
-share data between R and Python (`pyarrow`) efficiently, enabling you to take
-advantage of the vibrant ecosystem of Python packages that build on top of
-Apache Arrow. See `vignette("python", package = "arrow")` for details.
+Tables are the primary way to represent rectangular data in-memory using Arrow, but they are not the only rectangular data structure used by the Arrow C++ library: there are also Datasets which are used for data stored on-disk rather than in-memory, and Record Batches which are fundamental building blocks but not typically used in data analysis. 
+
+To learn more about the different data object classes in arrow, see the article on [data objects](./data_objects.html).
+
+## Converting Tables to data frames
+
+Tables are a data structure used to represent rectangular data within memory allocated by the Arrow C++ library, but they can be coerced to native R data frames (or tibbles) using `as.data.frame()`
+
+```{r}
+as.data.frame(dat)
+```
+
+When this coercion takes place, each of the columns in the original Arrow Table must be converted to native R data objects. In the `dat` Table, for instance, `dat$x` is stored as the Arrow data type int32 inherited from C++, which becomes an R integer type when `as.data.frame()` is called. 
+
+It is possible to exercise fine grained control over this conversion process. To learn more about the different types and how they are converted, see the [data types](./data_types.html) article. 
+
+
+## Reading and writing data
+
+One of the main ways to use arrow is to read and write data files in
+several common formats. The arrow package supplies extremely fast CSV reading and writing capabilities, but in addition supports data formats like Parquet and Arrow (also called Feather) that are not widely supported in other packages. In addition, the arrow package supports multi-file data sets in which a single rectangular data set is stored across multiple files. 
+
+### Individual files
+
+When the goal is to read a single data file into memory, there are several functions you can use:
+
+-   `read_parquet()`: read a file in Parquet format
+-   `read_feather()`: read a file in Arrow/Feather format
+-   `read_delim_arrow()`: read a delimited text file 
+-   `read_csv_arrow()`: read a comma-separated values (CSV) file
+-   `read_tsv_arrow()`: read a tab-separated values (TSV) file
+-   `read_json_arrow()`: read a JSON data file
+
+In every case except JSON, there is a corresponding `write_*()` function 
+that allows you to write data files in the appropriate format. 
+
+By default, the `read_*()` functions will return a data frame or tibble, but you can also use them to read data into an Arrow Table. To do this, you need to set the `as_data_frame` argument to `FALSE`. 
+
+In the example below, we take the `starwars` data provided by the dplyr package and write it to a Parquet file using `write_parquet()`
+
+```{r}
+library(dplyr, warn.conflicts = FALSE)
+
+file_path <- tempfile(fileext = ".parquet")
+write_parquet(starwars, file_path)
+```
+
+We can then use `read_parquet()` to load the data from this file. As shown below, the default behavior is to return a data frame (`sw_frame`) but when we set `as_data_frame = FALSE` the data are read as an Arrow Table (`sw_table`):
+
+```{r}
+sw_frame <- read_parquet(file_path)
+sw_table <- read_parquet(file_path, as_data_frame = FALSE)
+sw_table
+```
+
+To learn more about reading and writing individual data files, see the [read/write article](./read_write.html).
+
+### Multi-file data sets
+
+When a tabular data set becomes large, it is often good practice to partition the data into meaningful subsets and store each one in a separate file. Among other things, this means that if only one subset of the data are relevant to an analysis, only one (smaller) file needs to be read. The arrow package provides the Dataset interface, a convenient way to read, write, and analyze a single data file that is larger-than-memory and multi-file data sets. 
+
+To illustrate the concepts, we'll create a nonsense data set with 100000 rows that can be split into 10 subsets:
+
+```{r}
+set.seed(1234)
+nrows <- 100000
+random_data <- data.frame(
+  x = rnorm(nrows),
+  y = rnorm(nrows),
+  subset = sample(10, nrows, replace = TRUE)
+)
+```
+
+What we might like to do is partition this data and then write it to 10 separate Parquet files, one corresponding to each value of the `subset` column. To do this we first specify the path to a folder into which we will write the data files:
+
+```{r}
+dataset_path <- file.path(tempdir(), "random_data")
+```
+
+We can then use `group_by()` function from dplyr to specify that the data will be partitioned using the `subset` column, and then pass the grouped data to `write_dataset()`:
+
+```{r}
+random_data %>%
+  group_by(subset) %>%
+  write_dataset(dataset_path)
+```
+
+This creates a set of 10 files, one for each subset. These files are named according to the "hive partitioning" format as shown below:
+
+```{r}
+list.files(dataset_path, recursive = TRUE)
+```
+
+Each of these Parquet files can be opened individually using `read_parquet()` but is often more convenient -- especially for very large data sets -- to scan the folder and "connect" to the data set without loading it into memory. We can do this using `open_dataset()`:
+
+```{r}
+dset <- open_dataset(dataset_path)
+dset
+```
+
+This `dset` object does not store the data in-memory, only some metadata. However, as discussed in the next section, it is possible to analyze the data referred to be `dset` as if it had been loaded.
+
+To learn more about Arrow Datasets, see the [dataset article](./dataset.html).
+
+## Analyzing Arrow data with dplyr
+
+Arrow Tables and Datasets can be analyzed using dplyr syntax. This is possible because the arrow R package supplies a backend that translates dplyr verbs into commands that are understood by the Arrow C++ library, and will similarly translate R expressions that appear within a call to a dplyr verb. For example, although the `dset` Dataset is not a data frame (and does not store the data values in memory), you can still pass it to a dplyr pipeline like the one shown below:
+
+```{r}
+dset %>%
+  group_by(subset) %>%
+  summarize(mean_x = mean(x), min_y = min(y)) %>%
+  filter(mean_x > 0) %>%
+  arrange(subset) %>%
+  collect()
+```
+
+Notice that we call `collect()` at the end of the pipeline. No actual computations are performed until `collect()` (or the related `compute()` function) is called. This "lazy evaluation" makes it possible for the Arrow C++ compute engine to optimize how the computations are performed. 
+
+To learn more about analyzing Arrow data, see the [data wrangling article](./data_wrangling.html). The [list of functions available in dplyr queries](https://arrow.apache.org/docs/r/reference/acero.html) page may also be useful.
+
+## Connecting to cloud storage
+
+Another use for the arrow R package is to read, write, and analyze data sets stored remotely on cloud services. The package currently supports both Amazon Simple Storage Service (S3) and Google Cloud Storage (GCS). The example below illustrates how you can use `s3_bucket()` to refer to a an S3 bucket, and use `open_dataset()` to connect to the data set stored there:
+
+```{r, eval=FALSE}
+bucket <- s3_bucket("voltrondata-labs-datasets/nyc-taxi")
+nyc_taxi <- open_dataset(bucket)
+```
+
+To learn more about the support for cloud services in arrow, see the [cloud storage](./fs.html) article.
+
+## Efficient data interchange between R and Python
+
+The [reticulate](https://rstudio.github.io/reticulate/) package provides an interface that allows you to call Python code from R. The arrow package is designed to be interoperable with reticulate. If the Python environment has the pyarrow library installed (the Python equivalent to the arrow package), you can pass an Arrow Table from R to Python using the `r_to_py()` function in reticulate as shown below:
+
+```{r}
+library(reticulate)
+
+sw_table_python <- r_to_py(sw_table)
+```
+
+The `sw_table_python` object is now stored as a pyarrow Table: the Python equivalent of the Table class. You can see this when you print the object:
+
+```{r}
+sw_table_python
+```
+
+It is important to recognize that when this transfer takes place, only the C++ pointer (i.e., metadata referring to the underlying data object stored by the Arrow C++ library) is copied. The data values themselves in the same place within memory. The consequence of this is that it is much faster to pass an Arrow Table from R to Python than to copy a data frame in R to a Pandas DataFrame in Python. 
+
+To learn more about passing Arrow data between R and Python, see the article on [python integrations](./python.html).
 
 ## Access to Arrow messages, buffers, and streams
 
-The `arrow` package also provides many lower-level bindings to the C++ library, which enable you
+The arrow package also provides many lower-level bindings to the C++ library, which enable you
 to access and manipulate Arrow objects. You can use these to build connectors
 to other applications and services that use Arrow. One example is Spark: the
 [`sparklyr`](https://spark.rstudio.com/) package has support for using Arrow to
 move data to and from Spark, yielding [significant performance
 gains](https://arrow.apache.org/blog/2019/01/25/r-spark-improvements/).
 
-# Object hierarchy
+## Contributing to arrow
 
-## Metadata objects
+Apache Arrow is an extensive project spanning multiple languages, and the arrow R package is only one part of this large project. Because of this there are a number of special considerations for developers who would like to contribute to the package. To help make this process easier, there are several articles in the arrow documentation that discuss topics that are relevant to arrow developers, but are very unlikely to be needed by users.
 
-Arrow defines the following classes for representing metadata:
+For an overview of the development process and a list of related articles for developers, see the [developer guide](./developing.html).
 
-| Class      | Description                                        | How to create an instance        |
-| ---------- | -------------------------------------------------- | -------------------------------- |
-| `DataType` | attribute controlling how values are represented   | functions in `help("data-type")` |
-| `Field`    | a character string name and a `DataType`           | `field(name, type)`              |
-| `Schema`   | list of `Field`s                                   | `schema(...)`                    |
-
-## Data objects
-
-Arrow defines the following classes for representing zero-dimensional (scalar),
-one-dimensional (array/vector-like), and two-dimensional (tabular/data
-frame-like) data:
-
-| Dim | Class          | Description                               | How to create an instance                                                                             |
-| --- | -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------|
-| 0   | `Scalar`       | single value and its `DataType`           | `Scalar$create(value, type)`                                                                          |
-| 1   | `Array`        | vector of values and its `DataType`       | `Array$create(vector, type)`                                                                          | 
-| 1   | `ChunkedArray` | vectors of values and their `DataType`    | `ChunkedArray$create(..., type)` or alias `chunked_array(..., type)`                                  |
-| 2   | `RecordBatch`  | list of `Array`s with a `Schema`          | `RecordBatch$create(...)` or alias `record_batch(...)`                                                |
-| 2   | `Table`        | list of `ChunkedArray` with a `Schema`    | `Table$create(...)`, alias `arrow_table(...)`, or `arrow::read_*(file, as_data_frame = FALSE)`        |
-| 2   | `Dataset`      | list of `Table`s  with the same `Schema`  | `Dataset$create(sources, schema)` or alias `open_dataset(sources, schema)`                            |
-
-Each of these is defined as an `R6` class in the `arrow` R package and
-corresponds to a class of the same name in the Arrow C++ library. The `arrow`
-package provides a variety of `R6` and S3 methods for interacting with instances
-of these classes.
-
-For convenience, the `arrow` package also defines several synthetic classes that
-do not exist in the C++ library, including:
-
-* `ArrowDatum`: inherited by `Scalar`, `Array`, and `ChunkedArray`
-* `ArrowTabular`: inherited by `RecordBatch` and `Table`
-* `ArrowObject`: inherited by all Arrow objects
-
-# Internals
-
-## Mapping of R <--> Arrow types
-
-Arrow has a rich data type system that includes direct parallels with R's data types and much more.
-
-In the tables, entries with a `-` are not currently implemented.
-
-### R to Arrow
-
-| R type                   | Arrow type |
-|--------------------------|------------|
-| logical                  | boolean    |
-| integer                  | int32      |
-| double ("numeric")       | float64^1^ |
-| character                | utf8^2^    |
-| factor                   | dictionary |
-| raw                      | uint8      |
-| Date                     | date32     |
-| POSIXct                  | timestamp  |
-| POSIXlt                  | struct     |
-| data.frame               | struct     |
-| list^3^                  | list       |
-| bit64::integer64         | int64      |
-| hms::hms                 | time32     |
-| difftime                 | duration   |
-| vctrs::vctrs_unspecified | null       |
-
-
-
-^1^: `float64` and `double` are the same concept and data type in Arrow C++; 
-however, only `float64()` is used in arrow as the function `double()` already 
-exists in base R
-
-^2^: If the character vector exceeds 2GB of strings, it will be converted to a 
-`large_utf8` Arrow type
-
-^3^: Only lists where all elements are the same type are able to be translated 
-to Arrow list type (which is a "list of" some type).
-
-
-### Arrow to R
-
-| Arrow type        | R type                       |
-|-------------------|------------------------------|
-| boolean           | logical                      |
-| int8              | integer                      |
-| int16             | integer                      |
-| int32             | integer                      |
-| int64             | integer^1^                   |
-| uint8             | integer                      |
-| uint16            | integer                      |
-| uint32            | integer^1^                   |
-| uint64            | integer^1^                   |
-| float16           | -^2^                         |
-| float32           | double                       |
-| float64           | double                       |
-| utf8              | character                    |
-| large_utf8        | character                    |
-| binary            | arrow_binary ^3^             |
-| large_binary      | arrow_large_binary ^3^       |
-| fixed_size_binary | arrow_fixed_size_binary ^3^  |
-| date32            | Date                         |
-| date64            | POSIXct                      |
-| time32            | hms::hms                     |
-| time64            | hms::hms                     |
-| timestamp         | POSIXct                      |
-| duration          | difftime                     |
-| decimal           | double                       |
-| dictionary        | factor^4^                    |
-| list              | arrow_list ^5^               |
-| large_list        | arrow_large_list ^5^         |
-| fixed_size_list   | arrow_fixed_size_list ^5^    |
-| struct            | data.frame                   |
-| null              | vctrs::vctrs_unspecified     |
-| map               | arrow_list ^5^               |
-| union             | -^2^                         |
-
-^1^: These integer types may contain values that exceed the range of R's 
-`integer` type (32-bit signed integer). When they do, `uint32` and `uint64` are 
-converted to `double` ("numeric") and `int64` is converted to 
-`bit64::integer64`. This conversion can be disabled (so that `int64` always
-yields a `bit64::integer64` vector) by setting `options(arrow.int64_downcast = FALSE)`.
-
-^2^: Some Arrow data types do not currently have an R equivalent and will raise an error
-if cast to or mapped to via a schema.
-
-^3^: `arrow*_binary` classes are implemented as lists of raw vectors. 
-
-^4^: Due to the limitation of R factors, Arrow `dictionary` values are coerced
-to string when translated to R if they are not already strings.
-
-^5^: `arrow*_list` classes are implemented as subclasses of `vctrs_list_of` 
-with a `ptype` attribute set to what an empty Array of the value type converts to. 
-
-
-### R object attributes
-
-Arrow supports custom key-value metadata attached to Schemas. When we convert a `data.frame` to an Arrow Table or RecordBatch, the package stores any `attributes()` attached to the columns of the `data.frame` in the Arrow object's Schema. These attributes are stored under the "r" key; you can assign additional string metadata under any other key you wish, like `x$metadata$new_key <- "new value"`.
-
-This metadata is preserved when writing the table to Feather or Parquet, and when reading those files into R, or when calling `as.data.frame()` on a Table/RecordBatch, the column attributes are restored to the columns of the resulting `data.frame`. This means that custom data types, including `haven::labelled`, `vctrs` annotations, and others, are preserved when doing a round-trip through Arrow.
-
-Note that the `attributes()` stored in `$metadata$r` are only understood by R. If you write a `data.frame` with `haven` columns to a Feather file and read that in Pandas, the `haven` metadata won't be recognized there. (Similarly, Pandas writes its own custom metadata, which the R package does not consume.) You are free, however, to define custom metadata conventions for your application and assign any (string) values you want to other metadata keys. For more details, see the documentation for `schema()`.
-
-## Class structure and package conventions
-
-C++ is an object-oriented language, so the core logic of the Arrow library is encapsulated in classes and methods. In the R package, these classes are implemented as [`R6`](https://r6.r-lib.org) classes, most of which are exported from the namespace.
-
-In order to match the C++ naming conventions, the `R6` classes are in TitleCase, e.g. `RecordBatch`. This makes it easy to look up the relevant C++ implementations in the [code](https://github.com/apache/arrow/tree/master/cpp) or [documentation](https://arrow.apache.org/docs/cpp/). To simplify things in R, the C++ library namespaces are generally dropped or flattened; that is, where the C++ library has `arrow::io::FileOutputStream`, it is just `FileOutputStream` in the R package. One exception is for the file readers, where the namespace is necessary to disambiguate. So `arrow::csv::TableReader` becomes `CsvTableReader`, and `arrow::json::TableReader` becomes `JsonTableReader`.
-
-Some of these classes are not meant to be instantiated directly; they may be base classes or other kinds of helpers. For those that you should be able to create, use the `$create()` method to instantiate an object. For example, `rb <- RecordBatch$create(int = 1:10, dbl = as.numeric(1:10))` will create a `RecordBatch`. Many of these factory methods that an R user might most often encounter also have a `snake_case` alias, in order to be more familiar for contemporary R users. So `record_batch(int = 1:10, dbl = as.numeric(1:10))` would do the same as `RecordBatch$create()` above.
-
-The typical user of the `arrow` R package may never deal directly with the `R6` objects. We provide more R-friendly wrapper functions as a higher-level interface to the C++ library. An R user can call `read_parquet()` without knowing or caring that they're instantiating a `ParquetFileReader` object and calling the `$ReadFile()` method on it. The classes are there and available to the advanced programmer who wants fine-grained control over how the C++ library is used.

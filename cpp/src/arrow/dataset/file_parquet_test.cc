@@ -23,8 +23,9 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/test_common.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -32,10 +33,14 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/range.h"
 
 #include "parquet/arrow/writer.h"
+#include "parquet/file_reader.h"
 #include "parquet/metadata.h"
+#include "parquet/statistics.h"
+#include "parquet/types.h"
 
 namespace arrow {
 
@@ -112,8 +117,9 @@ class ParquetFormatHelper {
       const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
           default_arrow_writer_properties()) {
     std::unique_ptr<parquet::arrow::FileWriter> writer;
-    RETURN_NOT_OK(parquet::arrow::FileWriter::Open(
-        *reader->schema(), pool, sink, properties, arrow_properties, &writer));
+    ARROW_ASSIGN_OR_RAISE(writer,
+                          parquet::arrow::FileWriter::Open(*reader->schema(), pool, sink,
+                                                           properties, arrow_properties));
     RETURN_NOT_OK(WriteRecordBatchReader(reader, writer.get()));
     return writer->Close();
   }
@@ -231,7 +237,7 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
 
   auto fragment = MakeFragment(*source);
 
-  ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(kTotalNumRows),
+  ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(kTotalNumRows),
                             fragment->CountRows(literal(true), options));
 
   for (int i = 1; i <= kNumRowGroups; i++) {
@@ -240,18 +246,18 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
     auto predicate = less_equal(field_ref("i64"), literal(i));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
     auto expected = i * (i + 1) / 2;
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(expected),
                               fragment->CountRows(predicate, options));
 
     predicate = and_(less_equal(field_ref("i64"), literal(i)),
                      greater_equal(field_ref("i64"), literal(i)));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(i),
                               fragment->CountRows(predicate, options));
 
     predicate = equal(field_ref("i64"), literal(i));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(i),
                               fragment->CountRows(predicate, options));
   }
 
@@ -278,17 +284,62 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
     ASSERT_OK_AND_ASSIGN(
         auto predicate,
         greater_equal(field_ref("i64"), literal(1)).Bind(*dataset_schema));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(4),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(4),
                               fragment->CountRows(predicate, options));
 
     ASSERT_OK_AND_ASSIGN(predicate, is_null(field_ref("i64")).Bind(*dataset_schema));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(3),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(3),
                               fragment->CountRows(predicate, options));
 
     ASSERT_OK_AND_ASSIGN(predicate, is_valid(field_ref("i64")).Bind(*dataset_schema));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(4),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(4),
                               fragment->CountRows(predicate, options));
   }
+}
+
+TEST_F(TestParquetFileFormat, CachedMetadata) {
+  // Create a test file
+  auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+  std::shared_ptr<Schema> test_schema = schema({field("x", int32())});
+  std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(test_schema, "[[0]]");
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::OutputStream> out_stream,
+                       mock_fs->OpenOutputStream("/foo.parquet"));
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<FileWriter> writer,
+      format_->MakeWriter(out_stream, test_schema, format_->DefaultWriteOptions(),
+                          {mock_fs, "/foo.parquet"}));
+  ASSERT_OK(writer->Write(batch));
+  ASSERT_FINISHES_OK(writer->Finish());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::RandomAccessFile> test_file,
+                       mock_fs->OpenInputFile("/foo.parquet"));
+  std::shared_ptr<io::TrackedRandomAccessFile> tracked_input =
+      io::TrackedRandomAccessFile::Make(test_file.get());
+
+  FileSource source(tracked_input);
+  ASSERT_OK_AND_ASSIGN(auto fragment,
+                       format_->MakeFragment(std::move(source), literal(true)));
+
+  // Read the file the first time, will read metadata
+  auto options = std::make_shared<ScanOptions>();
+  options->filter = literal(true);
+  ASSERT_OK_AND_ASSIGN(auto projection_descr,
+                       ProjectionDescr::FromNames({"x"}, *test_schema));
+  options->projected_schema = projection_descr.schema;
+  options->projection = projection_descr.expression;
+  ASSERT_OK_AND_ASSIGN(auto generator, fragment->ScanBatchesAsync(options));
+  ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+
+  ASSERT_GT(tracked_input->bytes_read(), 0);
+  int64_t bytes_read_first_time = tracked_input->bytes_read();
+
+  ASSERT_OK(tracked_input->Seek(0));
+
+  // Read the file the second time, should not read metadata
+  ASSERT_OK_AND_ASSIGN(generator, fragment->ScanBatchesAsync(options));
+  ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+  int64_t bytes_read_second_time = tracked_input->bytes_read() - bytes_read_first_time;
+  ASSERT_LT(bytes_read_second_time, bytes_read_first_time);
 }
 
 TEST_F(TestParquetFileFormat, MultithreadedScan) {
@@ -388,6 +439,7 @@ class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper
 
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestParquetFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestParquetFileFormatScan, ScanNoReadahead) { TestScanNoReadahead(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjectedNested) {
   // TODO(ARROW-1888): enable fine-grained column projection.
@@ -629,6 +681,18 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringC
 INSTANTIATE_TEST_SUITE_P(TestScan, TestParquetFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
+
+TEST(TestParquetStatistics, NullMax) {
+  auto field = ::arrow::field("x", float32());
+  ASSERT_OK_AND_ASSIGN(std::string dir_string,
+                       arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+  auto reader =
+      parquet::ParquetFileReader::OpenFile(dir_string + "/nan_in_stats.parquet");
+  auto statistics = reader->RowGroup(0)->metadata()->ColumnChunk(0)->statistics();
+  auto stat_expression =
+      ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
+  EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
+}
 
 }  // namespace dataset
 }  // namespace arrow

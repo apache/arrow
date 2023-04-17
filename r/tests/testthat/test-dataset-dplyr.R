@@ -143,7 +143,7 @@ test_that("mutate()", {
 chr: string
 dbl: double
 int: int32
-twice: double (multiply_checked(int, 2))
+twice: int32 (multiply_checked(int, 2))
 
 * Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
 See $.data for the source Arrow object",
@@ -178,7 +178,7 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_error(
     ds %>%
-      filter(int == "fff", part == 1) %>%
+      filter(int == Expression$scalar("fff"), part == 1) %>%
       collect(),
     "'equal' has no kernel matching input types .int32, string."
   )
@@ -219,7 +219,7 @@ test_that("arrange()", {
 chr: string
 dbl: double
 int: int32
-twice: double (multiply_checked(int, 2))
+twice: int32 (multiply_checked(int, 2))
 
 * Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
 * Sorted by chr [asc], multiply_checked(int, 2) [desc], add_checked(dbl, int) [asc]
@@ -284,13 +284,9 @@ test_that("compute()/collect(as_data_frame=FALSE)", {
     group_by(fct) %>%
     compute()
 
-  # the group_by() prevents compute() from returning a Table...
-  expect_s3_class(tab5, "arrow_dplyr_query")
-
-  # ... but $.data is a Table...
-  expect_r6_class(tab5$.data, "Table")
-  # ... and the mutate() was evaluated
-  expect_true("negint" %in% names(tab5$.data))
+  expect_r6_class(tab5, "Table")
+  # mutate() was evaluated
+  expect_true("negint" %in% names(tab5))
 })
 
 test_that("head/tail on query on dataset", {
@@ -356,9 +352,9 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
     ds %>%
       show_exec_plan(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
-      "ProjectNode.*",              # output columns
-      "SourceNode"                  # entry point
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*", # output columns
+      "SourceNode" # entry point
     )
   )
 
@@ -369,11 +365,11 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       filter(integer > 6L & part == 1) %>%
       show_exec_plan(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
-      "ProjectNode.*",              # output columns
-      "FilterNode.*",               # filter node
-      "int > 6.*cast.*",            # filtering expressions + auto-casting of part
-      "SourceNode"                  # entry point
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*", # output columns
+      "FilterNode.*", # filter node
+      "int > 6.*", # filtering expressions
+      "SourceNode" # entry point
     )
   )
 
@@ -384,13 +380,12 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       summarise(avg = mean(int)) %>%
       show_exec_plan(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*",  # boiler plate for ExecPlan
-      "ProjectNode.*",              # output columns
-      "GroupByNode.*",              # group by node
-      "keys=.*part.*",              # key for aggregations
-      "aggregates=.*hash_mean.*",   # aggregations
-      "ProjectNode.*",              # input columns
-      "SourceNode"                  # entry point
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "GroupByNode.*", # group by node
+      "keys=.*part.*", # key for aggregations
+      "aggregates=.*hash_mean.*", # aggregations
+      "ProjectNode.*", # input columns
+      "SourceNode" # entry point
     )
   )
 
@@ -401,23 +396,12 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       arrange(chr) %>%
       show_exec_plan(),
     regexp = paste0(
-      "ExecPlan with .* nodes:.*",   # boiler plate for ExecPlan
-      "OrderBySinkNode.*chr.*ASC.*", # arrange goes via the OrderBy sink node
-      "ProjectNode.*",               # output columns
-      "FilterNode.*",                # filter node
-      "filter=lgl.*",                # filtering expression
-      "SourceNode"                   # entry point
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "OrderByNode.*chr.*ASC.*", # arrange goes via the OrderBy node
+      "ProjectNode.*", # output columns
+      "FilterNode.*", # filter node
+      "filter=lgl.*", # filtering expression
+      "SourceNode" # entry point
     )
-  )
-
-  # printing the ExecPlan for a nested query would currently force the
-  # evaluation of the inner one(s), which we want to avoid => no output
-  expect_warning(
-    ds %>%
-      filter(lgl) %>%
-      arrange(chr) %>%
-      head() %>%
-      show_exec_plan(),
-    "The `ExecPlan` cannot be printed for a nested query."
   )
 })

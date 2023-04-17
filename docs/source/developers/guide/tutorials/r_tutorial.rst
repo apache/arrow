@@ -98,19 +98,12 @@ the instructions for the building process in this tutorial.
    For the **instructions** on how to build the R package refer to the
    `R developer docs <https://arrow.apache.org/docs/r/articles/developing.html>`_.
 
-JIRA issue
-----------
+The issue
+---------
 
-In this tutorial we will be tackling a JIRA issue for implementing
+In this tutorial we will be tackling an issue for implementing
 a simple binding for ``mday()`` function that will match that of the
-existing R function from ``lubridate``. The issue can be found on
-`this link <https://issues.apache.org/jira/browse/ARROW-14816>`_.
-
-.. figure:: /developers/images/R_tutorial_jira_issue.jpeg
-   :scale: 40 %
-   :alt: JIRA page of the issue for the R binding.
-
-   JIRA page of the issue for the lubridate::mday() binding.
+existing R function from ``lubridate``.
 
 .. note::
 
@@ -124,13 +117,13 @@ Start the work on a new branch
 ------------------------------
 
 Before we start working on adding the binding we should
-create a new branch from the updated master.
+create a new branch from the updated main.
 
 .. code:: console
 
-   $ git checkout master
+   $ git checkout main
    $ git fetch upstream
-   $ git pull --ff-only upstream master
+   $ git pull --ff-only upstream main
    $ git checkout -b ARROW-14816
 
 Now we can start with researching the R function and the C++ Arrow
@@ -378,7 +371,7 @@ We can use ``git log`` to check the history of commits:
 
        Adding a binding and a test for mday() lubridate
 
-   commit c5358787ee8f7b80f067292f49e5f032854041b9 (upstream/master, upstream/HEAD, master, ARROW-15346, ARROW-10643)
+   commit c5358787ee8f7b80f067292f49e5f032854041b9 (upstream/main, upstream/HEAD, main, ARROW-15346, ARROW-10643)
    Author: Krisztián Szűcs <szucs.krisztian@gmail.com>
    Date:   Thu Jan 20 09:45:59 2022 +0900
 
@@ -392,11 +385,11 @@ We can use ``git log`` to check the history of commits:
        Signed-off-by: Sutou Kouhei <kou@clear-code.com>
 
 If we started the branch some time ago, we may need to rebase
-to upstream master to make sure there are no merge conflicts:
+to upstream main to make sure there are no merge conflicts:
 
 .. code:: console
 
-   $ git pull upstream master --rebase
+   $ git pull upstream main --rebase
 
 And now we can push our work to the forked Arrow repository
 on GitHub called origin.
@@ -435,7 +428,11 @@ by clicking on **Compare & pull request**.
 
 First we need to change the Title to **ARROW-14816: [R] Implement
 bindings for lubridate::mday()** in order to match it with the
-JIRA issue. Note a punctuation mark was added!
+issue. Note a punctuation mark was added!
+
+*Extra note: when this tutorial was created, we had been using the Jira issue
+tracker. As we are currently using GitHub issues, the title would be prefixed
+with GH-14816: [R] Implement bindings for lubridate::mday()*.
 
 We will also add a description to make it clear to others what we are trying to do.
 
@@ -456,7 +453,7 @@ a Pull Request in the Apache Arrow repository.
 
    Here it is, our Pull Request!
 
-The pull request gets connected to the JIRA issue and the CI is running.
+The pull request gets connected to the issue and the CI is running.
 After some time passes and we get a review we can correct the code,
 comment, resolve conversations and so on.
 

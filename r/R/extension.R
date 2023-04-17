@@ -252,7 +252,7 @@ ExtensionType$create <- function(storage_type,
 #' that provide some customized behaviour and/or storage. A common use-case
 #' for extension types is to define a customized conversion between an
 #' an Arrow [Array] and an R object when the default conversion is slow
-#' or looses metadata important to the interpretation of values in the array.
+#' or loses metadata important to the interpretation of values in the array.
 #' For most types, the built-in
 #' [vctrs extension type][vctrs_extension_type] is probably sufficient.
 #'

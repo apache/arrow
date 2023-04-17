@@ -18,6 +18,7 @@
 #include "arrow/flight/transport/ucx/ucx_internal.h"
 
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -35,11 +36,14 @@
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
+#include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
+
+using internal::ToChars;
+
 namespace flight {
 namespace transport {
 namespace ucx {
@@ -273,8 +277,8 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
         raw_uri += uri.host();
       }
       raw_uri += ":";
-      raw_uri += std::to_string(
-          ntohs(reinterpret_cast<const sockaddr_in*>(&attr.sockaddr)->sin_port));
+      raw_uri +=
+          ToChars(ntohs(reinterpret_cast<const sockaddr_in*>(&attr.sockaddr)->sin_port));
       std::string listen_str;
       ARROW_UNUSED(SockaddrToString(attr.sockaddr).Value(&listen_str));
       FLIGHT_LOG(DEBUG) << "Listening on " << listen_str;
@@ -362,7 +366,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
     SERVER_RETURN_NOT_OK(driver, driver->ExpectFrameType(*frame, FrameType::kBuffer));
     FlightDescriptor descriptor;
     SERVER_RETURN_NOT_OK(driver,
-                         FlightDescriptor::Deserialize(util::string_view(*frame->buffer))
+                         FlightDescriptor::Deserialize(std::string_view(*frame->buffer))
                              .Value(&descriptor));
 
     std::unique_ptr<FlightInfo> info;
@@ -434,7 +438,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
   }
 
   void WorkerLoop(ucp_conn_request_h request) {
-    std::string peer = "unknown:" + std::to_string(counter_++);
+    std::string peer = "unknown:" + ToChars(counter_++);
     {
       ucp_conn_request_attr_t request_attr;
       std::memset(&request_attr, 0, sizeof(request_attr));
@@ -609,7 +613,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
 
 std::unique_ptr<arrow::flight::internal::ServerTransport> MakeUcxServerImpl(
     FlightServerBase* base, std::shared_ptr<MemoryManager> memory_manager) {
-  return arrow::internal::make_unique<UcxServerImpl>(base, memory_manager);
+  return std::make_unique<UcxServerImpl>(base, memory_manager);
 }
 
 #undef SERVER_RETURN_NOT_OK

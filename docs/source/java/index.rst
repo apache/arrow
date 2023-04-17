@@ -30,9 +30,12 @@ on the Arrow format and other language bindings see the :doc:`parent documentati
    memory
    vector
    vector_schema_root
+   table
    ipc
    algorithm
    flight
+   flight_sql
+   flight_sql_jdbc_driver
    dataset
    cdata
    jdbc

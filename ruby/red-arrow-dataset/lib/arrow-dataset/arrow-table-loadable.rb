@@ -36,13 +36,21 @@ module ArrowDataset
     end
 
     def internal_load_from_uri(uri)
-      format = FileFormat.resolve(@options[:format])
+      options = @options.dup
+      format = FileFormat.resolve(options.delete(:format))
       dataset = FileSystemDataset.build(format) do |factory|
         factory.file_system_uri = uri
+        finish_options = FinishOptions.new
+        FinishOptions.instance_methods(false).each do |method|
+          next unless method.to_s.end_with?("=")
+          value = options.delete(method[0..-2].to_sym)
+          next if value.nil?
+          finish_options.public_send(method, value)
+        end
+        finish_options
       end
       scanner_builder = dataset.begin_scan
-      @options.each do |key, value|
-        next if key == :format
+      options.each do |key, value|
         next if value.nil?
         setter = "#{key}="
         next unless scanner_builder.respond_to?(setter)

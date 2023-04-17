@@ -119,12 +119,12 @@ class AesDecryptor {
 
 std::string CreateModuleAad(const std::string& file_aad, int8_t module_type,
                             int16_t row_group_ordinal, int16_t column_ordinal,
-                            int16_t page_ordinal);
+                            int32_t page_ordinal);
 
 std::string CreateFooterAad(const std::string& aad_prefix_bytes);
 
 // Update last two bytes of page (or page header) module AAD
-void QuickUpdatePageAad(const std::string& AAD, int16_t new_page_ordinal);
+void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD);
 
 // Wraps OpenSSL RAND_bytes function
 void RandBytes(unsigned char* buf, int num);

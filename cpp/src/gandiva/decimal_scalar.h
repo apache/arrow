@@ -40,7 +40,8 @@ class DecimalScalar128 : public BasicDecimalScalar128 {
       : BasicDecimalScalar128(Decimal128(value), precision, scale) {}
 
   /// \brief constructor creates a DecimalScalar128 from a BasicDecimalScalar128.
-  constexpr DecimalScalar128(const BasicDecimalScalar128& scalar) noexcept
+  constexpr DecimalScalar128(
+      const BasicDecimalScalar128& scalar) noexcept  // NOLINT(runtime/explicit)
       : BasicDecimalScalar128(scalar) {}
 
   inline std::string ToString() const {

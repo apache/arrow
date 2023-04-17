@@ -19,9 +19,14 @@
 
 #pragma once
 
+#include <memory>
+
+#include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/visibility.h"
-#include "arrow/type_fwd.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 
 #include "substrait/plan.pb.h"  // IWYU pragma: export
 
@@ -48,8 +53,20 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 /// correspond to Substrait's URI/name pairs
 ARROW_ENGINE_EXPORT
 Result<ExtensionSet> GetExtensionSetFromPlan(
-    const substrait::Plan& plan,
+    const substrait::Plan& plan, const ConversionOptions& conversion_options,
     const ExtensionIdRegistry* registry = default_extension_id_registry());
+
+/// \brief Serialize a declaration into a substrait::Plan.
+///
+/// Note that, this is a part of a roundtripping test API and not
+/// designed for use in production
+/// \param[in] declr the sequence of declarations to be serialized
+/// \param[in, out] ext_set the extension set to be updated
+/// \param[in] conversion_options options to control serialization behavior
+/// \return the serialized plan
+ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Plan>> PlanToProto(
+    const acero::Declaration& declr, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options = {});
 
 }  // namespace engine
 }  // namespace arrow

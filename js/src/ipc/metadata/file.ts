@@ -22,7 +22,6 @@ import { Footer as _Footer } from '../../fb/footer.js';
 
 import * as flatbuffers from 'flatbuffers';
 
-import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
 import ByteBuffer = flatbuffers.ByteBuffer;
 
@@ -30,6 +29,7 @@ import { Schema } from '../../schema.js';
 import { MetadataVersion } from '../../enum.js';
 import { toUint8Array } from '../../util/buffer.js';
 import { ArrayBufferViewInput } from '../../util/buffer.js';
+import { bigIntToNumber } from '../../util/bigint.js';
 
 /** @ignore */
 class Footer_ {
@@ -148,8 +148,8 @@ export class FileBlock {
     /** @nocollapse */
     public static encode(b: Builder, fileBlock: FileBlock) {
         const { metaDataLength } = fileBlock;
-        const offset = new Long(fileBlock.offset, 0);
-        const bodyLength = new Long(fileBlock.bodyLength, 0);
+        const offset = BigInt(fileBlock.offset);
+        const bodyLength = BigInt(fileBlock.bodyLength);
         return _Block.createBlock(b, offset, metaDataLength, bodyLength);
     }
 
@@ -157,9 +157,9 @@ export class FileBlock {
     public bodyLength: number;
     public metaDataLength: number;
 
-    constructor(metaDataLength: number, bodyLength: Long | number, offset: Long | number) {
+    constructor(metaDataLength: number, bodyLength: bigint | number, offset: bigint | number) {
         this.metaDataLength = metaDataLength;
-        this.offset = typeof offset === 'number' ? offset : offset.low;
-        this.bodyLength = typeof bodyLength === 'number' ? bodyLength : bodyLength.low;
+        this.offset = bigIntToNumber(offset);
+        this.bodyLength = bigIntToNumber(bodyLength);
     }
 }

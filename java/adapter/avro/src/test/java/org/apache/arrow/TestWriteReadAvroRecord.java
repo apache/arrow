@@ -48,7 +48,9 @@ public class TestWriteReadAvroRecord {
   public void testWriteAndRead() throws Exception {
 
     File dataFile = TMP.newFile();
-    Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(), "schema", "test.avsc");
+    Path schemaPath = Paths.get(
+            Paths.get(TestWriteReadAvroRecord.class.getResource("/").toURI()).toString(),
+            "schema", "test.avsc");
     Schema schema = new Schema.Parser().parse(schemaPath.toFile());
 
     //write data to disk

@@ -82,7 +82,7 @@ of adding a basic feature.
    Arrow libraries include a wide range of functionalities and may require
    the installation of third-party packages, depending on which build
    options and components you enable. The C++ build guide
-   has suggestions for for commonly encountered issues - you can find it
+   has suggestions for commonly encountered issues - you can find it
    :ref:`here <cpp-development>`. 
    Anytime you are stuck, feel free to reach out via
    appropriate :ref:`communication` channel.
@@ -128,7 +128,7 @@ of adding a basic feature.
 
    Communication is very important. You may need some help solving problems
    you encounter on the way (this happens to developers all the time). Also,
-   if you have a JIRA issue you want to solve, then it is advisable to let the team
+   if you have a GitHub issue you want to solve, then it is advisable to let the team
    know you are working on it and may need some help.
 
    See possible channels of :ref:`communication`.
@@ -147,11 +147,23 @@ of adding a basic feature.
 If you are ready you can start with building Arrow or choose to follow
 one of the :ref:`tutorial-index` on writing an R binding or Python feature.
 
-You can also take a look at the :ref:`documentation` or
-:ref:`other-resources` section.
+Different ways to contribute
+============================
+
+There are lots of ways to contribute to the project besides writing code!
+
+* Improving the **documentation** is a great way to start contributing!
+  For more information visit :ref:`documentation` section of the guide.
+
+* **Apache Arrow Cookbooks** are a collection of recipes for solving various problems 
+  and completing different tasks using Apache Arrow. They are also a great way to start
+  contributing. For more information visit
+  `How to contribute to Apache Arrow Cookbook <https://github.com/apache/arrow-cookbook/blob/main/CONTRIBUTING.md>`_
+  located in the Apache Arrow Cookbook repository.
+
+You are also welcome to take a look at :ref:`other-resources` section.
 
 **We want to encourage everyone to contribute to Arrow!**
-
 
 Full Table of Contents
 ======================

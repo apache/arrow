@@ -80,6 +80,14 @@ run
 
 and look for the "custom options" section.
 
+.. note::
+
+   There are a few low-level tests written directly in C++. These tests are
+   implemented in `pyarrow/src/python_test.cc <https://github.com/apache/arrow/blob/main/python/pyarrow/src/python_test.cc>`_,
+   but they are also wrapped in a ``pytest``-based
+   `test module <https://github.com/apache/arrow/blob/main/python/pyarrow/tests/test_cpp_internals.py>`_
+   run automatically as part of the PyArrow test suite.
+
 Test Groups
 -----------
 
@@ -101,7 +109,6 @@ The test groups currently include:
 * ``large_memory``: Test requiring a large amount of system RAM
 * ``orc``: Apache ORC tests
 * ``parquet``: Apache Parquet tests
-* ``plasma``: Plasma Object Store tests
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
 
@@ -138,8 +145,8 @@ For running the benchmarks, see :ref:`python-benchmarks`.
 
 .. _build_pyarrow:
 
-Building on Linux and MacOS
-=============================
+Building on Linux and macOS
+===========================
 
 System Requirements
 -------------------
@@ -189,7 +196,7 @@ dependencies for Arrow C++ and PyArrow as pre-built binaries, which can make
 Arrow development easier and faster.
 
 Let's create a conda environment with all the C++ build and Python dependencies
-from conda-forge, targeting development for Python 3.9:
+from conda-forge, targeting development for Python 3.10:
 
 On Linux and macOS:
 
@@ -201,7 +208,7 @@ On Linux and macOS:
           --file arrow/ci/conda_env_python.txt \
           --file arrow/ci/conda_env_gandiva.txt \
           compilers \
-          python=3.9 \
+          python=3.10 \
           pandas
 
 As of January 2019, the ``compilers`` package is needed on many Linux
@@ -278,6 +285,7 @@ about our build toolchain:
 
    $ export ARROW_HOME=$(pwd)/dist
    $ export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+   $ export CMAKE_PREFIX_PATH=$ARROW_HOME:$CMAKE_PREFIX_PATH
 
 Build and test
 --------------
@@ -289,21 +297,24 @@ created above (stored in ``$ARROW_HOME``):
 
    $ mkdir arrow/cpp/build
    $ pushd arrow/cpp/build
-
    $ cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
            -DCMAKE_INSTALL_LIBDIR=lib \
            -DCMAKE_BUILD_TYPE=Debug \
+           -DARROW_BUILD_TESTS=ON \
+           -DARROW_COMPUTE=ON \
+           -DARROW_CSV=ON \
            -DARROW_DATASET=ON \
+           -DARROW_FILESYSTEM=ON \
+           -DARROW_HDFS=ON \
+           -DARROW_JSON=ON \
+           -DARROW_PARQUET=ON \
+           -DARROW_WITH_BROTLI=ON \
            -DARROW_WITH_BZ2=ON \
-           -DARROW_WITH_ZLIB=ON \
-           -DARROW_WITH_ZSTD=ON \
            -DARROW_WITH_LZ4=ON \
            -DARROW_WITH_SNAPPY=ON \
-           -DARROW_WITH_BROTLI=ON \
-           -DARROW_PARQUET=ON \
+           -DARROW_WITH_ZLIB=ON \
+           -DARROW_WITH_ZSTD=ON \
            -DPARQUET_REQUIRE_ENCRYPTION=ON \
-           -DARROW_PYTHON=ON \
-           -DARROW_BUILD_TESTS=ON \
            ..
    $ make -j4
    $ make install
@@ -319,7 +330,6 @@ adding flags with ``ON``:
 * ``ARROW_ORC``: Support for Apache ORC file format
 * ``ARROW_PARQUET``: Support for Apache Parquet file format
 * ``PARQUET_REQUIRE_ENCRYPTION``: Support for Parquet Modular Encryption
-* ``ARROW_PLASMA``: Shared memory object store
 
 Anything set to ``ON`` above can also be turned off. Note that some compression
 libraries are recommended for full Parquet support.
@@ -368,7 +378,7 @@ For any other C++ build challenges, see :ref:`cpp-development`.
 In case you may need to rebuild the C++ part due to errors in the process it is
 advisable to delete the build folder with command ``rm -rf arrow/cpp/build``.
 If the build has passed successfully and you need to rebuild due to latest pull
-from git master, then this step is not needed.
+from git main, then this step is not needed.
 
 Now, build pyarrow:
 
@@ -475,23 +485,20 @@ First, starting from a fresh clone of Apache Arrow:
          --file arrow\ci\conda_env_cpp.txt ^
          --file arrow\ci\conda_env_python.txt ^
          --file arrow\ci\conda_env_gandiva.txt ^
-         python=3.9
+         python=3.10
    $ conda activate pyarrow-dev
 
 Now, we build and install Arrow C++ libraries.
 
-We set a number of environment variables:
-
-- the path of the installation directory of the Arrow C++ libraries as
-  ``ARROW_HOME``
-- add the path of installed DLL libraries to ``PATH``
-- and the CMake generator to be used as ``PYARROW_CMAKE_GENERATOR``
+We set the path of the installation directory of the Arrow C++ libraries as
+``ARROW_HOME``. When using a conda environment, Arrow C++ is installed
+in the environment directory, which path is saved in the
+`CONDA_PREFIX <https://docs.conda.io/projects/conda-build/en/latest/user-guide/environment-variables.html#environment-variables-that-affect-the-build-process>`_
+environment variable.
 
 .. code-block::
 
-   $ set ARROW_HOME=%cd%\arrow-dist
-   $ set PATH=%ARROW_HOME%\bin;%PATH%
-   $ set PYARROW_CMAKE_GENERATOR=Visual Studio 15 2017 Win64
+   $ set ARROW_HOME=%CONDA_PREFIX%\Library
 
 Let's configure, build and install the Arrow C++ libraries:
 
@@ -499,18 +506,23 @@ Let's configure, build and install the Arrow C++ libraries:
 
    $ mkdir arrow\cpp\build
    $ pushd arrow\cpp\build
-   $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
+   $ cmake -G "Ninja" ^
          -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
          -DCMAKE_UNITY_BUILD=ON ^
+         -DARROW_COMPUTE=ON ^
+         -DARROW_CSV=ON ^
          -DARROW_CXXFLAGS="/WX /MP" ^
-         -DARROW_WITH_LZ4=on ^
-         -DARROW_WITH_SNAPPY=on ^
-         -DARROW_WITH_ZLIB=on ^
-         -DARROW_WITH_ZSTD=on ^
-         -DARROW_PARQUET=on ^
-         -DARROW_PYTHON=on ^
+         -DARROW_DATASET=ON ^
+         -DARROW_FILESYSTEM=ON ^
+         -DARROW_HDFS=ON ^
+         -DARROW_JSON=ON ^
+         -DARROW_PARQUET=ON ^
+         -DARROW_WITH_LZ4=ON ^
+         -DARROW_WITH_SNAPPY=ON ^
+         -DARROW_WITH_ZLIB=ON ^
+         -DARROW_WITH_ZSTD=ON ^
          ..
-   $ cmake --build . --target INSTALL --config Release
+   $ cmake --build . --target install --config Release
    $ popd
 
 Now, we can build pyarrow:
@@ -519,6 +531,7 @@ Now, we can build pyarrow:
 
    $ pushd arrow\python
    $ set PYARROW_WITH_PARQUET=1
+   $ set CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1
    $ python setup.py build_ext --inplace
    $ popd
 
@@ -526,6 +539,11 @@ Now, we can build pyarrow:
 
    For building pyarrow, the above defined environment variables need to also
    be set. Remember this if to want to re-build ``pyarrow`` after your initial build.
+
+.. note::
+
+   If you are using Conda with Python 3.9 or earlier, you must
+   set ``CONDA_DLL_SEARCH_MODIFICATION_ENABLE=1``.
 
 Then run the unit tests with:
 
@@ -541,69 +559,143 @@ Then run the unit tests with:
    the Python extension. This is recommended for development as it allows the
    C++ libraries to be re-built separately.
 
-   As a consequence however, ``python setup.py install`` will also not install
-   the Arrow C++ libraries. Therefore, to use ``pyarrow`` in python, ``PATH``
-   must contain the directory with the Arrow .dll-files.
+   If you are using the conda package manager then conda will ensure the Arrow C++
+   libraries are found. In case you are *not* using conda then you have to:
 
-   If you want to bundle the Arrow C++ libraries with ``pyarrow``, add
-   the ``--bundle-arrow-cpp`` option when building:
+   * add the path of installed DLL libraries to ``PATH`` every time before
+     importing ``pyarrow``, or
+   * bundle the Arrow C++ libraries with ``pyarrow``.
+
+   If you want to bundle the Arrow C++ libraries with ``pyarrow``, set the
+   ``PYARROW_BUNDLE_ARROW_CPP`` environment variable before building ``pyarrow``:
 
    .. code-block::
 
-      $ python setup.py build_ext --bundle-arrow-cpp
+      $ set PYARROW_BUNDLE_ARROW_CPP=1
+      $ python setup.py build_ext --inplace
 
-   Important: If you combine ``--bundle-arrow-cpp`` with ``--inplace`` the
-   Arrow C++ libraries get copied to the source tree and are not cleared
-   by ``python setup.py clean``. They remain in place and will take precedence
-   over any later Arrow C++ libraries contained in ``PATH``. This can lead to
-   incompatibilities when ``pyarrow`` is later built without
-   ``--bundle-arrow-cpp``.
-
-Running C++ unit tests for Python integration
----------------------------------------------
-
-Running C++ unit tests should not be necessary for most developers. If you do
-want to run them, you need to pass ``-DARROW_BUILD_TESTS=ON`` during
-configuration of the Arrow C++ library build:
-
-.. code-block::
-
-   $ mkdir arrow\cpp\build
-   $ pushd arrow\cpp\build
-   $ cmake -G "%PYARROW_CMAKE_GENERATOR%" ^
-         -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
-         -DARROW_CXXFLAGS="/WX /MP" ^
-         -DARROW_PARQUET=on ^
-         -DARROW_PYTHON=on ^
-         -DARROW_BUILD_TESTS=ON ^
-         ..
-   $ cmake --build . --target INSTALL --config Release
-   $ popd
-
-Getting ``arrow-python-test.exe`` (C++ unit tests for python integration) to
-run is a bit tricky because your ``%PYTHONHOME%`` must be configured to point
-to the active conda environment:
-
-.. code-block::
-
-   $ set PYTHONHOME=%CONDA_PREFIX%
-   $ pushd arrow\cpp\build\release\Release
-   $ arrow-python-test.exe
-   $ popd
-
-To run all tests of the Arrow C++ library, you can also run ``ctest``:
-
-.. code-block::
-
-   $ set PYTHONHOME=%CONDA_PREFIX%
-   $ pushd arrow\cpp\build
-   $ ctest
-   $ popd
+   Note that bundled Arrow C++ libraries will not be automatically
+   updated when rebuilding Arrow C++.
 
 Caveats
 -------
 
-The Plasma component is not supported on Windows.
+Relevant components and environment variables
+=============================================
+
+List of relevant Arrow CMake flags and corresponding environment variables
+to be used when building PyArrow are:
+
+.. list-table::
+   :widths: 30 30
+   :header-rows: 1
+
+   * - Arrow flags/options
+     - Corresponding environment variables for PyArrow
+   * - ``CMAKE_BUILD_TYPE``
+     - ``PYARROW_BUILD_TYPE`` (release, debug or relwithdebinfo)
+   * - ``ARROW_GCS``
+     - ``PYARROW_WITH_GCS``
+   * - ``ARROW_S3``
+     - ``PYARROW_WITH_S3``
+   * - ``ARROW_HDFS``
+     - ``PYARROW_WITH_HDFS``
+   * - ``ARROW_CUDA``
+     - ``PYARROW_WITH_CUDA``
+   * - ``ARROW_SUBSTRAIT``
+     - ``PYARROW_WITH_SUBSTRAIT``
+   * - ``ARROW_FLIGHT``
+     - ``PYARROW_WITH_FLIGHT``
+   * - ``ARROW_DATASET``
+     - ``PYARROW_WITH_DATASET``
+   * - ``ARROW_PARQUET``
+     - ``PYARROW_WITH_PARQUET``
+   * - ``PARQUET_REQUIRE_ENCRYPTION``
+     - ``PYARROW_WITH_PARQUET_ENCRYPTION``
+   * - ``ARROW_TENSORFLOW``
+     - ``PYARROW_WITH_TENSORFLOW``
+   * - ``ARROW_ORC``
+     - ``PYARROW_WITH_ORC``
+   * - ``ARROW_GANDIVA``
+     - ``PYARROW_WITH_GANDIVA``
+
+List of relevant environment variables that can also be used to build
+PyArrow are:
+
+.. list-table::
+   :widths: 20 20 20
+   :header-rows: 1
+
+   * - PyArrow environment variable
+     - Description
+     - Default value
+   * - ``PYARROW_CMAKE_GENERATOR``
+     - Example: ``'Visual Studio 15 2017 Win64'``
+     - ``''``
+   * - ``PYARROW_CMAKE_OPTIONS``
+     - Extra CMake and Arrow options (ex. ``"-DARROW_SIMD_LEVEL=NONE -DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"``)
+     - ``''``
+   * - ``PYARROW_CXXFLAGS``
+     - Extra C++ compiler flags
+     - ``''``
+   * - ``PYARROW_GENERATE_COVERAGE``
+     - Setting ``Xlinetrace`` flag to true for the Cython compiler
+     - ``false``
+   * - ``PYARROW_BUNDLE_ARROW_CPP``
+     - Bundle the Arrow C++ libraries
+     - ``0`` (``OFF``)
+   * - ``PYARROW_BUNDLE_CYTHON_CPP``
+     - Bundle the C++ files generated by Cython
+     - ``0`` (``OFF``)
+   * - ``PYARROW_INSTALL_TESTS``
+     - Add the test to the python package
+     - ``1`` (``ON``)
+   * - ``PYARROW_BUILD_VERBOSE``
+     - Enable verbose output from Makefile builds
+     - ``0`` (``OFF``)
+   * - ``PYARROW_PARALLEL``
+     - Number of processes used to compile PyArrow’s C++/Cython components
+     - ``''``
+
+Deleting stale build artifacts
+==============================
+
+When there have been changes to the structure of the Arrow C++ library or PyArrow,
+a thorough cleaning is recommended as a first attempt to fixing build errors.
+
+.. note::
+
+   It is not necessarily intuitive from the error itself that the problem is due to stale artifacts.
+   Example of a build error from stale artifacts is "Unknown CMake command "arrow_keep_backward_compatibility"".
+
+To delete stale Arrow C++ build artifacts:
+
+.. code-block::
+
+   $ rm -rf arrow/cpp/build
+
+To delete stale PyArrow build artifacts:
+
+.. code-block::
+
+   $ git clean -Xfd python
+
+If using a Conda environment, there are some build artifacts that get installed in
+``$ARROW_HOME`` (aka ``$CONDA_PREFIX``). For example, ``$ARROW_HOME/lib/cmake/Arrow*``,
+``$ARROW_HOME/include/arrow``, ``$ARROW_HOME/lib/libarrow*``, etc.
+
+These files can be manually deleted. If unsure which files to erase, one approach
+is to recreate the Conda environment.
+
+Either delete the current one, and start fresh:
+
+.. code-block::
+
+   $ conda deactivate
+   $ conda remove -n pyarrow-dev
+
+Or, less destructively, create a different environment with a different name.
+
 
 Installing Nightly Packages
 ===========================

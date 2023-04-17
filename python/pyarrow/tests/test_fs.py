@@ -207,8 +207,6 @@ def gcsfs(request, gcs_server):
 
     host, port = gcs_server['connection']
     bucket = 'pyarrow-filesystem/'
-    # Make sure the server is alive.
-    assert gcs_server['process'].poll() is None
 
     fs = GcsFileSystem(
         endpoint_override=f'{host}:{port}',
@@ -217,7 +215,10 @@ def gcsfs(request, gcs_server):
         anonymous=True,
         retry_time_limit=timedelta(seconds=45)
     )
-    fs.create_dir(bucket)
+    try:
+        fs.create_dir(bucket)
+    except OSError as e:
+        pytest.skip(f"Could not create directory in {fs}: {e}")
 
     yield dict(
         fs=fs,
@@ -1093,7 +1094,9 @@ def test_gcs_options():
 
 @pytest.mark.s3
 def test_s3_options():
-    from pyarrow.fs import S3FileSystem
+    from pyarrow.fs import (AwsDefaultS3RetryStrategy,
+                            AwsStandardS3RetryStrategy, S3FileSystem,
+                            S3RetryStrategy)
 
     fs = S3FileSystem(access_key='access', secret_key='secret',
                       session_token='token', region='us-east-2',
@@ -1106,6 +1109,15 @@ def test_s3_options():
                       external_id='id', load_frequency=100)
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
+
+    # Note that the retry strategy won't survive pickling for now
+    fs = S3FileSystem(
+        retry_strategy=AwsStandardS3RetryStrategy(max_attempts=5))
+    assert isinstance(fs, S3FileSystem)
+
+    fs = S3FileSystem(
+        retry_strategy=AwsDefaultS3RetryStrategy(max_attempts=5))
+    assert isinstance(fs, S3FileSystem)
 
     fs2 = S3FileSystem(role_arn='role')
     assert isinstance(fs2, S3FileSystem)
@@ -1131,6 +1143,15 @@ def test_s3_options():
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    fs = S3FileSystem(request_timeout=0.5, connect_timeout=0.25)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs2 = S3FileSystem(request_timeout=0.25, connect_timeout=0.5)
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    assert fs2 != fs
+
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
     with pytest.raises(ValueError):
@@ -1151,6 +1172,8 @@ def test_s3_options():
         S3FileSystem(role_arn="arn", anonymous=True)
     with pytest.raises(ValueError):
         S3FileSystem(default_metadata=["foo", "bar"])
+    with pytest.raises(ValueError):
+        S3FileSystem(retry_strategy=S3RetryStrategy())
 
 
 @pytest.mark.s3
@@ -1294,6 +1317,30 @@ def test_s3_proxy_options(monkeypatch):
                                     'port': 8999})
 
 
+@pytest.mark.s3
+def test_s3fs_wrong_region():
+    from pyarrow.fs import S3FileSystem
+
+    # wrong region for bucket
+    # anonymous=True incase CI/etc has invalid credentials
+    fs = S3FileSystem(region='eu-north-1', anonymous=True)
+
+    msg = ("When getting information for bucket 'voltrondata-labs-datasets': "
+           r"AWS Error UNKNOWN \(HTTP status 301\) during HeadBucket "
+           "operation: No response body. Looks like the configured region is "
+           "'eu-north-1' while the bucket is located in 'us-east-2'."
+           "|NETWORK_CONNECTION")
+    with pytest.raises(OSError, match=msg) as exc:
+        fs.get_file_info("voltrondata-labs-datasets")
+
+    # Sometimes fails on unrelated network error, so next call would also fail.
+    if 'NETWORK_CONNECTION' in str(exc.value):
+        return
+
+    fs = S3FileSystem(region='us-east-2', anonymous=True)
+    fs.get_file_info("voltrondata-labs-datasets")
+
+
 @pytest.mark.hdfs
 def test_hdfs_options(hdfs_connection):
     from pyarrow.fs import HadoopFileSystem
@@ -1373,12 +1420,16 @@ def test_hdfs_options(hdfs_connection):
     ('mock:foo/bar', _MockFileSystem, 'foo/bar'),
     ('mock:/foo/bar', _MockFileSystem, 'foo/bar'),
     ('mock:///foo/bar', _MockFileSystem, 'foo/bar'),
+    ('mock:///some%20path/%C3%A9', _MockFileSystem, 'some path/é'),
     ('file:/', LocalFileSystem, '/'),
     ('file:///', LocalFileSystem, '/'),
     ('file:/foo/bar', LocalFileSystem, '/foo/bar'),
     ('file:///foo/bar', LocalFileSystem, '/foo/bar'),
+    ('file:///some%20path/%C3%A9', LocalFileSystem, '/some path/é'),
+    # no %-decoding for non-URI inputs
     ('/', LocalFileSystem, '/'),
     ('/foo/bar', LocalFileSystem, '/foo/bar'),
+    ('/some path/%20é', LocalFileSystem, '/some path/%20é'),
 ])
 def test_filesystem_from_uri(uri, expected_klass, expected_path):
     fs, path = FileSystem.from_uri(uri)

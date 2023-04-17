@@ -17,7 +17,7 @@
  * under the License.
  */
 
-#include <arrow/util/make_unique.h>
+#include <memory>
 
 #include <arrow-glib/arrow-glib.hpp>
 #include <arrow-flight-glib/common.hpp>
@@ -225,7 +225,7 @@ namespace gaflightsql {
                                       arrow::StatusCode::UnknownError,
                                       context);
       }
-      return arrow::internal::make_unique<arrow::flight::FlightInfo>(
+      return std::make_unique<arrow::flight::FlightInfo>(
         *gaflight_info_get_raw(gainfo));
     }
 
@@ -247,7 +247,7 @@ namespace gaflightsql {
                                       arrow::StatusCode::UnknownError,
                                       "[flight-sql-server][do-get-statement]");
       }
-      return arrow::internal::make_unique<gaflight::DataStream>(gastream);
+      return std::make_unique<gaflight::DataStream>(gastream);
     }
 
   private:

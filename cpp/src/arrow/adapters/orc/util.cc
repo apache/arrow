@@ -19,6 +19,7 @@
 
 #include <cmath>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/array/builder_base.h"
@@ -30,10 +31,9 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/range.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string.h"
 #include "arrow/visit_data_inline.h"
 
-#include "orc/Exceptions.hh"
 #include "orc/MemoryPool.hh"
 #include "orc/OrcFile.hh"
 
@@ -43,6 +43,8 @@ namespace liborc = orc;
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
+using internal::ToChars;
 
 namespace adapters {
 namespace orc {
@@ -236,22 +238,6 @@ Status AppendBinaryBatch(liborc::ColumnVectorBatch* column_vector_batch, int64_t
   return Status::OK();
 }
 
-Status AppendFixedBinaryBatch(liborc::ColumnVectorBatch* column_vector_batch,
-                              int64_t offset, int64_t length, ArrayBuilder* abuilder) {
-  auto builder = checked_cast<FixedSizeBinaryBuilder*>(abuilder);
-  auto batch = checked_cast<liborc::StringVectorBatch*>(column_vector_batch);
-
-  const bool has_nulls = batch->hasNulls;
-  for (int64_t i = offset; i < length + offset; i++) {
-    if (!has_nulls || batch->notNull[i]) {
-      RETURN_NOT_OK(builder->Append(batch->data[i]));
-    } else {
-      RETURN_NOT_OK(builder->AppendNull());
-    }
-  }
-  return Status::OK();
-}
-
 Status AppendDecimalBatch(const liborc::Type* type,
                           liborc::ColumnVectorBatch* column_vector_batch, int64_t offset,
                           int64_t length, ArrayBuilder* abuilder) {
@@ -279,6 +265,58 @@ Status AppendDecimalBatch(const liborc::Type* type,
     }
   }
   return Status::OK();
+}
+
+template <typename UnionBuilderType>
+Status AppendUnionBatchInternal(const liborc::Type* type,
+                                liborc::ColumnVectorBatch* column_vector_batch,
+                                int64_t offset, int64_t length, ArrayBuilder* abuilder) {
+  auto builder = checked_cast<UnionBuilderType*>(abuilder);
+  auto batch = checked_cast<liborc::UnionVectorBatch*>(column_vector_batch);
+
+  auto union_type = checked_pointer_cast<UnionType>(abuilder->type());
+  const std::vector<int8_t>& type_codes = union_type->type_codes();
+  const unsigned char* tags = batch->tags.data();
+
+  for (int64_t i = offset; i < length + offset; i++) {
+    if (!batch->hasNulls || batch->notNull[i]) {
+      auto child_id = tags[i];
+      auto type_code = type_codes[child_id];
+      RETURN_NOT_OK(builder->Append(type_code));
+
+      auto child_type = type->getSubtype(child_id);
+      auto child_batch = batch->children[child_id];
+      auto start = static_cast<int64_t>(batch->offsets[i]);
+      RETURN_NOT_OK(AppendBatch(child_type, child_batch, start, /*length=*/1,
+                                builder->child_builder(child_id).get()));
+
+      if constexpr (std::is_same_v<UnionBuilderType, SparseUnionBuilder>) {
+        // Append null value to other child builders for sparse union type.
+        for (int8_t field_id = 0; field_id < union_type->num_fields(); field_id++) {
+          if (field_id != child_id) {
+            RETURN_NOT_OK(builder->child_builder(field_id)->AppendNull());
+          }
+        }
+      }
+    } else {
+      RETURN_NOT_OK(builder->AppendNull());
+    }
+  }
+  return Status::OK();
+}
+
+Status AppendUnionBatch(const liborc::Type* type,
+                        liborc::ColumnVectorBatch* column_vector_batch, int64_t offset,
+                        int64_t length, ArrayBuilder* abuilder) {
+  if (abuilder->type()->id() == Type::SPARSE_UNION) {
+    return AppendUnionBatchInternal<SparseUnionBuilder>(type, column_vector_batch, offset,
+                                                        length, abuilder);
+  }
+  if (abuilder->type()->id() == Type::DENSE_UNION) {
+    return AppendUnionBatchInternal<DenseUnionBuilder>(type, column_vector_batch, offset,
+                                                       length, abuilder);
+  }
+  return Status::Invalid("Invalid union type");
 }
 
 }  // namespace
@@ -316,20 +354,22 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
                                     double>(batch, offset, length, builder);
     case liborc::BOOLEAN:
       return AppendBoolBatch(batch, offset, length, builder);
+    case liborc::CHAR:
     case liborc::VARCHAR:
     case liborc::STRING:
       return AppendBinaryBatch<StringBuilder>(batch, offset, length, builder);
     case liborc::BINARY:
       return AppendBinaryBatch<BinaryBuilder>(batch, offset, length, builder);
-    case liborc::CHAR:
-      return AppendFixedBinaryBatch(batch, offset, length, builder);
     case liborc::DATE:
       return AppendNumericBatchCast<Date32Builder, int32_t, liborc::LongVectorBatch,
                                     int64_t>(batch, offset, length, builder);
     case liborc::TIMESTAMP:
+    case liborc::TIMESTAMP_INSTANT:
       return AppendTimestampBatch(batch, offset, length, builder);
     case liborc::DECIMAL:
       return AppendDecimalBatch(type, batch, offset, length, builder);
+    case liborc::UNION:
+      return AppendUnionBatch(type, batch, offset, length, builder);
     default:
       return Status::NotImplemented("Not implemented type kind: ", kind);
   }
@@ -386,21 +426,23 @@ Result<std::shared_ptr<Array>> NormalizeArray(const std::shared_ptr<Array>& arra
       ARROW_ASSIGN_OR_RAISE(auto value_array, NormalizeArray(list_array->values()));
       return std::make_shared<ListArray>(list_array->type(), list_array->length(),
                                          list_array->value_offsets(), value_array,
-                                         list_array->null_bitmap());
+                                         list_array->null_bitmap(),
+                                         list_array->null_count(), list_array->offset());
     }
     case Type::type::LARGE_LIST: {
       auto list_array = checked_pointer_cast<LargeListArray>(array);
       ARROW_ASSIGN_OR_RAISE(auto value_array, NormalizeArray(list_array->values()));
-      return std::make_shared<LargeListArray>(list_array->type(), list_array->length(),
-                                              list_array->value_offsets(), value_array,
-                                              list_array->null_bitmap());
+      return std::make_shared<LargeListArray>(
+          list_array->type(), list_array->length(), list_array->value_offsets(),
+          value_array, list_array->null_bitmap(), list_array->null_count(),
+          list_array->offset());
     }
     case Type::type::FIXED_SIZE_LIST: {
       auto list_array = checked_pointer_cast<FixedSizeListArray>(array);
       ARROW_ASSIGN_OR_RAISE(auto value_array, NormalizeArray(list_array->values()));
-      return std::make_shared<FixedSizeListArray>(list_array->type(),
-                                                  list_array->length(), value_array,
-                                                  list_array->null_bitmap());
+      return std::make_shared<FixedSizeListArray>(
+          list_array->type(), list_array->length(), value_array,
+          list_array->null_bitmap(), list_array->null_count(), list_array->offset());
     }
     case Type::type::MAP: {
       auto map_array = checked_pointer_cast<MapArray>(array);
@@ -408,7 +450,34 @@ Result<std::shared_ptr<Array>> NormalizeArray(const std::shared_ptr<Array>& arra
       ARROW_ASSIGN_OR_RAISE(auto item_array, NormalizeArray(map_array->items()));
       return std::make_shared<MapArray>(map_array->type(), map_array->length(),
                                         map_array->value_offsets(), key_array, item_array,
-                                        map_array->null_bitmap());
+                                        map_array->null_bitmap(), map_array->null_count(),
+                                        map_array->offset());
+    }
+    case Type::type::DENSE_UNION: {
+      auto dense_union_array = checked_pointer_cast<DenseUnionArray>(array);
+      ArrayVector children;
+      for (int i = 0; i < dense_union_array->num_fields(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto child_array,
+                              NormalizeArray(dense_union_array->field(i)));
+        children.emplace_back(std::move(child_array));
+      }
+      return std::make_shared<DenseUnionArray>(
+          dense_union_array->type(), dense_union_array->length(), children,
+          dense_union_array->type_codes(), dense_union_array->value_offsets(),
+          dense_union_array->offset());
+    }
+    case Type::type::SPARSE_UNION: {
+      auto sparse_union_array = checked_pointer_cast<SparseUnionArray>(array);
+      ArrayVector children;
+      for (int i = 0; i < sparse_union_array->num_fields(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto flattened_child,
+                              sparse_union_array->GetFlattenedField(i));
+        ARROW_ASSIGN_OR_RAISE(auto child_array, NormalizeArray(flattened_child));
+        children.emplace_back(std::move(child_array));
+      }
+      return std::make_shared<SparseUnionArray>(
+          sparse_union_array->type(), sparse_union_array->length(), children,
+          sparse_union_array->type_codes(), sparse_union_array->offset());
     }
     default: {
       return array;
@@ -462,7 +531,7 @@ struct Appender<DataType, liborc::StringVectorBatch> {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     COffsetType data_length = 0;
     batch->data[running_orc_offset] = reinterpret_cast<char*>(
@@ -486,7 +555,7 @@ struct Appender<Decimal128Type, liborc::Decimal64VectorBatch> {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     const Decimal128 dec_value(array.GetValue(running_arrow_offset));
     batch->values[running_orc_offset] = static_cast<int64_t>(dec_value.low_bits());
@@ -507,7 +576,7 @@ struct Appender<Decimal128Type, liborc::Decimal128VectorBatch> {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     const Decimal128 dec_value(array.GetValue(running_arrow_offset));
     batch->values[running_orc_offset] =
@@ -557,7 +626,7 @@ struct FixedSizeBinaryAppender {
     running_arrow_offset++;
     return Status::OK();
   }
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     batch->notNull[running_orc_offset] = true;
     batch->data[running_orc_offset] = reinterpret_cast<char*>(
         const_cast<uint8_t*>(array.GetValue(running_arrow_offset)));
@@ -573,7 +642,7 @@ struct FixedSizeBinaryAppender {
 };
 
 // static_cast from int64_t or double to itself shouldn't introduce overhead
-// Pleae see
+// Please see
 // https://stackoverflow.com/questions/19106826/
 // can-static-cast-to-same-type-introduce-runtime-overhead
 template <class DataType, class BatchType>
@@ -737,6 +806,55 @@ Status WriteMapBatch(const Array& array, int64_t orc_offset,
   return Status::OK();
 }
 
+template <typename UnionArrayType>
+Status WriteUnionBatch(const Array& array, int64_t orc_offset,
+                       liborc::ColumnVectorBatch* column_vector_batch) {
+  auto union_array = checked_cast<const UnionArrayType*>(&array);
+  auto batch = checked_cast<liborc::UnionVectorBatch*>(column_vector_batch);
+
+  // Union array itself does not have nulls.
+  batch->hasNulls = false;
+
+  int64_t arrow_length = array.length();
+  int64_t running_arrow_offset = 0, running_orc_offset = orc_offset;
+
+  for (; running_arrow_offset < arrow_length;
+       running_orc_offset++, running_arrow_offset++) {
+    auto child_id = union_array->child_id(running_arrow_offset);
+    batch->tags[running_orc_offset] = static_cast<unsigned char>(child_id);
+    batch->notNull[running_orc_offset] = true;
+
+    // Orc union batch is dense, so we need to find the previous row that has the same
+    // type code (or child_id) to calculate the offset.
+    batch->offsets[running_orc_offset] = 0;
+    for (int64_t row = running_orc_offset - 1; row >= 0; row--) {
+      if (batch->tags[row] == child_id) {
+        batch->offsets[running_orc_offset] = batch->offsets[row] + 1;
+        break;
+      }
+    }
+
+    // Fill child batch.
+    liborc::ColumnVectorBatch* child_batch = batch->children[child_id];
+    int64_t child_array_orc_offset = batch->offsets[running_orc_offset];
+    int64_t child_array_arrow_offset;
+
+    if constexpr (std::is_same_v<UnionArrayType, DenseUnionArray>) {
+      child_array_arrow_offset = union_array->value_offset(running_arrow_offset);
+    } else {
+      static_assert(std::is_same_v<UnionArrayType, SparseUnionArray>);
+      child_array_arrow_offset = running_arrow_offset;
+    }
+    child_batch->resize(child_array_orc_offset + 1);
+
+    std::shared_ptr<Array> child_array = union_array->field(child_id);
+    RETURN_NOT_OK(WriteBatch(*(child_array->Slice(child_array_arrow_offset, 1)),
+                             child_array_orc_offset, child_batch));
+  }
+
+  return Status::OK();
+}
+
 Status WriteBatch(const Array& array, int64_t orc_offset,
                   liborc::ColumnVectorBatch* column_vector_batch) {
   Type::type kind = array.type_id();
@@ -822,15 +940,18 @@ Status WriteBatch(const Array& array, int64_t orc_offset,
       return WriteListBatch<FixedSizeListArray>(array, orc_offset, column_vector_batch);
     case Type::type::MAP:
       return WriteMapBatch(array, orc_offset, column_vector_batch);
+    case Type::type::SPARSE_UNION:
+      return WriteUnionBatch<SparseUnionArray>(array, orc_offset, column_vector_batch);
+    case Type::type::DENSE_UNION:
+      return WriteUnionBatch<DenseUnionArray>(array, orc_offset, column_vector_batch);
     default: {
       return Status::NotImplemented("Unknown or unsupported Arrow type: ",
                                     array.type()->ToString());
     }
   }
-  return Status::OK();
 }
 
-Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
+Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
   Type::type kind = type.id();
   switch (kind) {
     case Type::type::BOOL:
@@ -858,8 +979,17 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
     case Type::type::DATE32:
       return liborc::createPrimitiveType(liborc::TypeKind::DATE);
     case Type::type::DATE64:
-    case Type::type::TIMESTAMP:
       return liborc::createPrimitiveType(liborc::TypeKind::TIMESTAMP);
+    case Type::type::TIMESTAMP: {
+      const auto& timestamp_type = checked_cast<const TimestampType&>(type);
+      if (!timestamp_type.timezone().empty()) {
+        // The timestamp values stored in the arrow array are normalized to UTC.
+        // TIMESTAMP_INSTANT type is always preferred over TIMESTAMP type.
+        return liborc::createPrimitiveType(liborc::TypeKind::TIMESTAMP_INSTANT);
+      }
+      // The timestamp values stored in the arrow array can be in any timezone.
+      return liborc::createPrimitiveType(liborc::TypeKind::TIMESTAMP);
+    }
     case Type::type::DECIMAL128: {
       const uint64_t precision =
           static_cast<uint64_t>(checked_cast<const Decimal128Type&>(type).precision());
@@ -876,11 +1006,10 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
       return liborc::createListType(std::move(orc_subtype));
     }
     case Type::type::STRUCT: {
-      ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createStructType();
+      std::unique_ptr<liborc::Type> out_type = liborc::createStructType();
       std::vector<std::shared_ptr<Field>> arrow_fields =
           checked_cast<const StructType&>(type).fields();
-      for (std::vector<std::shared_ptr<Field>>::iterator it = arrow_fields.begin();
-           it != arrow_fields.end(); ++it) {
+      for (auto it = arrow_fields.begin(); it != arrow_fields.end(); ++it) {
         std::string field_name = (*it)->name();
         std::shared_ptr<DataType> arrow_child_type = (*it)->type();
         ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
@@ -899,13 +1028,11 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
     }
     case Type::type::DENSE_UNION:
     case Type::type::SPARSE_UNION: {
-      ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createUnionType();
+      std::unique_ptr<liborc::Type> out_type = liborc::createUnionType();
       std::vector<std::shared_ptr<Field>> arrow_fields =
           checked_cast<const UnionType&>(type).fields();
-      for (std::vector<std::shared_ptr<Field>>::iterator it = arrow_fields.begin();
-           it != arrow_fields.end(); ++it) {
-        std::string field_name = (*it)->name();
-        std::shared_ptr<DataType> arrow_child_type = (*it)->type();
+      for (const auto& arrow_field : arrow_fields) {
+        std::shared_ptr<DataType> arrow_child_type = arrow_field->type();
         ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
         out_type->addUnionChild(std::move(orc_subtype));
       }
@@ -969,15 +1096,27 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       return float32();
     case liborc::DOUBLE:
       return float64();
+    case liborc::CHAR:
     case liborc::VARCHAR:
     case liborc::STRING:
       return utf8();
     case liborc::BINARY:
       return binary();
-    case liborc::CHAR:
-      return fixed_size_binary(static_cast<int>(type->getMaximumLength()));
     case liborc::TIMESTAMP:
+      // Values of TIMESTAMP type are stored in the writer timezone in the Orc file.
+      // Values are read back in the reader timezone. However, the writer timezone
+      // information in the Orc stripe footer is optional and may be missing. What is
+      // more, stripes in the same Orc file may have different writer timezones (though
+      // unlikely). So we cannot tell the exact timezone of values read back in the
+      // arrow::TimestampArray. In the adapter implementations, we set both writer and
+      // reader timezone to UTC to avoid any conversion so users can get the same values
+      // as written. To get rid of this burden, TIMESTAMP_INSTANT type is always preferred
+      // over TIMESTAMP type.
       return timestamp(TimeUnit::NANO);
+    case liborc::TIMESTAMP_INSTANT:
+      // Values of TIMESTAMP_INSTANT type are stored in the UTC timezone in the ORC file.
+      // Both read and write use the UTC timezone without any conversion.
+      return timestamp(TimeUnit::NANO, "UTC");
     case liborc::DATE:
       return date32();
     case liborc::DECIMAL: {
@@ -986,10 +1125,8 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       if (precision == 0) {
         // In HIVE 0.11/0.12 precision is set as 0, but means max precision
         return decimal128(38, 6);
-      } else {
-        return decimal128(precision, scale);
       }
-      break;
+      return decimal128(precision, scale);
     }
     case liborc::LIST: {
       if (subtype_count != 1) {
@@ -1016,11 +1153,14 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       return struct_(std::move(fields));
     }
     case liborc::UNION: {
+      if (subtype_count > UnionType::kMaxTypeCode + 1) {
+        return Status::TypeError("ORC union subtype count exceeds Arrow union limit");
+      }
       FieldVector fields(subtype_count);
       std::vector<int8_t> type_codes(subtype_count);
       for (int child = 0; child < subtype_count; ++child) {
         ARROW_ASSIGN_OR_RAISE(auto elem_type, GetArrowType(type->getSubtype(child)));
-        fields[child] = field("_union_" + std::to_string(child), std::move(elem_type));
+        fields[child] = field("_union_" + ToChars(child), std::move(elem_type));
         type_codes[child] = static_cast<int8_t>(child);
       }
       return sparse_union(std::move(fields), std::move(type_codes));
@@ -1030,9 +1170,9 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
   }
 }
 
-Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const Schema& schema) {
+Result<std::unique_ptr<liborc::Type>> GetOrcType(const Schema& schema) {
   int numFields = schema.num_fields();
-  ORC_UNIQUE_PTR<liborc::Type> out_type = liborc::createStructType();
+  std::unique_ptr<liborc::Type> out_type = liborc::createStructType();
   for (int i = 0; i < numFields; i++) {
     const auto& field = schema.field(i);
     ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*field->type()));

@@ -107,6 +107,16 @@ module ValuesBasicArraysTests
     assert_equal(values, target.values)
   end
 
+  def test_half_float
+    values = [
+      -1.5,
+      nil,
+      1.5,
+    ]
+    target = build(Arrow::HalfFloatArray.new(values))
+    assert_equal(values, target.values)
+  end
+
   def test_float
     values = [
       -1.0,

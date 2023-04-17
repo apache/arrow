@@ -21,37 +21,56 @@ PLATFORMS = [
 ]
 
 
+class CommandFailedException(Exception):
+
+    def __init__(self, cmdline, output):
+        self.cmdline = cmdline
+        self.output = output
+
+
 def run_command(cmdline, **kwargs):
     kwargs.setdefault('capture_output', True)
     p = subprocess.run(cmdline, **kwargs)
     if p.returncode != 0:
         print(f"Command {cmdline} returned non-zero exit status "
               f"{p.returncode}", file=sys.stderr)
+        output = ""
         if p.stdout:
             print("Stdout was:\n" + "-" * 70, file=sys.stderr)
-            print(p.stdout.decode().rstrip(), file=sys.stderr)
+            output = p.stdout.decode().rstrip()
+            print(output, file=sys.stderr)
             print("-" * 70, file=sys.stderr)
         if p.stderr:
             print("Stderr was:\n" + "-" * 70, file=sys.stderr)
+            output = p.stderr.decode().rstrip()
             print(p.stderr.decode().rstrip(), file=sys.stderr)
             print("-" * 70, file=sys.stderr)
-        sys.exit(1)
+        raise CommandFailedException(cmdline=cmdline, output=output)
     return p.stdout
 
 
 def builds_to_delete(platform: str, to_delete: Set[str]) -> int:
-    pkgs_json = run_command(
-        [
-            "conda",
-            "search",
-            "--json",
-            "-c",
-            "arrow-nightlies",
-            "--override-channels",
-            "--subdir",
-            platform
-        ],
-    )
+    try:
+        pkgs_json = run_command(
+            [
+                "conda",
+                "search",
+                "--json",
+                "-c",
+                "arrow-nightlies",
+                "--override-channels",
+                "--subdir",
+                platform
+            ],
+        )
+    except CommandFailedException as ex:
+        # If the command failed due to no packages found, return
+        # 0 builds to delete.
+        if "PackagesNotFoundError" in ex.output:
+            return 0
+        else:
+            sys.exit(1)
+
     pkgs = json.loads(pkgs_json)
     num_builds = 0
 

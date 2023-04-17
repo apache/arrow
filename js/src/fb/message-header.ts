@@ -17,7 +17,7 @@ import { Tensor } from './tensor.js';
  * which may include experimental metadata types. For maximum compatibility,
  * it is best to send data using RecordBatch
  */
-export enum MessageHeader{
+export enum MessageHeader {
   NONE = 0,
   Schema = 1,
   DictionaryBatch = 2,
@@ -56,4 +56,3 @@ export function unionListToMessageHeader(
     default: return null;
   }
 }
-

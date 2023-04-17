@@ -19,23 +19,22 @@
  * to facilitate exchanging and comparing bitmaps for supported
  * features.
  */
-export enum Feature{
+export enum Feature {
   /**
    * Needed to make flatbuffers happy.
    */
-  UNUSED = 0,
+  UNUSED = '0',
 
   /**
    * The stream makes use of multiple full dictionaries with the
    * same ID and assumes clients implement dictionary replacement
    * correctly.
    */
-  DICTIONARY_REPLACEMENT = 1,
+  DICTIONARY_REPLACEMENT = '1',
 
   /**
    * The stream makes use of compressed bodies as described
    * in Message.fbs.
    */
-  COMPRESSED_BODY = 2
+  COMPRESSED_BODY = '2'
 }
-

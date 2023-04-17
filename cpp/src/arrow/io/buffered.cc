@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 #include <mutex>
+#include <string_view>
 #include <utility>
 
 #include "arrow/buffer.h"
@@ -28,7 +29,6 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace io {
@@ -292,7 +292,7 @@ class BufferedInputStream::Impl : public BufferedBase {
     return ResizeBuffer(new_buffer_size);
   }
 
-  Result<util::string_view> Peek(int64_t nbytes) {
+  Result<std::string_view> Peek(int64_t nbytes) {
     if (raw_read_bound_ >= 0) {
       // Do not try to peek more than the total remaining number of bytes.
       nbytes = std::min(nbytes, bytes_buffered_ + (raw_read_bound_ - raw_read_total_));
@@ -324,8 +324,8 @@ class BufferedInputStream::Impl : public BufferedBase {
       nbytes = bytes_buffered_;
     }
     DCHECK(nbytes <= bytes_buffered_);  // Enough bytes available
-    return util::string_view(reinterpret_cast<const char*>(buffer_data_ + buffer_pos_),
-                             static_cast<size_t>(nbytes));
+    return std::string_view(reinterpret_cast<const char*>(buffer_data_ + buffer_pos_),
+                            static_cast<size_t>(nbytes));
   }
 
   int64_t bytes_buffered() const { return bytes_buffered_; }
@@ -458,7 +458,7 @@ std::shared_ptr<InputStream> BufferedInputStream::raw() const { return impl_->ra
 
 Result<int64_t> BufferedInputStream::DoTell() const { return impl_->Tell(); }
 
-Result<util::string_view> BufferedInputStream::DoPeek(int64_t nbytes) {
+Result<std::string_view> BufferedInputStream::DoPeek(int64_t nbytes) {
   return impl_->Peek(nbytes);
 }
 

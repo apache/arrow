@@ -541,7 +541,9 @@ def dataframe_to_types(df, preserve_index, columns=None):
         if _pandas_api.is_categorical(values):
             type_ = pa.array(c, from_pandas=True).type
         elif _pandas_api.is_extension_array_dtype(values):
-            type_ = pa.array(c.head(0), from_pandas=True).type
+            empty = c.head(0) if isinstance(
+                c, _pandas_api.pd.Series) else c[:0]
+            type_ = pa.array(empty, from_pandas=True).type
         else:
             values, type_ = get_datetimetz_type(values, c.dtype, None)
             type_ = pa.lib._ndarray_to_arrow_type(values, type_)
@@ -806,7 +808,7 @@ def table_to_blockmanager(options, table, categories=None,
         index_descriptors = pandas_metadata['index_columns']
         table = _add_any_metadata(table, pandas_metadata)
         table, index = _reconstruct_index(table, index_descriptors,
-                                          all_columns)
+                                          all_columns, types_mapper)
         ext_columns_dtypes = _get_extension_dtypes(
             table, all_columns, types_mapper)
     else:
@@ -938,7 +940,7 @@ def _deserialize_column_index(block_table, all_columns, column_indexes):
     return columns
 
 
-def _reconstruct_index(table, index_descriptors, all_columns):
+def _reconstruct_index(table, index_descriptors, all_columns, types_mapper=None):
     # 0. 'field_name' is the name of the column in the arrow Table
     # 1. 'name' is the user-facing name of the column, that is, it came from
     #    pandas
@@ -957,7 +959,7 @@ def _reconstruct_index(table, index_descriptors, all_columns):
     for descr in index_descriptors:
         if isinstance(descr, str):
             result_table, index_level, index_name = _extract_index_level(
-                table, result_table, descr, field_name_to_metadata)
+                table, result_table, descr, field_name_to_metadata, types_mapper)
             if index_level is None:
                 # ARROW-1883: the serialized index column was not found
                 continue
@@ -993,7 +995,7 @@ def _reconstruct_index(table, index_descriptors, all_columns):
 
 
 def _extract_index_level(table, result_table, field_name,
-                         field_name_to_metadata):
+                         field_name_to_metadata, types_mapper=None):
     logical_name = field_name_to_metadata[field_name]['name']
     index_name = _backwards_compatible_index_name(field_name, logical_name)
     i = table.schema.get_field_index(field_name)
@@ -1005,7 +1007,7 @@ def _extract_index_level(table, result_table, field_name,
     pd = _pandas_api.pd
 
     col = table.column(i)
-    values = col.to_pandas().values
+    values = col.to_pandas(types_mapper=types_mapper).values
 
     if hasattr(values, 'flags') and not values.flags.writeable:
         # ARROW-1054: in pandas 0.19.2, factorize will reject
@@ -1013,9 +1015,9 @@ def _extract_index_level(table, result_table, field_name,
         values = values.copy()
 
     if isinstance(col.type, pa.lib.TimestampType) and col.type.tz is not None:
-        index_level = make_tz_aware(pd.Series(values), col.type.tz)
+        index_level = make_tz_aware(pd.Series(values, copy=False), col.type.tz)
     else:
-        index_level = pd.Series(values, dtype=values.dtype)
+        index_level = pd.Series(values, dtype=values.dtype, copy=False)
     result_table = result_table.remove_column(
         result_table.schema.get_field_index(field_name)
     )
@@ -1087,9 +1089,8 @@ def _pandas_type_to_numpy_type(pandas_type):
 
 
 def _get_multiindex_codes(mi):
-    # compat for pandas < 0.24 (MI labels renamed to codes).
     if isinstance(mi, _pandas_api.pd.MultiIndex):
-        return mi.codes if hasattr(mi, 'codes') else mi.labels
+        return mi.codes
     else:
         return None
 
@@ -1147,8 +1148,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         if pandas_dtype == "datetimetz":
             tz = pa.lib.string_to_tzinfo(
                 column_indexes[0]['metadata']['timezone'])
-            dt = level.astype(numpy_dtype)
-            level = dt.tz_localize('utc').tz_convert(tz)
+            level = pd.to_datetime(level, utc=True).tz_convert(tz)
         elif level.dtype != dtype:
             level = level.astype(dtype)
         # ARROW-9096: if original DataFrame was upcast we keep that

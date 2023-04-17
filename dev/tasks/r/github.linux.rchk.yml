@@ -48,7 +48,7 @@ jobs:
           docker run -v `pwd`/packages:/rchk/packages kalibera/rchk:latest /rchk/packages/arrow_*.tar.gz |& tee rchk.out
       - name: Confirm that rchk has no errors
         # Suspicious call, [UP], and [PB] are all of the error types currently at
-        # https://github.com/kalibera/cran-checks/tree/master/rchk/results
+        # https://github.com/kalibera/cran-checks/tree/HEAD/rchk/results
         # though this might not be exhaustive, there does not appear to be a way to have rchk return an error code
         # CRAN also will remove some of the outputs (especially those related to Rcpp and strptime, e.g.
         # ERROR: too many states (abstraction error?))

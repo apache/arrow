@@ -22,7 +22,7 @@ set -u
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARROW_DIR="${SOURCE_DIR}/../.."
-ARROW_SITE_DIR="${ARROW_DIR}/../arrow-site"
+: ${ARROW_SITE_DIR:="${ARROW_DIR}/../arrow-site"}
 
 if [ "$#" -ne 2  ]; then
   echo "Usage: $0 <version> <previous_version>"
@@ -81,7 +81,8 @@ tar xvf docs.tar.gz
 rm -f docs.tar.gz
 git checkout docs/c_glib/index.html
 if [ "$is_major_release" = "yes" ] ; then
-  mv docs_temp docs/${previous_version}
+  previous_series=${previous_version%.*}
+  mv docs_temp docs/${previous_series}
 fi
 git add docs
 git commit -m "[Website] Update documentations for ${version}"
@@ -102,4 +103,5 @@ if [ ${PUSH} -gt 0 ]; then
   echo "Success!"
   echo "Create a pull request:"
   echo "  ${github_url}/pull/new/${branch_name}"
+  echo "Note! Use the 'asf-site' base branch for the PR!"
 fi

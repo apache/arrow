@@ -100,6 +100,10 @@ static inline Compression::type FromThriftUnsafe(format::CompressionCodec::type 
   }
 }
 
+static inline BoundaryOrder::type FromThriftUnsafe(format::BoundaryOrder::type type) {
+  return static_cast<BoundaryOrder::type>(type);
+}
+
 namespace internal {
 
 template <typename T>
@@ -128,6 +132,11 @@ struct ThriftEnumTypeTraits<::parquet::format::Encoding::type> {
 template <>
 struct ThriftEnumTypeTraits<::parquet::format::PageType::type> {
   using ParquetEnum = PageType;
+};
+
+template <>
+struct ThriftEnumTypeTraits<::parquet::format::BoundaryOrder::type> {
+  using ParquetEnum = BoundaryOrder;
 };
 
 // If the parquet file is corrupted it is possible the enum value decoded
@@ -286,6 +295,18 @@ static inline format::CompressionCodec::type ToThrift(Compression::type type) {
   }
 }
 
+static inline format::BoundaryOrder::type ToThrift(BoundaryOrder::type type) {
+  switch (type) {
+    case BoundaryOrder::Unordered:
+    case BoundaryOrder::Ascending:
+    case BoundaryOrder::Descending:
+      return static_cast<format::BoundaryOrder::type>(type);
+    default:
+      DCHECK(false) << "Cannot reach here";
+      return format::BoundaryOrder::UNORDERED;
+  }
+}
+
 static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   format::Statistics statistics;
   if (stats.has_min) {
@@ -401,7 +422,7 @@ class ThriftDeserializer {
     return std::shared_ptr<ThriftBuffer>(
         new ThriftBuffer(buf, len, ThriftBuffer::OBSERVE, conf));
 #else
-    return std::shared_ptr<ThriftBuffer>(new ThriftBuffer(buf, len));
+    return std::make_shared<ThriftBuffer>(buf, len);
 #endif
   }
 

@@ -39,10 +39,10 @@ class Cache {
   Cache() : Cache(GetCapacity()) {}
 
   ValueType GetObjectCode(const KeyType& cache_key) {
-    arrow::util::optional<ValueType> result;
+    std::optional<ValueType> result;
     std::lock_guard<std::mutex> lock(mtx_);
     result = cache_.get(cache_key);
-    return result != arrow::util::nullopt ? *result : nullptr;
+    return result != std::nullopt ? *result : nullptr;
   }
 
   void PutObjectCode(const KeyType& cache_key, const ValueType& module) {

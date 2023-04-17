@@ -16,12 +16,12 @@
 # under the License.
 
 ARG arch=amd64
-FROM ${arch}/ubuntu:18.04
+FROM ${arch}/ubuntu:22.04
 
 # install build essentials
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update -y -q && \
-    apt-get install -y -q wget tzdata libc6-dbg gdb \
+    apt-get install -y -q curl wget tzdata libc6-dbg gdb \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

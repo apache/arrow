@@ -39,10 +39,12 @@ namespace internal {
 
 class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
  public:
-  AdaptiveIntBuilderBase(uint8_t start_int_size, MemoryPool* pool);
+  AdaptiveIntBuilderBase(uint8_t start_int_size, MemoryPool* pool,
+                         int64_t alignment = kDefaultBufferAlignment);
 
-  explicit AdaptiveIntBuilderBase(MemoryPool* pool)
-      : AdaptiveIntBuilderBase(sizeof(uint8_t), pool) {}
+  explicit AdaptiveIntBuilderBase(MemoryPool* pool,
+                                  int64_t alignment = kDefaultBufferAlignment)
+      : AdaptiveIntBuilderBase(sizeof(uint8_t), pool, alignment) {}
 
   /// \brief Append multiple nulls
   /// \param[in] length the number of nulls to append
@@ -173,10 +175,12 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
   explicit AdaptiveIntBuilder(uint8_t start_int_size,
-                              MemoryPool* pool = default_memory_pool());
+                              MemoryPool* pool = default_memory_pool(),
+                              int64_t alignment = kDefaultBufferAlignment);
 
-  explicit AdaptiveIntBuilder(MemoryPool* pool = default_memory_pool())
-      : AdaptiveIntBuilder(sizeof(uint8_t), pool) {}
+  explicit AdaptiveIntBuilder(MemoryPool* pool = default_memory_pool(),
+                              int64_t alignment = kDefaultBufferAlignment)
+      : AdaptiveIntBuilder(sizeof(uint8_t), pool, alignment) {}
 
   using ArrayBuilder::Advance;
   using internal::AdaptiveIntBuilderBase::Reset;

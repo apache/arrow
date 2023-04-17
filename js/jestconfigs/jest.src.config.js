@@ -20,11 +20,23 @@ import config from "../jest.config.js";
 export default {
     ...config,
     rootDir: "../",
-    globals: {
-        "ts-jest": {
-            diagnostics: false,
-            tsconfig: "<rootDir>/test/tsconfig/tsconfig.src.json",
-            useESM: true,
-        },
+    transform: {
+        ...config.transform,
+        "^.+\\.js$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.src.json",
+                useESM: true,
+            },
+        ],
+        "^.+\\.ts$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.src.json",
+                useESM: true,
+            },
+        ],
     },
 };

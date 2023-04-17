@@ -151,7 +151,7 @@ void NullColumnBuilder::Insert(int64_t block_index,
   const int32_t num_rows = parser->num_rows();
   DCHECK_GE(num_rows, 0);
 
-  task_group_->Append([=]() -> Status {
+  task_group_->Append([this, block_index, num_rows]() -> Status {
     std::unique_ptr<ArrayBuilder> builder;
     RETURN_NOT_OK(MakeBuilder(pool_, type_, &builder));
     std::shared_ptr<Array> res;
@@ -201,7 +201,7 @@ void TypedColumnBuilder::Insert(int64_t block_index,
   ReserveChunks(block_index);
 
   // We're careful that all references in the closure outlive the Append() call
-  task_group_->Append([=]() -> Status {
+  task_group_->Append([this, parser, block_index]() -> Status {
     return SetChunk(block_index, converter_->Convert(*parser, col_index_));
   });
 }
@@ -252,7 +252,7 @@ Status InferringColumnBuilder::UpdateType() {
 }
 
 void InferringColumnBuilder::ScheduleConvertChunk(int64_t chunk_index) {
-  task_group_->Append([=]() { return TryConvertChunk(chunk_index); });
+  task_group_->Append([this, chunk_index]() { return TryConvertChunk(chunk_index); });
 }
 
 Status InferringColumnBuilder::TryConvertChunk(int64_t chunk_index) {

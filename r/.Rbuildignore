@@ -28,3 +28,7 @@ STYLE.md
 ^.lintr
 ^.styler_excludes.R
 ^cheatsheet$
+^revdep$
+^vignettes$
+^PACKAGING\.md$
+^inst/__pycache__$

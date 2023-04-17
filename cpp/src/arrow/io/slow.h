@@ -85,7 +85,7 @@ class ARROW_EXPORT SlowInputStream : public SlowInputStreamBase<InputStream> {
 
   Result<int64_t> Read(int64_t nbytes, void* out) override;
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
-  Result<util::string_view> Peek(int64_t nbytes) override;
+  Result<std::string_view> Peek(int64_t nbytes) override;
 
   Result<int64_t> Tell() const override;
 };
@@ -107,7 +107,7 @@ class ARROW_EXPORT SlowRandomAccessFile : public SlowInputStreamBase<RandomAcces
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override;
   Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override;
-  Result<util::string_view> Peek(int64_t nbytes) override;
+  Result<std::string_view> Peek(int64_t nbytes) override;
 
   Result<int64_t> GetSize() override;
   Status Seek(int64_t position) override;

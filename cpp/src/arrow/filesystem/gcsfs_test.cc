@@ -17,6 +17,7 @@
 
 #include <algorithm>  // Missing include in boost/process
 
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 // This boost/asio/io_context.hpp include is needless for no MinGW
 // build.
 //
@@ -45,7 +46,6 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <iostream>
 #include <random>
 #include <string>
 #include <thread>
@@ -60,10 +60,6 @@
 
 namespace arrow {
 namespace fs {
-/// Custom comparison for FileInfo, we need this to use complex googletest matchers.
-inline bool operator==(const FileInfo& a, const FileInfo& b) {
-  return a.path() == b.path() && a.type() == b.type();
-}
 
 namespace {
 
@@ -73,7 +69,6 @@ namespace gcs = google::cloud::storage;
 
 using ::testing::Eq;
 using ::testing::HasSubstr;
-using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::NotNull;
 using ::testing::Pair;
@@ -171,7 +166,7 @@ class GcsIntegrationTest : public ::testing::Test {
  protected:
   void SetUp() override {
     ASSERT_THAT(Testbench(), NotNull());
-    ASSERT_THAT(Testbench()->error(), IsEmpty());
+    ASSERT_EQ(Testbench()->error(), "");
     ASSERT_TRUE(Testbench()->running());
 
     // Initialize a PRNG with a small amount of entropy.
@@ -268,7 +263,8 @@ class GcsIntegrationTest : public ::testing::Test {
         const auto filename =
             internal::ConcatAbstractPath(folder, "test-file-" + std::to_string(i));
         CreateFile(fs.get(), filename, filename);
-        result.contents.push_back(arrow::fs::File(filename));
+        ARROW_ASSIGN_OR_RAISE(auto file_info, fs->GetFileInfo(filename));
+        result.contents.push_back(std::move(file_info));
       }
     }
     return result;
@@ -280,7 +276,7 @@ class GcsIntegrationTest : public ::testing::Test {
     std::transform(expected.begin(), expected.end(), expected.begin(),
                    [](FileInfo const& info) {
                      if (!info.IsDirectory()) return info;
-                     return Dir(internal::RemoveTrailingSlash(info.path()).to_string());
+                     return Dir(std::string(internal::RemoveTrailingSlash(info.path())));
                    });
     return expected;
   }
@@ -767,7 +763,7 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorNotFoundTrue) {
   selector.allow_not_found = true;
   selector.recursive = true;
   ASSERT_OK_AND_ASSIGN(auto results, fs->GetFileInfo(selector));
-  EXPECT_THAT(results, IsEmpty());
+  EXPECT_EQ(results.size(), 0);
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoSelectorNotFoundFalse) {
@@ -1318,6 +1314,22 @@ TEST_F(GcsIntegrationTest, OpenInputFileRandomSeek) {
     ASSERT_OK_AND_ASSIGN(auto actual, file->Read(kLineWidth));
     EXPECT_EQ(lines[index], actual->ToString());
   }
+}
+
+TEST_F(GcsIntegrationTest, OpenInputFileIoContext) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  // Create a test file.
+  const auto path = PreexistingBucketPath() + "OpenInputFileIoContext/object-name";
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
+  const std::string contents = "The quick brown fox jumps over the lazy dog";
+  ASSERT_OK(output->Write(contents.data(), contents.size()));
+  ASSERT_OK(output->Close());
+
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
+  EXPECT_EQ(fs->io_context().external_id(), file->io_context().external_id());
 }
 
 TEST_F(GcsIntegrationTest, OpenInputFileInfo) {

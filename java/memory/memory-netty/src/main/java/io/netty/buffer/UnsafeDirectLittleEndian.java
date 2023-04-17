@@ -31,16 +31,7 @@ import io.netty.util.internal.PlatformDependent;
  * Netty classes and underlying Netty memory management.
  */
 public class UnsafeDirectLittleEndian extends WrappedByteBuf {
-
-  public static final boolean ASSERT_ENABLED;
   private static final AtomicLong ID_GENERATOR = new AtomicLong(0);
-
-  static {
-    boolean isAssertEnabled = false;
-    assert isAssertEnabled = true;
-    ASSERT_ENABLED = isAssertEnabled;
-  }
-
   public final long id = ID_GENERATOR.incrementAndGet();
   private final AbstractByteBuf wrapped;
   private final long memoryAddress;

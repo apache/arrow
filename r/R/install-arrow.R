@@ -33,8 +33,9 @@
 #' Linux distribution and version and find an appropriate C++ library. `FALSE`
 #' would tell the script not to retrieve a binary and instead build Arrow C++
 #' from source. Other valid values are strings corresponding to a Linux
-#' distribution-version, to override the value that would be detected.
-#' See `vignette("install", package = "arrow")` for further details.
+#' distribution-version, to override the value that would be detected. See the
+#' \href{https://arrow.apache.org/docs/r/articles/install.html}{install guide}
+#' for further details.
 #' @param use_system logical: Should we use `pkg-config` to look for Arrow
 #' system packages? Default is `FALSE`. If `TRUE`, source installation may be
 #' faster, but there is a risk of version mismatch. This sets the
@@ -50,8 +51,9 @@
 #' @export
 #' @importFrom utils install.packages
 #' @seealso [arrow_info()] to see if the package was configured with
-#' necessary C++ dependencies. `vignette("install", package = "arrow")` for
-#' more ways to tune installation on Linux.
+#' necessary C++ dependencies.
+#' \href{https://arrow.apache.org/docs/r/articles/install.html}{install guide}
+#' for more ways to tune installation on Linux.
 install_arrow <- function(nightly = FALSE,
                           binary = Sys.getenv("LIBARROW_BINARY", TRUE),
                           use_system = Sys.getenv("ARROW_USE_PKG_CONFIG", FALSE),
@@ -169,7 +171,7 @@ reload_arrow <- function() {
 #'
 #' ### Using a computer with internet access, pre-download the dependencies:
 #' * Install the `arrow` package _or_ run
-#'   `source("https://raw.githubusercontent.com/apache/arrow/master/r/R/install-arrow.R")`
+#'   `source("https://raw.githubusercontent.com/apache/arrow/main/r/R/install-arrow.R")`
 #' * Run `create_package_with_all_dependencies("my_arrow_pkg.tar.gz")`
 #' * Copy the newly created `my_arrow_pkg.tar.gz` to the computer without internet access
 #'

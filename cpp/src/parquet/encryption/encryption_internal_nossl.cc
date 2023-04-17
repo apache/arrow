@@ -99,7 +99,7 @@ int AesDecryptor::CiphertextSizeDelta() {
 
 std::string CreateModuleAad(const std::string& file_aad, int8_t module_type,
                             int16_t row_group_ordinal, int16_t column_ordinal,
-                            int16_t page_ordinal) {
+                            int32_t page_ordinal) {
   ThrowOpenSSLRequiredException();
   return "";
 }
@@ -109,7 +109,7 @@ std::string CreateFooterAad(const std::string& aad_prefix_bytes) {
   return "";
 }
 
-void QuickUpdatePageAad(const std::string& AAD, int16_t new_page_ordinal) {
+void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD) {
   ThrowOpenSSLRequiredException();
 }
 

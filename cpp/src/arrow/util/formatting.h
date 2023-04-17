@@ -25,6 +25,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -33,7 +34,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/double_conversion.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string.h"
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
@@ -60,7 +61,7 @@ template <typename T, typename R = void>
 using enable_if_formattable = enable_if_t<is_formattable<T>::value, R>;
 
 template <typename Appender>
-using Return = decltype(std::declval<Appender>()(util::string_view{}));
+using Return = decltype(std::declval<Appender>()(std::string_view{}));
 
 /////////////////////////////////////////////////////////////////////////
 // Boolean formatting
@@ -76,12 +77,44 @@ class StringFormatter<BooleanType> {
   Return<Appender> operator()(bool value, Appender&& append) {
     if (value) {
       const char string[] = "true";
-      return append(util::string_view(string));
+      return append(std::string_view(string));
     } else {
       const char string[] = "false";
-      return append(util::string_view(string));
+      return append(std::string_view(string));
     }
   }
+};
+
+/////////////////////////////////////////////////////////////////////////
+// Decimals formatting
+
+template <typename ARROW_TYPE>
+class DecimalToStringFormatterMixin {
+ public:
+  explicit DecimalToStringFormatterMixin(const DataType* type)
+      : scale_(static_cast<const ARROW_TYPE*>(type)->scale()) {}
+
+  using value_type = typename TypeTraits<ARROW_TYPE>::CType;
+
+  template <typename Appender>
+  Return<Appender> operator()(const value_type& value, Appender&& append) {
+    return append(value.ToString(scale_));
+  }
+
+ private:
+  int32_t scale_;
+};
+
+template <>
+class StringFormatter<Decimal128Type>
+    : public DecimalToStringFormatterMixin<Decimal128Type> {
+  using DecimalToStringFormatterMixin::DecimalToStringFormatterMixin;
+};
+
+template <>
+class StringFormatter<Decimal256Type>
+    : public DecimalToStringFormatterMixin<Decimal256Type> {
+  using DecimalToStringFormatterMixin::DecimalToStringFormatterMixin;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -135,8 +168,8 @@ void FormatAllDigitsLeftPadded(Int value, size_t pad, char pad_char, char** curs
 }
 
 template <size_t BUFFER_SIZE>
-util::string_view ViewDigitBuffer(const std::array<char, BUFFER_SIZE>& buffer,
-                                  char* cursor) {
+std::string_view ViewDigitBuffer(const std::array<char, BUFFER_SIZE>& buffer,
+                                 char* cursor) {
   auto buffer_end = buffer.data() + BUFFER_SIZE;
   return {cursor, static_cast<size_t>(buffer_end - cursor)};
 }
@@ -260,7 +293,7 @@ class FloatToStringFormatterMixin : public FloatToStringFormatter {
   Return<Appender> operator()(value_type value, Appender&& append) {
     char buffer[buffer_size];
     int size = FormatFloat(value, buffer, buffer_size);
-    return append(util::string_view(buffer, size));
+    return append(std::string_view(buffer, size));
   }
 };
 
@@ -359,7 +392,7 @@ bool IsTimeInRange(Unit duration) {
 template <typename RawValue, typename Appender>
 Return<Appender> FormatOutOfRange(RawValue&& raw_value, Appender&& append) {
   // XXX locale-sensitive but good enough for now
-  std::string formatted = "<value out of range: " + std::to_string(raw_value) + ">";
+  std::string formatted = "<value out of range: " + ToChars(raw_value) + ">";
   return append(std::move(formatted));
 }
 

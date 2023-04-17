@@ -87,7 +87,7 @@ fastfloat_really_inline void round(adjusted_mantissa& am, callback cb) noexcept 
   if (-am.power2 >= mantissa_shift) {
     // have a denormal float
     int32_t shift = -am.power2 + 1;
-    cb(am, std::min(shift, 64));
+    cb(am, std::min<int32_t>(shift, 64));
     // check for round-up: if rounding-nearest carried us to the hidden bit.
     am.power2 = (am.mantissa < (uint64_t(1) << binary_format<T>::mantissa_explicit_bits())) ? 0 : 1;
     return;

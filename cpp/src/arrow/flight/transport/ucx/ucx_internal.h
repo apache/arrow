@@ -21,6 +21,7 @@
 
 #include <array>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -35,7 +36,6 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace flight {
@@ -191,8 +191,8 @@ struct Frame {
         std::unique_ptr<Buffer> buffer_)
       : type(type_), size(size_), counter(counter_), buffer(std::move(buffer_)) {}
 
-  util::string_view view() const {
-    return util::string_view(reinterpret_cast<const char*>(buffer->data()), size);
+  std::string_view view() const {
+    return std::string_view(reinterpret_cast<const char*>(buffer->data()), size);
   }
 
   /// \brief Parse a UCX active message header. This will not
@@ -222,7 +222,7 @@ static constexpr uint32_t kUcpAmHandlerId = 0x1024;
 class HeadersFrame {
  public:
   /// \brief Get a header value (or an error if it was not found)
-  arrow::Result<util::string_view> Get(const std::string& key);
+  arrow::Result<std::string_view> Get(const std::string& key);
   /// \brief Extract the server-sent status.
   Status GetStatus(Status* out);
   /// \brief Parse the headers from the buffer.
@@ -240,7 +240,7 @@ class HeadersFrame {
 
  private:
   std::unique_ptr<Buffer> buffer_;
-  std::vector<std::pair<util::string_view, util::string_view>> headers_;
+  std::vector<std::pair<std::string_view, std::string_view>> headers_;
 };
 
 /// \brief A representation of a kPayloadHeader frame (i.e. all of the

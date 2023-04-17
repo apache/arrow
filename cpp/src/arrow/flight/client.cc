@@ -33,7 +33,6 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
 
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/serialization_internal.h"
@@ -117,7 +116,8 @@ class IpcMessageReader : public ipc::MessageReader {
     peekable_reader_->Next(&data);
     if (!data) {
       stream_finished_ = true;
-      return stream_->Finish(Status::OK());
+      ARROW_RETURN_NOT_OK(stream_->Finish(Status::OK()));
+      return nullptr;
     }
     if (data->body) {
       ARROW_ASSIGN_OR_RAISE(data->body, Buffer::ViewOrCopy(data->body, memory_manager_));
@@ -125,7 +125,9 @@ class IpcMessageReader : public ipc::MessageReader {
     // Validate IPC message
     auto result = data->OpenMessage();
     if (!result.ok()) {
-      return stream_->Finish(std::move(result).status());
+      stream_finished_ = true;
+      ARROW_RETURN_NOT_OK(stream_->Finish(std::move(result).status()));
+      return nullptr;
     }
     *app_metadata_ = std::move(data->app_metadata);
     return result;
@@ -634,9 +636,8 @@ arrow::Result<std::unique_ptr<FlightStreamReader>> FlightClient::DoGet(
   std::unique_ptr<internal::ClientDataStream> remote_stream;
   RETURN_NOT_OK(transport_->DoGet(options, ticket, &remote_stream));
   std::unique_ptr<FlightStreamReader> stream_reader =
-      arrow::internal::make_unique<ClientStreamReader>(
-          std::move(remote_stream), options.read_options, options.stop_token,
-          options.memory_manager);
+      std::make_unique<ClientStreamReader>(std::move(remote_stream), options.read_options,
+                                           options.stop_token, options.memory_manager);
   // Eagerly read the schema
   RETURN_NOT_OK(
       static_cast<ClientStreamReader*>(stream_reader.get())->EnsureDataStarted());
@@ -656,8 +657,8 @@ arrow::Result<FlightClient::DoPutResult> FlightClient::DoPut(
   RETURN_NOT_OK(transport_->DoPut(options, &remote_stream));
   std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
   DoPutResult result;
-  result.reader = arrow::internal::make_unique<ClientMetadataReader>(shared_stream);
-  result.writer = arrow::internal::make_unique<ClientStreamWriter>(
+  result.reader = std::make_unique<ClientMetadataReader>(shared_stream);
+  result.writer = std::make_unique<ClientStreamWriter>(
       std::move(shared_stream), options.write_options, write_size_limit_bytes_,
       descriptor);
   RETURN_NOT_OK(result.writer->Begin(schema, options.write_options));
@@ -682,9 +683,9 @@ arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
   RETURN_NOT_OK(transport_->DoExchange(options, &remote_stream));
   std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
   DoExchangeResult result;
-  result.reader = arrow::internal::make_unique<ClientStreamReader>(
+  result.reader = std::make_unique<ClientStreamReader>(
       shared_stream, options.read_options, options.stop_token, options.memory_manager);
-  auto stream_writer = arrow::internal::make_unique<ClientStreamWriter>(
+  auto stream_writer = std::make_unique<ClientStreamWriter>(
       std::move(shared_stream), options.write_options, write_size_limit_bytes_,
       descriptor);
   RETURN_NOT_OK(stream_writer->Begin());
@@ -705,7 +706,7 @@ Status FlightClient::DoExchange(const FlightCallOptions& options,
 Status FlightClient::Close() {
   if (!closed_) {
     closed_ = true;
-    RETURN_NOT_OK(transport_->Close());
+    if (transport_) RETURN_NOT_OK(transport_->Close());
     transport_.reset(nullptr);
   }
   return Status::OK();

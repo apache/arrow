@@ -22,9 +22,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -37,6 +37,7 @@ type RecordReader interface {
 
 	Next() bool
 	Record() arrow.Record
+	Err() error
 }
 
 // simpleRecords is a simple iterator over a collection of records.
@@ -107,6 +108,7 @@ func (rs *simpleRecords) Next() bool {
 	rs.recs = rs.recs[1:]
 	return true
 }
+func (rs *simpleRecords) Err() error { return nil }
 
 // simpleRecord is a basic, non-lazy in-memory record batch.
 type simpleRecord struct {
@@ -152,7 +154,37 @@ func NewRecord(schema *arrow.Schema, cols []arrow.Array, nrows int64) *simpleRec
 	return rec
 }
 
+func (rec *simpleRecord) SetColumn(i int, arr arrow.Array) (arrow.Record, error) {
+	if i < 0 || i >= len(rec.arrs) {
+		return nil, fmt.Errorf("arrow/array: column index out of range [0, %d): got=%d", len(rec.arrs), i)
+	}
+
+	if arr.Len() != int(rec.rows) {
+		return nil, fmt.Errorf("arrow/array: mismatch number of rows in column %q: got=%d, want=%d",
+			rec.schema.Field(i).Name,
+			arr.Len(), rec.rows,
+		)
+	}
+
+	f := rec.schema.Field(i)
+	if !arrow.TypeEqual(f.Type, arr.DataType()) {
+		return nil, fmt.Errorf("arrow/array: column %q type mismatch: got=%v, want=%v",
+			f.Name,
+			arr.DataType(), f.Type,
+		)
+	}
+	arrs := make([]arrow.Array, len(rec.arrs))
+	copy(arrs, rec.arrs)
+	arrs[i] = arr
+
+	return NewRecord(rec.schema, arrs, rec.rows), nil
+}
+
 func (rec *simpleRecord) validate() error {
+	if rec.rows == 0 && len(rec.arrs) == 0 {
+		return nil
+	}
+
 	if len(rec.arrs) != len(rec.schema.Fields()) {
 		return fmt.Errorf("arrow/array: number of columns/fields mismatch")
 	}
@@ -353,14 +385,14 @@ func (b *RecordBuilder) UnmarshalJSON(data []byte) error {
 
 		indices := b.schema.FieldIndices(key)
 		if len(indices) == 0 {
-			_, err = dec.Token()
-			if err != nil {
+			var extra interface{}
+			if err := dec.Decode(&extra); err != nil {
 				return err
 			}
 			continue
 		}
 
-		if err := b.fields[indices[0]].unmarshalOne(dec); err != nil {
+		if err := b.fields[indices[0]].UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}

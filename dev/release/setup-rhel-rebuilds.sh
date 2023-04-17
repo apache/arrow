@@ -21,6 +21,8 @@
 # verification Red Hat Enterprise Linux 8 clones in particular
 # on AlmaLinux 8 and Rocky Linux 8
 
+set -exu
+
 dnf -y install 'dnf-command(config-manager)'
 dnf config-manager --set-enabled powertools
 dnf -y update
@@ -49,5 +51,8 @@ dnf -y install \
   vala-devel \
   wget \
   which
+
 npm install -g yarn
+
+python3 -m pip install -U pip
 alternatives --set python /usr/bin/python3

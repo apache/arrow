@@ -65,11 +65,7 @@ struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
 
   StaticVectorStorage() noexcept = default;
 
-#if __cpp_constexpr >= 201304L  // non-const constexpr
   constexpr storage_type* storage_ptr() { return static_data_; }
-#else
-  storage_type* storage_ptr() { return static_data_; }
-#endif
 
   constexpr const storage_type* const_storage_ptr() const { return static_data_; }
 
@@ -124,11 +120,7 @@ struct SmallVectorStorage {
 
   ~SmallVectorStorage() { destroy(); }
 
-#if __cpp_constexpr >= 201304L  // non-const constexpr
   constexpr storage_type* storage_ptr() { return data_; }
-#else
-  storage_type* storage_ptr() { return data_; }
-#endif
 
   constexpr const storage_type* const_storage_ptr() const { return data_; }
 

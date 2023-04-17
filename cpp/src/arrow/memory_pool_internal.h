@@ -26,8 +26,6 @@ namespace memory_pool {
 
 namespace internal {
 
-static constexpr size_t kAlignment = 64;
-
 static constexpr int64_t kDebugXorSuffix = -0x181fe80e0b464188LL;
 
 // A static piece of memory for 0-size allocations, so as to return
@@ -41,9 +39,10 @@ static uint8_t* const kZeroSizeArea = reinterpret_cast<uint8_t*>(&zero_size_area
 // Helper class directing allocations to the jemalloc allocator.
 class JemallocAllocator {
  public:
-  static Status AllocateAligned(int64_t size, uint8_t** out);
-  static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr);
-  static void DeallocateAligned(uint8_t* ptr, int64_t size);
+  static Status AllocateAligned(int64_t size, int64_t alignment, uint8_t** out);
+  static Status ReallocateAligned(int64_t old_size, int64_t new_size, int64_t alignment,
+                                  uint8_t** ptr);
+  static void DeallocateAligned(uint8_t* ptr, int64_t size, int64_t alignment);
   static void ReleaseUnused();
 };
 

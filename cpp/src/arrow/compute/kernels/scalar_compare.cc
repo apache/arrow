@@ -18,18 +18,18 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <optional>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using util::string_view;
+using std::string_view;
 
 namespace compute {
 namespace internal {
@@ -261,7 +261,7 @@ struct CompareKernel {
     DCHECK(kernel);
     const auto kernel_data = checked_cast<const CompareData*>(kernel->data.get());
 
-    ArraySpan* out_arr = out->array_span();
+    ArraySpan* out_arr = out->array_span_mutable();
 
     // TODO: implement path for offset not multiple of 8
     const bool out_is_byte_aligned = out_arr->offset % 8 == 0;
@@ -640,7 +640,7 @@ struct BinaryScalarMinMax {
     RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
 
     for (int64_t row = 0; row < batch.length; row++) {
-      util::optional<string_view> result;
+      std::optional<string_view> result;
       auto visit_value = [&](string_view value) {
         result = !result ? value : Op::Call(*result, value);
       };
@@ -651,7 +651,7 @@ struct BinaryScalarMinMax {
           if (scalar.is_valid) {
             visit_value(UnboxScalar<Type>::Unbox(scalar));
           } else if (!options.skip_nulls) {
-            result = util::nullopt;
+            result = std::nullopt;
             break;
           }
         } else {
@@ -664,17 +664,13 @@ struct BinaryScalarMinMax {
             visit_value(
                 string_view(reinterpret_cast<const char*>(data + offsets[row]), length));
           } else if (!options.skip_nulls) {
-            result = util::nullopt;
+            result = std::nullopt;
             break;
           }
         }
       }
 
-      if (result) {
-        RETURN_NOT_OK(builder.Append(*result));
-      } else {
-        builder.UnsafeAppendNull();
-      }
+      RETURN_NOT_OK(builder.AppendOrNull(result));
     }
 
     std::shared_ptr<Array> string_array;

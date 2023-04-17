@@ -16,10 +16,12 @@
 # under the License.
 
 import pytest
+import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
 
 groups = [
+    'acero',
     'brotli',
     'bz2',
     'cython',
@@ -39,11 +41,9 @@ groups = [
     'pandas',
     'parquet',
     'parquet_encryption',
-    'plasma',
     's3',
     'snappy',
     'substrait',
-    'tensorflow',
     'flight',
     'slow',
     'requires_testing_data',
@@ -51,6 +51,7 @@ groups = [
 ]
 
 defaults = {
+    'acero': False,
     'brotli': Codec.is_available('brotli'),
     'bz2': Codec.is_available('bz2'),
     'cython': False,
@@ -71,13 +72,11 @@ defaults = {
     'pandas': False,
     'parquet': False,
     'parquet_encryption': False,
-    'plasma': False,
     'requires_testing_data': True,
     's3': False,
     'slow': False,
     'snappy': Codec.is_available('snappy'),
     'substrait': False,
-    'tensorflow': False,
     'zstd': Codec.is_available('zstd'),
 }
 
@@ -96,6 +95,12 @@ except ImportError:
 try:
     import pyarrow.gandiva  # noqa
     defaults['gandiva'] = True
+except ImportError:
+    pass
+
+try:
+    import pyarrow.acero  # noqa
+    defaults['acero'] = True
 except ImportError:
     pass
 
@@ -126,19 +131,6 @@ except ImportError:
 try:
     import pyarrow.parquet.encryption  # noqa
     defaults['parquet_encryption'] = True
-except ImportError:
-    pass
-
-
-try:
-    import pyarrow.plasma  # noqa
-    defaults['plasma'] = True
-except ImportError:
-    pass
-
-try:
-    import tensorflow  # noqa
-    defaults['tensorflow'] = True
 except ImportError:
     pass
 
@@ -185,7 +177,6 @@ def pytest_ignore_collect(path, config):
             'dataset',
             'orc',
             'parquet',
-            'plasma',
             'flight',
             'substrait',
         ]
@@ -265,3 +256,25 @@ def add_fs(doctest_namespace, request, tmp_path):
         doctest_namespace["local_path"] = str(tmp_path)
         doctest_namespace["path"] = str(path)
     yield
+
+
+# Define udf fixture for test_udf.py and test_substrait.py
+@pytest.fixture(scope="session")
+def unary_func_fixture():
+    """
+    Register a unary scalar function.
+    """
+    from pyarrow import compute as pc
+
+    def unary_function(ctx, x):
+        return pc.call_function("add", [x, 1],
+                                memory_pool=ctx.memory_pool)
+    func_name = "y=x+1"
+    unary_doc = {"summary": "add function",
+                 "description": "test add function"}
+    pc.register_scalar_function(unary_function,
+                                func_name,
+                                unary_doc,
+                                {"array": pa.int64()},
+                                pa.int64())
+    return unary_function, func_name

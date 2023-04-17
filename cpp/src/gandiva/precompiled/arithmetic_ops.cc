@@ -96,6 +96,8 @@ BINARY_SYMMETRIC(bitwise_xor, int64, ^)
 
 MOD_OP(mod, int64, int32, int32)
 MOD_OP(mod, int64, int64, int64)
+MOD_OP(mod, uint32, uint32, uint32)
+MOD_OP(mod, uint64, uint64, uint64)
 
 PMOD_OP(pmod, int32, int32, int32)
 PMOD_OP(pmod, int64, int64, int64)
@@ -437,6 +439,8 @@ void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
 
 DIV(int32)
 DIV(int64)
+DIV(uint32)
+DIV(uint64)
 
 #undef DIV
 
@@ -490,6 +494,18 @@ SIGN(float32)
 SIGN(float64)
 
 #undef SIGN
+
+#define ABS(TYPE) \
+  FORCE_INLINE    \
+  gdv_##TYPE abs_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(std::abs(in1)); }
+
+ABS(int32)
+ABS(int64)
+ABS(float32)
+ABS(float64)
+
+#undef ABS
+
 #define CEILING(TYPE) \
   FORCE_INLINE        \
   gdv_##TYPE ceiling_##TYPE(gdv_##TYPE in1) { return static_cast<gdv_##TYPE>(ceil(in1)); }
@@ -507,6 +523,21 @@ FLOOR(float32)
 FLOOR(float64)
 
 #undef FLOOR
+#define SQRT(TYPE)                              \
+  FORCE_INLINE                                  \
+  gdv_float64 sqrt_##TYPE(gdv_##TYPE in1) {     \
+    if (in1 < 0) {                              \
+      return NAN;                               \
+    }                                           \
+    return static_cast<gdv_float64>(sqrt(in1)); \
+  }
+
+SQRT(int32)
+SQRT(int64)
+SQRT(float32)
+SQRT(float64)
+
+#undef SQRT
 
 #undef NUMERIC_FUNCTION
 #undef NUMERIC_TYPES

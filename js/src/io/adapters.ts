@@ -231,11 +231,11 @@ class AdaptiveByteReader<T extends ArrayBufferViewInput> {
         source && (source['locked'] && this.releaseLock());
     }
 
-    async read(size?: number): Promise<ReadableStreamDefaultReadValueResult<Uint8Array>> {
+    async read(size?: number): Promise<ReadableStreamReadValueResult<Uint8Array>> {
         if (size === 0) {
-            return { done: this.reader == null, value: new Uint8Array(0) } as ReadableStreamDefaultReadValueResult<Uint8Array>;
+            return { done: this.reader == null, value: new Uint8Array(0) } as ReadableStreamReadValueResult<Uint8Array>;
         }
-        const result = await this.reader!.read() as ReadableStreamDefaultReadValueResult<any>;
+        const result = await this.reader!.read() as ReadableStreamReadValueResult<any>;
         !result.done && (result.value = toUint8Array(result));
         return result;
     }

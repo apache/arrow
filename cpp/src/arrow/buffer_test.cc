@@ -34,7 +34,6 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -162,7 +161,7 @@ Result<std::unique_ptr<Buffer>> MyMemoryManager::CopyNonOwnedFrom(
     ARROW_ASSIGN_OR_RAISE(auto dest,
                           MemoryManager::CopyNonOwned(buf, default_cpu_memory_manager()));
     // 2. Wrap CPU buffer result
-    return internal::make_unique<MyBuffer>(shared_from_this(), std::move(dest));
+    return std::make_unique<MyBuffer>(shared_from_this(), std::move(dest));
   }
   return nullptr;
 }
@@ -204,8 +203,8 @@ Result<std::shared_ptr<Buffer>> MyMemoryManager::ViewBufferTo(
 }
 
 // Like AssertBufferEqual, but doesn't call Buffer::data()
-void AssertMyBufferEqual(const Buffer& buffer, util::string_view expected) {
-  ASSERT_EQ(util::string_view(buffer), expected);
+void AssertMyBufferEqual(const Buffer& buffer, std::string_view expected) {
+  ASSERT_EQ(std::string_view(buffer), expected);
 }
 
 void AssertIsCPUBuffer(const Buffer& buf) {
@@ -396,6 +395,15 @@ TEST(TestBuffer, FromStdString) {
   AssertIsCPUBuffer(buf);
   ASSERT_EQ(0, memcmp(buf.data(), val.c_str(), val.size()));
   ASSERT_EQ(static_cast<int64_t>(val.size()), buf.size());
+}
+
+TEST(TestBuffer, Alignment) {
+  std::string val = "hello, world";
+
+  constexpr int64_t kAlignmentTest = 1024;
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<Buffer> buf,
+                       AllocateBuffer(val.size(), kAlignmentTest));
+  ASSERT_EQ(buf->address() % kAlignmentTest, 0);
 }
 
 TEST(TestBuffer, FromStdStringWithMemory) {
@@ -707,6 +715,37 @@ TEST(TestBufferBuilder, ResizeReserve) {
   ASSERT_OK(builder.Reserve(60));
   ASSERT_EQ(128, builder.capacity());
   ASSERT_EQ(9, builder.length());
+}
+
+TEST(TestBufferBuilder, Alignment) {
+  const std::string data = "some data";
+  auto data_ptr = data.c_str();
+
+  constexpr int kTestAlignment = 512;
+  BufferBuilder builder(default_memory_pool(), /*alignment=*/kTestAlignment);
+#define TEST_ALIGNMENT() \
+  ASSERT_EQ(reinterpret_cast<uintptr_t>(builder.data()) % kTestAlignment, 0)
+
+  ASSERT_OK(builder.Append(data_ptr, 9));
+  TEST_ALIGNMENT();
+
+  ASSERT_OK(builder.Resize(128));
+  ASSERT_EQ(128, builder.capacity());
+  ASSERT_EQ(9, builder.length());
+  TEST_ALIGNMENT();
+
+  // Do not shrink to fit
+  ASSERT_OK(builder.Resize(64, false));
+  TEST_ALIGNMENT();
+
+  // Shrink to fit
+  ASSERT_OK(builder.Resize(64));
+  TEST_ALIGNMENT();
+
+  // Reserve elements
+  ASSERT_OK(builder.Reserve(60));
+  TEST_ALIGNMENT();
+#undef TEST_ALIGNMENT
 }
 
 TEST(TestBufferBuilder, Finish) {

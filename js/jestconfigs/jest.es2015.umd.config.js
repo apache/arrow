@@ -20,16 +20,26 @@ import config from "../jest.config.js";
 export default {
     ...config,
     rootDir: "../",
-    preset: "ts-jest",
     moduleFileExtensions: ["js", "ts"],
-    globals: {
-        "ts-jest": {
-            diagnostics: false,
-            tsconfig: "<rootDir>/test/tsconfig/tsconfig.es2015.umd.json",
-        },
-    },
     moduleNameMapper: {
         "^apache-arrow": "<rootDir>/targets/es2015/umd/Arrow.js",
         "^(\\.{1,2}/.*)\\.js$": "$1",
+    },
+    transform: {
+        ...config.transform,
+        "^.+\\.js$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.es2015.umd.json",
+            },
+        ],
+        "^.+\\.ts$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.es2015.umd.json",
+            },
+        ],
     },
 };

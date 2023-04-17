@@ -19,10 +19,9 @@
 
 #pragma once
 
-#include <string.h>
-
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bpacking.h"
@@ -65,7 +64,7 @@ class BitWriter {
   /// Writes v to the next aligned byte using num_bytes. If T is larger than
   /// num_bytes, the extra high-order bytes will be ignored. Returns false if
   /// there was not enough space.
-  /// Assume the v is stored in buffer_ as a litte-endian format
+  /// Assume the v is stored in buffer_ as a little-endian format
   template <typename T>
   bool PutAligned(T v, int num_bytes);
 
@@ -153,7 +152,7 @@ class BitReader {
   /// 'num_bytes'. The value is assumed to be byte-aligned so the stream will
   /// be advanced to the start of the next byte before 'v' is read. Returns
   /// false if there are not enough bytes left.
-  /// Assume the v was stored in buffer_ as a litte-endian format
+  /// Assume the v was stored in buffer_ as a little-endian format
   template <typename T>
   bool GetAligned(int num_bytes, T* v);
 
@@ -203,9 +202,10 @@ class BitReader {
 };
 
 inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
-  // TODO: revisit this limit if necessary (can be raised to 64 by fixing some edge cases)
-  DCHECK_LE(num_bits, 32);
-  DCHECK_EQ(v >> num_bits, 0) << "v = " << v << ", num_bits = " << num_bits;
+  DCHECK_LE(num_bits, 64);
+  if (num_bits < 64) {
+    DCHECK_EQ(v >> num_bits, 0) << "v = " << v << ", num_bits = " << num_bits;
+  }
 
   if (ARROW_PREDICT_FALSE(byte_offset_ * 8 + bit_offset_ + num_bits > max_bytes_ * 8))
     return false;
@@ -220,7 +220,8 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
     buffered_values_ = 0;
     byte_offset_ += 8;
     bit_offset_ -= 64;
-    buffered_values_ = v >> (num_bits - bit_offset_);
+    buffered_values_ =
+        (num_bits - bit_offset_ == 64) ? 0 : (v >> (num_bits - bit_offset_));
   }
   DCHECK_LT(bit_offset_, 64);
   return true;
@@ -316,7 +317,7 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 template <typename T>
 inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   DCHECK(buffer_ != NULL);
-  DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8));
+  DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8)) << "num_bits: " << num_bits;
 
   int bit_offset = bit_offset_;
   int byte_offset = byte_offset_;
@@ -411,8 +412,16 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
 
   // Advance byte_offset to next unread byte and read num_bytes
   byte_offset_ += bytes_read;
-  memcpy(v, buffer_ + byte_offset_, num_bytes);
-  *v = arrow::bit_util::FromLittleEndian(*v);
+  if constexpr (std::is_same_v<T, bool>) {
+    // ARROW-18031: if we're trying to get an aligned bool, just check
+    // the LSB of the next byte and move on. If we memcpy + FromLittleEndian
+    // as usual, we have potential undefined behavior for bools if the value
+    // isn't 0 or 1
+    *v = *(buffer_ + byte_offset_) & 1;
+  } else {
+    memcpy(v, buffer_ + byte_offset_, num_bytes);
+    *v = arrow::bit_util::FromLittleEndian(*v);
+  }
   byte_offset_ += num_bytes;
 
   bit_offset_ = 0;

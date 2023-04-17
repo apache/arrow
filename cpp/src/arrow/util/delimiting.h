@@ -19,10 +19,10 @@
 
 #include <cstdint>
 #include <memory>
+#include <string_view>
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -43,7 +43,7 @@ class ARROW_EXPORT BoundaryFinder {
   /// The returned `out_pos` is relative to `block`'s start and should point
   /// to the first character after the first delimiter.
   /// `out_pos` will be -1 if no delimiter is found.
-  virtual Status FindFirst(util::string_view partial, util::string_view block,
+  virtual Status FindFirst(std::string_view partial, std::string_view block,
                            int64_t* out_pos) = 0;
 
   /// \brief Find the position of the last delimiter inside block
@@ -51,7 +51,7 @@ class ARROW_EXPORT BoundaryFinder {
   /// The returned `out_pos` is relative to `block`'s start and should point
   /// to the first character after the last delimiter.
   /// `out_pos` will be -1 if no delimiter is found.
-  virtual Status FindLast(util::string_view block, int64_t* out_pos) = 0;
+  virtual Status FindLast(std::string_view block, int64_t* out_pos) = 0;
 
   /// \brief Find the position of the Nth delimiter inside the block
   ///
@@ -63,8 +63,8 @@ class ARROW_EXPORT BoundaryFinder {
   /// `out_pos` will be -1 if no delimiter is found.
   ///
   /// The returned `num_found` is the number of delimiters actually found
-  virtual Status FindNth(util::string_view partial, util::string_view block,
-                         int64_t count, int64_t* out_pos, int64_t* num_found) = 0;
+  virtual Status FindNth(std::string_view partial, std::string_view block, int64_t count,
+                         int64_t* out_pos, int64_t* num_found) = 0;
 
   static constexpr int64_t kNoDelimiterFound = -1;
 

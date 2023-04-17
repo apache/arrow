@@ -1,5 +1,8 @@
 ---
-title: "How the R package is installed - advanced"
+title: "Installation details"
+description: >
+  A low-level description of arrow installation intended for developers
+output: rmarkdown::html_vignette
 ---
 
 This document is intended specifically for arrow _developers_ who wish to know 
@@ -45,7 +48,7 @@ installation, and if it can't find one downloads an appropriate libarrow binary.
 
 * `inst/build_arrow_static.sh` - called by `tools/nixlibs.R` when libarrow  
 needs to be built.  It builds libarrow for a bundled, static build, and
-mirrors the steps described in the ["Arrow R Developer Guide" vignette](./setup.html)
+mirrors the steps described in the [Arrow R developer guide](./setup.html)
 This build script is also what is used to generate our prebuilt binaries.
 
 The actions taken by these scripts to resolve dependencies and install the 
@@ -98,7 +101,7 @@ that match your both your local operating system, required
 dependencies (e.g. openssl version) and arrow R package version. 
 
 These are used automatically on many Linux distributions (x86_64 architecture only),
-according to the [allowlist](https://github.com/apache/arrow/blob/master/r/tools/nixlibs-allowlist.txt).
+according to the [allowlist](https://github.com/apache/arrow/blob/main/r/tools/nixlibs-allowlist.txt).
 If your distribution isn't in the list, you can opt-in by setting the `NOT_CRAN`
 environment variable before you call `install.packages()`. If found, they will be
 downloaded and bundled when your R package compiles.
@@ -118,7 +121,7 @@ If you are authorized to install system packages and you're installing a CRAN re
 you may want to use the official Apache Arrow release packages corresponding to 
 the R package version via software distribution tools such as `apt` or `yum` 
 (though there are some drawbacks: see the 
-["Troubleshooting" section in the main installation docs]("../install.html)).
+["Troubleshooting" section in the main installation docs](../install.html#troubleshooting)).
 See the [Arrow project installation page](https://arrow.apache.org/install/)
 to find pre-compiled binary packages for some common Linux distributions,
 including Debian, Ubuntu, and CentOS.

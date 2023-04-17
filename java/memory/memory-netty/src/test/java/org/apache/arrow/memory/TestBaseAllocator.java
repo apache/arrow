@@ -438,100 +438,15 @@ public class TestBaseAllocator {
         }).build());
   }
 
-  // Allocation listener
-  // It counts the number of times it has been invoked, and how much memory allocation it has seen
-  // When set to 'expand on fail', it attempts to expand the associated allocator's limit
-  private static final class TestAllocationListener implements AllocationListener {
-    private int numPreCalls;
-    private int numCalls;
-    private int numReleaseCalls;
-    private int numChildren;
-    private long totalMem;
-    private boolean expandOnFail;
-    BufferAllocator expandAlloc;
-    long expandLimit;
-
-    TestAllocationListener() {
-      this.numCalls = 0;
-      this.numChildren = 0;
-      this.totalMem = 0;
-      this.expandOnFail = false;
-      this.expandAlloc = null;
-      this.expandLimit = 0;
-    }
-
-    @Override
-    public void onPreAllocation(long size) {
-      numPreCalls++;
-    }
-
-    @Override
-    public void onAllocation(long size) {
-      numCalls++;
-      totalMem += size;
-    }
-
-    @Override
-    public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
-      if (expandOnFail) {
-        expandAlloc.setLimit(expandLimit);
-        return true;
-      }
-      return false;
-    }
-
-
-    @Override
-    public void onRelease(long size) {
-      numReleaseCalls++;
-    }
-
-    @Override
-    public void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
-      ++numChildren;
-    }
-
-    @Override
-    public void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
-      --numChildren;
-    }
-
-    void setExpandOnFail(BufferAllocator expandAlloc, long expandLimit) {
-      this.expandOnFail = true;
-      this.expandAlloc = expandAlloc;
-      this.expandLimit = expandLimit;
-    }
-
-    int getNumPreCalls() {
-      return numPreCalls;
-    }
-
-    int getNumReleaseCalls() {
-      return numReleaseCalls;
-    }
-
-    int getNumCalls() {
-      return numCalls;
-    }
-
-    int getNumChildren() {
-      return numChildren;
-    }
-
-    long getTotalMem() {
-      return totalMem;
-    }
-  }
-
   @Test
   public void testRootAllocator_listeners() throws Exception {
-    TestAllocationListener l1 = new TestAllocationListener();
+    CountingAllocationListener l1 = new CountingAllocationListener();
     assertEquals(0, l1.getNumPreCalls());
     assertEquals(0, l1.getNumCalls());
     assertEquals(0, l1.getNumReleaseCalls());
     assertEquals(0, l1.getNumChildren());
     assertEquals(0, l1.getTotalMem());
-    TestAllocationListener l2 = new TestAllocationListener();
+    CountingAllocationListener l2 = new CountingAllocationListener();
     assertEquals(0, l2.getNumPreCalls());
     assertEquals(0, l2.getNumCalls());
     assertEquals(0, l2.getNumReleaseCalls());
@@ -590,7 +505,7 @@ public class TestBaseAllocator {
 
   @Test
   public void testRootAllocator_listenerAllocationFail() throws Exception {
-    TestAllocationListener l1 = new TestAllocationListener();
+    CountingAllocationListener l1 = new CountingAllocationListener();
     assertEquals(0, l1.getNumCalls());
     assertEquals(0, l1.getTotalMem());
     // Test attempts to allocate too much from a child whose limit is set to half of the max

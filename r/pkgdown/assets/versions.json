@@ -1,11 +1,23 @@
 [
     {
-        "name": "8.0.0.9000 (dev)",
+        "name": "11.0.0.9000 (dev)",
         "version": "dev/"
     },
     {
-        "name": "8.0.0 (release)",
+        "name": "11.0.0.3 (release)",
         "version": ""
+    },
+    {
+        "name": "10.0.1",
+        "version": "10.0/"
+    },
+    {
+        "name": "9.0.0",
+        "version": "9.0/"
+    },
+    {
+        "name": "8.0.0",
+        "version": "8.0/"
     },
     {
         "name": "7.0.0",

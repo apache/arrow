@@ -18,8 +18,10 @@
 package org.apache.arrow.memory;
 
 /**
- * Reference Manager manages one or more ArrowBufs that share the
- * reference count for the underlying memory chunk.
+ * ReferenceManager is the reference count for one or more allocations.
+ *
+ * <p>In order to integrate with the core {@link BufferAllocator} implementation, the allocation itself should
+ * be represented by an {@link AllocationManager}, though this is not required by the API.
  */
 public interface ReferenceManager {
 
@@ -70,6 +72,8 @@ public interface ReferenceManager {
    * the target allocator-reference manager combination + 1 in the case that the provided allocator
    * already had an association to this underlying memory.
    *
+   * <p>The underlying allocation ({@link AllocationManager}) will not be copied.
+   *
    * @param srcBuffer source ArrowBuf
    * @param targetAllocator The target allocator to create an association with.
    * @return A new ArrowBuf which shares the same underlying memory as this ArrowBuf.
@@ -89,9 +93,10 @@ public interface ReferenceManager {
   ArrowBuf deriveBuffer(ArrowBuf sourceBuffer, long index, long length);
 
   /**
-   * Transfer the memory accounting ownership of this ArrowBuf to another allocator.
-   * This will generate a new ArrowBuf that carries an association with the underlying memory
-   * for the given ArrowBuf
+   * Duplicate the memory accounting ownership of the backing allocation of the given ArrowBuf in another allocator.
+   * This will generate a new ArrowBuf that carries an association with the same underlying memory
+   * ({@link AllocationManager}s) as the given ArrowBuf.
+   *
    * @param sourceBuffer source ArrowBuf
    * @param targetAllocator The target allocator to create an association with
    * @return {@link OwnershipTransferResult} with info on transfer result and new buffer

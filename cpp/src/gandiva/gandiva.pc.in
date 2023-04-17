@@ -25,3 +25,4 @@ Version: @GANDIVA_VERSION@
 Requires: arrow
 Libs: -L${libdir} -lgandiva
 Cflags: -I${includedir}
+Cflags.private: -DGANDIVA_STATIC

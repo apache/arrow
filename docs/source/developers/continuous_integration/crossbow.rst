@@ -25,8 +25,8 @@ The content of ``arrow/dev/tasks`` directory aims for automating the process of
 Arrow packaging and integration testing.
 
 Packages:
-  - C++ and Python `conda-forge packages`_ for Linux, Mac and Windows
-  - Python `Wheels`_ for Linux, Mac and Windows
+  - C++ and Python `conda-forge packages`_ for Linux, macOS and Windows
+  - Python `Wheels`_ for Linux, macOS and Windows
   - C++ and GLib `Linux packages`_ for multiple distributions
   - Java for Gandiva
 
@@ -46,21 +46,21 @@ Executors
 
 Individual jobs are executed on public CI services, currently:
 
-- Linux: TravisCI, CircleCI, Azure Pipelines
-- Mac: TravisCI, Azure Pipelines
-- Windows: AppVeyor, Azure Pipelines
+- Linux: GitHub Actions, Travis CI, Azure Pipelines
+- macOS: GitHub Actions, Travis CI, Azure Pipelines
+- Windows: GitHub Actions, Azure Pipelines
 
 Queue
 ~~~~~
 
 Because of the nature of how the CI services work, the scheduling of
 jobs happens through an additional git repository, which acts like a job
-queue for the tasks. Anyone can host a ``queue`` repository which is usually
-called as ``crossbow``.
+queue for the tasks. Anyone can host a ``queue`` repository (usually
+named ``<ghuser>/crossbow``).
 
-A job is a git commit on a particular git branch, containing only the required
-configuration file to run the requested build (like ``.travis.yml``,
-``appveyor.yml`` or ``azure-pipelines.yml``).
+A job is a git commit on a particular git branch, containing the required
+configuration files to run the requested builds (like ``.travis.yml``, 
+``azure-pipelines.yml``, or ``crossbow.yml`` for `GitHub Actions`_ ).
 
 Scheduler
 ~~~~~~~~~
@@ -74,22 +74,20 @@ Install
 The following guide depends on GitHub, but theoretically any git
 server can be used.
 
-If you are not using the `ursacomputing/crossbow <https://github.com/ursacomputing/crossbow>`_
+If you are not using the `ursacomputing/crossbow`_
 repository, you will need to complete the first two steps, otherwise procede
 to step 3:
 
 1. `Create the queue repository`_
 
-2. Enable `TravisCI`_, `Appveyor`_, `Azure Pipelines`_ and `CircleCI`_
-   integrations on for the newly created queue repository.
+2. Enable `Travis CI`_ and `Azure Pipelines`_ integrations for the newly
+   created queue repository.
 
-   -  turn off Travis’ `auto cancellation`_ feature on branches
-
-3. Clone either ursacomputing/crossbow if you are using that, or the newly
+3. Clone either `ursacomputing/crossbow`_ if you are using that, or the newly
    created repository next to the arrow repository:
 
-   By default the scripts looks for ``crossbow`` next to arrow repository, but
-   this can configured through command line arguments.
+   By default the scripts looks for a ``crossbow`` clone next to the ``arrow``
+   directory, but this can configured through command line arguments.
 
    .. code:: bash
 
@@ -110,26 +108,21 @@ to step 3:
 
    or pass as an argument to the CLI script ``--github-token``
 
-6. Export the previously created GitHub token on both CI services:
+6. Add the previously created GitHub token to **Travis CI**:
 
    Use ``CROSSBOW_GITHUB_TOKEN`` encrypted environment variable. You can
-   set them at the following URLs, where ``ghuser`` is the GitHub
+   set it at the following URL, where ``ghuser`` is the GitHub
    username and ``ghrepo`` is the GitHub repository name (typically
    ``crossbow``):
 
-   -  TravisCI: ``https://travis-ci.org/<ghuser>/<ghrepo>/settings``
-   -  Appveyor:
-      ``https://ci.appveyor.com/project/<ghuser>/<ghrepo>/settings/environment``
-   -  CircleCI:
-      ``https://circleci.com/gh/<ghuser>/<ghrepo>/edit#env-vars``
+   ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
 
-   On Appveyor check the ``skip branches without appveyor.yml`` checkbox
-   on the web UI under crossbow repository’s settings.
-
+   - Confirm the `auto cancellation`_ feature is turned off for branch builds. This should be the default setting.
+   
 7. Install Python (minimum supported version is 3.7):
 
-   Miniconda is preferred, see installation instructions:
-   https://conda.io/docs/user-guide/install/index.html
+   | Miniconda is preferred, see installation instructions:
+   | https://conda.io/docs/user-guide/install/index.html
 
 8. Install the archery toolset containing crossbow itself:
 
@@ -176,8 +169,8 @@ The script does the following:
 3. Reads and renders the required build configurations with the
    parameters substituted.
 
-4. Create a branch per task, prefixed with the job id. For example to
-   build conda recipes on linux it will create a new branch:
+4. Create a branch per task, prefixed with the job id. For example, to
+   build conda recipes on linux, it will create a new branch:
    ``crossbow@build-<id>-conda-linux``.
 
 5. Pushes the modified branches to GitHub which triggers the builds. For
@@ -251,11 +244,11 @@ see its help page:
 .. _conda-forge packages: conda-recipes
 .. _Wheels: python-wheels
 .. _Linux packages: linux-packages
-.. _Create the queue repository: https://help.github.com/articles/creating-a-new-repository
-.. _TravisCI: https://travis-ci.org/getting_started
-.. _Appveyor: https://www.appveyor.com/docs/
-.. _CircleCI: https://circleci.com/docs/2.0/getting-started/
+.. _Create the queue repository: https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository
+.. _Github Actions: https://docs.github.com/en/actions/quickstart
+.. _Travis CI: https://travis-ci.com/getting-started/
 .. _Azure Pipelines: https://docs.microsoft.com/en-us/azure/devops/pipelines/get-started/pipelines-sign-up
-.. _auto cancellation: https://docs.travis-ci.com/user/customizing-the-build/#Building-only-the-latest-commit
+.. _auto cancellation: https://docs.travis-ci.com/user/customizing-the-build/#building-only-the-latest-commit
 .. _Create a Personal Access Token: https://help.github.com/articles/creating-a-personal-access-token-for-the-command-line/
 .. _setuptools_scm: https://pypi.python.org/pypi/setuptools_scm
+.. _ursacomputing/crossbow: https://github.com/ursacomputing/crossbow

@@ -38,19 +38,19 @@ the official Arrow repository which is saved in your set up as
 ``upstream``.
 
 You should have Git set up by now, have cloned the repository,
-have successfully built Arrow and have a JIRA issue to work on.
+have successfully built Arrow and have a GitHub issue to work on.
 
 **Before making changes to the code, you should create a new
 branch in Git.**
 
-1. Update your fork’s master branch with ``upstream/master``.
+1. Update your fork’s main branch with ``upstream/main``.
    Run this in the shell from the ``arrow`` directory.
 
    .. code:: console
 
-      $ git checkout master # select the main Arrow branch
-      $ git fetch upstream # check for changes in upstream/master
-      $ git pull --ff-only upstream master # save the changes from upstream/master
+      $ git checkout main # select the main Arrow branch
+      $ git fetch upstream # check for changes in upstream/main
+      $ git pull --ff-only upstream main # save the changes from upstream/main
 
    Note: ``--ff-only`` applies changes only if they can be fast-forwarded
    without conflicts or creating merge commits.
@@ -189,16 +189,15 @@ that supports quality and with it you can learn a lot.
 
 If it still takes too long to get merged, do not hesitate to remind
 maintainers in the comment section of the pull request and post
-reminders on the JIRA ticket also.
+reminders on the GitHub issue also.
 
 How to get your pull request to be reviewed?
 --------------------------------------------
 
 Arrow maintainers will be notified when a pull request is created and
 they will get to it as soon as possible. If days pass and it still had
-not been reviewed go ahead and mention the reporter of the JIRA issue
-or a developer that you communicated with via JIRA comments, mailing
-list or GitHub.
+not been reviewed go ahead and mention the reporter of the GitHub issue
+or a developer that you communicated with via mailing list or GitHub.
 
 To put a **mention** in GitHub insert @ in the comment and select the
 username from the list.
@@ -253,15 +252,15 @@ The steps for updating the pull request would then be as follows:
 
    Here we merge the new commits with our local branch and we do not rebase.
 
-3. Now we have to update the branch to sync with upstream master Arrow branch.
+3. Now we have to update the branch to sync with upstream main Arrow branch.
    This way the pull request will be able to get merged. We use rebase in this
    case.
 
    .. code:: console
 
-      $ git pull upstream master --rebase
+      $ git pull upstream main --rebase
 
-   This will rebase your local commits on top of the tip of ``upstream/master``.
+   This will rebase your local commits on top of the tip of ``upstream/main``.
 
 4. Now you can push the changes by running:
 

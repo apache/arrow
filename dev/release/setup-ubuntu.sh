@@ -51,8 +51,19 @@ case ${codename} in
     ;;
 esac
 
+case ${codename} in
+  bionic|focal)
+    ;;
+  *)
+    apt-get update -y -q
+    apt-get install -y -q --no-install-recommends \
+      libxsimd-dev
+    ;;
+esac
+
 apt-get install -y -q --no-install-recommends \
   build-essential \
+  bundler \
   clang \
   cmake \
   curl \

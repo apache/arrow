@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -86,6 +87,15 @@ class ARROW_EXPORT RoundOptions : public FunctionOptions {
   static RoundOptions Defaults() { return RoundOptions(); }
   /// Rounding precision (number of digits to round to)
   int64_t ndigits;
+  /// Rounding and tie-breaking mode
+  RoundMode round_mode;
+};
+
+class ARROW_EXPORT RoundBinaryOptions : public FunctionOptions {
+ public:
+  explicit RoundBinaryOptions(RoundMode round_mode = RoundMode::HALF_TO_EVEN);
+  static constexpr char const kTypeName[] = "RoundBinaryOptions";
+  static RoundBinaryOptions Defaults() { return RoundBinaryOptions(); }
   /// Rounding and tie-breaking mode
   RoundMode round_mode;
 };
@@ -277,12 +287,13 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
 class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
  public:
   explicit StructFieldOptions(std::vector<int> indices);
+  explicit StructFieldOptions(std::initializer_list<int>);
+  explicit StructFieldOptions(FieldRef field_ref);
   StructFieldOptions();
   static constexpr char const kTypeName[] = "StructFieldOptions";
 
-  /// The child indices to extract. For instance, to get the 2nd child
-  /// of the 1st child of a struct or union, this would be {0, 1}.
-  std::vector<int> indices;
+  /// The FieldRef specifying what to extract from struct or union.
+  FieldRef field_ref;
 };
 
 class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
@@ -344,6 +355,25 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
   SliceOptions();
   static constexpr char const kTypeName[] = "SliceOptions";
   int64_t start, stop, step;
+};
+
+class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
+ public:
+  explicit ListSliceOptions(int64_t start, std::optional<int64_t> stop = std::nullopt,
+                            int64_t step = 1,
+                            std::optional<bool> return_fixed_size_list = std::nullopt);
+  ListSliceOptions();
+  static constexpr char const kTypeName[] = "ListSliceOptions";
+  /// The start of list slicing.
+  int64_t start;
+  /// Optional stop of list slicing. If not set, then slice to end. (NotImplemented)
+  std::optional<int64_t> stop;
+  /// Slicing step
+  int64_t step;
+  // Whether to return a FixedSizeListArray. If true _and_ stop is after
+  // a list element's length, nulls will be appended to create the requested slice size.
+  // Default of `nullopt` will return whatever type it got in.
+  std::optional<bool> return_fixed_size_list;
 };
 
 class ARROW_EXPORT NullOptions : public FunctionOptions {
@@ -610,6 +640,15 @@ Result<Datum> Power(const Datum& left, const Datum& right,
                     ArithmeticOptions options = ArithmeticOptions(),
                     ExecContext* ctx = NULLPTR);
 
+/// \brief Raise Euler's number to the power of specified exponent, element-wise.
+/// If the exponent value is null the result will be null.
+///
+/// \param[in] arg the exponent
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise Euler's number raised to the power of exponent
+ARROW_EXPORT
+Result<Datum> Exp(const Datum& arg, ExecContext* ctx = NULLPTR);
+
 /// \brief Left shift the left array by the right array. Array values must be the
 /// same length. If either operand is null, the result will be null.
 ///
@@ -842,15 +881,33 @@ Result<Datum> Sign(const Datum& arg, ExecContext* ctx = NULLPTR);
 
 /// \brief Round a value to a given precision.
 ///
-/// If argument is null the result will be null.
+/// If arg is null the result will be null.
 ///
-/// \param[in] arg the value rounded
+/// \param[in] arg the value to be rounded
 /// \param[in] options rounding options (rounding mode and number of digits), optional
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise rounded value
 ARROW_EXPORT
 Result<Datum> Round(const Datum& arg, RoundOptions options = RoundOptions::Defaults(),
                     ExecContext* ctx = NULLPTR);
+
+/// \brief Round a value to a given precision.
+///
+/// If arg1 is null the result will be null.
+/// If arg2 is null then the result will be null. If arg2 is negative, then the rounding
+/// place will be shifted to the left (thus -1 would correspond to rounding to the nearest
+/// ten).  If positive, the rounding place will shift to the right (and +1 would
+/// correspond to rounding to the nearest tenth).
+///
+/// \param[in] arg1 the value to be rounded
+/// \param[in] arg2 the number of significant digits to round to
+/// \param[in] options rounding options, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+ARROW_EXPORT
+Result<Datum> RoundBinary(const Datum& arg1, const Datum& arg2,
+                          RoundBinaryOptions options = RoundBinaryOptions::Defaults(),
+                          ExecContext* ctx = NULLPTR);
 
 /// \brief Round a value to a given multiple.
 ///
@@ -1460,6 +1517,17 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> IsDaylightSavings(const Datum& values,
                                              ExecContext* ctx = NULLPTR);
+
+/// \brief LocalTimestamp converts timestamp to timezone naive local timestamp
+///
+/// \param[in] values input to convert to local time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 12.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> LocalTimestamp(const Datum& values,
+                                          ExecContext* ctx = NULLPTR);
 
 /// \brief Years Between finds the number of years between two values
 ///

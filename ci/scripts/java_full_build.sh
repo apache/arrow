@@ -65,7 +65,13 @@ find . \
      -exec echo {} ";" \
      -exec cp {} $dist_dir ";"
 find ~/.m2/repository/org/apache/arrow \
-     "(" -name "*.jar" -o -name "*.zip" -o -name "*.pom" ")" \
+     "(" \
+     -name "*.jar" -o \
+     -name "*.json" -o \
+     -name "*.pom" -o \
+     -name "*.xml" -o \
+     -name "*.zip" \
+     ")" \
      -exec echo {} ";" \
      -exec cp {} $dist_dir ";"
 

@@ -22,11 +22,11 @@ import (
 	"math/bits"
 	"reflect"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	shared_utils "github.com/apache/arrow/go/v9/internal/utils"
-	"github.com/apache/arrow/go/v9/parquet"
-	"github.com/apache/arrow/go/v9/parquet/internal/utils"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	shared_utils "github.com/apache/arrow/go/v12/internal/utils"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -50,7 +50,8 @@ type deltaBitPackDecoder struct {
 	deltaBitWidths *memory.Buffer
 	deltaBitWidth  byte
 
-	lastVal int64
+	totalValues uint64
+	lastVal     int64
 }
 
 // returns the number of bytes read so far
@@ -85,13 +86,8 @@ func (d *deltaBitPackDecoder) SetData(nvalues int, data []byte) error {
 		return xerrors.New("parquet: eof exception")
 	}
 
-	var totalValues uint64
-	if totalValues, ok = d.bitdecoder.GetVlqInt(); !ok {
+	if d.totalValues, ok = d.bitdecoder.GetVlqInt(); !ok {
 		return xerrors.New("parquet: eof exception")
-	}
-
-	if int(totalValues) != d.nvals {
-		return xerrors.New("parquet: mismatch between number of values and count in data header")
 	}
 
 	if d.lastVal, ok = d.bitdecoder.GetZigZagVlqInt(); !ok {
@@ -186,14 +182,13 @@ func (d *DeltaBitPackInt32Decoder) Decode(out []int32) (int, error) {
 
 		// copy as many values from our mini block as we can into out
 		start := int(d.valsPerMini - d.currentMiniBlockVals)
-		end := shared_utils.MinInt(int(d.valsPerMini), len(out))
-		copy(out, d.miniBlockValues[start:end])
+		numCopied := copy(out, d.miniBlockValues[start:])
 
-		numCopied := end - start
 		out = out[numCopied:]
 		d.currentBlockVals -= uint32(numCopied)
 		d.currentMiniBlockVals -= uint32(numCopied)
 	}
+	d.nvals -= max
 	return max, nil
 }
 
@@ -275,14 +270,13 @@ func (d *DeltaBitPackInt64Decoder) Decode(out []int64) (int, error) {
 		}
 
 		start := int(d.valsPerMini - d.currentMiniBlockVals)
-		end := shared_utils.MinInt(int(d.valsPerMini), len(out))
-		copy(out, d.miniBlockValues[start:end])
+		numCopied := copy(out, d.miniBlockValues[start:])
 
-		numCopied := end - start
 		out = out[numCopied:]
 		d.currentBlockVals -= uint32(numCopied)
 		d.currentMiniBlockVals -= uint32(numCopied)
 	}
+	d.nvals -= max
 	return max, nil
 }
 

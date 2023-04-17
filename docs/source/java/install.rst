@@ -15,36 +15,48 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+=======================
 Installing Java Modules
 =======================
 
 .. contents::
 
 System Compatibility
---------------------
+====================
 
 Java modules are regularly built and tested on macOS and Linux distributions.
 
 Java Compatibility
-------------------
+==================
 
-Java modules are currently compatible with JDK 8, 9, 10, 11, 17, and 18.
+Java modules are compatible with JDK 8 and above.
 Currently, JDK 8, 11, 17, and 18 are tested in CI.
 
 When using Java 9 or later, some JDK internals must be exposed by
-adding ``--add-opens=java.base/java.nio=ALL-UNNAMED``. Otherwise,
-you may see errors like ``module java.base does not "opens
+adding ``--add-opens=java.base/java.nio=ALL-UNNAMED`` to the ``java`` command:
+
+.. code-block:: shell
+
+   # Directly on the command line
+   $ java --add-opens=java.base/java.nio=ALL-UNNAMED -jar ...
+   # Indirectly via environment variables
+   $ env _JAVA_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED" java -jar ...
+
+Otherwise, you may see errors like ``module java.base does not "opens
 java.nio" to unnamed module``.
 
+If using Maven and Surefire for unit testing, :ref:`this argument must
+be added to Surefire as well <java-install-maven-testing>`.
+
 Installing from Maven
----------------------
+=====================
 
 By default, Maven will download from the central repository: https://repo.maven.apache.org/maven2/org/apache/arrow/
 
 Configure your pom.xml with the Java modules needed, for example:
 arrow-vector, and arrow-memory-netty.
 
-.. code-block::
+.. code-block:: xml
 
     <?xml version="1.0" encoding="UTF-8"?>
     <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -76,7 +88,7 @@ plugin. This plugin generates useful platform-dependent properties
 such as ``os.detected.name`` and ``os.detected.arch`` needed to resolve
 transitive dependencies of Flight.
 
-.. code-block::
+.. code-block:: xml
 
     <?xml version="1.0" encoding="UTF-8"?>
     <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -107,9 +119,11 @@ transitive dependencies of Flight.
         </build>
     </project>
 
-The ``--add-opens`` flag can be added when running unit tests through Maven:
+.. _java-install-maven-testing:
 
-.. code-block::
+The ``--add-opens`` flag must be added when running unit tests through Maven:
+
+.. code-block:: xml
 
     <build>
         <plugins>
@@ -131,6 +145,14 @@ Or they can be added via environment variable, for example when executing your c
     _JAVA_OPTIONS="--add-opens=java.base/java.nio=ALL-UNNAMED" mvn exec:java -Dexec.mainClass="YourMainCode"
 
 Installing from Source
-----------------------
+======================
 
 See :ref:`java-development`.
+
+IDE Configuration
+=================
+
+Generally, no additional configuration should be needed.  However,
+ensure your Maven or other build configuration has the ``--add-opens``
+flag as described above, so that the IDE picks it up and runs tests
+with that flag as well.

@@ -20,15 +20,15 @@ import (
 	"bytes"
 	"sync"
 
-	"github.com/apache/arrow/go/v9/arrow/memory"
-	"github.com/apache/arrow/go/v9/parquet"
-	"github.com/apache/arrow/go/v9/parquet/compress"
-	"github.com/apache/arrow/go/v9/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v9/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v9/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v9/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v9/parquet/internal/utils"
-	"github.com/apache/arrow/go/v9/parquet/metadata"
+	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/compress"
+	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v12/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v12/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v12/parquet/internal/utils"
+	"github.com/apache/arrow/go/v12/parquet/metadata"
 	libthrift "github.com/apache/thrift/lib/go/thrift"
 	"golang.org/x/xerrors"
 )
@@ -182,8 +182,10 @@ func (pw *serializedPageWriter) updateEncryption(moduleType int8) error {
 		pw.metaEncryptor.UpdateAad(encryption.CreateModuleAad(pw.metaEncryptor.FileAad(), moduleType, pw.rgOrdinal, pw.columnOrdinal, -1))
 	case encryption.DictPageModule:
 		pw.dataEncryptor.UpdateAad(encryption.CreateModuleAad(pw.dataEncryptor.FileAad(), moduleType, pw.rgOrdinal, pw.columnOrdinal, -1))
+	default:
+		return xerrors.New("unknown module type in updateencryption")
 	}
-	return xerrors.New("unknown module type in updateencryption")
+	return nil
 }
 
 func (pw *serializedPageWriter) Close(hasDict, fallback bool) error {

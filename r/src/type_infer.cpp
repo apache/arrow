@@ -18,7 +18,6 @@
 #include <memory>
 
 #include "./arrow_types.h"
-#include "./arrow_vctrs.h"
 
 #include <arrow/array/array_base.h>
 #include <arrow/chunked_array.h>
@@ -159,22 +158,34 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<VECSXP>(SEXP x) {
       return arrow::large_binary();
     }
 
+    // Check attr(x, "ptype") for an appropriate R prototype
     SEXP ptype = Rf_getAttrib(x, symbols::ptype);
-    if (Rf_isNull(ptype)) {
-      if (XLENGTH(x) == 0) {
-        cpp11::stop(
-            "Requires at least one element to infer the values' type of a list vector");
-      }
-
-      ptype = VECTOR_ELT(x, 0);
+    if (!Rf_isNull(ptype)) {
+      arrow::list(InferArrowType(ptype));
     }
 
-    return arrow::list(InferArrowType(ptype));
+    // If unspecified, iterate through the vector until we get a non-null result
+    // special case raw() vectors, since we want list(raw()) to result in
+    // a binary() array
+    for (R_xlen_t i = 0; i < XLENGTH(x); i++) {
+      ptype = VECTOR_ELT(x, i);
+      if (Rf_isNull(ptype)) {
+        continue;
+      }
+
+      if (!Rf_isObject(ptype) && TYPEOF(ptype) == RAWSXP) {
+        return arrow::binary();
+      } else {
+        return arrow::list(InferArrowType(ptype));
+      }
+    }
+
+    return arrow::list(arrow::null());
   }
 }
 
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
-  if (arrow::r::altrep::is_arrow_altrep(x)) {
+  if (arrow::r::altrep::is_unmaterialized_arrow_altrep(x)) {
     return arrow::r::altrep::vec_to_arrow_altrep_bypass(x)->type();
   }
 
@@ -198,6 +209,8 @@ std::shared_ptr<arrow::DataType> InferArrowType(SEXP x) {
         return InferArrowTypeFromVector<STRSXP>(x);
       case VECSXP:
         return InferArrowTypeFromVector<VECSXP>(x);
+      case NILSXP:
+        return null();
       default:
         cpp11::stop("Cannot infer type from vector");
     }

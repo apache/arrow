@@ -19,11 +19,11 @@
 
 #include <cstdint>
 #include <memory>
+#include <string_view>
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -39,16 +39,16 @@ Status CopyStream(const std::shared_ptr<io::InputStream>& src,
                   const io::IOContext& io_context);
 
 ARROW_EXPORT
-Status PathNotFound(util::string_view path);
+Status PathNotFound(std::string_view path);
 
 ARROW_EXPORT
-Status NotADir(util::string_view path);
+Status NotADir(std::string_view path);
 
 ARROW_EXPORT
-Status NotAFile(util::string_view path);
+Status NotAFile(std::string_view path);
 
 ARROW_EXPORT
-Status InvalidDeleteDirContents(util::string_view path);
+Status InvalidDeleteDirContents(std::string_view path);
 
 /// \brief Return files matching the glob pattern on the filesystem
 ///

@@ -17,18 +17,24 @@
 
 #include "arrow/dataset/file_base.h"
 
-#include <arrow/compute/exec/exec_plan.h>
+#include "arrow/acero/exec_plan.h"
 
 #include <algorithm>
+#include <atomic>
+#include <memory>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
+#include "arrow/acero/map_node.h"
+#include "arrow/acero/query_context.h"
+#include "arrow/acero/util.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/exec/forest_internal.h"
-#include "arrow/compute/exec/subtree_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/dataset_writer.h"
+#include "arrow/dataset/forest_internal.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/subtree_internal.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/io/compressed.h"
@@ -38,12 +44,10 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/tracing_internal.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 
@@ -51,6 +55,19 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace dataset {
+
+FileSource::FileSource(std::shared_ptr<io::RandomAccessFile> file,
+                       Compression::type compression)
+    : custom_open_([=] { return ToResult(file); }),
+      custom_size_(-1),
+      compression_(compression) {
+  Result<int64_t> maybe_size = file->GetSize();
+  if (maybe_size.ok()) {
+    custom_size_ = *maybe_size;
+  } else {
+    custom_open_ = [st = maybe_size.status()] { return st; };
+  }
+}
 
 Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
   if (filesystem_) {
@@ -64,8 +81,18 @@ Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
   return custom_open_();
 }
 
+int64_t FileSource::Size() const {
+  if (filesystem_) {
+    return file_info_.size();
+  }
+  if (buffer_) {
+    return buffer_->size();
+  }
+  return custom_size_;
+}
+
 Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
-    util::optional<Compression::type> compression) const {
+    std::optional<Compression::type> compression) const {
   ARROW_ASSIGN_OR_RAISE(auto file, Open());
   auto actual_compression = Compression::type::UNCOMPRESSED;
   if (!compression.has_value()) {
@@ -93,14 +120,29 @@ bool FileSource::Equals(const FileSource& other) const {
   bool match_file_system =
       (filesystem_ == nullptr && other.filesystem_ == nullptr) ||
       (filesystem_ && other.filesystem_ && filesystem_->Equals(other.filesystem_));
-  return match_file_system && file_info_.Equals(other.file_info_) &&
-         buffer_->Equals(*other.buffer_) && compression_ == other.compression_;
+  bool match_buffer = (buffer_ == nullptr && other.buffer_ == nullptr) ||
+                      ((buffer_ != nullptr && other.buffer_ != nullptr) &&
+                       (buffer_->address() == other.buffer_->address()));
+  return match_file_system && match_buffer && file_info_.Equals(other.file_info_) &&
+         compression_ == other.compression_;
 }
 
-Future<util::optional<int64_t>> FileFormat::CountRows(
+Future<std::optional<int64_t>> FileFormat::CountRows(
     const std::shared_ptr<FileFragment>&, compute::Expression,
     const std::shared_ptr<ScanOptions>&) {
-  return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+  return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
+}
+
+Future<std::shared_ptr<InspectedFragment>> FileFormat::InspectFragment(
+    const FileSource& source, const FragmentScanOptions* format_options,
+    compute::ExecContext* exec_context) const {
+  return Status::NotImplemented("This format does not yet support the scan2 node");
+}
+
+Future<std::shared_ptr<FragmentScanner>> FileFormat::BeginScan(
+    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
+  return Status::NotImplemented("This format does not yet support the scan2 node");
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
@@ -132,12 +174,32 @@ Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
   return format_->ScanBatchesAsync(options, self);
 }
 
-Future<util::optional<int64_t>> FileFragment::CountRows(
+Future<std::shared_ptr<InspectedFragment>> FileFragment::InspectFragment(
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
+  const FragmentScanOptions* realized_format_options = format_options;
+  if (format_options == nullptr) {
+    realized_format_options = format_->default_fragment_scan_options.get();
+  }
+  return format_->InspectFragment(source_, realized_format_options, exec_context);
+}
+
+Future<std::shared_ptr<FragmentScanner>> FileFragment::BeginScan(
+    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
+  const FragmentScanOptions* realized_format_options = format_options;
+  if (format_options == nullptr) {
+    realized_format_options = format_->default_fragment_scan_options.get();
+  }
+  return format_->BeginScan(request, inspected_fragment, realized_format_options,
+                            exec_context);
+}
+
+Future<std::optional<int64_t>> FileFragment::CountRows(
     compute::Expression predicate, const std::shared_ptr<ScanOptions>& options) {
   ARROW_ASSIGN_OR_RAISE(predicate, compute::SimplifyWithGuarantee(std::move(predicate),
                                                                   partition_expression_));
   if (!predicate.IsSatisfiable()) {
-    return Future<util::optional<int64_t>>::MakeFinished(0);
+    return Future<std::optional<int64_t>>::MakeFinished(0);
   }
   auto self = checked_pointer_cast<FileFragment>(shared_from_this());
   return format()->CountRows(self, std::move(predicate), options);
@@ -149,9 +211,9 @@ bool FileFragment::Equals(const FileFragment& other) const {
 
 struct FileSystemDataset::FragmentSubtrees {
   // Forest for skipping fragments based on extracted subtree expressions
-  compute::Forest forest;
+  Forest forest;
   // fragment indices and subtree expressions in forest order
-  std::vector<util::Variant<int, compute::Expression>> fragments_and_subtrees;
+  std::vector<std::variant<int, compute::Expression>> fragments_and_subtrees;
 };
 
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
@@ -206,13 +268,13 @@ std::string FileSystemDataset::ToString() const {
 
 void FileSystemDataset::SetupSubtreePruning() {
   subtrees_ = std::make_shared<FragmentSubtrees>();
-  compute::SubtreeImpl impl;
+  SubtreeImpl impl;
 
   auto encoded = impl.EncodeGuarantees(
       [&](int index) { return fragments_[index]->partition_expression(); },
       static_cast<int>(fragments_.size()));
 
-  std::sort(encoded.begin(), encoded.end(), compute::SubtreeImpl::ByGuarantee());
+  std::sort(encoded.begin(), encoded.end(), SubtreeImpl::ByGuarantee());
 
   for (const auto& e : encoded) {
     if (e.index) {
@@ -222,8 +284,8 @@ void FileSystemDataset::SetupSubtreePruning() {
     }
   }
 
-  subtrees_->forest = compute::Forest(static_cast<int>(encoded.size()),
-                                      compute::SubtreeImpl::IsAncestor{encoded});
+  subtrees_->forest =
+      Forest(static_cast<int>(encoded.size()), SubtreeImpl::IsAncestor{encoded});
 }
 
 Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
@@ -237,15 +299,15 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
 
   std::vector<compute::Expression> predicates{predicate};
   RETURN_NOT_OK(subtrees_->forest.Visit(
-      [&](compute::Forest::Ref ref) -> Result<bool> {
+      [&](Forest::Ref ref) -> Result<bool> {
         if (auto fragment_index =
-                util::get_if<int>(&subtrees_->fragments_and_subtrees[ref.i])) {
+                std::get_if<int>(&subtrees_->fragments_and_subtrees[ref.i])) {
           fragment_indices.push_back(*fragment_index);
           return false;
         }
 
         const auto& subtree_expr =
-            util::get<compute::Expression>(subtrees_->fragments_and_subtrees[ref.i]);
+            std::get<compute::Expression>(subtrees_->fragments_and_subtrees[ref.i]);
         ARROW_ASSIGN_OR_RAISE(auto simplified,
                               SimplifyWithGuarantee(predicates.back(), subtree_expr));
 
@@ -256,7 +318,7 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
         predicates.push_back(std::move(simplified));
         return true;
       },
-      [&](compute::Forest::Ref ref) { predicates.pop_back(); }));
+      [&](Forest::Ref ref) { predicates.pop_back(); }));
 
   std::sort(fragment_indices.begin(), fragment_indices.end());
 
@@ -323,23 +385,27 @@ Status WriteBatch(
   return Status::OK();
 }
 
-class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
+class DatasetWritingSinkNodeConsumer : public acero::SinkNodeConsumer {
  public:
   DatasetWritingSinkNodeConsumer(std::shared_ptr<const KeyValueMetadata> custom_metadata,
-                                 std::unique_ptr<internal::DatasetWriter> dataset_writer,
                                  FileSystemDatasetWriteOptions write_options)
       : custom_metadata_(std::move(custom_metadata)),
-        dataset_writer_(std::move(dataset_writer)),
         write_options_(std::move(write_options)) {}
 
   Status Init(const std::shared_ptr<Schema>& schema,
-              compute::BackpressureControl* backpressure_control) override {
+              acero::BackpressureControl* backpressure_control,
+              acero::ExecPlan* plan) override {
     if (custom_metadata_) {
       schema_ = schema->WithMetadata(custom_metadata_);
     } else {
       schema_ = schema;
     }
-    backpressure_control_ = backpressure_control;
+    ARROW_ASSIGN_OR_RAISE(
+        dataset_writer_,
+        internal::DatasetWriter::Make(
+            write_options_, plan->query_context()->async_scheduler(),
+            [backpressure_control] { backpressure_control->Pause(); },
+            [backpressure_control] { backpressure_control->Resume(); }, [] {}));
     return Status::OK();
   }
 
@@ -350,53 +416,35 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
   }
 
   Future<> Finish() override {
-    RETURN_NOT_OK(task_group_.AddTask([this] { return dataset_writer_->Finish(); }));
-    return task_group_.End();
+    dataset_writer_->Finish();
+    // Some write tasks may still be in the queue at this point but that is ok.
+    return Future<>::MakeFinished();
   }
 
  private:
   Status WriteNextBatch(std::shared_ptr<RecordBatch> batch,
                         compute::Expression guarantee) {
-    return WriteBatch(
-        batch, guarantee, write_options_,
-        [this](std::shared_ptr<RecordBatch> next_batch,
-               const PartitionPathFormat& destination) {
-          return task_group_.AddTask([this, next_batch, destination] {
-            Future<> has_room = dataset_writer_->WriteRecordBatch(
-                next_batch, destination.directory, destination.filename);
-            if (!has_room.is_finished()) {
-              // We don't have to worry about sequencing backpressure here since
-              // task_group_ serves as our sequencer.  If batches continue to arrive after
-              // we pause they will queue up in task_group_ until we free up and call
-              // Resume
-              backpressure_control_->Pause();
-              return has_room.Then([this] { backpressure_control_->Resume(); });
-            }
-            return has_room;
-          });
-        });
+    return WriteBatch(batch, guarantee, write_options_,
+                      [this](std::shared_ptr<RecordBatch> next_batch,
+                             const PartitionPathFormat& destination) {
+                        dataset_writer_->WriteRecordBatch(std::move(next_batch),
+                                                          destination.directory,
+                                                          destination.filename);
+                        return Status::OK();
+                      });
   }
 
   std::shared_ptr<const KeyValueMetadata> custom_metadata_;
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
-  util::SerializedAsyncTaskGroup task_group_;
+  Future<> finished_ = Future<>::Make();
   std::shared_ptr<Schema> schema_ = nullptr;
-  compute::BackpressureControl* backpressure_control_;
 };
 
 }  // namespace
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
-  const io::IOContext& io_context = scanner->options()->io_context;
-  auto cpu_executor =
-      scanner->options()->use_threads ? ::arrow::internal::GetCpuThreadPool() : nullptr;
-  std::shared_ptr<compute::ExecContext> exec_context =
-      std::make_shared<compute::ExecContext>(io_context.pool(), cpu_executor);
-
-  ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
-
   auto exprs = scanner->options()->projection.call()->arguments;
   auto names = checked_cast<const compute::MakeStructOptions*>(
                    scanner->options()->projection.call()->options.get())
@@ -407,24 +455,19 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   // when reading from a single input file.
   const auto& custom_metadata = scanner->options()->projected_schema->metadata();
 
-  RETURN_NOT_OK(
-      compute::Declaration::Sequence(
-          {
-              {"scan", ScanNodeOptions{dataset, scanner->options()}},
-              {"filter", compute::FilterNodeOptions{scanner->options()->filter}},
-              {"project",
-               compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"write", WriteNodeOptions{write_options, custom_metadata}},
-          })
-          .AddToPlan(plan.get()));
+  acero::Declaration plan = acero::Declaration::Sequence({
+      {"scan", ScanNodeOptions{dataset, scanner->options()}},
+      {"filter", acero::FilterNodeOptions{scanner->options()->filter}},
+      {"project", acero::ProjectNodeOptions{std::move(exprs), std::move(names)}},
+      {"write", WriteNodeOptions{write_options, custom_metadata}},
+  });
 
-  RETURN_NOT_OK(plan->StartProducing());
-  return plan->finished().status();
+  return acero::DeclarationToStatus(std::move(plan), scanner->options()->use_threads);
 }
 
-Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
-                                         std::vector<compute::ExecNode*> inputs,
-                                         const compute::ExecNodeOptions& options) {
+Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
+                                       std::vector<acero::ExecNode*> inputs,
+                                       const acero::ExecNodeOptions& options) {
   if (inputs.size() != 1) {
     return Status::Invalid("Write SinkNode requires exactly 1 input, got ",
                            inputs.size());
@@ -440,36 +483,39 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
     return Status::Invalid("Must provide partitioning");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
-                        internal::DatasetWriter::Make(write_options));
-
   std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
-      std::make_shared<DatasetWritingSinkNodeConsumer>(
-          custom_metadata, std::move(dataset_writer), write_options);
+      std::make_shared<DatasetWritingSinkNodeConsumer>(custom_metadata, write_options);
 
   ARROW_ASSIGN_OR_RAISE(
       auto node,
-      compute::MakeExecNode("consuming_sink", plan, std::move(inputs),
-                            compute::ConsumingSinkNodeOptions{std::move(consumer)}));
+      acero::MakeExecNode("consuming_sink", plan, std::move(inputs),
+                          acero::ConsumingSinkNodeOptions{std::move(consumer)}));
 
   return node;
 }
 
 namespace {
 
-class TeeNode : public compute::MapNode {
+class TeeNode : public acero::MapNode {
  public:
-  TeeNode(compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
+  TeeNode(acero::ExecPlan* plan, std::vector<acero::ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema,
-          std::unique_ptr<internal::DatasetWriter> dataset_writer,
-          FileSystemDatasetWriteOptions write_options, bool async_mode)
-      : MapNode(plan, std::move(inputs), std::move(output_schema), async_mode),
-        dataset_writer_(std::move(dataset_writer)),
+          FileSystemDatasetWriteOptions write_options)
+      : MapNode(plan, std::move(inputs), std::move(output_schema)),
         write_options_(std::move(write_options)) {}
 
-  static Result<compute::ExecNode*> Make(compute::ExecPlan* plan,
-                                         std::vector<compute::ExecNode*> inputs,
-                                         const compute::ExecNodeOptions& options) {
+  Status StartProducing() override {
+    ARROW_ASSIGN_OR_RAISE(
+        dataset_writer_,
+        internal::DatasetWriter::Make(
+            write_options_, plan_->query_context()->async_scheduler(),
+            [this] { Pause(); }, [this] { Resume(); }, [this] { MapNode::Finish(); }));
+    return MapNode::StartProducing();
+  }
+
+  static Result<acero::ExecNode*> Make(acero::ExecPlan* plan,
+                                       std::vector<acero::ExecNode*> inputs,
+                                       const acero::ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "TeeNode"));
 
     const WriteNodeOptions write_node_options =
@@ -477,27 +523,15 @@ class TeeNode : public compute::MapNode {
     const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
     const std::shared_ptr<Schema> schema = inputs[0]->output_schema();
 
-    ARROW_ASSIGN_OR_RAISE(auto dataset_writer,
-                          internal::DatasetWriter::Make(write_options));
-
     return plan->EmplaceNode<TeeNode>(plan, std::move(inputs), std::move(schema),
-                                      std::move(dataset_writer), std::move(write_options),
-                                      /*async_mode=*/true);
+                                      std::move(write_options));
   }
 
   const char* kind_name() const override { return "TeeNode"; }
 
-  void Finish(Status finish_st) override {
-    dataset_writer_->Finish().AddCallback([this, finish_st](const Status& dw_status) {
-      // Need to wait for the task group to complete regardless of dw_status
-      task_group_.End().AddCallback(
-          [this, dw_status, finish_st](const Status& tg_status) {
-            finished_.MarkFinished(dw_status & finish_st & tg_status);
-          });
-    });
-  }
+  void Finish() override { dataset_writer_->Finish(); }
 
-  Result<compute::ExecBatch> DoTee(const compute::ExecBatch& batch) {
+  Result<compute::ExecBatch> ProcessBatch(compute::ExecBatch batch) override {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
                           batch.ToRecordBatch(output_schema()));
     ARROW_RETURN_NOT_OK(WriteNextBatch(std::move(record_batch), batch.guarantee));
@@ -509,34 +543,10 @@ class TeeNode : public compute::MapNode {
     return WriteBatch(batch, guarantee, write_options_,
                       [this](std::shared_ptr<RecordBatch> next_batch,
                              const PartitionPathFormat& destination) {
-                        return task_group_.AddTask([this, next_batch, destination] {
-                          util::tracing::Span span;
-                          Future<> has_room = dataset_writer_->WriteRecordBatch(
-                              next_batch, destination.directory, destination.filename);
-                          if (!has_room.is_finished()) {
-                            this->Pause();
-                            return has_room.Then([this] { this->Resume(); });
-                          }
-                          return has_room;
-                        });
+                        dataset_writer_->WriteRecordBatch(
+                            next_batch, destination.directory, destination.filename);
+                        return Status::OK();
                       });
-  }
-
-  void InputReceived(compute::ExecNode* input, compute::ExecBatch batch) override {
-    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
-    DCHECK_EQ(input, inputs_[0]);
-    auto func = [this](compute::ExecBatch batch) {
-      util::tracing::Span span;
-      START_SPAN_WITH_PARENT(span, span_, "InputReceived",
-                             {{"tee", ToStringExtra()},
-                              {"node.label", label()},
-                              {"batch.length", batch.length}});
-      auto result = DoTee(std::move(batch));
-      MARK_SPAN(span, result.status());
-      END_SPAN(span);
-      return result;
-    };
-    this->SubmitTask(std::move(func), std::move(batch));
   }
 
   void Pause() { inputs_[0]->PauseProducing(this, ++backpressure_counter_); }
@@ -551,14 +561,13 @@ class TeeNode : public compute::MapNode {
  private:
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
-  util::SerializedAsyncTaskGroup task_group_;
-  int32_t backpressure_counter_ = 0;
+  std::atomic<int32_t> backpressure_counter_ = 0;
 };
 
 }  // namespace
 
 namespace internal {
-void InitializeDatasetWriter(arrow::compute::ExecFactoryRegistry* registry) {
+void InitializeDatasetWriter(arrow::acero::ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("write", MakeWriteNode));
   DCHECK_OK(registry->AddFactory("tee", TeeNode::Make));
 }

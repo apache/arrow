@@ -57,7 +57,7 @@ Scope and completeness
   confused if they hit problems introduced by a merged PR.
 
 * What changes are in-scope for a PR and what changes might/could/should be
-  pushed out of scope and have a follow-up JIRA created should be determined
+  pushed out of scope and have a follow-up issue created should be determined
   in collaboration between the authors and the reviewers.
 
 * When a large piece of functionality is being contributed and it seems
@@ -255,3 +255,43 @@ Social aspects
 * Like any communication, code reviews are governed by the Apache
   `Code of Conduct <https://www.apache.org/foundation/policies/conduct.html>`_.
   This applies to both reviewers and contributors.
+
+
+Labelling
+=========
+
+While reviewing PRs, we should try to identify whether the corresponding issue 
+needs to be marked with one or both of the following issue labels:
+
+* **Critical Fix**: The change fixes either: (a) a security vulnerability;
+  (b) a bug that causes incorrect or invalid data to be produced;
+  or (c) a bug that causes a crash (while the API contract is upheld).
+  This is intended to mark fixes to issues that may affect users without their
+  knowledge. For this reason, fixing bugs that cause errors don't count, since 
+  those bugs are usually obvious. Bugs that cause crashes are considered critical
+  because they are a possible vector of Denial-of-Service attacks.
+* **Breaking Change**: The change breaks backwards compatibility in a public API.
+  For changes in C++, this does not include changes that simply break ABI
+  compatibility, except for the few places where we do guarantee ABI
+  compatibility (such as C Data Interface). Experimental APIs are *not*
+  exempt from this; they are just more likely to be associated with this tag.
+  
+Breaking changes and critical fixes are separate: breaking changes alter the
+API contract, while critical fixes make the implementation align with the
+existing API contract. For example, fixing a bug that caused a Parquet reader
+to skip rows containing the number 42 is a critical fix but not a breaking change,
+since the row skipping wasn't behavior a reasonable user would rely on.
+
+These labels are used in the release to highlight changes that users ought to be
+aware of when they consider upgrading library versions. Breaking changes help
+identify reasons when users may wish to wait to upgrade until they have time to
+adapt their code, while critical fixes highlight the risk in *not* upgrading.
+
+In addition, we use the following labels to indicate priority:
+
+* **Priority: Blocker**: Indicates the changes **must** be merged before the next
+  release can happen. This includes fixes to test or packaging failures that
+  would prevent the release from succeeding final packaging or verification.
+* **Priority: Critical**: Indicates issues that are high priority. This is a
+  superset of issues marked "Critical Fix", as it also contains certain fixes
+  to issues causing errors and crashes.

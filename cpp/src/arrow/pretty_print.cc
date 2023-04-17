@@ -26,6 +26,7 @@
 #include <memory>
 #include <sstream>  // IWYU pragma: keep
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -41,7 +42,6 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/string.h"
-#include "arrow/util/string_view.h"
 #include "arrow/vendored/datetime.h"
 #include "arrow/visit_array_inline.h"
 
@@ -49,6 +49,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::StringFormatter;
+using internal::ToChars;
 
 namespace {
 
@@ -57,8 +58,8 @@ class PrettyPrinter {
   PrettyPrinter(const PrettyPrintOptions& options, std::ostream* sink)
       : options_(options), indent_(options.indent), sink_(sink) {}
 
-  inline void Write(util::string_view data);
-  inline void WriteIndented(util::string_view data);
+  inline void Write(std::string_view data);
+  inline void WriteIndented(std::string_view data);
   inline void Newline();
   inline void Indent();
   inline void IndentAfterNewline();
@@ -103,9 +104,9 @@ void PrettyPrinter::CloseArray(const Array& array) {
   (*sink_) << "]";
 }
 
-void PrettyPrinter::Write(util::string_view data) { (*sink_) << data; }
+void PrettyPrinter::Write(std::string_view data) { (*sink_) << data; }
 
-void PrettyPrinter::WriteIndented(util::string_view data) {
+void PrettyPrinter::WriteIndented(std::string_view data) {
   Indent();
   Write(data);
 }
@@ -173,7 +174,7 @@ class ArrayPrinter : public PrettyPrinter {
 
   template <typename ArrayType, typename Formatter>
   Status WritePrimitiveValues(const ArrayType& array, Formatter* formatter) {
-    auto appender = [&](util::string_view v) { (*sink_) << v; };
+    auto appender = [&](std::string_view v) { (*sink_) << v; };
     auto format_func = [&](int64_t i) {
       (*formatter)(array.GetView(i), appender);
       return Status::OK();
@@ -376,6 +377,18 @@ class ArrayPrinter : public PrettyPrinter {
     return PrettyPrint(*array.indices(), ChildOptions(true), sink_);
   }
 
+  Status Visit(const RunEndEncodedArray& array) {
+    Newline();
+    Indent();
+    Write("-- run_ends:\n");
+    RETURN_NOT_OK(PrettyPrint(*array.run_ends(), ChildOptions(true), sink_));
+
+    Newline();
+    Indent();
+    Write("-- values:\n");
+    return PrettyPrint(*array.values(), ChildOptions(true), sink_);
+  }
+
   Status Print(const Array& array) {
     RETURN_NOT_OK(VisitArrayInline(array, this));
     Flush();
@@ -566,7 +579,7 @@ class SchemaPrinter : public PrettyPrinter {
       }
 
       Write(metadata.key(i) + ": '" + metadata.value(i).substr(0, truncated_size) +
-            "' + " + std::to_string(size - truncated_size));
+            "' + " + ToChars(size - truncated_size));
     }
   }
 

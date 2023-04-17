@@ -115,7 +115,7 @@ import { TimeUnit } from './time-unit.js';
 export class Timestamp {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):Timestamp {
+  __init(i:number, bb:flatbuffers.ByteBuffer):Timestamp {
   this.bb_pos = i;
   this.bb = bb;
   return this;

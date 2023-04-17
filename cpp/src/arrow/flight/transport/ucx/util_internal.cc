@@ -22,6 +22,7 @@
 #include <sys/types.h>
 
 #include <cerrno>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 
@@ -31,10 +32,13 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
+
+using internal::ToChars;
+
 namespace flight {
 namespace transport {
 namespace ucx {
@@ -122,7 +126,7 @@ arrow::Result<std::string> SockaddrToString(const struct sockaddr_storage& addre
   DCHECK_NE(pos, std::string::npos);
   result[pos] = ':';
   result.resize(pos + 1);
-  result += std::to_string(port);
+  result += ToChars(port);
   return result;
 }
 

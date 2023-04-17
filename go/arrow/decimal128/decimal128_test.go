@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -108,6 +108,121 @@ func BenchmarkBigIntToDecimal(b *testing.B) {
 		if n.Sign() >= 0 {
 			b.FailNow()
 		}
+	}
+}
+
+func TestAdd(t *testing.T) {
+	for _, tc := range []struct {
+		n    decimal128.Num
+		rhs  decimal128.Num
+		want decimal128.Num
+	}{
+		{decimal128.New(0, 1), decimal128.New(0, 2), decimal128.New(0, 3)},
+		{decimal128.New(1, 0), decimal128.New(2, 0), decimal128.New(3, 0)},
+		{decimal128.New(2, 1), decimal128.New(1, 2), decimal128.New(3, 3)},
+		{decimal128.New(0, 1), decimal128.New(0, math.MaxUint64), decimal128.New(1, 0)},
+		{decimal128.New(0, math.MaxUint64), decimal128.New(0, 1), decimal128.New(1, 0)},
+		{decimal128.New(0, 1), decimal128.New(0, 0), decimal128.New(0, 1)},
+		{decimal128.New(0, 0), decimal128.New(0, 1), decimal128.New(0, 1)},
+	} {
+		t.Run("add", func(t *testing.T) {
+			n := tc.n.Add(tc.rhs)
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
+func TestSub(t *testing.T) {
+	for _, tc := range []struct {
+		n    decimal128.Num
+		rhs  decimal128.Num
+		want decimal128.Num
+	}{
+		{decimal128.New(0, 3), decimal128.New(0, 2), decimal128.New(0, 1)},
+		{decimal128.New(3, 0), decimal128.New(2, 0), decimal128.New(1, 0)},
+		{decimal128.New(3, 3), decimal128.New(1, 2), decimal128.New(2, 1)},
+		{decimal128.New(0, 0), decimal128.New(0, math.MaxUint64), decimal128.New(-1, 1)},
+		{decimal128.New(1, 0), decimal128.New(0, math.MaxUint64), decimal128.New(0, 1)},
+		{decimal128.New(0, 1), decimal128.New(0, 0), decimal128.New(0, 1)},
+		{decimal128.New(0, 0), decimal128.New(0, 1), decimal128.New(-1, math.MaxUint64)},
+	} {
+		t.Run("sub", func(t *testing.T) {
+			n := tc.n.Sub(tc.rhs)
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
+func TestMul(t *testing.T) {
+	for _, tc := range []struct {
+		n    decimal128.Num
+		rhs  decimal128.Num
+		want decimal128.Num
+	}{
+		{decimal128.New(0, 2), decimal128.New(0, 3), decimal128.New(0, 6)},
+		{decimal128.New(2, 0), decimal128.New(0, 3), decimal128.New(6, 0)},
+		{decimal128.New(3, 3), decimal128.New(0, 2), decimal128.New(6, 6)},
+		{decimal128.New(0, 2), decimal128.New(3, 3), decimal128.New(6, 6)},
+		{decimal128.New(0, 2), decimal128.New(0, math.MaxUint64), decimal128.New(1, math.MaxUint64-1)},
+		{decimal128.New(0, 1), decimal128.New(0, 0), decimal128.New(0, 0)},
+		{decimal128.New(0, 0), decimal128.New(0, 1), decimal128.New(0, 0)},
+	} {
+		t.Run("mul", func(t *testing.T) {
+			n := tc.n.Mul(tc.rhs)
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
+func TestDiv(t *testing.T) {
+	for _, tc := range []struct {
+		n        decimal128.Num
+		rhs      decimal128.Num
+		want_res decimal128.Num
+		want_rem decimal128.Num
+	}{
+		{decimal128.New(0, 3), decimal128.New(0, 2), decimal128.New(0, 1), decimal128.New(0, 1)},
+		{decimal128.New(3, 0), decimal128.New(2, 0), decimal128.New(0, 1), decimal128.New(1, 0)},
+		{decimal128.New(3, 2), decimal128.New(2, 3), decimal128.New(0, 1), decimal128.New(0, math.MaxUint64)},
+		{decimal128.New(0, math.MaxUint64), decimal128.New(0, 1), decimal128.New(0, math.MaxUint64), decimal128.New(0, 0)},
+		{decimal128.New(math.MaxInt64, 0), decimal128.New(0, 1), decimal128.New(math.MaxInt64, 0), decimal128.New(0, 0)},
+		{decimal128.New(0, 0), decimal128.New(0, 1), decimal128.New(0, 0), decimal128.New(0, 0)},
+	} {
+		t.Run("div", func(t *testing.T) {
+			res, rem := tc.n.Div(tc.rhs)
+			if got, want := res, tc.want_res; got != want {
+				t.Fatalf("invalid res value. got=%v, want=%v", got, want)
+			}
+			if got, want := rem, tc.want_rem; got != want {
+				t.Fatalf("invalid rem value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
+func TestPow(t *testing.T) {
+	for _, tc := range []struct {
+		n    decimal128.Num
+		rhs  decimal128.Num
+		want decimal128.Num
+	}{
+		{decimal128.New(0, 2), decimal128.New(0, 3), decimal128.New(0, 8)},
+		{decimal128.New(0, 2), decimal128.New(0, 65), decimal128.New(2, 0)},
+		{decimal128.New(0, 1), decimal128.New(0, 0), decimal128.New(0, 1)},
+		{decimal128.New(0, 0), decimal128.New(0, 1), decimal128.New(0, 0)},
+	} {
+		t.Run("pow", func(t *testing.T) {
+			n := tc.n.Pow(tc.rhs)
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
 	}
 }
 
@@ -391,4 +506,53 @@ func TestDecimalFromFloat(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestFromString(t *testing.T) {
+	tests := []struct {
+		s             string
+		expected      int64
+		expectedScale int32
+	}{
+		{"12.3", 123, 1},
+		{"0.00123", 123, 5},
+		{"1.23e-8", 123, 10},
+		{"-1.23E-8", -123, 10},
+		{"1.23e+3", 1230, 0},
+		{"-1.23E+3", -1230, 0},
+		{"1.23e+5", 123000, 0},
+		{"1.2345E+7", 12345000, 0},
+		{"1.23e-8", 123, 10},
+		{"-1.23E-8", -123, 10},
+		{"1.23E+3", 1230, 0},
+		{"-1.23e+3", -1230, 0},
+		{"1.23e+5", 123000, 0},
+		{"1.2345e+7", 12345000, 0},
+		{"0000000", 0, 0},
+		{"000.0000", 0, 4},
+		{".00000", 0, 5},
+		{"1e1", 10, 0},
+		{"+234.567", 234567, 3},
+		{"1e-37", 1, 37},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s_%d", tt.s, tt.expectedScale), func(t *testing.T) {
+			n, err := decimal128.FromString(tt.s, 8, tt.expectedScale)
+			assert.NoError(t, err)
+
+			ex := decimal128.FromI64(tt.expected)
+			assert.Equal(t, ex, n)
+		})
+	}
+}
+
+func TestInvalidNonNegScaleFromString(t *testing.T) {
+	tests := []string{"1e39", "-1e39", "9e39", "-9e39", "9.9e40", "-9.9e40"}
+	for _, tt := range tests {
+		t.Run(tt, func(t *testing.T) {
+			_, err := decimal128.FromString(tt, 38, 0)
+			assert.Error(t, err)
+		})
+	}
 }

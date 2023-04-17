@@ -19,8 +19,9 @@ package ipc
 import (
 	"io"
 
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
 )
@@ -117,4 +118,18 @@ func getDecompressor(codec flatbuf.CompressionType) decompressor {
 		return &zstdDecompressor{dec}
 	}
 	return nil
+}
+
+type bufferWriter struct {
+	buf *memory.Buffer
+	pos int
+}
+
+func (bw *bufferWriter) Write(p []byte) (n int, err error) {
+	if bw.pos+len(p) >= bw.buf.Cap() {
+		bw.buf.Reserve(bw.pos + len(p))
+	}
+	n = copy(bw.buf.Buf()[bw.pos:], p)
+	bw.pos += n
+	return
 }

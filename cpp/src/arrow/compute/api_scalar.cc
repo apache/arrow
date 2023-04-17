@@ -18,6 +18,7 @@
 #include "arrow/compute/api_scalar.h"
 
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 
@@ -329,6 +330,8 @@ static auto kReplaceSubstringOptionsType =
 static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
     DataMember("ndigits", &RoundOptions::ndigits),
     DataMember("round_mode", &RoundOptions::round_mode));
+static auto kRoundBinaryOptionsType = GetFunctionOptionsType<RoundBinaryOptions>(
+    DataMember("round_mode", &RoundBinaryOptions::round_mode));
 static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOptions>(
     DataMember("multiple", &RoundTemporalOptions::multiple),
     DataMember("unit", &RoundTemporalOptions::unit),
@@ -345,6 +348,11 @@ static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
+static auto kListSliceOptionsType = GetFunctionOptionsType<ListSliceOptions>(
+    DataMember("start", &ListSliceOptions::start),
+    DataMember("stop", &ListSliceOptions::stop),
+    DataMember("step", &ListSliceOptions::step),
+    DataMember("return_fixed_size_list", &ListSliceOptions::return_fixed_size_list));
 static auto kSplitPatternOptionsType = GetFunctionOptionsType<SplitPatternOptions>(
     DataMember("pattern", &SplitPatternOptions::pattern),
     DataMember("max_splits", &SplitPatternOptions::max_splits),
@@ -359,7 +367,7 @@ static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("unit", &StrptimeOptions::unit),
     DataMember("error_is_null", &StrptimeOptions::error_is_null));
 static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>(
-    DataMember("indices", &StructFieldOptions::indices));
+    DataMember("field_ref", &StructFieldOptions::field_ref));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
     DataMember("characters", &TrimOptions::characters));
 static auto kUtf8NormalizeOptionsType = GetFunctionOptionsType<Utf8NormalizeOptions>(
@@ -492,6 +500,22 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 }
 constexpr char RoundOptions::kTypeName[];
 
+RoundBinaryOptions::RoundBinaryOptions(RoundMode round_mode)
+    : FunctionOptions(internal::kRoundBinaryOptionsType), round_mode(round_mode) {
+  static_assert(RoundMode::HALF_DOWN > RoundMode::DOWN &&
+                    RoundMode::HALF_DOWN > RoundMode::UP &&
+                    RoundMode::HALF_DOWN > RoundMode::TOWARDS_ZERO &&
+                    RoundMode::HALF_DOWN > RoundMode::TOWARDS_INFINITY &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_UP &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TOWARDS_ZERO &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TOWARDS_INFINITY &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TO_EVEN &&
+                    RoundMode::HALF_DOWN < RoundMode::HALF_TO_ODD,
+                "Invalid order of round modes. Modes prefixed with HALF need to be "
+                "enumerated last with HALF_DOWN being the first among them.");
+}
+constexpr char RoundBinaryOptions::kTypeName[];
+
 RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
                                            bool week_starts_monday,
                                            bool ceil_is_strictly_greater,
@@ -528,6 +552,17 @@ SliceOptions::SliceOptions(int64_t start, int64_t stop, int64_t step)
 SliceOptions::SliceOptions() : SliceOptions(0, 0, 1) {}
 constexpr char SliceOptions::kTypeName[];
 
+ListSliceOptions::ListSliceOptions(int64_t start, std::optional<int64_t> stop,
+                                   int64_t step,
+                                   std::optional<bool> return_fixed_size_list)
+    : FunctionOptions(internal::kListSliceOptionsType),
+      start(start),
+      stop(stop),
+      step(step),
+      return_fixed_size_list(return_fixed_size_list) {}
+ListSliceOptions::ListSliceOptions() : ListSliceOptions(0) {}
+constexpr char ListSliceOptions::kTypeName[];
+
 SplitOptions::SplitOptions(int64_t max_splits, bool reverse)
     : FunctionOptions(internal::kSplitOptionsType),
       max_splits(max_splits),
@@ -561,8 +596,13 @@ StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::MICRO, false)
 constexpr char StrptimeOptions::kTypeName[];
 
 StructFieldOptions::StructFieldOptions(std::vector<int> indices)
-    : FunctionOptions(internal::kStructFieldOptionsType), indices(std::move(indices)) {}
-StructFieldOptions::StructFieldOptions() : StructFieldOptions(std::vector<int>()) {}
+    : FunctionOptions(internal::kStructFieldOptionsType), field_ref(std::move(indices)) {}
+StructFieldOptions::StructFieldOptions(std::initializer_list<int> indices)
+    : FunctionOptions(internal::kStructFieldOptionsType), field_ref(std::move(indices)) {}
+StructFieldOptions::StructFieldOptions(FieldRef ref)
+    : FunctionOptions(internal::kStructFieldOptionsType), field_ref(std::move(ref)) {}
+StructFieldOptions::StructFieldOptions()
+    : FunctionOptions(internal::kStructFieldOptionsType) {}
 constexpr char StructFieldOptions::kTypeName[];
 
 TrimOptions::TrimOptions(std::string characters)
@@ -597,6 +637,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kElementWiseAggregateOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kJoinOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kListSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMapLookupOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMatchSubstringOptionsType));
@@ -604,6 +645,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRoundBinaryOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundTemporalOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundToMultipleOptionsType));
@@ -653,10 +695,16 @@ SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
 SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
 SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")
 SCALAR_EAGER_UNARY(Atan, "atan")
+SCALAR_EAGER_UNARY(Exp, "exp")
 SCALAR_EAGER_UNARY(Sign, "sign")
 
 Result<Datum> Round(const Datum& arg, RoundOptions options, ExecContext* ctx) {
   return CallFunction("round", {arg}, &options, ctx);
+}
+
+Result<Datum> RoundBinary(const Datum& arg1, const Datum& arg2,
+                          RoundBinaryOptions options, ExecContext* ctx) {
+  return CallFunction("round_binary", {arg1, arg2}, &options, ctx);
 }
 
 Result<Datum> RoundToMultiple(const Datum& arg, RoundToMultipleOptions options,
@@ -786,6 +834,7 @@ SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
 SCALAR_EAGER_UNARY(Hour, "hour")
 SCALAR_EAGER_UNARY(YearMonthDay, "year_month_day")
 SCALAR_EAGER_UNARY(IsDaylightSavings, "is_dst")
+SCALAR_EAGER_UNARY(LocalTimestamp, "local_timestamp")
 SCALAR_EAGER_UNARY(IsLeapYear, "is_leap_year")
 SCALAR_EAGER_UNARY(ISOCalendar, "iso_calendar")
 SCALAR_EAGER_UNARY(ISOWeek, "iso_week")

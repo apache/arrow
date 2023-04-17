@@ -43,7 +43,7 @@
 #include "arrow/status.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/client.h"
@@ -58,6 +58,8 @@
 #include "arrow/flight/types.h"
 
 namespace arrow {
+
+using internal::EndsWith;
 
 namespace flight {
 namespace transport {
@@ -151,8 +153,8 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
     received_headers_ = true;
     CallHeaders headers;
     for (const auto& entry : metadata) {
-      headers.insert({util::string_view(entry.first.data(), entry.first.length()),
-                      util::string_view(entry.second.data(), entry.second.length())});
+      headers.insert({std::string_view(entry.first.data(), entry.first.length()),
+                      std::string_view(entry.second.data(), entry.second.length())});
     }
     for (const auto& middleware : middleware_) {
       middleware->ReceivedHeaders(headers);
@@ -180,24 +182,24 @@ class GrpcClientInterceptorAdapterFactory
     std::vector<std::unique_ptr<ClientMiddleware>> middleware;
 
     FlightMethod flight_method = FlightMethod::Invalid;
-    util::string_view method(info->method());
-    if (method.ends_with("/Handshake")) {
+    std::string_view method(info->method());
+    if (EndsWith(method, "/Handshake")) {
       flight_method = FlightMethod::Handshake;
-    } else if (method.ends_with("/ListFlights")) {
+    } else if (EndsWith(method, "/ListFlights")) {
       flight_method = FlightMethod::ListFlights;
-    } else if (method.ends_with("/GetFlightInfo")) {
+    } else if (EndsWith(method, "/GetFlightInfo")) {
       flight_method = FlightMethod::GetFlightInfo;
-    } else if (method.ends_with("/GetSchema")) {
+    } else if (EndsWith(method, "/GetSchema")) {
       flight_method = FlightMethod::GetSchema;
-    } else if (method.ends_with("/DoGet")) {
+    } else if (EndsWith(method, "/DoGet")) {
       flight_method = FlightMethod::DoGet;
-    } else if (method.ends_with("/DoPut")) {
+    } else if (EndsWith(method, "/DoPut")) {
       flight_method = FlightMethod::DoPut;
-    } else if (method.ends_with("/DoExchange")) {
+    } else if (EndsWith(method, "/DoExchange")) {
       flight_method = FlightMethod::DoExchange;
-    } else if (method.ends_with("/DoAction")) {
+    } else if (EndsWith(method, "/DoAction")) {
       flight_method = FlightMethod::DoAction;
-    } else if (method.ends_with("/ListActions")) {
+    } else if (EndsWith(method, "/ListActions")) {
       flight_method = FlightMethod::ListActions;
     } else {
       ARROW_LOG(WARNING) << "Unknown Flight method: " << info->method();
@@ -497,10 +499,75 @@ constexpr char kDummyRootCert[] =
     "-----END CERTIFICATE-----\n";
 #endif
 
+class GrpcResultStream : public ResultStream {
+ public:
+  explicit GrpcResultStream(const FlightCallOptions& options)
+      : rpc_(options),
+        stop_token_(options.stop_token),
+        status_(
+            Status::UnknownError("Internal implementation error, stream not started")) {}
+
+  ~GrpcResultStream() override {
+    if (stream_) {
+      rpc_.context.TryCancel();
+      auto status = FromGrpcStatus(stream_->Finish(), &rpc_.context);
+      if (!status.ok() && !status.IsCancelled()) {
+        ARROW_LOG(DEBUG)
+            << "DoAction result was not fully consumed, server returned error: "
+            << status.ToString();
+      }
+    }
+  }
+
+  static arrow::Result<std::unique_ptr<GrpcResultStream>> Make(
+      const FlightCallOptions& options, pb::FlightService::Stub* stub,
+      ClientAuthHandler* auth_handler, const Action& action) {
+    auto result = std::make_unique<GrpcResultStream>(options);
+    ARROW_RETURN_NOT_OK(result->Init(stub, auth_handler, action));
+    return result;
+  }
+
+  Status Init(pb::FlightService::Stub* stub, ClientAuthHandler* auth_handler,
+              const Action& action) {
+    pb::Action pb_action;
+    RETURN_NOT_OK(internal::ToProto(action, &pb_action));
+    RETURN_NOT_OK(rpc_.SetToken(auth_handler));
+    stream_ = stub->DoAction(&rpc_.context, pb_action);
+    // GH-15150: wait for initial metadata to allow some side effects to occur
+    stream_->WaitForInitialMetadata();
+    return Status::OK();
+  }
+
+  arrow::Result<std::unique_ptr<Result>> Next() override {
+    if (stream_) {
+      pb::Result pb_result;
+      if (!stop_token_.IsStopRequested() && stream_->Read(&pb_result)) {
+        auto result = std::make_unique<Result>();
+        RETURN_NOT_OK(internal::FromProto(pb_result, result.get()));
+        return result;
+      } else if (stop_token_.IsStopRequested()) {
+        rpc_.context.TryCancel();
+      }
+      RETURN_NOT_OK(stop_token_.Poll());
+
+      status_ = FromGrpcStatus(stream_->Finish(), &rpc_.context);
+      stream_.reset();
+    }
+    RETURN_NOT_OK(status_);
+    return nullptr;
+  }
+
+ private:
+  ClientRpc rpc_;
+  StopToken stop_token_;
+  Status status_;
+  std::unique_ptr<::grpc::ClientReader<pb::Result>> stream_;
+};
+
 class GrpcClientImpl : public internal::ClientTransport {
  public:
   static arrow::Result<std::unique_ptr<internal::ClientTransport>> Make() {
-    return std::unique_ptr<internal::ClientTransport>(new GrpcClientImpl());
+    return std::make_unique<GrpcClientImpl>();
   }
 
   Status Init(const FlightClientOptions& options, const Location& location,
@@ -631,10 +698,10 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     // Allow setting generic gRPC options.
     for (const auto& arg : options.generic_options) {
-      if (util::holds_alternative<int>(arg.second)) {
-        default_args[arg.first] = util::get<int>(arg.second);
-      } else if (util::holds_alternative<std::string>(arg.second)) {
-        args.SetString(arg.first, util::get<std::string>(arg.second));
+      if (std::holds_alternative<int>(arg.second)) {
+        default_args[arg.first] = std::get<int>(arg.second);
+      } else if (std::holds_alternative<std::string>(arg.second)) {
+        args.SetString(arg.first, std::get<std::string>(arg.second));
       }
       // Otherwise unimplemented
     }
@@ -727,28 +794,9 @@ class GrpcClientImpl : public internal::ClientTransport {
 
   Status DoAction(const FlightCallOptions& options, const Action& action,
                   std::unique_ptr<ResultStream>* results) override {
-    pb::Action pb_action;
-    RETURN_NOT_OK(internal::ToProto(action, &pb_action));
-
-    ClientRpc rpc(options);
-    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
-    std::unique_ptr<::grpc::ClientReader<pb::Result>> stream(
-        stub_->DoAction(&rpc.context, pb_action));
-
-    pb::Result pb_result;
-
-    std::vector<Result> materialized_results;
-    while (!options.stop_token.IsStopRequested() && stream->Read(&pb_result)) {
-      Result result;
-      RETURN_NOT_OK(internal::FromProto(pb_result, &result));
-      materialized_results.emplace_back(std::move(result));
-    }
-    if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
-    RETURN_NOT_OK(options.stop_token.Poll());
-
-    *results = std::unique_ptr<ResultStream>(
-        new SimpleResultStream(std::move(materialized_results)));
-    return FromGrpcStatus(stream->Finish(), &rpc.context);
+    ARROW_ASSIGN_OR_RAISE(*results, GrpcResultStream::Make(options, stub_.get(),
+                                                           auth_handler_.get(), action));
+    return Status::OK();
   }
 
   Status ListActions(const FlightCallOptions& options,
@@ -806,7 +854,7 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     std::string str;
     RETURN_NOT_OK(internal::FromProto(pb_response, &str));
-    return arrow::internal::make_unique<SchemaResult>(std::move(str));
+    return std::make_unique<SchemaResult>(std::move(str));
   }
 
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
@@ -818,8 +866,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::shared_ptr<::grpc::ClientReader<pb::FlightData>> stream =
         stub_->DoGet(&rpc->context, pb_ticket);
-    *out = std::unique_ptr<internal::ClientDataStream>(
-        new GrpcClientGetStream(std::move(rpc), std::move(stream)));
+    *out = std::make_unique<GrpcClientGetStream>(std::move(rpc), std::move(stream));
     return Status::OK();
   }
 
@@ -830,8 +877,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     auto rpc = std::make_shared<ClientRpc>(options);
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::shared_ptr<GrpcStream> stream = stub_->DoPut(&rpc->context);
-    *out = std::unique_ptr<internal::ClientDataStream>(
-        new GrpcClientPutStream(std::move(rpc), std::move(stream)));
+    *out = std::make_unique<GrpcClientPutStream>(std::move(rpc), std::move(stream));
     return Status::OK();
   }
 
@@ -842,8 +888,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     auto rpc = std::make_shared<ClientRpc>(options);
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
     std::shared_ptr<GrpcStream> stream = stub_->DoExchange(&rpc->context);
-    *out = std::unique_ptr<internal::ClientDataStream>(
-        new GrpcClientExchangeStream(std::move(rpc), std::move(stream)));
+    *out = std::make_unique<GrpcClientExchangeStream>(std::move(rpc), std::move(stream));
     return Status::OK();
   }
 

@@ -45,11 +45,11 @@ import { Message as _Message } from '../../fb/message.js';
 import { Schema, Field } from '../../schema.js';
 import { toUint8Array } from '../../util/buffer.js';
 import { ArrayBufferViewInput } from '../../util/buffer.js';
+import { bigIntToNumber } from '../../util/bigint.js';
 import { MessageHeader, MetadataVersion } from '../../enum.js';
 import { instance as typeAssembler } from '../../visitor/typeassembler.js';
 import { fieldFromJSON, schemaFromJSON, recordBatchFromJSON, dictionaryBatchFromJSON } from './json.js';
 
-import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
 import ByteBuffer = flatbuffers.ByteBuffer;
 
@@ -77,7 +77,7 @@ export class Message<T extends MessageHeader = any> {
     public static decode(buf: ArrayBufferViewInput) {
         buf = new ByteBuffer(toUint8Array(buf));
         const _message = _Message.getRootAsMessage(buf);
-        const bodyLength: Long = _message.bodyLength()!;
+        const bodyLength: bigint = _message.bodyLength()!;
         const version: MetadataVersion = _message.version();
         const headerType: MessageHeader = _message.headerType();
         const message = new Message(bodyLength, version, headerType);
@@ -100,7 +100,7 @@ export class Message<T extends MessageHeader = any> {
         _Message.addVersion(b, MetadataVersion.V4);
         _Message.addHeader(b, headerOffset);
         _Message.addHeaderType(b, message.headerType);
-        _Message.addBodyLength(b, new Long(message.bodyLength, 0));
+        _Message.addBodyLength(b, BigInt(message.bodyLength));
         _Message.finishMessageBuffer(b, _Message.endMessage(b));
         return b.asUint8Array();
     }
@@ -133,12 +133,12 @@ export class Message<T extends MessageHeader = any> {
     public isRecordBatch(): this is Message<MessageHeader.RecordBatch> { return this.headerType === MessageHeader.RecordBatch; }
     public isDictionaryBatch(): this is Message<MessageHeader.DictionaryBatch> { return this.headerType === MessageHeader.DictionaryBatch; }
 
-    constructor(bodyLength: Long | number, version: MetadataVersion, headerType: T, header?: any) {
+    constructor(bodyLength: bigint | number, version: MetadataVersion, headerType: T, header?: any) {
         this._version = version;
         this._headerType = headerType;
         this.body = new Uint8Array(0);
         header && (this._createHeader = () => header);
-        this._bodyLength = typeof bodyLength === 'number' ? bodyLength : bodyLength.low;
+        this._bodyLength = bigIntToNumber(bodyLength);
     }
 }
 
@@ -153,10 +153,10 @@ export class RecordBatch {
     public get nodes() { return this._nodes; }
     public get length() { return this._length; }
     public get buffers() { return this._buffers; }
-    constructor(length: Long | number, nodes: FieldNode[], buffers: BufferRegion[]) {
+    constructor(length: bigint | number, nodes: FieldNode[], buffers: BufferRegion[]) {
         this._nodes = nodes;
         this._buffers = buffers;
-        this._length = typeof length === 'number' ? length : length.low;
+        this._length = bigIntToNumber(length);
     }
 }
 
@@ -176,10 +176,10 @@ export class DictionaryBatch {
     public get nodes(): FieldNode[] { return this.data.nodes; }
     public get buffers(): BufferRegion[] { return this.data.buffers; }
 
-    constructor(data: RecordBatch, id: Long | number, isDelta = false) {
+    constructor(data: RecordBatch, id: bigint | number, isDelta = false) {
         this._data = data;
         this._isDelta = isDelta;
-        this._id = typeof id === 'number' ? id : id.low;
+        this._id = bigIntToNumber(id);
     }
 }
 
@@ -190,9 +190,9 @@ export class DictionaryBatch {
 export class BufferRegion {
     public offset: number;
     public length: number;
-    constructor(offset: Long | number, length: Long | number) {
-        this.offset = typeof offset === 'number' ? offset : offset.low;
-        this.length = typeof length === 'number' ? length : length.low;
+    constructor(offset: bigint | number, length: bigint | number) {
+        this.offset = bigIntToNumber(offset);
+        this.length = bigIntToNumber(length);
     }
 }
 
@@ -203,9 +203,9 @@ export class BufferRegion {
 export class FieldNode {
     public length: number;
     public nullCount: number;
-    constructor(length: Long | number, nullCount: Long | number) {
-        this.length = typeof length === 'number' ? length : length.low;
-        this.nullCount = typeof nullCount === 'number' ? nullCount : nullCount.low;
+    constructor(length: bigint | number, nullCount: bigint | number) {
+        this.length = bigIntToNumber(length);
+        this.nullCount = bigIntToNumber(nullCount);
     }
 }
 
@@ -386,7 +386,7 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>) {
     // If dictionary encoded and the first time we've seen this dictionary id, decode
     // the data type and child fields, then wrap in a Dictionary type and insert the
     // data type into the dictionary types map.
-    else if (!dictionaries.has(id = dictMeta.id().low)) {
+    else if (!dictionaries.has(id = bigIntToNumber(dictMeta.id()))) {
         // a dictionary index defaults to signed 32 bit int if unspecified
         keys = (keys = dictMeta.indexType()) ? decodeIndexType(keys) as TKeys : new Int32();
         dictionaries.set(id, type = decodeFieldType(f, decodeFieldChildren(f, dictionaries)));
@@ -579,7 +579,7 @@ function encodeRecordBatch(b: Builder, recordBatch: RecordBatch) {
     const buffersVectorOffset = b.endVector();
 
     _RecordBatch.startRecordBatch(b);
-    _RecordBatch.addLength(b, new Long(recordBatch.length, 0));
+    _RecordBatch.addLength(b, BigInt(recordBatch.length));
     _RecordBatch.addNodes(b, nodesVectorOffset);
     _RecordBatch.addBuffers(b, buffersVectorOffset);
     return _RecordBatch.endRecordBatch(b);
@@ -589,7 +589,7 @@ function encodeRecordBatch(b: Builder, recordBatch: RecordBatch) {
 function encodeDictionaryBatch(b: Builder, dictionaryBatch: DictionaryBatch) {
     const dataOffset = RecordBatch.encode(b, dictionaryBatch.data);
     _DictionaryBatch.startDictionaryBatch(b);
-    _DictionaryBatch.addId(b, new Long(dictionaryBatch.id, 0));
+    _DictionaryBatch.addId(b, BigInt(dictionaryBatch.id));
     _DictionaryBatch.addIsDelta(b, dictionaryBatch.isDelta);
     _DictionaryBatch.addData(b, dataOffset);
     return _DictionaryBatch.endDictionaryBatch(b);
@@ -597,12 +597,12 @@ function encodeDictionaryBatch(b: Builder, dictionaryBatch: DictionaryBatch) {
 
 /** @ignore */
 function encodeFieldNode(b: Builder, node: FieldNode) {
-    return _FieldNode.createFieldNode(b, new Long(node.length, 0), new Long(node.nullCount, 0));
+    return _FieldNode.createFieldNode(b, BigInt(node.length), BigInt(node.nullCount));
 }
 
 /** @ignore */
 function encodeBufferRegion(b: Builder, node: BufferRegion) {
-    return _Buffer.createBuffer(b, new Long(node.offset, 0), new Long(node.length, 0));
+    return _Buffer.createBuffer(b, BigInt(node.offset), BigInt(node.length));
 }
 
 /** @ignore */

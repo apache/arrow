@@ -19,6 +19,7 @@
 
 #include <arrow/array.h>
 #include <arrow/array/concatenate.h>
+#include <arrow/record_batch.h>
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/util/byte_size.h>
 
@@ -69,7 +70,10 @@ void arrow::r::validate_slice_length(R_xlen_t length, int64_t available) {
     cpp11::stop("Slice 'length' cannot be negative");
   }
   if (length > available) {
-    cpp11::warning("Slice 'length' greater than available length");
+    // For an unknown reason, cpp11::warning() crashes here; however, this
+    // should throw an exception if Rf_warning() jumps, so we need
+    // cpp11::safe[]().
+    cpp11::safe[Rf_warning]("Slice 'length' greater than available length");
   }
 }
 
@@ -110,7 +114,9 @@ bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, R_xlen_t i) {
 }
 
 // [[arrow::export]]
-int Array__length(const std::shared_ptr<arrow::Array>& x) { return x->length(); }
+r_vec_size Array__length(const std::shared_ptr<arrow::Array>& x) {
+  return r_vec_size(x->length());
+}
 
 // [[arrow::export]]
 int Array__offset(const std::shared_ptr<arrow::Array>& x) { return x->offset(); }
@@ -206,6 +212,13 @@ std::shared_ptr<arrow::Array> StructArray__field(
 std::shared_ptr<arrow::Array> StructArray__GetFieldByName(
     const std::shared_ptr<arrow::StructArray>& array, const std::string& name) {
   return array->GetFieldByName(name);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::StructArray> StructArray__from_RecordBatch(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  return ValueOrStop(
+      arrow::StructArray::Make(batch->columns(), batch->schema()->field_names()));
 }
 
 // [[arrow::export]]

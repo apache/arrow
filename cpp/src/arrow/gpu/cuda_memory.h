@@ -250,10 +250,12 @@ Result<std::shared_ptr<CudaHostBuffer>> AllocateCudaHostBuffer(int device_number
                                                                const int64_t size);
 
 /// Low-level: get a device address through which the CPU data be accessed.
+ARROW_EXPORT
 Result<uintptr_t> GetDeviceAddress(const uint8_t* cpu_data,
                                    const std::shared_ptr<CudaContext>& ctx);
 
 /// Low-level: get a CPU address through which the device data be accessed.
+ARROW_EXPORT
 Result<uint8_t*> GetHostAddress(uintptr_t device_ptr);
 
 }  // namespace cuda

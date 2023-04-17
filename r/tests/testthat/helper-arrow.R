@@ -29,6 +29,10 @@ Sys.setlocale("LC_COLLATE", "C")
 # (R CMD check does this, but in case you're running outside of check)
 Sys.setenv(LANGUAGE = "en")
 
+# Set this option so that the deprecation warning isn't shown
+# (except when we test for it)
+options(arrow.pull_as_vector = FALSE)
+
 with_language <- function(lang, expr) {
   old <- Sys.getenv("LANGUAGE")
   # Check what this message is before changing languages; this will

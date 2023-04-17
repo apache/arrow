@@ -74,10 +74,10 @@ std::string GetManyEmptyLists() {
 TEST_P(ParameterizedStatisticsTest, NoNullCountWrittenForRepeatedFields) {
   std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
   auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
-  std::unique_ptr<FileWriter> writer;
-  ASSERT_OK(FileWriter::Open(*GetParam().table->schema(), default_memory_pool(),
-                             out_stream, default_writer_properties(),
-                             default_arrow_writer_properties(), &writer));
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<FileWriter> writer,
+      FileWriter::Open(*GetParam().table->schema(), default_memory_pool(), out_stream,
+                       default_writer_properties(), default_arrow_writer_properties()));
   ASSERT_OK(writer->WriteTable(*GetParam().table, std::numeric_limits<int64_t>::max()));
   ASSERT_OK(writer->Close());
   ASSERT_OK(out_stream->Close());

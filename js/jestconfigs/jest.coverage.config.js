@@ -22,11 +22,23 @@ export default {
     rootDir: "../",
     collectCoverage: true,
     reporters: undefined,
-    globals: {
-        "ts-jest": {
-            diagnostics: false,
-            tsconfig: "<rootDir>/test/tsconfig/tsconfig.coverage.json",
-            useESM: true,
-        },
+    transform: {
+        ...config.transform,
+        "^.+\\.js$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.coverage.json",
+                useESM: true,
+            },
+        ],
+        "^.+\\.ts$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.coverage.json",
+                useESM: true,
+            },
+        ],
     },
 };

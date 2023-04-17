@@ -39,6 +39,7 @@ module Arrow
       require "arrow/field-containable"
       require "arrow/generic-filterable"
       require "arrow/generic-takeable"
+      require "arrow/input-referable"
       require "arrow/record-containable"
       require "arrow/symbol-values-appendable"
 
@@ -69,6 +70,8 @@ module Arrow
       require "arrow/decimal256-array"
       require "arrow/decimal256-array-builder"
       require "arrow/decimal256-data-type"
+      require "arrow/dense-union-array"
+      require "arrow/dense-union-array-builder"
       require "arrow/dense-union-data-type"
       require "arrow/dictionary-array"
       require "arrow/dictionary-data-type"
@@ -81,6 +84,9 @@ module Arrow
       require "arrow/fixed-size-binary-array-builder"
       require "arrow/function"
       require "arrow/group"
+      require "arrow/half-float"
+      require "arrow/half-float-array"
+      require "arrow/half-float-array-builder"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"
       require "arrow/map-array"
@@ -105,6 +111,8 @@ module Arrow
       require "arrow/sort-key"
       require "arrow/sort-options"
       require "arrow/source-node-options"
+      require "arrow/sparse-union-array"
+      require "arrow/sparse-union-array-builder"
       require "arrow/sparse-union-data-type"
       require "arrow/string-dictionary-array-builder"
       require "arrow/string-array-builder"
@@ -130,6 +138,7 @@ module Arrow
       require "arrow/timestamp-array"
       require "arrow/timestamp-array-builder"
       require "arrow/timestamp-data-type"
+      require "arrow/union-array-builder"
       require "arrow/writable"
     end
 
@@ -196,6 +205,7 @@ module Arrow
            "Arrow::Date64Array",
            "Arrow::Decimal128Array",
            "Arrow::Decimal256Array",
+           "Arrow::HalfFloatArray",
            "Arrow::Time32Array",
            "Arrow::Time64Array",
            "Arrow::TimestampArray"

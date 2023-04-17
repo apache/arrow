@@ -26,7 +26,11 @@ package cdata
 //
 // void setup_array_stream_test(const int n_batches, struct ArrowArrayStream* out);
 // struct ArrowArray* get_test_arr() { return (struct ArrowArray*)(malloc(sizeof(struct ArrowArray))); }
-// struct ArrowArrayStream* get_test_stream() { return (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream)); }
+// struct ArrowArrayStream* get_test_stream() {
+//	struct ArrowArrayStream* out = (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream));
+//	memset(out, 0, sizeof(struct ArrowArrayStream));
+//	return out;
+// }
 //
 // void release_test_arr(struct ArrowArray* arr) {
 //  for (int i = 0; i < arr->n_buffers; ++i) {
@@ -49,12 +53,17 @@ package cdata
 // struct ArrowSchema** test_struct(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_map(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_schema(const char** fmts, const char** names, int64_t* flags, const int n);
+// struct ArrowSchema** test_union(const char** fmts, const char** names, int64_t* flags, const int n);
+// int test_exported_stream(struct ArrowArrayStream* stream);
 import "C"
 import (
+	"errors"
+	"fmt"
+	"io"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
 )
 
 const (
@@ -174,6 +183,24 @@ func testMap(fmts, names []string, flags []int64) **CArrowSchema {
 	return C.test_map((**C.char)(unsafe.Pointer(&cfmts[0])), (**C.char)(unsafe.Pointer(&cnames[0])), (*C.int64_t)(unsafe.Pointer(&cflags[0])), C.int(len(fmts)))
 }
 
+func testUnion(fmts, names []string, flags []int64) **CArrowSchema {
+	if len(fmts) != len(names) || len(names) != len(flags) {
+		panic("testing unions must all have the same size slices in args")
+	}
+
+	cfmts := make([]*C.char, len(fmts))
+	cnames := make([]*C.char, len(names))
+	cflags := make([]C.int64_t, len(flags))
+
+	for i := range fmts {
+		cfmts[i] = C.CString(fmts[i])
+		cnames[i] = C.CString(names[i])
+		cflags[i] = C.int64_t(flags[i])
+	}
+
+	return C.test_union((**C.char)(unsafe.Pointer(&cfmts[0])), (**C.char)(unsafe.Pointer(&cnames[0])), (*C.int64_t)(unsafe.Pointer(&cflags[0])), C.int(len(fmts)))
+}
+
 func testSchema(fmts, names []string, flags []int64) **CArrowSchema {
 	if len(fmts) != len(names) || len(names) != len(flags) {
 		panic("testing structs must all have the same size slices in args")
@@ -208,6 +235,10 @@ func createCArr(arr arrow.Array) *CArrowArray {
 		clist := []*CArrowArray{createCArr(arr.ListValues())}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 		nchildren += 1
+	case *array.LargeList:
+		clist := []*CArrowArray{createCArr(arr.ListValues())}
+		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
+		nchildren += 1
 	case *array.FixedSizeList:
 		clist := []*CArrowArray{createCArr(arr.ListValues())}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
@@ -223,6 +254,13 @@ func createCArr(arr arrow.Array) *CArrowArray {
 		clist := []*CArrowArray{createCArr(arr.ListValues())}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 		nchildren += 1
+	case array.Union:
+		clist := []*CArrowArray{}
+		for i := 0; i < arr.NumFields(); i++ {
+			clist = append(clist, createCArr(arr.Field(i)))
+			nchildren += 1
+		}
+		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 	}
 
 	carr.children = children
@@ -247,8 +285,39 @@ func createCArr(arr arrow.Array) *CArrowArray {
 	return carr
 }
 
+func createTestStreamObj() *CArrowArrayStream {
+	return C.get_test_stream()
+}
+
 func arrayStreamTest() *CArrowArrayStream {
 	st := C.get_test_stream()
 	C.setup_array_stream_test(2, st)
 	return st
+}
+
+func exportedStreamTest(reader array.RecordReader) error {
+	out := C.get_test_stream()
+	ExportRecordReader(reader, out)
+	rc := C.test_exported_stream(out)
+	C.free(unsafe.Pointer(out))
+	if rc == 0 {
+		return nil
+	}
+	return fmt.Errorf("Exported stream test failed with return code %d", int(rc))
+}
+
+func roundTripStreamTest(reader array.RecordReader) error {
+	out := C.get_test_stream()
+	ExportRecordReader(reader, out)
+	rdr := ImportCArrayStream(out, nil)
+
+	for {
+		_, err := rdr.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return err
+		}
+	}
+	return nil
 }

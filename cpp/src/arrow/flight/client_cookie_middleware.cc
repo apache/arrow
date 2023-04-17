@@ -27,7 +27,7 @@ class ClientCookieMiddlewareFactory : public ClientMiddlewareFactory {
  public:
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
     ARROW_UNUSED(info);
-    *middleware = std::unique_ptr<ClientMiddleware>(new ClientCookieMiddleware(*this));
+    *middleware = std::make_unique<ClientCookieMiddleware>(*this);
   }
 
  private:

@@ -113,7 +113,8 @@ public class UnreliableMetaDataTest {
 
     try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
       while (iter.hasNext()) {
-        iter.next();
+        VectorSchemaRoot root = iter.next();
+        root.close();
       }
     }
   }
@@ -159,7 +160,8 @@ public class UnreliableMetaDataTest {
         .build();
     try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
       while (iter.hasNext()) {
-        iter.next();
+        VectorSchemaRoot root = iter.next();
+        root.close();
       }
     }
   }
@@ -200,6 +202,7 @@ public class UnreliableMetaDataTest {
         assertEquals(1024, ints.get(0));
         assertFalse(ints.isNull(1));
         assertFalse(iter.hasNext());
+        root.close();
       }
 
       rs.beforeFirst();
@@ -223,6 +226,7 @@ public class UnreliableMetaDataTest {
         assertEquals(1024, ints.get(0));
         assertTrue(ints.isNull(1));
         assertFalse(iter.hasNext());
+        root.close();
       }
 
       rs.beforeFirst();
@@ -245,6 +249,7 @@ public class UnreliableMetaDataTest {
         assertEquals(1024, ints.get(0));
         assertFalse(ints.isNull(1));
         assertFalse(iter.hasNext());
+        root.close();
       }
     }
   }

@@ -30,7 +30,7 @@ must end with an empty line.
 
 \code{CsvReadOptions$create()} further accepts these additional arguments:
 \itemize{
-\item \code{skip_rows} Number of lines to skip before reading data (default 0)
+\item \code{skip_rows} Number of lines to skip before reading data (default 0).
 \item \code{column_names} Character vector to supply column names. If length-0
 (the default), the first non-skipped row will be parsed to generate column
 names, unless \code{autogenerate_column_names} is \code{TRUE}.
@@ -38,6 +38,14 @@ names, unless \code{autogenerate_column_names} is \code{TRUE}.
 using the first non-skipped row (the default)? If \code{TRUE}, column names will
 be "f0", "f1", ..., "fN".
 \item \code{encoding} The file encoding. (default \code{"UTF-8"})
+\item \code{skip_rows_after_names} Number of lines to skip after the column names (default 0).
+This number can be larger than the number of rows in one block, and empty rows are counted.
+The order of application is as follows:
+\itemize{
+\item \code{skip_rows} is applied (if non-zero);
+\item column names are read (unless \code{column_names} is set);
+\item \code{skip_rows_after_names} is applied (if non-zero).
+}
 }
 
 \code{CsvParseOptions$create()} takes the following arguments:
@@ -96,6 +104,8 @@ The \code{CsvWriteOptions$create()} factory method takes the following arguments
 \itemize{
 \item \code{include_header} Whether to write an initial header line with column names
 \item \code{batch_size} Maximum number of rows processed at a time. Default is 1024.
+\item \code{null_string} The string to be written for null values. Must not contain
+quotation marks. Default is an empty string (\code{""}).
 }
 }
 

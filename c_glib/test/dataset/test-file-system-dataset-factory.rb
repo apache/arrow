@@ -70,4 +70,51 @@ class TestDatasetFileSystemDatasetFactory < Test::Unit::TestCase
     assert_equal(@table1.concatenate([@table2]),
                  dataset.to_table)
   end
+
+  sub_test_case("#finish") do
+    def setup
+      super do
+        @factory = ArrowDataset::FileSystemDatasetFactory.new(@format)
+        @factory.file_system_uri = build_file_uri(@path1)
+        yield
+      end
+    end
+
+    def test_schema
+      options = ArrowDataset::FinishOptions.new
+      options.schema = build_schema(visible: Arrow::BooleanDataType.new,
+                                    point: Arrow::Int16DataType.new)
+      dataset = @factory.finish(options)
+      assert_equal(build_table(visible: [
+                                 build_boolean_array([true, false, true]),
+                                 build_boolean_array([false, true, false, true]),
+                               ],
+                               point: [
+                                 build_int16_array([1, 2, 3]),
+                                 build_int16_array([-1, -2, -3, -4]),
+                               ]),
+                   dataset.to_table)
+    end
+
+    def test_inspect_n_fragments
+      options = ArrowDataset::FinishOptions.new
+      options.inspect_n_fragments = -1
+      dataset = @factory.finish(options)
+      assert_equal(@table1, dataset.to_table)
+    end
+
+    def test_validate_fragments
+      options = ArrowDataset::FinishOptions.new
+      options.schema = build_schema(visible: Arrow::BooleanDataType.new,
+                                    point: Arrow::Int16DataType.new)
+      options.validate_fragments = true
+      message = "[file-system-dataset-factory][finish]: " +
+                "Invalid: Unable to merge: " +
+                "Field point has incompatible types: int16 vs int32"
+      error = assert_raise(Arrow::Error::Invalid) do
+        @factory.finish(options)
+      end
+      assert_equal(message, error.message.lines(chomp: true).first)
+    end
+  end
 end

@@ -23,7 +23,11 @@
 ## {{ category }}
 
 {% for issue, commit in issue_commit_pairs -%}
+{% if issue.project in ('ARROW', 'PARQUET') -%}
 * [{{ issue.key }}](https://issues.apache.org/jira/browse/{{ issue.key }}) - {{ commit.title.to_string(with_issue=False) if commit else issue.summary | md }}
+{% else -%}
+* [GH-{{ issue.key }}](https://github.com/apache/arrow/issues/{{ issue.key }}) - {{ commit.title.to_string(with_issue=False) if commit else issue.summary | md }}
+{% endif -%}
 {% endfor %}
 
 {% endfor %}

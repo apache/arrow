@@ -106,10 +106,34 @@ namespace red_arrow {
       return ULL2NUM(array.Value(i));
     }
 
-    // TODO
-    // inline VALUE convert(const arrow::HalfFloatArray& array,
-    //                      const int64_t i) {
-    // }
+    inline VALUE convert(const arrow::HalfFloatArray& array,
+                         const int64_t i) {
+      const auto value = array.Value(i);
+      // | sign (1 bit) | exponent (5 bit) | fraction (10 bit) |
+      constexpr auto exponent_n_bits = 5;
+      static const auto exponent_mask =
+        static_cast<uint32_t>(std::pow(2.0, exponent_n_bits) - 1);
+      constexpr auto exponent_bias = 15;
+      constexpr auto fraction_n_bits = 10;
+      static const auto fraction_mask =
+        static_cast<uint32_t>(std::pow(2.0, fraction_n_bits)) - 1;
+      static const auto fraction_denominator = std::pow(2.0, fraction_n_bits);
+      const auto sign = value >> (exponent_n_bits + fraction_n_bits);
+      const auto exponent = (value >> fraction_n_bits) & exponent_mask;
+      const auto fraction = value & fraction_mask;
+      if (exponent == exponent_mask) {
+        if (sign == 0) {
+          return DBL2NUM(HUGE_VAL);
+        } else {
+          return DBL2NUM(-HUGE_VAL);
+        }
+      } else {
+        const auto implicit_fraction = (exponent == 0) ? 0 : 1;
+        return DBL2NUM(((sign == 0) ? 1 : -1) *
+                       std::pow(2.0, exponent - exponent_bias) *
+                       (implicit_fraction + fraction / fraction_denominator));
+      }
+    }
 
     inline VALUE convert(const arrow::FloatArray& array,
                          const int64_t i) {
@@ -320,8 +344,7 @@ namespace red_arrow {
     VISIT(UInt16)
     VISIT(UInt32)
     VISIT(UInt64)
-    // TODO
-    // VISIT(HalfFloat)
+    VISIT(HalfFloat)
     VISIT(Float)
     VISIT(Double)
     VISIT(Binary)
@@ -427,8 +450,7 @@ namespace red_arrow {
     VISIT(UInt16)
     VISIT(UInt32)
     VISIT(UInt64)
-    // TODO
-    // VISIT(HalfFloat)
+    VISIT(HalfFloat)
     VISIT(Float)
     VISIT(Double)
     VISIT(Binary)
@@ -530,8 +552,7 @@ namespace red_arrow {
     VISIT(UInt16)
     VISIT(UInt32)
     VISIT(UInt64)
-    // TODO
-    // VISIT(HalfFloat)
+    VISIT(HalfFloat)
     VISIT(Float)
     VISIT(Double)
     VISIT(Binary)
@@ -634,8 +655,7 @@ namespace red_arrow {
     VISIT(UInt16)
     VISIT(UInt32)
     VISIT(UInt64)
-    // TODO
-    // VISIT(HalfFloat)
+    VISIT(HalfFloat)
     VISIT(Float)
     VISIT(Double)
     VISIT(Binary)
@@ -665,25 +685,21 @@ namespace red_arrow {
   private:
     template <typename ArrayType>
     inline void convert_value(const ArrayType& array) {
-      auto result = rb_hash_new();
       if (array.IsNull(index_)) {
-        rb_hash_aset(result, field_name_, Qnil);
+        result_ = RUBY_Qnil;
       } else {
-        rb_hash_aset(result,
-                     field_name_,
-                     array_value_converter_->convert(array, index_));
+        result_ = array_value_converter_->convert(array, index_);
       }
-      result_ = result;
     }
 
-    uint8_t compute_field_index(const arrow::UnionArray& array,
-                                arrow::UnionType* type,
-                                const char* tag) {
+    int8_t compute_child_id(const arrow::UnionArray& array,
+                            arrow::UnionType* type,
+                            const char* tag) {
       const auto type_code = array.raw_type_codes()[index_];
       if (type_code >= 0 && type_code <= arrow::UnionType::kMaxTypeCode) {
-        const auto field_id = type->child_ids()[type_code];
-        if (field_id >= 0) {
-          return field_id;
+        const auto child_id = type->child_ids()[type_code];
+        if (child_id >= 0) {
+          return child_id;
         }
       }
       check_status(arrow::Status::Invalid("Unknown type ID: ", type_code),
@@ -695,36 +711,25 @@ namespace red_arrow {
       const auto type =
         std::static_pointer_cast<arrow::UnionType>(array.type()).get();
       const auto tag = "[raw-records][union-sparse-array]";
-      const auto index = compute_field_index(array, type, tag);
-      const auto field = type->field(index).get();
-      const auto& field_name = field->name();
-      const auto field_name_keep = field_name_;
-      field_name_ = rb_utf8_str_new(field_name.data(), field_name.length());
-      const auto field_array = array.field(index).get();
+      const auto child_id = compute_child_id(array, type, tag);
+      const auto field_array = array.field(child_id).get();
       check_status(field_array->Accept(this), tag);
-      field_name_ = field_name_keep;
     }
 
     void convert_dense(const arrow::DenseUnionArray& array) {
       const auto type =
         std::static_pointer_cast<arrow::UnionType>(array.type()).get();
       const auto tag = "[raw-records][union-dense-array]";
-      const auto index = compute_field_index(array, type, tag);
-      const auto field = type->field(index).get();
-      const auto& field_name = field->name();
-      const auto field_name_keep = field_name_;
-      field_name_ = rb_utf8_str_new(field_name.data(), field_name.length());
-      const auto field_array = array.field(index);
+      const auto child_id = compute_child_id(array, type, tag);
+      const auto field_array = array.field(child_id);
       const auto index_keep = index_;
       index_ = array.value_offset(index_);
       check_status(field_array->Accept(this), tag);
       index_ = index_keep;
-      field_name_ = field_name_keep;
     }
 
     ArrayValueConverter* array_value_converter_;
     int64_t index_;
-    VALUE field_name_;
     VALUE result_;
   };
 
@@ -761,8 +766,7 @@ namespace red_arrow {
     VISIT(UInt16)
     VISIT(UInt32)
     VISIT(UInt64)
-    // TODO
-    // VISIT(HalfFloat)
+    VISIT(HalfFloat)
     VISIT(Float)
     VISIT(Double)
     VISIT(Binary)

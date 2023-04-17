@@ -20,7 +20,7 @@
 #include <limits>
 
 #include "arrow/array/builder_time.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/bitmap_reader.h"
@@ -147,17 +147,24 @@ struct CastFunctor<
     enable_if_t<(is_timestamp_type<O>::value && is_timestamp_type<I>::value) ||
                 (is_duration_type<O>::value && is_duration_type<I>::value)>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const ArraySpan& input = batch[0].array;
-    ArraySpan* output = out->array_span();
-
     const auto& in_type = checked_cast<const I&>(*batch[0].type());
-    const auto& out_type = checked_cast<const O&>(*output->type);
+    const auto& out_type = checked_cast<const O&>(*out->type());
 
-    // The units may be equal if the time zones are different. We might go to
-    // lengths to make this zero copy in the future but we leave it for now
+    if (in_type.unit() == out_type.unit()) {
+      return ZeroCopyCastExec(ctx, batch, out);
+    }
+
+    ArrayData* out_arr = out->array_data().get();
+    DCHECK_EQ(0, out_arr->offset);
+    int value_size = batch[0].type()->byte_width();
+    DCHECK_OK(ctx->Allocate(out_arr->length * value_size).Value(&out_arr->buffers[1]));
+
+    ArraySpan output_span;
+    output_span.SetMembers(*out_arr);
+    const ArraySpan& input = batch[0].array;
     auto conversion = util::GetTimestampConversion(in_type.unit(), out_type.unit());
     return ShiftTime<int64_t, int64_t>(ctx, conversion.first, conversion.second, input,
-                                       output);
+                                       &output_span);
   }
 };
 
@@ -339,7 +346,7 @@ struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ArraySpan& input = batch[0].array;
-    ArraySpan* output = out->array_span();
+    ArraySpan* output = out->array_span_mutable();
 
     // If units are the same, zero copy, otherwise convert
     const auto& in_type = checked_cast<const I&>(*input.type);
@@ -358,7 +365,7 @@ template <>
 struct CastFunctor<Date64Type, Date32Type> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return ShiftTime<int32_t, int64_t>(ctx, util::MULTIPLY, kMillisecondsInDay,
-                                       batch[0].array, out->array_span());
+                                       batch[0].array, out->array_span_mutable());
   }
 };
 
@@ -366,7 +373,7 @@ template <>
 struct CastFunctor<Date32Type, Date64Type> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return ShiftTime<int64_t, int32_t>(ctx, util::DIVIDE, kMillisecondsInDay,
-                                       batch[0].array, out->array_span());
+                                       batch[0].array, out->array_span_mutable());
   }
 };
 
@@ -384,7 +391,7 @@ struct CastFunctor<TimestampType, Date32Type> {
     // multiply to achieve days -> unit
     conversion.second *= kMillisecondsInDay / 1000;
     return ShiftTime<int32_t, int64_t>(ctx, util::MULTIPLY, conversion.second,
-                                       batch[0].array, out->array_span());
+                                       batch[0].array, out->array_span_mutable());
   }
 };
 
@@ -396,7 +403,7 @@ struct CastFunctor<TimestampType, Date64Type> {
     // date64 is ms since epoch
     auto conversion = util::GetTimestampConversion(TimeUnit::MILLI, out_type.unit());
     return ShiftTime<int64_t, int64_t>(ctx, conversion.first, conversion.second,
-                                       batch[0].array, out->array_span());
+                                       batch[0].array, out->array_span_mutable());
   }
 };
 
@@ -419,12 +426,12 @@ struct ParseTimestamp {
       if (expect_timezone) {
         *st = Status::Invalid(
             "Failed to parse string: '", val, "' as a scalar of type ", type.ToString(),
-            "expected a zone offset. If these timestamps "
+            ": expected a zone offset. If these timestamps "
             "are in local time, cast to timestamp without timezone, then "
             "call assume_timezone.");
       } else {
         *st = Status::Invalid("Failed to parse string: '", val, "' as a scalar of type ",
-                              type.ToString(), "expected no zone offset");
+                              type.ToString(), ": expected no zone offset.");
       }
     }
     return result;
@@ -448,6 +455,16 @@ template <typename Type>
 void AddCrossUnitCast(CastFunction* func) {
   ScalarKernel kernel;
   kernel.exec = CastFunctor<Type, Type>::Exec;
+  kernel.signature = KernelSignature::Make({InputType(Type::type_id)}, kOutputTargetType);
+  DCHECK_OK(func->AddKernel(Type::type_id, std::move(kernel)));
+}
+
+template <typename Type>
+void AddCrossUnitCastNoPreallocate(CastFunction* func) {
+  ScalarKernel kernel;
+  kernel.exec = CastFunctor<Type, Type>::Exec;
+  kernel.null_handling = NullHandling::INTERSECTION;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   kernel.signature = KernelSignature::Make({InputType(Type::type_id)}, kOutputTargetType);
   DCHECK_OK(func->AddKernel(Type::type_id, std::move(kernel)));
 }
@@ -499,7 +516,7 @@ std::shared_ptr<CastFunction> GetDurationCast() {
   AddZeroCopyCast(Type::INT64, /*in_type=*/int64(), kOutputTargetType, func.get());
 
   // Between durations
-  AddCrossUnitCast<DurationType>(func.get());
+  AddCrossUnitCastNoPreallocate<DurationType>(func.get());
 
   return func;
 }
@@ -574,7 +591,7 @@ std::shared_ptr<CastFunction> GetTimestampCast() {
                                                 func.get());
 
   // From one timestamp to another
-  AddCrossUnitCast<TimestampType>(func.get());
+  AddCrossUnitCastNoPreallocate<TimestampType>(func.get());
 
   return func;
 }

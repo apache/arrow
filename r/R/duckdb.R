@@ -47,9 +47,9 @@
 #'
 #' ds %>%
 #'   filter(mpg < 30) %>%
-#'   to_duckdb() %>%
 #'   group_by(cyl) %>%
-#'   summarize(mean_mpg = mean(mpg, na.rm = TRUE))
+#'   to_duckdb() %>%
+#'   slice_min(disp)
 to_duckdb <- function(.data,
                       con = arrow_duck_connection(),
                       table_name = unique_arrow_tablename(),
@@ -94,7 +94,8 @@ run_duckdb_examples <- function() {
     requireNamespace("duckdb", quietly = TRUE) &&
     packageVersion("duckdb") > "0.2.7" &&
     requireNamespace("dplyr", quietly = TRUE) &&
-    requireNamespace("dbplyr", quietly = TRUE)
+    requireNamespace("dbplyr", quietly = TRUE) &&
+    getRversion() >= 4
 }
 
 # Adapted from dbplyr

@@ -63,7 +63,7 @@ test_that("Writing a dataset: CSV->IPC", {
 
   # Check whether "int" is present in the files or just in the dirs
   first <- read_feather(
-    dir(dst_dir, pattern = ".feather$", recursive = TRUE, full.names = TRUE)[1],
+    dir(dst_dir, pattern = ".arrow$", recursive = TRUE, full.names = TRUE)[1],
     as_data_frame = FALSE
   )
   # It shouldn't be there
@@ -136,6 +136,40 @@ test_that("Writing a dataset: Parquet->Parquet (default)", {
       select(string = chr, integer = int) %>%
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
+  )
+})
+
+test_that("Writing a dataset: `basename_template` default behavier", {
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, format = "parquet", max_rows_per_file = 5L)
+  expect_identical(
+    dir(dst_dir, full.names = FALSE, recursive = TRUE),
+    paste0("part-", 0:3, ".parquet")
+  )
+  dst_dir <- make_temp_dir()
+  write_dataset(ds, dst_dir, format = "parquet", basename_template = "{i}.data", max_rows_per_file = 5L)
+  expect_identical(
+    dir(dst_dir, full.names = FALSE, recursive = TRUE),
+    paste0(0:3, ".data")
+  )
+  dst_dir <- make_temp_dir()
+  expect_error(
+    write_dataset(ds, dst_dir, format = "parquet", basename_template = "part-i.parquet"),
+    "basename_template did not contain '\\{i\\}'"
+  )
+  feather_dir <- make_temp_dir()
+  write_dataset(ds, feather_dir, format = "feather", partitioning = "int")
+  expect_identical(
+    dir(feather_dir, full.names = FALSE, recursive = TRUE),
+    sort(paste(paste("int", c(1:10, 101:110), sep = "="), "part-0.arrow", sep = "/"))
+  )
+  ipc_dir <- make_temp_dir()
+  write_dataset(ds, ipc_dir, format = "ipc", partitioning = "int")
+  expect_identical(
+    dir(ipc_dir, full.names = FALSE, recursive = TRUE),
+    sort(paste(paste("int", c(1:10, 101:110), sep = "="), "part-0.arrow", sep = "/"))
   )
 })
 
@@ -458,8 +492,10 @@ test_that("Writing a dataset: CSV format options", {
 test_that("Dataset writing: unsupported features/input validation", {
   skip_if_not_available("parquet")
   expect_error(write_dataset(4), "You must supply a")
-  expect_error(write_dataset(data.frame(x = 1, x = 2, check.names = FALSE)),
-               "Field names must be unique")
+  expect_error(
+    write_dataset(data.frame(x = 1, x = 2, check.names = FALSE)),
+    "Field names must be unique"
+  )
 
   ds <- open_dataset(hive_dir)
   expect_error(
@@ -672,7 +708,9 @@ test_that("Dataset write max rows per files", {
 })
 
 test_that("Dataset min_rows_per_group", {
+  skip_if_not(CanRunWithCapturedR())
   skip_if_not_available("parquet")
+
   rb1 <- record_batch(
     c1 = c(1, 2, 3, 4),
     c2 = c("a", "b", "e", "a")
@@ -703,7 +741,8 @@ test_that("Dataset min_rows_per_group", {
 
   row_group_sizes <- ds %>%
     map_batches(~ record_batch(nrows = .$num_rows)) %>%
-    pull(nrows)
+    pull(nrows) %>%
+    as.vector()
   index <- 1
 
   # We expect there to be 3 row groups since 11/5 = 2.2 and 11/4 = 2.75
@@ -720,7 +759,9 @@ test_that("Dataset min_rows_per_group", {
 })
 
 test_that("Dataset write max rows per group", {
+  skip_if_not(CanRunWithCapturedR())
   skip_if_not_available("parquet")
+
   num_of_records <- 30
   max_rows_per_group <- 18
   df <- tibble::tibble(
@@ -742,7 +783,32 @@ test_that("Dataset write max rows per group", {
   row_group_sizes <- ds %>%
     map_batches(~ record_batch(nrows = .$num_rows)) %>%
     pull(nrows) %>%
+    as.vector() %>%
     sort()
 
   expect_equal(row_group_sizes, c(12, 18))
+})
+
+test_that("Can delete filesystem dataset after write_dataset", {
+  # While this test should pass on all platforms, this is primarily
+  # a test for Windows because that platform won't allow open files
+  # to be deleted.
+  dataset_dir2 <- tempfile()
+  ds0 <- open_dataset(hive_dir)
+  write_dataset(ds0, dataset_dir2)
+
+  dataset_dir3 <- tempfile()
+  on.exit(unlink(dataset_dir3, recursive = TRUE))
+
+  ds <- open_dataset(dataset_dir2)
+  write_dataset(ds, dataset_dir3)
+
+  unlink(dataset_dir2, recursive = TRUE)
+  expect_false(dir.exists(dataset_dir2))
+})
+
+test_that("write_dataset() errors on data.frame with NULL names", {
+  df <- data.frame(a = 1, b = "two")
+  names(df) <- NULL
+  expect_error(write_dataset(df, tempfile()), "Input data frame columns must be named")
 })

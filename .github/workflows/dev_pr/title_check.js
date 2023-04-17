@@ -18,7 +18,7 @@
 const fs = require("fs");
 const helpers = require("./helpers.js");
 
-async function commentOpenJIRAIssue(github, context, pullRequestNumber) {
+async function commentOpenGitHubIssue(github, context, pullRequestNumber) {
   const {data: comments} = await github.issues.listComments({
     owner: context.repo.owner,
     repo: context.repo.repo,
@@ -41,7 +41,8 @@ async function commentOpenJIRAIssue(github, context, pullRequestNumber) {
 module.exports = async ({github, context}) => {
   const pullRequestNumber = context.payload.number;
   const title = context.payload.pull_request.title;
-  if (!helpers.haveJIRAID(title)) {
-    await commentOpenJIRAIssue(github, context, pullRequestNumber);
+  const issue = helpers.detectIssue(title)
+  if (!issue) {
+    await commentOpenGitHubIssue(github, context, pullRequestNumber);
   }
 };

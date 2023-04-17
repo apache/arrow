@@ -20,6 +20,7 @@ import csv
 import operator
 import fnmatch
 import functools
+import time
 
 import click
 import requests
@@ -41,7 +42,7 @@ class Report:
         "arrow_commit",
     ]
 
-    def __init__(self, job, task_filters=None):
+    def __init__(self, job, task_filters=None, wait_for_task=None):
         self.job = job
 
         tasks = sorted(job.tasks.items())
@@ -53,6 +54,7 @@ class Report:
             tasks = [(name, task) for name, task in tasks if name in filtered]
 
         self._tasks = dict(tasks)
+        self._wait_for_task = wait_for_task
 
     @property
     def repo_url(self):
@@ -66,10 +68,16 @@ class Report:
         return '{}/tree/{}'.format(self.repo_url, branch)
 
     def task_url(self, task):
-        if task.status().build_links:
+        build_links = task.status().build_links
+        # Only wait if the link to the actual build is not present
+        # and refresh task status.
+        if not build_links and self._wait_for_task:
+            time.sleep(self._wait_for_task)
+            build_links = task.status(force_query=True).build_links
+        if build_links:
             # show link to the actual build, some CI providers implement
             # the statuses API others implement the checks API, retrieve any.
-            return task.status().build_links[0]
+            return build_links[0]
         else:
             # show link to the branch if no status build link was found.
             return self.branch_url(task.branch)
@@ -257,7 +265,8 @@ class ReportUtils:
 
 class EmailReport(JinjaReport):
     templates = {
-        'text': 'email_nightly_report.txt.j2',
+        'nightly_report': 'email_nightly_report.txt.j2',
+        'token_expiration': 'email_token_expiration.txt.j2',
     }
     fields = [
         'report',
@@ -269,12 +278,11 @@ class EmailReport(JinjaReport):
 
 class CommentReport(Report):
 
-    _markdown_badge = '[![{title}]({badge})]({url})'
+    _markdown_badge = '[![{title}]({badge})]({{url}})'
 
     badges = {
         'github': _markdown_badge.format(
             title='Github Actions',
-            url='https://github.com/{repo}/actions?query=branch:{branch}',
             badge=(
                 'https://github.com/{repo}/workflows/Crossbow/'
                 'badge.svg?branch={branch}'
@@ -282,43 +290,35 @@ class CommentReport(Report):
         ),
         'azure': _markdown_badge.format(
             title='Azure',
-            url=(
-                'https://dev.azure.com/{repo}/_build/latest'
-                '?definitionId=1&branchName={branch}'
-            ),
             badge=(
                 'https://dev.azure.com/{repo}/_apis/build/status/'
                 '{repo_dotted}?branchName={branch}'
             )
         ),
         'travis': _markdown_badge.format(
-            title='TravisCI',
-            url='https://app.travis-ci.com/github/{repo}/branches',
+            title='Travis CI',
             badge='https://img.shields.io/travis/{repo}/{branch}.svg'
         ),
         'circle': _markdown_badge.format(
             title='CircleCI',
-            url='https://circleci.com/gh/{repo}/tree/{branch}',
             badge=(
                 'https://img.shields.io/circleci/build/github'
                 '/{repo}/{branch}.svg'
             )
         ),
         'appveyor': _markdown_badge.format(
-            title='Appveyor',
-            url='https://ci.appveyor.com/project/{repo}/history',
+            title='AppVeyor',
             badge='https://img.shields.io/appveyor/ci/{repo}/{branch}.svg'
         ),
         'drone': _markdown_badge.format(
             title='Drone',
-            url='https://cloud.drone.io/{repo}',
             badge='https://img.shields.io/drone/build/{repo}/{branch}.svg'
         ),
     }
 
-    def __init__(self, job, crossbow_repo):
+    def __init__(self, job, crossbow_repo, wait_for_task=None):
         self.crossbow_repo = crossbow_repo
-        super().__init__(job)
+        super().__init__(job, wait_for_task=wait_for_task)
 
     def show(self):
         url = 'https://github.com/{repo}/branches/all?query={branch}'
@@ -338,7 +338,8 @@ class CommentReport(Report):
                 badge = template.format(
                     repo=self.crossbow_repo,
                     repo_dotted=self.crossbow_repo.replace('/', '.'),
-                    branch=branch
+                    branch=branch,
+                    url=self.task_url(task)
                 )
             except KeyError:
                 badge = 'unsupported CI service `{}`'.format(task.ci)

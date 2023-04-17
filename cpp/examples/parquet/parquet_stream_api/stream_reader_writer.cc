@@ -135,10 +135,10 @@ struct TestData {
     if (i % 2 == 0) return {};
     return "Str #" + std::to_string(i);
   }
-  static arrow::util::string_view GetStringView(const int i) {
+  static std::string_view GetStringView(const int i) {
     static std::string string;
     string = "StringView #" + std::to_string(i);
-    return arrow::util::string_view(string);
+    return std::string_view(string);
   }
   static const char* GetCharPtr(const int i) {
     static std::string string;
@@ -190,7 +190,7 @@ void WriteParquetFile() {
   os.SetMaxRowGroupSize(1000);
 
   for (auto i = 0; i < TestData::num_rows; ++i) {
-    // Output string using 3 different types: std::string, arrow::util::string_view and
+    // Output string using 3 different types: std::string, std::string_view and
     // const char *.
     switch (i % 3) {
       case 0:

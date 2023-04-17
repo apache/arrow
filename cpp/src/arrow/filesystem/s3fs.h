@@ -70,7 +70,7 @@ enum class S3CredentialsKind : int8_t {
 };
 
 /// Pure virtual class for describing custom S3 retry strategies
-class S3RetryStrategy {
+class ARROW_EXPORT S3RetryStrategy {
  public:
   virtual ~S3RetryStrategy() = default;
 
@@ -90,6 +90,12 @@ class S3RetryStrategy {
   /// Returns the time in milliseconds the S3 client should sleep for until retrying.
   virtual int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
                                                 int64_t attempted_retries) = 0;
+  /// Returns a stock AWS Default retry strategy.
+  static std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(
+      int64_t max_attempts);
+  /// Returns a stock AWS Standard retry strategy.
+  static std::shared_ptr<S3RetryStrategy> GetAwsStandardRetryStrategy(
+      int64_t max_attempts);
 };
 
 /// Options for the S3FileSystem implementation.
@@ -102,6 +108,17 @@ struct ARROW_EXPORT S3Options {
   /// the region (environment variables, configuration profile, EC2 metadata
   /// server).
   std::string region;
+
+  /// \brief Socket connection timeout, in seconds
+  ///
+  /// If negative, the AWS SDK default value is used (typically 1 second).
+  double connect_timeout = -1;
+
+  /// \brief Socket read timeout on Windows and macOS, in seconds
+  ///
+  /// If negative, the AWS SDK default value is used (typically 3 seconds).
+  /// This option is ignored on non-Windows, non-macOS systems.
+  double request_timeout = -1;
 
   /// If non-empty, override region with a connect string such as "localhost:9000"
   // XXX perhaps instead take a URL like "http://localhost:9000"?
@@ -307,10 +324,20 @@ enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
 
 struct ARROW_EXPORT S3GlobalOptions {
   S3LogLevel log_level;
+  /// The number of threads to configure when creating AWS' I/O event loop
+  ///
+  /// Defaults to 1 as recommended by AWS' doc when the # of connections is
+  /// expected to be, at most, in the hundreds
+  ///
+  /// For more details see Aws::Crt::Io::EventLoopGroup
+  int num_event_loop_threads = 1;
 };
 
 /// Initialize the S3 APIs.  It is required to call this function at least once
 /// before using S3FileSystem.
+///
+/// Once this function is called you MUST call FinalizeS3 before the end of the
+/// application in order to avoid a segmentation fault at shutdown.
 ARROW_EXPORT
 Status InitializeS3(const S3GlobalOptions& options);
 
@@ -319,9 +346,17 @@ Status InitializeS3(const S3GlobalOptions& options);
 ARROW_EXPORT
 Status EnsureS3Initialized();
 
+/// Whether S3 was initialized, and not finalized.
+ARROW_EXPORT
+bool IsS3Initialized();
+
 /// Shutdown the S3 APIs.
 ARROW_EXPORT
 Status FinalizeS3();
+
+/// Ensure the S3 APIs are shutdown, but only if not already done.
+ARROW_EXPORT
+Status EnsureS3Finalized();
 
 ARROW_EXPORT
 Result<std::string> ResolveS3BucketRegion(const std::string& bucket);

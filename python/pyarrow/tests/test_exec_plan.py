@@ -18,14 +18,19 @@
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
+from .test_extension_type import IntegerType
 
 try:
     import pyarrow.dataset as ds
-    import pyarrow._exec_plan as ep
 except ImportError:
     pass
 
-pytestmark = pytest.mark.dataset
+try:
+    from pyarrow.acero import _perform_join, _filter_table
+except ImportError:
+    pass
+
+pytestmark = pytest.mark.acero
 
 
 def test_joins_corner_cases():
@@ -40,13 +45,13 @@ def test_joins_corner_cases():
     })
 
     with pytest.raises(pa.ArrowInvalid):
-        ep._perform_join("left outer", t1, "", t2, "")
+        _perform_join("left outer", t1, "", t2, "")
 
     with pytest.raises(TypeError):
-        ep._perform_join("left outer", None, "colA", t2, "colB")
+        _perform_join("left outer", None, "colA", t2, "colB")
 
     with pytest.raises(ValueError):
-        ep._perform_join("super mario join", t1, "colA", t2, "colB")
+        _perform_join("super mario join", t1, "colA", t2, "colB")
 
 
 @pytest.mark.parametrize("jointype,expected", [
@@ -88,7 +93,8 @@ def test_joins_corner_cases():
     })
 ])
 @pytest.mark.parametrize("use_threads", [True, False])
-@pytest.mark.parametrize("use_datasets", [False, True])
+@pytest.mark.parametrize("use_datasets",
+                         [False, pytest.param(True, marks=pytest.mark.dataset)])
 def test_joins(jointype, expected, use_threads, use_datasets):
     # Allocate table here instead of using parametrize
     # this prevents having arrow allocated memory forever around.
@@ -108,8 +114,8 @@ def test_joins(jointype, expected, use_threads, use_datasets):
         t1 = ds.dataset([t1])
         t2 = ds.dataset([t2])
 
-    r = ep._perform_join(jointype, t1, "colA", t2, "colB",
-                         use_threads=use_threads, coalesce_keys=True)
+    r = _perform_join(jointype, t1, "colA", t2, "colB",
+                      use_threads=use_threads, coalesce_keys=True)
     r = r.combine_chunks()
     if "right" in jointype:
         r = r.sort_by("colB")
@@ -132,7 +138,7 @@ def test_table_join_collisions():
         "colA": [99, 2, 1],
     })
 
-    result = ep._perform_join(
+    result = _perform_join(
         "full outer", t1, ["colA", "colB"], t2, ["colA", "colB"])
     result = result.combine_chunks()
     result = result.sort_by("colUniq")
@@ -146,9 +152,9 @@ def test_table_join_collisions():
         [99, 2, 1, None],
     ], names=["colA", "colB", "colVals", "colB", "colVals", "colUniq", "colA"])
 
-    result = ep._perform_join("full outer", t1, "colA",
-                              t2, "colA", right_suffix="_r",
-                              coalesce_keys=False)
+    result = _perform_join("full outer", t1, "colA",
+                           t2, "colA", right_suffix="_r",
+                           coalesce_keys=False)
     result = result.combine_chunks()
     result = result.sort_by("colA")
     assert result == pa.table({
@@ -161,9 +167,9 @@ def test_table_join_collisions():
         "colA_r": [1, 2, None, 99],
     })
 
-    result = ep._perform_join("full outer", t1, "colA",
-                              t2, "colA", right_suffix="_r",
-                              coalesce_keys=True)
+    result = _perform_join("full outer", t1, "colA",
+                           t2, "colA", right_suffix="_r",
+                           coalesce_keys=True)
     result = result.combine_chunks()
     result = result.sort_by("colA")
     assert result == pa.table({
@@ -188,9 +194,9 @@ def test_table_join_keys_order():
         "colX": [99, 2, 1],
     })
 
-    result = ep._perform_join("full outer", t1, "colA", t2, "colX",
-                              left_suffix="_l", right_suffix="_r",
-                              coalesce_keys=True)
+    result = _perform_join("full outer", t1, "colA", t2, "colX",
+                           left_suffix="_l", right_suffix="_r",
+                           coalesce_keys=True)
     result = result.combine_chunks()
     result = result.sort_by("colA")
     assert result == pa.table({
@@ -208,44 +214,27 @@ def test_filter_table_errors():
     })
 
     with pytest.raises(pa.ArrowTypeError):
-        ep._filter_table(
-            t, pc.divide(pc.field("a"), pc.scalar(2)),
-            output_type=pa.Table
-        )
+        _filter_table(t, pc.divide(pc.field("a"), pc.scalar(2)))
 
     with pytest.raises(pa.ArrowInvalid):
-        ep._filter_table(
-            t, (pc.field("Z") <= pc.scalar(2)),
-            output_type=pa.Table
-        )
+        _filter_table(t, (pc.field("Z") <= pc.scalar(2)))
 
 
-@pytest.mark.parametrize("use_datasets", [False, True])
-def test_filter_table(use_datasets):
+def test_filter_table():
     t = pa.table({
         "a": [1, 2, 3, 4, 5],
         "b": [10, 20, 30, 40, 50]
     })
-    if use_datasets:
-        t = ds.dataset([t])
 
-    result = ep._filter_table(
+    result = _filter_table(
         t, (pc.field("a") <= pc.scalar(3)) & (pc.field("b") == pc.scalar(20)),
-        output_type=pa.Table if not use_datasets else ds.InMemoryDataset
     )
-    if use_datasets:
-        result = result.to_table()
     assert result == pa.table({
         "a": [2],
         "b": [20]
     })
 
-    result = ep._filter_table(
-        t, pc.field("b") > pc.scalar(30),
-        output_type=pa.Table if not use_datasets else ds.InMemoryDataset
-    )
-    if use_datasets:
-        result = result.to_table()
+    result = _filter_table(t, pc.field("b") > pc.scalar(30))
     assert result == pa.table({
         "a": [4, 5],
         "b": [40, 50]
@@ -261,7 +250,7 @@ def test_filter_table_ordering():
         # 20 seems to consistently cause errors when order is not preserved.
         # If the order problem is reintroduced this test will become flaky
         # which is still a signal that the order is not preserved.
-        r = ep._filter_table(table, pc.field('a') == 1)
+        r = _filter_table(table, pc.field('a') == 1)
         assert r["b"] == pa.chunked_array([["a"], ["b"]])
 
 
@@ -271,7 +260,7 @@ def test_complex_filter_table():
         "b": [10, 20, 30, 40, 50, 60, 61]
     })
 
-    result = ep._filter_table(
+    result = _filter_table(
         t, ((pc.bit_wise_and(pc.field("a"), pc.scalar(1)) == pc.scalar(0)) &
             (pc.multiply(pc.field("a"), pc.scalar(10)) == pc.field("b")))
     )
@@ -280,3 +269,43 @@ def test_complex_filter_table():
         "a": [2, 4, 6],  # second six must be omitted because 6*10 != 61
         "b": [20, 40, 60]
     })
+
+
+def test_join_extension_array_column():
+    storage = pa.array([1, 2, 3], type=pa.int64())
+    ty = IntegerType()
+    ext_array = pa.ExtensionArray.from_storage(ty, storage)
+    dict_array = pa.DictionaryArray.from_arrays(
+        pa.array([0, 2, 1]), pa.array(['a', 'b', 'c']))
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": ext_array,
+        "colVals": ext_array,
+    })
+
+    t2 = pa.table({
+        "colA": [99, 2, 1],
+        "colC": ext_array,
+    })
+
+    t3 = pa.table({
+        "colA": [99, 2, 1],
+        "colC": ext_array,
+        "colD": dict_array,
+    })
+
+    result = _perform_join(
+        "left outer", t1, ["colA"], t2, ["colA"])
+    assert result["colVals"] == pa.chunked_array(ext_array)
+
+    result = _perform_join(
+        "left outer", t1, ["colB"], t2, ["colC"])
+    assert result["colB"] == pa.chunked_array(ext_array)
+
+    result = _perform_join(
+        "left outer", t1, ["colA"], t3, ["colA"])
+    assert result["colVals"] == pa.chunked_array(ext_array)
+
+    result = _perform_join(
+        "left outer", t1, ["colB"], t3, ["colC"])
+    assert result["colB"] == pa.chunked_array(ext_array)

@@ -1,0 +1,38 @@
+{{#navbar}}
+<nav class="navbar fixed-top navbar-{{{type}}} navbar-expand-lg bg-{{{bg}}}">
+  <div class="container">
+    {{#includes}}{{{before_title}}}{{/includes}}
+    <a class="navbar-brand me-2" href="{{#site}}{{root}}{{/site}}index.html">{{#site}}{{title}}{{/site}}</a>
+
+    <span class = "version">
+      <small class="nav-text {{#development}}text-{{version_label}}{{/development}} me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="{{#development}}{{version_tooltip}}{{/development}}">{{#package}}{{version}}{{/package}}</small>
+    </span>
+
+    {{#includes}}{{{before_navbar}}}{{/includes}}
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="{{#translate}}{{toggle_nav}}{{/translate}}">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div id="navbar" class="collapse navbar-collapse ms-3">
+      {{#left}}
+      <ul class="navbar-nav me-auto">
+      {{{.}}}
+      </ul>
+      {{/left}}
+
+      <form class="form-inline my-2 my-lg-0" role="search">
+        <input type="search" class="form-control me-sm-2" aria-label="{{#translate}}{{toggle_nav}}{{/translate}}" name="search-input" data-search-index="{{#site}}{{root}}{{/site}}search.json" id="search-input" placeholder="{{#translate}}{{search_for}}{{/translate}}" autocomplete="off">
+      </form>
+
+      {{#right}}
+      <ul class="navbar-nav">
+      {{{.}}}
+      </ul>
+      {{/right}}
+    </div>
+
+    {{#includes}}{{{after_navbar}}}{{/includes}}
+  </div>
+</nav>
+{{/navbar}}
+

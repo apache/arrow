@@ -1,0 +1,71 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+syntax = "proto3";
+
+package arrow.substrait_ext;
+
+import "substrait/algebra.proto";
+
+option csharp_namespace = "Arrow.Substrait";
+option go_package = "github.com/apache/arrow/substrait";
+option java_multiple_files = true;
+option java_package = "io.arrow.substrait";
+
+// As-Of-Join relation
+message AsOfJoinRel {
+  // One key per input relation, each key describing how to join the corresponding input
+  repeated AsOfJoinKey keys = 1;
+
+  // As-Of tolerance, in units of the on-key
+  int64 tolerance = 2;
+
+  // As-Of-Join key
+  message AsOfJoinKey {
+    // A field reference defining the on-key
+    // The type and units of the referenced field must be the same across all inputs
+    .substrait.Expression on = 1;
+
+    // A list of field references defining the by-key
+    // The types corresponding to the referenced fields must be the same across all inputs
+    repeated .substrait.Expression by = 2;
+  }
+}
+
+// Named tap relation
+//
+// A tap is a relation having a single input relation that it passes through, while also
+// causing some side-effect, e.g., writing to external storage.
+message NamedTapRel {
+  // The kind of tap
+  string kind = 1;
+  // A name used to configure the tap, e.g., a URI defining the destination of writing
+  string name = 2;
+  // Column names for the tap's output. If specified there must be one name per field.
+  // If empty, field names will be automatically generated.
+  repeated string columns = 3;
+}
+
+message SegmentedAggregateRel {
+  // Grouping keys of the aggregation
+  repeated substrait.Expression.FieldReference grouping_keys = 1;
+
+  // Segment keys of the aggregation
+  repeated substrait.Expression.FieldReference segment_keys = 2;
+
+  // A list of one or more aggregate expressions along with an optional filter.
+  repeated substrait.AggregateRel.Measure measures = 3;
+}

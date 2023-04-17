@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cctype>
 #include <iterator>
+#include <memory>
 #include <string>
 
 #ifdef ARROW_WITH_RE2
@@ -26,9 +27,16 @@
 
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/kernels/scalar_string_internal.h"
+#include "arrow/result.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
+
+using internal::EndsWith;
+using internal::StartsWith;
+
 namespace compute {
 namespace internal {
 
@@ -38,11 +46,11 @@ namespace {
 // re2 utilities
 
 #ifdef ARROW_WITH_RE2
-util::string_view ToStringView(re2::StringPiece piece) {
+std::string_view ToStringView(re2::StringPiece piece) {
   return {piece.data(), piece.length()};
 }
 
-re2::StringPiece ToStringPiece(util::string_view view) {
+re2::StringPiece ToStringPiece(std::string_view view) {
   return {view.data(), view.length()};
 }
 
@@ -261,7 +269,7 @@ struct StringBinaryTransformExecBase {
     // Apply transform
     RETURN_NOT_OK(VisitArraySpanInline<Type1>(
         data1,
-        [&](util::string_view input_string_view) {
+        [&](std::string_view input_string_view) {
           auto input_ncodeunits = static_cast<offset_type>(input_string_view.length());
           auto input_string = reinterpret_cast<const uint8_t*>(input_string_view.data());
           ARROW_ASSIGN_OR_RAISE(
@@ -844,7 +852,7 @@ void AddAsciiStringCaseConversion(FunctionRegistry* registry) {
 // Binary string length
 
 struct BinaryLength {
-  template <typename OutValue, typename Arg0Value = util::string_view>
+  template <typename OutValue, typename Arg0Value = std::string_view>
   static OutValue Call(KernelContext*, Arg0Value val, Status*) {
     return static_cast<OutValue>(val.size());
   }
@@ -852,7 +860,7 @@ struct BinaryLength {
   static Status FixedSizeExec(KernelContext*, const ExecSpan& batch, ExecResult* out) {
     // Output is preallocated and validity buffer is precomputed
     const int32_t width = batch[0].type()->byte_width();
-    int32_t* buffer = out->array_span()->GetValues<int32_t>(1);
+    int32_t* buffer = out->array_span_mutable()->GetValues<int32_t>(1);
     std::fill(buffer, buffer + batch.length, width);
     return Status::OK();
   }
@@ -1198,7 +1206,7 @@ void StringBoolTransform(KernelContext* ctx, const ExecSpan& batch,
                          StrToBoolTransformFunc transform, ExecResult* out) {
   using offset_type = typename Type::offset_type;
   const ArraySpan& input = batch[0].array;
-  ArraySpan* out_arr = out->array_span();
+  ArraySpan* out_arr = out->array_span_mutable();
   if (input.length > 0) {
     transform(reinterpret_cast<const offset_type*>(input.buffers[1].data) + input.offset,
               input.buffers[2].data, input.length, out_arr->offset,
@@ -1217,7 +1225,7 @@ struct PlainSubstringMatcher {
       const MatchSubstringOptions& options) {
     // Should be handled by partial template specialization below
     DCHECK(!options.ignore_case);
-    return ::arrow::internal::make_unique<PlainSubstringMatcher>(options);
+    return std::make_unique<PlainSubstringMatcher>(options);
   }
 
   explicit PlainSubstringMatcher(const MatchSubstringOptions& options)
@@ -1238,7 +1246,7 @@ struct PlainSubstringMatcher {
     }
   }
 
-  int64_t Find(util::string_view current) const {
+  int64_t Find(std::string_view current) const {
     // Phase 2: Find the prefix in the data
     const auto pattern_length = options_.pattern.size();
     int64_t pattern_pos = 0;
@@ -1257,7 +1265,7 @@ struct PlainSubstringMatcher {
     return -1;
   }
 
-  bool Match(util::string_view current) const { return Find(current) >= 0; }
+  bool Match(std::string_view current) const { return Find(current) >= 0; }
 };
 
 struct PlainStartsWithMatcher {
@@ -1270,12 +1278,11 @@ struct PlainStartsWithMatcher {
       const MatchSubstringOptions& options) {
     // Should be handled by partial template specialization below
     DCHECK(!options.ignore_case);
-    return ::arrow::internal::make_unique<PlainStartsWithMatcher>(options);
+    return std::make_unique<PlainStartsWithMatcher>(options);
   }
 
-  bool Match(util::string_view current) const {
-    // string_view::starts_with is C++20
-    return current.substr(0, options_.pattern.size()) == options_.pattern;
+  bool Match(std::string_view current) const {
+    return StartsWith(current, options_.pattern);
   }
 };
 
@@ -1289,14 +1296,11 @@ struct PlainEndsWithMatcher {
       const MatchSubstringOptions& options) {
     // Should be handled by partial template specialization below
     DCHECK(!options.ignore_case);
-    return ::arrow::internal::make_unique<PlainEndsWithMatcher>(options);
+    return std::make_unique<PlainEndsWithMatcher>(options);
   }
 
-  bool Match(util::string_view current) const {
-    // string_view::ends_with is C++20
-    return current.size() >= options_.pattern.size() &&
-           current.substr(current.size() - options_.pattern.size(),
-                          options_.pattern.size()) == options_.pattern;
+  bool Match(std::string_view current) const {
+    return EndsWith(current, options_.pattern);
   }
 };
 
@@ -1307,8 +1311,7 @@ struct RegexSubstringMatcher {
 
   static Result<std::unique_ptr<RegexSubstringMatcher>> Make(
       const MatchSubstringOptions& options, bool is_utf8 = true, bool literal = false) {
-    auto matcher =
-        ::arrow::internal::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
+    auto matcher = std::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
     return std::move(matcher);
   }
@@ -1319,7 +1322,7 @@ struct RegexSubstringMatcher {
         regex_match_(options_.pattern,
                      MakeRE2Options(is_utf8, options.ignore_case, literal)) {}
 
-  bool Match(util::string_view current) const {
+  bool Match(std::string_view current) const {
     auto piece = re2::StringPiece(current.data(), current.length());
     return RE2::PartialMatch(piece, regex_match_);
   }
@@ -1341,7 +1344,7 @@ struct MatchSubstringImpl {
           for (int64_t i = 0; i < length; ++i) {
             const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
             int64_t current_length = offsets[i + 1] - offsets[i];
-            if (matcher->Match(util::string_view(current_data, current_length))) {
+            if (matcher->Match(std::string_view(current_data, current_length))) {
               bitmap_writer.Set();
             }
             bitmap_writer.Next();
@@ -1505,6 +1508,13 @@ struct MatchLike {
     static const RE2 kLikePatternIsStartsWith(R"(([^%_]*[^\\%_])?%+)", kRE2Options);
     // A LIKE pattern matching this regex can be translated into a suffix search.
     static const RE2 kLikePatternIsEndsWith(R"(%+([^%_]*))", kRE2Options);
+    static bool global_checked = false;
+    if (ARROW_PREDICT_FALSE(!global_checked)) {
+      RETURN_NOT_OK(RegexStatus(kLikePatternIsSubstringMatch));
+      RETURN_NOT_OK(RegexStatus(kLikePatternIsStartsWith));
+      RETURN_NOT_OK(RegexStatus(kLikePatternIsEndsWith));
+      global_checked = true;
+    }
 
     auto original_options = MatchSubstringState::Get(ctx);
     auto original_state = ctx->state();
@@ -1660,7 +1670,7 @@ struct FindSubstring {
   explicit FindSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     return static_cast<OutValue>(matcher_.Find(val));
   }
 };
@@ -1669,18 +1679,25 @@ struct FindSubstring {
 struct FindSubstringRegex {
   std::unique_ptr<RE2> regex_match_;
 
+  static Result<FindSubstringRegex> Make(const MatchSubstringOptions& options,
+                                         bool is_utf8 = true, bool literal = false) {
+    auto matcher = FindSubstringRegex(options, is_utf8, literal);
+    RETURN_NOT_OK(RegexStatus(*matcher.regex_match_));
+    return std::move(matcher);
+  }
+
   explicit FindSubstringRegex(const MatchSubstringOptions& options, bool is_utf8 = true,
                               bool literal = false) {
     std::string regex = "(";
     regex.reserve(options.pattern.length() + 2);
     regex += literal ? RE2::QuoteMeta(options.pattern) : options.pattern;
     regex += ")";
-    regex_match_.reset(
-        new RE2(regex, MakeRE2Options(is_utf8, options.ignore_case, /*literal=*/false)));
+    regex_match_ = std::make_unique<RE2>(
+        regex, MakeRE2Options(is_utf8, options.ignore_case, /*literal=*/false));
   }
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     re2::StringPiece piece(val.data(), val.length());
     re2::StringPiece match;
     if (RE2::PartialMatch(piece, *regex_match_, &match)) {
@@ -1698,9 +1715,10 @@ struct FindSubstringExec {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
     if (options.ignore_case) {
 #ifdef ARROW_WITH_RE2
+      ARROW_ASSIGN_OR_RAISE(auto matcher,
+                            FindSubstringRegex::Make(options, InputType::is_utf8, true));
       applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
-          kernel{FindSubstringRegex(options, /*is_utf8=*/InputType::is_utf8,
-                                    /*literal=*/true)};
+          kernel{std::move(matcher)};
       return kernel.Exec(ctx, batch, out);
 #else
       return Status::NotImplemented("ignore_case requires RE2");
@@ -1725,8 +1743,9 @@ struct FindSubstringRegexExec {
   using OffsetType = typename TypeTraits<InputType>::OffsetType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const MatchSubstringOptions& options = MatchSubstringState::Get(ctx);
+    ARROW_ASSIGN_OR_RAISE(auto matcher, FindSubstringRegex::Make(options, false));
     applicator::ScalarUnaryNotNullStateful<OffsetType, InputType, FindSubstringRegex>
-        kernel{FindSubstringRegex(options, /*literal=*/false)};
+        kernel{std::move(matcher)};
     return kernel.Exec(ctx, batch, out);
   }
 };
@@ -1781,7 +1800,7 @@ struct CountSubstring {
   explicit CountSubstring(PlainSubstringMatcher matcher) : matcher_(std::move(matcher)) {}
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     OutValue count = 0;
     uint64_t start = 0;
     const auto pattern_size = std::max<uint64_t>(1, matcher_.options_.pattern.size());
@@ -1815,7 +1834,7 @@ struct CountSubstringRegex {
   }
 
   template <typename OutValue, typename... Ignored>
-  OutValue Call(KernelContext*, util::string_view val, Status*) const {
+  OutValue Call(KernelContext*, std::string_view val, Status*) const {
     OutValue count = 0;
     re2::StringPiece input(val.data(), val.size());
     auto last_size = input.size();
@@ -1950,7 +1969,7 @@ struct ReplaceSubstring {
 
     RETURN_NOT_OK(VisitArraySpanInline<Type>(
         batch[0].array,
-        [&](util::string_view s) {
+        [&](std::string_view s) {
           RETURN_NOT_OK(replacer.ReplaceString(s, &value_data_builder));
           offset_builder.UnsafeAppend(
               static_cast<offset_type>(value_data_builder.length()));
@@ -1973,15 +1992,19 @@ struct PlainSubstringReplacer {
 
   static Result<std::unique_ptr<PlainSubstringReplacer>> Make(
       const ReplaceSubstringOptions& options) {
-    return arrow::internal::make_unique<PlainSubstringReplacer>(options);
+    return std::make_unique<PlainSubstringReplacer>(options);
   }
 
   explicit PlainSubstringReplacer(const ReplaceSubstringOptions& options)
       : options_(options) {}
 
-  Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
-    const char* i = s.begin();
-    const char* end = s.end();
+  Status ReplaceString(std::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
+    if (s.empty()) {
+      // Special-case empty input as s.data() may not be a valid pointer
+      return Status::OK();
+    }
+    const char* i = s.data();
+    const char* end = s.data() + s.length();
     int64_t max_replacements = options_.max_replacements;
     while ((i < end) && (max_replacements != 0)) {
       const char* pos =
@@ -2018,7 +2041,7 @@ struct RegexSubstringReplacer {
 
   static Result<std::unique_ptr<RegexSubstringReplacer>> Make(
       const ReplaceSubstringOptions& options) {
-    auto replacer = arrow::internal::make_unique<RegexSubstringReplacer>(options);
+    auto replacer = std::make_unique<RegexSubstringReplacer>(options);
 
     RETURN_NOT_OK(RegexStatus(replacer->regex_find_));
     RETURN_NOT_OK(RegexStatus(replacer->regex_replacement_));
@@ -2040,11 +2063,12 @@ struct RegexSubstringReplacer {
         regex_find_("(" + options_.pattern + ")", MakeRE2Options<Type>()),
         regex_replacement_(options_.pattern, MakeRE2Options<Type>()) {}
 
-  Status ReplaceString(util::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
+  Status ReplaceString(std::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
     re2::StringPiece replacement(options_.replacement);
 
-    if (options_.max_replacements == -1) {
-      std::string s_copy(s.to_string());
+    // If s is empty, then it's essentially global
+    if (options_.max_replacements == -1 || s.empty()) {
+      std::string s_copy(s);
       RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
       return builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),
                              s_copy.length());
@@ -2053,8 +2077,8 @@ struct RegexSubstringReplacer {
     // Since RE2 does not have the concept of max_replacements, we have to do some work
     // ourselves.
     // We might do this faster similar to RE2::GlobalReplace using Match and Rewrite
-    const char* i = s.begin();
-    const char* end = s.end();
+    const char* i = s.data();
+    const char* end = s.data() + s.length();
     re2::StringPiece piece(s.data(), s.length());
 
     int64_t max_replacements = options_.max_replacements;
@@ -2228,7 +2252,7 @@ struct ExtractRegexBase {
     args_pointers_start = (group_count > 0) ? args_pointers.data() : &null_arg;
   }
 
-  bool Match(util::string_view s) {
+  bool Match(std::string_view s) {
     return RE2::PartialMatchN(ToStringPiece(s), *data.regex, args_pointers_start,
                               group_count);
   }
@@ -2266,7 +2290,7 @@ struct ExtractRegex : public ExtractRegexBase {
     }
 
     auto visit_null = [&]() { return struct_builder->AppendNull(); };
-    auto visit_value = [&](util::string_view s) {
+    auto visit_value = [&](std::string_view s) {
       if (Match(s)) {
         for (int i = 0; i < group_count; i++) {
           RETURN_NOT_OK(field_builders[i]->Append(ToStringView(found_values[i])));
@@ -2398,6 +2422,172 @@ void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
                           ReplaceStringSliceTransformBase::State::Init);
   fsb_kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(std::move(fsb_kernel)));
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+// ----------------------------------------------------------------------
+// Slice
+
+namespace {
+struct SliceBytesTransform : StringSliceTransformBase {
+  int64_t MaxCodeunits(int64_t ninputs, int64_t input_bytes) override {
+    const SliceOptions& opt = *this->options;
+    if ((opt.start >= 0) != (opt.stop >= 0)) {
+      // If start and stop don't have the same sign, we can't guess an upper bound
+      // on the resulting slice lengths, so return a worst case estimate.
+      return input_bytes;
+    }
+    int64_t max_slice_bytes = (opt.stop - opt.start + opt.step - 1) / opt.step;
+    return std::min(input_bytes, ninputs * std::max<int64_t>(0, max_slice_bytes));
+  }
+
+  int64_t Transform(const uint8_t* input, int64_t input_string_bytes, uint8_t* output) {
+    if (options->step >= 1) {
+      return SliceForward(input, input_string_bytes, output);
+    }
+    return SliceBackward(input, input_string_bytes, output);
+  }
+
+  int64_t SliceForward(const uint8_t* input, int64_t input_string_bytes,
+                       uint8_t* output) {
+    // Slice in forward order (step > 0)
+    const SliceOptions& opt = *this->options;
+    const uint8_t* begin = input;
+    const uint8_t* end = input + input_string_bytes;
+    const uint8_t* begin_sliced;
+    const uint8_t* end_sliced;
+
+    if (!input_string_bytes) {
+      return 0;
+    }
+    // First, compute begin_sliced and end_sliced
+    if (opt.start >= 0) {
+      // start counting from the left
+      begin_sliced = std::min(begin + opt.start, end);
+      if (opt.stop > opt.start) {
+        // continue counting from begin_sliced
+        const int64_t length = opt.stop - opt.start;
+        end_sliced = std::min(begin_sliced + length, end);
+      } else if (opt.stop < 0) {
+        // from the end
+        end_sliced = std::max(end + opt.stop, begin_sliced);
+      } else {
+        // zero length slice
+        return 0;
+      }
+    } else {
+      // start counting from the right
+      begin_sliced = std::max(end + opt.start, begin);
+      if (opt.stop > 0) {
+        // continue counting from the left, we cannot start from begin_sliced because we
+        // don't know how many bytes are between begin and begin_sliced
+        end_sliced = std::min(begin + opt.stop, end);
+        // and therefore we also need this
+        if (end_sliced <= begin_sliced) {
+          // zero length slice
+          return 0;
+        }
+      } else if ((opt.stop < 0) && (opt.stop > opt.start)) {
+        // stop is negative, but larger than start, so we count again from the right
+        // in some cases we can optimize this, depending on the shortest path (from end
+        // or begin_sliced), but begin_sliced and opt.start can be 'out of sync',
+        // for instance when start=-100, when the string length is only 10.
+        end_sliced = std::max(end + opt.stop, begin_sliced);
+      } else {
+        // zero length slice
+        return 0;
+      }
+    }
+
+    // Second, copy computed slice to output
+    DCHECK(begin_sliced <= end_sliced);
+    if (opt.step == 1) {
+      // fast case, where we simply can finish with a memcpy
+      std::copy(begin_sliced, end_sliced, output);
+      return end_sliced - begin_sliced;
+    }
+
+    uint8_t* dest = output;
+    const uint8_t* i = begin_sliced;
+
+    while (i < end_sliced) {
+      *dest = *i;
+      // skip step codeunits
+      i += opt.step;
+      dest++;
+    }
+    return dest - output;
+  }
+
+  int64_t SliceBackward(const uint8_t* input, int64_t input_string_bytes,
+                        uint8_t* output) {
+    // Slice in reverse order (step < 0)
+    const SliceOptions& opt = *this->options;
+    const uint8_t* begin = input;
+    const uint8_t* end = input + input_string_bytes;
+    const uint8_t* begin_sliced = begin;
+    const uint8_t* end_sliced = end;
+
+    if (!input_string_bytes) {
+      return 0;
+    }
+
+    if (opt.start >= 0) {
+      // +1 because begin_sliced acts as as the end of a reverse iterator
+      begin_sliced = std::min(begin + opt.start + 1, end);
+    } else {
+      // -1 because start=-1 means the last byte, which is 0 advances
+      begin_sliced = std::max(end + opt.start + 1, begin);
+    }
+    begin_sliced--;
+
+    // similar to opt.start
+    if (opt.stop >= 0) {
+      end_sliced = std::min(begin + opt.stop + 1, end);
+    } else {
+      end_sliced = std::max(end + opt.stop + 1, begin);
+    }
+    end_sliced--;
+
+    // Copy computed slice to output
+    uint8_t* dest = output;
+    const uint8_t* i = begin_sliced;
+    while (i > end_sliced) {
+      // write a single codepoint
+      *dest = *i;
+      // and skip the remainder
+      i += opt.step;
+      dest++;
+    }
+
+    return dest - output;
+  }
+};
+
+template <typename Type>
+using SliceBytes = StringTransformExec<Type, SliceBytesTransform>;
+
+}  // namespace
+
+const FunctionDoc binary_slice_doc(
+    "Slice binary string",
+    ("For each binary string in `strings`, emit the substring defined by\n"
+     "(`start`, `stop`, `step`) as given by `SliceOptions` where `start` is\n"
+     "inclusive and `stop` is exclusive. All three values are measured in\n"
+     "bytes.\n"
+     "If `step` is negative, the string will be advanced in reversed order.\n"
+     "An error is raised if `step` is zero.\n"
+     "Null inputs emit null."),
+    {"strings"}, "SliceOptions", /*options_required=*/true);
+
+void AddAsciiStringSlice(FunctionRegistry* registry) {
+  auto func =
+      std::make_shared<ScalarFunction>("binary_slice", Arity::Unary(), binary_slice_doc);
+  for (const auto& ty : BinaryTypes()) {
+    auto exec = GenerateVarBinaryToVarBinary<SliceBytes>(ty);
+    DCHECK_OK(
+        func->AddKernel({ty}, ty, std::move(exec), SliceBytesTransform::State::Init));
+  }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -2572,7 +2762,7 @@ struct SplitRegexFinder : public StringSplitFinderBase<SplitPatternOptions> {
     pattern.reserve(options.pattern.size() + 2);
     pattern += options.pattern;
     pattern += ')';
-    regex_split = arrow::internal::make_unique<RE2>(pattern, MakeRE2Options<Type>());
+    regex_split = std::make_unique<RE2>(pattern, MakeRE2Options<Type>());
     return RegexStatus(*regex_split);
   }
 
@@ -2669,17 +2859,17 @@ struct BinaryJoin {
   };
 
   struct SeparatorScalarLookup {
-    const util::string_view separator;
+    const std::string_view separator;
 
     bool IsNull(int64_t i) { return false; }
-    util::string_view GetView(int64_t i) { return separator; }
+    std::string_view GetView(int64_t i) { return separator; }
   };
 
   struct SeparatorArrayLookup {
     const ArrayType& separators;
 
     bool IsNull(int64_t i) { return separators.IsNull(i); }
-    util::string_view GetView(int64_t i) { return separators.GetView(i); }
+    std::string_view GetView(int64_t i) { return separators.GetView(i); }
   };
 
   // Scalar, array -> array
@@ -2742,7 +2932,7 @@ struct BinaryJoin {
       return Status::OK();
     }
 
-    util::string_view separator(*separator_scalar.value);
+    std::string_view separator(*separator_scalar.value);
     const auto& strings = checked_cast<const ArrayType&>(*lists.values());
     const auto list_offsets = lists.raw_value_offsets();
 
@@ -2795,7 +2985,7 @@ struct BinaryJoin {
       const ArrayType& separators;
 
       bool IsNull(int64_t i) { return separators.IsNull(i); }
-      util::string_view GetView(int64_t i) { return separators.GetView(i); }
+      std::string_view GetView(int64_t i) { return separators.GetView(i); }
     };
     return JoinStrings(lists.length(), strings, ListArrayOffsetLookup{lists},
                        SeparatorArrayLookup{separators}, &builder, out);
@@ -2868,7 +3058,7 @@ struct BinaryJoinElementWise {
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(final_size));
 
-    std::vector<util::string_view> valid_cols(batch.num_values());
+    std::vector<std::string_view> valid_cols(batch.num_values());
     for (int64_t row = 0; row < batch.length; row++) {
       int num_valid = 0;  // Not counting separator
       for (int col = 0; col < batch.num_values(); col++) {
@@ -2878,7 +3068,7 @@ struct BinaryJoinElementWise {
             valid_cols[col] = UnboxScalar<Type>::Unbox(scalar);
             if (col < batch.num_values() - 1) num_valid++;
           } else {
-            valid_cols[col] = util::string_view();
+            valid_cols[col] = std::string_view();
           }
         } else {
           const ArraySpan& array = batch[col].array;
@@ -2887,11 +3077,11 @@ struct BinaryJoinElementWise {
             const offset_type* offsets = array.GetValues<offset_type>(1);
             const uint8_t* data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
-            valid_cols[col] = util::string_view(
+            valid_cols[col] = std::string_view(
                 reinterpret_cast<const char*>(data + offsets[row]), length);
             if (col < batch.num_values() - 1) num_valid++;
           } else {
-            valid_cols[col] = util::string_view();
+            valid_cols[col] = std::string_view();
           }
         }
       }
@@ -2914,7 +3104,7 @@ struct BinaryJoinElementWise {
       const auto separator = valid_cols.back();
       bool first = true;
       for (int col = 0; col < batch.num_values() - 1; col++) {
-        util::string_view value = valid_cols[col];
+        std::string_view value = valid_cols[col];
         if (!value.data()) {
           switch (options.null_handling) {
             case JoinOptions::EMIT_NULL:
@@ -3198,6 +3388,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddAsciiStringExtractRegex(registry);
 #endif
   AddAsciiStringReplaceSlice(registry);
+  AddAsciiStringSlice(registry);
   AddAsciiStringSplitPattern(registry);
   AddAsciiStringSplitWhitespace(registry);
 #ifdef ARROW_WITH_RE2

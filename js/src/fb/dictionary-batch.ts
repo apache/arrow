@@ -16,7 +16,7 @@ import { RecordBatch } from './record-batch.js';
 export class DictionaryBatch {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):DictionaryBatch {
+  __init(i:number, bb:flatbuffers.ByteBuffer):DictionaryBatch {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -31,9 +31,9 @@ static getSizePrefixedRootAsDictionaryBatch(bb:flatbuffers.ByteBuffer, obj?:Dict
   return (obj || new DictionaryBatch()).__init(bb.readInt32(bb.position()) + bb.position(), bb);
 }
 
-id():flatbuffers.Long {
+id():bigint {
   const offset = this.bb!.__offset(this.bb_pos, 4);
-  return offset ? this.bb!.readInt64(this.bb_pos + offset) : this.bb!.createLong(0, 0);
+  return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
 }
 
 data(obj?:RecordBatch):RecordBatch|null {
@@ -55,8 +55,8 @@ static startDictionaryBatch(builder:flatbuffers.Builder) {
   builder.startObject(3);
 }
 
-static addId(builder:flatbuffers.Builder, id:flatbuffers.Long) {
-  builder.addFieldInt64(0, id, builder.createLong(0, 0));
+static addId(builder:flatbuffers.Builder, id:bigint) {
+  builder.addFieldInt64(0, id, BigInt('0'));
 }
 
 static addData(builder:flatbuffers.Builder, dataOffset:flatbuffers.Offset) {

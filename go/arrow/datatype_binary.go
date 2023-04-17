@@ -16,6 +16,17 @@
 
 package arrow
 
+// OffsetTraits is a convenient interface over the various type traits
+// constants such as arrow.Int32Traits allowing types with offsets, like
+// BinaryType, StringType, LargeBinaryType and LargeStringType to have
+// a method to return information about their offset type and how many bytes
+// would be required to allocate an offset buffer for them.
+type OffsetTraits interface {
+	// BytesRequired returns the number of bytes required to be allocated
+	// in order to hold the passed in number of elements of this type.
+	BytesRequired(int) int
+}
+
 type BinaryType struct{}
 
 func (t *BinaryType) ID() Type            { return BINARY }
@@ -27,6 +38,8 @@ func (t *BinaryType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
 		SpecFixedWidth(Int32SizeBytes), SpecVariableWidth()}}
 }
+func (t *BinaryType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
+func (BinaryType) IsUtf8() bool                      { return false }
 
 type StringType struct{}
 
@@ -39,6 +52,8 @@ func (t *StringType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
 		SpecFixedWidth(Int32SizeBytes), SpecVariableWidth()}}
 }
+func (t *StringType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
+func (StringType) IsUtf8() bool                      { return true }
 
 type LargeBinaryType struct{}
 
@@ -51,6 +66,8 @@ func (t *LargeBinaryType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
 		SpecFixedWidth(Int64SizeBytes), SpecVariableWidth()}}
 }
+func (t *LargeBinaryType) OffsetTypeTraits() OffsetTraits { return Int64Traits }
+func (LargeBinaryType) IsUtf8() bool                      { return false }
 
 type LargeStringType struct{}
 
@@ -63,6 +80,8 @@ func (t *LargeStringType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
 		SpecFixedWidth(Int64SizeBytes), SpecVariableWidth()}}
 }
+func (t *LargeStringType) OffsetTypeTraits() OffsetTraits { return Int64Traits }
+func (LargeStringType) IsUtf8() bool                      { return true }
 
 var (
 	BinaryTypes = struct {

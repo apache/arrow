@@ -929,7 +929,8 @@ gchar *
 garrow_array_to_string(GArrowArray *array, GError **error)
 {
   const auto arrow_array = garrow_array_get_raw(array);
-  return g_strdup(arrow_array->ToString().c_str());
+  const auto string = arrow_array->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -1841,6 +1842,83 @@ garrow_uint64_array_get_values(GArrowUInt64Array *array,
   auto values =
     garrow_array_get_values_raw<arrow::UInt64Type>(arrow_array, length);
   return reinterpret_cast<const guint64 *>(values);
+}
+
+
+G_DEFINE_TYPE(GArrowHalfFloatArray,
+              garrow_half_float_array,
+              GARROW_TYPE_NUMERIC_ARRAY)
+
+static void
+garrow_half_float_array_init(GArrowHalfFloatArray *object)
+{
+}
+
+static void
+garrow_half_float_array_class_init(GArrowHalfFloatArrayClass *klass)
+{
+}
+
+/**
+ * garrow_half_float_array_new:
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowHalfFloatArray.
+ *
+ * Since: 11.0.0
+ */
+GArrowHalfFloatArray *
+garrow_half_float_array_new(gint64 length,
+                            GArrowBuffer *data,
+                            GArrowBuffer *null_bitmap,
+                            gint64 n_nulls)
+{
+  auto array = garrow_primitive_array_new<arrow::HalfFloatType>(length,
+                                                                data,
+                                                                null_bitmap,
+                                                                n_nulls);
+  return GARROW_HALF_FLOAT_ARRAY(array);
+}
+
+/**
+ * garrow_half_float_array_get_value:
+ * @array: A #GArrowHalfFloatArray.
+ * @i: The index of the target value.
+ *
+ * Returns: The @i-th value.
+ *
+ * Since: 11.0.0
+ */
+guint16
+garrow_half_float_array_get_value(GArrowHalfFloatArray *array,
+                                  gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return std::static_pointer_cast<arrow::HalfFloatArray>(arrow_array)->Value(i);
+}
+
+/**
+ * garrow_half_float_array_get_values:
+ * @array: A #GArrowHalfFloatArray.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ *
+ * Since: 11.0.0
+ */
+const guint16 *
+garrow_half_float_array_get_values(GArrowHalfFloatArray *array,
+                                   gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return garrow_array_get_values_raw<arrow::HalfFloatType>(arrow_array, length);
 }
 
 
@@ -3489,6 +3567,9 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
     break;
   case arrow::Type::type::INT64:
     type = GARROW_TYPE_INT64_ARRAY;
+    break;
+  case arrow::Type::type::HALF_FLOAT:
+    type = GARROW_TYPE_HALF_FLOAT_ARRAY;
     break;
   case arrow::Type::type::FLOAT:
     type = GARROW_TYPE_FLOAT_ARRAY;

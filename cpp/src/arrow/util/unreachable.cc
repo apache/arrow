@@ -19,9 +19,16 @@
 
 #include "arrow/util/logging.h"
 
+#include <string_view>
+
 namespace arrow {
 
 [[noreturn]] void Unreachable(const char* message) {
+  DCHECK(false) << message;
+  std::abort();
+}
+
+[[noreturn]] void Unreachable(std::string_view message) {
   DCHECK(false) << message;
   std::abort();
 }

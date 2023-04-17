@@ -26,6 +26,7 @@
 #include "arrow/io/caching.h"
 #include "arrow/type.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/type_fwd.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
@@ -73,26 +74,46 @@ class PARQUET_EXPORT ReaderProperties {
   /// The primary reason for this control knobs is for resource control and not
   /// performance.
   bool is_buffered_stream_enabled() const { return buffered_stream_enabled_; }
+  /// Enable buffered stream reading.
   void enable_buffered_stream() { buffered_stream_enabled_ = true; }
+  /// Disable buffered stream reading.
   void disable_buffered_stream() { buffered_stream_enabled_ = false; }
 
+  /// Return the size of the buffered stream buffer.
   int64_t buffer_size() const { return buffer_size_; }
+  /// Set the size of the buffered stream buffer in bytes.
   void set_buffer_size(int64_t size) { buffer_size_ = size; }
 
+  /// \brief Return the size limit on thrift strings.
+  ///
+  /// This limit helps prevent space and time bombs in files, but may need to
+  /// be increased in order to read files with especially large headers.
   int32_t thrift_string_size_limit() const { return thrift_string_size_limit_; }
+  /// Set the size limit on thrift strings.
   void set_thrift_string_size_limit(int32_t size) { thrift_string_size_limit_ = size; }
 
+  /// \brief Return the size limit on thrift containers.
+  ///
+  /// This limit helps prevent space and time bombs in files, but may need to
+  /// be increased in order to read files with especially large headers.
   int32_t thrift_container_size_limit() const { return thrift_container_size_limit_; }
+  /// Set the size limit on thrift containers.
   void set_thrift_container_size_limit(int32_t size) {
     thrift_container_size_limit_ = size;
   }
 
+  /// Set the decryption properties.
   void file_decryption_properties(std::shared_ptr<FileDecryptionProperties> decryption) {
     file_decryption_properties_ = std::move(decryption);
   }
-
+  /// Return the decryption properties.
   const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties() const {
     return file_decryption_properties_;
+  }
+
+  bool page_checksum_verification() const { return page_checksum_verification_; }
+  void set_page_checksum_verification(bool check_crc) {
+    page_checksum_verification_ = check_crc;
   }
 
  private:
@@ -101,6 +122,7 @@ class PARQUET_EXPORT ReaderProperties {
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
   bool buffered_stream_enabled_ = false;
+  bool page_checksum_verification_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
 
@@ -110,7 +132,7 @@ static constexpr int64_t kDefaultDataPageSize = 1024 * 1024;
 static constexpr bool DEFAULT_IS_DICTIONARY_ENABLED = true;
 static constexpr int64_t DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT = kDefaultDataPageSize;
 static constexpr int64_t DEFAULT_WRITE_BATCH_SIZE = 1024;
-static constexpr int64_t DEFAULT_MAX_ROW_GROUP_LENGTH = 64 * 1024 * 1024;
+static constexpr int64_t DEFAULT_MAX_ROW_GROUP_LENGTH = 1024 * 1024;
 static constexpr bool DEFAULT_ARE_STATISTICS_ENABLED = true;
 static constexpr int64_t DEFAULT_MAX_STATISTICS_SIZE = 4096;
 static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
@@ -184,7 +206,10 @@ class PARQUET_EXPORT WriterProperties {
           pagesize_(kDefaultDataPageSize),
           version_(ParquetVersion::PARQUET_2_4),
           data_page_version_(ParquetDataPageVersion::V1),
-          created_by_(DEFAULT_CREATED_BY) {}
+          created_by_(DEFAULT_CREATED_BY),
+          store_decimal_as_integer_(false),
+          page_checksum_enabled_(false),
+          write_page_index_(false) {}
     virtual ~Builder() {}
 
     /// Specify the memory pool for the writer. Default default_memory_pool.
@@ -240,8 +265,8 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Specify the max row group length.
-    /// Default 64M.
+    /// Specify the max number of rows to put in a single row group.
+    /// Default 1Mi rows.
     Builder* max_row_group_length(int64_t max_row_group_length) {
       max_row_group_length_ = max_row_group_length;
       return this;
@@ -270,6 +295,16 @@ class PARQUET_EXPORT WriterProperties {
 
     Builder* created_by(const std::string& created_by) {
       created_by_ = created_by;
+      return this;
+    }
+
+    Builder* enable_page_checksum() {
+      page_checksum_enabled_ = true;
+      return this;
+    }
+
+    Builder* disable_page_checksum() {
+      page_checksum_enabled_ = false;
       return this;
     }
 
@@ -435,6 +470,60 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_statistics(path->ToDotString());
     }
 
+    /// Allow decimals with 1 <= precision <= 18 to be stored as integers.
+    ///
+    /// In Parquet, DECIMAL can be stored in any of the following physical types:
+    /// - int32: for 1 <= precision <= 9.
+    /// - int64: for 10 <= precision <= 18.
+    /// - fixed_len_byte_array: precision is limited by the array size.
+    ///   Length n can store <= floor(log_10(2^(8*n - 1) - 1)) base-10 digits.
+    /// - binary: precision is unlimited. The minimum number of bytes to store
+    ///   the unscaled value is used.
+    ///
+    /// By default, this is DISABLED and all decimal types annotate fixed_len_byte_array.
+    ///
+    /// When enabled, the C++ writer will use following physical types to store decimals:
+    /// - int32: for 1 <= precision <= 9.
+    /// - int64: for 10 <= precision <= 18.
+    /// - fixed_len_byte_array: for precision > 18.
+    ///
+    /// As a consequence, decimal columns stored in integer types are more compact.
+    Builder* enable_store_decimal_as_integer() {
+      store_decimal_as_integer_ = true;
+      return this;
+    }
+
+    /// Disable decimal logical type with 1 <= precision <= 18 to be stored as
+    /// integer physical type.
+    ///
+    /// Default disabled.
+    Builder* disable_store_decimal_as_integer() {
+      store_decimal_as_integer_ = false;
+      return this;
+    }
+
+    /// Enable writing page index.
+    ///
+    /// Page index contains statistics for data pages and can be used to skip pages
+    /// when scanning data in ordered and unordered columns.
+    ///
+    /// Please check the link below for more details:
+    /// https://github.com/apache/parquet-format/blob/master/PageIndex.md
+    ///
+    /// Default disabled.
+    Builder* enable_write_page_index() {
+      write_page_index_ = true;
+      return this;
+    }
+
+    /// Disable writing page index.
+    ///
+    /// Default disabled.
+    Builder* disable_write_page_index() {
+      write_page_index_ = false;
+      return this;
+    }
+
     /// \brief Build the WriterProperties with the builder parameters.
     /// \return The WriterProperties defined by the builder.
     std::shared_ptr<WriterProperties> build() {
@@ -458,8 +547,10 @@ class PARQUET_EXPORT WriterProperties {
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
-          pagesize_, version_, created_by_, std::move(file_encryption_properties_),
-          default_column_properties_, column_properties, data_page_version_));
+          pagesize_, version_, created_by_, page_checksum_enabled_,
+          std::move(file_encryption_properties_), default_column_properties_,
+          column_properties, data_page_version_, store_decimal_as_integer_,
+          write_page_index_));
     }
 
    private:
@@ -471,6 +562,9 @@ class PARQUET_EXPORT WriterProperties {
     ParquetVersion::type version_;
     ParquetDataPageVersion data_page_version_;
     std::string created_by_;
+    bool store_decimal_as_integer_;
+    bool page_checksum_enabled_;
+    bool write_page_index_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
@@ -500,6 +594,12 @@ class PARQUET_EXPORT WriterProperties {
   inline ParquetVersion::type version() const { return parquet_version_; }
 
   inline std::string created_by() const { return parquet_created_by_; }
+
+  inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
+
+  inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
+
+  inline bool write_page_index() const { return write_page_index_; }
 
   inline Encoding::type dictionary_index_encoding() const {
     if (parquet_version_ == ParquetVersion::PARQUET_1_0) {
@@ -565,11 +665,12 @@ class PARQUET_EXPORT WriterProperties {
   explicit WriterProperties(
       MemoryPool* pool, int64_t dictionary_pagesize_limit, int64_t write_batch_size,
       int64_t max_row_group_length, int64_t pagesize, ParquetVersion::type version,
-      const std::string& created_by,
+      const std::string& created_by, bool page_write_checksum_enabled,
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
-      ParquetDataPageVersion data_page_version)
+      ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
+      bool write_page_index)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -578,6 +679,9 @@ class PARQUET_EXPORT WriterProperties {
         parquet_data_page_version_(data_page_version),
         parquet_version_(version),
         parquet_created_by_(created_by),
+        store_decimal_as_integer_(store_short_decimal_as_integer),
+        page_checksum_enabled_(page_write_checksum_enabled),
+        write_page_index_(write_page_index),
         file_encryption_properties_(file_encryption_properties),
         default_column_properties_(default_column_properties),
         column_properties_(column_properties) {}
@@ -590,6 +694,9 @@ class PARQUET_EXPORT WriterProperties {
   ParquetDataPageVersion parquet_data_page_version_;
   ParquetVersion::type parquet_version_;
   std::string parquet_created_by_;
+  bool store_decimal_as_integer_;
+  bool page_checksum_enabled_;
+  bool write_page_index_;
 
   std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
@@ -618,10 +725,19 @@ class PARQUET_EXPORT ArrowReaderProperties {
         cache_options_(::arrow::io::CacheOptions::Defaults()),
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO) {}
 
+  /// \brief Set whether to use the IO thread pool to parse columns in parallel.
+  ///
+  /// Default is false.
   void set_use_threads(bool use_threads) { use_threads_ = use_threads; }
-
+  /// Return whether will use multiple threads.
   bool use_threads() const { return use_threads_; }
 
+  /// \brief Set whether to read a particular column as dictionary encoded.
+  ///
+  /// If the file metadata contains a serialized Arrow schema, then ...
+  ////
+  /// This is only supported for columns with a Parquet physical type of
+  /// BYTE_ARRAY, such as string or binary types.
   void set_read_dictionary(int column_index, bool read_dict) {
     if (read_dict) {
       read_dict_indices_.insert(column_index);
@@ -629,6 +745,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
       read_dict_indices_.erase(column_index);
     }
   }
+  /// Return whether the column at the index will be read as dictionary.
   bool read_dictionary(int column_index) const {
     if (read_dict_indices_.find(column_index) != read_dict_indices_.end()) {
       return true;
@@ -637,28 +754,31 @@ class PARQUET_EXPORT ArrowReaderProperties {
     }
   }
 
+  /// \brief Set the maximum number of rows to read into a chunk or record batch.
+  ///
+  /// Will only be fewer rows when there are no more rows in the file.
   void set_batch_size(int64_t batch_size) { batch_size_ = batch_size; }
-
+  /// Return the batch size.
   int64_t batch_size() const { return batch_size_; }
 
-  /// Enable read coalescing.
+  /// Enable read coalescing (default false).
   ///
   /// When enabled, the Arrow reader will pre-buffer necessary regions
   /// of the file in-memory. This is intended to improve performance on
   /// high-latency filesystems (e.g. Amazon S3).
   void set_pre_buffer(bool pre_buffer) { pre_buffer_ = pre_buffer; }
-
+  /// Return whether read coalescing is enabled.
   bool pre_buffer() const { return pre_buffer_; }
 
   /// Set options for read coalescing. This can be used to tune the
   /// implementation for characteristics of different filesystems.
   void set_cache_options(::arrow::io::CacheOptions options) { cache_options_ = options; }
-
+  /// Return the options for read coalescing.
   const ::arrow::io::CacheOptions& cache_options() const { return cache_options_; }
 
   /// Set execution context for read coalescing.
   void set_io_context(const ::arrow::io::IOContext& ctx) { io_context_ = ctx; }
-
+  /// Return the execution context used for read coalescing.
   const ::arrow::io::IOContext& io_context() const { return io_context_; }
 
   /// Set timestamp unit to use for deprecated INT96-encoded timestamps
@@ -701,30 +821,44 @@ class PARQUET_EXPORT ArrowWriterProperties {
           store_schema_(false),
           // TODO: At some point we should flip this.
           compliant_nested_types_(false),
-          engine_version_(V2) {}
+          engine_version_(V2),
+          use_threads_(kArrowDefaultUseThreads),
+          executor_(NULLPTR) {}
     virtual ~Builder() = default;
 
+    /// \brief Disable writing legacy int96 timestamps (default disabled).
     Builder* disable_deprecated_int96_timestamps() {
       write_timestamps_as_int96_ = false;
       return this;
     }
 
+    /// \brief Enable writing legacy int96 timestamps (default disabled).
+    ///
+    /// May be turned on to write timestamps compatible with older Parquet writers.
+    /// This takes precedent over coerce_timestamps.
     Builder* enable_deprecated_int96_timestamps() {
       write_timestamps_as_int96_ = true;
       return this;
     }
 
+    /// \brief Coerce all timestamps to the specified time unit.
+    /// \param unit time unit to truncate to.
+    /// For Parquet versions 1.0 and 2.4, nanoseconds are casted to microseconds.
     Builder* coerce_timestamps(::arrow::TimeUnit::type unit) {
       coerce_timestamps_enabled_ = true;
       coerce_timestamps_unit_ = unit;
       return this;
     }
 
+    /// \brief Allow loss of data when truncating timestamps.
+    ///
+    /// This is disallowed by default and an error will be returned.
     Builder* allow_truncated_timestamps() {
       truncated_timestamps_allowed_ = true;
       return this;
     }
 
+    /// \brief Disallow loss of data when truncating timestamps (default).
     Builder* disallow_truncated_timestamps() {
       truncated_timestamps_allowed_ = false;
       return this;
@@ -738,26 +872,58 @@ class PARQUET_EXPORT ArrowWriterProperties {
       return this;
     }
 
+    /// \brief When enabled, will not preserve Arrow field names for list types.
+    ///
+    /// Instead of using the field names Arrow uses for the values array of
+    /// list types (default "item"), will use "entries", as is specified in
+    /// the Parquet spec.
+    ///
+    /// This is disabled by default, but will be enabled by default in future.
     Builder* enable_compliant_nested_types() {
       compliant_nested_types_ = true;
       return this;
     }
 
+    /// Preserve Arrow list field name (default behavior).
     Builder* disable_compliant_nested_types() {
       compliant_nested_types_ = false;
       return this;
     }
 
+    /// Set the version of the Parquet writer engine.
     Builder* set_engine_version(EngineVersion version) {
       engine_version_ = version;
       return this;
     }
 
+    /// \brief Set whether to use multiple threads to write columns
+    /// in parallel in the buffered row group mode.
+    ///
+    /// WARNING: If writing multiple files in parallel in the same
+    /// executor, deadlock may occur if use_threads is true. Please
+    /// disable it in this case.
+    ///
+    /// Default is false.
+    Builder* set_use_threads(bool use_threads) {
+      use_threads_ = use_threads;
+      return this;
+    }
+
+    /// \brief Set the executor to write columns in parallel in the
+    /// buffered row group mode.
+    ///
+    /// Default is nullptr and the default cpu executor will be used.
+    Builder* set_executor(::arrow::internal::Executor* executor) {
+      executor_ = executor;
+      return this;
+    }
+
+    /// Create the final properties.
     std::shared_ptr<ArrowWriterProperties> build() {
       return std::shared_ptr<ArrowWriterProperties>(new ArrowWriterProperties(
           write_timestamps_as_int96_, coerce_timestamps_enabled_, coerce_timestamps_unit_,
           truncated_timestamps_allowed_, store_schema_, compliant_nested_types_,
-          engine_version_));
+          engine_version_, use_threads_, executor_));
     }
 
    private:
@@ -770,6 +936,9 @@ class PARQUET_EXPORT ArrowWriterProperties {
     bool store_schema_;
     bool compliant_nested_types_;
     EngineVersion engine_version_;
+
+    bool use_threads_;
+    ::arrow::internal::Executor* executor_;
   };
 
   bool support_deprecated_int96_timestamps() const { return write_timestamps_as_int96_; }
@@ -796,20 +965,30 @@ class PARQUET_EXPORT ArrowWriterProperties {
   /// place in case there are bugs detected in V2.
   EngineVersion engine_version() const { return engine_version_; }
 
+  /// \brief Returns whether the writer will use multiple threads
+  /// to write columns in parallel in the buffered row group mode.
+  bool use_threads() const { return use_threads_; }
+
+  /// \brief Returns the executor used to write columns in parallel.
+  ::arrow::internal::Executor* executor() const;
+
  private:
   explicit ArrowWriterProperties(bool write_nanos_as_int96,
                                  bool coerce_timestamps_enabled,
                                  ::arrow::TimeUnit::type coerce_timestamps_unit,
                                  bool truncated_timestamps_allowed, bool store_schema,
                                  bool compliant_nested_types,
-                                 EngineVersion engine_version)
+                                 EngineVersion engine_version, bool use_threads,
+                                 ::arrow::internal::Executor* executor)
       : write_timestamps_as_int96_(write_nanos_as_int96),
         coerce_timestamps_enabled_(coerce_timestamps_enabled),
         coerce_timestamps_unit_(coerce_timestamps_unit),
         truncated_timestamps_allowed_(truncated_timestamps_allowed),
         store_schema_(store_schema),
         compliant_nested_types_(compliant_nested_types),
-        engine_version_(engine_version) {}
+        engine_version_(engine_version),
+        use_threads_(use_threads),
+        executor_(executor) {}
 
   const bool write_timestamps_as_int96_;
   const bool coerce_timestamps_enabled_;
@@ -818,6 +997,8 @@ class PARQUET_EXPORT ArrowWriterProperties {
   const bool store_schema_;
   const bool compliant_nested_types_;
   const EngineVersion engine_version_;
+  const bool use_threads_;
+  ::arrow::internal::Executor* executor_;
 };
 
 /// \brief State object used for writing Arrow data directly to a Parquet

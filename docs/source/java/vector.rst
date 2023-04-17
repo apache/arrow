@@ -186,7 +186,7 @@ Here is how to build a vector using writer
       writer.writeBigInt(2);
       writer.setPosition(2);
       writer.writeBigInt(3);
-      // writer.setPosition(3) is not called which means the forth value is null.
+      // writer.setPosition(3) is not called which means the fourth value is null.
       writer.setPosition(4);
       writer.writeBigInt(5);
       writer.setPosition(5);
@@ -267,6 +267,84 @@ For example, the code below shows how to build a :class:`ListVector` of int's us
          }
      }
   }
+
+Dictionary Encoding
+===================
+
+Dictionary encoding is a form of compression where values of one type are replaced by values of a smaller type: an array of ints replacing an array of strings is a common example. The mapping between the original values and the replacements is held in a 'dictionary'. Since the dictionary needs only one copy of each of the longer values, the combination of the dictionary and the array of smaller values may use less memory. The more repetitive the original data, the greater the savings.
+
+A ``FieldVector`` can be dictionary encoded for performance or improved memory efficiency. Nearly any type of vector might be encoded if there are many values, but few unique values.
+
+There are a few steps involved in the encoding process:
+
+1. Create a regular, un-encoded vector and populate it
+2. Create a dictionary vector of the same type as the un-encoded vector. This vector must have the same values, but each unique value in the un-encoded vector need appear here only once.
+3. Create a ``Dictionary``. It will contain the dictionary vector, plus a ``DictionaryEncoding`` object that holds the encoding's metadata and settings values.
+4. Create a ``DictionaryEncoder``.
+5. Call the encode() method on the ``DictionaryEncoder`` to produce an encoded version of the original vector.
+6. (Optional) Call the decode() method on the encoded vector to re-create the original values.
+
+The encoded values will be integers. Depending on how many unique values you have, you can use ``TinyIntVector``, ``SmallIntVector``, ``IntVector``, or ``BigIntVector`` to hold them. You specify the type when you create your ``DictionaryEncoding`` instance. You might wonder where those integers come from: the dictionary vector is a regular vector, so the value's index position in that vector is used as its encoded value.
+
+Another critical attribute in ``DictionaryEncoding`` is the id. It's important to understand how the id is used, so we cover that later in this section.
+
+This result will be a new vector (for example, an ``IntVector``) that can act in place of the original vector (for example, a ``VarCharVector``). When you write the data in arrow format, it is both the new ``IntVector`` plus the dictionary that is written: you will need the dictionary later to retrieve the original values.
+
+.. code-block:: Java
+
+    // 1. create a vector for the un-encoded data and populate it
+    VarCharVector unencoded = new VarCharVector("unencoded", allocator);
+    // now put some data in it before continuing
+
+    // 2. create a vector to hold the dictionary and populate it
+    VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
+
+    // 3. create a dictionary object
+    Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+
+    // 4. create a dictionary encoder
+    DictionaryEncoder encoder = new DictionaryEncoder.encode(dictionary, allocator);
+
+    // 5. encode the data
+    IntVector encoded = (IntVector) encoder.encode(unencoded);
+
+    // 6. re-create an un-encoded version from the encoded vector
+    VarCharVector decoded = (VarCharVector) encoder.decode(encoded);
+
+One thing we haven't discussed is how to create the dictionary vector from the original un-encoded values. That is left to the library user since a custom method will likely be more efficient than a general utility. Since the dictionary vector is just a normal vector, you can populate its values with the standard APIs.
+
+Finally, you can package a number of dictionaries together, which is useful if you're working with a ``VectorSchemaRoot`` with several dictionary-encoded vectors. This is done using an object called a ``DictionaryProvider``. as shown in the example below. Note that we don't put the dictionary vectors in the same ``VectorSchemaRoot`` as the data vectors, as they will generally have fewer values.
+
+
+.. code-block:: Java
+
+    DictionaryProvider.MapDictionaryProvider provider =
+        new DictionaryProvider.MapDictionaryProvider();
+
+    provider.put(dictionary);
+
+The ``DictionaryProvider`` is simply a map of identifiers to ``Dictionary`` objects, where each identifier is a long value. In the above code you will see it as the first argument to the ``DictionaryEncoding`` constructor.
+
+This is where the ``DictionaryEncoding``'s 'id' attribute comes in. This value is used to connect dictionaries to instances of ``VectorSchemaRoot``, using a ``DictionaryProvider``.  Here's how that works:
+
+* The ``VectorSchemaRoot`` has a ``Schema`` object containing a list of ``Field`` objects.
+* The field has an attribute called 'dictionary', but it holds a ``DictionaryEncoding`` rather than a ``Dictionary``
+* As mentioned, the ``DictionaryProvider`` holds dictionaries indexed by a long value. This value is the id from your ``DictionaryEncoding``.
+* To retrieve the dictionary for a vector in a ``VectorSchemaRoot``, you get the field associated with the vector, get its dictionary attribute, and use that object's id to look up the correct dictionary in the provider.
+
+.. code-block:: Java
+
+    // create the encoded vector, the Dictionary and DictionaryProvider as discussed above
+
+    // Create a VectorSchemaRoot with one encoded vector
+    VectorSchemaRoot vsr = new VectorSchemaRoot(List.of(encoded));
+
+    // now we want to decode our vector, so we retrieve its dictionary from the provider
+    Field f = vsr.getField(encoded.getName());
+    DictionaryEncoding encoding = f.getDictionary();
+    Dictionary dictionary = provider.get(encoding.getId());
+
+As you can see, a ``DictionaryProvider`` is handy for managing the dictionaries associated with a ``VectorSchemaRoot``. More importantly, it helps package the dictionaries for a ``VectorSchemaRoot`` when it's written. The classes ``ArrowFileWriter`` and ``ArrowStreamWriter`` both accept an optional ``DictionaryProvider`` argument for that purpose. You can find example code for writing dictionaries in the documentation for (:doc:`ipc`). ``ArrowReader`` and its subclasses also implement the ``DictionaryProvider`` interface, so you can retrieve the actual dictionaries when reading a file.
 
 Slicing
 =======

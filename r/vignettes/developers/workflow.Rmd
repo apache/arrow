@@ -1,4 +1,10 @@
-# Common developer workflow tasks
+---
+title: "Developer workflows"
+description: >
+  Learn about the workflows and conventions followed by arrow developers
+output: rmarkdown::html_vignette
+---
+
 
 ```{r setup-options, include=FALSE}
 knitr::opts_chunk$set(error = TRUE, eval = FALSE)
@@ -49,7 +55,7 @@ pkgdown::build_site(preview=TRUE)
 
 The R code in the package follows [the tidyverse style](https://style.tidyverse.org/). On PR submission (and on pushes) our CI will run linting and will flag possible errors on the pull request with annotations.
 
-To run the linter locally, install the `{lintr}` package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file [`ci/docker/linux-apt-lint.dockerfile`](https://github.com/apache/arrow/blob/master/ci/docker/linux-apt-lint.dockerfile) for the current status) and then run
+To run the linter locally, install the `{lintr}` package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file [`ci/docker/linux-apt-lint.dockerfile`](https://github.com/apache/arrow/blob/main/ci/docker/linux-apt-lint.dockerfile) for the current status) and then run
 
 ```r
 lintr::lint_package("arrow/r")
@@ -202,7 +208,7 @@ This runs each of the R-related CI tasks.
 @github-actions crossbow submit {task-name}
 ```
 
-See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/master/dev/tasks/tasks.yml)
+See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/main/dev/tasks/tasks.yml)
 for a list of glob expression patterns that match names of items in the `tasks:`
 list below it.
 

@@ -28,6 +28,16 @@ add_arrow_test(filesystem-test
                EXTRA_LABELS
                filesystem)
 
+if(ARROW_BUILD_BENCHMARKS)
+  add_arrow_benchmark(localfs_benchmark
+                      PREFIX
+                      "arrow-filesystem"
+                      SOURCES
+                      localfs_benchmark.cc
+                      STATIC_LINK_LIBS
+                      ${ARROW_BENCHMARK_LINK_LIBS})
+endif()
+
 if(ARROW_GCS)
   add_arrow_test(gcsfs_test
                  EXTRA_LABELS
@@ -71,7 +81,7 @@ if(ARROW_S3)
   if(ARROW_BUILD_TESTS)
     add_executable(arrow-s3fs-narrative-test s3fs_narrative_test.cc)
     target_link_libraries(arrow-s3fs-narrative-test ${ARROW_TEST_LINK_LIBS}
-                          ${GFLAGS_LIBRARIES} GTest::gtest)
+                          ${GFLAGS_LIBRARIES} ${ARROW_GTEST_GTEST})
     add_dependencies(arrow-tests arrow-s3fs-narrative-test)
   endif()
 

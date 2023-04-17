@@ -9,7 +9,7 @@ import * as flatbuffers from 'flatbuffers';
 export class LargeBinary {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):LargeBinary {
+  __init(i:number, bb:flatbuffers.ByteBuffer):LargeBinary {
   this.bb_pos = i;
   this.bb = bb;
   return this;

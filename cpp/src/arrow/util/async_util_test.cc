@@ -17,281 +17,690 @@
 
 #include "arrow/util/async_util.h"
 
+#include <deque>
+#include <functional>
+#include <list>
+#include <memory>
+#include <mutex>
+#include <queue>
 #include <thread>
+#include <unordered_set>
 
 #include <gtest/gtest.h>
 
 #include "arrow/result.h"
+#include "arrow/testing/async_test_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/async_generator.h"
+#include "arrow/util/future.h"
+#include "arrow/util/test_common.h"
 
 namespace arrow {
 namespace util {
 
-class GatingDestroyable : public AsyncDestroyable {
- public:
-  GatingDestroyable(Future<> close_future, bool* destroyed)
-      : close_future_(std::move(close_future)), destroyed_(destroyed) {}
-  ~GatingDestroyable() override { *destroyed_ = true; }
+constexpr std::string_view kDummyName = "unit test";
 
- protected:
-  Future<> DoDestroy() override { return close_future_; }
+TEST(AsyncTaskScheduler, ShouldScheduleConcurrentTasks) {
+  // A basic test to make sure we schedule the right number of concurrent tasks
+  constexpr int kMaxConcurrentTasks = 2;
+  constexpr int kTotalNumTasks = kMaxConcurrentTasks + 1;
+  Future<> futures[kTotalNumTasks];
+  bool submitted[kTotalNumTasks];
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+        ThrottledAsyncTaskScheduler::Make(scheduler, kMaxConcurrentTasks);
+    for (int i = 0; i < kTotalNumTasks; i++) {
+      futures[i] = Future<>::Make();
+      submitted[i] = false;
+      throttled->AddSimpleTask(
+          [&, i] {
+            submitted[i] = true;
+            return futures[i];
+          },
+          kDummyName);
+    }
+    return Status::OK();
+  });
+  AssertNotFinished(finished);
+  for (int i = 0; i < kTotalNumTasks; i++) {
+    if (i < kMaxConcurrentTasks) {
+      ASSERT_TRUE(submitted[i]);
+    } else {
+      ASSERT_FALSE(submitted[i]);
+    }
+  }
+
+  for (int j = 0; j < kTotalNumTasks; j++) {
+    futures[j].MarkFinished();
+    if (j + kMaxConcurrentTasks < kTotalNumTasks) {
+      ASSERT_TRUE(submitted[j + kMaxConcurrentTasks]);
+    }
+  }
+  ASSERT_FINISHES_OK(finished);
+}
+
+TEST(AsyncTaskScheduler, CancelWaitsForTasksToFinish) {
+  StopSource stop_source;
+  Future<> task = Future<>::Make();
+  Future<> finished = AsyncTaskScheduler::Make(
+      [&](AsyncTaskScheduler* scheduler) {
+        scheduler->AddSimpleTask([&] { return task; }, kDummyName);
+        return Status::OK();
+      },
+      /*abort_callback=*/[](const Status&) {}, stop_source.token());
+  stop_source.RequestStop();
+  AssertNotFinished(finished);
+  task.MarkFinished();
+  // We don't get a cancel error here which is ok because
+  // we did ran all the tasks.
+  ASSERT_FINISHES_OK(finished);
+}
+
+TEST(AsyncTaskScheduler, CancelPurgesQueuedTasks) {
+  StopSource stop_source;
+  Future<> task = Future<>::Make();
+  bool second_task_submitted = false;
+  Future<> finished = AsyncTaskScheduler::Make(
+      [&](AsyncTaskScheduler* scheduler) {
+        std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+            ThrottledAsyncTaskScheduler::Make(scheduler, 1);
+        throttled->AddSimpleTask([&] { return task; }, kDummyName);
+        throttled->AddSimpleTask(
+            [&] {
+              second_task_submitted = true;
+              return Future<>::MakeFinished();
+            },
+            kDummyName);
+        return Status::OK();
+      },
+      /*abort_callback=*/[](const Status&) {}, stop_source.token());
+  stop_source.RequestStop();
+  task.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Cancelled, finished);
+  ASSERT_FALSE(second_task_submitted);
+}
+
+TEST(AsyncTaskScheduler, CancelPreventsAdditionalTasks) {
+  StopSource stop_source;
+  Future<> task = Future<>::Make();
+  bool second_task_submitted = false;
+  Future<> finished = AsyncTaskScheduler::Make(
+      [&](AsyncTaskScheduler* scheduler) {
+        scheduler->AddSimpleTask([&] { return task; }, kDummyName);
+        stop_source.RequestStop();
+        scheduler->AddSimpleTask(
+            [&] {
+              second_task_submitted = true;
+              return task;
+            },
+            kDummyName);
+        return Status::OK();
+      },
+      /*abort_callback=*/[](const Status&) {}, stop_source.token());
+  task.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Cancelled, finished);
+  ASSERT_FALSE(second_task_submitted);
+}
+
+TEST(AsyncTaskScheduler, AbortCallback) {
+  // `task` simulates a long running task that will not end for a while.  The abort
+  // callback ends the task early.
+  Future<> task = Future<>::Make();
+  Future<> finished = AsyncTaskScheduler::Make(
+      [&](AsyncTaskScheduler* scheduler) {
+        scheduler->AddSimpleTask([&] { return task; }, kDummyName);
+        scheduler->AddSimpleTask([] { return Status::Invalid("XYZ"); }, kDummyName);
+        return Status::OK();
+      },
+      [&](const Status& st) {
+        ASSERT_TRUE(st.IsInvalid());
+        task.MarkFinished();
+      });
+  ASSERT_FINISHES_AND_RAISES(Invalid, finished);
+}
+
+TEST(AsyncTaskScheduler, TaskStaysAliveUntilFinished) {
+  bool my_task_destroyed = false;
+  Future<> task = Future<>::Make();
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    struct MyTask : public AsyncTaskScheduler::Task {
+      MyTask(bool* my_task_destroyed_ptr, Future<> task_fut)
+          : my_task_destroyed_ptr(my_task_destroyed_ptr), task_fut(std::move(task_fut)) {}
+      ~MyTask() { *my_task_destroyed_ptr = true; }
+      Result<Future<>> operator()() override { return task_fut; }
+      std::string_view name() const override { return kDummyName; }
+      bool* my_task_destroyed_ptr;
+      Future<> task_fut;
+    };
+    scheduler->AddTask(std::make_unique<MyTask>(&my_task_destroyed, task));
+    return Status::OK();
+  });
+  SleepABit();
+  ASSERT_FALSE(my_task_destroyed);
+  task.MarkFinished();
+  ASSERT_TRUE(my_task_destroyed);
+  ASSERT_FINISHES_OK(finished);
+}
+
+TEST(AsyncTaskScheduler, InitialTaskAddsNothing) {
+  Future<> finished = AsyncTaskScheduler::Make(
+      [&](AsyncTaskScheduler* scheduler) { return Status::OK(); });
+  ASSERT_FINISHES_OK(finished);
+}
+
+TEST(AsyncTaskScheduler, InitialTaskFails) {
+  Future<> task = Future<>::Make();
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    EXPECT_TRUE(scheduler->AddSimpleTask([&]() { return task; }, kDummyName));
+    return Status::Invalid("XYZ");
+  });
+  AssertNotFinished(finished);
+  task.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Invalid, finished);
+
+  finished = AsyncTaskScheduler::Make(
+      [&](AsyncTaskScheduler* scheduler) { return Status::Invalid("XYZ"); });
+  ASSERT_FINISHES_AND_RAISES(Invalid, finished);
+}
+
+TEST(AsyncTaskScheduler, TaskGroup) {
+  Future<> task = Future<>::Make();
+  bool finish_callback_ran = false;
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::unique_ptr<AsyncTaskGroup> task_group = AsyncTaskGroup::Make(scheduler, [&] {
+      finish_callback_ran = true;
+      return Status::OK();
+    });
+    EXPECT_TRUE(task_group->AddSimpleTask([&]() { return task; }, kDummyName));
+    return Status::OK();
+  });
+  ASSERT_FALSE(finish_callback_ran);
+  AssertNotFinished(finished);
+  task.MarkFinished();
+  ASSERT_FINISHES_OK(finished);
+  ASSERT_TRUE(finish_callback_ran);
+}
+
+TEST(AsyncTaskScheduler, TaskGroupLifetime) {
+  Future<> task = Future<>::Make();
+  bool finish_callback_ran = false;
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::unique_ptr<AsyncTaskGroup> task_group = AsyncTaskGroup::Make(scheduler, [&] {
+      finish_callback_ran = true;
+      return Status::OK();
+    });
+    EXPECT_TRUE(task_group->AddSimpleTask([&]() { return task; }, kDummyName));
+    // Last task in group is finished but we still have a reference to the group (and
+    // could still add tasks) so the finish callback does not run
+    task.MarkFinished();
+    EXPECT_FALSE(finish_callback_ran);
+    return Status::OK();
+  });
+  ASSERT_FINISHES_OK(finished);
+  ASSERT_TRUE(finish_callback_ran);
+}
+
+TEST(AsyncTaskScheduler, TaskGroupNoTasks) {
+  Future<> task = Future<>::Make();
+  bool finish_callback_ran = false;
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::unique_ptr<AsyncTaskGroup> task_group = AsyncTaskGroup::Make(scheduler, [&] {
+      finish_callback_ran = true;
+      return Status::OK();
+    });
+    EXPECT_FALSE(finish_callback_ran);
+    return Status::OK();
+  });
+  ASSERT_FINISHES_OK(finished);
+  ASSERT_TRUE(finish_callback_ran);
+}
+
+TEST(AsyncTaskScheduler, TaskGroupFinishCallbackFails) {
+  Future<> task = Future<>::Make();
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::unique_ptr<AsyncTaskGroup> task_group =
+        AsyncTaskGroup::Make(scheduler, [&] { return Status::Invalid("XYZ"); });
+    EXPECT_TRUE(task_group->AddSimpleTask([&]() { return task; }, kDummyName));
+    // Last task in group is finished but we still have a reference to the group (and
+    // could still add tasks) so the finish callback does not run
+    return Status::OK();
+  });
+  AssertNotFinished(finished);
+  task.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Invalid, finished);
+}
+
+#ifndef ARROW_VALGRIND
+TEST(AsyncTaskScheduler, FailingTaskStress) {
+  // Test many tasks failing at the same time
+  constexpr int kNumTasks = 256;
+  for (int i = 0; i < kNumTasks; i++) {
+    Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+      EXPECT_TRUE(scheduler->AddSimpleTask([] { return SleepABitAsync(); }, kDummyName));
+      EXPECT_TRUE(scheduler->AddSimpleTask(
+          [] { return SleepABitAsync().Then([]() { return Status::Invalid("XYZ"); }); },
+          kDummyName));
+      return Status::OK();
+    });
+    ASSERT_FINISHES_AND_RAISES(Invalid, finished);
+  }
+  for (int i = 0; i < kNumTasks; i++) {
+    Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+      std::unique_ptr<AsyncTaskGroup> task_group =
+          AsyncTaskGroup::Make(scheduler, [] { return Status::OK(); });
+      EXPECT_TRUE(task_group->AddSimpleTask([] { return SleepABitAsync(); }, kDummyName));
+      EXPECT_TRUE(task_group->AddSimpleTask(
+          [] { return SleepABitAsync().Then([]() { return Status::Invalid("XYZ"); }); },
+          kDummyName));
+      return Status::OK();
+    });
+    ASSERT_FINISHES_AND_RAISES(Invalid, finished);
+  }
+}
+#endif
+
+TEST(AsyncTaskScheduler, AsyncGenerator) {
+  for (bool slow : {false, true}) {
+    std::vector<TestInt> values{1, 2, 3};
+    std::vector<TestInt> seen_values{};
+    ARROW_SCOPED_TRACE("Slow: ", slow);
+    Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+      AsyncGenerator<TestInt> generator = MakeVectorGenerator<TestInt>(values);
+      if (slow) {
+        generator = util::SlowdownABit(generator);
+      }
+      std::function<Status(const TestInt&)> visitor = [&](const TestInt& val) {
+        seen_values.push_back(val);
+        return Status::OK();
+      };
+      scheduler->AddAsyncGenerator(std::move(generator), std::move(visitor), kDummyName);
+      return Status::OK();
+    });
+    ASSERT_FINISHES_OK(finished);
+    ASSERT_EQ(seen_values, values);
+  }
+}
+
+class CustomThrottle : public ThrottledAsyncTaskScheduler::Throttle {
+ public:
+  virtual std::optional<Future<>> TryAcquire(int amt) {
+    if (gate_.is_finished()) {
+      return std::nullopt;
+    } else {
+      return gate_;
+    }
+  }
+  virtual void Release(int amt) {}
+  void Unlock() { gate_.MarkFinished(); }
+  int Capacity() { return std::numeric_limits<int>::max(); }
+  virtual void Pause() { FAIL() << "Should not get here."; }
+  virtual void Resume() { FAIL() << "Should not get here."; }
 
  private:
-  Future<> close_future_;
-  bool* destroyed_;
+  Future<> gate_ = Future<>::Make();
 };
 
-template <typename Factory>
-void TestAsyncDestroyable(Factory factory) {
-  Future<> gate = Future<>::Make();
-  bool destroyed = false;
-  bool on_closed = false;
-  {
-    auto obj = factory(gate, &destroyed);
-    obj->on_closed().AddCallback([&](const Status& st) { on_closed = true; });
-    ASSERT_FALSE(destroyed);
-  }
-  ASSERT_FALSE(destroyed);
-  ASSERT_FALSE(on_closed);
-  gate.MarkFinished();
-  ASSERT_TRUE(destroyed);
-  ASSERT_TRUE(on_closed);
-}
-
-TEST(AsyncDestroyable, MakeShared) {
-  TestAsyncDestroyable([](Future<> gate, bool* destroyed) {
-    return MakeSharedAsync<GatingDestroyable>(gate, destroyed);
+TEST(AsyncTaskScheduler, Throttle) {
+  // Queued tasks should still be executed and should block completion of the scheduler
+  Future<> slow_task = Future<>::Make();
+  bool was_run = false;
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+        ThrottledAsyncTaskScheduler::Make(scheduler, 1);
+    EXPECT_TRUE(throttled->AddSimpleTask([slow_task] { return slow_task; }, kDummyName));
+    EXPECT_TRUE(throttled->AddSimpleTask(
+        [&was_run] {
+          was_run = true;
+          return Future<>::MakeFinished();
+        },
+        kDummyName));
+    EXPECT_FALSE(was_run);
+    return Status::OK();
   });
-}
+  slow_task.MarkFinished();
+  ASSERT_FINISHES_OK(finished);
+  ASSERT_TRUE(was_run);
 
-// The next four tests are corner cases but can sometimes occur when using these types
-// in standard containers on certain versions of the compiler/cpplib.  Basically we
-// want to make sure our deleter is ok with null pointers.
-TEST(AsyncDestroyable, DefaultUnique) {
-  std::unique_ptr<GatingDestroyable, DestroyingDeleter<GatingDestroyable>> default_ptr;
-  default_ptr.reset();
-}
-
-TEST(AsyncDestroyable, NullUnique) {
-  std::unique_ptr<GatingDestroyable, DestroyingDeleter<GatingDestroyable>> null_ptr(
-      nullptr);
-  null_ptr.reset();
-}
-
-TEST(AsyncDestroyable, NullShared) {
-  std::shared_ptr<GatingDestroyable> null_ptr(nullptr,
-                                              DestroyingDeleter<GatingDestroyable>());
-  null_ptr.reset();
-}
-
-TEST(AsyncDestroyable, NullUniqueToShared) {
-  std::unique_ptr<GatingDestroyable, DestroyingDeleter<GatingDestroyable>> null_ptr(
-      nullptr);
-  std::shared_ptr<GatingDestroyable> null_shared = std::move(null_ptr);
-  null_shared.reset();
-}
-
-TEST(AsyncDestroyable, MakeUnique) {
-  TestAsyncDestroyable([](Future<> gate, bool* destroyed) {
-    return MakeUniqueAsync<GatingDestroyable>(gate, destroyed);
+  /// Same test but block task by custom throttle
+  was_run = false;
+  auto custom_throttle = std::make_unique<CustomThrottle>();
+  CustomThrottle* custom_throttle_view = custom_throttle.get();
+  finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+        ThrottledAsyncTaskScheduler::MakeWithCustomThrottle(scheduler,
+                                                            std::move(custom_throttle));
+    EXPECT_TRUE(throttled->AddSimpleTask(
+        [&was_run] {
+          was_run = true;
+          return Future<>::MakeFinished();
+        },
+        kDummyName));
+    EXPECT_FALSE(was_run);
+    custom_throttle_view->Unlock();
+    return Status::OK();
   });
+  ASSERT_FINISHES_OK(finished);
+  ASSERT_TRUE(was_run);
 }
 
-template <typename T>
-class TypedTestAsyncTaskGroup : public ::testing::Test {};
+TEST(AsyncTaskScheduler, TaskWithCostBiggerThanThrottle) {
+  // It can be difficult to know the maximum cost a task may have.  In
+  // scanning this is the maximum size of a batch stored on disk which we
+  // cannot know ahead of time.  So a task may have a cost greater than the
+  // size of the throttle.  In that case we simply drop the cost to the
+  // capacity of the throttle.
+  constexpr int kThrottleCapacity = 5;
+  bool task_submitted = false;
+  Future<> blocking_task = Future<>::Make();
+  Future<> task = Future<>::Make();
+  struct ExpensiveTask : AsyncTaskScheduler::Task {
+    ExpensiveTask(bool* task_submitted, Future<> task)
+        : task_submitted(task_submitted), task(std::move(task)) {}
+    Result<Future<>> operator()() override {
+      *task_submitted = true;
+      return task;
+    }
+    int cost() const override { return kThrottleCapacity * 50; }
+    std::string_view name() const override { return kDummyName; }
+    bool* task_submitted;
+    Future<> task;
+  };
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+        ThrottledAsyncTaskScheduler::Make(scheduler, kThrottleCapacity);
+    EXPECT_TRUE(throttled->AddSimpleTask([&] { return blocking_task; }, kDummyName));
+    EXPECT_TRUE(
+        throttled->AddTask(std::make_unique<ExpensiveTask>(&task_submitted, task)));
+    return Status::OK();
+  });
 
-using AsyncTaskGroupTypes = ::testing::Types<AsyncTaskGroup, SerializedAsyncTaskGroup>;
+  // Task should not be submitted initially because blocking_task (even though
+  // it has a cost of 1) is preventing it.
+  ASSERT_FALSE(task_submitted);
+  blocking_task.MarkFinished();
+  // One blocking_task is out of the way the task is free to run
+  ASSERT_TRUE(task_submitted);
+  task.MarkFinished();
+  ASSERT_FINISHES_OK(finished);
+}
 
-TYPED_TEST_SUITE(TypedTestAsyncTaskGroup, AsyncTaskGroupTypes);
-
-TYPED_TEST(TypedTestAsyncTaskGroup, Basic) {
-  TypeParam task_group;
+TEST(AsyncTaskScheduler, TaskFinishesAfterError) {
+  /// If a task fails it shouldn't impact previously submitted tasks
   Future<> fut1 = Future<>::Make();
-  Future<> fut2 = Future<>::Make();
-  ASSERT_OK(task_group.AddTask([fut1]() { return fut1; }));
-  ASSERT_OK(task_group.AddTask([fut2]() { return fut2; }));
-  Future<> all_done = task_group.End();
-  AssertNotFinished(all_done);
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    EXPECT_TRUE(scheduler->AddSimpleTask([fut1] { return fut1; }, kDummyName));
+    EXPECT_TRUE(scheduler->AddSimpleTask(
+        [] { return Future<>::MakeFinished(Status::Invalid("XYZ")); }, kDummyName));
+    return Status::OK();
+  });
+  AssertNotFinished(finished);
   fut1.MarkFinished();
-  AssertNotFinished(all_done);
-  fut2.MarkFinished();
-  ASSERT_FINISHES_OK(all_done);
+  ASSERT_FINISHES_AND_RAISES(Invalid, finished);
 }
 
-TYPED_TEST(TypedTestAsyncTaskGroup, NoTasks) {
-  TypeParam task_group;
-  ASSERT_FINISHES_OK(task_group.End());
-}
-
-TYPED_TEST(TypedTestAsyncTaskGroup, OnFinishedDoesNotEnd) {
-  TypeParam task_group;
-  Future<> on_finished = task_group.OnFinished();
-  AssertNotFinished(on_finished);
-  ASSERT_FINISHES_OK(task_group.End());
-  ASSERT_FINISHES_OK(on_finished);
-}
-
-TYPED_TEST(TypedTestAsyncTaskGroup, AddAfterDone) {
-  TypeParam task_group;
-  ASSERT_FINISHES_OK(task_group.End());
-  ASSERT_RAISES(Cancelled, task_group.AddTask([] { return Future<>::Make(); }));
-}
-
-TYPED_TEST(TypedTestAsyncTaskGroup, AddAfterEndButBeforeFinish) {
-  TypeParam task_group;
-  Future<> task_one = Future<>::Make();
-  ASSERT_OK(task_group.AddTask([task_one] { return task_one; }));
-  Future<> finish_fut = task_group.End();
-  AssertNotFinished(finish_fut);
-  ASSERT_RAISES(Cancelled, task_group.AddTask([] { return Future<>::Make(); }));
-  AssertNotFinished(finish_fut);
-  task_one.MarkFinished();
-  AssertFinished(finish_fut);
-  ASSERT_FINISHES_OK(finish_fut);
-}
-
-TYPED_TEST(TypedTestAsyncTaskGroup, Error) {
-  TypeParam task_group;
-  Future<> failed_task = Future<>::MakeFinished(Status::Invalid("XYZ"));
-  ASSERT_RAISES(Invalid, task_group.AddTask([failed_task] { return failed_task; }));
-  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
-}
-
-TYPED_TEST(TypedTestAsyncTaskGroup, ErrorWhileNotEmpty) {
-  TypeParam task_group;
-  Future<> pending_task = Future<>::Make();
-  Future<> will_fail_task = Future<>::Make();
-  Future<> after_fail_task = Future<>::Make();
-  ASSERT_OK(task_group.AddTask([pending_task] { return pending_task; }));
-  ASSERT_OK(task_group.AddTask([will_fail_task] { return will_fail_task; }));
-  ASSERT_OK(task_group.AddTask([after_fail_task] { return after_fail_task; }));
-  Future<> end = task_group.End();
-  AssertNotFinished(end);
-  pending_task.MarkFinished();
-  will_fail_task.MarkFinished(Status::Invalid("XYZ"));
-  after_fail_task.MarkFinished();
-  ASSERT_FINISHES_AND_RAISES(Invalid, end);
-}
-
-TYPED_TEST(TypedTestAsyncTaskGroup, TaskFactoryFails) {
-  TypeParam task_group;
-  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Status::Invalid("XYZ"); }));
-  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
-  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
-}
-
-TYPED_TEST(TypedTestAsyncTaskGroup, AddAfterFailed) {
-  TypeParam task_group;
-  ASSERT_RAISES(Invalid, task_group.AddTask([] {
-    return Future<>::MakeFinished(Status::Invalid("XYZ"));
-  }));
-  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
-  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
-}
-
-TYPED_TEST(TypedTestAsyncTaskGroup, Stress) {
-  constexpr int NTASKS = 100;
-  TypeParam task_group;
-  std::vector<std::thread> threads;
-  for (int i = 0; i < NTASKS; i++) {
-    ASSERT_OK(task_group.AddTask([&threads] {
-      Future<> fut = Future<>::Make();
-      threads.emplace_back([fut]() mutable { fut.MarkFinished(); });
-      return fut;
-    }));
-  }
-  ASSERT_FINISHES_OK(task_group.End());
-  for (auto& thread : threads) {
-    thread.join();
-  }
-}
-
-TEST(StandardAsyncTaskGroup, TaskFinishesAfterError) {
-  AsyncTaskGroup task_group;
-  Future<> fut1 = Future<>::Make();
-  ASSERT_OK(task_group.AddTask([fut1] { return fut1; }));
-  ASSERT_RAISES(Invalid, task_group.AddTask([] {
-    return Future<>::MakeFinished(Status::Invalid("XYZ"));
-  }));
-  Future<> finished_fut = task_group.End();
-  AssertNotFinished(finished_fut);
-  fut1.MarkFinished();
-  ASSERT_FINISHES_AND_RAISES(Invalid, finished_fut);
-}
-
-TEST(StandardAsyncTaskGroup, FailAfterAdd) {
-  AsyncTaskGroup task_group;
+TEST(AsyncTaskScheduler, FailAfterAdd) {
+  /// If a task fails it shouldn't impact tasks that have been submitted
+  /// even if they were submitted later
   Future<> will_fail = Future<>::Make();
-  ASSERT_OK(task_group.AddTask([will_fail] { return will_fail; }));
   Future<> added_later_and_passes = Future<>::Make();
-  ASSERT_OK(
-      task_group.AddTask([added_later_and_passes] { return added_later_and_passes; }));
-  will_fail.MarkFinished(Status::Invalid("XYZ"));
-  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
-  Future<> finished_fut = task_group.End();
-  AssertNotFinished(finished_fut);
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    EXPECT_TRUE(scheduler->AddSimpleTask([will_fail] { return will_fail; }, kDummyName));
+    EXPECT_TRUE(scheduler->AddSimpleTask(
+        [added_later_and_passes] { return added_later_and_passes; }, kDummyName));
+    will_fail.MarkFinished(Status::Invalid("XYZ"));
+    EXPECT_FALSE(scheduler->AddSimpleTask([] { return Future<>::Make(); }, kDummyName));
+    return Status::OK();
+  });
+  AssertNotFinished(finished);
   added_later_and_passes.MarkFinished();
-  AssertFinished(finished_fut);
-  ASSERT_FINISHES_AND_RAISES(Invalid, finished_fut);
+  ASSERT_FINISHES_AND_RAISES(Invalid, finished);
 }
 
-// The serialized task group can never really get into a "fail after add" scenario
-// because there is no parallelism.  So the behavior is a little unique in these scenarios
-
-TEST(SerializedAsyncTaskGroup, TaskFinishesAfterError) {
-  SerializedAsyncTaskGroup task_group;
-  Future<> fut1 = Future<>::Make();
-  ASSERT_OK(task_group.AddTask([fut1] { return fut1; }));
-  ASSERT_OK(
-      task_group.AddTask([] { return Future<>::MakeFinished(Status::Invalid("XYZ")); }));
-  Future<> finished_fut = task_group.End();
-  AssertNotFinished(finished_fut);
-  fut1.MarkFinished();
-  ASSERT_FINISHES_AND_RAISES(Invalid, finished_fut);
-}
-
-TEST(SerializedAsyncTaskGroup, FailAfterAdd) {
-  SerializedAsyncTaskGroup task_group;
+TEST(AsyncTaskScheduler, PurgeUnsubmitted) {
+  // If a task fails then unsubmitted tasks should not be executed
   Future<> will_fail = Future<>::Make();
-  ASSERT_OK(task_group.AddTask([will_fail] { return will_fail; }));
-  Future<> added_later_and_passes = Future<>::Make();
-  bool added_later_and_passes_created = false;
-  ASSERT_OK(task_group.AddTask([added_later_and_passes, &added_later_and_passes_created] {
-    added_later_and_passes_created = true;
-    return added_later_and_passes;
-  }));
+  bool was_submitted = false;
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+        ThrottledAsyncTaskScheduler::Make(scheduler, 1);
+    EXPECT_TRUE(throttled->AddSimpleTask([will_fail] { return will_fail; }, kDummyName));
+    EXPECT_TRUE(throttled->AddSimpleTask(
+        [&was_submitted] {
+          was_submitted = true;
+          return Future<>::MakeFinished();
+        },
+        kDummyName));
+    will_fail.MarkFinished(Status::Invalid("XYZ"));
+    return Status::OK();
+  });
+  ASSERT_FINISHES_AND_RAISES(Invalid, finished);
+  ASSERT_FALSE(was_submitted);
+
+  // Purge might still be needed when done with initial task too
+  will_fail = Future<>::Make();
+  Future<> slow_task_that_passes = Future<>::Make();
+  was_submitted = false;
+  finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+        ThrottledAsyncTaskScheduler::Make(scheduler, 2);
+    EXPECT_TRUE(throttled->AddSimpleTask([will_fail] { return will_fail; }, kDummyName));
+    EXPECT_TRUE(throttled->AddSimpleTask(
+        [slow_task_that_passes] { return slow_task_that_passes; }, kDummyName));
+    EXPECT_TRUE(throttled->AddSimpleTask(
+        [&was_submitted] {
+          was_submitted = true;
+          return Future<>::MakeFinished();
+        },
+        kDummyName));
+    return Status::OK();
+  });
   will_fail.MarkFinished(Status::Invalid("XYZ"));
-  ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
-  ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
-  ASSERT_FALSE(added_later_and_passes_created);
+  slow_task_that_passes.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Invalid, finished);
+  ASSERT_FALSE(was_submitted);
 }
 
-TEST(SerializedAsyncTaskGroup, Abort) {
-  SerializedAsyncTaskGroup task_group;
-  struct Task {
-    bool started = false;
-    Future<> finished = Future<>::Make();
-  };
-  auto task_factory = [](Task& task) -> std::function<Future<>()> {
-    return [&task] {
-      task.started = true;
-      return task.finished;
-    };
-  };
-  Task one, two;
-  ASSERT_OK(task_group.AddTask(task_factory(one)));
-  ASSERT_OK(task_group.AddTask(task_factory(two)));
-  Future<> group_done = task_group.OnFinished();
-  AssertNotFinished(group_done);
-  ASSERT_TRUE(one.started);
-  ASSERT_FALSE(two.started);
-  Future<> abort_done = task_group.Abort(Status::Invalid("XYZ"));
-  AssertNotFinished(abort_done);
-  one.finished.MarkFinished();
-  ASSERT_FINISHES_AND_RAISES(Invalid, group_done);
-  ASSERT_FINISHES_AND_RAISES(Invalid, abort_done);
-  ASSERT_FALSE(two.started);
+#ifndef ARROW_VALGRIND
+TEST(AsyncTaskScheduler, FifoStress) {
+  // Regresses an issue where adding a task, when the throttle was
+  // just cleared, could lead to the added task being run immediately,
+  // even though there were queued tasks.
+  constexpr int kNumIters = 100;
+  for (int i = 0; i < kNumIters; i++) {
+    std::atomic<bool> middle_task_run{false};
+    Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+      std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+          ThrottledAsyncTaskScheduler::Make(scheduler, 1);
+      throttled->AddSimpleTask([] { return SleepABitAsync(); }, kDummyName);
+      throttled->AddSimpleTask(
+          [&] {
+            middle_task_run = true;
+            return Future<>::MakeFinished();
+          },
+          kDummyName);
+      SleepABit();
+      throttled->AddSimpleTask(
+          [&] {
+            EXPECT_TRUE(middle_task_run);
+            return Future<>::MakeFinished();
+          },
+          kDummyName);
+      return Status::OK();
+    });
+    ASSERT_FINISHES_OK(finished);
+  }
+}
+
+TEST(AsyncTaskScheduler, MaxConcurrentTasksStress) {
+  constexpr int kNumIters = 100;
+  constexpr int kNumTasks = 32;
+  constexpr int kNumConcurrentTasks = 8;
+  for (int i = 0; i < kNumIters; i++) {
+    std::atomic<int> num_tasks_running{0};
+    Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+      std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+          ThrottledAsyncTaskScheduler::Make(scheduler, kNumConcurrentTasks);
+      for (int task_idx = 0; task_idx < kNumTasks; task_idx++) {
+        throttled->AddSimpleTask(
+            [&num_tasks_running, kNumConcurrentTasks] {
+              if (num_tasks_running.fetch_add(1) > kNumConcurrentTasks) {
+                ADD_FAILURE() << "More than " << kNumConcurrentTasks
+                              << " tasks were allowed to run concurrently";
+              }
+              return SleepABitAsync().Then(
+                  [&num_tasks_running] { num_tasks_running.fetch_sub(1); });
+            },
+            kDummyName);
+      }
+      return Status::OK();
+    });
+    ASSERT_FINISHES_OK(finished);
+  }
+}
+
+TEST(AsyncTaskScheduler, ScanningStress) {
+  // Simulates the scanner's use of the scheduler
+  // The top level scheduler scans over fragments and
+  // for each fragment a task group is created that scans
+  // that fragment.  The task groups all share a common throttle
+  constexpr int kNumIters = 16;
+  constexpr int kNumFragments = 16;
+  constexpr int kBatchesPerFragment = 8;
+  constexpr int kNumConcurrentTasks = 4;
+  constexpr int kExpectedBatchesScanned = kNumFragments * kBatchesPerFragment;
+
+  for (int i = 0; i < kNumIters; i++) {
+    std::atomic<int> batches_scanned{0};
+    auto scan_batch = [&] { batches_scanned++; };
+    auto submit_scan = [&]() { return SleepABitAsync().Then(scan_batch); };
+    Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+      std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+          ThrottledAsyncTaskScheduler::Make(scheduler, kNumConcurrentTasks);
+      auto list_fragment = [&, throttled]() {
+        std::unique_ptr<AsyncTaskGroup> task_group =
+            AsyncTaskGroup::Make(throttled.get(), [] { return Status::OK(); });
+        for (int i = 0; i < kBatchesPerFragment; i++) {
+          EXPECT_TRUE(task_group->AddSimpleTask(submit_scan, kDummyName));
+        }
+        return Status::OK();
+      };
+      auto submit_list_fragment = [&]() { return SleepABitAsync().Then(list_fragment); };
+      for (int frag_idx = 0; frag_idx < kNumFragments; frag_idx++) {
+        EXPECT_TRUE(scheduler->AddSimpleTask(submit_list_fragment, kDummyName));
+      }
+      return Status::OK();
+    });
+    ASSERT_FINISHES_OK(finished);
+    ASSERT_EQ(kExpectedBatchesScanned, batches_scanned.load());
+  }
+}
+
+TEST(AsyncTaskScheduler, ThrottleStress) {
+  // Queue up a bunch of throttled fast tasks. It shouldn't cause stack overflow
+  constexpr int kNumTasks = 1024 * 10;
+  int num_tasks_run = 0;
+  Future<> slow_task = Future<>::Make();
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+        ThrottledAsyncTaskScheduler::Make(scheduler, 1);
+    EXPECT_TRUE(throttled->AddSimpleTask([slow_task] { return slow_task; }, kDummyName));
+    for (int task_idx = 0; task_idx < kNumTasks; task_idx++) {
+      throttled->AddSimpleTask(
+          [&] {
+            num_tasks_run++;
+            return Future<>::MakeFinished();
+          },
+          kDummyName);
+    }
+    return Status::OK();
+  });
+  slow_task.MarkFinished();
+  ASSERT_FINISHES_OK(finished);
+  ASSERT_EQ(kNumTasks, num_tasks_run);
+}
+#endif
+
+class TaskWithPriority : public AsyncTaskScheduler::Task {
+ public:
+  TaskWithPriority(std::function<Result<Future<>>()> task, int priority)
+      : task(std::move(task)), priority(priority) {}
+  Result<Future<>> operator()() override { return task(); }
+  std::string_view name() const override { return kDummyName; }
+
+  std::function<Result<Future<>>()> task;
+  int priority;
+};
+
+struct TaskWithPriorityCompare {
+  bool operator()(TaskWithPriority* left, TaskWithPriority* right) {
+    return left->priority < right->priority;
+  }
+};
+
+// A priority queue that prefers tasks with higher priority
+class PriorityQueue : public ThrottledAsyncTaskScheduler::Queue {
+ public:
+  using Task = AsyncTaskScheduler::Task;
+  void Push(std::unique_ptr<Task> task) {
+    queue_.push(static_cast<TaskWithPriority*>(task.release()));
+  }
+  std::unique_ptr<Task> Pop() {
+    TaskWithPriority* top = queue_.top();
+    queue_.pop();
+    return std::unique_ptr<Task>(top);
+  }
+  const Task& Peek() { return *queue_.top(); }
+  bool Empty() { return queue_.empty(); }
+  void Purge() {
+    while (!queue_.empty()) {
+      queue_.pop();
+    }
+  }
+
+ private:
+  std::priority_queue<TaskWithPriority*, std::vector<TaskWithPriority*>,
+                      TaskWithPriorityCompare>
+      queue_;
+};
+
+TEST(AsyncTaskScheduler, Priority) {
+  constexpr int kNumTasks = 32;
+  constexpr int kNumConcurrentTasks = 8;
+
+  std::shared_ptr<GatingTask> gate = GatingTask::Make();
+  int submit_order[kNumTasks];
+  std::atomic<int> order_index{0};
+
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+        ThrottledAsyncTaskScheduler::Make(scheduler, kNumConcurrentTasks,
+                                          std::make_unique<PriorityQueue>());
+    for (int task_idx = 0; task_idx < kNumTasks; task_idx++) {
+      int priority = task_idx;
+      std::function<Result<Future<>>()> task_exec = [&, priority]() -> Result<Future<>> {
+        submit_order[order_index++] = priority;
+        return gate->AsyncTask();
+      };
+      auto task = std::make_unique<TaskWithPriority>(task_exec, priority);
+      throttled->AddTask(std::move(task));
+    }
+    return Status::OK();
+  });
+
+  AssertNotFinished(finished);
+
+  ASSERT_OK(gate->WaitForRunning(kNumConcurrentTasks));
+  ASSERT_OK(gate->Unlock());
+
+  for (int i = 0; i < kNumConcurrentTasks; i++) {
+    // The first tasks will be submitted immediately since the queue is empty
+    ASSERT_EQ(submit_order[i], i);
+  }
+  // After that the remaining tasks will run in LIFO order because of the priority
+  for (int i = kNumConcurrentTasks; i < kNumTasks; i++) {
+    ASSERT_EQ(submit_order[i], kNumTasks - i - 1 + kNumConcurrentTasks);
+  }
 }
 
 }  // namespace util

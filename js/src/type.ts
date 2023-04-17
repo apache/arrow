@@ -19,8 +19,9 @@ import { Field } from './schema.js';
 import { Vector } from './vector.js';
 import { MapRow } from './row/map.js';
 import { StructRow, StructRowProxy } from './row/struct.js';
-import { Long } from 'flatbuffers';
 import { TypedArrayConstructor } from './interfaces.js';
+import { BigInt64Array, BigUint64Array } from './util/compat.js';
+import { bigIntToNumber } from './util/bigint.js';
 
 import {
     Type,
@@ -622,12 +623,12 @@ export class Dictionary<T extends DataType = any, TKey extends TKeys = TKeys> ex
     public declare readonly indices: TKey;
     public declare readonly dictionary: T;
     public declare readonly isOrdered: boolean;
-    constructor(dictionary: T, indices: TKey, id?: Long | number | null, isOrdered?: boolean | null) {
+    constructor(dictionary: T, indices: TKey, id?: bigint | number | null, isOrdered?: boolean | null) {
         super();
         this.indices = indices;
         this.dictionary = dictionary;
         this.isOrdered = isOrdered || false;
-        this.id = id == null ? getId() : (typeof id === 'number' ? id : id.low);
+        this.id = id == null ? getId() : bigIntToNumber(id);
     }
     public get typeId() { return Type.Dictionary as Type.Dictionary; }
     public get children() { return this.dictionary.children; }

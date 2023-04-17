@@ -18,13 +18,17 @@ package ipc
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"math"
+	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -143,4 +147,92 @@ func TestWriterCatchPanic(t *testing.T) {
 
 	writer := NewWriter(buf, WithSchema(schema))
 	assert.EqualError(t, writer.Write(rec), "arrow/ipc: unknown error while writing: runtime error: slice bounds out of range [-1:]")
+}
+
+func TestWriterMemCompression(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "s", Type: arrow.BinaryTypes.String},
+	}, nil)
+
+	b := array.NewRecordBuilder(mem, schema)
+	defer b.Release()
+
+	b.Field(0).(*array.StringBuilder).AppendValues([]string{"foo", "bar", "baz"}, nil)
+	rec := b.NewRecord()
+	defer rec.Release()
+
+	var buf bytes.Buffer
+	w := NewWriter(&buf, WithAllocator(mem), WithSchema(schema), WithZstd())
+	defer w.Close()
+
+	require.NoError(t, w.Write(rec))
+}
+
+func TestWriteWithCompressionAndMinSavings(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	// a small batch that is known to be compressible
+	batch, _, err := array.RecordFromJSON(mem, arrow.NewSchema([]arrow.Field{
+		{Name: "n", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil),
+		strings.NewReader(`[
+			{"n": 0}, {"n": 1}, {"n": 2}, {"n": 3}, {"n": 4},
+			{"n": 5}, {"n": 6}, {"n": 7}, {"n": 8}, {"n": 9}]`))
+	require.NoError(t, err)
+	defer batch.Release()
+
+	prefixedSize := func(buf *memory.Buffer) int64 {
+		if buf.Len() < arrow.Int64SizeBytes {
+			return 0
+		}
+		return int64(binary.LittleEndian.Uint64(buf.Bytes()))
+	}
+	contentSize := func(buf *memory.Buffer) int64 {
+		return int64(buf.Len()) - int64(arrow.Int64SizeBytes)
+	}
+
+	for _, codec := range []flatbuf.CompressionType{flatbuf.CompressionTypeLZ4_FRAME, flatbuf.CompressionTypeZSTD} {
+		enc := newRecordEncoder(mem, 0, 5, true, codec, 1, nil)
+		var payload Payload
+		require.NoError(t, enc.encode(&payload, batch))
+		assert.Len(t, payload.body, 2)
+
+		// compute the savings when body buffers are compressed unconditionally.
+		// We also validate that our test batch is indeed compressible.
+		uncompressedSize, compressedSize := prefixedSize(payload.body[1]), contentSize(payload.body[1])
+		assert.Less(t, compressedSize, uncompressedSize)
+		assert.Greater(t, compressedSize, int64(0))
+		expectedSavings := 1.0 - float64(compressedSize)/float64(uncompressedSize)
+
+		compressEncoder := newRecordEncoder(mem, 0, 5, true, codec, 1, &expectedSavings)
+		payload.Release()
+		payload.body = payload.body[:0]
+		require.NoError(t, compressEncoder.encode(&payload, batch))
+		assert.Len(t, payload.body, 2)
+		assert.Equal(t, uncompressedSize, prefixedSize(payload.body[1]))
+		assert.Equal(t, compressedSize, contentSize(payload.body[1]))
+
+		payload.Release()
+		payload.body = payload.body[:0]
+		// slightly bump the threshold. the body buffer should now be prefixed
+		// with -1 and its content left uncompressed
+		minSavings := math.Nextafter(expectedSavings, 1.0)
+		compressEncoder.minSpaceSavings = &minSavings
+		require.NoError(t, compressEncoder.encode(&payload, batch))
+		assert.Len(t, payload.body, 2)
+		assert.EqualValues(t, -1, prefixedSize(payload.body[1]))
+		assert.Equal(t, uncompressedSize, contentSize(payload.body[1]))
+		payload.Release()
+		payload.body = payload.body[:0]
+
+		for _, outOfRange := range []float64{math.Nextafter(1.0, 2.0), math.Nextafter(0, -1)} {
+			compressEncoder.minSpaceSavings = &outOfRange
+			err := compressEncoder.encode(&payload, batch)
+			assert.ErrorIs(t, err, arrow.ErrInvalid)
+			assert.ErrorContains(t, err, "minSpaceSavings not in range [0,1]")
+		}
+	}
 }

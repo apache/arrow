@@ -19,9 +19,9 @@ package array
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 type bufBuilder interface {
@@ -32,6 +32,7 @@ type bufBuilder interface {
 	Bytes() []byte
 	resize(int)
 	Advance(int)
+	SetLength(int)
 	Append([]byte)
 	Reset()
 	Finish() *memory.Buffer
@@ -96,6 +97,15 @@ func (b *bufferBuilder) resize(elements int) {
 	}
 }
 
+func (b *bufferBuilder) SetLength(length int) {
+	if length > b.length {
+		b.Advance(length)
+		return
+	}
+
+	b.length = length
+}
+
 // Advance increases the buffer by length and initializes the skipped bytes to zero.
 func (b *bufferBuilder) Advance(length int) {
 	if b.capacity < b.length+length {
@@ -131,6 +141,9 @@ func (b *bufferBuilder) Finish() (buffer *memory.Buffer) {
 	buffer = b.buffer
 	b.buffer = nil
 	b.Reset()
+	if buffer == nil {
+		buffer = memory.NewBufferBytes(nil)
+	}
 	return
 }
 

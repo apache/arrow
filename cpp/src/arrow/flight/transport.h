@@ -58,6 +58,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -65,7 +66,6 @@
 #include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace ipc {
@@ -265,9 +265,9 @@ struct ARROW_FLIGHT_EXPORT TransportStatus {
 ///   back to an Arrow status.
 ARROW_FLIGHT_EXPORT
 Status ReconstructStatus(const std::string& code_str, const Status& current_status,
-                         util::optional<std::string> message,
-                         util::optional<std::string> detail_message,
-                         util::optional<std::string> detail_bin,
+                         std::optional<std::string> message,
+                         std::optional<std::string> detail_message,
+                         std::optional<std::string> detail_bin,
                          std::shared_ptr<FlightStatusDetail> detail);
 
 }  // namespace internal

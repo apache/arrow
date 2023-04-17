@@ -111,6 +111,10 @@ def _random_integers(size, dtype):
                              size=size).astype(dtype)
 
 
+def _range_integers(size, dtype):
+    return pa.array(np.arange(size, dtype=dtype))
+
+
 def _test_dataframe(size=10000, seed=0):
     import pandas as pd
 
@@ -172,8 +176,8 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
         # TODO(wesm): Test other timestamp resolutions now that arrow supports
         # them
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
-                              dtype='datetime64[ms]'),
-        'timedelta': np.arange(0, size, dtype="timedelta64[s]"),
+                              dtype='datetime64[ms]').astype('datetime64[ns]'),
+        'timedelta': np.arange(0, size, dtype="timedelta64[ns]"),
         'str': pd.Series([str(x) for x in range(size)]),
         'empty_str': [''] * size,
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],

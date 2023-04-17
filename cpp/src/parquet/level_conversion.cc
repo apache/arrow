@@ -18,12 +18,12 @@
 
 #include <algorithm>
 #include <limits>
+#include <optional>
 
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "parquet/exception.h"
 
 #include "parquet/level_comparison.h"
@@ -36,7 +36,7 @@ namespace internal {
 namespace {
 
 using ::arrow::internal::CpuInfo;
-using ::arrow::util::optional;
+using ::std::optional;
 
 template <typename OffsetType>
 void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels,

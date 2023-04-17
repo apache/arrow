@@ -141,6 +141,25 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> FixedSizeBinaryLike();
 // Type)
 ARROW_EXPORT std::shared_ptr<TypeMatcher> Primitive();
 
+// \brief Match any integer type that can be used as run-end in run-end encoded
+// arrays
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndInteger();
+
+/// \brief Match run-end encoded types that use any valid run-end type and
+/// encode specific value types
+///
+/// @param[in] value_type_matcher a matcher that is applied to the values field
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(
+    std::shared_ptr<TypeMatcher> value_type_matcher);
+
+/// \brief Match run-end encoded types that encode specific run-end and value types
+///
+/// @param[in] run_end_type_matcher a matcher that is applied to the run_ends field
+/// @param[in] value_type_matcher a matcher that is applied to the values field
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(
+    std::shared_ptr<TypeMatcher> run_end_type_matcher,
+    std::shared_ptr<TypeMatcher> value_type_matcher);
+
 }  // namespace match
 
 /// \brief An object used for type-checking arguments to be passed to a kernel
@@ -454,7 +473,7 @@ using KernelInit = std::function<Result<std::unique_ptr<KernelState>>(
 /// \brief Base type for kernels. Contains the function signature and
 /// optionally the state initialization function, along with some common
 /// attributes
-struct Kernel {
+struct ARROW_EXPORT Kernel {
   Kernel() = default;
 
   Kernel(std::shared_ptr<KernelSignature> sig, KernelInit init)
@@ -505,7 +524,7 @@ using ArrayKernelExec = Status (*)(KernelContext*, const ExecSpan&, ExecResult*)
 /// \brief Kernel data structure for implementations of ScalarFunction. In
 /// addition to the members found in Kernel, contains the null handling
 /// and memory pre-allocation preferences.
-struct ScalarKernel : public Kernel {
+struct ARROW_EXPORT ScalarKernel : public Kernel {
   ScalarKernel() = default;
 
   ScalarKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec,
@@ -542,7 +561,7 @@ struct ScalarKernel : public Kernel {
 /// contains an optional finalizer function, the null handling and memory
 /// pre-allocation preferences (which have different defaults from
 /// ScalarKernel), and some other execution-related options.
-struct VectorKernel : public Kernel {
+struct ARROW_EXPORT VectorKernel : public Kernel {
   /// \brief See VectorKernel::finalize member for usage
   using FinalizeFunc = std::function<Status(KernelContext*, std::vector<Datum>*)>;
 
@@ -624,7 +643,7 @@ using ScalarAggregateFinalize = Status (*)(KernelContext*, Datum*);
 /// * merge: combines one KernelState with another.
 /// * finalize: produces the end result of the aggregation using the
 ///   KernelState in the KernelContext.
-struct ScalarAggregateKernel : public Kernel {
+struct ARROW_EXPORT ScalarAggregateKernel : public Kernel {
   ScalarAggregateKernel() = default;
 
   ScalarAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
@@ -675,7 +694,7 @@ using HashAggregateFinalize = Status (*)(KernelContext*, Datum*);
 /// * merge: combines one KernelState with another.
 /// * finalize: produces the end result of the aggregation using the
 ///   KernelState in the KernelContext.
-struct HashAggregateKernel : public Kernel {
+struct ARROW_EXPORT HashAggregateKernel : public Kernel {
   HashAggregateKernel() = default;
 
   HashAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,

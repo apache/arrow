@@ -87,13 +87,13 @@ static std::string base64_encode(unsigned char const* bytes_to_encode, unsigned 
 
 }
 
-std::string base64_encode(string_view string_to_encode) {
+std::string base64_encode(std::string_view string_to_encode) {
   auto bytes_to_encode = reinterpret_cast<const unsigned char*>(string_to_encode.data());
   auto in_len = static_cast<unsigned int>(string_to_encode.size());
   return base64_encode(bytes_to_encode, in_len);
 }
 
-std::string base64_decode(string_view encoded_string) {
+std::string base64_decode(std::string_view encoded_string) {
   size_t in_len = encoded_string.size();
   int i = 0;
   int j = 0;

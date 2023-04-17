@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <random>
 #include <string>
 #include <utility>
@@ -592,6 +593,60 @@ TEST(CheckIntegersInRange, UnsignedInts) {
   CheckCommon(uint64());
   CheckInRangePasses(uint64(), "[0, 9999999999, 9999999999]", "[0, 9999999999]");
   CheckInRangeFails(uint64(), "[0, 10000000000, 10000000000]", "[0, 9999999999]");
+}
+
+template <typename T>
+class TestAddWithOverflow : public ::testing::Test {
+ public:
+  void CheckOk(T a, T b, T expected_result = {}) {
+    ARROW_SCOPED_TRACE("a = ", a, ", b = ", b);
+    T result;
+    ASSERT_FALSE(AddWithOverflow(a, b, &result));
+    ASSERT_EQ(result, expected_result);
+  }
+
+  void CheckOverflow(T a, T b) {
+    ARROW_SCOPED_TRACE("a = ", a, ", b = ", b);
+    T result;
+    ASSERT_TRUE(AddWithOverflow(a, b, &result));
+  }
+};
+
+using SignedIntegerTypes = ::testing::Types<int8_t, int16_t, int32_t, int64_t>;
+
+TYPED_TEST_SUITE(TestAddWithOverflow, SignedIntegerTypes);
+
+TYPED_TEST(TestAddWithOverflow, Basics) {
+  using T = TypeParam;
+
+  const T almost_max = std::numeric_limits<T>::max() - T{2};
+  const T almost_min = std::numeric_limits<T>::min() + T{2};
+
+  this->CheckOk(T{1}, T{2}, T{3});
+  this->CheckOk(T{-1}, T{2}, T{1});
+  this->CheckOk(T{-1}, T{-2}, T{-3});
+
+  this->CheckOk(almost_min, T{0}, almost_min);
+  this->CheckOk(almost_min, T{-2}, almost_min - T{2});
+  this->CheckOk(almost_min, T{1}, almost_min + T{1});
+  this->CheckOverflow(almost_min, T{-3});
+  this->CheckOverflow(almost_min, almost_min);
+
+  this->CheckOk(almost_max, T{0}, almost_max);
+  this->CheckOk(almost_max, T{2}, almost_max + T{2});
+  this->CheckOk(almost_max, T{-1}, almost_max - T{1});
+  this->CheckOverflow(almost_max, T{3});
+  this->CheckOverflow(almost_max, almost_max);
+
+  // In 2's complement, almost_min == - almost_max - 1
+  this->CheckOk(almost_min, almost_max, T{-1});
+  this->CheckOk(almost_max, almost_min, T{-1});
+  this->CheckOk(almost_min - T{1}, almost_max, T{-2});
+  this->CheckOk(almost_min + T{1}, almost_max, T{0});
+  this->CheckOk(almost_min + T{2}, almost_max, T{1});
+  this->CheckOk(almost_min, almost_max - T{1}, T{-2});
+  this->CheckOk(almost_min, almost_max + T{1}, T{0});
+  this->CheckOk(almost_min, almost_max + T{2}, T{1});
 }
 
 }  // namespace internal

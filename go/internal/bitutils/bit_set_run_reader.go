@@ -20,8 +20,8 @@ import (
 	"encoding/binary"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/internal/utils"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/internal/utils"
 )
 
 // IsMultipleOf64 returns whether v is a multiple of 64.
@@ -343,4 +343,19 @@ func VisitSetBitRuns(bitmap []byte, bitmapOffset int64, length int64, visitFn Vi
 		}
 	}
 	return nil
+}
+
+func VisitSetBitRunsNoErr(bitmap []byte, bitmapOffset int64, length int64, visitFn func(pos, length int64)) {
+	if bitmap == nil {
+		visitFn(0, length)
+		return
+	}
+	rdr := NewSetBitRunReader(bitmap, bitmapOffset, length)
+	for {
+		run := rdr.NextRun()
+		if run.Length == 0 {
+			break
+		}
+		visitFn(run.Pos, run.Length)
+	}
 }

@@ -25,7 +25,6 @@ import numpy as np
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
-from pyarrow.vendored.version import Version
 
 
 def test_schema_constructor_errors():
@@ -659,11 +658,10 @@ def test_schema_from_pandas():
             '2006-01-13T12:34:56.432539784',
             '2010-08-13T05:46:57.437699912'
         ], dtype='datetime64[ns]'),
+        pd.array([1, 2, None], dtype=pd.Int32Dtype()),
     ]
-    if Version(pd.__version__) >= Version('1.0.0'):
-        inputs.append(pd.array([1, 2, None], dtype=pd.Int32Dtype()))
     for data in inputs:
-        df = pd.DataFrame({'a': data})
+        df = pd.DataFrame({'a': data}, index=data)
         schema = pa.Schema.from_pandas(df)
         expected = pa.Table.from_pandas(df).schema
         assert schema == expected
@@ -717,6 +715,10 @@ def test_schema_merge():
     # ARROW-14002: Try with tuple instead of list
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
+
+    # raise proper error when passing a non-Schema value
+    with pytest.raises(TypeError):
+        pa.unify_schemas([a, 1])
 
 
 def test_undecodable_metadata():

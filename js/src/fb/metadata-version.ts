@@ -4,10 +4,11 @@
  * Logical types, vector layouts, and schemas
  * Format Version History.
  * Version 1.0 - Forward and backwards compatibility guaranteed.
- * Version 1.1 - Add Decimal256 (No format release).
- * Version 1.2 (Pending)- Add Interval MONTH_DAY_NANO
+ * Version 1.1 - Add Decimal256.
+ * Version 1.2 - Add Interval MONTH_DAY_NANO.
+ * Version 1.3 - Add Run-End Encoded.
  */
-export enum MetadataVersion{
+export enum MetadataVersion {
   /**
    * 0.1.0 (October 2016).
    */
@@ -39,4 +40,3 @@ export enum MetadataVersion{
    */
   V5 = 4
 }
-

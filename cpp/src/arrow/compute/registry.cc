@@ -27,6 +27,7 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/status.h"
+#include "arrow/util/config.h"  // For ARROW_COMPUTE
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -272,14 +273,26 @@ namespace internal {
 static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   auto registry = FunctionRegistry::Make();
 
+  // Register core kernels
+  RegisterScalarCast(registry.get());
+  RegisterVectorHash(registry.get());
+  RegisterVectorSelection(registry.get());
+
+  RegisterScalarOptions(registry.get());
+  RegisterVectorOptions(registry.get());
+  RegisterAggregateOptions(registry.get());
+
+#ifdef ARROW_COMPUTE
+  // Register additional kernels
+
   // Scalar functions
   RegisterScalarArithmetic(registry.get());
   RegisterScalarBoolean(registry.get());
-  RegisterScalarCast(registry.get());
   RegisterScalarComparison(registry.get());
   RegisterScalarIfElse(registry.get());
   RegisterScalarNested(registry.get());
   RegisterScalarRandom(registry.get());  // Nullary
+  RegisterScalarRoundArithmetic(registry.get());
   RegisterScalarSetLookup(registry.get());
   RegisterScalarStringAscii(registry.get());
   RegisterScalarStringUtf8(registry.get());
@@ -287,18 +300,16 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarTemporalUnary(registry.get());
   RegisterScalarValidity(registry.get());
 
-  RegisterScalarOptions(registry.get());
-
   // Vector functions
   RegisterVectorArraySort(registry.get());
   RegisterVectorCumulativeSum(registry.get());
-  RegisterVectorHash(registry.get());
   RegisterVectorNested(registry.get());
+  RegisterVectorRank(registry.get());
   RegisterVectorReplace(registry.get());
-  RegisterVectorSelection(registry.get());
+  RegisterVectorSelectK(registry.get());
   RegisterVectorSort(registry.get());
-
-  RegisterVectorOptions(registry.get());
+  RegisterVectorRunEndEncode(registry.get());
+  RegisterVectorRunEndDecode(registry.get());
 
   // Aggregate functions
   RegisterHashAggregateBasic(registry.get());
@@ -307,8 +318,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarAggregateQuantile(registry.get());
   RegisterScalarAggregateTDigest(registry.get());
   RegisterScalarAggregateVariance(registry.get());
-
-  RegisterAggregateOptions(registry.get());
+#endif
 
   return registry;
 }

@@ -19,11 +19,10 @@ prefix=@CMAKE_INSTALL_PREFIX@
 includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
 libdir=@ARROW_PKG_CONFIG_LIBDIR@
 
-gtest_includedir=@GTEST_INCLUDE_DIR@
-
 Name: Apache Arrow testing
 Description: Library for testing Apache Arrow related programs.
 Version: @ARROW_VERSION@
-Requires: arrow
-Libs: -L${libdir} -larrow_testing
-Cflags: -I${gtest_includedir}
+Requires: arrow@ARROW_TESTING_PC_REQUIRES@
+Libs: -L${libdir} -larrow_testing@ARROW_TESTING_PC_LIBS@
+Cflags:@ARROW_TESTING_PC_CFLAGS@
+Cflags.private:@ARROW_TESTING_PC_CFLAGS_PRIVATE@

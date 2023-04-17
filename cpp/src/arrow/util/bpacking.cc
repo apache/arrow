@@ -153,13 +153,14 @@ struct Unpack32DynamicFunction {
   using FunctionType = decltype(&unpack32_default);
 
   static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
-    return {
-      { DispatchLevel::NONE, unpack32_default }
+    return {{DispatchLevel::NONE, unpack32_default}
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-      , { DispatchLevel::AVX2, unpack32_avx2 }
+            ,
+            {DispatchLevel::AVX2, unpack32_avx2}
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-      , { DispatchLevel::AVX512, unpack32_avx512 }
+            ,
+            {DispatchLevel::AVX512, unpack32_avx512}
 #endif
     };
   }

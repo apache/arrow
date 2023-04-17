@@ -365,6 +365,14 @@ test_that("list type works as expected", {
   )
   expect_equal(x$value_type, int32())
   expect_equal(x$value_field, field("item", int32()))
+
+  # nullability matters in comparison
+  expect_false(x$Equals(list_of(field("item", int32(), nullable = FALSE))))
+
+  # field names don't matter by default
+  other_name <- list_of(field("other", int32()))
+  expect_equal(x, other_name, ignore_attr = TRUE)
+  expect_false(x$Equals(other_name, check_metadata = TRUE))
 })
 
 test_that("map type works as expected", {
@@ -388,6 +396,14 @@ test_that("map type works as expected", {
   # we can make this comparison:
   # expect_equal(x$value_type, struct(key = x$key_field, value = x$item_field)) # nolint
   expect_false(x$keys_sorted)
+
+  # nullability matters in comparison
+  expect_false(x$Equals(map_of(int32(), field("value", utf8(), nullable = FALSE))))
+
+  # field names don't matter by default
+  other_name <- map_of(int32(), field("other", utf8()))
+  expect_equal(x, other_name, ignore_attr = TRUE)
+  expect_false(x$Equals(other_name, check_metadata = TRUE))
 })
 
 test_that("map type validates arguments", {

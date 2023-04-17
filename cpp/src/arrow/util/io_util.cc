@@ -92,9 +92,11 @@
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
+#include "arrow/util/atfork_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
 
 // For filename conversion
 #if defined(_WIN32)
@@ -106,8 +108,10 @@
 
 #elif __APPLE__
 #include <mach/mach.h>
+#include <sys/sysctl.h>
 
 #elif __linux__
+#include <sys/sysinfo.h>
 #include <fstream>
 #endif
 
@@ -131,11 +135,11 @@ std::basic_string<CharT> ReplaceChars(std::basic_string<CharT> s, CharT find, Ch
   return s;
 }
 
-Result<NativePathString> StringToNative(const std::string& s) {
+Result<NativePathString> StringToNative(std::string_view s) {
 #if _WIN32
   return ::arrow::util::UTF8ToWideString(s);
 #else
-  return s;
+  return std::string(s);
 #endif
 }
 
@@ -189,7 +193,7 @@ NativePathString NativeParent(const NativePathString& s) {
   }
 }
 
-Status ValidatePath(const std::string& s) {
+Status ValidatePath(std::string_view s) {
   if (s.find_first_of('\0') != std::string::npos) {
     return Status::Invalid("Embedded NUL char in path: '", s, "'");
   }
@@ -585,7 +589,7 @@ Result<PlatformFilename> PlatformFilename::Real() const {
   return PlatformFilename(std::move(real));
 }
 
-Result<PlatformFilename> PlatformFilename::FromString(const std::string& file_name) {
+Result<PlatformFilename> PlatformFilename::FromString(std::string_view file_name) {
   RETURN_NOT_OK(ValidatePath(file_name));
   ARROW_ASSIGN_OR_RAISE(auto ns, StringToNative(file_name));
   return PlatformFilename(std::move(ns));
@@ -599,8 +603,9 @@ PlatformFilename PlatformFilename::Join(const PlatformFilename& child) const {
   }
 }
 
-Result<PlatformFilename> PlatformFilename::Join(const std::string& child_name) const {
-  ARROW_ASSIGN_OR_RAISE(auto child, PlatformFilename::FromString(child_name));
+Result<PlatformFilename> PlatformFilename::Join(std::string_view child_name) const {
+  ARROW_ASSIGN_OR_RAISE(auto child,
+                        PlatformFilename::FromString(std::string(child_name)));
   return Join(child);
 }
 
@@ -1076,24 +1081,15 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
   FileDescriptor fd;
 
 #if defined(_WIN32)
-  int oflag = _O_CREAT | _O_BINARY | _O_NOINHERIT;
   DWORD desired_access = GENERIC_WRITE;
   DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE;
   DWORD creation_disposition = OPEN_ALWAYS;
 
-  if (append) {
-    oflag |= _O_APPEND;
-  }
-
   if (truncate) {
-    oflag |= _O_TRUNC;
     creation_disposition = CREATE_ALWAYS;
   }
 
-  if (write_only) {
-    oflag |= _O_WRONLY;
-  } else {
-    oflag |= _O_RDWR;
+  if (!write_only) {
     desired_access |= GENERIC_READ;
   }
 
@@ -1157,19 +1153,44 @@ Result<int64_t> FileTell(int fd) {
 }
 
 Result<Pipe> CreatePipe() {
-  int ret;
+  bool ok;
   int fds[2];
+  Pipe pipe;
 
 #if defined(_WIN32)
-  ret = _pipe(fds, 4096, _O_BINARY);
+  ok = _pipe(fds, 4096, _O_BINARY) >= 0;
+  if (ok) {
+    pipe = {FileDescriptor(fds[0]), FileDescriptor(fds[1])};
+  }
+#elif defined(__linux__) && defined(__GLIBC__)
+  // On Unix, we don't want the file descriptors to survive after an exec() call
+  ok = pipe2(fds, O_CLOEXEC) >= 0;
+  if (ok) {
+    pipe = {FileDescriptor(fds[0]), FileDescriptor(fds[1])};
+  }
 #else
-  ret = ::pipe(fds);
+  auto set_cloexec = [](int fd) -> bool {
+    int flags = fcntl(fd, F_GETFD);
+    if (flags >= 0) {
+      flags = fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+    }
+    return flags >= 0;
+  };
+
+  ok = ::pipe(fds) >= 0;
+  if (ok) {
+    pipe = {FileDescriptor(fds[0]), FileDescriptor(fds[1])};
+    ok &= set_cloexec(fds[0]);
+    if (ok) {
+      ok &= set_cloexec(fds[1]);
+    }
+  }
 #endif
-  if (ret == -1) {
+  if (!ok) {
     return IOErrorFromErrno(errno, "Error creating pipe");
   }
 
-  return Pipe{FileDescriptor(fds[0]), FileDescriptor(fds[1])};
+  return pipe;
 }
 
 Status SetPipeFileDescriptorNonBlocking(int fd) {
@@ -1198,7 +1219,7 @@ namespace {
 #define PIPE_READ read
 #endif
 
-class SelfPipeImpl : public SelfPipe {
+class SelfPipeImpl : public SelfPipe, public std::enable_shared_from_this<SelfPipeImpl> {
   static constexpr uint64_t kEofPayload = 5804561806345822987ULL;
 
  public:
@@ -1213,6 +1234,28 @@ class SelfPipeImpl : public SelfPipe {
       // We cannot afford blocking writes in a signal handler
       RETURN_NOT_OK(SetPipeFileDescriptorNonBlocking(pipe_.wfd.fd()));
     }
+
+    atfork_handler_ = std::make_shared<AtForkHandler>(
+        /*before=*/
+        [weak_self = std::weak_ptr<SelfPipeImpl>(shared_from_this())] {
+          auto self = weak_self.lock();
+          if (self) {
+            self->BeforeFork();
+          }
+          return self;
+        },
+        /*parent_after=*/
+        [](std::any token) {
+          auto self = std::any_cast<std::shared_ptr<SelfPipeImpl>>(std::move(token));
+          self->ParentAfterFork();
+        },
+        /*child_after=*/
+        [](std::any token) {
+          auto self = std::any_cast<std::shared_ptr<SelfPipeImpl>>(std::move(token));
+          self->ChildAfterFork();
+        });
+    RegisterAtFork(atfork_handler_);
+
     return Status::OK();
   }
 
@@ -1272,6 +1315,19 @@ class SelfPipeImpl : public SelfPipe {
   ~SelfPipeImpl() { ARROW_WARN_NOT_OK(Shutdown(), "On self-pipe destruction"); }
 
  protected:
+  void BeforeFork() {}
+
+  void ParentAfterFork() {}
+
+  void ChildAfterFork() {
+    // Close and recreate pipe, to avoid interfering with parent.
+    const bool was_closed = pipe_.rfd.closed() || pipe_.wfd.closed();
+    ARROW_CHECK_OK(pipe_.Close());
+    if (!was_closed) {
+      ARROW_CHECK_OK(CreatePipe().Value(&pipe_));
+    }
+  }
+
   Status ClosedPipe() const { return Status::Invalid("Self-pipe closed"); }
 
   bool DoSend(uint64_t payload) {
@@ -1303,6 +1359,8 @@ class SelfPipeImpl : public SelfPipe {
   const bool signal_safe_;
   Pipe pipe_;
   std::atomic<bool> please_shutdown_{false};
+
+  std::shared_ptr<AtForkHandler> atfork_handler_;
 };
 
 #undef PIPE_WRITE
@@ -1542,7 +1600,7 @@ static inline int64_t pread_compat(int fd, void* buf, int64_t nbytes, int64_t po
 #if defined(_WIN32)
   HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(fd));
   DWORD dwBytesRead = 0;
-  OVERLAPPED overlapped = {0};
+  OVERLAPPED overlapped = {};
   overlapped.Offset = static_cast<uint32_t>(pos);
   overlapped.OffsetHigh = static_cast<uint32_t>(pos >> 32);
 
@@ -1867,7 +1925,9 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
       [&](const NativePathString& base_dir) -> Result<std::unique_ptr<TemporaryDir>> {
     Status st;
     for (int attempt = 0; attempt < 3; ++attempt) {
-      PlatformFilename fn(base_dir + kNativeSep + base_name + kNativeSep);
+      PlatformFilename fn_base_dir(base_dir);
+      PlatformFilename fn_base_name(base_name + kNativeSep);
+      PlatformFilename fn = fn_base_dir.Join(fn_base_name);
       auto result = CreateDir(fn);
       if (!result.ok()) {
         // Probably a permissions error or a non-existing base_dir
@@ -2104,6 +2164,35 @@ int64_t GetCurrentRSS() {
 #else
   // AIX, BSD, Solaris, and Unknown OS ------------------------
   return 0;  // Unsupported.
+#endif
+}
+
+int64_t GetTotalMemoryBytes() {
+#if defined(_WIN32)
+  ULONGLONG result_kb;
+  if (!GetPhysicallyInstalledSystemMemory(&result_kb)) {
+    ARROW_LOG(WARNING) << "Failed to resolve total RAM size: "
+                       << std::strerror(GetLastError());
+    return -1;
+  }
+  return static_cast<int64_t>(result_kb * 1024);
+#elif defined(__APPLE__)
+  int64_t result;
+  size_t size = sizeof(result);
+  if (sysctlbyname("hw.memsize", &result, &size, nullptr, 0) == -1) {
+    ARROW_LOG(WARNING) << "Failed to resolve total RAM size";
+    return -1;
+  }
+  return result;
+#elif defined(__linux__)
+  struct sysinfo info;
+  if (sysinfo(&info) == -1) {
+    ARROW_LOG(WARNING) << "Failed to resolve total RAM size: " << std::strerror(errno);
+    return -1;
+  }
+  return static_cast<int64_t>(info.totalram * info.mem_unit);
+#else
+  return 0;
 #endif
 }
 

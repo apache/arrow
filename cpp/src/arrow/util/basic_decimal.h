@@ -64,7 +64,9 @@ class ARROW_EXPORT GenericBasicDecimal {
   /// \brief Create a decimal from the two's complement representation.
   ///
   /// Input array is assumed to be in native endianness.
-  constexpr GenericBasicDecimal(const WordArray& array) noexcept : array_(array) {}
+  constexpr GenericBasicDecimal(
+      const WordArray& array) noexcept  // NOLINT(runtime/explicit)
+      : array_(array) {}
 
   /// \brief Create a decimal from the two's complement representation.
   ///
@@ -152,7 +154,7 @@ class ARROW_EXPORT BasicDecimal128 : public GenericBasicDecimal<BasicDecimal128,
   template <typename T,
             typename = typename std::enable_if<
                 std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
-  constexpr BasicDecimal128(T value) noexcept
+  constexpr BasicDecimal128(T value) noexcept  // NOLINT(runtime/explicit)
       : BasicDecimal128(value >= T{0} ? 0 : -1, static_cast<uint64_t>(value)) {  // NOLINT
   }
 
@@ -323,7 +325,7 @@ class ARROW_EXPORT BasicDecimal256 : public GenericBasicDecimal<BasicDecimal256,
   template <typename T,
             typename = typename std::enable_if<
                 std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
-  constexpr BasicDecimal256(T value) noexcept
+  constexpr BasicDecimal256(T value) noexcept  // NOLINT(runtime/explicit)
       : BasicDecimal256(bit_util::little_endian::ToNative<uint64_t, 4>(
             {static_cast<uint64_t>(value), extend(value), extend(value),
              extend(value)})) {}

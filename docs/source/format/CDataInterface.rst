@@ -91,6 +91,7 @@ Pros of the IPC format vs. the data interface:
   (such as integrity checks, compression...).
 * Does not require explicit C data access.
 
+
 Data type description -- format strings
 =======================================
 
@@ -463,8 +464,10 @@ It has the following fields:
    buffers be aligned at least according to the type of primitive data that
    they contain. Consumers MAY decide not to support unaligned memory.
 
-   The pointer to the null bitmap buffer, if the data type specifies one,
-   MAY be NULL only if :c:member:`ArrowArray.null_count` is 0.
+   The buffer pointers MAY be null only in two situations:
+
+   1. for the null bitmap buffer, if :c:member:`ArrowArray.null_count` is 0;
+   2. for any buffer, if the size in bytes of the corresponding buffer would be 0.
 
    Buffers of children arrays are not included.
 
@@ -527,6 +530,10 @@ parameterized extension types).
 
 The ``ArrowArray`` structure exported from an extension array simply points
 to the storage data of the extension array.
+
+
+Semantics
+=========
 
 Memory management
 -----------------
@@ -666,6 +673,15 @@ Record batches
 A record batch can be trivially considered as an equivalent struct array. In
 this case the metadata of the top-level ``ArrowSchema`` can be used for the
 schema-level metadata of the record batch.
+
+Mutability
+----------
+
+Both the producer and the consumer SHOULD consider the exported data
+(that is, the data reachable through the ``buffers`` member of ``ArrowArray``)
+to be immutable, as either party could otherwise see inconsistent data while
+the other is mutating it.
+
 
 Example use case
 ================

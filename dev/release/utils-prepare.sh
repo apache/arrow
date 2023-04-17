@@ -119,6 +119,11 @@ update_versions() {
     setup.py
   rm -f setup.py.bak
   git add setup.py
+  sed -i.bak -E -e \
+    "s/^set\(PYARROW_VERSION \".+\"\)/set(PYARROW_VERSION \"${version}\")/" \
+    CMakeLists.txt
+  rm -f CMakeLists.txt.bak
+  git add CMakeLists.txt
   popd
 
   pushd "${ARROW_DIR}/r"
@@ -156,20 +161,20 @@ update_versions() {
   sed -i.bak -E -e \
     "s/\"parquet-go version .+\"/\"parquet-go version ${version}\"/" \
     parquet/writer_properties.go
+  sed -i.bak -E -e \
+    "s/const PkgVersion = \".*/const PkgVersion = \"${version}\"/" \
+    arrow/doc.go
+
   find . -name "*.bak" -exec rm {} \;
   git add .
   popd
 
-  case ${type} in
-    release)
-      pushd "${ARROW_DIR}"
-      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
-                         . \
-                         "${version}" \
-                         "${next_version}"
-      git add docs/source/_static/versions.json
-      git add r/pkgdown/assets/versions.json
-      popd
-      ;;
-  esac
+  pushd "${ARROW_DIR}"
+  ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" \
+                     . \
+                     "${base_version}" \
+                     "${next_version}"
+  git add docs/source/_static/versions.json
+  git add r/pkgdown/assets/versions.json
+  popd
 }

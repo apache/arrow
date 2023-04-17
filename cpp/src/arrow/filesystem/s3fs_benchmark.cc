@@ -125,14 +125,14 @@ class MinioFixture : public benchmark::Fixture {
   Status MakeBucket() {
     Aws::S3::Model::HeadBucketRequest head;
     head.SetBucket(ToAwsString(bucket_));
-    const Status st = OutcomeToStatus(client_->HeadBucket(head));
+    const Status st = OutcomeToStatus("HeadBucket", client_->HeadBucket(head));
     if (st.ok()) {
       // Bucket exists already
       return st;
     }
     Aws::S3::Model::CreateBucketRequest req;
     req.SetBucket(ToAwsString(bucket_));
-    return OutcomeToStatus(client_->CreateBucket(req));
+    return OutcomeToStatus("CreateBucket", client_->CreateBucket(req));
   }
 
   /// Make an object with dummy data.
@@ -141,7 +141,7 @@ class MinioFixture : public benchmark::Fixture {
     req.SetBucket(ToAwsString(bucket_));
     req.SetKey(ToAwsString(name));
     req.SetBody(std::make_shared<std::stringstream>(std::string(size, 'a')));
-    return OutcomeToStatus(client_->PutObject(req));
+    return OutcomeToStatus("PutObject", client_->PutObject(req));
   }
 
   /// Make an object with Parquet data.

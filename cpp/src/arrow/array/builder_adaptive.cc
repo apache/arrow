@@ -33,8 +33,11 @@ namespace arrow {
 
 using internal::AdaptiveIntBuilderBase;
 
-AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(uint8_t start_int_size, MemoryPool* pool)
-    : ArrayBuilder(pool), start_int_size_(start_int_size), int_size_(start_int_size) {}
+AdaptiveIntBuilderBase::AdaptiveIntBuilderBase(uint8_t start_int_size, MemoryPool* pool,
+                                               int64_t alignment)
+    : ArrayBuilder(pool, alignment),
+      start_int_size_(start_int_size),
+      int_size_(start_int_size) {}
 
 void AdaptiveIntBuilderBase::Reset() {
   ArrayBuilder::Reset();
@@ -125,8 +128,9 @@ std::shared_ptr<DataType> AdaptiveIntBuilder::type() const {
   return nullptr;
 }
 
-AdaptiveIntBuilder::AdaptiveIntBuilder(uint8_t start_int_size, MemoryPool* pool)
-    : AdaptiveIntBuilderBase(start_int_size, pool) {}
+AdaptiveIntBuilder::AdaptiveIntBuilder(uint8_t start_int_size, MemoryPool* pool,
+                                       int64_t alignment)
+    : AdaptiveIntBuilderBase(start_int_size, pool, alignment) {}
 
 Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(CommitPendingData());
@@ -135,7 +139,13 @@ Status AdaptiveIntBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
   RETURN_NOT_OK(TrimBuffer(length_ * int_size_, data_.get()));
 
-  *out = ArrayData::Make(type(), length_, {null_bitmap, data_}, null_count_);
+  std::shared_ptr<Buffer> values_buffer = data_;
+  if (!values_buffer) {
+    ARROW_ASSIGN_OR_RAISE(values_buffer, AllocateBuffer(0, pool_));
+  }
+
+  *out = ArrayData::Make(type(), length_, {null_bitmap, std::move(values_buffer)},
+                         null_count_);
 
   data_ = nullptr;
   capacity_ = length_ = null_count_ = 0;

@@ -26,7 +26,7 @@ list(APPEND
      ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS
      ${ARROW_FLIGHT_TEST_LINK_LIBS}
      ${GFLAGS_LIBRARIES}
-     GTest::gtest)
+     ${ARROW_GTEST_GTEST})
 
 add_executable(flight-test-integration-server test_integration_server.cc
                                               test_integration.cc)
@@ -40,3 +40,14 @@ target_link_libraries(flight-test-integration-client
 
 add_dependencies(arrow-integration flight-test-integration-client
                  flight-test-integration-server)
+
+if(ARROW_BUILD_TESTS)
+  add_arrow_test(flight_integration_test
+                 SOURCES
+                 flight_integration_test.cc
+                 test_integration.cc
+                 STATIC_LINK_LIBS
+                 ${ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS}
+                 LABELS
+                 "arrow_flight")
+endif()

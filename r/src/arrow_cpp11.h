@@ -209,7 +209,13 @@ Pointer r6_to_pointer(SEXP self) {
         cpp11::decay_t<typename std::remove_pointer<Pointer>::type>>();
     cpp11::stop("Invalid R object for %s, must be an ArrowObject", type_name.c_str());
   }
-  void* p = R_ExternalPtrAddr(Rf_findVarInFrame(self, arrow::r::symbols::xp));
+
+  SEXP xp = Rf_findVarInFrame(self, arrow::r::symbols::xp);
+  if (xp == R_NilValue) {
+    cpp11::stop("Invalid: self$`.:xp:.` is NULL");
+  }
+
+  void* p = R_ExternalPtrAddr(xp);
   if (p == nullptr) {
     SEXP klass = Rf_getAttrib(self, R_ClassSymbol);
     cpp11::stop("Invalid <%s>, external pointer to null", CHAR(STRING_ELT(klass, 0)));
@@ -343,6 +349,26 @@ std::vector<T> from_r_list(cpp11::list args) {
 }
 
 bool GetBoolOption(const std::string& name, bool default_);
+
+// A version of vctrs::vec_size() limited to the types that are
+// supported at the C++ level. We currently handle record-style
+// vectors (e.g., POSIXlt) at the R level such that by the time
+// they get to C++ they are just a data.frame. This version also
+// supports long vectors.
+static inline R_xlen_t vec_size(SEXP x) {
+  if (Rf_inherits(x, "data.frame")) {
+    if (Rf_length(x) > 0) {
+      return Rf_xlength(VECTOR_ELT(x, 0));
+    } else {
+      // This will expand the rownames if attr(x, "row.names") is ALTREP;
+      // however, this is probably not an important performance consideration
+      // since zero-column data.frames do not occur in many workflows.
+      return Rf_xlength(Rf_getAttrib(x, R_RowNamesSymbol));
+    }
+  } else {
+    return Rf_xlength(x);
+  }
+}
 
 }  // namespace r
 }  // namespace arrow

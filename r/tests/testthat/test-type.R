@@ -85,6 +85,20 @@ test_that("infer_type() can infer nested extension types", {
   )
 })
 
+test_that("infer_type() can infer vctrs::list_of() types", {
+  expect_equal(infer_type(vctrs::list_of(.ptype = integer())), list_of(int32()))
+})
+
+test_that("infer_type() can infer blob type", {
+  skip_if_not_installed("blob")
+
+  expect_equal(infer_type(blob::blob()), binary())
+
+  big_ish_raw <- raw(2 ^ 20)
+  big_ish_blob <- blob::new_blob(rep(list(big_ish_raw), 2049))
+  expect_equal(infer_type(big_ish_blob), large_binary())
+})
+
 test_that("DataType$Equals", {
   a <- int32()
   b <- int32()
@@ -266,7 +280,9 @@ test_that("infer_type() gets the right type for Expression", {
   expect_equal(y$type(), infer_type(y))
   expect_equal(infer_type(y), float64())
   expect_equal(add_xy$type(), infer_type(add_xy))
-  expect_equal(infer_type(add_xy), float64())
+  # even though 10 is a float64, arrow will clamp it to the narrowest
+  # type that can exactly represent it when building expressions
+  expect_equal(infer_type(add_xy), float32())
 })
 
 test_that("infer_type() infers type for POSIXlt", {
@@ -292,4 +308,38 @@ test_that("type() is deprecated", {
     "infer_type"
   )
   expect_equal(a_type, a$type)
+})
+
+test_that("infer_type() infers type for lists of raw() as binary()", {
+  expect_equal(
+    infer_type(list(raw())),
+    binary()
+  )
+
+  expect_equal(
+    infer_type(list(NULL, raw(), raw())),
+    binary()
+  )
+})
+
+test_that("infer_type() infers type for lists starting with NULL - ARROW-17639", {
+  null_start_list <- list(NULL, c(2, 3), c(4, 5))
+
+  expect_equal(
+    infer_type(null_start_list),
+    list_of(float64())
+  )
+
+  totally_null_list <- list(NULL, NULL, NULL)
+
+  expect_equal(
+    infer_type(totally_null_list),
+    list_of(null())
+  )
+
+  empty_list <- list()
+  expect_equal(
+    infer_type(empty_list),
+    list_of(null())
+  )
 })

@@ -15,10 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if(on_old_windows())
-
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
 
 test_that("abs()", {
   df <- tibble(x = c(-127, -10, -1, -0, 0, 1, 10, 127, NA))
@@ -27,7 +26,8 @@ test_that("abs()", {
     .input %>%
       transmute(
         abs = abs(x),
-        abs2 = base::abs(x)) %>%
+        abs2 = base::abs(x)
+      ) %>%
       collect(),
     df
   )

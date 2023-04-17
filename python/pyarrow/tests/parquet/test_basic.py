@@ -17,6 +17,7 @@
 
 from collections import OrderedDict
 import io
+import warnings
 
 import numpy as np
 import pytest
@@ -288,21 +289,28 @@ def test_fspath(tempdir, use_legacy_dataset):
 @pytest.mark.parametrize("filesystem", [
     None, fs.LocalFileSystem(), LocalFileSystem._get_instance()
 ])
-def test_relative_paths(tempdir, use_legacy_dataset, filesystem):
+@pytest.mark.parametrize("name", ("data.parquet", "例.parquet"))
+def test_relative_paths(tempdir, use_legacy_dataset, filesystem, name):
+    if use_legacy_dataset and isinstance(filesystem, fs.FileSystem):
+        pytest.skip("Passing new filesystem not supported for legacy reader")
     # reading and writing from relative paths
     table = pa.table({"a": [1, 2, 3]})
+    path = tempdir / name
 
     # reading
-    pq.write_table(table, str(tempdir / "data.parquet"))
+    pq.write_table(table, str(path))
     with util.change_cwd(tempdir):
-        result = pq.read_table("data.parquet", filesystem=filesystem,
+        result = pq.read_table(name, filesystem=filesystem,
                                use_legacy_dataset=use_legacy_dataset)
     assert result.equals(table)
 
+    path.unlink()
+    assert not path.exists()
+
     # writing
     with util.change_cwd(tempdir):
-        pq.write_table(table, "data2.parquet", filesystem=filesystem)
-    result = pq.read_table(tempdir / "data2.parquet")
+        pq.write_table(table, name, filesystem=filesystem)
+    result = pq.read_table(path)
     assert result.equals(table)
 
 
@@ -384,19 +392,38 @@ def test_byte_stream_split(use_legacy_dataset):
 def test_column_encoding(use_legacy_dataset):
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
-    mixed_table = pa.Table.from_arrays([arr_float, arr_int],
-                                       names=['a', 'b'])
+    arr_bin = pa.array([str(x) for x in range(100)])
+    mixed_table = pa.Table.from_arrays([arr_float, arr_int, arr_bin],
+                                       names=['a', 'b', 'c'])
 
     # Check "BYTE_STREAM_SPLIT" for column 'a' and "PLAIN" column_encoding for
-    # column 'b'.
+    # column 'b' and 'c'.
     _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
-                     column_encoding={'a': "BYTE_STREAM_SPLIT", 'b': "PLAIN"},
+                     column_encoding={'a': "BYTE_STREAM_SPLIT",
+                                      'b': "PLAIN",
+                                      'c': "PLAIN"},
                      use_legacy_dataset=use_legacy_dataset)
 
     # Check "PLAIN" for all columns.
     _check_roundtrip(mixed_table, expected=mixed_table,
                      use_dictionary=False,
                      column_encoding="PLAIN",
+                     use_legacy_dataset=use_legacy_dataset)
+
+    # Check "DELTA_BINARY_PACKED" for integer columns.
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=False,
+                     column_encoding={'a': "PLAIN",
+                                      'b': "DELTA_BINARY_PACKED",
+                                      'c': "PLAIN"},
+                     use_legacy_dataset=use_legacy_dataset)
+
+    # Check "DELTA_LENGTH_BYTE_ARRAY" for byte columns.
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=False,
+                     column_encoding={'a': "PLAIN",
+                                      'b': "DELTA_BINARY_PACKED",
+                                      'c': "DELTA_LENGTH_BYTE_ARRAY"},
                      use_legacy_dataset=use_legacy_dataset)
 
     # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.
@@ -406,17 +433,19 @@ def test_column_encoding(use_legacy_dataset):
                              " DOUBLE"):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
-                         column_encoding={'b': "BYTE_STREAM_SPLIT"},
+                         column_encoding={'a': "PLAIN",
+                                          'b': "BYTE_STREAM_SPLIT",
+                                          'c': "PLAIN"},
                          use_legacy_dataset=use_legacy_dataset)
 
-    # Try to pass "DELTA_BINARY_PACKED".
-    # This should throw an error as it is only supported for reading.
-    with pytest.raises(IOError,
-                       match="Not yet implemented: Selected encoding is"
-                             " not supported."):
+    # Try to pass use "DELTA_BINARY_PACKED" encoding on float column.
+    # This should throw an error as only integers are supported.
+    with pytest.raises(OSError):
         _check_roundtrip(mixed_table, expected=mixed_table,
                          use_dictionary=False,
-                         column_encoding={'b': "DELTA_BINARY_PACKED"},
+                         column_encoding={'a': "DELTA_BINARY_PACKED",
+                                          'b': "PLAIN",
+                                          'c': "PLAIN"},
                          use_legacy_dataset=use_legacy_dataset)
 
     # Try to pass "RLE_DICTIONARY".
@@ -457,7 +486,8 @@ def test_column_encoding(use_legacy_dataset):
                          use_dictionary=False,
                          use_byte_stream_split=['a'],
                          column_encoding={'a': "RLE",
-                                          'b': "BYTE_STREAM_SPLIT"},
+                                          'b': "BYTE_STREAM_SPLIT",
+                                          'c': "PLAIN"},
                          use_legacy_dataset=use_legacy_dataset)
 
     # Try to pass column_encoding and use_byte_stream_split=True.
@@ -467,7 +497,8 @@ def test_column_encoding(use_legacy_dataset):
                          use_dictionary=False,
                          use_byte_stream_split=True,
                          column_encoding={'a': "RLE",
-                                          'b': "BYTE_STREAM_SPLIT"},
+                                          'b': "BYTE_STREAM_SPLIT",
+                                          'c': "PLAIN"},
                          use_legacy_dataset=use_legacy_dataset)
 
     # Try to pass column_encoding=True.
@@ -617,15 +648,16 @@ def test_read_non_existent_file(tempdir, use_legacy_dataset):
 
 @parametrize_legacy_dataset
 def test_read_table_doesnt_warn(datadir, use_legacy_dataset):
-    with pytest.warns(None) as record:
-        pq.read_table(datadir / 'v0.7.1.parquet',
-                      use_legacy_dataset=use_legacy_dataset)
-
     if use_legacy_dataset:
-        # FutureWarning: 'use_legacy_dataset=True'
-        assert len(record) == 1
+        msg = "Passing 'use_legacy_dataset=True'"
+        with pytest.warns(FutureWarning, match=msg):
+            pq.read_table(datadir / 'v0.7.1.parquet',
+                          use_legacy_dataset=use_legacy_dataset)
     else:
-        assert len(record) == 0
+        with warnings.catch_warnings():
+            warnings.simplefilter(action="error")
+            pq.read_table(datadir / 'v0.7.1.parquet',
+                          use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas

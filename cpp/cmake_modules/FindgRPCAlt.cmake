@@ -11,6 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+if(gRPCAlt_FOUND)
+  return()
+endif()
+
 set(find_package_args)
 if(gRPCAlt_FIND_VERSION)
   list(APPEND find_package_args ${gRPCAlt_FIND_VERSION})

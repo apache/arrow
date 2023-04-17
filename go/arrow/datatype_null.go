@@ -23,7 +23,7 @@ func (*NullType) ID() Type            { return NULL }
 func (*NullType) Name() string        { return "null" }
 func (*NullType) String() string      { return "null" }
 func (*NullType) Fingerprint() string { return typeIDFingerprint(NULL) }
-func (NullType) Layout() DataTypeLayout {
+func (*NullType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecAlwaysNull()}}
 }
 

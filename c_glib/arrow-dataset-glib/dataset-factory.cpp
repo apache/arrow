@@ -19,6 +19,7 @@
 
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/file-system.hpp>
+#include <arrow-glib/schema.hpp>
 
 #include <arrow-dataset-glib/dataset-factory.hpp>
 #include <arrow-dataset-glib/dataset.hpp>
@@ -33,6 +34,8 @@ G_BEGIN_DECLS
  * @title: Dataset factory related classes
  * @include: arrow-dataset-glib/arrow-dataset-glib.h
  *
+ * #GADatasetFinishOptions is a class for gadataset_factory_finish().
+ *
  * #GADatasetDatasetFactory is a base class for dataset factories.
  *
  * #GADatasetFileSystemDatasetFactory is a class for
@@ -40,6 +43,203 @@ G_BEGIN_DECLS
  *
  * Since: 5.0.0
  */
+
+struct GADatasetFinishOptionsPrivate {
+  arrow::dataset::FinishOptions options;
+  GArrowSchema *schema;
+};
+
+enum {
+  PROP_FINISH_OPTIONS = 1,
+  PROP_SCHEMA,
+  PROP_INSPECT_N_FRAGMENTS,
+  PROP_VALIDATE_FRAGMENTS,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GADatasetFinishOptions,
+                           gadataset_finish_options,
+                           G_TYPE_OBJECT)
+
+#define GADATASET_FINISH_OPTIONS_GET_PRIVATE(obj)        \
+  static_cast<GADatasetFinishOptionsPrivate *>(          \
+    gadataset_finish_options_get_instance_private(       \
+      GADATASET_FINISH_OPTIONS(obj)))
+
+static void
+gadataset_finish_options_finalize(GObject *object)
+{
+  auto priv = GADATASET_FINISH_OPTIONS_GET_PRIVATE(object);
+  priv->options.~FinishOptions();
+  G_OBJECT_CLASS(gadataset_finish_options_parent_class)->finalize(object);
+}
+
+static void
+gadataset_finish_options_dispose(GObject *object)
+{
+  auto priv = GADATASET_FINISH_OPTIONS_GET_PRIVATE(object);
+  if (priv->schema) {
+    g_object_unref(priv->schema);
+    priv->schema = nullptr;
+  }
+  G_OBJECT_CLASS(gadataset_finish_options_parent_class)->dispose(object);
+}
+
+static void
+gadataset_finish_options_set_property(GObject *object,
+                                      guint prop_id,
+                                      const GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto priv = GADATASET_FINISH_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_FINISH_OPTIONS:
+    {
+      auto arrow_finish_options =
+        static_cast<arrow::dataset::FinishOptions *>(g_value_get_pointer(value));
+      if (arrow_finish_options) {
+        priv->options = *arrow_finish_options;
+        if (priv->options.schema) {
+          priv->schema = garrow_schema_new_raw(&(priv->options.schema));
+        }
+      }
+    }
+    break;
+  case PROP_SCHEMA:
+    if (priv->schema != g_value_get_object(value)) {
+      auto schema_previous = priv->schema;
+      auto schema = g_value_dup_object(value);
+      if (schema) {
+        priv->schema = GARROW_SCHEMA(schema);
+        priv->options.schema = garrow_schema_get_raw(priv->schema);
+      } else {
+        priv->schema = nullptr;
+        priv->options.schema = nullptr;
+      }
+      if (schema_previous) {
+        g_object_unref(schema_previous);
+      }
+    }
+    break;
+  case PROP_INSPECT_N_FRAGMENTS:
+    priv->options.inspect_options.fragments = g_value_get_int(value);
+    break;
+  case PROP_VALIDATE_FRAGMENTS:
+    priv->options.validate_fragments = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gadataset_finish_options_get_property(GObject *object,
+                                      guint prop_id,
+                                      GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto priv = GADATASET_FINISH_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_SCHEMA:
+    g_value_set_object(value, priv->schema);
+    break;
+  case PROP_INSPECT_N_FRAGMENTS:
+    g_value_set_int(value, priv->options.inspect_options.fragments);
+    break;
+  case PROP_VALIDATE_FRAGMENTS:
+    g_value_set_boolean(value, priv->options.validate_fragments);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gadataset_finish_options_init(GADatasetFinishOptions *object)
+{
+  auto priv = GADATASET_FINISH_OPTIONS_GET_PRIVATE(object);
+  new(&priv->options) arrow::dataset::FinishOptions;
+}
+
+static void
+gadataset_finish_options_class_init(GADatasetFinishOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->finalize = gadataset_finish_options_finalize;
+  gobject_class->dispose = gadataset_finish_options_dispose;
+  gobject_class->set_property = gadataset_finish_options_set_property;
+  gobject_class->get_property = gadataset_finish_options_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer("finish-options",
+                              "Finish options",
+                              "The raw arrow::dataset::FinishOptions *",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_FINISH_OPTIONS, spec);
+
+  /**
+   * GADatasetFinishOptions:schema:
+   *
+   * The schema to finalize the dataset's schema.
+   *
+   * Since: 11.0.0
+   */
+  spec = g_param_spec_object("schema",
+                             "Schema",
+                             "The schema to finalize the dataset's schema",
+                             GARROW_TYPE_SCHEMA,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_SCHEMA, spec);
+
+  arrow::dataset::FinishOptions finish_options;
+  /**
+   * GADatasetFinishOptions:inspect-n-fragments:
+   *
+   * The number of fragments to be used to inspect schema.
+   *
+   * Since: 11.0.0
+   */
+  spec = g_param_spec_int("inspect-n-fragments",
+                          "Inspect N fragments",
+                          "The number of fragments to be used to inspect schema",
+                          arrow::dataset::InspectOptions::kInspectAllFragments,
+                          G_MAXINT,
+                          finish_options.inspect_options.fragments,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_INSPECT_N_FRAGMENTS, spec);
+
+  /**
+   * GADatasetFinishOptions:validate-fragments:
+   *
+   * Whether validate fragments against the given schema or not.
+   *
+   * Since: 11.0.0
+   */
+  spec = g_param_spec_boolean("validate-fragments",
+                              "Validate fragments",
+                              "Whether validate fragments or not",
+                              finish_options.validate_fragments,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_VALIDATE_FRAGMENTS, spec);
+}
+
+/**
+ * gadataset_finish_options_new:
+ *
+ * Returns: A newly created #GADatasetDataset.
+ *
+ * Since: 11.0.0
+ */
+GADatasetFinishOptions *
+gadataset_finish_options_new(void)
+{
+  return gadataset_finish_options_new_raw(nullptr);
+}
+
 
 typedef struct GADatasetDatasetFactoryPrivate_ {
   std::shared_ptr<arrow::dataset::DatasetFactory> factory;
@@ -118,6 +318,7 @@ gadataset_dataset_factory_class_init(GADatasetDatasetFactoryClass *klass)
 /**
  * gadataset_dataset_factory_finish:
  * @factory: A #GADatasetDatasetFactory.
+ * @options: (nullable): A #GADatasetFinishOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full) (nullable):
@@ -127,10 +328,15 @@ gadataset_dataset_factory_class_init(GADatasetDatasetFactoryClass *klass)
  */
 GADatasetDataset *
 gadataset_dataset_factory_finish(GADatasetDatasetFactory *factory,
+                                 GADatasetFinishOptions *options,
                                  GError **error)
 {
   auto arrow_factory = gadataset_dataset_factory_get_raw(factory);
-  auto arrow_dataset_result = arrow_factory->Finish();
+  arrow::dataset::FinishOptions arrow_options;
+  if (options) {
+    arrow_options = *gadataset_finish_options_get_raw(options);
+  }
+  auto arrow_dataset_result = arrow_factory->Finish(arrow_options);
   if (garrow::check(error, arrow_dataset_result, "[dataset-factory][finish]")) {
     auto arrow_dataset = *arrow_dataset_result;
     return gadataset_dataset_new_raw(&arrow_dataset);
@@ -474,6 +680,7 @@ gadataset_file_system_dataset_factory_add_path(
 /**
  * gadataset_file_system_dataset_factory_finish:
  * @factory: A #GADatasetFileSystemDatasetFactory.
+ * @options: (nullable): A #GADatasetFinishOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full) (nullable):
@@ -484,6 +691,7 @@ gadataset_file_system_dataset_factory_add_path(
 GADatasetFileSystemDataset *
 gadataset_file_system_dataset_factory_finish(
   GADatasetFileSystemDatasetFactory *factory,
+  GADatasetFinishOptions *options,
   GError **error)
 {
   const gchar *context = "[file-system-dataset-factory][finish]";
@@ -527,7 +735,11 @@ gadataset_file_system_dataset_factory_finish(
   if (!garrow::check(error, arrow_factory_result, context)) {
     return NULL;
   }
-  auto arrow_dataset_result = (*arrow_factory_result)->Finish();
+  arrow::dataset::FinishOptions arrow_options;
+  if (options) {
+    arrow_options = *gadataset_finish_options_get_raw(options);
+  }
+  auto arrow_dataset_result = (*arrow_factory_result)->Finish(arrow_options);
   if (!garrow::check(error, arrow_dataset_result, context)) {
     return NULL;
   }
@@ -543,6 +755,21 @@ gadataset_file_system_dataset_factory_finish(
 
 
 G_END_DECLS
+
+GADatasetFinishOptions *
+gadataset_finish_options_new_raw(arrow::dataset::FinishOptions *options)
+{
+  return GADATASET_FINISH_OPTIONS(g_object_new(GADATASET_TYPE_FINISH_OPTIONS,
+                                               "finish-options", options,
+                                               NULL));
+}
+
+arrow::dataset::FinishOptions *
+gadataset_finish_options_get_raw(GADatasetFinishOptions *options)
+{
+  auto priv = GADATASET_FINISH_OPTIONS_GET_PRIVATE(options);
+  return &(priv->options);
+}
 
 std::shared_ptr<arrow::dataset::DatasetFactory>
 gadataset_dataset_factory_get_raw(GADatasetDatasetFactory *factory)

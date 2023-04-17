@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(RapidJSONAlt_FOUND)
+  return()
+endif()
+
 set(find_package_args)
 if(RapidJSONAlt_FIND_VERSION)
   list(APPEND find_package_args ${RapidJSONAlt_FIND_VERSION})

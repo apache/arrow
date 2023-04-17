@@ -18,12 +18,9 @@
 # cython: language_level = 3
 
 import collections
-import contextlib
 import enum
 import re
-import socket
 import time
-import threading
 import warnings
 import weakref
 
@@ -43,7 +40,7 @@ import pyarrow.lib as lib
 cdef CFlightCallOptions DEFAULT_CALL_OPTIONS
 
 
-cdef int check_flight_status(const CStatus& status) nogil except -1:
+cdef int check_flight_status(const CStatus& status) except -1 nogil:
     cdef shared_ptr[FlightStatusDetail] detail
 
     if status.ok():
@@ -126,7 +123,6 @@ cdef class FlightCallOptions(_Weakrefable):
             Serialization options for reading IPC format.
         """
         cdef IpcWriteOptions c_write_options
-        cdef IpcReadOptions c_read_options
 
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
@@ -289,6 +285,35 @@ cdef class Action(_Weakrefable):
                 type(action)))
         return (<Action> action).action
 
+    def serialize(self):
+        """Get the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        return GetResultValue(self.action.SerializeToString())
+
+    @classmethod
+    def deserialize(cls, serialized):
+        """Parse the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef Action action = Action.__new__(Action)
+        action.action = GetResultValue(
+            CAction.Deserialize(tobytes(serialized)))
+        return action
+
+    def __eq__(self, Action other):
+        return self.action == other.action
+
+    def __repr__(self):
+        return (f"<pyarrow.flight.Action type={self.type!r} "
+                f"body=({self.body.size} bytes)>")
+
 
 _ActionType = collections.namedtuple('_ActionType', ['type', 'description'])
 
@@ -327,6 +352,34 @@ cdef class Result(_Weakrefable):
         """Get the Buffer containing the result."""
         return pyarrow_wrap_buffer(self.result.get().body)
 
+    def serialize(self):
+        """Get the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        return GetResultValue(self.result.get().SerializeToString())
+
+    @classmethod
+    def deserialize(cls, serialized):
+        """Parse the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef Result result = Result.__new__(Result)
+        result.result.reset(new CFlightResult(GetResultValue(
+            CFlightResult.Deserialize(tobytes(serialized)))))
+        return result
+
+    def __eq__(self, Result other):
+        return deref(self.result.get()) == deref(other.result.get())
+
+    def __repr__(self):
+        return f"<pyarrow.flight.Result body=({self.body.size} bytes)>"
+
 
 cdef class BasicAuth(_Weakrefable):
     """A container for basic auth."""
@@ -360,12 +413,19 @@ cdef class BasicAuth(_Weakrefable):
     @staticmethod
     def deserialize(serialized):
         auth = BasicAuth()
-        check_flight_status(
-            CBasicAuth.Deserialize(serialized).Value(auth.basic_auth.get()))
+        auth.basic_auth.reset(new CBasicAuth(GetResultValue(
+            CBasicAuth.Deserialize(tobytes(serialized)))))
         return auth
 
     def serialize(self):
         return GetResultValue(self.basic_auth.get().SerializeToString())
+
+    def __eq__(self, BasicAuth other):
+        return deref(self.basic_auth.get()) == deref(other.basic_auth.get())
+
+    def __repr__(self):
+        return (f"<pyarrow.flight.BasicAuth username={self.username!r} "
+                "password=(redacted)>")
 
 
 class DescriptorType(enum.Enum):
@@ -484,11 +544,11 @@ cdef class FlightDescriptor(_Weakrefable):
 
     def __repr__(self):
         if self.descriptor_type == DescriptorType.PATH:
-            return "<FlightDescriptor path: {!r}>".format(self.path)
+            return f"<pyarrow.flight.FlightDescriptor path={self.path!r}>"
         elif self.descriptor_type == DescriptorType.CMD:
-            return "<FlightDescriptor command: {!r}>".format(self.command)
+            return f"<pyarrow.flight.FlightDescriptor cmd={self.command!r}>"
         else:
-            return "<FlightDescriptor type: {!r}>".format(self.descriptor_type)
+            return "<pyarrow.flight.FlightDescriptor UNKNOWN>"
 
     @staticmethod
     cdef CFlightDescriptor unwrap(descriptor) except *:
@@ -528,14 +588,14 @@ cdef class Ticket(_Weakrefable):
     """A ticket for requesting a Flight stream."""
 
     cdef:
-        CTicket ticket
+        CTicket c_ticket
 
     def __init__(self, ticket):
-        self.ticket.ticket = tobytes(ticket)
+        self.c_ticket.ticket = tobytes(ticket)
 
     @property
     def ticket(self):
-        return self.ticket.ticket
+        return self.c_ticket.ticket
 
     def serialize(self):
         """Get the wire-format representation of this type.
@@ -544,7 +604,7 @@ cdef class Ticket(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        return GetResultValue(self.ticket.SerializeToString())
+        return GetResultValue(self.c_ticket.SerializeToString())
 
     @classmethod
     def deserialize(cls, serialized):
@@ -555,15 +615,15 @@ cdef class Ticket(_Weakrefable):
 
         """
         cdef Ticket ticket = Ticket.__new__(Ticket)
-        ticket.ticket = GetResultValue(
+        ticket.c_ticket = GetResultValue(
             CTicket.Deserialize(tobytes(serialized)))
         return ticket
 
     def __eq__(self, Ticket other):
-        return self.ticket == other.ticket
+        return self.c_ticket == other.c_ticket
 
     def __repr__(self):
-        return '<Ticket {}>'.format(self.ticket.ticket)
+        return f"<pyarrow.flight.Ticket ticket={self.ticket!r}>"
 
 
 cdef class Location(_Weakrefable):
@@ -575,7 +635,7 @@ cdef class Location(_Weakrefable):
         check_flight_status(CLocation.Parse(tobytes(uri)).Value(&self.location))
 
     def __repr__(self):
-        return '<Location {}>'.format(self.location.ToString())
+        return f'<pyarrow.flight.Location {self.location.ToString()}>'
 
     @property
     def uri(self):
@@ -686,16 +746,38 @@ cdef class FlightEndpoint(_Weakrefable):
         return [Location.wrap(location)
                 for location in self.endpoint.locations]
 
+    def serialize(self):
+        """Get the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        return GetResultValue(self.endpoint.SerializeToString())
+
+    @classmethod
+    def deserialize(cls, serialized):
+        """Parse the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef FlightEndpoint endpoint = FlightEndpoint.__new__(FlightEndpoint)
+        endpoint.endpoint = GetResultValue(
+            CFlightEndpoint.Deserialize(tobytes(serialized)))
+        return endpoint
+
     def __repr__(self):
-        return "<FlightEndpoint ticket: {!r} locations: {!r}>".format(
-            self.ticket, self.locations)
+        return (f"<pyarrow.flight.FlightEndpoint ticket={self.ticket!r} "
+                f"locations={self.locations!r}>")
 
     def __eq__(self, FlightEndpoint other):
         return self.endpoint == other.endpoint
 
 
 cdef class SchemaResult(_Weakrefable):
-    """A result from a getschema request. Holding a schema"""
+    """The serialized schema returned from a GetSchema request."""
     cdef:
         unique_ptr[CSchemaResult] result
 
@@ -720,6 +802,34 @@ cdef class SchemaResult(_Weakrefable):
 
         check_flight_status(self.result.get().GetSchema(&dummy_memo).Value(&schema))
         return pyarrow_wrap_schema(schema)
+
+    def serialize(self):
+        """Get the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        return GetResultValue(self.result.get().SerializeToString())
+
+    @classmethod
+    def deserialize(cls, serialized):
+        """Parse the wire-format representation of this type.
+
+        Useful when interoperating with non-Flight systems (e.g. REST
+        services) that may want to return Flight types.
+
+        """
+        cdef SchemaResult result = SchemaResult.__new__(SchemaResult)
+        result.result.reset(new CSchemaResult(GetResultValue(
+            CSchemaResult.Deserialize(tobytes(serialized)))))
+        return result
+
+    def __eq__(self, SchemaResult other):
+        return deref(self.result.get()) == deref(other.result.get())
+
+    def __repr__(self):
+        return f"<pyarrow.flight.SchemaResult schema=({self.schema})>"
 
 
 cdef class FlightInfo(_Weakrefable):
@@ -826,6 +936,16 @@ cdef class FlightInfo(_Weakrefable):
             CFlightInfo.Deserialize(tobytes(serialized))))
         return info
 
+    def __eq__(self, FlightInfo other):
+        return deref(self.info.get()) == deref(other.info.get())
+
+    def __repr__(self):
+        return (f"<pyarrow.flight.FlightInfo schema={self.schema} "
+                f"descriptor={self.descriptor} "
+                f"endpoints={self.endpoints} "
+                f"total_records={self.total_records} "
+                f"total_bytes={self.total_bytes}>")
+
 
 cdef class FlightStreamChunk(_Weakrefable):
     """A RecordBatch with application metadata on the side."""
@@ -919,7 +1039,9 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
-        reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+        with nogil:
+            reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+
         return reader
 
 
@@ -986,14 +1108,18 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
         ----------
         batch : RecordBatch
         """
+        cdef:
+            shared_ptr[const CKeyValueMetadata] custom_metadata
+
         # Override superclass method to use check_flight_status so we
         # can generate FlightWriteSizeExceededError. We don't do this
         # for write_table as callers who intend to handle the error
         # and retry with a smaller batch should be working with
         # individual batches to have control.
+
         with nogil:
             check_flight_status(
-                self._writer().WriteRecordBatch(deref(batch.batch)))
+                self._writer().WriteRecordBatch(deref(batch.batch), custom_metadata))
 
     def write_table(self, Table table, max_chunksize=None, **kwargs):
         """
@@ -1155,7 +1281,6 @@ cdef class FlightClient(_Weakrefable):
               write_size_limit_bytes, disable_server_verification,
               generic_options):
         cdef:
-            int c_port = 0
             CLocation c_location = Location.unwrap(location)
             CFlightClientOptions c_options = CFlightClientOptions.Defaults()
             function[cb_client_middleware_start_call] start_call = \
@@ -1434,12 +1559,12 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_flight_status(
                 self.client.get().DoGet(
-                    deref(c_options), ticket.ticket).Value(&reader))
+                    deref(c_options), ticket.c_ticket).Value(&reader))
         result = FlightStreamReader()
         result.reader.reset(reader.release())
         return result
 
-    def do_put(self, descriptor: FlightDescriptor, schema: Schema,
+    def do_put(self, descriptor: FlightDescriptor, Schema schema not None,
                options: FlightCallOptions = None):
         """Upload data to a flight.
 
@@ -1641,13 +1766,22 @@ cdef class ServerCallContext(_Weakrefable):
             CServerMiddleware* c_middleware = \
                 self.context.GetMiddleware(CPyServerMiddlewareName)
             CPyServerMiddleware* middleware
+            vector[CTracingServerMiddlewareTraceKey] c_trace_context
+        if c_middleware == NULL:
+            c_middleware = self.context.GetMiddleware(tobytes(key))
+
         if c_middleware == NULL:
             return None
-        if c_middleware.name() != CPyServerMiddlewareName:
-            return None
-        middleware = <CPyServerMiddleware*> c_middleware
-        py_middleware = <_ServerMiddlewareWrapper> middleware.py_object()
-        return py_middleware.middleware.get(key)
+        elif c_middleware.name() == CPyServerMiddlewareName:
+            middleware = <CPyServerMiddleware*> c_middleware
+            py_middleware = <_ServerMiddlewareWrapper> middleware.py_object()
+            return py_middleware.middleware.get(key)
+        elif c_middleware.name() == CTracingServerMiddlewareName:
+            c_trace_context = (<CTracingServerMiddleware*> c_middleware
+                               ).GetTraceContext()
+            trace_context = {pair.key: pair.value for pair in c_trace_context}
+            return TracingServerMiddleware(trace_context)
+        return None
 
     @staticmethod
     cdef ServerCallContext wrap(const CServerCallContext& context):
@@ -2428,6 +2562,22 @@ cdef class ServerMiddlewareFactory(_Weakrefable):
         """
 
 
+cdef class TracingServerMiddlewareFactory(ServerMiddlewareFactory):
+    """A factory for tracing middleware instances.
+
+    This enables OpenTelemetry support in Arrow (if Arrow was compiled
+    with OpenTelemetry support enabled). A new span will be started on
+    each RPC call. The TracingServerMiddleware instance can then be
+    retrieved within an RPC handler to get the propagated context,
+    which can be used to start a new span on the Python side.
+
+    Because the Python/C++ OpenTelemetry libraries do not
+    interoperate, spans on the C++ side are not directly visible to
+    the Python side and vice versa.
+
+    """
+
+
 cdef class ServerMiddleware(_Weakrefable):
     """Server-side middleware for a call, instantiated per RPC.
 
@@ -2472,6 +2622,13 @@ cdef class ServerMiddleware(_Weakrefable):
         vtable.sending_headers = _middleware_sending_headers
         vtable.call_completed = _middleware_call_completed
         c_instance[0].reset(new CPyServerMiddleware(py_middleware, vtable))
+
+
+class TracingServerMiddleware(ServerMiddleware):
+    __slots__ = ["trace_context"]
+
+    def __init__(self, trace_context):
+        self.trace_context = trace_context
 
 
 cdef class _ServerMiddlewareFactoryWrapper(ServerMiddlewareFactory):
@@ -2639,7 +2796,27 @@ cdef class FlightServerBase(_Weakrefable):
                 c_options.get().tls_certificates.push_back(c_cert)
 
         if middleware:
-            py_middleware = _ServerMiddlewareFactoryWrapper(middleware)
+            non_tracing_middleware = {}
+            enable_tracing = None
+            for key, factory in middleware.items():
+                if isinstance(factory, TracingServerMiddlewareFactory):
+                    if enable_tracing is not None:
+                        raise ValueError(
+                            "Can only provide "
+                            "TracingServerMiddlewareFactory once")
+                    if tobytes(key) == CPyServerMiddlewareName:
+                        raise ValueError(f"Middleware key cannot be {key}")
+                    enable_tracing = key
+                else:
+                    non_tracing_middleware[key] = factory
+
+            if enable_tracing:
+                c_middleware.first = tobytes(enable_tracing)
+                c_middleware.second = MakeTracingServerMiddlewareFactory()
+                c_options.get().middleware.push_back(c_middleware)
+
+            py_middleware = _ServerMiddlewareFactoryWrapper(
+                non_tracing_middleware)
             c_middleware.first = CPyServerMiddlewareName
             c_middleware.second.reset(new CPyServerMiddlewareFactory(
                 py_middleware,

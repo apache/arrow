@@ -164,7 +164,8 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
 
   // reduce summation of one block (may be smaller than kBlockSize) from leaf node
   // continue reducing to upper level if two summations are ready for non-leaf node
-  auto reduce = [&](SumType block_sum) {
+  // (capture `levels` by value because of ARROW-17567)
+  auto reduce = [&, levels](SumType block_sum) {
     int cur_level = 0;
     uint64_t cur_level_mask = 1ULL;
     sum[cur_level] += block_sum;

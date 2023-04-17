@@ -19,6 +19,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <gmock/gmock-matchers.h>
@@ -37,7 +38,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/string_view.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
@@ -63,7 +63,7 @@ void CheckStringArray(const ArrayType& array, const std::vector<std::string>& st
       auto view = array.GetView(i);
       ASSERT_EQ(value_pos, array.value_offset(i));
       ASSERT_EQ(strings[j].size(), view.size());
-      ASSERT_EQ(util::string_view(strings[j]), view);
+      ASSERT_EQ(std::string_view(strings[j]), view);
       value_pos += static_cast<int32_t>(view.size());
     } else {
       ASSERT_TRUE(array.IsNull(i));
@@ -256,7 +256,7 @@ class TestStringArray : public ::testing::Test {
   }
 
   Status ValidateFull(int64_t length, std::vector<offset_type> offsets,
-                      util::string_view data, int64_t offset = 0) {
+                      std::string_view data, int64_t offset = 0) {
     ArrayType arr(length, Buffer::Wrap(offsets), std::make_shared<Buffer>(data),
                   /*null_bitmap=*/nullptr, /*null_count=*/0, offset);
     return arr.ValidateFull();
@@ -373,7 +373,7 @@ class TestUTF8Array : public ::testing::Test {
   using ArrayType = typename TypeTraits<TypeClass>::ArrayType;
 
   Status ValidateUTF8(int64_t length, std::vector<offset_type> offsets,
-                      util::string_view data, int64_t offset = 0) {
+                      std::string_view data, int64_t offset = 0) {
     ArrayType arr(length, Buffer::Wrap(offsets), std::make_shared<Buffer>(data),
                   /*null_bitmap=*/nullptr, /*null_count=*/0, offset);
     return arr.ValidateUTF8();
@@ -867,12 +867,12 @@ struct BinaryAppender {
     return Status::OK();
   }
 
-  Status VisitValue(util::string_view v) {
+  Status VisitValue(std::string_view v) {
     data.push_back(v);
     return Status::OK();
   }
 
-  std::vector<util::string_view> data;
+  std::vector<std::string_view> data;
 };
 
 template <typename T>

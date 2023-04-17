@@ -45,6 +45,10 @@ Aggregations
    tdigest
    variance
 
+..
+  Nullary aggregate functions (count_all) aren't exposed in pyarrow.compute,
+  so they aren't listed here.
+
 Cumulative Functions
 --------------------
 
@@ -342,6 +346,7 @@ String Slicing
 .. autosummary::
    :toctree: ../generated/
 
+   binary_slice
    utf8_slice_codeunits
 
 Containment Tests
@@ -397,6 +402,8 @@ Conversions
    ceil_temporal
    floor_temporal
    round_temporal
+   run_end_decode
+   run_end_encode
    strftime
    strptime
 
@@ -495,11 +502,13 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   fill_null
    fill_null_backward
    fill_null_forward
    list_element
    list_flatten
    list_parent_indices
+   list_slice
    list_value_length
    make_struct
    map_lookup
@@ -525,6 +534,7 @@ Compute Options
    FilterOptions
    IndexOptions
    JoinOptions
+   ListSliceOptions
    MakeStructOptions
    MapLookupOptions
    MatchSubstringOptions
@@ -538,6 +548,7 @@ Compute Options
    RoundOptions
    RoundTemporalOptions
    RoundToMultipleOptions
+   RunEndEncodeOptions
    ScalarAggregateOptions
    ScalarAggregateOptions
    SelectKOptions
@@ -555,3 +566,12 @@ Compute Options
    TrimOptions
    VarianceOptions
    WeekOptions
+
+User-Defined Functions
+----------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   register_scalar_function
+   ScalarUdfContext

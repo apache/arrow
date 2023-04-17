@@ -25,6 +25,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "arrow/buffer.h"
@@ -32,11 +33,11 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_writer.h"
+#include "arrow/util/bytes_view.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/string_builder.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -49,7 +50,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
                             public util::EqualityComparable<Bitmap> {
  public:
   template <typename Word>
-  using View = util::basic_string_view<Word>;
+  using View = std::basic_string_view<Word>;
 
   Bitmap() = default;
 

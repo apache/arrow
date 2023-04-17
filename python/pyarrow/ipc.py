@@ -59,6 +59,12 @@ sink : str, pyarrow.NativeFile, or file-like Python object
     Either a file path, or a writable file object.
 schema : pyarrow.Schema
     The Arrow schema for data to be written to the file.
+use_legacy_format : bool, default None
+    Deprecated in favor of setting options. Cannot be provided with
+    options.
+
+    If None, False will be used unless this default is overridden by
+    setting the environment variable ARROW_PRE_0_15_IPC_FORMAT=1
 options : pyarrow.ipc.IpcWriteOptions
     Options for IPC serialization.
 
@@ -66,13 +72,7 @@ options : pyarrow.ipc.IpcWriteOptions
     be used unless overridden by setting the environment variable
     ARROW_PRE_0_15_IPC_FORMAT=1, and the V5 metadata version will be
     used unless overridden by setting the environment variable
-    ARROW_PRE_1_0_METADATA_VERSION=1.
-use_legacy_format : bool, default None
-    Deprecated in favor of setting options. Cannot be provided with
-    options.
-
-    If None, False will be used unless this default is overridden by
-    setting the environment variable ARROW_PRE_0_15_IPC_FORMAT=1"""
+    ARROW_PRE_1_0_METADATA_VERSION=1."""
 
 
 class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
@@ -164,6 +164,7 @@ Create an Arrow columnar IPC stream writer instance
 Returns
 -------
 writer : RecordBatchStreamWriter
+    A writer for the given sink
 """.format(_ipc_writer_class_doc)
 
 
@@ -180,9 +181,11 @@ def open_stream(source, *, options=None, memory_pool=None):
         If None, default values will be used.
     memory_pool : MemoryPool, default None
         If None, default memory pool is used.
+
     Returns
     -------
     reader : RecordBatchStreamReader
+        A reader for the given source
     """
     return RecordBatchStreamReader(source, options=options,
                                    memory_pool=memory_pool)
@@ -202,6 +205,7 @@ Create an Arrow columnar IPC file writer instance
 Returns
 -------
 writer : RecordBatchFileWriter
+    A writer for the given sink
 """.format(_ipc_writer_class_doc)
 
 
@@ -221,9 +225,11 @@ def open_file(source, footer_offset=None, *, options=None, memory_pool=None):
         If None, default values will be used.
     memory_pool : MemoryPool, default None
         If None, default memory pool is used.
+
     Returns
     -------
     reader : RecordBatchFileReader
+        A reader for the given source
     """
     return RecordBatchFileReader(
         source, footer_offset=footer_offset,
@@ -271,6 +277,7 @@ def deserialize_pandas(buf, *, use_threads=True):
     Returns
     -------
     df : pandas.DataFrame
+        The buffer deserialized as pandas DataFrame
     """
     buffer_reader = pa.BufferReader(buf)
     with pa.RecordBatchStreamReader(buffer_reader) as reader:

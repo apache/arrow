@@ -1007,12 +1007,12 @@ class InputStreamMessageReader : public MessageReader, public MessageDecoderList
 };
 
 std::unique_ptr<MessageReader> MessageReader::Open(io::InputStream* stream) {
-  return std::unique_ptr<MessageReader>(new InputStreamMessageReader(stream));
+  return std::make_unique<InputStreamMessageReader>(stream);
 }
 
 std::unique_ptr<MessageReader> MessageReader::Open(
     const std::shared_ptr<io::InputStream>& owned_stream) {
-  return std::unique_ptr<MessageReader>(new InputStreamMessageReader(owned_stream));
+  return std::make_unique<InputStreamMessageReader>(owned_stream);
 }
 
 }  // namespace ipc

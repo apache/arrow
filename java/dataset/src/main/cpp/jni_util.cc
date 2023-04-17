@@ -36,9 +36,9 @@ class ReservationListenableMemoryPool::Impl {
                 int64_t block_size)
       : pool_(pool), listener_(listener), block_size_(block_size), blocks_reserved_(0) {}
 
-  arrow::Status Allocate(int64_t size, uint8_t** out) {
+  arrow::Status Allocate(int64_t size, int64_t alignment, uint8_t** out) {
     RETURN_NOT_OK(UpdateReservation(size));
-    arrow::Status error = pool_->Allocate(size, out);
+    arrow::Status error = pool_->Allocate(size, alignment, out);
     if (!error.ok()) {
       RETURN_NOT_OK(UpdateReservation(-size));
       return error;
@@ -46,7 +46,8 @@ class ReservationListenableMemoryPool::Impl {
     return arrow::Status::OK();
   }
 
-  arrow::Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+  arrow::Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
+                           uint8_t** ptr) {
     bool reserved = false;
     int64_t diff = new_size - old_size;
     if (new_size >= old_size) {
@@ -55,7 +56,7 @@ class ReservationListenableMemoryPool::Impl {
       RETURN_NOT_OK(UpdateReservation(diff));
       reserved = true;
     }
-    arrow::Status error = pool_->Reallocate(old_size, new_size, ptr);
+    arrow::Status error = pool_->Reallocate(old_size, new_size, alignment, ptr);
     if (!error.ok()) {
       if (reserved) {
         // roll back reservations on error
@@ -70,8 +71,8 @@ class ReservationListenableMemoryPool::Impl {
     return arrow::Status::OK();
   }
 
-  void Free(uint8_t* buffer, int64_t size) {
-    pool_->Free(buffer, size);
+  void Free(uint8_t* buffer, int64_t size, int64_t alignment) {
+    pool_->Free(buffer, size, alignment);
     // FIXME: See ARROW-11143, currently method ::Free doesn't allow Status return
     arrow::Status s = UpdateReservation(-size);
     if (!s.ok()) {
@@ -114,6 +115,10 @@ class ReservationListenableMemoryPool::Impl {
 
   int64_t max_memory() { return stats_.max_memory(); }
 
+  int64_t total_bytes_allocated() { return stats_.total_bytes_allocated(); }
+
+  int64_t num_allocations() { return stats_.num_allocations(); }
+
   std::string backend_name() { return pool_->backend_name(); }
 
   std::shared_ptr<ReservationListener> get_listener() { return listener_; }
@@ -132,18 +137,21 @@ ReservationListenableMemoryPool::ReservationListenableMemoryPool(
   impl_.reset(new Impl(pool, listener, block_size));
 }
 
-arrow::Status ReservationListenableMemoryPool::Allocate(int64_t size, uint8_t** out) {
-  return impl_->Allocate(size, out);
+arrow::Status ReservationListenableMemoryPool::Allocate(int64_t size, int64_t alignment,
+                                                        uint8_t** out) {
+  return impl_->Allocate(size, alignment, out);
 }
 
 arrow::Status ReservationListenableMemoryPool::Reallocate(int64_t old_size,
                                                           int64_t new_size,
+                                                          int64_t alignment,
                                                           uint8_t** ptr) {
-  return impl_->Reallocate(old_size, new_size, ptr);
+  return impl_->Reallocate(old_size, new_size, alignment, ptr);
 }
 
-void ReservationListenableMemoryPool::Free(uint8_t* buffer, int64_t size) {
-  return impl_->Free(buffer, size);
+void ReservationListenableMemoryPool::Free(uint8_t* buffer, int64_t size,
+                                           int64_t alignment) {
+  return impl_->Free(buffer, size, alignment);
 }
 
 int64_t ReservationListenableMemoryPool::bytes_allocated() const {
@@ -152,6 +160,14 @@ int64_t ReservationListenableMemoryPool::bytes_allocated() const {
 
 int64_t ReservationListenableMemoryPool::max_memory() const {
   return impl_->max_memory();
+}
+
+int64_t ReservationListenableMemoryPool::total_bytes_allocated() const {
+  return impl_->total_bytes_allocated();
+}
+
+int64_t ReservationListenableMemoryPool::num_allocations() const {
+  return impl_->num_allocations();
 }
 
 std::string ReservationListenableMemoryPool::backend_name() const {

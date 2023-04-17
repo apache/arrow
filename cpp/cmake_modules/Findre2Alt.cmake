@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(re2Alt_FOUND)
+  return()
+endif()
+
 set(find_package_args)
 if(re2Alt_FIND_VERSION)
   list(APPEND find_package_args ${re2Alt_FIND_VERSION})
@@ -39,7 +43,7 @@ if(re2_ROOT)
                NO_DEFAULT_PATH)
   find_path(RE2_INCLUDE_DIR
             NAMES re2/re2.h
-            PATHS ${RE2_ROOT}
+            PATHS ${re2_ROOT}
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()

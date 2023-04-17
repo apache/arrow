@@ -31,9 +31,10 @@ Additional information and resources
 On this page we have listed resources that may be relevant or useful for
 contributors who want to learn more about different parts of Apache Arrow.
 
-.. Annotation Glossary
-.. -------------------
-.. ARROW-15130
+Glossary
+--------
+List of common terms in Apache Arrow project with a short description can
+be found in :doc:`the glossary <../../format/Glossary>`.
 
 Additional information
 ----------------------
@@ -45,7 +46,7 @@ Additional information
   every pull request that is opened, merged, etc.
 
   - `Apache Arrow Actions on GitHub <https://github.com/apache/arrow/actions>`_
-  - `Location of the workflows in Arrow: arrow/.github/workflows/ <https://github.com/apache/arrow/tree/master/.github/workflows>`_
+  - `Location of the workflows in Arrow: arrow/.github/workflows/ <https://github.com/apache/arrow/tree/main/.github/workflows>`_
   - `GitHub Documentation on GitHub Actions <https://docs.github.com/en/actions>`_
 
   .. ARROW-13841: [Doc] Document the different subcomponents that make up the CI and how they fit together:

@@ -18,7 +18,9 @@
 import os
 
 from .tester import Tester
-from .util import run_cmd, ARROW_ROOT_DEFAULT, log
+from .util import run_cmd, log
+from ..utils.source import ARROW_ROOT_DEFAULT
+
 
 _EXE_PATH = os.path.join(ARROW_ROOT_DEFAULT, 'js/bin')
 _VALIDATE = os.path.join(_EXE_PATH, 'integration.js')

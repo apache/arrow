@@ -15,53 +15,53 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"lang-c++":
+"Component: C++":
   - cpp/**/*
 
-lang-c-glib:
+"Component: GLib":
   - c_glib/**/*
 
-lang-csharp:
+"Component: C#":
   - csharp/**/*
 
-lang-go:
+"Component: Go":
   - go/**/*
 
-lang-java:
+"Component: Java":
   - java/**/*
 
-lang-js:
+"Component: JavaScript":
   - js/**/*
 
-lang-matlab:
+"Component: MATLAB":
   - matlab/**/*
 
-lang-python:
+"Component: Python":
   - python/**/*
 
-lang-R:
+"Component: R":
   - r/**/*
 
-lang-ruby:
+"Component: Ruby":
   - ruby/**/*
 
-flight:
+"Component: FlightRPC":
   - cpp/src/arrow/flight/**/*
   - r/R/flight.*
   - python/pyarrow/*flight.*
 
-gandiva:
+"Component: C++ - Gandiva":
   - c_glib/gandiva-glib/**/*
   - cpp/src/gandiva/**/*
   - ruby/red-gandiva/**/*
   - python/pyarrow/gandiva.*
 
-parquet:
+"Component: Parquet":
   - c_glib/parquet-glib/**/*
   - cpp/src/parquet/**/*
   - r/R/parquet.*
   - ruby/red-parquet/**/*
 
-docs:
+"Component: Documentation":
   - docs/**/*
   - "**/*.{md, rst, Rmd, Rd}"

@@ -18,23 +18,34 @@
 #include "arrow/util/tracing.h"
 
 #include "arrow/util/config.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/util/tracing_internal.h"
+
+#include <memory>
 
 namespace arrow {
 
-using internal::make_unique;
 namespace util {
 namespace tracing {
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 
-Span::Span() noexcept { details = make_unique<::arrow::internal::tracing::SpanImpl>(); }
+Span::Span() noexcept {
+  details = std::make_unique<::arrow::internal::tracing::SpanImpl>();
+}
+
+bool Span::valid() const {
+  return static_cast<::arrow::internal::tracing::SpanImpl*>(details.get())->valid();
+}
+
+void Span::reset() { details.reset(); }
 
 #else
 
 Span::Span() noexcept { /* details is left a nullptr */
 }
+
+bool Span::valid() const { return false; }
+void Span::reset() {}
 
 #endif
 

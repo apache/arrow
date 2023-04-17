@@ -35,6 +35,7 @@ import org.apache.arrow.util.Preconditions;
  * </ul>
  */
 public class JdbcFieldInfo {
+  private final int column;
   private final int jdbcType;
   private final int nullability;
   private final int precision;
@@ -53,6 +54,7 @@ public class JdbcFieldInfo {
         (jdbcType != Types.DECIMAL && jdbcType != Types.NUMERIC),
         "DECIMAL and NUMERIC types require a precision and scale; please use another constructor.");
 
+    this.column = 0;
     this.jdbcType = jdbcType;
     this.nullability = ResultSetMetaData.columnNullableUnknown;
     this.precision = 0;
@@ -68,6 +70,7 @@ public class JdbcFieldInfo {
    * @param scale The field's numeric scale.
    */
   public JdbcFieldInfo(int jdbcType, int precision, int scale) {
+    this.column = 0;
     this.jdbcType = jdbcType;
     this.nullability = ResultSetMetaData.columnNullableUnknown;
     this.precision = precision;
@@ -84,6 +87,7 @@ public class JdbcFieldInfo {
    * @param scale The field's numeric scale.
    */
   public JdbcFieldInfo(int jdbcType, int nullability, int precision, int scale) {
+    this.column = 0;
     this.jdbcType = jdbcType;
     this.nullability = nullability;
     this.precision = precision;
@@ -106,6 +110,7 @@ public class JdbcFieldInfo {
         column <= rsmd.getColumnCount(),
         "The index must be within the number of columns (1 to %s, inclusive)", rsmd.getColumnCount());
 
+    this.column = column;
     this.jdbcType = rsmd.getColumnType(column);
     this.nullability = rsmd.isNullable(column);
     this.precision = rsmd.getPrecision(column);
@@ -138,5 +143,12 @@ public class JdbcFieldInfo {
    */
   public int getScale() {
     return scale;
+  }
+
+  /**
+   * The column index for query column.
+   */
+  public int getColumn() {
+    return column;
   }
 }

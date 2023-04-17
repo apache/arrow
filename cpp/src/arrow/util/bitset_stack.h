@@ -25,6 +25,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -38,7 +39,6 @@
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_builder.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 

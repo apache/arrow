@@ -37,7 +37,7 @@ git \
   diff \
   ${UPSTREAM_REVISION}..${UPSTREAM_HEAD} \
   recipes/arrow | \
-  (cd "${source_dir}" && patch -p3)
+  (cd "${source_dir}" && patch -p3 || :)
 
 sed \
   -i.bak \

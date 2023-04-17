@@ -65,18 +65,25 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
       : buffer_(std::move(buffer)), compression_(compression) {}
 
   using CustomOpen = std::function<Result<std::shared_ptr<io::RandomAccessFile>>()>;
-  explicit FileSource(CustomOpen open) : custom_open_(std::move(open)) {}
+  FileSource(CustomOpen open, int64_t size)
+      : custom_open_(std::move(open)), custom_size_(size) {}
 
   using CustomOpenWithCompression =
       std::function<Result<std::shared_ptr<io::RandomAccessFile>>(Compression::type)>;
-  explicit FileSource(CustomOpenWithCompression open_with_compression,
-                      Compression::type compression = Compression::UNCOMPRESSED)
+  FileSource(CustomOpenWithCompression open_with_compression, int64_t size,
+             Compression::type compression = Compression::UNCOMPRESSED)
       : custom_open_(std::bind(std::move(open_with_compression), compression)),
+        custom_size_(size),
+        compression_(compression) {}
+
+  FileSource(std::shared_ptr<io::RandomAccessFile> file, int64_t size,
+             Compression::type compression = Compression::UNCOMPRESSED)
+      : custom_open_([=] { return ToResult(file); }),
+        custom_size_(size),
         compression_(compression) {}
 
   explicit FileSource(std::shared_ptr<io::RandomAccessFile> file,
-                      Compression::type compression = Compression::UNCOMPRESSED)
-      : custom_open_([=] { return ToResult(file); }), compression_(compression) {}
+                      Compression::type compression = Compression::UNCOMPRESSED);
 
   FileSource() : custom_open_(CustomOpen{&InvalidOpen}) {}
 
@@ -108,11 +115,15 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
   /// \brief Get a RandomAccessFile which views this file source
   Result<std::shared_ptr<io::RandomAccessFile>> Open() const;
 
+  /// \brief Get the size (in bytes) of the file or buffer
+  /// If the file is compressed this should be the compressed (on-disk) size.
+  int64_t Size() const;
+
   /// \brief Get an InputStream which views this file source (and decompresses if needed)
   /// \param[in] compression If nullopt, guess the compression scheme from the
   ///     filename, else decompress with the given codec
   Result<std::shared_ptr<io::InputStream>> OpenCompressed(
-      util::optional<Compression::type> compression = util::nullopt) const;
+      std::optional<Compression::type> compression = std::nullopt) const;
 
   /// \brief equality comparison with another FileSource
   bool Equals(const FileSource& other) const;
@@ -126,6 +137,7 @@ class ARROW_DS_EXPORT FileSource : public util::EqualityComparable<FileSource> {
   std::shared_ptr<fs::FileSystem> filesystem_;
   std::shared_ptr<Buffer> buffer_;
   CustomOpen custom_open_;
+  int64_t custom_size_ = 0;
   Compression::type compression_ = Compression::UNCOMPRESSED;
 };
 
@@ -150,13 +162,23 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   /// \brief Return the schema of the file if possible.
   virtual Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const = 0;
 
+  /// \brief Learn what we need about the file before we start scanning it
+  virtual Future<std::shared_ptr<InspectedFragment>> InspectFragment(
+      const FileSource& source, const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) const;
+
   virtual Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const = 0;
 
-  virtual Future<util::optional<int64_t>> CountRows(
+  virtual Future<std::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options);
+
+  virtual Future<std::shared_ptr<FragmentScanner>> BeginScan(
+      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+      const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) const;
 
   /// \brief Open a fragment
   virtual Result<std::shared_ptr<FileFragment>> MakeFragment(
@@ -178,7 +200,14 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
       fs::FileLocator destination_locator) const = 0;
 
   /// \brief Get default write options for this format.
+  ///
+  /// May return null shared_ptr if this file format does not yet support
+  /// writing datasets.
   virtual std::shared_ptr<FileWriteOptions> DefaultWriteOptions() = 0;
+
+ protected:
+  explicit FileFormat(std::shared_ptr<FragmentScanOptions> default_fragment_scan_options)
+      : default_fragment_scan_options(std::move(default_fragment_scan_options)) {}
 };
 
 /// \brief A Fragment that is stored in a file with a known format
@@ -187,9 +216,16 @@ class ARROW_DS_EXPORT FileFragment : public Fragment,
  public:
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override;
-  Future<util::optional<int64_t>> CountRows(
+  Future<std::optional<int64_t>> CountRows(
       compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
+  Future<std::shared_ptr<FragmentScanner>> BeginScan(
+      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+      const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) override;
+  Future<std::shared_ptr<InspectedFragment>> InspectFragment(
+      const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) override;
 
   std::string type_name() const override { return format_->type_name(); }
   std::string ToString() const override { return source_.path(); };
@@ -344,7 +380,7 @@ class ARROW_DS_EXPORT FileWriter {
   std::shared_ptr<FileWriteOptions> options_;
   std::shared_ptr<io::OutputStream> destination_;
   fs::FileLocator destination_locator_;
-  util::optional<int64_t> bytes_written_;
+  std::optional<int64_t> bytes_written_;
 };
 
 /// \brief Options for writing a dataset.
@@ -367,6 +403,12 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// Template string used to generate fragment basenames.
   /// {i} will be replaced by an auto incremented integer.
   std::string basename_template;
+
+  /// A functor which will be applied on an incremented counter.  The result will be
+  /// inserted into the basename_template in place of {i}.
+  ///
+  /// This can be used, for example, to left-pad the file counter.
+  std::function<std::string(int)> basename_template_functor;
 
   /// If greater than 0 then this will limit the maximum number of files that can be left
   /// open. If an attempt is made to open too many files then the least recently used file
@@ -419,7 +461,7 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
 };
 
 /// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
-class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
+class ARROW_DS_EXPORT WriteNodeOptions : public acero::ExecNodeOptions {
  public:
   explicit WriteNodeOptions(
       FileSystemDatasetWriteOptions options,
@@ -435,8 +477,7 @@ class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
 /// @}
 
 namespace internal {
-ARROW_DS_EXPORT void InitializeDatasetWriter(
-    arrow::compute::ExecFactoryRegistry* registry);
+ARROW_DS_EXPORT void InitializeDatasetWriter(arrow::acero::ExecFactoryRegistry* registry);
 }
 
 }  // namespace dataset

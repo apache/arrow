@@ -24,7 +24,7 @@
 jobs:
   verify:
     name: "Verify release candidate on Ubuntu"
-    runs-on: {{ github_runner|default("ubuntu-20.04") }}
+    runs-on: {{ github_runner|default("ubuntu-22.04") }}
     {% if env is defined %}
     env:
     {% for key, value in env.items() %}

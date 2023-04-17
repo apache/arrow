@@ -131,7 +131,7 @@ Building other Arrow libraries
       As mentioned at the beginning of this page, the Python part of the Arrow
       project is built on top of the C++ library. In order to make changes in
       the Python part of Arrow as well as the C++ part of Arrow, you need to
-      build them separately..
+      build them separately.
 
       We hope this introduction was enough to help you start with the building
       process.

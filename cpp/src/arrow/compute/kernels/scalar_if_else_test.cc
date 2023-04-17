@@ -26,8 +26,12 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace compute {
 
 // Helper that combines a dictionary and the value type so it can
@@ -64,10 +68,21 @@ class TestIfElseKernel : public ::testing::Test {};
 template <typename Type>
 class TestIfElsePrimitive : public ::testing::Test {};
 
+// There are a lot of tests here if we cover all the types and it gets slow on valgrind
+// so we overrdie the standard type sets with a smaller range
+#ifdef ARROW_VALGRIND
+using IfElseNumericBasedTypes =
+    ::testing::Types<UInt32Type, FloatType, Date32Type, Time32Type, TimestampType,
+                     MonthIntervalType>;
+using BaseBinaryArrowTypes = ::testing::Types<BinaryType>;
+using ListArrowTypes = ::testing::Types<ListType>;
+using IntegralArrowTypes = ::testing::Types<Int32Type>;
+#else
 using IfElseNumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type,
                      Time32Type, Time64Type, TimestampType, MonthIntervalType>;
+#endif
 
 TYPED_TEST_SUITE(TestIfElsePrimitive, IfElseNumericBasedTypes);
 
@@ -1030,9 +1045,7 @@ Datum MakeStruct(const std::vector<Datum>& conds) {
   }
 }
 
-template <typename TypeParam>
-void TestCaseWhenFixedSize() {
-  auto type = default_type_instance<TypeParam>();
+void TestCaseWhenFixedSize(const std::shared_ptr<DataType>& type) {
   auto cond_true = ScalarFromJSON(boolean(), "true");
   auto cond_false = ScalarFromJSON(boolean(), "false");
   auto cond_null = ScalarFromJSON(boolean(), "null");
@@ -1041,7 +1054,7 @@ void TestCaseWhenFixedSize() {
   auto scalar_null = ScalarFromJSON(type, "null");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
 
-  if (std::is_same<TypeParam, Date64Type>::value) {
+  if (type->id() == Type::DATE64) {
     auto scalar1 = ScalarFromJSON(type, "86400000");
     auto scalar2 = ScalarFromJSON(type, "172800000");
     auto values1 = ArrayFromJSON(type, "[259200000, null, 432000000, 518400000]");
@@ -1235,12 +1248,70 @@ void TestCaseWhenFixedSize() {
   }
 }
 
+void TestCaseWhenRandom(const std::shared_ptr<DataType>& type, int64_t len = 300) {
+  random::RandomArrayGenerator rand(/*seed=*/0);
+
+  // Adding 64 consecutive 1's and 0's in the cond array to test all-true/ all-false
+  // word code paths
+  ASSERT_OK_AND_ASSIGN(auto always_true, MakeArrayFromScalar(BooleanScalar(true), 64));
+  ASSERT_OK_AND_ASSIGN(auto always_false, MakeArrayFromScalar(BooleanScalar(false), 64));
+  auto maybe_true_with_nulls =
+      rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.04);
+  auto maybe_true_all_valid =
+      rand.ArrayOf(boolean(), len - 64 * 2, /*null_probability=*/0.0);
+  ASSERT_OK_AND_ASSIGN(auto concat1,
+                       Concatenate({always_true, always_false, maybe_true_with_nulls}));
+  auto cond1 = checked_pointer_cast<BooleanArray>(concat1);
+  ASSERT_OK_AND_ASSIGN(auto concat2,
+                       Concatenate({always_true, maybe_true_all_valid, always_false}));
+  auto cond2 = checked_pointer_cast<BooleanArray>(concat2);
+
+  auto value1 = rand.ArrayOf(type, len, /*null_probability=*/0.04);
+  auto value2 = rand.ArrayOf(type, len, /*null_probability=*/0.04);
+  auto value_else = rand.ArrayOf(type, len, /*null_probability=*/0.04);
+
+  auto value1_span = ArraySpan(*value1->data());
+  auto value2_span = ArraySpan(*value2->data());
+  auto value_else_span = ArraySpan(*value_else->data());
+
+  for (const bool has_else : {true, false}) {
+    ASSERT_OK_AND_ASSIGN(auto builder, MakeBuilder(type));
+    ASSERT_OK(builder->Reserve(len));
+    for (int64_t i = 0; i < len; ++i) {
+      if (cond1->IsValid(i) && cond1->Value(i)) {
+        ASSERT_OK(builder->AppendArraySlice(value1_span, i, /*length=*/1));
+      } else if (cond2->IsValid(i) && cond2->Value(i)) {
+        ASSERT_OK(builder->AppendArraySlice(value2_span, i, /*length=*/1));
+      } else if (has_else) {
+        ASSERT_OK(builder->AppendArraySlice(value_else_span, i, /*length=*/1));
+      } else {
+        ASSERT_OK(builder->AppendNull());
+      }
+    }
+    ASSERT_OK_AND_ASSIGN(auto expected_data, builder->Finish());
+
+    if (has_else) {
+      CheckScalar("case_when", {MakeStruct({cond1, cond2}), value1, value2, value_else},
+                  expected_data);
+    } else {
+      CheckScalar("case_when", {MakeStruct({cond1, cond2}), value1, value2},
+                  expected_data);
+    }
+  }
+}
+
 template <typename Type>
 class TestCaseWhenNumeric : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestCaseWhenNumeric, IfElseNumericBasedTypes);
 
-TYPED_TEST(TestCaseWhenNumeric, FixedSize) { TestCaseWhenFixedSize<TypeParam>(); }
+TYPED_TEST(TestCaseWhenNumeric, FixedSize) {
+  TestCaseWhenFixedSize(default_type_instance<TypeParam>());
+}
+
+TYPED_TEST(TestCaseWhenNumeric, Random) {
+  TestCaseWhenRandom(default_type_instance<TypeParam>());
+}
 
 TYPED_TEST(TestCaseWhenNumeric, ListOfType) {
   // More minimal test to check type coverage
@@ -1474,6 +1545,8 @@ TEST(TestCaseWhen, Null) {
   CheckScalar("case_when", {MakeStruct({cond_arr, cond_true}), array, array}, array);
 }
 
+TEST(TestCaseWhen, NullRandom) { TestCaseWhenRandom(null()); }
+
 TEST(TestCaseWhen, Boolean) {
   auto type = boolean();
   auto cond_true = ScalarFromJSON(boolean(), "true");
@@ -1530,6 +1603,8 @@ TEST(TestCaseWhen, Boolean) {
   CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, "[null, null, null, true]"));
 }
+
+TEST(TestCaseWhen, BooleanRandom) { TestCaseWhenRandom(boolean()); }
 
 TEST(TestCaseWhen, DayTimeInterval) {
   auto type = day_time_interval();
@@ -1588,6 +1663,8 @@ TEST(TestCaseWhen, DayTimeInterval) {
               ArrayFromJSON(type, "[null, null, null, [6, 6]]"));
 }
 
+TEST(TestCaseWhen, DayTimeIntervalRandom) { TestCaseWhenRandom(day_time_interval()); }
+
 TEST(TestCaseWhen, MonthDayNanoInterval) {
   auto type = month_day_nano_interval();
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
@@ -1602,6 +1679,10 @@ TEST(TestCaseWhen, MonthDayNanoInterval) {
               ArrayFromJSON(type, R"([[0, 1, -2], null, null, [-6, -7, -8]])"));
   CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, R"([null, null, null, [-6, -7, -8]])"));
+}
+
+TEST(TestCaseWhen, MonthDayNanoIntervalRandom) {
+  TestCaseWhenRandom(month_day_nano_interval());
 }
 
 TEST(TestCaseWhen, Decimal) {
@@ -1721,6 +1802,8 @@ TEST(TestCaseWhen, FixedSizeBinary) {
               ArrayFromJSON(type, R"([null, null, null, "efg"])"));
 }
 
+TEST(TestCaseWhen, FixedSizeBinaryRandom) { TestCaseWhenRandom(fixed_size_binary(3)); }
+
 template <typename Type>
 class TestCaseWhenBinary : public ::testing::Test {};
 
@@ -1781,6 +1864,10 @@ TYPED_TEST(TestCaseWhenBinary, Basics) {
               ArrayFromJSON(type, R"(["cDE", null, null, "efg"])"));
   CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, R"([null, null, null, "efg"])"));
+}
+
+TYPED_TEST(TestCaseWhenBinary, Random) {
+  TestCaseWhenRandom(default_type_instance<TypeParam>());
 }
 
 template <typename Type>
@@ -1848,6 +1935,11 @@ TYPED_TEST(TestCaseWhenList, ListOfString) {
               ArrayFromJSON(type, R"([null, null, null, ["ef", "g"]])"));
 }
 
+TYPED_TEST(TestCaseWhenList, ListOfStringRandom) {
+  auto type = std::make_shared<TypeParam>(utf8());
+  TestCaseWhenRandom(type, /*len=*/200);
+}
+
 // More minimal tests to check type coverage
 TYPED_TEST(TestCaseWhenList, ListOfBool) {
   auto type = std::make_shared<TypeParam>(boolean());
@@ -1863,6 +1955,11 @@ TYPED_TEST(TestCaseWhenList, ListOfBool) {
               ArrayFromJSON(type, R"([[true], null, null, [false, null]])"));
   CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, R"([null, null, null, [false, null]])"));
+}
+
+TYPED_TEST(TestCaseWhenList, ListOfBoolRandom) {
+  auto type = std::make_shared<TypeParam>(boolean());
+  TestCaseWhenRandom(type, /*len=*/200);
 }
 
 TYPED_TEST(TestCaseWhenList, ListOfInt) {
@@ -1952,6 +2049,11 @@ TYPED_TEST(TestCaseWhenList, ListOfListOfInt) {
               ArrayFromJSON(type, R"([[[1, 2], []], null, null, [[6, null], null]])"));
   CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, R"([null, null, null, [[6, null], null]])"));
+}
+
+TYPED_TEST(TestCaseWhenList, ListOfListOfIntRandom) {
+  auto type = std::make_shared<TypeParam>(list(int64()));
+  TestCaseWhenRandom(type, /*len=*/200);
 }
 
 TEST(TestCaseWhen, Map) {
@@ -2077,6 +2179,11 @@ TEST(TestCaseWhen, FixedSizeListOfInt) {
               ArrayFromJSON(type, R"([null, null, null, [8, 9]])"));
 }
 
+TEST(TestCaseWhen, FixedSizeListOfIntRandom) {
+  auto type = fixed_size_list(int64(), 2);
+  TestCaseWhenRandom(type);
+}
+
 TEST(TestCaseWhen, FixedSizeListOfString) {
   auto type = fixed_size_list(utf8(), 2);
   auto cond_true = ScalarFromJSON(boolean(), "true");
@@ -2195,6 +2302,11 @@ TEST(TestCaseWhen, StructOfInt) {
               ArrayFromJSON(type, R"([null, null, null, [7, -8]])"));
 }
 
+TEST(TestCaseWhen, StructOfIntRandom) {
+  auto type = struct_({field("a", uint32()), field("b", int64())});
+  TestCaseWhenRandom(type);
+}
+
 TEST(TestCaseWhen, StructOfString) {
   // More minimal test to check type coverage
   auto type = struct_({field("a", utf8()), field("b", large_utf8())});
@@ -2223,6 +2335,11 @@ TEST(TestCaseWhen, StructOfString) {
               ArrayFromJSON(type, R"([["efg", null], null, null, [null, "hi"]])"));
   CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
               ArrayFromJSON(type, R"([null, null, null, [null, "hi"]])"));
+}
+
+TEST(TestCaseWhen, StructOfStringRandom) {
+  auto type = struct_({field("a", utf8()), field("b", large_utf8())});
+  TestCaseWhenRandom(type);
 }
 
 TEST(TestCaseWhen, StructOfListOfInt) {
@@ -2320,6 +2437,17 @@ TEST(TestCaseWhen, UnionBoolString) {
                 ArrayFromJSON(type, R"([null, null, null, [7, "baz"]])"));
   }
 }
+
+// FIXME(GH-15192): enabling this test produces test failures
+
+// TEST(TestCaseWhen, UnionBoolStringRandom) {
+//   for (const auto& type : std::vector<std::shared_ptr<DataType>>{
+//            sparse_union({field("a", boolean()), field("b", utf8())}, {2, 7}),
+//            dense_union({field("a", boolean()), field("b", utf8())}, {2, 7})}) {
+//     ARROW_SCOPED_TRACE(type->ToString());
+//     TestCaseWhenRandom(type);
+//   }
+// }
 
 TEST(TestCaseWhen, DispatchBest) {
   CheckDispatchBest("case_when", {struct_({field("", boolean())}), int64(), int32()},

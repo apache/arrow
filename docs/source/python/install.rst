@@ -21,14 +21,13 @@ Installing PyArrow
 System Compatibility
 --------------------
 
-PyArrow is regularly built and tested on Windows, macOS and various Linux
-distributions (including Ubuntu 16.04, Ubuntu 18.04).  We strongly recommend
-using a 64-bit system.
+PyArrow is regularly built and tested on Windows, macOS and various
+Linux distributions. We strongly recommend using a 64-bit system.
 
 Python Compatibility
 --------------------
 
-PyArrow is currently compatible with Python 3.7, 3.8, 3.9 and 3.10.
+PyArrow is currently compatible with Python 3.7, 3.8, 3.9, 3.10 and 3.11.
 
 Using Conda
 -----------
@@ -61,3 +60,18 @@ Installing from source
 ----------------------
 
 See :ref:`python-development`.
+
+Dependencies
+------------
+
+Required dependency
+
+* **NumPy 1.16.6** or higher.
+
+Optional dependencies
+
+* **pandas 1.0** or higher,
+* **cffi**.
+
+Additional packages PyArrow is compatible with are :ref:`fsspec <filesystem-fsspec>`
+and **pytz**, **dateutil** or **tzdata** package for timezones.

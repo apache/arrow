@@ -1,0 +1,79 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# Any committer can add themselves to any  of the path patterns
+# and will subsequently get requested as a reviewer for any PRs
+# that change matching files.
+#
+# This file uses .gitignore syntax with a few exceptions see the
+# documentation about the syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Arrow Format
+# /format/
+
+## Components
+/c_glib/ @kou
+# /cpp/
+/cpp/src/arrow/compute @westonpace
+/cpp/src/arrow/dataset @westonpace
+/cpp/src/arrow/engine @westonpace
+/cpp/src/arrow/flight/ @lidavidm
+/cpp/src/arrow/util/async* @westonpace
+/cpp/src/arrow/util/future* @westonpace
+/cpp/src/arrow/util/thread* @westonpace
+/cpp/src/parquet @wjones127
+/cpp/src/skyhook @westonpace
+/csharp/ @westonpace
+/go/ @zeroshade
+/java/ @lidavidm
+/js/ @domoritz @trxcllnt
+/matlab/ @assignUser
+/python/ @AlenkaF
+/python/pyarrow/_flight.pyx @lidavidm
+/python/pyarrow/**/*gandiva* @wjones127
+/r/ @paleolimbot @thisisnic
+/ruby/ @kou
+
+# Docs
+# /docs/
+# .readthedocs.yml
+# *.md
+# *.rmd
+# *.rst
+# *.txt
+
+# PR CI and repository files
+/.github/ @assignUser @kou @raulcd
+.asf.yaml @assignUser @kou @raulcd
+.pre-commit-config.yaml @raulcd
+.travis.yml @assignUser @kou @raulcd
+appveyor.yml @assignUser @kou @raulcd
+# .git*
+
+# release scripts, archery etc.
+/ci/ @assignUser @kou @raulcd
+/dev/ @assignUser @kou @raulcd
+.dockerignore @raulcd
+.env @assignUser @kou @raulcd
+docker-compose.yml @assignUser @kou @raulcd
+
+# R specific packaging tooling
+/r/configure* @assignUser
+/r/Makefile @assignUser
+/r/PACKAGING.md @assignUser
+/r/tools/ @assignUser
+.Rbuildignore @assignUser

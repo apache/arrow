@@ -41,15 +41,18 @@ class ApacheArrowReleasePackageTask < PackageTask
       rm_rf(@archive_base_name)
       mkdir(@archive_base_name)
       keys_path = "#{@archive_base_name}/KEYS"
-      download("https://downloads.apache.org/arrow/KEYS",
+      download("https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/KEYS",
                keys_path)
       keys = File.read(keys_path)
       File.open(keys_path, "w") do |keys_file|
         is_ed25519_key = false
         deny_lists = [
-          # "rpmkeys --import" reports error for this key.
+          # "rpmkeys --import" reports error for these keys.
           # It seems that a subkey of this key may be related. (Is SHA1 bad?)
           "8CAAD602",
+          # https://github.com/apache/arrow/issues/15007
+          # It seems that a subkey of this key may be related.
+          "B90EB64A3AF15545EC8A7B8803F0D5EA3790810C",
         ]
         is_denyed_key = false
         keys.each_line do |line|
@@ -60,6 +63,12 @@ class ApacheArrowReleasePackageTask < PackageTask
           when /\Apub\s+[^\/]+\/([\h]+)\s/
             short_finger_print = $1
             if deny_lists.include?(short_finger_print)
+              is_denyed_key = true
+              next
+            end
+          when /\A\s+([\h]+)$/
+            long_finger_print = $1
+            if deny_lists.include?(long_finger_print)
               is_denyed_key = true
               next
             end

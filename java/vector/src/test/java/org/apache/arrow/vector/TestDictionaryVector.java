@@ -17,13 +17,9 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
-import static org.apache.arrow.vector.TestUtils.newVarCharVector;
+import static org.apache.arrow.vector.TestUtils.*;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -879,6 +875,171 @@ public class TestDictionaryVector {
       }
 
     }
+  }
+
+  @Test
+  public void testNoMemoryLeak() {
+    // test no memory leak when encode
+    try (final VarCharVector vector = newVarCharVector("foo", allocator);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator)) {
+
+      setVector(vector, zero, one, two);
+      setVector(dictionaryVector, zero, one);
+
+      Dictionary dictionary =
+              new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+
+      try (final ValueVector encoded = DictionaryEncoder.encode(vector, dictionary)) {
+        fail("There should be an exception when encoding");
+      } catch (Exception e) {
+        assertEquals("Dictionary encoding not defined for value:" + new Text(two), e.getMessage());
+      }
+    }
+    assertEquals("encode memory leak", 0, allocator.getAllocatedMemory());
+
+    // test no memory leak when decode
+    try (final IntVector indices = newVector(IntVector.class, "", Types.MinorType.INT, allocator);
+         final VarCharVector dictionaryVector = newVarCharVector("dict", allocator)) {
+
+      setVector(indices, 3);
+      setVector(dictionaryVector, zero, one);
+
+      Dictionary dictionary =
+              new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+
+      try (final ValueVector decoded = DictionaryEncoder.decode(indices, dictionary, allocator)) {
+        fail("There should be an exception when decoding");
+      } catch (Exception e) {
+        assertEquals("Provided dictionary does not contain value for index 3", e.getMessage());
+      }
+    }
+    assertEquals("decode memory leak", 0, allocator.getAllocatedMemory());
+  }
+
+  @Test
+  public void testListNoMemoryLeak() {
+    // Create a new value vector
+    try (final ListVector vector = ListVector.empty("vector", allocator);
+         final ListVector dictionaryVector = ListVector.empty("dict", allocator)) {
+
+      UnionListWriter writer = vector.getWriter();
+      writer.allocate();
+      writeListVector(writer, new int[]{10, 20});
+      writer.setValueCount(1);
+
+      UnionListWriter dictWriter = dictionaryVector.getWriter();
+      dictWriter.allocate();
+      writeListVector(dictWriter, new int[]{10});
+      dictionaryVector.setValueCount(1);
+
+      Dictionary dictionary = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+      ListSubfieldEncoder encoder = new ListSubfieldEncoder(dictionary, allocator);
+
+      try (final ListVector encoded = (ListVector) encoder.encodeListSubField(vector)) {
+        fail("There should be an exception when encoding");
+      } catch (Exception e) {
+        assertEquals("Dictionary encoding not defined for value:20", e.getMessage());
+      }
+    }
+    assertEquals("list encode memory leak", 0, allocator.getAllocatedMemory());
+
+    try (final ListVector indices = ListVector.empty("indices", allocator);
+         final ListVector dictionaryVector = ListVector.empty("dict", allocator)) {
+
+      UnionListWriter writer = indices.getWriter();
+      writer.allocate();
+      writeListVector(writer, new int[]{3});
+      writer.setValueCount(1);
+
+      UnionListWriter dictWriter = dictionaryVector.getWriter();
+      dictWriter.allocate();
+      writeListVector(dictWriter, new int[]{10, 20});
+      dictionaryVector.setValueCount(1);
+
+      Dictionary dictionary =
+              new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
+
+      try (final ValueVector decoded = ListSubfieldEncoder.decodeListSubField(indices, dictionary, allocator)) {
+        fail("There should be an exception when decoding");
+      } catch (Exception e) {
+        assertEquals("Provided dictionary does not contain value for index 3", e.getMessage());
+      }
+    }
+    assertEquals("list decode memory leak", 0, allocator.getAllocatedMemory());
+  }
+
+  @Test
+  public void testStructNoMemoryLeak() {
+    try (final StructVector vector = StructVector.empty("vector", allocator);
+         final VarCharVector dictVector1 = new VarCharVector("f0", allocator);
+         final VarCharVector dictVector2 = new VarCharVector("f1", allocator)) {
+
+      vector.addOrGet("f0", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
+      vector.addOrGet("f1", FieldType.nullable(ArrowType.Utf8.INSTANCE), VarCharVector.class);
+
+      NullableStructWriter writer = vector.getWriter();
+      writer.allocate();
+      writeStructVector(writer, "aa", "baz");
+      writer.setValueCount(1);
+
+      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+      setVector(dictVector1,
+              "aa".getBytes(StandardCharsets.UTF_8));
+      setVector(dictVector2,
+              "foo".getBytes(StandardCharsets.UTF_8));
+
+      provider.put(new Dictionary(dictVector1, new DictionaryEncoding(1L, false, null)));
+      provider.put(new Dictionary(dictVector2, new DictionaryEncoding(2L, false, null)));
+
+      StructSubfieldEncoder encoder = new StructSubfieldEncoder(allocator, provider);
+      Map<Integer, Long> columnToDictionaryId = new HashMap<>();
+      columnToDictionaryId.put(0, 1L);
+      columnToDictionaryId.put(1, 2L);
+
+      try (final StructVector encoded = (StructVector) encoder.encode(vector, columnToDictionaryId)) {
+        fail("There should be an exception when encoding");
+      } catch (Exception e) {
+        assertEquals("Dictionary encoding not defined for value:baz", e.getMessage());
+      }
+    }
+    assertEquals("struct encode memory leak", 0, allocator.getAllocatedMemory());
+
+    try (final StructVector indices = StructVector.empty("indices", allocator);
+         final VarCharVector dictVector1 = new VarCharVector("f0", allocator);
+         final VarCharVector dictVector2 = new VarCharVector("f1", allocator)) {
+
+      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+      setVector(dictVector1,
+              "aa".getBytes(StandardCharsets.UTF_8));
+      setVector(dictVector2,
+              "foo".getBytes(StandardCharsets.UTF_8));
+
+      provider.put(new Dictionary(dictVector1, new DictionaryEncoding(1L, false, null)));
+      provider.put(new Dictionary(dictVector2, new DictionaryEncoding(2L, false, null)));
+
+      ArrowType int32 = new ArrowType.Int(32, true);
+      indices.addOrGet("f0",
+              new FieldType(true, int32, provider.lookup(1L).getEncoding()),
+              IntVector.class);
+      indices.addOrGet("f1",
+              new FieldType(true, int32, provider.lookup(2L).getEncoding()),
+              IntVector.class);
+
+      NullableStructWriter writer = indices.getWriter();
+      writer.allocate();
+      writer.start();
+      writer.integer("f0").writeInt(1);
+      writer.integer("f1").writeInt(3);
+      writer.end();
+      writer.setValueCount(1);
+
+      try (final StructVector decode = StructSubfieldEncoder.decode(indices, provider, allocator)) {
+        fail("There should be an exception when decoding");
+      } catch (Exception e) {
+        assertEquals("Provided dictionary does not contain value for index 3", e.getMessage());
+      }
+    }
+    assertEquals("struct decode memory leak", 0, allocator.getAllocatedMemory());
   }
 
   private void testDictionary(Dictionary dictionary, ToIntBiFunction<ValueVector, Integer> valGetter) {

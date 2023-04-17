@@ -38,6 +38,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_type_inline.h"
 
@@ -51,6 +52,7 @@ namespace arrow {
 
 namespace flatbuf = org::apache::arrow::flatbuf;
 using internal::checked_cast;
+using internal::ToChars;
 
 namespace ipc {
 namespace internal {
@@ -384,9 +386,19 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type::Union:
       return UnionFromFlatbuffer(static_cast<const flatbuf::Union*>(type_data), children,
                                  out);
+    case flatbuf::Type::RunEndEncoded:
+      if (children.size() != 2) {
+        return Status::Invalid("RunEndEncoded must have exactly 2 child fields");
+      }
+      if (!is_run_end_type(children[0]->type()->id())) {
+        return Status::Invalid(
+            "RunEndEncoded run_ends field must be typed as: int16, int32, or int64");
+      }
+      *out =
+          std::make_shared<RunEndEncodedType>(children[0]->type(), children[1]->type());
+      return Status::OK();
     default:
-      return Status::Invalid("Unrecognized type:" +
-                             std::to_string(static_cast<int>(type)));
+      return Status::Invalid("Unrecognized type: " + ToChars(static_cast<int>(type)));
   }
 }
 
@@ -687,6 +699,13 @@ class FieldToFlatbufferVisitor {
     // pass through to the value type, as we've already captured the index
     // type in the DictionaryEncoding metadata in the parent field
     return VisitType(*checked_cast<const DictionaryType&>(type).value_type());
+  }
+
+  Status Visit(const RunEndEncodedType& type) {
+    fb_type_ = flatbuf::Type::RunEndEncoded;
+    RETURN_NOT_OK(VisitChildFields(type));
+    type_offset_ = flatbuf::CreateRunEndEncoded(fbb_).Union();
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {

@@ -101,7 +101,7 @@ TEST_F(TestRecordBatchBuilder, Basics) {
 
   Int32Builder ex_b0;
   StringBuilder ex_b1;
-  ListBuilder ex_b2(pool_, std::unique_ptr<Int8Builder>(new Int8Builder(pool_)));
+  ListBuilder ex_b2(pool_, std::make_unique<Int8Builder>(pool_));
 
   AppendData(&ex_b0, &ex_b1, &ex_b2);
   ASSERT_OK(ex_b0.Finish(&a0));

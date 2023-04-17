@@ -50,7 +50,7 @@ TEST_F(TestLruCache, TestEvict) {
   cache_.insert(TestCacheKey(3), "hello");
   // should have evicted key 1
   ASSERT_EQ(2, cache_.size());
-  ASSERT_EQ(cache_.get(TestCacheKey(1)), arrow::util::nullopt);
+  ASSERT_EQ(cache_.get(TestCacheKey(1)), std::nullopt);
 }
 
 TEST_F(TestLruCache, TestLruBehavior) {

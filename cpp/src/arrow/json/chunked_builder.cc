@@ -37,6 +37,13 @@ using internal::checked_cast;
 using internal::TaskGroup;
 
 namespace json {
+namespace {
+
+Status MakeChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
+                               MemoryPool* pool, const PromotionGraph* promotion_graph,
+                               const std::shared_ptr<DataType>& type,
+                               bool allow_promotion,
+                               std::shared_ptr<ChunkedArrayBuilder>* out);
 
 class NonNestedChunkedArrayBuilder : public ChunkedArrayBuilder {
  public:
@@ -404,7 +411,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
 
         std::shared_ptr<ChunkedArrayBuilder> child_builder;
         RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group_, pool_, promotion_graph_, type,
-                                              &child_builder));
+                                              /*allow_promotion=*/true, &child_builder));
         child_builders_.emplace_back(std::move(child_builder));
       }
 
@@ -432,14 +439,23 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
 Status MakeChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
                                MemoryPool* pool, const PromotionGraph* promotion_graph,
                                const std::shared_ptr<DataType>& type,
+                               bool allow_promotion,
                                std::shared_ptr<ChunkedArrayBuilder>* out) {
+  // If a promotion graph is provided, unexpected fields will be allowed - using the graph
+  // recursively for itself and any child fields (via the `allow_promotion` parameter).
+  // Fields provided in the schema will adhere to their corresponding type. However,
+  // structs defined in the schema may obtain unexpected child fields, which will use the
+  // promotion graph as well.
+  //
+  // If a promotion graph is not provided, unexpected fields are always ignored and
+  // type inference never occurs.
   if (type->id() == Type::STRUCT) {
     std::vector<std::pair<std::string, std::shared_ptr<ChunkedArrayBuilder>>>
         child_builders;
     for (const auto& f : type->fields()) {
       std::shared_ptr<ChunkedArrayBuilder> child_builder;
       RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group, pool, promotion_graph, f->type(),
-                                            &child_builder));
+                                            allow_promotion, &child_builder));
       child_builders.emplace_back(f->name(), std::move(child_builder));
     }
     *out = std::make_shared<ChunkedStructArrayBuilder>(task_group, pool, promotion_graph,
@@ -450,20 +466,36 @@ Status MakeChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
     const auto& list_type = checked_cast<const ListType&>(*type);
     std::shared_ptr<ChunkedArrayBuilder> value_builder;
     RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group, pool, promotion_graph,
-                                          list_type.value_type(), &value_builder));
+                                          list_type.value_type(), allow_promotion,
+                                          &value_builder));
     *out = std::make_shared<ChunkedListArrayBuilder>(
         task_group, pool, std::move(value_builder), list_type.value_field());
     return Status::OK();
   }
+
+  // Construct the "leaf" builder
   std::shared_ptr<Converter> converter;
   RETURN_NOT_OK(MakeConverter(type, pool, &converter));
-  if (promotion_graph) {
+  if (allow_promotion && promotion_graph) {
     *out = std::make_shared<InferringChunkedArrayBuilder>(task_group, promotion_graph,
                                                           std::move(converter));
   } else {
     *out = std::make_shared<TypedChunkedArrayBuilder>(task_group, std::move(converter));
   }
   return Status::OK();
+}
+
+}  // namespace
+
+// This overload is exposed to the user and will only be called once on instantiation to
+// canonicalize any explicitly-defined fields. Such fields won't be subject to
+// type inference/promotion
+Status MakeChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
+                               MemoryPool* pool, const PromotionGraph* promotion_graph,
+                               const std::shared_ptr<DataType>& type,
+                               std::shared_ptr<ChunkedArrayBuilder>* out) {
+  return MakeChunkedArrayBuilder(task_group, pool, promotion_graph, type,
+                                 /*allow_promotion=*/false, out);
 }
 
 }  // namespace json

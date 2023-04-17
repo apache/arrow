@@ -10,7 +10,7 @@ import * as flatbuffers from 'flatbuffers';
 export class TensorDim {
   bb: flatbuffers.ByteBuffer|null = null;
   bb_pos = 0;
-__init(i:number, bb:flatbuffers.ByteBuffer):TensorDim {
+  __init(i:number, bb:flatbuffers.ByteBuffer):TensorDim {
   this.bb_pos = i;
   this.bb = bb;
   return this;
@@ -28,9 +28,9 @@ static getSizePrefixedRootAsTensorDim(bb:flatbuffers.ByteBuffer, obj?:TensorDim)
 /**
  * Length of dimension
  */
-size():flatbuffers.Long {
+size():bigint {
   const offset = this.bb!.__offset(this.bb_pos, 4);
-  return offset ? this.bb!.readInt64(this.bb_pos + offset) : this.bb!.createLong(0, 0);
+  return offset ? this.bb!.readInt64(this.bb_pos + offset) : BigInt('0');
 }
 
 /**
@@ -47,8 +47,8 @@ static startTensorDim(builder:flatbuffers.Builder) {
   builder.startObject(2);
 }
 
-static addSize(builder:flatbuffers.Builder, size:flatbuffers.Long) {
-  builder.addFieldInt64(0, size, builder.createLong(0, 0));
+static addSize(builder:flatbuffers.Builder, size:bigint) {
+  builder.addFieldInt64(0, size, BigInt('0'));
 }
 
 static addName(builder:flatbuffers.Builder, nameOffset:flatbuffers.Offset) {
@@ -60,7 +60,7 @@ static endTensorDim(builder:flatbuffers.Builder):flatbuffers.Offset {
   return offset;
 }
 
-static createTensorDim(builder:flatbuffers.Builder, size:flatbuffers.Long, nameOffset:flatbuffers.Offset):flatbuffers.Offset {
+static createTensorDim(builder:flatbuffers.Builder, size:bigint, nameOffset:flatbuffers.Offset):flatbuffers.Offset {
   TensorDim.startTensorDim(builder);
   TensorDim.addSize(builder, size);
   TensorDim.addName(builder, nameOffset);

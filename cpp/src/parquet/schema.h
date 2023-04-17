@@ -189,8 +189,8 @@ class PARQUET_EXPORT Node {
 };
 
 // Save our breath all over the place with these typedefs
-typedef std::shared_ptr<Node> NodePtr;
-typedef std::vector<NodePtr> NodeVector;
+using NodePtr = std::shared_ptr<Node>;
+using NodeVector = std::vector<NodePtr>;
 
 // A type that is one of the primitive Parquet storage types. In addition to
 // the other type metadata (name, repetition level, logical type), also has the
@@ -216,8 +216,8 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
                              std::shared_ptr<const LogicalType> logical_type,
                              Type::type primitive_type, int primitive_length = -1,
                              int field_id = -1) {
-    return NodePtr(new PrimitiveNode(name, repetition, logical_type, primitive_type,
-                                     primitive_length, field_id));
+    return NodePtr(new PrimitiveNode(name, repetition, std::move(logical_type),
+                                     primitive_type, primitive_length, field_id));
   }
 
   bool Equals(const Node* other) const override;
@@ -285,7 +285,7 @@ class PARQUET_EXPORT GroupNode : public Node {
 
   bool Equals(const Node* other) const override;
 
-  NodePtr field(int i) const { return fields_[i]; }
+  const NodePtr& field(int i) const { return fields_[i]; }
   // Get the index of a field by its name, or negative value if not found.
   // If several fields share the same name, it is unspecified which one
   // is returned.
@@ -432,7 +432,7 @@ class PARQUET_EXPORT SchemaDescriptor {
   // Get the index of a column by its node, or negative value if not found.
   int ColumnIndex(const schema::Node& node) const;
 
-  bool Equals(const SchemaDescriptor& other) const;
+  bool Equals(const SchemaDescriptor& other, std::ostream* diff_output = NULLPTR) const;
 
   // The number of physical columns appearing in the file
   int num_columns() const { return static_cast<int>(leaves_.size()); }

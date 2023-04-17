@@ -11,6 +11,7 @@ write_csv_arrow(
   include_header = TRUE,
   col_names = NULL,
   batch_size = 1024L,
+  na = "",
   write_options = NULL,
   ...
 )
@@ -29,6 +30,9 @@ system (\code{SubTreeFileSystem})}
 \code{include_headers}, not both.}
 
 \item{batch_size}{Maximum number of rows processed at a time. Default is 1024.}
+
+\item{na}{value to write for NA values. Must not contain quote marks. Default
+is \code{""}.}
 
 \item{write_options}{see \link[=CsvWriteOptions]{file reader options}}
 

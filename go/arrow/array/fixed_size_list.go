@@ -22,10 +22,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	"github.com/apache/arrow/go/v9/arrow/internal/debug"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -46,6 +46,12 @@ func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
 
 func (a *FixedSizeList) ListValues() arrow.Array { return a.values }
 
+func (a *FixedSizeList) ValueStr(i int) string {
+	if !a.IsValid(i) {
+		return NullValueStr
+	}
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
+}
 func (a *FixedSizeList) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -112,7 +118,7 @@ func (a *FixedSizeList) Release() {
 	a.values.Release()
 }
 
-func (a *FixedSizeList) getOneForMarshal(i int) interface{} {
+func (a *FixedSizeList) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -169,6 +175,8 @@ func NewFixedSizeListBuilder(mem memory.Allocator, n int32, etype arrow.DataType
 	}
 }
 
+func (b *FixedSizeListBuilder) Type() arrow.DataType { return arrow.FixedSizeListOf(b.n, b.etype) }
+
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
 func (b *FixedSizeListBuilder) Release() {
@@ -194,6 +202,13 @@ func (b *FixedSizeListBuilder) Append(v bool) {
 func (b *FixedSizeListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
+}
+
+func (b *FixedSizeListBuilder) AppendEmptyValue() {
+	b.Append(true)
+	for i := int32(0); i < b.n; i++ {
+		b.values.AppendEmptyValue()
+	}
 }
 
 func (b *FixedSizeListBuilder) AppendValues(valid []bool) {
@@ -269,7 +284,13 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *FixedSizeListBuilder) unmarshalOne(dec *json.Decoder) error {
+
+func (b *FixedSizeListBuilder) AppendValueFromString(s string) error {
+	dec := json.NewDecoder(strings.NewReader(s))
+	return b.UnmarshalOne(dec)
+}
+
+func (b *FixedSizeListBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -278,7 +299,7 @@ func (b *FixedSizeListBuilder) unmarshalOne(dec *json.Decoder) error {
 	switch t {
 	case json.Delim('['):
 		b.Append(true)
-		if err := b.values.unmarshal(dec); err != nil {
+		if err := b.values.Unmarshal(dec); err != nil {
 			return err
 		}
 		// consume ']'
@@ -299,9 +320,9 @@ func (b *FixedSizeListBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *FixedSizeListBuilder) unmarshal(dec *json.Decoder) error {
+func (b *FixedSizeListBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -319,7 +340,7 @@ func (b *FixedSizeListBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("fixed size list builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

@@ -23,6 +23,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -34,7 +35,6 @@
 #include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 
@@ -112,7 +112,7 @@ UnionTypeFactories() {
 ARROW_TESTING_EXPORT Status GetTestResourceRoot(std::string*);
 
 // Return the value of the ARROW_TIMEZONE_DATABASE environment variable
-ARROW_TESTING_EXPORT util::optional<std::string> GetTestTimezoneDatabaseRoot();
+ARROW_TESTING_EXPORT std::optional<std::string> GetTestTimezoneDatabaseRoot();
 
 // Set the Timezone database based on the ARROW_TIMEZONE_DATABASE env variable
 // This is only relevant on Windows, since other OSs have compatible databases built-in

@@ -1811,6 +1811,39 @@ TEST_F(ScalarTemporalTest, TestTemporalDifferenceErrors) {
       CallFunction("weeks_between", {arr1, arr1}, &options));
 }
 
+TEST_F(ScalarTemporalTest, TestLocalTimestamp) {
+  const char* times_seconds_precision =
+      R"(["1970-01-01T00:00:59", "2000-02-29T23:23:23", "2033-05-18T03:33:20",
+          "2020-01-01T01:05:05", "2019-12-31T02:10:10", "2019-12-30T03:15:15",
+          "2009-12-31T04:20:20", "2010-01-01T05:25:25", "2010-01-03T06:30:30",
+          "2010-01-04T07:35:35", "2006-01-01T08:40:40", "2005-12-31T09:45:45",
+          "2008-12-28", "2008-12-29", "2012-01-01 01:02:03", null])";
+
+  const char* expected_local_kolkata =
+      R"(["1970-01-01 05:30:59", "2000-03-01 04:53:23", "2033-05-18 09:03:20",
+          "2020-01-01 06:35:05", "2019-12-31 07:40:10", "2019-12-30 08:45:15",
+          "2009-12-31 09:50:20", "2010-01-01 10:55:25", "2010-01-03 12:00:30",
+          "2010-01-04 13:05:35", "2006-01-01 14:10:40", "2005-12-31 15:15:45",
+          "2008-12-28 05:30:00", "2008-12-29 05:30:00", "2012-01-01 06:32:03", null])";
+  const char* expected_local_marquesas =
+      R"(["1969-12-31 14:30:59", "2000-02-29 13:53:23", "2033-05-17 18:03:20",
+          "2019-12-31 15:35:05", "2019-12-30 16:40:10", "2019-12-29 17:45:15",
+          "2009-12-30 18:50:20", "2009-12-31 19:55:25", "2010-01-02 21:00:30",
+          "2010-01-03 22:05:35", "2005-12-31 23:10:40", "2005-12-31 00:15:45",
+          "2008-12-27 14:30:00", "2008-12-28 14:30:00", "2011-12-31 15:32:03", null])";
+
+  for (auto u : TimeUnit::values()) {
+    CheckScalarUnary("local_timestamp", timestamp(u), times_seconds_precision,
+                     timestamp(u), times_seconds_precision);
+    CheckScalarUnary("local_timestamp", timestamp(u, "UTC"), times_seconds_precision,
+                     timestamp(u), times_seconds_precision);
+    CheckScalarUnary("local_timestamp", timestamp(u, "Asia/Kolkata"),
+                     times_seconds_precision, timestamp(u), expected_local_kolkata);
+    CheckScalarUnary("local_timestamp", timestamp(u, "Pacific/Marquesas"),
+                     times_seconds_precision, timestamp(u), expected_local_marquesas);
+  }
+}
+
 TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
   std::string timezone_utc = "UTC";
   std::string timezone_kolkata = "Asia/Kolkata";

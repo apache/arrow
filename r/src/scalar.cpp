@@ -58,18 +58,18 @@ std::shared_ptr<arrow::Scalar> StructScalar__GetFieldByName(
 }
 
 // [[arrow::export]]
-SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar) {
-  auto array = ValueOrStop(arrow::MakeArrayFromScalar(*scalar, 1, gc_memory_pool()));
-
-  // defined in array_to_vector.cpp
-  SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
-  return Array__as_vector(array);
-}
-
-// [[arrow::export]]
 std::shared_ptr<arrow::Array> MakeArrayFromScalar(
     const std::shared_ptr<arrow::Scalar>& scalar, int n) {
-  return ValueOrStop(arrow::MakeArrayFromScalar(*scalar, n, gc_memory_pool()));
+  if (scalar->type->id() == arrow::Type::EXTENSION) {
+    auto extension_scalar = std::dynamic_pointer_cast<arrow::ExtensionScalar>(scalar);
+    auto type = std::dynamic_pointer_cast<arrow::ExtensionType>(scalar->type);
+    auto storage_type = type->storage_type();
+    auto storage = ValueOrStop(
+        arrow::MakeArrayFromScalar(*extension_scalar->value, n, gc_memory_pool()));
+    return type->WrapArray(type, storage);
+  } else {
+    return ValueOrStop(arrow::MakeArrayFromScalar(*scalar, n, gc_memory_pool()));
+  }
 }
 
 // [[arrow::export]]
@@ -83,7 +83,7 @@ std::shared_ptr<arrow::DataType> Scalar__type(const std::shared_ptr<arrow::Scala
 // [[arrow::export]]
 bool Scalar__Equals(const std::shared_ptr<arrow::Scalar>& lhs,
                     const std::shared_ptr<arrow::Scalar>& rhs) {
-  return lhs->Equals(rhs);
+  return lhs->Equals(*rhs);
 }
 
 // [[arrow::export]]

@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -78,9 +79,11 @@ public class JniLoader {
   }
 
   private void load(String name) {
-    final String libraryToLoad = System.mapLibraryName(name);
+    final String libraryToLoad =
+        getNormalizedArch() + File.separator + System.mapLibraryName(name);
     try {
       File temp = File.createTempFile("jnilib-", ".tmp", new File(System.getProperty("java.io.tmpdir")));
+      temp.deleteOnExit();
       try (final InputStream is = JniWrapper.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
         if (is == null) {
           throw new FileNotFoundException(libraryToLoad);
@@ -91,5 +94,20 @@ public class JniLoader {
     } catch (IOException e) {
       throw new IllegalStateException("error loading native libraries: " + e);
     }
+  }
+
+  private String getNormalizedArch() {
+    String arch = System.getProperty("os.arch").toLowerCase(Locale.US);
+    switch (arch) {
+      case "amd64":
+        arch = "x86_64";
+        break;
+      case "aarch64":
+        arch = "aarch_64";
+        break;
+      default:
+        break;
+    }
+    return arch;
   }
 }

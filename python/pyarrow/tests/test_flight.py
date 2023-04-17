@@ -870,6 +870,79 @@ class LargeMetadataFlightServer(FlightServerBase):
         writer.write_metadata(self._metadata)
 
 
+def test_repr():
+    action_repr = "<pyarrow.flight.Action type='foo' body=(0 bytes)>"
+    action_type_repr = "ActionType(type='foo', description='bar')"
+    basic_auth_repr = "<pyarrow.flight.BasicAuth username=b'user' password=(redacted)>"
+    descriptor_repr = "<pyarrow.flight.FlightDescriptor cmd=b'foo'>"
+    endpoint_repr = ("<pyarrow.flight.FlightEndpoint "
+                     "ticket=<pyarrow.flight.Ticket ticket=b'foo'> "
+                     "locations=[]>")
+    info_repr = (
+        "<pyarrow.flight.FlightInfo "
+        "schema= "
+        "descriptor=<pyarrow.flight.FlightDescriptor path=[]> "
+        "endpoints=[] "
+        "total_records=-1 "
+        "total_bytes=-1>")
+    location_repr = "<pyarrow.flight.Location b'grpc+tcp://localhost:1234'>"
+    result_repr = "<pyarrow.flight.Result body=(3 bytes)>"
+    schema_result_repr = "<pyarrow.flight.SchemaResult schema=()>"
+    ticket_repr = "<pyarrow.flight.Ticket ticket=b'foo'>"
+
+    assert repr(flight.Action("foo", b"")) == action_repr
+    assert repr(flight.ActionType("foo", "bar")) == action_type_repr
+    assert repr(flight.BasicAuth("user", "pass")) == basic_auth_repr
+    assert repr(flight.FlightDescriptor.for_command("foo")) == descriptor_repr
+    assert repr(flight.FlightEndpoint(b"foo", [])) == endpoint_repr
+    info = flight.FlightInfo(
+        pa.schema([]), flight.FlightDescriptor.for_path(), [], -1, -1)
+    assert repr(info) == info_repr
+    assert repr(flight.Location("grpc+tcp://localhost:1234")) == location_repr
+    assert repr(flight.Result(b"foo")) == result_repr
+    assert repr(flight.SchemaResult(pa.schema([]))) == schema_result_repr
+    assert repr(flight.SchemaResult(pa.schema([("int", "int64")]))) == \
+        "<pyarrow.flight.SchemaResult schema=(int: int64)>"
+    assert repr(flight.Ticket(b"foo")) == ticket_repr
+
+    with pytest.raises(TypeError):
+        flight.Action("foo", None)
+
+
+def test_eq():
+    items = [
+        lambda: (flight.Action("foo", b""), flight.Action("foo", b"bar")),
+        lambda: (flight.ActionType("foo", "bar"),
+                 flight.ActionType("foo", "baz")),
+        lambda: (flight.BasicAuth("user", "pass"),
+                 flight.BasicAuth("user2", "pass")),
+        lambda: (flight.FlightDescriptor.for_command("foo"),
+                 flight.FlightDescriptor.for_path("foo")),
+        lambda: (flight.FlightEndpoint(b"foo", []),
+                 flight.FlightEndpoint(b"", [])),
+        lambda: (
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_path(), [], -1, -1),
+            flight.FlightInfo(
+                pa.schema([]),
+                flight.FlightDescriptor.for_command(b"foo"), [], -1, 42)),
+        lambda: (flight.Location("grpc+tcp://localhost:1234"),
+                 flight.Location("grpc+tls://localhost:1234")),
+        lambda: (flight.Result(b"foo"), flight.Result(b"bar")),
+        lambda: (flight.SchemaResult(pa.schema([])),
+                 flight.SchemaResult(pa.schema([("ints", pa.int64())]))),
+        lambda: (flight.Ticket(b""), flight.Ticket(b"foo")),
+    ]
+
+    for gen in items:
+        lhs1, rhs1 = gen()
+        lhs2, rhs2 = gen()
+        assert lhs1 == lhs2
+        assert rhs1 == rhs2
+        assert lhs1 != rhs1
+
+
 def test_flight_server_location_argument():
     locations = [
         None,
@@ -1043,6 +1116,11 @@ class ConvenienceServer(FlightServerBase):
             return ['foo']
         elif action.type == 'arrow-exception':
             raise pa.ArrowMemoryError()
+        elif action.type == 'forever':
+            def gen():
+                while not context.is_cancelled():
+                    yield b'foo'
+            return gen()
 
 
 def test_do_action_result_convenience():
@@ -1558,10 +1636,32 @@ def test_cancel_do_get_threaded():
             assert raised_proper_exception.is_set()
 
 
+def test_streaming_do_action():
+    with ConvenienceServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        results = client.do_action(flight.Action('forever', b''))
+        assert next(results).body == b'foo'
+        # Implicit cancel when destructed
+        del results
+
+
 def test_roundtrip_types():
     """Make sure serializable types round-trip."""
+    action = flight.Action("action1", b"action1-body")
+    assert action == flight.Action.deserialize(action.serialize())
+
     ticket = flight.Ticket("foo")
     assert ticket == flight.Ticket.deserialize(ticket.serialize())
+
+    result = flight.Result(b"result1")
+    assert result == flight.Result.deserialize(result.serialize())
+
+    basic_auth = flight.BasicAuth("username1", "password1")
+    assert basic_auth == flight.BasicAuth.deserialize(basic_auth.serialize())
+
+    schema_result = flight.SchemaResult(pa.schema([('a', pa.int32())]))
+    assert schema_result == flight.SchemaResult.deserialize(
+        schema_result.serialize())
 
     desc = flight.FlightDescriptor.for_command("test")
     assert desc == flight.FlightDescriptor.deserialize(desc.serialize())
@@ -1588,6 +1688,12 @@ def test_roundtrip_types():
     assert info.total_bytes == info2.total_bytes
     assert info.total_records == info2.total_records
     assert info.endpoints == info2.endpoints
+
+    endpoint = flight.FlightEndpoint(
+        ticket,
+        ['grpc://test', flight.Location.for_grpc_tcp('localhost', 5005)]
+    )
+    assert endpoint == flight.FlightEndpoint.deserialize(endpoint.serialize())
 
 
 def test_roundtrip_errors():
@@ -1939,7 +2045,7 @@ def test_generic_options():
         client = flight.connect(('localhost', s.port),
                                 tls_root_certs=certs["root_cert"],
                                 generic_options=options)
-        with pytest.raises(pa.ArrowInvalid):
+        with pytest.raises((pa.ArrowInvalid, flight.FlightCancelledError)):
             client.do_get(flight.Ticket(b'ints'))
         client.close()
 
@@ -2177,3 +2283,43 @@ def test_interpreter_shutdown():
     See https://issues.apache.org/jira/browse/ARROW-16597.
     """
     util.invoke_script("arrow_16597.py")
+
+
+class TracingFlightServer(FlightServerBase):
+    """A server that echoes back trace context values."""
+
+    def do_action(self, context, action):
+        trace_context = context.get_middleware("tracing").trace_context
+        # Don't turn this method into a generator since then
+        # trace_context will be evaluated after we've exited the scope
+        # of the OTel span (and so the value we want won't be present)
+        return ((f"{key}: {value}").encode("utf-8")
+                for (key, value) in trace_context.items())
+
+
+def test_tracing():
+    with TracingFlightServer(middleware={
+            "tracing": flight.TracingServerMiddlewareFactory(),
+    }) as server, \
+            FlightClient(('localhost', server.port)) as client:
+        # We can't tell if Arrow was built with OpenTelemetry support,
+        # so we can't count on any particular values being there; we
+        # can only ensure things don't blow up either way.
+        options = flight.FlightCallOptions(headers=[
+            # Pretend we have an OTel implementation
+            (b"traceparent", b"00-000ff00f00f0ff000f0f00ff0f00fff0-"
+                             b"000f0000f0f00000-00"),
+            (b"tracestate", b""),
+        ])
+        for value in client.do_action((b"", b""), options=options):
+            pass
+
+
+def test_do_put_does_not_crash_when_schema_is_none():
+    client = FlightClient('grpc+tls://localhost:9643',
+                          disable_server_verification=True)
+    msg = ("Argument 'schema' has incorrect type "
+           r"\(expected pyarrow.lib.Schema, got NoneType\)")
+    with pytest.raises(TypeError, match=msg):
+        client.do_put(flight.FlightDescriptor.for_command('foo'),
+                      schema=None)

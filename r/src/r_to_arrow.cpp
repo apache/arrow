@@ -16,7 +16,6 @@
 // under the License.
 
 #include "./arrow_types.h"
-#include "./arrow_vctrs.h"
 
 #include <arrow/array/builder_base.h>
 #include <arrow/array/builder_binary.h>
@@ -296,7 +295,7 @@ class AsArrowArrayConverter : public RConverter {
       arrays_.push_back(std::move(array));
       return Status::OK();
     } catch (cpp11::unwind_exception& e) {
-      return StatusUnwindProtect(e.token);
+      return StatusUnwindProtect(e.token, "calling as_arrow_array()");
     }
   }
 
@@ -728,9 +727,48 @@ class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
 template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
+  using ValueType = typename arrow::TypeTraits<T>::CType;
+
  public:
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
-    return Status::NotImplemented("Extend");
+    RETURN_NOT_OK(this->Reserve(size - offset));
+    int32_t precision = this->primitive_type_->precision();
+    int32_t scale = this->primitive_type_->scale();
+
+    auto append_value = [this, precision, scale](double value) {
+      ARROW_ASSIGN_OR_RAISE(ValueType converted,
+                            ValueType::FromReal(value, precision, scale));
+      this->primitive_builder_->UnsafeAppend(converted);
+      return Status::OK();
+    };
+
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+
+    switch (TYPEOF(x)) {
+      case REALSXP:
+        if (ALTREP(x)) {
+          return VisitVector(RVectorIterator_ALTREP<double>(x, offset), size, append_null,
+                             append_value);
+        } else {
+          return VisitVector(RVectorIterator<double>(x, offset), size, append_null,
+                             append_value);
+        }
+        break;
+      case INTSXP:
+        if (ALTREP(x)) {
+          return VisitVector(RVectorIterator_ALTREP<int>(x, offset), size, append_null,
+                             append_value);
+        } else {
+          return VisitVector(RVectorIterator<int>(x, offset), size, append_null,
+                             append_value);
+        }
+        break;
+      default:
+        return Status::NotImplemented("Conversion to decimal from non-integer/double");
+    }
   }
 };
 
@@ -743,7 +781,7 @@ Status check_binary(SEXP x, int64_t size) {
       // check this is a list of raw vectors
       const SEXP* p_x = VECTOR_PTR_RO(x);
       for (R_xlen_t i = 0; i < size; i++, ++p_x) {
-        if (TYPEOF(*p_x) != RAWSXP) {
+        if (TYPEOF(*p_x) != RAWSXP && (*p_x != R_NilValue)) {
           return Status::Invalid("invalid R type to convert to binary");
         }
       }
@@ -1038,7 +1076,7 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     auto append_value = [this](SEXP value) {
       // TODO: if we decide that this can be run concurrently
       //       we'll have to do vec_size() upfront
-      int n = vctrs::vec_size(value);
+      int n = arrow::r::vec_size(value);
 
       RETURN_NOT_OK(this->list_builder_->ValidateOverflow(n));
       RETURN_NOT_OK(this->list_builder_->Append());
@@ -1139,7 +1177,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
 
     for (R_xlen_t i = 0; i < n_columns; i++) {
       SEXP x_i = VECTOR_ELT(x, i);
-      if (vctrs::vec_size(x_i) < size) {
+      if (arrow::r::vec_size(x_i) < size) {
         return Status::RError("Degenerated data frame");
       }
     }
@@ -1263,7 +1301,7 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
   RConversionOptions options;
   options.strict = !type_inferred;
   options.type = type;
-  options.size = vctrs::vec_size(x);
+  options.size = arrow::r::vec_size(x);
 
   // If we can handle this in C++ we do so; otherwise we use the
   // AsArrowArrayConverter, which calls as_arrow_array().
@@ -1271,7 +1309,7 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
   if (can_convert_native(x) && type->id() != Type::EXTENSION) {
     // short circuit if `x` is an altrep vector that shells a chunked Array
     auto maybe = altrep::vec_to_arrow_altrep_bypass(x);
-    if (maybe.get()) {
+    if (maybe.get() && maybe->type()->Equals(type)) {
       return maybe;
     }
 
@@ -1460,13 +1498,13 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
     } else if (Rf_inherits(x, "Array")) {
       columns[j] = std::make_shared<arrow::ChunkedArray>(
           cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
-    } else if (arrow::r::altrep::is_arrow_altrep(x)) {
+    } else if (arrow::r::altrep::is_unmaterialized_arrow_altrep(x)) {
       columns[j] = arrow::r::altrep::vec_to_arrow_altrep_bypass(x);
     } else {
       arrow::r::RConversionOptions options;
       options.strict = !infer_schema;
       options.type = schema->field(j)->type();
-      options.size = vctrs::vec_size(x);
+      options.size = arrow::r::vec_size(x);
 
       // If we can handle this in C++  we do so; otherwise we use the
       // AsArrowArrayConverter, which calls as_arrow_array().

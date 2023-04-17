@@ -18,12 +18,11 @@
 package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.IntVector;
-
-import io.netty.util.internal.PlatformDependent;
 
 /**
  * Default sorter for variable-width vectors.
@@ -80,7 +79,7 @@ public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVect
           BitVectorHelper.setBit(dstValidityBuffer, dstIndex);
           int srcOffset = srcOffsetBuffer.getInt(srcIndex * BaseVariableWidthVector.OFFSET_WIDTH);
           int valueLength = srcOffsetBuffer.getInt((srcIndex + 1) * BaseVariableWidthVector.OFFSET_WIDTH) - srcOffset;
-          PlatformDependent.copyMemory(
+          MemoryUtil.UNSAFE.copyMemory(
                   srcValueBuffer.memoryAddress() + srcOffset,
                   dstValueBuffer.memoryAddress() + dstOffset,
                   valueLength);

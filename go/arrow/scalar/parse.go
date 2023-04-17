@@ -22,12 +22,15 @@ import (
 	"math/bits"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v9/arrow"
-	"github.com/apache/arrow/go/v9/arrow/array"
-	"github.com/apache/arrow/go/v9/arrow/float16"
-	"github.com/apache/arrow/go/v9/arrow/memory"
+	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/decimal128"
+	"github.com/apache/arrow/go/v12/arrow/decimal256"
+	"github.com/apache/arrow/go/v12/arrow/float16"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 type TypeToScalar interface {
@@ -375,8 +378,12 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 		switch dt.ID() {
 		case arrow.BINARY:
 			return NewBinaryScalar(buf, dt), nil
+		case arrow.LARGE_BINARY:
+			return NewLargeBinaryScalar(buf), nil
 		case arrow.STRING:
 			return NewStringScalarFromBuffer(buf), nil
+		case arrow.LARGE_STRING:
+			return NewLargeStringScalarFromBuffer(buf), nil
 		case arrow.FIXED_SIZE_BINARY:
 			if buf.Len() == dt.(*arrow.FixedSizeBinaryType).ByteWidth {
 				return NewFixedSizeBinaryScalar(buf, dt), nil
@@ -387,13 +394,99 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 		switch dt.ID() {
 		case arrow.BINARY:
 			return NewBinaryScalar(v, dt), nil
+		case arrow.LARGE_BINARY:
+			return NewLargeBinaryScalar(v), nil
 		case arrow.STRING:
 			return NewStringScalarFromBuffer(v), nil
+		case arrow.LARGE_STRING:
+			return NewLargeStringScalarFromBuffer(v), nil
 		case arrow.FIXED_SIZE_BINARY:
 			if v.Len() == dt.(*arrow.FixedSizeBinaryType).ByteWidth {
 				return NewFixedSizeBinaryScalar(v, dt), nil
 			}
 			return nil, fmt.Errorf("invalid scalar value of len %d for type %s", v.Len(), dt)
+		}
+	case string:
+		switch {
+		case arrow.IsBaseBinary(dt.ID()):
+			buf := memory.NewBufferBytes([]byte(v))
+			defer buf.Release()
+
+			switch dt.ID() {
+			case arrow.BINARY:
+				return NewBinaryScalar(buf, dt), nil
+			case arrow.LARGE_BINARY:
+				return NewLargeBinaryScalar(buf), nil
+			case arrow.STRING:
+				return NewStringScalar(v), nil
+			case arrow.LARGE_STRING:
+				return NewLargeStringScalar(v), nil
+			}
+		case arrow.IsInteger(dt.ID()):
+			bits := dt.(arrow.FixedWidthDataType).BitWidth()
+			if arrow.IsUnsignedInteger(dt.ID()) {
+				val, err := strconv.ParseUint(v, 0, bits)
+				if err != nil {
+					return nil, err
+				}
+				return MakeUnsignedIntegerScalar(val, bits)
+			}
+			val, err := strconv.ParseInt(v, 0, bits)
+			if err != nil {
+				return nil, err
+			}
+			return MakeIntegerScalar(val, bits)
+		case arrow.IsFixedSizeBinary(dt.ID()):
+			switch dt.ID() {
+			case arrow.FIXED_SIZE_BINARY:
+				ty := dt.(*arrow.FixedSizeBinaryType)
+				if len(v) != ty.ByteWidth {
+					return nil, fmt.Errorf("%w: invalid length for fixed size binary scalar", arrow.ErrInvalid)
+				}
+				return NewFixedSizeBinaryScalar(memory.NewBufferBytes([]byte(v)), ty), nil
+			case arrow.DECIMAL128:
+				ty := dt.(*arrow.Decimal128Type)
+				n, err := decimal128.FromString(v, ty.Precision, ty.Scale)
+				if err != nil {
+					return nil, err
+				}
+				return NewDecimal128Scalar(n, ty), nil
+			case arrow.DECIMAL256:
+				ty := dt.(*arrow.Decimal256Type)
+				n, err := decimal256.FromString(v, ty.Precision, ty.Scale)
+				if err != nil {
+					return nil, err
+				}
+				return NewDecimal256Scalar(n, ty), nil
+			}
+		case arrow.IsFloating(dt.ID()):
+			bits := dt.(arrow.FixedWidthDataType).BitWidth()
+			val, err := strconv.ParseFloat(v, bits)
+			if err != nil {
+				return nil, err
+			}
+			if bits == 32 {
+				return NewFloat32Scalar(float32(val)), nil
+			}
+			return NewFloat64Scalar(val), nil
+		case dt.ID() == arrow.TIMESTAMP:
+			ty := dt.(*arrow.TimestampType)
+			if ty.TimeZone == "" || strings.ToLower(ty.TimeZone) == "utc" {
+				ts, err := arrow.TimestampFromString(v, ty.Unit)
+				if err != nil {
+					return nil, err
+				}
+				return NewTimestampScalar(ts, dt), nil
+			}
+			loc, err := time.LoadLocation(ty.TimeZone)
+			if err != nil {
+				return nil, err
+			}
+			ts, _, err := arrow.TimestampFromStringInLocation(v, ty.Unit, loc)
+			if err != nil {
+				return nil, err
+			}
+			return NewTimestampScalar(ts, ty), nil
 		}
 	case arrow.Time32:
 		return NewTime32Scalar(v, dt), nil
@@ -408,6 +501,11 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 				return nil, fmt.Errorf("inconsistent type for list scalar array and data type")
 			}
 			return NewListScalar(v), nil
+		case arrow.LARGE_LIST:
+			if !arrow.TypeEqual(v.DataType(), dt.(*arrow.LargeListType).Elem()) {
+				return nil, fmt.Errorf("inconsistent type for large list scalar array and data type")
+			}
+			return NewLargeListScalar(v), nil
 		case arrow.FIXED_SIZE_LIST:
 			if !arrow.TypeEqual(v.DataType(), dt.(*arrow.FixedSizeListType).Elem()) {
 				return nil, fmt.Errorf("inconsistent type for list scalar array and data type")
@@ -419,6 +517,19 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 			}
 			return NewMapScalar(v), nil
 		}
+	case decimal128.Num:
+		if _, ok := dt.(*arrow.Decimal128Type); !ok {
+			return nil, fmt.Errorf("mismatch cannot create decimal128 scalar with incorrect data type")
+		}
+
+		return NewDecimal128Scalar(v, dt), nil
+	case decimal256.Num:
+		if _, ok := dt.(*arrow.Decimal256Type); !ok {
+			return nil, fmt.Errorf("mismatch cannot create decimal256 scalar with incorrect data type")
+		}
+
+		return NewDecimal256Scalar(v, dt), nil
+
 	}
 
 	if arrow.IsInteger(dt.ID()) {
@@ -646,6 +757,20 @@ func ParseScalar(dt arrow.DataType, val string) (Scalar, error) {
 		return NewTime64Scalar(tm, dt), nil
 	case arrow.DICTIONARY:
 		return ParseScalar(dt.(*arrow.DictionaryType).ValueType, val)
+	case arrow.DECIMAL128:
+		typ := dt.(*arrow.Decimal128Type)
+		n, err := decimal128.FromString(val, typ.Precision, typ.Scale)
+		if err != nil {
+			return nil, err
+		}
+		return NewDecimal128Scalar(n, typ), nil
+	case arrow.DECIMAL256:
+		typ := dt.(*arrow.Decimal256Type)
+		n, err := decimal256.FromString(val, typ.Precision, typ.Scale)
+		if err != nil {
+			return nil, err
+		}
+		return NewDecimal256Scalar(n, typ), nil
 	}
 
 	return nil, fmt.Errorf("parsing of scalar for type %s not implemented", dt)

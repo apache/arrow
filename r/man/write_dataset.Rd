@@ -38,8 +38,9 @@ use the current \code{group_by()} columns.}
 
 \item{basename_template}{string template for the names of files to be written.
 Must contain \code{"{i}"}, which will be replaced with an autoincremented
-integer to generate basenames of datafiles. For example, \code{"part-{i}.feather"}
-will yield \verb{"part-0.feather", ...}.}
+integer to generate basenames of datafiles. For example, \code{"part-{i}.arrow"}
+will yield \verb{"part-0.arrow", ...}.
+If not specified, it defaults to \code{"part-{i}.<default extension>"}.}
 
 \item{hive_style}{logical: write partition segments as Hive-style
 (\code{key1=value1/key2=value2/file.ext}) or as just bare values. Default is \code{TRUE}.}

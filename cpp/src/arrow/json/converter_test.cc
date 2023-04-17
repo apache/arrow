@@ -17,6 +17,7 @@
 
 #include "arrow/json/converter.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <string>
@@ -190,9 +191,14 @@ TEST(ConverterTest, Decimal128And256) {
     options.explicit_schema = schema({field("", decimal_type)});
 
     std::string json_source = R"(
-    {"" : "02.0000000000"}
-    {"" : "30.0000000000"}
-  )";
+      {"" : "02.0000000000"}
+      {"" : "30.0000000000"}
+      {"" : "30.0123456789"}
+      {"" : "30.012345678900"}
+      {"" : "30.0123"}
+      {"" : "0.012345678"}
+      {"" : "1234567890123456789012345678.0123456789"}
+    )";
 
     std::shared_ptr<StructArray> parse_array;
     ASSERT_OK(ParseFromString(options, json_source, &parse_array));
@@ -204,9 +210,56 @@ TEST(ConverterTest, Decimal128And256) {
     // assert equality
     auto expected = ArrayFromJSON(decimal_type, R"([
           "02.0000000000",
-          "30.0000000000"])");
+          "30.0000000000",
+          "30.0123456789",
+          "30.0123456789",
+          "30.0123000000",
+          "0.0123456780",
+          "1234567890123456789012345678.0123456789"
+    ])");
 
     AssertArraysEqual(*expected, *converted);
+  }
+}
+
+TEST(ConverterTest, Decimal128And256ScaleError) {
+  for (auto decimal_type : {decimal128(38, 10), decimal256(38, 10)}) {
+    ParseOptions options;
+    options.explicit_schema = schema({field("", decimal_type)});
+
+    std::string json_source = R"(
+      {"" : "30.0123456789001"}
+    )";
+
+    std::shared_ptr<StructArray> parse_array;
+    ASSERT_OK(ParseFromString(options, json_source, &parse_array));
+
+    std::string error_msg = "Failed to convert JSON to " + decimal_type->ToString() +
+                            ": 30.0123456789001 requires scale 13";
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr(error_msg),
+        Convert(decimal_type, parse_array->GetFieldByName("")));
+  }
+}
+
+TEST(ConverterTest, Decimal128And256PrecisionError) {
+  for (auto decimal_type : {decimal128(38, 10), decimal256(38, 10)}) {
+    ParseOptions options;
+    options.explicit_schema = schema({field("", decimal_type)});
+
+    std::string json_source = R"(
+      {"" : "123456789012345678901234567890.0123456789"}
+    )";
+
+    std::shared_ptr<StructArray> parse_array;
+    ASSERT_OK(ParseFromString(options, json_source, &parse_array));
+
+    std::string error_msg =
+        "Invalid: Failed to convert JSON to " + decimal_type->ToString() +
+        ": 123456789012345678901234567890.0123456789 requires precision 40";
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr(error_msg),
+        Convert(decimal_type, parse_array->GetFieldByName("")));
   }
 }
 

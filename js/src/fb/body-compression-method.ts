@@ -5,7 +5,7 @@
  * strategies for compressing the IPC message body (like whole-body
  * compression rather than buffer-level) in the future
  */
-export enum BodyCompressionMethod{
+export enum BodyCompressionMethod {
   /**
    * Each constituent buffer is first compressed with the indicated
    * compressor, and then written with the uncompressed length in the first 8
@@ -17,4 +17,3 @@ export enum BodyCompressionMethod{
    */
   BUFFER = 0
 }
-

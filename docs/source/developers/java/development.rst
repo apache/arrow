@@ -81,6 +81,15 @@ UI Benchmark:
 
 .. image:: img/conbench_benchmark.png
 
+Integration Testing
+===================
+
+Integration tests can be run via Archery:
+
+.. code-block::
+
+    $ archery integration --with-java true --with-cpp false --with-js false --with-csharp false --with-go false --with-rust false
+
 Code Style
 ==========
 
@@ -93,6 +102,6 @@ This checks the code style of all source code under the current directory or fro
     $ mvn checkstyle:check
 
 .. _benchmark: https://github.com/ursacomputing/benchmarks
-.. _archery: https://github.com/apache/arrow/blob/master/dev/conbench_envs/README.md#L188
+.. _archery: https://github.com/apache/arrow/blob/main/dev/conbench_envs/README.md#L188
 .. _conbench: https://github.com/conbench/conbench
-.. _checkstyle: https://github.com/apache/arrow/blob/master/java/dev/checkstyle/checkstyle.xml
+.. _checkstyle: https://github.com/apache/arrow/blob/main/java/dev/checkstyle/checkstyle.xml

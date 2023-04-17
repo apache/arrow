@@ -25,6 +25,7 @@
 #include <memory>
 #include <numeric>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/array/array_base.h"
@@ -36,7 +37,6 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -49,13 +49,18 @@ namespace arrow {
 // Binary and String
 
 template <typename TYPE>
-class BaseBinaryBuilder : public ArrayBuilder {
+class BaseBinaryBuilder
+    : public ArrayBuilder,
+      public internal::ArrayBuilderExtraOps<BaseBinaryBuilder<TYPE>, std::string_view> {
  public:
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
 
-  explicit BaseBinaryBuilder(MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool), offsets_builder_(pool), value_data_builder_(pool) {}
+  explicit BaseBinaryBuilder(MemoryPool* pool = default_memory_pool(),
+                             int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool, alignment),
+        offsets_builder_(pool, alignment),
+        value_data_builder_(pool, alignment) {}
 
   BaseBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : BaseBinaryBuilder(pool) {}
@@ -77,7 +82,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return Append(reinterpret_cast<const uint8_t*>(value), length);
   }
 
-  Status Append(util::string_view value) {
+  Status Append(std::string_view value) {
     return Append(value.data(), static_cast<offset_type>(value.size()));
   }
 
@@ -93,7 +98,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status ExtendCurrent(util::string_view value) {
+  Status ExtendCurrent(std::string_view value) {
     return ExtendCurrent(reinterpret_cast<const uint8_t*>(value.data()),
                          static_cast<offset_type>(value.size()));
   }
@@ -150,7 +155,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
     UnsafeAppend(value.c_str(), static_cast<offset_type>(value.size()));
   }
 
-  void UnsafeAppend(util::string_view value) {
+  void UnsafeAppend(std::string_view value) {
     UnsafeAppend(value.data(), static_cast<offset_type>(value.size()));
   }
 
@@ -159,7 +164,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
     value_data_builder_.UnsafeAppend(value, length);
   }
 
-  void UnsafeExtendCurrent(util::string_view value) {
+  void UnsafeExtendCurrent(std::string_view value) {
     UnsafeExtendCurrent(reinterpret_cast<const uint8_t*>(value.data()),
                         static_cast<offset_type>(value.size()));
   }
@@ -370,10 +375,10 @@ class BaseBinaryBuilder : public ArrayBuilder {
   /// Temporary access to a value.
   ///
   /// This view becomes invalid on the next modifying operation.
-  util::string_view GetView(int64_t i) const {
+  std::string_view GetView(int64_t i) const {
     offset_type value_length;
     const uint8_t* value_data = GetValue(i, &value_length);
-    return util::string_view(reinterpret_cast<const char*>(value_data), value_length);
+    return std::string_view(reinterpret_cast<const char*>(value_data), value_length);
   }
 
   // Cannot make this a static attribute because of linking issues
@@ -464,7 +469,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   using TypeClass = FixedSizeBinaryType;
 
   explicit FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
-                                  MemoryPool* pool = default_memory_pool());
+                                  MemoryPool* pool = default_memory_pool(),
+                                  int64_t alignment = kDefaultBufferAlignment);
 
   Status Append(const uint8_t* value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -476,7 +482,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     return Append(reinterpret_cast<const uint8_t*>(value));
   }
 
-  Status Append(const util::string_view& view) {
+  Status Append(std::string_view view) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppend(view);
     return Status::OK();
@@ -490,7 +496,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   Status Append(const Buffer& s) {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeAppend(util::string_view(s));
+    UnsafeAppend(std::string_view(s));
     return Status::OK();
   }
 
@@ -500,7 +506,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   Status Append(const std::array<uint8_t, NBYTES>& value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppend(
-        util::string_view(reinterpret_cast<const char*>(value.data()), value.size()));
+        std::string_view(reinterpret_cast<const char*>(value.data()), value.size()));
     return Status::OK();
   }
 
@@ -534,14 +540,14 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     UnsafeAppend(reinterpret_cast<const uint8_t*>(value));
   }
 
-  void UnsafeAppend(util::string_view value) {
+  void UnsafeAppend(std::string_view value) {
 #ifndef NDEBUG
     CheckValueSize(static_cast<size_t>(value.size()));
 #endif
     UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()));
   }
 
-  void UnsafeAppend(const Buffer& s) { UnsafeAppend(util::string_view(s)); }
+  void UnsafeAppend(const Buffer& s) { UnsafeAppend(std::string_view(s)); }
 
   void UnsafeAppend(const std::shared_ptr<Buffer>& s) { UnsafeAppend(*s); }
 
@@ -590,7 +596,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   /// Temporary access to a value.
   ///
   /// This view becomes invalid on the next modifying operation.
-  util::string_view GetView(int64_t i) const;
+  std::string_view GetView(int64_t i) const;
 
   static constexpr int64_t memory_limit() {
     return std::numeric_limits<int64_t>::max() - 1;
@@ -658,7 +664,7 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
     return builder_->Append(value, length);
   }
 
-  Status Append(const util::string_view& value) {
+  Status Append(std::string_view value) {
     return Append(reinterpret_cast<const uint8_t*>(value.data()),
                   static_cast<int32_t>(value.size()));
   }

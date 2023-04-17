@@ -161,31 +161,54 @@ register_bindings_string_join <- function() {
     }
   }
 
-  register_binding("base::paste", function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
-    assert_that(
-      is.null(collapse),
-      msg = "paste() with the collapse argument is not yet supported in Arrow"
-    )
-    if (!inherits(sep, "Expression")) {
-      assert_that(!is.na(sep), msg = "Invalid separator")
-    }
-    arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., sep)
+  register_binding(
+    "base::paste",
+    function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
+      assert_that(
+        is.null(collapse),
+        msg = "paste() with the collapse argument is not yet supported in Arrow"
+      )
+      if (!inherits(sep, "Expression")) {
+        assert_that(!is.na(sep), msg = "Invalid separator")
+      }
+      arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., sep)
+    },
+    notes = "the `collapse` argument is not yet supported"
+  )
+
+  register_binding(
+    "base::paste0",
+    function(..., collapse = NULL, recycle0 = FALSE) {
+      assert_that(
+        is.null(collapse),
+        msg = "paste0() with the collapse argument is not yet supported in Arrow"
+      )
+      arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., "")
+    },
+    notes = "the `collapse` argument is not yet supported"
+  )
+
+  register_binding(
+    "stringr::str_c",
+    function(..., sep = "", collapse = NULL) {
+      assert_that(
+        is.null(collapse),
+        msg = "str_c() with the collapse argument is not yet supported in Arrow"
+      )
+      if (!inherits(sep, "Expression")) {
+        assert_that(!is.na(sep), msg = "`sep` must be a single string, not `NA`.")
+      }
+      arrow_string_join_function(NullHandlingBehavior$EMIT_NULL)(..., sep)
+    },
+    notes = "the `collapse` argument is not yet supported"
+  )
+
+  register_binding("base::strrep", function(x, times) {
+    Expression$create("binary_repeat", x, times)
   })
 
-  register_binding("base::paste0", function(..., collapse = NULL, recycle0 = FALSE) {
-    assert_that(
-      is.null(collapse),
-      msg = "paste0() with the collapse argument is not yet supported in Arrow"
-    )
-    arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., "")
-  })
-
-  register_binding("stringr::str_c", function(..., sep = "", collapse = NULL) {
-    assert_that(
-      is.null(collapse),
-      msg = "str_c() with the collapse argument is not yet supported in Arrow"
-    )
-    arrow_string_join_function(NullHandlingBehavior$EMIT_NULL)(..., sep)
+  register_binding("stringr::str_dup", function(string, times) {
+    Expression$create("binary_repeat", string, times)
   })
 }
 
@@ -227,28 +250,33 @@ register_bindings_string_regex <- function() {
     out
   })
 
-  register_binding("stringr::str_like", function(string,
-                                                 pattern,
-                                                 ignore_case = TRUE) {
-    Expression$create(
-      "match_like",
-      string,
-      options = list(pattern = pattern, ignore_case = ignore_case)
-    )
-  })
-
-  register_binding("stringr::str_count", function(string, pattern) {
-    opts <- get_stringr_pattern_options(enexpr(pattern))
-    if (!is.string(pattern)) {
-      arrow_not_supported("`pattern` must be a length 1 character vector; other values")
+  register_binding(
+    "stringr::str_like",
+    function(string, pattern, ignore_case = TRUE) {
+      Expression$create(
+        "match_like",
+        string,
+        options = list(pattern = pattern, ignore_case = ignore_case)
+      )
     }
-    arrow_fun <- ifelse(opts$fixed, "count_substring", "count_substring_regex")
-    Expression$create(
-      arrow_fun,
-      string,
-      options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
-    )
-  })
+  )
+
+  register_binding(
+    "stringr::str_count",
+    function(string, pattern) {
+      opts <- get_stringr_pattern_options(enexpr(pattern))
+      if (!is.string(pattern)) {
+        arrow_not_supported("`pattern` must be a length 1 character vector; other values")
+      }
+      arrow_fun <- ifelse(opts$fixed, "count_substring", "count_substring_regex")
+      Expression$create(
+        arrow_fun,
+        string,
+        options = list(pattern = opts$pattern, ignore_case = opts$ignore_case)
+      )
+    },
+    notes = "`pattern` must be a length 1 character vector"
+  )
 
   register_binding("base::startsWith", function(x, prefix) {
     Expression$create(
@@ -331,13 +359,29 @@ register_bindings_string_regex <- function() {
     }
   }
 
+  arrow_stringr_string_remove_function <- function(max_replacements) {
+    force(max_replacements)
+    function(string, pattern) {
+      opts <- get_stringr_pattern_options(enexpr(pattern))
+      arrow_r_string_replace_function(max_replacements)(
+        pattern = opts$pattern,
+        replacement = "",
+        x = string,
+        ignore.case = opts$ignore_case,
+        fixed = opts$fixed
+      )
+    }
+  }
+
   register_binding("base::sub", arrow_r_string_replace_function(1L))
   register_binding("base::gsub", arrow_r_string_replace_function(-1L))
   register_binding("stringr::str_replace", arrow_stringr_string_replace_function(1L))
   register_binding("stringr::str_replace_all", arrow_stringr_string_replace_function(-1L))
+  register_binding("stringr::str_remove", arrow_stringr_string_remove_function(1L))
+  register_binding("stringr::str_remove_all", arrow_stringr_string_remove_function(-1L))
 
   register_binding("base::strsplit", function(x, split, fixed = FALSE, perl = FALSE,
-                                        useBytes = FALSE) {
+                                              useBytes = FALSE) {
     assert_that(is.string(split))
 
     arrow_fun <- ifelse(fixed, "split_pattern", "split_pattern_regex")
@@ -355,58 +399,66 @@ register_bindings_string_regex <- function() {
     )
   })
 
-  register_binding("stringr::str_split", function(string,
-                                                  pattern,
-                                                  n = Inf,
-                                                  simplify = FALSE) {
-    opts <- get_stringr_pattern_options(enexpr(pattern))
-    arrow_fun <- ifelse(opts$fixed, "split_pattern", "split_pattern_regex")
-    if (opts$ignore_case) {
-      arrow_not_supported("Case-insensitive string splitting")
-    }
-    if (n == 0) {
-      arrow_not_supported("Splitting strings into zero parts")
-    }
-    if (identical(n, Inf)) {
-      n <- 0L
-    }
-    if (simplify) {
-      warning("Argument 'simplify = TRUE' will be ignored", call. = FALSE)
-    }
-    # The max_splits option in the Arrow C++ library controls the maximum number
-    # of places at which the string is split, whereas the argument n to
-    # str_split() controls the maximum number of pieces to return. So we must
-    # subtract 1 from n to get max_splits.
-    Expression$create(
-      arrow_fun,
-      string,
-      options = list(
-        pattern = opts$pattern,
-        reverse = FALSE,
-        max_splits = n - 1L
+  register_binding(
+    "stringr::str_split",
+    function(string,
+             pattern,
+             n = Inf,
+             simplify = FALSE) {
+      opts <- get_stringr_pattern_options(enexpr(pattern))
+      arrow_fun <- ifelse(opts$fixed, "split_pattern", "split_pattern_regex")
+      if (opts$ignore_case) {
+        arrow_not_supported("Case-insensitive string splitting")
+      }
+      if (n == 0) {
+        arrow_not_supported("Splitting strings into zero parts")
+      }
+      if (identical(n, Inf)) {
+        n <- 0L
+      }
+      if (simplify) {
+        warning("Argument 'simplify = TRUE' will be ignored", call. = FALSE)
+      }
+      # The max_splits option in the Arrow C++ library controls the maximum number
+      # of places at which the string is split, whereas the argument n to
+      # str_split() controls the maximum number of pieces to return. So we must
+      # subtract 1 from n to get max_splits.
+      Expression$create(
+        arrow_fun,
+        string,
+        options = list(
+          pattern = opts$pattern,
+          reverse = FALSE,
+          max_splits = n - 1L
+        )
       )
-    )
-  })
+    },
+    notes = "Case-insensitive string splitting and splitting into 0 parts not supported"
+  )
 }
 
 register_bindings_string_other <- function() {
-  register_binding("base::nchar", function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
-    if (allowNA) {
-      arrow_not_supported("allowNA = TRUE")
-    }
-    if (is.na(keepNA)) {
-      keepNA <- !identical(type, "width")
-    }
-    if (!keepNA) {
-      # TODO: I think there is a fill_null kernel we could use, set null to 2
-      arrow_not_supported("keepNA = TRUE")
-    }
-    if (identical(type, "bytes")) {
-      Expression$create("binary_length", x)
-    } else {
-      Expression$create("utf8_length", x)
-    }
-  })
+  register_binding(
+    "base::nchar",
+    function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
+      if (allowNA) {
+        arrow_not_supported("allowNA = TRUE")
+      }
+      if (is.na(keepNA)) {
+        keepNA <- !identical(type, "width")
+      }
+      if (!keepNA) {
+        # TODO: I think there is a fill_null kernel we could use, set null to 2
+        arrow_not_supported("keepNA = TRUE")
+      }
+      if (identical(type, "bytes")) {
+        Expression$create("binary_length", x)
+      } else {
+        Expression$create("utf8_length", x)
+      }
+    },
+    notes = "`allowNA = TRUE` and `keepNA = TRUE` not supported"
+  )
 
   register_binding("stringr::str_to_lower", function(string, locale = "en") {
     stop_if_locale_provided(locale)
@@ -433,37 +485,52 @@ register_bindings_string_other <- function() {
     Expression$create(trim_fun, string)
   })
 
-  register_binding("base::substr", function(x, start, stop) {
-    assert_that(
-      length(start) == 1,
-      msg = "`start` must be length 1 - other lengths are not supported in Arrow"
-    )
-    assert_that(
-      length(stop) == 1,
-      msg = "`stop` must be length 1 - other lengths are not supported in Arrow"
-    )
+  register_binding(
+    "base::substr",
+    function(x, start, stop) {
+      assert_that(
+        length(start) == 1,
+        msg = "`start` must be length 1 - other lengths are not supported in Arrow"
+      )
+      assert_that(
+        length(stop) == 1,
+        msg = "`stop` must be length 1 - other lengths are not supported in Arrow"
+      )
 
-    # substr treats values as if they're on a continous number line, so values
-    # 0 are effectively blank characters - set `start` to 1 here so Arrow mimics
-    # this behavior
-    if (start <= 0) {
-      start <- 1
-    }
+      # substr treats values as if they're on a continous number line, so values
+      # 0 are effectively blank characters - set `start` to 1 here so Arrow mimics
+      # this behavior
+      if (start <= 0) {
+        start <- 1
+      }
 
-    # if `stop` is lower than `start`, this is invalid, so set `stop` to
-    # 0 so that an empty string will be returned (consistent with base::substr())
-    if (stop < start) {
-      stop <- 0
-    }
+      # if `stop` is lower than `start`, this is invalid, so set `stop` to
+      # 0 so that an empty string will be returned (consistent with base::substr())
+      if (stop < start) {
+        stop <- 0
+      }
 
-    Expression$create(
-      "utf8_slice_codeunits",
-      x,
-      # we don't need to subtract 1 from `stop` as C++ counts exclusively
-      # which effectively cancels out the difference in indexing between R & C++
-      options = list(start = start - 1L, stop = stop)
-    )
-  })
+      # if the input is a string we use "utf8_slice_codeunits"; if the
+      # input is binary we use "binary_slice". This does not consider
+      # a binary Scalar.
+      x_is_binary <- inherits(x, "ArrowObject") &&
+        x$type_id() %in% c(Type$BINARY, Type$LARGE_BINARY, Type$FIXED_SIZE_BINARY)
+      if (x_is_binary) {
+        fun <- "binary_slice"
+      } else {
+        fun <- "utf8_slice_codeunits"
+      }
+
+      Expression$create(
+        fun,
+        x,
+        # we don't need to subtract 1 from `stop` as C++ counts exclusively
+        # which effectively cancels out the difference in indexing between R & C++
+        options = list(start = start - 1L, stop = stop)
+      )
+    },
+    notes = "`start` and `stop` must be length 1"
+  )
 
   register_binding("base::substring", function(text, first, last) {
     call_binding("substr", x = text, start = first, stop = last)
@@ -503,7 +570,9 @@ register_bindings_string_other <- function() {
       string,
       options = list(start = start, stop = end)
     )
-  })
+  },
+  notes = "`start` and `end` must be length 1"
+  )
 
 
   register_binding("stringr::str_pad", function(string,

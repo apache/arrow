@@ -13,16 +13,19 @@ read_json_arrow(
 )
 }
 \arguments{
-\item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
-or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
+\item{file}{A character file name or URI, literal data (either a single string or a \link{raw} vector),
+an Arrow input stream, or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
+
 If a file name, a memory-mapped Arrow \link{InputStream} will be opened and
 closed when finished; compression will be detected from the file extension
 and handled automatically. If an input stream is provided, it will be left
-open.}
+open.
+
+To be recognised as literal data, the input must be wrapped with \code{I()}.}
 
 \item{col_select}{A character vector of column names to keep, as in the
 "select" argument to \code{data.table::fread()}, or a
-\link[tidyselect:vars_select]{tidy selection specification}
+\link[tidyselect:eval_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
@@ -41,7 +44,20 @@ data frame or Arrow Table.
 }
 \details{
 If passed a path, will detect and handle compression from the file extension
-(e.g. \code{.json.gz}). Accepts explicit or implicit nulls.
+(e.g. \code{.json.gz}).
+
+If \code{schema} is not provided, Arrow data types are inferred from the data:
+\itemize{
+\item JSON null values convert to the \code{\link[=null]{null()}} type, but can fall back to any other type.
+\item JSON booleans convert to \code{\link[=boolean]{boolean()}}.
+\item JSON numbers convert to \code{\link[=int64]{int64()}}, falling back to \code{\link[=float64]{float64()}} if a non-integer is encountered.
+\item JSON strings of the kind "YYYY-MM-DD" and "YYYY-MM-DD hh:mm:ss" convert to \code{\link[=timestamp]{timestamp(unit = "s")}},
+falling back to \code{\link[=utf8]{utf8()}} if a conversion error occurs.
+\item JSON arrays convert to a \code{\link[=list_of]{list_of()}} type, and inference proceeds recursively on the JSON arrays' values.
+\item Nested JSON objects convert to a \code{\link[=struct]{struct()}} type, and inference proceeds recursively on the JSON objects' values.
+}
+
+When \code{as_data_frame = TRUE}, Arrow types are further converted to R types.
 }
 \examples{
 \dontshow{if (arrow_with_json()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
@@ -52,6 +68,10 @@ writeLines('
     { "hello": 3.25, "world": null }
     { "hello": 0.0, "world": true, "yo": null }
   ', tf, useBytes = TRUE)
-df <- read_json_arrow(tf)
+
+read_json_arrow(tf)
+
+# Read directly from strings with `I()`
+read_json_arrow(I(c('{"x": 1, "y": 2}', '{"x": 3, "y": 4}')))
 \dontshow{\}) # examplesIf}
 }

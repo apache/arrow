@@ -1,41 +1,57 @@
 ---
-title: "Arrow R Developer Guide"
+title: "Introduction for developers"
+description: >
+  Learn how to contribute to the arrow package
 output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{Arrow R Developer Guide}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
 ---
 
-If you're interested in contributing to arrow, this vignette explains our approach, 
-at a high-level.  If you're looking for more detailed content, you may want to 
-look at one of the following links:
 
-* [in-depth guide to contributing to Arrow, including step-by-step examples](https://arrow.apache.org/docs/developers/guide/index.html)
-* [setting up a development environment and building the components that make up the Arrow project and R package](https://arrow.apache.org/docs/r/articles/developers/setup.html)
-* [common Arrow dev workflow tasks](https://arrow.apache.org/docs/r/articles/developers/workflow.html)
-* [running R with the C++ debugger attached](https://arrow.apache.org/docs/r/articles/developers/debugging.html)
-* [in-depth guide to how the package installation works](https://arrow.apache.org/docs/r/articles/developers/install_details.html)
-* [using Docker to diagnose a bug or test a feature on a specific OS](https://arrow.apache.org/docs/r/articles/developers/docker.html)
-* [writing bindings between R functions and Arrow Acero functions](https://arrow.apache.org/docs/r/articles/developers/bindings.html)
+If you're interested in contributing to arrow, this article explains our approach at a high-level. At the end of the article there we have included links to articles that expand on this in various ways.
 
-# Approach to implementing functionality
+## Package structure and conventions 
 
-Our general philosophy when implementing functionality is to match to existing 
-R function signatures which may be familiar to users, whilst exposing any 
-additional functionality available via Arrow.  The intention is to allow users 
-to be able to use their existing code with minimal changes, or new code or 
-approaches to learn.
+It helps to first outline the structure of the package. 
+
+C++ is an object-oriented language, so the core logic of the Arrow C++ library is encapsulated in classes and methods. In the arrow R package, these classes are implemented as [R6](https://r6.r-lib.org) classes, most of which are exported from the namespace.
+
+In order to match the C++ naming conventions, the R6 classes are named in "TitleCase", e.g. `RecordBatch`. This makes it easy to look up the relevant C++ implementations in the [code](https://github.com/apache/arrow/tree/main/cpp) or [documentation](https://arrow.apache.org/docs/cpp/). To simplify things in R, the C++ library namespaces are generally dropped or flattened; that is, where the C++ library has `arrow::io::FileOutputStream`, it is just `FileOutputStream` in the R package. One exception is for the file readers, where the namespace is necessary to disambiguate. So `arrow::csv::TableReader` becomes `CsvTableReader`, and `arrow::json::TableReader` becomes `JsonTableReader`.
+
+Some of these classes are not meant to be instantiated directly; they may be base classes or other kinds of helpers. For those that you should be able to create, use the `$create()` method to instantiate an object. For example, `rb <- RecordBatch$create(int = 1:10, dbl = as.numeric(1:10))` will create a `RecordBatch`. Many of these factory methods that an R user might most often encounter also have a "snake_case" alias, in order to be more familiar for contemporary R users. So `record_batch(int = 1:10, dbl = as.numeric(1:10))` would do the same as `RecordBatch$create()` above.
+
+The typical user of the arrow R package may never deal directly with the R6 objects. We provide more R-friendly wrapper functions as a higher-level interface to the C++ library. An R user can call `read_parquet()` without knowing or caring that they're instantiating a `ParquetFileReader` object and calling the `$ReadFile()` method on it. The classes are there and available to the advanced programmer who wants fine-grained control over how the C++ library is used.
+
+<!-- 
+[Temporarily hiding this in a comment until I have a plan]
+
+It is also worth mentioning that the arrow package also defines classes that do not exist in the C++ library including:
+
+* `ArrowDatum`: inherited by `Scalar`, `Array`, and `ChunkedArray`
+* `ArrowTabular`: inherited by `RecordBatch` and `Table`
+* `ArrowObject`: inherited by all Arrow objects
+-->
+
+
+## Approach to implementing functionality
+
+Our general philosophy when implementing functionality is to match to existing R function signatures which may be familiar to users, whilst exposing any additional functionality available via Arrow.  The intention is to allow users to be able to use their existing code with minimal changes, or new code or approaches to learn.
 
 There are a number of ways in which we do this:
 
-* when implementing a function with an R equivalent, support the arguments 
-available in R version as much as possible - use the original parameter names 
-and translate to the arrow parameter name inside the function
+* When implementing a function with an R equivalent, support the arguments  available in R version as much as possible - use the original parameter names and translate to the arrow parameter name inside the function
 
-* if there are arrow parameters which do not exist in the R function, allow the
-user to pass in those options through too
+* If there are arrow parameters which do not exist in the R function, allow the user to pass in those options through too
 
-* where necessary add extra arguments to the function signature for features 
-that don't exist in R but do in Arrow (e.g. passing in a schema when reading a
-CSV dataset)
+* Where necessary add extra arguments to the function signature for a feature that doesn't exist in R but does in Arrow (e.g., passing in a schema when reading a CSV dataset)
+
+## Further Reading
+
+* [In-depth guide to contributing to Arrow, including step-by-step examples](https://arrow.apache.org/docs/developers/guide/index.html)
+* [R package architectural overview](https://arrow.apache.org/docs/developers/guide/architectural_overview.html#r-package-architectural-overview)
+* [Setting up a development environment, and building the R package and components](https://arrow.apache.org/docs/r/articles/developers/setup.html)
+* [Common Arrow developer workflow tasks](https://arrow.apache.org/docs/r/articles/developers/workflow.html)
+* [Running R with the C++ debugger attached](https://arrow.apache.org/docs/r/articles/developers/debugging.html)
+* [In-depth guide to how the package installation works](https://arrow.apache.org/docs/r/articles/developers/install_details.html)
+* [Using Docker to diagnose a bug or test a feature on a specific OS](https://arrow.apache.org/docs/r/articles/developers/docker.html)
+* [Writing bindings between R functions and Arrow Acero functions](https://arrow.apache.org/docs/r/articles/developers/bindings.html)
+
+

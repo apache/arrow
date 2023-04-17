@@ -57,18 +57,7 @@ class TestMapScalar < Test::Unit::TestCase
 
   def test_to_s
     assert_equal(<<-MAP.strip, @scalar.to_s)
-[
-  keys:
-  [
-    "hello",
-    "world"
-  ]
-  values:
-  [
-    1,
-    2
-  ]
-]
+map<string, int8>[{key:string = hello, value:int8 = 1}, {key:string = world, value:int8 = 2}]
                  MAP
   end
 

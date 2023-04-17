@@ -21,7 +21,18 @@
 #' data frame or Arrow Table.
 #'
 #' If passed a path, will detect and handle compression from the file extension
-#' (e.g. `.json.gz`). Accepts explicit or implicit nulls.
+#' (e.g. `.json.gz`).
+#'
+#' If `schema` is not provided, Arrow data types are inferred from the data:
+#' - JSON null values convert to the [null()] type, but can fall back to any other type.
+#' - JSON booleans convert to [boolean()].
+#' - JSON numbers convert to [int64()], falling back to [float64()] if a non-integer is encountered.
+#' - JSON strings of the kind "YYYY-MM-DD" and "YYYY-MM-DD hh:mm:ss" convert to [`timestamp(unit = "s")`][timestamp()],
+#'   falling back to [utf8()] if a conversion error occurs.
+#' - JSON arrays convert to a [list_of()] type, and inference proceeds recursively on the JSON arrays' values.
+#' - Nested JSON objects convert to a [struct()] type, and inference proceeds recursively on the JSON objects' values.
+#'
+#' When `as_data_frame = TRUE`, Arrow types are further converted to R types.
 #'
 #' @inheritParams read_delim_arrow
 #' @param schema [Schema] that describes the table.
@@ -37,12 +48,24 @@
 #'     { "hello": 3.25, "world": null }
 #'     { "hello": 0.0, "world": true, "yo": null }
 #'   ', tf, useBytes = TRUE)
-#' df <- read_json_arrow(tf)
+#'
+#' read_json_arrow(tf)
+#'
+#' # Read directly from strings with `I()`
+#' read_json_arrow(I(c('{"x": 1, "y": 2}', '{"x": 3, "y": 4}')))
 read_json_arrow <- function(file,
                             col_select = NULL,
                             as_data_frame = TRUE,
                             schema = NULL,
                             ...) {
+  if (inherits(file, "AsIs")) {
+    if (is.raw(file)) {
+      file <- unclass(file)
+    } else {
+      file <- charToRaw(paste(file, collapse = "\n"))
+    }
+  }
+
   if (!inherits(file, "InputStream")) {
     compression <- detect_compression(file)
     file <- make_readable_file(file)
@@ -56,7 +79,8 @@ read_json_arrow <- function(file,
 
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
-    tab <- tab[vars_select(names(tab), !!col_select)]
+    sim_df <- as.data.frame(tab$schema)
+    tab <- tab[eval_select(col_select, sim_df)]
   }
 
   if (isTRUE(as_data_frame)) {

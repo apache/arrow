@@ -68,6 +68,19 @@ public class NativeScanner implements Scanner {
   }
 
   @Override
+  public ArrowReader scanBatches() {
+    if (closed) {
+      throw new NativeInstanceReleasedException();
+    }
+    if (!executed.compareAndSet(false, true)) {
+      throw new UnsupportedOperationException("NativeScanner can only be executed once. Create a " +
+              "new scanner instead");
+    }
+    return new NativeReader(context.getAllocator());
+  }
+
+  @Override
+  @Deprecated
   public Iterable<? extends NativeScanTask> scan() {
     if (closed) {
       throw new NativeInstanceReleasedException();

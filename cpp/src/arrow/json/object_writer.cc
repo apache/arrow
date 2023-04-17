@@ -32,7 +32,7 @@ class ObjectWriter::Impl {
  public:
   Impl() : root_(rj::kObjectType) {}
 
-  void SetString(arrow::util::string_view key, arrow::util::string_view value) {
+  void SetString(std::string_view key, std::string_view value) {
     rj::Document::AllocatorType& allocator = document_.GetAllocator();
 
     rj::Value str_key(key.data(), allocator);
@@ -41,7 +41,7 @@ class ObjectWriter::Impl {
     root_.AddMember(str_key, str_value, allocator);
   }
 
-  void SetBool(arrow::util::string_view key, bool value) {
+  void SetBool(std::string_view key, bool value) {
     rj::Document::AllocatorType& allocator = document_.GetAllocator();
 
     rj::Value str_key(key.data(), allocator);
@@ -66,12 +66,11 @@ ObjectWriter::ObjectWriter() : impl_(new ObjectWriter::Impl()) {}
 
 ObjectWriter::~ObjectWriter() = default;
 
-void ObjectWriter::SetString(arrow::util::string_view key,
-                             arrow::util::string_view value) {
+void ObjectWriter::SetString(std::string_view key, std::string_view value) {
   impl_->SetString(key, value);
 }
 
-void ObjectWriter::SetBool(arrow::util::string_view key, bool value) {
+void ObjectWriter::SetBool(std::string_view key, bool value) {
   impl_->SetBool(key, value);
 }
 

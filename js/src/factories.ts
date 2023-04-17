@@ -133,7 +133,7 @@ function inferType(value: readonly unknown[]): dtypes.DataType {
                 }
                 continue;
         }
-        throw new TypeError('Unable to infer Vector type from input values, explicit type declaration expected');
+        throw new TypeError('Unable to infer Vector type from input values, explicit type declaration expected.');
     }
 
     if (numbersCount + nullsCount === value.length) {
@@ -165,7 +165,7 @@ function inferType(value: readonly unknown[]): dtypes.DataType {
         return new dtypes.Struct([...fields.values()]);
     }
 
-    throw new TypeError('Unable to infer Vector type from input values, explicit type declaration expected');
+    throw new TypeError('Unable to infer Vector type from input values, explicit type declaration expected.');
 }
 
 /**

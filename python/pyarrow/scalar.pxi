@@ -89,6 +89,29 @@ cdef class Scalar(_Weakrefable):
 
         return Scalar.wrap(result)
 
+    def validate(self, *, full=False):
+        """
+        Perform validation checks.  An exception is raised if validation fails.
+
+        By default only cheap validation checks are run.  Pass `full=True`
+        for thorough validation checks (potentially O(n)).
+
+        Parameters
+        ----------
+        full : bool, default False
+            If True, run expensive checks, otherwise cheap checks only.
+
+        Raises
+        ------
+        ArrowInvalid
+        """
+        if full:
+            with nogil:
+                check_status(self.wrapped.get().ValidateFull())
+        else:
+            with nogil:
+                check_status(self.wrapped.get().Validate())
+
     def __repr__(self):
         return '<pyarrow.{}: {!r}>'.format(
             self.__class__.__name__, self.as_py()
@@ -345,6 +368,11 @@ cdef class Date32Scalar(Scalar):
     Concrete class for date32 scalars.
     """
 
+    @property
+    def value(self):
+        cdef CDate32Scalar* sp = <CDate32Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
+
     def as_py(self):
         """
         Return this value as a Python datetime.datetime instance.
@@ -364,6 +392,11 @@ cdef class Date64Scalar(Scalar):
     """
     Concrete class for date64 scalars.
     """
+
+    @property
+    def value(self):
+        cdef CDate64Scalar* sp = <CDate64Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
 
     def as_py(self):
         """
@@ -414,6 +447,11 @@ cdef class Time32Scalar(Scalar):
     Concrete class for time32 scalars.
     """
 
+    @property
+    def value(self):
+        cdef CTime32Scalar* sp = <CTime32Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
+
     def as_py(self):
         """
         Return this value as a Python datetime.timedelta instance.
@@ -432,6 +470,11 @@ cdef class Time64Scalar(Scalar):
     """
     Concrete class for time64 scalars.
     """
+
+    @property
+    def value(self):
+        cdef CTime64Scalar* sp = <CTime64Scalar*> self.wrapped.get()
+        return sp.value if sp.is_valid else None
 
     def as_py(self):
         """
@@ -836,18 +879,24 @@ cdef class DictionaryScalar(Scalar):
         """
         return self.value.as_py() if self.is_valid else None
 
-    @property
-    def index_value(self):
-        warnings.warn("`index_value` property is deprecated as of 1.0.0"
-                      "please use the `index` property instead",
-                      FutureWarning)
-        return self.index
 
+cdef class RunEndEncodedScalar(Scalar):
+    """
+    Concrete class for RunEndEncoded scalars.
+    """
     @property
-    def dictionary_value(self):
-        warnings.warn("`dictionary_value` property is deprecated as of 1.0.0, "
-                      "please use the `value` property instead", FutureWarning)
-        return self.value
+    def value(self):
+        """
+        Return underlying value as a scalar.
+        """
+        cdef CRunEndEncodedScalar* sp = <CRunEndEncodedScalar*> self.wrapped.get()
+        return Scalar.wrap(sp.value)
+
+    def as_py(self):
+        """
+        Return underlying value as a Python object.
+        """
+        return self.value.as_py()
 
 
 cdef class UnionScalar(Scalar):
@@ -980,6 +1029,7 @@ cdef dict _scalar_classes = {
     _Type_STRUCT: StructScalar,
     _Type_MAP: MapScalar,
     _Type_DICTIONARY: DictionaryScalar,
+    _Type_RUN_END_ENCODED: RunEndEncodedScalar,
     _Type_SPARSE_UNION: UnionScalar,
     _Type_DENSE_UNION: UnionScalar,
     _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalScalar,

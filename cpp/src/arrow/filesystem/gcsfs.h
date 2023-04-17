@@ -18,11 +18,11 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -70,7 +70,7 @@ struct ARROW_EXPORT GcsOptions {
   /// errors.
   ///
   /// The default policy is to retry for up to 15 minutes.
-  arrow::util::optional<double> retry_limit_seconds;
+  std::optional<double> retry_limit_seconds;
 
   /// \brief Default metadata for OpenOutputStream.
   ///

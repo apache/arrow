@@ -29,7 +29,7 @@ Please use the [tidyverse coding style](https://style.tidyverse.org/).
 
 When referring to external packages, include a link to the package at the first mention, and subsequently refer to it in plain text, e.g.
 
-* "The arrow R package provides a [dplyr](https://dplyr.tidyverse.org/) interface to Arrow Datasets.  This vignette introduces Datasets and shows how to use dplyr to analyze them."
+* "The arrow R package provides a [dplyr](https://dplyr.tidyverse.org/) interface to Arrow Datasets.  This article introduces Datasets and shows how to use dplyr to analyze them."
 
 ## Data frames
 

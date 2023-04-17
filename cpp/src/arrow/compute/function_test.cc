@@ -23,16 +23,20 @@
 #include <string>
 #include <vector>
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/function_internal.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/datum.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
@@ -349,6 +353,107 @@ TEST(ScalarAggregateFunction, DispatchExact) {
   dispatch_args[0] = {float64()};
   ASSERT_OK_AND_ASSIGN(selected_kernel, func.DispatchExact(dispatch_args));
   ASSERT_TRUE(selected_kernel->signature->MatchesInputs(dispatch_args));
+}
+
+namespace {
+
+struct TestFunctionOptions : public FunctionOptions {
+  TestFunctionOptions();
+
+  static const char* kTypeName;
+
+  int value;
+};
+
+static auto kTestFunctionOptionsType =
+    internal::GetFunctionOptionsType<TestFunctionOptions>();
+
+TestFunctionOptions::TestFunctionOptions() : FunctionOptions(kTestFunctionOptionsType) {}
+
+const char* TestFunctionOptions::kTypeName = "test_options";
+
+}  // namespace
+
+TEST(FunctionExecutor, Basics) {
+  VectorFunction func("vector_test", Arity::Binary(), /*doc=*/FunctionDoc::Empty());
+  int init_calls = 0;
+  int expected_optval = 0;
+  ExecContext exec_ctx;
+  TestFunctionOptions options;
+  options.value = 1;
+  auto init =
+      [&](KernelContext* kernel_ctx,
+          const KernelInitArgs& init_args) -> Result<std::unique_ptr<KernelState>> {
+    if (&exec_ctx != kernel_ctx->exec_context()) {
+      return Status::Invalid("expected exec context not found in kernel context");
+    }
+    if (init_args.options != nullptr) {
+      const auto* test_opts = checked_cast<const TestFunctionOptions*>(init_args.options);
+      if (test_opts->value != expected_optval) {
+        return Status::Invalid("bad options value");
+      }
+    }
+    if (&options != init_args.options) {
+      return Status::Invalid("expected options not found in kernel init args");
+    }
+    ++init_calls;
+    return nullptr;
+  };
+  auto exec = [](KernelContext* ctx, const ExecSpan& args, ExecResult* out) -> Status {
+    [&]() {  // gtest ASSERT macros require a void function
+      ASSERT_EQ(2, args.values.size());
+      const int32_t* vals[2];
+      for (size_t i = 0; i < 2; i++) {
+        ASSERT_TRUE(args.values[i].is_array());
+        const ArraySpan& array = args.values[i].array;
+        ASSERT_EQ(array.type->id(), Type::INT32);
+        vals[i] = array.GetValues<int32_t>(1);
+      }
+      ASSERT_TRUE(out->is_array_data());
+      auto out_data = out->array_data();
+      Int32Builder builder;
+      for (int64_t i = 0; i < args.length; i++) {
+        ASSERT_OK(builder.Append(vals[0][i] + vals[1][i]));
+      }
+      ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+      *out_data.get() = *array->data();
+    }();
+    return Status::OK();
+  };
+  std::vector<InputType> in_types = {int32(), int32()};
+  OutputType out_type = int32();
+  ASSERT_OK(func.AddKernel(in_types, out_type, exec, init));
+
+  ASSERT_OK_AND_ASSIGN(const Kernel* dispatched, func.DispatchExact({int32(), int32()}));
+  ASSERT_EQ(exec, static_cast<const ScalarKernel*>(dispatched)->exec);
+  std::vector<TypeHolder> inputs = {int32(), int32()};
+
+  ASSERT_OK_AND_ASSIGN(auto func_exec, func.GetBestExecutor(inputs));
+  ASSERT_EQ(0, init_calls);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("options not found"),
+                                  func_exec->Init(nullptr, &exec_ctx));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("bad options value"),
+                                  func_exec->Init(&options, &exec_ctx));
+  ExecContext other_exec_ctx;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("exec context not found"),
+                                  func_exec->Init(&options, &other_exec_ctx));
+
+  ArrayVector arrays = {ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int32(), "[2]"),
+                        ArrayFromJSON(int32(), "[3]"), ArrayFromJSON(int32(), "[4]")};
+  ArrayVector expected = {ArrayFromJSON(int32(), "[3]"), ArrayFromJSON(int32(), "[5]"),
+                          ArrayFromJSON(int32(), "[7]")};
+  for (int n = 1; n <= 3; n++) {
+    expected_optval = options.value = n;
+    ASSERT_OK(func_exec->Init(&options, &exec_ctx));
+    ASSERT_EQ(n, init_calls);
+    for (int32_t i = 1; i <= 3; i++) {
+      std::vector<Datum> values = {arrays[i - 1], arrays[i]};
+      ASSERT_OK_AND_ASSIGN(auto result, func_exec->Execute(values, 1));
+      ASSERT_TRUE(result.is_array());
+      auto actual = result.make_array();
+      AssertArraysEqual(*expected[i - 1], *actual);
+    }
+  }
 }
 
 }  // namespace compute

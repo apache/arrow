@@ -44,6 +44,8 @@ import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
@@ -78,7 +80,7 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
 
   @Override
   public ColumnBinder visit(ArrowType.List type) {
-    throw new UnsupportedOperationException("No column binder implemented for type " + type);
+    return new ListBinder((ListVector) vector);
   }
 
   @Override
@@ -98,7 +100,7 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
 
   @Override
   public ColumnBinder visit(ArrowType.Map type) {
-    throw new UnsupportedOperationException("No column binder implemented for type " + type);
+    return new MapBinder((MapVector) vector);
   }
 
   @Override

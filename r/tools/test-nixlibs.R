@@ -26,7 +26,7 @@ source("nixlibs.R", local = TRUE)
 
 test_that("identify_binary() based on LIBARROW_BINARY", {
   expect_null(identify_binary("FALSE"))
-  expect_identical(identify_binary("ubuntu-18.04"), "ubuntu-18.04")
+  expect_identical(identify_binary("linux-openssl-1.0"), "linux-openssl-1.0")
   expect_null(identify_binary("", info = list(id = "debian")))
 })
 
@@ -38,19 +38,6 @@ test_that("select_binary() based on system", {
   expect_output(
     expect_null(select_binary("linux", arch = "aarch64")), # Not built today
     "Building on linux aarch64"
-  )
-  gcc48 <- c(
-    "g++-4.8 (Ubuntu 4.8.4-2ubuntu1~14.04.3) 4.8.4",
-    "Copyright (C) 2013 Free Software Foundation, Inc.",
-    "This is free software; see the source for copying conditions.  There is NO",
-    "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
-  )
-  expect_output(
-    expect_identical(
-      select_binary("linux", "x86_64", compiler_version = gcc48),
-      "centos-7"
-    ),
-    "Some features are not available with gcc 4"
   )
 })
 
@@ -65,39 +52,53 @@ test_that("determine_binary_from_stderr", {
   expect_output(
     expect_identical(
       determine_binary_from_stderr(compile_test_program("int a;")),
-      "ubuntu-18.04"
+      "linux-openssl-1.1"
     ),
-    "Found libcurl and openssl >= 1.0.2"
+    "Found libcurl and OpenSSL >= 1.1"
+  )
+  expect_output(
+    expect_identical(
+      determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 1.0")),
+      "linux-openssl-1.0"
+    ),
+    "Found libcurl and OpenSSL < 1.1"
   )
   expect_output(
     expect_identical(
       determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 3")),
-      "ubuntu-22.04"
+      "linux-openssl-3.0"
     ),
-    "Found libcurl and openssl >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0.0"
   )
   expect_output(
     expect_null(
       determine_binary_from_stderr(compile_test_program("#error OpenSSL version too old"))
     ),
-    "openssl found but version >= 1.0.2 is required for some features"
+    "OpenSSL found but version >= 1.0.2 is required for some features"
   )
 })
 
 test_that("select_binary() with test program", {
   expect_output(
     expect_identical(
-      select_binary("linux", "x86_64", "clang", "int a;"),
-      "ubuntu-18.04"
+      select_binary("linux", "x86_64", "int a;"),
+      "linux-openssl-1.1"
     ),
-    "Found libcurl and openssl >= 1.0.2"
+    "Found libcurl and OpenSSL >= 1.1"
   )
   expect_output(
     expect_identical(
-      select_binary("linux", "x86_64", "clang", "#error Using OpenSSL version 3"),
-      "ubuntu-22.04"
+      select_binary("linux", "x86_64", "#error Using OpenSSL version 1.0"),
+      "linux-openssl-1.0"
     ),
-    "Found libcurl and openssl >= 3.0.0"
+    "Found libcurl and OpenSSL < 1.1"
+  )
+  expect_output(
+    expect_identical(
+      select_binary("linux", "x86_64", "#error Using OpenSSL version 3"),
+      "linux-openssl-3.0"
+    ),
+    "Found libcurl and OpenSSL >= 3.0.0"
   )
 })
 

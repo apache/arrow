@@ -17,6 +17,8 @@
 
 #include <atomic>
 #include <cmath>
+#include <functional>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -28,6 +30,8 @@
 #include <signal.h>
 #ifndef _WIN32
 #include <sys/time.h>  // for setitimer()
+#include <sys/types.h>
+#include <unistd.h>
 #endif
 
 #include "arrow/testing/gtest_util.h"
@@ -35,7 +39,6 @@
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 
@@ -100,7 +103,7 @@ TEST_F(CancelTest, Unstoppable) {
 
 TEST_F(CancelTest, SourceVanishes) {
   {
-    util::optional<StopSource> source{StopSource()};
+    std::optional<StopSource> source{StopSource()};
     StopToken token = source->token();
     ASSERT_FALSE(token.IsStopRequested());
     ASSERT_OK(token.Poll());
@@ -110,7 +113,7 @@ TEST_F(CancelTest, SourceVanishes) {
     ASSERT_OK(token.Poll());
   }
   {
-    util::optional<StopSource> source{StopSource()};
+    std::optional<StopSource> source{StopSource()};
     StopToken token = source->token();
     source->RequestStop();
 
@@ -125,7 +128,7 @@ static void noop_signal_handler(int signum) {
 }
 
 #ifndef _WIN32
-static util::optional<StopSource> signal_stop_source;
+static std::optional<StopSource> signal_stop_source;
 
 static void signal_handler(int signum) {
   signal_stop_source->RequestStopFromSignal(signum);
@@ -201,14 +204,31 @@ class SignalCancelTest : public CancelTest {
     ASSERT_EQ(internal::SignalFromStatus(st), expected_signal_);
   }
 
+#ifndef _WIN32
+  void RunInChild(std::function<void()> func) {
+    auto child_pid = fork();
+    if (child_pid == -1) {
+      ASSERT_OK(internal::IOErrorFromErrno(errno, "Error calling fork(): "));
+    }
+    if (child_pid == 0) {
+      // Child
+      ASSERT_NO_FATAL_FAILURE(func()) << "Failure in child process";
+      std::exit(0);
+    } else {
+      // Parent
+      AssertChildExit(child_pid);
+    }
+  }
+#endif
+
  protected:
 #ifdef _WIN32
   const int expected_signal_ = SIGINT;
 #else
   const int expected_signal_ = SIGALRM;
 #endif
-  util::optional<SignalHandlerGuard> guard_;
-  util::optional<StopToken> stop_token_;
+  std::optional<SignalHandlerGuard> guard_;
+  std::optional<StopToken> stop_token_;
 };
 
 TEST_F(SignalCancelTest, Register) {
@@ -237,6 +257,54 @@ TEST_F(SignalCancelTest, RegisterUnregister) {
   TriggerSignal();
   AssertStopRequested();
 }
+
+#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
+      defined(THREAD_SANITIZER))
+TEST_F(SignalCancelTest, ForkSafetyUnregisteredHandlers) {
+  RunInChild([&]() {
+    // Child
+    TriggerSignal();
+    AssertStopNotRequested();
+
+    RegisterHandler();
+    TriggerSignal();
+    AssertStopRequested();
+  });
+
+  // Parent: shouldn't notice signals raised in child
+  AssertStopNotRequested();
+
+  // Stop source still usable in parent
+  TriggerSignal();
+  AssertStopNotRequested();
+
+  RegisterHandler();
+  TriggerSignal();
+  AssertStopRequested();
+}
+
+TEST_F(SignalCancelTest, ForkSafetyRegisteredHandlers) {
+  RegisterHandler();
+
+  RunInChild([&]() {
+    // Child: signal handlers are unregistered and need to be re-registered
+    TriggerSignal();
+    AssertStopNotRequested();
+
+    // Can re-register and receive signals
+    RegisterHandler();
+    TriggerSignal();
+    AssertStopRequested();
+  });
+
+  // Parent: shouldn't notice signals raised in child
+  AssertStopNotRequested();
+
+  // Stop source still usable in parent
+  TriggerSignal();
+  AssertStopRequested();
+}
+#endif
 
 TEST_F(CancelTest, ThreadedPollSuccess) {
   constexpr int kNumThreads = 10;

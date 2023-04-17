@@ -36,12 +36,14 @@ class ARROW_EXPORT DayTimeIntervalBuilder : public NumericBuilder<DayTimeInterva
  public:
   using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
 
-  explicit DayTimeIntervalBuilder(MemoryPool* pool = default_memory_pool())
-      : DayTimeIntervalBuilder(day_time_interval(), pool) {}
+  explicit DayTimeIntervalBuilder(MemoryPool* pool = default_memory_pool(),
+                                  int64_t alignment = kDefaultBufferAlignment)
+      : DayTimeIntervalBuilder(day_time_interval(), pool, alignment) {}
 
   explicit DayTimeIntervalBuilder(std::shared_ptr<DataType> type,
-                                  MemoryPool* pool = default_memory_pool())
-      : NumericBuilder<DayTimeIntervalType>(type, pool) {}
+                                  MemoryPool* pool = default_memory_pool(),
+                                  int64_t alignment = kDefaultBufferAlignment)
+      : NumericBuilder<DayTimeIntervalType>(type, pool, alignment) {}
 };
 
 class ARROW_EXPORT MonthDayNanoIntervalBuilder
@@ -49,12 +51,14 @@ class ARROW_EXPORT MonthDayNanoIntervalBuilder
  public:
   using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
 
-  explicit MonthDayNanoIntervalBuilder(MemoryPool* pool = default_memory_pool())
-      : MonthDayNanoIntervalBuilder(month_day_nano_interval(), pool) {}
+  explicit MonthDayNanoIntervalBuilder(MemoryPool* pool = default_memory_pool(),
+                                       int64_t alignment = kDefaultBufferAlignment)
+      : MonthDayNanoIntervalBuilder(month_day_nano_interval(), pool, alignment) {}
 
   explicit MonthDayNanoIntervalBuilder(std::shared_ptr<DataType> type,
-                                       MemoryPool* pool = default_memory_pool())
-      : NumericBuilder<MonthDayNanoIntervalType>(type, pool) {}
+                                       MemoryPool* pool = default_memory_pool(),
+                                       int64_t alignment = kDefaultBufferAlignment)
+      : NumericBuilder<MonthDayNanoIntervalType>(type, pool, alignment) {}
 };
 
 /// @}

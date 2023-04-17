@@ -22,16 +22,16 @@
 #include <functional>
 #include <iosfwd>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/compare.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 
@@ -90,7 +90,8 @@ class ARROW_DS_EXPORT Partitioning : public util::EqualityComparable<Partitionin
 
   virtual Result<PartitionPathFormat> Format(const compute::Expression& expr) const = 0;
 
-  /// \brief A default Partitioning which always yields scalar(true)
+  /// \brief A default Partitioning which is a DirectoryPartitioning
+  /// with an empty schema.
   static std::shared_ptr<Partitioning> Default();
 
   /// \brief The partition schema.
@@ -174,7 +175,7 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   /// of a scalar value
   struct Key {
     std::string name;
-    util::optional<std::string> value;
+    std::optional<std::string> value;
   };
 
   Result<PartitionedBatches> Partition(
@@ -289,8 +290,8 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
   std::string null_fallback() const { return hive_options_.null_fallback; }
   const HivePartitioningOptions& options() const { return hive_options_; }
 
-  static Result<util::optional<Key>> ParseKey(const std::string& segment,
-                                              const HivePartitioningOptions& options);
+  static Result<std::optional<Key>> ParseKey(const std::string& segment,
+                                             const HivePartitioningOptions& options);
 
   bool Equals(const Partitioning& other) const override;
 

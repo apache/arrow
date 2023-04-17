@@ -17,14 +17,6 @@
 
 #pragma once
 
-#ifndef _WIN32
-#include <unistd.h>
-#endif
-
-#ifndef _WIN32
-#include <atomic>
-#endif
-
 #include <cstdint>
 #include <memory>
 #include <queue>
@@ -280,6 +272,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   ~SerialExecutor() override;
 
   int GetCapacity() override { return 1; };
+  bool OwnsThisThread() override;
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                    StopCallback&&) override;
 
@@ -462,7 +455,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
  protected:
   FRIEND_TEST(TestThreadPool, SetCapacity);
   FRIEND_TEST(TestGlobalThreadPool, Capacity);
-  friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
+  ARROW_FRIEND_EXPORT friend ThreadPool* GetCpuThreadPool();
 
   ThreadPool();
 
@@ -475,17 +468,12 @@ class ARROW_EXPORT ThreadPool : public Executor {
   void LaunchWorkersUnlocked(int threads);
   // Get the current actual capacity
   int GetActualCapacity();
-  // Reinitialize the thread pool if the pid changed
-  void ProtectAgainstFork();
 
   static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 
   std::shared_ptr<State> sp_state_;
   State* state_;
   bool shutdown_on_destroy_;
-#ifndef _WIN32
-  std::atomic<pid_t> pid_;
-#endif
 };
 
 // Return the process-global thread pool for CPU-bound tasks.
@@ -507,6 +495,31 @@ typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
     return FutureToSync(fut);
   } else {
     return SerialExecutor::RunInSerialExecutor<ValueType>(std::move(get_future));
+  }
+}
+
+/// \brief Potentially iterate an async generator serially (if use_threads is false)
+/// \see IterateGenerator
+///
+/// If `use_threads` is true, the global CPU executor will be used.  Each call to
+///   the iterator will simply wait until the next item is available.  Tasks may run in
+///   the background between calls.
+///
+/// If `use_threads` is false, the calling thread only will be used.  Each call to
+///   the iterator will use the calling thread to do enough work to generate one item.
+///   Tasks will be left in a queue until the next call and no work will be done between
+///   calls.
+template <typename T>
+Iterator<T> IterateSynchronously(
+    FnOnce<Result<std::function<Future<T>()>>(Executor*)> get_gen, bool use_threads) {
+  if (use_threads) {
+    auto maybe_gen = std::move(get_gen)(GetCpuThreadPool());
+    if (!maybe_gen.ok()) {
+      return MakeErrorIterator<T>(maybe_gen.status());
+    }
+    return MakeGeneratorIterator(*maybe_gen);
+  } else {
+    return SerialExecutor::IterateGenerator(std::move(get_gen));
   }
 }
 

@@ -529,15 +529,15 @@ class Lz4HadoopCodec : public Lz4Codec {
 }  // namespace
 
 std::unique_ptr<Codec> MakeLz4FrameCodec(int compression_level) {
-  return std::unique_ptr<Codec>(new Lz4FrameCodec(compression_level));
+  return std::make_unique<Lz4FrameCodec>(compression_level);
 }
 
 std::unique_ptr<Codec> MakeLz4HadoopRawCodec() {
-  return std::unique_ptr<Codec>(new Lz4HadoopCodec());
+  return std::make_unique<Lz4HadoopCodec>();
 }
 
 std::unique_ptr<Codec> MakeLz4RawCodec(int compression_level) {
-  return std::unique_ptr<Codec>(new Lz4Codec(compression_level));
+  return std::make_unique<Lz4Codec>(compression_level);
 }
 
 }  // namespace internal

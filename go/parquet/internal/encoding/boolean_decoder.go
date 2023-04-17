@@ -17,10 +17,10 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v9/arrow/bitutil"
-	shared_utils "github.com/apache/arrow/go/v9/internal/utils"
-	"github.com/apache/arrow/go/v9/parquet"
-	"github.com/apache/arrow/go/v9/parquet/internal/utils"
+	"github.com/apache/arrow/go/v12/arrow/bitutil"
+	shared_utils "github.com/apache/arrow/go/v12/internal/utils"
+	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v12/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 

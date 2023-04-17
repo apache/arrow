@@ -36,9 +36,9 @@ TEST(TestVectorNested, ListFlatten) {
     CheckVectorUnary("list_flatten", input, expected);
 
     // Construct a list with a non-empty null slot
-    TweakValidityBit(input, 0, false);
+    auto tweaked = TweakValidityBit(input, 0, false);
     expected = ArrayFromJSON(int16(), "[2, 3]");
-    CheckVectorUnary("list_flatten", input, expected);
+    CheckVectorUnary("list_flatten", tweaked, expected);
   }
 }
 
@@ -86,9 +86,9 @@ TEST(TestVectorNested, ListParentIndices) {
 
   // Construct a list with a non-empty null slot
   auto input = ArrayFromJSON(list(int16()), "[[0, null, 1], [0, 0], [2, 3], [], [4, 5]]");
-  TweakValidityBit(input, 1, false);
+  auto tweaked = TweakValidityBit(input, 1, false);
   auto expected = ArrayFromJSON(int64(), "[0, 0, 0, 1, 1, 2, 2, 4, 4]");
-  CheckVectorUnary("list_parent_indices", input, expected);
+  CheckVectorUnary("list_parent_indices", tweaked, expected);
 }
 
 TEST(TestVectorNested, ListParentIndicesChunkedArray) {

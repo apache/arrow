@@ -43,6 +43,15 @@ test_that("Scalar print", {
   expect_output(print(Scalar$create(4)), "Scalar\n4")
 })
 
+test_that("ExtensionType scalar behaviour", {
+  ext_array <- vctrs_extension_array(4)
+  ext_scalar <- Scalar$create(ext_array)
+  expect_equal(ext_scalar$as_array(), ext_array)
+  expect_identical(ext_scalar$as_vector(), 4)
+  expect_identical(ext_scalar$as_vector(10), rep(4, 10))
+  expect_output(print(ext_scalar), "Scalar\n4")
+})
+
 test_that("Creating Scalars of a different type and casting them", {
   expect_equal(Scalar$create(4L, int8())$type, int8())
   expect_equal(Scalar$create(4L)$cast(float32())$type, float32())

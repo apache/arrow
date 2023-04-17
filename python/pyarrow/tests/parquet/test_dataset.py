@@ -16,13 +16,16 @@
 # under the License.
 
 import datetime
+import inspect
 import os
 import pathlib
 
 import numpy as np
 import pytest
+import unittest.mock as mock
 
 import pyarrow as pa
+import pyarrow.compute as pc
 from pyarrow import fs
 from pyarrow.filesystem import LocalFileSystem
 from pyarrow.tests import util
@@ -78,6 +81,7 @@ def test_parquet_piece_open_and_get_metadata(tempdir):
 
     with pytest.warns(FutureWarning):
         piece = pq.ParquetDatasetPiece(path)
+
     table1 = piece.read()
     assert isinstance(table1, pa.Table)
     meta1 = piece.get_metadata()
@@ -160,7 +164,9 @@ def test_create_parquet_dataset_multi_threaded(tempdir):
         FutureWarning, match="Specifying the 'metadata_nthreads'"
     ):
         dataset = pq.ParquetDataset(
-            base_path, filesystem=fs, metadata_nthreads=16)
+            base_path, filesystem=fs, metadata_nthreads=16,
+            use_legacy_dataset=True
+        )
     assert len(dataset.pieces) > 0
     partitions = dataset.partitions
     assert len(partitions.partition_names) > 0
@@ -247,13 +253,11 @@ def test_filters_equivalency(tempdir, use_legacy_dataset):
     result_df = table.to_pandas().reset_index(drop=True)
 
     # Check that all rows in the DF fulfill the filter
-    # Pandas 0.23.x has problems with indexing constant memoryviews in
-    # categoricals. Thus we need to make an explicit copy here with np.array.
-    df_filter_1 = (np.array(result_df['integer']) == 1) \
-        & (np.array(result_df['string']) != 'b') \
-        & (np.array(result_df['boolean']) == 'True')
+    df_filter_1 = (result_df['integer'] == 1) \
+        & (result_df['string'] != 'b') \
+        & (result_df['boolean'] == 'True')
     df_filter_2 = (np.array(result_df['integer']) == 0) \
-        & (np.array(result_df['boolean']) == 'False')
+        & (result_df['boolean'] == 'False')
     assert df_filter_1.sum() > 0
     assert df_filter_2.sum() > 0
     assert result_df.shape[0] == (df_filter_1.sum() + df_filter_2.sum())
@@ -264,10 +268,12 @@ def test_filters_equivalency(tempdir, use_legacy_dataset):
         # results with the current code.
         with pytest.raises(NotImplementedError):
             filters = [[('string', '==', b'1\0a')]]
-            pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+            pq.ParquetDataset(base_path, filesystem=fs, filters=filters,
+                              use_legacy_dataset=True)
         with pytest.raises(NotImplementedError):
             filters = [[('string', '==', '1\0a')]]
-            pq.ParquetDataset(base_path, filesystem=fs, filters=filters)
+            pq.ParquetDataset(base_path, filesystem=fs, filters=filters,
+                              use_legacy_dataset=True)
     else:
         for filters in [[[('string', '==', b'1\0a')]],
                         [[('string', '==', '1\0a')]]]:
@@ -556,7 +562,15 @@ def test_filters_invalid_column(tempdir, use_legacy_dataset):
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
-def test_filters_read_table(tempdir, use_legacy_dataset):
+@pytest.mark.parametrize("filters",
+                         ([('integers', '<', 3)],
+                          [[('integers', '<', 3)]],
+                          pc.field('integers') < 3,
+                          pc.field('nested', 'a') < 3,
+                          pc.field('nested', 'b').cast(pa.int64()) < 3))
+@pytest.mark.parametrize("read_method", ("read_table", "read_pandas"))
+def test_filters_read_table(tempdir, use_legacy_dataset, filters, read_method):
+    read = getattr(pq, read_method)
     # test that filters keyword is passed through in read_table
     fs = LocalFileSystem._get_instance()
     base_path = tempdir
@@ -565,29 +579,27 @@ def test_filters_read_table(tempdir, use_legacy_dataset):
     partition_spec = [
         ['integers', integer_keys],
     ]
-    N = 5
+    N = len(integer_keys)
 
     df = pd.DataFrame({
         'index': np.arange(N),
         'integers': np.array(integer_keys, dtype='i4'),
-    }, columns=['index', 'integers'])
+        'nested': np.array([{'a': i, 'b': str(i)} for i in range(N)])
+    })
 
     _generate_partition_directories(fs, base_path, partition_spec, df)
 
-    table = pq.read_table(
-        base_path, filesystem=fs, filters=[('integers', '<', 3)],
-        use_legacy_dataset=use_legacy_dataset)
-    assert table.num_rows == 3
+    kwargs = dict(filesystem=fs, filters=filters,
+                  use_legacy_dataset=use_legacy_dataset)
 
-    table = pq.read_table(
-        base_path, filesystem=fs, filters=[[('integers', '<', 3)]],
-        use_legacy_dataset=use_legacy_dataset)
-    assert table.num_rows == 3
-
-    table = pq.read_pandas(
-        base_path, filters=[('integers', '<', 3)],
-        use_legacy_dataset=use_legacy_dataset)
-    assert table.num_rows == 3
+    # Using Expression in legacy dataset not supported
+    if use_legacy_dataset and isinstance(filters, pc.Expression):
+        msg = "Expressions as filter not supported for legacy dataset"
+        with pytest.raises(TypeError, match=msg):
+            read(base_path, **kwargs)
+    else:
+        table = read(base_path, **kwargs)
+        assert table.num_rows == 3
 
 
 @pytest.mark.pandas
@@ -723,8 +735,15 @@ def _partition_test_for_filesystem(fs, base_path, use_legacy_dataset=True):
                    .reset_index(drop=True)
                    .reindex(columns=result_df.columns))
 
-    expected_df['foo'] = pd.Categorical(df['foo'], categories=foo_keys)
-    expected_df['bar'] = pd.Categorical(df['bar'], categories=bar_keys)
+    if use_legacy_dataset or Version(pd.__version__) < Version("2.0.0"):
+        expected_df['foo'] = pd.Categorical(df['foo'], categories=foo_keys)
+        expected_df['bar'] = pd.Categorical(df['bar'], categories=bar_keys)
+    else:
+        # With pandas 2.0.0 Index can store all numeric dtypes (not just
+        # int64/uint64/float64). Using astype() to create a categorical
+        # column preserves original dtype (int32)
+        expected_df['foo'] = expected_df['foo'].astype("category")
+        expected_df['bar'] = expected_df['bar'].astype("category")
 
     assert (result_df.columns == ['index', 'values', 'foo', 'bar']).all()
 
@@ -794,7 +813,8 @@ def _test_read_common_metadata_files(fs, base_path):
     with fs.open(metadata_path, 'wb') as f:
         pq.write_metadata(table.schema, f)
 
-    dataset = pq.ParquetDataset(base_path, filesystem=fs)
+    dataset = pq.ParquetDataset(base_path, filesystem=fs,
+                                use_legacy_dataset=True)
     with pytest.warns(FutureWarning):
         assert dataset.common_metadata_path == str(metadata_path)
 
@@ -803,7 +823,8 @@ def _test_read_common_metadata_files(fs, base_path):
     assert dataset.schema.equals(common_schema)
 
     # handle list of one directory
-    dataset2 = pq.ParquetDataset([base_path], filesystem=fs)
+    dataset2 = pq.ParquetDataset([base_path], filesystem=fs,
+                                 use_legacy_dataset=True)
     assert dataset2.schema.equals(dataset.schema)
 
 
@@ -836,7 +857,8 @@ def test_read_metadata_files(tempdir):
     with fs.open(metadata_path, 'wb') as f:
         pq.write_metadata(table.schema, f)
 
-    dataset = pq.ParquetDataset(tempdir, filesystem=fs)
+    dataset = pq.ParquetDataset(tempdir, filesystem=fs,
+                                use_legacy_dataset=True)
     with pytest.warns(FutureWarning):
         assert dataset.metadata_path == str(metadata_path)
 
@@ -933,7 +955,8 @@ def test_read_multiple_files(tempdir, use_legacy_dataset):
         assert result2.equals(expected)
 
         with pytest.warns(FutureWarning, match="Specifying the 'schema'"):
-            result3 = pq.ParquetDataset(dirpath, schema=metadata.schema).read()
+            result3 = pq.ParquetDataset(dirpath, schema=metadata.schema,
+                                        use_legacy_dataset=True).read()
         assert result3.equals(expected)
     else:
         with pytest.raises(ValueError, match="no longer supported"):
@@ -1245,6 +1268,7 @@ def _test_write_to_dataset_with_partitions(base_path,
                               'nan': [np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
+    output_df["date"] = output_df["date"].astype('datetime64[ns]')
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False,
@@ -1305,6 +1329,7 @@ def _test_write_to_dataset_no_partitions(base_path,
                               'num': list(range(10)),
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
+    output_df["date"] = output_df["date"].astype('datetime64[ns]')
     cols = output_df.columns.tolist()
     output_table = pa.Table.from_pandas(output_df)
 
@@ -1433,6 +1458,7 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
                               'nan': [np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
+    output_df["date"] = output_df["date"].astype('datetime64[ns]')
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df)
     path = str(tempdir)
@@ -1444,7 +1470,7 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
                         partition_by, partition_filename_callback,
                         use_legacy_dataset=use_legacy_dataset)
 
-    dataset = pq.ParquetDataset(path)
+    dataset = pq.ParquetDataset(path, use_legacy_dataset=use_legacy_dataset)
 
     # ARROW-3538: Ensure partition filenames match the given pattern
     # defined in the local function partition_filename_callback
@@ -1470,8 +1496,7 @@ def test_write_to_dataset_filesystem(tempdir):
     assert result.equals(table)
 
 
-# TODO(dataset) support pickling
-def _make_dataset_for_pickling(tempdir, N=100):
+def _make_dataset_for_pickling(tempdir, use_legacy_dataset=False, N=100):
     path = tempdir / 'data.parquet'
     fs = LocalFileSystem._get_instance()
 
@@ -1493,46 +1518,53 @@ def _make_dataset_for_pickling(tempdir, N=100):
     with fs.open(metadata_path, 'wb') as f:
         pq.write_metadata(table.schema, f)
 
-    dataset = pq.ParquetDataset(tempdir, filesystem=fs)
-    with pytest.warns(FutureWarning):
-        assert dataset.metadata_path == str(metadata_path)
+    dataset = pq.ParquetDataset(
+        tempdir, filesystem=fs, use_legacy_dataset=use_legacy_dataset)
+    if use_legacy_dataset:
+        with pytest.warns(FutureWarning):
+            assert dataset.metadata_path == str(metadata_path)
 
     return dataset
 
 
-def _assert_dataset_is_picklable(dataset, pickler):
+def _assert_dataset_is_picklable(dataset, pickler, use_legacy_dataset=False):
     def is_pickleable(obj):
         return obj == pickler.loads(pickler.dumps(obj))
 
     assert is_pickleable(dataset)
-    with pytest.warns(FutureWarning):
-        metadata = dataset.metadata
-    assert is_pickleable(metadata)
-    assert is_pickleable(metadata.schema)
-    assert len(metadata.schema)
-    for column in metadata.schema:
-        assert is_pickleable(column)
+    if use_legacy_dataset:
+        with pytest.warns(FutureWarning):
+            metadata = dataset.metadata
+        assert is_pickleable(metadata)
+        assert is_pickleable(metadata.schema)
+        assert len(metadata.schema)
+        for column in metadata.schema:
+            assert is_pickleable(column)
 
-    for piece in dataset._pieces:
-        assert is_pickleable(piece)
-        metadata = piece.get_metadata()
-        assert metadata.num_row_groups
-        for i in range(metadata.num_row_groups):
-            assert is_pickleable(metadata.row_group(i))
+        for piece in dataset._pieces:
+            assert is_pickleable(piece)
+            metadata = piece.get_metadata()
+            assert metadata.num_row_groups
+            for i in range(metadata.num_row_groups):
+                assert is_pickleable(metadata.row_group(i))
 
 
 @pytest.mark.pandas
-def test_builtin_pickle_dataset(tempdir, datadir):
+@parametrize_legacy_dataset
+def test_builtin_pickle_dataset(tempdir, datadir, use_legacy_dataset):
     import pickle
-    dataset = _make_dataset_for_pickling(tempdir)
-    _assert_dataset_is_picklable(dataset, pickler=pickle)
+    dataset = _make_dataset_for_pickling(tempdir, use_legacy_dataset)
+    _assert_dataset_is_picklable(
+        dataset, pickler=pickle, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
-def test_cloudpickle_dataset(tempdir, datadir):
+@parametrize_legacy_dataset
+def test_cloudpickle_dataset(tempdir, datadir, use_legacy_dataset):
     cp = pytest.importorskip('cloudpickle')
-    dataset = _make_dataset_for_pickling(tempdir)
-    _assert_dataset_is_picklable(dataset, pickler=cp)
+    dataset = _make_dataset_for_pickling(tempdir, use_legacy_dataset)
+    _assert_dataset_is_picklable(
+        dataset, pickler=cp, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas
@@ -1688,7 +1720,10 @@ def test_parquet_dataset_new_filesystem(tempdir):
 
 
 @pytest.mark.filterwarnings("ignore:'ParquetDataset:FutureWarning")
-def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
+@parametrize_legacy_dataset
+def test_parquet_dataset_partitions_piece_path_with_fsspec(
+    tempdir, use_legacy_dataset
+):
     # ARROW-10462 ensure that on Windows we properly use posix-style paths
     # as used by fsspec
     fsspec = pytest.importorskip("fsspec")
@@ -1698,7 +1733,8 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
 
     # pass a posix-style path (using "/" also on Windows)
     path = str(tempdir).replace("\\", "/")
-    dataset = pq.ParquetDataset(path, filesystem=filesystem)
+    dataset = pq.ParquetDataset(
+        path, filesystem=filesystem, use_legacy_dataset=use_legacy_dataset)
     # ensure the piece path is also posix-style
     expected = path + "/data.parquet"
     assert dataset.pieces[0].path == expected
@@ -1709,7 +1745,7 @@ def test_parquet_dataset_deprecated_properties(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     path = tempdir / 'data.parquet'
     pq.write_table(table, path)
-    dataset = pq.ParquetDataset(path)
+    dataset = pq.ParquetDataset(path, use_legacy_dataset=True)
 
     with pytest.warns(FutureWarning, match="'ParquetDataset.pieces"):
         dataset.pieces
@@ -1870,3 +1906,29 @@ def test_write_to_dataset_conflicting_keywords(tempdir):
                             use_legacy_dataset=False,
                             metadata_collector=[],
                             file_visitor=lambda x: x)
+
+
+@pytest.mark.dataset
+@pytest.mark.parametrize("write_dataset_kwarg", (
+    ("create_dir", True),
+    ("create_dir", False),
+))
+def test_write_to_dataset_kwargs_passed(tempdir, write_dataset_kwarg):
+    """Verify kwargs in pq.write_to_dataset are passed onto ds.write_dataset"""
+    import pyarrow.dataset as ds
+
+    table = pa.table({"a": [1, 2, 3]})
+    path = tempdir / 'out.parquet'
+
+    signature = inspect.signature(ds.write_dataset)
+    key, arg = write_dataset_kwarg
+
+    # kwarg not in pq.write_to_dataset, but will be passed to ds.write_dataset
+    assert key not in inspect.signature(pq.write_to_dataset).parameters
+    assert key in signature.parameters
+
+    with mock.patch.object(ds, "write_dataset", autospec=True)\
+            as mock_write_dataset:
+        pq.write_to_dataset(table, path, **{key: arg})
+        _name, _args, kwargs = mock_write_dataset.mock_calls[0]
+        assert kwargs[key] == arg

@@ -52,12 +52,15 @@ except ImportError:
 
 try:
     from pyarrow._s3fs import (  # noqa
-        S3FileSystem, S3LogLevel, initialize_s3, finalize_s3,
-        resolve_s3_region)
+        AwsDefaultS3RetryStrategy, AwsStandardS3RetryStrategy,
+        S3FileSystem, S3LogLevel, S3RetryStrategy, ensure_s3_initialized,
+        finalize_s3, initialize_s3, resolve_s3_region)
 except ImportError:
     _not_imported.append("S3FileSystem")
 else:
-    initialize_s3()
+    ensure_s3_initialized()
+    import atexit
+    atexit.register(finalize_s3)
 
 
 def __getattr__(name):
@@ -134,7 +137,7 @@ def _ensure_filesystem(
 
 
 def _resolve_filesystem_and_path(
-    path, filesystem=None, allow_legacy_filesystem=False
+    path, filesystem=None, allow_legacy_filesystem=False, memory_map=False
 ):
     """
     Return filesystem/path from path which could be an URI or a plain
@@ -150,7 +153,8 @@ def _resolve_filesystem_and_path(
 
     if filesystem is not None:
         filesystem = _ensure_filesystem(
-            filesystem, allow_legacy_filesystem=allow_legacy_filesystem
+            filesystem, use_mmap=memory_map,
+            allow_legacy_filesystem=allow_legacy_filesystem
         )
         if isinstance(filesystem, LocalFileSystem):
             path = _stringify_path(path)
@@ -168,7 +172,8 @@ def _resolve_filesystem_and_path(
     # if filesystem is not given, try to automatically determine one
     # first check if the file exists as a local (relative) file path
     # if not then try to parse the path as an URI
-    filesystem = LocalFileSystem()
+    filesystem = LocalFileSystem(use_mmap=memory_map)
+
     try:
         file_info = filesystem.get_file_info(path)
     except ValueError:  # ValueError means path is likely an URI
@@ -186,7 +191,8 @@ def _resolve_filesystem_and_path(
             # neither an URI nor a locally existing path, so assume that
             # local path was given and propagate a nicer file not found error
             # instead of a more confusing scheme parsing error
-            if "empty scheme" not in str(e):
+            if "empty scheme" not in str(e) \
+                    and "Cannot parse URI" not in str(e):
                 raise
     else:
         path = filesystem.normalize_path(path)
@@ -277,7 +283,7 @@ class FSSpecHandler(FileSystemHandler):
 
     Parameters
     ----------
-    fs : FSSpec-compliant filesystem instance.
+    fs : FSSpec-compliant filesystem instance
 
     Examples
     --------

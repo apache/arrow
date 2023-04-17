@@ -19,13 +19,29 @@ import pytest
 
 from archery.release.core import (
     Release, MajorRelease, MinorRelease, PatchRelease,
-    Jira, Version, Issue, CommitTitle, Commit
+    IssueTracker, Version, Issue, CommitTitle, Commit
 )
 from archery.testing import DotDict
 
 
 # subset of issues per revision
 _issues = {
+    "3.0.0": [
+        Issue("GH-9784", type="Bug", summary="[C++] Title"),
+        Issue("GH-9767", type="New Feature", summary="[Crossbow] Title"),
+        Issue("GH-1231", type="Bug", summary="[Java] Title"),
+        Issue("GH-1244", type="Bug", summary="[C++] Title"),
+        Issue("GH-1301", type="Bug", summary="[Python][Archery] Title")
+    ],
+    "2.0.0": [
+        Issue("ARROW-9784", type="Bug", summary="[Java] Title"),
+        Issue("ARROW-9767", type="New Feature", summary="[Crossbow] Title"),
+        Issue("GH-1230", type="Bug", summary="[Dev] Title"),
+        Issue("ARROW-9694", type="Bug", summary="[Release] Title"),
+        Issue("ARROW-5643", type="Bug", summary="[Go] Title"),
+        Issue("GH-1243", type="Bug", summary="[Python] Title"),
+        Issue("GH-1300", type="Bug", summary="[CI][Archery] Title")
+    ],
     "1.0.1": [
         Issue("ARROW-9684", type="Bug", summary="[C++] Title"),
         Issue("ARROW-9667", type="New Feature", summary="[Crossbow] Title"),
@@ -62,13 +78,14 @@ _issues = {
 }
 
 
-class FakeJira(Jira):
+class FakeIssueTracker(IssueTracker):
 
     def __init__(self):
         pass
 
-    def project_versions(self, project='ARROW'):
+    def project_versions(self):
         return [
+            Version.parse("4.0.0", released=False),
             Version.parse("3.0.0", released=False),
             Version.parse("2.0.0", released=False),
             Version.parse("1.1.0", released=False),
@@ -82,16 +99,16 @@ class FakeJira(Jira):
             Version.parse("0.15.0", released=True),
         ]
 
-    def project_issues(self, version, project='ARROW'):
+    def project_issues(self, version):
         return _issues[str(version)]
 
 
 @pytest.fixture
-def fake_jira():
-    return FakeJira()
+def fake_issue_tracker():
+    return FakeIssueTracker()
 
 
-def test_version(fake_jira):
+def test_version(fake_issue_tracker):
     v = Version.parse("1.2.5")
     assert str(v) == "1.2.5"
     assert v.major == 1
@@ -109,7 +126,7 @@ def test_version(fake_jira):
     assert v.release_date == "2020-01-01"
 
 
-def test_issue(fake_jira):
+def test_issue(fake_issue_tracker):
     i = Issue("ARROW-1234", type='Bug', summary="title")
     assert i.key == "ARROW-1234"
     assert i.type == "Bug"
@@ -212,78 +229,78 @@ def test_commit_title():
     assert t.minor is False
 
 
-def test_release_basics(fake_jira):
-    r = Release.from_jira("1.0.0", jira=fake_jira)
+def test_release_basics(fake_issue_tracker):
+    r = Release("1.0.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r, MajorRelease)
     assert r.is_released is True
     assert r.branch == 'maint-1.0.0'
     assert r.tag == 'apache-arrow-1.0.0'
 
-    r = Release.from_jira("1.1.0", jira=fake_jira)
+    r = Release("1.1.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r, MinorRelease)
     assert r.is_released is False
     assert r.branch == 'maint-1.x.x'
     assert r.tag == 'apache-arrow-1.1.0'
 
     # minor releases before 1.0 are treated as major releases
-    r = Release.from_jira("0.17.0", jira=fake_jira)
+    r = Release("0.17.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r, MajorRelease)
     assert r.is_released is True
     assert r.branch == 'maint-0.17.0'
     assert r.tag == 'apache-arrow-0.17.0'
 
-    r = Release.from_jira("0.17.1", jira=fake_jira)
+    r = Release("0.17.1", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r, PatchRelease)
     assert r.is_released is True
     assert r.branch == 'maint-0.17.x'
     assert r.tag == 'apache-arrow-0.17.1'
 
 
-def test_previous_and_next_release(fake_jira):
-    r = Release.from_jira("3.0.0", jira=fake_jira)
+def test_previous_and_next_release(fake_issue_tracker):
+    r = Release("4.0.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, MajorRelease)
-    assert r.previous.version == Version.parse("2.0.0")
+    assert r.previous.version == Version.parse("3.0.0")
     with pytest.raises(ValueError, match="There is no upcoming release set"):
         assert r.next
 
-    r = Release.from_jira("2.0.0", jira=fake_jira)
+    r = Release("3.0.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, MajorRelease)
     assert isinstance(r.next, MajorRelease)
-    assert r.previous.version == Version.parse("1.0.0")
-    assert r.next.version == Version.parse("3.0.0")
+    assert r.previous.version == Version.parse("2.0.0")
+    assert r.next.version == Version.parse("4.0.0")
 
-    r = Release.from_jira("1.1.0", jira=fake_jira)
+    r = Release("1.1.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, MajorRelease)
     assert isinstance(r.next, MajorRelease)
     assert r.previous.version == Version.parse("1.0.0")
     assert r.next.version == Version.parse("2.0.0")
 
-    r = Release.from_jira("1.0.0", jira=fake_jira)
+    r = Release("1.0.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.next, MajorRelease)
     assert isinstance(r.previous, MajorRelease)
     assert r.previous.version == Version.parse("0.17.0")
     assert r.next.version == Version.parse("2.0.0")
 
-    r = Release.from_jira("0.17.0", jira=fake_jira)
+    r = Release("0.17.0", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, MajorRelease)
     assert r.previous.version == Version.parse("0.16.0")
 
-    r = Release.from_jira("0.15.2", jira=fake_jira)
+    r = Release("0.15.2", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, PatchRelease)
     assert isinstance(r.next, MajorRelease)
     assert r.previous.version == Version.parse("0.15.1")
     assert r.next.version == Version.parse("0.16.0")
 
-    r = Release.from_jira("0.15.1", jira=fake_jira)
+    r = Release("0.15.1", repo=None, issue_tracker=fake_issue_tracker)
     assert isinstance(r.previous, MajorRelease)
     assert isinstance(r.next, PatchRelease)
     assert r.previous.version == Version.parse("0.15.0")
     assert r.next.version == Version.parse("0.15.2")
 
 
-def test_release_issues(fake_jira):
+def test_release_issues(fake_issue_tracker):
     # major release issues
-    r = Release.from_jira("1.0.0", jira=fake_jira)
+    r = Release("1.0.0", repo=None, issue_tracker=fake_issue_tracker)
     assert r.issues.keys() == set([
         "ARROW-300",
         "ARROW-4427",
@@ -295,7 +312,7 @@ def test_release_issues(fake_jira):
         "ARROW-8973"
     ])
     # minor release issues
-    r = Release.from_jira("0.17.0", jira=fake_jira)
+    r = Release("0.17.0", repo=None, issue_tracker=fake_issue_tracker)
     assert r.issues.keys() == set([
         "ARROW-2882",
         "ARROW-2587",
@@ -305,7 +322,7 @@ def test_release_issues(fake_jira):
         "ARROW-1636",
     ])
     # patch release issues
-    r = Release.from_jira("1.0.1", jira=fake_jira)
+    r = Release("1.0.1", repo=None, issue_tracker=fake_issue_tracker)
     assert r.issues.keys() == set([
         "ARROW-9684",
         "ARROW-9667",
@@ -315,6 +332,16 @@ def test_release_issues(fake_jira):
         "ARROW-9609",
         "ARROW-9606"
     ])
+    r = Release("2.0.0", repo=None, issue_tracker=fake_issue_tracker)
+    assert r.issues.keys() == set([
+        "ARROW-9784",
+        "ARROW-9767",
+        "GH-1230",
+        "ARROW-9694",
+        "ARROW-5643",
+        "GH-1243",
+        "GH-1300"
+    ])
 
 
 @pytest.mark.parametrize(('version', 'ncommits'), [
@@ -323,8 +350,8 @@ def test_release_issues(fake_jira):
     ("0.17.0", 569),
     ("0.15.1", 41)
 ])
-def test_release_commits(fake_jira, version, ncommits):
-    r = Release.from_jira(version, jira=fake_jira)
+def test_release_commits(fake_issue_tracker, version, ncommits):
+    r = Release(version, repo=None, issue_tracker=fake_issue_tracker)
     assert len(r.commits) == ncommits
     for c in r.commits:
         assert isinstance(c, Commit)
@@ -332,8 +359,8 @@ def test_release_commits(fake_jira, version, ncommits):
         assert c.url.endswith(c.hexsha)
 
 
-def test_maintenance_patch_selection(fake_jira):
-    r = Release.from_jira("0.17.1", jira=fake_jira)
+def test_maintenance_patch_selection(fake_issue_tracker):
+    r = Release("0.17.1", repo=None, issue_tracker=fake_issue_tracker)
 
     shas_to_pick = [
         c.hexsha for c in r.commits_to_pick(exclude_already_applied=False)

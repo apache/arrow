@@ -189,10 +189,10 @@ test_that("ChunkedArray handles NaN", {
 
 test_that("ChunkedArray supports logical vectors (ARROW-3341)", {
   # with NA
-  data <- purrr::rerun(3, sample(c(TRUE, FALSE, NA), 100, replace = TRUE))
+  data <- purrr::map(1:3, ~ sample(c(TRUE, FALSE, NA), 100, replace = TRUE))
   expect_chunked_roundtrip(data, bool())
   # without NA
-  data <- purrr::rerun(3, sample(c(TRUE, FALSE), 100, replace = TRUE))
+  data <- purrr::map(1:3, ~ sample(c(TRUE, FALSE), 100, replace = TRUE))
   expect_chunked_roundtrip(data, bool())
 })
 

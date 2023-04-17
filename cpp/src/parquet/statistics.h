@@ -137,6 +137,12 @@ class PARQUET_EXPORT EncodedStatistics {
   bool has_null_count = false;
   bool has_distinct_count = false;
 
+  // When all values in the statistics are null, it is set to true.
+  // Otherwise, at least one value is not null, or we are not sure at all.
+  // Page index requires this information to decide whether a data page
+  // is a null page or not.
+  bool all_null_value = false;
+
   // From parquet-mr
   // Don't write stats larger than the max size rather than truncating. The
   // rationale is that some engines may use the minimum value in the page as
@@ -214,6 +220,14 @@ class PARQUET_EXPORT Statistics {
       const std::string& encoded_max, int64_t num_values, int64_t null_count,
       int64_t distinct_count, bool has_min_max, bool has_null_count,
       bool has_distinct_count,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
+  // Helper function to convert EncodedStatistics to Statistics.
+  // EncodedStatistics does not contain number of non-null values, and it can be
+  // passed using the num_values parameter.
+  static std::shared_ptr<Statistics> Make(
+      const ColumnDescriptor* descr, const EncodedStatistics* encoded_statistics,
+      int64_t num_values = -1,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   /// \brief Return true if the count of null values is set
