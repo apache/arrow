@@ -915,7 +915,7 @@ func TestInferCSVOptions(t *testing.T) {
 	}, nil)
 	expRec, _, _ := array.RecordFromJSON(mem, expSchema, strings.NewReader(`[
 		{"f64": 1.1, "i32": -1, "bool": true, "str": "str-1", "i64": -1, "u64": 1, "i8": -1},
-		{"f64": 2.2, "i32": -2, "bool": false, "str": "str-2", "i64": -2, "u64": 2, "i8": -2},
+		{"f64": 2.2, "i32": -2, "bool": false, "str": null, "i64": -2, "u64": 2, "i8": -2},
 		{"f64": null, "i32": null, "bool": null, "str": null, "i64": null, "u64": null, "i8": null}
 	]`))
 	defer expRec.Release()
