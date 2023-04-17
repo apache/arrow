@@ -71,6 +71,7 @@ cmake -G "Visual Studio 16 2019" -A x64 ^
       -DARROW_WITH_ZSTD=ON ^
       -DCMAKE_BUILD_TYPE=release ^
       -DCMAKE_UNITY_BUILD=ON ^
+      --debug-trycompile ^
       .. || exit /B 1
 
 cmake --build . --target INSTALL --config Release || exit /B 1
