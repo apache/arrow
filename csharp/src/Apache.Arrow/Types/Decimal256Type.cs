@@ -13,10 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Numerics;
+using System;
+
 namespace Apache.Arrow.Types
 {
     public sealed class Decimal256Type: FixedSizeBinaryType
     {
+        public static readonly Decimal256Type Default = new(38, 18, 24);
         public override ArrowTypeId TypeId => ArrowTypeId.Decimal256;
         public override string Name => "decimal256";
 
@@ -24,8 +28,22 @@ namespace Apache.Arrow.Types
         public int Scale { get; }
 
         public Decimal256Type(int precision, int scale)
-            : base(32)
+            : this(precision, scale, DecimalUtility.GetByteWidth(BigInteger.Parse(new string('9', precision + scale))))
         {
+        }
+
+        public Decimal256Type(int precision, int scale, int byteWidth)
+            : base(byteWidth)
+        {
+            if (byteWidth > 32)
+            {
+                throw new OverflowException($"Cannot create Decimal256Type({precision}, {scale}, {byteWidth}), byteWidth should be between 1 and 32");
+            }
+            if (precision > 76)
+            {
+                throw new OverflowException($"Cannot create Decimal256Type({precision}, {scale}, {byteWidth}), precision should be between 1 and 76");
+            }
+
             Precision = precision;
             Scale = scale;
         }

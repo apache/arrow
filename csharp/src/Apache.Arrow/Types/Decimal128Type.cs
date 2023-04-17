@@ -13,10 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+using System.Numerics;
+
 namespace Apache.Arrow.Types
 {
     public sealed class Decimal128Type : FixedSizeBinaryType
     {
+        public static readonly Decimal128Type Default = new(29, 9, 16);
         public override ArrowTypeId TypeId => ArrowTypeId.Decimal128;
         public override string Name => "decimal128";
 
@@ -24,8 +28,22 @@ namespace Apache.Arrow.Types
         public int Scale { get; }
 
         public Decimal128Type(int precision, int scale)
-            : base(16)
+            : this(precision, scale, DecimalUtility.GetByteWidth(BigInteger.Parse(new string('9', precision + scale))))
         {
+        }
+
+        public Decimal128Type(int precision, int scale, int byteWidth)
+            : base(byteWidth)
+        {
+            if (byteWidth > 16)
+            {
+                throw new OverflowException($"Cannot create Decimal128Type({precision}, {scale}, {byteWidth}), byteWidth should be between 1 and 16");
+            }
+            if (precision > 38)
+            {
+                throw new OverflowException($"Cannot create Decimal128Type({precision}, {scale}, {byteWidth}), precision should be between 1 and 38");
+            }
+
             Precision = precision;
             Scale = scale;
         }
