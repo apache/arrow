@@ -122,7 +122,12 @@ func (b *UUIDBuilder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	return b.UnmarshalOne(json.NewDecoder(strings.NewReader(`"` + s + `"`)))
+	u, err := uuid.Parse(s)
+	if err != nil {
+		return fmt.Errorf("invalid uuid: %w", err)
+	}
+	b.Append(u)
+	return nil
 }
 
 // UUIDArray is a simple array which is a FixedSizeBinary(16)
