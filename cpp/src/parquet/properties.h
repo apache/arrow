@@ -937,13 +937,13 @@ class PARQUET_EXPORT ArrowWriterProperties {
     /// list types (default "item"), will use "entries", as is specified in
     /// the Parquet spec.
     ///
-    /// This is disabled by default, but will be enabled by default in future.
+    /// This is enabled by default.
     Builder* enable_compliant_nested_types() {
       compliant_nested_types_ = true;
       return this;
     }
 
-    /// Preserve Arrow list field name (default behavior).
+    /// Preserve Arrow list field name.
     Builder* disable_compliant_nested_types() {
       compliant_nested_types_ = false;
       return this;
