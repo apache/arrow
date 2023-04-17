@@ -117,7 +117,7 @@ namespace Apache.Arrow
                         break;
                     // Decimal
                     case var _ when valueType == typeof(decimal):
-                        DataType(new Decimal128Type(38, 18));
+                        DataType(Decimal256Type.Default);
                         break;
                     // Float
                     case var _ when valueType == typeof(float):

@@ -204,14 +204,14 @@ namespace Apache.Arrow
             return new DoubleArray.Builder().AppendRange(values).Build();
         }
 
-        public static Decimal128Array BuildArray(IEnumerable<decimal> values)
+        public static Decimal256Array BuildArray(IEnumerable<decimal> values)
         {
-            return new Decimal128Array.Builder(new Decimal128Type(38, 18)).AppendRange(values).Build();
+            return new Decimal256Array.Builder(Decimal256Type.Default).AppendRange(values).Build();
         }
 
-        public static Decimal128Array BuildArray(IEnumerable<decimal?> values)
+        public static Decimal256Array BuildArray(IEnumerable<decimal?> values)
         {
-            return new Decimal128Array.Builder(new Decimal128Type(38, 18)).AppendRange(values).Build();
+            return new Decimal256Array.Builder(Decimal256Type.Default).AppendRange(values).Build();
         }
     }
 }

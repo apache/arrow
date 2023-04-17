@@ -278,7 +278,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal("Name", Name.Name);
                 Assert.True(Name.IsNullable);
 
-                Assert.Equal(typeof(Decimal128Type), value.DataType.GetType());
+                Assert.Equal(typeof(Decimal256Type), value.DataType.GetType());
                 Assert.Equal("value", value.Name);
                 Assert.True(value.IsNullable);
 

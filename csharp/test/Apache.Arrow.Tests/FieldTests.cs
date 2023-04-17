@@ -68,10 +68,10 @@ namespace Apache.Arrow.Tests
             {
                 // Arrange
                 Field builder = new Field.Builder().Name("test").DataType(typeof(decimal?)).Build();
-                var dtype = builder.DataType as Decimal128Type;
+                var dtype = builder.DataType as Decimal256Type;
 
                 // Assert
-                Assert.Equal(typeof(Decimal128Type), builder.DataType.GetType());
+                Assert.Equal(typeof(Decimal256Type), builder.DataType.GetType());
                 Assert.Equal(38, dtype.Precision);
                 Assert.Equal(18, dtype.Scale);
                 Assert.True(builder.IsNullable);
@@ -82,10 +82,10 @@ namespace Apache.Arrow.Tests
             {
                 // Arrange
                 Field builder = new Field.Builder().Name("test").DataType(typeof(decimal)).Build();
-                var dtype = builder.DataType as Decimal128Type;
+                var dtype = builder.DataType as Decimal256Type;
 
                 // Assert
-                Assert.Equal(typeof(Decimal128Type), builder.DataType.GetType());
+                Assert.Equal(typeof(Decimal256Type), builder.DataType.GetType());
                 Assert.Equal(38, dtype.Precision);
                 Assert.Equal(18, dtype.Scale);
                 Assert.False(builder.IsNullable);
@@ -140,7 +140,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal("Name", Name.Name);
                 Assert.True(Name.IsNullable);
 
-                Assert.Equal(typeof(Decimal128Type), value.DataType.GetType());
+                Assert.Equal(typeof(Decimal256Type), value.DataType.GetType());
                 Assert.Equal("value", value.Name);
                 Assert.True(value.IsNullable);
 
@@ -168,7 +168,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal("Name", Name.Name);
                 Assert.True(Name.IsNullable);
 
-                Assert.Equal(typeof(Decimal128Type), value.DataType.GetType());
+                Assert.Equal(typeof(Decimal256Type), value.DataType.GetType());
                 Assert.Equal("value", value.Name);
                 Assert.True(value.IsNullable);
 
