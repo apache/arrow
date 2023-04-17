@@ -95,7 +95,7 @@ ArrowTabular <- R6Class("ArrowTabular",
 as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ...) {
   df <- x$to_data_frame()
   out <- apply_arrow_r_metadata(df, x$metadata$r)
-  as.data.frame(out)
+  as.data.frame(out, row.names = row.names, optional = optional, ...)
 }
 
 #' @export
