@@ -14,8 +14,6 @@
 // limitations under the License.
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Numerics;
 
 namespace Apache.Arrow
@@ -159,39 +157,6 @@ namespace Apache.Arrow
                     bytes[i] = 255;
                 }
             }
-        }
-
-        internal static BigInteger ToBigInteger(int[] decimalBits)
-        {
-#if NETCOREAPP
-            Span<byte> bigIntBytes = stackalloc byte[13];
-
-            Span<byte> intBytes = stackalloc byte[4];
-            for (int i = 0; i < 3; i++)
-            {
-                int bit = decimalBits[i];
-                if (!BitConverter.TryWriteBytes(intBytes, bit))
-                    throw new OverflowException($"Could not extract bytes from int {bit}");
-
-                for (int j = 0; j < 4; j++)
-                {
-                    bigIntBytes[4 * i + j] = intBytes[j];
-                }
-            }
-            return new BigInteger(bigIntBytes);
-#else
-            byte[] bigIntBytes = new byte[13];
-            for (int i = 0; i < 3; i++)
-            {
-                int bit = decimalBits[i];
-                byte[] intBytes = BitConverter.GetBytes(bit);
-                for (int j = 0; j < intBytes.Length; j++)
-                {
-                    bigIntBytes[4 * i + j] = intBytes[j];
-                }
-            }
-            return new BigInteger(bigIntBytes);
-#endif
         }
 
         internal static int GetByteWidth(BigInteger bigInt)
