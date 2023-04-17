@@ -142,7 +142,7 @@ namespace Apache.Arrow.Ipc
                     return (decMeta.BitWidth / 8) switch
                     {
                         int b16 when b16 < 17 => new Types.Decimal128Type(decMeta.Precision, decMeta.Scale, b16),
-                        int b32 when b32 < 17 => new Types.Decimal256Type(decMeta.Precision, decMeta.Scale, b32),
+                        int b32 when b32 < 33 => new Types.Decimal256Type(decMeta.Precision, decMeta.Scale, b32),
                         _ => throw new InvalidDataException("Unsupported decimal bit width " + decMeta.BitWidth),
                     };
                 case Flatbuf.Type.Date:
