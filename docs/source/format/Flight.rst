@@ -90,9 +90,13 @@ A client that wishes to download the data would:
    An endpoint contains a list of locations (server addresses) where
    this data can be retrieved from, and a ``Ticket``, an opaque binary
    token that the server will use to identify the data being
-   requested. There is no ordering defined on endpoints or the data
-   within, so if the dataset is sorted, applications should return
-   data in a single endpoint.
+   requested. If ``FlightInfo.ordered`` is set, returned endpoints are
+   in the same order as the data. The client can read ordered data by
+   reading data from returned endpoints in order from front to
+   back. Note that a client may ignore ``FlightInfo.ordered``. If an
+   ordering is important and the client may ignore
+   ``FlightInfo.ordered``, applications should return data in a single
+   endpoint.
 
    The response also contains other metadata, like the schema, and
    optionally an estimate of the dataset size.
@@ -216,7 +220,7 @@ Flight is primarily defined in terms of its Protobuf and gRPC
 specification below, but Arrow implementations may also support
 alternative transports (see :ref:`status-flight-rpc`). In that case,
 implementations should use the following URI schemes for the given
-transport implemenatations:
+transport implementations:
 
 +----------------------------+----------------------------+
 | Transport                  | URI Scheme                 |

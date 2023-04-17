@@ -210,8 +210,8 @@ class MiddlewareServer : public FlightServerBase {
       // Return a fake location - the test doesn't read it
       ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp("localhost", 10010));
       std::vector<FlightEndpoint> endpoints{FlightEndpoint{{"foo"}, {location}}};
-      ARROW_ASSIGN_OR_RAISE(auto info,
-                            FlightInfo::Make(*schema, descriptor, endpoints, -1, -1));
+      ARROW_ASSIGN_OR_RAISE(
+          auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
       *result = std::make_unique<FlightInfo>(info);
       return Status::OK();
     }
@@ -382,8 +382,8 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     }
     ARROW_ASSIGN_OR_RAISE(auto handle, sql::CreateStatementQueryTicket(ticket));
     std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}}};
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          FlightInfo::Make(*schema, descriptor, endpoints, -1, -1));
+    ARROW_ASSIGN_OR_RAISE(
+        auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     return std::make_unique<FlightInfo>(result);
   }
 
@@ -407,8 +407,8 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     }
     ARROW_ASSIGN_OR_RAISE(auto handle, sql::CreateStatementQueryTicket(ticket));
     std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}}};
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          FlightInfo::Make(*schema, descriptor, endpoints, -1, -1));
+    ARROW_ASSIGN_OR_RAISE(
+        auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     return std::make_unique<FlightInfo>(result);
   }
 
@@ -851,7 +851,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
       const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema) {
     std::vector<FlightEndpoint> endpoints{FlightEndpoint{{descriptor.cmd}, {}}};
     ARROW_ASSIGN_OR_RAISE(auto result,
-                          FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
+                          FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false))
 
     return std::make_unique<FlightInfo>(result);
   }
