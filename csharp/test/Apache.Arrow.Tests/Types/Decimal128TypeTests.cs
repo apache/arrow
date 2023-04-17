@@ -27,9 +27,9 @@ namespace Apache.Arrow.Tests.Types
             Decimal128Type type = Decimal128Type.Default;
 
             // Assert
-            Assert.Equal(13, type.ByteWidth);
+            Assert.Equal(16, type.ByteWidth);
             Assert.Equal(29, type.Precision);
-            Assert.Equal(15, type.Scale);
+            Assert.Equal(9, type.Scale);
         }
 
         [Fact]
