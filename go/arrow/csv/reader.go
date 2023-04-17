@@ -884,7 +884,7 @@ func tryParse(val string, dt arrow.DataType) error {
 		}
 		return nil
 	case *arrow.BinaryType:
-		_, err := base64.StdEncoding.DecodeString(val)
+		_, err := base64.RawStdEncoding.DecodeString(val)
 		return err
 	}
 	panic("shouldn't end up here")
