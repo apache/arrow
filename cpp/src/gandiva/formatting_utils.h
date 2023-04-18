@@ -27,7 +27,7 @@ namespace gandiva {
 template <typename ARROW_TYPE, typename Enable = void>
 class GdvStringFormatter;
 
-using double_conversion::DoubleToStringConverter;
+using arrow_vendored::double_conversion::DoubleToStringConverter;
 
 template <typename ARROW_TYPE>
 class FloatToStringGdvMixin

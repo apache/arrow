@@ -81,6 +81,16 @@ func NewStructData(data arrow.ArrayData) *Struct {
 func (a *Struct) NumField() int           { return len(a.fields) }
 func (a *Struct) Field(i int) arrow.Array { return a.fields[i] }
 
+// ValueStr returns the string representation (as json) of the value at index i.
+func (a *Struct) ValueStr(i int) string {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
+		panic(err)
+	}
+	return buf.String()
+}
+
 func (a *Struct) String() string {
 	o := new(strings.Builder)
 	o.WriteString("{")
@@ -349,6 +359,14 @@ func (b *StructBuilder) newData() (data *Data) {
 	b.reset()
 
 	return
+}
+
+func (b *StructBuilder) AppendValueFromString(s string) error {
+	if !strings.HasPrefix(s, "{") && !strings.HasSuffix(s, "}") {
+		return fmt.Errorf("%w: invalid string for struct should be be of form: {*}", arrow.ErrInvalid,)
+	}
+	dec := json.NewDecoder(strings.NewReader(s))
+	return b.UnmarshalOne(dec)
 }
 
 func (b *StructBuilder) UnmarshalOne(dec *json.Decoder) error {

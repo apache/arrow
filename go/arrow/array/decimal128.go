@@ -48,6 +48,13 @@ func NewDecimal128Data(data arrow.ArrayData) *Decimal128 {
 }
 
 func (a *Decimal128) Value(i int) decimal128.Num { return a.values[i] }
+func (a *Decimal128) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}	else {
+		return a.GetOneForMarshal(i).(string)
+	}
+}
 
 func (a *Decimal128) Values() []decimal128.Num { return a.values }
 
@@ -258,6 +265,20 @@ func (b *Decimal128Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Decimal128Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	val, err := decimal128.FromString(s, b.dtype.Precision, b.dtype.Scale)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(val)
+	return nil
 }
 
 func (b *Decimal128Builder) UnmarshalOne(dec *json.Decoder) error {

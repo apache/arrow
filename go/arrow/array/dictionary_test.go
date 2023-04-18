@@ -1173,7 +1173,7 @@ func TestDictionaryGetValueIndex(t *testing.T) {
 			const offset = 1
 			slicedDictArr := array.NewSlice(dictArr, offset, int64(dictArr.Len()))
 			defer slicedDictArr.Release()
-
+			assert.EqualValues(t, "10", slicedDictArr.(*array.Dictionary).ValueStr(0))
 			for i := 0; i < indices.Len(); i++ {
 				assert.EqualValues(t, i64Index.Value(i), dictArr.GetValueIndex(i))
 				if i < slicedDictArr.Len() {

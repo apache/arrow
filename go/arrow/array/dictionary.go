@@ -253,6 +253,10 @@ func (d *Dictionary) CanCompareIndices(other *Dictionary) bool {
 	return ArraySliceEqual(d.Dictionary(), 0, minlen, other.Dictionary(), 0, minlen)
 }
 
+func (d *Dictionary) ValueStr(i int) string {
+	return d.Dictionary().ValueStr(d.GetValueIndex(i))
+}
+
 func (d *Dictionary) String() string {
 	return fmt.Sprintf("{ dictionary: %v\n  indices: %v }", d.Dictionary(), d.Indices())
 }
@@ -735,6 +739,10 @@ func (b *dictionaryBuilder) Unmarshal(dec *json.Decoder) error {
 	arr := bldr.NewArray()
 	defer arr.Release()
 	return b.AppendArray(arr)
+}
+
+func (b *dictionaryBuilder) AppendValueFromString(s string) error {
+	return fmt.Errorf("%w: AppendValueFromString to dictionary not yet implemented", arrow.ErrNotImplemented)
 }
 
 func (b *dictionaryBuilder) UnmarshalOne(dec *json.Decoder) error {
@@ -1553,7 +1561,7 @@ func (u *unifier) GetResultWithIndexType(indexType arrow.DataType) (arrow.Array,
 	case arrow.INT16:
 		toobig = dictLen > math.MaxInt16
 	case arrow.UINT32:
-		toobig = dictLen > math.MaxUint32
+		toobig = uint(dictLen) > math.MaxUint32
 	case arrow.INT32:
 		toobig = dictLen > math.MaxInt32
 	case arrow.UINT64:
