@@ -139,7 +139,7 @@ on:
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      PATH=$(ruby -r rubygems -e 'puts Gem.user_dir')/bin:$PATH
+      PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
       echo "PATH value"
       echo $PATH
       gem install --user-install gemfury
