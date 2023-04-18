@@ -568,7 +568,7 @@ class JoinResultMaterialize {
       if (num_rows_appended < num_rows_to_append) {
         ExecBatch batch;
         ARROW_RETURN_NOT_OK(Flush(&batch));
-        ARROW_RETURN_NOT_OK(output_batch_fn(batch));
+        ARROW_RETURN_NOT_OK(output_batch_fn(std::move(batch)));
         num_rows_to_append -= num_rows_appended;
         offset += num_rows_appended;
       } else {
