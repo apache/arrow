@@ -1561,7 +1561,7 @@ func (u *unifier) GetResultWithIndexType(indexType arrow.DataType) (arrow.Array,
 	case arrow.INT16:
 		toobig = dictLen > math.MaxInt16
 	case arrow.UINT32:
-		toobig = dictLen > math.MaxUint32
+		toobig = uint(dictLen) > math.MaxUint32
 	case arrow.INT32:
 		toobig = dictLen > math.MaxInt32
 	case arrow.UINT64:

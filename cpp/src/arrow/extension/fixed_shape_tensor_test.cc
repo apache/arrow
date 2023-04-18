@@ -101,7 +101,7 @@ TEST_F(TestExtensionType, CreateExtensionType) {
   ASSERT_EQ(ext_type_->Serialize(), serialized_);
   ASSERT_OK_AND_ASSIGN(auto ds,
                        ext_type_->Deserialize(ext_type_->storage_type(), serialized_));
-  auto deserialized = std::reinterpret_pointer_cast<ExtensionType>(ds);
+  auto deserialized = internal::checked_pointer_cast<ExtensionType>(ds);
   ASSERT_TRUE(deserialized->Equals(*ext_type_));
 
   // Test FixedShapeTensorType methods
@@ -267,7 +267,7 @@ TEST_F(TestExtensionType, CreateFromTensor) {
 
   ASSERT_OK_AND_ASSIGN(auto fsla_arr,
                        FixedSizeListArray::FromArrays(arr, fixed_size_list(binary(), 2)));
-  auto ext_arr_5 = std::reinterpret_pointer_cast<FixedShapeTensorArray>(
+  auto ext_arr_5 = std::static_pointer_cast<FixedShapeTensorArray>(
       ExtensionType::WrapArray(ext_type_5, fsla_arr));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, testing::HasSubstr("binary is not valid data type for a tensor"),

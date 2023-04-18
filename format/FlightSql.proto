@@ -1271,7 +1271,7 @@ message CommandGetTableTypes {
  *  table_name: utf8 not null,
  *  column_name: utf8 not null,
  *  key_name: utf8,
- *  key_sequence: int not null
+ *  key_sequence: int32 not null
  * >
  * The returned data should be ordered by catalog_name, db_schema_name, table_name, key_name, then key_sequence.
  */
@@ -1321,11 +1321,11 @@ enum UpdateDeleteRules {
  *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
- *  key_sequence: int not null,
+ *  key_sequence: int32 not null,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
- *  update_rule: uint1 not null,
- *  delete_rule: uint1 not null
+ *  update_rule: uint8 not null,
+ *  delete_rule: uint8 not null
  * >
  * The returned data should be ordered by fk_catalog_name, fk_db_schema_name, fk_table_name, fk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions declared on UpdateDeleteRules enum.
@@ -1367,11 +1367,11 @@ message CommandGetExportedKeys {
  *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
- *  key_sequence: int not null,
+ *  key_sequence: int32 not null,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
- *  update_rule: uint1 not null,
- *  delete_rule: uint1 not null
+ *  update_rule: uint8 not null,
+ *  delete_rule: uint8 not null
  * >
  * The returned data should be ordered by pk_catalog_name, pk_db_schema_name, pk_table_name, pk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions:
@@ -1420,11 +1420,11 @@ message CommandGetImportedKeys {
  *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
- *  key_sequence: int not null,
+ *  key_sequence: int32 not null,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
- *  update_rule: uint1 not null,
- *  delete_rule: uint1 not null
+ *  update_rule: uint8 not null,
+ *  delete_rule: uint8 not null
  * >
  * The returned data should be ordered by pk_catalog_name, pk_db_schema_name, pk_table_name, pk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions:
