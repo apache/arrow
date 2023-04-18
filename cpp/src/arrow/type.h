@@ -1715,6 +1715,25 @@ class ARROW_EXPORT FieldPath {
   std::vector<int> indices_;
 };
 
+namespace internal {
+
+template <typename T>
+using FieldPathGetType =
+    decltype(std::declval<FieldPath>().Get(std::declval<T>()).ValueOrDie());
+
+template <bool Flattened, typename T>
+std::enable_if_t<!Flattened, Result<FieldPathGetType<T>>> GetChild(
+    const T& root, const FieldPath& path) {
+  return path.Get(root);
+}
+template <bool Flattened, typename T>
+std::enable_if_t<Flattened, Result<FieldPathGetType<T>>> GetChild(const T& root,
+                                                                  const FieldPath& path) {
+  return path.GetFlattened(root);
+}
+
+}  // namespace internal
+
 /// \class FieldRef
 /// \brief Descriptor of a (potentially nested) field within a schema.
 ///
@@ -1887,39 +1906,66 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   }
 
   template <typename T>
-  using GetType = decltype(std::declval<FieldPath>().Get(std::declval<T>()).ValueOrDie());
+  using GetType = internal::FieldPathGetType<T>;
 
   /// \brief Get all children matching this FieldRef.
   template <typename T>
   std::vector<GetType<T>> GetAll(const T& root) const {
-    std::vector<GetType<T>> out;
-    for (const auto& match : FindAll(root)) {
-      out.push_back(match.Get(root).ValueOrDie());
-    }
-    return out;
+    return GetAll<false>(root);
+  }
+  template <typename T>
+  std::vector<GetType<T>> GetAllFlattened(const T& root) const {
+    return GetAll<true>(root);
   }
 
   /// \brief Get the single child matching this FieldRef.
   /// Emit an error if none or multiple match.
   template <typename T>
   Result<GetType<T>> GetOne(const T& root) const {
-    ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
-    return match.Get(root).ValueOrDie();
+    return GetOne<false>(root);
+  }
+  template <typename T>
+  Result<GetType<T>> GetOneFlattened(const T& root) const {
+    return GetOne<true>(root);
   }
 
   /// \brief Get the single child matching this FieldRef.
   /// Return nullptr if none match, emit an error if multiple match.
   template <typename T>
   Result<GetType<T>> GetOneOrNone(const T& root) const {
-    ARROW_ASSIGN_OR_RAISE(auto match, FindOneOrNone(root));
-    if (match.empty()) {
-      return static_cast<GetType<T>>(NULLPTR);
-    }
-    return match.Get(root).ValueOrDie();
+    return GetOneOrNone<false>(root);
+  }
+  template <typename T>
+  Result<GetType<T>> GetOneOrNoneFlattened(const T& root) const {
+    return GetOneOrNone<true>(root);
   }
 
  private:
   void Flatten(std::vector<FieldRef> children);
+
+  template <bool Flattened, typename T>
+  Result<GetType<T>> GetOne(const T& root) const {
+    ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
+    return internal::GetChild<Flattened>(root, match).ValueOrDie();
+  }
+
+  template <bool Flattened, typename T>
+  std::vector<GetType<T>> GetAll(const T& root) const {
+    std::vector<GetType<T>> out;
+    for (const auto& match : FindAll(root)) {
+      out.push_back(internal::GetChild<Flattened>(root, match).ValueOrDie());
+    }
+    return out;
+  }
+
+  template <bool Flattened, typename T>
+  Result<GetType<T>> GetOneOrNone(const T& root) const {
+    ARROW_ASSIGN_OR_RAISE(auto match, FindOneOrNone(root));
+    if (match.empty()) {
+      return static_cast<GetType<T>>(NULLPTR);
+    }
+    return internal::GetChild<Flattened>(root, match).ValueOrDie();
+  }
 
   std::variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
 };
