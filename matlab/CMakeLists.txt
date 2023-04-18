@@ -208,7 +208,7 @@ endif()
 option(MATLAB_BUILD_TESTS "Build the C++ tests for the MATLAB interface" OFF)
 
 # Add tools/cmake directory to the CMAKE_MODULE_PATH.
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/tools/cmake)
+list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/tools/cmake)
 
 # Get find_package(Arrow) by setting Arrow_DIR to CPP interface ArrowConfig.cmake
 # TODO: Make sure this works on all platforms submitting
