@@ -17,7 +17,9 @@ namespace Apache.Arrow.Types
 {
     public sealed class Decimal256Type: FixedSizeBinaryType
     {
-        public static readonly Decimal256Type Default = new(38, 18, 32);
+        // max int decimal 79228162514264337593543950335M : precision = 29
+        // max scaled decimal 1.2345678901234567890123456789M : scale = 28
+        public static readonly Decimal256Type SystemDefault = new(29, 28, 32);
         public override ArrowTypeId TypeId => ArrowTypeId.Decimal256;
         public override string Name => "decimal256";
 

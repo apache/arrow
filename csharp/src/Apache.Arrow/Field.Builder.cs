@@ -56,16 +56,14 @@ namespace Apache.Arrow
             }
 
             // Build DataType from C# Type
-            public Builder DataType(System.Type valueType, string timezone = null)
+            public Builder DataType(System.Type valueType, string defaultTimezone = null, Dictionary<string, string> fieldTimezones = null)
             {
-                System.Type[] genericArgs;
                 System.Type child = System.Nullable.GetUnderlyingType(valueType);
-                Type elementType;
 
                 if (child != null)
                 {
                     // Nullable Type
-                    DataType(child, timezone);
+                    DataType(child, defaultTimezone);
                     Nullable(true);
                     return this;
                 }
@@ -75,14 +73,6 @@ namespace Apache.Arrow
 
                 switch (valueType)
                 {
-                    // Binary
-                    case var _ when valueType == typeof(byte):
-                        DataType(new BinaryType());
-                        break;
-                    case var _ when valueType == typeof(IEnumerable<byte>):
-                        DataType(new BinaryType());
-                        Nullable(true);
-                        break;
                     // Boolean
                     case var _ when valueType == typeof(bool):
                         DataType(new BooleanType());
@@ -106,6 +96,9 @@ namespace Apache.Arrow
                         DataType(new Int64Type());
                         break;
                     // Unisgned Integers
+                    case var _ when valueType == typeof(byte):
+                        DataType(new UInt8Type());
+                        break;
                     case var _ when valueType == typeof(ushort):
                         DataType(new UInt16Type());
                         break;
@@ -117,7 +110,7 @@ namespace Apache.Arrow
                         break;
                     // Decimal
                     case var _ when valueType == typeof(decimal):
-                        DataType(Decimal256Type.Default);
+                        DataType(Decimal256Type.SystemDefault);
                         break;
                     // Float
                     case var _ when valueType == typeof(float):
@@ -129,32 +122,28 @@ namespace Apache.Arrow
                         break;
                     // DateTime
                     case var _ when valueType == typeof(DateTime) || valueType == typeof(DateTimeOffset):
-                        DataType(new TimestampType(TimeUnit.Nanosecond, timezone));
+                        DataType(new TimestampType(TimeUnit.Nanosecond, defaultTimezone));
                         break;
                     // Time
                     case var _ when valueType == typeof(TimeSpan):
                         DataType(new Time64Type(TimeUnit.Nanosecond));
                         break;
 #if NETCOREAPP3_1_OR_GREATER
-                    // Dictionary: IDictionary<?,?>
-                    case var dict when typeof(IDictionary).IsAssignableFrom(valueType):
-                        genericArgs = dict.GetGenericArguments();
-
-                        DataType(new DictionaryType(
-                            new Builder().DataType(genericArgs[0], timezone)._type,
-                            new Builder().DataType(genericArgs[1], timezone)._type,
-                            false
-                        ));
-
-                        Nullable(true);
-
-                        break;
                     // IEnumerable: List, Array, ...
                     case var list when typeof(IEnumerable).IsAssignableFrom(valueType):
-                        elementType = list.GetGenericArguments()[0];
+                        Type elementType = list.GetGenericArguments()[0];
 
-                        DataType(new ListType(new Builder().Name("item").DataType(elementType, timezone).Build()));
-
+                        switch (elementType)
+                        {
+                            // Binary
+                            case var _ when valueType == typeof(byte):
+                                DataType(new BinaryType());
+                                break;
+                            // List of Arrays
+                            default:
+                                DataType(new ListType(new Builder().Name("item").DataType(elementType, defaultTimezone, fieldTimezones).Build()));
+                                break;
+                        }
                         Nullable(true);
                         break;
                     // Struct like: get all properties
@@ -166,13 +155,19 @@ namespace Apache.Arrow
 
                         DataType(new StructType(
                             properties
-                                .Select(property => new Builder().Name(property.Name).DataType(property.PropertyType, timezone).Build())
+                                .Select(property => {
+                                    // Check if it is not given in parameters, or get default
+                                    string fieldTimezone = fieldTimezones?.GetValueOrDefault(structure.Name, defaultTimezone);
+
+                                    return new Builder().Name(property.Name).DataType(property.PropertyType, fieldTimezone, fieldTimezones).Build();
+                                })
                                 .ToArray()
                         ));
 
                         break;
 #endif
                     // Error
+                    // TODO: Dictionary: IDictionary<?,?> : should be MapType, not implemented yet
                     default:
                         throw new InvalidCastException($"Cannot convert System.Type<{valueType}> to ArrowType");
                 }

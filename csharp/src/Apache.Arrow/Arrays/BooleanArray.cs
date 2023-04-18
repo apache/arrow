@@ -195,9 +195,38 @@ namespace Apache.Arrow
 
         public bool? GetValue(int index)
         {
-            return IsNull(index)
-                ? (bool?)null
-                : BitUtility.GetBit(ValueBuffer.Span, index + Offset);
+            return IsNull(index) ? (bool?)null : GetBoolean(index, true);
+        }
+
+        private bool GetBoolean(int index, bool notNull = true)
+        {
+            return BitUtility.GetBit(ValueBuffer.Span, index + Offset);
+        }
+
+        public bool?[] ToArray()
+        {
+            bool?[] alloc = new bool?[Length];
+
+            // Initialize the values
+            for (int i = 0; i < Length; i++)
+            {
+                alloc[i] = GetValue(i);
+            }
+
+            return alloc;
+        }
+
+        public bool[] ToArray(bool notNull = true)
+        {
+            bool[] alloc = new bool[Length];
+
+            // Initialize the values
+            for (int i = 0; i < Length; i++)
+            {
+                alloc[i] = GetBoolean(i, true);
+            }
+
+            return alloc;
         }
     }
 }

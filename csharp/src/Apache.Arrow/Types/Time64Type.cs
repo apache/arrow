@@ -18,6 +18,7 @@ namespace Apache.Arrow.Types
 {
     public sealed class Time64Type : TimeType
     {
+        public static readonly Time64Type SystemDefault = new Time64Type(TimeUnit.Nanosecond);
         public static readonly Time64Type Default = new Time64Type();
 
         public override ArrowTypeId TypeId => ArrowTypeId.Time64;

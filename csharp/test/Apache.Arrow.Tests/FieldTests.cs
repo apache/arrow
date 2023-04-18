@@ -72,8 +72,8 @@ namespace Apache.Arrow.Tests
 
                 // Assert
                 Assert.Equal(typeof(Decimal256Type), builder.DataType.GetType());
-                Assert.Equal(38, dtype.Precision);
-                Assert.Equal(18, dtype.Scale);
+                Assert.Equal(29, dtype.Precision);
+                Assert.Equal(28, dtype.Scale);
                 Assert.True(builder.IsNullable);
             }
 
@@ -86,8 +86,8 @@ namespace Apache.Arrow.Tests
 
                 // Assert
                 Assert.Equal(typeof(Decimal256Type), builder.DataType.GetType());
-                Assert.Equal(38, dtype.Precision);
-                Assert.Equal(18, dtype.Scale);
+                Assert.Equal(29, dtype.Precision);
+                Assert.Equal(28, dtype.Scale);
                 Assert.False(builder.IsNullable);
             }
 
@@ -108,45 +108,31 @@ namespace Apache.Arrow.Tests
             }
 
             [Fact]
-            public void DataType_Should_InferDataType_From_Dictionary()
-            {
-                // Arrange
-                Field builder = new Field.Builder().Name("test").DataType(typeof(Dictionary<int, string>)).Build();
-                var dtype = builder.DataType as DictionaryType;
-                var k = dtype.IndexType as Int32Type;
-                var v = dtype.ValueType as StringType;
-
-                // Assert
-                Assert.Equal(typeof(Int32Type), k.GetType());
-                Assert.Equal(typeof(StringType), v.GetType());
-            }
-
-            [Fact]
             public void DataType_Should_InferDataType_From_Structure()
             {
                 // Arrange
                 Field field = new Field.Builder().DataType(typeof(TestStruct)).Build();
                 var dtype = field.DataType as StructType;
-                Field Name = dtype.Fields[0];
+                Field name = dtype.Fields[0];
                 Field value = dtype.Fields[1];
-                Field aBc = dtype.Fields[2];
+                Field abc = dtype.Fields[2];
 
                 // Assert
                 Assert.Equal(3, dtype.Fields.Count);
                 Assert.False(field.IsNullable);
                 Assert.Equal("TestStruct", field.Name);
 
-                Assert.Equal(typeof(StringType), Name.DataType.GetType());
-                Assert.Equal("Name", Name.Name);
-                Assert.True(Name.IsNullable);
+                Assert.Equal(typeof(StringType), name.DataType.GetType());
+                Assert.Equal("Name", name.Name);
+                Assert.True(name.IsNullable);
 
                 Assert.Equal(typeof(Decimal256Type), value.DataType.GetType());
                 Assert.Equal("value", value.Name);
                 Assert.True(value.IsNullable);
 
-                Assert.Equal(typeof(Int32Type), aBc.DataType.GetType());
-                Assert.Equal("aBc", aBc.Name);
-                Assert.False(aBc.IsNullable);
+                Assert.Equal(typeof(Int32Type), abc.DataType.GetType());
+                Assert.Equal("aBc", abc.Name);
+                Assert.False(abc.IsNullable);
             }
 
             [Fact]
@@ -155,26 +141,26 @@ namespace Apache.Arrow.Tests
                 // Arrange
                 Field field = new Field.Builder().DataType(typeof(TestStruct?)).Build();
                 var dtype = field.DataType as StructType;
-                Field Name = dtype.Fields[0];
+                Field name = dtype.Fields[0];
                 Field value = dtype.Fields[1];
-                Field aBc = dtype.Fields[2];
+                Field abc = dtype.Fields[2];
 
                 // Assert
                 Assert.Equal(3, dtype.Fields.Count);
                 Assert.True(field.IsNullable);
                 Assert.Equal("TestStruct", field.Name);
 
-                Assert.Equal(typeof(StringType), Name.DataType.GetType());
-                Assert.Equal("Name", Name.Name);
-                Assert.True(Name.IsNullable);
+                Assert.Equal(typeof(StringType), name.DataType.GetType());
+                Assert.Equal("Name", name.Name);
+                Assert.True(name.IsNullable);
 
                 Assert.Equal(typeof(Decimal256Type), value.DataType.GetType());
                 Assert.Equal("value", value.Name);
                 Assert.True(value.IsNullable);
 
-                Assert.Equal(typeof(Int32Type), aBc.DataType.GetType());
-                Assert.Equal("aBc", aBc.Name);
-                Assert.False(aBc.IsNullable);
+                Assert.Equal(typeof(Int32Type), abc.DataType.GetType());
+                Assert.Equal("aBc", abc.Name);
+                Assert.False(abc.IsNullable);
             }
 #endif
 

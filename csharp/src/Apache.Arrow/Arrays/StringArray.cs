@@ -13,11 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -90,6 +90,19 @@ namespace Apache.Arrow
                 fixed (byte* data = &MemoryMarshal.GetReference(bytes))
                     return encoding.GetString(data, bytes.Length);
             }
+        }
+
+        public new string[] ToArray()
+        {
+            string[] strings = new string[Length];
+
+            // Initialize the strings
+            for (int i = 0; i < Length; i++)
+            {
+                strings[i] = GetString(i);
+            }
+
+            return strings;
         }
     }
 }

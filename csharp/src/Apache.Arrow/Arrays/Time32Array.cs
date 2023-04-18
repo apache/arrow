@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Types;
+using System;
 using System.IO;
 
 namespace Apache.Arrow
@@ -66,6 +67,8 @@ namespace Apache.Arrow
             data.EnsureDataType(ArrowTypeId.Time32);
         }
 
+        private Time32Type TimeType => (Time32Type)Data.DataType;
+
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
         /// <summary>
@@ -82,12 +85,11 @@ namespace Apache.Arrow
                 return null;
             }
 
-            var unit = ((Time32Type) Data.DataType).Unit;
-            return unit switch
+            return TimeType.Unit switch
             {
                 TimeUnit.Second => value,
                 TimeUnit.Millisecond => value / 1_000,
-                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
+                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}")
             };
         }
 
@@ -105,13 +107,64 @@ namespace Apache.Arrow
                 return null;
             }
 
-            var unit = ((Time32Type)Data.DataType).Unit;
-            return unit switch
+            return TimeType.Unit switch
             {
                 TimeUnit.Second => value * 1_000,
                 TimeUnit.Millisecond => value,
-                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
+                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}")
             };
+        }
+
+        public new TimeSpan?[] ToArray()
+        {
+            TimeSpan?[] alloc = new TimeSpan?[Length];
+
+            // Initialize the values
+            switch (TimeType.Unit)
+            {
+                case TimeUnit.Second:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = IsValid(i) ? TimeSpan.FromSeconds(Values[i]) : null;
+                    }
+                    break;
+                case TimeUnit.Millisecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = IsValid(i) ? TimeSpan.FromMilliseconds(Values[i]) : null;
+                    }
+                    break;
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}");
+            }
+
+            return alloc;
+        }
+
+        public new TimeSpan[] ToArray(bool notNull = true)
+        {
+            TimeSpan[] alloc = new TimeSpan[Length];
+
+            // Initialize the values
+            switch (TimeType.Unit)
+            {
+                case TimeUnit.Second:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = TimeSpan.FromSeconds(Values[i]);
+                    }
+                    break;
+                case TimeUnit.Millisecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = TimeSpan.FromMilliseconds(Values[i]);
+                    }
+                    break;
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for Time32Type: {TimeType.Unit}");
+            }
+
+            return alloc;
         }
     }
 }

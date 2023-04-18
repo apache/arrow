@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow;
 using Apache.Arrow.Types;
+using System;
 using System.IO;
 
 namespace Apache.Arrow
@@ -66,6 +68,8 @@ namespace Apache.Arrow
             data.EnsureDataType(ArrowTypeId.Time64);
         }
 
+        private Time64Type TimeType => (Time64Type)Data.DataType;
+
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
         /// <summary>
@@ -112,6 +116,58 @@ namespace Apache.Arrow
                 TimeUnit.Nanosecond => value,
                 _ => throw new InvalidDataException($"Unsupported time unit for Time64Type: {unit}")
             };
+        }
+
+        public new TimeSpan?[] ToArray()
+        {
+            TimeSpan?[] alloc = new TimeSpan?[Length];
+
+            // Initialize the values
+            switch (TimeType.Unit)
+            {
+                case TimeUnit.Microsecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = IsValid(i) ? TimeSpanExtensions.FromMicroseconds(Values[i]) : null;
+                    }
+                    break;
+                case TimeUnit.Nanosecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = IsValid(i) ? TimeSpanExtensions.FromNanoseconds(Values[i]) : null;
+                    }
+                    break;
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {TimeType.Unit}");
+            }
+
+            return alloc;
+        }
+
+        public new TimeSpan[] ToArray(bool notNull = true)
+        {
+            TimeSpan[] alloc = new TimeSpan[Length];
+
+            // Initialize the values
+            switch (TimeType.Unit)
+            {
+                case TimeUnit.Microsecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = TimeSpanExtensions.FromMicroseconds(Values[i]);
+                    }
+                    break;
+                case TimeUnit.Nanosecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = TimeSpanExtensions.FromNanoseconds(Values[i]);
+                    }
+                    break;
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {TimeType.Unit}");
+            }
+
+            return alloc;
         }
     }
 }

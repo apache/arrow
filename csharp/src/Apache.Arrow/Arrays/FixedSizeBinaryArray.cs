@@ -66,8 +66,7 @@ namespace Apache.Arrow.Arrays
                 return ReadOnlySpan<byte>.Empty;
             }
 
-            int size = ((FixedSizeBinaryType)Data.DataType).ByteWidth;
-            return ValueBuffer.Span.Slice(index * size, size);
+            return GetSpan(index);
         }
 
         public abstract class BuilderBase<TArray, TBuilder> : IArrowArrayBuilder<byte[], TArray, TBuilder>
@@ -220,7 +219,25 @@ namespace Apache.Arrow.Arrays
                 ValidityBuffer.Set(index, false);
                 return Instance;
             }
+        }
 
+        private ReadOnlySpan<byte> GetSpan(int index)
+        {
+            int size = ((FixedSizeBinaryType)Data.DataType).ByteWidth;
+            return ValueBuffer.Span.Slice(index * size, size);
+        }
+
+        public byte[][] ToArray()
+        {
+            byte[][] alloc = new byte[Length][];
+
+            // Initialize the values
+            for (int i = 0; i < Length; i++)
+            {
+                alloc[i] = IsValid(i) ? GetSpan(i).ToArray() : null;
+            }
+
+            return alloc;
         }
     }
 }

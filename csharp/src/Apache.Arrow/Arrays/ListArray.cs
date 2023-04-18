@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -33,7 +34,7 @@ namespace Apache.Arrow
 
             public int NullCount { get; protected set; }
 
-            private IArrowType DataType { get; }
+            private ListType DataType { get; }
 
             public Builder(IArrowType valueDataType) : this(new ListType(valueDataType))
             {
@@ -62,6 +63,47 @@ namespace Apache.Arrow
             {
                 ValueOffsetsBufferBuilder.Append(ValueBuilder.Length);
                 ValidityBufferBuilder.Append(true);
+
+                return this;
+            }
+
+            /// <summary>
+            /// Append a string array item
+            /// This method is to show how it would work
+            /// </summary>
+            /// <returns></returns>
+            public Builder Append(IEnumerable<string> array)
+            {
+                return AppendRange(new List<IEnumerable<string>> { array });
+            }
+
+            /// <summary>
+            /// Append a batch of string array
+            /// This method is to show how it would work
+            /// </summary>
+            /// <returns></returns>
+            public Builder AppendRange(IEnumerable<IEnumerable<string>> arrays)
+            {
+                switch (DataType.ValueDataType.TypeId)
+                {
+                    case ArrowTypeId.String:
+                        var strBuilder = (ValueBuilder as StringArray.Builder);
+                        foreach (IEnumerable<string> array in arrays)
+                        {
+                            if (array == null)
+                            {
+                                AppendNull();
+                            }
+                            else
+                            {
+                                Append();
+                                strBuilder.AppendRange(array);
+                            }
+                        }
+                        break;
+                    default:
+                        throw new ArgumentException($"Cannot write in ListArray<{DataType.TypeId}> IEnumerable<string> values");
+                }
 
                 return this;
             }
@@ -180,13 +222,20 @@ namespace Apache.Arrow
                 return null;
             }
 
-            if (!(Values is Array array))
+            return GetArray(index);
+        }
+
+        public IArrowArray GetArray(int index)
+        {
+            if (Values is not Array array)
             {
                 return default;
             }
-
-            return array.Slice(ValueOffsets[index], GetValueLength(index));
+            ReadOnlySpan<int> offsets = ValueOffsets;
+            return array.Slice(offsets[index], offsets[index + 1] - offsets[index]);
         }
+
+        public TArray GetArray<TArray>(int index) where TArray : Array => GetArray(index) as TArray;
 
         protected override void Dispose(bool disposing)
         {

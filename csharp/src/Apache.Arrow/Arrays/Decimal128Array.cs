@@ -97,13 +97,34 @@ namespace Apache.Arrow
         public int Precision => ((Decimal128Type)Data.DataType).Precision;
         public int ByteWidth => ((Decimal128Type)Data.DataType).ByteWidth;
 
-        public decimal? GetValue(int index)
+        public decimal? GetValue(int index) => IsValid(index) ? GetDecimal(index) : null;
+
+        private decimal GetDecimal(int index) => DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
+
+        public new decimal?[] ToArray()
         {
-            if (IsNull(index))
+            decimal?[] alloc = new decimal?[Length];
+
+            // Initialize the values
+            for (int i = 0; i < Length; i++)
             {
-                return null;
+                alloc[i] = GetValue(i);
             }
-            return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
+
+            return alloc;
+        }
+
+        public decimal[] ToArray(bool notNull = true)
+        {
+            decimal[] alloc = new decimal[Length];
+
+            // Initialize the values
+            for (int i = 0; i < Length; i++)
+            {
+                alloc[i] = GetDecimal(i);
+            }
+
+            return alloc;
         }
     }
 }

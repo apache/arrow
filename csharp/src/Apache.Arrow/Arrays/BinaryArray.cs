@@ -18,6 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Apache.Arrow.Memory;
+using System.Linq;
 
 namespace Apache.Arrow
 {
@@ -232,6 +233,11 @@ namespace Apache.Arrow
                 return Instance;
             }
 
+            public TBuilder AppendRange(IEnumerable<IEnumerable<byte>> values)
+            {
+                return AppendRange(values.Select(value => value?.ToArray()));
+            }
+
             public TBuilder Reserve(int capacity)
             {
                 // TODO: [ARROW-9366] Reserve capacity in the value buffer in a more sensible way.
@@ -351,8 +357,26 @@ namespace Apache.Arrow
                 return ReadOnlySpan<byte>.Empty;
             }
 
-            return ValueBuffer.Span.Slice(ValueOffsets[index], GetValueLength(index));
+            return GetSpan(index);
         }
 
+        private ReadOnlySpan<byte> GetSpan(int index)
+        {
+            ReadOnlySpan<int> offsets = ValueOffsets;
+            return ValueBuffer.Span.Slice(offsets[index], offsets[index + 1] - offsets[index]);
+        }
+
+        public byte[][] ToArray()
+        {
+            byte[][] alloc = new byte[Length][];
+
+            // Initialize the values
+            for (int i = 0; i < Length; i++)
+            {
+                alloc[i] = IsValid(i) ? GetSpan(i).ToArray() : null;
+            }
+
+            return alloc;
+        }
     }
 }

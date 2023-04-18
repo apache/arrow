@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
@@ -95,7 +96,7 @@ namespace Apache.Arrow
             return new StringArray.Builder().AppendRange(values).Build();
         }
 
-        public static BinaryArray BuildArray(IEnumerable<byte[]> values)
+        public static BinaryArray BuildArray(IEnumerable<IEnumerable<byte>> values)
         {
             return new BinaryArray.Builder().AppendRange(values).Build();
         }
@@ -153,6 +154,15 @@ namespace Apache.Arrow
         }
 
         // Unsigned Integers
+        public static UInt8Array BuildArray(IEnumerable<byte> values)
+        {
+            return new UInt8Array.Builder().AppendRange(values).Build();
+        }
+        public static UInt8Array BuildArray(IEnumerable<byte?> values)
+        {
+            return new UInt8Array.Builder().AppendRange(values).Build();
+        }
+
         public static UInt16Array BuildArray(IEnumerable<ushort> values)
         {
             return new UInt16Array.Builder().AppendRange(values).Build();
@@ -206,12 +216,76 @@ namespace Apache.Arrow
 
         public static Decimal256Array BuildArray(IEnumerable<decimal> values)
         {
-            return new Decimal256Array.Builder(Decimal256Type.Default).AppendRange(values).Build();
+            return new Decimal256Array.Builder(Decimal256Type.SystemDefault).AppendRange(values).Build();
         }
 
         public static Decimal256Array BuildArray(IEnumerable<decimal?> values)
         {
-            return new Decimal256Array.Builder(Decimal256Type.Default).AppendRange(values).Build();
+            return new Decimal256Array.Builder(Decimal256Type.SystemDefault).AppendRange(values).Build();
+        }
+
+        // Date Time
+        public static TimestampArray BuildArray(IEnumerable<DateTimeOffset> values)
+        {
+            return new TimestampArray.Builder(TimestampType.SystemDefault).AppendRange(values).Build();
+        }
+
+        public static TimestampArray BuildArray(IEnumerable<DateTimeOffset?> values)
+        {
+            var builder = new TimestampArray.Builder(TimestampType.SystemDefault);
+
+            foreach (DateTimeOffset? value in values)
+            {
+                if (value.HasValue)
+                    builder.Append(value.Value);
+                else
+                    builder.AppendNull();
+            }
+            return builder.Build();
+        }
+
+        //TimeSpan
+        public static Time64Array BuildArray(IEnumerable<TimeSpan> values)
+        {
+            Time64Type dtype = Time64Type.SystemDefault;
+            var builder = new Time64Array.Builder(dtype);
+
+            switch (dtype.Unit)
+            {
+                case TimeUnit.Nanosecond:
+                    foreach (TimeSpan? value in values)
+                    {
+                        builder.Append(value.Value.TotalNanoseconds());
+                    }
+                    break;
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {dtype.Unit}");
+            }
+
+            return builder.Build();
+        }
+
+        public static Time64Array BuildArray(IEnumerable<TimeSpan?> values)
+        {
+            Time64Type dtype = Time64Type.SystemDefault;
+            var builder = new Time64Array.Builder(dtype);
+
+            switch (dtype.Unit)
+            {
+                case TimeUnit.Nanosecond:
+                    foreach (TimeSpan? value in values)
+                    {
+                        if (value.HasValue)
+                            builder.Append(value.Value.TotalNanoseconds());
+                        else
+                            builder.AppendNull();
+                    }
+                    break;
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {dtype.Unit}");
+            }
+            
+            return builder.Build();
         }
     }
 }

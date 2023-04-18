@@ -66,5 +66,31 @@ namespace Apache.Arrow
 
             return list;
         }
+
+        public T?[] ToArray()
+        {
+            T?[] alloc = new T?[Length];
+
+            // Initialize the values
+            for (int i = 0; i < Length; i++)
+            {
+                alloc[i] = IsValid(i) ? Values[i] : null;
+            }
+
+            return alloc;
+        }
+
+        public T[] ToArray(bool notNull = true)
+        {
+            T[] alloc = new T[Length];
+
+            // Initialize the values
+            for (int i = 0; i < Length; i++)
+            {
+                alloc[i] = Values[i];
+            }
+
+            return alloc;
+        }
     }
 }

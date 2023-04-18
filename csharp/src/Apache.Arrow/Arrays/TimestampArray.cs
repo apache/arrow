@@ -145,5 +145,30 @@ namespace Apache.Arrow
             return GetTimestampUnchecked(index);
         }
 
+        public new DateTimeOffset?[] ToArray()
+        {
+            DateTimeOffset?[] alloc = new DateTimeOffset?[Length];
+
+            // Initialize the values
+            for (int i = 0; i < Length; i++)
+            {
+                alloc[i] = GetTimestamp(i);
+            }
+
+            return alloc;
+        }
+
+        public new DateTimeOffset[] ToArray(bool notNull = true)
+        {
+            DateTimeOffset[] alloc = new DateTimeOffset[Length];
+
+            // Initialize the values
+            for (int i = 0; i < Length; i++)
+            {
+                alloc[i] = GetTimestampUnchecked(i);
+            }
+
+            return alloc;
+        }
     }
 }
