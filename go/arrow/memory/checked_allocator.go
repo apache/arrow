@@ -103,7 +103,7 @@ const (
 // Use the environment variables ARROW_CHECKED_ALLOC_FRAMES and ARROW_CHECKED_REALLOC_FRAMES
 // to control how many frames it skips when storing the caller for allocations/reallocs
 // when using this to find memory leaks. Use ARROW_CHECKED_MAX_RETAINED_FRAMES to control how
-// many frames are retained when printing the stack trace for a leak.
+// many frames are retained for printing the stack trace of a leak.
 var allocFrames, reallocFrames, maxRetainedFrames int = defAllocFrames, defReallocFrames, defMaxRetainedFrames
 
 func init() {
