@@ -539,7 +539,7 @@ cdef class MapType(DataType):
     @property
     def keys_sorted(self):
         """
-        Are entries sorted according to keys.
+        Should the entries be sorted according to keys.
 
         Examples
         --------
