@@ -18,7 +18,7 @@
 Changing the Apache Arrow Format Specification
 ==============================================
 
-**Cross-language** compatibility is important in Apache Arrow. To keep it, we use
+**Cross-language** compatibility is important in Apache Arrow. To maintain it, we use
 the following process when dealing with changes to the format (files in
 `<https://github.com/apache/arrow/tree/main/format>`_):
 
@@ -61,7 +61,9 @@ We must have at least two reference implementations and associated
 integration tests to confirm whether the format changes are
 compatible across languages and consistent.
 
-Reference implementations must be within complete Arrow implementations. Here are candidate
+Reference implementations must be within complete Arrow implementations.
+For example, the C++ library is acceptable but the Python library is not, 
+since it is a wrapper around the C++ library. Here are candidate
 implementations:
 
 * The C++ implementation
