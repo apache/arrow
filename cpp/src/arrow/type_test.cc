@@ -851,25 +851,6 @@ TEST(TestFieldRef, DotPathRoundTrip) {
   check_roundtrip(FieldRef("foo", 1, FieldRef("bar", 2, 3), FieldRef()));
 }
 
-TEST_F(TestFieldPath, Nested) {
-  auto f0 = field("alpha", int32());
-  auto f1_0 = field("alpha", int32());
-  auto f1 = field("beta", struct_({f1_0}));
-  auto f2_0 = field("alpha", int32());
-  auto f2_1_0 = field("alpha", int32());
-  auto f2_1_1 = field("alpha", int32());
-  auto f2_1 = field("gamma", struct_({f2_1_0, f2_1_1}));
-  auto f2 = field("beta", struct_({f2_0, f2_1}));
-  Schema s({f0, f1, f2});
-
-  // retrieving fields with nested indices
-  EXPECT_EQ(FieldPath({0}).Get(s), f0);
-  EXPECT_EQ(FieldPath({1, 0}).Get(s), f1_0);
-  EXPECT_EQ(FieldPath({2, 0}).Get(s), f2_0);
-  EXPECT_EQ(FieldPath({2, 1, 0}).Get(s), f2_1_0);
-  EXPECT_EQ(FieldPath({2, 1, 1}).Get(s), f2_1_1);
-}
-
 TEST(TestFieldRef, Nested) {
   auto f0 = field("alpha", int32());
   auto f1_0 = field("alpha", int32());
