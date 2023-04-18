@@ -799,6 +799,8 @@ RunEndEncodedType::RunEndEncodedType(std::shared_ptr<DataType> run_end_type,
                std::make_shared<Field>("values", std::move(value_type), true)};
 }
 
+RunEndEncodedType::~RunEndEncodedType() = default;
+
 std::string RunEndEncodedType::ToString() const {
   std::stringstream s;
   s << name() << "<run_ends: " << run_end_type()->ToString()
