@@ -151,7 +151,7 @@ namespace Apache.Arrow
                         if (string.IsNullOrEmpty(_name))
                             Name(structure.Name);
 
-                        PropertyInfo[] properties = structure.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                        PropertyInfo[] properties = structure.GetProperties(BindingFlags.Instance | BindingFlags.Public);
 
                         DataType(new StructType(
                             properties
