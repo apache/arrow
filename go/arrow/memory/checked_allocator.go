@@ -66,12 +66,7 @@ func (a *CheckedAllocator) Reallocate(size int, b []byte) []byte {
 		return out
 	}
 
-	newptr := uintptr(unsafe.Pointer(&out[0]))
 	a.allocs.Delete(oldptr)
-	if pc, _, l, ok := runtime.Caller(reallocFrames); ok {
-		a.allocs.Store(newptr, &dalloc{pc: pc, line: l, sz: size})
-	}
-
 	ptr := uintptr(unsafe.Pointer(&out[0]))
 	pcs := make([]uintptr, maxRetainedFrames)
 	runtime.Callers(reallocFrames, pcs)
