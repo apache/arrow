@@ -407,6 +407,11 @@ struct FieldPathTestCase {
   OutputValues v1_0_flat{{1, 0}}, v1_1_flat{{1, 1}};
   OutputValues v1_1_0_flat{{1, 1, 0}}, v1_1_1_flat{{1, 1, 1}};
 
+  static const FieldPathTestCase* Instance() {
+    static const auto maybe_instance = Make();
+    return &maybe_instance.ValueOrDie();
+  }
+
   static Result<FieldPathTestCase> Make() {
     // Generate test input based on a single schema. First by creating a StructArray,
     // then deriving the other input types (ChunkedArray, RecordBatch, Table, etc) from
@@ -554,6 +559,9 @@ auto&& FieldPathTestCase::OutputValues::Get<ChunkedArray>() const {
 }
 
 class FieldPathTestFixture : public ::testing::Test {
+ public:
+  FieldPathTestFixture() : case_(FieldPathTestCase::Instance()) {}
+
  protected:
   template <typename T>
   using OutputType = typename decltype(std::declval<FieldPath>()
@@ -581,12 +589,7 @@ class FieldPathTestFixture : public ::testing::Test {
     AssertChunkedEquivalent(*expected, *actual);
   }
 
-  static const FieldPathTestCase* GenerateTestCase() {
-    static const auto maybe_test_case = FieldPathTestCase::Make();
-    return &maybe_test_case.ValueOrDie();
-  }
-
-  static inline const FieldPathTestCase* case_ = GenerateTestCase();
+  const FieldPathTestCase* case_;
 };
 
 class TestFieldPath : public FieldPathTestFixture {
