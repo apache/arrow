@@ -15,53 +15,65 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-How to Change Format Specification
-==================================
+Changing the Apache Arrow Format Specification
+==============================================
 
-**Cross-language** is important in Apache Arrow. To keep it, we use
-the following process when dealing with format (files in
-`<https://github.com/apache/arrow/tree/main/format>`_) changes:
+**Cross-language** compatibility is important in Apache Arrow. To keep it, we use
+the following process when dealing with changes to the format (files in
+`<https://github.com/apache/arrow/tree/main/format>`_):
 
-* We must go through a formal DISCUSS and VOTE process
-* We must have at least 2 reference implementations and associated
+* We must discuss and vote on the changes on the public mailing list
+* We must have at least two reference implementations and associated
   integration tests
 
-DISCUSS and VOTE Process
-------------------------
+These do not have to be done in order. In most cases, having at least one 
+draft reference implementation is helpful for design discussion.
 
-DISCUSS process is a process to discuss the format changes in
-public. Anyone can join the discussion. The DISCUSS process is done by
-starting a thread in dev@arrow.apache.org with ``[DISCUSS]`` prefixed
-subject.
+Discussion and Voting Process
+-----------------------------
+
+Changes to the format should be discussed on the public mailing list.
+Anyone can join the discussion. The discussion should be started by a 
+thread in dev@arrow.apache.org with the ``[DISCUSS]`` prefixed subject.
 
 .. note::
 
-   We sometimes use ``[Discuss]``, ``DISCUSS: `` or something but
+   We sometimes use ``[Discuss]``, ``DISCUSS: `` or something similar but
    ``[DISCUSS]`` is recommended.
 
-Here are examples:
+Here are some examples:
 
 * `[Discuss][Format] Add 32-bit and 64-bit Decimals <https://lists.apache.org/thread/9ynjmjlxm44j2pt443mcr2hmdl7m43yz>`_
 * `[DISCUSS][Format] Starting to do some concrete work on the new "StringView" columnar data type <https://lists.apache.org/thread/dccj1qrozo88qsxx133kcy308qwfwpfm>`_
 
-VOTE process is a process to tell whether we have reached
-consensus. We can start a vote for the format changes after we reach
-consensus in the preceding DISCUSS process.
+The voting process is used to verify we have reached consensus.
+We can start a vote for the format changes after we reach
+consensus in the preceding DISCUSS mailing list thread. Similar
+to discussion threads, voting thread must have the subject prefix
+``[VOTE]``.
 
 See also: `Apache Voting Process <https://www.apache.org/foundation/voting.html>`_
 
-At Least 2 Reference Implementations
-------------------------------------
+At Least Two Reference Implementations
+--------------------------------------
 
-We must have at least 2 reference implementations and associated
+We must have at least two reference implementations and associated
 integration tests to confirm whether the format changes are
-cross-compatible and consistent.
+compatible across languages and consistent.
 
-We must choose complete implementations for them. Here are candidate
+Reference implementations must be within complete Arrow implementations. Here are candidate
 implementations:
 
 * The C++ implementation
 * The Java implementation
+* The Rust (arrow-rs) implementation
+* The Go implementation
 
 We can discuss and vote to add more implementations to the list.
-We may use doc:`../status` for the discussion.
+We may use doc:`../status` to determine which implementations are complete.
+
+Versioning
+----------
+
+The format version (which is separate from the library versions) must also
+be incremented as new changed are made. See :doc:`Versioning`.
