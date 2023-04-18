@@ -536,6 +536,19 @@ cdef class MapType(DataType):
         """
         return pyarrow_wrap_data_type(self.map_type.item_type())
 
+    @property
+    def keys_sorted(self):
+        """
+        Should the entries be sorted according to keys.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.map_(pa.string(), pa.int32(), keys_sorted=True).keys_sorted
+        True
+        """
+        return self.map_type.keys_sorted()
+
 
 cdef class FixedSizeListType(DataType):
     """
