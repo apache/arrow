@@ -210,9 +210,13 @@ option(MATLAB_BUILD_TESTS "Build the C++ tests for the MATLAB interface" OFF)
 # Add tools/cmake directory to the CMAKE_MODULE_PATH.
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/tools/cmake)
 
-# Get find_package(Arrow) by setting Arrow_DIR to CPP interface ArrowConfig.cmake
-# TODO: Make sure this works on all platforms submitting
-set(CMAKE_PREFIX_PATH "${ARROW_HOME}/lib/cmake/Arrow")
+# Configure find_package to look for arrow-config.cmake in Config mode
+# underneath the Arrow installation directory hierarchy specified
+# by ARROW_HOME or Arrow_ROOT.
+# NOTE: ARROW_HOME is supported for backwards compatibility.
+if(ARROW_HOME AND NOT Arrow_ROOT)
+    set(Arrow_ROOT "${ARROW_HOME}")
+endif()
 
 # Multi-Configuration generators (e.g. Visual Studio or XCode) place their build artifacts
 # in a subdirectory named ${CMAKE_BUILD_TYPE} by default, where ${CMAKE_BUILD_TYPE} varies
