@@ -4790,6 +4790,8 @@ cdef dict _type_aliases = {
     'duration[us]': duration('us'),
     'duration[ns]': duration('ns'),
     'month_day_nano_interval': month_day_nano_interval(),
+
+    # Composite types
     'dictionary[int32,string]': dictionary(int32(), utf8()),
 }
 
