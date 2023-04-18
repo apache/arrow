@@ -136,25 +136,12 @@ on:
     run: |
       sudo apt update
       sudo apt install -y ruby-full
-  - name: Upload package to Gemfury on Windows
-    if: runner.os == 'Windows'
-    shell: bash
-    run: |
-      echo $(uname -s)
-      set PATH=$(ruby -r rubygems -e 'puts Gem.user_dir')\bin;%PATH%
-      gem install --user-install gemfury
-      fury \
-        --api-token=${CROSSBOW_GEMFURY_TOKEN} \
-        --as=${CROSSBOW_GEMFURY_ORG} \
-        {{ pattern }}
-    env:
-      CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
-      CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
   - name: Upload package to Gemfury
-    if: runner.os != 'Windows'
     shell: bash
     run: |
       PATH=$(ruby -r rubygems -e 'puts Gem.user_dir')/bin:$PATH
+      echo "PATH value"
+      echo $PATH
       gem install --user-install gemfury
       fury \
         --api-token=${CROSSBOW_GEMFURY_TOKEN} \
