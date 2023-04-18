@@ -564,9 +564,7 @@ class FieldPathTestFixture : public ::testing::Test {
 
  protected:
   template <typename T>
-  using OutputType = typename decltype(std::declval<FieldPath>()
-                                           .Get(std::declval<T>())
-                                           .ValueOrDie())::element_type;
+  using OutputType = typename internal::FieldPathGetType<T>::element_type;
 
   template <typename I>
   void AssertOutputsEqual(const std::shared_ptr<Field>& expected,
@@ -594,36 +592,25 @@ class FieldPathTestFixture : public ::testing::Test {
 
 class TestFieldPath : public FieldPathTestFixture {
  protected:
-  template <typename I, typename O = OutputType<I>>
-  using GetFn = std::function<Result<std::shared_ptr<O>>(const FieldPath&, const I&)>;
-
-  template <typename I>
-  static auto DoGet(const FieldPath& path, const I& input) {
-    return path.Get(input);
-  }
-  template <typename I>
-  static auto DoGetFlattened(const FieldPath& path, const I& input) {
-    return path.GetFlattened(input);
-  }
-
-  template <typename I>
-  void TestGetWithInvalidIndex(GetFn<I> get_fn) const {
+  template <typename I, bool Flattened = false>
+  void TestGetWithInvalidIndex() const {
     const auto& input = case_->GetInput<I>();
     for (const auto& path :
          {FieldPath({2, 1, 0}), FieldPath({1, 2, 0}), FieldPath{1, 1, 2}}) {
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          IndexError, ::testing::HasSubstr("index out of range"), get_fn(path, *input));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError,
+                                      ::testing::HasSubstr("index out of range"),
+                                      internal::GetChild<Flattened>(*input, path));
     }
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("empty indices cannot be traversed"),
-        get_fn(FieldPath(), *input));
+        internal::GetChild<Flattened>(*input, FieldPath()));
   }
 
-  template <typename I>
-  void TestGetWithNonStructArray(GetFn<I> get_fn) const {
+  template <typename I, bool Flattened = false>
+  void TestGetWithNonStructArray() const {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         NotImplemented, ::testing::HasSubstr("Get child data of non-struct array"),
-        get_fn(FieldPath({1, 1, 0}), *case_->v1_1_0.Get<I>()));
+        internal::GetChild<Flattened>(*case_->v1_1_0.Get<I>(), FieldPath({1, 1, 0})));
   }
 
   template <typename I, typename O = OutputType<I>>
@@ -664,29 +651,29 @@ class TestFieldPath : public FieldPathTestFixture {
 };
 
 TEST_F(TestFieldPath, GetWithInvalidIndex) {
-  TestGetWithInvalidIndex<Schema>(DoGet<Schema>);
-  TestGetWithInvalidIndex<DataType>(DoGet<DataType>);
-  TestGetWithInvalidIndex<Array>(DoGet<Array>);
-  TestGetWithInvalidIndex<ArrayData>(DoGet<ArrayData>);
-  TestGetWithInvalidIndex<ChunkedArray>(DoGet<ChunkedArray>);
-  TestGetWithInvalidIndex<RecordBatch>(DoGet<RecordBatch>);
-  TestGetWithInvalidIndex<Table>(DoGet<Table>);
-
-  TestGetWithInvalidIndex<Array>(DoGetFlattened<Array>);
-  TestGetWithInvalidIndex<ArrayData>(DoGetFlattened<ArrayData>);
-  TestGetWithInvalidIndex<ChunkedArray>(DoGetFlattened<ChunkedArray>);
-  TestGetWithInvalidIndex<RecordBatch>(DoGetFlattened<RecordBatch>);
-  TestGetWithInvalidIndex<Table>(DoGetFlattened<Table>);
+  TestGetWithInvalidIndex<Schema>();
+  TestGetWithInvalidIndex<DataType>();
+  TestGetWithInvalidIndex<Array>();
+  TestGetWithInvalidIndex<ArrayData>();
+  TestGetWithInvalidIndex<ChunkedArray>();
+  TestGetWithInvalidIndex<RecordBatch>();
+  TestGetWithInvalidIndex<Table>();
+  // With flattening
+  TestGetWithInvalidIndex<Array, true>();
+  TestGetWithInvalidIndex<ArrayData, true>();
+  TestGetWithInvalidIndex<ChunkedArray, true>();
+  TestGetWithInvalidIndex<RecordBatch, true>();
+  TestGetWithInvalidIndex<Table, true>();
 }
 
 TEST_F(TestFieldPath, GetWithNonStructArray) {
-  TestGetWithNonStructArray<Array>(DoGet<Array>);
-  TestGetWithNonStructArray<ArrayData>(DoGet<ArrayData>);
-  TestGetWithNonStructArray<ChunkedArray>(DoGet<ChunkedArray>);
-
-  TestGetWithNonStructArray<Array>(DoGetFlattened<Array>);
-  TestGetWithNonStructArray<ArrayData>(DoGetFlattened<ArrayData>);
-  TestGetWithNonStructArray<ChunkedArray>(DoGetFlattened<ChunkedArray>);
+  TestGetWithNonStructArray<Array>();
+  TestGetWithNonStructArray<ArrayData>();
+  TestGetWithNonStructArray<ChunkedArray>();
+  // With flattening
+  TestGetWithNonStructArray<Array, true>();
+  TestGetWithNonStructArray<ArrayData, true>();
+  TestGetWithNonStructArray<ChunkedArray, true>();
 }
 
 TEST_F(TestFieldPath, GetFromSchema) { TestGet<Schema>(); }
