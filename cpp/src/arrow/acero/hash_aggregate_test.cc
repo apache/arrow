@@ -4206,6 +4206,187 @@ TEST_P(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
                     /*verbose=*/true);
 }
 
+TEST_P(GroupBy, FirstLastNumericAndTemporalTypes) {
+  std::vector<std::shared_ptr<DataType>> types;
+  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+  types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
+
+  const std::vector<std::string> default_table = {R"([
+    [1,    1],
+    [null, 1]
+])",
+                                                  R"([
+    [0,    2],
+    [null, 3],
+    [3,    4],
+    [5,    4],
+    [4,    null],
+    [3,    1],
+    [0,    2]
+])",
+                                                  R"([
+    [0,    2],
+    [1,    null],
+    [null, 3]
+])"};
+
+  const std::string default_expected =
+      R"([
+    [1,    1,    3],
+    [2,    0,    0],
+    [3,    null,  null],
+    [4,    3,     5],
+    [null, 4,     1]
+    ])";
+
+  const std::vector<std::string> date64_table = {R"([
+    [86400000,    1],
+    [null, 1]
+])",
+                                                 R"([
+    [0,    2],
+    [null, 3],
+    [259200000,    4],
+    [432000000,    4],
+    [345600000,    null],
+    [259200000,    1],
+    [0,    2]
+])",
+                                                 R"([
+    [0,    2],
+    [86400000,    null],
+    [null, 3]
+])"};
+
+  const std::string date64_expected =
+      R"([
+    [1,    86400000,  259200000 ],
+    [2,    0,   0               ],
+    [3,    null, null           ],
+    [4,    259200000, 432000000 ],
+    [null, 345600000, 86400000]
+    ])";
+
+  for (const auto& ty : types) {
+    SCOPED_TRACE(ty->ToString());
+    auto in_schema = schema({field("argument0", ty), field("key", int64())});
+    auto table =
+        TableFromJSON(in_schema, (ty->name() == "date64") ? date64_table : default_table);
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         GroupByTest({table->GetColumnByName("argument0"),
+                                      table->GetColumnByName("argument0")},
+                                     {table->GetColumnByName("key")},
+                                     {{"hash_first", nullptr}, {"hash_last", nullptr}},
+                                     /*use_threads=*/false));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(
+        ArrayFromJSON(struct_({field("key_0", int64()), field("hash_first", ty),
+                               field("hash_last", ty)}),
+                      (ty->name() == "date64") ? date64_expected : default_expected),
+        aggregated_and_grouped,
+        /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, FirstLastBinary) {
+  // First / last doesn't support multi threaded execution
+  bool use_threads = false;
+  for (const auto& ty : BaseBinaryTypes()) {
+    auto table = TableFromJSON(schema({
+                                   field("argument0", ty),
+                                   field("key", int64()),
+                               }),
+                               {R"([
+    ["aaaa", 1],
+    [null,   1]
+])",
+                                R"([
+    ["bcd",  2],
+    [null,   3],
+    ["2",    null],
+    ["d",    1],
+    ["bc",   2]
+])",
+                                R"([
+    ["babcd", 2],
+    ["123",   null],
+    [null,    3]
+])"});
+    ASSERT_OK_AND_ASSIGN(
+        Datum aggregated_and_grouped,
+        GroupByTest(
+            {table->GetColumnByName("argument0"), table->GetColumnByName("argument0")},
+            {table->GetColumnByName("key")},
+            {{"hash_first", nullptr}, {"hash_last", nullptr}}, use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("key_0", int64()),
+                                        field("hash_first", ty),
+                                        field("hash_last", ty),
+                                    }),
+                                    R"([
+      [1,    "aaaa",    "d"],
+      [2,    "bcd",    "babcd"],
+      [3,    null,    null],
+      [null, "2",    "123"]
+    ])"),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, FirstLastFixedSizeBinary) {
+  const auto ty = fixed_size_binary(3);
+  bool use_threads = false;
+
+  auto table = TableFromJSON(schema({
+                                 field("argument0", ty),
+                                 field("key", int64()),
+                             }),
+                             {R"([
+    ["aaa", 1],
+    [null,  1]
+])",
+                              R"([
+    ["bac", 2],
+    [null,  3],
+    ["234", null],
+    ["ddd", 1],
+    ["bcd", 2]
+])",
+                              R"([
+    ["bab", 2],
+    ["123", null],
+    [null,  3]
+])"});
+
+  ASSERT_OK_AND_ASSIGN(
+      Datum aggregated_and_grouped,
+      GroupByTest(
+          {table->GetColumnByName("argument0"), table->GetColumnByName("argument0")},
+          {table->GetColumnByName("key")},
+          {{"hash_first", nullptr}, {"hash_last", nullptr}}, use_threads));
+  ValidateOutput(aggregated_and_grouped);
+  SortBy({"key_0"}, &aggregated_and_grouped);
+
+  AssertDatumsEqual(
+      ArrayFromJSON(struct_({field("key_0", int64()), field("hash_first", ty),
+                             field("hash_last", ty)}),
+                    R"([
+    [1,    "aaa", "ddd"],
+    [2,    "bac", "bab"],
+    [3,    null,  null],
+    [null, "234", "123"]
+  ])"),
+      aggregated_and_grouped,
+      /*verbose=*/true);
+}
+
 TEST_P(GroupBy, SmallChunkSizeSumOnly) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
