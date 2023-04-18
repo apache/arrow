@@ -52,11 +52,14 @@ TEST(CXX_STANDARD, MatcherStringView) {
        ")
   try_compile(GTestAlt_CXX_STANDARD_AVAILABLE ${CMAKE_CURRENT_BINARY_DIR}
               SOURCES ${GTestAlt_CXX_STANDARD_TEST_SOURCE}
-              LINK_LIBRARIES GTest::gtest_main)
+              CMAKE_FLAGS "-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}"
+              LINK_LIBRARIES GTest::gtest_main
+              OUTPUT_VARIABLE GTestAlt_CXX_STANDARD_OUTPUT)
   set(CMAKE_TRY_COMPILE_TARGET_TYPE ${KEEP_CMAKE_TRY_COMPILE_TARGET_TYPE})
   if(NOT GTestAlt_CXX_STANDARD_AVAILABLE)
-    message(STATUS "GTest can't be used with C++${CMAKE_CXX_STANDARD}. Use -DGTest_SOURCE=BUNDLED."
-    )
+    message(STATUS "GTest can't be used with C++${CMAKE_CXX_STANDARD}.")
+    message(STATUS "Use -DGTest_SOURCE=BUNDLED.")
+    message(STATUS "Output:\n${GTestAlt_CXX_STANDARD_OUTPUT}")
     find_package_handle_standard_args(GTestAlt
                                       REQUIRED_VARS GTestAlt_CXX_STANDARD_AVAILABLE)
   endif()
