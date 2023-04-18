@@ -64,7 +64,9 @@ namespace Apache.Arrow.Flight
             var response = new Protocol.FlightInfo()
             {
                 Schema = serializedSchema,
-                FlightDescriptor = Descriptor.ToProtocol()
+                FlightDescriptor = Descriptor.ToProtocol(),
+                TotalBytes = TotalBytes,
+                TotalRecords = TotalRecords
             };
 
             foreach(var endpoint in Endpoints)

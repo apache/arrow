@@ -56,7 +56,7 @@ namespace Apache.Arrow.Flight.TestWeb
                 new FlightEndpoint(new FlightTicket(_flightDescriptor.Paths.FirstOrDefault()), new List<FlightLocation>(){
                     new FlightLocation(_location)
                 })
-            });
+            }, 2, 4);
         }
     }
 }
