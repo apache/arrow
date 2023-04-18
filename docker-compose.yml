@@ -1726,7 +1726,7 @@ services:
     command: >
       /bin/bash -c "
         git config --global --add safe.directory /arrow &&
-        archery lint --all --no-clang-tidy --no-iwyu --no-numpydoc"
+        archery lint --all --no-numpydoc"
 
   ######################### Integration Tests #################################
 

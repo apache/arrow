@@ -340,6 +340,16 @@ if(${CLANG_TIDY_FOUND})
                     --compile_commands
                     ${CMAKE_BINARY_DIR}/compile_commands.json
                     ${COMMON_LINT_OPTIONS}
+                    ${ARROW_LINT_QUIET}
+                    --only-new)
+  add_custom_target(check-clang-tidy-all
+                    ${PYTHON_EXECUTABLE}
+                    ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
+                    --clang_tidy_binary
+                    ${CLANG_TIDY_BIN}
+                    --compile_commands
+                    ${CMAKE_BINARY_DIR}/compile_commands.json
+                    ${COMMON_LINT_OPTIONS}
                     ${ARROW_LINT_QUIET})
 endif()
 

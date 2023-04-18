@@ -93,6 +93,9 @@ if __name__ == "__main__":
     parser.add_argument("--quiet", default=False,
                         action="store_true",
                         help="If specified, only print errors")
+    parser.add_argument("--only-new", default=False,
+                        action="store_true",
+                        help="If specified, only check new files")
     arguments = parser.parse_args()
 
     exclude_globs = []
@@ -102,7 +105,7 @@ if __name__ == "__main__":
 
     linted_filenames = []
     for source_dir in arguments.source_dir:
-        for path in lintutils.get_sources(source_dir, exclude_globs):
+        for path in lintutils.get_sources(source_dir, exclude_globs, only_new=arguments.only_new):
             linted_filenames.append(path)
 
     if not arguments.quiet:

@@ -19,7 +19,7 @@
 #
 # Script which tries to determine the most recent git hash in the current
 # branch which originates from main by checking for the 
-# 'ARROW-1234: Description` commit message
+# 'GH-1234: Description` commit message or 'MINOR' commit message.
 set -e
 
-git log --grep='^ARROW-[0-9]*:.*' -n1 --pretty=format:%H
+git log --grep='^GH-[0-9]' --grep='^MINOR' -n1  --pretty=format:%H

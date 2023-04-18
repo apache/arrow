@@ -18,7 +18,7 @@
 import multiprocessing as mp
 import os
 from fnmatch import fnmatch
-from subprocess import Popen
+from subprocess import PIPE, STDOUT, Popen
 
 
 def chunk(seq, n):
@@ -70,8 +70,8 @@ _source_extensions = '''
 '''.split()
 
 
-def get_sources(source_dir, exclude_globs=[]):
-    sources = []
+def get_sources(source_dir, exclude_globs=[], only_new=False):
+    sources = set()
     for directory, subdirs, basenames in os.walk(source_dir):
         for path in [os.path.join(directory, basename)
                      for basename in basenames]:
@@ -85,8 +85,11 @@ def get_sources(source_dir, exclude_globs=[]):
             if any([fnmatch(path, glob) for glob in exclude_globs]):
                 continue
 
-            sources.append(path)
-    return sources
+            sources.add(path)
+    if only_new:
+        files_changed = changed_files(source_dir)
+        sources = sources & files_changed
+    return list(sources)
 
 
 def stdout_pathcolonline(completed_process, filenames):
@@ -107,3 +110,22 @@ def stdout_pathcolonline(completed_process, filenames):
                 bfilenames.remove(filename)
                 break
     return problem_files, stdout
+
+
+def changed_files(source_dir):
+    process = Popen(['../build-support/get-upstream-commit.sh'],
+                    cwd=source_dir,
+                    shell=True,
+                    stdout=PIPE,
+                    stderr=STDOUT)
+    previous_commit_hash = process.communicate()[0].decode("utf-8").strip()
+
+    process = Popen(['git', 'diff', '--name-only', previous_commit_hash],
+                    cwd=source_dir,
+                    stdout=PIPE,
+                    stderr=STDOUT)
+    files = process.communicate()[0].decode("utf-8").splitlines()
+
+    return {os.path.abspath(file)
+            for file in files 
+            if file.endswith('.cc') or file.endswith('.h') or file.endswith('.cpp')}
