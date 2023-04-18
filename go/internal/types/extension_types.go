@@ -117,6 +117,19 @@ func (b *UUIDBuilder) UnmarshalJSON(data []byte) error {
 	return b.Unmarshal(dec)
 }
 
+func (b *UUIDBuilder) AppendValueFromString(s string) error {
+	if s == array.NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	u, err := uuid.Parse(s)
+	if err != nil {
+		return fmt.Errorf("%w: invalid uuid: %v", arrow.ErrInvalid, err)
+	}
+	b.Append(u)
+	return nil
+}
+
 // UUIDArray is a simple array which is a FixedSizeBinary(16)
 type UUIDArray struct {
 	array.ExtensionArrayBase
