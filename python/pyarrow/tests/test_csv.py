@@ -952,6 +952,23 @@ class BaseCSVTableRead(BaseTestCSV):
             'b': [2.5, -3.0, None],
         }
 
+    def test_dictionary(self):
+        # Infer floats with a custom decimal point
+        parse_options = ParseOptions(delimiter=';')
+        rows = b"a;b\nx;x\ny;y\nx;x"
+
+        schema = pa.schema([('a', pa.dictionary(pa.int32(), pa.string())),
+                            ('b', "dictionary[int32,string]")])
+        convert_options = ConvertOptions(column_types=schema)
+        table = self.read_bytes(rows, parse_options=parse_options,
+                                convert_options=convert_options)
+
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'a': ["x", "y", "x"],
+            'b': ["x", "y", "x"],
+        }
+
     def test_simple_timestamps(self):
         # Infer a timestamp column
         rows = (b"a,b,c\n"
