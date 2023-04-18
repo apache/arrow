@@ -587,6 +587,12 @@ ListScalar::ListScalar(std::shared_ptr<Array> value, bool is_valid)
 LargeListScalar::LargeListScalar(std::shared_ptr<Array> value, bool is_valid)
     : BaseListScalar(value, large_list(value->type()), is_valid) {}
 
+ListViewScalar::ListViewScalar(std::shared_ptr<Array> value, bool is_valid)
+    : BaseListScalar(value, list_view(value->type()), is_valid) {}
+
+LargeListViewScalar::LargeListViewScalar(std::shared_ptr<Array> value, bool is_valid)
+    : BaseListScalar(value, large_list_view(value->type()), is_valid) {}
+
 inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pair_type) {
   ARROW_CHECK_EQ(pair_type->id(), Type::STRUCT);
   ARROW_CHECK_EQ(pair_type->num_fields(), 2);

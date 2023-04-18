@@ -752,9 +752,9 @@ TEST_F(TestArray, TestFillFromScalar) {
 
       ArraySpan span(*scalar);
       auto roundtripped_array = span.ToArray();
-      AssertArraysEqual(*array, *roundtripped_array);
-
       ASSERT_OK(roundtripped_array->ValidateFull());
+
+      AssertArraysEqual(*array, *roundtripped_array);
       ASSERT_OK_AND_ASSIGN(auto roundtripped_scalar, roundtripped_array->GetScalar(0));
       AssertScalarsEqual(*scalar, *roundtripped_scalar);
     }
