@@ -246,7 +246,7 @@ namespace Apache.Arrow
                     }
                     break;
                 default:
-                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {TimeType.Unit}");
+                    throw new InvalidDataException($"Unsupported time unit for TimestampType: {TimeType.Unit}");
             }
 
             return alloc;
@@ -286,7 +286,7 @@ namespace Apache.Arrow
                     }
                     break;
                 default:
-                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {TimeType.Unit}");
+                    throw new InvalidDataException($"Unsupported time unit for TimestampType: {TimeType.Unit}");
             }
 
             return alloc;

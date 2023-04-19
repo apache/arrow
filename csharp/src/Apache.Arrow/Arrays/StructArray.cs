@@ -74,8 +74,7 @@ namespace Apache.Arrow
                 if (numRows.Length > 1)
                     throw new InvalidDataException($"All value builders do not have the same Length");
 
-                for (int i = 0; i < numRows[0]; i++)
-                    ValidityBufferBuilder.Append(true);
+                ValidityBufferBuilder.AppendRange(Enumerable.Repeat(true, numRows[0]));
 
                 Length += numRows[0];
 
