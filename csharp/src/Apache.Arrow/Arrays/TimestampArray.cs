@@ -158,7 +158,7 @@ namespace Apache.Arrow
             return alloc;
         }
 
-        public new DateTimeOffset[] ToArray(bool notNull = true)
+        public new DateTimeOffset[] ToArray(bool nullable = false)
         {
             DateTimeOffset[] alloc = new DateTimeOffset[Length];
 

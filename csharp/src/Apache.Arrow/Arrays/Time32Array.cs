@@ -141,7 +141,7 @@ namespace Apache.Arrow
             return alloc;
         }
 
-        public new TimeSpan[] ToArray(bool notNull = true)
+        public new TimeSpan[] ToArray(bool nullable = false)
         {
             TimeSpan[] alloc = new TimeSpan[Length];
 
