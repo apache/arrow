@@ -132,11 +132,20 @@ on:
 
 {%- macro github_upload_gemfury(pattern) -%}
   {%- if arrow.is_default_branch() -%}
+  - name: Set up Ruby by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt update
+      sudo apt install -y ruby-full
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      path=$(ls {{ pattern }})
-      curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+      PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
+      gem install --user-install gemfury
+      fury \
+        --api-token=${CROSSBOW_GEMFURY_TOKEN} \
+        --as=${CROSSBOW_GEMFURY_ORG} \
+        {{ pattern }}
     env:
       CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
       CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
