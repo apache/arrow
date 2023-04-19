@@ -63,7 +63,7 @@
 * Improved the experience of using the `s3_bucket()` filesystem helper
   with `endpoint_override` and fixed surprising behaviour that occurred
   when passing some combinations of arguments (@cboettig, #33904, #34009).
-* Explicitly error if `schema` is supplied and `col_names = TRUE` in
+* Do not raise error if `schema` is supplied and `col_names = TRUE` in
   `open_csv_dataset()` (#34217, #34092).
 
 # arrow 11.0.0.3
