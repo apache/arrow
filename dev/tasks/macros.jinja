@@ -140,8 +140,6 @@ on:
     shell: bash
     run: |
       PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
-      echo "PATH value"
-      echo $PATH
       gem install --user-install gemfury
       fury \
         --api-token=${CROSSBOW_GEMFURY_TOKEN} \
