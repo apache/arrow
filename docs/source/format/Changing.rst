@@ -73,7 +73,7 @@ library. Here are candidate implementations:
 * The Go implementation
 
 We can discuss and vote to add more implementations to the list. We
-may use doc:`../status` to determine which implementations are
+may use :doc:`../status` to determine which implementations are
 complete.
 
 Versioning
