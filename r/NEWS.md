@@ -21,7 +21,7 @@
 
 ## New features
 
-* The `read_parquet()` and `read_arrow()` functions can now accept URL
+* The `read_parquet()` and `read_feather()` functions can now accept URL
   arguments (#33287, #34708).
 * The `json_credentials` argument in `GcsFileSystem$create()` now accepts
   a file path containing the appropriate authentication token (@amoeba,
