@@ -253,9 +253,15 @@ namespace Apache.Arrow
             switch (dtype.Unit)
             {
                 case TimeUnit.Nanosecond:
-                    foreach (TimeSpan? value in values)
+                    foreach (TimeSpan value in values)
                     {
-                        builder.Append(value.Value.TotalNanoseconds());
+                        builder.Append(value.TotalNanoseconds());
+                    }
+                    break;
+                case TimeUnit.Microsecond:
+                    foreach (TimeSpan value in values)
+                    {
+                        builder.Append(value.TotalMicroseconds());
                     }
                     break;
                 default:
@@ -277,6 +283,15 @@ namespace Apache.Arrow
                     {
                         if (value.HasValue)
                             builder.Append(value.Value.TotalNanoseconds());
+                        else
+                            builder.AppendNull();
+                    }
+                    break;
+                case TimeUnit.Microsecond:
+                    foreach (TimeSpan? value in values)
+                    {
+                        if (value.HasValue)
+                            builder.Append(value.Value.TotalMicroseconds());
                         else
                             builder.AppendNull();
                     }
