@@ -4669,7 +4669,7 @@ def test_roundtrip_nested_map_table_with_pydicts():
     )
 
     default_df = table.to_pandas()
-    as_pydicts_df = table.to_pandas(maps_as_pydicts=True)
+    as_pydicts_df = table.to_pandas(maps_as_pydicts="strict")
 
     tm.assert_frame_equal(default_df, expected_default_df)
     tm.assert_frame_equal(as_pydicts_df, expected_as_pydicts_df)
@@ -4718,7 +4718,7 @@ def test_roundtrip_nested_map_array_with_pydicts_sliced():
         [],
     ])
 
-    series_pydicts = chunked_array.to_pandas(maps_as_pydicts=True)
+    series_pydicts = chunked_array.to_pandas(maps_as_pydicts="strict")
     expected_series_pydicts = pd.Series([
         [{'foo': ['a', 'b'], 'bar': ['c', 'd']}],
         [{'quz': ['f', 'g']}],
@@ -4732,7 +4732,7 @@ def test_roundtrip_nested_map_array_with_pydicts_sliced():
         [],
     ])
 
-    series_pydicts_sliced = sliced.to_pandas(maps_as_pydicts=True)
+    series_pydicts_sliced = sliced.to_pandas(maps_as_pydicts="strict")
     expected_series_pydicts_sliced = pd.Series([
         [{'quz': ['f', 'g']}],
         [],
@@ -4770,7 +4770,10 @@ def test_roundtrip_map_array_with_pydicts_duplicate_keys():
 
     # ------------------------
     # With maps as pydicts
-    series_pydicts = maps.to_pandas(maps_as_pydicts=True)
+    with pytest.raises(pa.lib.ArrowException):
+        # raises because of duplicate keys
+        maps.to_pandas(maps_as_pydicts="strict")
+    series_pydicts = maps.to_pandas(maps_as_pydicts="lossy")
     # some data loss occurs for duplicate keys
     expected_series_pydicts = pd.Series([
         {'foo': ['1', '2'], 'bar': ['c', 'd']},
@@ -4819,7 +4822,7 @@ def test_unhashable_map_keys_with_pydicts():
     # ------------------------
     # With maps as pydicts
     with pytest.raises(TypeError):
-        maps.to_pandas(maps_as_pydicts=True)
+        maps.to_pandas(maps_as_pydicts="lossy")
 
     # ------------------------
     # With default assoc list of tuples

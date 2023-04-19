@@ -878,11 +878,10 @@ Status ConvertMapHelper(
 }
 
 // A more helpful error message around TypeErrors that may stem from unhashable keys
-Status CheckMapAsPydictsError() {
+Status CheckMapAsPydictsTypeError() {
   if (ARROW_PREDICT_TRUE(!PyErr_Occurred())) {
     return Status::OK();
   }
-
   if (PyErr_ExceptionMatches(PyExc_TypeError)) {
     // Modify the error string directly, so it is re-raised
     // with our additional info.
@@ -895,12 +894,32 @@ Status CheckMapAsPydictsError() {
     std::string message;
     RETURN_NOT_OK(internal::PyObject_StdStringStr(value, &message));
     message += ". If keys are not hashable, then you must use the option "
-        "[maps_as_pydicts=False (default)]";
+        "[maps_as_pydicts=None (default)]";
 
     // resets the error
     PyErr_SetString(PyExc_TypeError, message.c_str());
   }
   return ConvertPyError();
+}
+
+Status CheckForDuplicateKeys(bool error_on_duplicate_keys,
+                             Py_ssize_t total_dict_len, Py_ssize_t total_raw_len) {
+  if (total_dict_len < total_raw_len) {
+    const char* message =
+        "[maps_as_pydicts] "
+        "After conversion of Arrow maps to pydicts, "
+        "detected data loss due to duplicate keys. "
+        "Original input length is [%lld], total converted pydict length is [%lld].";
+    std::array<char, 256> buf;
+    std::snprintf(buf.data(), buf.size(), message, total_raw_len, total_dict_len);
+
+    if (error_on_duplicate_keys) {
+      return Status::UnknownError(buf.data());
+    } else {
+      ARROW_LOG(WARNING) << buf.data();
+    }
+  }
+  return Status::OK();
 }
 
 Status ConvertMap(PandasOptions options, const ChunkedArray& data,
@@ -947,7 +966,7 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
   PyArrayObject* py_keys = reinterpret_cast<PyArrayObject*>(owned_numpy_keys.obj());
   PyArrayObject* py_items = reinterpret_cast<PyArrayObject*>(owned_numpy_items.obj());
 
-  if (!options.maps_as_pydicts) {
+  if (options.maps_as_pydicts == MapConversionType::DEFAULT) {
     // The default behavior to express an Arrow MAP as a list of [(key, value), ...] pairs
     OwnedRef list_item;
     return ConvertMapHelper(
@@ -972,6 +991,18 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
     Py_ssize_t total_dict_len{0};
     Py_ssize_t total_raw_len{0};
 
+    bool error_on_duplicate_keys;
+    if (options.maps_as_pydicts == MapConversionType::LOSSY) {
+      error_on_duplicate_keys = false;
+    } else if (options.maps_as_pydicts == MapConversionType::STRICT) {
+      error_on_duplicate_keys = true;
+    } else {
+      auto val = std::underlying_type_t<MapConversionType>(options.maps_as_pydicts);
+      return Status::UnknownError(
+          "Received unknown option for maps_as_pydicts: " + std::to_string(val)
+      );
+    }
+
     auto status = ConvertMapHelper(
         [&dict_item, &total_raw_len](int64_t num_pairs) {
           total_raw_len += num_pairs;
@@ -981,11 +1012,11 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
         [&dict_item]([[maybe_unused]] int64_t idx, OwnedRef& key_value, OwnedRef& item_value) {
           auto setitem_result =
               PyDict_SetItem(dict_item.obj(), key_value.obj(), item_value.obj());
-          ARROW_RETURN_NOT_OK(CheckMapAsPydictsError());
+          ARROW_RETURN_NOT_OK(CheckMapAsPydictsTypeError());
           // returns -1 if there are internal errors around hashing/resizing
           return setitem_result == 0 ?
             Status::OK() :
-            Status::UnknownError("[maps_as_pydicts=True] "
+            Status::UnknownError("[maps_as_pydicts] "
                 "Unexpected failure inserting Arrow (key, value) pair into Python dict"
             );
         },
@@ -999,17 +1030,9 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
         item_arrays,
         out_values);
 
-    if (status.ok() && (total_dict_len < total_raw_len)) {
-      const char* message = "[maps_as_pydicts=True] "
-          "After conversion of Arrow maps to pydicts, "
-          "detected data loss due to duplicate keys. "
-          "Original input length is [%lld], total converted pydict length is [%lld].";
-      std::array<char, 256> buf;
-      std::snprintf(buf.data(), buf.size(), message, total_raw_len, total_dict_len);
-      ARROW_LOG(WARNING) << buf.data();
-    }
-
-    return status;
+    // If there were no errors generating the pydicts,
+    // then check if we detected any data loss from duplicate keys.
+    return !status.ok() ? status : CheckForDuplicateKeys(error_on_duplicate_keys, total_dict_len, total_raw_len);
   }
 }
 
