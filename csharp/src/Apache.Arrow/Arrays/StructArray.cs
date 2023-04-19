@@ -54,7 +54,7 @@ namespace Apache.Arrow
 
             public IReadOnlyList<Field> Fields => DataType.Fields;
 
-            public Builder Append(int numRows)
+            public Builder Append()
             {
                 // Checks
                 List<int> unfilled = new List<int>();
@@ -69,13 +69,15 @@ namespace Apache.Arrow
                 if (unfilled.Count > 0)
                     throw new InvalidDataException($"Fields ['{string.Join("','", unfilled.Select(i => DataType.Fields[i].Name))}'] were not filled in last append");
 
-                if (Builders.Select(b => b.Length).Distinct().Count() > 1)
+                int[] numRows = Builders.Select(b => b.Length).Distinct().ToArray();
+
+                if (numRows.Length > 1)
                     throw new InvalidDataException($"All value builders do not have the same Length");
 
-                for (int i = 0; i < numRows; i++)
+                for (int i = 0; i < numRows[0]; i++)
                     ValidityBufferBuilder.Append(true);
 
-                Length += numRows;
+                Length += numRows[0];
 
                 if (ValidityBufferBuilder.Length != Length)
                     throw new InvalidDataException($"Validity Buffer and Values do not have the same Length");

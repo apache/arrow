@@ -37,9 +37,13 @@ namespace Apache.Arrow.Tests
 
             StructArray.Builder builder = new StructArray.Builder(structType);
 
-            builder.AppendColumn(0, new string[] { "test", null, "" });
-            builder.AppendColumn(1, new int?[] { 1, null, -1 });
-            builder.Append(3);
+            builder.AppendColumn(0, new string[] { "test", null });
+            builder.AppendColumn(1, new int?[] { 1, null });
+            builder.Append();
+
+            builder.AppendColumn(0, new string[] { "" });
+            builder.AppendColumn(1, new int?[] { -1 });
+            builder.Append();
 
             StructArray results = builder.Build();
 
