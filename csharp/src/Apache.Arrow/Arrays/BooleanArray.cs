@@ -31,10 +31,19 @@ namespace Apache.Arrow
             public int Capacity => ValueBuffer.Capacity;
             public int NullCount => ValidityBuffer.UnsetBitCount;
 
-            public Builder()
+            IArrowType IArrowArrayBuilder.DataType => DataType;
+
+            public BooleanType DataType;
+
+            public Builder() : this(new BooleanType())
+            {
+            }
+
+            public Builder(BooleanType dtype)
             {
                 ValueBuffer = new ArrowBuffer.BitmapBuilder();
                 ValidityBuffer = new ArrowBuffer.BitmapBuilder();
+                DataType = dtype;
             }
 
             public Builder Append(bool value)

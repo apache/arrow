@@ -21,6 +21,15 @@ namespace Apache.Arrow
     {
         public class Builder : PrimitiveArrayBuilder<long, Int64Array, Builder>
         {
+            public Builder() : this(Int64Type.Default)
+            {
+            }
+
+            public Builder(Int64Type dtype)
+            {
+                DataType = dtype;
+            }
+
             protected override Int64Array Build(
                 ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
                 int length, int nullCount, int offset) =>

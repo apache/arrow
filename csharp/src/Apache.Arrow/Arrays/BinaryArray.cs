@@ -54,6 +54,7 @@ namespace Apache.Arrow
             where TBuilder : class, IArrowArrayBuilder<byte, TArray, TBuilder>
         {
             protected IArrowType DataType { get; }
+            IArrowType IArrowArrayBuilder.DataType => DataType;
             protected TBuilder Instance => this as TBuilder;
             protected ArrowBuffer.Builder<int> ValueOffsets { get; }
             protected ArrowBuffer.Builder<byte> ValueBuffer { get; }

@@ -21,6 +21,15 @@ namespace Apache.Arrow
     {
         public class Builder : PrimitiveArrayBuilder<float, FloatArray, Builder>
         {
+            public Builder() : this(FloatType.Default)
+            {
+            }
+
+            public Builder(FloatType dtype)
+            {
+                DataType = dtype;
+            }
+
             protected override FloatArray Build(
                 ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
                 int length, int nullCount, int offset) =>

@@ -21,6 +21,15 @@ namespace Apache.Arrow
     {
         public class Builder : PrimitiveArrayBuilder<byte, UInt8Array, Builder>
         {
+            public Builder() : this(UInt8Type.Default)
+            {
+            }
+
+            public Builder(UInt8Type dtype)
+            {
+                DataType = dtype;
+            }
+
             protected override UInt8Array Build(
                 ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
                 int length, int nullCount, int offset) =>

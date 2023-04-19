@@ -36,6 +36,8 @@ namespace Apache.Arrow
 
             private ListType DataType { get; }
 
+            IArrowType IArrowArrayBuilder.DataType => DataType;
+
             public Builder(IArrowType valueDataType) : this(new ListType(valueDataType))
             {
             }

@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Memory;
+using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,6 +30,8 @@ namespace Apache.Arrow
         protected IArrowArrayBuilder<TTo, TArray, IArrowArrayBuilder<TArray>> ArrayBuilder { get; }
 
         public int Length => ArrayBuilder.Length;
+
+        public IArrowType DataType => ArrayBuilder.DataType;
 
         internal PrimitiveArrayBuilder(IArrowArrayBuilder<TTo, TArray, IArrowArrayBuilder<TArray>> builder)
         {
@@ -110,6 +113,10 @@ namespace Apache.Arrow
         public int Length => ValueBuffer.Length;
         protected int NullCount => ValidityBuffer.UnsetBitCount;
 
+        IArrowType IArrowArrayBuilder.DataType => DataType;
+
+        public IArrowType DataType;
+
         internal PrimitiveArrayBuilder()
         {
             ValueBuffer = new ArrowBuffer.Builder<T>();
@@ -137,14 +144,7 @@ namespace Apache.Arrow
             return Instance;
         }
 
-        public TBuilder Append(T? value)
-        {
-            if (value.HasValue)
-                Append(value.Value);
-            else
-                AppendNull();
-            return Instance;
-        }
+        public TBuilder Append(T? value) => value.HasValue ? Append(value.Value) : AppendNull();
 
         public TBuilder Append(ReadOnlySpan<T> span)
         {

@@ -35,9 +35,9 @@ namespace Apache.Arrow
             protected override Time64Array Build(
                 ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
                 int length, int nullCount, int offset) =>
-                new Time64Array(DataType, valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+                new Time64Array(TimeType, valueBuffer, nullBitmapBuffer, length, nullCount, offset);
 
-            protected Time64Type DataType { get; }
+            public Time64Type TimeType => DataType as Time64Type;
 
             public Builder()
                 : this(Time64Type.Default) { }
@@ -56,7 +56,7 @@ namespace Apache.Arrow
 
             public Builder AppendRange(IEnumerable<TimeSpan> values)
             {
-                switch (DataType.Unit)
+                switch (TimeType.Unit)
                 {
                     case TimeUnit.Second:
                         AppendRange(values.Select(value => (long)value.TotalSeconds));
@@ -71,7 +71,7 @@ namespace Apache.Arrow
                         AppendRange(values.Select(value => value.TotalNanoseconds()));
                         break;
                     default:
-                        throw new InvalidDataException($"Unsupported time unit for Time64Type: {DataType.Unit}");
+                        throw new InvalidDataException($"Unsupported time unit for Time64Type: {TimeType.Unit}");
                 }
 
                 return this;
@@ -79,7 +79,7 @@ namespace Apache.Arrow
 
             public Builder AppendRange(IEnumerable<TimeSpan?> values)
             {
-                switch (DataType.Unit)
+                switch (TimeType.Unit)
                 {
                     case TimeUnit.Second:
                         foreach (TimeSpan? value in values)
@@ -118,7 +118,7 @@ namespace Apache.Arrow
                         }
                         break;
                     default:
-                        throw new InvalidDataException($"Unsupported time unit for Time64Type: {DataType.Unit}");
+                        throw new InvalidDataException($"Unsupported time unit for Time64Type: {TimeType.Unit}");
                 }
 
                 return this;

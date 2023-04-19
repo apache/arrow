@@ -36,16 +36,14 @@ namespace Apache.Arrow
                     DataType = type ?? throw new ArgumentNullException(nameof(type));
                 }
 
-                protected TimestampType DataType { get; }
-
                 protected override TimestampArray Build(
                     ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
                     int length, int nullCount, int offset) =>
-                    new TimestampArray(DataType, valueBuffer, nullBitmapBuffer,
+                    new TimestampArray(DataType as TimestampType, valueBuffer, nullBitmapBuffer,
                         length, nullCount, offset);
             }
 
-            protected TimestampType DataType { get; }
+            public TimestampType TimeType => DataType as TimestampType;
 
             public Builder()
                 : this(TimestampType.Default) { }
@@ -62,12 +60,11 @@ namespace Apache.Arrow
             public Builder(TimestampType type)
                 : base(new TimestampBuilder(type))
             {
-                DataType = type;
             }
 
             public new Builder AppendRange(IEnumerable<DateTimeOffset> values)
             {
-                switch (DataType.Unit)
+                switch (TimeType.Unit)
                 {
                     case TimeUnit.Second:
                         ArrayBuilder.AppendRange(values.Select(value => value.ToUnixTimeSeconds()));
@@ -82,7 +79,7 @@ namespace Apache.Arrow
                         ArrayBuilder.AppendRange(values.Select(value => value.ToUnixTimeNanoseconds()));
                         break;
                     default:
-                        throw new InvalidOperationException($"unsupported time unit <{DataType.Unit}>");
+                        throw new InvalidOperationException($"unsupported time unit <{TimeType.Unit}>");
                 }
 
                 return this;
@@ -90,7 +87,7 @@ namespace Apache.Arrow
 
             public Builder AppendRange(IEnumerable<DateTimeOffset?> values)
             {
-                switch (DataType.Unit)
+                switch (TimeType.Unit)
                 {
                     case TimeUnit.Second:
                         foreach (DateTimeOffset? value in values)
@@ -129,7 +126,7 @@ namespace Apache.Arrow
                         }
                         break;
                     default:
-                        throw new InvalidOperationException($"unsupported time unit <{DataType.Unit}>");
+                        throw new InvalidOperationException($"unsupported time unit <{TimeType.Unit}>");
                 }
 
                 return this;
@@ -143,7 +140,7 @@ namespace Apache.Arrow
                 // - Compute time span between epoch and specified time
                 // - Compute time divisions per tick
 
-                switch (DataType.Unit)
+                switch (TimeType.Unit)
                 {
                     case TimeUnit.Nanosecond:
                         return value.ToUnixTimeNanoseconds();
@@ -154,7 +151,7 @@ namespace Apache.Arrow
                     case TimeUnit.Second:
                         return value.ToUnixTimeSeconds();
                     default:
-                        throw new InvalidOperationException($"unsupported time unit <{DataType.Unit}>");
+                        throw new InvalidOperationException($"unsupported time unit <{TimeType.Unit}>");
                 }
             }
         }
@@ -174,18 +171,17 @@ namespace Apache.Arrow
             Debug.Assert(Data.DataType is TimestampType);
         }
 
-        public TimestampType DataType => (TimestampType)Data.DataType;
+        public TimestampType TimeType => Data.DataType as TimestampType;
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
         public DateTimeOffset GetTimestampUnchecked(int index)
         {
-            var type = (TimestampType) Data.DataType;
             long value = Values[index];
 
             long ticks;
 
-            switch (type.Unit)
+            switch (TimeType.Unit)
             {
                 case TimeUnit.Nanosecond:
                     ticks = value / 100;
@@ -201,7 +197,7 @@ namespace Apache.Arrow
                     break;
                 default:
                     throw new InvalidDataException(
-                        $"Unsupported timestamp unit <{type.Unit}>");
+                        $"Unsupported timestamp unit <{TimeType.Unit}>");
             }
 
             return new DateTimeOffset(s_epoch.Ticks + ticks, TimeSpan.Zero);
@@ -223,7 +219,7 @@ namespace Apache.Arrow
             DateTimeOffset?[] alloc = new DateTimeOffset?[Length];
 
             // Initialize the values
-            switch(DataType.Unit)
+            switch(TimeType.Unit)
             {
                 case TimeUnit.Second:
                     for (int i = 0; i < Length; i++)
@@ -250,7 +246,7 @@ namespace Apache.Arrow
                     }
                     break;
                 default:
-                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {DataType.Unit}");
+                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {TimeType.Unit}");
             }
 
             return alloc;
@@ -263,7 +259,7 @@ namespace Apache.Arrow
 
             // Initialize the values
             // Initialize the values
-            switch (DataType.Unit)
+            switch (TimeType.Unit)
             {
                 case TimeUnit.Second:
                     for (int i = 0; i < Length; i++)
@@ -290,7 +286,7 @@ namespace Apache.Arrow
                     }
                     break;
                 default:
-                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {DataType.Unit}");
+                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {TimeType.Unit}");
             }
 
             return alloc;

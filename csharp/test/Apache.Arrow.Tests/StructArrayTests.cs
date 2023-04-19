@@ -23,6 +23,34 @@ namespace Apache.Arrow.Tests
 {
     public class StructArrayTests
     {
+#if NETCOREAPP3_1_OR_GREATER
+        [Fact]
+        public void TestStructArrayBuilder()
+        {
+            // The following can be improved with a Builder class for StructArray.
+            List<Field> fields = new List<Field>();
+            Field.Builder fieldBuilder = new Field.Builder();
+            fields.Add(fieldBuilder.Name("strings").DataType(StringType.Default).Nullable(true).Build());
+            fieldBuilder = new Field.Builder();
+            fields.Add(fieldBuilder.Name("int32s").DataType(Int32Type.Default).Nullable(true).Build());
+            StructType structType = new StructType(fields);
+
+            StructArray.Builder builder = new StructArray.Builder(structType);
+
+            builder.Append();
+
+            builder.AppendColumn(0, new string[] { "test", null, "" });
+            builder.AppendColumn(1, new int?[] { 1, null, -1 });
+
+            builder.FinalizeLastAppend(3);
+
+            StructArray results = builder.Build();
+
+            Assert.Equal(new string[] { "test", null, "" }, results.GetArray<StringArray>(0).ToArray());
+            Assert.Equal(new int?[] { 1, null, -1 }, results.GetArray<Int32Array>(1).ToArray());
+        }
+#endif
+
         [Fact]
         public void TestStructArray()
         {

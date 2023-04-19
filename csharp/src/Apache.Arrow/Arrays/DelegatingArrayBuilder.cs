@@ -15,6 +15,7 @@
 
 using System;
 using Apache.Arrow.Memory;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -42,6 +43,8 @@ namespace Apache.Arrow
         /// Gets the number of items added to the array so far.
         /// </summary>
         public int Length => InnerBuilder.Length;
+
+        public IArrowType DataType => InnerBuilder.DataType;
 
         /// <summary>
         /// Construct a new instance of the <see cref="DelegatingArrayBuilder{T,TArray,TBuilder}"/> class.

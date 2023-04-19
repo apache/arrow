@@ -80,6 +80,9 @@ namespace Apache.Arrow.Arrays
             protected ArrowBuffer.BitmapBuilder ValidityBuffer { get; }
             public int Length => ValueBuffer.Length / ByteWidth;
             protected int NullCount => this.ValidityBuffer.UnsetBitCount;
+
+            IArrowType IArrowArrayBuilder.DataType => DataType;
+
             protected abstract TArray Build(ArrayData data);
 
             protected BuilderBase(IArrowType dataType, int byteWidth)
