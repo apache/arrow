@@ -80,7 +80,7 @@ namespace Apache.Arrow
             return alloc;
         }
 
-        public T[] ToArray(bool nullable = false)
+        public T[] ToArray(bool notNull = true)
         {
             T[] alloc = new T[Length];
 
