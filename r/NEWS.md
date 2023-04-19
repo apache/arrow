@@ -28,7 +28,7 @@
   #34421, #34524).
 * The `$options` member of `GcsFileSystem` objects can now be inspected
   (@amoeba, #34422, #34477).
-* The `read_csv_arrow()` function now accepts literal text input wrapped in
+* The `read_csv_arrow()` and `read_json_arrow()` functions now accept literal text input wrapped in
   `I()` to improve compatability with `readr::read_csv()` (@eitsupi, #18487,
   #33968).
 * Nested fields can now be accessed using `$` and `[[` in dplyr expressions
