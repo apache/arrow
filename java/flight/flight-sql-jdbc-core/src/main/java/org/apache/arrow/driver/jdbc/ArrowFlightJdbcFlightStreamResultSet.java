@@ -23,8 +23,6 @@ import static org.apache.arrow.driver.jdbc.utils.FlightStreamQueue.createNewQueu
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +38,6 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaResultSet;
 import org.apache.calcite.avatica.AvaticaResultSetMetaData;
@@ -54,14 +51,12 @@ import org.apache.calcite.avatica.QueryState;
  */
 public final class ArrowFlightJdbcFlightStreamResultSet
     extends ArrowFlightJdbcVectorSchemaRootResultSet {
-  private static final String BLOCKING_QUEUE_PARAM = "buffersize";
-  private static final int DEFAULT_BLOCKING_QUEUE_CAPACITY = 5;
+  private static final int BLOCKING_QUEUE_CAPACITY = 5;
   private final ArrowFlightConnection connection;
   private FlightStream currentFlightStream;
   private FlightStreamQueue flightStreamQueue;
   private VectorSchemaRootTransformer transformer;
-  private BlockingQueue<VectorSchemaRoot> vectorSchemaRoots;
-  private VectorSchemaRoot currentRoot;
+  private final BlockingQueue<VectorSchemaRoot> vectorSchemaRoots = new LinkedBlockingQueue<>(BLOCKING_QUEUE_CAPACITY);
   private Schema schema;
   private boolean streamHasNext;
   private BufferAllocator allocator;
@@ -75,7 +70,6 @@ public final class ArrowFlightJdbcFlightStreamResultSet
                                        final Meta.Frame firstFrame) throws SQLException {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
     this.connection = (ArrowFlightConnection) statement.connection;
-    initializeVectorSchemaRootsQueue();
   }
 
   ArrowFlightJdbcFlightStreamResultSet(final ArrowFlightConnection connection,
@@ -86,7 +80,6 @@ public final class ArrowFlightJdbcFlightStreamResultSet
                                        final Meta.Frame firstFrame) throws SQLException {
     super(null, state, signature, resultSetMetaData, timeZone, firstFrame);
     this.connection = connection;
-    initializeVectorSchemaRootsQueue();
   }
 
   /**
@@ -113,25 +106,19 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     final ArrowFlightJdbcFlightStreamResultSet resultSet =
         new ArrowFlightJdbcFlightStreamResultSet(connection, state, signature, resultSetMetaData,
             timeZone, null);
+
     resultSet.transformer = transformer;
 
     resultSet.execute(flightInfo);
     return resultSet;
   }
 
-  private void initializeVectorSchemaRootsQueue() throws SQLException {
-    if (vectorSchemaRoots == null) {
-      try {
-        int blockingQueueCapacity = ofNullable(connection.getClientInfo().getProperty(BLOCKING_QUEUE_PARAM))
-                .map(Integer::parseInt)
-                .filter(s -> s > 0)
-                .orElse(DEFAULT_BLOCKING_QUEUE_CAPACITY);
-
-        vectorSchemaRoots = new LinkedBlockingQueue<>(blockingQueueCapacity);
-      } catch (java.lang.NumberFormatException e) {
-        throw new SQLException("Invalid value for 'buffersize' was provided", e);
-      }
+  private BufferAllocator getAllocator() {
+    if (allocator == null) {
+      allocator = connection.getBufferAllocator().newChildAllocator("vsr-copier", 0, Long.MAX_VALUE);
     }
+
+    return allocator;
   }
 
   @Override
@@ -157,43 +144,36 @@ public final class ArrowFlightJdbcFlightStreamResultSet
 
     // Ownership of the root will be passed onto the cursor.
     if (currentFlightStream != null) {
-      storeRootsFromStreamAsync();
+      storeRoot(currentFlightStream.getRoot());
       executeNextRoot();
     }
   }
 
-  private BufferAllocator getAllocator() {
-    if (allocator == null) {
-      allocator = connection.getBufferAllocator().newChildAllocator("vsr-copier", 0, Long.MAX_VALUE);
-    }
-
-    return allocator;
-  }
-
-  private VectorSchemaRoot cloneRoot(VectorSchemaRoot originalRoot) {
-    VectorSchemaRoot theRoot = VectorSchemaRoot.create(originalRoot.getSchema(), getAllocator());
+  private VectorSchemaRoot cloneRoot(VectorSchemaRoot root) {
+    VectorSchemaRoot theRoot = VectorSchemaRoot.create(root.getSchema(), getAllocator());
+    VectorUnloader unloader = new VectorUnloader(root);
     VectorLoader loader = new VectorLoader(theRoot);
-    VectorUnloader unloader = new VectorUnloader(originalRoot);
-    try (ArrowRecordBatch recordBatch = unloader.getRecordBatch()) {
-      loader.load(recordBatch);
-    }
+    loader.load(unloader.getRecordBatch());
+
     return theRoot;
   }
 
   private void storeRoot(VectorSchemaRoot originalRoot) throws SQLException {
     VectorSchemaRoot theRoot = cloneRoot(originalRoot);
-    VectorSchemaRoot transformedRoot = null;
     if (transformer != null) {
       try {
-        transformedRoot = transformer.transform(theRoot, null);
-        theRoot.close();
+        theRoot = transformer.transform(theRoot, null);
       } catch (final Exception e) {
-        throw new SQLException("Failed to transform VectorSchemaRoot.", e);
+        try {
+          throw new SQLException("Failed to transform VectorSchemaRoot.", e);
+        } catch (SQLException ex) {
+          throw new RuntimeException(ex);
+        }
       }
     }
 
     try {
-      vectorSchemaRoots.put(ofNullable(transformedRoot).orElse(theRoot));
+      vectorSchemaRoots.put(theRoot);
     } catch (InterruptedException e) {
       throw new SQLException("Could not put root to the queue", e);
     }
@@ -201,9 +181,8 @@ public final class ArrowFlightJdbcFlightStreamResultSet
 
   private void executeNextRoot() throws SQLException {
     try {
-      ofNullable(currentRoot).ifPresent(AutoCloseables::closeNoChecked);
-      currentRoot = vectorSchemaRoots.poll(10, TimeUnit.SECONDS);
-      execute(currentRoot, schema);
+      VectorSchemaRoot rootToProcess = vectorSchemaRoots.take();
+      execute(rootToProcess, schema);
     } catch (InterruptedException e) {
       throw new SQLException("Could not take root from the queue", e);
     }
@@ -259,21 +238,6 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     }
   }
 
-  private void cleanUpResources() throws Exception {
-    if (flightStreamQueue != null) {
-      // flightStreamQueue should close currentFlightStream internally
-      flightStreamQueue.close();
-    } else if (currentFlightStream != null) {
-      // close is only called for currentFlightStream if there's no queue
-      currentFlightStream.close();
-    }
-
-    List<VectorSchemaRoot> roots = new LinkedList<>();
-    vectorSchemaRoots.drainTo(roots);
-    roots.forEach(AutoCloseables::closeNoChecked);
-    ofNullable(currentRoot).ifPresent(AutoCloseables::closeNoChecked);
-  }
-
   @Override
   protected void cancel() {
     super.cancel();
@@ -282,17 +246,25 @@ public final class ArrowFlightJdbcFlightStreamResultSet
       currentFlightStream.cancel("Cancel", null);
     }
 
-    try {
-      cleanUpResources();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+    if (flightStreamQueue != null) {
+      try {
+        flightStreamQueue.close();
+      } catch (final Exception e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 
   @Override
   public synchronized void close() {
     try {
-      cleanUpResources();
+      if (flightStreamQueue != null) {
+        // flightStreamQueue should close currentFlightStream internally
+        flightStreamQueue.close();
+      } else if (currentFlightStream != null) {
+        // close is only called for currentFlightStream if there's no queue
+        currentFlightStream.close();
+      }
     } catch (final Exception e) {
       throw new RuntimeException(e);
     } finally {
