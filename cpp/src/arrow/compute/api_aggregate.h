@@ -284,18 +284,36 @@ Result<Datum> Sum(
     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
-/// \brief Calculate the first / last of an array
-///
-/// This function returns both the first and last as a struct scalar, with type
-/// struct<first: T, last: T>, where T is the input type
+/// \brief Calculate the first value of an array
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
 /// \param[in] options see ScalarAggregateOptions for more information
 /// \param[in] ctx the function execution context, optional
-/// \return resulting datum as a struct<first: T, last: T> scalar
+/// \return datum of the computed first as Scalar
 ///
-/// \since 12.0.0
+/// \since 13.0.0
 /// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> First(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the last value of an array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see ScalarAggregateOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed last as a Scalar
+///
+/// \since 13.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Last(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
 ARROW_EXPORT
 Result<Datum> FirstLast(
     const Datum& value,

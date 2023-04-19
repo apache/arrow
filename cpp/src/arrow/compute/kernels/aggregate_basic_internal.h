@@ -340,10 +340,10 @@ struct FirstLastState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>>
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
   ThisType& operator+=(const ThisType& rhs) {
-    this->has_nulls |= rhs.has_nulls;
     this->first = this->has_values ? this->first : rhs.first;
     this->last = rhs.has_values ? rhs.last : this->last;
     this->has_values |= rhs.has_values;
+    this->has_nulls |= rhs.has_nulls;
     return *this;
   }
 
@@ -352,11 +352,40 @@ struct FirstLastState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>>
       this->first = value;
       has_values = true;
     }
-    this->last = value;
+    last = value;
   }
 
   T first = std::numeric_limits<T>::infinity();
   T last = std::numeric_limits<T>::infinity();
+  bool has_values = false;
+  bool has_nulls = false;
+};
+
+template <typename ArrowType, SimdLevel::type SimdLevel>
+struct FirstLastState<ArrowType, SimdLevel,
+                      enable_if_t<is_base_binary_type<ArrowType>::value ||
+                                  std::is_same<ArrowType, FixedSizeBinaryType>::value>> {
+  using ThisType = FirstLastState<ArrowType, SimdLevel>;
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+
+  ThisType& operator+=(const ThisType& rhs) {
+    this->first = this->has_values ? this->first : rhs.first;
+    this->last = rhs.has_values ? rhs.last : this->last;
+    this->has_values |= rhs.has_values;
+    this->has_nulls |= rhs.has_nulls;
+    return *this;
+  }
+
+  void MergeOne(std::string_view value) {
+    if (!has_values) {
+      first = std::string(value);
+      has_values = true;
+    }
+    last = std::string(value);
+  }
+
+  std::string first = "";
+  std::string last = "";
   bool has_values = false;
   bool has_nulls = false;
 };
@@ -380,7 +409,15 @@ struct FirstLastImpl : public ScalarAggregator {
   }
 
   Status ConsumeScalar(const Scalar& scalar) {
-    return Status::NotImplemented("Consume scalar");
+    StateType local;
+    local.has_nulls = !scalar.is_valid;
+    this->count += scalar.is_valid;
+
+    if (!local.has_nulls || options.skip_nulls) {
+      local.MergeOne(internal::UnboxScalar<ArrowType>::Unbox(scalar));
+    }
+    this->state += local;
+    return Status::OK();
   }
 
   Status ConsumeArray(const ArraySpan& arr_span) {
@@ -795,6 +832,8 @@ struct NullMinMaxImpl : public ScalarAggregator {
   }
 };
 
+// First/Last
+
 template <SimdLevel::type SimdLevel>
 struct FirstLastInitState {
   std::unique_ptr<KernelState> state;
@@ -832,6 +871,18 @@ struct FirstLastInitState {
   enable_if_physical_floating_point<Type, Status> Visit(const Type&) {
     using PhysicalType = typename Type::PhysicalType;
     state.reset(new FirstLastImpl<PhysicalType, SimdLevel>(out_type, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    state.reset(new FirstLastImpl<Type, SimdLevel>(out_type, options));
+    return Status::OK();
+  }
+
+  template <typename Type>
+  enable_if_t<std::is_same<Type, FixedSizeBinaryType>::value, Status> Visit(const Type&) {
+    state.reset(new FirstLastImpl<Type, SimdLevel>(out_type, options));
     return Status::OK();
   }
 

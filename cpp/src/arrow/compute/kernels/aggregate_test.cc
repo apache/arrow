@@ -1572,6 +1572,75 @@ TYPED_TEST(TestPrimitiveFirstLastKernel, Basics) {
   this->AssertFirstLastIs(chunked_input1, 5, 4, options);
 }
 
+template <typename ArrowType>
+class TestBaseBinaryFirstLastKernel : public ::testing::Test {};
+TYPED_TEST_SUITE(TestBaseBinaryFirstLastKernel, BaseBinaryArrowTypes);
+TYPED_TEST(TestBaseBinaryFirstLastKernel, Basics) {
+  std::vector<std::string> chunked_input1 = {R"(["cc", "", "aa", "b", "c"])",
+                                             R"(["d", "", null, "b", null])"};
+  std::vector<std::string> chunked_input2 = {R"(["aa", null, "aa", "b", "c"])",
+                                             R"(["d", "", "aa", "b", "bb"])"};
+  std::vector<std::string> chunked_input3 = {R"(["bb", "", "aa", "b", null])",
+                                             R"(["d", "", null, "b", "aa"])"};
+  auto ty = std::make_shared<TypeParam>();
+  Datum null = ScalarFromJSON(ty, R"(null)");
+
+  // SKIP nulls by default
+  EXPECT_THAT(First(ArrayFromJSON(ty, R"([])")), ResultWith(null));
+  EXPECT_THAT(First(ArrayFromJSON(ty, R"([null, null, null])")), ResultWith(null));
+  EXPECT_THAT(First(ArrayFromJSON(ty, chunked_input1[0])),
+              ResultWith(ScalarFromJSON(ty, R"("cc")")));
+  EXPECT_THAT(First(ChunkedArrayFromJSON(ty, chunked_input1)),
+              ResultWith(ScalarFromJSON(ty, R"("cc")")));
+  EXPECT_THAT(First(ChunkedArrayFromJSON(ty, chunked_input3)),
+              ResultWith(ScalarFromJSON(ty, R"("bb")")));
+
+  EXPECT_THAT(Last(ArrayFromJSON(ty, R"([])")), ResultWith(null));
+  EXPECT_THAT(Last(ArrayFromJSON(ty, R"([null, null, null])")), ResultWith(null));
+  EXPECT_THAT(Last(ArrayFromJSON(ty, chunked_input1[0])),
+              ResultWith(ScalarFromJSON(ty, R"("c")")));
+  EXPECT_THAT(Last(ChunkedArrayFromJSON(ty, chunked_input1)),
+              ResultWith(ScalarFromJSON(ty, R"("b")")));
+  EXPECT_THAT(Last(ChunkedArrayFromJSON(ty, chunked_input3)),
+              ResultWith(ScalarFromJSON(ty, R"("aa")")));
+
+  EXPECT_THAT(Last(MakeNullScalar(ty)), ResultWith(null));
+}
+
+TEST(TestFixedSizeBinaryFirstLastKernel, Basics) {
+  auto ty = fixed_size_binary(2);
+  std::vector<std::string> chunked_input1 = {R"(["cd", "aa", "ab", "bb", "cc"])",
+                                             R"(["da", "aa", null, "bb", "bb"])"};
+  std::vector<std::string> chunked_input2 = {R"([null, null, null, null, null])",
+                                             R"(["dd", "aa", "ab", "bb", "aa"])"};
+  std::vector<std::string> chunked_input3 = {R"(["aa", "aa", "ab", "bb", null])",
+                                             R"([null, null, null, null, null])"};
+  Datum null = ScalarFromJSON(ty, R"(null)");
+
+  // SKIP nulls by default
+  EXPECT_THAT(First(ArrayFromJSON(ty, R"([])")), ResultWith(null));
+  EXPECT_THAT(First(ArrayFromJSON(ty, R"([null, null, null])")), ResultWith(null));
+  EXPECT_THAT(First(ArrayFromJSON(ty, chunked_input1[0])),
+              ResultWith(ScalarFromJSON(ty, R"("cd")")));
+  EXPECT_THAT(First(ChunkedArrayFromJSON(ty, chunked_input1)),
+              ResultWith(ScalarFromJSON(ty, R"("cd")")));
+  EXPECT_THAT(First(ChunkedArrayFromJSON(ty, chunked_input2)),
+              ResultWith(ScalarFromJSON(ty, R"("dd")")));
+  EXPECT_THAT(First(ChunkedArrayFromJSON(ty, chunked_input3)),
+              ResultWith(ScalarFromJSON(ty, R"("aa")")));
+
+  EXPECT_THAT(Last(ArrayFromJSON(ty, R"([])")), ResultWith(null));
+  EXPECT_THAT(Last(ArrayFromJSON(ty, R"([null, null, null])")), ResultWith(null));
+  EXPECT_THAT(Last(ArrayFromJSON(ty, chunked_input1[0])),
+              ResultWith(ScalarFromJSON(ty, R"("cc")")));
+  EXPECT_THAT(Last(ChunkedArrayFromJSON(ty, chunked_input1)),
+              ResultWith(ScalarFromJSON(ty, R"("bb")")));
+  EXPECT_THAT(Last(ChunkedArrayFromJSON(ty, chunked_input2)),
+              ResultWith(ScalarFromJSON(ty, R"("aa")")));
+  EXPECT_THAT(Last(ChunkedArrayFromJSON(ty, chunked_input3)),
+              ResultWith(ScalarFromJSON(ty, R"("bb")")));
+}
+
 //
 // Min / Max
 //

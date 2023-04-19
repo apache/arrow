@@ -1081,7 +1081,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
       "first_last", Arity::Unary(), first_last_doc, &default_scalar_aggregate_options);
   auto first_last_func = func.get();
 
-  AddFirstLastKernels(FirstLastInit, {boolean()}, func.get());
+  AddFirstLastKernels(FirstLastInit, {boolean(), fixed_size_binary(1)}, func.get());
   AddFirstLastKernels(FirstLastInit, PrimitiveTypes(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 

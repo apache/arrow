@@ -644,8 +644,6 @@ using ScalarAggregateFinalize = Status (*)(KernelContext*, Datum*);
 /// * finalize: produces the end result of the aggregation using the
 ///   KernelState in the KernelContext.
 struct ARROW_EXPORT ScalarAggregateKernel : public Kernel {
-  ScalarAggregateKernel() = default;
-
   ScalarAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                         ScalarAggregateConsume consume, ScalarAggregateMerge merge,
                         ScalarAggregateFinalize finalize, const bool ordered)
