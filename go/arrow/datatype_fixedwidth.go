@@ -17,10 +17,11 @@
 package arrow
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/apache/arrow/go/v13/internal/json"
 
 	"golang.org/x/xerrors"
 )

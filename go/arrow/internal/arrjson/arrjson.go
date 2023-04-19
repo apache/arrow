@@ -21,7 +21,6 @@ package arrjson
 import (
 	"bytes"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -36,6 +35,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v13/arrow/ipc"
 	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 type Schema struct {
