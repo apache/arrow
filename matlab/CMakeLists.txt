@@ -17,18 +17,6 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-set(MATLAB_ARROW_INTERFACE_ERROR_WHEN_WINDOWS_DEBUG "ON" CACHE STRING "")
-if(CMAKE_BUILD_TYPE EQUAL "Debug" AND WIN32)
-    if(MATLAB_ARROW_INTERFACE_ERROR_WHEN_WINDOWS_DEBUG)
-        message(FATAL_ERROR "Debug builds of the MATLAB Interface to Arrow \
-                             are not supported on Windows due to incompatibilities \
-                             between the MSVC Runtime libraries used by Debug builds of \
-                             the Arrow C++ libraries and MATLAB. To disable this error, \
-                             pass '-D MATLAB_ARROW_INTERFACE_ERROR_WHEN_WINDOWS_DEBUG=OFF' \
-                             to the cmake command.")
-    endif()
-endif()
-
 # Build the Arrow C++ libraries.
 function(build_arrow)
   set(options BUILD_GTEST)
