@@ -65,7 +65,7 @@ namespace Apache.Arrow.Tests
 
             // Assert
             Assert.IsType<BooleanArray>(result);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -93,7 +93,7 @@ namespace Apache.Arrow.Tests
 
             // Assert
             Assert.IsType<Int8Array>(result);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -123,7 +123,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<Int16Array>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -138,7 +138,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<Int32Array>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -153,7 +153,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<Int64Array>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -168,7 +168,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<UInt8Array>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -183,7 +183,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<UInt16Array>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -198,7 +198,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<UInt32Array>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -213,7 +213,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<UInt64Array>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 #if NET5_0_OR_GREATER
         [Fact]
@@ -228,7 +228,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<HalfFloatArray>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -258,7 +258,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<FloatArray>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -273,7 +273,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<DoubleArray>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -288,7 +288,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<Decimal256Array>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -453,7 +453,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<TimestampArray>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
@@ -483,7 +483,7 @@ namespace Apache.Arrow.Tests
             // Assert
             Assert.IsType<Time64Array>(result);
             Assert.Equal(values.Count, result.Length);
-            Assert.Equal(values, result.ToArray(true));
+            Assert.Equal(values, result.ToArray(false));
         }
 
         [Fact]
