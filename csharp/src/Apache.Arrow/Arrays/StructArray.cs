@@ -72,7 +72,13 @@ namespace Apache.Arrow
                 if (Builders.Select(b => b.Length).Distinct().Count() > 1)
                     throw new InvalidDataException($"All value builders do not have the same Length");
 
+                for (int i = 0; i < numRows; i++)
+                    ValidityBufferBuilder.Append(true);
+
                 Length += numRows;
+
+                if (ValidityBufferBuilder.Length != Length)
+                    throw new InvalidDataException($"Validity Buffer and Values do not have the same Length");
 
                 _commitChecks = DataType.Fields.Select(_ => false).ToArray();
 
