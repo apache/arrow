@@ -267,24 +267,24 @@ namespace Apache.Arrow.Tests
             public void Schema_Should_BuildFromStruct()
             {
                 Schema schema = new Schema.Builder().Struct(typeof(TestStruct)).Build();
-                Field Name = schema.FieldsList[0];
+                Field name = schema.FieldsList[0];
                 Field value = schema.FieldsList[1];
-                Field aBc = schema.FieldsList[2];
+                Field abc = schema.FieldsList[2];
 
                 // Assert
                 Assert.Equal(3, schema.FieldsList.Count);
 
-                Assert.Equal(typeof(StringType), Name.DataType.GetType());
-                Assert.Equal("Name", Name.Name);
-                Assert.True(Name.IsNullable);
+                Assert.Equal(typeof(StringType), name.DataType.GetType());
+                Assert.Equal("Name", name.Name);
+                Assert.True(name.IsNullable);
 
                 Assert.Equal(typeof(Decimal256Type), value.DataType.GetType());
                 Assert.Equal("value", value.Name);
                 Assert.True(value.IsNullable);
 
-                Assert.Equal(typeof(Int32Type), aBc.DataType.GetType());
-                Assert.Equal("aBc", aBc.Name);
-                Assert.False(aBc.IsNullable);
+                Assert.Equal(typeof(Int32Type), abc.DataType.GetType());
+                Assert.Equal("aBc", abc.Name);
+                Assert.False(abc.IsNullable);
             }
 #endif
 
