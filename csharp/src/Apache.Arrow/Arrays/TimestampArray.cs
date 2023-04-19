@@ -15,8 +15,11 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace Apache.Arrow
 {
@@ -62,6 +65,76 @@ namespace Apache.Arrow
                 DataType = type;
             }
 
+            public new Builder AppendRange(IEnumerable<DateTimeOffset> values)
+            {
+                switch (DataType.Unit)
+                {
+                    case TimeUnit.Second:
+                        ArrayBuilder.AppendRange(values.Select(value => value.ToUnixTimeSeconds()));
+                        break;
+                    case TimeUnit.Millisecond:
+                        ArrayBuilder.AppendRange(values.Select(value => value.ToUnixTimeMilliseconds()));
+                        break;
+                    case TimeUnit.Microsecond:
+                        ArrayBuilder.AppendRange(values.Select(value => value.ToUnixTimeMicroseconds()));
+                        break;
+                    case TimeUnit.Nanosecond:
+                        ArrayBuilder.AppendRange(values.Select(value => value.ToUnixTimeNanoseconds()));
+                        break;
+                    default:
+                        throw new InvalidOperationException($"unsupported time unit <{DataType.Unit}>");
+                }
+
+                return this;
+            }
+
+            public Builder AppendRange(IEnumerable<DateTimeOffset?> values)
+            {
+                switch (DataType.Unit)
+                {
+                    case TimeUnit.Second:
+                        foreach (DateTimeOffset? value in values)
+                        {
+                            if (value.HasValue)
+                                ArrayBuilder.Append(value.Value.ToUnixTimeSeconds());
+                            else
+                                ArrayBuilder.AppendNull();
+                        }
+                        break;
+                    case TimeUnit.Millisecond:
+                        foreach (DateTimeOffset? value in values)
+                        {
+                            if (value.HasValue)
+                                ArrayBuilder.Append(value.Value.ToUnixTimeMilliseconds());
+                            else
+                                ArrayBuilder.AppendNull();
+                        }
+                        break;
+                    case TimeUnit.Microsecond:
+                        foreach (DateTimeOffset? value in values)
+                        {
+                            if (value.HasValue)
+                                ArrayBuilder.Append(value.Value.ToUnixTimeMicroseconds());
+                            else
+                                ArrayBuilder.AppendNull();
+                        }
+                        break;
+                    case TimeUnit.Nanosecond:
+                        foreach (DateTimeOffset? value in values)
+                        {
+                            if (value.HasValue)
+                                ArrayBuilder.Append(value.Value.ToUnixTimeNanoseconds());
+                            else
+                                ArrayBuilder.AppendNull();
+                        }
+                        break;
+                    default:
+                        throw new InvalidOperationException($"unsupported time unit <{DataType.Unit}>");
+                }
+
+                return this;
+            }
+
             protected override long ConvertTo(DateTimeOffset value)
             {
                 // We must return the absolute time since the UNIX epoch while
@@ -70,19 +143,16 @@ namespace Apache.Arrow
                 // - Compute time span between epoch and specified time
                 // - Compute time divisions per tick
 
-                TimeSpan timeSpan = value - s_epoch;
-                long ticks = timeSpan.Ticks;
-
                 switch (DataType.Unit)
                 {
                     case TimeUnit.Nanosecond:
-                        return ticks * 100;
+                        return value.ToUnixTimeNanoseconds();
                     case TimeUnit.Microsecond:
-                        return ticks / 10;
+                        return value.ToUnixTimeMicroseconds();
                     case TimeUnit.Millisecond:
-                        return ticks / TimeSpan.TicksPerMillisecond;
+                        return value.ToUnixTimeMilliseconds();
                     case TimeUnit.Second:
-                        return ticks / TimeSpan.TicksPerSecond;
+                        return value.ToUnixTimeSeconds();
                     default:
                         throw new InvalidOperationException($"unsupported time unit <{DataType.Unit}>");
                 }

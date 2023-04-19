@@ -20,7 +20,7 @@ namespace Apache.Arrow
     public static class DateTimeOffsetExtensions
     {
         // Class methods
-        private static readonly DateTimeOffset UnixEpoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        public static readonly DateTimeOffset UnixEpoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         public static DateTimeOffset FromUnixTimeSeconds(long seconds) => UnixEpoch.AddSeconds(seconds);
         public static DateTimeOffset FromUnixTimeSeconds(int seconds) => UnixEpoch.AddSeconds(seconds);
@@ -33,5 +33,24 @@ namespace Apache.Arrow
 
         public static DateTimeOffset FromUnixTimeNanoseconds(long nanos) => UnixEpoch.AddTicks(nanos / 100);
         public static DateTimeOffset FromUnixTimeNanoseconds(int nanos) => UnixEpoch.AddTicks(nanos / 100);
+
+        // Instance methods
+        public static long ToUnixTimeMicroseconds(this DateTimeOffset date) => (date.UtcTicks - UnixEpoch.Ticks) / 10;
+        public static long ToUnixTimeNanoseconds(this DateTimeOffset date) => (date.UtcTicks - UnixEpoch.Ticks) * 100;
+
+        public static DateTimeOffset Truncate(this DateTimeOffset dateTimeOffset, TimeSpan offset)
+        {
+            if (offset == TimeSpan.Zero)
+            {
+                return dateTimeOffset;
+            }
+
+            if (dateTimeOffset == DateTimeOffset.MinValue || dateTimeOffset == DateTimeOffset.MaxValue)
+            {
+                return dateTimeOffset;
+            }
+
+            return dateTimeOffset.AddTicks(-(dateTimeOffset.Ticks % offset.Ticks));
+        }
     }
 }

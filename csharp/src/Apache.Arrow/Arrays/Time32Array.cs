@@ -14,6 +14,8 @@
 // limitations under the License.
 
 using System;
+using System.Linq;
+using System.Collections.Generic;
 using System.IO;
 using Apache.Arrow.Types;
 
@@ -50,6 +52,76 @@ namespace Apache.Arrow
                 : base()
             {
                 DataType = type;
+            }
+
+            public Builder AppendRange(IEnumerable<TimeSpan> values)
+            {
+                switch (DataType.Unit)
+                {
+                    case TimeUnit.Second:
+                        AppendRange(values.Select(value => (int)value.TotalSeconds));
+                        break;
+                    case TimeUnit.Millisecond:
+                        AppendRange(values.Select(value => (int)value.TotalMilliseconds));
+                        break;
+                    case TimeUnit.Microsecond:
+                        AppendRange(values.Select(value => (int)value.TotalMicroseconds()));
+                        break;
+                    case TimeUnit.Nanosecond:
+                        AppendRange(values.Select(value => (int)value.TotalNanoseconds()));
+                        break;
+                    default:
+                        throw new InvalidDataException($"Unsupported time unit for TimestampType: {DataType.Unit}");
+                }
+
+                return this;
+            }
+
+            public Builder AppendRange(IEnumerable<TimeSpan?> values)
+            {
+                switch (DataType.Unit)
+                {
+                    case TimeUnit.Second:
+                        foreach (TimeSpan? value in values)
+                        {
+                            if (value.HasValue)
+                                Append((int)value.Value.TotalSeconds);
+                            else
+                                AppendNull();
+                        }
+                        break;
+                    case TimeUnit.Millisecond:
+                        foreach (TimeSpan? value in values)
+                        {
+                            if (value.HasValue)
+                                Append((int)value.Value.TotalMilliseconds);
+                            else
+                                AppendNull();
+                        }
+                        break;
+                    case TimeUnit.Microsecond:
+                        foreach (TimeSpan? value in values)
+                        {
+                            if (value.HasValue)
+                                Append((int)value.Value.TotalMicroseconds());
+                            else
+                                AppendNull();
+                        }
+                        break;
+                    case TimeUnit.Nanosecond:
+                        foreach (TimeSpan? value in values)
+                        {
+                            if (value.HasValue)
+                                Append((int)value.Value.TotalNanoseconds());
+                            else
+                                AppendNull();
+                        }
+                        break;
+                    default:
+                        throw new InvalidDataException($"Unsupported time unit for TimestampType: {DataType.Unit}");
+                }
+
+                return this;
             }
         }
 

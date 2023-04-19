@@ -16,6 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
 
@@ -243,75 +244,18 @@ namespace Apache.Arrow
 
         public static TimestampArray BuildArray(IEnumerable<DateTimeOffset?> values)
         {
-            var builder = new TimestampArray.Builder(TimestampType.SystemDefault);
-
-            foreach (DateTimeOffset? value in values)
-            {
-                if (value.HasValue)
-                    builder.Append(value.Value);
-                else
-                    builder.AppendNull();
-            }
-            return builder.Build();
+            return new TimestampArray.Builder(TimestampType.SystemDefault).AppendRange(values).Build();
         }
 
         //TimeSpan
         public static Time64Array BuildArray(IEnumerable<TimeSpan> values)
         {
-            Time64Type dtype = Time64Type.SystemDefault;
-            var builder = new Time64Array.Builder(dtype);
-
-            switch (dtype.Unit)
-            {
-                case TimeUnit.Nanosecond:
-                    foreach (TimeSpan value in values)
-                    {
-                        builder.Append(value.TotalNanoseconds());
-                    }
-                    break;
-                case TimeUnit.Microsecond:
-                    foreach (TimeSpan value in values)
-                    {
-                        builder.Append(value.TotalMicroseconds());
-                    }
-                    break;
-                default:
-                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {dtype.Unit}");
-            }
-
-            return builder.Build();
+            return new Time64Array.Builder(Time64Type.SystemDefault).AppendRange(values).Build();
         }
 
         public static Time64Array BuildArray(IEnumerable<TimeSpan?> values)
         {
-            Time64Type dtype = Time64Type.SystemDefault;
-            var builder = new Time64Array.Builder(dtype);
-
-            switch (dtype.Unit)
-            {
-                case TimeUnit.Nanosecond:
-                    foreach (TimeSpan? value in values)
-                    {
-                        if (value.HasValue)
-                            builder.Append(value.Value.TotalNanoseconds());
-                        else
-                            builder.AppendNull();
-                    }
-                    break;
-                case TimeUnit.Microsecond:
-                    foreach (TimeSpan? value in values)
-                    {
-                        if (value.HasValue)
-                            builder.Append(value.Value.TotalMicroseconds());
-                        else
-                            builder.AppendNull();
-                    }
-                    break;
-                default:
-                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {dtype.Unit}");
-            }
-            
-            return builder.Build();
+            return new Time64Array.Builder(Time64Type.SystemDefault).AppendRange(values).Build();
         }
     }
 }

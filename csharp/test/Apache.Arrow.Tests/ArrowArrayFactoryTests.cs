@@ -472,7 +472,7 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
-        public void BuildTimeSpanArray_DateTimeValidValues_ReturnsCorrectArray()
+        public void BuildTimeSpanArray_TimeSpanValidValues_ReturnsCorrectArray()
         {
             // Arrange
             var values = new List<TimeSpan> { TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(-1) };
@@ -487,7 +487,7 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
-        public void BuildNullableTimeSpanArray_DateTimeValidValues_ReturnsCorrectArray()
+        public void BuildNullableTimeSpanArray_TimeSpanValidValues_ReturnsCorrectArray()
         {
             // Arrange
             var values = new List<TimeSpan?> { TimeSpan.FromSeconds(1), null, TimeSpan.FromSeconds(-1) };
