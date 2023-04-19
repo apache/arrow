@@ -35,7 +35,6 @@ namespace Apache.Arrow
 
             public int Length { get; private set; }
             public int NullCount { get; private set; }
-            private int _commitSize;
             private bool[] _commitChecks;
 
             public Builder(StructType structType)
@@ -50,18 +49,12 @@ namespace Apache.Arrow
                 Length = 0;
                 NullCount = 0;
 
-                Append();
+                _commitChecks = DataType.Fields.Select(_ => true).ToArray();
             }
 
             public IReadOnlyList<Field> Fields => DataType.Fields;
 
-            public Builder Append()
-            {
-                _commitChecks = DataType.Fields.Select(_ => false).ToArray();
-                return this;
-            }
-
-            public Builder FinalizeLastAppend(int numRows)
+            public Builder Append(int numRows)
             {
                 // Checks
                 List<int> unfilled = new List<int>();
@@ -81,7 +74,7 @@ namespace Apache.Arrow
 
                 Length += numRows;
 
-                Append();
+                _commitChecks = DataType.Fields.Select(_ => false).ToArray();
 
                 return this;
             }
