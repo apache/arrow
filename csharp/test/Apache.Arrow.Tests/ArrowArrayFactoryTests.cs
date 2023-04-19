@@ -215,7 +215,37 @@ namespace Apache.Arrow.Tests
             Assert.Equal(values.Count, result.Length);
             Assert.Equal(values, result.ToArray(true));
         }
+#if NET5_0_OR_GREATER
+        [Fact]
+        public void BuildHalfFloatArray_ValidValues_ReturnsCorrectArray()
+        {
+            // Arrange
+            var values = new List<Half> { (Half)1.1f, (Half)2.2f, (Half)3.3f };
 
+            // Act
+            var result = ArrowArrayFactory.BuildArray(values);
+
+            // Assert
+            Assert.IsType<HalfFloatArray>(result);
+            Assert.Equal(values.Count, result.Length);
+            Assert.Equal(values, result.ToArray(true));
+        }
+
+        [Fact]
+        public void BuildNullableHalfFloatArray_ValidValues_ReturnsCorrectArray()
+        {
+            // Arrange
+            var values = new List<Half?> { (Half)1.1, null, (Half)3.3 };
+
+            // Act
+            var result = ArrowArrayFactory.BuildArray(values);
+
+            // Assert
+            Assert.IsType<HalfFloatArray>(result);
+            Assert.Equal(values.Count, result.Length);
+            Assert.Equal(values, result.ToArray());
+        }
+#endif
         [Fact]
         public void BuildFloatArray_ValidValues_ReturnsCorrectArray()
         {

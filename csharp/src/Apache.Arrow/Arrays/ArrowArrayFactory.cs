@@ -194,6 +194,17 @@ namespace Apache.Arrow
         }
 
         // Floats
+#if NET5_0_OR_GREATER
+        public static HalfFloatArray BuildArray(IEnumerable<Half> values)
+        {
+            return new HalfFloatArray.Builder().AppendRange(values).Build();
+        }
+
+        public static HalfFloatArray BuildArray(IEnumerable<Half?> values)
+        {
+            return new HalfFloatArray.Builder().AppendRange(values).Build();
+        }
+#endif
         public static FloatArray BuildArray(IEnumerable<float> values)
         {
             return new FloatArray.Builder().AppendRange(values).Build();
