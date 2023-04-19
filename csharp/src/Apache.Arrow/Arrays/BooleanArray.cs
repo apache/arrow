@@ -198,7 +198,7 @@ namespace Apache.Arrow
             return IsNull(index) ? (bool?)null : GetBoolean(index, true);
         }
 
-        private bool GetBoolean(int index, bool notNull = true)
+        private bool GetBoolean(int index, bool nullable = false)
         {
             return BitUtility.GetBit(ValueBuffer.Span, index + Offset);
         }
@@ -216,7 +216,7 @@ namespace Apache.Arrow
             return alloc;
         }
 
-        public bool[] ToArray(bool notNull = true)
+        public bool[] ToArray(bool nullable = false)
         {
             bool[] alloc = new bool[Length];
 

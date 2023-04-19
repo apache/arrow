@@ -113,7 +113,7 @@ namespace Apache.Arrow
             return alloc;
         }
 
-        public decimal[] ToArray(bool notNull = true)
+        public decimal[] ToArray(bool nullable = false)
         {
             decimal[] alloc = new decimal[Length];
 
