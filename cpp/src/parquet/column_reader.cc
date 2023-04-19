@@ -1349,7 +1349,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     valid_bits_ = AllocateBuffer(pool);
     def_levels_ = AllocateBuffer(pool);
     rep_levels_ = AllocateBuffer(pool);
-    Reset();
+    TypedRecordReader::Reset();
   }
 
   // Compute the values capacity in bytes for the given number of elements
@@ -1367,7 +1367,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // Delimit records, then read values at the end
     int64_t records_read = 0;
 
-    if (levels_position_ < levels_written_) {
+    if (has_values_to_process()) {
       records_read += ReadRecordData(num_records);
     }
 
@@ -1525,7 +1525,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t values_seen = 0;
     int64_t skipped_records = DelimitRecords(num_records, &values_seen);
     ReadAndThrowAwayValues(values_seen);
-    // Mark those levels and values as consumed in the the underlying page.
+    // Mark those levels and values as consumed in the underlying page.
     // This must be done before we throw away levels since it updates
     // levels_position_ and levels_written_.
     this->ConsumeBufferedValues(levels_position_ - start_levels_position);
@@ -1554,7 +1554,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // If 'at_record_start_' is false, but (skipped_records == num_records), it
     // means that for the last record that was counted, we have not seen all
-    // of it's values yet.
+    // of its values yet.
     while (!at_record_start_ || skipped_records < num_records) {
       // Is there more data to read in this row group?
       // HasNextInternal() will advance to the next page if necessary.
@@ -1579,7 +1579,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         break;
       }
 
-      // For skip we will read the levels and append them to the end
+      // For skipping we will read the levels and append them to the end
       // of the def_levels and rep_levels just like for read.
       ReserveLevels(batch_size);
 
