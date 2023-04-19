@@ -2141,19 +2141,13 @@ class TestConvertListTypes:
             # TODO: regression in pandas with numpy 1.25dev
             # https://github.com/pandas-dev/pandas/issues/50360
             pytest.skip("Regression in pandas with numpy 1.25")
-        offsets = pa.array([0, 2, 5, 6], pa.int32())
-        keys = pa.array(['foo', 'bar', 'baz', 'qux', 'quux', 'quz'])
-        items = pa.array([['a', 'b'], ['c', 'd'], [], None, [None, 'e'], ['f', 'g']],
-                         pa.list_(pa.string()))
-        maps = pa.MapArray.from_arrays(offsets, keys, items)
-        data = pa.ListArray.from_arrays([0, 1, 3], maps)
-
-        expected = pd.Series([
+        data = [
             [[('foo', ['a', 'b']), ('bar', ['c', 'd'])]],
             [[('baz', []), ('qux', None), ('quux', [None, 'e'])], [('quz', ['f', 'g'])]]
-        ])
-
-        series = pd.Series(data.to_pandas())
+        ]
+        arr = pa.array(data, pa.list_(pa.map_(pa.utf8(), pa.list_(pa.utf8()))))
+        series = arr.to_pandas()
+        expected = pd.Series(data)
 
         # pandas.testing generates a
         # DeprecationWarning: elementwise comparison failed
@@ -2173,43 +2167,24 @@ class TestConvertListTypes:
             # https://github.com/pandas-dev/pandas/issues/50360
             pytest.skip("Regression in pandas with numpy 1.25")
 
-        keys_1 = pa.array(['foo', 'bar'])
-        keys_2 = pa.array(['baz', 'qux', 'quux'])
-        keys_3 = pa.array(['quz'])
-
-        items_1 = pa.array(
-            [['a', 'b'], ['c', 'd']],
+        keys = pa.array(['ignore', 'foo', 'bar', 'baz',
+                         'qux', 'quux', 'ignore']).slice(1, 5)
+        items = pa.array(
+            [['ignore'], ['ignore'], ['a', 'b'], ['c', 'd'], [], None, [None, 'e']],
             pa.list_(pa.string()),
-        )
-        items_2 = pa.array(
-            [[], None, [None, 'e']],
-            pa.list_(pa.string()),
-        )
-        items_3 = pa.array(
-            [['f', 'g']],
-            pa.list_(pa.string()),
-        )
+        ).slice(2, 5)
+        map = pa.MapArray.from_arrays([0, 2, 4], keys, items)
+        arr = pa.ListArray.from_arrays([0, 1, 2], map)
 
-        map_chunk_1 = pa.MapArray.from_arrays([0, 2], keys_1, items_1)
-        map_chunk_2 = pa.MapArray.from_arrays([0, 3], keys_2, items_2)
-        map_chunk_3 = pa.MapArray.from_arrays([0, 1], keys_3, items_3)
-        data = pa.chunked_array([
-            pa.ListArray.from_arrays([0, 1], map_chunk_1),
-            pa.ListArray.from_arrays([0, 1], map_chunk_2),
-            pa.ListArray.from_arrays([0, 1], map_chunk_3),
-        ])
-
-        series = data.to_pandas()
+        series = arr.to_pandas()
         expected = pd.Series([
             [[('foo', ['a', 'b']), ('bar', ['c', 'd'])]],
-            [[('baz', []), ('qux', None), ('quux', [None, 'e'])]],
-            [[('quz', ['f', 'g'])]],
+            [[('baz', []), ('qux', None)]],
         ])
 
-        series_sliced = data.slice(1, 3).to_pandas()
+        series_sliced = arr.slice(1, 2).to_pandas()
         expected_sliced = pd.Series([
-            [[('baz', []), ('qux', None), ('quux', [None, 'e'])]],
-            [[('quz', ['f', 'g'])]],
+            [[('baz', []), ('qux', None)]],
         ])
 
         # pandas.testing generates a
