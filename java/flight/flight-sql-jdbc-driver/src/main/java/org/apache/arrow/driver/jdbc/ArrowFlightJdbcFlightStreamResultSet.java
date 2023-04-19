@@ -51,12 +51,13 @@ import org.apache.calcite.avatica.QueryState;
  */
 public final class ArrowFlightJdbcFlightStreamResultSet
     extends ArrowFlightJdbcVectorSchemaRootResultSet {
-  private static final int BLOCKING_QUEUE_CAPACITY = 5;
+  private static final String BLOCKING_QUEUE_PARAM = "buffersize";
+  private static final int DEFAULT_BLOCKING_QUEUE_CAPACITY = 5;
   private final ArrowFlightConnection connection;
   private FlightStream currentFlightStream;
   private FlightStreamQueue flightStreamQueue;
   private VectorSchemaRootTransformer transformer;
-  private final BlockingQueue<VectorSchemaRoot> vectorSchemaRoots = new LinkedBlockingQueue<>(BLOCKING_QUEUE_CAPACITY);
+  private BlockingQueue<VectorSchemaRoot> vectorSchemaRoots;
   private Schema schema;
   private boolean streamHasNext;
   private BufferAllocator allocator;
@@ -70,6 +71,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
                                        final Meta.Frame firstFrame) throws SQLException {
     super(statement, state, signature, resultSetMetaData, timeZone, firstFrame);
     this.connection = (ArrowFlightConnection) statement.connection;
+    initializeVectorSchemaRootsQueue();
   }
 
   ArrowFlightJdbcFlightStreamResultSet(final ArrowFlightConnection connection,
@@ -80,6 +82,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
                                        final Meta.Frame firstFrame) throws SQLException {
     super(null, state, signature, resultSetMetaData, timeZone, firstFrame);
     this.connection = connection;
+    initializeVectorSchemaRootsQueue();
   }
 
   /**
@@ -106,11 +109,25 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     final ArrowFlightJdbcFlightStreamResultSet resultSet =
         new ArrowFlightJdbcFlightStreamResultSet(connection, state, signature, resultSetMetaData,
             timeZone, null);
-
     resultSet.transformer = transformer;
 
     resultSet.execute(flightInfo);
     return resultSet;
+  }
+
+  private void initializeVectorSchemaRootsQueue() throws SQLException {
+    if (vectorSchemaRoots == null) {
+      try {
+        int blockingQueueCapacity = ofNullable(connection.getClientInfo().getProperty(BLOCKING_QUEUE_PARAM))
+                .map(Integer::parseInt)
+                .filter(s -> s > 0)
+                .orElse(DEFAULT_BLOCKING_QUEUE_CAPACITY);
+
+        vectorSchemaRoots = new LinkedBlockingQueue<>(blockingQueueCapacity);
+      } catch (java.lang.NumberFormatException e) {
+        throw new SQLException("Invalid value for 'buffersize' was provided", e);
+      }
+    }
   }
 
   private BufferAllocator getAllocator() {
