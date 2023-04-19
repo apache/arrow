@@ -161,7 +161,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
 
     // Ownership of the root will be passed onto the cursor.
     if (currentFlightStream != null) {
-      storeRoot(currentFlightStream.getRoot());
+      storeRootsFromStreamAsync();
       executeNextRoot();
     }
   }
