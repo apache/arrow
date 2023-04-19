@@ -1368,7 +1368,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   bool pages_change_on_record_boundaries() const {
     return properties_->data_page_version() == ParquetDataPageVersion::V2 ||
-           properties_->write_page_index();
+           properties_->page_index_enabled(descr_->path());
   }
 
  private:

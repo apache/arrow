@@ -26,6 +26,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <set>
 #include <sstream>
 #include <vector>
 
@@ -5235,7 +5236,8 @@ class ParquetPageIndexRoundTripTest : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(buffer_, sink->Finish());
   }
 
-  void ReadPageIndexes(int expect_num_row_groups, int expect_num_pages) {
+  void ReadPageIndexes(int expect_num_row_groups, int expect_num_pages,
+                       const std::set<int>& expect_columns_without_index = {}) {
     auto read_properties = default_arrow_reader_properties();
     auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer_));
 
@@ -5255,7 +5257,12 @@ class ParquetPageIndexRoundTripTest : public ::testing::Test {
         column_indexes_.emplace_back(column_index.get());
 
         auto offset_index = row_group_index_reader->GetOffsetIndex(col);
-        CheckOffsetIndex(offset_index.get(), expect_num_pages, &offset_lower_bound);
+        if (expect_columns_without_index.find(col) !=
+            expect_columns_without_index.cend()) {
+          ASSERT_EQ(offset_index, nullptr);
+        } else {
+          CheckOffsetIndex(offset_index.get(), expect_num_pages, &offset_lower_bound);
+        }
       }
     }
   }
@@ -5423,6 +5430,33 @@ TEST_F(ParquetPageIndexRoundTripTest, DoubleWithNaNs) {
                             /*null_counts=*/{0}},
           ColumnIndexObject{
               /* Page with only NaN values does not have column index built */}));
+}
+
+TEST_F(ParquetPageIndexRoundTripTest, EnablePerColumn) {
+  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
+                                 ::arrow::field("c1", ::arrow::int64()),
+                                 ::arrow::field("c2", ::arrow::int64())});
+  auto writer_properties =
+      WriterProperties::Builder()
+          .enable_write_page_index()       /* enable by default */
+          ->enable_write_page_index("c0")  /* enable c0 explicitly */
+          ->disable_write_page_index("c1") /* disable c1 explicitly */
+          ->build();
+  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([[0,  1,  2]])"}));
+
+  ReadPageIndexes(/*expect_num_row_groups=*/1, /*expect_num_pages=*/1,
+                  /*expect_columns_without_index=*/{1});
+
+  EXPECT_THAT(
+      column_indexes_,
+      ::testing::ElementsAre(
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(0)},
+                            /*max_values=*/{encode_int64(0)}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{0}},
+          ColumnIndexObject{/* page index of c1 is disabled */},
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(2)},
+                            /*max_values=*/{encode_int64(2)}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{0}}));
 }
 
 }  // namespace arrow
