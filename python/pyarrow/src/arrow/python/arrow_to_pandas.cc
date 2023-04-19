@@ -1030,9 +1030,10 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
         item_arrays,
         out_values);
 
+    ARROW_RETURN_NOT_OK(status);
     // If there were no errors generating the pydicts,
     // then check if we detected any data loss from duplicate keys.
-    return !status.ok() ? status : CheckForDuplicateKeys(error_on_duplicate_keys, total_dict_len, total_raw_len);
+    return CheckForDuplicateKeys(error_on_duplicate_keys, total_dict_len, total_raw_len);
   }
 }
 
