@@ -68,11 +68,6 @@ namespace Apache.Arrow
 
                     ValidityBufferBuilder.AppendRange(Enumerable.Repeat(true, numRows[0]));
 
-                    Length += numRows[0];
-
-                    //if (ValidityBufferBuilder.Length != Length)
-                    //    throw new InvalidDataException($"Validity Buffer and Values do not have the same Length");
-
                     // Set arrays
                     if (Arrays == null)
                     {
@@ -89,11 +84,12 @@ namespace Apache.Arrow
                     }
 
                     Length = Arrays[0].Length;
+
                     ResetCommit();
                 }
             }
 
-            public Builder AppendArray(IArrowArray array)
+            public Builder AppendArray(IArrowArray array, MemoryAllocator allocator = default)
             {
                 // Get current buffer index
                 int index = _arrays.Count;
@@ -108,16 +104,16 @@ namespace Apache.Arrow
 
                 // Check if need append, all column have been recieved, we can commit
                 if (_arrays.Count == Fields.Count)
-                    Commit();
+                    Commit(allocator);
 
                 return this;
             }
 
-            public Builder AppendArrays(IEnumerable<IArrowArray> arrays)
+            public Builder AppendArrays(IEnumerable<IArrowArray> arrays, MemoryAllocator allocator = default)
             {
                 foreach (IArrowArray array in arrays)
                 {
-                    AppendArray(array);
+                    AppendArray(array, allocator);
                 }
 
                 return this;
@@ -126,8 +122,8 @@ namespace Apache.Arrow
             public Builder AppendNull()
             {
                 NullCount++;
-                ValidityBufferBuilder.Append(false);
                 AppendArrays(Fields.Select(field => ArrowArrayFactory.BuildArrayWithNull(field.DataType)));
+                ValidityBufferBuilder.Set(Length - 1, false);
                 return this;
             }
 
