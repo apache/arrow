@@ -24,6 +24,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 
@@ -83,7 +84,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
         new ArrowFlightJdbcVectorSchemaRootResultSet(null, state, signature, resultSetMetaData,
             timeZone, null);
 
-    resultSet.execute(vectorSchemaRoot);
+    resultSet.execute(vectorSchemaRoot, null);
     return resultSet;
   }
 
@@ -92,18 +93,11 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
     throw new RuntimeException("Can only execute with execute(VectorSchemaRoot)");
   }
 
-  void execute(final VectorSchemaRoot vectorSchemaRoot) {
-    final List<Field> fields = vectorSchemaRoot.getSchema().getFields();
-    final List<ColumnMetaData> columns = ConvertUtils.convertArrowFieldsToColumnMetaDataList(fields);
-    signature.columns.clear();
-    signature.columns.addAll(columns);
-
-    this.vectorSchemaRoot = vectorSchemaRoot;
-    execute2(new ArrowFlightJdbcCursor(vectorSchemaRoot), this.signature.columns);
-  }
-
   void execute(final VectorSchemaRoot vectorSchemaRoot, final Schema schema) {
-    final List<ColumnMetaData> columns = ConvertUtils.convertArrowFieldsToColumnMetaDataList(schema.getFields());
+    final List<Field> fields = Optional.ofNullable(schema)
+            .map(Schema::getFields)
+            .orElseGet(() -> vectorSchemaRoot.getSchema().getFields());
+    final List<ColumnMetaData> columns = ConvertUtils.convertArrowFieldsToColumnMetaDataList(fields);
     signature.columns.clear();
     signature.columns.addAll(columns);
 
