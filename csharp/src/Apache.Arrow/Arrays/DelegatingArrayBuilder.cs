@@ -56,6 +56,16 @@ namespace Apache.Arrow
         }
 
         /// <summary>
+        /// Append a null date to the array.
+        /// </summary>
+        /// <returns>Returns the builder (for fluent-style composition).</returns>
+        public TBuilder AppendNull()
+        {
+            InnerBuilder.AppendNull();
+            return this as TBuilder;
+        }
+
+        /// <summary>
         /// Build an Arrow Array from the appended contents so far.
         /// </summary>
         /// <param name="allocator">Optional memory allocator.</param>

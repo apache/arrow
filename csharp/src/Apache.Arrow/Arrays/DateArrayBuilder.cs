@@ -115,16 +115,6 @@ namespace Apache.Arrow
         }
 
         /// <summary>
-        /// Append a null date to the array.
-        /// </summary>
-        /// <returns>Returns the builder (for fluent-style composition).</returns>
-        public TBuilder AppendNull()
-        {
-            InnerBuilder.AppendNull();
-            return this as TBuilder;
-        }
-
-        /// <summary>
         /// Append a collection of dates in the form of <see cref="DateTime"/> objects to the array.
         /// </summary>
         /// <remarks>

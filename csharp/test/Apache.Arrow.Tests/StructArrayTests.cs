@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Ipc;
-using Apache.Arrow.Types;
 using System.Collections.Generic;
 using System.IO;
+using Apache.Arrow.Ipc;
+using Apache.Arrow.Types;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -37,18 +37,25 @@ namespace Apache.Arrow.Tests
 
             StructArray.Builder builder = new StructArray.Builder(structType);
 
-            builder.AppendColumn(0, new string[] { "test", null });
-            builder.AppendColumn(1, new int?[] { 1, null });
-            builder.Append();
+            builder.AppendArray(ArrowArrayFactory.BuildArray(new string[] { "test", null }));
+            builder.AppendArray(ArrowArrayFactory.BuildArray(new int?[] { 1, null }));
 
-            builder.AppendColumn(0, new string[] { "" });
-            builder.AppendColumn(1, new int?[] { -1 });
-            builder.Append();
+            builder.AppendNull();
+
+            builder.AppendArrays(new IArrowArray[] {
+                ArrowArrayFactory.BuildArray(new string[] { "" }),
+                ArrowArrayFactory.BuildArray(new int?[] { -1 })
+            });
 
             StructArray results = builder.Build();
 
-            Assert.Equal(new string[] { "test", null, "" }, results.GetArray<StringArray>(0).ToArray());
-            Assert.Equal(new int?[] { 1, null, -1 }, results.GetArray<Int32Array>(1).ToArray());
+            Assert.Equal(4, results.Length);
+            Assert.Equal(new string[] { "test", null, null, "" }, results.GetArray<StringArray>(0).ToArray());
+            Assert.Equal(new int?[] { 1, null, null, -1 }, results.GetArray<Int32Array>(1).ToArray());
+            Assert.Equal(1, results.NullCount);
+            Assert.False(results.IsNull(0));
+            Assert.True(results.IsNull(2));
+            Assert.False(results.IsNull(4));
         }
 #endif
 

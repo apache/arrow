@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -30,95 +29,96 @@ namespace Apache.Arrow
         {
             public readonly StructType DataType;
             IArrowType IArrowArrayBuilder.DataType => DataType;
-            public readonly IArrowArrayBuilder[] Builders;
+            public List<IArrowArray> Arrays;
             private readonly ArrowBuffer.BitmapBuilder ValidityBufferBuilder;
+
+            private List<IArrowArray> _arrays;
 
             public int Length { get; private set; }
             public int NullCount { get; private set; }
-            private bool[] _commitChecks;
 
             public Builder(StructType structType)
             {
                 DataType = structType;
-                Builders = structType.Fields
-                    .Select(field => ArrowArrayBuilderFactory.Build(field.DataType))
-                    .ToArray();
+                Arrays = null;
                 ValidityBufferBuilder = new ArrowBuffer.BitmapBuilder();
 
                 // statics
                 Length = 0;
                 NullCount = 0;
 
-                _commitChecks = DataType.Fields.Select(_ => true).ToArray();
+                ResetCommit();
             }
 
             public IReadOnlyList<Field> Fields => DataType.Fields;
 
-            public Builder Append()
+            private void ResetCommit()
             {
-                // Checks
-                List<int> unfilled = new List<int>();
-                for (int i = 0; i < _commitChecks.Length; i++)
+                _arrays = new List<IArrowArray>(Fields.Count);
+            }
+
+            private void Commit(MemoryAllocator allocator = default)
+            {
+                if (_arrays.Count != 0)
                 {
-                    if (!_commitChecks[i])
+                    int[] numRows = _arrays.Select(array => array.Length).Distinct().ToArray();
+
+                    if (numRows.Length > 1)
+                        throw new InvalidDataException($"All value builders do not have the same Length");
+
+                    ValidityBufferBuilder.AppendRange(Enumerable.Repeat(true, numRows[0]));
+
+                    Length += numRows[0];
+
+                    //if (ValidityBufferBuilder.Length != Length)
+                    //    throw new InvalidDataException($"Validity Buffer and Values do not have the same Length");
+
+                    // Set arrays
+                    if (Arrays == null)
                     {
-                        unfilled.Add(i);
+                        // First write
+                        Arrays = _arrays;
                     }
+                    else
+                    {
+                        // Merge with existing arrays
+                        for (int i = 0; i < Fields.Count; i++)
+                        {
+                            Arrays[i] = ArrowArrayConcatenator.Concatenate(new IArrowArray[] { Arrays[i], _arrays[i] }, allocator);
+                        }
+                    }
+
+                    Length = Arrays[0].Length;
+                    ResetCommit();
                 }
+            }
 
-                if (unfilled.Count > 0)
-                    throw new InvalidDataException($"Fields ['{string.Join("','", unfilled.Select(i => DataType.Fields[i].Name))}'] were not filled in last append");
+            public Builder AppendArray(IArrowArray array)
+            {
+                // Get current buffer index
+                int index = _arrays.Count;
+                Field field = Fields[index];
 
-                int[] numRows = Builders.Select(b => b.Length).Distinct().ToArray();
+                // Check Data consistency
+                if (field.DataType.TypeId != array.Data.DataType.TypeId)
+                    throw new InvalidDataException("Datatypes are differents");
 
-                if (numRows.Length > 1)
-                    throw new InvalidDataException($"All value builders do not have the same Length");
+                // Add array to commit
+                _arrays.Add(array);
 
-                ValidityBufferBuilder.AppendRange(Enumerable.Repeat(true, numRows[0]));
-
-                Length += numRows[0];
-
-                if (ValidityBufferBuilder.Length != Length)
-                    throw new InvalidDataException($"Validity Buffer and Values do not have the same Length");
-
-                _commitChecks = DataType.Fields.Select(_ => false).ToArray();
+                // Check if need append, all column have been recieved, we can commit
+                if (_arrays.Count == Fields.Count)
+                    Commit();
 
                 return this;
             }
 
-            // Append in column
-            public Builder AppendColumn(int index, IEnumerable<string> values)
+            public Builder AppendArrays(IEnumerable<IArrowArray> arrays)
             {
-                IArrowArrayBuilder builder = Builders[index];
-
-                switch (builder.DataType.TypeId)
+                foreach (IArrowArray array in arrays)
                 {
-                    case ArrowTypeId.String:
-                        (builder as StringArray.Builder).AppendRange(values);
-                        break;
-                    default:
-                        throw new ArgumentException($"Cannot write string values in '{Fields[index]}' of type {builder.DataType.TypeId}");
+                    AppendArray(array);
                 }
-
-                _commitChecks[index] = true;
-
-                return this;
-            }
-
-            public Builder AppendColumn(int index, IEnumerable<int?> values)
-            {
-                IArrowArrayBuilder builder = Builders[index];
-
-                switch (builder.DataType.TypeId)
-                {
-                    case ArrowTypeId.Int32:
-                        (builder as Int32Array.Builder).AppendRange(values);
-                        break;
-                    default:
-                        throw new ArgumentException($"Cannot write string values in '{Fields[index]}' of type {builder.DataType.TypeId}");
-                }
-
-                _commitChecks[index] = true;
 
                 return this;
             }
@@ -127,6 +127,7 @@ namespace Apache.Arrow
             {
                 NullCount++;
                 ValidityBufferBuilder.Append(false);
+                AppendArrays(Fields.Select(field => ArrowArrayFactory.BuildArrayWithNull(field.DataType)));
                 return this;
             }
 
@@ -134,10 +135,7 @@ namespace Apache.Arrow
             public StructArray Build(MemoryAllocator allocator = default)
             {
                 ArrowBuffer validityBuffer = NullCount > 0 ? ValidityBufferBuilder.Build(allocator) : ArrowBuffer.Empty;
-                IEnumerable<IArrowArray> arrays = Builders
-                    .Select(builder => builder.GetType().GetMethod("Build").Invoke(builder, new object[] { allocator }) as IArrowArray);
-
-                return new StructArray(DataType, Length, arrays, validityBuffer, NullCount);
+                return new StructArray(DataType, Length, Arrays, validityBuffer, NullCount);
             }
             public Builder Reserve(int capacity)
             {
@@ -153,11 +151,6 @@ namespace Apache.Arrow
 
             public Builder Clear()
             {
-                foreach (IArrowArrayBuilder builder in Builders)
-                {
-                    // invoke the method on the instance
-                    builder.GetType().GetMethod("Clear").Invoke(builder, null);
-                }
                 ValidityBufferBuilder.Clear();
                 return this;
             }

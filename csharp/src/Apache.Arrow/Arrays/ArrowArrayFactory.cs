@@ -15,9 +15,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using Apache.Arrow.Arrays;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
@@ -90,6 +89,9 @@ namespace Apache.Arrow
                     throw new NotSupportedException($"An ArrowArray cannot be built for type {data.DataType.TypeId}.");
             }
         }
+
+        internal static IArrowArray BuildArrayWithNull(IArrowType dataType, MemoryAllocator allocator = default) => ArrowArrayBuilderFactory
+            .Build(dataType).AppendNull().Build(allocator);
 
         // Binary
         public static StringArray BuildArray(IEnumerable<string> values)

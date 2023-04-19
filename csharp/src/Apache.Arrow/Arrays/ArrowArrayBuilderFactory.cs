@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -72,7 +72,10 @@ namespace Apache.Arrow
                     return new Decimal128Array.Builder(dataType as Decimal128Type);
                 case ArrowTypeId.Decimal256:
                     return new Decimal256Array.Builder(dataType as Decimal256Type);
+#if NETCOREAPP3_1_OR_GREATER
                 case ArrowTypeId.Struct:
+                    return new StructArray.Builder(dataType as StructType);
+#endif
                 case ArrowTypeId.Union:
                 case ArrowTypeId.Dictionary:
                 case ArrowTypeId.FixedSizedBinary:
