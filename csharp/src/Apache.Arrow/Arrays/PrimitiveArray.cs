@@ -69,12 +69,13 @@ namespace Apache.Arrow
 
         public T?[] ToArray()
         {
+            ReadOnlySpan<T> span = Values;
             T?[] alloc = new T?[Length];
 
             // Initialize the values
             for (int i = 0; i < Length; i++)
             {
-                alloc[i] = IsValid(i) ? Values[i] : null;
+                alloc[i] = IsValid(i) ? span[i] : null;
             }
 
             return alloc;
@@ -82,12 +83,13 @@ namespace Apache.Arrow
 
         public T[] ToArray(bool nullable = false)
         {
+            ReadOnlySpan<T> span = Values;
             T[] alloc = new T[Length];
 
             // Initialize the values
             for (int i = 0; i < Length; i++)
             {
-                alloc[i] = Values[i];
+                alloc[i] = span[i];
             }
 
             return alloc;
