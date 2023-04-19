@@ -40,7 +40,7 @@ subject.
 
 .. note::
 
-   We sometimes use ``[Discuss]``, ``DISCUSS: `` or something similar but
+   We sometimes use ``[Discuss]``, ``DISCUSS:`` or something similar but
    ``[DISCUSS]`` is recommended.
 
 Here are some examples:
