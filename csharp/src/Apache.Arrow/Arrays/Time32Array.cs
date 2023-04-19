@@ -71,7 +71,7 @@ namespace Apache.Arrow
                         AppendRange(values.Select(value => (int)value.TotalNanoseconds()));
                         break;
                     default:
-                        throw new InvalidDataException($"Unsupported time unit for TimestampType: {DataType.Unit}");
+                        throw new InvalidDataException($"Unsupported time unit for Time32Type: {DataType.Unit}");
                 }
 
                 return this;
@@ -118,7 +118,7 @@ namespace Apache.Arrow
                         }
                         break;
                     default:
-                        throw new InvalidDataException($"Unsupported time unit for TimestampType: {DataType.Unit}");
+                        throw new InvalidDataException($"Unsupported time unit for Time32Type: {DataType.Unit}");
                 }
 
                 return this;
@@ -189,6 +189,7 @@ namespace Apache.Arrow
 
         public new TimeSpan?[] ToArray()
         {
+            ReadOnlySpan<int> span = Values;
             TimeSpan?[] alloc = new TimeSpan?[Length];
 
             // Initialize the values
@@ -197,13 +198,13 @@ namespace Apache.Arrow
                 case TimeUnit.Second:
                     for (int i = 0; i < Length; i++)
                     {
-                        alloc[i] = IsValid(i) ? TimeSpan.FromSeconds(Values[i]) : null;
+                        alloc[i] = IsValid(i) ? TimeSpan.FromSeconds(span[i]) : null;
                     }
                     break;
                 case TimeUnit.Millisecond:
                     for (int i = 0; i < Length; i++)
                     {
-                        alloc[i] = IsValid(i) ? TimeSpan.FromMilliseconds(Values[i]) : null;
+                        alloc[i] = IsValid(i) ? TimeSpan.FromMilliseconds(span[i]) : null;
                     }
                     break;
                 default:
@@ -215,6 +216,7 @@ namespace Apache.Arrow
 
         public new TimeSpan[] ToArray(bool nullable = false)
         {
+            ReadOnlySpan<int> span = Values;
             TimeSpan[] alloc = new TimeSpan[Length];
 
             // Initialize the values
@@ -223,13 +225,13 @@ namespace Apache.Arrow
                 case TimeUnit.Second:
                     for (int i = 0; i < Length; i++)
                     {
-                        alloc[i] = TimeSpan.FromSeconds(Values[i]);
+                        alloc[i] = TimeSpan.FromSeconds(span[i]);
                     }
                     break;
                 case TimeUnit.Millisecond:
                     for (int i = 0; i < Length; i++)
                     {
-                        alloc[i] = TimeSpan.FromMilliseconds(Values[i]);
+                        alloc[i] = TimeSpan.FromMilliseconds(span[i]);
                     }
                     break;
                 default:

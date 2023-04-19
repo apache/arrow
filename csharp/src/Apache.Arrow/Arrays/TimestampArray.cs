@@ -174,6 +174,8 @@ namespace Apache.Arrow
             Debug.Assert(Data.DataType is TimestampType);
         }
 
+        public TimestampType DataType => (TimestampType)Data.DataType;
+
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
         public DateTimeOffset GetTimestampUnchecked(int index)
@@ -217,12 +219,38 @@ namespace Apache.Arrow
 
         public new DateTimeOffset?[] ToArray()
         {
+            ReadOnlySpan<long> span = Values;
             DateTimeOffset?[] alloc = new DateTimeOffset?[Length];
 
             // Initialize the values
-            for (int i = 0; i < Length; i++)
+            switch(DataType.Unit)
             {
-                alloc[i] = GetTimestamp(i);
+                case TimeUnit.Second:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = IsValid(i) ? DateTimeOffset.FromUnixTimeSeconds(span[i]) : null;
+                    }
+                    break;
+                case TimeUnit.Millisecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = IsValid(i) ? DateTimeOffset.FromUnixTimeMilliseconds(span[i]) : null;
+                    }
+                    break;
+                case TimeUnit.Microsecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = IsValid(i) ? DateTimeOffsetExtensions.FromUnixTimeMicroseconds(span[i]) : null;
+                    }
+                    break;
+                case TimeUnit.Nanosecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = IsValid(i) ? DateTimeOffsetExtensions.FromUnixTimeNanoseconds(span[i]) : null;
+                    }
+                    break;
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {DataType.Unit}");
             }
 
             return alloc;
@@ -230,12 +258,39 @@ namespace Apache.Arrow
 
         public new DateTimeOffset[] ToArray(bool nullable = false)
         {
+            ReadOnlySpan<long> span = Values;
             DateTimeOffset[] alloc = new DateTimeOffset[Length];
 
             // Initialize the values
-            for (int i = 0; i < Length; i++)
+            // Initialize the values
+            switch (DataType.Unit)
             {
-                alloc[i] = GetTimestampUnchecked(i);
+                case TimeUnit.Second:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = DateTimeOffset.FromUnixTimeSeconds(span[i]);
+                    }
+                    break;
+                case TimeUnit.Millisecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = DateTimeOffset.FromUnixTimeMilliseconds(span[i]);
+                    }
+                    break;
+                case TimeUnit.Microsecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = DateTimeOffsetExtensions.FromUnixTimeMicroseconds(span[i]);
+                    }
+                    break;
+                case TimeUnit.Nanosecond:
+                    for (int i = 0; i < Length; i++)
+                    {
+                        alloc[i] = DateTimeOffsetExtensions.FromUnixTimeNanoseconds(span[i]);
+                    }
+                    break;
+                default:
+                    throw new InvalidDataException($"Unsupported time unit for Time64Type: {DataType.Unit}");
             }
 
             return alloc;
