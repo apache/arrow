@@ -875,7 +875,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     elif maps_as_pydicts == "lossy":
         result.maps_as_pydicts = MapConversionType.LOSSY
     elif maps_as_pydicts == "strict":
-        result.maps_as_pydicts = MapConversionType.STRICT
+        result.maps_as_pydicts = MapConversionType.STRICT_
     else:
         raise ValueError(
             "Invalid value for 'maps_as_pydicts': "

@@ -994,7 +994,7 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
     bool error_on_duplicate_keys;
     if (options.maps_as_pydicts == MapConversionType::LOSSY) {
       error_on_duplicate_keys = false;
-    } else if (options.maps_as_pydicts == MapConversionType::STRICT) {
+    } else if (options.maps_as_pydicts == MapConversionType::STRICT_) {
       error_on_duplicate_keys = true;
     } else {
       auto val = std::underlying_type_t<MapConversionType>(options.maps_as_pydicts);

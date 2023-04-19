@@ -49,7 +49,7 @@ cdef extern from "arrow/python/arrow_to_pandas.h" namespace "arrow::py::MapConve
     cdef enum MapConversionType "arrow::py::MapConversionType":
         DEFAULT,
         LOSSY,
-        STRICT
+        STRICT_
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:

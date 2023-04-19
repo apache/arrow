@@ -44,7 +44,7 @@ namespace py {
 enum class MapConversionType {
   DEFAULT, // convert arrow maps to assoc lists (list of kev-value tuples) in Pandas
   LOSSY, // report warnings when lossiness is encountered due to duplicate keys
-  STRICT, // raise a Python exception when lossiness is encountered due to duplicate keys
+  STRICT_, // raise a Python exception when lossiness is encountered due to duplicate keys
 };
 
 struct PandasOptions {
