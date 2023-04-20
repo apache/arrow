@@ -5,7 +5,7 @@ using System.Text;
 
 namespace Apache.Arrow.Util
 {
-    internal class HashUtil
+    public class HashUtil
     {
         internal enum Seed : uint
         {
@@ -98,10 +98,10 @@ namespace Apache.Arrow.Util
                 return compressedStream.ToArray();
             }
         }
-        internal static int CombineHash32(int h1, int h2) => Tuple.Create(h1, h2).GetHashCode();
-        internal static int CombineHash32(int h1, int h2, int h3) => Tuple.Create(h1, h2, h3).GetHashCode();
+        public static int CombineHash32(int h1, int h2) => Tuple.Create(h1, h2).GetHashCode();
+        public static int CombineHash32(int h1, int h2, int h3) => Tuple.Create(h1, h2, h3).GetHashCode();
 
-        internal static int CombineHash32(params int[] hashCodes)
+        public static int CombineHash32(params int[] hashCodes)
         {
             int hash = 0;
 
