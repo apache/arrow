@@ -65,8 +65,6 @@ namespace Apache.Arrow
                     if (numRows.Length > 1)
                         throw new InvalidDataException($"All value builders do not have the same Length");
 
-                    ValidityBufferBuilder.AppendRange(Enumerable.Repeat(true, numRows[0]));
-
                     // Set arrays
                     if (Arrays == null)
                     {
@@ -83,6 +81,30 @@ namespace Apache.Arrow
                     }
 
                     Length = Arrays[0].Length;
+
+                    // Set nullable indexes
+                    IArrowArray[] checkNulls = _arrays.Where(array => array.NullCount > 0).ToArray();
+
+                    if (checkNulls.Length > 0)
+                    {
+                        IEnumerable<bool> areValid = Enumerable.Range(0, numRows[0])
+                            .Select(i =>
+                            {
+                                // Check if all values in a row are nulls
+                                bool isNull = checkNulls.All(array => array.IsNull(i));
+
+                                // Add in builder increment
+                                if (isNull)
+                                    NullCount++;
+
+                                return !isNull; // isValid = not isNull
+                            });
+
+                        // Update validity buffer
+                        ValidityBufferBuilder.AppendRange(areValid);
+                    }
+                    else
+                        ValidityBufferBuilder.AppendRange(Enumerable.Repeat(true, numRows[0]));
 
                     ResetCommit();
                 }
@@ -122,9 +144,7 @@ namespace Apache.Arrow
 
             public Builder AppendNull()
             {
-                NullCount++;
                 AppendArrays(Fields.Select(field => ArrowArrayFactory.BuildArrayWithNull(field.DataType)));
-                ValidityBufferBuilder.Set(Length - 1, false);
                 return this;
             }
 

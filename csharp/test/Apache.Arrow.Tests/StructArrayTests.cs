@@ -51,9 +51,9 @@ namespace Apache.Arrow.Tests
             Assert.Equal(4, results.Length);
             Assert.Equal(new string[] { "test", null, null, "" }, results.GetArray<StringArray>(0).ToArray());
             Assert.Equal(new int?[] { 1, null, null, -1 }, results.GetArray<Int32Array>(1).ToArray());
-            Assert.Equal(1, results.NullCount);
+            Assert.Equal(2, results.NullCount);
             Assert.False(results.IsNull(0));
-            Assert.False(results.IsNull(1));
+            Assert.True(results.IsNull(1));
             Assert.True(results.IsNull(2));
             Assert.False(results.IsNull(3));
         }
