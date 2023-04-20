@@ -329,7 +329,6 @@ namespace Apache.Arrow.Flight.Tests
             var actualFlights = await listFlightStream.ResponseStream.ToListAsync();
             var result = actualFlights.First();
 
-            //Expected values can be found in the FlightHolder class
             Assert.Equal(expectedBatch.Length, result.TotalRecords);
             Assert.Equal(expectedTotalBytes, result.TotalBytes);
         }
