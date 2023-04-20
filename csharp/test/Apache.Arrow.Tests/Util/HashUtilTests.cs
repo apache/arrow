@@ -27,5 +27,13 @@ namespace Apache.Arrow.Tests
             Assert.Equal(0, HashUtil.CombineHash32(Enumerable.Range(0, 512).Select(i => int.MinValue).ToArray()));
             Assert.Equal(968630272, HashUtil.CombineHash32(Enumerable.Range(0, 512).Select(i => int.MaxValue).ToArray()));
         }
+
+        [Fact]
+        public void Hash32_Should_HashString()
+        {
+            Assert.Equal(0, HashUtil.Hash32(null));
+            Assert.Equal(0, HashUtil.Hash32(""));
+            Assert.Equal(-1277324294, HashUtil.Hash32("abc"));
+        }
     }
 }

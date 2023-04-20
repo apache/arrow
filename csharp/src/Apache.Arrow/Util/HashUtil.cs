@@ -13,8 +13,10 @@ namespace Apache.Arrow.Util
         }
 
 #if NETCOREAPP2_0_OR_GREATER
-        internal static int Hash32(string str, Encoding encoding = null)
+        public static int Hash32(string str, Encoding encoding = null)
         {
+            if (string.IsNullOrEmpty(str))
+                return 0;
             encoding = encoding ?? Encoding.UTF8;
             byte[] compressed = str.Length > 128 ? Compress(encoding.GetBytes(str)) : encoding.GetBytes(str);
             ReadOnlySpan<byte> span = compressed.AsSpan();
@@ -23,6 +25,8 @@ namespace Apache.Arrow.Util
 
         internal static int Hash32(ReadOnlySpan<byte> data, Seed seed)
         {
+            if (data == null || data.Length == 0)
+                return 0;
             const uint c1 = 0xcc9e2d51;
             const uint c2 = 0x1b873593;
             const int r1 = 15;
@@ -70,7 +74,7 @@ namespace Apache.Arrow.Util
             return (int)hash;
         }
 #else
-        internal static int Hash32(string str)
+        public static int Hash32(string str)
         {
             const uint FNV_prime = 16777619;
             const uint FNV_offset_basis = 2166136261;
