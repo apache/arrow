@@ -442,6 +442,39 @@ default_s3_options <- list(
   request_timeout = -1
 )
 
+#' Initialize S3
+#'
+#' Must be called before other S3 functions such as \link{s3_bucket}.
+#'
+#' @param log_level string for log level to set. See details.
+#'
+#' @details The parameter `log_level` must be one of: Off, Fatal, Error, Warn,
+#'   Info, Debug, or Trace.
+#'
+#' @examples
+#' # Initialize S3 with Debug-level logging
+#' \dontrun{
+#'   s3_init("Debug")
+#' }
+s3_init <- function(log_level) {
+  stopifnot(is.character(log_level))
+  levels <-  c("Off", "Fatal", "Error", "Warn", "Info", "Debug", "Trace")
+
+  # Validate log_level
+  if (!(log_level %in% levels)) {
+    stop(
+      "Argument 'log_level' must be one of: ",
+      paste(
+        paste(levels[1:(length(levels)-1)], collapse = ", "),
+        levels[length(levels)],
+        sep = ", or "),
+      call. = FALSE)
+    return() # TODO: Invisible?
+  }
+
+  invisible(InitS3(log_level))
+}
+
 #' Connect to an AWS S3 bucket
 #'
 #' `s3_bucket()` is a convenience function to create an `S3FileSystem` object

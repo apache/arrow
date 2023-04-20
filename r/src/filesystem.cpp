@@ -288,6 +288,29 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs,
 #include <arrow/filesystem/s3fs.h>
 
 // [[s3::export]]
+void InitS3(const std::string& log_level) {
+  fs::S3GlobalOptions options;
+
+  if (log_level == "Fatal") {
+    options.log_level = arrow::fs::S3LogLevel::Fatal;
+  } else if (log_level == "Error") {
+    options.log_level = arrow::fs::S3LogLevel::Error;
+  } else if (log_level == "Warn") {
+    options.log_level = arrow::fs::S3LogLevel::Warn;
+  } else if (log_level == "Info") {
+    options.log_level = arrow::fs::S3LogLevel::Info;
+  } else if (log_level == "Debug") {
+    options.log_level = arrow::fs::S3LogLevel::Debug;
+  } else if (log_level == "Trace") {
+    options.log_level = arrow::fs::S3LogLevel::Trace;
+  } else {
+    options.log_level = arrow::fs::S3LogLevel::Fatal;
+  }
+
+  StopIfNotOk(fs::InitializeS3(options));
+}
+
+// [[s3::export]]
 std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
     bool anonymous = false, std::string access_key = "", std::string secret_key = "",
     std::string session_token = "", std::string role_arn = "",

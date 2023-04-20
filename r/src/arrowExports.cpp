@@ -3490,6 +3490,25 @@ extern "C" SEXP _arrow_fs___S3FileSystem__region(SEXP fs_sexp){
 #endif
 
 // filesystem.cpp
+#if defined(ARROW_R_WITH_S3)
+void InitS3(const std::string& log_level);
+extern "C" SEXP _arrow_InitS3(SEXP log_level_sexp) {
+  BEGIN_CPP11
+  arrow::r::Input<const std::string&>::type log_level(log_level_sexp);
+  InitS3(log_level);
+  return R_NilValue;
+  END_CPP11
+}
+#else
+extern "C" SEXP _arrow_InitS3(SEXP log_level_sexp) {
+  Rf_error(
+      "Cannot call InitS3(). See "
+      "https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow "
+      "C++ libraries. ");
+}
+#endif
+
+// filesystem.cpp
 void FinalizeS3();
 extern "C" SEXP _arrow_FinalizeS3(){
 BEGIN_CPP11

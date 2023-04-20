@@ -61,3 +61,7 @@ if (run_these) {
     expect_true("ETag" %in% names(metadata))
   })
 }
+
+test_that("s3_init throws an error on invalid input", {
+  expect_error(s3_init("Wrong"), "must be one of")
+})

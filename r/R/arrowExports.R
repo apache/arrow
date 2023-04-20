@@ -1352,6 +1352,10 @@ fs___S3FileSystem__region <- function(fs) {
   .Call(`_arrow_fs___S3FileSystem__region`, fs)
 }
 
+InitS3 <- function(log_level) {
+  invisible(.Call(`_arrow_InitS3`, log_level))
+}
+
 FinalizeS3 <- function() {
   invisible(.Call(`_arrow_FinalizeS3`))
 }
