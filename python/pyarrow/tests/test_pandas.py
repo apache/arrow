@@ -1438,7 +1438,7 @@ class TestConvertDateTimeLikeTypes:
     def test_timestamp_to_pandas_out_of_bounds(self):
         # ARROW-7758 check for out of bounds timestamps for non-ns timestamps
 
-        if Version("2.0.0") < Version(pd.__version__):
+        if Version(pd.__version__) >= Version("2.1.0.dev"):
             # GH-35235: test fail due to __from_pyarrow__ being added to pandas
             # https://github.com/pandas-dev/pandas/pull/52201
             # Needs: https://github.com/apache/arrow/issues/33321
