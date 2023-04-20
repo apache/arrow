@@ -4206,8 +4206,9 @@ TEST_P(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
                     /*verbose=*/true);
 }
 
-TEST_P(GroupBy, FirstLastNumericAndTemporalTypes) {
+TEST_P(GroupBy, FirstLastBasicTypes) {
   std::vector<std::shared_ptr<DataType>> types;
+  types.insert(types.end(), boolean());
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
   types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
 
@@ -4267,13 +4268,42 @@ TEST_P(GroupBy, FirstLastNumericAndTemporalTypes) {
     [null, 345600000,86400000,345600000,86400000]
     ])";
 
+  const std::vector<std::string> boolean_table = {R"([
+    [true,    1],
+    [null, 1]
+])",
+                                                  R"([
+    [false,    2],
+    [null, 3],
+    [false,    4],
+    [true,    4],
+    [true,    null],
+    [false,    1],
+    [false,    2]
+])",
+                                                  R"([
+    [false,    2],
+    [false,    null],
+    [null, 3]
+])"};
+
+  const std::string boolean_expected =
+      R"([
+    [1,    true,false,null,null],
+    [2,    false,false,false,false],
+    [3,    null,null,null,null],
+    [4,    false,true,false,true],
+    [null, true,false,true,false]
+    ])";
+
   auto skip_nulls = std::make_shared<ScalarAggregateOptions>(false, 1);
 
   for (const auto& ty : types) {
     SCOPED_TRACE(ty->ToString());
     auto in_schema = schema({field("argument0", ty), field("key", int64())});
-    auto table =
-        TableFromJSON(in_schema, (ty->name() == "date64") ? date64_table : default_table);
+    auto table = TableFromJSON(in_schema, (ty->name() == "date64") ? date64_table
+                                          : (ty->name() == "bool") ? boolean_table
+                                                                   : default_table);
 
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                          GroupByTest(
@@ -4294,17 +4324,18 @@ TEST_P(GroupBy, FirstLastNumericAndTemporalTypes) {
     ValidateOutput(aggregated_and_grouped);
     SortBy({"key_0"}, &aggregated_and_grouped);
 
-    AssertDatumsEqual(
-        ArrayFromJSON(struct_({
-                          field("key_0", int64()),
-                          field("hash_first", ty),
-                          field("hash_last", ty),
-                          field("hash_first", ty),
-                          field("hash_last", ty),
-                      }),
-                      (ty->name() == "date64") ? date64_expected : default_expected),
-        aggregated_and_grouped,
-        /*verbose=*/true);
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("key_0", int64()),
+                                        field("hash_first", ty),
+                                        field("hash_last", ty),
+                                        field("hash_first", ty),
+                                        field("hash_last", ty),
+                                    }),
+                                    (ty->name() == "date64") ? date64_expected
+                                    : (ty->name() == "bool") ? boolean_expected
+                                                             : default_expected),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
   }
 }
 

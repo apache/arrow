@@ -294,7 +294,6 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
       ExecContext* exec_ctx, size_t concurrency) {
     // Copy (need to modify options pointer below)
     std::vector<Aggregate> aggregates(aggs);
-
     std::vector<int> segment_field_ids(segment_keys.size());
     std::vector<TypeHolder> segment_key_types(segment_keys.size());
     for (size_t i = 0; i < segment_keys.size(); i++) {

@@ -955,14 +955,26 @@ const FunctionDoc mean_doc{
     "ScalarAggregateOptions"};
 
 const FunctionDoc first_last_doc{"Compute the first and last values of an array",
-                                 ("Null values are ignored by default."),
+                                 ("Do not use this directly. This is internal and might"
+                                  "be removed in the future."),
                                  {"array"},
                                  "ScalarAggregateOptions"};
 
-const FunctionDoc first_or_last_doc{"Compute the first or last values of an array",
-                                    ("Null values are ignored by default."),
-                                    {"array"},
-                                    "ScalarAggregateOptions"};
+const FunctionDoc first_doc{
+    "Compute the first value in each group",
+    ("Null values are ignored by default.\n"
+     "Currently this should only be used with serial execution because\n"
+     "ordering is otherwise undefined."),
+    {"array"},
+    "ScalarAggregateOptions"};
+
+const FunctionDoc last_doc{
+    "Compute the first value in each group",
+    ("Null values are ignored by default.\n"
+     "Currently this should only be used with serial execution because\n"
+     "ordering is otherwise undefined."),
+    {"array"},
+    "ScalarAggregateOptions"};
 
 const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numeric array",
                               ("Null values are ignored by default.\n"
@@ -1081,21 +1093,20 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
       "first_last", Arity::Unary(), first_last_doc, &default_scalar_aggregate_options);
   auto first_last_func = func.get();
 
-  AddFirstLastKernels(FirstLastInit, {boolean()}, func.get());
+  AddFirstLastKernels(FirstLastInit, {boolean(), fixed_size_binary(1)}, func.get());
   AddFirstLastKernels(FirstLastInit, NumericTypes(), func.get());
   AddFirstLastKernels(FirstLastInit, BaseBinaryTypes(), func.get());
   AddFirstLastKernels(FirstLastInit, TemporalTypes(), func.get());
-  AddFirstLastKernel(FirstLastInit, Type::FIXED_SIZE_BINARY, func.get(), SimdLevel::NONE);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // Add first/last as convience functions
-  func = std::make_shared<ScalarAggregateFunction>(
-      "first", Arity::Unary(), first_or_last_doc, &default_scalar_aggregate_options);
+  func = std::make_shared<ScalarAggregateFunction>("first", Arity::Unary(), first_doc,
+                                                   &default_scalar_aggregate_options);
   AddFirstOrLastAggKernel<FirstOrLast::First>(func.get(), first_last_func);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>(
-      "last", Arity::Unary(), first_or_last_doc, &default_scalar_aggregate_options);
+  func = std::make_shared<ScalarAggregateFunction>("last", Arity::Unary(), last_doc,
+                                                   &default_scalar_aggregate_options);
   AddFirstOrLastAggKernel<FirstOrLast::Last>(func.get(), first_last_func);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 

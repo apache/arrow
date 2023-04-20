@@ -213,11 +213,6 @@ Result<Datum> Last(const Datum& value, const ScalarAggregateOptions& options,
   return CallFunction("last", {value}, &options, ctx);
 }
 
-Result<Datum> FirstLast(const Datum& value, const ScalarAggregateOptions& options,
-                        ExecContext* ctx) {
-  return CallFunction("first_last", {value}, &options, ctx);
-}
-
 Result<Datum> MinMax(const Datum& value, const ScalarAggregateOptions& options,
                      ExecContext* ctx) {
   return CallFunction("min_max", {value}, &options, ctx);

@@ -1695,21 +1695,6 @@ struct GroupedMinMaxFactory {
 // ----------------------------------------------------------------------
 // FirstLast implementation
 
-template <typename CType>
-struct NullSentinel {
-  static constexpr CType value() { return std::numeric_limits<CType>::min(); }
-};
-
-template <>
-struct NullSentinel<float> {
-  static constexpr float value() { return std::numeric_limits<float>::infinity(); }
-};
-
-template <>
-struct NullSentinel<double> {
-  static constexpr double value() { return std::numeric_limits<double>::infinity(); }
-};
-
 template <typename Type, typename Enable = void>
 struct GroupedFirstLastImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
@@ -1730,8 +1715,11 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
   Status Resize(int64_t new_num_groups) override {
     auto added_groups = new_num_groups - num_groups_;
     num_groups_ = new_num_groups;
-    RETURN_NOT_OK(firsts_.Append(added_groups, NullSentinel<CType>::value()));
-    RETURN_NOT_OK(lasts_.Append(added_groups, NullSentinel<CType>::value()));
+    // Reusing AntiExtrema as uninitialized value here because it doesn't
+    // matter what the value is. We never output the uninitialized
+    // first/last value.
+    RETURN_NOT_OK(firsts_.Append(added_groups, AntiExtrema<CType>::anti_min()));
+    RETURN_NOT_OK(lasts_.Append(added_groups, AntiExtrema<CType>::anti_max()));
     RETURN_NOT_OK(has_values_.Append(added_groups, false));
     RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
     return Status::OK();
@@ -2055,6 +2043,11 @@ struct GroupedFirstLastFactory {
 
   Status Visit(const FixedSizeBinaryType&) {
     kernel = MakeKernel(std::move(argument_type), FirstLastInit<FixedSizeBinaryType>);
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanType&) {
+    kernel = MakeKernel(std::move(argument_type), FirstLastInit<BooleanType>);
     return Status::OK();
   }
 
@@ -3172,16 +3165,23 @@ const FunctionDoc hash_approximate_median_doc{
 
 const FunctionDoc hash_first_last_doc{
     "Compute the first and last of values in each group",
+    ("Do not use this directly. This is internal and might"
+     "be removed in the future."),
+    {"array", "group_id_array"},
+    "ScalarAggregateOptions"};
+
+const FunctionDoc hash_first_doc{
+    "Compute the first value in each group",
     ("Null values are ignored by default.\n"
-     "Currently this should only be used with segemented aggregation because\n"
+     "Currently this should only be used with serial execution because\n"
      "ordering is otherwise undefined."),
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
 
-const FunctionDoc hash_first_or_last_doc{
-    "Compute the first or last of values in each group",
+const FunctionDoc hash_last_doc{
+    "Compute the first value in each group",
     ("Null values are ignored by default.\n"
-     "Currently this should only be used with segemented aggregation because\n"
+     "Currently this should only be used with serial execution because\n"
      "ordering is otherwise undefined."),
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
@@ -3371,8 +3371,8 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         AddHashAggKernels(TemporalTypes(), GroupedFirstLastFactory::Make, func.get()));
     DCHECK_OK(
         AddHashAggKernels(BaseBinaryTypes(), GroupedFirstLastFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels({fixed_size_binary(1)}, GroupedFirstLastFactory::Make,
-                                func.get()));
+    DCHECK_OK(AddHashAggKernels({boolean(), fixed_size_binary(1)},
+                                GroupedFirstLastFactory::Make, func.get()));
 
     first_last_func = func.get();
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3380,8 +3380,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_first", Arity::Binary(), hash_first_or_last_doc,
-        &default_scalar_aggregate_options);
+        "hash_first", Arity::Binary(), hash_first_doc, &default_scalar_aggregate_options);
     DCHECK_OK(
         func->AddKernel(MakeFirstOrLastKernel<FirstOrLast::First>(first_last_func)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -3389,8 +3388,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
 
   {
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_last", Arity::Binary(), hash_first_or_last_doc,
-        &default_scalar_aggregate_options);
+        "hash_last", Arity::Binary(), hash_last_doc, &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeFirstOrLastKernel<FirstOrLast::Last>(first_last_func)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
