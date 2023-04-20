@@ -98,7 +98,10 @@ func (f *flightServer) GetSchema(_ context.Context, in *flight.FlightDescriptor)
 }
 
 func (f *flightServer) DoGet(tkt *flight.Ticket, fs flight.FlightService_DoGetServer) error {
-	recs := arrdata.Records[string(tkt.GetTicket())]
+	recs, ok := arrdata.Records[string(tkt.GetTicket())]
+	if !ok {
+		return status.Error(codes.NotFound, "flight not found")
+	}
 
 	w := flight.NewRecordWriter(fs, ipc.WithSchema(recs[0].Schema()))
 	for _, r := range recs {
