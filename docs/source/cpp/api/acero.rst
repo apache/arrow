@@ -15,33 +15,29 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-*************
-API Reference
-*************
+Streaming Execution (Acero)
+===========================
 
-.. toctree::
-   :maxdepth: 3
+Creating and running execution plans
+------------------------------------
 
-   api/support
-   api/memory
-   api/thread
-   api/datatype
-   api/array
-   api/scalar
-   api/builder
-   api/table
-   api/c_abi
-   api/compute
-   api/acero
-   api/gandiva
-   api/tensor
-   api/utilities
-   api/async
-   api/io
-   api/ipc
-   api/formats
-   api/cuda
-   api/flight
-   api/flightsql
-   api/filesystem
-   api/dataset
+.. doxygengroup:: acero-api
+   :content-only:
+   :members:
+   :undoc-members:
+
+Configuration for execution nodes
+---------------------------------
+
+.. doxygengroup:: acero-nodes
+   :content-only:
+   :members:
+   :undoc-members:
+
+Internals for creating custom nodes
+-----------------------------------
+
+.. doxygengroup:: acero-internals
+   :content-only:
+   :members:
+   :undoc-members:
