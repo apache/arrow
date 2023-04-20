@@ -110,6 +110,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
     } catch (final SQLException e) {
       try {
         allocator.close();
+        allocator.getChildAllocators().forEach(BufferAllocator::close);
       } catch (final Exception allocatorCloseEx) {
         e.addSuppressed(allocatorCloseEx);
       }

@@ -38,6 +38,7 @@ import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaResultSet;
 import org.apache.calcite.avatica.AvaticaResultSetMetaData;
@@ -132,7 +133,11 @@ public final class ArrowFlightJdbcFlightStreamResultSet
 
   private BufferAllocator getAllocator() {
     if (allocator == null) {
-      allocator = connection.getBufferAllocator().newChildAllocator("vsr-copier", 0, Long.MAX_VALUE);
+      try (BufferAllocator allocator = connection
+              .getBufferAllocator()
+              .newChildAllocator("vsr-copier", 0, Long.MAX_VALUE)) {
+        this.allocator = allocator;
+      }
     }
 
     return allocator;
@@ -169,10 +174,12 @@ public final class ArrowFlightJdbcFlightStreamResultSet
   private VectorSchemaRoot cloneRoot(VectorSchemaRoot root) {
     VectorSchemaRoot theRoot = VectorSchemaRoot.create(root.getSchema(), getAllocator());
     VectorUnloader unloader = new VectorUnloader(root);
-    VectorLoader loader = new VectorLoader(theRoot);
-    loader.load(unloader.getRecordBatch());
-
-    return theRoot;
+    try (ArrowRecordBatch recordBatch = unloader.getRecordBatch()) {
+      VectorLoader loader = new VectorLoader(theRoot);
+      loader.load(recordBatch);
+      loader.load(unloader.getRecordBatch());
+      return theRoot;
+    }
   }
 
   private void storeRoot(VectorSchemaRoot originalRoot) throws SQLException {
@@ -270,6 +277,8 @@ public final class ArrowFlightJdbcFlightStreamResultSet
         throw new RuntimeException(e);
       }
     }
+
+    ofNullable(getAllocator()).ifPresent(AutoCloseables::closeNoChecked);
   }
 
   @Override
@@ -282,6 +291,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
         // close is only called for currentFlightStream if there's no queue
         currentFlightStream.close();
       }
+      ofNullable(getAllocator()).ifPresent(AutoCloseables::closeNoChecked);
     } catch (final Exception e) {
       throw new RuntimeException(e);
     } finally {
