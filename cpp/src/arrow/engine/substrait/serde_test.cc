@@ -3466,6 +3466,118 @@ TEST(SubstraitRoundTrip, AggregateRel) {
                        /*include_columns=*/{}, conversion_options);
 }
 
+TEST(SubstraitRoundTrip, AggregateRelOptions) {
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10, 1, 10],
+      [20, 2, 10],
+      [30, 3, 20],
+      [30, 1, 20],
+      [20, 2, 30],
+      [10, 3, 30]
+  ])"});
+
+  std::string substrait_json = R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "namedTable" : {
+                "names": ["A"]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "arguments": [{
+                "value": {
+                  "selection": {
+                    "directReference": {
+                      "structField": {
+                        "field": 2
+                      }
+                    }
+                  }
+                }
+            }],
+              "options": [{
+                "name": "distribution",
+                "preference": [
+                  "POPULATION"
+                ]
+              }],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "variance"
+      }
+    }],
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+  auto output_schema = schema({field("keys", int32()), field("aggregates", float64())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [10, 200],
+      [20, 200],
+      [30, 0]
+  ])"});
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(expected_table), buf,
+                       /*include_columns=*/{}, conversion_options);
+}
+
 TEST(SubstraitRoundTrip, AggregateRelEmit) {
   auto dummy_schema =
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
