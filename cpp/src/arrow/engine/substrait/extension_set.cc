@@ -1069,12 +1069,14 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
         DecodeOptionlessBasicMapping("is_valid", /*max_args=*/1)));
 
     // --------------- Substrait -> Arrow Aggregates --------------
-    for (const auto& fn_name : {"sum", "min", "max"}) {
+    for (const auto& fn_name : {"sum", "min", "max", "variance"}) {
       DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, fn_name},
                                              DecodeBasicAggregate(fn_name)));
     }
     DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, "avg"},
                                            DecodeBasicAggregate("mean")));
+    DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, "std_dev"},
+                                           DecodeBasicAggregate("stddev")));
     DCHECK_OK(
         AddSubstraitAggregateToArrow({kSubstraitAggregateGenericFunctionsUri, "count"},
                                      DecodeBasicAggregate("count")));
