@@ -23,7 +23,6 @@ namespace Apache.Arrow.Tests
 {
     public class StructArrayTests
     {
-#if NETCOREAPP3_1_OR_GREATER
         [Fact]
         public void TestStructArrayBuilder()
         {
@@ -58,7 +57,6 @@ namespace Apache.Arrow.Tests
             Assert.True(results.IsNull(2));
             Assert.False(results.IsNull(3));
         }
-#endif
 
         [Fact]
         public void TestStructArray()

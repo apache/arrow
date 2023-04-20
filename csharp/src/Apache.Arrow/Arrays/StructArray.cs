@@ -24,7 +24,6 @@ namespace Apache.Arrow
 {
     public class StructArray : Array
     {
-#if NETCOREAPP3_1_OR_GREATER
         public class Builder : IArrowArrayBuilder<StructArray, Builder>
         {
             public readonly StructType DataType;
@@ -151,7 +150,7 @@ namespace Apache.Arrow
                 return this;
             }
         }
-#endif
+
         private IReadOnlyList<IArrowArray> _fields;
 
         public IReadOnlyList<IArrowArray> Fields =>
