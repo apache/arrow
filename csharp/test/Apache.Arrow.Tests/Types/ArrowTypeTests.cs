@@ -20,7 +20,6 @@ namespace Apache.Arrow.Tests
 {
     public class ArrowTypeTests
     {
-        // Hash32 of string only implemented for .net >= 2.0
         [Fact]
         public void ArrowType_Should_GetHashCode()
         {
