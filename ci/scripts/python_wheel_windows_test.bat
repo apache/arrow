@@ -22,6 +22,7 @@ set PYARROW_TEST_CYTHON=ON
 set PYARROW_TEST_DATASET=ON
 set PYARROW_TEST_FLIGHT=ON
 set PYARROW_TEST_GANDIVA=OFF
+set PYARROW_TEST_GCS=ON
 set PYARROW_TEST_HDFS=ON
 set PYARROW_TEST_ORC=OFF
 set PYARROW_TEST_PARQUET=ON
@@ -43,6 +44,7 @@ python -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || e
 
 @REM Test that the modules are importable
 python -c "import pyarrow" || exit /B 1
+python -c "import pyarrow._gcsfs" || exit /B 1
 python -c "import pyarrow._hdfs" || exit /B 1 
 python -c "import pyarrow._s3fs" || exit /B 1
 python -c "import pyarrow.csv" || exit /B 1
