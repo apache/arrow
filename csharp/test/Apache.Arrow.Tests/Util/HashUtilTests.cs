@@ -22,18 +22,24 @@ namespace Apache.Arrow.Tests
     public class HashUtilTests
     {
         [Fact]
-        public void CombineHash32_Should_NotOverflow()
+        public void Hash32_ShouldNot_OverFlow()
         {
-            Assert.Equal(0, HashUtil.CombineHash32(Enumerable.Range(0, 512).Select(i => int.MinValue).ToArray()));
-            Assert.Equal(968630272, HashUtil.CombineHash32(Enumerable.Range(0, 512).Select(i => int.MaxValue).ToArray()));
+            Assert.InRange(HashUtil.Hash32Array(new int[] { 1 }), int.MinValue, int.MaxValue);
+            Assert.InRange(HashUtil.Hash32(""), int.MinValue, int.MaxValue);
+            Assert.InRange(HashUtil.Hash32("abc", 1), int.MinValue, int.MaxValue);
         }
 
         [Fact]
-        public void Hash32_Should_HashString()
+        public void Hash32_Should_HashObjects()
         {
-            Assert.Equal(0, HashUtil.Hash32(null));
-            Assert.Equal(0, HashUtil.Hash32(""));
-            Assert.Equal(-1277324294, HashUtil.Hash32("abc"));
+            Assert.Equal(HashUtil.Hash32("abc", 1), HashUtil.Hash32("abc", 1));
+            Assert.NotEqual(HashUtil.Hash32("abc", 1), HashUtil.Hash32(1, "abc"));
+        }
+
+        [Fact]
+        public void Hash32_Should_HashObjectsOver8()
+        {
+            Assert.InRange(HashUtil.Hash32(Enumerable.Range(0, 20).ToArray()), int.MinValue, int.MaxValue);
         }
     }
 }

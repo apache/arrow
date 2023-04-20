@@ -67,13 +67,7 @@ namespace Apache.Arrow.Types
             return base.Equals(_other) && Unit == _other.Unit && Timezone == _other.Timezone;
         }
 
-        public override int GetHashCode()
-        {
-            checked
-            {
-                return HashUtil.CombineHash32(base.GetHashCode(), Unit.GetHashCode(), HashUtil.Hash32(Timezone));
-            }
-        }
+        public override int GetHashCode() => HashUtil.Hash32(base.GetHashCode(), Unit);
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }

@@ -61,13 +61,7 @@ namespace Apache.Arrow.Types
             return base.Equals(_other) && Mode == _other.Mode && TypeCodes.SequenceEqual(_other.TypeCodes);
         }
 
-        public override int GetHashCode()
-        {
-            checked
-            {
-                return HashUtil.CombineHash32(base.GetHashCode(), Mode.GetHashCode(), TypeCodes.GetHashCode());
-            }
-        }
+        public override int GetHashCode() => HashUtil.Hash32(base.GetHashCode(), Mode, TypeCodes);
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }

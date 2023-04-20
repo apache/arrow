@@ -48,12 +48,6 @@ namespace Apache.Arrow.Types
             return base.Equals(_other) && Precision == _other.Precision;
         }
 
-        public override int GetHashCode()
-        {
-            checked
-            {
-                return HashUtil.CombineHash32(base.GetHashCode(), Precision.GetHashCode());
-            }
-        }
+        public override int GetHashCode() => HashUtil.Hash32(base.GetHashCode(), Precision);
     }
 }

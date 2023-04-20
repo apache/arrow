@@ -20,20 +20,19 @@ namespace Apache.Arrow.Tests
 {
     public class ArrowTypeTests
     {
-#if NETCOREAPP2_0_OR_GREATER
         // Hash32 of string only implemented for .net >= 2.0
         [Fact]
         public void ArrowType_Should_GetHashCode()
         {
-            Assert.Equal(-950003445, new BooleanType().GetHashCode());
+            Assert.Equal(new BooleanType().GetHashCode(), new BooleanType().GetHashCode());
         }
 
         [Fact]
         public void NestedType_Should_GetHashCode()
         {
-            Assert.Equal(2016456901, new ListType(new Int32Type()).GetHashCode());
+            Assert.Equal(new ListType(new Int32Type()).GetHashCode(), new ListType(new Int32Type()).GetHashCode());
         }
-#endif
+
         [Fact]
         public void ArrowType_Should_ComparePrimitiveTypes()
         {

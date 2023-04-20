@@ -1,124 +1,49 @@
 ﻿using System;
-using System.IO;
-using System.IO.Compression;
-using System.Text;
+using System.Linq;
 
 namespace Apache.Arrow.Util
 {
     public class HashUtil
     {
-        internal enum Seed : uint
-        {
-            String
-        }
-
-#if NETCOREAPP2_0_OR_GREATER
-        public static int Hash32(string str, Encoding encoding = null)
-        {
-            if (string.IsNullOrEmpty(str))
-                return (int)Seed.String;
-            encoding = encoding ?? Encoding.UTF8;
-            byte[] compressed = str.Length > 128 ? Compress(encoding.GetBytes(str)) : encoding.GetBytes(str);
-            ReadOnlySpan<byte> span = compressed.AsSpan();
-            return Hash32(span, Seed.String);
-        }
-
-        internal static int Hash32(ReadOnlySpan<byte> data, Seed seed)
-        {
-            uint hash = (uint)seed;
-            if (data == null || data.Length == 0)
-                return (int)hash;
-
-            const uint c1 = 0xcc9e2d51;
-            const uint c2 = 0x1b873593;
-            const int r1 = 15;
-            const int r2 = 13;
-            const uint m = 5;
-            const uint n = 0xe6546b64;
-
-            
-            int remainingBytes = data.Length & 3;
-            int byteCount = data.Length - remainingBytes;
-
-            for (int i = 0; i < byteCount; i += 4)
-            {
-                uint k = BitConverter.ToUInt32(data.Slice(i, 4));
-                k *= c1;
-                k = (k << r1) | (k >> (32 - r1));
-                k *= c2;
-
-                hash ^= k;
-                hash = ((hash << r2) | (hash >> (32 - r2))) * m + n;
-            }
-
-            if (remainingBytes > 0)
-            {
-                uint k = 0;
-                for (int i = byteCount; i < data.Length; i++)
-                {
-                    k |= (uint)data[i] << ((i - byteCount) * 8);
-                }
-
-                k *= c1;
-                k = (k << r1) | (k >> (32 - r1));
-                k *= c2;
-
-                hash ^= k;
-            }
-
-            hash ^= (uint)data.Length;
-            hash ^= hash >> 16;
-            hash *= 0x85ebca6b;
-            hash ^= hash >> 13;
-            hash *= 0xc2b2ae35;
-            hash ^= hash >> 16;
-
-            return (int)hash;
-        }
+#if NETCOREAPP3_1_OR_GREATER
+        public static int Hash32(dynamic o) => Tuple.Create(o).GetHashCode();
+        public static int Hash32(dynamic o1, dynamic o2) => Tuple.Create(o1, o2).GetHashCode();
+        public static int Hash32(dynamic o1, dynamic o2, dynamic o3) => Tuple.Create(o1, o2, o3).GetHashCode();
+        public static int Hash32(dynamic o1, dynamic o2, dynamic o3, dynamic o4) => Tuple.Create(o1, o2, o3, o4).GetHashCode();
 #else
-        public static int Hash32(string str)
-        {
-            if (string.IsNullOrEmpty(str))
-                return (int)Seed.String;
-            const uint FNV_prime = 16777619;
-            const uint FNV_offset_basis = 2166136261;
-
-            uint hash = FNV_offset_basis;
-            ReadOnlySpan<char> span = str.AsSpan();
-
-            for (int i = 0; i < span.Length; i++)
-            {
-                hash ^= span[i];
-                hash *= FNV_prime;
-            }
-
-            return (int)hash;
-        }
+        public static int Hash32(object o) => Tuple.Create(o).GetHashCode();
+        public static int Hash32(object o1, object o2) => Tuple.Create(o1, o2).GetHashCode();
+        public static int Hash32(object o1, object o2, object o3) => Tuple.Create(o1, o2, o3).GetHashCode();
+        public static int Hash32(object o1, object o2, object o3, object o4) => Tuple.Create(o1, o2, o3, o4).GetHashCode();
 #endif
-        internal static byte[] Compress(byte[] data)
+        public static int Hash32Array(int[] array)
         {
-            using (MemoryStream compressedStream = new MemoryStream())
+            int length = array.Length;
+
+            switch (length)
             {
-                using (DeflateStream compressionStream = new DeflateStream(compressedStream, CompressionMode.Compress))
-                {
-                    compressionStream.Write(data, 0, data.Length);
-                }
-                return compressedStream.ToArray();
+                case 0:
+                    throw new ArgumentException("Cannot GetHashCode with 0 parameters");
+                case 1:
+                    return Tuple.Create(array[0]).GetHashCode();
+                case 2:
+                    return Tuple.Create(array[0], array[1]).GetHashCode();
+                case 3:
+                    return Tuple.Create(array[0], array[1], array[2]).GetHashCode();
+                case 4:
+                    return Tuple.Create(array[0], array[1], array[2], array[3]).GetHashCode();
+                case 5:
+                    return Tuple.Create(array[0], array[1], array[2], array[3], array[4]).GetHashCode();
+                case 6:
+                    return Tuple.Create(array[0], array[1], array[2], array[3], array[4], array[5]).GetHashCode();
+                case 7:
+                    return Tuple.Create(array[0], array[1], array[2], array[3], array[4], array[5], array[6]).GetHashCode();
+                case 8:
+                    return Tuple.Create(array[0], array[1], array[2], array[3], array[4], array[5], array[6], array[7]).GetHashCode();
+                default:
+                    Type tupleType = typeof(Tuple<,,,,>).MakeGenericType(array.Cast<object>().Select(x => x.GetType()).ToArray());
+                    return Activator.CreateInstance(tupleType, array.Cast<object>().ToArray()).GetHashCode();
             }
         }
-        public static int CombineHash32(int h1, int h2) => Tuple.Create(h1, h2).GetHashCode();
-        public static int CombineHash32(int h1, int h2, int h3) => Tuple.Create(h1, h2, h3).GetHashCode();
-
-        public static int CombineHash32(params int[] hashCodes)
-        {
-            int hash = 0;
-
-            foreach (int hashCode in hashCodes)
-            {
-                hash = CombineHash32(hash, hashCode);
-            }
-
-            return hash;
-        }        
     }
 }

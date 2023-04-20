@@ -14,6 +14,7 @@
 // limitations under the License.
 
 
+using System;
 using Apache.Arrow.Util;
 
 namespace Apache.Arrow.Types
@@ -44,13 +45,7 @@ namespace Apache.Arrow.Types
                 && Name == other.Name;
         }
 
-        public override int GetHashCode()
-        {
-            checked
-            {
-                return HashUtil.CombineHash32(TypeId.GetHashCode(), IsFixedWidth.GetHashCode(), HashUtil.Hash32(Name));
-            }
-        }
+        public override int GetHashCode() => HashUtil.Hash32(TypeId, IsFixedWidth, Name);
 
         // Instance methods
         public abstract void Accept(IArrowTypeVisitor visitor);

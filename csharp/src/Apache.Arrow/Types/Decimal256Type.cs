@@ -51,13 +51,8 @@ namespace Apache.Arrow.Types
             return base.Equals(_other) && Precision == _other.Precision && Scale == _other.Scale;
         }
 
-        public override int GetHashCode()
-        {
-            checked
-            {
-                return HashUtil.CombineHash32(base.GetHashCode(), Precision.GetHashCode(), Scale.GetHashCode());
-            }
-        }
+        public override int GetHashCode() => HashUtil.Hash32(base.GetHashCode(), Precision, Scale);
+
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }

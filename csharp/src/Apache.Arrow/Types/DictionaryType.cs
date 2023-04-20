@@ -16,7 +16,6 @@
 
 using System;
 using Apache.Arrow.Util;
-using System.Runtime.CompilerServices;
 
 namespace Apache.Arrow.Types
 {
@@ -64,12 +63,6 @@ namespace Apache.Arrow.Types
             return base.Equals(_other) && Ordered == _other.Ordered;
         }
 
-        public override int GetHashCode()
-        {
-            checked
-            {
-                return HashUtil.CombineHash32(base.GetHashCode(), Ordered.GetHashCode());
-            }
-        }
+        public override int GetHashCode() => HashUtil.Hash32(base.GetHashCode(), Ordered);
     }
 }

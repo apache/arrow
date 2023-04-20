@@ -74,12 +74,6 @@ namespace Apache.Arrow
             return IsNullable == other.IsNullable && Name == other.Name && DataType.Equals(other.DataType);
         }
 
-        public override int GetHashCode()
-        {
-            checked
-            {
-                return HashUtil.CombineHash32(IsNullable.GetHashCode(), HashUtil.Hash32(Name), DataType.GetHashCode());
-            }
-        }
+        public override int GetHashCode() => HashUtil.Hash32(IsNullable, Name, DataType.GetHashCode());
     }
 }

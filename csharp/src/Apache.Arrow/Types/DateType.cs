@@ -47,12 +47,6 @@ namespace Apache.Arrow.Types
             return base.Equals(_other) && Unit == _other.Unit;
         }
 
-        public override int GetHashCode()
-        {
-            checked
-            {
-                return HashUtil.CombineHash32(base.GetHashCode(), Unit.GetHashCode());
-            }
-        }
+        public override int GetHashCode() => HashUtil.Hash32(base.GetHashCode(), Unit);
     }
 }

@@ -41,12 +41,6 @@ namespace Apache.Arrow.Types
             return base.Equals(_other) && IsSigned == _other.IsSigned;
         }
 
-        public override int GetHashCode()
-        {
-            checked
-            {
-                return HashUtil.CombineHash32(base.GetHashCode(), IsSigned.GetHashCode());
-            }
-        }
+        public override int GetHashCode() => HashUtil.Hash32(base.GetHashCode(), IsSigned);
     }
 }

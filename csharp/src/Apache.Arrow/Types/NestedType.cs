@@ -65,14 +65,6 @@ namespace Apache.Arrow.Types
             return base.Equals(other) && Fields.SequenceEqual(_other.Fields);
         }
 
-        public override int GetHashCode()
-        {
-            checked
-            {
-                int fieldsHash = HashUtil.CombineHash32(Fields.Select(field => field.GetHashCode()).ToArray());
-
-                return HashUtil.CombineHash32(base.GetHashCode(), fieldsHash);
-            }
-        }
+        public override int GetHashCode() => HashUtil.Hash32(TypeId, IsFixedWidth, Name, HashUtil.Hash32Array(Fields.Select(field => field.GetHashCode()).ToArray()));
     }
 }
