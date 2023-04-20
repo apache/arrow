@@ -441,9 +441,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
                            &data_page_header_aad_);
         }
+        format::PageHeader header;
         deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(view.data()),
-                                        &header_size, &current_page_header_,
+                                        &header_size, &header,
                                         crypto_ctx_.meta_decryptor);
+        current_page_header_ = std::move(header);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -487,16 +489,15 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
 
-    // TODO(PARQUET-594) crc checksum for DATA_PAGE_V2
-    if (properties_.page_checksum_verification() &&
-        (page_type == PageType::DATA_PAGE || page_type == PageType::DICTIONARY_PAGE) &&
-        current_page_header_.__isset.crc) {
+    if (properties_.page_checksum_verification() && current_page_header_.__isset.crc) {
       // verify crc
       uint32_t checksum =
           ::arrow::internal::crc32(/* prev */ 0, page_buffer->data(), compressed_len);
       if (static_cast<int32_t>(checksum) != current_page_header_.crc) {
         throw ParquetException(
-            "could not verify page integrity, CRC checksum verification failed");
+            "could not verify page integrity, CRC checksum verification failed for "
+            "page_ordinal " +
+            std::to_string(page_ordinal_));
       }
     }
 
