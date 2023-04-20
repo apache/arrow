@@ -16,7 +16,7 @@ namespace Apache.Arrow.Util
         public static int Hash32(string str, Encoding encoding = null)
         {
             if (string.IsNullOrEmpty(str))
-                return 0;
+                return (int)Seed.String;
             encoding = encoding ?? Encoding.UTF8;
             byte[] compressed = str.Length > 128 ? Compress(encoding.GetBytes(str)) : encoding.GetBytes(str);
             ReadOnlySpan<byte> span = compressed.AsSpan();
@@ -25,8 +25,10 @@ namespace Apache.Arrow.Util
 
         internal static int Hash32(ReadOnlySpan<byte> data, Seed seed)
         {
+            uint hash = (uint)seed;
             if (data == null || data.Length == 0)
-                return 0;
+                return (int)hash;
+
             const uint c1 = 0xcc9e2d51;
             const uint c2 = 0x1b873593;
             const int r1 = 15;
@@ -34,7 +36,7 @@ namespace Apache.Arrow.Util
             const uint m = 5;
             const uint n = 0xe6546b64;
 
-            uint hash = (uint)seed;
+            
             int remainingBytes = data.Length & 3;
             int byteCount = data.Length - remainingBytes;
 
@@ -76,6 +78,8 @@ namespace Apache.Arrow.Util
 #else
         public static int Hash32(string str)
         {
+            if (string.IsNullOrEmpty(str))
+                return (int)Seed.String;
             const uint FNV_prime = 16777619;
             const uint FNV_offset_basis = 2166136261;
 
