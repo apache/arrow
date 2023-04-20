@@ -99,6 +99,7 @@ namespace Apache.Arrow.Util
             }
         }
         internal static int CombineHash32(int h1, int h2) => Tuple.Create(h1, h2).GetHashCode();
+        internal static int CombineHash32(int h1, int h2, int h3) => Tuple.Create(h1, h2, h3).GetHashCode();
 
         internal static int CombineHash32(params int[] hashCodes)
         {
