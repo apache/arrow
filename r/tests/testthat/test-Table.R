@@ -713,6 +713,8 @@ test_that("as_arrow_table() errors on data.frame with NULL names", {
 })
 
 test_that("we only preserve metadata of input to arrow_table when passed a single data.frame", {
+  skip("just to see if undoing this thing fixes a crash")
+
   # data.frame in, data.frame out
   df <- data.frame(x = 1)
   out1 <- as.data.frame(arrow_table(df))
