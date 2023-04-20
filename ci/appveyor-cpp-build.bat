@@ -42,6 +42,9 @@ set CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
 @rem Enable warnings-as-errors
 set ARROW_CXXFLAGS=/WX /MP
 
+@rem Install GCS testbench
+call %CD%\ci\scripts\install_gcs_testbench.bat
+
 @rem
 @rem Build and test Arrow C++ libraries (including Parquet)
 @rem
