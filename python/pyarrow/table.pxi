@@ -467,7 +467,7 @@ cdef class ChunkedArray(_PandasConvertible):
         # pandas ExtensionDtype that implements conversion from pyarrow
         if hasattr(pandas_dtype, '__from_arrow__'):
             arr = pandas_dtype.__from_arrow__(self)
-            return pandas_api.series(arr)
+            return pandas_api.series(arr, name=self._name)
 
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
