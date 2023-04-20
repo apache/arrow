@@ -96,7 +96,9 @@ namespace Apache.Arrow
 
                 // Check Data consistency
                 if (field.DataType.TypeId != array.Data.DataType.TypeId)
-                    throw new InvalidDataException("Datatypes are differents");
+                    throw new InvalidDataException($"Cannot append array with type {array.Data.DataType.TypeId} in field with type {field.DataType.TypeId}");
+                if (!field.IsNullable && array.NullCount > 0)
+                    throw new InvalidDataException($"Cannot append null values in field '{field.Name}'");
 
                 // Add array to commit
                 _arrays.Add(array);
