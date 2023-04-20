@@ -1506,7 +1506,7 @@ TEST(TestNullMeanKernel, Basics) {
 //
 
 template <typename ArrowType>
-class TestPrimitiveFirstLastKernel : public ::testing::Test {
+class TestFirstLastKernel : public ::testing::Test {
   using Traits = TypeTraits<ArrowType>;
   using ArrayType = typename Traits::ArrayType;
   using c_type = typename ArrowType::c_type;
@@ -1515,26 +1515,35 @@ class TestPrimitiveFirstLastKernel : public ::testing::Test {
  public:
   void AssertFirstLastIs(const Datum& array, c_type expected_first, c_type expected_last,
                          const ScalarAggregateOptions& options) {
-    ASSERT_OK_AND_ASSIGN(Datum out, FirstLast(array, options));
-    const StructScalar& value = out.scalar_as<StructScalar>();
+    ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("first", {array}, &options));
+    const auto& out_first = out.scalar_as<ScalarType>();
+    ASSERT_EQ(expected_first, out_first.value);
 
-    {
-      const auto& out_first = checked_cast<const ScalarType&>(*value.value[0]);
-      ASSERT_EQ(expected_first, out_first.value);
+    ASSERT_OK_AND_ASSIGN(out, CallFunction("last", {array}, &options));
+    const auto& out_last = out.scalar_as<ScalarType>();
+    ASSERT_EQ(expected_last, out_last.value);
+  }
 
-      const auto& out_last = checked_cast<const ScalarType&>(*value.value[1]);
-      ASSERT_EQ(expected_last, out_last.value);
-    }
+  void AssertFirstLastIsNull(const Datum& array, const ScalarAggregateOptions& options) {
+    ASSERT_OK_AND_ASSIGN(Datum out, First(array, options));
+    const auto& out_first = out.scalar_as<ScalarType>();
+    ASSERT_FALSE(out_first.is_valid);
 
-    {
-      ASSERT_OK_AND_ASSIGN(out, CallFunction("first", {array}, &options));
-      const auto& out_first = out.scalar_as<ScalarType>();
-      ASSERT_EQ(expected_first, out_first.value);
+    ASSERT_OK_AND_ASSIGN(out, Last(array, options));
+    const auto& out_last = out.scalar_as<ScalarType>();
+    ASSERT_FALSE(out_last.is_valid);
+  }
 
-      ASSERT_OK_AND_ASSIGN(out, CallFunction("last", {array}, &options));
-      const auto& out_last = out.scalar_as<ScalarType>();
-      ASSERT_EQ(expected_last, out_last.value);
-    }
+  void AssertFirstLastIsNull(const std::string& json,
+                             const ScalarAggregateOptions& options) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertFirstLastIsNull(array, options);
+  }
+
+  void AssertFirstLastIsNull(const std::vector<std::string>& json,
+                             const ScalarAggregateOptions& options) {
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertFirstLastIsNull(array, options);
   }
 
   void AssertFirstLastIs(const std::string& json, c_type expected_first,
@@ -1555,17 +1564,39 @@ class TestPrimitiveFirstLastKernel : public ::testing::Test {
 };
 
 template <typename ArrowType>
-class TestIntegerFirstLastKernel : public TestPrimitiveFirstLastKernel<ArrowType> {};
+class TestPrimitiveFirstLastKernel : public TestFirstLastKernel<ArrowType> {};
 
 template <typename ArrowType>
-class TestFloatingFirstLastKernel : public TestPrimitiveFirstLastKernel<ArrowType> {};
+class TestTemporalFirstLastKernel : public TestFirstLastKernel<ArrowType> {};
 
 TYPED_TEST_SUITE(TestPrimitiveFirstLastKernel, PrimitiveArrowTypes);
 TYPED_TEST(TestPrimitiveFirstLastKernel, Basics) {
   ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 8, null, 3, 4]"};
+  std::vector<std::string> chunked_input2 = {"[null, null, null, null]",
+                                             "[null, 8, null, 3 ,4]"};
+  std::vector<std::string> chunked_input3 = {"[null, null, null]", "[null, null]"};
   auto item_ty = default_type_instance<TypeParam>();
-  auto ty = struct_({field("first", item_ty), field("last", item_ty)});
+
+  this->AssertFirstLastIs("[5, 1, 2, 3, 4]", 5, 4, options);
+  this->AssertFirstLastIs("[5, null, 2, 3, null]", 5, 3, options);
+  this->AssertFirstLastIs(chunked_input1, 5, 4, options);
+  this->AssertFirstLastIs(chunked_input1[1], 9, 4, options);
+  this->AssertFirstLastIs(chunked_input2, 8, 4, options);
+  this->AssertFirstLastIsNull(chunked_input2[0], options);
+  this->AssertFirstLastIsNull(chunked_input3, options);
+
+  options.skip_nulls = false;
+  this->AssertFirstLastIsNull(chunked_input1, options);
+}
+
+TYPED_TEST_SUITE(TestTemporalFirstLastKernel, TemporalArrowTypes);
+TYPED_TEST(TestTemporalFirstLastKernel, Basics) {
+  ScalarAggregateOptions options;
+  std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 8, null, 3, 4]"};
+  std::vector<std::string> chunked_input2 = {"[null, null, null, null]",
+                                             "[null, 8, null, 3 ,4]"};
+  auto item_ty = default_type_instance<TypeParam>();
 
   this->AssertFirstLastIs("[5, 1, 2, 3, 4]", 5, 4, options);
   this->AssertFirstLastIs("[5, null, 2, 3, null]", 5, 3, options);

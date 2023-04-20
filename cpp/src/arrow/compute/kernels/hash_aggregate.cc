@@ -1802,7 +1802,9 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
     ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_values_.Finish());
 
     if (!options_.skip_nulls) {
-      return Status::NotImplemented("Don't support first/last with skip nulls = False");
+      ARROW_ASSIGN_OR_RAISE(auto has_nulls, has_nulls_.Finish());
+      arrow::internal::BitmapAndNot(null_bitmap->data(), 0, has_nulls->data(), 0,
+                                    num_groups_, 0, null_bitmap->mutable_data());
     }
 
     auto firsts = ArrayData::Make(type_, num_groups_, {null_bitmap, nullptr});

@@ -4232,11 +4232,11 @@ TEST_P(GroupBy, FirstLastNumericAndTemporalTypes) {
 
   const std::string default_expected =
       R"([
-    [1,    1,    3],
-    [2,    0,    0],
-    [3,    null,  null],
-    [4,    3,     5],
-    [null, 4,     1]
+    [1,    1,    3,    null,   null],
+    [2,    0,    0,    0,   0],
+    [3,    null,  null,  null,  null],
+    [4,    3,     5,    3,   5],
+    [null, 4,     1,    4,   1]
     ])";
 
   const std::vector<std::string> date64_table = {R"([
@@ -4260,12 +4260,14 @@ TEST_P(GroupBy, FirstLastNumericAndTemporalTypes) {
 
   const std::string date64_expected =
       R"([
-    [1,    86400000,  259200000 ],
-    [2,    0,   0               ],
-    [3,    null, null           ],
-    [4,    259200000, 432000000 ],
-    [null, 345600000, 86400000]
+    [1,    86400000,259200000,null,null],
+    [2,    0,0,0,0],
+    [3,    null,null,null,null],
+    [4,    259200000,432000000,259200000,432000000],
+    [null, 345600000,86400000,345600000,86400000]
     ])";
+
+  auto skip_nulls = std::make_shared<ScalarAggregateOptions>(false, 1);
 
   for (const auto& ty : types) {
     SCOPED_TRACE(ty->ToString());
@@ -4274,17 +4276,32 @@ TEST_P(GroupBy, FirstLastNumericAndTemporalTypes) {
         TableFromJSON(in_schema, (ty->name() == "date64") ? date64_table : default_table);
 
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                         GroupByTest({table->GetColumnByName("argument0"),
-                                      table->GetColumnByName("argument0")},
-                                     {table->GetColumnByName("key")},
-                                     {{"hash_first", nullptr}, {"hash_last", nullptr}},
-                                     /*use_threads=*/false));
+                         GroupByTest(
+                             {
+                                 table->GetColumnByName("argument0"),
+                                 table->GetColumnByName("argument0"),
+                                 table->GetColumnByName("argument0"),
+                                 table->GetColumnByName("argument0"),
+                             },
+                             {table->GetColumnByName("key")},
+                             {
+                                 {"hash_first", nullptr},
+                                 {"hash_last", nullptr},
+                                 {"hash_first", skip_nulls},
+                                 {"hash_last", skip_nulls},
+                             },
+                             /*use_threads=*/false));
     ValidateOutput(aggregated_and_grouped);
     SortBy({"key_0"}, &aggregated_and_grouped);
 
     AssertDatumsEqual(
-        ArrayFromJSON(struct_({field("key_0", int64()), field("hash_first", ty),
-                               field("hash_last", ty)}),
+        ArrayFromJSON(struct_({
+                          field("key_0", int64()),
+                          field("hash_first", ty),
+                          field("hash_last", ty),
+                          field("hash_first", ty),
+                          field("hash_last", ty),
+                      }),
                       (ty->name() == "date64") ? date64_expected : default_expected),
         aggregated_and_grouped,
         /*verbose=*/true);

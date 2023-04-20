@@ -314,12 +314,6 @@ Result<Datum> Last(
     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
-ARROW_EXPORT
-Result<Datum> FirstLast(
-    const Datum& value,
-    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
-    ExecContext* ctx = NULLPTR);
-
 /// \brief Calculate the min / max of a numeric array
 ///
 /// This function returns both the min and max as a struct scalar, with type
