@@ -120,10 +120,6 @@ func CreateClientMiddleware(middleware CustomClientMiddleware) ClientMiddleware 
 			}
 
 			if err != nil {
-				if isHdrs {
-					md, _ := cs.Header()
-					hdrs.HeadersReceived(ctx, metadata.Join(md, cs.Trailer()))
-				}
 				if isPostcall {
 					post.CallCompleted(ctx, err)
 				}
