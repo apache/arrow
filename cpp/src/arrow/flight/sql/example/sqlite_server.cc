@@ -307,8 +307,8 @@ class SQLiteFlightSqlServer::Impl {
     // TODO: Set true only when "ORDER BY" is used in a main "SELECT"
     // in the given query.
     const bool ordered = false;
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, ordered));
+    ARROW_ASSIGN_OR_RAISE(
+        auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, ordered));
 
     return std::make_unique<FlightInfo>(result);
   }
