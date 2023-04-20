@@ -71,7 +71,7 @@ namespace Apache.Arrow.Types
         {
             checked
             {
-                return HashUtil.CombineHash32(base.GetHashCode(), Unit.GetHashCode(), Timezone.GetHashCode());
+                return HashUtil.CombineHash32(base.GetHashCode(), Unit.GetHashCode(), HashUtil.Hash32(Timezone));
             }
         }
 
