@@ -72,10 +72,8 @@ namespace Apache.Arrow
                     return new Decimal128Array.Builder(dataType as Decimal128Type);
                 case ArrowTypeId.Decimal256:
                     return new Decimal256Array.Builder(dataType as Decimal256Type);
-#if NETCOREAPP3_1_OR_GREATER
                 case ArrowTypeId.Struct:
                     return new StructArray.Builder(dataType as StructType);
-#endif
                 case ArrowTypeId.Union:
                 case ArrowTypeId.Dictionary:
                 case ArrowTypeId.FixedSizedBinary:
