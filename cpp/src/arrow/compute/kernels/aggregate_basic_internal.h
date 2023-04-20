@@ -18,7 +18,6 @@
 #pragma once
 
 #include <cmath>
-#include <optional>
 #include <utility>
 
 #include "arrow/compute/api_aggregate.h"
@@ -429,14 +428,29 @@ struct FirstLastImpl : public ScalarAggregator {
     this->count += arr.length() - null_count;
 
     if (!local.has_nulls) {
-      for (int64_t i = 0; i < arr.length(); i++) {
-        local.MergeOne(arr.GetView(i));
-      }
+      // If there are no null valus, we can just merge
+      // the first and last element
+      local.MergeOne(arr.GetView(0));
+      local.MergeOne(arr.GetView(arr.length() - 1));
     } else if (local.has_nulls && options.skip_nulls) {
+      int64_t first_i = -1;
+      int64_t last_i = -1;
       for (int64_t i = 0; i < arr.length(); i++) {
         if (!arr.IsNull(i)) {
-          local.MergeOne(arr.GetView(i));
+          first_i = i;
+          break;
         }
+      }
+      if (first_i >= 0) {
+        for (int64_t i = arr.length() - 1; i >= 0; i--) {
+          if (!arr.IsNull(i)) {
+            last_i = i;
+            break;
+          }
+        }
+        DCHECK_GE(last_i, first_i);
+        local.MergeOne(arr.GetView(first_i));
+        local.MergeOne(arr.GetView(last_i));
       }
     }
 
