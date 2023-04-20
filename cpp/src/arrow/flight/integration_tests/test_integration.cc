@@ -356,17 +356,11 @@ class OrderedScenario : public Scenario {
   Status RunClient(std::unique_ptr<FlightClient> client) override {
     ARROW_ASSIGN_OR_RAISE(auto info,
                           client->GetFlightInfo(FlightDescriptor::Command("ordered")));
-    const auto& endpoints = info->endpoints();
-    std::vector<FlightEndpoint> ordered_endpoints(endpoints.size());
-    // If the data is ordered, read data from front to back.
-    // If the data is NOT ordered, read data from back to front.
-    if (info->ordered()) {
-      std::copy(endpoints.cbegin(), endpoints.cend(), ordered_endpoints.begin());
-    } else {
-      std::copy(endpoints.crbegin(), endpoints.crend(), ordered_endpoints.begin());
+    if (!info->ordered()) {
+      return Status::Invalid("Server must return FlightInfo.ordered = true");
     }
     std::vector<std::shared_ptr<arrow::Table>> tables;
-    for (const auto& endpoint : ordered_endpoints) {
+    for (const auto& endpoint : info->endpoints()) {
       if (!endpoint.locations.empty()) {
         std::stringstream ss;
         ss << "[";
