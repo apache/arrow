@@ -15,6 +15,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Apache.Arrow.Util;
 
 namespace Apache.Arrow.Types
 {
@@ -41,6 +43,36 @@ namespace Apache.Arrow.Types
                 throw new ArgumentNullException(nameof(field));
             }
             Fields = new Field[] { field };
+        }
+
+        // C# object methods
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+        {
+            if (other is not NestedType _other)
+            {
+                return false;
+            }
+            return base.Equals(other) && Fields.SequenceEqual(_other.Fields);
+        }
+
+        public override int GetHashCode()
+        {
+            checked
+            {
+                int fieldsHash = HashUtil.CombineHash32(Fields.Select(field => field.GetHashCode()).ToArray());
+
+                return HashUtil.CombineHash32(base.GetHashCode(), fieldsHash);
+            }
         }
     }
 }

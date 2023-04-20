@@ -14,6 +14,8 @@
 // limitations under the License.
 
 
+using Apache.Arrow.Util;
+
 namespace Apache.Arrow.Types
 {
     public abstract class ArrowType: IArrowType
@@ -24,6 +26,33 @@ namespace Apache.Arrow.Types
 
         public virtual bool IsFixedWidth => false;
 
+        // C# object methods
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+
+            return Equals(other);
+        }
+
+        public bool Equals(IArrowType other)
+        {
+            return TypeId == other.TypeId
+                && IsFixedWidth == other.IsFixedWidth
+                && Name == other.Name;
+        }
+
+        public override int GetHashCode()
+        {
+            checked
+            {
+                return HashUtil.CombineHash32(TypeId.GetHashCode(), IsFixedWidth.GetHashCode(), HashUtil.Hash32(Name));
+            }
+        }
+
+        // Instance methods
         public abstract void Accept(IArrowTypeVisitor visitor);
 
         internal static void Accept<T>(T type, IArrowTypeVisitor visitor)

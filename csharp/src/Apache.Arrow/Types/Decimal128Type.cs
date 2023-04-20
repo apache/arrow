@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Util;
+
 namespace Apache.Arrow.Types
 {
     public sealed class Decimal128Type : FixedSizeBinaryType
@@ -28,6 +30,33 @@ namespace Apache.Arrow.Types
         {
             Precision = precision;
             Scale = scale;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+        {
+            if (other is not Decimal128Type _other)
+            {
+                return false;
+            }
+            return base.Equals(_other) && Precision == _other.Precision && Scale == _other.Scale;
+        }
+
+        public override int GetHashCode()
+        {
+            checked
+            {
+                return HashUtil.CombineHash32(base.GetHashCode(), Precision.GetHashCode(), Scale.GetHashCode());
+            }
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);

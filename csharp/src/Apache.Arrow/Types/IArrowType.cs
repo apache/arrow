@@ -58,6 +58,7 @@ namespace Apache.Arrow.Types
         void Accept(IArrowTypeVisitor visitor);
 
         bool IsFixedWidth { get; }
-    
+
+        bool Equals(IArrowType other);
     }
 }

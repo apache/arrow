@@ -15,6 +15,7 @@
 
 
 using System;
+using Apache.Arrow.Util;
 
 namespace Apache.Arrow.Types
 {
@@ -45,6 +46,33 @@ namespace Apache.Arrow.Types
         {
             Unit = unit;
             Timezone = timezone?.BaseUtcOffset.ToTimeZoneOffsetString();
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+        {
+            if (other is not TimestampType _other)
+            {
+                return false;
+            }
+            return base.Equals(_other) && Unit == _other.Unit && Timezone == _other.Timezone;
+        }
+
+        public override int GetHashCode()
+        {
+            checked
+            {
+                return HashUtil.CombineHash32(base.GetHashCode(), Unit.GetHashCode(), Timezone.GetHashCode());
+            }
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);

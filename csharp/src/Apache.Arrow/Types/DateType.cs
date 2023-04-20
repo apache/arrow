@@ -14,6 +14,8 @@
 // limitations under the License.
 
 
+using Apache.Arrow.Util;
+
 namespace Apache.Arrow.Types
 {
     public enum DateUnit
@@ -25,5 +27,32 @@ namespace Apache.Arrow.Types
     public abstract class DateType: FixedWidthType
     {
         public abstract DateUnit Unit { get; }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+        {
+            if (other is not DateType _other)
+            {
+                return false;
+            }
+            return base.Equals(_other) && Unit == _other.Unit;
+        }
+
+        public override int GetHashCode()
+        {
+            checked
+            {
+                return HashUtil.CombineHash32(base.GetHashCode(), Unit.GetHashCode());
+            }
+        }
     }
 }

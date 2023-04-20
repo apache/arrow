@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Apache.Arrow.Types;
+using Apache.Arrow.Util;
 
 namespace Apache.Arrow
 {
@@ -60,6 +61,25 @@ namespace Apache.Arrow
             Name = name;
             DataType = dataType ?? NullType.Default;
             IsNullable = nullable;
+        }
+
+        // C# object methods
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not Field other)
+            {
+                return false;
+            }
+
+            return IsNullable == other.IsNullable && Name == other.Name && DataType.Equals(other.DataType);
+        }
+
+        public override int GetHashCode()
+        {
+            checked
+            {
+                return HashUtil.CombineHash32(IsNullable.GetHashCode(), HashUtil.Hash32(Name), DataType.GetHashCode());
+            }
         }
     }
 }

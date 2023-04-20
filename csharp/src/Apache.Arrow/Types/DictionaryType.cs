@@ -15,6 +15,8 @@
 
 
 using System;
+using Apache.Arrow.Util;
+using System.Runtime.CompilerServices;
 
 namespace Apache.Arrow.Types
 {
@@ -42,5 +44,32 @@ namespace Apache.Arrow.Types
         public IArrowType IndexType { get; private set; }
         public IArrowType ValueType { get; private set; }
         public bool Ordered { get; private set; }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+        {
+            if (other is not DictionaryType _other)
+            {
+                return false;
+            }
+            return base.Equals(_other) && Ordered == _other.Ordered;
+        }
+
+        public override int GetHashCode()
+        {
+            checked
+            {
+                return HashUtil.CombineHash32(base.GetHashCode(), Ordered.GetHashCode());
+            }
+        }
     }
 }
