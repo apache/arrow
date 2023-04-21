@@ -45,6 +45,13 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal":
         const CMonthDayNanoIntervalScalar& scalar)
 
 
+cdef extern from "arrow/python/arrow_to_pandas.h" namespace "arrow::py::MapConversionType":
+    cdef enum MapConversionType "arrow::py::MapConversionType":
+        DEFAULT,
+        LOSSY,
+        STRICT_
+
+
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
 
@@ -186,6 +193,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool safe_cast
         c_bool split_blocks
         c_bool self_destruct
+        MapConversionType maps_as_pydicts
         c_bool decode_dictionaries
         unordered_set[c_string] categorical_columns
         unordered_set[c_string] extension_columns
