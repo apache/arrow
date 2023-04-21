@@ -22,6 +22,7 @@ namespace Apache.Arrow.Tests
 {
     public class MapArrayTests
     {
+#if NETCOREAPP3_1_OR_GREATER
         [Fact]
         public void MapArray_Should_Build()
         {
@@ -52,6 +53,7 @@ namespace Apache.Arrow.Tests
             Assert.True(array.IsNull(1));
             Assert.Equal(new KeyValuePair<string, int?>[] { kv1, kv2 }, array.GetKeyValuePairs<StringArray, string, Int32Array, int?>(2, GetKey, GetValue).ToArray());
         }
+#endif
 
         private static string GetKey(StringArray array, int index) => array.GetString(index);
         private static int? GetValue(Int32Array array, int index) => array.GetValue(index);
