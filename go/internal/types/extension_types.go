@@ -117,12 +117,25 @@ func (b *UUIDBuilder) UnmarshalJSON(data []byte) error {
 	return b.Unmarshal(dec)
 }
 
+func (b *UUIDBuilder) AppendValueFromString(s string) error {
+	if s == array.NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	u, err := uuid.Parse(s)
+	if err != nil {
+		return fmt.Errorf("%w: invalid uuid: %v", arrow.ErrInvalid, err)
+	}
+	b.Append(u)
+	return nil
+}
+
 // UUIDArray is a simple array which is a FixedSizeBinary(16)
 type UUIDArray struct {
 	array.ExtensionArrayBase
 }
 
-func (a UUIDArray) ValueString(i int) string {
+func (a UUIDArray) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return "(null)"
 	}
@@ -235,7 +248,7 @@ type Parametric1Array struct {
 	array.ExtensionArrayBase
 }
 
-func (a Parametric1Array) ValueString(i int) string {
+func (a Parametric1Array) ValueStr(i int) string {
 	arr := a.Storage().(*array.Int32)
 	if a.IsNull(i) {
 		return "(null)"
@@ -250,7 +263,7 @@ type Parametric2Array struct {
 	array.ExtensionArrayBase
 }
 
-func (a Parametric2Array) ValueString(i int) string {
+func (a Parametric2Array) ValueStr(i int) string {
 	arr := a.Storage().(*array.Int32)
 	if a.IsNull(i) {
 		return "(null)"
@@ -368,7 +381,7 @@ type ExtStructArray struct {
 	array.ExtensionArrayBase
 }
 
-func (a ExtStructArray) ValueString(i int) string {
+func (a ExtStructArray) ValueStr(i int) string {
 	arr := a.Storage().(*array.Struct)
 	if a.IsNull(i) {
 		return "(null)"
@@ -425,7 +438,7 @@ type DictExtensionArray struct {
 	array.ExtensionArrayBase
 }
 
-func (a DictExtensionArray) ValueString(i int) string {
+func (a DictExtensionArray) ValueStr(i int) string {
 	arr := a.Storage().(*array.Dictionary)
 	if a.IsNull(i) {
 		return "(null)"
@@ -476,7 +489,7 @@ type SmallintArray struct {
 	array.ExtensionArrayBase
 }
 
-func (a SmallintArray) ValueString(i int) string {
+func (a SmallintArray) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return "(null)"
 	}

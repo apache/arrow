@@ -49,13 +49,14 @@ func TestNewFloat16Builder(t *testing.T) {
 	ab.Append(float16.New(8))
 	ab.Append(float16.New(9))
 	ab.Append(float16.New(10))
-
+	assert.NoError(t, ab.AppendValueFromString("11.0"))
+	
 	// check state of builder before NewFloat16Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewFloat16Array()
-
+	assert.Equal(t, "1", a.ValueStr(0))
 	// check state of builder after NewFloat16Array
 	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewFloat16Array did not reset state")
 	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewFloat16Array did not reset state")
@@ -64,9 +65,9 @@ func TestNewFloat16Builder(t *testing.T) {
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
 
-	assert.Equal(t, []float32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, float32Values(a), "unexpected Float16Values")
+	assert.Equal(t, []float32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, float32Values(a), "unexpected Float16Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Values(), 10, "unexpected length of Float16Values")
+	assert.Len(t, a.Values(), 11, "unexpected length of Float16Values")
 
 	a.Release()
 	ab.Append(float16.New(7))

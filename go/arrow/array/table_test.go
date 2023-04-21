@@ -404,6 +404,12 @@ func TestTable(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
+	preSchema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+		},
+		nil,
+	)
 	schema := arrow.NewSchema(
 		[]arrow.Field{
 			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
@@ -469,8 +475,17 @@ func TestTable(t *testing.T) {
 
 	slices := [][]arrow.Array{col1.Data().Chunks(), col2.Data().Chunks()}
 
-	tbl := array.NewTable(schema, cols, -1)
+	preTbl := array.NewTable(preSchema, []arrow.Column{*col1}, -1)
+	defer preTbl.Release()
+	tbl, err := preTbl.AddColumn(
+		1,
+		arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+		*col2,
+	)
 	defer tbl.Release()
+	if err != nil {
+		t.Fatalf("could not add column: %+v", err)
+	}
 
 	tbl2 := array.NewTableFromSlice(schema, slices)
 	defer tbl2.Release()

@@ -149,12 +149,12 @@ func CreateDB() (*sql.DB, error) {
 
 	_, err = db.Exec(`
 	CREATE TABLE foreignTable (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 		foreignName varchar(100),
 		value int);
 
 	CREATE TABLE intTable (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 		keyName varchar(100),
 		value int,
 		foreignId int references foreignTable(id));

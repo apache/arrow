@@ -96,12 +96,21 @@ include("${CMAKE_CURRENT_LIST_DIR}/ArrowTargets.cmake")
 
 if(TARGET Arrow::arrow_static AND NOT TARGET Arrow::arrow_bundled_dependencies)
   add_library(Arrow::arrow_bundled_dependencies STATIC IMPORTED)
-  get_target_property(arrow_static_location Arrow::arrow_static LOCATION)
-  get_filename_component(arrow_lib_dir "${arrow_static_location}" DIRECTORY)
-  set_target_properties(Arrow::arrow_bundled_dependencies
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${arrow_lib_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}arrow_bundled_dependencies${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
+  get_target_property(arrow_static_configurations Arrow::arrow_static
+                      IMPORTED_CONFIGURATIONS)
+  foreach(CONFIGURATION ${arrow_static_configurations})
+    string(TOUPPER "${CONFIGURATION}" CONFIGURATION)
+    get_target_property(arrow_static_location Arrow::arrow_static
+                        LOCATION_${CONFIGURATION})
+    get_filename_component(arrow_lib_dir "${arrow_static_location}" DIRECTORY)
+    set_property(TARGET Arrow::arrow_bundled_dependencies
+                 APPEND
+                 PROPERTY IMPORTED_CONFIGURATIONS ${CONFIGURATION})
+    set_target_properties(Arrow::arrow_bundled_dependencies
+                          PROPERTIES IMPORTED_LOCATION_${CONFIGURATION}
+                                     "${arrow_lib_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}arrow_bundled_dependencies${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  endforeach()
 
   # CMP0057: Support new if() IN_LIST operator.
   # https://cmake.org/cmake/help/latest/policy/CMP0057.html

@@ -316,11 +316,11 @@ func (s *FlightSqliteServerSuite) TestCommandGetTablesWithIncludedSchemas() {
 	tableSchema := arrow.NewSchema([]arrow.Field{
 		{Name: "id", Type: arrow.PrimitiveTypes.Int64,
 			Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, dbTableName)},
-		{Name: "keyName", Type: arrow.BinaryTypes.String,
+		{Name: "keyName", Type: arrow.BinaryTypes.String, Nullable: true,
 			Metadata: s.getColMetadata(sqlite3.SQLITE_TEXT, dbTableName)},
-		{Name: "value", Type: arrow.PrimitiveTypes.Int64,
+		{Name: "value", Type: arrow.PrimitiveTypes.Int64, Nullable: true,
 			Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, dbTableName)},
-		{Name: "foreignId", Type: arrow.PrimitiveTypes.Int64,
+		{Name: "foreignId", Type: arrow.PrimitiveTypes.Int64, Nullable: true,
 			Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, dbTableName)},
 	}, nil)
 	schemaBuf := flight.SerializeSchema(tableSchema, s.mem)

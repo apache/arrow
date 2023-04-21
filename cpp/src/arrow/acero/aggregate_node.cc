@@ -666,19 +666,19 @@ class GroupByNode : public ExecNode, public TracedNode {
     // Build field vector for output schema
     FieldVector output_fields{keys.size() + segment_keys.size() + aggs.size()};
 
-    // First output is keys, followed by segment_keys, followed by aggregates themselves
+    // First output is segment keys, followed by keys, followed by aggregates themselves
     // This matches the behavior described by Substrait and also tends to be the behavior
     // in SQL engines
-    for (size_t i = 0; i < keys.size(); ++i) {
-      int key_field_id = key_field_ids[i];
-      output_fields[i] = input_schema->field(key_field_id);
-    }
-    size_t base = keys.size();
     for (size_t i = 0; i < segment_keys.size(); ++i) {
       int segment_key_field_id = segment_key_field_ids[i];
-      output_fields[base + i] = input_schema->field(segment_key_field_id);
+      output_fields[i] = input_schema->field(segment_key_field_id);
     }
-    base += segment_keys.size();
+    size_t base = segment_keys.size();
+    for (size_t i = 0; i < keys.size(); ++i) {
+      int key_field_id = key_field_ids[i];
+      output_fields[base + i] = input_schema->field(key_field_id);
+    }
+    base += keys.size();
     for (size_t i = 0; i < aggs.size(); ++i) {
       output_fields[base + i] = agg_result_fields[i]->WithName(aggs[i].name);
     }
@@ -829,11 +829,12 @@ class GroupByNode : public ExecNode, public TracedNode {
     out_data.values.resize(agg_kernels_.size() + key_field_ids_.size() +
                            segment_key_field_ids_.size());
 
-    // Keys come first
-    ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, state->grouper->GetUniques());
-    std::move(out_keys.values.begin(), out_keys.values.end(), out_data.values.begin());
+    // Segment keys come first
+    PlaceFields(out_data, 0, segmenter_values_);
     // Followed by segment keys
-    PlaceFields(out_data, key_field_ids_.size(), segmenter_values_);
+    ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, state->grouper->GetUniques());
+    std::move(out_keys.values.begin(), out_keys.values.end(),
+              out_data.values.begin() + segment_key_field_ids_.size());
     // And finally, the aggregates themselves
     std::size_t base = segment_key_field_ids_.size() + key_field_ids_.size();
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {

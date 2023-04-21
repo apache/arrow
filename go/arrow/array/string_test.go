@@ -44,7 +44,8 @@ func TestStringArray(t *testing.T) {
 	sb.Retain()
 	sb.Release()
 
-	sb.AppendValues(want[:2], nil)
+	assert.NoError(t, sb.AppendValueFromString(want[0]))
+	sb.AppendValues(want[1:2], nil)
 
 	sb.AppendNull()
 	sb.Append(want[3])
@@ -62,6 +63,8 @@ func TestStringArray(t *testing.T) {
 
 	arr.Retain()
 	arr.Release()
+
+	assert.Equal(t, "hello", arr.ValueStr(0))
 
 	if got, want := arr.Len(), len(want); got != want {
 		t.Fatalf("invalid len: got=%d, want=%d", got, want)

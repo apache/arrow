@@ -59,6 +59,8 @@ except ImportError:
     _not_imported.append("S3FileSystem")
 else:
     ensure_s3_initialized()
+    import atexit
+    atexit.register(finalize_s3)
 
 
 def __getattr__(name):
