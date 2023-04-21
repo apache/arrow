@@ -109,8 +109,6 @@ namespace Apache.Arrow
 
         }
 
-        public IArrowArray Keys { get; }
-
         public MapArray(IArrowType dataType, int length,
             ArrowBuffer valueOffsetsBuffer, IArrowArray structs,
             ArrowBuffer nullBitmapBuffer, int nullCount = 0, int offset = 0)
