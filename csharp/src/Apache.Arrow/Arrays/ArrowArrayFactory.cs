@@ -57,6 +57,8 @@ namespace Apache.Arrow
                     return new TimestampArray(data);
                 case ArrowTypeId.List:
                     return new ListArray(data);
+                case ArrowTypeId.Map:
+                    return new MapArray(data);
                 case ArrowTypeId.Struct:
                     return new StructArray(data);
                 case ArrowTypeId.Union:
@@ -82,7 +84,6 @@ namespace Apache.Arrow
                     throw new NotSupportedException("Half-float arrays are not supported by this target framework.");
 #endif
                 case ArrowTypeId.Interval:
-                case ArrowTypeId.Map:
                 default:
                     throw new NotSupportedException($"An ArrowArray cannot be built for type {data.DataType.TypeId}.");
             }

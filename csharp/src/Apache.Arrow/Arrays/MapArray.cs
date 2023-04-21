@@ -13,49 +13,122 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class MapArray : ListArray
+    public class MapArray : ListArray // MapArray = ListArray(StrucArray("key", "value")) 
     {
+        // Same as ListArray.Builder, but with KeyBuilder
+        public new class Builder : IArrowArrayBuilder<MapArray, Builder>
+        {
+            public IArrowArrayBuilder<IArrowArray, IArrowArrayBuilder<IArrowArray>> KeyBuilder { get; }
+            public IArrowArrayBuilder<IArrowArray, IArrowArrayBuilder<IArrowArray>> ValueBuilder { get; }
+
+            public int Length => ValueOffsetsBufferBuilder.Length;
+
+            private ArrowBuffer.Builder<int> ValueOffsetsBufferBuilder { get; }
+
+            private ArrowBuffer.BitmapBuilder ValidityBufferBuilder { get; }
+
+            public int NullCount { get; protected set; }
+
+            public MapType DataType { get; }
+
+            public Builder(MapType type)
+            {
+                KeyBuilder = ArrowArrayBuilderFactory.Build(type.KeyField.DataType);
+                ValueBuilder = ArrowArrayBuilderFactory.Build(type.ValueField.DataType);
+                ValueOffsetsBufferBuilder = new ArrowBuffer.Builder<int>();
+                ValidityBufferBuilder = new ArrowBuffer.BitmapBuilder();
+                DataType = type;
+            }
+
+            /// <summary>
+            /// Start a new variable-length list slot
+            ///
+            /// This function should be called before beginning to append elements to the
+            /// value builder
+            /// </summary>
+            /// <returns></returns>
+            public Builder Append()
+            {
+                ValueOffsetsBufferBuilder.Append(KeyBuilder.Length);
+                ValidityBufferBuilder.Append(true);
+
+                return this;
+            }
+
+            public Builder AppendNull()
+            {
+                ValueOffsetsBufferBuilder.Append(KeyBuilder.Length);
+                ValidityBufferBuilder.Append(false);
+                NullCount++;
+
+                return this;
+            }
+
+            public MapArray Build(MemoryAllocator allocator = default)
+            {
+                ValueOffsetsBufferBuilder.Append(KeyBuilder.Length);
+
+                ArrowBuffer validityBuffer = NullCount > 0 ? ValidityBufferBuilder.Build(allocator) : ArrowBuffer.Empty;
+
+                StructArray structs = new StructArray(
+                    DataType.KeyValueType, KeyBuilder.Length,
+                    new IArrowArray[] { KeyBuilder.Build(allocator), ValueBuilder.Build(allocator) },
+                    validityBuffer, NullCount
+                );
+
+                return new MapArray(DataType, Length - 1, ValueOffsetsBufferBuilder.Build(allocator), structs, ArrowBuffer.Empty);
+            }
+
+            public Builder Reserve(int capacity)
+            {
+                ValueOffsetsBufferBuilder.Reserve(capacity + 1);
+                ValidityBufferBuilder.Reserve(capacity + 1);
+                return this;
+            }
+
+            public Builder Resize(int length)
+            {
+                ValueOffsetsBufferBuilder.Resize(length + 1);
+                ValidityBufferBuilder.Resize(length + 1);
+                return this;
+            }
+
+            public Builder Clear()
+            {
+                ValueOffsetsBufferBuilder.Clear();
+                KeyBuilder.Clear();
+                ValueBuilder.Clear();
+                ValidityBufferBuilder.Clear();
+                return this;
+            }
+
+        }
+
         public IArrowArray Keys { get; }
 
         public MapArray(IArrowType dataType, int length,
-            ArrowBuffer valueOffsetsBuffer, IArrowArray keys, IArrowArray values,
+            ArrowBuffer valueOffsetsBuffer, IArrowArray structs,
             ArrowBuffer nullBitmapBuffer, int nullCount = 0, int offset = 0)
             : this(
                   new ArrayData(
                       dataType, length, nullCount, offset, new[] { nullBitmapBuffer, valueOffsetsBuffer },
-                      new[] { keys.Data, values.Data }
-                  ), keys, values)
+                      new[] { structs.Data }
+                  ), structs)
         {
         }
 
         public MapArray(ArrayData data)
-            : this(data, ArrowArrayFactory.BuildArray(data.Children[0]), ArrowArrayFactory.BuildArray(data.Children[1]))
+            : this(data, ArrowArrayFactory.BuildArray(data.Children[0]))
         {
         }
 
-        private MapArray(ArrayData data, IArrowArray keys, IArrowArray values) : base(data, values, ArrowTypeId.Map)
+        private MapArray(ArrayData data, IArrowArray structs) : base(data, structs, ArrowTypeId.Map)
         {
-            Keys = keys;
-        }
-
-        public Tuple<TKeyArray, TValueArray> GetKeyValueArray<TKeyArray, TValueArray>(int index)
-            where TKeyArray : Array where TValueArray : Array
-        {
-            if (Keys is not Array keys || Values is not Array values)
-            {
-                return default;
-            }
-
-            ReadOnlySpan<int> offsets = ValueOffsets;
-            return Tuple.Create(
-                keys.Slice(offsets[index], offsets[index + 1] - offsets[index]) as TKeyArray,
-                values.Slice(offsets[index], offsets[index + 1] - offsets[index]) as TValueArray
-            );
         }
     }
 }

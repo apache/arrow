@@ -2,39 +2,33 @@
 
 namespace Apache.Arrow.Types
 {
-    public sealed class MapType : NestedType
+    public sealed class MapType : NestedType // MapType = ListType(StrucType("key", "value")) 
     {
         public override ArrowTypeId TypeId => ArrowTypeId.Map;
         public override string Name => "map";
+        public readonly bool KeySorted;
 
         public StructType KeyValueType => Fields[0].DataType as StructType;
         public Field KeyField => KeyValueType.Fields[0];
         public Field ValueField => KeyValueType.Fields[1];
 
-        public IArrowType KeyDataType => Fields[0].DataType;
-        public IArrowType ValueDataType => Fields[1].DataType;
-
-        public MapType(IArrowType key, IArrowType value)
-            : this(key, value, true)
+        public MapType(IArrowType key, IArrowType value, bool nullable = true, bool keySorted = false)
+            : this(new Field("key", key, false), new Field("value", value, nullable), keySorted)
         {
         }
 
-        public MapType(IArrowType key, IArrowType value, bool nullable)
-            : this(new Field("key", key, false), new Field("value", value, nullable))
+        public MapType(Field key, Field value, bool keySorted = false)
+            : this(new StructType(new List<Field>() { key, value }), keySorted)
         {
         }
 
-        public MapType(Field key, Field value)
-            : this(new StructType(new List<Field>() { key, value }))
+        public MapType(StructType entries, bool keySorted = false) : this(new Field("entries", entries, false), keySorted)
         {
         }
 
-        public MapType(StructType entries) : this(new Field("entries", entries, false))
+        public MapType(Field entries, bool keySorted = false) : base(entries)
         {
-        }
-
-        public MapType(Field keyvalue) : base(keyvalue)
-        {
+            KeySorted = keySorted;
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);

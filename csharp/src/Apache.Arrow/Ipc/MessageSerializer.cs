@@ -193,6 +193,13 @@ namespace Apache.Arrow.Ipc
                 case Flatbuf.Type.Struct_:
                     Debug.Assert(childFields != null);
                     return new Types.StructType(childFields);
+                case Flatbuf.Type.Map:
+                    if (childFields == null || childFields.Length != 1)
+                    {
+                        throw new InvalidDataException($"Map type must have exactly one struct child.");
+                    }
+                    Field child = childFields[0];
+                    return new Types.MapType(child);
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }

@@ -31,7 +31,6 @@ namespace Apache.Arrow.Tests.Types
         public void MapType_Should_HaveCorrectStructType()
         {
             var type = new MapType(BooleanType.Default, Int32Type.Default, true);
-
             Assert.IsType<StructType>(type.Fields[0].DataType);
             Assert.Equal(2, type.KeyValueType.Fields.Count);
 
@@ -42,9 +41,17 @@ namespace Apache.Arrow.Tests.Types
             Assert.False(type.Fields[0].IsNullable);
             Assert.False(type.KeyField.IsNullable);
             Assert.True(type.ValueField.IsNullable);
+            Assert.False(new MapType(BooleanType.Default, Int32Type.Default, false).ValueField.IsNullable);
 
             Assert.IsType<BooleanType>(type.KeyField.DataType);
             Assert.IsType<Int32Type>(type.ValueField.DataType);
+        }
+
+        [Fact]
+        public void MapType_Should_SetKeySorted()
+        {
+            Assert.False(new MapType(BooleanType.Default, Int32Type.Default).KeySorted);
+            Assert.True(new MapType(StringType.Default, Int32Type.Default, true, true).KeySorted);
         }
     }
 }
