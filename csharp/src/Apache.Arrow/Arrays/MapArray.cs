@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+using System.Collections.Generic;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -81,7 +83,7 @@ namespace Apache.Arrow
                     validityBuffer, NullCount
                 );
 
-                return new MapArray(DataType, Length - 1, ValueOffsetsBufferBuilder.Build(allocator), structs, ArrowBuffer.Empty);
+                return new MapArray(DataType, Length - 1, ValueOffsetsBufferBuilder.Build(allocator), structs, validityBuffer, NullCount);
             }
 
             public Builder Reserve(int capacity)
@@ -109,6 +111,10 @@ namespace Apache.Arrow
 
         }
 
+        public StructArray KeyValues => base.Values as StructArray;
+        public IArrowArray Keys => KeyValues.Fields[0];
+        public new IArrowArray Values => KeyValues.Fields[1];
+
         public MapArray(IArrowType dataType, int length,
             ArrowBuffer valueOffsetsBuffer, IArrowArray structs,
             ArrowBuffer nullBitmapBuffer, int nullCount = 0, int offset = 0)
@@ -128,5 +134,25 @@ namespace Apache.Arrow
         private MapArray(ArrayData data, IArrowArray structs) : base(data, structs, ArrowTypeId.Map)
         {
         }
+
+#if NETCOREAPP3_1_OR_GREATER
+        public IEnumerable<KeyValuePair<K,V>> GetKeyValuePairs<TKeyArray, K, TValueArray, V>(int index, Func<TKeyArray, int, K> getKey, Func<TValueArray, int, V> getValue)
+            where TKeyArray : Array where TValueArray : Array
+        {
+            ReadOnlySpan<int> offsets = ValueOffsets;
+            // Get key values
+            int start = offsets[index];
+            int end = offsets[index + 1];
+            StructArray array = KeyValues.Slice(start, end) as StructArray;
+
+            TKeyArray keyArray = array.Fields[0] as TKeyArray;
+            TValueArray valueArray = array.Fields[1] as TValueArray;
+
+            for (int i = start; i < end; i++)
+            {
+                yield return KeyValuePair.Create(getKey(keyArray, i), getValue(valueArray, i));
+            }
+        }
+#endif
     }
 }
