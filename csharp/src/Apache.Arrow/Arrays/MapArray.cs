@@ -150,7 +150,7 @@ namespace Apache.Arrow
 
             for (int i = start; i < end; i++)
             {
-                yield return KeyValuePair.Create(getKey(keyArray, i), getValue(valueArray, i));
+                yield return new KeyValuePair<K,V>(getKey(keyArray, i), getValue(valueArray, i));
             }
         }
 #endif
