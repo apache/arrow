@@ -42,7 +42,7 @@ test_that("na.fail on Array and ChunkedArray", {
 
 test_that("na.omit on Table", {
   tbl <- Table$create(example_data)
-  expect_data_frame(
+  expect_equal_data_frame(
     na.omit(tbl),
     na.omit(example_data),
     # We don't include an attribute with the rows omitted
@@ -52,7 +52,7 @@ test_that("na.omit on Table", {
 
 test_that("na.exclude on Table", {
   tbl <- Table$create(example_data)
-  expect_data_frame(
+  expect_equal_data_frame(
     na.exclude(tbl),
     na.exclude(example_data),
     ignore_attr = "na.action"
@@ -66,7 +66,7 @@ test_that("na.fail on Table", {
 
 test_that("na.omit on RecordBatch", {
   batch <- record_batch(example_data)
-  expect_data_frame(
+  expect_equal_data_frame(
     na.omit(batch),
     na.omit(example_data),
     ignore_attr = "na.action"
@@ -75,7 +75,7 @@ test_that("na.omit on RecordBatch", {
 
 test_that("na.exclude on RecordBatch", {
   batch <- record_batch(example_data)
-  expect_data_frame(
+  expect_equal_data_frame(
     na.exclude(batch),
     na.omit(example_data),
     ignore_attr = "na.action"

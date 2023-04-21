@@ -140,7 +140,7 @@ test_that("Table$SortIndices()", {
     as.vector(x$Take(x$SortIndices("chr"))$chr),
     sort(tbl$chr, na.last = TRUE)
   )
-  expect_data_frame(
+  expect_equal_data_frame(
     x$Take(x$SortIndices(c("int", "dbl"), c(FALSE, FALSE))),
     tbl %>% arrange(int, dbl)
   )
@@ -148,7 +148,7 @@ test_that("Table$SortIndices()", {
 
 test_that("RecordBatch$SortIndices()", {
   x <- record_batch(tbl)
-  expect_data_frame(
+  expect_equal_data_frame(
     x$Take(x$SortIndices(c("chr", "int", "dbl"), TRUE)),
     tbl %>% arrange(desc(chr), desc(int), desc(dbl))
   )

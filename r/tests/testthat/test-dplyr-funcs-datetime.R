@@ -310,7 +310,7 @@ test_that("timestamp round trip correctly via strftime and strptime", {
     fmt2 <- paste(base_format2, fmt)
     fmt <- paste(base_format, paste0("%", fmt))
     test_df <- tibble::tibble(x = strftime(times, format = fmt))
-    expect_data_frame(
+    expect_equal_data_frame(
       test_df %>%
         arrow_table() %>%
         mutate(!!fmt := strptime(x, format = fmt2)) %>%
