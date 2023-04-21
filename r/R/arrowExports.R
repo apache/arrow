@@ -1984,6 +1984,10 @@ Schema__WithMetadata <- function(schema, metadata) {
   .Call(`_arrow_Schema__WithMetadata`, schema, metadata)
 }
 
+Schema__WithNames <- function(schema, names) {
+  .Call(`_arrow_Schema__WithNames`, schema, names)
+}
+
 Schema__serialize <- function(schema) {
   .Call(`_arrow_Schema__serialize`, schema)
 }
