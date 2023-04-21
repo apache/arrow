@@ -172,7 +172,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     VectorSchemaRoot theRoot = cloneRoot(originalRoot);
     if (transformer != null) {
       try {
-        theRoot = transformer.transform(originalRoot, theRoot);
+        theRoot = transformer.transform(theRoot, null);
       } catch (final Exception e) {
         try {
           throw new SQLException("Failed to transform VectorSchemaRoot.", e);
