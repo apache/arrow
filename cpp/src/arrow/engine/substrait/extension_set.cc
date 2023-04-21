@@ -946,6 +946,10 @@ ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
       case 1: {
         std::shared_ptr<compute::FunctionOptions> options = nullptr;
         if (arrow_function_name == "stddev" || arrow_function_name == "variance") {
+          // See the following URL for the spec of stddev and variance:
+          // https://github.com/substrait-io/substrait/blob/
+          // 73228b4112d79eb1011af0ebb41753ce23ca180c/
+          // extensions/functions_arithmetic.yaml#L1240
           auto maybe_dist = call.GetOption("distribution");
           if (maybe_dist) {
             auto& prefs = **maybe_dist;
