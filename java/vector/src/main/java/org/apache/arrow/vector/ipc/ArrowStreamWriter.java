@@ -76,12 +76,13 @@ public class ArrowStreamWriter extends ArrowWriter {
    * @param option IPC write options
    * @param compressionFactory Compression codec factory
    * @param codecType Codec type
+   * @param compressionLevel Compression level
    * @param out WritableByteChannel for writing.
    */
   public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
                            IpcOption option, CompressionCodec.Factory compressionFactory,
-                           CompressionUtil.CodecType codecType) {
-    super(root, provider, out, option, compressionFactory, codecType);
+                           CompressionUtil.CodecType codecType, int compressionLevel) {
+    super(root, provider, out, option, compressionFactory, codecType, compressionLevel);
   }
 
   /**

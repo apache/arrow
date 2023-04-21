@@ -73,13 +73,6 @@ public class ArrowFileWriter extends ArrowWriter {
 
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
                          Map<String, String> metaData, IpcOption option, CompressionCodec.Factory compressionFactory,
-                         CompressionUtil.CodecType codecType) {
-    super(root, provider, out, option, compressionFactory, codecType);
-    this.metaData = metaData;
-  }
-
-  public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
-                         Map<String, String> metaData, IpcOption option, CompressionCodec.Factory compressionFactory,
                          CompressionUtil.CodecType codecType, int compressionLevel) {
     super(root, provider, out, option, compressionFactory, codecType, compressionLevel);
     this.metaData = metaData;

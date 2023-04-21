@@ -238,7 +238,7 @@ class TestCompressionCodec {
       try (final ArrowStreamWriter writer = new ArrowStreamWriter(
           root, new DictionaryProvider.MapDictionaryProvider(),
           Channels.newChannel(compressedStream),
-          IpcOption.DEFAULT, factory, codec)) {
+          IpcOption.DEFAULT, factory, codec, 7)) {
         writer.start();
         writer.writeBatch();
         writer.end();
@@ -260,33 +260,6 @@ class TestCompressionCodec {
   @ParameterizedTest
   @MethodSource("codecTypes")
   void testReadWriteFile(CompressionUtil.CodecType codec) throws Exception {
-    withRoot(codec, (factory, root) -> {
-      ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
-      try (final ArrowFileWriter writer = new ArrowFileWriter(
-          root, new DictionaryProvider.MapDictionaryProvider(),
-          Channels.newChannel(compressedStream),
-          new HashMap<>(), IpcOption.DEFAULT, factory, codec)) {
-        writer.start();
-        writer.writeBatch();
-        writer.end();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-
-      try (ArrowFileReader reader = new ArrowFileReader(
-          new ByteArrayReadableSeekableByteChannel(compressedStream.toByteArray()), allocator, factory)) {
-        assertTrue(reader.loadNextBatch());
-        assertTrue(root.equals(reader.getVectorSchemaRoot()));
-        assertFalse(reader.loadNextBatch());
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    });
-  }
-
-  @ParameterizedTest
-  @MethodSource("codecTypes")
-  void testReadWriteFileWithCompressionLevel(CompressionUtil.CodecType codec) throws Exception {
     withRoot(codec, (factory, root) -> {
       ByteArrayOutputStream compressedStream = new ByteArrayOutputStream();
       try (final ArrowFileWriter writer = new ArrowFileWriter(
@@ -324,29 +297,6 @@ class TestCompressionCodec {
 
       final VectorUnloader unloader = new VectorUnloader(
           root, /*includeNullCount*/ true, factory.createCodec(codec), /*alignBuffers*/ true);
-      unloader.getRecordBatch().close();
-
-      root.getFieldVectors().forEach((vector) -> {
-        Arrays.stream(vector.getBuffers(/*clear*/ false)).forEach((buf) -> {
-          assertNotEquals(0, buf.getReferenceManager().getRefCount());
-        });
-      });
-    });
-  }
-
-  /** Unloading a vector should not free source buffers. */
-  @ParameterizedTest
-  @MethodSource("codecTypes")
-  void testUnloadCompressedWithCompressionLevel(CompressionUtil.CodecType codec) {
-    withRoot(codec, (factory, root) -> {
-      root.getFieldVectors().forEach((vector) -> {
-        Arrays.stream(vector.getBuffers(/*clear*/ false)).forEach((buf) -> {
-          assertNotEquals(0, buf.getReferenceManager().getRefCount());
-        });
-      });
-
-      final VectorUnloader unloader = new VectorUnloader(
-          root, /*includeNullCount*/ true, factory.createCodec(codec, 7), /*alignBuffers*/ true);
       unloader.getRecordBatch().close();
 
       root.getFieldVectors().forEach((vector) -> {
