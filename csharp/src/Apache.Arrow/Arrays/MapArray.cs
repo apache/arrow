@@ -143,7 +143,7 @@ namespace Apache.Arrow
             // Get key values
             int start = offsets[index];
             int end = offsets[index + 1];
-            StructArray array = KeyValues.Slice(start, end) as StructArray;
+            StructArray array = KeyValues.Slice(start, end - start) as StructArray;
 
             TKeyArray keyArray = array.Fields[0] as TKeyArray;
             TValueArray valueArray = array.Fields[1] as TValueArray;
