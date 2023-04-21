@@ -1989,17 +1989,21 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     const T* vals = reinterpret_cast<const T*>(this->values());
 
-    std::cout << "def levels: ";
-    for (int64_t i = 0; i < total_levels_read; ++i) {
-      std::cout << def_levels[i] << " ";
+    if (leaf_info_.def_level > 0) {
+      std::cout << "def levels: ";
+      for (int64_t i = 0; i < total_levels_read; ++i) {
+        std::cout << def_levels[i] << " ";
+      }
+      std::cout << std::endl;
     }
-    std::cout << std::endl;
 
-    std::cout << "rep levels: ";
-    for (int64_t i = 0; i < total_levels_read; ++i) {
-      std::cout << rep_levels[i] << " ";
+    if (leaf_info_.rep_level > 0) {
+      std::cout << "rep levels: ";
+      for (int64_t i = 0; i < total_levels_read; ++i) {
+        std::cout << rep_levels[i] << " ";
+      }
+      std::cout << std::endl;
     }
-    std::cout << std::endl;
 
     std::cout << "values: ";
     for (int64_t i = 0; i < this->values_written(); ++i) {
