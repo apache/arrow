@@ -22,7 +22,9 @@
   # drop problems attributes (most likely from readr)
   x[["attributes"]][["problems"]] <- NULL
 
-  x <- remove_default_df_metadata(x)
+  if (has_default_df_metadata(x)) {
+    x <- NULL
+  }
 
   out <- serialize(x, NULL, ascii = TRUE)
 
@@ -226,26 +228,8 @@ get_r_metadata_from_old_schema <- function(new_schema, old_schema) {
   r_meta
 }
 
-remove_default_df_metadata <- function(x) {
-  # if the column attributes are NULL (the default), drop them
-  if (all(vapply(x$columns, is.null, logical(1)))) {
-    x$columns <- NULL
-  }
-
-  # don't need to preserve data.frame on roundtrip
-  if (identical(x$attributes$class, "data.frame")) {
-    x$attributes$class <- NULL
-
-    # if there are no other attributes, remove this entirely
-    if (is_empty(x$attributes)) {
-      x$attributes <- NULL
-    }
-  }
-
-  # if there are no elements left in x, set to NULL
-  if(is_empty(x)){
-    x <- NULL
-  }
-
-  x
+has_default_df_metadata <- function(x){
+  identical(names(x), c("attributes", "columns")) &&
+  all(vapply(x$columns, is.null, logical(1))) &&
+    identical(x$attributes$class, "data.frame")
 }
