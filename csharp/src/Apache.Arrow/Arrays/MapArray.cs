@@ -80,7 +80,7 @@ namespace Apache.Arrow
                 StructArray structs = new StructArray(
                     DataType.KeyValueType, KeyBuilder.Length,
                     new IArrowArray[] { KeyBuilder.Build(allocator), ValueBuilder.Build(allocator) },
-                    validityBuffer, NullCount
+                    ArrowBuffer.Empty, 0
                 );
 
                 return new MapArray(DataType, Length - 1, ValueOffsetsBufferBuilder.Build(allocator), structs, validityBuffer, NullCount);
