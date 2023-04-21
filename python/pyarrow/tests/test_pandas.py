@@ -1438,6 +1438,13 @@ class TestConvertDateTimeLikeTypes:
     def test_timestamp_to_pandas_out_of_bounds(self):
         # ARROW-7758 check for out of bounds timestamps for non-ns timestamps
 
+        if Version(pd.__version__) >= Version("2.1.0.dev"):
+            # GH-35235: test fail due to __from_pyarrow__ being added to pandas
+            # https://github.com/pandas-dev/pandas/pull/52201
+            # Needs: https://github.com/apache/arrow/issues/33321
+            pytest.skip(
+                "Need support converting to non-nano datetime64 for pandas >= 2.0")
+
         for unit in ['s', 'ms', 'us']:
             for tz in [None, 'America/New_York']:
                 arr = pa.array([datetime(1, 1, 1)], pa.timestamp(unit, tz=tz))

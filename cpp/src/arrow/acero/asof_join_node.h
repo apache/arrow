@@ -30,16 +30,11 @@ using AsofJoinKeys = AsofJoinNodeOptions::Keys;
 
 /// \brief Make the output schema of an as-of-join node
 ///
-/// Optionally, also provides the field output indices for this node.
-/// \see arrow::engine::RelationInfo
-///
 /// \param[in] input_schema the schema of each input to the node
 /// \param[in] input_keys the key of each input to the node
-/// \param[out] field_output_indices the output index of each field
 ARROW_ACERO_EXPORT Result<std::shared_ptr<Schema>> MakeOutputSchema(
     const std::vector<std::shared_ptr<Schema>>& input_schema,
-    const std::vector<AsofJoinKeys>& input_keys,
-    std::vector<int>* field_output_indices = NULLPTR);
+    const std::vector<AsofJoinKeys>& input_keys);
 
 }  // namespace asofjoin
 }  // namespace acero
