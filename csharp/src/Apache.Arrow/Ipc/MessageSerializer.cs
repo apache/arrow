@@ -198,8 +198,7 @@ namespace Apache.Arrow.Ipc
                     {
                         throw new InvalidDataException($"Map type must have exactly one struct child.");
                     }
-                    Field child = childFields[0];
-                    return new Types.MapType(child);
+                    return new Types.MapType(childFields[0]);
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }
