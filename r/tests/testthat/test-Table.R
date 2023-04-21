@@ -265,10 +265,9 @@ test_that("table() handles ... of arrays, chunked arrays, vectors", {
     tab$schema,
     schema(a = int32(), b = int32(), c = float64(), x = int32(), y = utf8())
   )
-  res <- as.data.frame(tab)
-  expect_equal(names(res), c("a", "b", "c", "x", "y"))
-  expect_equal(
-    res,
+
+  expect_data_frame(
+    tab,
     tibble::tibble(a = 1:10, b = 1:10, c = v, x = 1:10, y = letters[1:10])
   )
 })
@@ -280,14 +279,14 @@ test_that("table() auto splices (ARROW-5718)", {
   tab2 <- Table$create(!!!df)
   expect_equal(tab1, tab2)
   expect_equal(tab1$schema, schema(x = int32(), y = utf8()))
-  expect_equal(as.data.frame(tab1), df)
+  expect_data_frame(tab1, df)
 
   s <- schema(x = float64(), y = utf8())
   tab3 <- Table$create(df, schema = s)
   tab4 <- Table$create(!!!df, schema = s)
   expect_equal(tab3, tab4)
   expect_equal(tab3$schema, s)
-  expect_equal(as.data.frame(tab3), df)
+  expect_data_frame(tab3, df)
 })
 
 test_that("Validation when creating table with schema (ARROW-10953)", {
@@ -366,7 +365,7 @@ test_that("Can create table with specific dictionary types", {
     expect_equal(sch, tab$schema)
     if (i != int64()) {
       # TODO: same downcast to int32 as we do for int64() type elsewhere
-      expect_identical(as.data.frame(tab), fact)
+      expect_data_frame(tab, fact)
     }
   }
 })
@@ -380,7 +379,7 @@ test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
   res <- tibble::tibble(f = factor(c("a", "c", NA), levels = c("a", "b", "c", "d")))
   tab <- Table$create(b1, b2, b3, b4)
 
-  expect_identical(as.data.frame(tab), res)
+  expect_data_frame(tab, res)
 })
 
 test_that("Table$SelectColumns()", {
@@ -712,21 +711,32 @@ test_that("as_arrow_table() errors on data.frame with NULL names", {
   expect_error(as_arrow_table(df), "Input data frame columns must be named")
 })
 
-test_that("we only preserve metadata of input to arrow_table when passed a single data.frame", {
-  # data.frame in, data.frame out
+test_that("# GH-35038 - passing in multiple arguments doesn't affect return type", {
+
+  df <- data.frame(x = 1)
+  out1 <- as.data.frame(arrow_table(df, name = "1"))
+  out2 <- as.data.frame(arrow_table(name = "1", df))
+
+  expect_s3_class(out1, c("data.frame"), exact = TRUE)
+  expect_s3_class(out2, c("data.frame"), exact = TRUE)
+})
+
+test_that("as.data.frame() on ArrowTabular objects returns a base R data.frame regardless of input type", {
   df <- data.frame(x = 1)
   out1 <- as.data.frame(arrow_table(df))
   expect_s3_class(out1, "data.frame", exact = TRUE)
 
-  # tibble in, tibble out
   tib <- tibble::tibble(x = 1)
   out2 <- as.data.frame(arrow_table(tib))
+  expect_s3_class(out2, "data.frame", exact = TRUE)
+})
+
+test_that("collect() on ArrowTabular objects returns a tibble regardless of input type", {
+  df <- data.frame(x = 1)
+  out1 <- dplyr::collect(arrow_table(df))
+  expect_s3_class(out1, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
+
+  tib <- tibble::tibble(x = 1)
+  out2 <- dplyr::collect(arrow_table(tib))
   expect_s3_class(out2, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
-
-  # GH-35038 - passing in multiple arguments doesn't affect return type
-  out3 <- as.data.frame(arrow_table(df, name = "1"))
-  out4 <- as.data.frame(arrow_table(name = "1", df))
-
-  expect_s3_class(out3, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
-  expect_s3_class(out4, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
 })

@@ -346,8 +346,8 @@ test_that("record_batch() handles data frame columns", {
       b = struct(x = int32(), y = int32())
     )
   )
-  out <- as.data.frame(batch)
-  expect_equal(out, tibble::tibble(a = 1:10, b = tib))
+
+  expect_data_frame(batch, tibble::tibble(a = 1:10, b = tib))
 
   # if not named, columns from tib are auto spliced
   batch2 <- record_batch(a = 1:10, tib)
@@ -355,8 +355,8 @@ test_that("record_batch() handles data frame columns", {
     batch2$schema,
     schema(a = int32(), x = int32(), y = int32())
   )
-  out <- as.data.frame(batch2)
-  expect_equal(out, tibble::tibble(a = 1:10, !!!tib))
+
+  expect_data_frame(batch2, tibble::tibble(a = 1:10, !!!tib))
 })
 
 test_that("record_batch() handles data frame columns with schema spec", {
@@ -366,8 +366,7 @@ test_that("record_batch() handles data frame columns with schema spec", {
   schema <- schema(a = int32(), b = struct(x = int16(), y = float64()))
   batch <- record_batch(a = 1:10, b = tib, schema = schema)
   expect_equal(batch$schema, schema)
-  out <- as.data.frame(batch)
-  expect_equal(out, tibble::tibble(a = 1:10, b = tib_float))
+  expect_data_frame(batch, tibble::tibble(a = 1:10, b = tib_float))
 
   schema <- schema(a = int32(), b = struct(x = int16(), y = utf8()))
   expect_error(record_batch(a = 1:10, b = tib, schema = schema))
@@ -385,9 +384,9 @@ test_that("record_batch() auto splices (ARROW-5718)", {
   batch4 <- record_batch(!!!df, z = 1:10)
   expect_equal(batch3, batch4)
   expect_equal(batch3$schema, schema(x = int32(), y = utf8(), z = int32()))
-  expect_equal(
-    as.data.frame(batch3),
-    tibble::as_tibble(cbind(df, data.frame(z = 1:10)))
+  expect_data_frame(
+    batch3,
+    cbind(df, data.frame(z = 1:10))
   )
 
   s <- schema(x = float64(), y = utf8())
@@ -395,16 +394,16 @@ test_that("record_batch() auto splices (ARROW-5718)", {
   batch6 <- record_batch(!!!df, schema = s)
   expect_equal(batch5, batch6)
   expect_equal(batch5$schema, s)
-  expect_equal(as.data.frame(batch5), df)
+  expect_data_frame(batch5, df)
 
   s2 <- schema(x = float64(), y = utf8(), z = int16())
   batch7 <- record_batch(df, z = 1:10, schema = s2)
   batch8 <- record_batch(!!!df, z = 1:10, schema = s2)
   expect_equal(batch7, batch8)
   expect_equal(batch7$schema, s2)
-  expect_equal(
-    as.data.frame(batch7),
-    tibble::as_tibble(cbind(df, data.frame(z = 1:10)))
+  expect_data_frame(
+    batch7,
+    cbind(df, data.frame(z = 1:10))
   )
 })
 
