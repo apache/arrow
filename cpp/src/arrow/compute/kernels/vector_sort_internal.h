@@ -447,9 +447,9 @@ struct MergeImpl {
 // TODO make this usable if indices are non trivial on input
 // (see ConcreteRecordBatchColumnSorter)
 // `offset` is used when this is called on a chunk of a chunked array
-using ArraySortFunc = std::function<NullPartitionResult(
+using ArraySortFunc = std::function<Result<NullPartitionResult>(
     uint64_t* indices_begin, uint64_t* indices_end, const Array& values, int64_t offset,
-    const ArraySortOptions& options)>;
+    const ArraySortOptions& options, ExecContext* ctx)>;
 
 Result<ArraySortFunc> GetArraySorter(const DataType& type);
 

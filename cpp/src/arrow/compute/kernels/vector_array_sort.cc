@@ -143,9 +143,9 @@ class ArrayCompareSorter {
   using GetView = GetViewType<ArrowType>;
 
  public:
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& array, int64_t offset,
-                                 const ArraySortOptions& options) {
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& array, int64_t offset,
+                                         const ArraySortOptions& options, ExecContext*) {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     const auto p = PartitionNulls<ArrayType, StablePartitioner>(
@@ -176,9 +176,10 @@ class ArrayCompareSorter {
 template <>
 class ArrayCompareSorter<DictionaryType> {
  public:
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& array, int64_t offset,
-                                 const ArraySortOptions& options) {
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& array, int64_t offset,
+                                         const ArraySortOptions& options,
+                                         ExecContext* ctx) {
     const auto& dict_array = checked_cast<const DictionaryArray&>(array);
     const auto& dict_values = dict_array.dictionary();
     const auto& dict_indices = dict_array.indices();
@@ -200,20 +201,19 @@ class ArrayCompareSorter<DictionaryType> {
     // the original dictionary and sorting the decoded version.
 
     // TODO special-case all-nulls arrays to avoid ranking and decoding them?
+    ARROW_ASSIGN_OR_RAISE(auto ranks, RanksWithNulls(dict_values, ctx));
 
-    // FIXME Should be able to use the caller's KernelContext for rank() and take()
+    ARROW_ASSIGN_OR_RAISE(auto decoded_ranks,
+                          Take(*ranks, *dict_indices, TakeOptions::Defaults(), ctx));
 
-    // FIXME Propagate errors instead of aborting
-    auto ranks = *RanksWithNulls(dict_values);
-
-    auto decoded_ranks = *Take(*ranks, *dict_indices);
-
-    auto rank_sorter = *GetArraySorter(*decoded_ranks->type() /* should be uint64 */);
-    return rank_sorter(indices_begin, indices_end, *decoded_ranks, offset, options);
+    ARROW_ASSIGN_OR_RAISE(auto rank_sorter,
+                          GetArraySorter(*decoded_ranks->type() /* should be uint64 */));
+    return rank_sorter(indices_begin, indices_end, *decoded_ranks, offset, options, ctx);
   }
 
  private:
-  Result<std::shared_ptr<Array>> RanksWithNulls(const std::shared_ptr<Array>& array) {
+  Result<std::shared_ptr<Array>> RanksWithNulls(const std::shared_ptr<Array>& array,
+                                                ExecContext* ctx) {
     // Notes:
     // * The order is always ascending here, since the goal is to produce
     //   an exactly-equivalent-order of the dictionary values.
@@ -233,7 +233,8 @@ class ArrayCompareSorter<DictionaryType> {
       data->null_count = 0;
       DCHECK_EQ(data->offset, 0);  // FIXME
     }
-    ARROW_ASSIGN_OR_RAISE(auto rank_datum, CallFunction("rank", {array}, &rank_options));
+    ARROW_ASSIGN_OR_RAISE(auto rank_datum,
+                          CallFunction("rank", {array}, &rank_options, ctx));
     auto rank_data = rank_datum.array();
     DCHECK_EQ(rank_data->GetNullCount(), 0);
     // If there were nulls in the input, paste them in the output
@@ -261,9 +262,10 @@ class ArrayCountSorter {
     value_range_ = static_cast<uint32_t>(max - min) + 1;
   }
 
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& array, int64_t offset,
-                                 const ArraySortOptions& options) const {
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& array, int64_t offset,
+                                         const ArraySortOptions& options,
+                                         ExecContext*) const {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     // 32bit counter performs much better than 64bit one
@@ -345,9 +347,9 @@ class ArrayCountSorter<BooleanType> {
  public:
   ArrayCountSorter() = default;
 
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& array, int64_t offset,
-                                 const ArraySortOptions& options) {
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& array, int64_t offset,
+                                         const ArraySortOptions& options, ExecContext*) {
     const auto& values = checked_cast<const BooleanArray&>(array);
 
     std::array<int64_t, 3> counts{0, 0, 0};  // false, true, null
@@ -390,9 +392,10 @@ class ArrayCountOrCompareSorter {
   using c_type = typename ArrowType::c_type;
 
  public:
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& array, int64_t offset,
-                                 const ArraySortOptions& options) {
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& array, int64_t offset,
+                                         const ArraySortOptions& options,
+                                         ExecContext* ctx) {
     const auto& values = checked_cast<const ArrayType&>(array);
 
     if (values.length() >= countsort_min_len_ && values.length() > values.null_count()) {
@@ -404,11 +407,11 @@ class ArrayCountOrCompareSorter {
       if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <=
           countsort_max_range_) {
         count_sorter_.SetMinMax(min, max);
-        return count_sorter_(indices_begin, indices_end, values, offset, options);
+        return count_sorter_(indices_begin, indices_end, values, offset, options, ctx);
       }
     }
 
-    return compare_sorter_(indices_begin, indices_end, values, offset, options);
+    return compare_sorter_(indices_begin, indices_end, values, offset, options, ctx);
   }
 
  private:
@@ -430,9 +433,9 @@ class ArrayCountOrCompareSorter {
 
 class ArrayNullSorter {
  public:
-  NullPartitionResult operator()(uint64_t* indices_begin, uint64_t* indices_end,
-                                 const Array& values, int64_t offset,
-                                 const ArraySortOptions& options) {
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& values, int64_t offset,
+                                         const ArraySortOptions& options, ExecContext*) {
     return NullPartitionResult::NullsOnly(indices_begin, indices_end,
                                           options.null_placement);
   }
@@ -518,8 +521,7 @@ struct ArraySortIndices {
     ArrayType arr(batch[0].array.ToArrayData());
     ARROW_ASSIGN_OR_RAISE(auto sorter, GetArraySorter(*GetPhysicalType(arr.type())));
 
-    sorter(out_begin, out_end, arr, 0, options);
-    return Status::OK();
+    return sorter(out_begin, out_end, arr, 0, options, ctx->exec_context()).status();
   }
 };
 
