@@ -61,6 +61,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
   private FlightStreamQueue flightStreamQueue;
   private VectorSchemaRootTransformer transformer;
   private BlockingQueue<VectorSchemaRoot> vectorSchemaRoots;
+  private VectorSchemaRoot currentRoot;
   private Schema schema;
   private boolean streamHasNext;
   private BufferAllocator allocator;
@@ -197,8 +198,9 @@ public final class ArrowFlightJdbcFlightStreamResultSet
 
   private void executeNextRoot() throws SQLException {
     try {
-      VectorSchemaRoot rootToProcess = vectorSchemaRoots.poll(10, TimeUnit.SECONDS);
-      execute(rootToProcess, schema);
+      ofNullable(currentRoot).ifPresent(AutoCloseables::closeNoChecked);
+      currentRoot = vectorSchemaRoots.poll(10, TimeUnit.SECONDS);
+      execute(currentRoot, schema);
     } catch (InterruptedException e) {
       throw new SQLException("Could not take root from the queue", e);
     }
@@ -266,7 +268,6 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     List<VectorSchemaRoot> roots = new LinkedList<>();
     vectorSchemaRoots.drainTo(roots);
     roots.forEach(AutoCloseables::closeNoChecked);
-    getAllocator().close();
   }
 
   @Override
