@@ -231,10 +231,6 @@ namespace Apache.Arrow.Ipc
             ByteBuffer bodyData,
             IBufferCreator bufferCreator)
         {
-            if (field.DataType.TypeId == ArrowTypeId.Map)
-            {
-                var i = 1;
-            }
             ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
             if (!recordBatchEnumerator.MoveNextBuffer())
             {
@@ -265,7 +261,7 @@ namespace Apache.Arrow.Ipc
                 recordBatchEnumerator.MoveNextBuffer();
 
                 arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
-            } 
+            }
 
             ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData, bufferCreator);
 
