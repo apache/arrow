@@ -1335,6 +1335,54 @@ func (ps *ParquetIOTestSuite) TestNestedNullableField() {
 	ps.roundTripTable(mem, tbl, false)
 }
 
+func (ps *ParquetIOTestSuite) TestNestedEmptyList() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	bldr := array.NewStructBuilder(mem, arrow.StructOf(
+		arrow.Field{
+			Name: "root",
+			Type: arrow.StructOf(
+				arrow.Field{
+					Name: "child1",
+					Type: arrow.ListOf(arrow.StructOf(
+						arrow.Field{
+							Name: "child2",
+							Type: arrow.ListOf(arrow.StructOf(
+								arrow.Field{
+									Name: "name",
+									Type: arrow.BinaryTypes.String,
+								},
+							)),
+						},
+					)),
+				},
+			),
+		},
+	))
+	defer bldr.Release()
+
+	rootBldr := bldr.FieldBuilder(0).(*array.StructBuilder)
+	child1Bldr := rootBldr.FieldBuilder(0).(*array.ListBuilder)
+	child1ElBldr := child1Bldr.ValueBuilder().(*array.StructBuilder)
+	child2Bldr := child1ElBldr.FieldBuilder(0).(*array.ListBuilder)
+
+	bldr.Append(true)
+	rootBldr.Append(true)
+	child1Bldr.Append(true)
+	child1ElBldr.Append(true)
+	child2Bldr.AppendEmptyValue()
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	field := arrow.Field{Name: "x", Type: arr.DataType(), Nullable: true}
+	expected := array.NewTableFromSlice(arrow.NewSchema([]arrow.Field{field}, nil), [][]arrow.Array{{arr}})
+	defer expected.Release()
+
+	ps.roundTripTable(mem, expected, false)
+}
+
 func (ps *ParquetIOTestSuite) TestCanonicalNestedRoundTrip() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(ps.T(), 0)
