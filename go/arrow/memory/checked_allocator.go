@@ -49,7 +49,12 @@ func (a *CheckedAllocator) Allocate(size int) []byte {
 
 	ptr := uintptr(unsafe.Pointer(&out[0]))
 	pcs := make([]uintptr, maxRetainedFrames)
-	runtime.Callers(allocFrames, pcs)
+
+	// For historical reasons the meaning of the skip argument
+	// differs between Caller and Callers. For Callers, 0 identifies
+	// the frame for the caller itself. We skip 2 additional frames
+	// here to get to the caller right before the call to Allocate.
+	runtime.Callers(allocFrames+2, pcs)
 	callersFrames := runtime.CallersFrames(pcs)
 	if pc, _, l, ok := runtime.Caller(allocFrames); ok {
 		a.allocs.Store(ptr, &dalloc{pc: pc, line: l, sz: size, callersFrames: callersFrames})
@@ -69,7 +74,12 @@ func (a *CheckedAllocator) Reallocate(size int, b []byte) []byte {
 	newptr := uintptr(unsafe.Pointer(&out[0]))
 	a.allocs.Delete(oldptr)
 	pcs := make([]uintptr, maxRetainedFrames)
-	runtime.Callers(reallocFrames, pcs)
+
+	// For historical reasons the meaning of the skip argument
+	// differs between Caller and Callers. For Callers, 0 identifies
+	// the frame for the caller itself. We skip 2 additional frames
+	// here to get to the caller right before the call to Reallocate.
+	runtime.Callers(reallocFrames+2, pcs)
 	callersFrames := runtime.CallersFrames(pcs)
 	if pc, _, l, ok := runtime.Caller(reallocFrames); ok {
 		a.allocs.Store(newptr, &dalloc{pc: pc, line: l, sz: size, callersFrames: callersFrames})
