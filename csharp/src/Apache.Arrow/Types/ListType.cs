@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public class ListType : NestedType
+    public sealed class ListType : NestedType
     {
         public override ArrowTypeId TypeId => ArrowTypeId.List;
         public override string Name => "list";
