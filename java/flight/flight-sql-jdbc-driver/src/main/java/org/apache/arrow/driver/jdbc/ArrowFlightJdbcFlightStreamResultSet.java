@@ -66,6 +66,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
   private boolean streamHasNext;
   private BufferAllocator allocator;
 
+
   ArrowFlightJdbcFlightStreamResultSet(final AvaticaStatement statement,
                                        final QueryState state,
                                        final Meta.Signature signature,
@@ -183,7 +184,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     VectorSchemaRoot theRoot = cloneRoot(originalRoot);
     if (transformer != null) {
       try {
-        theRoot = transformer.transform(theRoot, null);
+        theRoot = transformer.transform(originalRoot, theRoot);
       } catch (final Exception e) {
         throw new SQLException("Failed to transform VectorSchemaRoot.", e);
       }
