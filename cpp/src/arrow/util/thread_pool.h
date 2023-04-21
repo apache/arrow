@@ -22,6 +22,7 @@
 #include <queue>
 #include <type_traits>
 #include <utility>
+#include <unordered_set>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -276,6 +277,10 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                    StopCallback&&) override;
 
+  // Return the number of tasks either running or in the queue.
+  int GetNumTasks();
+
+
   /// \brief Runs the TopLevelTask and any scheduled tasks
   ///
   /// The TopLevelTask (or one of the tasks it schedules) must either return an invalid
@@ -367,14 +372,16 @@ class ARROW_EXPORT SerialExecutor : public Executor {
     return Iterator<T>(SerialIterator{std::move(serial_executor), std::move(generator)});
   }
 
- private:
-  SerialExecutor();
+protected:
+  virtual void RunLoop();
 
   // State uses mutex
   struct State;
   std::shared_ptr<State> state_;
 
-  void RunLoop();
+  SerialExecutor();
+
+
   // We mark the serial executor "finished" when there should be
   // no more tasks scheduled on it.  It's not strictly needed but
   // can help catch bugs where we are trying to use the executor
@@ -393,7 +400,74 @@ class ARROW_EXPORT SerialExecutor : public Executor {
     RunLoop();
     return final_fut;
   }
+
+#ifdef ARROW_DISABLE_THREADING
+  // we have to run tasks from all live executors
+  // during RunLoop if we don't have threading
+    static std::unordered_set<SerialExecutor*> all_executors;
+    static void RunTasksOnAllExecutors(); // run loop until everything works okay
+
+#endif // ARROW_DISABLE_THREADING
+
 };
+
+#ifdef ARROW_DISABLE_THREADING
+// an executor implementation which pretends to be a thread pool but runs everything
+// on the main thread using a static queue (shared between all thread pools, otherwise
+// cross-threadpool dependencies will break everything)
+class ARROW_EXPORT ThreadPool : public SerialExecutor
+{
+  public:
+
+    ARROW_FRIEND_EXPORT friend ThreadPool* GetCpuThreadPool();
+
+
+    static Result<std::shared_ptr<ThreadPool>> Make(int threads);
+
+    // Like Make(), but takes care that the returned ThreadPool is compatible
+    // with destruction late at process exit.
+    static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
+
+    // Destroy thread pool; the pool will first be shut down
+    ~ThreadPool() override;
+
+    // Return the desired number of worker threads.
+    // The actual number of workers may lag a bit before being adjusted to
+    // match this value.
+    int GetCapacity() override
+    {
+      return 1;
+    }
+
+    bool OwnsThisThread() override
+    {
+      return true;
+    }
+
+    // Dynamically change the number of worker threads.
+    // - no op when threading is disabled
+    Status SetCapacity(int threads){return Status::OK();}
+
+    static int DefaultCapacity(){return 1;}
+
+    // Shutdown the pool.  Once the pool starts shutting down, new tasks
+    // cannot be submitted anymore.
+    // If "wait" is true, shutdown waits for all pending tasks to be finished.
+    // If "wait" is false, workers are stopped as soon as currently executing
+    // tasks are finished.
+    Status Shutdown(bool wait = true);
+
+    // Wait for the thread pool to become idle
+    //
+    // This is useful for sequencing tests
+    void WaitForIdle();    
+  protected:
+    static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
+    ThreadPool();
+
+};
+
+#else // ARROW_DISABLE_THREADING
 
 /// An Executor implementation spawning tasks in FIFO manner on a fixed-size
 /// pool of worker threads.
@@ -475,6 +549,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
   State* state_;
   bool shutdown_on_destroy_;
 };
+#endif // ARROW_DISABLE_THREADING
 
 // Return the process-global thread pool for CPU-bound tasks.
 ARROW_EXPORT ThreadPool* GetCpuThreadPool();

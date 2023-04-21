@@ -62,9 +62,22 @@ struct SerialExecutor::State {
   bool finished{false};
 };
 
-SerialExecutor::SerialExecutor() : state_(std::make_shared<State>()) {}
+#ifdef ARROW_DISABLE_THREADING
+// list of all SerialExecutor objects - as we need to run tasks from all pools at once in Run()
+std::unordered_set<SerialExecutor*> SerialExecutor::all_executors;
+#endif
+
+SerialExecutor::SerialExecutor() : state_(std::make_shared<State>()) 
+{
+#ifdef ARROW_DISABLE_THREADING
+  all_executors.insert(this);
+#endif
+}
 
 SerialExecutor::~SerialExecutor() {
+#ifdef ARROW_DISABLE_THREADING
+  all_executors.erase(this);
+#endif
   auto state = state_;
   std::unique_lock<std::mutex> lk(state->mutex);
   if (!state->task_queue.empty()) {
@@ -77,6 +90,38 @@ SerialExecutor::~SerialExecutor() {
   }
 }
 
+int SerialExecutor::GetNumTasks()
+{
+  auto state = state_;
+  return state_->task_queue.size();
+}
+
+#ifdef ARROW_DISABLE_THREADING
+Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
+                                 StopToken stop_token, StopCallback&& stop_callback) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  // Wrap the task to propagate a parent tracing span to it
+  // XXX should there be a generic utility in tracing_internal.h for this?
+  task = [func = std::move(task),
+          active_span =
+              ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()]() mutable {
+    auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
+    std::move(func)();
+  };
+#endif// ARROW_WITH_OPENTELEMETRY
+
+  if (state_->finished) {
+    return Status::Invalid(
+        "Attempt to schedule a task on a serial executor that has already finished or "
+        "been abandoned");
+  }
+
+  state_->task_queue.push_back( Task{std::move(task), std::move(stop_token), std::move(stop_callback)});
+  SerialExecutor::RunTasksOnAllExecutors();
+  return Status::OK();                                                                 
+}
+
+#else //ARROW_DISABLE_THREADING
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
 #ifdef ARROW_WITH_OPENTELEMETRY
@@ -110,7 +155,7 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
   state->wait_for_tasks.notify_one();
   return Status::OK();
 }
-
+#endif
 void SerialExecutor::Pause() {
   // Same comment as SpawnReal above
   auto state = state_;
@@ -147,6 +192,98 @@ bool SerialExecutor::OwnsThisThread() {
   std::lock_guard lk(state_->mutex);
   return std::this_thread::get_id() == state_->current_thread;
 }
+#if ARROW_DISABLE_THREADING
+
+void SerialExecutor::RunTasksOnAllExecutors()
+{
+  bool run_task=true;
+  while(run_task)
+  {
+    run_task=false;
+    for(auto it=all_executors.begin();it!=all_executors.end();it++)
+    {
+        SerialExecutor* exe = *it;
+        if(!(exe->state_->paused || exe->state_->task_queue.empty() || exe->state_->finished))
+        {
+          Task task = std::move(exe->state_->task_queue.front());
+          exe->state_->task_queue.pop_front();
+          run_task=true;
+          if (!task.stop_token.IsStopRequested()) {
+            std::move(task.callable)();
+          } else {
+            if (task.stop_callback) {
+              std::move(task.stop_callback)(task.stop_token.Poll());
+            }
+          }
+        }
+    }
+  }
+}
+
+// run tasks in this thread and queue things from other executors if required
+// (e.g. when a compute task depends on an IO request)
+void SerialExecutor::RunLoop()
+{
+  // If paused we break out immediately.  If finished we only break out
+  // when all work is done.
+  while (!state_->paused && !(state_->finished && state_->task_queue.empty())) {
+
+    // The inner loop is to check if we need to sleep (e.g. while waiting on some
+    // async task to finish from another thread pool).  We still need to check paused
+    // because sometimes we will pause even with work leftover when processing
+    // an async generator
+    while (!state_->paused && !state_->task_queue.empty()) {
+      Task task = std::move(state_->task_queue.front());
+      state_->task_queue.pop_front();
+      if (!task.stop_token.IsStopRequested()) {
+        std::move(task.callable)();
+      } else {
+        if (task.stop_callback) {
+          std::move(task.stop_callback)(task.stop_token.Poll());
+        }
+        // Can't break here because there may be cleanup tasks down the chain we still
+        // need to run.
+      }
+    }
+    // In this case we must be waiting on work from external (e.g. I/O) executors. Run things
+    // in all serialexecutors until we have something in queue
+
+    int executor_pos=0;
+    while ((state_->paused || state_->task_queue.empty() ) && !state_->finished)
+    {
+      // we cycle round executors in turn, in case e.g. we are reading multiple
+      // file inputs or something like that 
+      // n.b. we don't do this with an iterator because
+      // these calls may delete or add executors
+      int count=(executor_pos)%all_executors.size();
+      for(auto it=all_executors.begin();it!=all_executors.end();it++)
+      {
+        if (count==0)
+        {
+          // run a single task from this executor if it isn't paused
+          SerialExecutor* exe = *it;
+          if(!(exe->state_->paused || exe->state_->task_queue.empty() || exe->state_->finished))
+          {
+            Task task = std::move(exe->state_->task_queue.front());
+            exe->state_->task_queue.pop_front();
+            if (!task.stop_token.IsStopRequested()) {
+              std::move(task.callable)();
+            } else {
+              if (task.stop_callback) {
+                std::move(task.stop_callback)(task.stop_token.Poll());
+              }
+            }
+          }
+          break;
+        }
+        count-=1;
+      }
+      executor_pos+=1;
+    }
+  }
+}
+
+#else //ARROW_DISABLE_THREADING
 
 void SerialExecutor::RunLoop() {
   // This is called from the SerialExecutor's main thread, so the
@@ -173,16 +310,65 @@ void SerialExecutor::RunLoop() {
         // Can't break here because there may be cleanup tasks down the chain we still
         // need to run.
       }
-      lk.lock();
     }
     // In this case we must be waiting on work from external (e.g. I/O) executors.  Wait
     // for tasks to arrive (typically via transferred futures).
     state_->wait_for_tasks.wait(lk, [&] {
       return state_->paused || state_->finished || !state_->task_queue.empty();
     });
+
   }
   state_->current_thread = {};
 }
+#endif //ARROW_DISABLE_THREADING
+
+#if ARROW_DISABLE_THREADING
+
+ThreadPool::ThreadPool()
+{
+  
+}
+
+Status ThreadPool::Shutdown(bool wait)
+{
+  if(wait)
+  {
+    RunLoop();
+  }
+  return Status::OK();
+}
+
+// Wait for the 'thread pool' to become idle
+// including running tasks from other pools if
+// needed
+void ThreadPool::WaitForIdle()
+{
+  while(!state_->task_queue.empty())
+  {
+    RunLoop();
+  }
+}
+
+Result<std::shared_ptr<ThreadPool>> ThreadPool::Make(int threads) {
+  auto pool = std::shared_ptr<ThreadPool>(new ThreadPool());
+  RETURN_NOT_OK(pool->SetCapacity(threads));
+  return pool;
+}
+
+Result<std::shared_ptr<ThreadPool>> ThreadPool::MakeEternal(int threads) {
+  ARROW_ASSIGN_OR_RAISE(auto pool, Make(threads));
+  // On Windows, the ThreadPool destructor may be called after non-main threads
+  // have been killed by the OS, and hang in a condition variable.
+  // On Unix, we want to avoid leak reports by Valgrind.
+  return pool;
+}
+
+ThreadPool::~ThreadPool()
+{
+  // NOP
+}
+
+#else // ARROW_DISABLE_THREADING
 
 struct ThreadPool::State {
   State() = default;
@@ -531,6 +717,8 @@ int ThreadPool::DefaultCapacity() {
   }
   return capacity;
 }
+
+#endif //ARROW_DISABLE_THREADING
 
 // Helper for the singleton pattern
 std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
