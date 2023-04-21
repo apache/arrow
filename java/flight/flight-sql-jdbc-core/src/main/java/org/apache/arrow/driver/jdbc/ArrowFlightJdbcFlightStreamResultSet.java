@@ -35,7 +35,6 @@ import org.apache.arrow.driver.jdbc.utils.FlightStreamQueue;
 import org.apache.arrow.driver.jdbc.utils.VectorSchemaRootTransformer;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
-import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -61,10 +60,8 @@ public final class ArrowFlightJdbcFlightStreamResultSet
   private FlightStreamQueue flightStreamQueue;
   private VectorSchemaRootTransformer transformer;
   private BlockingQueue<VectorSchemaRoot> vectorSchemaRoots;
-  private VectorSchemaRoot currentRoot;
   private Schema schema;
   private boolean streamHasNext;
-  private BufferAllocator allocator;
 
   ArrowFlightJdbcFlightStreamResultSet(final AvaticaStatement statement,
                                        final QueryState state,
@@ -161,16 +158,8 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     }
   }
 
-  private BufferAllocator getAllocator() {
-    if (allocator == null) {
-      allocator = connection.getBufferAllocator().newChildAllocator("vsr-copier", 0, Long.MAX_VALUE);
-    }
-
-    return allocator;
-  }
-
   private VectorSchemaRoot cloneRoot(VectorSchemaRoot originalRoot) {
-    VectorSchemaRoot theRoot = VectorSchemaRoot.create(originalRoot.getSchema(), getAllocator());
+    VectorSchemaRoot theRoot = VectorSchemaRoot.create(originalRoot.getSchema(), connection.getBufferAllocator());
     VectorLoader loader = new VectorLoader(theRoot);
     VectorUnloader unloader = new VectorUnloader(originalRoot);
     try (ArrowRecordBatch recordBatch = unloader.getRecordBatch()) {
@@ -183,9 +172,13 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     VectorSchemaRoot theRoot = cloneRoot(originalRoot);
     if (transformer != null) {
       try {
-        theRoot = transformer.transform(theRoot, null);
+        theRoot = transformer.transform(originalRoot, theRoot);
       } catch (final Exception e) {
-        throw new SQLException("Failed to transform VectorSchemaRoot.", e);
+        try {
+          throw new SQLException("Failed to transform VectorSchemaRoot.", e);
+        } catch (SQLException ex) {
+          throw new RuntimeException(ex);
+        }
       }
     }
 
@@ -198,9 +191,8 @@ public final class ArrowFlightJdbcFlightStreamResultSet
 
   private void executeNextRoot() throws SQLException {
     try {
-      ofNullable(currentRoot).ifPresent(AutoCloseables::closeNoChecked);
-      currentRoot = vectorSchemaRoots.poll(10, TimeUnit.SECONDS);
-      execute(currentRoot, schema);
+      VectorSchemaRoot rootToProcess = vectorSchemaRoots.poll(10, TimeUnit.SECONDS);
+      execute(rootToProcess, schema);
     } catch (InterruptedException e) {
       throw new SQLException("Could not take root from the queue", e);
     }
