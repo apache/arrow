@@ -410,33 +410,57 @@ TEST(ArraySortIndicesFunction, RandomDictionaryArray) {
   ::arrow::random::RandomArrayGenerator rng(/*seed=*/1234);
   constexpr int64_t kLength = 200;
   constexpr int64_t kDictLength = 20;
+  // Lengths of source arrays which each dictionary array's index and value arrays are
+  // sliced from
+  constexpr int64_t kNumIndices = kLength * 4;
+  constexpr int64_t kNumValues = kDictLength * 8;
 
-  // Ensure there are duplicates in the dictionary and the indices,
-  // and nulls in both as well.
-  auto dict_values = rng.StringWithRepeats(kDictLength, /*unique=*/kDictLength / 2,
-                                           /*min_length=*/1, /*max_length=*/10,
-                                           /*null_probability=*/0.2);
-  auto dict_indices = rng.Int64(kLength, 0, kDictLength - 1, /*null_probability = */ 0.2);
-  ASSERT_OK_AND_ASSIGN(auto dict_array,
-                       DictionaryArray::FromArrays(dict_indices, dict_values));
-  ASSERT_OK_AND_ASSIGN(auto decoded, DecodeDictionary(*dict_array));
+  // Ensure there are duplicates in the dictionary and the indices, and nulls in both as
+  // well.
+  auto source_values = rng.StringWithRepeats(kNumValues, /*unique=*/kNumValues / 2,
+                                             /*min_length=*/1, /*max_length=*/10,
+                                             /*null_probability=*/0.2);
+  auto source_indices =
+      rng.Int64(kNumIndices, 0, kDictLength - 1, /*null_probability = */ 0.2);
 
-  for (auto order : AllOrders()) {
-    for (auto null_placement : AllNullPlacements()) {
-      ArraySortOptions options{order, null_placement};
-      // Sorting the dictionary array...
-      ASSERT_OK_AND_ASSIGN(auto actual,
-                           CallFunction("array_sort_indices", {dict_array}, &options));
-      ValidateOutput(actual);
+  auto get_test_array = [&](int64_t indices_offset,
+                            int64_t values_offset) -> std::shared_ptr<Array> {
+    auto out = *DictionaryArray::FromArrays(
+        *source_indices->SliceSafe(indices_offset, kLength),
+        *source_values->SliceSafe(values_offset, kDictLength));
+    ARROW_CHECK_EQ(out->length(), kLength);
+    ARROW_CHECK_EQ(checked_cast<const DictionaryArray&>(*out).dictionary()->length(),
+                   kDictLength);
+    return out;
+  };
 
-      // should give identical results to sorting the decoded array
-      ASSERT_OK_AND_ASSIGN(auto expected,
-                           CallFunction("array_sort_indices", {decoded}, &options));
-      AssertDatumsEqual(expected, actual, /*verbose=*/true);
+  // Test cases are sliced from the beginning/middle/end
+  ArrayVector dict_arrays;
+  dict_arrays.push_back(get_test_array(0, 0));
+  dict_arrays.push_back(get_test_array(kNumIndices / 3, kNumValues / 3));
+  dict_arrays.push_back(get_test_array(kNumIndices - kLength, kNumValues - kDictLength));
+
+  for (size_t i = 0; i < dict_arrays.size(); ++i) {
+    ARROW_SCOPED_TRACE("i = ", i);
+    auto dict_array = dict_arrays[i];
+
+    ASSERT_OK_AND_ASSIGN(auto decoded, DecodeDictionary(*dict_array));
+
+    for (auto order : AllOrders()) {
+      for (auto null_placement : AllNullPlacements()) {
+        ArraySortOptions options{order, null_placement};
+        // Sorting the dictionary array...
+        ASSERT_OK_AND_ASSIGN(auto actual,
+                             CallFunction("array_sort_indices", {dict_array}, &options));
+        ValidateOutput(actual);
+
+        // should give identical results to sorting the decoded array
+        ASSERT_OK_AND_ASSIGN(auto expected,
+                             CallFunction("array_sort_indices", {decoded}, &options));
+        AssertDatumsEqual(expected, actual, /*verbose=*/true);
+      }
     }
   }
-
-  // TODO test with sliced dict indices and values...
 }
 
 TEST(ArraySortIndicesFunction, ChunkedArray) {

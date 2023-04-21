@@ -229,9 +229,13 @@ class ArrayCompareSorter<DictionaryType> {
     if (array->null_count() > 0) {
       null_bitmap = array->null_bitmap();
       data = array->data()->Copy();
+      if (data->offset > 0) {
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, arrow::internal::CopyBitmap(
+                                               ctx->memory_pool(), null_bitmap->data(),
+                                               data->offset, data->length));
+      }
       data->buffers[0] = nullptr;
       data->null_count = 0;
-      DCHECK_EQ(data->offset, 0);  // FIXME
     }
     ARROW_ASSIGN_OR_RAISE(auto rank_datum,
                           CallFunction("rank", {array}, &rank_options, ctx));
