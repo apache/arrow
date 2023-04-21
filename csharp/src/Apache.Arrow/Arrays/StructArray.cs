@@ -91,7 +91,7 @@ namespace Apache.Arrow
                             .Select(i =>
                             {
                                 // Check if all values in a row are nulls
-                                bool isValid = checkNulls.All(array => array.IsValid(i));
+                                bool isValid = checkNulls.Any(array => array.IsValid(i));
 
                                 // Add in builder increment
                                 if (!isValid)
