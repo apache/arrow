@@ -135,6 +135,24 @@ namespace Apache.Arrow
         {
         }
 
+        public IEnumerable<Tuple<K, V>> GetTuple<TKeyArray, K, TValueArray, V>(int index, Func<TKeyArray, int, K> getKey, Func<TValueArray, int, V> getValue)
+            where TKeyArray : Array where TValueArray : Array
+        {
+            ReadOnlySpan<int> offsets = ValueOffsets;
+            // Get key values
+            int start = offsets[index];
+            int end = offsets[index + 1];
+            StructArray array = KeyValues.Slice(start, end - start) as StructArray;
+
+            TKeyArray keyArray = array.Fields[0] as TKeyArray;
+            TValueArray valueArray = array.Fields[1] as TValueArray;
+
+            for (int i = start; i < end; i++)
+            {
+                yield return new Tuple<K, V>(getKey(keyArray, i), getValue(valueArray, i));
+            }
+        }
+
 #if NETCOREAPP3_1_OR_GREATER
         public IEnumerable<KeyValuePair<K,V>> GetKeyValuePairs<TKeyArray, K, TValueArray, V>(int index, Func<TKeyArray, int, K> getKey, Func<TValueArray, int, V> getValue)
             where TKeyArray : Array where TValueArray : Array
