@@ -13,12 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Apache.Arrow.Types;
-using Apache.Arrow.Ipc;
 using Xunit;
-using System;
 
 namespace Apache.Arrow.Tests
 {

@@ -198,7 +198,8 @@ namespace Apache.Arrow.Ipc
                     {
                         throw new InvalidDataException($"Map type must have exactly one struct child.");
                     }
-                    return new Types.MapType(childFields[0]);
+                    Flatbuf.Map meta = field.Type<Flatbuf.Map>().Value;
+                    return new Types.MapType(childFields[0], meta.KeysSorted);
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }
