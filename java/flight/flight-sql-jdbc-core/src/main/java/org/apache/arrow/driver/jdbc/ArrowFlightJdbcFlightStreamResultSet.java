@@ -170,9 +170,11 @@ public final class ArrowFlightJdbcFlightStreamResultSet
 
   private void storeRoot(VectorSchemaRoot originalRoot) throws SQLException {
     VectorSchemaRoot theRoot = cloneRoot(originalRoot);
+    VectorSchemaRoot transformedRoot = null;
     if (transformer != null) {
       try {
-        theRoot = transformer.transform(theRoot, null);
+        transformedRoot = transformer.transform(theRoot, null);
+        theRoot.close();
       } catch (final Exception e) {
         try {
           throw new SQLException("Failed to transform VectorSchemaRoot.", e);
@@ -183,7 +185,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     }
 
     try {
-      vectorSchemaRoots.put(theRoot);
+      vectorSchemaRoots.put(ofNullable(transformedRoot).orElse(theRoot));
     } catch (InterruptedException e) {
       throw new SQLException("Could not put root to the queue", e);
     }
