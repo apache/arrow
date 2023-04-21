@@ -262,6 +262,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     List<VectorSchemaRoot> roots = new LinkedList<>();
     vectorSchemaRoots.drainTo(roots);
     roots.forEach(AutoCloseables::closeNoChecked);
+    ofNullable(currentRoot).ifPresent(AutoCloseables::closeNoChecked);
   }
 
   @Override
