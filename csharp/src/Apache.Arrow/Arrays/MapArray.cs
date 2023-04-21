@@ -135,7 +135,7 @@ namespace Apache.Arrow
         {
         }
 
-        public IEnumerable<Tuple<K, V>> GetTuple<TKeyArray, K, TValueArray, V>(int index, Func<TKeyArray, int, K> getKey, Func<TValueArray, int, V> getValue)
+        public IEnumerable<Tuple<K, V>> GetTuples<TKeyArray, K, TValueArray, V>(int index, Func<TKeyArray, int, K> getKey, Func<TValueArray, int, V> getValue)
             where TKeyArray : Array where TValueArray : Array
         {
             ReadOnlySpan<int> offsets = ValueOffsets;

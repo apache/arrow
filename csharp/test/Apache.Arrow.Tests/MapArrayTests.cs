@@ -50,9 +50,9 @@ namespace Apache.Arrow.Tests
 
             MapArray array = builder.Build();
 
-            Assert.Equal(new Tuple<string, long?>[] { kv0 }, array.GetTuple<StringArray, string, Int64Array, long?>(0, GetKey, GetValue).ToArray());
+            Assert.Equal(new Tuple<string, long?>[] { kv0 }, array.GetTuples<StringArray, string, Int64Array, long?>(0, GetKey, GetValue).ToArray());
             Assert.True(array.IsNull(1));
-            Assert.Equal(new Tuple<string, long?>[] { kv1, kv2 }, array.GetTuple<StringArray, string, Int64Array, long?>(2, GetKey, GetValue).ToArray());
+            Assert.Equal(new Tuple<string, long?>[] { kv1, kv2 }, array.GetTuples<StringArray, string, Int64Array, long?>(2, GetKey, GetValue).ToArray());
         }
 
 #if NETCOREAPP3_1_OR_GREATER
