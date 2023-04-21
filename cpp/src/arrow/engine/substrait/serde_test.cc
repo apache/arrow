@@ -4356,7 +4356,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
           "extension_multi": {
             "common": {
               "emit": {
-                "outputMapping": [0, 1, 2, 5]
+                "outputMapping": [0, 1, 2, 3]
               }
             },
             "inputs": [
@@ -5156,7 +5156,7 @@ TEST(Substrait, PlanWithExtension) {
           "extension_multi": {
             "common": {
               "emit": {
-                "outputMapping": [0, 1, 2, 5]
+                "outputMapping": [0, 1, 2, 3]
               }
             },
             "inputs": [
@@ -5475,7 +5475,7 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
             }
           }
         },
-        "names": ["time", "key", "value1", "time2", "key2", "value2"]
+        "names": ["time", "key", "value1", "value2"]
       }
     }],
     "expectedTypeUrls": []
@@ -5507,12 +5507,10 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
   auto out_schema = schema({field("time", int32()), field("key", int32()),
-                            field("value1", float64()), field("time2", int32()),
-                            field("key2", int32()), field("value2", float64())});
+                            field("value1", float64()), field("value2", float64())});
 
   auto expected_table = TableFromJSON(
-      out_schema,
-      {"[[2, 1, 1.1, 2, 1, 1.2], [4, 1, 2.1, 4, 1, 1.2], [6, 2, 3.1, 6, 2, 3.2]]"});
+      out_schema, {"[[2, 1, 1.1, 1.2], [4, 1, 2.1, 1.2], [6, 2, 3.1, 3.2]]"});
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
