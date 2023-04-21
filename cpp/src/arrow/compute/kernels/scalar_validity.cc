@@ -119,6 +119,7 @@ static void SetDenseUnionLogicalNullBits(const ArraySpan& span, uint8_t* out_bit
 template <typename RunEndCType>
 void SetREELogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap,
                            int64_t out_offset) {
+  DCHECK(!is_nested(span.type->id()));
   const auto& values = arrow::ree_util::ValuesArray(span);
   const auto* values_bitmap = values.MayHaveNulls() ? values.buffers[0].data : NULLPTR;
 
