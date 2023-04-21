@@ -424,6 +424,7 @@ append_avx2_src(compute/key_hash_avx2.cc)
 append_avx2_src(compute/key_map_avx2.cc)
 append_avx2_src(compute/row/compare_internal_avx2.cc)
 append_avx2_src(compute/row/encode_internal_avx2.cc)
+append_avx2_src(compute/util_avx2.cc)
 
 if(ARROW_COMPUTE)
   # Include the remaining kernels
@@ -702,6 +703,12 @@ endif()
 
 if(ARROW_TESTING)
   # that depend on gtest
+  set(ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
+  set(ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+  if(GTest_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
+    list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
+  endif()
   add_arrow_lib(arrow_testing
                 CMAKE_PACKAGE_NAME
                 ArrowTesting
@@ -721,14 +728,14 @@ if(ARROW_TESTING)
                 arrow_shared
                 ${ARROW_GTEST_GTEST}
                 SHARED_INSTALL_INTERFACE_LIBS
-                Arrow::arrow_shared
+                ${ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
                 arrow::flatbuffers
                 rapidjson::rapidjson
                 arrow_static
                 ${ARROW_GTEST_GTEST}
                 STATIC_INSTALL_INTERFACE_LIBS
-                Arrow::arrow_static)
+                ${ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS})
 
   add_custom_target(arrow_testing)
   add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})

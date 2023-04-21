@@ -19,6 +19,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v12/arrow/flight"
 	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
 	"github.com/apache/arrow/go/v12/arrow/memory"
 
@@ -226,24 +228,14 @@ func (s *Stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 
 	rows := Rows{}
 	for _, endpoint := range info.Endpoint {
-		reader, err := s.client.DoGet(ctx, endpoint.GetTicket())
+		schema, records, err := readEndpoint(ctx, s.client, endpoint)
 		if err != nil {
-			return nil, fmt.Errorf("getting ticket failed: %w", err)
-		}
-
-		rows.schema = reader.Schema()
-		for reader.Next() {
-			record := reader.Record()
-			record.Retain()
-			rows.records = append(rows.records, record)
-
-		}
-		if err := reader.Err(); err != nil {
-			if err == io.EOF {
-				break
-			}
 			return &rows, err
 		}
+		if rows.schema == nil {
+			rows.schema = schema
+		}
+		rows.records = append(rows.records, records...)
 	}
 
 	return &rows, nil
@@ -442,11 +434,69 @@ func (c *Connection) PrepareContext(ctx context.Context, query string) (driver.S
 		return nil, err
 	}
 
-	return &Stmt{
+	s := &Stmt{
 		stmt:    stmt,
 		client:  c.client,
 		timeout: c.timeout,
-	}, nil
+	}
+
+	return s, nil
+}
+
+func (c *Connection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	if len(args) > 0 {
+		// We cannot pass arguments to the client so we skip a direct query.
+		// This will force the sql-framework to prepare and execute queries.
+		return nil, driver.ErrSkip
+	}
+
+	if _, set := ctx.Deadline(); !set && c.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, c.timeout)
+		defer cancel()
+	}
+
+	info, err := c.client.Execute(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	rows := Rows{}
+	for _, endpoint := range info.Endpoint {
+		schema, records, err := readEndpoint(ctx, c.client, endpoint)
+		if err != nil {
+			return &rows, err
+		}
+		if rows.schema == nil {
+			rows.schema = schema
+		}
+		rows.records = append(rows.records, records...)
+	}
+
+	return &rows, nil
+
+}
+
+func readEndpoint(ctx context.Context, client *flightsql.Client, endpoint *flight.FlightEndpoint) (*arrow.Schema, []arrow.Record, error) {
+	reader, err := client.DoGet(ctx, endpoint.GetTicket())
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting ticket failed: %w", err)
+	}
+	defer reader.Release()
+
+	schema := reader.Schema()
+	var records []arrow.Record
+	for reader.Next() {
+		record := reader.Record()
+		record.Retain()
+		records = append(records, record)
+	}
+
+	if err := reader.Err(); err != nil && !errors.Is(err, io.EOF) {
+		return nil, nil, err
+	}
+
+	return schema, records, nil
 }
 
 // Close invalidates and potentially stops any current

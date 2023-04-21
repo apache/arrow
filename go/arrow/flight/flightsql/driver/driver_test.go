@@ -745,6 +745,39 @@ func TestPreparedStatementNoSchema(t *testing.T) {
 	require.NotNil(t, rows)
 }
 
+func TestNoPreparedStatementImplemented(t *testing.T) {
+	// Setup the expected test
+	backend := &MockServer{
+		DataSchema: arrow.NewSchema([]arrow.Field{
+			{Name: "time", Type: &arrow.Time64Type{Unit: arrow.Nanosecond}, Nullable: true},
+			{Name: "value", Type: &arrow.Int64Type{}, Nullable: false},
+		}, nil),
+		Data:                   "[]",
+		PreparedStatementError: "not supported",
+	}
+
+	// Instantiate a mock server
+	server := flight.NewServerWithMiddleware(nil)
+	server.RegisterFlightService(flightsql.NewFlightServer(backend))
+	require.NoError(t, server.Init("localhost:0"))
+	server.SetShutdownOnSignals(os.Interrupt, os.Kill)
+	go server.Serve()
+	defer server.Shutdown()
+
+	// Configure client
+	cfg := driver.DriverConfig{
+		Timeout: 5 * time.Second,
+		Address: server.Addr().String(),
+	}
+	db, err := sql.Open("flightsql", cfg.DSN())
+	require.NoError(t, err)
+	defer db.Close()
+
+	// Do query
+	_, err = db.Query("SELECT * FROM foo")
+	require.NoError(t, err)
+}
+
 // Mockup database server
 type MockServer struct {
 	flightsql.BaseServer
@@ -801,6 +834,22 @@ func (s *MockServer) DoGetStatement(ctx context.Context, ticket flightsql.Statem
 
 func (s *MockServer) GetFlightInfoPreparedStatement(ctx context.Context, stmt flightsql.PreparedStatementQuery, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
 	handle := stmt.GetPreparedStatementHandle()
+	ticket, err := flightsql.CreateStatementQueryTicket(handle)
+	if err != nil {
+		return nil, err
+	}
+	return &flight.FlightInfo{
+		FlightDescriptor: desc,
+		Endpoint: []*flight.FlightEndpoint{
+			{Ticket: &flight.Ticket{Ticket: ticket}},
+		},
+		TotalRecords: -1,
+		TotalBytes:   -1,
+	}, nil
+}
+
+func (s *MockServer) GetFlightInfoStatement(_ context.Context, query flightsql.StatementQuery, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	handle := query.GetTransactionId()
 	ticket, err := flightsql.CreateStatementQueryTicket(handle)
 	if err != nil {
 		return nil, err

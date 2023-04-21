@@ -46,26 +46,26 @@ std::vector<acero::Declaration::Input> MakeDeclarationInputs(
 
 class BaseExtensionProvider : public ExtensionProvider {
  public:
-  Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
-                               const std::vector<DeclarationInfo>& inputs,
-                               const ExtensionDetails& ext_details,
-                               const ExtensionSet& ext_set) override {
+  Result<DeclarationInfo> MakeRel(const ConversionOptions& conv_opts,
+                                  const std::vector<DeclarationInfo>& inputs,
+                                  const ExtensionDetails& ext_details,
+                                  const ExtensionSet& ext_set) override {
     auto details = dynamic_cast<const DefaultExtensionDetails&>(ext_details);
     return MakeRel(conv_opts, inputs, details.rel, ext_set);
   }
 
-  virtual Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
-                                       const std::vector<DeclarationInfo>& inputs,
-                                       const google::protobuf::Any& rel,
-                                       const ExtensionSet& ext_set) = 0;
+  virtual Result<DeclarationInfo> MakeRel(const ConversionOptions& conv_opts,
+                                          const std::vector<DeclarationInfo>& inputs,
+                                          const google::protobuf::Any& rel,
+                                          const ExtensionSet& ext_set) = 0;
 };
 
 class DefaultExtensionProvider : public BaseExtensionProvider {
  public:
-  Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
-                               const std::vector<DeclarationInfo>& inputs,
-                               const google::protobuf::Any& rel,
-                               const ExtensionSet& ext_set) override {
+  Result<DeclarationInfo> MakeRel(const ConversionOptions& conv_opts,
+                                  const std::vector<DeclarationInfo>& inputs,
+                                  const google::protobuf::Any& rel,
+                                  const ExtensionSet& ext_set) override {
     if (rel.Is<substrait_ext::AsOfJoinRel>()) {
       substrait_ext::AsOfJoinRel as_of_join_rel;
       rel.UnpackTo(&as_of_join_rel);
@@ -86,9 +86,9 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
   }
 
  private:
-  Result<RelationInfo> MakeAsOfJoinRel(const std::vector<DeclarationInfo>& inputs,
-                                       const substrait_ext::AsOfJoinRel& as_of_join_rel,
-                                       const ExtensionSet& ext_set) {
+  Result<DeclarationInfo> MakeAsOfJoinRel(
+      const std::vector<DeclarationInfo>& inputs,
+      const substrait_ext::AsOfJoinRel& as_of_join_rel, const ExtensionSet& ext_set) {
     if (inputs.size() < 2) {
       return Status::Invalid("substrait_ext::AsOfJoinNode too few input tables: ",
                              inputs.size());
@@ -133,24 +133,21 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     for (size_t i = 0; i < inputs.size(); i++) {
       input_schema[i] = inputs[i].output_schema;
     }
-    std::vector<int> field_output_indices;
     ARROW_ASSIGN_OR_RAISE(auto schema,
-                          acero::asofjoin::MakeOutputSchema(input_schema, input_keys,
-                                                            &field_output_indices));
+                          acero::asofjoin::MakeOutputSchema(input_schema, input_keys));
     acero::AsofJoinNodeOptions asofjoin_node_opts{std::move(input_keys), tolerance};
 
     // declaration
     auto input_decls = MakeDeclarationInputs(inputs);
-    return RelationInfo{
-        {acero::Declaration("asofjoin", input_decls, std::move(asofjoin_node_opts)),
-         std::move(schema)},
-        std::move(field_output_indices)};
+    return DeclarationInfo{
+        acero::Declaration("asofjoin", input_decls, std::move(asofjoin_node_opts)),
+        std::move(schema)};
   }
 
-  Result<RelationInfo> MakeNamedTapRel(const ConversionOptions& conv_opts,
-                                       const std::vector<DeclarationInfo>& inputs,
-                                       const substrait_ext::NamedTapRel& named_tap_rel,
-                                       const ExtensionSet& ext_set) {
+  Result<DeclarationInfo> MakeNamedTapRel(const ConversionOptions& conv_opts,
+                                          const std::vector<DeclarationInfo>& inputs,
+                                          const substrait_ext::NamedTapRel& named_tap_rel,
+                                          const ExtensionSet& ext_set) {
     if (inputs.size() != 1) {
       return Status::Invalid(
           "substrait_ext::NamedTapRel requires a single input but got: ", inputs.size());
@@ -169,10 +166,10 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     ARROW_ASSIGN_OR_RAISE(
         auto decl, conv_opts.named_tap_provider(named_tap_rel.kind(), input_decls,
                                                 named_tap_rel.name(), renamed_schema));
-    return RelationInfo{{std::move(decl), std::move(renamed_schema)}, std::nullopt};
+    return DeclarationInfo{std::move(decl), std::move(renamed_schema)};
   }
 
-  Result<RelationInfo> MakeSegmentedAggregateRel(
+  Result<DeclarationInfo> MakeSegmentedAggregateRel(
       const ConversionOptions& conv_opts, const std::vector<DeclarationInfo>& inputs,
       const substrait_ext::SegmentedAggregateRel& seg_agg_rel,
       const ExtensionSet& ext_set) {
@@ -211,21 +208,13 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       aggregates.push_back(std::move(aggregate));
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto output_schema,
-        acero::aggregate::MakeOutputSchema(input_schema, keys, segment_keys, aggregates));
+    ARROW_ASSIGN_OR_RAISE(auto aggregate_schema,
+                          acero::aggregate::MakeOutputSchema(
+                              input_schema, keys, /*segment_keys=*/{}, aggregates));
 
-    ARROW_ASSIGN_OR_RAISE(auto decl_info, internal::MakeAggregateDeclaration(
-                                              std::move(inputs[0].declaration),
-                                              output_schema, std::move(aggregates),
-                                              std::move(keys), std::move(segment_keys)));
-
-    size_t out_size = output_schema->num_fields();
-    std::vector<int> field_output_indices(out_size);
-    for (int i = 0; i < static_cast<int>(out_size); i++) {
-      field_output_indices[i] = i;
-    }
-    return RelationInfo{decl_info, std::move(field_output_indices)};
+    return internal::MakeAggregateDeclaration(
+        std::move(inputs[0].declaration), std::move(aggregate_schema),
+        std::move(aggregates), std::move(keys), std::move(segment_keys));
   }
 };
 

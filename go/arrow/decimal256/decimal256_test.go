@@ -254,6 +254,153 @@ func TestPow(t *testing.T) {
 	}
 }
 
+func TestMax(t *testing.T) {
+	for _, tc := range []struct {
+		n    decimal256.Num
+		rhs  []decimal256.Num
+		want decimal256.Num
+	}{
+		{decimal256.New(0, 0, 0, 2), []decimal256.Num{decimal256.New(8, 4, 2, 1), decimal256.New(9, 0, 0, 8), decimal256.New(0, 17, 0, 0)}, decimal256.New(9, 0, 0, 8)},
+		{decimal256.New(0, 0, 0, 10), []decimal256.Num{decimal256.New(0, 4, 0, 1), decimal256.New(0, 0, 0, 8), decimal256.New(0, 0, 3, 0)}, decimal256.New(0, 4, 0, 1)},
+	} {
+		t.Run("max", func(t *testing.T) {
+			n := decimal256.Max(tc.n, tc.rhs...)
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
+func TestMin(t *testing.T) {
+	for _, tc := range []struct {
+		n    decimal256.Num
+		rhs  []decimal256.Num
+		want decimal256.Num
+	}{
+		{decimal256.New(0, 0, 0, 2), []decimal256.Num{decimal256.New(8, 4, 2, 1), decimal256.New(9, 0, 0, 8), decimal256.New(0, 17, 0, 0)}, decimal256.New(0, 0, 0, 2)},
+		{decimal256.New(0, 0, 0, 10), []decimal256.Num{decimal256.New(0, 4, 0, 1), decimal256.New(0, 0, 0, 8), decimal256.New(0, 0, 3, 0)}, decimal256.New(0, 0, 0, 8)},
+	} {
+		t.Run("min", func(t *testing.T) {
+			n := decimal256.Min(tc.n, tc.rhs...)
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
+func TestGreater(t *testing.T) {
+	for _, tc := range []struct {
+		n    decimal256.Num
+		rhs  decimal256.Num
+		want bool
+	}{
+		{decimal256.New(0, 0, 0, 2), decimal256.New(0, 0, 0, 1), true},
+		{decimal256.New(0, 0, 2, 0), decimal256.New(0, 0, 1, 0), true},
+		{decimal256.New(0, 2, 0, 0), decimal256.New(0, 1, 0, 0), true},
+		{decimal256.New(2, 0, 0, 0), decimal256.New(1, 0, 0, 0), true},
+		{decimal256.New(0, 0, 0, 2), decimal256.New(0, 0, 0, 3), false},
+		{decimal256.New(0, 0, 2, 0), decimal256.New(0, 0, 3, 0), false},
+		{decimal256.New(0, 2, 0, 0), decimal256.New(0, 3, 0, 0), false},
+		{decimal256.New(2, 0, 0, 0), decimal256.New(3, 0, 0, 0), false},
+		{decimal256.New(0, 0, 0, 2), decimal256.New(0, 0, 0, 2), false},
+		{decimal256.New(0, 0, 2, 0), decimal256.New(0, 0, 2, 0), false},
+		{decimal256.New(0, 2, 0, 0), decimal256.New(0, 2, 0, 0), false},
+		{decimal256.New(2, 0, 0, 0), decimal256.New(2, 0, 0, 0), false},
+		{decimal256.New(0, 0, 2, math.MaxUint64), decimal256.New(0, 0, 2, 1), true},
+		{decimal256.New(0, 2, math.MaxUint64, 0), decimal256.New(0, 2, 1, 0), true},
+		{decimal256.New(2, math.MaxUint64, 0, 0), decimal256.New(2, 1, 0, 0), true},
+		{decimal256.New(0, 0, 2, math.MaxUint64), decimal256.New(0, 0, 3, 1), false},
+		{decimal256.New(0, 2, math.MaxUint64, 0), decimal256.New(0, 3, 1, 0), false},
+		{decimal256.New(2, math.MaxUint64, 0, 0), decimal256.New(3, 1, 0, 0), false},
+		{decimal256.New(0, 0, 2, math.MaxUint64), decimal256.New(0, 0, 2, math.MaxUint64), false},
+		{decimal256.New(0, 2, math.MaxUint64, 0), decimal256.New(0, 2, math.MaxUint64, 0), false},
+		{decimal256.New(2, math.MaxUint64, 0, 0), decimal256.New(2, math.MaxUint64, 0, 0), false},
+	} {
+		t.Run("greater", func(t *testing.T) {
+			n := tc.n.Greater(tc.rhs)
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
+func TestLess(t *testing.T) {
+	for _, tc := range []struct {
+		n    decimal256.Num
+		rhs  decimal256.Num
+		want bool
+	}{
+		{decimal256.New(0, 0, 0, 2), decimal256.New(0, 0, 0, 1), false},
+		{decimal256.New(0, 0, 2, 0), decimal256.New(0, 0, 1, 0), false},
+		{decimal256.New(0, 2, 0, 0), decimal256.New(0, 1, 0, 0), false},
+		{decimal256.New(2, 0, 0, 0), decimal256.New(1, 0, 0, 0), false},
+		{decimal256.New(0, 0, 0, 2), decimal256.New(0, 0, 0, 3), true},
+		{decimal256.New(0, 0, 2, 0), decimal256.New(0, 0, 3, 0), true},
+		{decimal256.New(0, 2, 0, 0), decimal256.New(0, 3, 0, 0), true},
+		{decimal256.New(2, 0, 0, 0), decimal256.New(3, 0, 0, 0), true},
+		{decimal256.New(0, 0, 0, 2), decimal256.New(0, 0, 0, 2), false},
+		{decimal256.New(0, 0, 2, 0), decimal256.New(0, 0, 2, 0), false},
+		{decimal256.New(0, 2, 0, 0), decimal256.New(0, 2, 0, 0), false},
+		{decimal256.New(2, 0, 0, 0), decimal256.New(2, 0, 0, 0), false},
+		{decimal256.New(0, 0, 2, math.MaxUint64), decimal256.New(0, 0, 2, 1), false},
+		{decimal256.New(0, 2, math.MaxUint64, 0), decimal256.New(0, 2, 1, 0), false},
+		{decimal256.New(2, math.MaxUint64, 0, 0), decimal256.New(2, 1, 0, 0), false},
+		{decimal256.New(0, 0, 2, math.MaxUint64), decimal256.New(0, 0, 3, 1), true},
+		{decimal256.New(0, 2, math.MaxUint64, 0), decimal256.New(0, 3, 1, 0), true},
+		{decimal256.New(2, math.MaxUint64, 0, 0), decimal256.New(3, 1, 0, 0), true},
+		{decimal256.New(0, 0, 2, math.MaxUint64), decimal256.New(0, 0, 2, math.MaxUint64), false},
+		{decimal256.New(0, 2, math.MaxUint64, 0), decimal256.New(0, 2, math.MaxUint64, 0), false},
+		{decimal256.New(2, math.MaxUint64, 0, 0), decimal256.New(2, math.MaxUint64, 0, 0), false},
+	} {
+		t.Run("less", func(t *testing.T) {
+			n := tc.n.Less(tc.rhs)
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
+func TestCmp(t *testing.T) {
+	for _, tc := range []struct {
+		n    decimal256.Num
+		rhs  decimal256.Num
+		want int
+	}{
+		{decimal256.New(0, 0, 0, 2), decimal256.New(0, 0, 0, 1), 1},
+		{decimal256.New(0, 0, 2, 0), decimal256.New(0, 0, 1, 0), 1},
+		{decimal256.New(0, 2, 0, 0), decimal256.New(0, 1, 0, 0), 1},
+		{decimal256.New(2, 0, 0, 0), decimal256.New(1, 0, 0, 0), 1},
+		{decimal256.New(0, 0, 0, 2), decimal256.New(0, 0, 0, 3), -1},
+		{decimal256.New(0, 0, 2, 0), decimal256.New(0, 0, 3, 0), -1},
+		{decimal256.New(0, 2, 0, 0), decimal256.New(0, 3, 0, 0), -1},
+		{decimal256.New(2, 0, 0, 0), decimal256.New(3, 0, 0, 0), -1},
+		{decimal256.New(0, 0, 0, 2), decimal256.New(0, 0, 0, 2), 0},
+		{decimal256.New(0, 0, 2, 0), decimal256.New(0, 0, 2, 0), 0},
+		{decimal256.New(0, 2, 0, 0), decimal256.New(0, 2, 0, 0), 0},
+		{decimal256.New(2, 0, 0, 0), decimal256.New(2, 0, 0, 0), 0},
+		{decimal256.New(0, 0, 2, math.MaxUint64), decimal256.New(0, 0, 2, 1), 1},
+		{decimal256.New(0, 2, math.MaxUint64, 0), decimal256.New(0, 2, 1, 0), 1},
+		{decimal256.New(2, math.MaxUint64, 0, 0), decimal256.New(2, 1, 0, 0), 1},
+		{decimal256.New(0, 0, 2, math.MaxUint64), decimal256.New(0, 0, 3, 1), -1},
+		{decimal256.New(0, 2, math.MaxUint64, 0), decimal256.New(0, 3, 1, 0), -1},
+		{decimal256.New(2, math.MaxUint64, 0, 0), decimal256.New(3, 1, 0, 0), -1},
+		{decimal256.New(0, 0, 2, math.MaxUint64), decimal256.New(0, 0, 2, math.MaxUint64), 0},
+		{decimal256.New(0, 2, math.MaxUint64, 0), decimal256.New(0, 2, math.MaxUint64, 0), 0},
+		{decimal256.New(2, math.MaxUint64, 0, 0), decimal256.New(2, math.MaxUint64, 0, 0), 0},
+	} {
+		t.Run("cmp", func(t *testing.T) {
+			n := tc.n.Cmp(tc.rhs)
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
 func TestDecimalToBigInt(t *testing.T) {
 	tests := []struct {
 		arr [4]uint64

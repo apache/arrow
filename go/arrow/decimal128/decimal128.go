@@ -332,10 +332,12 @@ func (n Num) BigInt() *big.Int {
 	return toBigIntPositive(n)
 }
 
+// Greater returns true if the value represented by n is > other
 func (n Num) Greater(other Num) bool {
 	return other.Less(n)
 }
 
+// GreaterEqual returns true if the value represented by n is >= other
 func (n Num) GreaterEqual(other Num) bool {
 	return !n.Less(other)
 }
@@ -343,6 +345,48 @@ func (n Num) GreaterEqual(other Num) bool {
 // Less returns true if the value represented by n is < other
 func (n Num) Less(other Num) bool {
 	return n.hi < other.hi || (n.hi == other.hi && n.lo < other.lo)
+}
+
+// LessEqual returns true if the value represented by n is <= other
+func (n Num) LessEqual(other Num) bool {
+	return !n.Greater(other)
+}
+
+// Max returns the largest Decimal128 that was passed in the arguments
+func Max(first Num, rest ...Num) Num {
+	answer := first
+	for _, number := range rest {
+		if number.Greater(answer) {
+			answer = number
+		}
+	}
+	return answer
+}
+
+// Min returns the smallest Decimal128 that was passed in the arguments
+func Min(first Num, rest ...Num) Num {
+	answer := first
+	for _, number := range rest {
+		if number.Less(answer) {
+			answer = number
+		}
+	}
+	return answer
+}
+
+// Cmp compares the numbers represented by n and other and returns:
+//
+//	+1 if n > other
+//	 0 if n == other
+//	-1 if n < other
+func (n Num) Cmp(other Num) int {
+	switch {
+	case n.Greater(other):
+		return 1
+	case n.Less(other):
+		return -1
+	}
+	return 0
 }
 
 // IncreaseScaleBy returns a new decimal128.Num with the value scaled up by

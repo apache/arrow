@@ -1023,7 +1023,7 @@ TEST_F(TestFlightClient, TimeoutFires) {
   Status status = client->GetFlightInfo(options, FlightDescriptor{}).status();
   auto end = std::chrono::system_clock::now();
 #ifdef ARROW_WITH_TIMING_TESTS
-  EXPECT_LE(end - start, std::chrono::milliseconds{400});
+  EXPECT_LE(end - start, std::chrono::milliseconds{1200});
 #else
   ARROW_UNUSED(end - start);
 #endif

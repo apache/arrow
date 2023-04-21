@@ -1352,6 +1352,10 @@ fs___S3FileSystem__region <- function(fs) {
   .Call(`_arrow_fs___S3FileSystem__region`, fs)
 }
 
+FinalizeS3 <- function() {
+  invisible(.Call(`_arrow_FinalizeS3`))
+}
+
 fs___GcsFileSystem__Make <- function(anonymous, options) {
   .Call(`_arrow_fs___GcsFileSystem__Make`, anonymous, options)
 }
@@ -1978,6 +1982,10 @@ Schema__metadata <- function(schema) {
 
 Schema__WithMetadata <- function(schema, metadata) {
   .Call(`_arrow_Schema__WithMetadata`, schema, metadata)
+}
+
+Schema__WithNames <- function(schema, names) {
+  .Call(`_arrow_Schema__WithNames`, schema, names)
 }
 
 Schema__serialize <- function(schema) {

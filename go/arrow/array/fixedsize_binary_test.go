@@ -112,3 +112,43 @@ func TestFixedSizeBinarySlice(t *testing.T) {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
 }
+
+func TestFixedSizeBinary_MarshalUnmarshalJSON(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dtype := &arrow.FixedSizeBinaryType{ByteWidth: 4}
+	b := array.NewFixedSizeBinaryBuilder(mem, dtype)
+	defer b.Release()
+
+	var data = [][]byte{
+		[]byte("ABCD"),
+		[]byte("1234"),
+		nil,
+		[]byte("AZER"),
+	}
+	b.AppendValues(data[:2], nil)
+	b.AppendNull()
+	b.Append(data[3])
+
+	arr := b.NewFixedSizeBinaryArray()
+	defer arr.Release()
+
+	jsonBytes, err := arr.MarshalJSON()
+	if err != nil {
+		t.Fatalf("failed to marshal json: %v", err)
+	}
+
+	err = b.UnmarshalJSON(jsonBytes)
+	if err != nil {
+		t.Fatalf("failed to unmarshal json: %v", err)
+	}
+	gotArr := b.NewFixedSizeBinaryArray()
+	defer gotArr.Release()
+
+	gotString := gotArr.String()
+	wantString := arr.String()
+	if gotString != wantString {
+		t.Fatalf("got=%q, want=%q", gotString, wantString)
+	}
+}

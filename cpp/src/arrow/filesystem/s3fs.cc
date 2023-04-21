@@ -2571,100 +2571,137 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
 
 namespace {
 
-std::mutex aws_init_lock;
-Aws::SDKOptions aws_options;
-std::atomic<bool> aws_initialized(false);
+struct AwsInstance : public ::arrow::internal::Executor::Resource {
+  AwsInstance() : is_initialized_(false), is_finalized_(false) {}
+  ~AwsInstance() { Finalize(/*from_destructor=*/true); }
 
-Status DoInitializeS3(const S3GlobalOptions& options) {
-  Aws::Utils::Logging::LogLevel aws_log_level;
+  // Returns true iff the instance was newly initialized with `options`
+  Result<bool> EnsureInitialized(const S3GlobalOptions& options) {
+    bool expected = false;
+    if (is_finalized_.load()) {
+      return Status::Invalid("Attempt to initialize S3 after it has been finalized");
+    }
+    if (is_initialized_.compare_exchange_strong(expected, true)) {
+      DoInitialize(options);
+      return true;
+    }
+    return false;
+  }
+
+  bool IsInitialized() { return !is_finalized_ && is_initialized_; }
+
+  void Finalize(bool from_destructor = false) {
+    bool expected = true;
+    is_finalized_.store(true);
+    if (is_initialized_.compare_exchange_strong(expected, false)) {
+      if (from_destructor) {
+        ARROW_LOG(WARNING)
+            << " arrow::fs::FinalizeS3 was not called even though S3 was initialized.  "
+               "This could lead to a segmentation fault at exit";
+        RegionResolver::ResetDefaultInstance();
+        Aws::ShutdownAPI(aws_options_);
+      }
+    }
+  }
+
+ private:
+  void DoInitialize(const S3GlobalOptions& options) {
+    Aws::Utils::Logging::LogLevel aws_log_level;
 
 #define LOG_LEVEL_CASE(level_name)                             \
   case S3LogLevel::level_name:                                 \
     aws_log_level = Aws::Utils::Logging::LogLevel::level_name; \
     break;
 
-  switch (options.log_level) {
-    LOG_LEVEL_CASE(Fatal)
-    LOG_LEVEL_CASE(Error)
-    LOG_LEVEL_CASE(Warn)
-    LOG_LEVEL_CASE(Info)
-    LOG_LEVEL_CASE(Debug)
-    LOG_LEVEL_CASE(Trace)
-    default:
-      aws_log_level = Aws::Utils::Logging::LogLevel::Off;
-  }
+    switch (options.log_level) {
+      LOG_LEVEL_CASE(Fatal)
+      LOG_LEVEL_CASE(Error)
+      LOG_LEVEL_CASE(Warn)
+      LOG_LEVEL_CASE(Info)
+      LOG_LEVEL_CASE(Debug)
+      LOG_LEVEL_CASE(Trace)
+      default:
+        aws_log_level = Aws::Utils::Logging::LogLevel::Off;
+    }
 
 #undef LOG_LEVEL_CASE
 
 #ifdef ARROW_S3_HAS_CRT
-  aws_options.ioOptions.clientBootstrap_create_fn =
-      [ev_threads = options.num_event_loop_threads]() {
-        // https://github.com/aws/aws-sdk-cpp/blob/1.11.15/src/aws-cpp-sdk-core/source/Aws.cpp#L65
-        Aws::Crt::Io::EventLoopGroup event_loop_group(ev_threads);
-        Aws::Crt::Io::DefaultHostResolver default_host_resolver(
-            event_loop_group, /*maxHosts=*/8, /*maxTTL=*/30);
-        auto client_bootstrap = Aws::MakeShared<Aws::Crt::Io::ClientBootstrap>(
-            "Aws_Init_Cleanup", event_loop_group, default_host_resolver);
-        client_bootstrap->EnableBlockingShutdown();
-        return client_bootstrap;
-      };
+    aws_options_.ioOptions.clientBootstrap_create_fn =
+        [ev_threads = options.num_event_loop_threads]() {
+          // https://github.com/aws/aws-sdk-cpp/blob/1.11.15/src/aws-cpp-sdk-core/source/Aws.cpp#L65
+          Aws::Crt::Io::EventLoopGroup event_loop_group(ev_threads);
+          Aws::Crt::Io::DefaultHostResolver default_host_resolver(
+              event_loop_group, /*maxHosts=*/8, /*maxTTL=*/30);
+          auto client_bootstrap = Aws::MakeShared<Aws::Crt::Io::ClientBootstrap>(
+              "Aws_Init_Cleanup", event_loop_group, default_host_resolver);
+          client_bootstrap->EnableBlockingShutdown();
+          return client_bootstrap;
+        };
 #endif
-
-  aws_options.loggingOptions.logLevel = aws_log_level;
-  // By default the AWS SDK logs to files, log to console instead
-  aws_options.loggingOptions.logger_create_fn = [] {
-    return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
-        aws_options.loggingOptions.logLevel);
-  };
+    aws_options_.loggingOptions.logLevel = aws_log_level;
+    // By default the AWS SDK logs to files, log to console instead
+    aws_options_.loggingOptions.logger_create_fn = [this] {
+      return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
+          aws_options_.loggingOptions.logLevel);
+    };
 #if (defined(AWS_SDK_VERSION_MAJOR) &&                          \
      (AWS_SDK_VERSION_MAJOR > 1 || AWS_SDK_VERSION_MINOR > 9 || \
       (AWS_SDK_VERSION_MINOR == 9 && AWS_SDK_VERSION_PATCH >= 272)))
-  // ARROW-18290: escape all special chars for compatibility with non-AWS S3 backends.
-  // This configuration options is only available with AWS SDK 1.9.272 and later.
-  aws_options.httpOptions.compliantRfc3986Encoding = true;
+    // ARROW-18290: escape all special chars for compatibility with non-AWS S3 backends.
+    // This configuration options is only available with AWS SDK 1.9.272 and later.
+    aws_options_.httpOptions.compliantRfc3986Encoding = true;
 #endif
-  Aws::InitAPI(aws_options);
-  aws_initialized.store(true);
-  return Status::OK();
+    Aws::InitAPI(aws_options_);
+  }
+
+  Aws::SDKOptions aws_options_;
+  std::atomic<bool> is_initialized_;
+  std::atomic<bool> is_finalized_;
+};
+
+std::shared_ptr<AwsInstance> CreateAwsInstance() {
+  auto instance = std::make_shared<AwsInstance>();
+  // Don't let S3 be shutdown until all Arrow threads are done using it
+  arrow::internal::GetCpuThreadPool()->KeepAlive(instance);
+  io::internal::GetIOThreadPool()->KeepAlive(instance);
+  return instance;
 }
 
-Status DoFinalizeS3() {
-  RegionResolver::ResetDefaultInstance();
-  Aws::ShutdownAPI(aws_options);
-  aws_initialized.store(false);
-  return Status::OK();
+AwsInstance& GetAwsInstance() {
+  static auto instance = CreateAwsInstance();
+  return *instance;
+}
+
+Result<bool> EnsureAwsInstanceInitialized(const S3GlobalOptions& options) {
+  return GetAwsInstance().EnsureInitialized(options);
 }
 
 }  // namespace
 
 Status InitializeS3(const S3GlobalOptions& options) {
-  std::lock_guard<std::mutex> lock(aws_init_lock);
-  return DoInitializeS3(options);
+  ARROW_ASSIGN_OR_RAISE(bool successfully_initialized,
+                        EnsureAwsInstanceInitialized(options));
+  if (!successfully_initialized) {
+    return Status::Invalid(
+        "S3 was already initialized.  It is safe to use but the options passed in this "
+        "call have been ignored.");
+  }
+  return Status::OK();
 }
 
 Status EnsureS3Initialized() {
-  std::lock_guard<std::mutex> lock(aws_init_lock);
-  if (!aws_initialized.load()) {
-    S3GlobalOptions options{S3LogLevel::Fatal};
-    return DoInitializeS3(options);
-  }
-  return Status::OK();
+  return EnsureAwsInstanceInitialized({S3LogLevel::Fatal}).status();
 }
 
 Status FinalizeS3() {
-  std::lock_guard<std::mutex> lock(aws_init_lock);
-  return DoFinalizeS3();
-}
-
-Status EnsureS3Finalized() {
-  std::lock_guard<std::mutex> lock(aws_init_lock);
-  if (aws_initialized.load()) {
-    return DoFinalizeS3();
-  }
+  GetAwsInstance().Finalize();
   return Status::OK();
 }
 
-bool IsS3Initialized() { return aws_initialized.load(); }
+Status EnsureS3Finalized() { return FinalizeS3(); }
+
+bool IsS3Initialized() { return GetAwsInstance().IsInitialized(); }
 
 // -----------------------------------------------------------------------
 // Top-level utility functions

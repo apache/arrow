@@ -146,10 +146,10 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     auto data_encryptor =
         file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path->ToDotString())
                         : nullptr;
-    auto ci_builder = page_index_builder_
+    auto ci_builder = page_index_builder_ && properties_->page_index_enabled(path)
                           ? page_index_builder_->GetColumnIndexBuilder(column_ordinal)
                           : nullptr;
-    auto oi_builder = page_index_builder_
+    auto oi_builder = page_index_builder_ && properties_->page_index_enabled(path)
                           ? page_index_builder_->GetOffsetIndexBuilder(column_ordinal)
                           : nullptr;
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
@@ -283,10 +283,10 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       auto data_encryptor =
           file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path->ToDotString())
                           : nullptr;
-      auto ci_builder = page_index_builder_
+      auto ci_builder = page_index_builder_ && properties_->page_index_enabled(path)
                             ? page_index_builder_->GetColumnIndexBuilder(column_ordinal)
                             : nullptr;
-      auto oi_builder = page_index_builder_
+      auto oi_builder = page_index_builder_ && properties_->page_index_enabled(path)
                             ? page_index_builder_->GetOffsetIndexBuilder(column_ordinal)
                             : nullptr;
       std::unique_ptr<PageWriter> pager = PageWriter::Open(
@@ -505,7 +505,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
       }
     }
 
-    if (properties_->write_page_index()) {
+    if (properties_->page_index_enabled()) {
       page_index_builder_ = PageIndexBuilder::Make(&schema_);
     }
   }
