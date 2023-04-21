@@ -91,13 +91,13 @@ namespace Apache.Arrow
                             .Select(i =>
                             {
                                 // Check if all values in a row are nulls
-                                bool isNull = checkNulls.All(array => array.IsNull(i));
+                                bool isValid = checkNulls.All(array => array.IsValid(i));
 
                                 // Add in builder increment
-                                if (isNull)
+                                if (!isValid)
                                     NullCount++;
 
-                                return !isNull; // isValid = not isNull
+                                return isValid; // isValid = not isNull
                             });
 
                         // Update validity buffer
