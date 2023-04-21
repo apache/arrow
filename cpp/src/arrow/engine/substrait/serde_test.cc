@@ -3449,12 +3449,12 @@ TEST(SubstraitRoundTrip, AggregateRel) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", substrait_json,
                                                    /*ignore_unknown_fields=*/false));
-  auto output_schema = schema({field("aggregates", int64()), field("keys", int32())});
+  auto output_schema = schema({field("keys", int32()), field("aggregates", int64())});
   auto expected_table = TableFromJSON(output_schema, {R"([
-      [80, 10],
-      [90, 20],
-      [60, 30],
-      [60, 40]
+      [10, 80],
+      [20, 90],
+      [30, 60],
+      [40, 60]
   ])"});
 
   NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
@@ -3489,7 +3489,7 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
         "aggregate": {
           "common": {
           "emit": {
-            "outputMapping": [0]
+            "outputMapping": [1]
           }
         },
           "input": {
@@ -4356,7 +4356,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
           "extension_multi": {
             "common": {
               "emit": {
-                "outputMapping": [0, 1, 2, 5]
+                "outputMapping": [0, 1, 2, 3]
               }
             },
             "inputs": [
@@ -5156,7 +5156,7 @@ TEST(Substrait, PlanWithExtension) {
           "extension_multi": {
             "common": {
               "emit": {
-                "outputMapping": [0, 1, 2, 5]
+                "outputMapping": [0, 1, 2, 3]
               }
             },
             "inputs": [
@@ -5475,7 +5475,7 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
             }
           }
         },
-        "names": ["time", "key", "value1", "time2", "key2", "value2"]
+        "names": ["time", "key", "value1", "value2"]
       }
     }],
     "expectedTypeUrls": []
@@ -5507,12 +5507,10 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
   auto out_schema = schema({field("time", int32()), field("key", int32()),
-                            field("value1", float64()), field("time2", int32()),
-                            field("key2", int32()), field("value2", float64())});
+                            field("value1", float64()), field("value2", float64())});
 
   auto expected_table = TableFromJSON(
-      out_schema,
-      {"[[2, 1, 1.1, 2, 1, 1.2], [4, 1, 2.1, 4, 1, 1.2], [6, 2, 3.1, 6, 2, 3.2]]"});
+      out_schema, {"[[2, 1, 1.1, 1.2], [4, 1, 2.1, 1.2], [6, 2, 3.1, 3.2]]"});
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
@@ -5701,7 +5699,7 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
             }
           }
         },
-        "names": ["v", "k", "t"]
+        "names": ["k", "t", "v"]
       }
     }],
     "expectedTypeUrls": []
@@ -5724,9 +5722,9 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
   std::shared_ptr<Schema> output_schema =
-      schema({field("v", float64()), field("k", int32()), field("t", int32())});
+      schema({field("k", int32()), field("t", int32()), field("v", float64())});
   auto expected_table =
-      TableFromJSON(output_schema, {"[[4, 1, 1], [2, 2, 1], [10, 2, 2], [5, 1, 2]]"});
+      TableFromJSON(output_schema, {"[[1, 1, 4], [1, 2, 2], [2, 2, 10], [2, 1, 5]]"});
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 

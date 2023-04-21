@@ -91,6 +91,16 @@ func (md Metadata) FindKey(k string) int {
 	return -1
 }
 
+// GetValue returns the value associated with the provided key name.
+// If the key does not exist, the second return value is false.
+func (md Metadata) GetValue(k string) (string, bool) {
+	i := md.FindKey(k)
+	if i < 0 {
+		return "", false
+	}
+	return md.values[i], true
+}
+
 func (md Metadata) clone() Metadata {
 	if len(md.keys) == 0 {
 		return Metadata{}
@@ -220,6 +230,19 @@ func (sc *Schema) Equal(o *Schema) bool {
 		}
 	}
 	return true
+}
+
+// AddField adds a field at the given index and return a new schema.
+func (s *Schema) AddField(i int, field Field) (*Schema, error) {
+	if i < 0 || i > len(s.fields) {
+		return nil, fmt.Errorf("arrow: invalid field index %d", i)
+	}
+
+	fields := make([]Field, len(s.fields)+1)
+	copy(fields[:i], s.fields[:i])
+	fields[i] = field
+	copy(fields[i+1:], s.fields[i:])
+	return NewSchema(fields, &s.meta), nil
 }
 
 func (s *Schema) String() string {

@@ -203,6 +203,7 @@ def test_runtime_info():
     pa.UnionScalar,
     pa.StructScalar,
     pa.DictionaryScalar,
+    pa.RunEndEncodedScalar,
     pa.ipc.Message,
     pa.ipc.MessageReader,
     pa.MemoryPool,

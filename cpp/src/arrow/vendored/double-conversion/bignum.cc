@@ -28,6 +28,7 @@
 #include "bignum.h"
 #include "utils.h"
 
+namespace arrow_vendored {
 namespace double_conversion {
 
 Bignum::Bignum()
@@ -765,3 +766,4 @@ void Bignum::SubtractTimes(const Bignum& other, int factor) {
 
 
 }  // namespace double_conversion
+}  // namespace arrow_vendored

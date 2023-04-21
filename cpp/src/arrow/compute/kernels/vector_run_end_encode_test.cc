@@ -18,9 +18,11 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/validate.h"
 #include "arrow/builder.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
 
@@ -129,6 +131,19 @@ struct REETestData {
   std::string description;
 };
 
+// For valgrind
+std::ostream& operator<<(std::ostream& out, const REETestData& test_data) {
+  out << "REETestData{description = " << test_data.description
+      << ", input = " << test_data.input->ToString() << ", expected_values = ";
+
+  for (const auto& expected_value : test_data.expected_values) {
+    out << expected_value->ToString() << ", ";
+  }
+
+  out << ", chunked = " << test_data.chunked << "}";
+  return out;
+}
+
 }  // namespace
 
 class TestRunEndEncodeDecode : public ::testing::TestWithParam<
@@ -140,6 +155,7 @@ class TestRunEndEncodeDecode : public ::testing::TestWithParam<
     ASSERT_OK(builder->AppendNulls(offset));
     ASSERT_OK(builder->AppendArraySlice(ArraySpan(*child), 0, child->length));
     array->child_data[1] = builder->Finish().ValueOrDie()->Slice(offset)->data();
+    ASSERT_OK(arrow::internal::ValidateArrayFull(*array));
   }
 
   std::shared_ptr<ChunkedArray> AsChunkedArray(const Datum& datum) {
@@ -260,65 +276,104 @@ TEST_P(TestRunEndEncodeDecode, DecodeWithOffsetInChildArray) {
   ASSERT_ARRAYS_EQUAL(*array_without_first, *data.input->chunk(0));
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    EncodeArrayTests, TestRunEndEncodeDecode,
-    ::testing::Combine(
-        ::testing::Values(
-            REETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]",
-                              "[1, 0, -5, 255]", "[2, 3, 6, 8]"),
-            REETestData::JSON(uint32(), "[null, 1, 1, null, null, 5]",
-                              "[null, 1, null, 5]", "[1, 3, 5, 6]"),
-            REETestData::JSON(boolean(), "[true, true, true, false, false]",
-                              "[true, false]", "[3, 5]"),
-            REETestData::JSON(
-                boolean(), "[true, false, true, false, true, false, true, false, true]",
-                "[true, false, true, false, true, false, true, false, true]",
-                "[1, 2, 3, 4, 5, 6, 7, 8, 9]"),
-            REETestData::JSON(uint32(), "[1]", "[1]", "[1]"),
+std::vector<REETestData> GenerateTestData() {
+  std::vector<REETestData> test_data = {
+      REETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[1, 0, -5, 255]",
+                        "[2, 3, 6, 8]"),
+      REETestData::JSON(uint32(), "[null, 1, 1, null, null, 5]", "[null, 1, null, 5]",
+                        "[1, 3, 5, 6]"),
+      REETestData::JSON(boolean(), "[true, true, true, false, false]", "[true, false]",
+                        "[3, 5]"),
+      REETestData::JSON(boolean(),
+                        "[true, false, true, false, true, false, true, false, true]",
+                        "[true, false, true, false, true, false, true, false, true]",
+                        "[1, 2, 3, 4, 5, 6, 7, 8, 9]"),
+      REETestData::JSON(uint32(), "[1]", "[1]", "[1]"),
 
-            REETestData::JSON(boolean(),
-                              "[true, true, true, false, null, null, false, null, null]",
-                              "[true, false, null, false, null]", "[3, 4, 6, 7, 9]"),
-            REETestData::JSONChunked(boolean(),
-                                     {"[true, true]", "[true, false, null, null, false]",
-                                      "[null, null]"},
-                                     {"[true]", "[true, false, null, false]", "[null]"},
-                                     {"[2]", "[1, 2, 4, 5]", "[2]"}),
-            REETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[-5, 255]",
-                              "[3, 5]", 3),
-            REETestData::JSONChunked(int32(), {"[1, 1, 0, -5, -5]", "[-5, 255, 255]"},
-                                     {"[-5]", "[-5, 255]"}, {"[2]", "[1, 3]"}, 3),
-            REETestData::JSON(uint32(), "[4, 5, 5, null, null, 5]", "[5, null, 5]",
-                              "[1, 3, 4]", 2),
-            REETestData::JSONChunked(uint32(), {"[4, 5, 5, null, null, 5]"},
-                                     {"[5, null, 5]"}, {"[1, 3, 4]"}, 2),
-            REETestData::JSON(boolean(), "[true, true, false, false, true]",
-                              "[false, true]", "[2, 3]", 2),
-            REETestData::JSONChunked(boolean(), {"[true]", "[true, false, false, true]"},
-                                     {"[false, true]"}, {"[2, 3]"}, 2),
-            REETestData::JSON(boolean(), "[true, true, true, false, null, null, false]",
-                              "[null, false]", "[1, 2]", 5),
+      REETestData::JSON(boolean(),
+                        "[true, true, true, false, null, null, false, null, null]",
+                        "[true, false, null, false, null]", "[3, 4, 6, 7, 9]"),
+      REETestData::JSONChunked(
+          boolean(), {"[true, true]", "[true, false, null, null, false]", "[null, null]"},
+          {"[true]", "[true, false, null, false]", "[null]"},
+          {"[2]", "[1, 2, 4, 5]", "[2]"}),
+      REETestData::JSON(int32(), "[1, 1, 0, -5, -5, -5, 255, 255]", "[-5, 255]", "[3, 5]",
+                        3),
+      REETestData::JSONChunked(int32(), {"[1, 1, 0, -5, -5]", "[-5, 255, 255]"},
+                               {"[-5]", "[-5, 255]"}, {"[2]", "[1, 3]"}, 3),
+      REETestData::JSON(uint32(), "[4, 5, 5, null, null, 5]", "[5, null, 5]", "[1, 3, 4]",
+                        2),
+      REETestData::JSONChunked(uint32(), {"[4, 5, 5, null, null, 5]"}, {"[5, null, 5]"},
+                               {"[1, 3, 4]"}, 2),
+      REETestData::JSON(boolean(), "[true, true, false, false, true]", "[false, true]",
+                        "[2, 3]", 2),
+      REETestData::JSONChunked(boolean(), {"[true]", "[true, false, false, true]"},
+                               {"[false, true]"}, {"[2, 3]"}, 2),
+      REETestData::JSON(boolean(), "[true, true, true, false, null, null, false]",
+                        "[null, false]", "[1, 2]", 5),
 
-            REETestData::JSON(float64(), "[]", "[]", "[]"),
-            REETestData::JSONChunked(float64(), {"[]"}, {"[]"}, {"[]"}),
-            REETestData::JSON(boolean(), "[]", "[]", "[]"),
-            REETestData::JSONChunked(boolean(), {"[]"}, {"[]"}, {"[]"}),
+      REETestData::JSON(float64(), "[]", "[]", "[]"),
+      REETestData::JSONChunked(float64(), {"[]"}, {"[]"}, {"[]"}),
+      REETestData::JSON(boolean(), "[]", "[]", "[]"),
+      REETestData::JSONChunked(boolean(), {"[]"}, {"[]"}, {"[]"}),
 
-            REETestData::NullArray(4),
-            REETestData::NullArray(std::numeric_limits<int16_t>::max()),
-            REETestData::NullArray(std::numeric_limits<int16_t>::max(), 1000),
+      REETestData::NullArray(4),
+      REETestData::NullArray(std::numeric_limits<int16_t>::max()),
+      REETestData::NullArray(std::numeric_limits<int16_t>::max(), 1000),
 
-            REETestData::TypeMinMaxNull<Int8Type>(),
-            REETestData::TypeMinMaxNull<UInt8Type>(),
-            REETestData::TypeMinMaxNull<Int16Type>(),
-            REETestData::TypeMinMaxNull<UInt16Type>(),
-            REETestData::TypeMinMaxNull<Int32Type>(),
-            REETestData::TypeMinMaxNull<UInt32Type>(),
-            REETestData::TypeMinMaxNull<Int64Type>(),
-            REETestData::TypeMinMaxNull<UInt64Type>(),
-            REETestData::TypeMinMaxNull<FloatType>(),
-            REETestData::TypeMinMaxNull<DoubleType>()),
-        ::testing::Values(int16(), int32(), int64())));
+      REETestData::TypeMinMaxNull<Int8Type>(),
+      REETestData::TypeMinMaxNull<UInt8Type>(),
+      REETestData::TypeMinMaxNull<Int16Type>(),
+      REETestData::TypeMinMaxNull<UInt16Type>(),
+      REETestData::TypeMinMaxNull<Int32Type>(),
+      REETestData::TypeMinMaxNull<UInt32Type>(),
+      REETestData::TypeMinMaxNull<Int64Type>(),
+      REETestData::TypeMinMaxNull<UInt64Type>(),
+      REETestData::TypeMinMaxNull<FloatType>(),
+      REETestData::TypeMinMaxNull<DoubleType>(),
+      // A few temporal types
+      REETestData::JSON(date32(),
+                        "[86400, 86400, 0, 432000, 432000, 432000, 22075200, 22075200]",
+                        "[86400, 0, 432000, 22075200]", "[2, 3, 6, 8]"),
+      REETestData::JSON(date64(),
+                        "[86400000, 86400000, 0, 432000000, 432000000, 432000000, "
+                        "22032000000, 22032000000]",
+                        "[86400000, 0, 432000000, 22032000000]", "[2, 3, 6, 8]"),
+      REETestData::JSON(time32(TimeUnit::SECOND), "[1, 1, 0, 5, 5, 5, 255, 255]",
+                        "[1, 0, 5, 255]", "[2, 3, 6, 8]"),
+      REETestData::JSON(time64(TimeUnit::MICRO), "[1, 1, 0, 5, 5, 5, 255, 255]",
+                        "[1, 0, 5, 255]", "[2, 3, 6, 8]"),
+      // Decimal and fixed size binary types
+      REETestData::JSON(decimal128(4, 1),
+                        R"(["1.0", "1.0", "0.0", "5.2", "5.2", "5.2", "255.0", "255.0"])",
+                        R"(["1.0", "0.0", "5.2", "255.0"])", "[2, 3, 6, 8]"),
+      REETestData::JSON(decimal256(4, 1),
+                        R"(["1.0", "1.0", "0.0", "5.2", "5.2", "5.2", "255.0", "255.0"])",
+                        R"(["1.0", "0.0", "5.2", "255.0"])", "[2, 3, 6, 8]"),
+      REETestData::JSON(fixed_size_binary(3),
+                        R"(["abc", "abc", "abc", "def", "def", "def", "ghi", "ghi"])",
+                        R"(["abc", "def", "ghi"])", "[3, 6, 8]"),
+      REETestData::JSON(
+          fixed_size_binary(3),
+          R"([null, "abc", "abc", "abc", "def", "def", "def", "ghi", "ghi", null, null])",
+          R"([null, "abc", "def", "ghi", null])", "[1, 4, 7, 9, 11]"),
+  };
+  for (auto& binary_type : {binary(), large_binary(), utf8(), large_utf8()}) {
+    test_data.push_back(REETestData::JSON(
+        binary_type, R"(["abc", "abc", "", "", "de", "de", "de", "ghijkl", "ghijkl"])",
+        R"(["abc", "", "de", "ghijkl"])", "[2, 4, 7, 9]"));
+    test_data.push_back(REETestData::JSON(
+        binary_type,
+        R"(["abc", "abc", "", "", "de", "de", "de", null, null, "ghijkl", "ghijkl"])",
+        R"(["abc", "", "de", null, "ghijkl"])", "[2, 4, 7, 9, 11]"));
+  }
+  return test_data;
+}
+
+INSTANTIATE_TEST_SUITE_P(EncodeArrayTests, TestRunEndEncodeDecode,
+                         ::testing::Combine(::testing::ValuesIn(GenerateTestData()),
+                                            ::testing::Values(int16(), int32(),
+                                                              int64())));
 
 }  // namespace compute
 }  // namespace arrow

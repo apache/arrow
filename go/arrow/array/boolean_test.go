@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBooleanSliceData(t *testing.T) {
@@ -285,4 +286,7 @@ func TestBooleanStringer(t *testing.T) {
 	if got := out.String(); got != want {
 		t.Fatalf("invalid stringer:\ngot= %q\nwant=%q", got, want)
 	}
+	assert.Equal(t, "true", arr.ValueStr(0))
+	assert.Equal(t, "false", arr.ValueStr(1))
+	assert.Equal(t, "(null)", arr.ValueStr(2))
 }

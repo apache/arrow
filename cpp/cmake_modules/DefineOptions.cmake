@@ -406,8 +406,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 OFF
                 DEPENDS
                 ARROW_COMPUTE
-                ARROW_IPC
-                ARROW_PARQUET)
+                ARROW_IPC)
 
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 

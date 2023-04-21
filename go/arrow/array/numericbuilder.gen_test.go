@@ -47,9 +47,10 @@ func TestNewInt64Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	assert.NoError(t, ab.AppendValueFromString("11"))
 
 	// check state of builder before NewInt64Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewInt64Array()
@@ -61,9 +62,9 @@ func TestNewInt64Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []int64{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Int64Values(), "unexpected Int64Values")
+	assert.Equal(t, []int64{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Int64Values(), "unexpected Int64Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Int64Values(), 10, "unexpected length of Int64Values")
+	assert.Len(t, a.Int64Values(), 11, "unexpected length of Int64Values")
 
 	a.Release()
 

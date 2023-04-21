@@ -697,7 +697,7 @@ class RecordReaderPrimitiveTypeTest
       }
     }
 
-    if (descr_->schema_node()->is_required()) {
+    if (!descr_->schema_node()->is_required()) {
       std::vector<int16_t> read_defs(
           record_reader_->def_levels(),
           record_reader_->def_levels() + record_reader_->levels_position());

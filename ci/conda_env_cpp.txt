@@ -27,7 +27,7 @@ gflags
 glog
 gmock>=1.10.0
 google-cloud-cpp>=1.34.0
-grpc-cpp
+grpc-cpp<=1.50.1
 gtest>=1.10.0
 libprotobuf
 libutf8proc

@@ -1597,7 +1597,7 @@ Cumulative Functions
 ~~~~~~~~~~~~~~~~~~~~
 
 Cumulative functions are vector functions that perform a running total on their
-input using an given binary associatve operation and output an array containing
+input using a given binary associative operation and output an array containing
 the corresponding intermediate running values. The input is expected to be of
 numeric type. By default these functions do not detect overflow. They are also
 available in an overflow-checking variant, suffixed ``_checked``, which returns

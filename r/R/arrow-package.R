@@ -106,6 +106,15 @@ supported_dplyr_methods <- list(
   explain = NULL
 )
 
+# This should be run at session exit and must be called
+# to avoid a segmentation fault at shutdown
+finalize_s3 <- function(env) {
+  FinalizeS3()
+}
+
+# Helper environment to register the exit hook
+s3_finalizer <- new.env(parent = emptyenv())
+
 #' @importFrom vctrs s3_register vec_size vec_cast vec_unique
 .onLoad <- function(...) {
   # Make sure C++ knows on which thread it is safe to call the R API
@@ -146,6 +155,11 @@ supported_dplyr_methods <- list(
 
   # Register extension types that we use internally
   reregister_extension_type(vctrs_extension_type(vctrs::unspecified()))
+
+  # Registers a callback to run at session exit
+  # This can't be done in .onUnload or .onDetach because those hooks are
+  # not guaranteed to run (e.g. they only run if the user unloads arrow)
+  reg.finalizer(s3_finalizer, finalize_s3, onexit = TRUE)
 
   invisible()
 }

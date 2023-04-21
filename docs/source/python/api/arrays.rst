@@ -123,6 +123,7 @@ classes may expose data type-specific methods or properties.
    MonthDayNanoIntervalScalar
    Decimal128Scalar
    DictionaryScalar
+   RunEndEncodedScalar
    ListScalar
    LargeListScalar
    MapScalar

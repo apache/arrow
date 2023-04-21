@@ -19,5 +19,6 @@
 
 autoconf
 ccache
+gdb
 orc
 pkg-config

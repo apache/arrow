@@ -3,6 +3,7 @@
 \name{arrow_info}
 \alias{arrow_info}
 \alias{arrow_available}
+\alias{arrow_with_acero}
 \alias{arrow_with_dataset}
 \alias{arrow_with_substrait}
 \alias{arrow_with_parquet}
@@ -14,6 +15,8 @@
 arrow_info()
 
 arrow_available()
+
+arrow_with_acero()
 
 arrow_with_dataset()
 
