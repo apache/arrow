@@ -135,6 +135,9 @@ as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ..
   if (!missing(i)) {
     x <- filter_rows(x, i, ...)
   }
+  if (x$num_columns == 1L) {
+    x <- x$column(0)
+  }
   x
 }
 

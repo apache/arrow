@@ -111,6 +111,10 @@ test_that("[, [[, $ for Table", {
   expect_error(tab[, c("dbl", "NOTACOLUMN")], 'Column not found: "NOTACOLUMN"')
   expect_error(tab[, c(6, NA)], "Column indices cannot be NA")
 
+  # Return ChunkedArray when number of columns is 1
+  expect_as_vector(tab[, 3], tbl[, 3])
+  expect_as_vector(tab[, "lgl"], tbl[, "lgl"])
+
   skip("Table with 0 cols doesn't know how many rows it should have")
   expect_data_frame(tab[0], tbl[0])
 })
