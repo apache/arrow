@@ -144,6 +144,12 @@ std::shared_ptr<arrow::Schema> Schema__WithMetadata(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Schema> Schema__WithNames(
+    const std::shared_ptr<arrow::Schema>& schema, const std::vector<std::string>& names) {
+  return ValueOrStop(schema->WithNames(names));
+}
+
+// [[arrow::export]]
 cpp11::writable::raws Schema__serialize(const std::shared_ptr<arrow::Schema>& schema) {
   auto out = ValueOrStop(arrow::ipc::SerializeSchema(*schema));
   auto n = out->size();

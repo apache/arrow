@@ -5150,6 +5150,15 @@ BEGIN_CPP11
 END_CPP11
 }
 // schema.cpp
+std::shared_ptr<arrow::Schema> Schema__WithNames(const std::shared_ptr<arrow::Schema>& schema, const std::vector<std::string>& names);
+extern "C" SEXP _arrow_Schema__WithNames(SEXP schema_sexp, SEXP names_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type names(names_sexp);
+	return cpp11::as_sexp(Schema__WithNames(schema, names));
+END_CPP11
+}
+// schema.cpp
 cpp11::writable::raws Schema__serialize(const std::shared_ptr<arrow::Schema>& schema);
 extern "C" SEXP _arrow_Schema__serialize(SEXP schema_sexp){
 BEGIN_CPP11
@@ -5994,6 +6003,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Schema__HasMetadata", (DL_FUNC) &_arrow_Schema__HasMetadata, 1}, 
 		{ "_arrow_Schema__metadata", (DL_FUNC) &_arrow_Schema__metadata, 1}, 
 		{ "_arrow_Schema__WithMetadata", (DL_FUNC) &_arrow_Schema__WithMetadata, 2}, 
+		{ "_arrow_Schema__WithNames", (DL_FUNC) &_arrow_Schema__WithNames, 2}, 
 		{ "_arrow_Schema__serialize", (DL_FUNC) &_arrow_Schema__serialize, 1}, 
 		{ "_arrow_Schema__Equals", (DL_FUNC) &_arrow_Schema__Equals, 3}, 
 		{ "_arrow_arrow__UnifySchemas", (DL_FUNC) &_arrow_arrow__UnifySchemas, 1}, 
