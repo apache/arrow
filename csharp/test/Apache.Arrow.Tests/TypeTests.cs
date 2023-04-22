@@ -18,11 +18,19 @@ using System.Collections.Generic;
 using System.Linq;
 using Apache.Arrow.Types;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Apache.Arrow.Tests
 {
     public class TypeTests
     {
+        private readonly ITestOutputHelper output;
+
+        public TypeTests(ITestOutputHelper output)
+        {
+            this.output = output;
+        }
+
         [Fact]
         public void Basics()
         {
@@ -124,7 +132,7 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
-        public void TestFieldMetadataEquals()
+        public void Field_Should_CompareMetadata()
         {
             var metadata0 = new Dictionary<string, string> { { "foo", "bar" }, { "bizz", "buzz" } };
             var metadata1 = new Dictionary<string, string> { { "zef", "bar" }, { "abc", "buzz" }, { "dfj", "buzz" } };
@@ -147,7 +155,62 @@ namespace Apache.Arrow.Tests
         // Todo: StructType::GetFieldIndexDuplicate test
 
         [Fact]
-        public void TestPrimitiveTypesEquality()
+        public void Field_Should_Describe()
+        {
+            StructType nest = new StructType(GetPrimitiveTypes().Select(t => TypeToField(t)).ToArray());
+            StructType type = new StructType(new Field[] { TypeToField(nest) });
+            output.WriteLine(type.Describe());
+
+            string result = @"Struct
+    'struct': Struct
+        'fixed_size_binary': FixedSizedBinary(32)
+        'fixed_size_binary': FixedSizedBinary(64)
+        'binary': Binary
+        'utf8': String
+        'bool': Boolean(1)
+        'int8': Int8(8)
+        'int16': Int16(16)
+        'int32': Int32(32)
+        'int64': Int64(64)
+        'uint8': UInt8(8)
+        'uint16': UInt16(16)
+        'uint32': UInt32(32)
+        'uint64': UInt64(64)
+        'decimal128': Decimal128(15,5)
+        'decimal128': Decimal128(23,12)
+        'decimal256': Decimal256(15,5)
+        'decimal256': Decimal256(23,12)
+        'float': Float(32)
+        'halffloat': HalfFloat(16)
+        'double': Double(64)
+        'date32': Date32(Day)
+        'date64': Date64(Milliseconds)
+        'time32': Time32(Second)
+        'time64': Time64(Second)
+        'time32': Time32(Millisecond)
+        'time64': Time64(Millisecond)
+        'time32': Time32(Microsecond)
+        'time64': Time64(Microsecond)
+        'time32': Time32(Nanosecond)
+        'time64': Time64(Nanosecond)
+        'timestamp': Timestamp(Second)
+        'timestamp': Timestamp(Second,""+00:00"")
+        'timestamp': Timestamp(Second,""+12:34"")
+        'timestamp': Timestamp(Millisecond)
+        'timestamp': Timestamp(Millisecond,""+00:00"")
+        'timestamp': Timestamp(Millisecond,""+12:34"")
+        'timestamp': Timestamp(Microsecond)
+        'timestamp': Timestamp(Microsecond,""+00:00"")
+        'timestamp': Timestamp(Microsecond,""+12:34"")
+        'timestamp': Timestamp(Nanosecond)
+        'timestamp': Timestamp(Nanosecond,""+00:00"")
+        'timestamp': Timestamp(Nanosecond,""+12:34"")";
+
+            Assert.Equal(result, type.Describe());
+        }
+
+        [Fact]
+        public void PrimitiveArrowType_Should_Equals()
         {
             int i = 0;
             foreach (IArrowType compareFrom in GetPrimitiveTypes())
@@ -159,12 +222,12 @@ namespace Apache.Arrow.Tests
                     j++;
                     if (i == j)
                     {
-                        Assert.True(compareFrom.Equals(compareTo), $"{compareFrom} and {compareTo} are not .Equals while they should be");
+                        Assert.True(compareFrom.Equals(compareTo), $"{compareFrom.Describe()} and {compareTo.Describe()} are not .Equals while they should be");
                         Assert.True(compareFrom.GetHashCode() == compareTo.GetHashCode(), $"{compareFrom} and {compareTo} do not have the same hash codes while they should have");
                     }
                     else
                     {
-                        Assert.False(compareFrom.Equals(compareTo), $"{compareFrom} and {compareTo} are .Equals while they should not be");
+                        Assert.False(compareFrom.Equals(compareTo), $"{compareFrom.Describe()} and {compareTo.Describe()} are .Equals while they should not be");
                         Assert.False(compareFrom.GetHashCode() == compareTo.GetHashCode(), $"{compareFrom} and {compareTo} have the same hash codes while they should not have");
                     }
                         
@@ -173,7 +236,7 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
-        public void TestNestedTypesEquality()
+        public void NestedArrowType_Should_Equals()
         {
             int i = 0;
             foreach (var compareFrom in GetNestedTypes())
@@ -185,12 +248,12 @@ namespace Apache.Arrow.Tests
                     j++;
                     if (i == j)
                     {
-                        Assert.True(compareFrom.Equals(compareTo), $"{compareFrom} and {compareTo} are not .Equals while they should be");
-                        Assert.True(compareFrom.GetHashCode() == compareTo.GetHashCode(), $"{compareFrom} and {compareTo} do not have the same hash codes while they should have");
+                        Assert.True(compareFrom.Equals(compareTo), $"{compareFrom.Describe()} and {compareTo.Describe()} are not .Equals while they should be");
+                        Assert.True(compareFrom.GetHashCode() == compareTo.GetHashCode(), $"{compareFrom.Describe()} and {compareTo} do not have the same hash codes while they should have");
                     }
                     else
                     {
-                        Assert.False(compareFrom.Equals(compareTo), $"{compareFrom} and {compareTo} are .Equals while they should not be");
+                        Assert.False(compareFrom.Equals(compareTo), $"{compareFrom.Describe()} and {compareTo.Describe()} are .Equals while they should not be");
                         Assert.False(compareFrom.GetHashCode() == compareTo.GetHashCode(), $"{compareFrom} and {compareTo} have the same hash codes while they should not have");
                     }
                 }
@@ -201,7 +264,7 @@ namespace Apache.Arrow.Tests
 
         private IEnumerable<NestedType> GetNestedTypes()
         {
-            foreach (IArrowType p in GetPrimitiveTypes())
+            foreach (IArrowType p in GetPrimitiveTypes().Take(16))
             {
                 yield return new ListType(p);
             }

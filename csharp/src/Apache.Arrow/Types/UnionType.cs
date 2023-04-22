@@ -54,7 +54,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(ArrowType other)
+        public override bool Equals(ArrowType other)
             => base.Equals(other) && other is UnionType _other && Mode == _other.Mode && TypeCodes.SequenceEqual(_other.TypeCodes);
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Mode, TypeCodes).GetHashCode();

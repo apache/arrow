@@ -49,7 +49,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(ArrowType other)
+        public override bool Equals(ArrowType other)
             => base.Equals(other) && other is IntervalType _other && Unit == _other.Unit;
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Unit).GetHashCode();

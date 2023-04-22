@@ -62,12 +62,16 @@ namespace Apache.Arrow
             IsNullable = nullable;
         }
 
+        // Describe
+        public string Describe(int indent = 0) => $"{new string(' ', indent * 4)}'{Name}'{(IsNullable ? "" : " not null")}: {DataType.Describe(indent)}";
+
         // Equality
-        public bool Equals(Field other)
-            => EqualsWithoutMeta(other) && MetadataEquals(Metadata, other.Metadata);
-        public bool EqualsWithoutMeta(Field other)
-            => Name == other.Name && IsNullable == other.IsNullable && DataType.Equals(other.DataType);
-        
+        public bool Equals(Field other) => Equals(other, StringComparer.CurrentCulture);
+        public bool Equals(Field other, StringComparer comparer)
+            => EqualsWithoutMeta(other, comparer) && MetadataEquals(Metadata, other.Metadata);
+        public bool EqualsWithoutMeta(Field other, StringComparer comparer)
+            => comparer.Compare(Name, other.Name) == 0 && IsNullable == other.IsNullable && DataType.Equals(other.DataType, comparer);
+
         public override bool Equals(object obj)
         {
             if (obj == null || obj is not Field other)

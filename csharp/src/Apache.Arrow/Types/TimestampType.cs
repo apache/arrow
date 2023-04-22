@@ -49,6 +49,8 @@ namespace Apache.Arrow.Types
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
 
+        public override string Describe(int indent = 0) => $"{TypeId}({Unit}{(IsTimeZoneAware ? $",\"{Timezone}\"" : "")})";
+
         // Equality
         public override bool Equals(object obj)
         {
@@ -59,7 +61,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(ArrowType other)
+        public override bool Equals(ArrowType other)
             => base.Equals(other) && other is TimestampType _other && Unit == _other.Unit && Timezone == _other.Timezone;
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Unit, Timezone).GetHashCode();

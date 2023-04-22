@@ -42,8 +42,14 @@ namespace Apache.Arrow.Types
             }
         }
 
+        // Describe
+        public virtual string Describe(int indent = 0) => TypeId.ToString();
+
         // Equality
-        public bool Equals(ArrowType other) => TypeId == other.TypeId && IsFixedWidth == other.IsFixedWidth;
+        public bool Equals(IArrowType other) => other is ArrowType _o && Equals(_o);
+        public virtual bool Equals(IArrowType other, StringComparer comparer) => Equals(other);
+        public virtual bool Equals(ArrowType other) => TypeId == other.TypeId && IsFixedWidth == other.IsFixedWidth;
+        public virtual bool Equals(ArrowType other, StringComparer comparer) => Equals(other);
 
         public override bool Equals(object obj)
         {

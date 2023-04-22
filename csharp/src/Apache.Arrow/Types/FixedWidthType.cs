@@ -24,6 +24,8 @@ namespace Apache.Arrow.Types
 
         public abstract int BitWidth { get; }
 
+        public override string Describe(int indent = 0) => $"{TypeId}({BitWidth})";
+
         // Equality
         public override bool Equals(object obj)
         {
@@ -34,7 +36,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(ArrowType other)
+        public override bool Equals(ArrowType other)
             => base.Equals(other) && other is FixedWidthType _other && BitWidth == _other.BitWidth;
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), BitWidth).GetHashCode();

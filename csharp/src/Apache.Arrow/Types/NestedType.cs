@@ -44,6 +44,8 @@ namespace Apache.Arrow.Types
             Fields = new Field[] { field };
         }
 
+        public override string Describe(int indent = 0) => $"{TypeId}{Environment.NewLine}{string.Join(Environment.NewLine, Fields.Select(f => f.Describe(indent + 1)))}";
+
         // Equality
         public override bool Equals(object obj)
         {
@@ -54,8 +56,12 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(ArrowType other)
-            => base.Equals(other) && other is NestedType _other && Fields.SequenceEqual(_other.Fields);
+        public override bool Equals(ArrowType other) => Equals(other, StringComparer.CurrentCulture);
+        public override bool Equals(ArrowType other, StringComparer comparer)
+            => base.Equals(other) && other is NestedType _other
+                // Check all fields are sequentially equals with string comparer
+                && Fields.Count == _other.Fields.Count
+                && Fields.Zip(_other.Fields, (a, b) => a.Equals(b, comparer)).All(b => b);
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Hash32Array(Fields.Select(f => f.GetHashCode()).ToArray())).GetHashCode();
 

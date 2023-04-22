@@ -32,6 +32,8 @@ namespace Apache.Arrow.Types
             Scale = scale;
         }
 
+        public override string Describe(int indent = 0) => $"{TypeId}({Precision},{Scale})";
+
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
 
         // Equality
@@ -44,7 +46,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(ArrowType other)
+        public override bool Equals(ArrowType other)
             => base.Equals(other) && other is Decimal256Type _other && Precision == _other.Precision && Scale == _other.Scale;
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Precision, Scale).GetHashCode();

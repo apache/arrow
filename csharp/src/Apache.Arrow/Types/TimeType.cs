@@ -35,6 +35,8 @@ namespace Apache.Arrow.Types
             Unit = unit;
         }
 
+        public override string Describe(int indent = 0) => $"{TypeId}({Unit})";
+
         // Equality
         public override bool Equals(object obj)
         {
@@ -45,7 +47,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(ArrowType other)
+        public override bool Equals(ArrowType other)
             => base.Equals(other) && other is TimeType _other && Unit == _other.Unit;
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Unit).GetHashCode();

@@ -39,7 +39,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(ArrowType other)
+        public override bool Equals(ArrowType other)
             => base.Equals(other) && other is FloatingPointType _other && Precision == _other.Precision;
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Precision).GetHashCode();

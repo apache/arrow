@@ -51,7 +51,7 @@ namespace Apache.Arrow.Types
         Map
     }
 
-    public interface IArrowType : IEquatable<ArrowType>
+    public interface IArrowType : IEquatable<IArrowType>, IEquatable<ArrowType>
     {
         ArrowTypeId TypeId { get; }
 
@@ -60,5 +60,10 @@ namespace Apache.Arrow.Types
         void Accept(IArrowTypeVisitor visitor);
 
         bool IsFixedWidth { get; }
+
+        string Describe(int indent = 0);
+
+        bool Equals(IArrowType type, StringComparer comparer);
+        bool Equals(ArrowType type, StringComparer comparer);
     }
 }
