@@ -2013,7 +2013,7 @@ macro(build_jemalloc)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${JEMALLOC_INCLUDE_DIR}")
   add_library(jemalloc::jemalloc STATIC IMPORTED)
-  if (ARROW_DISABLE_THREADING)
+  if ("${THREADS_LINK_LIB}" STREQUAL "")
     set_target_properties(jemalloc::jemalloc
                           PROPERTIES IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
                                     INTERFACE_INCLUDE_DIRECTORIES
@@ -2078,11 +2078,18 @@ if(ARROW_MIMALLOC)
   file(MAKE_DIRECTORY ${MIMALLOC_INCLUDE_DIR})
 
   add_library(mimalloc::mimalloc STATIC IMPORTED)
-  set_target_properties(mimalloc::mimalloc
-  PROPERTIES INTERFACE_LINK_LIBRARIES ${THREADS_LINK_LIB}
-            IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
-            INTERFACE_INCLUDE_DIRECTORIES
-            "${MIMALLOC_INCLUDE_DIR}")
+  if ("${THREADS_LINK_LIB}" STREQUAL "")
+    set_target_properties(mimalloc::mimalloc
+    PROPERTIES IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
+              INTERFACE_INCLUDE_DIRECTORIES
+              "${MIMALLOC_INCLUDE_DIR}")
+  else()
+    set_target_properties(mimalloc::mimalloc
+    PROPERTIES INTERFACE_LINK_LIBRARIES ${THREADS_LINK_LIB}
+              IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
+              INTERFACE_INCLUDE_DIRECTORIES
+              "${MIMALLOC_INCLUDE_DIR}")
+  endif()
   if(WIN32)
     set_property(TARGET mimalloc::mimalloc
                  APPEND
