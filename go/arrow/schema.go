@@ -66,6 +66,13 @@ func MetadataFrom(kv map[string]string) Metadata {
 func (md Metadata) Len() int         { return len(md.keys) }
 func (md Metadata) Keys() []string   { return md.keys }
 func (md Metadata) Values() []string { return md.values }
+func (md Metadata) ToMap() map[string]string {
+	m := make(map[string]string, len(md.keys))
+	for i := range md.keys {
+		m[md.keys[i]] = md.values[i]
+	}
+	return m
+}
 
 func (md Metadata) String() string {
 	o := new(strings.Builder)
