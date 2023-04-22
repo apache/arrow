@@ -66,7 +66,7 @@ namespace Apache.Arrow
         public bool Equals(Field other)
             => Name == other.Name && IsNullable == other.IsNullable && DataType.Equals(other.DataType);
         public bool EqualsWithMetadata(Field other)
-            => Equals(other) && HasMetadata == other.HasMetadata && Metadata.SequenceEqual(other.Metadata);
+            => Equals(other) && HasMetadata == other.HasMetadata && DictionariesEquals(Metadata, Metadata);
 
         public override bool Equals(object obj)
         {
@@ -79,5 +79,29 @@ namespace Apache.Arrow
         }
 
         public override int GetHashCode() => Tuple.Create(Name, IsNullable, DataType).GetHashCode();
+
+        private static bool DictionariesEquals<TKey, TValue>(IReadOnlyDictionary<TKey, TValue> dict1, IReadOnlyDictionary<TKey, TValue> dict2)
+        {
+            if (dict1 == null && dict2 == null)
+                return true;
+            // Check if both dictionaries have the same keys
+            if (!dict1.Keys.SequenceEqual(dict2.Keys))
+            {
+                return false;
+            }
+
+            // Check if the corresponding values for each key are equal
+            foreach (var key in dict1.Keys)
+            {
+                TValue value1 = dict1[key];
+                TValue value2 = dict2[key];
+                if (!EqualityComparer<TValue>.Default.Equals(value1, value2))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 }
