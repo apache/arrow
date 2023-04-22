@@ -59,7 +59,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(IArrowType other)
+        public new bool Equals(ArrowType other)
             => base.Equals(other) && other is TimestampType _other && Unit == _other.Unit && Timezone == _other.Timezone;
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Unit, Timezone).GetHashCode();

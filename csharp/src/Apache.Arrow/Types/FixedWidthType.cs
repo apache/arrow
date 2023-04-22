@@ -34,7 +34,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(IArrowType other)
+        public new bool Equals(ArrowType other)
             => base.Equals(other) && other is FixedWidthType _other && BitWidth == _other.BitWidth;
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), BitWidth).GetHashCode();

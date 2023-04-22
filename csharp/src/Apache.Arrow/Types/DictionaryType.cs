@@ -54,7 +54,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(IArrowType other)
+        public new bool Equals(ArrowType other)
             => base.Equals(other) && other is DictionaryType _other
                 && IndexType.Equals(_other.IndexType) && ValueType.Equals(_other.ValueType)
                 && Ordered == _other.Ordered;

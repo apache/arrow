@@ -44,7 +44,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(IArrowType other)
+        public new bool Equals(ArrowType other)
             => base.Equals(other) && other is Decimal256Type _other && Precision == _other.Precision && Scale == _other.Scale;
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Precision, Scale).GetHashCode();

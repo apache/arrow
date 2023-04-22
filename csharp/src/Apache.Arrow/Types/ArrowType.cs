@@ -18,7 +18,7 @@ using System;
 
 namespace Apache.Arrow.Types
 {
-    public abstract class ArrowType: IArrowType
+    public abstract class ArrowType: IArrowType, IEquatable<ArrowType>
     {
         public abstract ArrowTypeId TypeId { get; }
 
@@ -43,7 +43,7 @@ namespace Apache.Arrow.Types
         }
 
         // Equality
-        public bool Equals(IArrowType other) => TypeId == other.TypeId && IsFixedWidth == other.IsFixedWidth && Name == other.Name;
+        public bool Equals(ArrowType other) => TypeId == other.TypeId && IsFixedWidth == other.IsFixedWidth && Name == other.Name;
 
         public override bool Equals(object obj)
         {

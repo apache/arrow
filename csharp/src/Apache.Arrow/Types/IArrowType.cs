@@ -51,7 +51,7 @@ namespace Apache.Arrow.Types
         Map
     }
 
-    public interface IArrowType : IEquatable<IArrowType>
+    public interface IArrowType
     {
         ArrowTypeId TypeId { get; }
 

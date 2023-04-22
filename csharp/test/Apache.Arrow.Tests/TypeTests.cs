@@ -156,11 +156,11 @@ namespace Apache.Arrow.Tests
         public void TestNestedTypesEquality()
         {
             int i = 0;
-            foreach (IArrowType compareFrom in GetNestedTypes())
+            foreach (var compareFrom in GetNestedTypes())
             {
                 i++;
                 int j = 0;
-                foreach (IArrowType compareTo in GetNestedTypes())
+                foreach (var compareTo in GetNestedTypes())
                 {
                     j++;
                     if (i == j)

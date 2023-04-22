@@ -54,7 +54,7 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public new bool Equals(IArrowType other)
+        public new bool Equals(ArrowType other)
             => base.Equals(other) && other is NestedType _other && Fields.SequenceEqual(_other.Fields);
 
         public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Hash32Array(Fields.Select(f => f.GetHashCode()).ToArray())).GetHashCode();
