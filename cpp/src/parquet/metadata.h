@@ -183,6 +183,8 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::optional<IndexLocation> GetColumnIndexLocation() const;
   std::optional<IndexLocation> GetOffsetIndexLocation() const;
 
+  std::string ToDebugString() const;
+
  private:
   explicit ColumnChunkMetaData(
       const void* metadata, const ColumnDescriptor* descr, int16_t row_group_ordinal,

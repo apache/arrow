@@ -332,6 +332,12 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     return std::nullopt;
   }
 
+  std::string ToDebugString() const {
+    std::stringstream ss;
+    column_->printTo(ss);
+    return ss.str();
+  }
+
  private:
   mutable std::shared_ptr<Statistics> possible_stats_;
   std::vector<Encoding::type> encodings_;
@@ -455,6 +461,8 @@ std::optional<IndexLocation> ColumnChunkMetaData::GetOffsetIndexLocation() const
 bool ColumnChunkMetaData::Equals(const ColumnChunkMetaData& other) const {
   return impl_->Equals(*other.impl_);
 }
+
+std::string ColumnChunkMetaData::ToDebugString() const { return impl_->ToDebugString(); }
 
 // row-group metadata
 class RowGroupMetaData::RowGroupMetaDataImpl {
