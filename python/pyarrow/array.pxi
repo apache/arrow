@@ -699,6 +699,7 @@ cdef class _PandasConvertible(_Weakrefable):
             bint safe=True,
             bint split_blocks=False,
             bint self_destruct=False,
+            str maps_as_pydicts=None,
             types_mapper=None
     ):
         """
@@ -753,6 +754,19 @@ cdef class _PandasConvertible(_Weakrefable):
             Note that you may not see always memory usage improvements. For
             example, if multiple columns share an underlying allocation,
             memory can't be freed until all columns are converted.
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+            This can change the ordering of (key, value) pairs, and will
+            deduplicate multiple keys, resulting in a possible loss of data.
+
+            If 'lossy', this key deduplication results in a warning printed
+            when detected. If 'strict', this instead results in an exception
+            being raised when detected.
         types_mapper : function, default None
             A function mapping a pyarrow DataType to a pandas ExtensionDtype.
             This can be used to override the default pandas type for conversion
@@ -832,7 +846,8 @@ cdef class _PandasConvertible(_Weakrefable):
             deduplicate_objects=deduplicate_objects,
             safe=safe,
             split_blocks=split_blocks,
-            self_destruct=self_destruct
+            self_destruct=self_destruct,
+            maps_as_pydicts=maps_as_pydicts
         )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata,
@@ -853,6 +868,20 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
     result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
+
+    maps_as_pydicts = options['maps_as_pydicts']
+    if maps_as_pydicts is None:
+        result.maps_as_pydicts = MapConversionType.DEFAULT
+    elif maps_as_pydicts == "lossy":
+        result.maps_as_pydicts = MapConversionType.LOSSY
+    elif maps_as_pydicts == "strict":
+        result.maps_as_pydicts = MapConversionType.STRICT_
+    else:
+        raise ValueError(
+            "Invalid value for 'maps_as_pydicts': "
+            + "valid values are 'lossy', 'strict' or `None` (default). "
+            + f"Received '{maps_as_pydicts}'."
+        )
     return result
 
 
