@@ -18,7 +18,7 @@ using System;
 
 namespace Apache.Arrow.Types
 {
-    public abstract class ArrowType: IArrowType, IEquatable<IArrowType>
+    public abstract class ArrowType: IArrowType
     {
         public abstract ArrowTypeId TypeId { get; }
 

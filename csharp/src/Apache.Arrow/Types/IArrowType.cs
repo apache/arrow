@@ -14,6 +14,8 @@
 // limitations under the License.
 
 
+using System;
+
 namespace Apache.Arrow.Types
 {
     public enum ArrowTypeId
@@ -49,7 +51,7 @@ namespace Apache.Arrow.Types
         Map
     }
 
-    public interface IArrowType
+    public interface IArrowType : IEquatable<IArrowType>
     {
         ArrowTypeId TypeId { get; }
 
