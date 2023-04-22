@@ -128,19 +128,19 @@ namespace Apache.Arrow.Tests
         public void TestFieldMetadataEquals()
         {
             var metadata0 = new Dictionary<string, string> { { "foo", "bar" }, { "bizz", "buzz" } };
-            var metadata1 = new Dictionary<string, string> { { "abc", "bar" }, { "bizz", "buzz" }, { "nat", "buzz" } };
-            var metadata2 = new Dictionary<string, string> { };
+            var metadata1 = new Dictionary<string, string> { { "zef", "bar" }, { "abc", "buzz" }, { "dfj", "buzz" } };
 
             var fnometa = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
             var fmeta = new Field.Builder().Name("f1").DataType(Int32Type.Default).Metadata(metadata0).Build();
             var f3meta = new Field.Builder().Name("f2").DataType(Int32Type.Default).Metadata(metadata1).Build();
-            var femptymeta = new Field.Builder().Name("f2").DataType(Int32Type.Default).Metadata(metadata2).Build();
+            var frmeta = new Field.Builder().Name("f2").DataType(Int32Type.Default).Metadata(metadata1.Reverse().ToDictionary(pair => pair.Key, pair => pair.Value)).Build();
 
             Assert.True(fnometa.EqualsWithMetadata(fnometa));
             Assert.True(fnometa.EqualsWithMetadata(fnometa));
             Assert.False(fmeta.EqualsWithMetadata(fnometa));
             Assert.False(fmeta.EqualsWithMetadata(f3meta));
-            Assert.False(f3meta.EqualsWithMetadata(femptymeta));
+            Assert.False(fmeta.EqualsWithMetadata(frmeta));
+            Assert.True(f3meta.EqualsWithMetadata(frmeta));
         }
 
         // Todo: StructType::GetFieldIndexDuplicate test

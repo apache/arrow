@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -84,24 +85,7 @@ namespace Apache.Arrow
         {
             if (dict1 == null && dict2 == null)
                 return true;
-            // Check if both dictionaries have the same keys
-            if (!dict1.Keys.SequenceEqual(dict2.Keys))
-            {
-                return false;
-            }
-
-            // Check if the corresponding values for each key are equal
-            foreach (var key in dict1.Keys)
-            {
-                TValue value1 = dict1[key];
-                TValue value2 = dict2[key];
-                if (!EqualityComparer<TValue>.Default.Equals(value1, value2))
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return dict1.OrderBy(kvp => kvp.Key).SequenceEqual(dict2.OrderBy(kvp => kvp.Key));
         }
     }
 }
