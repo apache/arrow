@@ -14,6 +14,8 @@
 // limitations under the License.
 
 
+using System;
+
 namespace Apache.Arrow.Types
 {
     public enum TimeUnit
@@ -32,5 +34,20 @@ namespace Apache.Arrow.Types
         {
             Unit = unit;
         }
+
+        // Equality
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+            => base.Equals(other) && other is TimeType _other && Unit == _other.Unit;
+
+        public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Unit).GetHashCode();
     }
 }

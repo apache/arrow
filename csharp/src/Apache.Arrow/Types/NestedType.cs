@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Apache.Arrow.Types
 {
@@ -41,6 +42,51 @@ namespace Apache.Arrow.Types
                 throw new ArgumentNullException(nameof(field));
             }
             Fields = new Field[] { field };
+        }
+
+        // Equality
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+            => base.Equals(other) && other is NestedType _other && Fields.SequenceEqual(_other.Fields);
+
+        public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Hash32Array(Fields.Select(f => f.GetHashCode()).ToArray())).GetHashCode();
+
+        private static int Hash32Array(int[] array)
+        {
+            int length = array.Length;
+
+            switch (length)
+            {
+                case 0:
+                    return 0;
+                case 1:
+                    return Tuple.Create(array[0]).GetHashCode();
+                case 2:
+                    return Tuple.Create(array[0], array[1]).GetHashCode();
+                case 3:
+                    return Tuple.Create(array[0], array[1], array[2]).GetHashCode();
+                case 4:
+                    return Tuple.Create(array[0], array[1], array[2], array[3]).GetHashCode();
+                case 5:
+                    return Tuple.Create(array[0], array[1], array[2], array[3], array[4]).GetHashCode();
+                case 6:
+                    return Tuple.Create(array[0], array[1], array[2], array[3], array[4], array[5]).GetHashCode();
+                case 7:
+                    return Tuple.Create(array[0], array[1], array[2], array[3], array[4], array[5], array[6]).GetHashCode();
+                case 8:
+                    return Tuple.Create(array[0], array[1], array[2], array[3], array[4], array[5], array[6], array[7]).GetHashCode();
+                default:
+                    Type tupleType = typeof(Tuple<,,,,>).MakeGenericType(Enumerable.Repeat(typeof(int), array.Length).ToArray());
+                    return Activator.CreateInstance(tupleType, array).GetHashCode();
+            }
         }
     }
 }

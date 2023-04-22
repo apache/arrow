@@ -14,9 +14,11 @@
 // limitations under the License.
 
 
+using System;
+
 namespace Apache.Arrow.Types
 {
-    public abstract class ArrowType: IArrowType
+    public abstract class ArrowType: IArrowType, IEquatable<IArrowType>
     {
         public abstract ArrowTypeId TypeId { get; }
 
@@ -39,5 +41,19 @@ namespace Apache.Arrow.Types
                     break;
             }
         }
+
+        // Equality
+        public bool Equals(IArrowType other) => TypeId == other.TypeId && IsFixedWidth == other.IsFixedWidth && Name == other.Name;
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+            return Equals(other);
+        }
+
+        public override int GetHashCode() => Tuple.Create(TypeId, IsFixedWidth, Name).GetHashCode();
     }
 }

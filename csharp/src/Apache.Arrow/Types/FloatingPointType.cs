@@ -14,6 +14,8 @@
 // limitations under the License.
 
 
+using System;
+
 namespace Apache.Arrow.Types
 {
     public abstract class FloatingPointType: NumberType
@@ -26,5 +28,20 @@ namespace Apache.Arrow.Types
         }
 
         public abstract PrecisionKind Precision { get; }
+
+        // Equality
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+            => base.Equals(other) && other is FloatingPointType _other && Precision == _other.Precision;
+
+        public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Precision).GetHashCode();
     }
 }

@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Types;
+using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -126,6 +127,158 @@ namespace Apache.Arrow.Tests
 
         // Todo: StructType::GetFieldIndexDuplicate test
 
+        [Fact]
+        public void TestPrimitiveTypesEquality()
+        {
+            int i = 0;
+            foreach (IArrowType compareFrom in GetPrimitiveTypes())
+            {
+                i++;
+                int j = 0;
+                foreach (IArrowType compareTo in GetPrimitiveTypes())
+                {
+                    j++;
+                    if (i == j)
+                    {
+                        Assert.True(compareFrom.Equals(compareTo), $"{compareFrom} and {compareTo} are not .Equals while they should be");
+                        Assert.True(compareFrom.GetHashCode() == compareTo.GetHashCode(), $"{compareFrom} and {compareTo} do not have the same hash codes while they should have");
+                    }
+                    else
+                    {
+                        Assert.False(compareFrom.Equals(compareTo), $"{compareFrom} and {compareTo} are .Equals while they should not be");
+                        Assert.False(compareFrom.GetHashCode() == compareTo.GetHashCode(), $"{compareFrom} and {compareTo} have the same hash codes while they should not have");
+                    }
+                        
+                }
+            }
+        }
 
+        [Fact]
+        public void TestNestedTypesEquality()
+        {
+            int i = 0;
+            foreach (IArrowType compareFrom in GetNestedTypes())
+            {
+                i++;
+                int j = 0;
+                foreach (IArrowType compareTo in GetNestedTypes())
+                {
+                    j++;
+                    if (i == j)
+                    {
+                        Assert.True(compareFrom.Equals(compareTo), $"{compareFrom} and {compareTo} are not .Equals while they should be");
+                        Assert.True(compareFrom.GetHashCode() == compareTo.GetHashCode(), $"{compareFrom} and {compareTo} do not have the same hash codes while they should have");
+                    }
+                    else
+                    {
+                        Assert.False(compareFrom.Equals(compareTo), $"{compareFrom} and {compareTo} are .Equals while they should not be");
+                        Assert.False(compareFrom.GetHashCode() == compareTo.GetHashCode(), $"{compareFrom} and {compareTo} have the same hash codes while they should not have");
+                    }
+
+                }
+            }
+        }
+
+        private IEnumerable<NestedType> GetNestedTypes()
+        {
+            foreach (IArrowType p in GetPrimitiveTypes())
+            {
+                yield return new ListType(p);
+            }
+
+            yield return new StructType(new Field[]
+            {
+                new Field("str", new StringType(), true),
+            });
+
+            yield return new StructType(new Field[]
+            {
+                new Field("str", new StringType(), true),
+                new Field("int", new Int32Type(), true),
+            });
+
+            yield return new StructType(new Field[]
+            {
+                new Field("str", new StringType(), false),
+                new Field("int", new Int32Type(), true),
+            });
+
+            yield return new StructType(new Field[]
+            {
+                new Field("long", new Int64Type(), true),
+                new Field("int", new Int32Type(), true),
+            });
+
+            yield return new StructType(new Field[]
+            {
+                new Field("int", new Int32Type(), true),
+                new Field("long", new Int64Type(), true),
+            });
+        }
+
+        private IEnumerable<IArrowType> GetPrimitiveTypes()
+        {
+            yield return new FixedSizeBinaryType(4);
+            yield return new FixedSizeBinaryType(8);
+
+            yield return new BinaryType();
+            yield return new StringType();
+            yield return new BooleanType();
+
+            yield return new Int8Type();
+            yield return new Int16Type();
+            yield return new Int32Type();
+            yield return new Int64Type();
+            yield return new UInt8Type();
+            yield return new UInt16Type();
+            yield return new UInt32Type();
+            yield return new UInt64Type();
+
+            yield return new Decimal128Type(15, 5);
+            yield return new Decimal128Type(23, 12);
+
+            yield return new Decimal256Type(15, 5);
+            yield return new Decimal256Type(23, 12);
+
+            yield return new FloatType();
+#if NET5_0_OR_GREATER
+            yield return new HalfFloatType();
+#endif
+            yield return new DoubleType();
+
+            foreach (DateType d in GetDateTypes())
+                yield return d;
+
+            foreach (TimeType d in GetTimeTypes())
+                yield return d;
+
+            foreach (TimestampType d in GetTimestampTypes())
+                yield return d;
+        }
+
+        private IEnumerable<DateType> GetDateTypes()
+        {
+            yield return new Date32Type();
+            yield return new Date64Type();
+        }
+
+        private IEnumerable<TimeType> GetTimeTypes()
+        {
+            foreach (TimeUnit unit in Enum.GetValues(typeof(TimeUnit)))
+            {
+                yield return new Time32Type(unit);
+                yield return new Time64Type(unit);
+            }
+        }
+
+        private IEnumerable<TimestampType> GetTimestampTypes()
+        {
+            foreach (TimeUnit unit in Enum.GetValues(typeof(TimeUnit)))
+            {
+                yield return new TimestampType(unit, (string)null);
+                yield return new TimestampType(unit, "+00:00");
+                yield return new TimestampType(unit, "+12:34");
+            }
+        }
     }
 }

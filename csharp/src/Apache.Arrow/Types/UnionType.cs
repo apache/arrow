@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -42,5 +43,20 @@ namespace Apache.Arrow.Types
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+
+        // Equality
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+            => base.Equals(other) && other is UnionType _other && Mode == _other.Mode && TypeCodes.SequenceEqual(_other.TypeCodes);
+
+        public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Mode, TypeCodes).GetHashCode();
     }
 }

@@ -48,5 +48,20 @@ namespace Apache.Arrow.Types
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+
+        // Equality
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+            => base.Equals(other) && other is TimestampType _other && Unit == _other.Unit && Timezone == _other.Timezone;
+
+        public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Unit, Timezone).GetHashCode();
     }
 }

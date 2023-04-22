@@ -14,6 +14,8 @@
 // limitations under the License.
 
 
+using System;
+
 namespace Apache.Arrow.Types
 {
     public abstract class FixedWidthType: ArrowType
@@ -21,5 +23,20 @@ namespace Apache.Arrow.Types
         public override bool IsFixedWidth => true;
 
         public abstract int BitWidth { get; }
+
+        // Equality
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+            => base.Equals(other) && other is FixedWidthType _other && BitWidth == _other.BitWidth;
+
+        public override int GetHashCode() => Tuple.Create(base.GetHashCode(), BitWidth).GetHashCode();
     }
 }

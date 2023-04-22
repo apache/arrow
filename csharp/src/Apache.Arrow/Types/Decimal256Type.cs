@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+
 namespace Apache.Arrow.Types
 {
     public sealed class Decimal256Type: FixedSizeBinaryType
@@ -31,5 +33,20 @@ namespace Apache.Arrow.Types
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+
+        // Equality
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+            => base.Equals(other) && other is Decimal256Type _other && Precision == _other.Precision && Scale == _other.Scale;
+
+        public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Precision, Scale).GetHashCode();
     }
 }

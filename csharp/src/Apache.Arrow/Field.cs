@@ -21,7 +21,7 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public partial class Field
+    public partial class Field : IEquatable<Field>
     {
         public IArrowType DataType { get; }
 
@@ -61,5 +61,23 @@ namespace Apache.Arrow
             DataType = dataType ?? NullType.Default;
             IsNullable = nullable;
         }
+
+        // Equality
+        public bool Equals(Field other)
+            => Name == other.Name && IsNullable == other.IsNullable && DataType.Equals(other.DataType);
+        public bool EqualsWithMetadata(Field other)
+            => Equals(other) && HasMetadata == other.HasMetadata && Metadata.SequenceEqual(other.Metadata);
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not Field other)
+            {
+                return false;
+            }
+
+            return Equals(other);
+        }
+
+        public override int GetHashCode() => Tuple.Create(Name, IsNullable, DataType).GetHashCode();
     }
 }

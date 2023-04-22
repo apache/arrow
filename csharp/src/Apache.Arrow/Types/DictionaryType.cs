@@ -15,6 +15,7 @@
 
 
 using System;
+using Apache.Arrow.Flatbuf;
 
 namespace Apache.Arrow.Types
 {
@@ -42,5 +43,22 @@ namespace Apache.Arrow.Types
         public IArrowType IndexType { get; private set; }
         public IArrowType ValueType { get; private set; }
         public bool Ordered { get; private set; }
+
+        // Equality
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+            => base.Equals(other) && other is DictionaryType _other
+                && IndexType.Equals(_other.IndexType) && ValueType.Equals(_other.ValueType)
+                && Ordered == _other.Ordered;
+
+        public override int GetHashCode() => Tuple.Create(base.GetHashCode(), IndexType, ValueType, Ordered).GetHashCode();
     }
 }

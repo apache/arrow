@@ -14,10 +14,27 @@
 // limitations under the License.
 
 
+using System;
+
 namespace Apache.Arrow.Types
 {
     public abstract class NumberType: FixedWidthType
     {
         public abstract bool IsSigned { get; }
+
+        // Equality
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+            => base.Equals(other) && other is NumberType _other && IsSigned == _other.IsSigned;
+
+        public override int GetHashCode() => Tuple.Create(base.GetHashCode(), IsSigned).GetHashCode();
     }
 }

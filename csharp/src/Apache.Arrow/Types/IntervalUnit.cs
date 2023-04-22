@@ -14,6 +14,8 @@
 // limitations under the License.
 
 
+using System;
+
 namespace Apache.Arrow.Types
 {
     public enum IntervalUnit
@@ -36,5 +38,20 @@ namespace Apache.Arrow.Types
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+
+        // Equality
+        public override bool Equals(object obj)
+        {
+            if (obj == null || obj is not ArrowType other)
+            {
+                return false;
+            }
+            return Equals(other);
+        }
+
+        public new bool Equals(IArrowType other)
+            => base.Equals(other) && other is IntervalType _other && Unit == _other.Unit;
+
+        public override int GetHashCode() => Tuple.Create(base.GetHashCode(), Unit).GetHashCode();
     }
 }
