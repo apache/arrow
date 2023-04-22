@@ -75,7 +75,7 @@ namespace Apache.Arrow
                 return false;
             }
 
-            return Equals((object)other);
+            return Equals(other);
         }
 
         public override int GetHashCode() => Tuple.Create(Name, IsNullable, DataType).GetHashCode();
