@@ -85,7 +85,7 @@ namespace Apache.Arrow
         {
             if (dict1 == null && dict2 == null)
                 return true;
-            return dict1.OrderBy(kvp => kvp.Key).SequenceEqual(dict2.OrderBy(kvp => kvp.Key));
+            return dict1.SequenceEqual(dict2);
         }
     }
 }
