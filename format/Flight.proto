@@ -315,11 +315,6 @@ message Ticket {
   // limitations.  Furthermore, since the data is expected to be small, implementations 
   // are less likely to optimize for zero-copy in these cases. 
   message InlinedData { 
-    // Arrow data for consumption.
-    //
-    // The data is not expected to contain the schema message. The schema
-    // should be identical to the schema provided on FlightInfo. 
-    repeated FlightData data = 1;
     enum DataSubsetType {
       // Indicates server is using a different version
       // of the protos.
@@ -334,11 +329,16 @@ message Ticket {
       // to do so.
       PARTIAL_DATA = 2;
     }
-    DataSubsetType inlined_completeness = 2;
+    DataSubsetType inlined_completeness = 1;
+
+    // Arrow data for consumption.
+    //
+    // The data is not expected to contain the schema message. The schema
+    // should be identical to the schema provided on FlightInfo. 
+    repeated FlightData data = 2;
   }
   InlinedData inlined_data = 2;
   
-
 }
 
 /*
