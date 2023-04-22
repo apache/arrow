@@ -441,11 +441,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
                            &data_page_header_aad_);
         }
-        format::PageHeader header;
+        // Reset current page header to avoid unclearing the __isset flag.
+        current_page_header_ = format::PageHeader();
         deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(view.data()),
-                                        &header_size, &header,
+                                        &header_size, &current_page_header_,
                                         crypto_ctx_.meta_decryptor);
-        current_page_header_ = std::move(header);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
