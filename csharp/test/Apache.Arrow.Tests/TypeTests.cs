@@ -130,15 +130,17 @@ namespace Apache.Arrow.Tests
         {
             var metadata0 = new Dictionary<string, string> { { "foo", "bar" }, { "bizz", "buzz" } };
             var metadata1 = new Dictionary<string, string> { { "zef", "bar" }, { "abc", "buzz" }, { "dfj", "buzz" } };
+            var metadata2 = new Dictionary<string, string> { };
 
-            var fnometa = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+            var fnullmeta = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
             var fmeta = new Field.Builder().Name("f1").DataType(Int32Type.Default).Metadata(metadata0).Build();
             var f3meta = new Field.Builder().Name("f2").DataType(Int32Type.Default).Metadata(metadata1).Build();
             var frmeta = new Field.Builder().Name("f2").DataType(Int32Type.Default).Metadata(metadata1.Reverse().ToDictionary(pair => pair.Key, pair => pair.Value)).Build();
+            var femptymeta = new Field.Builder().Name("f1").DataType(Int32Type.Default).Metadata(metadata2).Build();
 
-            Assert.True(fnometa.EqualsWithMetadata(fnometa));
-            Assert.True(fnometa.EqualsWithMetadata(fnometa));
-            Assert.False(fmeta.EqualsWithMetadata(fnometa));
+            Assert.True(fnullmeta.EqualsWithMetadata(fnullmeta));
+            Assert.False(fnullmeta.EqualsWithMetadata(femptymeta));
+            Assert.False(fmeta.EqualsWithMetadata(fnullmeta));
             Assert.False(fmeta.EqualsWithMetadata(f3meta));
             Assert.False(fmeta.EqualsWithMetadata(frmeta));
             Assert.True(f3meta.EqualsWithMetadata(frmeta));
