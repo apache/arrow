@@ -552,7 +552,8 @@ func (m *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) 
 	recs := make([]arrow.Record, len(info.Endpoint))
 	for i, ep := range info.Endpoint {
 		if len(ep.Location) != 0 {
-			return fmt.Errorf("expected to receive empty locations to use the original service: %s", ep.Location)
+			return fmt.Errorf("expected to receive empty locations to use the original service: %s",
+				ep.Location)
 		}
 
 		stream, err := client.DoGet(ctx, ep.Ticket)
@@ -587,7 +588,7 @@ func (m *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) 
 	)
 	expected_table, _ := array.TableFromJSON(mem, schema, []string{
 		`[
-                   {"number": 10},
+                   {"number": 1},
                    {"number": 2},
                    {"number": 3}
                  ]`,
