@@ -153,7 +153,6 @@ namespace Apache.Arrow
             }
         }
 
-#if NETCOREAPP3_1_OR_GREATER
         public IEnumerable<KeyValuePair<K,V>> GetKeyValuePairs<TKeyArray, K, TValueArray, V>(int index, Func<TKeyArray, int, K> getKey, Func<TValueArray, int, V> getValue)
             where TKeyArray : Array where TValueArray : Array
         {
@@ -171,6 +170,5 @@ namespace Apache.Arrow
                 yield return new KeyValuePair<K,V>(getKey(keyArray, i), getValue(valueArray, i));
             }
         }
-#endif
     }
 }
