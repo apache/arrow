@@ -64,10 +64,10 @@ namespace Apache.Arrow
 
         // Equality
         public bool Equals(Field other)
+            => EqualsWithoutMeta(other) && MetadataEquals(Metadata, other.Metadata);
+        public bool EqualsWithoutMeta(Field other)
             => Name == other.Name && IsNullable == other.IsNullable && DataType.Equals(other.DataType);
-        public bool EqualsWithMetadata(Field other)
-            => Equals(other) && MetadataEquals(Metadata, other.Metadata);
-
+        
         public override bool Equals(object obj)
         {
             if (obj == null || obj is not Field other)
@@ -75,7 +75,7 @@ namespace Apache.Arrow
                 return false;
             }
 
-            return Equals(other);
+            return Equals((object)other);
         }
 
         public override int GetHashCode() => Tuple.Create(Name, IsNullable, DataType).GetHashCode();

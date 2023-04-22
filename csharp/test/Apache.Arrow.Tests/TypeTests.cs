@@ -47,9 +47,7 @@ namespace Apache.Arrow.Tests
 
             Assert.Equal(f0_nullable, f0_other);
             Assert.NotEqual(f0_nullable, f0_nonnullable);
-            Assert.NotEqual(f0_nullable, f0_nonnullable);
-            Assert.Equal(f0_nullable, f0_with_meta);
-            Assert.False(f0_nullable.EqualsWithMetadata(f0_with_meta));
+            Assert.NotEqual(f0_nullable, f0_with_meta);
         }
 
         [Fact]
@@ -138,12 +136,12 @@ namespace Apache.Arrow.Tests
             var frmeta = new Field.Builder().Name("f2").DataType(Int32Type.Default).Metadata(metadata1.Reverse().ToDictionary(pair => pair.Key, pair => pair.Value)).Build();
             var femptymeta = new Field.Builder().Name("f1").DataType(Int32Type.Default).Metadata(metadata2).Build();
 
-            Assert.True(fnullmeta.EqualsWithMetadata(fnullmeta));
-            Assert.False(fnullmeta.EqualsWithMetadata(femptymeta));
-            Assert.False(fmeta.EqualsWithMetadata(fnullmeta));
-            Assert.False(fmeta.EqualsWithMetadata(f3meta));
-            Assert.False(fmeta.EqualsWithMetadata(frmeta));
-            Assert.True(f3meta.EqualsWithMetadata(frmeta));
+            Assert.True(fnullmeta.Equals(fnullmeta));
+            Assert.False(fnullmeta.Equals(femptymeta));
+            Assert.False(fmeta.Equals(fnullmeta));
+            Assert.False(fmeta.Equals(f3meta));
+            Assert.False(fmeta.Equals(frmeta));
+            Assert.True(f3meta.Equals(frmeta));
         }
 
         // Todo: StructType::GetFieldIndexDuplicate test
