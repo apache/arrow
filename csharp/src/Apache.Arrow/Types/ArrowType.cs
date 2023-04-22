@@ -54,6 +54,6 @@ namespace Apache.Arrow.Types
             return Equals(other);
         }
 
-        public override int GetHashCode() => Tuple.Create(TypeId, IsFixedWidth, Name).GetHashCode();
+        public override int GetHashCode() => Tuple.Create(TypeId, IsFixedWidth).GetHashCode();
     }
 }
