@@ -211,7 +211,7 @@ gparquet_column_chunk_metadata_get_statistics(
 }
 
 /**
- * gparquet_column_chunk_metadata_get_statistics:
+ * gparquet_column_chunk_metadata_to_string:
  * @metadata: A #GParquetColumnChunkMetadata.
  *
  * Returns: The debug string.
