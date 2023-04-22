@@ -87,7 +87,7 @@ namespace Apache.Arrow.Types
                     IEnumerable<int[]> int8s = Enumerable.Range(0, length)
                         .Where(i => i % 8 == 0) // select starting indices of each block
                         .Select(i => array.Skip(i).Take(Math.Min(length - i, 8)).ToArray());
-                    return Hash32Array(int8s.Select(block => Hash32Array(block)).ToArray());
+                    return Hash32Array(int8s.Select(Hash32Array).ToArray());
             }
         }
     }

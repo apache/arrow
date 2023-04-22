@@ -192,6 +192,9 @@ namespace Apache.Arrow.Tests
             yield return new StructType(GetPrimitiveTypes().Take(4).Select(t => TypeToField(t)).Reverse().ToArray());
 
             yield return new StructType(GetPrimitiveTypes().Select(t => TypeToField(t)).ToArray());
+
+            var nest = new StructType(GetPrimitiveTypes().Take(1).Select(t => TypeToField(t)).ToArray());
+            yield return new StructType(new Field[] { TypeToField(nest) });
         }
 
         private IEnumerable<IArrowType> GetPrimitiveTypes()
