@@ -15,7 +15,6 @@
 
 
 using System;
-using Apache.Arrow.Flatbuf;
 
 namespace Apache.Arrow.Types
 {
