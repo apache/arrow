@@ -210,6 +210,24 @@ gparquet_column_chunk_metadata_get_statistics(
   }
 }
 
+/**
+ * gparquet_column_chunk_metadata_get_statistics:
+ * @metadata: A #GParquetColumnChunkMetadata.
+ *
+ * Returns: The debug string.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 8.0.0
+ */
+gchar *
+gparquet_column_chunk_metadata_to_string(GParquetColumnChunkMetadata *metadata)
+{
+  auto parquet_metadata = gparquet_column_chunk_metadata_get_raw(metadata);
+  const auto string = parquet_metadata->ToDebugString();
+  return g_strdup(string.c_str());
+}
+
 
 struct GParquetRowGroupMetadataPrivate {
   parquet::RowGroupMetaData *metadata;

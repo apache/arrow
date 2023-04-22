@@ -60,6 +60,9 @@ GARROW_AVAILABLE_IN_8_0
 GParquetStatistics *
 gparquet_column_chunk_metadata_get_statistics(
   GParquetColumnChunkMetadata *metadata);
+gchar *
+gparquet_column_chunk_metadata_to_string(
+  GParquetColumnChunkMetadata *metadata);
 
 
 #define GPARQUET_TYPE_ROW_GROUP_METADATA (gparquet_row_group_metadata_get_type())
