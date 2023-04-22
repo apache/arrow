@@ -337,7 +337,7 @@ class OrderedServer : public FlightServerBase {
 
  private:
   std::shared_ptr<Schema> BuildSchema() {
-    return arrow::schema({arrow::field("number", arrow::int32())});
+    return arrow::schema({arrow::field("number", arrow::int32(), false)});
   }
 };
 
@@ -382,7 +382,7 @@ class OrderedScenario : public Scenario {
     ARROW_ASSIGN_OR_RAISE(auto table, ConcatenateTables(tables));
 
     // Build expected table
-    auto schema = arrow::schema({arrow::field("number", arrow::int32())});
+    auto schema = arrow::schema({arrow::field("number", arrow::int32(), false)});
     ARROW_ASSIGN_OR_RAISE(auto builder,
                           RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
     auto number_builder = builder->GetFieldAs<Int32Builder>(0);
