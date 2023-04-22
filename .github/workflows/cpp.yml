@@ -83,11 +83,20 @@ jobs:
             runs-on: ["self-hosted", "arm", "linux"]
             title: ARM64 Ubuntu 20.04 C++
             ubuntu: "20.04"
+          - arch: amd64
+            clang-tools: "14"
+            image: conda-cpp
+            llvm: "14"
+            runs-on: ubuntu-latest
+            title: AMD64 Conda C++ no threads
+            ubuntu: "22.04"
+            disable_threading: "ON"
     env:
       ARCH: ${{ matrix.arch }}
       CLANG_TOOLS: ${{ matrix.clang-tools }}
       LLVM: ${{ matrix.llvm }}
       UBUNTU: ${{ matrix.ubuntu }}
+      ARROW_DISABLE_THREADING: ${{matrix.disable_threading}}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
