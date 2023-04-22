@@ -84,8 +84,10 @@ namespace Apache.Arrow.Types
                 case 8:
                     return Tuple.Create(array[0], array[1], array[2], array[3], array[4], array[5], array[6], array[7]).GetHashCode();
                 default:
-                    Type tupleType = typeof(Tuple<,,,,>).MakeGenericType(Enumerable.Repeat(typeof(int), array.Length).ToArray());
-                    return Activator.CreateInstance(tupleType, array).GetHashCode();
+                    IEnumerable<int[]> int8s = Enumerable.Range(0, length)
+                        .Where(i => i % 8 == 0) // select starting indices of each block
+                        .Select(i => array.Skip(i).Take(Math.Min(length - i, 8)).ToArray());
+                    return Hash32Array(int8s.Select(block => Hash32Array(block)).ToArray());
             }
         }
     }

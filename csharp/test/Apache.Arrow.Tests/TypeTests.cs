@@ -173,10 +173,11 @@ namespace Apache.Arrow.Tests
                         Assert.False(compareFrom.Equals(compareTo), $"{compareFrom} and {compareTo} are .Equals while they should not be");
                         Assert.False(compareFrom.GetHashCode() == compareTo.GetHashCode(), $"{compareFrom} and {compareTo} have the same hash codes while they should not have");
                     }
-
                 }
             }
         }
+
+        private Field TypeToField(IArrowType type, bool nullable = true) => new Field(type.Name, type, nullable);
 
         private IEnumerable<NestedType> GetNestedTypes()
         {
@@ -185,34 +186,12 @@ namespace Apache.Arrow.Tests
                 yield return new ListType(p);
             }
 
-            yield return new StructType(new Field[]
-            {
-                new Field("str", new StringType(), true),
-            });
+            yield return new StructType(GetPrimitiveTypes().Take(1).Select(t => TypeToField(t)).ToArray());
+            yield return new StructType(GetPrimitiveTypes().Take(1).Select(t => TypeToField(t, false)).ToArray());
 
-            yield return new StructType(new Field[]
-            {
-                new Field("str", new StringType(), true),
-                new Field("int", new Int32Type(), true),
-            });
+            yield return new StructType(GetPrimitiveTypes().Take(4).Select(t => TypeToField(t)).Reverse().ToArray());
 
-            yield return new StructType(new Field[]
-            {
-                new Field("str", new StringType(), false),
-                new Field("int", new Int32Type(), true),
-            });
-
-            yield return new StructType(new Field[]
-            {
-                new Field("long", new Int64Type(), true),
-                new Field("int", new Int32Type(), true),
-            });
-
-            yield return new StructType(new Field[]
-            {
-                new Field("int", new Int32Type(), true),
-                new Field("long", new Int64Type(), true),
-            });
+            yield return new StructType(GetPrimitiveTypes().Select(t => TypeToField(t)).ToArray());
         }
 
         private IEnumerable<IArrowType> GetPrimitiveTypes()
