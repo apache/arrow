@@ -18,7 +18,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Apache.Arrow.Types;
 using Xunit;
-using Xunit.Sdk;
 
 namespace Apache.Arrow.Tests
 {
@@ -46,9 +45,11 @@ namespace Apache.Arrow.Tests
             Field f0_other = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
             Field f0_with_meta = new Field.Builder().Name("f0").DataType(Int32Type.Default).Nullable(true).Metadata("a", "1").Metadata("b", "2").Build();
 
-            FieldComparer.Compare(f0_nullable, f0_other);
-            Assert.Throws<EqualException>(() => FieldComparer.Compare(f0_nullable, f0_nonnullable));
-            Assert.Throws<EqualException>(() => FieldComparer.Compare(f0_nullable, f0_with_meta));
+            Assert.Equal(f0_nullable, f0_other);
+            Assert.NotEqual(f0_nullable, f0_nonnullable);
+            Assert.NotEqual(f0_nullable, f0_nonnullable);
+            Assert.Equal(f0_nullable, f0_with_meta);
+            Assert.False(f0_nullable.EqualsWithMetadata(f0_with_meta));
         }
 
         [Fact]
@@ -59,7 +60,7 @@ namespace Apache.Arrow.Tests
             Field f0_nullable = new Field.Builder().Name("f0").DataType(Int32Type.Default).Metadata(metadata).Build();
             Field f1_nullable = new Field.Builder().Name("f0").DataType(Int32Type.Default).Metadata(metadata1).Build();
             Assert.True(metadata.Keys.SequenceEqual(f0_nullable.Metadata.Keys) && metadata.Values.SequenceEqual(f0_nullable.Metadata.Values));
-            FieldComparer.Compare(f0_nullable, f1_nullable);
+            Assert.Equal(f0_nullable, f1_nullable);
         }
 
         [Fact]
@@ -74,9 +75,9 @@ namespace Apache.Arrow.Tests
             StructType struct_type = new StructType(fields);
 
             var structFields = struct_type.Fields;
-            FieldComparer.Compare(structFields.ElementAt(0), f0_nullable);
-            FieldComparer.Compare(structFields.ElementAt(1), f1_nullable);
-            FieldComparer.Compare(structFields.ElementAt(2), f2_nullable);
+            Assert.Equal(structFields.ElementAt(0), f0_nullable);
+            Assert.Equal(structFields.ElementAt(1), f1_nullable);
+            Assert.Equal(structFields.ElementAt(2), f2_nullable);
         }
 
         [Fact]
@@ -90,9 +91,9 @@ namespace Apache.Arrow.Tests
             List<Field> fields = new List<Field>() { f0_nullable, f1_nullable, f2_nullable };
             StructType struct_type = new StructType(fields);
 
-            FieldComparer.Compare(struct_type.GetFieldByName("f0"), f0_nullable);
-            FieldComparer.Compare(struct_type.GetFieldByName("f1"), f1_nullable);
-            FieldComparer.Compare(struct_type.GetFieldByName("f2"), f2_nullable);
+            Assert.Equal(struct_type.GetFieldByName("f0"), f0_nullable);
+            Assert.Equal(struct_type.GetFieldByName("f1"), f1_nullable);
+            Assert.Equal(struct_type.GetFieldByName("f2"), f2_nullable);
             Assert.True(struct_type.GetFieldByName("not_found") == null);
         }
 
@@ -120,7 +121,7 @@ namespace Apache.Arrow.Tests
             var stringType1 = new ListType(stringField);
             var stringType2 = new ListType(StringType.Default);
 
-            FieldComparer.Compare(stringType1.ValueField, stringType2.ValueField);
+            Assert.Equal(stringType1.ValueField, stringType2.ValueField);
             Assert.Equal(stringType1.ValueDataType.TypeId, stringType2.ValueDataType.TypeId);
         }
 

@@ -43,7 +43,7 @@ namespace Apache.Arrow.Types
         }
 
         // Equality
-        public bool Equals(ArrowType other) => TypeId == other.TypeId && IsFixedWidth == other.IsFixedWidth && Name == other.Name;
+        public bool Equals(ArrowType other) => TypeId == other.TypeId && IsFixedWidth == other.IsFixedWidth;
 
         public override bool Equals(object obj)
         {

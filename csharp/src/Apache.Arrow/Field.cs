@@ -14,7 +14,6 @@
 // limitations under the License.
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -81,13 +80,13 @@ namespace Apache.Arrow
 
         public override int GetHashCode() => Tuple.Create(Name, IsNullable, DataType).GetHashCode();
 
-        private static bool MetadataEquals<TKey, TValue>(IReadOnlyDictionary<TKey, TValue> dict1, IReadOnlyDictionary<TKey, TValue> dict2)
+        private static bool MetadataEquals(IReadOnlyDictionary<string, string> dict1, IReadOnlyDictionary<string, string> dict2)
         {
             if (dict1 == null && dict2 == null)
                 return true;
             if (dict1 == null || dict2 == null)
                 return false;
-            return dict1.OrderBy(kvp => kvp.Key).SequenceEqual(dict2.OrderBy(kvp => kvp.Key));
+            return dict1.Keys.All(k => dict2.ContainsKey(k) && dict1[k] == dict2[k]);
         }
     }
 }
