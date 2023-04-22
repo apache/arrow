@@ -67,7 +67,7 @@ namespace Apache.Arrow
         public bool Equals(Field other)
             => Name == other.Name && IsNullable == other.IsNullable && DataType.Equals(other.DataType);
         public bool EqualsWithMetadata(Field other)
-            => Equals(other) && MetadataEquals(Metadata, Metadata);
+            => Equals(other) && MetadataEquals(Metadata, other.Metadata);
 
         public override bool Equals(object obj)
         {
@@ -87,7 +87,7 @@ namespace Apache.Arrow
                 return true;
             if (dict1 == null || dict2 == null)
                 return false;
-            return dict1.SequenceEqual(dict2);
+            return dict1.OrderBy(kvp => kvp.Key).SequenceEqual(dict2.OrderBy(kvp => kvp.Key));
         }
     }
 }
