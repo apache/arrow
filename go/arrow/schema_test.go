@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/v12/arrow/endian"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMetadata(t *testing.T) {
@@ -98,6 +99,9 @@ func TestMetadata(t *testing.T) {
 
 			if got, want := tc.md.String(), tc.serialize; got != want {
 				t.Fatalf("invalid stringer: got=%q, want=%q", got, want)
+			}
+			if len(tc.kvs) != 0 {
+				assert.Equal(t, tc.kvs, md.ToMap())
 			}
 		})
 	}
