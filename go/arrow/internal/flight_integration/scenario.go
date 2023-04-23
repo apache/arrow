@@ -616,7 +616,7 @@ func (m *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) 
 			"Actual:\n" +
 			"%s\n" +
 			"num-rows: %d\n" +
-			"num-cols: %d\n",
+			"num-cols: %d",
 			expected_table.Schema(),
 			expected_table.NumRows(),
 			expected_table.NumCols(),
