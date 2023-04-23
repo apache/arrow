@@ -608,8 +608,21 @@ func (m *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) 
 	table := array.NewTableFromRecords(schema, recs)
 	defer table.Release()
 	if !array.TableEqual(table, expected_table) {
-		return fmt.Errorf("read data isn't expected\nExpected:\n%s\nActual:\n%s",
-			expected_table, table)
+		return fmt.Errorf("read data isn't expected\n" +
+			"Expected:\n" +
+			"%s\n" +
+			"num-rows: %d\n" +
+			"num-cols: %d\n" +
+			"Actual:\n" +
+			"%s\n" +
+			"num-rows: %d\n" +
+			"num-cols: %d\n",
+			expected_table.Schema(),
+			expected_table.NumRows(),
+			expected_table.NumCols(),
+			table.Schema(),
+			table.NumRows(),
+			table.NumCols())
 	}
 
 	return nil
