@@ -19,7 +19,7 @@ import { targetDir, observableFromStreams } from './util.js';
 
 import { deleteAsync as del } from 'del';
 import gulp from 'gulp';
-import mkdirp from 'mkdirp';
+import { mkdirp } from 'mkdirp';
 import gulpRename from 'gulp-rename';
 import gulpReplace from 'gulp-replace';
 import { memoizeTask } from './memoize-task.js';
