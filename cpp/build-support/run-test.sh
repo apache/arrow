@@ -61,7 +61,7 @@ rm -f $LOGFILE $LOGFILE.gz
 pipe_cmd=cat
 
 # Install the gcs testbench
-sh ../../../../../ci/scripts/install_gcs_testbench.sh default
+sh $ROOT/../ci/scripts/install_gcs_testbench.sh default
 
 function setup_sanitizers() {
   # Sets environment variables for different sanitizers (it configures how) the run_tests. Function works.
