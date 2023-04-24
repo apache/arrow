@@ -55,33 +55,49 @@ namespace Apache.Arrow.Tests.Builder
 
             Assert.Equal(0, builder.ByteLength);
             Assert.Equal(1, builder.BitOverhead.Length);
-            Assert.Equal(0b_10000000, builder.BitOverhead.ToByte);
 
             builder.AppendBits(new bool[] { true, false, true });
 
             Assert.Equal(0, builder.ByteLength);
             Assert.Equal(4, builder.BitOverhead.Length);
-            Assert.Equal(0b_11010000, builder.BitOverhead.ToByte);
 
             builder.AppendBits(new bool[] { true, false, true, false, true, true });
 
             Assert.Equal(1, builder.ByteLength);
             Assert.Equal(2, builder.BitOverhead.Length);
-            Assert.Equal(0b_11000000, builder.BitOverhead.ToByte);
 
             builder.AppendBits(new bool[] { false, false, true });
 
             Assert.Equal(1, builder.ByteLength);
             Assert.Equal(5, builder.BitOverhead.Length);
-            Assert.Equal(0b_11001000, builder.BitOverhead.ToByte);
 
             var built = builder.Build();
 
-            Assert.Equal(0b_11011010, built.Span[0]);
-            Assert.Equal(0b_11001000, built.Span[1]);
+            Assert.Equal(0b_01011011, built.Span[0]);
+            Assert.Equal(0b_00010011, built.Span[1]);
             Assert.Equal(0b_00000000, built.Span[2]);
 
+            Assert.True(BitUtility.GetBit(built.Span, 9));
+
             Assert.Equal(64, built.Length);
+        }
+
+        [Fact]
+        public void BufferBuilder_Should_AppendBitsLargeRange()
+        {
+            var builder = new BufferBuilder(8);
+
+            builder.AppendBit(true);
+            builder.AppendBits(new bool[] { false, true, false, true, false, true });
+            builder.AppendBits(new bool[] { false, true, false, true, false, true, false, true, false, true, false, true });
+
+            var built = builder.Build();
+
+            Assert.True(BitUtility.GetBit(built.Span, 0));
+            Assert.False(BitUtility.GetBit(built.Span, 1));
+            Assert.True(BitUtility.GetBit(built.Span, 2));
+            Assert.False(BitUtility.GetBit(built.Span, 17));
+            Assert.True(BitUtility.GetBit(built.Span, 18));
         }
 
         [Fact]

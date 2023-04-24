@@ -14,10 +14,7 @@
 // limitations under the License.
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -54,6 +51,14 @@ namespace Apache.Arrow
         public static void SetBit(Span<byte> data, int index)
         {
             data[index / 8] |= BitMask[index % 8];
+        }
+
+        public static void SetBit(ref byte data, int index, bool value)
+        {
+            int mod = index % 8;
+            data = value
+                ? (byte)(data | BitMask[mod])
+                : (byte)(data & ~BitMask[mod]);
         }
 
         public static void SetBit(Span<byte> data, int index, bool value)
@@ -205,62 +210,53 @@ namespace Apache.Arrow
         }
 
         // Bytes
-        public static byte ToByte(bool[] bits)
+        public static byte ToByte(ref byte data, ReadOnlySpan<bool> bits)
         {
-            byte result = 0;
-
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < Math.Min(8, bits.Length); i++)
             {
-                if (bits[i])
-                {
-                    result |= (byte)(1 << (7 - i));
-                }
+                SetBit(ref data, i, bits[i]);
             }
-            return result;
+            return data;
         }
 
-        public static byte[] ToBytes(ReadOnlySpan<bool> bits)
+        public static void ToBytes(Span<byte> bytes, ReadOnlySpan<bool> bits)
         {
-            int byteCount = bits.Length / 8 + (bits.Length % 8 == 0 ? 0 : 1);
-            byte[] bytes = new byte[byteCount];
-
-            for (int i = 0; i < bits.Length; i++)
+            for (int i = 0; i < bytes.Length; i++)
             {
-                int byteIndex = i / 8;
-                int bitIndex = i % 8;
-                if (bits[i])
-                {
-                    bytes[byteIndex] |= (byte)(1 << (7 - bitIndex));
-                }
+                ToByte(ref bytes[i], bits.Slice(i * 8));
             }
-
-            return bytes;
         }
 
         // Bits
+        public static void ToBits(Span<bool> bools, byte value)
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                bools[i] = GetBit(value, i);
+            }
+        }
+
         public static bool[] ToBits(byte value)
         {
             bool[] boolArray = new bool[8]; // initialize bool array with correct length
 
             for (int i = 0; i < 8; i++)
             {
-                boolArray[i] = (value & (1 << (7 - i))) != 0;
+                boolArray[i] = GetBit(value, i);
             }
 
             return boolArray;
         }
 
-        public static bool[] ToBits(ReadOnlySpan<byte> bytes)
+        public static Span<bool> ToBits(ReadOnlySpan<byte> bytes)
         {
-            bool[] bools = new bool[bytes.Length * 8];
+            Span<bool> bools = new bool[bytes.Length * 8].AsSpan();
+
             for (int i = 0; i < bytes.Length; i++)
             {
-                byte byteValue = bytes[i];
-                for (int j = 0; j < 8; j++)
-                {
-                    bools[i * 8 + j] = (byteValue & (1 << (7 - j))) != 0;
-                }
+                ToBits(bools.Slice(i * 8, 8), bytes[i]);
             }
+
             return bools;
         }
     }

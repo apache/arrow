@@ -20,7 +20,7 @@ namespace Apache.Arrow.Builder
             public int Capacity;
 
             public bool IsFull => Length == Capacity;
-            public byte ToByte => BitUtility.ToByte(_bits);
+            public byte ToByte(ref byte data) => BitUtility.ToByte(ref data, _bits);
 
             public BitBuffer(int capacity = DefaultCapacity)
             {
@@ -75,7 +75,7 @@ namespace Apache.Arrow.Builder
             if (BitOverhead.IsFull || force)
             {
                 EnsureAdditionalBytes(1);
-                Memory.Span[ByteLength] = BitOverhead.ToByte;
+                BitOverhead.ToByte(ref Memory.Span[ByteLength]);
                 BitOverhead.Reset();
                 ByteLength++;
             }
@@ -114,31 +114,26 @@ namespace Apache.Arrow.Builder
 
             if (bits.Length > 0)
             {
-                ReadOnlySpan<byte> bytes = BitUtility.ToBytes(bits);
+                int byteEnd = bits.Length / 8;
+                int bitEnd = byteEnd * 8;
 
-                int IsFullByte = bits.Length % 8;
-
-                // Raw Span copy to memory
-                if (IsFullByte == 0)
+                if (byteEnd > 0)
                 {
-                    EnsureAdditionalBytes(bytes.Length);
-                    bytes.CopyTo(Memory.Span.Slice(ByteLength, bytes.Length));
-                    ByteLength += bytes.Length;
+                    // Ensure byte length
+                    EnsureAdditionalBits(byteEnd);
+
+                    // Raw Span copy to memory
+                    BitUtility.ToBytes(Memory.Span.Slice(ByteLength, byteEnd), bits.Slice(0, bitEnd));
+
+                    ByteLength += byteEnd;
+
+                    bits = bits.Slice(bitEnd);
                 }
-                else
+                
+                if (bits.Length > 0)
                 {
-                    if (bytes.Length > 1)
-                    {
-                        EnsureAdditionalBytes(bytes.Length - 1);
-                        // copy full bytes
-                        bytes
-                            .Slice(0, bytes.Length - 1)
-                            .CopyTo(Memory.Span.Slice(ByteLength, bytes.Length - 1));
-                        ByteLength += bytes.Length;
-                    }
-
                     // Fill byte buffer with last unfilled
-                    BitOverhead.Fill(BitUtility.ToBits(bytes[bytes.Length - 1]).AsSpan().Slice(0, IsFullByte));
+                    BitOverhead.Fill(bits);
                 }
             }
         }

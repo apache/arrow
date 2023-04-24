@@ -172,25 +172,27 @@ namespace Apache.Arrow.Tests
         {
             [Theory]
             [InlineData(new bool[] { false, false, false, false, false, false, false, false }, 0b_00000000)]
-            [InlineData(new bool[] { false, false, false, false, false, false, false, true }, 0b_00000001)]
-            [InlineData(new bool[] { true, false, false, false, false, false, false, false }, 0b_10000000)]
+            [InlineData(new bool[] { false, false, false, false, false, false, false, true }, 0b_10000000)]
+            [InlineData(new bool[] { true, false, false, false, false, false, false, false }, 0b_00000001)]
             [InlineData(new bool[] { true, true, true, true, true, true, true, true }, 0b_11111111)]
-            [InlineData(new bool[] { true, false, true, false, true, false, true, true }, 0b_10101011)]
+            [InlineData(new bool[] { true, false, true, false, true, false, true, true }, 0b_11010101)]
             public void ToByte_ReturnsExpectedValue(bool[] input, byte expected)
             {
-                Assert.Equal(expected, BitUtility.ToByte(input));
+                byte data = 0b_00000000;
+                BitUtility.ToByte(ref data, input);
+                Assert.Equal(expected, data);
             }
 
             [Theory]
-            [InlineData(new byte[] { 0b_00000000 }, new bool[] { false, false, false, false, false, false, false, false })]
-            [InlineData(new byte[] { 0b_00000001 }, new bool[] { false, false, false, false, false, false, false, true })]
-            [InlineData(new byte[] { 0b_11111111 }, new bool[] { true, true, true, true, true, true, true, true })]
-            [InlineData(new byte[] { 0b_01010101, 0b_01000000 }, new bool[] { false, true, false, true, false, true, false, true, false, true })]
+            [InlineData(new byte[] { 0b_00000000, 0b_00000000 }, new bool[] { false, false, false, false, false, false, false, false })]
+            [InlineData(new byte[] { 0b_10000000, 0b_00000000 }, new bool[] { false, false, false, false, false, false, false, true })]
+            [InlineData(new byte[] { 0b_11111111, 0b_00000000 }, new bool[] { true, true, true, true, true, true, true, true })]
+            [InlineData(new byte[] { 0b_01010101, 0b_01000000 }, new bool[] { true, false, true, false, true, false, true, false, false, false, false, false, false, false, true, false })]
             public void ToBytes_ReturnsExpectedValue(byte[] expected, bool[] bits)
             {
-                ReadOnlySpan<bool> bitsSpan = bits;
-                byte[] result = BitUtility.ToBytes(bitsSpan);
-                Assert.Equal(expected, result);
+                byte[] bytes = new byte[2];
+                BitUtility.ToBytes(bytes.AsSpan(), bits);
+                Assert.Equal(expected, bytes);
             }
         }
 
@@ -198,23 +200,24 @@ namespace Apache.Arrow.Tests
         {
             [Theory]
             [InlineData(0b_00000000, new bool[] { false, false, false, false, false, false, false, false })]
-            [InlineData(0b_00000001, new bool[] { false, false, false, false, false, false, false, true })]
-            [InlineData(0b_10000000, new bool[] { true, false, false, false, false, false, false, false })]
+            [InlineData(0b_00000001, new bool[] { true, false, false, false, false, false, false, false })]
+            [InlineData(0b_10000000, new bool[] { false, false, false, false, false, false, false, true })]
             [InlineData(0b_11111111, new bool[] { true, true, true, true, true, true, true, true })]
-            [InlineData(0b_10101011, new bool[] { true, false, true, false, true, false, true, true })]
+            [InlineData(0b_10101011, new bool[] { true, true, false, true, false, true, false, true })]
             public void ToBits_ReturnsExpectedValue(byte input, bool[] expected)
             {
+                bool[] result = new bool[1];
                 Assert.Equal(expected, BitUtility.ToBits(input));
             }
 
             [Theory]
-            [InlineData(new byte[] { 0b_00000000 }, new bool[] { false, false, false, false, false, false, false, false })]
-            [InlineData(new byte[] { 0b_00000001 }, new bool[] { false, false, false, false, false, false, false, true })]
-            [InlineData(new byte[] { 0b_11111111 }, new bool[] { true, true, true, true, true, true, true, true })]
-            [InlineData(new byte[] { 0b_01010101, 0b_01000000 }, new bool[] { false, true, false, true, false, true, false, true, false, true, false, false, false, false, false, false })]
+            [InlineData(new byte[] { 0b_00000000, 0b_00000000 }, new bool[] { false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false })]
+            [InlineData(new byte[] { 0b_10000000, 0b_00000000 }, new bool[] { false, false, false, false, false, false, false, true, false, false, false, false, false, false, false, false })]
+            [InlineData(new byte[] { 0b_11111111, 0b_00000000 }, new bool[] { true, true, true, true, true, true, true, true, false, false, false, false, false, false, false, false })]
+            [InlineData(new byte[] { 0b_01010101, 0b_01000000 }, new bool[] { true, false, true, false, true, false, true, false, false, false, false, false, false, false, true, false })]
             public void ToBits_ReturnsExpectedValues(byte[] input, bool[] expected)
             {
-                bool[] result = BitUtility.ToBits(input);
+                bool[] result = BitUtility.ToBits(input).ToArray();
                 Assert.Equal(expected, result);
             }
         }
