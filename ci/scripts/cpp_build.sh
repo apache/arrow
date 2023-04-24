@@ -164,8 +164,6 @@ cmake \
   ${CMAKE_ARGS} \
   ${source_dir}
 
-cat src/arrow/utils.config.h
-
 export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
 time cmake --build . --target install
 
