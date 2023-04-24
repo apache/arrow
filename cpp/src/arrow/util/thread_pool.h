@@ -24,6 +24,7 @@
 #include <utility>
 #include <unordered_set>
 
+#include "arrow/util/config.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/cancel.h"
