@@ -20,28 +20,23 @@ namespace Apache.Arrow.Builder
 {
     public interface IBufferBuilder
     {
-        int ValueLength { get; }
         Memory<byte> Memory { get; }
         
         int ValueBitSize { get; }
-        int Capacity { get; }
 
         void AppendBit(bool bit);
 
         void AppendBits(ReadOnlySpan<bool> bits);
-        void AppendBits(ReadOnlySpan<bool> bits, int length);
 
         void AppendByte(byte byteValue);
-        void AppendByte(byte byteValue, int length);
 
         void AppendBytes(ReadOnlySpan<byte> bytes);
-        void AppendBytes(ReadOnlySpan<byte> bytes, int length);
-        
+
         /// <summary>
         /// Reserve a given number of items' additional capacity.
         /// </summary>
-        /// <param name="additionalCapacity">Number of items of required additional capacity.</param>
-        void Reserve(int additionalCapacity);
+        /// <param name="numBytes">Number of new bytes.</param>
+        void ReserveBytes(int numBytes);
 
         /// <summary>
         /// Resize the buffer to a given size.
@@ -54,8 +49,8 @@ namespace Apache.Arrow.Builder
         /// Note that if the required capacity is smaller than the current length of the populated buffer so far,
         /// the buffer will be truncated and items at the end of the buffer will be lost.
         /// </remarks>
-        /// <param name="capacity">Number of items of required capacity.</param>
-        void Resize(int capacity);
+        /// <param name="numBytes">Number of bytes.</param>
+        void ResizeBytes(int numBytes);
 
         /// <summary>
         /// Clear all contents appended so far.

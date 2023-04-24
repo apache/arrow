@@ -6,33 +6,41 @@ namespace Apache.Arrow.Builder
 {
     public class BufferBuilder : IBufferBuilder
     {
-        public class ByteBuffer
+        public class BitBuffer
         {
-            private bool[] _values;
-            public Span<bool> Values => _values.AsSpan().Slice(0, Length);
+            private const int DefaultCapacity = 8;
+
+            private bool[] _bits;
+            public Span<bool> Bits => _bits.AsSpan().Slice(0, Length);
 
             public int Length { get; private set; }
-            public int AvailableLength => 8 - Length;
+            public int AvailableLength => Capacity - Length;
 
-            public bool IsFull => Length == 8;
-            public byte ToByte => BitUtility.ToByte(_values);
+            public int Capacity;
 
-            public ByteBuffer()
+            public bool IsFull => Length == Capacity;
+            public byte ToByte => BitUtility.ToByte(_bits);
+
+            public BitBuffer(int capacity = DefaultCapacity)
             {
-                _values = new bool[8];
+                Capacity = capacity;
+                _bits = new bool[capacity];
                 Length = 0;
             }
 
-            public void Append(bool bit) => _values[Length++] = bit;
+            public void Append(bool bit) => _bits[Length++] = bit;
             public void Fill(ReadOnlySpan<bool> bits)
             {
-                bits.CopyTo(_values.AsSpan().Slice(Length, 8 - bits.Length));
+                bits.CopyTo(_bits.AsSpan().Slice(Length, Capacity - bits.Length));
                 Length += bits.Length;
             }
 
             public void Reset()
             {
-                _values = new bool[8];
+                for (int i = 0; i < _bits.Length; i++)
+                {
+                    _bits[i] = false;
+                }
                 Length = 0;
             }
         }
@@ -41,15 +49,10 @@ namespace Apache.Arrow.Builder
         private const int DefaultCapacity = 8;
 
         public int ValueBitSize { get; }
-        public int ValueByteSize { get; }
-
-        public int Capacity => Memory.Length / ValueByteSize;
-
-        public int ValueLength { get; private set; }
+        public int ByteLength { get; private set; }
 
         public Memory<byte> Memory { get; private set; }
-        private ByteBuffer BitBuffer { get; }
-        public int UnsetBitLength => 8 - BitBuffer.Length;
+        private BitBuffer BitOverhead { get; }
 
         /// <summary>
         /// Creates an instance of the <see cref="BufferBuilder"/> class.
@@ -59,39 +62,38 @@ namespace Apache.Arrow.Builder
         public BufferBuilder(int valueBitSize, int capacity = DefaultCapacity)
         {
             ValueBitSize = valueBitSize;
-            ValueByteSize = (valueBitSize + 7) / 8;
 
-            Memory = new byte[capacity * ValueByteSize];
-            BitBuffer = new ByteBuffer();
-            ValueLength = 0;
+            Memory = new byte[capacity * (valueBitSize + 7) / 8];
+            BitOverhead = new BitBuffer();
+
+            ByteLength = 0;
         }
 
         private void CommitBitBuffer()
         {
-            Memory.Span[Memory.Length] = BitBuffer.ToByte;
-            BitBuffer.Reset();
+            if (BitOverhead.IsFull)
+            {
+                EnsureAdditionalBytes(1);
+                Memory.Span[ByteLength] = BitOverhead.ToByte;
+                BitOverhead.Reset();
+                ByteLength++;
+            }
         }
 
         public void AppendBit(bool bit)
         {
-            EnsureAdditionalCapacity(1);
-            BitBuffer.Append(bit);
-            if (BitBuffer.IsFull)
-                CommitBitBuffer();
+            BitOverhead.Append(bit);
+            CommitBitBuffer();
         }
 
-        public void AppendBits(ReadOnlySpan<bool> bits) => AppendBits(bits, bits.Length / ValueBitSize);
-
-        public void AppendBits(ReadOnlySpan<bool> bits, int length)
+        public void AppendBits(ReadOnlySpan<bool> bits)
         {
-            EnsureAdditionalCapacity(length);
-
-            if (BitBuffer.Length != 0)
+            if (BitOverhead.Length != 0)
             {
-                int available = BitBuffer.AvailableLength;
+                int available = BitOverhead.AvailableLength;
 
                 // Fill byte buffer
-                BitBuffer.Fill(bits.Slice(0, available));
+                BitOverhead.Fill(bits.Slice(0, available));
 
                 // Commit to memory and reset
                 CommitBitBuffer();
@@ -100,71 +102,69 @@ namespace Apache.Arrow.Builder
             }
 
             ReadOnlySpan<byte> bytes = BitUtility.ToBytes(bits);
-
+            
             int IsFullByte = bits.Length % 8;
 
             // Raw Span copy to memory
             if (IsFullByte == 0)
-                bytes.CopyTo(Memory.Span.Slice(ValueLength * ValueByteSize, bytes.Length * ValueByteSize));
+            {
+                EnsureAdditionalBytes(bytes.Length);
+                bytes.CopyTo(Memory.Span.Slice(ByteLength, bytes.Length));
+                ByteLength += bytes.Length;
+            }
             else
             {
                 if (bytes.Length > 1)
                 {
+                    EnsureAdditionalBytes(bytes.Length - 1);
                     // copy full bytes
                     bytes
                         .Slice(0, bytes.Length - 1)
-                        .CopyTo(Memory.Span.Slice(ValueLength * ValueByteSize, (bytes.Length - 1) * ValueByteSize));
+                        .CopyTo(Memory.Span.Slice(ByteLength, bytes.Length - 1));
+                    ByteLength += bytes.Length;
                 }
 
                 // Fill byte buffer with last unfilled
-                BitBuffer.Fill(BitUtility.ToBits(bytes[bytes.Length - 1]));
+                BitOverhead.Fill(BitUtility.ToBits(bytes[bytes.Length - 1]));
             }
-
-            ValueLength += length;
         }
 
-        public void AppendByte(byte bytes) => AppendByte(bytes, 8 / ValueBitSize);
-
-        public void AppendByte(byte byteValue, int length)
+        public void AppendByte(byte byteValue)
         {
-            EnsureAdditionalCapacity(length);
-
-            if (BitBuffer.Length > 0)
+            if (BitOverhead.Length > 0)
             {
                 // Fill current bit buffer
-                int available = BitBuffer.AvailableLength;
+                int available = BitOverhead.AvailableLength;
 
                 // Convert byte to bit array
                 Span<bool> bits = BitUtility.ToBits(byteValue).AsSpan();
 
                 // Fill byte buffer
-                BitBuffer.Fill(bits.Slice(0, available));
+                BitOverhead.Fill(bits.Slice(0, available));
 
                 // Commit to memory and reset
                 CommitBitBuffer();
 
                 // Fill new bit buffer
-                BitBuffer.Fill(bits.Slice(available));
+                BitOverhead.Fill(bits.Slice(available));
             }
             else
             {
+                EnsureAdditionalBytes(1);
                 // Raw add to memory
-                Memory.Span[(ValueLength * ValueBitSize + 7) / 8] = byteValue;
+                Memory.Span[ByteLength] = byteValue;
+                ByteLength++;
             }
-
-            ValueLength += length;
         }
 
-        public void AppendBytes(ReadOnlySpan<byte> bytes) => AppendBytes(bytes, bytes.Length * 8 / ValueBitSize);
-
-        public void AppendBytes(ReadOnlySpan<byte> bytes, int length)
+        public void AppendBytes(ReadOnlySpan<byte> bytes)
         {
-            EnsureAdditionalCapacity(length);
-
-            if (BitBuffer.Length == 0)
+            if (BitOverhead.Length == 0)
             {
+                EnsureAdditionalBytes(bytes.Length);
                 // Raw Span copy to memory
-                bytes.CopyTo(Memory.Span.Slice(ValueLength * ValueByteSize, bytes.Length * ValueByteSize));
+                bytes.CopyTo(Memory.Span.Slice(ByteLength, bytes.Length));
+                ByteLength++;
             }
             else
             {
@@ -176,37 +176,35 @@ namespace Apache.Arrow.Builder
                     int bufferLength = Math.Min(DefaultBatchSize, remainingBytes);
 
                     // Append batch bits, but length = 0 because its added later
-                    AppendBits(BitUtility.ToBits(bytes.Slice(offset, bufferLength)), 0);
+                    AppendBits(BitUtility.ToBits(bytes.Slice(offset, bufferLength)));
                     offset += bufferLength;
                 }
             }
-
-            ValueLength += length;
         }
 
-        public void Reserve(int additionalCapacity) => EnsureAdditionalCapacity(additionalCapacity);
+        public void ReserveBytes(int numBytes) => EnsureAdditionalBytes(numBytes);
 
-        public void Resize(int capacity)
+        public void ResizeBytes(int numBytes)
         {
-            EnsureCapacity(capacity);
-            ValueLength = capacity;
+            EnsureBytes(numBytes);
+            ByteLength = numBytes;
         }
 
         public void Clear()
         {
             Memory.Span.Fill(default);
-            ValueLength = 0;
+            ByteLength = 0;
         }
 
         public ArrowBuffer Build(MemoryAllocator allocator = default) => Build(64, allocator);
 
         public ArrowBuffer Build(int byteSize, MemoryAllocator allocator = default)
         {
-            if (BitBuffer.Length > 0)
+            if (BitOverhead.Length > 0)
                 CommitBitBuffer();
 
             int bufferLength = checked((int)BitUtility
-                .RoundUpToMultiplePowerOfTwo(BitUtility.ByteCount(ValueLength * ValueBitSize), byteSize));
+                .RoundUpToMultiplePowerOfTwo(ByteLength, byteSize));
 
             MemoryAllocator memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
             IMemoryOwner<byte> memoryOwner = memoryAllocator.Allocate(bufferLength);
@@ -215,25 +213,19 @@ namespace Apache.Arrow.Builder
             return new ArrowBuffer(memoryOwner);
         }
 
-        internal void EnsureAdditionalCapacity(int addLength)
-        {
-            if (addLength > 0)
-                EnsureCapacity(checked(ValueLength + addLength));
-        }
+        internal void EnsureAdditionalBits(int numBits) => EnsureBytes(checked(Memory.Length + numBits / 8));
 
-        internal void EnsureCapacity(int length)
+        internal void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(Memory.Length + numBytes));
+
+        private void EnsureBytes(int numBytes)
         {
-            if (length > Capacity)
+            if (numBytes > Memory.Length)
             {
-                // TODO: specifiable growth strategy
-                // Double the length of the in-memory array, or use the byte count of the capacity, whichever is
-                // greater.
-                int capacity = Math.Max(length * ValueByteSize, Memory.Length * 2);
-                Reallocate(capacity);
+                Reallocate(numBytes);
             }
         }
 
-        internal void Reallocate(int numBytes)
+        private void Reallocate(int numBytes)
         {
             var memory = new Memory<byte>(new byte[numBytes]);
             Memory.CopyTo(memory);
