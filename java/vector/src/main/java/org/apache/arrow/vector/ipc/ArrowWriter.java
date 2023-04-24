@@ -53,6 +53,8 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
 
+  protected static final int compressionLevel = 3;
+
   // schema with fields in message format, not memory format
   protected final Schema schema;
   protected final WriteChannel out;
@@ -72,7 +74,8 @@ public abstract class ArrowWriter implements AutoCloseable {
   }
 
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
-    this(root, provider, out, option, NoCompressionCodec.Factory.INSTANCE, CompressionUtil.CodecType.NO_COMPRESSION, 3);
+    this(root, provider, out, option, NoCompressionCodec.Factory.INSTANCE, CompressionUtil.CodecType.NO_COMPRESSION,
+            compressionLevel);
   }
 
   /**

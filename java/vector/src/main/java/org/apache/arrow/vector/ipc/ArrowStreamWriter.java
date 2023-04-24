@@ -86,6 +86,23 @@ public class ArrowStreamWriter extends ArrowWriter {
   }
 
   /**
+   * Construct an ArrowStreamWriter with compression enabled.
+   *
+   * @param root Existing VectorSchemaRoot with vectors to be written.
+   * @param provider DictionaryProvider for any vectors that are dictionary encoded.
+   *                 (Optional, can be null)
+   * @param option IPC write options
+   * @param compressionFactory Compression codec factory
+   * @param codecType Codec type
+   * @param out WritableByteChannel for writing.
+   */
+  public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+                           IpcOption option, CompressionCodec.Factory compressionFactory,
+                           CompressionUtil.CodecType codecType) {
+    this(root, provider, out, option, compressionFactory, codecType, compressionLevel);
+  }
+
+  /**
    * Write an EOS identifier to the WriteChannel.
    *
    * @param out Open WriteChannel with an active Arrow stream.
