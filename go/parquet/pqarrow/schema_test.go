@@ -18,6 +18,7 @@ package pqarrow_test
 
 import (
 	"encoding/base64"
+	"fmt"
 	"testing"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -409,4 +410,35 @@ func TestListStructBackwardCompatible(t *testing.T) {
 	arrsc, err := pqarrow.FromParquet(pqSchema, nil, metadata.KeyValueMetadata{})
 	assert.NoError(t, err)
 	assert.True(t, arrowSchema.Equal(arrsc))
+}
+
+// TestUnsupportedTypes tests the error message for unsupported types. This test should be updated
+// when support for these types is added.
+func TestUnsupportedTypes(t *testing.T) {
+	unsupportedTypes := []struct {
+		name string
+		typ  arrow.DataType
+	}{
+		// Non-exhaustive list of unsupported types
+		{name: "FLOAT16", typ: &arrow.Float16Type{}},
+		{name: "DURATION", typ: &arrow.DurationType{}},
+		{name: "INTERVAL_DAY_TIME", typ: &arrow.DayTimeIntervalType{}},
+		{name: "INTERVAL_MONTHS", typ: &arrow.MonthIntervalType{}},
+		{name: "INTERVAL_MONTH_DAY_NANO", typ: &arrow.MonthDayNanoIntervalType{}},
+		{name: "DENSE_UNION", typ: &arrow.DenseUnionType{}},
+		{name: "SPARSE_UNION", typ: &arrow.SparseUnionType{}},
+	}
+	for _, tc := range unsupportedTypes {
+		t.Run(tc.name, func(t *testing.T) {
+			arrowFields := make([]arrow.Field, 0)
+			arrowFields = append(arrowFields, arrow.Field{Name: "unsupported", Type: tc.typ, Nullable: true})
+			arrowSchema := arrow.NewSchema(arrowFields, nil)
+			_, err := pqarrow.ToParquet(arrowSchema, nil, pqarrow.NewArrowWriterProperties())
+			assert.Error(t, err)
+			if err != nil {
+				wantMsg := fmt.Sprintf("support for %s not implemented yet", tc.name)
+				assert.Equal(t, wantMsg, err.Error())
+			}
+		})
+	}
 }
