@@ -950,13 +950,9 @@ endif()
 # ----------------------------------------------------------------------
 # Find pthreads
 
-if (!ARROW_DISABLE_THREADING)
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-  find_package(Threads REQUIRED)
-  set(THREADS_LINK_LIB Threads::Threads)
-else()
-  set(THREADS_LINK_LIB "")
-endif()
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu)
 
@@ -2013,18 +2009,11 @@ macro(build_jemalloc)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${JEMALLOC_INCLUDE_DIR}")
   add_library(jemalloc::jemalloc STATIC IMPORTED)
-  if ("${THREADS_LINK_LIB}" STREQUAL "")
-    set_target_properties(jemalloc::jemalloc
-                          PROPERTIES IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
-                                    INTERFACE_INCLUDE_DIRECTORIES
-                                    "${JEMALLOC_INCLUDE_DIR}")
-  else()
-    set_target_properties(jemalloc::jemalloc
-    PROPERTIES INTERFACE_LINK_LIBRARIES ${THREADS_LINK_LIB}
-              IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
-              INTERFACE_INCLUDE_DIRECTORIES
-              "${JEMALLOC_INCLUDE_DIR}")
-  endif()                                    
+  set_target_properties(jemalloc::jemalloc
+                        PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
+                                   IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${JEMALLOC_INCLUDE_DIR}")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
@@ -2078,18 +2067,11 @@ if(ARROW_MIMALLOC)
   file(MAKE_DIRECTORY ${MIMALLOC_INCLUDE_DIR})
 
   add_library(mimalloc::mimalloc STATIC IMPORTED)
-  if ("${THREADS_LINK_LIB}" STREQUAL "")
-    set_target_properties(mimalloc::mimalloc
-    PROPERTIES IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
-              INTERFACE_INCLUDE_DIRECTORIES
-              "${MIMALLOC_INCLUDE_DIR}")
-  else()
-    set_target_properties(mimalloc::mimalloc
-    PROPERTIES INTERFACE_LINK_LIBRARIES ${THREADS_LINK_LIB}
-              IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
-              INTERFACE_INCLUDE_DIRECTORIES
-              "${MIMALLOC_INCLUDE_DIR}")
-  endif()
+  set_target_properties(mimalloc::mimalloc
+                        PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
+                                   IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${MIMALLOC_INCLUDE_DIR}")
   if(WIN32)
     set_property(TARGET mimalloc::mimalloc
                  APPEND
@@ -4035,9 +4017,7 @@ macro(build_grpc)
       c-ares::cares
       ZLIB::ZLIB
       OpenSSL::SSL
-      ${THREADS_LINK_LIB}
-      )
-
+      Threads::Threads)
   set_target_properties(gRPC::grpc
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
@@ -4311,17 +4291,15 @@ macro(build_google_cloud_cpp_storage)
   # Version 1.39.0 is at a different place (they refactored after):
   # https://github.com/googleapis/google-cloud-cpp/blob/29e5af8ca9b26cec62106d189b50549f4dc1c598/google/cloud/CMakeLists.txt#L146-L155
   set_property(TARGET google-cloud-cpp::common
-            PROPERTY INTERFACE_LINK_LIBRARIES
-                      absl::base
-                      absl::memory
-                      absl::optional
-                      absl::span
-                      absl::time
-                      absl::variant
-                      ${THREADS_LINK_LIB}
-                      OpenSSL::Crypto)
-
-
+               PROPERTY INTERFACE_LINK_LIBRARIES
+                        absl::base
+                        absl::memory
+                        absl::optional
+                        absl::span
+                        absl::time
+                        absl::variant
+                        Threads::Threads
+                        OpenSSL::Crypto)
 
   add_library(google-cloud-cpp::rest-internal STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::rest-internal
@@ -4357,7 +4335,7 @@ macro(build_google_cloud_cpp_storage)
                         nlohmann_json::nlohmann_json
                         Crc32c::crc32c
                         CURL::libcurl
-                        ${THREADS_LINK_LIB}
+                        Threads::Threads
                         OpenSSL::SSL
                         OpenSSL::Crypto
                         ZLIB::ZLIB)
@@ -4503,7 +4481,7 @@ macro(build_orc)
   set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
   if(NOT MSVC)
     if(NOT APPLE)
-      list(APPEND ORC_LINK_LIBRARIES ${THREADS_LINK_LIB})
+      list(APPEND ORC_LINK_LIBRARIES Threads::Threads)
     endif()
     list(APPEND ORC_LINK_LIBRARIES ${CMAKE_DL_LIBS})
   endif()
@@ -4686,7 +4664,7 @@ macro(build_opentelemetry)
 
   set_target_properties(opentelemetry-cpp::common
                         PROPERTIES INTERFACE_LINK_LIBRARIES
-                                   "opentelemetry-cpp::api;opentelemetry-cpp::sdk;" ${THREADS_LINK_LIB}
+                                   "opentelemetry-cpp::api;opentelemetry-cpp::sdk;Threads::Threads"
   )
   set_target_properties(opentelemetry-cpp::resources
                         PROPERTIES INTERFACE_LINK_LIBRARIES "opentelemetry-cpp::common")
