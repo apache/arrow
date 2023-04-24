@@ -39,8 +39,7 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DI
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/factory.cc")
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_INCLUDE_DIRS ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_ROOT_INCLUDE_DIR}
                                                                ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_INCLUDE_DIR}
-                                                               ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_INCLUDE_DIR}
-                                                               ${ARROW_INCLUDE_DIRS})
+                                                               ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_INCLUDE_DIR})
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_SOURCES ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES}
                                                           ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_SOURCES})
 # ----------------------------------------
