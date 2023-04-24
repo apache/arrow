@@ -225,7 +225,10 @@ namespace Apache.Arrow.Builder
             if (length > Capacity)
             {
                 // TODO: specifiable growth strategy
-                Reallocate(Memory.Length * 2);
+                // Double the length of the in-memory array, or use the byte count of the capacity, whichever is
+                // greater.
+                int capacity = Math.Max(length * ValueByteSize, Memory.Length * 2);
+                Reallocate(capacity);
             }
         }
 
