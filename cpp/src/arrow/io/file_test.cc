@@ -35,8 +35,8 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
-#include "arrow/io/stdio.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/io/stdio.h"
 #include "arrow/io/test_common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -1112,7 +1112,7 @@ TEST_F(TestStdio, ReadStdinReadUnalignedBuffer) {
   CreateStdinWithData(data, sizeof(data));
 
   StdinStream input;
-  char buffer[sizeof(data)+16];
+  char buffer[sizeof(data) + 16];
   ASSERT_OK_AND_ASSIGN(auto res, input.Read(sizeof(buffer), buffer));
   ASSERT_EQ(sizeof(data), res);
   ASSERT_EQ(0, std::memcmp(buffer, data, sizeof(data)));
