@@ -397,6 +397,34 @@ TEST(ArraySortIndicesFunction, DictionaryArray) {
       }
     }
   }
+
+  auto expected_all_nulls = ArrayFromJSON(uint64(), "[0, 1, 2, 3]");
+  auto expected_empty = ArrayFromJSON(uint64(), "[]");
+
+  for (auto index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    auto dict_type = dictionary(index_type, utf8());
+    auto dict_arr_all_nulls =
+        DictArrayFromJSON(dict_type, "[null, 3, null, 1]", "[\"b\", null, \"a\", null]");
+    auto dict_arr_empty = DictArrayFromJSON(dict_type, "[]", "[\"b\", \"a\"]");
+
+    for (auto order : AllOrders()) {
+      for (auto null_placement : AllNullPlacements()) {
+        ArraySortOptions options{order, null_placement};
+
+        Datum actual;
+        ASSERT_OK_AND_ASSIGN(
+            actual, CallFunction("array_sort_indices", {dict_arr_all_nulls}, &options));
+        ValidateOutput(actual);
+        AssertDatumsEqual(expected_all_nulls, actual, /*verbose=*/true);
+        ASSERT_OK_AND_ASSIGN(
+            actual, CallFunction("array_sort_indices", {dict_arr_empty}, &options));
+        ValidateOutput(actual);
+        AssertDatumsEqual(expected_empty, actual, /*verbose=*/true);
+      }
+    }
+  }
 }
 
 Result<std::shared_ptr<Array>> DecodeDictionary(const Array& array) {

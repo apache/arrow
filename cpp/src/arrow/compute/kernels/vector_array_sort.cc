@@ -181,8 +181,9 @@ class ArrayCompareSorter<DictionaryType> {
                                          const ArraySortOptions& options,
                                          ExecContext* ctx) {
     const auto& dict_array = checked_cast<const DictionaryArray&>(array);
-    const auto& dict_values = dict_array.dictionary();
-    const auto& dict_indices = dict_array.indices();
+    // TODO: These methods should probably return a const&? They seem capable.
+    auto dict_values = dict_array.dictionary();
+    auto dict_indices = dict_array.indices();
 
     // Algorithm:
     // 1) Use the Rank function to get an exactly-equivalent-order array
@@ -200,20 +201,52 @@ class ArrayCompareSorter<DictionaryType> {
     // (potentially an order of magnitude faster) than by naively decoding
     // the original dictionary and sorting the decoded version.
 
-    // TODO special-case all-nulls arrays to avoid ranking and decoding them?
-    ARROW_ASSIGN_OR_RAISE(auto ranks, RanksWithNulls(dict_values, ctx));
+    std::shared_ptr<Array> decoded_ranks;
+    // Skip the rank/take steps for cases with only nulls
+    if (IsAllNulls(dict_array)) {
+      ARROW_ASSIGN_OR_RAISE(decoded_ranks,
+                            MakeNullUInt64Array(dict_array.length(), ctx->memory_pool()));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto ranks, RanksWithNulls(dict_values, ctx));
 
-    ARROW_ASSIGN_OR_RAISE(auto decoded_ranks,
-                          Take(*ranks, *dict_indices, TakeOptions::Defaults(), ctx));
+      ARROW_ASSIGN_OR_RAISE(decoded_ranks,
+                            Take(*ranks, *dict_indices, TakeOptions::Defaults(), ctx));
+    }
 
-    ARROW_ASSIGN_OR_RAISE(auto rank_sorter,
-                          GetArraySorter(*decoded_ranks->type() /* should be uint64 */));
+    DCHECK_EQ(decoded_ranks->type_id(), Type::UINT64);
+    DCHECK_EQ(decoded_ranks->length(), dict_array.length());
+    ARROW_ASSIGN_OR_RAISE(auto rank_sorter, GetArraySorter(*decoded_ranks->type()));
+
     return rank_sorter(indices_begin, indices_end, *decoded_ranks, offset, options, ctx);
   }
 
  private:
-  Result<std::shared_ptr<Array>> RanksWithNulls(const std::shared_ptr<Array>& array,
-                                                ExecContext* ctx) {
+  static bool IsAllNulls(const DictionaryArray& dict_array) {
+    auto indices = dict_array.indices();
+    auto values = dict_array.dictionary();
+    if (values->null_count() == values->length() ||
+        indices->null_count() == indices->length()) {
+      return true;
+    }
+    for (int64_t i = 0; i < dict_array.length(); ++i) {
+      // TODO: Special handling for dictionary types in Array::IsValid/Null?
+      if (indices->IsValid(i) && values->IsValid(dict_array.GetValueIndex(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  static Result<std::shared_ptr<Array>> MakeNullUInt64Array(int64_t length,
+                                                            MemoryPool* pool) {
+    ARROW_ASSIGN_OR_RAISE(auto bitmap, AllocateEmptyBitmap(length, pool));
+    auto data = ArrayData::Make(uint64(), length, {std::move(bitmap), nullptr},
+                                /*null_count=*/length);
+    return MakeArray(data);
+  }
+
+  static Result<std::shared_ptr<Array>> RanksWithNulls(
+      const std::shared_ptr<Array>& array, ExecContext* ctx) {
     // Notes:
     // * The order is always ascending here, since the goal is to produce
     //   an exactly-equivalent-order of the dictionary values.
