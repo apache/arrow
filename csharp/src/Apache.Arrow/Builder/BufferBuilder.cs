@@ -149,7 +149,7 @@ namespace Apache.Arrow.Builder
             else
             {
                 // Raw add to memory
-                Memory.Span[ValueLength * (ValueBitSize + 7) / 8] = byteValue;
+                Memory.Span[(ValueLength * ValueBitSize + 7) / 8] = byteValue;
             }
 
             ValueLength += length;
