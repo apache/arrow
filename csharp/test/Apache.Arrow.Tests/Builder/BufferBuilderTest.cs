@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using Apache.Arrow.Builder;
 using Xunit;
 
@@ -79,6 +80,25 @@ namespace Apache.Arrow.Tests.Builder
             Assert.Equal(0b_11011010, built.Span[0]);
             Assert.Equal(0b_11001000, built.Span[1]);
             Assert.Equal(0b_00000000, built.Span[2]);
+
+            Assert.Equal(64, built.Length);
+        }
+
+        [Fact]
+        public void BufferBuilder_Should_AppendStructs()
+        {
+            var builder = new BufferBuilder(8);
+
+            builder.AppendStruct(123);
+            builder.AppendStructs<int>(new int[] { 0, -1 }.AsSpan());
+
+            var built = builder.Build();
+            var results = built.Span.CastTo<int>();
+
+            Assert.Equal(123, results[0]);
+            Assert.Equal(0, results[1]);
+            Assert.Equal(-1, results[2]);
+            Assert.Equal(0, results[3]);
 
             Assert.Equal(64, built.Length);
         }

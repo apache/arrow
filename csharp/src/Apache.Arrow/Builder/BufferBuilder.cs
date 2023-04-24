@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Buffers;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 
 namespace Apache.Arrow.Builder
@@ -105,7 +107,7 @@ namespace Apache.Arrow.Builder
                 else
                 {
                     // Fill byte buffer
-                    BitOverhead.Fill(bits.Slice(0, bits.Length));
+                    BitOverhead.Fill(bits);
 
                     bits = ReadOnlySpan<bool>.Empty;
                 }
@@ -193,6 +195,21 @@ namespace Apache.Arrow.Builder
                     offset += bufferLength;
                 }
             }
+        }
+
+        public void AppendStruct<T>(T value) where T : struct
+        {
+#if NETCOREAPP3_1_OR_GREATER
+            AppendStructs(MemoryMarshal.CreateReadOnlySpan(ref value, 1));
+#else
+            AppendStructs<T>(new T[] { value }.AsSpan());
+#endif
+        }
+
+        public void AppendStructs<T>(ReadOnlySpan<T> values) where T : struct
+        {
+            ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(values);
+            AppendBytes(bytes);
         }
 
         public void ReserveBytes(int numBytes) => EnsureAdditionalBytes(numBytes);
