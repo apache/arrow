@@ -14,7 +14,10 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -199,6 +202,69 @@ namespace Apache.Arrow
             Debug.Assert(value.Length >= sizeof(int));
 
             return Unsafe.ReadUnaligned<int>(ref MemoryMarshal.GetReference(value.Span));
+        }
+
+        // Bytes
+        internal static byte ToByte(IEnumerable<bool> bits)
+        {
+            byte result = 0;
+            int i = 0;
+
+            foreach (bool b in bits)
+            {
+                if (b)
+                {
+                    result |= (byte)(1 << i);
+                }
+                i++;
+            }
+
+            return result;
+        }
+
+        internal static byte[] ToBytes(ReadOnlySpan<bool> bits)
+        {
+            int byteCount = bits.Length / 8 + (bits.Length % 8 == 0 ? 0 : 1);
+            byte[] bytes = new byte[byteCount];
+
+            for (int i = 0; i < bits.Length; i++)
+            {
+                int byteIndex = i / 8;
+                int bitIndex = i % 8;
+                if (bits[i])
+                {
+                    bytes[byteIndex] |= (byte)(1 << bitIndex);
+                }
+            }
+
+            return bytes;
+        }
+
+        // Bits
+        internal static bool[] ToBits(byte value)
+        {
+            bool[] boolArray = new bool[8]; // initialize bool array with correct length
+
+            for (int i = 0; i < 8; i++)
+            {
+                boolArray[i] = (value & (1 << i)) != 0;
+            }
+
+            return boolArray;
+        }
+
+        internal static bool[] ToBits(ReadOnlySpan<byte> bytes)
+        {
+            bool[] bools = new bool[bytes.Length * 8];
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                byte byteValue = bytes[i];
+                for (int j = 0; j < 8; j++)
+                {
+                    bools[i * 8 + j] = (byteValue & (1 << j)) != 0;
+                }
+            }
+            return bools;
         }
     }
 }
