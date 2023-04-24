@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 
 namespace Apache.Arrow.Builder
@@ -25,12 +26,13 @@ namespace Apache.Arrow.Builder
         int ValueBitSize { get; }
 
         void AppendBit(bool bit);
-
         void AppendBits(ReadOnlySpan<bool> bits);
 
         void AppendByte(byte byteValue);
-
         void AppendBytes(ReadOnlySpan<byte> bytes);
+
+        void AppendStruct<T>(T value) where T : struct;
+        void AppendStructs<T>(ReadOnlySpan<T> values) where T : struct;
 
         /// <summary>
         /// Reserve a given number of items' additional capacity.
