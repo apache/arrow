@@ -81,7 +81,9 @@ namespace Apache.Arrow.Builder
     {
         void AppendNull();
         void AppendValue(T value);
+        void AppendValue(T? value);
         void AppendValues(ReadOnlySpan<T> values);
+        void AppendValues(ReadOnlySpan<T?> values);
     }
 }
 

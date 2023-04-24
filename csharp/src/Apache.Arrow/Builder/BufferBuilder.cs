@@ -149,7 +149,7 @@ namespace Apache.Arrow.Builder
             else
             {
                 // Raw add to memory
-                Memory.Span[ValueLength * ValueByteSize] = byteValue;
+                Memory.Span[ValueLength * (ValueBitSize + 7) / 8] = byteValue;
             }
 
             ValueLength += length;
@@ -186,10 +186,10 @@ namespace Apache.Arrow.Builder
 
         public void Reserve(int additionalCapacity) => EnsureAdditionalCapacity(additionalCapacity);
 
-        public void Resize(int length)
+        public void Resize(int capacity)
         {
-            EnsureCapacity(length);
-            ValueLength = length;
+            EnsureCapacity(capacity);
+            ValueLength = capacity;
         }
 
         public void Clear()
