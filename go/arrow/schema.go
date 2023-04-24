@@ -194,7 +194,11 @@ func (sc *Schema) WithEndianness(e endian.Endianness) *Schema {
 func (sc *Schema) Endianness() endian.Endianness { return sc.endianness }
 func (sc *Schema) IsNativeEndian() bool          { return sc.endianness == endian.NativeEndian }
 func (sc *Schema) Metadata() Metadata            { return sc.meta }
-func (sc *Schema) Fields() []Field               { return sc.fields }
+func (sc *Schema) Fields() []Field { 
+	fields := make([]Field, len(sc.fields))
+	copy(fields, sc.fields)
+	return fields
+}
 func (sc *Schema) Field(i int) Field             { return sc.fields[i] }
 
 func (sc *Schema) FieldsByName(n string) ([]Field, bool) {
