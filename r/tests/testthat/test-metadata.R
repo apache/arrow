@@ -57,7 +57,7 @@ test_that("Table R metadata", {
     "$r$columns$c$columns$c1$attributes$extra_attr",
     fixed = TRUE
   )
-  expect_metadata(tab, example_with_metadata)
+  expect_equal_data_frame(tab, example_with_metadata)
 })
 
 test_that("R metadata is not stored for types that map to Arrow types (factor, Date, etc.)", {
@@ -164,7 +164,7 @@ test_that("RecordBatch metadata", {
 })
 
 test_that("RecordBatch R metadata", {
-  expect_metadata(record_batch(example_with_metadata), example_with_metadata)
+  expect_equal_data_frame(record_batch(example_with_metadata), example_with_metadata)
 })
 
 test_that("R metadata roundtrip via parquet", {
@@ -195,7 +195,7 @@ test_that("haven types roundtrip via feather", {
 test_that("Date/time type roundtrip", {
   rb <- record_batch(example_with_times)
   expect_r6_class(rb$schema$posixlt$type, "VctrsExtensionType")
-  expect_metadata(rb, example_with_times)
+  expect_equal_data_frame(rb, example_with_times)
 })
 
 test_that("metadata keeps attribute of top level data frame", {
@@ -398,8 +398,7 @@ test_that("Only non-default metadata is saved", {
   expect_null(df_arrow$r_metadata)
 
   df <- data.frame(x = 1:5)
-  attributes(df)$foo = "bar"
+  attributes(df)$foo <- "bar"
   df_arrow <- arrow_table(df)
   expect_identical(df_arrow$r_metadata, list(attributes = list(foo = "bar")))
-
 })
