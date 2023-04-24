@@ -182,6 +182,8 @@ def write_feather(df, dest, compression=None, compression_level=None,
             raise ValueError('compression="{}" not supported, must be '
                              'one of {}'.format(compression,
                                                 _FEATHER_SUPPORTED_CODECS))
+    if table is None:
+        raise TypeError("Argument 'table' has incorrect type (expected pyarrow.lib.Table, got None)")
 
     try:
         _feather.write_feather(table, dest, compression=compression,
