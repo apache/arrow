@@ -17,3 +17,4 @@
 
 brew "openjdk@11"
 brew "sccache"
+brew "curl"
