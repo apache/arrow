@@ -205,24 +205,21 @@ namespace Apache.Arrow
         }
 
         // Bytes
-        internal static byte ToByte(IEnumerable<bool> bits)
+        public static byte ToByte(bool[] bits)
         {
             byte result = 0;
-            int i = 0;
 
-            foreach (bool b in bits)
+            for (int i = 0; i < 8; i++)
             {
-                if (b)
+                if (bits[i])
                 {
-                    result |= (byte)(1 << i);
+                    result |= (byte)(1 << (7 - i));
                 }
-                i++;
             }
-
             return result;
         }
 
-        internal static byte[] ToBytes(ReadOnlySpan<bool> bits)
+        public static byte[] ToBytes(ReadOnlySpan<bool> bits)
         {
             int byteCount = bits.Length / 8 + (bits.Length % 8 == 0 ? 0 : 1);
             byte[] bytes = new byte[byteCount];
@@ -233,7 +230,7 @@ namespace Apache.Arrow
                 int bitIndex = i % 8;
                 if (bits[i])
                 {
-                    bytes[byteIndex] |= (byte)(1 << bitIndex);
+                    bytes[byteIndex] |= (byte)(1 << (7 - bitIndex));
                 }
             }
 
@@ -241,19 +238,19 @@ namespace Apache.Arrow
         }
 
         // Bits
-        internal static bool[] ToBits(byte value)
+        public static bool[] ToBits(byte value)
         {
             bool[] boolArray = new bool[8]; // initialize bool array with correct length
 
             for (int i = 0; i < 8; i++)
             {
-                boolArray[i] = (value & (1 << i)) != 0;
+                boolArray[i] = (value & (1 << (7 - i))) != 0;
             }
 
             return boolArray;
         }
 
-        internal static bool[] ToBits(ReadOnlySpan<byte> bytes)
+        public static bool[] ToBits(ReadOnlySpan<byte> bytes)
         {
             bool[] bools = new bool[bytes.Length * 8];
             for (int i = 0; i < bytes.Length; i++)
@@ -261,7 +258,7 @@ namespace Apache.Arrow
                 byte byteValue = bytes[i];
                 for (int j = 0; j < 8; j++)
                 {
-                    bools[i * 8 + j] = (byteValue & (1 << j)) != 0;
+                    bools[i * 8 + j] = (byteValue & (1 << (7 - j))) != 0;
                 }
             }
             return bools;

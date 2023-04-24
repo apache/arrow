@@ -31,7 +31,7 @@ namespace Apache.Arrow.Builder
             public void Append(bool bit) => _bits[Length++] = bit;
             public void Fill(ReadOnlySpan<bool> bits)
             {
-                bits.CopyTo(_bits.AsSpan().Slice(Length, Capacity - bits.Length));
+                bits.CopyTo(_bits.AsSpan().Slice(Length, bits.Length));
                 Length += bits.Length;
             }
 
@@ -52,7 +52,7 @@ namespace Apache.Arrow.Builder
         public int ByteLength { get; private set; }
 
         public Memory<byte> Memory { get; private set; }
-        private BitBuffer BitOverhead { get; }
+        public BitBuffer BitOverhead { get; }
 
         /// <summary>
         /// Creates an instance of the <see cref="BufferBuilder"/> class.
@@ -88,44 +88,57 @@ namespace Apache.Arrow.Builder
 
         public void AppendBits(ReadOnlySpan<bool> bits)
         {
-            if (BitOverhead.Length != 0)
+            if (BitOverhead.Length > 0)
             {
                 int available = BitOverhead.AvailableLength;
 
-                // Fill byte buffer
-                BitOverhead.Fill(bits.Slice(0, available));
-
-                // Commit to memory and reset
-                CommitBitBuffer();
-
-                bits = bits.Slice(available);
-            }
-
-            ReadOnlySpan<byte> bytes = BitUtility.ToBytes(bits);
-            
-            int IsFullByte = bits.Length % 8;
-
-            // Raw Span copy to memory
-            if (IsFullByte == 0)
-            {
-                EnsureAdditionalBytes(bytes.Length);
-                bytes.CopyTo(Memory.Span.Slice(ByteLength, bytes.Length));
-                ByteLength += bytes.Length;
-            }
-            else
-            {
-                if (bytes.Length > 1)
+                if (bits.Length > available)
                 {
-                    EnsureAdditionalBytes(bytes.Length - 1);
-                    // copy full bytes
-                    bytes
-                        .Slice(0, bytes.Length - 1)
-                        .CopyTo(Memory.Span.Slice(ByteLength, bytes.Length - 1));
+                    // Fill byte buffer
+                    BitOverhead.Fill(bits.Slice(0, available));
+
+                    // Commit to memory and reset
+                    CommitBitBuffer();
+
+                    bits = bits.Slice(available);
+                }
+                else
+                {
+                    // Fill byte buffer
+                    BitOverhead.Fill(bits.Slice(0, bits.Length));
+
+                    bits = ReadOnlySpan<bool>.Empty;
+                }
+            }
+
+            if (bits.Length > 0)
+            {
+                ReadOnlySpan<byte> bytes = BitUtility.ToBytes(bits);
+
+                int IsFullByte = bits.Length % 8;
+
+                // Raw Span copy to memory
+                if (IsFullByte == 0)
+                {
+                    EnsureAdditionalBytes(bytes.Length);
+                    bytes.CopyTo(Memory.Span.Slice(ByteLength, bytes.Length));
                     ByteLength += bytes.Length;
                 }
+                else
+                {
+                    if (bytes.Length > 1)
+                    {
+                        EnsureAdditionalBytes(bytes.Length - 1);
+                        // copy full bytes
+                        bytes
+                            .Slice(0, bytes.Length - 1)
+                            .CopyTo(Memory.Span.Slice(ByteLength, bytes.Length - 1));
+                        ByteLength += bytes.Length;
+                    }
 
-                // Fill byte buffer with last unfilled
-                BitOverhead.Fill(BitUtility.ToBits(bytes[bytes.Length - 1]));
+                    // Fill byte buffer with last unfilled
+                    BitOverhead.Fill(BitUtility.ToBits(bytes[bytes.Length - 1]).AsSpan().Slice(0, IsFullByte));
+                }
             }
         }
 
@@ -164,7 +177,7 @@ namespace Apache.Arrow.Builder
                 EnsureAdditionalBytes(bytes.Length);
                 // Raw Span copy to memory
                 bytes.CopyTo(Memory.Span.Slice(ByteLength, bytes.Length));
-                ByteLength++;
+                ByteLength += bytes.Length;
             }
             else
             {

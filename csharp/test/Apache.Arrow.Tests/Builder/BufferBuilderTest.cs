@@ -21,16 +21,65 @@ namespace Apache.Arrow.Tests.Builder
     public class BufferBuilderTests
     {
         [Fact]
-        public void BufferBuilder_Should_Build()
+        public void BufferBuilder_Should_AppendBytes()
         {
             var builder = new BufferBuilder(8);
 
             builder.AppendByte(0x01);
 
+            Assert.Equal(1, builder.ByteLength);
+            Assert.Equal(0, builder.BitOverhead.Length);
+
+            builder.AppendBytes(new byte[] { 0x02, 0x03 });
+
+            Assert.Equal(3, builder.ByteLength);
+            Assert.Equal(0, builder.BitOverhead.Length);
+
             var built = builder.Build();
 
             Assert.Equal(0x01, built.Span[0]);
-            Assert.Equal(0x00, built.Span[1]);
+            Assert.Equal(0x02, built.Span[1]);
+            Assert.Equal(0x03, built.Span[2]);
+            Assert.Equal(0x00, built.Span[3]);
+
+            Assert.Equal(64, built.Length);
+        }
+
+        [Fact]
+        public void BufferBuilder_Should_AppendBits()
+        {
+            var builder = new BufferBuilder(8);
+
+            builder.AppendBit(true);
+
+            Assert.Equal(0, builder.ByteLength);
+            Assert.Equal(1, builder.BitOverhead.Length);
+            Assert.Equal(0b_10000000, builder.BitOverhead.ToByte);
+
+            builder.AppendBits(new bool[] { true, false, true });
+
+            Assert.Equal(0, builder.ByteLength);
+            Assert.Equal(4, builder.BitOverhead.Length);
+            Assert.Equal(0b_11010000, builder.BitOverhead.ToByte);
+
+            builder.AppendBits(new bool[] { true, false, true, false, true, true });
+
+            Assert.Equal(1, builder.ByteLength);
+            Assert.Equal(2, builder.BitOverhead.Length);
+            Assert.Equal(0b_11000000, builder.BitOverhead.ToByte);
+
+            builder.AppendBits(new bool[] { false, false, true });
+
+            Assert.Equal(1, builder.ByteLength);
+            Assert.Equal(5, builder.BitOverhead.Length);
+            Assert.Equal(0b_11001000, builder.BitOverhead.ToByte);
+
+            var built = builder.Build();
+
+            Assert.Equal(0b_11011010, built.Span[0]);
+            Assert.Equal(0b_11001000, built.Span[1]);
+            Assert.Equal(0b_00000000, built.Span[2]);
+
             Assert.Equal(64, built.Length);
         }
     }
