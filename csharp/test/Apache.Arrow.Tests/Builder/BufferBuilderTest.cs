@@ -25,7 +25,7 @@ namespace Apache.Arrow.Tests.Builder
         {
             var builder = new BufferBuilder(8);
 
-            builder.AppendValues(0x01);
+            builder.AppendByte(0x01);
 
             var built = builder.Build();
 

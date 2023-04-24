@@ -38,7 +38,7 @@ namespace Apache.Arrow.Builder
         }
 
         private const int DefaultBatchSize = 65536; // 64 * 1024
-        private const int DefaultCapacity = 64;
+        private const int DefaultCapacity = 8;
 
         public int ValueBitSize { get; }
         public int ValueByteSize { get; }
@@ -117,7 +117,7 @@ namespace Apache.Arrow.Builder
                 }
 
                 // Fill byte buffer with last unfilled
-                BitBuffer.Fill(BitUtility.ToBits(bytes[^1]));
+                BitBuffer.Fill(BitUtility.ToBits(bytes[bytes.Length - 1]));
             }
 
             ValueLength += length;
