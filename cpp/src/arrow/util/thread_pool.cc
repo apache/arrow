@@ -192,7 +192,7 @@ bool SerialExecutor::OwnsThisThread() {
   std::lock_guard lk(state_->mutex);
   return std::this_thread::get_id() == state_->current_thread;
 }
-#if ARROW_DISABLE_THREADING
+#ifdef ARROW_DISABLE_THREADING
 
 void SerialExecutor::RunTasksOnAllExecutors()
 {
@@ -322,7 +322,7 @@ void SerialExecutor::RunLoop() {
 }
 #endif //ARROW_DISABLE_THREADING
 
-#if ARROW_DISABLE_THREADING
+#ifdef ARROW_DISABLE_THREADING
 
 ThreadPool::ThreadPool()
 {
