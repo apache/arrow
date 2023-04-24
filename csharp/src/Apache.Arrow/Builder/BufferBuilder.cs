@@ -10,7 +10,7 @@ namespace Apache.Arrow.Builder
         {
             private const int DefaultCapacity = 8;
 
-            private bool[] _bits;
+            private readonly bool[] _bits;
             public Span<bool> Bits => _bits.AsSpan().Slice(0, Length);
 
             public int Length { get; private set; }
@@ -69,9 +69,9 @@ namespace Apache.Arrow.Builder
             ByteLength = 0;
         }
 
-        private void CommitBitBuffer()
+        private void CommitBitBuffer(bool force = false)
         {
-            if (BitOverhead.IsFull)
+            if (BitOverhead.IsFull || force)
             {
                 EnsureAdditionalBytes(1);
                 Memory.Span[ByteLength] = BitOverhead.ToByte;
@@ -201,7 +201,7 @@ namespace Apache.Arrow.Builder
         public ArrowBuffer Build(int byteSize, MemoryAllocator allocator = default)
         {
             if (BitOverhead.Length > 0)
-                CommitBitBuffer();
+                CommitBitBuffer(true);
 
             int bufferLength = checked((int)BitUtility
                 .RoundUpToMultiplePowerOfTwo(ByteLength, byteSize));
