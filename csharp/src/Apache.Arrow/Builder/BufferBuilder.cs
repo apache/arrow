@@ -205,7 +205,8 @@ namespace Apache.Arrow.Builder
             if (BitBuffer.Length > 0)
                 CommitBitBuffer();
 
-            int bufferLength = checked((int)BitUtility.RoundUpToMultiplePowerOfTwo(Memory.Length, byteSize));
+            int bufferLength = checked((int)BitUtility
+                .RoundUpToMultiplePowerOfTwo(BitUtility.ByteCount(ValueLength * ValueBitSize), byteSize));
 
             MemoryAllocator memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
             IMemoryOwner<byte> memoryOwner = memoryAllocator.Allocate(bufferLength);
