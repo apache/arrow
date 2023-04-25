@@ -540,15 +540,19 @@ class FixedSizeBinaryConverter final
 // Converter for list arrays
 
 template <typename TYPE>
-class ListConverter final : public ConcreteConverter<ListConverter<TYPE>> {
+class VarLengthListLikeConverter final
+    : public ConcreteConverter<VarLengthListLikeConverter<TYPE>> {
  public:
   using BuilderType = typename TypeTraits<TYPE>::BuilderType;
 
-  explicit ListConverter(const std::shared_ptr<DataType>& type) { this->type_ = type; }
+  explicit VarLengthListLikeConverter(const std::shared_ptr<DataType>& type) {
+    this->type_ = type;
+  }
 
   Status Init() override {
-    const auto& list_type = checked_cast<const TYPE&>(*this->type_);
-    RETURN_NOT_OK(GetConverter(list_type.value_type(), &child_converter_));
+    const auto& var_length_list_like_type = checked_cast<const TYPE&>(*this->type_);
+    RETURN_NOT_OK(
+        GetConverter(var_length_list_like_type.value_type(), &child_converter_));
     auto child_builder = child_converter_->builder();
     builder_ =
         std::make_shared<BuilderType>(default_memory_pool(), child_builder, this->type_);
@@ -903,8 +907,11 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::HALF_FLOAT, IntegerConverter<HalfFloatType>)
     SIMPLE_CONVERTER_CASE(Type::FLOAT, FloatConverter<FloatType>)
     SIMPLE_CONVERTER_CASE(Type::DOUBLE, FloatConverter<DoubleType>)
-    SIMPLE_CONVERTER_CASE(Type::LIST, ListConverter<ListType>)
-    SIMPLE_CONVERTER_CASE(Type::LARGE_LIST, ListConverter<LargeListType>)
+    SIMPLE_CONVERTER_CASE(Type::LIST, VarLengthListLikeConverter<ListType>)
+    SIMPLE_CONVERTER_CASE(Type::LARGE_LIST, VarLengthListLikeConverter<LargeListType>)
+    SIMPLE_CONVERTER_CASE(Type::LIST_VIEW, VarLengthListLikeConverter<ListViewType>)
+    SIMPLE_CONVERTER_CASE(Type::LARGE_LIST_VIEW,
+                          VarLengthListLikeConverter<LargeListViewType>)
     SIMPLE_CONVERTER_CASE(Type::MAP, MapConverter)
     SIMPLE_CONVERTER_CASE(Type::FIXED_SIZE_LIST, FixedSizeListConverter)
     SIMPLE_CONVERTER_CASE(Type::STRUCT, StructConverter)
