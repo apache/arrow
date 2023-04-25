@@ -126,10 +126,11 @@ else
     if [ "$UNAME" = "Darwin" ] && [ "$FORCE_BUNDLED_BUILD" != "true" ]; then
       if [ "$FORCE_AUTOBREW" != "true" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
         echo "*** Using Homebrew ${PKG_BREW_NAME}"
-        BREWDIR=`brew --prefix`
+        BREWDIR=`brew --prefix ${PKG_BREW_NAME}`
+        LIB_DIR="$BREWDIR/lib"
         PKG_LIBS="-larrow -larrow_bundled_dependencies"
-        PKG_DIRS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_DIRS"
-        PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include $PKG_CFLAGS"
+        PKG_DIRS="-L$LIB_DIR $PKG_DIRS"
+        PKG_CFLAGS="-I$BREWDIR/include $PKG_CFLAGS"
       else
         echo "*** Downloading ${PKG_BREW_NAME}"
         if [ -f "autobrew" ]; then
