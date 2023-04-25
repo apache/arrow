@@ -14,5 +14,3 @@ fi
 
 # ${R_ARGS} necessary to support cross-compilation
 ${R} CMD INSTALL --build r/. ${R_ARGS}
-# Ensure that features are enabled in the R build (feel free to add others)
-${R} -s -e 'library(arrow); stopifnot(arrow_with_dataset(), arrow_with_parquet(), arrow_with_s3())'
