@@ -53,7 +53,7 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
 
-  protected static final int compressionLevel = 3;
+  protected static final int DEFAULT_COMPRESSION_LEVEL = 3;
 
   // schema with fields in message format, not memory format
   protected final Schema schema;
@@ -75,7 +75,7 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
     this(root, provider, out, option, NoCompressionCodec.Factory.INSTANCE, CompressionUtil.CodecType.NO_COMPRESSION,
-            compressionLevel);
+        DEFAULT_COMPRESSION_LEVEL);
   }
 
   /**
@@ -87,13 +87,13 @@ public abstract class ArrowWriter implements AutoCloseable {
    * @param option             IPC write options
    * @param compressionFactory Compression codec factory
    * @param codecType          Compression codec
-   * @param compressionLevel   Compression level
+   * @param DEFAULT_COMPRESSION_LEVEL   Compression level
    */
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option,
                         CompressionCodec.Factory compressionFactory, CompressionUtil.CodecType codecType,
-                        int compressionLevel) {
+                        int DEFAULT_COMPRESSION_LEVEL) {
     this.unloader = new VectorUnloader(
-        root, /*includeNullCount*/ true, compressionFactory.createCodec(codecType, compressionLevel),
+        root, /*includeNullCount*/ true, compressionFactory.createCodec(codecType, DEFAULT_COMPRESSION_LEVEL),
         /*alignBuffers*/ true);
     this.out = new WriteChannel(out);
     this.option = option;

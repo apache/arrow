@@ -74,7 +74,7 @@ public class ArrowFileWriter extends ArrowWriter {
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
                          Map<String, String> metaData, IpcOption option, CompressionCodec.Factory compressionFactory,
                          CompressionUtil.CodecType codecType) {
-    this(root, provider, out, metaData, option, compressionFactory, codecType, compressionLevel);
+    this(root, provider, out, metaData, option, compressionFactory, codecType, DEFAULT_COMPRESSION_LEVEL);
   }
 
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
