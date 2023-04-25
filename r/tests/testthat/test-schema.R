@@ -271,7 +271,6 @@ test_that("schema name assignment", {
 
   # Test that R metadata is updated appropriately
   df <- data.frame(x = 1:3, y = c("a", "b", "c"))
-  class(df) <- c("data.frame", "special_df")
   schm2 <- arrow_table(df)$schema
   names(schm2) <- c("col1", "col2")
   expect_identical(names(schm2), c("col1", "col2"))
