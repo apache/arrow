@@ -283,7 +283,7 @@ TEST_F(TestSchemaMetadata, NestedFields) {
 // Verify that nullable=false is well-preserved for child fields of map type.
 TEST_F(TestSchemaMetadata, MapField) {
   auto key = field("key", int32(), false);
-  auto item = field("item", int32(), false);
+  auto item = field("value", int32(), false);
   auto f0 = field("f0", std::make_shared<MapType>(key, item));
   Schema schema({f0});
   CheckSchemaRoundtrip(schema);
@@ -291,14 +291,14 @@ TEST_F(TestSchemaMetadata, MapField) {
 
 // Verify that key value metadata is well-preserved for child fields of nested type.
 TEST_F(TestSchemaMetadata, NestedFieldsWithKeyValueMetadata) {
-  auto inner = field("inner", std::make_shared<Int64Type>(), false,
-                     key_value_metadata({"foo"}, {"bar"}));
-
-  auto f0 = field("f0", list(inner), false, key_value_metadata({"k1"}, {"v1"}));
-  auto f1 = field("f1", struct_({inner}), false, key_value_metadata({"k2"}, {"v2"}));
-  auto f2 = field("f3", std::make_shared<MapType>(inner, inner), false,
-                  key_value_metadata({"k3"}, {"v3"}));
-
+  auto metadata = key_value_metadata({"foo"}, {"bar"});
+  auto inner_field = field("inner", int32(), false, metadata);
+  auto f0 = field("f0", list(inner_field), false, metadata);
+  auto f1 = field("f1", struct_({inner_field}), false, metadata);
+  auto f2 = field("f2",
+                  std::make_shared<MapType>(field("key", int32(), false, metadata),
+                                            field("value", int32(), false, metadata)),
+                  false, metadata);
   Schema schema({f0, f1, f2});
   CheckSchemaRoundtrip(schema);
 }
