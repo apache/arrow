@@ -410,3 +410,30 @@ func TestListStructBackwardCompatible(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, arrowSchema.Equal(arrsc))
 }
+
+// TestUnsupportedTypes tests the error message for unsupported types. This test should be updated
+// when support for these types is added.
+func TestUnsupportedTypes(t *testing.T) {
+	unsupportedTypes := []struct {
+		typ arrow.DataType
+	}{
+		// Non-exhaustive list of unsupported types
+		{typ: &arrow.Float16Type{}},
+		{typ: &arrow.DurationType{}},
+		{typ: &arrow.DayTimeIntervalType{}},
+		{typ: &arrow.MonthIntervalType{}},
+		{typ: &arrow.MonthDayNanoIntervalType{}},
+		{typ: &arrow.DenseUnionType{}},
+		{typ: &arrow.SparseUnionType{}},
+	}
+	for _, tc := range unsupportedTypes {
+		t.Run(tc.typ.ID().String(), func(t *testing.T) {
+			arrowFields := make([]arrow.Field, 0)
+			arrowFields = append(arrowFields, arrow.Field{Name: "unsupported", Type: tc.typ, Nullable: true})
+			arrowSchema := arrow.NewSchema(arrowFields, nil)
+			_, err := pqarrow.ToParquet(arrowSchema, nil, pqarrow.NewArrowWriterProperties())
+			assert.ErrorIs(t, err, arrow.ErrNotImplemented)
+			assert.ErrorContains(t, err, "support for "+tc.typ.ID().String())
+		})
+	}
+}
