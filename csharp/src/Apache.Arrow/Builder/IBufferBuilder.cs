@@ -21,23 +21,28 @@ namespace Apache.Arrow.Builder
     public interface IBufferBuilder
     {
         Memory<byte> Memory { get; }
-        
+
         int ValueBitSize { get; }
 
-        void AppendBit(bool bit);
-        void AppendBits(ReadOnlySpan<bool> bits);
+        IBufferBuilder AppendBit(bool bit);
+        IBufferBuilder AppendBits(ReadOnlySpan<bool> bits);
 
-        void AppendByte(byte byteValue);
-        void AppendBytes(ReadOnlySpan<byte> bytes);
+        IBufferBuilder AppendByte(byte byteValue);
+        IBufferBuilder AppendBytes(ReadOnlySpan<byte> bytes);
 
-        void AppendStruct<T>(T value) where T : struct;
-        void AppendStructs<T>(ReadOnlySpan<T> values) where T : struct;
+        IBufferBuilder AppendStruct(bool value);
+        IBufferBuilder AppendStruct(byte value);
+        IBufferBuilder AppendStruct<T>(T value) where T : struct;
+
+        IBufferBuilder AppendStructs(ReadOnlySpan<bool> values);
+        IBufferBuilder AppendStructs(ReadOnlySpan<byte> values);
+        IBufferBuilder AppendStructs<T>(ReadOnlySpan<T> values) where T : struct;
 
         /// <summary>
         /// Reserve a given number of items' additional capacity.
         /// </summary>
         /// <param name="numBytes">Number of new bytes.</param>
-        void ReserveBytes(int numBytes);
+        IBufferBuilder ReserveBytes(int numBytes);
 
         /// <summary>
         /// Resize the buffer to a given size.
@@ -51,12 +56,12 @@ namespace Apache.Arrow.Builder
         /// the buffer will be truncated and items at the end of the buffer will be lost.
         /// </remarks>
         /// <param name="numBytes">Number of bytes.</param>
-        void ResizeBytes(int numBytes);
+        IBufferBuilder ResizeBytes(int numBytes);
 
         /// <summary>
         /// Clear all contents appended so far.
         /// </summary>
-        void Clear();
+        IBufferBuilder Clear();
 
         /// <summary>
         /// Build an Arrow buffer from the appended contents so far.
@@ -75,7 +80,6 @@ namespace Apache.Arrow.Builder
 
     public interface IStructBufferBuilder<T> : IBufferBuilder where T : struct
     {
-        void AppendNull();
         void AppendValue(T value);
         void AppendValue(T? value);
         void AppendValues(ReadOnlySpan<T> values);

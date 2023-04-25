@@ -47,10 +47,9 @@ namespace Apache.Arrow.Builder
         }
 
         private const int DefaultBatchSize = 65536; // 64 * 1024
-        private const int DefaultCapacity = 8;
-
-        public int ValueBitSize { get; }
+        private const int DefaultCapacity = 64;
         public int ByteLength { get; private set; }
+        public int ValueBitSize { get; }
 
         public Memory<byte> Memory { get; private set; }
         public BitBuffer BitOverhead { get; }
@@ -63,8 +62,7 @@ namespace Apache.Arrow.Builder
         public BufferBuilder(int valueBitSize, int capacity = DefaultCapacity)
         {
             ValueBitSize = valueBitSize;
-
-            Memory = new byte[capacity * (valueBitSize + 7) / 8];
+            Memory = new byte[capacity];
             BitOverhead = new BitBuffer();
 
             ByteLength = 0;
@@ -81,13 +79,14 @@ namespace Apache.Arrow.Builder
             }
         }
 
-        public void AppendBit(bool bit)
+        public IBufferBuilder AppendBit(bool bit)
         {
             BitOverhead.Append(bit);
             CommitBitBuffer();
+            return this;
         }
 
-        public void AppendBits(ReadOnlySpan<bool> bits)
+        public IBufferBuilder AppendBits(ReadOnlySpan<bool> bits)
         {
             if (BitOverhead.Length > 0)
             {
@@ -136,9 +135,11 @@ namespace Apache.Arrow.Builder
                     BitOverhead.Fill(bits);
                 }
             }
+
+            return this;
         }
 
-        public void AppendByte(byte byteValue)
+        public IBufferBuilder AppendByte(byte byteValue)
         {
             if (BitOverhead.Length > 0)
             {
@@ -164,9 +165,11 @@ namespace Apache.Arrow.Builder
                 Memory.Span[ByteLength] = byteValue;
                 ByteLength++;
             }
+
+            return this;
         }
 
-        public void AppendBytes(ReadOnlySpan<byte> bytes)
+        public IBufferBuilder AppendBytes(ReadOnlySpan<byte> bytes)
         {
             if (BitOverhead.Length == 0)
             {
@@ -189,35 +192,47 @@ namespace Apache.Arrow.Builder
                     offset += bufferLength;
                 }
             }
+
+            return this;
         }
 
-        public void AppendStruct<T>(T value) where T : struct
+        public IBufferBuilder AppendStruct(bool value) => AppendBit(value);
+        public IBufferBuilder AppendStruct(byte value) => AppendByte(value);
+        public IBufferBuilder AppendStruct<T>(T value) where T : struct
         {
 #if NETCOREAPP3_1_OR_GREATER
-            AppendStructs(MemoryMarshal.CreateReadOnlySpan(ref value, 1));
+            return AppendStructs(MemoryMarshal.CreateReadOnlySpan(ref value, 1));
 #else
-            AppendStructs<T>(new T[] { value }.AsSpan());
+            return AppendStructs<T>(new T[] { value }.AsSpan());
 #endif
         }
 
-        public void AppendStructs<T>(ReadOnlySpan<T> values) where T : struct
+        public IBufferBuilder AppendStructs(ReadOnlySpan<bool> values) => AppendBits(values);
+        public IBufferBuilder AppendStructs(ReadOnlySpan<byte> values) => AppendBytes(values);
+        public IBufferBuilder AppendStructs<T>(ReadOnlySpan<T> values) where T : struct
         {
             ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(values);
-            AppendBytes(bytes);
+            return AppendBytes(bytes);
         }
 
-        public void ReserveBytes(int numBytes) => EnsureAdditionalBytes(numBytes);
+        public IBufferBuilder ReserveBytes(int numBytes)
+        {
+            EnsureAdditionalBytes(numBytes);
+            return this;
+        }
 
-        public void ResizeBytes(int numBytes)
+        public IBufferBuilder ResizeBytes(int numBytes)
         {
             EnsureBytes(numBytes);
             ByteLength = numBytes;
+            return this;
         }
 
-        public void Clear()
+        public IBufferBuilder Clear()
         {
             Memory.Span.Fill(default);
             ByteLength = 0;
+            return this;
         }
 
         public ArrowBuffer Build(MemoryAllocator allocator = default) => Build(64, allocator);
@@ -237,9 +252,9 @@ namespace Apache.Arrow.Builder
             return new ArrowBuffer(memoryOwner);
         }
 
-        internal void EnsureAdditionalBits(int numBits) => EnsureBytes(checked(Memory.Length + numBits / 8));
-
-        internal void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(Memory.Length + numBytes));
+        private void EnsureAdditionalBits(int numBits) => EnsureBytes(checked(Memory.Length + numBits / 8));
+         
+        private void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(Memory.Length + numBytes));
 
         private void EnsureBytes(int numBytes)
         {
