@@ -15,7 +15,7 @@ namespace Apache.Arrow.Builder
 
         public int Offset { get; }
 
-        public IBufferBuilder[] Buffers { get; }
+        public IValueBufferBuilder[] Buffers { get; }
         public IValueBufferBuilder<bool> ValidityBuffer { get; }
 
         public IDataBuilder[] Children { get; }
@@ -25,7 +25,7 @@ namespace Apache.Arrow.Builder
         public BaseArrayBuilder(
             IArrowType dataType,
             IValueBufferBuilder<bool> validityBuffer,
-            IBufferBuilder[] buffers,
+            IValueBufferBuilder[] buffers,
             IDataBuilder[] children = null,
             IDataBuilder dictionary = null
         )
@@ -51,12 +51,60 @@ namespace Apache.Arrow.Builder
 
         public virtual IArrayBuilder AppendNulls(int count)
         {
-            ValidityBuffer.AppendBits(ValidityMask(count, false));
+            ValidityBuffer.AppendBits(new bool[count]);
             NullCount += count;
             return this;
         }
 
-        internal Span<bool> ValidityMask(int count, bool isValid)
+        public virtual IArrayBuilder AppendValues(ArrayData data)
+        {
+            if (data.DataType.TypeId != DataType.TypeId)
+                throw new ArgumentException($"Cannot append data type {data.DataType} in builder with data type {DataType}");
+
+            NullCount += data.NullCount;
+            Length += data.Length;
+
+            for (int i = 0; i < Buffers.Length; i++)
+            {
+                IValueBufferBuilder current = Buffers[i];
+                ArrowBuffer other = data.Buffers[i];
+
+                int isFullByte = current.ValueBitSize % 8;
+
+                if (isFullByte == 0)
+                {
+                    // Full byte encoded
+                    current.AppendArrow(other);
+                }
+                else
+                {
+                    // Safe copy Bytes and remaining bits
+                    int end = (data.Length * current.ValueBitSize) / 8;
+
+                    current.AppendBytes(other.Span.Slice(0, end));
+
+                    Span<bool> bits = BitUtility.ToBits(other.Span.Slice(end)).Slice(0, isFullByte);
+                    current.AppendBits(bits);
+                }
+            }
+
+            if (Children != null && data.Children != null)
+            {
+                for (int i = 0; i < Children.Length; i++)
+                {
+                    Children[i].AppendValues(data.Children[i]);
+                }
+            }
+
+            if (Dictionary != null && data.Dictionary != null)
+            {
+                Dictionary.AppendValues(data.Dictionary);
+            }
+
+            return this;
+        }
+
+        internal static Span<bool> ValidityMask(int count, bool isValid)
         {
             Span<bool> values = new bool[count]; // create a new bool array of length count
 

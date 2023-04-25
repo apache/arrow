@@ -50,7 +50,6 @@ namespace Apache.Arrow.Builder
         private const int DefaultBatchSize = 65536; // 64 * 1024
         private const int DefaultCapacity = 64;
         public int ByteLength { get; private set; }
-        public int ValueBitSize { get; }
 
         public Memory<byte> Memory { get; private set; }
         public BitBuffer BitOverhead { get; }
@@ -60,9 +59,8 @@ namespace Apache.Arrow.Builder
         /// </summary>
         /// <param name="valueBitSize">Number of bits of one value item.</param>
         /// <param name="capacity">Number of items of initial capacity to reserve.</param>
-        public BufferBuilder(int valueBitSize, int capacity = DefaultCapacity)
+        public BufferBuilder(int capacity = DefaultCapacity)
         {
-            ValueBitSize = valueBitSize;
             Memory = new byte[capacity];
             BitOverhead = new BitBuffer();
 
@@ -216,13 +214,15 @@ namespace Apache.Arrow.Builder
             return AppendBytes(bytes);
         }
 
-        public IBufferBuilder ReserveBytes(int numBytes)
+        public IBufferBuilder AppendArrow(ArrowBuffer buffer) => AppendBytes(buffer.Span);
+
+        internal IBufferBuilder ReserveBytes(int numBytes)
         {
             EnsureAdditionalBytes(numBytes);
             return this;
         }
 
-        public IBufferBuilder ResizeBytes(int numBytes)
+        internal IBufferBuilder ResizeBytes(int numBytes)
         {
             EnsureBytes(numBytes);
             ByteLength = numBytes;
@@ -257,7 +257,7 @@ namespace Apache.Arrow.Builder
          
         private void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(Memory.Length + numBytes));
 
-        private void EnsureBytes(int numBytes)
+        public void EnsureBytes(int numBytes)
         {
             if (numBytes > Memory.Length)
             {
@@ -274,10 +274,33 @@ namespace Apache.Arrow.Builder
         }
     }
 
-    public class ValueBufferBuilder : BufferBuilder
+    public class ValueBufferBuilder : BufferBuilder, IValueBufferBuilder
     {
-        public ValueBufferBuilder(int valueBitSize, int capacity = 64) : base(valueBitSize, capacity)
+        public int ValueBitSize { get; }
+        public int ValueLength { get; internal set; }
+
+        public ValueBufferBuilder(int valueBitSize, int capacity = 64) : base(capacity)
         {
+            ValueBitSize = valueBitSize;
+            ValueLength = 0;
+        }
+
+        public IValueBufferBuilder Ensure(int capacity)
+        {
+            EnsureBytes((capacity * ValueBitSize + 7) / 8);
+            return this;
+        }
+
+        public IValueBufferBuilder Reserve(int capacity)
+        {
+            ReserveBytes((capacity * ValueBitSize + 7) / 8);
+            return this;
+        }
+
+        public IValueBufferBuilder Resize(int capacity)
+        {
+            ResizeBytes((capacity * ValueBitSize + 7) / 8);
+            return this;
         }
     }
 
@@ -292,12 +315,14 @@ namespace Apache.Arrow.Builder
         public IValueBufferBuilder<T> AppendValue(T value)
         {
             AppendStruct(value);
+            ValueLength++;
             return this;
         }
         public IValueBufferBuilder<T> AppendValue(T? value) => AppendValue(value.GetValueOrDefault());
         public IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T> values)
         {
             AppendStructs(values);
+            ValueLength += values.Length;
             return this;
         }
         public IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T?> values)

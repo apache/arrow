@@ -8,10 +8,15 @@ namespace Apache.Arrow.Builder
     {
         public IValueBufferBuilder<T> ValuesBuffer { get; internal set; }
 
+        public ValueArrayBuilder(IArrowType dataType)
+            : this(dataType, new ValueBufferBuilder<bool>(), new ValueBufferBuilder<T>())
+        {
+        }
+
         public ValueArrayBuilder(
             IArrowType dataType,
             IValueBufferBuilder<bool> validity, IValueBufferBuilder<T> values
-            ) : this(dataType, validity, values, new IBufferBuilder[] { validity, values })
+            ) : this(dataType, validity, values, new IValueBufferBuilder[] { validity, values })
         {
         }
 
@@ -19,7 +24,7 @@ namespace Apache.Arrow.Builder
             IArrowType dataType,
             IValueBufferBuilder<bool> validity,
             IValueBufferBuilder<T> values,
-            IBufferBuilder[] buffers,
+            IValueBufferBuilder[] buffers,
             IDataBuilder[] children = null, IDataBuilder dictionary = null
             ) : base(dataType, validity, buffers, children, dictionary)
         {
@@ -100,15 +105,20 @@ namespace Apache.Arrow.Builder
     {
         public IValueBufferBuilder<int> OffsetsBuffer { get; }
 
+        public ValueOffsetArrayBuilder(IArrowType dataType)
+            : this(dataType, new ValueBufferBuilder<bool>(), new ValueBufferBuilder<int>(), new ValueBufferBuilder<T>())
+        {
+        }
+
         public ValueOffsetArrayBuilder(
             IArrowType dataType,
             IValueBufferBuilder<bool> validity, IValueBufferBuilder<int> offset, IValueBufferBuilder<T> values
-            ) : base(dataType, validity, values, new IBufferBuilder[] { validity, offset, values })
+            ) : base(dataType, validity, values, new IValueBufferBuilder[] { validity, offset, values })
         {
             OffsetsBuffer = offset;
         }
 
-        public ValueOffsetArrayBuilder<T> Append()
+        public ValueOffsetArrayBuilder<T> AppendOffset()
         {
             OffsetsBuffer.AppendValue(Length);
             return this;

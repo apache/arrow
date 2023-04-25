@@ -21,9 +21,6 @@ namespace Apache.Arrow.Builder
     public interface IBufferBuilder
     {
         Memory<byte> Memory { get; }
-
-        int ValueBitSize { get; }
-
         IBufferBuilder AppendBit(bool bit);
         IBufferBuilder AppendBits(ReadOnlySpan<bool> bits);
 
@@ -38,25 +35,7 @@ namespace Apache.Arrow.Builder
         IBufferBuilder AppendStructs(ReadOnlySpan<byte> values);
         IBufferBuilder AppendStructs<T>(ReadOnlySpan<T> values) where T : struct;
 
-        /// <summary>
-        /// Reserve a given number of items' additional capacity.
-        /// </summary>
-        /// <param name="numBytes">Number of new bytes.</param>
-        IBufferBuilder ReserveBytes(int numBytes);
-
-        /// <summary>
-        /// Resize the buffer to a given size.
-        /// </summary>
-        /// <remarks>
-        /// Note that if the required capacity is larger than the current length of the populated buffer so far,
-        /// the buffer's contents in the new, expanded region are undefined.
-        /// </remarks>
-        /// <remarks>
-        /// Note that if the required capacity is smaller than the current length of the populated buffer so far,
-        /// the buffer will be truncated and items at the end of the buffer will be lost.
-        /// </remarks>
-        /// <param name="numBytes">Number of bytes.</param>
-        IBufferBuilder ResizeBytes(int numBytes);
+        IBufferBuilder AppendArrow(ArrowBuffer buffer);
 
         /// <summary>
         /// Clear all contents appended so far.
@@ -78,7 +57,33 @@ namespace Apache.Arrow.Builder
         ArrowBuffer Build(int byteSize, MemoryAllocator allocator = default);
     }
 
-    public interface IValueBufferBuilder<T> : IBufferBuilder where T : struct
+    public interface IValueBufferBuilder : IBufferBuilder
+    {
+        int ValueBitSize { get; }
+        int ValueLength { get; }
+
+        /// <summary>
+        /// Reserve a given number of items' additional capacity.
+        /// </summary>
+        /// <param name="capacity">Number of new values.</param>
+        IValueBufferBuilder Reserve(int capacity);
+
+        /// <summary>
+        /// Resize the buffer to a given size.
+        /// </summary>
+        /// <remarks>
+        /// Note that if the required capacity is larger than the current length of the populated buffer so far,
+        /// the buffer's contents in the new, expanded region are undefined.
+        /// </remarks>
+        /// <remarks>
+        /// Note that if the required capacity is smaller than the current length of the populated buffer so far,
+        /// the buffer will be truncated and items at the end of the buffer will be lost.
+        /// </remarks>
+        /// <param name="capacity">Number of values.</param>
+        IValueBufferBuilder Resize(int capacity);
+    }
+
+    public interface IValueBufferBuilder<T> : IValueBufferBuilder where T : struct
     {
         IValueBufferBuilder<T> AppendValue(T value);
         IValueBufferBuilder<T> AppendValue(T? value);

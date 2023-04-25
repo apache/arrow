@@ -10,18 +10,19 @@ namespace Apache.Arrow.Builder
         int NullCount { get; }
         int Offset { get; }
 
-        IBufferBuilder[] Buffers { get; }
+        IValueBufferBuilder[] Buffers { get; }
         IDataBuilder[] Children { get; }
         IDataBuilder Dictionary { get; } // Only used for dictionary type
+
+        IArrayBuilder AppendNull();
+        IArrayBuilder AppendNulls(int count);
+        IArrayBuilder AppendValues(ArrayData data);
 
         ArrayData FinishInternal(MemoryAllocator allocator = default);
     }
 
     public interface IArrayBuilder : IDataBuilder
     {
-        IArrayBuilder AppendNull();
-        IArrayBuilder AppendNulls(int count);
-
         IArrowArray Build(MemoryAllocator allocator = default);
     }
 }
