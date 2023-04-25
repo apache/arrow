@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Drawing;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
@@ -21,6 +20,18 @@ namespace Apache.Arrow.Builder
             IDataBuilder[] children = null, IDataBuilder dictionary = null
             ) : base(dataType, buffers, children, dictionary)
         {
+        }
+
+        public override IArrayBuilder AppendNull()
+        {
+            ValuesBuffer.AppendStruct<T>(default);
+            return base.AppendNull();
+        }
+
+        public override IArrayBuilder AppendNulls(int count)
+        {
+            ValuesBuffer.AppendStructs<T>(new T[count]);
+            return base.AppendNulls(count);
         }
 
         public virtual ValueArrayBuilder<T> AppendValue(T value, bool isValid = true)
