@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Drawing;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
@@ -33,7 +34,7 @@ namespace Apache.Arrow.Builder
         public virtual ValueArrayBuilder<T> AppendValue(T? value)
         {
             ValuesBuffer.AppendStruct(value.GetValueOrDefault());
-            ValidityBuffer.AppendBit(false);
+            ValidityBuffer.AppendBit(value.HasValue);
             Length++;
             return this;
         }
@@ -41,7 +42,7 @@ namespace Apache.Arrow.Builder
         public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T> values)
         {
             ValuesBuffer.AppendStructs(values);
-            AppendValidity(values.Length, true);
+            ValidityBuffer.AppendBits(ValidityMask(values.Length, true));
             Length += values.Length;
             return this;
         }
@@ -57,6 +58,8 @@ namespace Apache.Arrow.Builder
                 if (values[i] == null)
                 {
                     destination[i] = default;
+                    // default is already false
+                    // validity[i] = false;
                 }
                 else
                 {
@@ -68,10 +71,10 @@ namespace Apache.Arrow.Builder
             return AppendValues(destination, validity);
         }
 
-        public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> isValid)
+        public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> mask)
         {
             ValuesBuffer.AppendStructs(values);
-            ValidityBuffer.AppendBits(isValid);
+            ValidityBuffer.AppendBits(mask);
             Length += values.Length;
             return this;
         }

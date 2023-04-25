@@ -49,21 +49,21 @@ namespace Apache.Arrow.Builder
 
         public virtual IArrayBuilder AppendNulls(int count)
         {
-            AppendValidity(count, false);
+            ValidityBuffer.AppendBits(ValidityMask(count, false));
             NullCount += count;
             return this;
         }
 
-        internal virtual void AppendValidity(int count, bool isValid)
+        internal Span<bool> ValidityMask(int count, bool isValid)
         {
-            bool[] values = new bool[count]; // create a new bool array of length count
+            Span<bool> values = new bool[count]; // create a new bool array of length count
 
             for (int i = 0; i < count; i++)
             {
-                values[i] = isValid; // set each value in the array to false
+                values[i] = isValid; // set each value in the array to isValid
             }
 
-            ValidityBuffer.AppendBits(new ReadOnlySpan<bool>(values));
+            return values;
         }
 
         public ArrayData FinishInternal(MemoryAllocator allocator = null)
