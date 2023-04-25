@@ -273,12 +273,12 @@ struct MeanKernelInit : public SumLikeInit<KernelClass> {
 
 // ----------------------------------------------------------------------
 // Last implementation
-template <typename ArrowType, SimdLevel::type SimdLevel, typename Enable = void>
+template <typename ArrowType, typename Enable = void>
 struct FirstLastState {};
 
-template <typename ArrowType, SimdLevel::type SimdLevel>
-struct FirstLastState<ArrowType, SimdLevel, enable_if_boolean<ArrowType>> {
-  using ThisType = FirstLastState<ArrowType, SimdLevel>;
+template <typename ArrowType>
+struct FirstLastState<ArrowType, enable_if_boolean<ArrowType>> {
+  using ThisType = FirstLastState<ArrowType>;
   using T = typename ArrowType::c_type;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
@@ -304,9 +304,9 @@ struct FirstLastState<ArrowType, SimdLevel, enable_if_boolean<ArrowType>> {
   bool has_nulls = false;
 };
 
-template <typename ArrowType, SimdLevel::type SimdLevel>
-struct FirstLastState<ArrowType, SimdLevel, enable_if_physical_integer<ArrowType>> {
-  using ThisType = FirstLastState<ArrowType, SimdLevel>;
+template <typename ArrowType>
+struct FirstLastState<ArrowType, enable_if_physical_integer<ArrowType>> {
+  using ThisType = FirstLastState<ArrowType>;
   using T = typename ArrowType::c_type;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
@@ -332,9 +332,9 @@ struct FirstLastState<ArrowType, SimdLevel, enable_if_physical_integer<ArrowType
   bool has_nulls = false;
 };
 
-template <typename ArrowType, SimdLevel::type SimdLevel>
-struct FirstLastState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>> {
-  using ThisType = FirstLastState<ArrowType, SimdLevel>;
+template <typename ArrowType>
+struct FirstLastState<ArrowType, enable_if_floating_point<ArrowType>> {
+  using ThisType = FirstLastState<ArrowType>;
   using T = typename ArrowType::c_type;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
@@ -360,11 +360,11 @@ struct FirstLastState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>>
   bool has_nulls = false;
 };
 
-template <typename ArrowType, SimdLevel::type SimdLevel>
-struct FirstLastState<ArrowType, SimdLevel,
+template <typename ArrowType>
+struct FirstLastState<ArrowType,
                       enable_if_t<is_base_binary_type<ArrowType>::value ||
                                   std::is_same<ArrowType, FixedSizeBinaryType>::value>> {
-  using ThisType = FirstLastState<ArrowType, SimdLevel>;
+  using ThisType = FirstLastState<ArrowType>;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
   ThisType& operator+=(const ThisType& rhs) {
@@ -389,11 +389,11 @@ struct FirstLastState<ArrowType, SimdLevel,
   bool has_nulls = false;
 };
 
-template <typename ArrowType, SimdLevel::type SimdLevel>
+template <typename ArrowType>
 struct FirstLastImpl : public ScalarAggregator {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using ThisType = FirstLastImpl<ArrowType, SimdLevel>;
-  using StateType = FirstLastState<ArrowType, SimdLevel>;
+  using ThisType = FirstLastImpl<ArrowType>;
+  using StateType = FirstLastState<ArrowType>;
 
   FirstLastImpl(std::shared_ptr<DataType> out_type, ScalarAggregateOptions options)
       : out_type(std::move(out_type)), options(std::move(options)), count(0) {
@@ -491,7 +491,7 @@ struct FirstLastImpl : public ScalarAggregator {
   std::shared_ptr<DataType> out_type;
   ScalarAggregateOptions options;
   int64_t count;
-  FirstLastState<ArrowType, SimdLevel> state;
+  FirstLastState<ArrowType> state;
 };
 
 // ----------------------------------------------------------------------
@@ -848,7 +848,6 @@ struct NullMinMaxImpl : public ScalarAggregator {
 
 // First/Last
 
-template <SimdLevel::type SimdLevel>
 struct FirstLastInitState {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -870,33 +869,33 @@ struct FirstLastInitState {
   }
 
   Status Visit(const BooleanType&) {
-    state.reset(new FirstLastImpl<BooleanType, SimdLevel>(out_type, options));
+    state.reset(new FirstLastImpl<BooleanType>(out_type, options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_physical_integer<Type, Status> Visit(const Type&) {
     using PhysicalType = typename Type::PhysicalType;
-    state.reset(new FirstLastImpl<PhysicalType, SimdLevel>(out_type, options));
+    state.reset(new FirstLastImpl<PhysicalType>(out_type, options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_physical_floating_point<Type, Status> Visit(const Type&) {
     using PhysicalType = typename Type::PhysicalType;
-    state.reset(new FirstLastImpl<PhysicalType, SimdLevel>(out_type, options));
+    state.reset(new FirstLastImpl<PhysicalType>(out_type, options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_base_binary<Type, Status> Visit(const Type&) {
-    state.reset(new FirstLastImpl<Type, SimdLevel>(out_type, options));
+    state.reset(new FirstLastImpl<Type>(out_type, options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_t<std::is_same<Type, FixedSizeBinaryType>::value, Status> Visit(const Type&) {
-    state.reset(new FirstLastImpl<Type, SimdLevel>(out_type, options));
+    state.reset(new FirstLastImpl<Type>(out_type, options));
     return Status::OK();
   }
 

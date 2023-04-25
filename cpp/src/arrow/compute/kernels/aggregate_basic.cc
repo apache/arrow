@@ -448,13 +448,12 @@ Result<std::unique_ptr<KernelState>> FirstLastInit(KernelContext* ctx,
   ARROW_ASSIGN_OR_RAISE(TypeHolder out_type,
                         args.kernel->signature->out_type().Resolve(ctx, args.inputs));
 
-  FirstLastInitState<SimdLevel::NONE> visitor(
-      ctx, *args.inputs[0], out_type.GetSharedPtr(),
-      static_cast<const ScalarAggregateOptions&>(*args.options));
+  FirstLastInitState visitor(ctx, *args.inputs[0], out_type.GetSharedPtr(),
+                             static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
 
-// For "first" and "last" functions: override finanlize and return the actual value
+// For "first" and "last" functions: override finalize and return the actual value
 template <FirstOrLast first_or_last>
 void AddFirstOrLastAggKernel(ScalarAggregateFunction* func,
                              ScalarAggregateFunction* first_last_func) {
@@ -477,7 +476,7 @@ void AddFirstOrLastAggKernel(ScalarAggregateFunction* func,
   };
 
   AddAggKernel(std::move(sig), std::move(init), std::move(finalize), func,
-               SimdLevel::NONE, /*ordered*/ true);
+               SimdLevel::NONE, /*ordered=*/true);
 }
 
 // ----------------------------------------------------------------------
