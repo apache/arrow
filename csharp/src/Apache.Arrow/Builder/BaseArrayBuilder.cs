@@ -69,9 +69,7 @@ namespace Apache.Arrow.Builder
                 IValueBufferBuilder current = Buffers[i];
                 ArrowBuffer other = data.Buffers[i];
 
-                int isFullByte = current.ValueBitSize % 8;
-
-                if (isFullByte == 0)
+                if (current.ValueBitSize % 8 == 0)
                 {
                     // Full byte encoded
                     current.AppendArrow(other);
@@ -83,7 +81,7 @@ namespace Apache.Arrow.Builder
 
                     current.AppendBytes(other.Span.Slice(0, end));
 
-                    Span<bool> bits = BitUtility.ToBits(other.Span.Slice(end)).Slice(0, isFullByte);
+                    Span<bool> bits = BitUtility.ToBits(other.Span.Slice(end)).Slice(0, current.ValueBitSize);
                     current.AppendBits(bits);
                 }
             }
