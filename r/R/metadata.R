@@ -22,9 +22,7 @@
   # drop problems attributes (most likely from readr)
   x[["attributes"]][["problems"]] <- NULL
 
-  if (has_default_df_metadata(x)) {
-    x <- NULL
-  }
+  x <- remove_default_df_metadata(x)
 
   out <- serialize(x, NULL, ascii = TRUE)
 
@@ -228,8 +226,25 @@ get_r_metadata_from_old_schema <- function(new_schema, old_schema) {
   r_meta
 }
 
-has_default_df_metadata <- function(x){
-  identical(names(x), c("attributes", "columns")) &&
-  all(vapply(x$columns, is.null, logical(1))) &&
-    identical(x$attributes$class, "data.frame")
+remove_default_df_metadata <- function(x){
+
+  # remove the class if it's just data.frame
+  if (identical(x$attributes$class, "data.frame")) {
+    x$attributes <- x$attributes[names(x$attributes) != "class"]
+    if (is_empty(x$attributes)) {
+      x$attributes <- NULL
+    }
+  }
+
+  # remove columns attributes if all NULL
+  if (all(map_lgl(x$columns, is.null))) {
+    x$columns <- NULL
+  }
+
+  if (is_empty(x)) {
+    x <- NULL
+  }
+
+  x
+
 }

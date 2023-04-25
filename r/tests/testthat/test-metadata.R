@@ -202,7 +202,7 @@ test_that("metadata keeps attribute of top level data frame", {
   df <- structure(data.frame(x = 1, y = 2), foo = "bar")
   tab <- Table$create(df)
   expect_identical(attr(as.data.frame(tab), "foo"), "bar")
-  expect_identical(as.data.frame(tab), df)
+  expect_equal_data_frame(tab, df)
 })
 
 
