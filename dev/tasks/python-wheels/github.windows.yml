@@ -71,9 +71,9 @@ jobs:
           cd arrow
           archery docker run python-wheel-windows-test
 
-      {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
-      {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}
-      {{ macros.github_upload_wheel_scientific_python("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
+      {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
+      {{ macros.github_upload_wheel_scientific_python("arrow/repaired_wheels/dist/*.whl")|indent }}
 
       {% if arrow.is_default_branch() %}
       - name: Push Docker Image
