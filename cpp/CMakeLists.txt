@@ -386,8 +386,6 @@ if(NOT ARROW_BUILD_EXAMPLES)
 endif()
 
 if(ARROW_FUZZING)
-  # parquet/arrow/generate_fuzz_corpus.cc depends on brotli
-  set(ARROW_WITH_BROTLI ON)
   # Fuzzing builds enable ASAN without setting our home-grown option for it.
   add_definitions(-DADDRESS_SANITIZER)
 endif()
