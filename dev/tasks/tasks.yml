@@ -1418,7 +1418,7 @@ tasks:
     params:
       env:
         DEBIAN: 11
-        GO: {{go_version}}
+        GO: "{{go_version}}"
       image: debian-go
   {% endfor %}
 
