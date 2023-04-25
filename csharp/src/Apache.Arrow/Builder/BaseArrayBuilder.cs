@@ -9,7 +9,7 @@ namespace Apache.Arrow.Builder
     {
         public IArrowType DataType { get; }
 
-        public int Length { get; private set; }
+        public int Length { get; internal set; }
 
         public int NullCount { get; private set; }
 
@@ -49,28 +49,21 @@ namespace Apache.Arrow.Builder
 
         public virtual IArrayBuilder AppendNulls(int count)
         {
-            bool[] values = new bool[count]; // create a new bool array of length x
+            AppendValidity(count, false);
+            NullCount += count;
+            return this;
+        }
+
+        internal virtual void AppendValidity(int count, bool isValid)
+        {
+            bool[] values = new bool[count]; // create a new bool array of length count
 
             for (int i = 0; i < count; i++)
             {
-                values[i] = true; // set each value in the array to true
+                values[i] = isValid; // set each value in the array to false
             }
 
             ValidityBuffer.AppendBits(new ReadOnlySpan<bool>(values));
-            NullCount++;
-            return this;
-        }
-
-        public virtual IArrayBuilder AppendValue()
-        {
-            Length++;
-            return this;
-        }
-
-        public virtual IArrayBuilder AppendValues(int count)
-        {
-            Length += count;
-            return this;
         }
 
         public ArrayData FinishInternal(MemoryAllocator allocator = null)
