@@ -18,9 +18,9 @@ package file_test
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"io"
-	"math/rand"
 	"testing"
 
 	"github.com/apache/arrow/go/v12/arrow/memory"

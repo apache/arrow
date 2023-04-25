@@ -329,7 +329,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool, stringsCanBeN
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	raw, err := ioutil.ReadFile(filepath)
+	raw, err := os.ReadFile(filepath)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -19,7 +19,6 @@ package compress
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 
 	"github.com/andybalholm/brotli"
 	"github.com/apache/arrow/go/v12/parquet/internal/debug"
@@ -28,7 +27,7 @@ import (
 type brotliCodec struct{}
 
 func (brotliCodec) NewReader(r io.Reader) io.ReadCloser {
-	return ioutil.NopCloser(brotli.NewReader(r))
+	return io.NopCloser(brotli.NewReader(r))
 }
 
 func (b brotliCodec) EncodeLevel(dst, src []byte, level int) []byte {
@@ -74,7 +73,7 @@ func (brotliCodec) Decode(dst, src []byte) []byte {
 		return dst[:sofar]
 	}
 
-	dst, err := ioutil.ReadAll(rdr)
+	dst, err := io.ReadAll(rdr)
 	if err != nil {
 		panic(err)
 	}

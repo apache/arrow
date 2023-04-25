@@ -343,11 +343,11 @@ NaN values return NaN. Integral values return signedness as Int8,
 and floating-point values return it with the same type as the input values.`,
 		ArgNames: []string{"x"},
 	}
-	bitWiseNotDoc = FunctionDoc{
-		Summary:     "Bit-wise negate the arguments element-wise",
-		Description: "Null values return null",
-		ArgNames:    []string{"x"},
-	}
+	// bitWiseNotDoc = FunctionDoc{
+	// 	Summary:     "Bit-wise negate the arguments element-wise",
+	// 	Description: "Null values return null",
+	// 	ArgNames:    []string{"x"},
+	// }
 	bitWiseAndDoc = FunctionDoc{
 		Summary:     "Bit-wise AND the arguments element-wise",
 		Description: "Null values return null",
@@ -1087,10 +1087,9 @@ func Negate(ctx context.Context, opts ArithmeticOptions, input Datum) (Datum, er
 // Sign returns -1, 0, or 1 depending on the sign of each element in the
 // input. For x in the input:
 //
-//	if x > 0: 1
-//  if x < 0: -1
-//  if x == 0: 0
-//
+//		if x > 0: 1
+//	 if x < 0: -1
+//	 if x == 0: 0
 func Sign(ctx context.Context, input Datum) (Datum, error) {
 	return CallFunction(ctx, "sign", nil, input)
 }
