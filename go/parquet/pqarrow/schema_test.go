@@ -18,7 +18,6 @@ package pqarrow_test
 
 import (
 	"encoding/base64"
-	"fmt"
 	"testing"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -433,11 +432,8 @@ func TestUnsupportedTypes(t *testing.T) {
 			arrowFields = append(arrowFields, arrow.Field{Name: "unsupported", Type: tc.typ, Nullable: true})
 			arrowSchema := arrow.NewSchema(arrowFields, nil)
 			_, err := pqarrow.ToParquet(arrowSchema, nil, pqarrow.NewArrowWriterProperties())
-			assert.Error(t, err)
-			if err != nil {
-				wantMsg := fmt.Sprintf("support for %s not implemented yet", tc.typ.ID())
-				assert.Equal(t, wantMsg, err.Error())
-			}
+			assert.ErrorIs(t, err, arrow.ErrNotImplemented)
+			assert.ErrorContains(t, err, "support for "+tc.typ.ID().String())
 		})
 	}
 }
