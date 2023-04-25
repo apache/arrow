@@ -48,7 +48,7 @@ set PYTHON_CMD=py -%PYTHON%
 %PYTHON_CMD% -m pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B 1
 
 @REM Install the built wheels
-%PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B 1
+%PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\repaired_wheels pyarrow || exit /B 1
 
 @REM Test that the modules are importable
 %PYTHON_CMD% -c "import pyarrow" || exit /B 1
