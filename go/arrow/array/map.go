@@ -32,6 +32,8 @@ type Map struct {
 	keys, items arrow.Array
 }
 
+var _ ListLike = (*Map)(nil)
+
 // NewMapData returns a new Map array value, from data
 func NewMapData(data arrow.ArrayData) *Map {
 	a := &Map{List: &List{}}
@@ -301,7 +303,7 @@ func (b *MapBuilder) ValueBuilder() Builder {
 }
 
 func (b *MapBuilder) AppendValueFromString(s string) error {
-	return arrow.ErrNotImplemented	
+	return arrow.ErrNotImplemented
 }
 
 func (b *MapBuilder) UnmarshalOne(dec *json.Decoder) error {
