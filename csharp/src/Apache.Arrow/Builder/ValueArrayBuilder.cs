@@ -6,37 +6,41 @@ namespace Apache.Arrow.Builder
     public class ValueArrayBuilder<T>
         : BaseArrayBuilder where T : struct
     {
-        public virtual IBufferBuilder ValuesBuffer => Buffers[1];
+        public IValueBufferBuilder<T> ValuesBuffer { get; internal set; }
 
         public ValueArrayBuilder(
             IArrowType dataType,
-            IBufferBuilder validity, IBufferBuilder values
-            ) : this(dataType, new IBufferBuilder[] { validity, values })
+            IValueBufferBuilder<bool> validity, IValueBufferBuilder<T> values
+            ) : this(dataType, validity, values, new IBufferBuilder[] { validity, values })
         {
         }
 
-        public ValueArrayBuilder(
-            IArrowType dataType, IBufferBuilder[] buffers,
+        internal ValueArrayBuilder(
+            IArrowType dataType,
+            IValueBufferBuilder<bool> validity,
+            IValueBufferBuilder<T> values,
+            IBufferBuilder[] buffers,
             IDataBuilder[] children = null, IDataBuilder dictionary = null
-            ) : base(dataType, buffers, children, dictionary)
+            ) : base(dataType, validity, buffers, children, dictionary)
         {
+            ValuesBuffer = values;
         }
 
         public override IArrayBuilder AppendNull()
         {
-            ValuesBuffer.AppendStruct<T>(default);
+            ValuesBuffer.AppendValue(default);
             return base.AppendNull();
         }
 
         public override IArrayBuilder AppendNulls(int count)
         {
-            ValuesBuffer.AppendStructs<T>(new T[count]);
+            ValuesBuffer.AppendValues(new T[count]);
             return base.AppendNulls(count);
         }
 
         public virtual ValueArrayBuilder<T> AppendValue(T value, bool isValid = true)
         {
-            ValuesBuffer.AppendStruct(value);
+            ValuesBuffer.AppendValue(value);
             ValidityBuffer.AppendBit(isValid);
             Length++;
             return this;
@@ -44,7 +48,7 @@ namespace Apache.Arrow.Builder
 
         public virtual ValueArrayBuilder<T> AppendValue(T? value)
         {
-            ValuesBuffer.AppendStruct(value.GetValueOrDefault());
+            ValuesBuffer.AppendValue(value);
             ValidityBuffer.AppendBit(value.HasValue);
             Length++;
             return this;
@@ -52,7 +56,7 @@ namespace Apache.Arrow.Builder
 
         public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T> values)
         {
-            ValuesBuffer.AppendStructs(values);
+            ValuesBuffer.AppendValues(values);
             ValidityBuffer.AppendBits(ValidityMask(values.Length, true));
             Length += values.Length;
             return this;
@@ -84,9 +88,29 @@ namespace Apache.Arrow.Builder
 
         public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> mask)
         {
-            ValuesBuffer.AppendStructs(values);
+            ValuesBuffer.AppendValues(values);
             ValidityBuffer.AppendBits(mask);
             Length += values.Length;
+            return this;
+        }
+    }
+
+    public class ValueOffsetArrayBuilder<T>
+        : ValueArrayBuilder<T> where T : struct
+    {
+        public IValueBufferBuilder<int> OffsetsBuffer { get; }
+
+        public ValueOffsetArrayBuilder(
+            IArrowType dataType,
+            IValueBufferBuilder<bool> validity, IValueBufferBuilder<int> offset, IValueBufferBuilder<T> values
+            ) : base(dataType, validity, values, new IBufferBuilder[] { validity, offset, values })
+        {
+            OffsetsBuffer = offset;
+        }
+
+        public ValueOffsetArrayBuilder<T> Append()
+        {
+            OffsetsBuffer.AppendValue(Length);
             return this;
         }
     }

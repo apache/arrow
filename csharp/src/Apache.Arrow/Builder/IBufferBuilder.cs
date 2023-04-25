@@ -78,12 +78,12 @@ namespace Apache.Arrow.Builder
         ArrowBuffer Build(int byteSize, MemoryAllocator allocator = default);
     }
 
-    public interface IStructBufferBuilder<T> : IBufferBuilder where T : struct
+    public interface IValueBufferBuilder<T> : IBufferBuilder where T : struct
     {
-        void AppendValue(T value);
-        void AppendValue(T? value);
-        void AppendValues(ReadOnlySpan<T> values);
-        void AppendValues(ReadOnlySpan<T?> values);
+        IValueBufferBuilder<T> AppendValue(T value);
+        IValueBufferBuilder<T> AppendValue(T? value);
+        IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T> values);
+        IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T?> values);
     }
 }
 

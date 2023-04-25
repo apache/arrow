@@ -16,7 +16,7 @@ namespace Apache.Arrow.Builder
         public int Offset { get; }
 
         public IBufferBuilder[] Buffers { get; }
-        public IBufferBuilder ValidityBuffer => Buffers[0];
+        public IValueBufferBuilder<bool> ValidityBuffer { get; }
 
         public IDataBuilder[] Children { get; }
 
@@ -24,6 +24,7 @@ namespace Apache.Arrow.Builder
 
         public BaseArrayBuilder(
             IArrowType dataType,
+            IValueBufferBuilder<bool> validityBuffer,
             IBufferBuilder[] buffers,
             IDataBuilder[] children = null,
             IDataBuilder dictionary = null
@@ -31,6 +32,7 @@ namespace Apache.Arrow.Builder
         {
             DataType = dataType;
 
+            ValidityBuffer = validityBuffer;
             Buffers = buffers;
             Children = children;
             Dictionary = dictionary;

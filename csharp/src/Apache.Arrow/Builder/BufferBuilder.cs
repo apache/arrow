@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 
@@ -270,6 +271,47 @@ namespace Apache.Arrow.Builder
             Memory.CopyTo(memory);
 
             Memory = memory;
+        }
+    }
+
+    public class ValueBufferBuilder : BufferBuilder
+    {
+        public ValueBufferBuilder(int valueBitSize, int capacity = 64) : base(valueBitSize, capacity)
+        {
+        }
+    }
+
+    public class ValueBufferBuilder<T> : ValueBufferBuilder, IValueBufferBuilder<T> where T : struct
+    {
+        private static int GetBitSizeOf() => typeof(T) == typeof(bool) ? 1 : Unsafe.SizeOf<T>() * 8;
+
+        public ValueBufferBuilder(int capacity = 64) : base(GetBitSizeOf(), capacity)
+        {
+        }
+
+        public IValueBufferBuilder<T> AppendValue(T value)
+        {
+            AppendStruct(value);
+            return this;
+        }
+        public IValueBufferBuilder<T> AppendValue(T? value) => AppendValue(value.GetValueOrDefault());
+        public IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T> values)
+        {
+            AppendStructs(values);
+            return this;
+        }
+        public IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T?> values)
+        {
+            Span<T> destination = new T[values.Length];
+
+            // Transform the source ReadOnlySpan<T?> into the destination ReadOnlySpan<T>, filling any null values with default(T)
+            for (int i = 0; i < values.Length; i++)
+            {
+                T? value = values[i];
+                destination[i] = value ?? default;
+            }
+
+            return AppendValues(destination);
         }
     }
 }
