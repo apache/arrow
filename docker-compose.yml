@@ -1507,8 +1507,8 @@ services:
     shm_size: *shm-size
     volumes: *debian-volumes
     command: &go-command >
-      git config --global --add safe.directory /arrow &&
       /bin/bash -c "
+        git config --global --add safe.directory /arrow &&
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/go_test.sh /arrow"
 
@@ -1545,9 +1545,9 @@ services:
     shm_size: *shm-size
     volumes: *debian-volumes
     command: &go-cgo-python-command >
-      git config --global --add safe.directory /arrow &&
       /bin/bash -c "
-          /arrow/ci/scripts/go_cgo_python_test.sh /arrow"
+        git config --global --add safe.directory /arrow &&
+        /arrow/ci/scripts/go_cgo_python_test.sh /arrow"
 
   ############################# JavaScript ####################################
 
