@@ -257,11 +257,13 @@ namespace Apache.Arrow.Builder
          
         private void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(Memory.Length + numBytes));
 
-        public void EnsureBytes(int numBytes)
+        internal void EnsureBytes(int numBytes)
         {
             if (numBytes > Memory.Length)
             {
-                Reallocate(numBytes);
+                int twice = checked(Memory.Length * 2);
+
+                Reallocate(twice < numBytes ? BitUtility.NextPowerOfTwo(numBytes) : twice);
             }
         }
 
