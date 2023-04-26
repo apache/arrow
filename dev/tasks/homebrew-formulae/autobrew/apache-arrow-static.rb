@@ -53,6 +53,7 @@ class ApacheArrowStatic < Formula
     args = %W[
       -DARROW_BUILD_SHARED=OFF
       -DARROW_BUILD_UTILITIES=ON
+      -DARROW_ACERO=ON
       -DARROW_COMPUTE=ON
       -DARROW_CSV=ON
       -DARROW_DATASET=ON

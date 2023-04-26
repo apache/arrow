@@ -231,7 +231,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 			if arr.IsNull(i) {
 				res[i] = w.nullValue
 			} else {
-				res[i] = arr.ValueString(i)
+				res[i] = arr.ValueStr(i)
 			}
 		}
 	default:

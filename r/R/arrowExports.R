@@ -444,8 +444,8 @@ ExecPlanReader__PlanStatus <- function(reader) {
   .Call(`_arrow_ExecPlanReader__PlanStatus`, reader)
 }
 
-ExecPlan_run <- function(plan, final_node, sort_options, metadata, head) {
-  .Call(`_arrow_ExecPlan_run`, plan, final_node, sort_options, metadata, head)
+ExecPlan_run <- function(plan, final_node, metadata) {
+  .Call(`_arrow_ExecPlan_run`, plan, final_node, metadata)
 }
 
 ExecPlan_ToString <- function(plan) {
@@ -458,6 +458,10 @@ ExecPlan_UnsafeDelete <- function(plan) {
 
 ExecNode_output_schema <- function(node) {
   .Call(`_arrow_ExecNode_output_schema`, node)
+}
+
+ExecNode_has_ordered_batches <- function(node) {
+  .Call(`_arrow_ExecNode_has_ordered_batches`, node)
 }
 
 ExecNode_Scan <- function(plan, dataset, filter, projection) {
@@ -486,6 +490,14 @@ ExecNode_Join <- function(input, join_type, right_data, left_keys, right_keys, l
 
 ExecNode_Union <- function(input, right_data) {
   .Call(`_arrow_ExecNode_Union`, input, right_data)
+}
+
+ExecNode_Fetch <- function(input, offset, limit) {
+  .Call(`_arrow_ExecNode_Fetch`, input, offset, limit)
+}
+
+ExecNode_OrderBy <- function(input, sort_options) {
+  .Call(`_arrow_ExecNode_OrderBy`, input, sort_options)
 }
 
 ExecNode_SourceNode <- function(plan, reader) {
@@ -1340,6 +1352,10 @@ fs___S3FileSystem__region <- function(fs) {
   .Call(`_arrow_fs___S3FileSystem__region`, fs)
 }
 
+FinalizeS3 <- function() {
+  invisible(.Call(`_arrow_FinalizeS3`))
+}
+
 fs___GcsFileSystem__Make <- function(anonymous, options) {
   .Call(`_arrow_fs___GcsFileSystem__Make`, anonymous, options)
 }
@@ -1966,6 +1982,10 @@ Schema__metadata <- function(schema) {
 
 Schema__WithMetadata <- function(schema, metadata) {
   .Call(`_arrow_Schema__WithMetadata`, schema, metadata)
+}
+
+Schema__WithNames <- function(schema, names) {
+  .Call(`_arrow_Schema__WithNames`, schema, names)
 }
 
 Schema__serialize <- function(schema) {

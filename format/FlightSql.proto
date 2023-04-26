@@ -1064,12 +1064,12 @@ enum Searchable {
  * The returned schema will be:
  * <
  *   type_name: utf8 not null (The name of the data type, for example: VARCHAR, INTEGER, etc),
- *   data_type: int not null (The SQL data type),
- *   column_size: int (The maximum size supported by that column.
- *                     In case of exact numeric types, this represents the maximum precision.
- *                     In case of string types, this represents the character length.
- *                     In case of datetime data types, this represents the length in characters of the string representation.
- *                     NULL is returned for data types where column size is not applicable.),
+ *   data_type: int32 not null (The SQL data type),
+ *   column_size: int32 (The maximum size supported by that column.
+ *                       In case of exact numeric types, this represents the maximum precision.
+ *                       In case of string types, this represents the character length.
+ *                       In case of datetime data types, this represents the length in characters of the string representation.
+ *                       NULL is returned for data types where column size is not applicable.),
  *   literal_prefix: utf8 (Character or characters used to prefix a literal, NULL is returned for
  *                         data types where a literal prefix is not applicable.),
  *   literal_suffix: utf8 (Character or characters used to terminate a literal,
@@ -1078,11 +1078,11 @@ enum Searchable {
  *                        (A list of keywords corresponding to which parameters can be used when creating
  *                         a column for that specific type.
  *                         NULL is returned if there are no parameters for the data type definition.),
- *   nullable: int not null (Shows if the data type accepts a NULL value. The possible values can be seen in the
- *                           Nullable enum.),
+ *   nullable: int32 not null (Shows if the data type accepts a NULL value. The possible values can be seen in the
+ *                             Nullable enum.),
  *   case_sensitive: bool not null (Shows if a character data type is case-sensitive in collations and comparisons),
- *   searchable: int not null (Shows how the data type is used in a WHERE clause. The possible values can be seen in the
- *                             Searchable enum.),
+ *   searchable: int32 not null (Shows how the data type is used in a WHERE clause. The possible values can be seen in the
+ *                               Searchable enum.),
  *   unsigned_attribute: bool (Shows if the data type is unsigned. NULL is returned if the attribute is
  *                             not applicable to the data type or the data type is not numeric.),
  *   fixed_prec_scale: bool not null (Shows if the data type has predefined fixed precision and scale.),
@@ -1090,26 +1090,26 @@ enum Searchable {
  *                         is not applicable to the data type or the data type is not numeric.),
  *   local_type_name: utf8 (Localized version of the data source-dependent name of the data type. NULL
  *                          is returned if a localized name is not supported by the data source),
- *   minimum_scale: int (The minimum scale of the data type on the data source.
- *                       If a data type has a fixed scale, the MINIMUM_SCALE and MAXIMUM_SCALE
- *                       columns both contain this value. NULL is returned if scale is not applicable.),
- *   maximum_scale: int (The maximum scale of the data type on the data source.
- *                       NULL is returned if scale is not applicable.),
- *   sql_data_type: int not null (The value of the SQL DATA TYPE which has the same values
- *                                as data_type value. Except for interval and datetime, which
- *                                uses generic values. More info about those types can be
- *                                obtained through datetime_subcode. The possible values can be seen
- *                                in the XdbcDataType enum.),
- *   datetime_subcode: int (Only used when the SQL DATA TYPE is interval or datetime. It contains
- *                          its sub types. For type different from interval and datetime, this value
- *                          is NULL. The possible values can be seen in the XdbcDatetimeSubcode enum.),
- *   num_prec_radix: int (If the data type is an approximate numeric type, this column contains
- *                        the value 2 to indicate that COLUMN_SIZE specifies a number of bits. For
- *                        exact numeric types, this column contains the value 10 to indicate that
- *                        column size specifies a number of decimal digits. Otherwise, this column is NULL.),
- *   interval_precision: int (If the data type is an interval data type, then this column contains the value
- *                            of the interval leading precision. Otherwise, this column is NULL. This fields
- *                            is only relevant to be used by ODBC).
+ *   minimum_scale: int32 (The minimum scale of the data type on the data source.
+ *                         If a data type has a fixed scale, the MINIMUM_SCALE and MAXIMUM_SCALE
+ *                         columns both contain this value. NULL is returned if scale is not applicable.),
+ *   maximum_scale: int32 (The maximum scale of the data type on the data source.
+ *                         NULL is returned if scale is not applicable.),
+ *   sql_data_type: int32 not null (The value of the SQL DATA TYPE which has the same values
+ *                                  as data_type value. Except for interval and datetime, which
+ *                                  uses generic values. More info about those types can be
+ *                                  obtained through datetime_subcode. The possible values can be seen
+ *                                  in the XdbcDataType enum.),
+ *   datetime_subcode: int32 (Only used when the SQL DATA TYPE is interval or datetime. It contains
+ *                            its sub types. For type different from interval and datetime, this value
+ *                            is NULL. The possible values can be seen in the XdbcDatetimeSubcode enum.),
+ *   num_prec_radix: int32 (If the data type is an approximate numeric type, this column contains
+ *                          the value 2 to indicate that COLUMN_SIZE specifies a number of bits. For
+ *                          exact numeric types, this column contains the value 10 to indicate that
+ *                          column size specifies a number of decimal digits. Otherwise, this column is NULL.),
+ *   interval_precision: int32 (If the data type is an interval data type, then this column contains the value
+ *                              of the interval leading precision. Otherwise, this column is NULL. This fields
+ *                              is only relevant to be used by ODBC).
  * >
  * The returned data should be ordered by data_type and then by type_name.
  */
@@ -1271,7 +1271,7 @@ message CommandGetTableTypes {
  *  table_name: utf8 not null,
  *  column_name: utf8 not null,
  *  key_name: utf8,
- *  key_sequence: int not null
+ *  key_sequence: int32 not null
  * >
  * The returned data should be ordered by catalog_name, db_schema_name, table_name, key_name, then key_sequence.
  */
@@ -1321,11 +1321,11 @@ enum UpdateDeleteRules {
  *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
- *  key_sequence: int not null,
+ *  key_sequence: int32 not null,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
- *  update_rule: uint1 not null,
- *  delete_rule: uint1 not null
+ *  update_rule: uint8 not null,
+ *  delete_rule: uint8 not null
  * >
  * The returned data should be ordered by fk_catalog_name, fk_db_schema_name, fk_table_name, fk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions declared on UpdateDeleteRules enum.
@@ -1367,11 +1367,11 @@ message CommandGetExportedKeys {
  *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
- *  key_sequence: int not null,
+ *  key_sequence: int32 not null,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
- *  update_rule: uint1 not null,
- *  delete_rule: uint1 not null
+ *  update_rule: uint8 not null,
+ *  delete_rule: uint8 not null
  * >
  * The returned data should be ordered by pk_catalog_name, pk_db_schema_name, pk_table_name, pk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions:
@@ -1420,11 +1420,11 @@ message CommandGetImportedKeys {
  *  fk_db_schema_name: utf8,
  *  fk_table_name: utf8 not null,
  *  fk_column_name: utf8 not null,
- *  key_sequence: int not null,
+ *  key_sequence: int32 not null,
  *  fk_key_name: utf8,
  *  pk_key_name: utf8,
- *  update_rule: uint1 not null,
- *  delete_rule: uint1 not null
+ *  update_rule: uint8 not null,
+ *  delete_rule: uint8 not null
  * >
  * The returned data should be ordered by pk_catalog_name, pk_db_schema_name, pk_table_name, pk_key_name, then key_sequence.
  * update_rule and delete_rule returns a byte that is equivalent to actions:

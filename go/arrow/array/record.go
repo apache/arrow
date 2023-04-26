@@ -154,6 +154,32 @@ func NewRecord(schema *arrow.Schema, cols []arrow.Array, nrows int64) *simpleRec
 	return rec
 }
 
+func (rec *simpleRecord) SetColumn(i int, arr arrow.Array) (arrow.Record, error) {
+	if i < 0 || i >= len(rec.arrs) {
+		return nil, fmt.Errorf("arrow/array: column index out of range [0, %d): got=%d", len(rec.arrs), i)
+	}
+
+	if arr.Len() != int(rec.rows) {
+		return nil, fmt.Errorf("arrow/array: mismatch number of rows in column %q: got=%d, want=%d",
+			rec.schema.Field(i).Name,
+			arr.Len(), rec.rows,
+		)
+	}
+
+	f := rec.schema.Field(i)
+	if !arrow.TypeEqual(f.Type, arr.DataType()) {
+		return nil, fmt.Errorf("arrow/array: column %q type mismatch: got=%v, want=%v",
+			f.Name,
+			arr.DataType(), f.Type,
+		)
+	}
+	arrs := make([]arrow.Array, len(rec.arrs))
+	copy(arrs, rec.arrs)
+	arrs[i] = arr
+
+	return NewRecord(rec.schema, arrs, rec.rows), nil
+}
+
 func (rec *simpleRecord) validate() error {
 	if rec.rows == 0 && len(rec.arrs) == 0 {
 		return nil

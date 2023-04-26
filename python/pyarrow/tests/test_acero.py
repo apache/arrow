@@ -21,21 +21,26 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.compute import field
 
-from pyarrow.acero import (
-    TableSourceNodeOptions,
-    FilterNodeOptions,
-    ProjectNodeOptions,
-    AggregateNodeOptions,
-    OrderByNodeOptions,
-    HashJoinNodeOptions,
-    Declaration,
-)
+try:
+    from pyarrow.acero import (
+        Declaration,
+        TableSourceNodeOptions,
+        FilterNodeOptions,
+        ProjectNodeOptions,
+        AggregateNodeOptions,
+        OrderByNodeOptions,
+        HashJoinNodeOptions,
+    )
+except ImportError:
+    pass
 
 try:
     import pyarrow.dataset as ds
     from pyarrow.acero import ScanNodeOptions
 except ImportError:
     ds = None
+
+pytestmark = pytest.mark.acero
 
 
 @pytest.fixture
@@ -204,7 +209,7 @@ def test_aggregate_hash():
         table_source, Declaration("aggregate", aggr_opts)
     ])
     result = decl.to_table()
-    expected = pa.table({"count(a)": [1, 1], "b": ["foo", "bar"]})
+    expected = pa.table({"b": ["foo", "bar"], "count(a)": [1, 1]})
     assert result.equals(expected)
 
     # specify function options
@@ -215,7 +220,7 @@ def test_aggregate_hash():
         table_source, Declaration("aggregate", aggr_opts)
     ])
     result = decl.to_table()
-    expected_all = pa.table({"count(a)": [2, 1], "b": ["foo", "bar"]})
+    expected_all = pa.table({"b": ["foo", "bar"], "count(a)": [2, 1]})
     assert result.equals(expected_all)
 
     # specify keys as field references

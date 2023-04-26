@@ -26,6 +26,7 @@ from pyarrow.lib import Table
 from pyarrow.compute import Expression
 
 from pyarrow._acero import (  # noqa
+    _group_by,
     Declaration,
     ExecNodeOptions,
     TableSourceNodeOptions,
@@ -40,7 +41,13 @@ try:
     import pyarrow.dataset as ds
     from pyarrow._dataset import ScanNodeOptions
 except ImportError:
-    ds = None
+    class DatasetModuleStub:
+        class Dataset:
+            pass
+
+        class InMemoryDataset:
+            pass
+    ds = DatasetModuleStub
 
 
 def _dataset_to_decl(dataset, use_threads=True):
@@ -248,9 +255,7 @@ def _filter_table(table, expression):
         Declaration("table_source", options=TableSourceNodeOptions(table)),
         Declaration("filter", options=FilterNodeOptions(expression))
     ])
-    # TODO use_threads is set to False because this doesn't yet support
-    # preserving the order of the in-memory table's batches
-    return decl.to_table(use_threads=False)
+    return decl.to_table(use_threads=True)
 
 
 def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):

@@ -24,9 +24,9 @@ add_custom_target(toolchain-benchmarks)
 add_custom_target(toolchain-tests)
 
 # Accumulate all bundled targets and we will splice them together later as
-# libarrow_dependencies.a so that third party libraries have something usable
-# to create statically-linked builds with some BUNDLED dependencies, including
-# allocators like jemalloc and mimalloc
+# libarrow_bundled_dependencies.a so that third party libraries have something
+# usable to create statically-linked builds with some BUNDLED dependencies,
+# including allocators like jemalloc and mimalloc
 set(ARROW_BUNDLED_STATIC_LIBS)
 
 # Accumulate all system dependencies to provide suitable static link
@@ -118,6 +118,11 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
     set(ARROW_PACKAGE_PREFIX $ENV{CONDA_PREFIX})
   endif()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
+  # GoogleTest provided by conda can't be used on macOS because it's
+  # built with C++14. So we accept auto fallback only for GoogleTest.
+  if("${GTest_SOURCE}" STREQUAL "")
+    set(GTest_SOURCE "AUTO")
+  endif()
   message(STATUS "Using CONDA_PREFIX for ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
 else()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE}")
@@ -224,6 +229,7 @@ endmacro()
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
   set(one_value_args
+      ARROW_CMAKE_PACKAGE_NAME
       FORCE_ANY_NEWER_VERSION
       HAVE_ALT
       IS_RUNTIME_DEPENDENCY
@@ -285,8 +291,15 @@ macro(resolve_dependency DEPENDENCY_NAME)
     endif()
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
-    provide_find_module(${PACKAGE_NAME} "Arrow")
-    list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
+    if(NOT ARG_ARROW_CMAKE_PACKAGE_NAME)
+      set(ARG_ARROW_CMAKE_PACKAGE_NAME "Arrow")
+    endif()
+    if(ARG_ARROW_CMAKE_PACKAGE_NAME STREQUAL "Arrow")
+      provide_find_module(${PACKAGE_NAME} "Arrow")
+      list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
+    else()
+      provide_find_module(${PACKAGE_NAME} ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    endif()
     if(ARROW_BUILD_STATIC)
       find_package(PkgConfig QUIET)
       foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
@@ -2190,52 +2203,39 @@ macro(build_gtest)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::gtest SHARED IMPORTED)
-  set_target_properties(GTest::gtest
+  add_library(arrow::GTest::gtest SHARED IMPORTED)
+  set_target_properties(arrow::GTest::gtest
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
                                    INTERFACE_COMPILE_DEFINITIONS
                                    "GTEST_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::gtest_main SHARED IMPORTED)
-  set_target_properties(GTest::gtest_main
+  add_library(arrow::GTest::gtest_main SHARED IMPORTED)
+  set_target_properties(arrow::GTest::gtest_main
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::gmock SHARED IMPORTED)
-  set_target_properties(GTest::gmock
+  add_library(arrow::GTest::gmock SHARED IMPORTED)
+  set_target_properties(arrow::GTest::gmock
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
                                    INTERFACE_COMPILE_DEFINITIONS
                                    "GMOCK_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
   add_dependencies(toolchain-tests googletest_ep)
-  add_dependencies(GTest::gtest googletest_ep)
-  add_dependencies(GTest::gtest_main googletest_ep)
-  add_dependencies(GTest::gmock googletest_ep)
+  add_dependencies(arrow::GTest::gtest googletest_ep)
+  add_dependencies(arrow::GTest::gtest_main googletest_ep)
+  add_dependencies(arrow::GTest::gmock googletest_ep)
 endmacro()
 
 if(ARROW_TESTING)
-  if(CMAKE_VERSION VERSION_LESS 3.23)
-    set(GTEST_USE_CONFIG TRUE)
-  else()
-    set(GTEST_USE_CONFIG FALSE)
-  endif()
-  # We can't find shred library version of GoogleTest on Windows with
-  # Conda's gtest package because it doesn't provide GTestConfig.cmake
-  # provided by GoogleTest and CMake's built-in FindGTtest.cmake
-  # doesn't support gtest_dll.dll.
+  set(GTestAlt_NEED_CXX_STANDARD_CHECK TRUE)
   resolve_dependency(GTest
+                     HAVE_ALT
+                     TRUE
                      REQUIRED_VERSION
                      1.10.0
-                     USE_CONFIG
-                     ${GTEST_USE_CONFIG})
-  get_target_property(gtest_cxx_standard GTest::gtest INTERFACE_COMPILE_FEATURES)
-
-  if((${gtest_cxx_standard} STREQUAL "cxx_std_11") OR (${gtest_cxx_standard} STREQUAL
-                                                       "cxx_std_14"))
-    message(FATAL_ERROR "System GTest is built with a C++ standard lower than 17. Use bundled GTest via passing in CMake flag
--DGTest_SOURCE=\"BUNDLED\"")
-  endif()
+                     ARROW_CMAKE_PACKAGE_NAME
+                     "ArrowTesting")
 
   if(GTest_SOURCE STREQUAL "SYSTEM")
     find_package(PkgConfig QUIET)
@@ -2254,10 +2254,16 @@ if(ARROW_TESTING)
 
       string(APPEND ARROW_TESTING_PC_LIBS " $<TARGET_FILE:GTest::gtest>")
     endif()
+    set(ARROW_GTEST_GMOCK GTest::gmock)
+    set(ARROW_GTEST_GTEST GTest::gtest)
+    set(ARROW_GTEST_GTEST_MAIN GTest::gtest_main)
   else()
     # TODO: How to solve BUNDLED case? Do we install bundled GoogleTest?
     # string(APPEND ARROW_TESTING_PC_CFLAGS " -I${GTEST_INCLUDE_DIR}")
     # string(APPEND ARROW_TESTING_PC_LIBS " -lgtest")
+    set(ARROW_GTEST_GMOCK arrow::GTest::gmock)
+    set(ARROW_GTEST_GTEST arrow::GTest::gtest)
+    set(ARROW_GTEST_GTEST_MAIN arrow::GTest::gtest_main)
   endif()
 endif()
 
@@ -5076,11 +5082,12 @@ if(ARROW_S3)
       foreach(AWSSDK_LINK_LIBRARY ${AWSSDK_LINK_LIBRARIES})
         string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
       endforeach()
+    else()
+      if(UNIX)
+        string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+      endif()
+      string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
     endif()
-    if(UNIX)
-      string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
-    endif()
-    string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
   endif()
 
   if(APPLE)

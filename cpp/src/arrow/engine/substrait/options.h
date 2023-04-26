@@ -23,8 +23,8 @@
 #include <string>
 #include <vector>
 
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/options.h"
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
@@ -65,12 +65,12 @@ enum class ARROW_ENGINE_EXPORT ConversionStrictness {
   BEST_EFFORT,
 };
 
-using NamedTableProvider = std::function<Result<compute::Declaration>(
+using NamedTableProvider = std::function<Result<acero::Declaration>(
     const std::vector<std::string>&, const Schema&)>;
 static NamedTableProvider kDefaultNamedTableProvider;
 
-using NamedTapProvider = std::function<Result<compute::Declaration>(
-    const std::string&, std::vector<compute::Declaration::Input>, const std::string&,
+using NamedTapProvider = std::function<Result<acero::Declaration>(
+    const std::string&, std::vector<acero::Declaration::Input>, const std::string&,
     std::shared_ptr<Schema>)>;
 
 class ARROW_ENGINE_EXPORT ExtensionDetails {
@@ -81,10 +81,10 @@ class ARROW_ENGINE_EXPORT ExtensionDetails {
 class ARROW_ENGINE_EXPORT ExtensionProvider {
  public:
   virtual ~ExtensionProvider() = default;
-  virtual Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
-                                       const std::vector<DeclarationInfo>& inputs,
-                                       const ExtensionDetails& ext_details,
-                                       const ExtensionSet& ext_set) = 0;
+  virtual Result<DeclarationInfo> MakeRel(const ConversionOptions& conv_opts,
+                                          const std::vector<DeclarationInfo>& inputs,
+                                          const ExtensionDetails& ext_details,
+                                          const ExtensionSet& ext_set) = 0;
 };
 
 /// \brief Get the default extension provider

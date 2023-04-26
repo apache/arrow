@@ -39,6 +39,8 @@ rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
 install_dir=${build_dir}/cpp-install
+: ${ARROW_ACERO:=ON}
+export ARROW_ACERO
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 export ARROW_DATASET
@@ -65,6 +67,7 @@ mkdir -p "${build_dir}/cpp"
 pushd "${build_dir}/cpp"
 
 cmake \
+  -DARROW_ACERO=${ARROW_ACERO} \
   -DARROW_BUILD_SHARED=OFF \
   -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
   -DARROW_CSV=${ARROW_DATASET} \
@@ -94,7 +97,7 @@ if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
   # MinIO is required
   exclude_tests="arrow-s3fs-test"
   # unstable
-  exclude_tests="${exclude_tests}|arrow-compute-hash-join-node-test"
+  exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
   ctest \
     --exclude-regex "${exclude_tests}" \
     --label-regex unittest \

@@ -453,6 +453,59 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   EXPECT_EQ(num_rows / reader_batch_size, batches);
 }
 
+TEST(TestAdapterRead, ReadCharAndVarcharType) {
+  MemoryOutputStream mem_stream(kDefaultMemStreamSize);
+  auto orc_type = liborc::Type::buildTypeFromString("struct<c1:char(6),c2:varchar(6)>");
+  auto writer = CreateWriter(/*stripe_size=*/1024, *orc_type, &mem_stream);
+
+  constexpr int64_t row_count = 2;
+  auto batch = writer->createRowBatch(row_count);
+  auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+
+  // Verify that longer data will be truncated by ORC char and varchar types.
+  // In addition, ORC char type will pad the data with spaces if the data is shorter.
+  const std::vector<std::string> data = {"abcd", "ABCDEFGH"};
+  const std::vector<std::vector<std::string>> expected_data = {{"abcd  ", "ABCDEF"},
+                                                               {"abcd", "ABCDEF"}};
+
+  for (uint64_t col = 0; col < orc_type->getSubtypeCount(); ++col) {
+    auto str_batch =
+        internal::checked_cast<liborc::StringVectorBatch*>(struct_batch->fields[col]);
+    str_batch->hasNulls = false;
+    str_batch->numElements = row_count;
+    for (int64_t row = 0; row < row_count; ++row) {
+      str_batch->data[row] = const_cast<char*>(data[row].c_str());
+      str_batch->length[row] = static_cast<int64_t>(data[row].size());
+    }
+  }
+  batch->numElements = row_count;
+  writer->add(*batch);
+  writer->close();
+
+  std::shared_ptr<io::RandomAccessFile> in_stream(std::make_shared<io::BufferReader>(
+      reinterpret_cast<const uint8_t*>(mem_stream.getData()),
+      static_cast<int64_t>(mem_stream.getLength())));
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  ASSERT_EQ(row_count, reader->NumberOfRows());
+  ASSERT_EQ(1, reader->NumberOfStripes());
+
+  EXPECT_OK_AND_ASSIGN(auto stripe_reader, reader->NextStripeReader(row_count));
+  std::shared_ptr<RecordBatch> record_batch;
+  ASSERT_OK(stripe_reader->ReadNext(&record_batch));
+  ASSERT_NE(nullptr, record_batch);
+  ASSERT_EQ(row_count, record_batch->num_rows());
+
+  for (int col = 0; col < record_batch->num_columns(); ++col) {
+    auto str_array = checked_pointer_cast<StringArray>(record_batch->column(col));
+    for (int row = 0; row < row_count; ++row) {
+      EXPECT_EQ(expected_data[col][row], str_array->GetString(row));
+    }
+  }
+  ASSERT_OK(stripe_reader->ReadNext(&record_batch));
+  ASSERT_EQ(nullptr, record_batch);
+}
+
 // Trivial
 
 class TestORCWriterTrivialNoWrite : public ::testing::Test {};

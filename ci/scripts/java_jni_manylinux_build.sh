@@ -32,11 +32,14 @@ echo "=== Building Arrow C++ libraries ==="
 devtoolset_version=$(rpm -qa "devtoolset-*-gcc" --queryformat %{VERSION} | \
                        grep -o "^[0-9]*")
 devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
+: ${ARROW_ACERO:=ON}
+export ARROW_ACERO
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 export ARROW_DATASET
 : ${ARROW_GANDIVA:=ON}
 export ARROW_GANDIVA
+: ${ARROW_GCS:=ON}
 : ${ARROW_JEMALLOC:=ON}
 : ${ARROW_RPATH_ORIGIN:=ON}
 : ${ARROW_ORC:=ON}
@@ -64,6 +67,7 @@ mkdir -p "${build_dir}/cpp"
 pushd "${build_dir}/cpp"
 
 cmake \
+  -DARROW_ACERO=${ARROW_ACERO} \
   -DARROW_BUILD_SHARED=OFF \
   -DARROW_BUILD_TESTS=ON \
   -DARROW_CSV=${ARROW_DATASET} \
@@ -72,6 +76,7 @@ cmake \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_GANDIVA_PC_CXX_FLAGS=${GANDIVA_CXX_FLAGS} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
+  -DARROW_GCS=${ARROW_GCS} \
   -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \

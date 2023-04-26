@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -192,6 +193,15 @@ func (r *RunEndEncoded) GetPhysicalLength() int {
 	return encoded.GetPhysicalLength(r.data)
 }
 
+func (r *RunEndEncoded) ValueStr(i int) string {
+	value := r.values.GetOneForMarshal(i)
+	if byts, ok := value.(json.RawMessage); ok {
+		value = string(byts)
+	}
+	return fmt.Sprintf("{%d -> %v}",
+		r.ends.GetOneForMarshal(i),
+		value)
+}
 func (r *RunEndEncoded) String() string {
 	var buf bytes.Buffer
 	buf.WriteByte('[')
@@ -200,12 +210,12 @@ func (r *RunEndEncoded) String() string {
 			buf.WriteByte(',')
 		}
 
-		value := r.values.(arraymarshal).GetOneForMarshal(i)
+		value := r.values.GetOneForMarshal(i)
 		if byts, ok := value.(json.RawMessage); ok {
 			value = string(byts)
 		}
 		fmt.Fprintf(&buf, "{%d -> %v}",
-			r.ends.(arraymarshal).GetOneForMarshal(i),
+			r.ends.GetOneForMarshal(i),
 			value)
 	}
 
@@ -215,7 +225,7 @@ func (r *RunEndEncoded) String() string {
 
 func (r *RunEndEncoded) GetOneForMarshal(i int) interface{} {
 	physIndex := encoded.FindPhysicalIndex(r.data, i+r.data.offset)
-	return r.values.(arraymarshal).GetOneForMarshal(physIndex)
+	return r.values.GetOneForMarshal(physIndex)
 }
 
 func (r *RunEndEncoded) MarshalJSON() ([]byte, error) {
@@ -395,6 +405,11 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 		[]arrow.ArrayData{runEnds.Data(), values.Data()}, 0, 0)
 	b.reset()
 	return
+}
+
+func (b *RunEndEncodedBuilder) AppendValueFromString(s string) error {
+	dec := json.NewDecoder(strings.NewReader(s))
+	return b.UnmarshalOne(dec)
 }
 
 func (b *RunEndEncodedBuilder) UnmarshalOne(dec *json.Decoder) error {

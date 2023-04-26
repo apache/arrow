@@ -54,7 +54,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
 }
 
 Result<std::unique_ptr<substrait::Plan>> PlanToProto(
-    const compute::Declaration& declr, ExtensionSet* ext_set,
+    const acero::Declaration& declr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
   auto subs_plan = std::make_unique<substrait::Plan>();
   subs_plan->set_allocated_version(CreateVersion().release());

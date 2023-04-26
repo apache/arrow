@@ -23,6 +23,7 @@ import (
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
 	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStructArray(t *testing.T) {
@@ -290,11 +291,12 @@ func TestStructArrayStringer(t *testing.T) {
 			f2b.Append(f2s[i])
 		}
 	}
-
+	assert.NoError(t, sb.AppendValueFromString(`{"f1": 1.1, "f2": 1}`))
 	arr := sb.NewArray().(*array.Struct)
 	defer arr.Release()
 
-	want := "{[1.1 (null) 1.3 1.4] [1 2 (null) 4]}"
+	assert.Equal(t, "{\"f1\":1.1,\"f2\":1}\n", arr.ValueStr(4))
+	want := "{[1.1 (null) 1.3 1.4 1.1] [1 2 (null) 4 1]}"
 	got := arr.String()
 	if got != want {
 		t.Fatalf("invalid string representation:\ngot = %q\nwant= %q", got, want)

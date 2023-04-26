@@ -100,6 +100,7 @@ COPY python/requirements-build.txt /arrow/python/
 RUN pip install -r arrow/python/requirements-build.txt
 
 ENV \
+    ARROW_ACERO=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \

@@ -30,7 +30,7 @@ from pyarrow.tests.util import changed_environ, invoke_script
 
 
 try:
-    from pandas.testing import assert_frame_equal, assert_series_equal
+    from pandas.testing import assert_frame_equal
     import pandas as pd
 except ImportError:
     pass
@@ -1089,29 +1089,6 @@ def test_serialize_pandas_no_preserve_index():
     buf = pa.serialize_pandas(df, preserve_index=True)
     result = pa.deserialize_pandas(buf)
     assert_frame_equal(result, df)
-
-
-@pytest.mark.pandas
-@pytest.mark.filterwarnings("ignore:'pyarrow:FutureWarning")
-def test_serialize_with_pandas_objects():
-    df = pd.DataFrame({'a': [1, 2, 3]}, index=[1, 2, 3])
-    s = pd.Series([1, 2, 3, 4])
-
-    data = {
-        'a_series': df['a'],
-        'a_frame': df,
-        's_series': s
-    }
-
-    serialized = pa.serialize(data).to_buffer()
-    deserialized = pa.deserialize(serialized)
-    assert_frame_equal(deserialized['a_frame'], df)
-
-    assert_series_equal(deserialized['a_series'], df['a'])
-    assert deserialized['a_series'].name == 'a'
-
-    assert_series_equal(deserialized['s_series'], s)
-    assert deserialized['s_series'].name is None
 
 
 @pytest.mark.pandas

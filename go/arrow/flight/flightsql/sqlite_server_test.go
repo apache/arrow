@@ -316,11 +316,11 @@ func (s *FlightSqliteServerSuite) TestCommandGetTablesWithIncludedSchemas() {
 	tableSchema := arrow.NewSchema([]arrow.Field{
 		{Name: "id", Type: arrow.PrimitiveTypes.Int64,
 			Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, dbTableName)},
-		{Name: "keyName", Type: arrow.BinaryTypes.String,
+		{Name: "keyName", Type: arrow.BinaryTypes.String, Nullable: true,
 			Metadata: s.getColMetadata(sqlite3.SQLITE_TEXT, dbTableName)},
-		{Name: "value", Type: arrow.PrimitiveTypes.Int64,
+		{Name: "value", Type: arrow.PrimitiveTypes.Int64, Nullable: true,
 			Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, dbTableName)},
-		{Name: "foreignId", Type: arrow.PrimitiveTypes.Int64,
+		{Name: "foreignId", Type: arrow.PrimitiveTypes.Int64, Nullable: true,
 			Metadata: s.getColMetadata(sqlite3.SQLITE_INTEGER, dbTableName)},
 	}, nil)
 	schemaBuf := flight.SerializeSchema(tableSchema, s.mem)
@@ -564,6 +564,18 @@ func (s *FlightSqliteServerSuite) TestCommandPreparedStatementQueryWithParams() 
 	rec := rdr.Record()
 	s.Truef(array.RecordEqual(expected, rec), "expected: %s\ngot: %s", expected, rec)
 	s.False(rdr.Next())
+}
+
+func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdateNoTable() {
+	ctx := context.Background()
+	stmt, err := s.cl.Prepare(ctx, "INSERT INTO thisTableDoesNotExist (keyName, value) VALUES ('new_value', 2)")
+	s.NoError(err)
+	defer stmt.Close(ctx)
+
+	_, err = stmt.ExecuteUpdate(context.Background())
+	s.Error(err)
+	s.Equal(codes.NotFound, status.Code(err), "%#v", err.Error())
+	s.Contains(err.Error(), "no such table")
 }
 
 func (s *FlightSqliteServerSuite) TestCommandPreparedStatementUpdateWithParams() {

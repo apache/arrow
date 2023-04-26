@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/acero/exec_plan.h"
 #include "arrow/csv/writer.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
@@ -135,10 +136,10 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
     if (UseScanV2()) {
       ScanV2Options v2_options = MigrateLegacyOptions(fragment);
       EXPECT_TRUE(ScanV2Options::AddFieldsNeededForFilter(&v2_options).ok());
-      EXPECT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> reader,
-                           compute::DeclarationToReader(
-                               compute::Declaration("scan2", std::move(v2_options)),
-                               /*use_threads=*/false));
+      EXPECT_OK_AND_ASSIGN(
+          std::unique_ptr<RecordBatchReader> reader,
+          acero::DeclarationToReader(acero::Declaration("scan2", std::move(v2_options)),
+                                     /*use_threads=*/false));
       struct ReaderIterator {
         Result<std::shared_ptr<RecordBatch>> Next() { return reader->Next(); }
         std::unique_ptr<RecordBatchReader> reader;
