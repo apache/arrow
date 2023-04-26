@@ -669,6 +669,14 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status Visit(const ListViewType& type) {
+    return Status::NotImplemented("list-view type in IPC");
+  }
+
+  Status Visit(const LargeListViewType& type) {
+    return Status::NotImplemented("large list-view type in IPC");
+  }
+
   Status Visit(const MapType& type) {
     fb_type_ = flatbuf::Type::Map;
     RETURN_NOT_OK(VisitChildFields(type));

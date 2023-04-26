@@ -59,6 +59,8 @@ namespace arrow {
   ACTION(Decimal256);                           \
   ACTION(List);                                 \
   ACTION(LargeList);                            \
+  ACTION(ListView);                             \
+  ACTION(LargeListView);                        \
   ACTION(Map);                                  \
   ACTION(FixedSizeList);                        \
   ACTION(Struct);                               \

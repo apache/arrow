@@ -807,6 +807,14 @@ struct ScalarToProtoImpl {
     return Status::OK();
   }
 
+  Status Visit(const ListViewScalar& s) {
+    return Status::NotImplemented("list-view to proto");
+  }
+
+  Status Visit(const LargeListViewScalar& s) {
+    return Status::NotImplemented("list-view to proto");
+  }
+
   Status Visit(const StructScalar& s) {
     lit_->set_allocated_struct_(new Lit::Struct());
 

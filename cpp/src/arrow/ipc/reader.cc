@@ -392,6 +392,14 @@ class ArrayLoader {
     return LoadList(type);
   }
 
+  Status Visit(const ListViewType& type) {
+    return Status::NotImplemented("list-view array in IPC");
+  }
+
+  Status Visit(const LargeListViewType& type) {
+    return Status::NotImplemented("large list-view array in IPC");
+  }
+
   Status Visit(const MapType& type) {
     RETURN_NOT_OK(LoadList(type));
     return MapArray::ValidateChildData(out_->child_data);

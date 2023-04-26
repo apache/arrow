@@ -447,6 +447,14 @@ class RecordBatchSerializer {
     return Status::OK();
   }
 
+  Status Visit(const ListViewArray& array) {
+    return Status::NotImplemented("list-view array in IPC");
+  }
+
+  Status Visit(const LargeListViewArray& array) {
+    return Status::NotImplemented("large list-view array in IPC");
+  }
+
   Status Visit(const FixedSizeListArray& array) {
     --max_recursion_depth_;
     auto size = array.list_type()->list_size();

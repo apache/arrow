@@ -266,6 +266,14 @@ class ArrayPrinter : public PrettyPrinter {
         /*is_container=*/true);
   }
 
+  Status WriteDataValues(const ListViewArray& array) {
+    return Status::NotImplemented("writing data values of a list-view array");
+  }
+
+  Status WriteDataValues(const LargeListViewArray& array) {
+    return Status::NotImplemented("writing data values of a large list-view array");
+  }
+
   Status WriteDataValues(const MapArray& array) {
     const auto keys = array.keys();
     const auto items = array.items();
@@ -300,6 +308,8 @@ class ArrayPrinter : public PrettyPrinter {
                   std::is_base_of<BinaryViewArray, T>::value ||
                   std::is_base_of<ListArray, T>::value ||
                   std::is_base_of<LargeListArray, T>::value ||
+                  std::is_base_of<ListViewArray, T>::value ||
+                  std::is_base_of<LargeListViewArray, T>::value ||
                   std::is_base_of<MapArray, T>::value ||
                   std::is_base_of<FixedSizeListArray, T>::value,
               Status>

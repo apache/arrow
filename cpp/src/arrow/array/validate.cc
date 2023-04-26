@@ -264,6 +264,14 @@ struct ValidateArrayImpl {
 
   Status Visit(const LargeListType& type) { return ValidateListLike(type); }
 
+  Status Visit(const ListViewType& type) {
+    return Status::NotImplemented("ListViewType validation not implemented");
+  }
+
+  Status Visit(const LargeListViewType& type) {
+    return Status::NotImplemented("LargeListViewType validation not implemented");
+  }
+
   Status Visit(const MapType& type) {
     RETURN_NOT_OK(ValidateListLike(type));
     return MapArray::ValidateChildData(data.child_data);

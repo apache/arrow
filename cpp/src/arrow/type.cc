@@ -140,6 +140,8 @@ std::vector<Type::type> AllTypeIds() {
           Type::STRUCT,
           Type::LIST,
           Type::LARGE_LIST,
+          Type::LIST_VIEW,
+          Type::LARGE_LIST_VIEW,
           Type::FIXED_SIZE_LIST,
           Type::MAP,
           Type::DENSE_UNION,
@@ -209,6 +211,8 @@ std::string ToString(Type::type id) {
     TO_STRING_CASE(STRUCT)
     TO_STRING_CASE(LIST)
     TO_STRING_CASE(LARGE_LIST)
+    TO_STRING_CASE(LIST_VIEW)
+    TO_STRING_CASE(LARGE_LIST_VIEW)
     TO_STRING_CASE(FIXED_SIZE_LIST)
     TO_STRING_CASE(MAP)
     TO_STRING_CASE(DENSE_UNION)
