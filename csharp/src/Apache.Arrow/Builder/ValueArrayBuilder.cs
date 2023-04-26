@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Apache.Arrow.Types;
@@ -175,24 +176,36 @@ namespace Apache.Arrow.Builder
         public virtual VariableValueArrayBuilder<T> AppendValue(ReadOnlySpan<T> value, bool isValid = true)
             => isValid ? AppendValue(value) : AppendNull() as VariableValueArrayBuilder<T>;
 
-        public virtual VariableValueArrayBuilder<T> AppendValues(T[][] values)
+        public virtual VariableValueArrayBuilder<T> AppendValues(IEnumerable<T[]> values)
         {
             Span<T> memory = new T[values.Sum(row => row.Length)];
             Span<int> offsets = new int[values.Count()];
             Span<bool> mask = new bool[offsets.Length];
             int offset = 0;
+            int i = 0;
 
-            for (int i = 0; i < values.Length; i++)
+            foreach (T[] value in values)
             {
-                T[] value = values[i];
+                if (value == null)
+                {
+                    offsets[i] = CurrentOffset;
+                    // default is already false
+                    // mask[i] = false;
+                }
+                else
+                {
+                    // Copy to memory
+                    value.CopyTo(memory.Slice(offset, value.Length));
 
-                value.CopyTo(memory.Slice(offset, value.Length));
+                    offset += value.Length;
 
-                offset += value.Length;
+                    CurrentOffset += value.Length;
 
-                CurrentOffset += value.Length;
-                offsets[i] = CurrentOffset;
-                mask[i] = value == null;
+                    // Fill other buffers
+                    offsets[i] = CurrentOffset;
+                    mask[i] = true;
+                }
+                i++;
             }
 
             return AppendValues(memory, offsets, mask);
