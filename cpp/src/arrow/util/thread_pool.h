@@ -440,6 +440,9 @@ class ARROW_EXPORT ThreadPool : public SerialExecutor
       return 1;
     }
 
+    int GetActualCapacity() override { return 1; };
+  
+
     bool OwnsThisThread() override
     {
       return true;
