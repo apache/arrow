@@ -677,7 +677,7 @@ struct ARROW_EXPORT ScalarAggregateKernel : public Kernel {
   /// The caller of the aggregate kernel is responsible for passing data in some
   /// defined order to the kernel. The flag here is a way for the kernel to tell
   /// the caller that data passed to the kernel must be defined in some order.
-  bool ordered;
+  bool ordered = false;
 };
 
 // ----------------------------------------------------------------------
@@ -731,7 +731,7 @@ struct ARROW_EXPORT HashAggregateKernel : public Kernel {
   /// @brief whether the summarizer requires ordering
   /// This is similar to ScalarAggregateKernel. See ScalarAggregateKernel
   /// for detailed doc of this variable.
-  bool ordered;
+  bool ordered = false;
 };
 
 }  // namespace compute
