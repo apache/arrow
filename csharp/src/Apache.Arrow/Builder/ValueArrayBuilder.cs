@@ -187,8 +187,11 @@ namespace Apache.Arrow.Builder
                 T[] value = values[i];
 
                 value.CopyTo(memory.Slice(offset, value.Length));
+
                 offset += value.Length;
 
+                CurrentOffset += value.Length;
+                offsets[i] = CurrentOffset;
                 mask[i] = value == null;
             }
 
