@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.arrow.util.AutoCloseables;
@@ -53,8 +54,6 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   protected static final Logger LOGGER = LoggerFactory.getLogger(ArrowWriter.class);
 
-  protected static final int DEFAULT_COMPRESSION_LEVEL = 3;
-
   // schema with fields in message format, not memory format
   protected final Schema schema;
   protected final WriteChannel out;
@@ -75,7 +74,7 @@ public abstract class ArrowWriter implements AutoCloseable {
 
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
     this(root, provider, out, option, NoCompressionCodec.Factory.INSTANCE, CompressionUtil.CodecType.NO_COMPRESSION,
-        DEFAULT_COMPRESSION_LEVEL);
+            Optional.ofNullable(null));
   }
 
   /**
@@ -87,13 +86,16 @@ public abstract class ArrowWriter implements AutoCloseable {
    * @param option             IPC write options
    * @param compressionFactory Compression codec factory
    * @param codecType          Compression codec
-   * @param DEFAULT_COMPRESSION_LEVEL   Compression level
+   * @param compressionLevel   Compression level
    */
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option,
                         CompressionCodec.Factory compressionFactory, CompressionUtil.CodecType codecType,
-                        int DEFAULT_COMPRESSION_LEVEL) {
+                        Optional<Integer> compressionLevel) {
     this.unloader = new VectorUnloader(
-        root, /*includeNullCount*/ true, compressionFactory.createCodec(codecType, DEFAULT_COMPRESSION_LEVEL),
+        root, /*includeNullCount*/ true,
+        compressionLevel.isPresent() ?
+            compressionFactory.createCodec(codecType, compressionLevel.get()) :
+            compressionFactory.createCodec(codecType),
         /*alignBuffers*/ true);
     this.out = new WriteChannel(out);
     this.option = option;

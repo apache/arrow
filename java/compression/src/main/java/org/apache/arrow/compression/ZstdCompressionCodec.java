@@ -31,9 +31,10 @@ import com.github.luben.zstd.Zstd;
 public class ZstdCompressionCodec extends AbstractCompressionCodec {
 
   private int compressionLevel;
+  private static final int DEFAULT_COMPRESSION_LEVEL = 3;
 
   public ZstdCompressionCodec() {
-    this.compressionLevel = 3;
+    this.compressionLevel = DEFAULT_COMPRESSION_LEVEL;
   }
 
   public ZstdCompressionCodec(int compressionLevel) {

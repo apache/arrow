@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
+import java.util.Optional;
 
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.compression.CompressionCodec;
@@ -76,13 +77,12 @@ public class ArrowStreamWriter extends ArrowWriter {
    * @param option IPC write options
    * @param compressionFactory Compression codec factory
    * @param codecType Codec type
-   * @param compressionLevel Compression level
    * @param out WritableByteChannel for writing.
    */
   public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
                            IpcOption option, CompressionCodec.Factory compressionFactory,
-                           CompressionUtil.CodecType codecType, int compressionLevel) {
-    super(root, provider, out, option, compressionFactory, codecType, compressionLevel);
+                           CompressionUtil.CodecType codecType) {
+    this(root, provider, out, option, compressionFactory, codecType, Optional.ofNullable(null));
   }
 
   /**
@@ -94,12 +94,13 @@ public class ArrowStreamWriter extends ArrowWriter {
    * @param option IPC write options
    * @param compressionFactory Compression codec factory
    * @param codecType Codec type
+   * @param compressionLevel Compression level
    * @param out WritableByteChannel for writing.
    */
   public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
                            IpcOption option, CompressionCodec.Factory compressionFactory,
-                           CompressionUtil.CodecType codecType) {
-    this(root, provider, out, option, compressionFactory, codecType, DEFAULT_COMPRESSION_LEVEL);
+                           CompressionUtil.CodecType codecType, Optional<Integer> compressionLevel) {
+    super(root, provider, out, option, compressionFactory, codecType, compressionLevel);
   }
 
   /**

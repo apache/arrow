@@ -22,6 +22,7 @@ import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -74,12 +75,12 @@ public class ArrowFileWriter extends ArrowWriter {
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
                          Map<String, String> metaData, IpcOption option, CompressionCodec.Factory compressionFactory,
                          CompressionUtil.CodecType codecType) {
-    this(root, provider, out, metaData, option, compressionFactory, codecType, DEFAULT_COMPRESSION_LEVEL);
+    this(root, provider, out, metaData, option, compressionFactory, codecType, Optional.ofNullable(null));
   }
 
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
                          Map<String, String> metaData, IpcOption option, CompressionCodec.Factory compressionFactory,
-                         CompressionUtil.CodecType codecType, int compressionLevel) {
+                         CompressionUtil.CodecType codecType, Optional<Integer> compressionLevel) {
     super(root, provider, out, option, compressionFactory, codecType, compressionLevel);
     this.metaData = metaData;
   }
