@@ -343,11 +343,11 @@ NaN values return NaN. Integral values return signedness as Int8,
 and floating-point values return it with the same type as the input values.`,
 		ArgNames: []string{"x"},
 	}
-	// bitWiseNotDoc = FunctionDoc{
-	// 	Summary:     "Bit-wise negate the arguments element-wise",
-	// 	Description: "Null values return null",
-	// 	ArgNames:    []string{"x"},
-	// }
+	bitWiseNotDoc = FunctionDoc{
+		Summary:     "Bit-wise negate the arguments element-wise",
+		Description: "Null values return null",
+		ArgNames:    []string{"x"},
+	}
 	bitWiseAndDoc = FunctionDoc{
 		Summary:     "Bit-wise AND the arguments element-wise",
 		Description: "Null values return null",
@@ -909,7 +909,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		reg.AddFunction(fn, false)
 	}
 
-	fn = &arithmeticFunction{*NewScalarFunction("bit_wise_not", Unary(), EmptyFuncDoc), decPromoteNone}
+	fn = &arithmeticFunction{*NewScalarFunction("bit_wise_not", Unary(), bitWiseNotDoc), decPromoteNone}
 	for _, k := range kernels.GetBitwiseUnaryKernels() {
 		if err := fn.AddKernel(k); err != nil {
 			panic(err)
