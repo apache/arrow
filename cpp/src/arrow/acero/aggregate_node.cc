@@ -616,7 +616,7 @@ class GroupByNode : public ExecNode, public TracedNode {
   static Result<AggregateNodeArgs<HashAggregateKernel>> MakeAggregateNodeArgs(
       const std::shared_ptr<Schema>& input_schema, const std::vector<FieldRef>& keys,
       const std::vector<FieldRef>& segment_keys, const std::vector<Aggregate>& aggs,
-      ExecContext* ctx) {
+      ExecContext* ctx, const int concurrency) {
     // Find input field indices for key fields
     std::vector<int> key_field_ids(keys.size());
     for (size_t i = 0; i < keys.size(); ++i) {
@@ -673,6 +673,20 @@ class GroupByNode : public ExecNode, public TracedNode {
     // Construct aggregates
     ARROW_ASSIGN_OR_RAISE(auto agg_kernels, GetKernels(ctx, aggs, agg_src_types));
 
+    if (concurrency > 1) {
+      if (segment_keys.size() > 0) {
+        return Status::NotImplemented(
+            "Segmented aggregation in a multi-threaded execution context");
+      }
+
+      for (auto kernel : agg_kernels) {
+        if (kernel->ordered) {
+          return Status::NotImplemented(
+              "Using ordered aggregator in multiple threaded execution is not supported");
+        }
+      }
+    }
+
     ARROW_ASSIGN_OR_RAISE(auto agg_states,
                           InitKernels(agg_kernels, ctx, aggs, agg_src_types));
 
@@ -720,27 +734,13 @@ class GroupByNode : public ExecNode, public TracedNode {
     const auto& keys = aggregate_options.keys;
     const auto& segment_keys = aggregate_options.segment_keys;
     auto aggs = aggregate_options.aggregates;
-    auto concurreny = plan->query_context()->exec_context()->executor()->GetCapacity();
-
-    if (concurreny > 1 && segment_keys.size() > 0) {
-      return Status::NotImplemented(
-          "Segmented aggregation in a multi-threaded execution context");
-    }
+    auto concurrency = plan->query_context()->exec_context()->executor()->GetCapacity();
 
     const auto& input_schema = input->output_schema();
     auto exec_ctx = plan->query_context()->exec_context();
-
-    ARROW_ASSIGN_OR_RAISE(auto args, MakeAggregateNodeArgs(input_schema, keys,
-                                                           segment_keys, aggs, exec_ctx));
-
-    if (concurreny > 1) {
-      for (auto kernel : args.kernels) {
-        if (kernel->ordered) {
-          return Status::NotImplemented(
-              "Using ordered aggregator in multiple threaded execution is not supported");
-        }
-      }
-    }
+    ARROW_ASSIGN_OR_RAISE(
+        auto args, MakeAggregateNodeArgs(input_schema, keys, segment_keys, aggs, exec_ctx,
+                                         concurrency));
 
     return input->plan()->EmplaceNode<GroupByNode>(
         input, std::move(args.output_schema), std::move(args.grouping_key_field_ids),
@@ -1068,9 +1068,9 @@ Result<std::shared_ptr<Schema>> MakeOutputSchema(
                                          exec_ctx, /*concurrency=*/1));
     return std::move(args.output_schema);
   } else {
-    ARROW_ASSIGN_OR_RAISE(
-        auto args, GroupByNode::MakeAggregateNodeArgs(input_schema, keys, segment_keys,
-                                                      aggregates, exec_ctx));
+    ARROW_ASSIGN_OR_RAISE(auto args, GroupByNode::MakeAggregateNodeArgs(
+                                         input_schema, keys, segment_keys, aggregates,
+                                         exec_ctx, /*concurrency=*/1));
     return std::move(args.output_schema);
   }
 }

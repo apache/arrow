@@ -1705,10 +1705,15 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
   Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     options_ = *checked_cast<const ScalarAggregateOptions*>(args.options);
 
+    // First and last non-null values
     firsts_ = TypedBufferBuilder<CType>(ctx->memory_pool());
     lasts_ = TypedBufferBuilder<CType>(ctx->memory_pool());
+
+    // Whether the first/last element is null
+    first_is_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    last_is_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+
     has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
-    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     return Status::OK();
   }
 
@@ -1721,7 +1726,8 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
     RETURN_NOT_OK(firsts_.Append(added_groups, AntiExtrema<CType>::anti_min()));
     RETURN_NOT_OK(lasts_.Append(added_groups, AntiExtrema<CType>::anti_max()));
     RETURN_NOT_OK(has_values_.Append(added_groups, false));
-    RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
+    RETURN_NOT_OK(first_is_nulls_.Append(added_groups, false));
+    RETURN_NOT_OK(last_is_nulls_.Append(added_groups, false));
     return Status::OK();
   }
 
@@ -1729,6 +1735,8 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
     auto raw_firsts = firsts_.mutable_data();
     auto raw_lasts = lasts_.mutable_data();
     auto raw_has_values = has_values_.mutable_data();
+    auto raw_first_is_nulls = first_is_nulls_.mutable_data();
+    auto raw_last_is_nulls = last_is_nulls_.mutable_data();
 
     VisitGroupedValues<Type>(
         batch,
@@ -1737,10 +1745,21 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
             GetSet::Set(raw_firsts, g, val);
             bit_util::SetBit(raw_has_values, g);
           }
+          // No not need to set first_is_nulls because
+          // Once first_is_nulls is set to true it never
+          // changes
+          bit_util::SetBitTo(raw_last_is_nulls, g, false);
           GetSet::Set(raw_lasts, g, val);
-          DCHECK(bit_util::GetBit(has_values_.mutable_data(), g));
+          DCHECK(bit_util::GetBit(raw_has_values, g));
         },
-        [&](uint32_t g) { bit_util::SetBit(has_nulls_.mutable_data(), g); });
+        [&](uint32_t g) {
+          // We update first_is_null to true if this is called
+          // before we see any non-null values
+          if (!bit_util::GetBit(raw_has_values, g)) {
+            bit_util::SetBit(raw_first_is_nulls, g);
+          }
+          bit_util::SetBit(raw_last_is_nulls, g);
+        });
     return Status::OK();
   }
 
@@ -1755,12 +1774,12 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
     auto raw_firsts = firsts_.mutable_data();
     auto raw_lasts = lasts_.mutable_data();
     auto raw_has_values = has_values_.mutable_data();
-    auto raw_has_nulls = has_nulls_.mutable_data();
+    auto raw_last_is_nulls = last_is_nulls_.mutable_data();
 
     auto other_raw_firsts = other->firsts_.mutable_data();
     auto other_raw_lasts = other->lasts_.mutable_data();
     auto other_raw_has_values = other->has_values_.mutable_data();
-    auto other_raw_has_nulls = other->has_nulls_.mutable_data();
+    auto other_raw_last_is_nulls = other->last_is_nulls_.mutable_data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
 
@@ -1771,7 +1790,6 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
           GetSet::Set(raw_firsts, *g, GetSet::Get(other_raw_firsts, other_g));
         }
       }
-
       if (bit_util::GetBit(other_raw_has_values, other_g)) {
         GetSet::Set(raw_lasts, *g, GetSet::Get(other_raw_lasts, other_g));
       }
@@ -1779,24 +1797,51 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
       if (bit_util::GetBit(other_raw_has_values, other_g)) {
         bit_util::SetBit(raw_has_values, *g);
       }
-      if (bit_util::GetBit(other_raw_has_nulls, other_g)) {
-        bit_util::SetBit(raw_has_nulls, *g);
+      if (bit_util::GetBit(other_raw_last_is_nulls, other_g)) {
+        bit_util::SetBit(raw_last_is_nulls, *g);
       }
     }
     return Status::OK();
   }
 
   Result<Datum> Finalize() override {
-    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_values_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto first_null_bitmap, first_is_nulls_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto last_null_bitmap, last_is_nulls_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto has_values, has_values_.Finish());
 
+    DCHECK_EQ(first_null_bitmap->size(), last_null_bitmap->size());
     if (!options_.skip_nulls) {
-      ARROW_ASSIGN_OR_RAISE(auto has_nulls, has_nulls_.Finish());
-      arrow::internal::BitmapAndNot(null_bitmap->data(), 0, has_nulls->data(), 0,
-                                    num_groups_, 0, null_bitmap->mutable_data());
+      for (int i = 0; i < num_groups_; i++) {
+        const bool first_is_null = bit_util::GetBit(first_null_bitmap->data(), i);
+        const bool has_value = bit_util::GetBit(has_values->data(), i);
+        if (first_is_null) {
+          bit_util::SetBitTo(first_null_bitmap->mutable_data(), i, false);
+        } else {
+          bit_util::SetBitTo(first_null_bitmap->mutable_data(), i, has_value);
+        }
+      }
+
+      for (int i = 0; i < num_groups_; i++) {
+        const bool last_is_null = bit_util::GetBit(last_null_bitmap->data(), i);
+        const bool has_value = bit_util::GetBit(has_values->data(), i);
+        if (last_is_null) {
+          bit_util::SetBitTo(last_null_bitmap->mutable_data(), i, false);
+        } else {
+          bit_util::SetBitTo(last_null_bitmap->mutable_data(), i, has_value);
+        }
+      }
+    } else {
+      for (int i = 0; i < num_groups_; i++) {
+        const bool has_value = bit_util::GetBit(has_values->data(), i);
+        bit_util::SetBitTo(first_null_bitmap->mutable_data(), i, has_value);
+        bit_util::SetBitTo(last_null_bitmap->mutable_data(), i, has_value);
+      }
     }
 
-    auto firsts = ArrayData::Make(type_, num_groups_, {null_bitmap, nullptr});
-    auto lasts = ArrayData::Make(type_, num_groups_, {std::move(null_bitmap), nullptr});
+    auto firsts =
+        ArrayData::Make(type_, num_groups_, {std::move(first_null_bitmap), nullptr});
+    auto lasts =
+        ArrayData::Make(type_, num_groups_, {std::move(last_null_bitmap), nullptr});
     ARROW_ASSIGN_OR_RAISE(firsts->buffers[1], firsts_.Finish());
     ARROW_ASSIGN_OR_RAISE(lasts->buffers[1], lasts_.Finish());
 
@@ -1810,7 +1855,7 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
 
   int64_t num_groups_;
   TypedBufferBuilder<CType> firsts_, lasts_;
-  TypedBufferBuilder<bool> has_values_, has_nulls_;
+  TypedBufferBuilder<bool> has_values_, first_is_nulls_, last_is_nulls_;
   std::shared_ptr<DataType> type_;
   ScalarAggregateOptions options_;
 };
@@ -1829,7 +1874,7 @@ struct GroupedFirstLastImpl<Type,
     options_ = *checked_cast<const ScalarAggregateOptions*>(args.options);
     // type_ initialized by FirstLastInit
     has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
-    has_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+
     return Status::OK();
   }
 
@@ -3165,24 +3210,25 @@ const FunctionDoc hash_approximate_median_doc{
 
 const FunctionDoc hash_first_last_doc{
     "Compute the first and last of values in each group",
-    ("Do not use this directly. This is internal and might"
-     "be removed in the future."),
+    ("Null values are ignored by default.\n"
+     "If skip_nulls = false, then this will return the first and last values\n"
+     "regardless if it is null"),
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_first_doc{
     "Compute the first value in each group",
     ("Null values are ignored by default.\n"
-     "Currently this should only be used with serial execution because\n"
-     "ordering is otherwise undefined."),
+     "If skip_nulls = false, then this will return the first and last values\n"
+     "regardless if it is null"),
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_last_doc{
     "Compute the first value in each group",
     ("Null values are ignored by default.\n"
-     "Currently this should only be used with serial execution because\n"
-     "ordering is otherwise undefined."),
+     "If skip_nulls = false, then this will return the first and last values\n"
+     "regardless if it is null"),
     {"array", "group_id_array"},
     "ScalarAggregateOptions"};
 

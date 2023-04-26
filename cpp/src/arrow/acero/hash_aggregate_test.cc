@@ -4212,9 +4212,11 @@ TEST_P(GroupBy, FirstLastBasicTypes) {
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
   types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
 
-  const std::vector<std::string> default_table = {R"([
+  const std::vector<std::string> numeric_table = {R"([
     [1,    1],
-    [null, 1]
+    [null, 5],
+    [null, 1],
+    [null, 7]
 ])",
                                                   R"([
     [0,    2],
@@ -4223,20 +4225,29 @@ TEST_P(GroupBy, FirstLastBasicTypes) {
     [5,    4],
     [4,    null],
     [3,    1],
-    [0,    2]
+    [6,    6],
+    [5,    5],
+    [0,    2],
+    [7,    7]
 ])",
                                                   R"([
     [0,    2],
     [1,    null],
+    [6,    5],
+    [null, 5],
+    [null, 6],
     [null, 3]
 ])"};
 
-  const std::string default_expected =
+  const std::string numeric_expected =
       R"([
-    [1,    1,    3,    null,   null],
+    [1,    1,    3,    1,   3],
     [2,    0,    0,    0,   0],
     [3,    null,  null,  null,  null],
     [4,    3,     5,    3,   5],
+    [5,    5,     6,    null,   null],
+    [6,    6,     6,    6,      null],
+    [7,    7,     7,    null,   7],
     [null, 4,     1,    4,   1]
     ])";
 
@@ -4261,7 +4272,7 @@ TEST_P(GroupBy, FirstLastBasicTypes) {
 
   const std::string date64_expected =
       R"([
-    [1,    86400000,259200000,null,null],
+    [1,    86400000,259200000,86400000,259200000],
     [2,    0,0,0,0],
     [3,    null,null,null,null],
     [4,    259200000,432000000,259200000,432000000],
@@ -4289,21 +4300,21 @@ TEST_P(GroupBy, FirstLastBasicTypes) {
 
   const std::string boolean_expected =
       R"([
-    [1,    true,false,null,null],
+    [1,    true,false,true,false],
     [2,    false,false,false,false],
     [3,    null,null,null,null],
     [4,    false,true,false,true],
     [null, true,false,true,false]
     ])";
 
-  auto skip_nulls = std::make_shared<ScalarAggregateOptions>(false, 1);
+  auto keep_nulls = std::make_shared<ScalarAggregateOptions>(false, 1);
 
   for (const auto& ty : types) {
     SCOPED_TRACE(ty->ToString());
     auto in_schema = schema({field("argument0", ty), field("key", int64())});
     auto table = TableFromJSON(in_schema, (ty->name() == "date64") ? date64_table
                                           : (ty->name() == "bool") ? boolean_table
-                                                                   : default_table);
+                                                                   : numeric_table);
 
     ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                          GroupByTest(
@@ -4317,8 +4328,8 @@ TEST_P(GroupBy, FirstLastBasicTypes) {
                              {
                                  {"hash_first", nullptr},
                                  {"hash_last", nullptr},
-                                 {"hash_first", skip_nulls},
-                                 {"hash_last", skip_nulls},
+                                 {"hash_first", keep_nulls},
+                                 {"hash_last", keep_nulls},
                              },
                              /*use_threads=*/false));
     ValidateOutput(aggregated_and_grouped);
@@ -4333,7 +4344,7 @@ TEST_P(GroupBy, FirstLastBasicTypes) {
                                     }),
                                     (ty->name() == "date64") ? date64_expected
                                     : (ty->name() == "bool") ? boolean_expected
-                                                             : default_expected),
+                                                             : numeric_expected),
                       aggregated_and_grouped,
                       /*verbose=*/true);
   }

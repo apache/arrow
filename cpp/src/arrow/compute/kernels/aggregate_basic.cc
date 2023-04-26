@@ -953,25 +953,27 @@ const FunctionDoc mean_doc{
     {"array"},
     "ScalarAggregateOptions"};
 
-const FunctionDoc first_last_doc{"Compute the first and last values of an array",
-                                 ("Do not use this directly. This is internal and might"
-                                  "be removed in the future."),
-                                 {"array"},
-                                 "ScalarAggregateOptions"};
+const FunctionDoc first_last_doc{
+    "Compute the first and last values of an array",
+    ("Null values are ignored by default.\n"
+     "If skip_nulls = false, then this will return the first and last values\n"
+     "regardless if it is null"),
+    {"array"},
+    "ScalarAggregateOptions"};
 
 const FunctionDoc first_doc{
     "Compute the first value in each group",
     ("Null values are ignored by default.\n"
-     "Currently this should only be used with serial execution because\n"
-     "ordering is otherwise undefined."),
+     "If skip_nulls = false, then this will return the first and last values\n"
+     "regardless if it is null"),
     {"array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc last_doc{
     "Compute the first value in each group",
     ("Null values are ignored by default.\n"
-     "Currently this should only be used with serial execution because\n"
-     "ordering is otherwise undefined."),
+     "If skip_nulls = false, then this will return the first and last values\n"
+     "regardless if it is null"),
     {"array"},
     "ScalarAggregateOptions"};
 
