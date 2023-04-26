@@ -277,12 +277,11 @@ namespace Apache.Arrow.Builder
     public class ValueBufferBuilder : BufferBuilder, IValueBufferBuilder
     {
         public int ValueBitSize { get; }
-        public int ValueLength { get; internal set; }
+        public int ValueLength => Memory.Span.Length * 8 / ValueBitSize;
 
         public ValueBufferBuilder(int valueBitSize, int capacity = 64) : base(capacity)
         {
             ValueBitSize = valueBitSize;
-            ValueLength = 0;
         }
 
         public IValueBufferBuilder Ensure(int capacity)
@@ -315,14 +314,12 @@ namespace Apache.Arrow.Builder
         public IValueBufferBuilder<T> AppendValue(T value)
         {
             AppendStruct(value);
-            ValueLength++;
             return this;
         }
         public IValueBufferBuilder<T> AppendValue(T? value) => AppendValue(value.GetValueOrDefault());
         public IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T> values)
         {
             AppendStructs(values);
-            ValueLength += values.Length;
             return this;
         }
         public IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T?> values)
