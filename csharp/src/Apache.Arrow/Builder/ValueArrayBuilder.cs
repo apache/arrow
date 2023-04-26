@@ -25,7 +25,7 @@ namespace Apache.Arrow.Builder
             IValueBufferBuilder<bool> validity,
             IValueBufferBuilder<T> values,
             IValueBufferBuilder[] buffers,
-            IDataBuilder[] children = null, IDataBuilder dictionary = null
+            IArrayBuilder[] children = null, IArrayBuilder dictionary = null
             ) : base(dataType, validity, buffers, children, dictionary)
         {
             ValuesBuffer = values;

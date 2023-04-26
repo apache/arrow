@@ -18,16 +18,16 @@ namespace Apache.Arrow.Builder
         public IValueBufferBuilder[] Buffers { get; }
         public IValueBufferBuilder<bool> ValidityBuffer { get; }
 
-        public IDataBuilder[] Children { get; }
+        public IArrayBuilder[] Children { get; }
 
-        public IDataBuilder Dictionary { get; }
+        public IArrayBuilder Dictionary { get; }
 
         public BaseArrayBuilder(
             IArrowType dataType,
             IValueBufferBuilder<bool> validityBuffer,
             IValueBufferBuilder[] buffers,
-            IDataBuilder[] children = null,
-            IDataBuilder dictionary = null
+            IArrayBuilder[] children = null,
+            IArrayBuilder dictionary = null
         )
         {
             DataType = dataType;
@@ -63,6 +63,8 @@ namespace Apache.Arrow.Builder
 
             NullCount += data.NullCount;
             Length += data.Length;
+
+            Reserve(data.Length);
 
             for (int i = 0; i < Buffers.Length; i++)
             {
@@ -124,5 +126,50 @@ namespace Apache.Arrow.Builder
 
         public virtual IArrowArray Build(MemoryAllocator allocator = null)
             => ArrowArrayFactory.BuildArray(FinishInternal(allocator));
+
+        public IArrayBuilder Reserve(int capacity)
+        {
+            foreach (IValueBufferBuilder buffer in Buffers)
+                buffer.Reserve(capacity);
+
+            if (Children != null)
+                foreach (IArrayBuilder builder in Children)
+                    builder.Reserve(capacity);
+
+            if (Dictionary != null)
+                Dictionary.Reserve(capacity);
+
+            return this;
+        }
+
+        public IArrayBuilder Resize(int capacity)
+        {
+            foreach (IValueBufferBuilder buffer in Buffers)
+                buffer.Resize(capacity);
+
+            if (Children != null)
+                foreach (IArrayBuilder builder in Children)
+                    builder.Resize(capacity);
+
+            if (Dictionary != null)
+                Dictionary.Resize(capacity);
+
+            return this;
+        }
+
+        public IArrayBuilder Clear()
+        {
+            foreach (IValueBufferBuilder buffer in Buffers)
+                buffer.Clear();
+
+            if (Children != null)
+                foreach (IArrayBuilder builder in Children)
+                    builder.Clear();
+
+            if (Dictionary != null)
+                Dictionary.Clear();
+
+            return this;
+        }
     }
 }
