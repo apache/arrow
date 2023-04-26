@@ -650,6 +650,7 @@ void CheckWholeAggregateCase(const AggregateTestCase& test_case) {
 }
 
 void CheckGroupedAggregateCase(const AggregateTestCase& test_case) {
+  ARROW_SCOPED_TRACE("function = ", test_case.function_id.ToString());
   std::shared_ptr<Table> output_table;
   std::shared_ptr<acero::ExecPlan> plan =
       PlanFromAggregateCase(test_case, &output_table, /*with_keys=*/true);
@@ -720,6 +721,18 @@ TEST(FunctionMapping, AggregateCases) {
        "[2, 1]",
        int64(),
        /*nullary=*/true},
+      {{kSubstraitArithmeticFunctionsUri, "variance"},
+       "[1, 2, 3]",
+       float64(),
+       "[0.6666666666666666]",
+       "[0.25, 0]",
+       float64()},
+      {{kSubstraitArithmeticFunctionsUri, "std_dev"},
+       "[1, 2, 3]",
+       float64(),
+       "[0.816496580927726]",
+       "[0.5, 0]",
+       float64()},
   };
   CheckAggregateCases(test_cases);
 }
