@@ -46,6 +46,7 @@ namespace Apache.Arrow.Builder
         {
             ValidityBuffer.AppendBit(true);
             NullCount++;
+            Length++;
             return this;
         }
 
@@ -53,6 +54,7 @@ namespace Apache.Arrow.Builder
         {
             ValidityBuffer.AppendBits(new bool[count]);
             NullCount += count;
+            Length += count;
             return this;
         }
 

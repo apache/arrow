@@ -60,12 +60,7 @@ namespace Apache.Arrow.Builder
         }
 
         public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T> values)
-        {
-            ValuesBuffer.AppendValues(values);
-            ValidityBuffer.AppendBits(ValidityMask(values.Length, true));
-            Length += values.Length;
-            return this;
-        }
+            => AppendValues(values, ValidityMask(values.Length, true));
 
         public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T?> values)
         {
