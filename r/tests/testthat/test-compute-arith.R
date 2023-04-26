@@ -175,12 +175,12 @@ test_that("Math group generics work on Array objects", {
     round(exp(Array$create(c(2L, 1L))), digits = 10),
     Array$create(round(exp(c(2L, 1L)), 10))
   )
-  expect_equal(round(cumsum(Array$create(c(2.3, -1.0, 7.9, NA_real_,1.0))), digits = 10),
+  expect_equal(round(cumsum(Array$create(c(2.3, -1.0, 7.9, NA_real_, 1.0))), digits = 10),
                Array$create(c(2.3, 1.3, 9.2, NA, NA)))
   expect_equal(cumsum(Array$create(-10L)), Array$create(-10L))
   expect_equal(cumsum(Array$create(NA_integer_)), Array$create(NA_integer_))
   expect_equal(
-    cumsum(ChunkedArray$create(c(2L, 7L, 8L), c(-1L, 2L, 17L, NA_integer_,3L), 18L))$as_vector(),
+    cumsum(ChunkedArray$create(c(2L, 7L, 8L), c(-1L, 2L, 17L, NA_integer_, 3L), 18L))$as_vector(),
     c(2L, 9L, 17L, 16L, 18L, 35L, NA_integer_, NA_integer_, NA_integer_)
   )
 
