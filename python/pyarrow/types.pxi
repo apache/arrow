@@ -4286,8 +4286,8 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
 
     Parameters
     ----------
-    key_type : DataType
-    item_type : DataType
+    key_type : DataType or Field
+    item_type : DataType or Field
     keys_sorted : bool
 
     Returns
