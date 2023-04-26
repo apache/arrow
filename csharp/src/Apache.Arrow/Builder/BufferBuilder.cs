@@ -277,7 +277,7 @@ namespace Apache.Arrow.Builder
     public class ValueBufferBuilder : BufferBuilder, IValueBufferBuilder
     {
         public int ValueBitSize { get; }
-        public int ValueLength => (Memory.Span.Length * 8 + BitOverhead.Length) / ValueBitSize;
+        public int ValueLength => (ByteLength * 8 + BitOverhead.Length) / ValueBitSize;
 
         public ValueBufferBuilder(int valueBitSize, int capacity = 64) : base(capacity)
         {
