@@ -133,6 +133,11 @@ namespace Apache.Arrow
                 ValidityBuffer.Set(index);
                 return this;
             }
+            
+            public Builder SetNull(int index)
+            {
+                throw new NotImplementedException();
+            }
 
             public Builder Set(int index, bool value)
             {

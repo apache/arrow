@@ -89,6 +89,12 @@ namespace Apache.Arrow
             return Instance;
         }
 
+        public TBuilder SetNull(int index)
+        {
+            ArrayBuilder.SetNull(index);
+            return Instance;
+        }
+
         public TBuilder Clear()
         {
             ArrayBuilder.Clear();
@@ -173,6 +179,13 @@ namespace Apache.Arrow
         {
             ValueBuffer.Span[index] = value;
             ValidityBuffer.Set(index, true);
+            return Instance;
+        }
+
+        public TBuilder SetNull(int index)
+        {
+            ValueBuffer.Span[index] = default(T);
+            ValidityBuffer.Set(index, false);
             return Instance;
         }
 

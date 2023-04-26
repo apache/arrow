@@ -172,6 +172,11 @@ namespace Apache.Arrow
             return this as TBuilder;
         }
 
+        public TBuilder SetNull(int index)
+        {
+            throw new NotImplementedException();
+        }
+
         /// <summary>
         /// Set the value of a date in the form of a <see cref="DateTimeOffset"/> object at the specified index.
         /// </summary>
