@@ -26,12 +26,15 @@ the format (files in
 * We must discuss and vote on the changes on the public mailing list
 * We must have at least two reference implementations and associated
   integration tests
-* We must update the corresponding documentation (files in
-  `<https://github.com/apache/arrow/tree/main/docs/source/format>`_)
-  integration tests
 
 These do not have to be done in order. In most cases, having at least
 one draft reference implementation is helpful for design discussion.
+
+.. note::
+
+   We must update the corresponding documentation (files in
+   `<https://github.com/apache/arrow/tree/main/docs/source/format>`_)
+   too.
 
 Discussion and Voting Process
 -----------------------------
