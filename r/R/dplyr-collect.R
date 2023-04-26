@@ -35,6 +35,10 @@ collect.Dataset <- function(x, as_data_frame = TRUE, ...) {
 }
 collect.RecordBatchReader <- collect.Dataset
 
+collect.StructArray <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.vector(x)
+}
+
 compute.ArrowTabular <- function(x, ...) x
 compute.arrow_dplyr_query <- function(x, ...) {
   # TODO: should this tryCatch move down into as_arrow_table()?
