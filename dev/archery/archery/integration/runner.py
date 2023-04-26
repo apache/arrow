@@ -433,7 +433,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
         Scenario(
             "ordered",
             description="Ensure FlightInfo.ordered is supported.",
-            skip={"Java", "JS", "C#", "Rust"},
+            skip={"JS", "C#", "Rust"},
         ),
         Scenario(
             "flight_sql",
