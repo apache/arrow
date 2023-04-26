@@ -82,7 +82,7 @@ public class ArrowStreamWriter extends ArrowWriter {
   public ArrowStreamWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
                            IpcOption option, CompressionCodec.Factory compressionFactory,
                            CompressionUtil.CodecType codecType) {
-    this(root, provider, out, option, compressionFactory, codecType, Optional.ofNullable(null));
+    this(root, provider, out, option, compressionFactory, codecType, Optional.empty());
   }
 
   /**
