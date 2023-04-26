@@ -309,6 +309,7 @@ void SerialExecutor::RunLoop() {
         }
         // Can't break here because there may be cleanup tasks down the chain we still
         // need to run.
+        lk.lock();
       }
     }
     // In this case we must be waiting on work from external (e.g. I/O) executors.  Wait
@@ -316,7 +317,6 @@ void SerialExecutor::RunLoop() {
     state_->wait_for_tasks.wait(lk, [&] {
       return state_->paused || state_->finished || !state_->task_queue.empty();
     });
-
   }
   state_->current_thread = {};
 }
@@ -367,6 +367,7 @@ ThreadPool::~ThreadPool()
 {
   // NOP
 }
+
 
 #else // ARROW_DISABLE_THREADING
 
@@ -717,6 +718,8 @@ int ThreadPool::DefaultCapacity() {
   }
   return capacity;
 }
+
+
 
 #endif //ARROW_DISABLE_THREADING
 
