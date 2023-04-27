@@ -361,7 +361,7 @@ Result<std::vector<FileInfo>> LocalFileSystem::GetFileInfo(const FileSelector& s
   RETURN_NOT_OK(ValidatePath(select.base_dir));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(select.base_dir));
   std::vector<FileInfo> results;
-  if (select.needs_extended_file_info == true) {
+  if (select.needs_extended_file_info) {
     RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
   } else {
     RETURN_NOT_OK(IdentifyFileSelector(fn, select, 0, &results));
