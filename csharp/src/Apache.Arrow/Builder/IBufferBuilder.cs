@@ -35,6 +35,8 @@ namespace Apache.Arrow.Builder
         IBufferBuilder AppendStructs(ReadOnlySpan<bool> values);
         IBufferBuilder AppendStructs(ReadOnlySpan<byte> values);
         IBufferBuilder AppendStructs<T>(ReadOnlySpan<T> values) where T : struct;
+        IBufferBuilder AppendStructs(bool value, int count);
+        IBufferBuilder AppendStructs<T>(T value, int count) where T : struct;
 
         /// <summary>
         /// Clear all contents appended so far.
@@ -84,10 +86,13 @@ namespace Apache.Arrow.Builder
 
     public interface IValueBufferBuilder<T> : IValueBufferBuilder where T : struct
     {
+        Span<T> Span { get; }
+
         IValueBufferBuilder<T> AppendValue(T value);
         IValueBufferBuilder<T> AppendValue(T? value);
         IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T> values);
         IValueBufferBuilder<T> AppendValues(ICollection<T?> values);
+        IValueBufferBuilder<T> AppendValues(T value, int count);
     }
 }
 

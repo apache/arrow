@@ -106,7 +106,14 @@ namespace Apache.Arrow.Builder
         // offset is then added after each individual item has been appended.
         public IValueBufferBuilder<int> OffsetsBuffer { get; }
 
-        private int CurrentOffset;
+        private int CurrentOffset
+        {
+            get
+            {
+                int length = OffsetsBuffer.ValueLength;
+                return length == 0 ? 0 : OffsetsBuffer.Span[length - 1];
+            }
+        }
 
         public VariableValueArrayBuilder(IArrowType dataType)
             : this(dataType, new ValueBufferBuilder<bool>(), new ValueBufferBuilder<int>(), new ValueBufferBuilder<T>())
@@ -121,8 +128,7 @@ namespace Apache.Arrow.Builder
             ValuesBuffer = values;
             OffsetsBuffer = offsets;
 
-            CurrentOffset = 0;
-            OffsetsBuffer.AppendValue(CurrentOffset);
+            OffsetsBuffer.AppendValue(0);
         }
 
         public override IArrayBuilder AppendNull()
@@ -138,7 +144,7 @@ namespace Apache.Arrow.Builder
         public override IArrayBuilder AppendNulls(int count)
         {
             // Append Offset
-            OffsetsBuffer.AppendValue(CurrentOffset);
+            OffsetsBuffer.AppendValues(CurrentOffset, count);
 
             // Append Values
             ValuesBuffer.AppendValues(new T[count]);
@@ -148,8 +154,7 @@ namespace Apache.Arrow.Builder
         public virtual VariableValueArrayBuilder<T> AppendValue(T value)
         {
             // Append Offset
-            CurrentOffset++;
-            OffsetsBuffer.AppendValue(CurrentOffset);
+            OffsetsBuffer.AppendValue(CurrentOffset + 1);
 
             // Append Values
             ValuesBuffer.AppendValue(value);
@@ -164,8 +169,7 @@ namespace Apache.Arrow.Builder
         public virtual VariableValueArrayBuilder<T> AppendValue(ReadOnlySpan<T> value)
         {
             // Append Offset
-            CurrentOffset += value.Length;
-            OffsetsBuffer.AppendValue(CurrentOffset);
+            OffsetsBuffer.AppendValue(CurrentOffset + 1);
 
             // Append Values
             ValuesBuffer.AppendValues(value);
@@ -184,6 +188,7 @@ namespace Apache.Arrow.Builder
             Span<int> offsets = new int[values.Count()];
             Span<bool> mask = new bool[offsets.Length];
             int offset = 0;
+            int currentOffset = CurrentOffset;
             int i = 0;
 
             foreach (T[] value in values)
@@ -200,11 +205,10 @@ namespace Apache.Arrow.Builder
                     value.CopyTo(memory.Slice(offset, value.Length));
 
                     offset += value.Length;
-
-                    CurrentOffset += value.Length;
+                    currentOffset += value.Length;
 
                     // Fill other buffers
-                    offsets[i] = CurrentOffset;
+                    offsets[i] = currentOffset;
                     mask[i] = true;
                 }
                 i++;

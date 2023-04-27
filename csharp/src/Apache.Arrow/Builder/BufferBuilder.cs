@@ -214,6 +214,24 @@ namespace Apache.Arrow.Builder
             ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(values);
             return AppendBytes(bytes);
         }
+        public IBufferBuilder AppendStructs(bool value, int count)
+        {
+            Span<bool> span = new bool[count];
+
+            for (int i = 0; i < count; i++)
+                span[i] = value;
+
+            return AppendStructs(span);
+        }
+        public IBufferBuilder AppendStructs<T>(T value, int count) where T : struct
+        {
+            Span<T> span = new T[count];
+
+            for (int i = 0; i < count; i++)
+                span[i] = value;
+
+            return AppendStructs<T>(span);
+        }
 
         internal IBufferBuilder ReserveBytes(int numBytes)
         {
@@ -306,6 +324,12 @@ namespace Apache.Arrow.Builder
 
     public class ValueBufferBuilder<T> : ValueBufferBuilder, IValueBufferBuilder<T> where T : struct
     {
+        public Span<T> Span
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Memory.Span.CastTo<T>();
+        }
+
         private static int GetBitSizeOf() => typeof(T) == typeof(bool) ? 1 : Unsafe.SizeOf<T>() * 8;
 
         public ValueBufferBuilder(int capacity = 64) : base(GetBitSizeOf(), capacity)
@@ -321,6 +345,11 @@ namespace Apache.Arrow.Builder
         public IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T> values)
         {
             AppendStructs(values);
+            return this;
+        }
+        public IValueBufferBuilder<T> AppendValues(T value, int count)
+        {
+            AppendStructs(value, count);
             return this;
         }
         public IValueBufferBuilder<T> AppendValues(ICollection<T?> values)
