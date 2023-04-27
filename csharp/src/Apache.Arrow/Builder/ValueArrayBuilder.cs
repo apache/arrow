@@ -195,7 +195,7 @@ namespace Apache.Arrow.Builder
             {
                 if (value == null)
                 {
-                    offsets[i] = CurrentOffset;
+                    offsets[i] = currentOffset;
                     // default is already false
                     // mask[i] = false;
                 }
