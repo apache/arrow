@@ -97,6 +97,6 @@ with open(r_versions_path) as json_file:
 with open(r_html_path, 'w') as html_file:
     html_file.write('<!DOCTYPE html>\n<html>\n<body>')
     for i in data:
-        html_file.write(f'<p><a href="../{i["version"]}/r/">{i["name"]}</a></p>\n')
+        html_file.write(f'<p><a href="../{i["version"]}r/">{i["name"]}</a></p>\n')
     html_file.write('</body>\n</html>\n')
 
