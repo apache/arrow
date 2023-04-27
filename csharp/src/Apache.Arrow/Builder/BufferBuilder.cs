@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
@@ -214,8 +215,6 @@ namespace Apache.Arrow.Builder
             return AppendBytes(bytes);
         }
 
-        public IBufferBuilder AppendArrow(ArrowBuffer buffer) => AppendBytes(buffer.Span);
-
         internal IBufferBuilder ReserveBytes(int numBytes)
         {
             EnsureAdditionalBytes(numBytes);
@@ -324,15 +323,17 @@ namespace Apache.Arrow.Builder
             AppendStructs(values);
             return this;
         }
-        public IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T?> values)
+        public IValueBufferBuilder<T> AppendValues(ICollection<T?> values)
         {
-            Span<T> destination = new T[values.Length];
+            int length = values.Count;
+            Span<T> destination = new T[length];
+            int i = 0;
 
             // Transform the source ReadOnlySpan<T?> into the destination ReadOnlySpan<T>, filling any null values with default(T)
-            for (int i = 0; i < values.Length; i++)
+            foreach (T? value in values)
             {
-                T? value = values[i];
                 destination[i] = value ?? default;
+                i++;
             }
 
             return AppendValues(destination);

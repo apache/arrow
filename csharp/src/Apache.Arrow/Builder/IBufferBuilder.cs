@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 using Apache.Arrow.Memory;
 
 namespace Apache.Arrow.Builder
@@ -34,8 +35,6 @@ namespace Apache.Arrow.Builder
         IBufferBuilder AppendStructs(ReadOnlySpan<bool> values);
         IBufferBuilder AppendStructs(ReadOnlySpan<byte> values);
         IBufferBuilder AppendStructs<T>(ReadOnlySpan<T> values) where T : struct;
-
-        IBufferBuilder AppendArrow(ArrowBuffer buffer);
 
         /// <summary>
         /// Clear all contents appended so far.
@@ -88,7 +87,7 @@ namespace Apache.Arrow.Builder
         IValueBufferBuilder<T> AppendValue(T value);
         IValueBufferBuilder<T> AppendValue(T? value);
         IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T> values);
-        IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T?> values);
+        IValueBufferBuilder<T> AppendValues(ICollection<T?> values);
     }
 }
 

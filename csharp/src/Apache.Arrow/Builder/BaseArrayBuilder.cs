@@ -76,7 +76,7 @@ namespace Apache.Arrow.Builder
                 if (current.ValueBitSize % 8 == 0)
                 {
                     // Full byte encoded
-                    current.AppendArrow(other);
+                    current.AppendBytes(other.Span);
                 }
                 else
                 {
@@ -85,7 +85,7 @@ namespace Apache.Arrow.Builder
 
                     current.AppendBytes(other.Span.Slice(0, end));
 
-                    Span<bool> bits = BitUtility.ToBits(other.Span.Slice(end)).Slice(0, current.ValueBitSize);
+                    Span<bool> bits = BitUtility.ToBits(other.Span.Slice(end)).Slice(0, data.Length - end * 8);
                     current.AppendBits(bits);
                 }
             }

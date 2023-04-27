@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
@@ -55,25 +54,28 @@ namespace Apache.Arrow.Builder
         public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T> values)
             => AppendValues(values, ValidityMask(values.Length, true));
 
-        public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T?> values)
+        public virtual ValueArrayBuilder<T> AppendValues(ICollection<T?> values)
         {
-            Span<bool> validity = new bool[values.Length];
-            Span<T> destination = new T[values.Length];
+            int length = values.Count;
+            Span<bool> validity = new bool[length];
+            Span<T> destination = new T[length];
+            int i = 0;
 
             // Transform the source ReadOnlySpan<T?> into the destination ReadOnlySpan<T>, filling any null values with default(T)
-            for (int i = 0; i < values.Length; i++)
+            foreach (T? value in values)
             {
-                if (values[i] == null)
+                if (value.HasValue)
+                {
+                    destination[i] = value.Value;
+                    validity[i] = true;
+                }
+                else
                 {
                     destination[i] = default;
                     // default is already false
                     // validity[i] = false;
                 }
-                else
-                {
-                    destination[i] = values[i].Value;
-                    validity[i] = true;
-                }
+                i++;
             }
 
             return AppendValues(destination, validity);
@@ -120,13 +122,13 @@ namespace Apache.Arrow.Builder
             OffsetsBuffer = offsets;
 
             CurrentOffset = 0;
-            OffsetsBuffer.AppendStruct(CurrentOffset);
+            OffsetsBuffer.AppendValue(CurrentOffset);
         }
 
         public override IArrayBuilder AppendNull()
         {
             // Append Offset
-            OffsetsBuffer.AppendStruct(CurrentOffset);
+            OffsetsBuffer.AppendValue(CurrentOffset);
 
             // Append Values
             ValuesBuffer.AppendValue(default);
@@ -136,7 +138,7 @@ namespace Apache.Arrow.Builder
         public override IArrayBuilder AppendNulls(int count)
         {
             // Append Offset
-            OffsetsBuffer.AppendStruct(CurrentOffset);
+            OffsetsBuffer.AppendValue(CurrentOffset);
 
             // Append Values
             ValuesBuffer.AppendValues(new T[count]);
@@ -147,7 +149,7 @@ namespace Apache.Arrow.Builder
         {
             // Append Offset
             CurrentOffset++;
-            OffsetsBuffer.AppendStruct(CurrentOffset);
+            OffsetsBuffer.AppendValue(CurrentOffset);
 
             // Append Values
             ValuesBuffer.AppendValue(value);
@@ -163,7 +165,7 @@ namespace Apache.Arrow.Builder
         {
             // Append Offset
             CurrentOffset += value.Length;
-            OffsetsBuffer.AppendStruct(CurrentOffset);
+            OffsetsBuffer.AppendValue(CurrentOffset);
 
             // Append Values
             ValuesBuffer.AppendValues(value);
@@ -216,7 +218,7 @@ namespace Apache.Arrow.Builder
             )
         {
             // Append Offset
-            OffsetsBuffer.AppendStructs(offsets);
+            OffsetsBuffer.AppendValues(offsets);
 
             // Append Values
             ValuesBuffer.AppendValues(values);
