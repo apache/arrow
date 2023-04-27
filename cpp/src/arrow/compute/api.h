@@ -24,14 +24,15 @@
 /// @{
 /// @}
 
-#include "arrow/compute/api_aggregate.h"  // IWYU pragma: export
-#include "arrow/compute/api_scalar.h"     // IWYU pragma: export
-#include "arrow/compute/api_vector.h"     // IWYU pragma: export
-#include "arrow/compute/cast.h"           // IWYU pragma: export
-#include "arrow/compute/function.h"       // IWYU pragma: export
-#include "arrow/compute/kernel.h"         // IWYU pragma: export
-#include "arrow/compute/registry.h"       // IWYU pragma: export
-#include "arrow/datum.h"                  // IWYU pragma: export
+#include "arrow/compute/api_aggregate.h"      // IWYU pragma: export
+#include "arrow/compute/api_scalar.h"         // IWYU pragma: export
+#include "arrow/compute/api_vector.h"         // IWYU pragma: export
+#include "arrow/compute/cast.h"               // IWYU pragma: export
+#include "arrow/compute/dictionary_decode.h"  // IWYU pragma: export
+#include "arrow/compute/function.h"           // IWYU pragma: export
+#include "arrow/compute/kernel.h"             // IWYU pragma: export
+#include "arrow/compute/registry.h"           // IWYU pragma: export
+#include "arrow/datum.h"                      // IWYU pragma: export
 
 /// \defgroup execnode-expressions Utilities for creating expressions to
 /// use in execution plans
