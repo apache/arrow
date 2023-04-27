@@ -134,10 +134,13 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @export
 JsonFileFormat <- R6Class("JsonFileFormat", inherit = FileFormat)
 JsonFileFormat$create <- function(...) {
-  options <- JsonFragmentScanOptions$create(...)
-  check_schema(options[["schema"]], options[["read_options"]]$column_names)
+  dots <- list2(...)
+  parse_opt_choices <- dots[names(dots) %in% names(formals(JsonParseOptions$create))]
+  read_opt_choices <- dots[names(dots) %in% names(formals(JsonReadOptions$create))]
 
-  dataset___JsonFileFormat__Make(options)
+  parse_options <- do.call(JsonParseOptions$create, parse_opt_choices)
+  read_options <- do.call(JsonReadOptions$create, read_opt_choices)
+  dataset___JsonFileFormat__Make(parse_options, read_options)
 }
 
 
@@ -567,7 +570,14 @@ ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
 #' @rdname FragmentScanOptions
 #' @export
 JsonFragmentScanOptions <- R6Class("JsonFragmentScanOptions", inherit = FragmentScanOptions)
-JsonFragmentScanOptions$create <- function(parse_options, read_options) {
+JsonFragmentScanOptions$create <- function(...) {
+  dots <- list2(...)
+  parse_opt_choices <- dots[names(dots) %in% names(formals(JsonParseOptions$create))]
+  read_opt_choices <- dots[names(dots) %in% names(formals(JsonReadOptions$create))]
+
+  parse_options <- do.call(JsonParseOptions$create, parse_opt_choices)
+  read_options <- do.call(JsonReadOptions$create, read_opt_choices)
+
   dataset___JsonFragmentScanOptions__Make(parse_options, read_options)
 }
 
