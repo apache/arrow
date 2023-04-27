@@ -1563,14 +1563,43 @@ class TestFirstLastKernel : public ::testing::Test {
   }
 };
 
+class TestBooleanFirstLastKernel : public TestFirstLastKernel<BooleanType> {};
+
 template <typename ArrowType>
-class TestPrimitiveFirstLastKernel : public TestFirstLastKernel<ArrowType> {};
+class TestNumericFirstLastKernel : public TestFirstLastKernel<ArrowType> {};
 
 template <typename ArrowType>
 class TestTemporalFirstLastKernel : public TestFirstLastKernel<ArrowType> {};
 
-TYPED_TEST_SUITE(TestPrimitiveFirstLastKernel, PrimitiveArrowTypes);
-TYPED_TEST(TestPrimitiveFirstLastKernel, Basics) {
+TEST_F(TestBooleanFirstLastKernel, Basics) {
+  ScalarAggregateOptions options;
+  std::vector<std::string> chunked_input0 = {"[]", "[]"};
+  std::vector<std::string> chunked_input1 = {"[null, true, null]", "[true, null]"};
+  std::vector<std::string> chunked_input2 = {"[false, false, false]", "[false]"};
+  std::vector<std::string> chunked_input3 = {"[null, true]", "[false, null]"};
+  std::vector<std::string> chunked_input4 = {"[false, null]", "[null, true]"};
+  auto ty = struct_({field("first", boolean()), field("last", boolean())});
+
+  this->AssertFirstLastIsNull("[]", options);
+  this->AssertFirstLastIsNull("[null, null, null]", options);
+  this->AssertFirstLastIsNull(chunked_input0, options);
+  this->AssertFirstLastIs(chunked_input1, true, true, options);
+  this->AssertFirstLastIs(chunked_input2, false, false, options);
+  this->AssertFirstLastIs(chunked_input3, true, false, options);
+  this->AssertFirstLastIs(chunked_input4, false, true, options);
+
+  options.skip_nulls = false;
+  this->AssertFirstLastIsNull("[]", options);
+  this->AssertFirstLastIsNull("[null, null, null]", options);
+  this->AssertFirstLastIsNull(chunked_input0, options);
+  this->AssertFirstLastIsNull(chunked_input1, options);
+  this->AssertFirstLastIs(chunked_input2, false, false, options);
+  this->AssertFirstLastIsNull(chunked_input3, options);
+  this->AssertFirstLastIs(chunked_input4, false, true, options);
+}
+
+TYPED_TEST_SUITE(TestNumericFirstLastKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericFirstLastKernel, Basics) {
   ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 8, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[null, null, null, 7]",
