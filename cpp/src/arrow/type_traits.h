@@ -466,18 +466,24 @@ struct TypeTraits<LargeListType> {
 template <>
 struct TypeTraits<ListViewType> {
   using ArrayType = ListViewArray;
-  // TODO(felipecrv): Add BuilderType
+  using BuilderType = ListViewBuilder;
   using ScalarType = ListViewScalar;
-
+  using OffsetType = Int32Type;
+  using OffsetArrayType = Int32Array;
+  using OffsetBuilderType = Int32Builder;
+  using OffsetScalarType = Int32Scalar;
   constexpr static bool is_parameter_free = false;
 };
 
 template <>
 struct TypeTraits<LargeListViewType> {
   using ArrayType = LargeListViewArray;
-  // TODO(felipecrv): Add BuilderType
+  using BuilderType = LargeListViewBuilder;
   using ScalarType = LargeListViewScalar;
-
+  using OffsetType = Int64Type;
+  using OffsetArrayType = Int64Array;
+  using OffsetBuilderType = Int64Builder;
+  using OffsetScalarType = Int64Scalar;
   constexpr static bool is_parameter_free = false;
 };
 
