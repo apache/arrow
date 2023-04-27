@@ -127,6 +127,18 @@ struct IndexLocation {
   int32_t length;
 };
 
+/// \brief Public struct for Sorting Columns in RowGroupMetadata.
+struct PARQUET_EXPORT SortingColumn {
+  /// The column index (in this row group)
+  int32_t column_idx;
+
+  /// If true, indicates this column is sorted in descending order.
+  bool descending;
+
+  /// If true, nulls will come before non-null values, otherwise, nulls go at the end.
+  bool nulls_first;
+};
+
 /// \brief ColumnChunkMetaData is a proxy around format::ColumnChunkMetaData.
 class PARQUET_EXPORT ColumnChunkMetaData {
  public:
@@ -251,6 +263,8 @@ class PARQUET_EXPORT RowGroupMetaData {
   const SchemaDescriptor* schema() const;
   // Indicate if all of the RowGroup's ColumnChunks can be decompressed.
   bool can_decompress() const;
+  // Sorting columns of the row group if any.
+  std::vector<SortingColumn> sorting_columns() const;
 
  private:
   explicit RowGroupMetaData(

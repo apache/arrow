@@ -504,6 +504,16 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
                            " columns, requested metadata for column: ", i);
   }
 
+  std::vector<SortingColumn> sorting_columns() const {
+    std::vector<SortingColumn> sorting_columns(row_group_->sorting_columns.size());
+    for (size_t i = 0; i < sorting_columns.size(); ++i) {
+      sorting_columns[i].column_idx = row_group_->sorting_columns[i].column_idx;
+      sorting_columns[i].descending = row_group_->sorting_columns[i].descending;
+      sorting_columns[i].nulls_first = row_group_->sorting_columns[i].nulls_first;
+    }
+    return sorting_columns;
+  }
+
  private:
   const format::RowGroup* row_group_;
   const SchemaDescriptor* schema_;
@@ -569,6 +579,10 @@ bool RowGroupMetaData::can_decompress() const {
     }
   }
   return true;
+}
+
+std::vector<SortingColumn> RowGroupMetaData::sorting_columns() const {
+  return impl_->sorting_columns();
 }
 
 // file metadata
