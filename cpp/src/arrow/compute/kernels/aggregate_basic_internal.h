@@ -272,7 +272,7 @@ struct MeanKernelInit : public SumLikeInit<KernelClass> {
 };
 
 // ----------------------------------------------------------------------
-// Last implementation
+// FirstLast implementation
 template <typename ArrowType, typename Enable = void>
 struct FirstLastState {};
 
@@ -283,9 +283,10 @@ struct FirstLastState<ArrowType, enable_if_boolean<ArrowType>> {
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
   ThisType& operator+=(const ThisType& rhs) {
-    this->has_nulls |= rhs.has_nulls;
     this->first = this->has_values ? this->first : rhs.first;
+    this->first_is_null = !this->empty ? this->first_is_null : rhs.first_is_null;
     this->last = rhs.has_values ? rhs.last : this->last;
+    this->last_is_null = rhs.last_is_null;
     this->has_values |= rhs.has_values;
     return *this;
   }
@@ -301,7 +302,10 @@ struct FirstLastState<ArrowType, enable_if_boolean<ArrowType>> {
   T first = false;
   T last = false;
   bool has_values = false;
-  bool has_nulls = false;
+  // These are updated in ConsumeScalar and ConsumeArray
+  bool first_is_null = false;
+  bool last_is_null = false;
+  bool empty = true;
 };
 
 template <typename ArrowType>
@@ -311,10 +315,12 @@ struct FirstLastState<ArrowType, enable_if_physical_integer<ArrowType>> {
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
   ThisType& operator+=(const ThisType& rhs) {
-    this->has_nulls |= rhs.has_nulls;
     this->first = this->has_values ? this->first : rhs.first;
+    this->first_is_null = !this->empty ? this->first_is_null : rhs.first_is_null;
     this->last = rhs.has_values ? rhs.last : this->last;
+    this->last_is_null = rhs.last_is_null;
     this->has_values |= rhs.has_values;
+    this->empty &= rhs.empty;
     return *this;
   }
 
@@ -329,7 +335,16 @@ struct FirstLastState<ArrowType, enable_if_physical_integer<ArrowType>> {
   T first = std::numeric_limits<T>::infinity();
   T last = std::numeric_limits<T>::infinity();
   bool has_values = false;
-  bool has_nulls = false;
+
+  // These are updated in ConsumeScalar and ConsumeArray
+  bool first_is_null = false;
+  bool last_is_null = false;
+  // Empty means this is no values in this state (either null or non-null)
+  // (1) empty = true: There is no value aggregated
+  // (2) empty = false, has_values = false: There are only null values aggregated
+  // (3) empty = false, has_values = true: There are both null and non-null values
+  // aggregated
+  bool empty = true;
 };
 
 template <typename ArrowType>
@@ -340,9 +355,10 @@ struct FirstLastState<ArrowType, enable_if_floating_point<ArrowType>> {
 
   ThisType& operator+=(const ThisType& rhs) {
     this->first = this->has_values ? this->first : rhs.first;
+    this->first_is_null = !this->empty ? this->first_is_null : rhs.first_is_null;
     this->last = rhs.has_values ? rhs.last : this->last;
+    this->last_is_null = rhs.last_is_null;
     this->has_values |= rhs.has_values;
-    this->has_nulls |= rhs.has_nulls;
     return *this;
   }
 
@@ -357,7 +373,10 @@ struct FirstLastState<ArrowType, enable_if_floating_point<ArrowType>> {
   T first = std::numeric_limits<T>::infinity();
   T last = std::numeric_limits<T>::infinity();
   bool has_values = false;
-  bool has_nulls = false;
+  // These are updated in ConsumeScalar and ConsumeArray
+  bool first_is_null = false;
+  bool last_is_null = false;
+  bool empty = true;
 };
 
 template <typename ArrowType>
@@ -369,9 +388,10 @@ struct FirstLastState<ArrowType,
 
   ThisType& operator+=(const ThisType& rhs) {
     this->first = this->has_values ? this->first : rhs.first;
+    this->first_is_null = !this->empty ? this->first_is_null : rhs.first_is_null;
     this->last = rhs.has_values ? rhs.last : this->last;
+    this->last_is_null = rhs.last_is_null;
     this->has_values |= rhs.has_values;
-    this->has_nulls |= rhs.has_nulls;
     return *this;
   }
 
@@ -386,7 +406,10 @@ struct FirstLastState<ArrowType,
   std::string first = "";
   std::string last = "";
   bool has_values = false;
-  bool has_nulls = false;
+  // These are updated in ConsumeScalar and ConsumeArray
+  bool first_is_null = false;
+  bool last_is_null = false;
+  bool empty = true;
 };
 
 template <typename ArrowType>
@@ -408,33 +431,42 @@ struct FirstLastImpl : public ScalarAggregator {
   }
 
   Status ConsumeScalar(const Scalar& scalar) {
-    StateType local;
-    local.has_nulls = !scalar.is_valid;
-    this->count += scalar.is_valid;
-
-    if (!local.has_nulls || options.skip_nulls) {
-      local.MergeOne(internal::UnboxScalar<ArrowType>::Unbox(scalar));
+    this->state.empty = false;
+    if (scalar.is_valid) {
+      this->state.MergeOne(internal::UnboxScalar<ArrowType>::Unbox(scalar));
+    } else {
+      if (!this->state.has_values) {
+        this->state.first_is_null = true;
+      }
     }
-    this->state += local;
+    this->count += scalar.is_valid;
     return Status::OK();
   }
 
   Status ConsumeArray(const ArraySpan& arr_span) {
-    StateType local;
-
+    this->state.empty = false;
     ArrayType arr(arr_span.ToArrayData());
     const auto null_count = arr.null_count();
-    local.has_nulls = null_count > 0;
     this->count += arr.length() - null_count;
 
-    if (!local.has_nulls) {
+    if (null_count == 0) {
       // If there are no null valus, we can just merge
       // the first and last element
-      local.MergeOne(arr.GetView(0));
-      local.MergeOne(arr.GetView(arr.length() - 1));
-    } else if (local.has_nulls && options.skip_nulls) {
+      this->state.MergeOne(arr.GetView(0));
+      this->state.MergeOne(arr.GetView(arr.length() - 1));
+    } else {
       int64_t first_i = -1;
       int64_t last_i = -1;
+
+      if (!this->state.has_values && arr.IsNull(0)) {
+        this->state.first_is_null = true;
+      }
+
+      if (arr.IsNull(arr.length() - 1)) {
+        this->state.last_is_null = true;
+      }
+
+      // Find the first and last non-null value and update state
       for (int64_t i = 0; i < arr.length(); i++) {
         if (!arr.IsNull(i)) {
           first_i = i;
@@ -449,12 +481,11 @@ struct FirstLastImpl : public ScalarAggregator {
           }
         }
         DCHECK_GE(last_i, first_i);
-        local.MergeOne(arr.GetView(first_i));
-        local.MergeOne(arr.GetView(last_i));
+        this->state.MergeOne(arr.GetView(first_i));
+        this->state.MergeOne(arr.GetView(last_i));
       }
     }
 
-    this->state += local;
     return Status::OK();
   }
 
@@ -468,22 +499,33 @@ struct FirstLastImpl : public ScalarAggregator {
   Status Finalize(KernelContext*, Datum* out) override {
     const auto& struct_type = checked_cast<const StructType&>(*out_type);
     const auto& child_type = struct_type.field(0)->type();
+    auto null_scalar = MakeNullScalar(child_type);
 
     std::vector<std::shared_ptr<Scalar>> values;
 
-    // Physical type != result type
-    if ((state.has_nulls && !options.skip_nulls) || (this->count < options.min_count)) {
-      // (null, null)
-      auto null_scalar = MakeNullScalar(child_type);
+    if (this->count < options.min_count) {
       values = {null_scalar, null_scalar};
-    } else if (state.has_values) {
-      ARROW_ASSIGN_OR_RAISE(auto first_scalar, MakeScalar(child_type, state.first));
-      ARROW_ASSIGN_OR_RAISE(auto last_scalar, MakeScalar(child_type, state.last));
-      values = {first_scalar, last_scalar};
     } else {
-      auto null_scalar = MakeNullScalar(child_type);
-      values = {null_scalar, null_scalar};
+      if (state.has_values) {
+        if (options.skip_nulls) {
+          ARROW_ASSIGN_OR_RAISE(auto first_scalar, MakeScalar(child_type, state.first));
+          ARROW_ASSIGN_OR_RAISE(auto last_scalar, MakeScalar(child_type, state.last));
+          values = {first_scalar, last_scalar};
+        } else {
+          ARROW_ASSIGN_OR_RAISE(
+              auto first_scalar,
+              state.first_is_null ? null_scalar : MakeScalar(child_type, state.first));
+          ARROW_ASSIGN_OR_RAISE(
+              auto last_scalar,
+              state.last_is_null ? null_scalar : MakeScalar(child_type, state.last));
+
+          values = {first_scalar, last_scalar};
+        }
+      } else {
+        values = {null_scalar, null_scalar};
+      }
     }
+
     out->value = std::make_shared<StructScalar>(std::move(values), this->out_type);
     return Status::OK();
   }

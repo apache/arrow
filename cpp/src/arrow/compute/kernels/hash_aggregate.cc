@@ -1809,7 +1809,6 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
     ARROW_ASSIGN_OR_RAISE(auto last_null_bitmap, last_is_nulls_.Finish());
     ARROW_ASSIGN_OR_RAISE(auto has_values, has_values_.Finish());
 
-    DCHECK_EQ(first_null_bitmap->size(), last_null_bitmap->size());
     if (!options_.skip_nulls) {
       for (int i = 0; i < num_groups_; i++) {
         const bool first_is_null = bit_util::GetBit(first_null_bitmap->data(), i);
@@ -1873,8 +1872,10 @@ struct GroupedFirstLastImpl<Type,
     allocator_ = Allocator(ctx->memory_pool());
     options_ = *checked_cast<const ScalarAggregateOptions*>(args.options);
     // type_ initialized by FirstLastInit
+    // Whether the first/last element is null
+    first_is_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    last_is_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
-
     return Status::OK();
   }
 
@@ -1885,23 +1886,32 @@ struct GroupedFirstLastImpl<Type,
     firsts_.resize(new_num_groups);
     lasts_.resize(new_num_groups);
     RETURN_NOT_OK(has_values_.Append(added_groups, false));
-    RETURN_NOT_OK(has_nulls_.Append(added_groups, false));
+    RETURN_NOT_OK(first_is_nulls_.Append(added_groups, false));
+    RETURN_NOT_OK(last_is_nulls_.Append(added_groups, false));
     return Status::OK();
   }
 
   Status Consume(const ExecSpan& batch) override {
+    auto raw_has_values = has_values_.mutable_data();
+    auto raw_first_is_nulls = first_is_nulls_.mutable_data();
+    auto raw_last_is_nulls = last_is_nulls_.mutable_data();
+
     return VisitGroupedValues<Type>(
         batch,
         [&](uint32_t g, std::string_view val) {
           if (!firsts_[g]) {
             firsts_[g].emplace(val.data(), val.size(), allocator_);
+            bit_util::SetBit(raw_has_values, g);
           }
+          bit_util::SetBitTo(raw_last_is_nulls, g, false);
           lasts_[g].emplace(val.data(), val.size(), allocator_);
-          bit_util::SetBit(has_values_.mutable_data(), g);
           return Status::OK();
         },
         [&](uint32_t g) {
-          bit_util::SetBit(has_nulls_.mutable_data(), g);
+          if (!bit_util::GetBit(raw_has_values, g)) {
+            bit_util::SetBit(raw_first_is_nulls, g);
+          }
+          bit_util::SetBit(raw_last_is_nulls, g);
           return Status::OK();
         });
   }
@@ -1920,26 +1930,50 @@ struct GroupedFirstLastImpl<Type,
       if (bit_util::GetBit(other->has_values_.data(), other_g)) {
         bit_util::SetBit(has_values_.mutable_data(), *g);
       }
-      if (bit_util::GetBit(other->has_nulls_.data(), other_g)) {
-        bit_util::SetBit(has_nulls_.mutable_data(), *g);
+      if (bit_util::GetBit(other->last_is_nulls_.data(), other_g)) {
+        bit_util::SetBit(last_is_nulls_.mutable_data(), *g);
       }
     }
     return Status::OK();
   }
 
   Result<Datum> Finalize() override {
-    // aggregation for group is valid if there was at least one value in that group
-    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_values_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto first_null_bitmap, first_is_nulls_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto last_null_bitmap, last_is_nulls_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto has_values, has_values_.Finish());
 
     if (!options_.skip_nulls) {
-      // ... and there were no nulls in that group
-      ARROW_ASSIGN_OR_RAISE(auto has_nulls, has_nulls_.Finish());
-      arrow::internal::BitmapAndNot(null_bitmap->data(), 0, has_nulls->data(), 0,
-                                    num_groups_, 0, null_bitmap->mutable_data());
+      for (int i = 0; i < num_groups_; i++) {
+        const bool first_is_null = bit_util::GetBit(first_null_bitmap->data(), i);
+        const bool has_value = bit_util::GetBit(has_values->data(), i);
+        if (first_is_null) {
+          bit_util::SetBitTo(first_null_bitmap->mutable_data(), i, false);
+        } else {
+          bit_util::SetBitTo(first_null_bitmap->mutable_data(), i, has_value);
+        }
+      }
+
+      for (int i = 0; i < num_groups_; i++) {
+        const bool last_is_null = bit_util::GetBit(last_null_bitmap->data(), i);
+        const bool has_value = bit_util::GetBit(has_values->data(), i);
+        if (last_is_null) {
+          bit_util::SetBitTo(last_null_bitmap->mutable_data(), i, false);
+        } else {
+          bit_util::SetBitTo(last_null_bitmap->mutable_data(), i, has_value);
+        }
+      }
+    } else {
+      for (int i = 0; i < num_groups_; i++) {
+        const bool has_value = bit_util::GetBit(has_values->data(), i);
+        bit_util::SetBitTo(first_null_bitmap->mutable_data(), i, has_value);
+        bit_util::SetBitTo(last_null_bitmap->mutable_data(), i, has_value);
+      }
     }
 
-    auto firsts = ArrayData::Make(type_, num_groups_, {null_bitmap, nullptr});
-    auto lasts = ArrayData::Make(type_, num_groups_, {std::move(null_bitmap), nullptr});
+    auto firsts =
+        ArrayData::Make(type_, num_groups_, {std::move(first_null_bitmap), nullptr});
+    auto lasts =
+        ArrayData::Make(type_, num_groups_, {std::move(last_null_bitmap), nullptr});
     RETURN_NOT_OK(MakeOffsetsValues(firsts.get(), firsts_));
     RETURN_NOT_OK(MakeOffsetsValues(lasts.get(), lasts_));
     return ArrayData::Make(out_type(), num_groups_, {nullptr},
@@ -2018,7 +2052,7 @@ struct GroupedFirstLastImpl<Type,
   Allocator allocator_;
   int64_t num_groups_;
   std::vector<std::optional<StringType>> firsts_, lasts_;
-  TypedBufferBuilder<bool> has_values_, has_nulls_;
+  TypedBufferBuilder<bool> has_values_, first_is_nulls_, last_is_nulls_;
   std::shared_ptr<DataType> type_;
   ScalarAggregateOptions options_;
 };

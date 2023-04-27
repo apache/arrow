@@ -1573,8 +1573,8 @@ TYPED_TEST_SUITE(TestPrimitiveFirstLastKernel, PrimitiveArrowTypes);
 TYPED_TEST(TestPrimitiveFirstLastKernel, Basics) {
   ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 8, null, 3, 4]"};
-  std::vector<std::string> chunked_input2 = {"[null, null, null, null]",
-                                             "[null, 8, null, 3 ,4]"};
+  std::vector<std::string> chunked_input2 = {"[null, null, null, 7]",
+                                             "[null, 8, null, 3, 4, null]"};
   std::vector<std::string> chunked_input3 = {"[null, null, null]", "[null, null]"};
   auto item_ty = default_type_instance<TypeParam>();
 
@@ -1582,12 +1582,13 @@ TYPED_TEST(TestPrimitiveFirstLastKernel, Basics) {
   this->AssertFirstLastIs("[5, null, 2, 3, null]", 5, 3, options);
   this->AssertFirstLastIs(chunked_input1, 5, 4, options);
   this->AssertFirstLastIs(chunked_input1[1], 9, 4, options);
-  this->AssertFirstLastIs(chunked_input2, 8, 4, options);
-  this->AssertFirstLastIsNull(chunked_input2[0], options);
+  this->AssertFirstLastIs(chunked_input2, 7, 4, options);
+  this->AssertFirstLastIsNull(chunked_input3[0], options);
   this->AssertFirstLastIsNull(chunked_input3, options);
 
   options.skip_nulls = false;
-  this->AssertFirstLastIsNull(chunked_input1, options);
+  this->AssertFirstLastIsNull(chunked_input2[1], options);
+  this->AssertFirstLastIsNull(chunked_input2, options);
 }
 
 TYPED_TEST_SUITE(TestTemporalFirstLastKernel, TemporalArrowTypes);
@@ -1595,12 +1596,16 @@ TYPED_TEST(TestTemporalFirstLastKernel, Basics) {
   ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 8, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[null, null, null, null]",
-                                             "[null, 8, null, 3 ,4]"};
+                                             "[null, 8, null, 3 ,4, null]"};
   auto item_ty = default_type_instance<TypeParam>();
 
   this->AssertFirstLastIs("[5, 1, 2, 3, 4]", 5, 4, options);
   this->AssertFirstLastIs("[5, null, 2, 3, null]", 5, 3, options);
   this->AssertFirstLastIs(chunked_input1, 5, 4, options);
+  this->AssertFirstLastIs(chunked_input2, 8, 4, options);
+
+  options.skip_nulls = false;
+  this->AssertFirstLastIsNull(chunked_input2, options);
 }
 
 template <typename ArrowType>

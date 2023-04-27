@@ -4360,6 +4360,7 @@ TEST_P(GroupBy, FirstLastBinary) {
                                }),
                                {R"([
     ["aaaa", 1],
+    [null,   5],
     [null,   1]
 ])",
                                 R"([
@@ -4367,35 +4368,44 @@ TEST_P(GroupBy, FirstLastBinary) {
     [null,   3],
     ["2",    null],
     ["d",    1],
+    ["ee",   5],
     ["bc",   2]
 ])",
                                 R"([
     ["babcd", 2],
     ["123",   null],
+    [null,    5],
     [null,    3]
 ])"});
+
+    auto keep_nulls = std::make_shared<ScalarAggregateOptions>(false, 1);
     ASSERT_OK_AND_ASSIGN(
         Datum aggregated_and_grouped,
         GroupByTest(
-            {table->GetColumnByName("argument0"), table->GetColumnByName("argument0")},
+            {table->GetColumnByName("argument0"), table->GetColumnByName("argument0"),
+             table->GetColumnByName("argument0"), table->GetColumnByName("argument0")},
             {table->GetColumnByName("key")},
-            {{"hash_first", nullptr}, {"hash_last", nullptr}}, use_threads));
+            {{"hash_first", nullptr},
+             {"hash_last", nullptr},
+             {"hash_first", keep_nulls},
+             {"hash_last", keep_nulls}},
+            use_threads));
     ValidateOutput(aggregated_and_grouped);
     SortBy({"key_0"}, &aggregated_and_grouped);
 
-    AssertDatumsEqual(ArrayFromJSON(struct_({
-                                        field("key_0", int64()),
-                                        field("hash_first", ty),
-                                        field("hash_last", ty),
-                                    }),
-                                    R"([
-      [1,    "aaaa",    "d"],
-      [2,    "bcd",    "babcd"],
-      [3,    null,    null],
-      [null, "2",    "123"]
+    AssertDatumsEqual(
+        ArrayFromJSON(struct_({field("key_0", int64()), field("hash_first", ty),
+                               field("hash_last", ty), field("hash_first", ty),
+                               field("hash_last", ty)}),
+                      R"([
+      [1,    "aaaa",    "d", "aaaa", "d"],
+      [2,    "bcd",    "babcd", "bcd", "babcd"],
+      [3,    null,    null, null, null],
+      [5,    "ee",    "ee", null, null],
+      [null, "2",    "123", "2", "123"]
     ])"),
-                      aggregated_and_grouped,
-                      /*verbose=*/true);
+        aggregated_and_grouped,
+        /*verbose=*/true);
   }
 }
 
