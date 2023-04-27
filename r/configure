@@ -207,6 +207,44 @@ do_autobrew () {
   # TODO: move PKG_LIBS and PKG_CFLAGS out of autobrew because we handle them below
 }
 
+check_versions () {
+  R_VERSION="$1"
+  CPP_VERSION="$2"
+
+  # 1. Check x.y.z versions. If they do not match, fail
+  R_RELEASE=`echo $R_VERSION | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+).*/\1/'`
+  CPP_RELEASE=`echo $CPP_VERSION | sed -E -e 's/([0-9]+\.[0-9]+\.[0-9]+).*/\1/'`
+  if [ "$R_RELEASE" != "$CPP_RELEASE" ]; then
+    echo "**** Found C++ library version $CPP_VERSION but R package is $R_VERSION"
+    VERSIONS_OK="false"
+  else
+    # 2. Check the dev versions
+    echo $R_VERSION | grep -e '9000$' >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+      R_VERSION_IS_DEV="true"
+    fi
+    echo $CPP_VERSION | grep -e 'SNAPSHOT$' >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+      CPP_VERSION_IS_DEV="true"
+      if [ "$R_VERSION_IS_DEV" = "true" ]; then
+        # Both are dev, so give a gentle warning that you may need to update if there are probems
+        echo "**** Packages are both on development versions ($CPP_VERSION, $R_VERSION)"
+        echo "**** If installation fails, rebuild the C++ library to match the R version"
+        echo "**** or retry with FORCE_BUNDLED_BUILD=true"
+      else
+        # C++ is dev but R is not
+        echo "**** Found C++ library version $CPP_VERSION but R package is $R_VERSION"
+        VERSIONS_OK="false"
+      fi
+    elif [ "$R_VERSION_IS_DEV" = "true" ]; then
+      # R is dev but C++ is not
+      echo "**** Found C++ library version $CPP_VERSION but R package is $R_VERSION"
+      VERSIONS_OK="false"
+    fi
+  fi
+  # Add ALLOW_VERSION_MISMATCH env var to override? (Could be useful for debugging)
+}
+
 ########################
 
 #### Now we're ready to find/build libarrow
@@ -228,14 +266,8 @@ elif [ "$ARROW_USE_PKG_CONFIG" != "false" ] && pkg-config ${PKG_CONFIG_NAME}; th
 
   # Check for version mismatch
   PC_LIB_VERSION=`pkg-config --modversion arrow`
-  echo $PC_LIB_VERSION | grep -e 'SNAPSHOT$' >/dev/null 2>&1
-  # If on a release (i.e. not SNAPSHOT) and version != R package version, warn
-  if [ $? -eq 1 ] && [ "$PC_LIB_VERSION" != "$VERSION" ]; then
-    echo "**** Warning: library version mismatch"
-    echo "**** C++ is $PC_LIB_VERSION but R is $VERSION"
-    echo "**** If installation fails, upgrade the C++ library to match"
-    echo "**** or retry with ARROW_USE_PKG_CONFIG=false"
-  fi
+  check_versions $VERSION $PC_LIB_VERSION
+  # TODO(here): move this to after all finding, and if VERSIONS_OK = "false", fall back to bundle
 elif [ "$UNAME" = "Darwin" ]; then
   # 3a. On macOS, look for Homebrew apache-arrow
   #     (note that if you have pkg-config, homebrew arrow will have already been found)
@@ -258,11 +290,7 @@ fi
 # TODO(here): factor out all of the PKG_LIBS/DIRS/CFLAGS setting above, and use two cases:
 # pkg-config or not. Set:
 # export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-# Then add version check:
-# * if major versions don't match, fail
-# * else if both aren't dev versions, fail 
-# * else if libarrow found not built, warn that updating may be needed if there's an error
-# Add ALLOW_VERSION_MISMATCH env var to override? (Could be useful for debugging)
+# Then do version check
 
 # TODO(here, above here actually): separate the find vs build steps and do version check before building
 # If version check fails, proceed to building
