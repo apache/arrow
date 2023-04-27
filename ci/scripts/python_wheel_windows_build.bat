@@ -126,6 +126,8 @@ python setup.py bdist_wheel || exit /B 1
 
 @REM Repair the wheel with delvewheel
 pip install delvewheel || exit /B 1
-delvewheel repair dist\pyarrow-*.whl -w repaired_wheels || exit /B 1
-delvewheel show dist\pyarrow-*.whl || exit /B 1
+for /f %%i in ('dir dist\pyarrow-*.whl /B') do set WHEEL_NAME=dist\%%i || exit /B 1
+echo "Wheel name: %WHEEL_NAME%"
+delvewheel repair %WHEEL_NAME% -w repaired_wheels || exit /B 1
+delvewheel show %WHEEL_NAME% || exit /B 1
 popd
