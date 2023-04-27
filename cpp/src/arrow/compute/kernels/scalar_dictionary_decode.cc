@@ -42,11 +42,11 @@ using internal::ToTypeName;
 namespace compute {
 namespace internal {
 
-const FunctionDoc dictionary_decode_doc{
-    "decode a dictionary array to normal array",
-    ("decode a dictionary array to normal array, which is implemented by cast"),
-    {""},
-    "null",false};
+const FunctionDoc dictionary_decode_doc{"decode a dictionary array to normal array",
+                                        ("The input must be a dictionary encoded array."
+                                         "The function decode a dictionary array to "
+                                         "normal array, which is implemented by cast"),
+                                        {"dictionary_array"}};
 class DictionaryDecodeMetaFunction : public MetaFunction {
  public:
   DictionaryDecodeMetaFunction()
@@ -55,11 +55,30 @@ class DictionaryDecodeMetaFunction : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    return null;
+    if (args[0].type() == nullptr || args[0].type()->id() != Type::DICTIONARY) {
+      return Status::Invalid("Invalid input type for function 'dictonary decode': ",
+                             args[0].ToString());
+    }
+    CastOptions castOption(true);  // safe cast
+    if (args[0].is_array()) {
+      ARROW_CHECK_NE(args[0].array()->dictionary, nullptr);
+      TypeHolder to_type(args[0].array()->dictionary->type);
+      castOption.to_type = to_type;
+      return CallFunction("cast", args, &castOption, ctx);
+    } else if (args[0].is_chunked_array()) {
+      ARROW_CHECK_NE(args[0].chunked_array()->chunk(0), nullptr);
+      ARROW_CHECK_NE(args[0].chunked_array()->chunk(0)->data(), nullptr);
+      ARROW_CHECK_NE(args[0].chunked_array()->chunk(0)->data()->dictionary, nullptr);
+      TypeHolder to_type(args[0].chunked_array()->chunk(0)->data()->dictionary->type);
+      castOption.to_type = to_type;
+      return CallFunction("cast", args, &castOption, ctx);
+    } else {
+      return Status::Invalid("Invalid input type for function 'dictonary decode': ",
+                             args[0].ToString());
+    }
   }
 };
-
 }  // namespace internal
-}  // namespace compute
 
+}  // namespace compute
 }  // namespace arrow
