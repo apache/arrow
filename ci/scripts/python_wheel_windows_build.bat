@@ -126,6 +126,6 @@ python setup.py bdist_wheel || exit /B 1
 
 @REM Repair the wheel with delvewheel
 pip install delvewheel || exit /B 1
-delvewheel repair -L . dist\pyarrow-*.whl -w repaired_wheels || exit /B 1
+delvewheel repair dist\pyarrow-*.whl -w repaired_wheels || exit /B 1
 delvewheel show dist\pyarrow-*.whl || exit /B 1
 popd
