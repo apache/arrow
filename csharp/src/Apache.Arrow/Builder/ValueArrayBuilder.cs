@@ -182,10 +182,10 @@ namespace Apache.Arrow.Builder
         public virtual VariableValueArrayBuilder<T> AppendValue(ReadOnlySpan<T> value, bool isValid = true)
             => isValid ? AppendValue(value) : AppendNull() as VariableValueArrayBuilder<T>;
 
-        public virtual VariableValueArrayBuilder<T> AppendValues(IEnumerable<T[]> values)
+        public virtual VariableValueArrayBuilder<T> AppendValues(ICollection<T[]> values)
         {
             Span<T> memory = new T[values.Sum(row => row.Length)];
-            Span<int> offsets = new int[values.Count()];
+            Span<int> offsets = new int[values.Count];
             Span<bool> mask = new bool[offsets.Length];
             int offset = 0;
             int currentOffset = CurrentOffset;
