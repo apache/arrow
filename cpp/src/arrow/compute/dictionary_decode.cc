@@ -79,6 +79,7 @@ class DictionaryDecodeMetaFunction : public MetaFunction {
   }
 };
 }  // namespace
+
 void RegisterDictionaryDecode(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<DictionaryDecodeMetaFunction>()));
 }

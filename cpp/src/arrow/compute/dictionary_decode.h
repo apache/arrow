@@ -41,25 +41,21 @@ class ExecContext;
 // Convenience invocation APIs for a number of kernels
 
 /// \brief decode a dictionary encoded array to normal array
-/// \param[in] value array to cast
+/// \param[in] value dictionary array to decode
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting array
 ///
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> DictionaryDecode(const Array& value,
-                                                ExecContext* ctx = NULLPTR) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, DictionaryDecode(Datum(value), ctx));
-  return result.make_array();
-}
+                                                ExecContext* ctx = NULLPTR);
 
 /// \brief decode a dictionary encoded array to normal array
-/// \param[in] value array to cast
+/// \param[in] value dictionary array to decode
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-Result<Datum> DictionaryDecode(const Datum& value, ExecContext* ctx = NULLPTR) {
-  return CallFunction("dictionary_decode", {value}, ctx);
-}
+ARROW_EXPORT
+Result<Datum> DictionaryDecode(const Datum& value, ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow
