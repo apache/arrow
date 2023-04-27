@@ -1714,6 +1714,7 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
     last_is_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
 
     has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_any_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     return Status::OK();
   }
 
@@ -1728,6 +1729,7 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
     RETURN_NOT_OK(has_values_.Append(added_groups, false));
     RETURN_NOT_OK(first_is_nulls_.Append(added_groups, false));
     RETURN_NOT_OK(last_is_nulls_.Append(added_groups, false));
+    RETURN_NOT_OK(has_any_values_.Append(added_groups, false));
     return Status::OK();
   }
 
@@ -1735,6 +1737,7 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
     auto raw_firsts = firsts_.mutable_data();
     auto raw_lasts = lasts_.mutable_data();
     auto raw_has_values = has_values_.mutable_data();
+    auto raw_has_any_values = has_any_values_.mutable_data();
     auto raw_first_is_nulls = first_is_nulls_.mutable_data();
     auto raw_last_is_nulls = last_is_nulls_.mutable_data();
 
@@ -1744,6 +1747,7 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
           if (!bit_util::GetBit(raw_has_values, g)) {
             GetSet::Set(raw_firsts, g, val);
             bit_util::SetBit(raw_has_values, g);
+            bit_util::SetBit(raw_has_any_values, g);
           }
           // No not need to set first_is_nulls because
           // Once first_is_nulls is set to true it never
@@ -1757,6 +1761,7 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
           // before we see any non-null values
           if (!bit_util::GetBit(raw_has_values, g)) {
             bit_util::SetBit(raw_first_is_nulls, g);
+            bit_util::SetBit(raw_has_any_values, g);
           }
           bit_util::SetBit(raw_last_is_nulls, g);
         });
@@ -1774,11 +1779,14 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
     auto raw_firsts = firsts_.mutable_data();
     auto raw_lasts = lasts_.mutable_data();
     auto raw_has_values = has_values_.mutable_data();
+    auto raw_has_any_values = has_any_values_.mutable_data();
+    auto raw_first_is_nulls = first_is_nulls_.mutable_data();
     auto raw_last_is_nulls = last_is_nulls_.mutable_data();
 
     auto other_raw_firsts = other->firsts_.mutable_data();
     auto other_raw_lasts = other->lasts_.mutable_data();
     auto other_raw_has_values = other->has_values_.mutable_data();
+    auto other_raw_has_any_values = other->has_values_.mutable_data();
     auto other_raw_last_is_nulls = other->last_is_nulls_.mutable_data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
@@ -1793,12 +1801,22 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
       if (bit_util::GetBit(other_raw_has_values, other_g)) {
         GetSet::Set(raw_lasts, *g, GetSet::Get(other_raw_lasts, other_g));
       }
+      // If the current state doesn't have any nulls (null or non-null), then
+      // We take the "first_is_null" from rhs
+      if (!bit_util::GetBit(raw_has_any_values, *g)) {
+        bit_util::SetBitTo(raw_first_is_nulls, *g,
+                           bit_util::GetBit(other->first_is_nulls_.data(), other_g));
+      }
+      if (bit_util::GetBit(other_raw_last_is_nulls, other_g)) {
+        bit_util::SetBit(raw_last_is_nulls, *g);
+      }
 
       if (bit_util::GetBit(other_raw_has_values, other_g)) {
         bit_util::SetBit(raw_has_values, *g);
       }
-      if (bit_util::GetBit(other_raw_last_is_nulls, other_g)) {
-        bit_util::SetBit(raw_last_is_nulls, *g);
+
+      if (bit_util::GetBit(other_raw_has_any_values, other_g)) {
+        bit_util::SetBit(raw_has_any_values, *g);
       }
     }
     return Status::OK();
@@ -1859,7 +1877,9 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
 
   int64_t num_groups_;
   TypedBufferBuilder<CType> firsts_, lasts_;
-  TypedBufferBuilder<bool> has_values_, first_is_nulls_, last_is_nulls_;
+  // has_values is true if there is non-null values
+  // has_any_values is true if there is either null or non-null values
+  TypedBufferBuilder<bool> has_values_, has_any_values_, first_is_nulls_, last_is_nulls_;
   std::shared_ptr<DataType> type_;
   ScalarAggregateOptions options_;
 };
@@ -1881,6 +1901,7 @@ struct GroupedFirstLastImpl<Type,
     first_is_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     last_is_nulls_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     has_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_any_values_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     return Status::OK();
   }
 
@@ -1891,6 +1912,7 @@ struct GroupedFirstLastImpl<Type,
     firsts_.resize(new_num_groups);
     lasts_.resize(new_num_groups);
     RETURN_NOT_OK(has_values_.Append(added_groups, false));
+    RETURN_NOT_OK(has_any_values_.Append(added_groups, false));
     RETURN_NOT_OK(first_is_nulls_.Append(added_groups, false));
     RETURN_NOT_OK(last_is_nulls_.Append(added_groups, false));
     return Status::OK();
@@ -1898,6 +1920,7 @@ struct GroupedFirstLastImpl<Type,
 
   Status Consume(const ExecSpan& batch) override {
     auto raw_has_values = has_values_.mutable_data();
+    auto raw_has_any_values = has_any_values_.mutable_data();
     auto raw_first_is_nulls = first_is_nulls_.mutable_data();
     auto raw_last_is_nulls = last_is_nulls_.mutable_data();
 
@@ -1907,6 +1930,7 @@ struct GroupedFirstLastImpl<Type,
           if (!firsts_[g]) {
             firsts_[g].emplace(val.data(), val.size(), allocator_);
             bit_util::SetBit(raw_has_values, g);
+            bit_util::SetBit(raw_has_any_values, g);
           }
           bit_util::SetBitTo(raw_last_is_nulls, g, false);
           lasts_[g].emplace(val.data(), val.size(), allocator_);
@@ -1915,6 +1939,7 @@ struct GroupedFirstLastImpl<Type,
         [&](uint32_t g) {
           if (!bit_util::GetBit(raw_has_values, g)) {
             bit_util::SetBit(raw_first_is_nulls, g);
+            bit_util::SetBit(raw_has_any_values, g);
           }
           bit_util::SetBit(raw_last_is_nulls, g);
           return Status::OK();
@@ -1932,11 +1957,18 @@ struct GroupedFirstLastImpl<Type,
       }
       lasts_[*g] = std::move(other->lasts_[other_g]);
 
-      if (bit_util::GetBit(other->has_values_.data(), other_g)) {
-        bit_util::SetBit(has_values_.mutable_data(), *g);
+      if (!bit_util::GetBit(has_any_values_.data(), *g)) {
+        bit_util::SetBitTo(first_is_nulls_.mutable_data(), *g,
+                           bit_util::GetBit(other->first_is_nulls_.data(), other_g));
       }
       if (bit_util::GetBit(other->last_is_nulls_.data(), other_g)) {
         bit_util::SetBit(last_is_nulls_.mutable_data(), *g);
+      }
+      if (bit_util::GetBit(other->has_values_.data(), other_g)) {
+        bit_util::SetBit(has_values_.mutable_data(), *g);
+      }
+      if (bit_util::GetBit(other->has_any_values_.data(), other_g)) {
+        bit_util::SetBit(has_any_values_.mutable_data(), *g);
       }
     }
     return Status::OK();
@@ -2057,7 +2089,7 @@ struct GroupedFirstLastImpl<Type,
   Allocator allocator_;
   int64_t num_groups_;
   std::vector<std::optional<StringType>> firsts_, lasts_;
-  TypedBufferBuilder<bool> has_values_, first_is_nulls_, last_is_nulls_;
+  TypedBufferBuilder<bool> has_values_, has_any_values_, first_is_nulls_, last_is_nulls_;
   std::shared_ptr<DataType> type_;
   ScalarAggregateOptions options_;
 };

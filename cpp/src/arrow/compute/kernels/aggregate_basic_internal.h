@@ -284,10 +284,11 @@ struct FirstLastState<ArrowType, enable_if_boolean<ArrowType>> {
 
   ThisType& operator+=(const ThisType& rhs) {
     this->first = this->has_values ? this->first : rhs.first;
-    this->first_is_null = !this->empty ? this->first_is_null : rhs.first_is_null;
+    this->first_is_null = this->has_any_values ? this->first_is_null : rhs.first_is_null;
     this->last = rhs.has_values ? rhs.last : this->last;
     this->last_is_null = rhs.last_is_null;
     this->has_values |= rhs.has_values;
+    this->has_any_values |= rhs.has_any_values;
     return *this;
   }
 
@@ -302,10 +303,9 @@ struct FirstLastState<ArrowType, enable_if_boolean<ArrowType>> {
   T first = false;
   T last = false;
   bool has_values = false;
-  // These are updated in ConsumeScalar and ConsumeArray
   bool first_is_null = false;
   bool last_is_null = false;
-  bool empty = true;
+  bool has_any_values = false;
 };
 
 template <typename ArrowType>
@@ -316,11 +316,11 @@ struct FirstLastState<ArrowType, enable_if_physical_integer<ArrowType>> {
 
   ThisType& operator+=(const ThisType& rhs) {
     this->first = this->has_values ? this->first : rhs.first;
-    this->first_is_null = !this->empty ? this->first_is_null : rhs.first_is_null;
+    this->first_is_null = this->has_any_values ? this->first_is_null : rhs.first_is_null;
     this->last = rhs.has_values ? rhs.last : this->last;
     this->last_is_null = rhs.last_is_null;
     this->has_values |= rhs.has_values;
-    this->empty &= rhs.empty;
+    this->has_any_values |= rhs.has_any_values;
     return *this;
   }
 
@@ -336,15 +336,16 @@ struct FirstLastState<ArrowType, enable_if_physical_integer<ArrowType>> {
   T last = std::numeric_limits<T>::infinity();
   bool has_values = false;
 
-  // These are updated in ConsumeScalar and ConsumeArray
+  // These are updated in ConsumeScalar and ConsumeArray since null values don't
+  // invoke MergeOne
   bool first_is_null = false;
   bool last_is_null = false;
-  // Empty means this is no values in this state (either null or non-null)
-  // (1) empty = true: There is no value aggregated
-  // (2) empty = false, has_values = false: There are only null values aggregated
-  // (3) empty = false, has_values = true: There are both null and non-null values
+  // has_any_values indicates whether there is any value (either null or non-null)
+  // (1) has_any_values = false: There is no value aggregated
+  // (2) has_any_values = true, has_values = false: There are only null values aggregated
+  // (3) has_any_values = true, has_values = true: There are both null and non-null values
   // aggregated
-  bool empty = true;
+  bool has_any_values = false;
 };
 
 template <typename ArrowType>
@@ -355,10 +356,11 @@ struct FirstLastState<ArrowType, enable_if_floating_point<ArrowType>> {
 
   ThisType& operator+=(const ThisType& rhs) {
     this->first = this->has_values ? this->first : rhs.first;
-    this->first_is_null = !this->empty ? this->first_is_null : rhs.first_is_null;
     this->last = rhs.has_values ? rhs.last : this->last;
+    this->first_is_null = this->has_any_values ? this->first_is_null : rhs.first_is_null;
     this->last_is_null = rhs.last_is_null;
     this->has_values |= rhs.has_values;
+    this->has_any_values |= rhs.has_any_values;
     return *this;
   }
 
@@ -373,10 +375,9 @@ struct FirstLastState<ArrowType, enable_if_floating_point<ArrowType>> {
   T first = std::numeric_limits<T>::infinity();
   T last = std::numeric_limits<T>::infinity();
   bool has_values = false;
-  // These are updated in ConsumeScalar and ConsumeArray
   bool first_is_null = false;
   bool last_is_null = false;
-  bool empty = true;
+  bool has_any_values = false;
 };
 
 template <typename ArrowType>
@@ -388,10 +389,11 @@ struct FirstLastState<ArrowType,
 
   ThisType& operator+=(const ThisType& rhs) {
     this->first = this->has_values ? this->first : rhs.first;
-    this->first_is_null = !this->empty ? this->first_is_null : rhs.first_is_null;
     this->last = rhs.has_values ? rhs.last : this->last;
+    this->first_is_null = this->has_any_values ? this->first_is_null : rhs.first_is_null;
     this->last_is_null = rhs.last_is_null;
     this->has_values |= rhs.has_values;
+    this->has_any_values |= rhs.has_any_values;
     return *this;
   }
 
@@ -406,10 +408,9 @@ struct FirstLastState<ArrowType,
   std::string first = "";
   std::string last = "";
   bool has_values = false;
-  // These are updated in ConsumeScalar and ConsumeArray
   bool first_is_null = false;
   bool last_is_null = false;
-  bool empty = true;
+  bool has_any_values = false;
 };
 
 template <typename ArrowType>
@@ -431,7 +432,7 @@ struct FirstLastImpl : public ScalarAggregator {
   }
 
   Status ConsumeScalar(const Scalar& scalar) {
-    this->state.empty = false;
+    this->state.has_any_values = true;
     if (scalar.is_valid) {
       this->state.MergeOne(internal::UnboxScalar<ArrowType>::Unbox(scalar));
     } else {
@@ -444,7 +445,7 @@ struct FirstLastImpl : public ScalarAggregator {
   }
 
   Status ConsumeArray(const ArraySpan& arr_span) {
-    this->state.empty = false;
+    this->state.has_any_values = true;
     ArrayType arr(arr_span.ToArrayData());
     const auto null_count = arr.null_count();
     this->count += arr.length() - null_count;
