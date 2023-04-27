@@ -712,6 +712,10 @@ dataset___CsvFileFormat__Make <- function(parse_options, convert_options, read_o
   .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options, convert_options, read_options)
 }
 
+dataset___JsonFileFormat__Make <- function(parse_options, read_options) {
+  .Call(`_arrow_dataset___JsonFileFormat__Make`, parse_options, read_options)
+}
+
 dataset___FragmentScanOptions__type_name <- function(fragment_scan_options) {
   .Call(`_arrow_dataset___FragmentScanOptions__type_name`, fragment_scan_options)
 }

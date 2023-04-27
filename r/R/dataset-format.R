@@ -136,7 +136,8 @@ JsonFileFormat <- R6Class("JsonFileFormat", inherit = FileFormat)
 JsonFileFormat$create <- function(...) {
   options <- JsonFragmentScanOptions$create(...)
   check_schema(options[["schema"]], options[["read_options"]]$column_names)
-  dataset___JsonFileFormat__Make(options$parse_options, options$read_options)
+
+  dataset___JsonFileFormat__Make(options)
 }
 
 
