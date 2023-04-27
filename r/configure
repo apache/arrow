@@ -98,7 +98,7 @@ find_arrow () {
   if [ "$ARROW_HOME" ] && [ -d "$ARROW_HOME" ]; then
     # 1. ARROW_HOME is a directory you've built and installed libarrow into.
     #    If the env var is set, we use it
-    echo "*** Using ARROW_HOME as the source of libarrow"
+    echo "*** Trying ARROW_HOME as the source of libarrow"
     set_pkg_vars_without_pc $ARROW_HOME
   elif [ "$ARROW_USE_PKG_CONFIG" != "false" ] && pkg-config ${PKG_CONFIG_NAME}; then
     # 2. Use pkg-config to find arrow on the system
@@ -107,7 +107,7 @@ find_arrow () {
   elif [ "$UNAME" = "Darwin" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
     # 3. On macOS, look for Homebrew apache-arrow
     #    (note that if you have pkg-config, homebrew arrow will have already been found)
-    echo "*** Using Homebrew ${PKG_BREW_NAME}"
+    echo "*** Trying Homebrew ${PKG_BREW_NAME}"
     BREWDIR=`brew --prefix ${PKG_BREW_NAME}`
     set_pkg_vars_without_pc $BREWDIR
   else
@@ -117,17 +117,22 @@ find_arrow () {
   if [ "$_LIBARROW_FOUND" != "false" ]; then
     # Check for version mismatch
     # Preserve original PKG_CONFIG_PATH, add ${LIB_DIR}/pkgconfig to it if needed
+    OLD_PKG_CONFIG_PATH="${PKG_CONFIG_PATH}"
     if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
-      OLD_PKG_CONFIG_PATH="${PKG_CONFIG_PATH}"
       export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
       PC_LIB_VERSION=`pkg-config --modversion arrow`
     else
       # grep arrow.pc for it?
       echo "todo"
     fi
-    check_versions $VERSION $PC_LIB_VERSION
-    if [ "$VERSIONS_OK" = "false" ]; then
+    # This is in an R script for convenience and testability. 
+    # Success means the found C++ library is ok to use.
+    # Error means the versions don't line up and we shouldn't use it.
+    # More specific messaging to the user is in the R script
+    ${R_HOME}/bin/Rscript tools/check-versions.R $VERSION $PC_LIB_VERSION 2> /dev/null
+    if [ $? -eq 1 ]; then
       _LIBARROW_FOUND="false"
+      # Reset the path since we don't want to use this library
       PKG_CONFIG_PATH="${OLD_PKG_CONFIG_PATH}"
     else
       # TODO(here): set_pkg_vars_with/without_pc down here. (goal is to factor it out entirely)
@@ -190,7 +195,6 @@ do_bundled_build () {
   fi
   if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ] && \
         [ "${PKG_CONFIG_AVAILABLE}" = "false" ]; then
-    # Should this also respect ARROW_USE_PKG_CONFIG?
     export ARROW_DEPENDENCY_SOURCE=BUNDLED
     echo "**** pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED"
   fi
@@ -261,46 +265,6 @@ do_autobrew () {
   fi
   # autobrew sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
   # TODO: move PKG_LIBS and PKG_CFLAGS out of autobrew because we handle them below
-}
-
-check_versions () {
-  R_VERSION="$1"
-  CPP_VERSION="$2"
-
-  # 1. Check x.y.z versions. If they do not match, fail
-  R_RELEASE=`echo $R_VERSION | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+).*/\1/'`
-  CPP_RELEASE=`echo $CPP_VERSION | sed -E -e 's/([0-9]+\.[0-9]+\.[0-9]+).*/\1/'`
-  if [ "$R_RELEASE" != "$CPP_RELEASE" ]; then
-    # TODO: deal with the +1 issue
-    # **** Found C++ library version 12.0.0-SNAPSHOT but R package is 11.0.0.9000
-    echo "**** Found C++ library version $CPP_VERSION but R package is $R_VERSION"
-    VERSIONS_OK="false"
-  else
-    # 2. Check the dev versions
-    echo $R_VERSION | grep -e '9000$' >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-      R_VERSION_IS_DEV="true"
-    fi
-    echo $CPP_VERSION | grep -e 'SNAPSHOT$' >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-      CPP_VERSION_IS_DEV="true"
-      if [ "$R_VERSION_IS_DEV" = "true" ]; then
-        # Both are dev, so give a gentle warning that you may need to update if there are probems
-        echo "**** Packages are both on development versions ($CPP_VERSION, $R_VERSION)"
-        echo "**** If installation fails, rebuild the C++ library to match the R version"
-        echo "**** or retry with FORCE_BUNDLED_BUILD=true"
-      else
-        # C++ is dev but R is not
-        echo "**** Found C++ library version $CPP_VERSION but R package is $R_VERSION"
-        VERSIONS_OK="false"
-      fi
-    elif [ "$R_VERSION_IS_DEV" = "true" ]; then
-      # R is dev but C++ is not
-      echo "**** Found C++ library version $CPP_VERSION but R package is $R_VERSION"
-      VERSIONS_OK="false"
-    fi
-  fi
-  # Add ALLOW_VERSION_MISMATCH env var to override? (Could be useful for debugging)
 }
 
 ########################
