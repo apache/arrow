@@ -94,13 +94,69 @@ else
   ARROW_USE_PKG_CONFIG="false"
 fi
 
-use_arrow_home () {
-  echo "*** Using ARROW_HOME as the source of libarrow"
-  # Should we test that ARROW_HOME exists?
-  PKG_CFLAGS="-I$ARROW_HOME/include $PKG_CFLAGS"
+find_arrow () {
+  if [ "$ARROW_HOME" ] && [ -d "$ARROW_HOME" ]; then
+    # 1. ARROW_HOME is a directory you've built and installed libarrow into.
+    #    If the env var is set, we use it
+    echo "*** Using ARROW_HOME as the source of libarrow"
+    set_pkg_vars_without_pc $ARROW_HOME
+  elif [ "$ARROW_USE_PKG_CONFIG" != "false" ] && pkg-config ${PKG_CONFIG_NAME}; then
+    # 2. Use pkg-config to find arrow on the system
+    set_pkg_vars_with_pc
+    echo "*** Arrow C++ libraries found via pkg-config at $LIB_DIR"
+  elif [ "$UNAME" = "Darwin" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
+    # 3. On macOS, look for Homebrew apache-arrow
+    #    (note that if you have pkg-config, homebrew arrow will have already been found)
+    echo "*** Using Homebrew ${PKG_BREW_NAME}"
+    BREWDIR=`brew --prefix ${PKG_BREW_NAME}`
+    set_pkg_vars_without_pc $BREWDIR
+  else
+    _LIBARROW_FOUND="false"
+  fi
+
+  if [ "$_LIBARROW_FOUND" != "false" ]; then
+    # Check for version mismatch
+    # Preserve original PKG_CONFIG_PATH, add ${LIB_DIR}/pkgconfig to it if needed
+    if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+      OLD_PKG_CONFIG_PATH="${PKG_CONFIG_PATH}"
+      export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+      PC_LIB_VERSION=`pkg-config --modversion arrow`
+    else
+      # grep arrow.pc for it?
+      echo "todo"
+    fi
+    check_versions $VERSION $PC_LIB_VERSION
+    if [ "$VERSIONS_OK" = "false" ]; then
+      _LIBARROW_FOUND="false"
+      PKG_CONFIG_PATH="${OLD_PKG_CONFIG_PATH}"
+    else
+      # TODO(here): set_pkg_vars_with/without_pc down here. (goal is to factor it out entirely)
+      echo "todo"
+    fi
+  fi
+}
+
+set_pkg_vars_with_pc () {
+  PKG_CFLAGS="`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
+  PKG_LIBS=`pkg-config --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
+  PKG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
+  LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
+}
+
+set_pkg_vars_without_pc () {
+  LIB_DIR="$1/lib"
+  PKG_CFLAGS="-I$1/include $PKG_CFLAGS"
+  if grep -q "_GLIBCXX_USE_CXX11_ABI=0" "${LIB_DIR}/pkgconfig/arrow.pc"; then
+    PKG_CFLAGS="${PKG_CFLAGS} -D_GLIBCXX_USE_CXX11_ABI=0"
+  fi
+  PKG_DIRS="-L${LIB_DIR}"
+  if [ "${OPENSSL_ROOT_DIR}" != "" ]; then
+    PKG_DIRS="${PKG_DIRS} -L${OPENSSL_ROOT_DIR}/lib"
+  fi
   PKG_LIBS="-larrow"
-  LIB_DIR="$ARROW_HOME/lib"
-  PKG_DIRS="-L$LIB_DIR"
+  if [ -n "$(find "$LIB_DIR" -name 'libarrow_bundled_dependencies.*')" ]; then
+    PKG_LIBS="$PKG_LIBS -larrow_bundled_dependencies"
+  fi
 }
 
 do_bundled_build () {
@@ -215,6 +271,8 @@ check_versions () {
   R_RELEASE=`echo $R_VERSION | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+).*/\1/'`
   CPP_RELEASE=`echo $CPP_VERSION | sed -E -e 's/([0-9]+\.[0-9]+\.[0-9]+).*/\1/'`
   if [ "$R_RELEASE" != "$CPP_RELEASE" ]; then
+    # TODO: deal with the +1 issue
+    # **** Found C++ library version 12.0.0-SNAPSHOT but R package is 11.0.0.9000
     echo "**** Found C++ library version $CPP_VERSION but R package is $R_VERSION"
     VERSIONS_OK="false"
   else
@@ -252,48 +310,18 @@ if [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
   do_bundled_build
 elif [ "$FORCE_AUTOBREW" = "true" ]; then
   do_autobrew
-elif [ "$ARROW_HOME" ]; then
-  # 1. ARROW_HOME is a directory you've built and installed libarrow into.
-  #    If the env var is set, we use it
-  use_arrow_home
-elif [ "$ARROW_USE_PKG_CONFIG" != "false" ] && pkg-config ${PKG_CONFIG_NAME}; then
-  # 2. Use pkg-config to find arrow on the system
-  PKG_CFLAGS="`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
-  PKG_LIBS=`pkg-config --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
-  PKG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
-  LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
-  echo "*** Arrow C++ libraries found via pkg-config at $FOUND_LIB_DIR"
-
-  # Check for version mismatch
-  PC_LIB_VERSION=`pkg-config --modversion arrow`
-  check_versions $VERSION $PC_LIB_VERSION
-  # TODO(here): move this to after all finding, and if VERSIONS_OK = "false", fall back to bundle
-elif [ "$UNAME" = "Darwin" ]; then
-  # 3a. On macOS, look for Homebrew apache-arrow
-  #     (note that if you have pkg-config, homebrew arrow will have already been found)
-  if [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
-    echo "*** Using Homebrew ${PKG_BREW_NAME}"
-    BREWDIR=`brew --prefix ${PKG_BREW_NAME}`
-    LIB_DIR="$BREWDIR/lib"
-    PKG_LIBS="-larrow -larrow_bundled_dependencies"
-    PKG_DIRS="-L$LIB_DIR $PKG_DIRS"
-    PKG_CFLAGS="-I$BREWDIR/include $PKG_CFLAGS"
-  else
-    # 3b. Use autobrew
-    do_autobrew
-  fi
 else
-  # 4. Do a libarrow build from source (bundled)
-  do_bundled_build
+  find_arrow
+  if [ "$_LIBARROW_FOUND" = "false" ]; then
+    # If we haven't found a suitable version of libarrow, build it
+    if [ "$UNAME" = "Darwin" ]; then
+      # TODO(here): don't use autobrew on dev version (for testing use FORCE_AUTOBREW above)
+      do_autobrew
+    else
+      do_bundled_build
+    fi
+  fi
 fi
-
-# TODO(here): factor out all of the PKG_LIBS/DIRS/CFLAGS setting above, and use two cases:
-# pkg-config or not. Set:
-# export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-# Then do version check
-
-# TODO(here, above here actually): separate the find vs build steps and do version check before building
-# If version check fails, proceed to building
 
 # Add a few more flags, and then we can run a test progam
 
