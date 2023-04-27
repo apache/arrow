@@ -522,6 +522,8 @@ struct FirstLastImpl : public ScalarAggregator {
           values = {first_scalar, last_scalar};
         }
       } else {
+        // If there is no non-null values, we always output null regardless of
+        // skip_null
         values = {null_scalar, null_scalar};
       }
     }

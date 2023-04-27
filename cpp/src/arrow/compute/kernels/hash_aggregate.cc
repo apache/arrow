@@ -1805,35 +1805,40 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
   }
 
   Result<Datum> Finalize() override {
+    // We initialize the null bitmap with first_is_nulls and last_is_nulls
+    // then update it depending on has_values
     ARROW_ASSIGN_OR_RAISE(auto first_null_bitmap, first_is_nulls_.Finish());
     ARROW_ASSIGN_OR_RAISE(auto last_null_bitmap, last_is_nulls_.Finish());
     ARROW_ASSIGN_OR_RAISE(auto has_values, has_values_.Finish());
 
-    if (!options_.skip_nulls) {
-      for (int i = 0; i < num_groups_; i++) {
-        const bool first_is_null = bit_util::GetBit(first_null_bitmap->data(), i);
-        const bool has_value = bit_util::GetBit(has_values->data(), i);
-        if (first_is_null) {
-          bit_util::SetBitTo(first_null_bitmap->mutable_data(), i, false);
-        } else {
-          bit_util::SetBitTo(first_null_bitmap->mutable_data(), i, has_value);
-        }
-      }
+    auto raw_first_null_bitmap = first_null_bitmap->mutable_data();
+    auto raw_last_null_bitmap = last_null_bitmap->mutable_data();
+    auto raw_has_values = has_values->data();
 
+    if (options_.skip_nulls) {
       for (int i = 0; i < num_groups_; i++) {
-        const bool last_is_null = bit_util::GetBit(last_null_bitmap->data(), i);
         const bool has_value = bit_util::GetBit(has_values->data(), i);
-        if (last_is_null) {
-          bit_util::SetBitTo(last_null_bitmap->mutable_data(), i, false);
-        } else {
-          bit_util::SetBitTo(last_null_bitmap->mutable_data(), i, has_value);
-        }
+        bit_util::SetBitTo(raw_first_null_bitmap, i, has_value);
+        bit_util::SetBitTo(raw_last_null_bitmap, i, has_value);
       }
     } else {
       for (int i = 0; i < num_groups_; i++) {
-        const bool has_value = bit_util::GetBit(has_values->data(), i);
-        bit_util::SetBitTo(first_null_bitmap->mutable_data(), i, has_value);
-        bit_util::SetBitTo(last_null_bitmap->mutable_data(), i, has_value);
+        // If first is null, we set the mask to false to output null
+        if (bit_util::GetBit(raw_first_null_bitmap, i)) {
+          bit_util::SetBitTo(raw_first_null_bitmap, i, false);
+        } else {
+          bit_util::SetBitTo(raw_first_null_bitmap, i,
+                             bit_util::GetBit(raw_has_values, i));
+        }
+      }
+      for (int i = 0; i < num_groups_; i++) {
+        // If last is null, we set the mask to false to output null
+        if (bit_util::GetBit(raw_last_null_bitmap, i)) {
+          bit_util::SetBitTo(raw_last_null_bitmap, i, false);
+        } else {
+          bit_util::SetBitTo(raw_last_null_bitmap, i,
+                             bit_util::GetBit(raw_has_values, i));
+        }
       }
     }
 
