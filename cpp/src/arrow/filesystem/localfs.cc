@@ -233,18 +233,21 @@ Result<FileInfo> IdentifyFile(const std::filesystem::path path) {
   return info;
 }
 
-Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
-                    int32_t nesting_depth, std::vector<FileInfo>* out) {
-  auto result = ListDir(dir_fn);
-  if (!result.ok()) {
-    auto status = result.status();
-    if (select.allow_not_found && status.IsIOError()) {
+Status SelectorFileExists(const PlatformFilename& dir_fn, bool allow_not_found, auto status) {
+    if (allow_not_found && status.IsIOError()) {
       ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(dir_fn));
       if (!exists) {
         return Status::OK();
       }
     }
     return status;
+}
+
+Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
+                    int32_t nesting_depth, std::vector<FileInfo>* out) {
+  auto result = ListDir(dir_fn);
+  if (!result.ok()) {
+    return SelectorFileExists(dir_fn, select.allow_not_found, result.status());
   }
 
   for (const auto& child_fn : *result) {
@@ -263,17 +266,15 @@ Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
 
 Status IdentifyFileSelector(const PlatformFilename& dir_fn, const FileSelector& select,
                             int32_t nesting_depth, std::vector<FileInfo>* out) {
-  ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(dir_fn));
-  if (!exists) {
-    if (select.allow_not_found) {
-      return Status::OK();
-    }
-    return Status::Invalid("No such directory: ", dir_fn.ToString());
+
+  auto result = ListDir(dir_fn);
+  if (!result.ok()) {
+    return SelectorFileExists(dir_fn, select.allow_not_found, result.status());
   }
 
-  auto result = std::filesystem::directory_iterator(dir_fn.ToString());
+  auto result_filesystem = std::filesystem::directory_iterator(dir_fn.ToString());
 
-  for (const auto& path : result) {
+  for (const auto& path : result_filesystem) {
     ARROW_ASSIGN_OR_RAISE(FileInfo info, IdentifyFile(path));
 
     if (info.type() != FileType::NotFound) {
