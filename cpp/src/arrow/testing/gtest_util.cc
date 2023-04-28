@@ -436,8 +436,8 @@ Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
   for (int i = 0; i < num_columns; i++) {
     if (std::find(column_indices.begin(), column_indices.end(), i) !=
         column_indices.end()) {
-      EXPECT_OK_AND_ASSIGN(auto run_end_encoded, compute::RunEndEncode(table.column(i)));
-      EXPECT_EQ(run_end_encoded.kind(), Datum::CHUNKED_ARRAY);
+      ARROW_ASSIGN_OR_RAISE(auto run_end_encoded, compute::RunEndEncode(table.column(i)));
+      DCHECK_EQ(run_end_encoded.kind(), Datum::CHUNKED_ARRAY);
       encoded_columns.push_back(run_end_encoded.chunked_array());
     } else {
       encoded_columns.push_back(table.column(i));
