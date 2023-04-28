@@ -27,26 +27,27 @@ check_versions <- function(r_version, cpp_version) {
   cpp_is_dev <- grepl("SNAPSHOT$", cpp_version)
   cpp_parsed <- package_version(sub("-SNAPSHOT$", "", cpp_version))
 
-  if (r_is_dev && cpp_is_dev) {
-    # R and C++ denote dev versions differently
-    # R is current.release.9000, C++ is next.release-SNAPSHOT
-    # So a "match" is if the R major version + 1 = C++ major version
-    if (as.numeric(r_parsed[1, 1]) + 1 == as.numeric(cpp_parsed[1, 1])) {
-      msg <- c(
-        sprintf("**** Packages are both on development versions (%s, %s)", cpp_version, r_version),
-        "**** If installation fails, rebuild the C++ library to match the R version",
-        "**** or retry with FORCE_BUNDLED_BUILD=true"
-      )
-      cat(paste0(msg, "\n", collapse = ""))
-    } else {
-      # TODO: these messages should make clear that we aren't using the found library
-      cat(sprintf("**** Found C++ library version %s but R package is %s\n", cpp_version, r_version))
-      stop("version mismatch")
-    }
+  major <- function(x) as.numeric(x[1, 1])
+  # R and C++ denote dev versions differently
+  # R is current.release.9000, C++ is next.release-SNAPSHOT
+  # So a "match" is if the R major version + 1 = C++ major version
+  if (r_is_dev && cpp_is_dev && major(r_parsed) + 1 == major(cpp_parsed)) {
+    msg <- c(
+      sprintf("*** > Packages are both on development versions (%s, %s)", cpp_version, r_version),
+      "*** > If installation fails, rebuild the C++ library to match the R version",
+      "*** > or retry with FORCE_BUNDLED_BUILD=true"
+    )
+    cat(paste0(msg, "\n", collapse = ""))
   } else if (r_version != cpp_version) {
-    cat(sprintf("**** Found C++ library version %s but R package is %s\n", cpp_version, r_version))
+    cat(
+      sprintf(
+        "**** Not using found C++ library: version (%s) does not match R package (%s)\n",
+        cpp_version,
+        r_version
+      )
+    )
     stop("version mismatch")
-    # Add ALLOW_VERSION_MISMATCH env var to override? (Could be useful for debugging)
+    # Add ALLOW_VERSION_MISMATCH env var to override stop()? (Could be useful for debugging)
   }
 }
 

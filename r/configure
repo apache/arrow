@@ -108,6 +108,20 @@ else
   ARROW_USE_PKG_CONFIG="false"
 fi
 
+# find openssl on macos. macOS ships with libressl. openssl is installable
+# with brew, but it is generally not linked. We can over-ride this and find
+# openssl but setting OPENSSL_ROOT_DIR (which cmake will pick up later in
+# the installation process). FWIW, arrow's cmake process uses this
+# same process to find openssl, but doing it now allows us to catch it in
+# nixlibs.R and throw a nicer error.
+if [ "$UNAME" = "Darwin" ] && [ "${OPENSSL_ROOT_DIR}" = "" ] && [ "`command -v brew`" ]; then
+  brew --prefix openssl >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    export OPENSSL_ROOT_DIR="`brew --prefix openssl`"
+    export PKG_CONFIG_PATH="${OPENSSL_ROOT_DIR}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+  fi
+fi
+
 #############
 # Functions #
 #############
@@ -116,7 +130,7 @@ fi
 # If the found library version is not compatible with the R package,
 # it won't be used.
 find_arrow () {
-  # Preserve original PKG_CONFIG_PATH, add ${LIB_DIR}/pkgconfig to it if needed
+  # Preserve original PKG_CONFIG_PATH. We'll add ${LIB_DIR}/pkgconfig to it if needed
   OLD_PKG_CONFIG_PATH="${PKG_CONFIG_PATH}"
 
   if [ "$ARROW_HOME" ] && [ -d "$ARROW_HOME" ]; then
@@ -163,35 +177,10 @@ find_arrow () {
 }
 
 do_bundled_build () {
-  # The build logic is in tools/nixlibs.R, but we do a little more configuration first
-
-  # find openssl on macos. macOS ships with libressl. openssl is installable
-  # with brew, but it is generally not linked. We can over-ride this and find
-  # openssl but setting OPENSSL_ROOT_DIR (which cmake will pick up later in
-  # the installation process). FWIW, arrow's cmake process uses this
-  # same process to find openssl, but doing it now allows us to catch it in
-  # nixlibs.R and throw a nicer error.
-  if [ "$UNAME" = "Darwin" ] && [ "${OPENSSL_ROOT_DIR}" = "" ]; then
-    brew --prefix openssl >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-      export OPENSSL_ROOT_DIR="`brew --prefix openssl`"
-      export PKG_CONFIG_PATH="${OPENSSL_ROOT_DIR}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-    fi
-  fi
-
-  if [ "${ARROW_DEPENDENCY_SOURCE}" = "" ]; then
-    export ARROW_DEPENDENCY_SOURCE=AUTO
-  fi
-  if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ] && \
-        [ "${PKG_CONFIG_AVAILABLE}" = "false" ]; then
-    export ARROW_DEPENDENCY_SOURCE=BUNDLED
-    echo "**** pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED"
-  fi
-
   ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
 
-  # Once we've done the source build, we need to inspect it to see what
-  # system libraries it may need, and set cflags/dirs/libs accordingly
+  # Handle a few special cases, using what we know about the bundled build
+  # and our ability to make edits to it since we "own" it.
   _LIBARROW_FOUND="`pwd`/libarrow/arrow-${VERSION}"
   LIB_DIR="${_LIBARROW_FOUND}/lib"
   if [ -d "$LIB_DIR" ]; then

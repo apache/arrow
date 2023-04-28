@@ -385,17 +385,16 @@ build_libarrow <- function(src_dir, dst_dir) {
   # We'll need to compile R bindings with these libs, so delete any .o files
   system("rm src/*.o", ignore.stdout = TRUE, ignore.stderr = TRUE)
   # Set up make for parallel building
+  # CRAN policy says not to use more than 2 cores during checks
+  # If you have more and want to use more, set MAKEFLAGS or NOT_CRAN
+  ncores <- parallel::detectCores()
+  if (!not_cran) {
+    ncores <- min(ncores, 2)
+  }
   makeflags <- Sys.getenv("MAKEFLAGS")
   if (makeflags == "") {
-    # CRAN policy says not to use more than 2 cores during checks
-    # If you have more and want to use more, set MAKEFLAGS or NOT_CRAN
-    ncores <- parallel::detectCores()
-    if (!not_cran) {
-      ncores <- min(ncores, 2)
-    }
     makeflags <- sprintf("-j%s", ncores)
     Sys.setenv(MAKEFLAGS = makeflags)
-    # TODO: pass ncores to build_arrow_static.sh as N_JOBS?
   }
   if (!quietly) {
     cat("*** Building with MAKEFLAGS=", makeflags, "\n")
@@ -431,8 +430,16 @@ build_libarrow <- function(src_dir, dst_dir) {
     CC = sub("^.*ccache", "", R_CMD_config("CC")),
     CXX = paste(sub("^.*ccache", "", R_CMD_config("CXX17")), R_CMD_config("CXX17STD")),
     # CXXFLAGS = R_CMD_config("CXX17FLAGS"), # We don't want the same debug symbols
-    LDFLAGS = R_CMD_config("LDFLAGS")
+    LDFLAGS = R_CMD_config("LDFLAGS"),
+    N_JOBS = ncores
   )
+
+  dep_source <- Sys.getenv("ARROW_DEPENDENCY_SOURCE")
+  if (dep_source %in% c("", "AUTO") && !nzchar(Sys.which("pkg-config"))) {
+    cat("**** pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED\n")
+    env_var_list <- c(env_var_list, ARROW_DEPENDENCY_SOURCE = "BUNDLED")
+  }
+
   env_var_list <- with_cloud_support(env_var_list)
 
   # turn_off_all_optional_features() needs to happen after

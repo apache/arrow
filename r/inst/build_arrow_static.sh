@@ -36,10 +36,12 @@ set -x
 SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
 DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
-if [ "`uname -s`" = "Darwin" ]; then
-  : ${N_JOBS:="$(sysctl -n hw.logicalcpu)"}
-else
-  : ${N_JOBS:="$(nproc)"}
+if [ "$N_JOBS" = "" ]; then
+  if [ "`uname -s`" = "Darwin" ]; then
+    N_JOBS="$(sysctl -n hw.logicalcpu)"
+  else
+    N_JOBS="$(nproc)"
+  fi
 fi
 
 # Make some env vars case-insensitive
