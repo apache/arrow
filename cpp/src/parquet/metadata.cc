@@ -505,7 +505,11 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
   }
 
   std::vector<SortingColumn> sorting_columns() const {
-    std::vector<SortingColumn> sorting_columns(row_group_->sorting_columns.size());
+    std::vector<SortingColumn> sorting_columns;
+    if (!row_group_->__isset.sorting_columns) {
+      return sorting_columns;
+    }
+    sorting_columns.resize(row_group_->sorting_columns.size());
     for (size_t i = 0; i < sorting_columns.size(); ++i) {
       sorting_columns[i].column_idx = row_group_->sorting_columns[i].column_idx;
       sorting_columns[i].descending = row_group_->sorting_columns[i].descending;
