@@ -233,14 +233,15 @@ Result<FileInfo> IdentifyFile(const std::filesystem::path path) {
   return info;
 }
 
-Status SelectorFileExists(const PlatformFilename& dir_fn, bool allow_not_found, auto status) {
-    if (allow_not_found && status.IsIOError()) {
-      ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(dir_fn));
-      if (!exists) {
-        return Status::OK();
-      }
+Status SelectorFileExists(const PlatformFilename& dir_fn, bool allow_not_found,
+                          Status status) {
+  if (allow_not_found && status.IsIOError()) {
+    ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(dir_fn));
+    if (!exists) {
+      return Status::OK();
     }
-    return status;
+  }
+  return status;
 }
 
 Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
@@ -266,7 +267,6 @@ Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
 
 Status IdentifyFileSelector(const PlatformFilename& dir_fn, const FileSelector& select,
                             int32_t nesting_depth, std::vector<FileInfo>* out) {
-
   auto result = ListDir(dir_fn);
   if (!result.ok()) {
     return SelectorFileExists(dir_fn, select.allow_not_found, result.status());

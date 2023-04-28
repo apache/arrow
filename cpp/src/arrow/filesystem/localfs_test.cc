@@ -514,7 +514,7 @@ TYPED_TEST(TestLocalFS, NeedsExtendedFileInfo) {
 #else
   selector.base_dir = "//foo//bar//baz//";
 #endif
-  ASSERT_RAISES(Invalid, this->fs_->GetFileInfo(selector));
+  ASSERT_RAISES(IOError, this->fs_->GetFileInfo(selector));
 }
 
 // TODO Should we test backslash paths on Windows?
