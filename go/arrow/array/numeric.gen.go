@@ -1126,8 +1126,7 @@ func (a *Time32) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	a.values[i].FormattedString(a.DataType().(*arrow.Time32Type).Unit)
-	return a.values[i].ToTime(a.DataType().(*arrow.Time32Type).Unit).Format("15:04:05.999999999")
+	return a.values[i].FormattedString(a.DataType().(*arrow.Time32Type).Unit)
 }
 
 func (a *Time32) GetOneForMarshal(i int) interface{} {
@@ -1217,7 +1216,7 @@ func (a *Time64) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	return a.values[i].ToTime(a.DataType().(*arrow.Time64Type).Unit).Format("15:04:05.999999999")
+	return a.values[i].FormattedString(a.DataType().(*arrow.Time64Type).Unit)
 }
 
 func (a *Time64) GetOneForMarshal(i int) interface{} {
@@ -1307,7 +1306,7 @@ func (a *Date32) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	return a.values[i].ToTime().Format("2006-01-02")
+	return a.values[i].FormattedString()
 }
 
 func (a *Date32) GetOneForMarshal(i int) interface{} {
@@ -1397,7 +1396,7 @@ func (a *Date64) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	return a.values[i].ToTime().Format("2006-01-02")
+	return a.values[i].FormattedString()
 }
 
 func (a *Date64) GetOneForMarshal(i int) interface{} {
@@ -1488,7 +1487,7 @@ func (a *Duration) ValueStr(i int) string {
 		return NullValueStr
 	}
 	// return value and suffix as a string such as "12345ms"
-	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*arrow.DurationType).Unit.String())
+	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*arrow.DurationType).Unit)
 }
 
 func (a *Duration) GetOneForMarshal(i int) interface{} {
