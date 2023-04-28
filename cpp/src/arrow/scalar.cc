@@ -62,14 +62,6 @@ namespace {
 
 // Implementation of Scalar::hash()
 struct ScalarHashImpl {
-  Status Visit(const ListViewScalar& s) {
-    return Status::NotImplemented("list-view scalar hashing");
-  }
-
-  Status Visit(const LargeListViewScalar& s) {
-    return Status::NotImplemented("large list-view scalar hashing");
-  }
-
   Status Visit(const NullScalar& s) { return Status::OK(); }
 
   template <typename T>
@@ -332,14 +324,6 @@ struct ScalarValidateImpl {
                              s.value->type()->ToString());
     }
     return Status::OK();
-  }
-
-  Status Visit(const ListViewScalar& s) {
-    return Status::NotImplemented("list-view scalar validation");
-  }
-
-  Status Visit(const LargeListViewScalar& s) {
-    return Status::NotImplemented("large list-view scalar validation");
   }
 
   Status Visit(const FixedSizeListScalar& s) {
@@ -798,14 +782,6 @@ struct MakeNullImpl {
     return Status::OK();
   }
 
-  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
-  Status VisitListLike(const T& type, int64_t value_size = 0) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> value,
-                          MakeArrayOfNull(type.value_type(), value_size));
-    out_ = std::make_shared<ScalarType>(std::move(value), type_, /*is_valid=*/false);
-    return Status::OK();
-  }
-
   Status Visit(const FixedSizeBinaryType& type) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> value,
                           AllocateBuffer(type.byte_width()));
@@ -816,18 +792,24 @@ struct MakeNullImpl {
     return Status::OK();
   }
 
-  Status Visit(const ListType& type) { return VisitListLike<ListType>(type); }
+  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
+  Status VisitListLike(const T& type, int64_t list_size = 0) {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> value,
+                          MakeArrayOfNull(type.value_type(), list_size));
+    out_ = std::make_shared<ScalarType>(std::move(value), type_, /*is_valid=*/false);
+    return Status::OK();
+  }
 
-  Status Visit(const MapType& type) { return VisitListLike<MapType>(type); }
+  Status Visit(const ListType& type) { return VisitListLike<ListType>(type); }
 
   Status Visit(const LargeListType& type) { return VisitListLike<LargeListType>(type); }
 
-  Status Visit(const ListViewType& type) {
-    return Status::NotImplemented("making null array of list-view");
-  }
+  Status Visit(const MapType& type) { return VisitListLike<MapType>(type); }
+
+  Status Visit(const ListViewType& type) { return VisitListLike<ListViewType>(type); }
 
   Status Visit(const LargeListViewType& type) {
-    return Status::NotImplemented("making null array of large list-view");
+    return VisitListLike<LargeListViewType>(type);
   }
 
   Status Visit(const FixedSizeListType& type) {

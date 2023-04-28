@@ -134,7 +134,6 @@ class ArrayDataEndianSwapper {
       out_->buffers[index] = data_->buffers[index];
       return Status::OK();
     }
-    // Except union, offset has one more element rather than data->length
     ARROW_ASSIGN_OR_RAISE(out_->buffers[index],
                           ByteSwapBuffer<VALUE_TYPE>(data_->buffers[index]));
     return Status::OK();
@@ -390,6 +389,12 @@ class NullArrayFactory {
     }
 
     template <typename T>
+    enable_if_list_view<T, Status> Visit(const T&) {
+      buffer_length_ = length_ * sizeof(typename T::offset_type);
+      return Status::OK();
+    }
+
+    template <typename T>
     enable_if_base_binary<T, Status> Visit(const T&) {
       // values buffer may be empty, but there must be at least one offset of 0
       return MaxOf(sizeof(typename T::offset_type) * (length_ + 1));
@@ -524,18 +529,10 @@ class NullArrayFactory {
   }
 
   template <typename T>
-  enable_if_var_size_list<T, Status> Visit(const T& type) {
-    out_->buffers.resize(2, buffer_);
+  enable_if_var_length_list_like<T, Status> Visit(const T& type) {
+    out_->buffers.resize(is_list_view(T::type_id) ? 3 : 2, buffer_);
     ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(type, 0, /*length=*/0));
     return Status::OK();
-  }
-
-  Status Visit(const ListViewType& type) {
-    return Status::NotImplemented("construction of all-null ", type);
-  }
-
-  Status Visit(const LargeListViewType& type) {
-    return Status::NotImplemented("construction of all-null ", type);
   }
 
   Status Visit(const FixedSizeListType& type) {
@@ -712,18 +709,26 @@ class RepeatedArrayFactory {
     std::shared_ptr<Buffer> offsets_buffer;
     auto size = static_cast<typename T::offset_type>(scalar<T>().value->length());
     RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
-
     out_ =
         std::make_shared<ArrayType>(scalar_.type, length_, offsets_buffer, value_array);
     return Status::OK();
   }
 
-  Status Visit(const ListViewType& type) {
-    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
-  }
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
+    using ScalarType = typename TypeTraits<T>::ScalarType;
+    using ArrayType = typename TypeTraits<T>::ArrayType;
 
-  Status Visit(const LargeListViewType& type) {
-    return Status::NotImplemented("construction from scalar of type ", *scalar_.type);
+    auto value = checked_cast<const ScalarType&>(scalar_).value;
+
+    auto size = static_cast<typename T::offset_type>(value->length());
+    std::shared_ptr<Buffer> offsets_buffer;
+    std::shared_ptr<Buffer> sizes_buffer;
+    RETURN_NOT_OK(CreateIntBuffer<typename T::offset_type>(0, &offsets_buffer));
+    RETURN_NOT_OK(CreateIntBuffer<typename T::offset_type>(size, &sizes_buffer));
+    out_ = std::make_shared<ArrayType>(scalar_.type, length_, std::move(offsets_buffer),
+                                       std::move(sizes_buffer), value);
+    return Status::OK();
   }
 
   Status Visit(const FixedSizeListType& type) {
@@ -872,6 +877,13 @@ class RepeatedArrayFactory {
     for (int64_t i = 0; i < length_ + 1; ++i, offset += value_length) {
       builder.UnsafeAppend(offset);
     }
+    return builder.Finish(out);
+  }
+
+  template <typename IntType>
+  Status CreateIntBuffer(IntType value, std::shared_ptr<Buffer>* out) {
+    TypedBufferBuilder<IntType> builder(pool_);
+    RETURN_NOT_OK(builder.Append(/*num_copies=*/length_, value));
     return builder.Finish(out);
   }
 

@@ -394,6 +394,10 @@ class TestRealScalar : public ::testing::Test {
 
   void TestLargeListOf() { TestListOf<LargeListScalar>(large_list(type_)); }
 
+  void TestListViewOf() { TestListOf<ListViewScalar>(list_view(type_)); }
+
+  void TestLargeListViewOf() { TestListOf<LargeListViewScalar>(large_list_view(type_)); }
+
  protected:
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Scalar> scalar_val_, scalar_other_, scalar_nan_, scalar_other_nan_,
@@ -413,6 +417,10 @@ TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 TYPED_TEST(TestRealScalar, ListOf) { this->TestListOf(); }
 
 TYPED_TEST(TestRealScalar, LargeListOf) { this->TestLargeListOf(); }
+
+TYPED_TEST(TestRealScalar, ListViewOf) { this->TestListViewOf(); }
+
+TYPED_TEST(TestRealScalar, LargeListViewOf) { this->TestLargeListViewOf(); }
 
 template <typename T>
 class TestDecimalScalar : public ::testing::Test {
