@@ -310,7 +310,13 @@ Result<compute::Aggregate> ParseAggregateMeasure(
       ARROW_ASSIGN_OR_RAISE(converter, ext_set.registry()->GetSubstraitAggregateToArrow(
                                            aggregate_call.id()));
     }
-    return converter(aggregate_call);
+    ARROW_ASSIGN_OR_RAISE(auto aggregate, converter(aggregate_call));
+    aggregate.name = aggregate.function;
+    for (auto& field_ref : aggregate.target) {
+      ARROW_ASSIGN_OR_RAISE(auto field, field_ref.GetOne(*input_schema));
+      aggregate.name += "_" + field->name();
+    }
+    return aggregate;
   } else {
     return Status::Invalid("substrait::AggregateFunction not provided");
   }

@@ -205,11 +205,6 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
       ARROW_ASSIGN_OR_RAISE(auto aggregate, internal::ParseAggregateMeasure(
                                                 agg_measure, ext_set, conv_opts,
                                                 /*is_hash=*/!keys.empty(), input_schema));
-      aggregate.name = aggregate.function;
-      for (auto& field_ref : aggregate.target) {
-        ARROW_ASSIGN_OR_RAISE(auto field, field_ref.GetOne(*input_schema));
-        aggregate.name += "_" + field->name();
-      }
       aggregates.push_back(std::move(aggregate));
     }
 
