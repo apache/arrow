@@ -1702,6 +1702,17 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
       total_compressed_size += column_builders_[i]->total_compressed_size();
     }
 
+    const auto& sorting_columns = properties_->sorting_columns();
+    if (!sorting_columns.empty()) {
+      std::vector<format::SortingColumn> thrift_sorting_columns(sorting_columns.size());
+      for (size_t i = 0; i < sorting_columns.size(); ++i) {
+        thrift_sorting_columns[i].column_idx = sorting_columns[i].column_idx;
+        thrift_sorting_columns[i].descending = sorting_columns[i].descending;
+        thrift_sorting_columns[i].nulls_first = sorting_columns[i].nulls_first;
+      }
+      row_group_->__set_sorting_columns(std::move(thrift_sorting_columns));
+    }
+
     row_group_->__set_file_offset(file_offset);
     row_group_->__set_total_compressed_size(total_compressed_size);
     row_group_->__set_total_byte_size(total_bytes_written);

@@ -466,6 +466,17 @@ class PARQUET_EXPORT WriterProperties {
       return this->enable_statistics(path->ToDotString());
     }
 
+    /// Define the sorting columns.
+    /// Default empty.
+    ///
+    /// If sorting columns are set, user should ensure that records
+    /// are sorted by sorting columns. Otherwise, the storing data
+    /// will be inconsistent with sorting_columns metadata.
+    Builder* set_sorting_columns(std::vector<SortingColumn> sorting_columns) {
+      sorting_columns_ = std::move(sorting_columns);
+      return this;
+    }
+
     /// Disable statistics for the column specified by `path`.
     /// Default enabled.
     Builder* disable_statistics(const std::string& path) {
@@ -578,7 +589,8 @@ class PARQUET_EXPORT WriterProperties {
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
           pagesize_, version_, created_by_, page_checksum_enabled_,
           std::move(file_encryption_properties_), default_column_properties_,
-          column_properties, data_page_version_, store_decimal_as_integer_));
+          column_properties, data_page_version_, store_decimal_as_integer_,
+          std::move(sorting_columns_)));
     }
 
    private:
@@ -594,6 +606,9 @@ class PARQUET_EXPORT WriterProperties {
     bool page_checksum_enabled_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
+
+    // If empty, there is no sorting columns.
+    std::vector<SortingColumn> sorting_columns_;
 
     // Settings used for each column unless overridden in any of the maps below
     ColumnProperties default_column_properties_;
@@ -666,6 +681,8 @@ class PARQUET_EXPORT WriterProperties {
     return column_properties(path).dictionary_enabled();
   }
 
+  const std::vector<SortingColumn>& sorting_columns() const { return sorting_columns_; }
+
   bool statistics_enabled(const std::shared_ptr<schema::ColumnPath>& path) const {
     return column_properties(path).statistics_enabled();
   }
@@ -711,7 +728,8 @@ class PARQUET_EXPORT WriterProperties {
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
-      ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer)
+      ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
+      std::vector<SortingColumn> sorting_columns)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -723,6 +741,7 @@ class PARQUET_EXPORT WriterProperties {
         store_decimal_as_integer_(store_short_decimal_as_integer),
         page_checksum_enabled_(page_write_checksum_enabled),
         file_encryption_properties_(file_encryption_properties),
+        sorting_columns_(std::move(sorting_columns)),
         default_column_properties_(default_column_properties),
         column_properties_(column_properties) {}
 
@@ -738,6 +757,8 @@ class PARQUET_EXPORT WriterProperties {
   bool page_checksum_enabled_;
 
   std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
+
+  std::vector<SortingColumn> sorting_columns_;
 
   ColumnProperties default_column_properties_;
   std::unordered_map<std::string, ColumnProperties> column_properties_;
