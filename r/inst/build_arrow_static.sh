@@ -36,7 +36,11 @@ set -x
 SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
 DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
-: ${N_JOBS:="$(nproc)"}
+if [ "`uname -s`" = "Darwin" ]; then
+  : ${N_JOBS:="$(sysctl -n hw.logicalcpu)"}
+else
+  : ${N_JOBS:="$(nproc)"}
+fi
 
 # Make some env vars case-insensitive
 if [ "$LIBARROW_MINIMAL" != "" ]; then

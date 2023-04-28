@@ -71,6 +71,7 @@ jobs:
           NOT_CRAN: true
           ARROW_USE_PKG_CONFIG: false
           ARROW_R_DEV: true
+          FORCE_AUTOBREW: true
         {{ macros.github_set_sccache_envvars()|indent(8)}}  
         run: arrow/ci/scripts/r_test.sh arrow
       - name: Dump install logs

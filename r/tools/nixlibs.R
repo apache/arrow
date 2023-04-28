@@ -53,6 +53,17 @@ try_download <- function(from_url, to_file, hush = quietly) {
   !inherits(status, "try-error") && status == 0
 }
 
+not_cran <- env_is("NOT_CRAN", "true")
+if (not_cran) {
+  # Set more eager defaults
+  if (env_is("LIBARROW_BINARY", "")) {
+    Sys.setenv(LIBARROW_BINARY = "true")
+  }
+  if (env_is("LIBARROW_MINIMAL", "")) {
+    Sys.setenv(LIBARROW_MINIMAL = "false")
+  }
+}
+
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
@@ -377,10 +388,14 @@ build_libarrow <- function(src_dir, dst_dir) {
   makeflags <- Sys.getenv("MAKEFLAGS")
   if (makeflags == "") {
     # CRAN policy says not to use more than 2 cores during checks
-    # If you have more and want to use more, set MAKEFLAGS
-    ncores <- min(parallel::detectCores(), 2)
+    # If you have more and want to use more, set MAKEFLAGS or NOT_CRAN
+    ncores <- parallel::detectCores()
+    if (!not_cran) {
+      ncores <- min(ncores, 2)
+    }
     makeflags <- sprintf("-j%s", ncores)
     Sys.setenv(MAKEFLAGS = makeflags)
+    # TODO: pass ncores to build_arrow_static.sh as N_JOBS?
   }
   if (!quietly) {
     cat("*** Building with MAKEFLAGS=", makeflags, "\n")
