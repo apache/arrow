@@ -144,8 +144,7 @@ find_arrow () {
     if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
       PC_LIB_VERSION=`${PKG_CONFIG} --modversion arrow`
     else
-      # TODO(here): grep arrow.pc for it
-      echo "todo"
+      PC_LIB_VERSION=`grep '^Version' ${_LIBARROW_FOUND}/lib/pkgconfig/arrow.pc | sed s/Version:\ //`
     fi
     # This is in an R script for convenience and testability. 
     # Success means the found C++ library is ok to use.
