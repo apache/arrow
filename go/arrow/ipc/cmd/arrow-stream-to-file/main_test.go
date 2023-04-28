@@ -18,7 +18,7 @@ package main
 
 import (
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/apache/arrow/go/v12/arrow/internal/arrdata"
@@ -33,7 +33,7 @@ func TestStreamToFile(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile(tempDir, "go-arrow-stream-to-file-")
+			f, err := os.CreateTemp(tempDir, "go-arrow-stream-to-file-")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -51,7 +51,7 @@ func TestStreamToFile(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			o, err := ioutil.TempFile(tempDir, "go-arrow-stream-to-file-")
+			o, err := os.CreateTemp(tempDir, "go-arrow-stream-to-file-")
 			if err != nil {
 				t.Fatal(err)
 			}

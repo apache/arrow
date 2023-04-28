@@ -20,7 +20,6 @@ import (
 	"bytes"
 	stdcsv "encoding/csv"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -329,7 +328,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool, stringsCanBeN
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	raw, err := ioutil.ReadFile(filepath)
+	raw, err := os.ReadFile(filepath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -469,7 +468,7 @@ func TestCSVReaderWithChunk(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	raw, err := ioutil.ReadFile("testdata/simple.csv")
+	raw, err := os.ReadFile("testdata/simple.csv")
 	if err != nil {
 		t.Fatal(err)
 	}
