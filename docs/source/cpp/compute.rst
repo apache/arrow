@@ -212,7 +212,13 @@ the input to a single output value.
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | count_distinct     | Unary   | Non-nested types | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| first              | Unary   | Numeric, Binary  | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(11) |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| first_last         | Unary   | Numeric, Binary  | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(11) |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | index              | Unary   | Any              | Scalar Int64           | :struct:`IndexOptions`           | \(3)  |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| last               | Unary   | Numeric, Binary  | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(11) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | max                | Unary   | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
@@ -272,6 +278,8 @@ the input to a single output value.
 * \(10) tdigest/t-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
+
+* \(11) Result is based on the ordering of input data
 
   Decimal arguments are cast to Float64 first.
 
@@ -340,6 +348,12 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_distinct           | Unary   | Any                                | List of input type     | :struct:`CountOptions`           | \(2) \(3) |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_first              | Unary   | Numeric, Binary                    | Input type             | :struct:`ScalarAggregateOptions` | \(10)     |
++-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_first_last         | Unary   | Numeric, Binary                    | Struct                 | :struct:`ScalarAggregateOptions` | \(10)     |
++-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_last               | Unary   | Numeric, Binary                    | Input type             | :struct:`ScalarAggregateOptions` | \(10)     |
++-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_list               | Unary   | Any                                | List of input type     |                                  | \(3)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_max                | Unary   | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |           |
@@ -397,6 +411,8 @@ equivalents above and reflects how they are implemented internally.
 * \(9) T-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
+
+* \(10) Result is based on ordering of the input data.
 
   Decimal arguments are cast to Float64 first.
 
@@ -1412,7 +1428,7 @@ null input value is converted into a null output value.
 
 * \(4) Offsets are unchanged, the keys and values are cast from respective input
   to output types (if a conversion is available). If output type is a list of
-  struct, the key field is output as the first field and the value field the 
+  struct, the key field is output as the first field and the value field the
   second field, regardless of field names chosen.
 
 * \(5) Any input type that can be cast to the resulting extension's storage type.
@@ -1614,7 +1630,7 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 * \(1) CumulativeSumOptions has two optional parameters. The first parameter
   :member:`CumulativeSumOptions::start` is a starting value for the running
   sum. It has a default value of 0. Specified values of ``start`` must have the
-  same type as the input. The second parameter 
+  same type as the input. The second parameter
   :member:`CumulativeSumOptions::skip_nulls` is a boolean. When set to
   false (the default), the first encountered null is propagated. When set to
   true, each null in the input produces a corresponding null in the output.
