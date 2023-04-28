@@ -79,8 +79,7 @@ bool PageCanUseChecksum(PageType::type pageType) {
     case PageType::type::DATA_PAGE_V2:
     case PageType::type::DICTIONARY_PAGE:
       return true;
-    case PageType::type::INDEX_PAGE:
-    case PageType::type::UNDEFINED:
+    default:
       return false;
   }
 }
