@@ -17,9 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Anticonf (tm) script by Jeroen Ooms, Jim Hester (2017)
-# License: MIT
-#
 # This script will query 'pkg-config' for the required cflags and ldflags.
 # If pkg-config is unavailable or does not find the library, try setting
 # INCLUDE_DIR and LIB_DIR manually via e.g:
@@ -52,6 +49,7 @@ NOT_CRAN=`echo $NOT_CRAN | tr '[:upper:]' '[:lower:]'`
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
+: ${PKG_CONFIG:="pkg-config"}
 
 S3_LIBS=""
 GCS_LIBS=""
@@ -86,7 +84,7 @@ if [ -f "tools/apache-arrow.rb" ]; then
 fi
 
 # Test if pkg-config is available to use
-pkg-config --version >/dev/null 2>&1
+${PKG_CONFIG} --version >/dev/null 2>&1
 if [ $? -eq 0 ]; then
   PKG_CONFIG_AVAILABLE="true"
 else
@@ -95,32 +93,32 @@ else
 fi
 
 find_arrow () {
+  # Preserve original PKG_CONFIG_PATH, add ${LIB_DIR}/pkgconfig to it if needed
+  OLD_PKG_CONFIG_PATH="${PKG_CONFIG_PATH}"
   if [ "$ARROW_HOME" ] && [ -d "$ARROW_HOME" ]; then
     # 1. ARROW_HOME is a directory you've built and installed libarrow into.
     #    If the env var is set, we use it
-    echo "*** Trying ARROW_HOME as the source of libarrow"
-    set_pkg_vars_without_pc $ARROW_HOME
+    _LIBARROW_FOUND="${ARROW_HOME}"
+    echo "*** Trying Arrow C++ in ARROW_HOME: $_LIBARROW_FOUND"
+    export PKG_CONFIG_PATH="${_LIBARROW_FOUND}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
   elif [ "$ARROW_USE_PKG_CONFIG" != "false" ] && pkg-config ${PKG_CONFIG_NAME}; then
     # 2. Use pkg-config to find arrow on the system
-    set_pkg_vars_with_pc
-    echo "*** Arrow C++ libraries found via pkg-config at $LIB_DIR"
+    _LIBARROW_FOUND="`${PKG_CONFIG} --libs-only-L --silence-errors ${PKG_CONFIG_NAME} | sed -e 's/^-L//' | sed -e 's@/lib\$@@'`"
+    echo "*** Trying Arrow C++ found by pkg-config: $_LIBARROW_FOUND"
   elif [ "$UNAME" = "Darwin" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
     # 3. On macOS, look for Homebrew apache-arrow
-    #    (note that if you have pkg-config, homebrew arrow will have already been found)
-    echo "*** Trying Homebrew ${PKG_BREW_NAME}"
-    BREWDIR=`brew --prefix ${PKG_BREW_NAME}`
-    set_pkg_vars_without_pc $BREWDIR
+    #    (note that if you have pkg-config, homebrew arrow may have already been found)
+    _LIBARROW_FOUND=`brew --prefix ${PKG_BREW_NAME}`
+    echo "*** Trying Arrow C++ found by Homebrew: ${_LIBARROW_FOUND}"
+    export PKG_CONFIG_PATH="${_LIBARROW_FOUND}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
   else
     _LIBARROW_FOUND="false"
   fi
 
   if [ "$_LIBARROW_FOUND" != "false" ]; then
     # Check for version mismatch
-    # Preserve original PKG_CONFIG_PATH, add ${LIB_DIR}/pkgconfig to it if needed
-    OLD_PKG_CONFIG_PATH="${PKG_CONFIG_PATH}"
     if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
-      export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-      PC_LIB_VERSION=`pkg-config --modversion arrow`
+      PC_LIB_VERSION=`${PKG_CONFIG} --modversion arrow`
     else
       # grep arrow.pc for it?
       echo "todo"
@@ -132,19 +130,40 @@ find_arrow () {
     ${R_HOME}/bin/Rscript tools/check-versions.R $VERSION $PC_LIB_VERSION 2> /dev/null
     if [ $? -eq 1 ]; then
       _LIBARROW_FOUND="false"
-      # Reset the path since we don't want to use this library
-      PKG_CONFIG_PATH="${OLD_PKG_CONFIG_PATH}"
-    else
-      # TODO(here): set_pkg_vars_with/without_pc down here. (goal is to factor it out entirely)
-      echo "todo"
     fi
+  fi
+  if [ "$_LIBARROW_FOUND" = "false" ]; then
+    # Reset the path since we don't want to use this library
+    PKG_CONFIG_PATH="${OLD_PKG_CONFIG_PATH}"
+  fi
+}
+
+# This function sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
+# Either from pkg-config or by inferring things about the directory in $1
+set_pkg_vars () {
+  if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+    set_pkg_vars_with_pc
+  else
+    set_pkg_vars_without_pc $1
+  fi
+
+  # If on Raspberry Pi, need to manually link against latomic
+  # See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
+  if grep raspbian /etc/os-release >/dev/null 2>&1; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
+    PKG_LIBS="-latomic $PKG_LIBS"
+  fi
+
+  # Set any user-defined CXXFLAGS
+  if [ "$ARROW_R_CXXFLAGS" ]; then
+    PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
   fi
 }
 
 set_pkg_vars_with_pc () {
-  PKG_CFLAGS="`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
-  PKG_LIBS=`pkg-config --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
-  PKG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
+  PKG_CFLAGS="`${PKG_CONFIG} --cflags --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
+  PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
+  PKG_DIRS=`${PKG_CONFIG} --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
   LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
 }
 
@@ -203,12 +222,12 @@ do_bundled_build () {
 
   # Once we've done the source build, we need to inspect it to see what
   # system libraries it may need, and set cflags/dirs/libs accordingly
-  LIB_DIR="`pwd`/libarrow/arrow-${VERSION}/lib"
+  _LIBARROW_FOUND="`pwd`/libarrow/arrow-${VERSION}"
+  LIB_DIR="${_LIBARROW_FOUND}/lib"
   if [ -d "$LIB_DIR" ]; then
     if [ "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
       # Use pkg-config to do static linking of libarrow's dependencies
       export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-      PKG_CONFIG="pkg-config"
       # pkg-config on CentOS 7 doesn't have --define-prefix option.
       if ${PKG_CONFIG} --help | grep -- --define-prefix >/dev/null 2>&1; then
         # --define-prefix is for binary packages. Binary packages
@@ -225,27 +244,13 @@ do_bundled_build () {
           ${LIB_DIR}/pkgconfig/*.pc
         rm -f ${LIB_DIR}/pkgconfig/*.pc.bak
       fi
-      PKG_CONFIG="${PKG_CONFIG} --silence-errors"
-      PKG_CFLAGS="`${PKG_CONFIG} --cflags ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
-      PKG_DIRS="`${PKG_CONFIG} --libs-only-L ${PKG_CONFIG_NAME}`"
-      PKG_LIBS="`${PKG_CONFIG} --libs-only-l --libs-only-other ${PKG_CONFIG_NAME}`"
     else
       # This case must be ARROW_DEPENDENCY_SOURCE=BUNDLED.
-      PKG_CFLAGS="-I${LIB_DIR}/../include $PKG_CFLAGS"
-      if grep -q "_GLIBCXX_USE_CXX11_ABI=0" "${LIB_DIR}/pkgconfig/arrow.pc"; then
-        PKG_CFLAGS="${PKG_CFLAGS} -D_GLIBCXX_USE_CXX11_ABI=0"
-      fi
-      PKG_DIRS="-L${LIB_DIR}"
-      if [ "${OPENSSL_ROOT_DIR}" != "" ]; then
-        PKG_DIRS="${PKG_DIRS} -L${OPENSSL_ROOT_DIR}/lib"
-      fi
-      PKG_LIBS="-larrow"
-      if [ -n "$(find "$LIB_DIR" -name 'libarrow_bundled_dependencies.*')" ]; then
-        PKG_LIBS="$PKG_LIBS -larrow_bundled_dependencies"
-      fi
       S3_LIBS="-lcurl -lssl -lcrypto"
       GCS_LIBS="-lcurl -lssl -lcrypto"
     fi
+  else 
+    _LIBARROW_FOUND="false"
   fi
 }
 
@@ -287,21 +292,13 @@ else
   fi
 fi
 
-# Add a few more flags, and then we can run a test progam
-
-# If on Raspberry Pi, need to manually link against latomic
-# See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
-if grep raspbian /etc/os-release >/dev/null 2>&1; then
-  PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
-  PKG_LIBS="-latomic $PKG_LIBS"
+# We should have a valid libarrow build in $_LIBARROW_FOUND
+# Now set `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS` based on that
+if [ "$_LIBARROW_FOUND" != "false" ] && [ "$_LIBARROW_FOUND" != "" ]; then
+  set_pkg_vars ${_LIBARROW_FOUND}
 fi
 
-# Set any user-defined CXXFLAGS
-if [ "$ARROW_R_CXXFLAGS" ]; then
-  PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
-fi
-
-# Test that we can find libarrow
+# Test that we can compile something with those flags
 CXX17="`${R_HOME}/bin/R CMD config CXX17` -E"
 CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX17FLAGS`
 CXX17STD=`"${R_HOME}"/bin/R CMD config CXX17STD`
