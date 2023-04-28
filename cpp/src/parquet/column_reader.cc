@@ -489,7 +489,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
 
-    if (properties_.page_checksum_verification() && current_page_header_.__isset.crc) {
+    if (properties_.page_checksum_verification() && current_page_header_.__isset.crc &&
+        PageCanUseChecksum(page_type)) {
       // verify crc
       uint32_t checksum =
           ::arrow::internal::crc32(/* prev */ 0, page_buffer->data(), compressed_len);
