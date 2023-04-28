@@ -320,22 +320,12 @@ struct GroupedCountImpl : public GroupedAggregator {
       auto end = ree_span.end();
       for (auto it = ree_span.begin(); it != end; ++it) {
         const bool is_valid = bit_util::GetBit(physical_validity, it.index_into_array());
-        if constexpr (count_valid) {
-          if (is_valid) {
-            for (int64_t i = 0; i < it.run_length(); ++i, ++g) {
-              counts[*g] += 1;
-            }
-          } else {
-            g += it.run_length();
+        if (is_valid == count_valid) {
+          for (int64_t i = 0; i < it.run_length(); ++i, ++g) {
+            counts[*g] += 1;
           }
         } else {
-          if (!is_valid) {
-            for (int64_t i = 0; i < it.run_length(); ++i, ++g) {
-              counts[*g] += 1;
-            }
-          } else {
-            g += it.run_length();
-          }
+          g += it.run_length();
         }
       }
     }
