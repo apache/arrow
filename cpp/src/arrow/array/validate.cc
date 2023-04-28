@@ -23,7 +23,7 @@
 #include "arrow/extension_type.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
@@ -264,18 +264,13 @@ struct ValidateArrayImpl {
 
   Status Visit(const LargeListType& type) { return ValidateListLike(type); }
 
-  Status Visit(const ListViewType& type) {
-    return Status::NotImplemented("ListViewType validation not implemented");
-  }
-
-  Status Visit(const LargeListViewType& type) {
-    return Status::NotImplemented("LargeListViewType validation not implemented");
-  }
-
   Status Visit(const MapType& type) {
     RETURN_NOT_OK(ValidateListLike(type));
     return MapArray::ValidateChildData(data.child_data);
   }
+
+  Status Visit(const ListViewType& type) { return ValidateListView(type); }
+  Status Visit(const LargeListViewType& type) { return ValidateListView(type); }
 
   Status Visit(const FixedSizeListType& type) {
     const ArrayData& values = *data.child_data[0];
@@ -743,6 +738,17 @@ struct ValidateArrayImpl {
     return Status::OK();
   }
 
+  template <typename ListViewType>
+  Status ValidateListView(const ListViewType& type) {
+    const ArrayData& values = *data.child_data[0];
+    const Status child_valid = RecurseInto(values);
+    if (!child_valid.ok()) {
+      return Status::Invalid("List-view child array invalid: ", child_valid.ToString());
+    }
+    // For list-views, sizes are validated together with offsets.
+    return ValidateOffsetsAndSizes(type, values.offset + values.length);
+  }
+
   template <typename RunEndCType>
   Status ValidateRunEndEncoded(const RunEndEncodedType& type) {
     if (data.child_data.size() != 2) {
@@ -805,20 +811,102 @@ struct ValidateArrayImpl {
     return Status::OK();
   }
 
-  template <typename TypeClass>
-  Status ValidateOffsets(const TypeClass& type, int64_t offset_limit) {
-    using offset_type = typename TypeClass::offset_type;
-
-    if (!IsBufferValid(1)) {
-      // For length 0, an empty offsets buffer seems accepted as a special case
-      // (ARROW-544)
-      if (data.length > 0) {
-        return Status::Invalid("Non-empty array but offsets are null");
+ private:
+  /// \pre basic validation has already been performed
+  template <typename offset_type>
+  Status FullyValidateOffsets(int64_t offset_limit) {
+    const auto* offsets = data.GetValues<offset_type>(1);
+    auto prev_offset = offsets[0];
+    if (prev_offset < 0) {
+      return Status::Invalid("Offset invariant failure: array starts at negative offset ",
+                             prev_offset);
+    }
+    for (int64_t i = 1; i <= data.length; ++i) {
+      const auto current_offset = offsets[i];
+      if (current_offset < prev_offset) {
+        return Status::Invalid("Offset invariant failure: non-monotonic offset at slot ",
+                               i, ": ", current_offset, " < ", prev_offset);
       }
-      return Status::OK();
+      if (current_offset > offset_limit) {
+        return Status::Invalid("Offset invariant failure: offset for slot ", i,
+                               " out of bounds: ", current_offset, " > ", offset_limit);
+      }
+      prev_offset = current_offset;
+    }
+    return Status::OK();
+  }
+
+  template <typename offset_type>
+  Status OutOfBoundsListViewOffset(int64_t slot, int64_t offset_limit) {
+    const auto* offsets = data.GetValues<offset_type>(1);
+    const auto offset = offsets[slot];
+    return Status::Invalid("Offset invariant failure: offset for slot ", slot,
+                           " out of bounds. Expected ", offset,
+                           " to be at least 0 and less than ", offset_limit);
+  }
+
+  template <typename offset_type>
+  Status OutOfBoundsListViewSize(int64_t slot, int64_t offset_limit) {
+    const auto* offsets = data.GetValues<offset_type>(1);
+    const auto* sizes = data.GetValues<offset_type>(2);
+    const auto size = sizes[slot];
+    if (size < 0) {
+      return Status::Invalid("Offset invariant failure: size for slot ", slot,
+                             " out of bounds: ", size, " < 0");
+    } else {
+      const auto offset = offsets[slot];
+      return Status::Invalid("Offset invariant failure: size for slot ", slot,
+                             " out of bounds: ", offset, " + ", size, " > ",
+                             offset_limit);
+    }
+  }
+
+  /// \pre basic validation has already been performed
+  template <typename offset_type>
+  Status FullyValidateOffsetsAndSizes(int64_t offset_limit) {
+    const auto* validity = data.GetValues<uint8_t>(0, 0);
+    const auto* offsets = data.GetValues<offset_type>(1);
+    const auto* sizes = data.GetValues<offset_type>(2);
+
+    return VisitSetBitRuns(
+        validity, data.offset, data.length, [&](int64_t run_start, int64_t run_length) {
+          for (int64_t i = 0; i < run_length; ++i) {
+            auto slot = run_start + i;
+            const auto size = sizes[slot];
+            if (size > 0) {
+              const auto offset = offsets[slot];
+              if (offset < 0 || offset > offset_limit) {
+                return OutOfBoundsListViewOffset<offset_type>(slot, offset_limit);
+              }
+              if (size > offset_limit - offset) {
+                return OutOfBoundsListViewSize<offset_type>(slot, offset_limit);
+              }
+            } else if (size < 0) {
+              return OutOfBoundsListViewSize<offset_type>(slot, offset_limit);
+            }
+          }
+          return Status::OK();
+        });
+  }
+
+  template <typename TypeClass>
+  Status ValidateOffsetsAndMaybeSizes(const TypeClass&, int64_t offset_limit) {
+    using offset_type = typename TypeClass::offset_type;
+    constexpr bool is_list_view = is_list_view_type<TypeClass>::value;
+
+    const bool non_empty = data.length > 0;
+    if (!IsBufferValid(1)) {
+      // For length 0, an empty offsets buffer is accepted (ARROW-544).
+      return non_empty ? Status::Invalid("Non-empty array but offsets are null")
+                       : Status::OK();
+    }
+    if constexpr (is_list_view) {
+      if (!IsBufferValid(2)) {
+        return non_empty ? Status::Invalid("Non-empty array but sizes are null")
+                         : Status::OK();
+      }
     }
 
-    // An empty list array can have 0 offsets
     const auto offsets_byte_size = data.buffers[1]->size();
     const auto required_offsets = ((data.length > 0) || (offsets_byte_size > 0))
                                       ? data.length + data.offset + 1
@@ -829,31 +917,39 @@ struct ValidateArrayImpl {
                              " isn't large enough for length: ", data.length,
                              " and offset: ", data.offset);
     }
+    if constexpr (is_list_view) {
+      const auto required_sizes = data.length + data.offset;
+      const auto sizes_bytes_size = data.buffers[2]->size();
+      if (sizes_bytes_size / static_cast<int32_t>(sizeof(offset_type)) < required_sizes) {
+        return Status::Invalid("Sizes buffer size (bytes): ", sizes_bytes_size,
+                               " isn't large enough for length: ", data.length,
+                               " and offset: ", data.offset);
+      }
+    }
 
     if (full_validation && required_offsets > 0) {
-      // Validate all offset values
-      const offset_type* offsets = data.GetValues<offset_type>(1);
-
-      auto prev_offset = offsets[0];
-      if (prev_offset < 0) {
-        return Status::Invalid(
-            "Offset invariant failure: array starts at negative offset ", prev_offset);
-      }
-      for (int64_t i = 1; i <= data.length; ++i) {
-        const auto current_offset = offsets[i];
-        if (current_offset < prev_offset) {
-          return Status::Invalid(
-              "Offset invariant failure: non-monotonic offset at slot ", i, ": ",
-              current_offset, " < ", prev_offset);
-        }
-        if (current_offset > offset_limit) {
-          return Status::Invalid("Offset invariant failure: offset for slot ", i,
-                                 " out of bounds: ", current_offset, " > ", offset_limit);
-        }
-        prev_offset = current_offset;
+      if constexpr (is_list_view) {
+        return FullyValidateOffsetsAndSizes<offset_type>(offset_limit);
+      } else {
+        return FullyValidateOffsets<offset_type>(offset_limit);
       }
     }
     return Status::OK();
+  }
+
+ public:
+  template <typename TypeClass>
+  enable_if_list_view<TypeClass, Status> ValidateOffsetsAndSizes(const TypeClass& type,
+                                                                 int64_t offset_limit) {
+    return ValidateOffsetsAndMaybeSizes<TypeClass>(type, offset_limit);
+  }
+
+  template <typename TypeClass>
+  std::enable_if_t<is_var_length_list_type<TypeClass>::value ||
+                       is_base_binary_like(TypeClass::type_id),
+                   Status>
+  ValidateOffsets(const TypeClass& type, int64_t offset_limit) {
+    return ValidateOffsetsAndMaybeSizes<TypeClass>(type, offset_limit);
   }
 
   template <typename DecimalType>
