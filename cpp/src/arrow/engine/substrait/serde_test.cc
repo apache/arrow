@@ -1876,7 +1876,7 @@ TEST(Substrait, AggregateBasic) {
       checked_cast<const acero::AggregateNodeOptions&>(*agg_rel.options);
 
   EXPECT_EQ(agg_rel.factory_name, "aggregate");
-  EXPECT_EQ(agg_options.aggregates[0].name, "hash_sum_B");
+  EXPECT_EQ(agg_options.aggregates[0].name, "");
   EXPECT_EQ(agg_options.aggregates[0].function, "hash_sum");
 }
 
@@ -3937,7 +3937,7 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
             }]
           }
         },
-        "names": ["A", "B", "C"]
+        "names": ["A", "B", "C", "D"]
       }
     }]
   })";
