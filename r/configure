@@ -275,7 +275,7 @@ set_pkg_vars_with_pc () {
   PKG_CFLAGS="`${PKG_CONFIG} --cflags --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
   PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
   PKG_DIRS=`${PKG_CONFIG} --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
-  LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
+  LIB_DIR=`${PKG_CONFIG} --variable=prefix --silence-errors ${PKG_CONFIG_NAME}`
 }
 
 # If we don't have pkg-config, we can make some inferences
