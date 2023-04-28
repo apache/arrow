@@ -60,7 +60,9 @@ import (
 func genRandomString() []byte {
 	const length = 16
 	max := int('z')
-	min := int('0')
+	// don't include ':' as a valid byte to generate
+	// because we use it as a separator for the transactions
+	min := int('<')
 
 	out := make([]byte, length)
 	for i := range out {
@@ -249,7 +251,7 @@ func (s *SQLiteFlightSQLServer) DoGetStatement(ctx context.Context, cmd flightsq
 	if txnid != "" {
 		tx, loaded := s.openTransactions.Load(txnid)
 		if !loaded {
-			return nil, nil, fmt.Errorf("%w: invalid transaction id specified", arrow.ErrInvalid)
+			return nil, nil, fmt.Errorf("%w: invalid transaction id specified: %s", arrow.ErrInvalid, txnid)
 		}
 		db = tx.(*sql.Tx)
 	}

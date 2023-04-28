@@ -18,7 +18,7 @@ package compress_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"testing"
 
@@ -130,7 +130,7 @@ func TestCompressReaderWriter(t *testing.T) {
 			wr.Close()
 
 			rdr := codec.NewReader(&buf)
-			out, err := ioutil.ReadAll(rdr)
+			out, err := io.ReadAll(rdr)
 			assert.NoError(t, err)
 			assert.Exactly(t, data, out)
 		})
