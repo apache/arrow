@@ -45,7 +45,6 @@ class TestParquetColumnChunkMetadata < Test::Unit::TestCase
   end
 
   test("#==") do
-    omit("parquet::ColumnChunkMetaData::Equals() isn't stable.")
     reader = Parquet::ArrowFileReader.new(@file.path)
     other_metadata = reader.metadata.get_row_group(0).get_column_chunk(0)
     assert do

@@ -644,22 +644,22 @@ using ScalarAggregateFinalize = Status (*)(KernelContext*, Datum*);
 /// * finalize: produces the end result of the aggregation using the
 ///   KernelState in the KernelContext.
 struct ARROW_EXPORT ScalarAggregateKernel : public Kernel {
-  ScalarAggregateKernel() = default;
-
   ScalarAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                         ScalarAggregateConsume consume, ScalarAggregateMerge merge,
-                        ScalarAggregateFinalize finalize)
+                        ScalarAggregateFinalize finalize, const bool ordered)
       : Kernel(std::move(sig), std::move(init)),
         consume(consume),
         merge(merge),
-        finalize(finalize) {}
+        finalize(finalize),
+        ordered(ordered) {}
 
   ScalarAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
                         KernelInit init, ScalarAggregateConsume consume,
-                        ScalarAggregateMerge merge, ScalarAggregateFinalize finalize)
+                        ScalarAggregateMerge merge, ScalarAggregateFinalize finalize,
+                        const bool ordered)
       : ScalarAggregateKernel(
             KernelSignature::Make(std::move(in_types), std::move(out_type)),
-            std::move(init), consume, merge, finalize) {}
+            std::move(init), consume, merge, finalize, ordered) {}
 
   /// \brief Merge a vector of KernelStates into a single KernelState.
   /// The merged state will be returned and will be set on the KernelContext.
@@ -670,6 +670,14 @@ struct ARROW_EXPORT ScalarAggregateKernel : public Kernel {
   ScalarAggregateConsume consume;
   ScalarAggregateMerge merge;
   ScalarAggregateFinalize finalize;
+  /// \brief Whether this kernel requires ordering
+  /// Some aggregations, such as, "first", requires some kind of input order. The
+  /// order can be implicit, e.g., the order of the input data, or explicit, e.g.
+  /// the ordering specified with a window aggregation.
+  /// The caller of the aggregate kernel is responsible for passing data in some
+  /// defined order to the kernel. The flag here is a way for the kernel to tell
+  /// the caller that data passed to the kernel must be defined in some order.
+  bool ordered = false;
 };
 
 // ----------------------------------------------------------------------
@@ -699,25 +707,31 @@ struct ARROW_EXPORT HashAggregateKernel : public Kernel {
 
   HashAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                       HashAggregateResize resize, HashAggregateConsume consume,
-                      HashAggregateMerge merge, HashAggregateFinalize finalize)
+                      HashAggregateMerge merge, HashAggregateFinalize finalize,
+                      const bool ordered)
       : Kernel(std::move(sig), std::move(init)),
         resize(resize),
         consume(consume),
         merge(merge),
-        finalize(finalize) {}
+        finalize(finalize),
+        ordered(ordered) {}
 
   HashAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
                       KernelInit init, HashAggregateConsume consume,
                       HashAggregateResize resize, HashAggregateMerge merge,
-                      HashAggregateFinalize finalize)
+                      HashAggregateFinalize finalize, const bool ordered)
       : HashAggregateKernel(
             KernelSignature::Make(std::move(in_types), std::move(out_type)),
-            std::move(init), resize, consume, merge, finalize) {}
+            std::move(init), resize, consume, merge, finalize, ordered) {}
 
   HashAggregateResize resize;
   HashAggregateConsume consume;
   HashAggregateMerge merge;
   HashAggregateFinalize finalize;
+  /// @brief whether the summarizer requires ordering
+  /// This is similar to ScalarAggregateKernel. See ScalarAggregateKernel
+  /// for detailed doc of this variable.
+  bool ordered = false;
 };
 
 }  // namespace compute

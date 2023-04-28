@@ -224,6 +224,8 @@ func FromFloat64(v float64, prec, scale int32) (Num, error) {
 	return fromPositiveFloat64(v, prec, scale)
 }
 
+var pt5 = big.NewFloat(0.5)
+
 func FromString(v string, prec, scale int32) (n Num, err error) {
 	// time for some math!
 	// Our input precision means "number of digits of precision" but the
@@ -259,8 +261,19 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 		return
 	}
 
+	// Since we're going to truncate this to get an integer, we need to round
+	// the value instead because of edge cases so that we match how other implementations
+	// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
+	// we're positive we'll add 0.5.
+	out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).SetPrec(precInBits)
+	if out.Signbit() {
+		out.Sub(out, pt5)
+	} else {
+		out.Add(out, pt5)
+	}
+
 	var tmp big.Int
-	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).SetPrec(precInBits).Int(&tmp)
+	val, _ := out.Int(&tmp)
 	if val.BitLen() > 127 {
 		return Num{}, errors.New("bitlen too large for decimal128")
 	}
