@@ -47,7 +47,6 @@ namespace Apache.Arrow.Builder
 
         public virtual IArrayBuilder AppendNull()
         {
-            Reserve(1);
             ValidityBuffer.AppendBit(false);
             NullCount++;
             Length++;
@@ -65,7 +64,6 @@ namespace Apache.Arrow.Builder
 
         internal virtual IArrayBuilder AppendValidity(bool isValid)
         {
-            Reserve(1);
             ValidityBuffer.AppendBit(isValid);
             if (!isValid)
                 NullCount++;
@@ -75,7 +73,6 @@ namespace Apache.Arrow.Builder
 
         internal virtual IArrayBuilder AppendValid()
         {
-            Reserve(1);
             ValidityBuffer.AppendBit(true);
             Length++;
             return this;
@@ -83,7 +80,6 @@ namespace Apache.Arrow.Builder
 
         internal virtual IArrayBuilder AppendValidity(ReadOnlySpan<bool> mask)
         {
-            Reserve(mask.Length);
             ValidityBuffer.AppendBits(mask);
 
             Length += mask.Length;
