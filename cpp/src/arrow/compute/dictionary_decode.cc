@@ -42,10 +42,8 @@ namespace internal {
 
 namespace {
 
-const FunctionDoc dictionary_decode_doc{"decode a dictionary array to normal array",
-                                        ("The input must be a dictionary encoded array."
-                                         "The function decode a dictionary array to "
-                                         "normal array, which is implemented by cast"),
+const FunctionDoc dictionary_decode_doc{"Decodes the DictionaryArray to an Array.",
+                                         "The Function will call cast to really decode.",
                                         {"dictionary_array"}};
 class DictionaryDecodeMetaFunction : public MetaFunction {
  public:

@@ -330,6 +330,63 @@ def _make_global_functions():
 
 _make_global_functions()
 
+def dictionary_decode(arr,memory_pool=None):
+    """
+    Decodes the DictionaryArray to an Array.
+
+    Parameters
+    ----------
+    arr : Array-like
+    memory_pool : MemoryPool, optional
+        memory pool to use for allocations during function execution.
+    
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> x = pa.array(["a", "a", "b"], pa.dictionary(pa.int8(), pa.string()))
+    >>> x 
+    <pyarrow.lib.DictionaryArray object at ...>
+
+    -- dictionary:
+    [
+        "a",
+        "b"
+    ]
+    -- indices:
+    [
+        0,
+        0,
+        1
+    ]
+
+    >>> x_decode = dictionary_decode(x)
+    >>> x_decode
+    <pyarrow.lib.StringArray object at ...>
+    [
+    "a",
+    "a",
+    "b"
+    ]
+
+    The dictionary_decode actually call Cast in the deep implementation.
+    You can use Cast to decode DictionaryArray.
+
+    >>> x_decode_2 = cast(x, pa.string())
+    >>> x_decode_2
+    <pyarrow.lib.StringArray object at ...>
+    [
+    "a",
+    "a",
+    "b"
+    ]
+        
+    Returns
+    -------
+    array : decoded Array
+        The dictionary_decode result as a new Array
+    """
+    return call_function("dictionary_decode", [arr], memory_pool)
+
 
 def cast(arr, target_type=None, safe=None, options=None, memory_pool=None):
     """
