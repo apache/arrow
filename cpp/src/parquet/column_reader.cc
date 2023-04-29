@@ -275,6 +275,9 @@ class SerializedPageReader : public PageReader {
   }
 
   // Implement the PageReader interface
+  //
+  // Parquet may reuse same decryption buffer and decompression buffer, so,
+  // if NextPage() is called, content of previous page might be invalidated.
   std::shared_ptr<Page> NextPage() override;
 
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
