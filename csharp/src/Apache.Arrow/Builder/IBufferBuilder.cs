@@ -84,15 +84,15 @@ namespace Apache.Arrow.Builder
         IValueBufferBuilder Resize(int capacity);
     }
 
-    public interface IValueBufferBuilder<T> : IValueBufferBuilder where T : struct
+    public interface IPrimitiveBufferBuilder<T> : IValueBufferBuilder where T : struct
     {
         Span<T> Span { get; }
 
-        IValueBufferBuilder<T> AppendValue(T value);
-        IValueBufferBuilder<T> AppendValue(T? value);
-        IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T> values);
-        IValueBufferBuilder<T> AppendValues(ICollection<T?> values);
-        IValueBufferBuilder<T> AppendValues(T value, int count);
+        IPrimitiveBufferBuilder<T> AppendValue(T value);
+        IPrimitiveBufferBuilder<T> AppendValue(T? value);
+        IPrimitiveBufferBuilder<T> AppendValues(ReadOnlySpan<T> values);
+        IPrimitiveBufferBuilder<T> AppendValues(ICollection<T?> values);
+        IPrimitiveBufferBuilder<T> AppendValues(T value, int count);
     }
 }
 

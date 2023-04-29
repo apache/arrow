@@ -321,7 +321,7 @@ namespace Apache.Arrow.Builder
         }
     }
 
-    public class ValueBufferBuilder<T> : ValueBufferBuilder, IValueBufferBuilder<T> where T : struct
+    public class ValueBufferBuilder<T> : ValueBufferBuilder, IPrimitiveBufferBuilder<T> where T : struct
     {
         public Span<T> Span
         {
@@ -335,23 +335,23 @@ namespace Apache.Arrow.Builder
         {
         }
 
-        public IValueBufferBuilder<T> AppendValue(T value)
+        public IPrimitiveBufferBuilder<T> AppendValue(T value)
         {
             AppendStruct(value);
             return this;
         }
-        public IValueBufferBuilder<T> AppendValue(T? value) => AppendValue(value.GetValueOrDefault());
-        public IValueBufferBuilder<T> AppendValues(ReadOnlySpan<T> values)
+        public IPrimitiveBufferBuilder<T> AppendValue(T? value) => AppendValue(value.GetValueOrDefault());
+        public IPrimitiveBufferBuilder<T> AppendValues(ReadOnlySpan<T> values)
         {
             AppendStructs(values);
             return this;
         }
-        public IValueBufferBuilder<T> AppendValues(T value, int count)
+        public IPrimitiveBufferBuilder<T> AppendValues(T value, int count)
         {
             AppendStructs(value, count);
             return this;
         }
-        public IValueBufferBuilder<T> AppendValues(ICollection<T?> values)
+        public IPrimitiveBufferBuilder<T> AppendValues(ICollection<T?> values)
         {
             int length = values.Count;
             Span<T> destination = new T[length];

@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Builder;
+using Apache.Arrow.Values;
 using Xunit;
 
 namespace Apache.Arrow.Tests.Builder
@@ -23,9 +24,12 @@ namespace Apache.Arrow.Tests.Builder
         [Fact]
         public void ArrayBuilder_Should_InferFromCSharp()
         {
-            var builder = new ValueArrayBuilder<long>() as ArrayBuilder;
+            var builder = new PrimitiveArrayBuilder<long>() as ArrayBuilder;
 
-            builder.AppendValue(123L).AppendNull().AppendValues(new object[] { 1L, null, -12L});
+            builder
+                .AppendValue(ScalarFactory.MakeScalar(123L))
+                .AppendNull()
+                .AppendValues(ScalarFactory.MakeScalar(new long?[] { 1L, null, -12L}).Values);
 
             var built = builder.Build() as Int64Array;
 
@@ -48,14 +52,14 @@ namespace Apache.Arrow.Tests.Builder
         [Fact]
         public void ValueArrayBuilder_Should_InferFromCSharp()
         {
-            var builder = new ValueArrayBuilder<int>();
+            var builder = new PrimitiveArrayBuilder<int>();
 
-            builder.AppendValue(123).AppendValues(new int?[] { 1, null, -12 });
+            builder.AppendValue(123).AppendValues(new int?[] { 1, null, -12 }).AppendNull();
 
             var built = builder.Build() as Int32Array;
 
-            Assert.Equal(4, built.Length);
-            Assert.Equal(1, built.NullCount);
+            Assert.Equal(5, built.Length);
+            Assert.Equal(2, built.NullCount);
 
             Assert.Equal(123, built.GetValue(0));
             Assert.Equal(1, built.GetValue(1));
@@ -63,6 +67,7 @@ namespace Apache.Arrow.Tests.Builder
 
             Assert.True(built.IsValid(0));
             Assert.False(built.IsValid(2));
+            Assert.False(built.IsValid(4));
         }
     }
 }

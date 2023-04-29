@@ -2,64 +2,67 @@
 using System.Collections.Generic;
 using System.Linq;
 using Apache.Arrow.Types;
+using Apache.Arrow.Values;
 
 namespace Apache.Arrow.Builder
 {
-    public class ValueArrayBuilder<T>
+    public class PrimitiveArrayBuilder<T>
         : ArrayBuilder where T : struct
     {
-        public IValueBufferBuilder<T> ValuesBuffer { get; }
+        public IPrimitiveBufferBuilder<T> ValuesBuffer { get; }
 
-        public ValueArrayBuilder(int capacity = 64)
+        public PrimitiveArrayBuilder(int capacity = 64)
             : this(new Field.Builder().DataType(typeof(T))._type, capacity)
         {
         }
 
-        public ValueArrayBuilder(IArrowType dataType, int capacity = 64)
+        public PrimitiveArrayBuilder(IArrowType dataType, int capacity = 64)
             : this(dataType , new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<T>(capacity))
         {
         }
 
-        public ValueArrayBuilder(
+        public PrimitiveArrayBuilder(
             IArrowType dataType,
-            IValueBufferBuilder<bool> validity, IValueBufferBuilder<T> values
+            IPrimitiveBufferBuilder<bool> validity, IPrimitiveBufferBuilder<T> values
             ) : base(dataType, new IValueBufferBuilder[] { validity, values })
         {
             ValuesBuffer = values;
         }
 
-        public override IArrayBuilder AppendNull()
+        public override IArrayBuilder AppendNull() => AppendNull(default);
+        public virtual PrimitiveArrayBuilder<T> AppendNull(T nullValue = default)
         {
             base.AppendNull();
-            ValuesBuffer.AppendValue(default);
+            ValuesBuffer.AppendValue(nullValue);
             return this;
         }
 
-        public override IArrayBuilder AppendNulls(int count)
+        public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, new T[count]);
+        public virtual PrimitiveArrayBuilder<T> AppendNulls(int count, ReadOnlySpan<T> nullValues)
         {
             base.AppendNulls(count);
-            ValuesBuffer.AppendValues(new T[count]);
+            ValuesBuffer.AppendValues(nullValues);
             return this;
         }
 
-        public virtual ValueArrayBuilder<T> AppendValue(T value, bool isValid = true)
+        public virtual PrimitiveArrayBuilder<T> AppendValue(T value, bool isValid = true)
         {
             base.AppendValidity(isValid);
             ValuesBuffer.AppendValue(value);
             return this;
         }
 
-        public virtual ValueArrayBuilder<T> AppendValue(T? value)
+        public virtual PrimitiveArrayBuilder<T> AppendValue(T? value)
         {
             base.AppendValidity(value.HasValue);
             ValuesBuffer.AppendValue(value);
             return this;
         }
 
-        public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T> values)
+        public virtual PrimitiveArrayBuilder<T> AppendValues(ReadOnlySpan<T> values)
             => AppendValues(values, ValidityMask(values.Length, true));
 
-        public virtual ValueArrayBuilder<T> AppendValues(ICollection<T?> values)
+        public virtual PrimitiveArrayBuilder<T> AppendValues(ICollection<T?> values)
         {
             int length = values.Count;
             Span<bool> validity = new bool[length];
@@ -86,21 +89,46 @@ namespace Apache.Arrow.Builder
             return AppendValues(destination, validity);
         }
 
-        public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> mask)
+        public virtual PrimitiveArrayBuilder<T> AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> mask)
         {
             AppendValidity(mask);
             ValuesBuffer.AppendValues(values);
             return this;
         }
 
-        public override IArrayBuilder AppendValue(object value, bool isValid)
-            => value == null ? AppendNull() : AppendValue((T)value, true);
+        public override IArrayBuilder AppendValue(Scalar value)
+            => value.IsValid ? AppendValue((value as IPrimitiveScalar<T>).Value) : AppendNull();
+
+        // Optimize bulk insert since default iterates over each values
+        public override IArrayBuilder AppendValues(ICollection<Scalar> values)
+        {
+            int length = values.Count;
+            T[] buffer = new T[length];
+            bool[] validity = new bool[length];
+            int i = 0;
+
+            foreach (Scalar obj in values)
+            {
+                if (obj.IsValid)
+                {
+                    buffer[i] = (obj as IPrimitiveScalar<T>).Value;
+                    validity[i] = true;
+                }
+                else
+                {
+                    buffer[i] = default;
+                }
+                i++;
+            }
+
+            return AppendValues(buffer, validity);
+        }
     }
 
-    public class VariableValueArrayBuilder<T>
+    public class VariablePrimitiveArrayBuilder<T>
         : ArrayBuilder where T : struct
     {
-        public IValueBufferBuilder<T> ValuesBuffer { get; }
+        public IPrimitiveBufferBuilder<T> ValuesBuffer { get; }
 
         // From the docs:
         //
@@ -111,7 +139,7 @@ namespace Apache.Arrow.Builder
         //
         // In this builder, we choose to append the first offset (zero) upon construction, and each trailing
         // offset is then added after each individual item has been appended.
-        public IValueBufferBuilder<int> OffsetsBuffer { get; }
+        public IPrimitiveBufferBuilder<int> OffsetsBuffer { get; }
 
         private int CurrentOffset
         {
@@ -122,19 +150,19 @@ namespace Apache.Arrow.Builder
             }
         }
 
-        public VariableValueArrayBuilder(int capacity = 64)
+        public VariablePrimitiveArrayBuilder(int capacity = 64)
             : this(new Field.Builder().DataType(typeof(T))._type, capacity)
         {
         }
 
-        public VariableValueArrayBuilder(IArrowType dataType, int capacity = 64)
+        public VariablePrimitiveArrayBuilder(IArrowType dataType, int capacity = 64)
             : this(dataType, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<int>(capacity), new ValueBufferBuilder<T>(capacity))
         {
         }
 
-        public VariableValueArrayBuilder(
+        public VariablePrimitiveArrayBuilder(
             IArrowType dataType,
-            IValueBufferBuilder<bool> validity, IValueBufferBuilder<int> offsets, IValueBufferBuilder<T> values
+            IPrimitiveBufferBuilder<bool> validity, IPrimitiveBufferBuilder<int> offsets, IPrimitiveBufferBuilder<T> values
             ) : base(dataType, new IValueBufferBuilder[] { validity, offsets, values })
         {
             ValuesBuffer = values;
@@ -143,7 +171,8 @@ namespace Apache.Arrow.Builder
             OffsetsBuffer.AppendValue(0);
         }
 
-        public new VariableValueArrayBuilder<T> AppendNull()
+        public override IArrayBuilder AppendNull() => AppendNull(default);
+        public virtual VariablePrimitiveArrayBuilder<T> AppendNull(T nullValue = default)
         {
             base.AppendNull();
 
@@ -151,11 +180,12 @@ namespace Apache.Arrow.Builder
             OffsetsBuffer.AppendValue(CurrentOffset);
 
             // Append Values
-            ValuesBuffer.AppendValue(default);
+            ValuesBuffer.AppendValue(nullValue);
             return this;
         }
 
-        public new VariableValueArrayBuilder<T> AppendNulls(int count)
+        public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, new T[count]);
+        public new VariablePrimitiveArrayBuilder<T> AppendNulls(int count, ReadOnlySpan<T> nullValues)
         {
             base.AppendNulls(count);
 
@@ -163,11 +193,11 @@ namespace Apache.Arrow.Builder
             OffsetsBuffer.AppendValues(CurrentOffset, count);
 
             // Append Values
-            ValuesBuffer.AppendValues(new T[count]);
+            ValuesBuffer.AppendValues(nullValues);
             return this;
         }
 
-        public virtual VariableValueArrayBuilder<T> AppendValue(T value)
+        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(T value)
         {
             AppendValidity(true);
 
@@ -179,10 +209,10 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        public virtual VariableValueArrayBuilder<T> AppendValue(T? value)
-            => value.HasValue ? AppendValue(value.Value) : AppendNull() as VariableValueArrayBuilder<T>;
+        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(T? value)
+            => value.HasValue ? AppendValue(value.Value) : AppendNull();
 
-        public virtual VariableValueArrayBuilder<T> AppendValue(ReadOnlySpan<T> value)
+        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(ReadOnlySpan<T> value)
         {
             AppendValidity(true);
 
@@ -194,10 +224,10 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        public virtual VariableValueArrayBuilder<T> AppendValue(ReadOnlySpan<T> value, bool isValid = true)
-            => isValid ? AppendValue(value) : AppendNull() as VariableValueArrayBuilder<T>;
+        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(ReadOnlySpan<T> value, bool isValid = true)
+            => isValid ? AppendValue(value) : AppendNull();
 
-        public virtual VariableValueArrayBuilder<T> AppendValues(ICollection<T[]> values)
+        public virtual VariablePrimitiveArrayBuilder<T> AppendValues(ICollection<T[]> values)
         {
             Span<T> memory = new T[values.Sum(row => row.Length)];
             Span<int> offsets = new int[values.Count];
@@ -232,7 +262,7 @@ namespace Apache.Arrow.Builder
             return AppendValues(memory, offsets, mask);
         }
 
-        public virtual VariableValueArrayBuilder<T> AppendValues(
+        public virtual VariablePrimitiveArrayBuilder<T> AppendValues(
             ReadOnlySpan<T> values, ReadOnlySpan<int> offsets, ReadOnlySpan<bool> mask
             )
         {
@@ -246,9 +276,9 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        public override IArrayBuilder AppendValue(object value, bool isValid)
-            => AppendValue((T)value);
-        public override IArrayBuilder AppendValue(IEnumerable<object> value, bool isValid)
-            => AppendValue((IEnumerable<T>)value, isValid);
+        public override IArrayBuilder AppendValue(Scalar value)
+            => value.IsValid ? AppendValue((value as IPrimitiveScalar<T>).Value) : AppendNull();
+        public override IArrayBuilder AppendValue(IEnumerable<Scalar> value)
+            => throw new NotImplementedException("");
     }
 }

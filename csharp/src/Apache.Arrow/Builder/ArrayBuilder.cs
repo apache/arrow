@@ -4,6 +4,7 @@ using System.Linq;
 using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
+using Apache.Arrow.Values;
 
 namespace Apache.Arrow.Builder
 {
@@ -72,6 +73,14 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
+        internal virtual IArrayBuilder AppendValid()
+        {
+            Reserve(1);
+            ValidityBuffer.AppendBit(true);
+            Length++;
+            return this;
+        }
+
         internal virtual IArrayBuilder AppendValidity(ReadOnlySpan<bool> mask)
         {
             Reserve(mask.Length);
@@ -91,17 +100,21 @@ namespace Apache.Arrow.Builder
         }
 
         // Append unique value
-        public virtual IArrayBuilder AppendValue(object value) => AppendValue(value, value != null);
-        public abstract IArrayBuilder AppendValue(object value, bool isValid);
+        public abstract IArrayBuilder AppendValue(Scalar value);
 
         // nested or offset value type
-        public virtual IArrayBuilder AppendValue(IEnumerable<object> value) => AppendValue(value, value != null);
-        public virtual IArrayBuilder AppendValue(IEnumerable<object> value, bool isValid)
+        public virtual IArrayBuilder AppendValue(IEnumerable<Scalar> value)
         {
+            if (value == null)
+            {
+                AppendNull();
+                return this;
+            }
+
             if (IsNested)
             {
                 int i = 0;
-                foreach (object item in value)
+                foreach (Scalar item in value)
                     Children[i].AppendValue(item);
             }
             else
@@ -109,30 +122,30 @@ namespace Apache.Arrow.Builder
                 throw new NotImplementedException("");
             }
 
-            AppendValidity(isValid);
+            AppendValidity(true);
 
             return this;
         }
 
         // Bulk Append values
-        public virtual IArrayBuilder AppendValues(object value, int count)
+        public virtual IArrayBuilder AppendValues(Scalar value, int count)
             => AppendValues(Enumerable.Range(0, count).Select(_ => value));
-        public virtual IArrayBuilder AppendValues(ICollection<object> values)
+        public virtual IArrayBuilder AppendValues(ICollection<Scalar> values)
         {
-            foreach (object value in values)
+            foreach (Scalar value in values)
                 AppendValue(value);
             return this;
         }
-        public virtual IArrayBuilder AppendValues(IEnumerable<object> values, int batchSize = 1)
+        public virtual IArrayBuilder AppendValues(IEnumerable<Scalar> values, int batchSize = 64)
         {
             if (batchSize == 1)
-                foreach (object value in values)
+                foreach (Scalar value in values)
                     AppendValue(value);
             else
             {
-                List<object> buffer = new List<object>(batchSize);
+                List<Scalar> buffer = new List<Scalar>(batchSize);
 
-                foreach (object value in values)
+                foreach (Scalar value in values)
                 {
                     buffer.Add(value);
 
@@ -149,6 +162,9 @@ namespace Apache.Arrow.Builder
             }
             return this;
         }
+
+        public virtual IArrayBuilder AppendValues(IArrowArray array) => AppendValues(array.Data);
+
         public virtual IArrayBuilder AppendValues(ArrayData data)
         {
             // TODO: Make better / recursive fields data type check
