@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
-using Apache.Arrow.Values;
 
 namespace Apache.Arrow.Builder
 {
@@ -92,45 +89,6 @@ namespace Apache.Arrow.Builder
 
             NullCount += nullCount;
 
-            return this;
-        }
-
-        // Append unique value
-        public abstract IArrayBuilder AppendValue(Scalar value);
-
-        // Bulk Append values
-        public virtual IArrayBuilder AppendValues(Scalar value, int count)
-            => AppendValues(Enumerable.Range(0, count).Select(_ => value));
-        public virtual IArrayBuilder AppendValues(ICollection<Scalar> values)
-        {
-            foreach (Scalar value in values)
-                AppendValue(value);
-            return this;
-        }
-        public virtual IArrayBuilder AppendValues(IEnumerable<Scalar> values, int batchSize = 64)
-        {
-            if (batchSize == 1)
-                foreach (Scalar value in values)
-                    AppendValue(value);
-            else
-            {
-                List<Scalar> buffer = new List<Scalar>(batchSize);
-
-                foreach (Scalar value in values)
-                {
-                    buffer.Add(value);
-
-                    // check commit
-                    if (buffer.Count == batchSize)
-                    {
-                        AppendValues(buffer);
-                        buffer.Clear();
-                    }
-                }
-
-                if (buffer.Count > 0)
-                    AppendValues(buffer);
-            }
             return this;
         }
 

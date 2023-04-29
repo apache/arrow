@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Apache.Arrow.Types;
-using Apache.Arrow.Values;
 
 namespace Apache.Arrow.Builder
 {
@@ -95,34 +94,6 @@ namespace Apache.Arrow.Builder
             AppendValidity(mask);
             ValuesBuffer.AppendValues(values);
             return this;
-        }
-
-        public override IArrayBuilder AppendValue(Scalar value)
-            => value.IsValid ? AppendValue((value as IPrimitiveScalar<T>).Value) : AppendNull();
-
-        // Optimize bulk insert since default iterates over each values
-        public override IArrayBuilder AppendValues(ICollection<Scalar> values)
-        {
-            int length = values.Count;
-            T[] buffer = new T[length];
-            bool[] validity = new bool[length];
-            int i = 0;
-
-            foreach (Scalar obj in values)
-            {
-                if (obj.IsValid)
-                {
-                    buffer[i] = (obj as IPrimitiveScalar<T>).Value;
-                    validity[i] = true;
-                }
-                else
-                {
-                    buffer[i] = default;
-                }
-                i++;
-            }
-
-            return AppendValues(buffer, validity);
         }
     }
 
@@ -229,6 +200,24 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
+        internal virtual VariablePrimitiveArrayBuilder<T> AppendByteValue(ReadOnlySpan<byte> value, bool isValid = true)
+        {
+            if (isValid)
+            {
+                AppendValid();
+                // Append Offset
+                CurrentOffset += value.Length;
+                OffsetsBuffer.AppendValue(CurrentOffset);
+                ValuesBuffer.AppendBytes(value);
+            }
+            else
+            {
+                AppendNull();
+                OffsetsBuffer.AppendValue(CurrentOffset);
+            }
+            return this;
+        }
+
         public virtual VariablePrimitiveArrayBuilder<T> AppendValues(ICollection<T[]> values)
         {
             Span<T> memory = new T[values.Sum(row => row.Length)];
@@ -276,19 +265,6 @@ namespace Apache.Arrow.Builder
             // Append Values
             ValuesBuffer.AppendValues(values);
             return this;
-        }
-
-        public override IArrayBuilder AppendValue(Scalar value)
-        {
-            if (value.IsValid)
-            {
-                return value switch
-                {
-                    IBinaryScalar bin => AppendValue(bin.Values as T[]),
-                    _ => throw new ArgumentException($"Cannot append arrow scalar {value}"),
-                };
-            }
-            return AppendNull();
         }
     }
 }

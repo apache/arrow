@@ -14,7 +14,6 @@
 // limitations under the License.
 
 using Apache.Arrow.Builder;
-using Apache.Arrow.Values;
 using Xunit;
 
 namespace Apache.Arrow.Tests.Builder
@@ -25,25 +24,23 @@ namespace Apache.Arrow.Tests.Builder
         public void ArrayBuilder_Should_InferFromCSharp()
         {
             var builder = new PrimitiveArrayBuilder<long>() as ArrayBuilder;
+            long[] values = new long[] { 0, 1, -12 };
+            IArrowArray array = new PrimitiveArrayBuilder<long>(values.Length).AppendValues(values).Build();
 
             builder
-                .AppendValue(new PrimitiveScalar<long>(123L))
                 .AppendNull()
-                .AppendValues(ListScalar.Make(new long?[] { 1L, null, -12L}).Values);
+                .AppendValues(array);
 
             var built = builder.Build() as Int64Array;
 
-            Assert.Equal(5, built.Length);
-            Assert.Equal(2, built.NullCount);
+            Assert.Equal(4, built.Length);
+            Assert.Equal(1, built.NullCount);
 
-            Assert.Equal(123L, built.GetValue(0));
             Assert.Equal(1L, built.GetValue(2));
-            Assert.Equal(-12L, built.GetValue(4));
+            Assert.Equal(-12L, built.GetValue(3));
 
-            Assert.True(built.IsValid(0));
-            Assert.False(built.IsValid(1));
-            Assert.False(built.IsValid(3));
-            Assert.True(built.IsValid(4));
+            Assert.False(built.IsValid(0));
+            Assert.True(built.IsValid(2));
         }
     }
 
