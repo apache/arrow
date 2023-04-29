@@ -147,8 +147,8 @@ namespace Apache.Arrow.Builder
         public ArrayData FinishInternal(MemoryAllocator allocator = null)
             => new ArrayData(
                 DataType, Length, NullCount, Offset,
-                Buffers.Select(b => b.Build()).ToArray(),
-                Children?.Select(c => c.FinishInternal()).ToArray(),
+                Buffers.Select(b => b.Build(allocator)).ToArray(),
+                Children?.Select(c => c.FinishInternal(allocator)).ToArray(),
                 Dictionary?.FinishInternal()
             );
 
