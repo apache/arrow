@@ -18,7 +18,7 @@ using System.Runtime.CompilerServices;
 
 namespace Apache.Arrow
 {
-    public abstract class Array : IArrowArray
+    public abstract class Array : IArrowArray, IEquatable<Array>
     {
         public ArrayData Data { get; }
 
@@ -87,5 +87,8 @@ namespace Apache.Arrow
                 Data.Dispose();
             }
         }
+
+        public bool Equals(IArrowArray other) => Data.Equals(other.Data);
+        public bool Equals(Array other) => Data.Equals(other.Data);
     }
 }

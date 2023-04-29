@@ -16,11 +16,12 @@
 using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 namespace Apache.Arrow
 {
-    public sealed class ArrayData : IDisposable
+    public sealed class ArrayData : IDisposable, IEquatable<ArrayData>
     {
         private const int RecalculateNullCount = -1;
 
@@ -98,6 +99,12 @@ namespace Apache.Arrow
 
             Dictionary?.Dispose();
         }
+
+        public bool Equals(ArrayData other)
+            => DataType.Equals(other.DataType)
+            && Buffers.SequenceEqual(other.Buffers)
+            && ((Children == null && Children == null) || (Children != null && Children != null && Children.SequenceEqual(Children)))
+            && ((Dictionary == null && Dictionary == null) || (Dictionary != null && Dictionary != null && Dictionary.Equals(Dictionary)));
 
         public ArrayData Slice(int offset, int length)
         {

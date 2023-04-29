@@ -17,7 +17,7 @@ using System;
 
 namespace Apache.Arrow
 {
-    public interface IArrowArray : IDisposable
+    public interface IArrowArray : IDisposable, IEquatable<IArrowArray>
     {
         bool IsNull(int index);
 
