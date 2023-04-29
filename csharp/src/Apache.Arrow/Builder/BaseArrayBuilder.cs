@@ -11,7 +11,7 @@ namespace Apache.Arrow.Builder
 
         public int Length { get; internal set; }
 
-        public int NullCount { get; private set; }
+        public int NullCount { get; internal set; }
 
         public int Offset { get; }
 
@@ -50,11 +50,37 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
+        internal virtual IArrayBuilder AppendNull(bool isValid)
+        {
+            ValidityBuffer.AppendBit(isValid);
+            if (isValid)
+                NullCount++;
+            Length++;
+            return this;
+        }
+
         public virtual IArrayBuilder AppendNulls(int count)
         {
             ValidityBuffer.AppendBits(new bool[count]);
             NullCount += count;
             Length += count;
+            return this;
+        }
+
+        internal virtual IArrayBuilder AppendNulls(ReadOnlySpan<bool> mask)
+        {
+            ValidityBuffer.AppendBits(mask);
+
+            Length += mask.Length;
+
+            int nullCount = 0;
+
+            foreach (bool isValid in mask)
+                if (!isValid)
+                    nullCount++;
+
+            NullCount += nullCount;
+
             return this;
         }
 

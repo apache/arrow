@@ -38,16 +38,14 @@ namespace Apache.Arrow.Builder
         public virtual ValueArrayBuilder<T> AppendValue(T value, bool isValid = true)
         {
             ValuesBuffer.AppendValue(value);
-            ValidityBuffer.AppendBit(isValid);
-            Length++;
+            base.AppendNull(isValid);
             return this;
         }
 
         public virtual ValueArrayBuilder<T> AppendValue(T? value)
         {
             ValuesBuffer.AppendValue(value);
-            ValidityBuffer.AppendBit(value.HasValue);
-            Length++;
+            base.AppendNull(value.HasValue);
             return this;
         }
 
@@ -84,8 +82,7 @@ namespace Apache.Arrow.Builder
         public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> mask)
         {
             ValuesBuffer.AppendValues(values);
-            ValidityBuffer.AppendBits(mask);
-            Length += values.Length;
+            AppendNulls(mask);
             return this;
         }
     }
@@ -227,7 +224,8 @@ namespace Apache.Arrow.Builder
             // Append Values
             ValuesBuffer.AppendValues(values);
             ValidityBuffer.AppendBits(mask);
-            Length += mask.Length;
+
+            AppendNulls(mask);
 
             return this;
         }
