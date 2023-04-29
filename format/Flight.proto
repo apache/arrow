@@ -272,7 +272,7 @@ message FlightInfo {
    * endpoints or the data within.
    *
    * A client can read ordered data by reading data from returned
-   * endpoints in order from front to back.
+   * endpoints, in order, from front to back.
    *
    * Note that a client may ignore "FlightInfo.ordered = true". If an
    * ordering is important for an application, an application must
