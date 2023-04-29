@@ -223,7 +223,6 @@ namespace Apache.Arrow.Builder
 
             // Append Values
             ValuesBuffer.AppendValues(values);
-            ValidityBuffer.AppendBits(mask);
 
             AppendNulls(mask);
 
