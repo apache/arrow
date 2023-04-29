@@ -90,14 +90,19 @@ A client that wishes to download the data would:
    An endpoint contains a list of locations (server addresses) where
    this data can be retrieved from, and a ``Ticket``, an opaque binary
    token that the server will use to identify the data being
-   requested. If ``FlightInfo.ordered`` is set, returned endpoints are
-   in the same order as the data. Otherwise, there is no ordering
-   defined on endpoints or the data within. The client can read
-   ordered data by reading data from returned endpoints in order from
-   front to back. Note that a client may ignore
-   ``FlightInfo.ordered``. If an ordering is important and the client
-   may ignore ``FlightInfo.ordered``, applications should return data
-   in a single endpoint.
+   requested. 
+   
+   If ``FlightInfo.ordered`` is true, this signals there is some
+   order between data from different endpoints. 
+   Clients should produce the same results as if the data returned 
+   from each of the endpoints was concatenated, in order, from front to back. 
+   If ``FlightInfo.ordered`` is not set, the client may return data from any 
+   of the endpoints in arbitrary order. Data from any specific endpoint
+   must be returned in order, but the data from different endpoints may be 
+   interleaved to allow parallel fetches.  
+   Note that since some clients may ignore ``FlightInfo.ordered``,
+   if ordering is important and client support can not be ensured, 
+   servers should return a single endpoint.
 
    The response also contains other metadata, like the schema, and
    optionally an estimate of the dataset size.
