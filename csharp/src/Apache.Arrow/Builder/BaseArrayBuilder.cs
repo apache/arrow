@@ -44,16 +44,16 @@ namespace Apache.Arrow.Builder
 
         public virtual IArrayBuilder AppendNull()
         {
-            ValidityBuffer.AppendBit(true);
+            ValidityBuffer.AppendBit(false);
             NullCount++;
             Length++;
             return this;
         }
 
-        internal virtual IArrayBuilder AppendNull(bool isValid)
+        internal virtual IArrayBuilder AppendNull(bool isNull)
         {
-            ValidityBuffer.AppendBit(isValid);
-            if (!isValid)
+            ValidityBuffer.AppendBit(isNull);
+            if (isNull)
                 NullCount++;
             Length++;
             return this;

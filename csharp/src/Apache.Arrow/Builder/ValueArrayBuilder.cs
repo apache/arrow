@@ -38,14 +38,14 @@ namespace Apache.Arrow.Builder
         public virtual ValueArrayBuilder<T> AppendValue(T value, bool isValid = true)
         {
             ValuesBuffer.AppendValue(value);
-            base.AppendNull(isValid);
+            base.AppendNull(!isValid);
             return this;
         }
 
         public virtual ValueArrayBuilder<T> AppendValue(T? value)
         {
             ValuesBuffer.AppendValue(value);
-            base.AppendNull(value.HasValue);
+            base.AppendNull(!value.HasValue);
             return this;
         }
 
