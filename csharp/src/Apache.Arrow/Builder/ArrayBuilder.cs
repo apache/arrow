@@ -1,11 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
 {
-    public abstract class BaseArrayBuilder : IArrayBuilder
+    public abstract class ArrayBuilder : IArrayBuilder
     {
         public IArrowType DataType { get; }
 
@@ -15,16 +17,17 @@ namespace Apache.Arrow.Builder
 
         public int Offset { get; }
 
+        public bool IsNested => DataType is NestedType;
+
         public IValueBufferBuilder[] Buffers { get; }
-        public IValueBufferBuilder<bool> ValidityBuffer { get; }
+        public IValueBufferBuilder ValidityBuffer => Buffers[0];
 
         public IArrayBuilder[] Children { get; }
 
         public IArrayBuilder Dictionary { get; }
 
-        public BaseArrayBuilder(
+        public ArrayBuilder(
             IArrowType dataType,
-            IValueBufferBuilder<bool> validityBuffer,
             IValueBufferBuilder[] buffers,
             IArrayBuilder[] children = null,
             IArrayBuilder dictionary = null
@@ -32,7 +35,6 @@ namespace Apache.Arrow.Builder
         {
             DataType = dataType;
 
-            ValidityBuffer = validityBuffer;
             Buffers = buffers;
             Children = children;
             Dictionary = dictionary;
@@ -44,31 +46,35 @@ namespace Apache.Arrow.Builder
 
         public virtual IArrayBuilder AppendNull()
         {
+            Reserve(1);
             ValidityBuffer.AppendBit(false);
             NullCount++;
             Length++;
             return this;
         }
 
-        internal virtual IArrayBuilder AppendNull(bool isNull)
-        {
-            ValidityBuffer.AppendBit(isNull);
-            if (isNull)
-                NullCount++;
-            Length++;
-            return this;
-        }
-
         public virtual IArrayBuilder AppendNulls(int count)
         {
+            Reserve(count);
             ValidityBuffer.AppendBits(new bool[count]);
             NullCount += count;
             Length += count;
             return this;
         }
 
-        internal virtual IArrayBuilder AppendNulls(ReadOnlySpan<bool> mask)
+        internal virtual IArrayBuilder AppendValidity(bool isValid)
         {
+            Reserve(1);
+            ValidityBuffer.AppendBit(isValid);
+            if (!isValid)
+                NullCount++;
+            Length++;
+            return this;
+        }
+
+        internal virtual IArrayBuilder AppendValidity(ReadOnlySpan<bool> mask)
+        {
+            Reserve(mask.Length);
             ValidityBuffer.AppendBits(mask);
 
             Length += mask.Length;
@@ -84,8 +90,68 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
+        // Append unique value
+        public virtual IArrayBuilder AppendValue(object value) => AppendValue(value, value != null);
+        public abstract IArrayBuilder AppendValue(object value, bool isValid);
+
+        // nested or offset value type
+        public virtual IArrayBuilder AppendValue(IEnumerable<object> value) => AppendValue(value, value != null);
+        public virtual IArrayBuilder AppendValue(IEnumerable<object> value, bool isValid)
+        {
+            if (IsNested)
+            {
+                int i = 0;
+                foreach (object item in value)
+                    Children[i].AppendValue(item);
+            }
+            else
+            {
+                throw new NotImplementedException("");
+            }
+
+            AppendValidity(isValid);
+
+            return this;
+        }
+
+        // Bulk Append values
+        public virtual IArrayBuilder AppendValues(object value, int count)
+            => AppendValues(Enumerable.Range(0, count).Select(_ => value));
+        public virtual IArrayBuilder AppendValues(ICollection<object> values)
+        {
+            foreach (object value in values)
+                AppendValue(value);
+            return this;
+        }
+        public virtual IArrayBuilder AppendValues(IEnumerable<object> values, int batchSize = 1)
+        {
+            if (batchSize == 1)
+                foreach (object value in values)
+                    AppendValue(value);
+            else
+            {
+                List<object> buffer = new List<object>(batchSize);
+
+                foreach (object value in values)
+                {
+                    buffer.Add(value);
+
+                    // check commit
+                    if (buffer.Count == batchSize)
+                    {
+                        AppendValues(buffer);
+                        buffer.Clear();
+                    }
+                }
+
+                if (buffer.Count > 0)
+                    AppendValues(buffer);
+            }
+            return this;
+        }
         public virtual IArrayBuilder AppendValues(ArrayData data)
         {
+            // TODO: Make better / recursive fields data type check
             if (data.DataType.TypeId != DataType.TypeId)
                 throw new ArgumentException($"Cannot append data type {data.DataType} in builder with data type {DataType}");
 
@@ -145,16 +211,21 @@ namespace Apache.Arrow.Builder
         }
 
         public ArrayData FinishInternal(MemoryAllocator allocator = null)
-            => new ArrayData(
+        {
+            MemoryAllocator memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
+
+            return new ArrayData(
                 DataType, Length, NullCount, Offset,
-                Buffers.Select(b => b.Build(allocator)).ToArray(),
-                Children?.Select(c => c.FinishInternal(allocator)).ToArray(),
+                Buffers.Select(b => b.Build(memoryAllocator)).ToArray(),
+                Children?.Select(c => c.FinishInternal(memoryAllocator)).ToArray(),
                 Dictionary?.FinishInternal()
             );
+        }
 
         public virtual IArrowArray Build(MemoryAllocator allocator = null)
             => ArrowArrayFactory.BuildArray(FinishInternal(allocator));
 
+        // Memory management
         public IArrayBuilder Reserve(int capacity)
         {
             foreach (IValueBufferBuilder buffer in Buffers)

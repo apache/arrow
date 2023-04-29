@@ -1,4 +1,7 @@
-﻿using Apache.Arrow.Memory;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
@@ -16,6 +19,11 @@ namespace Apache.Arrow.Builder
 
         IArrayBuilder AppendNull();
         IArrayBuilder AppendNulls(int count);
+
+        IArrayBuilder AppendValue(object value);
+        IArrayBuilder AppendValue(object value, bool isValid);
+        IArrayBuilder AppendValues(object value, int count);
+        IArrayBuilder AppendValues(IEnumerable<object> value, int batchSize = 64);
         IArrayBuilder AppendValues(ArrayData data);
 
         /// <summary>

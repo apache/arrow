@@ -128,4 +128,154 @@ namespace Apache.Arrow.Tests
 
 
     }
+
+    public class FieldBuild
+    {
+        [Fact]
+        public void DataType_Should_ThrowInvalidCastException()
+        {
+            // Arrange
+            var builder = new Field.Builder().Name("test");
+
+            // Act & Assert
+            try
+            {
+                builder.DataType(typeof(object));
+            }
+            catch (InvalidCastException e)
+            {
+                Assert.Equal($"Cannot convert System.Type<{typeof(object)}> to ArrowType", e.Message);
+            }
+        }
+
+        [Fact]
+        public void DataType_Should_InferDataType_From_NullableInt()
+        {
+            // Arrange
+            Field builder = new Field.Builder().Name("test").DataType(typeof(int?)).Build();
+
+            // Assert
+            Assert.Equal(typeof(Int32Type), builder.DataType.GetType());
+            Assert.True(builder.IsNullable);
+        }
+
+        [Fact]
+        public void DataType_Should_InferDataType_From_Int()
+        {
+            // Arrange
+            Field builder = new Field.Builder().Name("test").DataType(typeof(int)).Build();
+
+            // Assert
+            Assert.Equal(typeof(Int32Type), builder.DataType.GetType());
+            Assert.False(builder.IsNullable);
+        }
+
+        [Fact]
+        public void DataType_Should_InferDataType_From_NullableDecimal()
+        {
+            // Arrange
+            Field builder = new Field.Builder().Name("test").DataType(typeof(decimal?)).Build();
+            var dtype = builder.DataType as Decimal256Type;
+
+            // Assert
+            Assert.Equal(typeof(Decimal256Type), builder.DataType.GetType());
+            Assert.Equal(29, dtype.Precision);
+            Assert.Equal(28, dtype.Scale);
+            Assert.True(builder.IsNullable);
+        }
+
+        [Fact]
+        public void DataType_Should_InferDataType_From_Decimal()
+        {
+            // Arrange
+            Field builder = new Field.Builder().Name("test").DataType(typeof(decimal)).Build();
+            var dtype = builder.DataType as Decimal256Type;
+
+            // Assert
+            Assert.Equal(typeof(Decimal256Type), builder.DataType.GetType());
+            Assert.Equal(29, dtype.Precision);
+            Assert.Equal(28, dtype.Scale);
+            Assert.False(builder.IsNullable);
+        }
+
+#if NETCOREAPP3_1_OR_GREATER
+        [Fact]
+        public void DataType_Should_InferDataType_From_IEnumerable()
+        {
+            // Arrange
+            Field builder = new Field.Builder().Name("test").DataType(typeof(IEnumerable<string>)).Build();
+            var dtype = builder.DataType as ListType;
+            Field child = dtype.Fields[0];
+
+            // Assert
+            Assert.Equal(typeof(ListType), builder.DataType.GetType());
+            Assert.Equal(typeof(StringType), child.DataType.GetType());
+            Assert.Equal("item", child.Name);
+            Assert.True(dtype.Fields[0].IsNullable);
+        }
+
+        [Fact]
+        public void DataType_Should_InferDataType_From_Structure()
+        {
+            // Arrange
+            Field field = new Field.Builder().DataType(typeof(TestStruct)).Build();
+            var dtype = field.DataType as StructType;
+            Field name = dtype.Fields[0];
+            Field value = dtype.Fields[1];
+            Field abc = dtype.Fields[2];
+
+            // Assert
+            Assert.Equal(3, dtype.Fields.Count);
+            Assert.False(field.IsNullable);
+            Assert.Equal("TestStruct", field.Name);
+
+            Assert.Equal(typeof(StringType), name.DataType.GetType());
+            Assert.Equal("Name", name.Name);
+            Assert.True(name.IsNullable);
+
+            Assert.Equal(typeof(Decimal256Type), value.DataType.GetType());
+            Assert.Equal("value", value.Name);
+            Assert.True(value.IsNullable);
+
+            Assert.Equal(typeof(Int32Type), abc.DataType.GetType());
+            Assert.Equal("aBc", abc.Name);
+            Assert.False(abc.IsNullable);
+        }
+
+        [Fact]
+        public void DataType_Should_InferDataType_From_NullableStructure()
+        {
+            // Arrange
+            Field field = new Field.Builder().DataType(typeof(TestStruct?)).Build();
+            var dtype = field.DataType as StructType;
+            Field name = dtype.Fields[0];
+            Field value = dtype.Fields[1];
+            Field abc = dtype.Fields[2];
+
+            // Assert
+            Assert.Equal(3, dtype.Fields.Count);
+            Assert.True(field.IsNullable);
+            Assert.Equal("TestStruct", field.Name);
+
+            Assert.Equal(typeof(StringType), name.DataType.GetType());
+            Assert.Equal("Name", name.Name);
+            Assert.True(name.IsNullable);
+
+            Assert.Equal(typeof(Decimal256Type), value.DataType.GetType());
+            Assert.Equal("value", value.Name);
+            Assert.True(value.IsNullable);
+
+            Assert.Equal(typeof(Int32Type), abc.DataType.GetType());
+            Assert.Equal("aBc", abc.Name);
+            Assert.False(abc.IsNullable);
+        }
+#endif
+
+        public struct TestStruct
+        {
+            public string Name { get; set; }
+            public decimal? value { get; set; }
+            public int aBc { get; set; }
+        }
+    }
 }

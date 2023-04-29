@@ -20,6 +20,7 @@ namespace Apache.Arrow.Types
 {
     public sealed class TimestampType : FixedWidthType
     {
+        public static readonly TimestampType SystemDefault = new TimestampType(TimeUnit.Nanosecond, "+00:00");
         public static readonly TimestampType Default = new TimestampType(TimeUnit.Millisecond, "+00:00");
 
         public override ArrowTypeId TypeId => ArrowTypeId.Timestamp;

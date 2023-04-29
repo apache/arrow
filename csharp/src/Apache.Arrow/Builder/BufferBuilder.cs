@@ -260,12 +260,11 @@ namespace Apache.Arrow.Builder
             if (BitOverhead.Length > 0)
                 CommitBitBuffer(true);
 
-            int bufferLength = checked((int)BitUtility
-                .RoundUpToMultiplePowerOfTwo(ByteLength, byteSize));
+            int bufferLength = checked((int)BitUtility.RoundUpToMultiplePowerOfTwo(ByteLength, byteSize));
 
             MemoryAllocator memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
             IMemoryOwner<byte> memoryOwner = memoryAllocator.Allocate(bufferLength);
-            Memory.Slice(0, Memory.Length).CopyTo(memoryOwner.Memory);
+            Memory.Slice(0, ByteLength).CopyTo(memoryOwner.Memory);
 
             return new ArrowBuffer(memoryOwner);
         }

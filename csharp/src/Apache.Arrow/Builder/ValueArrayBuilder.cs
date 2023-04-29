@@ -6,46 +6,53 @@ using Apache.Arrow.Types;
 namespace Apache.Arrow.Builder
 {
     public class ValueArrayBuilder<T>
-        : BaseArrayBuilder where T : struct
+        : ArrayBuilder where T : struct
     {
         public IValueBufferBuilder<T> ValuesBuffer { get; }
 
-        public ValueArrayBuilder(IArrowType dataType)
-            : this(dataType, new ValueBufferBuilder<bool>(), new ValueBufferBuilder<T>())
+        public ValueArrayBuilder(int capacity = 64)
+            : this(new Field.Builder().DataType(typeof(T))._type, capacity)
+        {
+        }
+
+        public ValueArrayBuilder(IArrowType dataType, int capacity = 64)
+            : this(dataType , new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<T>(capacity))
         {
         }
 
         public ValueArrayBuilder(
             IArrowType dataType,
             IValueBufferBuilder<bool> validity, IValueBufferBuilder<T> values
-            ) : base(dataType, validity, new IValueBufferBuilder[] { validity, values })
+            ) : base(dataType, new IValueBufferBuilder[] { validity, values })
         {
             ValuesBuffer = values;
         }
 
         public override IArrayBuilder AppendNull()
         {
+            base.AppendNull();
             ValuesBuffer.AppendValue(default);
-            return base.AppendNull();
+            return this;
         }
 
         public override IArrayBuilder AppendNulls(int count)
         {
+            base.AppendNulls(count);
             ValuesBuffer.AppendValues(new T[count]);
-            return base.AppendNulls(count);
+            return this;
         }
 
         public virtual ValueArrayBuilder<T> AppendValue(T value, bool isValid = true)
         {
+            base.AppendValidity(isValid);
             ValuesBuffer.AppendValue(value);
-            base.AppendNull(!isValid);
             return this;
         }
 
         public virtual ValueArrayBuilder<T> AppendValue(T? value)
         {
+            base.AppendValidity(value.HasValue);
             ValuesBuffer.AppendValue(value);
-            base.AppendNull(!value.HasValue);
             return this;
         }
 
@@ -81,14 +88,17 @@ namespace Apache.Arrow.Builder
 
         public virtual ValueArrayBuilder<T> AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> mask)
         {
+            AppendValidity(mask);
             ValuesBuffer.AppendValues(values);
-            AppendNulls(mask);
             return this;
         }
+
+        public override IArrayBuilder AppendValue(object value, bool isValid)
+            => value == null ? AppendNull() : AppendValue((T)value, true);
     }
 
     public class VariableValueArrayBuilder<T>
-        : BaseArrayBuilder where T : struct
+        : ArrayBuilder where T : struct
     {
         public IValueBufferBuilder<T> ValuesBuffer { get; }
 
@@ -112,15 +122,20 @@ namespace Apache.Arrow.Builder
             }
         }
 
-        public VariableValueArrayBuilder(IArrowType dataType)
-            : this(dataType, new ValueBufferBuilder<bool>(), new ValueBufferBuilder<int>(), new ValueBufferBuilder<T>())
+        public VariableValueArrayBuilder(int capacity = 64)
+            : this(new Field.Builder().DataType(typeof(T))._type, capacity)
+        {
+        }
+
+        public VariableValueArrayBuilder(IArrowType dataType, int capacity = 64)
+            : this(dataType, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<int>(capacity), new ValueBufferBuilder<T>(capacity))
         {
         }
 
         public VariableValueArrayBuilder(
             IArrowType dataType,
             IValueBufferBuilder<bool> validity, IValueBufferBuilder<int> offsets, IValueBufferBuilder<T> values
-            ) : base(dataType, validity, new IValueBufferBuilder[] { validity, offsets, values })
+            ) : base(dataType, new IValueBufferBuilder[] { validity, offsets, values })
         {
             ValuesBuffer = values;
             OffsetsBuffer = offsets;
@@ -128,35 +143,39 @@ namespace Apache.Arrow.Builder
             OffsetsBuffer.AppendValue(0);
         }
 
-        public override IArrayBuilder AppendNull()
+        public new VariableValueArrayBuilder<T> AppendNull()
         {
+            base.AppendNull();
+
             // Append Offset
             OffsetsBuffer.AppendValue(CurrentOffset);
 
             // Append Values
             ValuesBuffer.AppendValue(default);
-            return base.AppendNull();
+            return this;
         }
 
-        public override IArrayBuilder AppendNulls(int count)
+        public new VariableValueArrayBuilder<T> AppendNulls(int count)
         {
+            base.AppendNulls(count);
+
             // Append Offset
             OffsetsBuffer.AppendValues(CurrentOffset, count);
 
             // Append Values
             ValuesBuffer.AppendValues(new T[count]);
-            return base.AppendNulls(count);
+            return this;
         }
 
         public virtual VariableValueArrayBuilder<T> AppendValue(T value)
         {
+            AppendValidity(true);
+
             // Append Offset
             OffsetsBuffer.AppendValue(CurrentOffset + 1);
 
             // Append Values
             ValuesBuffer.AppendValue(value);
-            ValidityBuffer.AppendBit(true);
-            Length++;
             return this;
         }
 
@@ -165,14 +184,13 @@ namespace Apache.Arrow.Builder
 
         public virtual VariableValueArrayBuilder<T> AppendValue(ReadOnlySpan<T> value)
         {
+            AppendValidity(true);
+
             // Append Offset
             OffsetsBuffer.AppendValue(CurrentOffset + 1);
 
             // Append Values
             ValuesBuffer.AppendValues(value);
-            ValidityBuffer.AppendBit(true);
-            Length++;
-
             return this;
         }
 
@@ -218,15 +236,19 @@ namespace Apache.Arrow.Builder
             ReadOnlySpan<T> values, ReadOnlySpan<int> offsets, ReadOnlySpan<bool> mask
             )
         {
+            AppendValidity(mask);
+
             // Append Offset
             OffsetsBuffer.AppendValues(offsets);
 
             // Append Values
             ValuesBuffer.AppendValues(values);
-
-            AppendNulls(mask);
-
             return this;
         }
+
+        public override IArrayBuilder AppendValue(object value, bool isValid)
+            => AppendValue((T)value);
+        public override IArrayBuilder AppendValue(IEnumerable<object> value, bool isValid)
+            => AppendValue((IEnumerable<T>)value, isValid);
     }
 }

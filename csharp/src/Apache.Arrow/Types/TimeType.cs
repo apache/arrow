@@ -26,6 +26,7 @@ namespace Apache.Arrow.Types
 
     public abstract class TimeType: FixedWidthType
     {
+        public static readonly Time64Type SystemDefault = new Time64Type(TimeUnit.Nanosecond);
         public TimeUnit Unit { get; }
 
         protected TimeType(TimeUnit unit)
