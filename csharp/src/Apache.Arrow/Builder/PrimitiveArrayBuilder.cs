@@ -179,8 +179,8 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, new T[count]);
-        public new VariablePrimitiveArrayBuilder<T> AppendNulls(int count, ReadOnlySpan<T> nullValues)
+        public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, null);
+        public VariablePrimitiveArrayBuilder<T> AppendNulls(int count, ReadOnlySpan<T> nullValues)
         {
             base.AppendNulls(count);
 
