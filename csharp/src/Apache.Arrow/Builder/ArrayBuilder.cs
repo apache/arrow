@@ -102,31 +102,6 @@ namespace Apache.Arrow.Builder
         // Append unique value
         public abstract IArrayBuilder AppendValue(Scalar value);
 
-        // nested or offset value type
-        public virtual IArrayBuilder AppendValue(IEnumerable<Scalar> value)
-        {
-            if (value == null)
-            {
-                AppendNull();
-                return this;
-            }
-
-            if (IsNested)
-            {
-                int i = 0;
-                foreach (Scalar item in value)
-                    Children[i].AppendValue(item);
-            }
-            else
-            {
-                throw new NotImplementedException("");
-            }
-
-            AppendValidity(true);
-
-            return this;
-        }
-
         // Bulk Append values
         public virtual IArrayBuilder AppendValues(Scalar value, int count)
             => AppendValues(Enumerable.Range(0, count).Select(_ => value));
