@@ -511,9 +511,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
     }
     sorting_columns.resize(row_group_->sorting_columns.size());
     for (size_t i = 0; i < sorting_columns.size(); ++i) {
-      sorting_columns[i].column_idx = row_group_->sorting_columns[i].column_idx;
-      sorting_columns[i].descending = row_group_->sorting_columns[i].descending;
-      sorting_columns[i].nulls_first = row_group_->sorting_columns[i].nulls_first;
+      sorting_columns[i] = FromThrift(row_group_->sorting_columns[i]);
     }
     return sorting_columns;
   }
@@ -1706,9 +1704,7 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     if (!sorting_columns.empty()) {
       std::vector<format::SortingColumn> thrift_sorting_columns(sorting_columns.size());
       for (size_t i = 0; i < sorting_columns.size(); ++i) {
-        thrift_sorting_columns[i].column_idx = sorting_columns[i].column_idx;
-        thrift_sorting_columns[i].descending = sorting_columns[i].descending;
-        thrift_sorting_columns[i].nulls_first = sorting_columns[i].nulls_first;
+        thrift_sorting_columns[i] = ToThrift(sorting_columns[i]);
       }
       row_group_->__set_sorting_columns(std::move(thrift_sorting_columns));
     }
