@@ -14,14 +14,18 @@
 // limitations under the License.
 
 
+using System.Text;
+
 namespace Apache.Arrow.Types
 {
     public sealed class StringType : ArrowType
     {
+        public static readonly Encoding DefaultEncoding = Encoding.UTF8;
         public static StringType Default = new StringType();
 
         public override ArrowTypeId TypeId => ArrowTypeId.String;
         public override string Name => "utf8";
+        public Encoding Encoding => DefaultEncoding;
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }

@@ -27,9 +27,9 @@ namespace Apache.Arrow.Tests.Builder
             var builder = new PrimitiveArrayBuilder<long>() as ArrayBuilder;
 
             builder
-                .AppendValue(ScalarFactory.MakeScalar(123L))
+                .AppendValue(new PrimitiveScalar<long>(123L))
                 .AppendNull()
-                .AppendValues(ScalarFactory.MakeScalar(new long?[] { 1L, null, -12L}).Values);
+                .AppendValues(ListScalar.Make(new long?[] { 1L, null, -12L}).Values);
 
             var built = builder.Build() as Int64Array;
 
@@ -68,6 +68,49 @@ namespace Apache.Arrow.Tests.Builder
             Assert.True(built.IsValid(0));
             Assert.False(built.IsValid(2));
             Assert.False(built.IsValid(4));
+        }
+    }
+
+    public class BinaryArrayBuilderTests
+    {
+        [Fact]
+        public void BinaryArrayBuilder_Should_Build()
+        {
+            var builder = new BinaryArrayBuilder();
+
+            builder.AppendValue(123).AppendNull().AppendValue(new byte[] { 1, 0, 12 });
+
+            var built = builder.Build() as BinaryArray;
+
+            Assert.Equal(3, built.Length);
+            Assert.Equal(1, built.NullCount);
+
+            Assert.Equal(new byte[] { 123 }, built.GetBytes(0).ToArray());
+            Assert.Equal(new byte[] { }, built.GetBytes(1).ToArray());
+            Assert.Equal(new byte[] { 1, 0, 12 }, built.GetBytes(2).ToArray());
+
+            Assert.True(built.IsValid(0));
+            Assert.False(built.IsValid(1));
+        }
+
+        [Fact]
+        public void StringArrayBuilder_Should_Build()
+        {
+            var builder = new StringArrayBuilder();
+
+            builder.AppendValue("").AppendNull().AppendValue("def");
+
+            var built = builder.Build() as StringArray;
+
+            Assert.Equal(3, built.Length);
+            Assert.Equal(1, built.NullCount);
+
+            Assert.Equal("", built.GetString(0));
+            Assert.Null(built.GetString(1));
+            Assert.Equal("def", built.GetString(2));
+
+            Assert.True(built.IsValid(0));
+            Assert.False(built.IsValid(1));
         }
     }
 }

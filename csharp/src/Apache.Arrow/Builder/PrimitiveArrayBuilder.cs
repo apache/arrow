@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Apache.Arrow.Types;
 using Apache.Arrow.Values;
 
@@ -12,7 +13,7 @@ namespace Apache.Arrow.Builder
         public IPrimitiveBufferBuilder<T> ValuesBuffer { get; }
 
         public PrimitiveArrayBuilder(int capacity = 64)
-            : this(new Field.Builder().DataType(typeof(T))._type, capacity)
+            : this(PrimitiveType<T>.Default, capacity)
         {
         }
 
@@ -141,17 +142,10 @@ namespace Apache.Arrow.Builder
         // offset is then added after each individual item has been appended.
         public IPrimitiveBufferBuilder<int> OffsetsBuffer { get; }
 
-        private int CurrentOffset
-        {
-            get
-            {
-                int length = OffsetsBuffer.ValueLength;
-                return length == 0 ? 0 : OffsetsBuffer.Span[length - 1];
-            }
-        }
+        public int CurrentOffset { get; internal set; }
 
         public VariablePrimitiveArrayBuilder(int capacity = 64)
-            : this(new Field.Builder().DataType(typeof(T))._type, capacity)
+            : this(PrimitiveType<T>.Default, capacity)
         {
         }
 
@@ -167,8 +161,9 @@ namespace Apache.Arrow.Builder
         {
             ValuesBuffer = values;
             OffsetsBuffer = offsets;
+            CurrentOffset = 0;
 
-            OffsetsBuffer.AppendValue(0);
+            OffsetsBuffer.AppendValue(CurrentOffset);
         }
 
         public override IArrayBuilder AppendNull() => AppendNull(default);
@@ -179,8 +174,8 @@ namespace Apache.Arrow.Builder
             // Append Offset
             OffsetsBuffer.AppendValue(CurrentOffset);
 
-            // Append Values
-            ValuesBuffer.AppendValue(nullValue);
+            // Not Append Value, get is based on offsets
+            // ValuesBuffer.AppendValue(nullValue);
             return this;
         }
 
@@ -192,19 +187,23 @@ namespace Apache.Arrow.Builder
             // Append Offset
             OffsetsBuffer.AppendValues(CurrentOffset, count);
 
-            // Append Values
-            ValuesBuffer.AppendValues(nullValues);
+            // Not Append Values, get is based on offsets
+            // ValuesBuffer.AppendValues(nullValues);
             return this;
         }
 
+        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(string value, Encoding encoding = default)
+            => AppendValue((encoding ?? StringType.DefaultEncoding).GetBytes(value) as T[], value != null);
+
         public virtual VariablePrimitiveArrayBuilder<T> AppendValue(T value)
         {
-            AppendValidity(true);
+            AppendValid();
 
             // Append Offset
-            OffsetsBuffer.AppendValue(CurrentOffset + 1);
+            CurrentOffset++;
+            OffsetsBuffer.AppendValue(CurrentOffset);
 
-            // Append Values
+            // Not Append Value, get is based on offsets
             ValuesBuffer.AppendValue(value);
             return this;
         }
@@ -212,20 +211,23 @@ namespace Apache.Arrow.Builder
         public virtual VariablePrimitiveArrayBuilder<T> AppendValue(T? value)
             => value.HasValue ? AppendValue(value.Value) : AppendNull();
 
-        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(ReadOnlySpan<T> value)
+        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(ReadOnlySpan<T> value, bool isValid = true)
         {
-            AppendValidity(true);
-
-            // Append Offset
-            OffsetsBuffer.AppendValue(CurrentOffset + 1);
-
-            // Append Values
-            ValuesBuffer.AppendValues(value);
+            if (isValid)
+            {
+                AppendValid();
+                // Append Offset
+                CurrentOffset += value.Length;
+                OffsetsBuffer.AppendValue(CurrentOffset);
+                ValuesBuffer.AppendValues(value);
+            }
+            else
+            {
+                AppendNull();
+                OffsetsBuffer.AppendValue(CurrentOffset);
+            }
             return this;
         }
-
-        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(ReadOnlySpan<T> value, bool isValid = true)
-            => isValid ? AppendValue(value) : AppendNull();
 
         public virtual VariablePrimitiveArrayBuilder<T> AppendValues(ICollection<T[]> values)
         {
@@ -233,14 +235,13 @@ namespace Apache.Arrow.Builder
             Span<int> offsets = new int[values.Count];
             Span<bool> mask = new bool[offsets.Length];
             int offset = 0;
-            int currentOffset = CurrentOffset;
             int i = 0;
 
             foreach (T[] value in values)
             {
                 if (value == null)
                 {
-                    offsets[i] = currentOffset;
+                    offsets[i] = CurrentOffset;
                     // default is already false
                     // mask[i] = false;
                 }
@@ -250,10 +251,10 @@ namespace Apache.Arrow.Builder
                     value.CopyTo(memory.Slice(offset, value.Length));
 
                     offset += value.Length;
-                    currentOffset += value.Length;
+                    CurrentOffset += value.Length;
 
                     // Fill other buffers
-                    offsets[i] = currentOffset;
+                    offsets[i] = CurrentOffset;
                     mask[i] = true;
                 }
                 i++;
@@ -262,13 +263,14 @@ namespace Apache.Arrow.Builder
             return AppendValues(memory, offsets, mask);
         }
 
-        public virtual VariablePrimitiveArrayBuilder<T> AppendValues(
+        internal virtual VariablePrimitiveArrayBuilder<T> AppendValues(
             ReadOnlySpan<T> values, ReadOnlySpan<int> offsets, ReadOnlySpan<bool> mask
             )
         {
             AppendValidity(mask);
 
             // Append Offset
+            CurrentOffset = offsets[offsets.Length - 1];
             OffsetsBuffer.AppendValues(offsets);
 
             // Append Values
@@ -277,8 +279,16 @@ namespace Apache.Arrow.Builder
         }
 
         public override IArrayBuilder AppendValue(Scalar value)
-            => value.IsValid ? AppendValue((value as IPrimitiveScalar<T>).Value) : AppendNull();
-        public override IArrayBuilder AppendValue(IEnumerable<Scalar> value)
-            => throw new NotImplementedException("");
+        {
+            if (value.IsValid)
+            {
+                return value switch
+                {
+                    IBinaryScalar bin => AppendValue(bin.Values as T[]),
+                    _ => throw new ArgumentException($"Cannot append arrow scalar {value}"),
+                };
+            }
+            return AppendNull();
+        }
     }
 }
