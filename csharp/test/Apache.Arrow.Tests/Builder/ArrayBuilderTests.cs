@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Collections;
 using Apache.Arrow.Builder;
+using Apache.Arrow.Types;
 using Xunit;
 
 namespace Apache.Arrow.Tests.Builder
@@ -109,5 +111,36 @@ namespace Apache.Arrow.Tests.Builder
             Assert.True(built.IsValid(0));
             Assert.False(built.IsValid(1));
         }
+    }
+
+    public class StructArrayBuilderTests
+    {
+        [Fact]
+        public void StructArrayBuilder_Should_Build()
+        {
+            var builder = new StructArrayBuilder<TestStruct>();
+
+            // Start new valid block, need to fill all builders
+            builder.Append();
+            builder.GetBuilderAs<StringArrayBuilder>(0).AppendValue("abc");
+            builder.GetBuilderAs<PrimitiveArrayBuilder<int>>(1).AppendValue(1);
+            // Append null block
+            builder.AppendNull();
+
+            StructArray built = builder.Build() as StructArray;
+
+            Assert.IsType<StructArray>(built);
+            Assert.Equal(2, built.Length);
+            Assert.Equal(1, built.NullCount);
+
+            Assert.True(built.IsValid(0));
+            Assert.False(built.IsValid(1));
+        }
+    }
+
+    public struct TestStruct
+    {
+        public string Name { get; set; }
+        public int Value { get; set; }
     }
 }

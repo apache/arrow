@@ -15,8 +15,6 @@ namespace Apache.Arrow.Builder
 
         public int Offset { get; }
 
-        public bool IsNested => DataType is NestedType;
-
         public IValueBufferBuilder[] Buffers { get; }
         public IValueBufferBuilder ValidityBuffer => Buffers[0];
 
@@ -207,6 +205,64 @@ namespace Apache.Arrow.Builder
                 Dictionary.Clear();
 
             return this;
+        }
+    }
+
+    public static class ArrayBuilderFactory
+    {
+        public static IArrayBuilder Make(IArrowType dtype, int capacity = 64)
+        {
+            switch (dtype.TypeId)
+            {
+                case ArrowTypeId.Boolean:
+                    return new PrimitiveArrayBuilder<bool>(dtype, capacity);
+                case ArrowTypeId.UInt8:
+                    return new PrimitiveArrayBuilder<byte>(dtype, capacity);
+                case ArrowTypeId.Int8:
+                    return new PrimitiveArrayBuilder<sbyte>(dtype, capacity);
+                case ArrowTypeId.UInt16:
+                    return new PrimitiveArrayBuilder<ushort>(dtype, capacity);
+                case ArrowTypeId.Int16:
+                    return new PrimitiveArrayBuilder<short>(dtype, capacity);
+                case ArrowTypeId.UInt32:
+                    return new PrimitiveArrayBuilder<int>(dtype, capacity);
+                case ArrowTypeId.Int32:
+                    return new PrimitiveArrayBuilder<int>(dtype, capacity);
+                case ArrowTypeId.UInt64:
+                    return new PrimitiveArrayBuilder<ulong>(dtype, capacity);
+                case ArrowTypeId.Int64:
+                    return new PrimitiveArrayBuilder<long>(dtype, capacity);
+#if NET5_0_OR_GREATER
+                case ArrowTypeId.HalfFloat:
+                    return new PrimitiveArrayBuilder<Half>(dtype, capacity);
+#endif
+                case ArrowTypeId.Float:
+                    return new PrimitiveArrayBuilder<float>(dtype, capacity);
+                case ArrowTypeId.Double:
+                    return new PrimitiveArrayBuilder<double>(dtype, capacity);
+                case ArrowTypeId.String:
+                    return new StringArrayBuilder(capacity);
+                case ArrowTypeId.Binary:
+                case ArrowTypeId.FixedSizedBinary:
+                    return new BinaryArrayBuilder(capacity);
+                case ArrowTypeId.List:
+                case ArrowTypeId.Struct:
+                    return new NestedArrayBuilder(dtype as NestedType, capacity);
+                case ArrowTypeId.Date32:
+                case ArrowTypeId.Date64:
+                case ArrowTypeId.Timestamp:
+                case ArrowTypeId.Time32:
+                case ArrowTypeId.Time64:
+                case ArrowTypeId.Interval:
+                case ArrowTypeId.Decimal128:
+                case ArrowTypeId.Decimal256:
+                case ArrowTypeId.Union:
+                case ArrowTypeId.Dictionary:
+                case ArrowTypeId.Map:
+                case ArrowTypeId.Null:
+                default:
+                    throw new ArgumentException($"Cannot create arrow array builder from {dtype.TypeId}");
+            }
         }
     }
 }
