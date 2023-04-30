@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,16 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+FROM swift:5.7.3
 
-data_gen_dir=${1}/swift/data-generator/swift-datagen
-pushd ${data_gen_dir}
-go get -d ./...
-go run main.go
-cp *.arrow ../../Arrow
-popd
-
-source_dir=${1}/swift/Arrow
-pushd ${source_dir}
-swift test
-popd
+# Install golang
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        golang-go && \
+    apt-get clean

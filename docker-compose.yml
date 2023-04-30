@@ -921,7 +921,10 @@ services:
     #   docker-compose build ubuntu-swift
     #   docker-compose run --rm ubuntu-swift
     # Parameters:
-    image: swift:5.7.3
+    image: ubuntu-swift
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-swift.dockerfile
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     command: >
