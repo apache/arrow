@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -176,7 +175,7 @@ record 3...
 			defer mem.AssertSize(t, 0)
 
 			fname := func() string {
-				f, err := ioutil.TempFile(tempDir, "go-arrow-cat-stream-")
+				f, err := os.CreateTemp(tempDir, "go-arrow-cat-stream-")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -518,7 +517,7 @@ record 3/3...
 			defer mem.AssertSize(t, 0)
 
 			fname := func() string {
-				f, err := ioutil.TempFile(tempDir, "go-arrow-cat-file-")
+				f, err := os.CreateTemp(tempDir, "go-arrow-cat-file-")
 				if err != nil {
 					t.Fatal(err)
 				}

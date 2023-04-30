@@ -1611,7 +1611,7 @@ TEST(ExecPlanExecution, SegmentedAggregationWithMultiThreading) {
        {"aggregate", AggregateNodeOptions{/*aggregates=*/{
                                               {"count", nullptr, "i32", "count(i32)"},
                                           },
-                                          /*keys=*/{"i32"}, /*segment_leys=*/{"i32"}}}});
+                                          /*keys=*/{}, /*segment_keys=*/{"i32"}}}});
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, HasSubstr("multi-threaded"),
                                   DeclarationToExecBatches(std::move(plan)));
 }

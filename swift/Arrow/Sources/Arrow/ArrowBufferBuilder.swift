@@ -77,10 +77,11 @@ public class FixedBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder {
         }
 
         if let val = newValue {
+            BitUtility.setBit(index + self.offset, buffer: self.nulls)
             self.values.rawPointer.advanced(by: byteIndex).storeBytes(of: val, as: T.self)
         } else {
             self.nullCount += 1
-            BitUtility.setBit(index + self.offset, buffer: self.nulls)
+            BitUtility.clearBit(index + self.offset, buffer: self.nulls)
             self.values.rawPointer.advanced(by: byteIndex).storeBytes(of: defaultVal, as: T.self)
         }
     }
@@ -150,6 +151,7 @@ public class BoolBufferBuilder: BaseBufferBuilder<Bool>, ArrowBufferBuilder {
         }
 
         if newValue != nil {
+            BitUtility.setBit(index + self.offset, buffer: self.nulls)
             if newValue == true {
                 BitUtility.setBit(index + self.offset, buffer: self.values)
             } else {
@@ -158,7 +160,7 @@ public class BoolBufferBuilder: BaseBufferBuilder<Bool>, ArrowBufferBuilder {
             
         } else {
             self.nullCount += 1
-            BitUtility.setBit(index + self.offset, buffer: self.nulls)
+            BitUtility.clearBit(index + self.offset, buffer: self.nulls)
             BitUtility.clearBit(index + self.offset, buffer: self.values)
         }
     }
@@ -225,6 +227,8 @@ public class VariableBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder 
 
         if isNull {
             self.nullCount += 1
+            BitUtility.clearBit(index + self.offset, buffer: self.nulls)
+        } else {
             BitUtility.setBit(index + self.offset, buffer: self.nulls)
         }
 

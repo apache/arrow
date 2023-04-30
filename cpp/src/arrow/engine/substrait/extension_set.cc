@@ -944,6 +944,30 @@ ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
                                call.id().name, " to have at least one argument");
       }
       case 1: {
+        std::shared_ptr<compute::FunctionOptions> options = nullptr;
+        if (arrow_function_name == "stddev" || arrow_function_name == "variance") {
+          // See the following URL for the spec of stddev and variance:
+          // https://github.com/substrait-io/substrait/blob/
+          // 73228b4112d79eb1011af0ebb41753ce23ca180c/
+          // extensions/functions_arithmetic.yaml#L1240
+          auto maybe_dist = call.GetOption("distribution");
+          if (maybe_dist) {
+            auto& prefs = **maybe_dist;
+            if (prefs.size() != 1) {
+              return Status::Invalid("expected a single preference for ",
+                                     arrow_function_name, " but got ", prefs.size());
+            }
+            int ddof;
+            if (prefs[0] == "POPULATION") {
+              ddof = 1;
+            } else if (prefs[0] == "SAMPLE") {
+              ddof = 0;
+            } else {
+              return Status::Invalid("unknown distribution preference ", prefs[0]);
+            }
+            options = std::make_shared<compute::VarianceOptions>(ddof);
+          }
+        }
         fixed_arrow_func += arrow_function_name;
 
         ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(0));
@@ -953,7 +977,8 @@ ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
                                  call.id().name, " to have a direct reference");
         }
 
-        return compute::Aggregate{std::move(fixed_arrow_func), *arg_ref, ""};
+        return compute::Aggregate{std::move(fixed_arrow_func),
+                                  options ? std::move(options) : nullptr, *arg_ref, ""};
       }
       default:
         break;
@@ -1069,12 +1094,14 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
         DecodeOptionlessBasicMapping("is_valid", /*max_args=*/1)));
 
     // --------------- Substrait -> Arrow Aggregates --------------
-    for (const auto& fn_name : {"sum", "min", "max"}) {
+    for (const auto& fn_name : {"sum", "min", "max", "variance"}) {
       DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, fn_name},
                                              DecodeBasicAggregate(fn_name)));
     }
     DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, "avg"},
                                            DecodeBasicAggregate("mean")));
+    DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, "std_dev"},
+                                           DecodeBasicAggregate("stddev")));
     DCHECK_OK(
         AddSubstraitAggregateToArrow({kSubstraitAggregateGenericFunctionsUri, "count"},
                                      DecodeBasicAggregate("count")));

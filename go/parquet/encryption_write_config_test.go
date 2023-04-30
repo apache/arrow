@@ -19,7 +19,6 @@ package parquet_test
 import (
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -214,7 +213,7 @@ func (en *EncryptionConfigTestSuite) encryptFile(configs *parquet.FileEncryption
 
 func (en *EncryptionConfigTestSuite) SetupSuite() {
 	var err error
-	tempdir, err = ioutil.TempDir("", "parquet-encryption-test-*")
+	tempdir, err = os.MkdirTemp("", "parquet-encryption-test-*")
 	en.Require().NoError(err)
 	fmt.Println(tempdir)
 

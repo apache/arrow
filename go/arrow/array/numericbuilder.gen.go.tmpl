@@ -225,23 +225,23 @@ func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
     }
     b.Append(v)
   {{else if (eq .Name "Duration") -}}	
-    return fmt.Errorf("%w: AppendValueFromString not implemented for Duration", ErrNotImplemented)
+    return fmt.Errorf("%w: AppendValueFromString not implemented for Duration", arrow.ErrNotImplemented)
   {{else if or (eq .Name "Int8") (eq .Name "Int16") (eq .Name "Int32") (eq .Name "Int64") -}}
-    v, err := strconv.ParseInt(s, 10, {{.Size}})
+    v, err := strconv.ParseInt(s, 10, {{.Size}} * 8)
     if err != nil {
         b.AppendNull()
         return err
     }
     b.Append({{.name}}(v))
   {{else if or (eq .Name "Uint8") (eq .Name "Uint16") (eq .Name "Uint32") (eq .Name "Uint64") -}}
-    v, err := strconv.ParseUint(s, 10, {{.Size}})
+    v, err := strconv.ParseUint(s, 10, {{.Size}} * 8)
     if err != nil {
         b.AppendNull()
         return err
     }
     b.Append({{.name}}(v))
   {{else if or (eq .Name "Float32") (eq .Name "Float64") -}}
-    v, err := strconv.ParseFloat(s, {{.Size}})
+    v, err := strconv.ParseFloat(s, {{.Size}} * 8)
     if err != nil {
       b.AppendNull()
       return err

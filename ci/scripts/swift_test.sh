@@ -19,8 +19,14 @@
 
 set -ex
 
-source_dir=${1}/swift/Arrow
+data_gen_dir=${1}/swift/data-generator/swift-datagen
+pushd ${data_gen_dir}
+go get -d ./...
+go run main.go
+cp *.arrow ../../Arrow
+popd
 
+source_dir=${1}/swift/Arrow
 pushd ${source_dir}
 swift test
 popd
