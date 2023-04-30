@@ -225,7 +225,7 @@ namespace Apache.Arrow.Builder
                 case ArrowTypeId.Int16:
                     return new PrimitiveArrayBuilder<short>(dtype, capacity);
                 case ArrowTypeId.UInt32:
-                    return new PrimitiveArrayBuilder<int>(dtype, capacity);
+                    return new PrimitiveArrayBuilder<uint>(dtype, capacity);
                 case ArrowTypeId.Int32:
                     return new PrimitiveArrayBuilder<int>(dtype, capacity);
                 case ArrowTypeId.UInt64:
@@ -241,10 +241,10 @@ namespace Apache.Arrow.Builder
                 case ArrowTypeId.Double:
                     return new PrimitiveArrayBuilder<double>(dtype, capacity);
                 case ArrowTypeId.String:
-                    return new StringArrayBuilder(capacity);
+                    return new StringArrayBuilder(dtype, capacity);
                 case ArrowTypeId.Binary:
                 case ArrowTypeId.FixedSizedBinary:
-                    return new BinaryArrayBuilder(capacity);
+                    return new BinaryArrayBuilder(dtype, capacity);
                 case ArrowTypeId.Struct:
                     return new StructArrayBuilder(dtype as StructType, capacity);
                 case ArrowTypeId.List:

@@ -9,7 +9,7 @@ namespace Apache.Arrow.Builder
         {
         }
 
-        internal BinaryArrayBuilder(StringType dtype, int capacity = 64)
+        internal BinaryArrayBuilder(IArrowType dtype, int capacity = 64)
             : base(dtype, capacity)
         {
         }
@@ -18,7 +18,12 @@ namespace Apache.Arrow.Builder
     public class StringArrayBuilder : BinaryArrayBuilder
     {
         public StringArrayBuilder(int capacity = 64)
-            : base(StringType.Default, capacity)
+            : this(StringType.Default, capacity)
+        {
+        }
+
+        internal StringArrayBuilder(IArrowType dtype, int capacity = 64)
+            : base(dtype, capacity)
         {
         }
     }
