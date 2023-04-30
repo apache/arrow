@@ -48,7 +48,6 @@ namespace Apache.Arrow.Builder
             }
         }
 
-        private const int DefaultBatchSize = 65536; // 64 * 1024
         private const int DefaultCapacity = 64;
         public int ByteLength { get; private set; }
 
@@ -180,15 +179,21 @@ namespace Apache.Arrow.Builder
             }
             else
             {
-                // Convert Bytes to Bits streamed in batchsize = DefaultBatchSize
+                // Convert Bytes to Bits streamed in batchsize = 128
                 int offset = 0;
                 while (offset < bytes.Length)
                 {
                     int remainingBytes = bytes.Length - offset;
-                    int bufferLength = Math.Min(DefaultBatchSize, remainingBytes);
+                    int bufferLength = Math.Min(64, remainingBytes);
 
-                    // Append batch bits, but length = 0 because its added later
-                    AppendBits(BitUtility.ToBits(bytes.Slice(offset, bufferLength)));
+                    // Bits span
+                    Span<bool> buffer = stackalloc bool[bufferLength * 8];
+
+                    // Fill bits
+                    BitUtility.ToBits(buffer, bytes.Slice(offset, bufferLength));
+
+                    // Append batch bits
+                    AppendBits(buffer);
                     offset += bufferLength;
                 }
             }

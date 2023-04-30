@@ -248,16 +248,21 @@ namespace Apache.Arrow
             return boolArray;
         }
 
-        public static Span<bool> ToBits(ReadOnlySpan<byte> bytes)
+        public static void ToBits(Span<bool> bits, ReadOnlySpan<byte> bytes)
         {
-            Span<bool> bools = new bool[bytes.Length * 8].AsSpan();
-
             for (int i = 0; i < bytes.Length; i++)
             {
-                ToBits(bools.Slice(i * 8, 8), bytes[i]);
+                ToBits(bits.Slice(i * 8, 8), bytes[i]);
             }
+        }
 
-            return bools;
+        public static Span<bool> ToBits(ReadOnlySpan<byte> bytes)
+        {
+            Span<bool> bits = new bool[bytes.Length * 8].AsSpan();
+
+            ToBits(bits, bytes);
+
+            return bits;
         }
 
         internal static int NextPowerOfTwo(int n)
