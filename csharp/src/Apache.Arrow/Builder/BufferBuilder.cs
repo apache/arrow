@@ -118,7 +118,7 @@ namespace Apache.Arrow.Builder
                 if (byteEnd > 0)
                 {
                     // Ensure byte length
-                    EnsureAdditionalBits(byteEnd);
+                    EnsureAdditionalBytes(byteEnd);
 
                     // Raw Span copy to memory
                     BitUtility.ToBytes(Memory.Span.Slice(ByteLength, byteEnd), bits.Slice(0, bitEnd));
