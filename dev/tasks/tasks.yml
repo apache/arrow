@@ -1237,6 +1237,29 @@ tasks:
         FEDORA: 35
       image: fedora-python
 
+  test-ubuntu-20.04-python-s390x:
+    ci: travis
+    template: docker-tests/travis.linux.s390x.yml
+    params:
+      arrow_ci_modules: "PYTHON"
+      docker_run_args: >-
+          "
+          -e ARROW_FLIGHT=ON
+          -e ARROW_GCS=OFF
+          -e ARROW_MIMALLOC=OFF
+          -e ARROW_ORC=OFF
+          -e ARROW_PARQUET=OFF
+          -e ARROW_PYTHON=ON
+          -e ARROW_S3=OFF
+          -e CMAKE_BUILD_PARALLEL_LEVEL=2
+          -e CMAKE_UNITY_BUILD=ON
+          -e PARQUET_BUILD_EXAMPLES=OFF
+          -e PARQUET_BUILD_EXECUTABLES=OFF
+          -e Protobuf_SOURCE=BUNDLED
+          -e gRPC_SOURCE=BUNDLED
+          "
+      image: ubuntu-python
+
   test-r-linux-valgrind:
     ci: azure
     template: docker-tests/azure.linux.yml

@@ -199,6 +199,24 @@ on:
   {% endif %}
 {% endmacro %}
 
+{%- macro travis_checkout_arrow() -%}
+  - git clone --no-checkout --branch {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
+  - git -C arrow submodule update --init --recursive
+{% endmacro %}
+
+{%- macro travis_set_venv_with_archery() -%}
+  - python3 -m venv travis-venv
+  - source travis-venv/bin/activate
+  - pip install --upgrade pip
+  - pip install docker-compose>=1.28.0
+  - pip install -e arrow/dev/archery[docker]
+{% endmacro %}
+
+{%- macro travis_docker_login() -%}
+  - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin
+{% endmacro %}
+
 {%- macro configure_homebrew_arrow(formula) -%}
   - name: Configure Homebrew formula for testing
     env:
