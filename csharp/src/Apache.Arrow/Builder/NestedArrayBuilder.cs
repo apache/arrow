@@ -25,7 +25,14 @@ namespace Apache.Arrow.Builder
         {
         }
 
-        public TBuilder GetBuilderAs<TBuilder>(int index) where TBuilder : ArrayBuilder => Children[index] as TBuilder;
+        public TBuilder GetBuilderAs<TBuilder>(int index) where TBuilder : ArrayBuilder
+        {
+            if (Children[index] is not TBuilder builder)
+            {
+                throw new InvalidOperationException($"Cannot get Children{index}] as desired builder");
+            }
+            return builder;
+        }
     }
 
     public class ListArrayBuilder : NestedArrayBuilder
@@ -40,7 +47,13 @@ namespace Apache.Arrow.Builder
         public IPrimitiveBufferBuilder<int> OffsetsBuffer => Buffers[1] as IPrimitiveBufferBuilder<int>;
 
         public PrimitiveArrayBuilder<T> GetBuilderAs<T>() where T : struct
-            => Children[0] as PrimitiveArrayBuilder<T>;
+        {
+            if (Children[0] is not PrimitiveArrayBuilder<T> builder)
+            {
+                throw new InvalidOperationException("Children[0] is not a PrimitiveArrayBuilder<T>");
+            }
+            return builder;
+        }
 
         // Append Valididty
         public virtual ListArrayBuilder Append()
