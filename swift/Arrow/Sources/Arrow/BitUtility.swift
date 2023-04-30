@@ -18,25 +18,23 @@
 import Foundation
 
 class BitUtility {
-    static let twoPow: [UInt8] = [1, 2, 4, 8, 16, 32, 64, 128]
     static func isSet(_ bit: UInt, buffer: ArrowBuffer) -> Bool {
         let byteIndex = UInt(bit / 8)
         let theByte = buffer.rawPointer.load(fromByteOffset: Int(byteIndex), as: UInt8.self)
-        let bitToGet = 7 - Int(bit % 8);
-        return theByte & twoPow[bitToGet] > 0
+        return theByte & UInt8(1 << (bit % 8)) > 0
     }
 
     static func setBit(_ bit: UInt, buffer: ArrowBuffer) {
         let byteIndex = UInt(bit / 8)
         var theByte = buffer.rawPointer.load(fromByteOffset: Int(byteIndex), as: UInt8.self)
-        theByte |= twoPow[7 - Int(bit % 8)]
+        theByte |= UInt8(1 << (bit % 8))
         buffer.rawPointer.storeBytes(of: theByte, toByteOffset: Int(byteIndex), as: UInt8.self)
     }
 
     static func clearBit(_ bit: UInt, buffer: ArrowBuffer) {
         let byteIndex = UInt(bit / 8)
         var theByte = buffer.rawPointer.load(fromByteOffset: Int(byteIndex), as: UInt8.self)
-        theByte &= ~twoPow[7 - Int(bit % 8)]
+        theByte &= ~(UInt8(1 << (bit % 8)))
         buffer.rawPointer.storeBytes(of: theByte, toByteOffset: Int(byteIndex), as: UInt8.self)
     }
 }
