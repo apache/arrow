@@ -245,9 +245,10 @@ namespace Apache.Arrow.Builder
                 case ArrowTypeId.Binary:
                 case ArrowTypeId.FixedSizedBinary:
                     return new BinaryArrayBuilder(capacity);
-                case ArrowTypeId.List:
                 case ArrowTypeId.Struct:
-                    return new NestedArrayBuilder(dtype as NestedType, capacity);
+                    return new StructArrayBuilder(dtype as StructType, capacity);
+                case ArrowTypeId.List:
+                    return new ListArrayBuilder(dtype as ListType, capacity);
                 case ArrowTypeId.Date32:
                 case ArrowTypeId.Date64:
                 case ArrowTypeId.Timestamp:

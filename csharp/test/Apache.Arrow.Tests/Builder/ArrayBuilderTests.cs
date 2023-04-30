@@ -138,6 +138,33 @@ namespace Apache.Arrow.Tests.Builder
         }
     }
 
+    public class ListArrayBuilderTests
+    {
+        [Fact]
+        public void ListArrayBuilder_Should_Build()
+        {
+            var builder = new ListArrayBuilder(new ListType(new Int64Type()));
+
+            ListArray built = builder
+                .AppendValue<long>(new long[] { 1, 0, -1 })
+                .AppendNull()
+                .AppendValues(new long[][]
+                {
+                    new long[] { 12, 3 },
+                    new long[] {  }
+                })
+                .Build() as ListArray;
+
+            Assert.IsType<ListArray>(built);
+            Assert.Equal(4, built.Length);
+            Assert.Equal(1, built.NullCount);
+
+            Assert.True(built.IsValid(0));
+            Assert.False(built.IsValid(1));
+            Assert.True(built.IsValid(2));
+        }
+    }
+
     public struct TestStruct
     {
         public string Name { get; set; }
