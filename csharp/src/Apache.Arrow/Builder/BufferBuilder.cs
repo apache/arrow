@@ -179,15 +179,15 @@ namespace Apache.Arrow.Builder
             }
             else
             {
-                // Convert Bytes to Bits streamed in batchsize = 128
+                // Convert Bytes to Bits streamed in batchsize = 64
                 int offset = 0;
                 while (offset < bytes.Length)
                 {
                     int remainingBytes = bytes.Length - offset;
-                    int bufferLength = Math.Min(64, remainingBytes);
+                    int bufferLength = Math.Min(128, remainingBytes);
 
                     // Bits span
-                    Span<bool> buffer = stackalloc bool[bufferLength * 8];
+                    Span<bool> buffer = new bool[bufferLength * 8];
 
                     // Fill bits
                     BitUtility.ToBits(buffer, bytes.Slice(offset, bufferLength));
