@@ -1747,6 +1747,16 @@ def test_logical():
 
     assert pc.invert(a) == pa.array([False, True, True, None])
 
+def test_dictionary_decode():
+    array = pa.array(["a", "a", "b","c","b"])
+    dictionary_array = pa.array(["a", "a", "b","c","b"], pa.dictionary(pa.int8(), pa.string()))
+
+    assert array != dictionary_array
+
+    assert array == pc.dictionary_decode(dictionary_array)
+
+    with pytest.raises(TypeError):
+        pc.dictionary_decode(array)
 
 def test_cast():
     arr = pa.array([1, 2, 3, 4], type='int64')
