@@ -309,8 +309,8 @@ void SerialExecutor::RunLoop() {
         }
         // Can't break here because there may be cleanup tasks down the chain we still
         // need to run.
-        lk.lock();
       }
+      lk.lock();
     }
     // In this case we must be waiting on work from external (e.g. I/O) executors.  Wait
     // for tasks to arrive (typically via transferred futures).
