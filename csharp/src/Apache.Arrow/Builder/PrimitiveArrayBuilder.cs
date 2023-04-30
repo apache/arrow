@@ -12,7 +12,7 @@ namespace Apache.Arrow.Builder
         public IPrimitiveBufferBuilder<T> ValuesBuffer { get; }
 
         public PrimitiveArrayBuilder(int capacity = 64)
-            : this(PrimitiveType<T>.Default, capacity)
+            : this(CStructType<T>.Default, capacity)
         {
         }
 
@@ -116,7 +116,7 @@ namespace Apache.Arrow.Builder
         public int CurrentOffset { get; internal set; }
 
         public VariablePrimitiveArrayBuilder(int capacity = 64)
-            : this(PrimitiveType<T>.Default, capacity)
+            : this(CStructType<T>.Default, capacity)
         {
         }
 
@@ -191,24 +191,6 @@ namespace Apache.Arrow.Builder
                 CurrentOffset += value.Length;
                 OffsetsBuffer.AppendValue(CurrentOffset);
                 ValuesBuffer.AppendValues(value);
-            }
-            else
-            {
-                AppendNull();
-                OffsetsBuffer.AppendValue(CurrentOffset);
-            }
-            return this;
-        }
-
-        internal virtual VariablePrimitiveArrayBuilder<T> AppendByteValue(ReadOnlySpan<byte> value, bool isValid = true)
-        {
-            if (isValid)
-            {
-                AppendValid();
-                // Append Offset
-                CurrentOffset += value.Length;
-                OffsetsBuffer.AppendValue(CurrentOffset);
-                ValuesBuffer.AppendBytes(value);
             }
             else
             {

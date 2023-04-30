@@ -59,14 +59,7 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        internal virtual IArrayBuilder AppendValidity(bool isValid)
-        {
-            ValidityBuffer.AppendBit(isValid);
-            if (!isValid)
-                NullCount++;
-            Length++;
-            return this;
-        }
+        internal virtual IArrayBuilder AppendValidity(bool isValid) => isValid ? AppendValid() : AppendNull();
 
         internal virtual IArrayBuilder AppendValid()
         {
