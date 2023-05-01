@@ -128,14 +128,22 @@ class ThreadedTaskGroup : public TaskGroup {
   bool ok() const override { return ok_.load(); }
 
   Status Finish() override {
-    std::unique_lock<std::mutex> lock(mutex_);
-    if (!finished_) {
-      cv_.wait(lock, [&]() { return nremaining_.load() == 0; });
-      // Current tasks may start other tasks, so only set this when done
+    #ifdef ARROW_DISABLE_THREADING
+      while(!finished_ && nremaining_.load() != 0 )
+      {
+        arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
+      }
       finished_ = true;
+    #else
+      std::unique_lock<std::mutex> lock(mutex_);
+      if (!finished_) {
+        cv_.wait(lock, [&]() { return nremaining_.load() == 0; });
+        // Current tasks may start other tasks, so only set this when done
+        finished_ = true;
+      }
+    #endif
+      return status_;
     }
-    return status_;
-  }
 
   Future<> FinishAsync() override {
     std::lock_guard<std::mutex> lock(mutex_);
