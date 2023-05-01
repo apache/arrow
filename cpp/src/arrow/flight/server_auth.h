@@ -64,7 +64,7 @@ class ARROW_FLIGHT_EXPORT ServerAuthHandler {
   virtual Status Authenticate(const ServerCallContext& context,
                               ServerAuthSender* outgoing, ServerAuthReader* incoming) {
     // TODO: We can make this pure virtual function when we remove
-    // the duplicated version.
+    // the deprecated version.
     ARROW_SUPPRESS_DEPRECATION_WARNING
     return Authenticate(outgoing, incoming);
     ARROW_UNSUPPRESS_DEPRECATION_WARNING
@@ -82,6 +82,7 @@ class ARROW_FLIGHT_EXPORT ServerAuthHandler {
                                   "::Authenticate() isn't implemented");
   }
   /// \brief Validate a per-call client token.
+  /// \param[in] context The call context.
   /// \param[in] token The client token. May be the empty string if
   /// the client does not provide a token.
   /// \param[out] peer_identity The identity of the peer, if this
@@ -91,7 +92,7 @@ class ARROW_FLIGHT_EXPORT ServerAuthHandler {
   virtual Status IsValid(const ServerCallContext& context, const std::string& token,
                          std::string* peer_identity) {
     // TODO: We can make this pure virtual function when we remove
-    // the duplicated version.
+    // the deprecated version.
     ARROW_SUPPRESS_DEPRECATION_WARNING
     return IsValid(token, peer_identity);
     ARROW_UNSUPPRESS_DEPRECATION_WARNING
