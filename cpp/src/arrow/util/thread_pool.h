@@ -373,6 +373,11 @@ class ARROW_EXPORT SerialExecutor : public Executor {
     return Iterator<T>(SerialIterator{std::move(serial_executor), std::move(generator)});
   }
 
+#ifdef ARROW_DISABLE_THREADING
+    static void RunTasksOnAllExecutors(bool once_only=false); // run loop until everything works okay
+#endif
+
+
 protected:
   virtual void RunLoop();
 
@@ -406,7 +411,6 @@ protected:
   // we have to run tasks from all live executors
   // during RunLoop if we don't have threading
     static std::unordered_set<SerialExecutor*> all_executors;
-    static void RunTasksOnAllExecutors(); // run loop until everything works okay
 
 #endif // ARROW_DISABLE_THREADING
 

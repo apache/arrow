@@ -194,7 +194,7 @@ bool SerialExecutor::OwnsThisThread() {
 }
 #ifdef ARROW_DISABLE_THREADING
 
-void SerialExecutor::RunTasksOnAllExecutors()
+void SerialExecutor::RunTasksOnAllExecutors(bool once_only)
 {
   bool run_task=true;
   while(run_task)
@@ -214,6 +214,11 @@ void SerialExecutor::RunTasksOnAllExecutors()
             if (task.stop_callback) {
               std::move(task.stop_callback)(task.stop_token.Poll());
             }
+          }
+          if(once_only)
+          {
+            run_task=false;
+            break;
           }
         }
     }
