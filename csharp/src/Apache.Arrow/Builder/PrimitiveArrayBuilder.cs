@@ -337,15 +337,13 @@ namespace Apache.Arrow.Builder
 
             foreach (T[] value in values)
             {
-                if (value == null)
-                {
-                    // default is already false
-                    // mask[i] = false;
+                // default is already false
+                // mask[i] = false;
 
-                    // Fill with empty values
-                    _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
-                }
-                else
+                // default is already filled with empty values
+                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
+
+                if (value != null)
                 {
                     // Copy to memory, will raise error if length > fixed size
                     value.CopyTo(memory.Slice(offset, _defaultValue.Length));

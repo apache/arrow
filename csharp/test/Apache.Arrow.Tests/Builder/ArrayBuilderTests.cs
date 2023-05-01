@@ -133,6 +133,7 @@ namespace Apache.Arrow.Tests.Builder
 
             Assert.Equal(new byte[] { 1, 2, 3, 4 }, array.GetBytes(0).ToArray());
             Assert.Equal(new byte[] { }, array.GetBytes(1).ToArray());
+            Assert.Equal(new byte[] { 0, 0, 0, 0 }, array.GetBytes(2).ToArray());
             Assert.Equal(new byte[] { 1, 5, 0, 0 }, array.GetBytes(4).ToArray());
 
             Assert.True(array.IsValid(0));
