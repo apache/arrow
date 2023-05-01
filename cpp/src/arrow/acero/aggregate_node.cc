@@ -442,6 +442,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
                            aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                           {"function.kind", std::string(kind_name()) + "::Consume"}});
       KernelContext batch_ctx{plan()->query_context()->exec_context()};
+      DCHECK_LT(thread_index, states_[i].size());
       batch_ctx.SetState(states_[i][thread_index].get());
 
       std::vector<ExecValue> column_values;
