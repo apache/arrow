@@ -477,7 +477,7 @@ class FlightTestServer : public FlightServerBase {
   Status ListIncomingHeaders(const ServerCallContext& context, const Action& action,
                              std::unique_ptr<ResultStream>* out) {
     std::vector<Result> results;
-    auto prefix = static_cast<std::string_view>(*(action.body));
+    std::string_view prefix(*action.body);
     for (const auto& header : context.incoming_headers()) {
       if (header.first.substr(0, prefix.size()) != prefix) {
         continue;
