@@ -28,6 +28,8 @@ namespace arrow {
 
 namespace flight {
 
+class ServerCallContext;
+
 /// \brief A reader for messages from the client during an
 /// authentication handshake.
 class ARROW_FLIGHT_EXPORT ServerAuthReader {
@@ -55,7 +57,53 @@ class ARROW_FLIGHT_EXPORT ServerAuthHandler {
   virtual ~ServerAuthHandler();
   /// \brief Authenticate the client on initial connection. The server
   /// can send and read responses from the client at any time.
+  ///
+  /// If this version is implemented, the deprecated Authentication()
+  /// without ServerCallContext version isn't used. So we can
+  /// implement the deprecated version like the following:
+  ///
+  ///   Status Authenticate(ServerAuthSender* outgoing,
+  ///                       ServerAuthReader* incoming) override {
+  ///     return Status::NotImplemented("This version is never used");
+  ///   }
+  ///
+  /// \param[in] context The call context.
+  /// \param[in] outgoing The writer for messages to the client.
+  /// \param[in] incoming The reader for messages from the client.
+  /// \return Status OK if this authentication is succeeded.
+  virtual Status Authenticate(const ServerCallContext& context,
+                              ServerAuthSender* outgoing, ServerAuthReader* incoming) {
+    return Authenticate(outgoing, incoming);
+  }
+  /// \brief Authenticate the client on initial connection. The server
+  /// can send and read responses from the client at any time.
+  /// \param[in] outgoing The writer for messages to the client.
+  /// \param[in] incoming The reader for messages from the client.
+  /// \return Status OK if this authentication is succeeded.
+  /// \deprecated Deprecated since 13.0.0. Implement the Authentication()
+  /// with ServerCallContext version instead.
   virtual Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) = 0;
+  /// \brief Validate a per-call client token.
+  ///
+  /// If this version is implemented, the deprecated IsValid()
+  /// without ServerCallContext version isn't used. So we can
+  /// implement the deprecated version like the following:
+  ///
+  ///   Status IsValid(const std::string& token,
+  ///                  std::string* peer_identity) override {
+  ///     return Status::NotImplemented("This version is never used");
+  ///   }
+  ///
+  /// \param[in] token The client token. May be the empty string if
+  /// the client does not provide a token.
+  /// \param[out] peer_identity The identity of the peer, if this
+  /// authentication method supports it.
+  /// \return Status OK if the token is valid, any other status if
+  /// validation failed
+  virtual Status IsValid(const ServerCallContext& context, const std::string& token,
+                         std::string* peer_identity) {
+    return IsValid(token, peer_identity);
+  }
   /// \brief Validate a per-call client token.
   /// \param[in] token The client token. May be the empty string if
   /// the client does not provide a token.
