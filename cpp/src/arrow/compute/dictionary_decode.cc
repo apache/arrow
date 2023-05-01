@@ -43,7 +43,7 @@ namespace internal {
 namespace {
 
 const FunctionDoc dictionary_decode_doc{"Decodes a DictionaryArray to an Array",
-                                         "The Function will call cast to really decode.",
+                                        "The Function will call cast to really decode.",
                                         {"dictionary_array"}};
 class DictionaryDecodeMetaFunction : public MetaFunction {
  public:

@@ -1750,7 +1750,8 @@ def test_logical():
 
 def test_dictionary_decode():
     array = pa.array(["a", "a", "b", "c", "b"])
-    dictionary_array = pa.array(["a", "a", "b", "c", "b"], pa.dictionary(pa.int8(), pa.string()))
+    dictionary_array = pa.array(["a", "a", "b", "c", "b"], 
+                                pa.dictionary(pa.int8(), pa.string()))
 
     assert array != dictionary_array
 

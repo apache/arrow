@@ -346,7 +346,7 @@ def dictionary_decode(arr, memory_pool=None):
     >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
     >>> x = pa.array(["a", "a", "b"], pa.dictionary(pa.int8(), pa.string()))
-    >>> x 
+    >>> x
     <pyarrow.lib.DictionaryArray object at ...>
 
     -- dictionary:
