@@ -419,14 +419,19 @@ class TestTls : public ::testing::Test {
     ASSERT_RAISES(UnknownError, server_->Init(options));
     ASSERT_OK(ExampleTlsCertificates(&options.tls_certificates));
     ASSERT_OK(server_->Init(options));
+    server_is_initialized_ = true;
 
     ASSERT_OK_AND_ASSIGN(location_, Location::ForGrpcTls("localhost", server_->port()));
     ASSERT_OK(ConnectClient());
   }
 
   void TearDown() {
-    ASSERT_OK(client_->Close());
-    ASSERT_OK(server_->Shutdown());
+    if (client_) {
+      ASSERT_OK(client_->Close());
+    }
+    if (server_is_initialized_) {
+      ASSERT_OK(server_->Shutdown());
+    }
     grpc_shutdown();
   }
 
@@ -442,6 +447,7 @@ class TestTls : public ::testing::Test {
   Location location_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
+  bool server_is_initialized_;
 };
 
 // A server middleware that rejects all calls.
