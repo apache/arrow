@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System.Collections;
+using Apache.Arrow.Arrays;
 using Apache.Arrow.Builder;
 using Apache.Arrow.Types;
 using Xunit;
@@ -110,6 +110,36 @@ namespace Apache.Arrow.Tests.Builder
 
             Assert.True(built.IsValid(0));
             Assert.False(built.IsValid(1));
+        }
+
+        [Fact]
+        public void FixedSizeBinary_Should_InsertInArray()
+        {
+            var builder = new FixedPrimitiveArrayBuilder<byte>(new FixedSizeBinaryType(4));
+
+            var array = builder
+                .AppendValue(new byte[] { 1, 2, 3, 4 })
+                .AppendNull()
+                .AppendValues(new byte[][]
+                {
+                    new byte[] { 0, 0, 0, 0 },
+                    null,
+                    new byte[] { 1, 5, 6, 2 }
+                })
+                .Build() as FixedSizeBinaryArray;
+
+            Assert.Equal(5, array.Length);
+            Assert.Equal(2, array.NullCount);
+
+            Assert.Equal(new byte[] { 1, 2, 3, 4 }, array.GetBytes(0).ToArray());
+            Assert.Equal(new byte[] { }, array.GetBytes(1).ToArray());
+            Assert.Equal(new byte[] { 1, 5, 6, 2 }, array.GetBytes(4).ToArray());
+
+            Assert.True(array.IsValid(0));
+            Assert.False(array.IsValid(1));
+            Assert.True(array.IsValid(2));
+            Assert.False(array.IsValid(3));
+            Assert.True(array.IsValid(4));
         }
     }
 

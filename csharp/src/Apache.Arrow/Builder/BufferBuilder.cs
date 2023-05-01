@@ -273,8 +273,6 @@ namespace Apache.Arrow.Builder
 
             return new ArrowBuffer(memoryOwner);
         }
-
-        private void EnsureAdditionalBits(int numBits) => EnsureBytes(checked(Memory.Length + numBits / 8));
          
         private void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(Memory.Length + numBytes));
 
@@ -328,15 +326,13 @@ namespace Apache.Arrow.Builder
 
     public class ValueBufferBuilder<T> : ValueBufferBuilder, IPrimitiveBufferBuilder<T> where T : struct
     {
-        public Span<T> Span
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Memory.Span.CastTo<T>();
-        }
-
         private static int GetBitSizeOf() => typeof(T) == typeof(bool) ? 1 : Unsafe.SizeOf<T>() * 8;
 
-        public ValueBufferBuilder(int capacity = 64) : base(GetBitSizeOf(), capacity)
+        public ValueBufferBuilder(int capacity = 64) : this(GetBitSizeOf(), capacity)
+        {
+        }
+
+        public ValueBufferBuilder(int bitWidth, int capacity = 64) : base(bitWidth, capacity)
         {
         }
 

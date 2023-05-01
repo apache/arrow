@@ -15,6 +15,7 @@
 
 using System;
 using System.Collections.Generic;
+using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Memory;
 
 namespace Apache.Arrow.Builder
@@ -86,8 +87,6 @@ namespace Apache.Arrow.Builder
 
     public interface IPrimitiveBufferBuilder<T> : IValueBufferBuilder where T : struct
     {
-        Span<T> Span { get; }
-
         IPrimitiveBufferBuilder<T> AppendValue(T value);
         IPrimitiveBufferBuilder<T> AppendValue(T? value);
         IPrimitiveBufferBuilder<T> AppendValues(ReadOnlySpan<T> values);

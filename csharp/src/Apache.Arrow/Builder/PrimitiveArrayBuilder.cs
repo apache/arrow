@@ -202,7 +202,7 @@ namespace Apache.Arrow.Builder
 
         public virtual VariablePrimitiveArrayBuilder<T> AppendValues(ICollection<T[]> values)
         {
-            Span<T> memory = new T[values.Sum(row => row.Length)];
+            Span<T> memory = new T[values.Sum(row => row == null ? 0 : row.Length)];
             Span<int> offsets = new int[values.Count];
             Span<bool> mask = new bool[offsets.Length];
             int offset = 0;
@@ -243,6 +243,125 @@ namespace Apache.Arrow.Builder
             // Append Offset
             CurrentOffset = offsets[offsets.Length - 1];
             OffsetsBuffer.AppendValues(offsets);
+
+            // Append Values
+            ValuesBuffer.AppendValues(values);
+            return this;
+        }
+    }
+
+    public class FixedPrimitiveArrayBuilder<T>
+        : ArrayBuilder where T : struct
+    {
+        private T[] DefaultValue;
+
+        public IPrimitiveBufferBuilder<T> ValuesBuffer { get; }
+
+        public FixedPrimitiveArrayBuilder(int capacity = 64)
+            : this(CStructType<T>.Default as FixedWidthType, capacity)
+        {
+        }
+
+        public FixedPrimitiveArrayBuilder(FixedWidthType dtype, int capacity = 64)
+            : this(dtype, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<T>(capacity))
+        {
+        }
+
+        public FixedPrimitiveArrayBuilder(
+            IArrowType dataType,
+            IPrimitiveBufferBuilder<bool> validity, IPrimitiveBufferBuilder<T> values
+            ) : base(dataType, new IValueBufferBuilder[] { validity, values })
+        {
+            ValuesBuffer = values;
+            DefaultValue = new T[(dataType as FixedWidthType).BitWidth / 8];
+        }
+
+        public override IArrayBuilder AppendNull() => AppendNull(default);
+        public virtual FixedPrimitiveArrayBuilder<T> AppendNull(T nullValue = default)
+        {
+            base.AppendNull();
+
+            // Append Empty values
+            ValuesBuffer.AppendValues(DefaultValue);
+
+            return this;
+        }
+
+        public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, default);
+        public FixedPrimitiveArrayBuilder<T> AppendNulls(int count, T nullValue = default)
+        {
+            base.AppendNulls(count);
+
+            // Append Empty values
+            for (int i = 0; i < count; i++)
+                ValuesBuffer.AppendValues(DefaultValue);
+
+            return this;
+        }
+
+        public virtual FixedPrimitiveArrayBuilder<T> AppendValue(string value, Encoding encoding = default)
+            => AppendValue((encoding ?? StringType.DefaultEncoding).GetBytes(value) as T[], value != null);
+
+        public virtual FixedPrimitiveArrayBuilder<T> AppendValue(T value)
+        {
+            AppendValid();
+            ValuesBuffer.AppendValue(value);
+            return this;
+        }
+
+        public virtual FixedPrimitiveArrayBuilder<T> AppendValue(T? value)
+            => value.HasValue ? AppendValue(value.Value) : AppendNull();
+
+        public virtual FixedPrimitiveArrayBuilder<T> AppendValue(ReadOnlySpan<T> value, bool isValid = true)
+        {
+            if (isValid)
+            {
+                AppendValid();
+                ValuesBuffer.AppendValues(value);
+            }
+            else
+            {
+                AppendNull();
+            }
+            return this;
+        }
+
+        public virtual FixedPrimitiveArrayBuilder<T> AppendValues(ICollection<T[]> values)
+        {
+            int count = values.Count;
+            Span<T> memory = new T[count * DefaultValue.Length];
+            Span<bool> mask = new bool[count];
+            int offset = 0;
+            int i = 0;
+
+            foreach (T[] value in values)
+            {
+                if (value == null)
+                {
+                    // default is already false
+                    // mask[i] = false;
+
+                    // Fill with empty values
+                    DefaultValue.CopyTo(memory.Slice(offset, DefaultValue.Length));
+                }
+                else
+                {
+                    // Copy to memory, will raise error if length > fixed size
+                    value.CopyTo(memory.Slice(offset, DefaultValue.Length));
+                    mask[i] = true;
+                }
+                offset += DefaultValue.Length;
+                i++;
+            }
+
+            return AppendValues(memory, mask);
+        }
+
+        internal virtual FixedPrimitiveArrayBuilder<T> AppendValues(
+            ReadOnlySpan<T> values, ReadOnlySpan<bool> mask
+            )
+        {
+            AppendValidity(mask);
 
             // Append Values
             ValuesBuffer.AppendValues(values);

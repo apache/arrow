@@ -240,10 +240,11 @@ namespace Apache.Arrow.Builder
                     return new PrimitiveArrayBuilder<float>(dtype, capacity);
                 case ArrowTypeId.Double:
                     return new PrimitiveArrayBuilder<double>(dtype, capacity);
+                case ArrowTypeId.FixedSizedBinary:
+                    return new FixedPrimitiveArrayBuilder<byte>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.String:
                     return new StringArrayBuilder(dtype, capacity);
                 case ArrowTypeId.Binary:
-                case ArrowTypeId.FixedSizedBinary:
                     return new BinaryArrayBuilder(dtype, capacity);
                 case ArrowTypeId.Struct:
                     return new StructArrayBuilder(dtype as StructType, capacity);
@@ -255,11 +256,12 @@ namespace Apache.Arrow.Builder
                     return new Time32ArrayBuilder(dtype as TimeType, capacity);
                 case ArrowTypeId.Time64:
                     return new Time64ArrayBuilder(dtype as TimeType, capacity);
+                case ArrowTypeId.Decimal128:
+                case ArrowTypeId.Decimal256:
+                    return new FixedPrimitiveArrayBuilder<byte>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Date32:
                 case ArrowTypeId.Date64:
                 case ArrowTypeId.Interval:
-                case ArrowTypeId.Decimal128:
-                case ArrowTypeId.Decimal256:
                 case ArrowTypeId.Union:
                 case ArrowTypeId.Dictionary:
                 case ArrowTypeId.Map:
