@@ -379,7 +379,7 @@ TEST(ArraySortIndicesFunction, DictionaryArray) {
       "[2, 3, 4, 1, 6, 7, 0, 5, 8]"   // SortOrder::Descending NullPlacement::AtStart
   };
 
-  for (auto index_type : all_dictionary_index_types()) {
+  for (const auto& index_type : all_dictionary_index_types()) {
     ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
     int i = 0;
     auto dict_arr = DictArrayFromJSON(dictionary(index_type, utf8()),
