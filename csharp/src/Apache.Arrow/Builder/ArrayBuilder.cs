@@ -249,11 +249,14 @@ namespace Apache.Arrow.Builder
                     return new StructArrayBuilder(dtype as StructType, capacity);
                 case ArrowTypeId.List:
                     return new ListArrayBuilder(dtype as ListType, capacity);
+                case ArrowTypeId.Timestamp:
+                    return new TimestampArrayBuilder(dtype as TimestampType, capacity);
+                case ArrowTypeId.Time32:
+                    return new Time32ArrayBuilder(dtype as TimeType, capacity);
+                case ArrowTypeId.Time64:
+                    return new Time64ArrayBuilder(dtype as TimeType, capacity);
                 case ArrowTypeId.Date32:
                 case ArrowTypeId.Date64:
-                case ArrowTypeId.Timestamp:
-                case ArrowTypeId.Time32:
-                case ArrowTypeId.Time64:
                 case ArrowTypeId.Interval:
                 case ArrowTypeId.Decimal128:
                 case ArrowTypeId.Decimal256:

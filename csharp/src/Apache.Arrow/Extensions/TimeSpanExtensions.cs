@@ -19,6 +19,21 @@ namespace Apache.Arrow
 {
     public static class TimeSpanExtensions
     {
+        // Class methods
+        public static TimeSpan FromNanoseconds(long nanoseconds) => TimeSpan.FromTicks(nanoseconds / 100);
+        public static TimeSpan FromNanoseconds(int nanoseconds) => TimeSpan.FromTicks(nanoseconds / 100);
+
+        public static TimeSpan FromMicroseconds(long microseconds) => TimeSpan.FromTicks(microseconds * 10);
+        public static TimeSpan FromMicroseconds(int microseconds) => TimeSpan.FromTicks(microseconds * 10);
+
+        public static TimeSpan FromMilliseconds(long milliseconds) => TimeSpan.FromMilliseconds(milliseconds);
+        public static TimeSpan FromMilliseconds(int milliseconds) => TimeSpan.FromMilliseconds(milliseconds);
+
+        public static TimeSpan FromSeconds(long seconds) => TimeSpan.FromSeconds(seconds);
+        public static TimeSpan FromSeconds(int seconds) => TimeSpan.FromSeconds(seconds);
+
+        // Instance methods
+
         /// <summary>
         /// Formats a TimeSpan into an ISO 8601 compliant time offset string.
         /// </summary>
@@ -31,5 +46,10 @@ namespace Apache.Arrow
             int minutes = Math.Abs(timeSpan.Minutes);
             return sign + hours.ToString("00") + ":" + minutes.ToString("00");
         }
+
+        public static int TotalSeconds(this TimeSpan timeSpan) => (int)timeSpan.TotalSeconds;
+        public static int TotalMilliseconds(this TimeSpan timeSpan) => (int)timeSpan.Milliseconds;
+        public static long TotalMicroseconds(this TimeSpan timeSpan) => timeSpan.Ticks / 10;
+        public static long TotalNanoseconds(this TimeSpan timeSpan) => timeSpan.Ticks * 100;
     }
 }
