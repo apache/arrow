@@ -394,6 +394,49 @@ TEST(Metadata, TestReadPageIndex) {
   }
 }
 
+TEST(Metadata, TestSortingColumns) {
+  schema::NodeVector fields;
+  fields.push_back(schema::Int32("sort_col", Repetition::REQUIRED));
+  fields.push_back(schema::Int32("int_col", Repetition::REQUIRED));
+
+  auto schema = std::static_pointer_cast<schema::GroupNode>(
+      schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  std::vector<SortingColumn> sorting_columns;
+  {
+    SortingColumn sorting_column;
+    sorting_column.column_idx = 0;
+    sorting_column.descending = false;
+    sorting_column.nulls_first = false;
+    sorting_columns.push_back(sorting_column);
+  }
+
+  auto sink = CreateOutputStream();
+  auto writer_props = parquet::WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->set_sorting_columns(sorting_columns)
+                          ->build();
+
+  EXPECT_EQ(sorting_columns, writer_props->sorting_columns());
+
+  auto file_writer = parquet::ParquetFileWriter::Open(sink, schema, writer_props);
+
+  auto row_group_writer = file_writer->AppendBufferedRowGroup();
+  row_group_writer->Close();
+  file_writer->Close();
+
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+
+  ASSERT_NE(nullptr, file_reader->metadata());
+  ASSERT_EQ(1, file_reader->metadata()->num_row_groups());
+  auto row_group_reader = file_reader->RowGroup(0);
+  auto* row_group_read_metadata = row_group_reader->metadata();
+  ASSERT_NE(nullptr, row_group_read_metadata);
+  EXPECT_EQ(sorting_columns, row_group_read_metadata->sorting_columns());
+}
+
 TEST(ApplicationVersion, Basics) {
   ApplicationVersion version("parquet-mr version 1.7.9");
   ApplicationVersion version1("parquet-mr version 1.8.0");

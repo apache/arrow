@@ -504,6 +504,18 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
                            " columns, requested metadata for column: ", i);
   }
 
+  std::vector<SortingColumn> sorting_columns() const {
+    std::vector<SortingColumn> sorting_columns;
+    if (!row_group_->__isset.sorting_columns) {
+      return sorting_columns;
+    }
+    sorting_columns.resize(row_group_->sorting_columns.size());
+    for (size_t i = 0; i < sorting_columns.size(); ++i) {
+      sorting_columns[i] = FromThrift(row_group_->sorting_columns[i]);
+    }
+    return sorting_columns;
+  }
+
  private:
   const format::RowGroup* row_group_;
   const SchemaDescriptor* schema_;
@@ -569,6 +581,10 @@ bool RowGroupMetaData::can_decompress() const {
     }
   }
   return true;
+}
+
+std::vector<SortingColumn> RowGroupMetaData::sorting_columns() const {
+  return impl_->sorting_columns();
 }
 
 // file metadata
@@ -1682,6 +1698,15 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
       // sometimes column metadata is encrypted and not available to read,
       // so we must get total_compressed_size from column builder
       total_compressed_size += column_builders_[i]->total_compressed_size();
+    }
+
+    const auto& sorting_columns = properties_->sorting_columns();
+    if (!sorting_columns.empty()) {
+      std::vector<format::SortingColumn> thrift_sorting_columns(sorting_columns.size());
+      for (size_t i = 0; i < sorting_columns.size(); ++i) {
+        thrift_sorting_columns[i] = ToThrift(sorting_columns[i]);
+      }
+      row_group_->__set_sorting_columns(std::move(thrift_sorting_columns));
     }
 
     row_group_->__set_file_offset(file_offset);
