@@ -223,7 +223,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] username Username to use
   /// \param[in] password Password to use
   /// \return Arrow result with bearer token and status OK if client authenticated
-  /// sucessfully
+  /// successfully
   arrow::Result<std::pair<std::string, std::string>> AuthenticateBasicToken(
       const FlightCallOptions& options, const std::string& username,
       const std::string& password);

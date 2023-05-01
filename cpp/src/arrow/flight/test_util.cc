@@ -474,12 +474,31 @@ class FlightTestServer : public FlightServerBase {
     return Status::OK();
   }
 
+  Status ListIncomingHeaders(const ServerCallContext& context, const Action& action,
+                             std::unique_ptr<ResultStream>* out) {
+    std::vector<Result> results;
+    std::string_view prefix(*action.body);
+    for (const auto& header : context.incoming_headers()) {
+      if (header.first.substr(0, prefix.size()) != prefix) {
+        continue;
+      }
+      Result result;
+      result.body = Buffer::FromString(std::string(header.first) + ": " +
+                                       std::string(header.second));
+      results.push_back(result);
+    }
+    *out = std::make_unique<SimpleResultStream>(std::move(results));
+    return Status::OK();
+  }
+
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* out) override {
     if (action.type == "action1") {
       return RunAction1(action, out);
     } else if (action.type == "action2") {
       return RunAction2(out);
+    } else if (action.type == "list-incoming-headers") {
+      return ListIncomingHeaders(context, action, out);
     } else {
       return Status::NotImplemented(action.type);
     }
