@@ -517,6 +517,8 @@ struct PageType {
   };
 };
 
+bool PageCanUseChecksum(PageType::type pageType);
+
 class ColumnOrder {
  public:
   enum type { UNDEFINED, TYPE_DEFINED_ORDER };

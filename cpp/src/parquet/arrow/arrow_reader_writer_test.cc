@@ -4092,7 +4092,7 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
       {{"b", "a"}, {"b", "a"}}, {{"c", "c"}, {"c", "c"}}, {{"d", "a"}, {"d", "a"}}};
   const std::vector<std::vector<std::vector<bool>>> expected_has_min_max_by_page = {
       {{true, true}, {true, true}},
-      {{true, true}, {true, true}},
+      {{true, false}, {true, false}},
       {{true, true}, {true, true}},
       {{false}, {false}}};
 
