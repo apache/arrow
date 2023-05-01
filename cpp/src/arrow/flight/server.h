@@ -137,6 +137,8 @@ class ARROW_FLIGHT_EXPORT ServerCallContext {
   /// \brief Check if the current RPC has been cancelled (by the client, by
   /// a network error, etc.).
   virtual bool is_cancelled() const = 0;
+  /// \brief The headers sent by the client for this call.
+  virtual const CallHeaders& incoming_headers() const = 0;
 };
 
 class ARROW_FLIGHT_EXPORT FlightServerOptions {
