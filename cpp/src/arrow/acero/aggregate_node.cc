@@ -857,7 +857,7 @@ class GroupByNode : public ExecNode, public TracedNode {
 
     // Segment keys come first
     PlaceFields(out_data, 0, segmenter_values_);
-    // Followed by segment keys
+    // Followed by keys
     ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, state->grouper->GetUniques());
     std::move(out_keys.values.begin(), out_keys.values.end(),
               out_data.values.begin() + segment_key_field_ids_.size());
