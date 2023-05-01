@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using Apache.Arrow.Types;
+using FlatBuffers;
 
 namespace Apache.Arrow.Builder
 {
@@ -259,7 +260,12 @@ namespace Apache.Arrow.Builder
         public virtual FixedBinaryArrayBuilder AppendValue<T>(T value) where T : struct
         {
             AppendValid();
-            ValuesBuffer.AppendStruct(value);
+#if NETCOREAPP3_1_OR_GREATER
+            var span = MemoryMarshal.CreateReadOnlySpan(ref value, 1);
+#else
+            var span = new T[] { v }.AsSpan();
+#endif
+            ValuesBuffer.AppendBytes(MemoryMarshal.AsBytes<T>(span));
             return this;
         }
 
@@ -288,7 +294,7 @@ namespace Apache.Arrow.Builder
         public virtual FixedBinaryArrayBuilder AppendValue<T>(ReadOnlySpan<T> value) where T : struct
         {
             AppendValid();
-            ValuesBuffer.AppendStructs(value);
+            ValuesBuffer.AppendBytes(MemoryMarshal.AsBytes(value));
             return this;
         }
 
