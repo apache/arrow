@@ -89,7 +89,7 @@ class ConcreteFutureImpl : public FutureImpl {
       case ShouldSchedule::IfUnfinished:
         return !in_add_callback;
       case ShouldSchedule::IfDifferentExecutor:
-        return !callback_record.options.executor->IsCurrentExecutor();
+        return !(callback_record.options.executor->IsCurrentExecutor());
       default:
         DCHECK(false) << "Unrecognized ShouldSchedule option";
         return false;

@@ -1073,7 +1073,7 @@ TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
   struct : internal::Executor {
     int GetCapacity() override { return pool_->GetCapacity(); }
 
-    bool OwnsThisThread() override { return pool_->OwnsThisThread(); }
+    bool IsCurrentExecutor() override { return pool_->IsCurrentExecutor(); }
 
     Status SpawnReal(internal::TaskHints hints, internal::FnOnce<void()> task,
                      StopToken stop_token, StopCallback&& stop_callback) override {
