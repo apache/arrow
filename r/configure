@@ -81,6 +81,7 @@ VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
 : ${PKG_CONFIG:="pkg-config"}
 
+# These will only be set in the bundled build
 S3_LIBS=""
 GCS_LIBS=""
 
@@ -169,7 +170,7 @@ find_arrow () {
 
   if [ "$_LIBARROW_FOUND" = "false" ]; then
     # We didn't find a suitable library, so reset the pkg-config search path
-    PKG_CONFIG_PATH="${OLD_PKG_CONFIG_PATH}"
+    export PKG_CONFIG_PATH="${OLD_PKG_CONFIG_PATH}"
   fi
 }
 
@@ -202,7 +203,8 @@ do_bundled_build () {
       fi
     else
       # This case must be ARROW_DEPENDENCY_SOURCE=BUNDLED.
-      # TODO: is there no way we can infer from ArrowOptions.cmake or arrow.pc if these are needed?
+      # These would be identified by pkg-config, in Requires.private and Libs.private.
+      # Rather than try to re-implement pkg-config, we can just hard-code them here.
       S3_LIBS="-lcurl -lssl -lcrypto"
       GCS_LIBS="-lcurl -lssl -lcrypto"
     fi
@@ -250,13 +252,6 @@ set_pkg_vars () {
     set_pkg_vars_without_pc $1
   fi
 
-  # If on Raspberry Pi, need to manually link against latomic
-  # See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
-  if grep raspbian /etc/os-release >/dev/null 2>&1; then
-    PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
-    PKG_LIBS="-latomic $PKG_LIBS"
-  fi
-
   # Set any user-defined CXXFLAGS
   if [ "$ARROW_R_CXXFLAGS" ]; then
     PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
@@ -286,6 +281,14 @@ set_pkg_vars_without_pc () {
   PKG_LIBS="-larrow"
   if [ -n "$(find "$LIB_DIR" -name 'libarrow_bundled_dependencies.*')" ]; then
     PKG_LIBS="$PKG_LIBS -larrow_bundled_dependencies"
+  fi
+
+  # If on Raspberry Pi, need to manually link against latomic
+  # See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
+  # pkg-config will handle this for us automatically, see ARROW-6312
+  if grep raspbian /etc/os-release >/dev/null 2>&1; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
+    PKG_LIBS="-latomic $PKG_LIBS"
   fi
 }
 
@@ -365,7 +368,9 @@ else
 fi
 
 # We should have a valid libarrow build in $_LIBARROW_FOUND
-# Now set `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS` based on that
+# Now set `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS` based on that.
+# _LIBARROW_FOUND should only be unset in the FORCE_AUTOBREW case,
+# and autobrew sets its own PKG_* vars. (See the TODO about changing that.)
 if [ "$_LIBARROW_FOUND" != "false" ] && [ "$_LIBARROW_FOUND" != "" ]; then
   set_pkg_vars ${_LIBARROW_FOUND}
 fi
@@ -379,11 +384,10 @@ TEST_CMD="${CXX17} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX17FLAGS} ${CXX17STD} -xc++ -"
 echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 
 if [ $? -eq 0 ]; then
-  # Prepend PKG_DIRS to PKG_LIBS
+  # Prepend PKG_DIRS to PKG_LIBS and write to Makevars
   PKG_LIBS="$PKG_DIRS $PKG_LIBS"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
-  # Write to Makevars
   sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars
   # Success
   exit 0
