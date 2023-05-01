@@ -227,10 +227,8 @@ do_autobrew () {
   if [ -f "autobrew" ]; then
     echo "**** Using local manifest for ${PKG_BREW_NAME}"
   else
-    curl -sfL "https://autobrew.github.io/scripts/$PKG_BREW_NAME" > autobrew
-    if [ $? -ne 0 ]; then
+    if ! curl -sfL "https://autobrew.github.io/scripts/$PKG_BREW_NAME" > autobrew; then
       echo "Failed to download manifest for ${PKG_BREW_NAME}"
-    else
       # Fall back to the local copy
       cp tools/autobrew .
     fi
