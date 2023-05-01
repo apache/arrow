@@ -1704,12 +1704,16 @@ class ARROW_EXPORT FieldPath {
   ///
   /// Unlike `FieldPath::Get`, these variants are not zero-copy and the retrieved child's
   /// null bitmap is ANDed with its parent's
-  Result<std::shared_ptr<Array>> GetFlattened(const Array& array) const;
-  Result<std::shared_ptr<ArrayData>> GetFlattened(const ArrayData& data) const;
-  Result<std::shared_ptr<ChunkedArray>> GetFlattened(
-      const ChunkedArray& chunked_array) const;
-  Result<std::shared_ptr<Array>> GetFlattened(const RecordBatch& batch) const;
-  Result<std::shared_ptr<ChunkedArray>> GetFlattened(const Table& table) const;
+  Result<std::shared_ptr<Array>> GetFlattened(const Array& array,
+                                              MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<ArrayData>> GetFlattened(const ArrayData& data,
+                                                  MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<ChunkedArray>> GetFlattened(const ChunkedArray& chunked_array,
+                                                     MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<Array>> GetFlattened(const RecordBatch& batch,
+                                              MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<ChunkedArray>> GetFlattened(const Table& table,
+                                                     MemoryPool* pool = NULLPTR) const;
 
  private:
   std::vector<int> indices_;
@@ -1723,13 +1727,13 @@ using FieldPathGetType =
 
 template <bool Flattened, typename T>
 std::enable_if_t<!Flattened, Result<FieldPathGetType<T>>> GetChild(
-    const T& root, const FieldPath& path) {
+    const T& root, const FieldPath& path, MemoryPool* = NULLPTR) {
   return path.Get(root);
 }
 template <bool Flattened, typename T>
-std::enable_if_t<Flattened, Result<FieldPathGetType<T>>> GetChild(const T& root,
-                                                                  const FieldPath& path) {
-  return path.GetFlattened(root);
+std::enable_if_t<Flattened, Result<FieldPathGetType<T>>> GetChild(
+    const T& root, const FieldPath& path, MemoryPool* pool = NULLPTR) {
+  return path.GetFlattened(root, pool);
 }
 
 }  // namespace internal
@@ -1914,8 +1918,9 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     return GetAll<false>(root);
   }
   template <typename T>
-  std::vector<GetType<T>> GetAllFlattened(const T& root) const {
-    return GetAll<true>(root);
+  std::vector<GetType<T>> GetAllFlattened(const T& root,
+                                          MemoryPool* pool = NULLPTR) const {
+    return GetAll<true>(root, pool);
   }
 
   /// \brief Get the single child matching this FieldRef.
@@ -1925,8 +1930,8 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     return GetOne<false>(root);
   }
   template <typename T>
-  Result<GetType<T>> GetOneFlattened(const T& root) const {
-    return GetOne<true>(root);
+  Result<GetType<T>> GetOneFlattened(const T& root, MemoryPool* pool = NULLPTR) const {
+    return GetOne<true>(root, pool);
   }
 
   /// \brief Get the single child matching this FieldRef.
@@ -1936,35 +1941,36 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     return GetOneOrNone<false>(root);
   }
   template <typename T>
-  Result<GetType<T>> GetOneOrNoneFlattened(const T& root) const {
-    return GetOneOrNone<true>(root);
+  Result<GetType<T>> GetOneOrNoneFlattened(const T& root,
+                                           MemoryPool* pool = NULLPTR) const {
+    return GetOneOrNone<true>(root, pool);
   }
 
  private:
   void Flatten(std::vector<FieldRef> children);
 
   template <bool Flattened, typename T>
-  Result<GetType<T>> GetOne(const T& root) const {
+  Result<GetType<T>> GetOne(const T& root, MemoryPool* pool = NULLPTR) const {
     ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
-    return internal::GetChild<Flattened>(root, match).ValueOrDie();
+    return internal::GetChild<Flattened>(root, match, pool).ValueOrDie();
   }
 
   template <bool Flattened, typename T>
-  std::vector<GetType<T>> GetAll(const T& root) const {
+  std::vector<GetType<T>> GetAll(const T& root, MemoryPool* pool = NULLPTR) const {
     std::vector<GetType<T>> out;
     for (const auto& match : FindAll(root)) {
-      out.push_back(internal::GetChild<Flattened>(root, match).ValueOrDie());
+      out.push_back(internal::GetChild<Flattened>(root, match, pool).ValueOrDie());
     }
     return out;
   }
 
   template <bool Flattened, typename T>
-  Result<GetType<T>> GetOneOrNone(const T& root) const {
+  Result<GetType<T>> GetOneOrNone(const T& root, MemoryPool* pool = NULLPTR) const {
     ARROW_ASSIGN_OR_RAISE(auto match, FindOneOrNone(root));
     if (match.empty()) {
       return static_cast<GetType<T>>(NULLPTR);
     }
-    return internal::GetChild<Flattened>(root, match).ValueOrDie();
+    return internal::GetChild<Flattened>(root, match, pool).ValueOrDie();
   }
 
   std::variant<FieldPath, std::string, std::vector<FieldRef>> impl_;
