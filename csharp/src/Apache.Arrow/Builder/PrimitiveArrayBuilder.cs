@@ -136,14 +136,50 @@ namespace Apache.Arrow.Builder
             AppendValidity(mask);
 
             // Append Offset
-            CurrentOffset = offsets[offsets.Length - 1];
+            OffsetsBuffer.AppendValues(offsets);
+
+            return this;
+        }
+
+        public virtual VariableBinaryArrayBuilder AppendValues(ICollection<string> values, Encoding encoding = default)
+        {
+            encoding = encoding ?? StringType.DefaultEncoding;
+            Span<int> offsets = new int[values.Count];
+            Span<bool> mask = new bool[offsets.Length];
+            int i = 0;
+
+            foreach (string value in values)
+            {
+                if (value == null)
+                {
+                    offsets[i] = CurrentOffset;
+                    // default is already false
+                    // mask[i] = false;
+                }
+                else
+                {
+                    // Copy to memory
+                    byte[] bytes = encoding.GetBytes(value);
+                    ValuesBuffer.AppendBytes(bytes);
+
+                    CurrentOffset += bytes.Length;
+
+                    // Fill other buffers
+                    offsets[i] = CurrentOffset;
+                    mask[i] = true;
+                }
+                i++;
+            }
+
+            AppendValidity(mask);
+
+            // Append Offset
             OffsetsBuffer.AppendValues(offsets);
 
             return this;
         }
     }
 
-    // Only works with struct types where bitwidth is a multiple of 8 for byte, not like bool
     public class FixedBinaryArrayBuilder : ArrayBuilder
     {
         private readonly byte[] _defaultByteValue;
@@ -266,7 +302,7 @@ namespace Apache.Arrow.Builder
         }
         public virtual FixedBinaryArrayBuilder AppendValues(ReadOnlySpan<byte> values)
         {
-            AppendValidity(true, values.Length / _byteSize);
+            AppendValidity(true, values.Length * 8 / _bitSize);
             ValuesBuffer.AppendBytes(values);
             return this;
         }
