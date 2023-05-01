@@ -25,9 +25,12 @@ namespace Apache.Arrow.Tests.Builder
         [Fact]
         public void ArrayBuilder_Should_InferFromCSharp()
         {
-            var builder = new PrimitiveArrayBuilder<long>() as ArrayBuilder;
+            var builder = new FixedBinaryArrayBuilder<long>() as ArrayBuilder;
             long[] values = new long[] { 0, 1, -12 };
-            IArrowArray array = new PrimitiveArrayBuilder<long>(values.Length).AppendValues(values).Build();
+
+            IArrowArray array = new FixedBinaryArrayBuilder<long>(values.Length)
+                .AppendValues(values)
+                .Build();
 
             builder
                 .AppendNull()
@@ -38,11 +41,12 @@ namespace Apache.Arrow.Tests.Builder
             Assert.Equal(4, built.Length);
             Assert.Equal(1, built.NullCount);
 
-            Assert.Equal(1L, built.GetValue(2));
-            Assert.Equal(-12L, built.GetValue(3));
-
             Assert.False(built.IsValid(0));
             Assert.True(built.IsValid(2));
+
+            Assert.Equal(0L, built.GetValue(1));
+            Assert.Equal(1L, built.GetValue(2));
+            Assert.Equal(-12L, built.GetValue(3));
         }
     }
 
@@ -51,7 +55,7 @@ namespace Apache.Arrow.Tests.Builder
         [Fact]
         public void ValueArrayBuilder_Should_InferFromCSharp()
         {
-            var builder = new PrimitiveArrayBuilder<int>();
+            var builder = new FixedBinaryArrayBuilder<int>();
 
             builder.AppendValue(123).AppendValues(new int?[] { 1, null, -12 }).AppendNull();
 
@@ -115,7 +119,7 @@ namespace Apache.Arrow.Tests.Builder
         [Fact]
         public void FixedSizeBinary_Should_InsertInArray()
         {
-            var builder = new FixedPrimitiveArrayBuilder<byte>(new FixedSizeBinaryType(4));
+            var builder = new FixedBinaryArrayBuilder(new FixedSizeBinaryType(4));
 
             var array = builder
                 .AppendValue(new byte[] { 1, 2, 3, 4 })
@@ -154,7 +158,7 @@ namespace Apache.Arrow.Tests.Builder
             // Start new valid block, need to fill all builders
             builder.Append();
             builder.GetBuilderAs<StringArrayBuilder>(0).AppendValue("abc");
-            builder.GetBuilderAs<PrimitiveArrayBuilder<int>>(1).AppendValue(1);
+            builder.GetBuilderAs<FixedBinaryArrayBuilder>(1).AppendValue(1);
             // Append null block
             builder.AppendNull();
 

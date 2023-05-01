@@ -29,7 +29,7 @@ namespace Apache.Arrow.Builder
         {
             if (Children[index] is not TBuilder builder)
             {
-                throw new InvalidOperationException($"Cannot get Children{index}] as desired builder");
+                throw new InvalidOperationException($"Cannot get Children[{index}] as desired builder");
             }
             return builder;
         }
@@ -46,14 +46,8 @@ namespace Apache.Arrow.Builder
 
         public IPrimitiveBufferBuilder<int> OffsetsBuffer => Buffers[1] as IPrimitiveBufferBuilder<int>;
 
-        public PrimitiveArrayBuilder<T> GetBuilderAs<T>() where T : struct
-        {
-            if (Children[0] is not PrimitiveArrayBuilder<T> builder)
-            {
-                throw new InvalidOperationException("Children[0] is not a PrimitiveArrayBuilder<T>");
-            }
-            return builder;
-        }
+        public FixedBinaryArrayBuilder GetBuilderAs<T>() where T : struct
+            => GetBuilderAs<FixedBinaryArrayBuilder>(0);
 
         // Append Valididty
         public virtual ListArrayBuilder Append()

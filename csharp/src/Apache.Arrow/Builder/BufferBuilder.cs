@@ -11,10 +11,7 @@ namespace Apache.Arrow.Builder
     {
         public class BitBuffer
         {
-            private const int DefaultCapacity = 8;
-
             private readonly bool[] _bits;
-            public Span<bool> Bits => _bits.AsSpan().Slice(0, Length);
 
             public int Length { get; private set; }
             public int AvailableLength => Capacity - Length;
@@ -24,7 +21,7 @@ namespace Apache.Arrow.Builder
             public bool IsFull => Length == Capacity;
             public byte ToByte(ref byte data) => BitUtility.ToByte(ref data, _bits);
 
-            public BitBuffer(int capacity = DefaultCapacity)
+            public BitBuffer(int capacity = 8)
             {
                 Capacity = capacity;
                 _bits = new bool[capacity];
@@ -138,6 +135,18 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
+        public IBufferBuilder AppendBits(bool value, int count)
+        {
+            Span<bool> span = new bool[count];
+
+            // default bool are already false
+            if (value)
+                for (int i = 0; i < count; i++)
+                    span[i] = value;
+
+            return AppendStructs(span);
+        }
+
         public IBufferBuilder AppendByte(byte byteValue)
         {
             if (BitOverhead.Length > 0)
@@ -218,15 +227,6 @@ namespace Apache.Arrow.Builder
         {
             ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(values);
             return AppendBytes(bytes);
-        }
-        public IBufferBuilder AppendStructs(bool value, int count)
-        {
-            Span<bool> span = new bool[count];
-
-            for (int i = 0; i < count; i++)
-                span[i] = value;
-
-            return AppendStructs(span);
         }
         public IBufferBuilder AppendStructs<T>(T value, int count) where T : struct
         {
@@ -341,7 +341,6 @@ namespace Apache.Arrow.Builder
             AppendStruct(value);
             return this;
         }
-        public IPrimitiveBufferBuilder<T> AppendValue(T? value) => AppendValue(value.GetValueOrDefault());
         public IPrimitiveBufferBuilder<T> AppendValues(ReadOnlySpan<T> values)
         {
             AppendStructs(values);
@@ -351,21 +350,6 @@ namespace Apache.Arrow.Builder
         {
             AppendStructs(value, count);
             return this;
-        }
-        public IPrimitiveBufferBuilder<T> AppendValues(ICollection<T?> values)
-        {
-            int length = values.Count;
-            Span<T> destination = new T[length];
-            int i = 0;
-
-            // Transform the source ReadOnlySpan<T?> into the destination ReadOnlySpan<T>, filling any null values with default(T)
-            foreach (T? value in values)
-            {
-                destination[i] = value ?? default;
-                i++;
-            }
-
-            return AppendValues(destination);
         }
     }
 }

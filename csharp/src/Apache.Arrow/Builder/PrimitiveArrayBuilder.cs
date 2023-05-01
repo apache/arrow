@@ -1,106 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
 {
-    public class PrimitiveArrayBuilder<T>
-        : ArrayBuilder where T : struct
+    public class VariableBinaryArrayBuilder : ArrayBuilder
     {
-        public IPrimitiveBufferBuilder<T> ValuesBuffer { get; }
-
-        public PrimitiveArrayBuilder(int capacity = 64)
-            : this(CStructType<T>.Default, capacity)
-        {
-        }
-
-        public PrimitiveArrayBuilder(IArrowType dataType, int capacity = 64)
-            : this(dataType , new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<T>(capacity))
-        {
-        }
-
-        public PrimitiveArrayBuilder(
-            IArrowType dataType,
-            IPrimitiveBufferBuilder<bool> validity, IPrimitiveBufferBuilder<T> values
-            ) : base(dataType, new IValueBufferBuilder[] { validity, values })
-        {
-            ValuesBuffer = values;
-        }
-
-        public override IArrayBuilder AppendNull() => AppendNull(default);
-        public virtual PrimitiveArrayBuilder<T> AppendNull(T nullValue = default)
-        {
-            base.AppendNull();
-            ValuesBuffer.AppendValue(nullValue);
-            return this;
-        }
-
-        public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, new T[count]);
-        public virtual PrimitiveArrayBuilder<T> AppendNulls(int count, ReadOnlySpan<T> nullValues)
-        {
-            base.AppendNulls(count);
-            ValuesBuffer.AppendValues(nullValues);
-            return this;
-        }
-
-        public virtual PrimitiveArrayBuilder<T> AppendValue(T value, bool isValid = true)
-        {
-            base.AppendValidity(isValid);
-            ValuesBuffer.AppendValue(value);
-            return this;
-        }
-
-        public virtual PrimitiveArrayBuilder<T> AppendValue(T? value)
-        {
-            base.AppendValidity(value.HasValue);
-            ValuesBuffer.AppendValue(value);
-            return this;
-        }
-
-        public virtual PrimitiveArrayBuilder<T> AppendValues(ReadOnlySpan<T> values)
-            => AppendValues(values, ValidityMask(values.Length, true));
-
-        public virtual PrimitiveArrayBuilder<T> AppendValues(ICollection<T?> values)
-        {
-            int length = values.Count;
-            Span<bool> validity = new bool[length];
-            Span<T> destination = new T[length];
-            int i = 0;
-
-            // Transform the source ReadOnlySpan<T?> into the destination ReadOnlySpan<T>, filling any null values with default(T)
-            foreach (T? value in values)
-            {
-                if (value.HasValue)
-                {
-                    destination[i] = value.Value;
-                    validity[i] = true;
-                }
-                else
-                {
-                    destination[i] = default;
-                    // default is already false
-                    // validity[i] = false;
-                }
-                i++;
-            }
-
-            return AppendValues(destination, validity);
-        }
-
-        public virtual PrimitiveArrayBuilder<T> AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> mask)
-        {
-            AppendValidity(mask);
-            ValuesBuffer.AppendValues(values);
-            return this;
-        }
-    }
-
-    public class VariablePrimitiveArrayBuilder<T>
-        : ArrayBuilder where T : struct
-    {
-        public IPrimitiveBufferBuilder<T> ValuesBuffer { get; }
+        public IValueBufferBuilder ValuesBuffer { get; }
 
         // From the docs:
         //
@@ -115,19 +23,14 @@ namespace Apache.Arrow.Builder
 
         public int CurrentOffset { get; internal set; }
 
-        public VariablePrimitiveArrayBuilder(int capacity = 64)
-            : this(CStructType<T>.Default, capacity)
+        public VariableBinaryArrayBuilder(IArrowType dataType, int capacity = 64)
+            : this(dataType, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<int>(capacity), new ValueBufferBuilder(64, capacity))
         {
         }
 
-        public VariablePrimitiveArrayBuilder(IArrowType dataType, int capacity = 64)
-            : this(dataType, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<int>(capacity), new ValueBufferBuilder<T>(capacity))
-        {
-        }
-
-        public VariablePrimitiveArrayBuilder(
+        public VariableBinaryArrayBuilder(
             IArrowType dataType,
-            IPrimitiveBufferBuilder<bool> validity, IPrimitiveBufferBuilder<int> offsets, IPrimitiveBufferBuilder<T> values
+            IPrimitiveBufferBuilder<bool> validity, IPrimitiveBufferBuilder<int> offsets, IValueBufferBuilder values
             ) : base(dataType, new IValueBufferBuilder[] { validity, offsets, values })
         {
             ValuesBuffer = values;
@@ -138,7 +41,7 @@ namespace Apache.Arrow.Builder
         }
 
         public override IArrayBuilder AppendNull() => AppendNull(default);
-        public virtual VariablePrimitiveArrayBuilder<T> AppendNull(T nullValue = default)
+        public virtual VariableBinaryArrayBuilder AppendNull(byte nullValue = default)
         {
             base.AppendNull();
 
@@ -151,7 +54,7 @@ namespace Apache.Arrow.Builder
         }
 
         public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, null);
-        public VariablePrimitiveArrayBuilder<T> AppendNulls(int count, ReadOnlySpan<T> nullValues)
+        public VariableBinaryArrayBuilder AppendNulls(int count, ReadOnlySpan<byte> nullValues)
         {
             base.AppendNulls(count);
 
@@ -163,10 +66,10 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(string value, Encoding encoding = default)
-            => AppendValue((encoding ?? StringType.DefaultEncoding).GetBytes(value) as T[], value != null);
+        public virtual VariableBinaryArrayBuilder AppendValue(string value, Encoding encoding = default)
+            => AppendValue((encoding ?? StringType.DefaultEncoding).GetBytes(value), value != null);
 
-        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(T value)
+        public virtual VariableBinaryArrayBuilder AppendValue(byte value)
         {
             AppendValid();
 
@@ -175,14 +78,14 @@ namespace Apache.Arrow.Builder
             OffsetsBuffer.AppendValue(CurrentOffset);
 
             // Not Append Value, get is based on offsets
-            ValuesBuffer.AppendValue(value);
+            ValuesBuffer.AppendByte(value);
             return this;
         }
 
-        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(T? value)
+        public virtual VariableBinaryArrayBuilder AppendValue(byte? value)
             => value.HasValue ? AppendValue(value.Value) : AppendNull();
 
-        public virtual VariablePrimitiveArrayBuilder<T> AppendValue(ReadOnlySpan<T> value, bool isValid = true)
+        public virtual VariableBinaryArrayBuilder AppendValue(ReadOnlySpan<byte> value, bool isValid = true)
         {
             if (isValid)
             {
@@ -190,7 +93,7 @@ namespace Apache.Arrow.Builder
                 // Append Offset
                 CurrentOffset += value.Length;
                 OffsetsBuffer.AppendValue(CurrentOffset);
-                ValuesBuffer.AppendValues(value);
+                ValuesBuffer.AppendBytes(value);
             }
             else
             {
@@ -200,15 +103,14 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        public virtual VariablePrimitiveArrayBuilder<T> AppendValues(ICollection<T[]> values)
+        public virtual VariableBinaryArrayBuilder AppendValues(ICollection<byte[]> values)
         {
-            Span<T> memory = new T[values.Sum(row => row == null ? 0 : row.Length)];
             Span<int> offsets = new int[values.Count];
             Span<bool> mask = new bool[offsets.Length];
             int offset = 0;
             int i = 0;
 
-            foreach (T[] value in values)
+            foreach (byte[] value in values)
             {
                 if (value == null)
                 {
@@ -219,7 +121,7 @@ namespace Apache.Arrow.Builder
                 else
                 {
                     // Copy to memory
-                    value.CopyTo(memory.Slice(offset, value.Length));
+                    ValuesBuffer.AppendBytes(value);
 
                     offset += value.Length;
                     CurrentOffset += value.Length;
@@ -231,109 +133,330 @@ namespace Apache.Arrow.Builder
                 i++;
             }
 
-            return AppendValues(memory, offsets, mask);
-        }
-
-        internal virtual VariablePrimitiveArrayBuilder<T> AppendValues(
-            ReadOnlySpan<T> values, ReadOnlySpan<int> offsets, ReadOnlySpan<bool> mask
-            )
-        {
             AppendValidity(mask);
 
             // Append Offset
             CurrentOffset = offsets[offsets.Length - 1];
             OffsetsBuffer.AppendValues(offsets);
 
-            // Append Values
-            ValuesBuffer.AppendValues(values);
             return this;
         }
     }
 
     // Only works with struct types where bitwidth is a multiple of 8 for byte, not like bool
-    public class FixedPrimitiveArrayBuilder<T>
-        : ArrayBuilder where T : struct
+    public class FixedBinaryArrayBuilder : ArrayBuilder
     {
-        private readonly T[] _defaultValue;
+        private readonly byte[] _defaultByteValue;
+        private readonly bool[] _defaultBitValue;
 
-        public IPrimitiveBufferBuilder<T> ValuesBuffer { get; }
+        private readonly int _bitSize;
+        private readonly int _byteSize;
 
-        public FixedPrimitiveArrayBuilder(int capacity = 64)
-            : this(CStructType<T>.Default as FixedWidthType, capacity)
+        private readonly bool _isFullByte;
+
+        public IValueBufferBuilder ValuesBuffer { get; }
+
+        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 64)
+            : this(dtype, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder(dtype.BitWidth, capacity))
         {
         }
 
-        public FixedPrimitiveArrayBuilder(FixedWidthType dtype, int capacity = 64)
-            : this(dtype, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<T>(capacity))
-        {
-        }
-
-        public FixedPrimitiveArrayBuilder(
+        public FixedBinaryArrayBuilder(
             IArrowType dataType,
-            IPrimitiveBufferBuilder<bool> validity, IPrimitiveBufferBuilder<T> values
+            IPrimitiveBufferBuilder<bool> validity, IValueBufferBuilder values
             ) : base(dataType, new IValueBufferBuilder[] { validity, values })
         {
             ValuesBuffer = values;
-            _defaultValue = new T[(dataType as FixedWidthType).BitWidth / 8];
+
+            _bitSize = (dataType as FixedWidthType).BitWidth;
+            _byteSize = _bitSize / 8;
+
+            _isFullByte = _bitSize % 8 == 0;
+
+            _defaultByteValue = new byte[_byteSize];
+            _defaultBitValue = new bool[_bitSize];
         }
 
         public override IArrayBuilder AppendNull() => AppendNull(default);
-        public virtual FixedPrimitiveArrayBuilder<T> AppendNull(T nullValue = default)
+        public virtual FixedBinaryArrayBuilder AppendNull(byte nullValue = default)
         {
             base.AppendNull();
 
             // Append Empty values
-            ValuesBuffer.AppendValues(_defaultValue);
+            if (_isFullByte)
+                ValuesBuffer.AppendBytes(_defaultByteValue);
+            else
+                ValuesBuffer.AppendBits(_defaultBitValue);
 
             return this;
         }
 
         public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, default);
-        public FixedPrimitiveArrayBuilder<T> AppendNulls(int count, T nullValue = default)
+        public FixedBinaryArrayBuilder AppendNulls(int count, byte nullValue = default)
         {
             base.AppendNulls(count);
 
             // Append Empty values
-            for (int i = 0; i < count; i++)
-                ValuesBuffer.AppendValues(_defaultValue);
+            if (_isFullByte)
+                for (int i = 0; i < count; i++)
+                    ValuesBuffer.AppendBytes(_defaultByteValue);
+            else
+                for (int i = 0; i < count; i++)
+                    ValuesBuffer.AppendBits(_defaultBitValue);
 
             return this;
         }
 
-        public virtual FixedPrimitiveArrayBuilder<T> AppendValue(string value, Encoding encoding = default)
-            => AppendValue((encoding ?? StringType.DefaultEncoding).GetBytes(value) as T[], value != null);
-
-        public virtual FixedPrimitiveArrayBuilder<T> AppendValue(T value)
+        // Raw struct
+        public virtual FixedBinaryArrayBuilder AppendValue(bool value)
         {
             AppendValid();
-            ValuesBuffer.AppendValue(value);
+            ValuesBuffer.AppendBit(value);
+            return this;
+        }
+        public virtual FixedBinaryArrayBuilder AppendValue(byte value)
+        {
+            AppendValid();
+            ValuesBuffer.AppendByte(value);
+            return this;
+        }
+        public virtual FixedBinaryArrayBuilder AppendValue<T>(T value) where T : struct
+        {
+            AppendValid();
+            ValuesBuffer.AppendStruct(value);
             return this;
         }
 
-        public virtual FixedPrimitiveArrayBuilder<T> AppendValue(T? value)
+        // Nullable raw struct
+        public virtual FixedBinaryArrayBuilder AppendValue(bool? value)
             => value.HasValue ? AppendValue(value.Value) : AppendNull();
 
-        public virtual FixedPrimitiveArrayBuilder<T> AppendValue(ReadOnlySpan<T> value, bool isValid = true)
+        public virtual FixedBinaryArrayBuilder AppendValue(byte? value)
+            => value.HasValue ? AppendValue(value.Value) : AppendNull();
+        public virtual FixedBinaryArrayBuilder AppendValue<T>(T? value) where T : struct
+            => value.HasValue ? AppendValue(value.Value) : AppendNull();
+
+        // ReadOnlySpan value
+        public virtual FixedBinaryArrayBuilder AppendValue(ReadOnlySpan<bool> value)
         {
-            if (isValid)
-            {
-                AppendValid();
-                ValuesBuffer.AppendValues(value);
-            }
-            else
-            {
-                AppendNull();
-            }
+            AppendValid();
+            ValuesBuffer.AppendBits(value);
+            return this;
+        }
+        public virtual FixedBinaryArrayBuilder AppendValue(ReadOnlySpan<byte> value)
+        {
+            AppendValid();
+            ValuesBuffer.AppendBytes(value);
+            return this;
+        }
+        public virtual FixedBinaryArrayBuilder AppendValue<T>(ReadOnlySpan<T> value) where T : struct
+        {
+            AppendValid();
+            ValuesBuffer.AppendStructs(value);
             return this;
         }
 
-        public virtual FixedPrimitiveArrayBuilder<T> AppendValues(ICollection<T[]> values)
+
+        // Bulk raw struct several values
+        public virtual FixedBinaryArrayBuilder AppendValues(ReadOnlySpan<bool> values)
+        {
+            AppendValidity(true, values.Length / _bitSize);
+            ValuesBuffer.AppendBits(values);
+            return this;
+        }
+        public virtual FixedBinaryArrayBuilder AppendValues(ReadOnlySpan<byte> values)
+        {
+            AppendValidity(true, values.Length / _byteSize);
+            ValuesBuffer.AppendBytes(values);
+            return this;
+        }
+        public virtual FixedBinaryArrayBuilder AppendValues(ReadOnlySpan<byte> values, ReadOnlySpan<bool> validity)
+        {
+            AppendValidity(validity);
+            ValuesBuffer.AppendBytes(values);
+            return this;
+        }
+        public virtual FixedBinaryArrayBuilder AppendValues<T>(ReadOnlySpan<T> values) where T : struct
+            => AppendValues(MemoryMarshal.AsBytes(values));
+        public virtual FixedBinaryArrayBuilder AppendValues<T>(T[] values) where T : struct
+            => AppendValues(MemoryMarshal.AsBytes<T>(values));
+        public virtual FixedBinaryArrayBuilder AppendValues<T>(ReadOnlySpan<T> values, ReadOnlySpan<bool> validity) where T : struct
+            => AppendValues(MemoryMarshal.AsBytes(values), validity);
+
+        // Bulk nullable raw struct several values
+        public virtual FixedBinaryArrayBuilder AppendValues(ICollection<bool?> values)
         {
             int count = values.Count;
-            Span<T> memory = new T[count * _defaultValue.Length];
             Span<bool> mask = new bool[count];
-            int offset = 0;
             int i = 0;
+
+            foreach (bool? value in values)
+            {
+                // default is already false
+                // mask[i] = false;
+
+                // default is already filled with empty values
+                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
+
+                if (value.HasValue)
+                {
+                    // Copy to memory
+                    ValuesBuffer.AppendBit(value.Value);
+                    mask[i] = true;
+                }
+                else
+                {
+                    ValuesBuffer.AppendBits(_defaultBitValue);
+                }
+                i++;
+            }
+
+            AppendValidity(mask);
+
+            return this;
+        }
+
+        public virtual FixedBinaryArrayBuilder AppendValues(ICollection<bool[]> values)
+        {
+            int count = values.Count;
+            Span<bool> mask = new bool[count];
+            int i = 0;
+
+            foreach (bool[] value in values)
+            {
+                // default is already false
+                // mask[i] = false;
+
+                // default is already filled with empty values
+                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
+
+                if (value == null)
+                {
+                    ValuesBuffer.AppendBits(_defaultBitValue);
+                }
+                else
+                {
+                    // Copy to memory
+                    ValuesBuffer.AppendBits(value);
+                    mask[i] = true;
+                }
+                i++;
+            }
+
+            AppendValidity(mask);
+
+            return this;
+        }
+
+        public virtual FixedBinaryArrayBuilder AppendValues(ICollection<byte?> values)
+        {
+            int count = values.Count;
+            Span<bool> mask = new bool[count];
+            int i = 0;
+
+            foreach (byte? value in values)
+            {
+                // default is already false
+                // mask[i] = false;
+
+                // default is already filled with empty values
+                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
+
+                if (value.HasValue)
+                {
+                    // Copy to memory
+                    ValuesBuffer.AppendByte(value.Value);
+                    mask[i] = true;
+                }
+                else
+                {
+                    ValuesBuffer.AppendBytes(_defaultByteValue);
+                }
+                i++;
+            }
+
+            AppendValidity(mask);
+
+            return this;
+        }
+        public virtual FixedBinaryArrayBuilder AppendValues(ICollection<byte[]> values)
+        {
+            int count = values.Count;
+            Span<byte> memory = new byte[count * _byteSize];
+            Span<bool> mask = new bool[count];
+            int i = 0;
+            int offset = 0;
+
+            foreach (byte[] value in values)
+            {
+                // default is already false
+                // mask[i] = false;
+
+                // default is already filled with empty values
+                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
+
+                if (value != null)
+                {
+                    // Copy to memory
+                    value.CopyTo(memory.Slice(offset, _defaultByteValue.Length));
+                    mask[i] = true;
+                }
+                offset += _defaultByteValue.Length;
+                i++;
+            }
+
+            ValuesBuffer.AppendBytes(memory);
+            AppendValidity(mask);
+
+            return this;
+        }
+
+        public virtual FixedBinaryArrayBuilder AppendValues<T>(ICollection<T?> values) where T : struct
+        {
+            int count = values.Count;
+            Span<byte> memory = new byte[count * _byteSize];
+            Span<bool> mask = new bool[count];
+            int i = 0;
+            int offset = 0;
+
+            foreach (T? value in values)
+            {
+                // default is already false
+                // mask[i] = false;
+
+                // default is already filled with empty values
+                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
+
+                if (value.HasValue)
+                {
+                    // Copy to memory
+                    T v = value.Value;
+#if NETCOREAPP3_1_OR_GREATER
+                    var span = MemoryMarshal.CreateReadOnlySpan(ref v, 1);
+#else
+                    var span = new T[] { v }.AsSpan();
+#endif
+                    MemoryMarshal.AsBytes(span).CopyTo(memory.Slice(offset, _defaultByteValue.Length));
+
+                    mask[i] = true;
+                }
+                offset += _defaultByteValue.Length;
+                i++;
+            }
+
+            ValuesBuffer.AppendBytes(memory);
+            AppendValidity(mask);
+
+            return this;
+        }
+
+        public virtual FixedBinaryArrayBuilder AppendValues<T>(ICollection<T[]> values) where T : struct
+        {
+            int count = values.Count;
+            Span<byte> memory = new byte[count * _byteSize];
+            Span<bool> mask = new bool[count];
+            int i = 0;
+            int offset = 0;
 
             foreach (T[] value in values)
             {
@@ -345,26 +468,25 @@ namespace Apache.Arrow.Builder
 
                 if (value != null)
                 {
-                    // Copy to memory, will raise error if length > fixed size
-                    value.CopyTo(memory.Slice(offset, _defaultValue.Length));
+                    // Copy to memory
+                    MemoryMarshal.AsBytes<T>(value).CopyTo(memory.Slice(offset, _defaultByteValue.Length));
                     mask[i] = true;
                 }
-                offset += _defaultValue.Length;
+                offset += _defaultByteValue.Length;
                 i++;
             }
 
-            return AppendValues(memory, mask);
-        }
-
-        internal virtual FixedPrimitiveArrayBuilder<T> AppendValues(
-            ReadOnlySpan<T> values, ReadOnlySpan<bool> mask
-            )
-        {
+            ValuesBuffer.AppendBytes(memory);
             AppendValidity(mask);
 
-            // Append Values
-            ValuesBuffer.AppendValues(values);
             return this;
+        }
+    }
+
+    public class FixedBinaryArrayBuilder<T> : FixedBinaryArrayBuilder where T : struct
+    {
+        public FixedBinaryArrayBuilder(int capacity = 64) : base(CStructType<T>.Default as FixedWidthType, capacity)
+        {
         }
     }
 }

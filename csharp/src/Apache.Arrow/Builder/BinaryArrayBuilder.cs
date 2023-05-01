@@ -2,7 +2,7 @@
 
 namespace Apache.Arrow.Builder
 {
-    public class BinaryArrayBuilder : VariablePrimitiveArrayBuilder<byte>
+    public class BinaryArrayBuilder : VariableBinaryArrayBuilder
     {
         public BinaryArrayBuilder(int capacity = 64)
             : base(BinaryType.Default, capacity)

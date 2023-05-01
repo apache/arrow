@@ -4,26 +4,26 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
 {
-    public abstract class ProxyArrayBuilder<TPrimitive, TLogical> : PrimitiveArrayBuilder<TPrimitive>
+    public abstract class ProxyArrayBuilder<TPrimitive, TLogical> : FixedBinaryArrayBuilder
         where TPrimitive : struct
         where TLogical : struct
     {
         private readonly Func<TLogical, TPrimitive> ToPrimitive;
 
         public ProxyArrayBuilder(Func<TLogical, TPrimitive> convert, int capacity = 64)
-            : this(CStructType<TLogical>.Default, convert, capacity)
+            : this(CStructType<TLogical>.Default as FixedWidthType, convert, capacity)
         {
         }
 
-        public ProxyArrayBuilder(IArrowType dataType, Func<TLogical, TPrimitive> convert, int capacity = 64)
+        public ProxyArrayBuilder(FixedWidthType dataType, Func<TLogical, TPrimitive> convert, int capacity = 64)
             : base(dataType, capacity)
         {
             ToPrimitive = convert;
         }
 
-        public ProxyArrayBuilder<TPrimitive, TLogical> AppendValue(TLogical value, bool isValid = true)
+        public ProxyArrayBuilder<TPrimitive, TLogical> AppendValue(TLogical value)
         {
-            base.AppendValue(ToPrimitive(value), isValid);
+            AppendValue(ToPrimitive(value));
             return this;
         }
 
@@ -38,7 +38,7 @@ namespace Apache.Arrow.Builder
                 buffer[i] = ToPrimitive(values[i]);
             }
 
-            AppendValues(buffer);
+            AppendValues<TPrimitive>(buffer);
 
             return this;
         }
@@ -67,7 +67,7 @@ namespace Apache.Arrow.Builder
                 i++;
             }
 
-            AppendValues(destination, validity);
+            AppendValues<TPrimitive>(destination, validity);
 
             return this;
         }

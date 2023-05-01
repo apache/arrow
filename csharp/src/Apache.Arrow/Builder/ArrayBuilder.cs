@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
@@ -58,8 +59,6 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        internal virtual IArrayBuilder AppendValidity(bool isValid) => isValid ? AppendValid() : AppendNull();
-
         internal virtual IArrayBuilder AppendValid()
         {
             ValidityBuffer.AppendBit(true);
@@ -67,6 +66,15 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
+        internal virtual IArrayBuilder AppendValidity(bool isValid) => isValid ? AppendValid() : AppendNull();
+        internal virtual IArrayBuilder AppendValidity(bool isValid, int count)
+        {
+            ValidityBuffer.AppendBits(isValid, count);
+            Length += count;
+            if (!isValid)
+                NullCount += count;
+            return this;
+        }
         internal virtual IArrayBuilder AppendValidity(ReadOnlySpan<bool> mask)
         {
             ValidityBuffer.AppendBits(mask);
@@ -216,33 +224,33 @@ namespace Apache.Arrow.Builder
             switch (dtype.TypeId)
             {
                 case ArrowTypeId.Boolean:
-                    return new PrimitiveArrayBuilder<bool>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.UInt8:
-                    return new PrimitiveArrayBuilder<byte>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Int8:
-                    return new PrimitiveArrayBuilder<sbyte>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.UInt16:
-                    return new PrimitiveArrayBuilder<ushort>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Int16:
-                    return new PrimitiveArrayBuilder<short>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.UInt32:
-                    return new PrimitiveArrayBuilder<uint>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Int32:
-                    return new PrimitiveArrayBuilder<int>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.UInt64:
-                    return new PrimitiveArrayBuilder<ulong>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Int64:
-                    return new PrimitiveArrayBuilder<long>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
 #if NET5_0_OR_GREATER
                 case ArrowTypeId.HalfFloat:
-                    return new PrimitiveArrayBuilder<Half>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
 #endif
                 case ArrowTypeId.Float:
-                    return new PrimitiveArrayBuilder<float>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Double:
-                    return new PrimitiveArrayBuilder<double>(dtype, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.FixedSizedBinary:
-                    return new FixedPrimitiveArrayBuilder<byte>(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.String:
                     return new StringArrayBuilder(dtype, capacity);
                 case ArrowTypeId.Binary:
@@ -259,7 +267,7 @@ namespace Apache.Arrow.Builder
                     return new Time64ArrayBuilder(dtype as TimeType, capacity);
                 case ArrowTypeId.Decimal128:
                 case ArrowTypeId.Decimal256:
-                    return new FixedPrimitiveArrayBuilder<byte>(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Date32:
                     return new Date32ArrayBuilder(dtype as DateType, capacity);
                 case ArrowTypeId.Date64:

@@ -24,6 +24,7 @@ namespace Apache.Arrow.Builder
         Memory<byte> Memory { get; }
         IBufferBuilder AppendBit(bool bit);
         IBufferBuilder AppendBits(ReadOnlySpan<bool> bits);
+        IBufferBuilder AppendBits(bool value, int count);
 
         IBufferBuilder AppendByte(byte byteValue);
         IBufferBuilder AppendBytes(ReadOnlySpan<byte> bytes);
@@ -35,7 +36,6 @@ namespace Apache.Arrow.Builder
         IBufferBuilder AppendStructs(ReadOnlySpan<bool> values);
         IBufferBuilder AppendStructs(ReadOnlySpan<byte> values);
         IBufferBuilder AppendStructs<T>(ReadOnlySpan<T> values) where T : struct;
-        IBufferBuilder AppendStructs(bool value, int count);
         IBufferBuilder AppendStructs<T>(T value, int count) where T : struct;
 
         /// <summary>
@@ -87,9 +87,7 @@ namespace Apache.Arrow.Builder
     public interface IPrimitiveBufferBuilder<T> : IValueBufferBuilder where T : struct
     {
         IPrimitiveBufferBuilder<T> AppendValue(T value);
-        IPrimitiveBufferBuilder<T> AppendValue(T? value);
         IPrimitiveBufferBuilder<T> AppendValues(ReadOnlySpan<T> values);
-        IPrimitiveBufferBuilder<T> AppendValues(ICollection<T?> values);
         IPrimitiveBufferBuilder<T> AppendValues(T value, int count);
     }
 }
