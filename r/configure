@@ -100,8 +100,7 @@ if [ ! "`${R_HOME}/bin/R CMD config CXX17`" ]; then
 fi
 
 # Test if pkg-config is available to use
-${PKG_CONFIG} --version >/dev/null 2>&1
-if [ $? -eq 0 ]; then
+if ${PKG_CONFIG} --version >/dev/null 2>&1; then
   PKG_CONFIG_AVAILABLE="true"
 else
   PKG_CONFIG_AVAILABLE="false"
@@ -115,8 +114,7 @@ fi
 # same process to find openssl, but doing it now allows us to catch it in
 # nixlibs.R and throw a nicer error.
 if [ "$UNAME" = "Darwin" ] && [ "${OPENSSL_ROOT_DIR}" = "" ] && [ "`command -v brew`" ]; then
-  brew --prefix openssl >/dev/null 2>&1
-  if [ $? -eq 0 ]; then
+  if brew --prefix openssl >/dev/null 2>&1; then
     export OPENSSL_ROOT_DIR="`brew --prefix openssl`"
     export PKG_CONFIG_PATH="${OPENSSL_ROOT_DIR}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
   fi
@@ -141,9 +139,9 @@ find_arrow () {
     export PKG_CONFIG_PATH="${_LIBARROW_FOUND}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
   elif [ "$ARROW_USE_PKG_CONFIG" != "false" ] && ${PKG_CONFIG} ${PKG_CONFIG_NAME}; then
     # 2. Use pkg-config to find arrow on the system
-    _LIBARROW_FOUND="`${PKG_CONFIG} --libs-only-L --silence-errors ${PKG_CONFIG_NAME} | sed -e 's/^-L//' | sed -e 's@/lib\$@@'`"
+    _LIBARROW_FOUND="`${PKG_CONFIG} --variable=prefix --silence-errors ${PKG_CONFIG_NAME}`"
     echo "*** Trying Arrow C++ found by pkg-config: $_LIBARROW_FOUND"
-  elif [ "$UNAME" = "Darwin" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
+  elif brew --prefix ${PKG_BREW_NAME} > /dev/null 2>&1; then
     # 3. On macOS, look for Homebrew apache-arrow
     #    (note that if you have pkg-config, homebrew arrow may have already been found)
     _LIBARROW_FOUND=`brew --prefix ${PKG_BREW_NAME}`
@@ -156,7 +154,7 @@ find_arrow () {
   if [ "$_LIBARROW_FOUND" != "false" ]; then
     # We found a library, so check for version mismatch
     if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
-      PC_LIB_VERSION=`${PKG_CONFIG} --modversion arrow`
+      PC_LIB_VERSION=`${PKG_CONFIG} --modversion ${PKG_CONFIG_NAME}`
     else
       PC_LIB_VERSION=`grep '^Version' ${_LIBARROW_FOUND}/lib/pkgconfig/arrow.pc | sed s/Version:\ //`
     fi
@@ -164,8 +162,7 @@ find_arrow () {
     # Success means the found C++ library is ok to use.
     # Error means the versions don't line up and we shouldn't use it.
     # More specific messaging to the user is in the R script
-    ${R_HOME}/bin/Rscript tools/check-versions.R $VERSION $PC_LIB_VERSION 2> /dev/null
-    if [ $? -eq 1 ]; then
+    if ! ${R_HOME}/bin/Rscript tools/check-versions.R $VERSION $PC_LIB_VERSION 2> /dev/null; then
       _LIBARROW_FOUND="false"
     fi
   fi
@@ -238,8 +235,7 @@ do_autobrew () {
       cp tools/autobrew .
     fi
   fi
-  . autobrew
-  if [ $? -ne 0 ]; then
+  if ! . autobrew; then
     echo "Failed to retrieve binary for ${PKG_BREW_NAME}"
   fi
   # autobrew sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
