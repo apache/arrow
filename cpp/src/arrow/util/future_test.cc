@@ -1100,8 +1100,11 @@ TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
   auto fut0_done = fut0.Then(
       [&] {
         // marked finished on main thread -> must be scheduled to executor
+#ifdef ARROW_DISABLE_THREADING
+        fut0_on_executor.store(executor==SerialExecutor::GetCurrentExecutor());
+#else      
         fut0_on_executor.store(executor.OwnsThisThread());
-
+#endif
         fut1.MarkFinished();
       },
       pass_err, options);
@@ -1109,7 +1112,11 @@ TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
   auto fut1_done = fut1.Then(
       [&] {
         // marked finished on executor -> no need to schedule
+#ifdef ARROW_DISABLE_THREADING
+        fut1_on_executor.store(executor==SerialExecutor::GetCurrentExecutor());
+#else      
         fut1_on_executor.store(executor.OwnsThisThread());
+#endif
       },
       pass_err, options);
 

@@ -375,6 +375,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
 
 #ifdef ARROW_DISABLE_THREADING
     static void RunTasksOnAllExecutors(bool once_only=false); // run loop until everything works okay
+    static SerialExecutor* GetCurrentExecutor();
 #endif
 
 
@@ -411,6 +412,9 @@ protected:
   // we have to run tasks from all live executors
   // during RunLoop if we don't have threading
     static std::unordered_set<SerialExecutor*> all_executors;
+    // without threading we can't tell which executor called the
+    // current process - so we set it in spawning the task
+    static SerialExecutor* current_executor;
 
 #endif // ARROW_DISABLE_THREADING
 

@@ -65,6 +65,7 @@ struct SerialExecutor::State {
 #ifdef ARROW_DISABLE_THREADING
 // list of all SerialExecutor objects - as we need to run tasks from all pools at once in Run()
 std::unordered_set<SerialExecutor*> SerialExecutor::all_executors;
+SerialExecutor* SerialExecutor::current_executor=NULL;
 #endif
 
 SerialExecutor::SerialExecutor() : state_(std::make_shared<State>()) 
@@ -205,6 +206,8 @@ void SerialExecutor::RunTasksOnAllExecutors(bool once_only)
         SerialExecutor* exe = *it;
         if(!(exe->state_->paused || exe->state_->task_queue.empty() || exe->state_->finished))
         {
+          SerialExecutor* old_exe=current_executor;
+          current_executor=exe;
           Task task = std::move(exe->state_->task_queue.front());
           exe->state_->task_queue.pop_front();
           run_task=true;
@@ -215,6 +218,8 @@ void SerialExecutor::RunTasksOnAllExecutors(bool once_only)
               std::move(task.stop_callback)(task.stop_token.Poll());
             }
           }
+          current_executor=old_exe;
+
           if(once_only)
           {
             run_task=false;
@@ -237,9 +242,12 @@ void SerialExecutor::RunLoop()
     // async task to finish from another thread pool).  We still need to check paused
     // because sometimes we will pause even with work leftover when processing
     // an async generator
+
     while (!state_->paused && !state_->task_queue.empty()) {
       Task task = std::move(state_->task_queue.front());
       state_->task_queue.pop_front();
+      SerialExecutor* old_exe=current_executor;
+      current_executor=this;
       if (!task.stop_token.IsStopRequested()) {
         std::move(task.callable)();
       } else {
@@ -249,6 +257,7 @@ void SerialExecutor::RunLoop()
         // Can't break here because there may be cleanup tasks down the chain we still
         // need to run.
       }
+      current_executor=old_exe;
     }
     // In this case we must be waiting on work from external (e.g. I/O) executors. Run things
     // in all serialexecutors until we have something in queue
@@ -269,6 +278,8 @@ void SerialExecutor::RunLoop()
           SerialExecutor* exe = *it;
           if(!(exe->state_->paused || exe->state_->task_queue.empty() || exe->state_->finished))
           {
+            SerialExecutor* old_exe=current_executor;
+            current_executor=exe;
             Task task = std::move(exe->state_->task_queue.front());
             exe->state_->task_queue.pop_front();
             if (!task.stop_token.IsStopRequested()) {
@@ -278,7 +289,9 @@ void SerialExecutor::RunLoop()
                 std::move(task.stop_callback)(task.stop_token.Poll());
               }
             }
+            current_executor=old_exe;
           }
+
           break;
         }
         count-=1;

@@ -89,7 +89,11 @@ class ConcreteFutureImpl : public FutureImpl {
       case ShouldSchedule::IfUnfinished:
         return !in_add_callback;
       case ShouldSchedule::IfDifferentExecutor:
+#ifdef ARROW_DISABLE_THREADING
+        return !(callback_record.options.executor==SerialExecutor::GetCurrentExecutor());
+#else      
         return !callback_record.options.executor->OwnsThisThread();
+#endif        
       default:
         DCHECK(false) << "Unrecognized ShouldSchedule option";
         return false;
