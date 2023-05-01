@@ -520,6 +520,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // Return the number of tasks either running or in the queue.
   int GetNumTasks();
 
+  bool OwnsThisThread() override;
   // Dynamically change the number of worker threads.
   //
   // This function always returns immediately.
