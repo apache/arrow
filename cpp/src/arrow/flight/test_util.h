@@ -205,14 +205,8 @@ class ARROW_FLIGHT_EXPORT TestServerAuthHandler : public ServerAuthHandler {
   ~TestServerAuthHandler() override;
   Status Authenticate(const ServerCallContext& context, ServerAuthSender* outgoing,
                       ServerAuthReader* incoming) override;
-  Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override {
-    return Status::NotImplemented("This version is never used.");
-  }
   Status IsValid(const ServerCallContext& context, const std::string& token,
                  std::string* peer_identity) override;
-  Status IsValid(const std::string& token, std::string* peer_identity) override {
-    return Status::NotImplemented("This version is never used.");
-  }
 
  private:
   std::string username_;
@@ -226,14 +220,8 @@ class ARROW_FLIGHT_EXPORT TestServerBasicAuthHandler : public ServerAuthHandler 
   ~TestServerBasicAuthHandler() override;
   Status Authenticate(const ServerCallContext& context, ServerAuthSender* outgoing,
                       ServerAuthReader* incoming) override;
-  Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override {
-    return Status::NotImplemented("This version is never used.");
-  }
   Status IsValid(const ServerCallContext& context, const std::string& token,
                  std::string* peer_identity) override;
-  Status IsValid(const std::string& token, std::string* peer_identity) override {
-    return Status::NotImplemented("This version is never used.");
-  }
 
  private:
   BasicAuth basic_auth_;

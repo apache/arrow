@@ -57,43 +57,31 @@ class ARROW_FLIGHT_EXPORT ServerAuthHandler {
   virtual ~ServerAuthHandler();
   /// \brief Authenticate the client on initial connection. The server
   /// can send and read responses from the client at any time.
-  ///
-  /// If this version is implemented, the deprecated Authentication()
-  /// without ServerCallContext version isn't used. So we can
-  /// implement the deprecated version like the following:
-  ///
-  ///   Status Authenticate(ServerAuthSender* outgoing,
-  ///                       ServerAuthReader* incoming) override {
-  ///     return Status::NotImplemented("This version is never used");
-  ///   }
-  ///
   /// \param[in] context The call context.
   /// \param[in] outgoing The writer for messages to the client.
   /// \param[in] incoming The reader for messages from the client.
   /// \return Status OK if this authentication is succeeded.
   virtual Status Authenticate(const ServerCallContext& context,
                               ServerAuthSender* outgoing, ServerAuthReader* incoming) {
+    // TODO: We can make this pure virtual function when we remove
+    // the duplicated version.
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     return Authenticate(outgoing, incoming);
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
   }
   /// \brief Authenticate the client on initial connection. The server
   /// can send and read responses from the client at any time.
   /// \param[in] outgoing The writer for messages to the client.
   /// \param[in] incoming The reader for messages from the client.
   /// \return Status OK if this authentication is succeeded.
-  /// \deprecated Deprecated since 13.0.0. Implement the Authentication()
+  /// \deprecated Deprecated in 13.0.0. Implement the Authentication()
   /// with ServerCallContext version instead.
-  virtual Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) = 0;
+  ARROW_DEPRECATED("Deprecated in 13.0.0. Use ServerCallContext overload instead.")
+  virtual Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) {
+    return Status::NotImplemented(typeid(this).name(),
+                                  "::Authenticate() isn't implemented");
+  }
   /// \brief Validate a per-call client token.
-  ///
-  /// If this version is implemented, the deprecated IsValid()
-  /// without ServerCallContext version isn't used. So we can
-  /// implement the deprecated version like the following:
-  ///
-  ///   Status IsValid(const std::string& token,
-  ///                  std::string* peer_identity) override {
-  ///     return Status::NotImplemented("This version is never used");
-  ///   }
-  ///
   /// \param[in] token The client token. May be the empty string if
   /// the client does not provide a token.
   /// \param[out] peer_identity The identity of the peer, if this
@@ -102,7 +90,11 @@ class ARROW_FLIGHT_EXPORT ServerAuthHandler {
   /// validation failed
   virtual Status IsValid(const ServerCallContext& context, const std::string& token,
                          std::string* peer_identity) {
+    // TODO: We can make this pure virtual function when we remove
+    // the duplicated version.
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     return IsValid(token, peer_identity);
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
   }
   /// \brief Validate a per-call client token.
   /// \param[in] token The client token. May be the empty string if
@@ -111,15 +103,22 @@ class ARROW_FLIGHT_EXPORT ServerAuthHandler {
   /// authentication method supports it.
   /// \return Status OK if the token is valid, any other status if
   /// validation failed
-  virtual Status IsValid(const std::string& token, std::string* peer_identity) = 0;
+  /// \deprecated Deprecated in 13.0.0. Implement the IsValid()
+  /// with ServerCallContext version instead.
+  ARROW_DEPRECATED("Deprecated in 13.0.0. Use ServerCallContext overload instead.")
+  virtual Status IsValid(const std::string& token, std::string* peer_identity) {
+    return Status::NotImplemented(typeid(this).name(), "::IsValid() isn't implemented");
+  }
 };
 
 /// \brief An authentication mechanism that does nothing.
 class ARROW_FLIGHT_EXPORT NoOpAuthHandler : public ServerAuthHandler {
  public:
   ~NoOpAuthHandler() override;
-  Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override;
-  Status IsValid(const std::string& token, std::string* peer_identity) override;
+  Status Authenticate(const ServerCallContext& context, ServerAuthSender* outgoing,
+                      ServerAuthReader* incoming) override;
+  Status IsValid(const ServerCallContext& context, const std::string& token,
+                 std::string* peer_identity) override;
 };
 
 }  // namespace flight
