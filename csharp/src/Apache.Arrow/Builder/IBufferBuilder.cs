@@ -15,7 +15,6 @@
 
 using System;
 using System.Collections.Generic;
-using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Memory;
 
 namespace Apache.Arrow.Builder
