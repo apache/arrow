@@ -330,7 +330,8 @@ def _make_global_functions():
 
 _make_global_functions()
 
-def dictionary_decode(arr,memory_pool=None):
+
+def dictionary_decode(arr, memory_pool=None):
     """
     Decodes the DictionaryArray to an Array.
 
@@ -339,10 +340,11 @@ def dictionary_decode(arr,memory_pool=None):
     arr : Array-like
     memory_pool : MemoryPool, optional
         memory pool to use for allocations during function execution.
-    
+
     Examples
     --------
     >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
     >>> x = pa.array(["a", "a", "b"], pa.dictionary(pa.int8(), pa.string()))
     >>> x 
     <pyarrow.lib.DictionaryArray object at ...>
@@ -359,7 +361,7 @@ def dictionary_decode(arr,memory_pool=None):
         1
     ]
 
-    >>> x_decode = dictionary_decode(x)
+    >>> x_decode = pc.dictionary_decode(x)
     >>> x_decode
     <pyarrow.lib.StringArray object at ...>
     [
@@ -371,7 +373,7 @@ def dictionary_decode(arr,memory_pool=None):
     The dictionary_decode actually call Cast in the deep implementation.
     You can use Cast to decode DictionaryArray.
 
-    >>> x_decode_2 = cast(x, pa.string())
+    >>> x_decode_2 = pc.cast(x, pa.string())
     >>> x_decode_2
     <pyarrow.lib.StringArray object at ...>
     [
@@ -379,13 +381,13 @@ def dictionary_decode(arr,memory_pool=None):
     "a",
     "b"
     ]
-        
+
     Returns
     -------
     array : decoded Array
         The dictionary_decode result as a new Array
     """
-    if(not isinstance(arr.type,pa.DictionaryType)):
+    if(not isinstance(arr.type, pa.DictionaryType)):
         raise TypeError("Must pass a dictionary array")
 
     return call_function("dictionary_decode", [arr], memory_pool)

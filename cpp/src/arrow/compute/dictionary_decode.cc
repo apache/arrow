@@ -42,7 +42,7 @@ namespace internal {
 
 namespace {
 
-const FunctionDoc dictionary_decode_doc{"Decodes the DictionaryArray to an Array",
+const FunctionDoc dictionary_decode_doc{"Decodes a DictionaryArray to an Array",
                                          "The Function will call cast to really decode.",
                                         {"dictionary_array"}};
 class DictionaryDecodeMetaFunction : public MetaFunction {
@@ -54,8 +54,7 @@ class DictionaryDecodeMetaFunction : public MetaFunction {
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     if (args[0].type() == nullptr || args[0].type()->id() != Type::DICTIONARY) {
-      return Status::Invalid("Invalid input type for function 'dictonary decode': ",
-                             args[0].ToString());
+      return Status::TypeError("Expected a DictonaryArray");
     }
     CastOptions castOption(true);  // safe cast
     if (args[0].is_array()) {
@@ -71,8 +70,7 @@ class DictionaryDecodeMetaFunction : public MetaFunction {
       castOption.to_type = to_type;
       return CallFunction("cast", args, &castOption, ctx);
     } else {
-      return Status::Invalid("Invalid input type for function 'dictonary decode': ",
-                             args[0].ToString());
+      return Status::TypeError("Expected an Array or a Chunked Array");
     }
   }
 };
