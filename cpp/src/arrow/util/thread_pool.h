@@ -196,6 +196,12 @@ class ARROW_EXPORT Executor {
   // Executor. Returns false if this Executor does not support this property.
   virtual bool OwnsThisThread() { return false; }
 
+  // Return true if this is the current executor being called
+  // n.b. this defaults to just calling OwnsThisThread
+  // unless the threadpool is disabled 
+  virtual bool IsCurrentExecutor() {return OwnsThisThread();}
+
+
   /// \brief An interface to represent something with a custom destructor
   ///
   /// \see KeepAlive
@@ -376,6 +382,10 @@ class ARROW_EXPORT SerialExecutor : public Executor {
 #ifdef ARROW_DISABLE_THREADING
     static void RunTasksOnAllExecutors(bool once_only=false); // run loop until everything works okay
     static SerialExecutor* GetCurrentExecutor();
+
+  virtual bool IsCurrentExecutor() {return current_executor==this;}
+
+
 #endif
 
 
@@ -412,6 +422,10 @@ protected:
   // we have to run tasks from all live executors
   // during RunLoop if we don't have threading
     static std::unordered_set<SerialExecutor*> all_executors;
+    // a pointer to the last one called by the loop
+    // so all tasks get spawned equally
+    // on multiple calls to RunTasksOnAllExecutors
+    static SerialExecutor* last_called_executor;
     // without threading we can't tell which executor called the
     // current process - so we set it in spawning the task
     static SerialExecutor* current_executor;
@@ -450,7 +464,6 @@ class ARROW_EXPORT ThreadPool : public SerialExecutor
 
     int GetActualCapacity()  { return 1; };
   
-
     bool OwnsThisThread() override
     {
       return true;
@@ -503,8 +516,6 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // The actual number of workers may lag a bit before being adjusted to
   // match this value.
   int GetCapacity() override;
-
-  bool OwnsThisThread() override;
 
   // Return the number of tasks either running or in the queue.
   int GetNumTasks();

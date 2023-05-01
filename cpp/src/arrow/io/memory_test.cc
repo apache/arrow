@@ -869,6 +869,7 @@ TEST(CacheOptions, Basics) {
   check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75, 5), 2.5, 5);
 }
 
+#ifndef ARROW_DISABLE_THREADING
 TEST(IOThreadPool, Capacity) {
   // Simple sanity check
   auto pool = internal::GetIOThreadPool();
@@ -878,6 +879,7 @@ TEST(IOThreadPool, Capacity) {
   ASSERT_OK(SetIOThreadPoolCapacity(capacity + 1));
   ASSERT_EQ(GetIOThreadPoolCapacity(), capacity + 1);
 }
+#endif
 
 }  // namespace io
 }  // namespace arrow

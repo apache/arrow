@@ -66,6 +66,12 @@ struct SerialExecutor::State {
 // list of all SerialExecutor objects - as we need to run tasks from all pools at once in Run()
 std::unordered_set<SerialExecutor*> SerialExecutor::all_executors;
 SerialExecutor* SerialExecutor::current_executor=NULL;
+SerialExecutor* SerialExecutor::GetCurrentExecutor()
+{
+  return current_executor;
+}
+SerialExecutor* SerialExecutor::last_called_executor=NULL;
+
 #endif
 
 SerialExecutor::SerialExecutor() : state_(std::make_shared<State>()) 
@@ -196,36 +202,53 @@ bool SerialExecutor::OwnsThisThread() {
 #ifdef ARROW_DISABLE_THREADING
 
 void SerialExecutor::RunTasksOnAllExecutors(bool once_only)
-{
+{  
+  if(last_called_executor!=NULL && all_executors.count(last_called_executor)==0)
+  {
+    last_called_executor=NULL;
+  }
   bool run_task=true;
   while(run_task)
   {
     run_task=false;
-    for(auto it=all_executors.begin();it!=all_executors.end();it++)
+    for(auto it=all_executors.begin();it!=all_executors.end();++it)
     {
-        SerialExecutor* exe = *it;
-        if(!(exe->state_->paused || exe->state_->task_queue.empty() || exe->state_->finished))
+      if(last_called_executor!=NULL)
+      {
+        if(all_executors.count(last_called_executor)==0 || last_called_executor==*it)
         {
-          SerialExecutor* old_exe=current_executor;
-          current_executor=exe;
-          Task task = std::move(exe->state_->task_queue.front());
-          exe->state_->task_queue.pop_front();
-          run_task=true;
-          if (!task.stop_token.IsStopRequested()) {
-            std::move(task.callable)();
-          } else {
-            if (task.stop_callback) {
-              std::move(task.stop_callback)(task.stop_token.Poll());
-            }
-          }
-          current_executor=old_exe;
-
-          if(once_only)
-          {
-            run_task=false;
-            break;
+          // found the last one (or it doesn't exist ih the set any more)
+          // now we can start running things
+          last_called_executor=NULL;
+        }
+        // skip until after we have seen the last executor we called
+        // so that we do things nicely in turn
+        continue;
+      }
+      SerialExecutor* exe = *it;
+      if(!(exe->state_->paused || exe->state_->task_queue.empty() || exe->state_->finished))
+      {
+        SerialExecutor* old_exe=current_executor;
+        current_executor=exe;
+        Task task = std::move(exe->state_->task_queue.front());
+        exe->state_->task_queue.pop_front();
+        run_task=true;
+        if (!task.stop_token.IsStopRequested()) {
+          std::move(task.callable)();
+        } else {
+          if (task.stop_callback) {
+            std::move(task.stop_callback)(task.stop_token.Poll());
           }
         }
+        current_executor=old_exe;
+
+        if(once_only)
+        {
+          last_called_executor=exe;
+          run_task=false;
+          break;
+        }
+      }
     }
   }
 }
