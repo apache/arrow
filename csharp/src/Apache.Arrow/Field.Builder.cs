@@ -56,7 +56,7 @@ namespace Apache.Arrow
             }
 
             // Build DataType from C# Type
-            public Builder DataType(System.Type valueType, string defaultTimezone = null, Dictionary<string, string> fieldTimezones = null)
+            public Builder DataType(System.Type valueType, string defaultTimezone = "+00:00", Dictionary<string, string> fieldTimezones = null)
             {
                 System.Type child = System.Nullable.GetUnderlyingType(valueType);
 

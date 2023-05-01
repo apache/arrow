@@ -122,9 +122,9 @@ namespace Apache.Arrow.Tests.Builder
                 .AppendNull()
                 .AppendValues(new byte[][]
                 {
-                    new byte[] { 0, 0, 0, 0 },
+                    new byte[] { },
                     null,
-                    new byte[] { 1, 5, 6, 2 }
+                    new byte[] { 1, 5 }
                 })
                 .Build() as FixedSizeBinaryArray;
 
@@ -133,7 +133,7 @@ namespace Apache.Arrow.Tests.Builder
 
             Assert.Equal(new byte[] { 1, 2, 3, 4 }, array.GetBytes(0).ToArray());
             Assert.Equal(new byte[] { }, array.GetBytes(1).ToArray());
-            Assert.Equal(new byte[] { 1, 5, 6, 2 }, array.GetBytes(4).ToArray());
+            Assert.Equal(new byte[] { 1, 5, 0, 0 }, array.GetBytes(4).ToArray());
 
             Assert.True(array.IsValid(0));
             Assert.False(array.IsValid(1));

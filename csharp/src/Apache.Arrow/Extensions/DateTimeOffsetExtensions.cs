@@ -35,6 +35,7 @@ namespace Apache.Arrow
         public static DateTimeOffset FromUnixTimeNanoseconds(int nanos) => UnixEpoch.AddTicks(nanos / 100);
 
         // Instance methods
+        public static int ToUnixDays(this DateTimeOffset date) => (int)Math.Floor((date - UnixEpoch).TotalDays);
         public static long ToUnixTimeSeconds(this DateTimeOffset date) => date.ToUnixTimeSeconds();
         public static long ToUnixTimeMilliseconds(this DateTimeOffset date) => date.ToUnixTimeMilliseconds();
         public static long ToUnixTimeMicroseconds(this DateTimeOffset date) => (date.UtcTicks - UnixEpoch.Ticks) / 10;

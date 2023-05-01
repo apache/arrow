@@ -250,10 +250,11 @@ namespace Apache.Arrow.Builder
         }
     }
 
+    // Only works with struct types where bitwidth is a multiple of 8 for byte, not like bool
     public class FixedPrimitiveArrayBuilder<T>
         : ArrayBuilder where T : struct
     {
-        private T[] DefaultValue;
+        private readonly T[] _defaultValue;
 
         public IPrimitiveBufferBuilder<T> ValuesBuffer { get; }
 
@@ -273,7 +274,7 @@ namespace Apache.Arrow.Builder
             ) : base(dataType, new IValueBufferBuilder[] { validity, values })
         {
             ValuesBuffer = values;
-            DefaultValue = new T[(dataType as FixedWidthType).BitWidth / 8];
+            _defaultValue = new T[(dataType as FixedWidthType).BitWidth / 8];
         }
 
         public override IArrayBuilder AppendNull() => AppendNull(default);
@@ -282,7 +283,7 @@ namespace Apache.Arrow.Builder
             base.AppendNull();
 
             // Append Empty values
-            ValuesBuffer.AppendValues(DefaultValue);
+            ValuesBuffer.AppendValues(_defaultValue);
 
             return this;
         }
@@ -294,7 +295,7 @@ namespace Apache.Arrow.Builder
 
             // Append Empty values
             for (int i = 0; i < count; i++)
-                ValuesBuffer.AppendValues(DefaultValue);
+                ValuesBuffer.AppendValues(_defaultValue);
 
             return this;
         }
@@ -329,7 +330,7 @@ namespace Apache.Arrow.Builder
         public virtual FixedPrimitiveArrayBuilder<T> AppendValues(ICollection<T[]> values)
         {
             int count = values.Count;
-            Span<T> memory = new T[count * DefaultValue.Length];
+            Span<T> memory = new T[count * _defaultValue.Length];
             Span<bool> mask = new bool[count];
             int offset = 0;
             int i = 0;
@@ -342,15 +343,15 @@ namespace Apache.Arrow.Builder
                     // mask[i] = false;
 
                     // Fill with empty values
-                    DefaultValue.CopyTo(memory.Slice(offset, DefaultValue.Length));
+                    _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
                 }
                 else
                 {
                     // Copy to memory, will raise error if length > fixed size
-                    value.CopyTo(memory.Slice(offset, DefaultValue.Length));
+                    value.CopyTo(memory.Slice(offset, _defaultValue.Length));
                     mask[i] = true;
                 }
-                offset += DefaultValue.Length;
+                offset += _defaultValue.Length;
                 i++;
             }
 

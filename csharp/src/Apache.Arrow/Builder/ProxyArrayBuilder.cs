@@ -73,6 +73,7 @@ namespace Apache.Arrow.Builder
         }
     }
 
+    // Timestamp / DateTime
     public class TimestampArrayBuilder : ProxyArrayBuilder<long, DateTimeOffset>
     {
         private static Func<DateTimeOffset, long> ToPrimitive(TimeUnit unit)
@@ -92,6 +93,7 @@ namespace Apache.Arrow.Builder
         }
     }
 
+    // Time
     public class Time32ArrayBuilder : ProxyArrayBuilder<int, TimeSpan>
     {
         private static Func<TimeSpan, int> ToPrimitive(TimeUnit unit)
@@ -122,6 +124,39 @@ namespace Apache.Arrow.Builder
         }
 
         public Time64ArrayBuilder(TimeType dtype, int capacity = 64) : base(dtype, ToPrimitive(dtype.Unit), capacity)
+        {
+        }
+    }
+
+    // Date
+    public class Date32ArrayBuilder : ProxyArrayBuilder<int, DateTimeOffset>
+    {
+        private static Func<DateTimeOffset, int> ToPrimitive(DateUnit unit)
+        {
+            return unit switch
+            {
+                DateUnit.Day => DateTimeOffsetExtensions.ToUnixDays,
+                _ => throw new ArgumentException($"Unknwown arrow TimeUnit {unit}"),
+            };
+        }
+
+        public Date32ArrayBuilder(DateType dtype, int capacity = 64) : base(dtype, ToPrimitive(dtype.Unit), capacity)
+        {
+        }
+    }
+
+    public class Date64ArrayBuilder : ProxyArrayBuilder<long, DateTimeOffset>
+    {
+        private static Func<DateTimeOffset, long> ToPrimitive(DateUnit unit)
+        {
+            return unit switch
+            {
+                DateUnit.Milliseconds => DateTimeOffsetExtensions.ToUnixTimeMilliseconds,
+                _ => throw new ArgumentException($"Unknwown arrow TimeUnit {unit}"),
+            };
+        }
+
+        public Date64ArrayBuilder(DateType dtype, int capacity = 64) : base(dtype, ToPrimitive(dtype.Unit), capacity)
         {
         }
     }

@@ -11,7 +11,7 @@ namespace Apache.Arrow.Builder
             : base(
                   dataType,
                   new IValueBufferBuilder[] { new ValueBufferBuilder<bool>(capacity) },
-                  dataType.Fields.Select(field => ArrayBuilderFactory.Make(field.DataType)).ToArray()
+                  dataType.Fields.Select(field => ArrayBuilderFactory.MakeBuilder(field.DataType)).ToArray()
                   )
         {
         }
@@ -20,7 +20,7 @@ namespace Apache.Arrow.Builder
             : base(
                   dataType,
                   new IValueBufferBuilder[] { new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<int>(capacity) },
-                  dataType.Fields.Select(field => ArrayBuilderFactory.Make(field.DataType)).ToArray()
+                  dataType.Fields.Select(field => ArrayBuilderFactory.MakeBuilder(field.DataType)).ToArray()
                   )
         {
         }
