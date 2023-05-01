@@ -214,6 +214,30 @@ TEST(TestFlight, DISABLED_IpV6Port) {
   ASSERT_OK(client->ListFlights());
 }
 
+TEST(TestFlight, ServerCallContextIncomingHeaders) {
+  auto server = ExampleTestServer();
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
+  FlightServerOptions options(location);
+  ASSERT_OK(server->Init(options));
+
+  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(server->location()));
+  Action action;
+  action.type = "list-incoming-headers";
+  action.body = Buffer::FromString("test-header");
+  FlightCallOptions call_options;
+  call_options.headers.emplace_back("test-header1", "value1");
+  call_options.headers.emplace_back("test-header2", "value2");
+  ASSERT_OK_AND_ASSIGN(auto stream, client->DoAction(call_options, action));
+  ASSERT_OK_AND_ASSIGN(auto result, stream->Next());
+  ASSERT_NE(result.get(), nullptr);
+  ASSERT_EQ(result->body->ToString(), "test-header1: value1");
+  ASSERT_OK_AND_ASSIGN(result, stream->Next());
+  ASSERT_NE(result.get(), nullptr);
+  ASSERT_EQ(result->body->ToString(), "test-header2: value2");
+  ASSERT_OK_AND_ASSIGN(result, stream->Next());
+  ASSERT_EQ(result.get(), nullptr);
+}
+
 // ----------------------------------------------------------------------
 // Client tests
 
