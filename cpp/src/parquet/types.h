@@ -543,6 +543,27 @@ struct BoundaryOrder {
   };
 };
 
+/// \brief SortingColumn is a proxy around format::SortingColumn.
+struct PARQUET_EXPORT SortingColumn {
+  // The column index (in this row group)
+  int32_t column_idx;
+
+  // If true, indicates this column is sorted in descending order.
+  bool descending;
+
+  // If true, nulls will come before non-null values, otherwise, nulls go at the end.
+  bool nulls_first;
+};
+
+inline bool operator==(const SortingColumn& left, const SortingColumn& right) {
+  return left.nulls_first == right.nulls_first && left.descending == right.descending &&
+         left.column_idx == right.column_idx;
+}
+
+inline bool operator!=(const SortingColumn& left, const SortingColumn& right) {
+  return !(left == right);
+}
+
 // ----------------------------------------------------------------------
 
 struct ByteArray {
