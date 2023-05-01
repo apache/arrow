@@ -398,8 +398,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
     auto aggregates = aggregate_options.aggregates;
     const auto& keys = aggregate_options.keys;
     const auto& segment_keys = aggregate_options.segment_keys;
-    const auto concurreny =
-        plan->query_context()->exec_context()->executor()->GetCapacity();
+    const auto concurreny = plan->query_context()->max_concurrency();
 
     if (keys.size() > 0) {
       return Status::Invalid("Scalar aggregation with some key");
@@ -734,7 +733,7 @@ class GroupByNode : public ExecNode, public TracedNode {
     const auto& keys = aggregate_options.keys;
     const auto& segment_keys = aggregate_options.segment_keys;
     auto aggs = aggregate_options.aggregates;
-    auto concurrency = plan->query_context()->exec_context()->executor()->GetCapacity();
+    auto concurrency = plan->query_context()->max_concurrency();
 
     const auto& input_schema = input->output_schema();
     auto exec_ctx = plan->query_context()->exec_context();
