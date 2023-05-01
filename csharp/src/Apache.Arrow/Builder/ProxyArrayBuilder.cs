@@ -88,6 +88,10 @@ namespace Apache.Arrow.Builder
             };
         }
 
+        public TimestampArrayBuilder(int capacity = 64) : this(TimestampType.SystemDefault, capacity)
+        {
+        }
+
         public TimestampArrayBuilder(TimestampType dtype, int capacity = 64) : base(dtype, ToPrimitive(dtype.Unit), capacity)
         {
         }
@@ -104,6 +108,10 @@ namespace Apache.Arrow.Builder
                 TimeUnit.Millisecond => TimeSpanExtensions.TotalMilliseconds,
                 _ => throw new ArgumentException($"Unknwown arrow TimeUnit {unit}"),
             };
+        }
+
+        public Time32ArrayBuilder(int capacity = 64) : this(Time32Type.Default, capacity)
+        {
         }
 
         public Time32ArrayBuilder(TimeType dtype, int capacity = 64) : base(dtype, ToPrimitive(dtype.Unit), capacity)
@@ -123,6 +131,10 @@ namespace Apache.Arrow.Builder
             };
         }
 
+        public Time64ArrayBuilder(int capacity = 64) : this(TimeType.SystemDefault, capacity)
+        {
+        }
+
         public Time64ArrayBuilder(TimeType dtype, int capacity = 64) : base(dtype, ToPrimitive(dtype.Unit), capacity)
         {
         }
@@ -131,32 +143,14 @@ namespace Apache.Arrow.Builder
     // Date
     public class Date32ArrayBuilder : ProxyArrayBuilder<int, DateTimeOffset>
     {
-        private static Func<DateTimeOffset, int> ToPrimitive(DateUnit unit)
-        {
-            return unit switch
-            {
-                DateUnit.Day => DateTimeOffsetExtensions.ToUnixDays,
-                _ => throw new ArgumentException($"Unknwown arrow TimeUnit {unit}"),
-            };
-        }
-
-        public Date32ArrayBuilder(DateType dtype, int capacity = 64) : base(dtype, ToPrimitive(dtype.Unit), capacity)
+        public Date32ArrayBuilder(DateType dtype, int capacity = 64) : base(dtype, DateTimeOffsetExtensions.ToUnixDays, capacity)
         {
         }
     }
 
     public class Date64ArrayBuilder : ProxyArrayBuilder<long, DateTimeOffset>
     {
-        private static Func<DateTimeOffset, long> ToPrimitive(DateUnit unit)
-        {
-            return unit switch
-            {
-                DateUnit.Milliseconds => DateTimeOffsetExtensions.ToUnixTimeMilliseconds,
-                _ => throw new ArgumentException($"Unknwown arrow TimeUnit {unit}"),
-            };
-        }
-
-        public Date64ArrayBuilder(DateType dtype, int capacity = 64) : base(dtype, ToPrimitive(dtype.Unit), capacity)
+        public Date64ArrayBuilder(DateType dtype, int capacity = 64) : base(dtype, DateTimeOffsetExtensions.ToUnixTimeMilliseconds, capacity)
         {
         }
     }
