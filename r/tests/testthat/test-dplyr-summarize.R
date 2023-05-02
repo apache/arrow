@@ -26,6 +26,8 @@ withr::local_options(list(
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
+skip_if_not_available("acero")
+
 tbl <- example_data
 # Add some better string data
 tbl$verses <- verses[[1]]
@@ -614,17 +616,21 @@ test_that("min() and max() on character strings", {
       collect(),
     tbl,
   )
-  compare_dplyr_binding(
-    .input %>%
-      group_by(fct) %>%
-      summarize(
-        min_chr = min(chr, na.rm = TRUE),
-        max_chr = max(chr, na.rm = TRUE)
-      ) %>%
-      arrange(min_chr) %>%
-      collect(),
-    tbl,
-  )
+  withr::with_options(list(arrow.summarise.sort = FALSE), {
+    # TODO(#29887 / ARROW-14313) sorting on dictionary columns not supported
+    # so turn off arrow.summarise.sort so that we don't order_by fct after summarize
+    compare_dplyr_binding(
+      .input %>%
+        group_by(fct) %>%
+        summarize(
+          min_chr = min(chr, na.rm = TRUE),
+          max_chr = max(chr, na.rm = TRUE)
+        ) %>%
+        arrange(min_chr) %>%
+        collect(),
+      tbl,
+    )
+  })
 })
 
 test_that("summarise() with !!sym()", {
@@ -1136,14 +1142,14 @@ test_that("We don't add unnecessary ProjectNodes when aggregating", {
     0
   )
 
-  # 2 projections: one before, and one after in order to put grouping cols first
+  # Still just 1 projection
   expect_project_nodes(
     tab %>% group_by(lgl) %>% summarize(mean(int)),
-    2
+    1
   )
   expect_project_nodes(
     tab %>% count(lgl),
-    2
+    1
   )
 })
 

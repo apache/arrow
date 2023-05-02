@@ -30,6 +30,7 @@
 
 #include "utils.h"
 
+namespace arrow_vendored {
 namespace double_conversion {
 
 // The buffer must only contain digits in the range [0-9]. It must not
@@ -41,5 +42,6 @@ double Strtod(Vector<const char> buffer, int exponent);
 float Strtof(Vector<const char> buffer, int exponent);
 
 }  // namespace double_conversion
+}  // namespace arrow_vendored
 
 #endif  // DOUBLE_CONVERSION_STRTOD_H_

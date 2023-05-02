@@ -216,7 +216,7 @@ read_delim_arrow <- function(file,
 
   if (!inherits(file, "InputStream")) {
     compression <- detect_compression(file)
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, random_access = FALSE)
     if (compression != "uncompressed") {
       # TODO: accept compression and compression_level as args
       file <- CompressedInputStream$create(file, compression)

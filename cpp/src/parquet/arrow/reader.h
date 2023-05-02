@@ -87,7 +87,7 @@ class RowGroupReader;
 //   optional int32 val4;
 // }
 //
-// In the Parquet file, there are 3 leaf nodes:
+// In the Parquet file, there are 4 leaf nodes:
 //
 // * data.record.val1
 // * data.record.val2

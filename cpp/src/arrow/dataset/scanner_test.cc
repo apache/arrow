@@ -2812,7 +2812,7 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
 
   // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<RecordBatchReader> sink_reader = acero::MakeGeneratorReader(
-      schema({field("sum(a * 2)", int64()), field("b", boolean())}), std::move(sink_gen),
+      schema({field("b", boolean()), field("sum(a * 2)", int64())}), std::move(sink_gen),
       exec_context.memory_pool());
 
   // start the ExecPlan
@@ -2832,11 +2832,11 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 
   auto expected = TableFromJSON(
-      schema({field("sum(a * 2)", int64()), field("b", boolean())}), {
+      schema({field("b", boolean()), field("sum(a * 2)", int64())}), {
                                                                          R"JSON([
-                                               {"sum(a * 2)": 4,  "b": true},
-                                               {"sum(a * 2)": 12, "b": null},
-                                               {"sum(a * 2)": 40, "b": false}
+                                               {"b": true, "sum(a * 2)": 4},
+                                               {"b": null, "sum(a * 2)": 12},
+                                               {"b": false, "sum(a * 2)": 40}
                                           ])JSON"});
   AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
 }

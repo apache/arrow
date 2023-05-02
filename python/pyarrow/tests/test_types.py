@@ -580,6 +580,10 @@ def test_map_type():
     assert ty == ty_metadata
     assert not ty.equals(ty_metadata, check_metadata=True)
 
+    for keys_sorted in [True, False]:
+        assert pa.map_(pa.utf8(), pa.int32(),
+                       keys_sorted=keys_sorted).keys_sorted == keys_sorted
+
     with pytest.raises(TypeError):
         pa.map_(None)
     with pytest.raises(TypeError):

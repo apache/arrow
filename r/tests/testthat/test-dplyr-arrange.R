@@ -17,6 +17,8 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
+
 # randomize order of rows in test data
 tbl <- slice_sample(example_data_for_sorting, prop = 1L)
 

@@ -38,8 +38,6 @@ type ExtensionArray interface {
 	ExtensionType() arrow.ExtensionType
 	// Storage returns the underlying storage array for this array.
 	Storage() arrow.Array
-	// ValueString returns a string represenation of the value at the given index for the extension array.
-	ValueString(i int) string
 	// by having a non-exported function in the interface, it means that
 	// consumers must embed ExtensionArrayBase in their structs in order
 	// to fulfill this interface.
@@ -78,7 +76,7 @@ func NewExtensionArrayWithStorage(dt arrow.ExtensionType, storage arrow.Array) a
 
 	base := ExtensionArrayBase{}
 	base.refCount = 1
-	base.storage = storage.(arraymarshal)
+	base.storage = storage
 	storage.Retain()
 
 	storageData := storage.Data().(*Data)
@@ -128,7 +126,7 @@ func NewExtensionData(data arrow.ArrayData) ExtensionArray {
 //
 type ExtensionArrayBase struct {
 	array
-	storage arraymarshal
+	storage arrow.Array
 }
 
 func (e *ExtensionArrayBase) String() string {
@@ -182,13 +180,13 @@ func (e *ExtensionArrayBase) setData(data *Data) {
 	storageData := NewData(extType.StorageType(), data.length, data.buffers, data.childData, data.nulls, data.offset)
 	storageData.SetDictionary(data.dictionary)
 	defer storageData.Release()
-	e.storage = MakeFromData(storageData).(arraymarshal)
+	e.storage = MakeFromData(storageData)
 }
 
-// ValueString returns the value at index i as a string.
+// ValueStr returns the value at index i as a string.
 // This needs to be implemented by the extension array type.
-func (e *ExtensionArrayBase) ValueString(i int) string {
-	panic("arrow/array: ValueString wasn't implemented by this extension array type")
+func (e *ExtensionArrayBase) ValueStr(i int) string {
+	panic("arrow/array: ValueStr wasn't implemented by this extension array type")
 }
 
 // no-op function that exists simply to force embedding this in any extension array types.

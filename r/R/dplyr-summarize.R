@@ -287,6 +287,11 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       stop(paste("Invalid .groups argument:", .groups))
     }
     out$drop_empty_groups <- .data$drop_empty_groups
+    if (getOption("arrow.summarise.sort", FALSE)) {
+      # Add sorting instructions for the rows to match dplyr
+      out$arrange_vars <- .data$selected_columns[.data$group_by_vars]
+      out$arrange_desc <- rep(FALSE, length(.data$group_by_vars))
+    }
   }
   out
 }

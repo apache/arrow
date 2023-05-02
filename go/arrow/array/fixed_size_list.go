@@ -36,6 +36,8 @@ type FixedSizeList struct {
 	values arrow.Array
 }
 
+var _ ListLike = (*FixedSizeList)(nil)
+
 // NewFixedSizeListData returns a new List array value, from data.
 func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
 	a := &FixedSizeList{}
@@ -46,6 +48,12 @@ func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
 
 func (a *FixedSizeList) ListValues() arrow.Array { return a.values }
 
+func (a *FixedSizeList) ValueStr(i int) string {
+	if !a.IsValid(i) {
+		return NullValueStr
+	}
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
+}
 func (a *FixedSizeList) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -66,12 +74,8 @@ func (a *FixedSizeList) String() string {
 }
 
 func (a *FixedSizeList) newListValue(i int) arrow.Array {
-	n := int64(a.n)
-	off := int64(a.array.data.offset)
-	beg := (off + int64(i)) * n
-	end := (off + int64(i+1)) * n
-	sli := NewSlice(a.values, beg, end)
-	return sli
+	beg, end := a.ValueOffsets(i)
+	return NewSlice(a.values, beg, end)
 }
 
 func (a *FixedSizeList) setData(data *Data) {
@@ -101,6 +105,13 @@ func arrayEqualFixedSizeList(left, right *FixedSizeList) bool {
 
 // Len returns the number of elements in the array.
 func (a *FixedSizeList) Len() int { return a.array.Len() }
+
+func (a *FixedSizeList) ValueOffsets(i int) (start, end int64) {
+	n := int64(a.n)
+	off := int64(a.array.data.offset)
+	start, end = (off+int64(i))*n, (off+int64(i+1))*n
+	return
+}
 
 func (a *FixedSizeList) Retain() {
 	a.array.Retain()
@@ -276,6 +287,11 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 	b.reset()
 
 	return
+}
+
+func (b *FixedSizeListBuilder) AppendValueFromString(s string) error {
+	dec := json.NewDecoder(strings.NewReader(s))
+	return b.UnmarshalOne(dec)
 }
 
 func (b *FixedSizeListBuilder) UnmarshalOne(dec *json.Decoder) error {

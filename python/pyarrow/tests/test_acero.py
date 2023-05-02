@@ -21,21 +21,26 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.compute import field
 
-from pyarrow.acero import (
-    TableSourceNodeOptions,
-    Declaration,
-    FilterNodeOptions,
-    ProjectNodeOptions,
-    AggregateNodeOptions,
-    HashJoinNodeOptions,
-    OrderByNodeOptions
-)
+try:
+    from pyarrow.acero import (
+        Declaration,
+        TableSourceNodeOptions,
+        FilterNodeOptions,
+        ProjectNodeOptions,
+        AggregateNodeOptions,
+        OrderByNodeOptions,
+        HashJoinNodeOptions,
+    )
+except ImportError:
+    pass
 
 try:
     import pyarrow.dataset as ds
     from pyarrow.acero import ScanNodeOptions
 except ImportError:
     ds = None
+
+pytestmark = pytest.mark.acero
 
 
 @pytest.fixture
@@ -122,8 +127,7 @@ def test_project(table_source):
     # provide name
     decl = Declaration.from_sequence([
         table_source,
-        Declaration("project", ProjectNodeOptions(
-            [pc.multiply(field("a"), 2)], ["a2"]))
+        Declaration("project", ProjectNodeOptions([pc.multiply(field("a"), 2)], ["a2"]))
     ])
     result = decl.to_table()
     assert result.schema.names == ["a2"]
@@ -145,8 +149,7 @@ def test_project(table_source):
 def test_aggregate_scalar(table_source):
     decl = Declaration.from_sequence([
         table_source,
-        Declaration("aggregate", AggregateNodeOptions(
-            [("a", "sum", None, "a_sum")]))
+        Declaration("aggregate", AggregateNodeOptions([("a", "sum", None, "a_sum")]))
     ])
     result = decl.to_table()
     assert result.schema.names == ["a_sum"]
@@ -206,7 +209,7 @@ def test_aggregate_hash():
         table_source, Declaration("aggregate", aggr_opts)
     ])
     result = decl.to_table()
-    expected = pa.table({"count(a)": [1, 1], "b": ["foo", "bar"]})
+    expected = pa.table({"b": ["foo", "bar"], "count(a)": [1, 1]})
     assert result.equals(expected)
 
     # specify function options
@@ -217,7 +220,7 @@ def test_aggregate_hash():
         table_source, Declaration("aggregate", aggr_opts)
     ])
     result = decl.to_table()
-    expected_all = pa.table({"count(a)": [2, 1], "b": ["foo", "bar"]})
+    expected_all = pa.table({"b": ["foo", "bar"], "count(a)": [2, 1]})
     assert result.equals(expected_all)
 
     # specify keys as field references
@@ -245,30 +248,26 @@ def test_order_by():
     table_source = Declaration("table_source", TableSourceNodeOptions(table))
 
     ord_opts = OrderByNodeOptions([("b", "ascending")])
-    decl = Declaration.from_sequence(
-        [table_source, Declaration("order_by", ord_opts)])
+    decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     result = decl.to_table()
     expected = pa.table({"a": [1, 4, 2, 3], "b": [1, 2, 3, None]})
     assert result.equals(expected)
 
     ord_opts = OrderByNodeOptions([(field("b"), "descending")])
-    decl = Declaration.from_sequence(
-        [table_source, Declaration("order_by", ord_opts)])
+    decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     result = decl.to_table()
     expected = pa.table({"a": [2, 4, 1, 3], "b": [3, 2, 1, None]})
     assert result.equals(expected)
 
     ord_opts = OrderByNodeOptions([(1, "descending")], null_placement="at_start")
-    decl = Declaration.from_sequence(
-        [table_source, Declaration("order_by", ord_opts)])
+    decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     result = decl.to_table()
     expected = pa.table({"a": [3, 2, 4, 1], "b": [None, 3, 2, 1]})
     assert result.equals(expected)
 
     # emtpy ordering
     ord_opts = OrderByNodeOptions([])
-    decl = Declaration.from_sequence(
-        [table_source, Declaration("order_by", ord_opts)])
+    decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     with pytest.raises(
         ValueError, match="`ordering` must be an explicit non-empty ordering"
     ):
@@ -283,11 +282,9 @@ def test_order_by():
 
 def test_hash_join():
     left = pa.table({'key': [1, 2, 3], 'a': [4, 5, 6]})
-    left_source = Declaration(
-        "table_source", options=TableSourceNodeOptions(left))
+    left_source = Declaration("table_source", options=TableSourceNodeOptions(left))
     right = pa.table({'key': [2, 3, 4], 'b': [4, 5, 6]})
-    right_source = Declaration(
-        "table_source", options=TableSourceNodeOptions(right))
+    right_source = Declaration("table_source", options=TableSourceNodeOptions(right))
 
     # inner join
     join_opts = HashJoinNodeOptions("inner", left_keys="key", right_keys="key")

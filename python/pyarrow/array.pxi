@@ -699,6 +699,7 @@ cdef class _PandasConvertible(_Weakrefable):
             bint safe=True,
             bint split_blocks=False,
             bint self_destruct=False,
+            str maps_as_pydicts=None,
             types_mapper=None
     ):
         """
@@ -753,6 +754,19 @@ cdef class _PandasConvertible(_Weakrefable):
             Note that you may not see always memory usage improvements. For
             example, if multiple columns share an underlying allocation,
             memory can't be freed until all columns are converted.
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+            This can change the ordering of (key, value) pairs, and will
+            deduplicate multiple keys, resulting in a possible loss of data.
+
+            If 'lossy', this key deduplication results in a warning printed
+            when detected. If 'strict', this instead results in an exception
+            being raised when detected.
         types_mapper : function, default None
             A function mapping a pyarrow DataType to a pandas ExtensionDtype.
             This can be used to override the default pandas type for conversion
@@ -832,7 +846,8 @@ cdef class _PandasConvertible(_Weakrefable):
             deduplicate_objects=deduplicate_objects,
             safe=safe,
             split_blocks=split_blocks,
-            self_destruct=self_destruct
+            self_destruct=self_destruct,
+            maps_as_pydicts=maps_as_pydicts
         )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata,
@@ -853,6 +868,20 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
     result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
+
+    maps_as_pydicts = options['maps_as_pydicts']
+    if maps_as_pydicts is None:
+        result.maps_as_pydicts = MapConversionType.DEFAULT
+    elif maps_as_pydicts == "lossy":
+        result.maps_as_pydicts = MapConversionType.LOSSY
+    elif maps_as_pydicts == "strict":
+        result.maps_as_pydicts = MapConversionType.STRICT_
+    else:
+        raise ValueError(
+            "Invalid value for 'maps_as_pydicts': "
+            + "valid values are 'lossy', 'strict' or `None` (default). "
+            + f"Received '{maps_as_pydicts}'."
+        )
     return result
 
 
@@ -1459,6 +1488,9 @@ cdef class Array(_PandasConvertible):
         supported for primitive arrays with the same memory layout as NumPy
         (i.e. integers, floating point, ..) and without any nulls.
 
+        For the extension arrays, this method simply delegates to the
+        underlying storage array.
+
         Parameters
         ----------
         zero_copy_only : bool, default True
@@ -1682,10 +1714,9 @@ cdef wrap_array_output(PyObject* output):
     cdef object obj = PyObject_to_object(output)
 
     if isinstance(obj, dict):
-        return pandas_api.categorical_type(obj['indices'],
-                                           categories=obj['dictionary'],
-                                           ordered=obj['ordered'],
-                                           fastpath=True)
+        return _pandas_api.categorical_type.from_codes(
+            obj['indices'], categories=obj['dictionary'], ordered=obj['ordered']
+        )
     else:
         return obj
 
@@ -3072,22 +3103,114 @@ cdef class ExtensionArray(Array):
         # otherwise convert the storage array with the base implementation
         return Array._to_pandas(self.storage, options, **kwargs)
 
-    def to_numpy(self, **kwargs):
-        """
-        Convert extension array to a numpy ndarray.
 
-        This method simply delegates to the underlying storage array.
+class FixedShapeTensorArray(ExtensionArray):
+    """
+    Concrete class for fixed shape tensor extension arrays.
+
+    Examples
+    --------
+    Define the extension type for tensor array
+
+    >>> import pyarrow as pa
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), [2, 2])
+
+    Create an extension array
+
+    >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+    >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
+    >>> pa.ExtensionArray.from_storage(tensor_type, storage)
+    <pyarrow.lib.FixedShapeTensorArray object at ...>
+    [
+      [
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        10,
+        20,
+        30,
+        40
+      ],
+      [
+        100,
+        200,
+        300,
+        400
+      ]
+    ]
+    """
+
+    def to_numpy_ndarray(self):
+        """
+        Convert fixed shape tensor extension array to a numpy array (with dim+1).
+
+        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
+        """
+        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
+            np_flat = np.asarray(self.storage.values)
+            numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape))
+            return numpy_tensor
+        else:
+            raise ValueError(
+                'Only non-permuted tensors can be converted to numpy tensors.')
+
+    @staticmethod
+    def from_numpy_ndarray(obj):
+        """
+        Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
+        The first dimension of ndarray will become the length of the fixed
+        shape tensor array.
+
+        Numpy array needs to be C-contiguous in memory
+        (``obj.flags["C_CONTIGUOUS"]==True``).
 
         Parameters
         ----------
-        **kwargs : dict, optional
-            See `Array.to_numpy` for parameter description.
+        obj : numpy.ndarray
 
-        See Also
+        Examples
         --------
-        Array.to_numpy
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arr = np.array(
+        ...         [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
+        ...         dtype=np.float32)
+        >>> pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
+        <pyarrow.lib.FixedShapeTensorArray object at ...>
+        [
+          [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        ]
         """
-        return self.storage.to_numpy(**kwargs)
+        if not obj.flags["C_CONTIGUOUS"]:
+            raise ValueError('The data in the numpy array need to be in a single, '
+                             'C-style contiguous segment.')
+
+        arrow_type = from_numpy_dtype(obj.dtype)
+        shape = obj.shape[1:]
+        size = obj.size / obj.shape[0]
+
+        return ExtensionArray.from_storage(
+            fixed_shape_tensor(arrow_type, shape),
+            FixedSizeListArray.from_arrays(np.ravel(obj, order='C'), size)
+        )
 
 
 cdef dict _array_classes = {

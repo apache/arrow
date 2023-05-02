@@ -230,6 +230,7 @@ set(ARROW_SRCS
     util/time.cc
     util/tracing.cc
     util/trie.cc
+    util/union_util.cc
     util/unreachable.cc
     util/uri.cc
     util/utf8.cc
@@ -401,6 +402,7 @@ list(APPEND
      compute/registry.cc
      compute/kernels/codegen_internal.cc
      compute/kernels/row_encoder.cc
+     compute/kernels/ree_util_internal.cc
      compute/kernels/scalar_cast_boolean.cc
      compute/kernels/scalar_cast_dictionary.cc
      compute/kernels/scalar_cast_extension.cc
@@ -422,6 +424,7 @@ append_avx2_src(compute/key_hash_avx2.cc)
 append_avx2_src(compute/key_map_avx2.cc)
 append_avx2_src(compute/row/compare_internal_avx2.cc)
 append_avx2_src(compute/row/encode_internal_avx2.cc)
+append_avx2_src(compute/util_avx2.cc)
 
 if(ARROW_COMPUTE)
   # Include the remaining kernels
@@ -520,6 +523,7 @@ endif()
 if(ARROW_JSON)
   list(APPEND
        ARROW_SRCS
+       extension/fixed_shape_tensor.cc
        json/options.cc
        json/chunked_builder.cc
        json/chunker.cc
@@ -699,6 +703,12 @@ endif()
 
 if(ARROW_TESTING)
   # that depend on gtest
+  set(ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
+  set(ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+  if(GTest_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
+    list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
+  endif()
   add_arrow_lib(arrow_testing
                 CMAKE_PACKAGE_NAME
                 ArrowTesting
@@ -716,18 +726,16 @@ if(ARROW_TESTING)
                 arrow::flatbuffers
                 rapidjson::rapidjson
                 arrow_shared
-                GTest::gtest
+                ${ARROW_GTEST_GTEST}
                 SHARED_INSTALL_INTERFACE_LIBS
-                Arrow::arrow_shared
-                GTest::gtest
+                ${ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
                 arrow::flatbuffers
                 rapidjson::rapidjson
                 arrow_static
-                GTest::gtest
+                ${ARROW_GTEST_GTEST}
                 STATIC_INSTALL_INTERFACE_LIBS
-                Arrow::arrow_static
-                GTest::gtest)
+                ${ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS})
 
   add_custom_target(arrow_testing)
   add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})
@@ -856,6 +864,7 @@ endif()
 
 if(ARROW_JSON)
   add_subdirectory(json)
+  add_subdirectory(extension)
 endif()
 
 if(ARROW_ORC)

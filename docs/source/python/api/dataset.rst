@@ -22,11 +22,6 @@
 Dataset
 =======
 
-.. warning::
-
-    The ``pyarrow.dataset`` module is experimental (specifically the classes),
-    and a stable API is not yet guaranteed.
-
 Factory functions
 -----------------
 
@@ -71,3 +66,11 @@ Classes
    Expression
    InMemoryDataset
    WrittenFile
+
+Helper functions
+-----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   get_partition_keys

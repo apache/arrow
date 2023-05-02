@@ -190,10 +190,10 @@ class PostBumpVersionsTest < Test::Unit::TestCase
             [
               "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
               "+        \"name\": \"#{@release_version}.9000 (dev)\",",
-              "-        \"name\": \"#{@previous_version} (release)\",",
+              "-        \"name\": \"#{@previous_r_version} (release)\",",
               "+        \"name\": \"#{@release_version} (release)\",",
               "+    {",
-              "+        \"name\": \"#{@previous_version}\",",
+              "+        \"name\": \"#{@previous_r_version}\",",
               "+        \"version\": \"#{@previous_compatible_version}/\"",
               "+    },",
             ],
@@ -208,7 +208,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
             [
               "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
               "+        \"name\": \"#{@release_version}.9000 (dev)\",",
-              "-        \"name\": \"#{@previous_version} (release)\",",
+              "-        \"name\": \"#{@previous_r_version} (release)\",",
               "+        \"name\": \"#{@release_version} (release)\",",
             ],
           ],
@@ -310,13 +310,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     expected_changes = [
       {
         sampled_diff: [
-          "-dev/tasks/linux-packages/apache-arrow/debian/libarrow-cuda-glib#{@so_version}.install",
-          "+dev/tasks/linux-packages/apache-arrow/debian/libarrow-cuda-glib#{@next_so_version}.install",
-        ],
-        path: "dev/release/rat_exclude_files.txt",
-      },
-      {
-        sampled_diff: [
           "-Package: libarrow#{@so_version}",
           "+Package: libarrow#{@next_so_version}",
         ],
@@ -324,8 +317,8 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       },
       {
         sampled_diff: [
-          "-      - libarrow-dataset-glib#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
-          "+      - libarrow-dataset-glib#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+          "-      - libarrow-acero#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+          "+      - libarrow-acero#{@next_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
         ],
         path: "dev/tasks/tasks.yml",
       },

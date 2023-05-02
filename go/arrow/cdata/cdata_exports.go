@@ -416,13 +416,6 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		exportArray(arr.ListValues(), &children[0], nil)
 		childPtrs[0] = &children[0]
 		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
-	case *array.FixedSizeList:
-		out.n_children = 1
-		childPtrs := allocateArrowArrayPtrArr(1)
-		children := allocateArrowArrayArr(1)
-		exportArray(arr.ListValues(), &children[0], nil)
-		childPtrs[0] = &children[0]
-		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
 	case *array.Struct:
 		out.n_children = C.int64_t(arr.NumField())
 		childPtrs := allocateArrowArrayPtrArr(arr.NumField())

@@ -20,7 +20,6 @@ test_that("list_compute_functions() works", {
   expect_true(all(!grepl("^hash_", list_compute_functions())))
 })
 
-
 test_that("arrow_scalar_function() works", {
   # check in/out type as schema/data type
   fun <- arrow_scalar_function(
@@ -105,6 +104,8 @@ test_that("register_scalar_function() adds a compute function to the registry", 
     call_function("times_32", Scalar$create(1L, int32())),
     Scalar$create(32L, float64())
   )
+
+  skip_if_not_available("acero")
 
   expect_identical(
     record_batch(a = 1L) %>%

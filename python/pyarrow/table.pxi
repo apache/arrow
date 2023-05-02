@@ -458,6 +458,17 @@ cdef class ChunkedArray(_PandasConvertible):
         return result
 
     def _to_pandas(self, options, types_mapper=None, **kwargs):
+        pandas_dtype = None
+        try:
+            pandas_dtype = self.type.to_pandas_dtype()
+        except NotImplementedError:
+            pass
+
+        # pandas ExtensionDtype that implements conversion from pyarrow
+        if hasattr(pandas_dtype, '__from_arrow__'):
+            arr = pandas_dtype.__from_arrow__(self)
+            return pandas_api.series(arr, name=self._name)
+
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def to_numpy(self):
@@ -479,13 +490,6 @@ cdef class ChunkedArray(_PandasConvertible):
             PyObject* out
             PandasOptions c_options
             object values
-
-        if self.type.id == _Type_EXTENSION:
-            storage_array = chunked_array(
-                [chunk.storage for chunk in self.iterchunks()],
-                type=self.type.storage_type
-            )
-            return storage_array.to_numpy()
 
         with nogil:
             check_status(
@@ -1446,8 +1450,129 @@ cdef _sanitize_arrays(arrays, names, schema, metadata,
             converted_arrays.append(item)
     return converted_arrays
 
+cdef class _Tabular(_PandasConvertible):
+    """Internal: An interface for common operations on tabular objects."""
 
-cdef class RecordBatch(_PandasConvertible):
+    def __init__(self):
+        raise TypeError("This object is not instantiable, "
+                        "use a subclass instead.")
+
+    def __repr__(self):
+        if not self._is_initialized():
+            raise ValueError("This object's internal pointer is NULL, do not "
+                             "use any methods or attributes on this object")
+        return self.to_string(preview_cols=10)
+
+    def _is_initialized(self):
+        raise NotImplementedError
+
+    def drop_null(self):
+        """
+        Remove rows that contain missing values from a Table or RecordBatch.
+
+        See :func:`pyarrow.compute.drop_null` for full usage.
+
+        Returns
+        -------
+        Table or RecordBatch
+            A tabular object with the same schema, with rows containing
+            no missing values.
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [None, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.drop_null()
+        pyarrow.Table
+        year: double
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2022,2021]]
+        n_legs: [[4,100]]
+        animals: [["Horse","Centipede"]]
+        """
+        return _pc().drop_null(self)
+
+    def take(self, object indices):
+        """
+        Select rows from a Table or RecordBatch.
+
+        See :func:`pyarrow.compute.take` for full usage.
+
+        Parameters
+        ----------
+        indices : Array or array-like
+            The indices in the tabular object whose rows will be returned.
+
+        Returns
+        -------
+        Table or RecordBatch
+            A tabular object with the same schema, containing the taken rows.
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.take([1,3])
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2022,2021]]
+        n_legs: [[4,100]]
+        animals: [["Horse","Centipede"]]
+        """
+        return _pc().take(self, indices)
+
+    def to_string(self, *, show_metadata=False, preview_cols=0):
+        """
+        Return human-readable string representation of Table or RecordBatch.
+
+        Parameters
+        ----------
+        show_metadata : bool, default False
+            Display Field-level and Schema-level KeyValueMetadata.
+        preview_cols : int, default 0
+            Display values of the columns for the first N columns.
+
+        Returns
+        -------
+        str
+        """
+        # Use less verbose schema output.
+        schema_as_string = self.schema.to_string(
+            show_field_metadata=show_metadata,
+            show_schema_metadata=show_metadata
+        )
+        title = 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+        pieces = [title]
+        if preview_cols:
+            pieces.append('----')
+            for i in range(min(self.num_columns, preview_cols)):
+                pieces.append('{}: {}'.format(
+                    self.field(i).name,
+                    self.column(i).to_string(indent=0, skip_new_lines=True)
+                ))
+            if preview_cols < self.num_columns:
+                pieces.append('...')
+        return '\n'.join(pieces)
+
+
+cdef class RecordBatch(_Tabular):
     """
     Batch of rows of columns of equal length
 
@@ -1540,6 +1665,9 @@ cdef class RecordBatch(_PandasConvertible):
     cdef void init(self, const shared_ptr[CRecordBatch]& batch):
         self.sp_batch = batch
         self.batch = batch.get()
+
+    def _is_initialized(self):
+        return self.batch != NULL
 
     # ----------------------------------------------------------------------
     def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True):
@@ -1692,15 +1820,10 @@ cdef class RecordBatch(_PandasConvertible):
         except TypeError:
             return NotImplemented
 
-    def to_string(self, show_metadata=False):
-        # Use less verbose schema output.
-        schema_as_string = self.schema.to_string(
-            show_field_metadata=show_metadata,
-            show_schema_metadata=show_metadata
-        )
-        return 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
-
     def __repr__(self):
+        # TODO remove this and update pytests/doctests for
+        # RecordBatch.to_string(preview_cols=10) usage in
+        # parent class
         return self.to_string()
 
     def validate(self, *, full=False):
@@ -2250,67 +2373,6 @@ cdef class RecordBatch(_PandasConvertible):
 
         return result
 
-    def take(self, object indices):
-        """
-        Select rows from the record batch.
-
-        See :func:`pyarrow.compute.take` for full usage.
-
-        Parameters
-        ----------
-        indices : Array or array-like
-            The indices in the record batch whose rows will be returned.
-
-        Returns
-        -------
-        taken : RecordBatch
-            A record batch with the same schema, containing the taken rows.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.take([1,3,4]).to_pandas()
-           n_legs        animals
-        0       2         Parrot
-        1       4          Horse
-        2       5  Brittle stars
-        """
-        return _pc().take(self, indices)
-
-    def drop_null(self):
-        """
-        Remove missing values from a RecordBatch.
-        See :func:`pyarrow.compute.drop_null` for full usage.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", None, "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.to_pandas()
-           n_legs    animals
-        0       2   Flamingo
-        1       2     Parrot
-        2       4        Dog
-        3       4      Horse
-        4       5       None
-        5     100  Centipede
-        >>> batch.drop_null().to_pandas()
-           n_legs    animals
-        0       2   Flamingo
-        1       2     Parrot
-        2       4        Dog
-        3       4      Horse
-        4     100  Centipede
-        """
-        return _pc().drop_null(self)
-
     def select(self, object columns):
         """
         Select columns of the RecordBatch.
@@ -2772,7 +2834,7 @@ def table_to_blocks(options, Table table, categories, extension_columns):
     return PyObject_to_object(result_obj)
 
 
-cdef class Table(_PandasConvertible):
+cdef class Table(_Tabular):
     """
     A collection of top-level named, equal length Arrow arrays.
 
@@ -2891,48 +2953,12 @@ cdef class Table(_PandasConvertible):
         raise TypeError("Do not call Table's constructor directly, use one of "
                         "the `Table.from_*` functions instead.")
 
-    def to_string(self, *, show_metadata=False, preview_cols=0):
-        """
-        Return human-readable string representation of Table.
-
-        Parameters
-        ----------
-        show_metadata : bool, default False
-            Display Field-level and Schema-level KeyValueMetadata.
-        preview_cols : int, default 0
-            Display values of the columns for the first N columns.
-
-        Returns
-        -------
-        str
-        """
-        # Use less verbose schema output.
-        schema_as_string = self.schema.to_string(
-            show_field_metadata=show_metadata,
-            show_schema_metadata=show_metadata
-        )
-        title = 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
-        pieces = [title]
-        if preview_cols:
-            pieces.append('----')
-            for i in range(min(self.num_columns, preview_cols)):
-                pieces.append('{}: {}'.format(
-                    self.field(i).name,
-                    self.column(i).to_string(indent=0, skip_new_lines=True)
-                ))
-            if preview_cols < self.num_columns:
-                pieces.append('...')
-        return '\n'.join(pieces)
-
-    def __repr__(self):
-        if self.table == NULL:
-            raise ValueError("Table's internal pointer is NULL, do not use "
-                             "any methods or attributes on this object")
-        return self.to_string(preview_cols=10)
-
     cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
         self.table = table.get()
+
+    def _is_initialized(self):
+        return self.table != NULL
 
     def validate(self, *, full=False):
         """
@@ -3148,67 +3174,6 @@ cdef class Table(_PandasConvertible):
             return _pac()._filter_table(self, mask)
         else:
             return _pc().filter(self, mask, null_selection_behavior)
-
-    def take(self, object indices):
-        """
-        Select rows from the table.
-
-        See :func:`pyarrow.compute.take` for full usage.
-
-        Parameters
-        ----------
-        indices : Array or array-like
-            The indices in the table whose rows will be returned.
-
-        Returns
-        -------
-        taken : Table
-            A table with the same schema, containing the taken rows.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.take([1,3])
-        pyarrow.Table
-        year: int64
-        n_legs: int64
-        animals: string
-        ----
-        year: [[2022,2021]]
-        n_legs: [[4,100]]
-        animals: [["Horse","Centipede"]]
-        """
-        return _pc().take(self, indices)
-
-    def drop_null(self):
-        """
-        Remove missing values from a Table.
-        See :func:`pyarrow.compute.drop_null` for full usage.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [None, 2022, 2019, 2021],
-        ...                   'n_legs': [2, 4, 5, 100],
-        ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.drop_null()
-        pyarrow.Table
-        year: double
-        n_legs: int64
-        animals: string
-        ----
-        year: [[2022,2021]]
-        n_legs: [[4,100]]
-        animals: [["Horse","Centipede"]]
-        """
-        return _pc().drop_null(self)
 
     def select(self, object columns):
         """
@@ -4879,11 +4844,11 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.group_by('year').aggregate([('n_legs', 'sum')])
         pyarrow.Table
-        n_legs_sum: int64
         year: int64
+        n_legs_sum: int64
         ----
-        n_legs_sum: [[2,6,104,5]]
         year: [[2020,2022,2021,2019]]
+        n_legs_sum: [[2,6,104,5]]
         """
         return TableGroupBy(self, keys)
 
@@ -5486,11 +5451,11 @@ class TableGroupBy:
 
     >>> pa.TableGroupBy(t,"keys").aggregate([("values", "sum")])
     pyarrow.Table
-    values_sum: int64
     keys: string
+    values_sum: int64
     ----
-    values_sum: [[3,7,5]]
     keys: [["a","b","c"]]
+    values_sum: [[3,7,5]]
     """
 
     def __init__(self, table, keys):
@@ -5536,21 +5501,21 @@ list[tuple(str, str, FunctionOptions)]
 
         >>> t.group_by("keys").aggregate([("values", "sum")])
         pyarrow.Table
-        values_sum: int64
         keys: string
+        values_sum: int64
         ----
-        values_sum: [[3,7,5]]
         keys: [["a","b","c"]]
+        values_sum: [[3,7,5]]
 
         Count the rows over the grouped column "keys":
 
         >>> t.group_by("keys").aggregate([([], "count_all")])
         pyarrow.Table
-        count_all: int64
         keys: string
+        count_all: int64
         ----
-        count_all: [[2,2,1]]
         keys: [["a","b","c"]]
+        count_all: [[2,2,1]]
 
         Do multiple aggregations:
 
@@ -5559,13 +5524,13 @@ list[tuple(str, str, FunctionOptions)]
         ...    ("keys", "count")
         ... ])
         pyarrow.Table
+        keys: string
         values_sum: int64
         keys_count: int64
-        keys: string
         ----
+        keys: [["a","b","c"]]
         values_sum: [[3,7,5]]
         keys_count: [[2,2,1]]
-        keys: [["a","b","c"]]
 
         Count the number of non-null values for column "values"
         over the grouped column "keys":
@@ -5575,11 +5540,11 @@ list[tuple(str, str, FunctionOptions)]
         ...    ("values", "count", pc.CountOptions(mode="only_valid"))
         ... ])
         pyarrow.Table
-        values_count: int64
         keys: string
+        values_count: int64
         ----
-        values_count: [[2,2,1]]
         keys: [["a","b","c"]]
+        values_count: [[2,2,1]]
 
         Get a single row for each group in column "keys":
 

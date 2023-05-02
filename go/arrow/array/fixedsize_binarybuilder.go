@@ -166,6 +166,21 @@ func (b *FixedSizeBinaryBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *FixedSizeBinaryBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	data, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(data)
+	return nil
+}
+
 func (b *FixedSizeBinaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
@@ -175,7 +190,7 @@ func (b *FixedSizeBinaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var val []byte
 	switch v := t.(type) {
 	case string:
-		data, err := base64.RawStdEncoding.DecodeString(v)
+		data, err := base64.StdEncoding.DecodeString(v)
 		if err != nil {
 			return err
 		}

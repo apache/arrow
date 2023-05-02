@@ -264,7 +264,8 @@ takes precedence over ccache if a storage backend is configured" ON)
                 "Build Arrow Fuzzing executables"
                 OFF
                 DEPENDS
-                ARROW_TESTING)
+                ARROW_TESTING
+                ARROW_WITH_BROTLI)
 
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 
@@ -406,8 +407,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 OFF
                 DEPENDS
                 ARROW_COMPUTE
-                ARROW_IPC
-                ARROW_PARQUET)
+                ARROW_IPC)
 
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 

@@ -20,6 +20,7 @@ package array
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/apache/arrow/go/v12/arrow"
@@ -79,6 +80,13 @@ func (a *Int64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Int64) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return strconv.FormatInt(int64(a.Value(i)), 10)
 }
 
 func (a *Int64) GetOneForMarshal(i int) interface{} {
@@ -169,6 +177,13 @@ func (a *Uint64) setData(data *Data) {
 	}
 }
 
+func (a *Uint64) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return strconv.FormatUint(uint64(a.Value(i)), 10)
+}
+
 func (a *Uint64) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
@@ -255,6 +270,13 @@ func (a *Float64) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Float64) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return strconv.FormatFloat(float64(a.Value(i)), 'g', -1, 64)
 }
 
 func (a *Float64) GetOneForMarshal(i int) interface{} {
@@ -345,6 +367,13 @@ func (a *Int32) setData(data *Data) {
 	}
 }
 
+func (a *Int32) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return strconv.FormatInt(int64(a.Value(i)), 10)
+}
+
 func (a *Int32) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
@@ -431,6 +460,13 @@ func (a *Uint32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Uint32) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return strconv.FormatUint(uint64(a.Value(i)), 10)
 }
 
 func (a *Uint32) GetOneForMarshal(i int) interface{} {
@@ -521,6 +557,13 @@ func (a *Float32) setData(data *Data) {
 	}
 }
 
+func (a *Float32) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return strconv.FormatFloat(float64(a.Value(i)), 'g', -1, 32)
+}
+
 func (a *Float32) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
@@ -607,6 +650,13 @@ func (a *Int16) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Int16) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return strconv.FormatInt(int64(a.Value(i)), 10)
 }
 
 func (a *Int16) GetOneForMarshal(i int) interface{} {
@@ -697,6 +747,13 @@ func (a *Uint16) setData(data *Data) {
 	}
 }
 
+func (a *Uint16) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return strconv.FormatUint(uint64(a.Value(i)), 10)
+}
+
 func (a *Uint16) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
@@ -783,6 +840,13 @@ func (a *Int8) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Int8) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return strconv.FormatInt(int64(a.Value(i)), 10)
 }
 
 func (a *Int8) GetOneForMarshal(i int) interface{} {
@@ -873,6 +937,13 @@ func (a *Uint8) setData(data *Data) {
 	}
 }
 
+func (a *Uint8) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return strconv.FormatUint(uint64(a.Value(i)), 10)
+}
+
 func (a *Uint8) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
@@ -961,6 +1032,13 @@ func (a *Timestamp) setData(data *Data) {
 	}
 }
 
+func (a *Timestamp) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.values[i].ToTime(a.DataType().(*arrow.TimestampType).Unit).Format("2006-01-02 15:04:05.999999999")
+}
+
 func (a *Timestamp) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
@@ -1042,6 +1120,13 @@ func (a *Time32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Time32) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.values[i].FormattedString(a.DataType().(*arrow.Time32Type).Unit)
 }
 
 func (a *Time32) GetOneForMarshal(i int) interface{} {
@@ -1127,6 +1212,13 @@ func (a *Time64) setData(data *Data) {
 	}
 }
 
+func (a *Time64) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.values[i].FormattedString(a.DataType().(*arrow.Time64Type).Unit)
+}
+
 func (a *Time64) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
@@ -1208,6 +1300,13 @@ func (a *Date32) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Date32) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.values[i].FormattedString()
 }
 
 func (a *Date32) GetOneForMarshal(i int) interface{} {
@@ -1293,6 +1392,13 @@ func (a *Date64) setData(data *Data) {
 	}
 }
 
+func (a *Date64) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.values[i].FormattedString()
+}
+
 func (a *Date64) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
@@ -1374,6 +1480,14 @@ func (a *Duration) setData(data *Data) {
 		end := beg + a.array.data.length
 		a.values = a.values[beg:end]
 	}
+}
+
+func (a *Duration) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	// return value and suffix as a string such as "12345ms"
+	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*arrow.DurationType).Unit)
 }
 
 func (a *Duration) GetOneForMarshal(i int) interface{} {

@@ -650,6 +650,7 @@ void CheckWholeAggregateCase(const AggregateTestCase& test_case) {
 }
 
 void CheckGroupedAggregateCase(const AggregateTestCase& test_case) {
+  ARROW_SCOPED_TRACE("function = ", test_case.function_id.ToString());
   std::shared_ptr<Table> output_table;
   std::shared_ptr<acero::ExecPlan> plan =
       PlanFromAggregateCase(test_case, &output_table, /*with_keys=*/true);
@@ -661,14 +662,12 @@ void CheckGroupedAggregateCase(const AggregateTestCase& test_case) {
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<Array> sort_indices,
       compute::SortIndices(output_table, compute::SortOptions({compute::SortKey(
-                                             output_table->num_columns() - 1,
-                                             compute::SortOrder::Ascending)})));
+                                             0, compute::SortOrder::Ascending)})));
   ASSERT_OK_AND_ASSIGN(Datum sorted_table_datum,
                        compute::Take(output_table, sort_indices));
   output_table = sorted_table_datum.table();
-  // TODO(ARROW-17245) We should be selecting N-1 here but Acero
-  // currently emits things in reverse order
-  ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns({0}));
+  ASSERT_OK_AND_ASSIGN(output_table,
+                       output_table->SelectColumns({output_table->num_columns() - 1}));
 
   std::shared_ptr<Table> expected_output =
       GetOutputTableForAggregateCase(test_case.output_type, test_case.group_outputs);
@@ -722,6 +721,18 @@ TEST(FunctionMapping, AggregateCases) {
        "[2, 1]",
        int64(),
        /*nullary=*/true},
+      {{kSubstraitArithmeticFunctionsUri, "variance"},
+       "[1, 2, 3]",
+       float64(),
+       "[0.6666666666666666]",
+       "[0.25, 0]",
+       float64()},
+      {{kSubstraitArithmeticFunctionsUri, "std_dev"},
+       "[1, 2, 3]",
+       float64(),
+       "[0.816496580927726]",
+       "[0.5, 0]",
+       float64()},
   };
   CheckAggregateCases(test_cases);
 }

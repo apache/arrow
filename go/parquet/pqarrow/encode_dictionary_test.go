@@ -61,8 +61,8 @@ func (ps *ParquetIOTestSuite) TestSingleColumnOptionalDictionaryWrite() {
 			defer arr.Release()
 
 			sc := ps.makeSimpleSchema(arr.DataType(), parquet.Repetitions.Optional)
-			data := ps.writeColumn(sc, arr)
-			ps.readAndCheckSingleColumnFile(data, values)
+			data := ps.writeColumn(mem, sc, arr)
+			ps.readAndCheckSingleColumnFile(mem, data, values)
 		})
 	}
 }
