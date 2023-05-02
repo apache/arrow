@@ -1191,7 +1191,7 @@ struct ArrowBinaryHelper<ByteArrayType> {
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
                                                  this->builder->value_data_length(),
                                                  &this->chunk_space_remaining))) {
-      throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
+      throw ParquetException("excess expansion in ArrowBinaryHelper<ByteArrayType>");
     }
     this->chunk_space_remaining =
         ::arrow::kBinaryMemoryLimit - this->builder->value_data_length();
@@ -1234,7 +1234,7 @@ struct ArrowBinaryHelper<FLBAType> {
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
                                                  this->builder->value_data_length(),
                                                  &this->chunk_space_remaining))) {
-      throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
+      throw ParquetException("excess expansion in ArrowBinaryHelper<FLBAType>");
     }
   }
 
