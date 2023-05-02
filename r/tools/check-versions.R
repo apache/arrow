@@ -41,13 +41,16 @@ check_versions <- function(r_version, cpp_version) {
   } else if (r_version != cpp_version) {
     cat(
       sprintf(
-        "**** Not using found C++ library: version (%s) does not match R package (%s)\n",
+        "**** Not using: C++ library version (%s) does not match R package (%s)\n",
         cpp_version,
         r_version
       )
     )
     stop("version mismatch")
     # Add ALLOW_VERSION_MISMATCH env var to override stop()? (Could be useful for debugging)
+  } else {
+    # OK
+    cat(sprintf("**** C++ and R library versions match: %s\n", cpp_version))
   }
 }
 
