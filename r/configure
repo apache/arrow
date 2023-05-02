@@ -44,8 +44,8 @@
 # * Installing a released version but first installing libarrow.
 #   It will use pkg-config and brew to search for libraries.
 # * Installing a development version from source as a user.
-#   nixlibs.R will be used to build from source. System packages that
-#   are not on the same dev version will be skipped.
+#   Any libarrow found on the system corresponding to a release will not match
+#   the dev version and will thus be skipped. nixlibs.R will be used to build libarrow.
 # * TODO(GH-35049): Installing a dev version as an infrequent contributor.
 #   Currently the configure script doesn't offer much to make this easy.
 #   If you expect to rebuild multiple times, you should set up a dev
@@ -114,11 +114,9 @@ fi
 # the installation process). FWIW, arrow's cmake process uses this
 # same process to find openssl, but doing it now allows us to catch it in
 # nixlibs.R and throw a nicer error.
-if [ "$UNAME" = "Darwin" ] && [ "${OPENSSL_ROOT_DIR}" = "" ] && [ "`command -v brew`" ]; then
-  if brew --prefix openssl >/dev/null 2>&1; then
-    export OPENSSL_ROOT_DIR="`brew --prefix openssl`"
-    export PKG_CONFIG_PATH="${OPENSSL_ROOT_DIR}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-  fi
+if [ "${OPENSSL_ROOT_DIR}" = "" ] && brew --prefix openssl >/dev/null 2>&1; then
+  export OPENSSL_ROOT_DIR="`brew --prefix openssl`"
+  export PKG_CONFIG_PATH="${OPENSSL_ROOT_DIR}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
 fi
 
 #############
@@ -288,7 +286,7 @@ set_pkg_vars_without_pc () {
   # pkg-config will handle this for us automatically, see ARROW-6312
   if grep raspbian /etc/os-release >/dev/null 2>&1; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
-    PKG_LIBS="-latomic $PKG_LIBS"
+    PKG_LIBS="$PKG_LIBS -latomic"
   fi
 }
 
