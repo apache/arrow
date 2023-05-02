@@ -282,16 +282,18 @@ void SerialExecutor::RunLoop()
       }
       current_executor=old_exe;
     }
+
+    // if we are not paused, empty of tasks but not finished:
     // In this case we must be waiting on work from external (e.g. I/O) executors. Run things
     // in all serialexecutors until we have something in queue
 
     int executor_pos=0;
-    while ((state_->paused || state_->task_queue.empty() ) && !state_->finished)
+    while (!state_->paused && (state_->task_queue.empty()  && !state_->finished) )
     {
       // we cycle round executors in turn, in case e.g. we are reading multiple
       // file inputs or something like that 
       // n.b. we don't do this with an iterator because
-      // these calls may delete or add executors
+      // these calls may themselves delete or add executors
       int count=(executor_pos)%all_executors.size();
       for(auto it=all_executors.begin();it!=all_executors.end();it++)
       {
