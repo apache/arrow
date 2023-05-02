@@ -128,7 +128,8 @@ Result<std::string> PathFromUriHelper(const std::string& uri_string,
                                       AuthorityHandlingBehavior authority_handling) {
   if (internal::DetectAbsolutePath(uri_string)) {
     if (accept_local_paths) {
-      return uri_string;
+      // Normalize the path and remove any trailing slash
+      return std::string(internal::RemoveTrailingSlash(ToSlashes(uri_string)));
     }
     return Status::Invalid(
         "The filesystem is not capable of loading local paths.  Expected a URI but "

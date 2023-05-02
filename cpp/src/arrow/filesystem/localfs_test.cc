@@ -202,6 +202,7 @@ class TestLocalFS : public LocalFSTestMixin {
   template <typename FileSystemFromUriFunc>
   void CheckLocalUri(const std::string& uri, const std::string& expected_path,
                      FileSystemFromUriFunc&& fs_from_uri) {
+    ARROW_SCOPED_TRACE("uri = ", uri);
     if (!path_formatter_.supports_uri()) {
       return;  // skip
     }
