@@ -16,7 +16,7 @@
 
 package scalar
 
-import "github.com/apache/arrow/go/v12/arrow"
+import "github.com/apache/arrow/go/v13/arrow"
 
 // Equals returns true if two scalars are equal, which means they have the same
 // datatype, validity and value.

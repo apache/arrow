@@ -23,7 +23,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/goccy/go-json"
 )
 
