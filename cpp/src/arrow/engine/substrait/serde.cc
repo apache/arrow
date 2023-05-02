@@ -154,6 +154,13 @@ Result<std::vector<acero::Declaration>> DeserializePlans(
     if (plan_rel.has_root()) {
       names.assign(plan_rel.root().names().begin(), plan_rel.root().names().end());
     }
+    if (names.size() > 0) {
+      if (decl_info.output_schema->num_fields() != plan_rel.root().names_size()) {
+        return Status::Invalid("Substrait plan has ", plan_rel.root().names_size(),
+                               " names that cannot be applied to extension schema:\n",
+                               decl_info.output_schema->ToString(false));
+      }
+    }
 
     // pipe each relation
     ARROW_ASSIGN_OR_RAISE(

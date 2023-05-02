@@ -388,7 +388,7 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		}
 		return schema.MapOf(field.Name, keyNode, valueNode, repFromNullable(field.Nullable), -1)
 	default:
-		return nil, xerrors.New("not implemented yet")
+		return nil, fmt.Errorf("%w: support for %s", arrow.ErrNotImplemented, field.Type.ID())
 	}
 
 	return schema.NewPrimitiveNodeLogical(name, repType, logicalType, typ, length, fieldIDFromMeta(field.Metadata))

@@ -22,7 +22,7 @@
 const fs = require('fs');
 const Path = require('path');
 const { promisify } = require('util');
-const glob = promisify(require('glob'));
+const glob = promisify(require('glob').glob);
 const { zip } = require('ix/iterable/zip');
 const { parse: bignumJSONParse } = require('json-bignum');
 const argv = require(`command-line-args`)(cliOpts(), { partial: true });

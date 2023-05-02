@@ -34,6 +34,15 @@ public class ArrowBuffer {
         self.rawPointer.deallocate()
     }
 
+    static func createBuffer(_ data: [UInt8], length: UInt) -> ArrowBuffer {
+        let byteCount = UInt(data.count)
+        let capacity = alignTo64(byteCount)
+        let memory = MemoryAllocator(64)
+        let rawPointer = memory.allocateArray(Int(capacity))
+        rawPointer.copyMemory(from: data, byteCount: data.count)
+        return ArrowBuffer(length: length, capacity: capacity, rawPointer: rawPointer)
+    }
+
     static func createBuffer(_ length: UInt, size: UInt, doAlign: Bool = true) -> ArrowBuffer {
         let actualLen = max(length, ArrowBuffer.min_length)
         let byteCount = size * actualLen

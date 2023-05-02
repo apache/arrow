@@ -762,7 +762,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       RETURN_NOT_OK(AppendSequence(value));
     } else if (PySet_Check(value) || (Py_TYPE(value) == &PyDictValues_Type)) {
       RETURN_NOT_OK(AppendIterable(value));
-    } else if (PyDict_Check(value) && this->options_.type->id() == Type::MAP) {
+    } else if (PyDict_Check(value) && this->type()->id() == Type::MAP) {
       // Branch to support Python Dict with `map` DataType.
       auto items = PyDict_Items(value);
       OwnedRef item_ref(items);

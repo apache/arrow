@@ -1411,14 +1411,17 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: fedora-r-clang-sanitizer
 
-  test-debian-11-go-1.17:
+  {% for go_version, staticcheck in [("1.17", "v0.2.2"), ("1.20", "latest")] %}
+  test-debian-11-go-{{ go_version }}:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
         DEBIAN: 11
-        GO: 1.17
+        GO: "{{go_version}}"
+        STATICCHECK: "{{ staticcheck }}"
       image: debian-go
+  {% endfor %}
 
   test-ubuntu-default-docs:
     ci: azure
