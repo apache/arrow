@@ -58,15 +58,3 @@ test_that("JSON dataset", {
   )
 })
 
-test_that("JSON dataset options", {
-
-})
-
-test_that("Partitioned JSON datasets", {
-
-})
-
-test_that("Using schemas with JSON datasets", {
-
-})
-
