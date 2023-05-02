@@ -60,6 +60,7 @@ using internal::ConcatAbstractPath;
 using internal::EnsureTrailingSlash;
 using internal::GetAbstractPathParent;
 using internal::kSep;
+using internal::ParseFileSystemUri;
 using internal::RemoveLeadingSlash;
 using internal::RemoveTrailingSlash;
 using internal::ToSlashes;
@@ -252,6 +253,10 @@ Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenOutputStream(
 Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenAppendStream(
     const std::string& path) {
   return OpenAppendStream(path, std::shared_ptr<const KeyValueMetadata>{});
+}
+
+Result<std::string> FileSystem::PathFromUri(const std::string& uri_string) const {
+  return Status::NotImplemented("PathFromUri is not yet supported on this filesystem");
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -484,6 +489,10 @@ Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenAppendStream(
   return base_fs_->OpenAppendStream(real_path, metadata);
 }
 
+Result<std::string> SubTreeFileSystem::PathFromUri(const std::string& uri_string) const {
+  return base_fs_->PathFromUri(uri_string);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // SlowFileSystem implementation
 
@@ -504,6 +513,10 @@ SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
       latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
 
 bool SlowFileSystem::Equals(const FileSystem& other) const { return this == &other; }
+
+Result<std::string> SlowFileSystem::PathFromUri(const std::string& uri_string) const {
+  return base_fs_->PathFromUri(uri_string);
+}
 
 Result<FileInfo> SlowFileSystem::GetFileInfo(const std::string& path) {
   latencies_->Sleep();
@@ -662,23 +675,6 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
 
 namespace {
 
-Result<Uri> ParseFileSystemUri(const std::string& uri_string) {
-  Uri uri;
-  auto status = uri.Parse(uri_string);
-  if (!status.ok()) {
-#ifdef _WIN32
-    // Could be a "file:..." URI with backslashes instead of regular slashes.
-    RETURN_NOT_OK(uri.Parse(ToSlashes(uri_string)));
-    if (uri.scheme() != "file") {
-      return status;
-    }
-#else
-    return status;
-#endif
-  }
-  return std::move(uri);
-}
-
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
                                                           const std::string& uri_string,
                                                           const io::IOContext& io_context,
@@ -738,56 +734,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
   return Status::Invalid("Unrecognized filesystem type in URI: ", uri_string);
 }
 
-Status CheckFileSystem(const FileSystem* filesystem,
-                       const std::string& expected_type_name, const std::string& uri) {
-  if (filesystem && filesystem->type_name() != expected_type_name) {
-    return Status::Invalid("URI ", uri, " is not compatible with filesystem of type ",
-                           filesystem->type_name());
-  }
-  return Status::OK();
-}
-
 }  // namespace
-
-Result<std::string> PathFromUriOrPath(const FileSystem* filesystem,
-                                      const std::string& uri_string) {
-  if (internal::DetectAbsolutePath(uri_string)) {
-    RETURN_NOT_OK(CheckFileSystem(filesystem, "local", uri_string));
-    // Normalize path separators
-    return ToSlashes(uri_string);
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto uri, ParseFileSystemUri(uri_string));
-  const auto scheme = uri.scheme();
-  std::string path;
-  if (scheme == "file") {
-    RETURN_NOT_OK(CheckFileSystem(filesystem, "local", uri_string));
-    RETURN_NOT_OK(LocalFileSystemOptions::FromUri(uri, &path));
-  } else if (scheme == "gs" || scheme == "gcs") {
-    RETURN_NOT_OK(CheckFileSystem(filesystem, "gcs", uri_string));
-#ifdef ARROW_GCS
-    RETURN_NOT_OK(GcsOptions::FromUri(uri, &path));
-#else
-    return Status::NotImplemented("Got GCS URI but Arrow compiled without GCS support");
-#endif
-  } else if (scheme == "hdfs" || scheme == "viewfs") {
-    RETURN_NOT_OK(CheckFileSystem(filesystem, "hdfs", uri_string));
-    path = uri.path();
-  } else if (scheme == "s3") {
-    RETURN_NOT_OK(CheckFileSystem(filesystem, "s3", uri_string));
-#ifdef ARROW_S3
-    RETURN_NOT_OK(S3Options::FromUri(uri, &path));
-#else
-    return Status::NotImplemented("Got S3 URI but Arrow compiled without S3 support");
-#endif
-  } else if (scheme == "mock") {
-    RETURN_NOT_OK(CheckFileSystem(filesystem, "mock", uri_string));
-    path = std::string(RemoveLeadingSlash(uri.path()));
-  } else {
-    return Status::Invalid("Unrecognized filesystem type in URI: ", uri_string);
-  }
-  return path;
-}
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
                                                       std::string* out_path) {

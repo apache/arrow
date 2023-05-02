@@ -28,6 +28,7 @@
 namespace arrow {
 
 using internal::StatusDetailFromErrno;
+using internal::Uri;
 
 namespace fs {
 namespace internal {
@@ -74,6 +75,50 @@ Status InvalidDeleteDirContents(std::string_view path) {
   return Status::Invalid(
       "DeleteDirContents called on invalid path '", path, "'. ",
       "If you wish to delete the root directory's contents, call DeleteRootDirContents.");
+}
+
+Result<Uri> ParseFileSystemUri(const std::string& uri_string) {
+  Uri uri;
+  auto status = uri.Parse(uri_string);
+  if (!status.ok()) {
+#ifdef _WIN32
+    // Could be a "file:..." URI with backslashes instead of regular slashes.
+    RETURN_NOT_OK(uri.Parse(ToSlashes(uri_string)));
+    if (uri.scheme() != "file") {
+      return status;
+    }
+#else
+    return status;
+#endif
+  }
+  return std::move(uri);
+}
+
+#ifdef _WIN32
+static bool IsDriveLetter(char c) {
+  // Can't use locale-dependent functions from the C/C++ stdlib
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+#endif
+
+bool DetectAbsolutePath(const std::string& s) {
+  // Is it a /-prefixed local path?
+  if (s.length() >= 1 && s[0] == '/') {
+    return true;
+  }
+#ifdef _WIN32
+  // Is it a \-prefixed local path?
+  if (s.length() >= 1 && s[0] == '\\') {
+    return true;
+  }
+  // Does it start with a drive letter in addition to being /- or \-prefixed,
+  // e.g. "C:\..."?
+  if (s.length() >= 3 && s[1] == ':' && (s[2] == '/' || s[2] == '\\') &&
+      IsDriveLetter(s[0])) {
+    return true;
+  }
+#endif
+  return false;
 }
 
 Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,

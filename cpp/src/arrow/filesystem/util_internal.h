@@ -24,9 +24,11 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
+#include "arrow/util/uri.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+using internal::Uri;
 namespace fs {
 namespace internal {
 
@@ -49,6 +51,17 @@ Status NotAFile(std::string_view path);
 
 ARROW_EXPORT
 Status InvalidDeleteDirContents(std::string_view path);
+
+/// \brief Parse the string as a URI
+/// \param uri_string the string to parse
+///
+/// This is the same as Uri::Parse except it tolerates Windows
+/// file URIs that contain backslash instead of /
+Result<Uri> ParseFileSystemUri(const std::string& uri_string);
+
+/// \brief check if the string is a local absolute path
+ARROW_EXPORT
+bool DetectAbsolutePath(const std::string& s);
 
 /// \brief Return files matching the glob pattern on the filesystem
 ///

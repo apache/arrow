@@ -2235,6 +2235,35 @@ bool S3FileSystem::Equals(const FileSystem& other) const {
   return options().Equals(s3fs.options());
 }
 
+Result<std::string> S3FileSystem::PathFromUri(const std::string& uri_string) const {
+  if (internal::DetectAbsolutePath(uri_string)) {
+    return Status::Invalid(
+        "The S3 filesystem is not capable of loading local paths.  URIs must start "
+        "with s3://");
+  }
+  Uri uri;
+  ARROW_RETURN_NOT_OK(uri.Parse(uri_string));
+  const auto scheme = uri.scheme();
+  if (uri.scheme() != "s3") {
+    return Status::Invalid("S3 URIs must start with s3:// but received ", uri_string);
+  }
+  std::string path;
+  ARROW_ASSIGN_OR_RAISE(S3Options parsed_options, S3Options::FromUri(uri, &path));
+  const S3Options& existing_options = impl_->options();
+  if (parsed_options.endpoint_override != existing_options.endpoint_override) {
+    return Status::Invalid("Provided URI specified endpoint '",
+                           parsed_options.endpoint_override,
+                           "' but existing filesystem is configured for endpoint '",
+                           existing_options.endpoint_override, "'");
+  }
+  if (parsed_options.region != existing_options.region) {
+    return Status::Invalid("Provided URI specified region '", parsed_options.region,
+                           "' but existing filesystem is configured for region '",
+                           existing_options.region, "'");
+  }
+  return path;
+}
+
 S3Options S3FileSystem::options() const { return impl_->options(); }
 
 std::string S3FileSystem::region() const { return impl_->region(); }

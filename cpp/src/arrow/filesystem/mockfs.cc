@@ -436,6 +436,19 @@ MockFileSystem::MockFileSystem(TimePoint current_time, const io::IOContext& io_c
 
 bool MockFileSystem::Equals(const FileSystem& other) const { return this == &other; }
 
+Result<std::string> MockFileSystem::PathFromUri(const std::string& uri_string) const {
+  if (internal::DetectAbsolutePath(uri_string)) {
+    return std::string(RemoveLeadingSlash(uri_string));
+  }
+  Uri uri;
+  ARROW_RETURN_NOT_OK(uri.Parse(uri_string));
+  const auto scheme = uri.scheme();
+  if (uri.scheme() != "mock") {
+    return Status::Invalid("Mock URIs must start with mock:// but received ", uri_string);
+  }
+  return std::string(RemoveLeadingSlash(uri.path()));
+}
+
 Status MockFileSystem::CreateDir(const std::string& path, bool recursive) {
   RETURN_NOT_OK(ValidatePath(path));
   auto parts = SplitAbstractPath(path);

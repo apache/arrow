@@ -58,6 +58,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
@@ -1143,8 +1144,29 @@ TEST_F(TestS3FS, FileSystemFromUri) {
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(ss.str(), &path));
   ASSERT_EQ(path, "bucket/somedir/subdir/subfile");
 
-  ASSERT_OK_AND_ASSIGN(path, PathFromUriOrPath(fs.get(), ss.str()));
+  ASSERT_OK_AND_ASSIGN(path, fs->PathFromUri(ss.str()));
   ASSERT_EQ(path, "bucket/somedir/subdir/subfile");
+
+  // Incorrect scheme
+  ASSERT_THAT(fs->PathFromUri("file:///@bucket/somedir/subdir/subfile"),
+              Raises(StatusCode::Invalid, testing::HasSubstr("must start with s3://")));
+
+  // Not a URI
+  ASSERT_THAT(fs->PathFromUri("/@bucket/somedir/subdir/subfile"),
+              Raises(StatusCode::Invalid, testing::HasSubstr("must start with s3://")));
+
+  // Correct scheme, wrong endpoint
+  ASSERT_THAT(
+      fs->PathFromUri("s3://@bucket/somedir/subdir/subfile"),
+      Raises(StatusCode::Invalid,
+             testing::HasSubstr("but existing filesystem is configured for endpoint")));
+
+  // Correct scheme & endpoint, wrong region
+  ss << "&region=us-west-2";
+  ASSERT_THAT(
+      fs->PathFromUri(ss.str()),
+      Raises(StatusCode::Invalid,
+             testing::HasSubstr("but existing filesystem is configured for region")));
 
   // Check the filesystem has the right connection parameters
   AssertFileInfo(fs.get(), path, FileType::File, 8);

@@ -54,6 +54,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
@@ -1389,12 +1390,22 @@ TEST_F(GcsIntegrationTest, TestFileSystemFromUri) {
       FileSystemFromUri(std::string("gs://anonymous@") + PreexistingBucketPath(), &path));
   EXPECT_EQ(fs->type_name(), "gcs");
   EXPECT_EQ(path, PreexistingBucketName());
-  ASSERT_OK_AND_ASSIGN(path, PathFromUriOrPath(fs.get(), std::string("gs://anonymous@") +
-                                                             PreexistingBucketPath()));
+  ASSERT_OK_AND_ASSIGN(
+      path, fs->PathFromUri(std::string("gs://anonymous@") + PreexistingBucketPath()));
   EXPECT_EQ(path, PreexistingBucketName());
   ASSERT_OK_AND_ASSIGN(auto fs2, FileSystemFromUri(std::string("gcs://anonymous@") +
                                                    PreexistingBucketPath()));
   EXPECT_EQ(fs2->type_name(), "gcs");
+  ASSERT_THAT(fs->PathFromUri("/foo/bar"),
+              Raises(StatusCode::Invalid, testing::HasSubstr("URIs must start with")));
+  ASSERT_THAT(
+      fs->PathFromUri("s3:///foo/bar"),
+      Raises(StatusCode::Invalid, testing::HasSubstr("GCS URIs must start with")));
+  ASSERT_THAT(
+      fs->PathFromUri(std::string("gs://anonymous@") + PreexistingBucketPath() +
+                      "?endpoint_override=foo"),
+      Raises(StatusCode::Invalid,
+             testing::HasSubstr("but existing filesystem is configured for endpoint")));
 }
 
 }  // namespace

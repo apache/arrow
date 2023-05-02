@@ -52,37 +52,6 @@ using ::arrow::internal::IOErrorFromWinError;
 using ::arrow::internal::NativePathString;
 using ::arrow::internal::PlatformFilename;
 
-namespace internal {
-
-#ifdef _WIN32
-static bool IsDriveLetter(char c) {
-  // Can't use locale-dependent functions from the C/C++ stdlib
-  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-}
-#endif
-
-bool DetectAbsolutePath(const std::string& s) {
-  // Is it a /-prefixed local path?
-  if (s.length() >= 1 && s[0] == '/') {
-    return true;
-  }
-#ifdef _WIN32
-  // Is it a \-prefixed local path?
-  if (s.length() >= 1 && s[0] == '\\') {
-    return true;
-  }
-  // Does it start with a drive letter in addition to being /- or \-prefixed,
-  // e.g. "C:\..."?
-  if (s.length() >= 3 && s[1] == ':' && (s[2] == '/' || s[2] == '\\') &&
-      IsDriveLetter(s[0])) {
-    return true;
-  }
-#endif
-  return false;
-}
-
-}  // namespace internal
-
 namespace {
 
 Status ValidatePath(std::string_view s) {
@@ -90,6 +59,12 @@ Status ValidatePath(std::string_view s) {
     return Status::Invalid("Expected a local filesystem path, got a URI: '", s, "'");
   }
   return Status::OK();
+}
+
+Result<std::string> DoNormalizePath(std::string path) {
+  RETURN_NOT_OK(ValidatePath(path));
+  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
+  return fn.ToString();
 }
 
 #ifdef _WIN32
@@ -286,9 +261,23 @@ LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options,
 LocalFileSystem::~LocalFileSystem() {}
 
 Result<std::string> LocalFileSystem::NormalizePath(std::string path) {
-  RETURN_NOT_OK(ValidatePath(path));
-  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
-  return fn.ToString();
+  return DoNormalizePath(std::move(path));
+}
+
+Result<std::string> LocalFileSystem::PathFromUri(const std::string& uri_string) const {
+  if (internal::DetectAbsolutePath(uri_string)) {
+    return DoNormalizePath(uri_string);
+  }
+  Uri uri;
+  ARROW_RETURN_NOT_OK(uri.Parse(uri_string));
+  const auto scheme = uri.scheme();
+  if (scheme != "file") {
+    return Status::Invalid("Local URIs must begin with file:// but received ",
+                           uri_string);
+  }
+  std::string path;
+  RETURN_NOT_OK(LocalFileSystemOptions::FromUri(uri, &path));
+  return path;
 }
 
 bool LocalFileSystem::Equals(const FileSystem& other) const {

@@ -178,6 +178,7 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
   const GcsOptions& options() const;
 
   bool Equals(const FileSystem& other) const override;
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) override;

@@ -31,6 +31,7 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/uri.h"
 
@@ -208,26 +209,17 @@ class TestLocalFS : public LocalFSTestMixin {
     ASSERT_OK_AND_ASSIGN(fs_, fs_from_uri(uri, &path));
     ASSERT_EQ(fs_->type_name(), "local");
     ASSERT_EQ(path, expected_path);
-  }
-
-  void CheckLocalPathFromUriOrPath(const std::string& uri,
-                                   const std::string& expected_path) {
-    ASSERT_OK_AND_ASSIGN(std::string actual_path, PathFromUriOrPath(nullptr, uri));
-    ASSERT_EQ(actual_path, expected_path);
-    LocalFileSystem lfs;
-    ASSERT_OK_AND_ASSIGN(actual_path, PathFromUriOrPath(&lfs, uri));
-    ASSERT_EQ(actual_path, expected_path);
+    ASSERT_OK_AND_ASSIGN(path, fs_->PathFromUri(uri));
+    ASSERT_EQ(path, expected_path);
   }
 
   // Like TestFileSystemFromUri, but with an arbitrary non-existing path
   void TestLocalUri(const std::string& uri, const std::string& expected_path) {
     CheckLocalUri(uri, expected_path, FSFromUri);
-    CheckLocalPathFromUriOrPath(uri, expected_path);
   }
 
   void TestLocalUriOrPath(const std::string& uri, const std::string& expected_path) {
     CheckLocalUri(uri, expected_path, FSFromUriOrPath);
-    CheckLocalPathFromUriOrPath(uri, expected_path);
   }
 
   void TestInvalidUri(const std::string& uri) {
@@ -243,13 +235,15 @@ class TestLocalFS : public LocalFSTestMixin {
     }
     ASSERT_RAISES(Invalid, FileSystemFromUriOrPath(uri));
     LocalFileSystem lfs;
-    ASSERT_RAISES(Invalid, PathFromUriOrPath(&lfs, uri));
+    ASSERT_RAISES(Invalid, lfs.PathFromUri(uri));
   }
 
   void TestNonMatchingUri(const std::string& uri) {
     // Legitimate URI for the wrong filesystem
     LocalFileSystem lfs;
-    ASSERT_RAISES(Invalid, PathFromUriOrPath(&lfs, uri));
+    ASSERT_THAT(
+        lfs.PathFromUri(uri),
+        Raises(StatusCode::Invalid, testing::HasSubstr("must begin with file://")));
   }
 
   void CheckConcreteFile(const std::string& path, int64_t expected_size) {
