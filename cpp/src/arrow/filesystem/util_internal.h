@@ -63,6 +63,29 @@ Result<Uri> ParseFileSystemUri(const std::string& uri_string);
 ARROW_EXPORT
 bool DetectAbsolutePath(const std::string& s);
 
+/// \brief describes how to handle the authority (host) component of the URI
+enum class AuthorityHandlingBehavior {
+  // Return an invalid status if the authority is non-empty
+  kDisallow = 0,
+  // Prepend the authority to the path (e.g. authority/some/path)
+  kPrepend = 1,
+  // Convert to a Windows style network path (e.g. //authority/some/path)
+  kWindows = 2,
+  // Ignore the authority and just use the path
+  kIgnore = 3
+};
+
+/// \brief check to see if uri_string matches one of the supported schemes and return the
+/// path component
+/// \param uri_string a uri or local path to test and convert
+/// \param supported_schemes the set of URI schemes that should be accepted
+/// \param accept_local_paths if true, allow an absolute path
+/// \return the path portion of the URI
+Result<std::string> PathFromUriHelper(const std::string& uri_string,
+                                      std::vector<std::string> supported_schemes,
+                                      bool accept_local_paths,
+                                      AuthorityHandlingBehavior authority_handling);
+
 /// \brief Return files matching the glob pattern on the filesystem
 ///
 /// Globbing starts from the root of the filesystem.

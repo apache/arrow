@@ -181,9 +181,12 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// when a user provides multiple URIs that should be compatible with the same
   /// filesystem.
   ///
-  /// uri can be an absolute path instead of a URI.  In that case it will ensure the
-  /// filesystem (if supplied) is the local filesystem (or some custom filesystem that
+  /// uri_string can be an absolute path instead of a URI.  In that case it will ensure
+  /// the filesystem (if supplied) is the local filesystem (or some custom filesystem that
   /// is capable of reading local paths) and will normalize the path's file separators.
+  ///
+  /// Note, this method only checks to ensure the URI scheme is valid.  It will not detect
+  /// inconsistencies like a mismatching region or endpoint override.
   ///
   /// \return The path inside the filesystem that is indicated by the URI.
   virtual Result<std::string> PathFromUri(const std::string& uri_string) const;

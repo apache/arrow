@@ -1149,24 +1149,12 @@ TEST_F(TestS3FS, FileSystemFromUri) {
 
   // Incorrect scheme
   ASSERT_THAT(fs->PathFromUri("file:///@bucket/somedir/subdir/subfile"),
-              Raises(StatusCode::Invalid, testing::HasSubstr("must start with s3://")));
+              Raises(StatusCode::Invalid,
+                     testing::HasSubstr("expected a URI with one of the schemes (s3)")));
 
   // Not a URI
   ASSERT_THAT(fs->PathFromUri("/@bucket/somedir/subdir/subfile"),
-              Raises(StatusCode::Invalid, testing::HasSubstr("must start with s3://")));
-
-  // Correct scheme, wrong endpoint
-  ASSERT_THAT(
-      fs->PathFromUri("s3://@bucket/somedir/subdir/subfile"),
-      Raises(StatusCode::Invalid,
-             testing::HasSubstr("but existing filesystem is configured for endpoint")));
-
-  // Correct scheme & endpoint, wrong region
-  ss << "&region=us-west-2";
-  ASSERT_THAT(
-      fs->PathFromUri(ss.str()),
-      Raises(StatusCode::Invalid,
-             testing::HasSubstr("but existing filesystem is configured for region")));
+              Raises(StatusCode::Invalid, testing::HasSubstr("Expected a URI")));
 
   // Check the filesystem has the right connection parameters
   AssertFileInfo(fs.get(), path, FileType::File, 8);

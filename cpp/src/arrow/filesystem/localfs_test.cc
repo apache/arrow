@@ -223,6 +223,7 @@ class TestLocalFS : public LocalFSTestMixin {
   }
 
   void TestInvalidUri(const std::string& uri) {
+    ARROW_SCOPED_TRACE("uri = ", uri);
     if (!path_formatter_.supports_uri()) {
       return;  // skip
     }
@@ -230,6 +231,7 @@ class TestLocalFS : public LocalFSTestMixin {
   }
 
   void TestInvalidUriOrPath(const std::string& uri) {
+    ARROW_SCOPED_TRACE("uri = ", uri);
     if (!path_formatter_.supports_uri()) {
       return;  // skip
     }
@@ -238,12 +240,11 @@ class TestLocalFS : public LocalFSTestMixin {
     ASSERT_RAISES(Invalid, lfs.PathFromUri(uri));
   }
 
-  void TestNonMatchingUri(const std::string& uri) {
+  void TestInvalidPathFromUri(const std::string& uri, const std::string& expected_err) {
     // Legitimate URI for the wrong filesystem
     LocalFileSystem lfs;
-    ASSERT_THAT(
-        lfs.PathFromUri(uri),
-        Raises(StatusCode::Invalid, testing::HasSubstr("must begin with file://")));
+    ASSERT_THAT(lfs.PathFromUri(uri),
+                Raises(StatusCode::Invalid, testing::HasSubstr(expected_err)));
   }
 
   void CheckConcreteFile(const std::string& path, int64_t expected_size) {
@@ -333,6 +334,7 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {
                      "//some server/some share/some path");
 #else
   this->TestInvalidUri("file://server/share/foo/bar");
+  this->TestInvalidUriOrPath("file://server/share/foo/bar");
 #endif
 
   // Relative paths
@@ -374,7 +376,8 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriNoSchemeBackslashes) {
 }
 
 TYPED_TEST(TestLocalFS, MismatchedFilesystemPathFromUri) {
-  this->TestNonMatchingUri("s3://foo");
+  this->TestInvalidPathFromUri("s3://foo",
+                               "expected a URI with one of the schemes (file)");
 }
 
 TYPED_TEST(TestLocalFS, DirectoryMTime) {

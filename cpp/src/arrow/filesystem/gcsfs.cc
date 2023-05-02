@@ -874,28 +874,9 @@ bool GcsFileSystem::Equals(const FileSystem& other) const {
 }
 
 Result<std::string> GcsFileSystem::PathFromUri(const std::string& uri_string) const {
-  if (internal::DetectAbsolutePath(uri_string)) {
-    return Status::Invalid(
-        "The GCS filesystem is not capable of loading local paths.  URIs must start "
-        "with gs:// or gcs://");
-  }
-  Uri uri;
-  ARROW_RETURN_NOT_OK(uri.Parse(uri_string));
-  const auto scheme = uri.scheme();
-  if (uri.scheme() != "gs" && uri.scheme() != "gcs") {
-    return Status::Invalid("GCS URIs must start with gs:// or gcs:// but received ",
-                           uri_string);
-  }
-  std::string path;
-  ARROW_ASSIGN_OR_RAISE(GcsOptions parsed_options, GcsOptions::FromUri(uri, &path));
-  const GcsOptions& existing_options = impl_->options();
-  if (parsed_options.endpoint_override != existing_options.endpoint_override) {
-    return Status::Invalid("Provided URI specified endpoint '",
-                           parsed_options.endpoint_override,
-                           "' but existing filesystem is configured for endpoint '",
-                           existing_options.endpoint_override, "'");
-  }
-  return path;
+  return internal::PathFromUriHelper(uri_string, {"gs", "gcs"},
+                                     /*accept_local_paths=*/false,
+                                     internal::AuthorityHandlingBehavior::kPrepend);
 }
 
 Result<FileInfo> GcsFileSystem::GetFileInfo(const std::string& path) {

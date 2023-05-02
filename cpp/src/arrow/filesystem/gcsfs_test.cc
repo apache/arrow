@@ -1397,15 +1397,11 @@ TEST_F(GcsIntegrationTest, TestFileSystemFromUri) {
                                                    PreexistingBucketPath()));
   EXPECT_EQ(fs2->type_name(), "gcs");
   ASSERT_THAT(fs->PathFromUri("/foo/bar"),
-              Raises(StatusCode::Invalid, testing::HasSubstr("URIs must start with")));
+              Raises(StatusCode::Invalid, testing::HasSubstr("Expected a URI")));
   ASSERT_THAT(
       fs->PathFromUri("s3:///foo/bar"),
-      Raises(StatusCode::Invalid, testing::HasSubstr("GCS URIs must start with")));
-  ASSERT_THAT(
-      fs->PathFromUri(std::string("gs://anonymous@") + PreexistingBucketPath() +
-                      "?endpoint_override=foo"),
       Raises(StatusCode::Invalid,
-             testing::HasSubstr("but existing filesystem is configured for endpoint")));
+             testing::HasSubstr("expected a URI with one of the schemes (gs, gcs)")));
 }
 
 }  // namespace

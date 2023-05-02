@@ -265,19 +265,13 @@ Result<std::string> LocalFileSystem::NormalizePath(std::string path) {
 }
 
 Result<std::string> LocalFileSystem::PathFromUri(const std::string& uri_string) const {
-  if (internal::DetectAbsolutePath(uri_string)) {
-    return DoNormalizePath(uri_string);
-  }
-  Uri uri;
-  ARROW_RETURN_NOT_OK(uri.Parse(uri_string));
-  const auto scheme = uri.scheme();
-  if (scheme != "file") {
-    return Status::Invalid("Local URIs must begin with file:// but received ",
-                           uri_string);
-  }
-  std::string path;
-  RETURN_NOT_OK(LocalFileSystemOptions::FromUri(uri, &path));
-  return path;
+#ifdef _WIN32
+  auto authority_handling = internal::AuthorityHandlingBehavior::kWindows;
+#else
+  auto authority_handling = internal::AuthorityHandlingBehavior::kDisallow;
+#endif
+  return internal::PathFromUriHelper(uri_string, {"file"}, /*accept_local_paths=*/true,
+                                     authority_handling);
 }
 
 bool LocalFileSystem::Equals(const FileSystem& other) const {

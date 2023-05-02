@@ -474,19 +474,9 @@ bool HadoopFileSystem::Equals(const FileSystem& other) const {
 }
 
 Result<std::string> HadoopFileSystem::PathFromUri(const std::string& uri_string) const {
-  if (internal::DetectAbsolutePath(uri_string)) {
-    return Status::Invalid(
-        "The HDFS filesystem is not capable of loading local paths.  URIs must start "
-        "with hdfs:// or viewfs://");
-  }
-  Uri uri;
-  ARROW_RETURN_NOT_OK(uri.Parse(uri_string));
-  const auto scheme = uri.scheme();
-  if (uri.scheme() != "hdfs" && uri.scheme() != "viewfs") {
-    return Status::Invalid("HDFS URIs must start with hdfs:// or viewfs:// but received ",
-                           uri_string);
-  }
-  return uri.path();
+  return internal::PathFromUriHelper(uri_string, {"hdfs", "viewfs"},
+                                     /*accept_local_paths=*/false,
+                                     internal::AuthorityHandlingBehavior::kIgnore);
 }
 
 Result<std::vector<FileInfo>> HadoopFileSystem::GetFileInfo(const FileSelector& select) {

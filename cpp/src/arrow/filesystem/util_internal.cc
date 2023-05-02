@@ -24,6 +24,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 
@@ -119,6 +120,68 @@ bool DetectAbsolutePath(const std::string& s) {
   }
 #endif
   return false;
+}
+
+Result<std::string> PathFromUriHelper(const std::string& uri_string,
+                                      std::vector<std::string> supported_schemes,
+                                      bool accept_local_paths,
+                                      AuthorityHandlingBehavior authority_handling) {
+  if (internal::DetectAbsolutePath(uri_string)) {
+    if (accept_local_paths) {
+      return uri_string;
+    }
+    return Status::Invalid(
+        "The filesystem is not capable of loading local paths.  Expected a URI but "
+        "received ",
+        uri_string);
+  }
+  Uri uri;
+  ARROW_RETURN_NOT_OK(uri.Parse(uri_string));
+  const auto scheme = uri.scheme();
+  if (std::find(supported_schemes.begin(), supported_schemes.end(), scheme) ==
+      supported_schemes.end()) {
+    std::string expected_schemes =
+        ::arrow::internal::JoinStrings(supported_schemes, ", ");
+    return Status::Invalid("The filesystem expected a URI with one of the schemes (",
+                           expected_schemes, ") but received ", uri_string);
+  }
+  std::string host = uri.host();
+  std::string path = uri.path();
+  if (host.empty()) {
+    // Just a path, may be absolute or relative, only allow relative paths if local
+    if (path[0] == '/') {
+      return std::string(internal::RemoveTrailingSlash(path));
+    }
+    if (accept_local_paths) {
+      return std::string(internal::RemoveTrailingSlash(path));
+    }
+    return Status::Invalid("The filesystem does not support relative paths.  Received ",
+                           uri_string);
+  }
+  if (authority_handling == AuthorityHandlingBehavior::kDisallow) {
+    return Status::Invalid(
+        "The filesystem does not support the authority (host) component of a URI.  "
+        "Received ",
+        uri_string);
+  }
+  if (path[0] != '/') {
+    // This should not be possible
+    return Status::Invalid(
+        "The provided URI has a host component but a relative path which is not "
+        "supported. "
+        "Received ",
+        uri_string);
+  }
+  switch (authority_handling) {
+    case AuthorityHandlingBehavior::kPrepend:
+      return std::string(internal::RemoveTrailingSlash(host + path));
+    case AuthorityHandlingBehavior::kWindows:
+      return std::string(internal::RemoveTrailingSlash("//" + host + path));
+    case AuthorityHandlingBehavior::kIgnore:
+      return std::string(internal::RemoveTrailingSlash(path));
+    default:
+      return Status::Invalid("Unrecognized authority_handling value");
+  }
 }
 
 Result<FileInfoVector> GlobFiles(const std::shared_ptr<FileSystem>& filesystem,
