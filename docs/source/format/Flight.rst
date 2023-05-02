@@ -129,7 +129,9 @@ A client that wishes to download the data would:
    The client must consume all endpoints to retrieve the complete data
    set. The client can consume endpoints in any order, or even in
    parallel, or distribute the endpoints among multiple machines for
-   consumption; this is up to the application to implement.
+   consumption; this is up to the application to implement. The client
+   can also use ``FlightInfo.ordered``. See the previous item for
+   details of ``FlightInfo.ordered``.
 
 Uploading Data
 --------------
