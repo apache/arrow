@@ -57,4 +57,3 @@ test_that("JSON dataset", {
     c(rep(5, 10), rep(6, 10))
   )
 })
-
