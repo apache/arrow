@@ -26,8 +26,8 @@ import (
 
 	"github.com/goccy/go-json"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/google/uuid"
 	"golang.org/x/xerrors"
 )
