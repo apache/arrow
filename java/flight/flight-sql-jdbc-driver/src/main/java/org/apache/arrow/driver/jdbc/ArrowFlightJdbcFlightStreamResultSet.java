@@ -242,7 +242,6 @@ public final class ArrowFlightJdbcFlightStreamResultSet
       }
 
       if (hasNext) {
-        storeRootsFromStreamAsync();
         return true;
       }
 

@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.replaceSemiColons;
 
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -171,11 +172,16 @@ public final class ArrowFlightConnection extends AvaticaConnection {
 
     try {
       AutoCloseables.close(clientHandler);
-      allocator.getChildAllocators().forEach(AutoCloseables::closeNoChecked);
-      AutoCloseables.close(allocator);
+      allocator.getChildAllocators().forEach(a -> {
+        a.releaseBytes(a.getAllocatedMemory());
+        a.close();
+      });
+      allocator.releaseBytes(allocator.getAllocatedMemory());
+      allocator.close();
 
       super.close();
     } catch (final Exception e) {
+      Optional.ofNullable(e.getCause()).ifPresent(Throwable::printStackTrace);
       throw AvaticaConnection.HELPER.createException(e.getMessage(), e);
     }
   }
