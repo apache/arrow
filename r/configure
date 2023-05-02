@@ -123,6 +123,26 @@ fi
 # Functions #
 #############
 
+find_or_build_libarrow () {
+  if [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
+    do_bundled_build
+  elif [ "$FORCE_AUTOBREW" = "true" ]; then
+    do_autobrew
+  else
+    find_arrow
+    if [ "$_LIBARROW_FOUND" = "false" ]; then
+      # If we haven't found a suitable version of libarrow, build it
+      if [ "$UNAME" = "Darwin" ] && ! echo $VERSION | grep -q "000"; then
+        # Only autobrew on release version (for testing, use FORCE_AUTOBREW above)
+        # (dev versions end in .9000, and nightly gets something like .10000xxx)
+        do_autobrew
+      else
+        do_bundled_build
+      fi
+    fi
+  fi
+}
+
 # This function looks in a few places for libarrow on the system already.
 # If the found library version is not compatible with the R package,
 # it won't be used.
@@ -346,24 +366,8 @@ arrow_built_with() {
 # Main logic #
 ##############
 
-# First, find or build libarrow
-if [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
-  do_bundled_build
-elif [ "$FORCE_AUTOBREW" = "true" ]; then
-  do_autobrew
-else
-  find_arrow
-  if [ "$_LIBARROW_FOUND" = "false" ]; then
-    # If we haven't found a suitable version of libarrow, build it
-    if [ "$UNAME" = "Darwin" ] && ! echo $VERSION | grep -q "000"; then
-      # Only autobrew on release version (for testing, use FORCE_AUTOBREW above)
-      # (dev versions end in .9000, and nightly gets something like .10000xxx)
-      do_autobrew
-    else
-      do_bundled_build
-    fi
-  fi
-fi
+# First:
+find_or_build_libarrow
 
 # We should have a valid libarrow build in $_LIBARROW_FOUND
 # Now set `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS` based on that.
