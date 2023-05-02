@@ -218,7 +218,11 @@ std::shared_ptr<TaskGroup> TaskGroup::MakeSerial(StopToken stop_token) {
 
 std::shared_ptr<TaskGroup> TaskGroup::MakeThreaded(Executor* thread_pool,
                                                    StopToken stop_token) {
+#ifdef ARROW_DISABLE_THREADING
+  return MakeSerial(stop_token);
+#else                                                    
   return std::shared_ptr<TaskGroup>(new ThreadedTaskGroup{thread_pool, stop_token});
+#endif
 }
 
 }  // namespace internal

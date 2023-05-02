@@ -124,7 +124,7 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
   }
 
   state_->task_queue.push_back( Task{std::move(task), std::move(stop_token), std::move(stop_callback)});
-  SerialExecutor::RunTasksOnAllExecutors();
+
   return Status::OK();                                                                 
 }
 
