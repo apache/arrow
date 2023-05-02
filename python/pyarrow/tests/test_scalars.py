@@ -295,6 +295,15 @@ def test_cast():
         pa.scalar('foo').cast('int32')
 
 
+def test_timestamp_to_string_cast():
+    # GH-35370
+    pytest.importorskip("pytz")
+    import pytz
+    dt = datetime.datetime(2000, 1, 1, 0, 0, 0, tzinfo=pytz.utc)
+    ts = pa.scalar(dt, type=pa.timestamp("ns", tz="UTC"))
+    assert ts.cast(pa.string()) == pa.scalar('2000-01-01 00:00:00.000000000Z')
+
+
 @pytest.mark.pandas
 def test_timestamp():
     import pandas as pd
