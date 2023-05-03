@@ -291,20 +291,22 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs,
 void InitS3(const std::string& log_level) {
   fs::S3GlobalOptions options;
 
-  if (log_level == "Fatal") {
+  if (log_level == "off") {
+    options.log_level = arrow::fs::S3LogLevel::Off;
+  } else if (log_level == "fatal") {
     options.log_level = arrow::fs::S3LogLevel::Fatal;
-  } else if (log_level == "Error") {
+  } else if (log_level == "error") {
     options.log_level = arrow::fs::S3LogLevel::Error;
-  } else if (log_level == "Warn") {
+  } else if (log_level == "warn") {
     options.log_level = arrow::fs::S3LogLevel::Warn;
-  } else if (log_level == "Info") {
+  } else if (log_level == "info") {
     options.log_level = arrow::fs::S3LogLevel::Info;
-  } else if (log_level == "Debug") {
+  } else if (log_level == "debug") {
     options.log_level = arrow::fs::S3LogLevel::Debug;
-  } else if (log_level == "Trace") {
+  } else if (log_level == "trace") {
     options.log_level = arrow::fs::S3LogLevel::Trace;
   } else {
-    options.log_level = arrow::fs::S3LogLevel::Fatal;
+    options.log_level = arrow::fs::S3LogLevel::Off;
   }
 
   StopIfNotOk(fs::InitializeS3(options));

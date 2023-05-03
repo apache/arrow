@@ -451,13 +451,13 @@ s3_log_levels <- c("off", "fatal", "error", "warn", "info", "debug", "trace")
 #'
 #' @param log_level string for log level to set. See details.
 #'
-#' @details The parameter `log_level` must be one of: Off, Fatal, Error, Warn,
-#'   Info, Debug, or Trace.
+#' @details The parameter `log_level` must be one of: off, fatal, error, warn,
+#'   info, debug, or trace.
 #'
 #' @examples
 #' # Initialize S3 with Debug-level logging
 #' \dontrun{
-#'   s3_init("Debug")
+#'   s3_init("debug")
 #' }
 s3_init <- function(log_level) {
   stopifnot(is.character(log_level))
