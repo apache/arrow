@@ -46,7 +46,7 @@ R CMD INSTALL .
 
 If you don't already have libarrow on your system,
 when installing the R package from source, it will also download and build
-libarrow for you. See the section above on build environment
+libarrow for you. See the links below for build environment
 variables for options for configuring the build source and enabled features.
 
 ## Further reading
