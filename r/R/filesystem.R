@@ -442,6 +442,9 @@ default_s3_options <- list(
   request_timeout = -1
 )
 
+# Enumerate possible values for AWS SDK log levels, used by s3_init
+s3_log_levels <- c("off", "fatal", "error", "warn", "info", "debug", "trace")
+
 #' Initialize S3
 #'
 #' Must be called before other S3 functions such as \link{s3_bucket}.
@@ -458,21 +461,23 @@ default_s3_options <- list(
 #' }
 s3_init <- function(log_level) {
   stopifnot(is.character(log_level))
-  levels <-  c("Off", "Fatal", "Error", "Warn", "Info", "Debug", "Trace")
+
+  log_level_normalized <- tolower(log_level)
 
   # Validate log_level
-  if (!(log_level %in% levels)) {
+  if (!(log_level_normalized %in% s3_log_levels)) {
     stop(
       "Argument 'log_level' must be one of: ",
       paste(
-        paste(levels[1:(length(levels)-1)], collapse = ", "),
-        levels[length(levels)],
+        paste(s3_log_levels[1:(length(s3_log_levels)-1)], collapse = ", "),
+        s3_log_levels[length(s3_log_levels)],
         sep = ", or "),
+      paste0(" but was '", log_level_normalized, "'."),
       call. = FALSE)
     return() # TODO: Invisible?
   }
 
-  invisible(InitS3(log_level))
+  invisible(InitS3(log_level_normalized))
 }
 
 #' Connect to an AWS S3 bucket
