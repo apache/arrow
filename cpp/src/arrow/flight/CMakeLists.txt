@@ -238,7 +238,7 @@ add_arrow_lib(arrow_flight
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
-              # We must use gPRC::grpc++ first. If gRPC::grpc++
+              # We must use gRPC::grpc++ first. If gRPC::grpc++
               # depends on bundled Abseil, bundled Abseil and system
               # Abseil may be mixed.
               #
