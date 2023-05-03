@@ -450,17 +450,20 @@ s3_log_levels <- c("off", "fatal", "error", "warn", "info", "debug", "trace")
 #' Must be called before other S3 functions such as \link{s3_bucket}.
 #'
 #' @param log_level string for log level to set. See details.
-#'
+#' @param num_event_loop_threads How many threads to use for the AWS SDK's I/O
+#'   event loop. Defaults to 1.
+#' 
 #' @details The parameter `log_level` must be one of: off, fatal, error, warn,
-#'   info, debug, or trace.
+#'   info, debug, or trace and is case insensitive.
 #'
 #' @examples
 #' # Initialize S3 with Debug-level logging
 #' \dontrun{
 #'   s3_init("debug")
 #' }
-s3_init <- function(log_level) {
+s3_init <- function(log_level, num_event_loop_threads = 1) {
   stopifnot(is.character(log_level))
+  stopifnot(is.numeric(num_event_loop_threads))
 
   log_level_normalized <- tolower(log_level)
 
@@ -474,10 +477,21 @@ s3_init <- function(log_level) {
         sep = ", or "),
       paste0(" but was '", log_level_normalized, "'."),
       call. = FALSE)
-    return() # TODO: Invisible?
+    return(invisible())
   }
 
-  invisible(InitS3(log_level_normalized))
+  # Validate num_event_loop_threads
+  if (num_event_loop_threads < 1) {
+    stop(
+      "Argument 'num_event_loop_threads' should be a positive integer ",
+      "greater than or equal to 1 but was '", num_event_loop_threads, "'.", 
+      call. = FALSE
+    )
+
+    return(invisible())
+  }
+
+  invisible(InitS3(log_level_normalized, num_event_loop_threads))
 }
 
 #' Connect to an AWS S3 bucket

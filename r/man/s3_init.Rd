@@ -4,21 +4,24 @@
 \alias{s3_init}
 \title{Initialize S3}
 \usage{
-s3_init(log_level)
+s3_init(log_level, num_event_loop_threads = 1)
 }
 \arguments{
 \item{log_level}{string for log level to set. See details.}
+
+\item{num_event_loop_threads}{How many threads to use for the AWS SDK's I/O
+event loop. Defaults to 1.}
 }
 \description{
 Must be called before other S3 functions such as \link{s3_bucket}.
 }
 \details{
-The parameter \code{log_level} must be one of: Off, Fatal, Error, Warn,
-Info, Debug, or Trace.
+The parameter \code{log_level} must be one of: off, fatal, error, warn,
+info, debug, or trace and is case insensitive.
 }
 \examples{
 # Initialize S3 with Debug-level logging
 \dontrun{
-  s3_init("Debug")
+  s3_init("debug")
 }
 }

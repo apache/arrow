@@ -62,6 +62,7 @@ if (run_these) {
   })
 }
 
-test_that("s3_init throws an error on invalid input", {
-  expect_error(s3_init("Wrong"), "must be one of")
+test_that("s3_init validates its arguments", {
+  expect_error(s3_init("wrong"), "must be one of")
+  expect_error(s3_init("debug", 0), "positive integer")
 })
