@@ -129,7 +129,8 @@ Result<std::string> PathFromUriHelper(const std::string& uri_string,
   if (internal::DetectAbsolutePath(uri_string)) {
     if (accept_local_paths) {
       // Normalize the path and remove any trailing slash
-      return std::string(internal::RemoveTrailingSlash(ToSlashes(uri_string)));
+      return std::string(
+          internal::RemoveTrailingSlash(ToSlashes(uri_string), /*preserve_root=*/true));
     }
     return Status::Invalid(
         "The filesystem is not capable of loading local paths.  Expected a URI but "

@@ -129,7 +129,11 @@ std::string EnsureLeadingSlash(std::string_view v) {
     return std::string(v);
   }
 }
-std::string_view RemoveTrailingSlash(std::string_view key) {
+std::string_view RemoveTrailingSlash(std::string_view key, bool preserve_root) {
+  if (preserve_root && key.size() == 1) {
+    // If the user gives us "/" then don't return ""
+    return key;
+  }
   while (!key.empty() && key.back() == kSep) {
     key.remove_suffix(1);
   }

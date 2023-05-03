@@ -350,6 +350,7 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriNoScheme) {
 
   // Variations
   this->TestLocalUriOrPath(this->path_formatter_("/foo/bar"), "/foo/bar");
+  this->TestLocalUriOrPath(this->path_formatter_("/"), "/");
 
 #ifdef _WIN32
   this->TestLocalUriOrPath(this->path_formatter_("C:/foo/bar/"), "C:/foo/bar");
