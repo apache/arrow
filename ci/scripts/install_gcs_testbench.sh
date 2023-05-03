@@ -40,5 +40,5 @@ if [[ "${version}" -eq "default" ]]; then
 fi
 
 ${PYTHON:-python3} -m pip install \
-  "urllib3<2" \
+  "requests-toolbelt>=1" \
   "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
