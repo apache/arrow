@@ -573,9 +573,10 @@ class SQLiteFlightSqlServer::Impl {
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTypeInfo(
       const ServerCallContext& context, const GetXdbcTypeInfo& command) {
-    const std::shared_ptr<RecordBatch>& type_info_result =
-        command.data_type.has_value() ? DoGetTypeInfoResult(command.data_type.value())
-                                      : DoGetTypeInfoResult();
+    ARROW_ASSIGN_OR_RAISE(auto type_info_result,
+                          command.data_type.has_value()
+                              ? DoGetTypeInfoResult(command.data_type.value())
+                              : DoGetTypeInfoResult());
 
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({type_info_result}));
     return std::make_unique<RecordBatchStream>(reader);

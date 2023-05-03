@@ -22,7 +22,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -561,11 +561,13 @@ func TestFromString(t *testing.T) {
 		{"1e1", 10, 0},
 		{"+234.567", 234567, 3},
 		{"1e-37", 1, 37},
+		{"2112.33", 211233, 2},
+		{"-2112.33", -211233, 2},
 	}
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s_%d", tt.s, tt.expectedScale), func(t *testing.T) {
-			n, err := decimal256.FromString(tt.s, 8, tt.expectedScale)
+			n, err := decimal256.FromString(tt.s, 35, tt.expectedScale)
 			assert.NoError(t, err)
 
 			ex := decimal256.FromI64(tt.expected)

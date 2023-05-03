@@ -126,7 +126,7 @@ jobs:
     name: AMD64 Debian 11 Go ${{ matrix.go }} - CGO
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

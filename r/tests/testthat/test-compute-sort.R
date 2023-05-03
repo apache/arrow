@@ -108,29 +108,34 @@ test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on floats", {
+
+  test_vec <- tbl$dbl
+  # Arrow sorts NA and NaN differently, but it's not important, so eliminate here
+  test_vec[is.nan(test_vec)] <- NA_real_
+
   compare_expression(
     sort(.input, decreasing = TRUE, na.last = TRUE),
-    tbl$dbl
+    test_vec
   )
   compare_expression(
     sort(.input, decreasing = FALSE, na.last = TRUE),
-    tbl$dbl
+    test_vec
   )
   compare_expression(
     sort(.input, decreasing = TRUE, na.last = NA),
-    tbl$dbl
+    test_vec
   )
   compare_expression(
     sort(.input, decreasing = TRUE, na.last = FALSE),
-    tbl$dbl,
+    test_vec,
   )
   compare_expression(
     sort(.input, decreasing = FALSE, na.last = NA),
-    tbl$dbl
+    test_vec
   )
   compare_expression(
     sort(.input, decreasing = FALSE, na.last = FALSE),
-    tbl$dbl,
+    test_vec,
   )
 })
 

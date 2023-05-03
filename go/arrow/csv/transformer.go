@@ -25,8 +25,8 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
 )
 
 func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []string {

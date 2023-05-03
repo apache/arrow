@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -31,6 +31,8 @@ type Map struct {
 	*List
 	keys, items arrow.Array
 }
+
+var _ ListLike = (*Map)(nil)
 
 // NewMapData returns a new Map array value, from data
 func NewMapData(data arrow.ArrayData) *Map {
@@ -301,7 +303,7 @@ func (b *MapBuilder) ValueBuilder() Builder {
 }
 
 func (b *MapBuilder) AppendValueFromString(s string) error {
-	return arrow.ErrNotImplemented	
+	return arrow.ErrNotImplemented
 }
 
 func (b *MapBuilder) UnmarshalOne(dec *json.Decoder) error {
