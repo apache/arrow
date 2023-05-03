@@ -659,6 +659,23 @@ set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
 set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
+# We must use google-cloud-cpp::storage first. If
+# google-cloud-cpp::storage depends on bundled Abseil, bundled Abseil
+# and system Abseil may be mixed.
+#
+# For example, if Boost::headers is used before
+# google-cloud-cpp::storage AND Boost::headers has
+# -I/opt/homebrew/include AND /opt/homebrew/include/absl/ exists,
+# /opt/homebrew/include/absl/**/*.h are used instead of .h provided by
+# bundled Abseil.
+if(ARROW_GCS)
+  list(APPEND ARROW_SHARED_LINK_LIBS google-cloud-cpp::storage)
+  list(APPEND ARROW_STATIC_LINK_LIBS google-cloud-cpp::storage)
+  if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
+  endif()
+endif()
+
 if(ARROW_USE_BOOST)
   list(APPEND ARROW_SHARED_LINK_LIBS Boost::headers)
   list(APPEND ARROW_STATIC_LINK_LIBS Boost::headers)
@@ -722,14 +739,6 @@ if(ARROW_ORC)
   if(ORC_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::liborc
          ${ARROW_PROTOBUF_LIBPROTOBUF})
-  endif()
-endif()
-
-if(ARROW_GCS)
-  list(APPEND ARROW_SHARED_LINK_LIBS google-cloud-cpp::storage)
-  list(APPEND ARROW_STATIC_LINK_LIBS google-cloud-cpp::storage)
-  if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
   endif()
 endif()
 
