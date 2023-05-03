@@ -416,17 +416,21 @@ tasks:
 
 {############################## Wheel Linux ##################################}
 
-{% for arch, arch_alias, x_y, manylinux in [("amd64", "x86_64", "2_17", "2014"),
-                                            ("arm64", "aarch64", "2_17", "2014")] %}
-  wheel-manylinux{{ manylinux }}-{{ python_tag }}-{{ arch }}:
+
+{% for arch, manylinux_version, platform_tag in [("amd64", "2014", "manylinux_2_17_x86_64.manylinux2014_x86_64"),
+                                                 ("amd64", "2-28", "manylinux_2_28_x86_64"),
+                                                 ("arm64", "2014", "manylinux_2_17_aarch64.manylinux2014_aarch64"),
+                                                 ("arm64", "2-28", "manylinux_2_28_aarch64")] %}
+  wheel-manylinux-{{ manylinux_version }}-{{ python_tag }}-{{ arch }}:
     ci: github
     template: python-wheels/github.linux.yml
     params:
       arch: "{{ arch }}"
       python_version: "{{ python_version }}"
-      manylinux_version: "{{ manylinux }}"
+      manylinux_version: "{{ manylinux_version }}"
+      wheel_platform_tag: "{{ platform_tag }}"
     artifacts:
-      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-manylinux_{{ x_y }}_{{ arch_alias }}.manylinux{{ manylinux }}_{{ arch_alias }}.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 {% endfor %}
 
 {############################## Wheel OSX ####################################}
@@ -1438,13 +1442,13 @@ tasks:
       - docs.tar.gz
 
   ############################## CUDA tests #################################
-  
+
   test-cuda-cpp:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
       image: ubuntu-cuda-cpp
-  
+
   test-cuda-python:
     ci: github
     template: docker-tests/github.cuda.yml
