@@ -19,8 +19,8 @@ package encryption
 import (
 	"io"
 
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/parquet"
 )
 
 // FileDecryptor is an interface used by the filereader for decrypting an

@@ -251,6 +251,8 @@ class PARQUET_EXPORT RowGroupMetaData {
   const SchemaDescriptor* schema() const;
   // Indicate if all of the RowGroup's ColumnChunks can be decompressed.
   bool can_decompress() const;
+  // Sorting columns of the row group if any.
+  std::vector<SortingColumn> sorting_columns() const;
 
  private:
   explicit RowGroupMetaData(

@@ -16,7 +16,7 @@
 
 package bitutils
 
-import "github.com/apache/arrow/go/v12/arrow/bitutil"
+import "github.com/apache/arrow/go/v13/arrow/bitutil"
 
 // GenerateBits writes sequential bits to a bitmap. Bits preceding the
 // initial start offset are preserved, bits following the bitmap may
