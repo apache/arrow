@@ -204,8 +204,8 @@ class ArrayCompareSorter<DictionaryType> {
     std::shared_ptr<Array> decoded_ranks;
     // Skip the rank/take steps for cases with only nulls
     if (IsAllNulls(dict_array)) {
-      ARROW_ASSIGN_OR_RAISE(decoded_ranks,
-                            MakeNullUInt64Array(dict_array.length(), ctx->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(decoded_ranks, MakeArrayOfNull(uint64(), dict_array.length(),
+                                                           ctx->memory_pool()));
     } else {
       ARROW_ASSIGN_OR_RAISE(auto ranks, RanksWithNulls(dict_values, ctx));
 
@@ -237,14 +237,6 @@ class ArrayCompareSorter<DictionaryType> {
     return true;
   }
 
-  static Result<std::shared_ptr<Array>> MakeNullUInt64Array(int64_t length,
-                                                            MemoryPool* pool) {
-    ARROW_ASSIGN_OR_RAISE(auto bitmap, AllocateEmptyBitmap(length, pool));
-    auto data = ArrayData::Make(uint64(), length, {std::move(bitmap), nullptr},
-                                /*null_count=*/length);
-    return MakeArray(data);
-  }
-
   static Result<std::shared_ptr<Array>> RanksWithNulls(
       const std::shared_ptr<Array>& array, ExecContext* ctx) {
     // Notes:
@@ -271,7 +263,7 @@ class ArrayCompareSorter<DictionaryType> {
       data->null_count = 0;
     }
     ARROW_ASSIGN_OR_RAISE(auto rank_datum,
-                          CallFunction("rank", {array}, &rank_options, ctx));
+                          CallFunction("rank", {std::move(data)}, &rank_options, ctx));
     auto rank_data = rank_datum.array();
     DCHECK_EQ(rank_data->GetNullCount(), 0);
     // If there were nulls in the input, paste them in the output
