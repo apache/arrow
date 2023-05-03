@@ -328,10 +328,13 @@ Status TaskSchedulerImpl::ScheduleMore(size_t thread_id, int num_tasks_finished)
   }
 
   ARROW_DCHECK(register_finished_);
-
+#ifdef ARROW_DISABLE_THREADING
+    return ExecuteMore(thread_id, 1, true);
+#else
   if (use_sync_execution_) {
     return ExecuteMore(thread_id, 1, true);
   }
+#endif
 
   int num_new_tasks = num_tasks_finished;
   for (;;) {

@@ -985,9 +985,9 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
         EXPECT_THAT(first_batch_fut,
                     Finishes(ResultWith(Optional(random_data.batches[0]))));
       }
-
-      plan->StopProducing();
-      Future<> finished = plan->finished();
+      
+      plan->StopProducing();     
+      Future<> finished = plan->finished();      
       CheckFinishesCancelledOrOk(plan->finished());
     }
   }
@@ -1602,6 +1602,9 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
 }
 
 TEST(ExecPlanExecution, SegmentedAggregationWithMultiThreading) {
+#ifdef ARROW_DISABLE_THREADING
+  GTEST_SKIP() << "Test requires threading enabled";
+#endif  
   BatchesWithSchema data;
   data.batches = {ExecBatchFromJSON({int32()}, "[[1]]")};
   data.schema = schema({field("i32", int32())});

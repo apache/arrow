@@ -472,8 +472,10 @@ TEST(BloomFilter, Basic) {
 
   std::vector<BloomFilterBuildStrategy> strategy;
   strategy.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
-#ifndef ARROW_VALGRIND
+#ifndef ARROW_DISABLE_THREADING
+#ifndef ARROW_VALGRIND 
   strategy.push_back(BloomFilterBuildStrategy::PARALLEL);
+#endif
 #endif
 
   static constexpr int64_t min_rows_for_large = 2 * 1024 * 1024;
@@ -507,7 +509,11 @@ TEST(BloomFilter, Scaling) {
   num_build.push_back(4000000);
 
   std::vector<BloomFilterBuildStrategy> strategy;
+#ifdef ARROW_DISABLE_THREADING
+  strategy.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
+#else
   strategy.push_back(BloomFilterBuildStrategy::PARALLEL);
+#endif
 
   for (bool use_avx2 : {false, true}) {
     for (size_t istrategy = 0; istrategy < strategy.size(); ++istrategy) {

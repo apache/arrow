@@ -124,7 +124,7 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
   }
 
   state_->task_queue.push_back( Task{std::move(task), std::move(stop_token), std::move(stop_callback)});
-
+  
   return Status::OK();                                                                 
 }
 
@@ -201,20 +201,25 @@ bool SerialExecutor::OwnsThisThread() {
 }
 #ifdef ARROW_DISABLE_THREADING
 
-void SerialExecutor::RunTasksOnAllExecutors(bool once_only)
+bool SerialExecutor::RunTasksOnAllExecutors(bool once_only)
 {  
   if(last_called_executor!=NULL && all_executors.count(last_called_executor)==0)
   {
     last_called_executor=NULL;
   }
   bool run_task=true;
-  while(run_task)
+  bool keep_going=true;
+  while(keep_going)
   {
     run_task=false;
+    keep_going=false;
     for(auto it=all_executors.begin();it!=all_executors.end();++it)
     {
       if(last_called_executor!=NULL)
       {
+        // always rerun loop if we have a last_called_executor, otherwise 
+        // we drop out before everything is
+        keep_going=true;
         if(all_executors.count(last_called_executor)==0 || last_called_executor==*it)
         {
           // found the last one (or it doesn't exist ih the set any more)
@@ -226,7 +231,12 @@ void SerialExecutor::RunTasksOnAllExecutors(bool once_only)
         continue;
       }
       SerialExecutor* exe = *it;
-      if(!(exe->state_->paused || exe->state_->task_queue.empty() || exe->state_->finished))
+      // don't make reentrant calls inside a serialexecutor
+      if(exe==current_executor && !exe->IsReentrant())
+      {
+        continue;
+      }
+      if(exe->state_->paused==false && exe->state_->task_queue.empty()==false)
       {
         SerialExecutor* old_exe=current_executor;
         current_executor=exe;
@@ -245,12 +255,16 @@ void SerialExecutor::RunTasksOnAllExecutors(bool once_only)
         if(once_only)
         {
           last_called_executor=exe;
-          run_task=false;
+          keep_going=false;
           break;
+        }else
+        {
+          keep_going=true;
         }
       }
     }
   }
+  return run_task;
 }
 
 // run tasks in this thread and queue things from other executors if required
@@ -260,70 +274,42 @@ void SerialExecutor::RunLoop()
   // If paused we break out immediately.  If finished we only break out
   // when all work is done.
   while (!state_->paused && !(state_->finished && state_->task_queue.empty())) {
-
-    // The inner loop is to check if we need to sleep (e.g. while waiting on some
-    // async task to finish from another thread pool).  We still need to check paused
-    // because sometimes we will pause even with work leftover when processing
-    // an async generator
-
+    // first empty us until paused or empty
     while (!state_->paused && !state_->task_queue.empty()) {
       Task task = std::move(state_->task_queue.front());
       state_->task_queue.pop_front();
-      SerialExecutor* old_exe=current_executor;
+      auto last_executor=current_executor;
       current_executor=this;
       if (!task.stop_token.IsStopRequested()) {
+
         std::move(task.callable)();
       } else {
         if (task.stop_callback) {
           std::move(task.stop_callback)(task.stop_token.Poll());
         }
-        // Can't break here because there may be cleanup tasks down the chain we still
-        // need to run.
       }
-      current_executor=old_exe;
+      current_executor=last_executor;
     }
-
-    // if we are not paused, empty of tasks but not finished:
-    // In this case we must be waiting on work from external (e.g. I/O) executors. Run things
-    // in all serialexecutors until we have something in queue
-
-    int executor_pos=0;
-    while (!state_->paused && (state_->task_queue.empty()  && !state_->finished) )
+    if(state_->paused || state_->finished)
     {
-      // we cycle round executors in turn, in case e.g. we are reading multiple
-      // file inputs or something like that 
-      // n.b. we don't do this with an iterator because
-      // these calls may themselves delete or add executors
-      int count=(executor_pos)%all_executors.size();
-      for(auto it=all_executors.begin();it!=all_executors.end();it++)
-      {
-        if (count==0)
-        {
-          // run a single task from this executor if it isn't paused
-          SerialExecutor* exe = *it;
-          if(!(exe->state_->paused || exe->state_->task_queue.empty() || exe->state_->finished))
-          {
-            SerialExecutor* old_exe=current_executor;
-            current_executor=exe;
-            Task task = std::move(exe->state_->task_queue.front());
-            exe->state_->task_queue.pop_front();
-            if (!task.stop_token.IsStopRequested()) {
-              std::move(task.callable)();
-            } else {
-              if (task.stop_callback) {
-                std::move(task.stop_callback)(task.stop_token.Poll());
-              }
-            }
-            current_executor=old_exe;
-          }
-
-          break;
-        }
-        count-=1;
-      }
-      executor_pos+=1;
+      break;
+    }
+    // now wait for anything on other executors (unless we're finished in which case it will drop out of
+    // the outer loop
+    if(!IsReentrant())
+    {
+      // stop runtasks from running our tasks by pausing us during the call
+      // otherwise things could happen out of order
+      bool old_paused=state_->paused;
+      state_->paused=true;
+      RunTasksOnAllExecutors(true);
+      state_->paused=old_paused;
+    }else
+    {
+      RunTasksOnAllExecutors(true);
     }
   }
+
 }
 
 #else //ARROW_DISABLE_THREADING

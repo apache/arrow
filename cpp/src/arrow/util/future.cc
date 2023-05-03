@@ -152,11 +152,11 @@ class ConcreteFutureImpl : public FutureImpl {
     #ifdef ARROW_DISABLE_THREADING
       while(true)
       {
-        arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
         if(IsFutureFinished(state_))
         {
           return;
         }
+        arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
       }
     #else
       std::unique_lock<std::mutex> lock(mutex_);
@@ -171,11 +171,11 @@ class ConcreteFutureImpl : public FutureImpl {
       while(std::chrono::steady_clock::now()-start < fsec)
       {
         // run one task then check time
-        arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
         if(IsFutureFinished(state_))
         {
           return true;
         }
+        arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
       }
       return IsFutureFinished(state_);
 

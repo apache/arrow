@@ -380,7 +380,10 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   }
 
 #ifdef ARROW_DISABLE_THREADING
-    static void RunTasksOnAllExecutors(bool once_only=false); // run loop until everything works okay
+    // run loop until everything is done (or one go round loop if once_only=True)
+    // returns true if any tasks were run in the last go round the loop (i.e. if it
+    // returns false, all executors are waiting)
+    static bool RunTasksOnAllExecutors(bool once_only=false); 
     static SerialExecutor* GetCurrentExecutor();
 
   virtual bool IsCurrentExecutor() {return current_executor==this;}
@@ -416,9 +419,10 @@ protected:
     final_fut.AddCallback([this](const FTSync&) { Finish(); });
     RunLoop();
     return final_fut;
-  }
+  } 
 
 #ifdef ARROW_DISABLE_THREADING
+    virtual bool IsReentrant(){return false;};
   // we have to run tasks from all live executors
   // during RunLoop if we don't have threading
     static std::unordered_set<SerialExecutor*> all_executors;
@@ -489,6 +493,7 @@ class ARROW_EXPORT ThreadPool : public SerialExecutor
   protected:
     static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
     ThreadPool();
+    virtual bool IsReentrant(){return true;}
 
 };
 

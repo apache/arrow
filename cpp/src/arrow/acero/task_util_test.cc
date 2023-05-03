@@ -95,12 +95,16 @@ TaskScheduler::TaskGroupContinuationImpl MakeFinalContinuation(
   };
 }
 
+
 // This test simulates one of the current use patterns of the
 // task scheduler.  There are a number of groups.  The groups
 // are allocated to stages.  All groups in a stage execute
 // concurrently.  When all groups in that stage finish the next
 // stage is started.
 TEST(TaskScheduler, Stress) {
+  #ifdef ARROW_DISABLE_THREADING
+    GTEST_SKIP() << "Test requires threading support";
+  #endif
   constexpr int kNumThreads = 8;
   constexpr int kNumGroups = 8;
   constexpr int kGroupsPerStage = 3;
@@ -176,10 +180,17 @@ TEST(TaskScheduler, Stress) {
 // thread starts a task group while another thread is finishing
 // the last of its tasks.
 TEST(TaskScheduler, StressTwo) {
+
+  #ifdef ARROW_DISABLE_THREADING
+    GTEST_SKIP() << "Test requires threading support";
+  #endif
+
+
   constexpr int kNumThreads = 16;
   constexpr int kNumGroups = 8;
   constexpr int kTasksPerGroup = 1;
   constexpr int kIterations = 1000;
+
 
   ThreadIndexer thread_indexer;
   int num_threads = std::min(static_cast<int>(thread_indexer.Capacity()), kNumThreads);
