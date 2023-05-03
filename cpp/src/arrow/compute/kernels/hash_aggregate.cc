@@ -366,7 +366,7 @@ struct GroupedCountImpl : public GroupedAggregator {
                 });
           } else {
             // Array without validity bitmaps require special handling of nulls.
-            const bool all_valid = !input.MayHaveLogicalNulls();
+            const bool all_valid = !input.MayHaveNulls();
             if (all_valid) {
               for (int64_t i = 0; i < input.length; ++i, ++g_begin) {
                 counts[*g_begin] += 1;
@@ -390,8 +390,8 @@ struct GroupedCountImpl : public GroupedAggregator {
           for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
             counts[*g_begin] += 1;
           }
-        } else if (input.MayHaveLogicalNulls()) {
-          if (input.HasValidityBitmap()) {
+        } else if (input.MayHaveNulls()) {
+          if (input.buffers[0].data != NULLPTR) {
             auto end = input.offset + input.length;
             for (int64_t i = input.offset; i < end; ++i, ++g_begin) {
               counts[*g_begin] += !bit_util::GetBit(input.buffers[0].data, i);
