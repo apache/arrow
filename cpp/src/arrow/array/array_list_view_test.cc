@@ -19,6 +19,7 @@
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/util.h"
+#include "arrow/pretty_print.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"

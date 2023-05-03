@@ -249,7 +249,8 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
-  enable_if_list_like<T, Status> WriteDataValues(const ArrayType& array) {
+  enable_if_t<is_list_like_type<T>::value || is_list_view_type<T>::value, Status>
+  WriteDataValues(const ArrayType& array) {
     const auto values = array.values();
     const auto child_options = ChildOptions();
     ArrayPrinter values_printer(child_options, sink_);
@@ -264,14 +265,6 @@ class ArrayPrinter : public PrettyPrinter {
         },
         /*indent_non_null_values=*/false,
         /*is_container=*/true);
-  }
-
-  Status WriteDataValues(const ListViewArray& array) {
-    return Status::NotImplemented("writing data values of a list-view array");
-  }
-
-  Status WriteDataValues(const LargeListViewArray& array) {
-    return Status::NotImplemented("writing data values of a large list-view array");
   }
 
   Status WriteDataValues(const MapArray& array) {
