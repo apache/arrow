@@ -452,7 +452,6 @@ s3_log_levels <- c("off", "fatal", "error", "warn", "info", "debug", "trace")
 #' @param log_level string for log level to set. See details.
 #' @param num_event_loop_threads How many threads to use for the AWS SDK's I/O
 #'   event loop. Defaults to 1.
-#' 
 #' @details The parameter `log_level` must be one of: off, fatal, error, warn,
 #'   info, debug, or trace and is case insensitive.
 #'
@@ -472,7 +471,7 @@ s3_init <- function(log_level, num_event_loop_threads = 1) {
     stop(
       "Argument 'log_level' must be one of: ",
       paste(
-        paste(s3_log_levels[seq_len(length(s3_log_levels)-1)], collapse = ", "),
+        paste(s3_log_levels[seq_len(length(s3_log_levels) - 1)], collapse = ", "),
         s3_log_levels[length(s3_log_levels)],
         sep = ", or "),
       paste0(" but was '", log_level_normalized, "'."),
@@ -484,7 +483,7 @@ s3_init <- function(log_level, num_event_loop_threads = 1) {
   if (num_event_loop_threads < 1) {
     stop(
       "Argument 'num_event_loop_threads' should be a positive integer ",
-      "greater than or equal to 1 but was '", num_event_loop_threads, "'.", 
+      "greater than or equal to 1 but was '", num_event_loop_threads, "'.",
       call. = FALSE
     )
 
