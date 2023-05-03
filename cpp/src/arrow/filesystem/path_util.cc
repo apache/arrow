@@ -134,6 +134,12 @@ std::string_view RemoveTrailingSlash(std::string_view key, bool preserve_root) {
     // If the user gives us "/" then don't return ""
     return key;
   }
+#ifdef _WIN32
+  if (preserve_root && key.size() == 3 && key[1] == ':' && key[0] != '/') {
+    // If the user gives us C:/ then don't return C:
+    return key;
+  }
+#endif
   while (!key.empty() && key.back() == kSep) {
     key.remove_suffix(1);
   }
