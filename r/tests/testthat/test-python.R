@@ -108,7 +108,7 @@ test_that("RecordBatch with metadata roundtrip", {
   expect_identical(rbatch$metadata, batch$metadata)
   expect_equal(rbatch$a, batch$a)
   expect_equal(rbatch[c("b", "c", "d")], batch[c("b", "c", "d")])
-  expect_identical(as.data.frame(rbatch), example_with_metadata)
+  expect_equal_data_frame(rbatch, example_with_metadata)
 })
 
 test_that("Table with metadata roundtrip", {
@@ -123,7 +123,7 @@ test_that("Table with metadata roundtrip", {
   expect_identical(rtab$metadata, tab$metadata)
   expect_equal(rtab$a, tab$a)
   expect_equal(rtab[c("b", "c", "d")], tab[c("b", "c", "d")])
-  expect_identical(as.data.frame(rtab), example_with_metadata)
+  expect_equal_data_frame(rtab, example_with_metadata)
 })
 
 test_that("DataType roundtrip", {
@@ -160,8 +160,8 @@ test_that("RecordBatchReader to python", {
   expect_s3_class(pytab, "pyarrow.lib.Table")
   back_to_r <- reticulate::py_to_r(pytab)
   expect_r6_class(back_to_r, "Table")
-  expect_identical(
-    as.data.frame(back_to_r),
+  expect_equal_data_frame(
+    back_to_r,
     example_data %>%
       select(int, lgl) %>%
       filter(int > 6)
@@ -178,7 +178,7 @@ test_that("RecordBatchReader from python", {
   back_to_r <- reticulate::py_to_r(pyreader)
   rt_table <- back_to_r$read_table()
   expect_r6_class(rt_table, "Table")
-  expect_identical(as.data.frame(rt_table), example_data)
+  expect_equal_data_frame(rt_table, example_data)
 
   scan <- Scanner$create(tab)
   reader <- scan$ToRecordBatchReader()
