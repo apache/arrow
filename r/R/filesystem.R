@@ -469,7 +469,7 @@ s3_init <- function(log_level) {
     stop(
       "Argument 'log_level' must be one of: ",
       paste(
-        paste(s3_log_levels[1:(length(s3_log_levels)-1)], collapse = ", "),
+        paste(s3_log_levels[seq_len(length(s3_log_levels)-1)], collapse = ", "),
         s3_log_levels[length(s3_log_levels)],
         sep = ", or "),
       paste0(" but was '", log_level_normalized, "'."),
