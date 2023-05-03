@@ -184,7 +184,7 @@ class TestLocalFS : public LocalFSTestMixin {
     }
     std::string path;
     ASSERT_OK_AND_ASSIGN(fs_, fs_from_uri(uri, &path));
-    ASSERT_EQ(path, local_path_);
+    ASSERT_EQ(path, std::string(RemoveTrailingSlash(local_path_)));
 
     // Test that the right location on disk is accessed
     CreateFile(fs_.get(), local_path_ + "abc", "some data");
@@ -352,7 +352,7 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriNoScheme) {
   this->TestLocalUriOrPath(this->path_formatter_("/foo/bar"), "/foo/bar");
 
 #ifdef _WIN32
-  this->TestLocalUriOrPath(this->path_formatter_("C:/foo/bar/"), "C:/foo/bar/");
+  this->TestLocalUriOrPath(this->path_formatter_("C:/foo/bar/"), "C:/foo/bar");
 #endif
 
   // Relative paths

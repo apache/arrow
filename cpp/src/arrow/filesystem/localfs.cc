@@ -238,13 +238,13 @@ Result<LocalFileSystemOptions> LocalFileSystemOptions::FromUri(
 #ifdef _WIN32
     std::stringstream ss;
     ss << "//" << host << "/" << internal::RemoveLeadingSlash(uri.path());
-    *out_path = ss.str();
+    *out_path = std::string(internal::RemoveTrailingSlash(ss.str()));
 #else
     return Status::Invalid("Unsupported hostname in non-Windows local URI: '",
                            uri.ToString(), "'");
 #endif
   } else {
-    *out_path = uri.path();
+    *out_path = std::string(internal::RemoveTrailingSlash(uri.path()));
   }
 
   // TODO handle use_mmap option

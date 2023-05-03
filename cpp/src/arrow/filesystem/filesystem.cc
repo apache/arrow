@@ -759,7 +759,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
   if (internal::DetectAbsolutePath(uri_string)) {
     // Normalize path separators
     if (out_path != nullptr) {
-      *out_path = ToSlashes(uri_string);
+      *out_path = std::string(RemoveTrailingSlash(ToSlashes(uri_string)));
     }
     return std::make_shared<LocalFileSystem>();
   }
