@@ -857,9 +857,10 @@ class ColumnReaderImplBase {
   // first page with this encoding.
   void InitializeDataDecoder(const DataPage& page, int64_t levels_byte_size) {
     const uint8_t* buffer = page.data() + levels_byte_size;
-    // PageReader may reuse the underlying buffer, so data_size
-    // should use `page.uncompressed_size() - levels_byte_size` rather
-    // than `page.size() - level_byte_size`.
+    // PageReader may reuse the underlying buffer, and page.size()
+    // might be larger than the exact data_size.
+    // So here use `page.uncompressed_size() - levels_byte_size`
+    // rather than `page.size() - level_byte_size`.
     const int64_t data_size = page.uncompressed_size() - levels_byte_size;
 
     if (data_size < 0) {
