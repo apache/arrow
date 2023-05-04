@@ -1366,12 +1366,32 @@ func (ps *ParquetIOTestSuite) TestNestedEmptyList() {
 	child1Bldr := rootBldr.FieldBuilder(0).(*array.ListBuilder)
 	child1ElBldr := child1Bldr.ValueBuilder().(*array.StructBuilder)
 	child2Bldr := child1ElBldr.FieldBuilder(0).(*array.ListBuilder)
+	leafBldr := child2Bldr.ValueBuilder().(*array.StructBuilder)
+	nameBldr := leafBldr.FieldBuilder(0).(*array.StringBuilder)
 
-	bldr.Append(true)
-	rootBldr.Append(true)
-	child1Bldr.Append(true)
-	child1ElBldr.Append(true)
-	child2Bldr.AppendEmptyValue()
+	// target structure 8 times
+	// {
+	//   "root": {
+	//     "child1": [
+	//       { "child2": [{ "name": "foo" }] },
+	//       { "child2": [] }
+	//     ]
+	//   }
+	// }
+
+	for i := 0; i < 8; i++ {
+		bldr.Append(true)
+		rootBldr.Append(true)
+		child1Bldr.Append(true)
+
+		child1ElBldr.Append(true)
+		child2Bldr.Append(true)
+		leafBldr.Append(true)
+		nameBldr.Append("foo")
+
+		child1ElBldr.Append(true)
+		child2Bldr.Append(true)
+	}
 
 	arr := bldr.NewArray()
 	defer arr.Release()
