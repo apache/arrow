@@ -173,7 +173,7 @@ func TestFixedSizeListArrayStringer(t *testing.T) {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
 	assert.Equal(t, "[0,1,2]", arr.ValueStr(0))
-	assert.Equal(t, "(null)", arr.ValueStr(1))
+	assert.Equal(t, array.NullValueStr, arr.ValueStr(1))
 }
 
 func TestFixedSizeListArraySlice(t *testing.T) {

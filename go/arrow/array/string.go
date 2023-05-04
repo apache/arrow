@@ -55,7 +55,7 @@ func (a *String) Value(i int) string {
 }
 func (a *String) ValueStr(i int) string {
 	if a.IsNull(i) {
-		return "(null)"
+		return NullValueStr
 	} else {
 		return a.Value(i)
 	}
@@ -100,7 +100,7 @@ func (a *String) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.Value(i))
 		}
@@ -236,7 +236,7 @@ func (a *LargeString) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.Value(i))
 		}

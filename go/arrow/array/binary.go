@@ -112,7 +112,7 @@ func (a *Binary) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.ValueString(i))
 		}
@@ -251,7 +251,7 @@ func (a *LargeBinary) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(&o, "%q", a.ValueString(i))
 		}

@@ -288,5 +288,5 @@ func TestBooleanStringer(t *testing.T) {
 	}
 	assert.Equal(t, "true", arr.ValueStr(0))
 	assert.Equal(t, "false", arr.ValueStr(1))
-	assert.Equal(t, "(null)", arr.ValueStr(2))
+	assert.Equal(t, array.NullValueStr, arr.ValueStr(2))
 }

@@ -250,7 +250,7 @@ type Parametric1Array struct {
 func (a Parametric1Array) ValueStr(i int) string {
 	arr := a.Storage().(*array.Int32)
 	if a.IsNull(i) {
-		return "(null)"
+		return array.NullValueStr
 	}
 	return fmt.Sprintf("%d", arr.Value(i))
 }
@@ -265,7 +265,7 @@ type Parametric2Array struct {
 func (a Parametric2Array) ValueStr(i int) string {
 	arr := a.Storage().(*array.Int32)
 	if a.IsNull(i) {
-		return "(null)"
+		return array.NullValueStr
 	}
 	return fmt.Sprintf("%d", arr.Value(i))
 }
@@ -383,7 +383,7 @@ type ExtStructArray struct {
 func (a ExtStructArray) ValueStr(i int) string {
 	arr := a.Storage().(*array.Struct)
 	if a.IsNull(i) {
-		return "(null)"
+		return array.NullValueStr
 	}
 	b, err := arr.MarshalJSON()
 	if err != nil {
@@ -440,7 +440,7 @@ type DictExtensionArray struct {
 func (a DictExtensionArray) ValueStr(i int) string {
 	arr := a.Storage().(*array.Dictionary)
 	if a.IsNull(i) {
-		return "(null)"
+		return array.NullValueStr
 	}
 	b, err := arr.MarshalJSON()
 	if err != nil {
@@ -490,7 +490,7 @@ type SmallintArray struct {
 
 func (a SmallintArray) ValueStr(i int) string {
 	if a.IsNull(i) {
-		return "(null)"
+		return array.NullValueStr
 	}
 	arr := a.Storage().(*array.Int16)
 	return fmt.Sprintf("%d", arr.Value(i))

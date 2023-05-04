@@ -388,7 +388,7 @@ func TestNestedExtensionListsWithSomeNulls(t *testing.T) {
 	nestedBldr.AppendNull()
 	bldr.Append(true)
 	nestedBldr.Append(true)
-	vb.AppendValues([]uuid.UUID{uuid4, uuid5}, nil)
+	vb.AppendValues([]uuid.UUID{uuid4, uuid5}, []bool{true, true})
 
 	arr := bldr.NewListArray()
 	defer arr.Release()

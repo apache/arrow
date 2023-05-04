@@ -69,7 +69,7 @@ func (a *Null) String() string {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		o.WriteString("(null)")
+		o.WriteString(NullValueStr)
 	}
 	o.WriteString("]")
 	return o.String()
