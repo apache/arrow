@@ -32,7 +32,7 @@ func TestBooleanBuilder_AppendValues(t *testing.T) {
 	b := array.NewBooleanBuilder(mem)
 
 	exp := tools.Bools(1, 1, 0, 1, 1, 0)
-	got := make([]bool, len(exp) + 2)
+	got := make([]bool, len(exp)+2)
 
 	b.AppendValues(exp, nil)
 	assert.NoError(t, b.AppendValueFromString("true"))
@@ -44,7 +44,7 @@ func TestBooleanBuilder_AppendValues(t *testing.T) {
 		got[i] = a.Value(i)
 	}
 	assert.Equal(t, exp, got)
-	
+
 	a.Release()
 }
 
@@ -91,4 +91,38 @@ func TestBooleanBuilder_Empty(t *testing.T) {
 	a = ab.NewBooleanArray()
 	assert.Equal(t, want, boolValues(a))
 	a.Release()
+}
+
+func TestBooleanBuilder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []bool{true, false, true, true, true, true, true, false, true, false}
+	valid := []bool{true, false, false, true, false, true, true, false, true, false}
+
+	b := array.NewBooleanBuilder(mem)
+	defer b.Release()
+
+	b.AppendValues(values, valid)
+
+	arr := b.NewArray().(*array.Boolean)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewBooleanBuilder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Boolean)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
 }

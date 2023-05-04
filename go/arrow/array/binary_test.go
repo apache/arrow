@@ -20,12 +20,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBinary(t *testing.T) {
@@ -694,16 +692,16 @@ func TestBinary_ValueStr(t *testing.T) {
 	defer b1.Release()
 
 	for i := 0; i < arr.Len(); i++ {
-		require.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
 	}
 
 	arr1 := b1.NewArray().(*Binary)
 	defer arr1.Release()
 
-	require.Equal(t, arr.Len(), arr1.Len())
+	assert.Equal(t, arr.Len(), arr1.Len())
 	for i := 0; i < arr.Len(); i++ {
-		require.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		require.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
 	}
 }
 
@@ -728,15 +726,15 @@ func TestLargeBinary_ValueStr(t *testing.T) {
 	defer b1.Release()
 
 	for i := 0; i < arr.Len(); i++ {
-		require.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
 	}
 
 	arr1 := b1.NewArray().(*LargeBinary)
 	defer arr1.Release()
 
-	require.Equal(t, arr.Len(), arr1.Len())
+	assert.Equal(t, arr.Len(), arr1.Len())
 	for i := 0; i < arr.Len(); i++ {
-		require.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		require.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
 	}
 }

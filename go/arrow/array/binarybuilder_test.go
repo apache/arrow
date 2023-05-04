@@ -24,7 +24,6 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBinaryBuilder(t *testing.T) {
@@ -176,16 +175,16 @@ func TestBinaryBuilder_AppendValueFromString(t *testing.T) {
 	defer b1.Release()
 
 	for i := 0; i < arr.Len(); i++ {
-		require.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
 	}
 
 	arr1 := b1.NewArray().(*array.Binary)
 	defer arr1.Release()
 
-	require.Equal(t, arr.Len(), arr1.Len())
+	assert.Equal(t, arr.Len(), arr1.Len())
 	for i := 0; i < arr.Len(); i++ {
-		require.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		require.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
 	}
 }
 
@@ -214,15 +213,15 @@ func TestLargeBinaryBuilder_AppendValueFromString(t *testing.T) {
 	defer b1.Release()
 
 	for i := 0; i < arr.Len(); i++ {
-		require.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
 	}
 
 	arr1 := b1.NewArray().(*array.LargeBinary)
 	defer arr1.Release()
 
-	require.Equal(t, arr.Len(), arr1.Len())
+	assert.Equal(t, arr.Len(), arr1.Len())
 	for i := 0; i < arr.Len(); i++ {
-		require.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		require.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
 	}
 }
