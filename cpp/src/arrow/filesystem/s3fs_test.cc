@@ -66,12 +66,14 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 namespace fs {
 
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::PlatformFilename;
+using ::arrow::internal::ToChars;
 using ::arrow::internal::UriEscape;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
@@ -778,6 +780,53 @@ TEST_F(TestS3FS, GetFileInfoGenerator) {
   AssertInfoAllBucketsRecursive(infos);
 
   // Non-root dir case is tested by generic tests
+}
+
+TEST_F(TestS3FS, GetFileInfoGeneratorStress) {
+  // This test is slow because it needs to create a bunch of seed files.  However, it is
+  // the only test that stresses listing and deleting when there are more than 1000 files
+  // and paging is required.
+  constexpr int32_t kNumDirs = 4;
+  constexpr int32_t kNumFilesPerDir = 512;
+
+  ASSERT_OK(fs_->CreateDir("stress"));
+  for (int32_t i = 0; i < kNumDirs; i++) {
+    ASSERT_OK(fs_->CreateDir("stress/" + ToChars(i)));
+    std::vector<Future<>> tasks;
+    for (int32_t j = 0; j < kNumFilesPerDir; j++) {
+      // Create the files in parallel in hopes of speeding up this process as much as
+      // possible
+      ASSERT_OK_AND_ASSIGN(
+          Future<> task,
+          ::arrow::internal::GetCpuThreadPool()->Submit([fs = fs_, i, j]() -> Status {
+            ARROW_ASSIGN_OR_RAISE(
+                std::shared_ptr<io::OutputStream> out_str,
+                fs->OpenOutputStream("stress/" + ToChars(i) + "/" + ToChars(j)));
+            ARROW_RETURN_NOT_OK(out_str->Write(ToChars(j)));
+            return out_str->Close();
+          }));
+      tasks.push_back(std::move(task));
+    }
+    ASSERT_FINISHES_OK(AllFinished(tasks));
+  }
+
+  FileSelector select;
+  FileInfoVector infos;
+  select.base_dir = "stress";
+  select.recursive = true;
+
+  // 32 is pretty fast, listing is much faster than the create step above
+  constexpr int32_t kNumTasks = 32;
+  for (int i = 0; i < kNumTasks; i++) {
+    CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+    // One info for each directory and one info for each file
+    ASSERT_EQ(infos.size(), kNumDirs + kNumDirs * kNumFilesPerDir);
+  }
+
+  ASSERT_OK(fs_->DeleteDirContents("stress"));
+
+  CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+  ASSERT_EQ(infos.size(), 0);
 }
 
 TEST_F(TestS3FS, CreateDir) {
