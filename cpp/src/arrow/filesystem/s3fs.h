@@ -247,6 +247,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   std::string region() const;
 
   bool Equals(const FileSystem& other) const override;
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 
   /// \cond FALSE
   using FileSystem::GetFileInfo;
