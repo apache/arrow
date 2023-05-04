@@ -56,6 +56,7 @@ class NumericArray : public libmexclass::proxy::Proxy {
 
             // Register Proxy methods.
             REGISTER_METHOD(NumericArray<CType>, ToString);
+            REGISTER_METHOD(NumericArray<CType>, ToMatlab);
         }
 
     private:
@@ -66,6 +67,21 @@ class NumericArray : public libmexclass::proxy::Proxy {
             // TODO: handle non-ascii characters
             auto str_mda = factory.createScalar(array->ToString());
             context.outputs[0] = str_mda;
+        }
+    
+        void ToMatlab(libmexclass::proxy::method::Context& context) {
+            using ArrowArrayType = typename arrow::CTypeTraits<CType>::ArrayType;
+
+            const size_t num_elements = static_cast<size_t>(array->length());
+            const auto numeric_array = std::static_pointer_cast<ArrowArrayType>(array);
+            const CType* const data_begin = numeric_array->raw_values();
+            const CType* const data_end = data_begin + num_elements;
+
+            ::matlab::data::ArrayFactory factory;
+
+            // Constructs a TypedArray from the raw values. Makes a copy.
+            ::matlab::data::TypedArray<CType> result = factory.createArray({num_elements, 1}, data_begin, data_end);
+            context.outputs[0] = result;
         }
 
         // "Raw" arrow::Array

@@ -25,19 +25,36 @@ classdef Float64Array < matlab.mixin.CustomDisplay
     end
 
     methods
-        function obj = Float64Array(matlabArray)
-            obj.MatlabArray = matlabArray;
-            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {obj.MatlabArray});
+        function obj = Float64Array(data, opts)
+            arguments
+                data
+                opts.ID = false
+            end
+
+            if opts.ID
+                validateattributes(data, "uint64", "scalar");
+                obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ID", data);
+            else
+                validateattributes(data, "double", ["vector", "nonsparse", "real"]);
+                obj.MatlabArray = data;
+                obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {obj.MatlabArray});
+            end
         end
 
-        function str = ToString(obj)
-            str = obj.Proxy.ToString();
+        function data = double(obj)
+            data = obj.Proxy.ToMatlab();
         end
     end
 
     methods (Access=protected)
         function displayScalarObject(obj)
             disp(obj.ToString());
+        end
+    end
+
+    methods (Access = private)
+        function str = ToString(obj)
+            str = obj.Proxy.ToString();
         end
     end
 end
