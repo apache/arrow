@@ -182,6 +182,7 @@ class ArrayCompareSorter<DictionaryType> {
                                          ExecContext* ctx) {
     const auto& dict_array = checked_cast<const DictionaryArray&>(array);
     // TODO: These methods should probably return a const&? They seem capable.
+    // https://github.com/apache/arrow/issues/35437
     auto dict_values = dict_array.dictionary();
     auto dict_indices = dict_array.indices();
 
