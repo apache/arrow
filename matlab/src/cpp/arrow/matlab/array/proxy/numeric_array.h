@@ -23,6 +23,8 @@
 
 #include "libmexclass/proxy/Proxy.h"
 
+#include <codecvt>
+
 namespace arrow::matlab::array::proxy {
 
 template<typename CType>
@@ -53,13 +55,17 @@ class NumericArray : public libmexclass::proxy::Proxy {
             array = array_wrapper;
 
             // Register Proxy methods.
-            REGISTER_METHOD(NumericArray<CType>, Print);
+            REGISTER_METHOD(NumericArray<CType>, ToString);
         }
 
     private:
 
-        void Print(libmexclass::proxy::method::Context& context) {
-            std::cout << array->ToString() << std::endl;
+        void ToString(libmexclass::proxy::method::Context& context) {
+            ::matlab::data::ArrayFactory factory;
+
+            // TODO: handle non-ascii characters
+            auto str_mda = factory.createScalar(array->ToString());
+            context.outputs[0] = str_mda;
         }
 
         // "Raw" arrow::Array
