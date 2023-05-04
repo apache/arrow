@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
@@ -669,4 +670,73 @@ func TestBinaryInvalidOffsets(t *testing.T) {
 		buffers := makeBuffers(nil, []int32{0, 3, 10, 15}, "oooabcdef")
 		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 1, buffers, nil, 0, 2))
 	}, "data has offset and value offset is overflowing")
+}
+
+func TestBinary_ValueStr(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valid := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valid)
+
+	arr := b.NewArray().(*Binary)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+
+	b1 := NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		require.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*Binary)
+	defer arr1.Release()
+
+	require.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		require.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		require.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestLargeBinary_ValueStr(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valid := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valid)
+
+	arr := b.NewArray().(*LargeBinary)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		require.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*LargeBinary)
+	defer arr1.Release()
+
+	require.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		require.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		require.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
 }

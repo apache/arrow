@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBinaryBuilder(t *testing.T) {
@@ -38,7 +39,6 @@ func TestBinaryBuilder(t *testing.T) {
 			ab.AppendNull()
 		} else {
 			ab.Append(v)
-
 		}
 	}
 
@@ -149,4 +149,80 @@ func TestBinaryBuilderLarge_ReserveData(t *testing.T) {
 	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewBinaryArray did not reset state")
 	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewBinaryArray did not reset state")
 	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewBinaryArray did not reset state")
+}
+
+func TestBinaryBuilder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+	defer ab.Release()
+
+	exp := [][]byte{[]byte("foo"), []byte("bar"), nil, []byte("sydney"), []byte("cameron")}
+	for _, v := range exp {
+		if v == nil {
+			ab.AppendNull()
+		} else {
+			ab.Append(v)
+		}
+	}
+
+	arr := ab.NewArray().(*array.Binary)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		require.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Binary)
+	defer arr1.Release()
+
+	require.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		require.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		require.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestLargeBinaryBuilder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer ab.Release()
+
+	exp := [][]byte{[]byte("foo"), []byte("bar"), nil, []byte("sydney"), []byte("cameron")}
+	for _, v := range exp {
+		if v == nil {
+			ab.AppendNull()
+		} else {
+			ab.Append(v)
+		}
+	}
+
+	arr := ab.NewArray().(*array.LargeBinary)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		require.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.LargeBinary)
+	defer arr1.Release()
+
+	require.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		require.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		require.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
 }

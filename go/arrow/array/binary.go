@@ -57,7 +57,7 @@ func (a *Binary) Value(i int) []byte {
 	return a.valueBytes[a.valueOffsets[idx]:a.valueOffsets[idx+1]]
 }
 
-// ValueString returns the string at index i
+// ValueStr returns a copy of the base64-encoded string value or NullValueStr
 func (a *Binary) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
@@ -65,7 +65,7 @@ func (a *Binary) ValueStr(i int) string {
 	return base64.StdEncoding.EncodeToString(a.Value(i))
 }
 
-// ValueStr returns the string at index i without performing additional allocations.
+// ValueString returns the string at index i without performing additional allocations.
 // The string is only valid for the lifetime of the Binary array.
 func (a *Binary) ValueString(i int) string {
 	b := a.Value(i)
