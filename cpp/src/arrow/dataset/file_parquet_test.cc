@@ -42,8 +42,6 @@
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 
-#include "test_util_internal.h"
-
 namespace arrow {
 
 using internal::checked_pointer_cast;
@@ -224,7 +222,9 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
                     *actual_schema);
 }
 
-TEST_F(TestParquetFileFormat, WriteRecordBatchReaderEncoding) {
+#ifdef ARROW_WITH_SNAPPY
+
+TEST_F(TestParquetFileFormat, WriteRecordBatchReaderByteStreamSplit) {
   auto float_schema = schema({field("td", float32())});
   auto options =
       checked_pointer_cast<ParquetFileWriteOptions>(format_->DefaultWriteOptions());
@@ -252,8 +252,15 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderEncoding) {
   EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(FileSource{written}));
   EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
   auto iter = MakeGeneratorIterator(batch_gen);
-  [[maybe_unused]] auto vec = iter.ToVector().ValueOrDie();
+  EXPECT_OK_AND_ASSIGN(auto vec, iter.ToVector());
+  int64_t read_row_count = 0;
+  for (const auto& record_batch : vec) {
+    read_row_count += record_batch->num_rows();
+  }
+  EXPECT_EQ(300000 * 2, read_row_count);
 }
+
+#endif
 
 TEST_F(TestParquetFileFormat, CountRows) { TestCountRows(); }
 
