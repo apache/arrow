@@ -37,5 +37,32 @@ classdef tFloat64Array < matlab.unittest.TestCase
             className = string(class(A));
             testCase.verifyEqual(className, "arrow.array.Float64Array");
         end
+
+        function Double(testCase)
+            % Create a Float64Array from a scalar double
+            A1 = arrow.array.Float64Array(100);
+            data = double(A1);
+            testCase.verifyEqual(data, 100);
+
+            % Create a Float64Array from a double vector 
+            A2 = arrow.array.Float64Array([1 2 3]);
+            data = double(A2);
+            testCase.verifyEqual(data, [1 2 3]');
+        
+            % Create a Float64Array from an empty double vector
+            A3 = arrow.array.Float64Array([]);
+            data = double(A3);
+            testCase.verifyEqual(data, double.empty(0, 1));
+        end
+
+        function ErrorIfComplex(testCase)
+            fcn = @() arrow.array.Float64Array([10 + 1i, 4]);
+            testCase.verifyError(fcn, "MATLAB:expectedReal");
+        end
+
+        function ErrorIfSparse(testCase)
+            fcn = @() arrow.array.Float64Array(sparse(ones([10 1])));
+            testCase.verifyError(fcn, "MATLAB:expectedNonsparse");
+        end
     end
 end

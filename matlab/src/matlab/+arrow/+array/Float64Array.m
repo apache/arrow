@@ -35,7 +35,8 @@ classdef Float64Array < matlab.mixin.CustomDisplay
                 validateattributes(data, "uint64", "scalar");
                 obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ID", data);
             else
-                validateattributes(data, "double", ["vector", "nonsparse", "real"]);
+                validateattributes(data, "double", ["2d", "nonsparse", "real"]);
+                if (~isempty(data)), validateattributes(data, "double", "vector"); end
                 obj.MatlabArray = data;
                 obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {obj.MatlabArray});
             end
