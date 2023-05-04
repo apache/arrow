@@ -109,7 +109,7 @@ int64_t SumBufferSizes(const BufferVector& buffers) {
 // Write offsets in src into dst, adjusting them such that first_offset
 // will be the first offset written.
 template <typename Offset>
-Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offset* dst,
+Status PutOffsets(const Buffer& src, Offset first_offset, Offset* dst,
                   Range* values_range);
 
 // Concatenate buffers holding offsets into a single buffer of offsets,
@@ -130,7 +130,7 @@ Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
   for (size_t i = 0; i < buffers.size(); ++i) {
     // the first offset from buffers[i] will be adjusted to values_length
     // (the cumulative length of values spanned by offsets in previous buffers)
-    RETURN_NOT_OK(PutOffsets<Offset>(buffers[i], values_length,
+    RETURN_NOT_OK(PutOffsets<Offset>(*buffers[i], values_length,
                                      out_data + elements_length, &(*values_ranges)[i]));
     elements_length += buffers[i]->size() / sizeof(Offset);
     values_length += static_cast<Offset>((*values_ranges)[i].length);
@@ -142,9 +142,9 @@ Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
 }
 
 template <typename Offset>
-Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offset* dst,
+Status PutOffsets(const Buffer& src, Offset first_offset, Offset* dst,
                   Range* values_range) {
-  if (src->size() == 0) {
+  if (src.size() == 0) {
     // It's allowed to have an empty offsets buffer for a 0-length array
     // (see Array::Validate)
     values_range->offset = 0;
@@ -153,8 +153,8 @@ Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offse
   }
 
   // Get the range of offsets to transfer from src
-  auto src_begin = reinterpret_cast<const Offset*>(src->data());
-  auto src_end = reinterpret_cast<const Offset*>(src->data() + src->size());
+  auto src_begin = src.data_as<Offset>();
+  auto src_end = reinterpret_cast<const Offset*>(src.data() + src.size());
 
   // Compute the range of values which is spanned by this range of offsets
   values_range->offset = src_begin[0];
