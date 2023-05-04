@@ -98,6 +98,14 @@ Status ConcatenateBitmaps(const std::vector<Bitmap>& bitmaps, MemoryPool* pool,
   return Status::OK();
 }
 
+int64_t SumBufferSizes(const BufferVector& buffers) {
+  int64_t size = 0;
+  for (const auto& buffer : buffers) {
+    size += buffer->size();
+  }
+  return size;
+}
+
 // Write offsets in src into dst, adjusting them such that first_offset
 // will be the first offset written.
 template <typename Offset>
@@ -113,26 +121,23 @@ Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
   values_ranges->resize(buffers.size());
 
   // allocate output buffer
-  int64_t out_length = 0;
-  for (const auto& buffer : buffers) {
-    out_length += buffer->size() / sizeof(Offset);
-  }
-  ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer((out_length + 1) * sizeof(Offset), pool));
-  auto dst = reinterpret_cast<Offset*>((*out)->mutable_data());
+  const int64_t out_size = SumBufferSizes(buffers);
+  ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(sizeof(Offset) + out_size, pool));
+  auto* out_data = reinterpret_cast<Offset*>((*out)->mutable_data());
 
   int64_t elements_length = 0;
   Offset values_length = 0;
   for (size_t i = 0; i < buffers.size(); ++i) {
     // the first offset from buffers[i] will be adjusted to values_length
     // (the cumulative length of values spanned by offsets in previous buffers)
-    RETURN_NOT_OK(PutOffsets<Offset>(buffers[i], values_length, &dst[elements_length],
-                                     &(*values_ranges)[i]));
+    RETURN_NOT_OK(PutOffsets<Offset>(buffers[i], values_length,
+                                     out_data + elements_length, &(*values_ranges)[i]));
     elements_length += buffers[i]->size() / sizeof(Offset);
     values_length += static_cast<Offset>((*values_ranges)[i].length);
   }
 
-  // the final element in dst is the length of all values spanned by the offsets
-  dst[out_length] = values_length;
+  // the final element in out_data is the length of all values spanned by the offsets
+  out_data[out_size / sizeof(Offset)] = values_length;
   return Status::OK();
 }
 
