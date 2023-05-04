@@ -23,7 +23,7 @@
 For a high-level overview of the release process see the
 [Apache Arrow Release Management Guide](https://arrow.apache.org/docs/developers/release.html#post-release-tasks).
 
-## Before the release candidate is cut:
+## Before the release candidate is cut
 
 - [ ] [Create a GitHub issue](https://github.com/apache/arrow/issues/new/) entitled `[R] CRAN packaging checklist for version X.X.X` and copy this checklist to the issue.
 - [ ] Evaluate the status of any failing [nightly tests and nightly packaging builds](http://crossbow.voltrondata.com). These checks replicate most of the checks that CRAN runs, so we need them all to be passing or to understand that the failures may (though won't necessarily) result in a rejection from CRAN.
@@ -34,7 +34,7 @@ For a high-level overview of the release process see the
 - [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later).
 - [ ] For major releases, prepare tweet thread highlighting new features.
 
-## Wait for the release candidate to be cut:
+## After release candidate has been cut
 - [ ] Create a CRAN-release branch from the release candidate commit
 
 ## Optional: PRs for autobrew and rtools (release candidate)
@@ -75,7 +75,7 @@ use the release candidate as the source.
   [manual process](https://gist.github.com/paleolimbot/630fdab1e204d70fea97633d8fa15ccb);
   however, in the future it may be a crossbow nightly job.
 
-## Wait for the official release...
+## Release vote
 - [ ] Release vote passed!
 
 ## PRs for autobrew and rtools (official release)
