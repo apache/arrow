@@ -8,5 +8,5 @@ numpydoc
 pydata-sphinx-theme==0.8
 sphinx-design
 sphinx-copybutton
-sphinx>=4.2
+sphinx>=4.2,<6
 pandas
