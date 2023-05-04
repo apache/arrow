@@ -1,4 +1,4 @@
-classdef Float64Array < matlab.mixin.CustomDisplay
+classdef UInt64Array < matlab.mixin.CustomDisplay
     % arrow.array.Float64Array
 
     % Licensed to the Apache Software Foundation (ASF) under one or more
@@ -25,17 +25,13 @@ classdef Float64Array < matlab.mixin.CustomDisplay
     end
 
     methods
-        function obj = Float64Array(matlabArray)
+        function obj = UInt64Array(matlabArray)
             obj.MatlabArray = matlabArray;
-            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {obj.MatlabArray});
+            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.UInt64Array", "ConstructorArguments", {obj.MatlabArray});
         end
 
         function Print(obj)
             obj.Proxy.Print();
-        end
-
-        function array = double(obj)
-            
         end
     end
 
