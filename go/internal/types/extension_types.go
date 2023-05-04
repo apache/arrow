@@ -61,9 +61,13 @@ func (b *UUIDBuilder) AppendValueFromString(s string) error {
 }
 
 func (b *UUIDBuilder) AppendValues(v []uuid.UUID, valid []bool) {
+	if len(v) != len(valid) && len(valid) != 0 {
+		panic("len(v) != len(valid) && len(valid) != 0")
+	}
+
 	data := make([][]byte, len(v))
 	for i := range v {
-		if !valid[i] {
+		if len(valid) > 0 && !valid[i] {
 			continue
 		}
 		data[i] = v[i][:]
