@@ -42,6 +42,8 @@
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 
+#include "test_util_internal.h"
+
 namespace arrow {
 
 using internal::checked_pointer_cast;
@@ -220,6 +222,37 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
   EXPECT_OK_AND_ASSIGN(auto actual_schema, fragment->ReadPhysicalSchema());
   AssertSchemaEqual(Schema({field("ts", timestamp(coerce_timestamps_to))}),
                     *actual_schema);
+}
+
+TEST_F(TestParquetFileFormat, WriteRecordBatchReaderEncoding) {
+  auto float_schema = schema({field("td", float32())});
+  auto options =
+      checked_pointer_cast<ParquetFileWriteOptions>(format_->DefaultWriteOptions());
+  options->writer_properties = parquet::WriterProperties::Builder()
+                                   .created_by("TestParquetFileFormat")
+                                   ->disable_statistics()
+                                   ->encoding(parquet::Encoding::BYTE_STREAM_SPLIT)
+                                   ->disable_dictionary()
+                                   ->compression(Compression::SNAPPY)
+                                   ->build();
+  options->arrow_writer_properties = parquet::ArrowWriterProperties::Builder().build();
+
+  auto format = format_;
+  SetSchema(float_schema->fields());
+  EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
+
+  EXPECT_OK_AND_ASSIGN(auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {}));
+  EXPECT_OK_AND_ASSIGN(auto writer,
+                       format->MakeWriter(sink, float_schema, options, {fs, "<buffer>"}));
+  ARROW_EXPECT_OK(writer->Write(MakeGeneratedRecordBatch(float_schema, 300000, 2).get()));
+  auto fut = writer->Finish();
+  EXPECT_FINISHES(fut);
+  ARROW_EXPECT_OK(fut.status());
+  EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+  EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(FileSource{written}));
+  EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+  auto iter = MakeGeneratorIterator(batch_gen);
+  [[maybe_unused]] auto vec = iter.ToVector().ValueOrDie();
 }
 
 TEST_F(TestParquetFileFormat, CountRows) { TestCountRows(); }
