@@ -21,7 +21,7 @@ expect_as_vector <- function(x, y, ...) {
 
 # expect both objects to contain equal values when converted to data.frame objects
 expect_equal_data_frame <- function(x, y, ...) {
-  expect_equal(as.data.frame(x), as.data.frame(y), ...)
+  expect_equal(as.data.frame(x, stringsAsFactors = FALSE), as.data.frame(y, stringsAsFactors = FALSE), ...)
 }
 
 expect_r6_class <- function(object, class) {
