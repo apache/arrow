@@ -231,6 +231,49 @@ func TestDecimal256_ValueStr(t *testing.T) {
 }
 
 func TestDecimal256Builder_AppendValueFromString(t *testing.T) {
-	// actually, the same as TestDecimal256_ValueStr
-	TestDecimal256_ValueStr(t)
+	dt := &arrow.Decimal256Type{Precision: 70, Scale: 10}
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewDecimal256Builder(mem, dt)
+	defer b.Release()
+
+	values := []decimal256.Num{
+		decimal256.New(1, 1, 1, 1),
+		decimal256.New(2, 2, 2, 2),
+		decimal256.New(3, 3, 3, 3),
+		{},
+		decimal256.FromI64(-5),
+		decimal256.FromI64(-6),
+		{},
+		decimal256.FromI64(8),
+		decimal256.FromI64(9),
+		decimal256.FromI64(10),
+	}
+	valid := []bool{true, true, true, false, true, true, false, true, true, true}
+
+	b.AppendValues(values, valid)
+
+	arr := b.NewArray().(*array.Decimal256)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDecimal256Builder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Decimal256)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.EqualValues(t, arr.Value(i), arr1.Value(i))
+		}
+	}
 }

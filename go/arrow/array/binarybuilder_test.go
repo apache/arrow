@@ -184,7 +184,9 @@ func TestBinaryBuilder_AppendValueFromString(t *testing.T) {
 	assert.Equal(t, arr.Len(), arr1.Len())
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+		if arr.IsValid(i) {
+			assert.EqualValues(t, arr.Value(i), arr1.Value(i))
+		}
 	}
 }
 
@@ -222,6 +224,8 @@ func TestLargeBinaryBuilder_AppendValueFromString(t *testing.T) {
 	assert.Equal(t, arr.Len(), arr1.Len())
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+		if arr.IsValid(i) {
+			assert.EqualValues(t, arr.Value(i), arr1.Value(i))
+		}
 	}
 }
