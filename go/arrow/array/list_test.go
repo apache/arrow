@@ -505,27 +505,37 @@ func TestLargeListBuilder_AppendValueFromString(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		if arr.IsValid(i) {
-			func() {
-				// defer in a loop is a bad practice, at least, do the release in a func
-				start, end := arr.ValueOffsets(i)
-				start1, end1 := arr1.ValueOffsets(i)
-				assert.Exactly(t, start, start1)
-				assert.Exactly(t, end, end1)
-
-				elem := array.NewSlice(arr.ListValues(), start, end).(*array.Int32)
-				defer elem.Release()
-				elem1 := array.NewSlice(arr1.ListValues(), start1, end1).(*array.Int32)
-				defer elem1.Release()
-
-				assert.Equal(t, elem.Len(), elem1.Len())
-				for i := 0; i < elem.Len(); i++ {
-					assert.Equal(t, elem.IsValid(i), elem1.IsValid(i))
-					if elem.IsValid(i) {
-						assert.Exactly(t, elem.Value(i), elem1.Value(i))
-					}
-				}
-			}()
+			assertListElemExactly[int32](t, arr, arr1, i)
 		}
 		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+type valuer[A any] interface {
+	arrow.Array
+	Value(int) A
+}
+
+func assertListElemExactly[A any](t *testing.T, arr, arr1 array.ListLike, i int) {
+	start, end := arr.ValueOffsets(i)
+	start1, end1 := arr1.ValueOffsets(i)
+	assert.Exactly(t, start, start1)
+	assert.Exactly(t, end, end1)
+
+	elem := array.NewSlice(arr.ListValues(), start, end).(valuer[A])
+	defer elem.Release()
+	elem1 := array.NewSlice(arr1.ListValues(), start1, end1).(valuer[A])
+	defer elem1.Release()
+
+	assertArrayExactly(t, elem, elem1)
+}
+
+func assertArrayExactly[A any](t *testing.T, arr, arr1 valuer[A]) {
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
 	}
 }
