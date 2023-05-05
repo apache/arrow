@@ -41,7 +41,8 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               ParquetSchema, ColumnSchema,
                               ParquetLogicalType,
                               FileEncryptionProperties,
-                              FileDecryptionProperties)
+                              FileDecryptionProperties,
+                              SortingColumn)
 from pyarrow.fs import (LocalFileSystem, FileSystem, FileType,
                         _resolve_filesystem_and_path, _ensure_filesystem)
 from pyarrow import filesystem as legacyfs
@@ -707,6 +708,53 @@ class ParquetFile:
 
         return indices
 
+    @property
+    def sort_order(self):
+        """
+        Return the sort order of the file, if any.
+
+        Returns
+        -------
+        sort_order : tuple of (sort_keys, null_placement) or None
+            The sort order of the file. sort_keys is a sequence of tuples of
+            (name, order) where name is the column name and order is either
+            "ascending" or "descending". null_placement is either "at_start"
+            or "at_end". If the file is not sorted, None is returned.
+        """
+        metadata = self.metadata
+        sorting_columns = {
+            metadata.row_group(i).sorting_columns
+            for i in range(metadata.num_row_groups)
+        }
+
+        if len(sorting_columns) > 1:
+            # There are inconsistent sorting columns, so no global sort order
+            return None
+        sorting_columns = sorting_columns.pop()
+        if len(sorting_columns) == 0:
+            # There are no sorting columns
+            return None
+
+        # Need to map the Parquet column indices into field references
+        sort_keys = []
+        for sorting_column in sorting_columns:
+            name = self.schema.column(sorting_column.column_index).name
+            if sorting_column.descending:
+                order = "descending"
+            else:
+                order = "ascending"
+            sort_keys.append((name, order))
+
+        if all(col.nulls_first for col in sorting_columns):
+            null_placement = "at_start"
+        elif all(not col.nulls_first for col in sorting_columns):
+            null_placement = "at_end"
+        else:
+            # Mixed null placement is not supported
+            return None
+
+        return (sort_keys, null_placement)
+
 
 _SPARK_DISALLOWED_CHARS = re.compile('[ ,;{}()\n\t=]')
 
@@ -867,6 +915,10 @@ store_schema : bool, default True
     it will restore the timezone (Parquet only stores the UTC values without
     timezone), or columns with duration type will be restored from the int64
     Parquet column.
+sorting_columns : Sequence of SortingColumn, default None
+    Specify the sort order of the data being written. The writer does not sort
+    the data nor does it verify that the data is sorted. The sort order is
+    written to the row group metadata, which can then be used by readers.
 """
 
 _parquet_writer_example_doc = """\
@@ -959,6 +1011,7 @@ Examples
                  write_batch_size=None,
                  dictionary_pagesize_limit=None,
                  store_schema=True,
+                 sorting_columns=None,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1015,6 +1068,7 @@ Examples
             write_batch_size=write_batch_size,
             dictionary_pagesize_limit=dictionary_pagesize_limit,
             store_schema=store_schema,
+            sorting_columns=sorting_columns,
             **options)
         self.is_open = True
 
@@ -3077,6 +3131,7 @@ def write_table(table, where, row_group_size=None, version='2.4',
                 write_batch_size=None,
                 dictionary_pagesize_limit=None,
                 store_schema=True,
+                sorting_columns=None,
                 **kwargs):
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
@@ -3102,6 +3157,7 @@ def write_table(table, where, row_group_size=None, version='2.4',
                 write_batch_size=write_batch_size,
                 dictionary_pagesize_limit=dictionary_pagesize_limit,
                 store_schema=store_schema,
+                sorting_columns=sorting_columns,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
@@ -3686,6 +3742,7 @@ __all__ = (
     "ParquetWriter",
     "PartitionSet",
     "RowGroupMetaData",
+    "SortingColumn",
     "Statistics",
     "read_metadata",
     "read_pandas",

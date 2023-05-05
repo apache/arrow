@@ -97,6 +97,7 @@ Parquet Metadata
 
    FileMetaData
    RowGroupMetaData
+   SortingColumn
    ColumnChunkMetaData
    Statistics
    ParquetSchema
