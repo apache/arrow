@@ -454,7 +454,7 @@ func (p *PrimitiveDictionaryTestSuite) TestAppendValueFromString() {
 	for i := 0; i < arr.Len(); i++ {
 		p.Equal(arr.IsValid(i), arr1.IsValid(i))
 		if arr.IsValid(i) {
-			p.EqualValues(arr.GetOneForMarshal(i), arr1.GetOneForMarshal(i))
+			p.Exactly(arr.GetOneForMarshal(i), arr1.GetOneForMarshal(i))
 		}
 	}
 }
@@ -952,8 +952,8 @@ func TestFixedSizeBinaryDictionaryBuilder_AppendValueFromString(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		if arr.IsValid(i) {
-			assert.Equal(t, arr.GetValueIndex(i), arr1.GetValueIndex(i))
-			assert.Equal(t,
+			assert.Exactly(t, arr.GetValueIndex(i), arr1.GetValueIndex(i))
+			assert.Exactly(t,
 				arr.Dictionary().(*array.FixedSizeBinary).Value(arr.GetValueIndex(i)),
 				arr1.Dictionary().(*array.FixedSizeBinary).Value(arr1.GetValueIndex(i)),
 			)

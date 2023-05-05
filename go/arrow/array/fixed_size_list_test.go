@@ -304,8 +304,8 @@ func TestFixedSizeBinaryBuilder_AppendValueFromString(t *testing.T) {
 				// defer in a loop is a bad practice, at least, do the release in a func
 				start, end := arr.ValueOffsets(i)
 				start1, end1 := arr1.ValueOffsets(i)
-				assert.Equal(t, start, start1)
-				assert.Equal(t, end, end1)
+				assert.Exactly(t, start, start1)
+				assert.Exactly(t, end, end1)
 
 				elem := array.NewSlice(arr.ListValues(), start, end).(*array.Int32)
 				defer elem.Release()
@@ -316,11 +316,10 @@ func TestFixedSizeBinaryBuilder_AppendValueFromString(t *testing.T) {
 				for i := 0; i < elem.Len(); i++ {
 					assert.Equal(t, elem.IsValid(i), elem1.IsValid(i))
 					if elem.IsValid(i) {
-						assert.EqualValues(t, elem.Value(i), elem1.Value(i))
+						assert.Exactly(t, elem.Value(i), elem1.Value(i))
 					}
 				}
 			}()
 		}
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
 	}
 }

@@ -142,7 +142,7 @@ func TestFixedSizeBinaryBuilder_AppendValueFromString(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		if arr.IsValid(i) {
-			assert.EqualValues(t, arr.Value(i), arr1.Value(i))
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
 		}
 	}
 }

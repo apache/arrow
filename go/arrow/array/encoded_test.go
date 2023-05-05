@@ -343,9 +343,9 @@ func TestRunEndEncodedBuilder_AppendValueFromString(t *testing.T) {
 
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.GetPhysicalIndex(i), arr1.GetPhysicalIndex(i))
+		assert.Exactly(t, arr.GetPhysicalIndex(i), arr1.GetPhysicalIndex(i))
 		if arr.IsValid(i) {
-			assert.EqualValues(t,
+			assert.Exactly(t,
 				arr.Values().(*array.String).Value(arr.GetPhysicalIndex(i)),
 				arr1.Values().(*array.String).Value(arr1.GetPhysicalIndex(i)),
 			)
