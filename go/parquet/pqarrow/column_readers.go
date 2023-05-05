@@ -250,33 +250,35 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 
 	var nullBitmap *memory.Buffer
 
-	if sr.hasRepeatedChild {
-		nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
-		nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
-		validityIO.ValidBits = nullBitmap.Bytes()
-		defLevels, err := sr.GetDefLevels()
-		if err != nil {
-			return nil, err
-		}
-		repLevels, err := sr.GetRepLevels()
-		if err != nil {
-			return nil, err
-		}
+	if lenBound > 0 {
+		if sr.hasRepeatedChild {
+			nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
+			nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
+			validityIO.ValidBits = nullBitmap.Bytes()
+			defLevels, err := sr.GetDefLevels()
+			if err != nil {
+				return nil, err
+			}
+			repLevels, err := sr.GetRepLevels()
+			if err != nil {
+				return nil, err
+			}
 
-		if err := file.DefRepLevelsToBitmap(defLevels, repLevels, sr.levelInfo, &validityIO); err != nil {
-			return nil, err
-		}
+			if err := file.DefRepLevelsToBitmap(defLevels, repLevels, sr.levelInfo, &validityIO); err != nil {
+				return nil, err
+			}
 
-	} else if sr.filtered.Nullable {
-		nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
-		nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
-		validityIO.ValidBits = nullBitmap.Bytes()
-		defLevels, err := sr.GetDefLevels()
-		if err != nil {
-			return nil, err
-		}
+		} else if sr.filtered.Nullable {
+			nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
+			nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
+			validityIO.ValidBits = nullBitmap.Bytes()
+			defLevels, err := sr.GetDefLevels()
+			if err != nil {
+				return nil, err
+			}
 
-		file.DefLevelsToBitmap(defLevels, sr.levelInfo, &validityIO)
+			file.DefLevelsToBitmap(defLevels, sr.levelInfo, &validityIO)
+		}
 	}
 
 	if nullBitmap != nil {
