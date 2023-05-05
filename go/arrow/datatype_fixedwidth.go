@@ -325,6 +325,22 @@ func (u TimeUnit) Multiplier() time.Duration {
 
 func (u TimeUnit) String() string { return [...]string{"s", "ms", "us", "ns"}[uint(u)&3] }
 
+var _strToTimeUnit = map[string]TimeUnit{
+	"s":  Second,
+	"ms": Millisecond,
+	"us": Microsecond,
+	"ns": Nanosecond,
+}
+
+// TimeUnitFromString is the reverse of TimeUnit.String
+func TimeUnitFromString(s string) (TimeUnit, error) {
+	if v, ok := _strToTimeUnit[s]; ok {
+		return v, nil
+	}
+
+	return 0, fmt.Errorf("unsupported time unit: %q", s)
+}
+
 type TemporalWithUnit interface {
 	FixedWidthDataType
 	TimeUnit() TimeUnit
