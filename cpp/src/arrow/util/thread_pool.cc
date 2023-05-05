@@ -45,6 +45,7 @@ void Executor::KeepAlive(std::shared_ptr<Resource> resource) {}
 
 namespace {
 
+
 struct Task {
   FnOnce<void()> callable;
   StopToken stop_token;
@@ -60,6 +61,10 @@ struct SerialExecutor::State {
   std::thread::id current_thread;
   bool paused{false};
   bool finished{false};
+#ifdef ARROW_DISABLE_THREADING
+  int max_tasks_running{1};
+  int tasks_running{0};
+#endif  
 };
 
 #ifdef ARROW_DISABLE_THREADING
@@ -78,6 +83,7 @@ SerialExecutor::SerialExecutor() : state_(std::make_shared<State>())
 {
 #ifdef ARROW_DISABLE_THREADING
   all_executors.insert(this);
+  state_->max_tasks_running=1;
 #endif
 }
 
@@ -124,9 +130,19 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
   }
 
   state_->task_queue.push_back( Task{std::move(task), std::move(stop_token), std::move(stop_callback)});
-  
+
   return Status::OK();                                                                 
 }
+
+void SerialExecutor::Finish() {
+  auto state = state_;
+  {
+    state->finished = true;
+  }
+  // empty any tasks from the loop on finish
+  RunLoop();
+}
+
 
 #else //ARROW_DISABLE_THREADING
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
@@ -162,6 +178,16 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
   state->wait_for_tasks.notify_one();
   return Status::OK();
 }
+
+void SerialExecutor::Finish() {
+  auto state = state_;
+  {
+    std::lock_guard<std::mutex> lk(state->mutex);
+    state->finished = true;
+  }
+  state->wait_for_tasks.notify_one();
+}
+
 #endif
 void SerialExecutor::Pause() {
   // Same comment as SpawnReal above
@@ -173,14 +199,6 @@ void SerialExecutor::Pause() {
   state->wait_for_tasks.notify_one();
 }
 
-void SerialExecutor::Finish() {
-  auto state = state_;
-  {
-    std::lock_guard<std::mutex> lk(state->mutex);
-    state->finished = true;
-  }
-  state->wait_for_tasks.notify_one();
-}
 
 bool SerialExecutor::IsFinished() {
   std::lock_guard<std::mutex> lk(state_->mutex);
@@ -232,7 +250,8 @@ bool SerialExecutor::RunTasksOnAllExecutors(bool once_only)
       }
       SerialExecutor* exe = *it;
       // don't make reentrant calls inside a serialexecutor
-      if(exe==current_executor && !exe->IsReentrant())
+      // or more than the number of concurrent tasks set on a threadpool
+      if(exe->state_->tasks_running >= exe->state_->max_tasks_running)
       {
         continue;
       }
@@ -243,6 +262,7 @@ bool SerialExecutor::RunTasksOnAllExecutors(bool once_only)
         Task task = std::move(exe->state_->task_queue.front());
         exe->state_->task_queue.pop_front();
         run_task=true;
+        exe->state_->tasks_running+=1;
         if (!task.stop_token.IsStopRequested()) {
           std::move(task.callable)();
         } else {
@@ -250,6 +270,7 @@ bool SerialExecutor::RunTasksOnAllExecutors(bool once_only)
             std::move(task.stop_callback)(task.stop_token.Poll());
           }
         }
+        exe->state_->tasks_running-=1;
         current_executor=old_exe;
 
         if(once_only)
@@ -275,42 +296,55 @@ void SerialExecutor::RunLoop()
   // when all work is done.
   while (!state_->paused && !(state_->finished && state_->task_queue.empty())) {
     // first empty us until paused or empty
-    while (!state_->paused && !state_->task_queue.empty()) {
-      Task task = std::move(state_->task_queue.front());
-      state_->task_queue.pop_front();
-      auto last_executor=current_executor;
-      current_executor=this;
-      if (!task.stop_token.IsStopRequested()) {
-
-        std::move(task.callable)();
-      } else {
-        if (task.stop_callback) {
-          std::move(task.stop_callback)(task.stop_token.Poll());
-        }
-      }
-      current_executor=last_executor;
-    }
-    if(state_->paused || state_->finished)
+    // if we're already running as many tasks as possible then
+    // we can't run any more until something else drops off the queue
+    if(state_->tasks_running <= state_->max_tasks_running)
     {
-      break;
+
+      while (!state_->paused && !state_->task_queue.empty()) {
+        Task task = std::move(state_->task_queue.front());
+        state_->task_queue.pop_front();
+        auto last_executor=current_executor;
+        current_executor=this;
+        state_->tasks_running+=1;
+        if (!task.stop_token.IsStopRequested()) {
+          std::move(task.callable)();
+        } else {
+          if (task.stop_callback) {
+            std::move(task.stop_callback)(task.stop_token.Poll());
+          }
+        }
+        state_->tasks_running-=1;
+        current_executor=last_executor;
+      }
+      if(state_->paused || (state_->finished && state_->task_queue.empty()))
+      {
+        break;
+      }
     }
     // now wait for anything on other executors (unless we're finished in which case it will drop out of
     // the outer loop
-    if(!IsReentrant())
-    {
-      // stop runtasks from running our tasks by pausing us during the call
-      // otherwise things could happen out of order
-      bool old_paused=state_->paused;
-      state_->paused=true;
-      RunTasksOnAllExecutors(true);
-      state_->paused=old_paused;
-    }else
-    {
-      RunTasksOnAllExecutors(true);
-    }
+    RunTasksOnAllExecutors(true);
   }
 
 }
+
+Status ThreadPool::SetCapacity(int threads)
+{
+  state_->max_tasks_running=threads;
+  return Status::OK();
+}
+
+int ThreadPool::GetCapacity()
+{
+  return state_->max_tasks_running;
+}
+
+int ThreadPool::GetActualCapacity()
+{
+  return state_->max_tasks_running;
+}
+
 
 #else //ARROW_DISABLE_THREADING
 
@@ -355,14 +389,22 @@ void SerialExecutor::RunLoop() {
 
 ThreadPool::ThreadPool()
 {
-  
+  // default to max 'concurrency' of 8
+  // if threading is disabled
+  state_->max_tasks_running=8;
 }
 
 Status ThreadPool::Shutdown(bool wait)
 {
+  state_->finished=true;
   if(wait)
   {
     RunLoop();
+  }else
+  {
+    // clear any pending tasks so that we behave
+    // the same as threadpool on fast shutdown
+    state_->task_queue.clear();
   }
   return Status::OK();
 }
@@ -394,7 +436,10 @@ Result<std::shared_ptr<ThreadPool>> ThreadPool::MakeEternal(int threads) {
 
 ThreadPool::~ThreadPool()
 {
-  // NOP
+  // clear threadpool, otherwise ~SerialExecutor will
+  // run any tasks left (which isn't threadpool behaviour)
+  state_->task_queue.clear();
+    
 }
 
 

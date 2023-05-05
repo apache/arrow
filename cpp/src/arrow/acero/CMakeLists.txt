@@ -55,6 +55,7 @@ set(ARROW_ACERO_SRCS
     union_node.cc
     util.cc)
 
+
 append_acero_avx2_src(bloom_filter_avx2.cc)
 append_acero_avx2_src(swiss_join_avx2.cc)
 
@@ -163,7 +164,14 @@ add_arrow_acero_test(hash_join_node_test SOURCES hash_join_node_test.cc
                      bloom_filter_test.cc)
 add_arrow_acero_test(pivot_longer_node_test SOURCES pivot_longer_node_test.cc
                      test_nodes.cc)
-add_arrow_acero_test(asof_join_node_test SOURCES asof_join_node_test.cc test_nodes.cc)
+
+# asof_join_node uses std::thread internally
+# and doesn't use ThreadPool so it will
+# be broken if threading is turned off
+if(ARROW_DISABLE_THREADING!=ON)
+  add_arrow_acero_test(asof_join_node_test SOURCES asof_join_node_test.cc test_nodes.cc)
+endif()
+
 add_arrow_acero_test(tpch_node_test SOURCES tpch_node_test.cc)
 add_arrow_acero_test(union_node_test SOURCES union_node_test.cc)
 add_arrow_acero_test(groupby_test SOURCES groupby_test.cc)
@@ -213,7 +221,9 @@ if(ARROW_BUILD_BENCHMARKS)
   add_arrow_acero_benchmark(project_benchmark SOURCES benchmark_util.cc
                             project_benchmark.cc)
 
+if(ARROW_DISABLE_THREADING!=ON)
   add_arrow_acero_benchmark(asof_join_benchmark SOURCES asof_join_benchmark.cc)
+endif()
 
   add_arrow_acero_benchmark(tpch_benchmark SOURCES tpch_benchmark.cc)
 

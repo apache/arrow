@@ -4458,6 +4458,9 @@ TEST(Substrait, SetRelationBasic) {
 }
 
 TEST(Substrait, PlanWithAsOfJoinExtension) {
+  #ifdef ARROW_DISABLE_THREADING
+    GTEST_SKIP() << "ASOF join requires threading";
+  #endif
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],

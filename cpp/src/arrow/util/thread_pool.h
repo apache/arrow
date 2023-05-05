@@ -279,7 +279,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
 
   ~SerialExecutor() override;
 
-  int GetCapacity() override { return 1; };
+  virtual int GetCapacity() override { return 1; };
   bool OwnsThisThread() override;
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                    StopCallback&&) override;
@@ -359,8 +359,13 @@ class ARROW_EXPORT SerialExecutor : public Executor {
           // the next call.
           executor->Pause();
         });
+#ifdef ARROW_DISABLE_THREADING
+        // future must run on this thread
+        next_fut.Wait();
+#else
         // Borrow this thread and run tasks until the future is finished
         executor->RunLoop();
+#endif
         if (!next_fut.is_finished()) {
           // Not clear this is possible since RunLoop wouldn't generally exit
           // unless we paused/finished which would imply next_fut has been
@@ -422,7 +427,6 @@ protected:
   } 
 
 #ifdef ARROW_DISABLE_THREADING
-    virtual bool IsReentrant(){return false;};
   // we have to run tasks from all live executors
   // during RunLoop if we don't have threading
     static std::unordered_set<SerialExecutor*> all_executors;
@@ -433,7 +437,6 @@ protected:
     // without threading we can't tell which executor called the
     // current process - so we set it in spawning the task
     static SerialExecutor* current_executor;
-
 #endif // ARROW_DISABLE_THREADING
 
 };
@@ -461,12 +464,9 @@ class ARROW_EXPORT ThreadPool : public SerialExecutor
     // Return the desired number of worker threads.
     // The actual number of workers may lag a bit before being adjusted to
     // match this value.
-    int GetCapacity() override
-    {
-      return 1;
-    }
+    virtual int GetCapacity() override;
 
-    int GetActualCapacity()  { return 1; };
+    virtual int GetActualCapacity();
   
     bool OwnsThisThread() override
     {
@@ -474,10 +474,12 @@ class ARROW_EXPORT ThreadPool : public SerialExecutor
     }
 
     // Dynamically change the number of worker threads.
-    // - no op when threading is disabled
-    Status SetCapacity(int threads){return Status::OK();}
+    // without threading this is equal to the 
+    // number of tasks that can be running at once
+    // (inside each other)
+    Status SetCapacity(int threads);
 
-    static int DefaultCapacity(){return 1;}
+    static int DefaultCapacity(){return 8;}
 
     // Shutdown the pool.  Once the pool starts shutting down, new tasks
     // cannot be submitted anymore.
@@ -493,7 +495,8 @@ class ARROW_EXPORT ThreadPool : public SerialExecutor
   protected:
     static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
     ThreadPool();
-    virtual bool IsReentrant(){return true;}
+
+
 
 };
 
