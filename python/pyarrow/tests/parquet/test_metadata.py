@@ -301,6 +301,77 @@ def test_parquet_write_disable_statistics(tempdir):
     assert cc_b.statistics is None
 
 
+def test_parquet_sorting_columns():
+    table = pa.table({'a': [1, 2, 3], 'b': ['a', 'b', 'c']})
+
+    # Rejects invalid sorting_columns
+    writer = pa.BufferOutputStream()
+    with pytest.raises(ValueError):
+        _write_table(table, writer, sorting_columns="string")
+    with pytest.raises(ValueError):
+        _write_table(table, writer, sorting_columns=["string"])
+    with pytest.raises(ValueError):
+        _write_table(table, writer, sorting_columns=([("string", None)]))
+    with pytest.raises(ValueError):
+        _write_table(table, writer, sorting_columns=([("string")], None))
+
+    sorting_columns = (
+        pq.SortingColumn(column_index=0, descending=True, nulls_first=True),
+        pq.SortingColumn(column_index=1, descending=False),
+    )
+    writer = pa.BufferOutputStream()
+    _write_table(table, writer, sorting_columns=sorting_columns)
+    reader = pa.BufferReader(writer.getvalue())
+
+    # Can retrieve sorting columns from metadata
+    metadata = pq.read_metadata(reader)
+    set_sorting_columns = {metadata.row_group(i).sorting_columns
+                           for i in range(metadata.num_row_groups)}
+    assert set_sorting_columns == set([sorting_columns])
+
+    # Sort keys are None since nulls_first is inconsistent.
+    pq_file = pq.ParquetFile(reader)
+    assert pq_file.sort_order is None
+
+    expected = (
+        pq.SortingColumn(column_index=0, descending=True),
+        pq.SortingColumn(column_index=1, descending=False),
+    )
+    writer = pa.BufferOutputStream()
+    _write_table(table, writer, sorting_columns=[("a", "descending"), "b"])
+    reader = pa.BufferReader(writer.getvalue())
+
+    # Can retrieve sorting columns from metadata
+    metadata = pq.read_metadata(reader)
+    set_sorting_columns = {metadata.row_group(i).sorting_columns
+                           for i in range(metadata.num_row_groups)}
+    assert set_sorting_columns == set([expected])
+
+    # Sort keys can be retrieved at file level
+    pq_file = pq.ParquetFile(reader)
+    assert pq_file.sort_order == ([("a", "descending"), ("b", "ascending")], "at_end")
+
+    # Now with nulls_first=True
+    expected = (
+        pq.SortingColumn(column_index=0, descending=True, nulls_first=True),
+        pq.SortingColumn(column_index=1, descending=False, nulls_first=True),
+    )
+    writer = pa.BufferOutputStream()
+    _write_table(table, writer, sorting_columns=(
+        [("a", "descending"), "b"], "at_start"))
+    reader = pa.BufferReader(writer.getvalue())
+
+    # Can retrieve sorting columns from metadata
+    metadata = pq.read_metadata(reader)
+    set_sorting_columns = {metadata.row_group(i).sorting_columns
+                           for i in range(metadata.num_row_groups)}
+    assert set_sorting_columns == set([expected])
+
+    # Sort keys can be retrieved at file level
+    pq_file = pq.ParquetFile(reader)
+    assert pq_file.sort_order == ([("a", "descending"), ("b", "ascending")], "at_start")
+
+
 def test_field_id_metadata():
     # ARROW-7080
     field_id = b'PARQUET:field_id'
