@@ -38,6 +38,27 @@ classdef tFloat64Array < matlab.unittest.TestCase
             testCase.verifyEqual(className, "arrow.array.Float64Array");
         end
 
+        function ShallowCopy(testCase)
+        % By default, Float64Array does not create a deep copy on
+        % construction when constructed from a MATLAB array. Instead,
+        % it stores a shallow copy of the array keep the memory alive.
+            A = arrow.array.Float64Array([1, 2, 3]);
+            testCase.verifyEqual(A.MatlabArray, [1 2 3]);
+            testCase.verifyEqual(double(A), [1 2 3]');
+
+            A = arrow.array.Float64Array([1, 2, 3], DeepCopy=false);
+            testCase.verifyEqual(A.MatlabArray, [1 2 3]);
+            testCase.verifyEqual(double(A), [1 2 3]');
+        end
+
+        function DeepCopy(testCase)
+        % Verify Float64Array does not store shallow copy of the MATLAB
+        % array if DeepCopy=true was supplied.
+            A = arrow.array.Float64Array([1, 2, 3], DeepCopy=true);
+            testCase.verifyEqual(A.MatlabArray, []);
+            testCase.verifyEqual(double(A), [1 2 3]');
+        end
+
         function Double(testCase)
             % Create a Float64Array from a scalar double
             A1 = arrow.array.Float64Array(100);

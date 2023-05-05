@@ -23,8 +23,6 @@
 
 #include "libmexclass/proxy/Proxy.h"
 
-#include <codecvt>
-
 namespace arrow::matlab::array::proxy {
 
 template<typename CType>
@@ -32,27 +30,44 @@ class NumericArray : public libmexclass::proxy::Proxy {
     public:
         NumericArray(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
             using ArrowType = typename arrow::CTypeTraits<CType>::ArrowType;
+            using BuilderType = typename arrow::CTypeTraits<CType>::BuilderType;
 
             // Get the mxArray from constructor arguments
             const ::matlab::data::TypedArray<CType> numeric_mda = constructor_arguments[0];
+            const ::matlab::data::TypedArray<bool> make_copy = constructor_arguments[1];
 
             // Get raw pointer of mxArray
             auto it(numeric_mda.cbegin());
             auto dt = it.operator->();
 
-            // Pass pointer to Arrow array constructor that takes a buffer
-            // Do not make a copy when creating arrow::Buffer
-            std::shared_ptr<arrow::Buffer> buffer(
-                  new arrow::Buffer(reinterpret_cast<const uint8_t*>(dt), 
-                                    sizeof(CType) * numeric_mda.getNumberOfElements()));
-            
-            // Construct arrow::NumericArray specialization using arrow::Buffer.
-            // pass in nulls information...we could compute and provide the number of nulls here too
-            std::shared_ptr<arrow::Array> array_wrapper(
-                new arrow::NumericArray<ArrowType>(numeric_mda.getNumberOfElements(), buffer,
-                                                       nullptr, // TODO: fill validity bitmap with data
-                                                       -1));
-            array = array_wrapper;
+            if (make_copy[0]) {
+
+                // Pass pointer to Arrow array constructor that takes a buffer
+                // Do not make a copy when creating arrow::Buffer
+                std::shared_ptr<arrow::Buffer> buffer(
+                                                      new arrow::Buffer(reinterpret_cast<const uint8_t*>(dt),
+                                                                        sizeof(CType) * numeric_mda.getNumberOfElements()));
+                
+                // Construct arrow::NumericArray specialization using arrow::Buffer.
+                // pass in nulls information...we could compute and provide the number of nulls here too
+                std::shared_ptr<arrow::Array> array_wrapper(
+                                                            new arrow::NumericArray<ArrowType>(numeric_mda.getNumberOfElements(), buffer,
+                                                                                               nullptr, // TODO: fill validity bitmap with data
+                                                                                               -1));
+                array = array_wrapper;
+
+            } else {
+                BuilderType builder;
+                auto st = builder.AppendValues(dt, numeric_mda.getNumberOfElements());
+
+                // TODO: handle error case
+                if (st.ok()) {
+                    auto maybe_array = builder.Finish();
+                    if (maybe_array.ok()) {
+                        array = *maybe_array;
+                    }
+                }
+            }
 
             // Register Proxy methods.
             REGISTER_METHOD(NumericArray<CType>, ToString);

@@ -20,7 +20,7 @@ classdef Float64Array < matlab.mixin.CustomDisplay
         Proxy
     end
 
-    properties (Access=private)
+    properties (Hidden, SetAccess=private)
         MatlabArray
     end
 
@@ -28,18 +28,14 @@ classdef Float64Array < matlab.mixin.CustomDisplay
         function obj = Float64Array(data, opts)
             arguments
                 data
-                opts.ID = false
+                opts.DeepCopy = false
             end
 
-            if opts.ID
-                validateattributes(data, "uint64", "scalar");
-                obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ID", data);
-            else
-                validateattributes(data, "double", ["2d", "nonsparse", "real"]);
-                if (~isempty(data)), validateattributes(data, "double", "vector"); end
-                obj.MatlabArray = data;
-                obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {obj.MatlabArray});
-            end
+            validateattributes(data, "double", ["2d", "nonsparse", "real"]);
+            if ~isempty(data), validateattributes(data, "double", "vector"); end
+            % Store a reference to the array if not doing a deep copy
+            if (~opts.DeepCopy), obj.MatlabArray = data; end
+            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {data, opts.DeepCopy});
         end
 
         function data = double(obj)
