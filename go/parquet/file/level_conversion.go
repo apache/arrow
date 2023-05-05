@@ -170,7 +170,7 @@ func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info L
 
 // create a bitmap out of the definition Levels
 func defLevelsToBitmapInternal(defLevels []int16, info LevelInfo, out *ValidityBitmapInputOutput, hasRepeatedParent bool) {
-	wr := utils.NewFirstTimeBitmapWriter(out.ValidBits, out.ValidBitsOffset, int64(len(defLevels)))
+	wr := utils.NewFirstTimeBitmapWriter(out.ValidBits, out.ValidBitsOffset, int64(out.ReadUpperBound))
 	defer wr.Finish()
 	setCount := defLevelsBatchToBitmap(defLevels, out.ReadUpperBound, info, wr, hasRepeatedParent)
 	out.Read = int64(wr.Pos())
