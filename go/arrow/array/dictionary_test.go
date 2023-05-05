@@ -883,6 +883,7 @@ func TestFixedSizeBinaryDictionaryBuilderDeltaDictionary(t *testing.T) {
 }
 
 func TestFixedSizeBinaryDictionary_ValueStr(t *testing.T) {
+	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
@@ -900,6 +901,7 @@ func TestFixedSizeBinaryDictionary_ValueStr(t *testing.T) {
 	arr := builder.NewDictionaryArray()
 	defer arr.Release()
 
+	// 2. create array via AppendValueFromString
 	b1 := array.NewDictionaryBuilder(mem, dictType)
 	defer b1.Release()
 
@@ -917,6 +919,7 @@ func TestFixedSizeBinaryDictionary_ValueStr(t *testing.T) {
 	}
 }
 func TestFixedSizeBinaryDictionaryBuilder_AppendValueFromString(t *testing.T) {
+	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
@@ -934,6 +937,7 @@ func TestFixedSizeBinaryDictionaryBuilder_AppendValueFromString(t *testing.T) {
 	arr := builder.NewDictionaryArray()
 	defer arr.Release()
 
+	// 2. create array via AppendValueFromString
 	b1 := array.NewDictionaryBuilder(mem, dictType)
 	defer b1.Release()
 

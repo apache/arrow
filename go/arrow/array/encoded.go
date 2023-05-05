@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"math"
 	"reflect"
-	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v13/arrow"
@@ -193,15 +192,19 @@ func (r *RunEndEncoded) GetPhysicalLength() int {
 	return encoded.GetPhysicalLength(r.data)
 }
 
-func (r *RunEndEncoded) ValueStr(i int) string {
-	value := r.values.GetOneForMarshal(i)
-	if byts, ok := value.(json.RawMessage); ok {
-		value = string(byts)
-	}
-	return fmt.Sprintf("{%d -> %v}",
-		r.ends.GetOneForMarshal(i),
-		value)
+// GetPhysicalIndex can be used to get the run-encoded value instead of costly LogicalValuesArray
+// in the following way:
+//
+//	r.Values().(valuetype).Value(r.GetPhysicalIndex(i))
+func (r *RunEndEncoded) GetPhysicalIndex(i int) int {
+	return encoded.FindPhysicalIndex(r.data, i+r.data.offset)
 }
+
+// ValueStr will return the str representation of the value at the logical offset i.
+func (r *RunEndEncoded) ValueStr(i int) string {
+	return r.values.ValueStr(r.GetPhysicalIndex(i))
+}
+
 func (r *RunEndEncoded) String() string {
 	var buf bytes.Buffer
 	buf.WriteByte('[')
@@ -214,9 +217,7 @@ func (r *RunEndEncoded) String() string {
 		if byts, ok := value.(json.RawMessage); ok {
 			value = string(byts)
 		}
-		fmt.Fprintf(&buf, "{%d -> %v}",
-			r.ends.GetOneForMarshal(i),
-			value)
+		fmt.Fprintf(&buf, "{%d -> %v}", r.ends.GetOneForMarshal(i), value)
 	}
 
 	buf.WriteByte(']')
@@ -224,8 +225,7 @@ func (r *RunEndEncoded) String() string {
 }
 
 func (r *RunEndEncoded) GetOneForMarshal(i int) interface{} {
-	physIndex := encoded.FindPhysicalIndex(r.data, i+r.data.offset)
-	return r.values.GetOneForMarshal(physIndex)
+	return r.values.GetOneForMarshal(r.GetPhysicalIndex(i))
 }
 
 func (r *RunEndEncoded) MarshalJSON() ([]byte, error) {
@@ -280,7 +280,10 @@ type RunEndEncodedBuilder struct {
 	values    Builder
 	maxRunEnd uint64
 
+	// currently, mixing AppendValueFromString & UnmarshalOne is unsupported
 	lastUnmarshalled interface{}
+	unmarshalled     bool // tracks if Unmarshal was called (in case lastUnmarshalled is nil)
+	lastStr          *string
 }
 
 func NewRunEndEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.DataType) *RunEndEncodedBuilder {
@@ -331,6 +334,8 @@ func (b *RunEndEncodedBuilder) addLength(n uint64) {
 
 func (b *RunEndEncodedBuilder) finishRun() {
 	b.lastUnmarshalled = nil
+	b.lastStr = nil
+	b.unmarshalled = false
 	if b.length == 0 {
 		return
 	}
@@ -408,11 +413,33 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 }
 
 func (b *RunEndEncodedBuilder) AppendValueFromString(s string) error {
-	dec := json.NewDecoder(strings.NewReader(s))
-	return b.UnmarshalOne(dec)
+	// we don't support mixing AppendValueFromString & UnmarshalOne
+	if b.unmarshalled {
+		return fmt.Errorf("%w: mixing AppendValueFromString & UnmarshalOne not yet implemented", arrow.ErrNotImplemented)
+	}
+
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	if b.lastStr != nil && s == *b.lastStr {
+		b.ContinueRun(1)
+		return nil
+	}
+
+	b.Append(1)
+	lastStr := s
+	b.lastStr = &lastStr
+	return b.ValueBuilder().AppendValueFromString(s)
 }
 
 func (b *RunEndEncodedBuilder) UnmarshalOne(dec *json.Decoder) error {
+	// we don't support mixing AppendValueFromString & UnmarshalOne
+	if b.lastStr != nil {
+		return fmt.Errorf("%w: mixing AppendValueFromString & UnmarshalOne not yet implemented", arrow.ErrNotImplemented)
+	}
+
 	var value interface{}
 	if err := dec.Decode(&value); err != nil {
 		return err
@@ -437,6 +464,7 @@ func (b *RunEndEncodedBuilder) UnmarshalOne(dec *json.Decoder) error {
 
 	b.Append(1)
 	b.lastUnmarshalled = value
+	b.unmarshalled = true
 	return b.ValueBuilder().UnmarshalOne(json.NewDecoder(bytes.NewReader(data)))
 }
 
