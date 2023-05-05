@@ -581,11 +581,8 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
     throw ParquetException("Invalid page header");
   }
 
-  // Grow the uncompressed buffer if we need to.
-  if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
-    PARQUET_THROW_NOT_OK(
-        decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
-  }
+  PARQUET_THROW_NOT_OK(
+      decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
 
   if (levels_byte_len > 0) {
     // First copy the levels as-is
@@ -857,11 +854,7 @@ class ColumnReaderImplBase {
   // first page with this encoding.
   void InitializeDataDecoder(const DataPage& page, int64_t levels_byte_size) {
     const uint8_t* buffer = page.data() + levels_byte_size;
-    // PageReader may reuse the underlying buffer, and page.size()
-    // might be larger than the exact data_size.
-    // So here use `page.uncompressed_size() - levels_byte_size`
-    // rather than `page.size() - level_byte_size`.
-    const int64_t data_size = page.uncompressed_size() - levels_byte_size;
+    const int64_t data_size = page.size() - levels_byte_size;
 
     if (data_size < 0) {
       throw ParquetException("Page smaller than size of encoded levels");
