@@ -21,14 +21,17 @@
 #include "arrow/builder.h"
 #include "arrow/type_traits.h"
 
+#include "arrow/matlab/array/proxy/array.h"
+
 #include "libmexclass/proxy/Proxy.h"
 
 namespace arrow::matlab::array::proxy {
 
 template<typename CType>
-class NumericArray : public libmexclass::proxy::Proxy {
+class NumericArray : public arrow::matlab::array::proxy::Array {
     public:
-        NumericArray(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        NumericArray(const libmexclass::proxy::FunctionArguments& constructor_arguments)
+            : arrow::matlab::array::proxy::Array(constructor_arguments) {
             using ArrowType = typename arrow::CTypeTraits<CType>::ArrowType;
             using BuilderType = typename arrow::CTypeTraits<CType>::BuilderType;
 
@@ -68,23 +71,10 @@ class NumericArray : public libmexclass::proxy::Proxy {
                     }
                 }
             }
-
-            // Register Proxy methods.
-            REGISTER_METHOD(NumericArray<CType>, ToString);
-            REGISTER_METHOD(NumericArray<CType>, ToMatlab);
         }
 
-    private:
-
-        void ToString(libmexclass::proxy::method::Context& context) {
-            ::matlab::data::ArrayFactory factory;
-
-            // TODO: handle non-ascii characters
-            auto str_mda = factory.createScalar(array->ToString());
-            context.outputs[0] = str_mda;
-        }
-    
-        void ToMatlab(libmexclass::proxy::method::Context& context) {
+    protected:
+        void ToMatlab(libmexclass::proxy::method::Context& context) override {
             using ArrowArrayType = typename arrow::CTypeTraits<CType>::ArrayType;
 
             const size_t num_elements = static_cast<size_t>(array->length());
@@ -98,9 +88,6 @@ class NumericArray : public libmexclass::proxy::Proxy {
             ::matlab::data::TypedArray<CType> result = factory.createArray({num_elements, 1}, data_begin, data_end);
             context.outputs[0] = result;
         }
-
-        // "Raw" arrow::Array
-        std::shared_ptr<arrow::Array> array;
 };
 
 }
