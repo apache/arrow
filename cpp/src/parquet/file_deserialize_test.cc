@@ -20,7 +20,7 @@
 
 #include <cstdint>
 #include <cstring>
-#include <future>
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -197,7 +197,8 @@ class TestPageSerde : public ::testing::Test {
                         bool verification_checksum, bool has_dictionary = false,
                         bool write_data_page_v2 = false);
 
-  void TestPageCompressionRoundTrip(const std::function<int(int)>& getPageSize);
+  void TestPageCompressionRoundTrip(int num_pages,
+                                    const std::function<int(int)>& getPageSize);
 
  protected:
   std::shared_ptr<::arrow::io::BufferOutputStream> out_stream_;
@@ -708,13 +709,11 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
 }
 
 void TestPageSerde::TestPageCompressionRoundTrip(
-    const std::function<int(int)>& getPageSize) {
+    int num_pages, const std::function<int(int)>& getPageSize) {
   auto codec_types = GetSupportedCodecTypes();
 
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;
-
-  const int num_pages = 10;
 
   std::vector<std::vector<uint8_t>> faux_data;
   faux_data.resize(num_pages);
@@ -761,13 +760,13 @@ void TestPageSerde::TestPageCompressionRoundTrip(
 TEST_F(TestPageSerde, Compression) {
   // The pages keep getting larger
   auto getPageSize = [](int i) { return (i + 1) * 64; };
-  TestPageCompressionRoundTrip(getPageSize);
+  this->TestPageCompressionRoundTrip(/*num_pages=*/10, getPageSize);
 }
 
 TEST_F(TestPageSerde, PageSizeResetWhenRead) {
   // The pages keep getting smaller
   auto getPageSize = [](int i) { return (10 - i) * 64; };
-  TestPageCompressionRoundTrip(getPageSize);
+  this->TestPageCompressionRoundTrip(/*num_pages=*/10, getPageSize);
 }
 
 TEST_F(TestPageSerde, LZONotSupported) {
