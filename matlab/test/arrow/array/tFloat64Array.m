@@ -16,6 +16,10 @@ classdef tFloat64Array < matlab.unittest.TestCase
     % implied.  See the License for the specific language governing
     % permissions and limitations under the License.
     
+    properties (TestParameter)
+        MakeDeepCopy = {true false}
+    end
+
     methods(TestClassSetup)
         function verifyOnMatlabPath(testCase)
             % arrow.array.Float64Array must be on the MATLAB path.
@@ -24,16 +28,9 @@ classdef tFloat64Array < matlab.unittest.TestCase
         end
     end
     
-    methods(TestMethodSetup)
-        function setupTempWorkingDirectory(testCase)
-            import matlab.unittest.fixtures.WorkingFolderFixture;
-            testCase.applyFixture(WorkingFolderFixture);
-        end
-    end
-    
     methods(Test)
-        function Basic(testCase)
-            A = arrow.array.Float64Array([1, 2, 3]);
+        function Basic(testCase, MakeDeepCopy)
+            A = arrow.array.Float64Array([1, 2, 3], DeepCopy=MakeDeepCopy);
             className = string(class(A));
             testCase.verifyEqual(className, "arrow.array.Float64Array");
         end
@@ -59,30 +56,48 @@ classdef tFloat64Array < matlab.unittest.TestCase
             testCase.verifyEqual(double(A), [1 2 3]');
         end
 
-        function Double(testCase)
+        function Double(testCase, MakeDeepCopy)
             % Create a Float64Array from a scalar double
-            A1 = arrow.array.Float64Array(100);
+            A1 = arrow.array.Float64Array(100, DeepCopy=MakeDeepCopy);
             data = double(A1);
             testCase.verifyEqual(data, 100);
 
             % Create a Float64Array from a double vector 
-            A2 = arrow.array.Float64Array([1 2 3]);
+            A2 = arrow.array.Float64Array([1 2 3], DeepCopy=MakeDeepCopy);
             data = double(A2);
             testCase.verifyEqual(data, [1 2 3]');
         
             % Create a Float64Array from an empty double vector
-            A3 = arrow.array.Float64Array([]);
+            A3 = arrow.array.Float64Array([], DeepCopy=MakeDeepCopy);
             data = double(A3);
             testCase.verifyEqual(data, double.empty(0, 1));
         end
 
-        function ErrorIfComplex(testCase)
-            fcn = @() arrow.array.Float64Array([10 + 1i, 4]);
+        function MinValue(testCase, MakeDeepCopy)
+            A1 = arrow.array.Float64Array(realmin, DeepCopy=MakeDeepCopy);
+            data = double(A1);
+            testCase.verifyEqual(data, realmin);
+        end
+
+        function MaxValue(testCase, MakeDeepCopy)
+            A1 = arrow.array.Float64Array(realmax, DeepCopy=MakeDeepCopy);
+            data = double(A1);
+            testCase.verifyEqual(data, realmax);
+        end
+
+        function InfValues(testCase, MakeDeepCopy)
+            A1 = arrow.array.Float64Array([Inf -Inf], DeepCopy=MakeDeepCopy);
+            data = double(A1);
+            testCase.verifyEqual(data, [Inf -Inf]');
+        end
+
+        function ErrorIfComplex(testCase, MakeDeepCopy)
+            fcn = @() arrow.array.Float64Array([10 + 1i, 4], DeepCopy=MakeDeepCopy);
             testCase.verifyError(fcn, "MATLAB:expectedReal");
         end
 
-        function ErrorIfSparse(testCase)
-            fcn = @() arrow.array.Float64Array(sparse(ones([10 1])));
+        function ErrorIfSparse(testCase, MakeDeepCopy)
+            fcn = @() arrow.array.Float64Array(sparse(ones([10 1])), DeepCopy=MakeDeepCopy);
             testCase.verifyError(fcn, "MATLAB:expectedNonsparse");
         end
     end
