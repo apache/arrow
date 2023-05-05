@@ -47,7 +47,7 @@ func TestNewInt64Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	assert.NoError(t, ab.AppendValueFromString("11"))
+	ab.AppendValueFromString("11")
 
 	// check state of builder before NewInt64Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
@@ -214,9 +214,10 @@ func TestNewUint64Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendValueFromString("11")
 
 	// check state of builder before NewUint64Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewUint64Array()
@@ -228,9 +229,9 @@ func TestNewUint64Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []uint64{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Uint64Values(), "unexpected Uint64Values")
+	assert.Equal(t, []uint64{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Uint64Values(), "unexpected Uint64Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Uint64Values(), 10, "unexpected length of Uint64Values")
+	assert.Len(t, a.Uint64Values(), 11, "unexpected length of Uint64Values")
 
 	a.Release()
 
@@ -380,9 +381,10 @@ func TestNewFloat64Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendValueFromString("11")
 
 	// check state of builder before NewFloat64Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewFloat64Array()
@@ -394,9 +396,9 @@ func TestNewFloat64Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []float64{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Float64Values(), "unexpected Float64Values")
+	assert.Equal(t, []float64{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Float64Values(), "unexpected Float64Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Float64Values(), 10, "unexpected length of Float64Values")
+	assert.Len(t, a.Float64Values(), 11, "unexpected length of Float64Values")
 
 	a.Release()
 
@@ -546,9 +548,10 @@ func TestNewInt32Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendValueFromString("11")
 
 	// check state of builder before NewInt32Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewInt32Array()
@@ -560,9 +563,9 @@ func TestNewInt32Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []int32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Int32Values(), "unexpected Int32Values")
+	assert.Equal(t, []int32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Int32Values(), "unexpected Int32Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Int32Values(), 10, "unexpected length of Int32Values")
+	assert.Len(t, a.Int32Values(), 11, "unexpected length of Int32Values")
 
 	a.Release()
 
@@ -712,9 +715,10 @@ func TestNewUint32Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendValueFromString("11")
 
 	// check state of builder before NewUint32Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewUint32Array()
@@ -726,9 +730,9 @@ func TestNewUint32Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []uint32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Uint32Values(), "unexpected Uint32Values")
+	assert.Equal(t, []uint32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Uint32Values(), "unexpected Uint32Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Uint32Values(), 10, "unexpected length of Uint32Values")
+	assert.Len(t, a.Uint32Values(), 11, "unexpected length of Uint32Values")
 
 	a.Release()
 
@@ -878,9 +882,10 @@ func TestNewFloat32Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendValueFromString("11")
 
 	// check state of builder before NewFloat32Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewFloat32Array()
@@ -892,9 +897,9 @@ func TestNewFloat32Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []float32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Float32Values(), "unexpected Float32Values")
+	assert.Equal(t, []float32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Float32Values(), "unexpected Float32Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Float32Values(), 10, "unexpected length of Float32Values")
+	assert.Len(t, a.Float32Values(), 11, "unexpected length of Float32Values")
 
 	a.Release()
 
@@ -1044,9 +1049,10 @@ func TestNewInt16Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendValueFromString("11")
 
 	// check state of builder before NewInt16Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewInt16Array()
@@ -1058,9 +1064,9 @@ func TestNewInt16Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []int16{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Int16Values(), "unexpected Int16Values")
+	assert.Equal(t, []int16{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Int16Values(), "unexpected Int16Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Int16Values(), 10, "unexpected length of Int16Values")
+	assert.Len(t, a.Int16Values(), 11, "unexpected length of Int16Values")
 
 	a.Release()
 
@@ -1210,9 +1216,10 @@ func TestNewUint16Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendValueFromString("11")
 
 	// check state of builder before NewUint16Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewUint16Array()
@@ -1224,9 +1231,9 @@ func TestNewUint16Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []uint16{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Uint16Values(), "unexpected Uint16Values")
+	assert.Equal(t, []uint16{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Uint16Values(), "unexpected Uint16Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Uint16Values(), 10, "unexpected length of Uint16Values")
+	assert.Len(t, a.Uint16Values(), 11, "unexpected length of Uint16Values")
 
 	a.Release()
 
@@ -1376,9 +1383,10 @@ func TestNewInt8Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendValueFromString("11")
 
 	// check state of builder before NewInt8Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewInt8Array()
@@ -1390,9 +1398,9 @@ func TestNewInt8Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []int8{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Int8Values(), "unexpected Int8Values")
+	assert.Equal(t, []int8{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Int8Values(), "unexpected Int8Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Int8Values(), 10, "unexpected length of Int8Values")
+	assert.Len(t, a.Int8Values(), 11, "unexpected length of Int8Values")
 
 	a.Release()
 
@@ -1542,9 +1550,10 @@ func TestNewUint8Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendValueFromString("11")
 
 	// check state of builder before NewUint8Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewUint8Array()
@@ -1556,9 +1565,9 @@ func TestNewUint8Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []uint8{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Uint8Values(), "unexpected Uint8Values")
+	assert.Equal(t, []uint8{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Uint8Values(), "unexpected Uint8Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Uint8Values(), 10, "unexpected length of Uint8Values")
+	assert.Len(t, a.Uint8Values(), 11, "unexpected length of Uint8Values")
 
 	a.Release()
 
@@ -1709,9 +1718,10 @@ func TestNewTimestampBuilder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.Append(11)
 
 	// check state of builder before NewTimestampArray
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewTimestampArray()
@@ -1723,9 +1733,9 @@ func TestNewTimestampBuilder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []arrow.Timestamp{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.TimestampValues(), "unexpected TimestampValues")
+	assert.Equal(t, []arrow.Timestamp{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.TimestampValues(), "unexpected TimestampValues")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.TimestampValues(), 10, "unexpected length of TimestampValues")
+	assert.Len(t, a.TimestampValues(), 11, "unexpected length of TimestampValues")
 
 	a.Release()
 
@@ -1879,9 +1889,10 @@ func TestNewTime32Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.Append(11)
 
 	// check state of builder before NewTime32Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewTime32Array()
@@ -1893,9 +1904,9 @@ func TestNewTime32Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []arrow.Time32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Time32Values(), "unexpected Time32Values")
+	assert.Equal(t, []arrow.Time32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Time32Values(), "unexpected Time32Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Time32Values(), 10, "unexpected length of Time32Values")
+	assert.Len(t, a.Time32Values(), 11, "unexpected length of Time32Values")
 
 	a.Release()
 
@@ -2049,9 +2060,10 @@ func TestNewTime64Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.Append(11)
 
 	// check state of builder before NewTime64Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewTime64Array()
@@ -2063,9 +2075,9 @@ func TestNewTime64Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []arrow.Time64{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Time64Values(), "unexpected Time64Values")
+	assert.Equal(t, []arrow.Time64{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Time64Values(), "unexpected Time64Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Time64Values(), 10, "unexpected length of Time64Values")
+	assert.Len(t, a.Time64Values(), 11, "unexpected length of Time64Values")
 
 	a.Release()
 
@@ -2218,9 +2230,10 @@ func TestNewDate32Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.Append(11)
 
 	// check state of builder before NewDate32Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewDate32Array()
@@ -2232,9 +2245,9 @@ func TestNewDate32Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []arrow.Date32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Date32Values(), "unexpected Date32Values")
+	assert.Equal(t, []arrow.Date32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Date32Values(), "unexpected Date32Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Date32Values(), 10, "unexpected length of Date32Values")
+	assert.Len(t, a.Date32Values(), 11, "unexpected length of Date32Values")
 
 	a.Release()
 
@@ -2384,9 +2397,10 @@ func TestNewDate64Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.Append(11)
 
 	// check state of builder before NewDate64Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewDate64Array()
@@ -2398,9 +2412,9 @@ func TestNewDate64Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []arrow.Date64{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.Date64Values(), "unexpected Date64Values")
+	assert.Equal(t, []arrow.Date64{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.Date64Values(), "unexpected Date64Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Date64Values(), 10, "unexpected length of Date64Values")
+	assert.Len(t, a.Date64Values(), 11, "unexpected length of Date64Values")
 
 	a.Release()
 
@@ -2551,9 +2565,10 @@ func TestNewDurationBuilder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.Append(11)
 
 	// check state of builder before NewDurationArray
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewDurationArray()
@@ -2565,9 +2580,9 @@ func TestNewDurationBuilder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []arrow.Duration{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.DurationValues(), "unexpected DurationValues")
+	assert.Equal(t, []arrow.Duration{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.DurationValues(), "unexpected DurationValues")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.DurationValues(), 10, "unexpected length of DurationValues")
+	assert.Len(t, a.DurationValues(), 11, "unexpected length of DurationValues")
 
 	a.Release()
 

@@ -203,6 +203,21 @@ func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
       return err
     }
     b.Append(arrow.Date64FromTime(tm))  
+  {{else if or (eq .Name "Dictionary") -}}
+  	if d.IsNull(i) {
+  		return NullValueStr
+  	}
+  	return d.Dictionary().ValueStr(d.GetValueIndex(i))
+	bldr := NewBuilder(b.mem, b.dt.ValueType)
+	defer bldr.Release()
+
+	if err := bldr.AppendValueFromString(s); err != nil {
+		return err
+	}
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+	return b.AppendArray(arr)
   {{else if or (eq .Name "Time32") -}}
   	val, err := arrow.Time32FromString(s, b.dtype.Unit)
     if err != nil {
