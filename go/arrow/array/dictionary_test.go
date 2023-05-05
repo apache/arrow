@@ -385,6 +385,80 @@ func (p *PrimitiveDictionaryTestSuite) TestResetFull() {
 	p.True(array.ArrayEqual(exdict, result.Dictionary()))
 }
 
+func (p *PrimitiveDictionaryTestSuite) TestValueStr() {
+	dt := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: p.typ}
+	b := array.NewDictionaryBuilder(p.mem, dt)
+	defer b.Release()
+
+	builder := reflect.ValueOf(b)
+	fn := builder.MethodByName("Append")
+	p.Nil(fn.Call([]reflect.Value{reflect.ValueOf(1).Convert(p.reftyp)})[0].Interface())
+	p.Nil(fn.Call([]reflect.Value{reflect.ValueOf(2).Convert(p.reftyp)})[0].Interface())
+	p.Nil(fn.Call([]reflect.Value{reflect.ValueOf(1).Convert(p.reftyp)})[0].Interface())
+	b.AppendNull()
+
+	p.EqualValues(4, b.Len())
+	p.EqualValues(1, b.NullN())
+
+	arr := b.NewArray().(*array.Dictionary)
+	defer arr.Release()
+	p.True(arrow.TypeEqual(dt, arr.DataType()))
+
+	b1 := array.NewDictionaryBuilder(p.mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		p.NoError(b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Dictionary)
+	defer arr1.Release()
+
+	p.Equal(arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		p.Equal(arr.IsValid(i), arr1.IsValid(i))
+		p.Equal(arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func (p *PrimitiveDictionaryTestSuite) TestAppendValueFromString() {
+	dt := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: p.typ}
+	b := array.NewDictionaryBuilder(p.mem, dt)
+	defer b.Release()
+
+	builder := reflect.ValueOf(b)
+	fn := builder.MethodByName("Append")
+	p.Nil(fn.Call([]reflect.Value{reflect.ValueOf(1).Convert(p.reftyp)})[0].Interface())
+	p.Nil(fn.Call([]reflect.Value{reflect.ValueOf(2).Convert(p.reftyp)})[0].Interface())
+	p.Nil(fn.Call([]reflect.Value{reflect.ValueOf(1).Convert(p.reftyp)})[0].Interface())
+	b.AppendNull()
+
+	p.EqualValues(4, b.Len())
+	p.EqualValues(1, b.NullN())
+
+	arr := b.NewArray().(*array.Dictionary)
+	defer arr.Release()
+	p.True(arrow.TypeEqual(dt, arr.DataType()))
+
+	b1 := array.NewDictionaryBuilder(p.mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		p.NoError(b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Dictionary)
+	defer arr1.Release()
+
+	p.Equal(arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		p.Equal(arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			p.EqualValues(arr.GetOneForMarshal(i), arr1.GetOneForMarshal(i))
+		}
+	}
+}
+
 func TestBasicStringDictionaryBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
@@ -806,6 +880,81 @@ func TestFixedSizeBinaryDictionaryBuilderDeltaDictionary(t *testing.T) {
 
 	assert.True(t, array.ArrayEqual(intArr2, indices2))
 	assert.True(t, array.ArrayEqual(fsbArr2, delta2))
+}
+
+func TestFixedSizeBinaryDictionary_ValueStr(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: &arrow.FixedSizeBinaryType{ByteWidth: 4}}
+	b := array.NewDictionaryBuilder(mem, dictType)
+	defer b.Release()
+
+	builder := b.(*array.FixedSizeBinaryDictionaryBuilder)
+	test := []byte{12, 12, 11, 12}
+	test2 := []byte{12, 12, 11, 11}
+	assert.NoError(t, builder.Append(test))
+	assert.NoError(t, builder.Append(test2))
+	assert.NoError(t, builder.Append(test))
+
+	arr := builder.NewDictionaryArray()
+	defer arr.Release()
+
+	b1 := array.NewDictionaryBuilder(mem, dictType)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Dictionary)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+func TestFixedSizeBinaryDictionaryBuilder_AppendValueFromString(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: &arrow.FixedSizeBinaryType{ByteWidth: 4}}
+	b := array.NewDictionaryBuilder(mem, dictType)
+	defer b.Release()
+
+	builder := b.(*array.FixedSizeBinaryDictionaryBuilder)
+	test := []byte{12, 12, 11, 12}
+	test2 := []byte{12, 12, 11, 11}
+	assert.NoError(t, builder.Append(test))
+	assert.NoError(t, builder.Append(test2))
+	assert.NoError(t, builder.Append(test))
+
+	arr := builder.NewDictionaryArray()
+	defer arr.Release()
+
+	b1 := array.NewDictionaryBuilder(mem, dictType)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Dictionary)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Equal(t, arr.GetValueIndex(i), arr1.GetValueIndex(i))
+			assert.Equal(t,
+				arr.Dictionary().(*array.FixedSizeBinary).Value(arr.GetValueIndex(i)),
+				arr1.Dictionary().(*array.FixedSizeBinary).Value(arr1.GetValueIndex(i)),
+			)
+		}
+	}
 }
 
 func TestDecimalDictionaryBuilderBasic(t *testing.T) {

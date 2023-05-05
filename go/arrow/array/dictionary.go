@@ -254,6 +254,9 @@ func (d *Dictionary) CanCompareIndices(other *Dictionary) bool {
 }
 
 func (d *Dictionary) ValueStr(i int) string {
+	if d.IsNull(i) {
+		return NullValueStr
+	}
 	return d.Dictionary().ValueStr(d.GetValueIndex(i))
 }
 
@@ -742,11 +745,29 @@ func (b *dictionaryBuilder) Unmarshal(dec *json.Decoder) error {
 }
 
 func (b *dictionaryBuilder) AppendValueFromString(s string) error {
-	return fmt.Errorf("%w: AppendValueFromString to dictionary not yet implemented", arrow.ErrNotImplemented)
+	bldr := NewBuilder(b.mem, b.dt.ValueType)
+	defer bldr.Release()
+
+	if err := bldr.AppendValueFromString(s); err != nil {
+		return err
+	}
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+	return b.AppendArray(arr)
 }
 
 func (b *dictionaryBuilder) UnmarshalOne(dec *json.Decoder) error {
-	return errors.New("unmarshal json to dictionary not yet implemented")
+	bldr := NewBuilder(b.mem, b.dt.ValueType)
+	defer bldr.Release()
+
+	if err := bldr.UnmarshalOne(dec); err != nil {
+		return err
+	}
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+	return b.AppendArray(arr)
 }
 
 func (b *dictionaryBuilder) NewArray() arrow.Array {

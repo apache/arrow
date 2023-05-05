@@ -54,7 +54,7 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 	{{ if or (eq .Name "Timestamp") (eq .Name "Time32") (eq .Name "Time64") (eq .Name "Date32") (eq .Name "Date64") (eq .Name "Duration") -}}
 	ab.Append(11)
 	{{ else -}}
-	ab.AppendValueFromString("11")
+	assert.NoError(t, ab.AppendValueFromString("11"))
 	{{ end }}
 
 	// check state of builder before New{{.Name}}Array

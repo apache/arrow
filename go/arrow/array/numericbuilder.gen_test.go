@@ -47,7 +47,7 @@ func TestNewInt64Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	ab.AppendValueFromString("11")
+	assert.NoError(t, ab.AppendValueFromString("11"))
 
 	// check state of builder before NewInt64Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
@@ -214,7 +214,7 @@ func TestNewUint64Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	ab.AppendValueFromString("11")
+	assert.NoError(t, ab.AppendValueFromString("11"))
 
 	// check state of builder before NewUint64Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
@@ -381,7 +381,7 @@ func TestNewFloat64Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	ab.AppendValueFromString("11")
+	assert.NoError(t, ab.AppendValueFromString("11"))
 
 	// check state of builder before NewFloat64Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
@@ -548,7 +548,7 @@ func TestNewInt32Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	ab.AppendValueFromString("11")
+	assert.NoError(t, ab.AppendValueFromString("11"))
 
 	// check state of builder before NewInt32Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
@@ -715,7 +715,7 @@ func TestNewUint32Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	ab.AppendValueFromString("11")
+	assert.NoError(t, ab.AppendValueFromString("11"))
 
 	// check state of builder before NewUint32Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
@@ -882,7 +882,7 @@ func TestNewFloat32Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	ab.AppendValueFromString("11")
+	assert.NoError(t, ab.AppendValueFromString("11"))
 
 	// check state of builder before NewFloat32Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
@@ -1049,7 +1049,7 @@ func TestNewInt16Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	ab.AppendValueFromString("11")
+	assert.NoError(t, ab.AppendValueFromString("11"))
 
 	// check state of builder before NewInt16Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
@@ -1216,7 +1216,7 @@ func TestNewUint16Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	ab.AppendValueFromString("11")
+	assert.NoError(t, ab.AppendValueFromString("11"))
 
 	// check state of builder before NewUint16Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
@@ -1383,7 +1383,7 @@ func TestNewInt8Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	ab.AppendValueFromString("11")
+	assert.NoError(t, ab.AppendValueFromString("11"))
 
 	// check state of builder before NewInt8Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
@@ -1550,7 +1550,7 @@ func TestNewUint8Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	ab.AppendValueFromString("11")
+	assert.NoError(t, ab.AppendValueFromString("11"))
 
 	// check state of builder before NewUint8Array
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
