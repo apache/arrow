@@ -122,11 +122,11 @@ class TracingServerMiddleware::Impl {
 class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   virtual ~TracingServerMiddlewareFactory() = default;
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     constexpr char kServiceName[] = "arrow.flight.protocol.FlightService";
 
-    FlightServerCarrier carrier(incoming_headers);
+    FlightServerCarrier carrier(context.incoming_headers());
     auto context = otel::context::RuntimeContext::GetCurrent();
     auto propagator =
         otel::context::propagation::GlobalTextMapPropagator::GetGlobalPropagator();
@@ -167,7 +167,7 @@ class TracingServerMiddleware::Impl {
 class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   virtual ~TracingServerMiddlewareFactory() = default;
-  Status StartCall(const CallInfo&, const CallHeaders&,
+  Status StartCall(const CallInfo&, const ServerCallContext&,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     std::unique_ptr<TracingServerMiddleware::Impl> impl(
         new TracingServerMiddleware::Impl());

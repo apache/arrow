@@ -143,10 +143,10 @@ class TestServerMiddleware : public ServerMiddleware {
 
 class TestServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
-        incoming_headers.equal_range("x-middleware");
+        context.incoming_headers().equal_range("x-middleware");
     std::string received = "";
     if (iter_pair.first != iter_pair.second) {
       const std::string_view& value = (*iter_pair.first).second;
