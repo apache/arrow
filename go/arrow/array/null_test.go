@@ -22,6 +22,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNullArray(t *testing.T) {
@@ -74,4 +75,68 @@ func TestNullArray(t *testing.T) {
 		t.Fatalf("invalid number of nulls: got=%d, want=%d", got, want)
 	}
 
+}
+
+func TestNull_ValueStr(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewNullBuilder(mem)
+	defer b.Release()
+
+	b.AppendNull()
+	b.AppendNull()
+
+	arr := b.NewArray().(*array.Null)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewNullBuilder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Null)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestNullBuilder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewNullBuilder(mem)
+	defer b.Release()
+
+	b.AppendNull()
+	b.AppendNull()
+
+	arr := b.NewArray().(*array.Null)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewNullBuilder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Null)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Exactly(t, arr.Value(i), arr1.Value(i))
+	}
 }
