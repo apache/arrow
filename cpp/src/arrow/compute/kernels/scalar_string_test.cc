@@ -1900,6 +1900,12 @@ TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
   StrptimeOptions options("%m/%d/%Y %z", TimeUnit::MICRO, /*error_is_null=*/true);
   this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO, "UTC"), output1,
                    &options);
+
+  // format without whitespace before %z (GH-35448)
+  std::string input2 = R"(["2020-05-01T00:00+0100", null, "1900-12-11T00:00-0130"])";
+  StrptimeOptions options("%Y-%m-%dT%H:%M%z", TimeUnit::MICRO, /*error_is_null=*/true);
+  this->CheckUnary("strptime", input2, timestamp(TimeUnit::MICRO, "UTC"), output1,
+                   &options);
 }
 
 TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
