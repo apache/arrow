@@ -54,6 +54,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
@@ -1383,12 +1384,24 @@ TEST_F(GcsIntegrationTest, OpenInputFileClosed) {
 
 TEST_F(GcsIntegrationTest, TestFileSystemFromUri) {
   // Smoke test for FileSystemFromUri
-  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(std::string("gs://anonymous@") +
-                                                  PreexistingBucketPath()));
+  std::string path;
+  ASSERT_OK_AND_ASSIGN(
+      auto fs,
+      FileSystemFromUri(std::string("gs://anonymous@") + PreexistingBucketPath(), &path));
   EXPECT_EQ(fs->type_name(), "gcs");
+  EXPECT_EQ(path, PreexistingBucketName());
+  ASSERT_OK_AND_ASSIGN(
+      path, fs->PathFromUri(std::string("gs://anonymous@") + PreexistingBucketPath()));
+  EXPECT_EQ(path, PreexistingBucketName());
   ASSERT_OK_AND_ASSIGN(auto fs2, FileSystemFromUri(std::string("gcs://anonymous@") +
                                                    PreexistingBucketPath()));
   EXPECT_EQ(fs2->type_name(), "gcs");
+  ASSERT_THAT(fs->PathFromUri("/foo/bar"),
+              Raises(StatusCode::Invalid, testing::HasSubstr("Expected a URI")));
+  ASSERT_THAT(
+      fs->PathFromUri("s3:///foo/bar"),
+      Raises(StatusCode::Invalid,
+             testing::HasSubstr("expected a URI with one of the schemes (gs, gcs)")));
 }
 
 }  // namespace
