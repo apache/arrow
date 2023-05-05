@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <future>
 #include <memory>
 #include <optional>
 
@@ -195,6 +196,8 @@ class TestPageSerde : public ::testing::Test {
   void TestPageSerdeCrc(bool write_checksum, bool write_page_corrupt,
                         bool verification_checksum, bool has_dictionary = false,
                         bool write_data_page_v2 = false);
+
+  void TestPageCompressionRoundTrip(const std::function<int(int)>& getPageSize);
 
  protected:
   std::shared_ptr<::arrow::io::BufferOutputStream> out_stream_;
@@ -704,7 +707,8 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
   ASSERT_THROW(page_reader_->NextPage(), ParquetException);
 }
 
-TEST_F(TestPageSerde, Compression) {
+void TestPageSerde::TestPageCompressionRoundTrip(
+    const std::function<int(int)>& getPageSize) {
   auto codec_types = GetSupportedCodecTypes();
 
   const int32_t num_rows = 32;  // dummy value
@@ -715,8 +719,7 @@ TEST_F(TestPageSerde, Compression) {
   std::vector<std::vector<uint8_t>> faux_data;
   faux_data.resize(num_pages);
   for (int i = 0; i < num_pages; ++i) {
-    // The pages keep getting larger
-    int page_size = (i + 1) * 64;
+    int page_size = getPageSize(i);
     test::random_bytes(page_size, 0, &faux_data[i]);
   }
   for (auto codec_type : codec_types) {
@@ -755,56 +758,16 @@ TEST_F(TestPageSerde, Compression) {
   }
 }
 
-TEST_F(TestPageSerde, PageSizeReset) {
-  // uncompressed is also introduced.
-  auto codec_types = GetSupportedCodecTypes();
+TEST_F(TestPageSerde, Compression) {
+  // The pages keep getting larger
+  auto getPageSize = [](int i) { return (i + 1) * 64; };
+  TestPageCompressionRoundTrip(getPageSize);
+}
 
-  const int32_t num_rows = 32;  // dummy value
-  data_page_header_.num_values = num_rows;
-
-  const int num_pages = 10;
-
-  std::vector<std::vector<uint8_t>> faux_data;
-  faux_data.resize(num_pages);
-  for (int i = 0; i < num_pages; ++i) {
-    // The pages keep getting smaller
-    int page_size = (10 - i) * 64;
-    test::random_bytes(page_size, 0, &faux_data[i]);
-  }
-  for (auto codec_type : codec_types) {
-    auto codec = GetCodec(codec_type);
-
-    std::vector<uint8_t> buffer;
-    for (int i = 0; i < num_pages; ++i) {
-      const uint8_t* data = faux_data[i].data();
-      int data_size = static_cast<int>(faux_data[i].size());
-
-      int64_t max_compressed_size = codec->MaxCompressedLen(data_size, data);
-      buffer.resize(max_compressed_size);
-
-      int64_t actual_size;
-      ASSERT_OK_AND_ASSIGN(
-          actual_size, codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
-
-      ASSERT_NO_FATAL_FAILURE(
-          WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size)));
-      ASSERT_OK(out_stream_->Write(buffer.data(), actual_size));
-    }
-
-    InitSerializedPageReader(num_rows * num_pages, codec_type);
-
-    std::shared_ptr<Page> page;
-    const DataPageV1* data_page;
-    for (int i = 0; i < num_pages; ++i) {
-      int data_size = static_cast<int>(faux_data[i].size());
-      page = page_reader_->NextPage();
-      data_page = static_cast<const DataPageV1*>(page.get());
-      ASSERT_EQ(data_size, data_page->size());
-      ASSERT_EQ(0, memcmp(faux_data[i].data(), data_page->data(), data_size));
-    }
-
-    ResetStream();
-  }
+TEST_F(TestPageSerde, PageSizeResetWhenRead) {
+  // The pages keep getting smaller
+  auto getPageSize = [](int i) { return (10 - i) * 64; };
+  TestPageCompressionRoundTrip(getPageSize);
 }
 
 TEST_F(TestPageSerde, LZONotSupported) {
