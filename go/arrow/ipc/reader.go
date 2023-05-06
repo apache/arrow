@@ -23,13 +23,13 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/endian"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/endian"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 // Reader reads records from an io.Reader.

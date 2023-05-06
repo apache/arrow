@@ -474,12 +474,31 @@ class FlightTestServer : public FlightServerBase {
     return Status::OK();
   }
 
+  Status ListIncomingHeaders(const ServerCallContext& context, const Action& action,
+                             std::unique_ptr<ResultStream>* out) {
+    std::vector<Result> results;
+    std::string_view prefix(*action.body);
+    for (const auto& header : context.incoming_headers()) {
+      if (header.first.substr(0, prefix.size()) != prefix) {
+        continue;
+      }
+      Result result;
+      result.body = Buffer::FromString(std::string(header.first) + ": " +
+                                       std::string(header.second));
+      results.push_back(result);
+    }
+    *out = std::make_unique<SimpleResultStream>(std::move(results));
+    return Status::OK();
+  }
+
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* out) override {
     if (action.type == "action1") {
       return RunAction1(action, out);
     } else if (action.type == "action2") {
       return RunAction2(out);
+    } else if (action.type == "list-incoming-headers") {
+      return ListIncomingHeaders(context, action, out);
     } else {
       return Status::NotImplemented(action.type);
     }
@@ -686,7 +705,8 @@ TestServerAuthHandler::TestServerAuthHandler(const std::string& username,
 
 TestServerAuthHandler::~TestServerAuthHandler() {}
 
-Status TestServerAuthHandler::Authenticate(ServerAuthSender* outgoing,
+Status TestServerAuthHandler::Authenticate(const ServerCallContext& context,
+                                           ServerAuthSender* outgoing,
                                            ServerAuthReader* incoming) {
   std::string token;
   RETURN_NOT_OK(incoming->Read(&token));
@@ -697,7 +717,8 @@ Status TestServerAuthHandler::Authenticate(ServerAuthSender* outgoing,
   return Status::OK();
 }
 
-Status TestServerAuthHandler::IsValid(const std::string& token,
+Status TestServerAuthHandler::IsValid(const ServerCallContext& context,
+                                      const std::string& token,
                                       std::string* peer_identity) {
   if (token != password_) {
     return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
@@ -714,7 +735,8 @@ TestServerBasicAuthHandler::TestServerBasicAuthHandler(const std::string& userna
 
 TestServerBasicAuthHandler::~TestServerBasicAuthHandler() {}
 
-Status TestServerBasicAuthHandler::Authenticate(ServerAuthSender* outgoing,
+Status TestServerBasicAuthHandler::Authenticate(const ServerCallContext& context,
+                                                ServerAuthSender* outgoing,
                                                 ServerAuthReader* incoming) {
   std::string token;
   RETURN_NOT_OK(incoming->Read(&token));
@@ -727,7 +749,8 @@ Status TestServerBasicAuthHandler::Authenticate(ServerAuthSender* outgoing,
   return Status::OK();
 }
 
-Status TestServerBasicAuthHandler::IsValid(const std::string& token,
+Status TestServerBasicAuthHandler::IsValid(const ServerCallContext& context,
+                                           const std::string& token,
                                            std::string* peer_identity) {
   if (token != basic_auth_.username) {
     return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");

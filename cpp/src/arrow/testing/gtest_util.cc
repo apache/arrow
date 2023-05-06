@@ -47,6 +47,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/pretty_print.h"
@@ -425,6 +426,24 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
     batches.push_back(RecordBatchFromJSON(schema, batch_json));
   }
   return *Table::FromRecordBatches(schema, std::move(batches));
+}
+
+Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
+    const Table& table, const std::vector<int>& column_indices) {
+  const int num_columns = table.num_columns();
+  std::vector<std::shared_ptr<ChunkedArray>> encoded_columns;
+  encoded_columns.reserve(num_columns);
+  for (int i = 0; i < num_columns; i++) {
+    if (std::find(column_indices.begin(), column_indices.end(), i) !=
+        column_indices.end()) {
+      ARROW_ASSIGN_OR_RAISE(auto run_end_encoded, compute::RunEndEncode(table.column(i)));
+      DCHECK_EQ(run_end_encoded.kind(), Datum::CHUNKED_ARRAY);
+      encoded_columns.push_back(run_end_encoded.chunked_array());
+    } else {
+      encoded_columns.push_back(table.column(i));
+    }
+  }
+  return Table::Make(table.schema(), std::move(encoded_columns));
 }
 
 Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,

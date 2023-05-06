@@ -26,22 +26,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/bitutils"
-	"github.com/apache/arrow/go/v12/internal/types"
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/compress"
-	"github.com/apache/arrow/go/v12/parquet/file"
-	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v12/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v12/parquet/pqarrow"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
+	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/compress"
+	"github.com/apache/arrow/go/v13/parquet/file"
+	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v13/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v13/parquet/pqarrow"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1333,6 +1333,74 @@ func (ps *ParquetIOTestSuite) TestNestedNullableField() {
 	defer tbl.Release()
 
 	ps.roundTripTable(mem, tbl, false)
+}
+
+func (ps *ParquetIOTestSuite) TestNestedEmptyList() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	bldr := array.NewStructBuilder(mem, arrow.StructOf(
+		arrow.Field{
+			Name: "root",
+			Type: arrow.StructOf(
+				arrow.Field{
+					Name: "child1",
+					Type: arrow.ListOf(arrow.StructOf(
+						arrow.Field{
+							Name: "child2",
+							Type: arrow.ListOf(arrow.StructOf(
+								arrow.Field{
+									Name: "name",
+									Type: arrow.BinaryTypes.String,
+								},
+							)),
+						},
+					)),
+				},
+			),
+		},
+	))
+	defer bldr.Release()
+
+	rootBldr := bldr.FieldBuilder(0).(*array.StructBuilder)
+	child1Bldr := rootBldr.FieldBuilder(0).(*array.ListBuilder)
+	child1ElBldr := child1Bldr.ValueBuilder().(*array.StructBuilder)
+	child2Bldr := child1ElBldr.FieldBuilder(0).(*array.ListBuilder)
+	leafBldr := child2Bldr.ValueBuilder().(*array.StructBuilder)
+	nameBldr := leafBldr.FieldBuilder(0).(*array.StringBuilder)
+
+	// target structure 8 times
+	// {
+	//   "root": {
+	//     "child1": [
+	//       { "child2": [{ "name": "foo" }] },
+	//       { "child2": [] }
+	//     ]
+	//   }
+	// }
+
+	for i := 0; i < 8; i++ {
+		bldr.Append(true)
+		rootBldr.Append(true)
+		child1Bldr.Append(true)
+
+		child1ElBldr.Append(true)
+		child2Bldr.Append(true)
+		leafBldr.Append(true)
+		nameBldr.Append("foo")
+
+		child1ElBldr.Append(true)
+		child2Bldr.Append(true)
+	}
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	field := arrow.Field{Name: "x", Type: arr.DataType(), Nullable: true}
+	expected := array.NewTableFromSlice(arrow.NewSchema([]arrow.Field{field}, nil), [][]arrow.Array{{arr}})
+	defer expected.Release()
+
+	ps.roundTripTable(mem, expected, false)
 }
 
 func (ps *ParquetIOTestSuite) TestCanonicalNestedRoundTrip() {

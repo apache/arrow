@@ -203,7 +203,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
     type_id = ext_type->storage_type()->id();
   }
 
-  if (data.buffers[0] == nullptr && type_id != Type::NA &&
+  if ((data.buffers.size() == 0 || data.buffers[0] == nullptr) && type_id != Type::NA &&
       type_id != Type::SPARSE_UNION && type_id != Type::DENSE_UNION) {
     // This should already be zero but we make for sure
     this->null_count = 0;

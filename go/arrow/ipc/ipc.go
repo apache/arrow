@@ -19,10 +19,10 @@ package ipc
 import (
 	"io"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/arrio"
-	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/arrio"
+	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 const (
