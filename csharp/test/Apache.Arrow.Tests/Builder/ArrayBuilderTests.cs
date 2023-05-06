@@ -83,7 +83,7 @@ namespace Apache.Arrow.Tests.Builder
 
             builder.AppendValue(123).AppendNull().AppendValue(new byte[] { 1, 0, 12 });
 
-            var built = builder.Build() as BinaryArray;
+            var built = builder.Build();
 
             Assert.Equal(3, built.Length);
             Assert.Equal(1, built.NullCount);
@@ -103,7 +103,7 @@ namespace Apache.Arrow.Tests.Builder
 
             builder.AppendValue("").AppendNull().AppendValue("def");
 
-            var built = builder.Build() as StringArray;
+            var built = builder.Build();
 
             Assert.Equal(3, built.Length);
             Assert.Equal(1, built.NullCount);
@@ -171,6 +171,27 @@ namespace Apache.Arrow.Tests.Builder
             Assert.True(built.IsValid(0));
             Assert.False(built.IsValid(1));
         }
+
+        [Fact]
+        public void StructArrayBuilder_Should_AppendNestedStruct()
+        {
+            var builder = new StructArrayBuilder<DynamicStruct>();
+
+            // Start new valid block, need to fill all builders
+            builder.AppendValues(typeof(DynamicStruct), new object[] {
+                new DynamicStruct { Name = "0", Surname = "1" }
+            });
+            // Append null block
+            builder.AppendNull();
+
+            StructArray built = builder.Build();
+
+            Assert.Equal(2, built.Length);
+            Assert.Equal(1, built.NullCount);
+
+            Assert.True(built.IsValid(0));
+            Assert.False(built.IsValid(1));
+        }
     }
 
     public class ListArrayBuilderTests
@@ -189,9 +210,8 @@ namespace Apache.Arrow.Tests.Builder
                     new long[] { 12, 3 },
                     new long[] {  }
                 })
-                .Build() as ListArray;
+                .Build();
 
-            Assert.IsType<ListArray>(built);
             Assert.Equal(7, built.Length);
             Assert.Equal(4, built.NullCount);
 
@@ -208,5 +228,11 @@ namespace Apache.Arrow.Tests.Builder
     {
         public string Name { get; set; }
         public int Value { get; set; }
+    }
+
+    public struct DynamicStruct
+    {
+        public string Name { get; set; }
+        public string Surname { get; set; }
     }
 }

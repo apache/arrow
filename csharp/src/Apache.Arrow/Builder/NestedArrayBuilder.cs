@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
@@ -25,14 +27,7 @@ namespace Apache.Arrow.Builder
         {
         }
 
-        public TBuilder GetBuilderAs<TBuilder>(int index) where TBuilder : ArrayBuilder
-        {
-            if (Children[index] is not TBuilder builder)
-            {
-                throw new InvalidOperationException($"Cannot get Children[{index}] as desired builder");
-            }
-            return builder;
-        }
+        public TBuilder GetBuilderAs<TBuilder>(int index) where TBuilder : ArrayBuilder => Children[index].As<TBuilder>();
     }
 
     public class ListArrayBuilder : NestedArrayBuilder
@@ -138,6 +133,11 @@ namespace Apache.Arrow.Builder
             GetBuilderAs<T>().AppendValues(values);
             return this;
         }
+
+        public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
+
+        public ListArray Build(MemoryAllocator allocator = default, bool _ = true)
+            => new ListArray(FinishInternal(allocator));
     }
 
     public class StructArrayBuilder : NestedArrayBuilder
@@ -152,7 +152,9 @@ namespace Apache.Arrow.Builder
             AppendValid();
             return this;
         }
+
         public override IArrayBuilder AppendNull() => AppendNull(true);
+
         public virtual StructArrayBuilder AppendNull(bool recursive = true)
         {
             base.AppendNull();
@@ -173,6 +175,38 @@ namespace Apache.Arrow.Builder
 
             return this;
         }
+
+        public override IArrayBuilder AppendValues(System.Type valueType, IEnumerable<object> values)
+        {
+            switch (valueType)
+            {
+#if NETCOREAPP3_1_OR_GREATER
+                case var structure when (valueType.IsValueType && !valueType.IsEnum && !valueType.IsPrimitive):
+                    var persisted = values.ToArray();
+
+                    PropertyInfo[] properties = structure.GetProperties(BindingFlags.Instance | BindingFlags.Public);
+
+                    for (int i = 0; i < Children.Length; i++)
+                    {
+                        // Append column by column
+                        var child = Children[i];
+                        var property = properties[i];
+
+                        child.AppendValues(property.PropertyType, persisted.Select(value => property.GetValue(value)));
+                    }
+
+                    AppendValidity(persisted.Select(value => value != null).ToArray());
+                    return this;
+#endif
+                default:
+                    throw new ArgumentException($"Cannot append to struct type csharp {valueType}, must be nested struct or row array");
+            }
+        }
+
+        public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
+
+        public StructArray Build(MemoryAllocator allocator = default, bool _ = true)
+            => new StructArray(FinishInternal(allocator));
     }
 
     public class StructArrayBuilder<T> : StructArrayBuilder where T : struct

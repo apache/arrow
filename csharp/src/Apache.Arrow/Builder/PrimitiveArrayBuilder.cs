@@ -578,7 +578,11 @@ namespace Apache.Arrow.Builder
 
     public class FixedBinaryArrayBuilder<T> : FixedBinaryArrayBuilder where T : struct
     {
-        public FixedBinaryArrayBuilder(int capacity = 64) : base(CStructType<T>.Default as FixedWidthType, capacity)
+        public FixedBinaryArrayBuilder(int capacity = 64) : this(CStructType<T>.Default as FixedWidthType, capacity)
+        {
+        }
+
+        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 64) : base(dtype, capacity)
         {
         }
     }

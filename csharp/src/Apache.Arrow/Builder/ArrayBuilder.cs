@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Memory;
@@ -39,6 +40,16 @@ namespace Apache.Arrow.Builder
             Length = 0;
             NullCount = 0;
             Offset = 0;
+        }
+
+        TBuilder IArrayBuilder.As<TBuilder>() => As<TBuilder>();
+        TBuilder As<TBuilder>() where TBuilder : IArrayBuilder
+        {
+            if (this is not TBuilder casted)
+            {
+                throw new InvalidOperationException($"Cannot cast {this} as {typeof(TBuilder)}");
+            }
+            return casted;
         }
 
         public virtual IArrayBuilder AppendNull()
@@ -99,6 +110,25 @@ namespace Apache.Arrow.Builder
             return AppendValidity(mask, nullCount);
         }
 
+        // Unsafe append values
+        public virtual IArrayBuilder AppendValues(System.Type valueType, IEnumerable<object> values)
+        {
+            switch (DataType.TypeId)
+            {
+                case ArrowTypeId.String:
+                    As<StringArrayBuilder>().AppendValues(values.Select(v => (string)v).ToArray());
+                    break;
+                case ArrowTypeId.Struct:
+                    As<StructArrayBuilder>().AppendValues(valueType, values);
+                    break;
+                default:
+                    throw new ArgumentException($"Cannot dynamically append values of type {valueType}");
+            }
+            return this;
+        }
+
+
+        // Append values from arrow objects
         public virtual IArrayBuilder AppendValues(IArrowArray array) => AppendValues(array.Data);
 
         public virtual IArrayBuilder AppendValues(ArrayData data)
