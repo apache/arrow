@@ -168,7 +168,7 @@ add_arrow_acero_test(pivot_longer_node_test SOURCES pivot_longer_node_test.cc
 # asof_join_node uses std::thread internally
 # and doesn't use ThreadPool so it will
 # be broken if threading is turned off
-if(ARROW_DISABLE_THREADING!=ON)
+if(!ARROW_DISABLE_THREADING)
   add_arrow_acero_test(asof_join_node_test SOURCES asof_join_node_test.cc test_nodes.cc)
 endif()
 
@@ -221,7 +221,7 @@ if(ARROW_BUILD_BENCHMARKS)
   add_arrow_acero_benchmark(project_benchmark SOURCES benchmark_util.cc
                             project_benchmark.cc)
 
-if(ARROW_DISABLE_THREADING!=ON)
+if(!ARROW_DISABLE_THREADING)
   add_arrow_acero_benchmark(asof_join_benchmark SOURCES asof_join_benchmark.cc)
 endif()
 
@@ -246,7 +246,7 @@ endif()
     target_link_libraries(arrow-acero-expression-benchmark PUBLIC arrow_acero_static)
     target_link_libraries(arrow-acero-filter-benchmark PUBLIC arrow_acero_static)
     target_link_libraries(arrow-acero-project-benchmark PUBLIC arrow_acero_static)
-    if(ARROW_DISABLE_THREADING!=ON)    
+    if(!ARROW_DISABLE_THREADING)    
       target_link_libraries(arrow-acero-asof-join-benchmark PUBLIC arrow_acero_static)
     endif()
     target_link_libraries(arrow-acero-tpch-benchmark PUBLIC arrow_acero_static)
@@ -257,7 +257,7 @@ endif()
     target_link_libraries(arrow-acero-expression-benchmark PUBLIC arrow_acero_shared)
     target_link_libraries(arrow-acero-filter-benchmark PUBLIC arrow_acero_shared)
     target_link_libraries(arrow-acero-project-benchmark PUBLIC arrow_acero_shared)
-    if(ARROW_DISABLE_THREADING!=ON)    
+    if(!ARROW_DISABLE_THREADING)    
       target_link_libraries(arrow-acero-asof-join-benchmark PUBLIC arrow_acero_shared)
     endif()
     target_link_libraries(arrow-acero-tpch-benchmark PUBLIC arrow_acero_shared)
