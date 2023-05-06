@@ -994,6 +994,9 @@ TEST(TestAsyncUtil, GeneratorIterator) {
 }
 
 TEST(TestAsyncUtil, MakeTransferredGenerator) {
+  #ifdef ARROW_DISABLE_THREADING
+    GTEST_SKIP() << "Test requires threading support";
+  #endif
   std::mutex mutex;
   std::condition_variable cv;
   std::atomic<bool> finished(false);
@@ -1486,6 +1489,15 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
   // should all pass
   auto source = [&]() -> Future<TestInt> {
     auto count = counter++;
+#ifdef ARROW_DISABLE_THREADING
+  // if threading is disabled, we can't call Task() as we do below because it will
+  // never return and will block everything
+    if (count == 0) {
+      return gating_task->AsyncTask().Then([](){return Future<TestInt>::MakeFinished(Status::Invalid("X"));});
+    }else{
+      return gating_task->AsyncTask().Then([count](){return  TestInt(count);});
+    }
+#else
     return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
       gating_task->Task()();
       if (count == 0) {
@@ -1493,6 +1505,7 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
       }
       return TestInt(count);
     }));
+#endif    
   };
   auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
   auto should_be_invalid = readahead();
@@ -1521,7 +1534,17 @@ TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
   auto in_flight_gating_task = GatingTask::Make();
   auto source = [&]() -> Future<TestInt> {
     auto count = counter++;
-    return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
+
+#ifdef ARROW_DISABLE_THREADING
+  // if threading is disabled, we can't call Task() as we do below because it will
+  // never return and will block everything
+    if (count == 0) {
+      return failure_gating_task->AsyncTask().Then([](){return Future<TestInt>::MakeFinished(Status::Invalid("X"));});
+    }else{
+      return in_flight_gating_task->AsyncTask().Then([](){return  TestInt(0);});
+    }
+#else
+   return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
       if (count == 0) {
         failure_gating_task->Task()();
         return Status::Invalid("X");
@@ -1530,7 +1553,8 @@ TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
       // These are our in-flight tasks
       return TestInt(0);
     }));
-  };
+  #endif
+  };  
   auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
   auto should_be_invalid = readahead();
   ASSERT_OK(in_flight_gating_task->WaitForRunning(10));

@@ -1035,7 +1035,64 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
     return unlocked_future_;
   }
 
+  void _WaitForEndOrUnlocked(std::chrono::time_point<std::chrono::steady_clock> end_time,arrow::internal::Executor *executor,Future<> future)
+  {
+    if(unlocked_)
+    {
+      num_finished_++;
+      future.MarkFinished(Status::OK());
+      return;            
+    }else
+    {
+      if(std::chrono::steady_clock::now()>end_time)
+      {
+        num_finished_++;
+        future.MarkFinished(Status::Invalid("Task unlock never happened - if threads are disabled you can't wait on gatedtask"));
+        return;
+      }else
+      {
+        SleepABit();
+        auto spawn_status=executor->Spawn([this,end_time,executor,future](){_WaitForEndOrUnlocked(end_time,executor,future);});
+        if(!spawn_status.ok())
+        {
+          status_ &= Status::Invalid("Couldn't spawn gating task unlock waiter");
+        }
+      }
+    }
+  }
+
+  Future<> RunTaskFuture() {
+      num_running_++;
+      // post the unlock check as a separate task
+      // otherwise we'll never let anything else run
+      // so nothing can unlock us
+      using Clock=std::chrono::steady_clock;
+      using DurationDouble=std::chrono::duration<double>;
+      using DurationClock=std::chrono::steady_clock::duration;
+
+      auto start_time = Clock::now();
+      std::chrono::duration<double> secs_left=std::chrono::duration<double>(timeout_seconds_);
+      std::chrono::time_point<Clock> end_time=std::chrono::time_point_cast<DurationClock,Clock,DurationDouble>(start_time+secs_left);
+      arrow::internal::Executor *executor=arrow::internal::GetCpuThreadPool();
+      Future<> future=Future<>::Make();
+      auto spawn_status=executor->Spawn([this,end_time,executor,future](){_WaitForEndOrUnlocked(end_time,executor,future);});
+      if(!spawn_status.ok())
+      { 
+        status_ &= Status::Invalid("Couldn't spawn gating task unlock waiter");
+        future.MarkFinished(Status::Invalid(""));
+      }
+      return future;
+  }
+
+
   void RunTask() {
+    #ifdef ARROW_DISABLE_THREADING
+    // can't wait here for anything, so make a future to do the waiting
+      num_running_++;
+      auto future=RunTaskFuture();
+      future.Wait();
+      return;
+    #else
     std::unique_lock<std::mutex> lk(mx_);
     num_running_++;
     running_cv_.notify_all();
@@ -1047,9 +1104,20 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
                                  " seconds) waiting for the gating task to be unlocked");
     }
     num_finished_++;
+    #endif
   }
 
   Status WaitForRunning(int count) {
+#ifdef ARROW_DISABLE_THREADING
+  BusyWait(timeout_seconds_,[this, count] { return num_running_ >= count; });
+  if(num_running_>=count)
+  {
+      return Status::OK();
+  }else
+  {
+    return Status::Invalid("Timed out waiting for tasks to launch");
+  }
+#else    
     std::unique_lock<std::mutex> lk(mx_);
     if (running_cv_.wait_for(
             lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
@@ -1057,6 +1125,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
       return Status::OK();
     }
     return Status::Invalid("Timed out waiting for tasks to launch");
+#endif    
   }
 
   Status Unlock() {
@@ -1066,6 +1135,13 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
       unlocked_cv_.notify_all();
     }
     unlocked_future_.MarkFinished();
+#ifdef ARROW_DISABLE_THREADING
+    while(num_finished_!=num_running_)
+    {
+      arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
+    }
+#endif
+
     return status_;
   }
 
