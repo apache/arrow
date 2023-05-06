@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/server.h"
 #include "arrow/flight/server_tracing_middleware.h"
+#include "arrow/flight/server.h"
 
 #include <string>
 #include <string_view>
