@@ -127,14 +127,14 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
     constexpr char kServiceName[] = "arrow.flight.protocol.FlightService";
 
     FlightServerCarrier carrier(context.incoming_headers());
-    auto context = otel::context::RuntimeContext::GetCurrent();
+    auto otel_context = otel::context::RuntimeContext::GetCurrent();
     auto propagator =
         otel::context::propagation::GlobalTextMapPropagator::GetGlobalPropagator();
-    auto new_context = propagator->Extract(carrier, context);
+    auto new_otel_context = propagator->Extract(carrier, otel_context);
 
     otel::trace::StartSpanOptions options;
     options.kind = otel::trace::SpanKind::kServer;
-    options.parent = otel::trace::GetSpan(new_context)->GetContext();
+    options.parent = otel::trace::GetSpan(new_otel_context)->GetContext();
 
     auto* tracer = arrow::internal::tracing::GetTracer();
     auto method_name = ToString(info.method);
