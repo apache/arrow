@@ -89,9 +89,9 @@ class GoAdapter(BenchmarkAdapter):
                 data = benchmark["Mem"]["MBPerSec"] * 1e6
                 time = 1 / benchmark["NsPerOp"] * 1e9
 
-                name = benchmark["Name"].removeprefix('Benchmark')
-                ncpu = name[name.rfind('-')+1:]
-                pieces = name[:-(len(ncpu)+1)].split('/')
+                name = benchmark["Name"].removeprefix("Benchmark")
+                ncpu = name[name.rfind("-") + 1 :]
+                pieces = name[: -(len(ncpu) + 1)].split("/")
 
                 parsed = BenchmarkResult(
                     run_id=run_id,
@@ -112,7 +112,7 @@ class GoAdapter(BenchmarkAdapter):
                         "pkg": pkg,
                         "num_cpu": ncpu,
                         "name": pieces[0],
-                        "params": '/'.join(pieces[1:]),
+                        "params": "/".join(pieces[1:]),
                     },
                     run_reason=run_reason,
                     github=github_commit_info,
@@ -125,5 +125,5 @@ class GoAdapter(BenchmarkAdapter):
 
 
 if __name__ == "__main__":
-    go_adapter = GoAdapter(result_fields_override={"info":{}})
+    go_adapter = GoAdapter(result_fields_override={"info": {}})
     go_adapter()
