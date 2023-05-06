@@ -38,11 +38,8 @@ SCRIPTS_PATH = ARROW_ROOT / "ci" / "scripts"
 github_commit_info: Optional[Dict] = None
 
 if os.environ.get("CONBENCH_REF") == "main":
-    # Assume GitHub Actions CI. The environment
-    # variable lookups below are expected to fail when
-    # not running in GitHub Actions. See
-    # https://github.com/conbench/conbench/blob/7c4968e631ecdc064559c86a1174a1353713b700/benchadapt/python/benchadapt/result.py#L66
-    # for a specification of this `github` argument.
+    # Assume GitHub Actions CI. The environment variable lookups below are
+    # expected to fail when not running in GitHub Actions.
     github_commit_info = {
         "repository": os.environ["GITHUB_REPOSITORY"],
         "commit": os.environ["GITHUB_SHA"],
@@ -50,23 +47,23 @@ if os.environ.get("CONBENCH_REF") == "main":
     }
     run_reason = "commit"
 else:
-    # Assume that the environment is not GitHub Actions CI.
-    # Error out if that assumption seems to be wrong.
+    # Assume that the environment is not GitHub Actions CI. Error out if that
+    # assumption seems to be wrong.
     assert os.getenv("GITHUB_ACTIONS") is None
 
-    # This is probably a local dev environment, for testing.
-    # In this case, it does usually not make sense to provide
-    # commit information (not a controlled CI environment).
-    # Explicitly set `github=None` to reflect that (to _not_
-    # send commit information).
+    # This is probably a local dev environment, for testing. In this case, it
+    # does usually not make sense to provide commit information (not a
+    # controlled CI environment). Explicitly keep `github_commit_info=None` to
+    # reflect that (to not send commit information).
 
-    # Reflect 'local dev' scenario in run_reason. Allow user
-    # to (optionally) inject a custom piece of information
-    #into the run reason here, from environment.
+    # Reflect 'local dev' scenario in run_reason. Allow user to (optionally)
+    # inject a custom piece of information into the run reason here, from
+    # environment.
     run_reason = "localdev"
-    custom_reason_suffix = os.getenv('CONBENCH_CUSTOM_RUN_REASON')
+    custom_reason_suffix = os.getenv("CONBENCH_CUSTOM_RUN_REASON")
     if custom_reason_suffix is not None:
         run_reason += f" {custom_reason_suffix.strip()}"
+
 
 class GoAdapter(BenchmarkAdapter):
     result_file = "bench_stats.json"
