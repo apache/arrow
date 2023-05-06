@@ -31,16 +31,37 @@ log.setLevel(logging.DEBUG)
 ARROW_ROOT = Path(__file__).parent.parent.parent.resolve()
 SCRIPTS_PATH = ARROW_ROOT / "ci" / "scripts"
 
-if os.environ.get("CONBENCH_REF") == "master":
-    github = {
+if os.environ.get("CONBENCH_REF") == "main":
+    # Assume GitHub Actions CI. The environment
+    # variable lookups below are expected to fail when
+    # not running in GitHub Actions. See
+    # https://github.com/conbench/conbench/blob/7c4968e631ecdc064559c86a1174a1353713b700/benchadapt/python/benchadapt/result.py#L66
+    # for a specification of this `github` argument.
+    github_commit_info = {
         "repository": os.environ["GITHUB_REPOSITORY"],
         "commit": os.environ["GITHUB_SHA"],
         "pr_number": None,  # implying default branch
     }
     run_reason = "commit"
 else:
-    github = None  # scrape github info from the local repo
-    run_reason = "branch"
+    # Assume that the environment is not GitHub Actions CI.
+    # Error out if that assumption seems to be wrong.
+    assert os.getenv("GITHUB_ACTIONS") is None
+
+    # This is probably a local dev environment, for testing.
+    # In this case, it does usually not make sense to provide
+    # commit information (not a controlled CI environment).
+    # Explicitly set `github=None` to reflect that (to _not_
+    # send commit information).
+    github_commit_info = None
+
+    # Reflect 'local dev' scenario in run_reason. Allow user
+    # to (optionally) inject a custom piece of information
+    #into the run reason here, from environment.
+    run_reason = "localdev"
+    custom_reason_suffix = os.getenv('CONBENCH_CUSTOM_RUN_REASON')
+    if custom_reason_suffix is not None:
+        run_reason += f" {custom_run_reason.strip()}" 
 
 class GoAdapter(BenchmarkAdapter):
     result_file = "bench_stats.json"
@@ -89,9 +110,10 @@ class GoAdapter(BenchmarkAdapter):
                         "params": '/'.join(pieces[1:]),
                     },
                     run_reason=run_reason,
-                    github=github,
+                    github=github_commit_info,
                 )
-                parsed.run_name = f"{parsed.run_reason}: {parsed.github['commit']}"
+                if github_commit_info is not None:
+                    parsed.run_name = f"{parsed.run_reason}: {parsed.github['commit']}"
                 parsed_results.append(parsed)
 
         return parsed_results
