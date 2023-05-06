@@ -373,12 +373,13 @@ func (s *UnionFactorySuite) TestMakeDenseUnions() {
 
 	children := make([]arrow.Array, 4)
 	children[0], _, _ = array.FromJSON(s.mem, arrow.BinaryTypes.String, strings.NewReader(`["abc", "def", "xyz"]`))
+	defer children[0].Release()
 	children[1], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Uint8, strings.NewReader(`[10, 20, 30]`))
+	defer children[1].Release()
 	children[2], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64, strings.NewReader(`[1.618, 2.718, 3.142]`))
+	defer children[2].Release()
 	children[3], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[-12]`))
-	for _, c := range children {
-		defer c.Release()
-	}
+	defer children[3].Release()
 
 	fieldNames := []string{"str", "int1", "real", "int2"}
 
@@ -458,6 +459,112 @@ func (s *UnionFactorySuite) TestMakeDenseUnions() {
 	})
 }
 
+func (s *UnionFactorySuite) TestDenseUnion_ValueStr() {
+	// typeIDs:                  {0, 1, 2, 0, 1, 3, 2, 0, 2, 1}
+	offsets := s.offsetsFromSlice(0, 0, 0, 1, 1, 0, 1, 2, 1, 2)
+	defer offsets.Release()
+
+	children := make([]arrow.Array, 4)
+	children[0], _, _ = array.FromJSON(s.mem, arrow.BinaryTypes.String, strings.NewReader(`["abc", "def", "xyz"]`))
+	defer children[0].Release()
+	children[1], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Uint8, strings.NewReader(`[10, 20, 30]`))
+	defer children[1].Release()
+	children[2], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64, strings.NewReader(`[1.618, 2.718, 3.142]`))
+	defer children[2].Release()
+	children[3], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[-12]`))
+	defer children[3].Release()
+
+	fields := []string{"str", "int1", "real", "int2"}
+
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(s.T(), 0)
+
+	dt := arrow.DenseUnionFromArrays(children, fields, s.codes)
+	arr, err := array.NewDenseUnionFromArraysWithFieldCodes(s.logicalTypeIDs, offsets, children, fields, s.codes)
+	s.NoError(err)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDenseUnionBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		s.NoError(b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.DenseUnion)
+	defer arr1.Release()
+
+	s.Equal(arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		s.Equal(arr.IsValid(i), arr1.IsValid(i))
+		s.Equal(arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func (s *UnionFactorySuite) TestDenseUnionBuilder_AppendValuesFromString() {
+	// typeIDs:                  {0, 1, 2, 0, 1, 3, 2, 0, 2, 1}
+	offsets := s.offsetsFromSlice(0, 0, 0, 1, 1, 0, 1, 2, 1, 2)
+	defer offsets.Release()
+
+	children := make([]arrow.Array, 4)
+	children[0], _, _ = array.FromJSON(s.mem, arrow.BinaryTypes.String, strings.NewReader(`["abc", "def", "xyz"]`))
+	defer children[0].Release()
+	children[1], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Uint8, strings.NewReader(`[10, 20, 30]`))
+	defer children[1].Release()
+	children[2], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64, strings.NewReader(`[1.618, 2.718, 3.142]`))
+	defer children[2].Release()
+	children[3], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[-12]`))
+	defer children[3].Release()
+
+	fields := []string{"str", "int1", "real", "int2"}
+
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(s.T(), 0)
+
+	dt := arrow.DenseUnionFromArrays(children, fields, s.codes)
+	arr, err := array.NewDenseUnionFromArraysWithFieldCodes(s.logicalTypeIDs, offsets, children, fields, s.codes)
+	s.NoError(err)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDenseUnionBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		s.NoError(b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.DenseUnion)
+	defer arr1.Release()
+
+	s.Equal(arr.Len(), arr1.Len())
+	// now we need to account for the offsets in the union, so no easy comparison of child arrays
+	for i := 0; i < arr.Len(); i++ {
+		s.Equal(arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsNull(i) {
+			continue
+		}
+		f, f1 := arr.Field(arr.ChildID(i)), arr1.Field(arr1.ChildID(i))
+		s.True(arrow.TypeEqual(f.DataType(), f1.DataType()))
+		o, o1 := arr.ValueOffset(i), arr1.ValueOffset(i)
+		switch f := f.(type) {
+		case *array.String:
+			s.Exactly(f.Value(int(o)), f1.(*array.String).Value(int(o1)))
+		case *array.Uint8:
+			s.Exactly(f.Value(int(o)), f1.(*array.Uint8).Value(int(o1)))
+		case *array.Float64:
+			s.Exactly(f.Value(int(o)), f1.(*array.Float64).Value(int(o1)))
+		case *array.Int8:
+			s.Exactly(f.Value(int(o)), f1.(*array.Int8).Value(int(o1)))
+		default:
+			s.Fail("unaccounted array type: %s", f.DataType())
+		}
+	}
+}
+
 func (s *UnionFactorySuite) TestMakeSparse() {
 	children := make([]arrow.Array, 4)
 	children[0], _, _ = array.FromJSON(s.mem, arrow.BinaryTypes.String,
@@ -531,6 +638,127 @@ func (s *UnionFactorySuite) TestMakeSparse() {
 		_, err := array.NewSparseUnionFromArrays(s.typeIDs, children)
 		s.Error(err)
 	})
+}
+
+func (s *UnionFactorySuite) TestSparseUnion_ValueStr() {
+	children := make([]arrow.Array, 4)
+	children[0], _, _ = array.FromJSON(s.mem, arrow.BinaryTypes.String,
+		strings.NewReader(`["abc", "", "", "def", "", "", "", "xyz", "", ""]`))
+	defer children[0].Release()
+	children[1], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Uint8,
+		strings.NewReader(`[0, 10, 0, 0, 20, 0, 0, 0, 0, 30]`))
+	defer children[1].Release()
+	children[2], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64,
+		strings.NewReader(`[0.0, 0.0, 1.618, 0.0, 0.0, 0.0, 2.718, 0.0, 3.142, 0.0]`))
+	defer children[2].Release()
+	children[3], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8,
+		strings.NewReader(`[0, 0, 0, 0, 0, -12, 0, 0, 0, 0]`))
+	defer children[3].Release()
+
+	fields := []string{"str", "int1", "real", "int2"}
+
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(s.T(), 0)
+
+	dt := arrow.SparseUnionFromArrays(children, fields, s.codes)
+
+	arr, err := array.NewSparseUnionFromArraysWithFieldCodes(s.logicalTypeIDs, children, fields, s.codes)
+	s.NoError(err)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewSparseUnionBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		s.NoError(b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.SparseUnion)
+	defer arr1.Release()
+
+	s.Equal(arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		s.Equal(arr.IsValid(i), arr1.IsValid(i))
+		s.Equal(arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func (s *UnionFactorySuite) TestSparseUnion_AppendValuesFromString() {
+	children := make([]arrow.Array, 4)
+	children[0], _, _ = array.FromJSON(s.mem, arrow.BinaryTypes.String,
+		strings.NewReader(`["abc", "", "", "def", "", "", "", "xyz", "", ""]`))
+	defer children[0].Release()
+	children[1], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Uint8,
+		strings.NewReader(`[0, 10, 0, 0, 20, 0, 0, 0, 0, 30]`))
+	defer children[1].Release()
+	children[2], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64,
+		strings.NewReader(`[0.0, 0.0, 1.618, 0.0, 0.0, 0.0, 2.718, 0.0, 3.142, 0.0]`))
+	defer children[2].Release()
+	children[3], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8,
+		strings.NewReader(`[0, 0, 0, 0, 0, -12, 0, 0, 0, 0]`))
+	defer children[3].Release()
+
+	fields := []string{"str", "int1", "real", "int2"}
+
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(s.T(), 0)
+
+	dt := arrow.SparseUnionFromArrays(children, fields, s.codes)
+
+	arr, err := array.NewSparseUnionFromArraysWithFieldCodes(s.logicalTypeIDs, children, fields, s.codes)
+	s.NoError(err)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewSparseUnionBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		s.NoError(b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.SparseUnion)
+	defer arr1.Release()
+
+	s.Equal(arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		s.Equal(arr.IsValid(i), arr1.IsValid(i))
+	}
+
+	str, err := arr.GetFlattenedField(mem, 0)
+	s.NoError(err)
+	defer str.Release()
+	str1, err := arr1.GetFlattenedField(mem, 0)
+	s.NoError(err)
+	defer str1.Release()
+	assertArrayExactly[string](s.T(), str.(*array.String), str1.(*array.String))
+
+	ui, err := arr.GetFlattenedField(mem, 1)
+	s.NoError(err)
+	defer ui.Release()
+	ui1, err := arr1.GetFlattenedField(mem, 1)
+	s.NoError(err)
+	defer ui1.Release()
+	assertArrayExactly[uint8](s.T(), ui.(*array.Uint8), ui1.(*array.Uint8))
+
+	float, err := arr.GetFlattenedField(mem, 2)
+	s.NoError(err)
+	defer float.Release()
+	float1, err := arr1.GetFlattenedField(mem, 2)
+	s.NoError(err)
+	defer float1.Release()
+	assertArrayExactly[float64](s.T(), float.(*array.Float64), float1.(*array.Float64))
+
+	i, err := arr.GetFlattenedField(mem, 3)
+	s.NoError(err)
+	defer i.Release()
+	i1, err := arr1.GetFlattenedField(mem, 3)
+	s.NoError(err)
+	defer i1.Release()
+	assertArrayExactly[int8](s.T(), i.(*array.Int8), i1.(*array.Int8))
 }
 
 type UnionBuilderSuite struct {

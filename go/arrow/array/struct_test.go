@@ -387,7 +387,7 @@ func TestStructArrayStringer(t *testing.T) {
 	arr := sb.NewArray().(*array.Struct)
 	defer arr.Release()
 
-	assert.Equal(t, `{"f1": 1.1, "f2": 1}`, arr.ValueStr(4))
+	assert.Equal(t, `{"f1":1.1,"f2":1}`, arr.ValueStr(4))
 	want := "{[1.1 (null) 1.3 1.4 1.1] [1 2 (null) 4 1]}"
 	got := arr.String()
 	if got != want {
