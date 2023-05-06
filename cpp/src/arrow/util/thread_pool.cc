@@ -416,7 +416,7 @@ void ThreadPool::WaitForIdle()
 {
   while(!state_->task_queue.empty())
   {
-    RunLoop();
+    RunTasksOnAllExecutors(true);
   }
 }
 
