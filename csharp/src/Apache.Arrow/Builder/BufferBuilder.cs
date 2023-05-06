@@ -61,7 +61,10 @@ namespace Apache.Arrow.Builder
                 else
                 {
                     foreach (bool bit in bits.Slice(0, available))
-                        AppendBit(bit);
+                        UncheckedAppendBit(bit);
+
+                    BitOffset = 0;
+                    ByteLength++;
 
                     bits = bits.Slice(available);
                 }
