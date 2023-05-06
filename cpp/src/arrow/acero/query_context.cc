@@ -24,9 +24,9 @@ using arrow::internal::CpuInfo;
 namespace acero {
 
 QueryContext::QueryContext(QueryOptions opts, ExecContext exec_context)
-    : options_(opts),
+    : options_(std::move(opts)),
       exec_context_(exec_context),
-      io_context_(exec_context_.memory_pool()) {}
+      io_context_(exec_context_.memory_pool(), opts.custom_io_executor) {}
 
 const CpuInfo* QueryContext::cpu_info() const { return CpuInfo::GetInstance(); }
 int64_t QueryContext::hardware_flags() const { return cpu_info()->hardware_flags(); }
