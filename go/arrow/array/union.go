@@ -350,7 +350,7 @@ func (a *SparseUnion) ValueStr(i int) string {
 
 	val := a.GetOneForMarshal(i)
 	if val == nil {
-		// child in nil
+		// child is nil
 		return NullValueStr
 	}
 
