@@ -90,6 +90,8 @@ namespace Apache.Arrow.Builder
             Span<bool> mask = new bool[offsets.Length];
             int offset = 0;
             int i = 0;
+            bool allValid = true;
+            int nullCount = 0;
 
             foreach (T[] value in values)
             {
@@ -98,6 +100,8 @@ namespace Apache.Arrow.Builder
                     offsets[i] = CurrentOffset;
                     // default is already false
                     // mask[i] = false;
+                    allValid = false;
+                    nullCount++;
                 }
                 else
                 {
@@ -114,14 +118,17 @@ namespace Apache.Arrow.Builder
                 i++;
             }
 
-            return AppendValues<T>(memory, offsets, mask);
+            return AppendValues<T>(memory, offsets, mask, allValid, nullCount);
         }
 
         internal virtual ListArrayBuilder AppendValues<T>(
-            ReadOnlySpan<T> values, ReadOnlySpan<int> offsets, ReadOnlySpan<bool> mask
+            ReadOnlySpan<T> values, ReadOnlySpan<int> offsets, ReadOnlySpan<bool> mask, bool allValid, int nullCount
             ) where T : struct
         {
-            AppendValidity(mask);
+            if (allValid)
+                AppendValidity(true, mask.Length);
+            else
+                AppendValidity(mask, nullCount);
 
             // Append Offset
             CurrentOffset = offsets[offsets.Length - 1];

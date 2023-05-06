@@ -33,7 +33,7 @@ namespace Apache.Arrow.Builder
         IBufferBuilder AppendBit(bool bit);
 
         /// <summary>
-        /// Append booleans value too buffer.
+        /// Append boolean value too buffer.
         /// </summary>
         /// <param name="bits">booleans to append</param>
         /// <returns>Current <see cref="IBufferBuilder"/></returns>
@@ -48,6 +48,13 @@ namespace Apache.Arrow.Builder
         IBufferBuilder AppendBits(bool value, int count);
 
         /// <summary>
+        /// Append empty boolean values too buffer
+        /// </summary>
+        /// <param name="count">number of time to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
+        IBufferBuilder AppendEmptyBits(int count);
+
+        /// <summary>
         /// Append byte value too buffer.
         /// </summary>
         /// <param name="value">byte to append</param>
@@ -60,6 +67,13 @@ namespace Apache.Arrow.Builder
         /// <param name="bytes">bytes to append</param>
         /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendBytes(ReadOnlySpan<byte> bytes);
+
+        /// <summary>
+        /// Append empty bytes values too buffer
+        /// </summary>
+        /// <param name="count">number of time to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
+        IBufferBuilder AppendEmptyBytes(int count);
 
         /// <summary>
         /// Append bool value too buffer.

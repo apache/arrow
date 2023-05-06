@@ -101,6 +101,10 @@ namespace Apache.Arrow.Builder
 
         public IBufferBuilder AppendBits(bool value, int count)
         {
+            // by default bit values are false
+            if (!value)
+                return AppendEmptyBits(count);
+
             int remainderBits = Math.Min(count, 8 - BitOffset);
             int wholeBytes = (count - remainderBits) / 8;
             int trailingBits = count - remainderBits - (wholeBytes * 8);
@@ -123,7 +127,7 @@ namespace Apache.Arrow.Builder
             // Bulk write true or false bytes
             if (wholeBytes > 0)
             {
-                var fill = (byte)(value ? 0xFF : 0x00);
+                var fill = (byte)0xFF;
                 span.Slice(ByteLength, wholeBytes).Fill(fill);
             }
 
@@ -132,6 +136,21 @@ namespace Apache.Arrow.Builder
             // Write remaining bits
             for (int i = 0; i < trailingBits; i++)
                 UncheckedAppendBit(value);
+
+            return this;
+        }
+
+        public IBufferBuilder AppendEmptyBits(int count)
+        {
+            int remainderBits = Math.Min(count, 8 - BitOffset);
+            int wholeBytes = (count - remainderBits) / 8;
+            int trailingBits = count - remainderBits - (wholeBytes * 8);
+            int newBytes = (trailingBits > 0) ? wholeBytes + 1 : wholeBytes;
+
+            EnsureAdditionalBytes(newBytes);
+
+            ByteLength += wholeBytes;
+            BitOffset = remainderBits + trailingBits;
 
             return this;
         }
@@ -184,6 +203,8 @@ namespace Apache.Arrow.Builder
 
             return this;
         }
+
+        public IBufferBuilder AppendEmptyBytes(int count) => AppendEmptyBits(count * 8);
 
         public IBufferBuilder AppendValue(bool value) => AppendBit(value);
         public IBufferBuilder AppendValue(byte value) => AppendByte(value);

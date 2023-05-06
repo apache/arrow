@@ -189,9 +189,6 @@ namespace Apache.Arrow.Builder
 
     public class FixedBinaryArrayBuilder : ArrayBuilder
     {
-        private readonly byte[] _defaultByteValue;
-        private readonly bool[] _defaultBitValue;
-
         private readonly int _bitSize;
         private readonly int _byteSize;
 
@@ -215,9 +212,6 @@ namespace Apache.Arrow.Builder
             _byteSize = _bitSize / 8;
 
             _isFullByte = _bitSize % 8 == 0;
-
-            _defaultByteValue = new byte[_byteSize];
-            _defaultBitValue = new bool[_bitSize];
         }
 
         public override IArrayBuilder AppendNull() => AppendNull(default);
@@ -227,9 +221,9 @@ namespace Apache.Arrow.Builder
 
             // Append Empty values
             if (_isFullByte)
-                ValuesBuffer.AppendBytes(_defaultByteValue);
+                ValuesBuffer.AppendEmptyBytes(_byteSize);
             else
-                ValuesBuffer.AppendBits(_defaultBitValue);
+                ValuesBuffer.AppendEmptyBits(_bitSize);
 
             return this;
         }
@@ -242,10 +236,10 @@ namespace Apache.Arrow.Builder
             // Append Empty values
             if (_isFullByte)
                 for (int i = 0; i < count; i++)
-                    ValuesBuffer.AppendBytes(_defaultByteValue);
+                    ValuesBuffer.AppendEmptyBytes(_byteSize);
             else
                 for (int i = 0; i < count; i++)
-                    ValuesBuffer.AppendBits(_defaultBitValue);
+                    ValuesBuffer.AppendEmptyBits(_bitSize);
 
             return this;
         }
@@ -356,7 +350,7 @@ namespace Apache.Arrow.Builder
                 }
                 else
                 {
-                    ValuesBuffer.AppendBits(_defaultBitValue);
+                    ValuesBuffer.AppendEmptyBits(_bitSize);
                     allValid = false;
                     nullCount++;
                 }
@@ -389,7 +383,7 @@ namespace Apache.Arrow.Builder
 
                 if (value == null)
                 {
-                    ValuesBuffer.AppendBits(_defaultBitValue);
+                    ValuesBuffer.AppendEmptyBits(_bitSize);
                     allValid = false;
                     nullCount++;
                 }
@@ -434,7 +428,7 @@ namespace Apache.Arrow.Builder
                 }
                 else
                 {
-                    ValuesBuffer.AppendBytes(_defaultByteValue);
+                    ValuesBuffer.AppendEmptyBytes(_byteSize);
                     allValid = false;
                     nullCount++;
                 }
@@ -474,10 +468,10 @@ namespace Apache.Arrow.Builder
                 else
                 {
                     // Copy to memory
-                    value.CopyTo(memory.Slice(offset, _defaultByteValue.Length));
+                    value.CopyTo(memory.Slice(offset, _byteSize));
                     mask[i] = true;
                 }
-                offset += _defaultByteValue.Length;
+                offset += _byteSize;
                 i++;
             }
 
@@ -517,7 +511,7 @@ namespace Apache.Arrow.Builder
 #else
                     var span = new T[] { v }.AsSpan();
 #endif
-                    MemoryMarshal.AsBytes(span).CopyTo(memory.Slice(offset, _defaultByteValue.Length));
+                    MemoryMarshal.AsBytes(span).CopyTo(memory.Slice(offset, _byteSize));
 
                     mask[i] = true;
                 }
@@ -526,7 +520,7 @@ namespace Apache.Arrow.Builder
                     allValid = false;
                     nullCount++;
                 }
-                offset += _defaultByteValue.Length;
+                offset += _byteSize;
                 i++;
             }
 
@@ -565,10 +559,10 @@ namespace Apache.Arrow.Builder
                 else
                 {
                     // Copy to memory
-                    MemoryMarshal.AsBytes<T>(value).CopyTo(memory.Slice(offset, _defaultByteValue.Length));
+                    MemoryMarshal.AsBytes<T>(value).CopyTo(memory.Slice(offset, _byteSize));
                     mask[i] = true;
                 }
-                offset += _defaultByteValue.Length;
+                offset += _byteSize;
                 i++;
             }
 
