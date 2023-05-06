@@ -66,7 +66,7 @@ else:
     run_reason = "localdev"
     custom_reason_suffix = os.getenv('CONBENCH_CUSTOM_RUN_REASON')
     if custom_reason_suffix is not None:
-        run_reason += f" {custom_run_reason.strip()}" 
+        run_reason += f" {custom_reason_suffix.strip()}"
 
 class GoAdapter(BenchmarkAdapter):
     result_file = "bench_stats.json"
