@@ -263,7 +263,7 @@ namespace Apache.Arrow.Builder
 #if NETCOREAPP3_1_OR_GREATER
             var span = MemoryMarshal.CreateReadOnlySpan(ref value, 1);
 #else
-            var span = new T[] { v }.AsSpan();
+            var span = new T[] { value }.AsSpan();
 #endif
             ValuesBuffer.AppendBytes(MemoryMarshal.AsBytes<T>(span));
             return this;

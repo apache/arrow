@@ -11,9 +11,9 @@ namespace Apache.Arrow.Builder
     {
         public IArrowType DataType { get; }
 
-        public int Length { get; internal set; }
+        public int Length { get; protected set; }
 
-        public int NullCount { get; internal set; }
+        public int NullCount { get; protected set; }
 
         public int Offset { get; }
 
@@ -24,7 +24,7 @@ namespace Apache.Arrow.Builder
 
         public IArrayBuilder Dictionary { get; }
 
-        public ArrayBuilder(
+        protected ArrayBuilder(
             IArrowType dataType,
             IValueBufferBuilder[] buffers,
             IArrayBuilder[] children = null,
@@ -53,7 +53,7 @@ namespace Apache.Arrow.Builder
         public virtual IArrayBuilder AppendNulls(int count)
         {
             Reserve(count);
-            ValidityBuffer.AppendBits(new bool[count]);
+            ValidityBuffer.AppendBits(false, count);
             NullCount += count;
             Length += count;
             return this;
@@ -75,21 +75,28 @@ namespace Apache.Arrow.Builder
                 NullCount += count;
             return this;
         }
-        internal virtual IArrayBuilder AppendValidity(ReadOnlySpan<bool> mask)
+        internal virtual IArrayBuilder AppendValidity(ReadOnlySpan<bool> mask, int nullCount)
         {
-            ValidityBuffer.AppendBits(mask);
+            if (nullCount == mask.Length)
+                ValidityBuffer.AppendBits(false, nullCount);
+            else
+                ValidityBuffer.AppendBits(mask);
 
             Length += mask.Length;
 
+            NullCount += nullCount;
+
+            return this;
+        }
+        internal virtual IArrayBuilder AppendValidity(ReadOnlySpan<bool> mask)
+        {
             int nullCount = 0;
 
             foreach (bool isValid in mask)
                 if (!isValid)
                     nullCount++;
 
-            NullCount += nullCount;
-
-            return this;
+            return AppendValidity(mask, nullCount);
         }
 
         public virtual IArrayBuilder AppendValues(IArrowArray array) => AppendValues(array.Data);
@@ -122,7 +129,7 @@ namespace Apache.Arrow.Builder
 
                     current.AppendBytes(other.Span.Slice(0, end));
 
-                    Span<bool> bits = BitUtility.ToBits(other.Span.Slice(end)).Slice(0, data.Length - end * 8);
+                    Span<bool> bits = BitUtility.BytesToBits(other.Span.Slice(end)).Slice(0, data.Length - end * 8);
                     current.AppendBits(bits);
                 }
             }

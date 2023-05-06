@@ -29,12 +29,12 @@ namespace Apache.Arrow.Tests.Builder
             builder.AppendByte(0x01);
 
             Assert.Equal(1, builder.ByteLength);
-            Assert.Equal(0, builder.BitOverhead.Length);
+            Assert.Equal(0, builder.BitOffset);
 
             builder.AppendBytes(new byte[] { 0x02, 0x03 });
 
             Assert.Equal(3, builder.ByteLength);
-            Assert.Equal(0, builder.BitOverhead.Length);
+            Assert.Equal(0, builder.BitOffset);
 
             var built = builder.Build();
 
@@ -54,22 +54,22 @@ namespace Apache.Arrow.Tests.Builder
             builder.AppendBit(true);
 
             Assert.Equal(0, builder.ByteLength);
-            Assert.Equal(1, builder.BitOverhead.Length);
+            Assert.Equal(1, builder.BitOffset);
 
             builder.AppendBits(new bool[] { true, false, true });
 
             Assert.Equal(0, builder.ByteLength);
-            Assert.Equal(4, builder.BitOverhead.Length);
+            Assert.Equal(4, builder.BitOffset);
 
             builder.AppendBits(new bool[] { true, false, true, false, true, true });
 
             Assert.Equal(1, builder.ByteLength);
-            Assert.Equal(2, builder.BitOverhead.Length);
+            Assert.Equal(2, builder.BitOffset);
 
             builder.AppendBits(new bool[] { false, false, true });
 
             Assert.Equal(1, builder.ByteLength);
-            Assert.Equal(5, builder.BitOverhead.Length);
+            Assert.Equal(5, builder.BitOffset);
 
             var built = builder.Build();
 
@@ -105,8 +105,8 @@ namespace Apache.Arrow.Tests.Builder
         {
             var builder = new BufferBuilder(8);
 
-            builder.AppendStruct(123);
-            builder.AppendStructs<int>(new int[] { 0, -1 }.AsSpan());
+            builder.AppendValue(123);
+            builder.AppendValues<int>(new int[] { 0, -1 }.AsSpan());
 
             var built = builder.Build();
             var results = built.Span.CastTo<int>();

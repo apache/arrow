@@ -179,7 +179,7 @@ namespace Apache.Arrow.Tests
             public void ToByte_ReturnsExpectedValue(bool[] input, byte expected)
             {
                 byte data = 0b_00000000;
-                BitUtility.ToByte(ref data, input);
+                BitUtility.SetBits(ref data, input);
                 Assert.Equal(expected, data);
             }
 
@@ -191,7 +191,7 @@ namespace Apache.Arrow.Tests
             public void ToBytes_ReturnsExpectedValue(byte[] expected, bool[] bits)
             {
                 byte[] bytes = new byte[2];
-                BitUtility.ToBytes(bytes.AsSpan(), bits);
+                BitUtility.SetBits(bytes.AsSpan(), bits);
                 Assert.Equal(expected, bytes);
             }
         }
@@ -206,8 +206,9 @@ namespace Apache.Arrow.Tests
             [InlineData(0b_10101011, new bool[] { true, true, false, true, false, true, false, true })]
             public void ToBits_ReturnsExpectedValue(byte input, bool[] expected)
             {
-                bool[] result = new bool[1];
-                Assert.Equal(expected, BitUtility.ToBits(input));
+                bool[] result = new bool[8];
+                BitUtility.ByteToBits(input, result);
+                Assert.Equal(expected, result);
             }
 
             [Theory]
@@ -217,7 +218,7 @@ namespace Apache.Arrow.Tests
             [InlineData(new byte[] { 0b_01010101, 0b_01000000 }, new bool[] { true, false, true, false, true, false, true, false, false, false, false, false, false, false, true, false })]
             public void ToBits_ReturnsExpectedValues(byte[] input, bool[] expected)
             {
-                bool[] result = BitUtility.ToBits(input).ToArray();
+                bool[] result = BitUtility.BytesToBits(input).ToArray();
                 Assert.Equal(expected, result);
             }
         }

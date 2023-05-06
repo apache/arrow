@@ -70,6 +70,22 @@ namespace Apache.Arrow
                 : (byte)(data[idx] & ~BitMask[mod]);
         }
 
+        public static void SetBits(ref byte value, ReadOnlySpan<bool> bits)
+        {
+            for (int i = 0; i < Math.Min(8, bits.Length); i++)
+            {
+                SetBit(ref value, i, bits[i]);
+            }
+        }
+
+        public static void SetBits(Span<byte> bytes, ReadOnlySpan<bool> bits)
+        {
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                SetBits(ref bytes[i], bits.Slice(i * 8));
+            }
+        }
+
         public static void ToggleBit(Span<byte> data, int index)
         {
             data[index / 8] ^= BitMask[index % 8];
@@ -209,65 +225,47 @@ namespace Apache.Arrow
             return Unsafe.ReadUnaligned<int>(ref MemoryMarshal.GetReference(value.Span));
         }
 
-        // Bytes
-        public static byte ToByte(ref byte data, ReadOnlySpan<bool> bits)
-        {
-            for (int i = 0; i < Math.Min(8, bits.Length); i++)
-            {
-                SetBit(ref data, i, bits[i]);
-            }
-            return data;
-        }
-
-        public static void ToBytes(Span<byte> bytes, ReadOnlySpan<bool> bits)
-        {
-            for (int i = 0; i < bytes.Length; i++)
-            {
-                ToByte(ref bytes[i], bits.Slice(i * 8));
-            }
-        }
-
-        // Bits
-        public static void ToBits(Span<bool> bools, byte value)
+        /// <summary>
+        /// Convert byte value into a Span<bool> bits
+        /// </summary>
+        /// <param name="value">byte value to convert to bits</param>
+        /// <param name="bits">Span of bits to recieve the byte value, length must be 8</param>
+        public static void ByteToBits(byte value, Span<bool> bits)
         {
             for (int i = 0; i < 8; i++)
             {
-                bools[i] = GetBit(value, i);
+                bits[i] = GetBit(value, i);
             }
         }
 
-        public static bool[] ToBits(byte value)
-        {
-            bool[] boolArray = new bool[8]; // initialize bool array with correct length
-
-            for (int i = 0; i < 8; i++)
-            {
-                boolArray[i] = GetBit(value, i);
-            }
-
-            return boolArray;
-        }
-
-        public static void ToBits(Span<bool> bits, ReadOnlySpan<byte> bytes)
+        /// <summary>
+        /// Convert byte values into a Span<bool> bits
+        /// </summary>
+        /// <param name="bytes">byte values to convert to bits</param>
+        /// <param name="bits">Span of bits to recieve the byte values</param>
+        public static void BytesToBits(ReadOnlySpan<byte> bytes, Span<bool> bits)
         {
             for (int i = 0; i < bytes.Length; i++)
             {
-                ToBits(bits.Slice(i * 8, 8), bytes[i]);
+                ByteToBits(bytes[i], bits.Slice(i * 8, 8));
             }
         }
 
-        public static Span<bool> ToBits(ReadOnlySpan<byte> bytes)
+        public static Span<bool> BytesToBits(ReadOnlySpan<byte> bytes)
         {
-            Span<bool> bits = new bool[bytes.Length * 8].AsSpan();
+            Span<bool> bits = new bool[bytes.Length * 8];
 
-            ToBits(bits, bytes);
+            BytesToBits(bytes, bits);
 
             return bits;
         }
 
+        /// <summary>
+        /// Get the next multiple of 2 of an integer
+        /// </summary>
+        /// <param name="n">value to get the next power of 2</param>
         internal static int NextPowerOfTwo(int n)
         {
-            // 16 for int32
             n--;
             n |= n >> 1;
             n |= n >> 2;

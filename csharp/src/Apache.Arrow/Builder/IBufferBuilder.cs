@@ -14,7 +14,6 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
 using Apache.Arrow.Memory;
 
 namespace Apache.Arrow.Builder
@@ -22,6 +21,7 @@ namespace Apache.Arrow.Builder
     public interface IBufferBuilder
     {
         Memory<byte> Memory { get; }
+
         IBufferBuilder AppendBit(bool bit);
         IBufferBuilder AppendBits(ReadOnlySpan<bool> bits);
         IBufferBuilder AppendBits(bool value, int count);
@@ -29,14 +29,15 @@ namespace Apache.Arrow.Builder
         IBufferBuilder AppendByte(byte byteValue);
         IBufferBuilder AppendBytes(ReadOnlySpan<byte> bytes);
 
-        IBufferBuilder AppendStruct(bool value);
-        IBufferBuilder AppendStruct(byte value);
-        IBufferBuilder AppendStruct<T>(T value) where T : struct;
+        IBufferBuilder AppendValue(bool value);
+        IBufferBuilder AppendValue(byte value);
+        IBufferBuilder AppendValue<T>(T value) where T : struct;
 
-        IBufferBuilder AppendStructs(ReadOnlySpan<bool> values);
-        IBufferBuilder AppendStructs(ReadOnlySpan<byte> values);
-        IBufferBuilder AppendStructs<T>(ReadOnlySpan<T> values) where T : struct;
-        IBufferBuilder AppendStructs<T>(T value, int count) where T : struct;
+        IBufferBuilder AppendValues(ReadOnlySpan<bool> values);
+        IBufferBuilder AppendValues(ReadOnlySpan<byte> values);
+        IBufferBuilder AppendValues<T>(ReadOnlySpan<T> values) where T : struct;
+        IBufferBuilder AppendValues(bool value, int count);
+        IBufferBuilder AppendValues<T>(T value, int count) where T : struct;
 
         /// <summary>
         /// Clear all contents appended so far.
