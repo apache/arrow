@@ -147,6 +147,13 @@ class MemoryPoolMemoryManager : public benchmark::MemoryManager {
     global_allocations_start = default_pool->num_allocations();
   }
 
+// BENCHMARK_DONT_OPTIMIZE is used here to detect Google Benchmark
+// 1.8.0. We can remove this Stop(Result*) when we require Google
+// Benchmark 1.8.0 or later.
+#ifndef BENCHMARK_DONT_OPTIMIZE
+  void Stop(Result* result) override { Stop(*result); }
+#endif
+
   void Stop(benchmark::MemoryManager::Result& result) override {
     // If num_allocations is still zero, we assume that the memory pool wasn't passed down
     // so we should record them.
