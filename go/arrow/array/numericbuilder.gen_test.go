@@ -67,6 +67,48 @@ func TestInt64_ValueStr(t *testing.T) {
 	}
 }
 
+func TestInt64Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewInt64Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Int64)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewInt64Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Int64)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
+	}
+}
+
 func TestNewInt64Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -270,6 +312,48 @@ func TestUint64_ValueStr(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestUint64Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewUint64Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Uint64)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewUint64Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Uint64)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
 	}
 }
 
@@ -479,6 +563,48 @@ func TestFloat64_ValueStr(t *testing.T) {
 	}
 }
 
+func TestFloat64Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewFloat64Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Float64)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewFloat64Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Float64)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
+	}
+}
+
 func TestNewFloat64Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -682,6 +808,48 @@ func TestInt32_ValueStr(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestInt32Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewInt32Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Int32)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewInt32Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Int32)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
 	}
 }
 
@@ -891,6 +1059,48 @@ func TestUint32_ValueStr(t *testing.T) {
 	}
 }
 
+func TestUint32Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewUint32Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Uint32)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewUint32Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Uint32)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
+	}
+}
+
 func TestNewUint32Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -1094,6 +1304,48 @@ func TestFloat32_ValueStr(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestFloat32Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewFloat32Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Float32)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewFloat32Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Float32)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
 	}
 }
 
@@ -1303,6 +1555,48 @@ func TestInt16_ValueStr(t *testing.T) {
 	}
 }
 
+func TestInt16Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewInt16Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Int16)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewInt16Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Int16)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
+	}
+}
+
 func TestNewInt16Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -1506,6 +1800,48 @@ func TestUint16_ValueStr(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestUint16Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewUint16Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Uint16)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewUint16Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Uint16)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
 	}
 }
 
@@ -1715,6 +2051,48 @@ func TestInt8_ValueStr(t *testing.T) {
 	}
 }
 
+func TestInt8Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewInt8Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Int8)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewInt8Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Int8)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
+	}
+}
+
 func TestNewInt8Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -1918,6 +2296,48 @@ func TestUint8_ValueStr(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestUint8Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewUint8Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Uint8)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewUint8Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Uint8)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
 	}
 }
 
@@ -2125,6 +2545,49 @@ func TestTimestamp_ValueStr(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestTimestampBuilder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dt := &arrow.TimestampType{Unit: arrow.Second}
+	b := array.NewTimestampBuilder(mem, dt)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Timestamp)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewTimestampBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Timestamp)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
 	}
 }
 
@@ -2339,6 +2802,49 @@ func TestTime32_ValueStr(t *testing.T) {
 	}
 }
 
+func TestTime32Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dt := &arrow.Time32Type{Unit: arrow.Second}
+	b := array.NewTime32Builder(mem, dt)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Time32)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewTime32Builder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Time32)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
+	}
+}
+
 func TestNewTime32Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -2547,6 +3053,49 @@ func TestTime64_ValueStr(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestTime64Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dt := &arrow.Time64Type{Unit: arrow.Microsecond}
+	b := array.NewTime64Builder(mem, dt)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Time64)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewTime64Builder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Time64)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
 	}
 }
 
@@ -2760,6 +3309,48 @@ func TestDate32_ValueStr(t *testing.T) {
 	}
 }
 
+func TestDate32Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewDate32Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Date32)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDate32Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Date32)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
+	}
+}
+
 func TestNewDate32Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -2963,6 +3554,48 @@ func TestDate64_ValueStr(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestDate64Builder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewDate64Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Date64)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDate64Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Date64)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i).ToTime(), arr1.Value(i).ToTime())
+		}
 	}
 }
 
@@ -3170,6 +3803,49 @@ func TestDuration_ValueStr(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestDurationBuilder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dt := &arrow.DurationType{Unit: arrow.Second}
+	b := array.NewDurationBuilder(mem, dt)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Duration)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDurationBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Duration)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
 	}
 }
 
