@@ -13,12 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -28,7 +28,8 @@ namespace Apache.Arrow
         {
             private Dictionary<string, string> _metadata;
             private string _name;
-            internal IArrowType _type;
+            private IArrowType _type;
+            internal IArrowType CurrentType => _type;
             private bool _nullable;
 
             public Builder()

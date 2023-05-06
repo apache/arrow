@@ -2,6 +2,6 @@
 {
     internal class CStructType<T> where T : struct
     {
-        internal static readonly IArrowType Default = new Field.Builder().DataType(typeof(T))._type;
+        internal static readonly IArrowType Default = new Field.Builder().DataType(typeof(T)).CurrentType;
     }
 }
