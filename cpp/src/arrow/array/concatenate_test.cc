@@ -217,6 +217,60 @@ TEST_F(ConcatenateTest, LargeListType) {
   });
 }
 
+TEST_F(ConcatenateTest, ListViewType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto values_size = size * 4;
+    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
+
+    std::shared_ptr<Array> offsets;
+    auto offsets_vector = this->Offsets<int32_t>(values_size, size);
+    offsets_vector.front() = 0;
+    offsets_vector.back() = values_size;
+    ArrayFromVector<Int32Type>(offsets_vector, &offsets);
+
+    std::shared_ptr<Array> sizes;
+    std::vector<int32_t> sizes_vector;
+    sizes_vector.reserve(size);
+    for (int32_t i = 0; i < size; ++i) {
+      // Make list-views share values with the next list-view by extending the size to a
+      // point after the next offset.
+      int32_t size = offsets_vector[i + 1] - offsets_vector[i];
+      size = std::min(2 * size / 3, values_size - offsets_vector[i]);
+      sizes_vector.push_back(size);
+      ASSERT_LE(offsets_vector[i] + sizes_vector.back(), values_size);
+    }
+    ASSERT_EQ(offsets_vector.size(), sizes_vector.size() + 1);
+    ArrayFromVector<Int32Type>(sizes_vector, &sizes);
+
+    ASSERT_OK_AND_ASSIGN(*out, ListViewArray::FromArrays(*offsets, *sizes, *values));
+    ASSERT_OK((**out).ValidateFull());
+  });
+}
+
+TEST_F(ConcatenateTest, LargeListViewType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto values_size = size * 4;
+    auto values = this->GeneratePrimitive<Int8Type>(values_size, null_probability);
+    auto offsets_vector = this->Offsets<int64_t>(values_size, size);
+    // Ensure first and last offsets encompass the whole values array
+    offsets_vector.front() = 0;
+    offsets_vector.back() = static_cast<int64_t>(values_size);
+    std::vector<int64_t> sizes_vector;
+    sizes_vector.reserve(size);
+    for (int64_t i = 0; i < size; ++i) {
+      int64_t size = offsets_vector[i + 1] - offsets_vector[i];
+      size = std::min(2 * size / 3, values_size - offsets_vector[i]);
+      sizes_vector.push_back(size);
+    }
+    ASSERT_EQ(offsets_vector.size(), sizes_vector.size() + 1);
+    std::shared_ptr<Array> offsets, sizes;
+    ArrayFromVector<Int64Type>(offsets_vector, &offsets);
+    ArrayFromVector<Int64Type>(sizes_vector, &sizes);
+    ASSERT_OK_AND_ASSIGN(*out, LargeListViewArray::FromArrays(*offsets, *sizes, *values));
+    ASSERT_OK((**out).ValidateFull());
+  });
+}
+
 TEST_F(ConcatenateTest, StructType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
     auto foo = this->GeneratePrimitive<Int8Type>(size, null_probability);

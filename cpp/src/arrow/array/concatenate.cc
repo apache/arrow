@@ -41,6 +41,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/int_util_overflow.h"
+#include "arrow/util/list_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
 #include "arrow/visit_data_inline.h"
@@ -175,6 +176,57 @@ Status PutOffsets(const Buffer& src, Offset first_offset, Offset* dst,
   return Status::OK();
 }
 
+template <typename offset_type>
+void PutListViewOffsets(const Buffer& src, offset_type displacement, offset_type* dst);
+
+// Concatenate buffers holding list-view offsets into a single buffer of offsets
+//
+// value_ranges contains the relevant ranges of values in the child array actually
+// referenced to by the views. Most commonly, these ranges will start from 0,
+// but when that is not the case, we need to adjust the displacement of offsets.
+// The concatenated child array does not contain values from the beginning
+// if they are not referenced to by any view.
+template <typename offset_type>
+Status ConcatenateListViewOffsets(const BufferVector& buffers,
+                                  const std::vector<Range>& value_ranges,
+                                  MemoryPool* pool, std::shared_ptr<Buffer>* out) {
+  const int64_t out_size = SumBufferSizes(buffers);
+  ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(out_size, pool));
+  auto* out_data = (*out)->mutable_data_as<offset_type>();
+
+  int64_t num_child_values = 0;
+  int64_t elements_length = 0;
+  for (size_t i = 0; i < buffers.size(); ++i) {
+    const auto displacement =
+        static_cast<offset_type>(num_child_values - value_ranges[i].offset);
+    PutListViewOffsets(/*src=*/*buffers[i], static_cast<offset_type>(displacement),
+                       /*dst=*/out_data + elements_length);
+    elements_length += buffers[i]->size() / sizeof(offset_type);
+    num_child_values += value_ranges[i].length;
+    if (num_child_values > std::numeric_limits<offset_type>::max()) {
+      return Status::Invalid("offset overflow while concatenating arrays");
+    }
+  }
+  DCHECK_EQ(elements_length, static_cast<int64_t>(out_size / sizeof(offset_type)));
+
+  return Status::OK();
+}
+
+template <typename offset_type>
+void PutListViewOffsets(const Buffer& src, offset_type displacement, offset_type* dst) {
+  if (src.size() == 0) {
+    return;
+  }
+  auto src_begin = src.data_as<offset_type>();
+  auto src_end = reinterpret_cast<const offset_type*>(src.data() + src.size());
+  // NOTE: Concatenate can be called during IPC reads to append delta dictionaries.
+  // Avoid UB on non-validated input by doing the addition in the unsigned domain.
+  // (the result can later be validated using Array::ValidateFull)
+  std::transform(src_begin, src_end, dst, [displacement](offset_type offset) {
+    return SafeSignedAdd(offset, displacement);
+  });
+}
+
 class ConcatenateImpl {
  public:
   ConcatenateImpl(const ArrayDataVector& in, MemoryPool* pool)
@@ -293,12 +345,36 @@ class ConcatenateImpl {
     return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
-  Status Visit(const ListViewType& type) {
-    return Status::NotImplemented("concatenation of ", type);
-  }
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
+    using offset_type = typename T::offset_type;
+    out_->buffers.resize(3);
+    out_->child_data.resize(1);
 
-  Status Visit(const LargeListViewType& type) {
-    return Status::NotImplemented("concatenation of ", type);
+    // Calculate the ranges of values that each list-view array uses
+    std::vector<Range> value_ranges;
+    value_ranges.reserve(in_.size());
+    for (const auto& input : in_) {
+      ArraySpan input_span(*input);
+      Range range;
+      ARROW_ASSIGN_OR_RAISE(std::tie(range.offset, range.length),
+                            list_util::internal::RangeOfValuesUsed(input_span));
+      value_ranges.push_back(range);
+    }
+
+    // Concatenate the values
+    ARROW_ASSIGN_OR_RAISE(ArrayDataVector value_data, ChildData(0, value_ranges));
+    RETURN_NOT_OK(ConcatenateImpl(value_data, pool_).Concatenate(&out_->child_data[0]));
+    out_->child_data[0]->type = type.value_type();
+
+    // Concatenate the offsets
+    ARROW_ASSIGN_OR_RAISE(auto offset_buffers, Buffers(1, sizeof(offset_type)));
+    RETURN_NOT_OK(ConcatenateListViewOffsets<offset_type>(offset_buffers, value_ranges,
+                                                          pool_, &out_->buffers[1]));
+
+    // Concatenate the sizes
+    ARROW_ASSIGN_OR_RAISE(auto size_buffers, Buffers(2, sizeof(offset_type)));
+    return ConcatenateBuffers(size_buffers, pool_).Value(&out_->buffers[2]);
   }
 
   Status Visit(const FixedSizeListType& fixed_size_list) {
