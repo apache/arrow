@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
@@ -66,7 +65,6 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        internal virtual IArrayBuilder AppendValidity(bool isValid) => isValid ? AppendValid() : AppendNull();
         internal virtual IArrayBuilder AppendValidity(bool isValid, int count)
         {
             ValidityBuffer.AppendBits(isValid, count);
@@ -75,6 +73,7 @@ namespace Apache.Arrow.Builder
                 NullCount += count;
             return this;
         }
+
         internal virtual IArrayBuilder AppendValidity(ReadOnlySpan<bool> mask, int nullCount)
         {
             if (nullCount == mask.Length)
@@ -88,6 +87,7 @@ namespace Apache.Arrow.Builder
 
             return this;
         }
+
         internal virtual IArrayBuilder AppendValidity(ReadOnlySpan<bool> mask)
         {
             int nullCount = 0;
@@ -150,18 +150,6 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        internal static Span<bool> ValidityMask(int count, bool isValid)
-        {
-            Span<bool> values = new bool[count]; // create a new bool array of length count
-
-            for (int i = 0; i < count; i++)
-            {
-                values[i] = isValid; // set each value in the array to isValid
-            }
-
-            return values;
-        }
-
         public ArrayData FinishInternal(MemoryAllocator allocator = null)
         {
             MemoryAllocator memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
@@ -178,17 +166,17 @@ namespace Apache.Arrow.Builder
             => ArrayBuilderFactory.MakeArray(FinishInternal(allocator));
 
         // Memory management
-        public IArrayBuilder Reserve(int capacity)
+        public IArrayBuilder Reserve(int additionnalCapacity)
         {
             foreach (IValueBufferBuilder buffer in Buffers)
-                buffer.Reserve(capacity);
+                buffer.Reserve(additionnalCapacity);
 
             if (Children != null)
                 foreach (IArrayBuilder builder in Children)
-                    builder.Reserve(capacity);
+                    builder.Reserve(additionnalCapacity);
 
             if (Dictionary != null)
-                Dictionary.Reserve(capacity);
+                Dictionary.Reserve(additionnalCapacity);
 
             return this;
         }

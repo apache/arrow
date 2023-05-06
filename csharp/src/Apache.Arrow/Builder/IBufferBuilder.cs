@@ -20,23 +20,103 @@ namespace Apache.Arrow.Builder
 {
     public interface IBufferBuilder
     {
+        /// <summary>
+        /// Raw byte Memory buffer.
+        /// </summary>
         Memory<byte> Memory { get; }
 
+        /// <summary>
+        /// Append bool value too buffer.
+        /// </summary>
+        /// <param name="bit">bool to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendBit(bool bit);
+
+        /// <summary>
+        /// Append booleans value too buffer.
+        /// </summary>
+        /// <param name="bits">booleans to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendBits(ReadOnlySpan<bool> bits);
+
+        /// <summary>
+        /// Append booleans value too buffer
+        /// </summary>
+        /// <param name="value">boolean to append</param>
+        /// <param name="count">number of time to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendBits(bool value, int count);
 
-        IBufferBuilder AppendByte(byte byteValue);
+        /// <summary>
+        /// Append byte value too buffer.
+        /// </summary>
+        /// <param name="value">byte to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
+        IBufferBuilder AppendByte(byte value);
+
+        /// <summary>
+        /// Append byte values too buffer.
+        /// </summary>
+        /// <param name="bytes">bytes to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendBytes(ReadOnlySpan<byte> bytes);
 
+        /// <summary>
+        /// Append bool value too buffer.
+        /// </summary>
+        /// <param name="value">bool to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendValue(bool value);
+
+        /// <summary>
+        /// Append byte value too buffer.
+        /// </summary>
+        /// <param name="value">byte to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendValue(byte value);
+
+        /// <summary>
+        /// Append struct value too buffer.
+        /// </summary>
+        /// <param name="value">struct to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendValue<T>(T value) where T : struct;
 
+        /// <summary>
+        /// Append booleans value too buffer.
+        /// </summary>
+        /// <param name="values">booleans to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendValues(ReadOnlySpan<bool> values);
+
+        /// <summary>
+        /// Append byte values too buffer.
+        /// </summary>
+        /// <param name="values">bytes to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendValues(ReadOnlySpan<byte> values);
+
+        /// <summary>
+        /// Append struct values too buffer.
+        /// </summary>
+        /// <param name="values">structs to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendValues<T>(ReadOnlySpan<T> values) where T : struct;
+
+        /// <summary>
+        /// Append booleans value too buffer
+        /// </summary>
+        /// <param name="value">boolean to append</param>
+        /// <param name="count">number of time to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendValues(bool value, int count);
+
+        /// <summary>
+        /// Append struct values too buffer
+        /// </summary>
+        /// <param name="value">struct to append</param>
+        /// <param name="count">number of time to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendValues<T>(T value, int count) where T : struct;
 
         /// <summary>

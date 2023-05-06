@@ -28,8 +28,8 @@ namespace Apache.Arrow.Builder
 
         public IBufferBuilder AppendBit(bool bit)
         {
-            BitUtility.SetBit(ref Memory.Span[ByteLength], BitOffset, bit);
-            BitOffset++;
+            UncheckedAppendBit(bit);
+
             if (BitOffset == 8)
             {
                 BitOffset = 0;
@@ -37,6 +37,12 @@ namespace Apache.Arrow.Builder
                 EnsureBytes(ByteLength);
             }
             return this;
+        }
+
+        private void UncheckedAppendBit(bool bit)
+        {
+            BitUtility.SetBit(ref Memory.Span[ByteLength], BitOffset, bit);
+            BitOffset++;
         }
 
         public IBufferBuilder AppendBits(ReadOnlySpan<bool> bits)
@@ -48,14 +54,14 @@ namespace Apache.Arrow.Builder
                 if (bits.Length < available)
                 {
                     foreach (bool bit in bits)
-                        AppendBit(bit);
+                        UncheckedAppendBit(bit);
 
                     bits = ReadOnlySpan<bool>.Empty;
                 }
                 else
                 {
                     foreach (bool bit in bits.Slice(0, available))
-                        AppendBit(bit);
+                        UncheckedAppendBit(bit);
 
                     bits = bits.Slice(available);
                 }
@@ -83,7 +89,7 @@ namespace Apache.Arrow.Builder
                 {
                     // Fill byte buffer with last unfilled
                     foreach (bool bit in bits)
-                        AppendBit(bit);
+                        UncheckedAppendBit(bit);
                 }
             }
 
@@ -103,10 +109,7 @@ namespace Apache.Arrow.Builder
 
             // Fill remaining bits in current bit offset
             for (int i = 0; i < remainderBits; i++)
-            {
-                BitUtility.SetBit(ref span[ByteLength], BitOffset, value);
-                BitOffset++;
-            }
+                UncheckedAppendBit(value);
 
             if (BitOffset == 8)
             {
@@ -125,10 +128,7 @@ namespace Apache.Arrow.Builder
 
             // Write remaining bits
             for (int i = 0; i < trailingBits; i++)
-            {
-                BitUtility.SetBit(ref span[ByteLength], BitOffset, value);
-                BitOffset++;
-            }
+                UncheckedAppendBit(value);
 
             return this;
         }
@@ -285,9 +285,9 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        public IValueBufferBuilder Reserve(int capacity)
+        public IValueBufferBuilder Reserve(int additionnalCapacity)
         {
-            ReserveAdditionalBytes((capacity * ValueBitSize + 7) / 8);
+            ReserveAdditionalBytes((additionnalCapacity * ValueBitSize + 7) / 8);
             return this;
         }
 

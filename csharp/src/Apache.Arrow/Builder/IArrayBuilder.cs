@@ -14,10 +14,24 @@ namespace Apache.Arrow.Builder
         IArrayBuilder[] Children { get; }
         IArrayBuilder Dictionary { get; } // Only used for dictionary type
 
+        /// <summary>
+        /// Append a null value to builder.
+        /// </summary>
         IArrayBuilder AppendNull();
+
+        /// <summary>
+        /// Append a number of null values to builder.
+        /// </summary>
         IArrayBuilder AppendNulls(int count);
 
+        /// <summary>
+        /// Append <see cref="ArrayData"> values.
+        /// </summary>
         IArrayBuilder AppendValues(ArrayData data);
+
+        /// <summary>
+        /// Append <see cref="IArrowArray"> values.
+        /// </summary>
         IArrayBuilder AppendValues(IArrowArray data);
 
         /// <summary>
@@ -26,27 +40,48 @@ namespace Apache.Arrow.Builder
         IArrayBuilder Clear();
 
         /// <summary>
-        /// Reserve a given number of items' additional capacity.
+        /// Ensure that there is enough space allocated to append the indicated number of elements without
+        /// any further reallocation.
         /// </summary>
-        /// <param name="capacity">Number of new values.</param>
-        IArrayBuilder Reserve(int capacity);
+        /// <remarks>
+        /// Overallocation is used in order to minimize the impact of incremental Reserve() calls.
+        /// 
+        /// Note that additionnalCapacity is relative to the current number of elements rather than
+        /// to the current capacity, so calls to Reserve() which are not interspersed with addition of new elements
+        /// may not increase the capacity.
+        /// </remarks>
+        /// <param name="additionnalCapacity">number of additional array values</param>
+        IArrayBuilder Reserve(int additionnalCapacity);
 
         /// <summary>
-        /// Resize the buffer to a given size.
+        /// Ensure that enough memory has been allocated to fit the indicated number of total elements in the builder,
+        /// including any that have already been appended.
         /// </summary>
         /// <remarks>
-        /// Note that if the required capacity is larger than the current length of the populated buffer so far,
-        /// the buffer's contents in the new, expanded region are undefined.
+        /// Does not account for reallocations that may be due to variable size data, like binary values.
+        /// To make space for incremental appends, use Reserve instead.
         /// </remarks>
-        /// <remarks>
-        /// Note that if the required capacity is smaller than the current length of the populated buffer so far,
-        /// the buffer will be truncated and items at the end of the buffer will be lost.
-        /// </remarks>
-        /// <param name="capacity">Number of values.</param>
+        /// <param name="capacity">minimum number of total array values to accommodate. Must be greater than the current capacity.</param>
         IArrayBuilder Resize(int capacity);
 
+        /// <summary>
+        /// Return result of builder as an internal generic ArrayData object.
+        /// </summary>
+        /// <remarks>
+        /// Resets builder except for dictionary builder
+        /// </remarks>
+        /// <param name="allocator"><see cref="MemoryAllocator"/></param>
+        /// <returns><see cref="ArrayData"/></returns>
         ArrayData FinishInternal(MemoryAllocator allocator = default);
 
+        /// <summary>
+        /// Return result of builder as an Array object.
+        /// </summary>
+        /// <remarks>
+        /// Resets builder except for dictionary builder
+        /// </remarks>
+        /// <param name="allocator"><see cref="MemoryAllocator"/></param>
+        /// <returns><see cref="IArrowArray"/></returns>
         IArrowArray Build(MemoryAllocator allocator = default);
     }
 }
