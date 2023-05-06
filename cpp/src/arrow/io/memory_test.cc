@@ -66,7 +66,7 @@ class TestBufferOutputStream : public ::testing::Test {
 
  protected:
   std::shared_ptr<ResizableBuffer> buffer_;
-  std::unique_ptr<OutputStream> stream_;
+  std::unique_ptr<BufferOutputStream> stream_;
 };
 
 TEST_F(TestBufferOutputStream, DtorCloses) {
@@ -79,6 +79,24 @@ TEST_F(TestBufferOutputStream, DtorCloses) {
 
   stream_ = nullptr;
   ASSERT_EQ(static_cast<int64_t>(K * data.size()), buffer_->size());
+}
+
+TEST_F(TestBufferOutputStream, SeekTell) {
+  std::string data = "data123456";
+
+  ARROW_EXPECT_OK(stream_->Write(data));
+  auto nbytes = static_cast<int64_t>(data.size());
+  ASSERT_OK_AND_EQ(nbytes, stream_->Tell());
+
+  ASSERT_OK(stream_->Seek(4));
+  ASSERT_OK_AND_EQ(4, stream_->Tell());
+
+  ASSERT_OK(stream_->Seek(1024));
+  ASSERT_OK_AND_EQ(1024, stream_->Tell());
+  ASSERT_RAISES(IOError, stream_->Seek(-1));
+
+  stream_ = nullptr;
+  ASSERT_EQ(1024, buffer_->size());
 }
 
 TEST_F(TestBufferOutputStream, CloseResizes) {

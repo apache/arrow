@@ -36,7 +36,7 @@ class Status;
 namespace io {
 
 /// \brief An output stream that writes to a resizable buffer
-class ARROW_EXPORT BufferOutputStream : public OutputStream {
+class ARROW_EXPORT BufferOutputStream : public OutputStream, public Seekable {
  public:
   explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
 
@@ -58,6 +58,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   bool closed() const override;
   Result<int64_t> Tell() const override;
   Status Write(const void* data, int64_t nbytes) override;
+  Status Seek(int64_t position) override;
 
   /// \cond FALSE
   using OutputStream::Write;

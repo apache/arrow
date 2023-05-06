@@ -110,6 +110,21 @@ Status BufferOutputStream::Write(const void* data, int64_t nbytes) {
   return Status::OK();
 }
 
+Status BufferOutputStream::Seek(int64_t position) {
+  if (ARROW_PREDICT_FALSE(!is_open_)) {
+    return Status::IOError("OutputStream is closed");
+  }
+  DCHECK(buffer_);
+  if (position < 0) {
+    return Status::IOError("Seek out of bounds");
+  }
+  if (ARROW_PREDICT_FALSE(position >= capacity_)) {
+    RETURN_NOT_OK(Reserve(position - position_));
+  }
+  position_ = position;
+  return Status::OK();
+}
+
 Status BufferOutputStream::Reserve(int64_t nbytes) {
   // Always overallocate by doubling.  It seems that it is a better growth
   // strategy, at least for memory_benchmark.cc.
