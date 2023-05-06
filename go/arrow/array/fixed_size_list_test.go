@@ -300,7 +300,9 @@ func TestFixedSizeBinaryBuilder_AppendValueFromString(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		if arr.IsValid(i) {
-			assertListElemExactly[int32](t, arr, arr1, i)
+			assertListElemExactly(t, arr, arr1, i, func(a arrow.Array, i int) any {
+				return a.(*array.Int32).Value(i)
+			})
 		}
 	}
 }

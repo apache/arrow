@@ -274,12 +274,19 @@ func TestMapBuilder_AppendValueFromString(t *testing.T) {
 
 		}
 		if arr.IsValid(i) {
-			assertMapEntriesExactly[string, int32](t, arr, arr1, i)
+			assertMapEntriesExactly(t, arr, arr1, i,
+				func(a arrow.Array, i int) any {
+					return a.(*array.String).Value(i)
+				},
+				func(a arrow.Array, i int) any {
+					return a.(*array.Int32).Value(i)
+				},
+			)
 		}
 	}
 }
 
-func assertMapEntriesExactly[K, V any](t *testing.T, arr, arr1 *array.Map, i int) {
+func assertMapEntriesExactly(t *testing.T, arr, arr1 *array.Map, i int, keyValuer, itemValuer valuer) {
 	start, end := arr.ValueOffsets(i)
 	start1, end1 := arr1.ValueOffsets(i)
 	assert.Exactly(t, start, start1)
@@ -290,6 +297,6 @@ func assertMapEntriesExactly[K, V any](t *testing.T, arr, arr1 *array.Map, i int
 	elem1 := array.NewSlice(arr1.ListValues(), start1, end1).(*array.Struct) // map is list of structs
 	defer elem1.Release()
 
-	assertArrayExactly(t, elem.Field(0).(valuer[K]), elem1.Field(0).(valuer[K]))
-	assertArrayExactly(t, elem.Field(1).(valuer[V]), elem1.Field(1).(valuer[V]))
+	assertArrayExactly(t, elem.Field(0), elem1.Field(0), keyValuer)
+	assertArrayExactly(t, elem.Field(1), elem1.Field(1), itemValuer)
 }

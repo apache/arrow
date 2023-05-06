@@ -505,37 +505,36 @@ func TestLargeListBuilder_AppendValueFromString(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		if arr.IsValid(i) {
-			assertListElemExactly[int32](t, arr, arr1, i)
+			assertListElemExactly(t, arr, arr1, i, func(a arrow.Array, i int) any {
+				return a.(*array.Int32).Value(i)
+			})
 		}
 		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
 	}
 }
 
-type valuer[A any] interface {
-	arrow.Array
-	Value(int) A
-}
+type valuer func(arrow.Array, int) any
 
-func assertListElemExactly[A any](t *testing.T, arr, arr1 array.ListLike, i int) {
+func assertListElemExactly(t *testing.T, arr, arr1 array.ListLike, i int, valuer valuer) {
 	start, end := arr.ValueOffsets(i)
 	start1, end1 := arr1.ValueOffsets(i)
 	assert.Exactly(t, start, start1)
 	assert.Exactly(t, end, end1)
 
-	elem := array.NewSlice(arr.ListValues(), start, end).(valuer[A])
+	elem := array.NewSlice(arr.ListValues(), start, end)
 	defer elem.Release()
-	elem1 := array.NewSlice(arr1.ListValues(), start1, end1).(valuer[A])
+	elem1 := array.NewSlice(arr1.ListValues(), start1, end1)
 	defer elem1.Release()
 
-	assertArrayExactly(t, elem, elem1)
+	assertArrayExactly(t, elem, elem1, valuer)
 }
 
-func assertArrayExactly[A any](t *testing.T, arr, arr1 valuer[A]) {
+func assertArrayExactly(t *testing.T, arr, arr1 arrow.Array, valuer valuer) {
 	assert.Equal(t, arr.Len(), arr1.Len())
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		if arr.IsValid(i) {
-			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+			assert.Exactly(t, valuer(arr, i), valuer(arr1, i))
 		}
 	}
 }
