@@ -74,19 +74,12 @@ namespace Apache.Arrow.Builder
         }
 
         // Append Value
-        public ListArrayBuilder AppendValue<T>(ReadOnlySpan<T> value, bool isValid = true) where T : struct
+        public ListArrayBuilder AppendValue<T>(ReadOnlySpan<T> value) where T : struct
         {
-            if (isValid)
-            {
-                CurrentOffset++;
-                OffsetsBuffer.AppendValue(CurrentOffset);
-                GetBuilderAs<T>().AppendValues(value);
-                AppendValid();
-            }
-            else
-            {
-                AppendNull();
-            }
+            CurrentOffset++;
+            OffsetsBuffer.AppendValue(CurrentOffset);
+            GetBuilderAs<T>().AppendValues(value);
+            AppendValid();
 
             return this;
         }

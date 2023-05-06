@@ -68,7 +68,7 @@ namespace Apache.Arrow.Builder
         }
 
         public virtual VariableBinaryArrayBuilder AppendValue(string value, Encoding encoding = default)
-            => AppendValue((encoding ?? StringType.DefaultEncoding).GetBytes(value), value != null);
+            => value == null ? AppendNull() : AppendValue((encoding ?? StringType.DefaultEncoding).GetBytes(value));
 
         public virtual VariableBinaryArrayBuilder AppendValue(byte value)
         {
@@ -86,21 +86,13 @@ namespace Apache.Arrow.Builder
         public virtual VariableBinaryArrayBuilder AppendValue(byte? value)
             => value.HasValue ? AppendValue(value.Value) : AppendNull();
 
-        public virtual VariableBinaryArrayBuilder AppendValue(ReadOnlySpan<byte> value, bool isValid = true)
+        public virtual VariableBinaryArrayBuilder AppendValue(ReadOnlySpan<byte> value)
         {
-            if (isValid)
-            {
-                AppendValid();
-                // Append Offset
-                CurrentOffset += value.Length;
-                OffsetsBuffer.AppendValue(CurrentOffset);
-                ValuesBuffer.AppendBytes(value);
-            }
-            else
-            {
-                AppendNull();
-                OffsetsBuffer.AppendValue(CurrentOffset);
-            }
+            AppendValid();
+            // Append Offset
+            CurrentOffset += value.Length;
+            OffsetsBuffer.AppendValue(CurrentOffset);
+            ValuesBuffer.AppendBytes(value);
             return this;
         }
 
@@ -110,6 +102,8 @@ namespace Apache.Arrow.Builder
             Span<bool> mask = new bool[offsets.Length];
             int offset = 0;
             int i = 0;
+            bool allValid = true;
+            int nullCount = 0;
 
             foreach (byte[] value in values)
             {
@@ -118,6 +112,8 @@ namespace Apache.Arrow.Builder
                     offsets[i] = CurrentOffset;
                     // default is already false
                     // mask[i] = false;
+                    allValid = false;
+                    nullCount++;
                 }
                 else
                 {
@@ -134,7 +130,10 @@ namespace Apache.Arrow.Builder
                 i++;
             }
 
-            AppendValidity(mask);
+            if (allValid)
+                AppendValidity(true, mask.Length);
+            else
+                AppendValidity(mask, nullCount);
 
             // Append Offset
             OffsetsBuffer.AppendValues(offsets);
@@ -148,6 +147,8 @@ namespace Apache.Arrow.Builder
             Span<int> offsets = new int[values.Count];
             Span<bool> mask = new bool[offsets.Length];
             int i = 0;
+            bool allValid = true;
+            int nullCount = 0;
 
             foreach (string value in values)
             {
@@ -156,6 +157,8 @@ namespace Apache.Arrow.Builder
                     offsets[i] = CurrentOffset;
                     // default is already false
                     // mask[i] = false;
+                    allValid = false;
+                    nullCount++;
                 }
                 else
                 {
@@ -172,7 +175,10 @@ namespace Apache.Arrow.Builder
                 i++;
             }
 
-            AppendValidity(mask);
+            if (allValid)
+                AppendValidity(true, mask.Length);
+            else
+                AppendValidity(mask, nullCount);
 
             // Append Offset
             OffsetsBuffer.AppendValues(offsets);
@@ -331,6 +337,8 @@ namespace Apache.Arrow.Builder
             int count = values.Count;
             Span<bool> mask = new bool[count];
             int i = 0;
+            bool allValid = true;
+            int nullCount = 0;
 
             foreach (bool? value in values)
             {
@@ -349,11 +357,16 @@ namespace Apache.Arrow.Builder
                 else
                 {
                     ValuesBuffer.AppendBits(_defaultBitValue);
+                    allValid = false;
+                    nullCount++;
                 }
                 i++;
             }
 
-            AppendValidity(mask);
+            if (allValid)
+                AppendValidity(true, mask.Length);
+            else
+                AppendValidity(mask, nullCount);
 
             return this;
         }
@@ -363,6 +376,8 @@ namespace Apache.Arrow.Builder
             int count = values.Count;
             Span<bool> mask = new bool[count];
             int i = 0;
+            bool allValid = true;
+            int nullCount = 0;
 
             foreach (bool[] value in values)
             {
@@ -375,6 +390,8 @@ namespace Apache.Arrow.Builder
                 if (value == null)
                 {
                     ValuesBuffer.AppendBits(_defaultBitValue);
+                    allValid = false;
+                    nullCount++;
                 }
                 else
                 {
@@ -385,7 +402,10 @@ namespace Apache.Arrow.Builder
                 i++;
             }
 
-            AppendValidity(mask);
+            if (allValid)
+                AppendValidity(true, mask.Length);
+            else
+                AppendValidity(mask, nullCount);
 
             return this;
         }
@@ -395,6 +415,8 @@ namespace Apache.Arrow.Builder
             int count = values.Count;
             Span<bool> mask = new bool[count];
             int i = 0;
+            bool allValid = true;
+            int nullCount = 0;
 
             foreach (byte? value in values)
             {
@@ -413,11 +435,16 @@ namespace Apache.Arrow.Builder
                 else
                 {
                     ValuesBuffer.AppendBytes(_defaultByteValue);
+                    allValid = false;
+                    nullCount++;
                 }
                 i++;
             }
 
-            AppendValidity(mask);
+            if (allValid)
+                AppendValidity(true, mask.Length);
+            else
+                AppendValidity(mask, nullCount);
 
             return this;
         }
@@ -428,6 +455,8 @@ namespace Apache.Arrow.Builder
             Span<bool> mask = new bool[count];
             int i = 0;
             int offset = 0;
+            bool allValid = true;
+            int nullCount = 0;
 
             foreach (byte[] value in values)
             {
@@ -437,7 +466,12 @@ namespace Apache.Arrow.Builder
                 // default is already filled with empty values
                 // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
 
-                if (value != null)
+                if (value == null)
+                {
+                    allValid = false;
+                    nullCount++;
+                }
+                else
                 {
                     // Copy to memory
                     value.CopyTo(memory.Slice(offset, _defaultByteValue.Length));
@@ -448,7 +482,10 @@ namespace Apache.Arrow.Builder
             }
 
             ValuesBuffer.AppendBytes(memory);
-            AppendValidity(mask);
+            if (allValid)
+                AppendValidity(true, mask.Length);
+            else
+                AppendValidity(mask, nullCount);
 
             return this;
         }
@@ -460,6 +497,8 @@ namespace Apache.Arrow.Builder
             Span<bool> mask = new bool[count];
             int i = 0;
             int offset = 0;
+            bool allValid = true;
+            int nullCount = 0;
 
             foreach (T? value in values)
             {
@@ -482,12 +521,20 @@ namespace Apache.Arrow.Builder
 
                     mask[i] = true;
                 }
+                else
+                {
+                    allValid = false;
+                    nullCount++;
+                }
                 offset += _defaultByteValue.Length;
                 i++;
             }
 
             ValuesBuffer.AppendBytes(memory);
-            AppendValidity(mask);
+            if (allValid)
+                AppendValidity(true, mask.Length);
+            else
+                AppendValidity(mask, nullCount);
 
             return this;
         }
@@ -499,6 +546,8 @@ namespace Apache.Arrow.Builder
             Span<bool> mask = new bool[count];
             int i = 0;
             int offset = 0;
+            bool allValid = true;
+            int nullCount = 0;
 
             foreach (T[] value in values)
             {
@@ -508,7 +557,12 @@ namespace Apache.Arrow.Builder
                 // default is already filled with empty values
                 // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
 
-                if (value != null)
+                if (value == null)
+                {
+                    allValid = false;
+                    nullCount++;
+                }
+                else
                 {
                     // Copy to memory
                     MemoryMarshal.AsBytes<T>(value).CopyTo(memory.Slice(offset, _defaultByteValue.Length));
@@ -519,7 +573,10 @@ namespace Apache.Arrow.Builder
             }
 
             ValuesBuffer.AppendBytes(memory);
-            AppendValidity(mask);
+            if (allValid)
+                AppendValidity(true, mask.Length);
+            else
+                AppendValidity(mask, nullCount);
 
             return this;
         }
