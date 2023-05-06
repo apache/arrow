@@ -62,6 +62,64 @@ namespace Apache.Arrow
                 : (byte)(data[idx] & ~BitMask[mod]);
         }
 
+        /// <summary>
+        /// Set the number of bits in a span of bytes starting
+        /// at a specific index, and limiting to length.
+        /// </summary>
+        /// <param name="data">Span to set bits value.</param>
+        /// <param name="offset">Bit index to start counting from.</param>
+        /// <param name="length">Maximum of bits in the span to consider.</param>
+        public static void SetBits(Span<byte> data, int index, int length, bool value)
+        {
+            // Use simpler method if there aren't many values
+            if (length < 20)
+            {
+                for (int i = index; i < index + length; i++)
+                {
+                    SetBit(data, i, value);
+                }
+                return;
+            }
+            
+            // Otherwise do the work to figure out how to copy whole bytes
+            int startByteIndex = index / 8;
+            int startBitOffset = index % 8;
+            int endByteIndex = (index + length - 1) / 8;
+            int endBitOffset = (index + length - 1) % 8;
+            if (startBitOffset < 0)
+                return;
+                        
+            // If the starting index and ending index are not byte-aligned,
+            // we'll need to set bits the slow way. If they are
+            // byte-aligned, and for all other bytes in the 'middle', we
+            // can use a faster byte-aligned set.
+            int fullByteStartIndex = startBitOffset == 0 ? startByteIndex : startByteIndex + 1;
+            int fullByteEndIndex = endBitOffset == 7 ? endByteIndex : endByteIndex - 1;
+
+            // Bits we will be using to finish up the first byte
+            if (startBitOffset != 0)
+            {
+                Span<byte> slice = data.Slice(startByteIndex, 1);
+                for (int i = startBitOffset; i <= 7; i++)
+                    SetBit(slice, i, value);
+            }
+
+            if (fullByteEndIndex >= fullByteStartIndex)
+            {
+                Span<byte> slice = data.Slice(fullByteStartIndex, fullByteEndIndex - fullByteStartIndex + 1);
+                byte fill = (byte)(value ? 0xFF : 0x00);
+
+                slice.Fill(fill);
+            }
+
+            if (endBitOffset != 7)
+            {
+                Span<byte> slice = data.Slice(endByteIndex, 1);
+                for (int i = 0; i <= endBitOffset; i++)
+                    SetBit(slice, i, value);
+            }
+        }
+
         public static void ToggleBit(Span<byte> data, int index)
         {
             data[index / 8] ^= BitMask[index % 8];
@@ -99,7 +157,7 @@ namespace Apache.Arrow
             if (startByteIndex == endByteIndex)
             {
                 // Range starts and ends within the same byte.
-                var slice = data.Slice(startByteIndex, 1);
+                ReadOnlySpan<byte> slice = data.Slice(startByteIndex, 1);
                 for (int i = startBitOffset; i <= endBitOffset; i++)
                     count += GetBit(slice, i) ? 1 : 0;
 
@@ -115,20 +173,20 @@ namespace Apache.Arrow
 
             if (startBitOffset != 0)
             {
-                var slice = data.Slice(startByteIndex, 1);
+                ReadOnlySpan<byte> slice = data.Slice(startByteIndex, 1);
                 for (int i = startBitOffset; i <= 7; i++)
                     count += GetBit(slice, i) ? 1 : 0;
             }
 
             if (fullByteEndIndex >= fullByteStartIndex)
             {
-                var slice = data.Slice(fullByteStartIndex, fullByteEndIndex - fullByteStartIndex + 1);
+                ReadOnlySpan<byte> slice = data.Slice(fullByteStartIndex, fullByteEndIndex - fullByteStartIndex + 1);
                 count += CountBits(slice);
             }
 
             if (endBitOffset != 7)
             {
-                var slice = data.Slice(endByteIndex, 1);
+                ReadOnlySpan<byte> slice = data.Slice(endByteIndex, 1);
                 for (int i = 0; i <= endBitOffset; i++)
                     count += GetBit(slice, i) ? 1 : 0;
             }

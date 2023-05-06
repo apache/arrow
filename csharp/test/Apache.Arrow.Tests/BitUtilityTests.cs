@@ -127,6 +127,55 @@ namespace Apache.Arrow.Tests
                 BitUtility.SetBit(data, index);
                 Assert.Equal(expectedValue, data);
             }
+
+            [Theory]
+            [InlineData(new byte[] { 0b10000000 }, 0, true, new byte[] { 0b10000001 })]
+            [InlineData(new byte[] { 0b00000000 }, 2, true, new byte[] { 0b00000100 })]
+            [InlineData(new byte[] { 0b11111111 }, 2, false, new byte[] { 0b11111011 })]
+            [InlineData(new byte[] { 0b01111111 }, 7, true, new byte[] { 0b11111111 })]
+            [InlineData(new byte[] { 0b00000000, 0b00000000 }, 8, true, new byte[] { 0b00000000, 0b00000001 })]
+            [InlineData(new byte[] { 0b11111110, 0b11111110 }, 15, false, new byte[] { 0b11111110, 0b01111110 })]
+            public void SetsBitValueAtIndex(byte[] data, int index, bool value, byte[] expectedValue)
+            {
+                BitUtility.SetBit(data, index, value);
+                Assert.Equal(expectedValue, data);
+            }
+        }
+
+        public class SetBits
+        {
+            [Theory]
+            [InlineData(new byte[] { 0b00000000 }, 0, 0, true, new byte[] { 0b00000000 })]
+            [InlineData(new byte[] { 0b00000000 }, 0, 1, true, new byte[] { 0b00000001 })]
+            [InlineData(new byte[] { 0b00000000 }, 2, 2, true, new byte[] { 0b00001100 })]
+            [InlineData(new byte[] { 0b00000000 }, 5, 3, true, new byte[] { 0b11100000 })]
+            [InlineData(new byte[] { 0b00000000, 0b00000000 }, 8, 1, true, new byte[] { 0b00000000, 0b00000001 })]
+            [InlineData(new byte[] { 0b00000000, 0b00000000 }, 15, 1, true, new byte[] { 0b00000000, 0b10000000 })]
+            [InlineData(new byte[] { 0b00000000, 0b00000000 }, 7, 2, true, new byte[] { 0b10000000, 0b00000001 })]
+            [InlineData(new byte[] { 0b11111111, 0b11111111 }, 7, 2, false, new byte[] { 0b01111111, 0b11111110 })]
+            public void SetsBitsInRangeOnSmallRanges(byte[] data, int index, int length, bool value, byte[] expectedValue)
+            {
+                BitUtility.SetBits(data, index, length, value);
+                Assert.Equal(expectedValue, data);
+            }
+                        
+            [Fact]
+            public void SetsBitsInRangeOnBigRanges()
+            {
+                //Arrange
+                Span<byte> data = stackalloc byte[8];
+                data.Clear();
+
+                //Act
+                BitUtility.SetBits(data, 4, 56, true);
+
+                //Assert
+                Assert.Equal(0b11110000, data[0]);
+                Assert.Equal(0b00001111, data[7]);
+
+                for (int i = 1; i < 7; i++)
+                    Assert.Equal(0b11111111, data[i]);
+            }
         }
 
         public class ClearBit

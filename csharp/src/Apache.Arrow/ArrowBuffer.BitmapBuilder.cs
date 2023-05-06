@@ -138,7 +138,6 @@ namespace Apache.Arrow
                 return this;
             }
 
-
             /// <summary>
             /// Append multiple bits.
             /// </summary>
@@ -148,13 +147,10 @@ namespace Apache.Arrow
             public BitmapBuilder AppendRange(bool value, int length)
             {
                 EnsureAdditionalCapacity(length);
+                Span<byte> span = Span;
+                BitUtility.SetBits(span, Length, length, value);
 
-                for (int i = 0; i < length; i++)
-                {
-                    BitUtility.SetBit(Span, Length, value);
-                    Length++;
-                }
-                                
+                Length += length;
                 SetBitCount += value ? length : 0;
 
                 return this;
