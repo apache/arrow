@@ -23,6 +23,8 @@ namespace Apache.Arrow
 {
     public class StringArray: BinaryArray
     {
+        public static readonly Encoding DefaultEncoding = StringType.DefaultEncoding;
+
         public new class Builder : BuilderBase<StringArray, Builder>
         {
             public Builder() : base(StringType.Default) { }
@@ -38,7 +40,7 @@ namespace Apache.Arrow
                 {
                     return AppendNull();
                 }
-                encoding = encoding ?? StringType.DefaultEncoding;
+                encoding = encoding ?? DefaultEncoding;
                 byte[] span = encoding.GetBytes(value);
                 return Append(span.AsSpan());
             }

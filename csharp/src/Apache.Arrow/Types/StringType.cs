@@ -25,7 +25,6 @@ namespace Apache.Arrow.Types
 
         public override ArrowTypeId TypeId => ArrowTypeId.String;
         public override string Name => "utf8";
-        public Encoding Encoding => DefaultEncoding;
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
