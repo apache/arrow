@@ -20,7 +20,7 @@ import os
 import uuid
 import logging
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Dict
 
 from benchadapt import BenchmarkResult
 from benchadapt.adapters import BenchmarkAdapter
@@ -30,6 +30,12 @@ log.setLevel(logging.DEBUG)
 
 ARROW_ROOT = Path(__file__).parent.parent.parent.resolve()
 SCRIPTS_PATH = ARROW_ROOT / "ci" / "scripts"
+
+# `github_commit_info` is meant to communicate GitHub-flavored commit
+# information to Conbench. See
+# https://github.com/conbench/conbench/blob/7c4968e631ecdc064559c86a1174a1353713b700/benchadapt/python/benchadapt/result.py#L66
+# for a specification.
+github_commit_info: Optional[Dict] = None
 
 if os.environ.get("CONBENCH_REF") == "main":
     # Assume GitHub Actions CI. The environment
@@ -53,7 +59,6 @@ else:
     # commit information (not a controlled CI environment).
     # Explicitly set `github=None` to reflect that (to _not_
     # send commit information).
-    github_commit_info = None
 
     # Reflect 'local dev' scenario in run_reason. Allow user
     # to (optionally) inject a custom piece of information
