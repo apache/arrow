@@ -115,7 +115,9 @@ class GoAdapter(BenchmarkAdapter):
                     github=github_commit_info,
                 )
                 if github_commit_info is not None:
-                    parsed.run_name = f"{parsed.run_reason}: {parsed.github['commit']}"
+                    parsed.run_name = (
+                        f"{parsed.run_reason}: {github_commit_info['commit']}"
+                    )
                 parsed_results.append(parsed)
 
         return parsed_results
