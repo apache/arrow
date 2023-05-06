@@ -165,12 +165,12 @@ Status PutOffsets(const Buffer& src, Offset first_offset, Offset* dst,
 
   // Write offsets into dst, ensuring that the first offset written is
   // first_offset
-  auto adjustment = first_offset - src_begin[0];
+  auto displacement = first_offset - src_begin[0];
   // NOTE: Concatenate can be called during IPC reads to append delta dictionaries.
   // Avoid UB on non-validated input by doing the addition in the unsigned domain.
   // (the result can later be validated using Array::ValidateFull)
-  std::transform(src_begin, src_end, dst, [adjustment](Offset offset) {
-    return SafeSignedAdd(offset, adjustment);
+  std::transform(src_begin, src_end, dst, [displacement](Offset offset) {
+    return SafeSignedAdd(offset, displacement);
   });
   return Status::OK();
 }
