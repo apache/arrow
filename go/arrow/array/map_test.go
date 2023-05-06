@@ -275,10 +275,10 @@ func TestMapBuilder_AppendValueFromString(t *testing.T) {
 		}
 		if arr.IsValid(i) {
 			assertMapEntriesExactly(t, arr, arr1, i,
-				func(a arrow.Array, i int) any {
+				func(a arrow.Array, i int) interface{} {
 					return a.(*array.String).Value(i)
 				},
-				func(a arrow.Array, i int) any {
+				func(a arrow.Array, i int) interface{} {
 					return a.(*array.Int32).Value(i)
 				},
 			)

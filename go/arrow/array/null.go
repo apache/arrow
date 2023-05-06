@@ -60,7 +60,7 @@ func NewNullData(data arrow.ArrayData) *Null {
 
 func (a *Null) ValueStr(int) string { return NullValueStr }
 
-func (a *Null) Value(int) any { return nil }
+func (a *Null) Value(int) interface{} { return nil }
 
 func (a *Null) String() string {
 	o := new(strings.Builder)

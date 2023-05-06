@@ -174,7 +174,7 @@ func (a *UUIDArray) ValueStr(i int) string {
 
 func (a *UUIDArray) MarshalJSON() ([]byte, error) {
 	arr := a.Storage().(*array.FixedSizeBinary)
-	values := make([]any, a.Len())
+	values := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
 			values[i] = uuid.Must(uuid.FromBytes(arr.Value(i))).String()
@@ -183,7 +183,7 @@ func (a *UUIDArray) MarshalJSON() ([]byte, error) {
 	return json.Marshal(values)
 }
 
-func (a *UUIDArray) GetOneForMarshal(i int) any {
+func (a *UUIDArray) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}

@@ -734,7 +734,7 @@ func (s *UnionFactorySuite) TestSparseUnion_AppendValuesFromString() {
 	str1, err := arr1.GetFlattenedField(mem, 0)
 	s.NoError(err)
 	defer str1.Release()
-	assertArrayExactly(s.T(), str, str1, func(a arrow.Array, i int) any {
+	assertArrayExactly(s.T(), str, str1, func(a arrow.Array, i int) interface{} {
 		return a.(*array.String).Value(i)
 	})
 
@@ -744,7 +744,7 @@ func (s *UnionFactorySuite) TestSparseUnion_AppendValuesFromString() {
 	ui1, err := arr1.GetFlattenedField(mem, 1)
 	s.NoError(err)
 	defer ui1.Release()
-	assertArrayExactly(s.T(), ui, ui1, func(a arrow.Array, i int) any {
+	assertArrayExactly(s.T(), ui, ui1, func(a arrow.Array, i int) interface{} {
 		return a.(*array.Uint8).Value(i)
 	})
 
@@ -754,7 +754,7 @@ func (s *UnionFactorySuite) TestSparseUnion_AppendValuesFromString() {
 	float1, err := arr1.GetFlattenedField(mem, 2)
 	s.NoError(err)
 	defer float1.Release()
-	assertArrayExactly(s.T(), float, float1, func(a arrow.Array, i int) any {
+	assertArrayExactly(s.T(), float, float1, func(a arrow.Array, i int) interface{} {
 		return a.(*array.Float64).Value(i)
 	})
 
@@ -764,7 +764,7 @@ func (s *UnionFactorySuite) TestSparseUnion_AppendValuesFromString() {
 	i1, err := arr1.GetFlattenedField(mem, 3)
 	s.NoError(err)
 	defer i1.Release()
-	assertArrayExactly(s.T(), i, i1, func(a arrow.Array, i int) any {
+	assertArrayExactly(s.T(), i, i1, func(a arrow.Array, i int) interface{} {
 		return a.(*array.Int8).Value(i)
 	})
 }

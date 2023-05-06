@@ -220,10 +220,10 @@ func TestStructBuilder_AppendValueFromString(t *testing.T) {
 	for i := 0; i < arr.Len(); i++ {
 		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
 		if arr.IsValid(i) {
-			assertArrayExactly(t, arr.Field(0), arr1.Field(0), func(a arrow.Array, i int) any {
+			assertArrayExactly(t, arr.Field(0), arr1.Field(0), func(a arrow.Array, i int) interface{} {
 				return a.(*array.Boolean).Value(i)
 			})
-			assertArrayExactly(t, arr.Field(1), arr1.Field(1), func(a arrow.Array, i int) any {
+			assertArrayExactly(t, arr.Field(1), arr1.Field(1), func(a arrow.Array, i int) interface{} {
 				return a.(*array.Boolean).Value(i)
 			})
 		}
