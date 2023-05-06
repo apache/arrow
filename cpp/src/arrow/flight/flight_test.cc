@@ -452,7 +452,7 @@ class TestTls : public ::testing::Test {
 
 // A server middleware that rejects all calls.
 class RejectServerMiddlewareFactory : public ServerMiddlewareFactory {
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     return MakeFlightError(FlightStatusCode::Unauthenticated, "All calls are rejected");
   }
@@ -484,7 +484,7 @@ class CountingServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   CountingServerMiddlewareFactory() : successful_(0), failed_(0) {}
 
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     *middleware = std::make_shared<CountingServerMiddleware>(&successful_, &failed_);
     return Status::OK();
@@ -517,10 +517,10 @@ class TracingTestServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   TracingTestServerMiddlewareFactory() {}
 
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
-        incoming_headers.equal_range("x-tracing-span-id");
+        context.incoming_headers().equal_range("x-tracing-span-id");
     if (iter_pair.first != iter_pair.second) {
       const std::string_view& value = (*iter_pair.first).second;
       *middleware = std::make_shared<TracingTestServerMiddleware>(std::string(value));
@@ -578,10 +578,10 @@ class HeaderAuthServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   HeaderAuthServerMiddlewareFactory() {}
 
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     std::string username, password;
-    ParseBasicHeader(incoming_headers, username, password);
+    ParseBasicHeader(context.incoming_headers(), username, password);
     if ((username == kValidUsername) && (password == kValidPassword)) {
       *middleware = std::make_shared<HeaderAuthServerMiddleware>();
     } else if ((username == kInvalidUsername) && (password == kInvalidPassword)) {
@@ -619,13 +619,13 @@ class BearerAuthServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   BearerAuthServerMiddlewareFactory() : isValid_(false) {}
 
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
-        incoming_headers.equal_range(kAuthHeader);
+        context.incoming_headers().equal_range(kAuthHeader);
     if (iter_pair.first != iter_pair.second) {
-      *middleware =
-          std::make_shared<BearerAuthServerMiddleware>(incoming_headers, &isValid_);
+      *middleware = std::make_shared<BearerAuthServerMiddleware>(
+          context.incoming_headers(), &isValid_);
     }
     return Status::OK();
   }
