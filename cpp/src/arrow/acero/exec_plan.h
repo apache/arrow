@@ -173,9 +173,9 @@ class ARROW_ACERO_EXPORT ExecNode {
   /// non-deterministic.  For example, a hash-join has no predictable output order.
   ///
   /// If the ordering is Ordering::Implicit then there is a meaningful order but that
-  /// ordering is not represented by any column in the data.  The most common case for this
-  /// is when reading data from an in-memory table.  The data has an implicit "row order"
-  /// which is not necessarily represented in the data set.
+  /// ordering is not represented by any column in the data.  The most common case for
+  /// this is when reading data from an in-memory table.  The data has an implicit "row
+  /// order" which is not necessarily represented in the data set.
   ///
   /// A filter or project node will not modify the ordering.  Nothing needs to be done
   /// other than ensure the index assigned to output batches is the same as the
