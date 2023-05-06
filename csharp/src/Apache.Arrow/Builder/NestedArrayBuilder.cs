@@ -42,6 +42,7 @@ namespace Apache.Arrow.Builder
         public ListArrayBuilder(ListType dataType, int capacity = 8) : base(dataType, capacity)
         {
             CurrentOffset = 0;
+            OffsetsBuffer.AppendValue(CurrentOffset);
         }
 
         public IPrimitiveBufferBuilder<int> OffsetsBuffer => Buffers[1] as IPrimitiveBufferBuilder<int>;
@@ -58,7 +59,6 @@ namespace Apache.Arrow.Builder
         public override IArrayBuilder AppendNull() => AppendNull(false);
         public virtual ListArrayBuilder AppendNull(bool recursive = false)
         {
-            CurrentOffset++;
             OffsetsBuffer.AppendValue(CurrentOffset);
             base.AppendNull();
             return this;
@@ -67,8 +67,7 @@ namespace Apache.Arrow.Builder
         public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, false);
         public virtual ListArrayBuilder AppendNulls(int count, bool recursive = false)
         {
-            CurrentOffset += count;
-            OffsetsBuffer.AppendValue(CurrentOffset);
+            OffsetsBuffer.AppendValues(CurrentOffset, count);
             base.AppendNulls(count);
             return this;
         }

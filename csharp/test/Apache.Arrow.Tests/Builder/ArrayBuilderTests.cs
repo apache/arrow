@@ -181,6 +181,7 @@ namespace Apache.Arrow.Tests.Builder
             var builder = new ListArrayBuilder(new ListType(new Int64Type()));
 
             ListArray built = builder
+                .AppendNulls(3)
                 .AppendValue<long>(new long[] { 1, 0, -1 })
                 .AppendNull()
                 .AppendValues(new long[][]
@@ -191,12 +192,15 @@ namespace Apache.Arrow.Tests.Builder
                 .Build() as ListArray;
 
             Assert.IsType<ListArray>(built);
-            Assert.Equal(4, built.Length);
-            Assert.Equal(1, built.NullCount);
+            Assert.Equal(7, built.Length);
+            Assert.Equal(4, built.NullCount);
 
-            Assert.True(built.IsValid(0));
+            Assert.False(built.IsValid(0));
             Assert.False(built.IsValid(1));
-            Assert.True(built.IsValid(2));
+            Assert.False(built.IsValid(2));
+            Assert.True(built.IsValid(3));
+            Assert.False(built.IsValid(4));
+            Assert.True(built.IsValid(5));
         }
     }
 
