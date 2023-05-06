@@ -66,3 +66,79 @@ func TestExtensionRecordBuilder(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, record, record1)
 }
+
+func TestUUIDArray_ValueStr(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	extBuilder := array.NewExtensionBuilder(mem, types.NewUUIDType())
+	defer extBuilder.Release()
+	b := types.NewUUIDBuilder(extBuilder)
+	b.Append(uuid.Nil)
+	b.AppendNull()
+	b.Append(uuid.NameSpaceURL)
+	b.AppendNull()
+	b.Append(testUUID)
+
+	arr := b.NewArray().(*types.UUIDArray)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	extBuilder1 := array.NewExtensionBuilder(mem, types.NewUUIDType())
+	defer extBuilder1.Release()
+	b1 := types.NewUUIDBuilder(extBuilder1)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*types.UUIDArray)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
+	}
+}
+
+func TestUUIDBuilder_AppendValueFromString(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	extBuilder := array.NewExtensionBuilder(mem, types.NewUUIDType())
+	defer extBuilder.Release()
+	b := types.NewUUIDBuilder(extBuilder)
+	b.Append(uuid.Nil)
+	b.AppendNull()
+	b.Append(uuid.NameSpaceURL)
+	b.AppendNull()
+	b.Append(testUUID)
+
+	arr := b.NewArray().(*types.UUIDArray)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	extBuilder1 := array.NewExtensionBuilder(mem, types.NewUUIDType())
+	defer extBuilder1.Release()
+	b1 := types.NewUUIDBuilder(extBuilder1)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*types.UUIDArray)
+	defer arr1.Release()
+
+	assert.Equal(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i), arr1.Value(i))
+		}
+	}
+}
