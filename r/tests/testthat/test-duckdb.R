@@ -168,7 +168,8 @@ test_that("to_arrow roundtrip, with dataset", {
       filter(int > 5 & part > 1) %>%
       mutate(dbl_plus = dbl + 1) %>%
       collect() %>%
-      arrange(part, int)
+      arrange(part, int) %>%
+      as.data.frame()
   )
 })
 

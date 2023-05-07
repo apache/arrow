@@ -25,7 +25,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v13/parquet"
 )
 
 //go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=types.tmpldata xxh3_memo_table.gen.go.tmpl

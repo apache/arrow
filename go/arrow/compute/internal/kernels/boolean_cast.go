@@ -22,9 +22,9 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
 )
 
 func isNonZero[T exec.FixedWidthTypes](ctx *exec.KernelCtx, in []T, out []byte) error {

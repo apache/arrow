@@ -1361,46 +1361,87 @@ void SortBy(std::vector<std::string> names, Datum* aggregated_and_grouped) {
 }  // namespace
 
 TEST_P(GroupBy, CountOnly) {
-  for (bool use_threads : {true, false}) {
-    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+  const std::vector<std::string> json = {
+      // Test inputs ("argument", "key")
+      R"([[1.0,   1],
+          [null,  1]])",
+      R"([[0.0,   2],
+          [null,  3],
+          [null,  2],
+          [4.0,   null],
+          [3.25,  1],
+          [3.25,  1],
+          [0.125, 2]])",
+      R"([[-0.25, 2],
+          [0.75,  null],
+          [null,  3]])",
+  };
+  const auto skip_nulls = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
+  const auto only_nulls = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
+  const auto count_all = std::make_shared<CountOptions>(CountOptions::ALL);
+  const auto possible_count_options = std::vector<std::shared_ptr<CountOptions>>{
+      nullptr,  // default = skip_nulls
+      skip_nulls,
+      only_nulls,
+      count_all,
+  };
+  const auto expected_results = std::vector<std::string>{
+      // Results ("key_0", "hash_count")
+      // nullptr = skip_nulls
+      R"([[1, 3],
+          [2, 3],
+          [3, 0],
+          [null, 2]])",
+      // skip_nulls
+      R"([[1, 3],
+          [2, 3],
+          [3, 0],
+          [null, 2]])",
+      // only_nulls
+      R"([[1, 1],
+          [2, 1],
+          [3, 2],
+          [null, 0]])",
+      // count_all
+      R"([[1, 4],
+          [2, 4],
+          [3, 2],
+          [null, 2]])",
+  };
+  // NOTE: the "key" column (1) does not appear in the possible run-end
+  // encoding transformations because GroupBy kernels do not support run-end
+  // encoded key arrays.
+  for (const auto& re_encode_cols : std::vector<std::vector<int>>{{}, {0}}) {
+    for (bool use_threads : {/*true, */ false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      for (size_t i = 0; i < possible_count_options.size(); i++) {
+        SCOPED_TRACE(possible_count_options[i] ? possible_count_options[i]->ToString()
+                                               : "default");
+        auto table = TableFromJSON(
+            schema({field("argument", float64()), field("key", int64())}), json);
 
-    auto table =
-        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
-    [1.0,   1],
-    [null,  1]
-                        ])",
-                                                                                      R"([
-    [0.0,   2],
-    [null,  3],
-    [4.0,   null],
-    [3.25,  1],
-    [0.125, 2]
-                        ])",
-                                                                                      R"([
-    [-0.25, 2],
-    [0.75,  null],
-    [null,  3]
-                        ])"});
+        auto transformed_table = table;
+        if (!re_encode_cols.empty()) {
+          ASSERT_OK_AND_ASSIGN(transformed_table,
+                               RunEndEncodeTableColumns(*table, re_encode_cols));
+        }
 
-    ASSERT_OK_AND_ASSIGN(
-        Datum aggregated_and_grouped,
-        GroupByTest({table->GetColumnByName("argument")}, {table->GetColumnByName("key")},
-                    {
-                        {"hash_count", nullptr},
-                    },
-                    use_threads));
-    SortBy({"key_0"}, &aggregated_and_grouped);
+        ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                             GroupByTest({transformed_table->GetColumnByName("argument")},
+                                         {transformed_table->GetColumnByName("key")},
+                                         {
+                                             {"hash_count", possible_count_options[i]},
+                                         },
+                                         use_threads));
+        SortBy({"key_0"}, &aggregated_and_grouped);
 
-    AssertDatumsEqual(
-        ArrayFromJSON(struct_({field("key_0", int64()), field("hash_count", int64())}),
-                      R"([
-    [1, 2],
-    [2, 3],
-    [3, 0],
-    [null, 2]
-  ])"),
-        aggregated_and_grouped,
-        /*verbose=*/true);
+        AssertDatumsEqual(aggregated_and_grouped,
+                          ArrayFromJSON(struct_({field("key_0", int64()),
+                                                 field("hash_count", int64())}),
+                                        expected_results[i]),
+                          /*verbose=*/true);
+      }
+    }
   }
 }
 
