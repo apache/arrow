@@ -64,10 +64,10 @@ jobs:
         include:
           - arch: amd64
             clang-tools: "14"
-            image: conda-cpp
+            image: ubuntu-cpp
             llvm: "14"
             runs-on: ubuntu-latest
-            title: AMD64 Conda C++ no threads
+            title: AMD64 ubuntu-cpp no threads
             ubuntu: "22.04"
             disable_threading: "ON"
           - arch: amd64
