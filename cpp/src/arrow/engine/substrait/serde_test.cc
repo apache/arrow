@@ -5261,6 +5261,10 @@ TEST(Substrait, CompoundEmitWithFilter) {
 }
 
 TEST(Substrait, PlanWithExtension) {
+  #ifdef ARROW_DISABLE_THREADING
+    GTEST_SKIP() << "ASOF join requires threading";
+  #endif
+
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -5449,6 +5453,9 @@ TEST(Substrait, PlanWithExtension) {
 }
 
 TEST(Substrait, AsOfJoinDefaultEmit) {
+  #ifdef ARROW_DISABLE_THREADING
+    GTEST_SKIP() << "ASOF join requires threading";
+  #endif
   std::string substrait_json = R"({
     "extensionUris": [],
     "extensions": [],
