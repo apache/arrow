@@ -24,7 +24,7 @@ namespace Apache.Arrow.Ipc
     /// <summary>
     /// Represents a reader that can read Arrow streams.
     /// </summary>
-    public class ArrowStreamReader : IArrowReader, IDisposable
+    public class ArrowStreamReader : IArrowReader, IArrowArrayStream, IDisposable
     {
         private protected readonly ArrowReaderImplementation _implementation;
 

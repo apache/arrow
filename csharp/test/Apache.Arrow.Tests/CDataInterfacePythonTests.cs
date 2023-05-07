@@ -19,6 +19,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Apache.Arrow.C;
+using Apache.Arrow.Ipc;
 using Apache.Arrow.Types;
 using Python.Runtime;
 using Xunit;
@@ -163,6 +164,63 @@ namespace Apache.Arrow.Tests
             {
                 dynamic pa = Py.Import("pyarrow");
                 return pa.schema(GetPythonFields().ToList());
+            }
+        }
+
+        private IArrowArray GetTestArray()
+        {
+            var builder = new StringArray.Builder();
+            builder.Append("hello");
+            builder.Append("world");
+            builder.AppendNull();
+            builder.Append("foo");
+            builder.Append("bar");
+            return builder.Build();
+        }
+
+        private dynamic GetPythonArray()
+        {
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                return pa.array(new[] { "hello", "world", null, "foo", "bar" });
+            }
+        }
+
+        private RecordBatch GetTestRecordBatch()
+        {
+            Field[] fields = new[]
+            {
+                new Field("col1", Int64Type.Default, true),
+                new Field("col2", StringType.Default, true),
+                new Field("col3", DoubleType.Default, false),
+            };
+            return new RecordBatch(
+                new Schema(fields, null),
+                new IArrowArray[]
+                {
+                    new Int64Array.Builder().AppendRange(new long[] { 1, 2, 3 }).AppendNull().Append(5).Build(),
+                    GetTestArray(),
+                    new DoubleArray.Builder().AppendRange(new double[] { 0.0, 1.4, 2.5, 3.6, 4.7 }).Build(),
+                },
+                5);
+        }
+
+        private dynamic GetPythonRecordBatch()
+        {
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic table = pa.table(
+                    new PyList(new PyObject[]
+                    {
+                        pa.array(new long?[] { 1, 2, 3, null, 5 }),
+                        pa.array(new[] { "hello", "world", null, "foo", "bar" }),
+                        pa.array(new[] { 0.0, 1.4, 2.5, 3.6, 4.7 })
+                    }),
+                    new[] { "col1", "col2", "col3" });
+
+                return table.to_batches()[0];
             }
         }
 
@@ -342,6 +400,186 @@ namespace Apache.Arrow.Tests
 
             // Since we allocated, we are responsible for freeing the pointer.
             CArrowSchema.Free(cSchema);
+        }
+
+        [SkippableFact]
+        public unsafe void ImportArray()
+        {
+            CArrowArray* cArray = CArrowArray.Create();
+            CArrowSchema* cSchema = CArrowSchema.Create();
+
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic array = pa.array(new[] { "hello", "world", null, "foo", "bar" });
+
+                long arrayPtr = ((IntPtr)cArray).ToInt64();
+                long schemaPtr = ((IntPtr)cSchema).ToInt64();
+                array._export_to_c(arrayPtr, schemaPtr);
+            }
+
+            ArrowType type = CArrowSchemaImporter.ImportType(cSchema);
+            IArrowArray importedArray = CArrowArrayImporter.ImportArray(cArray, type);
+
+            Assert.Equal(5, importedArray.Length);
+        }
+
+        [SkippableFact]
+        public unsafe void ImportRecordBatch()
+        {
+            CArrowArray* cArray = CArrowArray.Create();
+            CArrowSchema* cSchema = CArrowSchema.Create();
+
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic table = pa.table(
+                    new PyList(new PyObject[]
+                    {
+                        pa.array(new long?[] { 1, 2, 3, null, 5 }),
+                        pa.array(new[] { "hello", "world", null, "foo", "bar" }),
+                        pa.array(new[] { 0.0, 1.4, 2.5, 3.6, 4.7 })
+                    }),
+                    new[] { "col1", "col2", "col3" });
+
+                dynamic batch = table.to_batches()[0];
+
+                long batchPtr = ((IntPtr)cArray).ToInt64();
+                long schemaPtr = ((IntPtr)cSchema).ToInt64();
+                batch._export_to_c(batchPtr, schemaPtr);
+            }
+
+            Schema schema = CArrowSchemaImporter.ImportSchema(cSchema);
+            RecordBatch recordBatch = CArrowArrayImporter.ImportRecordBatch(cArray, schema);
+
+            Assert.Equal(5, recordBatch.Length);
+        }
+
+        [SkippableFact]
+        public unsafe void ImportRecordBatchReader()
+        {
+            CArrowArray* cArray = CArrowArray.Create();
+            CArrowSchema* cSchema = CArrowSchema.Create();
+
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic table = pa.table(
+                    new PyList(new PyObject[]
+                    {
+                        pa.array(new long?[] { 1, 2, 3, null, 5 }),
+                        pa.array(new[] { "hello", "world", null, "foo", "bar" }),
+                        pa.array(new[] { 0.0, 1.4, 2.5, 3.6, 4.7 })
+                    }),
+                    new[] { "col1", "col2", "col3" });
+
+                dynamic batch = table.to_batches()[0];
+
+                long batchPtr = ((IntPtr)cArray).ToInt64();
+                long schemaPtr = ((IntPtr)cSchema).ToInt64();
+                batch._export_to_c(batchPtr, schemaPtr);
+            }
+
+            Schema schema = CArrowSchemaImporter.ImportSchema(cSchema);
+            RecordBatch recordBatch = CArrowArrayImporter.ImportRecordBatch(cArray, schema);
+
+            Assert.Equal(5, recordBatch.Length);
+        }
+
+        [SkippableFact]
+        public unsafe void ImportArrayStream()
+        {
+            CArrowArrayStream* cArrayStream = CArrowArrayStream.Create();
+
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic table = pa.table(
+                    new PyList(new PyObject[]
+                    {
+                        pa.array(new long?[] { 1, 2, 3, null, 5 }),
+                        pa.array(new[] { "hello", "world", null, "foo", "bar" }),
+                        pa.array(new[] { 0.0, 1.4, 2.5, 3.6, 4.7 })
+                    }),
+                    new[] { "col1", "col2", "col3" });
+
+                dynamic batchReader = pa.RecordBatchReader.from_batches(table.schema, table.to_batches());
+
+                long streamPtr = ((IntPtr)cArrayStream).ToInt64();
+                batchReader._export_to_c(streamPtr);
+            }
+
+            IArrowArrayStream stream = CArrowArrayStreamImporter.ImportArrayStream(cArrayStream);
+            var batch1 = stream.ReadNextRecordBatchAsync().Result;
+            Assert.Equal(5, batch1.Length);
+
+            var batch2 = stream.ReadNextRecordBatchAsync().Result;
+            Assert.Null(batch2);
+        }
+
+        [SkippableFact]
+        public unsafe void ExportArray()
+        {
+            IArrowArray array = GetTestArray();
+            dynamic pyArray = GetPythonArray();
+
+            CArrowArray* cArray = CArrowArray.Create();
+            CArrowArrayExporter.ExportArray(array, cArray);
+
+            CArrowSchema* cSchema = CArrowSchema.Create();
+            CArrowSchemaExporter.ExportType(array.Data.DataType, cSchema);
+
+            // For Python, we need to provide the pointers
+            long arrayPtr = ((IntPtr)cArray).ToInt64();
+            long schemaPtr = ((IntPtr)cSchema).ToInt64();
+
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic exportedPyArray = pa.Array._import_from_c(arrayPtr, schemaPtr);
+                Assert.True(exportedPyArray == pyArray);
+            }
+
+            // Since we allocated, we are responsible for freeing the pointer.
+            CArrowArray.Free(cArray);
+        }
+
+        [SkippableFact]
+        public unsafe void ExportBatch()
+        {
+            RecordBatch batch = GetTestRecordBatch();
+            dynamic pyBatch = GetPythonRecordBatch();
+
+            CArrowArray* cArray = CArrowArray.Create();
+            CArrowSchema* cSchema = CArrowSchema.Create();
+
+#if TODO
+            CArrowArrayExporter.ExportRecordBatch(batch, cArray);
+
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic table = pa.table(
+                    new PyList(new PyObject[]
+                    {
+                        pa.array(new long?[] { 1, 2, 3, null, 5 }),
+                        pa.array(new[] { "hello", "world", null, "foo", "bar" }),
+                        pa.array(new[] { 0.0, 1.4, 2.5, 3.6, 4.7 })
+                    }),
+                    new[] { "col1", "col2", "col3" });
+
+                dynamic batch = table.to_batches()[0];
+
+                long batchPtr = ((IntPtr)cArray).ToInt64();
+                long schemaPtr = ((IntPtr)cSchema).ToInt64();
+                batch._export_to_c(batchPtr, schemaPtr);
+            }
+
+            Schema schema = CArrowSchemaImporter.ImportSchema(cSchema);
+            RecordBatch recordBatch = CArrowArrayImporter.ImportRecordBatch(cArray, schema);
+
+            Assert.Equal(5, recordBatch.Length);
+#endif
         }
     }
 }
