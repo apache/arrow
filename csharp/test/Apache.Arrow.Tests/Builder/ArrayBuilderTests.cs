@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Builder;
 using Apache.Arrow.Types;
@@ -173,24 +174,29 @@ namespace Apache.Arrow.Tests.Builder
         }
 
         [Fact]
-        public void StructArrayBuilder_Should_AppendNestedStruct()
+        public void StructArrayBuilder_Should_AppendRecord()
         {
-            var builder = new StructArrayBuilder<DynamicStruct>();
+            var builder = new StructArrayBuilder<RecordStruct>();
 
-            // Start new valid block, need to fill all builders
-            builder.AppendValues(typeof(DynamicStruct), new object[] {
-                new DynamicStruct { Name = "0", Surname = "1" }
+            // Append dynamic objects
+            builder.AppendValues(typeof(RecordStruct), new object[] {
+                new RecordStruct { Name = "john", Surname = "doe" }
+            });
+            // Append records
+            builder.AppendRecords(new IRecord[] {
+                new RecordStruct { Name = "unknown", Surname = null }
             });
             // Append null block
             builder.AppendNull();
 
             StructArray built = builder.Build();
 
-            Assert.Equal(2, built.Length);
+            Assert.Equal(3, built.Length);
             Assert.Equal(1, built.NullCount);
 
             Assert.True(built.IsValid(0));
-            Assert.False(built.IsValid(1));
+            Assert.True(built.IsValid(1));
+            Assert.False(built.IsValid(2));
         }
     }
 
@@ -230,9 +236,32 @@ namespace Apache.Arrow.Tests.Builder
         public int Value { get; set; }
     }
 
-    public struct DynamicStruct
+    public struct RecordStruct : IRecord
     {
         public string Name { get; set; }
         public string Surname { get; set; }
+
+        public object this[int index]
+        {
+            get
+            {
+                return index switch
+                {
+                    0 => Name,
+                    1 => Surname,
+                    _ => throw new ArgumentOutOfRangeException($"Cannot get value from {typeof(RecordStruct)} at index {index}"),
+                };
+            }
+        }
+
+        public Type PropertyType(int index)
+        {
+            return index switch
+            {
+                0 => typeof(string),
+                1 => typeof(string),
+                _ => throw new ArgumentOutOfRangeException($"Cannot get value from {typeof(RecordStruct)} at index {index}"),
+            };
+        }
     }
 }
