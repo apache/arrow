@@ -189,7 +189,7 @@ namespace Apache.Arrow.Builder
                     return AppendRecords(records);
 #endif
                 default:
-                    throw new ArgumentException($"Cannot append to struct type csharp {valueType}, must be Apache. struct or row array");
+                    throw new ArgumentException($"Cannot append to struct type csharp {valueType}, must be Apache.Arrow.IRecord struct or row array");
             }
         }
 
