@@ -15,24 +15,32 @@
 
 using System;
 using System.Buffers;
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace Apache.Arrow.Memory
 {
-    public class NativeMemoryManager: MemoryManager<byte>
+    public class NativeMemoryManager : MemoryManager<byte>, IShareable
     {
         private IntPtr _ptr;
         private readonly int _offset;
         private readonly int _length;
+        private INativeAllocationOwner _owner;
 
         public NativeMemoryManager(IntPtr ptr, int offset, int length)
         {
             _ptr = ptr;
             _offset = offset;
             _length = length;
+            _owner = NativeMemoryAllocator.ExclusiveOwner;
+        }
+
+        internal NativeMemoryManager(INativeAllocationOwner owner, IntPtr ptr, int offset, int length)
+        {
+            _ptr = ptr;
+            _offset = offset;
+            _length = length;
+            _owner = owner;
         }
 
         ~NativeMemoryManager()
@@ -64,20 +72,35 @@ namespace Apache.Arrow.Memory
         protected override void Dispose(bool disposing)
         {
             // Only free once.
-
-            lock (this)
+            INativeAllocationOwner owner = Interlocked.Exchange(ref _owner, null);
+            if (_owner != null)
             {
-                if (_ptr != IntPtr.Zero)
+                IntPtr ptr = Interlocked.Exchange(ref _ptr, IntPtr.Zero);
+                if (ptr != IntPtr.Zero)
                 {
-                    Marshal.FreeHGlobal(_ptr);
-                    Interlocked.Exchange(ref _ptr, IntPtr.Zero);
-                    GC.RemoveMemoryPressure(_length);
+                    owner.Release(ptr, _offset, _length);
                 }
             }
         }
 
+        bool IShareable.TryShare(SharedNativeAllocationOwner newOwner)
+        {
+            INativeAllocationOwner oldOwner = Interlocked.Exchange(ref _owner, newOwner);
+            if (oldOwner == null)
+            {
+                _owner = null;
+                return false;
+            }
+
+            if (oldOwner is SharedNativeAllocationOwner sharedOwner)
+            {
+            }
+
+            return true;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private unsafe void* CalculatePointer(int index) => 
+        private unsafe void* CalculatePointer(int index) =>
             (_ptr + _offset + index).ToPointer();
     }
 }

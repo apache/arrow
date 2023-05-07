@@ -60,14 +60,14 @@ namespace Apache.Arrow.C
         /// <remarks>
         /// Do not call this on a pointer that was allocated elsewhere.
         /// </remarks>
-        public static void Free(CArrowSchema* schema)
+        public static void Free(CArrowArrayStream* arrayStream)
         {
-            if (schema->release != null)
+            if (arrayStream->release != null)
             {
                 // Call release if not already called.
-                schema->release(schema);
+                arrayStream->release(arrayStream);
             }
-            Marshal.FreeHGlobal((IntPtr)schema);
+            Marshal.FreeHGlobal((IntPtr)arrayStream);
         }
     }
 }

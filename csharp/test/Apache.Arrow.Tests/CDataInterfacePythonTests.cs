@@ -18,6 +18,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Apache.Arrow.C;
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Types;
@@ -46,7 +48,7 @@ namespace Apache.Arrow.Tests
 
             PythonEngine.Initialize();
 
-            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
                 !PythonEngine.PythonPath.Contains("dlls", StringComparison.OrdinalIgnoreCase))
             {
                 dynamic sys = Py.Import("sys");
@@ -193,7 +195,7 @@ namespace Apache.Arrow.Tests
             {
                 new Field("col1", Int64Type.Default, true),
                 new Field("col2", StringType.Default, true),
-                new Field("col3", DoubleType.Default, false),
+                new Field("col3", DoubleType.Default, true),
             };
             return new RecordBatch(
                 new Schema(fields, null),
@@ -221,6 +223,22 @@ namespace Apache.Arrow.Tests
                     new[] { "col1", "col2", "col3" });
 
                 return table.to_batches()[0];
+            }
+        }
+
+        private IArrowArrayStream GetTestArrayStream()
+        {
+            RecordBatch recordBatch = GetTestRecordBatch();
+            return new TestArrayStream(recordBatch.Schema, recordBatch);
+        }
+
+        private dynamic GetPythonRecordBatchReader()
+        {
+            dynamic recordBatch = GetPythonRecordBatch();
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                return pa.RecordBatchReader.from_batches(recordBatch.schema, new PyList(new PyObject[] { recordBatch }));
             }
         }
 
@@ -456,37 +474,6 @@ namespace Apache.Arrow.Tests
         }
 
         [SkippableFact]
-        public unsafe void ImportRecordBatchReader()
-        {
-            CArrowArray* cArray = CArrowArray.Create();
-            CArrowSchema* cSchema = CArrowSchema.Create();
-
-            using (Py.GIL())
-            {
-                dynamic pa = Py.Import("pyarrow");
-                dynamic table = pa.table(
-                    new PyList(new PyObject[]
-                    {
-                        pa.array(new long?[] { 1, 2, 3, null, 5 }),
-                        pa.array(new[] { "hello", "world", null, "foo", "bar" }),
-                        pa.array(new[] { 0.0, 1.4, 2.5, 3.6, 4.7 })
-                    }),
-                    new[] { "col1", "col2", "col3" });
-
-                dynamic batch = table.to_batches()[0];
-
-                long batchPtr = ((IntPtr)cArray).ToInt64();
-                long schemaPtr = ((IntPtr)cSchema).ToInt64();
-                batch._export_to_c(batchPtr, schemaPtr);
-            }
-
-            Schema schema = CArrowSchemaImporter.ImportSchema(cSchema);
-            RecordBatch recordBatch = CArrowArrayImporter.ImportRecordBatch(cArray, schema);
-
-            Assert.Equal(5, recordBatch.Length);
-        }
-
-        [SkippableFact]
         public unsafe void ImportArrayStream()
         {
             CArrowArrayStream* cArrayStream = CArrowArrayStream.Create();
@@ -542,6 +529,7 @@ namespace Apache.Arrow.Tests
 
             // Since we allocated, we are responsible for freeing the pointer.
             CArrowArray.Free(cArray);
+            CArrowSchema.Free(cSchema);
         }
 
         [SkippableFact]
@@ -551,35 +539,103 @@ namespace Apache.Arrow.Tests
             dynamic pyBatch = GetPythonRecordBatch();
 
             CArrowArray* cArray = CArrowArray.Create();
-            CArrowSchema* cSchema = CArrowSchema.Create();
-
-#if TODO
             CArrowArrayExporter.ExportRecordBatch(batch, cArray);
+
+            CArrowSchema* cSchema = CArrowSchema.Create();
+            CArrowSchemaExporter.ExportSchema(batch.Schema, cSchema);
+
+            // For Python, we need to provide the pointers
+            long arrayPtr = ((IntPtr)cArray).ToInt64();
+            long schemaPtr = ((IntPtr)cSchema).ToInt64();
 
             using (Py.GIL())
             {
                 dynamic pa = Py.Import("pyarrow");
-                dynamic table = pa.table(
-                    new PyList(new PyObject[]
-                    {
-                        pa.array(new long?[] { 1, 2, 3, null, 5 }),
-                        pa.array(new[] { "hello", "world", null, "foo", "bar" }),
-                        pa.array(new[] { 0.0, 1.4, 2.5, 3.6, 4.7 })
-                    }),
-                    new[] { "col1", "col2", "col3" });
-
-                dynamic batch = table.to_batches()[0];
-
-                long batchPtr = ((IntPtr)cArray).ToInt64();
-                long schemaPtr = ((IntPtr)cSchema).ToInt64();
-                batch._export_to_c(batchPtr, schemaPtr);
+                dynamic exportedPyArray = pa.RecordBatch._import_from_c(arrayPtr, schemaPtr);
+                Assert.True(exportedPyArray == pyBatch);
             }
 
-            Schema schema = CArrowSchemaImporter.ImportSchema(cSchema);
-            RecordBatch recordBatch = CArrowArrayImporter.ImportRecordBatch(cArray, schema);
+            // Since we allocated, we are responsible for freeing the pointer.
+            CArrowArray.Free(cArray);
+            CArrowSchema.Free(cSchema);
+        }
 
-            Assert.Equal(5, recordBatch.Length);
-#endif
+        [SkippableFact]
+        public unsafe void ExportBatchReader()
+        {
+            RecordBatch batch = GetTestRecordBatch();
+            dynamic pyBatch = GetPythonRecordBatch();
+
+            CArrowArray* cArray = CArrowArray.Create();
+            CArrowArrayExporter.ExportRecordBatch(batch, cArray);
+
+            CArrowSchema* cSchema = CArrowSchema.Create();
+            CArrowSchemaExporter.ExportSchema(batch.Schema, cSchema);
+
+            // For Python, we need to provide the pointers
+            long arrayPtr = ((IntPtr)cArray).ToInt64();
+            long schemaPtr = ((IntPtr)cSchema).ToInt64();
+
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic exportedPyArray = pa.RecordBatch._import_from_c(arrayPtr, schemaPtr);
+                Assert.True(exportedPyArray == pyBatch);
+            }
+
+            // Since we allocated, we are responsible for freeing the pointer.
+            CArrowArray.Free(cArray);
+            CArrowSchema.Free(cSchema);
+        }
+
+        [SkippableFact]
+        public unsafe void ExportArrayStream()
+        {
+            IArrowArrayStream arrayStream = GetTestArrayStream();
+            dynamic pyRecordBatchReader = GetPythonRecordBatchReader();
+
+            CArrowArrayStream* cArrayStream = CArrowArrayStream.Create();
+            CArrowArrayStreamExporter.ExportArrayStream(arrayStream, cArrayStream);
+
+            // For Python, we need to provide the pointers
+            long arrayStreamPtr = ((IntPtr)cArrayStream).ToInt64();
+
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic exportedPyReader = pa.RecordBatchReader._import_from_c(arrayStreamPtr);
+                Assert.True(exportedPyReader.read_all() == pyRecordBatchReader.read_all());
+            }
+
+            // Since we allocated, we are responsible for freeing the pointer.
+            CArrowArrayStream.Free(cArrayStream);
+        }
+
+        sealed class TestArrayStream : IArrowArrayStream
+        {
+            private readonly RecordBatch[] _batches;
+            private int _index;
+
+            public TestArrayStream(Schema schema, params RecordBatch[] batches)
+            {
+                Schema = schema;
+                _batches = batches;
+            }
+
+            public Schema Schema { get; }
+
+            public ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken = default)
+            {
+                if (_index < 0) { throw new ObjectDisposedException(nameof(TestArrayStream)); }
+
+                RecordBatch result = _index < _batches.Length ? _batches[_index++] : null;
+                return new ValueTask<RecordBatch>(result);
+            }
+
+            public void Dispose()
+            {
+                _index = -1;
+            }
         }
     }
 }

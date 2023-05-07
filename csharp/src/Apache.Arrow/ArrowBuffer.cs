@@ -72,5 +72,14 @@ namespace Apache.Arrow
         {
             _memoryOwner?.Dispose();
         }
+
+        internal bool TryShare(SharedNativeAllocationOwner newOwner)
+        {
+            if (_memoryOwner == null && IsEmpty)
+            {
+                return true;
+            }
+            return _memoryOwner is IShareable shareableMemory && shareableMemory.TryShare(newOwner);
+        }
     }
 }
