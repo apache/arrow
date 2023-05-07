@@ -24,7 +24,7 @@ namespace Apache.Arrow.Tests.Builder
     public class ArrayBuilderTests
     {
         [Fact]
-        public void ArrayBuilder_Should_InferFromCSharp()
+        public void ArrayBuilder_Should_AppendArrowArray()
         {
             var builder = new FixedBinaryArrayBuilder<long>() as ArrayBuilder;
             long[] values = new long[] { 0, 1, -12 };
@@ -48,6 +48,27 @@ namespace Apache.Arrow.Tests.Builder
             Assert.Equal(0L, built.GetValue(1));
             Assert.Equal(1L, built.GetValue(2));
             Assert.Equal(-12L, built.GetValue(3));
+        }
+
+        [Fact]
+        public void ArrayBuilder_Should_AppendCSharpValues()
+        {
+            string[] values = new string[] { "", null, "def" };
+
+            StringArray array = new StringArrayBuilder(values.Length)
+                .AppendDotNet(DotNetScalarArray.Make(values))
+                .Build();
+
+            Assert.Equal(3, array.Length);
+            Assert.Equal(1, array.NullCount);
+
+            Assert.Equal("", array.GetString(0));
+            Assert.Null(array.GetString(1));
+            Assert.Equal("def", array.GetString(2));
+
+            Assert.True(array.IsValid(0));
+            Assert.False(array.IsValid(1));
+            Assert.True(array.IsValid(2));
         }
     }
 
@@ -171,32 +192,6 @@ namespace Apache.Arrow.Tests.Builder
 
             Assert.True(built.IsValid(0));
             Assert.False(built.IsValid(1));
-        }
-
-        [Fact]
-        public void StructArrayBuilder_Should_AppendRecord()
-        {
-            var builder = new StructArrayBuilder<RecordStruct>();
-
-            // Append dynamic objects
-            builder.AppendValues(typeof(RecordStruct), new object[] {
-                new RecordStruct { Name = "john", Surname = "doe" }
-            });
-            // Append records
-            builder.AppendRecords(new IRecord[] {
-                new RecordStruct { Name = "unknown", Surname = null }
-            });
-            // Append null block
-            builder.AppendNull();
-
-            StructArray built = builder.Build();
-
-            Assert.Equal(3, built.Length);
-            Assert.Equal(1, built.NullCount);
-
-            Assert.True(built.IsValid(0));
-            Assert.True(built.IsValid(1));
-            Assert.False(built.IsValid(2));
         }
     }
 

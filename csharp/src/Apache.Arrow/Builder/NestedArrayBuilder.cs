@@ -177,40 +177,6 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        public override IArrayBuilder AppendValues(System.Type valueType, IEnumerable<object> values)
-        {
-            switch (valueType)
-            {
-#if NETCOREAPP2_0_OR_GREATER
-                case var structure when typeof(IRecord).IsAssignableFrom(valueType):
-                    // Persist in case its streamed
-                    var records = values.Select(value => value as IRecord).ToArray();
-
-                    return AppendRecords(records);
-#endif
-                default:
-                    throw new ArgumentException($"Cannot append to struct type csharp {valueType}, must be Apache.Arrow.IRecord struct or row array");
-            }
-        }
-
-        public StructArrayBuilder AppendRecords(IRecord[] records)
-        {
-            if (records.Length > 0)
-            {
-                for (int i = 0; i < Children.Length; i++)
-                {
-                    // Append column by column
-                    var child = Children[i];
-                    var type = records[0].PropertyType(i);
-
-                    child.AppendValues(type, records.Select(value => value[i]));
-                }
-
-                AppendValidity(records.Select(value => value != null).ToArray());
-            }
-            return this;
-        }
-
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
 
         public StructArray Build(MemoryAllocator allocator = default, bool _ = true)

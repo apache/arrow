@@ -24,7 +24,7 @@ namespace Apache.Arrow.Builder
 
         public int CurrentOffset { get; internal set; }
 
-        public VariableBinaryArrayBuilder(IArrowType dataType, int capacity = 64)
+        public VariableBinaryArrayBuilder(IArrowType dataType, int capacity = 32)
             : this(dataType, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<int>(capacity), new ValueBufferBuilder(64, capacity))
         {
         }
@@ -196,7 +196,7 @@ namespace Apache.Arrow.Builder
 
         public IValueBufferBuilder ValuesBuffer { get; }
 
-        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 64)
+        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 32)
             : this(dtype, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder(dtype.BitWidth, capacity))
         {
         }
@@ -578,11 +578,11 @@ namespace Apache.Arrow.Builder
 
     public class FixedBinaryArrayBuilder<T> : FixedBinaryArrayBuilder where T : struct
     {
-        public FixedBinaryArrayBuilder(int capacity = 64) : this(CStructType<T>.Default as FixedWidthType, capacity)
+        public FixedBinaryArrayBuilder(int capacity = 32) : this(CStructType<T>.Default as FixedWidthType, capacity)
         {
         }
 
-        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 64) : base(dtype, capacity)
+        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 32) : base(dtype, capacity)
         {
         }
     }

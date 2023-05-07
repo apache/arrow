@@ -10,12 +10,12 @@ namespace Apache.Arrow.Builder
     {
         private readonly Func<TLogical, TPrimitive> ToPrimitive;
 
-        public ProxyArrayBuilder(Func<TLogical, TPrimitive> convert, int capacity = 64)
+        public ProxyArrayBuilder(Func<TLogical, TPrimitive> convert, int capacity = 32)
             : this(CStructType<TLogical>.Default as FixedWidthType, convert, capacity)
         {
         }
 
-        public ProxyArrayBuilder(FixedWidthType dataType, Func<TLogical, TPrimitive> convert, int capacity = 64)
+        public ProxyArrayBuilder(FixedWidthType dataType, Func<TLogical, TPrimitive> convert, int capacity = 32)
             : base(dataType, capacity)
         {
             ToPrimitive = convert;
@@ -88,11 +88,11 @@ namespace Apache.Arrow.Builder
             };
         }
 
-        public TimestampArrayBuilder(int capacity = 64) : this(TimestampType.SystemDefault, capacity)
+        public TimestampArrayBuilder(int capacity = 32) : this(TimestampType.SystemDefault, capacity)
         {
         }
 
-        public TimestampArrayBuilder(TimestampType dtype, int capacity = 64) : base(dtype, ToPrimitive(dtype.Unit), capacity)
+        public TimestampArrayBuilder(TimestampType dtype, int capacity = 32) : base(dtype, ToPrimitive(dtype.Unit), capacity)
         {
         }
     }
@@ -110,11 +110,11 @@ namespace Apache.Arrow.Builder
             };
         }
 
-        public Time32ArrayBuilder(int capacity = 64) : this(Time32Type.Default, capacity)
+        public Time32ArrayBuilder(int capacity = 32) : this(Time32Type.Default, capacity)
         {
         }
 
-        public Time32ArrayBuilder(TimeType dtype, int capacity = 64) : base(dtype, ToPrimitive(dtype.Unit), capacity)
+        public Time32ArrayBuilder(TimeType dtype, int capacity = 32) : base(dtype, ToPrimitive(dtype.Unit), capacity)
         {
         }
     }
@@ -131,11 +131,11 @@ namespace Apache.Arrow.Builder
             };
         }
 
-        public Time64ArrayBuilder(int capacity = 64) : this(TimeType.SystemDefault, capacity)
+        public Time64ArrayBuilder(int capacity = 32) : this(TimeType.SystemDefault, capacity)
         {
         }
 
-        public Time64ArrayBuilder(TimeType dtype, int capacity = 64) : base(dtype, ToPrimitive(dtype.Unit), capacity)
+        public Time64ArrayBuilder(TimeType dtype, int capacity = 32) : base(dtype, ToPrimitive(dtype.Unit), capacity)
         {
         }
     }
@@ -143,14 +143,14 @@ namespace Apache.Arrow.Builder
     // Date
     public class Date32ArrayBuilder : ProxyArrayBuilder<int, DateTimeOffset>
     {
-        public Date32ArrayBuilder(DateType dtype, int capacity = 64) : base(dtype, DateTimeOffsetExtensions.ToUnixDays, capacity)
+        public Date32ArrayBuilder(DateType dtype, int capacity = 32) : base(dtype, DateTimeOffsetExtensions.ToUnixDays, capacity)
         {
         }
     }
 
     public class Date64ArrayBuilder : ProxyArrayBuilder<long, DateTimeOffset>
     {
-        public Date64ArrayBuilder(DateType dtype, int capacity = 64) : base(dtype, DateTimeOffsetExtensions.ToUnixTimeMilliseconds, capacity)
+        public Date64ArrayBuilder(DateType dtype, int capacity = 32) : base(dtype, DateTimeOffsetExtensions.ToUnixTimeMilliseconds, capacity)
         {
         }
     }

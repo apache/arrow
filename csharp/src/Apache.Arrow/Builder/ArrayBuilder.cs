@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Memory;
@@ -111,20 +110,14 @@ namespace Apache.Arrow.Builder
         }
 
         // Unsafe append values
-        public virtual IArrayBuilder AppendValues(System.Type valueType, IEnumerable<object> values)
+        public virtual IArrayBuilder AppendDotNet(DotNetScalarArray values)
         {
-            switch (DataType.TypeId)
+            return DataType.TypeId switch
             {
-                case ArrowTypeId.String:
-                    As<StringArrayBuilder>().AppendValues(values.Select(v => (string)v).ToArray());
-                    break;
-                case ArrowTypeId.Struct:
-                    As<StructArrayBuilder>().AppendValues(valueType, values);
-                    break;
-                default:
-                    throw new ArgumentException($"Cannot dynamically append values of type {valueType}");
-            }
-            return this;
+                ArrowTypeId.String => As<StringArrayBuilder>().AppendDotNet(values),
+                ArrowTypeId.Binary => As<BinaryArrayBuilder>().AppendDotNet(values),
+                _ => throw new ArgumentException($"Cannot dynamically append values of type {values.DotNetType}"),
+            };
         }
 
 
@@ -244,7 +237,7 @@ namespace Apache.Arrow.Builder
 
     public static class ArrayBuilderFactory
     {
-        public static IArrayBuilder MakeBuilder(IArrowType dtype, int capacity = 64)
+        public static IArrayBuilder MakeBuilder(IArrowType dtype, int capacity = 32)
         {
             switch (dtype.TypeId)
             {

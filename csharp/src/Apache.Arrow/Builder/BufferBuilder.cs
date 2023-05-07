@@ -298,7 +298,7 @@ namespace Apache.Arrow.Builder
         public int ValueBitSize { get; }
         public int ValueLength => (ByteLength * 8 + BitOffset) / ValueBitSize;
 
-        public ValueBufferBuilder(int valueBitSize, int capacity = 64) : base(capacity)
+        public ValueBufferBuilder(int valueBitSize, int capacity = 32) : base(capacity * (valueBitSize + 7) / 8)
         {
             ValueBitSize = valueBitSize;
         }
@@ -326,11 +326,11 @@ namespace Apache.Arrow.Builder
     {
         private static int GetBitSizeOf() => typeof(T) == typeof(bool) ? 1 : Unsafe.SizeOf<T>() * 8;
 
-        public ValueBufferBuilder(int capacity = 64) : this(GetBitSizeOf(), capacity)
+        public ValueBufferBuilder(int capacity = 32) : this(GetBitSizeOf(), capacity)
         {
         }
 
-        public ValueBufferBuilder(int bitWidth, int capacity = 64) : base(bitWidth, capacity)
+        public ValueBufferBuilder(int bitWidth, int capacity = 32) : base(bitWidth, capacity)
         {
         }
 

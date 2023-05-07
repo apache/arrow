@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Apache.Arrow.Memory;
+﻿using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
@@ -37,7 +36,7 @@ namespace Apache.Arrow.Builder
         /// Unsafe append values from random c# type values.
         /// </summary>
         /// <returns>Current <see cref="IArrayBuilder"></returns>
-        IArrayBuilder AppendValues(System.Type valueType, IEnumerable<object> values);
+        IArrayBuilder AppendDotNet(DotNetScalarArray values);
 
         /// <summary>
         /// Append <see cref="ArrayData"> values.
