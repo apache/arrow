@@ -56,18 +56,18 @@ class DictionaryDecodeMetaFunction : public MetaFunction {
     if (args[0].type() == nullptr || args[0].type()->id() != Type::DICTIONARY) {
       return Status::TypeError("Expected a DictonaryArray");
     }
-    CastOptions castOption(true);  // safe cast
+
     if (args[0].is_array()) {
       ARROW_CHECK_NE(args[0].array()->dictionary, nullptr);
       TypeHolder to_type(args[0].array()->dictionary->type);
-      castOption.to_type = to_type;
+      CastOptions castOption = CastOptions::Safe(to_type);
       return CallFunction("cast", args, &castOption, ctx);
     } else if (args[0].is_chunked_array()) {
       ARROW_CHECK_NE(args[0].chunked_array()->chunk(0), nullptr);
       ARROW_CHECK_NE(args[0].chunked_array()->chunk(0)->data(), nullptr);
       ARROW_CHECK_NE(args[0].chunked_array()->chunk(0)->data()->dictionary, nullptr);
       TypeHolder to_type(args[0].chunked_array()->chunk(0)->data()->dictionary->type);
-      castOption.to_type = to_type;
+      CastOptions castOption = CastOptions::Safe(to_type);
       return CallFunction("cast", args, &castOption, ctx);
     } else {
       return Status::TypeError("Expected an Array or a Chunked Array");
