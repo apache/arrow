@@ -76,9 +76,11 @@ class UcxServerCallContext : public flight::ServerCallContext {
     return nullptr;
   }
   bool is_cancelled() const override { return false; }
+  const CallHeaders& incoming_headers() const override { return incoming_headers_; }
 
  private:
   std::string peer_;
+  CallHeaders incoming_headers_;
 };
 
 class UcxServerStream : public internal::ServerDataStream {

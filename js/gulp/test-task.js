@@ -17,10 +17,10 @@
 
 import { deleteAsync as del } from 'del';
 import path from 'path';
-import mkdirp from 'mkdirp';
+import { mkdirp } from 'mkdirp';
 import { argv } from './argv.js';
 import { promisify } from 'util';
-import globSync from 'glob';
+import { globSync } from 'glob';
 const glob = promisify(globSync);
 import child_process from 'child_process';
 import { memoizeTask } from './memoize-task.js';

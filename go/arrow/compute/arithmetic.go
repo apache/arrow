@@ -22,12 +22,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/kernels"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/scalar"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/kernels"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/scalar"
 )
 
 type (
@@ -909,7 +909,7 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 		reg.AddFunction(fn, false)
 	}
 
-	fn = &arithmeticFunction{*NewScalarFunction("bit_wise_not", Unary(), EmptyFuncDoc), decPromoteNone}
+	fn = &arithmeticFunction{*NewScalarFunction("bit_wise_not", Unary(), bitWiseNotDoc), decPromoteNone}
 	for _, k := range kernels.GetBitwiseUnaryKernels() {
 		if err := fn.AddKernel(k); err != nil {
 			panic(err)
@@ -1087,10 +1087,9 @@ func Negate(ctx context.Context, opts ArithmeticOptions, input Datum) (Datum, er
 // Sign returns -1, 0, or 1 depending on the sign of each element in the
 // input. For x in the input:
 //
-//	if x > 0: 1
-//  if x < 0: -1
-//  if x == 0: 0
-//
+//		if x > 0: 1
+//	 if x < 0: -1
+//	 if x == 0: 0
 func Sign(ctx context.Context, input Datum) (Datum, error) {
 	return CallFunction(ctx, "sign", nil, input)
 }

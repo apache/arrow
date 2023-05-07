@@ -85,8 +85,8 @@ expect_scan_result <- function(ds, schm) {
   tab <- scn$ToTable()
   expect_r6_class(tab, "Table")
 
-  expect_equal(
-    as.data.frame(tab),
+  expect_equal_data_frame(
+    tab,
     df1[8, c("chr", "lgl")]
   )
 }
@@ -806,19 +806,19 @@ test_that("head/tail", {
   big_df <- rbind(df1, df2)
 
   # No n provided (default is 6, all from one batch)
-  expect_equal(as.data.frame(head(ds)), head(df1))
-  expect_equal(as.data.frame(tail(ds)), tail(df2))
+  expect_equal_data_frame(head(ds), head(df1))
+  expect_equal_data_frame(tail(ds), tail(df2))
 
   # n = 0: have to drop `fct` because factor levels don't come through from
   # arrow when there are 0 rows
   zero_df <- big_df[FALSE, names(big_df) != "fct"]
-  expect_equal(as.data.frame(head(ds, 0))[, names(ds) != "fct"], zero_df)
-  expect_equal(as.data.frame(tail(ds, 0))[, names(ds) != "fct"], zero_df)
+  expect_equal_data_frame(as.data.frame(head(ds, 0))[, names(ds) != "fct"], zero_df)
+  expect_equal_data_frame(as.data.frame(tail(ds, 0))[, names(ds) != "fct"], zero_df)
 
   # Two more cases: more than 1 batch, and more than nrow
   for (n in c(12, 1000)) {
-    expect_equal(as.data.frame(head(ds, n)), head(big_df, n))
-    expect_equal(as.data.frame(tail(ds, n)), tail(big_df, n))
+    expect_equal_data_frame(head(ds, n), head(big_df, n))
+    expect_equal_data_frame(tail(ds, n), tail(big_df, n))
   }
   expect_error(head(ds, -1)) # Not yet implemented
   expect_error(tail(ds, -1)) # Not yet implemented
@@ -864,18 +864,18 @@ test_that("unique()", {
 test_that("Dataset [ (take by index)", {
   ds <- open_dataset(dataset_dir)
   # Taking only from one file
-  expect_equal(
-    as.data.frame(ds[c(4, 5, 9), 3:4]),
+  expect_equal_data_frame(
+    ds[c(4, 5, 9), 3:4],
     df1[c(4, 5, 9), 3:4]
   )
   # Taking from more than one
-  expect_equal(
-    as.data.frame(ds[c(4, 5, 9, 12, 13), 3:4]),
+  expect_equal_data_frame(
+    ds[c(4, 5, 9, 12, 13), 3:4],
     rbind(df1[c(4, 5, 9), 3:4], df2[2:3, 3:4])
   )
   # Taking out of order
-  expect_equal(
-    as.data.frame(ds[c(4, 13, 9, 12, 5), ]),
+  expect_equal_data_frame(
+    ds[c(4, 13, 9, 12, 5), ],
     rbind(
       df1[4, ],
       df2[3, ],
@@ -889,8 +889,8 @@ test_that("Dataset [ (take by index)", {
   ds2 <- ds %>%
     filter(int > 6) %>%
     select(int, lgl)
-  expect_equal(
-    as.data.frame(ds2[c(2, 5), ]),
+  expect_equal_data_frame(
+    ds2[c(2, 5), ],
     rbind(
       df1[8, c("int", "lgl")],
       df2[1, c("int", "lgl")]
@@ -957,7 +957,9 @@ test_that("Can delete filesystem dataset files after collection", {
   write_dataset(ds0, dataset_dir2)
 
   ds <- open_dataset(dataset_dir2)
-  collected <- ds %>% arrange(int) %>% collect()
+  collected <- ds %>%
+    arrange(int) %>%
+    collect()
   unlink(dataset_dir2, recursive = TRUE)
   expect_false(dir.exists(dataset_dir2))
 
@@ -971,7 +973,11 @@ test_that("Can delete filesystem dataset files after collection", {
   # dataset
   write_dataset(ds0, dataset_dir2)
   ds <- open_dataset(dataset_dir2)
-  collected <- ds %>% arrange(int) %>% head() %>% arrange(int) %>% collect()
+  collected <- ds %>%
+    arrange(int) %>%
+    head() %>%
+    arrange(int) %>%
+    collect()
   unlink(dataset_dir2, recursive = TRUE)
   expect_false(dir.exists(dataset_dir2))
 
@@ -985,11 +991,11 @@ test_that("Scanner$ScanBatches", {
   ds <- open_dataset(ipc_dir, format = "feather")
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
-  expect_equal(as.data.frame(table), rbind(df1, df2))
+  expect_equal_data_frame(table, rbind(df1, df2))
 
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
-  expect_equal(as.data.frame(table), rbind(df1, df2))
+  expect_equal_data_frame(table, rbind(df1, df2))
 })
 
 test_that("Scanner$ToRecordBatchReader()", {
@@ -1001,8 +1007,8 @@ test_that("Scanner$ToRecordBatchReader()", {
     Scanner$create()
   reader <- scan$ToRecordBatchReader()
   expect_r6_class(reader, "RecordBatchReader")
-  expect_identical(
-    as.data.frame(reader$read_table()),
+  expect_equal_data_frame(
+    reader$read_table(),
     df1[df1$int > 6, c("int", "lgl")]
   )
 })

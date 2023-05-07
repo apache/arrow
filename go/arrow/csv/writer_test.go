@@ -21,17 +21,17 @@ import (
 	"bytes"
 	ecsv "encoding/csv"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/csv"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/types"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/csv"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
 	"github.com/google/uuid"
 )
 
@@ -379,7 +379,7 @@ func BenchmarkWrite(b *testing.B) {
 	rec := bldr.NewRecord()
 	defer rec.Release()
 
-	w := csv.NewWriter(ioutil.Discard, schema, csv.WithComma(';'), csv.WithCRLF(false))
+	w := csv.NewWriter(io.Discard, schema, csv.WithComma(';'), csv.WithCRLF(false))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

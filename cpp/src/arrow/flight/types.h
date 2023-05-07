@@ -21,6 +21,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -122,6 +123,11 @@ class ARROW_FLIGHT_EXPORT FlightStatusDetail : public arrow::StatusDetail {
 ARROW_FLIGHT_EXPORT
 Status MakeFlightError(FlightStatusCode code, std::string message,
                        std::string extra_info = {});
+
+/// \brief Headers sent from the client or server.
+///
+/// Header values are ordered.
+using CallHeaders = std::multimap<std::string_view, std::string_view>;
 
 /// \brief A TLS certificate plus key.
 struct ARROW_FLIGHT_EXPORT CertKeyPair {

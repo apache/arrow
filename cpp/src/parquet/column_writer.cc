@@ -397,8 +397,7 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
 
-    // TODO(PARQUET-594) crc checksum for DATA_PAGE_V2
-    if (page_checksum_verification_ && page.type() == PageType::DATA_PAGE) {
+    if (page_checksum_verification_) {
       uint32_t crc32 =
           ::arrow::internal::crc32(/* prev */ 0, output_data_buffer, output_data_len);
       page_header.__set_crc(static_cast<int32_t>(crc32));

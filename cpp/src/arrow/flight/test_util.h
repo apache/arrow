@@ -203,8 +203,10 @@ class ARROW_FLIGHT_EXPORT TestServerAuthHandler : public ServerAuthHandler {
   explicit TestServerAuthHandler(const std::string& username,
                                  const std::string& password);
   ~TestServerAuthHandler() override;
-  Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override;
-  Status IsValid(const std::string& token, std::string* peer_identity) override;
+  Status Authenticate(const ServerCallContext& context, ServerAuthSender* outgoing,
+                      ServerAuthReader* incoming) override;
+  Status IsValid(const ServerCallContext& context, const std::string& token,
+                 std::string* peer_identity) override;
 
  private:
   std::string username_;
@@ -216,8 +218,10 @@ class ARROW_FLIGHT_EXPORT TestServerBasicAuthHandler : public ServerAuthHandler 
   explicit TestServerBasicAuthHandler(const std::string& username,
                                       const std::string& password);
   ~TestServerBasicAuthHandler() override;
-  Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) override;
-  Status IsValid(const std::string& token, std::string* peer_identity) override;
+  Status Authenticate(const ServerCallContext& context, ServerAuthSender* outgoing,
+                      ServerAuthReader* incoming) override;
+  Status IsValid(const ServerCallContext& context, const std::string& token,
+                 std::string* peer_identity) override;
 
  private:
   BasicAuth basic_auth_;
