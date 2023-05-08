@@ -180,17 +180,12 @@ namespace Apache.Arrow.Builder
         public override IArrayBuilder AppendDotNet(DotNetScalar value) => AppendDotNet(value, true);
         public StructArrayBuilder AppendDotNet(DotNetScalar value, bool structure = true)
         {
-            if (value.IsValid)
-            {
-                AppendValid();
-                for (int i = 0; i < Children.Length; i++)
+            AppendValid();
+            for (int i = 0; i < Children.Length; i++)
+                if (value.IsChildValid(i))
                     Children[i].AppendDotNet(value.Child(i));
-            }
-            else
-            {
-                AppendNull();
-            }
-            
+                else
+                    Children[i].AppendNull();
             return this;
         }
 

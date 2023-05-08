@@ -64,6 +64,7 @@ namespace Apache.Arrow.Reflection
     public class TypeReflection<T> : TypeReflection
     {
         internal static readonly Type DotNetType = typeof(T);
+        internal static readonly Type NullableUnderlyingType = System.Nullable.GetUnderlyingType(DotNetType);
         public static readonly IArrowType ArrowType = GetArrowType(DotNetType);
         internal static readonly PropertyInfo[] Properties = GetProperties(DotNetType).ToArray();
 #if NETCOREAPP2_0_OR_GREATER
@@ -76,6 +77,10 @@ namespace Apache.Arrow.Reflection
         public static readonly bool Iterable = IsIterable(DotNetType);
         public static readonly bool NestedStruct = IsNestedStruct(DotNetType);
 
-        public static object[] PropertyValues(object value) => PropertyValues(value, Getters);
+        private static Func<object, object[]> _getValuesArray = (value) => PropertyValues(value, Getters);
+
+        public static object[] GetValuesArray(object value) => _getValuesArray(value);
+        public static void SetGetValuesArray(Func<object, object[]> toArray)
+            => _getValuesArray = toArray;
     }
 }

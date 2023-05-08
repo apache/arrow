@@ -591,10 +591,7 @@ namespace Apache.Arrow.Builder
         public FixedBinaryArrayBuilder<T> AppendDotNet(DotNetScalar value, bool primitive = true)
         {
             Validate(value);
-            if (value.IsValid)
-                AppendValue(value.As<T>());
-            else
-                AppendNull();
+            AppendValue(value.ValueAs<T>());
             return this;
         }
     }

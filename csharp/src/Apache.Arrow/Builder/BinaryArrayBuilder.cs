@@ -22,10 +22,7 @@ namespace Apache.Arrow.Builder
             switch (value.ArrowType.TypeId)
             {
                 case ArrowTypeId.Binary:
-                    if (value.IsValid)
-                        AppendValue(value.AsBytes());
-                    else
-                        AppendNull();
+                    AppendValue(value.AsBytes());
                     break;
                 default:
                     throw new ArgumentException($"Cannot dynamically append values of type {value.DotNetType}");

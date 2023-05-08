@@ -16,6 +16,7 @@
 using System;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Builder;
+using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -190,7 +191,8 @@ namespace Apache.Arrow.Tests.Builder
 
             builder.AppendNull();
             // Start new valid block, need to fill all builders
-            builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = "joe", p1 = 123 }));
+            for (int i = 0; i < 1000; i++)
+                builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = "joe", p1 = 123 }));
             builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = null, p1 = null }));
             // Append null block
             builder.AppendNull();
@@ -201,19 +203,63 @@ namespace Apache.Arrow.Tests.Builder
             Int64Array p1 = built.Fields[1] as Int64Array;
 
             Assert.IsType<StructArray>(built);
-            Assert.Equal(4, built.Length);
+            Assert.Equal(1003, built.Length);
             Assert.Equal(2, built.NullCount);
 
             Assert.Equal("joe", p0.GetString(1));
-            Assert.Null(p0.GetString(2));
+            Assert.Null(p0.GetString(1001));
 
             Assert.Equal(123, p1.GetValue(1));
-            Assert.Null(p1.GetValue(2));
+            Assert.Null(p1.GetValue(1001));
 
             Assert.False(built.IsValid(0));
             Assert.True(built.IsValid(1));
-            Assert.True(built.IsValid(2));
-            Assert.False(built.IsValid(3));
+            Assert.True(built.IsValid(1001));
+            Assert.False(built.IsValid(1002));
+        }
+
+        [Fact]
+        public void StructArrayBuilder_Should_AppendDotNet_SettingCustomToArray()
+        {
+            var builder = new StructArrayBuilder<DynamicStruct>();
+
+            TypeReflection<DynamicStruct>.SetGetValuesArray((value) =>
+            {
+                var casted = (DynamicStruct)value;
+
+                return new object[]
+                {
+                    casted.p0, casted.p1
+                };
+            });
+
+            builder.AppendNull();
+            // Start new valid block, need to fill all builders
+            for (int i = 0; i < 1000; i++)
+                builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = "joe", p1 = 123 }));
+            builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = null, p1 = null }));
+            // Append null block
+            builder.AppendNull();
+
+            StructArray built = builder.Build();
+
+            StringArray p0 = built.Fields[0] as StringArray;
+            Int64Array p1 = built.Fields[1] as Int64Array;
+
+            Assert.IsType<StructArray>(built);
+            Assert.Equal(1003, built.Length);
+            Assert.Equal(2, built.NullCount);
+
+            Assert.Equal("joe", p0.GetString(1));
+            Assert.Null(p0.GetString(1001));
+
+            Assert.Equal(123, p1.GetValue(1));
+            Assert.Null(p1.GetValue(1001));
+
+            Assert.False(built.IsValid(0));
+            Assert.True(built.IsValid(1));
+            Assert.True(built.IsValid(1001));
+            Assert.False(built.IsValid(1002));
         }
     }
 

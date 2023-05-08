@@ -34,7 +34,8 @@ namespace Apache.Arrow.Builder
             {
                 BitOffset = 0;
                 ByteLength++;
-                EnsureBytes(ByteLength);
+                // Ensure current and another byte for next append
+                EnsureBytes(ByteLength + 1);
             }
             return this;
         }

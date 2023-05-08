@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using System.Collections.Generic;
 using Apache.Arrow.Reflection;
 using Xunit;
@@ -29,7 +30,7 @@ namespace Apache.Arrow.Tests.Reflection
         public void TypeReflection_Should_GetStructValues(string str, int? i, double dbl)
         {
             var expected = new RecordStruct { String = str, NullableInt = i, Double = dbl };
-            var result = TypeReflection<RecordStruct>.PropertyValues(expected);
+            var result = TypeReflection<RecordStruct>.GetValuesArray(expected);
 
             Assert.Equal(result, new object[] { expected.String, expected.NullableInt, expected.Double });
         }
@@ -42,7 +43,7 @@ namespace Apache.Arrow.Tests.Reflection
         public void TypeReflection_Should_KeyValuePair(string str, int? i)
         {
             var expected = new KeyValuePair<string, int?>(str, i);
-            var result = TypeReflection<KeyValuePair<string, int?>>.PropertyValues(expected);
+            var result = TypeReflection<KeyValuePair<string, int?>>.GetValuesArray(expected);
 
             Assert.Equal(result, new object[] { expected.Key, expected.Value });
         }
@@ -58,7 +59,6 @@ namespace Apache.Arrow.Tests.Reflection
             var result = DotNetScalar.Make(expected);
 
             Assert.Equal(result.ArrowType, TypeReflection<DynamicStruct>.ArrowType);
-            Assert.True(result.IsValid);
             Assert.Equal(result.Value, expected);
             Assert.Equal(result.Values, new object[] { expected.p0, expected.p1 });
         }
@@ -78,12 +78,7 @@ namespace Apache.Arrow.Tests.Reflection
         public void DotNetScalar_Should_MakePrimitiveNotNullType()
         {
             int? expected = 123;
-            var result = DotNetScalar.Make(expected);
-
-            Assert.Equal(typeof(int), result.DotNetType);
-            Assert.Equal(DotNetScalarType.Scalar, result.ScalarType);
-            Assert.Equal(expected, result.Value);
-            Assert.Null(result.Values);
+            Assert.Throws<NullReferenceException>(() => DotNetScalar.Make(expected));
         }
     }
 
