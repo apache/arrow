@@ -176,6 +176,14 @@ test_that("case_when()", {
       collect(),
     tbl
   )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(cw = case_when(int > 5 ~ 1, .default = 0)) %>%
+      collect(),
+    tbl
+  )
+
   compare_dplyr_binding(
     .input %>%
       transmute(cw = case_when(chr %in% letters[1:3] ~ 1L) + 41L) %>%
