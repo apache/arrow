@@ -38,7 +38,6 @@ func TestBinaryBuilder(t *testing.T) {
 			ab.AppendNull()
 		} else {
 			ab.Append(v)
-
 		}
 	}
 

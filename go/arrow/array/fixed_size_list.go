@@ -49,7 +49,7 @@ func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
 func (a *FixedSizeList) ListValues() arrow.Array { return a.values }
 
 func (a *FixedSizeList) ValueStr(i int) string {
-	if !a.IsValid(i) {
+	if a.IsNull(i) {
 		return NullValueStr
 	}
 	return string(a.GetOneForMarshal(i).(json.RawMessage))
@@ -62,7 +62,7 @@ func (a *FixedSizeList) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -208,6 +208,7 @@ func (b *FixedSizeListBuilder) Append(v bool) {
 func (b *FixedSizeListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
+	// require to append this due to value indexes
 	for i := int32(0); i < b.n; i++ {
 		b.values.AppendNull()
 	}
@@ -294,6 +295,10 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 }
 
 func (b *FixedSizeListBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
 	dec := json.NewDecoder(strings.NewReader(s))
 	return b.UnmarshalOne(dec)
 }

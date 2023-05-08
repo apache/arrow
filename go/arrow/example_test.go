@@ -53,7 +53,7 @@ func Example_minimal() {
 	for i, v := range ints.Int64Values() {
 		fmt.Printf("ints[%d] = ", i)
 		if ints.IsNull(i) {
-			fmt.Println("(null)")
+			fmt.Println(array.NullValueStr)
 		} else {
 			fmt.Println(v)
 		}
@@ -97,7 +97,7 @@ func Example_fromMemory() {
 	for i := 0; i < n; i++ {
 		fmt.Printf("bools[%d] = ", i)
 		if bools.IsNull(i) {
-			fmt.Println("(null)")
+			fmt.Println(array.NullValueStr)
 		} else {
 			fmt.Printf("%t\n", bools.Value(i))
 		}
@@ -640,7 +640,7 @@ func Example_mapArray() {
 			if itemArr.IsValid(int(j)) {
 				fmt.Printf("%v", itemArr.Value(int(j)))
 			} else {
-				fmt.Printf("(null)")
+				fmt.Printf(array.NullValueStr)
 			}
 		}
 		fmt.Printf("}\n")

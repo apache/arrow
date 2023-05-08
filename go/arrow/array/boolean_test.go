@@ -288,5 +288,35 @@ func TestBooleanStringer(t *testing.T) {
 	}
 	assert.Equal(t, "true", arr.ValueStr(0))
 	assert.Equal(t, "false", arr.ValueStr(1))
-	assert.Equal(t, "(null)", arr.ValueStr(2))
+	assert.Equal(t, array.NullValueStr, arr.ValueStr(2))
+}
+
+func TestBooleanStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []bool{true, false, true, true, true, true, true, false, true, false}
+	valid := []bool{true, false, false, true, false, true, true, false, true, false}
+
+	b := array.NewBooleanBuilder(mem)
+	defer b.Release()
+
+	b.AppendValues(values, valid)
+
+	arr := b.NewArray().(*array.Boolean)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewBooleanBuilder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Boolean)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }

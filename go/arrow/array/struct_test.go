@@ -134,6 +134,46 @@ func TestStructArray(t *testing.T) {
 	}
 }
 
+func TestStructStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dt := arrow.StructOf(
+		arrow.Field{Name: "nullable_bool", Type: new(arrow.BooleanType), Nullable: true},
+		arrow.Field{Name: "non_nullable_bool", Type: new(arrow.BooleanType)},
+	)
+
+	builder := array.NewStructBuilder(memory.DefaultAllocator, dt)
+	nullableBld := builder.FieldBuilder(0).(*array.BooleanBuilder)
+	nonNullableBld := builder.FieldBuilder(1).(*array.BooleanBuilder)
+
+	builder.Append(true)
+	nullableBld.Append(true)
+	nonNullableBld.Append(true)
+
+	builder.Append(true)
+	nullableBld.AppendNull()
+	nonNullableBld.Append(true)
+
+	builder.AppendNull()
+
+	arr := builder.NewArray().(*array.Struct)
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewStructBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Struct)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
 func TestStructArrayEmpty(t *testing.T) {
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer pool.AssertSize(t, 0)
@@ -295,7 +335,7 @@ func TestStructArrayStringer(t *testing.T) {
 	arr := sb.NewArray().(*array.Struct)
 	defer arr.Release()
 
-	assert.Equal(t, "{\"f1\":1.1,\"f2\":1}\n", arr.ValueStr(4))
+	assert.Equal(t, `{"f1":1.1,"f2":1}`, arr.ValueStr(4))
 	want := "{[1.1 (null) 1.3 1.4 1.1] [1 2 (null) 4 1]}"
 	got := arr.String()
 	if got != want {
