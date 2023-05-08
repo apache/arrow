@@ -412,6 +412,7 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 	return
 }
 
+// AppendValueFromString can't be used in conjunction with UnmarshalOne
 func (b *RunEndEncodedBuilder) AppendValueFromString(s string) error {
 	// we don't support mixing AppendValueFromString & UnmarshalOne
 	if b.unmarshalled {
@@ -434,6 +435,7 @@ func (b *RunEndEncodedBuilder) AppendValueFromString(s string) error {
 	return b.ValueBuilder().AppendValueFromString(s)
 }
 
+// UnmarshalOne can't be used in conjunction with AppendValueFromString
 func (b *RunEndEncodedBuilder) UnmarshalOne(dec *json.Decoder) error {
 	// we don't support mixing AppendValueFromString & UnmarshalOne
 	if b.lastStr != nil {
@@ -468,6 +470,7 @@ func (b *RunEndEncodedBuilder) UnmarshalOne(dec *json.Decoder) error {
 	return b.ValueBuilder().UnmarshalOne(json.NewDecoder(bytes.NewReader(data)))
 }
 
+// Unmarshal can't be used in conjunction with AppendValueFromString (as it calls UnmarshalOne)
 func (b *RunEndEncodedBuilder) Unmarshal(dec *json.Decoder) error {
 	b.finishRun()
 	for dec.More() {
@@ -478,6 +481,7 @@ func (b *RunEndEncodedBuilder) Unmarshal(dec *json.Decoder) error {
 	return nil
 }
 
+// UnmarshalJSON can't be used in conjunction with AppendValueFromString (as it calls UnmarshalOne)
 func (b *RunEndEncodedBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
