@@ -32,5 +32,10 @@
 #if _MSC_VER >= 1900
 #undef timezone
 #endif
+
+// https://bugs.python.org/issue36020
+#if _MSC_VER >= 1500
+#undef snprintf
+#endif
 #endif
 
