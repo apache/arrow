@@ -372,7 +372,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
       logical_type = LogicalType::Date();
       break;
     case ArrowTypeId::DATE64:
-      type = ParquetType::INT32;
+      type = ParquetType::INT64;
       logical_type = LogicalType::Date();
       break;
     case ArrowTypeId::TIMESTAMP:
