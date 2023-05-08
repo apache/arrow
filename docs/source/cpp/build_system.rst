@@ -25,7 +25,7 @@ Using Arrow C++ in your own project
 This section assumes you already have the Arrow C++ libraries on your
 system, either after `installing them using a package manager
 <https://arrow.apache.org/install/>`_ or after
-:ref:`building them yourself <building-arrow-cpp>`.
+:ref:`building them yourself <arrow:building-arrow-cpp>`.
 
 The recommended way to integrate the Arrow C++ libraries in your own
 C++ project is to use CMake's `find_package
@@ -45,6 +45,7 @@ This minimal ``CMakeLists.txt`` file compiles a ``my_example.cc`` source
 file into an executable linked with the Arrow C++ shared library:
 
 .. code-block:: cmake
+
    cmake_minimum_required(VERSION 3.16)
    
    project(MyExample)
@@ -222,7 +223,7 @@ the following guidelines:
 
 It may be easiest to depend on a version of Arrow built from source, where you
 can control the source of each dependency and whether it is statically or
-dynamically linked. See :doc:`/developers/cpp/building` for instructions. Or
+dynamically linked. See :ref:`arrow:building-arrow-cpp` for instructions. Or
 alternatively, use Arrow from a package manager such as Conda or vcpkg which
 will manage consistent versions of Arrow and its dependencies.
 

@@ -51,7 +51,7 @@ If you are building ``pyarrow`` from source, you must use ``-DARROW_PARQUET=ON``
 when compiling the C++ libraries and enable the Parquet extensions when
 building ``pyarrow``. If you want to use Parquet Encryption, then you must
 use ``-DPARQUET_REQUIRE_ENCRYPTION=ON`` too when compiling the C++ libraries.
-See the :ref:`Python Development <python-development>` page for more details.
+See the :ref:`Python Development <arrow:python-development>` page for more details.
 
 Reading and Writing Single Files
 --------------------------------

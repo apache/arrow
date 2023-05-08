@@ -27,7 +27,7 @@ over the network.
 
 .. seealso::
 
-   :doc:`Flight protocol documentation <../format/Flight>`
+   :ref:`Flight protocol documentation <arrow:flight-rpc>`
         Documentation of the Flight protocol, including how to use
         Flight conceptually.
 

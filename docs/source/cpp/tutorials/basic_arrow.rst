@@ -39,7 +39,7 @@ Pre-requisites
 --------------
 Before continuing, make sure you have:
 
-#. An Arrow installation, which you can set up here: :doc:`/cpp/build_system`
+#. An Arrow installation, which you can set up here: :doc:`/build_system`
 #. Understanding of how to use basic C++ data structures
 #. Understanding of basic C++ data types
 
@@ -79,7 +79,7 @@ This allows us to easily use Arrow’s error-handling macros, which will
 return back to ``main()`` with a :class:`arrow::Status` object if a failure occurs – and
 this ``main()`` will report the error. Note that this means Arrow never
 raises exceptions, instead relying upon returning :class:`Status`. For more on
-that, read here: :doc:`/cpp/conventions`.
+that, read here: :doc:`/conventions`.
 
 To accompany this ``main()``, we have a ``RunMain()`` from which any :class:`Status`
 objects can return – this is where we’ll write the rest of the program:
@@ -101,7 +101,7 @@ the data from said arrays into Arrow arrays. We still guarantee contiguity of me
 :class:`Array`, so no worries about a performance loss when using :class:`Array` vs C++ arrays.
 The easiest way to construct an :class:`Array` uses an :class:`ArrayBuilder`. 
 
-.. seealso:: :doc:`/cpp/arrays` for more technical details on :class:`Array`
+.. seealso:: :doc:`/arrays` for more technical details on :class:`Array`
 
 The following code initializes an :class:`ArrayBuilder` for an :class:`Array` that will hold 8 bit
 integers. Specifically, it uses the ``AppendValues()`` method, present in concrete 
