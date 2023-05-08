@@ -397,6 +397,15 @@ test_that("Can mutate after group_by as long as there are no aggregations", {
       collect(),
     tbl
   )
+  # Check the column order when .keep = "none"
+  compare_dplyr_binding(
+    .input %>%
+      select(chr, int) %>%
+      group_by(chr) %>%
+      mutate(int, .keep = "none") %>%
+      collect(),
+    tbl
+  )
   expect_warning(
     tbl %>%
       Table$create() %>%
@@ -650,5 +659,41 @@ test_that("Can use across() within transmute()", {
       ) %>%
       collect(),
     example_data
+  )
+})
+
+test_that("across() does not select grouping variables within mutate()", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(mpg) %>%
+      mutate(across(everything(), round)) %>%
+      collect(),
+    mtcars
+  )
+
+  expect_error(
+    mtcars %>%
+      arrow_table() %>%
+      group_by(mpg) %>%
+      mutate(across(mpg, round)),
+    "Column `mpg` doesn't exist"
+  )
+})
+
+test_that("across() does not select grouping variables within transmute()", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(mpg) %>%
+      transmute(across(everything(), round)) %>%
+      collect(),
+    mtcars
+  )
+
+  expect_error(
+    mtcars %>%
+      arrow_table() %>%
+      group_by(mpg) %>%
+      transmute(across(mpg, round)),
+    "Column `mpg` doesn't exist"
   )
 })
