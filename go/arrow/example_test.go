@@ -225,7 +225,6 @@ func Example_fixedSizeListArray() {
 	vb.Append(2)
 
 	lb.AppendNull()
-	vb.AppendValues([]int64{-1, -1, -1}, nil)
 
 	lb.Append(true)
 	vb.Append(3)

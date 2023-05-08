@@ -204,9 +204,13 @@ func (b *FixedSizeListBuilder) Append(v bool) {
 	b.unsafeAppendBoolToBitmap(v)
 }
 
+// AppendNull will append null values to the underlying values by itself
 func (b *FixedSizeListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
+	for i := int32(0); i < b.n; i++ {
+		b.values.AppendNull()
+	}
 }
 
 func (b *FixedSizeListBuilder) AppendEmptyValue() {
@@ -311,9 +315,6 @@ func (b *FixedSizeListBuilder) UnmarshalOne(dec *json.Decoder) error {
 		return err
 	case nil:
 		b.AppendNull()
-		for i := int32(0); i < b.n; i++ {
-			b.values.AppendNull()
-		}
 	default:
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprint(t),
