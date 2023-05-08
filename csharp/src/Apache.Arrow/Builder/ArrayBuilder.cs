@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Memory;
@@ -110,13 +111,25 @@ namespace Apache.Arrow.Builder
         }
 
         // Unsafe append values
-        public virtual IArrayBuilder AppendDotNet(DotNetScalarArray values)
+        internal void Validate(DotNetScalar value)
         {
-            return DataType.TypeId switch
+            if (value.ArrowType.TypeId != DataType.TypeId)
+                throw new ArgumentException($"Not valid {value.Value}, {DataType} != values.{value.ArrowType}");
+        }
+
+        public virtual IArrayBuilder AppendDotNet(DotNetScalar value)
+        {
+            switch (DataType.TypeId)
             {
-                ArrowTypeId.String => As<StringArrayBuilder>().AppendDotNet(values),
-                ArrowTypeId.Binary => As<BinaryArrayBuilder>().AppendDotNet(values),
-                _ => throw new ArgumentException($"Cannot dynamically append values of type {values.DotNetType}"),
+                case ArrowTypeId.String:
+                    return As<StringArrayBuilder>().AppendDotNet(value);
+                case ArrowTypeId.Binary:
+                    return As<BinaryArrayBuilder>().AppendDotNet(value);
+                case ArrowTypeId.Struct:
+                    return As<StructArrayBuilder>().AppendDotNet(value);
+                default:
+                    Validate(value);
+                    throw new ArgumentException($"Cannot dynamically append values of type {value.ArrowType}: {value.DotNetType}");
             };
         }
 

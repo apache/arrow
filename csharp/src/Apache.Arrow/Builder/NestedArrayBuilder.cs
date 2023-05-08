@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Apache.Arrow.Memory;
+using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
@@ -177,6 +176,24 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
+        // Append Values
+        public override IArrayBuilder AppendDotNet(DotNetScalar value) => AppendDotNet(value, true);
+        public StructArrayBuilder AppendDotNet(DotNetScalar value, bool structure = true)
+        {
+            if (value.IsValid)
+            {
+                AppendValid();
+                for (int i = 0; i < Children.Length; i++)
+                    Children[i].AppendDotNet(value.Child(i));
+            }
+            else
+            {
+                AppendNull();
+            }
+            
+            return this;
+        }
+
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
 
         public StructArray Build(MemoryAllocator allocator = default, bool _ = true)
@@ -185,7 +202,7 @@ namespace Apache.Arrow.Builder
 
     public class StructArrayBuilder<T> : StructArrayBuilder where T : struct
     {
-        public StructArrayBuilder(int capacity = 8) : base(CStructType<T>.Default as StructType, capacity)
+        public StructArrayBuilder(int capacity = 8) : base(TypeReflection<T>.ArrowType as StructType, capacity)
         {
         }
     }

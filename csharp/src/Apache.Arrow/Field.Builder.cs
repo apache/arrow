@@ -18,6 +18,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
@@ -131,7 +132,7 @@ namespace Apache.Arrow
                         break;
 #if NETCOREAPP3_1_OR_GREATER
                     // IEnumerable: List, Array, ...
-                    case var list when typeof(IEnumerable).IsAssignableFrom(valueType):
+                    case var list when TypeReflection.IsIterable(valueType):
                         Type elementType = list.GetGenericArguments()[0];
 
                         switch (elementType)
@@ -148,14 +149,13 @@ namespace Apache.Arrow
                         Nullable(true);
                         break;
                     // Struct like: get all properties
-                    case var structure when (valueType.IsValueType && !valueType.IsEnum && !valueType.IsPrimitive):
+                    case var structure when TypeReflection.IsNestedStruct(valueType):
                         if (string.IsNullOrEmpty(_name))
                             Name(structure.Name);
 
-                        PropertyInfo[] properties = CStructType.GetProperties(structure);
-
                         DataType(new StructType(
-                            properties
+                            TypeReflection
+                                .GetProperties(structure)
                                 .Select(property => {
                                     // Check if it is not given in parameters, or get default
                                     string fieldTimezone = fieldTimezones?.GetValueOrDefault(structure.Name, defaultTimezone);

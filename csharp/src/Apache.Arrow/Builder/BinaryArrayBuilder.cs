@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -18,16 +16,19 @@ namespace Apache.Arrow.Builder
         {
         }
 
-        public override IArrayBuilder AppendDotNet(DotNetScalarArray values) => AppendDotNet(values, true);
-        public BinaryArrayBuilder AppendDotNet(DotNetScalarArray values, bool bin = true)
+        public override IArrayBuilder AppendDotNet(DotNetScalar value) => AppendDotNet(value, true);
+        public BinaryArrayBuilder AppendDotNet(DotNetScalar value, bool bin = true)
         {
-            switch (values.ArrowType.TypeId)
+            switch (value.ArrowType.TypeId)
             {
                 case ArrowTypeId.Binary:
-                    AppendValues(values.ValuesAs<IEnumerable<byte>>().Select(value => value.ToArray()).ToArray());
+                    if (value.IsValid)
+                        AppendValue(value.AsBytes());
+                    else
+                        AppendNull();
                     break;
                 default:
-                    throw new ArgumentException($"Cannot dynamically append values of type {values.DotNetType}");
+                    throw new ArgumentException($"Cannot dynamically append values of type {value.DotNetType}");
             };
             return this;
         }
@@ -50,16 +51,18 @@ namespace Apache.Arrow.Builder
         {
         }
 
-        public override IArrayBuilder AppendDotNet(DotNetScalarArray values) => AppendDotNet(values, false, true);
-        public StringArrayBuilder AppendDotNet(DotNetScalarArray values, bool bin = false, bool str = true)
+        public override IArrayBuilder AppendDotNet(DotNetScalar value) => AppendDotNet(value, false, true);
+        public StringArrayBuilder AppendDotNet(DotNetScalar value, bool bin = false, bool str = true)
         {
-            switch (values.ArrowType.TypeId)
+            Validate(value);
+
+            switch (value.ArrowType.TypeId)
             {
                 case ArrowTypeId.String:
-                    AppendValues(values.ValuesAs<string>().ToArray());
+                    AppendValue(value.ValueAs<string>());
                     break;
                 default:
-                    base.AppendDotNet(values);
+                    base.AppendDotNet(value);
                     break;
             };
             return this;

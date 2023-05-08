@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
-using FlatBuffers;
 
 namespace Apache.Arrow.Builder
 {
@@ -578,7 +578,7 @@ namespace Apache.Arrow.Builder
 
     public class FixedBinaryArrayBuilder<T> : FixedBinaryArrayBuilder where T : struct
     {
-        public FixedBinaryArrayBuilder(int capacity = 32) : this(CStructType<T>.Default as FixedWidthType, capacity)
+        public FixedBinaryArrayBuilder(int capacity = 32) : this(TypeReflection<T>.ArrowType as FixedWidthType, capacity)
         {
         }
 

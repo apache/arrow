@@ -49,27 +49,6 @@ namespace Apache.Arrow.Tests.Builder
             Assert.Equal(1L, built.GetValue(2));
             Assert.Equal(-12L, built.GetValue(3));
         }
-
-        [Fact]
-        public void ArrayBuilder_Should_AppendCSharpValues()
-        {
-            string[] values = new string[] { "", null, "def" };
-
-            StringArray array = new StringArrayBuilder(values.Length)
-                .AppendDotNet(DotNetScalarArray.Make(values))
-                .Build();
-
-            Assert.Equal(3, array.Length);
-            Assert.Equal(1, array.NullCount);
-
-            Assert.Equal("", array.GetString(0));
-            Assert.Null(array.GetString(1));
-            Assert.Equal("def", array.GetString(2));
-
-            Assert.True(array.IsValid(0));
-            Assert.False(array.IsValid(1));
-            Assert.True(array.IsValid(2));
-        }
     }
 
     public class ValueArrayBuilderTests
@@ -193,6 +172,43 @@ namespace Apache.Arrow.Tests.Builder
             Assert.True(built.IsValid(0));
             Assert.False(built.IsValid(1));
         }
+
+        [Fact]
+        public void StructArrayBuilder_Should_AppendDotNetThrowException()
+        {
+            var builder = new StructArrayBuilder<TestStruct>();
+
+            builder.AppendNull();
+            // Start new valid block, need to fill all builders
+            Assert.Throws<ArgumentException>(() => builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = "joe", p1 = "123" })));
+        }
+
+        [Fact]
+        public void StructArrayBuilder_Should_AppendDotNet()
+        {
+            var builder = new StructArrayBuilder<DynamicStruct>();
+
+            builder.AppendNull();
+            // Start new valid block, need to fill all builders
+            builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = "joe", p1 = "123" }));
+            builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = null, p1 = null }));
+            // Append null block
+            builder.AppendNull();
+
+            StructArray built = builder.Build();
+
+            Assert.IsType<StructArray>(built);
+            Assert.Equal(4, built.Length);
+            Assert.Equal(2, built.NullCount);
+
+            Assert.Equal("joe", (built.Fields[0] as StringArray).GetString(1));
+            Assert.Null((built.Fields[0] as StringArray).GetString(2));
+
+            Assert.False(built.IsValid(0));
+            Assert.True(built.IsValid(1));
+            Assert.True(built.IsValid(2));
+            Assert.False(built.IsValid(3));
+        }
     }
 
     public class ListArrayBuilderTests
@@ -231,32 +247,9 @@ namespace Apache.Arrow.Tests.Builder
         public int Value { get; set; }
     }
 
-    public struct RecordStruct : IRecord
+    public struct DynamicStruct
     {
-        public string Name { get; set; }
-        public string Surname { get; set; }
-
-        public object this[int index]
-        {
-            get
-            {
-                return index switch
-                {
-                    0 => Name,
-                    1 => Surname,
-                    _ => throw new ArgumentOutOfRangeException($"Cannot get value from {typeof(RecordStruct)} at index {index}"),
-                };
-            }
-        }
-
-        public Type PropertyType(int index)
-        {
-            return index switch
-            {
-                0 => typeof(string),
-                1 => typeof(string),
-                _ => throw new ArgumentOutOfRangeException($"Cannot get value from {typeof(RecordStruct)} at index {index}"),
-            };
-        }
+        public string p0 { get; set; }
+        public string p1 { get; set; }
     }
 }

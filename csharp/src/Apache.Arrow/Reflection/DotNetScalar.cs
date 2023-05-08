@@ -1,34 +1,115 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public ref struct DotNetScalarArray
+    public enum DotNetScalarType
+    {
+        Scalar,
+        Iterable,
+        NestedStruct
+    }
+
+    public readonly ref struct DotNetScalar
     {
         public readonly IArrowType ArrowType;
         public readonly System.Type DotNetType;
-        public readonly bool Nullable;
-        public readonly IEnumerable<object> Values;
+        public readonly DotNetScalarType ScalarType;
 
-        public static DotNetScalarArray Make<T>(IEnumerable<T> values)
+        public readonly System.Type[] SubTypes;
+        public readonly object Value;
+        public readonly object[] Values;
+
+        public bool IsValid => Value != null;
+        
+        public static DotNetScalar Make<T>(T value)
         {
-            var type = typeof(T);
-            System.Type child = System.Nullable.GetUnderlyingType(type);
+            System.Type type = typeof(T);
+            var arrowType = TypeReflection<T>.ArrowType;
 
-            return child != null ?
-                new DotNetScalarArray(CStructType<T>.Default, child, values.Select(value => (object)value), true) :
-                new DotNetScalarArray(CStructType<T>.Default, type, values.Select(value => (object)value), false);
+            return type switch
+            {
+                var _ when TypeReflection<T>.NestedStruct => new DotNetScalar(
+                    arrowType,
+                    type, value,
+                    DotNetScalarType.NestedStruct,
+                    TypeReflection<T>.PropertyTypes, TypeReflection<T>.PropertyValues(value)
+                    ),
+                var _ when TypeReflection<T>.Iterable => new DotNetScalar(
+                    arrowType,
+                    type, value,
+                    DotNetScalarType.Iterable,
+                    null, ((IEnumerable<object>)value).ToArray()
+                    ),
+                _ => new DotNetScalar(arrowType, type, value),
+            };
         }
 
-        public DotNetScalarArray(IArrowType arrowType, System.Type type, IEnumerable<object> values, bool nullable)
+        private static DotNetScalar Make(IArrowType arrowType, System.Type type, object value)
+        {
+            return type switch
+            {
+                var _ when TypeReflection.IsNestedStruct(type) => new DotNetScalar(
+                    arrowType,
+                    type, value,
+                    DotNetScalarType.NestedStruct,
+                    TypeReflection.GetPropertyTypes(type).ToArray(), TypeReflection.PropertyValues(type, value)
+                    ),
+                var _ when TypeReflection.IsIterable(type) => new DotNetScalar(
+                    arrowType,
+                    type, value,
+                    DotNetScalarType.Iterable,
+                    null, ((IEnumerable<object>)value).ToArray()
+                    ),
+                _ => new DotNetScalar(arrowType, type, value),
+            };
+        }
+
+        public DotNetScalar(
+            IArrowType arrowType,
+            System.Type type, object value,
+            DotNetScalarType scalarType = DotNetScalarType.Scalar,
+            System.Type[] subTypes = null, object[] values = null
+            )
         {
             ArrowType = arrowType;
             DotNetType = type;
+            ScalarType = scalarType;
+            SubTypes = subTypes;
+            Value = value;
             Values = values;
-            Nullable = nullable;
         }
 
-        public IEnumerable<T> ValuesAs<T>() => Values.Select(value => (T)value);
+        public T ArrowTypeAs<T>() where T : ArrowType => ArrowType as T;
+
+        public DotNetScalar Child(int index)
+        {
+            return ScalarType switch
+            {
+                DotNetScalarType.NestedStruct =>
+                    Make(ArrowTypeAs<StructType>().Fields[index].DataType, SubTypes[index], Values[index]),
+                _ => throw new NotSupportedException("Cannot get child on not nested struct DotNetScalar"),
+            };
+        }
+
+        public T ValueAs<T>() => (T)Value;
+        public ReadOnlySpan<byte> AsBytes()
+        {
+            switch (ScalarType)
+            {
+                case DotNetScalarType.Iterable:
+                    var span = new byte[Values.Length];
+
+                    for (int i = 0; i < span.Length; i++)
+                        span[i] = (byte)Values[i];
+
+                    return span;
+                default:
+                    throw new NotSupportedException("Cannot convert to bytes");
+            }
+        }
     }
 }

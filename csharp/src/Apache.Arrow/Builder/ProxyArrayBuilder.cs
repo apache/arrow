@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
@@ -11,7 +12,7 @@ namespace Apache.Arrow.Builder
         private readonly Func<TLogical, TPrimitive> ToPrimitive;
 
         public ProxyArrayBuilder(Func<TLogical, TPrimitive> convert, int capacity = 32)
-            : this(CStructType<TLogical>.Default as FixedWidthType, convert, capacity)
+            : this(TypeReflection<TLogical>.ArrowType as FixedWidthType, convert, capacity)
         {
         }
 
