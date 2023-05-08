@@ -45,6 +45,7 @@ class Future;
 
 namespace util {
 class Codec;
+class CodecOptions;
 }  // namespace util
 
 class Buffer;

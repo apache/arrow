@@ -35,25 +35,20 @@ constexpr int kBrotliDefaultCompressionLevel = 8;
 
 // Brotli codec.
 std::unique_ptr<Codec> MakeBrotliCodec(
-    int compression_level = kBrotliDefaultCompressionLevel);
+    int compression_level = kBrotliDefaultCompressionLevel,
+    int window_bits = kBrotliDefaultWindowBits);
 
 // BZ2 codec.
 constexpr int kBZ2DefaultCompressionLevel = 9;
+
 std::unique_ptr<Codec> MakeBZ2Codec(int compression_level = kBZ2DefaultCompressionLevel);
 
 // GZip
 constexpr int kGZipDefaultCompressionLevel = 9;
 
-struct GZipFormat {
-  enum type {
-    ZLIB,
-    DEFLATE,
-    GZIP,
-  };
-};
-
 std::unique_ptr<Codec> MakeGZipCodec(int compression_level = kGZipDefaultCompressionLevel,
-                                     GZipFormat::type format = GZipFormat::GZIP);
+                                     GZipFormat::type format = GZipFormat::GZIP,
+                                     int window_bits = kGZipDefaultWindowBits);
 
 // Snappy
 std::unique_ptr<Codec> MakeSnappyCodec();

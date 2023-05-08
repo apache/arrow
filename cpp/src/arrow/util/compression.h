@@ -107,6 +107,46 @@ class ARROW_EXPORT Decompressor {
   // XXX add methods for buffer size heuristics?
 };
 
+/// \brief Compression codec options
+class ARROW_EXPORT CodecOptions {
+ public:
+  CodecOptions(int compression_level = kUseDefaultCompressionLevel) {
+    compression_level_ = compression_level;
+  }
+  virtual ~CodecOptions() = default;
+
+  int compression_level_;
+};
+
+// ----------------------------------------------------------------------
+// gzip codec options implementation
+
+struct GZipFormat {
+  enum type {
+    ZLIB,
+    DEFLATE,
+    GZIP,
+  };
+};
+
+constexpr int kGZipDefaultWindowBits = 15;
+
+class ARROW_EXPORT GZipCodecOptions : public CodecOptions {
+ public:
+  GZipFormat::type gzip_format = GZipFormat::GZIP;
+  int window_bits = kGZipDefaultWindowBits;
+};
+
+// ----------------------------------------------------------------------
+// brotli codec options implementation
+
+constexpr int kBrotliDefaultWindowBits = 22;
+
+class ARROW_EXPORT BrotliCodecOptions : public CodecOptions {
+ public:
+  int window_bits = kBrotliDefaultWindowBits;
+};
+
 /// \brief Compression codec
 class ARROW_EXPORT Codec {
  public:
@@ -122,9 +162,13 @@ class ARROW_EXPORT Codec {
   /// \brief Return compression type for name (all lower case)
   static Result<Compression::type> GetCompressionType(const std::string& name);
 
+  /// \brief Create a codec for the given compression algorithm with CodecOptions
+  static Result<std::unique_ptr<Codec>> Create(Compression::type codec,
+                                               const CodecOptions& codec_options = {});
+
   /// \brief Create a codec for the given compression algorithm
-  static Result<std::unique_ptr<Codec>> Create(
-      Compression::type codec, int compression_level = kUseDefaultCompressionLevel);
+  static Result<std::unique_ptr<Codec>> Create(Compression::type codec,
+                                               int compression_level);
 
   /// \brief Return true if support for indicated codec has been enabled
   static bool IsAvailable(Compression::type codec);

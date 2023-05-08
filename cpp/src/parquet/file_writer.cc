@@ -153,8 +153,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
                           ? page_index_builder_->GetOffsetIndexBuilder(column_ordinal)
                           : nullptr;
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
-        sink_, properties_->compression(path), properties_->compression_level(path),
-        col_meta, row_group_ordinal_, static_cast<int16_t>(column_ordinal),
+        sink_, properties_->compression(path), properties_->codec_options(path), col_meta,
+        row_group_ordinal_, static_cast<int16_t>(column_ordinal),
         properties_->memory_pool(), false, meta_encryptor, data_encryptor,
         properties_->page_checksum_enabled(), ci_builder, oi_builder);
     column_writers_[0] = ColumnWriter::Make(col_meta, std::move(pager), properties_);
@@ -291,7 +291,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
                             ? page_index_builder_->GetOffsetIndexBuilder(column_ordinal)
                             : nullptr;
       std::unique_ptr<PageWriter> pager = PageWriter::Open(
-          sink_, properties_->compression(path), properties_->compression_level(path),
+          sink_, properties_->compression(path), properties_->codec_options(path),
           col_meta, static_cast<int16_t>(row_group_ordinal_),
           static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
           buffered_row_group_, meta_encryptor, data_encryptor,
