@@ -18,7 +18,14 @@ namespace Apache.Arrow.Reflection
             .Where(p => p.GetIndexParameters().Length == 0);
 
         internal static IEnumerable<Type> GetPropertyTypes(System.Type type)
-            => GetProperties(type).Select(p => p.PropertyType);
+            => GetNotNullPropertyTypes(GetProperties(type));
+
+        internal static IEnumerable<Type> GetNotNullPropertyTypes(IEnumerable<PropertyInfo> properties)
+            => properties.Select(p =>
+            {
+                System.Type child = System.Nullable.GetUnderlyingType(p.PropertyType);
+                return child == null ? p.PropertyType : child;
+            });
 
         internal static IEnumerable<MethodInfo> GetGetters(System.Type type)
             => GetProperties(type).Select(p => p.GetGetMethod());
@@ -31,7 +38,7 @@ namespace Apache.Arrow.Reflection
             => throw new NotSupportedException("Cannot get properties, need to run on .net core >= 2.0");
 
         internal static IEnumerable<Type> GetPropertyTypes(System.Type type)
-            => throw new NotSupportedException("Cannot get properties, need to run on .net core >= 2.0");
+            => throw new NotSupportedException("Cannot get getters, need to run on .net core >= 2.0");
 
         public static IEnumerable<MethodInfo> GetGetters(System.Type type)
             => throw new NotSupportedException("Cannot get getters, need to run on .net core >= 2.0");
@@ -59,7 +66,11 @@ namespace Apache.Arrow.Reflection
         internal static readonly Type DotNetType = typeof(T);
         public static readonly IArrowType ArrowType = GetArrowType(DotNetType);
         internal static readonly PropertyInfo[] Properties = GetProperties(DotNetType).ToArray();
-        internal static readonly Type[] PropertyTypes = Properties.Select(p => p.PropertyType).ToArray();
+#if NETCOREAPP2_0_OR_GREATER
+        internal static readonly Type[] PropertyTypes = GetNotNullPropertyTypes(Properties).ToArray();
+#else
+        internal static readonly Type[] PropertyTypes = new Type[] { };
+#endif
         internal static readonly MethodInfo[] Getters = GetGetters(DotNetType).ToArray();
 
         public static readonly bool Iterable = IsIterable(DotNetType);

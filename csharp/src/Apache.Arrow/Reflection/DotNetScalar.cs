@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
 
@@ -23,29 +24,35 @@ namespace Apache.Arrow
         public readonly object Value;
         public readonly object[] Values;
 
+        public readonly bool Nullable;
         public bool IsValid => Value != null;
         
         public static DotNetScalar Make<T>(T value)
         {
-            System.Type type = typeof(T);
             var arrowType = TypeReflection<T>.ArrowType;
+            System.Type type = typeof(T);
+            System.Type child = System.Nullable.GetUnderlyingType(type);
 
-            return type switch
+            if (child == null)
             {
-                var _ when TypeReflection<T>.NestedStruct => new DotNetScalar(
-                    arrowType,
-                    type, value,
-                    DotNetScalarType.NestedStruct,
-                    TypeReflection<T>.PropertyTypes, TypeReflection<T>.PropertyValues(value)
-                    ),
-                var _ when TypeReflection<T>.Iterable => new DotNetScalar(
-                    arrowType,
-                    type, value,
-                    DotNetScalarType.Iterable,
-                    null, ((IEnumerable<object>)value).ToArray()
-                    ),
-                _ => new DotNetScalar(arrowType, type, value),
-            };
+                return type switch
+                {
+                    var _ when TypeReflection<T>.NestedStruct => new DotNetScalar(
+                        arrowType,
+                        type, value,
+                        DotNetScalarType.NestedStruct,
+                        TypeReflection<T>.PropertyTypes, TypeReflection<T>.PropertyValues(value)
+                        ),
+                    var _ when TypeReflection<T>.Iterable => new DotNetScalar(
+                        arrowType,
+                        type, value,
+                        DotNetScalarType.Iterable,
+                        null, ((IEnumerable<object>)value).ToArray()
+                        ),
+                    _ => new DotNetScalar(arrowType, type, value),
+                };
+            }
+            return Make(arrowType, child, value);
         }
 
         private static DotNetScalar Make(IArrowType arrowType, System.Type type, object value)
@@ -96,6 +103,7 @@ namespace Apache.Arrow
         }
 
         public T ValueAs<T>() => (T)Value;
+
         public ReadOnlySpan<byte> AsBytes()
         {
             switch (ScalarType)
@@ -108,7 +116,18 @@ namespace Apache.Arrow
 
                     return span;
                 default:
-                    throw new NotSupportedException("Cannot convert to bytes");
+                    throw new NotSupportedException($"Cannot convert {Value} to bytes");
+            }
+        }
+
+        public T As<T>() where T : struct
+        {
+            switch (ScalarType)
+            {
+                case DotNetScalarType.Scalar:
+                    return (T)Value;
+                default:
+                    throw new NotSupportedException($"Cannot convert {Value} to {typeof(T)}");
             }
         }
     }

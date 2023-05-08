@@ -62,6 +62,29 @@ namespace Apache.Arrow.Tests.Reflection
             Assert.Equal(result.Value, expected);
             Assert.Equal(result.Values, new object[] { expected.p0, expected.p1 });
         }
+
+        [Fact]
+        public void DotNetScalar_Should_MakePrimitive()
+        {
+            int expected = 123;
+            var result = DotNetScalar.Make(expected);
+
+            Assert.Equal(DotNetScalarType.Scalar, result.ScalarType);
+            Assert.Equal(expected, result.Value);
+            Assert.Null(result.Values);
+        }
+
+        [Fact]
+        public void DotNetScalar_Should_MakePrimitiveNotNullType()
+        {
+            int? expected = 123;
+            var result = DotNetScalar.Make(expected);
+
+            Assert.Equal(typeof(int), result.DotNetType);
+            Assert.Equal(DotNetScalarType.Scalar, result.ScalarType);
+            Assert.Equal(expected, result.Value);
+            Assert.Null(result.Values);
+        }
     }
 
 

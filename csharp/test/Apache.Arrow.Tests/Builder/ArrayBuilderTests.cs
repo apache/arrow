@@ -180,7 +180,7 @@ namespace Apache.Arrow.Tests.Builder
 
             builder.AppendNull();
             // Start new valid block, need to fill all builders
-            Assert.Throws<ArgumentException>(() => builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = "joe", p1 = "123" })));
+            Assert.Throws<ArgumentException>(() => builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = "joe", p1 = 123 })));
         }
 
         [Fact]
@@ -190,19 +190,25 @@ namespace Apache.Arrow.Tests.Builder
 
             builder.AppendNull();
             // Start new valid block, need to fill all builders
-            builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = "joe", p1 = "123" }));
+            builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = "joe", p1 = 123 }));
             builder.AppendDotNet(DotNetScalar.Make(new DynamicStruct { p0 = null, p1 = null }));
             // Append null block
             builder.AppendNull();
 
             StructArray built = builder.Build();
 
+            StringArray p0 = built.Fields[0] as StringArray;
+            Int64Array p1 = built.Fields[1] as Int64Array;
+
             Assert.IsType<StructArray>(built);
             Assert.Equal(4, built.Length);
             Assert.Equal(2, built.NullCount);
 
-            Assert.Equal("joe", (built.Fields[0] as StringArray).GetString(1));
-            Assert.Null((built.Fields[0] as StringArray).GetString(2));
+            Assert.Equal("joe", p0.GetString(1));
+            Assert.Null(p0.GetString(2));
+
+            Assert.Equal(123, p1.GetValue(1));
+            Assert.Null(p1.GetValue(2));
 
             Assert.False(built.IsValid(0));
             Assert.True(built.IsValid(1));
@@ -250,6 +256,6 @@ namespace Apache.Arrow.Tests.Builder
     public struct DynamicStruct
     {
         public string p0 { get; set; }
-        public string p1 { get; set; }
+        public long? p1 { get; set; }
     }
 }

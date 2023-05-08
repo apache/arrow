@@ -127,6 +127,32 @@ namespace Apache.Arrow.Builder
                     return As<BinaryArrayBuilder>().AppendDotNet(value);
                 case ArrowTypeId.Struct:
                     return As<StructArrayBuilder>().AppendDotNet(value);
+                case ArrowTypeId.Boolean:
+                    return As<FixedBinaryArrayBuilder<bool>>().AppendDotNet(value);
+                case ArrowTypeId.UInt8:
+                    return As<FixedBinaryArrayBuilder<byte>>().AppendDotNet(value);
+                case ArrowTypeId.Int8:
+                    return As<FixedBinaryArrayBuilder<sbyte>>().AppendDotNet(value);
+                case ArrowTypeId.UInt16:
+                    return As<FixedBinaryArrayBuilder<ushort>>().AppendDotNet(value);
+                case ArrowTypeId.Int16:
+                    return As<FixedBinaryArrayBuilder<short>>().AppendDotNet(value);
+                case ArrowTypeId.UInt32:
+                    return As<FixedBinaryArrayBuilder<uint>>().AppendDotNet(value);
+                case ArrowTypeId.Int32:
+                    return As<FixedBinaryArrayBuilder<int>>().AppendDotNet(value);
+                case ArrowTypeId.UInt64:
+                    return As<FixedBinaryArrayBuilder<ulong>>().AppendDotNet(value);
+                case ArrowTypeId.Int64:
+                    return As<FixedBinaryArrayBuilder<long>>().AppendDotNet(value);
+#if NET5_0_OR_GREATER
+                case ArrowTypeId.HalfFloat:
+                    return As<FixedBinaryArrayBuilder<Half>>().AppendDotNet(value);
+#endif
+                case ArrowTypeId.Float:
+                    return As<FixedBinaryArrayBuilder<float>>().AppendDotNet(value);
+                case ArrowTypeId.Double:
+                    return As<FixedBinaryArrayBuilder<double>>().AppendDotNet(value);
                 default:
                     Validate(value);
                     throw new ArgumentException($"Cannot dynamically append values of type {value.ArrowType}: {value.DotNetType}");
@@ -255,31 +281,31 @@ namespace Apache.Arrow.Builder
             switch (dtype.TypeId)
             {
                 case ArrowTypeId.Boolean:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<bool>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.UInt8:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<byte>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Int8:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<sbyte>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.UInt16:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<ushort>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Int16:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<short>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.UInt32:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<uint>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Int32:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<int>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.UInt64:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<ulong>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Int64:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<long>(dtype as FixedWidthType, capacity);
 #if NET5_0_OR_GREATER
                 case ArrowTypeId.HalfFloat:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<Half>(dtype as FixedWidthType, capacity);
 #endif
                 case ArrowTypeId.Float:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<float>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Double:
-                    return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
+                    return new FixedBinaryArrayBuilder<double>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.FixedSizedBinary:
                     return new FixedBinaryArrayBuilder(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.String:
