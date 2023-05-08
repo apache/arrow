@@ -272,7 +272,7 @@ def python_cpp_linter(src, clang_format=True, fix=False):
             clang_format_binary = os.path.join(
                 os.environ["CLANG_TOOLS_PATH"], "clang-format")
         else:
-            clang_format_binary = "clang-format"
+            clang_format_binary = "clang-format-14"
 
         run_clang_format = os.path.join(src.cpp, "build-support",
                                         "run_clang_format.py")
