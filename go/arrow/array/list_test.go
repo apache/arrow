@@ -302,7 +302,7 @@ func TestListArraySlice(t *testing.T) {
 	}
 }
 
-func TestList_ValueStr(t *testing.T) {
+func TestListStringRoundTrip(t *testing.T) {
 	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -341,82 +341,10 @@ func TestList_ValueStr(t *testing.T) {
 	arr1 := b1.NewArray().(*array.List)
 	defer arr1.Release()
 
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
+	assert.True(t, array.Equal(arr, arr1))
 }
 
-func TestListBuilder_AppendValueFromString(t *testing.T) {
-	// 1. create array
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	b := array.NewListBuilder(mem, arrow.PrimitiveTypes.Int32)
-	defer b.Release()
-	vb := b.ValueBuilder().(*array.Int32Builder)
-
-	var values = [][]int32{
-		{0, 1, 2, 3, 4, 5, 6},
-		{1, 2, 3, 4, 5, 6, 7},
-		{2, 3, 4, 5, 6, 7, 8},
-		{3, 4, 5, 6, 7, 8, 9},
-	}
-	for _, value := range values {
-		b.AppendNull()
-		b.Append(true)
-		for _, el := range value {
-			vb.Append(el)
-			vb.AppendNull()
-		}
-		b.Append(false)
-	}
-
-	arr := b.NewArray().(*array.List)
-	defer arr.Release()
-
-	// 2. create array via AppendValueFromString
-	b1 := array.NewListBuilder(mem, arrow.PrimitiveTypes.Int32)
-	defer b1.Release()
-
-	for i := 0; i < arr.Len(); i++ {
-		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
-	}
-
-	arr1 := b1.NewArray().(*array.List)
-	defer arr1.Release()
-
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		if arr.IsValid(i) {
-			func() {
-				// defer in a loop is a bad practice, at least, do the release in a func
-				start, end := arr.ValueOffsets(i)
-				start1, end1 := arr1.ValueOffsets(i)
-				assert.Exactly(t, start, start1)
-				assert.Exactly(t, end, end1)
-
-				elem := array.NewSlice(arr.ListValues(), start, end).(*array.Int32)
-				defer elem.Release()
-				elem1 := array.NewSlice(arr1.ListValues(), start1, end1).(*array.Int32)
-				defer elem1.Release()
-
-				assert.Equal(t, elem.Len(), elem1.Len())
-				for i := 0; i < elem.Len(); i++ {
-					assert.Equal(t, elem.IsValid(i), elem1.IsValid(i))
-					if elem.IsValid(i) {
-						assert.Exactly(t, elem.Value(i), elem1.Value(i))
-					}
-				}
-			}()
-		}
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
-}
-
-func TestLargeList_ValueStr(t *testing.T) {
+func TestLargeListStringRoundTrip(t *testing.T) {
 	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -455,86 +383,5 @@ func TestLargeList_ValueStr(t *testing.T) {
 	arr1 := b1.NewArray().(*array.LargeList)
 	defer arr1.Release()
 
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
-}
-
-func TestLargeListBuilder_AppendValueFromString(t *testing.T) {
-	// 1. create array
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	b := array.NewLargeListBuilder(mem, arrow.PrimitiveTypes.Int32)
-	defer b.Release()
-	vb := b.ValueBuilder().(*array.Int32Builder)
-
-	var values = [][]int32{
-		{0, 1, 2, 3, 4, 5, 6},
-		{1, 2, 3, 4, 5, 6, 7},
-		{2, 3, 4, 5, 6, 7, 8},
-		{3, 4, 5, 6, 7, 8, 9},
-	}
-	for _, value := range values {
-		b.AppendNull()
-		b.Append(true)
-		for _, el := range value {
-			vb.Append(el)
-			vb.AppendNull()
-		}
-		b.Append(false)
-	}
-
-	arr := b.NewArray().(*array.LargeList)
-	defer arr.Release()
-
-	// 2. create array via AppendValueFromString
-	b1 := array.NewLargeListBuilder(mem, arrow.PrimitiveTypes.Int32)
-	defer b1.Release()
-
-	for i := 0; i < arr.Len(); i++ {
-		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
-	}
-
-	arr1 := b1.NewArray().(*array.LargeList)
-	defer arr1.Release()
-
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		if arr.IsValid(i) {
-			assertListElemExactly(t, arr, arr1, i, func(a arrow.Array, i int) interface{} {
-				return a.(*array.Int32).Value(i)
-			})
-		}
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
-}
-
-type valuer func(arrow.Array, int) interface{}
-
-func assertListElemExactly(t *testing.T, arr, arr1 array.ListLike, i int, valuer valuer) {
-	start, end := arr.ValueOffsets(i)
-	start1, end1 := arr1.ValueOffsets(i)
-	assert.Exactly(t, start, start1)
-	assert.Exactly(t, end, end1)
-
-	elem := array.NewSlice(arr.ListValues(), start, end)
-	defer elem.Release()
-	elem1 := array.NewSlice(arr1.ListValues(), start1, end1)
-	defer elem1.Release()
-
-	assertArrayExactly(t, elem, elem1, valuer)
-}
-
-func assertArrayExactly(t *testing.T, arr, arr1 arrow.Array, valuer valuer) {
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		if arr.IsValid(i) {
-			assert.Exactly(t, valuer(arr, i), valuer(arr1, i))
-		}
-	}
+	assert.True(t, array.Equal(arr, arr1))
 }

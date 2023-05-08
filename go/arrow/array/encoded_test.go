@@ -253,7 +253,7 @@ func TestRunEndEncodedBuilder(t *testing.T) {
 	assert.Equal(t, "Hello", strValues.ValueStr(0))
 }
 
-func TestRunEndEncoded_ValueStr(t *testing.T) {
+func TestRunEndEncodedStringRoundTrip(t *testing.T) {
 	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
@@ -278,6 +278,8 @@ func TestRunEndEncoded_ValueStr(t *testing.T) {
 
 	arr := b.NewArray().(*array.RunEndEncoded)
 	defer arr.Release()
+	logical := arr.LogicalValuesArray()
+	defer logical.Release()
 
 	// 2. create array via AppendValueFromString
 	b1 := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
@@ -289,69 +291,11 @@ func TestRunEndEncoded_ValueStr(t *testing.T) {
 
 	arr1 := b1.NewArray().(*array.RunEndEncoded)
 	defer arr1.Release()
+	logical1 := arr1.LogicalValuesArray()
+	defer logical1.Release()
 
-	assert.Equal(t, arr.Len(), arr1.Len())
-	assert.Equal(t, arr.Values().Len(), arr1.Values().Len())
-	assert.Equal(t, arr.RunEndsArr().Len(), arr1.RunEndsArr().Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.GetPhysicalIndex(i), arr1.GetPhysicalIndex(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
-}
-
-func TestRunEndEncodedBuilder_AppendValueFromString(t *testing.T) {
-	// 1. create array
-	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
-	defer mem.AssertSize(t, 0)
-
-	b := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
-	defer b.Release()
-
-	valBldr := b.ValueBuilder().(*array.StringBuilder)
-
-	b.Append(100)
-	valBldr.Append("Hello")
-	b.Append(100)
-	valBldr.Append("beautiful")
-	b.Append(50)
-	valBldr.Append("world")
-	b.ContinueRun(50)
-	b.Append(100)
-	valBldr.Append("of")
-	b.Append(100)
-	valBldr.Append("RLE")
-	b.AppendNull()
-
-	arr := b.NewArray().(*array.RunEndEncoded)
-	defer arr.Release()
-
-	// 2. create array via AppendValueFromString
-	b1 := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
-	defer b1.Release()
-
-	for i := 0; i < arr.Len(); i++ {
-		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
-	}
-
-	arr1 := b1.NewArray().(*array.RunEndEncoded)
-	defer arr1.Release()
-
-	assert.Equal(t, arr.Len(), arr1.Len())
-	assert.Equal(t, arr.Values().Len(), arr1.Values().Len())
-	assert.Equal(t, arr.RunEndsArr().Len(), arr1.RunEndsArr().Len())
-
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Exactly(t, arr.GetPhysicalIndex(i), arr1.GetPhysicalIndex(i))
-		if arr.IsValid(i) {
-			assert.Exactly(t,
-				arr.Values().(*array.String).Value(arr.GetPhysicalIndex(i)),
-				arr1.Values().(*array.String).Value(arr1.GetPhysicalIndex(i)),
-			)
-		}
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
+	assert.True(t, array.Equal(arr, arr1))
+	assert.True(t, array.Equal(logical, logical1))
 }
 
 func TestREEBuilderOverflow(t *testing.T) {

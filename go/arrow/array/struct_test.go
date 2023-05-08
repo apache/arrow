@@ -134,7 +134,7 @@ func TestStructArray(t *testing.T) {
 	}
 }
 
-func TestStruct_ValueStr(t *testing.T) {
+func TestStructStringRoundTrip(t *testing.T) {
 	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -171,63 +171,7 @@ func TestStruct_ValueStr(t *testing.T) {
 	arr1 := b1.NewArray().(*array.Struct)
 	defer arr1.Release()
 
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
-
-}
-
-func TestStructBuilder_AppendValueFromString(t *testing.T) {
-	// 1. create array
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	dt := arrow.StructOf(
-		arrow.Field{Name: "nullable_bool", Type: new(arrow.BooleanType), Nullable: true},
-		arrow.Field{Name: "non_nullable_bool", Type: new(arrow.BooleanType)},
-	)
-
-	builder := array.NewStructBuilder(memory.DefaultAllocator, dt)
-	nullableBld := builder.FieldBuilder(0).(*array.BooleanBuilder)
-	nonNullableBld := builder.FieldBuilder(1).(*array.BooleanBuilder)
-
-	builder.Append(true)
-	nullableBld.Append(true)
-	nonNullableBld.Append(true)
-
-	builder.Append(true)
-	nullableBld.AppendNull()
-	nonNullableBld.Append(true)
-
-	builder.AppendNull()
-
-	arr := builder.NewArray().(*array.Struct)
-
-	// 2. create array via AppendValueFromString
-	b1 := array.NewStructBuilder(mem, dt)
-	defer b1.Release()
-
-	for i := 0; i < arr.Len(); i++ {
-		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
-	}
-
-	arr1 := b1.NewArray().(*array.Struct)
-	defer arr1.Release()
-
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		if arr.IsValid(i) {
-			assertArrayExactly(t, arr.Field(0), arr1.Field(0), func(a arrow.Array, i int) interface{} {
-				return a.(*array.Boolean).Value(i)
-			})
-			assertArrayExactly(t, arr.Field(1), arr1.Field(1), func(a arrow.Array, i int) interface{} {
-				return a.(*array.Boolean).Value(i)
-			})
-		}
-	}
+	assert.True(t, array.Equal(arr, arr1))
 }
 
 func TestStructArrayEmpty(t *testing.T) {

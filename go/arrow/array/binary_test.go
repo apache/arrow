@@ -670,7 +670,7 @@ func TestBinaryInvalidOffsets(t *testing.T) {
 	}, "data has offset and value offset is overflowing")
 }
 
-func TestBinary_ValueStr(t *testing.T) {
+func TestBinaryStringRoundTrip(t *testing.T) {
 	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -698,43 +698,5 @@ func TestBinary_ValueStr(t *testing.T) {
 	arr1 := b1.NewArray().(*Binary)
 	defer arr1.Release()
 
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
-}
-
-func TestLargeBinary_ValueStr(t *testing.T) {
-	// 1. create array
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
-	valid := []bool{true, true, false, false, true, true, true, true, false, true}
-
-	b := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
-	defer b.Release()
-
-	b.AppendStringValues(values, valid)
-
-	arr := b.NewArray().(*LargeBinary)
-	defer arr.Release()
-
-	// 2. create array via AppendValueFromString
-	b1 := NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
-	defer b1.Release()
-
-	for i := 0; i < arr.Len(); i++ {
-		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
-	}
-
-	arr1 := b1.NewArray().(*LargeBinary)
-	defer arr1.Release()
-
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
+	assert.True(t, Equal(arr, arr1))
 }

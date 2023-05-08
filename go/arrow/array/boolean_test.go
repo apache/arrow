@@ -291,7 +291,7 @@ func TestBooleanStringer(t *testing.T) {
 	assert.Equal(t, array.NullValueStr, arr.ValueStr(2))
 }
 
-func TestBoolean_ValueStr(t *testing.T) {
+func TestBooleanStringRoundTrip(t *testing.T) {
 	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -318,9 +318,5 @@ func TestBoolean_ValueStr(t *testing.T) {
 	arr1 := b1.NewArray().(*array.Boolean)
 	defer arr1.Release()
 
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
+	assert.True(t, array.Equal(arr, arr1))
 }

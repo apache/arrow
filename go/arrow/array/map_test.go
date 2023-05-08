@@ -174,7 +174,7 @@ func TestMapArrayBuildIntToInt(t *testing.T) {
 	assert.Equal(t, "[{[0 1 2 3 4 5] [1 1 2 3 5 8]} (null) {[0 1 2 3 4 5] [(null) (null) 0 1 (null) 2]} {[] []}]", arr.String())
 }
 
-func TestMap_ValueStr(t *testing.T) {
+func TestMapStringRoundTrip(t *testing.T) {
 	// 1. create array
 	dt := arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32)
 
@@ -215,88 +215,5 @@ func TestMap_ValueStr(t *testing.T) {
 	arr1 := b1.NewArray().(*array.Map)
 	defer arr1.Release()
 
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
-}
-
-func TestMapBuilder_AppendValueFromString(t *testing.T) {
-	// 1. create array
-	dt := arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32)
-
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	b := array.NewMapBuilderWithType(mem, dt)
-	defer b.Release()
-
-	kb := b.KeyBuilder().(*array.StringBuilder)
-	ib := b.ItemBuilder().(*array.Int32Builder)
-
-	for n := 0; n < 10; n++ {
-		b.AppendNull()
-		b.Append(true)
-
-		for r := 'a'; r <= 'z'; r++ {
-			kb.Append(string(r) + strconv.Itoa(n))
-			if (n+int(r))%2 == 0 {
-				ib.AppendNull()
-			} else {
-				ib.Append(int32(n + int(r)))
-			}
-		}
-	}
-
-	arr := b.NewArray().(*array.Map)
-	defer arr.Release()
-
-	// 2. create array via AppendValueFromString
-	b1 := array.NewMapBuilderWithType(mem, dt)
-	defer b1.Release()
-
-	for i := 0; i < arr.Len(); i++ {
-		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
-	}
-
-	arr1 := b1.NewArray().(*array.Map)
-	defer arr1.Release()
-
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		if arr.IsValid(i) {
-			start, end := arr.ValueOffsets(i)
-			start1, end1 := arr1.ValueOffsets(i)
-			assert.Exactly(t, start, start1)
-			assert.Exactly(t, end, end1)
-
-		}
-		if arr.IsValid(i) {
-			assertMapEntriesExactly(t, arr, arr1, i,
-				func(a arrow.Array, i int) interface{} {
-					return a.(*array.String).Value(i)
-				},
-				func(a arrow.Array, i int) interface{} {
-					return a.(*array.Int32).Value(i)
-				},
-			)
-		}
-	}
-}
-
-func assertMapEntriesExactly(t *testing.T, arr, arr1 *array.Map, i int, keyValuer, itemValuer valuer) {
-	start, end := arr.ValueOffsets(i)
-	start1, end1 := arr1.ValueOffsets(i)
-	assert.Exactly(t, start, start1)
-	assert.Exactly(t, end, end1)
-
-	elem := array.NewSlice(arr.ListValues(), start, end).(*array.Struct) // map is list of structs
-	defer elem.Release()
-	elem1 := array.NewSlice(arr1.ListValues(), start1, end1).(*array.Struct) // map is list of structs
-	defer elem1.Release()
-
-	assertArrayExactly(t, elem.Field(0), elem1.Field(0), keyValuer)
-	assertArrayExactly(t, elem.Field(1), elem1.Field(1), itemValuer)
+	assert.True(t, array.Equal(arr, arr1))
 }

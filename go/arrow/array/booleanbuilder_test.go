@@ -92,39 +92,3 @@ func TestBooleanBuilder_Empty(t *testing.T) {
 	assert.Equal(t, want, boolValues(a))
 	a.Release()
 }
-
-func TestBooleanBuilder_AppendValueFromString(t *testing.T) {
-	// 1. create array
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	values := []bool{true, false, true, true, true, true, true, false, true, false}
-	valid := []bool{true, false, false, true, false, true, true, false, true, false}
-
-	b := array.NewBooleanBuilder(mem)
-	defer b.Release()
-
-	b.AppendValues(values, valid)
-
-	arr := b.NewArray().(*array.Boolean)
-	defer arr.Release()
-
-	// 2. create array via AppendValueFromString
-	b1 := array.NewBooleanBuilder(mem)
-	defer b1.Release()
-
-	for i := 0; i < arr.Len(); i++ {
-		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
-	}
-
-	arr1 := b1.NewArray().(*array.Boolean)
-	defer arr1.Release()
-
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		if arr.IsValid(i) {
-			assert.Exactly(t, arr.Value(i), arr1.Value(i))
-		}
-	}
-}

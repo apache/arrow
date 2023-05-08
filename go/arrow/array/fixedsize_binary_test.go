@@ -153,7 +153,7 @@ func TestFixedSizeBinary_MarshalUnmarshalJSON(t *testing.T) {
 	}
 }
 
-func TestFixedSizeBinary_ValueStr(t *testing.T) {
+func TestFixedSizeBinaryStringRoundTrip(t *testing.T) {
 	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -185,9 +185,5 @@ func TestFixedSizeBinary_ValueStr(t *testing.T) {
 	arr1 := b1.NewArray().(*array.FixedSizeBinary)
 	defer arr1.Release()
 
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
+	assert.True(t, array.Equal(arr, arr1))
 }

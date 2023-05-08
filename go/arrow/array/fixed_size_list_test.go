@@ -217,7 +217,7 @@ func TestFixedSizeListArraySlice(t *testing.T) {
 	}
 }
 
-func TestFixedSizeList_ValueStr(t *testing.T) {
+func TestFixedSizeListStringRoundTrip(t *testing.T) {
 	// 1. create array
 	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer pool.AssertSize(t, 0)
@@ -253,56 +253,5 @@ func TestFixedSizeList_ValueStr(t *testing.T) {
 	arr1 := b1.NewArray().(*array.FixedSizeList)
 	defer arr1.Release()
 
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Equal(t, arr.ValueStr(i), arr1.ValueStr(i))
-	}
-}
-
-func TestFixedSizeBinaryBuilder_AppendValueFromString(t *testing.T) {
-	// 1. create array
-	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer pool.AssertSize(t, 0)
-
-	const N = 3
-	var (
-		values = [][N]int32{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}, {9, -9, -8}}
-		valid  = []bool{true, false, true, true}
-	)
-
-	b := array.NewFixedSizeListBuilder(pool, N, arrow.PrimitiveTypes.Int32)
-	defer b.Release()
-
-	vb := b.ValueBuilder().(*array.Int32Builder)
-	vb.Reserve(len(values))
-
-	for i, v := range values {
-		b.Append(valid[i])
-		vb.AppendValues(v[:], nil)
-	}
-
-	arr := b.NewArray().(*array.FixedSizeList)
-	defer arr.Release()
-
-	// 2. create array via AppendValueFromString
-	b1 := array.NewFixedSizeListBuilder(pool, N, arrow.PrimitiveTypes.Int32)
-	defer b1.Release()
-
-	for i := 0; i < arr.Len(); i++ {
-		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
-	}
-
-	arr1 := b1.NewArray().(*array.FixedSizeList)
-	defer arr1.Release()
-
-	assert.Equal(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Equal(t, arr.IsValid(i), arr1.IsValid(i))
-		if arr.IsValid(i) {
-			assertListElemExactly(t, arr, arr1, i, func(a arrow.Array, i int) interface{} {
-				return a.(*array.Int32).Value(i)
-			})
-		}
-	}
+	assert.True(t, array.Equal(arr, arr1))
 }
