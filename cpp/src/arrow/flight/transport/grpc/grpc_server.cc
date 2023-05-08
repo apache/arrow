@@ -307,7 +307,8 @@ class GrpcServiceHandler final : public FlightService::Service {
       } else {
         token = std::string(auth_header->second.data(), auth_header->second.length());
       }
-      GRPC_RETURN_NOT_OK(auth_handler_->IsValid(token, &flight_context.peer_identity_));
+      GRPC_RETURN_NOT_OK(
+          auth_handler_->IsValid(flight_context, token, &flight_context.peer_identity_));
     }
 
     return MakeCallContext(method, context, flight_context);
@@ -322,8 +323,7 @@ class GrpcServiceHandler final : public FlightService::Service {
     GrpcAddServerHeaders outgoing_headers(context);
     for (const auto& factory : middleware_) {
       std::shared_ptr<ServerMiddleware> instance;
-      Status result =
-          factory.second->StartCall(info, flight_context.incoming_headers(), &instance);
+      Status result = factory.second->StartCall(info, flight_context, &instance);
       if (!result.ok()) {
         // Interceptor rejected call, end the request on all existing
         // interceptors
@@ -355,8 +355,8 @@ class GrpcServiceHandler final : public FlightService::Service {
     }
     GrpcServerAuthSender outgoing{stream};
     GrpcServerAuthReader incoming{stream};
-    RETURN_WITH_MIDDLEWARE(flight_context,
-                           auth_handler_->Authenticate(&outgoing, &incoming));
+    RETURN_WITH_MIDDLEWARE(flight_context, auth_handler_->Authenticate(
+                                               flight_context, &outgoing, &incoming));
   }
 
   ::grpc::Status ListFlights(ServerContext* context, const pb::Criteria* request,

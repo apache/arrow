@@ -24,8 +24,19 @@ ARG manylinux
 
 ENV MANYLINUX_VERSION=${manylinux}
 
+# Ensure dnf is installed, especially for the manylinux2014 base
+RUN yum install -y dnf
+
 # Install basic dependencies
-RUN yum install -y git flex curl autoconf zip perl-IPC-Cmd wget 
+RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget kernel-headers
+
+# A system Python is required for ninja and vcpkg in this Dockerfile.
+# On manylinux2014 base images, system Python is 2.7.5, while
+# on manylinux_2_28, no system python is installed.
+# We therefore override the PATH with Python 3.8 in /opt/python
+# so that we have a consistent Python version across base images.
+ENV CPYTHON_VERSION=cp38
+ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
 
 # Install CMake
 # AWS SDK doesn't work with CMake=3.22 due to https://gitlab.kitware.com/cmake/cmake/-/issues/22524
@@ -45,12 +56,10 @@ RUN /arrow/ci/scripts/install_ccache.sh ${ccache} /usr/local
 
 # Install vcpkg
 ARG vcpkg
-ARG glibc=2.18
 COPY ci/vcpkg/*.patch \
      ci/vcpkg/*linux*.cmake \
      arrow/ci/vcpkg/
 COPY ci/scripts/install_vcpkg.sh \
-     ci/scripts/install_glibc.sh \
      arrow/ci/scripts/
 ENV VCPKG_ROOT=/opt/vcpkg
 RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
@@ -77,6 +86,7 @@ RUN vcpkg install \
         --x-feature=json \
         --x-feature=parquet
 
+# Configure Python for applications running in the bash shell of this Dockerfile
 ARG python=3.8
 ENV PYTHON_VERSION=${python}
 RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-*) && \

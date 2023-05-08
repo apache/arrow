@@ -705,7 +705,8 @@ TestServerAuthHandler::TestServerAuthHandler(const std::string& username,
 
 TestServerAuthHandler::~TestServerAuthHandler() {}
 
-Status TestServerAuthHandler::Authenticate(ServerAuthSender* outgoing,
+Status TestServerAuthHandler::Authenticate(const ServerCallContext& context,
+                                           ServerAuthSender* outgoing,
                                            ServerAuthReader* incoming) {
   std::string token;
   RETURN_NOT_OK(incoming->Read(&token));
@@ -716,7 +717,8 @@ Status TestServerAuthHandler::Authenticate(ServerAuthSender* outgoing,
   return Status::OK();
 }
 
-Status TestServerAuthHandler::IsValid(const std::string& token,
+Status TestServerAuthHandler::IsValid(const ServerCallContext& context,
+                                      const std::string& token,
                                       std::string* peer_identity) {
   if (token != password_) {
     return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
@@ -733,7 +735,8 @@ TestServerBasicAuthHandler::TestServerBasicAuthHandler(const std::string& userna
 
 TestServerBasicAuthHandler::~TestServerBasicAuthHandler() {}
 
-Status TestServerBasicAuthHandler::Authenticate(ServerAuthSender* outgoing,
+Status TestServerBasicAuthHandler::Authenticate(const ServerCallContext& context,
+                                                ServerAuthSender* outgoing,
                                                 ServerAuthReader* incoming) {
   std::string token;
   RETURN_NOT_OK(incoming->Read(&token));
@@ -746,7 +749,8 @@ Status TestServerBasicAuthHandler::Authenticate(ServerAuthSender* outgoing,
   return Status::OK();
 }
 
-Status TestServerBasicAuthHandler::IsValid(const std::string& token,
+Status TestServerBasicAuthHandler::IsValid(const ServerCallContext& context,
+                                           const std::string& token,
                                            std::string* peer_identity) {
   if (token != basic_auth_.username) {
     return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");

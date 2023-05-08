@@ -2235,6 +2235,11 @@ bool S3FileSystem::Equals(const FileSystem& other) const {
   return options().Equals(s3fs.options());
 }
 
+Result<std::string> S3FileSystem::PathFromUri(const std::string& uri_string) const {
+  return internal::PathFromUriHelper(uri_string, {"s3"}, /*accept_local_paths=*/false,
+                                     internal::AuthorityHandlingBehavior::kPrepend);
+}
+
 S3Options S3FileSystem::options() const { return impl_->options(); }
 
 std::string S3FileSystem::region() const { return impl_->region(); }

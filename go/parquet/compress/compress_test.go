@@ -22,7 +22,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/parquet/compress"
+	"github.com/apache/arrow/go/v13/parquet/compress"
 	"github.com/stretchr/testify/assert"
 )
 
