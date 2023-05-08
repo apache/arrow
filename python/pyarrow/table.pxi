@@ -1594,6 +1594,9 @@ cdef class RecordBatch(_Tabular):
     pyarrow.RecordBatch
     n_legs: int64
     animals: string
+    ----
+    n_legs: [2,2,4,4,5,100]
+    animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
     >>> pa.RecordBatch.from_arrays([n_legs, animals], names=names).to_pandas()
        n_legs        animals
     0       2       Flamingo
@@ -1618,6 +1621,12 @@ cdef class RecordBatch(_Tabular):
     day: int64
     n_legs: int64
     animals: string
+    ----
+    year: [2020,2022,2021,2022]
+    month: [3,5,7,9]
+    day: [1,5,9,13]
+    n_legs: [2,4,5,100]
+    animals: ["Flamingo","Horse","Brittle stars","Centipede"]
     >>> pa.RecordBatch.from_pandas(df).to_pandas()
        year  month  day  n_legs        animals
     0  2020      3    1       2       Flamingo
@@ -1652,6 +1661,12 @@ cdef class RecordBatch(_Tabular):
     day: int64
     n_legs: int64
     animals: string
+    ----
+    year: [2020,2022,2021,2022]
+    month: [3,5,7,9]
+    day: [1,5,9,13]
+    n_legs: [2,4,5,100]
+    animals: ["Flamingo","Horse","Brittle stars","Centipede"]
     """
 
     def __cinit__(self):
@@ -1733,6 +1748,9 @@ cdef class RecordBatch(_Tabular):
         pyarrow.RecordBatch
         n_legs: int64
         animals: string
+        ----
+        n_legs: [2,2,4,4,5,100]
+        animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
         >>> pa.RecordBatch.from_pydict(pydict).to_pandas()
            n_legs        animals
         0       2       Flamingo
@@ -1788,6 +1806,10 @@ cdef class RecordBatch(_Tabular):
         pyarrow.RecordBatch
         n_legs: int64
         animals: string
+        ----
+        n_legs: [2,4]
+        animals: ["Flamingo","Dog"]
+
         >>> pa.RecordBatch.from_pylist(pylist).to_pandas()
            n_legs   animals
         0       2  Flamingo
@@ -1819,12 +1841,6 @@ cdef class RecordBatch(_Tabular):
             return self.equals(other)
         except TypeError:
             return NotImplemented
-
-    def __repr__(self):
-        # TODO remove this and update pytests/doctests for
-        # RecordBatch.to_string(preview_cols=10) usage in
-        # parent class
-        return self.to_string()
 
     def validate(self, *, full=False):
         """
@@ -2402,12 +2418,16 @@ cdef class RecordBatch(_Tabular):
         >>> batch.select([1])
         pyarrow.RecordBatch
         animals: string
+        ----
+        animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
 
         Select columns by names:
 
         >>> batch.select(["n_legs"])
         pyarrow.RecordBatch
         n_legs: int64
+        ----
+        n_legs: [2,2,4,4,5,100]
         """
         cdef:
             shared_ptr[CRecordBatch] c_batch
@@ -2558,6 +2578,12 @@ cdef class RecordBatch(_Tabular):
         day: int64
         n_legs: int64
         animals: string
+        ----
+        year: [2020,2022,2021,2022]
+        month: [3,5,7,9]
+        day: [1,5,9,13]
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
 
         Convert pandas DataFrame to RecordBatch using schema:
 
@@ -2569,12 +2595,17 @@ cdef class RecordBatch(_Tabular):
         pyarrow.RecordBatch
         n_legs: int64
         animals: string
+        ----
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
 
         Convert pandas DataFrame to RecordBatch specifying columns:
 
         >>> pa.RecordBatch.from_pandas(df, columns=["n_legs"])
         pyarrow.RecordBatch
         n_legs: int64
+        ----
+        n_legs: [2,4,5,100]
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
         arrays, schema, n_rows = dataframe_to_arrays(
@@ -2622,6 +2653,9 @@ cdef class RecordBatch(_Tabular):
         pyarrow.RecordBatch
         n_legs: int64
         animals: string
+        ----
+        n_legs: [2,2,4,4,5,100]
+        animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
         >>> pa.RecordBatch.from_arrays([n_legs, animals], names=names).to_pandas()
            n_legs        animals
         0       2       Flamingo
@@ -5063,6 +5097,9 @@ def record_batch(data, names=None, schema=None, metadata=None):
     pyarrow.RecordBatch
     n_legs: int64
     animals: string
+    ----
+    n_legs: [2,2,4,4,5,100]
+    animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
     >>> pa.record_batch([n_legs, animals], names=["n_legs", "animals"]).to_pandas()
        n_legs        animals
     0       2       Flamingo
@@ -5081,6 +5118,9 @@ def record_batch(data, names=None, schema=None, metadata=None):
     pyarrow.RecordBatch
     n_legs: int64
     animals: string
+    ----
+    n_legs: [2,2,4,4,5,100]
+    animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
     >>> pa.record_batch([n_legs, animals],
     ...                  names=names,
     ...                  metadata = my_metadata).schema
@@ -5104,6 +5144,13 @@ def record_batch(data, names=None, schema=None, metadata=None):
     day: int64
     n_legs: int64
     animals: string
+    ----
+    year: [2020,2022,2021,2022]
+    month: [3,5,7,9]
+    day: [1,5,9,13]
+    n_legs: [2,4,5,100]
+    animals: ["Flamingo","Horse","Brittle stars","Centipede"]
+
     >>> pa.record_batch(df).to_pandas()
        year  month  day  n_legs        animals
     0  2020      3    1       2       Flamingo
