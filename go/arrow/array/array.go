@@ -27,7 +27,11 @@ import (
 const (
 	// UnknownNullCount specifies the NullN should be calculated from the null bitmap buffer.
 	UnknownNullCount = -1
-	NullValueStr     = "(null)"
+
+	// NullValueStr represents a null value in arrow.Array.ValueStr and in Builder.AppendValueFromString.
+	// It should be returned from the arrow.Array.ValueStr implementations.
+	// Using it as the value in Builder.AppendValueFromString should be equivalent to Builder.AppendNull.
+	NullValueStr = "(null)"
 )
 
 type array struct {
