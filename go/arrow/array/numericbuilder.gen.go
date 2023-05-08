@@ -3534,29 +3534,12 @@ func (b *DurationBuilder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	var value arrow.Duration
-	var unitStr string
-	n, err := fmt.Sscanf(s, "%d%s", &value, &unitStr)
+	dur, err := time.ParseDuration(s)
 	if err != nil {
-		b.AppendNull()
-		return err
-	}
-	if n != 2 {
-		b.AppendNull()
-		return fmt.Errorf("failed to parse Duration from %q", s)
-	}
-
-	// to ns & back
-	unit, err := arrow.TimeUnitFromString(unitStr)
-	if err != nil {
-		b.AppendNull()
 		return err
 	}
 
-	value *= arrow.Duration(unit.Multiplier())
-	value /= arrow.Duration(b.dtype.Unit.Multiplier())
-
-	b.Append(value)
+	b.Append(arrow.Duration(dur / b.dtype.Unit.Multiplier()))
 	return nil
 }
 

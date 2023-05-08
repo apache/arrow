@@ -225,29 +225,12 @@ func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
     }
     b.Append(v)
   {{else if (eq .Name "Duration") -}}
-	var value arrow.Duration
-	var unitStr string
-	n, err := fmt.Sscanf(s, "%d%s", &value, &unitStr)
+	dur, err := time.ParseDuration(s)
 	if err != nil {
-		b.AppendNull()
-		return err
-	}
-	if n != 2 {
-		b.AppendNull()
-		return fmt.Errorf("failed to parse Duration from %q", s)
-	}
-
-	// to ns & back
-	unit, err := arrow.TimeUnitFromString(unitStr)
-	if err != nil {
-		b.AppendNull()
 		return err
 	}
 
-	value *= arrow.Duration(unit.Multiplier())
-	value /= arrow.Duration(b.dtype.Unit.Multiplier())
-
-	b.Append(value)
+	b.Append(arrow.Duration(dur / b.dtype.Unit.Multiplier()))
   {{else if or (eq .Name "Int8") (eq .Name "Int16") (eq .Name "Int32") (eq .Name "Int64") -}}
     v, err := strconv.ParseInt(s, 10, {{.Size}} * 8)
     if err != nil {
