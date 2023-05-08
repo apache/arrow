@@ -204,6 +204,7 @@ func (b *FixedSizeListBuilder) Append(v bool) {
 	b.unsafeAppendBoolToBitmap(v)
 }
 
+// AppendNull will append null values to the underlying values by itself
 func (b *FixedSizeListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
