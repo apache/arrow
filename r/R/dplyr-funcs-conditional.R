@@ -90,7 +90,7 @@ register_bindings_conditional <- function() {
     out
   })
 
-  register_binding("dplyr::case_when", function(...) {
+  register_binding("dplyr::case_when", function(..., .default = NULL) {
     formulas <- list2(...)
     n <- length(formulas)
     if (n == 0) {
@@ -112,6 +112,10 @@ register_bindings_conditional <- function() {
       if (inherits(value[[i]], "try-error")) {
         abort(handle_arrow_not_supported(value[[i]], format_expr(f[[3]])))
       }
+    }
+    if (!is.null(.default)) {
+      query[n + 1] <- TRUE
+      value[n + 1] <- .default
     }
     Expression$create(
       "case_when",
