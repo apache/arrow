@@ -26,6 +26,7 @@
 SPHINXOPTS    = -j8
 
 SPHINXBUILD   = sphinx-build
+SPHINXAUTOBUILD = sphinx-autobuild
 PAPER         =
 BUILDDIR      = _build
 SOURCEDIR     = source
@@ -33,9 +34,12 @@ SOURCEDIR     = source
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
 PAPEROPT_letter = -D latex_paper_size=letter
-ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(SOURCEDIR)
+ALLSPHINXOPTS   = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(SOURCEDIR)
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
+# sphinx-autobuild needs an full absolute path for the ignored files
+CURRENT_DIR     = $(shell pwd)
+IGNORE_DIR      = $(CURRENT_DIR)/source/python/generated/*.rst
 
 .PHONY: help
 help:
@@ -78,9 +82,40 @@ clean:
 
 .PHONY: html
 html:
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) source $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
+
+.PHONY: html-live
+html-live:
+	$(SPHINXAUTOBUILD) -b html $(SPHINXOPTS) source $(BUILDDIR)/html
+	@echo
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
+
+.PHONY: python
+python:
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) source/python $(BUILDDIR)/html/python
+	@echo
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html/python."
+
+.PHONY: python-live
+python-live:
+	@echo Running: $(SPHINXAUTOBUILD) -b html $(SPHINXOPTS) --ignore $(IGNORE_DIR) source/python $(BUILDDIR)/html/python
+	$(SPHINXAUTOBUILD) -b html $(SPHINXOPTS) --ignore $(IGNORE_DIR) source/python $(BUILDDIR)/html/python
+	@echo
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html/python."
+
+.PHONY: cpp
+cpp:
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) source/cpp $(BUILDDIR)/html/cpp
+	@echo
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html/cpp."
+
+.PHONY: cpp-live
+cpp-live:
+	$(SPHINXAUTOBUILD) -b html $(SPHINXOPTS) source/cpp $(BUILDDIR)/html/cpp
+	@echo
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html/cpp."
 
 .PHONY: dirhtml
 dirhtml:
@@ -251,12 +286,6 @@ dummy:
 	$(SPHINXBUILD) -b dummy $(ALLSPHINXOPTS) $(BUILDDIR)/dummy
 	@echo
 	@echo "Build finished. Dummy builder generates no files."
-
-.PHONY: python
-python:
-	$(SPHINXBUILD) -b html $(SPHINXOPTS) -c $(SOURCEDIR) $(SOURCEDIR)/python $(BUILDDIR)/html/python
-	@echo
-	@echo "Build finished. The HTML files are in $(BUILDDIR)/html/python"
 
 java_tutorial:
 	$(SPHINXBUILD) -b html $(SPHINXOPTS) -c $(SOURCEDIR) $(SOURCEDIR)/java $(BUILDDIR)/html/tutorial/java
