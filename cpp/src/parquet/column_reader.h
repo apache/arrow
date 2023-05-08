@@ -153,9 +153,9 @@ class PARQUET_EXPORT PageReader {
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
   // containing new Page otherwise
   //
-  // In SerializedPageReader, it reuses same decryption buffer and
-  // decompression buffer, so, if NextPage() is called, content of
-  // previous page might be invalidated.
+  // In PageReader, it may reuse same underlying buffer, so, if
+  // NextPage() is called, content of previous page might be
+  // invalidated.
   virtual std::shared_ptr<Page> NextPage() = 0;
 
   virtual void set_max_page_header_size(uint32_t size) = 0;
