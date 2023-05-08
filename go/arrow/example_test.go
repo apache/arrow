@@ -209,7 +209,7 @@ func Example_listArray() {
 // This example shows how to create a FixedSizeList array.
 // The resulting array should be:
 //
-//	[[0, 1, 2], (null), [-1, -1, -1], [3, 4, 5], [6, 7, 8], (null)]
+//	[[0, 1, 2], (null), [3, 4, 5], [6, 7, 8], (null)]
 func Example_fixedSizeListArray() {
 	pool := memory.NewGoAllocator()
 
@@ -251,7 +251,7 @@ func Example_fixedSizeListArray() {
 	// NullN()   = 2
 	// Len()     = 5
 	// Type()    = fixed_size_list<item: int64>[3]
-	// List      = [[0 1 2] (null) [-1 -1 -1] [3 4 5] (null)]
+	// List      = [[0 1 2] (null) [3 4 5] [6 7 8] (null)]
 }
 
 // This example shows how to create a Struct array.
