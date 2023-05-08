@@ -52,11 +52,16 @@ namespace Apache.Arrow.Tests
             [InlineData(new byte[] { 0b11111111 }, 0, 8)]
             [InlineData(new byte[] { 0b11111111 }, 3, 5)]
             [InlineData(new byte[] { 0b11111111, 0b11111111 }, 9, 7)]
-            [InlineData(new byte[] { 0b11111111 }, -1, 0)]
             public void CountsAllOneBitsFromAnOffset(byte[] data, int offset, int expectedCount)
             {
                 Assert.Equal(expectedCount,
                     BitUtility.CountBits(data, offset));
+            }
+
+            [Fact]
+            public void CountsAllOneBitsFromAnOffset_ShouldThrowException()
+            {
+                Assert.Throws<ArgumentOutOfRangeException>( () => BitUtility.CountBits(new byte[] { 0b11111111 }, -1));
             }
 
             [Theory]
@@ -147,6 +152,7 @@ namespace Apache.Arrow.Tests
             [Theory]
             [InlineData(new byte[] { 0b00000000 }, 0, 0, true, new byte[] { 0b00000000 })]
             [InlineData(new byte[] { 0b00000000 }, 0, 1, true, new byte[] { 0b00000001 })]
+            [InlineData(new byte[] { 0b00000000 }, 0, 8, true, new byte[] { 0b11111111 })]
             [InlineData(new byte[] { 0b00000000 }, 2, 2, true, new byte[] { 0b00001100 })]
             [InlineData(new byte[] { 0b00000000 }, 5, 3, true, new byte[] { 0b11100000 })]
             [InlineData(new byte[] { 0b00000000, 0b00000000 }, 8, 1, true, new byte[] { 0b00000000, 0b00000001 })]

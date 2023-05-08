@@ -146,6 +146,9 @@ namespace Apache.Arrow
             /// <returns>Returns the builder (for fluent-style composition).</returns>
             public BitmapBuilder AppendRange(bool value, int length)
             {
+                if (length < 0)
+                    throw new ArgumentOutOfRangeException(nameof(length));
+
                 EnsureAdditionalCapacity(length);
                 Span<byte> span = Span;
                 BitUtility.SetBits(span, Length, length, value);
