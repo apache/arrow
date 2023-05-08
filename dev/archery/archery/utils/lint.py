@@ -267,15 +267,20 @@ def python_cpp_linter(src, clang_format=True, fix=False):
 
     if clang_format:
         logger.info("Running clang-format for python/pyarrow/src/arrow/python")
+
         if "CLANG_TOOLS_PATH" in os.environ:
             clang_format_binary = os.path.join(
                 os.environ["CLANG_TOOLS_PATH"], "clang-format")
         else:
             clang_format_binary = "clang-format"
-        args = ["cpp/build-support/run_clang_format.py", "--source_dir", cpp_src,
+
+        run_clang_format = os.path.join(src.cpp, "build-support",
+                                        "run_clang_format.py")
+        args = [run_clang_format, "--source_dir", cpp_src,
                 "--clang_format_binary", clang_format_binary]
         if fix:
             args += ["--fix"]
+
         yield LintResult.from_cmd(python.run(*args))
 
 
