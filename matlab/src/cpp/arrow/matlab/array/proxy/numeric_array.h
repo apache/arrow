@@ -43,8 +43,20 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             auto it(numeric_mda.cbegin());
             auto dt = it.operator->();
 
-            if (make_copy[0]) {
+            const bool make_deep_copy = make_copy[0];
 
+            if (make_deep_copy) {
+                BuilderType builder;
+                auto st = builder.AppendValues(dt, numeric_mda.getNumberOfElements());
+
+                // TODO: handle error case
+                if (st.ok()) {
+                    auto maybe_array = builder.Finish();
+                    if (maybe_array.ok()) {
+                        array = *maybe_array;
+                    }
+                }
+            } else {
                 // Pass pointer to Arrow array constructor that takes a buffer
                 // Do not make a copy when creating arrow::Buffer
                 std::shared_ptr<arrow::Buffer> buffer(
@@ -58,18 +70,6 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                                                                                                nullptr, // TODO: fill validity bitmap with data
                                                                                                -1));
                 array = array_wrapper;
-
-            } else {
-                BuilderType builder;
-                auto st = builder.AppendValues(dt, numeric_mda.getNumberOfElements());
-
-                // TODO: handle error case
-                if (st.ok()) {
-                    auto maybe_array = builder.Finish();
-                    if (maybe_array.ok()) {
-                        array = *maybe_array;
-                    }
-                }
             }
         }
 
