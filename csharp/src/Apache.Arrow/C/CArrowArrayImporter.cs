@@ -155,7 +155,9 @@ namespace Apache.Arrow.C
                         throw new NotSupportedException();
                     case ArrowTypeId.Map:
                         throw new NotSupportedException();
-                    case ArrowTypeId.Null: // TODO
+                    case ArrowTypeId.Null:
+                        buffers = new ArrowBuffer[0];
+                        break;
                     default:
                         if (type is FixedWidthType fixedWidthType)
                         {
@@ -163,7 +165,7 @@ namespace Apache.Arrow.C
                         }
                         else
                         {
-                            throw new InvalidOperationException();
+                            throw new NotSupportedException();
                         }
                         break;
                 }

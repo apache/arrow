@@ -454,11 +454,12 @@ namespace Apache.Arrow.Tests
                 dynamic table = pa.table(
                     new PyList(new PyObject[]
                     {
+                        pa.array(new object[] { null, null, null, null, null }),
                         pa.array(new long?[] { 1, 2, 3, null, 5 }),
                         pa.array(new[] { "hello", "world", null, "foo", "bar" }),
                         pa.array(new[] { 0.0, 1.4, 2.5, 3.6, 4.7 })
                     }),
-                    new[] { "col1", "col2", "col3" });
+                    new[] { "col0", "col1", "col2", "col3" });
 
                 dynamic batch = table.to_batches()[0];
 

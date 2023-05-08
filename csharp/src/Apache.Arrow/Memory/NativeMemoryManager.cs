@@ -88,7 +88,11 @@ namespace Apache.Arrow.Memory
             INativeAllocationOwner oldOwner = Interlocked.Exchange(ref _owner, newOwner);
             if (oldOwner == null)
             {
-                _owner = null;
+                // We've already been disposed, so restore the null owner. If it turns
+                // out that we've raced the disposing thread and we end up with ownership
+                // of the memory, we'll need to deallocate it as a result of the sharing
+                // failure.
+                Interlocked.Exchange(ref _owner, null);
                 return false;
             }
 
