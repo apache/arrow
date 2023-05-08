@@ -25,7 +25,9 @@ namespace Apache.Arrow.C
         private unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
 
         /// <summary>
-        /// Export an <see cref="IArrowArray"/> to a <see cref="CArrowArray"/>.
+        /// Export an <see cref="IArrowArray"/> to a <see cref="CArrowArray"/>. Whether or not the
+        /// export succeeds, the original array becomes invalid. Clone an array to continue using it
+        /// after a copy has been exported.
         /// </summary>
         /// <param name="array">The array to export</param>
         /// <param name="cArray">An allocated but uninitialized CArrowArray pointer.</param>
@@ -66,7 +68,9 @@ namespace Apache.Arrow.C
         }
 
         /// <summary>
-        /// Export a <see cref="RecordBatch"/> to a <see cref="CArrowArray"/>.
+        /// Export a <see cref="RecordBatch"/> to a <see cref="CArrowArray"/>. Whether or not the
+        /// export succeeds, the original record batch becomes invalid. Clone the batch to continue using it
+        /// after a copy has been exported.
         /// </summary>
         /// <param name="batch">The record batch to export</param>
         /// <param name="cArray">An allocated but uninitialized CArrowArray pointer.</param>

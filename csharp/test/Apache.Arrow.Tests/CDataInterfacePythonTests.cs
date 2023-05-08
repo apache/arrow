@@ -455,11 +455,24 @@ namespace Apache.Arrow.Tests
                     new PyList(new PyObject[]
                     {
                         pa.array(new object[] { null, null, null, null, null }),
-                        pa.array(new long?[] { 1, 2, 3, null, 5 }),
-                        pa.array(new[] { "hello", "world", null, "foo", "bar" }),
-                        pa.array(new[] { 0.0, 1.4, 2.5, 3.6, 4.7 })
+                        pa.array(List(1, 2, 3, null, 5)),
+                        pa.array(List("hello", "world", null, "foo", "bar")),
+                        pa.array(List(0.0, 1.4, 2.5, 3.6, 4.7)),
+                        pa.array(new PyObject[] { List(1, 2), List(3, 4), PyObject.None, PyObject.None, List(5, 4, 3) }),
+                        pa.StructArray.from_arrays(
+                            new PyList(new PyObject[]
+                            {
+                                List(10, 9, null, null, null),
+                                List("banana", "apple", "orange", "cherry", "grape"),
+                                List(null, 4.3, -9, 123.456, 0),
+                            }),
+                            new[] { "fld1", "fld2", "fld3" }),
+                        pa.DictionaryArray.from_arrays(
+                            pa.array(List(1, 0, 1, 1, null)),
+                            pa.array(List("foo", "bar"))
+                            ),
                     }),
-                    new[] { "col0", "col1", "col2", "col3" });
+                    new[] { "col1", "col1", "col2", "col3", "col4", "col5", "col6" });
 
                 dynamic batch = table.to_batches()[0];
 
@@ -610,6 +623,26 @@ namespace Apache.Arrow.Tests
 
             // Since we allocated, we are responsible for freeing the pointer.
             CArrowArrayStream.Free(cArrayStream);
+        }
+
+        private static PyObject List(params int?[] values)
+        {
+            return new PyList(values.Select(i => i == null ? PyObject.None : new PyInt(i.Value)).ToArray());
+        }
+
+        private static PyObject List(params long?[] values)
+        {
+            return new PyList(values.Select(i => i == null ? PyObject.None : new PyInt(i.Value)).ToArray());
+        }
+
+        private static PyObject List(params double?[] values)
+        {
+            return new PyList(values.Select(i => i == null ? PyObject.None : new PyFloat(i.Value)).ToArray());
+        }
+
+        private static PyObject List(params string[] values)
+        {
+            return new PyList(values.Select(i => i == null ? PyObject.None : new PyString(i)).ToArray());
         }
 
         sealed class TestArrayStream : IArrowArrayStream

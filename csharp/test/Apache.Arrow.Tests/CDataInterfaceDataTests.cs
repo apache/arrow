@@ -81,7 +81,7 @@ namespace Apache.Arrow.Tests
             cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate(
                 releaseCallback);
 
-            Assert.Throws<NullReferenceException>(() =>
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 CArrowArrayImporter.ImportArray(cArray, GetTestArray().Data.DataType);
             });

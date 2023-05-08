@@ -16,6 +16,7 @@
 // under the License.
 
 using System;
+using System.Collections.Generic;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -114,13 +115,11 @@ namespace Apache.Arrow.C
 
             public IArrowArray GetAsArray(IArrowType type)
             {
-                // TODO: Cleanup more deterministically when there's an exception
                 return ArrowArrayFactory.BuildArray(GetAsArrayData(_cArray, type));
             }
 
             public RecordBatch GetAsRecordBatch(Schema schema)
             {
-                // TODO: Cleanup more deterministically when there's an exception
                 IArrowArray[] arrays = new IArrowArray[schema.FieldsList.Count];
                 for (int i = 0; i < _cArray->n_children; i++)
                 {
@@ -132,16 +131,8 @@ namespace Apache.Arrow.C
             private ArrayData GetAsArrayData(CArrowArray* cArray, IArrowType type)
             {
                 ArrayData[] children = null;
-                if (cArray->n_children > 0)
-                {
-                    children = new ArrayData[cArray->n_children];
-                    for (int i = 0; i < cArray->n_children; i++)
-                    {
-                        children[i] = GetAsArrayData(cArray->children[i], type);
-                    }
-                }
-
                 ArrowBuffer[] buffers = null;
+                ArrayData dictionary = null;
                 switch (type.TypeId)
                 {
                     case ArrowTypeId.String:
@@ -149,31 +140,34 @@ namespace Apache.Arrow.C
                         buffers = ImportByteArrayBuffers(cArray);
                         break;
                     case ArrowTypeId.List:
+                        children = ProcessListChildren(cArray, ((ListType)type).ValueDataType);
+                        buffers = ImportListBuffers(cArray);
+                        break;
                     case ArrowTypeId.Struct:
+                        children = ProcessStructChildren(cArray, ((StructType)type).Fields);
+                        buffers = new ArrowBuffer[] { ImportValidityBuffer(cArray) };
+                        break;
                     case ArrowTypeId.Union:
-                    case ArrowTypeId.Dictionary:
-                        throw new NotSupportedException();
                     case ArrowTypeId.Map:
+                        // TODO:
                         throw new NotSupportedException();
                     case ArrowTypeId.Null:
                         buffers = new ArrowBuffer[0];
                         break;
+                    case ArrowTypeId.Dictionary:
+                        DictionaryType dictionaryType = (DictionaryType)type;
+                        dictionary = GetAsArrayData(cArray->dictionary, dictionaryType.ValueType);
+                        goto default; // Fall through to get the validity and index data
                     default:
                         if (type is FixedWidthType fixedWidthType)
                         {
-                            buffers = ImportBuffers(cArray, fixedWidthType.BitWidth);
+                            buffers = ImportFixedWidthBuffers(cArray, fixedWidthType.BitWidth);
                         }
                         else
                         {
                             throw new NotSupportedException();
                         }
                         break;
-                }
-
-                ArrayData dictionary = null;
-                if (cArray->dictionary != null)
-                {
-                    dictionary = GetAsArrayData(cArray->dictionary, type);
                 }
 
                 return new ArrayData(
@@ -186,40 +180,82 @@ namespace Apache.Arrow.C
                     dictionary);
             }
 
+            private ArrayData[] ProcessListChildren(CArrowArray* cArray, IArrowType type)
+            {
+                if (cArray->n_children != 1)
+                {
+                    throw new InvalidOperationException("Lists are expected to have exactly one child array");
+                }
+
+                ArrayData[] children = new ArrayData[1];
+                children[0] = GetAsArrayData(cArray->children[0], type);
+                return children;
+            }
+
+            private ArrayData[] ProcessStructChildren(CArrowArray* cArray, IReadOnlyList<Field> fields)
+            {
+                if (cArray->n_children != fields.Count)
+                {
+                    throw new InvalidOperationException("Struct child count does not match schema");
+                }
+
+                ArrayData[] children = new ArrayData[fields.Count];
+                for (int i = 0; i < fields.Count; i++)
+                {
+                    children[i] = GetAsArrayData(cArray->children[i], fields[i].DataType);
+                }
+                return children;
+            }
+
+            private ArrowBuffer ImportValidityBuffer(CArrowArray* cArray)
+            {
+                int length = checked((int)cArray->length);
+                int validityLength = checked((int)BitUtility.RoundUpToMultipleOf8(length) / 8);
+                return (cArray->buffers[0] == null) ? ArrowBuffer.Empty : new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, validityLength));
+            }
+
             private ArrowBuffer[] ImportByteArrayBuffers(CArrowArray* cArray)
             {
                 if (cArray->n_buffers != 3)
                 {
-                    return null;
+                    throw new InvalidOperationException("Byte arrays are expected to have exactly three child arrays");
                 }
 
-                // validity, offsets, data
                 int length = checked((int)cArray->length);
                 int offsetsLength = (length + 1) * 4;
                 int* offsets = (int*)cArray->buffers[1];
                 int valuesLength = offsets[length];
-                int validityLength = checked((int)BitUtility.RoundUpToMultipleOf8(length) / 8);
 
                 ArrowBuffer[] buffers = new ArrowBuffer[3];
+                buffers[0] = ImportValidityBuffer(cArray);
                 buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
                 buffers[2] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[2], 0, valuesLength));
-                if (cArray->buffers[0] != null)
-                {
-                    buffers[0] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, validityLength));
-                }
-                else
-                {
-                    buffers[0] = ArrowBuffer.Empty;
-                }
 
                 return buffers;
             }
 
-            private ArrowBuffer[] ImportBuffers(CArrowArray* cArray, int bitWidth)
+            private ArrowBuffer[] ImportListBuffers(CArrowArray* cArray)
             {
                 if (cArray->n_buffers != 2)
                 {
-                    return null;
+                    throw new InvalidOperationException("List arrays are expected to have exactly two children");
+                }
+
+                int length = checked((int)cArray->length);
+                int offsetsLength = (length + 1) * 4;
+
+                ArrowBuffer[] buffers = new ArrowBuffer[2];
+                buffers[0] = ImportValidityBuffer(cArray);
+                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportFixedWidthBuffers(CArrowArray* cArray, int bitWidth)
+            {
+                if (cArray->n_buffers != 2)
+                {
+                    throw new InvalidOperationException("Arrays of fixed-width type are expected to have exactly two children");
                 }
 
                 // validity, data
@@ -230,18 +266,8 @@ namespace Apache.Arrow.C
                 else
                     valuesLength = checked((int)BitUtility.RoundUpToMultipleOf8(length) / 8);
 
-                int validityLength = checked((int)BitUtility.RoundUpToMultipleOf8(length) / 8);
-
                 ArrowBuffer[] buffers = new ArrowBuffer[2];
-                if (cArray->buffers[0] != null)
-                {
-                    buffers[0] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, validityLength));
-                }
-                else
-                {
-                    buffers[0] = ArrowBuffer.Empty;
-                }
-
+                buffers[0] = ImportValidityBuffer(cArray);
                 buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, valuesLength));
 
                 return buffers;
