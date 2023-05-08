@@ -26,8 +26,8 @@ namespace arrow::matlab::proxy {
 std::shared_ptr<Proxy> Factory::make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments) {
 
     // Register MATLAB Proxy classes with corresponding C++ Proxy classes.
+    REGISTER_PROXY(arrow.array.proxy.Float32Array, arrow::matlab::array::proxy::NumericArray<float>);
     REGISTER_PROXY(arrow.array.proxy.Float64Array, arrow::matlab::array::proxy::NumericArray<double>);
-
     // TODO: Decide what to do in the case that there isn't a Proxy match.
     std::cout << "Did not find a matching C++ proxy for: " + class_name << std::endl;
     return nullptr;
