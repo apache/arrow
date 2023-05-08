@@ -51,7 +51,18 @@ namespace Apache.Arrow.C
                 throw new ArgumentException("Cannot export array to a struct that is already initialized.", nameof(cArray));
             }
 
-            ConvertArray(new SharedNativeAllocationOwner(), array.Data, cArray);
+            ExportedAllocationOwner allocationOwner = new ExportedAllocationOwner();
+            try
+            {
+                ConvertArray(allocationOwner, array.Data, cArray);
+                cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate<ReleaseArrowArray>(ReleaseArray);
+                cArray->private_data = FromDisposable(allocationOwner);
+                allocationOwner = null;
+            }
+            finally
+            {
+                allocationOwner?.Dispose();
+            }
         }
 
         /// <summary>
@@ -81,16 +92,27 @@ namespace Apache.Arrow.C
                 throw new ArgumentException("Cannot export array to a struct that is already initialized.", nameof(cArray));
             }
 
-            ConvertRecordBatch(new SharedNativeAllocationOwner(), batch, cArray);
+            ExportedAllocationOwner allocationOwner = new ExportedAllocationOwner();
+            try
+            {
+                ConvertRecordBatch(allocationOwner, batch, cArray);
+                cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate<ReleaseArrowArray>(ReleaseArray);
+                cArray->private_data = FromDisposable(allocationOwner);
+                allocationOwner = null;
+            }
+            finally
+            {
+                allocationOwner?.Dispose();
+            }
         }
 
-        private unsafe static void ConvertArray(SharedNativeAllocationOwner sharedOwner, ArrayData array, CArrowArray* cArray)
+        private unsafe static void ConvertArray(ExportedAllocationOwner sharedOwner, ArrayData array, CArrowArray* cArray)
         {
             cArray->length = array.Length;
             cArray->offset = array.Offset;
             cArray->null_count = array.NullCount;
             cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate<ReleaseArrowArray>(ReleaseArray);
-            cArray->private_data = FromDisposable(array);
+            cArray->private_data = null;
 
             cArray->n_buffers = array.Buffers?.Length ?? 0;
             cArray->buffers = null;
@@ -100,11 +122,12 @@ namespace Apache.Arrow.C
                 for (int i = 0; i < array.Buffers.Length; i++)
                 {
                     ArrowBuffer buffer = array.Buffers[i];
-                    if (!buffer.TryShare(sharedOwner))
+                    IntPtr ptr;
+                    if (!buffer.TryExport(sharedOwner, out ptr))
                     {
                         throw new NotSupportedException(); // TODO
                     }
-                    cArray->buffers[i] = (byte*)buffer.Memory.Pin().Pointer;
+                    cArray->buffers[i] = (byte*)ptr;
                 }
             }
 
@@ -128,13 +151,13 @@ namespace Apache.Arrow.C
             }
         }
 
-        private unsafe static void ConvertRecordBatch(SharedNativeAllocationOwner sharedOwner, RecordBatch batch, CArrowArray* cArray)
+        private unsafe static void ConvertRecordBatch(ExportedAllocationOwner sharedOwner, RecordBatch batch, CArrowArray* cArray)
         {
             cArray->length = batch.Length;
             cArray->offset = 0;
             cArray->null_count = 0;
             cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate<ReleaseArrowArray>(ReleaseArray);
-            cArray->private_data = FromDisposable(batch);
+            cArray->private_data = null;
 
             cArray->n_buffers = 1;
             cArray->buffers = (byte**)Marshal.AllocCoTaskMem(IntPtr.Size);
@@ -158,25 +181,11 @@ namespace Apache.Arrow.C
 
         private unsafe static void ReleaseArray(CArrowArray* cArray)
         {
-            if (cArray->n_children != 0)
+            if (cArray->private_data != null)
             {
-                for (int i = 0; i < cArray->n_children; i++)
-                {
-                    ReleaseArray(cArray->children[i]);
-                    Marshal.FreeCoTaskMem((IntPtr)cArray->children[i]);
-                }
-                Marshal.FreeCoTaskMem((IntPtr)cArray->children);
-                cArray->children = null;
-                cArray->n_children = 0;
+                Dispose(&cArray->private_data);
             }
-
-            if (cArray->buffers != null)
-            {
-                Marshal.FreeCoTaskMem((IntPtr)cArray->buffers);
-                cArray->buffers = null;
-            }
-
-            Dispose(&cArray->private_data);
+            cArray->private_data = null;
             cArray->release = null;
         }
 

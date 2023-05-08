@@ -13,10 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+
 namespace Apache.Arrow.Memory
 {
-    internal interface IShareable
+    internal interface IOwnableAllocation
     {
-        bool TryShare(SharedNativeAllocationOwner newOwner);
+        bool TryAcquire(out IntPtr ptr, out int offset, out int length);
     }
 }

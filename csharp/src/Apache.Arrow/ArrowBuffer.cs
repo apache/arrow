@@ -73,13 +73,23 @@ namespace Apache.Arrow
             _memoryOwner?.Dispose();
         }
 
-        internal bool TryShare(SharedNativeAllocationOwner newOwner)
+        internal bool TryExport(ExportedAllocationOwner newOwner, out IntPtr ptr)
         {
             if (_memoryOwner == null && IsEmpty)
             {
+                ptr = IntPtr.Zero;
                 return true;
             }
-            return _memoryOwner is IShareable shareableMemory && shareableMemory.TryShare(newOwner);
+
+            if (_memoryOwner is IOwnableAllocation ownable && ownable.TryAcquire(out ptr, out int offset, out int length))
+            {
+                newOwner.Acquire(ptr, offset, length);
+                ptr += offset;
+                return true;
+            }
+
+            ptr = IntPtr.Zero;
+            return false;
         }
     }
 }

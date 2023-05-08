@@ -15,15 +15,41 @@
 
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.Memory
 {
-    internal sealed class SharedNativeAllocationOwner : INativeAllocationOwner
+    internal sealed class ExportedAllocationOwner : INativeAllocationOwner, IDisposable
     {
-        // readonly List<IntPtr> _pointers = new List<IntPtr>();
+        private readonly List<IntPtr> _pointers = new List<IntPtr>();
+        private int _allocationSize;
+
+        ~ExportedAllocationOwner()
+        {
+            Dispose();
+        }
+
+        public void Acquire(IntPtr ptr, int offset, int length)
+        {
+            _pointers.Add(ptr);
+            _allocationSize += length;
+        }
 
         public void Release(IntPtr ptr, int offset, int length)
         {
+            throw new InvalidOperationException();
+        }
+
+        public void Dispose()
+        {
+            for (int i = 0; i < _pointers.Count; i++)
+            {
+                if (_pointers[i] != IntPtr.Zero)
+                {
+                    Marshal.FreeHGlobal(_pointers[i]);
+                    _pointers[i] = IntPtr.Zero;
+                }
+            }
         }
     }
 }

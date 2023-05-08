@@ -87,7 +87,7 @@ namespace Apache.Arrow.C
             }
         }
 
-        private sealed unsafe class ImportedArrowArray : ImportedMemoryOwner
+        private sealed unsafe class ImportedArrowArray : ImportedAllocationOwner
         {
             private readonly CArrowArray* _cArray;
 

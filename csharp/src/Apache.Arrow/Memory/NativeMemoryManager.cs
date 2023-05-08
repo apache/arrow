@@ -20,12 +20,12 @@ using System.Threading;
 
 namespace Apache.Arrow.Memory
 {
-    public class NativeMemoryManager : MemoryManager<byte>, IShareable
+    public class NativeMemoryManager : MemoryManager<byte>, IOwnableAllocation
     {
         private IntPtr _ptr;
         private readonly int _offset;
         private readonly int _length;
-        private INativeAllocationOwner _owner;
+        private readonly INativeAllocationOwner _owner;
 
         public NativeMemoryManager(IntPtr ptr, int offset, int length)
         {
@@ -72,35 +72,32 @@ namespace Apache.Arrow.Memory
         protected override void Dispose(bool disposing)
         {
             // Only free once.
-            INativeAllocationOwner owner = Interlocked.Exchange(ref _owner, null);
-            if (_owner != null)
+            IntPtr ptr = Interlocked.Exchange(ref _ptr, IntPtr.Zero);
+            if (ptr != IntPtr.Zero)
             {
-                IntPtr ptr = Interlocked.Exchange(ref _ptr, IntPtr.Zero);
-                if (ptr != IntPtr.Zero)
-                {
-                    owner.Release(ptr, _offset, _length);
-                }
+                _owner.Release(ptr, _offset, _length);
             }
         }
 
-        bool IShareable.TryShare(SharedNativeAllocationOwner newOwner)
+        bool IOwnableAllocation.TryAcquire(out IntPtr ptr, out int offset, out int length)
         {
-            INativeAllocationOwner oldOwner = Interlocked.Exchange(ref _owner, newOwner);
-            if (oldOwner == null)
+            // TODO: implement refcounted buffers?
+
+            if (object.ReferenceEquals(_owner, NativeMemoryAllocator.ExclusiveOwner))
             {
-                // We've already been disposed, so restore the null owner. If it turns
-                // out that we've raced the disposing thread and we end up with ownership
-                // of the memory, we'll need to deallocate it as a result of the sharing
-                // failure.
-                Interlocked.Exchange(ref _owner, null);
-                return false;
+                ptr = Interlocked.Exchange(ref _ptr, IntPtr.Zero);
+                if (ptr != IntPtr.Zero)
+                {
+                    offset = _offset;
+                    length = _length;
+                    return true;
+                }
             }
 
-            if (oldOwner is SharedNativeAllocationOwner sharedOwner)
-            {
-            }
-
-            return true;
+            ptr = IntPtr.Zero;
+            offset = 0;
+            length = 0;
+            return false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
