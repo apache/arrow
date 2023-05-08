@@ -279,6 +279,16 @@ test_that("case_when()", {
     )
   )
 
+  expect_error(
+    expect_warning(
+      tbl %>%
+        arrow_table() %>%
+        mutate(cw = case_when(int > 5 ~ 1, .default = c(0, 1)))
+    ),
+    "`.default` must have size"
+  )
+
+
   compare_dplyr_binding(
     .input %>%
       transmute(cw = case_when(lgl ~ "abc")) %>%
