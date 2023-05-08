@@ -33,6 +33,8 @@ class Array : public libmexclass::proxy::Proxy {
 
         void ToString(libmexclass::proxy::method::Context& context);
 
+        void Length(libmexclass::proxy::method::Context& context);
+
         virtual void ToMatlab(libmexclass::proxy::method::Context& context) = 0;
 
         std::shared_ptr<arrow::Array> array;

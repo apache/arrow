@@ -38,16 +38,4 @@ classdef Float64Array < arrow.array.Array
             data = obj.Proxy.ToMatlab();
         end
     end
-
-    methods (Access=protected)
-        function displayScalarObject(obj)
-            disp(obj.ToString());
-        end
-    end
-
-    methods (Access=private)
-        function str = ToString(obj)
-            str = obj.Proxy.ToString();
-        end
-    end
 end

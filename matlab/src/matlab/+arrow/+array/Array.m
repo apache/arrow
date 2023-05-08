@@ -21,10 +21,18 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
     properties (Access = protected)
         Proxy
     end
+
+    properties (Dependent)
+        Length
+    end
     
     methods
         function obj = Array(varargin)
             obj.Proxy = libmexclass.proxy.Proxy(varargin{:}); 
+        end
+
+        function numElements = get.Length(obj)
+            numElements = obj.Proxy.Length();
         end
     end
 
