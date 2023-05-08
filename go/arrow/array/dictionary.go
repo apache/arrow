@@ -716,7 +716,6 @@ func (b *dictionaryBuilder) ResetFull() {
 
 func (b *dictionaryBuilder) Cap() int { return b.idxBuilder.Cap() }
 
-// UnmarshalJSON is not yet implemented for dictionary builders and will always error.
 func (b *dictionaryBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
