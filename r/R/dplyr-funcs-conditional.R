@@ -114,6 +114,10 @@ register_bindings_conditional <- function() {
       }
     }
     if (!is.null(.default)) {
+      if (length(.default) != 1) {
+        abort(paste0("`.default` must have size 1, not size ", length(.default), "."))
+      }
+
       query[n + 1] <- TRUE
       value[n + 1] <- .default
     }
