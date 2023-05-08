@@ -46,7 +46,7 @@ and to execute this efficiently in a batched manner.
 
 .. seealso::
 
-   :doc:`Acero C++ user guide <../../cpp/streaming_execution>`
+   :doc:`Acero C++ user guide <cpp:streaming_execution>`
 
    :ref:`api.substrait`
       Alternative way to run Acero from a standardized Substrait plan.

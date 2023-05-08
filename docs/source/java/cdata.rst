@@ -27,7 +27,7 @@ through the :ref:`c-data-interface`, even between different language runtimes.
 Java to Python
 --------------
 
-See :doc:`../python/integration/python_java` to implement Java to
+See :doc:`pyarrow:integration/python_java` to implement Java to
 Python communication using the C Data Interface.
 
 Java to C++

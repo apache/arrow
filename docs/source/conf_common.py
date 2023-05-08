@@ -423,8 +423,7 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pandas": ("https://pandas.pydata.org/docs/", None),
     "arrow": ("https://arrow.apache.org/docs/", None),
-    # "pyarrow": ("https://arrow.apache.org/docs/python/", None),
-    "pyarrow": ("https://arrow.apache.org/docs/python/", ('../_build/html/python/objects.inv', None))
+    "pyarrow": ("https://arrow.apache.org/docs/python/", None),
 }
 
 
