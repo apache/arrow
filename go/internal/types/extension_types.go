@@ -56,7 +56,12 @@ func (b *UUIDBuilder) AppendValueFromString(s string) error {
 		return nil
 	}
 
-	b.Append(uuid.MustParse(s))
+	uid, err := uuid.Parse(s)
+	if err != nil {
+		return err
+	}
+
+	b.Append(uid)
 	return nil
 }
 
