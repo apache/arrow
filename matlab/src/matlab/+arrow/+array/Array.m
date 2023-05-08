@@ -1,5 +1,6 @@
-classdef Float64Array < arrow.array.Array
-    % arrow.array.Float64Array
+classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
+                            matlab.mixin.Scalar
+    % arrow.array.Array
 
     % Licensed to the Apache Software Foundation (ASF) under one or more
     % contributor license agreements.  See the NOTICE file distributed with
@@ -16,26 +17,20 @@ classdef Float64Array < arrow.array.Array
     % implied.  See the License for the specific language governing
     % permissions and limitations under the License.
 
-    properties (Hidden, SetAccess=private)
-        MatlabArray
+    
+    properties (Access = protected)
+        Proxy
+    end
+    
+    methods
+        function obj = Array(varargin)
+            obj.Proxy = libmexclass.proxy.Proxy(varargin{:}); 
+        end
     end
 
-    methods
-        function obj = Float64Array(data, opts)
-            arguments
-                data
-                opts.DeepCopy = false
-            end
-
-            validateattributes(data, "double", ["2d", "nonsparse", "real"]);
-            if ~isempty(data), validateattributes(data, "double", "vector"); end
-            obj@arrow.array.Array("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {data, opts.DeepCopy});
-            % Store a reference to the array if not doing a deep copy
-            if (~opts.DeepCopy), obj.MatlabArray = data; end
-        end
-
-        function data = double(obj)
-            data = obj.Proxy.ToMatlab();
+    methods (Access = private)
+        function str = ToString(obj)
+            str = obj.Proxy.ToString();
         end
     end
 
@@ -44,10 +39,5 @@ classdef Float64Array < arrow.array.Array
             disp(obj.ToString());
         end
     end
-
-    methods (Access=private)
-        function str = ToString(obj)
-            str = obj.Proxy.ToString();
-        end
-    end
 end
+
