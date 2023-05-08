@@ -3,6 +3,18 @@
   <img src="{{ logo_url|e }}" class="logo" alt="logo">
 </a>
 
+
+<div id="subproject-button" class="dropdown">
+  <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+    {{ subproject }}
+  </button>
+  <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+      {% for name, url in dropdown_entries %}
+      <a class="nav-link" href="{{ get_dropdown_href(url) }}">{{ name }}</a>
+      {% endfor %}
+ </div>
+</div>
+
 <div id="version-search-wrapper">
 
 {% include "version-switcher.html" %}
@@ -16,8 +28,10 @@
 
 <nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
-    {% if "python/api" in pagename or "python/generated" in pagename %}
-    {{ generate_nav_html("sidebar", startdepth=0, maxdepth=3, collapse=False, includehidden=True, titles_only=True) }}
+    {% if subproject == "Python" and ("api" in pagename or "generated" in pagename) %}
+    {{ generate_nav_html("sidebar", startdepth=0, maxdepth=2, collapse=False, includehidden=True, titles_only=True) }}
+    {% elif pagename.startswith("format") or pagename.startswith("developers") %}
+    {{ generate_nav_html("sidebar", startdepth=1, maxdepth=4, collapse=False, includehidden=True, titles_only=True) }}
     {% else %}
     {{ generate_nav_html("sidebar", startdepth=0, maxdepth=4, collapse=False, includehidden=True, titles_only=True) }}
     {% endif %}

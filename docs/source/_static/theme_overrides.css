@@ -146,6 +146,10 @@ Details: min(15vh, 110px) for the logo size, 8rem for search box etc*/
   flex: 1 0 12em;
 }
 
+#subproject-button {
+  padding-left: 0.5rem;
+}
+
 /* Fix table text wrapping in RTD theme,
  * see https://rackerlabs.github.io/docs-rackspace/tools/rtd-tables.html
  */
