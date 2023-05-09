@@ -38,51 +38,71 @@ namespace {
 /// so to ensure the output of the filter takes advantage of run-end encoding,
 /// these fragments should be combined by the caller.
 ///
-/// \see VisitREExREEFilterCombinedOutputRuns
-template <typename ValuesRunEndType, typename FilterRunEndType, typename EmitFragment>
-Status VisitREExREEFilterOutputFragments(
-    MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-    FilterOptions::NullSelectionBehavior null_selection,
-    const EmitFragment& emit_fragment) {
-  using ValueRunEndCType = typename ValuesRunEndType::c_type;
-  using FilterRunEndCType = typename FilterRunEndType::c_type;
+/// \see VisitREExAnyFilterCombinedOutputRuns
+template <typename ValuesRunEndType, typename FilterRunEndType>
+struct VisitREExREEFilterOutputFragments {
+  template <typename EmitFragment>
+  Status operator()(MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
+                    FilterOptions::NullSelectionBehavior null_selection,
+                    const EmitFragment& emit_fragment) {
+    using ValueRunEndCType = typename ValuesRunEndType::c_type;
+    using FilterRunEndCType = typename FilterRunEndType::c_type;
 
-  DCHECK_EQ(values.length, filter.length);
+    DCHECK_EQ(values.length, filter.length);
 
-  const int64_t values_offset = arrow::ree_util::ValuesArray(values).offset;
-  const ArraySpan& filter_values = arrow::ree_util::ValuesArray(filter);
-  const int64_t filter_values_offset = filter_values.offset;
-  const uint8_t* filter_is_valid = filter_values.buffers[0].data;
-  const uint8_t* filter_selection = filter_values.buffers[1].data;
-  const bool filter_may_have_nulls =
-      filter_is_valid != NULLPTR && filter_values.GetNullCount() != 0;
+    const int64_t values_offset = arrow::ree_util::ValuesArray(values).offset;
+    const ArraySpan& filter_values = arrow::ree_util::ValuesArray(filter);
+    const int64_t filter_values_offset = filter_values.offset;
+    const uint8_t* filter_is_valid = filter_values.buffers[0].data;
+    const uint8_t* filter_selection = filter_values.buffers[1].data;
+    const bool filter_may_have_nulls =
+        filter_is_valid != NULLPTR && filter_values.GetNullCount() != 0;
 
-  const arrow::ree_util::RunEndEncodedArraySpan<ValueRunEndCType> values_span(values);
-  const arrow::ree_util::RunEndEncodedArraySpan<FilterRunEndCType> filter_span(filter);
-  arrow::ree_util::MergedRunsIterator it(values_span, filter_span);
-  if (filter_may_have_nulls) {
-    if (null_selection == FilterOptions::EMIT_NULL) {
-      int64_t last_i = -1;
-      bool last_emit = false;
-      bool last_emit_null = false;
-      while (!it.is_end()) {
-        const int64_t i = filter_values_offset + it.index_into_right_array();
-        bool emit = last_emit;
-        bool emit_null = last_emit_null;
-        if (last_i != i) {
-          emit_null = !bit_util::GetBit(filter_is_valid, i);
-          emit = emit_null || bit_util::GetBit(filter_selection, i);
+    const arrow::ree_util::RunEndEncodedArraySpan<ValueRunEndCType> values_span(values);
+    const arrow::ree_util::RunEndEncodedArraySpan<FilterRunEndCType> filter_span(filter);
+    arrow::ree_util::MergedRunsIterator it(values_span, filter_span);
+    if (filter_may_have_nulls) {
+      if (null_selection == FilterOptions::EMIT_NULL) {
+        int64_t last_i = -1;
+        bool last_emit = false;
+        bool last_emit_null = false;
+        while (!it.is_end()) {
+          const int64_t i = filter_values_offset + it.index_into_right_array();
+          bool emit = last_emit;
+          bool emit_null = last_emit_null;
+          if (last_i != i) {
+            emit_null = !bit_util::GetBit(filter_is_valid, i);
+            emit = emit_null || bit_util::GetBit(filter_selection, i);
+          }
+          if (emit) {
+            emit_fragment(values_offset + it.index_into_left_array(), it.run_length(),
+                          emit_null);
+          }
+          last_i = i;
+          last_emit = emit;
+          last_emit_null = emit_null;
+          ++it;
         }
-        if (emit) {
-          emit_fragment(values_offset + it.index_into_left_array(), it.run_length(),
-                        emit_null);
+      } else {  // DROP nulls
+        int64_t last_i = -1;
+        bool last_emit = false;
+        while (!it.is_end()) {
+          const int64_t i = filter_values_offset + it.index_into_right_array();
+          const bool emit =
+              (last_i == i)
+                  ? last_emit  // can skip GetBit() if filter index is same as last
+                  : bit_util::GetBit(filter_is_valid, i) &&
+                        bit_util::GetBit(filter_selection, i);
+          if (emit) {
+            emit_fragment(values_offset + it.index_into_left_array(), it.run_length(),
+                          false);
+          }
+          last_i = i;
+          last_emit = emit;
+          ++it;
         }
-        last_i = i;
-        last_emit = emit;
-        last_emit_null = emit_null;
-        ++it;
       }
-    } else {  // DROP nulls
+    } else {
       int64_t last_i = -1;
       bool last_emit = false;
       while (!it.is_end()) {
@@ -90,8 +110,7 @@ Status VisitREExREEFilterOutputFragments(
         const bool emit =
             (last_i == i)
                 ? last_emit  // can skip GetBit() if filter index is same as last
-                : bit_util::GetBit(filter_is_valid, i) &&
-                      bit_util::GetBit(filter_selection, i);
+                : bit_util::GetBit(filter_selection, i);
         if (emit) {
           emit_fragment(values_offset + it.index_into_left_array(), it.run_length(),
                         false);
@@ -101,24 +120,9 @@ Status VisitREExREEFilterOutputFragments(
         ++it;
       }
     }
-  } else {
-    int64_t last_i = -1;
-    bool last_emit = false;
-    while (!it.is_end()) {
-      const int64_t i = filter_values_offset + it.index_into_right_array();
-      const bool emit =
-          (last_i == i) ? last_emit  // can skip GetBit() if filter index is same as last
-                        : bit_util::GetBit(filter_selection, i);
-      if (emit) {
-        emit_fragment(values_offset + it.index_into_left_array(), it.run_length(), false);
-      }
-      last_i = i;
-      last_emit = emit;
-      ++it;
-    }
+    return Status::OK();
   }
-  return Status::OK();
-}
+};
 
 /// \tparam EmitRun A callable that takes (run_value_i, run_length, valid).
 /// EmitRun can be called with run_length=0, but is assumed to be a no-op in that
@@ -126,9 +130,9 @@ Status VisitREExREEFilterOutputFragments(
 /// run_value_i should not be used as nulls can be emitted from the filter when
 /// null_selection=EMIT_NULL. In that case, run_value_i wouldn't necessarily
 /// point to a NULL value in the values array.
-template <typename ValuesRunEndType, typename ValuesValueType, typename FilterRunEndType,
-          typename EmitRun>
-Status VisitREExREEFilterCombinedOutputRuns(
+template <typename ValuesRunEndType, typename ValuesValueType,
+          class VisitFilterOutputFragmentsFunctor, typename EmitRun>
+Status VisitREExAnyFilterCombinedOutputRuns(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection, EmitRun emit_run) {
   const auto values_values = arrow::ree_util::ValuesArray(values);
@@ -150,7 +154,7 @@ Status VisitREExREEFilterCombinedOutputRuns(
   // values[open_run_value_i] because null values from filters (combined with
   // FilterOptions::EMIT_NULL) can cause nulls to be emitted as well.
   int64_t open_run_value_i = -1;
-  auto status = VisitREExREEFilterOutputFragments<ValuesRunEndType, FilterRunEndType>(
+  auto status = VisitFilterOutputFragmentsFunctor{}(
       pool, values, filter, null_selection,
       [all_values_are_null, values_validity, &read_write, &open_run_length,
        &open_run_is_null, &open_run_value_i,
@@ -363,13 +367,13 @@ class REExREEFilterExecImpl final : public REEFilterExec {
       return CountREEFilterEmits<FilterRunEndType>(filter_, null_selection_) > 0 ? 1 : 0;
     } else {
       int64_t num_output_runs = 0;
-      auto status =
-          VisitREExREEFilterCombinedOutputRuns<ValuesRunEndType, ValuesValueType,
-                                               FilterRunEndType>(
-              pool_, values_, filter_, null_selection_,
-              [&num_output_runs](int64_t, int64_t run_length, bool) {
-                num_output_runs += run_length > 0;
-              });
+      auto status = VisitREExAnyFilterCombinedOutputRuns<
+          ValuesRunEndType, ValuesValueType,
+          VisitREExREEFilterOutputFragments<ValuesRunEndType, FilterRunEndType>>(
+          pool_, values_, filter_, null_selection_,
+          [&num_output_runs](int64_t, int64_t run_length, bool) {
+            num_output_runs += run_length > 0;
+          });
       RETURN_NOT_OK(status);
       return num_output_runs;
     }
@@ -384,7 +388,7 @@ class REExREEFilterExecImpl final : public REEFilterExec {
   Result<int64_t> ExecInternal(ArrayData* out) {
     // in_has_validity_buffer is false because all calls to ReadWriteValue::ReadValue()
     // below are already guarded by a validity check based on the values provided by
-    // VisitREExREEFilterCombinedOutputRuns() when it calls the EmitRun.
+    // VisitREExAnyFilterCombinedOutputRuns() when it calls the EmitRun.
     using ReadWriteValue =
         ree_util::ReadWriteValue<ValuesValueType, /*in_has_validity_buffer=*/false,
                                  out_has_validity_buffer>;
@@ -397,8 +401,9 @@ class REExREEFilterExecImpl final : public REEFilterExec {
     int64_t logical_length = 0;
     int64_t write_offset = 0;
     ValueRepr value;
-    auto status = VisitREExREEFilterCombinedOutputRuns<ValuesRunEndType, ValuesValueType,
-                                                       FilterRunEndType>(
+    auto status = VisitREExAnyFilterCombinedOutputRuns<
+        ValuesRunEndType, ValuesValueType,
+        VisitREExREEFilterOutputFragments<ValuesRunEndType, FilterRunEndType>>(
         pool_, values_, filter_, null_selection_,
         [&](int64_t i, int64_t run_length, bool valid) {
           logical_length += run_length;
@@ -443,102 +448,28 @@ class REExREEFilterExecImpl final : public REEFilterExec {
   }
 };
 
-/// \tparam Functor The template of a class that implements the REEFilterExec
-/// interface. It takes 3 template paramters and the same 3 parameters as
-/// this function
-/// \tparam ValuesValueType The type of the values array of the run-end encoded
-/// values array
-template <template <typename ValuesRunEndType, typename ValuesValueType,
-                    typename FilterRunEndType>
-          class Functor,
-          typename ValuesValueType>
-Result<std::unique_ptr<REEFilterExec>> MakeREEFilterExecImpl(
-    MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-    Type::type values_run_end_type, Type::type filter_run_end_type,
-    FilterOptions::NullSelectionBehavior null_selection) {
-  switch (values_run_end_type) {
-    case Type::INT16:
-      switch (filter_run_end_type) {
-        case Type::INT16:
-          return std::make_unique<Functor<Int16Type, ValuesValueType, Int16Type>>(
-              pool, values, filter, null_selection);
-        case Type::INT32:
-          return std::make_unique<Functor<Int16Type, ValuesValueType, Int32Type>>(
-              pool, values, filter, null_selection);
-        default:
-          DCHECK_EQ(filter_run_end_type, Type::INT64);
-          return std::make_unique<Functor<Int16Type, ValuesValueType, Int64Type>>(
-              pool, values, filter, null_selection);
-      }
-    case Type::INT32:
-      switch (filter_run_end_type) {
-        case Type::INT16:
-          return std::make_unique<Functor<Int32Type, ValuesValueType, Int16Type>>(
-              pool, values, filter, null_selection);
-        case Type::INT32:
-          return std::make_unique<Functor<Int32Type, ValuesValueType, Int32Type>>(
-              pool, values, filter, null_selection);
-        default:
-          DCHECK_EQ(filter_run_end_type, Type::INT64);
-          return std::make_unique<Functor<Int32Type, ValuesValueType, Int64Type>>(
-              pool, values, filter, null_selection);
-      }
-    default:
-      DCHECK_EQ(values_run_end_type, Type::INT64);
-      switch (filter_run_end_type) {
-        case Type::INT16:
-          return std::make_unique<Functor<Int64Type, ValuesValueType, Int16Type>>(
-              pool, values, filter, null_selection);
-        case Type::INT32:
-          return std::make_unique<Functor<Int64Type, ValuesValueType, Int32Type>>(
-              pool, values, filter, null_selection);
-        default:
-          DCHECK_EQ(filter_run_end_type, Type::INT64);
-          return std::make_unique<Functor<Int64Type, ValuesValueType, Int64Type>>(
-              pool, values, filter, null_selection);
-      }
-  }
-}
-
-}  // namespace
-
-Result<std::unique_ptr<REEFilterExec>> MakeREExREEFilterExec(
+template <template <typename ArrowType> class FactoryFunctor>
+Result<std::unique_ptr<REEFilterExec>> MakeREExAnyFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection) {
-  DCHECK_EQ(values.type->id(), Type::RUN_END_ENCODED);
-  DCHECK_EQ(filter.type->id(), Type::RUN_END_ENCODED);
-  auto values_run_end_type = arrow::ree_util::RunEndsArray(values).type->id();
-  auto filter_run_end_type = arrow::ree_util::RunEndsArray(filter).type->id();
-  if (ARROW_PREDICT_FALSE(!is_run_end_type(values_run_end_type) ||
-                          !is_run_end_type(filter_run_end_type))) {
-    const auto& invalid_run_end_type = !is_run_end_type(values_run_end_type)
-                                           ? arrow::ree_util::RunEndsArray(values).type
-                                           : arrow::ree_util::RunEndsArray(filter).type;
-    return Status::Invalid("Invalid run end type: ", invalid_run_end_type);
-  }
   switch (arrow::ree_util::ValuesArray(values).type->id()) {
     case Type::NA:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, NullType>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<NullType>{}(pool, values, filter, null_selection);
     case Type::BOOL:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, BooleanType>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<BooleanType>{}(pool, values, filter, null_selection);
     case Type::UINT8:
     case Type::INT8:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, UInt8Type>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<UInt8Type>{}(pool, values, filter, null_selection);
     case Type::UINT16:
     case Type::INT16:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, UInt16Type>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<UInt16Type>{}(pool, values, filter, null_selection);
     case Type::UINT32:
     case Type::INT32:
     case Type::FLOAT:
     case Type::DATE32:
     case Type::TIME32:
     case Type::INTERVAL_MONTHS:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, UInt32Type>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<UInt32Type>{}(pool, values, filter, null_selection);
     case Type::UINT64:
     case Type::INT64:
     case Type::DOUBLE:
@@ -547,39 +478,113 @@ Result<std::unique_ptr<REEFilterExec>> MakeREExREEFilterExec(
     case Type::TIME64:
     case Type::DURATION:
     case Type::INTERVAL_DAY_TIME:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, UInt64Type>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<UInt64Type>{}(pool, values, filter, null_selection);
     case Type::INTERVAL_MONTH_DAY_NANO:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, MonthDayNanoIntervalType>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<MonthDayNanoIntervalType>{}(pool, values, filter,
+                                                        null_selection);
     case Type::DECIMAL128:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, Decimal128Type>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<Decimal128Type>{}(pool, values, filter, null_selection);
     case Type::DECIMAL256:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, Decimal256Type>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<Decimal256Type>{}(pool, values, filter, null_selection);
     case Type::FIXED_SIZE_BINARY:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, FixedSizeBinaryType>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<FixedSizeBinaryType>{}(pool, values, filter, null_selection);
     case Type::STRING:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, StringType>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<StringType>{}(pool, values, filter, null_selection);
     case Type::BINARY:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, BinaryType>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<BinaryType>{}(pool, values, filter, null_selection);
     case Type::LARGE_STRING:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, LargeStringType>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<LargeStringType>{}(pool, values, filter, null_selection);
     case Type::LARGE_BINARY:
-      return MakeREEFilterExecImpl<REExREEFilterExecImpl, LargeBinaryType>(
-          pool, values, filter, values_run_end_type, filter_run_end_type, null_selection);
+      return FactoryFunctor<LargeBinaryType>{}(pool, values, filter, null_selection);
     default:
       DCHECK(false);
-      return Status::NotImplemented(
-          "Unsupported type for run-end encoded array "
-          "filtered by a run-end encoded filter.");
+      return Status::NotImplemented("Filtering the run-end encoded array of type ",
+                                    values.type->ToString(), " is not supported");
   }
 }
+
+Status ValidateRunEndType(const ArraySpan& array) {
+  DCHECK_EQ(array.type->id(), Type::RUN_END_ENCODED);
+  auto run_end_type = arrow::ree_util::RunEndsArray(array).type->id();
+  if (ARROW_PREDICT_FALSE(!is_run_end_type(run_end_type))) {
+    return Status::Invalid("Invalid run end type: ", run_end_type);
+  }
+  return Status::OK();
+}
+
+/// \tparam ArrowType The DataType of the physical values array nested in values
+template <typename ArrowType>
+struct REExREEFilterExecFactory {
+  Result<std::unique_ptr<REEFilterExec>> operator()(
+      MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
+      FilterOptions::NullSelectionBehavior null_selection) {
+    using ValuesValueType = ArrowType;
+    auto values_run_end_type = arrow::ree_util::RunEndsArray(values).type->id();
+    auto filter_run_end_type = arrow::ree_util::RunEndsArray(filter).type->id();
+    switch (values_run_end_type) {
+      case Type::INT16:
+        switch (filter_run_end_type) {
+          case Type::INT16:
+            return std::make_unique<
+                REExREEFilterExecImpl<Int16Type, ValuesValueType, Int16Type>>(
+                pool, values, filter, null_selection);
+          case Type::INT32:
+            return std::make_unique<
+                REExREEFilterExecImpl<Int16Type, ValuesValueType, Int32Type>>(
+                pool, values, filter, null_selection);
+          default:
+            DCHECK_EQ(filter_run_end_type, Type::INT64);
+            return std::make_unique<
+                REExREEFilterExecImpl<Int16Type, ValuesValueType, Int64Type>>(
+                pool, values, filter, null_selection);
+        }
+      case Type::INT32:
+        switch (filter_run_end_type) {
+          case Type::INT16:
+            return std::make_unique<
+                REExREEFilterExecImpl<Int32Type, ValuesValueType, Int16Type>>(
+                pool, values, filter, null_selection);
+          case Type::INT32:
+            return std::make_unique<
+                REExREEFilterExecImpl<Int32Type, ValuesValueType, Int32Type>>(
+                pool, values, filter, null_selection);
+          default:
+            DCHECK_EQ(filter_run_end_type, Type::INT64);
+            return std::make_unique<
+                REExREEFilterExecImpl<Int32Type, ValuesValueType, Int64Type>>(
+                pool, values, filter, null_selection);
+        }
+      default:
+        DCHECK_EQ(values_run_end_type, Type::INT64);
+        switch (filter_run_end_type) {
+          case Type::INT16:
+            return std::make_unique<
+                REExREEFilterExecImpl<Int64Type, ValuesValueType, Int16Type>>(
+                pool, values, filter, null_selection);
+          case Type::INT32:
+            return std::make_unique<
+                REExREEFilterExecImpl<Int64Type, ValuesValueType, Int32Type>>(
+                pool, values, filter, null_selection);
+          default:
+            DCHECK_EQ(filter_run_end_type, Type::INT64);
+            return std::make_unique<
+                REExREEFilterExecImpl<Int64Type, ValuesValueType, Int64Type>>(
+                pool, values, filter, null_selection);
+        }
+    }
+  }
+};
+
+Result<std::unique_ptr<REEFilterExec>> MakeREExREEFilterExec(
+    MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
+    FilterOptions::NullSelectionBehavior null_selection) {
+  RETURN_NOT_OK(ValidateRunEndType(values));
+  RETURN_NOT_OK(ValidateRunEndType(filter));
+  return MakeREExAnyFilterExec<REExREEFilterExecFactory>(pool, values, filter,
+                                                         null_selection);
+}
+
+}  // namespace
 
 Result<int64_t> CalculateREExREEFilterOutputSize(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
