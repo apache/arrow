@@ -186,7 +186,7 @@ Valid values are "s", "ms" (default), "us", "ns".
 \itemize{
 \item \code{\link[dplyr:across]{across()}}
 \item \code{\link[dplyr:between]{between()}}
-\item \code{\link[dplyr:case_when]{case_when()}}
+\item \code{\link[dplyr:case_when]{case_when()}}: \code{.ptype} and \code{.size} arguments not supported
 \item \code{\link[dplyr:coalesce]{coalesce()}}
 \item \code{\link[dplyr:desc]{desc()}}
 \item \code{\link[dplyr:across]{if_all()}}

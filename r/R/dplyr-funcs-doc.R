@@ -196,7 +196,7 @@
 #'
 #' * [`across()`][dplyr::across()]
 #' * [`between()`][dplyr::between()]
-#' * [`case_when()`][dplyr::case_when()]
+#' * [`case_when()`][dplyr::case_when()]: `.ptype` and `.size` arguments not supported
 #' * [`coalesce()`][dplyr::coalesce()]
 #' * [`desc()`][dplyr::desc()]
 #' * [`if_all()`][dplyr::if_all()]
