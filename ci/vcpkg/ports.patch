@@ -15,7 +15,7 @@ index 5a14562..924b1b7 100644
  vcpkg_cmake_install()
  vcpkg_copy_pdbs()
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index df95a08..d740ce7 100644
+index 8f3f3f9..745b0fb 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
 @@ -9,6 +9,7 @@ vcpkg_from_github(
@@ -28,16 +28,16 @@ index df95a08..d740ce7 100644
  vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 0000000..cbd90a2
+index 0000000..a8e6ee5
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,19 @@
 +diff --git a/snappy.cc b/snappy.cc
-+index 688065b..eb00544 100644
++index 79dc0e8..f3153ea 100644
 +--- a/snappy.cc
 ++++ b/snappy.cc
-+@@ -1008,14 +1008,10 @@ static inline void Report(const char *algorithm, size_t compressed_size,
-+ static inline uint32_t ExtractLowBytes(const uint32_t& v, int n) {
++@@ -965,14 +965,10 @@ static inline void Report(const char *algorithm, size_t compressed_size,
++ static inline uint32_t ExtractLowBytes(uint32_t v, int n) {
 +   assert(n >= 0);
 +   assert(n <= 4);
 +-#if SNAPPY_HAVE_BMI2
