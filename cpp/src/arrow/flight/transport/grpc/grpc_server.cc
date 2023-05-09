@@ -323,8 +323,7 @@ class GrpcServiceHandler final : public FlightService::Service {
     GrpcAddServerHeaders outgoing_headers(context);
     for (const auto& factory : middleware_) {
       std::shared_ptr<ServerMiddleware> instance;
-      Status result =
-          factory.second->StartCall(info, flight_context.incoming_headers(), &instance);
+      Status result = factory.second->StartCall(info, flight_context, &instance);
       if (!result.ok()) {
         // Interceptor rejected call, end the request on all existing
         // interceptors

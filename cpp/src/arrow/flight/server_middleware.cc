@@ -15,28 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
-#include <functional>
-#include <memory>
-#include <string>
-#include <vector>
-
-#include "arrow/csv/options.h"
-#include "arrow/python/common.h"
-#include "arrow/util/macros.h"
+#include "arrow/flight/server_middleware.h"
+#include "arrow/flight/server.h"
 
 namespace arrow {
-namespace py {
-namespace csv {
+namespace flight {
 
-using PyInvalidRowCallback = std::function<::arrow::csv::InvalidRowResult(
-    PyObject*, const ::arrow::csv::InvalidRow&)>;
+Status ServerMiddlewareFactory::StartCall(const CallInfo& info,
+                                          const ServerCallContext& context,
+                                          std::shared_ptr<ServerMiddleware>* middleware) {
+  // TODO: We can make this pure virtual function when we remove
+  // the deprecated version.
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  return StartCall(info, context.incoming_headers(), middleware);
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+}
 
-ARROW_PYTHON_EXPORT
-::arrow::csv::InvalidRowHandler MakeInvalidRowHandler(PyInvalidRowCallback,
-                                                      PyObject* handler);
-
-}  // namespace csv
-}  // namespace py
+}  // namespace flight
 }  // namespace arrow
