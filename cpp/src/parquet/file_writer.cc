@@ -226,7 +226,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         if (column_writers[i]) {
           total_bytes_written_ += column_writers[i]->Close();
           total_compressed_bytes_written_ +=
-              column_writers_[i]->total_compressed_bytes_written();
+              column_writers[i]->total_compressed_bytes_written();
         }
       }
 
