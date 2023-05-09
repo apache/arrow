@@ -33,12 +33,6 @@ namespace Apache.Arrow.Builder
         IArrayBuilder AppendNulls(int count);
 
         /// <summary>
-        /// Unsafe append value from random c# type value.
-        /// </summary>
-        /// <returns>Current <see cref="IArrayBuilder"></returns>
-        IArrayBuilder AppendDotNet(DotNetScalar value);
-
-        /// <summary>
         /// Append <see cref="ArrayData"> values.
         /// </summary>
         /// <returns>Current <see cref="IArrayBuilder"></returns>

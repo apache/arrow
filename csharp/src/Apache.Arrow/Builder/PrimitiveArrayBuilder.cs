@@ -585,14 +585,5 @@ namespace Apache.Arrow.Builder
         public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 32) : base(dtype, capacity)
         {
         }
-
-        // Append Values
-        public override IArrayBuilder AppendDotNet(DotNetScalar value) => AppendDotNet(value, true);
-        public FixedBinaryArrayBuilder<T> AppendDotNet(DotNetScalar value, bool primitive = true)
-        {
-            Validate(value);
-            AppendValue(value.ValueAs<T>());
-            return this;
-        }
     }
 }

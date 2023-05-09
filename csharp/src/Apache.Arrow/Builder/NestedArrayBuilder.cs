@@ -176,19 +176,6 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        // Append Values
-        public override IArrayBuilder AppendDotNet(DotNetScalar value) => AppendDotNet(value, true);
-        public StructArrayBuilder AppendDotNet(DotNetScalar value, bool structure = true)
-        {
-            AppendValid();
-            for (int i = 0; i < Children.Length; i++)
-                if (value.IsChildValid(i))
-                    Children[i].AppendDotNet(value.Child(i));
-                else
-                    Children[i].AppendNull();
-            return this;
-        }
-
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
 
         public StructArray Build(MemoryAllocator allocator = default, bool _ = true)

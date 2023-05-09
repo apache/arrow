@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Linq;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Memory;
@@ -109,56 +108,6 @@ namespace Apache.Arrow.Builder
 
             return AppendValidity(mask, nullCount);
         }
-
-        // Unsafe append values
-        internal void Validate(DotNetScalar value)
-        {
-            if (value.ArrowType.TypeId != DataType.TypeId)
-                throw new ArgumentException($"Not valid {value.Value}, {DataType} != values.{value.ArrowType}");
-        }
-
-        public virtual IArrayBuilder AppendDotNet(DotNetScalar value)
-        {
-            switch (DataType.TypeId)
-            {
-                case ArrowTypeId.String:
-                    return As<StringArrayBuilder>().AppendDotNet(value);
-                case ArrowTypeId.Binary:
-                    return As<BinaryArrayBuilder>().AppendDotNet(value);
-                case ArrowTypeId.Struct:
-                    return As<StructArrayBuilder>().AppendDotNet(value);
-                case ArrowTypeId.Boolean:
-                    return As<FixedBinaryArrayBuilder<bool>>().AppendDotNet(value);
-                case ArrowTypeId.UInt8:
-                    return As<FixedBinaryArrayBuilder<byte>>().AppendDotNet(value);
-                case ArrowTypeId.Int8:
-                    return As<FixedBinaryArrayBuilder<sbyte>>().AppendDotNet(value);
-                case ArrowTypeId.UInt16:
-                    return As<FixedBinaryArrayBuilder<ushort>>().AppendDotNet(value);
-                case ArrowTypeId.Int16:
-                    return As<FixedBinaryArrayBuilder<short>>().AppendDotNet(value);
-                case ArrowTypeId.UInt32:
-                    return As<FixedBinaryArrayBuilder<uint>>().AppendDotNet(value);
-                case ArrowTypeId.Int32:
-                    return As<FixedBinaryArrayBuilder<int>>().AppendDotNet(value);
-                case ArrowTypeId.UInt64:
-                    return As<FixedBinaryArrayBuilder<ulong>>().AppendDotNet(value);
-                case ArrowTypeId.Int64:
-                    return As<FixedBinaryArrayBuilder<long>>().AppendDotNet(value);
-#if NET5_0_OR_GREATER
-                case ArrowTypeId.HalfFloat:
-                    return As<FixedBinaryArrayBuilder<Half>>().AppendDotNet(value);
-#endif
-                case ArrowTypeId.Float:
-                    return As<FixedBinaryArrayBuilder<float>>().AppendDotNet(value);
-                case ArrowTypeId.Double:
-                    return As<FixedBinaryArrayBuilder<double>>().AppendDotNet(value);
-                default:
-                    Validate(value);
-                    throw new ArgumentException($"Cannot dynamically append values of type {value.ArrowType}: {value.DotNetType}");
-            };
-        }
-
 
         // Append values from arrow objects
         public virtual IArrayBuilder AppendValues(IArrowArray array) => AppendValues(array.Data);
