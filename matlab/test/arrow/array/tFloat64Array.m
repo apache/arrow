@@ -36,9 +36,9 @@ classdef tFloat64Array < matlab.unittest.TestCase
         end
 
         function ShallowCopy(testCase)
-        % By default, Float64Array does not create a deep copy on
-        % construction when constructed from a MATLAB array. Instead,
-        % it stores a shallow copy of the array keep the memory alive.
+            % By default, Float64Array does not create a deep copy on
+            % construction when constructed from a MATLAB array. Instead,
+            % it stores a shallow copy of the array keep the memory alive.
             A = arrow.array.Float64Array([1, 2, 3]);
             testCase.verifyEqual(A.MatlabArray, [1 2 3]);
             testCase.verifyEqual(double(A), [1 2 3]');
