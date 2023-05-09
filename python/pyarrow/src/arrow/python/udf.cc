@@ -94,8 +94,7 @@ struct PythonTableUdfKernelInit {
     if (!PyCallable_Check(function->obj())) {
       return Status::TypeError("Expected a callable Python object.");
     }
-    return std::make_unique<PythonUdfKernelState>(
-        std::move(function));
+    return std::make_unique<PythonUdfKernelState>(std::move(function));
   }
 
   std::shared_ptr<OwnedRefNoGIL> function_maker;
@@ -215,10 +214,9 @@ Status RegisterUdf(PyObject* user_function, compute::KernelInit kernel_init,
 Status RegisterScalarFunction(PyObject* user_function, UdfWrapperCallback wrapper,
                               const UdfOptions& options,
                               compute::FunctionRegistry* registry) {
-  return RegisterUdf(
-      user_function,
-      PythonUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function)}, wrapper,
-      options, registry);
+  return RegisterUdf(user_function,
+                     PythonUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function)},
+                     wrapper, options, registry);
 }
 
 Status RegisterTabularFunction(PyObject* user_function, UdfWrapperCallback wrapper,
@@ -272,9 +270,8 @@ Result<std::shared_ptr<RecordBatchReader>> CallTabularFunction(
   std::vector<TypeHolder> in_types;
   ARROW_ASSIGN_OR_RAISE(auto func_exec,
                         GetFunctionExecutor(func_name, in_types, NULLPTR, registry));
-  auto next_func =
-      [schema,
-       func_exec = std::move(func_exec)]() -> Result<std::shared_ptr<RecordBatch>> {
+  auto next_func = [schema, func_exec = std::move(
+                                func_exec)]() -> Result<std::shared_ptr<RecordBatch>> {
     std::vector<Datum> args;
     // passed_length of -1 or 0 with args.size() of 0 leads to an empty ExecSpanIterator
     // in exec.cc and to never invoking the source function, so 1 is passed instead

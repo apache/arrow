@@ -22,9 +22,9 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
-#include "arrow/util/macros.h"
 #include "arrow/python/common.h"
 #include "arrow/python/visibility.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace py {
