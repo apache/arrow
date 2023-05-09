@@ -15,22 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/array/proxy/numeric_array.h"
+#pragma once
 
-#include "factory.h"
+#include "arrow/array.h"
 
-#include <iostream>
+#include "libmexclass/proxy/Proxy.h"
 
-namespace arrow::matlab::proxy {
+namespace arrow::matlab::array::proxy {
 
-std::shared_ptr<Proxy> Factory::make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments) {
+class Array : public libmexclass::proxy::Proxy {
+    public:
+        Array(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+    
+        virtual ~Array() {}
 
-    // Register MATLAB Proxy classes with corresponding C++ Proxy classes.
-    REGISTER_PROXY(arrow.array.proxy.Float64Array, arrow::matlab::array::proxy::NumericArray<double>);
+    protected:
 
-    // TODO: Decide what to do in the case that there isn't a Proxy match.
-    std::cout << "Did not find a matching C++ proxy for: " + class_name << std::endl;
-    return nullptr;
+        void ToString(libmexclass::proxy::method::Context& context);
+
+        virtual void ToMatlab(libmexclass::proxy::method::Context& context) = 0;
+
+        std::shared_ptr<arrow::Array> array;
 };
 
 }
