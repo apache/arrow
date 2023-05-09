@@ -581,6 +581,7 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
     throw ParquetException("Invalid page header");
   }
 
+  // Grow the uncompressed buffer if we need to.
   PARQUET_THROW_NOT_OK(
       decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
 
