@@ -261,8 +261,14 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       }
     } else if (buffered_row_group_ &&
                column_writers_.size() > 0) {  // when buffered_row_group = true
+      if (column_writers_[0] == nullptr) {
+        throw ParquetException("CheckRowsWritten accept null column_writer");
+      }
       int64_t current_col_rows = column_writers_[0]->rows_written();
       for (int i = 1; i < static_cast<int>(column_writers_.size()); i++) {
+        if (column_writers_[i] == nullptr) {
+          throw ParquetException("CheckRowsWritten accept null column_writer");
+        }
         int64_t current_col_rows_i = column_writers_[i]->rows_written();
         if (current_col_rows != current_col_rows_i) {
           ThrowRowsMisMatchError(i, current_col_rows_i, current_col_rows);
@@ -380,7 +386,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
   void AddKeyValueMetadata(
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) override {
     if (key_value_metadata_ == nullptr) {
-      key_value_metadata_ = std::move(key_value_metadata);
+      key_value_metadata_ = key_value_metadata;
     } else if (key_value_metadata != nullptr) {
       key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
     }
@@ -388,7 +394,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   ~FileSerializer() override {
     try {
-      Close();
+      FileSerializer::Close();
     } catch (...) {
     }
   }
