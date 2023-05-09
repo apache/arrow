@@ -169,7 +169,6 @@ struct PythonTableUdfKernelInit {
       // Ignore batch length here
       ScalarUdfContext udf_context{ctx->memory_pool(), 0};
 
-
       OwnedRef arg_tuple(PyTuple_New(num_args));
       RETURN_NOT_OK(CheckPyError());
 

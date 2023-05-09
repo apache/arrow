@@ -64,6 +64,31 @@ def unary_agg_func_fixture():
 
 
 @pytest.fixture(scope="session")
+def bad_unary_agg_func_fixture():
+    """
+    Register a unary aggregate function
+    """
+
+    def func(ctx, x):
+        raise RuntimeError("Oops")
+        return pa.array([len(x)])
+
+    func_name = "y=bad_len(x)"
+    func_doc = {"summary": "y=bad_len(x)",
+                "description": "find length of"}
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.int64(),
+                                   },
+                                   pa.int64()
+                                   )
+    return func, func_name
+
+
+@pytest.fixture(scope="session")
 def binary_func_fixture():
     """
     Register a binary scalar function.
@@ -252,11 +277,11 @@ def check_scalar_function(func_fixture,
         if all_scalar:
             batch_length = 1
 
-    expected_output = function(mock_scalar_udf_context(batch_length), *inputs)
     func = pc.get_function(name)
     assert func.name == name
 
     result = pc.call_function(name, inputs, length=batch_length)
+    expected_output = function(mock_scalar_udf_context(batch_length), *inputs)
     assert result == expected_output
     # At the moment there is an issue when handling nullary functions.
     # See: ARROW-15286 and ARROW-16290.
@@ -619,8 +644,30 @@ def test_udt_datasource1_exception():
         _test_datasource1_udt(datasource1_exception)
 
 
-def test_aggregate_udf_basic(unary_agg_func_fixture):
+def test_aggregate_basic(unary_agg_func_fixture):
     arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
     result = pc.call_function("y=len(x)", [arr])
+    expected = pa.array([6])
+    assert result == expected
+
+
+def test_aggregate_exception(bad_unary_agg_func_fixture):
+    arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
+    with pytest.raises(RuntimeError, match='Oops'):
+        try:
+            pc.call_function("y=bad_len(x)", [arr])
+        except Exception as e:
+            raise e
+
+
+def test_aggregate_segfault(bad_unary_agg_func_fixture):
+    # This test will segfault the python process.
+    arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
+    try:
+        result = pc.call_function("y=bad_len(x)", [arr])
+    except Exception as e:
+        print("Before segfault")
+        raise e
+
     expected = pa.array([6])
     assert result == expected
