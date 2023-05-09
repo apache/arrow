@@ -515,6 +515,11 @@ if(ARROW_CPU_FLAG STREQUAL "aarch64")
   endif()
 endif()
 
+if(ARROW_CPU_FLAG STREQUAL "aarch64")
+  message(STATUS "Setting -mbigendian")
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -mbig-endian")
+endif()
+
 # ----------------------------------------------------------------------
 # Setup Gold linker, if available. Code originally from Apache Kudu
 
