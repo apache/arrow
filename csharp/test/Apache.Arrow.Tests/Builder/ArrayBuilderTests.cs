@@ -162,14 +162,42 @@ namespace Apache.Arrow.Tests.Builder
             // Append null block
             builder.AppendNull();
 
-            StructArray built = builder.Build() as StructArray;
+            StructArray array = builder.Build();
 
-            Assert.IsType<StructArray>(built);
-            Assert.Equal(2, built.Length);
-            Assert.Equal(1, built.NullCount);
+            Assert.IsType<StructArray>(array);
+            Assert.Equal(2, array.Length);
+            Assert.Equal(1, array.NullCount);
 
-            Assert.True(built.IsValid(0));
-            Assert.False(built.IsValid(1));
+            Assert.True(array.IsValid(0));
+            Assert.False(array.IsValid(1));
+        }
+
+        [Fact]
+        public void StructArrayBuilder_Should_AppendScalar()
+        {
+            var builder = new StructArrayBuilder<TestStruct>();
+            var scalar = new StructScalar(builder.DataType, new IScalar[]
+            {
+                new StringScalar("abc"), new Int32Scalar(123)
+            });
+
+            builder.AppendNull();
+            builder.AppendValue(scalar);
+            builder.AppendNull();
+
+            StructArray array = builder.Build();
+            var names = array.Fields[0] as StringArray;
+            var int32s = array.Fields[1] as Int32Array;
+
+            Assert.Equal(3, array.Length);
+            Assert.Equal(2, array.NullCount);
+
+            Assert.Equal("abc", names.GetString(1));
+            Assert.Equal(123, int32s.GetValue(1));
+
+            Assert.False(array.IsValid(0));
+            Assert.True(array.IsValid(1));
+            Assert.False(array.IsValid(2));
         }
     }
 

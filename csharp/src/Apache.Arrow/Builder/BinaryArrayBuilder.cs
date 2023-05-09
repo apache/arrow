@@ -14,6 +14,15 @@ namespace Apache.Arrow.Builder
             : base(dtype, capacity)
         {
         }
+
+        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((BinaryScalar)value);
+        public BinaryArrayBuilder AppendValue(BinaryScalar value)
+        {
+            Validate(value.Type);
+            AppendValue(value.View());
+            return this;
+        }
+
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
 
         public BinaryArray Build(MemoryAllocator allocator = default, bool bin = true)
@@ -31,6 +40,15 @@ namespace Apache.Arrow.Builder
             : base(dtype, capacity)
         {
         }
+
+        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((StringScalar)value);
+        public StringArrayBuilder AppendValue(StringScalar value)
+        {
+            Validate(value.Type);
+            AppendValue(value.View());
+            return this;
+        }
+
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
 
         public StringArray Build(MemoryAllocator allocator = default, bool bin = false, bool str = true)

@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
+using Apache.Arrow.Reflection;
 
 namespace Apache.Arrow.Builder
 {
@@ -210,13 +211,7 @@ namespace Apache.Arrow.Builder
         public IBufferBuilder AppendValue(bool value) => AppendBit(value);
         public IBufferBuilder AppendValue(byte value) => AppendByte(value);
         public IBufferBuilder AppendValue<T>(T value) where T : struct
-        {
-#if NETCOREAPP3_1_OR_GREATER
-            return AppendValues(MemoryMarshal.CreateReadOnlySpan(ref value, 1));
-#else
-            return AppendValues<T>(new T[] { value }.AsSpan());
-#endif
-        }
+            => AppendValues(TypeReflection.CreateReadOnlySpan(ref value));
 
         public IBufferBuilder AppendValues(ReadOnlySpan<bool> values) => AppendBits(values);
         public IBufferBuilder AppendValues(ReadOnlySpan<byte> values) => AppendBytes(values);

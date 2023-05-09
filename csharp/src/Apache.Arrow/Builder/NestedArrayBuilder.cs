@@ -142,8 +142,11 @@ namespace Apache.Arrow.Builder
 
     public class StructArrayBuilder : NestedArrayBuilder
     {
+        public new StructType DataType { get; }
+
         public StructArrayBuilder(StructType dataType, int capacity = 8) : base(dataType, capacity)
         {
+            DataType = dataType;
         }
 
         // Append Valididty
@@ -173,6 +176,22 @@ namespace Apache.Arrow.Builder
             foreach (IArrayBuilder child in Children)
                 child.AppendNulls(count);
 
+            return this;
+        }
+
+        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((StructScalar)value);
+        public StructArrayBuilder AppendValue(StructScalar value)
+        {
+            AppendValid();
+            for (int i = 0; i < Children.Length; i++)
+            {
+                var childValue = value.Fields[i];
+
+                if (childValue == null)
+                    Children[i].AppendNull();
+                else
+                    Children[i].AppendValue(childValue);
+            }
             return this;
         }
 

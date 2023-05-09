@@ -257,15 +257,18 @@ namespace Apache.Arrow.Builder
             ValuesBuffer.AppendByte(value);
             return this;
         }
+        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((IPrimitiveScalarBase)value);
+        public FixedBinaryArrayBuilder AppendValue(IPrimitiveScalarBase value)
+        {
+            Validate(value.Type);
+            AppendValue(value.View());
+            return this;
+        }
+
         public virtual FixedBinaryArrayBuilder AppendValue<T>(T value) where T : struct
         {
             AppendValid();
-#if NETCOREAPP3_1_OR_GREATER
-            var span = MemoryMarshal.CreateReadOnlySpan(ref value, 1);
-#else
-            var span = new T[] { value }.AsSpan();
-#endif
-            ValuesBuffer.AppendBytes(MemoryMarshal.AsBytes<T>(span));
+            ValuesBuffer.AppendBytes(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)));
             return this;
         }
 

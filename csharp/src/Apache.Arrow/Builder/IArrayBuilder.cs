@@ -33,6 +33,12 @@ namespace Apache.Arrow.Builder
         IArrayBuilder AppendNulls(int count);
 
         /// <summary>
+        /// Append <see cref="IScalar"> value.
+        /// </summary>
+        /// <returns>Current <see cref="IArrayBuilder"></returns>
+        IArrayBuilder AppendValue(IScalar value);
+
+        /// <summary>
         /// Append <see cref="ArrayData"> values.
         /// </summary>
         /// <returns>Current <see cref="IArrayBuilder"></returns>

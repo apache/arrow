@@ -110,13 +110,34 @@ namespace Apache.Arrow.Builder
         }
 
         // Append values from arrow objects
+        internal void Validate(IArrowType dtype)
+        {
+            if (dtype.TypeId != DataType.TypeId)
+                throw new ArgumentException($"Cannot append data type {dtype} in builder with data type {DataType}");
+        }
+
+        public virtual IArrayBuilder AppendValue(IScalar value)
+        {
+            switch (DataType.TypeId)
+            {
+                case ArrowTypeId.String:
+                    return As<StringArrayBuilder>().AppendValue(value);
+                case ArrowTypeId.Binary:
+                    return As<BinaryArrayBuilder>().AppendValue(value);
+                case ArrowTypeId.Struct:
+                    return As<StructArrayBuilder>().AppendValue(value);
+                default:
+                    Validate(value.Type);
+                    throw new ArgumentException($"Cannot append {value} in builder with data type {DataType}");
+            }
+        }
+
         public virtual IArrayBuilder AppendValues(IArrowArray array) => AppendValues(array.Data);
 
         public virtual IArrayBuilder AppendValues(ArrayData data)
         {
             // TODO: Make better / recursive fields data type check
-            if (data.DataType.TypeId != DataType.TypeId)
-                throw new ArgumentException($"Cannot append data type {data.DataType} in builder with data type {DataType}");
+            Validate(data.DataType);
 
             NullCount += data.NullCount;
             Length += data.Length;
