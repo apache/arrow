@@ -28,7 +28,7 @@ index 8f3f3f9..745b0fb 100644
  vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 0000000..a8e6ee5
+index 0000000..a57ce0c
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,19 @@
