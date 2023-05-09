@@ -869,7 +869,7 @@ TEST(CacheOptions, Basics) {
   check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75, 5), 2.5, 5);
 }
 
-#ifndef ARROW_DISABLE_THREADING
+#ifdef ARROW_ENABLE_THREADING
 TEST(IOThreadPool, Capacity) {
   // Simple sanity check
   auto pool = internal::GetIOThreadPool();
