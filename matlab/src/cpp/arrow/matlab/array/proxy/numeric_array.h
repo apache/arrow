@@ -59,9 +59,8 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             } else {
                 // Pass pointer to Arrow array constructor that takes a buffer
                 // Do not make a copy when creating arrow::Buffer
-                std::shared_ptr<arrow::Buffer> buffer(
-                                                      new arrow::Buffer(reinterpret_cast<const uint8_t*>(dt),
-                                                                        sizeof(CType) * numeric_mda.getNumberOfElements()));
+                auto buffer = std::make_shared<arrow::Buffer>(reinterpret_cast<const uint8_t*>(dt),
+                                                              sizeof(CType) * numeric_mda.getNumberOfElements());
                 
                 // Construct arrow::NumericArray specialization using arrow::Buffer.
                 // pass in nulls information...we could compute and provide the number of nulls here too
