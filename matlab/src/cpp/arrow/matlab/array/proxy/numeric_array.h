@@ -77,7 +77,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
         void ToMatlab(libmexclass::proxy::method::Context& context) override {
             using ArrowArrayType = typename arrow::CTypeTraits<CType>::ArrayType;
 
-            const size_t num_elements = static_cast<size_t>(array->length());
+            const auto num_elements = static_cast<size_t>(array->length());
             const auto numeric_array = std::static_pointer_cast<ArrowArrayType>(array);
             const CType* const data_begin = numeric_array->raw_values();
             const CType* const data_end = data_begin + num_elements;
