@@ -53,12 +53,12 @@ func (a *String) Value(i int) string {
 	i = i + a.array.data.offset
 	return a.values[a.offsets[i]:a.offsets[i+1]]
 }
+
 func (a *String) ValueStr(i int) string {
 	if a.IsNull(i) {
-		return "(null)"
-	} else {
-		return a.Value(i)
+		return NullValueStr
 	}
+	return a.Value(i)
 }
 
 // ValueOffset returns the offset of the value at index i.
@@ -100,7 +100,7 @@ func (a *String) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.Value(i))
 		}
@@ -195,7 +195,13 @@ func (a *LargeString) Value(i int) string {
 	i = i + a.array.data.offset
 	return a.values[a.offsets[i]:a.offsets[i+1]]
 }
-func (a *LargeString) ValueStr(i int) string { return a.Value(i) }
+
+func (a *LargeString) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.Value(i)
+}
 
 // ValueOffset returns the offset of the value at index i.
 func (a *LargeString) ValueOffset(i int) int64 {
@@ -236,7 +242,7 @@ func (a *LargeString) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.Value(i))
 		}
@@ -315,7 +321,9 @@ func NewStringBuilder(mem memory.Allocator) *StringBuilder {
 	return b
 }
 
-func (b *StringBuilder) Type() arrow.DataType { return arrow.BinaryTypes.String }
+func (b *StringBuilder) Type() arrow.DataType {
+	return arrow.BinaryTypes.String
+}
 
 // Append appends a string to the builder.
 func (b *StringBuilder) Append(v string) {

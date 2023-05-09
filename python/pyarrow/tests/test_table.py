@@ -529,7 +529,10 @@ def test_recordbatch_basics():
     assert batch.schema == schema
     assert str(batch) == """pyarrow.RecordBatch
 c0: int16
-c1: int32"""
+c1: int32
+----
+c0: [0,1,2,3,4]
+c1: [-10,-5,0,null,10]"""
 
     assert batch.to_string(show_metadata=True) == """\
 pyarrow.RecordBatch

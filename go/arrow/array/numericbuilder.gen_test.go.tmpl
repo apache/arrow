@@ -26,6 +26,66 @@ import (
 )
 
 {{range .In}}
+func Test{{.Name}}StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+{{if .Opt.Parametric -}}
+{{ if or (eq .Name "Time64") -}}
+	dt := &arrow.{{.Name}}Type{Unit: arrow.Microsecond}
+{{else -}}
+	dt := &arrow.{{.Name}}Type{Unit: arrow.Second}
+{{end -}}
+	b := array.New{{.Name}}Builder(mem, dt)
+{{else -}}
+	b := array.New{{.Name}}Builder(mem)
+{{end -}}
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.{{.Name}})
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+{{if .Opt.Parametric -}}
+	b1 := array.New{{.Name}}Builder(mem, dt)
+{{else -}}
+	b1 := array.New{{.Name}}Builder(mem)
+{{end -}}
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.{{.Name}})
+	defer arr1.Release()
+
+{{ if or (eq .Name "Date64") -}}
+	assert.Exactly(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Exactly(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Exactly(t, arr.ValueStr(i), arr1.ValueStr(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i).ToTime(), arr1.Value(i).ToTime())
+		}
+	}
+{{else -}}
+	assert.True(t, array.Equal(arr, arr1))
+{{end -}}
+}
+
 func TestNew{{.Name}}Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -51,10 +111,9 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
-	ab.AppendValueFromString(11)
 
 	// check state of builder before New{{.Name}}Array
-	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.New{{.Name}}Array()
@@ -66,7 +125,7 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []{{or .QualifiedType .Type}}{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, a.{{.Name}}Values(), "unexpected {{.Name}}Values")
+	assert.Equal(t, []{{or .QualifiedType .Type}}{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.{{.Name}}Values(), "unexpected {{.Name}}Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
 	assert.Len(t, a.{{.Name}}Values(), 10, "unexpected length of {{.Name}}Values")
 

@@ -224,8 +224,13 @@ func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
       return err
     }
     b.Append(v)
-  {{else if (eq .Name "Duration") -}}	
-    return fmt.Errorf("%w: AppendValueFromString not implemented for Duration", arrow.ErrNotImplemented)
+  {{else if (eq .Name "Duration") -}}
+	dur, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+
+	b.Append(arrow.Duration(dur / b.dtype.Unit.Multiplier()))
   {{else if or (eq .Name "Int8") (eq .Name "Int16") (eq .Name "Int32") (eq .Name "Int64") -}}
     v, err := strconv.ParseInt(s, 10, {{.Size}} * 8)
     if err != nil {
@@ -247,8 +252,6 @@ func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
       return err
     }
     b.Append({{.name}}(v))
-  {{else}}
-    return fmt.Errorf("%w: AppendValueFromString not implemented for {{.Name}}", ErrNotImplemented)
   {{end -}}
 	return nil
 }

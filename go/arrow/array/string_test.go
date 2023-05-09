@@ -281,6 +281,38 @@ func TestStringInvalidOffsets(t *testing.T) {
 	}, "data has offset and value offset is overflowing")
 }
 
+func TestStringStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	var (
+		values = []string{"hello", "世界", "", "bye"}
+		valid  = []bool{true, true, false, true}
+	)
+
+	b := array.NewStringBuilder(mem)
+	defer b.Release()
+
+	b.AppendValues(values, valid)
+
+	arr := b.NewArray().(*array.String)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewStringBuilder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.String)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
 func TestLargeStringArray(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -529,4 +561,36 @@ func TestLargeStringInvalidOffsets(t *testing.T) {
 		buffers := makeBuffers(nil, []int64{0, 3, 10, 15}, "oooabcdef")
 		array.NewLargeStringData(array.NewData(arrow.BinaryTypes.LargeString, 1, buffers, nil, 0, 2))
 	}, "data has offset and value offset is overflowing")
+}
+
+func TestLargeStringStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	var (
+		values = []string{"hello", "世界", "", "bye"}
+		valid  = []bool{true, true, false, true}
+	)
+
+	b := array.NewLargeStringBuilder(mem)
+	defer b.Release()
+
+	b.AppendValues(values, valid)
+
+	arr := b.NewArray().(*array.LargeString)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewLargeStringBuilder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.LargeString)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }
