@@ -43,7 +43,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             auto it(numeric_mda.cbegin());
             auto dt = it.operator->();
 
-            const bool make_deep_copy = make_copy[0];
+            const auto make_deep_copy = make_copy[0];
 
             if (make_deep_copy) {
                 BuilderType builder;
