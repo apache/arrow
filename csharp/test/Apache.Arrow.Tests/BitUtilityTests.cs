@@ -61,7 +61,11 @@ namespace Apache.Arrow.Tests
             [Fact]
             public void CountsAllOneBitsFromAnOffset_ShouldThrowException()
             {
+                //Check lower boundary
                 Assert.Throws<ArgumentOutOfRangeException>( () => BitUtility.CountBits(new byte[] { 0b11111111 }, -1));
+
+                //Check upper boundary
+                Assert.Throws<ArgumentOutOfRangeException>(() => BitUtility.CountBits(new byte[] { 0b11111111 }, 9));
             }
 
             [Theory]
@@ -169,18 +173,77 @@ namespace Apache.Arrow.Tests
             public void SetsBitsInRangeOnBigRanges()
             {
                 //Arrange
+                //Allocate 64 bits
                 Span<byte> data = stackalloc byte[8];
                 data.Clear();
 
                 //Act
+                //Sets 56 bits in the middle
                 BitUtility.SetBits(data, 4, 56, true);
 
                 //Assert
+                //Check that 4 bits in the lower and upper boundaries are left untouched
                 Assert.Equal(0b11110000, data[0]);
                 Assert.Equal(0b00001111, data[7]);
 
+                //Check bits in the middle
                 for (int i = 1; i < 7; i++)
                     Assert.Equal(0b11111111, data[i]);
+            }
+
+            [Fact]
+            public void SetsBitsInRangeOnBigRanges_LowerBoundaryCornerCase()
+            {
+                //Arrange
+                //Allocate 64 bits
+                Span<byte> data = stackalloc byte[8];
+                data.Clear();
+
+                //Act
+                //Sets all bits starting from 1
+                BitUtility.SetBits(data, 1, 63, true);
+
+                //Assert
+                //Check lower boundary
+                Assert.Equal(0b11111110, data[0]);
+
+                //Check other bits
+                for (int i = 1; i < 8; i++)
+                    Assert.Equal(0b11111111, data[i]);
+            }
+
+            [Fact]
+            public void SetsBitsInRangeOnBigRanges_UpperBoundaryCornerCase()
+            {
+                //Arrange
+                //Allocate 64 bits
+                Span<byte> data = stackalloc byte[8];
+                data.Clear();
+
+                //Act
+                //Sets all bits starting from 0
+                BitUtility.SetBits(data, 0, 63, true);
+
+                //Assert
+                //Check upper boundary
+                Assert.Equal(0b01111111, data[7]);
+
+                //Check other bits
+                for (int i = 0; i < 7; i++)
+                    Assert.Equal(0b11111111, data[i]);
+            }
+
+            [Fact]
+            public void CountsAllOneBitsFromAnOffset_ShouldThrowException()
+            {
+                //Check index lower boundary
+                Assert.Throws<ArgumentOutOfRangeException>(() => BitUtility.SetBits(new byte[] { 0b11111111 }, -1, 1, true));
+
+                //Check index upper boundary
+                Assert.Throws<ArgumentOutOfRangeException>(() => BitUtility.SetBits(new byte[] { 0b11111111 }, 9, 1, true));
+
+                //Check (index + lenght)
+                Assert.Throws<ArgumentOutOfRangeException>(() => BitUtility.SetBits(new byte[] { 0b11111111 }, 7, 2, true));
             }
         }
 
