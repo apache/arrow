@@ -45,7 +45,6 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/visit_type_inline.h"
 #include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
@@ -53,6 +52,7 @@
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
