@@ -382,7 +382,7 @@ TEST_F(DatasetWriterTestFixture, MinRowGroupBackpressure) {
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
   // Use a gated filesystem to queue up many writes behind a file open to make sure the
   // file isn't opened multiple times.
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Concurrent writes tests need threads";
   #endif
   auto gated_fs = UseGatedFs();
@@ -398,7 +398,7 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
   // NBATCHES must be less than I/O executor concurrency to avoid deadlock / test failure
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Concurrent writes tests need threads";
   #endif
   constexpr int NBATCHES = 6;
@@ -418,7 +418,7 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
 }
 
 TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Concurrent writes tests need threads";
   #endif
   auto gated_fs = UseGatedFs();

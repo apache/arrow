@@ -80,7 +80,7 @@ pushd ${build_dir}
 if [ -z "${PYTHON}" ] && ! which python > /dev/null 2>&1; then
   export PYTHON="${PYTHON:-python3}"
 fi
-if [[ "${ARROW_DISABLE_THREADING}" == "ON" ]]; then
+if [[ "${ARROW_ENABLE_THREADING}" == "OFF" ]]; then
 # if threading is disabled, some tests take longer to run
 # but we can get away with running more tests in parallel
   ARROW_CTEST_TIMEOUT=${ARROW_CTEST_TIMEOUT:-900}

@@ -1520,7 +1520,7 @@ class AsofJoinNode : public ExecNode {
       // Plan has already aborted.  Do not start process thread
       return Status::OK();
     }
-    #ifdef ARROW_DISABLE_THREADING
+    #ifndef ARROW_ENABLE_THREADING
       return Status::ExecutionError("ASOF join requires threading enabled");
     #endif
     process_thread_ = std::thread(&AsofJoinNode::ProcessThreadWrapper, this);

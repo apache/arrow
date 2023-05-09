@@ -472,7 +472,7 @@ TEST(BloomFilter, Basic) {
 
   std::vector<BloomFilterBuildStrategy> strategy;
   strategy.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
-#ifndef ARROW_DISABLE_THREADING
+#ifdef ARROW_ENABLE_THREADING
 #ifndef ARROW_VALGRIND 
   strategy.push_back(BloomFilterBuildStrategy::PARALLEL);
 #endif
@@ -509,7 +509,7 @@ TEST(BloomFilter, Scaling) {
   num_build.push_back(4000000);
 
   std::vector<BloomFilterBuildStrategy> strategy;
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   strategy.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
 #else
   strategy.push_back(BloomFilterBuildStrategy::PARALLEL);

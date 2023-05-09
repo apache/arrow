@@ -359,7 +359,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
           // the next call.
           executor->Pause();
         });
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
         // future must run on this thread
         next_fut.Wait();
 #else
@@ -384,7 +384,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
     return Iterator<T>(SerialIterator{std::move(serial_executor), std::move(generator)});
   }
 
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
     // run loop until everything is done (or one go round loop if once_only=True)
     // returns true if any tasks were run in the last go round the loop (i.e. if it
     // returns false, all executors are waiting)
@@ -426,7 +426,7 @@ protected:
     return final_fut;
   } 
 
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   // we have to run tasks from all live executors
   // during RunLoop if we don't have threading
     static std::unordered_set<SerialExecutor*> all_executors;
@@ -437,11 +437,11 @@ protected:
     // without threading we can't tell which executor called the
     // current process - so we set it in spawning the task
     static SerialExecutor* current_executor;
-#endif // ARROW_DISABLE_THREADING
+#endif // ARROW_ENABLE_THREADING
 
 };
 
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
 // an executor implementation which pretends to be a thread pool but runs everything
 // on the main thread using a static queue (shared between all thread pools, otherwise
 // cross-threadpool dependencies will break everything)
@@ -500,7 +500,7 @@ class ARROW_EXPORT ThreadPool : public SerialExecutor
 
 };
 
-#else // ARROW_DISABLE_THREADING
+#else // ARROW_ENABLE_THREADING
 
 /// An Executor implementation spawning tasks in FIFO manner on a fixed-size
 /// pool of worker threads.
@@ -581,7 +581,7 @@ class ARROW_EXPORT ThreadPool : public Executor {
   State* state_;
   bool shutdown_on_destroy_;
 };
-#endif // ARROW_DISABLE_THREADING
+#endif // ARROW_ENABLE_THREADING
 
 // Return the process-global thread pool for CPU-bound tasks.
 ARROW_EXPORT ThreadPool* GetCpuThreadPool();

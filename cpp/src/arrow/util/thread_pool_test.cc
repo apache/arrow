@@ -584,7 +584,7 @@ TEST_F(TestThreadPool, StressSpawn) {
 }
 
 TEST_F(TestThreadPool, OwnsCurrentThread) {
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
   auto pool = this->MakeThreadPool(30);
@@ -603,7 +603,7 @@ TEST_F(TestThreadPool, OwnsCurrentThread) {
   ASSERT_FALSE(one_failed);
 }
 TEST_F(TestThreadPool, StressSpawnThreaded) {
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
 
@@ -623,7 +623,7 @@ TEST_F(TestThreadPool, StressSpawnSlow) {
 }
 
 TEST_F(TestThreadPool, StressSpawnSlowThreaded) {
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
   auto pool = this->MakeThreadPool(30);
@@ -637,7 +637,7 @@ TEST_F(TestThreadPool, SpawnWithStopToken) {
 }
 
 TEST_F(TestThreadPool, StressSpawnThreadedWithStopToken) {
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
   StopSource stop_source;
@@ -652,7 +652,7 @@ TEST_F(TestThreadPool, SpawnWithStopTokenCancelled) {
 }
 
 TEST_F(TestThreadPool, StressSpawnThreadedWithStopTokenCancelled) {
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
   StopSource stop_source;
@@ -672,7 +672,7 @@ TEST_F(TestThreadPool, QuickShutdown) {
   add_tester.CheckNotAllComputed();
 }
 
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
 TEST_F(TestThreadPool, SetCapacity) {
   auto pool = this->MakeThreadPool(5);
 
@@ -683,7 +683,7 @@ TEST_F(TestThreadPool, SetCapacity) {
   ASSERT_EQ(pool->GetCapacity(), 7);
 
 }
-#else//  ARROW_DISABLE_THREADING
+#else//  ARROW_ENABLE_THREADING
 TEST_F(TestThreadPool, SetCapacity) {
   auto pool = this->MakeThreadPool(5);
 
@@ -830,7 +830,7 @@ class TestThreadPoolForkSafety : public TestThreadPool {};
 
 TEST_F(TestThreadPoolForkSafety, Basics) {
   {
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
     
@@ -879,7 +879,7 @@ TEST_F(TestThreadPoolForkSafety, Basics) {
 TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
   // ARROW-15593: race condition in after-fork ThreadPool reinitialization
   // when SpawnReal() was called from multiple threads in a forked child.
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
     auto run_in_child = [](ThreadPool* pool) {
@@ -930,7 +930,7 @@ TEST_F(TestThreadPoolForkSafety, NestedChild) {
 #ifdef __APPLE__
     GTEST_SKIP() << "Nested fork is not supported on macos";
 #endif
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
 #endif
     auto pool = this->MakeThreadPool(3);
@@ -966,7 +966,7 @@ TEST_F(TestThreadPoolForkSafety, NestedChild) {
 #endif
 
 TEST(TestGlobalThreadPool, Capacity) {
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
   // Sanity check

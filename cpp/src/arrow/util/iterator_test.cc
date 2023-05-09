@@ -438,7 +438,7 @@ TEST(ReadaheadIterator, Trace) {
     ASSERT_EQ(values[i], TestInt());
   }
 
-#ifndef ARROW_DISABLE_THREADING
+#ifdef ARROW_ENABLE_THREADING
   // Values were all emitted from the same thread, and it's not this thread
   const auto& thread_ids = tracing->thread_ids();
   ASSERT_EQ(thread_ids.size(), 1);

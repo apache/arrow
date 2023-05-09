@@ -725,7 +725,7 @@ void TestInitialized(const ArrayData& array) {
 }
 
 void SleepFor(double seconds) {
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
       std::chrono::duration<double> secs_left=std::chrono::duration<double>(seconds);
       auto start_time = std::chrono::steady_clock::now();
       auto end_time= start_time+secs_left;
@@ -1105,7 +1105,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
 
 
   void RunTask() {
-    #ifdef ARROW_DISABLE_THREADING
+    #ifndef ARROW_ENABLE_THREADING
     // can't wait here for anything, so make a future to do the waiting
       num_running_++;
       auto future=RunTaskFuture();
@@ -1127,7 +1127,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   }
 
   Status WaitForRunning(int count) {
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   BusyWait(timeout_seconds_,[this, count] { return num_running_ >= count; });
   if(num_running_>=count)
   {
@@ -1154,7 +1154,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
       unlocked_cv_.notify_all();
     }
     unlocked_future_.MarkFinished();
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
     while(num_finished_!=num_running_)
     {
       arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);

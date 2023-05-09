@@ -102,7 +102,7 @@ TaskScheduler::TaskGroupContinuationImpl MakeFinalContinuation(
 // concurrently.  When all groups in that stage finish the next
 // stage is started.
 TEST(TaskScheduler, Stress) {
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
   constexpr int kNumThreads = 8;
@@ -181,7 +181,7 @@ TEST(TaskScheduler, Stress) {
 // the last of its tasks.
 TEST(TaskScheduler, StressTwo) {
 
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
 

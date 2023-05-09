@@ -57,6 +57,6 @@
 #cmakedefine ARROW_WITH_MUSL
 #cmakedefine ARROW_WITH_OPENTELEMETRY
 #cmakedefine ARROW_WITH_UCX
-#cmakedefine ARROW_DISABLE_THREADING
+#cmakedefine ARROW_ENABLE_THREADING
 
 #cmakedefine GRPCPP_PP_INCLUDE

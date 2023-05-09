@@ -69,7 +69,7 @@ jobs:
             runs-on: ubuntu-latest
             title: AMD64 Conda C++ no threads
             ubuntu: "22.04"
-            disable_threading: "ON"
+            enable_threading: "OFF"
           - arch: amd64
             clang-tools: "14"
             image: conda-cpp
@@ -96,7 +96,7 @@ jobs:
       CLANG_TOOLS: ${{ matrix.clang-tools }}
       LLVM: ${{ matrix.llvm }}
       UBUNTU: ${{ matrix.ubuntu }}
-      ARROW_DISABLE_THREADING: ${{matrix.disable_threading}}
+      ARROW_ENABLE_THREADING: ${{matrix.enable_threading}}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -121,7 +121,7 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run --env ARROW_DISABLE_THREADING=${ARROW_DISABLE_THREADING:-NO} ${{ matrix.image }}
+          archery docker run --env ARROW_ENABLE_THREADING=${ARROW_ENABLE_THREADING:-ON} ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         env:

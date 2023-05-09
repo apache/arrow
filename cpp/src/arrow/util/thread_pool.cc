@@ -61,13 +61,13 @@ struct SerialExecutor::State {
   std::thread::id current_thread;
   bool paused{false};
   bool finished{false};
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   int max_tasks_running{1};
   int tasks_running{0};
 #endif  
 };
 
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
 // list of all SerialExecutor objects - as we need to run tasks from all pools at once in Run()
 std::unordered_set<SerialExecutor*> SerialExecutor::all_executors;
 SerialExecutor* SerialExecutor::current_executor=NULL;
@@ -81,14 +81,14 @@ SerialExecutor* SerialExecutor::last_called_executor=NULL;
 
 SerialExecutor::SerialExecutor() : state_(std::make_shared<State>()) 
 {
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   all_executors.insert(this);
   state_->max_tasks_running=1;
 #endif
 }
 
 SerialExecutor::~SerialExecutor() {
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   all_executors.erase(this);
 #endif
   auto state = state_;
@@ -109,7 +109,7 @@ int SerialExecutor::GetNumTasks()
   return (int)(state_->task_queue.size());
 }
 
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
 #ifdef ARROW_WITH_OPENTELEMETRY
@@ -144,7 +144,7 @@ void SerialExecutor::Finish() {
 }
 
 
-#else //ARROW_DISABLE_THREADING
+#else //ARROW_ENABLE_THREADING
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
 #ifdef ARROW_WITH_OPENTELEMETRY
@@ -217,7 +217,7 @@ bool SerialExecutor::OwnsThisThread() {
   std::lock_guard lk(state_->mutex);
   return std::this_thread::get_id() == state_->current_thread;
 }
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
 
 bool SerialExecutor::RunTasksOnAllExecutors(bool once_only)
 {  
@@ -346,7 +346,7 @@ int ThreadPool::GetActualCapacity()
 }
 
 
-#else //ARROW_DISABLE_THREADING
+#else //ARROW_ENABLE_THREADING
 
 void SerialExecutor::RunLoop() {
   // This is called from the SerialExecutor's main thread, so the
@@ -383,9 +383,9 @@ void SerialExecutor::RunLoop() {
   }
   state_->current_thread = {};
 }
-#endif //ARROW_DISABLE_THREADING
+#endif //ARROW_ENABLE_THREADING
 
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
 
 ThreadPool::ThreadPool()
 {
@@ -443,7 +443,7 @@ ThreadPool::~ThreadPool()
 }
 
 
-#else // ARROW_DISABLE_THREADING
+#else // ARROW_ENABLE_THREADING
 
 struct ThreadPool::State {
   State() = default;
@@ -795,7 +795,7 @@ int ThreadPool::DefaultCapacity() {
 
 
 
-#endif //ARROW_DISABLE_THREADING
+#endif //ARROW_ENABLE_THREADING
 
 // Helper for the singleton pattern
 std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {

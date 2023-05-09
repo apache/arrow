@@ -1602,7 +1602,7 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
 }
 
 TEST(ExecPlanExecution, SegmentedAggregationWithMultiThreading) {
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading enabled";
 #endif  
   BatchesWithSchema data;

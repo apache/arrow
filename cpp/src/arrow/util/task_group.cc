@@ -128,7 +128,7 @@ class ThreadedTaskGroup : public TaskGroup {
   bool ok() const override { return ok_.load(); }
 
   Status Finish() override {
-    #ifdef ARROW_DISABLE_THREADING
+    #ifndef ARROW_ENABLE_THREADING
       while(!finished_ && nremaining_.load() != 0 )
       {
         arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);

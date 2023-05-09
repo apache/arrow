@@ -426,7 +426,7 @@ void BloomFilterBuilder_Parallel::CleanUp() {
 
 std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
     BloomFilterBuildStrategy strategy) {
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   strategy=BloomFilterBuildStrategy::SINGLE_THREADED;
 #endif
   switch (strategy) {

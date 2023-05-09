@@ -994,7 +994,7 @@ TEST(TestAsyncUtil, GeneratorIterator) {
 }
 
 TEST(TestAsyncUtil, MakeTransferredGenerator) {
-  #ifdef ARROW_DISABLE_THREADING
+  #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
   std::mutex mutex;
@@ -1489,7 +1489,7 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
   // should all pass
   auto source = [&]() -> Future<TestInt> {
     auto count = counter++;
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   // if threading is disabled, we can't call Task() as we do below because it will
   // never return and will block everything
     if (count == 0) {
@@ -1535,7 +1535,7 @@ TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
   auto source = [&]() -> Future<TestInt> {
     auto count = counter++;
 
-#ifdef ARROW_DISABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
   // if threading is disabled, we can't call Task() as we do below because it will
   // never return and will block everything
     if (count == 0) {

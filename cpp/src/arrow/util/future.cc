@@ -149,7 +149,7 @@ class ConcreteFutureImpl : public FutureImpl {
   }
 
   void DoWait() {
-    #ifdef ARROW_DISABLE_THREADING
+    #ifndef ARROW_ENABLE_THREADING
       while(true)
       {
         if(IsFutureFinished(state_))
@@ -165,7 +165,7 @@ class ConcreteFutureImpl : public FutureImpl {
   }
 
   bool DoWait(double seconds) {
-    #ifdef ARROW_DISABLE_THREADING
+    #ifndef ARROW_ENABLE_THREADING
       auto start = std::chrono::steady_clock::now();
       std::chrono::duration<double> fsec=std::chrono::duration<double>(seconds);
       while(std::chrono::steady_clock::now()-start < fsec)
