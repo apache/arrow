@@ -17,7 +17,11 @@
 
 #pragma once
 
+
 #include "arrow/array.h"
+#include "arrow/array/data.h"
+#include "arrow/array/util.h"
+
 #include "arrow/builder.h"
 #include "arrow/type_traits.h"
 
@@ -57,18 +61,19 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                     }
                 }
             } else {
-                // Pass pointer to Arrow array constructor that takes a buffer
+                const auto data_type = arrow::CTypeTraits<CType>::type_singleton();
+                const auto length = static_cast<int64_t>(numeric_mda.getNumberOfElements()); // cast size_t to int64_t
+
                 // Do not make a copy when creating arrow::Buffer
-                auto buffer = std::make_shared<arrow::Buffer>(reinterpret_cast<const uint8_t*>(dt),
+                auto data_buffer = std::make_shared<arrow::Buffer>(reinterpret_cast<const uint8_t*>(dt),
                                                               sizeof(CType) * numeric_mda.getNumberOfElements());
-                
-                // Construct arrow::NumericArray specialization using arrow::Buffer.
-                // pass in nulls information...we could compute and provide the number of nulls here too
-                std::shared_ptr<arrow::Array> array_wrapper(
-                                                            new arrow::NumericArray<ArrowType>(numeric_mda.getNumberOfElements(), buffer,
-                                                                                               nullptr, // TODO: fill validity bitmap with data
-                                                                                               -1));
-                array = array_wrapper;
+
+                // TODO: Implement null support
+                std::shared_ptr<arrow::Buffer> null_buffer = nullptr;
+
+                auto array_data = arrow::ArrayData::Make(data_type, length, {null_buffer, data_buffer});
+                array = arrow::MakeArray(array_data);
+
             }
         }
 
