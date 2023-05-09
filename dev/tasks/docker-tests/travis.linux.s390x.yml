@@ -43,7 +43,6 @@ env:
     - ARROW_CI_MODULES={{ arrow_ci_modules }}
 
 before_script:
-  - set -e
   {{ macros.travis_checkout_arrow() }}
   {{ macros.travis_docker_login() }}
   {{ macros.travis_set_venv_with_archery() }}
