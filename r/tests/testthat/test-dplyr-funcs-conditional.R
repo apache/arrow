@@ -288,6 +288,19 @@ test_that("case_when()", {
     "`.default` must have size"
   )
 
+  expect_warning(
+    tbl %>%
+      arrow_table() %>%
+      mutate(cw = case_when(int > 5 ~ 1, .ptype = integer())),
+    "not supported in Arrow"
+  )
+
+  expect_warning(
+    tbl %>%
+      arrow_table() %>%
+      mutate(cw = case_when(int > 5 ~ 1, .size = 10)),
+    "not supported in Arrow"
+  )
 
   compare_dplyr_binding(
     .input %>%

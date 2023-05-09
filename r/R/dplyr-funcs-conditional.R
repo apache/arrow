@@ -90,7 +90,15 @@ register_bindings_conditional <- function() {
     out
   })
 
-  register_binding("dplyr::case_when", function(..., .default = NULL) {
+  register_binding("dplyr::case_when", function(..., .default = NULL, .ptype = NULL, .size = NULL) {
+    if (!is.null(.ptype)) {
+      arrow_not_supported("`case_when()` with `.ptype` specified")
+    }
+
+    if (!is.null(.size)) {
+      arrow_not_supported("`case_when()` with `.size` specified")
+    }
+
     formulas <- list2(...)
     n <- length(formulas)
     if (n == 0) {
