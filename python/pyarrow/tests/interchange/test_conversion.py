@@ -202,7 +202,7 @@ def test_roundtrip_pandas_string():
         from_dataframe as pandas_from_dataframe
     )
 
-    if Version(pd.__version__) >=  Version("2.0.1"):
+    if Version(pd.__version__) >= Version("2.0.1"):
         pandas_df = pandas_from_dataframe(table)
         result = pi.from_dataframe(pandas_df)
 
