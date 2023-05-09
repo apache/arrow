@@ -1106,6 +1106,25 @@ class TestListScalar : public ::testing::Test {
     ASSERT_RAISES(Invalid, scalar.ValidateFull());
   }
 
+  void TestHashing() {
+    ScalarType empty_bitmap_scalar(ArrayFromJSON(int16(), "[1, 2, 3]"));
+    ASSERT_OK(empty_bitmap_scalar.ValidateFull());
+    ASSERT_TRUE(empty_bitmap_scalar.value->data()->buffers[0] == nullptr);
+    
+    auto data = empty_bitmap_scalar.value->data()->buffers[1];
+    std::vector<uint8_t> bitmap_data = {0,0,0};
+    auto null_bitmap = std::make_shared<Buffer>(bitmap_data.data(), 3);
+
+    std::shared_ptr<Int16Array> arr(new Int16Array(3, data, null_bitmap, 0));
+    ASSERT_TRUE(arr->null_count() == 0);
+    // this line fails - I don't know how to create an array with a null bitmap
+    // that is all 0s.
+    ASSERT_TRUE(arr->data()->buffers[0] != nullptr);
+    ScalarType set_bitmap_scalar(arr);
+
+    ASSERT_TRUE(set_bitmap_scalar.hash() == empty_bitmap_scalar.hash());
+  }
+
  protected:
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Array> value_;
@@ -1118,6 +1137,8 @@ TYPED_TEST_SUITE(TestListScalar, ListScalarTestTypes);
 TYPED_TEST(TestListScalar, Basics) { this->TestBasics(); }
 
 TYPED_TEST(TestListScalar, ValidateErrors) { this->TestValidateErrors(); }
+
+TYPED_TEST(TestListScalar, TestHashing) { this->TestHashing(); }
 
 TEST(TestFixedSizeListScalar, ValidateErrors) {
   const auto ty = fixed_size_list(int16(), 3);
