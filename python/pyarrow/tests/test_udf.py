@@ -40,6 +40,30 @@ class MyError(RuntimeError):
 
 
 @pytest.fixture(scope="session")
+def unary_agg_func_fixture():
+    """
+    Register a unary aggregate function
+    """
+
+    def func(ctx, x):
+        return pa.array([len(x)])
+
+    func_name = "y=len(x)"
+    func_doc = {"summary": "y=len(x)",
+                "description": "find length of x"}
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.int64(),
+                                   },
+                                   pa.int64()
+                                   )
+    return func, func_name
+
+
+@pytest.fixture(scope="session")
 def binary_func_fixture():
     """
     Register a binary scalar function.
@@ -593,3 +617,10 @@ def test_udt_datasource1_generator():
 def test_udt_datasource1_exception():
     with pytest.raises(RuntimeError, match='datasource1_exception'):
         _test_datasource1_udt(datasource1_exception)
+
+
+def test_aggregate_udf_basic(unary_agg_func_fixture):
+    arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
+    result = pc.call_function("y=len(x)", [arr])
+    expected = pa.array([6])
+    assert result == expected

@@ -2805,5 +2805,9 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
                                     function[CallbackUdf] wrapper, const CUdfOptions& options,
                                     CFunctionRegistry* registry)
 
+    CStatus RegisterAggregateFunction(PyObject* function,
+                                      function[CallbackUdf] wrapper, const CUdfOptions& options,
+                                      CFunctionRegistry* registry)
+
     CResult[shared_ptr[CRecordBatchReader]] CallTabularFunction(
         const c_string& func_name, const vector[CDatum]& args, CFunctionRegistry* registry)

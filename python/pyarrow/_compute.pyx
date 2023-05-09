@@ -2665,6 +2665,12 @@ cdef get_register_tabular_function():
     return reg
 
 
+cdef get_register_aggregate_function():
+    cdef RegisterUdf reg = RegisterUdf.__new__(RegisterUdf)
+    reg.register_func = RegisterAggregateFunction
+    return reg
+
+
 def register_scalar_function(func, function_name, function_doc, in_types, out_type,
                              func_registry=None):
     """
@@ -2739,6 +2745,84 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
     ]
     """
     return _register_scalar_like_function(get_register_scalar_function(),
+                                          func, function_name, function_doc, in_types,
+                                          out_type, func_registry)
+
+
+def register_aggregate_function(func, function_name, function_doc, in_types, out_type,
+                                func_registry=None):
+    """
+    Register a user-defined scalar function.
+
+    A scalar function is a function that executes elementwise
+    operations on arrays or scalars, i.e. a scalar function must
+    be computed row-by-row with no state where each output row
+    is computed only from its corresponding input row.
+    In other words, all argument arrays have the same length,
+    and the output array is of the same length as the arguments.
+    Scalar functions are the only functions allowed in query engine
+    expressions.
+
+    Parameters
+    ----------
+    func : callable
+        A callable implementing the user-defined function.
+        The first argument is the context argument of type
+        ScalarUdfContext.
+        Then, it must take arguments equal to the number of
+        in_types defined. It must return an Array or Scalar
+        matching the out_type. It must return a Scalar if
+        all arguments are scalar, else it must return an Array.
+
+        To define a varargs function, pass a callable that takes
+        varargs. The last in_type will be the type of all varargs
+        arguments.
+    function_name : str
+        Name of the function. This name must be globally unique.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        A dictionary mapping function argument names to
+        their respective DataType.
+        The argument names will be used to generate
+        documentation for the function. The number of
+        arguments specified here determines the function
+        arity.
+    out_type : DataType
+        Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>>
+    >>> func_doc = {}
+    >>> func_doc["summary"] = "simple udf"
+    >>> func_doc["description"] = "add a constant to a scalar"
+    >>>
+    >>> def add_constant(ctx, array):
+    ...     return pc.add(array, 1, memory_pool=ctx.memory_pool)
+    >>>
+    >>> func_name = "py_add_func"
+    >>> in_types = {"array": pa.int64()}
+    >>> out_type = pa.int64()
+    >>> pc.register_scalar_function(add_constant, func_name, func_doc,
+    ...                   in_types, out_type)
+    >>>
+    >>> func = pc.get_function(func_name)
+    >>> func.name
+    'py_add_func'
+    >>> answer = pc.call_function(func_name, [pa.array([20])])
+    >>> answer
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      21
+    ]
+    """
+    return _register_scalar_like_function(get_register_aggregate_function(),
                                           func, function_name, function_doc, in_types,
                                           out_type, func_registry)
 

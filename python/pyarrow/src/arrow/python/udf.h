@@ -59,7 +59,16 @@ Status ARROW_PYTHON_EXPORT RegisterScalarFunction(
 
 /// \brief register a Table user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterTabularFunction(
-    PyObject* user_function, UdfWrapperCallback wrapper, const UdfOptions& options,
+    PyObject* user_function, UdfWrapperCallback wrapper,
+    const UdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
+
+/// \brief register a Aggregate user-defined-function from Python
+Status ARROW_PYTHON_EXPORT RegisterAggregateFunction(
+    PyObject* user_function, UdfWrapperCallback wrapper,
+    const UdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
+
+Result<std::shared_ptr<RecordBatchReader>> ARROW_PYTHON_EXPORT CallTabularFunction(
+    const std::string& func_name, const std::vector<Datum>& args,
     compute::FunctionRegistry* registry = NULLPTR);
 
 Result<std::shared_ptr<RecordBatchReader>> ARROW_PYTHON_EXPORT
