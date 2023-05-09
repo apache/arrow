@@ -34,7 +34,8 @@
 #endif
 
 // https://bugs.python.org/issue36020
-#if _MSC_VER >= 1500
+// TODO(wjones127): Can remove once we drop support for CPython 3.9
+#ifdef snprintf
 #undef snprintf
 #endif
 #endif
