@@ -49,7 +49,7 @@ classdef Float64Array < matlab.mixin.CustomDisplay
         end
     end
 
-    methods (Access = private)
+    methods (Access=private)
         function str = ToString(obj)
             str = obj.Proxy.ToString();
         end
