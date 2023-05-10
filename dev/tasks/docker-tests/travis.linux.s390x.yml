@@ -52,10 +52,8 @@ script:
   # Build packages
   - pushd arrow
   - export ARCHERY_DEFAULT_BRANCH=$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)
-  - docker-compose -v
-  - which docker-compose
   - |
-    archery docker run \
+    travis_wait 45 archery docker run \
       {{ docker_run_args }} \
       --volume ${PWD}/build:/build \
       {{ image }}
