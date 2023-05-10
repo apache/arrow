@@ -1600,7 +1600,7 @@ cdef class _Tabular(_PandasConvertible):
 
         Returns
         -------
-        columsn : list of Array (for RecordBatch) or list of ChunkedArray (for Table)
+        columns : list of Array (for RecordBatch) or list of ChunkedArray (for Table)
 
         Examples
         --------
