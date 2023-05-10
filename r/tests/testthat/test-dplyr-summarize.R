@@ -1177,18 +1177,20 @@ test_that("Can use across() within summarise()", {
 test_that("across() does not select grouping variables within summarise()", {
   compare_dplyr_binding(
     .input %>%
-      group_by(cyl) %>%
+      group_by(chr) %>%
       summarise(across(everything(), sum)) %>%
-      arrange(cyl) %>%
+      arrange(chr) %>%
       collect(),
-    mtcars
+    example_data %>%
+      select(int, dbl, chr)
   )
 
   expect_error(
-    mtcars %>%
+    example_data %>%
+      select(int, dbl) %>%
       arrow_table() %>%
-      group_by(cyl) %>%
-      summarise(across(cyl, sum)),
-    "Column `cyl` doesn't exist"
+      group_by(int) %>%
+      summarise(across(int, sum)),
+    "Column `int` doesn't exist"
   )
 })
