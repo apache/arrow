@@ -1409,8 +1409,8 @@ tasks:
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("library", "r-base", "latest"),
-                                 ("rstudio", "r-base", "4.2-focal"),
-                                 ("rstudio", "r-base", "4.1-opensuse153")] %}
+                                 ("rstudio", "r-base", "4.3-focal"),
+                                 ("rstudio", "r-base", "4.3-opensuse153")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
     ci: azure
     template: r/azure.linux.yml
@@ -1462,13 +1462,13 @@ tasks:
         GCC_VERSION: 12
       image: ubuntu-r-only-r
 
-  test-r-rstudio-r-base-4.2-centos7-devtoolset-8:
+  test-r-rstudio-r-base-4.3-centos7-devtoolset-8:
     ci: azure
     template: r/azure.linux.yml
     params:
       r_org: rstudio
       r_image: r-base
-      r_tag: 4.2-centos7
+      r_tag: 4.3-centos7
       devtoolset_version: 8
 
   test-r-minimal-build:

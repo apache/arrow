@@ -18,7 +18,7 @@
 ARG base
 FROM ${base}
 
-ARG r=4.2
+ARG r=4.3
 ARG jdk=8
 
 # See R install instructions at https://cloud.r-project.org/bin/linux/ubuntu/

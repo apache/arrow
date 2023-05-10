@@ -60,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.2"]
+        r: ["4.3"]
         ubuntu: [20.04]
         force-tests: ["true"]
     env:
@@ -318,7 +318,7 @@ jobs:
             timeout = 3600
           )
       - name: Run lintr
-        if: ${{ matrix.config.rversion == '4.2' }}
+        if: ${{ matrix.config.rversion == '4.3' }}
         env:
           NOT_CRAN: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
