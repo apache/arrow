@@ -58,9 +58,9 @@ func NewNullData(data arrow.ArrayData) *Null {
 	return a
 }
 
-func (a *Null) ValueStr(i int) string {
-	return NullValueStr
-}
+func (a *Null) ValueStr(int) string { return NullValueStr }
+
+func (a *Null) Value(int) interface{} { return nil }
 
 func (a *Null) String() string {
 	o := new(strings.Builder)
@@ -69,7 +69,7 @@ func (a *Null) String() string {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		o.WriteString("(null)")
+		o.WriteString(NullValueStr)
 	}
 	o.WriteString("]")
 	return o.String()
@@ -125,6 +125,7 @@ func (b *NullBuilder) AppendValueFromString(s string) error {
 	}
 	return fmt.Errorf("cannot convert %q to null", s)
 }
+
 func (b *NullBuilder) AppendEmptyValue() { b.AppendNull() }
 
 func (*NullBuilder) Reserve(size int) {}

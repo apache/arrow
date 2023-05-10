@@ -531,9 +531,9 @@ std::unique_ptr<FlightServerBase> ExampleTestServer() {
 
 FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
                           const std::vector<FlightEndpoint>& endpoints,
-                          int64_t total_records, int64_t total_bytes) {
+                          int64_t total_records, int64_t total_bytes, bool ordered) {
   EXPECT_OK_AND_ASSIGN(auto info, FlightInfo::Make(schema, descriptor, endpoints,
-                                                   total_records, total_bytes));
+                                                   total_records, total_bytes, ordered));
   return info;
 }
 
@@ -619,10 +619,10 @@ std::vector<FlightInfo> ExampleFlightInfo() {
   auto schema4 = ExampleFloatSchema();
 
   return {
-      MakeFlightInfo(*schema1, descr1, {endpoint1, endpoint2}, 1000, 100000),
-      MakeFlightInfo(*schema2, descr2, {endpoint3}, 1000, 100000),
-      MakeFlightInfo(*schema3, descr3, {endpoint4}, -1, -1),
-      MakeFlightInfo(*schema4, descr4, {endpoint5}, 1000, 100000),
+      MakeFlightInfo(*schema1, descr1, {endpoint1, endpoint2}, 1000, 100000, false),
+      MakeFlightInfo(*schema2, descr2, {endpoint3}, 1000, 100000, false),
+      MakeFlightInfo(*schema3, descr3, {endpoint4}, -1, -1, false),
+      MakeFlightInfo(*schema4, descr4, {endpoint5}, 1000, 100000, false),
   };
 }
 

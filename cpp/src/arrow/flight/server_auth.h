@@ -21,14 +21,13 @@
 
 #include <string>
 
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/status.h"
 
 namespace arrow {
 
 namespace flight {
-
-class ServerCallContext;
 
 /// \brief A reader for messages from the client during an
 /// authentication handshake.

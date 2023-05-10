@@ -32,7 +32,10 @@ For a high-level overview of the release process see the
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate.
   commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
 - [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later).
+- [ ] Run preliminary reverse dependency checks using `archery docker run r-revdepcheck`.
 - [ ] For major releases, prepare tweet thread highlighting new features.
+
+Wait for the release candidate to be cut:
 
 ## After release candidate has been cut
 - [ ] Create a CRAN-release branch from the release candidate commit
@@ -71,9 +74,7 @@ use the release candidate as the source.
   of Arrow C++ available to the configure script is the same as the version
   that is vendored into the R package (e.g., you may need to unset `ARROW_HOME`).
 - [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally
-- [ ] Run reverse dependency checks. Currently this is a 
-  [manual process](https://gist.github.com/paleolimbot/630fdab1e204d70fea97633d8fa15ccb);
-  however, in the future it may be a crossbow nightly job.
+- [ ] Run reverse dependency checks using `archery docker run r-revdepcheck`.
 
 ## Release vote
 - [ ] Release vote passed!

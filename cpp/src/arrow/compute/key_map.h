@@ -80,9 +80,11 @@ class ARROW_EXPORT SwissTable {
 
   void num_inserted(uint32_t i) { num_inserted_ = i; }
 
-  uint8_t* blocks() const { return blocks_; }
+  uint8_t* blocks() const { return blocks_->mutable_data(); }
 
-  uint32_t* hashes() const { return hashes_; }
+  uint32_t* hashes() const {
+    return reinterpret_cast<uint32_t*>(hashes_->mutable_data());
+  }
 
   /// \brief Extract group id for a given slot in a given block.
   ///
@@ -226,12 +228,12 @@ class ARROW_EXPORT SwissTable {
   // ---------------------------------------------------
   // * Empty bucket has value 0x80. Non-empty bucket has highest bit set to 0.
   //
-  uint8_t* blocks_;
+  std::shared_ptr<Buffer> blocks_;
 
   // Array of hashes of values inserted into slots.
   // Undefined if the corresponding slot is empty.
   // There is 64B padding at the end.
-  uint32_t* hashes_;
+  std::shared_ptr<Buffer> hashes_;
 
   int64_t hardware_flags_;
   MemoryPool* pool_;
@@ -270,7 +272,7 @@ void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
   int stamp =
       static_cast<int>((hash >> (bits_hash_ - log_blocks_ - bits_stamp_)) & stamp_mask);
   uint64_t block_id = slot_id >> 3;
-  uint8_t* blockbase = blocks_ + num_block_bytes * block_id;
+  uint8_t* blockbase = blocks_->mutable_data() + num_block_bytes * block_id;
 
   blockbase[7 - start_slot] = static_cast<uint8_t>(stamp);
   int groupid_bit_offset = static_cast<int>(start_slot * num_groupid_bits);

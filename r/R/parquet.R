@@ -70,7 +70,7 @@ read_parquet <- function(file,
   }
 
   if (as_data_frame) {
-    tab <- as.data.frame(tab)
+    tab <- collect.ArrowTabular(tab)
   }
   tab
 }

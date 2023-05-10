@@ -196,7 +196,7 @@ class FlightPerfServer : public FlightServerBase {
         perf_request.stream_count() * perf_request.records_per_stream();
 
     *info = std::make_unique<FlightInfo>(
-        MakeFlightInfo(*perf_schema_, request, endpoints, total_records, -1));
+        MakeFlightInfo(*perf_schema_, request, endpoints, total_records, -1, false));
     return Status::OK();
   }
 

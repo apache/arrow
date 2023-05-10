@@ -68,6 +68,7 @@ jobs:
             -e TEST_DEFAULT=0 \
             -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
             -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
             -e TEST_WHEELS=1 \
             almalinux-verify-rc
 
@@ -82,6 +83,7 @@ jobs:
             -e TEST_DEFAULT=0 \
             -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
             -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
             -e TEST_WHEELS=1 \
             ubuntu-verify-rc
 
@@ -96,6 +98,7 @@ jobs:
             -e TEST_DEFAULT=0 \
             -e TEST_PYARROW_VERSION={{ arrow.no_rc_version }} \
             -e TEST_PYTHON_VERSIONS={{ python_version }} \
+            -e TEST_WHEEL_PLATFORM_TAGS={{ wheel_platform_tag }} \
             -e TEST_WHEELS=1 \
             ubuntu-verify-rc
 

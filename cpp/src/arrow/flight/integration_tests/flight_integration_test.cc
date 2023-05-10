@@ -53,6 +53,8 @@ TEST(FlightIntegration, AuthBasicProto) { ASSERT_OK(RunScenario("auth:basic_prot
 
 TEST(FlightIntegration, Middleware) { ASSERT_OK(RunScenario("middleware")); }
 
+TEST(FlightIntegration, Ordered) { ASSERT_OK(RunScenario("ordered")); }
+
 TEST(FlightIntegration, FlightSql) { ASSERT_OK(RunScenario("flight_sql")); }
 
 TEST(FlightIntegration, FlightSqlExtension) {

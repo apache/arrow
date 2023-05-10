@@ -84,7 +84,7 @@ read_json_arrow <- function(file,
   }
 
   if (isTRUE(as_data_frame)) {
-    tab <- as.data.frame(tab)
+    tab <- collect.ArrowTabular(tab)
   }
   tab
 }

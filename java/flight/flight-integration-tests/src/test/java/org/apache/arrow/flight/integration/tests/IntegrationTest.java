@@ -39,6 +39,11 @@ class IntegrationTest {
   }
 
   @Test
+  void ordered() throws Exception {
+    testScenario("ordered");
+  }
+
+  @Test
   void flightSql() throws Exception {
     testScenario("flight_sql");
   }

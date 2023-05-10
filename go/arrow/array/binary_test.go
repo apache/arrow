@@ -20,11 +20,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBinary(t *testing.T) {
@@ -51,7 +50,7 @@ func TestBinary(t *testing.T) {
 	assert.Equal(t, []byte{}, a.Value(1))
 	assert.Equal(t, []byte("BBBB"), a.Value(2))
 	assert.Equal(t, "QUFB", a.ValueStr(0))
-	assert.Equal(t, "(null)", a.ValueStr(1))
+	assert.Equal(t, NullValueStr, a.ValueStr(1))
 	a.Release()
 
 	// Test builder reset and NewArray API.
@@ -63,7 +62,7 @@ func TestBinary(t *testing.T) {
 	assert.Equal(t, []byte{}, a.Value(1))
 	assert.Equal(t, []byte("BBBB"), a.Value(2))
 	assert.Equal(t, "QUFB", a.ValueStr(0))
-	assert.Equal(t, "(null)", a.ValueStr(1))
+	assert.Equal(t, NullValueStr, a.ValueStr(1))
 	a.Release()
 
 	b.Release()
@@ -97,7 +96,7 @@ func TestLargeBinary(t *testing.T) {
 	assert.Equal(t, []byte{}, a.Value(1))
 	assert.Equal(t, []byte("BBBB"), a.Value(2))
 	assert.Equal(t, "QUFB", a.ValueStr(0))
-	assert.Equal(t, "(null)", a.ValueStr(1))
+	assert.Equal(t, NullValueStr, a.ValueStr(1))
 	a.Release()
 
 	// Test builder reset and NewArray API.
@@ -109,7 +108,7 @@ func TestLargeBinary(t *testing.T) {
 	assert.Equal(t, []byte{}, a.Value(1))
 	assert.Equal(t, []byte("BBBB"), a.Value(2))
 	assert.Equal(t, "QUFB", a.ValueStr(0))
-	assert.Equal(t, "(null)", a.ValueStr(1))
+	assert.Equal(t, NullValueStr, a.ValueStr(1))
 	a.Release()
 
 	b.Release()
@@ -669,4 +668,35 @@ func TestBinaryInvalidOffsets(t *testing.T) {
 		buffers := makeBuffers(nil, []int32{0, 3, 10, 15}, "oooabcdef")
 		NewBinaryData(NewData(arrow.BinaryTypes.Binary, 1, buffers, nil, 0, 2))
 	}, "data has offset and value offset is overflowing")
+}
+
+func TestBinaryStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valid := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valid)
+
+	arr := b.NewArray().(*Binary)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+
+	b1 := NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*Binary)
+	defer arr1.Release()
+
+	assert.True(t, Equal(arr, arr1))
 }

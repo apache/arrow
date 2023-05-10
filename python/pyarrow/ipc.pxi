@@ -645,8 +645,12 @@ cdef class RecordBatchReader(_Weakrefable):
     ...     print(batch)
     pyarrow.RecordBatch
     x: int64
+    ----
+    x: [1,2,3]
     pyarrow.RecordBatch
     x: int64
+    ----
+    x: [1,2,3]
     """
 
     # cdef block is in lib.pxd

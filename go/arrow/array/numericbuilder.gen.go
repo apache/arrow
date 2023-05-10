@@ -3534,7 +3534,12 @@ func (b *DurationBuilder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	return fmt.Errorf("%w: AppendValueFromString not implemented for Duration", arrow.ErrNotImplemented)
+	dur, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+
+	b.Append(arrow.Duration(dur / b.dtype.Unit.Multiplier()))
 	return nil
 }
 

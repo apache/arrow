@@ -128,7 +128,7 @@ type MapBuilder struct {
 // building using keys in sorted order for each value. The KeysSorted value will just be
 // used when creating the DataType for the map.
 //
-// Example
+// # Example
 //
 // Simple example provided of converting a []map[string]int32 to an array.Map
 // by using a MapBuilder:
@@ -303,7 +303,7 @@ func (b *MapBuilder) ValueBuilder() Builder {
 }
 
 func (b *MapBuilder) AppendValueFromString(s string) error {
-	return arrow.ErrNotImplemented
+	return b.listBuilder.AppendValueFromString(s)
 }
 
 func (b *MapBuilder) UnmarshalOne(dec *json.Decoder) error {
