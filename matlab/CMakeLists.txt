@@ -19,6 +19,7 @@ cmake_minimum_required(VERSION 3.20)
 
 # Build the Arrow C++ libraries.
 function(build_arrow)
+  message(STATUS "======================================build_arrow is called")
   set(options BUILD_GTEST)
   set(one_value_args)
   set(multi_value_args)
@@ -97,6 +98,8 @@ function(build_arrow)
   # Building the Arrow C++ libraries and bundled GoogleTest binaries requires ExternalProject.
   include(ExternalProject)
 
+  message(STATUS "====================================ARG_BUILD_GTEST: ${ARG_BUILD_GTEST}")
+
   if(ARG_BUILD_GTEST)
     enable_gtest()
   endif()
@@ -115,6 +118,7 @@ function(build_arrow)
 endfunction()
 
 macro(enable_gtest)
+  message(STATUS "===================================enable_gtest is called")
   set(ARROW_GTEST_PREFIX "${ARROW_BINARY_DIR}/googletest_ep-prefix")
   set(ARROW_GTEST_MAIN_PREFIX "${ARROW_BINARY_DIR}/googletest_ep-prefix")
 
@@ -163,6 +167,7 @@ endmacro()
 
 # Build the GoogleTest binaries that are bundled with the Arrow C++ libraries.
 macro(build_gtest)
+  message(STATUS "==========================build_gtest is called")
   file(MAKE_DIRECTORY "${ARROW_GTEST_INCLUDE_DIR}")
 
   # Create target GTest::gtest
@@ -233,6 +238,7 @@ if(MATLAB_BUILD_TESTS)
   find_package(GTest)
 
   if(NOT GTest_FOUND)
+    message(STATUS "=================================gtest was NOT found")
     # find_package(Arrow) supports custom ARROW_HOME as well as package
     # managers.
     find_package(Arrow QUIET)
@@ -242,9 +248,11 @@ if(MATLAB_BUILD_TESTS)
     # C++ libraries that are built from source.
     build_arrow(BUILD_GTEST)
   else()
+    message(STATUS "=================================gtest was found")
     # On Windows, IMPORTED_LOCATION needs to be set to indicate where the shared
     # libraries live when GTest is found.
     if(WIN32)
+      message(STATUS "=================================GTEST_ROOT: ${GTEST_ROOT}")
       set(GTEST_SHARED_LIB_DIR "${GTEST_ROOT}/bin")
       set(GTEST_SHARED_LIBRARY_FILENAME
           "${CMAKE_SHARED_LIBRARY_PREFIX}gtest${CMAKE_SHARED_LIBRARY_SUFFIX}")
