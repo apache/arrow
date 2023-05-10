@@ -522,6 +522,7 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
     std::vector<FlightEndpoint> endpoints;
     int64_t total_records;
     int64_t total_bytes;
+    bool ordered;
   };
 
   explicit FlightInfo(Data data) : data_(std::move(data)), reconstructed_schema_(false) {}
@@ -530,7 +531,8 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   static arrow::Result<FlightInfo> Make(const Schema& schema,
                                         const FlightDescriptor& descriptor,
                                         const std::vector<FlightEndpoint>& endpoints,
-                                        int64_t total_records, int64_t total_bytes);
+                                        int64_t total_records, int64_t total_bytes,
+                                        bool ordered = false);
 
   /// \brief Deserialize the Arrow schema of the dataset. Populate any
   ///   dictionary encoded fields into a DictionaryMemo for
@@ -559,6 +561,9 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
 
   /// The total number of bytes in the dataset. If unknown, set to -1
   int64_t total_bytes() const { return data_.total_bytes; }
+
+  /// Whether endpoints are in the same order as the data.
+  bool ordered() const { return data_.ordered; }
 
   /// \brief Get the wire-format representation of this type.
   ///

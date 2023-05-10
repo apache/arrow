@@ -17,26 +17,25 @@
 
 #pragma once
 
-#include <functional>
-#include <memory>
-#include <string>
-#include <vector>
+#include "arrow/array.h"
 
-#include "arrow/csv/options.h"
-#include "arrow/python/common.h"
-#include "arrow/util/macros.h"
+#include "libmexclass/proxy/Proxy.h"
 
-namespace arrow {
-namespace py {
-namespace csv {
+namespace arrow::matlab::array::proxy {
 
-using PyInvalidRowCallback = std::function<::arrow::csv::InvalidRowResult(
-    PyObject*, const ::arrow::csv::InvalidRow&)>;
+class Array : public libmexclass::proxy::Proxy {
+    public:
+        Array(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+    
+        virtual ~Array() {}
 
-ARROW_PYTHON_EXPORT
-::arrow::csv::InvalidRowHandler MakeInvalidRowHandler(PyInvalidRowCallback,
-                                                      PyObject* handler);
+    protected:
 
-}  // namespace csv
-}  // namespace py
-}  // namespace arrow
+        void ToString(libmexclass::proxy::method::Context& context);
+
+        virtual void ToMatlab(libmexclass::proxy::method::Context& context) = 0;
+
+        std::shared_ptr<arrow::Array> array;
+};
+
+}

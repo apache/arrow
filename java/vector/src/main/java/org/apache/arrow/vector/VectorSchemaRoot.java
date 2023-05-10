@@ -327,10 +327,6 @@ public class VectorSchemaRoot implements AutoCloseable {
     Preconditions.checkArgument(index + length <= rowCount,
         "index + length should <= rowCount");
 
-    if (index == 0 && length == rowCount) {
-      return this;
-    }
-
     List<FieldVector> sliceVectors = fieldVectors.stream().map(v -> {
       TransferPair transferPair = v.getTransferPair(v.getAllocator());
       transferPair.splitAndTransfer(index, length);

@@ -152,3 +152,38 @@ func TestFixedSizeBinary_MarshalUnmarshalJSON(t *testing.T) {
 		t.Fatalf("got=%q, want=%q", gotString, wantString)
 	}
 }
+
+func TestFixedSizeBinaryStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dt := &arrow.FixedSizeBinaryType{ByteWidth: 7}
+	b := array.NewFixedSizeBinaryBuilder(mem, dt)
+
+	values := [][]byte{
+		[]byte("7654321"),
+		nil,
+		[]byte("AZERTYU"),
+	}
+	valid := []bool{true, false, true}
+	b.AppendValues(values, valid)
+	// encoded abcdefg base64
+	assert.NoError(t, b.AppendValueFromString("YWJjZGVmZw=="))
+
+	arr := b.NewArray().(*array.FixedSizeBinary)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewFixedSizeBinaryBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.FixedSizeBinary)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}

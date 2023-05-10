@@ -190,7 +190,7 @@ cdef class _PandasAPIShim(object):
 
     cpdef is_sparse(self, obj):
         if self._have_pandas_internal():
-            return self._types_api.is_sparse(obj)
+            return isinstance(obj.dtype, self.pd.SparseDtype)
         else:
             return False
 

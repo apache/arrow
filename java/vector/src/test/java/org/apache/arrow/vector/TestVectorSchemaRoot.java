@@ -195,29 +195,33 @@ public class TestVectorSchemaRoot {
   public void testSlice() {
     try (final IntVector intVector = new IntVector("intVector", allocator);
          final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
-      intVector.setValueCount(10);
-      float4Vector.setValueCount(10);
-      for (int i = 0; i < 10; i++) {
+      final int numRows = 10;
+      intVector.setValueCount(numRows);
+      float4Vector.setValueCount(numRows);
+      for (int i = 0; i < numRows; i++) {
         intVector.setSafe(i, i);
         float4Vector.setSafe(i, i + 0.1f);
       }
+
       final VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector, float4Vector));
 
-      VectorSchemaRoot slice1 = original.slice(0, original.getRowCount());
-      assertEquals(original, slice1);
-
-      VectorSchemaRoot slice2 = original.slice(0, 5);
-      assertEquals(5, slice2.getRowCount());
-      // validate data
-      IntVector childVector1 = (IntVector) slice2.getFieldVectors().get(0);
-      Float4Vector childVector2 = (Float4Vector) slice2.getFieldVectors().get(1);
-      for (int i = 0; i < 5; i++) {
-        assertEquals(i, childVector1.get(i));
-        assertEquals(i + 0.1f, childVector2.get(i), 0);
+      for (int sliceIndex = 0; sliceIndex < numRows; sliceIndex++) {
+        for (int sliceLength = 0; sliceIndex + sliceLength <= numRows; sliceLength++) {
+          try (VectorSchemaRoot slice = original.slice(sliceIndex, sliceLength)) {
+            assertEquals(sliceLength, slice.getRowCount());
+            // validate data
+            final IntVector childIntVector = (IntVector) slice.getFieldVectors().get(0);
+            final Float4Vector childFloatVector = (Float4Vector) slice.getFieldVectors().get(1);
+            for (int i = 0; i < sliceLength; i++) {
+              final int originalIndex = i + sliceIndex;
+              assertEquals(originalIndex, childIntVector.get(i));
+              assertEquals(originalIndex + 0.1f, childFloatVector.get(i), 0);
+            }
+          }
+        }
       }
 
       original.close();
-      slice2.close();
     }
   }
 
