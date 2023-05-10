@@ -97,6 +97,14 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
+        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((IBaseBinaryScalar)value);
+        public VariableBinaryArrayBuilder AppendValue(IBaseBinaryScalar value)
+        {
+            Validate(value.Type);
+            AppendValue(value.View());
+            return this;
+        }
+
         public virtual VariableBinaryArrayBuilder AppendValues(ICollection<byte[]> values)
         {
             Span<int> offsets = new int[values.Count];
@@ -300,7 +308,6 @@ namespace Apache.Arrow.Builder
             ValuesBuffer.AppendBytes(MemoryMarshal.AsBytes(value));
             return this;
         }
-
 
         // Bulk raw struct several values
         public virtual FixedBinaryArrayBuilder AppendValues(ReadOnlySpan<bool> values)

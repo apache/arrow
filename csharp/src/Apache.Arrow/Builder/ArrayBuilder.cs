@@ -121,9 +121,8 @@ namespace Apache.Arrow.Builder
             switch (DataType.TypeId)
             {
                 case ArrowTypeId.String:
-                    return As<StringArrayBuilder>().AppendValue(value);
                 case ArrowTypeId.Binary:
-                    return As<BinaryArrayBuilder>().AppendValue(value);
+                    return As<VariableBinaryArrayBuilder>().AppendValue(value);
                 case ArrowTypeId.Boolean:
                     return As<BooleanArrayBuilder>().AppendValue((BooleanScalar)value);
                 case ArrowTypeId.UInt8:
