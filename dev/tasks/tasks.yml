@@ -1243,7 +1243,6 @@ tasks:
     params:
       arrow_ci_modules: "PYTHON"
       docker_run_args: >-
-          "
           -e ARROW_FLIGHT=ON
           -e ARROW_GCS=OFF
           -e ARROW_MIMALLOC=OFF
@@ -1257,7 +1256,6 @@ tasks:
           -e PARQUET_BUILD_EXECUTABLES=OFF
           -e Protobuf_SOURCE=BUNDLED
           -e gRPC_SOURCE=BUNDLED
-          "
       image: ubuntu-python
 
   test-r-linux-valgrind:
