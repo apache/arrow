@@ -169,6 +169,7 @@ namespace Apache.Arrow.Tests
                     length: 10,
                     nullCount: 3,
                     offset: 0))
+                .Append("NullColumn", true, new NullArray(10))
                 .Build();
 
             TestRoundTripRecordBatch(originalBatch);

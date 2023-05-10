@@ -13,18 +13,85 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using Apache.Arrow.Types;
+using Apache.Arrow.Memory;
 
 namespace Apache.Arrow
 {
     public class NullArray : IArrowArray
     {
+        public class Builder : IArrowArrayBuilder<NullArray, Builder>
+        {
+            private int _length;
+
+            public int Length => _length;
+            public int Capacity => _length;
+            public int NullCount => _length;
+
+            public Builder()
+            {
+            }
+
+            public Builder AppendNull()
+            {
+                _length++;
+                return this;
+            }
+
+            public NullArray Build(MemoryAllocator allocator = default)
+            {
+                return new NullArray(_length);
+            }
+
+            public Builder Clear()
+            {
+                _length = 0;
+                return this;
+            }
+
+            public Builder Reserve(int capacity)
+            {
+                if (capacity < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(capacity));
+                }
+
+                return this;
+            }
+
+            public Builder Resize(int length)
+            {
+                if (length < 0)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(length));
+                }
+
+                _length = length;
+                return this;
+            }
+
+            private void CheckIndex(int index)
+            {
+                if (index < 0 || index >= Length)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index));
+                }
+            }
+        }
+
         public ArrayData Data { get; }
 
         public NullArray(ArrayData data)
         {
             data.EnsureDataType(ArrowTypeId.Null);
             data.EnsureBufferCount(0);
+            Data = data;
+        }
+
+        public NullArray(int length)
+            : this(new ArrayData(NullType.Default, length, length, buffers: System.Array.Empty<ArrowBuffer>()))
+        {
         }
 
         public int Length => Data.Length;
@@ -37,6 +104,16 @@ namespace Apache.Arrow
         public bool IsNull(int index) => true;
         public bool IsValid(int index) => false;
 
-        public void Accept(IArrowArrayVisitor visitor) => throw new System.NotImplementedException();
+        public void Accept(IArrowArrayVisitor visitor)
+        {
+            if (visitor is IArrowArrayVisitor<NullArray> nullVisitor)
+            {
+                nullVisitor.Visit(this);
+            }
+            else
+            {
+                visitor.Visit(this);
+            }
+        }
     }
 }

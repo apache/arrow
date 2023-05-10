@@ -273,7 +273,8 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<ListType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<NullType>
         {
             private JsonFieldData JsonFieldData { get; }
             public IArrowArray Array { get; private set; }
@@ -323,6 +324,13 @@ namespace Apache.Arrow.IntegrationTest
             public void Visit(Decimal256Type type)
             {
                 Array = new Decimal256Array(GetDecimalArrayData(type));
+            }
+
+            public void Visit(NullType type)
+            {
+                var json = JsonFieldData.Data.GetRawText();
+                int?[] values = JsonSerializer.Deserialize<int?[]>(json, s_options);
+                Array = new NullArray(values.Length);
             }
 
             private ArrayData GetDecimalArrayData(FixedSizeBinaryType type)
