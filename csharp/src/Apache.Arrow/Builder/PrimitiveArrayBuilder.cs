@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
 
@@ -602,9 +603,13 @@ namespace Apache.Arrow.Builder
         public override IArrayBuilder AppendValue(IScalar value) => AppendValue((BooleanScalar)value);
         public BooleanArrayBuilder AppendValue(BooleanScalar value)
         {
-            Validate(value.Type);
             AppendValue(value.Value);
             return this;
         }
+
+        public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
+
+        public BooleanArray Build(MemoryAllocator allocator = default, bool _ = true)
+            => new BooleanArray(FinishInternal(allocator));
     }
 }
