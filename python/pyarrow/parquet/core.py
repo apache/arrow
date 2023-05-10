@@ -745,26 +745,8 @@ class ParquetFile:
         if len(sorting_columns) == 0:
             # There are no sorting columns
             return None
-
-        # Need to map the Parquet column indices into field references
-        sort_keys = []
-        for sorting_column in sorting_columns:
-            name = self.schema.column(sorting_column.column_index).name
-            if sorting_column.descending:
-                order = "descending"
-            else:
-                order = "ascending"
-            sort_keys.append((name, order))
-
-        if all(col.nulls_first for col in sorting_columns):
-            null_placement = "at_start"
-        elif all(not col.nulls_first for col in sorting_columns):
-            null_placement = "at_end"
         else:
-            # Mixed null placement is not supported
-            return None
-
-        return (sort_keys, null_placement)
+            return sorting_columns
 
 
 _SPARK_DISALLOWED_CHARS = re.compile('[ ,;{}()\n\t=]')

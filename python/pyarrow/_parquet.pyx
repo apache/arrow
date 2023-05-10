@@ -537,7 +537,7 @@ cdef class SortingColumn:
         self.nulls_first = nulls_first
 
     @classmethod
-    def from_sort_order(schema, sort_keys, null_placement='at_end'):
+    def from_sort_order(cls, Schema schema, sort_keys, null_placement='at_end'):
         """
         Create a tuple of SortingColumn objects from the same arguments as
         :class:`pyarrow.compute.SortOptions`.
@@ -567,25 +567,79 @@ cdef class SortingColumn:
 
         col_map = _name_to_index_map(schema)
 
-        sort_columns = []
-        for name, order in sort_keys:
-            if order == 'ascending':
+        sorting_columns = []
+
+        for sort_key in sort_keys:
+            if isinstance(sort_key, str):
+                name = sort_key
                 descending = False
-            elif order == 'descending':
-                descending = True
+            elif (isinstance(sort_key, tuple) and len(sort_key) == 2 and
+                    isinstance(sort_key[0], str) and
+                    isinstance(sort_key[1], str)):
+                name, descending = sort_key
+                if descending == "descending":
+                    descending = True
+                elif descending == "ascending":
+                    descending = False
+                else:
+                    raise ValueError("Invalid sort key direction: {0}"
+                                     .format(descending))
             else:
-                raise ValueError('order must be "ascending" or "descending"')
+                raise ValueError("Invalid sort key: {0}".format(sort_key))
 
-            if isinstance(name, str):
+            try:
                 column_index = col_map[name]
-            elif isinstance(name, int):
-                column_index = name
+            except KeyError:
+                raise ValueError("Sort key name '{0}' not found in schema:\n{1}"
+                                 .format(name, schema))
+
+            sorting_columns.append(
+                cls(column_index, descending=descending, nulls_first=nulls_first)
+            )
+
+        return tuple(sorting_columns)
+
+    @staticmethod
+    def as_sort_order(Schema schema, sorting_columns):
+        """
+        Convert a tuple of SortingColumn objects to the same format as
+        :class:`pyarrow.compute.SortOptions`.
+
+        Parameters
+        ----------
+        schema : Schema
+            Schema of the input data.
+        sorting_columns : tuple of SortingColumn
+            Columns to sort the input on.
+
+        Returns
+        -------
+        sort_keys : tuple of (name, order) tuples
+        null_placement : {'at_start', 'at_end'}
+        """
+        col_map = {i: name for i, name in _name_to_index_map(schema).items()}
+
+        sort_keys = []
+        nulls_first = None
+
+        for sorting_column in sorting_columns:
+            name = col_map[sorting_column.column_index]
+            if sorting_column.descending:
+                order = "descending"
             else:
-                raise TypeError('sort key name must be a string or integer')
+                order = "ascending"
+            sort_keys.append((name, order))
+            if nulls_first is None:
+                nulls_first = sorting_column.nulls_first
+            elif nulls_first != sorting_column.nulls_first:
+                raise ValueError("Sorting columns have inconsistent null placement")
 
-            sort_columns.append(SortingColumn(column_index, descending, nulls_first))
+        if nulls_first:
+            null_placement = "at_start"
+        else:
+            null_placement = "at_end"
 
-        return tuple(sort_columns)
+        return tuple(sort_keys), null_placement
 
     def __repr__(self):
         return """SortingColumn(column_index={0}, descending={1}, nulls_first={2})""".format(
@@ -2093,29 +2147,6 @@ cdef class ParquetWriter(_Weakrefable):
             with nogil:
                 self.sink = GetResultValue(FileOutputStream.Open(c_where))
             self.own_sink = True
-
-        # This needs to be simplified while we still have access to the schema.
-        if sorting_columns is not None:
-            # For [(col1, "descending"), (col2, "ascending"), (col3)]
-            if (isinstance(sorting_columns, Sequence) and
-                    all(isinstance(sort_key, str) or isinstance(sort_key, tuple) for sort_key in sorting_columns)):
-                sorting_columns = _sort_keys_to_sorting_columns(
-                    sorting_columns,
-                    None,
-                    schema
-                )
-            # For ([(col1, "descending"), (col2, "ascending"), (col3)], "at_end")
-            if (isinstance(sorting_columns, tuple)
-                and len(sorting_columns) <= 2
-                    and isinstance(sorting_columns[0], Sequence)):
-                if len(sorting_columns) == 1:
-                    sorting_columns, null_placement = sorting_columns[0], None
-                else:
-                    sorting_columns, null_placement = sorting_columns
-                sorting_columns = _sort_keys_to_sorting_columns(
-                    sorting_columns,
-                    null_placement,
-                    schema)
 
         properties = _create_writer_properties(
             use_dictionary=use_dictionary,
