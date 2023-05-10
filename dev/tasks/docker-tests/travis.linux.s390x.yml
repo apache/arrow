@@ -27,6 +27,7 @@ addons:
     packages:
       - python3-pip
       - python3-venv
+      - rust-all
 
 services:
   - docker
