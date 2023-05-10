@@ -25,8 +25,9 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .after = NULL) {
   call <- match.call()
   .data <- as_adq(.data)
+  grv <- .data$group_by_vars
 
-  expression_list <- expand_across(.data, quos(...), exclude_cols = .data$group_by_vars)
+  expression_list <- expand_across(.data, quos(...), exclude_cols = grv)
   exprs <- ensure_named_exprs(expression_list)
 
   .keep <- match.arg(.keep)
@@ -85,7 +86,7 @@ mutate.arrow_dplyr_query <- function(.data,
   }
 
   # Deduplicate new_vars and remove NULL columns from new_vars
-  new_vars <- intersect(union(new_vars, .data$group_by_vars), names(.data$selected_columns))
+  new_vars <- intersect(union(new_vars, grv), names(.data$selected_columns))
 
   # Respect .before and .after
   if (!quo_is_null(.before) || !quo_is_null(.after)) {
