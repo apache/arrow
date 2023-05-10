@@ -1111,18 +1111,12 @@ class TestListScalar : public ::testing::Test {
     ASSERT_OK(empty_bitmap_scalar.ValidateFull());
     ASSERT_TRUE(empty_bitmap_scalar.value->data()->buffers[0] == nullptr);
     
-    auto data = empty_bitmap_scalar.value->data()->buffers[1];
-    std::vector<uint8_t> bitmap_data = {0,0,0};
-    auto null_bitmap = std::make_shared<Buffer>(bitmap_data.data(), 3);
-
-    std::shared_ptr<Int16Array> arr(new Int16Array(3, data, null_bitmap, 0));
-    ASSERT_TRUE(arr->null_count() == 0);
-    // this line fails - I don't know how to create an array with a null bitmap
-    // that is all 0s.
-    ASSERT_TRUE(arr->data()->buffers[0] != nullptr);
-    ScalarType set_bitmap_scalar(arr);
-
-    ASSERT_TRUE(set_bitmap_scalar.hash() == empty_bitmap_scalar.hash());
+    auto list_array = ArrayFromJSON(type_, "[[1, 2, 3], [4, 5, null]]");
+    ASSERT_OK_AND_ASSIGN(auto set_bitmap_scalar_uncasted, list_array->GetScalar(0));
+    auto set_bitmap_scalar = std::dynamic_pointer_cast<ScalarType>(set_bitmap_scalar_uncasted);
+    ASSERT_TRUE(set_bitmap_scalar != nullptr);
+    ASSERT_TRUE(set_bitmap_scalar->value->data()->buffers[0] != nullptr);
+    ASSERT_TRUE(empty_bitmap_scalar.hash() == set_bitmap_scalar->hash());
   }
 
  protected:
