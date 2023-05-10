@@ -124,6 +124,22 @@ namespace Apache.Arrow.Builder
                     return As<StringArrayBuilder>().AppendValue(value);
                 case ArrowTypeId.Binary:
                     return As<BinaryArrayBuilder>().AppendValue(value);
+                case ArrowTypeId.Boolean:
+                    return As<BooleanArrayBuilder>().AppendValue((BooleanScalar)value);
+                case ArrowTypeId.UInt8:
+                case ArrowTypeId.Int8:
+                case ArrowTypeId.UInt16:
+                case ArrowTypeId.Int16:
+                case ArrowTypeId.UInt32:
+                case ArrowTypeId.Int32:
+                case ArrowTypeId.UInt64:
+                case ArrowTypeId.Int64:
+#if NET5_0_OR_GREATER
+                case ArrowTypeId.HalfFloat:
+#endif
+                case ArrowTypeId.Float:
+                case ArrowTypeId.Double:
+                    return As<FixedBinaryArrayBuilder>().AppendValue((IPrimitiveScalarBase)value);
                 case ArrowTypeId.Struct:
                     return As<StructArrayBuilder>().AppendValue(value);
                 default:
@@ -251,7 +267,7 @@ namespace Apache.Arrow.Builder
             switch (dtype.TypeId)
             {
                 case ArrowTypeId.Boolean:
-                    return new FixedBinaryArrayBuilder<bool>(dtype as FixedWidthType, capacity);
+                    return new BooleanArrayBuilder(dtype as BooleanType, capacity);
                 case ArrowTypeId.UInt8:
                     return new FixedBinaryArrayBuilder<byte>(dtype as FixedWidthType, capacity);
                 case ArrowTypeId.Int8:

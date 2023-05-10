@@ -261,8 +261,7 @@ namespace Apache.Arrow.Builder
         public FixedBinaryArrayBuilder AppendValue(IPrimitiveScalarBase value)
         {
             Validate(value.Type);
-            AppendValue(value.View());
-            return this;
+            return AppendValue(value.View());
         }
 
         public virtual FixedBinaryArrayBuilder AppendValue<T>(T value) where T : struct
@@ -587,6 +586,25 @@ namespace Apache.Arrow.Builder
 
         public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 32) : base(dtype, capacity)
         {
+        }
+    }
+
+    public class BooleanArrayBuilder : FixedBinaryArrayBuilder<bool>
+    {
+        public BooleanArrayBuilder(int capacity = 32) : this(BooleanType.Default, capacity)
+        {
+        }
+
+        public BooleanArrayBuilder(BooleanType dtype, int capacity = 32) : base(dtype, capacity)
+        {
+        }
+
+        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((BooleanScalar)value);
+        public BooleanArrayBuilder AppendValue(BooleanScalar value)
+        {
+            Validate(value.Type);
+            AppendValue(value.Value);
+            return this;
         }
     }
 }

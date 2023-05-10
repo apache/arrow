@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
 
@@ -60,10 +61,144 @@ namespace Apache.Arrow
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_offset, ByteLength);
     }
 
+    public struct BooleanScalar : IPrimitiveScalar<BooleanType>
+    {
+        public bool Value { get; }
+
+        public BooleanType Type => BooleanType.Default;
+
+        IArrowType IScalar.Type => Type;
+
+        public BooleanScalar(bool value)
+        {
+            Value = value;
+        }
+        public ReadOnlySpan<byte> View() => throw new NotSupportedException("Cannot get byte view from BooleanScalar");
+    }
+
     // Numeric scalars
+    public struct UInt8Scalar : INumericScalar<UInt8Type>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public UInt8Type Type => UInt8Type.Default;
+
+        IArrowType IScalar.Type => Type;
+
+        public UInt8Scalar(byte value)
+            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+        }
+
+        public UInt8Scalar(ArrowBuffer value, int index = 0)
+        {
+            Buffer = value;
+            _index = index;
+        }
+
+        public byte Value => Buffer.Span.CastTo<byte>()[_index];
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(byte), sizeof(byte));
+    }
+
+    public struct Int8Scalar : INumericScalar<Int8Type>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public Int8Type Type => Int8Type.Default;
+
+        IArrowType IScalar.Type => Type;
+
+        public Int8Scalar(sbyte value)
+            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+        }
+
+        public Int8Scalar(ArrowBuffer value, int index = 0)
+        {
+            Buffer = value;
+            _index = index;
+        }
+
+        public sbyte Value => Buffer.Span.CastTo<sbyte>()[_index];
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(sbyte), sizeof(sbyte));
+    }
+
+    public struct UInt16Scalar : INumericScalar<UInt16Type>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public UInt16Type Type => UInt16Type.Default;
+
+        IArrowType IScalar.Type => Type;
+
+        public UInt16Scalar(ushort value)
+            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+        }
+
+        public UInt16Scalar(ArrowBuffer value, int index = 0)
+        {
+            Buffer = value;
+            _index = index;
+        }
+
+        public ushort Value => Buffer.Span.CastTo<ushort>()[_index];
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(ushort), sizeof(ushort));
+    }
+    public struct Int16Scalar : INumericScalar<Int16Type>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public Int16Type Type => Int16Type.Default;
+
+        IArrowType IScalar.Type => Type;
+
+        public Int16Scalar(short value)
+            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+        }
+
+        public Int16Scalar(ArrowBuffer value, int index = 0)
+        {
+            Buffer = value;
+            _index = index;
+        }
+
+        public short Value => Buffer.Span.CastTo<short>()[_index];
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(short), sizeof(short));
+    }
+
+    public struct UInt32Scalar : INumericScalar<UInt32Type>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public UInt32Type Type => UInt32Type.Default;
+
+        IArrowType IScalar.Type => Type;
+
+        public UInt32Scalar(uint value)
+            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+        }
+
+        public UInt32Scalar(ArrowBuffer value, int index = 0)
+        {
+            Buffer = value;
+            _index = index;
+        }
+
+        public uint Value => Buffer.Span.CastTo<uint>()[_index];
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(uint), sizeof(uint));
+    }
+
     public struct Int32Scalar : INumericScalar<Int32Type>
     {
-        private int _offset;
+        private int _index;
         public ArrowBuffer Buffer { get; }
 
         public Int32Type Type => Int32Type.Default;
@@ -75,20 +210,136 @@ namespace Apache.Arrow
         {
         }
 
-        private Int32Scalar(ArrowBuffer value)
-            : this(value, 0)
-        {
-        }
-
-        public Int32Scalar(ArrowBuffer value, int offset = 0)
+        public Int32Scalar(ArrowBuffer value, int index = 0)
         {
             Buffer = value;
-            _offset = offset;
+            _index = index;
         }
 
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_offset, 4);
+        public int Value => Buffer.Span.CastTo<int>()[_index];
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * 4, 4);
     }
 
+    public struct UInt64Scalar : INumericScalar<UInt64Type>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public UInt64Type Type => UInt64Type.Default;
+
+        IArrowType IScalar.Type => Type;
+
+        public UInt64Scalar(ulong value)
+            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+        }
+
+        public UInt64Scalar(ArrowBuffer value, int index = 0)
+        {
+            Buffer = value;
+            _index = index;
+        }
+
+        public ulong Value => Buffer.Span.CastTo<ulong>()[_index];
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(ulong), sizeof(ulong));
+    }
+    public struct Int64Scalar : INumericScalar<Int64Type>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public Int64Type Type => Int64Type.Default;
+
+        IArrowType IScalar.Type => Type;
+
+        public Int64Scalar(long value)
+            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+        }
+
+        public Int64Scalar(ArrowBuffer value, int index = 0)
+        {
+            Buffer = value;
+            _index = index;
+        }
+
+        public long Value => Buffer.Span.CastTo<long>()[_index];
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(long), sizeof(long));
+    }
+
+    public struct FloatScalar : INumericScalar<FloatType>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public FloatType Type => FloatType.Default;
+
+        IArrowType IScalar.Type => Type;
+
+        public FloatScalar(float value)
+            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+        }
+
+        public FloatScalar(ArrowBuffer value, int index = 0)
+        {
+            Buffer = value;
+            _index = index;
+        }
+
+        public float Value => Buffer.Span.CastTo<float>()[_index];
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(float), sizeof(float));
+    }
+
+    public struct DoubleScalar : INumericScalar<DoubleType>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public DoubleType Type => DoubleType.Default;
+
+        IArrowType IScalar.Type => Type;
+
+        public DoubleScalar(double value)
+            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+        }
+
+        public DoubleScalar(ArrowBuffer value, int index = 0)
+        {
+            Buffer = value;
+            _index = index;
+        }
+
+        public double Value => Buffer.Span.CastTo<double>()[_index];
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(double), sizeof(double));
+    }
+
+#if NET5_0_OR_GREATER
+    public struct HalfScalar : INumericScalar<HalfFloatType>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public HalfFloatType Type => HalfFloatType.Default;
+
+        IArrowType IScalar.Type => Type;
+
+        public HalfScalar(float value)
+            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+        }
+
+        public HalfScalar(ArrowBuffer value, int index = 0)
+        {
+            Buffer = value;
+            _index = index;
+        }
+
+        public Half Value => Buffer.Span.CastTo<Half>()[_index];
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * 2, 2);
+    }
+#endif
 
     // Nested scalars
     public struct StructScalar : IScalar
