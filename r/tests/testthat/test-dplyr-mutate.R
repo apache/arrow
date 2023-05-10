@@ -74,6 +74,17 @@ test_that("transmute", {
   )
 })
 
+test_that("transmute after group_by", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, int) %>%
+      transmute(dbl + 1) %>%
+      collect(),
+    tbl %>%
+      select(int, dbl, chr)
+  )
+})
+
 test_that("transmute respect bespoke dplyr implementation", {
   ## see: https://github.com/tidyverse/dplyr/issues/6086
   compare_dplyr_binding(
