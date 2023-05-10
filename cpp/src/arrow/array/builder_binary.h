@@ -288,8 +288,8 @@ class BaseBinaryBuilder
     auto offsets = array.GetValues<offset_type>(1);
     auto data = array.GetValues<uint8_t>(2, 0);
     auto total_length = offsets[offset + length] - offsets[offset];
-    RETURN_NOT_OK(Reserve(length));
-    RETURN_NOT_OK(ReserveData(total_length));
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    ARROW_RETURN_NOT_OK(ReserveData(total_length));
     for (int64_t i = 0; i < length; i++) {
       if (!bitmap || bit_util::GetBit(bitmap, array.offset + offset + i)) {
         const offset_type start = offsets[offset + i];
