@@ -91,7 +91,9 @@ struct ArrowArray {
 /// \defgroup arrow-device-types Device Types
 /// These macros are compatible with the dlpack DLDeviceType values,
 /// using the same value for each enum as the equivalent kDL<type>
-/// from dlpack.h
+/// from dlpack.h. This list should continue to be kept in sync with
+/// the equivalent dlpack.h enum values over time to ensure 
+/// compatibility, rather than potentially diverging.
 ///
 /// To ensure predictability with the ABI we use macros instead of
 /// an enum so the storage type is not compiler dependent.
@@ -160,13 +162,30 @@ struct ArrowDeviceArray {
   int64_t device_id;
   /// \brief The type of device which can access this memory.
   ArrowDeviceType device_type;
+  /// \brief An event-like object to synchronize on if needed.
+  ///
+  /// Many devices, like GPUs, are primarily asynchronous with
+  /// respect to CPU processing. As such in order to safely access
+  /// memory, it is often necessary to have an object to synchronize
+  /// processing on. Since different devices will use different types
+  /// to specify this we use a void* that can be coerced into
+  /// whatever the device appropriate type is (e.g. cudaEvent_t for
+  /// CUDA and hipEvent_t for HIP). 
+  ///
+  /// If synchronization is not needed this can be null. If this is
+  /// non-null, then it should be used to call the appropriate sync
+  /// method for the device (e.g. cudaStreamWaitEvent / hipStreamWaitEvent).
+  void* sync_event;
   /// \brief Reserved bytes for future expansion.
   ///
-  /// As non-CPU development expands we can update,
-  /// without ABI breaking changes. These bytes should
-  /// be zero'd out after allocation in order to ensure
-  /// safe evolution of the ABI in the future.
-  int64_t reserved[2];
+  /// As non-CPU development expands we can update this struct
+  /// without ABI breaking changes. This also rounds out the
+  /// total size of this struct to be 128 bytes (power of 2)
+  /// on 64-bit systems. These bytes should be zero'd out after 
+  /// allocation in order to ensure safe evolution of the ABI in 
+  /// the future.
+  int64_t reserved[3];
+  int32_t reserved_addl;
 };
 
 #endif  // ARROW_C_DEVICE_DATA_INTERFACE
@@ -241,20 +260,6 @@ struct ArrowDeviceArrayStream {
   /// \return 0 if successful, an `errno`-compatible error code otherwise.
   int (*get_schema)(struct ArrowDeviceArrayStream* self, struct ArrowSchema* out);
 
-  /// \brief Callback to get the device id for the next array.
-  ///
-  /// This is necessary so that the proper/correct stream pointer can be provided
-  /// to get_next.
-  ///
-  /// The next call to `get_next` should provide an ArrowDeviceArray whose
-  /// device_id matches what is provided here, and whose device_type is the
-  /// same as the device_type member of this stream.
-  ///
-  /// \param[in] self The ArrowDeviceArrayStream object itself
-  /// \param[out] out_device_id Pointer to be populated with the device id, must not be
-  /// null \return 0 if successful, an `errno`-compatible error code otherwise.
-  int (*get_next_device_id)(struct ArrowDeviceArrayStream* self, int64_t* out_device_id);
-
   /// \brief Callback to get the next array
   ///
   /// If there is no error and the returned array has been released, the stream
@@ -265,16 +270,10 @@ struct ArrowDeviceArrayStream {
   /// accept a void* which should then be reinterpreted into whatever the
   /// appropriate type is (e.g. cudaStream_t) for use by the producer.
   ///
-  /// \param[in] self The ArrowDeviceArrayStream object itself
-  /// \param[in] queue_ptr The appropriate queue, stream, or
-  /// equivalent object for the device that the data is allocated on
-  /// to indicate where the consumer wants the data to be accessible.
-  /// If queue_ptr is NULL then the default stream (e.g. CUDA stream 0)
-  /// should be used to ensure that the memory is accessible from any stream.
+  /// \param[in] self The ArrowDeviceArrayStream object itself  
   /// \param[out] out C struct where to export the Array and device info
   /// \return 0 if successful, an `errno`-compatible error code otherwise.
-  int (*get_next)(struct ArrowDeviceArrayStream* self, const void* queue_ptr,
-                  struct ArrowDeviceArray* out);
+  int (*get_next)(struct ArrowDeviceArrayStream* self, struct ArrowDeviceArray* out);
 
   /// \brief Callback to get optional detailed error information.
   ///
