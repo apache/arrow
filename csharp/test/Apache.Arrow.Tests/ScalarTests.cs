@@ -18,6 +18,273 @@ using Xunit;
 
 namespace Apache.Arrow.Tests
 {
+    public class IntegerScalarTests
+    {
+        [Fact]
+        public void UInt8Scalar_Should_BuildFromDotNet()
+        {
+            byte expected = 128;
+            var value = new UInt8Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt8Type.Default, value.Type);
+            Assert.Equal(new byte[] { 128 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void UInt8Scalar_Should_BuildFromMaxValue()
+        {
+            byte expected = byte.MaxValue;
+            var value = new UInt8Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt8Type.Default, value.Type);
+            Assert.Equal(new byte[] { byte.MaxValue }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void UInt8Scalar_Should_BuildFromZero()
+        {
+            byte expected = 0;
+            var value = new UInt8Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt8Type.Default, value.Type);
+            Assert.Equal(new byte[] { 0 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int8Scalar_Should_BuildFromDotNet()
+        {
+            sbyte expected = -56;
+            var value = new Int8Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int8Type.Default, value.Type);
+            Assert.Equal(new byte[] { 200 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int8Scalar_Should_BuildFromMaxValue()
+        {
+            sbyte expected = sbyte.MaxValue;
+            var value = new Int8Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int8Type.Default, value.Type);
+            Assert.Equal(new byte[] { 127 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int8Scalar_Should_BuildFromMinValue()
+        {
+            sbyte expected = sbyte.MinValue;
+            var value = new Int8Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int8Type.Default, value.Type);
+            Assert.Equal(new byte[] { 128 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int16Scalar_Should_BuildFromDotNet()
+        {
+            short expected = -3456;
+            var value = new Int16Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int16Type.Default, value.Type);
+            Assert.Equal(new byte[] { 128, 242 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int16Scalar_Should_BuildFromMaxValue()
+        {
+            short expected = short.MaxValue;
+            var value = new Int16Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int16Type.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 127 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int16Scalar_Should_BuildFromMinValue()
+        {
+            short expected = short.MinValue;
+            var value = new Int16Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int16Type.Default, value.Type);
+            Assert.Equal(new byte[] { 0, 128 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void UInt16Scalar_Should_BuildFromDotNet()
+        {
+            ushort expected = 56789;
+            var value = new UInt16Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt16Type.Default, value.Type);
+            Assert.Equal(new byte[] { 213, 221 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void UInt16Scalar_Should_BuildFromMaxValue()
+        {
+            ushort expected = ushort.MaxValue;
+            var value = new UInt16Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt16Type.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 255 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void UInt16Scalar_Should_BuildFromZero()
+        {
+            ushort expected = 0;
+            var value = new UInt16Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt16Type.Default, value.Type);
+            Assert.Equal(new byte[] { 0, 0 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int32Scalar_Should_BuildFromDotNet()
+        {
+            int expected = 123456789;
+            var value = new Int32Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int32Type.Default, value.Type);
+            Assert.Equal(new byte[] { 21, 205, 91, 7 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int32Scalar_Should_BuildFromMaxValue()
+        {
+            int expected = int.MaxValue;
+            var value = new Int32Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int32Type.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 255, 255, 127 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int32Scalar_Should_BuildFromMinValue()
+        {
+            int expected = int.MinValue;
+            var value = new Int32Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int32Type.Default, value.Type);
+            Assert.Equal(new byte[] { 0, 0, 0, 128 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void UInt32Scalar_Should_BuildFromDotNet()
+        {
+            uint expected = 3456789012;
+            var value = new UInt32Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt32Type.Default, value.Type);
+            Assert.Equal(new byte[] { 20, 106, 10, 206 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void UInt32Scalar_Should_BuildFromMaxValue()
+        {
+            uint expected = uint.MaxValue;
+            var value = new UInt32Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt32Type.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 255, 255, 255 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void UInt32Scalar_Should_BuildFromZero()
+        {
+            uint expected = 0;
+            var value = new UInt32Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt32Type.Default, value.Type);
+            Assert.Equal(new byte[] { 0, 0, 0, 0 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int64Scalar_Should_BuildFromDotNet()
+        {
+            long expected = 1234567890123456789;
+            var value = new Int64Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int64Type.Default, value.Type);
+            Assert.Equal(new byte[] { 21, 129, 233, 125, 244, 16, 34, 17 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int64Scalar_Should_BuildFromMaxValue()
+        {
+            long expected = long.MaxValue;
+            var value = new Int64Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int64Type.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 255, 127 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void Int64Scalar_Should_BuildFromMinValue()
+        {
+            long expected = long.MinValue;
+            var value = new Int64Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(Int64Type.Default, value.Type);
+            Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 128 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void UInt64Scalar_Should_BuildFromDotNet()
+        {
+            ulong expected = 12345678901234567890;
+            var value = new UInt64Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt64Type.Default, value.Type);
+            Assert.Equal(new byte[] { 210, 10, 31, 235, 140, 169, 84, 171 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void UInt64Scalar_Should_BuildFromMaxValue()
+        {
+            ulong expected = ulong.MaxValue;
+            var value = new UInt64Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt64Type.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 255, 255 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void UInt64Scalar_Should_BuildFromZero()
+        {
+            ulong expected = 0;
+            var value = new UInt64Scalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(UInt64Type.Default, value.Type);
+            Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 }, value.View().ToArray());
+        }
+    }
+
     public class Decimal128ScalarTests
     {
         [Fact]

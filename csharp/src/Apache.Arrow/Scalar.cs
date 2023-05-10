@@ -97,7 +97,19 @@ namespace Apache.Arrow
             _index = index;
         }
 
-        public byte Value => Buffer.Span.CastTo<byte>()[_index];
+        public byte Value
+        {
+            get
+            {
+                unsafe
+                {
+                    fixed (byte* ptr = View())
+                    {
+                        return *(byte*)ptr;
+                    }
+                }
+            }
+        }
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(byte), sizeof(byte));
     }
 
@@ -121,7 +133,19 @@ namespace Apache.Arrow
             _index = index;
         }
 
-        public sbyte Value => Buffer.Span.CastTo<sbyte>()[_index];
+        public sbyte Value
+        {
+            get
+            {
+                unsafe
+                {
+                    fixed (byte* ptr = View())
+                    {
+                        return *(sbyte*)ptr;
+                    }
+                }
+            }
+        }
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(sbyte), sizeof(sbyte));
     }
 
@@ -145,7 +169,19 @@ namespace Apache.Arrow
             _index = index;
         }
 
-        public ushort Value => Buffer.Span.CastTo<ushort>()[_index];
+        public ushort Value
+        {
+            get
+            {
+                unsafe
+                {
+                    fixed (byte* ptr = View())
+                    {
+                        return *(ushort*)ptr;
+                    }
+                }
+            }
+        }
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(ushort), sizeof(ushort));
     }
     public struct Int16Scalar : INumericScalar<Int16Type>
@@ -168,7 +204,20 @@ namespace Apache.Arrow
             _index = index;
         }
 
-        public short Value => Buffer.Span.CastTo<short>()[_index];
+        public short Value
+        {
+            get
+            {
+                unsafe
+                {
+                    fixed (byte* ptr = View())
+                    {
+                        return *(short*)ptr;
+                    }
+                }
+            }
+        }
+
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(short), sizeof(short));
     }
 
@@ -192,7 +241,20 @@ namespace Apache.Arrow
             _index = index;
         }
 
-        public uint Value => Buffer.Span.CastTo<uint>()[_index];
+        public uint Value
+        {
+            get
+            {
+                unsafe
+                {
+                    fixed (byte* ptr = View())
+                    {
+                        return *(uint*)ptr;
+                    }
+                }
+            }
+        }
+
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(uint), sizeof(uint));
     }
 
@@ -216,7 +278,20 @@ namespace Apache.Arrow
             _index = index;
         }
 
-        public int Value => Buffer.Span.CastTo<int>()[_index];
+        public int Value
+        {
+            get
+            {
+                unsafe
+                {
+                    fixed (byte* ptr = View())
+                    {
+                        return *(int*)ptr;
+                    }
+                }
+            }
+        }
+
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * 4, 4);
     }
 
@@ -240,7 +315,19 @@ namespace Apache.Arrow
             _index = index;
         }
 
-        public ulong Value => Buffer.Span.CastTo<ulong>()[_index];
+        public ulong Value
+        {
+            get
+            {
+                unsafe
+                {
+                    fixed (byte* ptr = View())
+                    {
+                        return *(ulong*)ptr;
+                    }
+                }
+            }
+        }
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(ulong), sizeof(ulong));
     }
     public struct Int64Scalar : INumericScalar<Int64Type>
@@ -263,7 +350,19 @@ namespace Apache.Arrow
             _index = index;
         }
 
-        public long Value => Buffer.Span.CastTo<long>()[_index];
+        public long Value
+        {
+            get
+            {
+                unsafe
+                {
+                    fixed (byte* ptr = View())
+                    {
+                        return *(long*)ptr;
+                    }
+                }
+            }
+        }
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(long), sizeof(long));
     }
 
@@ -287,7 +386,19 @@ namespace Apache.Arrow
             _index = index;
         }
 
-        public float Value => Buffer.Span.CastTo<float>()[_index];
+        public float Value
+        {
+            get
+            {
+                unsafe
+                {
+                    fixed (byte* ptr = View())
+                    {
+                        return *(float*)ptr;
+                    }
+                }
+            }
+        }
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(float), sizeof(float));
     }
 
@@ -311,7 +422,19 @@ namespace Apache.Arrow
             _index = index;
         }
 
-        public double Value => Buffer.Span.CastTo<double>()[_index];
+        public double Value
+        {
+            get
+            {
+                unsafe
+                {
+                    fixed (byte* ptr = View())
+                    {
+                        return *(double*)ptr;
+                    }
+                }
+            }
+        }
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(double), sizeof(double));
     }
 
@@ -336,7 +459,19 @@ namespace Apache.Arrow
             _index = index;
         }
 
-        public Half Value => Buffer.Span.CastTo<Half>()[_index];
+        public Half Value
+        {
+            get
+            {
+                unsafe
+                {
+                    fixed (byte* ptr = View())
+                    {
+                        return *(Half*)ptr;
+                    }
+                }
+            }
+        }
         public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * 2, 2);
     }
 #endif
