@@ -180,12 +180,9 @@ TEST(TaskScheduler, Stress) {
 // thread starts a task group while another thread is finishing
 // the last of its tasks.
 TEST(TaskScheduler, StressTwo) {
-
   #ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
   #endif
-
-
   constexpr int kNumThreads = 16;
   constexpr int kNumGroups = 8;
   constexpr int kTasksPerGroup = 1;
