@@ -279,7 +279,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   arguments.push_back(types()->i64_ptr_type());  // offsets
   arguments.push_back(types()->i64_ptr_type());  // bitmaps
   arguments.push_back(types()->i64_ptr_type());  // holders
-  llvm::Type* selection_vector_type;
+  llvm::Type* selection_vector_type = nullptr;
   switch (selection_vector_mode) {
     case SelectionVector::MODE_NONE:
     case SelectionVector::MODE_UINT16:
@@ -295,6 +295,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
       selection_vector_type = types()->i64_type();
       break;
   }
+  ARROW_RETURN_IF((selection_vector_type == nullptr),
+                  Status::CodeGenError("Error creating selection_vector_type."));
   arguments.push_back(types()->i64_type());  // ctx_ptr
   arguments.push_back(types()->i64_type());  // nrec
   llvm::FunctionType* prototype =
