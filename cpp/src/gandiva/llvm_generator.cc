@@ -295,8 +295,6 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
       selection_vector_type = types()->i64_type();
       break;
   }
-  ARROW_RETURN_IF((selection_vector_type == nullptr),
-                  Status::CodeGenError("Error creating selection_vector_type."));
   arguments.push_back(types()->i64_type());  // ctx_ptr
   arguments.push_back(types()->i64_type());  // nrec
   llvm::FunctionType* prototype =
