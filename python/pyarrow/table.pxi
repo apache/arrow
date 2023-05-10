@@ -1593,6 +1593,45 @@ cdef class _Tabular(_PandasConvertible):
         """
         return self._column(self._ensure_integer_index(i))
 
+    @property
+    def columns(self):
+        """
+        List of all columns in numerical order.
+
+        Returns
+        -------
+        columsn : list of Array (for RecordBatch) or list of ChunkedArray (for Table)
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
+        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.columns
+        [<pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            null,
+            4,
+            5,
+            null
+          ]
+        ], <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            "Flamingo",
+            "Horse",
+            null,
+            "Centipede"
+          ]
+        ]]
+        """
+        return [self._column(i) for i in range(self.num_columns)]
+
     def drop_null(self):
         """
         Remove rows that contain missing values from a Table or RecordBatch.
@@ -1679,6 +1718,27 @@ cdef class _Tabular(_PandasConvertible):
         -------
         Table or RecordBatch
             A new tabular object sorted according to the sort keys.
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pandas as pd
+        >>> import pyarrow as pa
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                    "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.sort_by('animal')
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        year: [[2019,2021,2021,2020,2022,2022]]
+        n_legs: [[5,100,4,2,4,2]]
+        animal: [["Brittle stars","Centipede","Dog","Flamingo","Horse","Parrot"]]
         """
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
@@ -2130,43 +2190,6 @@ cdef class RecordBatch(_Tabular):
             self._schema = pyarrow_wrap_schema(self.batch.schema())
 
         return self._schema
-
-    @property
-    def columns(self):
-        """
-        List of all columns in numerical order
-
-        Returns
-        -------
-        list of pyarrow.Array
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.columns
-        [<pyarrow.lib.Int64Array object at ...>
-        [
-          2,
-          2,
-          4,
-          4,
-          5,
-          100
-        ], <pyarrow.lib.StringArray object at ...>
-        [
-          "Flamingo",
-          "Parrot",
-          "Dog",
-          "Horse",
-          "Brittle stars",
-          "Centipede"
-        ]]
-        """
-        return [self.column(i) for i in range(self.num_columns)]
 
     def _column(self, int i):
         """
@@ -4197,43 +4220,6 @@ cdef class Table(_Tabular):
         """
         for i in range(self.num_columns):
             yield self._column(i)
-
-    @property
-    def columns(self):
-        """
-        List of all columns in numerical order.
-
-        Returns
-        -------
-        list of ChunkedArray
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
-        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.columns
-        [<pyarrow.lib.ChunkedArray object at ...>
-        [
-          [
-            null,
-            4,
-            5,
-            null
-          ]
-        ], <pyarrow.lib.ChunkedArray object at ...>
-        [
-          [
-            "Flamingo",
-            "Horse",
-            null,
-            "Centipede"
-          ]
-        ]]
-        """
-        return [self._column(i) for i in range(self.num_columns)]
 
     @property
     def num_columns(self):
