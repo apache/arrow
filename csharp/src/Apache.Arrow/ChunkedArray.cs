@@ -72,8 +72,12 @@ namespace Apache.Arrow
             IList<Array> newArrays = new List<Array>();
             while (curArrayIndex < numArrays && length > 0)
             {
-                newArrays.Add(Arrays[curArrayIndex].Slice((int)offset,
-                              length > Arrays[curArrayIndex].Length ? Arrays[curArrayIndex].Length : (int)length));
+                var array = Arrays[curArrayIndex]
+                    .Slice(
+                        (int)offset,
+                        length > Arrays[curArrayIndex].Length ? Arrays[curArrayIndex].Length : (int)length
+                    ) as Array;
+                newArrays.Add(array);
                 length -= Arrays[curArrayIndex].Length - offset;
                 offset = 0;
                 curArrayIndex++;
