@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.InteropServices;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
 
@@ -7,6 +6,16 @@ namespace Apache.Arrow
 {
     // Inspired from C++ implementation
     // https://arrow.apache.org/docs/cpp/api/scalar.html
+    public class ScalarFactory
+    {
+        internal static unsafe ReadOnlySpan<byte> View(ArrowBuffer buffer, int start, int count)
+        {
+            byte* ptr = (byte*)buffer.Memory.Pin().Pointer;
+            ptr += start;
+
+            return new ReadOnlySpan<byte>(ptr, count);
+        }
+    }
 
     public struct BinaryScalar : IBaseBinaryScalar
     {
@@ -29,7 +38,7 @@ namespace Apache.Arrow
             _offset = offset;
         }
 
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_offset, ByteLength);
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _offset, ByteLength);
     }
 
     public struct StringScalar : IBaseBinaryScalar
@@ -58,7 +67,7 @@ namespace Apache.Arrow
             _offset = offset;
         }
 
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_offset, ByteLength);
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _offset, ByteLength);
     }
 
     public struct BooleanScalar : IPrimitiveScalar<BooleanType>
@@ -105,12 +114,12 @@ namespace Apache.Arrow
                 {
                     fixed (byte* ptr = View())
                     {
-                        return *(byte*)ptr;
+                        return *ptr;
                     }
                 }
             }
         }
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(byte), sizeof(byte));
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index, 1);
     }
 
     public struct Int8Scalar : INumericScalar<Int8Type>
@@ -146,7 +155,7 @@ namespace Apache.Arrow
                 }
             }
         }
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(sbyte), sizeof(sbyte));
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index, 1);
     }
 
     public struct UInt16Scalar : INumericScalar<UInt16Type>
@@ -182,7 +191,7 @@ namespace Apache.Arrow
                 }
             }
         }
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(ushort), sizeof(ushort));
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index * 2, 2);
     }
     public struct Int16Scalar : INumericScalar<Int16Type>
     {
@@ -218,7 +227,7 @@ namespace Apache.Arrow
             }
         }
 
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(short), sizeof(short));
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index * 2, 2);
     }
 
     public struct UInt32Scalar : INumericScalar<UInt32Type>
@@ -255,7 +264,7 @@ namespace Apache.Arrow
             }
         }
 
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(uint), sizeof(uint));
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index * 4, 4);
     }
 
     public struct Int32Scalar : INumericScalar<Int32Type>
@@ -292,7 +301,7 @@ namespace Apache.Arrow
             }
         }
 
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * 4, 4);
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index * 4, 4);
     }
 
     public struct UInt64Scalar : INumericScalar<UInt64Type>
@@ -328,7 +337,7 @@ namespace Apache.Arrow
                 }
             }
         }
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(ulong), sizeof(ulong));
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index * 8, 8);
     }
     public struct Int64Scalar : INumericScalar<Int64Type>
     {
@@ -363,7 +372,7 @@ namespace Apache.Arrow
                 }
             }
         }
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(long), sizeof(long));
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index * 8, 8);
     }
 
     public struct FloatScalar : INumericScalar<FloatType>
@@ -399,7 +408,7 @@ namespace Apache.Arrow
                 }
             }
         }
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(float), sizeof(float));
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index * 4, 4);
     }
 
     public struct DoubleScalar : INumericScalar<DoubleType>
@@ -435,11 +444,11 @@ namespace Apache.Arrow
                 }
             }
         }
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * sizeof(double), sizeof(double));
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index * 8, 8);
     }
 
 #if NET5_0_OR_GREATER
-    public struct HalfScalar : INumericScalar<HalfFloatType>
+    public struct HalfFloatScalar : INumericScalar<HalfFloatType>
     {
         private int _index;
         public ArrowBuffer Buffer { get; }
@@ -448,12 +457,12 @@ namespace Apache.Arrow
 
         IArrowType IScalar.Type => Type;
 
-        public HalfScalar(float value)
+        public HalfFloatScalar(Half value)
             : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
         {
         }
 
-        public HalfScalar(ArrowBuffer value, int index = 0)
+        public HalfFloatScalar(ArrowBuffer value, int index = 0)
         {
             Buffer = value;
             _index = index;
@@ -472,7 +481,7 @@ namespace Apache.Arrow
                 }
             }
         }
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * 2, 2);
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index * 2, 2);
     }
 #endif
 
@@ -503,7 +512,7 @@ namespace Apache.Arrow
         }
 
         public decimal Value => DecimalUtility.GetDecimal(Buffer, _index, Type.Scale, Type.ByteWidth);
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * Type.ByteWidth, Type.ByteWidth);
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index * Type.ByteWidth, Type.ByteWidth);
     }
 
     public struct Decimal256Scalar : IDecimalScalar<Decimal256Type>
@@ -532,7 +541,7 @@ namespace Apache.Arrow
         }
 
         public decimal Value => DecimalUtility.GetDecimal(Buffer, _index, Type.Scale, Type.ByteWidth);
-        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * Type.ByteWidth, Type.ByteWidth);
+        public ReadOnlySpan<byte> View() => ScalarFactory.View(Buffer, _index * Type.ByteWidth, Type.ByteWidth);
     }
 
     // Nested scalars

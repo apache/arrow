@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -282,6 +283,114 @@ namespace Apache.Arrow.Tests
             Assert.Equal(expected, value.Value);
             Assert.Equal(UInt64Type.Default, value.Type);
             Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 }, value.View().ToArray());
+        }
+    }
+
+    public class FloatScalarTests
+    {
+        [Fact]
+        public void FloatScalar_Should_BuildFromDotNet()
+        {
+            float expected = 1234.567f;
+            var value = new FloatScalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(FloatType.Default, value.Type);
+            Assert.Equal(new byte[] { 37, 82, 154, 68 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void FloatScalar_Should_BuildFromMaxValue()
+        {
+            float expected = float.MaxValue;
+            var value = new FloatScalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(FloatType.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 255, 127, 127 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void FloatScalar_Should_BuildFromMinValue()
+        {
+            float expected = float.MinValue;
+            var value = new FloatScalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(FloatType.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 255, 127, 255 }, value.View().ToArray());
+        }
+    }
+
+    public class HalfScalarTests
+    {
+        [Fact]
+        public void HalfScalar_Should_BuildFromDotNet()
+        {
+            Half expected = Half.Epsilon;
+            var value = new HalfFloatScalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(HalfFloatType.Default, value.Type);
+            Assert.Equal(new byte[] { 1, 0 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void HalfScalar_Should_BuildFromMaxValue()
+        {
+            Half expected = Half.MaxValue;
+            var value = new HalfFloatScalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(HalfFloatType.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 123 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void HalfScalar_Should_BuildFromMinValue()
+        {
+            Half expected = Half.MinValue;
+            var value = new HalfFloatScalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(HalfFloatType.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 251 }, value.View().ToArray());
+        }
+    }
+
+    public class DoubleScalarTests
+    {
+        [Fact]
+        public void DoubleScalar_Should_BuildFromDotNet()
+        {
+            double expected = 1234.56789;
+            var value = new DoubleScalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(DoubleType.Default, value.Type);
+            Assert.Equal(new byte[] { 231, 198, 244, 132, 69, 74, 147, 64 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void DoubleScalar_Should_BuildFromMaxValue()
+        {
+            double expected = double.MaxValue;
+            var value = new DoubleScalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(DoubleType.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 239, 127 }, value.View().ToArray());
+        }
+
+        [Fact]
+        public void DoubleScalar_Should_BuildFromMinValue()
+        {
+            double expected = double.MinValue;
+            var value = new DoubleScalar(expected);
+
+            Assert.Equal(expected, value.Value);
+            Assert.Equal(DoubleType.Default, value.Type);
+            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 239, 255 }, value.View().ToArray());
         }
     }
 
