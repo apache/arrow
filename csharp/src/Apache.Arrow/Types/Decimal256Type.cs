@@ -15,7 +15,7 @@
 
 namespace Apache.Arrow.Types
 {
-    public sealed class Decimal256Type: FixedSizeBinaryType
+    public sealed class Decimal256Type: FixedSizeBinaryType, IDecimalType
     {
         // max int decimal 79228162514264337593543950335M : precision = 29
         // max scaled decimal 1.2345678901234567890123456789M : scale = 28

@@ -41,6 +41,13 @@ namespace Apache.Arrow.Reflection
             return new ReadOnlyMemory<byte>(bytes);
         }
 
+        internal static ReadOnlyMemory<byte> AsMemoryBytes(decimal value, IDecimalType type)
+        {
+            byte[] bytes = new byte[type.ByteWidth];
+            DecimalUtility.GetBytes(value, type.Precision, type.Scale, type.ByteWidth, bytes);
+            return new ReadOnlyMemory<byte>(bytes);
+        }
+
         internal static ReadOnlyMemory<byte> AsMemoryBytes<T>(T value) where T : struct
         {
             byte[] bytes = new byte[Unsafe.SizeOf<T>()];

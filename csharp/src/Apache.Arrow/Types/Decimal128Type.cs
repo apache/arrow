@@ -15,8 +15,10 @@
 
 namespace Apache.Arrow.Types
 {
-    public sealed class Decimal128Type : FixedSizeBinaryType
+    public sealed class Decimal128Type : FixedSizeBinaryType, IDecimalType
     {
+        // Arbitrary chose to max byte encoding
+        public static readonly Decimal128Type Default = new(23, 9);
         public override ArrowTypeId TypeId => ArrowTypeId.Decimal128;
         public override string Name => "decimal128";
 

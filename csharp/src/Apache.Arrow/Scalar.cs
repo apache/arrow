@@ -341,6 +341,65 @@ namespace Apache.Arrow
     }
 #endif
 
+    public struct Decimal128Scalar : IDecimalScalar<Decimal128Type>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public Decimal128Type Type { get; }
+
+        IArrowType IScalar.Type => Type;
+
+        public Decimal128Scalar(decimal value)
+            : this(Decimal128Type.Default, value)
+        {
+        }
+
+        public Decimal128Scalar(Decimal128Type type, decimal value)
+            : this(type, new ArrowBuffer(TypeReflection.AsMemoryBytes(value, type)))
+        {
+        }
+
+        public Decimal128Scalar(Decimal128Type type, ArrowBuffer value, int index = 0)
+        {
+            Type = type;
+            Buffer = value;
+            _index = index;
+        }
+
+        public decimal Value => DecimalUtility.GetDecimal(Buffer, _index, Type.Scale, Type.ByteWidth);
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * Type.ByteWidth, Type.ByteWidth);
+    }
+
+    public struct Decimal256Scalar : IDecimalScalar<Decimal256Type>
+    {
+        private int _index;
+        public ArrowBuffer Buffer { get; }
+
+        public Decimal256Type Type { get; }
+
+        IArrowType IScalar.Type => Type;
+
+        public Decimal256Scalar(decimal value)
+            : this(Decimal256Type.SystemDefault, value)
+        {
+        }
+        public Decimal256Scalar(Decimal256Type type, decimal value)
+            : this(type, new ArrowBuffer(TypeReflection.AsMemoryBytes(value, type)))
+        {
+        }
+
+        public Decimal256Scalar(Decimal256Type type, ArrowBuffer value, int index = 0)
+        {
+            Type = type;
+            Buffer = value;
+            _index = index;
+        }
+
+        public decimal Value => DecimalUtility.GetDecimal(Buffer, _index, Type.Scale, Type.ByteWidth);
+        public ReadOnlySpan<byte> View() => Buffer.Span.Slice(_index * Type.ByteWidth, Type.ByteWidth);
+    }
+
     // Nested scalars
     public struct StructScalar : IScalar
     {

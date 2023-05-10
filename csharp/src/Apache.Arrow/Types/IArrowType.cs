@@ -58,6 +58,12 @@ namespace Apache.Arrow.Types
         void Accept(IArrowTypeVisitor visitor);
 
         bool IsFixedWidth { get; }
-    
+    }
+
+    public interface IDecimalType : IArrowType
+    {
+        int ByteWidth { get; }
+        int Precision { get; }
+        int Scale { get; }
     }
 }

@@ -30,6 +30,12 @@ namespace Apache.Arrow
     {
     }
 
+    public interface IDecimalScalar<TArrowType> : IPrimitiveScalar<TArrowType>
+        where TArrowType : IDecimalType
+    {
+    }
+
+    // Nested Scalars
     public interface IStructScalar : IScalar
     {
         IScalar[] Fields { get; }
