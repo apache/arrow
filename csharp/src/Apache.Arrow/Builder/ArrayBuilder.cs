@@ -17,7 +17,8 @@ namespace Apache.Arrow.Builder
         public int Offset { get; }
 
         public IValueBufferBuilder[] Buffers { get; }
-        public IValueBufferBuilder ValidityBuffer => Buffers[0];
+        public IValueBufferBuilder ValidityBuffer => Buffers[ValidityBufferIndex];
+        private int ValidityBufferIndex => 0;
 
         public IArrayBuilder[] Children { get; }
 
@@ -158,7 +159,90 @@ namespace Apache.Arrow.Builder
             // TODO: Make better / recursive fields data type check
             Validate(data.DataType);
 
-            NullCount += data.NullCount;
+            // Handle validity
+            var dataValidity = data.Buffers[ValidityBufferIndex];
+            Span<bool> bitBuffer = new bool[data.Length];
+
+            // Check if need to recalculate null count
+            if (data.NullCount < 0)
+            {
+                int nullCount = 0;
+                bool allValid = true;
+
+                // Need recalculate nulls
+                for (int i = data.Offset; i < data.Length; i++)
+                {
+                    bool isValid = BitUtility.GetBit(dataValidity.Span, i);
+
+                    if (!isValid)
+                    {
+                        allValid = false;
+                        nullCount++;
+                    }
+
+                    bitBuffer[i] = isValid;
+                }
+
+                if (nullCount == data.Length)
+                {
+                    ValidityBuffer.AppendBits(false, data.Length);
+                }
+                else if (allValid)
+                {
+                    ValidityBuffer.AppendBits(true, data.Length);
+                }
+                else
+                {
+                    ValidityBuffer.AppendBits(bitBuffer);
+                }
+                NullCount += nullCount;
+                // Update it since we calculated it
+                data.NullCount = nullCount;
+            }
+            else
+            {
+                int nullCount = data.NullCount;
+
+                if (data.Offset == 0)
+                {
+                    // Bulk copy full bytes
+                    int end = (data.Length * ValidityBuffer.ValueBitSize) / 8;
+                    ValidityBuffer.AppendBytes(dataValidity.Span.Slice(0, end));
+
+                    // Copy remaining bits
+                    Span<bool> bits = BitUtility.BytesToBits(dataValidity.Span.Slice(end)).Slice(0, data.Length - end * 8);
+                    ValidityBuffer.AppendBits(bits);
+                }
+                else
+                {
+                    bool allValid = true;
+
+                    for (int i = data.Offset; i < data.Length; i++)
+                    {
+                        bool isValid = BitUtility.GetBit(dataValidity.Span, i);
+
+                        if (!isValid)
+                            allValid = false;
+
+                        bitBuffer[i] = isValid;
+                    }
+
+                    if (nullCount == data.Length)
+                    {
+                        ValidityBuffer.AppendBits(false, data.Length);
+                    }
+                    else if (allValid)
+                    {
+                        ValidityBuffer.AppendBits(true, data.Length);
+                    }
+                    else
+                    {
+                        ValidityBuffer.AppendBits(bitBuffer);
+                    }
+                }
+
+                NullCount += nullCount;
+            }
             Length += data.Length;
 
             Reserve(data.Length);
@@ -171,17 +255,51 @@ namespace Apache.Arrow.Builder
                 if (current.ValueBitSize % 8 == 0)
                 {
                     // Full byte encoded
-                    current.AppendBytes(other.Span);
+                    current.AppendBytes(other.Span.Slice(data.Offset, data.Length));
                 }
-                else
+                else if (i != ValidityBufferIndex) // already handled before
                 {
-                    // Safe copy Bytes and remaining bits
-                    int end = (data.Length * current.ValueBitSize) / 8;
+                    if (data.Offset == 0)
+                    {
+                        // Bulk copy bytes
+                        int end = (data.Length * current.ValueBitSize) / 8;
 
-                    current.AppendBytes(other.Span.Slice(0, end));
+                        current.AppendBytes(other.Span.Slice(0, end));
 
-                    Span<bool> bits = BitUtility.BytesToBits(other.Span.Slice(end)).Slice(0, data.Length - end * 8);
-                    current.AppendBits(bits);
+                        // Copy remaining bits
+                        Span<bool> bits = BitUtility.BytesToBits(other.Span.Slice(end)).Slice(0, data.Length - end * 8);
+                        current.AppendBits(bits);
+                    }
+                    else
+                    {
+                        bool allTrue = true;
+                        bool allFalse = true;
+
+                        for (int j = data.Offset; j < data.Length; j++)
+                        {
+                            bool bit = BitUtility.GetBit(other.Span, j);
+
+                            if (bit)
+                                allFalse = false;
+                            else
+                                allTrue = false;
+
+                            bitBuffer[j] = bit;
+                        }
+
+                        if (allFalse)
+                        {
+                            ValidityBuffer.AppendBits(false, data.Length);
+                        }
+                        else if (allTrue)
+                        {
+                            ValidityBuffer.AppendBits(true, data.Length);
+                        }
+                        else
+                        {
+                            ValidityBuffer.AppendBits(bitBuffer);
+                        }
+                    }
                 }
             }
 

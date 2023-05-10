@@ -26,7 +26,7 @@ namespace Apache.Arrow
 
         public readonly IArrowType DataType;
         public readonly int Length;
-        public readonly int NullCount;
+        public int NullCount { get; internal set; }
         public readonly int Offset;
         public readonly ArrowBuffer[] Buffers;
         public readonly ArrayData[] Children;
@@ -77,7 +77,6 @@ namespace Apache.Arrow
             Children = children;
             Dictionary = dictionary;
         }
-
         public void Dispose()
         {
             if (Buffers != null)

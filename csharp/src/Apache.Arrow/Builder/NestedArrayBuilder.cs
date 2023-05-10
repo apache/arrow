@@ -73,11 +73,7 @@ namespace Apache.Arrow.Builder
         public ListArrayBuilder AppendValue(ListScalar value)
         {
             AppendValid();
-
-            for (int i = 0; i < value.Array.Length; i++)
-            {
-                Children[0].AppendValue(value.Array.GetScalar(i));
-            }
+            Children[0].AppendValues(value.Array);
             return this;
         }
 
