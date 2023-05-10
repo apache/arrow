@@ -31,7 +31,6 @@ con_file2 <- file(file.path(json_dir, 6, "file2.json"), open = "wb")
 jsonlite::stream_out(df2, con = con_file2, verbose = FALSE)
 close(con_file2)
 
-
 test_that("JSON dataset", {
   ds <- open_dataset(json_dir, format = "json", partitioning = "part")
 
