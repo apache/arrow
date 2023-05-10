@@ -320,7 +320,20 @@ namespace Apache.Arrow.Builder
 
     public class ValueBufferBuilder<T> : ValueBufferBuilder, IPrimitiveBufferBuilder<T> where T : struct
     {
-        private static int GetBitSizeOf() => typeof(T) == typeof(bool) ? 1 : Unsafe.SizeOf<T>() * 8;
+        private static int GetBitSizeOf()
+        {
+            Type type = typeof(T);
+
+            switch (type)
+            {
+                case var _ when type == typeof(decimal):
+                    return 256; // equivalent of Decimal256
+                case var _ when type == typeof(bool):
+                    return 1;
+                default:
+                    return Unsafe.SizeOf<T>();
+            }
+        }
 
         public ValueBufferBuilder(int capacity = 32) : this(GetBitSizeOf(), capacity)
         {
