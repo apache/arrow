@@ -57,19 +57,11 @@ jobs:
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 120
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
         include:
-          - arch: amd64
-            clang-tools: "14"
-            image: ubuntu-cpp
-            llvm: "14"
-            runs-on: ubuntu-latest
-            title: AMD64 ubuntu-cpp no threads
-            ubuntu: "22.04"
-            enable_threading: "OFF"
           - arch: amd64
             clang-tools: "14"
             image: conda-cpp
@@ -96,7 +88,6 @@ jobs:
       CLANG_TOOLS: ${{ matrix.clang-tools }}
       LLVM: ${{ matrix.llvm }}
       UBUNTU: ${{ matrix.ubuntu }}
-      ARROW_ENABLE_THREADING: ${{matrix.enable_threading}}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -121,7 +112,7 @@ jobs:
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run --env ARROW_ENABLE_THREADING=${ARROW_ENABLE_THREADING:-ON} ${{ matrix.image }}
+          archery docker run ${{ matrix.image }}
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         env:
