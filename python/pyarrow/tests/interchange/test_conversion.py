@@ -216,7 +216,19 @@ def test_roundtrip_pandas_string():
     assert table_protocol.num_chunks() == result_protocol.num_chunks()
     assert table_protocol.column_names() == result_protocol.column_names()
 
+
+@pytest.mark.pandas
+def test_roundtrip_pandas_large_string():
+    # See https://github.com/pandas-dev/pandas/issues/50554
+    if Version(pd.__version__) < Version("1.6"):
+        pytest.skip(" Column.size() called as a method in pandas 2.0.0")
+
+    arr = ["a", "", "c"]
     table = pa.table({"a_large": pa.array(arr, type=pa.large_string())})
+
+    from pandas.api.interchange import (
+        from_dataframe as pandas_from_dataframe
+    )
 
     if Version(pd.__version__) >= Version("2.0.1"):
         pandas_df = pandas_from_dataframe(table)
@@ -237,7 +249,40 @@ def test_roundtrip_pandas_string():
     else:
         # large string not supported by pandas implementation for
         # older versions of pandas
+        # https://github.com/pandas-dev/pandas/issues/52795
         with pytest.raises(AssertionError):
+            pandas_from_dataframe(table)
+
+
+@pytest.mark.pandas
+def test_roundtrip_pandas_string_with_missing():
+    # See https://github.com/pandas-dev/pandas/issues/50554
+    if Version(pd.__version__) < Version("1.6"):
+        pytest.skip(" Column.size() called as a method in pandas 2.0.0")
+
+    arr = ["a", "", "c", None]
+    table = pa.table({"a": pa.array(arr),
+                      "a_large": pa.array(arr, type=pa.large_string())})
+
+    from pandas.api.interchange import (
+        from_dataframe as pandas_from_dataframe
+    )
+
+    if Version(pd.__version__) >= Version("2.0.2"):
+        pandas_df = pandas_from_dataframe(table)
+        result = pi.from_dataframe(pandas_df)
+
+        assert result["a"].to_pylist() == table["a"].to_pylist()
+        assert pa.types.is_string(table["a"].type)
+        assert pa.types.is_large_string(result["a"].type)
+
+        assert result["a_large"].to_pylist() == table["a_large"].to_pylist()
+        assert pa.types.is_large_string(table["a_large"].type)
+        assert pa.types.is_large_string(result["a_large"].type)
+    else:
+        # older versions of pandas do not have bitmask support
+        # https://github.com/pandas-dev/pandas/issues/49888
+        with pytest.raises(NotImplementedError):
             pandas_from_dataframe(table)
 
 
