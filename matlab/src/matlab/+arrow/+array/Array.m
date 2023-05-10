@@ -18,7 +18,7 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
     % permissions and limitations under the License.
 
     
-    properties (Access = protected)
+    properties (Access=protected)
         Proxy
     end
 
