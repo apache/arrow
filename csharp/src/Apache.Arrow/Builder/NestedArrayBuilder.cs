@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
@@ -68,6 +69,18 @@ namespace Apache.Arrow.Builder
         }
 
         // Append Value
+        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((ListScalar)value);
+        public ListArrayBuilder AppendValue(ListScalar value)
+        {
+            AppendValid();
+
+            for (int i = 0; i < value.Array.Length; i++)
+            {
+                Children[0].AppendValue(value.Array.GetScalar(i));
+            }
+            return this;
+        }
+
         public ListArrayBuilder AppendValue<T>(ReadOnlySpan<T> value) where T : struct
         {
             CurrentOffset++;

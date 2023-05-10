@@ -144,6 +144,8 @@ namespace Apache.Arrow.Builder
                     return As<FixedBinaryArrayBuilder>().AppendValue((IPrimitiveScalarBase)value);
                 case ArrowTypeId.Struct:
                     return As<StructArrayBuilder>().AppendValue(value);
+                case ArrowTypeId.List:
+                    return As<ListArrayBuilder>().AppendValue(value);
                 default:
                     Validate(value.Type);
                     throw new ArgumentException($"Cannot append {value} in builder with data type {DataType}");
