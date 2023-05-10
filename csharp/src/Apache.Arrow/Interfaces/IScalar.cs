@@ -10,6 +10,11 @@ namespace Apache.Arrow
         IArrowType Type { get; }
     }
 
+    public interface IDotNetScalar<T> where T : struct
+    {
+        T Value { get; }
+    }
+
     public interface IPrimitiveScalarBase : IScalar
     {
         ReadOnlySpan<byte> View();
@@ -21,8 +26,20 @@ namespace Apache.Arrow
         new TArrowType Type { get; }
     }
 
+    public interface IPrimitiveScalar<TArrowType, CType> : IPrimitiveScalar<TArrowType>, IDotNetScalar<CType>
+        where TArrowType : IArrowType
+        where CType : struct
+    {
+    }
+
     public interface INumericScalar<TArrowType> : IPrimitiveScalar<TArrowType>
         where TArrowType : IArrowType
+    {
+    }
+
+    public interface INumericScalar<TArrowType, CType> : INumericScalar<TArrowType>, IDotNetScalar<CType>
+        where TArrowType : IArrowType
+        where CType : struct
     {
     }
 
@@ -30,12 +47,18 @@ namespace Apache.Arrow
     {
     }
 
-    public interface IDecimalScalar<TArrowType> : IPrimitiveScalar<TArrowType>
+    public interface IDecimalScalar<TArrowType> : INumericScalar<TArrowType, decimal>
         where TArrowType : IDecimalType
     {
     }
 
     // Nested Scalars
+    public interface IBaseListScalar : IScalar
+    {
+        IArrowArray Array { get; }
+        bool IsValid { get; }
+    }
+
     public interface IStructScalar : IScalar
     {
         IScalar[] Fields { get; }

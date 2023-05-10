@@ -33,8 +33,16 @@ namespace Apache.Arrow
 
         void Accept(IArrowArrayVisitor visitor);
 
+        /// <summary>
+        /// Cast current array to another one.
+        /// </summary>
+        /// <returns>Current casted</returns>
+        TArray As<TArray>() where TArray : IArrowArray;
+
+        IScalar GetScalar(int index);
+
         //IArrowArray Slice(int offset);
 
-        //IArrowArray Slice(int offset, int length);
+        IArrowArray Slice(int offset, int length);
     }
 }

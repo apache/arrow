@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using Apache.Arrow.Builder;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -195,6 +196,17 @@ namespace Apache.Arrow
                 Values?.Dispose();
             }
             base.Dispose(disposing);
+        }
+
+        // Arrow Scalar
+        public override IScalar GetScalar(int index) => GetScalar(index);
+        public ListScalar GetScalar(int index, bool valid = true)
+        {
+            ReadOnlySpan<int> offsets = ValueOffsets;
+            int start = offsets[index];
+            int length = offsets[index + 1] - start;
+
+            return new(Data.DataType as ListType, Values.Slice(start, length), IsValid(index));
         }
     }
 }

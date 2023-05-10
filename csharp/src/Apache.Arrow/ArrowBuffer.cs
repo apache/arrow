@@ -72,5 +72,21 @@ namespace Apache.Arrow
         {
             _memoryOwner?.Dispose();
         }
+
+        internal unsafe ReadOnlySpan<byte> UnsafeView(int start, int count)
+        {
+            byte* ptr = (byte*)Memory.Pin().Pointer;
+            ptr += start;
+
+            return new ReadOnlySpan<byte>(ptr, count);
+        }
+
+        internal unsafe int GetInt(int index)
+        {
+            fixed (byte* ptr = UnsafeView(index * 4, 4))
+            {
+                return *(int*)ptr;
+            }
+        }
     }
 }

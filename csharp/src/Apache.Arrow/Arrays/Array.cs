@@ -15,6 +15,7 @@
 
 using System;
 using System.Runtime.CompilerServices;
+using Apache.Arrow.Builder;
 
 namespace Apache.Arrow
 {
@@ -40,6 +41,16 @@ namespace Apache.Arrow
             Accept(this, visitor);
         }
 
+        TArray IArrowArray.As<TArray>() => As<TArray>();
+        TArray As<TArray>() where TArray : IArrowArray
+        {
+            if (this is not TArray casted)
+            {
+                throw new InvalidOperationException($"Cannot cast {this} as {typeof(TArray)}");
+            }
+            return casted;
+        }
+
         public bool IsValid(int index) =>
             NullCount == 0 || NullBitmapBuffer.IsEmpty || BitUtility.GetBit(NullBitmapBuffer.Span, index + Offset);
 
@@ -60,7 +71,7 @@ namespace Apache.Arrow
             }
         }
 
-        public Array Slice(int offset, int length)
+        public IArrowArray Slice(int offset, int length)
         {
             if (offset > Length)
             {
@@ -68,10 +79,21 @@ namespace Apache.Arrow
             }
 
             length = Math.Min(Data.Length - offset, length);
-            offset += Data.Offset;
+            offset += Offset;
 
             ArrayData newData = Data.Slice(offset, length);
-            return ArrowArrayFactory.BuildArray(newData) as Array;
+            return ArrayBuilderFactory.MakeArray(newData);
+        }
+
+        public virtual IScalar GetScalar(int index)
+        {
+            switch (Data.DataType.TypeId)
+            {
+                case Types.ArrowTypeId.Binary:
+                    return As<BinaryArray>().GetScalar(index);
+                default:
+                    throw new NotSupportedException($"Cannot get scalar from array of type {Data.DataType}");
+            }
         }
 
         public void Dispose()

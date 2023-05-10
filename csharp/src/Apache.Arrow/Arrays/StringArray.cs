@@ -91,5 +91,16 @@ namespace Apache.Arrow
                     return encoding.GetString(data, bytes.Length);
             }
         }
+
+        // Arrow Scalar
+        public override IScalar GetScalar(int index) => GetScalar(index);
+        public new StringScalar GetScalar(int index, bool valid = true)
+        {
+            ReadOnlySpan<int> offsets = ValueOffsets;
+            int start = offsets[index];
+            int length = offsets[index + 1] - start;
+
+            return new(ValueBuffer, length, start);
+        }
     }
 }

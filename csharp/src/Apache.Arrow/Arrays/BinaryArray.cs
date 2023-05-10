@@ -351,8 +351,18 @@ namespace Apache.Arrow
                 return ReadOnlySpan<byte>.Empty;
             }
 
-            return ValueBuffer.Span.Slice(ValueOffsets[index], GetValueLength(index));
+            return GetScalar(index).View();
         }
 
+        // Arrow Scalar
+        public override IScalar GetScalar(int index) => GetScalar(index);
+        public BinaryScalar GetScalar(int index, bool valid = true)
+        {
+            ReadOnlySpan<int> offsets = ValueOffsets;
+            int start = offsets[index];
+            int length = offsets[index + 1] - start;
+
+            return new(ValueBuffer, length, start);
+        }
     }
 }
