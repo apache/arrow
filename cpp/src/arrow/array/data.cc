@@ -62,7 +62,7 @@ static inline void AdjustNonNullable(Type::type type_id, int64_t length,
   }
 }
 
-namespace internal {
+namespace {
 
 bool IsNullSparseUnion(const ArrayData& data, int64_t i) {
   auto* union_type = checked_cast<const SparseUnionType*>(data.type.get());
@@ -92,7 +92,7 @@ bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
   return ArraySpan(data).MayHaveLogicalNulls();
 }
 
-}  // namespace internal
+}  // namespace
 
 std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64_t length,
                                            std::vector<std::shared_ptr<Buffer>> buffers,
