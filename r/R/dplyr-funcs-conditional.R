@@ -140,5 +140,6 @@ register_bindings_conditional <- function() {
         value
       )
     )
-  })
+  }, notes = "`.ptype` and `.size` arguments not supported"
+  )
 }
