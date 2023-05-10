@@ -955,8 +955,8 @@ Status WriteBatch(const Array& array, int64_t orc_offset,
 void SetAttributes(const std::shared_ptr<arrow::Field>& field, liborc::Type* type) {
   if (field->HasMetadata()) {
     const auto& metadata = field->metadata();
-    for (int j = 0; j < metadata->size(); j++) {
-      type->setAttribute(metadata->key(j), metadata->value(j));
+    for (int64_t i = 0; i < metadata->size(); i++) {
+      type->setAttribute(metadata->key(i), metadata->value(i));
     }
   }
 }
@@ -1203,6 +1203,9 @@ Result<std::shared_ptr<const KeyValueMetadata>> GetFieldMetadata(
     return nullptr;
   }
   const auto keys = type->getAttributeKeys();
+  if (keys.empty()) {
+    return nullptr;
+  }
   auto metadata = std::make_shared<KeyValueMetadata>();
   for (const auto& key : keys) {
     metadata->Append(key, type->getAttributeValue(key));
