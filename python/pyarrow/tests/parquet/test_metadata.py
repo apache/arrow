@@ -301,19 +301,57 @@ def test_parquet_write_disable_statistics(tempdir):
     assert cc_b.statistics is None
 
 
-def test_parquet_sorting_columns():
-    table = pa.table({'a': [1, 2, 3], 'b': ['a', 'b', 'c']})
+def test_parquet_sorting_column():
+    sorting_col = pq.SortingColumn(10)
+    assert sorting_col.column_index == 10
+    assert sorting_col.descending is False
+    assert sorting_col.nulls_first is False
 
-    # Rejects invalid sorting_columns
-    writer = pa.BufferOutputStream()
+    sorting_col = pq.SortingColumn(0, descending=True, nulls_first=True)
+    assert sorting_col.column_index == 0
+    assert sorting_col.descending is True
+    assert sorting_col.nulls_first is True
+
+    schema = pa.schema([('a', pa.int64()), ('b', pa.int64())])
+    sorting_cols = (
+        pq.SortingColumn(1, descending=True),
+        pq.SortingColumn(0, descending=False),
+    )
+    sort_order, null_placement = pq.SortingColumn.as_sort_order(schema, sorting_cols)
+    assert sort_order == (('b', "descending"), ('a', "ascending"))
+    assert null_placement == "at_end"
+
+    sorting_cols_roundtripped = pq.SortingColumn.from_sort_order(
+        schema, sort_order, null_placement)
+    assert sorting_cols_roundtripped == sorting_cols
+
+    sorting_cols = pq.SortingColumn.from_sort_order(
+        schema, ('a', ('b', "descending")), null_placement="at_start")
+    expected = (
+        pq.SortingColumn(0, descending=False, nulls_first=True),
+        pq.SortingColumn(1, descending=True, nulls_first=True),
+    )
+    assert sorting_cols == expected
+
+    # Conversions handle empty tuples
+    empty_sorting_cols = pq.SortingColumn.from_sort_order(schema, ())
+    assert empty_sorting_cols == ()
+
+    assert pq.SortingColumn.as_sort_order(schema, ()) == ((), "at_end")
+
     with pytest.raises(ValueError):
-        _write_table(table, writer, sorting_columns="string")
-    with pytest.raises(ValueError):
-        _write_table(table, writer, sorting_columns=["string"])
-    with pytest.raises(ValueError):
-        _write_table(table, writer, sorting_columns=([("string", None)]))
-    with pytest.raises(ValueError):
-        _write_table(table, writer, sorting_columns=([("string")], None))
+        pq.SortingColumn.from_sort_order(schema, (("a", "not a valid sort order")))
+
+    with pytest.raises(ValueError, match="inconsistent null placement"):
+        sorting_cols = (
+            pq.SortingColumn(1, nulls_first=True),
+            pq.SortingColumn(0, nulls_first=False),
+        )
+        pq.SortingColumn.as_sort_order(schema, sorting_cols)
+
+
+def test_parquet_file_sorting_columns():
+    table = pa.table({'a': [1, 2, 3], 'b': ['a', 'b', 'c']})
 
     sorting_columns = (
         pq.SortingColumn(column_index=0, descending=True, nulls_first=True),
@@ -329,47 +367,9 @@ def test_parquet_sorting_columns():
                            for i in range(metadata.num_row_groups)}
     assert set_sorting_columns == set([sorting_columns])
 
-    # Sort keys are None since nulls_first is inconsistent.
+    # Can also retrieve from the file reader
     pq_file = pq.ParquetFile(reader)
-    assert pq_file.sort_order is None
-
-    expected = (
-        pq.SortingColumn(column_index=0, descending=True),
-        pq.SortingColumn(column_index=1, descending=False),
-    )
-    writer = pa.BufferOutputStream()
-    _write_table(table, writer, sorting_columns=[("a", "descending"), "b"])
-    reader = pa.BufferReader(writer.getvalue())
-
-    # Can retrieve sorting columns from metadata
-    metadata = pq.read_metadata(reader)
-    set_sorting_columns = {metadata.row_group(i).sorting_columns
-                           for i in range(metadata.num_row_groups)}
-    assert set_sorting_columns == set([expected])
-
-    # Sort keys can be retrieved at file level
-    pq_file = pq.ParquetFile(reader)
-    assert pq_file.sort_order == ([("a", "descending"), ("b", "ascending")], "at_end")
-
-    # Now with nulls_first=True
-    expected = (
-        pq.SortingColumn(column_index=0, descending=True, nulls_first=True),
-        pq.SortingColumn(column_index=1, descending=False, nulls_first=True),
-    )
-    writer = pa.BufferOutputStream()
-    _write_table(table, writer, sorting_columns=(
-        [("a", "descending"), "b"], "at_start"))
-    reader = pa.BufferReader(writer.getvalue())
-
-    # Can retrieve sorting columns from metadata
-    metadata = pq.read_metadata(reader)
-    set_sorting_columns = {metadata.row_group(i).sorting_columns
-                           for i in range(metadata.num_row_groups)}
-    assert set_sorting_columns == set([expected])
-
-    # Sort keys can be retrieved at file level
-    pq_file = pq.ParquetFile(reader)
-    assert pq_file.sort_order == ([("a", "descending"), ("b", "ascending")], "at_start")
+    assert pq_file.sort_order == sorting_columns
 
 
 def test_field_id_metadata():
