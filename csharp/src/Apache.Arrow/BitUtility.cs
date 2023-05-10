@@ -157,25 +157,17 @@ namespace Apache.Arrow
         /// <returns>Count of set (one) bits.</returns>
         public static int CountBits(ReadOnlySpan<byte> data, int index, int length)
         {
-            if (length == 0)
-                return 0;
-
-            long spanLengthInBits = (long)data.Length * 8;
-
-            if (index < 0 || index >= spanLengthInBits)
-                throw new ArgumentOutOfRangeException(nameof(index));
-
-            int endBitIndex = checked(index + length - 1);
-
-            if (length < 0 || endBitIndex >= spanLengthInBits)
-                throw new ArgumentOutOfRangeException(nameof(length));
-
             int startByteIndex = index / 8;
             int startBitOffset = index % 8;
-                        
+
+            int endBitIndex = index + length - 1;
+
             int endByteIndex = endBitIndex / 8;
             int endBitOffset = endBitIndex % 8;
-            
+
+            if (startBitOffset < 0)
+                return 0;
+
             int count = 0;
             if (startByteIndex == endByteIndex)
             {

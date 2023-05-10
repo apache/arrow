@@ -52,22 +52,13 @@ namespace Apache.Arrow.Tests
             [InlineData(new byte[] { 0b11111111 }, 0, 8)]
             [InlineData(new byte[] { 0b11111111 }, 3, 5)]
             [InlineData(new byte[] { 0b11111111, 0b11111111 }, 9, 7)]
+            [InlineData(new byte[] { 0b11111111 }, -1, 0)]
             public void CountsAllOneBitsFromAnOffset(byte[] data, int offset, int expectedCount)
             {
                 Assert.Equal(expectedCount,
                     BitUtility.CountBits(data, offset));
             }
-
-            [Fact]
-            public void CountsAllOneBitsFromAnOffset_ShouldThrowException()
-            {
-                //Check lower boundary
-                Assert.Throws<ArgumentOutOfRangeException>( () => BitUtility.CountBits(new byte[] { 0b11111111 }, -1));
-
-                //Check upper boundary
-                Assert.Throws<ArgumentOutOfRangeException>(() => BitUtility.CountBits(new byte[] { 0b11111111 }, 9));
-            }
-
+                        
             [Theory]
             [InlineData(new byte[] { 0b11111111 }, 0, 8, 8)]
             [InlineData(new byte[] { 0b11111111 }, 0, 4, 4)]
