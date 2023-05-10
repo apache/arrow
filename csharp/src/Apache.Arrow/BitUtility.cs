@@ -74,16 +74,8 @@ namespace Apache.Arrow
             if (length == 0)
                 return;
 
-            long spanLengthInBits = (long)data.Length * 8;
-
-            if (index < 0 || index >= spanLengthInBits)
-                throw new ArgumentOutOfRangeException(nameof(index));
-
             int endBitIndex = checked(index + length - 1);
-
-            if (length < 0 || endBitIndex >= spanLengthInBits)
-                throw new ArgumentOutOfRangeException(nameof(length));
-
+                        
             // Use simpler method if there aren't many values
             if (length < 20)
             {

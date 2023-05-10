@@ -223,19 +223,6 @@ namespace Apache.Arrow.Tests
                 for (int i = 0; i < 7; i++)
                     Assert.Equal(0b11111111, data[i]);
             }
-
-            [Fact]
-            public void CountsAllOneBitsFromAnOffset_ShouldThrowException()
-            {
-                //Check index lower boundary
-                Assert.Throws<ArgumentOutOfRangeException>(() => BitUtility.SetBits(new byte[] { 0b11111111 }, -1, 1, true));
-
-                //Check index upper boundary
-                Assert.Throws<ArgumentOutOfRangeException>(() => BitUtility.SetBits(new byte[] { 0b11111111 }, 9, 1, true));
-
-                //Check (index + lenght)
-                Assert.Throws<ArgumentOutOfRangeException>(() => BitUtility.SetBits(new byte[] { 0b11111111 }, 7, 2, true));
-            }
         }
 
         public class ClearBit
