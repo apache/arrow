@@ -241,7 +241,7 @@ def test_pandas_roundtrip_string_with_missing():
 
 @pytest.mark.pandas
 def test_pandas_roundtrip_categorical():
-    if Version(pd.__version__) < Version("2.0.1"):
+    if Version(pd.__version__) < Version("2.0.2"):
         pytest.skip("Bitmasks not supported in pandas interchange implementation")
 
     arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", None]
