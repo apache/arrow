@@ -665,35 +665,37 @@ test_that("Can use across() within transmute()", {
 test_that("across() does not select grouping variables within mutate()", {
   compare_dplyr_binding(
     .input %>%
-      group_by(mpg) %>%
+      group_by(chr) %>%
       mutate(across(everything(), round)) %>%
       collect(),
-    mtcars
+    example_data %>%
+      select(int, dbl, chr)
   )
 
   expect_error(
-    mtcars %>%
+    example_data %>%
       arrow_table() %>%
-      group_by(mpg) %>%
-      mutate(across(mpg, round)),
-    "Column `mpg` doesn't exist"
+      group_by(chr) %>%
+      mutate(across(chr, as.character)),
+    "Column `chr` doesn't exist"
   )
 })
 
 test_that("across() does not select grouping variables within transmute()", {
   compare_dplyr_binding(
     .input %>%
-      group_by(mpg) %>%
+      group_by(chr) %>%
       transmute(across(everything(), round)) %>%
       collect(),
-    mtcars
+    example_data %>%
+      select(int, dbl, chr)
   )
 
   expect_error(
-    mtcars %>%
+    example_data %>%
       arrow_table() %>%
-      group_by(mpg) %>%
-      transmute(across(mpg, round)),
-    "Column `mpg` doesn't exist"
+      group_by(chr) %>%
+      transmute(across(chr, as.character)),
+    "Column `chr` doesn't exist"
   )
 })
