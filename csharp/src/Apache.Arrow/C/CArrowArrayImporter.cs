@@ -149,8 +149,7 @@ namespace Apache.Arrow.C
                         break;
                     case ArrowTypeId.Union:
                     case ArrowTypeId.Map:
-                        // TODO:
-                        throw new NotSupportedException();
+                        break;
                     case ArrowTypeId.Null:
                         buffers = new ArrowBuffer[0];
                         break;
@@ -163,11 +162,12 @@ namespace Apache.Arrow.C
                         {
                             buffers = ImportFixedWidthBuffers(cArray, fixedWidthType.BitWidth);
                         }
-                        else
-                        {
-                            throw new NotSupportedException();
-                        }
                         break;
+                }
+
+                if (buffers == null)
+                {
+                    throw new NotSupportedException("Data type is not yet supported in import.");
                 }
 
                 return new ArrayData(

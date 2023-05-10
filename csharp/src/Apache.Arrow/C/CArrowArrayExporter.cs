@@ -122,14 +122,14 @@ namespace Apache.Arrow.C
             cArray->buffers = null;
             if (cArray->n_buffers > 0)
             {
-                cArray->buffers = (byte**)Marshal.AllocCoTaskMem(array.Buffers.Length * IntPtr.Size);
+                cArray->buffers = (byte**)sharedOwner.Allocate(array.Buffers.Length * IntPtr.Size);
                 for (int i = 0; i < array.Buffers.Length; i++)
                 {
                     ArrowBuffer buffer = array.Buffers[i];
                     IntPtr ptr;
                     if (!buffer.TryExport(sharedOwner, out ptr))
                     {
-                        throw new NotSupportedException(); // TODO
+                        throw new NotSupportedException($"An ArrowArray of type {array.DataType.TypeId} could not be exported");
                     }
                     cArray->buffers[i] = (byte*)ptr;
                 }
@@ -139,7 +139,7 @@ namespace Apache.Arrow.C
             cArray->children = null;
             if (cArray->n_children > 0)
             {
-                cArray->children = (CArrowArray**)Marshal.AllocCoTaskMem(IntPtr.Size * array.Children.Length);
+                cArray->children = (CArrowArray**)sharedOwner.Allocate(IntPtr.Size * array.Children.Length);
                 for (int i = 0; i < array.Children.Length; i++)
                 {
                     cArray->children[i] = CArrowArray.Create();
@@ -164,13 +164,13 @@ namespace Apache.Arrow.C
             cArray->private_data = null;
 
             cArray->n_buffers = 1;
-            cArray->buffers = (byte**)Marshal.AllocCoTaskMem(IntPtr.Size);
+            cArray->buffers = (byte**)sharedOwner.Allocate(IntPtr.Size);
 
             cArray->n_children = batch.ColumnCount;
             cArray->children = null;
             if (cArray->n_children > 0)
             {
-                cArray->children = (CArrowArray**)Marshal.AllocCoTaskMem(IntPtr.Size * batch.ColumnCount);
+                cArray->children = (CArrowArray**)sharedOwner.Allocate(IntPtr.Size * batch.ColumnCount);
                 int i = 0;
                 foreach (IArrowArray child in batch.Arrays)
                 {

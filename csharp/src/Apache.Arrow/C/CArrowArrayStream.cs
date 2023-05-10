@@ -29,10 +29,39 @@ namespace Apache.Arrow.C
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct CArrowArrayStream
     {
+        /// <summary>
+        /// Callback to get the stream type. Will be the same for all arrays in the stream.
+        /// If successful, the ArrowSchema must be released independently from the stream.
+        ///
+        /// Return value: 0 if successful, an `errno`-compatible error code otherwise.
+        ///</summary>
         public delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowSchema*, int> get_schema;
+
+        /// <summary>
+        /// Callback to get the next array. If no error and the array is released, the stream has ended.
+        /// If successful, the ArrowArray must be released independently from the stream.
+        /// 
+        /// Return value: 0 if successful, an `errno`-compatible error code otherwise.
+        /// </summary>
         public delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowArray*, int> get_next;
+
+        /// <summary>
+        /// Callback to get optional detailed error information. This must only
+        /// be called if the last stream operation failed with a non-0 return code.
+        /// The returned pointer is only valid until the next operation on this stream
+        /// (including release).
+        ///
+        /// Return value: pointer to a null-terminated character array describing the last
+        /// error, or NULL if no description is available.
+        ///</summary>
         public delegate* unmanaged[Stdcall]<CArrowArrayStream*, byte*> get_last_error;
+
+        /// <summary>
+        /// Release callback: release the stream's own resources. Note that arrays returned by
+        /// get_next must be individually released.
+        /// </summary>
         public delegate* unmanaged[Stdcall]<CArrowArrayStream*, void> release;
+
         public void* private_data;
 
         /// <summary>

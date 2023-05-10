@@ -16,7 +16,6 @@
 
 using System;
 using System.Runtime.InteropServices;
-using Apache.Arrow.Memory;
 using Apache.Arrow.Ipc;
 
 namespace Apache.Arrow.C
@@ -55,7 +54,7 @@ namespace Apache.Arrow.C
                 throw new ArgumentException("Cannot export array to a struct that is already initialized.", nameof(cArrayStream));
             }
 
-            cArrayStream->private_data = FromDisposable(arrayStream);
+            cArrayStream->private_data = ExportedArrayStream.Export(arrayStream);
             cArrayStream->get_schema = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowSchema*, int>)Marshal.GetFunctionPointerForDelegate<GetSchemaArrayStream>(GetSchema);
             cArrayStream->get_next = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowArray*, int>)Marshal.GetFunctionPointerForDelegate<GetNextArrayStream>(GetNext);
             cArrayStream->get_last_error = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, byte*>)Marshal.GetFunctionPointerForDelegate<GetLastErrorArrayStream>(GetLastError);
@@ -64,57 +63,113 @@ namespace Apache.Arrow.C
 
         private unsafe static int GetSchema(CArrowArrayStream* cArrayStream, CArrowSchema* cSchema)
         {
+            ExportedArrayStream arrayStream = null;
             try
             {
-                IArrowArrayStream arrayStream = FromPointer(cArrayStream->private_data);
-                CArrowSchemaExporter.ExportSchema(arrayStream.Schema, cSchema);
-                return 0;
+                arrayStream = ExportedArrayStream.FromPointer(cArrayStream->private_data);
+                CArrowSchemaExporter.ExportSchema(arrayStream.ArrowArrayStream.Schema, cSchema);
+                return arrayStream.ClearError();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return 1;
+                return arrayStream?.SetError(ex) ?? ExportedArrayStream.EOTHER;
             }
         }
 
         private unsafe static int GetNext(CArrowArrayStream* cArrayStream, CArrowArray* cArray)
         {
+            ExportedArrayStream arrayStream = null;
             try
             {
                 cArray->release = null;
-                IArrowArrayStream arrayStream = FromPointer(cArrayStream->private_data);
-                RecordBatch recordBatch = arrayStream.ReadNextRecordBatchAsync().Result;
+                arrayStream = ExportedArrayStream.FromPointer(cArrayStream->private_data);
+                RecordBatch recordBatch = arrayStream.ArrowArrayStream.ReadNextRecordBatchAsync().Result;
                 if (recordBatch != null)
                 {
                     CArrowArrayExporter.ExportRecordBatch(recordBatch, cArray);
                 }
-                return 0;
+                return arrayStream.ClearError();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                return 1;
+                return arrayStream?.SetError(ex) ?? ExportedArrayStream.EOTHER;
             }
         }
 
         private unsafe static byte* GetLastError(CArrowArrayStream* cArrayStream)
         {
-            return null;
+            try
+            {
+                ExportedArrayStream arrayStream = ExportedArrayStream.FromPointer(cArrayStream->private_data);
+                return arrayStream.LastError;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         private unsafe static void Release(CArrowArrayStream* cArrayStream)
         {
-            FromPointer(cArrayStream->private_data).Dispose();
+            ExportedArrayStream arrayStream = ExportedArrayStream.FromPointer(cArrayStream->private_data);
+            arrayStream.Dispose();
+            cArrayStream->release = null;
         }
 
-        private unsafe static void* FromDisposable(IDisposable disposable)
+        sealed unsafe class ExportedArrayStream : IDisposable
         {
-            GCHandle gch = GCHandle.Alloc(disposable);
-            return (void*)GCHandle.ToIntPtr(gch);
-        }
+            public const int EOTHER = 131;
 
-        private unsafe static IArrowArrayStream FromPointer(void* ptr)
-        {
-            GCHandle gch = GCHandle.FromIntPtr((IntPtr)ptr);
-            return (IArrowArrayStream)gch.Target;
+            ExportedArrayStream(IArrowArrayStream arrayStream)
+            {
+                ArrowArrayStream = arrayStream;
+                LastError = null;
+            }
+
+            public IArrowArrayStream ArrowArrayStream { get; private set; }
+            public byte* LastError { get; private set; }
+
+            public static void* Export(IArrowArrayStream arrayStream)
+            {
+                ExportedArrayStream result = new ExportedArrayStream(arrayStream);
+                GCHandle gch = GCHandle.Alloc(result);
+                return (void*)GCHandle.ToIntPtr(gch);
+            }
+
+            public static ExportedArrayStream FromPointer(void* ptr)
+            {
+                GCHandle gch = GCHandle.FromIntPtr((IntPtr)ptr);
+                return (ExportedArrayStream)gch.Target;
+            }
+
+            public int SetError(Exception ex)
+            {
+                ReleaseLastError();
+                LastError = StringUtil.ToCStringUtf8(ex.Message);
+                return EOTHER;
+            }
+
+            public int ClearError()
+            {
+                ReleaseLastError();
+                return 0;
+            }
+
+            public void Dispose()
+            {
+                ReleaseLastError();
+                ArrowArrayStream?.Dispose();
+                ArrowArrayStream = null;
+            }
+
+            void ReleaseLastError()
+            {
+                if (LastError != null)
+                {
+                    Marshal.FreeCoTaskMem((IntPtr)LastError);
+                    LastError = null;
+                }
+            }
         }
     }
 }

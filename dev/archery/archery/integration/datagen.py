@@ -1670,11 +1670,9 @@ def get_generated_json_files(tempdir=None):
         .skip_category('JS'),
 
         generate_null_case([10, 0])
-        .skip_category('C#')
         .skip_category('JS'),   # TODO(ARROW-7900)
 
         generate_null_trivial_case([0, 0])
-        .skip_category('C#')
         .skip_category('JS'),   # TODO(ARROW-7900)
 
         generate_decimal128_case(),

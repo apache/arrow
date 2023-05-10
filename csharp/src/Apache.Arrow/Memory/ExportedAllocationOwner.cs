@@ -29,10 +29,16 @@ namespace Apache.Arrow.Memory
             Dispose();
         }
 
-        public void Acquire(IntPtr ptr, int offset, int length)
+        public IntPtr Allocate(int size)
+        {
+            return Acquire(Marshal.AllocHGlobal(size), 0, size);
+        }
+
+        public IntPtr Acquire(IntPtr ptr, int offset, int length)
         {
             _pointers.Add(ptr);
             _allocationSize += length;
+            return ptr;
         }
 
         public void Release(IntPtr ptr, int offset, int length)
