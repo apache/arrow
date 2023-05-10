@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Reflection;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
 {
@@ -320,22 +321,7 @@ namespace Apache.Arrow.Builder
 
     public class ValueBufferBuilder<T> : ValueBufferBuilder, IPrimitiveBufferBuilder<T> where T : struct
     {
-        private static int GetBitSizeOf()
-        {
-            Type type = typeof(T);
-
-            switch (type)
-            {
-                case var _ when type == typeof(decimal):
-                    return 256; // equivalent of Decimal256
-                case var _ when type == typeof(bool):
-                    return 1;
-                default:
-                    return Unsafe.SizeOf<T>();
-            }
-        }
-
-        public ValueBufferBuilder(int capacity = 32) : this(GetBitSizeOf(), capacity)
+        public ValueBufferBuilder(int capacity = 32) : this((TypeReflection<T>.ArrowType as FixedWidthType).BitWidth, capacity)
         {
         }
 
