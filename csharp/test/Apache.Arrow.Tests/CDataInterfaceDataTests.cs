@@ -68,8 +68,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public unsafe void CallsReleaseForInvalid()
         {
-            // Make sure we call release callback, even if the imported schema
-            // is invalid.
+            // Make sure we call release callback, even if the imported array is invalid.
             CArrowArray* cArray = CArrowArray.Create();
 
             bool wasCalled = false;
@@ -87,6 +86,8 @@ namespace Apache.Arrow.Tests
             });
             Assert.True(wasCalled);
             CArrowArray.Free(cArray);
+
+            GC.KeepAlive(releaseCallback);
         }
     }
 }

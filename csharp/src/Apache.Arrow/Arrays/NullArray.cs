@@ -104,16 +104,6 @@ namespace Apache.Arrow
         public bool IsNull(int index) => true;
         public bool IsValid(int index) => false;
 
-        public void Accept(IArrowArrayVisitor visitor)
-        {
-            if (visitor is IArrowArrayVisitor<NullArray> nullVisitor)
-            {
-                nullVisitor.Visit(this);
-            }
-            else
-            {
-                visitor.Visit(this);
-            }
-        }
+        public void Accept(IArrowArrayVisitor visitor) => Array.Accept(this, visitor);
     }
 }

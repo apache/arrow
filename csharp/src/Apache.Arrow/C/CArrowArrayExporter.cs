@@ -23,6 +23,7 @@ namespace Apache.Arrow.C
     public static class CArrowArrayExporter
     {
         private unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
+        private static unsafe readonly NativeDelegate<ReleaseArrowArray> s_releaseArray = new NativeDelegate<ReleaseArrowArray>(ReleaseArray);
 
         /// <summary>
         /// Export an <see cref="IArrowArray"/> to a <see cref="CArrowArray"/>. Whether or not the
@@ -57,7 +58,7 @@ namespace Apache.Arrow.C
             try
             {
                 ConvertArray(allocationOwner, array.Data, cArray);
-                cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate<ReleaseArrowArray>(ReleaseArray);
+                cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)(IntPtr)s_releaseArray.Pointer;
                 cArray->private_data = FromDisposable(allocationOwner);
                 allocationOwner = null;
             }
@@ -100,7 +101,7 @@ namespace Apache.Arrow.C
             try
             {
                 ConvertRecordBatch(allocationOwner, batch, cArray);
-                cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate<ReleaseArrowArray>(ReleaseArray);
+                cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;
                 cArray->private_data = FromDisposable(allocationOwner);
                 allocationOwner = null;
             }
@@ -115,7 +116,7 @@ namespace Apache.Arrow.C
             cArray->length = array.Length;
             cArray->offset = array.Offset;
             cArray->null_count = array.NullCount;
-            cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate<ReleaseArrowArray>(ReleaseArray);
+            cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;
             cArray->private_data = null;
 
             cArray->n_buffers = array.Buffers?.Length ?? 0;
@@ -160,7 +161,7 @@ namespace Apache.Arrow.C
             cArray->length = batch.Length;
             cArray->offset = 0;
             cArray->null_count = 0;
-            cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate<ReleaseArrowArray>(ReleaseArray);
+            cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;
             cArray->private_data = null;
 
             cArray->n_buffers = 1;

@@ -58,7 +58,7 @@ namespace Apache.Arrow
 
         public ArrowBuffer Clone(MemoryAllocator allocator = default)
         {
-            return new Builder<byte>(Span.Length)
+            return Span.Length == 0 ? Empty : new Builder<byte>(Span.Length)
                 .Append(Span)
                 .Build(allocator);
         }

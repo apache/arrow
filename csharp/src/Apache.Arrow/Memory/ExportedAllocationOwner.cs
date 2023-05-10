@@ -56,6 +56,7 @@ namespace Apache.Arrow.Memory
                     _pointers[i] = IntPtr.Zero;
                 }
             }
+            GC.SuppressFinalize(this);
         }
     }
 }

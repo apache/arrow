@@ -575,6 +575,46 @@ namespace Apache.Arrow.Tests
         }
 
         [SkippableFact]
+        public unsafe void RoundTripTestBatch()
+        {
+            RecordBatch batch1 = TestData.CreateSampleRecordBatch(4, createDictionaryArray: true, time64TimeUnit: TimeUnit.Microsecond);
+            RecordBatch batch2 = batch1.Clone();
+
+            CArrowArray* cExportArray = CArrowArray.Create();
+            CArrowArrayExporter.ExportRecordBatch(batch1, cExportArray);
+
+            CArrowSchema* cExportSchema = CArrowSchema.Create();
+            CArrowSchemaExporter.ExportSchema(batch1.Schema, cExportSchema);
+
+            CArrowArray* cImportArray = CArrowArray.Create();
+            CArrowSchema* cImportSchema = CArrowSchema.Create();
+
+            // For Python, we need to provide the pointers
+            long exportArrayPtr = ((IntPtr)cExportArray).ToInt64();
+            long exportSchemaPtr = ((IntPtr)cExportSchema).ToInt64();
+            long importArrayPtr = ((IntPtr)cImportArray).ToInt64();
+            long importSchemaPtr = ((IntPtr)cImportSchema).ToInt64();
+
+            using (Py.GIL())
+            {
+                dynamic pa = Py.Import("pyarrow");
+                dynamic exportedPyArray = pa.RecordBatch._import_from_c(exportArrayPtr, exportSchemaPtr);
+                exportedPyArray._export_to_c(importArrayPtr, importSchemaPtr);
+            }
+
+            Schema schema = CArrowSchemaImporter.ImportSchema(cImportSchema);
+            RecordBatch importedBatch = CArrowArrayImporter.ImportRecordBatch(cImportArray, schema);
+
+            ArrowReaderVerifier.CompareBatches(batch2, importedBatch, strictCompare: false); // Non-strict because span lengths won't match.
+
+            // Since we allocated, we are responsible for freeing the pointer.
+            CArrowArray.Free(cExportArray);
+            CArrowSchema.Free(cExportSchema);
+            CArrowArray.Free(cImportArray);
+            CArrowSchema.Free(cImportSchema);
+        }
+
+        [SkippableFact]
         public unsafe void ExportBatchReader()
         {
             RecordBatch batch = GetTestRecordBatch();

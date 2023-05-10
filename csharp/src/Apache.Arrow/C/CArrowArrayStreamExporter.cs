@@ -23,9 +23,13 @@ namespace Apache.Arrow.C
     public static class CArrowArrayStreamExporter
     {
         private unsafe delegate int GetSchemaArrayStream(CArrowArrayStream* cArrayStream, CArrowSchema* cSchema);
+        private static unsafe NativeDelegate<GetSchemaArrayStream> s_getSchemaArrayStream = new NativeDelegate<GetSchemaArrayStream>(GetSchema);
         private unsafe delegate int GetNextArrayStream(CArrowArrayStream* cArrayStream, CArrowArray* cArray);
+        private static unsafe NativeDelegate<GetNextArrayStream> s_getNextArrayStream = new NativeDelegate<GetNextArrayStream>(GetNext);
         private unsafe delegate byte* GetLastErrorArrayStream(CArrowArrayStream* cArrayStream);
+        private static unsafe NativeDelegate<GetLastErrorArrayStream> s_getLastErrorArrayStream = new NativeDelegate<GetLastErrorArrayStream>(GetLastError);
         private unsafe delegate void ReleaseArrayStream(CArrowArrayStream* cArrayStream);
+        private static unsafe NativeDelegate<ReleaseArrayStream> s_releaseArrayStream = new NativeDelegate<ReleaseArrayStream>(Release);
 
         /// <summary>
         /// Export an <see cref="IArrowArrayStream"/> to a <see cref="CArrowArrayStream"/>.
@@ -55,10 +59,10 @@ namespace Apache.Arrow.C
             }
 
             cArrayStream->private_data = ExportedArrayStream.Export(arrayStream);
-            cArrayStream->get_schema = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowSchema*, int>)Marshal.GetFunctionPointerForDelegate<GetSchemaArrayStream>(GetSchema);
-            cArrayStream->get_next = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowArray*, int>)Marshal.GetFunctionPointerForDelegate<GetNextArrayStream>(GetNext);
-            cArrayStream->get_last_error = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, byte*>)Marshal.GetFunctionPointerForDelegate<GetLastErrorArrayStream>(GetLastError);
-            cArrayStream->release = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, void>)Marshal.GetFunctionPointerForDelegate<ReleaseArrayStream>(Release);
+            cArrayStream->get_schema = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowSchema*, int>)s_getSchemaArrayStream.Pointer;
+            cArrayStream->get_next = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowArray*, int>)s_getNextArrayStream.Pointer;
+            cArrayStream->get_last_error = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, byte*>)s_getLastErrorArrayStream.Pointer;
+            cArrayStream->release = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, void>)s_releaseArrayStream.Pointer;
         }
 
         private unsafe static int GetSchema(CArrowArrayStream* cArrayStream, CArrowSchema* cSchema)

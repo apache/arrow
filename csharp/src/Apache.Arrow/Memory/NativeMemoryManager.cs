@@ -28,11 +28,8 @@ namespace Apache.Arrow.Memory
         private readonly INativeAllocationOwner _owner;
 
         public NativeMemoryManager(IntPtr ptr, int offset, int length)
+            : this(NativeMemoryAllocator.ExclusiveOwner, ptr, offset, length)
         {
-            _ptr = ptr;
-            _offset = offset;
-            _length = length;
-            _owner = NativeMemoryAllocator.ExclusiveOwner;
         }
 
         internal NativeMemoryManager(INativeAllocationOwner owner, IntPtr ptr, int offset, int length)

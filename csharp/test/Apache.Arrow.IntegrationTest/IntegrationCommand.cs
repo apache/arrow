@@ -173,6 +173,7 @@ namespace Apache.Arrow.IntegrationTest
                 "date" => ToDateArrowType(type),
                 "time" => ToTimeArrowType(type),
                 "timestamp" => ToTimestampArrowType(type),
+                "null" => NullType.Default,
                 _ => throw new NotSupportedException($"JsonArrowType not supported: {type.Name}")
             };
         }
