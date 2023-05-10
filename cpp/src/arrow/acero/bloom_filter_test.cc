@@ -472,10 +472,8 @@ TEST(BloomFilter, Basic) {
 
   std::vector<BloomFilterBuildStrategy> strategy;
   strategy.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
-#ifdef ARROW_ENABLE_THREADING
-#ifndef ARROW_VALGRIND 
+#if defined(ARROW_ENABLE_THREADING) && !defined(ARROW_VALGRIND)
   strategy.push_back(BloomFilterBuildStrategy::PARALLEL);
-#endif
 #endif
 
   static constexpr int64_t min_rows_for_large = 2 * 1024 * 1024;
