@@ -201,7 +201,11 @@ namespace Apache.Arrow.Builder
             {
                 int nullCount = data.NullCount;
 
-                if (data.Offset == 0)
+                if (nullCount == 0)
+                    ValidityBuffer.AppendBits(true, data.Length);
+                else if (nullCount == data.Length)
+                    ValidityBuffer.AppendBits(false, data.Length);
+                else if (data.Offset == 0)
                 {
                     // Bulk copy full bytes
                     int end = (data.Length * ValidityBuffer.ValueBitSize) / 8;
@@ -225,9 +229,7 @@ namespace Apache.Arrow.Builder
                         bitBuffer[i] = isValid;
                     }
 
-                    if (nullCount == data.Length)
-                        ValidityBuffer.AppendBits(false, data.Length);
-                    else if (allValid)
+                    if (allValid)
                         ValidityBuffer.AppendBits(true, data.Length);
                     else
                         ValidityBuffer.AppendBits(bitBuffer);
