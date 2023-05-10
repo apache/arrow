@@ -69,7 +69,7 @@ namespace Apache.Arrow
         /// <param name="data">Span to set bits value.</param>
         /// <param name="index">Bit index to start counting from.</param>
         /// <param name="length">Maximum of bits in the span to consider.</param>
-        public static void SetBits(Span<byte> data, int index, int length, bool value)
+        internal static void SetBits(Span<byte> data, int index, int length, bool value)
         {
             if (length == 0)
                 return;
