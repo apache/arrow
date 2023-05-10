@@ -139,6 +139,8 @@ namespace Apache.Arrow.Builder
 #endif
                 case ArrowTypeId.Float:
                 case ArrowTypeId.Double:
+                case ArrowTypeId.Decimal128:
+                case ArrowTypeId.Decimal256:
                     return As<FixedBinaryArrayBuilder>().AppendValue((IPrimitiveScalarBase)value);
                 case ArrowTypeId.Struct:
                     return As<StructArrayBuilder>().AppendValue(value);
