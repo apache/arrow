@@ -219,8 +219,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       closed_ = true;
       CheckRowsWritten();
 
-      // If ColumnWriter::Close thrown an exception, avoid
-      // have bad states in column_writers_.
+      // Avoid invalid state if ColumnWriter::Close() throws internally.
       auto column_writers = std::move(column_writers_);
       for (size_t i = 0; i < column_writers.size(); i++) {
         if (column_writers[i]) {
