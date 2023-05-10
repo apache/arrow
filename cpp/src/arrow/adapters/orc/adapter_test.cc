@@ -594,12 +594,31 @@ TEST(TestAdapterReadWrite, FieldAttributesRoundTrip) {
                                         buffer_output_stream.get(), write_options));
 
   auto schema = ::arrow::schema(
-      {::arrow::field("c0", ::arrow::int64(), true, key_value_metadata({"k0"}, {"v0"})),
-       ::arrow::field("c1", ::arrow::utf8(), true, key_value_metadata({"k1"}, {"v1"})),
+      {::arrow::field("c0", ::arrow::int64(), /*nullable=*/true,
+                      key_value_metadata({"k0"}, {"v0"})),
+       ::arrow::field("c1", ::arrow::utf8(), /*nullable=*/true,
+                      key_value_metadata({"k1"}, {"v1"})),
        ::arrow::field(
-           "c2", ::arrow::list(::arrow::field("item", ::arrow::int64(), true,
-                                              key_value_metadata({"k0"}, {"ddv0"}))))});
-  auto expected_output_table = ::arrow::TableFromJSON(schema, {R"([[1, "a", [1, 2]]])"});
+           "c2", ::arrow::list(::arrow::field("item", ::arrow::int64(), /*nullable=*/true,
+                                              key_value_metadata({"k2"}, {"v2"})))),
+       ::arrow::field("c3",
+                      std::make_shared<MapType>(
+                          ::arrow::field("key", ::arrow::utf8(), /*nullable=*/false,
+                                         key_value_metadata({"k3"}, {"v3"})),
+                          ::arrow::field("value", ::arrow::int64(), /*nullable=*/true,
+                                         key_value_metadata({"k4"}, {"v4"})))),
+       ::arrow::field("c4", ::arrow::struct_({::arrow::field(
+                                "sub", ::arrow::int64(),
+                                /*nullable=*/true, key_value_metadata({"k5"}, {"v5"}))})),
+       ::arrow::field("c5",
+                      ::arrow::sparse_union(
+                          {::arrow::field("_union_0", ::arrow::int64(), /*nullable=*/true,
+                                          key_value_metadata({"k6"}, {"v6"})),
+                           ::arrow::field("_union_1", ::arrow::utf8(), /*nullable=*/true,
+                                          key_value_metadata({"k7"}, {"v7"}))},
+                          {0, 1}))});
+  auto expected_output_table = ::arrow::TableFromJSON(
+      schema, {R"([[1, "a", [1, 2], [["a", 1]], {"sub": 1}, null]])"});
   ARROW_EXPECT_OK(writer->Write(*expected_output_table));
   ARROW_EXPECT_OK(writer->Close());
 
@@ -609,7 +628,7 @@ TEST(TestAdapterReadWrite, FieldAttributesRoundTrip) {
       auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
   EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
   ASSERT_OK(actual_output_table->ValidateFull());
-  AssertTablesEqual(*expected_output_table, *actual_output_table, false, false);
+  AssertTablesEqual(*expected_output_table, *actual_output_table);
 
   // Check schema equality with metadata.
   EXPECT_OK_AND_ASSIGN(auto read_schema, reader->ReadSchema());

@@ -30,6 +30,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/range.h"
 #include "arrow/util/string.h"
 #include "arrow/visit_data_inline.h"

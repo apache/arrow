@@ -23,7 +23,7 @@
 #include "arrow/array/builder_base.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/key_value_metadata.h"
+#include "arrow/type_fwd.h"
 #include "orc/OrcFile.hh"
 
 namespace liborc = orc;
