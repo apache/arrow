@@ -60,10 +60,11 @@ struct CalculateREExREEFilterOutputSizeTest : public ::testing::Test {
                                 const std::shared_ptr<Array>& filter,
                                 const FilterOptions& null_options,
                                 int64_t expected_output_size) {
+    auto* pool = default_memory_pool();
     auto values_span = ArraySpan(*values->data());
     auto filter_span = ArraySpan(*filter->data());
     const auto actual_output_size = internal::CalculateREExREEFilterOutputSize(
-        values_span, filter_span, null_options.null_selection_behavior);
+        pool, values_span, filter_span, null_options.null_selection_behavior);
     ASSERT_EQ(actual_output_size, expected_output_size);
   }
 

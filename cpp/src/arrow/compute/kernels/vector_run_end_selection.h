@@ -34,7 +34,7 @@ namespace arrow::compute::internal {
 /// \brief Calculate the physical size of the output REE array when filtering a REE array
 /// with a REE filter array.
 Result<int64_t> CalculateREExREEFilterOutputSize(
-    const ArraySpan& values, const ArraySpan& filter,
+    MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection);
 
 Status REExREEFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result);
