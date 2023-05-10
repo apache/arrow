@@ -159,8 +159,12 @@ namespace Apache.Arrow.Builder
             // TODO: Make better / recursive fields data type check
             Validate(data.DataType);
 
+            // Add Length and reserve
+            Reserve(data.Length);
+
             // Handle validity
             var dataValidity = data.Buffers[ValidityBufferIndex];
+            // Reusable bit buffer
             Span<bool> bitBuffer = new bool[data.Length];
 
             // Check if need to recalculate null count
@@ -184,17 +188,11 @@ namespace Apache.Arrow.Builder
                 }
 
                 if (nullCount == data.Length)
-                {
                     ValidityBuffer.AppendBits(false, data.Length);
-                }
                 else if (allValid)
-                {
                     ValidityBuffer.AppendBits(true, data.Length);
-                }
                 else
-                {
                     ValidityBuffer.AppendBits(bitBuffer);
-                }
                 NullCount += nullCount;
                 // Update it since we calculated it
                 data.NullCount = nullCount;
@@ -228,38 +226,27 @@ namespace Apache.Arrow.Builder
                     }
 
                     if (nullCount == data.Length)
-                    {
                         ValidityBuffer.AppendBits(false, data.Length);
-                    }
                     else if (allValid)
-                    {
                         ValidityBuffer.AppendBits(true, data.Length);
-                    }
                     else
-                    {
                         ValidityBuffer.AppendBits(bitBuffer);
-                    }
                 }
 
                 NullCount += nullCount;
             }
-            Length += data.Length;
-
-            Reserve(data.Length);
-
+            
             for (int i = 0; i < Buffers.Length; i++)
             {
-                IValueBufferBuilder current = Buffers[i];
-                ArrowBuffer other = data.Buffers[i];
+                if (i != ValidityBufferIndex) // already handled before
+                {
+                    IValueBufferBuilder current = Buffers[i];
+                    ArrowBuffer other = data.Buffers[i];
 
-                if (current.ValueBitSize % 8 == 0)
-                {
-                    // Full byte encoded
-                    current.AppendBytes(other.Span.Slice(data.Offset, data.Length));
-                }
-                else if (i != ValidityBufferIndex) // already handled before
-                {
-                    if (data.Offset == 0)
+                    if (current.ValueBitSize % 8 == 0)
+                        // Full byte encoded
+                        current.AppendBytes(other.Span.Slice(data.Offset, data.Length));
+                    else if (data.Offset == 0)
                     {
                         // Bulk copy bytes
                         int end = (data.Length * current.ValueBitSize) / 8;
@@ -288,21 +275,17 @@ namespace Apache.Arrow.Builder
                         }
 
                         if (allFalse)
-                        {
                             ValidityBuffer.AppendBits(false, data.Length);
-                        }
                         else if (allTrue)
-                        {
                             ValidityBuffer.AppendBits(true, data.Length);
-                        }
                         else
-                        {
                             ValidityBuffer.AppendBits(bitBuffer);
-                        }
                     }
                 }
+                
             }
 
+            // Append children data
             if (Children != null && data.Children != null)
             {
                 for (int i = 0; i < Children.Length; i++)
@@ -315,6 +298,9 @@ namespace Apache.Arrow.Builder
             {
                 Dictionary.AppendValues(data.Dictionary);
             }
+
+            // Add length static value
+            Length += data.Length;
 
             return this;
         }
