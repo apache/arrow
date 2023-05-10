@@ -400,11 +400,11 @@ test_that("Can mutate after group_by as long as there are no aggregations", {
   # Check the column order when .keep = "none"
   compare_dplyr_binding(
     .input %>%
-      select(chr, int) %>%
       group_by(chr) %>%
-      mutate(int, .keep = "none") %>%
+      mutate(int + 1, .keep = "none") %>%
       collect(),
-    tbl
+    tbl %>%
+      select(chr, int)
   )
   expect_warning(
     tbl %>%
