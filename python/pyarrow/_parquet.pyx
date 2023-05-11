@@ -510,28 +510,59 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 cdef class SortingColumn:
     """Sorting specification for a single column.
 
-    Returned by :meth:`RowGroupMetaData.sorting_columns` and used in :class:`ParquetWriter`
-    to specify the sort order of the data.
+    Returned by :meth:`RowGroupMetaData.sorting_columns` and used in
+    :class:`ParquetWriter` to specify the sort order of the data.
 
-    Example
-    -------
+    Parameters
+    ----------
+    column_index : int
+        Index of column data is sorted by.
+    descending : bool, default False
+        Whether column is sorted in descending order.
+    nulls_first : bool, default False
+        Whether null values appear before valid values.
 
+    .. note::
+            Column indices are zero-based, refer only to leaf fields, and are in
+            depth-first order. This may make the column indices for nested schemas
+            different from what you expect. In most cases, it will be easier to
+            specify the sort order using column names instead of column indices
+            and converting using the ``from_sort_order`` method.
+
+    Examples
+    --------
+
+    In other APIs, sort order is specified by names, such as:
+
+    >>> sort_order = [('id', 'ascending'), ('timestamp', 'descending')]
+
+    For Parquet, the column index must be used instead:
+
+    >>> import pyarrow.parquet as pq
+    >>> [pq.SortingColumn(0), pq.SortingColumn(1, descending=True)]
+    [SortingColumn(column_index=0, descending=False, nulls_first=False),
+     SortingColumn(column_index=1, descending=True, nulls_first=False)]
+
+    Convert the sort_order into the list of sorting columns with 
+    ``from_sort_order`` (note that the schema must be provided as well):
+
+    >>> import pyarrow as pa
+    >>> schema = pa.schema([('id', pa.int64()), ('timestamp', pa.timestamp('ms'))])
+    >>> sorting_columns = pq.SortingColumn.from_sort_order(schema, sort_order)
+    >>> sorting_columns
+    (SortingColumn(column_index=0, descending=False, nulls_first=False),
+     SortingColumn(column_index=1, descending=True, nulls_first=False))
+
+    Convert back to the sort order with ``to_sort_order``:
+
+    >>> pq.SortingColumn.to_sort_order(schema, sorting_columns)
+    ((('id', 'ascending'), ('timestamp', 'descending')), 'at_end')
     """
     cdef int column_index
     cdef c_bool descending
     cdef c_bool nulls_first
 
     def __init__(self, int column_index, c_bool descending=False, c_bool nulls_first=False):
-        """
-        Parameters
-        ----------
-        column_index : int
-            Index of column data is sorted by.
-        descending : bool, default False
-            Whether column is sorted in descending order.
-        nulls_first : bool, default False
-            Whether null values appear before valid values.
-        """
         self.column_index = column_index
         self.descending = descending
         self.nulls_first = nulls_first
@@ -600,7 +631,7 @@ cdef class SortingColumn:
         return tuple(sorting_columns)
 
     @staticmethod
-    def as_sort_order(Schema schema, sorting_columns):
+    def to_sort_order(Schema schema, sorting_columns):
         """
         Convert a tuple of SortingColumn objects to the same format as
         :class:`pyarrow.compute.SortOptions`.
@@ -617,7 +648,7 @@ cdef class SortingColumn:
         sort_keys : tuple of (name, order) tuples
         null_placement : {'at_start', 'at_end'}
         """
-        col_map = {i: name for i, name in _name_to_index_map(schema).items()}
+        col_map = {i: name for name, i in _name_to_index_map(schema).items()}
 
         sort_keys = []
         nulls_first = None
@@ -2029,7 +2060,7 @@ cdef _name_to_index_map(Schema arrow_schema):
     cdef SchemaDescriptor* parquet_schema = sp_parquet_schema.get()
 
     for i in range(parquet_schema.num_columns()):
-        name = frombytes(parquet_schema.Column(i).name())
+        name = frombytes(parquet_schema.Column(i).path().get().ToDotString())
         out[name] = i
 
     return out

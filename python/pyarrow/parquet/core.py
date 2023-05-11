@@ -746,7 +746,7 @@ class ParquetFile:
 
         While the sort_by function takes arguments in terms of column names, the
         Parquet API requires indices. Use the
-        :meth:`pyarrow.parquet.SortingColumn.from_sort_order` method to convert 
+        :meth:`pyarrow.parquet.SortingColumn.from_sort_order` method to convert
         the sort keys.
 
         >>> sorting_columns = pq.SortingColumn.from_sort_order(table.schema, sort_keys)
