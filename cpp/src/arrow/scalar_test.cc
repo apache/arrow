@@ -1064,7 +1064,6 @@ class TestListScalar : public ::testing::Test {
   using ScalarType = typename TypeTraits<T>::ScalarType;
 
   void SetUp() {
-    //     type_ = std::make_shared<T>(int16());
     type_ = MakeListType<T>(int16(), 3);
     value_ = ArrayFromJSON(int16(), "[1, 2, null]");
   }
@@ -1107,16 +1106,21 @@ class TestListScalar : public ::testing::Test {
   }
 
   void TestHashing() {
+    // GH-35521: the hash value of a non-null list scalar should not
+    // depend on the presence or absence of a null bitmap in the underlying
+    // list values.
     ScalarType empty_bitmap_scalar(ArrayFromJSON(int16(), "[1, 2, 3]"));
     ASSERT_OK(empty_bitmap_scalar.ValidateFull());
-    ASSERT_TRUE(empty_bitmap_scalar.value->data()->buffers[0] == nullptr);
-    
+    // Underlying list array doesn't have a null bitmap
+    ASSERT_EQ(empty_bitmap_scalar.value->data()->buffers[0], nullptr);
+
     auto list_array = ArrayFromJSON(type_, "[[1, 2, 3], [4, 5, null]]");
     ASSERT_OK_AND_ASSIGN(auto set_bitmap_scalar_uncasted, list_array->GetScalar(0));
-    auto set_bitmap_scalar = std::dynamic_pointer_cast<ScalarType>(set_bitmap_scalar_uncasted);
-    ASSERT_TRUE(set_bitmap_scalar != nullptr);
-    ASSERT_TRUE(set_bitmap_scalar->value->data()->buffers[0] != nullptr);
-    ASSERT_TRUE(empty_bitmap_scalar.hash() == set_bitmap_scalar->hash());
+    auto set_bitmap_scalar = checked_pointer_cast<ScalarType>(set_bitmap_scalar_uncasted);
+    // Underlying list array has a null bitmap
+    ASSERT_NE(set_bitmap_scalar->value->data()->buffers[0], nullptr);
+    // ... yet it's hashing equal to the other scalar
+    ASSERT_EQ(empty_bitmap_scalar.hash(), set_bitmap_scalar->hash());
   }
 
  protected:
