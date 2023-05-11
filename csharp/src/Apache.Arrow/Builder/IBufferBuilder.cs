@@ -14,6 +14,8 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using Apache.Arrow.Memory;
 
 namespace Apache.Arrow.Builder
@@ -60,6 +62,14 @@ namespace Apache.Arrow.Builder
         /// <param name="value">byte to append</param>
         /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendByte(byte value);
+
+        /// <summary>
+        /// Append byte values too buffer.
+        /// </summary>
+        /// <param name="bytes">bytes to append</param>
+        /// <param name="fixedSize">fixed length</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
+        IBufferBuilder AppendFixedSizeBytes(ICollection<byte[]> bytes, int fixedSize, Span<bool> validity, out int nullCount);
 
         /// <summary>
         /// Append byte values too buffer.
@@ -137,6 +147,8 @@ namespace Apache.Arrow.Builder
         /// Clear all contents appended so far.
         /// </summary>
         IBufferBuilder Clear();
+
+        void EnsureAdditionalBytes(int numBytes);
 
         /// <summary>
         /// Build an Arrow buffer from the appended contents so far.

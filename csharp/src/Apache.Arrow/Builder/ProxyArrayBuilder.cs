@@ -5,7 +5,7 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
 {
-    public abstract class ProxyArrayBuilder<TPrimitive, TLogical> : FixedBinaryArrayBuilder
+    public abstract class ProxyArrayBuilder<TPrimitive, TLogical> : FixedBinaryArrayBuilder<TPrimitive>
         where TPrimitive : struct
         where TLogical : struct
     {
@@ -22,29 +22,22 @@ namespace Apache.Arrow.Builder
             ToPrimitive = convert;
         }
 
-        public ProxyArrayBuilder<TPrimitive, TLogical> AppendValue(TLogical value)
-        {
-            AppendValue(ToPrimitive(value));
-            return this;
-        }
+        public Status AppendValue(TLogical value) => AppendValue(ToPrimitive(value));
 
-        public ProxyArrayBuilder<TPrimitive, TLogical> AppendValue(TLogical? value)
-            => (value.HasValue ? AppendValue(ToPrimitive(value.Value)) : AppendNull()) as ProxyArrayBuilder<TPrimitive, TLogical>;
+        public Status AppendValue(TLogical? value)
+            => value.HasValue ? AppendValue(ToPrimitive(value.Value)) : AppendNull();
 
-        public ProxyArrayBuilder<TPrimitive, TLogical> AppendValues(ReadOnlySpan<TLogical> values)
+        public Status AppendValues(ReadOnlySpan<TLogical> values)
         {
             Span<TPrimitive> buffer = new TPrimitive[values.Length];
 
             for (int i = 0; i < values.Length; i++){
                 buffer[i] = ToPrimitive(values[i]);
             }
-
-            AppendValues<TPrimitive>(buffer);
-
-            return this;
+            return AppendValues(buffer);
         }
 
-        public ProxyArrayBuilder<TPrimitive, TLogical> AppendValues(ICollection<TLogical?> values)
+        public Status AppendValues(ICollection<TLogical?> values)
         {
             int length = values.Count;
             Span<bool> validity = new bool[length];
@@ -68,9 +61,7 @@ namespace Apache.Arrow.Builder
                 i++;
             }
 
-            AppendValues<TPrimitive>(destination, validity);
-
-            return this;
+            return AppendValues(destination, validity);
         }
     }
 

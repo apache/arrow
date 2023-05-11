@@ -28,25 +28,23 @@ namespace Apache.Arrow.Tests.Builder
             var builder = new FixedBinaryArrayBuilder<long>() as ArrayBuilder;
             long[] values = new long[] { 0, 1, -12 };
 
-            IArrowArray array = new FixedBinaryArrayBuilder<long>(values.Length)
-                .AppendValues(values)
-                .Build();
+            var arrayBuilder = new FixedBinaryArrayBuilder<long>(values.Length);
+            arrayBuilder.AppendValues(values);
 
-            builder
-                .AppendNull()
-                .AppendValues(array);
+            builder.AppendNull();
+            builder.AppendArray(arrayBuilder.Build());
 
-            var built = builder.Build() as Int64Array;
+            var array = builder.Build() as Int64Array;
 
-            Assert.Equal(4, built.Length);
-            Assert.Equal(1, built.NullCount);
+            Assert.Equal(4, array.Length);
+            Assert.Equal(1, array.NullCount);
 
-            Assert.False(built.IsValid(0));
-            Assert.True(built.IsValid(2));
+            Assert.False(array.IsValid(0));
+            Assert.True(array.IsValid(2));
 
-            Assert.Equal(0L, built.GetValue(1));
-            Assert.Equal(1L, built.GetValue(2));
-            Assert.Equal(-12L, built.GetValue(3));
+            Assert.Equal(0L, array.GetValue(1));
+            Assert.Equal(1L, array.GetValue(2));
+            Assert.Equal(-12L, array.GetValue(3));
         }
     }
 
@@ -57,20 +55,22 @@ namespace Apache.Arrow.Tests.Builder
         {
             var builder = new FixedBinaryArrayBuilder<int>();
 
-            builder.AppendValue(123).AppendValues(new int?[] { 1, null, -12 }).AppendNull();
+            builder.AppendValue(123);
+            builder.AppendValues(new int[] { 1, 0, -12 });
+            builder.AppendNull();
 
-            var built = builder.Build() as Int32Array;
+            var array = builder.Build() as Int32Array;
 
-            Assert.Equal(5, built.Length);
-            Assert.Equal(2, built.NullCount);
+            Assert.Equal(5, array.Length);
+            Assert.Equal(1, array.NullCount);
 
-            Assert.Equal(123, built.GetValue(0));
-            Assert.Equal(1, built.GetValue(1));
-            Assert.Equal(-12, built.GetValue(3));
+            Assert.Equal(123, array.GetValue(0));
+            Assert.Equal(1, array.GetValue(1));
+            Assert.Equal(-12, array.GetValue(3));
 
-            Assert.True(built.IsValid(0));
-            Assert.False(built.IsValid(2));
-            Assert.False(built.IsValid(4));
+            Assert.True(array.IsValid(0));
+            Assert.True(array.IsValid(2));
+            Assert.False(array.IsValid(4));
         }
     }
 
@@ -81,19 +81,21 @@ namespace Apache.Arrow.Tests.Builder
         {
             var builder = new BinaryArrayBuilder();
 
-            builder.AppendValue(123).AppendNull().AppendValue(new byte[] { 1, 0, 12 });
+            builder.AppendValue(123);
+            builder.AppendNull();
+            builder.AppendValue(new byte[] { 1, 0, 12 });
 
-            var built = builder.Build();
+            var array = builder.Build();
 
-            Assert.Equal(3, built.Length);
-            Assert.Equal(1, built.NullCount);
+            Assert.Equal(3, array.Length);
+            Assert.Equal(1, array.NullCount);
 
-            Assert.Equal(new byte[] { 123 }, built.GetBytes(0).ToArray());
-            Assert.Equal(new byte[] { }, built.GetBytes(1).ToArray());
-            Assert.Equal(new byte[] { 1, 0, 12 }, built.GetBytes(2).ToArray());
+            Assert.Equal(new byte[] { 123 }, array.GetBytes(0).ToArray());
+            Assert.Equal(new byte[] { }, array.GetBytes(1).ToArray());
+            Assert.Equal(new byte[] { 1, 0, 12 }, array.GetBytes(2).ToArray());
 
-            Assert.True(built.IsValid(0));
-            Assert.False(built.IsValid(1));
+            Assert.True(array.IsValid(0));
+            Assert.False(array.IsValid(1));
         }
 
         [Fact]
@@ -101,19 +103,21 @@ namespace Apache.Arrow.Tests.Builder
         {
             var builder = new StringArrayBuilder();
 
-            builder.AppendValue("").AppendNull().AppendValue("def");
+            builder.AppendValue("");
+            builder.AppendNull();
+            builder.AppendValue("def");
 
-            var built = builder.Build();
+            var array = builder.Build();
 
-            Assert.Equal(3, built.Length);
-            Assert.Equal(1, built.NullCount);
+            Assert.Equal(3, array.Length);
+            Assert.Equal(1, array.NullCount);
 
-            Assert.Equal("", built.GetString(0));
-            Assert.Null(built.GetString(1));
-            Assert.Equal("def", built.GetString(2));
+            Assert.Equal("", array.GetString(0));
+            Assert.Null(array.GetString(1));
+            Assert.Equal("def", array.GetString(2));
 
-            Assert.True(built.IsValid(0));
-            Assert.False(built.IsValid(1));
+            Assert.True(array.IsValid(0));
+            Assert.False(array.IsValid(1));
         }
 
         [Fact]
@@ -121,24 +125,25 @@ namespace Apache.Arrow.Tests.Builder
         {
             var builder = new FixedBinaryArrayBuilder(new FixedSizeBinaryType(4));
 
-            var array = builder
-                .AppendValue(new byte[] { 1, 2, 3, 4 })
-                .AppendNull()
-                .AppendValues(new byte[][]
+            builder.AppendValue(new byte[] { 1, 2, 3, 4, 5 });
+            builder.AppendNull();
+            builder.AppendBytes(new byte[][]
                 {
                     new byte[] { },
                     null,
-                    new byte[] { 1, 5 }
-                })
-                .Build() as FixedSizeBinaryArray;
+                    new byte[] { 1, 5 },
+                    new byte[] { 9, 8, 7, 6, 5, 4 }
+                });
+            var array = builder.Build() as FixedSizeBinaryArray;
 
-            Assert.Equal(5, array.Length);
+            Assert.Equal(6, array.Length);
             Assert.Equal(2, array.NullCount);
 
             Assert.Equal(new byte[] { 1, 2, 3, 4 }, array.GetBytes(0).ToArray());
             Assert.Equal(new byte[] { }, array.GetBytes(1).ToArray());
             Assert.Equal(new byte[] { 0, 0, 0, 0 }, array.GetBytes(2).ToArray());
             Assert.Equal(new byte[] { 1, 5, 0, 0 }, array.GetBytes(4).ToArray());
+            Assert.Equal(new byte[] { 9, 8, 7, 6 }, array.GetBytes(5).ToArray());
 
             Assert.True(array.IsValid(0));
             Assert.False(array.IsValid(1));
@@ -158,7 +163,7 @@ namespace Apache.Arrow.Tests.Builder
             // Start new valid block, need to fill all builders
             builder.Append();
             builder.GetBuilderAs<StringArrayBuilder>(0).AppendValue("abc");
-            builder.GetBuilderAs<FixedBinaryArrayBuilder>(1).AppendValue(1);
+            builder.GetBuilderAs<FixedBinaryArrayBuilder<int>>(1).AppendValue(1);
             // Append null block
             builder.AppendNull();
 
@@ -206,28 +211,27 @@ namespace Apache.Arrow.Tests.Builder
         [Fact]
         public void ListArrayBuilder_Should_Build()
         {
-            var builder = new ListArrayBuilder(new ListType(new Int64Type()));
+            var builder = new ListArrayBuilder<long>();
 
-            ListArray built = builder
-                .AppendNulls(3)
-                .AppendValue<long>(new long[] { 1, 0, -1 })
-                .AppendNull()
-                .AppendValues(new long[][]
+            builder.AppendNulls(3);
+            builder.AppendValue(new long[] { 1, 0, -1 });
+            builder.AppendNull();
+            builder.AppendValues(new long[][]
                 {
                     new long[] { 12, 3 },
                     new long[] {  }
-                })
-                .Build();
+                });
+            var array = builder.Build();
 
-            Assert.Equal(7, built.Length);
-            Assert.Equal(4, built.NullCount);
+            Assert.Equal(7, array.Length);
+            Assert.Equal(4, array.NullCount);
 
-            Assert.False(built.IsValid(0));
-            Assert.False(built.IsValid(1));
-            Assert.False(built.IsValid(2));
-            Assert.True(built.IsValid(3));
-            Assert.False(built.IsValid(4));
-            Assert.True(built.IsValid(5));
+            Assert.False(array.IsValid(0));
+            Assert.False(array.IsValid(1));
+            Assert.False(array.IsValid(2));
+            Assert.True(array.IsValid(3));
+            Assert.False(array.IsValid(4));
+            Assert.True(array.IsValid(5));
         }
     }
 

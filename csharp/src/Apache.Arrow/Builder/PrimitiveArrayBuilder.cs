@@ -1,7 +1,7 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Text;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
@@ -42,158 +42,57 @@ namespace Apache.Arrow.Builder
             OffsetsBuffer.AppendValue(CurrentOffset);
         }
 
-        public override IArrayBuilder AppendNull() => AppendNull(default);
-        public virtual VariableBinaryArrayBuilder AppendNull(byte nullValue = default)
+        public override Status AppendNull()
         {
-            base.AppendNull();
-
             // Append Offset
             OffsetsBuffer.AppendValue(CurrentOffset);
 
             // Not Append Value, get is based on offsets
             // ValuesBuffer.AppendValue(nullValue);
-            return this;
+            return base.AppendNull();
         }
 
-        public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, null);
-        public VariableBinaryArrayBuilder AppendNulls(int count, ReadOnlySpan<byte> nullValues)
+        public override Status AppendNulls(int count)
         {
-            base.AppendNulls(count);
-
             // Append Offset
             OffsetsBuffer.AppendValues(CurrentOffset, count);
 
             // Not Append Values, get is based on offsets
             // ValuesBuffer.AppendValues(nullValues);
-            return this;
+            return base.AppendNulls(count);
         }
 
-        public virtual VariableBinaryArrayBuilder AppendValue(string value, Encoding encoding = default)
-            => value == null ? AppendNull() : AppendValue((encoding ?? StringType.DefaultEncoding).GetBytes(value));
-
-        public virtual VariableBinaryArrayBuilder AppendValue(byte value)
+        public virtual Status AppendValue(byte value)
         {
-            AppendValid();
-
             // Append Offset
             CurrentOffset++;
             OffsetsBuffer.AppendValue(CurrentOffset);
 
             // Not Append Value, get is based on offsets
             ValuesBuffer.AppendByte(value);
-            return this;
+            return AppendValid();
         }
 
-        public virtual VariableBinaryArrayBuilder AppendValue(byte? value)
-            => value.HasValue ? AppendValue(value.Value) : AppendNull();
-
-        public virtual VariableBinaryArrayBuilder AppendValue(ReadOnlySpan<byte> value)
+        public virtual Status AppendValue(ReadOnlySpan<byte> value)
         {
-            AppendValid();
             // Append Offset
             CurrentOffset += value.Length;
             OffsetsBuffer.AppendValue(CurrentOffset);
             ValuesBuffer.AppendBytes(value);
-            return this;
+            return AppendValid();
         }
 
-        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((IBaseBinaryScalar)value);
-        public VariableBinaryArrayBuilder AppendValue(IBaseBinaryScalar value)
+        public override Status AppendScalar(IScalar value)
         {
-            Validate(value.Type);
-            AppendValue(value.View());
-            return this;
-        }
-
-        public virtual VariableBinaryArrayBuilder AppendValues(ICollection<byte[]> values)
-        {
-            Span<int> offsets = new int[values.Count];
-            Span<bool> mask = new bool[offsets.Length];
-            int offset = 0;
-            int i = 0;
-            bool allValid = true;
-            int nullCount = 0;
-
-            foreach (byte[] value in values)
+            return value switch
             {
-                if (value == null)
-                {
-                    offsets[i] = CurrentOffset;
-                    // default is already false
-                    // mask[i] = false;
-                    allValid = false;
-                    nullCount++;
-                }
-                else
-                {
-                    // Copy to memory
-                    ValuesBuffer.AppendBytes(value);
-
-                    offset += value.Length;
-                    CurrentOffset += value.Length;
-
-                    // Fill other buffers
-                    offsets[i] = CurrentOffset;
-                    mask[i] = true;
-                }
-                i++;
-            }
-
-            if (allValid)
-                AppendValidity(true, mask.Length);
-            else
-                AppendValidity(mask, nullCount);
-
-            // Append Offset
-            OffsetsBuffer.AppendValues(offsets);
-
-            return this;
+                IBaseBinaryScalar binary => AppendScalar(binary),
+                INullableScalar nullable => nullable.IsValid ? AppendScalar(nullable.Value) : AppendNull(),
+                _ => throw new ArgumentException($"Cannot append scalar {value} in {this}, must implement IBaseBinaryScalar")
+            };
         }
 
-        public virtual VariableBinaryArrayBuilder AppendValues(ICollection<string> values, Encoding encoding = default)
-        {
-            encoding = encoding ?? StringType.DefaultEncoding;
-            Span<int> offsets = new int[values.Count];
-            Span<bool> mask = new bool[offsets.Length];
-            int i = 0;
-            bool allValid = true;
-            int nullCount = 0;
-
-            foreach (string value in values)
-            {
-                if (value == null)
-                {
-                    offsets[i] = CurrentOffset;
-                    // default is already false
-                    // mask[i] = false;
-                    allValid = false;
-                    nullCount++;
-                }
-                else
-                {
-                    // Copy to memory
-                    byte[] bytes = encoding.GetBytes(value);
-                    ValuesBuffer.AppendBytes(bytes);
-
-                    CurrentOffset += bytes.Length;
-
-                    // Fill other buffers
-                    offsets[i] = CurrentOffset;
-                    mask[i] = true;
-                }
-                i++;
-            }
-
-            if (allValid)
-                AppendValidity(true, mask.Length);
-            else
-                AppendValidity(mask, nullCount);
-
-            // Append Offset
-            OffsetsBuffer.AppendValues(offsets);
-
-            return this;
-        }
+        public Status AppendScalar(IBaseBinaryScalar value) => AppendValue(value.View());
     }
 
     public class FixedBinaryArrayBuilder : ArrayBuilder
@@ -223,25 +122,19 @@ namespace Apache.Arrow.Builder
             _isFullByte = _bitSize % 8 == 0;
         }
 
-        public override IArrayBuilder AppendNull() => AppendNull(default);
-        public virtual FixedBinaryArrayBuilder AppendNull(byte nullValue = default)
+        public override Status AppendNull()
         {
-            base.AppendNull();
-
             // Append Empty values
             if (_isFullByte)
                 ValuesBuffer.AppendEmptyBytes(_byteSize);
             else
                 ValuesBuffer.AppendEmptyBits(_bitSize);
 
-            return this;
+            return base.AppendNull();
         }
 
-        public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, default);
-        public FixedBinaryArrayBuilder AppendNulls(int count, byte nullValue = default)
+        public override Status AppendNulls(int count)
         {
-            base.AppendNulls(count);
-
             // Append Empty values
             if (_isFullByte)
                 for (int i = 0; i < count; i++)
@@ -250,339 +143,47 @@ namespace Apache.Arrow.Builder
                 for (int i = 0; i < count; i++)
                     ValuesBuffer.AppendEmptyBits(_bitSize);
 
-            return this;
+            return base.AppendNulls(count);
         }
 
-        // Raw struct
-        public virtual FixedBinaryArrayBuilder AppendValue(bool value)
+        public override Status AppendScalar(IScalar value)
         {
-            AppendValid();
-            ValuesBuffer.AppendBit(value);
-            return this;
+            return value switch
+            {
+                IPrimitiveScalarBase primitive => AppendScalar(primitive),
+                INullableScalar nullable => nullable.IsValid ? AppendScalar(nullable.Value) : AppendNull(),
+                _ => throw new ArgumentException($"Cannot append scalar {value} in {this}, must implement IPrimitiveScalarBase")
+            };
         }
-        public virtual FixedBinaryArrayBuilder AppendValue(byte value)
-        {
-            AppendValid();
-            ValuesBuffer.AppendByte(value);
-            return this;
-        }
-        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((IPrimitiveScalarBase)value);
-        public FixedBinaryArrayBuilder AppendValue(IPrimitiveScalarBase value)
+
+        public Status AppendScalar(IPrimitiveScalarBase value)
         {
             Validate(value.Type);
-            return AppendValue(value.View());
+            return AppendBytes(value.View(), 1);
         }
 
-        public virtual FixedBinaryArrayBuilder AppendValue<T>(T value) where T : struct
+        // Bulk raw struct several bytes
+        public Status AppendBytes(ICollection<byte[]> values)
         {
-            AppendValid();
-            ValuesBuffer.AppendBytes(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)));
-            return this;
+            Span<bool> mask = new bool[values.Count];
+            ValuesBuffer.AppendFixedSizeBytes(values, _byteSize, mask, out int nullCount);
+
+            return AppendValidity(mask, nullCount);
         }
 
-        // Nullable raw struct
-        public virtual FixedBinaryArrayBuilder AppendValue(bool? value)
-            => value.HasValue ? AppendValue(value.Value) : AppendNull();
+        public Status AppendValue(ReadOnlySpan<byte> values)
+            => AppendBytes(values.Slice(0, _byteSize), 1);
 
-        public virtual FixedBinaryArrayBuilder AppendValue(byte? value)
-            => value.HasValue ? AppendValue(value.Value) : AppendNull();
-        public virtual FixedBinaryArrayBuilder AppendValue<T>(T? value) where T : struct
-            => value.HasValue ? AppendValue(value.Value) : AppendNull();
-
-        // ReadOnlySpan value
-        public virtual FixedBinaryArrayBuilder AppendValue(ReadOnlySpan<bool> value)
+        public Status AppendBytes(ReadOnlySpan<byte> values, int length)
         {
-            AppendValid();
-            ValuesBuffer.AppendBits(value);
-            return this;
-        }
-        public virtual FixedBinaryArrayBuilder AppendValue(ReadOnlySpan<byte> value)
-        {
-            AppendValid();
-            ValuesBuffer.AppendBytes(value);
-            return this;
-        }
-        public virtual FixedBinaryArrayBuilder AppendValue<T>(ReadOnlySpan<T> value) where T : struct
-        {
-            AppendValid();
-            ValuesBuffer.AppendBytes(MemoryMarshal.AsBytes(value));
-            return this;
-        }
-
-        // Bulk raw struct several values
-        public virtual FixedBinaryArrayBuilder AppendValues(ReadOnlySpan<bool> values)
-        {
-            AppendValidity(true, values.Length / _bitSize);
-            ValuesBuffer.AppendBits(values);
-            return this;
-        }
-        public virtual FixedBinaryArrayBuilder AppendValues(ReadOnlySpan<byte> values)
-        {
-            AppendValidity(true, values.Length * 8 / _bitSize);
             ValuesBuffer.AppendBytes(values);
-            return this;
+            return AppendValidity(true, length);
         }
-        public virtual FixedBinaryArrayBuilder AppendValues(ReadOnlySpan<byte> values, ReadOnlySpan<bool> validity)
+
+        public Status AppendBytes(ReadOnlySpan<byte> values, ReadOnlySpan<bool> validity)
         {
-            AppendValidity(validity);
             ValuesBuffer.AppendBytes(values);
-            return this;
-        }
-        public virtual FixedBinaryArrayBuilder AppendValues<T>(ReadOnlySpan<T> values) where T : struct
-            => AppendValues(MemoryMarshal.AsBytes(values));
-        public virtual FixedBinaryArrayBuilder AppendValues<T>(T[] values) where T : struct
-            => AppendValues(MemoryMarshal.AsBytes<T>(values));
-        public virtual FixedBinaryArrayBuilder AppendValues<T>(ReadOnlySpan<T> values, ReadOnlySpan<bool> validity) where T : struct
-            => AppendValues(MemoryMarshal.AsBytes(values), validity);
-
-        // Bulk nullable raw struct several values
-        public virtual FixedBinaryArrayBuilder AppendValues(ICollection<bool?> values)
-        {
-            int count = values.Count;
-            Span<bool> mask = new bool[count];
-            int i = 0;
-            bool allValid = true;
-            int nullCount = 0;
-
-            foreach (bool? value in values)
-            {
-                // default is already false
-                // mask[i] = false;
-
-                // default is already filled with empty values
-                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
-
-                if (value.HasValue)
-                {
-                    // Copy to memory
-                    ValuesBuffer.AppendBit(value.Value);
-                    mask[i] = true;
-                }
-                else
-                {
-                    ValuesBuffer.AppendEmptyBits(_bitSize);
-                    allValid = false;
-                    nullCount++;
-                }
-                i++;
-            }
-
-            if (allValid)
-                AppendValidity(true, mask.Length);
-            else
-                AppendValidity(mask, nullCount);
-
-            return this;
-        }
-
-        public virtual FixedBinaryArrayBuilder AppendValues(ICollection<bool[]> values)
-        {
-            int count = values.Count;
-            Span<bool> mask = new bool[count];
-            int i = 0;
-            bool allValid = true;
-            int nullCount = 0;
-
-            foreach (bool[] value in values)
-            {
-                // default is already false
-                // mask[i] = false;
-
-                // default is already filled with empty values
-                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
-
-                if (value == null)
-                {
-                    ValuesBuffer.AppendEmptyBits(_bitSize);
-                    allValid = false;
-                    nullCount++;
-                }
-                else
-                {
-                    // Copy to memory
-                    ValuesBuffer.AppendBits(value);
-                    mask[i] = true;
-                }
-                i++;
-            }
-
-            if (allValid)
-                AppendValidity(true, mask.Length);
-            else
-                AppendValidity(mask, nullCount);
-
-            return this;
-        }
-
-        public virtual FixedBinaryArrayBuilder AppendValues(ICollection<byte?> values)
-        {
-            int count = values.Count;
-            Span<bool> mask = new bool[count];
-            int i = 0;
-            bool allValid = true;
-            int nullCount = 0;
-
-            foreach (byte? value in values)
-            {
-                // default is already false
-                // mask[i] = false;
-
-                // default is already filled with empty values
-                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
-
-                if (value.HasValue)
-                {
-                    // Copy to memory
-                    ValuesBuffer.AppendByte(value.Value);
-                    mask[i] = true;
-                }
-                else
-                {
-                    ValuesBuffer.AppendEmptyBytes(_byteSize);
-                    allValid = false;
-                    nullCount++;
-                }
-                i++;
-            }
-
-            if (allValid)
-                AppendValidity(true, mask.Length);
-            else
-                AppendValidity(mask, nullCount);
-
-            return this;
-        }
-        public virtual FixedBinaryArrayBuilder AppendValues(ICollection<byte[]> values)
-        {
-            int count = values.Count;
-            Span<byte> memory = new byte[count * _byteSize];
-            Span<bool> mask = new bool[count];
-            int i = 0;
-            int offset = 0;
-            bool allValid = true;
-            int nullCount = 0;
-
-            foreach (byte[] value in values)
-            {
-                // default is already false
-                // mask[i] = false;
-
-                // default is already filled with empty values
-                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
-
-                if (value == null)
-                {
-                    allValid = false;
-                    nullCount++;
-                }
-                else
-                {
-                    // Copy to memory
-                    value.CopyTo(memory.Slice(offset, _byteSize));
-                    mask[i] = true;
-                }
-                offset += _byteSize;
-                i++;
-            }
-
-            ValuesBuffer.AppendBytes(memory);
-            if (allValid)
-                AppendValidity(true, mask.Length);
-            else
-                AppendValidity(mask, nullCount);
-
-            return this;
-        }
-
-        public virtual FixedBinaryArrayBuilder AppendValues<T>(ICollection<T?> values) where T : struct
-        {
-            int count = values.Count;
-            Span<byte> memory = new byte[count * _byteSize];
-            Span<bool> mask = new bool[count];
-            int i = 0;
-            int offset = 0;
-            bool allValid = true;
-            int nullCount = 0;
-
-            foreach (T? value in values)
-            {
-                // default is already false
-                // mask[i] = false;
-
-                // default is already filled with empty values
-                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
-
-                if (value.HasValue)
-                {
-                    // Copy to memory
-                    T v = value.Value;
-#if NETCOREAPP3_1_OR_GREATER
-                    var span = MemoryMarshal.CreateReadOnlySpan(ref v, 1);
-#else
-                    var span = new T[] { v }.AsSpan();
-#endif
-                    MemoryMarshal.AsBytes(span).CopyTo(memory.Slice(offset, _byteSize));
-
-                    mask[i] = true;
-                }
-                else
-                {
-                    allValid = false;
-                    nullCount++;
-                }
-                offset += _byteSize;
-                i++;
-            }
-
-            ValuesBuffer.AppendBytes(memory);
-            if (allValid)
-                AppendValidity(true, mask.Length);
-            else
-                AppendValidity(mask, nullCount);
-
-            return this;
-        }
-
-        public virtual FixedBinaryArrayBuilder AppendValues<T>(ICollection<T[]> values) where T : struct
-        {
-            int count = values.Count;
-            Span<byte> memory = new byte[count * _byteSize];
-            Span<bool> mask = new bool[count];
-            int i = 0;
-            int offset = 0;
-            bool allValid = true;
-            int nullCount = 0;
-
-            foreach (T[] value in values)
-            {
-                // default is already false
-                // mask[i] = false;
-
-                // default is already filled with empty values
-                // _defaultValue.CopyTo(memory.Slice(offset, _defaultValue.Length));
-
-                if (value == null)
-                {
-                    allValid = false;
-                    nullCount++;
-                }
-                else
-                {
-                    // Copy to memory
-                    MemoryMarshal.AsBytes<T>(value).CopyTo(memory.Slice(offset, _byteSize));
-                    mask[i] = true;
-                }
-                offset += _byteSize;
-                i++;
-            }
-
-            ValuesBuffer.AppendBytes(memory);
-            if (allValid)
-                AppendValidity(true, mask.Length);
-            else
-                AppendValidity(mask, nullCount);
-
-            return this;
+            return AppendValidity(validity);
         }
     }
 
@@ -595,6 +196,18 @@ namespace Apache.Arrow.Builder
         public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 32) : base(dtype, capacity)
         {
         }
+
+        public virtual Status AppendValue(T value)
+            => AppendBytes(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)), 1);
+
+        public virtual Status AppendValues(ReadOnlySpan<T> values)
+            => AppendBytes(MemoryMarshal.AsBytes(values), values.Length);
+
+        public virtual Status AppendValues(T[] values)
+            => AppendBytes(MemoryMarshal.AsBytes<T>(values), values.Length);
+
+        public virtual Status AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> validity)
+            => AppendBytes(MemoryMarshal.AsBytes(values), validity);
     }
 
     public class BooleanArrayBuilder : FixedBinaryArrayBuilder<bool>
@@ -607,11 +220,39 @@ namespace Apache.Arrow.Builder
         {
         }
 
-        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((BooleanScalar)value);
-        public BooleanArrayBuilder AppendValue(BooleanScalar value)
+        public override Status AppendScalar(IScalar value)
         {
-            AppendValue(value.Value);
-            return this;
+            return value switch
+            {
+                BooleanScalar boolean => AppendScalar(boolean),
+                INullableScalar nullable => nullable.IsValid ? AppendScalar(nullable.Value) : AppendNull(),
+                _ => throw new ArgumentException($"Cannot append scalar {value} in {this}, must implement BooleanScalar")
+            };
+        }
+        public Status AppendScalar(BooleanScalar value) => AppendValue(value.Value);
+
+        public override Status AppendValue(bool value)
+        {
+            ValuesBuffer.AppendBit(value);
+            return AppendValid();
+        }
+
+        public override Status AppendValues(ReadOnlySpan<bool> values)
+        {
+            ValuesBuffer.AppendBits(values);
+            return AppendValidity(true, values.Length);
+        }
+
+        public override Status AppendValues(bool[] values)
+        {
+            ValuesBuffer.AppendBits(values);
+            return AppendValidity(true, values.Length);
+        }
+
+        public override Status AppendValues(ReadOnlySpan<bool> values, ReadOnlySpan<bool> validity)
+        {
+            ValuesBuffer.AppendBits(values);
+            return AppendValidity(validity);
         }
 
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);

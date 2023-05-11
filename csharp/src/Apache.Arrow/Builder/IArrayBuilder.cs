@@ -23,38 +23,37 @@ namespace Apache.Arrow.Builder
         /// <summary>
         /// Append a null value to builder.
         /// </summary>
-        /// <returns>Current <see cref="IArrayBuilder"></returns>
-        IArrayBuilder AppendNull();
+        /// <returns>Current <see cref="Status"></returns>
+        Status AppendNull();
 
         /// <summary>
         /// Append a number of null values to builder.
         /// </summary>
-        /// <returns>Current <see cref="IArrayBuilder"></returns>
-        IArrayBuilder AppendNulls(int count);
+        /// <returns>Current <see cref="Status"></returns>
+        Status AppendNulls(int count);
 
         /// <summary>
         /// Append <see cref="IScalar"> value.
         /// </summary>
-        /// <returns>Current <see cref="IArrayBuilder"></returns>
-        IArrayBuilder AppendValue(IScalar value);
+        /// <returns>Current <see cref="Status"></returns>
+        Status AppendScalar(IScalar value);
 
         /// <summary>
         /// Append <see cref="ArrayData"> values.
         /// </summary>
-        /// <returns>Current <see cref="IArrayBuilder"></returns>
-        IArrayBuilder AppendValues(ArrayData data);
+        /// <returns>Current <see cref="Status"></returns>
+        Status AppendArray(ArrayData data);
 
         /// <summary>
         /// Append <see cref="IArrowArray"> values.
         /// </summary>
-        /// <returns>Current <see cref="IArrayBuilder"></returns>
-        IArrayBuilder AppendValues(IArrowArray data);
+        /// <returns>Current <see cref="Status"></returns>
+        Status AppendArray(IArrowArray data);
 
         /// <summary>
         /// Clear all contents appended so far.
         /// </summary>
-        /// <returns>Current <see cref="IArrayBuilder"></returns>
-        IArrayBuilder Clear();
+        void Clear();
 
         /// <summary>
         /// Ensure that there is enough space allocated to append the indicated number of elements without
@@ -68,8 +67,8 @@ namespace Apache.Arrow.Builder
         /// may not increase the capacity.
         /// </remarks>
         /// <param name="additionnalCapacity">number of additional array values</param>
-        /// <returns>Current <see cref="IArrayBuilder"></returns>
-        IArrayBuilder Reserve(int additionnalCapacity);
+        /// <returns>Current <see cref="Status"></returns>
+        Status Reserve(int additionnalCapacity);
 
         /// <summary>
         /// Ensure that enough memory has been allocated to fit the indicated number of total elements in the builder,
@@ -80,8 +79,8 @@ namespace Apache.Arrow.Builder
         /// To make space for incremental appends, use Reserve instead.
         /// </remarks>
         /// <param name="capacity">minimum number of total array values to accommodate. Must be greater than the current capacity.</param>
-        /// <returns>Current <see cref="IArrayBuilder"></returns>
-        IArrayBuilder Resize(int capacity);
+        /// <returns>Current <see cref="Status"></returns>
+        Status Resize(int capacity);
 
         /// <summary>
         /// Return result of builder as an internal generic ArrayData object.

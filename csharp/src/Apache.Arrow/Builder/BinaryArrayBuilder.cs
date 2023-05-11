@@ -31,6 +31,10 @@ namespace Apache.Arrow.Builder
             : base(dtype, capacity)
         {
         }
+
+        public virtual Status AppendValue(string value)
+            => value == null ? AppendNull() : AppendValue(StringType.DefaultEncoding.GetBytes(value));
+
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
 
         public StringArray Build(MemoryAllocator allocator = default, bool bin = false, bool str = true)

@@ -52,42 +52,44 @@ namespace Apache.Arrow.Builder
             return casted;
         }
 
-        public virtual IArrayBuilder AppendNull()
+        public virtual Status AppendNull()
         {
             ValidityBuffer.AppendBit(false);
             NullCount++;
             Length++;
-            return this;
+            return Status.OK;
         }
 
-        public virtual IArrayBuilder AppendNulls(int count)
+        public virtual Status AppendNulls(int count)
         {
             Reserve(count);
             ValidityBuffer.AppendBits(false, count);
             NullCount += count;
             Length += count;
-            return this;
+            return Status.OK;
         }
 
-        internal virtual IArrayBuilder AppendValid()
+        internal virtual Status AppendValid()
         {
             ValidityBuffer.AppendBit(true);
             Length++;
-            return this;
+            return Status.OK;
         }
 
-        internal virtual IArrayBuilder AppendValidity(bool isValid, int count)
+        internal virtual Status AppendValidity(bool isValid, int count)
         {
             ValidityBuffer.AppendBits(isValid, count);
             Length += count;
             if (!isValid)
                 NullCount += count;
-            return this;
+            return Status.OK;
         }
 
-        internal virtual IArrayBuilder AppendValidity(ReadOnlySpan<bool> mask, int nullCount)
+        internal virtual Status AppendValidity(ReadOnlySpan<bool> mask, int nullCount)
         {
-            if (nullCount == mask.Length)
+            if (nullCount == 0)
+                ValidityBuffer.AppendBits(true, mask.Length);
+            else if (nullCount == mask.Length)
                 ValidityBuffer.AppendBits(false, nullCount);
             else
                 ValidityBuffer.AppendBits(mask);
@@ -96,10 +98,10 @@ namespace Apache.Arrow.Builder
 
             NullCount += nullCount;
 
-            return this;
+            return Status.OK;
         }
 
-        internal virtual IArrayBuilder AppendValidity(ReadOnlySpan<bool> mask)
+        internal virtual Status AppendValidity(ReadOnlySpan<bool> mask)
         {
             int nullCount = 0;
 
@@ -117,15 +119,15 @@ namespace Apache.Arrow.Builder
                 throw new ArgumentException($"Cannot append data type {dtype} in builder with data type {DataType}");
         }
 
-        public virtual IArrayBuilder AppendValue(IScalar value)
+        public virtual Status AppendScalar(IScalar value)
         {
             switch (DataType.TypeId)
             {
                 case ArrowTypeId.String:
                 case ArrowTypeId.Binary:
-                    return As<VariableBinaryArrayBuilder>().AppendValue(value);
+                    return As<VariableBinaryArrayBuilder>().AppendScalar(value);
                 case ArrowTypeId.Boolean:
-                    return As<BooleanArrayBuilder>().AppendValue((BooleanScalar)value);
+                    return As<BooleanArrayBuilder>().AppendScalar(value);
                 case ArrowTypeId.UInt8:
                 case ArrowTypeId.Int8:
                 case ArrowTypeId.UInt16:
@@ -141,20 +143,22 @@ namespace Apache.Arrow.Builder
                 case ArrowTypeId.Double:
                 case ArrowTypeId.Decimal128:
                 case ArrowTypeId.Decimal256:
-                    return As<FixedBinaryArrayBuilder>().AppendValue((IPrimitiveScalarBase)value);
+                    return As<FixedBinaryArrayBuilder>().AppendScalar(value);
                 case ArrowTypeId.Struct:
-                    return As<StructArrayBuilder>().AppendValue(value);
+                    return As<StructArrayBuilder>().AppendScalar(value);
                 case ArrowTypeId.List:
-                    return As<ListArrayBuilder>().AppendValue(value);
+                    return As<ListArrayBuilder>().AppendScalar(value);
+                case ArrowTypeId.Null:
+                    return AppendNull();
                 default:
                     Validate(value.Type);
                     throw new ArgumentException($"Cannot append {value} in builder with data type {DataType}");
             }
         }
 
-        public virtual IArrayBuilder AppendValues(IArrowArray array) => AppendValues(array.Data);
+        public virtual Status AppendArray(IArrowArray array) => AppendArray(array.Data);
 
-        public virtual IArrayBuilder AppendValues(ArrayData data)
+        public virtual Status AppendArray(ArrayData data)
         {
             // TODO: Make better / recursive fields data type check
             Validate(data.DataType);
@@ -170,7 +174,6 @@ namespace Apache.Arrow.Builder
             {
                 Span<bool> bits = new bool[data.Length];
                 int nullCount = 0;
-                bool allValid = true;
 
                 // Need recalculate nulls
                 for (int i = data.Offset; i < data.Length; i++)
@@ -178,20 +181,12 @@ namespace Apache.Arrow.Builder
                     bool isValid = BitUtility.GetBit(dataValidity.Span, i);
 
                     if (!isValid)
-                    {
-                        allValid = false;
                         nullCount++;
-                    }
 
                     bits[i] = isValid;
                 }
 
-                if (nullCount == data.Length)
-                    AppendValidity(false, data.Length);
-                else if (allValid)
-                    AppendValidity(true, data.Length);
-                else
-                    AppendValidity(bits, nullCount);
+                AppendValidity(bits, nullCount);
                 // Update it since we calculated it
                 data.NullCount = nullCount;
             }
@@ -221,22 +216,10 @@ namespace Apache.Arrow.Builder
                 {
                     Span<bool> bits = new bool[data.Length];
 
-                    bool allValid = true;
-
                     for (int i = data.Offset; i < data.Length; i++)
-                    {
-                        bool isValid = BitUtility.GetBit(dataValidity.Span, i);
+                        bits[i] = BitUtility.GetBit(dataValidity.Span, i);
 
-                        if (!isValid)
-                            allValid = false;
-
-                        bits[i] = isValid;
-                    }
-
-                    if (allValid)
-                        AppendValidity(true, data.Length);
-                    else
-                        AppendValidity(bits, nullCount);
+                    AppendValidity(bits, nullCount);
                 }
             }
             
@@ -298,16 +281,16 @@ namespace Apache.Arrow.Builder
             {
                 for (int i = 0; i < Children.Length; i++)
                 {
-                    Children[i].AppendValues(data.Children[i]);
+                    Children[i].AppendArray(data.Children[i]);
                 }
             }
 
             if (Dictionary != null && data.Dictionary != null)
             {
-                Dictionary.AppendValues(data.Dictionary);
+                Dictionary.AppendArray(data.Dictionary);
             }
 
-            return this;
+            return Status.OK;
         }
 
         public ArrayData FinishInternal(MemoryAllocator allocator = null)
@@ -326,7 +309,7 @@ namespace Apache.Arrow.Builder
             => ArrayBuilderFactory.MakeArray(FinishInternal(allocator));
 
         // Memory management
-        public IArrayBuilder Reserve(int additionnalCapacity)
+        public Status Reserve(int additionnalCapacity)
         {
             foreach (IValueBufferBuilder buffer in Buffers)
                 buffer.Reserve(additionnalCapacity);
@@ -338,10 +321,10 @@ namespace Apache.Arrow.Builder
             if (Dictionary != null)
                 Dictionary.Reserve(additionnalCapacity);
 
-            return this;
+            return Status.OK;
         }
 
-        public IArrayBuilder Resize(int capacity)
+        public Status Resize(int capacity)
         {
             foreach (IValueBufferBuilder buffer in Buffers)
                 buffer.Resize(capacity);
@@ -353,10 +336,10 @@ namespace Apache.Arrow.Builder
             if (Dictionary != null)
                 Dictionary.Resize(capacity);
 
-            return this;
+            return Status.OK;
         }
 
-        public IArrayBuilder Clear()
+        public void Clear()
         {
             foreach (IValueBufferBuilder buffer in Buffers)
                 buffer.Clear();
@@ -367,8 +350,6 @@ namespace Apache.Arrow.Builder
 
             if (Dictionary != null)
                 Dictionary.Clear();
-
-            return this;
         }
     }
 

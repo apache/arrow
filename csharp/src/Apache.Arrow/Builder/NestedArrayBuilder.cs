@@ -28,12 +28,13 @@ namespace Apache.Arrow.Builder
         {
         }
 
+        public virtual Status Append() => AppendValid();
         public TBuilder GetBuilderAs<TBuilder>(int index) where TBuilder : ArrayBuilder => Children[index].As<TBuilder>();
     }
 
     public class ListArrayBuilder : NestedArrayBuilder
     {
-        public int CurrentOffset { get; private set; }
+        public int CurrentOffset { get; internal set; }
 
         public ListArrayBuilder(ListType dataType, int capacity = 8) : base(dataType, capacity)
         {
@@ -43,111 +44,38 @@ namespace Apache.Arrow.Builder
 
         public IPrimitiveBufferBuilder<int> OffsetsBuffer => Buffers[1] as IPrimitiveBufferBuilder<int>;
 
-        public FixedBinaryArrayBuilder GetBuilderAs<T>() where T : struct
-            => GetBuilderAs<FixedBinaryArrayBuilder>(0);
-
         // Append Valididty
-        public virtual ListArrayBuilder Append()
-        {
-            AppendValid();
-            return this;
-        }
-        public override IArrayBuilder AppendNull() => AppendNull(false);
-        public virtual ListArrayBuilder AppendNull(bool recursive = false)
+        public override Status AppendNull()
         {
             OffsetsBuffer.AppendValue(CurrentOffset);
-            base.AppendNull();
-            return this;
+            return base.AppendNull();
         }
 
-        public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, false);
-        public virtual ListArrayBuilder AppendNulls(int count, bool recursive = false)
+        public override Status AppendNulls(int count)
         {
             OffsetsBuffer.AppendValues(CurrentOffset, count);
-            base.AppendNulls(count);
-            return this;
+            return base.AppendNulls(count);
         }
 
         // Append Value
-        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((ListScalar)value);
-        public ListArrayBuilder AppendValue(ListScalar value)
+        public override Status AppendScalar(IScalar value)
+        {
+            return value switch
+            {
+                IBaseListScalar list => AppendScalar(list),
+                INullableScalar nullable => nullable.IsValid ? AppendScalar(nullable.Value) : AppendNull(),
+                _ => throw new ArgumentException($"Cannot append scalar {value} in {this}, must implement IBaseListScalar")
+            };
+        }
+
+        public Status AppendValue(IBaseListScalar value)
         {
             if (value.IsValid)
             {
-                AppendValid();
-                Children[0].AppendValues(value.Array);
+                Children[0].AppendArray(value.Array);
+                return AppendValid();
             }
-            else
-            {
-                AppendNull();
-            }
-            return this;
-        }
-
-        public ListArrayBuilder AppendValue<T>(ReadOnlySpan<T> value) where T : struct
-        {
-            CurrentOffset++;
-            OffsetsBuffer.AppendValue(CurrentOffset);
-            GetBuilderAs<T>().AppendValues(value);
-            AppendValid();
-
-            return this;
-        }
-
-        public virtual ListArrayBuilder AppendValues<T>(ICollection<T[]> values) where T : struct
-        {
-            Span<T> memory = new T[values.Sum(row => row.Length)];
-            Span<int> offsets = new int[values.Count];
-            Span<bool> mask = new bool[offsets.Length];
-            int offset = 0;
-            int i = 0;
-            bool allValid = true;
-            int nullCount = 0;
-
-            foreach (T[] value in values)
-            {
-                if (value == null)
-                {
-                    offsets[i] = CurrentOffset;
-                    // default is already false
-                    // mask[i] = false;
-                    allValid = false;
-                    nullCount++;
-                }
-                else
-                {
-                    // Copy to memory
-                    value.CopyTo(memory.Slice(offset, value.Length));
-
-                    offset += value.Length;
-                    CurrentOffset += value.Length;
-
-                    // Fill other buffers
-                    offsets[i] = CurrentOffset;
-                    mask[i] = true;
-                }
-                i++;
-            }
-
-            return AppendValues<T>(memory, offsets, mask, allValid, nullCount);
-        }
-
-        internal virtual ListArrayBuilder AppendValues<T>(
-            ReadOnlySpan<T> values, ReadOnlySpan<int> offsets, ReadOnlySpan<bool> mask, bool allValid, int nullCount
-            ) where T : struct
-        {
-            if (allValid)
-                AppendValidity(true, mask.Length);
-            else
-                AppendValidity(mask, nullCount);
-
-            // Append Offset
-            CurrentOffset = offsets[offsets.Length - 1];
-            OffsetsBuffer.AppendValues(offsets);
-
-            // Append Values
-            GetBuilderAs<T>().AppendValues(values);
-            return this;
+            return AppendNull();
         }
 
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
@@ -166,49 +94,40 @@ namespace Apache.Arrow.Builder
         }
 
         // Append Valididty
-        public virtual StructArrayBuilder Append()
+        public override Status AppendNull()
         {
-            AppendValid();
-            return this;
-        }
-
-        public override IArrayBuilder AppendNull() => AppendNull(true);
-
-        public virtual StructArrayBuilder AppendNull(bool recursive = true)
-        {
-            base.AppendNull();
-
             foreach (IArrayBuilder child in Children)
                 child.AppendNull();
 
-            return this;
+            return base.AppendNull();
         }
 
-        public override IArrayBuilder AppendNulls(int count) => AppendNulls(count, true);
-        public virtual StructArrayBuilder AppendNulls(int count, bool recursive = true)
+        public override Status AppendNulls(int count)
         {
-            base.AppendNulls(count);
-
             foreach (IArrayBuilder child in Children)
                 child.AppendNulls(count);
 
-            return this;
+            return base.AppendNulls(count);
         }
 
-        public override IArrayBuilder AppendValue(IScalar value) => AppendValue((StructScalar)value);
-        public StructArrayBuilder AppendValue(StructScalar value)
+        public override Status AppendScalar(IScalar value)
+            => value.IsValid ? AppendValue((IStructScalar)value) : AppendNull();
+        public Status AppendValue(IStructScalar value)
         {
-            AppendValid();
-            for (int i = 0; i < Children.Length; i++)
+            if (value.IsValid)
             {
-                var childValue = value.Fields[i];
+                for (int i = 0; i < Children.Length; i++)
+                {
+                    var childValue = value.Fields[i];
 
-                if (childValue == null)
-                    Children[i].AppendNull();
-                else
-                    Children[i].AppendValue(childValue);
+                    if (childValue == null)
+                        Children[i].AppendNull();
+                    else
+                        Children[i].AppendScalar(childValue);
+                }
+                return AppendValid();
             }
-            return this;
+            return AppendNull();
         }
 
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
@@ -217,9 +136,77 @@ namespace Apache.Arrow.Builder
             => new StructArray(FinishInternal(allocator));
     }
 
+    public class ListArrayBuilder<T> : ListArrayBuilder where T : struct
+    {
+        public readonly FixedBinaryArrayBuilder<T> ValueBuilder;
+
+        public ListArrayBuilder(int capacity = 32)
+            : base(new ListType(TypeReflection<T>.ArrowType), capacity)
+        {
+            ValueBuilder = GetBuilderAs<FixedBinaryArrayBuilder<T>>(0);
+        }
+
+        public Status AppendValue(ReadOnlySpan<T> value)
+        {
+            CurrentOffset++;
+            OffsetsBuffer.AppendValue(CurrentOffset);
+            ValueBuilder.AppendValues(value);
+            return AppendValid();
+        }
+
+        public Status AppendValues(ICollection<T[]> values)
+        {
+            Span<T> memory = new T[values.Sum(row => row.Length)];
+            Span<int> offsets = new int[values.Count];
+            Span<bool> mask = new bool[offsets.Length];
+            int offset = 0;
+            int i = 0;
+            int nullCount = 0;
+
+            foreach (T[] value in values)
+            {
+                if (value == null)
+                {
+                    offsets[i] = CurrentOffset;
+                    // default is already false
+                    // mask[i] = false;
+                    nullCount++;
+                }
+                else
+                {
+                    // Copy to memory
+                    value.CopyTo(memory.Slice(offset, value.Length));
+
+                    offset += value.Length;
+                    CurrentOffset += value.Length;
+
+                    // Fill other buffers
+                    offsets[i] = CurrentOffset;
+                    mask[i] = true;
+                }
+                i++;
+            }
+
+            return AppendValues(memory, offsets, mask, nullCount);
+        }
+
+        private Status AppendValues(
+            ReadOnlySpan<T> values, ReadOnlySpan<int> offsets, ReadOnlySpan<bool> mask, int nullCount
+            )
+        {
+            // Append Offset
+            CurrentOffset = offsets[offsets.Length - 1];
+            OffsetsBuffer.AppendValues(offsets);
+
+            // Append Values
+            ValueBuilder.AppendValues(values);
+            return AppendValidity(mask, nullCount);
+        }
+    }
+
     public class StructArrayBuilder<T> : StructArrayBuilder where T : struct
     {
-        public StructArrayBuilder(int capacity = 8) : base(TypeReflection<T>.ArrowType as StructType, capacity)
+        public StructArrayBuilder(int capacity = 32) : base(TypeReflection<T>.ArrowType as StructType, capacity)
         {
         }
     }

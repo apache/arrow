@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
@@ -42,6 +43,7 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void UncheckedAppendBit(bool bit)
         {
             BitUtility.SetBit(ref Memory.Span[ByteLength], BitOffset, bit);
@@ -108,7 +110,7 @@ namespace Apache.Arrow.Builder
             if (!value)
                 return AppendEmptyBits(count);
 
-            int remainderBits = Math.Min(count, 8 - BitOffset);
+            int remainderBits = BitOffset == 0 ? 0 : Math.Min(count, 8 - BitOffset);
             int wholeBytes = (count - remainderBits) / 8;
             int trailingBits = count - remainderBits - (wholeBytes * 8);
             int newBytes = (trailingBits > 0) ? wholeBytes + 1 : wholeBytes;
@@ -145,15 +147,25 @@ namespace Apache.Arrow.Builder
 
         public IBufferBuilder AppendEmptyBits(int count)
         {
-            int remainderBits = Math.Min(count, 8 - BitOffset);
-            int wholeBytes = (count - remainderBits) / 8;
-            int trailingBits = count - remainderBits - (wholeBytes * 8);
-            int newBytes = (trailingBits > 0) ? wholeBytes + 1 : wholeBytes;
+            if (BitOffset == 0)
+            {
+                int end = count / 8;
+                EnsureAdditionalBytes(end);
+                ByteLength += end;
+                BitOffset = count - end * 8;
+            }
+            else
+            {
+                int remainderBits = Math.Min(count, 8 - BitOffset);
+                int wholeBytes = (count - remainderBits) / 8;
+                int trailingBits = count - remainderBits - (wholeBytes * 8);
+                int newBytes = (trailingBits > 0) ? wholeBytes + 1 : wholeBytes;
 
-            EnsureAdditionalBytes(newBytes);
+                EnsureAdditionalBytes(newBytes);
 
-            ByteLength += wholeBytes;
-            BitOffset = remainderBits + trailingBits;
+                ByteLength += wholeBytes;
+                BitOffset = remainderBits + trailingBits;
+            }
 
             return this;
         }
@@ -176,6 +188,42 @@ namespace Apache.Arrow.Builder
                 ByteLength++;
             }
 
+            return this;
+        }
+
+        public IBufferBuilder AppendFixedSizeBytes(
+            ICollection<byte[]> bytes, int fixedSize, Span<bool> validity, out int nullCount
+            )
+        {
+            int i = 0;
+            int offset = ByteLength;
+            int _nullCount = 0;
+            EnsureAdditionalBytes(bytes.Count * fixedSize);
+
+            foreach (byte[] value in bytes)
+            {
+                if (value == null)
+                    _nullCount++;
+                else
+                {
+                    // Copy to memory
+                    try
+                    {
+                        value.CopyTo(Memory.Span.Slice(offset, fixedSize));
+                    }
+                    catch (System.ArgumentException)
+                    {
+                        // Destination is too short. (Parameter 'destination')
+                        value.AsSpan().Slice(0, fixedSize).CopyTo(Memory.Span.Slice(offset, fixedSize));
+                    }
+                    validity[i] = true;
+                }
+                offset += fixedSize;
+                i++;
+            }
+
+            ByteLength = offset;
+            nullCount = _nullCount;
             return this;
         }
 
@@ -207,7 +255,15 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
-        public IBufferBuilder AppendEmptyBytes(int count) => AppendEmptyBits(count * 8);
+        public IBufferBuilder AppendEmptyBytes(int count)
+        {
+            if (BitOffset == 0)
+            {
+                ByteLength += count;
+                return this;
+            }
+            return AppendEmptyBits(count * 8);
+        }
 
         public IBufferBuilder AppendValue(bool value) => AppendBit(value);
         public IBufferBuilder AppendValue(byte value) => AppendByte(value);
@@ -269,7 +325,7 @@ namespace Apache.Arrow.Builder
             return new ArrowBuffer(memoryOwner);
         }
          
-        private void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(ByteLength + numBytes));
+        public void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(ByteLength + numBytes));
 
         internal void EnsureBytes(int numBytes)
         {
