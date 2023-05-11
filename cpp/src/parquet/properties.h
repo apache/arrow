@@ -934,7 +934,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
     /// \brief When enabled, will not preserve Arrow field names for list types.
     ///
     /// Instead of using the field names Arrow uses for the values array of
-    /// list types (default "item"), will use "entries", as is specified in
+    /// list types (default "item"), will use "element", as is specified in
     /// the Parquet spec.
     ///
     /// This is enabled by default.
