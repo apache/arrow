@@ -7,6 +7,18 @@ namespace Apache.Arrow
 {
     // Inspired from C++ implementation
     // https://arrow.apache.org/docs/cpp/api/scalar.html
+    public struct NullableScalar : INullableScalar
+    {
+        public IScalar Value { get; }
+        public bool IsValid => Value != null;
+        public IArrowType Type => Value.Type;
+
+        public NullableScalar(IScalar value)
+        {
+            Value = value;
+        }
+    }
+
     public struct BinaryScalar : IBaseBinaryScalar<BinaryType>
     {
         public ArrowBuffer Buffer { get; }

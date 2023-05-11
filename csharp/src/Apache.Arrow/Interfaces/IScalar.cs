@@ -11,10 +11,9 @@ namespace Apache.Arrow
         bool IsValid { get; }
     }
 
-    public interface INullableScalar
+    public interface INullableScalar : IScalar
     {
         IScalar Value { get; }
-        bool IsValid { get; }
     }
 
     public interface IArrowTyped<TArrowType> where TArrowType : IArrowType
