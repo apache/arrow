@@ -20,13 +20,15 @@ package exprs_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/compute"
-	"github.com/apache/arrow/go/v12/arrow/compute/exprs"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/arrow/scalar"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/compute"
+	"github.com/apache/arrow/go/v13/arrow/compute/exprs"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/substrait-io/substrait-go/expr"
@@ -151,4 +153,197 @@ func TestComparisons(t *testing.T) {
 
 	expect(t, "equal", str, bin, true)
 	expect(t, "equal", bin, str, true)
+}
+
+func TestExecuteFieldRef(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	fromJSON := func(ty arrow.DataType, json string) arrow.Array {
+		arr, _, err := array.FromJSON(mem, ty, strings.NewReader(json))
+		require.NoError(t, err)
+		return arr
+	}
+
+	scalarFromJSON := func(ty arrow.DataType, json string) scalar.Scalar {
+		arr, _, err := array.FromJSON(mem, ty, strings.NewReader(json))
+		require.NoError(t, err)
+		defer arr.Release()
+		s, err := scalar.GetScalar(arr, 0)
+		require.NoError(t, err)
+		return s
+	}
+
+	tests := []struct {
+		testName string
+		ref      compute.FieldRef
+		input    compute.Datum
+		expected compute.Datum
+	}{
+		{"basic ref", compute.FieldRefName("a"), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.StructOf(arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Float64, Nullable: true}),
+			`[
+			 	{"a": 6.125},
+				{"a": 0.0},
+				{"a": -1}
+			 ]`)), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.PrimitiveTypes.Float64, `[6.125, 0.0, -1]`))},
+		{"ref one field", compute.FieldRefName("a"), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.StructOf(
+				arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+				arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Float64, Nullable: true}),
+			`[
+				{"a": 6.125, "b": 7.5},
+				{"a": 0.0, "b": 2.125},
+				{"a": -1, "b": 4.0}
+			 ]`)), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.PrimitiveTypes.Float64, `[6.125, 0.0, -1]`))},
+		{"second field", compute.FieldRefName("b"), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.StructOf(
+				arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+				arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Float64, Nullable: true}),
+			`[
+					{"a": 6.125, "b": 7.5},
+					{"a": 0.0, "b": 2.125},
+					{"a": -1, "b": 4.0}
+				 ]`)), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.PrimitiveTypes.Float64, `[7.5, 2.125, 4.0]`))},
+		{"nested field by path", compute.FieldRefPath(compute.FieldPath{0, 0}), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.StructOf(
+				arrow.Field{Name: "a", Type: arrow.StructOf(
+					arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Float64, Nullable: true}),
+					Nullable: true}),
+			`[
+				{"a": {"b": 6.125}},
+				{"a": {"b": 0.0}},
+				{"a": {"b": -1}}
+			 ]`)), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.PrimitiveTypes.Float64, `[6.125, 0.0, -1]`))},
+		{"nested field by name", compute.FieldRefList("a", "b"), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.StructOf(
+				arrow.Field{Name: "a", Type: arrow.StructOf(
+					arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Float64, Nullable: true}),
+					Nullable: true}),
+			`[
+					{"a": {"b": 6.125}},
+					{"a": {"b": 0.0}},
+					{"a": {"b": -1}}
+				 ]`)), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.PrimitiveTypes.Float64, `[6.125, 0.0, -1]`))},
+		{"nested field with nulls", compute.FieldRefList("a", "b"), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.StructOf(
+				arrow.Field{Name: "a", Type: arrow.StructOf(
+					arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Float64, Nullable: true}),
+					Nullable: true}),
+			`[
+						{"a": {"b": 6.125}},
+						{"a": null},
+						{"a": {"b": null}}
+					 ]`)), compute.NewDatumWithoutOwning(fromJSON(
+			arrow.PrimitiveTypes.Float64, `[6.125, null, null]`))},
+		{"nested scalar", compute.FieldRefList("a", "b"), compute.NewDatumWithoutOwning(
+			scalarFromJSON(arrow.StructOf(
+				arrow.Field{Name: "a", Type: arrow.StructOf(
+					arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Float64, Nullable: true}),
+					Nullable: true}), `[{"a": {"b": 64.0}}]`)),
+			compute.NewDatum(scalar.NewFloat64Scalar(64.0))},
+		{"nested scalar with null", compute.FieldRefList("a", "b"), compute.NewDatumWithoutOwning(
+			scalarFromJSON(arrow.StructOf(
+				arrow.Field{Name: "a", Type: arrow.StructOf(
+					arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Float64, Nullable: true}),
+					Nullable: true}), `[{"a": {"b": null}}]`)),
+			compute.NewDatum(scalar.MakeNullScalar(arrow.PrimitiveTypes.Float64))},
+		{"nested scalar null", compute.FieldRefList("a", "b"), compute.NewDatumWithoutOwning(
+			scalarFromJSON(arrow.StructOf(
+				arrow.Field{Name: "a", Type: arrow.StructOf(
+					arrow.Field{Name: "b", Type: arrow.PrimitiveTypes.Float64, Nullable: true}),
+					Nullable: true}), `[{"a": null}]`)),
+			compute.NewDatum(scalar.MakeNullScalar(arrow.PrimitiveTypes.Float64))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			scoped := memory.NewCheckedAllocatorScope(mem)
+			defer scoped.CheckSize(t)
+
+			ctx := compute.WithAllocator(context.Background(), mem)
+			dt := tt.input.(compute.ArrayLikeDatum).Type().(arrow.NestedType)
+			schema := arrow.NewSchema(dt.Fields(), nil)
+			ref, err := exprs.NewFieldRef(tt.ref, schema, extSet)
+			require.NoError(t, err)
+			assert.NotNil(t, ref)
+
+			actual, err := exprs.ExecuteScalarExpression(ctx, schema, extSet, ref, tt.input)
+			require.NoError(t, err)
+			defer actual.Release()
+
+			assert.Truef(t, tt.expected.Equals(actual), "expected: %s\ngot: %s", tt.expected, actual)
+		})
+	}
+}
+
+func TestExecuteScalarFuncCall(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	fromJSON := func(ty arrow.DataType, json string) arrow.Array {
+		arr, _, err := array.FromJSON(mem, ty, strings.NewReader(json))
+		require.NoError(t, err)
+		return arr
+	}
+
+	// scalarFromJSON := func(ty arrow.DataType, json string) scalar.Scalar {
+	// 	arr, _, err := array.FromJSON(mem, ty, strings.NewReader(json))
+	// 	require.NoError(t, err)
+	// 	defer arr.Release()
+	// 	s, err := scalar.GetScalar(arr, 0)
+	// 	require.NoError(t, err)
+	// 	return s
+	// }
+
+	basicSchema := arrow.NewSchema([]arrow.Field{
+		{Name: "a", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+		{Name: "b", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+	}, nil)
+
+	tests := []struct {
+		name     string
+		ex       expr.Expression
+		input    compute.Datum
+		expected compute.Datum
+	}{
+		{"add", expr.MustExpr(exprs.NewScalarCall(extSet, "add", nil,
+			expr.MustExpr(exprs.NewFieldRef(compute.FieldRefName("a"), basicSchema, extSet)),
+			expr.NewPrimitiveLiteral(float64(3.5), false))),
+			compute.NewDatumWithoutOwning(fromJSON(arrow.StructOf(basicSchema.Fields()...),
+				`[
+				{"a": 6.125, "b": 3.375},
+				{"a": 0.0, "b": 1},
+				{"a": -1, "b": 4.75}
+			]`)), compute.NewDatumWithoutOwning(fromJSON(arrow.PrimitiveTypes.Float64,
+				`[9.625, 3.5, 2.5]`))},
+		{"add sub", expr.MustExpr(exprs.NewScalarCall(extSet, "add", nil,
+			expr.MustExpr(exprs.NewFieldRef(compute.FieldRefName("a"), basicSchema, extSet)),
+			expr.NewPrimitiveLiteral(float64(3.5), false))),
+			compute.NewDatumWithoutOwning(fromJSON(arrow.StructOf(basicSchema.Fields()...),
+				`[
+				{"a": 6.125, "b": 3.375},
+				{"a": 0.0, "b": 1},
+				{"a": -1, "b": 4.75}
+			]`)), compute.NewDatumWithoutOwning(fromJSON(arrow.PrimitiveTypes.Float64,
+				`[9.625, 3.5, 2.5]`))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scoped := memory.NewCheckedAllocatorScope(mem)
+			defer scoped.CheckSize(t)
+
+			ctx := compute.WithAllocator(context.Background(), mem)
+			dt := tt.input.(compute.ArrayLikeDatum).Type().(arrow.NestedType)
+			schema := arrow.NewSchema(dt.Fields(), nil)
+
+			actual, err := exprs.ExecuteScalarExpression(ctx, schema, extSet, tt.ex, tt.input)
+			require.NoError(t, err)
+			defer actual.Release()
+
+			assert.Truef(t, tt.expected.Equals(actual), "expected: %s\ngot: %s", tt.expected, actual)
+		})
+	}
 }

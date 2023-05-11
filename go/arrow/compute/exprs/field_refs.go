@@ -24,25 +24,13 @@ import (
 	"hash/maphash"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/compute"
-	"github.com/apache/arrow/go/v12/arrow/scalar"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/compute"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/scalar"
 	"github.com/substrait-io/substrait-go/expr"
 )
-
-func getChildren(arr arrow.Array) (ret []arrow.Array) {
-	switch arr := arr.(type) {
-	case *array.Struct:
-		ret = make([]arrow.Array, arr.NumField())
-		for i := 0; i < arr.NumField(); i++ {
-			ret[i] = arr.Field(i)
-		}
-	case array.ListLike:
-		ret = []arrow.Array{arr.ListValues()}
-	}
-	return
-}
 
 func getFields(typ arrow.DataType) []arrow.Field {
 	if nested, ok := typ.(arrow.NestedType); ok {
@@ -87,135 +75,160 @@ func GetRefSchema(ref expr.ReferenceSegment, schema *arrow.Schema) (*arrow.Field
 	return GetRefField(ref, schema.Fields())
 }
 
-func GetArray(ref expr.ReferenceSegment, arrs []arrow.Array) (arrow.Array, error) {
+func GetScalar(ref expr.ReferenceSegment, s scalar.Scalar, mem memory.Allocator, ext ExtensionIDSet) (scalar.Scalar, error) {
 	if ref == nil {
 		return nil, compute.ErrEmpty
 	}
 
-	var out arrow.Array
+	var out scalar.Scalar
 	for ref != nil {
-		if len(arrs) == 0 {
-			return nil, fmt.Errorf("%w: %s", compute.ErrNoChildren, out.DataType())
-		}
-
 		switch f := ref.(type) {
 		case *expr.StructFieldRef:
-			if f.Field < 0 || f.Field >= int32(len(arrs)) {
-				return nil, fmt.Errorf("%w. indices=%s", compute.ErrIndexRange, ref)
+			if s.DataType().ID() != arrow.STRUCT {
+				return nil, fmt.Errorf("%w: attempting to reference field from non-struct scalar %s",
+					arrow.ErrInvalid, s)
 			}
 
-			out = arrs[f.Field]
-			arrs = getChildren(out)
-		default:
-			return nil, arrow.ErrNotImplemented
+			st := s.(*scalar.Struct)
+			if f.Field < 0 || f.Field >= int32(len(st.Value)) {
+				return nil, fmt.Errorf("%w: indices=%s", compute.ErrIndexRange, ref)
+			}
+
+			out = st.Value[f.Field]
+		case *expr.ListElementRef:
+			switch v := s.(type) {
+			case *scalar.List:
+				sc, err := scalar.GetScalar(v.Value, int(f.Offset))
+				if err != nil {
+					return nil, err
+				}
+				out = sc
+			case *scalar.LargeList:
+				sc, err := scalar.GetScalar(v.Value, int(f.Offset))
+				if err != nil {
+					return nil, err
+				}
+				out = sc
+			default:
+				return nil, fmt.Errorf("%w: cannot get ListElementRef from non-list scalar %s",
+					arrow.ErrInvalid, v)
+			}
+		case *expr.MapKeyRef:
+			v, ok := s.(*scalar.Map)
+			if !ok {
+				return nil, arrow.ErrInvalid
+			}
+
+			dt, _, err := FromSubstraitType(f.MapKey.GetType(), ext)
+			if err != nil {
+				return nil, err
+			}
+
+			if !arrow.TypeEqual(dt, v.Type.(*arrow.MapType).KeyType()) {
+				return nil, arrow.ErrInvalid
+			}
+
+			keyvalDatum, err := literalToDatum(mem, f.MapKey, ext)
+			if err != nil {
+				return nil, err
+			}
+
+			var (
+				keyval      = keyvalDatum.(*compute.ScalarDatum)
+				m           = v.Value.(*array.Struct)
+				keys        = m.Field(0)
+				valueScalar scalar.Scalar
+			)
+			for i := 0; i < v.Value.Len(); i++ {
+				kv, err := scalar.GetScalar(keys, i)
+				if err != nil {
+					return nil, err
+				}
+				if scalar.Equals(kv, keyval.Value) {
+					valueScalar, err = scalar.GetScalar(m.Field(1), i)
+					if err != nil {
+						return nil, err
+					}
+					break
+				}
+			}
+
+			if valueScalar == nil {
+				return nil, arrow.ErrNotFound
+			}
+
+			out = valueScalar
 		}
+		s = out
 		ref = ref.GetChild()
 	}
 
 	return out, nil
 }
 
-func GetColumn(ref expr.ReferenceSegment, batch arrow.Record) (arrow.Array, error) {
-	return GetArray(ref, batch.Columns())
-}
-
-func GetReferencedValue(ref expr.ReferenceSegment, value compute.Datum, ext ExtensionIDSet) (compute.Datum, error) {
+func GetReferencedValue(mem memory.Allocator, ref expr.ReferenceSegment, value compute.Datum, ext ExtensionIDSet) (compute.Datum, error) {
 	if ref == nil {
 		return nil, compute.ErrEmpty
 	}
 
 	for ref != nil {
+		// process the rest of the refs for the scalars
+		// since arrays can go down to a scalar, but you
+		// won't get an array from a scalar via ref
+		if v, ok := value.(*compute.ScalarDatum); ok {
+			out, err := GetScalar(ref, v.Value, mem, ext)
+			if err != nil {
+				return nil, err
+			}
+
+			return &compute.ScalarDatum{Value: out}, nil
+		}
+
 		switch r := ref.(type) {
 		case *expr.MapKeyRef:
-			switch v := value.(type) {
-			case *compute.ScalarDatum:
-				s, ok := v.Value.(*scalar.Map)
-				if !ok {
-					return nil, arrow.ErrInvalid
-				}
-
-				dt, _, err := FromSubstraitType(r.MapKey.GetType(), ext)
-				if err != nil {
-					return nil, err
-				}
-
-				if !arrow.TypeEqual(dt, s.Type.(*arrow.MapType).KeyType()) {
-					return nil, arrow.ErrInvalid
-				}
-
-				keyvalDatum, err := literalToDatum(r.MapKey, ext)
-				if err != nil {
-					return nil, err
-				}
-
-				var (
-					keyval      = keyvalDatum.(*compute.ScalarDatum)
-					m           = s.Value.(*array.Struct)
-					keys        = m.Field(0)
-					valueScalar scalar.Scalar
-				)
-				for i := 0; i < s.Value.Len(); i++ {
-					kv, err := scalar.GetScalar(keys, i)
-					if err != nil {
-						return nil, err
-					}
-					if scalar.Equals(kv, keyval.Value) {
-						valueScalar, err = scalar.GetScalar(m.Field(1), i)
-						if err != nil {
-							return nil, err
-						}
-						break
-					}
-				}
-
-				if valueScalar == nil {
-					return nil, arrow.ErrInvalid
-				}
-
-				value = &compute.ScalarDatum{Value: valueScalar}
-			default:
-				return nil, arrow.ErrNotImplemented
-			}
+			return nil, arrow.ErrNotImplemented
 		case *expr.StructFieldRef:
 			switch v := value.(type) {
 			case *compute.ArrayDatum:
-				arr := v.MakeArray()
-				defer arr.Release()
-				next, err := GetArray(r, getChildren(arr))
-				if err != nil {
-					return nil, err
+				if v.Type().ID() != arrow.STRUCT {
+					return nil, fmt.Errorf("%w: struct field ref for non struct type %s",
+						arrow.ErrInvalid, v.Type())
 				}
 
-				value = &compute.ArrayDatum{Value: next.Data()}
-			case *compute.ScalarDatum:
-				return nil, arrow.ErrNotImplemented
-			case *compute.RecordDatum:
-				next, err := GetColumn(r, v.Value)
-				if err != nil {
-					return nil, err
+				if r.Field < 0 || r.Field >= int32(len(v.Value.Children())) {
+					return nil, fmt.Errorf("%w: indices=%s", compute.ErrIndexRange, ref)
 				}
-				value = &compute.ArrayDatum{Value: next.Data()}
+
+				value = &compute.ArrayDatum{Value: v.Value.Children()[r.Field]}
+			case *compute.RecordDatum:
+				if r.Field < 0 || r.Field >= int32(v.Value.NumCols()) {
+					return nil, fmt.Errorf("%w: indices=%s", compute.ErrIndexRange, ref)
+				}
+
+				value = &compute.ArrayDatum{Value: v.Value.Column(int(r.Field)).Data()}
 			default:
 				return nil, arrow.ErrNotImplemented
 			}
 		case *expr.ListElementRef:
 			switch v := value.(type) {
-			case *compute.ScalarDatum:
-				switch s := v.Value.(type) {
-				case *scalar.List:
-					sc, err := scalar.GetScalar(s.Value, int(r.Offset))
+			case *compute.ArrayDatum:
+				switch v.Type().ID() {
+				case arrow.LIST, arrow.LARGE_LIST, arrow.FIXED_SIZE_LIST:
+					arr := v.MakeArray()
+					defer arr.Release()
+
+					sc, err := scalar.GetScalar(arr, int(r.Offset))
 					if err != nil {
 						return nil, err
 					}
-					value = &compute.ScalarDatum{Value: sc}
-				case *scalar.LargeList:
-					sc, err := scalar.GetScalar(s.Value, int(r.Offset))
-					if err != nil {
-						return nil, err
+					if s, ok := sc.(scalar.Releasable); ok {
+						defer s.Release()
 					}
+
 					value = &compute.ScalarDatum{Value: sc}
 				default:
-					return nil, arrow.ErrNotImplemented
+					return nil, fmt.Errorf("%w: cannot reference list element in non-list array type %s",
+						arrow.ErrInvalid, v.Type())
 				}
 
 			default:

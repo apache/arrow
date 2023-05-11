@@ -23,15 +23,15 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/compute"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/endian"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/arrow/scalar"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/compute"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/endian"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/scalar"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/types"
@@ -160,7 +160,7 @@ func GetExtensionRegistry(ctx context.Context) *ExtensionIDRegistry {
 	return v
 }
 
-func literalToDatum(lit expr.Literal, ext ExtensionIDSet) (compute.Datum, error) {
+func literalToDatum(mem memory.Allocator, lit expr.Literal, ext ExtensionIDSet) (compute.Datum, error) {
 	switch v := lit.(type) {
 	case *expr.PrimitiveLiteral[bool]:
 		return compute.NewDatum(scalar.NewBooleanScalar(v.Value)), nil
@@ -211,7 +211,7 @@ func literalToDatum(lit expr.Literal, ext ExtensionIDSet) (compute.Datum, error)
 
 		values := make([]scalar.Scalar, len(v.Value))
 		for i, val := range v.Value {
-			d, err := literalToDatum(val, ext)
+			d, err := literalToDatum(mem, val, ext)
 			if err != nil {
 				return nil, err
 			}
@@ -236,7 +236,66 @@ func literalToDatum(lit expr.Literal, ext ExtensionIDSet) (compute.Datum, error)
 		defer arr.Release()
 		return compute.NewDatum(scalar.NewListScalar(arr)), nil
 	case *expr.MapLiteral:
-		// not yet implemented
+		dt, _, err := FromSubstraitType(v.Type, ext)
+		if err != nil {
+			return nil, err
+		}
+
+		mapType, ok := dt.(*arrow.MapType)
+		if !ok {
+			return nil, fmt.Errorf("%w: map literal with non-map type", arrow.ErrInvalid)
+		}
+
+		keys, values := make([]scalar.Scalar, len(v.Value)), make([]scalar.Scalar, len(v.Value))
+		for i, kv := range v.Value {
+			k, err := literalToDatum(mem, kv.Key, ext)
+			if err != nil {
+				return nil, err
+			}
+			defer k.Release()
+			scalarKey := k.(*compute.ScalarDatum).Value
+
+			v, err := literalToDatum(mem, kv.Value, ext)
+			if err != nil {
+				return nil, err
+			}
+			defer v.Release()
+			scalarValue := v.(*compute.ScalarDatum).Value
+
+			if !arrow.TypeEqual(mapType.KeyType(), scalarKey.DataType()) {
+				return nil, fmt.Errorf("%w: key type mismatch for %s, got key with type %s",
+					arrow.ErrInvalid, mapType, scalarKey.DataType())
+			}
+			if !arrow.TypeEqual(mapType.ValueType(), scalarValue.DataType()) {
+				return nil, fmt.Errorf("%w: value type mismatch for %s, got key with type %s",
+					arrow.ErrInvalid, mapType, scalarValue.DataType())
+			}
+
+			keys[i], values[i] = scalarKey, scalarValue
+		}
+
+		keyBldr, valBldr := array.NewBuilder(mem, mapType.KeyType()), array.NewBuilder(mem, mapType.ValueType())
+		defer keyBldr.Release()
+		defer valBldr.Release()
+
+		if err := scalar.AppendSlice(keyBldr, keys); err != nil {
+			return nil, err
+		}
+		if err := scalar.AppendSlice(valBldr, values); err != nil {
+			return nil, err
+		}
+
+		keyArr, valArr := keyBldr.NewArray(), valBldr.NewArray()
+		defer keyArr.Release()
+		defer valArr.Release()
+
+		kvArr, err := array.NewStructArray([]arrow.Array{keyArr, valArr}, []string{"key", "value"})
+		if err != nil {
+			return nil, err
+		}
+		defer kvArr.Release()
+
+		return compute.NewDatumWithoutOwning(scalar.NewMapScalar(kvArr)), nil
 	case *expr.StructLiteral:
 		fields := make([]scalar.Scalar, len(v.Value))
 		names := make([]string, len(v.Value))
@@ -364,9 +423,9 @@ func execFieldRef(ctx context.Context, e *expr.FieldReference, input compute.Exe
 		ref = ref.GetChild()
 	}
 
-	out, err := GetReferencedValue(ref, param, ext)
+	out, err := GetReferencedValue(compute.GetAllocator(ctx), ref, param, ext)
 	if err == compute.ErrEmpty {
-		out = param
+		out = compute.NewDatum(param)
 	} else if err != nil {
 		return nil, err
 	}
@@ -374,6 +433,7 @@ func execFieldRef(ctx context.Context, e *expr.FieldReference, input compute.Exe
 		return nil, fmt.Errorf("%w: referenced field %s was %s, but should have been %s",
 			arrow.ErrInvalid, ref, out.(compute.ArrayLikeDatum).Type(), expectedType)
 	}
+
 	return out, nil
 }
 
@@ -385,9 +445,35 @@ func ExecuteScalarBatch(ctx context.Context, input compute.ExecBatch, exp expr.E
 
 	switch e := exp.(type) {
 	case expr.Literal:
-		return literalToDatum(e, ext)
+		return literalToDatum(compute.GetAllocator(ctx), e, ext)
 	case *expr.FieldReference:
 		return execFieldRef(ctx, e, input, ext)
+	case *expr.Cast:
+		if e.Input == nil {
+			return nil, fmt.Errorf("%w: cast without argument to cast", arrow.ErrInvalid)
+		}
+
+		arg, err := ExecuteScalarBatch(ctx, input, e.Input, ext)
+		if err != nil {
+			return nil, err
+		}
+		defer arg.Release()
+
+		dt, _, err := FromSubstraitType(e.Type, ext)
+		if err != nil {
+			return nil, fmt.Errorf("%w: could not determine type for cast", err)
+		}
+
+		var opts *compute.CastOptions
+		switch e.FailureBehavior {
+		case types.BehaviorThrowException:
+			opts = compute.SafeCastOptions(dt)
+		case types.BehaviorUnspecified:
+			opts = compute.UnsafeCastOptions(dt)
+		case types.BehaviorReturnNil:
+			return nil, fmt.Errorf("%w: cast behavior return nil", arrow.ErrNotImplemented)
+		}
+		return compute.CastDatum(ctx, arg, opts)
 	case *expr.ScalarFunction:
 		var (
 			err       error

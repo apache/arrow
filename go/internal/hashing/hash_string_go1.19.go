@@ -26,5 +26,5 @@ import (
 func hashString(val string, alg uint64) uint64 {
 	buf := *(*[]byte)(unsafe.Pointer(&val))
 	(*reflect.SliceHeader)(unsafe.Pointer(&buf)).Cap = len(val)
-	return hash(buf, alg)
+	return Hash(buf, alg)
 }

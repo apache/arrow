@@ -25,7 +25,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/compute"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/extensions"
 	"github.com/substrait-io/substrait-go/types"
@@ -220,4 +221,39 @@ func NewFieldRefFromDotPath(dotpath string, rootSchema *arrow.Schema) (expr.Refe
 	}
 
 	return out, nil
+}
+
+func RefFromFieldPath(field compute.FieldPath) expr.ReferenceSegment {
+	if len(field) == 0 {
+		return nil
+	}
+
+	seg := expr.NewStructFieldRef(int32(field[0]))
+	parent := seg
+	for _, ref := range field[1:] {
+		next := expr.NewStructFieldRef(int32(ref))
+		parent.Child = next
+		parent = next
+	}
+
+	return seg
+}
+
+func NewFieldRef(ref compute.FieldRef, schema *arrow.Schema, ext ExtensionIDSet) (*expr.FieldReference, error) {
+	path, err := ref.FindOne(schema)
+	if err != nil {
+		return nil, err
+	}
+
+	st, err := ToSubstraitType(arrow.StructOf(schema.Fields()...), false, ext)
+	if err != nil {
+		return nil, err
+	}
+
+	return expr.NewRootFieldRef(RefFromFieldPath(path), st.(*types.StructType))
+}
+
+type builder struct {
+	extSet      ExtensionIDSet
+	inputSchema *arrow.Schema
 }

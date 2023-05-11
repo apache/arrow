@@ -21,7 +21,7 @@ package exprs
 import (
 	"strings"
 
-	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/substrait-io/substrait-go/expr"
 	"github.com/substrait-io/substrait-go/types"
 	"golang.org/x/exp/slices"
