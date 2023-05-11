@@ -152,6 +152,9 @@ class PARQUET_EXPORT PageReader {
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
   // containing new Page otherwise
+  //
+  // The returned Page may contain references that aren't guaranteed to live
+  // beyond the next call to NextPage().
   virtual std::shared_ptr<Page> NextPage() = 0;
 
   virtual void set_max_page_header_size(uint32_t size) = 0;

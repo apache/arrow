@@ -20,25 +20,38 @@ classdef Float64Array < matlab.mixin.CustomDisplay
         Proxy
     end
 
-    properties (Access=private)
+    properties (Hidden, SetAccess=private)
         MatlabArray
     end
 
     methods
-        function obj = Float64Array(matlabArray)
-            obj.MatlabArray = matlabArray;
-            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {obj.MatlabArray});
+        function obj = Float64Array(data, opts)
+            arguments
+                data
+                opts.DeepCopy = false
+            end
+
+            validateattributes(data, "double", ["2d", "nonsparse", "real"]);
+            if ~isempty(data), validateattributes(data, "double", "vector"); end
+            % Store a reference to the array if not doing a deep copy
+            if (~opts.DeepCopy), obj.MatlabArray = data; end
+            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {data, opts.DeepCopy});
         end
 
-        function Print(obj)
-            obj.Proxy.Print();
+        function data = double(obj)
+            data = obj.Proxy.ToMatlab();
         end
     end
 
     methods (Access=protected)
         function displayScalarObject(obj)
-            obj.Print();
+            disp(obj.ToString());
         end
     end
 
+    methods (Access=private)
+        function str = ToString(obj)
+            str = obj.Proxy.ToString();
+        end
+    end
 end

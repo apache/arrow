@@ -15,11 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "float64_array.h"
+#include "arrow/matlab/array/proxy/array.h"
 
 namespace arrow::matlab::array::proxy {
-void Float64Array::Print(libmexclass::proxy::method::Context& context) {
-    // TODO: Return an MDA string representation of the Arrow array. 
-    std::cout << array->ToString() << std::endl;
+
+    Array::Array(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+
+        // Register Proxy methods.
+        REGISTER_METHOD(Array, ToString);
+        REGISTER_METHOD(Array, ToMatlab);
+
+    }
+
+    void Array::ToString(libmexclass::proxy::method::Context& context) {
+        ::matlab::data::ArrayFactory factory;
+
+        // TODO: handle non-ascii characters
+        auto str_mda = factory.createScalar(array->ToString());
+        context.outputs[0] = str_mda;
+    }
 }
-} // namespace arrow::matlab::array::proxy
