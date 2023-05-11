@@ -207,15 +207,10 @@ namespace Apache.Arrow.Builder
                 else
                 {
                     // Copy to memory
-                    try
-                    {
-                        value.CopyTo(Memory.Span.Slice(offset, fixedSize));
-                    }
-                    catch (System.ArgumentException)
-                    {
-                        // Destination is too short. (Parameter 'destination')
+                    if (value.Length > fixedSize)
                         value.AsSpan().Slice(0, fixedSize).CopyTo(Memory.Span.Slice(offset, fixedSize));
-                    }
+                    else
+                        value.CopyTo(Memory.Span.Slice(offset, fixedSize));
                     validity[i] = true;
                 }
                 offset += fixedSize;
