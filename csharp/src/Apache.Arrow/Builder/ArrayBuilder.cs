@@ -205,6 +205,7 @@ namespace Apache.Arrow.Builder
                     AppendValidity(false, data.Length);
                 else if (data.Offset == 0)
                 {
+                    // Should use AppendValidity, but optimized for bulk byte copy
                     // Bulk copy full bytes
                     int end = (data.Length * ValidityBuffer.ValueBitSize) / 8;
                     ValidityBuffer.AppendBytes(dataValidity.Span.Slice(0, end));
@@ -212,6 +213,9 @@ namespace Apache.Arrow.Builder
                     // Copy remaining bits
                     Span<bool> bits = BitUtility.BytesToBits(dataValidity.Span.Slice(end)).Slice(0, data.Length - end * 8);
                     ValidityBuffer.AppendBits(bits);
+
+                    NullCount += nullCount;
+                    Length += data.Length;
                 }
                 else
                 {
