@@ -92,7 +92,7 @@ struct ArrowArray {
 /// These macros are compatible with the dlpack DLDeviceType values,
 /// using the same value for each enum as the equivalent kDL<type>
 /// from dlpack.h. This list should continue to be kept in sync with
-/// the equivalent dlpack.h enum values over time to ensure 
+/// the equivalent dlpack.h enum values over time to ensure
 /// compatibility, rather than potentially diverging.
 ///
 /// To ensure predictability with the ABI we use macros instead of
@@ -170,7 +170,7 @@ struct ArrowDeviceArray {
   /// processing on. Since different devices will use different types
   /// to specify this we use a void* that can be coerced into
   /// whatever the device appropriate type is (e.g. cudaEvent_t for
-  /// CUDA and hipEvent_t for HIP). 
+  /// CUDA and hipEvent_t for HIP).
   ///
   /// If synchronization is not needed this can be null. If this is
   /// non-null, then it should be used to call the appropriate sync
@@ -181,11 +181,10 @@ struct ArrowDeviceArray {
   /// As non-CPU development expands we can update this struct
   /// without ABI breaking changes. This also rounds out the
   /// total size of this struct to be 128 bytes (power of 2)
-  /// on 64-bit systems. These bytes should be zero'd out after 
-  /// allocation in order to ensure safe evolution of the ABI in 
+  /// on 64-bit systems. These bytes should be zero'd out after
+  /// allocation in order to ensure safe evolution of the ABI in
   /// the future.
   int64_t reserved[3];
-  int32_t reserved_addl;
 };
 
 #endif  // ARROW_C_DEVICE_DATA_INTERFACE
@@ -264,13 +263,9 @@ struct ArrowDeviceArrayStream {
   ///
   /// If there is no error and the returned array has been released, the stream
   /// has ended. If successful, the ArrowArray must be released independently
-  /// from the stream.
+  /// from the stream.  
   ///
-  /// Because different frameworks use different types to represent this, we
-  /// accept a void* which should then be reinterpreted into whatever the
-  /// appropriate type is (e.g. cudaStream_t) for use by the producer.
-  ///
-  /// \param[in] self The ArrowDeviceArrayStream object itself  
+  /// \param[in] self The ArrowDeviceArrayStream object itself
   /// \param[out] out C struct where to export the Array and device info
   /// \return 0 if successful, an `errno`-compatible error code otherwise.
   int (*get_next)(struct ArrowDeviceArrayStream* self, struct ArrowDeviceArray* out);
