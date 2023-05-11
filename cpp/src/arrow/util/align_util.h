@@ -162,7 +162,7 @@ ARROW_EXPORT Result<std::shared_ptr<ArrayData>> EnsureAlignment(
 /// If any input buffer is already aligned then this method will reuse that same input
 /// buffer.
 ///
-/// \param array_data the array to check
+/// \param array the array to check
 /// \param alignment the alignment to check for
 /// \param memory_pool a memory pool that will be used to allocate new buffers if any
 ///        input buffer is not sufficiently aligned
