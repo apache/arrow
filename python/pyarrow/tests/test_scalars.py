@@ -295,6 +295,35 @@ def test_cast():
         pa.scalar('foo').cast('int32')
 
 
+def test_cast_timestamp_to_string():
+    # GH-35370
+    pytest.importorskip("pytz")
+    import pytz
+    dt = datetime.datetime(2000, 1, 1, 0, 0, 0, tzinfo=pytz.utc)
+    ts = pa.scalar(dt, type=pa.timestamp("ns", tz="UTC"))
+    assert ts.cast(pa.string()) == pa.scalar('2000-01-01 00:00:00.000000000Z')
+
+
+def test_cast_float_to_int():
+    # GH-35040
+    float_scalar = pa.scalar(1.5, type=pa.float64())
+    unsafe_cast = float_scalar.cast(pa.int64(), safe=False)
+    expected_unsafe_cast = pa.scalar(1, type=pa.int64())
+    assert unsafe_cast == expected_unsafe_cast
+    with pytest.raises(pa.ArrowInvalid):
+        float_scalar.cast(pa.int64())  # verify default is safe cast
+
+
+def test_cast_int_to_float():
+    # GH-34901
+    int_scalar = pa.scalar(18014398509481983, type=pa.int64())
+    unsafe_cast = int_scalar.cast(pa.float64(), safe=False)
+    expected_unsafe_cast = pa.scalar(18014398509481983.0, type=pa.float64())
+    assert unsafe_cast == expected_unsafe_cast
+    with pytest.raises(pa.ArrowInvalid):
+        int_scalar.cast(pa.float64())  # verify default is safe cast
+
+
 @pytest.mark.pandas
 def test_timestamp():
     import pandas as pd
