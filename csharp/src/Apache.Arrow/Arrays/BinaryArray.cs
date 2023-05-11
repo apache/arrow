@@ -358,11 +358,12 @@ namespace Apache.Arrow
         public override IScalar GetScalar(int index) => GetScalar(index);
         public BinaryScalar GetScalar(int index, bool valid = true)
         {
+            bool isValid = IsValid(index);
             ReadOnlySpan<int> offsets = ValueOffsets;
             int start = offsets[index];
-            int length = offsets[index + 1] - start;
+            int length = isValid ? offsets[index + 1] - start : 0;
 
-            return new(ValueBuffer, length, start);
+            return new(ValueBuffer.Slice(start, length));
         }
     }
 }

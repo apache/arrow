@@ -66,7 +66,7 @@ namespace Apache.Arrow
             for (int i = 0; i < values.Length; i++)
                 values[i] = Fields[i].GetScalar(index);
 
-            return new(Data.DataType as StructType, values);
+            return new(Data.DataType as StructType, values, IsValid(index));
         }
     }
 }

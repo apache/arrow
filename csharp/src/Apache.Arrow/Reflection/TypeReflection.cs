@@ -34,13 +34,6 @@ namespace Apache.Arrow.Reflection
         internal static IEnumerable<PropertyInfo> GetProperties(System.Type type)
             => throw new NotSupportedException("Cannot get properties, need to run on .net core >= 2.0");
 #endif
-        internal static ReadOnlyMemory<byte> AsMemoryBytes(bool value)
-        {
-            byte[] bytes = new byte[1];
-            BitUtility.SetBit(bytes, 0);
-            return new ReadOnlyMemory<byte>(bytes);
-        }
-
         internal static ReadOnlyMemory<byte> AsMemoryBytes(decimal value, IDecimalType type)
         {
             byte[] bytes = new byte[type.ByteWidth];

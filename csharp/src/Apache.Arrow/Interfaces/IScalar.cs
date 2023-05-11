@@ -8,27 +8,27 @@ namespace Apache.Arrow
     public interface IScalar
     {
         IArrowType Type { get; }
+        bool IsValid { get; }
     }
 
-    public interface IDotNetScalar<T> where T : struct
+    public interface IArrowTyped<TArrowType> where TArrowType : IArrowType
+    {
+        TArrowType Type { get; }
+    }
+
+    public interface IDotNetStruct<T> where T : struct
     {
         T Value { get; }
     }
 
     public interface IPrimitiveScalarBase : IScalar
     {
+        ArrowBuffer Buffer { get; }
         ReadOnlySpan<byte> View();
     }
 
-    public interface IPrimitiveScalar<TArrowType> : IPrimitiveScalarBase
+    public interface IPrimitiveScalar<TArrowType> : IPrimitiveScalarBase, IArrowTyped<TArrowType>
         where TArrowType : IArrowType
-    {
-        new TArrowType Type { get; }
-    }
-
-    public interface IPrimitiveScalar<TArrowType, CType> : IPrimitiveScalar<TArrowType>, IDotNetScalar<CType>
-        where TArrowType : IArrowType
-        where CType : struct
     {
     }
 
@@ -37,17 +37,16 @@ namespace Apache.Arrow
     {
     }
 
-    public interface INumericScalar<TArrowType, CType> : INumericScalar<TArrowType>, IDotNetScalar<CType>
-        where TArrowType : IArrowType
-        where CType : struct
-    {
-    }
-
     public interface IBaseBinaryScalar : IPrimitiveScalarBase
     {
     }
 
-    public interface IDecimalScalar<TArrowType> : INumericScalar<TArrowType, decimal>
+    public interface IBaseBinaryScalar<TArrowType> : IBaseBinaryScalar, IArrowTyped<TArrowType>
+        where TArrowType : IArrowType
+    {
+    }
+
+    public interface IDecimalScalar<TArrowType> : INumericScalar<TArrowType>
         where TArrowType : IDecimalType
     {
     }
@@ -56,11 +55,20 @@ namespace Apache.Arrow
     public interface IBaseListScalar : IScalar
     {
         IArrowArray Array { get; }
-        bool IsValid { get; }
+    }
+
+    public interface IBaseListScalar<TArrowType> : IBaseListScalar, IArrowTyped<TArrowType>
+        where TArrowType : IArrowType
+    {
     }
 
     public interface IStructScalar : IScalar
     {
         IScalar[] Fields { get; }
+    }
+
+    public interface IStructScalar<TArrowType> : IStructScalar, IArrowTyped<TArrowType>
+        where TArrowType : IArrowType
+    {
     }
 }

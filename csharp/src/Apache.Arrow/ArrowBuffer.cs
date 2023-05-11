@@ -20,6 +20,8 @@ using Apache.Arrow.Memory;
 
 namespace Apache.Arrow
 {
+    // See https://arrow.apache.org/docs/cpp/api/memory.html#_CPPv4N5arrow6BufferE
+
     public readonly partial struct ArrowBuffer : IEquatable<ArrowBuffer>, IDisposable
     {
         private readonly IMemoryOwner<byte> _memoryOwner;
@@ -53,7 +55,7 @@ namespace Apache.Arrow
         public ReadOnlySpan<byte> Span
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Memory.Span;
+            get => AsBytes();
         }
 
         public ArrowBuffer Clone(MemoryAllocator allocator = default)
@@ -73,20 +75,21 @@ namespace Apache.Arrow
             _memoryOwner?.Dispose();
         }
 
-        internal unsafe ReadOnlySpan<byte> UnsafeView(int start, int count)
-        {
-            byte* ptr = (byte*)Memory.Pin().Pointer;
-            ptr += start;
+        /// <summary>
+        /// Forms a slice out of the given memory, beginning at 'start', of given length
+        /// </summary>
+        /// <param name="start">The index at which to begin this slice.</param>
+        /// <param name="length">The desired length for the slice (exclusive).</param>
+        /// <exception cref="System.ArgumentOutOfRangeException">
+        /// Thrown when the specified <paramref name="start"/> or end index is not in range (&lt;0 or &gt;Length).
+        /// </exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ArrowBuffer Slice(int start, int length) => new(Memory.Slice(start, length));
 
-            return new ReadOnlySpan<byte>(ptr, count);
-        }
-
-        internal unsafe int GetInt(int index)
-        {
-            fixed (byte* ptr = UnsafeView(index * 4, 4))
-            {
-                return *(int*)ptr;
-            }
-        }
+        /// <summary>
+        /// Returns a byte span from the memory.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal unsafe ReadOnlySpan<byte> AsBytes() => new((byte*)Memory.Pin().Pointer, Length);
     }
 }
