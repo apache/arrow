@@ -311,7 +311,7 @@ def test_cast_float_to_int():
     expected_unsafe_cast = pa.scalar(1, type=pa.int64())
     assert unsafe_cast == expected_unsafe_cast
     with pytest.raises(pa.ArrowInvalid):
-        float_scalar.cast(pa.int64(), safe=True)
+        float_scalar.cast(pa.int64())  # the default should be safe cast
 
 
 def test_cast_int_to_float():
@@ -321,7 +321,7 @@ def test_cast_int_to_float():
     expected_unsafe_cast = pa.scalar(18014398509481983.0, type=pa.float64())
     assert unsafe_cast == expected_unsafe_cast
     with pytest.raises(pa.ArrowInvalid):
-        int_scalar.cast(pa.float64(), safe=True)
+        int_scalar.cast(pa.float64())  # the default should be safe cast
 
 
 @pytest.mark.pandas
