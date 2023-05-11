@@ -20,4 +20,7 @@
 set TESTBENCH_GCS_VERSION="v0.32.0"
 
 @REM Install GCS testbench %TESTBENCH_GCS_VERSION%
-python -m pip install "https://github.com/googleapis/storage-testbench/archive/%TESTBENCH_GCS_VERSION%.tar.gz" || exit /B 1
+python -m pip install  ^
+        "urllib3<2" ^
+        "https://github.com/googleapis/storage-testbench/archive/%TESTBENCH_GCS_VERSION%.tar.gz" ^
+        || exit /B 1
