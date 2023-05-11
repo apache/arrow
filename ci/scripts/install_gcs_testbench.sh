@@ -36,9 +36,8 @@ esac
 
 version=$1
 if [[ "${version}" -eq "default" ]]; then
-  version="v0.32.0"
+  version="v0.36.0"
 fi
 
 ${PYTHON:-python3} -m pip install \
-  "urllib3<2" \
   "https://github.com/googleapis/storage-testbench/archive/${version}.tar.gz"
