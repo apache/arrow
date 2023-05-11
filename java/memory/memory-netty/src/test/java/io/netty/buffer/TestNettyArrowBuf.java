@@ -138,4 +138,15 @@ public class TestNettyArrowBuf {
       byteBufs.component(0).release();
     }
   }
+
+  @Test
+  public void testUnwrapReturnsNull() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(20);
+    ) {
+      NettyArrowBuf nettyBuf = NettyArrowBuf.unwrapBuffer(buf);
+      // NettyArrowBuf cannot be unwrapped, so unwrap() should return null per the Netty ByteBuf API
+      Assert.assertNull(nettyBuf.unwrap());
+    }
+  }
 }
