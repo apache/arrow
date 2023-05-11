@@ -221,7 +221,10 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(NullType type)
             {
-                Result = new FieldType(Flatbuf.Type.Null, 0);
+                Flatbuf.Null.StartNull(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.Null,
+                    Flatbuf.Null.EndNull(Builder));
             }
 
             public void Visit(IArrowType type)
