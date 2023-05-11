@@ -34,6 +34,7 @@
 #include "arrow/util/align_util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
@@ -105,10 +106,11 @@ struct SourceNode : ExecNode, public TracedNode {
             }
             ExecBatch batch = morsel.Slice(offset, batch_size);
             for (auto& value : batch.values) {
-              if (value.is_array() && value.type()->byte_width() > 1) {  // GH-35498
+              int64_t width = value.type()->byte_width();
+              if (value.is_array() && is_fixed_width(value.type()->id()) && width > 1 &&
+                  bit_util::IsPowerOf2(width)) {
                 ARROW_ASSIGN_OR_RAISE(
-                    value, arrow::util::EnsureAlignment(value.make_array(),
-                                                        value.type()->byte_width(),
+                    value, arrow::util::EnsureAlignment(value.make_array(), width,
                                                         default_memory_pool()));
               }
             }
