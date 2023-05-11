@@ -578,10 +578,9 @@ cdef class SortingColumn:
         schema : Schema
             Schema of the input data.
         sort_keys : Sequence of (name, order) tuples
-            Names of field/column keys to sort the input on,
+            Names of field/column keys (str) to sort the input on,
             along with the order each field/column is sorted in.
             Accepted values for `order` are "ascending", "descending".
-            The field name can be a string column name or expression.
         null_placement : {'at_start', 'at_end'}, default 'at_end'
             Where null values should appear in the sort order.
 
@@ -673,7 +672,11 @@ cdef class SortingColumn:
         return tuple(sort_keys), null_placement
 
     def __repr__(self):
-        return """SortingColumn(column_index={0}, descending={1}, nulls_first={2})""".format(
+        return """{}
+  column_index: {}
+  descending: {}
+  nulls_first: {}""".format(
+            object.__repr__(self),
             self.column_index, self.descending, self.nulls_first)
 
     def __eq__(self, SortingColumn other):
