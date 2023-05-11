@@ -329,9 +329,7 @@ namespace Apache.Arrow.IntegrationTest
 
             public void Visit(NullType type)
             {
-                var json = JsonFieldData.Data.GetRawText();
-                int?[] values = JsonSerializer.Deserialize<int?[]>(json, s_options);
-                Array = new NullArray(values.Length);
+                Array = new NullArray(JsonFieldData.Count);
             }
 
             private ArrayData GetDecimalArrayData(FixedSizeBinaryType type)
