@@ -1513,7 +1513,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: 3.10
+        PYTHON: "3.10"
         HDFS: "{{ hdfs_version }}"
       image: conda-python-hdfs
 {% endfor %}
