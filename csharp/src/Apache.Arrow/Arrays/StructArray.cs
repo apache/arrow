@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Types;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -54,6 +55,18 @@ namespace Apache.Arrow
                 result[i] = ArrowArrayFactory.BuildArray(Data.Children[i]);
             }
             return result;
+        }
+
+        // Arrow Scalar
+        public override IScalar GetScalar(int index) => GetScalar(index);
+        public StructScalar GetScalar(int index, bool valid = true)
+        {
+            var values = new IScalar[Fields.Count];
+
+            for (int i = 0; i < values.Length; i++)
+                values[i] = Fields[i].GetScalar(index);
+
+            return new(Data.DataType as StructType, values);
         }
     }
 }

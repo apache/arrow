@@ -90,7 +90,12 @@ namespace Apache.Arrow
             switch (Data.DataType.TypeId)
             {
                 case Types.ArrowTypeId.Binary:
+                case Types.ArrowTypeId.String:
                     return As<BinaryArray>().GetScalar(index);
+                case Types.ArrowTypeId.List:
+                    return As<ListArray>().GetScalar(index);
+                case Types.ArrowTypeId.Struct:
+                    return As<StructArray>().GetScalar(index);
                 default:
                     throw new NotSupportedException($"Cannot get scalar from array of type {Data.DataType}");
             }

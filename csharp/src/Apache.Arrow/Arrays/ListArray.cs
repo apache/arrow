@@ -202,11 +202,12 @@ namespace Apache.Arrow
         public override IScalar GetScalar(int index) => GetScalar(index);
         public ListScalar GetScalar(int index, bool valid = true)
         {
+            bool isValid = IsValid(index);
             ReadOnlySpan<int> offsets = ValueOffsets;
             int start = offsets[index];
-            int length = offsets[index + 1] - start;
+            int length = isValid ? offsets[index + 1] - start : 0;
 
-            return new(Data.DataType as ListType, Values.Slice(start, length), IsValid(index));
+            return new(Data.DataType as ListType, Values.Slice(start, length), isValid);
         }
     }
 }
