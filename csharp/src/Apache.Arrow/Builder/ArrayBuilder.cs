@@ -164,12 +164,11 @@ namespace Apache.Arrow.Builder
 
             // Handle validity
             var dataValidity = data.Buffers[ValidityBufferIndex];
-            // Reusable bit buffer
-            Span<bool> bitBuffer = new bool[data.Length];
-
+            
             // Check if need to recalculate null count
             if (data.NullCount < 0)
             {
+                Span<bool> bits = new bool[data.Length];
                 int nullCount = 0;
                 bool allValid = true;
 
@@ -184,7 +183,7 @@ namespace Apache.Arrow.Builder
                         nullCount++;
                     }
 
-                    bitBuffer[i] = isValid;
+                    bits[i] = isValid;
                 }
 
                 if (nullCount == data.Length)
@@ -192,7 +191,7 @@ namespace Apache.Arrow.Builder
                 else if (allValid)
                     AppendValidity(true, data.Length);
                 else
-                    AppendValidity(bitBuffer, nullCount);
+                    AppendValidity(bits, nullCount);
                 // Update it since we calculated it
                 data.NullCount = nullCount;
             }
@@ -216,6 +215,8 @@ namespace Apache.Arrow.Builder
                 }
                 else
                 {
+                    Span<bool> bits = new bool[data.Length];
+
                     bool allValid = true;
 
                     for (int i = data.Offset; i < data.Length; i++)
@@ -225,13 +226,13 @@ namespace Apache.Arrow.Builder
                         if (!isValid)
                             allValid = false;
 
-                        bitBuffer[i] = isValid;
+                        bits[i] = isValid;
                     }
 
                     if (allValid)
                         AppendValidity(true, data.Length);
                     else
-                        AppendValidity(bitBuffer, nullCount);
+                        AppendValidity(bits, nullCount);
                 }
             }
             
@@ -241,27 +242,31 @@ namespace Apache.Arrow.Builder
                 {
                     IValueBufferBuilder current = Buffers[i];
                     ArrowBuffer other = data.Buffers[i];
+                    int dataBitLength = data.Length * current.ValueBitSize;
+                    int dataByteLength = dataBitLength / 8;
 
                     if (current.ValueBitSize % 8 == 0)
                         // Full byte encoded
-                        current.AppendBytes(other.Span.Slice(data.Offset, data.Length));
+                        current.AppendBytes(other.Span.Slice((data.Offset * current.ValueBitSize) / 8, dataByteLength));
                     else if (data.Offset == 0)
                     {
                         // Bulk copy bytes
-                        int end = (data.Length * current.ValueBitSize) / 8;
-
-                        current.AppendBytes(other.Span.Slice(0, end));
+                        current.AppendBytes(other.Span.Slice(0, dataByteLength));
 
                         // Copy remaining bits
-                        Span<bool> bits = BitUtility.BytesToBits(other.Span.Slice(end)).Slice(0, data.Length - end * 8);
-                        current.AppendBits(bits);
+                        Span<bool> remainingBits = BitUtility
+                            .BytesToBits(other.Span.Slice(dataByteLength))
+                            .Slice(0, dataBitLength - dataByteLength * 8);
+
+                        current.AppendBits(remainingBits);
                     }
                     else
                     {
+                        Span<bool> bits = new bool[dataBitLength];
                         bool allTrue = true;
                         bool allFalse = true;
 
-                        for (int j = data.Offset; j < data.Length; j++)
+                        for (int j = data.Offset; j < dataBitLength; j++)
                         {
                             bool bit = BitUtility.GetBit(other.Span, j);
 
@@ -270,15 +275,15 @@ namespace Apache.Arrow.Builder
                             else
                                 allTrue = false;
 
-                            bitBuffer[j] = bit;
+                            bits[j] = bit;
                         }
 
                         if (allFalse)
-                            current.AppendBits(false, data.Length);
+                            current.AppendBits(false, dataBitLength);
                         else if (allTrue)
-                            current.AppendBits(true, data.Length);
+                            current.AppendBits(true, dataBitLength);
                         else
-                            current.AppendBits(bitBuffer);
+                            current.AppendBits(bits);
                     }
                 }
                 
