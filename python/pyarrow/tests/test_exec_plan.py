@@ -74,28 +74,33 @@ def test_joins_corner_cases():
     ("inner", {
         "colA": [1, 2],
         "col2": ["a", "b"],
+        "colB": [1, 2],
         "col3": ["A", "B"]
     }),
     ("left outer", {
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"],
+        "colB": [1, 2, None],
         "col3": ["A", "B", None]
     }),
     ("right outer", {
+        "colA": [1, 2, None],
         "col2": ["a", "b", None],
         "colB": [1, 2, 99],
         "col3": ["A", "B", "Z"]
     }),
     ("full outer", {
-        "colA": [1, 2, 6, 99],
+        "colA": [1, 2, 6, None],
         "col2": ["a", "b", "f", None],
+        "colB": [1, 2, None, 99],
         "col3": ["A", "B", None, "Z"]
     })
 ])
 @pytest.mark.parametrize("use_threads", [True, False])
+@pytest.mark.parametrize("coalesce_keys", [True, False])
 @pytest.mark.parametrize("use_datasets",
                          [False, pytest.param(True, marks=pytest.mark.dataset)])
-def test_joins(jointype, expected, use_threads, use_datasets):
+def test_joins(jointype, expected, use_threads, coalesce_keys, use_datasets):
     # Allocate table here instead of using parametrize
     # this prevents having arrow allocated memory forever around.
     expected = pa.table(expected)
@@ -115,12 +120,19 @@ def test_joins(jointype, expected, use_threads, use_datasets):
         t2 = ds.dataset([t2])
 
     r = _perform_join(jointype, t1, "colA", t2, "colB",
-                      use_threads=use_threads, coalesce_keys=True)
+                      use_threads=use_threads, coalesce_keys=coalesce_keys)
     r = r.combine_chunks()
     if "right" in jointype:
         r = r.sort_by("colB")
     else:
         r = r.sort_by("colA")
+    if coalesce_keys:
+        if jointype in ("inner", "left outer"):
+            expected = expected.drop(["colB"])
+        elif jointype == "right outer":
+            expected = expected.drop(["colA"])
+        elif jointype == "full outer":
+            expected = expected.drop(["colB"]).set_column(0, "colA", [[1, 2, 6, 99]])
     assert r == expected
 
 
