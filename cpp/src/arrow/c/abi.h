@@ -263,7 +263,7 @@ struct ArrowDeviceArrayStream {
   ///
   /// If there is no error and the returned array has been released, the stream
   /// has ended. If successful, the ArrowArray must be released independently
-  /// from the stream.  
+  /// from the stream.
   ///
   /// \param[in] self The ArrowDeviceArrayStream object itself
   /// \param[out] out C struct where to export the Array and device info
