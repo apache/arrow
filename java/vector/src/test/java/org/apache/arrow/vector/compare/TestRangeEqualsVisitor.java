@@ -26,7 +26,14 @@ import java.util.Arrays;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.*;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.LargeVarCharVector;
+import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.util.ValueEpsilonEqualizers;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -177,8 +184,8 @@ public class TestRangeEqualsVisitor {
 
   @Test
   public void testBitVectorRangeEquals() {
-    try (final BitVector vector1 = new BitVector("v1",  allocator);
-         final BitVector vector2 = new BitVector("v2",  allocator);) {
+    try (final BitVector vector1 = new BitVector("v1", allocator);
+         final BitVector vector2 = new BitVector("v2", allocator);) {
 
       boolean[] v1 = new boolean[]{true, false, true, true, true};
       boolean[] v2 = new boolean[]{false, true, true, true, false};
