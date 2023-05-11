@@ -294,18 +294,17 @@ func (b *BinaryBuilder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	switch b.dtype.ID() {
-	case arrow.BINARY, arrow.LARGE_BINARY:
-		decodedVal, err := base64.StdEncoding.DecodeString(s)
-		if err != nil {
-			return fmt.Errorf("could not decode base64 string: %w", err)
-		}
-		b.Append(decodedVal)
-	case arrow.STRING, arrow.LARGE_STRING:
+
+	if b.dtype.IsUtf8() {
 		b.Append([]byte(s))
-	default:
-		return fmt.Errorf("cannot append string to type %s", b.dtype)
+		return nil
 	}
+
+	decodedVal, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return fmt.Errorf("could not decode base64 string: %w", err)
+	}
+	b.Append(decodedVal)
 	return nil
 }
 

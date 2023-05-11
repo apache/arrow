@@ -15,7 +15,7 @@ index 5a14562..924b1b7 100644
  vcpkg_cmake_install()
  vcpkg_copy_pdbs()
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index df95a08..d740ce7 100644
+index 8f3f3f9..745b0fb 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
 @@ -9,6 +9,7 @@ vcpkg_from_github(
@@ -28,7 +28,7 @@ index df95a08..d740ce7 100644
  vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 0000000000..a57ce0c22f
+index 0000000..a57ce0c
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,19 @@
@@ -49,5 +49,5 @@ index 0000000000..a57ce0c22f
 +   return v & ~(mask << (8 * n));
 +-#endif
 + }
-+
++ 
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
