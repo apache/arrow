@@ -77,20 +77,6 @@
 #'
 #' @rdname Schema
 #' @name Schema
-#' @examples
-#' schema(a = int32(), b = float64())
-#'
-#' schema(
-#'   field("b", double()),
-#'   field("c", bool(), nullable = FALSE),
-#'   field("d", string())
-#' )
-#'
-#' df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
-#' tab1 <- arrow_table(df)
-#' tab1$schema
-#' tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
-#' tab2$schema
 #' @export
 Schema <- R6Class("Schema",
   inherit = ArrowObject,
@@ -244,10 +230,45 @@ print_schema_fields <- function(s) {
   paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
-#' @param ... [fields][field] or field name/[data type][data-type] pairs
+#' Schemas
+#'
+#' Create a schema or extract one from an object.
+#'
+#' @seealso [Schema] for detailed documentation of the Schema R6 object
+#' @param ... [fields][field], field name/[data type][data-type] pairs, or object from which to extract a schema
+#' @examples
+#' # Create schema using pairs of field names and data types
+#' schema(a = int32(), b = float64())
+#'
+#' # Create schema using fields
+#' schema(
+#'   field("b", double()),
+#'   field("c", bool(), nullable = FALSE),
+#'   field("d", string())
+#' )
+#'
+#' # Extract schemas from objects
+#' df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
+#' tab1 <- arrow_table(df)
+#' schema(tab1)
+#' tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
+#' schema(tab2)
 #' @export
-#' @rdname Schema
-schema <- Schema$create
+schema <- function(...){
+  UseMethod("schema")
+}
+
+#' @export
+schema.default <- Schema$create
+
+#' @export
+schema.ArrowTabular <- function(x) x$schema
+
+#' @export
+schema.RecordBatchReader <- function(x) x$schema
+
+#' @export
+schema.Dataset <- function(x) x$schema
 
 #' @export
 names.Schema <- function(x) x$names
