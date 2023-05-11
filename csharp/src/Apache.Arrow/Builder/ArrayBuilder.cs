@@ -188,12 +188,11 @@ namespace Apache.Arrow.Builder
                 }
 
                 if (nullCount == data.Length)
-                    ValidityBuffer.AppendBits(false, data.Length);
+                    AppendValidity(false, data.Length);
                 else if (allValid)
-                    ValidityBuffer.AppendBits(true, data.Length);
+                    AppendValidity(true, data.Length);
                 else
-                    ValidityBuffer.AppendBits(bitBuffer);
-                NullCount += nullCount;
+                    AppendValidity(bitBuffer, nullCount);
                 // Update it since we calculated it
                 data.NullCount = nullCount;
             }
@@ -202,9 +201,9 @@ namespace Apache.Arrow.Builder
                 int nullCount = data.NullCount;
 
                 if (nullCount == 0)
-                    ValidityBuffer.AppendBits(true, data.Length);
+                    AppendValidity(true, data.Length);
                 else if (nullCount == data.Length)
-                    ValidityBuffer.AppendBits(false, data.Length);
+                    AppendValidity(false, data.Length);
                 else if (data.Offset == 0)
                 {
                     // Bulk copy full bytes
@@ -230,12 +229,10 @@ namespace Apache.Arrow.Builder
                     }
 
                     if (allValid)
-                        ValidityBuffer.AppendBits(true, data.Length);
+                        AppendValidity(true, data.Length);
                     else
-                        ValidityBuffer.AppendBits(bitBuffer);
+                        AppendValidity(bitBuffer, nullCount);
                 }
-
-                NullCount += nullCount;
             }
             
             for (int i = 0; i < Buffers.Length; i++)
@@ -277,11 +274,11 @@ namespace Apache.Arrow.Builder
                         }
 
                         if (allFalse)
-                            ValidityBuffer.AppendBits(false, data.Length);
+                            current.AppendBits(false, data.Length);
                         else if (allTrue)
-                            ValidityBuffer.AppendBits(true, data.Length);
+                            current.AppendBits(true, data.Length);
                         else
-                            ValidityBuffer.AppendBits(bitBuffer);
+                            current.AppendBits(bitBuffer);
                     }
                 }
                 
@@ -300,9 +297,6 @@ namespace Apache.Arrow.Builder
             {
                 Dictionary.AppendValues(data.Dictionary);
             }
-
-            // Add length static value
-            Length += data.Length;
 
             return this;
         }

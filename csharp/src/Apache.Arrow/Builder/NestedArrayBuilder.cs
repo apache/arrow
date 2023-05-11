@@ -72,8 +72,15 @@ namespace Apache.Arrow.Builder
         public override IArrayBuilder AppendValue(IScalar value) => AppendValue((ListScalar)value);
         public ListArrayBuilder AppendValue(ListScalar value)
         {
-            AppendValid();
-            Children[0].AppendValues(value.Array);
+            if (value.IsValid)
+            {
+                AppendValid();
+                Children[0].AppendValues(value.Array);
+            }
+            else
+            {
+                AppendNull();
+            }
             return this;
         }
 
