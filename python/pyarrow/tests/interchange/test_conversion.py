@@ -144,7 +144,8 @@ def test_pandas_roundtrip(uint, int, float, np_float):
 
 @pytest.mark.pandas
 def test_pandas_roundtrip_string():
-    if Version(pd.__version__) < Version("2.0.1"):
+    # See https://github.com/pandas-dev/pandas/issues/50554
+    if Version(pd.__version__) < Version("1.6"):
         pytest.skip("Column.size() bug in pandas")
 
     arr = ["a", "", "c"]
