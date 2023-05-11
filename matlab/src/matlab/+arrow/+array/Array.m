@@ -34,6 +34,10 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
         function numElements = get.Length(obj)
             numElements = obj.Proxy.Length();
         end
+
+        function matlabArray = toMATLAB(obj)
+            matlabArray = obj.Proxy.toMATLAB();
+        end
     end
 
     methods (Access = private)
