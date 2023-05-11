@@ -41,7 +41,7 @@ Building requires:
 
 * A C++17-enabled compiler. On Linux, gcc 7.1 and higher should be
   sufficient. For Windows, at least Visual Studio VS2017 is required.
-* CMake 3.5 or higher
+* CMake 3.22.1 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
 * At least 1GB of RAM for a minimal build, 4GB for a minimal  
   debug build with tests and 8GB for a full build using
