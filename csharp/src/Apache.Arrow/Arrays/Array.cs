@@ -90,8 +90,9 @@ namespace Apache.Arrow
             switch (Data.DataType.TypeId)
             {
                 case Types.ArrowTypeId.Binary:
-                case Types.ArrowTypeId.String:
                     return As<BinaryArray>().GetScalar(index);
+                case Types.ArrowTypeId.String:
+                    return As<StringArray>().GetScalar(index);
                 case Types.ArrowTypeId.List:
                     return As<ListArray>().GetScalar(index);
                 case Types.ArrowTypeId.Struct:
