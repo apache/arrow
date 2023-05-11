@@ -292,3 +292,9 @@ test_that("schema name assignment", {
   expect_identical(names(schm2), c("col1", "col2"))
   expect_identical(names(schm2$r_metadata$columns), c("col1", "col2"))
 })
+
+test_that("schema extraction", {
+  tbl <- arrow_table(example_data)
+  schema(tbl)
+  expect_equal(schema(tbl), tbl$schema)
+})
