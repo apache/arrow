@@ -4822,16 +4822,10 @@ def test_column_conversion_for_datetime():
     # GH-35235
     # pandas implemented __from_arrow__ for DatetimeTZDtype
     # https://github.com/pandas-dev/pandas/pull/52201
-    if Version(pd.__version__) <= Version("2.0.1"):
-        pytest.skip("__from_arrow__ added to DatetimeTZDtype in pandas version 2.1.0")
-
     arr = pd.Series(pd.date_range("2012", periods=2, tz="Europe/Brussels"),
                     name="datetime_column")
     table = pa.table({"datetime_column": pa.array(arr)})
     table_col = table.column("datetime_column")
-
-    pandas_dtype = table_col.type.to_pandas_dtype()
-    assert hasattr(pandas_dtype, '__from_arrow__')
 
     result = table_col.to_pandas()
     assert result.name == "datetime_column"
