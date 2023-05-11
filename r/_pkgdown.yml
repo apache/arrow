@@ -206,6 +206,7 @@ reference:
 
   - title: Arrow data types and schema
     contents:
+      - schema
       - Schema
       - unify_schemas
       - infer_type
