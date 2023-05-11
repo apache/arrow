@@ -317,7 +317,7 @@ def test_parquet_sorting_column():
         pq.SortingColumn(1, descending=True),
         pq.SortingColumn(0, descending=False),
     )
-    sort_order, null_placement = pq.SortingColumn.as_sort_order(schema, sorting_cols)
+    sort_order, null_placement = pq.SortingColumn.to_sort_order(schema, sorting_cols)
     assert sort_order == (('b', "descending"), ('a', "ascending"))
     assert null_placement == "at_end"
 
@@ -337,7 +337,7 @@ def test_parquet_sorting_column():
     empty_sorting_cols = pq.SortingColumn.from_sort_order(schema, ())
     assert empty_sorting_cols == ()
 
-    assert pq.SortingColumn.as_sort_order(schema, ()) == ((), "at_end")
+    assert pq.SortingColumn.to_sort_order(schema, ()) == ((), "at_end")
 
     with pytest.raises(ValueError):
         pq.SortingColumn.from_sort_order(schema, (("a", "not a valid sort order")))
@@ -347,7 +347,25 @@ def test_parquet_sorting_column():
             pq.SortingColumn(1, nulls_first=True),
             pq.SortingColumn(0, nulls_first=False),
         )
-        pq.SortingColumn.as_sort_order(schema, sorting_cols)
+        pq.SortingColumn.to_sort_order(schema, sorting_cols)
+
+
+def test_parquet_sorting_column_nested():
+    schema = pa.schema({
+        'a': pa.struct([('x', pa.int64()), ('y', pa.int64())]),
+        'b': pa.int64()
+    })
+
+    sorting_columns = [
+        pq.SortingColumn(0, descending=True),  # a.x
+        pq.SortingColumn(2, descending=False)  # b
+    ]
+
+    sort_order, null_placement = pq.SortingColumn.to_sort_order(schema, sorting_columns)
+    assert null_placement == "at_end"
+    assert len(sort_order) == 2
+    assert sort_order[0] == ("a.x", "descending")
+    assert sort_order[1] == ("b", "ascending")
 
 
 def test_parquet_file_sorting_columns():
