@@ -24,7 +24,7 @@ namespace arrow::matlab::array::proxy {
         // Register Proxy methods.
         REGISTER_METHOD(Array, ToString);
         REGISTER_METHOD(Array, ToMatlab);
-
+        REGISTER_METHOD(Array, Length);
     }
 
     void Array::ToString(libmexclass::proxy::method::Context& context) {
@@ -33,5 +33,11 @@ namespace arrow::matlab::array::proxy {
         // TODO: handle non-ascii characters
         auto str_mda = factory.createScalar(array->ToString());
         context.outputs[0] = str_mda;
+    }
+
+    void Array::Length(libmexclass::proxy::method::Context& context) {
+        ::matlab::data::ArrayFactory factory;
+        auto length_mda = factory.createScalar(array->length());
+        context.outputs[0] = length_mda;
     }
 }
