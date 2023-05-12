@@ -230,6 +230,7 @@ These nodes perform computations on data and may transform or reshape the data
    * - ``filter``
      - :class:`FilterNodeOptions`
      - Removes rows that do not match a given filter expression
+       (:ref:`example <stream_execution_filter_docs>`)
    * - ``project``
      - :class:`ProjectNodeOptions`
      - Creates new columns by evaluating compute expressions.  Can also drop and reorder columns
