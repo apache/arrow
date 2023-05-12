@@ -508,7 +508,8 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
 
 cdef class SortingColumn:
-    """Sorting specification for a single column.
+    """
+    Sorting specification for a single column.
 
     Returned by :meth:`RowGroupMetaData.sorting_columns` and used in
     :class:`ParquetWriter` to specify the sort order of the data.
@@ -522,12 +523,14 @@ cdef class SortingColumn:
     nulls_first : bool, default False
         Whether null values appear before valid values.
 
-    .. note::
-            Column indices are zero-based, refer only to leaf fields, and are in
-            depth-first order. This may make the column indices for nested schemas
-            different from what you expect. In most cases, it will be easier to
-            specify the sort order using column names instead of column indices
-            and converting using the ``from_sort_order`` method.
+    Notes
+    -----
+
+    Column indices are zero-based, refer only to leaf fields, and are in
+    depth-first order. This may make the column indices for nested schemas
+    different from what you expect. In most cases, it will be easier to
+    specify the sort order using column names instead of column indices
+    and converting using the ``from_sort_order`` method.
 
     Examples
     --------
@@ -557,6 +560,10 @@ cdef class SortingColumn:
 
     >>> pq.SortingColumn.to_sort_order(schema, sorting_columns)
     ((('id', 'ascending'), ('timestamp', 'descending')), 'at_end')
+
+    See Also
+    --------
+    RowGroupMetaData.sorting_columns, ParquetFile.sort_order
     """
     cdef int column_index
     cdef c_bool descending
@@ -815,7 +822,7 @@ cdef class RowGroupMetaData(_Weakrefable):
 
     @property
     def sorting_columns(self):
-        """Columns the row group is sorted by (tuple of :class:`SortingColumn`).)"""
+        """Columns the row group is sorted by (tuple of :class:`SortingColumn`))."""
         out = []
         cdef vector[CSortingColumn] sorting_columns = self.metadata.sorting_columns()
         for sorting_col in sorting_columns:
