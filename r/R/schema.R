@@ -432,7 +432,7 @@ as_schema.Schema <- function(x, ...) {
 #' @rdname as_schema
 #' @export
 as_schema.StructType <- function(x, ...) {
-  schema(!!!x$fields())
+  schema(x$fields())
 }
 
 #' @export
