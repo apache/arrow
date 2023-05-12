@@ -102,8 +102,7 @@ cmake --build . --target install --config Release || exit /B
 set TZDIR=%CONDA_PREFIX%\share\zoneinfo
 
 @rem Point to Python executable for GCS tests
-set PYTHON=%CONDA_PREFIX%\python.exe
-@rem %PYTHON%
+set PYTHON=python
 
 ctest --output-on-failure || exit /B
 
