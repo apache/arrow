@@ -65,7 +65,7 @@ reasons for this:
   you will be making it much easier to use these tools in the future.
 
 You could create the Substrait plan yourself but you'll probably have a much easier time finding an existing
-Susbstrait producer.  For example, you could use `ibis-substrait <https://github.com/ibis-project/ibis-substrait>`_
+Substrait producer.  For example, you could use `ibis-substrait <https://github.com/ibis-project/ibis-substrait>`_
 to easily create Substrait plans from python expressions.  There are a few different tools that are able to create
 Substrait plans from SQL.  Eventually, we hope that C++ based Substrait producers will emerge.  However, we
 are not aware of any at this time.
@@ -258,6 +258,9 @@ These nodes reorder, combine, or slice streams of data
    * - ``hash_join``
      - :class:`HashJoinNodeOptions`
      - Joins two inputs based on common columns (:ref:`example <stream_execution_hashjoin_docs>`)
+   * - ``asofjoin``
+     - :class:`AsofJoinNodeOptions`
+     - Joins multiple inputs to the first input based on a common ordered column (often time)
    * - ``union``
      - N/A
      - Merges two inputs with identical schemas (:ref:`example <stream_execution_union_docs>`)

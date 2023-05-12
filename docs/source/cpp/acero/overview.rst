@@ -39,9 +39,11 @@ An execution plan takes in zero or more streams of input data and emits a single
 stream of output data.  The plan describes how the data will be transformed as it
 passes through.  For example, a plan might:
 
- * Merge two streams of data using a common column
- * Create additional columns by evaluating expressions against the existing columns
- * Consume a stream of data by writing it to disk in a partitioned layout
+* Merge two streams of data using a common column
+
+* Create additional columns by evaluating expressions against the existing columns
+
+* Consume a stream of data by writing it to disk in a partitioned layout
 
 .. image:: simple_graph.svg
    :alt: A sample execution plan that joins three streams of data and writes to disk
@@ -86,7 +88,7 @@ Distributed
 
 Acero does not provide distributed execution.  However, Acero aims to be usable by a distributed
 query execution engine.  In other words, Acero will not configure and coordinate workers but
-it does except to be used as a worker.  Sometimes, the distinction is a bit fuzzy.  For example,
+it does expect to be used as a worker.  Sometimes, the distinction is a bit fuzzy.  For example,
 an Acero source may be a smart storage device that is capable of performing filtering or other
 advanced analytics.  One might consider this a distributed plan.  The key distinction is Acero
 does not have the capability of transforming a logical plan into a distributed execution plan.
@@ -98,8 +100,9 @@ Acero vs...
 Arrow Compute
 ^^^^^^^^^^^^^
 
-This is described in more detail in the overview but the key difference is that Acero handles
-streams of data and Arrow Compute handles situations where all the data is in memory.
+This is described in more detail in :ref:`Relation to Arrow C++` but the key difference
+is that Acero handles streams of data and Arrow Compute handles situations where all the
+data is in memory.
 
 Arrow Datasets
 ^^^^^^^^^^^^^^
@@ -179,12 +182,12 @@ ExecNode
 The most basic concept in Acero is the ExecNode.  An ExecNode has zero or more inputs and
 zero or one outputs.  If an ExecNode has zero inputs we call it a source and if an ExecNode
 does not have an output then we call it a sink.  There are many different kinds of nodes and
-each one transforms is inputs in different ways.  For example:
+each one transforms its inputs in different ways.  For example:
 
- * A scan node is a source node that reads data from files
- * An aggregate node accumulates batches of data to compute summary statistics
- * A filter node removes rows from the data according to a filter expression
- * A table sink node accumulates data into a table
+* A scan node is a source node that reads data from files
+* An aggregate node accumulates batches of data to compute summary statistics
+* A filter node removes rows from the data according to a filter expression
+* A table sink node accumulates data into a table
 
 .. note::
    A full list of the available compute modules is included in the :ref:`user's guide<ExecNode List>`
@@ -218,7 +221,7 @@ must have the same length.  There are a few key differences from ExecBatch:
    There are four different ways to represent the given batch of data using different combinations
    of arrays and scalars.  All four exec batches should be considered semantically equivalent.
 
-Converting from a record batch to an exec batch is is always zero copy.  Both RecordBatch and ExecBatch
+Converting from a record batch to an exec batch is always zero copy.  Both RecordBatch and ExecBatch
 refer to the exact same underlying arrays.  Converting from an exec batch to a record batch is
 only zero copy if there are no scalars in the exec batch.
 
@@ -254,7 +257,7 @@ Declaration
 A Declaration is a blueprint for an ExecNode.  Declarations can be combined into a graph to
 form the blueprint for an ExecPlan.  A Declaration describes the computation that needs to be
 done but is not actually responsible for carrying out the computation.  In this way, a Declaration is
-analgous to an expression.  It is expected that Declarations will need to be converted to and from
+analogous to an expression.  It is expected that Declarations will need to be converted to and from
 various query representations (e.g. Substrait).  The Declaration objects are the public API, combined
 with the DeclarationToXyz methods, are the current public API for Acero.
 
