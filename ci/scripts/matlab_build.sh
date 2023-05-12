@@ -28,7 +28,6 @@ install_dir=${base_dir}/matlab/install
 cmake \
   -S ${source_dir} \
   -B ${build_dir} \
-  -G Ninja \
   -D MATLAB_ARROW_INTERFACE=ON \
   -D MATLAB_BUILD_TESTS=ON \
   -D CMAKE_INSTALL_PREFIX=${install_dir} \
