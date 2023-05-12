@@ -212,7 +212,7 @@ These nodes can be used as sources of data
      - Generates data from an iterator of vectors of :class:`arrow::Array`
    * - ``scan``
      - :class:`arrow::dataset::ScanNodeOptions`
-     - Generates data from an `arrow::dataset::Dataset` (requires the datasets module)
+     - Generates data from an :class:`arrow::dataset::Dataset` (requires the datasets module)
        (:ref:`example <stream_execution_scan_docs>`)
 
 Compute Nodes
