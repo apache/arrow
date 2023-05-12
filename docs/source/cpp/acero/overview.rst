@@ -77,8 +77,9 @@ any sort of optimizer.  Acero expects to be given very detailed and low-level in
 on how to manipulate data and then it will perform that manipulation exactly as described.
 
 Creating the best execution plan is very hard.  Small details can have a big impact on
-performance.  We do think optimizers are important and we hope that tools will emerge
-someday which can provide these capabilities using standards such as Substrait.
+performance.  We do think an optimizer is important but we believe it should be
+implemented independent of acero, hopefully in a composable way through standards such
+as Substrait so that any backend could leverage it.
 
 Distributed
 ^^^^^^^^^^^
