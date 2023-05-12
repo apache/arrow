@@ -474,7 +474,7 @@ dim.StructArray <- function(x, ...) c(length(x), x$type$num_fields)
 
 #' @export
 as.data.frame.StructArray <- function(x, row.names = NULL, optional = FALSE, ...) {
-  as.vector(x)
+  as.data.frame(collect.StructArray(x), row.names = row.names, optional = optional, ...)
 }
 
 #' @rdname array

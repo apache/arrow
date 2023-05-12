@@ -269,6 +269,9 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
     ARROW_RETURN_NOT_OK(DecodeArg(func.arguments(i), static_cast<uint32_t>(i), &call,
                                   ext_set, conversion_options));
   }
+  for (int i = 0; i < func.options_size(); i++) {
+    ARROW_RETURN_NOT_OK(DecodeOption(func.options(i), &call));
+  }
   return std::move(call);
 }
 

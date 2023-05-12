@@ -153,9 +153,10 @@ struct ScalarHashImpl {
 
   Status ArrayHash(const ArrayData& a) {
     RETURN_NOT_OK(StdHash(a.length) & StdHash(a.GetNullCount()));
-    if (a.buffers[0] != nullptr) {
+    if (a.GetNullCount() != 0 && a.buffers[0] != nullptr) {
       // We can't visit values without unboxing the whole array, so only hash
-      // the null bitmap for now.
+      // the null bitmap for now. Only hash the null bitmap if the null count
+      // is not 0 to ensure hash consistency.
       RETURN_NOT_OK(BufferHash(*a.buffers[0]));
     }
     for (const auto& child : a.child_data) {

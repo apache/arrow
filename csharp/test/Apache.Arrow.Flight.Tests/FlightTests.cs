@@ -312,5 +312,25 @@ namespace Apache.Arrow.Flight.Tests
             ArrowReaderVerifier.CompareBatches(expectedBatch1, resultList[0]);
             ArrowReaderVerifier.CompareBatches(expectedBatch2, resultList[1]);
         }
+
+        [Fact]
+        public async Task EnsureTheSerializedBatchContainsTheProperTotalRecordsAndTotalBytesProperties()
+        {
+            var flightDescriptor1 = FlightDescriptor.CreatePathDescriptor("test1");
+            var expectedBatch = CreateTestBatch(0, 100);
+            var expectedTotalBytes = expectedBatch.Arrays.Sum(arr => arr.Data.Buffers.Sum(b => b.Length));
+
+            List<FlightInfo> expectedFlightInfo = new List<FlightInfo>();
+
+            expectedFlightInfo.Add(GivenStoreBatches(flightDescriptor1, new RecordBatchWithMetadata(expectedBatch)));
+
+            var listFlightStream = _flightClient.ListFlights();
+
+            var actualFlights = await listFlightStream.ResponseStream.ToListAsync();
+            var result = actualFlights.First();
+
+            Assert.Equal(expectedBatch.Length, result.TotalRecords);
+            Assert.Equal(expectedTotalBytes, result.TotalBytes);
+        }
     }
 }

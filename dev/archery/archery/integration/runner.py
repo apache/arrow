@@ -431,6 +431,11 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             description="Ensure headers are propagated via middleware.",
         ),
         Scenario(
+            "ordered",
+            description="Ensure FlightInfo.ordered is supported.",
+            skip={"JS", "C#", "Rust"},
+        ),
+        Scenario(
             "flight_sql",
             description="Ensure Flight SQL protocol is working as expected.",
             skip={"Rust"}

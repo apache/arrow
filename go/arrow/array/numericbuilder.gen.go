@@ -27,10 +27,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -181,7 +181,7 @@ func (b *Int64Builder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	v, err := strconv.ParseInt(s, 10, 64)
+	v, err := strconv.ParseInt(s, 10, 8*8)
 	if err != nil {
 		b.AppendNull()
 		return err
@@ -404,7 +404,7 @@ func (b *Uint64Builder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	v, err := strconv.ParseUint(s, 10, 64)
+	v, err := strconv.ParseUint(s, 10, 8*8)
 	if err != nil {
 		b.AppendNull()
 		return err
@@ -627,7 +627,7 @@ func (b *Float64Builder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	v, err := strconv.ParseFloat(s, 64)
+	v, err := strconv.ParseFloat(s, 8*8)
 	if err != nil {
 		b.AppendNull()
 		return err
@@ -850,7 +850,7 @@ func (b *Int32Builder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	v, err := strconv.ParseInt(s, 10, 32)
+	v, err := strconv.ParseInt(s, 10, 4*8)
 	if err != nil {
 		b.AppendNull()
 		return err
@@ -1073,7 +1073,7 @@ func (b *Uint32Builder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	v, err := strconv.ParseUint(s, 10, 32)
+	v, err := strconv.ParseUint(s, 10, 4*8)
 	if err != nil {
 		b.AppendNull()
 		return err
@@ -1296,7 +1296,7 @@ func (b *Float32Builder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	v, err := strconv.ParseFloat(s, 32)
+	v, err := strconv.ParseFloat(s, 4*8)
 	if err != nil {
 		b.AppendNull()
 		return err
@@ -1519,7 +1519,7 @@ func (b *Int16Builder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	v, err := strconv.ParseInt(s, 10, 16)
+	v, err := strconv.ParseInt(s, 10, 2*8)
 	if err != nil {
 		b.AppendNull()
 		return err
@@ -1742,7 +1742,7 @@ func (b *Uint16Builder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	v, err := strconv.ParseUint(s, 10, 16)
+	v, err := strconv.ParseUint(s, 10, 2*8)
 	if err != nil {
 		b.AppendNull()
 		return err
@@ -1965,7 +1965,7 @@ func (b *Int8Builder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	v, err := strconv.ParseInt(s, 10, 8)
+	v, err := strconv.ParseInt(s, 10, 1*8)
 	if err != nil {
 		b.AppendNull()
 		return err
@@ -2188,7 +2188,7 @@ func (b *Uint8Builder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	v, err := strconv.ParseUint(s, 10, 8)
+	v, err := strconv.ParseUint(s, 10, 1*8)
 	if err != nil {
 		b.AppendNull()
 		return err
@@ -3534,7 +3534,13 @@ func (b *DurationBuilder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	return fmt.Errorf("%w: AppendValueFromString not implemented for Duration", arrow.ErrNotImplemented)
+	dur, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+
+	b.Append(arrow.Duration(dur / b.dtype.Unit.Multiplier()))
+	return nil
 }
 
 func (b *DurationBuilder) UnmarshalOne(dec *json.Decoder) error {

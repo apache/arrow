@@ -275,12 +275,14 @@ Status Ticket::Deserialize(const std::string& serialized, Ticket* out) {
 arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
                                            const FlightDescriptor& descriptor,
                                            const std::vector<FlightEndpoint>& endpoints,
-                                           int64_t total_records, int64_t total_bytes) {
+                                           int64_t total_records, int64_t total_bytes,
+                                           bool ordered) {
   FlightInfo::Data data;
   data.descriptor = descriptor;
   data.endpoints = endpoints;
   data.total_records = total_records;
   data.total_bytes = total_bytes;
+  data.ordered = ordered;
   RETURN_NOT_OK(internal::SchemaToString(schema, &data.schema));
   return FlightInfo(data);
 }
@@ -355,6 +357,7 @@ std::string FlightInfo::ToString() const {
   }
   ss << "] total_records=" << data_.total_records;
   ss << " total_bytes=" << data_.total_bytes;
+  ss << " ordered=" << (data_.ordered ? "true" : "false");
   ss << '>';
   return ss.str();
 }
@@ -364,7 +367,8 @@ bool FlightInfo::Equals(const FlightInfo& other) const {
          data_.descriptor == other.data_.descriptor &&
          data_.endpoints == other.data_.endpoints &&
          data_.total_records == other.data_.total_records &&
-         data_.total_bytes == other.data_.total_bytes;
+         data_.total_bytes == other.data_.total_bytes &&
+         data_.ordered == other.data_.ordered;
 }
 
 Location::Location() { uri_ = std::make_shared<arrow::internal::Uri>(); }

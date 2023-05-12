@@ -520,17 +520,10 @@ so that we can improve the script.
 
 * On CentOS, building the package requires a more modern `devtoolset` than the default system compilers. See "System dependencies" above.
 
-* If you have multiple versions of `zstd` installed on your system,
-installation by building libarrow from source may fail with an "undefined symbols"
-error. Workarounds include (1) setting `LIBARROW_BINARY` to use a C++ binary; (2)
-setting `ARROW_WITH_ZSTD=OFF` to build without `zstd`; or (3) uninstalling
-the conflicting `zstd`.
-See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
-
 ## Contributing
 
 We are constantly working to make the installation process as painless as 
-possible. If you find ways to improve the process, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues) so that we can
+possible. If you find ways to improve the process, please [report an issue](https://github.com/apache/arrow/issues) so that we can
 document it. Similarly, if you find that your Linux distribution
 or version is not supported, we would welcome the contribution of Docker 
 images (hosted on Docker Hub) that we can use in our continuous integration 

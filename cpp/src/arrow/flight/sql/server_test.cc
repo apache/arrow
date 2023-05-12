@@ -363,7 +363,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfo) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  auto batch = example::DoGetTypeInfoResult();
+  ASSERT_OK_AND_ASSIGN(auto batch, example::DoGetTypeInfoResult());
 
   ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
   ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
@@ -378,7 +378,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfoWithFiltering) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  auto batch = example::DoGetTypeInfoResult(data_type);
+  ASSERT_OK_AND_ASSIGN(auto batch, example::DoGetTypeInfoResult(data_type));
 
   ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
   ASSERT_OK_AND_ASSIGN(auto table, stream->ToTable());
