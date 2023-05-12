@@ -100,7 +100,7 @@ Acero vs...
 Arrow Compute
 ^^^^^^^^^^^^^
 
-This is described in more detail in :ref:`Relation to Arrow C++` but the key difference
+This is described in more detail in :ref:`cpp-vs-acero` but the key difference
 is that Acero handles streams of data and Arrow Compute handles situations where all the
 data is in memory.
 
@@ -128,6 +128,8 @@ projects like Substrait to help allow switching between engines as needed.  We g
 discourage comparative benchmarks as they are almost inevitably going to be workload-driven
 and rarely manage to capture an apples-vs-apples comparison.  Discussions of the pros and
 cons of each is beyond the scope of this guide.
+
+.. _cpp-vs-acero:
 
 Relation to Arrow C++
 =====================
