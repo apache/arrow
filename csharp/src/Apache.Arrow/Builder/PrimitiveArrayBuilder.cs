@@ -137,11 +137,9 @@ namespace Apache.Arrow.Builder
         {
             // Append Empty values
             if (_isFullByte)
-                for (int i = 0; i < count; i++)
-                    ValuesBuffer.AppendEmptyBytes(_byteSize);
+                ValuesBuffer.AppendEmptyBytes(_byteSize * count);
             else
-                for (int i = 0; i < count; i++)
-                    ValuesBuffer.AppendEmptyBits(_bitSize);
+                ValuesBuffer.AppendEmptyBits(_bitSize * count);
 
             return base.AppendNulls(count);
         }
