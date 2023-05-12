@@ -320,7 +320,7 @@ namespace Apache.Arrow.Builder
             return new ArrowBuffer(memoryOwner);
         }
          
-        public void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(ByteLength + numBytes));
+        private void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(ByteLength + numBytes));
 
         internal void EnsureBytes(int numBytes)
         {

@@ -148,8 +148,6 @@ namespace Apache.Arrow.Builder
         /// </summary>
         IBufferBuilder Clear();
 
-        void EnsureAdditionalBytes(int numBytes);
-
         /// <summary>
         /// Build an Arrow buffer from the appended contents so far.
         /// </summary>
