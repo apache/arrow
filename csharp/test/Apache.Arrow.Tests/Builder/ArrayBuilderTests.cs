@@ -112,6 +112,47 @@ namespace Apache.Arrow.Tests.Builder
             Assert.Null(array.GetValue(7));
             Assert.False(array.GetValue(8));
         }
+
+        [Fact]
+        public void BooleanBuilder_Should_AppendArray()
+        {
+            var builder = new BooleanArrayBuilder();
+
+            builder.AppendValue(true);
+
+            var vb = new BooleanArrayBuilder();
+            vb.AppendNull();
+            vb.AppendValues(new bool[] { true, false, true });
+            vb.AppendNulls(3);
+
+            builder.AppendArray(vb.Build());
+            builder.AppendValue(false);
+
+            var array = builder.Build();
+
+            Assert.Equal(9, array.Length);
+            Assert.Equal(4, array.NullCount);
+
+            Assert.True(array.IsValid(0));
+            Assert.False(array.IsValid(1));
+            Assert.True(array.IsValid(2));
+            Assert.True(array.IsValid(3));
+            Assert.True(array.IsValid(4));
+            Assert.False(array.IsValid(5));
+            Assert.False(array.IsValid(6));
+            Assert.False(array.IsValid(7));
+            Assert.True(array.IsValid(8));
+
+            Assert.True(array.GetValue(0));
+            Assert.Null(array.GetValue(1));
+            Assert.True(array.GetValue(2));
+            Assert.False(array.GetValue(3));
+            Assert.True(array.GetValue(4));
+            Assert.Null(array.GetValue(5));
+            Assert.Null(array.GetValue(6));
+            Assert.Null(array.GetValue(7));
+            Assert.False(array.GetValue(8));
+        }
     }
 
     public class BinaryArrayBuilderTests
