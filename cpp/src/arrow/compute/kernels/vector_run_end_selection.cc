@@ -45,68 +45,49 @@ using EmitFragment = std::function<void(int64_t, int64_t, bool)>;
 ///
 /// \see VisitREExAnyFilterCombinedOutputRuns
 template <typename ValuesRunEndType, typename FilterRunEndType>
-struct VisitREExREEFilterOutputFragments {
-  Status operator()(MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-                    FilterOptions::NullSelectionBehavior null_selection,
-                    const EmitFragment& emit_fragment) {
-    using ValueRunEndCType = typename ValuesRunEndType::c_type;
-    using FilterRunEndCType = typename FilterRunEndType::c_type;
+Status VisitREExREEFilterOutputFragments(
+    MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
+    FilterOptions::NullSelectionBehavior null_selection,
+    const EmitFragment& emit_fragment) {
+  using ValueRunEndCType = typename ValuesRunEndType::c_type;
+  using FilterRunEndCType = typename FilterRunEndType::c_type;
 
-    DCHECK_EQ(values.length, filter.length);
+  DCHECK_EQ(values.length, filter.length);
 
-    const int64_t values_offset = arrow::ree_util::ValuesArray(values).offset;
-    const ArraySpan& filter_values = arrow::ree_util::ValuesArray(filter);
-    const int64_t filter_values_offset = filter_values.offset;
-    const uint8_t* filter_is_valid = filter_values.buffers[0].data;
-    const uint8_t* filter_selection = filter_values.buffers[1].data;
-    const bool filter_may_have_nulls =
-        filter_is_valid != NULLPTR && filter_values.GetNullCount() != 0;
+  const int64_t values_offset = arrow::ree_util::ValuesArray(values).offset;
+  const ArraySpan& filter_values = arrow::ree_util::ValuesArray(filter);
+  const int64_t filter_values_offset = filter_values.offset;
+  const uint8_t* filter_is_valid = filter_values.buffers[0].data;
+  const uint8_t* filter_selection = filter_values.buffers[1].data;
+  const bool filter_may_have_nulls =
+      filter_is_valid != NULLPTR && filter_values.GetNullCount() != 0;
 
-    const arrow::ree_util::RunEndEncodedArraySpan<ValueRunEndCType> values_span(values);
-    const arrow::ree_util::RunEndEncodedArraySpan<FilterRunEndCType> filter_span(filter);
-    arrow::ree_util::MergedRunsIterator it(values_span, filter_span);
-    if (filter_may_have_nulls) {
-      if (null_selection == FilterOptions::EMIT_NULL) {
-        int64_t last_i = -1;
-        bool last_emit = false;
-        bool last_emit_null = false;
-        while (!it.is_end()) {
-          const int64_t i = filter_values_offset + it.index_into_right_array();
-          bool emit = last_emit;
-          bool emit_null = last_emit_null;
-          if (last_i != i) {
-            emit_null = !bit_util::GetBit(filter_is_valid, i);
-            emit = emit_null || bit_util::GetBit(filter_selection, i);
-          }
-          if (emit) {
-            emit_fragment(values_offset + it.index_into_left_array(), it.run_length(),
-                          emit_null);
-          }
-          last_i = i;
-          last_emit = emit;
-          last_emit_null = emit_null;
-          ++it;
+  const arrow::ree_util::RunEndEncodedArraySpan<ValueRunEndCType> values_span(values);
+  const arrow::ree_util::RunEndEncodedArraySpan<FilterRunEndCType> filter_span(filter);
+  arrow::ree_util::MergedRunsIterator it(values_span, filter_span);
+  if (filter_may_have_nulls) {
+    if (null_selection == FilterOptions::EMIT_NULL) {
+      int64_t last_i = -1;
+      bool last_emit = false;
+      bool last_emit_null = false;
+      while (!it.is_end()) {
+        const int64_t i = filter_values_offset + it.index_into_right_array();
+        bool emit = last_emit;
+        bool emit_null = last_emit_null;
+        if (last_i != i) {
+          emit_null = !bit_util::GetBit(filter_is_valid, i);
+          emit = emit_null || bit_util::GetBit(filter_selection, i);
         }
-      } else {  // DROP nulls
-        int64_t last_i = -1;
-        bool last_emit = false;
-        while (!it.is_end()) {
-          const int64_t i = filter_values_offset + it.index_into_right_array();
-          const bool emit =
-              (last_i == i)
-                  ? last_emit  // can skip GetBit() if filter index is same as last
-                  : bit_util::GetBit(filter_is_valid, i) &&
-                        bit_util::GetBit(filter_selection, i);
-          if (emit) {
-            emit_fragment(values_offset + it.index_into_left_array(), it.run_length(),
-                          false);
-          }
-          last_i = i;
-          last_emit = emit;
-          ++it;
+        if (emit) {
+          emit_fragment(values_offset + it.index_into_left_array(), it.run_length(),
+                        emit_null);
         }
+        last_i = i;
+        last_emit = emit;
+        last_emit_null = emit_null;
+        ++it;
       }
-    } else {
+    } else {  // DROP nulls
       int64_t last_i = -1;
       bool last_emit = false;
       while (!it.is_end()) {
@@ -114,7 +95,8 @@ struct VisitREExREEFilterOutputFragments {
         const bool emit =
             (last_i == i)
                 ? last_emit  // can skip GetBit() if filter index is same as last
-                : bit_util::GetBit(filter_selection, i);
+                : bit_util::GetBit(filter_is_valid, i) &&
+                      bit_util::GetBit(filter_selection, i);
         if (emit) {
           emit_fragment(values_offset + it.index_into_left_array(), it.run_length(),
                         false);
@@ -124,9 +106,24 @@ struct VisitREExREEFilterOutputFragments {
         ++it;
       }
     }
-    return Status::OK();
+  } else {
+    int64_t last_i = -1;
+    bool last_emit = false;
+    while (!it.is_end()) {
+      const int64_t i = filter_values_offset + it.index_into_right_array();
+      const bool emit =
+          (last_i == i) ? last_emit  // can skip GetBit() if filter index is same as last
+                        : bit_util::GetBit(filter_selection, i);
+      if (emit) {
+        emit_fragment(values_offset + it.index_into_left_array(), it.run_length(), false);
+      }
+      last_i = i;
+      last_emit = emit;
+      ++it;
+    }
   }
-};
+  return Status::OK();
+}
 
 using EmitRun = std::function<void(int64_t, int64_t, bool)>;
 
@@ -137,10 +134,12 @@ using EmitRun = std::function<void(int64_t, int64_t, bool)>;
 /// null_selection=EMIT_NULL. In that case, run_value_i wouldn't necessarily
 /// point to a NULL value in the values array.
 template <typename ValuesRunEndType, typename ValuesValueType,
-          class VisitFilterOutputFragmentsFunctor>
+          typename VisitFilterOutputFragments>
 Status VisitREExAnyFilterCombinedOutputRuns(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-    FilterOptions::NullSelectionBehavior null_selection, const EmitRun& emit_run) {
+    FilterOptions::NullSelectionBehavior null_selection,
+    const VisitFilterOutputFragments& visit_filter_output_fragments,
+    const EmitRun& emit_run) {
   const auto values_values = arrow::ree_util::ValuesArray(values);
   const int64_t null_count = values_values.GetNullCount();
   const bool all_values_are_null = null_count == values_values.length;
@@ -160,7 +159,7 @@ Status VisitREExAnyFilterCombinedOutputRuns(
   // values[open_run_value_i] because null values from filters (combined with
   // FilterOptions::EMIT_NULL) can cause nulls to be emitted as well.
   int64_t open_run_value_i = -1;
-  auto status = VisitFilterOutputFragmentsFunctor{}(
+  auto status = visit_filter_output_fragments(
       pool, values, filter, null_selection,
       [all_values_are_null, values_validity, &read_write, &open_run_length,
        &open_run_is_null, &open_run_value_i,
@@ -350,170 +349,167 @@ int64_t CountREEFilterEmits(const ArraySpan& filter,
 ///
 /// \see VisitREExAnyFilterCombinedOutputRuns
 template <typename ValuesRunEndType>
-struct VisitREExPlainFilterOutputFragments {
-  Status operator()(MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-                    FilterOptions::NullSelectionBehavior null_selection,
-                    const EmitFragment& emit_fragment) {
-    using arrow::internal::BitBlockCount;
-    using arrow::internal::BitBlockCounter;
-    using ValueRunEndCType = typename ValuesRunEndType::c_type;
+Status VisitREExPlainFilterOutputFragments(
+    MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
+    FilterOptions::NullSelectionBehavior null_selection,
+    const EmitFragment& emit_fragment) {
+  using arrow::internal::BitBlockCount;
+  using arrow::internal::BitBlockCounter;
+  using ValueRunEndCType = typename ValuesRunEndType::c_type;
 
-    DCHECK_EQ(values.length, filter.length);
+  DCHECK_EQ(values.length, filter.length);
 
-    const int64_t values_offset = arrow::ree_util::ValuesArray(values).offset;
-    const uint8_t* filter_is_valid = filter.buffers[0].data;
-    const uint8_t* filter_selection = filter.buffers[1].data;
-    const bool filter_may_have_nulls =
-        filter_is_valid != NULLPTR && filter.GetNullCount() != 0;
+  const int64_t values_offset = arrow::ree_util::ValuesArray(values).offset;
+  const uint8_t* filter_is_valid = filter.buffers[0].data;
+  const uint8_t* filter_selection = filter.buffers[1].data;
+  const bool filter_may_have_nulls =
+      filter_is_valid != NULLPTR && filter.GetNullCount() != 0;
 
-    const arrow::ree_util::RunEndEncodedArraySpan<ValueRunEndCType> values_span(values);
-    auto it = values_span.begin();
-    if (filter_may_have_nulls) {
-      if (null_selection == FilterOptions::EMIT_NULL) {
-        // candidates_bitmap = filter_selection | ~filter_is_valid
-        ARROW_ASSIGN_OR_RAISE(auto candidates_bitmap,
-                              arrow::internal::BitmapOrNot(
-                                  pool, filter_selection, filter.offset, filter_is_valid,
-                                  filter.offset, filter.length, filter.offset));
-        const uint8_t* candidates_bitmap_data = candidates_bitmap->data();
-        // For each run in values, process the bitmaps and emit fragments accordingly.
-        while (!it.is_end(values_span)) {
-          int64_t offset = it.logical_position();
-          const int64_t run_end = it.run_end();
-          BitBlockCounter candidates_bit_counter{
-              candidates_bitmap_data, filter.offset + offset, run_end - offset};
-          BitBlockCounter filter_validity_bit_counter{
-              filter_is_valid, filter.offset + offset, run_end - offset};
-          const int64_t values_physical_position = values_offset + it.index_into_array();
-          while (offset < run_end) {
-            BitBlockCount candidates_block = candidates_bit_counter.NextWord();
-            if (candidates_block.AllSet()) {
-              // filter_selection | ~filter_is_valid can mean two things:
-              //
-              //   1. ~filter_is_valid: The filter value is NULL and a NULL
-              //      should be emitted.
-              //   2. filter_is_valid: The filter value is non-NULL and that
-              //      implies filter_selection is true, so the values should be
-              //      emitted.
-              //
-              // We never have to check filter_selection because its value can be
-              // inferred from candidates_block and filter_validity_block.
-              BitBlockCount filter_validity_block =
-                  filter_validity_bit_counter.NextWord();
-              if (filter_validity_block.NoneSet()) {
-                emit_fragment(values_physical_position, candidates_block.length, false);
-              } else if (filter_validity_block.AllSet()) {
-                emit_fragment(values_physical_position, candidates_block.length, true);
-              } else {
-                for (int64_t i = 0; i < candidates_block.length; ++i) {
-                  const int64_t j = filter.offset + offset + i;
-                  const bool valid = bit_util::GetBit(filter_is_valid, j);
-                  emit_fragment(values_physical_position, 1, valid);
-                  // We don't complicate this loop by trying to emit longer runs of values
-                  // here because the caller already has to combine runs of values anyway
-                  // and it can even skip value comparisons when the
-                  // values_physical_position is the same as in the previous
-                  // emit_fragment() call.
-                }
-              }
-            } else if (candidates_block.NoneSet()) {
-              // ~(filter_selection | ~filter_is_valid) implies
-              // ~filter_selection & filter_is_valid, so we have a non-NULL false
-              // in the filter. Nothing needs to be emitted in this case.
-              filter_validity_bit_counter.NextWord();
+  const arrow::ree_util::RunEndEncodedArraySpan<ValueRunEndCType> values_span(values);
+  auto it = values_span.begin();
+  if (filter_may_have_nulls) {
+    if (null_selection == FilterOptions::EMIT_NULL) {
+      // candidates_bitmap = filter_selection | ~filter_is_valid
+      ARROW_ASSIGN_OR_RAISE(auto candidates_bitmap,
+                            arrow::internal::BitmapOrNot(
+                                pool, filter_selection, filter.offset, filter_is_valid,
+                                filter.offset, filter.length, filter.offset));
+      const uint8_t* candidates_bitmap_data = candidates_bitmap->data();
+      // For each run in values, process the bitmaps and emit fragments accordingly.
+      while (!it.is_end(values_span)) {
+        int64_t offset = it.logical_position();
+        const int64_t run_end = it.run_end();
+        BitBlockCounter candidates_bit_counter{candidates_bitmap_data,
+                                               filter.offset + offset, run_end - offset};
+        BitBlockCounter filter_validity_bit_counter{
+            filter_is_valid, filter.offset + offset, run_end - offset};
+        const int64_t values_physical_position = values_offset + it.index_into_array();
+        while (offset < run_end) {
+          BitBlockCount candidates_block = candidates_bit_counter.NextWord();
+          if (candidates_block.AllSet()) {
+            // filter_selection | ~filter_is_valid can mean two things:
+            //
+            //   1. ~filter_is_valid: The filter value is NULL and a NULL
+            //      should be emitted.
+            //   2. filter_is_valid: The filter value is non-NULL and that
+            //      implies filter_selection is true, so the values should be
+            //      emitted.
+            //
+            // We never have to check filter_selection because its value can be
+            // inferred from candidates_block and filter_validity_block.
+            BitBlockCount filter_validity_block = filter_validity_bit_counter.NextWord();
+            if (filter_validity_block.NoneSet()) {
+              emit_fragment(values_physical_position, candidates_block.length, false);
+            } else if (filter_validity_block.AllSet()) {
+              emit_fragment(values_physical_position, candidates_block.length, true);
             } else {
-              filter_validity_bit_counter.NextWord();
               for (int64_t i = 0; i < candidates_block.length; ++i) {
                 const int64_t j = filter.offset + offset + i;
-                const bool candidate = bit_util::GetBit(candidates_bitmap_data, j);
                 const bool valid = bit_util::GetBit(filter_is_valid, j);
-                if (candidate) {
-                  emit_fragment(values_physical_position, 1, valid);
-                }
+                emit_fragment(values_physical_position, 1, valid);
+                // We don't complicate this loop by trying to emit longer runs of values
+                // here because the caller already has to combine runs of values anyway
+                // and it can even skip value comparisons when the
+                // values_physical_position is the same as in the previous
+                // emit_fragment() call.
               }
             }
-            offset += candidates_block.length;
-          }
-          ++it;
-        }
-      } else {  // DROP nulls
-        // For each run in values, process the bitmap and emit fragments accordingly.
-        while (!it.is_end(values_span)) {
-          int64_t offset = it.logical_position();
-          const int64_t run_end = it.run_end();
-          BitBlockCounter filter_bit_counter{filter_selection, filter.offset + offset,
-                                             run_end - offset};
-          BitBlockCounter filter_validity_bit_counter{
-              filter_is_valid, filter.offset + offset, run_end - offset};
-          const int64_t values_physical_position = values_offset + it.index_into_array();
-          while (offset < run_end) {
-            BitBlockCount filter_block = filter_bit_counter.NextWord();
-            if (filter_block.AllSet()) {
-              BitBlockCount filter_validity_block =
-                  filter_validity_bit_counter.NextWord();
-              if (filter_validity_block.AllSet()) {
-                emit_fragment(values_physical_position, filter_block.length, true);
-              } else if (filter_validity_block.NoneSet()) {
-                // Drop all the nulls.
-              } else {
-                for (int64_t i = 0; i < filter_block.length; ++i) {
-                  const int64_t j = filter.offset + offset + i;
-                  const bool emit = bit_util::GetBit(filter_selection, j) &&
-                                    bit_util::GetBit(filter_is_valid, j);
-                  if (emit) {
-                    emit_fragment(values_physical_position, 1, false);
-                  }
-                }
+          } else if (candidates_block.NoneSet()) {
+            // ~(filter_selection | ~filter_is_valid) implies
+            // ~filter_selection & filter_is_valid, so we have a non-NULL false
+            // in the filter. Nothing needs to be emitted in this case.
+            filter_validity_bit_counter.NextWord();
+          } else {
+            filter_validity_bit_counter.NextWord();
+            for (int64_t i = 0; i < candidates_block.length; ++i) {
+              const int64_t j = filter.offset + offset + i;
+              const bool candidate = bit_util::GetBit(candidates_bitmap_data, j);
+              const bool valid = bit_util::GetBit(filter_is_valid, j);
+              if (candidate) {
+                emit_fragment(values_physical_position, 1, valid);
               }
-            } else if (filter_block.NoneSet()) {
-              // Skip.
-              filter_validity_bit_counter.NextWord();
+            }
+          }
+          offset += candidates_block.length;
+        }
+        ++it;
+      }
+    } else {  // DROP nulls
+      // For each run in values, process the bitmap and emit fragments accordingly.
+      while (!it.is_end(values_span)) {
+        int64_t offset = it.logical_position();
+        const int64_t run_end = it.run_end();
+        BitBlockCounter filter_bit_counter{filter_selection, filter.offset + offset,
+                                           run_end - offset};
+        BitBlockCounter filter_validity_bit_counter{
+            filter_is_valid, filter.offset + offset, run_end - offset};
+        const int64_t values_physical_position = values_offset + it.index_into_array();
+        while (offset < run_end) {
+          BitBlockCount filter_block = filter_bit_counter.NextWord();
+          if (filter_block.AllSet()) {
+            BitBlockCount filter_validity_block = filter_validity_bit_counter.NextWord();
+            if (filter_validity_block.AllSet()) {
+              emit_fragment(values_physical_position, filter_block.length, true);
+            } else if (filter_validity_block.NoneSet()) {
+              // Drop all the nulls.
             } else {
-              filter_validity_bit_counter.NextWord();
               for (int64_t i = 0; i < filter_block.length; ++i) {
                 const int64_t j = filter.offset + offset + i;
                 const bool emit = bit_util::GetBit(filter_selection, j) &&
                                   bit_util::GetBit(filter_is_valid, j);
                 if (emit) {
-                  emit_fragment(values_physical_position, 1, true);
+                  emit_fragment(values_physical_position, 1, false);
                 }
               }
             }
-            offset += filter_block.length;
-          }
-          ++it;
-        }
-      }
-    } else {
-      // For each run in values, process the bitmap and emit fragments accordingly.
-      while (!it.is_end(values_span)) {
-        int64_t offset = it.logical_position();
-        const int64_t run_end = it.run_end();
-        BitBlockCounter selection_bit_counter{filter_selection, filter.offset + offset,
-                                              run_end - offset};
-        const int64_t values_physical_position = values_offset + it.index_into_array();
-        while (offset < run_end) {
-          BitBlockCount selection_block = selection_bit_counter.NextWord();
-          if (selection_block.AllSet()) {
-            emit_fragment(values_physical_position, selection_block.length, true);
-          } else if (selection_block.NoneSet()) {
+          } else if (filter_block.NoneSet()) {
             // Skip.
+            filter_validity_bit_counter.NextWord();
           } else {
-            for (int64_t i = 0; i < selection_block.length; ++i) {
+            filter_validity_bit_counter.NextWord();
+            for (int64_t i = 0; i < filter_block.length; ++i) {
               const int64_t j = filter.offset + offset + i;
-              if (bit_util::GetBit(filter_selection, j)) {
+              const bool emit = bit_util::GetBit(filter_selection, j) &&
+                                bit_util::GetBit(filter_is_valid, j);
+              if (emit) {
                 emit_fragment(values_physical_position, 1, true);
               }
             }
           }
-          offset += selection_block.length;
+          offset += filter_block.length;
         }
         ++it;
       }
     }
-    return Status::OK();
+  } else {
+    // For each run in values, process the bitmap and emit fragments accordingly.
+    while (!it.is_end(values_span)) {
+      int64_t offset = it.logical_position();
+      const int64_t run_end = it.run_end();
+      BitBlockCounter selection_bit_counter{filter_selection, filter.offset + offset,
+                                            run_end - offset};
+      const int64_t values_physical_position = values_offset + it.index_into_array();
+      while (offset < run_end) {
+        BitBlockCount selection_block = selection_bit_counter.NextWord();
+        if (selection_block.AllSet()) {
+          emit_fragment(values_physical_position, selection_block.length, true);
+        } else if (selection_block.NoneSet()) {
+          // Skip.
+        } else {
+          for (int64_t i = 0; i < selection_block.length; ++i) {
+            const int64_t j = filter.offset + offset + i;
+            if (bit_util::GetBit(filter_selection, j)) {
+              emit_fragment(values_physical_position, 1, true);
+            }
+          }
+        }
+        offset += selection_block.length;
+      }
+      ++it;
+    }
   }
-};
+  return Status::OK();
+}
 
 // This is called from templates with many instantiations, so we don't want to inline it.
 ARROW_NOINLINE Status MakeNullREEData(int64_t logical_length, MemoryPool* pool,
@@ -578,11 +574,11 @@ class REExREEFilterExecImpl final : public REEFilterExec {
 
  private:
   Status VisitCombinedOutputRuns(const EmitRun& emit_run) {
-    using VisitOutputFragments =
-        VisitREExREEFilterOutputFragments<ValuesRunEndType, FilterRunEndType>;
-    return VisitREExAnyFilterCombinedOutputRuns<ValuesRunEndType, ValuesValueType,
-                                                VisitOutputFragments>(
-        pool_, values_, filter_, null_selection_, emit_run);
+    auto* visit_filter_output_fragments =
+        &VisitREExREEFilterOutputFragments<ValuesRunEndType, FilterRunEndType>;
+    return VisitREExAnyFilterCombinedOutputRuns<ValuesRunEndType, ValuesValueType>(
+        pool_, values_, filter_, null_selection_, visit_filter_output_fragments,
+        emit_run);
   }
 
  public:
@@ -686,10 +682,11 @@ class REExPlainFilterExecImpl final : public REEFilterExec {
 
  private:
   Status VisitCombinedOutputRuns(const EmitRun& emit_run) {
-    using VisitOutputFragments = VisitREExPlainFilterOutputFragments<ValuesRunEndType>;
-    return VisitREExAnyFilterCombinedOutputRuns<ValuesRunEndType, ValuesValueType,
-                                                VisitOutputFragments>(
-        pool_, values_, filter_, null_selection_, emit_run);
+    auto* visit_filter_output_fragments =
+        &VisitREExPlainFilterOutputFragments<ValuesRunEndType>;
+    return VisitREExAnyFilterCombinedOutputRuns<ValuesRunEndType, ValuesValueType>(
+        pool_, values_, filter_, null_selection_, visit_filter_output_fragments,
+        emit_run);
   }
 
  public:
