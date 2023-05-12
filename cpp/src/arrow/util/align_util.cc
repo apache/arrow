@@ -215,7 +215,7 @@ Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> ar
     std::vector<std::shared_ptr<Buffer>> buffers_ = array_data->buffers;
     if (alignment == kMallocAlignment) {
       int malloc_alignment = GetMallocValuesAlignment(*array_data);
-      DCHECK(buffers_.size() >= 2);
+      DCHECK_GE(buffers_.size(), 2);
       ARROW_ASSIGN_OR_RAISE(buffers_[1], EnsureAlignment(std::move(buffers_[1]),
                                                          malloc_alignment, memory_pool));
     } else {
