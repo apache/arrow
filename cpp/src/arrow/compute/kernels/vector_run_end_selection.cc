@@ -127,14 +127,18 @@ Status VisitREExREEFilterOutputFragments(
 
 using EmitRun = std::function<void(int64_t, int64_t, bool)>;
 
+using VisitFilterOutputFragments = Status (*)(MemoryPool*, const ArraySpan&,
+                                              const ArraySpan&,
+                                              FilterOptions::NullSelectionBehavior,
+                                              const EmitFragment&);
+
 /// \param emit_run A callable that takes (run_value_i, run_length, valid).
 /// emit_run can be called with run_length=0, but is assumed to be a no-op in that
 /// case. run_value_i and valid are undefined if run_length=0. If valid=false,
 /// run_value_i should not be used as nulls can be emitted from the filter when
 /// null_selection=EMIT_NULL. In that case, run_value_i wouldn't necessarily
 /// point to a NULL value in the values array.
-template <typename ValuesRunEndType, typename ValuesValueType,
-          typename VisitFilterOutputFragments>
+template <typename ValuesRunEndType, typename ValuesValueType>
 Status VisitREExAnyFilterCombinedOutputRuns(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection,
