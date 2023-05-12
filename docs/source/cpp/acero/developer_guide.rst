@@ -46,7 +46,7 @@ creator of tasks in a plan.
 .. note::
    The ExecPlan operates on a push-based model.  Sources are often pull-based.  For example,
    your source may be an iterator.  The source node will typically then schedule tasks to pull one
-   item from the source and push it into the plan.
+   item from the source and push that item into the source's output node (via ``InputReceived``).
 
 Examples
 ^^^^^^^^

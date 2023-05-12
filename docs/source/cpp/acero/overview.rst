@@ -47,6 +47,7 @@ passes through.  For example, a plan might:
 
 .. image:: simple_graph.svg
    :alt: A sample execution plan that joins three streams of data and writes to disk
+   :align: center
 
 Acero is not...
 ---------------
@@ -155,6 +156,7 @@ and literals, to form an expression (a tree of function calls) which the compute
 evaluate.  For example, calculating ``x + (y * 3)`` given a table with columns ``x`` and ``y``.
 
 .. image:: expression_ast.svg
+   :align: center
    :alt: A sample expression tree
 
 Acero expands on these capabilities by adding compute operations for streams of data.  For
