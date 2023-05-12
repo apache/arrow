@@ -46,6 +46,31 @@ namespace Apache.Arrow.Tests.Builder
             Assert.Equal(1L, array.GetValue(2));
             Assert.Equal(-12L, array.GetValue(3));
         }
+
+        [Fact]
+        public void ArrayBuilder_Should_AppendArrowArraySlice()
+        {
+            var builder = new FixedBinaryArrayBuilder<long>() as ArrayBuilder;
+            long?[] values = new long?[] { 0, 1, -12, null, 965 };
+
+            var arrayBuilder = new FixedBinaryArrayBuilder<long>(values.Length);
+            arrayBuilder.AppendValues(values);
+
+            builder.AppendNull();
+            builder.AppendArray(arrayBuilder.Build().Slice(1, 3));
+
+            var array = builder.Build() as Int64Array;
+
+            Assert.Equal(4, array.Length);
+            Assert.Equal(2, array.NullCount);
+
+            Assert.False(array.IsValid(0));
+            Assert.True(array.IsValid(2));
+
+            Assert.Equal(1L, array.GetValue(1));
+            Assert.Equal(-12L, array.GetValue(2));
+            Assert.Null(array.GetValue(3));
+        }
     }
 
     public class ValueArrayBuilderTests

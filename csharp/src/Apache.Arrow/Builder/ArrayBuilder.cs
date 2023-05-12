@@ -176,14 +176,14 @@ namespace Apache.Arrow.Builder
                 int nullCount = 0;
 
                 // Need recalculate nulls
-                for (int i = data.Offset; i < data.Length; i++)
+                for (int i = 0; i < data.Length; i++)
                 {
-                    bool isValid = BitUtility.GetBit(dataValidity.Span, i);
+                    bool isValid = BitUtility.GetBit(dataValidity.Span, data.Offset + i);
 
-                    if (!isValid)
+                    if (isValid)
+                        bits[i] = isValid;
+                    else
                         nullCount++;
-
-                    bits[i] = isValid;
                 }
 
                 AppendValidity(bits, nullCount);

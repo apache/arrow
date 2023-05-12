@@ -128,6 +128,13 @@ namespace Apache.Arrow.Builder
         IBufferBuilder AppendValues<T>(ReadOnlySpan<T> values) where T : struct;
 
         /// <summary>
+        /// Append nullablestruct values too buffer.
+        /// </summary>
+        /// <param name="values">structs to append</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
+        IBufferBuilder AppendValues<T>(ICollection<T?> values, Span<bool> validity, int fixedSize, out int nullCount) where T : struct;
+
+        /// <summary>
         /// Append booleans value too buffer
         /// </summary>
         /// <param name="value">boolean to append</param>

@@ -272,6 +272,37 @@ namespace Apache.Arrow.Builder
             ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(values);
             return AppendBytes(bytes);
         }
+
+        public IBufferBuilder AppendValues<T>(
+            ICollection<T?> values, Span<bool> validity, int fixedSize,
+            out int nullCount
+            ) where T : struct
+        {
+            int i = 0;
+            int offset = ByteLength;
+            int _nullCount = 0;
+            EnsureAdditionalBytes(values.Count * fixedSize);
+
+            foreach (T? value in values)
+            {
+                if (value.HasValue)
+                {
+                    T real = value.Value;
+                    ReadOnlySpan<T> span = TypeReflection.CreateReadOnlySpan(ref real);
+                    MemoryMarshal.AsBytes(span).CopyTo(Memory.Span.Slice(offset, fixedSize));
+                    validity[i] = true;
+                }
+                else
+                    _nullCount++;
+                offset += fixedSize;
+                i++;
+            }
+
+            ByteLength = offset;
+            nullCount = _nullCount;
+            return this;
+        }
+
         public IBufferBuilder AppendValues(bool value, int count) => AppendBits(value, count);
         public IBufferBuilder AppendValues<T>(T value, int count) where T : struct
         {
