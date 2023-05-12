@@ -126,7 +126,7 @@ DeclarationToReader
 -------------------
 
 The :func:`DeclarationToReader` method allows you to iteratively consume the results.  It will create an
-:class:`arrow::RecordBatchReader` which you can read from at your liesure.  If you do not read from the
+:class:`arrow::RecordBatchReader` which you can read from at your leisure.  If you do not read from the
 reader quickly enough then backpressure will be applied and the execution plan will pause.  Closing the
 reader will cancel the running execution plan and the reader's destructor will wait for the execution plan
 to finish whatever it is doing and so it may block.
