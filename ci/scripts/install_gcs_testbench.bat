@@ -17,9 +17,9 @@
 
 @echo on
 
-set TESTBENCH_GCS_VERSION="v0.36.0"
+set GCS_TESTBENCH_VERSION="v0.36.0"
 
-@REM Install GCS testbench %TESTBENCH_GCS_VERSION%
+@REM Install GCS testbench %GCS_TESTBENCH_VERSION%
 python -m pip install  ^
-        "https://github.com/googleapis/storage-testbench/archive/%TESTBENCH_GCS_VERSION%.tar.gz" ^
+        "https://github.com/googleapis/storage-testbench/archive/%GCS_TESTBENCH_VERSION%.tar.gz" ^
         || exit /B 1
