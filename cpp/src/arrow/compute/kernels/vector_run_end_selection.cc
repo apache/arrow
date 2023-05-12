@@ -127,14 +127,16 @@ struct VisitREExREEFilterOutputFragments {
   }
 };
 
-/// \tparam EmitRun A callable that takes (run_value_i, run_length, valid).
-/// EmitRun can be called with run_length=0, but is assumed to be a no-op in that
+using EmitRun = std::function<void(int64_t, int64_t, bool)>;
+
+/// \param emit_run A callable that takes (run_value_i, run_length, valid).
+/// emit_run can be called with run_length=0, but is assumed to be a no-op in that
 /// case. run_value_i and valid are undefined if run_length=0. If valid=false,
 /// run_value_i should not be used as nulls can be emitted from the filter when
 /// null_selection=EMIT_NULL. In that case, run_value_i wouldn't necessarily
 /// point to a NULL value in the values array.
 template <typename ValuesRunEndType, typename ValuesValueType,
-          class VisitFilterOutputFragmentsFunctor, typename EmitRun>
+          class VisitFilterOutputFragmentsFunctor>
 Status VisitREExAnyFilterCombinedOutputRuns(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection, const EmitRun& emit_run) {
@@ -574,16 +576,23 @@ class REExREEFilterExecImpl final : public REEFilterExec {
 
   ~REExREEFilterExecImpl() override = default;
 
+ private:
+  Status VisitCombinedOutputRuns(const EmitRun& emit_run) {
+    using VisitOutputFragments =
+        VisitREExREEFilterOutputFragments<ValuesRunEndType, FilterRunEndType>;
+    return VisitREExAnyFilterCombinedOutputRuns<ValuesRunEndType, ValuesValueType,
+                                                VisitOutputFragments>(
+        pool_, values_, filter_, null_selection_, emit_run);
+  }
+
+ public:
   Result<int64_t> CalculateOutputSize() final {
     if constexpr (std::is_same<ValuesValueType, NullType>::value) {
       return CountREEFilterEmits<FilterRunEndType>(filter_, null_selection_) > 0 ? 1 : 0;
     } else {
       int64_t num_output_runs = 0;
-      auto status = VisitREExAnyFilterCombinedOutputRuns<
-          ValuesRunEndType, ValuesValueType,
-          VisitREExREEFilterOutputFragments<ValuesRunEndType, FilterRunEndType>>(
-          pool_, values_, filter_, null_selection_,
-          [&num_output_runs](int64_t, int64_t run_length, bool) {
+      auto status = VisitCombinedOutputRuns(
+          [&num_output_runs](int64_t, int64_t run_length, bool) noexcept {
             num_output_runs += run_length > 0;
           });
       RETURN_NOT_OK(status);
@@ -613,11 +622,8 @@ class REExREEFilterExecImpl final : public REEFilterExec {
     int64_t logical_length = 0;
     int64_t write_offset = 0;
     ValueRepr value;
-    auto status = VisitREExAnyFilterCombinedOutputRuns<
-        ValuesRunEndType, ValuesValueType,
-        VisitREExREEFilterOutputFragments<ValuesRunEndType, FilterRunEndType>>(
-        pool_, values_, filter_, null_selection_,
-        [&](int64_t i, int64_t run_length, bool valid) {
+    auto status =
+        VisitCombinedOutputRuns([&](int64_t i, int64_t run_length, bool valid) noexcept {
           logical_length += run_length;
           if (run_length > 0) {
             out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
@@ -679,11 +685,10 @@ class REExPlainFilterExecImpl final : public REEFilterExec {
   ~REExPlainFilterExecImpl() override = default;
 
  private:
-  Status VisitCombinedOutputRuns(
-      const std::function<void(int64_t, int64_t, bool)>& emit_run) {
+  Status VisitCombinedOutputRuns(const EmitRun& emit_run) {
     using VisitOutputFragments = VisitREExPlainFilterOutputFragments<ValuesRunEndType>;
     return VisitREExAnyFilterCombinedOutputRuns<ValuesRunEndType, ValuesValueType,
-                                                VisitOutputFragments, decltype(emit_run)>(
+                                                VisitOutputFragments>(
         pool_, values_, filter_, null_selection_, emit_run);
   }
 
