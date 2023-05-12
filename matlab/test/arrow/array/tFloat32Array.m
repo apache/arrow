@@ -56,7 +56,7 @@ classdef tFloat32Array < matlab.unittest.TestCase
             testCase.verifyEqual(single(A), single([1 2 3]'));
         end
 
-        function Double(testCase, MakeDeepCopy)
+        function Single(testCase, MakeDeepCopy)
             % Create a Float32Array from a scalar double
             A1 = arrow.array.Float32Array(single(100), DeepCopy=MakeDeepCopy);
             data = single(A1);
