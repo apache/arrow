@@ -27,7 +27,7 @@ Reading and writing Parquet files
 .. seealso::
    :ref:`Parquet reader and writer API reference <cpp-api-parquet>`.
 
-The `Parquet format <https://parquet.apache.org/documentation/latest/>`__
+The `Parquet format <https://parquet.apache.org/docs/>`__
 is a space-efficient columnar storage format for complex data.  The Parquet
 C++ implementation is part of the Apache Arrow project and benefits
 from tight integration with the Arrow C++ classes and facilities.
