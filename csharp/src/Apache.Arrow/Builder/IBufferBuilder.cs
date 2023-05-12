@@ -16,6 +16,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Apache.Arrow.Memory;
 
 namespace Apache.Arrow.Builder
@@ -161,6 +162,7 @@ namespace Apache.Arrow.Builder
         /// <param name="allocator">Optional memory allocator.</param>
         /// <returns>Returns an <see cref="ArrowBuffer"/> object.</returns>
         ArrowBuffer Build(MemoryAllocator allocator = default);
+        Task<ArrowBuffer> BuildAsync(MemoryAllocator allocator = default);
 
         /// <summary>
         /// Build an Arrow buffer from the appended contents so far of the specified byte size.
@@ -168,6 +170,7 @@ namespace Apache.Arrow.Builder
         /// <param name="allocator">Optional memory allocator.</param>
         /// <returns>Returns an <see cref="ArrowBuffer"/> object.</returns>
         ArrowBuffer Build(int byteSize, MemoryAllocator allocator = default);
+        Task<ArrowBuffer> BuildAsync(int byteSize, MemoryAllocator allocator = default);
     }
 
     public interface IValueBufferBuilder : IBufferBuilder

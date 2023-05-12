@@ -1,4 +1,5 @@
-﻿using Apache.Arrow.Memory;
+﻿using System.Threading.Tasks;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
@@ -91,6 +92,7 @@ namespace Apache.Arrow.Builder
         /// <param name="allocator"><see cref="MemoryAllocator"/></param>
         /// <returns><see cref="ArrayData"/></returns>
         ArrayData FinishInternal(MemoryAllocator allocator = default);
+        Task<ArrayData> FinishInternalAsync(MemoryAllocator allocator = null);
 
         /// <summary>
         /// Return result of builder as an Array object.
@@ -101,5 +103,6 @@ namespace Apache.Arrow.Builder
         /// <param name="allocator"><see cref="MemoryAllocator"/></param>
         /// <returns><see cref="IArrowArray"/></returns>
         IArrowArray Build(MemoryAllocator allocator = default);
+        Task<IArrowArray> BuildAsync(MemoryAllocator allocator = null);
     }
 }

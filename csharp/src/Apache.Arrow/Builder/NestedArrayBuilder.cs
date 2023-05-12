@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
+using System.Threading.Tasks;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
@@ -34,10 +34,12 @@ namespace Apache.Arrow.Builder
 
     public class ListArrayBuilder : NestedArrayBuilder
     {
+        public new ListType DataType { get; }
         public int CurrentOffset { get; internal set; }
 
         public ListArrayBuilder(ListType dataType, int capacity = 8) : base(dataType, capacity)
         {
+            DataType = dataType;
             CurrentOffset = 0;
             OffsetsBuffer.AppendValue(CurrentOffset);
         }
@@ -131,9 +133,23 @@ namespace Apache.Arrow.Builder
         }
 
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
+        public async override Task<IArrowArray> BuildAsync(MemoryAllocator allocator = default)
+            => await BuildAsync(allocator);
 
         public StructArray Build(MemoryAllocator allocator = default, bool _ = true)
             => new StructArray(FinishInternal(allocator));
+
+        public async Task<StructArray> BuildAsync(MemoryAllocator allocator = default, bool _ = true)
+            => new StructArray(await FinishInternalAsync(allocator));
+
+        public RecordBatch BuildRecordBatch(MemoryAllocator allocator = default, IEnumerable<KeyValuePair<string, string>> metadata = null)
+            => new(new Schema(DataType.Fields, metadata), Build(allocator).Fields, Length);
+
+        public async Task<RecordBatch> BuildRecordBatchAsync(MemoryAllocator allocator = default, IEnumerable<KeyValuePair<string, string>> metadata = null)
+        {
+            var built = await BuildAsync(allocator);
+            return new(new Schema(DataType.Fields, metadata), built.Fields, Length);
+        }
     }
 
     public class ListArrayBuilder<T> : ListArrayBuilder where T : struct

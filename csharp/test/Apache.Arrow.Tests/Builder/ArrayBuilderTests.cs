@@ -229,6 +229,29 @@ namespace Apache.Arrow.Tests.Builder
             Assert.True(array.IsValid(1));
             Assert.False(array.IsValid(2));
         }
+
+        [Fact]
+        public void StructArrayBuilder_Should_BuildRecordBatch()
+        {
+            var builder = new StructArrayBuilder<TestStruct>();
+            var scalar = new StructScalar(builder.DataType, new IScalar[]
+            {
+                new StringScalar("abc"), new Int32Scalar(123)
+            });
+
+            builder.AppendNull();
+            builder.AppendValue(scalar);
+            builder.AppendNull();
+
+            var batch = builder.BuildRecordBatch();
+            var names = batch.Column(0) as StringArray;
+            var int32s = batch.Column(1) as Int32Array;
+
+            Assert.Equal(3, batch.Length);
+
+            Assert.Equal("abc", names.GetString(1));
+            Assert.Equal(123, int32s.GetValue(1));
+        }
     }
 
     public class ListArrayBuilderTests

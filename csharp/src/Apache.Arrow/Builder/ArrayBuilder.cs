@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
@@ -294,19 +295,26 @@ namespace Apache.Arrow.Builder
         }
 
         public ArrayData FinishInternal(MemoryAllocator allocator = null)
-        {
-            MemoryAllocator memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
-
-            return new ArrayData(
+            => new ArrayData(
                 DataType, Length, NullCount, Offset,
-                Buffers.Select(b => b.Build(memoryAllocator)).ToArray(),
-                Children?.Select(c => c.FinishInternal(memoryAllocator)).ToArray(),
+                Buffers.Select(b => b.Build(allocator)).ToArray(),
+                Children?.Select(c => c.FinishInternal(allocator)).ToArray(),
                 Dictionary?.FinishInternal()
             );
-        }
+
+        public async Task<ArrayData> FinishInternalAsync(MemoryAllocator allocator = null)
+            => new ArrayData(
+                DataType, Length, NullCount, Offset,
+                await Task.WhenAll(Buffers.Select(b => b.BuildAsync(allocator))),
+                Children != null ? await Task.WhenAll(Children.Select(c => c.FinishInternalAsync(allocator))) : null,
+                Dictionary != null ? await Dictionary.FinishInternalAsync() : null
+            );
 
         public virtual IArrowArray Build(MemoryAllocator allocator = null)
             => ArrayBuilderFactory.MakeArray(FinishInternal(allocator));
+
+        public virtual async Task<IArrowArray> BuildAsync(MemoryAllocator allocator = null)
+            => ArrayBuilderFactory.MakeArray(await FinishInternalAsync(allocator));
 
         // Memory management
         public Status Reserve(int additionnalCapacity)

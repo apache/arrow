@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
@@ -338,6 +339,9 @@ namespace Apache.Arrow.Builder
 
         public ArrowBuffer Build(MemoryAllocator allocator = default) => Build(64, allocator);
 
+        public async Task<ArrowBuffer> BuildAsync(MemoryAllocator allocator = default)
+            => await BuildAsync(64, allocator);
+
         public ArrowBuffer Build(int byteSize, MemoryAllocator allocator = default)
         {
             var byteLength = BitOffset > 0 ? ByteLength + 1 : ByteLength;
@@ -350,7 +354,20 @@ namespace Apache.Arrow.Builder
 
             return new ArrowBuffer(memoryOwner);
         }
-         
+
+        public async Task<ArrowBuffer> BuildAsync(int byteSize, MemoryAllocator allocator = default)
+        {
+            var byteLength = BitOffset > 0 ? ByteLength + 1 : ByteLength;
+
+            int bufferLength = checked((int)BitUtility.RoundUpToMultiplePowerOfTwo(byteLength, byteSize));
+
+            MemoryAllocator memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
+            IMemoryOwner<byte> memoryOwner = memoryAllocator.Allocate(bufferLength);
+            Memory.Slice(0, byteLength).CopyTo(memoryOwner.Memory);
+
+            return new ArrowBuffer(memoryOwner);
+        }
+
         private void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(ByteLength + numBytes));
 
         internal void EnsureBytes(int numBytes)
