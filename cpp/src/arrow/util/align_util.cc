@@ -116,7 +116,7 @@ int GetMallocValuesAlignment(const ArrayData& array) {
       Status::Invalid("Could not check alignment for type id ", type_id,
                       " keeping existing alignment")
           .Warn();
-      return 8;
+      return 1;
   }
 }
 
