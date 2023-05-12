@@ -751,8 +751,14 @@ class ParquetFile:
 
         >>> sorting_columns = pq.SortingColumn.from_sort_order(table.schema, sort_keys)
         >>> sorting_columns
-        (SortingColumn(column_index=0, descending=True, nulls_first=False),
-         SortingColumn(column_index=1, descending=False, nulls_first=False))
+        (<pyarrow._parquet.SortingColumn object at 0x1065e4210>
+           column_index: 0
+           descending: True
+           nulls_first: False,
+         <pyarrow._parquet.SortingColumn object at 0x1065e7a90>
+           column_index: 1
+           descending: False
+           nulls_first: False)
 
         Write the table to a Parquet file with the sort order and read it back:
 
@@ -760,8 +766,14 @@ class ParquetFile:
         ...                sorting_columns = sorting_columns)
         >>> parquet_file = pq.ParquetFile('sorted_animals.parquet')
         >>> parquet_file.sort_order
-        (SortingColumn(column_index=0, descending=True, nulls_first=False),
-         SortingColumn(column_index=1, descending=False, nulls_first=False))
+        (<pyarrow._parquet.SortingColumn object at 0x1065e7810>
+           column_index: 0
+           descending: True
+           nulls_first: False,
+         <pyarrow._parquet.SortingColumn object at 0x1065e47d0>
+           column_index: 1
+           descending: False
+           nulls_first: False)
         """
         metadata = self.metadata
         sorting_columns = {
