@@ -101,6 +101,10 @@ cmake --build . --target install --config Release || exit /B
 @rem For ORC C++
 set TZDIR=%CONDA_PREFIX%\share\zoneinfo
 
+@rem Point to Python executable for GCS tests
+set PYTHON=%CONDA_PREFIX%\python.exe
+@rem %PYTHON%
+
 ctest --output-on-failure || exit /B
 
 popd
