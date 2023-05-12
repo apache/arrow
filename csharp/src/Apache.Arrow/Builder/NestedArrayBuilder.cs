@@ -113,7 +113,15 @@ namespace Apache.Arrow.Builder
         }
 
         public override Status AppendScalar(IScalar value)
-            => value.IsValid ? AppendValue((IStructScalar)value) : AppendNull();
+        {
+            return value switch
+            {
+                IStructScalar svalue => AppendScalar(svalue),
+                INullableScalar nullable => nullable.IsValid ? AppendScalar(nullable.Value) : AppendNull(),
+                _ => throw new ArgumentException($"Cannot append scalar {value} in {this}, must implement IStructScalar")
+            };
+        }
+
         public Status AppendValue(IStructScalar value)
         {
             if (value.IsValid)
