@@ -71,29 +71,11 @@ namespace Apache.Arrow
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
         public string GetString(int index, Encoding encoding = default)
-        {
-            encoding = encoding ?? DefaultEncoding;
-
-            ReadOnlySpan<byte> bytes = GetBytes(index);
-
-            if (bytes == default)
-            {
-                return null;
-            }
-            if (bytes.Length == 0)
-            {
-                return string.Empty;
-            }
-
-            unsafe
-            {
-                fixed (byte* data = &MemoryMarshal.GetReference(bytes))
-                    return encoding.GetString(data, bytes.Length);
-            }
-        }
+            => IsValid(index) ? encoding == null ? GetScalar(index).Value : GetScalar(index).GetString(encoding) : null;
 
         // Arrow Scalar
         public override IScalar GetScalar(int index) => GetScalar(index);
+
         public new StringScalar GetScalar(int index, bool valid = true)
         {
             bool isValid = IsValid(index);

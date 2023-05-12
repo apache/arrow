@@ -54,30 +54,34 @@ namespace Apache.Arrow
             _byteLength = value.Length;
         }
 
-        public string Value
+        public string Value => GetString(StringType.DefaultEncoding);
+        public ReadOnlySpan<byte> View() => Buffer.Span;
+
+        /// <summary>
+        /// Converts the underlying byte data to a string using the specified encoding.
+        /// </summary>
+        /// <remarks>
+        /// string are not nullable in a StringScalar, so if empty it returns string.Empty.
+        /// </remarks>
+        /// <param name="encoding">The encoding used to decode the byte data.</param>
+        /// <returns><see cref="string""> representation of the byte data.</returns>
+        public unsafe string GetString(Encoding encoding)
         {
-            get
+            fixed (byte* ptr = View())
             {
-                unsafe
+                if (ptr == null)
+                    return string.Empty;
+                int charLength = encoding.GetCharCount(ptr, _byteLength);
+                char[] buffer = new char[charLength];
+
+                fixed (char* bufferPtr = buffer)
                 {
-                    fixed (byte* ptr = View())
-                    {
-                        Encoding encoding = StringType.DefaultEncoding;
-
-                        int charLength = encoding.GetCharCount(ptr, _byteLength);
-                        char[] buffer = new char[charLength];
-
-                        fixed (char* bufferPtr = buffer)
-                        {
-                            encoding.GetChars(ptr, _byteLength, bufferPtr, charLength);
-                        }
-
-                        return new string(buffer);
-                    }
+                    encoding.GetChars(ptr, _byteLength, bufferPtr, charLength);
                 }
+
+                return new string(buffer);
             }
         }
-        public ReadOnlySpan<byte> View() => Buffer.Span;
     }
 
     public struct BooleanScalar : IPrimitiveScalar<BooleanType>, IDotNetStruct<bool>
