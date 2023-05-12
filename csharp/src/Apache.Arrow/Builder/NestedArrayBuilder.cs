@@ -8,7 +8,7 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
 {
-    public class NestedArrayBuilder : ArrayBuilder
+    public abstract class NestedArrayBuilder : ArrayBuilder
     {
         public NestedArrayBuilder(NestedType dataType, int capacity = 8)
             : base(
@@ -84,6 +84,34 @@ namespace Apache.Arrow.Builder
 
         public ListArray Build(MemoryAllocator allocator = default, bool _ = true)
             => new ListArray(FinishInternal(allocator));
+
+        internal override Status AppendPrimitiveValueOffset(ArrayData data)
+        {
+            if (data.Length == 0)
+                return Status.OK;
+
+            // Value Offsets
+            var offsets = data.Buffers[1].Span.Slice(data.Offset * 4, (data.Length + 1) * 4).CastTo<int>();
+            int currentOffset = CurrentOffset;
+            int current;
+            Span<int> newOffsets = new int[data.Length];
+
+            // Element length = array[index + 1] - array[index]
+            for (int i = 0; i < data.Length; i++)
+            {
+                current = offsets[i];
+                int next = offsets[i + 1];
+
+                // Add element length to current offset
+                currentOffset += next - current;
+                newOffsets[i] = currentOffset;
+            }
+
+            CurrentOffset = currentOffset;
+            OffsetsBuffer.AppendValues(newOffsets);
+
+            return Status.OK;
+        }
     }
 
     public class StructArrayBuilder : NestedArrayBuilder
@@ -140,6 +168,30 @@ namespace Apache.Arrow.Builder
             return AppendNull();
         }
 
+        public Status AppendBatch(RecordBatch batch)
+        {
+            for (int i = 0; i < Children.Length; i++)
+            {
+                Children[i].AppendArray(batch.Column(i));
+            }
+            return AppendValidity(true, batch.Length);
+        }
+
+        public async Task<Status> AppendBatchAsync(RecordBatch batch)
+        {
+            Task<Status>[] tasks = new Task<Status>[Children.Length];
+
+            for (int i = 0; i < Children.Length; i++)
+            {
+                int index = i; // Create a local copy of the loop variable
+                tasks[index] = Children[index].AppendArrayAsync(batch.Column(index));
+            }
+
+            await Task.WhenAll(tasks);
+
+            return AppendValidity(true, batch.Length);
+        }
+
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
         public async override Task<IArrowArray> BuildAsync(MemoryAllocator allocator = default)
             => await BuildAsync(allocator);
@@ -158,6 +210,8 @@ namespace Apache.Arrow.Builder
             var built = await BuildAsync(allocator);
             return new(new Schema(DataType.Fields, metadata), built.Fields, Length);
         }
+
+        internal override Status AppendPrimitiveValueOffset(ArrayData data) => Status.OK;
     }
 
     public class ListArrayBuilder<T> : ListArrayBuilder where T : struct

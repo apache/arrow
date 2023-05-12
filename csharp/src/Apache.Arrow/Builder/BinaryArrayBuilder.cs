@@ -1,4 +1,7 @@
-﻿using Apache.Arrow.Memory;
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
@@ -34,6 +37,12 @@ namespace Apache.Arrow.Builder
 
         public virtual Status AppendValue(string value)
             => value == null ? AppendNull() : AppendValue(StringType.DefaultEncoding.GetBytes(value));
+
+        public virtual Status AppendValues(IEnumerable<string> values)
+            => AppendValues(values, StringType.DefaultEncoding);
+
+        public virtual Status AppendValues(IEnumerable<string> values, Encoding encoding)
+            => AppendValues(values.Select(str => str == null ? null : encoding.GetBytes(str)));
 
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
 

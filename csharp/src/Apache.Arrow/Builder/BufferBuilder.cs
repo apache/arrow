@@ -111,61 +111,88 @@ namespace Apache.Arrow.Builder
             if (!value)
                 return AppendEmptyBits(count);
 
-            int remainderBits = BitOffset == 0 ? 0 : Math.Min(count, 8 - BitOffset);
-            int wholeBytes = (count - remainderBits) / 8;
-            int trailingBits = count - remainderBits - (wholeBytes * 8);
-            int newBytes = (trailingBits > 0) ? wholeBytes + 1 : wholeBytes;
-
-            EnsureAdditionalBytes(newBytes);
-
             var span = Memory.Span;
 
-            // Fill remaining bits in current bit offset
-            for (int i = 0; i < remainderBits; i++)
-                UncheckedAppendBit(value);
-
-            if (BitOffset == 8)
+            if (BitOffset == 0)
             {
+                int wholeBytes = count / 8;
+
+                if (wholeBytes > 0)
+                {
+                    EnsureAdditionalBytes(wholeBytes + 1);
+
+                    var fill = (byte)0xFF;
+                    span.Slice(ByteLength, wholeBytes).Fill(fill);
+                    ByteLength += wholeBytes;
+                }
+
+                // Write remaining bits
+                int trailing = count - (wholeBytes * 8);
+                for (int i = 0; i < trailing; i++)
+                    UncheckedAppendBit(value);
+            }
+            else
+            {
+                int available = 8 - BitOffset;
+
+                if (count < available)
+                {
+                    for (int i = 0; i < count; i++)
+                        UncheckedAppendBit(value);
+                    return this;
+                }
+
+                // Write all remaining bits
+                for (int i = 0; i < available; i++)
+                    UncheckedAppendBit(value);
+
+                // Commit to memory
                 BitOffset = 0;
                 ByteLength++;
+                // Ensure current and another byte for next append
+                EnsureBytes(ByteLength + 1);
+
+                int trailing = count - available;
+                AppendBits(value, trailing);
             }
-
-            // Bulk write true or false bytes
-            if (wholeBytes > 0)
-            {
-                var fill = (byte)0xFF;
-                span.Slice(ByteLength, wholeBytes).Fill(fill);
-            }
-
-            ByteLength += wholeBytes;
-
-            // Write remaining bits
-            for (int i = 0; i < trailingBits; i++)
-                UncheckedAppendBit(value);
 
             return this;
         }
 
+        // Write false bool values = AppendBits(false, count)
         public IBufferBuilder AppendEmptyBits(int count)
         {
             if (BitOffset == 0)
             {
-                int end = count / 8;
-                EnsureAdditionalBytes(end);
-                ByteLength += end;
-                BitOffset = count - end * 8;
+                int wholeBytes = count / 8;
+
+                if (wholeBytes > 0)
+                {
+                    EnsureAdditionalBytes(wholeBytes + 1);
+                    ByteLength += wholeBytes;
+                }
+
+                // Write remaining bits
+                BitOffset = count - (wholeBytes * 8);
             }
             else
             {
-                int remainderBits = Math.Min(count, 8 - BitOffset);
-                int wholeBytes = (count - remainderBits) / 8;
-                int trailingBits = count - remainderBits - (wholeBytes * 8);
-                int newBytes = (trailingBits > 0) ? wholeBytes + 1 : wholeBytes;
+                int available = 8 - BitOffset;
 
-                EnsureAdditionalBytes(newBytes);
+                if (count < available)
+                {
+                    BitOffset += count;
+                    return this;
+                }
 
-                ByteLength += wholeBytes;
-                BitOffset = remainderBits + trailingBits;
+                // Commit to memory
+                BitOffset = 0;
+                ByteLength++;
+                // Ensure current and another byte for next append
+                EnsureBytes(ByteLength + 1);
+
+                int trailing = count - available;
+                AppendEmptyBits(trailing);
             }
 
             return this;
@@ -305,15 +332,22 @@ namespace Apache.Arrow.Builder
         }
 
         public IBufferBuilder AppendValues(bool value, int count) => AppendBits(value, count);
-        public IBufferBuilder AppendValues<T>(T value, int count) where T : struct
+
+        public IBufferBuilder AppendValues(ReadOnlySpan<byte> value, int count)
         {
-            Span<T> span = new T[count];
+            EnsureAdditionalBytes(count * value.Length);
 
             for (int i = 0; i < count; i++)
-                span[i] = value;
+            {
+                value.CopyTo(Memory.Span.Slice(ByteLength, value.Length));
+                ByteLength += value.Length;
+            }
 
-            return AppendValues<T>(span);
+            return this;
         }
+
+        public IBufferBuilder AppendValues<T>(T value, int count) where T : struct
+            => AppendValues(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)), count);
 
         internal IBufferBuilder ReserveAdditionalBytes(int numBytes)
         {
@@ -392,11 +426,13 @@ namespace Apache.Arrow.Builder
     public class ValueBufferBuilder : BufferBuilder, IValueBufferBuilder
     {
         public int ValueBitSize { get; }
+        public int ValueByteSize { get; }
         public int ValueLength => (ByteLength * 8 + BitOffset) / ValueBitSize;
 
         public ValueBufferBuilder(int valueBitSize, int capacity = 32) : base(capacity * (valueBitSize + 7) / 8)
         {
             ValueBitSize = valueBitSize;
+            ValueByteSize = valueBitSize / 8;
         }
 
         public IValueBufferBuilder Ensure(int capacity)

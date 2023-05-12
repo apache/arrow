@@ -176,6 +176,7 @@ namespace Apache.Arrow.Builder
     public interface IValueBufferBuilder : IBufferBuilder
     {
         int ValueBitSize { get; }
+        int ValueByteSize { get; }
         int ValueLength { get; }
 
         /// <summary>

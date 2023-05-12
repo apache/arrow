@@ -101,12 +101,70 @@ namespace Apache.Arrow.Tests.Builder
         }
 
         [Fact]
+        public void BufferBuilder_Should_AppendBitRepetitionLarge()
+        {
+            var builder = new BufferBuilder(8);
+
+            builder.AppendBits(true, 12);
+            builder.AppendBit(false);
+
+            var built = builder.Build();
+
+            Assert.True(BitUtility.GetBit(built.Span, 4));
+            Assert.True(BitUtility.GetBit(built.Span, 5));
+            Assert.True(BitUtility.GetBit(built.Span, 6));
+            Assert.True(BitUtility.GetBit(built.Span, 7));
+            Assert.False(BitUtility.GetBit(built.Span, 12));
+        }
+
+        [Fact]
+        public void BufferBuilder_Should_AppendBitRepetitionLarge_AfterAppend()
+        {
+            var builder = new BufferBuilder(8);
+
+            builder.AppendBit(false);
+            builder.AppendBit(false);
+            builder.AppendBits(true, 12);
+            builder.AppendBit(false);
+
+            var built = builder.Build();
+
+            Assert.False(BitUtility.GetBit(built.Span, 0));
+            Assert.False(BitUtility.GetBit(built.Span, 1));
+            Assert.True(BitUtility.GetBit(built.Span, 5));
+            Assert.True(BitUtility.GetBit(built.Span, 6));
+            Assert.True(BitUtility.GetBit(built.Span, 7));
+            Assert.False(BitUtility.GetBit(built.Span, 14));
+        }
+
+        [Fact]
+        public void BufferBuilder_Should_AppendBitRepetition()
+        {
+            var builder = new BufferBuilder(8);
+
+            builder.AppendBit(true);
+            builder.AppendBits(false, 3);
+            builder.AppendBits(true, 4);
+
+            var built = builder.Build();
+
+            Assert.True(BitUtility.GetBit(built.Span, 0));
+            Assert.False(BitUtility.GetBit(built.Span, 1));
+            Assert.False(BitUtility.GetBit(built.Span, 2));
+            Assert.False(BitUtility.GetBit(built.Span, 3));
+            Assert.True(BitUtility.GetBit(built.Span, 4));
+            Assert.True(BitUtility.GetBit(built.Span, 5));
+            Assert.True(BitUtility.GetBit(built.Span, 6));
+            Assert.True(BitUtility.GetBit(built.Span, 7));
+        }
+
+        [Fact]
         public void BufferBuilder_Should_AppendStructs()
         {
             var builder = new BufferBuilder(8);
 
             builder.AppendValue(123);
-            builder.AppendValues<int>(new int[] { 0, -1 }.AsSpan());
+            builder.AppendValues<int>(new int[] { 0, -1 });
 
             var built = builder.Build();
             var results = built.Span.CastTo<int>();

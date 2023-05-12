@@ -25,7 +25,7 @@ namespace Apache.Arrow.Builder
         public int CurrentOffset { get; internal set; }
 
         public VariableBinaryArrayBuilder(IArrowType dataType, int capacity = 32)
-            : this(dataType, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<int>(capacity), new ValueBufferBuilder(64, capacity))
+            : this(dataType, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<int>(capacity), new ValueBufferBuilder(-1, capacity))
         {
         }
 
@@ -81,6 +81,25 @@ namespace Apache.Arrow.Builder
             return AppendValid();
         }
 
+        public virtual Status AppendValues(IEnumerable<byte[]> bytes)
+        {
+            foreach (var value in bytes)
+            {
+                if (value == null)
+                {
+                    AppendNull();
+                }
+                else
+                {
+                    ValuesBuffer.AppendBytes(value);
+                    CurrentOffset += value.Length;
+                    OffsetsBuffer.AppendValue(CurrentOffset);
+                    AppendValid();
+                }
+            }
+            return Status.OK;
+        }
+
         public override Status AppendScalar(IScalar value)
         {
             return value switch
@@ -92,6 +111,40 @@ namespace Apache.Arrow.Builder
         }
 
         public Status AppendScalar(IBaseBinaryScalar value) => AppendValue(value.View());
+
+        internal override Status AppendPrimitiveValueOffset(ArrayData data)
+        {
+            if (data.Length == 0)
+                return Status.OK;
+
+            // Value Offsets
+            var offsets = data.Buffers[1].Span.Slice(data.Offset * 4, (data.Length + 1) * 4).CastTo<int>();
+            int offsetStart = offsets[0];
+            int offsetEnd = offsets[offsets.Length - 1];
+            int currentOffset = CurrentOffset;
+            int current;
+            Span<int> newOffsets = new int[data.Length];
+
+            // Element length = array[index + 1] - array[index]
+            for (int i = 0; i < data.Length; i++)
+            {
+                current = offsets[i];
+                int next = offsets[i + 1];
+
+                // Add element length to current offset
+                currentOffset += next - current;
+                newOffsets[i] = currentOffset;
+            }
+
+            CurrentOffset = currentOffset;
+            OffsetsBuffer.AppendValues(newOffsets);
+
+            // Values
+            // Variable byte encoded, cannot append variable bit based
+            ValuesBuffer.AppendBytes(data.Buffers[2].Span.Slice(offsetStart, offsetEnd - offsetStart));
+
+            return Status.OK;
+        }
     }
 
     public class FixedBinaryArrayBuilder : ArrayBuilder
@@ -181,6 +234,65 @@ namespace Apache.Arrow.Builder
         {
             ValuesBuffer.AppendBytes(values);
             return AppendValidity(validity);
+        }
+
+        internal override Status AppendPrimitiveValueOffset(ArrayData data)
+        {
+            // Values
+            var dataValues = data.Buffers[1];
+            int bitSize = ValuesBuffer.ValueBitSize;
+            int byteSize = ValuesBuffer.ValueByteSize;
+
+            if (bitSize % 8 == 0)
+            {
+                // Fixed byte encoded
+                var span = dataValues.Span.Slice(data.Offset * byteSize, data.Length * byteSize);
+                ValuesBuffer.AppendBytes(span);
+            }
+            else if (data.Offset == 0)
+            {
+                int dataBitLength = data.Length * bitSize;
+                int dataByteLength = data.Length * byteSize;
+
+                // Bulk copy bytes
+                ValuesBuffer.AppendBytes(dataValues.Span.Slice(0, data.Length * byteSize));
+
+                // Copy remaining bits
+                Span<bool> remainingBits = BitUtility
+                    .BytesToBits(dataValues.Span.Slice(dataByteLength))
+                    .Slice(0, dataBitLength - dataByteLength * 8);
+
+                ValuesBuffer.AppendBits(remainingBits);
+            }
+            else
+            {
+                int dataBitLength = data.Length * bitSize;
+                Span<bool> bits = new bool[dataBitLength];
+                bool allTrue = true;
+                bool allFalse = true;
+                int bitOffset = data.Offset * bitSize;
+
+                for (int j = 0; j < dataBitLength; j++)
+                {
+                    bool bit = BitUtility.GetBit(dataValues.Span, bitOffset + j);
+
+                    if (bit)
+                        allFalse = false;
+                    else
+                        allTrue = false;
+
+                    bits[j] = bit;
+                }
+
+                if (allFalse)
+                    ValuesBuffer.AppendBits(false, dataBitLength);
+                else if (allTrue)
+                    ValuesBuffer.AppendBits(true, dataBitLength);
+                else
+                    ValuesBuffer.AppendBits(bits);
+            }
+
+            return Status.OK;
         }
     }
 

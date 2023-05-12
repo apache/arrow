@@ -44,12 +44,14 @@ namespace Apache.Arrow.Builder
         /// </summary>
         /// <returns>Current <see cref="Status"></returns>
         Status AppendArray(ArrayData data);
+        Task<Status> AppendArrayAsync(ArrayData data);
 
         /// <summary>
         /// Append <see cref="IArrowArray"> values.
         /// </summary>
         /// <returns>Current <see cref="Status"></returns>
         Status AppendArray(IArrowArray data);
+        Task<Status> AppendArrayAsync(IArrowArray data);
 
         /// <summary>
         /// Clear all contents appended so far.

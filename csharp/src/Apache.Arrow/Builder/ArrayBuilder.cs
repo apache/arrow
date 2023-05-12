@@ -159,7 +159,9 @@ namespace Apache.Arrow.Builder
 
         public virtual Status AppendArray(IArrowArray array) => AppendArray(array.Data);
 
-        public virtual Status AppendArray(ArrayData data)
+        public async Task<Status> AppendArrayAsync(IArrowArray data) => await AppendArrayAsync(data);
+
+        private Status AppendValidity(ArrayData data)
         {
             // TODO: Make better / recursive fields data type check
             Validate(data.DataType);
@@ -169,7 +171,7 @@ namespace Apache.Arrow.Builder
 
             // Handle validity
             var dataValidity = data.Buffers[ValidityBufferIndex];
-            
+
             // Check if need to recalculate null count
             if (data.NullCount < 0)
             {
@@ -217,65 +219,21 @@ namespace Apache.Arrow.Builder
                 {
                     Span<bool> bits = new bool[data.Length];
 
-                    for (int i = data.Offset; i < data.Length; i++)
-                        bits[i] = BitUtility.GetBit(dataValidity.Span, i);
+                    for (int i = 0; i < data.Length; i++)
+                        bits[i] = BitUtility.GetBit(dataValidity.Span, data.Offset + i);
 
                     AppendValidity(bits, nullCount);
                 }
             }
-            
-            for (int i = 0; i < Buffers.Length; i++)
-            {
-                if (i != ValidityBufferIndex) // already handled before
-                {
-                    IValueBufferBuilder current = Buffers[i];
-                    ArrowBuffer other = data.Buffers[i];
-                    int dataBitLength = data.Length * current.ValueBitSize;
-                    int dataByteLength = dataBitLength / 8;
+            return Status.OK;
+        }
 
-                    if (current.ValueBitSize % 8 == 0)
-                        // Full byte encoded
-                        current.AppendBytes(other.Span.Slice((data.Offset * current.ValueBitSize) / 8, dataByteLength));
-                    else if (data.Offset == 0)
-                    {
-                        // Bulk copy bytes
-                        current.AppendBytes(other.Span.Slice(0, dataByteLength));
+        internal abstract Status AppendPrimitiveValueOffset(ArrayData data);
 
-                        // Copy remaining bits
-                        Span<bool> remainingBits = BitUtility
-                            .BytesToBits(other.Span.Slice(dataByteLength))
-                            .Slice(0, dataBitLength - dataByteLength * 8);
-
-                        current.AppendBits(remainingBits);
-                    }
-                    else
-                    {
-                        Span<bool> bits = new bool[dataBitLength];
-                        bool allTrue = true;
-                        bool allFalse = true;
-
-                        for (int j = data.Offset; j < dataBitLength; j++)
-                        {
-                            bool bit = BitUtility.GetBit(other.Span, j);
-
-                            if (bit)
-                                allFalse = false;
-                            else
-                                allTrue = false;
-
-                            bits[j] = bit;
-                        }
-
-                        if (allFalse)
-                            current.AppendBits(false, dataBitLength);
-                        else if (allTrue)
-                            current.AppendBits(true, dataBitLength);
-                        else
-                            current.AppendBits(bits);
-                    }
-                }
-                
-            }
+        public Status AppendArray(ArrayData data)
+        {
+            AppendValidity(data);
+            AppendPrimitiveValueOffset(data);
 
             // Append children data
             if (Children != null && data.Children != null)
@@ -289,6 +247,31 @@ namespace Apache.Arrow.Builder
             if (Dictionary != null && data.Dictionary != null)
             {
                 Dictionary.AppendArray(data.Dictionary);
+            }
+
+            return Status.OK;
+        }
+
+        public async Task<Status> AppendArrayAsync(ArrayData data)
+        {
+            AppendValidity(data);
+            AppendPrimitiveValueOffset(data);
+
+            // Append children data
+            if (Children != null && data.Children != null)
+            {
+                Task[] childTasks = new Task[Children.Length];
+                for (int i = 0; i < Children.Length; i++)
+                {
+                    int index = i; // Create a local copy of the loop variable
+                    childTasks[index] = Children[index].AppendArrayAsync(data.Children[index]);
+                }
+                await Task.WhenAll(childTasks);
+            }
+
+            if (Dictionary != null && data.Dictionary != null)
+            {
+                await Dictionary.AppendArrayAsync(data.Dictionary);
             }
 
             return Status.OK;

@@ -74,6 +74,272 @@ namespace Apache.Arrow.Tests.Builder
         }
     }
 
+    public class BooleanArrayBuilderTests
+    {
+        [Fact]
+        public void BooleanBuilder_Should_AppendBool()
+        {
+            var builder = new BooleanArrayBuilder();
+
+            builder.AppendValue(true);
+            builder.AppendNull();
+            builder.AppendValues(new bool[] { true, false, true });
+            builder.AppendNulls(3);
+            builder.AppendValue(false);
+
+            var array = builder.Build();
+
+            Assert.Equal(9, array.Length);
+            Assert.Equal(4, array.NullCount);
+
+            Assert.True(array.IsValid(0));
+            Assert.False(array.IsValid(1));
+            Assert.True(array.IsValid(2));
+            Assert.True(array.IsValid(3));
+            Assert.True(array.IsValid(4));
+            Assert.False(array.IsValid(5));
+            Assert.False(array.IsValid(6));
+            Assert.False(array.IsValid(7));
+            Assert.True(array.IsValid(8));
+
+            Assert.True(array.GetValue(0));
+            Assert.Null(array.GetValue(1));
+            Assert.True(array.GetValue(2));
+            Assert.False(array.GetValue(3));
+            Assert.True(array.GetValue(4));
+            Assert.Null(array.GetValue(5));
+            Assert.Null(array.GetValue(6));
+            Assert.Null(array.GetValue(7));
+            Assert.False(array.GetValue(8));
+        }
+    }
+
+    public class BinaryArrayBuilderTests
+    {
+        [Fact]
+        public void BinaryBuilder_Should_AppendBinary()
+        {
+            var builder = new BinaryArrayBuilder();
+
+            builder.AppendValue(123);
+            builder.AppendNull();
+            builder.AppendValue(new byte[] { 1, 0, 12 });
+            builder.AppendValues(new byte[][] {
+                new byte[] {  },
+                null,
+                new byte[] { 9, 42 }
+            });
+
+            var array = builder.Build();
+
+            Assert.Equal(6, array.Length);
+            Assert.Equal(2, array.NullCount);
+
+            Assert.Equal(new byte[] { 123 }, array.GetBytes(0).ToArray());
+            Assert.Equal(new byte[] { }, array.GetBytes(1).ToArray());
+            Assert.Equal(new byte[] { 1, 0, 12 }, array.GetBytes(2).ToArray());
+            Assert.Equal(new byte[] { }, array.GetBytes(3).ToArray());
+            Assert.Equal(new byte[] { }, array.GetBytes(4).ToArray());
+            Assert.Equal(new byte[] { 9, 42 }, array.GetBytes(5).ToArray());
+
+            Assert.True(array.IsValid(0));
+            Assert.False(array.IsValid(1));
+            Assert.False(array.IsValid(4));
+            Assert.True(array.IsValid(5));
+        }
+
+        [Fact]
+        public void BinaryBuilder_Should_AppendArray()
+        {
+            var builder = new BinaryArrayBuilder();
+
+            var a0b = new BinaryArrayBuilder();
+            a0b.AppendValues(new byte[][] {
+                new byte[] {  },
+                null,
+                new byte[] { 9, 42 }
+            });
+            var a0 = a0b.Build();
+
+            var a1b = new BinaryArrayBuilder();
+            a1b.AppendValues(new byte[][] {
+                null,
+                new byte[] { 1, 2, 3, 4 },
+                new byte[] { 8, 7 }
+            });
+            var a1 = a1b.Build();
+
+            builder.AppendNull();
+            builder.AppendArray(a0);
+            builder.AppendArray(a1);
+
+            var array = builder.Build();
+
+            Assert.Equal(7, array.Length);
+            Assert.Equal(3, array.NullCount);
+
+            Assert.False(array.IsValid(0));
+            Assert.True(array.IsValid(1));
+            Assert.False(array.IsValid(2));
+            Assert.True(array.IsValid(3));
+            Assert.False(array.IsValid(4));
+            Assert.True(array.IsValid(5));
+            Assert.True(array.IsValid(6));
+
+            Assert.Equal(new byte[] { }, array.GetBytes(0).ToArray());
+            Assert.Equal(new byte[] { }, array.GetBytes(1).ToArray());
+            Assert.Equal(new byte[] { }, array.GetBytes(2).ToArray());
+            Assert.Equal(new byte[] { 9, 42 }, array.GetBytes(3).ToArray());
+            Assert.Equal(new byte[] { }, array.GetBytes(4).ToArray());
+            Assert.Equal(new byte[] { 1, 2, 3, 4 }, array.GetBytes(5).ToArray());
+            Assert.Equal(new byte[] { 8, 7 }, array.GetBytes(6).ToArray());
+        }
+
+        [Fact]
+        public void BinaryBuilder_Should_AppendArraySlice()
+        {
+            var builder = new BinaryArrayBuilder();
+
+            var a0b = new BinaryArrayBuilder();
+            a0b.AppendValues(new byte[][] {
+                new byte[] {  },
+                null,
+                new byte[] { 9, 42 },
+                new byte[] { 1, 2, 32, 4 }
+            });
+            var a0 = a0b.Build();
+
+            var a1b = new BinaryArrayBuilder();
+            a1b.AppendValues(new byte[][] {
+                null,
+                new byte[] { 1, 2, 3, 4 },
+                new byte[] { 8, 7 },
+                null
+            });
+            var a1 = a1b.Build();
+
+            builder.AppendNull();
+            builder.AppendArray(a0.Slice(2, 1));
+            builder.AppendArray(a1.Slice(1, 3));
+
+            var array = builder.Build();
+
+            Assert.Equal(5, array.Length);
+            Assert.Equal(2, array.NullCount);
+
+            Assert.False(array.IsValid(0));
+            Assert.True(array.IsValid(1));
+            Assert.True(array.IsValid(2));
+            Assert.True(array.IsValid(3));
+            Assert.False(array.IsValid(4));
+
+            Assert.Equal(new byte[] { }, array.GetBytes(0).ToArray());
+            Assert.Equal(new byte[] { 9, 42 }, array.GetBytes(1).ToArray());
+            Assert.Equal(new byte[] { 1, 2, 3, 4 }, array.GetBytes(2).ToArray());
+            Assert.Equal(new byte[] { 8, 7 }, array.GetBytes(3).ToArray());
+            Assert.Equal(new byte[] { }, array.GetBytes(4).ToArray());
+        }
+    }
+
+    public class StringArrayBuilderTests
+    {
+        [Fact]
+        public void StringBuilder_Should_AppendStrings()
+        {
+            var builder = new StringArrayBuilder();
+            string[] values = new string[] { "abc123", "", null, "965" };
+            builder.AppendValue("0");
+            builder.AppendValues(values);
+            builder.AppendNull();
+            var array = builder.Build();
+
+            Assert.Equal(6, array.Length);
+            Assert.Equal(2, array.NullCount);
+
+            Assert.False(array.IsValid(3));
+            Assert.True(array.IsValid(2));
+
+            Assert.Equal("0", array.GetString(0));
+            Assert.Equal("abc123", array.GetString(1));
+            Assert.Equal("", array.GetString(2));
+            Assert.Null(array.GetString(3));
+            Assert.Null(array.GetString(5));
+        }
+
+        [Fact]
+        public void StringArrayBuilder_Should_Build()
+        {
+            var builder = new StringArrayBuilder();
+
+            builder.AppendValue("");
+            builder.AppendNull();
+            builder.AppendValue("def");
+
+            var array = builder.Build();
+
+            Assert.Equal(3, array.Length);
+            Assert.Equal(1, array.NullCount);
+
+            Assert.Equal("", array.GetString(0));
+            Assert.Null(array.GetString(1));
+            Assert.Equal("def", array.GetString(2));
+
+            Assert.True(array.IsValid(0));
+            Assert.False(array.IsValid(1));
+        }
+
+        [Fact]
+        public void StringBuilder_Should_AppendArrowArray()
+        {
+            var builder = new StringArrayBuilder();
+            string[] values = new string[] { "0", "abc123", "", null, "965" };
+
+            var arrayBuilder = new StringArrayBuilder(values.Length);
+            arrayBuilder.AppendValues(values);
+
+            builder.AppendNull();
+            builder.AppendArray(arrayBuilder.Build());
+
+            var array = builder.Build();
+
+            Assert.Equal(6, array.Length);
+            Assert.Equal(2, array.NullCount);
+
+            Assert.False(array.IsValid(0));
+            Assert.True(array.IsValid(2));
+
+            Assert.Equal("0", array.GetString(1));
+            Assert.Equal("abc123", array.GetString(2));
+            Assert.Equal("", array.GetString(3));
+            Assert.Null(array.GetString(4));
+        }
+
+        [Fact]
+        public void StringBuilder_Should_AppendArrowArraySlice()
+        {
+            var builder = new StringArrayBuilder();
+            string[] values = new string[] { "0", "abc123", "", null, "965" };
+
+            var arrayBuilder = new StringArrayBuilder(values.Length);
+            arrayBuilder.AppendValues(values);
+
+            builder.AppendNull();
+            builder.AppendArray(arrayBuilder.Build().Slice(1, 3));
+
+            var array = builder.Build();
+
+            Assert.Equal(4, array.Length);
+            Assert.Equal(2, array.NullCount);
+
+            Assert.False(array.IsValid(0));
+            Assert.True(array.IsValid(2));
+
+            Assert.Equal("abc123", array.GetString(1));
+            Assert.Equal("", array.GetString(2));
+            Assert.Null(array.GetString(3));
+        }
+    }
+
     public class ValueArrayBuilderTests
     {
         [Fact]
@@ -100,52 +366,8 @@ namespace Apache.Arrow.Tests.Builder
         }
     }
 
-    public class BinaryArrayBuilderTests
+    public class FixedBinaryArrayBuilderTests
     {
-        [Fact]
-        public void BinaryArrayBuilder_Should_Build()
-        {
-            var builder = new BinaryArrayBuilder();
-
-            builder.AppendValue(123);
-            builder.AppendNull();
-            builder.AppendValue(new byte[] { 1, 0, 12 });
-
-            var array = builder.Build();
-
-            Assert.Equal(3, array.Length);
-            Assert.Equal(1, array.NullCount);
-
-            Assert.Equal(new byte[] { 123 }, array.GetBytes(0).ToArray());
-            Assert.Equal(new byte[] { }, array.GetBytes(1).ToArray());
-            Assert.Equal(new byte[] { 1, 0, 12 }, array.GetBytes(2).ToArray());
-
-            Assert.True(array.IsValid(0));
-            Assert.False(array.IsValid(1));
-        }
-
-        [Fact]
-        public void StringArrayBuilder_Should_Build()
-        {
-            var builder = new StringArrayBuilder();
-
-            builder.AppendValue("");
-            builder.AppendNull();
-            builder.AppendValue("def");
-
-            var array = builder.Build();
-
-            Assert.Equal(3, array.Length);
-            Assert.Equal(1, array.NullCount);
-
-            Assert.Equal("", array.GetString(0));
-            Assert.Null(array.GetString(1));
-            Assert.Equal("def", array.GetString(2));
-
-            Assert.True(array.IsValid(0));
-            Assert.False(array.IsValid(1));
-        }
-
         [Fact]
         public void FixedSizeBinary_Should_InsertInArray()
         {
@@ -275,6 +497,59 @@ namespace Apache.Arrow.Tests.Builder
 
             Assert.Equal("abc", names.GetString(1));
             Assert.Equal(123, int32s.GetValue(1));
+        }
+
+        private static RecordBatch GetRecordBatch()
+        {
+            var builder = new StructArrayBuilder<TestStruct>();
+            var scalar = new StructScalar(builder.DataType, new IScalar[]
+            {
+                new StringScalar("abc"), new Int32Scalar(123)
+            });
+
+            builder.AppendNull();
+            builder.AppendValue(scalar);
+            builder.AppendNull();
+
+            return builder.BuildRecordBatch();
+        }
+
+        [Fact]
+        public void StructArrayBuilder_Should_AppendRecordBatch()
+        {
+            var builder = new StructArrayBuilder<TestStruct>();
+
+            builder.AppendNull();
+            builder.AppendBatch(GetRecordBatch());
+            builder.AppendNull();
+
+            var batch = builder.BuildRecordBatch();
+            var names = batch.Column(0) as StringArray;
+            var int32s = batch.Column(1) as Int32Array;
+
+            Assert.Equal(5, batch.Length);
+
+            Assert.Equal("abc", names.GetString(2));
+            Assert.Equal(123, int32s.GetValue(2));
+        }
+
+        [Fact]
+        public async Task StructArrayBuilder_Should_AppendRecordBatchAsync()
+        {
+            var builder = new StructArrayBuilder<TestStruct>();
+
+            builder.AppendNull();
+            builder.AppendBatch(GetRecordBatch());
+            builder.AppendNull();
+
+            var batch = await builder.BuildRecordBatchAsync();
+            var names = batch.Column(0) as StringArray;
+            var int32s = batch.Column(1) as Int32Array;
+
+            Assert.Equal(5, batch.Length);
+
+            Assert.Equal("abc", names.GetString(2));
+            Assert.Equal(123, int32s.GetValue(2));
         }
     }
 
