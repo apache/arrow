@@ -13,11 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System.Text;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
@@ -70,6 +69,11 @@ namespace Apache.Arrow
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
+        /// <summary>
+        /// Converts the underlying byte data to a string using the specified encoding.
+        /// </summary>
+        /// <param name="encoding">The encoding used to decode the byte data.</param>
+        /// <returns>String representation of the decoded byte data.</returns>
         public string GetString(int index, Encoding encoding = default)
             => IsValid(index) ? encoding == null ? GetScalar(index).Value : GetScalar(index).GetString(encoding) : null;
 

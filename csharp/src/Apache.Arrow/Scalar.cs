@@ -61,10 +61,10 @@ namespace Apache.Arrow
         /// Converts the underlying byte data to a string using the specified encoding.
         /// </summary>
         /// <remarks>
-        /// string are not nullable in a StringScalar, so if empty it returns string.Empty.
+        /// Since strings are not nullable in a StringScalar, if the byte data is empty, it returns <see cref="string.Empty"/>.
         /// </remarks>
         /// <param name="encoding">The encoding used to decode the byte data.</param>
-        /// <returns><see cref="string""> representation of the byte data.</returns>
+        /// <returns>String representation of the decoded byte data.</returns>
         public unsafe string GetString(Encoding encoding)
         {
             fixed (byte* ptr = View())
