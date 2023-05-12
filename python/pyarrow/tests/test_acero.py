@@ -21,21 +21,26 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.compute import field
 
-from pyarrow.acero import (
-    Declaration,
-    TableSourceNodeOptions,
-    FilterNodeOptions,
-    ProjectNodeOptions,
-    AggregateNodeOptions,
-    OrderByNodeOptions,
-    HashJoinNodeOptions,
-)
+try:
+    from pyarrow.acero import (
+        Declaration,
+        TableSourceNodeOptions,
+        FilterNodeOptions,
+        ProjectNodeOptions,
+        AggregateNodeOptions,
+        OrderByNodeOptions,
+        HashJoinNodeOptions,
+    )
+except ImportError:
+    pass
 
 try:
     import pyarrow.dataset as ds
     from pyarrow.acero import ScanNodeOptions
 except ImportError:
     ds = None
+
+pytestmark = pytest.mark.acero
 
 
 @pytest.fixture

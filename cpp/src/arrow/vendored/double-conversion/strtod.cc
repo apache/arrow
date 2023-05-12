@@ -33,6 +33,7 @@
 #include "ieee.h"
 #include "strtod.h"
 
+namespace arrow_vendored {
 namespace double_conversion {
 
 // 2^53 = 9007199254740992.
@@ -578,3 +579,4 @@ float Strtof(Vector<const char> buffer, int exponent) {
 }
 
 }  // namespace double_conversion
+}  // namespace arrow_vendored

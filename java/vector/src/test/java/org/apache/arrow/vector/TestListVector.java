@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,10 +29,15 @@ import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.holders.DurationHolder;
+import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
+import org.apache.arrow.vector.holders.TimeStampMilliTZHolder;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -896,6 +902,144 @@ public class TestListVector {
 
       assertEquals(expectedField, writer.getField());
     }
+  }
+
+  @Test
+  public void testWriterGetTimestampMilliTZField() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writer.startList();
+      writer.timeStampMilliTZ().writeTimeStampMilliTZ(1000L);
+      writer.timeStampMilliTZ().writeTimeStampMilliTZ(2000L);
+      writer.endList();
+      vector.setValueCount(1);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")), null);
+      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+  }
+
+  @Test
+  public void testWriterUsingHolderGetTimestampMilliTZField() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
+      writer.allocate();
+
+      TimeStampMilliTZHolder holder = new TimeStampMilliTZHolder();
+      holder.timezone = "SomeFakeTimeZone";
+      writer.startList();
+      holder.value = 12341234L;
+      writer.timeStampMilliTZ().write(holder);
+      holder.value = 55555L;
+      writer.timeStampMilliTZ().write(holder);
+
+      // Writing with a different timezone should throw
+      holder.timezone = "AsdfTimeZone";
+      holder.value = 77777;
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> writer.timeStampMilliTZ().write(holder));
+      assertEquals("holder.timezone: AsdfTimeZone not equal to vector timezone: SomeFakeTimeZone", ex.getMessage());
+
+      writer.endList();
+      vector.setValueCount(1);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "SomeFakeTimeZone")), null);
+      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+  }
+
+  @Test
+  public void testWriterGetDurationField() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
+      writer.allocate();
+
+      DurationHolder durationHolder = new DurationHolder();
+      durationHolder.unit = TimeUnit.MILLISECOND;
+
+      writer.startList();
+      durationHolder.value = 812374L;
+      writer.duration().write(durationHolder);
+      durationHolder.value = 143451L;
+      writer.duration().write(durationHolder);
+
+      // Writing with a different unit should throw
+      durationHolder.unit = TimeUnit.SECOND;
+      durationHolder.value = 8888888;
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> writer.duration().write(durationHolder));
+      assertEquals("holder.unit: SECOND not equal to vector unit: MILLISECOND", ex.getMessage());
+
+      writer.endList();
+      vector.setValueCount(1);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.Duration(TimeUnit.MILLISECOND)), null);
+      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+  }
+
+  @Test
+  public void testWriterGetFixedSizeBinaryField() throws Exception {
+    // Adapted from: TestComplexWriter.java:fixedSizeBinaryWriters
+    // test values
+    int numValues = 10;
+    int byteWidth = 9;
+    byte[][] values = new byte[numValues][byteWidth];
+    for (int i = 0; i < numValues; i++) {
+      for (int j = 0; j < byteWidth; j++) {
+        values[i][j] = ((byte) i);
+      }
+    }
+    ArrowBuf[] bufs = new ArrowBuf[numValues];
+    for (int i = 0; i < numValues; i++) {
+      bufs[i] = allocator.buffer(byteWidth);
+      bufs[i].setBytes(0, values[i]);
+    }
+
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
+      writer.allocate();
+
+      FixedSizeBinaryHolder binHolder = new FixedSizeBinaryHolder();
+      binHolder.byteWidth = byteWidth;
+      writer.startList();
+      for (int i = 0; i < numValues; i++) {
+        binHolder.buffer = bufs[i];
+        writer.fixedSizeBinary().write(binHolder);
+      }
+
+      // Writing with a different byteWidth should throw
+      // Note just reusing the last buffer value since that won't matter here anyway
+      binHolder.byteWidth = 3;
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> writer.fixedSizeBinary().write(binHolder));
+      assertEquals("holder.byteWidth: 3 not equal to vector byteWidth: 9", ex.getMessage());
+
+      writer.endList();
+      vector.setValueCount(1);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.FixedSizeBinary(byteWidth)), null);
+      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.List.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+    AutoCloseables.close(bufs);
   }
 
   @Test

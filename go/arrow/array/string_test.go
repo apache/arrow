@@ -21,10 +21,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,7 +44,8 @@ func TestStringArray(t *testing.T) {
 	sb.Retain()
 	sb.Release()
 
-	sb.AppendValues(want[:2], nil)
+	assert.NoError(t, sb.AppendValueFromString(want[0]))
+	sb.AppendValues(want[1:2], nil)
 
 	sb.AppendNull()
 	sb.Append(want[3])
@@ -62,6 +63,8 @@ func TestStringArray(t *testing.T) {
 
 	arr.Retain()
 	arr.Release()
+
+	assert.Equal(t, "hello", arr.ValueStr(0))
 
 	if got, want := arr.Len(), len(want); got != want {
 		t.Fatalf("invalid len: got=%d, want=%d", got, want)
@@ -276,6 +279,38 @@ func TestStringInvalidOffsets(t *testing.T) {
 		buffers := makeBuffers(nil, []int32{0, 3, 10, 15}, "oooabcdef")
 		array.NewStringData(array.NewData(arrow.BinaryTypes.String, 1, buffers, nil, 0, 2))
 	}, "data has offset and value offset is overflowing")
+}
+
+func TestStringStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	var (
+		values = []string{"hello", "世界", "", "bye"}
+		valid  = []bool{true, true, false, true}
+	)
+
+	b := array.NewStringBuilder(mem)
+	defer b.Release()
+
+	b.AppendValues(values, valid)
+
+	arr := b.NewArray().(*array.String)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewStringBuilder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.String)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }
 
 func TestLargeStringArray(t *testing.T) {
@@ -526,4 +561,36 @@ func TestLargeStringInvalidOffsets(t *testing.T) {
 		buffers := makeBuffers(nil, []int64{0, 3, 10, 15}, "oooabcdef")
 		array.NewLargeStringData(array.NewData(arrow.BinaryTypes.LargeString, 1, buffers, nil, 0, 2))
 	}, "data has offset and value offset is overflowing")
+}
+
+func TestLargeStringStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	var (
+		values = []string{"hello", "世界", "", "bye"}
+		valid  = []bool{true, true, false, true}
+	)
+
+	b := array.NewLargeStringBuilder(mem)
+	defer b.Release()
+
+	b.AppendValues(values, valid)
+
+	arr := b.NewArray().(*array.LargeString)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewLargeStringBuilder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.LargeString)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }

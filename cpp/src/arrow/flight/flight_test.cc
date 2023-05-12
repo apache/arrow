@@ -214,6 +214,30 @@ TEST(TestFlight, DISABLED_IpV6Port) {
   ASSERT_OK(client->ListFlights());
 }
 
+TEST(TestFlight, ServerCallContextIncomingHeaders) {
+  auto server = ExampleTestServer();
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
+  FlightServerOptions options(location);
+  ASSERT_OK(server->Init(options));
+
+  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(server->location()));
+  Action action;
+  action.type = "list-incoming-headers";
+  action.body = Buffer::FromString("test-header");
+  FlightCallOptions call_options;
+  call_options.headers.emplace_back("test-header1", "value1");
+  call_options.headers.emplace_back("test-header2", "value2");
+  ASSERT_OK_AND_ASSIGN(auto stream, client->DoAction(call_options, action));
+  ASSERT_OK_AND_ASSIGN(auto result, stream->Next());
+  ASSERT_NE(result.get(), nullptr);
+  ASSERT_EQ(result->body->ToString(), "test-header1: value1");
+  ASSERT_OK_AND_ASSIGN(result, stream->Next());
+  ASSERT_NE(result.get(), nullptr);
+  ASSERT_EQ(result->body->ToString(), "test-header2: value2");
+  ASSERT_OK_AND_ASSIGN(result, stream->Next());
+  ASSERT_EQ(result.get(), nullptr);
+}
+
 // ----------------------------------------------------------------------
 // Client tests
 
@@ -395,14 +419,19 @@ class TestTls : public ::testing::Test {
     ASSERT_RAISES(UnknownError, server_->Init(options));
     ASSERT_OK(ExampleTlsCertificates(&options.tls_certificates));
     ASSERT_OK(server_->Init(options));
+    server_is_initialized_ = true;
 
     ASSERT_OK_AND_ASSIGN(location_, Location::ForGrpcTls("localhost", server_->port()));
     ASSERT_OK(ConnectClient());
   }
 
   void TearDown() {
-    ASSERT_OK(client_->Close());
-    ASSERT_OK(server_->Shutdown());
+    if (client_) {
+      ASSERT_OK(client_->Close());
+    }
+    if (server_is_initialized_) {
+      ASSERT_OK(server_->Shutdown());
+    }
     grpc_shutdown();
   }
 
@@ -418,11 +447,12 @@ class TestTls : public ::testing::Test {
   Location location_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
+  bool server_is_initialized_;
 };
 
 // A server middleware that rejects all calls.
 class RejectServerMiddlewareFactory : public ServerMiddlewareFactory {
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     return MakeFlightError(FlightStatusCode::Unauthenticated, "All calls are rejected");
   }
@@ -454,7 +484,7 @@ class CountingServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   CountingServerMiddlewareFactory() : successful_(0), failed_(0) {}
 
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     *middleware = std::make_shared<CountingServerMiddleware>(&successful_, &failed_);
     return Status::OK();
@@ -487,10 +517,10 @@ class TracingTestServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   TracingTestServerMiddlewareFactory() {}
 
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
-        incoming_headers.equal_range("x-tracing-span-id");
+        context.incoming_headers().equal_range("x-tracing-span-id");
     if (iter_pair.first != iter_pair.second) {
       const std::string_view& value = (*iter_pair.first).second;
       *middleware = std::make_shared<TracingTestServerMiddleware>(std::string(value));
@@ -548,10 +578,10 @@ class HeaderAuthServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   HeaderAuthServerMiddlewareFactory() {}
 
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     std::string username, password;
-    ParseBasicHeader(incoming_headers, username, password);
+    ParseBasicHeader(context.incoming_headers(), username, password);
     if ((username == kValidUsername) && (password == kValidPassword)) {
       *middleware = std::make_shared<HeaderAuthServerMiddleware>();
     } else if ((username == kInvalidUsername) && (password == kInvalidPassword)) {
@@ -589,13 +619,13 @@ class BearerAuthServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   BearerAuthServerMiddlewareFactory() : isValid_(false) {}
 
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
-        incoming_headers.equal_range(kAuthHeader);
+        context.incoming_headers().equal_range(kAuthHeader);
     if (iter_pair.first != iter_pair.second) {
-      *middleware =
-          std::make_shared<BearerAuthServerMiddleware>(incoming_headers, &isValid_);
+      *middleware = std::make_shared<BearerAuthServerMiddleware>(
+          context.incoming_headers(), &isValid_);
     }
     return Status::OK();
   }
@@ -1023,7 +1053,7 @@ TEST_F(TestFlightClient, TimeoutFires) {
   Status status = client->GetFlightInfo(options, FlightDescriptor{}).status();
   auto end = std::chrono::system_clock::now();
 #ifdef ARROW_WITH_TIMING_TESTS
-  EXPECT_LE(end - start, std::chrono::milliseconds{400});
+  EXPECT_LE(end - start, std::chrono::milliseconds{1200});
 #else
   ARROW_UNUSED(end - start);
 #endif

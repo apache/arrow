@@ -199,6 +199,7 @@ set(ARROW_FLIGHT_SRCS
     serialization_internal.cc
     server.cc
     server_auth.cc
+    server_middleware.cc
     server_tracing_middleware.cc
     transport.cc
     transport_server.cc
@@ -238,13 +239,19 @@ add_arrow_lib(arrow_flight
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
-              arrow_shared
+              # We must use gRPC::grpc++ first. If gRPC::grpc++
+              # depends on bundled Abseil, bundled Abseil and system
+              # Abseil may be mixed.
+              #
+              # See also a comment for "if(ARROW_GCS)" in
+              # cpp/CMakeLists.txt.
               ${ARROW_FLIGHT_LINK_LIBS}
+              arrow_shared
               SHARED_INSTALL_INTERFACE_LIBS
               Arrow::arrow_shared
               STATIC_LINK_LIBS
-              arrow_static
               ${ARROW_FLIGHT_LINK_LIBS}
+              arrow_static
               STATIC_INSTALL_INTERFACE_LIBS
               Arrow::arrow_static)
 

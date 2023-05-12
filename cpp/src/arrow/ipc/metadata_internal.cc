@@ -367,8 +367,8 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
         return Status::Invalid("Map's keys must be non-nullable");
       } else {
         auto map = static_cast<const flatbuf::Map*>(type_data);
-        *out = std::make_shared<MapType>(children[0]->type()->field(0)->type(),
-                                         children[0]->type()->field(1)->type(),
+        *out = std::make_shared<MapType>(children[0]->type()->field(0)->WithName("key"),
+                                         children[0]->type()->field(1)->WithName("value"),
                                          map->keysSorted());
       }
       return Status::OK();

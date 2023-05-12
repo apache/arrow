@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -60,6 +60,9 @@ type Builder interface {
 
 	// AppendEmptyValue adds a new zero value of the appropriate type
 	AppendEmptyValue()
+
+	// AppendValueFromString adds a new value from a string. Inverse of array.ValueStr(i int) string
+	AppendValueFromString(string) error
 
 	// Reserve ensures there is enough space for appending n elements
 	// by checking the capacity and calling Resize if necessary.

@@ -167,6 +167,7 @@ lgl: bool
 total: int64
 extra: int64 (multiply_checked(total, 5))
 
+* Sorted by lgl [asc]
 See $.data for the source Arrow object",
     fixed = TRUE
   )

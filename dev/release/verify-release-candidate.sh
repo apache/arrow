@@ -366,8 +366,8 @@ install_csharp() {
     local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
     local dotnet_download_url=$( \
       curl -sL ${dotnet_download_thank_you_url} | \
-        grep 'window\.open' | \
-        grep -E -o '[^"]+' | \
+        grep 'directLink' | \
+        grep -E -o 'https://download[^"]+' | \
         sed -n 2p)
     mkdir -p ${csharp_bin}
     curl -sL ${dotnet_download_url} | \
@@ -1015,7 +1015,7 @@ test_linux_wheels() {
   fi
 
   local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10 3.11}"
-  local platform_tags="manylinux_2_17_${arch}.manylinux2014_${arch}"
+  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
 
   for python in ${python_versions}; do
     local pyver=${python/m}

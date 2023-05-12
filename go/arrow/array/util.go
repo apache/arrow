@@ -22,10 +22,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/hashing"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/hashing"
 	"github.com/goccy/go-json"
 )
 
@@ -228,7 +228,7 @@ func RecordToJSON(rec arrow.Record, w io.Writer) error {
 	cols := make(map[string]interface{})
 	for i := 0; int64(i) < rec.NumRows(); i++ {
 		for j, c := range rec.Columns() {
-			cols[fields[j].Name] = c.(arraymarshal).GetOneForMarshal(i)
+			cols[fields[j].Name] = c.GetOneForMarshal(i)
 		}
 		if err := enc.Encode(cols); err != nil {
 			return err

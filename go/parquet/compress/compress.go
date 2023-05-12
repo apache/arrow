@@ -22,9 +22,8 @@ import (
 	"compress/flate"
 	"fmt"
 	"io"
-	"io/ioutil"
 
-	"github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
 )
 
 // Compression is an alias to the thrift compression codec enum type for easy use
@@ -98,7 +97,7 @@ type nocodec struct{}
 func (nocodec) NewReader(r io.Reader) io.ReadCloser {
 	ret, ok := r.(io.ReadCloser)
 	if !ok {
-		return ioutil.NopCloser(r)
+		return io.NopCloser(r)
 	}
 	return ret
 }

@@ -83,7 +83,7 @@
 #' Functions can be called either as `pkg::fun()` or just `fun()`, i.e. both
 #' `str_sub()` and `stringr::str_sub()` work.
 #'
-#' In addition to these functions, you can call any of Arrow's 246 compute
+#' In addition to these functions, you can call any of Arrow's 254 compute
 #' functions directly. Arrow has many functions that don't map to an existing R
 #' function. In other cases where there is an R function mapping, you can still
 #' call the Arrow function directly if you don't want the adaptations that the R
@@ -99,30 +99,31 @@
 #'
 #' ## base
 #'
-#' * [`-`][-()]
 #' * [`!`][!()]
 #' * [`!=`][!=()]
-#' * [`*`][*()]
-#' * [`/`][/()]
-#' * [`&`][&()]
-#' * [`%/%`][%/%()]
 #' * [`%%`][%%()]
+#' * [`%/%`][%/%()]
 #' * [`%in%`][%in%()]
-#' * [`^`][^()]
+#' * [`&`][&()]
+#' * [`*`][*()]
 #' * [`+`][+()]
+#' * [`-`][-()]
+#' * [`/`][/()]
 #' * [`<`][<()]
 #' * [`<=`][<=()]
 #' * [`==`][==()]
 #' * [`>`][>()]
 #' * [`>=`][>=()]
-#' * [`|`][|()]
+#' * [`ISOdate()`][base::ISOdate()]
+#' * [`ISOdatetime()`][base::ISOdatetime()]
+#' * [`^`][^()]
 #' * [`abs()`][base::abs()]
 #' * [`acos()`][base::acos()]
 #' * [`all()`][base::all()]
 #' * [`any()`][base::any()]
-#' * [`as.character()`][base::as.character()]
 #' * [`as.Date()`][base::as.Date()]: Multiple `tryFormats` not supported in Arrow.
 #' Consider using the lubridate specialised parsing functions `ymd()`, `ymd()`, etc.
+#' * [`as.character()`][base::as.character()]
 #' * [`as.difftime()`][base::as.difftime()]: only supports `units = "secs"` (the default)
 #' * [`as.double()`][base::as.double()]
 #' * [`as.integer()`][base::as.integer()]
@@ -153,8 +154,6 @@
 #' * [`is.na()`][base::is.na()]
 #' * [`is.nan()`][base::is.nan()]
 #' * [`is.numeric()`][base::is.numeric()]
-#' * [`ISOdate()`][base::ISOdate()]
-#' * [`ISOdatetime()`][base::ISOdatetime()]
 #' * [`log()`][base::log()]
 #' * [`log10()`][base::log10()]
 #' * [`log1p()`][base::log1p()]
@@ -186,6 +185,7 @@
 #' * [`tolower()`][base::tolower()]
 #' * [`toupper()`][base::toupper()]
 #' * [`trunc()`][base::trunc()]
+#' * [`|`][|()]
 #'
 #' ## bit64
 #'
@@ -196,7 +196,7 @@
 #'
 #' * [`across()`][dplyr::across()]
 #' * [`between()`][dplyr::between()]
-#' * [`case_when()`][dplyr::case_when()]
+#' * [`case_when()`][dplyr::case_when()]: `.ptype` and `.size` arguments not supported
 #' * [`coalesce()`][dplyr::coalesce()]
 #' * [`desc()`][dplyr::desc()]
 #' * [`if_all()`][dplyr::if_all()]
@@ -242,8 +242,8 @@
 #' * [`format_ISO8601()`][lubridate::format_ISO8601()]
 #' * [`hour()`][lubridate::hour()]
 #' * [`is.Date()`][lubridate::is.Date()]
-#' * [`is.instant()`][lubridate::is.instant()]
 #' * [`is.POSIXct()`][lubridate::is.POSIXct()]
+#' * [`is.instant()`][lubridate::is.instant()]
 #' * [`is.timepoint()`][lubridate::is.timepoint()]
 #' * [`isoweek()`][lubridate::isoweek()]
 #' * [`isoyear()`][lubridate::isoyear()]

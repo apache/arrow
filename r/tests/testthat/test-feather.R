@@ -177,7 +177,7 @@ test_that("feather read/write round trip", {
   tab1 <- read_feather(feather_file, as_data_frame = FALSE)
   expect_r6_class(tab1, "Table")
 
-  expect_equal(tib, as.data.frame(tab1))
+  expect_equal_data_frame(tib, tab1)
 })
 
 test_that("Read feather from raw vector", {

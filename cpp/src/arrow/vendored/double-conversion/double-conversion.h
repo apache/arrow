@@ -30,6 +30,7 @@
 
 #include "utils.h"
 
+namespace arrow_vendored {
 namespace double_conversion {
 
 class DoubleToStringConverter {
@@ -583,5 +584,6 @@ class StringToDoubleConverter {
 };
 
 }  // namespace double_conversion
+}  // namespace arrow_vendored
 
 #endif  // DOUBLE_CONVERSION_DOUBLE_CONVERSION_H_

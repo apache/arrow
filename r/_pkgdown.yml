@@ -281,3 +281,10 @@ repo:
     source: https://github.com/apache/arrow/blob/main/r/
     issue: https://github.com/apache/arrow/issues/
     user: https://github.com/
+
+footer:
+  structure:
+    left: older_versions
+    right: built_with
+  components:
+    older_versions: "[Older versions of these docs](https://arrow.apache.org/docs/r/versions.html)"

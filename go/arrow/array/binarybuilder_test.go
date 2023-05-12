@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,8 +50,12 @@ func TestBinaryBuilder(t *testing.T) {
 		}
 		assert.Equal(t, v, ab.Value(i), "unexpected BinaryArrayBuilder.Value(%d)", i)
 	}
+	// Zm9v is foo in base64
+	assert.NoError(t, ab.AppendValueFromString("Zm9v"))
 
 	ar := ab.NewBinaryArray()
+	assert.Equal(t, "Zm9v", ar.ValueStr(5))
+
 	ab.Release()
 	ar.Release()
 

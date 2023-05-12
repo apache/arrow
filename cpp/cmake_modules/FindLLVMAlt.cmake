@@ -96,6 +96,21 @@ if(LLVM_FOUND)
   add_library(LLVM::LLVM_LIBS INTERFACE IMPORTED)
   set_target_properties(LLVM::LLVM_LIBS PROPERTIES INTERFACE_LINK_LIBRARIES
                                                    "${LLVM_LIBS}")
+
+  if(TARGET LLVMSupport AND NOT ARROW_ZSTD_USE_SHARED)
+    get_target_property(LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES LLVMSupport
+                        INTERFACE_LINK_LIBRARIES)
+    list(FIND LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES zstd::libzstd_shared
+         LLVM_SUPPORT_LIBZSTD_INDEX)
+    if(NOT LLVM_SUPPORT_LIBZSTD_INDEX EQUAL -1)
+      list(REMOVE_AT LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES ${LLVM_SUPPORT_LIBZSTD_INDEX})
+      list(INSERT LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES ${LLVM_SUPPORT_LIBZSTD_INDEX}
+           zstd::libzstd_static)
+    endif()
+    set_target_properties(LLVMSupport
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "${LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES}")
+  endif()
 endif()
 
 mark_as_advanced(CLANG_EXECUTABLE LLVM_LINK_EXECUTABLE)

@@ -57,7 +57,6 @@ set(ARROW_ACERO_SRCS
 
 append_acero_avx2_src(bloom_filter_avx2.cc)
 append_acero_avx2_src(swiss_join_avx2.cc)
-append_acero_avx2_src(util_avx2.cc)
 
 set(ARROW_ACERO_SHARED_LINK_LIBS)
 set(ARROW_ACERO_STATIC_LINK_LIBS)

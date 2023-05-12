@@ -21,7 +21,7 @@ import (
 	"hash/maphash"
 	"strings"
 
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 )
 
 // Type is a logical type. They can be expressed as
@@ -281,6 +281,16 @@ func IsInteger(t Type) bool {
 func IsUnsignedInteger(t Type) bool {
 	switch t {
 	case UINT8, UINT16, UINT32, UINT64:
+		return true
+	}
+	return false
+}
+
+// IsSignedInteger is a helper that returns true if the type ID provided is
+// one of the int integral types (int8, int16, int32, int64)
+func IsSignedInteger(t Type) bool {
+	switch t {
+	case INT8, INT16, INT32, INT64:
 		return true
 	}
 	return false

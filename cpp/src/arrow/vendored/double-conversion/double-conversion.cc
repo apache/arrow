@@ -42,6 +42,7 @@
 #pragma warning(disable : 4244)
 #endif
 
+namespace arrow_vendored {
 namespace double_conversion {
 
 const DoubleToStringConverter& DoubleToStringConverter::EcmaScriptConverter() {
@@ -1169,3 +1170,4 @@ float StringToDoubleConverter::StringToFloat(
 }
 
 }  // namespace double_conversion
+}  // namespace arrow_vendored

@@ -596,7 +596,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             use_deprecated_int96_timestamps=False,
             coerce_timestamps=None,
             allow_truncated_timestamps=False,
-            use_compliant_nested_type=False,
+            use_compliant_nested_type=True,
         )
         self._set_properties()
         self._set_arrow_properties()

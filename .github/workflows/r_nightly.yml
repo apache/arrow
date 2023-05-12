@@ -58,7 +58,7 @@ jobs:
           fetch-depth: 0
           path: crossbow
           repository: ursacomputing/crossbow
-          ref: master
+          ref: main
       - name: Set up Python
         uses: actions/setup-python@v4
         with:

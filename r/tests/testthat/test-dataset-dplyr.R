@@ -397,22 +397,11 @@ test_that("show_exec_plan(), show_query() and explain() with datasets", {
       show_exec_plan(),
     regexp = paste0(
       "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
-      "OrderBySinkNode.*chr.*ASC.*", # arrange goes via the OrderBy sink node
+      "OrderByNode.*chr.*ASC.*", # arrange goes via the OrderBy node
       "ProjectNode.*", # output columns
       "FilterNode.*", # filter node
       "filter=lgl.*", # filtering expression
       "SourceNode" # entry point
     )
-  )
-
-  # printing the ExecPlan for a nested query would currently force the
-  # evaluation of the inner one(s), which we want to avoid => no output
-  expect_warning(
-    ds %>%
-      filter(lgl) %>%
-      arrange(chr) %>%
-      head() %>%
-      show_exec_plan(),
-    "The `ExecPlan` cannot be printed for a nested query."
   )
 })

@@ -29,13 +29,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -767,7 +766,7 @@ func (r *Reader) parseList(field array.Builder, str string) {
 
 func (r *Reader) parseBinaryType(field array.Builder, str string) {
 	// specialize the implementation when we know we cannot have nulls
-	if str != "" && r.isNull(str) {
+	if r.isNull(str) {
 		field.AppendNull()
 		return
 	}
@@ -783,8 +782,7 @@ func (r *Reader) parseExtension(field array.Builder, str string) {
 		field.AppendNull()
 		return
 	}
-	dec := json.NewDecoder(strings.NewReader(`"` + str + `"`))
-	if err := field.UnmarshalOne(dec); err != nil {
+	if err := field.AppendValueFromString(str); err != nil {
 		r.err = err
 		return
 	}

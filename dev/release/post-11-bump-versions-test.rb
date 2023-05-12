@@ -190,10 +190,10 @@ class PostBumpVersionsTest < Test::Unit::TestCase
             [
               "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
               "+        \"name\": \"#{@release_version}.9000 (dev)\",",
-              "-        \"name\": \"#{@previous_version} (release)\",",
+              "-        \"name\": \"#{@previous_r_version} (release)\",",
               "+        \"name\": \"#{@release_version} (release)\",",
               "+    {",
-              "+        \"name\": \"#{@previous_version}\",",
+              "+        \"name\": \"#{@previous_r_version}\",",
               "+        \"version\": \"#{@previous_compatible_version}/\"",
               "+    },",
             ],
@@ -208,7 +208,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
             [
               "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
               "+        \"name\": \"#{@release_version}.9000 (dev)\",",
-              "-        \"name\": \"#{@previous_version} (release)\",",
+              "-        \"name\": \"#{@previous_r_version} (release)\",",
               "+        \"name\": \"#{@release_version} (release)\",",
             ],
           ],

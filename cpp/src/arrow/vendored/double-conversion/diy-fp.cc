@@ -29,6 +29,7 @@
 #include "diy-fp.h"
 #include "utils.h"
 
+namespace arrow_vendored {
 namespace double_conversion {
 
 void DiyFp::Multiply(const DiyFp& other) {
@@ -55,3 +56,4 @@ void DiyFp::Multiply(const DiyFp& other) {
 }
 
 }  // namespace double_conversion
+}  // namespace arrow_vendored

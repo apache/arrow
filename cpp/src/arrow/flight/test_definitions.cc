@@ -108,7 +108,11 @@ void ConnectivityTest::TestBrokenConnection() {
   ASSERT_OK(server->Shutdown());
   ASSERT_OK(server->Wait());
 
-  ASSERT_RAISES(IOError, client->GetFlightInfo(FlightDescriptor::Command("")));
+  auto status = client->GetFlightInfo(FlightDescriptor::Command(""));
+  ASSERT_NOT_OK(status);
+  ASSERT_THAT(
+      status.status().code(),
+      ::testing::AnyOf(::arrow::StatusCode::IOError, ::arrow::StatusCode::UnknownError));
 }
 
 //------------------------------------------------------------

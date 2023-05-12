@@ -49,6 +49,7 @@
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/level_conversion.h"
 #include "parquet/metadata.h"
+#include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
@@ -253,7 +254,9 @@ class SerializedPageWriter : public PageWriter {
                        bool use_page_checksum_verification,
                        MemoryPool* pool = ::arrow::default_memory_pool(),
                        std::shared_ptr<Encryptor> meta_encryptor = nullptr,
-                       std::shared_ptr<Encryptor> data_encryptor = nullptr)
+                       std::shared_ptr<Encryptor> data_encryptor = nullptr,
+                       ColumnIndexBuilder* column_index_builder = nullptr,
+                       OffsetIndexBuilder* offset_index_builder = nullptr)
       : sink_(std::move(sink)),
         metadata_(metadata),
         pool_(pool),
@@ -268,7 +271,9 @@ class SerializedPageWriter : public PageWriter {
         page_checksum_verification_(use_page_checksum_verification),
         meta_encryptor_(std::move(meta_encryptor)),
         data_encryptor_(std::move(data_encryptor)),
-        encryption_buffer_(AllocateBuffer(pool, 0)) {
+        encryption_buffer_(AllocateBuffer(pool, 0)),
+        column_index_builder_(column_index_builder),
+        offset_index_builder_(offset_index_builder) {
     if (data_encryptor_ != nullptr || meta_encryptor_ != nullptr) {
       InitEncryption();
     }
@@ -339,6 +344,10 @@ class SerializedPageWriter : public PageWriter {
     if (meta_encryptor_ != nullptr) {
       UpdateEncryption(encryption::kColumnMetaData);
     }
+
+    // Serialized page writer does not need to adjust page offsets.
+    FinishPageIndexes(/*final_position=*/0);
+
     // index_page_offset = -1 since they are not supported
     metadata_->Finish(num_values_, dictionary_page_offset_, -1, data_page_offset_,
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
@@ -388,8 +397,7 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
 
-    // TODO(PARQUET-594) crc checksum for DATA_PAGE_V2
-    if (page_checksum_verification_ && page.type() == PageType::DATA_PAGE) {
+    if (page_checksum_verification_) {
       uint32_t crc32 =
           ::arrow::internal::crc32(/* prev */ 0, output_data_buffer, output_data_len);
       page_header.__set_crc(static_cast<int32_t>(crc32));
@@ -416,6 +424,25 @@ class SerializedPageWriter : public PageWriter {
     const int64_t header_size =
         thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
+
+    /// Collect page index
+    if (column_index_builder_ != nullptr) {
+      column_index_builder_->AddPage(page.statistics());
+    }
+    if (offset_index_builder_ != nullptr) {
+      const int64_t compressed_size = output_data_len + header_size;
+      if (compressed_size > std::numeric_limits<int32_t>::max()) {
+        throw ParquetException("Compressed page size overflows to INT32_MAX.");
+      }
+      if (!page.first_row_index().has_value()) {
+        throw ParquetException("First row index is not set in data page.");
+      }
+      /// start_pos is a relative offset in the buffered mode. It should be
+      /// adjusted via OffsetIndexBuilder::Finish() after BufferedPageWriter
+      /// has flushed all data pages.
+      offset_index_builder_->AddPage(start_pos, static_cast<int32_t>(compressed_size),
+                                     *page.first_row_index());
+    }
 
     total_uncompressed_size_ += uncompressed_size + header_size;
     total_compressed_size_ += output_data_len + header_size;
@@ -456,6 +483,17 @@ class SerializedPageWriter : public PageWriter {
 
     page_header.__set_type(format::PageType::DATA_PAGE_V2);
     page_header.__set_data_page_header_v2(data_page_header);
+  }
+
+  /// \brief Finish page index builders and update the stream offset to adjust
+  /// page offsets.
+  void FinishPageIndexes(int64_t final_position) {
+    if (column_index_builder_ != nullptr) {
+      column_index_builder_->Finish();
+    }
+    if (offset_index_builder_ != nullptr) {
+      offset_index_builder_->Finish(final_position);
+    }
   }
 
   bool has_compressor() override { return (compressor_ != nullptr); }
@@ -563,6 +601,9 @@ class SerializedPageWriter : public PageWriter {
 
   std::map<Encoding::type, int32_t> dict_encoding_stats_;
   std::map<Encoding::type, int32_t> data_encoding_stats_;
+
+  ColumnIndexBuilder* column_index_builder_;
+  OffsetIndexBuilder* offset_index_builder_;
 };
 
 // This implementation of the PageWriter writes to the final sink on Close .
@@ -574,13 +615,16 @@ class BufferedPageWriter : public PageWriter {
                      bool use_page_checksum_verification,
                      MemoryPool* pool = ::arrow::default_memory_pool(),
                      std::shared_ptr<Encryptor> meta_encryptor = nullptr,
-                     std::shared_ptr<Encryptor> data_encryptor = nullptr)
+                     std::shared_ptr<Encryptor> data_encryptor = nullptr,
+                     ColumnIndexBuilder* column_index_builder = nullptr,
+                     OffsetIndexBuilder* offset_index_builder = nullptr)
       : final_sink_(std::move(sink)), metadata_(metadata), has_dictionary_pages_(false) {
     in_memory_sink_ = CreateOutputStream(pool);
     pager_ = std::make_unique<SerializedPageWriter>(
         in_memory_sink_, codec, compression_level, metadata, row_group_ordinal,
         current_column_ordinal, use_page_checksum_verification, pool,
-        std::move(meta_encryptor), std::move(data_encryptor));
+        std::move(meta_encryptor), std::move(data_encryptor), column_index_builder,
+        offset_index_builder);
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -605,6 +649,9 @@ class BufferedPageWriter : public PageWriter {
 
     // Write metadata at end of column chunk
     metadata_->WriteTo(in_memory_sink_.get());
+
+    // Buffered page writer needs to adjust page offsets.
+    pager_->FinishPageIndexes(final_position);
 
     // flush everything to the serialized sink
     PARQUET_ASSIGN_OR_THROW(auto buffer, in_memory_sink_->Finish());
@@ -638,17 +685,20 @@ std::unique_ptr<PageWriter> PageWriter::Open(
     int compression_level, ColumnChunkMetaDataBuilder* metadata,
     int16_t row_group_ordinal, int16_t column_chunk_ordinal, MemoryPool* pool,
     bool buffered_row_group, std::shared_ptr<Encryptor> meta_encryptor,
-    std::shared_ptr<Encryptor> data_encryptor, bool page_write_checksum_enabled) {
+    std::shared_ptr<Encryptor> data_encryptor, bool page_write_checksum_enabled,
+    ColumnIndexBuilder* column_index_builder, OffsetIndexBuilder* offset_index_builder) {
   if (buffered_row_group) {
     return std::unique_ptr<PageWriter>(new BufferedPageWriter(
         std::move(sink), codec, compression_level, metadata, row_group_ordinal,
         column_chunk_ordinal, page_write_checksum_enabled, pool,
-        std::move(meta_encryptor), std::move(data_encryptor)));
+        std::move(meta_encryptor), std::move(data_encryptor), column_index_builder,
+        offset_index_builder));
   } else {
     return std::unique_ptr<PageWriter>(new SerializedPageWriter(
         std::move(sink), codec, compression_level, metadata, row_group_ordinal,
         column_chunk_ordinal, page_write_checksum_enabled, pool,
-        std::move(meta_encryptor), std::move(data_encryptor)));
+        std::move(meta_encryptor), std::move(data_encryptor), column_index_builder,
+        offset_index_builder));
   }
 }
 
@@ -925,6 +975,7 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
   }
 
   int32_t num_values = static_cast<int32_t>(num_buffered_values_);
+  int64_t first_row_index = rows_written_ - num_buffered_rows_;
 
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN
@@ -934,13 +985,13 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
         compressed_data->CopySlice(0, compressed_data->size(), allocator_));
     std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV1>(
         compressed_data_copy, num_values, encoding_, Encoding::RLE, Encoding::RLE,
-        uncompressed_size, page_stats);
+        uncompressed_size, page_stats, first_row_index);
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
 
     data_pages_.push_back(std::move(page_ptr));
   } else {  // Eagerly write pages
     DataPageV1 page(compressed_data, num_values, encoding_, Encoding::RLE, Encoding::RLE,
-                    uncompressed_size, page_stats);
+                    uncompressed_size, page_stats, first_row_index);
     WriteDataPage(page);
   }
 }
@@ -977,6 +1028,7 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   int32_t num_rows = static_cast<int32_t>(num_buffered_rows_);
   int32_t def_levels_byte_length = static_cast<int32_t>(definition_levels_rle_size);
   int32_t rep_levels_byte_length = static_cast<int32_t>(repetition_levels_rle_size);
+  int64_t first_row_index = rows_written_ - num_buffered_rows_;
 
   // page_stats.null_count is not set when page_statistics_ is nullptr. It is only used
   // here for safety check.
@@ -989,13 +1041,14 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
                             combined->CopySlice(0, combined->size(), allocator_));
     std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV2>(
         combined, num_values, null_count, num_rows, encoding_, def_levels_byte_length,
-        rep_levels_byte_length, uncompressed_size, pager_->has_compressor(), page_stats);
+        rep_levels_byte_length, uncompressed_size, pager_->has_compressor(), page_stats,
+        first_row_index);
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
     data_pages_.push_back(std::move(page_ptr));
   } else {
     DataPageV2 page(combined, num_values, null_count, num_rows, encoding_,
                     def_levels_byte_length, rep_levels_byte_length, uncompressed_size,
-                    pager_->has_compressor(), page_stats);
+                    pager_->has_compressor(), page_stats, first_row_index);
     WriteDataPage(page);
   }
 }
@@ -1313,7 +1366,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   const WriterProperties* properties() override { return properties_; }
 
   bool pages_change_on_record_boundaries() const {
-    return properties_->data_page_version() == ParquetDataPageVersion::V2;
+    return properties_->data_page_version() == ParquetDataPageVersion::V2 ||
+           properties_->page_index_enabled(descr_->path());
   }
 
  private:
@@ -1515,6 +1569,19 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
   }
 
+  /// \brief Write values with spaces and update page statistics accordingly.
+  ///
+  /// \param values input buffer of values to write, including spaces.
+  /// \param num_values number of non-null values in the values buffer.
+  /// \param num_spaced_values length of values buffer, including spaces and does not
+  ///   count some nulls from ancestor (e.g. empty lists).
+  /// \param valid_bits validity bitmap of values buffer, which does not include some
+  ///   nulls from ancestor (e.g. empty lists).
+  /// \param valid_bits_offset offset to valid_bits bitmap.
+  /// \param num_levels number of levels to write, including nulls from values buffer
+  ///   and nulls from ancestor (e.g. empty lists).
+  /// \param num_nulls number of nulls in the values buffer as well as nulls from the
+  ///   ancestor (e.g. empty lists).
   void WriteValuesSpaced(const T* values, int64_t num_values, int64_t num_spaced_values,
                          const uint8_t* valid_bits, int64_t valid_bits_offset,
                          int64_t num_levels, int64_t num_nulls) {
