@@ -568,7 +568,7 @@ class REExREEFilterExecImpl final : public REEFilterExec {
  public:
   REExREEFilterExecImpl(MemoryPool* pool, const ArraySpan& values,
                         const ArraySpan& filter,
-                        FilterOptions::NullSelectionBehavior null_selection)
+                        FilterOptions::NullSelectionBehavior null_selection) noexcept
       : pool_(pool), values_(values), filter_(filter), null_selection_(null_selection) {}
 
   ~REExREEFilterExecImpl() override = default;
@@ -672,7 +672,7 @@ class REExPlainFilterExecImpl final : public REEFilterExec {
  public:
   REExPlainFilterExecImpl(MemoryPool* pool, const ArraySpan& values,
                           const ArraySpan& filter,
-                          FilterOptions::NullSelectionBehavior null_selection)
+                          FilterOptions::NullSelectionBehavior null_selection) noexcept
       : pool_(pool), values_(values), filter_(filter), null_selection_(null_selection) {}
 
   ~REExPlainFilterExecImpl() override = default;
@@ -765,9 +765,9 @@ class REExPlainFilterExecImpl final : public REEFilterExec {
 };
 
 template <template <typename ArrowType> class FactoryFunctor>
-Result<std::unique_ptr<REEFilterExec>> MakeREEFilterExec(
+REEFilterExec* MakeREEFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-    FilterOptions::NullSelectionBehavior null_selection) {
+    FilterOptions::NullSelectionBehavior null_selection) noexcept {
   switch (arrow::ree_util::ValuesArray(values).type->id()) {
     case Type::NA:
       return FactoryFunctor<NullType>{}(pool, values, filter, null_selection);
@@ -814,8 +814,7 @@ Result<std::unique_ptr<REEFilterExec>> MakeREEFilterExec(
       return FactoryFunctor<LargeBinaryType>{}(pool, values, filter, null_selection);
     default:
       DCHECK(false);
-      return Status::NotImplemented(
-          "MakeREEFilterExec: ArrowType=", values.type->ToString(), ".");
+      return NULLPTR;
   }
 }
 
@@ -831,9 +830,9 @@ Status ValidateRunEndType(const ArraySpan& array) {
 /// \tparam ArrowType The DataType of the physical values array nested in values
 template <typename ArrowType>
 struct REExREEFilterExecFactory {
-  Result<std::unique_ptr<REEFilterExec>> operator()(
+  REEFilterExec* operator()(
       MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-      FilterOptions::NullSelectionBehavior null_selection) {
+      FilterOptions::NullSelectionBehavior null_selection) noexcept {
     using ValuesValueType = ArrowType;
     auto values_run_end_type = arrow::ree_util::RunEndsArray(values).type->id();
     auto filter_run_end_type = arrow::ree_util::RunEndsArray(filter).type->id();
@@ -841,50 +840,41 @@ struct REExREEFilterExecFactory {
       case Type::INT16:
         switch (filter_run_end_type) {
           case Type::INT16:
-            return std::make_unique<
-                REExREEFilterExecImpl<Int16Type, ValuesValueType, Int16Type>>(
+            return new REExREEFilterExecImpl<Int16Type, ValuesValueType, Int16Type>(
                 pool, values, filter, null_selection);
           case Type::INT32:
-            return std::make_unique<
-                REExREEFilterExecImpl<Int16Type, ValuesValueType, Int32Type>>(
+            return new REExREEFilterExecImpl<Int16Type, ValuesValueType, Int32Type>(
                 pool, values, filter, null_selection);
           default:
             DCHECK_EQ(filter_run_end_type, Type::INT64);
-            return std::make_unique<
-                REExREEFilterExecImpl<Int16Type, ValuesValueType, Int64Type>>(
+            return new REExREEFilterExecImpl<Int16Type, ValuesValueType, Int64Type>(
                 pool, values, filter, null_selection);
         }
       case Type::INT32:
         switch (filter_run_end_type) {
           case Type::INT16:
-            return std::make_unique<
-                REExREEFilterExecImpl<Int32Type, ValuesValueType, Int16Type>>(
+            return new REExREEFilterExecImpl<Int32Type, ValuesValueType, Int16Type>(
                 pool, values, filter, null_selection);
           case Type::INT32:
-            return std::make_unique<
-                REExREEFilterExecImpl<Int32Type, ValuesValueType, Int32Type>>(
+            return new REExREEFilterExecImpl<Int32Type, ValuesValueType, Int32Type>(
                 pool, values, filter, null_selection);
           default:
             DCHECK_EQ(filter_run_end_type, Type::INT64);
-            return std::make_unique<
-                REExREEFilterExecImpl<Int32Type, ValuesValueType, Int64Type>>(
+            return new REExREEFilterExecImpl<Int32Type, ValuesValueType, Int64Type>(
                 pool, values, filter, null_selection);
         }
       default:
         DCHECK_EQ(values_run_end_type, Type::INT64);
         switch (filter_run_end_type) {
           case Type::INT16:
-            return std::make_unique<
-                REExREEFilterExecImpl<Int64Type, ValuesValueType, Int16Type>>(
+            return new REExREEFilterExecImpl<Int64Type, ValuesValueType, Int16Type>(
                 pool, values, filter, null_selection);
           case Type::INT32:
-            return std::make_unique<
-                REExREEFilterExecImpl<Int64Type, ValuesValueType, Int32Type>>(
+            return new REExREEFilterExecImpl<Int64Type, ValuesValueType, Int32Type>(
                 pool, values, filter, null_selection);
           default:
             DCHECK_EQ(filter_run_end_type, Type::INT64);
-            return std::make_unique<
-                REExREEFilterExecImpl<Int64Type, ValuesValueType, Int64Type>>(
+            return new REExREEFilterExecImpl<Int64Type, ValuesValueType, Int64Type>(
                 pool, values, filter, null_selection);
         }
     }
@@ -894,19 +884,19 @@ struct REExREEFilterExecFactory {
 /// \tparam ArrowType The DataType of the physical values array nested in values
 template <typename ArrowType>
 struct REExPlainFilterExecFactory {
-  Result<std::unique_ptr<REEFilterExec>> operator()(
-      MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-      FilterOptions::NullSelectionBehavior null_selection) {
+  REEFilterExec* operator()(MemoryPool* pool, const ArraySpan& values,
+                            const ArraySpan& filter,
+                            FilterOptions::NullSelectionBehavior null_selection) {
     using ValuesValueType = ArrowType;
     switch (arrow::ree_util::RunEndsArray(values).type->id()) {
       case Type::INT16:
-        return std::make_unique<REExPlainFilterExecImpl<Int16Type, ValuesValueType>>(
+        return new REExPlainFilterExecImpl<Int16Type, ValuesValueType>(
             pool, values, filter, null_selection);
       case Type::INT32:
-        return std::make_unique<REExPlainFilterExecImpl<Int32Type, ValuesValueType>>(
+        return new REExPlainFilterExecImpl<Int32Type, ValuesValueType>(
             pool, values, filter, null_selection);
       default:
-        return std::make_unique<REExPlainFilterExecImpl<Int64Type, ValuesValueType>>(
+        return new REExPlainFilterExecImpl<Int64Type, ValuesValueType>(
             pool, values, filter, null_selection);
     }
   }
@@ -919,16 +909,26 @@ Result<std::unique_ptr<REEFilterExec>> MakeREExREEFilterExec(
     FilterOptions::NullSelectionBehavior null_selection) {
   RETURN_NOT_OK(ValidateRunEndType(values));
   RETURN_NOT_OK(ValidateRunEndType(filter));
-  return MakeREEFilterExec<REExREEFilterExecFactory>(pool, values, filter,
-                                                     null_selection);
+  auto* ree_filter_exec =
+      MakeREEFilterExec<REExREEFilterExecFactory>(pool, values, filter, null_selection);
+  if (ree_filter_exec) {
+    return std::unique_ptr<REEFilterExec>{ree_filter_exec};
+  }
+  return Status::NotImplemented("MakeREEFilterExec: ArrowType=", values.type->ToString(),
+                                ".");
 }
 
 Result<std::unique_ptr<REEFilterExec>> MakeREExPlainFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection) {
   RETURN_NOT_OK(ValidateRunEndType(values));
-  return MakeREEFilterExec<REExPlainFilterExecFactory>(pool, values, filter,
-                                                       null_selection);
+  auto* ree_filter_exec =
+      MakeREEFilterExec<REExPlainFilterExecFactory>(pool, values, filter, null_selection);
+  if (ree_filter_exec) {
+    return std::unique_ptr<REEFilterExec>{ree_filter_exec};
+  }
+  return Status::NotImplemented("MakeREEFilterExec: ArrowType=", values.type->ToString(),
+                                ".");
 }
 
 Status REExREEFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
