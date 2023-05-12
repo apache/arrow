@@ -120,9 +120,9 @@ int GetMallocValuesAlignment(const ArrayData& array) {
   }
 }
 
-}  // namespace
-
-bool CheckAlignment(const ArrayData& array, int64_t alignment) {
+// Checks to see if an array's own buffers are aligned but doesn't check
+// children
+bool CheckSelfAlignment(const ArrayData& array, int64_t alignment) {
   if (alignment == kMallocAlignment) {
     int malloc_alignment = GetMallocValuesAlignment(array);
     if (array.buffers.size() >= 2) {
@@ -136,6 +136,15 @@ bool CheckAlignment(const ArrayData& array, int64_t alignment) {
         if (!CheckAlignment(*buffer, alignment)) return false;
       }
     }
+  }
+  return true;
+}
+
+}  // namespace
+
+bool CheckAlignment(const ArrayData& array, int64_t alignment) {
+  if (!CheckSelfAlignment(array, alignment)) {
+    return false;
   }
 
   if (array.type->id() == Type::DICTIONARY) {
@@ -213,16 +222,23 @@ Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> ar
                                                    MemoryPool* memory_pool) {
   if (!CheckAlignment(*array_data, alignment)) {
     std::vector<std::shared_ptr<Buffer>> buffers_ = array_data->buffers;
-    if (alignment == kMallocAlignment) {
-      int malloc_alignment = GetMallocValuesAlignment(*array_data);
-      DCHECK_GE(buffers_.size(), 2);
-      ARROW_ASSIGN_OR_RAISE(buffers_[1], EnsureAlignment(std::move(buffers_[1]),
-                                                         malloc_alignment, memory_pool));
-    } else {
-      for (size_t i = 0; i < buffers_.size(); ++i) {
-        if (buffers_[i]) {
-          ARROW_ASSIGN_OR_RAISE(buffers_[i], EnsureAlignment(std::move(buffers_[i]),
-                                                             alignment, memory_pool));
+    if (!CheckSelfAlignment(*array_data, alignment)) {
+      if (alignment == kMallocAlignment) {
+        DCHECK_GE(buffers_.size(), 2);
+        // If we get here then we know that the values buffer is not aligned properly.
+        // Since we need to copy the buffer we might as well update it to
+        // kDefaultBufferAlignment. This helps to avoid cases where the minimum required
+        // alignment is less than the allocator's minimum alignment (e.g. malloc requires
+        // a minimum of 8 byte alignment on a 64-bit system)
+        ARROW_ASSIGN_OR_RAISE(
+            buffers_[1], EnsureAlignment(std::move(buffers_[1]), kDefaultBufferAlignment,
+                                         memory_pool));
+      } else {
+        for (size_t i = 0; i < buffers_.size(); ++i) {
+          if (buffers_[i]) {
+            ARROW_ASSIGN_OR_RAISE(buffers_[i], EnsureAlignment(std::move(buffers_[i]),
+                                                               alignment, memory_pool));
+          }
         }
       }
     }
