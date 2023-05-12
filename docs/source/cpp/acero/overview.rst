@@ -210,7 +210,7 @@ must have the same length.  There are a few key differences from ExecBatch:
   also has a length property which describes how many rows are in a batch.  So another way to
   view a `Scalar` is a constant array with `length` elements.
 * An `ExecBatch` contains additional information used by the exec plan.  For example, an
-  `index` can be used to describe a batche's position in an ordered stream.  We expect 
+  `index` can be used to describe a batch's position in an ordered stream.  We expect 
   that `ExecBatch` will also evolve to contain additional fields such as a selection vector.
 
 .. figure:: scalar_vs_array.svg
