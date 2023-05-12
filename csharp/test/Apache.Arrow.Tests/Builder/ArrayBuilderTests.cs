@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Builder;
 using Apache.Arrow.Types;
@@ -244,6 +245,29 @@ namespace Apache.Arrow.Tests.Builder
             builder.AppendNull();
 
             var batch = builder.BuildRecordBatch();
+            var names = batch.Column(0) as StringArray;
+            var int32s = batch.Column(1) as Int32Array;
+
+            Assert.Equal(3, batch.Length);
+
+            Assert.Equal("abc", names.GetString(1));
+            Assert.Equal(123, int32s.GetValue(1));
+        }
+
+        [Fact]
+        public async Task StructArrayBuilder_Should_BuildRecordBatchAsync()
+        {
+            var builder = new StructArrayBuilder<TestStruct>();
+            var scalar = new StructScalar(builder.DataType, new IScalar[]
+            {
+                new StringScalar("abc"), new Int32Scalar(123)
+            });
+
+            builder.AppendNull();
+            builder.AppendValue(scalar);
+            builder.AppendNull();
+
+            var batch = await builder.BuildRecordBatchAsync();
             var names = batch.Column(0) as StringArray;
             var int32s = batch.Column(1) as Int32Array;
 
