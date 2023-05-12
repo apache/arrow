@@ -88,4 +88,7 @@ final class JniWrapper {
    */
   public native void executeSerializedPlanNamedTables(ByteBuffer planInput, String[] mapTableToMemoryAddressInput,
                                                       long memoryAddressOutput);
+
+  // add description
+  public native String[] executeDeserializeExpressions(ByteBuffer extendedExpressions);
 }

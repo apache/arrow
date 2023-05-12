@@ -26,7 +26,9 @@ import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.apache.arrow.dataset.ParquetWriteSupport;
 import org.apache.arrow.dataset.TestDataset;
@@ -39,6 +41,7 @@ import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -222,6 +225,57 @@ public class TestAceroSubstraitConsumer extends TestDataset {
           rowcount += arrowReader.getVectorSchemaRoot().getRowCount();
         }
         assertEquals(3, rowcount);
+      }
+    }
+  }
+
+  @Test
+  public void testDeserializeExtendedExpressions() {
+    // Expression: n_nationkey + 7, n_nationkey > 23
+    String binaryExtendedExpressions =
+        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRooChwaGhoEKgIQAiIKGggSBgoCEgAiACIGGgQKAigCGghjb2x1bW5fMBoqCh4aHAgBGgQKAhACIgoaCBIGCgISACIAIgYaBAoCKAoaCGNvbHVtbl8xIh4KAklECgROQU1FEhIKBCoCEAIKCLIBBQiWARgBGAI=";
+    // get binary plan
+    byte[] expression = Base64.getDecoder().decode(binaryExtendedExpressions);
+    ByteBuffer substraitExpression = ByteBuffer.allocateDirect(expression.length);
+    substraitExpression.put(expression);
+    // deserialize extended expression
+    List<String> extededExpressionList = new AceroSubstraitConsumer(rootAllocator()).runDeserializeExpressions(substraitExpression);
+    assertEquals(2, extededExpressionList.size()/2);
+    assertEquals("column_0", extededExpressionList.get(0));
+    assertEquals("column_1", extededExpressionList.get(2));
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testBaseParquetReadWithExtendedExpressions() throws Exception {
+    // Extended Expression: { id + 2, id > 10 }
+    // Parsed as: [column_0, add(FieldPath(0), 2), column_1, (FieldPath(0) > 10)] : Fail with: java.lang.RuntimeException: Inferring column projection from FieldRef FieldRef.FieldPath(0)
+    // Parsed as: [column_0, add(FieldPath("id"), 2), column_1, (FieldPath("id") > 10)] : OK
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("ID", new ArrowType.Int(32, true)),
+        Field.nullable("NAME", new ArrowType.Utf8())
+    ), Collections.emptyMap());
+    // Base64.getEncoder().encodeToString(plan.toByteArray());
+    String binaryExtendedExpressions =
+        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwSERoPCAEaC2FkZDppMzJfaTMyGigKHBoaGgQqAhACIgoaCBIGCgISACIAIgYaBAoCKAIaCGNvbHVtbl8wIh4KAklECgROQU1FEhIKBCoCEAIKCLIBBQiWARgBGAI=";
+    // get binary plan
+    byte[] extendedExpressions = Base64.getDecoder().decode(binaryExtendedExpressions);
+    ByteBuffer substraitExtendedExpressions = ByteBuffer.allocateDirect(extendedExpressions.length);
+    substraitExtendedExpressions.put(extendedExpressions);
+    ParquetWriteSupport writeSupport = ParquetWriteSupport
+        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+    ScanOptions options = new ScanOptions(/*batchSize*/ 32768, Optional.empty(),
+        Optional.of(substraitExtendedExpressions));
+    try (
+        DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.PARQUET, writeSupport.getOutputURI());
+        Dataset dataset = datasetFactory.finish();
+        Scanner scanner = dataset.newScan(options);
+        ArrowReader reader = scanner.scanBatches()
+    ) {
+      while (reader.loadNextBatch()) {
+        try (VectorSchemaRoot root = reader.getVectorSchemaRoot()) {
+          System.out.print(root.contentToTSVString());
+        }
       }
     }
   }

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.dataset.scanner;
 
+import java.nio.ByteBuffer;
 import java.util.Optional;
 
 import org.apache.arrow.util.Preconditions;
@@ -26,6 +27,7 @@ import org.apache.arrow.util.Preconditions;
  */
 public class ScanOptions {
   private final Optional<String[]> columns;
+  private final Optional<ByteBuffer> projectExpression;
   private final long batchSize;
 
   /**
@@ -56,10 +58,26 @@ public class ScanOptions {
     Preconditions.checkNotNull(columns);
     this.batchSize = batchSize;
     this.columns = columns;
+    this.projectExpression = Optional.empty();
+  }
+
+  /**
+   * Constructor.
+   * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
+   * @param columns (Optional) Projected columns. {@link Optional#empty()} for scanning all columns. Otherwise,
+   *                Only columns present in the Array will be scanned.
+   * @param projectExpression (Optional) Expressions to evaluate to produce columns
+   */
+  public ScanOptions(long batchSize, Optional<String[]> columns, Optional<ByteBuffer> projectExpression) {
+    Preconditions.checkNotNull(columns);
+    Preconditions.checkNotNull(projectExpression);
+    this.batchSize = batchSize;
+    this.columns = columns;
+    this.projectExpression = projectExpression;
   }
 
   public ScanOptions(long batchSize) {
-    this(batchSize, Optional.empty());
+    this(batchSize, Optional.empty(), Optional.empty());
   }
 
   public Optional<String[]> getColumns() {
@@ -68,5 +86,9 @@ public class ScanOptions {
 
   public long getBatchSize() {
     return batchSize;
+  }
+
+  public Optional<ByteBuffer> getProjectExpression() {
+    return projectExpression;
   }
 }

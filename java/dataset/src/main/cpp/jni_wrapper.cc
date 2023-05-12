@@ -26,6 +26,8 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/engine/substrait/util.h"
+#include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/relation.h"
 #include "arrow/ipc/api.h"
 #include "arrow/util/iterator.h"
 #include "jni_util.h"
@@ -33,6 +35,7 @@
 #include "org_apache_arrow_dataset_jni_JniWrapper.h"
 #include "org_apache_arrow_dataset_jni_NativeMemoryPool.h"
 #include "org_apache_arrow_dataset_substrait_JniWrapper.h"
+#include "iostream"
 
 namespace {
 
@@ -453,7 +456,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_closeDataset
  * Signature: (J[Ljava/lang/String;JJ)J
  */
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScanner(
-    JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns, jlong batch_size,
+    JNIEnv* env, jobject, jlong dataset_id, jobjectArray columnsSubset, jobject columnsToProduce, jlong batch_size,
     jlong memory_pool_id) {
   JNI_METHOD_START
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
@@ -465,9 +468,27 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
   std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
       JniGetOrThrow(dataset->NewScan());
   JniAssertOkOrThrow(scanner_builder->Pool(pool));
-  if (columns != nullptr) {
-    std::vector<std::string> column_vector = ToStringVector(env, columns);
+  if (columnsSubset != nullptr) {
+    std::vector<std::string> column_vector = ToStringVector(env, columnsSubset);
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
+  }
+  if (columnsToProduce != nullptr) {
+    auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(columnsToProduce));
+    int length = env->GetDirectBufferCapacity(columnsToProduce);
+    std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
+    std::memcpy(buffer->mutable_data(), buff, length);
+    // execute expression
+    arrow::engine::BoundExpressions round_tripped =
+      JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
+    // validate result
+    // create exprs / names
+    std::vector<arrow::compute::Expression> exprs;
+    std::vector<std::string> names;
+    for(arrow::engine::NamedExpression named_expression : round_tripped.named_expressions) {
+        exprs.push_back(named_expression.expression);
+        names.push_back(named_expression.name);
+    }
+    JniAssertOkOrThrow(scanner_builder->Project(exprs, names));
   }
   JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
 
@@ -736,4 +757,45 @@ JNIEXPORT void JNICALL
   auto* arrow_stream_out = reinterpret_cast<ArrowArrayStream*>(memory_address_output);
   JniAssertOkOrThrow(arrow::ExportRecordBatchReader(reader_out, arrow_stream_out));
   JNI_METHOD_END()
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_substrait_JniWrapper
+ * Method:    executeDeserializeExpressions
+ * Signature: (Ljava/nio/ByteBuffer;)[Ljava/lang/String;
+ */
+JNIEXPORT jobjectArray JNICALL
+    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeDeserializeExpressions (
+    JNIEnv* env, jobject, jobject expression) {
+  JNI_METHOD_START
+  auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(expression));
+  int length = env->GetDirectBufferCapacity(expression);
+  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
+  std::memcpy(buffer->mutable_data(), buff, length);
+  // execute expression
+      arrow::engine::BoundExpressions round_tripped =
+    JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
+  // validate is not empty!
+  // create response
+  int totalExpression = round_tripped.named_expressions.size();
+  jobjectArray extendedExpressionOutput = (jobjectArray)env->NewObjectArray(totalExpression*2,env->FindClass("java/lang/String"),0);
+  int i; int j = 0;
+  for (i=0; i<totalExpression; i++) {
+    env->SetObjectArrayElement(
+      extendedExpressionOutput,
+      j++,
+      env->NewStringUTF(
+        round_tripped.named_expressions[i].name.c_str()
+      )
+    );
+    env->SetObjectArrayElement(
+      extendedExpressionOutput,
+      j++,
+      env->NewStringUTF(
+        round_tripped.named_expressions[i].expression.ToString().c_str()
+      )
+    );
+  }
+  return extendedExpressionOutput;
+  JNI_METHOD_END(nullptr)
 }

@@ -17,6 +17,8 @@
 
 package org.apache.arrow.dataset.jni;
 
+import java.nio.ByteBuffer;
+
 /**
  * JNI wrapper for Dataset API's native implementation.
  */
@@ -67,14 +69,15 @@ public class JniWrapper {
   /**
    * Create Scanner from a Dataset and get the native pointer of the Dataset.
    * @param datasetId the native pointer of the arrow::dataset::Dataset instance.
-   * @param columns desired column names.
-   *                Columns not in this list will not be emitted when performing scan operation. Null equals
-   *                to "all columns".
+   * @param columnsSubset desired column names. Columns not in this list will not be emitted when performing scan
+   *                      operation. Null equals to "all columns".
+   * @param columnsToProduce Set expressions which will be evaluated to produce the materialized columns. Null equals
+   *                         to "no produce".
    * @param batchSize batch size of scanned record batches.
    * @param memoryPool identifier of memory pool used in the native scanner.
    * @return the native pointer of the arrow::dataset::Scanner instance.
    */
-  public native long createScanner(long datasetId, String[] columns, long batchSize, long memoryPool);
+  public native long createScanner(long datasetId, String[] columnsSubset, ByteBuffer columnsToProduce, long batchSize, long memoryPool);
 
   /**
    * Get a serialized schema from native instance of a Scanner.
