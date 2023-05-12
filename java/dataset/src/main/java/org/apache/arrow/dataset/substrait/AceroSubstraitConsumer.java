@@ -95,7 +95,7 @@ public final class AceroSubstraitConsumer {
     return executeDeserializeExpressions(plan);
   }
 
-  private List<String> executeDeserializeExpressions(ByteBuffer extendedExpression){
+  private List<String> executeDeserializeExpressions(ByteBuffer extendedExpression) {
     String[] extendedExpressions = JniWrapper.get().executeDeserializeExpressions(extendedExpression);
     return Arrays.asList(extendedExpressions);
   }
