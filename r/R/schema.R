@@ -271,6 +271,9 @@ schema.RecordBatchReader <- function(x) x$schema
 schema.Dataset <- function(x) x$schema
 
 #' @export
+schema.arrow_dplyr_query <- function(x) implicit_schema(x)
+
+#' @export
 names.Schema <- function(x) x$names
 
 #' @export
