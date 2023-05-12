@@ -34,6 +34,8 @@ namespace arrow::compute::internal {
 
 namespace {
 
+using EmitFragment = std::function<void(int64_t, int64_t, bool)>;
+
 /// \brief Iterate over REE values and a REE filter, emitting fragments of runs that pass
 /// the filter.
 ///
@@ -44,7 +46,6 @@ namespace {
 /// \see VisitREExAnyFilterCombinedOutputRuns
 template <typename ValuesRunEndType, typename FilterRunEndType>
 struct VisitREExREEFilterOutputFragments {
-  template <typename EmitFragment>
   Status operator()(MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
                     FilterOptions::NullSelectionBehavior null_selection,
                     const EmitFragment& emit_fragment) {
@@ -350,7 +351,6 @@ int64_t CountREEFilterEmits(const ArraySpan& filter,
 /// \see VisitREExAnyFilterCombinedOutputRuns
 template <typename ValuesRunEndType>
 struct VisitREExPlainFilterOutputFragments {
-  template <typename EmitFragment>
   Status operator()(MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
                     FilterOptions::NullSelectionBehavior null_selection,
                     const EmitFragment& emit_fragment) {
