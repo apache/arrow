@@ -11,10 +11,11 @@ namespace Apache.Arrow
     {
         public IScalar Value { get; }
         public bool IsValid => Value != null;
-        public IArrowType Type => Value.Type;
+        public IArrowType Type { get; }
 
-        public NullableScalar(IScalar value)
+        public NullableScalar(IArrowType type, IScalar value)
         {
+            Type = type;
             Value = value;
         }
     }
@@ -327,6 +328,7 @@ namespace Apache.Arrow
         }
         public ReadOnlySpan<byte> View() => Buffer.Span;
     }
+
     public struct Int64Scalar : INumericScalar<Int64Type>, IDotNetStruct<long>
     {
         public ArrowBuffer Buffer { get; }
@@ -499,6 +501,7 @@ namespace Apache.Arrow
             : this(Decimal256Type.SystemDefault, value)
         {
         }
+
         public Decimal256Scalar(Decimal256Type type, decimal value)
             : this(type, new ArrowBuffer(TypeReflection.AsMemoryBytes(value, type)))
         {
