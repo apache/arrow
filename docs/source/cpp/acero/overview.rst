@@ -115,7 +115,7 @@ Substrait
 
 Substrait is a project establishing standards for query plans.  Acero executes query plans
 and generates data.  This makes Acero a Substrait consumer.  There are more details on the
-Substrait capabilities below.
+Substrait capabilities in :ref:`acero-substrait`.
 
 Datafusion / DuckDb / Velox / Etc.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
