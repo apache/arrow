@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
@@ -110,7 +111,12 @@ namespace Apache.Arrow.Builder
             };
         }
 
-        public Status AppendScalar(IBaseBinaryScalar value) => AppendValue(value.View());
+        public Status AppendScalar(IBaseBinaryScalar value)
+        {
+            if (!Validate(DataType, value.Type))
+                throw new ArgumentException($"Cannot append '{value}': {value.Type} != {DataType}");
+            return AppendValue(value.View());
+        }
 
         internal override Status AppendPrimitiveValueOffset(ArrayData data)
         {
@@ -122,17 +128,13 @@ namespace Apache.Arrow.Builder
             int offsetStart = offsets[0];
             int offsetEnd = offsets[offsets.Length - 1];
             int currentOffset = CurrentOffset;
-            int current;
             Span<int> newOffsets = new int[data.Length];
 
             // Element length = array[index + 1] - array[index]
             for (int i = 0; i < data.Length; i++)
             {
-                current = offsets[i];
-                int next = offsets[i + 1];
-
                 // Add element length to current offset
-                currentOffset += next - current;
+                currentOffset += offsets[i + 1] - offsets[i];
                 newOffsets[i] = currentOffset;
             }
 
@@ -208,7 +210,8 @@ namespace Apache.Arrow.Builder
 
         public Status AppendScalar(IPrimitiveScalarBase value)
         {
-            Validate(value.Type);
+            if (!Validate(value.Type))
+                throw new ArgumentException($"Cannot append '{value}': {value.Type} != {DataType}");
             return AppendBytes(value.View(), 1);
         }
 

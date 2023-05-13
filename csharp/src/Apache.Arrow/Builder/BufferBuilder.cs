@@ -428,6 +428,7 @@ namespace Apache.Arrow.Builder
         public int ValueBitSize { get; }
         public int ValueByteSize { get; }
         public int ValueLength => (ByteLength * 8 + BitOffset) / ValueBitSize;
+        private int MinimumBitSize => ValueBitSize < 0 ? 64 : ValueBitSize;
 
         public ValueBufferBuilder(int valueBitSize, int capacity = 32) : base(capacity * (valueBitSize + 7) / 8)
         {
@@ -437,19 +438,19 @@ namespace Apache.Arrow.Builder
 
         public IValueBufferBuilder Ensure(int capacity)
         {
-            EnsureBytes((capacity * ValueBitSize + 7) / 8);
+            EnsureBytes((capacity * MinimumBitSize + 7) / 8);
             return this;
         }
 
         public IValueBufferBuilder Reserve(int additionnalCapacity)
         {
-            ReserveAdditionalBytes((additionnalCapacity * ValueBitSize + 7) / 8);
+            ReserveAdditionalBytes((additionnalCapacity * MinimumBitSize + 7) / 8);
             return this;
         }
 
         public IValueBufferBuilder Resize(int capacity)
         {
-            ResizeBytes((capacity * ValueBitSize + 7) / 8);
+            ResizeBytes((capacity * MinimumBitSize + 7) / 8);
             return this;
         }
     }

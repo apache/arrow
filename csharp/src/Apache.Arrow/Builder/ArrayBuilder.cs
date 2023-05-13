@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
+using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -114,10 +115,30 @@ namespace Apache.Arrow.Builder
         }
 
         // Append values from arrow objects
-        internal void Validate(IArrowType dtype)
+        internal bool Validate(IArrowType type0, IArrowType type1)
+            => type0.TypeId == type1.TypeId;
+
+        internal bool Validate(IArrowType dtype)
         {
-            if (dtype.TypeId != DataType.TypeId)
-                throw new ArgumentException($"Cannot append data type {dtype} in builder with data type {DataType}");
+            if (!Validate(DataType, dtype))
+                return false;
+
+            switch (dtype.TypeId)
+            {
+                // Nested types
+                case ArrowTypeId.List:
+                case ArrowTypeId.Struct:
+                case ArrowTypeId.Map:
+                    var currentFields = (DataType as NestedType).Fields;
+                    var nestedFields = (dtype as NestedType).Fields;
+
+                    for (int i = 0; i < currentFields.Count; i++)
+                        if (!Validate(currentFields.ElementAt(i).DataType, nestedFields.ElementAt(i).DataType))
+                            return false;
+                    return true;
+                default:
+                    return true;
+            }
         }
 
         public virtual Status AppendScalar(IScalar value)
@@ -152,7 +173,6 @@ namespace Apache.Arrow.Builder
                 case ArrowTypeId.Null:
                     return AppendNull();
                 default:
-                    Validate(value.Type);
                     throw new ArgumentException($"Cannot append {value} in builder with data type {DataType}");
             }
         }
@@ -163,12 +183,6 @@ namespace Apache.Arrow.Builder
 
         private Status AppendValidity(ArrayData data)
         {
-            // TODO: Make better / recursive fields data type check
-            Validate(data.DataType);
-
-            // Add Length and reserve
-            Reserve(data.Length);
-
             // Handle validity
             var dataValidity = data.Buffers[ValidityBufferIndex];
 
@@ -232,6 +246,13 @@ namespace Apache.Arrow.Builder
 
         public Status AppendArray(ArrayData data)
         {
+            // TODO: Make better / recursive fields data type check
+            if (!Validate(data.DataType))
+                throw new ArgumentException($"Cannot append Arrow.Array<{data.DataType}> in {this}<{DataType}>");
+
+            // Add Length and reserve
+            Reserve(data.Length);
+
             AppendValidity(data);
             AppendPrimitiveValueOffset(data);
 
@@ -254,6 +275,13 @@ namespace Apache.Arrow.Builder
 
         public async Task<Status> AppendArrayAsync(ArrayData data)
         {
+            // TODO: Make better / recursive fields data type check
+            if (!Validate(data.DataType))
+                throw new ArgumentException($"Cannot append Arrow.Array<{data.DataType}> in {this}<{DataType}>");
+
+            // Add Length and reserve
+            Reserve(data.Length);
+
             AppendValidity(data);
             AppendPrimitiveValueOffset(data);
 

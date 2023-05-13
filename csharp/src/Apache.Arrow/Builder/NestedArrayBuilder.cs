@@ -93,17 +93,13 @@ namespace Apache.Arrow.Builder
             // Value Offsets
             var offsets = data.Buffers[1].Span.Slice(data.Offset * 4, (data.Length + 1) * 4).CastTo<int>();
             int currentOffset = CurrentOffset;
-            int current;
             Span<int> newOffsets = new int[data.Length];
 
             // Element length = array[index + 1] - array[index]
             for (int i = 0; i < data.Length; i++)
             {
-                current = offsets[i];
-                int next = offsets[i + 1];
-
                 // Add element length to current offset
-                currentOffset += next - current;
+                currentOffset += offsets[i + 1] - offsets[i];
                 newOffsets[i] = currentOffset;
             }
 
@@ -168,28 +164,40 @@ namespace Apache.Arrow.Builder
             return AppendNull();
         }
 
-        public Status AppendBatch(RecordBatch batch)
+        public Status AppendBatch(RecordBatch batch) => AppendBatch(batch.ArrayList);
+
+        public Status AppendBatch(IReadOnlyCollection<IArrowArray> arrays)
         {
+            int length = 0;
+
             for (int i = 0; i < Children.Length; i++)
             {
-                Children[i].AppendArray(batch.Column(i));
+                var array = arrays.ElementAt(i);
+                Children[i].AppendArray(array);
+                length = array.Length;
             }
-            return AppendValidity(true, batch.Length);
+            return AppendValidity(true, length);
         }
 
         public async Task<Status> AppendBatchAsync(RecordBatch batch)
+            => await AppendBatchAsync(batch.ArrayList);
+
+        public async Task<Status> AppendBatchAsync(IReadOnlyCollection<IArrowArray> arrays)
         {
             Task<Status>[] tasks = new Task<Status>[Children.Length];
+            int length = 0;
 
             for (int i = 0; i < Children.Length; i++)
             {
                 int index = i; // Create a local copy of the loop variable
-                tasks[index] = Children[index].AppendArrayAsync(batch.Column(index));
+                var array = arrays.ElementAt(i);
+                length = array.Length;
+                tasks[index] = Children[index].AppendArrayAsync(array);
             }
 
             await Task.WhenAll(tasks);
 
-            return AppendValidity(true, batch.Length);
+            return AppendValidity(true, length);
         }
 
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
