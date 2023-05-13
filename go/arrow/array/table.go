@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v14/arrow"
@@ -255,6 +256,32 @@ func (tbl *simpleTable) Release() {
 		}
 		tbl.cols = nil
 	}
+}
+
+func (tbl *simpleTable) String() string {
+	o := new(strings.Builder)
+	o.WriteString(tbl.Schema().String())
+	o.WriteString("\n")
+
+	for i := 0; i < int(tbl.NumCols()); i++ {
+		col := tbl.Column(i)
+		chunked := col.Data()
+		chunks := chunked.Chunks()
+		o_array := new(strings.Builder)
+		o_array.WriteString(col.Field().Name + ": [")
+		numChunks := len(chunks)
+		for j := 0; j < numChunks; j++ {
+			chunk := chunked.Chunk(j)
+			if j != numChunks-1 {
+				o_array.WriteString(chunk.String() + ", ")
+			} else {
+				o_array.WriteString(chunk.String())
+			}
+
+		}
+		o.WriteString(o_array.String() + "]\n")
+	}
+	return o.String()
 }
 
 // TableReader is a Record iterator over a (possibly chunked) Table

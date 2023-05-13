@@ -17,6 +17,7 @@
 package array_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/apache/arrow/go/v14/arrow"
