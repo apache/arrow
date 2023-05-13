@@ -471,9 +471,15 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
-    def to_numpy(self):
+    def to_numpy(self, zero_copy_only=False):
         """
         Return a NumPy copy of this array (experimental).
+
+        Parameters
+        ----------
+        zero_copy_only : bool, default False
+            Introduced for signature consistence with pyarrow.Array.to_numpy.
+            This must be False here since NumPy arrays' buffer must be contiguous.
 
         Returns
         -------
@@ -490,6 +496,11 @@ cdef class ChunkedArray(_PandasConvertible):
             PyObject* out
             PandasOptions c_options
             object values
+
+        if zero_copy_only:
+            raise ValueError(
+                "zero_copy_only must be False for pyarrow.ChunkedArray.to_numpy"
+            )
 
         with nogil:
             check_status(
