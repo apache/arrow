@@ -77,11 +77,11 @@ test_that("transmute", {
 test_that("transmute after group_by", {
   compare_dplyr_binding(
     .input %>%
+      select(int, dbl, chr) %>%
       group_by(chr, int) %>%
       transmute(dbl + 1) %>%
       collect(),
-    tbl %>%
-      select(int, dbl, chr)
+    tbl
   )
 })
 
@@ -411,11 +411,11 @@ test_that("Can mutate after group_by as long as there are no aggregations", {
   # Check the column order when .keep = "none"
   compare_dplyr_binding(
     .input %>%
+      select(chr, int) %>%
       group_by(chr) %>%
       mutate(int + 1, .keep = "none") %>%
       collect(),
-    tbl %>%
-      select(chr, int)
+    tbl
   )
   expect_warning(
     tbl %>%
@@ -676,11 +676,11 @@ test_that("Can use across() within transmute()", {
 test_that("across() does not select grouping variables within mutate()", {
   compare_dplyr_binding(
     .input %>%
+      select(int, dbl, chr) %>%
       group_by(chr) %>%
       mutate(across(everything(), round)) %>%
       collect(),
-    example_data %>%
-      select(int, dbl, chr)
+    example_data
   )
 
   expect_error(
@@ -695,11 +695,11 @@ test_that("across() does not select grouping variables within mutate()", {
 test_that("across() does not select grouping variables within transmute()", {
   compare_dplyr_binding(
     .input %>%
+      select(int, dbl, chr) %>%
       group_by(chr) %>%
       transmute(across(everything(), round)) %>%
       collect(),
-    example_data %>%
-      select(int, dbl, chr)
+    example_data
   )
 
   expect_error(

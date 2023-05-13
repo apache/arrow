@@ -1177,12 +1177,12 @@ test_that("Can use across() within summarise()", {
 test_that("across() does not select grouping variables within summarise()", {
   compare_dplyr_binding(
     .input %>%
+      select(int, dbl, chr) %>%
       group_by(chr) %>%
       summarise(across(everything(), sum)) %>%
       arrange(chr) %>%
       collect(),
-    example_data %>%
-      select(int, dbl, chr)
+    example_data
   )
 
   expect_error(
