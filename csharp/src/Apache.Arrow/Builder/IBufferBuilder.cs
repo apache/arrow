@@ -173,7 +173,7 @@ namespace Apache.Arrow.Builder
         Task<ArrowBuffer> BuildAsync(int byteSize, MemoryAllocator allocator = default);
     }
 
-    public interface IValueBufferBuilder : IBufferBuilder
+    public interface ITypedBufferBuilder : IBufferBuilder
     {
         int ValueBitSize { get; }
         int ValueByteSize { get; }
@@ -183,7 +183,7 @@ namespace Apache.Arrow.Builder
         /// Reserve a given number of items' additional capacity.
         /// </summary>
         /// <param name="capacity">Number of new values.</param>
-        IValueBufferBuilder Reserve(int capacity);
+        ITypedBufferBuilder Reserve(int capacity);
 
         /// <summary>
         /// Resize the buffer to a given size.
@@ -197,14 +197,14 @@ namespace Apache.Arrow.Builder
         /// the buffer will be truncated and items at the end of the buffer will be lost.
         /// </remarks>
         /// <param name="capacity">Number of values.</param>
-        IValueBufferBuilder Resize(int capacity);
+        ITypedBufferBuilder Resize(int capacity);
     }
 
-    public interface IPrimitiveBufferBuilder<T> : IValueBufferBuilder where T : struct
+    public interface ITypedBufferBuilder<T> : ITypedBufferBuilder where T : struct
     {
-        IPrimitiveBufferBuilder<T> AppendValue(T value);
-        IPrimitiveBufferBuilder<T> AppendValues(ReadOnlySpan<T> values);
-        IPrimitiveBufferBuilder<T> AppendValues(T value, int count);
+        ITypedBufferBuilder<T> AppendValue(T value);
+        ITypedBufferBuilder<T> AppendValues(ReadOnlySpan<T> values);
+        ITypedBufferBuilder<T> AppendValues(T value, int count);
     }
 }
 

@@ -10,7 +10,7 @@ namespace Apache.Arrow.Builder
 {
     public class VariableBinaryArrayBuilder : ArrayBuilder
     {
-        public IValueBufferBuilder ValuesBuffer { get; }
+        public ITypedBufferBuilder ValuesBuffer { get; }
 
         // From the docs:
         //
@@ -21,19 +21,19 @@ namespace Apache.Arrow.Builder
         //
         // In this builder, we choose to append the first offset (zero) upon construction, and each trailing
         // offset is then added after each individual item has been appended.
-        public IPrimitiveBufferBuilder<int> OffsetsBuffer { get; }
+        public ITypedBufferBuilder<int> OffsetsBuffer { get; }
 
         public int CurrentOffset { get; internal set; }
 
         public VariableBinaryArrayBuilder(IArrowType dataType, int capacity = 32)
-            : this(dataType, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<int>(capacity), new ValueBufferBuilder(-1, capacity))
+            : this(dataType, new TypedBufferBuilder<bool>(capacity), new TypedBufferBuilder<int>(capacity), new TypedBufferBuilder(-1, capacity))
         {
         }
 
         public VariableBinaryArrayBuilder(
             IArrowType dataType,
-            IPrimitiveBufferBuilder<bool> validity, IPrimitiveBufferBuilder<int> offsets, IValueBufferBuilder values
-            ) : base(dataType, new IValueBufferBuilder[] { validity, offsets, values })
+            ITypedBufferBuilder<bool> validity, ITypedBufferBuilder<int> offsets, ITypedBufferBuilder values
+            ) : base(dataType, new ITypedBufferBuilder[] { validity, offsets, values })
         {
             ValuesBuffer = values;
             OffsetsBuffer = offsets;
@@ -156,17 +156,17 @@ namespace Apache.Arrow.Builder
 
         private readonly bool _isFullByte;
 
-        public IValueBufferBuilder ValuesBuffer { get; }
+        public ITypedBufferBuilder ValuesBuffer { get; }
 
         public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 32)
-            : this(dtype, new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder(dtype.BitWidth, capacity))
+            : this(dtype, new TypedBufferBuilder<bool>(capacity), new TypedBufferBuilder(dtype.BitWidth, capacity))
         {
         }
 
         public FixedBinaryArrayBuilder(
             IArrowType dataType,
-            IPrimitiveBufferBuilder<bool> validity, IValueBufferBuilder values
-            ) : base(dataType, new IValueBufferBuilder[] { validity, values })
+            ITypedBufferBuilder<bool> validity, ITypedBufferBuilder values
+            ) : base(dataType, new ITypedBufferBuilder[] { validity, values })
         {
             ValuesBuffer = values;
 

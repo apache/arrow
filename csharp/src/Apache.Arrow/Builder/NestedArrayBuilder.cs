@@ -13,7 +13,7 @@ namespace Apache.Arrow.Builder
         public NestedArrayBuilder(NestedType dataType, int capacity = 8)
             : base(
                   dataType,
-                  new IValueBufferBuilder[] { new ValueBufferBuilder<bool>(capacity) },
+                  new ITypedBufferBuilder[] { new TypedBufferBuilder<bool>(capacity) },
                   dataType.Fields.Select(field => ArrayBuilderFactory.MakeBuilder(field.DataType)).ToArray()
                   )
         {
@@ -22,7 +22,7 @@ namespace Apache.Arrow.Builder
         internal NestedArrayBuilder(ListType dataType, int capacity = 8)
             : base(
                   dataType,
-                  new IValueBufferBuilder[] { new ValueBufferBuilder<bool>(capacity), new ValueBufferBuilder<int>(capacity) },
+                  new ITypedBufferBuilder[] { new TypedBufferBuilder<bool>(capacity), new TypedBufferBuilder<int>(capacity) },
                   dataType.Fields.Select(field => ArrayBuilderFactory.MakeBuilder(field.DataType)).ToArray()
                   )
         {
@@ -44,7 +44,7 @@ namespace Apache.Arrow.Builder
             OffsetsBuffer.AppendValue(CurrentOffset);
         }
 
-        public IPrimitiveBufferBuilder<int> OffsetsBuffer => Buffers[1] as IPrimitiveBufferBuilder<int>;
+        public ITypedBufferBuilder<int> OffsetsBuffer => Buffers[1] as ITypedBufferBuilder<int>;
 
         // Append Valididty
         public override Status AppendNull()

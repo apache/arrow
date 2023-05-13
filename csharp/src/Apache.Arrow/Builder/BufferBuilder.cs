@@ -423,59 +423,61 @@ namespace Apache.Arrow.Builder
         }
     }
 
-    public class ValueBufferBuilder : BufferBuilder, IValueBufferBuilder
+    public class TypedBufferBuilder : BufferBuilder, ITypedBufferBuilder
     {
+        public bool IsVariableLength { get; }
         public int ValueBitSize { get; }
         public int ValueByteSize { get; }
         public int ValueLength => (ByteLength * 8 + BitOffset) / ValueBitSize;
-        private int MinimumBitSize => ValueBitSize < 0 ? 64 : ValueBitSize;
+        private int MinimumBitSize => IsVariableLength ? 64 : ValueBitSize;
 
-        public ValueBufferBuilder(int valueBitSize, int capacity = 32) : base(capacity * (valueBitSize + 7) / 8)
+        public TypedBufferBuilder(int valueBitSize, int capacity = 32) : base(capacity * (valueBitSize + 7) / 8)
         {
+            IsVariableLength = valueBitSize < 0;
             ValueBitSize = valueBitSize;
             ValueByteSize = valueBitSize / 8;
         }
 
-        public IValueBufferBuilder Ensure(int capacity)
+        public ITypedBufferBuilder Ensure(int capacity)
         {
             EnsureBytes((capacity * MinimumBitSize + 7) / 8);
             return this;
         }
 
-        public IValueBufferBuilder Reserve(int additionnalCapacity)
+        public ITypedBufferBuilder Reserve(int additionnalCapacity)
         {
             ReserveAdditionalBytes((additionnalCapacity * MinimumBitSize + 7) / 8);
             return this;
         }
 
-        public IValueBufferBuilder Resize(int capacity)
+        public ITypedBufferBuilder Resize(int capacity)
         {
             ResizeBytes((capacity * MinimumBitSize + 7) / 8);
             return this;
         }
     }
 
-    public class ValueBufferBuilder<T> : ValueBufferBuilder, IPrimitiveBufferBuilder<T> where T : struct
+    public class TypedBufferBuilder<T> : TypedBufferBuilder, ITypedBufferBuilder<T> where T : struct
     {
-        public ValueBufferBuilder(int capacity = 32) : this((TypeReflection<T>.ArrowType as FixedWidthType).BitWidth, capacity)
+        public TypedBufferBuilder(int capacity = 32) : this((TypeReflection<T>.ArrowType as FixedWidthType).BitWidth, capacity)
         {
         }
 
-        public ValueBufferBuilder(int bitWidth, int capacity = 32) : base(bitWidth, capacity)
+        public TypedBufferBuilder(int bitWidth, int capacity = 32) : base(bitWidth, capacity)
         {
         }
 
-        public IPrimitiveBufferBuilder<T> AppendValue(T value)
+        public ITypedBufferBuilder<T> AppendValue(T value)
         {
             base.AppendValue(value);
             return this;
         }
-        public IPrimitiveBufferBuilder<T> AppendValues(ReadOnlySpan<T> values)
+        public ITypedBufferBuilder<T> AppendValues(ReadOnlySpan<T> values)
         {
             base.AppendValues(values);
             return this;
         }
-        public IPrimitiveBufferBuilder<T> AppendValues(T value, int count)
+        public ITypedBufferBuilder<T> AppendValues(T value, int count)
         {
             base.AppendValues(value, count);
             return this;

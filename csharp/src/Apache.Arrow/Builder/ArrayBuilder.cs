@@ -18,8 +18,8 @@ namespace Apache.Arrow.Builder
 
         public int Offset { get; }
 
-        public IValueBufferBuilder[] Buffers { get; }
-        public IValueBufferBuilder ValidityBuffer => Buffers[ValidityBufferIndex];
+        public ITypedBufferBuilder[] Buffers { get; }
+        public ITypedBufferBuilder ValidityBuffer => Buffers[ValidityBufferIndex];
         private int ValidityBufferIndex => 0;
 
         public IArrayBuilder[] Children { get; }
@@ -28,7 +28,7 @@ namespace Apache.Arrow.Builder
 
         protected ArrayBuilder(
             IArrowType dataType,
-            IValueBufferBuilder[] buffers,
+            ITypedBufferBuilder[] buffers,
             IArrayBuilder[] children = null,
             IArrayBuilder dictionary = null
         )
@@ -330,7 +330,7 @@ namespace Apache.Arrow.Builder
         // Memory management
         public Status Reserve(int additionnalCapacity)
         {
-            foreach (IValueBufferBuilder buffer in Buffers)
+            foreach (ITypedBufferBuilder buffer in Buffers)
                 buffer.Reserve(additionnalCapacity);
 
             if (Children != null)
@@ -345,7 +345,7 @@ namespace Apache.Arrow.Builder
 
         public Status Resize(int capacity)
         {
-            foreach (IValueBufferBuilder buffer in Buffers)
+            foreach (ITypedBufferBuilder buffer in Buffers)
                 buffer.Resize(capacity);
 
             if (Children != null)
@@ -360,7 +360,7 @@ namespace Apache.Arrow.Builder
 
         public void Clear()
         {
-            foreach (IValueBufferBuilder buffer in Buffers)
+            foreach (ITypedBufferBuilder buffer in Buffers)
                 buffer.Clear();
 
             if (Children != null)

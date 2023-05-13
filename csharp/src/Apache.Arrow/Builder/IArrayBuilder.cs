@@ -11,7 +11,7 @@ namespace Apache.Arrow.Builder
         int NullCount { get; }
         int Offset { get; }
 
-        IValueBufferBuilder[] Buffers { get; }
+        ITypedBufferBuilder[] Buffers { get; }
         IArrayBuilder[] Children { get; }
         IArrayBuilder Dictionary { get; } // Only used for dictionary type
 
