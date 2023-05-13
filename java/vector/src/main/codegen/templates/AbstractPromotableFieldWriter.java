@@ -25,6 +25,10 @@ package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
 
+<#function is_timestamp_tz type>
+  <#return type?starts_with("TimeStamp") && type?ends_with("TZ")>
+</#function>
+
 /*
  * A FieldWriter which delegates calls to another FieldWriter. The delegate FieldWriter can be promoted to a new type
  * when necessary. Classes that extend this class are responsible for handling promotion.
@@ -105,17 +109,7 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
 
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
     <#assign fields = minor.fields!type.fields />
-  <#if minor.class != "Decimal" && minor.class != "Decimal256">
-  @Override
-  public void write(${name}Holder holder) {
-    getWriter(MinorType.${name?upper_case}).write(holder);
-  }
-
-  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
-    getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
-  }
-
-  <#elseif minor.class == "Decimal">
+  <#if minor.class == "Decimal">
   @Override
   public void write(DecimalHolder holder) {
     getWriter(MinorType.DECIMAL).write(holder);
@@ -156,8 +150,75 @@ abstract class AbstractPromotableFieldWriter extends AbstractFieldWriter {
   public void writeBigEndianBytesToDecimal256(byte[] value) {
     getWriter(MinorType.DECIMAL256).writeBigEndianBytesToDecimal256(value);
   }
+  <#elseif is_timestamp_tz(minor.class)>
+  @Override
+  public void write(${name}Holder holder) {
+    ArrowType.Timestamp arrowTypeWithoutTz = (ArrowType.Timestamp) MinorType.${name?upper_case?remove_ending("TZ")}.getType();
+    // Take the holder.timezone similar to how PromotableWriter.java:write(DecimalHolder) takes the scale from the holder.
+    ArrowType.Timestamp arrowType = new ArrowType.Timestamp(arrowTypeWithoutTz.getUnit(), holder.timezone);
+    getWriter(MinorType.${name?upper_case}, arrowType).write(holder);
+  }
 
+  /**
+   * @deprecated
+   * The holder version should be used instead otherwise the timezone will default to UTC.
+   * @see #write(${name}Holder)
+   */
+  @Deprecated
+  @Override
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
+    ArrowType.Timestamp arrowTypeWithoutTz = (ArrowType.Timestamp) MinorType.${name?upper_case?remove_ending("TZ")}.getType();
+    // Assumes UTC if no timezone is provided
+    ArrowType.Timestamp arrowType = new ArrowType.Timestamp(arrowTypeWithoutTz.getUnit(), "UTC");
+    getWriter(MinorType.${name?upper_case}, arrowType).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+  }
+  <#elseif minor.class == "Duration">
+  @Override
+  public void write(${name}Holder holder) {
+    ArrowType.Duration arrowType = new ArrowType.Duration(holder.unit);
+    getWriter(MinorType.${name?upper_case}, arrowType).write(holder);
+  }
 
+  /**
+   * @deprecated
+   * If you experience errors with using this version of the method, switch to the holder version.
+   * The errors occur when using an untyped or unioned PromotableWriter, because this version of the
+   * method does not have enough information to infer the ArrowType.
+   * @see #write(${name}Holder)
+   */
+  @Deprecated
+  @Override
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
+    getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+  }
+  <#elseif minor.class == "FixedSizeBinary">
+  @Override
+  public void write(${name}Holder holder) {
+    ArrowType.FixedSizeBinary arrowType = new ArrowType.FixedSizeBinary(holder.byteWidth);
+    getWriter(MinorType.${name?upper_case}, arrowType).write(holder);
+  }
+
+  /**
+   * @deprecated
+   * If you experience errors with using this version of the method, switch to the holder version.
+   * The errors occur when using an untyped or unioned PromotableWriter, because this version of the
+   * method does not have enough information to infer the ArrowType.
+   * @see #write(${name}Holder)
+   */
+  @Deprecated
+  @Override
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
+    getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+  }
+  <#else>
+  @Override
+  public void write(${name}Holder holder) {
+    getWriter(MinorType.${name?upper_case}).write(holder);
+  }
+
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
+    getWriter(MinorType.${name?upper_case}).write${minor.class}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+  }
   </#if>
 
   </#list></#list>

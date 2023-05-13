@@ -317,7 +317,6 @@ There are also Arrow-specific settings that can be configured with
    std::shared_ptr<ArrowWriterProperties> arrow_props = ArrowWriterProperties::Builder()
       .enable_deprecated_int96_timestamps() // default False
       ->store_schema() // default False
-      ->enable_compliant_nested_types() // default False
       ->build();
 
 These options mostly dictate how Arrow types are converted to Parquet types.

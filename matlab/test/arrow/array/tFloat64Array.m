@@ -100,5 +100,22 @@ classdef tFloat64Array < matlab.unittest.TestCase
             fcn = @() arrow.array.Float64Array(sparse(ones([10 1])), DeepCopy=MakeDeepCopy);
             testCase.verifyError(fcn, "MATLAB:expectedNonsparse");
         end
+
+        function Length(testCase, MakeDeepCopy)
+            % Zero length array
+            A = arrow.array.Float64Array([], DeepCopy=MakeDeepCopy);
+            expectedLength = int64(0);
+            testCase.verifyEqual(A.Length, expectedLength);
+
+            % Scalar
+            A = arrow.array.Float64Array(1, DeepCopy=MakeDeepCopy);
+            expectedLength = int64(1);
+            testCase.verifyEqual(A.Length, expectedLength);
+
+            % Vector
+            A = arrow.array.Float64Array(1:100, DeepCopy=MakeDeepCopy);
+            expectedLength = int64(100);
+            testCase.verifyEqual(A.Length, expectedLength);
+        end
     end
 end

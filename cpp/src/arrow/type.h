@@ -1232,6 +1232,7 @@ class ARROW_EXPORT RunEndEncodedType : public NestedType {
 
   explicit RunEndEncodedType(std::shared_ptr<DataType> run_end_type,
                              std::shared_ptr<DataType> value_type);
+  ~RunEndEncodedType() override;
 
   DataTypeLayout layout() const override {
     // A lot of existing code expects at least one buffer
