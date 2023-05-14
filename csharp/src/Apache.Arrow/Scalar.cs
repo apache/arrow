@@ -84,6 +84,7 @@ namespace Apache.Arrow
         }
     }
 
+#pragma warning disable CS9084 // Struct member returns 'this' or other instance members by reference
     public struct BooleanScalar : IPrimitiveScalar<BooleanType>, IDotNetStruct<bool>
     {
         private bool _value;
@@ -320,6 +321,7 @@ namespace Apache.Arrow
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 #endif
+#pragma warning restore CS9084 // Struct member returns 'this' or other instance members by reference
 
     public struct Decimal128Scalar : INumericScalar<Decimal128Type>, IDotNetStruct<decimal>
     {

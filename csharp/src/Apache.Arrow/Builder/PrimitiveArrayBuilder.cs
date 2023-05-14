@@ -81,6 +81,29 @@ namespace Apache.Arrow.Builder
             return AppendValid();
         }
 
+        /// <summary>
+        /// Append byte values too builder repeated x times.
+        /// </summary>
+        /// <param name="value">byte value</param>
+        /// <param name="count">repeat x times</param>
+        public virtual Status AppendValues(ReadOnlySpan<byte> value, int count)
+        {
+            ValuesBuffer.AppendBytes(value, count);
+
+            // Append Offsets
+            int[] offsets = new int[count];
+            int valueLength = value.Length;
+
+            for (int i = 0; i < count; i++)
+            {
+                CurrentOffset += valueLength;
+                offsets[i] = CurrentOffset;
+            }
+            OffsetsBuffer.AppendValues(offsets);
+            
+            return AppendValidity(true, count);
+        }
+
         public virtual Status AppendValues(IEnumerable<byte[]> bytes)
         {
             foreach (var value in bytes)

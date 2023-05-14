@@ -308,6 +308,28 @@ namespace Apache.Arrow.Tests.Builder
         }
 
         [Fact]
+        public void StringBuilder_Should_AppendRepeatedStrings()
+        {
+            var builder = new StringArrayBuilder();
+            builder.AppendValue("0");
+            builder.AppendValues("azerty", 3);
+            builder.AppendNull();
+            var array = builder.Build();
+
+            Assert.Equal(5, array.Length);
+            Assert.Equal(1, array.NullCount);
+
+            Assert.False(array.IsValid(4));
+            Assert.True(array.IsValid(2));
+
+            Assert.Equal("0", array.GetString(0));
+            Assert.Equal("azerty", array.GetString(1));
+            Assert.Equal("azerty", array.GetString(2));
+            Assert.Equal("azerty", array.GetString(3));
+            Assert.Null(array.GetString(4));
+        }
+
+        [Fact]
         public void StringArrayBuilder_Should_Build()
         {
             var builder = new StringArrayBuilder();

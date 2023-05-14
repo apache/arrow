@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -291,13 +292,15 @@ namespace Apache.Arrow.Builder
         public IBufferBuilder AppendBytes(ReadOnlySpan<byte> value, int count)
         {
             EnsureAdditionalBytes(count * value.Length);
-
+            int offset = ByteLength;
+            
             for (int i = 0; i < count; i++)
             {
-                value.CopyTo(Memory.Span.Slice(ByteLength, value.Length));
-                ByteLength += value.Length;
+                value.CopyTo(Memory.Span.Slice(offset, value.Length));
+                offset += value.Length;
             }
 
+            ByteLength += value.Length * count;
             return this;
         }
 

@@ -38,6 +38,28 @@ namespace Apache.Arrow.Builder
         public virtual Status AppendValue(string value)
             => value == null ? AppendNull() : AppendValue(StringType.DefaultEncoding.GetBytes(value));
 
+        /// <summary>
+        /// Append string value too builder repeated x times.
+        /// </summary>
+        /// <param name="value">string value</param>
+        /// <param name="count">repeat x times</param>
+        public virtual Status AppendValues(string value, int count)
+            => AppendValues(value, count, StringType.DefaultEncoding);
+
+        /// <summary>
+        /// Append string value too builder repeated x times.
+        /// </summary>
+        /// <param name="value">string value</param>
+        /// <param name="count">repeat x times</param>
+        /// <param name="encoding">encoding to convert string to bytes</param>
+        public virtual Status AppendValues(string value, int count, Encoding encoding)
+        {
+            if (value == null)
+                return AppendNulls(count);
+            var encoded = encoding.GetBytes(value);
+            return AppendValues(encoded, count);
+        }
+
         public virtual Status AppendValues(IEnumerable<string> values)
             => AppendValues(values, StringType.DefaultEncoding);
 
