@@ -75,6 +75,8 @@ namespace Apache.Arrow
 
     public struct StringScalar : IBaseBinaryScalar<StringType>
     {
+        public static StringScalar Empty => new(ArrowBuffer.Empty);
+
         public ArrowBuffer Buffer { get; }
         public StringType Type => StringType.Default;
         IArrowType IScalar.Type => Type;

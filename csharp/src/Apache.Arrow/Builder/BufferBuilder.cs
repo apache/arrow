@@ -252,6 +252,9 @@ namespace Apache.Arrow.Builder
 
         public IBufferBuilder AppendBytes(ReadOnlySpan<byte> bytes)
         {
+            if (bytes.Length == 0)
+                return this;
+
             if (BitOffset == 0)
             {
                 EnsureAdditionalBytes(bytes.Length);
@@ -290,12 +293,15 @@ namespace Apache.Arrow.Builder
 
         public IBufferBuilder AppendBytes(ReadOnlySpan<byte> value, int count)
         {
+            if (value.Length == 0)
+                return this;
+
             if (BitOffset != 0)
                 throw new NotSupportedException("Cannot append repeated bytes while current buffer BitOffset != 0");
             int total = count * value.Length;
             EnsureAdditionalBytes(total);
             int offset = ByteLength;
-            
+
             for (int i = 0; i < count; i++)
             {
                 value.CopyTo(Memory.Span.Slice(offset, value.Length));
