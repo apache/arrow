@@ -47,6 +47,22 @@ namespace Apache.Arrow.Reflection
             Unsafe.WriteUnaligned(ref bytes[0], value);
             return new ReadOnlyMemory<byte>(bytes);
         }
+
+        internal static unsafe ReadOnlySpan<byte> AsBytes<T>(ref T value) where T : struct
+        {
+#pragma warning disable CS8500 // This takes the address of, gets the size of, or declares a pointer to a managed type
+            fixed (T* ptr = &value)
+            {
+                return new ReadOnlySpan<byte>((byte*)ptr, sizeof(T));
+            }
+#pragma warning restore CS8500 // This takes the address of, gets the size of, or declares a pointer to a managed type
+        }
+
+        public static unsafe T CastTo<T>(ReadOnlySpan<byte> bytes) where T : struct
+        {
+            fixed (byte* ptr = &bytes.GetPinnableReference())
+                return Marshal.PtrToStructure<T>((IntPtr)ptr);
+        }
     }
 
     public class TypeReflection<T> : TypeReflection

@@ -32,7 +32,7 @@ namespace Apache.Arrow
             Buffer = buffer;
         }
 
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => Buffer.Span;
     }
 
     public struct StringScalar : IBaseBinaryScalar<StringType>
@@ -55,7 +55,7 @@ namespace Apache.Arrow
         }
 
         public string Value => GetString(StringType.DefaultEncoding);
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => Buffer.Span;
 
         /// <summary>
         /// Converts the underlying byte data to a string using the specified encoding.
@@ -67,7 +67,7 @@ namespace Apache.Arrow
         /// <returns>String representation of the decoded byte data.</returns>
         public unsafe string GetString(Encoding encoding)
         {
-            fixed (byte* ptr = View())
+            fixed (byte* ptr = AsBytes())
             {
                 if (ptr == null)
                     return string.Empty;
@@ -86,384 +86,238 @@ namespace Apache.Arrow
 
     public struct BooleanScalar : IPrimitiveScalar<BooleanType>, IDotNetStruct<bool>
     {
-        public ArrowBuffer Buffer => ArrowBuffer.Empty;
+        private bool _value;
+        public bool DotNet => _value;
         public BooleanType Type => BooleanType.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
-        public bool Value { get; }
 
         public BooleanScalar(bool value)
         {
-            Value = value;
+            _value = value;
         }
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 
     // Numeric scalars
     public struct UInt8Scalar : INumericScalar<UInt8Type>, IDotNetStruct<byte>
     {
-        public ArrowBuffer Buffer { get; }
+        private byte _value;
+        public byte DotNet => _value;
         public UInt8Type Type => UInt8Type.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
 
         public UInt8Scalar(byte value)
-            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+            _value = value;
+        }
+
+        internal UInt8Scalar(ArrowBuffer value) : this(TypeReflection.CastTo<byte>(value.Span))
         {
         }
 
-        internal UInt8Scalar(ArrowBuffer value)
-        {
-            Buffer = value;
-        }
-
-        public byte Value
-        {
-            get
-            {
-                unsafe
-                {
-                    fixed (byte* ptr = View())
-                    {
-                        return *ptr;
-                    }
-                }
-            }
-        }
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 
     public struct Int8Scalar : INumericScalar<Int8Type>, IDotNetStruct<sbyte>
     {
-        public ArrowBuffer Buffer { get; }
+        private sbyte _value;
+        public sbyte DotNet => _value;
         public Int8Type Type => Int8Type.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
 
         public Int8Scalar(sbyte value)
-            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+            _value = value;
+        }
+
+        internal Int8Scalar(ArrowBuffer value) : this(TypeReflection.CastTo<sbyte>(value.Span))
         {
         }
 
-        internal Int8Scalar(ArrowBuffer value)
-        {
-            Buffer = value;
-        }
-
-        public sbyte Value
-        {
-            get
-            {
-                unsafe
-                {
-                    fixed (byte* ptr = View())
-                    {
-                        return *(sbyte*)ptr;
-                    }
-                }
-            }
-        }
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 
     public struct UInt16Scalar : INumericScalar<UInt16Type>, IDotNetStruct<ushort>
     {
-        public ArrowBuffer Buffer { get; }
+        private ushort _value;
+        public ushort DotNet => _value;
         public UInt16Type Type => UInt16Type.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
 
         public UInt16Scalar(ushort value)
-            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+            _value = value;
+        }
+
+        internal UInt16Scalar(ArrowBuffer value) : this(TypeReflection.CastTo<ushort>(value.Span))
         {
         }
 
-        internal UInt16Scalar(ArrowBuffer value)
-        {
-            Buffer = value;
-        }
-
-        public ushort Value
-        {
-            get
-            {
-                unsafe
-                {
-                    fixed (byte* ptr = View())
-                    {
-                        return *(ushort*)ptr;
-                    }
-                }
-            }
-        }
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
     public struct Int16Scalar : INumericScalar<Int16Type>, IDotNetStruct<short>
     {
-        public ArrowBuffer Buffer { get; }
+        private short _value;
+        public short DotNet => _value;
         public Int16Type Type => Int16Type.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
 
         public Int16Scalar(short value)
-            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+            _value = value;
+        }
+
+        internal Int16Scalar(ArrowBuffer value) : this(TypeReflection.CastTo<short>(value.Span))
         {
         }
 
-        internal Int16Scalar(ArrowBuffer value)
-        {
-            Buffer = value;
-        }
-
-        public short Value
-        {
-            get
-            {
-                unsafe
-                {
-                    fixed (byte* ptr = View())
-                    {
-                        return *(short*)ptr;
-                    }
-                }
-            }
-        }
-
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 
     public struct UInt32Scalar : INumericScalar<UInt32Type>, IDotNetStruct<uint>
     {
-        public ArrowBuffer Buffer { get; }
+        private uint _value;
+        public uint DotNet => _value;
         public UInt32Type Type => UInt32Type.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
 
         public UInt32Scalar(uint value)
-            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+            _value = value;
+        }
+
+        internal UInt32Scalar(ArrowBuffer value) : this(TypeReflection.CastTo<uint>(value.Span))
         {
         }
 
-        internal UInt32Scalar(ArrowBuffer value)
-        {
-            Buffer = value;
-        }
-
-        public uint Value
-        {
-            get
-            {
-                unsafe
-                {
-                    fixed (byte* ptr = View())
-                    {
-                        return *(uint*)ptr;
-                    }
-                }
-            }
-        }
-
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 
     public struct Int32Scalar : INumericScalar<Int32Type>, IDotNetStruct<int>
     {
-        public ArrowBuffer Buffer { get; }
+        private int _value;
+        public int DotNet => _value;
         public Int32Type Type => Int32Type.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
 
         public Int32Scalar(int value)
-            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+            _value = value;
+        }
+
+        internal Int32Scalar(ArrowBuffer value) : this(TypeReflection.CastTo<int>(value.Span))
         {
         }
 
-        internal Int32Scalar(ArrowBuffer value)
-        {
-            Buffer = value;
-        }
-
-        public int Value
-        {
-            get
-            {
-                unsafe
-                {
-                    fixed (byte* ptr = View())
-                    {
-                        return *(int*)ptr;
-                    }
-                }
-            }
-        }
-
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 
     public struct UInt64Scalar : INumericScalar<UInt64Type>, IDotNetStruct<ulong>
     {
-        public ArrowBuffer Buffer { get; }
+        private ulong _value;
+        public ulong DotNet => _value;
         public UInt64Type Type => UInt64Type.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
 
         public UInt64Scalar(ulong value)
-            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+            _value = value;
+        }
+
+        internal UInt64Scalar(ArrowBuffer value) : this(TypeReflection.CastTo<ulong>(value.Span))
         {
         }
 
-        internal UInt64Scalar(ArrowBuffer value)
-        {
-            Buffer = value;
-        }
-
-        public ulong Value
-        {
-            get
-            {
-                unsafe
-                {
-                    fixed (byte* ptr = View())
-                    {
-                        return *(ulong*)ptr;
-                    }
-                }
-            }
-        }
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 
     public struct Int64Scalar : INumericScalar<Int64Type>, IDotNetStruct<long>
     {
-        public ArrowBuffer Buffer { get; }
+        private long _value;
+        public long DotNet => _value;
         public Int64Type Type => Int64Type.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
 
         public Int64Scalar(long value)
-            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+            _value = value;
+        }
+
+        internal Int64Scalar(ArrowBuffer value) : this(TypeReflection.CastTo<long>(value.Span))
         {
         }
 
-        internal Int64Scalar(ArrowBuffer value)
-        {
-            Buffer = value;
-        }
-
-        public long Value
-        {
-            get
-            {
-                unsafe
-                {
-                    fixed (byte* ptr = View())
-                    {
-                        return *(long*)ptr;
-                    }
-                }
-            }
-        }
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 
     public struct FloatScalar : INumericScalar<FloatType>, IDotNetStruct<float>
     {
-        public ArrowBuffer Buffer { get; }
+        private float _value;
+        public float DotNet => _value;
         public FloatType Type => FloatType.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
 
         public FloatScalar(float value)
-            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+            _value = value;
+        }
+
+        internal FloatScalar(ArrowBuffer value) : this(TypeReflection.CastTo<float>(value.Span))
         {
         }
 
-        internal FloatScalar(ArrowBuffer value)
-        {
-            Buffer = value;
-        }
-
-        public float Value
-        {
-            get
-            {
-                unsafe
-                {
-                    fixed (byte* ptr = View())
-                    {
-                        return *(float*)ptr;
-                    }
-                }
-            }
-        }
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 
     public struct DoubleScalar : INumericScalar<DoubleType>, IDotNetStruct<double>
     {
-        public ArrowBuffer Buffer { get; }
+        private double _value;
+        public double DotNet => _value;
         public DoubleType Type => DoubleType.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
 
         public DoubleScalar(double value)
-            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+            _value = value;
+        }
+
+        internal DoubleScalar(ArrowBuffer value) : this(TypeReflection.CastTo<double>(value.Span))
         {
         }
 
-        internal DoubleScalar(ArrowBuffer value)
-        {
-            Buffer = value;
-        }
-
-        public double Value
-        {
-            get
-            {
-                unsafe
-                {
-                    fixed (byte* ptr = View())
-                    {
-                        return *(double*)ptr;
-                    }
-                }
-            }
-        }
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 
 #if NET5_0_OR_GREATER
     public struct HalfFloatScalar : INumericScalar<HalfFloatType>, IDotNetStruct<Half>
     {
-        public ArrowBuffer Buffer { get; }
+        private Half _value;
+        public Half DotNet => _value;
         public HalfFloatType Type => HalfFloatType.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
 
         public HalfFloatScalar(Half value)
-            : this(new ArrowBuffer(TypeReflection.AsMemoryBytes(value)))
+        {
+            _value = value;
+        }
+
+        internal HalfFloatScalar(ArrowBuffer value) : this(TypeReflection.CastTo<Half>(value.Span))
         {
         }
 
-        internal HalfFloatScalar(ArrowBuffer value)
-        {
-            Buffer = value;
-        }
-
-        public Half Value
-        {
-            get
-            {
-                unsafe
-                {
-                    fixed (byte* ptr = View())
-                    {
-                        return *(Half*)ptr;
-                    }
-                }
-            }
-        }
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
     }
 #endif
 
@@ -490,8 +344,8 @@ namespace Apache.Arrow
             Buffer = value;
         }
 
-        public decimal Value => DecimalUtility.GetDecimal(Buffer, 0, Type.Scale, Type.ByteWidth);
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public decimal DotNet => DecimalUtility.GetDecimal(Buffer, 0, Type.Scale, Type.ByteWidth);
+        public unsafe ReadOnlySpan<byte> AsBytes() => Buffer.Span;
     }
 
     public struct Decimal256Scalar : IDecimalScalar<Decimal256Type>, IDotNetStruct<decimal>
@@ -517,8 +371,8 @@ namespace Apache.Arrow
             Buffer = value;
         }
 
-        public decimal Value => DecimalUtility.GetDecimal(Buffer, 0, Type.Scale, Type.ByteWidth);
-        public ReadOnlySpan<byte> View() => Buffer.Span;
+        public decimal DotNet => DecimalUtility.GetDecimal(Buffer, 0, Type.Scale, Type.ByteWidth);
+        public unsafe ReadOnlySpan<byte> AsBytes() => Buffer.Span;
     }
 
     // Nested scalars

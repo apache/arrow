@@ -114,7 +114,7 @@ namespace Apache.Arrow.Builder
         {
             if (!Validate(DataType, value.Type))
                 throw new ArgumentException($"Cannot append '{value}': {value.Type} != {DataType}");
-            return AppendValue(value.View());
+            return AppendValue(value.AsBytes());
         }
 
         internal override Status AppendPrimitiveValueOffset(ArrayData data)
@@ -211,7 +211,7 @@ namespace Apache.Arrow.Builder
         {
             if (!Validate(value.Type))
                 throw new ArgumentException($"Cannot append '{value}': {value.Type} != {DataType}");
-            return AppendBytes(value.View(), 1);
+            return AppendBytes(value.AsBytes(), 1);
         }
 
         // Bulk raw struct several bytes
@@ -330,7 +330,7 @@ namespace Apache.Arrow.Builder
         }
 
         public virtual Status AppendValue(T value)
-            => AppendBytes(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)), 1);
+            => AppendBytes(TypeReflection.AsBytes(ref value), 1);
 
         public virtual Status AppendValues(ReadOnlySpan<T> values)
             => AppendBytes(MemoryMarshal.AsBytes(values), values.Length);
@@ -346,7 +346,7 @@ namespace Apache.Arrow.Builder
             => AppendBytes(MemoryMarshal.AsBytes<T>(values), values.Length);
 
         public virtual Status AppendValues(T value, int count)
-            => AppendRepeatBytes(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)), count);
+            => AppendRepeatBytes(TypeReflection.AsBytes(ref value), count);
 
         public virtual Status AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> validity)
             => AppendBytes(MemoryMarshal.AsBytes(values), validity);
@@ -371,7 +371,7 @@ namespace Apache.Arrow.Builder
                 _ => throw new ArgumentException($"Cannot append scalar {value} in {this}, must implement BooleanScalar")
             };
         }
-        public Status AppendScalar(BooleanScalar value) => AppendValue(value.Value);
+        public Status AppendScalar(BooleanScalar value) => AppendValue(value.DotNet);
 
         public override Status AppendValue(bool value)
         {

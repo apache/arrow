@@ -351,7 +351,7 @@ namespace Apache.Arrow
                 return ReadOnlySpan<byte>.Empty;
             }
 
-            return GetScalar(index).View();
+            return GetScalar(index).AsBytes();
         }
 
         // Arrow Scalar

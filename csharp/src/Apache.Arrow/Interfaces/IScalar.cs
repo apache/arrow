@@ -23,13 +23,12 @@ namespace Apache.Arrow
 
     public interface IDotNetStruct<T> where T : struct
     {
-        T Value { get; }
+        T DotNet { get; }
     }
 
     public interface IPrimitiveScalarBase : IScalar
     {
-        ArrowBuffer Buffer { get; }
-        ReadOnlySpan<byte> View();
+        ReadOnlySpan<byte> AsBytes();
     }
 
     public interface IPrimitiveScalar<TArrowType> : IPrimitiveScalarBase, IArrowTyped<TArrowType>

@@ -443,7 +443,7 @@ namespace Apache.Arrow.Builder
 
         public ITypedBufferBuilder<T> AppendValues(T value, int count)
         {
-            AppendBytes(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)), count);
+            AppendBytes(TypeReflection.AsBytes(ref value), count);
             return this;
         }
 
@@ -468,8 +468,7 @@ namespace Apache.Arrow.Builder
                 if (value.HasValue)
                 {
                     T real = value.Value;
-                    ReadOnlySpan<T> span = TypeReflection.CreateReadOnlySpan(ref real);
-                    MemoryMarshal.AsBytes(span).CopyTo(Memory.Span.Slice(offset, fixedSize));
+                    TypeReflection.AsBytes(ref real).CopyTo(Memory.Span.Slice(offset, fixedSize));
                     validity[i] = true;
                 }
                 else

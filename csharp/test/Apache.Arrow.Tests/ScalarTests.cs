@@ -27,9 +27,9 @@ namespace Apache.Arrow.Tests
             byte expected = 128;
             var value = new UInt8Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt8Type.Default, value.Type);
-            Assert.Equal(new byte[] { 128 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 128 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -38,9 +38,9 @@ namespace Apache.Arrow.Tests
             byte expected = byte.MaxValue;
             var value = new UInt8Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt8Type.Default, value.Type);
-            Assert.Equal(new byte[] { byte.MaxValue }, value.View().ToArray());
+            Assert.Equal(new byte[] { byte.MaxValue }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -49,9 +49,9 @@ namespace Apache.Arrow.Tests
             byte expected = 0;
             var value = new UInt8Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt8Type.Default, value.Type);
-            Assert.Equal(new byte[] { 0 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 0 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -60,9 +60,9 @@ namespace Apache.Arrow.Tests
             sbyte expected = -56;
             var value = new Int8Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int8Type.Default, value.Type);
-            Assert.Equal(new byte[] { 200 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 200 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -71,9 +71,9 @@ namespace Apache.Arrow.Tests
             sbyte expected = sbyte.MaxValue;
             var value = new Int8Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int8Type.Default, value.Type);
-            Assert.Equal(new byte[] { 127 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 127 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -82,9 +82,9 @@ namespace Apache.Arrow.Tests
             sbyte expected = sbyte.MinValue;
             var value = new Int8Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int8Type.Default, value.Type);
-            Assert.Equal(new byte[] { 128 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 128 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -93,9 +93,9 @@ namespace Apache.Arrow.Tests
             short expected = -3456;
             var value = new Int16Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int16Type.Default, value.Type);
-            Assert.Equal(new byte[] { 128, 242 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 128, 242 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -104,9 +104,9 @@ namespace Apache.Arrow.Tests
             short expected = short.MaxValue;
             var value = new Int16Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int16Type.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 127 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 127 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -115,9 +115,9 @@ namespace Apache.Arrow.Tests
             short expected = short.MinValue;
             var value = new Int16Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int16Type.Default, value.Type);
-            Assert.Equal(new byte[] { 0, 128 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 0, 128 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -126,9 +126,9 @@ namespace Apache.Arrow.Tests
             ushort expected = 56789;
             var value = new UInt16Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt16Type.Default, value.Type);
-            Assert.Equal(new byte[] { 213, 221 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 213, 221 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -137,9 +137,9 @@ namespace Apache.Arrow.Tests
             ushort expected = ushort.MaxValue;
             var value = new UInt16Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt16Type.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 255 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 255 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -148,9 +148,9 @@ namespace Apache.Arrow.Tests
             ushort expected = 0;
             var value = new UInt16Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt16Type.Default, value.Type);
-            Assert.Equal(new byte[] { 0, 0 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 0, 0 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -159,9 +159,9 @@ namespace Apache.Arrow.Tests
             int expected = 123456789;
             var value = new Int32Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int32Type.Default, value.Type);
-            Assert.Equal(new byte[] { 21, 205, 91, 7 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 21, 205, 91, 7 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -170,9 +170,9 @@ namespace Apache.Arrow.Tests
             int expected = int.MaxValue;
             var value = new Int32Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int32Type.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 255, 255, 127 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 255, 255, 127 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -181,9 +181,9 @@ namespace Apache.Arrow.Tests
             int expected = int.MinValue;
             var value = new Int32Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int32Type.Default, value.Type);
-            Assert.Equal(new byte[] { 0, 0, 0, 128 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 0, 0, 0, 128 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -192,9 +192,9 @@ namespace Apache.Arrow.Tests
             uint expected = 3456789012;
             var value = new UInt32Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt32Type.Default, value.Type);
-            Assert.Equal(new byte[] { 20, 106, 10, 206 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 20, 106, 10, 206 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -203,9 +203,9 @@ namespace Apache.Arrow.Tests
             uint expected = uint.MaxValue;
             var value = new UInt32Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt32Type.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 255, 255, 255 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 255, 255, 255 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -214,9 +214,9 @@ namespace Apache.Arrow.Tests
             uint expected = 0;
             var value = new UInt32Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt32Type.Default, value.Type);
-            Assert.Equal(new byte[] { 0, 0, 0, 0 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 0, 0, 0, 0 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -225,9 +225,9 @@ namespace Apache.Arrow.Tests
             long expected = 1234567890123456789;
             var value = new Int64Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int64Type.Default, value.Type);
-            Assert.Equal(new byte[] { 21, 129, 233, 125, 244, 16, 34, 17 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 21, 129, 233, 125, 244, 16, 34, 17 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -236,9 +236,9 @@ namespace Apache.Arrow.Tests
             long expected = long.MaxValue;
             var value = new Int64Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int64Type.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 255, 127 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 255, 127 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -247,9 +247,9 @@ namespace Apache.Arrow.Tests
             long expected = long.MinValue;
             var value = new Int64Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Int64Type.Default, value.Type);
-            Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 128 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 128 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -258,9 +258,9 @@ namespace Apache.Arrow.Tests
             ulong expected = 12345678901234567890;
             var value = new UInt64Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt64Type.Default, value.Type);
-            Assert.Equal(new byte[] { 210, 10, 31, 235, 140, 169, 84, 171 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 210, 10, 31, 235, 140, 169, 84, 171 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -269,9 +269,9 @@ namespace Apache.Arrow.Tests
             ulong expected = ulong.MaxValue;
             var value = new UInt64Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt64Type.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 255, 255 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 255, 255 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -280,9 +280,9 @@ namespace Apache.Arrow.Tests
             ulong expected = 0;
             var value = new UInt64Scalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(UInt64Type.Default, value.Type);
-            Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 }, value.AsBytes().ToArray());
         }
     }
 
@@ -294,9 +294,9 @@ namespace Apache.Arrow.Tests
             float expected = 1234.567f;
             var value = new FloatScalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(FloatType.Default, value.Type);
-            Assert.Equal(new byte[] { 37, 82, 154, 68 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 37, 82, 154, 68 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -305,9 +305,9 @@ namespace Apache.Arrow.Tests
             float expected = float.MaxValue;
             var value = new FloatScalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(FloatType.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 255, 127, 127 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 255, 127, 127 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -316,9 +316,9 @@ namespace Apache.Arrow.Tests
             float expected = float.MinValue;
             var value = new FloatScalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(FloatType.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 255, 127, 255 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 255, 127, 255 }, value.AsBytes().ToArray());
         }
     }
 
@@ -330,9 +330,9 @@ namespace Apache.Arrow.Tests
             Half expected = Half.Epsilon;
             var value = new HalfFloatScalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(HalfFloatType.Default, value.Type);
-            Assert.Equal(new byte[] { 1, 0 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 1, 0 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -341,9 +341,9 @@ namespace Apache.Arrow.Tests
             Half expected = Half.MaxValue;
             var value = new HalfFloatScalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(HalfFloatType.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 123 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 123 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -352,9 +352,9 @@ namespace Apache.Arrow.Tests
             Half expected = Half.MinValue;
             var value = new HalfFloatScalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(HalfFloatType.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 251 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 251 }, value.AsBytes().ToArray());
         }
     }
 
@@ -366,9 +366,9 @@ namespace Apache.Arrow.Tests
             double expected = 1234.56789;
             var value = new DoubleScalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(DoubleType.Default, value.Type);
-            Assert.Equal(new byte[] { 231, 198, 244, 132, 69, 74, 147, 64 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 231, 198, 244, 132, 69, 74, 147, 64 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -377,9 +377,9 @@ namespace Apache.Arrow.Tests
             double expected = double.MaxValue;
             var value = new DoubleScalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(DoubleType.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 239, 127 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 239, 127 }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -388,9 +388,9 @@ namespace Apache.Arrow.Tests
             double expected = double.MinValue;
             var value = new DoubleScalar(expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(DoubleType.Default, value.Type);
-            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 239, 255 }, value.View().ToArray());
+            Assert.Equal(new byte[] { 255, 255, 255, 255, 255, 255, 239, 255 }, value.AsBytes().ToArray());
         }
     }
 
@@ -402,10 +402,10 @@ namespace Apache.Arrow.Tests
             decimal expected = 123.00001m;
             var value = new Decimal128Scalar(new Decimal128Type(15,5), expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(new byte[] {
                 225, 174, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-            }, value.View().ToArray());
+            }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -415,10 +415,10 @@ namespace Apache.Arrow.Tests
             var value = new Decimal128Scalar(expected);
 
             Assert.Equal(Decimal128Type.Default, value.Type);
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(new byte[] {
                 16, 53, 95, 163, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-            }, value.View().ToArray());
+            }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -428,10 +428,10 @@ namespace Apache.Arrow.Tests
             var value = new Decimal128Scalar(expected);
 
             Assert.Equal(Decimal128Type.Default, value.Type);
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(new byte[] {
                 240, 10, 55, 50, 26, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255
-            }, value.View().ToArray());
+            }, value.AsBytes().ToArray());
         }
     }
 
@@ -443,11 +443,11 @@ namespace Apache.Arrow.Tests
             decimal expected = 123.000000000000000000000001m;
             var value = new Decimal256Scalar(new Decimal256Type(32, 27), expected);
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(new byte[] {
                 232, 3, 0, 120, 67, 157, 45, 201, 32, 55, 111, 141, 1, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-            }, value.View().ToArray());
+            }, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -460,9 +460,9 @@ namespace Apache.Arrow.Tests
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
             };
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Decimal256Type.SystemDefault, value.Type);
-            Assert.Equal(bytes, value.View().ToArray());
+            Assert.Equal(bytes, value.AsBytes().ToArray());
         }
 
         [Fact]
@@ -475,9 +475,9 @@ namespace Apache.Arrow.Tests
                 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255
             };
 
-            Assert.Equal(expected, value.Value);
+            Assert.Equal(expected, value.DotNet);
             Assert.Equal(Decimal256Type.SystemDefault, value.Type);
-            Assert.Equal(bytes, value.View().ToArray());
+            Assert.Equal(bytes, value.AsBytes().ToArray());
         }
     }
 }
