@@ -113,7 +113,6 @@ namespace Apache.Arrow.Builder
         /// <param name="allocator">Optional memory allocator.</param>
         /// <returns>Returns an <see cref="ArrowBuffer"/> object.</returns>
         ArrowBuffer Build(int byteSize, MemoryAllocator allocator = default);
-        Task<ArrowBuffer> BuildAsync(int byteSize, MemoryAllocator allocator = default);
     }
 
     public interface ITypedBufferBuilder : IBufferBuilder

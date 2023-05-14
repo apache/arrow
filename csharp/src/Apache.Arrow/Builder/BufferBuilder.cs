@@ -332,22 +332,9 @@ namespace Apache.Arrow.Builder
         public ArrowBuffer Build(MemoryAllocator allocator = default) => Build(64, allocator);
 
         public async Task<ArrowBuffer> BuildAsync(MemoryAllocator allocator = default)
-            => await BuildAsync(64, allocator);
+            => await Task.FromResult(Build(allocator));
 
         public ArrowBuffer Build(int byteSize, MemoryAllocator allocator = default)
-        {
-            var byteLength = BitOffset > 0 ? ByteLength + 1 : ByteLength;
-
-            int bufferLength = checked((int)BitUtility.RoundUpToMultiplePowerOfTwo(byteLength, byteSize));
-
-            MemoryAllocator memoryAllocator = allocator ?? MemoryAllocator.Default.Value;
-            IMemoryOwner<byte> memoryOwner = memoryAllocator.Allocate(bufferLength);
-            Memory.Slice(0, byteLength).CopyTo(memoryOwner.Memory);
-
-            return new ArrowBuffer(memoryOwner);
-        }
-
-        public async Task<ArrowBuffer> BuildAsync(int byteSize, MemoryAllocator allocator = default)
         {
             var byteLength = BitOffset > 0 ? ByteLength + 1 : ByteLength;
 
