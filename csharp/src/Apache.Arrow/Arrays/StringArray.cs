@@ -75,7 +75,7 @@ namespace Apache.Arrow
         /// <param name="encoding">The encoding used to decode the byte data.</param>
         /// <returns>String representation of the decoded byte data.</returns>
         public string GetString(int index, Encoding encoding = default)
-            => IsValid(index) ? encoding == null ? GetScalar(index).Value : GetScalar(index).GetString(encoding) : null;
+            => IsValid(index) ? encoding == null ? GetScalar(index).DotNet : GetScalar(index).GetString(encoding) : null;
 
         // Arrow Scalar
         public override IScalar GetScalar(int index) => GetScalar(index);

@@ -352,6 +352,17 @@ namespace Apache.Arrow.Builder
             ValuesBuffer = values;
         }
 
+        public override Status AppendScalar(IScalar value)
+        {
+            return value switch
+            {
+                IDotNetStruct<T> primitive => AppendScalar(primitive),
+                _ => base.AppendScalar(value)
+            };
+        }
+
+        public Status AppendScalar(IDotNetStruct<T> value) => AppendValue(value.DotNet);
+
         public virtual Status AppendValue(T value)
             => AppendBytes(TypeReflection.AsBytes(ref value), 1);
 

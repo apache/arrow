@@ -54,7 +54,7 @@ namespace Apache.Arrow
             _byteLength = value.Length;
         }
 
-        public string Value => GetString(StringType.DefaultEncoding);
+        public string DotNet => GetString(StringType.DefaultEncoding);
         public unsafe ReadOnlySpan<byte> AsBytes() => Buffer.Span;
 
         /// <summary>
@@ -82,6 +82,10 @@ namespace Apache.Arrow
                 return new string(buffer);
             }
         }
+
+        // Define an implicit conversion
+        public static implicit operator StringScalar(string value) => new(value);
+        public static implicit operator string(StringScalar scalar) => scalar.DotNet;
     }
 
 #pragma warning disable CS9084 // Struct member returns 'this' or other instance members by reference
@@ -98,6 +102,10 @@ namespace Apache.Arrow
             _value = value;
         }
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator BooleanScalar(bool value) => new(value);
+        public static implicit operator bool(BooleanScalar scalar) => scalar.DotNet;
     }
 
     // Numeric scalars
@@ -119,6 +127,10 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator UInt8Scalar(byte value) => new(value);
+        public static implicit operator byte(UInt8Scalar scalar) => scalar.DotNet;
     }
 
     public struct Int8Scalar : INumericScalar<Int8Type>, IDotNetStruct<sbyte>
@@ -139,6 +151,10 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator Int8Scalar(sbyte value) => new(value);
+        public static implicit operator sbyte(Int8Scalar scalar) => scalar.DotNet;
     }
 
     public struct UInt16Scalar : INumericScalar<UInt16Type>, IDotNetStruct<ushort>
@@ -159,6 +175,10 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator UInt16Scalar(ushort value) => new(value);
+        public static implicit operator ushort(UInt16Scalar scalar) => scalar.DotNet;
     }
     public struct Int16Scalar : INumericScalar<Int16Type>, IDotNetStruct<short>
     {
@@ -178,6 +198,10 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator Int16Scalar(short value) => new(value);
+        public static implicit operator short(Int16Scalar scalar) => scalar.DotNet;
     }
 
     public struct UInt32Scalar : INumericScalar<UInt32Type>, IDotNetStruct<uint>
@@ -198,6 +222,10 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator UInt32Scalar(uint value) => new(value);
+        public static implicit operator uint(UInt32Scalar scalar) => scalar.DotNet;
     }
 
     public struct Int32Scalar : INumericScalar<Int32Type>, IDotNetStruct<int>
@@ -218,6 +246,10 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator Int32Scalar(int value) => new(value);
+        public static implicit operator int(Int32Scalar scalar) => scalar.DotNet;
     }
 
     public struct UInt64Scalar : INumericScalar<UInt64Type>, IDotNetStruct<ulong>
@@ -238,6 +270,10 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator UInt64Scalar(ulong value) => new(value);
+        public static implicit operator ulong(UInt64Scalar scalar) => scalar.DotNet;
     }
 
     public struct Int64Scalar : INumericScalar<Int64Type>, IDotNetStruct<long>
@@ -258,6 +294,10 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator Int64Scalar(long value) => new(value);
+        public static implicit operator long(Int64Scalar scalar) => scalar.DotNet;
     }
 
     public struct FloatScalar : INumericScalar<FloatType>, IDotNetStruct<float>
@@ -278,6 +318,10 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator FloatScalar(float value) => new(value);
+        public static implicit operator float(FloatScalar scalar) => scalar.DotNet;
     }
 
     public struct DoubleScalar : INumericScalar<DoubleType>, IDotNetStruct<double>
@@ -298,6 +342,10 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator DoubleScalar(double value) => new(value);
+        public static implicit operator double(DoubleScalar scalar) => scalar.DotNet;
     }
 
 #if NET5_0_OR_GREATER
@@ -319,6 +367,10 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => TypeReflection.AsBytes(ref _value);
+
+        // Define an implicit conversion
+        public static implicit operator HalfFloatScalar(Half value) => new(value);
+        public static implicit operator Half(HalfFloatScalar scalar) => scalar.DotNet;
     }
 #endif
 #pragma warning restore CS9084 // Struct member returns 'this' or other instance members by reference
@@ -348,6 +400,10 @@ namespace Apache.Arrow
 
         public decimal DotNet => DecimalUtility.GetDecimal(Buffer, 0, Type.Scale, Type.ByteWidth);
         public unsafe ReadOnlySpan<byte> AsBytes() => Buffer.Span;
+
+        // Define an implicit conversion
+        public static implicit operator Decimal128Scalar(decimal value) => new(value);
+        public static implicit operator decimal(Decimal128Scalar scalar) => scalar.DotNet;
     }
 
     public struct Decimal256Scalar : IDecimalScalar<Decimal256Type>, IDotNetStruct<decimal>
@@ -375,6 +431,10 @@ namespace Apache.Arrow
 
         public decimal DotNet => DecimalUtility.GetDecimal(Buffer, 0, Type.Scale, Type.ByteWidth);
         public unsafe ReadOnlySpan<byte> AsBytes() => Buffer.Span;
+
+        // Define an implicit conversion
+        public static implicit operator Decimal256Scalar(decimal value) => new(value);
+        public static implicit operator decimal(Decimal256Scalar scalar) => scalar.DotNet;
     }
 
     // Nested scalars

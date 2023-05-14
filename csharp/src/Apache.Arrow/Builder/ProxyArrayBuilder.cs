@@ -5,18 +5,18 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Builder
 {
-    public abstract class ProxyArrayBuilder<TPrimitive, TLogical> : FixedBinaryArrayBuilder<TPrimitive>
+    public class LogicalArrayBuilder<TPrimitive, TLogical> : FixedBinaryArrayBuilder<TPrimitive>
         where TPrimitive : struct
         where TLogical : struct
     {
         private readonly Func<TLogical, TPrimitive> ToPrimitive;
 
-        public ProxyArrayBuilder(Func<TLogical, TPrimitive> convert, int capacity = 32)
+        public LogicalArrayBuilder(Func<TLogical, TPrimitive> convert, int capacity = 32)
             : this(TypeReflection<TLogical>.ArrowType as FixedWidthType, convert, capacity)
         {
         }
 
-        public ProxyArrayBuilder(FixedWidthType dataType, Func<TLogical, TPrimitive> convert, int capacity = 32)
+        public LogicalArrayBuilder(FixedWidthType dataType, Func<TLogical, TPrimitive> convert, int capacity = 32)
             : base(dataType, capacity)
         {
             ToPrimitive = convert;
@@ -66,7 +66,7 @@ namespace Apache.Arrow.Builder
     }
 
     // Timestamp / DateTime
-    public class TimestampArrayBuilder : ProxyArrayBuilder<long, DateTimeOffset>
+    public class TimestampArrayBuilder : LogicalArrayBuilder<long, DateTimeOffset>
     {
         private static Func<DateTimeOffset, long> ToPrimitive(TimeUnit unit)
         {
@@ -90,7 +90,7 @@ namespace Apache.Arrow.Builder
     }
 
     // Time
-    public class Time32ArrayBuilder : ProxyArrayBuilder<int, TimeSpan>
+    public class Time32ArrayBuilder : LogicalArrayBuilder<int, TimeSpan>
     {
         private static Func<TimeSpan, int> ToPrimitive(TimeUnit unit)
         {
@@ -111,7 +111,7 @@ namespace Apache.Arrow.Builder
         }
     }
 
-    public class Time64ArrayBuilder : ProxyArrayBuilder<long, TimeSpan>
+    public class Time64ArrayBuilder : LogicalArrayBuilder<long, TimeSpan>
     {
         private static Func<TimeSpan, long> ToPrimitive(TimeUnit unit)
         {
@@ -133,17 +133,18 @@ namespace Apache.Arrow.Builder
     }
 
     // Date
-    public class Date32ArrayBuilder : ProxyArrayBuilder<int, DateTimeOffset>
+    public class Date32ArrayBuilder : LogicalArrayBuilder<int, DateTimeOffset>
     {
         public Date32ArrayBuilder(DateType dtype, int capacity = 32) : base(dtype, DateTimeOffsetExtensions.ToUnixDays, capacity)
         {
         }
     }
 
-    public class Date64ArrayBuilder : ProxyArrayBuilder<long, DateTimeOffset>
+    public class Date64ArrayBuilder : LogicalArrayBuilder<long, DateTimeOffset>
     {
         public Date64ArrayBuilder(DateType dtype, int capacity = 32) : base(dtype, DateTimeOffsetExtensions.ToUnixTimeMilliseconds, capacity)
         {
         }
     }
 }
+
