@@ -13,7 +13,7 @@ namespace Apache.Arrow.Builder
     public class BufferBuilder : IBufferBuilder
     {
         private const int DefaultCapacity = 64;
-        public int ByteLength { get; private set; }
+        public int ByteLength { get; internal set; }
         public int BitOffset { get; private set; }
 
         public Memory<byte> Memory { get; private set; }
@@ -290,46 +290,9 @@ namespace Apache.Arrow.Builder
 
         public IBufferBuilder AppendValue(bool value) => AppendBit(value);
         public IBufferBuilder AppendValue(byte value) => AppendByte(value);
-        public IBufferBuilder AppendValue<T>(T value) where T : struct
-            => AppendValues(TypeReflection.CreateReadOnlySpan(ref value));
-
+        
         public IBufferBuilder AppendValues(ReadOnlySpan<bool> values) => AppendBits(values);
         public IBufferBuilder AppendValues(ReadOnlySpan<byte> values) => AppendBytes(values);
-        public IBufferBuilder AppendValues<T>(ReadOnlySpan<T> values) where T : struct
-        {
-            ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(values);
-            return AppendBytes(bytes);
-        }
-
-        public IBufferBuilder AppendValues<T>(
-            ICollection<T?> values, Span<bool> validity, int fixedSize,
-            out int nullCount
-            ) where T : struct
-        {
-            int i = 0;
-            int offset = ByteLength;
-            int _nullCount = 0;
-            EnsureAdditionalBytes(values.Count * fixedSize);
-
-            foreach (T? value in values)
-            {
-                if (value.HasValue)
-                {
-                    T real = value.Value;
-                    ReadOnlySpan<T> span = TypeReflection.CreateReadOnlySpan(ref real);
-                    MemoryMarshal.AsBytes(span).CopyTo(Memory.Span.Slice(offset, fixedSize));
-                    validity[i] = true;
-                }
-                else
-                    _nullCount++;
-                offset += fixedSize;
-                i++;
-            }
-
-            ByteLength = offset;
-            nullCount = _nullCount;
-            return this;
-        }
 
         public IBufferBuilder AppendValues(bool value, int count) => AppendBits(value, count);
 
@@ -345,9 +308,6 @@ namespace Apache.Arrow.Builder
 
             return this;
         }
-
-        public IBufferBuilder AppendValues<T>(T value, int count) where T : struct
-            => AppendValues(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)), count);
 
         internal IBufferBuilder ReserveAdditionalBytes(int numBytes)
         {
@@ -402,7 +362,7 @@ namespace Apache.Arrow.Builder
             return new ArrowBuffer(memoryOwner);
         }
 
-        private void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(ByteLength + numBytes));
+        internal void EnsureAdditionalBytes(int numBytes) => EnsureBytes(checked(ByteLength + numBytes));
 
         internal void EnsureBytes(int numBytes)
         {
@@ -468,18 +428,48 @@ namespace Apache.Arrow.Builder
         }
 
         public ITypedBufferBuilder<T> AppendValue(T value)
-        {
-            base.AppendValue(value);
-            return this;
-        }
+            => AppendValues(TypeReflection.CreateReadOnlySpan(ref value));
+
         public ITypedBufferBuilder<T> AppendValues(ReadOnlySpan<T> values)
         {
-            base.AppendValues(values);
+            ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(values);
+            AppendBytes(bytes);
             return this;
         }
+
         public ITypedBufferBuilder<T> AppendValues(T value, int count)
         {
-            base.AppendValues(value, count);
+            AppendValues(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)), count);
+            return this;
+        }
+
+        public ITypedBufferBuilder<T> AppendValues(
+            ICollection<T?> values, Span<bool> validity, int fixedSize,
+            out int nullCount
+            )
+        {
+            int i = 0;
+            int offset = ByteLength;
+            int _nullCount = 0;
+            EnsureAdditionalBytes(values.Count * fixedSize);
+
+            foreach (T? value in values)
+            {
+                if (value.HasValue)
+                {
+                    T real = value.Value;
+                    ReadOnlySpan<T> span = TypeReflection.CreateReadOnlySpan(ref real);
+                    MemoryMarshal.AsBytes(span).CopyTo(Memory.Span.Slice(offset, fixedSize));
+                    validity[i] = true;
+                }
+                else
+                    _nullCount++;
+                offset += fixedSize;
+                i++;
+            }
+
+            ByteLength = offset;
+            nullCount = _nullCount;
             return this;
         }
     }

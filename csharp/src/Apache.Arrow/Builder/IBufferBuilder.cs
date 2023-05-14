@@ -101,13 +101,6 @@ namespace Apache.Arrow.Builder
         IBufferBuilder AppendValue(byte value);
 
         /// <summary>
-        /// Append struct value too buffer.
-        /// </summary>
-        /// <param name="value">struct to append</param>
-        /// <returns>Current <see cref="IBufferBuilder"/></returns>
-        IBufferBuilder AppendValue<T>(T value) where T : struct;
-
-        /// <summary>
         /// Append booleans value too buffer.
         /// </summary>
         /// <param name="values">booleans to append</param>
@@ -122,34 +115,12 @@ namespace Apache.Arrow.Builder
         IBufferBuilder AppendValues(ReadOnlySpan<byte> values);
 
         /// <summary>
-        /// Append struct values too buffer.
-        /// </summary>
-        /// <param name="values">structs to append</param>
-        /// <returns>Current <see cref="IBufferBuilder"/></returns>
-        IBufferBuilder AppendValues<T>(ReadOnlySpan<T> values) where T : struct;
-
-        /// <summary>
-        /// Append nullablestruct values too buffer.
-        /// </summary>
-        /// <param name="values">structs to append</param>
-        /// <returns>Current <see cref="IBufferBuilder"/></returns>
-        IBufferBuilder AppendValues<T>(ICollection<T?> values, Span<bool> validity, int fixedSize, out int nullCount) where T : struct;
-
-        /// <summary>
         /// Append booleans value too buffer
         /// </summary>
         /// <param name="value">boolean to append</param>
         /// <param name="count">number of time to append</param>
         /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendValues(bool value, int count);
-
-        /// <summary>
-        /// Append struct values too buffer
-        /// </summary>
-        /// <param name="value">struct to append</param>
-        /// <param name="count">number of time to append</param>
-        /// <returns>Current <see cref="IBufferBuilder"/></returns>
-        IBufferBuilder AppendValues<T>(T value, int count) where T : struct;
 
         /// <summary>
         /// Clear all contents appended so far.
@@ -202,9 +173,34 @@ namespace Apache.Arrow.Builder
 
     public interface ITypedBufferBuilder<T> : ITypedBufferBuilder where T : struct
     {
-        ITypedBufferBuilder<T> AppendValue(T value);
+        /// <summary>
+        /// Append struct values too buffer.
+        /// </summary>
+        /// <param name="values">structs to append</param>
+        /// <returns>Current <see cref="ITypedBufferBuilder"/></returns>
         ITypedBufferBuilder<T> AppendValues(ReadOnlySpan<T> values);
+
+        /// <summary>
+        /// Append struct value too buffer.
+        /// </summary>
+        /// <param name="value">struct to append</param>
+        /// <returns>Current <see cref="ITypedBufferBuilder"/></returns>
+        ITypedBufferBuilder<T> AppendValue(T value);
+
+        /// <summary>
+        /// Append struct values too buffer
+        /// </summary>
+        /// <param name="value">struct to append</param>
+        /// <param name="count">number of time to append</param>
+        /// <returns>Current <see cref="ITypedBufferBuilder"/></returns>
         ITypedBufferBuilder<T> AppendValues(T value, int count);
+
+        /// <summary>
+        /// Append nullable struct values too buffer.
+        /// </summary>
+        /// <param name="values">structs to append</param>
+        /// <returns>Current <see cref="ITypedBufferBuilder"/></returns>
+        ITypedBufferBuilder<T> AppendValues(ICollection<T?> values, Span<bool> validity, int fixedSize, out int nullCount);
     }
 }
 

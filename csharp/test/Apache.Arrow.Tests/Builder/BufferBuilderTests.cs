@@ -159,12 +159,12 @@ namespace Apache.Arrow.Tests.Builder
         }
 
         [Fact]
-        public void BufferBuilder_Should_AppendStructs()
+        public void TypedBufferBuilder_Should_AppendStructs()
         {
-            var builder = new BufferBuilder(8);
+            var builder = new TypedBufferBuilder<int>(8);
 
             builder.AppendValue(123);
-            builder.AppendValues<int>(new int[] { 0, -1 });
+            builder.AppendValues(new int[] { 0, -1 });
 
             var built = builder.Build();
             var results = built.Span.CastTo<int>();

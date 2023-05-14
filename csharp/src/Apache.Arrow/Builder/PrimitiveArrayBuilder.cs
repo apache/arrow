@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
@@ -224,6 +223,12 @@ namespace Apache.Arrow.Builder
             return AppendValidity(mask, nullCount);
         }
 
+        public Status AppendValue(bool value)
+        {
+            ValuesBuffer.AppendBit(value);
+            return AppendValid();
+        }
+
         public Status AppendValue(ReadOnlySpan<byte> values)
             => AppendBytes(values.Slice(0, ByteSize), 1);
 
@@ -301,12 +306,21 @@ namespace Apache.Arrow.Builder
 
     public class FixedBinaryArrayBuilder<T> : FixedBinaryArrayBuilder where T : struct
     {
+        public new ITypedBufferBuilder<T> ValuesBuffer { get; }
+
         public FixedBinaryArrayBuilder(int capacity = 32) : this(TypeReflection<T>.ArrowType as FixedWidthType, capacity)
         {
         }
 
-        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 32) : base(dtype, capacity)
+        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 32)
+            : this(dtype, new TypedBufferBuilder<T>(dtype.BitWidth, capacity))
         {
+        }
+
+        public FixedBinaryArrayBuilder(FixedWidthType dtype, ITypedBufferBuilder<T> values, int capacity = 32)
+            : base(dtype, new TypedBufferBuilder<bool>(capacity), values)
+        {
+            ValuesBuffer = values;
         }
 
         public virtual Status AppendValue(T value)
