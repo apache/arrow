@@ -11,12 +11,12 @@ namespace Apache.Arrow.Builder
     {
         private readonly Func<TLogical, TPrimitive> ToPrimitive;
 
-        public LogicalArrayBuilder(Func<TLogical, TPrimitive> convert, int capacity = 32)
+        public LogicalArrayBuilder(Func<TLogical, TPrimitive> convert, int capacity = ArrayBuilder.DefaultCapacity)
             : this(TypeReflection<TLogical>.ArrowType as FixedWidthType, convert, capacity)
         {
         }
 
-        public LogicalArrayBuilder(FixedWidthType dataType, Func<TLogical, TPrimitive> convert, int capacity = 32)
+        public LogicalArrayBuilder(FixedWidthType dataType, Func<TLogical, TPrimitive> convert, int capacity = ArrayBuilder.DefaultCapacity)
             : base(dataType, capacity)
         {
             ToPrimitive = convert;
@@ -29,9 +29,10 @@ namespace Apache.Arrow.Builder
 
         public Status AppendValues(ReadOnlySpan<TLogical> values)
         {
-            Span<TPrimitive> buffer = new TPrimitive[values.Length];
+            int length = values.Length;
+            Span<TPrimitive> buffer = new TPrimitive[length];
 
-            for (int i = 0; i < values.Length; i++){
+            for (int i = 0; i < length; i++){
                 buffer[i] = ToPrimitive(values[i]);
             }
             return AppendValues(buffer);
@@ -40,7 +41,7 @@ namespace Apache.Arrow.Builder
         public Status AppendValues(ICollection<TLogical?> values)
         {
             int length = values.Count;
-            Span<bool> validity = new bool[length];
+            Span<bool> validity = length < MaxBitStackAllocSize ? stackalloc bool[length] : new bool[length];
             Span<TPrimitive> destination = new TPrimitive[length];
             int i = 0;
 
@@ -80,11 +81,11 @@ namespace Apache.Arrow.Builder
             };
         }
 
-        public TimestampArrayBuilder(int capacity = 32) : this(TimestampType.SystemDefault, capacity)
+        public TimestampArrayBuilder(int capacity = ArrayBuilder.DefaultCapacity) : this(TimestampType.SystemDefault, capacity)
         {
         }
 
-        public TimestampArrayBuilder(TimestampType dtype, int capacity = 32) : base(dtype, ToPrimitive(dtype.Unit), capacity)
+        public TimestampArrayBuilder(TimestampType dtype, int capacity = ArrayBuilder.DefaultCapacity) : base(dtype, ToPrimitive(dtype.Unit), capacity)
         {
         }
     }
@@ -102,11 +103,11 @@ namespace Apache.Arrow.Builder
             };
         }
 
-        public Time32ArrayBuilder(int capacity = 32) : this(Time32Type.Default, capacity)
+        public Time32ArrayBuilder(int capacity = ArrayBuilder.DefaultCapacity) : this(Time32Type.Default, capacity)
         {
         }
 
-        public Time32ArrayBuilder(TimeType dtype, int capacity = 32) : base(dtype, ToPrimitive(dtype.Unit), capacity)
+        public Time32ArrayBuilder(TimeType dtype, int capacity = ArrayBuilder.DefaultCapacity) : base(dtype, ToPrimitive(dtype.Unit), capacity)
         {
         }
     }
@@ -123,11 +124,11 @@ namespace Apache.Arrow.Builder
             };
         }
 
-        public Time64ArrayBuilder(int capacity = 32) : this(TimeType.SystemDefault, capacity)
+        public Time64ArrayBuilder(int capacity = ArrayBuilder.DefaultCapacity) : this(TimeType.SystemDefault, capacity)
         {
         }
 
-        public Time64ArrayBuilder(TimeType dtype, int capacity = 32) : base(dtype, ToPrimitive(dtype.Unit), capacity)
+        public Time64ArrayBuilder(TimeType dtype, int capacity = ArrayBuilder.DefaultCapacity) : base(dtype, ToPrimitive(dtype.Unit), capacity)
         {
         }
     }
@@ -135,14 +136,14 @@ namespace Apache.Arrow.Builder
     // Date
     public class Date32ArrayBuilder : LogicalArrayBuilder<int, DateTimeOffset>
     {
-        public Date32ArrayBuilder(DateType dtype, int capacity = 32) : base(dtype, DateTimeOffsetExtensions.ToUnixDays, capacity)
+        public Date32ArrayBuilder(DateType dtype, int capacity = ArrayBuilder.DefaultCapacity) : base(dtype, DateTimeOffsetExtensions.ToUnixDays, capacity)
         {
         }
     }
 
     public class Date64ArrayBuilder : LogicalArrayBuilder<long, DateTimeOffset>
     {
-        public Date64ArrayBuilder(DateType dtype, int capacity = 32) : base(dtype, DateTimeOffsetExtensions.ToUnixTimeMilliseconds, capacity)
+        public Date64ArrayBuilder(DateType dtype, int capacity = ArrayBuilder.DefaultCapacity) : base(dtype, DateTimeOffsetExtensions.ToUnixTimeMilliseconds, capacity)
         {
         }
     }

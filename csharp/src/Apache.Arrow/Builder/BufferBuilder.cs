@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
-using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -376,7 +375,7 @@ namespace Apache.Arrow.Builder
         public int ValueLength => (ByteLength * 8 + BitOffset) / ValueBitSize;
         private int MinimumBitSize => IsVariableLength ? 8 : ValueBitSize;
 
-        public TypedBufferBuilder(int valueBitSize, int capacity = 32) : base(capacity * (valueBitSize + 7) / 8)
+        public TypedBufferBuilder(int valueBitSize, int capacity = ArrayBuilder.DefaultCapacity) : base(capacity * (valueBitSize + 7) / 8)
         {
             IsVariableLength = valueBitSize < 0;
             ValueBitSize = valueBitSize;
@@ -404,11 +403,11 @@ namespace Apache.Arrow.Builder
 
     public class TypedBufferBuilder<T> : TypedBufferBuilder, ITypedBufferBuilder<T> where T : struct
     {
-        public TypedBufferBuilder(int capacity = 32) : this((TypeReflection<T>.ArrowType as FixedWidthType).BitWidth, capacity)
+        public TypedBufferBuilder(int capacity = ArrayBuilder.DefaultCapacity) : this((TypeReflection<T>.ArrowType as FixedWidthType).BitWidth, capacity)
         {
         }
 
-        public TypedBufferBuilder(int bitWidth, int capacity = 32) : base(bitWidth, capacity)
+        public TypedBufferBuilder(int bitWidth, int capacity = ArrayBuilder.DefaultCapacity) : base(bitWidth, capacity)
         {
         }
 
@@ -485,7 +484,7 @@ namespace Apache.Arrow.Builder
             int length = values.Count;
             bool allTrue = true;
             bool allFalse = true;
-            Span<bool> bits = new bool[length];
+            Span<bool> bits = length < ArrayBuilder.MaxBitStackAllocSize ? stackalloc bool[length] : new bool[length];
             EnsureAdditionalBytes((length + 7) / 8);
 
             foreach (bool? value in values)

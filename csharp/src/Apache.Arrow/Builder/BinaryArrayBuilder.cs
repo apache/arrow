@@ -8,12 +8,12 @@ namespace Apache.Arrow.Builder
 {
     public class BinaryArrayBuilder : VariableBinaryArrayBuilder
     {
-        public BinaryArrayBuilder(int capacity = 32)
+        public BinaryArrayBuilder(int capacity = ArrayBuilder.DefaultCapacity)
             : base(BinaryType.Default, capacity)
         {
         }
 
-        internal BinaryArrayBuilder(IArrowType dtype, int capacity = 32)
+        internal BinaryArrayBuilder(IArrowType dtype, int capacity = ArrayBuilder.DefaultCapacity)
             : base(dtype, capacity)
         {
         }
@@ -25,12 +25,12 @@ namespace Apache.Arrow.Builder
 
     public class StringArrayBuilder : BinaryArrayBuilder
     {
-        public StringArrayBuilder(int capacity = 32)
+        public StringArrayBuilder(int capacity = ArrayBuilder.DefaultCapacity)
             : this(StringType.Default, capacity)
         {
         }
 
-        internal StringArrayBuilder(IArrowType dtype, int capacity = 32)
+        internal StringArrayBuilder(IArrowType dtype, int capacity = ArrayBuilder.DefaultCapacity)
             : base(dtype, capacity)
         {
         }

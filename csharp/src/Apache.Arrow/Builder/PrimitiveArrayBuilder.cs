@@ -24,7 +24,7 @@ namespace Apache.Arrow.Builder
 
         public int CurrentOffset { get; internal set; }
 
-        public VariableBinaryArrayBuilder(IArrowType dataType, int capacity = 32)
+        public VariableBinaryArrayBuilder(IArrowType dataType, int capacity = ArrayBuilder.DefaultCapacity)
             : this(dataType, new TypedBufferBuilder<bool>(capacity), new TypedBufferBuilder<int>(capacity), new TypedBufferBuilder(-1, capacity))
         {
         }
@@ -91,7 +91,7 @@ namespace Apache.Arrow.Builder
             ValuesBuffer.AppendBytes(value, count);
 
             // Append Offsets
-            int[] offsets = new int[count];
+            Span<int> offsets = count < MaxIntStackAllocSize ? stackalloc int[count] : new int[count];
             int valueLength = value.Length;
 
             for (int i = 0; i < count; i++)
@@ -150,7 +150,9 @@ namespace Apache.Arrow.Builder
             int offsetStart = offsets[0];
             int offsetEnd = offsets[offsets.Length - 1];
             int currentOffset = CurrentOffset;
-            Span<int> newOffsets = new int[data.Length];
+            int length = data.Length;
+
+            Span<int> newOffsets = length < MaxIntStackAllocSize ? stackalloc int[length] : new int[length];
 
             // Element length = array[index + 1] - array[index]
             for (int i = 0; i < data.Length; i++)
@@ -180,7 +182,7 @@ namespace Apache.Arrow.Builder
 
         public ITypedBufferBuilder ValuesBuffer { get; }
 
-        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 32)
+        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = ArrayBuilder.DefaultCapacity)
             : this(dtype, new TypedBufferBuilder<bool>(capacity), new TypedBufferBuilder(dtype.BitWidth, capacity))
         {
         }
@@ -240,7 +242,8 @@ namespace Apache.Arrow.Builder
         // Bulk raw struct several bytes
         public Status AppendBytes(ICollection<byte[]> values)
         {
-            Span<bool> mask = new bool[values.Count];
+            int length = values.Count;
+            Span<bool> mask = length < MaxBitStackAllocSize ? stackalloc bool[length] : new bool[length];
             ValuesBuffer.AppendFixedSizeBytes(values, _byteSize, mask, out int nullCount);
 
             return AppendValidity(mask, nullCount);
@@ -304,7 +307,7 @@ namespace Apache.Arrow.Builder
             else
             {
                 int dataBitLength = data.Length * bitSize;
-                Span<bool> bits = new bool[dataBitLength];
+                Span<bool> bits = dataBitLength < MaxBitStackAllocSize ? stackalloc bool[dataBitLength] : new bool[dataBitLength];
                 bool allTrue = true;
                 bool allFalse = true;
                 int bitOffset = data.Offset * bitSize;
@@ -337,16 +340,16 @@ namespace Apache.Arrow.Builder
     {
         public new ITypedBufferBuilder<T> ValuesBuffer { get; }
 
-        public FixedBinaryArrayBuilder(int capacity = 32) : this(TypeReflection<T>.ArrowType as FixedWidthType, capacity)
+        public FixedBinaryArrayBuilder(int capacity = ArrayBuilder.DefaultCapacity) : this(TypeReflection<T>.ArrowType as FixedWidthType, capacity)
         {
         }
 
-        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = 32)
+        public FixedBinaryArrayBuilder(FixedWidthType dtype, int capacity = ArrayBuilder.DefaultCapacity)
             : this(dtype, new TypedBufferBuilder<T>(dtype.BitWidth, capacity))
         {
         }
 
-        internal FixedBinaryArrayBuilder(FixedWidthType dtype, ITypedBufferBuilder<T> values, int capacity = 32)
+        internal FixedBinaryArrayBuilder(FixedWidthType dtype, ITypedBufferBuilder<T> values, int capacity = ArrayBuilder.DefaultCapacity)
             : base(dtype, new TypedBufferBuilder<bool>(capacity), values)
         {
             ValuesBuffer = values;
@@ -371,7 +374,8 @@ namespace Apache.Arrow.Builder
 
         public virtual Status AppendValues(ICollection<T?> values)
         {
-            Span<bool> mask = new bool[values.Count];
+            int length = values.Count;
+            Span<bool> mask = length < MaxBitStackAllocSize ? stackalloc bool[length] : new bool[length];
             ValuesBuffer.AppendValues(values, mask, out int nullCount);
             return AppendValidity(mask, nullCount);
         }
@@ -388,11 +392,11 @@ namespace Apache.Arrow.Builder
 
     public class BooleanArrayBuilder : FixedBinaryArrayBuilder<bool>
     {
-        public BooleanArrayBuilder(int capacity = 32) : this(BooleanType.Default, capacity)
+        public BooleanArrayBuilder(int capacity = ArrayBuilder.DefaultCapacity) : this(BooleanType.Default, capacity)
         {
         }
 
-        public BooleanArrayBuilder(BooleanType dtype, int capacity = 32) : base(dtype, capacity)
+        public BooleanArrayBuilder(BooleanType dtype, int capacity = ArrayBuilder.DefaultCapacity) : base(dtype, capacity)
         {
         }
 

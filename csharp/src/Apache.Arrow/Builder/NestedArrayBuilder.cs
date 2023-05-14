@@ -10,7 +10,7 @@ namespace Apache.Arrow.Builder
 {
     public abstract class NestedArrayBuilder : ArrayBuilder
     {
-        public NestedArrayBuilder(NestedType dataType, int capacity = 8)
+        public NestedArrayBuilder(NestedType dataType, int capacity = DefaultCapacity)
             : base(
                   dataType,
                   new ITypedBufferBuilder[] { new TypedBufferBuilder<bool>(capacity) },
@@ -19,7 +19,7 @@ namespace Apache.Arrow.Builder
         {
         }
 
-        internal NestedArrayBuilder(ListType dataType, int capacity = 8)
+        internal NestedArrayBuilder(ListType dataType, int capacity = ArrayBuilder.DefaultCapacity)
             : base(
                   dataType,
                   new ITypedBufferBuilder[] { new TypedBufferBuilder<bool>(capacity), new TypedBufferBuilder<int>(capacity) },
@@ -37,7 +37,7 @@ namespace Apache.Arrow.Builder
         public new ListType DataType { get; }
         public int CurrentOffset { get; internal set; }
 
-        public ListArrayBuilder(ListType dataType, int capacity = 8) : base(dataType, capacity)
+        public ListArrayBuilder(ListType dataType, int capacity = ArrayBuilder.DefaultCapacity) : base(dataType, capacity)
         {
             DataType = dataType;
             CurrentOffset = 0;
@@ -114,7 +114,7 @@ namespace Apache.Arrow.Builder
     {
         public new StructType DataType { get; }
 
-        public StructArrayBuilder(StructType dataType, int capacity = 8) : base(dataType, capacity)
+        public StructArrayBuilder(StructType dataType, int capacity = ArrayBuilder.DefaultCapacity) : base(dataType, capacity)
         {
             DataType = dataType;
         }
@@ -223,7 +223,7 @@ namespace Apache.Arrow.Builder
     {
         public readonly FixedBinaryArrayBuilder<T> ValueBuilder;
 
-        public ListArrayBuilder(int capacity = 32)
+        public ListArrayBuilder(int capacity = ArrayBuilder.DefaultCapacity)
             : base(new ListType(TypeReflection<T>.ArrowType), capacity)
         {
             ValueBuilder = GetBuilderAs<FixedBinaryArrayBuilder<T>>(0);
@@ -289,7 +289,7 @@ namespace Apache.Arrow.Builder
 
     public class StructArrayBuilder<T> : StructArrayBuilder where T : struct
     {
-        public StructArrayBuilder(int capacity = 32) : base(TypeReflection<T>.ArrowType as StructType, capacity)
+        public StructArrayBuilder(int capacity = ArrayBuilder.DefaultCapacity) : base(TypeReflection<T>.ArrowType as StructType, capacity)
         {
         }
     }

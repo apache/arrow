@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
-using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -10,6 +9,12 @@ namespace Apache.Arrow.Builder
 {
     public abstract class ArrayBuilder : IArrayBuilder
     {
+        // Global Settings
+        public const int MaxByteStackAllocSize = 257;
+        public const int MaxIntStackAllocSize = MaxByteStackAllocSize / 4;
+        public const int MaxBitStackAllocSize = MaxByteStackAllocSize * 8;
+        public const int DefaultCapacity = 32;
+
         public IArrowType DataType { get; }
 
         public int Length { get; protected set; }
@@ -185,11 +190,12 @@ namespace Apache.Arrow.Builder
         {
             // Handle validity
             var dataValidity = data.Buffers[ValidityBufferIndex];
+            int length = data.Length;
 
             // Check if need to recalculate null count
             if (data.NullCount < 0)
             {
-                Span<bool> bits = new bool[data.Length];
+                Span<bool> bits = length < MaxBitStackAllocSize ? stackalloc bool[length] : new bool[length];
                 int nullCount = 0;
 
                 // Need recalculate nulls
@@ -231,7 +237,7 @@ namespace Apache.Arrow.Builder
                 }
                 else
                 {
-                    Span<bool> bits = new bool[data.Length];
+                    Span<bool> bits = length < MaxBitStackAllocSize ? stackalloc bool[length] : new bool[length];
 
                     for (int i = 0; i < data.Length; i++)
                         bits[i] = BitUtility.GetBit(dataValidity.Span, data.Offset + i);
@@ -374,7 +380,7 @@ namespace Apache.Arrow.Builder
 
     public static class ArrayBuilderFactory
     {
-        public static IArrayBuilder MakeBuilder(IArrowType dtype, int capacity = 32)
+        public static IArrayBuilder MakeBuilder(IArrowType dtype, int capacity = ArrayBuilder.DefaultCapacity)
         {
             switch (dtype.TypeId)
             {
