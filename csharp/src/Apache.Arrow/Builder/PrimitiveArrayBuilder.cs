@@ -135,8 +135,8 @@ namespace Apache.Arrow.Builder
 
         public Status AppendScalar(IBaseBinaryScalar value)
         {
-            if (!Validate(DataType, value.Type))
-                throw new ArgumentException($"Cannot append '{value}': {value.Type} != {DataType}");
+            //if (!Validate(DataType, value.Type))
+            //    throw new ArgumentException($"Cannot append '{value}': {value.Type} != {DataType}");
             return AppendValue(value.AsBytes());
         }
 
