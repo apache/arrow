@@ -422,6 +422,12 @@ namespace Apache.Arrow.Builder
         public ITypedBufferBuilder<T> AppendValue(T value)
             => AppendValues(TypeReflection.CreateReadOnlySpan(ref value));
 
+        public ITypedBufferBuilder<T> AppendValue(bool value)
+        {
+            AppendBit(value);
+            return this;
+        }
+
         public ITypedBufferBuilder<T> AppendValues(ReadOnlySpan<T> values)
         {
             ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(values);
@@ -429,9 +435,21 @@ namespace Apache.Arrow.Builder
             return this;
         }
 
+        public ITypedBufferBuilder<T> AppendValues(ReadOnlySpan<bool> values)
+        {
+            AppendBits(values);
+            return this;
+        }
+
         public ITypedBufferBuilder<T> AppendValues(T value, int count)
         {
             AppendBytes(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)), count);
+            return this;
+        }
+
+        public ITypedBufferBuilder<T> AppendValues(bool value, int count)
+        {
+            AppendBits(value, count);
             return this;
         }
 
@@ -463,6 +481,50 @@ namespace Apache.Arrow.Builder
             ByteLength += offset;
 
             nullCount = _nullCount;
+            return this;
+        }
+
+        public ITypedBufferBuilder<T> AppendValues(
+            ICollection<bool?> values, Span<bool> validity, out int nullCount
+            )
+        {
+            int i = 0;
+            int _nullCount = 0;
+            int length = values.Count;
+            bool allTrue = true;
+            bool allFalse = true;
+            Span<bool> bits = new bool[length];
+            EnsureAdditionalBytes((length + 7) / 8);
+
+            foreach (bool? value in values)
+            {
+                if (value.HasValue)
+                {
+                    bool _value = value.Value;
+
+                    if (_value)
+                    {
+                        allFalse = false;
+                        bits[i] = _value;
+                    }
+                    else
+                        allTrue = false;
+
+                    validity[i] = true;
+                }
+                else
+                    _nullCount++;
+                i++;
+            }
+
+            nullCount = _nullCount;
+
+            if (allTrue)
+                AppendBits(true, length);
+            if (allFalse)
+                AppendBits(false, length);
+            else
+                AppendBits(bits);
             return this;
         }
     }
