@@ -117,8 +117,8 @@ namespace Apache.Arrow
         /// <returns><see cref="INullableScalar"/></returns>
         public INullableScalar GetNullableScalar(int index)
             => IsValid(index) ?
-                new NullableScalar(Data.DataType, false, null) :
-                new NullableScalar(Data.DataType, true, GetScalar(index));
+                new NullableScalar(Data.DataType, true, GetScalar(index)) :
+                new NullableScalar(Data.DataType, false, null);
 
         public void Dispose()
         {
