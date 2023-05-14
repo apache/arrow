@@ -151,7 +151,7 @@ namespace Apache.Arrow.Builder
     public class FixedBinaryArrayBuilder : ArrayBuilder
     {
         private readonly int _bitSize;
-        internal readonly int ByteSize;
+        private readonly int _byteSize;
 
         private readonly bool _isFullByte;
 
@@ -170,7 +170,7 @@ namespace Apache.Arrow.Builder
             ValuesBuffer = values;
 
             _bitSize = (dataType as FixedWidthType).BitWidth;
-            ByteSize = _bitSize / 8;
+            _byteSize = _bitSize / 8;
 
             _isFullByte = _bitSize % 8 == 0;
         }
@@ -179,7 +179,7 @@ namespace Apache.Arrow.Builder
         {
             // Append Empty values
             if (_isFullByte)
-                ValuesBuffer.AppendEmptyBytes(ByteSize);
+                ValuesBuffer.AppendEmptyBytes(_byteSize);
             else
                 ValuesBuffer.AppendEmptyBits(_bitSize);
 
@@ -190,7 +190,7 @@ namespace Apache.Arrow.Builder
         {
             // Append Empty values
             if (_isFullByte)
-                ValuesBuffer.AppendEmptyBytes(ByteSize * count);
+                ValuesBuffer.AppendEmptyBytes(_byteSize * count);
             else
                 ValuesBuffer.AppendEmptyBits(_bitSize * count);
 
@@ -218,7 +218,7 @@ namespace Apache.Arrow.Builder
         public Status AppendBytes(ICollection<byte[]> values)
         {
             Span<bool> mask = new bool[values.Count];
-            ValuesBuffer.AppendFixedSizeBytes(values, ByteSize, mask, out int nullCount);
+            ValuesBuffer.AppendFixedSizeBytes(values, _byteSize, mask, out int nullCount);
 
             return AppendValidity(mask, nullCount);
         }
@@ -230,7 +230,7 @@ namespace Apache.Arrow.Builder
         }
 
         public Status AppendValue(ReadOnlySpan<byte> values)
-            => AppendBytes(values.Slice(0, ByteSize), 1);
+            => AppendBytes(values.Slice(0, _byteSize), 1);
 
         public Status AppendBytes(ReadOnlySpan<byte> values, int length)
         {
@@ -317,7 +317,7 @@ namespace Apache.Arrow.Builder
         {
         }
 
-        public FixedBinaryArrayBuilder(FixedWidthType dtype, ITypedBufferBuilder<T> values, int capacity = 32)
+        internal FixedBinaryArrayBuilder(FixedWidthType dtype, ITypedBufferBuilder<T> values, int capacity = 32)
             : base(dtype, new TypedBufferBuilder<bool>(capacity), values)
         {
             ValuesBuffer = values;
@@ -332,7 +332,7 @@ namespace Apache.Arrow.Builder
         public virtual Status AppendValues(ICollection<T?> values)
         {
             Span<bool> mask = new bool[values.Count];
-            ValuesBuffer.AppendValues(values, mask, ByteSize, out int nullCount);
+            ValuesBuffer.AppendValues(values, mask, out int nullCount);
             return AppendValidity(mask, nullCount);
         }
 

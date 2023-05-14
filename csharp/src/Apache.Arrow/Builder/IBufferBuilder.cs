@@ -200,7 +200,7 @@ namespace Apache.Arrow.Builder
         /// </summary>
         /// <param name="values">structs to append</param>
         /// <returns>Current <see cref="ITypedBufferBuilder"/></returns>
-        ITypedBufferBuilder<T> AppendValues(ICollection<T?> values, Span<bool> validity, int fixedSize, out int nullCount);
+        ITypedBufferBuilder<T> AppendValues(ICollection<T?> values, Span<bool> validity, out int nullCount);
     }
 }
 

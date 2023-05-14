@@ -389,7 +389,7 @@ namespace Apache.Arrow.Builder
         public int ValueBitSize { get; }
         public int ValueByteSize { get; }
         public int ValueLength => (ByteLength * 8 + BitOffset) / ValueBitSize;
-        private int MinimumBitSize => IsVariableLength ? 64 : ValueBitSize;
+        private int MinimumBitSize => IsVariableLength ? 8 : ValueBitSize;
 
         public TypedBufferBuilder(int valueBitSize, int capacity = 32) : base(capacity * (valueBitSize + 7) / 8)
         {
@@ -444,12 +444,12 @@ namespace Apache.Arrow.Builder
         }
 
         public ITypedBufferBuilder<T> AppendValues(
-            ICollection<T?> values, Span<bool> validity, int fixedSize,
-            out int nullCount
+            ICollection<T?> values, Span<bool> validity, out int nullCount
             )
         {
             int i = 0;
-            int offset = ByteLength;
+            int offset = 0;
+            int fixedSize = ValueByteSize;
             int _nullCount = 0;
             EnsureAdditionalBytes(values.Count * fixedSize);
 
@@ -468,7 +468,8 @@ namespace Apache.Arrow.Builder
                 i++;
             }
 
-            ByteLength = offset;
+            ByteLength += offset;
+
             nullCount = _nullCount;
             return this;
         }
