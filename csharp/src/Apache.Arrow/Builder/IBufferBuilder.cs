@@ -80,47 +80,19 @@ namespace Apache.Arrow.Builder
         IBufferBuilder AppendBytes(ReadOnlySpan<byte> bytes);
 
         /// <summary>
+        /// Append byte values too buffer repeated x times.
+        /// </summary>
+        /// <param name="bytes">bytes value</param>
+        /// <param name="count">bytes value</param>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
+        IBufferBuilder AppendBytes(ReadOnlySpan<byte> bytes, int count);
+
+        /// <summary>
         /// Append empty bytes values too buffer
         /// </summary>
         /// <param name="count">number of time to append</param>
         /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendEmptyBytes(int count);
-
-        /// <summary>
-        /// Append bool value too buffer.
-        /// </summary>
-        /// <param name="value">bool to append</param>
-        /// <returns>Current <see cref="IBufferBuilder"/></returns>
-        IBufferBuilder AppendValue(bool value);
-
-        /// <summary>
-        /// Append byte value too buffer.
-        /// </summary>
-        /// <param name="value">byte to append</param>
-        /// <returns>Current <see cref="IBufferBuilder"/></returns>
-        IBufferBuilder AppendValue(byte value);
-
-        /// <summary>
-        /// Append booleans value too buffer.
-        /// </summary>
-        /// <param name="values">booleans to append</param>
-        /// <returns>Current <see cref="IBufferBuilder"/></returns>
-        IBufferBuilder AppendValues(ReadOnlySpan<bool> values);
-
-        /// <summary>
-        /// Append byte values too buffer.
-        /// </summary>
-        /// <param name="values">bytes to append</param>
-        /// <returns>Current <see cref="IBufferBuilder"/></returns>
-        IBufferBuilder AppendValues(ReadOnlySpan<byte> values);
-
-        /// <summary>
-        /// Append booleans value too buffer
-        /// </summary>
-        /// <param name="value">boolean to append</param>
-        /// <param name="count">number of time to append</param>
-        /// <returns>Current <see cref="IBufferBuilder"/></returns>
-        IBufferBuilder AppendValues(bool value, int count);
 
         /// <summary>
         /// Clear all contents appended so far.

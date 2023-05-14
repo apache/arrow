@@ -238,6 +238,12 @@ namespace Apache.Arrow.Builder
             return AppendValidity(true, length);
         }
 
+        public Status AppendRepeatBytes(ReadOnlySpan<byte> value, int count)
+        {
+            ValuesBuffer.AppendBytes(value, count);
+            return AppendValidity(true, count);
+        }
+
         public Status AppendBytes(ReadOnlySpan<byte> values, ReadOnlySpan<bool> validity)
         {
             ValuesBuffer.AppendBytes(values);
@@ -339,6 +345,9 @@ namespace Apache.Arrow.Builder
         public virtual Status AppendValues(T[] values)
             => AppendBytes(MemoryMarshal.AsBytes<T>(values), values.Length);
 
+        public virtual Status AppendValues(T value, int count)
+            => AppendRepeatBytes(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)), count);
+
         public virtual Status AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> validity)
             => AppendBytes(MemoryMarshal.AsBytes(values), validity);
     }
@@ -386,6 +395,12 @@ namespace Apache.Arrow.Builder
         {
             ValuesBuffer.AppendBits(values);
             return AppendValidity(validity);
+        }
+
+        public override Status AppendValues(bool value, int count)
+        {
+            ValuesBuffer.AppendBits(value, count);
+            return AppendValidity(true, count);
         }
 
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);

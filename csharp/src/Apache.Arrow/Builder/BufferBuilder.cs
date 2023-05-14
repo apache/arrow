@@ -288,15 +288,7 @@ namespace Apache.Arrow.Builder
             return AppendEmptyBits(count * 8);
         }
 
-        public IBufferBuilder AppendValue(bool value) => AppendBit(value);
-        public IBufferBuilder AppendValue(byte value) => AppendByte(value);
-        
-        public IBufferBuilder AppendValues(ReadOnlySpan<bool> values) => AppendBits(values);
-        public IBufferBuilder AppendValues(ReadOnlySpan<byte> values) => AppendBytes(values);
-
-        public IBufferBuilder AppendValues(bool value, int count) => AppendBits(value, count);
-
-        public IBufferBuilder AppendValues(ReadOnlySpan<byte> value, int count)
+        public IBufferBuilder AppendBytes(ReadOnlySpan<byte> value, int count)
         {
             EnsureAdditionalBytes(count * value.Length);
 
@@ -439,7 +431,7 @@ namespace Apache.Arrow.Builder
 
         public ITypedBufferBuilder<T> AppendValues(T value, int count)
         {
-            AppendValues(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)), count);
+            AppendBytes(MemoryMarshal.AsBytes(TypeReflection.CreateReadOnlySpan(ref value)), count);
             return this;
         }
 
