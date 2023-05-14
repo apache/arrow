@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
@@ -12,12 +10,18 @@ namespace Apache.Arrow
     public struct NullableScalar : INullableScalar
     {
         public IScalar Value { get; }
-        public bool IsValid => Value != null;
+        public bool IsValid { get; }
         public IArrowType Type { get; }
 
         public NullableScalar(IArrowType type, IScalar value)
+            : this(type, value != null, value)
+        {
+        }
+
+        public NullableScalar(IArrowType type, bool isValid, IScalar value)
         {
             Type = type;
+            IsValid = isValid;
             Value = value;
         }
     }

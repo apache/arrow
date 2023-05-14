@@ -86,6 +86,11 @@ namespace Apache.Arrow
             return ArrayBuilderFactory.MakeArray(newData);
         }
 
+        /// <summary>
+        /// Get non nullable arrow scalar from array at index
+        /// </summary>
+        /// <param name="index">value index</param>
+        /// <returns><see cref="IScalar"/></returns>
         public virtual IScalar GetScalar(int index)
         {
             switch (Data.DataType.TypeId)
@@ -104,6 +109,16 @@ namespace Apache.Arrow
                     throw new NotSupportedException($"Cannot get scalar from array of type {Data.DataType}");
             }
         }
+
+        /// <summary>
+        /// Get nullable arrow scalar from array at index
+        /// </summary>
+        /// <param name="index">value index</param>
+        /// <returns><see cref="INullableScalar"/></returns>
+        public INullableScalar GetNullableScalar(int index)
+            => IsValid(index) ?
+                new NullableScalar(Data.DataType, false, null) :
+                new NullableScalar(Data.DataType, true, GetScalar(index));
 
         public void Dispose()
         {

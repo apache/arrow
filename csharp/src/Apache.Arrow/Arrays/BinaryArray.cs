@@ -356,6 +356,12 @@ namespace Apache.Arrow
 
         // Arrow Scalar
         public override IScalar GetScalar(int index) => GetScalar(index);
+
+        /// <summary>
+        /// Get non nullable arrow scalar from array at index
+        /// </summary>
+        /// <param name="index">value index</param>
+        /// <returns><see cref="BinaryScalar"/></returns>
         public BinaryScalar GetScalar(int index, bool valid = true)
         {
             bool isValid = IsValid(index);

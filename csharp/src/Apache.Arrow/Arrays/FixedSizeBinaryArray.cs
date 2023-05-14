@@ -74,6 +74,12 @@ namespace Apache.Arrow.Arrays
 
         // Arrow Scalar
         public override IScalar GetScalar(int index) => GetScalar(index);
+
+        /// <summary>
+        /// Get non nullable arrow scalar from array at index
+        /// </summary>
+        /// <param name="index">value index</param>
+        /// <returns><see cref="FixedSizeBinaryScalar"/></returns>
         public FixedSizeBinaryScalar GetScalar(int index, bool valid = true)
         {
             FixedSizeBinaryType type = DataType;
