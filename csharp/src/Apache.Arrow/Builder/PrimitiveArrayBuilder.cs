@@ -232,8 +232,8 @@ namespace Apache.Arrow.Builder
 
         public Status AppendScalar(IPrimitiveScalarBase value)
         {
-            if (!Validate(value.Type))
-                throw new ArgumentException($"Cannot append '{value}': {value.Type} != {DataType}");
+            //if (!Validate(value.Type))
+            //    throw new ArgumentException($"Cannot append '{value}': {value.Type} != {DataType}");
             return AppendBytes(value.AsBytes(), 1);
         }
 
@@ -356,12 +356,12 @@ namespace Apache.Arrow.Builder
         {
             return value switch
             {
-                IDotNetStruct<T> primitive => AppendScalar(primitive),
-                _ => base.AppendScalar(value)
+                IPrimitiveScalarBase primitive => AppendScalar(primitive),
+                INullableScalar nullable => nullable.IsValid ? AppendScalar(nullable.Value) : AppendNull(),
+                IDotNetStruct<T> primitive => AppendValue(primitive.DotNet),
+                _ => throw new ArgumentException($"Cannot append scalar {value} in {this}, must implement IPrimitiveScalarBase")
             };
         }
-
-        public Status AppendScalar(IDotNetStruct<T> value) => AppendValue(value.DotNet);
 
         public virtual Status AppendValue(T value)
             => AppendBytes(TypeReflection.AsBytes(ref value), 1);
