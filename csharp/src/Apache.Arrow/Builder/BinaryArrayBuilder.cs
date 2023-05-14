@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Apache.Arrow.Memory;
@@ -56,8 +57,22 @@ namespace Apache.Arrow.Builder
         {
             if (value is null)
                 return AppendNulls(count);
-            var encoded = encoding.GetBytes(value);
-            return AppendValues(encoded, count);
+
+            int byteLength = encoding.GetByteCount(value);
+
+            ReadOnlySpan<char> chars = value.AsSpan();
+            Span<byte> encoded = byteLength < MaxByteStackAllocSize ?
+                stackalloc byte[byteLength] : new byte[byteLength];
+
+            unsafe
+            {
+                fixed (byte* pBytes = encoded)
+                fixed (char* pChars = chars)
+                {
+                    encoding.GetBytes(pChars, chars.Length, pBytes, encoded.Length);
+                    return AppendValues(encoded, count);
+                }
+            }
         }
 
         public virtual Status AppendValues(IEnumerable<string> values)
