@@ -15,6 +15,7 @@
 
 using System;
 using System.Runtime.CompilerServices;
+using Apache.Arrow.Arrays;
 using Apache.Arrow.Builder;
 
 namespace Apache.Arrow
@@ -91,6 +92,8 @@ namespace Apache.Arrow
             {
                 case Types.ArrowTypeId.Binary:
                     return As<BinaryArray>().GetScalar(index);
+                case Types.ArrowTypeId.FixedSizedBinary:
+                    return As<FixedSizeBinaryArray>().GetScalar(index);
                 case Types.ArrowTypeId.String:
                     return As<StringArray>().GetScalar(index);
                 case Types.ArrowTypeId.List:

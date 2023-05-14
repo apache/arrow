@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Apache.Arrow.Reflection;
 using Apache.Arrow.Types;
@@ -33,6 +35,38 @@ namespace Apache.Arrow
         }
 
         public unsafe ReadOnlySpan<byte> AsBytes() => Buffer.Span;
+
+        // Define an implicit conversion
+        public static implicit operator BinaryScalar(ReadOnlyMemory<byte> value) => new(new ArrowBuffer(value));
+    }
+
+    public struct FixedSizeBinaryScalar : IBaseBinaryScalar<FixedSizeBinaryType>
+    {
+        public ArrowBuffer Buffer { get; }
+        public FixedSizeBinaryType Type { get; }
+        IArrowType IScalar.Type => Type;
+        public bool IsValid => true;
+
+        public FixedSizeBinaryScalar(ReadOnlyMemory<byte> bytes)
+            : this(new FixedSizeBinaryType(bytes.Length), new ArrowBuffer(bytes))
+        {
+        }
+
+        public FixedSizeBinaryScalar(FixedSizeBinaryType type, ReadOnlyMemory<byte> bytes)
+            : this(type, new ArrowBuffer(bytes))
+        {
+        }
+
+        internal FixedSizeBinaryScalar(FixedSizeBinaryType type, ArrowBuffer buffer)
+        {
+            Type = type;
+            Buffer = buffer;
+        }
+
+        public unsafe ReadOnlySpan<byte> AsBytes() => Buffer.Span;
+
+        // Define an implicit conversion
+        public static implicit operator FixedSizeBinaryScalar(ReadOnlyMemory<byte> value) => new(value);
     }
 
     public struct StringScalar : IBaseBinaryScalar<StringType>
@@ -44,7 +78,12 @@ namespace Apache.Arrow
         private int _byteLength;
 
         public StringScalar(string value)
-            : this(new ArrowBuffer(StringType.DefaultEncoding.GetBytes(value)))
+            : this(value, StringType.DefaultEncoding)
+        {
+        }
+
+        public StringScalar(string value, Encoding encoding)
+            : this(new ArrowBuffer(encoding.GetBytes(value)))
         {
         }
 

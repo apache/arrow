@@ -22,6 +22,8 @@ namespace Apache.Arrow.Arrays
 {
     public class FixedSizeBinaryArray : Array
     {
+        public FixedSizeBinaryType DataType => Data.DataType as FixedSizeBinaryType;
+
         public FixedSizeBinaryArray(ArrayData data)
             : base(data)
         {
@@ -68,6 +70,15 @@ namespace Apache.Arrow.Arrays
 
             int size = ((FixedSizeBinaryType)Data.DataType).ByteWidth;
             return ValueBuffer.Span.Slice(index * size, size);
+        }
+
+        // Arrow Scalar
+        public override IScalar GetScalar(int index) => GetScalar(index);
+        public FixedSizeBinaryScalar GetScalar(int index, bool valid = true)
+        {
+            FixedSizeBinaryType type = DataType;
+            int size = type.BitWidth * 8;
+            return new(type, ValueBuffer.Slice(index * size, size));
         }
 
         public abstract class BuilderBase<TArray, TBuilder> : IArrowArrayBuilder<byte[], TArray, TBuilder>
