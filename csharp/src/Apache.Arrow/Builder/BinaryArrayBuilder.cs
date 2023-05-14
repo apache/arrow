@@ -36,7 +36,7 @@ namespace Apache.Arrow.Builder
         }
 
         public virtual Status AppendValue(string value)
-            => value == null ? AppendNull() : AppendValue(StringType.DefaultEncoding.GetBytes(value));
+            => value is null ? AppendNull() : AppendValue(StringType.DefaultEncoding.GetBytes(value));
 
         /// <summary>
         /// Append string value too builder repeated x times.
@@ -54,7 +54,7 @@ namespace Apache.Arrow.Builder
         /// <param name="encoding">encoding to convert string to bytes</param>
         public virtual Status AppendValues(string value, int count, Encoding encoding)
         {
-            if (value == null)
+            if (value is null)
                 return AppendNulls(count);
             var encoded = encoding.GetBytes(value);
             return AppendValues(encoded, count);
@@ -64,7 +64,7 @@ namespace Apache.Arrow.Builder
             => AppendValues(values, StringType.DefaultEncoding);
 
         public virtual Status AppendValues(IEnumerable<string> values, Encoding encoding)
-            => AppendValues(values.Select(str => str == null ? null : encoding.GetBytes(str)));
+            => AppendValues(values.Select(str => str is null ? null : encoding.GetBytes(str)));
 
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
 

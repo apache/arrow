@@ -108,7 +108,7 @@ namespace Apache.Arrow.Builder
         {
             foreach (var value in bytes)
             {
-                if (value == null)
+                if (value is null)
                 {
                     AppendNull();
                 }

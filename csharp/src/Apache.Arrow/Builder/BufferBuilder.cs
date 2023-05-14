@@ -231,7 +231,7 @@ namespace Apache.Arrow.Builder
 
             foreach (byte[] value in bytes)
             {
-                if (value == null)
+                if (value is null)
                     _nullCount++;
                 else
                 {

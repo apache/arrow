@@ -112,7 +112,7 @@ namespace Apache.Arrow
         {
             fixed (byte* ptr = AsBytes())
             {
-                if (ptr == null)
+                if (ptr is null)
                     return string.Empty;
                 int charLength = encoding.GetCharCount(ptr, _byteLength);
                 char[] buffer = new char[charLength];

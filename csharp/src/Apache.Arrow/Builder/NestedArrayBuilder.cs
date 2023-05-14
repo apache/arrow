@@ -154,10 +154,7 @@ namespace Apache.Arrow.Builder
                 {
                     var childValue = value.Fields[i];
 
-                    if (childValue == null)
-                        Children[i].AppendNull();
-                    else
-                        Children[i].AppendScalar(childValue);
+                    Children[i].AppendScalar(childValue);
                 }
                 return AppendValid();
             }
@@ -251,7 +248,7 @@ namespace Apache.Arrow.Builder
 
             foreach (T[] value in values)
             {
-                if (value == null)
+                if (value is null)
                 {
                     offsets[i] = CurrentOffset;
                     // default is already false
