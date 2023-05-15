@@ -587,10 +587,8 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
   }
 
   // Grow the uncompressed buffer if we need to.
-  if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
-    PARQUET_THROW_NOT_OK(
-        decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
-  }
+  PARQUET_THROW_NOT_OK(
+      decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
 
   if (levels_byte_len > 0) {
     // First copy the levels as-is
