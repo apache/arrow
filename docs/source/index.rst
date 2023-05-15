@@ -77,7 +77,6 @@ target environment.**
 .. _toc.development:
 
 .. toctree::
-   :maxdepth: 2
    :caption: Development
 
    developers/index
