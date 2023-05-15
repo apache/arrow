@@ -175,6 +175,15 @@ struct ArrowDeviceArray {
   /// If synchronization is not needed this can be null. If this is
   /// non-null, then it should be used to call the appropriate sync
   /// method for the device (e.g. cudaStreamWaitEvent / hipStreamWaitEvent).
+  ///
+  /// Expected type to coerce this void* to depending on device type:
+  ///   cuda: cudaEvent_t*
+  ///   ROCm: hipEvent_t*
+  ///   OpenCL: cl_event*
+  ///   Vulkan: VkEvent*
+  ///   Metal: MTLEvent*
+  ///   OneAPI: syscl::event*
+  ///
   void* sync_event;
   /// \brief Reserved bytes for future expansion.
   ///
