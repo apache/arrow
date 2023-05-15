@@ -108,17 +108,6 @@ namespace Apache.Arrow.Builder
             return Status.OK;
         }
 
-        internal virtual Status AppendValidity(ReadOnlySpan<bool> mask)
-        {
-            int nullCount = 0;
-
-            foreach (bool isValid in mask)
-                if (!isValid)
-                    nullCount++;
-
-            return AppendValidity(mask, nullCount);
-        }
-
         // Append values from arrow objects
         internal bool Validate(IArrowType type0, IArrowType type1)
             => type0.TypeId == type1.TypeId;

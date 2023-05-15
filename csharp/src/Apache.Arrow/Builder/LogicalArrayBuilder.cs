@@ -32,9 +32,9 @@ namespace Apache.Arrow.Builder
             int length = values.Length;
             Span<TPrimitive> buffer = new TPrimitive[length];
 
-            for (int i = 0; i < length; i++){
+            for (int i = 0; i < length; i++)
                 buffer[i] = ToPrimitive(values[i]);
-            }
+
             return AppendValues(buffer);
         }
 
@@ -44,6 +44,7 @@ namespace Apache.Arrow.Builder
             Span<bool> validity = length < MaxBitStackAllocSize ? stackalloc bool[length] : new bool[length];
             Span<TPrimitive> destination = new TPrimitive[length];
             int i = 0;
+            int nullCount = 0;
 
             // Transform the source ReadOnlySpan<T?> into the destination ReadOnlySpan<T>, filling any null values with default(T)
             foreach (TLogical? value in values)
@@ -55,6 +56,7 @@ namespace Apache.Arrow.Builder
                 }
                 else
                 {
+                    nullCount++;
                     destination[i] = default;
                     // default is already false
                     // validity[i] = false;
@@ -62,7 +64,7 @@ namespace Apache.Arrow.Builder
                 i++;
             }
 
-            return AppendValues(destination, validity);
+            return AppendValues(destination, validity, nullCount);
         }
     }
 

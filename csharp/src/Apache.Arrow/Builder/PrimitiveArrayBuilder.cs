@@ -275,10 +275,10 @@ namespace Apache.Arrow.Builder
             return AppendValidity(true, count);
         }
 
-        public Status AppendBytes(ReadOnlySpan<byte> values, ReadOnlySpan<bool> validity)
+        public Status AppendBytes(ReadOnlySpan<byte> values, ReadOnlySpan<bool> validity, int nullCount)
         {
             ValuesBuffer.AppendBytes(values);
-            return AppendValidity(validity);
+            return AppendValidity(validity, nullCount);
         }
 
         internal override Status AppendPrimitiveValueOffset(ArrayData data)
@@ -391,8 +391,8 @@ namespace Apache.Arrow.Builder
         public virtual Status AppendValues(T value, int count)
             => AppendRepeatBytes(TypeReflection.AsBytes(ref value), count);
 
-        public virtual Status AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> validity)
-            => AppendBytes(MemoryMarshal.AsBytes(values), validity);
+        public virtual Status AppendValues(ReadOnlySpan<T> values, ReadOnlySpan<bool> validity, int nullCount)
+            => AppendBytes(MemoryMarshal.AsBytes(values), validity, nullCount);
     }
 
     public class BooleanArrayBuilder : FixedBinaryArrayBuilder<bool>
@@ -434,10 +434,10 @@ namespace Apache.Arrow.Builder
             return AppendValidity(true, values.Length);
         }
 
-        public override Status AppendValues(ReadOnlySpan<bool> values, ReadOnlySpan<bool> validity)
+        public override Status AppendValues(ReadOnlySpan<bool> values, ReadOnlySpan<bool> validity, int nullCount)
         {
             ValuesBuffer.AppendBits(values);
-            return AppendValidity(validity);
+            return AppendValidity(validity, nullCount);
         }
 
         public override Status AppendValues(bool value, int count)
