@@ -371,7 +371,17 @@ struct FieldPathTestCase {
         : path(FieldPath(std::move(indices))) {}
 
     template <typename T>
-    auto&& Get() const;
+    const auto& Get() const {
+      if constexpr (std::is_same_v<T, Field>) {
+        return field;
+      } else if constexpr (std::is_same_v<T, Array>) {
+        return array;
+      } else if constexpr (std::is_same_v<T, ArrayData>) {
+        return array->data();
+      } else if constexpr (std::is_same_v<T, ChunkedArray>) {
+        return chunked_array;
+      }
+    }
 
     FieldPath path;
     std::shared_ptr<Field> field;
@@ -392,7 +402,23 @@ struct FieldPathTestCase {
   std::shared_ptr<Table> table;
 
   template <typename T>
-  auto&& GetInput() const;
+  const auto& GetInput() const {
+    if constexpr (std::is_same_v<T, Schema>) {
+      return schema;
+    } else if constexpr (std::is_same_v<T, DataType>) {
+      return type;
+    } else if constexpr (std::is_same_v<T, Array>) {
+      return array;
+    } else if constexpr (std::is_same_v<T, ArrayData>) {
+      return array->data();
+    } else if constexpr (std::is_same_v<T, RecordBatch>) {
+      return record_batch;
+    } else if constexpr (std::is_same_v<T, ChunkedArray>) {
+      return chunked_array;
+    } else if constexpr (std::is_same_v<T, Table>) {
+      return table;
+    }
+  }
 
   // Number of chunks for each column in the input Table
   const std::array<int, kNumColumns> num_column_chunks = {15, 20};
@@ -511,52 +537,6 @@ struct FieldPathTestCase {
     return ChunkedArray::Make(std::move(chunks)).ValueOrDie();
   }
 };
-
-template <>
-auto&& FieldPathTestCase::GetInput<Schema>() const {
-  return this->schema;
-}
-template <>
-auto&& FieldPathTestCase::GetInput<DataType>() const {
-  return this->type;
-}
-template <>
-auto&& FieldPathTestCase::GetInput<Array>() const {
-  return this->array;
-}
-template <>
-auto&& FieldPathTestCase::GetInput<ArrayData>() const {
-  return this->array->data();
-}
-template <>
-auto&& FieldPathTestCase::GetInput<ChunkedArray>() const {
-  return this->chunked_array;
-}
-template <>
-auto&& FieldPathTestCase::GetInput<RecordBatch>() const {
-  return this->record_batch;
-}
-template <>
-auto&& FieldPathTestCase::GetInput<Table>() const {
-  return this->table;
-}
-
-template <>
-auto&& FieldPathTestCase::OutputValues::Get<Field>() const {
-  return this->field;
-}
-template <>
-auto&& FieldPathTestCase::OutputValues::Get<Array>() const {
-  return this->array;
-}
-template <>
-auto&& FieldPathTestCase::OutputValues::Get<ArrayData>() const {
-  return this->array->data();
-}
-template <>
-auto&& FieldPathTestCase::OutputValues::Get<ChunkedArray>() const {
-  return this->chunked_array;
-}
 
 class FieldPathTestFixture : public ::testing::Test {
  public:
