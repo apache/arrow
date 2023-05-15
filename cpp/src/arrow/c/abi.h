@@ -120,7 +120,7 @@ typedef int32_t ArrowDeviceType;
 /// \brief ROCm GPUs for AMD GPUs
 #define ARROW_DEVICE_ROCM = 10
 /// \brief Pinned ROCm CPU memory allocated by hipMallocHost
-#define ARROW_DEVICE_ROCMHOST = 11
+#define ARROW_DEVICE_ROCM_HOST = 11
 /// \brief Reserved for extension
 ///
 /// used to quickly test extension devices, semantics
