@@ -39,14 +39,12 @@ namespace Apache.Arrow.Builder
         /// Append string value to builder encoded in UTF8
         /// </summary>
         /// <param name="value">string value</param>
-        /// <param name="count">repeat x times</param>
         public virtual Status AppendValue(string value) => AppendValue(value, StringType.DefaultEncoding);
 
         /// <summary>
         /// Append string value to builder encoded
         /// </summary>
         /// <param name="value">string value</param>
-        /// <param name="count">repeat x times</param>
         /// <param name="encoding"><see cref="Encoding"/> to convert string to bytes</param>
         public virtual Status AppendValue(string value, Encoding encoding)
         {
