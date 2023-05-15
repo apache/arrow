@@ -1703,7 +1703,7 @@ class ARROW_EXPORT FieldPath {
   /// RecordBatch, or Table
   ///
   /// Unlike `FieldPath::Get`, these variants are not zero-copy and the retrieved child's
-  /// null bitmap is ANDed with its parent's
+  /// null bitmap is ANDed with its ancestors'
   Result<std::shared_ptr<Array>> GetFlattened(const Array& array,
                                               MemoryPool* pool = NULLPTR) const;
   Result<std::shared_ptr<ArrayData>> GetFlattened(const ArrayData& data,
