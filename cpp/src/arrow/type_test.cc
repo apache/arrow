@@ -564,7 +564,16 @@ class FieldPathTestFixture : public ::testing::Test {
 
  protected:
   template <typename T>
-  using OutputType = typename internal::FieldPathGetType<T>::element_type;
+  using OutputType = typename FieldRef::GetType<T>::element_type;
+
+  template <bool Flattened, typename T>
+  static auto DoGet(const T& root, const FieldPath& path, MemoryPool* pool = nullptr) {
+    if constexpr (Flattened) {
+      return path.GetFlattened(root, pool);
+    } else {
+      return path.Get(root);
+    }
+  }
 
   template <typename I>
   void AssertOutputsEqual(const std::shared_ptr<Field>& expected,
@@ -599,18 +608,18 @@ class TestFieldPath : public FieldPathTestFixture {
          {FieldPath({2, 1, 0}), FieldPath({1, 2, 0}), FieldPath{1, 1, 2}}) {
       EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError,
                                       ::testing::HasSubstr("index out of range"),
-                                      internal::GetChild<Flattened>(*input, path));
+                                      DoGet<Flattened>(*input, path));
     }
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("empty indices cannot be traversed"),
-        internal::GetChild<Flattened>(*input, FieldPath()));
+        DoGet<Flattened>(*input, FieldPath()));
   }
 
   template <typename I, bool Flattened = false>
   void TestGetWithNonStructArray() const {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         NotImplemented, ::testing::HasSubstr("Get child data of non-struct array"),
-        internal::GetChild<Flattened>(*case_->v1_1_0.Get<I>(), FieldPath({1, 1, 0})));
+        DoGet<Flattened>(*case_->v1_1_0.Get<I>(), FieldPath({1, 1, 0})));
   }
 
   template <typename I, typename O = OutputType<I>>
