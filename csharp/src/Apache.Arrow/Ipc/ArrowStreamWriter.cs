@@ -159,6 +159,7 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(NullArray array)
             {
+                // There are no buffers for a NullArray
             }
 
             private void CreateBuffers(BooleanArray array)
