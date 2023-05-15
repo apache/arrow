@@ -300,7 +300,6 @@ namespace Apache.Arrow.Builder
                     newBytes += bytes.Length;
 
             EnsureAdditionalBytes(newBytes);
-            int length = values.Count;
             int _nullCount = 0;
             int offset = ByteLength;
             int i = 0;
@@ -314,14 +313,14 @@ namespace Apache.Arrow.Builder
                 }
                 else
                 {
-                    int bLength = bytes.Length;
+                    int byteLength = bytes.Length;
 
                     if (bytes.Length > 0)
                     {
                         // Span copy to memory
-                        bytes.CopyTo(span.Slice(offset, bLength));
-                        offset += bLength;
-                        baseOffset += bLength;
+                        bytes.CopyTo(span.Slice(offset, byteLength));
+                        offset += byteLength;
+                        baseOffset += byteLength;
                     }
                     validity[i] = true;
                 }
@@ -352,7 +351,6 @@ namespace Apache.Arrow.Builder
                     newBytes += encoding.GetByteCount(str);
 
             EnsureAdditionalBytes(newBytes);
-            int length = values.Count;
             int _nullCount = 0;
             int offset = ByteLength;
             int i = 0;
