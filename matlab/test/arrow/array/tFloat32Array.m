@@ -49,8 +49,8 @@ classdef tFloat32Array < matlab.unittest.TestCase
         end
 
         function DeepCopy(testCase)
-        % Verify Float32Array does not store shallow copy of the MATLAB
-        % array if DeepCopy=true was supplied.
+          % Verify Float32Array does not store shallow copy of the MATLAB
+          % array if DeepCopy=true was supplied.
             A = arrow.array.Float32Array(single([1, 2, 3]), DeepCopy=true);
             testCase.verifyEqual(A.MatlabArray, single([]));
             testCase.verifyEqual(single(A), single([1 2 3]'));
