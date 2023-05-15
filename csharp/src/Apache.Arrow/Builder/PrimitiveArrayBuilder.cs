@@ -91,15 +91,21 @@ namespace Apache.Arrow.Builder
             ValuesBuffer.AppendBytes(value, count);
 
             // Append Offsets
-            Span<int> offsets = count < MaxIntStackAllocSize ? stackalloc int[count] : new int[count];
             int valueLength = value.Length;
 
-            for (int i = 0; i < count; i++)
+            if (valueLength == 0)
+                OffsetsBuffer.AppendValues(CurrentOffset, count);
+            else
             {
-                CurrentOffset += valueLength;
-                offsets[i] = CurrentOffset;
+                Span<int> offsets = count < MaxIntStackAllocSize ? stackalloc int[count] : new int[count];
+
+                for (int i = 0; i < count; i++)
+                {
+                    CurrentOffset += valueLength;
+                    offsets[i] = CurrentOffset;
+                }
+                OffsetsBuffer.AppendValues(offsets);
             }
-            OffsetsBuffer.AppendValues(offsets);
             
             return AppendValidity(true, count);
         }

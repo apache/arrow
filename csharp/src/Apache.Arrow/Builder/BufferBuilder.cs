@@ -230,6 +230,8 @@ namespace Apache.Arrow.Builder
             int _nullCount = 0;
             EnsureAdditionalBytes(bytes.Count * fixedSize);
 
+            var span = Memory.Span;
+
             foreach (byte[] value in bytes)
             {
                 if (value is null)
@@ -238,9 +240,9 @@ namespace Apache.Arrow.Builder
                 {
                     // Copy to memory
                     if (value.Length > fixedSize)
-                        value.AsSpan().Slice(0, fixedSize).CopyTo(Memory.Span.Slice(offset, fixedSize));
+                        value.AsSpan().Slice(0, fixedSize).CopyTo(span.Slice(offset, fixedSize));
                     else
-                        value.CopyTo(Memory.Span.Slice(offset, fixedSize));
+                        value.CopyTo(span.Slice(offset, fixedSize));
                     validity[i] = true;
                 }
                 offset += fixedSize;
@@ -413,13 +415,15 @@ namespace Apache.Arrow.Builder
 
             if (BitOffset != 0)
                 throw new NotSupportedException("Cannot append repeated bytes while current buffer BitOffset != 0");
+
             int total = count * value.Length;
             EnsureAdditionalBytes(total);
             int offset = ByteLength;
+            var span = Memory.Span;
 
             for (int i = 0; i < count; i++)
             {
-                value.CopyTo(Memory.Span.Slice(offset, value.Length));
+                value.CopyTo(span.Slice(offset, value.Length));
                 offset += value.Length;
             }
 
