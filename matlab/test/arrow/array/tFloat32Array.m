@@ -36,9 +36,9 @@ classdef tFloat32Array < matlab.unittest.TestCase
         end
 
         function ShallowCopy(testCase)
-        % By default, Float32Array does not create a deep copy on
-        % construction when constructed from a MATLAB array. Instead,
-        % it stores a shallow copy of the array keep the memory alive.
+            % By default, Float32Array does not create a deep copy on
+            % construction when constructed from a MATLAB array. Instead,
+            % it stores a shallow copy of the array keep the memory alive.
             A = arrow.array.Float32Array(single([1, 2, 3]));
             testCase.verifyEqual(A.MatlabArray, single([1 2 3]));
             testCase.verifyEqual(single(A), single([1 2 3]'));
