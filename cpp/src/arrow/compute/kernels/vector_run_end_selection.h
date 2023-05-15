@@ -46,15 +46,15 @@ class REEFilterExec {
 
 Result<std::unique_ptr<REEFilterExec>> MakeREExREEFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-    FilterOptions::NullSelectionBehavior null_selection);
+    const FilterOptions& options);
 
 Result<std::unique_ptr<REEFilterExec>> MakeREExPlainFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-    FilterOptions::NullSelectionBehavior null_selection);
+    const FilterOptions& options);
 
 Result<std::unique_ptr<REEFilterExec>> MakePlainxREEFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-    FilterOptions::NullSelectionBehavior null_selection);
+    const FilterOptions& options);
 
 Status REExREEFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result);
 
