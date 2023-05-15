@@ -85,11 +85,13 @@ namespace Apache.Arrow.Builder
 
                 if (byteEnd > 0)
                 {
+                    var span = Memory.Span;
+
                     // Ensure byte length
                     EnsureAdditionalBytes(byteEnd);
 
                     // Raw Span copy to memory
-                    BitUtility.SetBits(Memory.Span.Slice(ByteLength, byteEnd), bits.Slice(0, bitEnd));
+                    BitUtility.SetBits(span.Slice(ByteLength, byteEnd), bits.Slice(0, bitEnd));
 
                     ByteLength += byteEnd;
 
@@ -580,12 +582,14 @@ namespace Apache.Arrow.Builder
             int _nullCount = 0;
             EnsureAdditionalBytes(values.Count * fixedSize);
 
+            var span = Memory.Span;
+
             foreach (T? value in values)
             {
                 if (value.HasValue)
                 {
                     T real = value.Value;
-                    TypeReflection.AsBytes(ref real).CopyTo(Memory.Span.Slice(offset, fixedSize));
+                    TypeReflection.AsBytes(ref real).CopyTo(span.Slice(offset, fixedSize));
                     validity[i] = true;
                 }
                 else
