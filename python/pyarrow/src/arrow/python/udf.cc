@@ -199,11 +199,13 @@ struct PythonTableUdfKernelInit {
                                    ", but function returned datatype ",
                                    val->type()->ToString());
         }
-        out->value = std::move(val->data());
+        ARROW_ASSIGN_OR_RAISE(auto scalar_val , val->GetScalar(0));
+        *out = Datum(scalar_val);
+        // out->value = std::move(val->data());
         return Status::OK();
       } else {
         return Status::TypeError("Unexpected output type: ", Py_TYPE(result.obj())->tp_name,
-                               " (expected Array)");
+                                 " (expected Array)");
       }
       // *out = Datum((int32_t)table->num_rows());
       return Status::OK();

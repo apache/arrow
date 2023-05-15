@@ -436,6 +436,7 @@ def test_udf_via_substrait(unary_func_fixture, use_threads):
     """
 
     buf = pa._substrait._parse_json_plan(substrait_query)
+    breakpoint()
     reader = pa.substrait.run_query(
         buf, table_provider=table_provider, use_threads=use_threads)
     res_tb = reader.read_all()
@@ -605,3 +606,132 @@ def test_output_field_names(use_threads):
     expected = pa.Table.from_pydict({"out": [1, 2, 3]})
 
     assert res_tb == expected
+
+
+def test_agg_udf(unary_agg_func_fixture):
+
+    test_table = pa.Table.from_pydict(
+        {"k": [1, 1, 2, 2], "v": [1.0, 2.0, 3.0, 4.0]}
+    )
+
+    def table_provider(names, _):
+        return test_table
+
+    substrait_query = b"""
+{
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "urn:arrow:substrait_simple_extension_function"
+    },
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 1,
+        "name": "y=avg(x)"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "root": {
+        "input": {
+          "extensionSingle": {
+            "common": {
+              "emit": {
+                "outputMapping": [
+                  0,
+                  1
+                ]
+              }
+            },
+            "input": {
+              "read": {
+                "baseSchema": {
+                  "names": [
+                    "time",
+                    "price"
+                  ],
+                  "struct": {
+                    "types": [
+                      {
+                        "i64": {
+                          "nullability": "NULLABILITY_REQUIRED"
+                        }
+                      },
+                      {
+                        "fp64": {
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      }
+                    ],
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["t1"]
+                }
+              }
+            },
+            "detail": {
+              "@type": "/arrow.substrait_ext.SegmentedAggregateRel",
+              "segmentKeys": [
+                {
+                  "directReference": {
+                    "structField": {}
+                  },
+                  "rootReference": {}
+                }
+              ],
+              "measures": [
+                {
+                  "measure": {
+                    "functionReference": 1,
+                    "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+                    "outputType": {
+                      "fp64": {
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    },
+                    "arguments": [
+                      {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 1
+                              }
+                            },
+                            "rootReference": {}
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "names": [
+          "k",
+          "v_avg"
+        ]
+      }
+    }
+  ],
+}
+"""
+    buf = pa._substrait._parse_json_plan(substrait_query)
+    reader = pa.substrait.run_query(
+        buf, table_provider=table_provider, use_threads=False)
+    res_tb = reader.read_all()
+
+    expected_tb = pa.Table.from_pydict({
+        'k': [1, 2],
+        'v_avg': [1.5, 3.5]
+    })
+
+    assert res_tb == expected_tb

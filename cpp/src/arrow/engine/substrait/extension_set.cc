@@ -363,6 +363,68 @@ ExtensionIdRegistry::SubstraitAggregateToArrow kSimpleSubstraitAggregateToArrow 
   return DecodeBasicAggregate(std::string(call.id().name))(call);
 };
 
+ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
+    const std::string& arrow_function_name) {
+  return [arrow_function_name](const SubstraitCall& call) -> Result<compute::Aggregate> {
+    std::string fixed_arrow_func;
+    if (call.is_hash()) {
+      fixed_arrow_func = "hash_";
+    }
+
+    switch (call.size()) {
+      case 0: {
+        if (call.id().name == "count") {
+          fixed_arrow_func += "count_all";
+          return compute::Aggregate{std::move(fixed_arrow_func), ""};
+        }
+        return Status::Invalid("Expected aggregate call ", call.id().uri, "#",
+                               call.id().name, " to have at least one argument");
+      }
+      case 1: {
+        std::shared_ptr<compute::FunctionOptions> options = nullptr;
+        if (arrow_function_name == "stddev" || arrow_function_name == "variance") {
+          // See the following URL for the spec of stddev and variance:
+          // https://github.com/substrait-io/substrait/blob/
+          // 73228b4112d79eb1011af0ebb41753ce23ca180c/
+          // extensions/functions_arithmetic.yaml#L1240
+          auto maybe_dist = call.GetOption("distribution");
+          if (maybe_dist) {
+            auto& prefs = **maybe_dist;
+            if (prefs.size() != 1) {
+              return Status::Invalid("expected a single preference for ",
+                                     arrow_function_name, " but got ", prefs.size());
+            }
+            int ddof;
+            if (prefs[0] == "POPULATION") {
+              ddof = 1;
+            } else if (prefs[0] == "SAMPLE") {
+              ddof = 0;
+            } else {
+              return Status::Invalid("unknown distribution preference ", prefs[0]);
+            }
+            options = std::make_shared<compute::VarianceOptions>(ddof);
+          }
+        }
+        fixed_arrow_func += arrow_function_name;
+
+        ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(0));
+        const FieldRef* arg_ref = arg.field_ref();
+        if (!arg_ref) {
+          return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
+                                 call.id().name, " to have a direct reference");
+        }
+
+        return compute::Aggregate{std::move(fixed_arrow_func),
+                                  options ? std::move(options) : nullptr, *arg_ref, ""};
+      }
+      default:
+        break;
+    }
+    return Status::NotImplemented(
+        "Only nullary and unary aggregate functions are currently supported");
+  };
+}
+
 struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
   ExtensionIdRegistryImpl() : parent_(nullptr) {}
   explicit ExtensionIdRegistryImpl(const ExtensionIdRegistry* parent) : parent_(parent) {}
@@ -934,68 +996,6 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeConcatMapping() {
                           GetValueArgs(call, 0));
     value_args.push_back(compute::literal(""));
     return compute::call("binary_join_element_wise", std::move(value_args));
-  };
-}
-
-ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
-    const std::string& arrow_function_name) {
-  return [arrow_function_name](const SubstraitCall& call) -> Result<compute::Aggregate> {
-    std::string fixed_arrow_func;
-    if (call.is_hash()) {
-      fixed_arrow_func = "hash_";
-    }
-
-    switch (call.size()) {
-      case 0: {
-        if (call.id().name == "count") {
-          fixed_arrow_func += "count_all";
-          return compute::Aggregate{std::move(fixed_arrow_func), ""};
-        }
-        return Status::Invalid("Expected aggregate call ", call.id().uri, "#",
-                               call.id().name, " to have at least one argument");
-      }
-      case 1: {
-        std::shared_ptr<compute::FunctionOptions> options = nullptr;
-        if (arrow_function_name == "stddev" || arrow_function_name == "variance") {
-          // See the following URL for the spec of stddev and variance:
-          // https://github.com/substrait-io/substrait/blob/
-          // 73228b4112d79eb1011af0ebb41753ce23ca180c/
-          // extensions/functions_arithmetic.yaml#L1240
-          auto maybe_dist = call.GetOption("distribution");
-          if (maybe_dist) {
-            auto& prefs = **maybe_dist;
-            if (prefs.size() != 1) {
-              return Status::Invalid("expected a single preference for ",
-                                     arrow_function_name, " but got ", prefs.size());
-            }
-            int ddof;
-            if (prefs[0] == "POPULATION") {
-              ddof = 1;
-            } else if (prefs[0] == "SAMPLE") {
-              ddof = 0;
-            } else {
-              return Status::Invalid("unknown distribution preference ", prefs[0]);
-            }
-            options = std::make_shared<compute::VarianceOptions>(ddof);
-          }
-        }
-        fixed_arrow_func += arrow_function_name;
-
-        ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(0));
-        const FieldRef* arg_ref = arg.field_ref();
-        if (!arg_ref) {
-          return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
-                                 call.id().name, " to have a direct reference");
-        }
-
-        return compute::Aggregate{std::move(fixed_arrow_func),
-                                  options ? std::move(options) : nullptr, *arg_ref, ""};
-      }
-      default:
-        break;
-    }
-    return Status::NotImplemented(
-        "Only nullary and unary aggregate functions are currently supported");
   };
 }
 
