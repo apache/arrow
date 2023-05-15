@@ -1705,10 +1705,8 @@ def get_generated_json_files(tempdir=None):
         .skip_category('JS'),     # TODO(ARROW-8716)
 
         generate_nested_case()
-        .skip_category('C#'),
 
         generate_recursive_nested_case()
-        .skip_category('C#'),
 
         generate_nested_large_offsets_case()
         .skip_category('C#')

@@ -48,6 +48,7 @@ namespace Apache.Arrow
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>
         {
             public ArrayData Result { get; private set; }
@@ -98,6 +99,15 @@ namespace Apache.Arrow
                 ArrayData child = Concatenate(SelectChildren(0), _allocator);
 
                 Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer }, new[] { child });
+            }
+
+            public void Visit(FixedSizeListType type)
+            {
+                CheckData(type, 1);
+                ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
+                ArrayData child = Concatenate(SelectChildren(0), _allocator);
+
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer }, new[] { child });
             }
 
             public void Visit(StructType type)

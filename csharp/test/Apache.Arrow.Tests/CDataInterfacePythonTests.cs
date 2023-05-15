@@ -95,6 +95,8 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("list_string").DataType(new ListType(StringType.Default)).Nullable(false))
                     .Field(f => f.Name("list_list_i32").DataType(new ListType(new ListType(Int32Type.Default))).Nullable(false))
 
+                    .Field(f => f.Name("fixed_length_list_i64").DataType(new FixedSizeListType(Int64Type.Default, 10)).Nullable(true))
+
                     .Field(f => f.Name("dict_string").DataType(new DictionaryType(Int32Type.Default, StringType.Default, false)).Nullable(false))
                     .Field(f => f.Name("dict_string_ordered").DataType(new DictionaryType(Int32Type.Default, StringType.Default, true)).Nullable(false))
                     .Field(f => f.Name("list_dict_string").DataType(new ListType(new DictionaryType(Int32Type.Default, StringType.Default, false))).Nullable(false))
@@ -148,6 +150,8 @@ namespace Apache.Arrow.Tests
 
                 yield return pa.field("list_string", pa.list_(pa.utf8()), false);
                 yield return pa.field("list_list_i32", pa.list_(pa.list_(pa.int32())), false);
+
+                yield return pa.field("fixed_length_list_i64", pa.list_(pa.int64(), 10), true);
 
                 yield return pa.field("dict_string", pa.dictionary(pa.int32(), pa.utf8(), false), false);
                 yield return pa.field("dict_string_ordered", pa.dictionary(pa.int32(), pa.utf8(), true), false);

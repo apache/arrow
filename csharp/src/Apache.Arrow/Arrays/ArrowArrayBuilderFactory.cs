@@ -68,6 +68,8 @@ namespace Apache.Arrow
                     return new Time64Array.Builder(dataType as Time64Type);
                 case ArrowTypeId.List:
                     return new ListArray.Builder(dataType as ListType);
+                case ArrowTypeId.FixedSizeList:
+                    return new FixedSizeListArray.Builder(dataType as FixedSizeListType);
                 case ArrowTypeId.Decimal128:
                     return new Decimal128Array.Builder(dataType as Decimal128Type);
                 case ArrowTypeId.Decimal256:
