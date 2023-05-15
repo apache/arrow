@@ -72,18 +72,7 @@ target environment.**
    :maxdepth: 2
    :caption: Specifications and Protocols
 
-   format/Versioning
-   format/Columnar
-   format/CanonicalExtensions
-   format/Flight
-   format/FlightSql
-   format/Integration
-   format/CDataInterface
-   format/CStreamInterface
-   format/ADBC
-   format/Other
-   format/Changing
-   format/Glossary
+   format/index
 
 .. _toc.development:
 
@@ -91,15 +80,4 @@ target environment.**
    :maxdepth: 2
    :caption: Development
 
-   developers/contributing
-   developers/bug_reports
-   developers/guide/index
-   developers/overview
-   developers/reviewing
-   developers/cpp/index
-   developers/java/index
-   developers/python
-   developers/continuous_integration/index
-   developers/benchmarks
-   developers/documentation
-   developers/release
+   developers/index
