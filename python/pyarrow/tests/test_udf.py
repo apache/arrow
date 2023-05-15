@@ -658,16 +658,3 @@ def test_aggregate_exception(bad_unary_agg_func_fixture):
             pc.call_function("y=bad_len(x)", [arr])
         except Exception as e:
             raise e
-
-
-def test_aggregate_segfault(bad_unary_agg_func_fixture):
-    # This test will segfault the python process.
-    arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
-    try:
-        result = pc.call_function("y=bad_len(x)", [arr])
-    except Exception as e:
-        print("Before segfault")
-        raise e
-
-    expected = pa.array([6])
-    assert result == expected

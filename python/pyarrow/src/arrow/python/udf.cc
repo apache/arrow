@@ -383,6 +383,7 @@ Status RegisterAggregateFunction(PyObject* agg_function, UdfWrapperCallback agg_
   auto init = [agg_wrapper, agg_function, options](
                   compute::KernelContext* ctx,
                   const compute::KernelInitArgs& args) -> Result<std::unique_ptr<compute::KernelState>> {
+    Py_INCREF(agg_function);
     return std::make_unique<PythonUdfScalarAggregatorImpl>(
       agg_wrapper,
       std::make_shared<OwnedRefNoGIL>(agg_function),
