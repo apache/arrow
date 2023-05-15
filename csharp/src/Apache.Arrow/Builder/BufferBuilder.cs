@@ -293,7 +293,13 @@ namespace Apache.Arrow.Builder
             if (BitOffset != 0)
                 throw new NotSupportedException("Cannot append collection of byte[] while current buffer BitOffset != 0");
 
-            EnsureAdditionalBytes(values.Sum(b => b is null ? 0 : b.Length));
+            int newBytes = 0;
+
+            foreach (var bytes in values)
+                if (bytes is not null)
+                    newBytes += bytes.Length;
+
+            EnsureAdditionalBytes(newBytes);
             int length = values.Count;
             int _nullCount = 0;
             int offset = ByteLength;
@@ -339,7 +345,13 @@ namespace Apache.Arrow.Builder
             if (BitOffset != 0)
                 throw new NotSupportedException("Cannot append collection of byte[] while current buffer BitOffset != 0");
 
-            EnsureAdditionalBytes(values.Sum(str => str is null ? 0 : str.Length == 0 ? 0 : encoding.GetByteCount(str)));
+            int newBytes = 0;
+
+            foreach (var str in values)
+                if (str is not null)
+                    newBytes += encoding.GetByteCount(str);
+
+            EnsureAdditionalBytes(newBytes);
             int length = values.Count;
             int _nullCount = 0;
             int offset = ByteLength;

@@ -122,7 +122,7 @@ namespace Apache.Arrow.Builder
             Span<int> offsets = length < MaxIntStackAllocSize ? stackalloc int[length] : new int[length];
 
             // Append values
-            ValuesBuffer.AppendBytes(values, validity, offsets, currentOffset, out int nullCount, encoding);
+            ValuesBuffer.AppendBytes(values, validity, offsets, currentOffset, encoding, out int nullCount);
 
             // Append offsets
             CurrentOffset = currentOffset;
