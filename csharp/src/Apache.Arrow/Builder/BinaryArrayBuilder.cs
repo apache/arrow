@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
@@ -111,11 +110,26 @@ namespace Apache.Arrow.Builder
             }
         }
 
-        public virtual Status AppendValues(IEnumerable<string> values)
+        public virtual Status AppendValues(ICollection<string> values)
             => AppendValues(values, StringType.DefaultEncoding);
 
-        public virtual Status AppendValues(IEnumerable<string> values, Encoding encoding)
-            => AppendValues(values.Select(str => str is null ? null : encoding.GetBytes(str)));
+        public virtual Status AppendValues(ICollection<string> values, Encoding encoding)
+        {
+            int length = values.Count;
+            int currentOffset = CurrentOffset;
+
+            Span<bool> validity = length < MaxBitStackAllocSize ? stackalloc bool[length] : new bool[length];
+            Span<int> offsets = length < MaxIntStackAllocSize ? stackalloc int[length] : new int[length];
+
+            // Append values
+            ValuesBuffer.AppendBytes(values, validity, offsets, currentOffset, out int nullCount, encoding);
+
+            // Append offsets
+            CurrentOffset = currentOffset;
+            OffsetsBuffer.AppendValues(offsets);
+
+            return AppendValidity(validity, nullCount);
+        }
 
         public override IArrowArray Build(MemoryAllocator allocator = default) => Build(allocator);
 

@@ -104,23 +104,22 @@ namespace Apache.Arrow.Builder
             return AppendValidity(true, count);
         }
 
-        public virtual Status AppendValues(IEnumerable<byte[]> bytes)
+        public virtual Status AppendValues(ICollection<byte[]> bytes)
         {
-            foreach (var value in bytes)
-            {
-                if (value is null)
-                {
-                    AppendNull();
-                }
-                else
-                {
-                    ValuesBuffer.AppendBytes(value);
-                    CurrentOffset += value.Length;
-                    OffsetsBuffer.AppendValue(CurrentOffset);
-                    AppendValid();
-                }
-            }
-            return Status.OK;
+            int length = bytes.Count;
+            int currentOffset = CurrentOffset;
+
+            Span<bool> validity = length < MaxBitStackAllocSize ? stackalloc bool[length] : new bool[length];
+            Span<int> offsets = length < MaxIntStackAllocSize ? stackalloc int[length] : new int[length];
+
+            // Append values
+            ValuesBuffer.AppendBytes(bytes, validity, offsets, currentOffset, out int nullCount);
+
+            // Append offsets
+            CurrentOffset = currentOffset;
+            OffsetsBuffer.AppendValues(offsets);
+
+            return AppendValidity(validity, nullCount);
         }
 
         public override Status AppendScalar(IScalar value)

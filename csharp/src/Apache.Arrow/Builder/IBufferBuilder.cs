@@ -16,6 +16,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading.Tasks;
 using Apache.Arrow.Memory;
 
@@ -86,6 +87,29 @@ namespace Apache.Arrow.Builder
         /// <param name="count">bytes value</param>
         /// <returns>Current <see cref="IBufferBuilder"/></returns>
         IBufferBuilder AppendBytes(ReadOnlySpan<byte> bytes, int count);
+
+        /// <summary>
+        /// Append collection of nullable byte array.
+        /// </summary>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
+        IBufferBuilder AppendBytes(
+            ICollection<byte[]> values,
+            Span<bool> validity, Span<int> offsets,
+            int baseOffset,
+            out int nullCount
+            );
+
+        /// <summary>
+        /// Append collection of nullable string values encoded with <see cref="Encoding"/>.
+        /// </summary>
+        /// <returns>Current <see cref="IBufferBuilder"/></returns>
+        IBufferBuilder AppendBytes(
+            ICollection<string> values,
+            Span<bool> validity, Span<int> offsets,
+            int baseOffset,
+            Encoding encoding,
+            out int nullCount
+            );
 
         /// <summary>
         /// Append empty bytes values too buffer

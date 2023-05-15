@@ -81,7 +81,6 @@ namespace Apache.Arrow
         public StringType Type => StringType.Default;
         IArrowType IScalar.Type => Type;
         public bool IsValid => true;
-        private int _byteLength;
 
         public StringScalar(string value)
             : this(value, StringType.DefaultEncoding)
@@ -96,7 +95,6 @@ namespace Apache.Arrow
         internal StringScalar(ArrowBuffer value)
         {
             Buffer = value;
-            _byteLength = value.Length;
         }
 
         public string DotNet => GetString(StringType.DefaultEncoding);
@@ -116,12 +114,12 @@ namespace Apache.Arrow
             {
                 if (ptr is null)
                     return string.Empty;
-                int charLength = encoding.GetCharCount(ptr, _byteLength);
+                int charLength = encoding.GetCharCount(ptr, Buffer.Length);
                 char[] buffer = new char[charLength];
 
                 fixed (char* bufferPtr = buffer)
                 {
-                    encoding.GetChars(ptr, _byteLength, bufferPtr, charLength);
+                    encoding.GetChars(ptr, Buffer.Length, bufferPtr, charLength);
                 }
 
                 return new string(buffer);

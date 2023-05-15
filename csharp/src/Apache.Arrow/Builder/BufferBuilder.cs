@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Buffers;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Reflection;
@@ -278,6 +280,109 @@ namespace Apache.Arrow.Builder
                 }
             }
 
+            return this;
+        }
+
+        public IBufferBuilder AppendBytes(
+            ICollection<byte[]> values,
+            Span<bool> validity, Span<int> offsets,
+            int baseOffset,
+            out int nullCount
+            )
+        {
+            if (BitOffset != 0)
+                throw new NotSupportedException("Cannot append collection of byte[] while current buffer BitOffset != 0");
+
+            EnsureAdditionalBytes(values.Sum(b => b is null ? 0 : b.Length));
+            int length = values.Count;
+            int _nullCount = 0;
+            int offset = ByteLength;
+            int i = 0;
+            var span = Memory.Span;
+
+            foreach (var bytes in values)
+            {
+                if (bytes is null)
+                {
+                    _nullCount++;
+                }
+                else
+                {
+                    int bLength = bytes.Length;
+
+                    if (bytes.Length > 0)
+                    {
+                        // Span copy to memory
+                        bytes.CopyTo(span.Slice(offset, bLength));
+                        offset += bLength;
+                        baseOffset += bLength;
+                    }
+                    validity[i] = true;
+                }
+                offsets[i] = baseOffset;
+                i++;
+            }
+
+            ByteLength += offset;
+            nullCount = _nullCount;
+            return this;
+        }
+
+        public IBufferBuilder AppendBytes(
+            ICollection<string> values,
+            Span<bool> validity, Span<int> offsets,
+            int baseOffset,
+            Encoding encoding,
+            out int nullCount
+            )
+        {
+            if (BitOffset != 0)
+                throw new NotSupportedException("Cannot append collection of byte[] while current buffer BitOffset != 0");
+
+            EnsureAdditionalBytes(values.Sum(str => str is null ? 0 : str.Length == 0 ? 0 : encoding.GetByteCount(str)));
+            int length = values.Count;
+            int _nullCount = 0;
+            int offset = ByteLength;
+            int i = 0;
+            var span = Memory.Span;
+
+            foreach (var str in values)
+            {
+                if (str is null)
+                {
+                    _nullCount++;
+                }
+                else
+                {
+                    if (str.Length > 0)
+                    {
+                        int byteLength = encoding.GetByteCount(str);
+
+                        ReadOnlySpan<char> chars = str.AsSpan();
+                        Span<byte> encoded = byteLength < ArrayBuilder.MaxByteStackAllocSize ?
+                            stackalloc byte[byteLength] : new byte[byteLength];
+
+                        // Append encoded
+                        unsafe
+                        {
+                            fixed (byte* pBytes = encoded)
+                            fixed (char* pChars = chars)
+                            {
+                                encoding.GetBytes(pChars, chars.Length, pBytes, byteLength);
+                                encoded.CopyTo(span.Slice(offset, byteLength));
+                            }
+                        }
+                        offset += byteLength;
+                        baseOffset += byteLength;
+                    }
+                    validity[i] = true;
+                }
+                offsets[i] = baseOffset;
+                i++;
+            }
+
+            ByteLength += offset;
+            nullCount = _nullCount;
             return this;
         }
 
