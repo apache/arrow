@@ -242,8 +242,8 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 42, rversion: "4.2" }
-        - { rtools: 42, rversion: "devel" }
+        - { rtools: 43, rversion: "4.3" }
+        - { rtools: 43, rversion: "devel" }
     env:
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
@@ -255,7 +255,7 @@ jobs:
           fetch-depth: 0
       - run: mkdir r/windows
       - name: Download artifacts
-        if: ${{ matrix.config.rtools == 42 }}
+        if: ${{ matrix.config.rtools == 43 }}
         uses: actions/download-artifact@v3
         with:
           name: libarrow-rtools40-ucrt64.zip
