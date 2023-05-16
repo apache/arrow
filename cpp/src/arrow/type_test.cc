@@ -568,6 +568,11 @@ class FieldPathTestFixture : public ::testing::Test {
   template <typename I>
   void AssertOutputsEqual(const std::shared_ptr<ChunkedArray>& expected,
                           const std::shared_ptr<ChunkedArray>& actual) const {
+    // We only do this dance due to the way the test inputs/outputs are generated.
+    // Basically, the "expected" output ChunkedArrays don't have an equal num_chunks since
+    // they're reused to create the input Table (which has a distinct chunking per
+    // column). However, if the input was the ChunkedArray, the returned outputs should
+    // always have the same num_chunks as the input.
     if constexpr (std::is_same_v<I, ChunkedArray>) {
       EXPECT_EQ(case_->chunked_array->num_chunks(), actual->num_chunks());
     } else {
