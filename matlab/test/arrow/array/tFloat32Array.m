@@ -96,7 +96,7 @@ classdef tFloat32Array < matlab.unittest.TestCase
             testCase.verifyError(fcn, "MATLAB:expectedReal");
         end
 
-        function ToMATLAB(testCase, MakeDeepCopy)
+        function toMATLAB(testCase, MakeDeepCopy)
             A1 = arrow.array.Float32Array(single(100), DeepCopy=MakeDeepCopy);
             data = toMATLAB(A1);
             testCase.verifyEqual(data, single(100));
