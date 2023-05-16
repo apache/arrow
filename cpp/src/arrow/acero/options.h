@@ -23,6 +23,9 @@
 #include <string>
 #include <vector>
 
+#ifndef NDEBUG
+#include "arrow/acero/options_internal.h"
+#endif
 #include "arrow/acero/type_fwd.h"
 #include "arrow/acero/visibility.h"
 #include "arrow/compute/api_aggregate.h"
@@ -63,6 +66,10 @@ using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
 class ARROW_ACERO_EXPORT ExecNodeOptions {
  public:
   virtual ~ExecNodeOptions() = default;
+
+#ifndef NDEBUG
+  std::shared_ptr<DebugOptions> debug_opts;
+#endif
 };
 
 /// \brief A node representing a generic source of data for Acero
