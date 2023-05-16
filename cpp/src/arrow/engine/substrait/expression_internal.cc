@@ -1167,12 +1167,36 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
   }
 
   // other expression types dive into extensions immediately
-  ARROW_ASSIGN_OR_RAISE(
-      ExtensionIdRegistry::ArrowToSubstraitCall converter,
-      ext_set->registry()->GetArrowToSubstraitCall(call->function_name));
-  ARROW_ASSIGN_OR_RAISE(SubstraitCall substrait_call, converter(*call));
-  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression::ScalarFunction> scalar_fn,
-                        EncodeSubstraitCall(substrait_call, ext_set, conversion_options));
+  Result<ExtensionIdRegistry::ArrowToSubstraitCall> maybe_converter =
+      ext_set->registry()->GetArrowToSubstraitCall(call->function_name);
+
+  ExtensionIdRegistry::ArrowToSubstraitCall converter;
+  std::unique_ptr<substrait::Expression::ScalarFunction> scalar_fn;
+  if (maybe_converter.ok()) {
+    converter = *maybe_converter;
+    ARROW_ASSIGN_OR_RAISE(SubstraitCall substrait_call, converter(*call));
+    ARROW_ASSIGN_OR_RAISE(
+        scalar_fn, EncodeSubstraitCall(substrait_call, ext_set, conversion_options));
+  } else if (maybe_converter.status().IsNotImplemented() &&
+             conversion_options.allow_arrow_extensions) {
+    if (call->options) {
+      return Status::NotImplemented(
+          "The function ", call->function_name,
+          " has no Substrait mapping.  Arrow extensions are enabled but the call "
+          "contains function options and there is no current mechanism to encode those.");
+    }
+    SubstraitCall substrait_call(
+        Id{kArrowSimpleExtensionFunctionsUri, call->function_name},
+        call->type.GetSharedPtr(),
+        /*nullable=*/true);
+    for (int i = 0; i < static_cast<int>(call->arguments.size()); i++) {
+      substrait_call.SetValueArg(i, call->arguments[i]);
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        scalar_fn, EncodeSubstraitCall(substrait_call, ext_set, conversion_options));
+  } else {
+    return maybe_converter.status();
+  }
   out->set_allocated_scalar_function(scalar_fn.release());
   return std::move(out);
 }
