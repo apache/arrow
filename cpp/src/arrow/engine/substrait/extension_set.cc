@@ -417,8 +417,21 @@ ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
         return compute::Aggregate{std::move(fixed_arrow_func),
                                   options ? std::move(options) : nullptr, *arg_ref, ""};
       }
-      default:
-        break;
+      default: {
+
+        fixed_arrow_func += arrow_function_name;
+        std::vector<FieldRef> target;
+        for (int i = 0; i < call.size(); i++) {
+          ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(i));
+          const FieldRef* arg_ref = arg.field_ref();
+          if (!arg_ref) {
+          return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
+                                 call.id().name, " to have a direct reference");
+          }
+          target.emplace_back(*arg_ref);
+        }
+        return compute::Aggregate{std::move(fixed_arrow_func), nullptr, target, ""};
+      }
     }
     return Status::NotImplemented(
         "Only nullary and unary aggregate functions are currently supported");

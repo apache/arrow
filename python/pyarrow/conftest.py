@@ -304,3 +304,32 @@ def unary_agg_func_fixture():
                                    pa.float64()
                                    )
     return func, func_name
+
+@pytest.fixture(scope="session")
+def varargs_agg_func_fixture():
+    """
+    Register a unary aggregate function
+    """
+    from pyarrow import compute as pc
+    import numpy as np
+
+    def func(ctx, *args):
+        sum = 0.0
+        for arg in args:
+            sum += np.nanmean(arg)
+        return pa.scalar(sum)
+
+    func_name = "y=sum_mean(x...)"
+    func_doc = {"summary": "Varargs aggregate",
+                "description": "Varargs aggregate"}
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.float64(),
+                                       "y": pa.float64()
+                                   },
+                                   pa.float64()
+                                   )
+    return func, func_name

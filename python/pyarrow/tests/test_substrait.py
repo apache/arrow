@@ -607,10 +607,11 @@ def test_output_field_names(use_threads):
     assert res_tb == expected
 
 
-def test_aggregate_udf_basic(unary_agg_func_fixture):
+def test_aggregate_udf_basic(varargs_agg_func_fixture):
 
     test_table = pa.Table.from_pydict(
-        {"k": [1, 1, 2, 2], "v": [1.0, 2.0, 3.0, 4.0]}
+        {"k": [1, 1, 2, 2], "v1": [1.0, 2.0, 3.0, 4.0],
+         "v2": [1.0, 1.0, 1.0, 1.0]}
     )
 
     def table_provider(names, _):
@@ -629,7 +630,7 @@ def test_aggregate_udf_basic(unary_agg_func_fixture):
       "extensionFunction": {
         "extensionUriReference": 1,
         "functionAnchor": 1,
-        "name": "y=avg(x)"
+        "name": "y=sum_mean(x...)"
       }
     }
   ],
@@ -650,14 +651,20 @@ def test_aggregate_udf_basic(unary_agg_func_fixture):
               "read": {
                 "baseSchema": {
                   "names": [
-                    "time",
-                    "price"
+                    "k",
+                    "v1",
+                    "v2",
                   ],
                   "struct": {
                     "types": [
                       {
                         "i64": {
                           "nullability": "NULLABILITY_REQUIRED"
+                        }
+                      },
+                      {
+                        "fp64": {
+                          "nullability": "NULLABILITY_NULLABLE"
                         }
                       },
                       {
@@ -706,6 +713,18 @@ def test_aggregate_udf_basic(unary_agg_func_fixture):
                             "rootReference": {}
                           }
                         }
+                      },
+                      {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 2
+                              }
+                            },
+                            "rootReference": {}
+                          }
+                        }
                       }
                     ]
                   }
@@ -730,7 +749,7 @@ def test_aggregate_udf_basic(unary_agg_func_fixture):
 
     expected_tb = pa.Table.from_pydict({
         'k': [1, 2],
-        'v_avg': [1.5, 3.5]
+        'v_avg': [2.5, 4.5]
     })
 
     assert res_tb == expected_tb

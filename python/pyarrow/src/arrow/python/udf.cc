@@ -393,7 +393,8 @@ Status RegisterAggregateFunction(PyObject* agg_function, UdfWrapperCallback agg_
   };
 
   RETURN_NOT_OK(
-      AddAggKernel(compute::KernelSignature::Make(input_types, output_type),
+      AddAggKernel(compute::KernelSignature::Make(
+        std::move(input_types), std::move(output_type), options.arity.is_varargs),
                    init, aggregate_func.get()));
 
   RETURN_NOT_OK(registry->AddFunction(std::move(aggregate_func)));
