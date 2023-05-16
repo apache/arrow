@@ -1894,7 +1894,6 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
     ASSERT_EQ(values->length(), result->length());
     ASSERT_OK(result->ValidateFull());
 
-    auto upcast_result = CastBinaryTypesHelper(result, values->type());
     ::arrow::AssertArraysEqual(*values, *result);
   };
 
@@ -1987,8 +1986,8 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() override {
-    auto encoder =
-        MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY, /*xxx=*/ false, descr_.get());
+    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY,
+                                          /*use_dictionary=*/false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BYTE_ARRAY, descr_.get());
 
     encoder->Put(draws_, num_values_);
@@ -2003,8 +2002,8 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits,
                             int64_t valid_bits_offset) override {
-    auto encoder =
-        MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY, false, descr_.get());
+    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY,
+                                          /*use_dictionary=*/false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BYTE_ARRAY, descr_.get());
     int null_count = 0;
     for (auto i = 0; i < num_values_; i++) {
@@ -2075,7 +2074,6 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
     ASSERT_EQ(values->length(), result->length());
     ASSERT_OK(result->ValidateFull());
 
-    auto upcast_result = CastBinaryTypesHelper(result, values->type());
     ::arrow::AssertArraysEqual(*values, *result);
   };
 
@@ -2132,33 +2130,11 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowBinaryDirectPutFixedLength) {
 
 TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
   auto CheckEncode = [](std::shared_ptr<::arrow::Array> values,
-                        std::shared_ptr<::arrow::Array> prefix_lengths,
-                        std::shared_ptr<::arrow::Array> suffix_lengths,
-                        std::string_view value) {
+                        std::shared_ptr<Buffer> encoded) {
     auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
     ASSERT_NO_THROW(encoder->Put(*values));
     auto buf = encoder->FlushValues();
-
-    auto prefix_lengths_encoder =
-        MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
-    ASSERT_NO_THROW(prefix_lengths_encoder->Put(*prefix_lengths));
-    auto prefix_lengths_buf = prefix_lengths_encoder->FlushValues();
-
-    auto encoded_prefix_lengths_buf = SliceBuffer(buf, 0, prefix_lengths_buf->size());
-
-    auto suffix_lengths_encoder =
-        MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
-    ASSERT_NO_THROW(suffix_lengths_encoder->Put(*suffix_lengths));
-    auto suffix_lengths_buf = suffix_lengths_encoder->FlushValues();
-    auto encoded_values_buf =
-        SliceBuffer(buf, prefix_lengths_buf->size() + suffix_lengths_buf->size());
-
-    auto encoded_prefix_length_buf = SliceBuffer(buf, 0, prefix_lengths_buf->size());
-    EXPECT_TRUE(prefix_lengths_buf->Equals(*encoded_prefix_length_buf));
-    auto encoded_suffix_length_buf =
-        SliceBuffer(buf, prefix_lengths_buf->size(), suffix_lengths_buf->size());
-    EXPECT_TRUE(suffix_lengths_buf->Equals(*encoded_suffix_length_buf));
-    EXPECT_EQ(value, encoded_values_buf->ToString());
+    ASSERT_TRUE(encoded->Equals(*buf));
   };
 
   auto arrayToI32 = [](const std::shared_ptr<::arrow::Array>& lengths) {
@@ -2201,19 +2177,15 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
                                std::shared_ptr<::arrow::Array> prefix_lengths,
                                std::shared_ptr<::arrow::Array> suffix_lengths,
                                std::string_view suffix_data) {
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), prefix_lengths,
-                suffix_lengths, suffix_data);
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), prefix_lengths,
-                suffix_lengths, suffix_data);
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), prefix_lengths,
-                suffix_lengths, suffix_data);
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), prefix_lengths,
-                suffix_lengths, suffix_data);
-
     auto encoded = ::arrow::ConcatenateBuffers({DeltaEncode(arrayToI32(prefix_lengths)),
                                                 DeltaEncode(arrayToI32(suffix_lengths)),
                                                 std::make_shared<Buffer>(suffix_data)})
                        .ValueOrDie();
+
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), encoded);
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), encoded);
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), encoded);
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), encoded);
 
     CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
     CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));

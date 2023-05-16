@@ -3125,11 +3125,6 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   const ByteArray kEmpty;
 };
 
-template <typename DType>
-void DeltaByteArrayEncoder<DType>::Put(const T* src, int num_values) {
-  throw ParquetException("Put not implemented for " + this->descr_->ToString());
-}
-
 template <>
 void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_values) {
   if (num_values == 0) {
@@ -3145,9 +3140,8 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
     if (ARROW_PREDICT_FALSE(value.len >= static_cast<int32_t>(kMaxByteArraySize))) {
       throw ParquetException("Parquet cannot store strings with size 2GB or more");
     }
+    auto view = std::string_view{value};
 
-    auto view = string_view{reinterpret_cast<const char*>(value.ptr),
-                            static_cast<uint32_t>(value.len)};
     uint32_t j = 0;
     const uint32_t common_length =
         std::min(value.len, static_cast<uint32_t>(last_value_view.length()));
@@ -3163,7 +3157,7 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
     const auto suffix_length = static_cast<uint32_t>(value.len - j);
 
     if (suffix_length == 0) {
-      suffix_encoder_.Put(&kEmpty, 1);
+      // suffix_encoder_.Put(&kEmpty, 1);
       continue;
     }
     const uint8_t* suffix_ptr = value.ptr + j;
@@ -3207,7 +3201,7 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
     const auto suffix_length = static_cast<uint32_t>(len - j);
 
     if (suffix_length == 0) {
-      suffix_encoder_.Put(&kEmpty, 1);
+      // suffix_encoder_.Put(&kEmpty, 1);
       continue;
     }
     const uint8_t* suffix_ptr = src[i].ptr + j;
@@ -3352,7 +3346,7 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
       buffer[i].ptr = data_ptr;
       buffer[i].len += prefix_len_ptr[i];
       data_ptr += buffer[i].len;
-      prefix = string_view{reinterpret_cast<const char*>(buffer[i].ptr), buffer[i].len};
+      prefix = std::string_view{buffer[i]};
     }
     prefix_len_offset_ += max_values;
     this->num_values_ -= max_values;
@@ -3432,9 +3426,6 @@ class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoderImpl<FLBAType>,
   using Base::DeltaByteArrayDecoderImpl;
   using Base::pool_;
 
-  int Decode(ByteArray* buffer, int max_values) {
-    return GetInternal(buffer, max_values);
-  }
   int Decode(FixedLenByteArray* buffer, int max_values) override {
     int decoded_values_size = max_values;
     if (MultiplyWithOverflow(decoded_values_size,
