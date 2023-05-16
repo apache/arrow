@@ -66,6 +66,13 @@ struct REERep {
         run_ends_json(std::move(run_ends_json)),
         values_json(std::move(values_json)) {}
 
+  /// \brief Construct a REE of nulls
+  REERep(int64_t logical_length)  // NOLINT runtime/explicit
+      : REERep(logical_length,
+               logical_length > 0 ? "[" + std::to_string(logical_length) + "]" : "[]",
+               logical_length > 0 ? "[null]" : "[]") {}
+
+  /// \brief Construct an empty REE
   REERep() : REERep(0, "[]", "[]") {}
 
   static REERep None() { return REERep{0, "", ""}; }
@@ -109,74 +116,6 @@ Result<std::shared_ptr<Array>> FilterFromJson(
   }
 }
 
-void DoAssertFilterOutputSize(const std::shared_ptr<Array>& values,
-                              const std::shared_ptr<Array>& filter,
-                              const FilterOptions& null_options,
-                              int64_t expected_logical_output_size,
-                              int64_t expected_physical_output_size) {
-  auto values_span = ArraySpan(*values->data());
-  auto filter_span = ArraySpan(*filter->data());
-  auto filter_exec = MakeREEFilterExec(values_span, filter_span, null_options);
-
-  EXPECT_OK_AND_ASSIGN(auto calculated_output_size, filter_exec->CalculateOutputSize());
-  if (values_span.type->id() == Type::RUN_END_ENCODED) {
-    ASSERT_EQ(calculated_output_size, expected_physical_output_size);
-  } else {
-    ASSERT_EQ(calculated_output_size, expected_logical_output_size);
-  }
-
-  auto output = ArrayData::Make(values->type(), 0, {nullptr});
-  ASSERT_OK(filter_exec->Exec(output.get()));
-  if (output->type->id() == Type::RUN_END_ENCODED) {
-    ASSERT_EQ(ree_util::ValuesArray(ArraySpan(*output)).length,
-              expected_physical_output_size);
-  }
-  ASSERT_EQ(output->length, expected_logical_output_size);
-}
-
-void DoAssertFilterSlicedOutputSize(const std::shared_ptr<Array>& values,
-                                    const std::shared_ptr<Array>& filter,
-                                    const FilterOptions& null_options,
-                                    int64_t expected_logical_output_size,
-                                    int64_t expected_physical_output_size) {
-  constexpr auto M = 3;
-  constexpr auto N = 2;
-  // Check slicing: add M dummy values at the start and end of `values`,
-  // add N dummy values at the start and end of `filter`.
-  ARROW_SCOPED_TRACE("for sliced values and filter");
-  ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(values->type(), M));
-  ASSERT_OK_AND_ASSIGN(auto filter_filler,
-                       FilterFromJson(filter->type(), "[true, false]"));
-  ASSERT_OK_AND_ASSIGN(auto values_with_filler,
-                       Concatenate({values_filler, values, values_filler}));
-  ASSERT_OK_AND_ASSIGN(auto filter_with_filler,
-                       Concatenate({filter_filler, filter, filter_filler}));
-  auto values_sliced = values_with_filler->Slice(M, values->length());
-  auto filter_sliced = filter_with_filler->Slice(N, filter->length());
-  DoAssertFilterOutputSize(values_sliced, filter_sliced, null_options,
-                           expected_logical_output_size, expected_physical_output_size);
-}
-
-void DoAssertOutputSize(const std::shared_ptr<Array>& values,
-                        const std::shared_ptr<Array>& filter,
-                        const FilterOptions& null_options,
-                        int64_t expected_logical_output_size,
-                        int64_t expected_physical_output_size = -1) {
-  ARROW_SCOPED_TRACE("assert output size");
-  ARROW_SCOPED_TRACE(null_options.null_selection_behavior ==
-                             FilterOptions::NullSelectionBehavior::DROP
-                         ? "while dropping nulls"
-                         : "while emitting nulls");
-  {
-    ARROW_SCOPED_TRACE("for full values and filter");
-    DoAssertFilterOutputSize(values, filter, null_options, expected_logical_output_size,
-                             expected_physical_output_size);
-  }
-  DoAssertFilterSlicedOutputSize(values, filter, null_options,
-                                 expected_logical_output_size,
-                                 expected_physical_output_size);
-}
-
 void DoAssertFilterOutput(const std::shared_ptr<Array>& values,
                           const std::shared_ptr<Array>& filter,
                           const FilterOptions& null_options,
@@ -185,10 +124,23 @@ void DoAssertFilterOutput(const std::shared_ptr<Array>& values,
   auto filter_span = ArraySpan(*filter->data());
   auto filter_exec = MakeREEFilterExec(values_span, filter_span, null_options);
 
+  EXPECT_OK_AND_ASSIGN(auto calculated_output_size, filter_exec->CalculateOutputSize());
+  if (values_span.type->id() == Type::RUN_END_ENCODED) {
+    ASSERT_EQ(calculated_output_size, ree_util::ValuesArray(*expected->data()).length);
+  } else {
+    ASSERT_EQ(calculated_output_size, expected->length());
+  }
+
   auto output = ArrayData::Make(values->type(), 0, {nullptr});
   ASSERT_OK(filter_exec->Exec(output.get()));
   auto output_array = MakeArray(output);
   ASSERT_ARRAYS_EQUAL(*output_array, *expected);
+
+  if (output->type->id() == Type::RUN_END_ENCODED) {
+    ASSERT_EQ(ree_util::ValuesArray(*output).length,
+              ree_util::ValuesArray(*expected->data()).length);
+  }
+  ASSERT_EQ(output->length, expected->length());
 }
 
 void DoAssertFilterSlicedOutput(const std::shared_ptr<Array>& values,
@@ -248,24 +200,6 @@ struct REExREEFilterTest : public ::testing::Test {
     _filter_type = run_end_encoded(_filter_run_end_type, boolean());
   }
 
-  void AssertOutputSize(const std::shared_ptr<DataType>& value_type,
-                        const std::string& values_json, const std::string& filter_json,
-                        std::pair<int64_t, int64_t> expected_output_size_drop_nulls,
-                        std::pair<int64_t, int64_t> expected_output_size_emit_nulls = {
-                            -1, -1}) {
-    ASSERT_OK_AND_ASSIGN(
-        auto values,
-        REEFromJson(run_end_encoded(_value_run_end_type, value_type), values_json));
-    ASSERT_OK_AND_ASSIGN(auto filter, REEFromJson(_filter_type, filter_json));
-    DoAssertOutputSize(values, filter, kDropNulls, expected_output_size_drop_nulls.first,
-                       expected_output_size_drop_nulls.second);
-    if (expected_output_size_emit_nulls == std::pair<int64_t, int64_t>{-1, -1}) {
-      expected_output_size_emit_nulls = expected_output_size_drop_nulls;
-    }
-    DoAssertOutputSize(values, filter, kEmitNulls, expected_output_size_emit_nulls.first,
-                       expected_output_size_emit_nulls.second);
-  }
-
   void AssertOutput(const std::shared_ptr<DataType>& value_type,
                     const std::string& values_json, const std::string& filter_json,
                     const REERep& expected_with_drop_nulls,
@@ -315,86 +249,65 @@ const std::vector<std::shared_ptr<DataType>> all_types = {
     large_binary(),
 };
 
-TYPED_TEST_P(REExREEFilterTest, SizeOutputWithNulls) {
+TYPED_TEST_P(REExREEFilterTest, AllNullsOutputForEveryTypeInput) {
   const std::string one_null = "[null]";
   const std::string four_nulls = "[null, null, null, null]";
   for (auto& data_type : all_types) {
     // Since all values are null, the physical output size is always 0 or 1 as
     // the filtering process combines all the equal values into a single run.
 
-    this->AssertOutputSize(data_type, "[]", "[]", {0, 0});
-    this->AssertOutputSize(data_type, one_null, "[1]", {1, 1});
-    this->AssertOutputSize(data_type, one_null, "[0]", {0, 0});
-    this->AssertOutputSize(data_type, one_null, "[null]", {0, 0}, {1, 1});
+    this->AssertOutput(data_type, "[]", "[]", {0});
+    this->AssertOutput(data_type, one_null, "[1]", {1});
+    this->AssertOutput(data_type, one_null, "[0]", {0});
+    this->AssertOutput(data_type, one_null, "[null]", {0}, {1});
 
-    this->AssertOutputSize(data_type, four_nulls, "[0, 1, 1, 0]", {2, 1});
-    this->AssertOutputSize(data_type, four_nulls, "[1, 1, 0, 1]", {3, 1});
+    this->AssertOutput(data_type, four_nulls, "[0, 1, 1, 0]", {2});
+    this->AssertOutput(data_type, four_nulls, "[1, 1, 0, 1]", {3});
 
-    this->AssertOutputSize(data_type, four_nulls, "[null, 0, 1, 0]", {1, 1}, {2, 1});
-    this->AssertOutputSize(data_type, four_nulls, "[1, 1, 0, null]", {2, 1}, {3, 1});
+    this->AssertOutput(data_type, four_nulls, "[null, 0, 1, 0]", {1}, {2});
+    this->AssertOutput(data_type, four_nulls, "[1, 1, 0, null]", {2}, {3});
 
-    this->AssertOutputSize(data_type, four_nulls, "[0, 0, 1, null]", {1, 1}, {2, 1});
-    this->AssertOutputSize(data_type, four_nulls, "[null, 1, 0, 1]", {2, 1}, {3, 1});
-    this->AssertOutputSize(data_type, four_nulls, "[null, 1, null, 1]", {2, 1}, {4, 1});
+    this->AssertOutput(data_type, four_nulls, "[0, 0, 1, null]", {1}, {2});
+    this->AssertOutput(data_type, four_nulls, "[null, 1, 0, 1]", {2}, {3});
+    this->AssertOutput(data_type, four_nulls, "[null, 1, null, 1]", {2}, {4});
 
-    this->AssertOutputSize(data_type,
-                           "[null, null, null, null, null, null, null, null, null, null]",
-                           "[null, 1, 0, 1, null, 0, null, 1, 0, null]", {3, 1}, {7, 1});
+    this->AssertOutput(data_type,  // line break for alignment
+                       "[null, null, null, null, null, null, null, null, null, null]",
+                       "[null,    1,    0,    1, null,    0, null,    1,    0, null]",
+                       {3}, {7});
   }
 }
 
-TYPED_TEST_P(REExREEFilterTest, SizeOutputWithBooleans) {
-  auto data_type = boolean();
-  this->AssertOutputSize(data_type, "[false]", "[1]", {1, 1});
-  this->AssertOutputSize(data_type, "[false]", "[0]", {0, 0});
-  this->AssertOutputSize(data_type, "[true]", "[1]", {1, 1});
-  this->AssertOutputSize(data_type, "[true]", "[0]", {0, 0});
-  this->AssertOutputSize(data_type, "[false]", "[null]", {0, 0}, {1, 1});
-  this->AssertOutputSize(data_type, "[true]", "[null]", {0, 0}, {1, 1});
-
-  this->AssertOutputSize(data_type, "[true, false, true, false]", "[0, 1, 1, 0]", {2, 2});
-  this->AssertOutputSize(data_type, "[false, true, false, true]", "[1, 1, 0, 1]", {3, 2});
-
-  this->AssertOutputSize(data_type, "[true, true, true, false]", "[null, 0, 1, 0]",
-                         {1, 1}, {2, 2});
-  this->AssertOutputSize(data_type, "[false, true, true, true]", "[1, 1, 0, null]",
-                         {2, 2}, {3, 3});
-
-  this->AssertOutputSize(data_type,  // linebreak for alignment
-                         "[   1, 0,    0, 1, 1,    1, null, 1, 0, 1, 0]",
-                         "[null, 0, null, 1, 0, null,    1, 1, 1, 0, 1]", {5, 4}, {8, 5});
-}
-
-TYPED_TEST_P(REExREEFilterTest, FilteredOutputWithPrimitiveTypes) {
+TYPED_TEST_P(REExREEFilterTest, FilterPrimitiveTypeArrays) {
   for (auto& data_type : {int8(), uint64(), boolean()}) {
     this->AssertOutput(data_type, "[0]", "[1]", {1, "[1]", "[0]"});
     this->AssertOutput(data_type, "[0]", "[0]", {});
 
-    this->AssertOutput(data_type, "[1]", "[1]", {1, "[1]", "[1]"});
-    this->AssertOutput(data_type, "[1]", "[0]", {});
+    this->AssertOutput(data_type, "[127]", "[1]", {1, "[1]", "[127]"});
+    this->AssertOutput(data_type, "[127]", "[0]", {});
     this->AssertOutput(data_type, "[0]", "[null]", {}, {1, "[1]", "[null]"});
-    this->AssertOutput(data_type, "[1]", "[null]", {}, {1, "[1]", "[null]"});
+    this->AssertOutput(data_type, "[127]", "[null]", {}, {1, "[1]", "[null]"});
 
-    this->AssertOutput(data_type, "[1, 0, 1, 0]", "[0, 1, 1, 0]",
-                       {2, "[1, 2]", "[0, 1]"});
-    this->AssertOutput(data_type, "[0, 1, 0, 1]", "[1, 1, 0, 1]",
-                       {3, "[1, 4]", "[0, 1]"});
+    this->AssertOutput(data_type, "[127, 0, 20, 0]", "[0, 1, 1, 0]",
+                       {2, "[1, 2]", "[0, 20]"});
+    this->AssertOutput(data_type, "[0, 127, 0, 127]", "[1, 1, 0, 1]",
+                       {3, "[1, 4]", "[0, 127]"});
 
-    this->AssertOutput(data_type, "[1, 1, 1, 0]", "[null, 0, 1, 0]", {1, "[1]", "[1]"},
-                       {2, "[1, 2]", "[null, 1]"});
-    this->AssertOutput(data_type, "[0, 1, 1, 1]", "[1, 1, 0, null]",
-                       {2, "[1, 2]", "[0, 1]"}, {3, "[1, 2, 3]", "[0, 1, null]"});
+    this->AssertOutput(data_type, "[127, 127, 127, 0]", "[null, 0, 1, 0]",
+                       {1, "[1]", "[127]"}, {2, "[1, 2]", "[null, 127]"});
+    this->AssertOutput(data_type, "[0, 127, 127, 127]", "[1, 1, 0, null]",
+                       {2, "[1, 2]", "[0, 127]"}, {3, "[1, 2, 3]", "[0, 127, null]"});
 
-    this->AssertOutput(data_type,  // linebreak for alignment
-                       "[   1, 0,    0, 1, 1,    1, null, 1, 0, 1, 0]",
-                       "[null, 0, null, 1, 0, null,    1, 1, 1, 0, 1]",
-                       {5, "[1, 2, 3, 5]", "[1, null, 1, 0]"},
-                       {8, "[2, 3, 5, 6, 8]", "[null, 1, null, 1, 0]"});
+    this->AssertOutput(data_type,  // line break for alignment
+                       "[  10, 0,    0, 10, 10,   10, null, 10, 0, 10, 0]",
+                       "[null, 0, null,  1,  0, null,    1,  1, 1,  0, 1]",
+                       {5, "[1, 2, 3, 5]", "[10, null, 10, 0]"},
+                       {8, "[2, 3, 5, 6, 8]", "[null, 10, null, 10, 0]"});
   }
 }
 
-REGISTER_TYPED_TEST_SUITE_P(REExREEFilterTest, SizeOutputWithNulls,
-                            SizeOutputWithBooleans, FilteredOutputWithPrimitiveTypes);
+REGISTER_TYPED_TEST_SUITE_P(REExREEFilterTest, AllNullsOutputForEveryTypeInput,
+                            FilterPrimitiveTypeArrays);
 
 template <typename V, typename F>
 struct RunEndTypes {
