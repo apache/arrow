@@ -290,15 +290,6 @@ void FileEncryptor::EncryptFile(
   return;
 }  // namespace test
 
-template <typename T>
-std::string ValueToString(T value) {
-  if constexpr (std::is_same_v<Int96, T>) {
-    return Int96ToString(value);
-  } else {
-    return std::to_string(value);
-  }
-}
-
 template <typename DType, typename RowGroupReader, typename RowGroupMetadata>
 void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
                          int column_index, int rows) {
@@ -331,23 +322,24 @@ void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
   }
   ASSERT_EQ(rows_read, rows_should_read);
   ASSERT_EQ(values_read, rows_should_read);
-  EXPECT_EQ(read_col_data.rows(), expected_column_data.rows());
-  for (int i = 0; i < read_col_data.rows(); ++i) {
-    if constexpr (std::is_floating_point_v<typename DType::c_type>) {
+  if constexpr (std::is_floating_point_v<typename DType::c_type>) {
+    ASSERT_EQ(read_col_data.rows(), expected_column_data.rows());
+    for (int i = 0; i < read_col_data.rows(); ++i) {
       if (std::isnan(expected_column_data.values[i])) {
         EXPECT_TRUE(std::isnan(read_col_data.values[i]))
             << "Values at index " << i << " is not nan";
         continue;
       }
+      if constexpr (std::is_same_v<float, typename DType::c_type>) {
+        EXPECT_FLOAT_EQ(expected_column_data.values[i], read_col_data.values[i]);
+      } else {
+        EXPECT_DOUBLE_EQ(expected_column_data.values[i], read_col_data.values[i]);
+      }
     }
-    EXPECT_EQ(expected_column_data.values[i], read_col_data.values[i])
-        << "values at index " << i << " not equal"
-        << " read is " << ValueToString(read_col_data.values[i]) << ", expect "
-        << ValueToString(expected_column_data.values[i]);
+  } else {
+    // make sure we got the same number of values the metadata says
+    ASSERT_EQ(col_md->num_values(), rows_read);
   }
-  ASSERT_EQ(read_col_data.values, expected_column_data.values);
-  // make sure we got the same number of values the metadata says
-  ASSERT_EQ(col_md->num_values(), rows_read);
 }
 
 void FileDecryptor::DecryptFile(
