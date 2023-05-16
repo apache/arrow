@@ -28,6 +28,9 @@
 #include <unordered_set>
 
 #include "arrow/acero/options.h"
+#ifndef NDEBUG
+#include "arrow/acero/options_internal.h"
+#endif
 #include "arrow/acero/test_nodes.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"

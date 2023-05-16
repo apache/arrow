@@ -19,13 +19,7 @@
 
 #include <functional>
 #include <memory>
-#ifndef NDEBUG
-#include <mutex>
-#endif
 #include <optional>
-#ifndef NDEBUG
-#include <ostream>
-#endif
 #include <string>
 #include <vector>
 
@@ -59,12 +53,7 @@ class Executor;
 namespace acero {
 
 #ifndef NDEBUG
-struct DebugOptions {
-  DebugOptions(std::ostream* os, std::mutex* mutex) : os(os), mutex(mutex) {}
-
-  std::ostream* os;
-  std::mutex* mutex;
-};
+struct DebugOptions;
 #endif
 
 using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;

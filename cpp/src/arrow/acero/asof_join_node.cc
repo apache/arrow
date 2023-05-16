@@ -30,6 +30,9 @@
 
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
+#ifndef NDEBUG
+#include "arrow/acero/options_internal.h"
+#endif
 #include "arrow/acero/query_context.h"
 #include "arrow/acero/schema_util.h"
 #include "arrow/acero/util.h"
