@@ -102,6 +102,32 @@ The final output is located under the ``${PWD}/docs`` directory.
 
    :ref:`docker-builds`.
 
+Pull Request Docs Preview
+-------------------------
+
+You can use github-actions to build and host the documentation with crossbow within
+a pull request you are working on.
+
+To use github-actions add a comment ``@github-actions crossbow submit preview-docs``
+to the pull request. The rendered documentation will then be available within the
+github-actions response, where you need to click on the crossbow build badge:
+
+.. figure:: /developers/images/docs_preview_1.jpeg
+   :scale: 70 %
+   :alt: Github-actions response with the crossbow build status.
+
+   Crossbow build status
+
+and then in the summary of the workflow you can find the link to the Docs Preview
+summary at the bottom of the page:
+
+.. figure:: /developers/images/docs_preview_2.jpeg
+   :scale: 70 %
+   :alt: Crossbow workflow page with the Docs Preview summary section.
+
+   Docs Preview summary section
+
+
 Building a single directory for dev purposes without all the pre-requisites
 ---------------------------------------------------------------------------
 
