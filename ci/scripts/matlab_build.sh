@@ -25,7 +25,7 @@ source_dir=${base_dir}/matlab
 build_dir=${base_dir}/matlab/build
 install_dir=${base_dir}/matlab/install
 
-if [[ "$OSTYPE" == "win32" ]]; then
+if [[ "$OSTYPE" == "msys*" ]]; then
   cmake \
     -S ${source_dir} \
     -B ${build_dir} \
