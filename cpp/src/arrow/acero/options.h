@@ -19,13 +19,16 @@
 
 #include <functional>
 #include <memory>
+#ifndef NDEBUG
+#include <mutex>
+#endif
 #include <optional>
+#ifndef NDEBUG
+#include <ostream>
+#endif
 #include <string>
 #include <vector>
 
-#ifndef NDEBUG
-#include "arrow/acero/options_internal.h"
-#endif
 #include "arrow/acero/type_fwd.h"
 #include "arrow/acero/visibility.h"
 #include "arrow/compute/api_aggregate.h"
@@ -54,6 +57,15 @@ class Executor;
 }  // namespace internal
 
 namespace acero {
+
+#ifndef NDEBUG
+struct DebugOptions {
+  DebugOptions(std::ostream* os, std::mutex* mutex) : os(os), mutex(mutex) {}
+
+  std::ostream* os;
+  std::mutex* mutex;
+};
+#endif
 
 using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
 
