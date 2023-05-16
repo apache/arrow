@@ -322,14 +322,11 @@ void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
   }
   ASSERT_EQ(rows_read, rows_should_read);
   ASSERT_EQ(values_read, rows_should_read);
+  // make sure we got the same number of values the metadata says
+  ASSERT_EQ(col_md->num_values(), rows_read);
   if constexpr (std::is_floating_point_v<typename DType::c_type>) {
     ASSERT_EQ(read_col_data.rows(), expected_column_data.rows());
     for (int i = 0; i < read_col_data.rows(); ++i) {
-      if (std::isnan(expected_column_data.values[i])) {
-        EXPECT_TRUE(std::isnan(read_col_data.values[i]))
-            << "Values at index " << i << " is not nan";
-        continue;
-      }
       if constexpr (std::is_same_v<float, typename DType::c_type>) {
         EXPECT_FLOAT_EQ(expected_column_data.values[i], read_col_data.values[i]);
       } else {
@@ -337,8 +334,7 @@ void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
       }
     }
   } else {
-    // make sure we got the same number of values the metadata says
-    ASSERT_EQ(col_md->num_values(), rows_read);
+    ASSERT_EQ(expected_column_data.values, read_col_data.values);
   }
 }
 
