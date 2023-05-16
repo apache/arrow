@@ -43,17 +43,36 @@ class SortBasicExternalImpl : public OrderByExternalImpl {
   SortBasicExternalImpl(ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
                         const SortOptions& options = SortOptions{},int64_t buffer_size, std::string external_storage_path)
       : ctx_(ctx), output_schema_(output_schema), options_(options), 
-      buffer_size_(buffer_size), external_storage_path_(external_storage_path) {}
+      buffer_size_(buffer_size), external_storage_path_(external_storage_path), batches_size_(0) {}
 
-  void InputReceived(const std::shared_ptr<RecordBatch>& batch) override {
+  Status InputReceived(const std::shared_ptr<RecordBatch>& batch) override {
     std::unique_lock<std::mutex> lock(mutex_);
     batches_.push_back(batch);
+
+    int64_t batch_size = 0;
+    for (auto column : batch->columns()) {
+      for (auto buffer : column->data()->buffers) {
+        batch_size += buffer->size();
+      }
+    }
+    batches_size_ += batch_size;
+
+    if (batches_size_ >= buffer_size_) {
+      batches_size_ = 0;
+      ARROW_ASSIGN_OR_RAISE(auto table,
+                          Table::FromRecordBatches(output_schema_, std::move(batches_)));           
+      ARROW_ASSIGN_OR_RAISE(auto indices, SortIndices(table, options_, ctx_));
+      Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_);
+    }
+
+    return Status::OK();
   }
 
   Result<Datum> DoFinish() override {
     std::unique_lock<std::mutex> lock(mutex_);
     ARROW_ASSIGN_OR_RAISE(auto table,
                           Table::FromRecordBatches(output_schema_, std::move(batches_)));
+                          
     ARROW_ASSIGN_OR_RAISE(auto indices, SortIndices(table, options_, ctx_));
     return Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_);
   }
@@ -66,6 +85,7 @@ class SortBasicExternalImpl : public OrderByExternalImpl {
   std::shared_ptr<Schema> output_schema_;
   std::mutex mutex_;
   std::vector<std::shared_ptr<RecordBatch>> batches_;
+  int64_t batches_size_;
 
  private:
   const SortOptions options_;

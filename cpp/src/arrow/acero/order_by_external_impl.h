@@ -38,7 +38,7 @@ class OrderByExternalImpl {
  public:
   virtual ~OrderByExternalImpl() = default;
 
-  virtual void InputReceived(const std::shared_ptr<RecordBatch>& batch) = 0;
+  virtual Status InputReceived(const std::shared_ptr<RecordBatch>& batch) = 0;
 
   virtual Result<Datum> DoFinish() = 0;
 
