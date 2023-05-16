@@ -371,7 +371,7 @@ struct FieldPathTestCase {
         : path(FieldPath(std::move(indices))) {}
 
     template <typename T>
-    const auto& Get() const {
+    const auto& OutputAs() const {
       if constexpr (std::is_same_v<T, Field>) {
         return field;
       } else if constexpr (std::is_same_v<T, Array>) {
@@ -402,7 +402,7 @@ struct FieldPathTestCase {
   std::shared_ptr<Table> table;
 
   template <typename T>
-  const auto& GetInput() const {
+  const auto& InputAs() const {
     if constexpr (std::is_same_v<T, Schema>) {
       return schema;
     } else if constexpr (std::is_same_v<T, DataType>) {
@@ -549,15 +549,6 @@ class FieldPathTestFixture : public ::testing::Test {
   template <typename T>
   using OutputType = typename FieldRef::GetType<T>::element_type;
 
-  template <bool Flattened, typename T>
-  static auto DoGet(const T& root, const FieldPath& path, MemoryPool* pool = nullptr) {
-    if constexpr (Flattened) {
-      return path.GetFlattened(root, pool);
-    } else {
-      return path.Get(root);
-    }
-  }
-
   template <typename I>
   void AssertOutputsEqual(const std::shared_ptr<Field>& expected,
                           const std::shared_ptr<Field>& actual) const {
@@ -589,9 +580,18 @@ class FieldPathTestFixture : public ::testing::Test {
 
 class TestFieldPath : public FieldPathTestFixture {
  protected:
+  template <bool Flattened, typename T>
+  static auto DoGet(const T& root, const FieldPath& path, MemoryPool* pool = nullptr) {
+    if constexpr (Flattened) {
+      return path.GetFlattened(root, pool);
+    } else {
+      return path.Get(root);
+    }
+  }
+
   template <typename I, bool Flattened = false>
   void TestGetWithInvalidIndex() const {
-    const auto& input = case_->GetInput<I>();
+    const auto& input = case_->InputAs<I>();
     for (const auto& path :
          {FieldPath({2, 1, 0}), FieldPath({1, 2, 0}), FieldPath{1, 1, 2}}) {
       EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError,
@@ -603,9 +603,10 @@ class TestFieldPath : public FieldPathTestFixture {
         DoGet<Flattened>(*input, FieldPath()));
   }
 
-  template <typename I, typename O = OutputType<I>>
+  template <typename I, bool Flattened = false>
   void TestIndexErrorMessage() const {
-    auto result = FieldPath({1, 1, 2}).Get(*case_->GetInput<I>());
+    using O = OutputType<I>;
+    auto result = DoGet<Flattened>(*case_->InputAs<I>(), FieldPath({1, 1, 2}));
     std::string substr = "index out of range. indices=[ 1 1 >2< ] ";
     if constexpr (std::is_same_v<O, Field>) {
       substr += "fields: { a: float, a: bool, }";
@@ -619,43 +620,33 @@ class TestFieldPath : public FieldPathTestFixture {
   void TestGetWithNonStructArray() const {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         NotImplemented, ::testing::HasSubstr("Get child data of non-struct array"),
-        DoGet<Flattened>(*case_->v1_1_0.Get<I>(), FieldPath({1, 1, 0})));
+        DoGet<Flattened>(*case_->v1_1_0.OutputAs<I>(), FieldPath({1, 1, 0})));
   }
 
-  template <typename I, typename O = OutputType<I>>
+  template <typename I, bool Flattened = false>
   void TestGet() const {
-    const auto& input = case_->GetInput<I>();
-    ASSERT_OK_AND_ASSIGN(auto v0, FieldPath({0}).Get(*input));
-    ASSERT_OK_AND_ASSIGN(auto v1, FieldPath({1}).Get(*input));
-    ASSERT_OK_AND_ASSIGN(auto v1_0, FieldPath({1, 0}).Get(*input));
-    ASSERT_OK_AND_ASSIGN(auto v1_1, FieldPath({1, 1}).Get(*input));
-    ASSERT_OK_AND_ASSIGN(auto v1_1_0, FieldPath({1, 1, 0}).Get(*input));
-    ASSERT_OK_AND_ASSIGN(auto v1_1_1, FieldPath({1, 1, 1}).Get(*input));
+    using O = OutputType<I>;
+    const auto& input = case_->InputAs<I>();
+    ASSERT_OK_AND_ASSIGN(auto v0, DoGet<Flattened>(*input, FieldPath({0})));
+    ASSERT_OK_AND_ASSIGN(auto v1, DoGet<Flattened>(*input, FieldPath({1})));
+    ASSERT_OK_AND_ASSIGN(auto v1_0, DoGet<Flattened>(*input, FieldPath({1, 0})));
+    ASSERT_OK_AND_ASSIGN(auto v1_1, DoGet<Flattened>(*input, FieldPath({1, 1})));
+    ASSERT_OK_AND_ASSIGN(auto v1_1_0, DoGet<Flattened>(*input, FieldPath({1, 1, 0})));
+    ASSERT_OK_AND_ASSIGN(auto v1_1_1, DoGet<Flattened>(*input, FieldPath({1, 1, 1})));
 
-    AssertOutputsEqual<I>(case_->v0.Get<O>(), v0);
-    AssertOutputsEqual<I>(case_->v1.Get<O>(), v1);
-    AssertOutputsEqual<I>(case_->v1_0.Get<O>(), v1_0);
-    AssertOutputsEqual<I>(case_->v1_1.Get<O>(), v1_1);
-    AssertOutputsEqual<I>(case_->v1_1_0.Get<O>(), v1_1_0);
-    AssertOutputsEqual<I>(case_->v1_1_1.Get<O>(), v1_1_1);
-  }
-
-  template <typename I, typename O = OutputType<I>>
-  void TestGetFlattened() const {
-    const auto& input = case_->GetInput<I>();
-    ASSERT_OK_AND_ASSIGN(auto v0, FieldPath({0}).GetFlattened(*input));
-    ASSERT_OK_AND_ASSIGN(auto v1, FieldPath({1}).GetFlattened(*input));
-    ASSERT_OK_AND_ASSIGN(auto v1_0, FieldPath({1, 0}).GetFlattened(*input));
-    ASSERT_OK_AND_ASSIGN(auto v1_1, FieldPath({1, 1}).GetFlattened(*input));
-    ASSERT_OK_AND_ASSIGN(auto v1_1_0, FieldPath({1, 1, 0}).GetFlattened(*input));
-    ASSERT_OK_AND_ASSIGN(auto v1_1_1, FieldPath({1, 1, 1}).GetFlattened(*input));
-
-    AssertOutputsEqual<I>(case_->v0.Get<O>(), v0);
-    AssertOutputsEqual<I>(case_->v1.Get<O>(), v1);
-    AssertOutputsEqual<I>(case_->v1_0_flat.Get<O>(), v1_0);
-    AssertOutputsEqual<I>(case_->v1_1_flat.Get<O>(), v1_1);
-    AssertOutputsEqual<I>(case_->v1_1_0_flat.Get<O>(), v1_1_0);
-    AssertOutputsEqual<I>(case_->v1_1_1_flat.Get<O>(), v1_1_1);
+    AssertOutputsEqual<I>(case_->v0.OutputAs<O>(), v0);
+    AssertOutputsEqual<I>(case_->v1.OutputAs<O>(), v1);
+    if constexpr (Flattened) {
+      AssertOutputsEqual<I>(case_->v1_0_flat.OutputAs<O>(), v1_0);
+      AssertOutputsEqual<I>(case_->v1_1_flat.OutputAs<O>(), v1_1);
+      AssertOutputsEqual<I>(case_->v1_1_0_flat.OutputAs<O>(), v1_1_0);
+      AssertOutputsEqual<I>(case_->v1_1_1_flat.OutputAs<O>(), v1_1_1);
+    } else {
+      AssertOutputsEqual<I>(case_->v1_0.OutputAs<O>(), v1_0);
+      AssertOutputsEqual<I>(case_->v1_1.OutputAs<O>(), v1_1);
+      AssertOutputsEqual<I>(case_->v1_1_0.OutputAs<O>(), v1_1_0);
+      AssertOutputsEqual<I>(case_->v1_1_1.OutputAs<O>(), v1_1_1);
+    }
   }
 };
 
@@ -694,19 +685,6 @@ TEST_F(TestFieldPath, GetWithNonStructArray) {
   TestGetWithNonStructArray<ArrayData, true>();
   TestGetWithNonStructArray<ChunkedArray, true>();
 }
-
-TEST_F(TestFieldPath, GetFromSchema) { TestGet<Schema>(); }
-TEST_F(TestFieldPath, GetFromDataType) { TestGet<DataType>(); }
-
-TEST_F(TestFieldPath, GetFromArray) { TestGet<Array>(); }
-TEST_F(TestFieldPath, GetFromChunkedArray) { TestGet<ChunkedArray>(); }
-TEST_F(TestFieldPath, GetFromRecordBatch) { TestGet<RecordBatch>(); }
-TEST_F(TestFieldPath, GetFromTable) { TestGet<Table>(); }
-
-TEST_F(TestFieldPath, GetFlattenedFromArray) { TestGetFlattened<Array>(); }
-TEST_F(TestFieldPath, GetFlattenedFromChunkedArray) { TestGetFlattened<ChunkedArray>(); }
-TEST_F(TestFieldPath, GetFlattenedFromRecordBatch) { TestGetFlattened<RecordBatch>(); }
-TEST_F(TestFieldPath, GetFlattenedFromTable) { TestGetFlattened<Table>(); }
 
 TEST_F(TestFieldPath, Basics) {
   auto f0 = field("alpha", int32());
@@ -750,6 +728,19 @@ TEST_F(TestFieldPath, GetFromEmptyChunked) {
   ASSERT_EQ(child->length(), 0);
 }
 
+TEST_F(TestFieldPath, GetFromSchema) { TestGet<Schema>(); }
+TEST_F(TestFieldPath, GetFromDataType) { TestGet<DataType>(); }
+
+TEST_F(TestFieldPath, GetFromArray) { TestGet<Array>(); }
+TEST_F(TestFieldPath, GetFromChunkedArray) { TestGet<ChunkedArray>(); }
+TEST_F(TestFieldPath, GetFromRecordBatch) { TestGet<RecordBatch>(); }
+TEST_F(TestFieldPath, GetFromTable) { TestGet<Table>(); }
+
+TEST_F(TestFieldPath, GetFlattenedFromArray) { TestGet<Array, true>(); }
+TEST_F(TestFieldPath, GetFlattenedFromChunkedArray) { TestGet<ChunkedArray, true>(); }
+TEST_F(TestFieldPath, GetFlattenedFromRecordBatch) { TestGet<RecordBatch, true>(); }
+TEST_F(TestFieldPath, GetFlattenedFromTable) { TestGet<Table, true>(); }
+
 class TestFieldRef : public FieldPathTestFixture {
  protected:
   template <bool Flattened, typename T>
@@ -781,7 +772,7 @@ class TestFieldRef : public FieldPathTestFixture {
   template <typename I, bool Flattened = false>
   void TestGet() const {
     using O = OutputType<I>;
-    const auto& input = case_->GetInput<I>();
+    const auto& input = case_->InputAs<I>();
     ASSERT_OK_AND_ASSIGN(auto v0, DoGetOne<Flattened>(*input, FieldRef("a")));
     ASSERT_OK_AND_ASSIGN(auto v1, DoGetOne<Flattened>(*input, FieldRef("b")));
     ASSERT_OK_AND_ASSIGN(auto v1_0, DoGetOne<Flattened>(*input, FieldRef("b", "a")));
@@ -789,18 +780,18 @@ class TestFieldRef : public FieldPathTestFixture {
     ASSERT_OK_AND_ASSIGN(auto v1_1_0, DoGetOne<Flattened>(*input, FieldRef("b", "b", 0)));
     ASSERT_OK_AND_ASSIGN(auto v1_1_1, DoGetOne<Flattened>(*input, FieldRef("b", "b", 1)));
 
-    AssertOutputsEqual<I>(case_->v0.Get<O>(), v0);
-    AssertOutputsEqual<I>(case_->v1.Get<O>(), v1);
+    AssertOutputsEqual<I>(case_->v0.OutputAs<O>(), v0);
+    AssertOutputsEqual<I>(case_->v1.OutputAs<O>(), v1);
     if constexpr (Flattened) {
-      AssertOutputsEqual<I>(case_->v1_0_flat.Get<O>(), v1_0);
-      AssertOutputsEqual<I>(case_->v1_1_flat.Get<O>(), v1_1);
-      AssertOutputsEqual<I>(case_->v1_1_0_flat.Get<O>(), v1_1_0);
-      AssertOutputsEqual<I>(case_->v1_1_1_flat.Get<O>(), v1_1_1);
+      AssertOutputsEqual<I>(case_->v1_0_flat.OutputAs<O>(), v1_0);
+      AssertOutputsEqual<I>(case_->v1_1_flat.OutputAs<O>(), v1_1);
+      AssertOutputsEqual<I>(case_->v1_1_0_flat.OutputAs<O>(), v1_1_0);
+      AssertOutputsEqual<I>(case_->v1_1_1_flat.OutputAs<O>(), v1_1_1);
     } else {
-      AssertOutputsEqual<I>(case_->v1_0.Get<O>(), v1_0);
-      AssertOutputsEqual<I>(case_->v1_1.Get<O>(), v1_1);
-      AssertOutputsEqual<I>(case_->v1_1_0.Get<O>(), v1_1_0);
-      AssertOutputsEqual<I>(case_->v1_1_1.Get<O>(), v1_1_1);
+      AssertOutputsEqual<I>(case_->v1_0.OutputAs<O>(), v1_0);
+      AssertOutputsEqual<I>(case_->v1_1.OutputAs<O>(), v1_1);
+      AssertOutputsEqual<I>(case_->v1_1_0.OutputAs<O>(), v1_1_0);
+      AssertOutputsEqual<I>(case_->v1_1_1.OutputAs<O>(), v1_1_1);
     }
 
     // Cases where multiple matches are found
