@@ -1988,7 +1988,7 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
 
   void CheckRoundtrip() override {
     auto encoder =
-        MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY, false, descr_.get());
+        MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY, /*xxx=*/ false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BYTE_ARRAY, descr_.get());
 
     encoder->Put(draws_, num_values_);
@@ -2028,7 +2028,7 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 };
 
-typedef ::testing::Types<ByteArrayType, FLBAType> TestDeltaByteArrayEncodingTypes;
+using TestDeltaByteArrayEncodingTypes = ::testing::Types<ByteArrayType, FLBAType>;
 TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
