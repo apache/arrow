@@ -447,12 +447,15 @@ struct FieldPathTestCase {
     random::RandomArrayGenerator gen(kRandomSeed);
 
     // Define child fields and input schema
-    out.v1_1_1.field = field("b", boolean());
-    out.v1_1_0.field = field("f", float32());
-    out.v1_1.field = field("s1", struct_({out.v1_1_0.field, out.v1_1_1.field}));
-    out.v1_0.field = field("i", int32());
-    out.v1.field = field("s0", struct_({out.v1_0.field, out.v1_1.field}));
-    out.v0.field = field("u", utf8());
+
+    // Intentionally duplicated names for the FieldRef tests
+    out.v1_1_1.field = field("a", boolean());
+    out.v1_1_0.field = field("a", float32());
+
+    out.v1_1.field = field("b", struct_({out.v1_1_0.field, out.v1_1_1.field}));
+    out.v1_0.field = field("a", int32());
+    out.v1.field = field("b", struct_({out.v1_0.field, out.v1_1.field}));
+    out.v0.field = field("a", utf8());
     out.schema = arrow::schema({out.v0.field, out.v1.field});
     out.type = struct_(out.schema->fields());
 
@@ -605,7 +608,7 @@ class TestFieldPath : public FieldPathTestFixture {
     auto result = FieldPath({1, 1, 2}).Get(*case_->GetInput<I>());
     std::string substr = "index out of range. indices=[ 1 1 >2< ] ";
     if constexpr (std::is_same_v<O, Field>) {
-      substr += "fields: { f: float, b: bool, }";
+      substr += "fields: { a: float, a: bool, }";
     } else {
       substr += "column types: { float, bool, }";
     }
@@ -747,7 +750,81 @@ TEST_F(TestFieldPath, GetFromEmptyChunked) {
   ASSERT_EQ(child->length(), 0);
 }
 
-TEST(TestFieldRef, Basics) {
+class TestFieldRef : public FieldPathTestFixture {
+ protected:
+  template <bool Flattened, typename T>
+  static auto DoGetOne(const T& root, const FieldRef& ref, MemoryPool* pool = nullptr) {
+    if constexpr (Flattened) {
+      return ref.GetOneFlattened(root, pool);
+    } else {
+      return ref.GetOne(root);
+    }
+  }
+  template <bool Flattened, typename T>
+  static auto DoGetOneOrNone(const T& root, const FieldRef& ref,
+                             MemoryPool* pool = nullptr) {
+    if constexpr (Flattened) {
+      return ref.GetOneOrNoneFlattened(root, pool);
+    } else {
+      return ref.GetOneOrNone(root);
+    }
+  }
+  template <bool Flattened, typename T>
+  static auto DoGetAll(const T& root, const FieldRef& ref, MemoryPool* pool = nullptr) {
+    if constexpr (Flattened) {
+      return ref.GetAllFlattened(root, pool);
+    } else {
+      return ref.GetAll(root);
+    }
+  }
+
+  template <typename I, bool Flattened = false>
+  void TestGet() const {
+    using O = OutputType<I>;
+    const auto& input = case_->GetInput<I>();
+    ASSERT_OK_AND_ASSIGN(auto v0, DoGetOne<Flattened>(*input, FieldRef("a")));
+    ASSERT_OK_AND_ASSIGN(auto v1, DoGetOne<Flattened>(*input, FieldRef("b")));
+    ASSERT_OK_AND_ASSIGN(auto v1_0, DoGetOne<Flattened>(*input, FieldRef("b", "a")));
+    ASSERT_OK_AND_ASSIGN(auto v1_1, DoGetOne<Flattened>(*input, FieldRef("b", "b")));
+    ASSERT_OK_AND_ASSIGN(auto v1_1_0, DoGetOne<Flattened>(*input, FieldRef("b", "b", 0)));
+    ASSERT_OK_AND_ASSIGN(auto v1_1_1, DoGetOne<Flattened>(*input, FieldRef("b", "b", 1)));
+
+    AssertOutputsEqual<I>(case_->v0.Get<O>(), v0);
+    AssertOutputsEqual<I>(case_->v1.Get<O>(), v1);
+    if constexpr (Flattened) {
+      AssertOutputsEqual<I>(case_->v1_0_flat.Get<O>(), v1_0);
+      AssertOutputsEqual<I>(case_->v1_1_flat.Get<O>(), v1_1);
+      AssertOutputsEqual<I>(case_->v1_1_0_flat.Get<O>(), v1_1_0);
+      AssertOutputsEqual<I>(case_->v1_1_1_flat.Get<O>(), v1_1_1);
+    } else {
+      AssertOutputsEqual<I>(case_->v1_0.Get<O>(), v1_0);
+      AssertOutputsEqual<I>(case_->v1_1.Get<O>(), v1_1);
+      AssertOutputsEqual<I>(case_->v1_1_0.Get<O>(), v1_1_0);
+      AssertOutputsEqual<I>(case_->v1_1_1.Get<O>(), v1_1_1);
+    }
+
+    // Cases where multiple matches are found
+    auto multiple_matches = DoGetAll<Flattened>(*input, FieldRef("b", "b", "a"));
+    EXPECT_EQ(multiple_matches.size(), 2);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Multiple matches for "),
+        (DoGetOne<Flattened>(*input, FieldRef("b", "b", "a"))));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Multiple matches for "),
+        (DoGetOneOrNone<Flattened>(*input, FieldRef("b", "b", "a"))));
+
+    // Cases where no match is found
+    auto no_matches = DoGetAll<Flattened>(*input, FieldRef("b", "b", "b"));
+    EXPECT_EQ(no_matches.size(), 0);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("No match for "),
+        (DoGetOne<Flattened>(*input, FieldRef("b", "b", "b"))));
+    ASSERT_OK_AND_EQ(nullptr,
+                     (DoGetOneOrNone<Flattened>(*input, FieldRef("b", "b", "b"))));
+  }
+};
+
+TEST_F(TestFieldRef, Basics) {
   auto f0 = field("alpha", int32());
   auto f1 = field("beta", int32());
   auto f2 = field("alpha", int32());
@@ -766,7 +843,7 @@ TEST(TestFieldRef, Basics) {
   EXPECT_THAT(FieldRef("beta").FindAll(s), ElementsAre(FieldPath{1}, FieldPath{3}));
 }
 
-TEST(TestFieldRef, FindAllForTable) {
+TEST_F(TestFieldRef, FindAllForTable) {
   constexpr int kNumRows = 100;
   auto f0 = field("alpha", int32());
   auto f1 = field("beta", int32());
@@ -798,7 +875,7 @@ TEST(TestFieldRef, FindAllForTable) {
               ElementsAre(FieldPath{1}, FieldPath{3}));
 }
 
-TEST(TestFieldRef, FindAllForRecordBatch) {
+TEST_F(TestFieldRef, FindAllForRecordBatch) {
   constexpr int kNumRows = 100;
   auto f0 = field("alpha", int32());
   auto f1 = field("beta", int32());
@@ -831,7 +908,7 @@ TEST(TestFieldRef, FindAllForRecordBatch) {
               ElementsAre(FieldPath{1}, FieldPath{3}));
 }
 
-TEST(TestFieldRef, FromDotPath) {
+TEST_F(TestFieldRef, FromDotPath) {
   ASSERT_OK_AND_EQ(FieldRef("alpha"), FieldRef::FromDotPath(R"(.alpha)"));
 
   ASSERT_OK_AND_EQ(FieldRef("", ""), FieldRef::FromDotPath(R"(..)"));
@@ -854,7 +931,7 @@ TEST(TestFieldRef, FromDotPath) {
   ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([1stuf])"));
 }
 
-TEST(TestFieldRef, DotPathRoundTrip) {
+TEST_F(TestFieldRef, DotPathRoundTrip) {
   auto check_roundtrip = [](const FieldRef& ref) {
     auto dot_path = ref.ToDotPath();
     ASSERT_OK_AND_EQ(ref, FieldRef::FromDotPath(dot_path));
@@ -867,7 +944,7 @@ TEST(TestFieldRef, DotPathRoundTrip) {
   check_roundtrip(FieldRef("foo", 1, FieldRef("bar", 2, 3), FieldRef()));
 }
 
-TEST(TestFieldRef, Nested) {
+TEST_F(TestFieldRef, Nested) {
   auto f0 = field("alpha", int32());
   auto f1_0 = field("alpha", int32());
   auto f1 = field("beta", struct_({f1_0}));
@@ -884,7 +961,7 @@ TEST(TestFieldRef, Nested) {
               ElementsAre(FieldPath{2, 1, 0}, FieldPath{2, 1, 1}));
 }
 
-TEST(TestFieldRef, Flatten) {
+TEST_F(TestFieldRef, Flatten) {
   FieldRef ref;
 
   auto assert_name = [](const FieldRef& ref, const std::string& expected) {
@@ -919,6 +996,19 @@ TEST(TestFieldRef, Flatten) {
   assert_nested(FieldRef("foo", FieldRef("bar"), FieldRef(1, 2), FieldRef(3)),
                 {FieldRef("foo"), FieldRef("bar"), FieldRef(1, 2), FieldRef(3)});
 }
+
+TEST_F(TestFieldRef, GetFromSchema) { TestGet<Schema>(); }
+TEST_F(TestFieldRef, GetFromDataType) { TestGet<DataType>(); }
+
+TEST_F(TestFieldRef, GetFromArray) { TestGet<Array>(); }
+TEST_F(TestFieldRef, GetFromChunkedArray) { TestGet<ChunkedArray>(); }
+TEST_F(TestFieldRef, GetFromRecordBatch) { TestGet<RecordBatch>(); }
+TEST_F(TestFieldRef, GetFromTable) { TestGet<Table>(); }
+
+TEST_F(TestFieldRef, GetFlattenedFromArray) { TestGet<Array, true>(); }
+TEST_F(TestFieldRef, GetFlattenedFromChunkedArray) { TestGet<ChunkedArray, true>(); }
+TEST_F(TestFieldRef, GetFlattenedFromRecordBatch) { TestGet<RecordBatch, true>(); }
+TEST_F(TestFieldRef, GetFlattenedFromTable) { TestGet<Table, true>(); }
 
 using TestSchema = ::testing::Test;
 
