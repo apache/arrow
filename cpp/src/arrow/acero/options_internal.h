@@ -18,7 +18,6 @@
 #pragma once
 
 #ifndef NDEBUG
-
 #include <mutex>
 #include <ostream>
 
