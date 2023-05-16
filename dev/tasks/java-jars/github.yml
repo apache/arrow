@@ -58,7 +58,6 @@ jobs:
       matrix:
         platform:
           - { runs_on: ["macos-latest"], arch: "x86_64"}
-          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "aarch_64" }
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.13"
     steps:
@@ -174,7 +173,6 @@ jobs:
           mv artifacts/*/*.tar.gz .
           tar -xvzf arrow-shared-libs-linux.tar.gz
           tar -xvzf arrow-shared-libs-macos-x86_64.tar.gz
-          tar -xvzf arrow-shared-libs-macos-aarch_64.tar.gz
           tar -xvzf arrow-shared-libs-windows.tar.gz
       - name: Test that shared libraries exist
         run: |
@@ -189,11 +187,6 @@ jobs:
           test -f arrow/java-dist/x86_64/libarrow_dataset_jni.dylib
           test -f arrow/java-dist/x86_64/libarrow_orc_jni.dylib
           test -f arrow/java-dist/x86_64/libgandiva_jni.dylib
-
-          test -f arrow/java-dist/aarch_64/libarrow_cdata_jni.dylib
-          test -f arrow/java-dist/aarch_64/libarrow_dataset_jni.dylib
-          test -f arrow/java-dist/aarch_64/libarrow_orc_jni.dylib
-          test -f arrow/java-dist/aarch_64/libgandiva_jni.dylib
 
           test -f arrow/java-dist/x86_64/arrow_cdata_jni.dll
           test -f arrow/java-dist/x86_64/arrow_dataset_jni.dll
