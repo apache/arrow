@@ -85,7 +85,7 @@ from pyarrow._compute import (  # noqa
     register_scalar_function,
     register_tabular_function,
     register_aggregate_function,
-    ScalarUdfContext,
+    UdfContext,
     # Expressions
     Expression,
 )

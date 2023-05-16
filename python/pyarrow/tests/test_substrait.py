@@ -34,9 +34,9 @@ except ImportError:
 pytestmark = [pytest.mark.dataset, pytest.mark.substrait]
 
 
-def mock_scalar_udf_context(batch_length=10):
-    from pyarrow._compute import _get_scalar_udf_context
-    return _get_scalar_udf_context(pa.default_memory_pool(), batch_length)
+def mock_udf_context(batch_length=10):
+    from pyarrow._compute import _get_udf_context
+    return _get_udf_context(pa.default_memory_pool(), batch_length)
 
 
 def _write_dummy_data_to_disk(tmpdir, file_name, table):
@@ -436,14 +436,13 @@ def test_udf_via_substrait(unary_func_fixture, use_threads):
     """
 
     buf = pa._substrait._parse_json_plan(substrait_query)
-    breakpoint()
     reader = pa.substrait.run_query(
         buf, table_provider=table_provider, use_threads=use_threads)
     res_tb = reader.read_all()
 
     function, name = unary_func_fixture
     expected_tb = test_table.add_column(1, 'y', function(
-        mock_scalar_udf_context(10), test_table['x']))
+        mock_udf_context(10), test_table['x']))
     assert res_tb == expected_tb
 
 
@@ -608,7 +607,7 @@ def test_output_field_names(use_threads):
     assert res_tb == expected
 
 
-def test_agg_udf(unary_agg_func_fixture):
+def test_aggregate_udf_basic(unary_agg_func_fixture):
 
     test_table = pa.Table.from_pydict(
         {"k": [1, 1, 2, 2], "v": [1.0, 2.0, 3.0, 4.0]}

@@ -28,7 +28,6 @@
 namespace arrow {
   using internal::checked_cast;
 namespace py {
-
 namespace {
 
 struct PythonUdfKernelState : public compute::KernelState {
@@ -107,12 +106,12 @@ struct PythonTableUdfKernelInit {
 
   Result<std::unique_ptr<compute::KernelState>> operator()(
       compute::KernelContext* ctx, const compute::KernelInitArgs&) {
-    ScalarUdfContext scalar_udf_context{ctx->memory_pool(), /*batch_length=*/0};
+    UdfContext udf_context{ctx->memory_pool(), /*batch_length=*/0};
     std::unique_ptr<OwnedRefNoGIL> function;
-    RETURN_NOT_OK(SafeCallIntoPython([this, &scalar_udf_context, &function] {
+    RETURN_NOT_OK(SafeCallIntoPython([this, &udf_context, &function] {
       OwnedRef empty_tuple(PyTuple_New(0));
       function = std::make_unique<OwnedRefNoGIL>(
-          cb(function_maker->obj(), scalar_udf_context, empty_tuple.obj()));
+          cb(function_maker->obj(), udf_context, empty_tuple.obj()));
       RETURN_NOT_OK(CheckPyError());
       return Status::OK();
     }));
@@ -149,7 +148,6 @@ struct PythonTableUdfKernelInit {
     }
 
     Status Consume(compute::KernelContext* ctx, const compute::ExecSpan& batch) {
-      num_rows = batch.length;
       ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToExecBatch().ToRecordBatch(input_schema, ctx->memory_pool()));
       values.push_back(rb);
       return Status::OK();
@@ -157,7 +155,6 @@ struct PythonTableUdfKernelInit {
 
     Status MergeFrom(compute::KernelContext* ctx, compute::KernelState&& src) {
       const auto& other_state = checked_cast<const PythonUdfScalarAggregatorImpl&>(src);
-      num_rows += other_state.num_rows;
       values.insert(values.end(), other_state.values.begin(), other_state.values.end());
       return Status::OK();
     }
@@ -166,12 +163,18 @@ struct PythonTableUdfKernelInit {
       auto state = arrow::internal::checked_cast<PythonUdfScalarAggregatorImpl*>(ctx->state());
       std::shared_ptr<OwnedRefNoGIL>& function = state->agg_function;
       const int num_args = input_schema->num_fields();
-      // Ignore batch length here
-      ScalarUdfContext udf_context{ctx->memory_pool(), 0};
 
       OwnedRef arg_tuple(PyTuple_New(num_args));
       RETURN_NOT_OK(CheckPyError());
 
+      // Note: The way that batches are concatenated together
+      // would result in using double amount of the memory.
+      // This is OK for now because non decomposable aggregate
+      // UDF is supposed to be used with segmented aggregation
+      // where the size of the segment is more or less constant
+      // so doubling that is not a big deal. This can be also
+      // improved in the future to use more efficient way to
+      // concatenate.
       ARROW_ASSIGN_OR_RAISE(
         auto table,
         arrow::Table::FromRecordBatches(input_schema, values)
@@ -180,8 +183,9 @@ struct PythonTableUdfKernelInit {
         table, table->CombineChunks(ctx->memory_pool())
       );
 
+      UdfContext udf_context{ctx->memory_pool(), table->num_rows()};
       for (int arg_id = 0; arg_id < num_args; arg_id++) {
-        // Since we combined chunks there is only one chunk
+        // Since we combined chunks thComere is only one chunk
         std::shared_ptr<Array> c_data = table->column(arg_id)->chunk(0);
         PyObject* data = wrap_array(c_data);
         PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
@@ -191,27 +195,22 @@ struct PythonTableUdfKernelInit {
       RETURN_NOT_OK(CheckPyError());
 
       // unwrapping the output for expected output type
-      if (is_array(result.obj())) {
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> val, unwrap_array(result.obj()));
-        std::cout << val->type()->ToString() << std::endl;
-        if (*output_type != *val->type()) {
+      if (is_scalar(result.obj())) {
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> val, unwrap_scalar(result.obj()));
+        if (*output_type != *val->type) {
           return Status::TypeError("Expected output datatype ", output_type->ToString(),
                                    ", but function returned datatype ",
-                                   val->type()->ToString());
+                                   val->type->ToString());
         }
-        ARROW_ASSIGN_OR_RAISE(auto scalar_val , val->GetScalar(0));
-        *out = Datum(scalar_val);
-        // out->value = std::move(val->data());
+        out->value = std::move(val);
         return Status::OK();
       } else {
         return Status::TypeError("Unexpected output type: ", Py_TYPE(result.obj())->tp_name,
-                                 " (expected Array)");
+                                 " (expected Scalar)");
       }
-      // *out = Datum((int32_t)table->num_rows());
       return Status::OK();
     }
 
-    int32_t num_rows = 0;
     UdfWrapperCallback agg_cb;
     std::vector<std::shared_ptr<RecordBatch>> values;
     std::shared_ptr<OwnedRefNoGIL> agg_function;
@@ -248,7 +247,7 @@ struct PythonUdf : public PythonUdfKernelState {
     auto state = arrow::internal::checked_cast<PythonUdfKernelState*>(ctx->state());
     std::shared_ptr<OwnedRefNoGIL>& function = state->function;
     const int num_args = batch.num_values();
-    ScalarUdfContext scalar_udf_context{ctx->memory_pool(), batch.length};
+    UdfContext udf_context{ctx->memory_pool(), batch.length};
 
     OwnedRef arg_tuple(PyTuple_New(num_args));
     RETURN_NOT_OK(CheckPyError());
@@ -264,7 +263,7 @@ struct PythonUdf : public PythonUdfKernelState {
       }
     }
 
-    OwnedRef result(cb(function->obj(), scalar_udf_context, arg_tuple.obj()));
+    OwnedRef result(cb(function->obj(), udf_context, arg_tuple.obj()));
     RETURN_NOT_OK(CheckPyError());
     // unwrapping the output for expected output type
     if (is_array(result.obj())) {

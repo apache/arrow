@@ -30,9 +30,9 @@ except ImportError:
     ds = None
 
 
-def mock_scalar_udf_context(batch_length=10):
-    from pyarrow._compute import _get_scalar_udf_context
-    return _get_scalar_udf_context(pa.default_memory_pool(), batch_length)
+def mock_udf_context(batch_length=10):
+    from pyarrow._compute import _get_udf_context
+    return _get_udf_context(pa.default_memory_pool(), batch_length)
 
 
 class MyError(RuntimeError):
@@ -47,7 +47,7 @@ def bad_unary_agg_func_fixture():
 
     def func(ctx, x):
         raise RuntimeError("Oops")
-        return pa.array([len(x)])
+        return pa.scalar(len(x))
 
     func_name = "y=bad_len(x)"
     func_doc = {"summary": "y=bad_len(x)",
@@ -257,7 +257,7 @@ def check_scalar_function(func_fixture,
     assert func.name == name
 
     result = pc.call_function(name, inputs, length=batch_length)
-    expected_output = function(mock_scalar_udf_context(batch_length), *inputs)
+    expected_output = function(mock_udf_context(batch_length), *inputs)
     assert result == expected_output
     # At the moment there is an issue when handling nullary functions.
     # See: ARROW-15286 and ARROW-16290.

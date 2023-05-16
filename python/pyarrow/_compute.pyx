@@ -2559,7 +2559,7 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
         deref(pyarrow_unwrap_schema(schema).get())))
 
 
-cdef class ScalarUdfContext:
+cdef class UdfContext:
     """
     Per-invocation function context/state.
 
@@ -2571,7 +2571,7 @@ cdef class ScalarUdfContext:
         raise TypeError("Do not call {}'s constructor directly"
                         .format(self.__class__.__name__))
 
-    cdef void init(self, const CScalarUdfContext &c_context):
+    cdef void init(self, const CUdfContext &c_context):
         self.c_context = c_context
 
     @property
@@ -2620,26 +2620,26 @@ cdef inline CFunctionDoc _make_function_doc(dict func_doc) except *:
     return f_doc
 
 
-cdef object box_scalar_udf_context(const CScalarUdfContext& c_context):
-    cdef ScalarUdfContext context = ScalarUdfContext.__new__(ScalarUdfContext)
+cdef object box_udf_context(const CUdfContext& c_context):
+    cdef UdfContext context = UdfContext.__new__(UdfContext)
     context.init(c_context)
     return context
 
 
-cdef _udf_callback(user_function, const CScalarUdfContext& c_context, inputs):
+cdef _udf_callback(user_function, const CUdfContext& c_context, inputs):
     """
-    Helper callback function used to wrap the ScalarUdfContext from Python to C++
+    Helper callback function used to wrap the UdfContext from Python to C++
     execution.
     """
-    context = box_scalar_udf_context(c_context)
+    context = box_udf_context(c_context)
     return user_function(context, *inputs)
 
 
-def _get_scalar_udf_context(memory_pool, batch_length):
-    cdef CScalarUdfContext c_context
+def _get_udf_context(memory_pool, batch_length):
+    cdef CUdfContext c_context
     c_context.pool = maybe_unbox_memory_pool(memory_pool)
     c_context.batch_length = batch_length
-    context = box_scalar_udf_context(c_context)
+    context = box_udf_context(c_context)
     return context
 
 
@@ -2690,7 +2690,7 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
     func : callable
         A callable implementing the user-defined function.
         The first argument is the context argument of type
-        ScalarUdfContext.
+        UdfContext.
         Then, it must take arguments equal to the number of
         in_types defined. It must return an Array or Scalar
         matching the out_type. It must return a Scalar if
@@ -2744,35 +2744,33 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
       21
     ]
     """
-    return _register_scalar_like_function(get_register_scalar_function(),
-                                          func, function_name, function_doc, in_types,
-                                          out_type, func_registry)
+    return _register_user_defined_function(get_register_scalar_function(),
+                                           func, function_name, function_doc, in_types,
+                                           out_type, func_registry)
 
 
 def register_aggregate_function(func, function_name, function_doc, in_types, out_type,
                                 func_registry=None):
     """
-    Register a user-defined scalar function.
+    Register a user-defined non-decomposable aggregate function.
 
-    A scalar function is a function that executes elementwise
-    operations on arrays or scalars, i.e. a scalar function must
-    be computed row-by-row with no state where each output row
-    is computed only from its corresponding input row.
-    In other words, all argument arrays have the same length,
-    and the output array is of the same length as the arguments.
-    Scalar functions are the only functions allowed in query engine
-    expressions.
+    A non-decomposable aggregation function is a function that executes
+    aggregate operations on the whole data that it is aggregating.
+    In other words, non-decomposable aggregate function cannot be
+    split into consume/merge/finalize steps.
+
+    This is mostly useful with segemented aggregation, where the data
+    to be aggregated is continuous.
 
     Parameters
     ----------
     func : callable
         A callable implementing the user-defined function.
         The first argument is the context argument of type
-        ScalarUdfContext.
+        UdfContext.
         Then, it must take arguments equal to the number of
-        in_types defined. It must return an Array or Scalar
-        matching the out_type. It must return a Scalar if
-        all arguments are scalar, else it must return an Array.
+        in_types defined. It must return Scalar matching the
+        out_type.
 
         To define a varargs function, pass a callable that takes
         varargs. The last in_type will be the type of all varargs
@@ -2796,35 +2794,33 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
 
     Examples
     --------
+    >>> import numpy as np
     >>> import pyarrow as pa
     >>> import pyarrow.compute as pc
     >>>
     >>> func_doc = {}
-    >>> func_doc["summary"] = "simple udf"
-    >>> func_doc["description"] = "add a constant to a scalar"
+    >>> func_doc["summary"] = "simple mean udf"
+    >>> func_doc["description"] = "compute mean"
     >>>
-    >>> def add_constant(ctx, array):
-    ...     return pc.add(array, 1, memory_pool=ctx.memory_pool)
+    >>> def compute_mean(ctx, array):
+    ...     return pa.scalar(np.nanmean(array))
     >>>
-    >>> func_name = "py_add_func"
+    >>> func_name = "py_compute_mean"
     >>> in_types = {"array": pa.int64()}
-    >>> out_type = pa.int64()
-    >>> pc.register_scalar_function(add_constant, func_name, func_doc,
+    >>> out_type = pa.float64()
+    >>> pc.register_aggregate_function(compute_mean, func_name, func_doc,
     ...                   in_types, out_type)
     >>>
     >>> func = pc.get_function(func_name)
     >>> func.name
-    'py_add_func'
-    >>> answer = pc.call_function(func_name, [pa.array([20])])
+    'py_compute_mean'
+    >>> answer = pc.call_function(func_name, [pa.array([20, 40])])
     >>> answer
-    <pyarrow.lib.Int64Array object at ...>
-    [
-      21
-    ]
+    <pyarrow.DoubleScalar: 30.0>
     """
-    return _register_scalar_like_function(get_register_aggregate_function(),
-                                          func, function_name, function_doc, in_types,
-                                          out_type, func_registry)
+    return _register_user_defined_function(get_register_aggregate_function(),
+                                           func, function_name, function_doc, in_types,
+                                           out_type, func_registry)
 
 
 def register_tabular_function(func, function_name, function_doc, in_types, out_type,
@@ -2833,7 +2829,7 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
     Register a user-defined tabular function.
 
     A tabular function is one accepting a context argument of type
-    ScalarUdfContext and returning a generator of struct arrays.
+    UdfContext and returning a generator of struct arrays.
     The in_types argument must be empty and the out_type argument
     specifies a schema. Each struct array must have field types
     correspoding to the schema.
@@ -2843,7 +2839,7 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
     func : callable
         A callable implementing the user-defined function.
         The only argument is the context argument of type
-        ScalarUdfContext. It must return a callable that
+        UdfContext. It must return a callable that
         returns on each invocation a StructArray matching
         the out_type, where an empty array indicates end.
     function_name : str
@@ -2867,36 +2863,25 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
         with nogil:
             c_type = <shared_ptr[CDataType]>make_shared[CStructType](deref(c_schema).fields())
         out_type = pyarrow_wrap_data_type(c_type)
-    return _register_scalar_like_function(get_register_tabular_function(),
-                                          func, function_name, function_doc, in_types,
-                                          out_type, func_registry)
+    return _register_user_defined_function(get_register_tabular_function(),
+                                           func, function_name, function_doc, in_types,
+                                           out_type, func_registry)
 
 
-def _register_scalar_like_function(register_func, func, function_name, function_doc, in_types,
-                                   out_type, func_registry=None):
+def _register_user_defined_function(register_func, func, function_name, function_doc, in_types,
+                                    out_type, func_registry=None):
     """
-    Register a user-defined scalar-like function.
+    Register a user-defined function.
 
-    A scalar-like function is a callable accepting a first
-    context argument of type ScalarUdfContext as well as
-    possibly additional Arrow arguments, and returning a
-    an Arrow result appropriate for the kind of function.
-    A scalar function and a tabular function are examples
-    for scalar-like functions.
-    This function is normally not called directly but via
-    register_scalar_function or register_tabular_function.
+    This method itself doesn't care what the type of the UDF
+    (i.e., scalar vs tabular vs aggregate)
 
     Parameters
     ----------
     register_func: object
-        An object holding a CRegisterUdf in a "register_func" attribute. Use
-        get_register_scalar_function() for a scalar function and
-        get_register_tabular_function() for a tabular function.
+        An object holding a CRegisterUdf in a "register_func" attribute.
     func : callable
         A callable implementing the user-defined function.
-        See register_scalar_function and
-        register_tabular_function for details.
-
     function_name : str
         Name of the function. This name must be globally unique.
     function_doc : dict
@@ -2905,8 +2890,6 @@ def _register_scalar_like_function(register_func, func, function_name, function_
     in_types : Dict[str, DataType]
         A dictionary mapping function argument names to
         their respective DataType.
-        See register_scalar_function and
-        register_tabular_function for details.
     out_type : DataType
         Output type of the function.
     func_registry : FunctionRegistry

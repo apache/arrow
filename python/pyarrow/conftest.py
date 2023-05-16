@@ -289,7 +289,7 @@ def unary_agg_func_fixture():
     import numpy as np
 
     def func(ctx, x):
-        return pa.array([np.nanmean(x)])
+        return pa.scalar(np.nanmean(x))
 
     func_name = "y=avg(x)"
     func_doc = {"summary": "y=avg(x)",
