@@ -165,7 +165,7 @@ build only a subset of it. You can build:
 
   Rendered HTML format can be found in ``arrow/docs/_build/html/cpp``.
 
-* CPython section (``docs/source/python``) with:
+* Python section (``docs/source/python``) with:
 
   .. code-block:: shell
 
@@ -182,7 +182,7 @@ build only a subset of it. You can build:
    For this reason building only a subset of the documentation should only be
    used in the initial work as it makes the building faster and easier.
 
-   To check for the correctness of the documentation overall one should always
+   To check for the correctness of the documentation overall one should
    build the whole documentation with ``make html`` or use github actions.
 
    To use github actions add a comment ``@github-actions crossbow submit preview-docs``
