@@ -55,6 +55,9 @@ may expose data type-specific methods or properties.
    UInt16Array
    UInt32Array
    UInt64Array
+   HalfFloatArray
+   FloatArray
+   DoubleArray
    BinaryArray
    StringArray
    FixedSizeBinaryArray
