@@ -109,7 +109,7 @@ Read Relations
 
  * The ``projection`` property is not supported and plans containing this
    property will be rejected.
- * The ``VirtualTable`` and ``ExtensionTable``read types are not supported.
+ * The ``VirtualTable`` and ``ExtensionTable`` read types are not supported.
    Plans containing these types will be rejected.
  * Only the parquet and arrow file formats are currently supported.
  * All URIs must use the ``file`` scheme
@@ -279,6 +279,7 @@ Functions
 
  * The functions above should be referenced using the URI
    ``https://github.com/apache/arrow/blob/main/format/substrait/extension_types.yaml``
+
      * Alternatively, the URI can be left completely empty and Acero will match
        based only on function name.  This fallback mechanism is non-standard and should
        be avoided if possible.
