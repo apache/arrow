@@ -21,6 +21,8 @@ import pathlib
 import pytest
 
 import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.dataset as ds
 from pyarrow.lib import tobytes
 from pyarrow.lib import ArrowInvalid
 
@@ -923,3 +925,34 @@ def test_hash_aggregate_udf_basic(varargs_agg_func_fixture):
 
     # Ordering of k is deterministic because this is running with serial execution
     assert res_tb == expected_tb
+
+
+@pytest.mark.parametrize("expr", [
+    pc.equal(ds.field("x"), 7),
+    pc.equal(ds.field("x"), ds.field("y")),
+    ds.field("x") > 50
+])
+def test_serializing_expressions(expr):
+    schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.int32())
+    ])
+
+    buf = pa.substrait.serialize_expressions([expr], ["test_expr"], schema)
+    returned = pa.substrait.deserialize_expressions(buf)
+    assert schema == returned.schema
+    assert len(returned.expressions) == 1
+    assert "test_expr" in returned.expressions
+
+def test_serializing_multiple_expressions():
+    schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.int32())
+    ])
+    exprs = [pc.equal(ds.field("x"), 7), pc.equal(ds.field("x"), ds.field("y"))]
+    buf = pa.substrait.serialize_expressions(exprs, ["first", "second"], schema)
+    returned = pa.substrait.deserialize_expressions(buf)
+    assert schema == returned.schema
+    assert len(returned.expressions) == 2
+    assert "first" in returned.expressions
+    assert "second" in returned.expressions

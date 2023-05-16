@@ -118,18 +118,16 @@ Result<NamedExpression> ExpressionFromProto(
 }
 
 Result<std::unique_ptr<substrait::ExpressionReference>> CreateExpressionReference(
-    const NamedExpression& named_expression, ExtensionSet* ext_set,
+    const std::string& name, const Expression& expr, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
   auto expr_ref = std::make_unique<substrait::ExpressionReference>();
-  ARROW_RETURN_NOT_OK(
-      VisitNestedFields(*named_expression.expression.type(), [&](const Field& field) {
-        expr_ref->add_output_names(field.name());
-        return Status::OK();
-      }));
-  expr_ref->add_output_names(named_expression.name);
-  ARROW_ASSIGN_OR_RAISE(
-      std::unique_ptr<substrait::Expression> expression,
-      ToProto(named_expression.expression, ext_set, conversion_options));
+  ARROW_RETURN_NOT_OK(VisitNestedFields(*expr.type(), [&](const Field& field) {
+    expr_ref->add_output_names(field.name());
+    return Status::OK();
+  }));
+  expr_ref->add_output_names(name);
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression> expression,
+                        ToProto(expr, ext_set, conversion_options));
   expr_ref->set_allocated_expression(expression.release());
   return std::move(expr_ref);
 }
@@ -178,9 +176,16 @@ Result<std::unique_ptr<substrait::ExtendedExpression>> ToProto(
                         ToProto(*bound_expressions.schema, ext_set, conversion_options));
   expression->set_allocated_base_schema(base_schema.release());
   for (const auto& named_expression : bound_expressions.named_expressions) {
-    ARROW_ASSIGN_OR_RAISE(
-        std::unique_ptr<substrait::ExpressionReference> expr_ref,
-        CreateExpressionReference(named_expression, ext_set, conversion_options));
+    Expression bound_expr = named_expression.expression;
+    if (!bound_expr.IsBound()) {
+      // This will use the default function registry.  Most of the time that will be fine.
+      // In the cases where this is not what the user wants then the user should make sure
+      // to pass in bound expressions.
+      ARROW_ASSIGN_OR_RAISE(bound_expr, bound_expr.Bind(*bound_expressions.schema));
+    }
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::ExpressionReference> expr_ref,
+                          CreateExpressionReference(named_expression.name, bound_expr,
+                                                    ext_set, conversion_options));
     expression->mutable_referred_expr()->AddAllocated(expr_ref.release());
   }
   RETURN_NOT_OK(AddExtensionSetToExtendedExpression(*ext_set, expression.get()));

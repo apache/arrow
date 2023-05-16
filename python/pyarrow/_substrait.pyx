@@ -20,10 +20,12 @@ from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
 
 from pyarrow import Buffer, py_buffer
+from pyarrow._compute cimport Expression, _bind
 from pyarrow.lib import frombytes, tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
+from pyarrow.util import _is_iterable
 
 
 cdef CDeclaration _create_named_table_provider(
@@ -183,6 +185,84 @@ def _parse_json_plan(plan):
     with nogil:
         c_buf_plan = GetResultValue(c_res_buffer)
     return pyarrow_wrap_buffer(c_buf_plan)
+
+
+def serialize_expressions(exprs, names, schema):
+    cdef:
+        CResult[shared_ptr[CBuffer]] c_res_buffer
+        shared_ptr[CBuffer] c_buffer
+        CNamedExpression c_named_expr
+        CBoundExpressions c_bound_exprs
+
+    for i in range(len(exprs)):
+        if not isinstance(exprs[i], Expression):
+            raise TypeError(f"Expected Expression, got '{type(exprs[i])}'")
+        c_named_expr.expression = (<Expression> exprs[i]).unwrap()
+        if i < len(names):
+            if not isinstance(names[i], str):
+                raise TypeError(f"Expected str, got '{type(names[i])}'")
+            c_named_expr.name = tobytes(<str> names[i])
+        else:
+            c_named_expr.name = tobytes("autoname")
+        c_bound_exprs.named_expressions.push_back(c_named_expr)
+    c_bound_exprs.schema = (<Schema> schema).sp_schema
+
+    c_res_buffer = SerializeExpressions(c_bound_exprs)
+    with nogil:
+        c_buffer = GetResultValue(c_res_buffer)
+    return pyarrow_wrap_buffer(c_buffer)
+
+
+cdef class BoundExpressions(_Weakrefable):
+
+    cdef:
+        CBoundExpressions c_bound_exprs
+
+    def __init__(self):
+        msg = 'BoundExpressions is an abstract class thus cannot be initialized.'
+        raise TypeError(msg)
+
+    cdef void init(self, CBoundExpressions bound_expressions):
+        self.c_bound_exprs = bound_expressions
+
+    @property
+    def schema(self):
+        return pyarrow_wrap_schema(self.c_bound_exprs.schema)
+
+    @property
+    def expressions(self):
+        expr_dict = {}
+        for named_expr in self.c_bound_exprs.named_expressions:
+            name = frombytes(named_expr.name)
+            expr = Expression.wrap(named_expr.expression)
+            expr_dict[name] = expr
+        return expr_dict
+
+    @staticmethod
+    cdef wrap(const CBoundExpressions& bound_expressions):
+        cdef BoundExpressions self = BoundExpressions.__new__(BoundExpressions)
+        self.init(bound_expressions)
+        return self
+
+def deserialize_expressions(buf):
+    cdef:
+        shared_ptr[CBuffer] c_buffer
+        CResult[CBoundExpressions] c_res_bound_exprs
+        CBoundExpressions c_bound_exprs
+
+    if isinstance(buf, bytes):
+        c_buffer = pyarrow_unwrap_buffer(py_buffer(buf))
+    elif isinstance(buf, Buffer):
+        c_buffer = pyarrow_unwrap_buffer(buf)
+    else:
+        raise TypeError(
+            f"Expected 'pyarrow.Buffer' or bytes, got '{type(buf)}'")
+    
+    c_res_bound_exprs = DeserializeExpressions(deref(c_buffer))
+    with nogil:
+        c_bound_exprs = GetResultValue(c_res_bound_exprs)
+
+    return BoundExpressions.wrap(c_bound_exprs)
 
 
 def get_supported_functions():
