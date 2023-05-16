@@ -88,6 +88,14 @@ void DoAssertFilterOutputSize(const std::shared_ptr<Array>& values,
   } else {
     ASSERT_EQ(calculated_output_size, expected_logical_output_size);
   }
+
+  auto output = ArrayData::Make(values->type(), 0, {nullptr});
+  ASSERT_OK(filter_exec->Exec(output.get()));
+  if (output->type->id() == Type::RUN_END_ENCODED) {
+    ASSERT_EQ(ree_util::ValuesArray(ArraySpan(*output)).length,
+              expected_physical_output_size);
+  }
+  ASSERT_EQ(output->length, expected_logical_output_size);
 }
 
 void DoAssertFilterSlicedOutputSize(const std::shared_ptr<Array>& values,
