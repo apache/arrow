@@ -1220,12 +1220,11 @@ struct FieldPathGetImpl {
     ss << "indices=[ ";
     int depth = 0;
     for (int i : path->indices()) {
-      if (depth != out_of_range_depth) {
+      if (depth++ != out_of_range_depth) {
         ss << i << " ";
-        continue;
+      } else {
+        ss << ">" << i << "< ";
       }
-      ss << ">" << i << "< ";
-      ++depth;
     }
     ss << "] ";
 

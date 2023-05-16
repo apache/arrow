@@ -600,6 +600,18 @@ class TestFieldPath : public FieldPathTestFixture {
         DoGet<Flattened>(*input, FieldPath()));
   }
 
+  template <typename I, typename O = OutputType<I>>
+  void TestIndexErrorMessage() const {
+    auto result = FieldPath({1, 1, 2}).Get(*case_->GetInput<I>());
+    std::string substr = "index out of range. indices=[ 1 1 >2< ] ";
+    if constexpr (std::is_same_v<O, Field>) {
+      substr += "fields: { f: float, b: bool, }";
+    } else {
+      substr += "column types: { float, bool, }";
+    }
+    EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, ::testing::HasSubstr(substr), result);
+  }
+
   template <typename I, bool Flattened = false>
   void TestGetWithNonStructArray() const {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -658,6 +670,16 @@ TEST_F(TestFieldPath, GetWithInvalidIndex) {
   TestGetWithInvalidIndex<ChunkedArray, true>();
   TestGetWithInvalidIndex<RecordBatch, true>();
   TestGetWithInvalidIndex<Table, true>();
+}
+
+TEST_F(TestFieldPath, IndexErrorMessage) {
+  TestIndexErrorMessage<Schema>();
+  TestIndexErrorMessage<DataType>();
+  TestIndexErrorMessage<Array>();
+  TestIndexErrorMessage<ArrayData>();
+  TestIndexErrorMessage<ChunkedArray>();
+  TestIndexErrorMessage<RecordBatch>();
+  TestIndexErrorMessage<Table>();
 }
 
 TEST_F(TestFieldPath, GetWithNonStructArray) {
