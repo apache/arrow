@@ -35,7 +35,7 @@ classdef Float64Array < arrow.array.Array
         end
 
         function data = double(obj)
-            data = obj.Proxy.ToMatlab();
+            data = obj.Proxy.toMATLAB();
         end
     end
 end

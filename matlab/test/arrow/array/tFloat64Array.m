@@ -116,6 +116,12 @@ classdef tFloat64Array < matlab.unittest.TestCase
             A = arrow.array.Float64Array(1:100, DeepCopy=MakeDeepCopy);
             expectedLength = int64(100);
             testCase.verifyEqual(A.Length, expectedLength);
+         end
+
+         function toMATLAB(testCase, MakeDeepCopy)
+            A1 = arrow.array.Float64Array(100, DeepCopy=MakeDeepCopy);
+            data = toMATLAB(A1);
+            testCase.verifyEqual(data, 100);
         end
     end
 end
