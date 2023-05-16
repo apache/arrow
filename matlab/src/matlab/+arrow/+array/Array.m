@@ -32,7 +32,7 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
         end
 
         function numElements = get.Length(obj)
-            numElements = obj.Proxy.Length();
+            numElements = obj.Proxy.length();
         end
 
         function matlabArray = toMATLAB(obj)
@@ -41,14 +41,14 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
     end
 
     methods (Access = private)
-        function str = ToString(obj)
-            str = obj.Proxy.ToString();
+        function str = toString(obj)
+            str = obj.Proxy.toString();
         end
     end
 
     methods (Access=protected)
         function displayScalarObject(obj)
-            disp(obj.ToString());
+            disp(obj.toString());
         end
     end
 end
