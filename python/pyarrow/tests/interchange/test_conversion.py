@@ -99,53 +99,6 @@ def test_offset_of_sliced_array():
     #                        check_index=False, check_names=False)
 
 
-# Currently errors due to string conversion
-# as col.size is called as a property not method in pandas
-# see L255-L257 in pandas/core/interchange/from_dataframe.py
-@pytest.mark.pandas
-def test_categorical_roundtrip():
-    pytest.skip("Bug in pandas implementation")
-
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
-
-    arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", "Sun"]
-    table = pa.table(
-        {"weekday": pa.array(arr).dictionary_encode()}
-    )
-
-    pandas_df = table.to_pandas()
-    result = pi.from_dataframe(pandas_df)
-
-    # Checking equality for the values
-    # As the dtype of the indices is changed from int32 in pa.Table
-    # to int64 in pandas interchange protocol implementation
-    assert result[0].chunk(0).dictionary == table[0].chunk(0).dictionary
-
-    table_protocol = table.__dataframe__()
-    result_protocol = result.__dataframe__()
-
-    assert table_protocol.num_columns() == result_protocol.num_columns()
-    assert table_protocol.num_rows() == result_protocol.num_rows()
-    assert table_protocol.num_chunks() == result_protocol.num_chunks()
-    assert table_protocol.column_names() == result_protocol.column_names()
-
-    col_table = table_protocol.get_column(0)
-    col_result = result_protocol.get_column(0)
-
-    assert col_result.dtype[0] == DtypeKind.CATEGORICAL
-    assert col_result.dtype[0] == col_table.dtype[0]
-    assert col_result.size == col_table.size
-    assert col_result.offset == col_table.offset
-
-    desc_cat_table = col_result.describe_categorical
-    desc_cat_result = col_result.describe_categorical
-
-    assert desc_cat_table["is_ordered"] == desc_cat_result["is_ordered"]
-    assert desc_cat_table["is_dictionary"] == desc_cat_result["is_dictionary"]
-    assert isinstance(desc_cat_result["categories"]._col, pa.Array)
-
-
 @pytest.mark.pandas
 @pytest.mark.parametrize(
     "uint", [pa.uint8(), pa.uint16(), pa.uint32()]
@@ -170,6 +123,7 @@ def test_pandas_roundtrip(uint, int, float, np_float):
             "a": pa.array(arr, type=uint),
             "b": pa.array(arr, type=int),
             "c": pa.array(np.array(arr, dtype=np_float), type=float),
+            "d": [True, False, True],
         }
     )
     from pandas.api.interchange import (
@@ -189,23 +143,24 @@ def test_pandas_roundtrip(uint, int, float, np_float):
 
 
 @pytest.mark.pandas
-def test_roundtrip_pandas_string():
+def test_pandas_roundtrip_string():
     # See https://github.com/pandas-dev/pandas/issues/50554
     if Version(pd.__version__) < Version("1.6"):
-        pytest.skip(" Column.size() called as a method in pandas 2.0.0")
+        pytest.skip("Column.size() bug in pandas")
 
-    # large string is not supported by pandas implementation
-    table = pa.table({"a": pa.array(["a", "", "c"])})
+    arr = ["a", "", "c"]
+    table = pa.table({"a": pa.array(arr)})
 
     from pandas.api.interchange import (
         from_dataframe as pandas_from_dataframe
     )
+
     pandas_df = pandas_from_dataframe(table)
     result = pi.from_dataframe(pandas_df)
 
-    assert result[0].to_pylist() == table[0].to_pylist()
-    assert pa.types.is_string(table[0].type)
-    assert pa.types.is_large_string(result[0].type)
+    assert result["a"].to_pylist() == table["a"].to_pylist()
+    assert pa.types.is_string(table["a"].type)
+    assert pa.types.is_large_string(result["a"].type)
 
     table_protocol = table.__dataframe__()
     result_protocol = result.__dataframe__()
@@ -217,11 +172,83 @@ def test_roundtrip_pandas_string():
 
 
 @pytest.mark.pandas
-def test_roundtrip_pandas_boolean():
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
+def test_pandas_roundtrip_large_string():
+    # See https://github.com/pandas-dev/pandas/issues/50554
+    if Version(pd.__version__) < Version("1.6"):
+        pytest.skip("Column.size() bug in pandas")
 
-    table = pa.table({"a": [True, False, True]})
+    arr = ["a", "", "c"]
+    table = pa.table({"a_large": pa.array(arr, type=pa.large_string())})
+
+    from pandas.api.interchange import (
+        from_dataframe as pandas_from_dataframe
+    )
+
+    if Version(pd.__version__) >= Version("2.0.1"):
+        pandas_df = pandas_from_dataframe(table)
+        result = pi.from_dataframe(pandas_df)
+
+        assert result["a_large"].to_pylist() == table["a_large"].to_pylist()
+        assert pa.types.is_large_string(table["a_large"].type)
+        assert pa.types.is_large_string(result["a_large"].type)
+
+        table_protocol = table.__dataframe__()
+        result_protocol = result.__dataframe__()
+
+        assert table_protocol.num_columns() == result_protocol.num_columns()
+        assert table_protocol.num_rows() == result_protocol.num_rows()
+        assert table_protocol.num_chunks() == result_protocol.num_chunks()
+        assert table_protocol.column_names() == result_protocol.column_names()
+
+    else:
+        # large string not supported by pandas implementation for
+        # older versions of pandas
+        # https://github.com/pandas-dev/pandas/issues/52795
+        with pytest.raises(AssertionError):
+            pandas_from_dataframe(table)
+
+
+@pytest.mark.pandas
+def test_pandas_roundtrip_string_with_missing():
+    # See https://github.com/pandas-dev/pandas/issues/50554
+    if Version(pd.__version__) < Version("1.6"):
+        pytest.skip("Column.size() bug in pandas")
+
+    arr = ["a", "", "c", None]
+    table = pa.table({"a": pa.array(arr),
+                      "a_large": pa.array(arr, type=pa.large_string())})
+
+    from pandas.api.interchange import (
+        from_dataframe as pandas_from_dataframe
+    )
+
+    if Version(pd.__version__) >= Version("2.0.2"):
+        pandas_df = pandas_from_dataframe(table)
+        result = pi.from_dataframe(pandas_df)
+
+        assert result["a"].to_pylist() == table["a"].to_pylist()
+        assert pa.types.is_string(table["a"].type)
+        assert pa.types.is_large_string(result["a"].type)
+
+        assert result["a_large"].to_pylist() == table["a_large"].to_pylist()
+        assert pa.types.is_large_string(table["a_large"].type)
+        assert pa.types.is_large_string(result["a_large"].type)
+    else:
+        # older versions of pandas do not have bitmask support
+        # https://github.com/pandas-dev/pandas/issues/49888
+        with pytest.raises(NotImplementedError):
+            pandas_from_dataframe(table)
+
+
+@pytest.mark.pandas
+def test_pandas_roundtrip_categorical():
+    if Version(pd.__version__) < Version("2.0.2"):
+        pytest.skip("Bitmasks not supported in pandas interchange implementation")
+
+    arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", None]
+    table = pa.table(
+        {"weekday": pa.array(arr).dictionary_encode()}
+    )
 
     from pandas.api.interchange import (
         from_dataframe as pandas_from_dataframe
@@ -229,7 +256,13 @@ def test_roundtrip_pandas_boolean():
     pandas_df = pandas_from_dataframe(table)
     result = pi.from_dataframe(pandas_df)
 
-    assert table.equals(result)
+    assert result["weekday"].to_pylist() == table["weekday"].to_pylist()
+    assert pa.types.is_dictionary(table["weekday"].type)
+    assert pa.types.is_dictionary(result["weekday"].type)
+    assert pa.types.is_string(table["weekday"].chunk(0).dictionary.type)
+    assert pa.types.is_large_string(result["weekday"].chunk(0).dictionary.type)
+    assert pa.types.is_int32(table["weekday"].chunk(0).indices.type)
+    assert pa.types.is_int8(result["weekday"].chunk(0).indices.type)
 
     table_protocol = table.__dataframe__()
     result_protocol = result.__dataframe__()
@@ -238,11 +271,26 @@ def test_roundtrip_pandas_boolean():
     assert table_protocol.num_rows() == result_protocol.num_rows()
     assert table_protocol.num_chunks() == result_protocol.num_chunks()
     assert table_protocol.column_names() == result_protocol.column_names()
+
+    col_table = table_protocol.get_column(0)
+    col_result = result_protocol.get_column(0)
+
+    assert col_result.dtype[0] == DtypeKind.CATEGORICAL
+    assert col_result.dtype[0] == col_table.dtype[0]
+    assert col_result.size() == col_table.size()
+    assert col_result.offset == col_table.offset
+
+    desc_cat_table = col_result.describe_categorical
+    desc_cat_result = col_result.describe_categorical
+
+    assert desc_cat_table["is_ordered"] == desc_cat_result["is_ordered"]
+    assert desc_cat_table["is_dictionary"] == desc_cat_result["is_dictionary"]
+    assert isinstance(desc_cat_result["categories"]._col, pa.Array)
 
 
 @pytest.mark.pandas
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
-def test_roundtrip_pandas_datetime(unit):
+def test_pandas_roundtrip_datetime(unit):
     if Version(pd.__version__) < Version("1.5.0"):
         pytest.skip("__dataframe__ added to pandas in 1.5.0")
     from datetime import datetime as dt
@@ -274,25 +322,6 @@ def test_roundtrip_pandas_datetime(unit):
     assert expected_protocol.num_rows() == result_protocol.num_rows()
     assert expected_protocol.num_chunks() == result_protocol.num_chunks()
     assert expected_protocol.column_names() == result_protocol.column_names()
-
-
-@pytest.mark.large_memory
-@pytest.mark.pandas
-def test_pandas_assertion_error_large_string():
-    # Test AssertionError as pandas does not support "U" type strings
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
-
-    data = np.array([b'x'*1024]*(3*1024**2), dtype='object')  # 3GB bytes data
-    arr = pa.array(data, type=pa.large_string())
-    table = pa.table([arr], names=["large_string"])
-
-    from pandas.api.interchange import (
-        from_dataframe as pandas_from_dataframe
-    )
-
-    with pytest.raises(AssertionError):
-        pandas_from_dataframe(table)
 
 
 @pytest.mark.pandas
@@ -331,45 +360,6 @@ def test_pandas_to_pyarrow_float16_with_missing():
 
     with pytest.raises(NotImplementedError):
         pi.from_dataframe(df)
-
-
-@pytest.mark.pandas
-def test_pandas_to_pyarrow_string_with_missing():
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
-
-    # pandas is using int64 offsets for string dtype so the constructed
-    # pyarrow string column will always be a large_string data type
-    arr = {
-        "Y": ["a", "b", None],  # bool, ColumnNullType.USE_BYTEMASK,
-    }
-    df = pd.DataFrame(arr)
-    expected = pa.table(arr)
-    result = pi.from_dataframe(df)
-
-    assert result[0].to_pylist() == expected[0].to_pylist()
-    assert pa.types.is_string(expected[0].type)
-    assert pa.types.is_large_string(result[0].type)
-
-
-@pytest.mark.pandas
-def test_pandas_to_pyarrow_categorical_with_missing():
-    if Version(pd.__version__) < Version("1.5.0"):
-        pytest.skip("__dataframe__ added to pandas in 1.5.0")
-
-    arr = ["Mon", "Tue", "Mon", "Wed", "Mon", "Thu", "Fri", "Sat", None]
-    df = pd.DataFrame(
-        {"weekday": arr}
-    )
-    df = df.astype("category")
-    result = pi.from_dataframe(df)
-
-    expected_dictionary = ["Fri", "Mon", "Sat", "Thu", "Tue", "Wed"]
-    expected_indices = pa.array([1, 4, 1, 5, 1, 3, 0, 2, None], type=pa.int8())
-
-    assert result[0].to_pylist() == arr
-    assert result[0].chunk(0).dictionary.to_pylist() == expected_dictionary
-    assert result[0].chunk(0).indices.equals(expected_indices)
 
 
 @pytest.mark.parametrize(

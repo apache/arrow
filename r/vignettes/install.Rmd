@@ -297,8 +297,8 @@ See below for more in-depth explanations of these environment variables.
   will work with your system. You can set it to `false` to skip this option
   altogether, or you can specify a string "distro-version" that corresponds to
   a binary that is available, to override what this function may discover by
-  default. Possible values are: "centos-7",
-  "ubuntu-18.04" (both with gcc 8, and openssl 1), "ubuntu-22.04" (openssl 3).
+  default. Possible values are: "linux-openssl-1.0", "linux-openssl-1.1",
+  "linux-openssl-3.0".
 * `LIBARROW_BUILD` : If set to `false`, the build script
   will not attempt to build the C++ from source. This means you will only get
   a working arrow R package if a prebuilt binary is found.
@@ -520,17 +520,10 @@ so that we can improve the script.
 
 * On CentOS, building the package requires a more modern `devtoolset` than the default system compilers. See "System dependencies" above.
 
-* If you have multiple versions of `zstd` installed on your system,
-installation by building libarrow from source may fail with an "undefined symbols"
-error. Workarounds include (1) setting `LIBARROW_BINARY` to use a C++ binary; (2)
-setting `ARROW_WITH_ZSTD=OFF` to build without `zstd`; or (3) uninstalling
-the conflicting `zstd`.
-See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
-
 ## Contributing
 
 We are constantly working to make the installation process as painless as 
-possible. If you find ways to improve the process, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues) so that we can
+possible. If you find ways to improve the process, please [report an issue](https://github.com/apache/arrow/issues) so that we can
 document it. Similarly, if you find that your Linux distribution
 or version is not supported, we would welcome the contribution of Docker 
 images (hosted on Docker Hub) that we can use in our continuous integration 

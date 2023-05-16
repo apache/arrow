@@ -19,9 +19,9 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/float16"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,13 +49,14 @@ func TestNewFloat16Builder(t *testing.T) {
 	ab.Append(float16.New(8))
 	ab.Append(float16.New(9))
 	ab.Append(float16.New(10))
+	assert.NoError(t, ab.AppendValueFromString("11.0"))
 
 	// check state of builder before NewFloat16Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewFloat16Array()
-
+	assert.Equal(t, "1", a.ValueStr(0))
 	// check state of builder after NewFloat16Array
 	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewFloat16Array did not reset state")
 	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewFloat16Array did not reset state")
@@ -64,9 +65,9 @@ func TestNewFloat16Builder(t *testing.T) {
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
 
-	assert.Equal(t, []float32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, float32Values(a), "unexpected Float16Values")
+	assert.Equal(t, []float32{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, 11}, float32Values(a), "unexpected Float16Values")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.Values(), 10, "unexpected length of Float16Values")
+	assert.Len(t, a.Values(), 11, "unexpected length of Float16Values")
 
 	a.Release()
 	ab.Append(float16.New(7))
@@ -116,4 +117,40 @@ func TestFloat16Builder_Empty(t *testing.T) {
 	a = ab.NewFloat16Array()
 	assert.Equal(t, want, a.Values())
 	a.Release()
+}
+
+func TestFloat16StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewFloat16Builder(mem)
+	defer b.Release()
+
+	b.Append(float16.New(1))
+	b.Append(float16.New(2))
+	b.Append(float16.New(3))
+	b.AppendNull()
+	b.Append(float16.New(5))
+	b.Append(float16.New(6))
+	b.AppendNull()
+	b.Append(float16.New(8))
+	b.Append(float16.New(9))
+	b.Append(float16.New(10))
+
+	arr := b.NewArray().(*array.Float16)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewFloat16Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Float16)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }

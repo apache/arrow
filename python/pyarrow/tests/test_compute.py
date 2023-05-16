@@ -134,6 +134,7 @@ def test_option_class_equality():
         pc.CountOptions(),
         pc.DayOfWeekOptions(count_from_zero=False, week_start=0),
         pc.DictionaryEncodeOptions(),
+        pc.RunEndEncodeOptions(),
         pc.ElementWiseAggregateOptions(skip_nulls=True),
         pc.ExtractRegexOptions("pattern"),
         pc.FilterOptions(),
@@ -2400,7 +2401,7 @@ def test_select_k_table():
         validate_select_k(result, table, sort_keys=[("a", "ascending")])
 
         result = pc.select_k_unstable(
-            table, k=k, sort_keys=[("a", "ascending"), ("b", "ascending")])
+            table, k=k, sort_keys=[(pc.field("a"), "ascending"), ("b", "ascending")])
         validate_select_k(
             result, table, sort_keys=[("a", "ascending"), ("b", "ascending")])
 
@@ -2484,7 +2485,7 @@ def test_sort_indices_table():
 
     result = pc.sort_indices(table, sort_keys=[("a", "ascending")])
     assert result.to_pylist() == [3, 0, 1, 2]
-    result = pc.sort_indices(table, sort_keys=[("a", "ascending")],
+    result = pc.sort_indices(table, sort_keys=[(pc.field("a"), "ascending")],
                              null_placement="at_start")
     assert result.to_pylist() == [2, 3, 0, 1]
 
@@ -3108,3 +3109,18 @@ def test_list_slice_bad_parameters():
         pc.list_slice(arr, 0, 1, step=0)
     with pytest.raises(pa.ArrowInvalid, match=msg + "-1"):
         pc.list_slice(arr, 0, 1, step=-1)
+
+
+def check_run_end_encode_decode(run_end_encode_opts=None):
+    arr = pa.array([1, 1, 1, 2, 2, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3])
+    encoded = pc.run_end_encode(arr, options=run_end_encode_opts)
+    decoded = pc.run_end_decode(encoded)
+    assert decoded.type == arr.type
+    assert decoded.equals(arr)
+
+
+def test_run_end_encode():
+    check_run_end_encode_decode()
+    check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int16()))
+    check_run_end_encode_decode(pc.RunEndEncodeOptions('int32'))
+    check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int64()))

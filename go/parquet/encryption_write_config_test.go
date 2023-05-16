@@ -19,15 +19,14 @@ package parquet_test
 import (
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/compress"
-	"github.com/apache/arrow/go/v12/parquet/file"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/compress"
+	"github.com/apache/arrow/go/v13/parquet/file"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -214,7 +213,7 @@ func (en *EncryptionConfigTestSuite) encryptFile(configs *parquet.FileEncryption
 
 func (en *EncryptionConfigTestSuite) SetupSuite() {
 	var err error
-	tempdir, err = ioutil.TempDir("", "parquet-encryption-test-*")
+	tempdir, err = os.MkdirTemp("", "parquet-encryption-test-*")
 	en.Require().NoError(err)
 	fmt.Println(tempdir)
 

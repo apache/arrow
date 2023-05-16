@@ -22,10 +22,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -35,6 +35,8 @@ type FixedSizeList struct {
 	n      int32
 	values arrow.Array
 }
+
+var _ ListLike = (*FixedSizeList)(nil)
 
 // NewFixedSizeListData returns a new List array value, from data.
 func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
@@ -46,6 +48,12 @@ func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
 
 func (a *FixedSizeList) ListValues() arrow.Array { return a.values }
 
+func (a *FixedSizeList) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
+}
 func (a *FixedSizeList) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -54,7 +62,7 @@ func (a *FixedSizeList) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -66,12 +74,8 @@ func (a *FixedSizeList) String() string {
 }
 
 func (a *FixedSizeList) newListValue(i int) arrow.Array {
-	n := int64(a.n)
-	off := int64(a.array.data.offset)
-	beg := (off + int64(i)) * n
-	end := (off + int64(i+1)) * n
-	sli := NewSlice(a.values, beg, end)
-	return sli
+	beg, end := a.ValueOffsets(i)
+	return NewSlice(a.values, beg, end)
 }
 
 func (a *FixedSizeList) setData(data *Data) {
@@ -101,6 +105,13 @@ func arrayEqualFixedSizeList(left, right *FixedSizeList) bool {
 
 // Len returns the number of elements in the array.
 func (a *FixedSizeList) Len() int { return a.array.Len() }
+
+func (a *FixedSizeList) ValueOffsets(i int) (start, end int64) {
+	n := int64(a.n)
+	off := int64(a.array.data.offset)
+	start, end = (off+int64(i))*n, (off+int64(i+1))*n
+	return
+}
 
 func (a *FixedSizeList) Retain() {
 	a.array.Retain()
@@ -193,9 +204,14 @@ func (b *FixedSizeListBuilder) Append(v bool) {
 	b.unsafeAppendBoolToBitmap(v)
 }
 
+// AppendNull will append null values to the underlying values by itself
 func (b *FixedSizeListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
+	// require to append this due to value indexes
+	for i := int32(0); i < b.n; i++ {
+		b.values.AppendNull()
+	}
 }
 
 func (b *FixedSizeListBuilder) AppendEmptyValue() {
@@ -278,6 +294,15 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *FixedSizeListBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	dec := json.NewDecoder(strings.NewReader(s))
+	return b.UnmarshalOne(dec)
+}
+
 func (b *FixedSizeListBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
@@ -295,9 +320,6 @@ func (b *FixedSizeListBuilder) UnmarshalOne(dec *json.Decoder) error {
 		return err
 	case nil:
 		b.AppendNull()
-		for i := int32(0); i < b.n; i++ {
-			b.values.AppendNull()
-		}
 	default:
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprint(t),

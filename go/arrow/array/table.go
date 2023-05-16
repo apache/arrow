@@ -22,8 +22,8 @@ import (
 	"math"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 )
 
 // NewColumnSlice returns a new zero-copy slice of the column with the indicated
@@ -132,9 +132,9 @@ func NewTable(schema *arrow.Schema, cols []arrow.Column, rows int64) *simpleTabl
 // of slices of arrow.Array.
 //
 // Like other NewTable functions this can panic if:
-//  - len(schema.Fields) != len(data)
-//  - the total length of each column's array slice (ie: number of rows
-//    in the column) aren't the same for all columns.
+//   - len(schema.Fields) != len(data)
+//   - the total length of each column's array slice (ie: number of rows
+//     in the column) aren't the same for all columns.
 func NewTableFromSlice(schema *arrow.Schema, data [][]arrow.Array) *simpleTable {
 	if len(data) != len(schema.Fields()) {
 		panic("array/table: mismatch in number of columns and data for creating a table")
@@ -197,7 +197,27 @@ func NewTableFromRecords(schema *arrow.Schema, recs []arrow.Record) *simpleTable
 	return NewTable(schema, cols, -1)
 }
 
-func (tbl *simpleTable) Schema() *arrow.Schema      { return tbl.schema }
+func (tbl *simpleTable) Schema() *arrow.Schema { return tbl.schema }
+
+func (tbl *simpleTable) AddColumn(i int, field arrow.Field, column arrow.Column) (arrow.Table, error) {
+	if int64(column.Len()) != tbl.rows {
+		return nil, fmt.Errorf("arrow/array: column length mismatch: %d != %d", column.Len(), tbl.rows)
+	}
+	if field.Type != column.DataType() {
+		return nil, fmt.Errorf("arrow/array: column type mismatch: %v != %v", field.Type, column.DataType())
+	}
+	newSchema, err := tbl.schema.AddField(i, field)
+	if err != nil {
+		return nil, err
+	}
+	cols := make([]arrow.Column, len(tbl.cols)+1)
+	copy(cols[:i], tbl.cols[:i])
+	cols[i] = column
+	copy(cols[i+1:], tbl.cols[i:])
+	newTable := NewTable(newSchema, cols, tbl.rows)
+	return newTable, nil
+}
+
 func (tbl *simpleTable) NumRows() int64             { return tbl.rows }
 func (tbl *simpleTable) NumCols() int64             { return int64(len(tbl.cols)) }
 func (tbl *simpleTable) Column(i int) *arrow.Column { return &tbl.cols[i] }

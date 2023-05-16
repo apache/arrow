@@ -216,7 +216,7 @@ read_delim_arrow <- function(file,
 
   if (!inherits(file, "InputStream")) {
     compression <- detect_compression(file)
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, random_access = FALSE)
     if (compression != "uncompressed") {
       # TODO: accept compression and compression_level as args
       file <- CompressedInputStream$create(file, compression)
@@ -248,7 +248,7 @@ read_delim_arrow <- function(file,
   }
 
   if (isTRUE(as_data_frame)) {
-    tab <- as.data.frame(tab)
+    tab <- collect.ArrowTabular(tab)
   }
 
   tab
@@ -782,12 +782,17 @@ write_csv_arrow <- function(x,
     tryCatch(
       x <- as_record_batch_reader(x),
       error = function(e) {
-        abort(
-          paste0(
-            "x must be an object of class 'data.frame', 'RecordBatch', ",
-            "'Dataset', 'Table', or 'RecordBatchReader' not '", class(x)[1], "'."
+        if (grepl("Input data frame columns must be named", conditionMessage(e))) {
+          abort(conditionMessage(e), parent = NA)
+        } else {
+          abort(
+            paste0(
+              "x must be an object of class 'data.frame', 'RecordBatch', ",
+              "'Dataset', 'Table', or 'RecordBatchReader' not '", class(x)[1], "'."
+            ),
+            parent = NA
           )
-        )
+        }
       }
     )
   }

@@ -25,8 +25,8 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
 )
 
 func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []string {
@@ -223,6 +223,15 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				res[i] = base64.StdEncoding.EncodeToString(arr.Value(i))
 			} else {
 				res[i] = w.nullValue
+			}
+		}
+	case arrow.ExtensionType:
+		arr := col.(array.ExtensionArray)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsNull(i) {
+				res[i] = w.nullValue
+			} else {
+				res[i] = arr.ValueStr(i)
 			}
 		}
 	default:

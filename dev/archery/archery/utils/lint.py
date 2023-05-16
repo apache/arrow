@@ -28,7 +28,7 @@ from .cmake import CMake
 from .git import git
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
-from ..lang.python import Autopep8, Flake8, CythonLint, NumpyDoc
+from ..lang.python import Autopep8, Flake8, CythonLint, NumpyDoc, PythonCommand
 from .rat import Rat, exclusion_from_globs
 from .tmpdir import tmpdir
 
@@ -259,6 +259,31 @@ def python_linter(src, fix=False):
     yield LintResult.from_cmd(cython_lint(*args))
 
 
+def python_cpp_linter(src, clang_format=True, fix=False):
+    """Run C++ linters on python/pyarrow/src/arrow/python."""
+    cpp_src = os.path.join(src.python, "pyarrow", "src", "arrow", "python")
+
+    python = PythonCommand()
+
+    if clang_format:
+        logger.info("Running clang-format for python/pyarrow/src/arrow/python")
+
+        if "CLANG_TOOLS_PATH" in os.environ:
+            clang_format_binary = os.path.join(
+                os.environ["CLANG_TOOLS_PATH"], "clang-format")
+        else:
+            clang_format_binary = "clang-format-14"
+
+        run_clang_format = os.path.join(src.cpp, "build-support",
+                                        "run_clang_format.py")
+        args = [run_clang_format, "--source_dir", cpp_src,
+                "--clang_format_binary", clang_format_binary]
+        if fix:
+            args += ["--fix"]
+
+        yield LintResult.from_cmd(python.run(*args))
+
+
 def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
     """Run numpydoc linter on python.
 
@@ -279,7 +304,6 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
         'pyarrow.json',
         'pyarrow.orc',
         'pyarrow.parquet',
-        'pyarrow.plasma',
         'pyarrow.types',
     }
     try:
@@ -434,6 +458,11 @@ def linter(src, fix=False, *, clang_format=False, cpplint=False,
 
         if python:
             results.extend(python_linter(src, fix=fix))
+
+        if python and clang_format:
+            results.extend(python_cpp_linter(src,
+                                             clang_format=clang_format,
+                                             fix=fix))
 
         if numpydoc:
             results.extend(python_numpydoc())

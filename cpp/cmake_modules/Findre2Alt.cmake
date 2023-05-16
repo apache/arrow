@@ -43,7 +43,7 @@ if(re2_ROOT)
                NO_DEFAULT_PATH)
   find_path(RE2_INCLUDE_DIR
             NAMES re2/re2.h
-            PATHS ${RE2_ROOT}
+            PATHS ${re2_ROOT}
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 else()

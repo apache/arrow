@@ -20,8 +20,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -31,6 +31,8 @@ type Map struct {
 	*List
 	keys, items arrow.Array
 }
+
+var _ ListLike = (*Map)(nil)
 
 // NewMapData returns a new Map array value, from data
 func NewMapData(data arrow.ArrayData) *Map {
@@ -126,7 +128,7 @@ type MapBuilder struct {
 // building using keys in sorted order for each value. The KeysSorted value will just be
 // used when creating the DataType for the map.
 //
-// Example
+// # Example
 //
 // Simple example provided of converting a []map[string]int32 to an array.Map
 // by using a MapBuilder:
@@ -298,6 +300,10 @@ func (b *MapBuilder) ItemBuilder() Builder { return b.itemBuilder }
 // separately.
 func (b *MapBuilder) ValueBuilder() Builder {
 	return b.listBuilder.ValueBuilder()
+}
+
+func (b *MapBuilder) AppendValueFromString(s string) error {
+	return b.listBuilder.AppendValueFromString(s)
 }
 
 func (b *MapBuilder) UnmarshalOne(dec *json.Decoder) error {

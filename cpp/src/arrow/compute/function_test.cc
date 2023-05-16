@@ -323,7 +323,7 @@ TEST(ScalarAggregateFunction, DispatchExact) {
 
   std::vector<InputType> in_args = {int8()};
   ScalarAggregateKernel kernel(std::move(in_args), int64(), NoopInit, NoopConsume,
-                               NoopMerge, NoopFinalize);
+                               NoopMerge, NoopFinalize, /*ordered=*/false);
   ASSERT_OK(func.AddKernel(kernel));
 
   in_args = {float64()};

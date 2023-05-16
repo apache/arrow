@@ -18,11 +18,12 @@ package array
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/goccy/go-json"
 )
 
@@ -54,6 +55,14 @@ func (a *Binary) Value(i int) []byte {
 	}
 	idx := a.array.data.offset + i
 	return a.valueBytes[a.valueOffsets[idx]:a.valueOffsets[idx+1]]
+}
+
+// ValueStr returns a copy of the base64-encoded string value or NullValueStr
+func (a *Binary) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return base64.StdEncoding.EncodeToString(a.Value(i))
 }
 
 // ValueString returns the string at index i without performing additional allocations.
@@ -103,7 +112,7 @@ func (a *Binary) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.ValueString(i))
 		}
@@ -191,6 +200,12 @@ func (a *LargeBinary) Value(i int) []byte {
 	return a.valueBytes[a.valueOffsets[idx]:a.valueOffsets[idx+1]]
 }
 
+func (a *LargeBinary) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return base64.StdEncoding.EncodeToString(a.Value(i))
+}
 func (a *LargeBinary) ValueString(i int) string {
 	b := a.Value(i)
 	return *(*string)(unsafe.Pointer(&b))
@@ -236,7 +251,7 @@ func (a *LargeBinary) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(&o, "%q", a.ValueString(i))
 		}

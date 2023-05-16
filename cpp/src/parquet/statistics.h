@@ -137,6 +137,12 @@ class PARQUET_EXPORT EncodedStatistics {
   bool has_null_count = false;
   bool has_distinct_count = false;
 
+  // When all values in the statistics are null, it is set to true.
+  // Otherwise, at least one value is not null, or we are not sure at all.
+  // Page index requires this information to decide whether a data page
+  // is a null page or not.
+  bool all_null_value = false;
+
   // From parquet-mr
   // Don't write stats larger than the max size rather than truncating. The
   // rationale is that some engines may use the minimum value in the page as

@@ -536,6 +536,19 @@ cdef class MapType(DataType):
         """
         return pyarrow_wrap_data_type(self.map_type.item_type())
 
+    @property
+    def keys_sorted(self):
+        """
+        Should the entries be sorted according to keys.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pa.map_(pa.string(), pa.int32(), keys_sorted=True).keys_sorted
+        True
+        """
+        return self.map_type.keys_sorted()
+
 
 cdef class FixedSizeListType(DataType):
     """
@@ -1244,6 +1257,27 @@ cdef class Decimal256Type(FixedSizeBinaryType):
         return self.decimal256_type.scale()
 
 
+cdef class RunEndEncodedType(DataType):
+    """
+    Concrete class for run-end encoded types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.run_end_encoded_type = <const CRunEndEncodedType*> type.get()
+
+    def __reduce__(self):
+        return run_end_encoded, (self.run_end_type, self.value_type)
+
+    @property
+    def run_end_type(self):
+        return pyarrow_wrap_data_type(self.run_end_encoded_type.run_end_type())
+
+    @property
+    def value_type(self):
+        return pyarrow_wrap_data_type(self.run_end_encoded_type.value_type())
+
+
 cdef class BaseExtensionType(DataType):
     """
     Concrete base class for extension types.
@@ -1472,6 +1506,86 @@ cdef class ExtensionType(BaseExtensionType):
         extension type scalar will be a built-in ExtensionScalar instance.
         """
         return ExtensionScalar
+
+
+cdef class FixedShapeTensorType(BaseExtensionType):
+    """
+    Concrete class for fixed shape tensor extension type.
+
+    Examples
+    --------
+    Create an instance of fixed shape tensor extension type:
+
+    >>> import pyarrow as pa
+    >>> pa.fixed_shape_tensor(pa.int32(), [2, 2])
+    FixedShapeTensorType(extension<arrow.fixed_shape_tensor>)
+
+    Create an instance of fixed shape tensor extension type with
+    permutation:
+
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int8(), (2, 2, 3),
+    ...                                     permutation=[0, 2, 1])
+    >>> tensor_type.permutation
+    [0, 2, 1]
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        BaseExtensionType.init(self, type)
+        self.tensor_ext_type = <const CFixedShapeTensorType*> type.get()
+
+    @property
+    def value_type(self):
+        """
+        Data type of an individual tensor.
+        """
+        return pyarrow_wrap_data_type(self.tensor_ext_type.value_type())
+
+    @property
+    def shape(self):
+        """
+        Shape of the tensors.
+        """
+        return self.tensor_ext_type.shape()
+
+    @property
+    def dim_names(self):
+        """
+        Explicit names of the dimensions.
+        """
+        list_of_bytes = self.tensor_ext_type.dim_names()
+        if len(list_of_bytes) != 0:
+            return [frombytes(x) for x in list_of_bytes]
+        else:
+            return None
+
+    @property
+    def permutation(self):
+        """
+        Indices of the dimensions ordering.
+        """
+        indices = self.tensor_ext_type.permutation()
+        if len(indices) != 0:
+            return indices
+        else:
+            return None
+
+    def __arrow_ext_serialize__(self):
+        """
+        Serialized representation of metadata to reconstruct the type object.
+        """
+        return self.tensor_ext_type.Serialize()
+
+    @classmethod
+    def __arrow_ext_deserialize__(self, storage_type, serialized):
+        """
+        Return an FixedShapeTensor type instance from the storage type and serialized
+        metadata.
+        """
+        return self.tensor_ext_type.Deserialize(storage_type, serialized)
+
+    def __arrow_ext_class__(self):
+        return FixedShapeTensorArray
+
 
 cdef class PyExtensionType(ExtensionType):
     """
@@ -4172,8 +4286,8 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
 
     Parameters
     ----------
-    key_type : DataType
-    item_type : DataType
+    key_type : DataType or Field
+    item_type : DataType or Field
     keys_sorted : bool
 
     Returns
@@ -4479,13 +4593,6 @@ def union(child_fields, mode, type_codes=None):
     -------
     type : UnionType
     """
-    cdef:
-        Field child_field
-        vector[shared_ptr[CField]] c_fields
-        vector[int8_t] c_type_codes
-        shared_ptr[CDataType] union_type
-        int i
-
     if isinstance(mode, int):
         if mode not in (_UnionMode_SPARSE, _UnionMode_DENSE):
             raise ValueError("Invalid union mode {0!r}".format(mode))
@@ -4501,6 +4608,132 @@ def union(child_fields, mode, type_codes=None):
         return sparse_union(child_fields, type_codes)
     else:
         return dense_union(child_fields, type_codes)
+
+
+def run_end_encoded(run_end_type, value_type):
+    """
+    Create RunEndEncodedType from run-end and value types.
+
+    Parameters
+    ----------
+    run_end_type : pyarrow.DataType
+        The integer type of the run_ends array. Must be 'int16', 'int32', or 'int64'.
+    value_type : pyarrow.DataType
+        The type of the values array.
+
+    Returns
+    -------
+    type : RunEndEncodedType
+    """
+    cdef:
+        DataType _run_end_type = ensure_type(run_end_type, allow_none=False)
+        DataType _value_type = ensure_type(value_type, allow_none=False)
+        shared_ptr[CDataType] ree_type
+
+    if not _run_end_type.type.id() in [_Type_INT16, _Type_INT32, _Type_INT64]:
+        raise ValueError("The run_end_type should be 'int16', 'int32', or 'int64'")
+    ree_type = CMakeRunEndEncodedType(_run_end_type.sp_type, _value_type.sp_type)
+    return pyarrow_wrap_data_type(ree_type)
+
+
+def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=None):
+    """
+    Create instance of fixed shape tensor extension type with shape and optional
+    names of tensor dimensions and indices of the desired logical
+    ordering of dimensions.
+
+    Parameters
+    ----------
+    value_type : DataType
+        Data type of individual tensor elements.
+    shape : tuple or list of integers
+        The physical shape of the contained tensors.
+    dim_names : tuple or list of strings, default None
+        Explicit names to tensor dimensions.
+    permutation : tuple or list integers, default None
+        Indices of the desired ordering of the original dimensions.
+        The indices contain a permutation of the values ``[0, 1, .., N-1]`` where
+        N is the number of dimensions. The permutation indicates which dimension
+        of the logical layout corresponds to which dimension of the physical tensor.
+        For more information on this parameter see
+        :ref:`fixed_shape_tensor_extension`.
+
+    Examples
+    --------
+    Create an instance of fixed shape tensor extension type:
+
+    >>> import pyarrow as pa
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), [2, 2])
+    >>> tensor_type
+    FixedShapeTensorType(extension<arrow.fixed_shape_tensor>)
+
+    Inspect the data type:
+
+    >>> tensor_type.value_type
+    DataType(int32)
+    >>> tensor_type.shape
+    [2, 2]
+
+    Create a table with fixed shape tensor extension array:
+
+    >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+    >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
+    >>> tensor = pa.ExtensionArray.from_storage(tensor_type, storage)
+    >>> pa.table([tensor], names=["tensor_array"])
+    pyarrow.Table
+    tensor_array: extension<arrow.fixed_shape_tensor>
+    ----
+    tensor_array: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
+
+    Create an instance of fixed shape tensor extension type with names
+    of tensor dimensions:
+
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int8(), (2, 2, 3),
+    ...                                     dim_names=['C', 'H', 'W'])
+    >>> tensor_type.dim_names
+    ['C', 'H', 'W']
+
+    Create an instance of fixed shape tensor extension type with
+    permutation:
+
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int8(), (2, 2, 3),
+    ...                                     permutation=[0, 2, 1])
+    >>> tensor_type.permutation
+    [0, 2, 1]
+
+    Returns
+    -------
+    type : FixedShapeTensorType
+    """
+
+    cdef:
+        vector[int64_t] c_shape
+        vector[int64_t] c_permutation
+        vector[c_string] c_dim_names
+        shared_ptr[CDataType] c_tensor_ext_type
+
+    assert value_type is not None
+    assert shape is not None
+
+    for i in shape:
+        c_shape.push_back(i)
+
+    if permutation is not None:
+        for i in permutation:
+            c_permutation.push_back(i)
+
+    if dim_names is not None:
+        for x in dim_names:
+            c_dim_names.push_back(tobytes(x))
+
+    cdef FixedShapeTensorType out = FixedShapeTensorType.__new__(FixedShapeTensorType)
+
+    c_tensor_ext_type = GetResultValue(CFixedShapeTensorType.Make(
+        value_type.sp_type, c_shape, c_permutation, c_dim_names))
+
+    out.init(c_tensor_ext_type)
+
+    return out
 
 
 cdef dict _type_aliases = {

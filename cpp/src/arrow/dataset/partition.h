@@ -90,7 +90,8 @@ class ARROW_DS_EXPORT Partitioning : public util::EqualityComparable<Partitionin
 
   virtual Result<PartitionPathFormat> Format(const compute::Expression& expr) const = 0;
 
-  /// \brief A default Partitioning which always yields scalar(true)
+  /// \brief A default Partitioning which is a DirectoryPartitioning
+  /// with an empty schema.
   static std::shared_ptr<Partitioning> Default();
 
   /// \brief The partition schema.

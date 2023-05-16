@@ -15,7 +15,7 @@
     <parent>
         <artifactId>arrow-java-root</artifactId>
         <groupId>org.apache.arrow</groupId>
-        <version>12.0.0-SNAPSHOT</version>
+        <version>13.0.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 

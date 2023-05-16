@@ -187,17 +187,12 @@ class TestConvertMetadata:
         _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_column_index_names_with_tz(self):
-        if Version("2.0.0.dev0") <= Version(pd.__version__) < Version("2.0.0"):
-            # TODO: regression in pandas, should be fixed before final 2.0.0
-            # https://github.com/pandas-dev/pandas/issues/50140
-            pytest.skip("Regression in pandas 2.0.0.dev")
         # ARROW-13756
         # Bug if index is timezone aware DataTimeIndex
 
         df = pd.DataFrame(
             np.random.randn(5, 3),
-            columns=pd.date_range(
-                "2021-01-01", "2021-01-3", freq="D", tz="CET")
+            columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz="CET")
         )
         _check_pandas_roundtrip(df, preserve_index=True)
 
@@ -453,11 +448,11 @@ class TestConvertMetadata:
                                         preserve_index=True)
 
     def test_binary_column_name(self):
-        if Version("2.0.0.dev0") <= Version(pd.__version__) < Version("2.0.0"):
-            # TODO: regression in pandas, should be fixed before final 2.0.0
+        if Version("2.0.0") <= Version(pd.__version__) < Version("2.1.0"):
+            # TODO: regression in pandas, hopefully fixed in next version
             # https://issues.apache.org/jira/browse/ARROW-18394
             # https://github.com/pandas-dev/pandas/issues/50127
-            pytest.skip("Regression in pandas 2.0.0.dev")
+            pytest.skip("Regression in pandas 2.0.0")
         column_data = ['い']
         key = 'あ'.encode()
         data = {key: column_data}
@@ -1443,6 +1438,13 @@ class TestConvertDateTimeLikeTypes:
     def test_timestamp_to_pandas_out_of_bounds(self):
         # ARROW-7758 check for out of bounds timestamps for non-ns timestamps
 
+        if Version(pd.__version__) >= Version("2.1.0.dev"):
+            # GH-35235: test fail due to __from_pyarrow__ being added to pandas
+            # https://github.com/pandas-dev/pandas/pull/52201
+            # Needs: https://github.com/apache/arrow/issues/33321
+            pytest.skip(
+                "Need support converting to non-nano datetime64 for pandas >= 2.0")
+
         for unit in ['s', 'ms', 'us']:
             for tz in [None, 'America/New_York']:
                 arr = pa.array([datetime(1, 1, 1)], pa.timestamp(unit, tz=tz))
@@ -1510,7 +1512,6 @@ class TestConvertDateTimeLikeTypes:
         # identical (pyarrow still defaults to pytz)
         # TODO remove if https://github.com/apache/arrow/issues/15047 is fixed
         _check_pandas_roundtrip(df, check_dtype=False)
-        _check_serialize_components_roundtrip(df)
 
     def test_timedeltas_no_nulls(self):
         df = pd.DataFrame({
@@ -2064,11 +2065,6 @@ class TestConvertListTypes:
         assert result3.equals(expected3)
 
     def test_infer_lists(self):
-        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
-                (Version(pd.__version__) < Version("2.0.0"))):
-            # TODO: regression in pandas with numpy 1.25dev
-            # https://github.com/pandas-dev/pandas/issues/50360
-            pytest.skip("Regression in pandas with numpy 1.25")
         data = OrderedDict([
             ('nan_ints', [[None, 1], [2, 3]]),
             ('ints', [[0, 1], [2, 3]]),
@@ -2118,11 +2114,6 @@ class TestConvertListTypes:
         _check_pandas_roundtrip(df, expected_schema=expected_schema)
 
     def test_to_list_of_structs_pandas(self):
-        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
-                (Version(pd.__version__) < Version("2.0.0"))):
-            # TODO: regression in pandas with numpy 1.25dev
-            # https://github.com/pandas-dev/pandas/issues/50360
-            pytest.skip("Regression in pandas with numpy 1.25")
         ints = pa.array([1, 2, 3], pa.int32())
         strings = pa.array([['a', 'b'], ['c', 'd'], ['e', 'f']],
                            pa.list_(pa.string()))
@@ -2143,6 +2134,66 @@ class TestConvertListTypes:
             warnings.filterwarnings("ignore", "elementwise comparison failed",
                                     DeprecationWarning)
             tm.assert_series_equal(series, expected)
+
+    def test_to_list_of_maps_pandas(self):
+        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
+                (Version(pd.__version__) < Version("2.0.0"))):
+            # TODO: regression in pandas with numpy 1.25dev
+            # https://github.com/pandas-dev/pandas/issues/50360
+            pytest.skip("Regression in pandas with numpy 1.25")
+        data = [
+            [[('foo', ['a', 'b']), ('bar', ['c', 'd'])]],
+            [[('baz', []), ('qux', None), ('quux', [None, 'e'])], [('quz', ['f', 'g'])]]
+        ]
+        arr = pa.array(data, pa.list_(pa.map_(pa.utf8(), pa.list_(pa.utf8()))))
+        series = arr.to_pandas()
+        expected = pd.Series(data)
+
+        # pandas.testing generates a
+        # DeprecationWarning: elementwise comparison failed
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "elementwise comparison failed",
+                                    DeprecationWarning)
+            tm.assert_series_equal(series, expected)
+
+    def test_to_list_of_maps_pandas_sliced(self):
+        """
+        A slightly more rigorous test for chunk/slice combinations
+        """
+
+        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
+                (Version(pd.__version__) < Version("2.0.0"))):
+            # TODO: regression in pandas with numpy 1.25dev
+            # https://github.com/pandas-dev/pandas/issues/50360
+            pytest.skip("Regression in pandas with numpy 1.25")
+
+        keys = pa.array(['ignore', 'foo', 'bar', 'baz',
+                         'qux', 'quux', 'ignore']).slice(1, 5)
+        items = pa.array(
+            [['ignore'], ['ignore'], ['a', 'b'], ['c', 'd'], [], None, [None, 'e']],
+            pa.list_(pa.string()),
+        ).slice(2, 5)
+        map = pa.MapArray.from_arrays([0, 2, 4], keys, items)
+        arr = pa.ListArray.from_arrays([0, 1, 2], map)
+
+        series = arr.to_pandas()
+        expected = pd.Series([
+            [[('foo', ['a', 'b']), ('bar', ['c', 'd'])]],
+            [[('baz', []), ('qux', None)]],
+        ])
+
+        series_sliced = arr.slice(1, 2).to_pandas()
+        expected_sliced = pd.Series([
+            [[('baz', []), ('qux', None)]],
+        ])
+
+        # pandas.testing generates a
+        # DeprecationWarning: elementwise comparison failed
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", "elementwise comparison failed",
+                                    DeprecationWarning)
+            tm.assert_series_equal(series, expected)
+            tm.assert_series_equal(series_sliced, expected_sliced)
 
     @pytest.mark.parametrize('t,data,expected', [
         (
@@ -2192,11 +2243,6 @@ class TestConvertListTypes:
             assert result.equals(expected)
 
     def test_nested_large_list(self):
-        if ((Version(np.__version__) >= Version("1.25.0.dev0")) and
-                (Version(pd.__version__) < Version("2.0.0"))):
-            # TODO: regression in pandas with numpy 1.25dev
-            # https://github.com/pandas-dev/pandas/issues/50360
-            pytest.skip("Regression in pandas with numpy 1.25")
         s = (pa.array([[[1, 2, 3], [4]], None],
                       type=pa.large_list(pa.large_list(pa.int64())))
              .to_pandas())
@@ -2590,7 +2636,8 @@ class TestZeroCopyConversion:
     def test_zero_copy_dictionaries(self):
         arr = pa.DictionaryArray.from_arrays(
             np.array([0, 0]),
-            np.array([5]))
+            np.array([5], dtype="int64"),
+        )
 
         result = arr.to_pandas(zero_copy_only=True)
         values = pd.Categorical([5, 5])
@@ -2848,8 +2895,12 @@ class TestConvertMisc:
 
     def test_table_batch_empty_dataframe(self):
         df = pd.DataFrame({})
-        _check_pandas_roundtrip(df)
-        _check_pandas_roundtrip(df, as_batch=True)
+        _check_pandas_roundtrip(df, preserve_index=None)
+        _check_pandas_roundtrip(df, preserve_index=None, as_batch=True)
+
+        expected = pd.DataFrame(columns=pd.Index([]))
+        _check_pandas_roundtrip(df, expected, preserve_index=False)
+        _check_pandas_roundtrip(df, expected, preserve_index=False, as_batch=True)
 
         df2 = pd.DataFrame({}, index=[0, 1, 2])
         _check_pandas_roundtrip(df2, preserve_index=True)
@@ -2950,11 +3001,11 @@ def _fully_loaded_dataframe_example():
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
 def test_roundtrip_with_bytes_unicode(columns):
-    if Version("2.0.0.dev0") <= Version(pd.__version__) < Version("2.0.0"):
-        # TODO: regression in pandas, should be fixed before final 2.0.0
+    if Version("2.0.0") <= Version(pd.__version__) < Version("2.1.0"):
+        # TODO: regression in pandas, hopefully fixed in next version
         # https://issues.apache.org/jira/browse/ARROW-18394
         # https://github.com/pandas-dev/pandas/issues/50127
-        pytest.skip("Regression in pandas 2.0.0.dev")
+        pytest.skip("Regression in pandas 2.0.0")
 
     df = pd.DataFrame(columns=columns)
     table1 = pa.Table.from_pandas(df)
@@ -2962,40 +3013,6 @@ def test_roundtrip_with_bytes_unicode(columns):
     assert table1.equals(table2)
     assert table1.schema.equals(table2.schema)
     assert table1.schema.metadata == table2.schema.metadata
-
-
-def _check_serialize_components_roundtrip(pd_obj):
-    with pytest.warns(FutureWarning):
-        ctx = pa.default_serialization_context()
-
-    with pytest.warns(FutureWarning):
-        components = ctx.serialize(pd_obj).to_components()
-    with pytest.warns(FutureWarning):
-        deserialized = ctx.deserialize_components(components)
-
-    if isinstance(pd_obj, pd.DataFrame):
-        tm.assert_frame_equal(pd_obj, deserialized)
-    else:
-        tm.assert_series_equal(pd_obj, deserialized)
-
-
-@pytest.mark.skipif(
-    Version('1.16.0') <= Version(np.__version__) < Version('1.16.1'),
-    reason='Until numpy/numpy#12745 is resolved')
-def test_serialize_deserialize_pandas():
-    # ARROW-1784, serialize and deserialize DataFrame by decomposing
-    # BlockManager
-    df = _fully_loaded_dataframe_example()
-    _check_serialize_components_roundtrip(df)
-
-
-def test_serialize_deserialize_empty_pandas():
-    # ARROW-7996, serialize and deserialize empty pandas objects
-    df = pd.DataFrame({'col1': [], 'col2': [], 'col3': []})
-    _check_serialize_components_roundtrip(df)
-
-    series = pd.Series([], dtype=np.float32, name='col')
-    _check_serialize_components_roundtrip(series)
 
 
 def _pytime_from_micros(val):
@@ -3924,6 +3941,22 @@ def test_dictionary_from_pandas_specified_type():
     assert result.to_pylist() == ['a', 'b']
 
 
+def test_convert_categories_to_array_with_string_pyarrow_dtype():
+    # gh-33727: categories should be converted to pa.Array
+    if Version(pd.__version__) < Version("1.3.0"):
+        pytest.skip("PyArrow backed string data type introduced in pandas 1.3.0")
+
+    df = pd.DataFrame({"x": ["foo", "bar", "foo"]}, dtype="string[pyarrow]")
+    df = df.astype("category")
+    indices = pa.array(df['x'].cat.codes)
+    dictionary = pa.array(df["x"].cat.categories.values)
+    assert isinstance(dictionary, pa.Array)
+
+    expected = pa.Array.from_pandas(df['x'])
+    result = pa.DictionaryArray.from_arrays(indices, dictionary)
+    assert result == expected
+
+
 # ----------------------------------------------------------------------
 # Array protocol in pandas conversions tests
 
@@ -4576,3 +4609,210 @@ def test_does_not_mutate_timedelta_nested():
     df = table.to_pandas()
 
     assert df["timedelta_2"][0].to_pytimedelta() == timedelta_2[0]
+
+
+def test_roundtrip_nested_map_table_with_pydicts():
+    schema = pa.schema([
+        pa.field(
+            "a",
+            pa.list_(
+                pa.map_(pa.int8(), pa.struct([pa.field("b", pa.binary())]))
+            )
+        )
+    ])
+    table = pa.table([[
+        [[(1, None)]],
+        None,
+        [
+            [(2, {"b": b"abc"})],
+            [(3, {"b": None}), (4, {"b": b"def"})],
+        ]
+    ]],
+        schema=schema,
+    )
+
+    expected_default_df = pd.DataFrame(
+        {"a": [[[(1, None)]], None, [[(2, {"b": b"abc"})],
+                                     [(3, {"b": None}), (4, {"b": b"def"})]]]}
+    )
+    expected_as_pydicts_df = pd.DataFrame(
+        {"a": [
+            [{1: None}],
+            None,
+            [{2: {"b": b"abc"}}, {3: {"b": None}, 4: {"b": b"def"}}],
+        ]}
+    )
+
+    default_df = table.to_pandas()
+    as_pydicts_df = table.to_pandas(maps_as_pydicts="strict")
+
+    tm.assert_frame_equal(default_df, expected_default_df)
+    tm.assert_frame_equal(as_pydicts_df, expected_as_pydicts_df)
+
+    table_default_roundtrip = pa.Table.from_pandas(default_df, schema=schema)
+    assert table.equals(table_default_roundtrip)
+
+    table_as_pydicts_roundtrip = pa.Table.from_pandas(as_pydicts_df, schema=schema)
+    assert table.equals(table_as_pydicts_roundtrip)
+
+
+def test_roundtrip_nested_map_array_with_pydicts_sliced():
+    """
+    Slightly more robust test with chunking and slicing
+    """
+    keys_1 = pa.array(['foo', 'bar'])
+    keys_2 = pa.array(['baz', 'qux', 'quux', 'quz'])
+    keys_3 = pa.array([], pa.string())
+
+    items_1 = pa.array(
+        [['a', 'b'], ['c', 'd']],
+        pa.list_(pa.string()),
+    )
+    items_2 = pa.array(
+        [[], None, [None, 'e'], ['f', 'g']],
+        pa.list_(pa.string()),
+    )
+    items_3 = pa.array(
+        [],
+        pa.list_(pa.string()),
+    )
+
+    map_chunk_1 = pa.MapArray.from_arrays([0, 2], keys_1, items_1)
+    map_chunk_2 = pa.MapArray.from_arrays([0, 3, 4], keys_2, items_2)
+    map_chunk_3 = pa.MapArray.from_arrays([0, 0], keys_3, items_3)
+    chunked_array = pa.chunked_array([
+        pa.ListArray.from_arrays([0, 1], map_chunk_1).slice(0),
+        pa.ListArray.from_arrays([0, 1], map_chunk_2.slice(1)).slice(0),
+        pa.ListArray.from_arrays([0, 0], map_chunk_3).slice(0),
+    ])
+
+    series_default = chunked_array.to_pandas()
+    expected_series_default = pd.Series([
+        [[('foo', ['a', 'b']), ('bar', ['c', 'd'])]],
+        [[('quz', ['f', 'g'])]],
+        [],
+    ])
+
+    series_pydicts = chunked_array.to_pandas(maps_as_pydicts="strict")
+    expected_series_pydicts = pd.Series([
+        [{'foo': ['a', 'b'], 'bar': ['c', 'd']}],
+        [{'quz': ['f', 'g']}],
+        [],
+    ])
+
+    sliced = chunked_array.slice(1, 3)
+    series_default_sliced = sliced.to_pandas()
+    expected_series_default_sliced = pd.Series([
+        [[('quz', ['f', 'g'])]],
+        [],
+    ])
+
+    series_pydicts_sliced = sliced.to_pandas(maps_as_pydicts="strict")
+    expected_series_pydicts_sliced = pd.Series([
+        [{'quz': ['f', 'g']}],
+        [],
+    ])
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", "elementwise comparison failed",
+                                DeprecationWarning)
+        tm.assert_series_equal(series_default, expected_series_default)
+        tm.assert_series_equal(series_pydicts, expected_series_pydicts)
+        tm.assert_series_equal(series_default_sliced, expected_series_default_sliced)
+        tm.assert_series_equal(series_pydicts_sliced, expected_series_pydicts_sliced)
+
+    ty = pa.list_(pa.map_(pa.string(), pa.list_(pa.string())))
+
+    def assert_roundtrip(series: pd.Series, data) -> None:
+        array_roundtrip = pa.chunked_array(pa.Array.from_pandas(series, type=ty))
+        assert data.equals(array_roundtrip)
+
+    assert_roundtrip(series_default, chunked_array)
+    assert_roundtrip(series_pydicts, chunked_array)
+    assert_roundtrip(series_default_sliced, sliced)
+    assert_roundtrip(series_pydicts_sliced, sliced)
+
+
+def test_roundtrip_map_array_with_pydicts_duplicate_keys():
+    keys = pa.array(['foo', 'bar', 'foo'])
+    items = pa.array(
+        [['a', 'b'], ['c', 'd'], ['1', '2']],
+        pa.list_(pa.string()),
+    )
+    offsets = [0, 3]
+    maps = pa.MapArray.from_arrays(offsets, keys, items)
+    ty = pa.map_(pa.string(), pa.list_(pa.string()))
+
+    # ------------------------
+    # With maps as pydicts
+    with pytest.raises(pa.lib.ArrowException):
+        # raises because of duplicate keys
+        maps.to_pandas(maps_as_pydicts="strict")
+    series_pydicts = maps.to_pandas(maps_as_pydicts="lossy")
+    # some data loss occurs for duplicate keys
+    expected_series_pydicts = pd.Series([
+        {'foo': ['1', '2'], 'bar': ['c', 'd']},
+    ])
+    # roundtrip is not possible because of data loss
+    assert not maps.equals(pa.Array.from_pandas(series_pydicts, type=ty))
+
+    # ------------------------
+    # With default assoc list of tuples
+    series_default = maps.to_pandas()
+    expected_series_default = pd.Series([
+        [('foo', ['a', 'b']), ('bar', ['c', 'd']), ('foo', ['1', '2'])],
+    ])
+    assert maps.equals(pa.Array.from_pandas(series_default, type=ty))
+
+    # custom comparison for compatibility w/ Pandas 1.0.0
+    # would otherwise run:
+    #   tm.assert_series_equal(series_pydicts, expected_series_pydicts)
+    assert len(series_pydicts) == len(expected_series_pydicts)
+    for row1, row2 in zip(series_pydicts, expected_series_pydicts):
+        assert len(row1) == len(row2)
+        for tup1, tup2 in zip(row1.items(), row2.items()):
+            assert tup1[0] == tup2[0]
+            assert np.array_equal(tup1[1], tup2[1])
+
+    # custom comparison for compatibility w/ Pandas 1.0.0
+    # would otherwise run:
+    #   tm.assert_series_equal(series_default, expected_series_default)
+    assert len(series_default) == len(expected_series_default)
+    for row1, row2 in zip(series_default, expected_series_default):
+        assert len(row1) == len(row2)
+        for tup1, tup2 in zip(row1, row2):
+            assert tup1[0] == tup2[0]
+            assert np.array_equal(tup1[1], tup2[1])
+
+
+def test_unhashable_map_keys_with_pydicts():
+    keys = pa.array(
+        [['a', 'b'], ['c', 'd'], [], ['e'], [None, 'f'], ['g', 'h']],
+        pa.list_(pa.string()),
+    )
+    items = pa.array(['foo', 'bar', 'baz', 'qux', 'quux', 'quz'])
+    offsets = [0, 2, 6]
+    maps = pa.MapArray.from_arrays(offsets, keys, items)
+
+    # ------------------------
+    # With maps as pydicts
+    with pytest.raises(TypeError):
+        maps.to_pandas(maps_as_pydicts="lossy")
+
+    # ------------------------
+    # With default assoc list of tuples
+    series = maps.to_pandas()
+    expected_series_default = pd.Series([
+        [(['a', 'b'], 'foo'), (['c', 'd'], 'bar')],
+        [([], 'baz'), (['e'], 'qux'), ([None, 'f'], 'quux'), (['g', 'h'], 'quz')],
+    ])
+
+    # custom comparison for compatibility w/ Pandas 1.0.0
+    # would otherwise run:
+    #   tm.assert_series_equal(series, expected_series_default)
+    assert len(series) == len(expected_series_default)
+    for row1, row2 in zip(series, expected_series_default):
+        assert len(row1) == len(row2)
+        for tup1, tup2 in zip(row1, row2):
+            assert np.array_equal(tup1[0], tup2[0])
+            assert tup1[1] == tup2[1]

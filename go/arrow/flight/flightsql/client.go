@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	pb "github.com/apache/arrow/go/v12/arrow/flight/internal/flight"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/flight"
+	pb "github.com/apache/arrow/go/v13/arrow/flight/internal/flight"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -39,7 +39,11 @@ import (
 // its arguments to flight.NewClientWithMiddleware to create the
 // underlying Flight Client.
 func NewClient(addr string, auth flight.ClientAuthHandler, middleware []flight.ClientMiddleware, opts ...grpc.DialOption) (*Client, error) {
-	cl, err := flight.NewClientWithMiddleware(addr, auth, middleware, opts...)
+	return NewClientCtx(context.Background(), addr, auth, middleware, opts...)
+}
+
+func NewClientCtx(ctx context.Context, addr string, auth flight.ClientAuthHandler, middleware []flight.ClientMiddleware, opts ...grpc.DialOption) (*Client, error) {
+	cl, err := flight.NewClientWithMiddlewareCtx(ctx, addr, auth, middleware, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1110,7 +1114,9 @@ func (p *PreparedStatement) clearParameters() {
 func (p *PreparedStatement) SetParameters(binding arrow.Record) {
 	p.clearParameters()
 	p.paramBinding = binding
-	p.paramBinding.Retain()
+	if p.paramBinding != nil {
+		p.paramBinding.Retain()
+	}
 }
 
 // SetRecordReader takes a RecordReader to send as the parameter bindings when

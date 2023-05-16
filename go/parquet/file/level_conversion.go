@@ -22,11 +22,11 @@ import (
 	"math/bits"
 	"unsafe"
 
-	shared_utils "github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/bmi"
-	"github.com/apache/arrow/go/v12/parquet/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	shared_utils "github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/bmi"
+	"github.com/apache/arrow/go/v13/parquet/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -170,7 +170,7 @@ func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info L
 
 // create a bitmap out of the definition Levels
 func defLevelsToBitmapInternal(defLevels []int16, info LevelInfo, out *ValidityBitmapInputOutput, hasRepeatedParent bool) {
-	wr := utils.NewFirstTimeBitmapWriter(out.ValidBits, out.ValidBitsOffset, int64(len(defLevels)))
+	wr := utils.NewFirstTimeBitmapWriter(out.ValidBits, out.ValidBitsOffset, int64(out.ReadUpperBound))
 	defer wr.Finish()
 	setCount := defLevelsBatchToBitmap(defLevels, out.ReadUpperBound, info, wr, hasRepeatedParent)
 	out.Read = int64(wr.Pos())

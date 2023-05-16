@@ -64,7 +64,7 @@ cdef extern from "Python.h":
     int PySlice_Check(object)
 
 
-cdef int check_status(const CStatus& status) nogil except -1
+cdef int check_status(const CStatus& status) except -1 nogil
 
 
 cdef class _Weakrefable:
@@ -184,6 +184,11 @@ cdef class Decimal256Type(FixedSizeBinaryType):
         const CDecimal256Type* decimal256_type
 
 
+cdef class RunEndEncodedType(DataType):
+    cdef:
+        const CRunEndEncodedType* run_end_encoded_type
+
+
 cdef class BaseExtensionType(DataType):
     cdef:
         const CExtensionType* ext_type
@@ -192,6 +197,11 @@ cdef class BaseExtensionType(DataType):
 cdef class ExtensionType(BaseExtensionType):
     cdef:
         const CPyExtensionType* cpy_ext_type
+
+
+cdef class FixedShapeTensorType(BaseExtensionType):
+    cdef:
+        const CFixedShapeTensorType* tensor_ext_type
 
 
 cdef class PyExtensionType(ExtensionType):
@@ -464,7 +474,11 @@ cdef class ChunkedArray(_PandasConvertible):
     cdef getitem(self, int64_t i)
 
 
-cdef class Table(_PandasConvertible):
+cdef class _Tabular(_PandasConvertible):
+    pass
+
+
+cdef class Table(_Tabular):
     cdef:
         shared_ptr[CTable] sp_table
         CTable* table
@@ -472,7 +486,7 @@ cdef class Table(_PandasConvertible):
     cdef void init(self, const shared_ptr[CTable]& table)
 
 
-cdef class RecordBatch(_PandasConvertible):
+cdef class RecordBatch(_Tabular):
     cdef:
         shared_ptr[CRecordBatch] sp_batch
         CRecordBatch* batch

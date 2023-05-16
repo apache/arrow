@@ -29,12 +29,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -474,6 +474,10 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(s string) {
 			r.parseBinaryType(bldr, s)
 		}
+	case arrow.ExtensionType:
+		return func(s string) {
+			r.parseExtension(bldr, s)
+		}
 	default:
 		panic(fmt.Errorf("arrow/csv: unhandled field type %T", bldr.Type()))
 	}
@@ -762,7 +766,7 @@ func (r *Reader) parseList(field array.Builder, str string) {
 
 func (r *Reader) parseBinaryType(field array.Builder, str string) {
 	// specialize the implementation when we know we cannot have nulls
-	if str != "" && r.isNull(str) {
+	if r.isNull(str) {
 		field.AppendNull()
 		return
 	}
@@ -771,6 +775,17 @@ func (r *Reader) parseBinaryType(field array.Builder, str string) {
 		panic("cannot decode base64 string " + str)
 	}
 	field.(*array.BinaryBuilder).Append(decodedVal)
+}
+
+func (r *Reader) parseExtension(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+	if err := field.AppendValueFromString(str); err != nil {
+		r.err = err
+		return
+	}
 }
 
 // Retain increases the reference count by 1.

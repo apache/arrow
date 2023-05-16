@@ -1,7 +1,5 @@
 #!/bin/sh
-
-set -e
-set -x
+set -ex
 
 # Build dependencies
 export ARROW_HOME=$PREFIX
@@ -16,7 +14,6 @@ export PYARROW_WITH_HDFS=1
 export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PARQUET_ENCRYPTION=1
-export PYARROW_WITH_PLASMA=1
 export PYARROW_WITH_S3=1
 export PYARROW_WITH_SUBSTRAIT=1
 export PYARROW_CMAKE_GENERATOR=Ninja

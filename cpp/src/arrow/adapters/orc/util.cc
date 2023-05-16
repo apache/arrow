@@ -30,6 +30,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/range.h"
 #include "arrow/util/string.h"
 #include "arrow/visit_data_inline.h"
@@ -238,22 +239,6 @@ Status AppendBinaryBatch(liborc::ColumnVectorBatch* column_vector_batch, int64_t
   return Status::OK();
 }
 
-Status AppendFixedBinaryBatch(liborc::ColumnVectorBatch* column_vector_batch,
-                              int64_t offset, int64_t length, ArrayBuilder* abuilder) {
-  auto builder = checked_cast<FixedSizeBinaryBuilder*>(abuilder);
-  auto batch = checked_cast<liborc::StringVectorBatch*>(column_vector_batch);
-
-  const bool has_nulls = batch->hasNulls;
-  for (int64_t i = offset; i < length + offset; i++) {
-    if (!has_nulls || batch->notNull[i]) {
-      RETURN_NOT_OK(builder->Append(batch->data[i]));
-    } else {
-      RETURN_NOT_OK(builder->AppendNull());
-    }
-  }
-  return Status::OK();
-}
-
 Status AppendDecimalBatch(const liborc::Type* type,
                           liborc::ColumnVectorBatch* column_vector_batch, int64_t offset,
                           int64_t length, ArrayBuilder* abuilder) {
@@ -370,13 +355,12 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
                                     double>(batch, offset, length, builder);
     case liborc::BOOLEAN:
       return AppendBoolBatch(batch, offset, length, builder);
+    case liborc::CHAR:
     case liborc::VARCHAR:
     case liborc::STRING:
       return AppendBinaryBatch<StringBuilder>(batch, offset, length, builder);
     case liborc::BINARY:
       return AppendBinaryBatch<BinaryBuilder>(batch, offset, length, builder);
-    case liborc::CHAR:
-      return AppendFixedBinaryBatch(batch, offset, length, builder);
     case liborc::DATE:
       return AppendNumericBatchCast<Date32Builder, int32_t, liborc::LongVectorBatch,
                                     int64_t>(batch, offset, length, builder);
@@ -968,6 +952,15 @@ Status WriteBatch(const Array& array, int64_t orc_offset,
   }
 }
 
+void SetAttributes(const std::shared_ptr<arrow::Field>& field, liborc::Type* type) {
+  if (field->HasMetadata()) {
+    const auto& metadata = field->metadata();
+    for (int64_t i = 0; i < metadata->size(); i++) {
+      type->setAttribute(metadata->key(i), metadata->value(i));
+    }
+  }
+}
+
 Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
   Type::type kind = type.id();
   switch (kind) {
@@ -1017,9 +1010,9 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
     case Type::type::LIST:
     case Type::type::FIXED_SIZE_LIST:
     case Type::type::LARGE_LIST: {
-      std::shared_ptr<DataType> arrow_child_type =
-          checked_cast<const BaseListType&>(type).value_type();
-      ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
+      const auto& value_field = checked_cast<const BaseListType&>(type).value_field();
+      ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*value_field->type()));
+      SetAttributes(value_field, orc_subtype.get());
       return liborc::createListType(std::move(orc_subtype));
     }
     case Type::type::STRUCT: {
@@ -1028,19 +1021,19 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
           checked_cast<const StructType&>(type).fields();
       for (auto it = arrow_fields.begin(); it != arrow_fields.end(); ++it) {
         std::string field_name = (*it)->name();
-        std::shared_ptr<DataType> arrow_child_type = (*it)->type();
-        ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
+        ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*(*it)->type()));
+        SetAttributes(*it, orc_subtype.get());
         out_type->addStructField(field_name, std::move(orc_subtype));
       }
       return std::move(out_type);
     }
     case Type::type::MAP: {
-      std::shared_ptr<DataType> key_arrow_type =
-          checked_cast<const MapType&>(type).key_type();
-      std::shared_ptr<DataType> item_arrow_type =
-          checked_cast<const MapType&>(type).item_type();
-      ARROW_ASSIGN_OR_RAISE(auto key_orc_type, GetOrcType(*key_arrow_type));
-      ARROW_ASSIGN_OR_RAISE(auto item_orc_type, GetOrcType(*item_arrow_type));
+      const auto& key_field = checked_cast<const MapType&>(type).key_field();
+      const auto& item_field = checked_cast<const MapType&>(type).item_field();
+      ARROW_ASSIGN_OR_RAISE(auto key_orc_type, GetOrcType(*key_field->type()));
+      ARROW_ASSIGN_OR_RAISE(auto item_orc_type, GetOrcType(*item_field->type()));
+      SetAttributes(key_field, key_orc_type.get());
+      SetAttributes(item_field, item_orc_type.get());
       return liborc::createMapType(std::move(key_orc_type), std::move(item_orc_type));
     }
     case Type::type::DENSE_UNION:
@@ -1051,6 +1044,7 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const DataType& type) {
       for (const auto& arrow_field : arrow_fields) {
         std::shared_ptr<DataType> arrow_child_type = arrow_field->type();
         ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
+        SetAttributes(arrow_field, orc_subtype.get());
         out_type->addUnionChild(std::move(orc_subtype));
       }
       return std::move(out_type);
@@ -1113,13 +1107,12 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       return float32();
     case liborc::DOUBLE:
       return float64();
+    case liborc::CHAR:
     case liborc::VARCHAR:
     case liborc::STRING:
       return utf8();
     case liborc::BINARY:
       return binary();
-    case liborc::CHAR:
-      return fixed_size_binary(static_cast<int>(type->getMaximumLength()));
     case liborc::TIMESTAMP:
       // Values of TIMESTAMP type are stored in the writer timezone in the Orc file.
       // Values are read back in the reader timezone. However, the writer timezone
@@ -1150,23 +1143,26 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       if (subtype_count != 1) {
         return Status::TypeError("Invalid Orc List type");
       }
-      ARROW_ASSIGN_OR_RAISE(auto elemtype, GetArrowType(type->getSubtype(0)));
-      return list(std::move(elemtype));
+      ARROW_ASSIGN_OR_RAISE(auto elem_field, GetArrowField("item", type->getSubtype(0)));
+      return list(std::move(elem_field));
     }
     case liborc::MAP: {
       if (subtype_count != 2) {
         return Status::TypeError("Invalid Orc Map type");
       }
-      ARROW_ASSIGN_OR_RAISE(auto key_type, GetArrowType(type->getSubtype(0)));
-      ARROW_ASSIGN_OR_RAISE(auto item_type, GetArrowType(type->getSubtype(1)));
-      return map(std::move(key_type), std::move(item_type));
+      ARROW_ASSIGN_OR_RAISE(
+          auto key_field, GetArrowField("key", type->getSubtype(0), /*nullable=*/false));
+      ARROW_ASSIGN_OR_RAISE(auto value_field,
+                            GetArrowField("value", type->getSubtype(1)));
+      return std::make_shared<MapType>(std::move(key_field), std::move(value_field));
     }
     case liborc::STRUCT: {
       FieldVector fields(subtype_count);
       for (int child = 0; child < subtype_count; ++child) {
-        ARROW_ASSIGN_OR_RAISE(auto elem_type, GetArrowType(type->getSubtype(child)));
-        std::string name = type->getFieldName(child);
-        fields[child] = field(std::move(name), std::move(elem_type));
+        const auto& name = type->getFieldName(child);
+        ARROW_ASSIGN_OR_RAISE(auto elem_field,
+                              GetArrowField(name, type->getSubtype(child)));
+        fields[child] = std::move(elem_field);
       }
       return struct_(std::move(fields));
     }
@@ -1177,8 +1173,9 @@ Result<std::shared_ptr<DataType>> GetArrowType(const liborc::Type* type) {
       FieldVector fields(subtype_count);
       std::vector<int8_t> type_codes(subtype_count);
       for (int child = 0; child < subtype_count; ++child) {
-        ARROW_ASSIGN_OR_RAISE(auto elem_type, GetArrowType(type->getSubtype(child)));
-        fields[child] = field("_union_" + ToChars(child), std::move(elem_type));
+        ARROW_ASSIGN_OR_RAISE(auto elem_field, GetArrowField("_union_" + ToChars(child),
+                                                             type->getSubtype(child)));
+        fields[child] = std::move(elem_field);
         type_codes[child] = static_cast<int8_t>(child);
       }
       return sparse_union(std::move(fields), std::move(type_codes));
@@ -1194,9 +1191,33 @@ Result<std::unique_ptr<liborc::Type>> GetOrcType(const Schema& schema) {
   for (int i = 0; i < numFields; i++) {
     const auto& field = schema.field(i);
     ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*field->type()));
+    SetAttributes(field, orc_subtype.get());
     out_type->addStructField(field->name(), std::move(orc_subtype));
   }
   return std::move(out_type);
+}
+
+Result<std::shared_ptr<const KeyValueMetadata>> GetFieldMetadata(
+    const liborc::Type* type) {
+  if (type == nullptr) {
+    return nullptr;
+  }
+  const auto keys = type->getAttributeKeys();
+  if (keys.empty()) {
+    return nullptr;
+  }
+  auto metadata = std::make_shared<KeyValueMetadata>();
+  for (const auto& key : keys) {
+    metadata->Append(key, type->getAttributeValue(key));
+  }
+  return std::const_pointer_cast<const KeyValueMetadata>(metadata);
+}
+
+Result<std::shared_ptr<Field>> GetArrowField(const std::string& name,
+                                             const liborc::Type* type, bool nullable) {
+  ARROW_ASSIGN_OR_RAISE(auto arrow_type, GetArrowType(type));
+  ARROW_ASSIGN_OR_RAISE(auto metadata, GetFieldMetadata(type));
+  return field(name, std::move(arrow_type), nullable, std::move(metadata));
 }
 
 }  // namespace orc

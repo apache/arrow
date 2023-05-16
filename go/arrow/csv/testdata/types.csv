@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-## supported types: bool;int8;int16;int32;int64;uint8;uint16;uint32;uint64;float32;float64;string;timestamp;list(i64);binary
-true;-1;-1;-1;-1;1;1;1;1;1.1;1.1;str-1;2022-05-09T00:01:01;{1,2,3};AAEC
-false;-2;-2;-2;-2;2;2;2;2;2.2;2.2;str-2;2022-05-09T23:59:59;{};
-null;NULL;null;N/A;;null;null;null;null;null;null;null;null;null;null
+## supported types: bool;int8;int16;int32;int64;uint8;uint16;uint32;uint64;float32;float64;string;timestamp;binary;uuid
+true;-1;-1;-1;-1;1;1;1;1;1.1;1.1;str-1;2022-05-09T00:01:01;{1,2,3};AAEC;00000000-0000-0000-0000-000000000001
+false;-2;-2;-2;-2;2;2;2;2;2.2;2.2;;2022-05-09T23:59:59;{};;00000000-0000-0000-0000-000000000002
+null;NULL;null;N/A;;null;null;null;null;null;null;null;null;null;null;null

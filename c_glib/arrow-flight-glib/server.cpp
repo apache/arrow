@@ -258,6 +258,65 @@ gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
 }
 
 
+typedef struct GAFlightServerCallContextPrivate_ {
+  arrow::flight::ServerCallContext *call_context;
+} GAFlightServerCallContextPrivate;
+
+enum {
+  PROP_CALL_CONTEXT = 1,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GAFlightServerCallContext,
+                           gaflight_server_call_context,
+                           G_TYPE_OBJECT)
+
+#define GAFLIGHT_SERVER_CALL_CONTEXT_GET_PRIVATE(obj)   \
+  static_cast<GAFlightServerCallContextPrivate *>(      \
+    gaflight_server_call_context_get_instance_private(  \
+      GAFLIGHT_SERVER_CALL_CONTEXT(obj)))
+
+static void
+gaflight_server_call_context_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GAFLIGHT_SERVER_CALL_CONTEXT_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_CALL_CONTEXT:
+    priv->call_context =
+      static_cast<arrow::flight::ServerCallContext *>(
+        g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+gaflight_server_call_context_init(GAFlightServerCallContext *object)
+{
+}
+
+static void
+gaflight_server_call_context_class_init(GAFlightServerCallContextClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = gaflight_server_call_context_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer("call-context",
+                              "Call context",
+                              "The raw arrow::flight::ServerCallContext",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_CALL_CONTEXT, spec);
+}
+
+
 struct GAFlightServerAuthSenderPrivate {
   arrow::flight::ServerAuthSender *sender;
 };
@@ -507,15 +566,18 @@ namespace gaflight {
     }
 
     arrow::Status
-    Authenticate(arrow::flight::ServerAuthSender *sender,
+    Authenticate(const arrow::flight::ServerCallContext &context,
+                 arrow::flight::ServerAuthSender *sender,
                  arrow::flight::ServerAuthReader *reader) override {
       auto klass = GAFLIGHT_SERVER_CUSTOM_AUTH_HANDLER_GET_CLASS(handler_);
-      auto gsender = gaflight_server_auth_sender_new_raw(sender);
-      auto greader = gaflight_server_auth_reader_new_raw(reader);
+      auto gacontext = gaflight_server_call_context_new_raw(&context);
+      auto gasender = gaflight_server_auth_sender_new_raw(sender);
+      auto gareader = gaflight_server_auth_reader_new_raw(reader);
       GError *error = nullptr;
-      klass->authenticate(handler_, gsender, greader, &error);
-      g_object_unref(greader);
-      g_object_unref(gsender);
+      klass->authenticate(handler_, gacontext, gasender, gareader, &error);
+      g_object_unref(gareader);
+      g_object_unref(gasender);
+      g_object_unref(gacontext);
       if (error) {
         return garrow_error_to_status(error,
                                       arrow::StatusCode::Invalid,
@@ -527,14 +589,17 @@ namespace gaflight {
     }
 
     arrow::Status
-    IsValid(const std::string &token,
+    IsValid(const arrow::flight::ServerCallContext &context,
+            const std::string &token,
             std::string *peer_identity) override {
       auto klass = GAFLIGHT_SERVER_CUSTOM_AUTH_HANDLER_GET_CLASS(handler_);
+      auto gacontext = gaflight_server_call_context_new_raw(&context);
       auto gtoken = g_bytes_new_static(token.data(), token.size());
       GBytes *gpeer_identity = nullptr;
       GError *error = nullptr;
-      klass->is_valid(handler_, gtoken, &gpeer_identity, &error);
+      klass->is_valid(handler_, gacontext, gtoken, &gpeer_identity, &error);
       g_bytes_unref(gtoken);
+      g_object_unref(gacontext);
       if (gpeer_identity) {
         gsize gpeer_identity_size;
         auto gpeer_identity_data = g_bytes_get_data(gpeer_identity,
@@ -580,6 +645,7 @@ gaflight_server_custom_auth_handler_class_init(
 /**
  * gaflight_server_custom_auth_handler_authenticate:
  * @handler: A #GAFlightServerCustomAuthHandler.
+ * @context: A #GAFlightServerCallContext.
  * @sender: A #GAFlightServerAuthSender.
  * @reader: A #GAFlightServerAuthReader.
  * @error: (nullable): Return location for a #GError or %NULL.
@@ -592,6 +658,7 @@ gaflight_server_custom_auth_handler_class_init(
 void
 gaflight_server_custom_auth_handler_authenticate(
   GAFlightServerCustomAuthHandler *handler,
+  GAFlightServerCallContext *context,
   GAFlightServerAuthSender *sender,
   GAFlightServerAuthReader *reader,
   GError **error)
@@ -599,9 +666,12 @@ gaflight_server_custom_auth_handler_authenticate(
   auto flight_handler =
     gaflight_server_auth_handler_get_raw(
       GAFLIGHT_SERVER_AUTH_HANDLER(handler));
+  auto flight_context = gaflight_server_call_context_get_raw(context);
   auto flight_sender = gaflight_server_auth_sender_get_raw(sender);
   auto flight_reader = gaflight_server_auth_reader_get_raw(reader);
-  auto status = flight_handler->Authenticate(flight_sender, flight_reader);
+  auto status = flight_handler->Authenticate(*flight_context,
+                                             flight_sender,
+                                             flight_reader);
   garrow::check(error,
                 status,
                 "[flight-server-custom-auth-handler][authenticate]");
@@ -610,6 +680,7 @@ gaflight_server_custom_auth_handler_authenticate(
 /**
  * gaflight_server_custom_auth_handler_is_valid:
  * @handler: A #GAFlightServerCustomAuthHandler.
+ * @context: A #GAFlightServerCallContext.
  * @token: The client token. May be the empty string if the client does not
  *   provide a token.
  * @peer_identity: (out): The identity of the peer, if this authentication
@@ -623,6 +694,7 @@ gaflight_server_custom_auth_handler_authenticate(
 void
 gaflight_server_custom_auth_handler_is_valid(
   GAFlightServerCustomAuthHandler *handler,
+  GAFlightServerCallContext *context,
   GBytes *token,
   GBytes **peer_identity,
   GError **error)
@@ -632,9 +704,12 @@ gaflight_server_custom_auth_handler_is_valid(
       GAFLIGHT_SERVER_AUTH_HANDLER(handler));
   gsize token_size;
   auto token_data = g_bytes_get_data(token, &token_size);
+  auto flight_context = gaflight_server_call_context_get_raw(context);
   std::string flight_token(static_cast<const char *>(token_data), token_size);
   std::string flight_peer_identity;
-  auto status = flight_handler->IsValid(flight_token, &flight_peer_identity);
+  auto status = flight_handler->IsValid(*flight_context,
+                                        flight_token,
+                                        &flight_peer_identity);
   if (garrow::check(error,
                     status,
                     "[flight-server-custom-auth-handler]"
@@ -812,65 +887,6 @@ gaflight_server_options_new(GAFlightLocation *location)
     g_object_new(GAFLIGHT_TYPE_SERVER_OPTIONS,
                  "location", location,
                  NULL));
-}
-
-
-typedef struct GAFlightServerCallContextPrivate_ {
-  arrow::flight::ServerCallContext *call_context;
-} GAFlightServerCallContextPrivate;
-
-enum {
-  PROP_CALL_CONTEXT = 1,
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GAFlightServerCallContext,
-                           gaflight_server_call_context,
-                           G_TYPE_OBJECT)
-
-#define GAFLIGHT_SERVER_CALL_CONTEXT_GET_PRIVATE(obj)   \
-  static_cast<GAFlightServerCallContextPrivate *>(      \
-    gaflight_server_call_context_get_instance_private(  \
-      GAFLIGHT_SERVER_CALL_CONTEXT(obj)))
-
-static void
-gaflight_server_call_context_set_property(GObject *object,
-                                          guint prop_id,
-                                          const GValue *value,
-                                          GParamSpec *pspec)
-{
-  auto priv = GAFLIGHT_SERVER_CALL_CONTEXT_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_CALL_CONTEXT:
-    priv->call_context =
-      static_cast<arrow::flight::ServerCallContext *>(
-        g_value_get_pointer(value));
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-gaflight_server_call_context_init(GAFlightServerCallContext *object)
-{
-}
-
-static void
-gaflight_server_call_context_class_init(GAFlightServerCallContextClass *klass)
-{
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->set_property = gaflight_server_call_context_set_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_pointer("call-context",
-                              "Call context",
-                              "The raw arrow::flight::ServerCallContext",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_CALL_CONTEXT, spec);
 }
 
 
@@ -1199,6 +1215,23 @@ gaflight_data_stream_get_raw(GAFlightDataStream *stream)
   return priv->stream;
 }
 
+GAFlightServerCallContext *
+gaflight_server_call_context_new_raw(
+  const arrow::flight::ServerCallContext *flight_call_context)
+{
+  return GAFLIGHT_SERVER_CALL_CONTEXT(
+    g_object_new(GAFLIGHT_TYPE_SERVER_CALL_CONTEXT,
+                 "call-context", flight_call_context,
+                 NULL));
+}
+
+const arrow::flight::ServerCallContext *
+gaflight_server_call_context_get_raw(GAFlightServerCallContext *call_context)
+{
+  auto priv = GAFLIGHT_SERVER_CALL_CONTEXT_GET_PRIVATE(call_context);
+  return priv->call_context;
+}
+
 GAFlightServerAuthSender *
 gaflight_server_auth_sender_new_raw(
   arrow::flight::ServerAuthSender *flight_sender)
@@ -1245,16 +1278,6 @@ gaflight_server_options_get_raw(GAFlightServerOptions *options)
 {
   auto priv = GAFLIGHT_SERVER_OPTIONS_GET_PRIVATE(options);
   return &(priv->options);
-}
-
-GAFlightServerCallContext *
-gaflight_server_call_context_new_raw(
-  const arrow::flight::ServerCallContext *call_context)
-{
-  return GAFLIGHT_SERVER_CALL_CONTEXT(
-    g_object_new(GAFLIGHT_TYPE_SERVER_CALL_CONTEXT,
-                 "call-context", call_context,
-                 NULL));
 }
 
 arrow::flight::FlightServerBase *

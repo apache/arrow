@@ -21,7 +21,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/endian"
+	"github.com/apache/arrow/go/v13/arrow/endian"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMetadata(t *testing.T) {
@@ -99,6 +100,9 @@ func TestMetadata(t *testing.T) {
 			if got, want := tc.md.String(), tc.serialize; got != want {
 				t.Fatalf("invalid stringer: got=%q, want=%q", got, want)
 			}
+			if len(tc.kvs) != 0 {
+				assert.Equal(t, tc.kvs, md.ToMap())
+			}
 		})
 	}
 
@@ -109,12 +113,26 @@ func TestMetadata(t *testing.T) {
 			t.Fatalf("got=%d, want=%d", got, want)
 		}
 
+		gotVal, _ := md.GetValue("k1")
+		wantVal := "v1"
+		if gotVal != wantVal {
+			t.Fatalf("got=%s, want=%s", gotVal, wantVal)
+		}
+
 		if got, want := md.FindKey(""), -1; got != want {
 			t.Fatalf("got=%d, want=%d", got, want)
+		}
+		_, gotFound := md.GetValue("")
+		if gotFound {
+			t.Fatalf("wasn't expecting to find empty key")
 		}
 
 		if got, want := md.FindKey("k"), -1; got != want {
 			t.Fatalf("got=%d, want=%d", got, want)
+		}
+		_, gotFound = md.GetValue("k")
+		if gotFound {
+			t.Fatalf("wasn't expecting to find key: 'k'")
 		}
 
 		if got, want := md.FindKey(" "), -1; got != want {
@@ -245,6 +263,13 @@ func TestSchema(t *testing.T) {
 				t.Fatalf("invalid field: got=%#v, want=%#v", got, want)
 			}
 
+			fields := s.Fields()
+			fields[0].Name = "other"
+			// check that the fields are copied and not shared
+			if got, want := s.Field(0), tc.fields[0]; !got.Equal(want) {
+				t.Fatalf("invalid field: got=%#v, want=%#v", got, want)
+			}
+
 			if got, want := s.HasMetadata(), tc.md != nil; got != want {
 				t.Fatalf("invalid metadata: got=%v, want=%v", got, want)
 			}
@@ -296,6 +321,30 @@ func TestSchema(t *testing.T) {
 				t.Fatalf("invalid stringer: got=%q, want=%q", got, want)
 			}
 		})
+	}
+}
+
+func TestSchemaAddField(t *testing.T) {
+	s := NewSchema([]Field{
+		{Name: "f1", Type: PrimitiveTypes.Int32},
+		{Name: "f2", Type: PrimitiveTypes.Int64},
+	}, nil)
+
+	_, err := s.AddField(3, Field{Name: "f3", Type: PrimitiveTypes.Int32})
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+
+	s, err = s.AddField(2, Field{Name: "f3", Type: PrimitiveTypes.Int32})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got, want := len(s.Fields()), 3; got != want {
+		t.Fatalf("invalid number of fields. got=%d, want=%d", got, want)
+	}
+	got, want := s.Field(2), Field{Name: "f3", Type: PrimitiveTypes.Int32};
+	if !got.Equal(want) {
+		t.Fatalf("invalid field: got=%#v, want=%#v", got, want)
 	}
 }
 

@@ -24,14 +24,14 @@ import (
 	"sort"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/float16"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 type RunEndEncodeState struct {
@@ -92,8 +92,8 @@ func (re *runEndEncodeLoopFixedWidth[R, V]) WriteEncodedRuns(out *exec.ExecResul
 	readOffset++
 
 	var writeOffset int64
+	var value V
 	for readOffset < re.inputOffset+re.inputLen {
-		var value V
 		valid := re.readValue(re.inputValidity, re.inputValues, readOffset, &value)
 		if valid != curRunValid || value != currentRun {
 			// close the current run by writing it out
@@ -122,8 +122,8 @@ func (re *runEndEncodeLoopFixedWidth[R, V]) CountNumberOfRuns() (numValid, numOu
 	}
 	numOutput = 1
 
+	var value V
 	for offset < re.inputOffset+re.inputLen {
-		var value V
 		valid := re.readValue(re.inputValidity, re.inputValues, offset, &value)
 		offset++
 		// new run

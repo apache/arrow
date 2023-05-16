@@ -70,7 +70,7 @@ read_parquet <- function(file,
   }
 
   if (as_data_frame) {
-    tab <- as.data.frame(tab)
+    tab <- collect.ArrowTabular(tab)
   }
   tab
 }
@@ -606,7 +606,6 @@ ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads
 calculate_chunk_size <- function(rows, columns,
                                  target_cells_per_group = getOption("arrow.parquet_cells_per_group", 2.5e8),
                                  max_chunks = getOption("arrow.parquet_max_chunks", 200)) {
-
   # Ensure is a float to prevent integer overflow issues
   num_cells <- as.numeric(rows) * as.numeric(columns)
 

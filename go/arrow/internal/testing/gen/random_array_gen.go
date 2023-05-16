@@ -19,10 +19,10 @@ package gen
 import (
 	"math"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )
@@ -126,7 +126,7 @@ func (r *RandomArrayGenerator) Uint8(size int64, min, max uint8, prob float64) a
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Uint8Traits.CastFromBytes(buffers[1].Bytes())
 	for i := int64(0); i < size; i++ {
-		out[i] = uint8(dist.Intn(int(max-min+1))) + min
+		out[i] = uint8(dist.Intn(int(max)-int(min)+1)) + min
 	}
 
 	data := array.NewData(arrow.PrimitiveTypes.Uint8, int(size), buffers, nil, int(nullcount), 0)
@@ -144,7 +144,7 @@ func (r *RandomArrayGenerator) Int16(size int64, min, max int16, prob float64) a
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Int16Traits.CastFromBytes(buffers[1].Bytes())
 	for i := int64(0); i < size; i++ {
-		out[i] = int16(dist.Intn(int(max-min+1))) + min
+		out[i] = int16(dist.Intn(int(max)-int(min)+1)) + min
 	}
 
 	data := array.NewData(arrow.PrimitiveTypes.Int16, int(size), buffers, nil, int(nullcount), 0)
@@ -162,7 +162,7 @@ func (r *RandomArrayGenerator) Uint16(size int64, min, max uint16, prob float64)
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Uint16Traits.CastFromBytes(buffers[1].Bytes())
 	for i := int64(0); i < size; i++ {
-		out[i] = uint16(dist.Intn(int(max-min+1))) + min
+		out[i] = uint16(dist.Intn(int(max)-int(min)+1)) + min
 	}
 
 	data := array.NewData(arrow.PrimitiveTypes.Uint16, int(size), buffers, nil, int(nullcount), 0)
@@ -180,7 +180,7 @@ func (r *RandomArrayGenerator) Int32(size int64, min, max int32, prob float64) a
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Int32Traits.CastFromBytes(buffers[1].Bytes())
 	for i := int64(0); i < size; i++ {
-		out[i] = dist.Int31n(max-min+1) + min
+		out[i] = int32(dist.Intn(int(max)-int(min)+1)) + min
 	}
 
 	data := array.NewData(arrow.PrimitiveTypes.Int32, int(size), buffers, nil, int(nullcount), 0)
@@ -198,7 +198,7 @@ func (r *RandomArrayGenerator) Uint32(size int64, min, max uint32, prob float64)
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Uint32Traits.CastFromBytes(buffers[1].Bytes())
 	for i := int64(0); i < size; i++ {
-		out[i] = uint32(dist.Uint64n(uint64(max-min+1))) + min
+		out[i] = uint32(dist.Uint64n(uint64(max)-uint64(min)+1)) + min
 	}
 
 	data := array.NewData(arrow.PrimitiveTypes.Uint32, int(size), buffers, nil, int(nullcount), 0)
@@ -239,8 +239,14 @@ func (r *RandomArrayGenerator) Uint64(size int64, min, max uint64, prob float64)
 	r.extra++
 	dist := rand.New(rand.NewSource(r.seed + r.extra))
 	out := arrow.Uint64Traits.CastFromBytes(buffers[1].Bytes())
-	for i := int64(0); i < size; i++ {
-		out[i] = dist.Uint64n(max-min+1) + min
+	if max == math.MaxUint64 {
+		for i := int64(0); i < size; i++ {
+			out[i] = dist.Uint64() + min
+		}
+	} else {
+		for i := int64(0); i < size; i++ {
+			out[i] = dist.Uint64n(max-min+1) + min
+		}
 	}
 
 	data := array.NewData(arrow.PrimitiveTypes.Uint64, int(size), buffers, nil, int(nullcount), 0)
@@ -372,6 +378,8 @@ func (r *RandomArrayGenerator) Numeric(dt arrow.Type, size int64, min, max int64
 
 func (r *RandomArrayGenerator) ArrayOf(dt arrow.Type, size int64, nullprob float64) arrow.Array {
 	switch dt {
+	case arrow.BOOL:
+		return r.Boolean(size, 0.50, nullprob)
 	case arrow.STRING:
 		return r.String(size, 0, 20, nullprob)
 	case arrow.LARGE_STRING:

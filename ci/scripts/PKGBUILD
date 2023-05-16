@@ -18,7 +18,7 @@
 _realname=arrow
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=11.0.0.9000
+pkgver=12.0.0.9000
 pkgrel=8000
 pkgdesc="Apache Arrow is a cross-language development platform for in-memory data (mingw-w64)"
 arch=("any")
@@ -80,6 +80,7 @@ build() {
     ${MINGW_PREFIX}/bin/cmake.exe \
     ${ARROW_CPP_DIR} \
     -G "MSYS Makefiles" \
+    -DARROW_ACERO=ON \
     -DARROW_BUILD_SHARED=OFF \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_BUILD_UTILITIES=OFF \

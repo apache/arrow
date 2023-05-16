@@ -18,7 +18,7 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/exec/util.h"
+#include "arrow/acero/util.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"

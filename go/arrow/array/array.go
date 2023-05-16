@@ -19,20 +19,19 @@ package array
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 )
-
-type arraymarshal interface {
-	arrow.Array
-
-	GetOneForMarshal(i int) interface{}
-}
 
 const (
 	// UnknownNullCount specifies the NullN should be calculated from the null bitmap buffer.
 	UnknownNullCount = -1
+
+	// NullValueStr represents a null value in arrow.Array.ValueStr and in Builder.AppendValueFromString.
+	// It should be returned from the arrow.Array.ValueStr implementations.
+	// Using it as the value in Builder.AppendValueFromString should be equivalent to Builder.AppendNull.
+	NullValueStr = "(null)"
 )
 
 type array struct {

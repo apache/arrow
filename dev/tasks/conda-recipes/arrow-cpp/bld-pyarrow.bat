@@ -1,4 +1,5 @@
 @echo on
+
 pushd "%SRC_DIR%"\python
 
 @rem the symlinks for cmake modules don't work here
@@ -39,7 +40,7 @@ if "%cuda_compiler_version%"=="None" (
            build_ext ^
            install --single-version-externally-managed ^
                    --record=record.txt
-if errorlevel 1 exit 1
+if %ERRORLEVEL% neq 0 exit 1
 popd
 
 if [%PKG_NAME%] == [pyarrow] (

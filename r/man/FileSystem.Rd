@@ -69,8 +69,9 @@ credentials using standard GCS configuration methods.
 with \code{expiration}
 \item \code{expiration}: \code{POSIXct}. optional datetime representing point at which
 \code{access_token} will expire.
-\item \code{json_credentials}: optional string for authentication. Point to a JSON
-credentials file downloaded from GCS.
+\item \code{json_credentials}: optional string for authentication. Either a string
+containing JSON credentials or a path to their location on the filesystem.
+If a path to credentials is given, the file should be UTF-8 encoded.
 \item \code{endpoint_override}: if non-empty, will connect to provided host name / port,
 such as "localhost:9001", instead of default GCS ones. This is primarily useful
 for testing purposes.

@@ -284,6 +284,36 @@ Result<Datum> Sum(
     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Calculate the first value of an array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see ScalarAggregateOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed first as Scalar
+///
+/// \since 13.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> First(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the last value of an array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see ScalarAggregateOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed last as a Scalar
+///
+/// \since 13.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Last(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
 /// \brief Calculate the min / max of a numeric array
 ///
 /// This function returns both the min and max as a struct scalar, with type

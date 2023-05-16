@@ -71,6 +71,7 @@
       "hidden": true,
       "cacheVariables": {
         "ARROW_SUBSTRAIT": "ON",
+        "ARROW_ACERO": "ON",
         "ARROW_MIMALLOC": "ON",
         "ARROW_PARQUET": "ON",
         "ARROW_WITH_BROTLI": "ON",
@@ -107,6 +108,14 @@
       "hidden": true,
       "cacheVariables": {
         "ARROW_FLIGHT": "ON"
+      }
+    },
+    {
+      "name": "features-flight-sql",
+      "inherits": "features-flight",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_FLIGHT_SQL": "ON"
       }
     },
     {
@@ -150,7 +159,7 @@
       "inherits": [
         "features-cuda",
         "features-filesystems",
-        "features-flight",
+        "features-flight-sql",
         "features-gandiva",
         "features-main",
         "features-python-minimal"
@@ -167,7 +176,7 @@
         "features-main",
         "features-cuda",
         "features-filesystems",
-        "features-flight",
+        "features-flight-sql",
         "features-gandiva",
         "features-python-maximal"
       ],
@@ -238,6 +247,15 @@
         "features-flight"
       ],
       "displayName": "Debug build with tests and Flight",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-flight-sql",
+      "inherits": [
+        "base-debug",
+        "features-flight-sql"
+      ],
+      "displayName": "Debug build with tests and Flight SQL",
       "cacheVariables": {}
     },
     {
@@ -328,6 +346,15 @@
         "features-flight"
       ],
       "displayName": "Release build with Flight",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-flight-sql",
+      "inherits": [
+        "base-release",
+        "features-flight-sql"
+      ],
+      "displayName": "Release build with Flight SQL",
       "cacheVariables": {}
     },
     {

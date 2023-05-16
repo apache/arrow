@@ -152,6 +152,9 @@ class PARQUET_EXPORT PageReader {
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
   // containing new Page otherwise
+  //
+  // The returned Page may contain references that aren't guaranteed to live
+  // beyond the next call to NextPage().
   virtual std::shared_ptr<Page> NextPage() = 0;
 
   virtual void set_max_page_header_size(uint32_t size) = 0;
@@ -384,7 +387,7 @@ class PARQUET_EXPORT RecordReader {
   /// If this Reader was constructed with read_dense_for_nullable(), there is no space for
   /// nulls and null_count() will be 0. There is no read-ahead/buffering for values. For
   /// FLBA and ByteArray types this value reflects the values written with the last
-  /// ReadRecords call since thoser readers will reset the values after each call.
+  /// ReadRecords call since those readers will reset the values after each call.
   int64_t values_written() const { return values_written_; }
 
   /// \brief Number of definition / repetition levels (from those that have

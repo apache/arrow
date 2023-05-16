@@ -39,6 +39,7 @@ arrow_info <- function() {
     version = packageVersion("arrow"),
     options = opts[grep("^arrow\\.", names(opts))],
     capabilities = c(
+      acero = arrow_with_acero(),
       dataset = arrow_with_dataset(),
       substrait = arrow_with_substrait(),
       parquet = arrow_with_parquet(),
@@ -77,6 +78,14 @@ arrow_info <- function() {
 arrow_available <- function() {
   .Deprecated(msg = "Arrow C++ is always available as of 7.0.0")
   TRUE
+}
+
+#' @rdname arrow_info
+#' @export
+arrow_with_acero <- function() {
+  tryCatch(.Call(`_acero_available`), error = function(e) {
+    return(FALSE)
+  })
 }
 
 #' @rdname arrow_info

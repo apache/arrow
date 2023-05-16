@@ -37,6 +37,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_run_end.h"
 #include "arrow/array/builder_time.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
@@ -83,15 +84,48 @@ TEST_F(TestArray, TestNullCount) {
   auto data = std::make_shared<Buffer>(nullptr, 0);
   auto null_bitmap = std::make_shared<Buffer>(nullptr, 0);
 
-  std::unique_ptr<Int32Array> arr(new Int32Array(100, data, null_bitmap, 10));
+  std::shared_ptr<Int32Array> arr(new Int32Array(100, data, null_bitmap, 10));
+  ASSERT_EQ(10, arr->ComputeLogicalNullCount());
   ASSERT_EQ(10, arr->null_count());
+  ASSERT_TRUE(arr->data()->MayHaveNulls());
+  ASSERT_TRUE(arr->data()->MayHaveLogicalNulls());
 
-  std::unique_ptr<Int32Array> arr_no_nulls(new Int32Array(100, data));
+  std::shared_ptr<Int32Array> arr_no_nulls(new Int32Array(100, data));
+  ASSERT_EQ(0, arr_no_nulls->ComputeLogicalNullCount());
   ASSERT_EQ(0, arr_no_nulls->null_count());
+  ASSERT_FALSE(arr_no_nulls->data()->MayHaveNulls());
+  ASSERT_FALSE(arr_no_nulls->data()->MayHaveLogicalNulls());
 
-  std::unique_ptr<Int32Array> arr_default_null_count(
+  std::shared_ptr<Int32Array> arr_default_null_count(
       new Int32Array(100, data, null_bitmap));
   ASSERT_EQ(kUnknownNullCount, arr_default_null_count->data()->null_count);
+  ASSERT_TRUE(arr_default_null_count->data()->MayHaveNulls());
+  ASSERT_TRUE(arr_default_null_count->data()->MayHaveLogicalNulls());
+
+  RunEndEncodedBuilder ree_builder(pool_, std::make_shared<Int32Builder>(pool_),
+                                   std::make_shared<Int32Builder>(pool_),
+                                   run_end_encoded(int32(), int32()));
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(2), 2));
+  ASSERT_OK(ree_builder.AppendNull());
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(4), 3));
+  ASSERT_OK(ree_builder.AppendNulls(2));
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(8), 5));
+  ASSERT_OK(ree_builder.AppendNulls(7));
+  ASSERT_OK_AND_ASSIGN(auto ree, ree_builder.Finish());
+
+  ASSERT_EQ(0, ree->null_count());
+  ASSERT_EQ(10, ree->ComputeLogicalNullCount());
+  ASSERT_FALSE(ree->data()->MayHaveNulls());
+  ASSERT_TRUE(ree->data()->MayHaveLogicalNulls());
+
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(2), 2));
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(4), 3));
+  ASSERT_OK(ree_builder.AppendScalar(*MakeScalar<int32_t>(8), 5));
+  ASSERT_OK_AND_ASSIGN(auto ree_no_nulls, ree_builder.Finish());
+  ASSERT_EQ(0, ree_no_nulls->null_count());
+  ASSERT_EQ(0, ree_no_nulls->ComputeLogicalNullCount());
+  ASSERT_FALSE(ree_no_nulls->data()->MayHaveNulls());
+  ASSERT_FALSE(ree_no_nulls->data()->MayHaveLogicalNulls());
 }
 
 TEST_F(TestArray, TestSlicePreservesAllNullCount) {
@@ -377,20 +411,23 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       ASSERT_EQ(array->length(), length);
       if (is_union(type->id())) {
         ASSERT_EQ(array->null_count(), 0);
+        ASSERT_EQ(array->ComputeLogicalNullCount(), length);
         const auto& union_array = checked_cast<const UnionArray&>(*array);
         for (int i = 0; i < union_array.num_fields(); ++i) {
           ASSERT_EQ(union_array.field(i)->null_count(), union_array.field(i)->length());
         }
       } else if (type->id() == Type::RUN_END_ENCODED) {
         ASSERT_EQ(array->null_count(), 0);
+        ASSERT_EQ(array->ComputeLogicalNullCount(), length);
         const auto& ree_array = checked_cast<const RunEndEncodedArray&>(*array);
         ASSERT_EQ(ree_array.values()->null_count(), ree_array.values()->length());
       } else {
         ASSERT_EQ(array->null_count(), length);
-        for (int64_t i = 0; i < length; ++i) {
-          ASSERT_TRUE(array->IsNull(i));
-          ASSERT_FALSE(array->IsValid(i));
-        }
+        ASSERT_EQ(array->ComputeLogicalNullCount(), length);
+      }
+      for (int64_t i = 0; i < length; ++i) {
+        ASSERT_TRUE(array->IsNull(i));
+        ASSERT_FALSE(array->IsValid(i));
       }
     }
   }
@@ -482,12 +519,14 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
   std::unique_ptr<arrow::ArrayBuilder> builder;
   auto null_scalar = MakeNullScalar(scalar->type);
   ASSERT_OK(MakeBuilderExactIndex(pool, scalar->type, &builder));
-  ASSERT_OK(builder->AppendScalar(*scalar));
-  ASSERT_OK(builder->AppendScalar(*scalar));
-  ASSERT_OK(builder->AppendScalar(*null_scalar));
-  ASSERT_OK(builder->AppendScalars({scalar, null_scalar}));
-  ASSERT_OK(builder->AppendScalar(*scalar, /*n_repeats=*/2));
-  ASSERT_OK(builder->AppendScalar(*null_scalar, /*n_repeats=*/2));
+  ASSERT_OK(builder->AppendScalar(*scalar));                 // [0] = scalar
+  ASSERT_OK(builder->AppendScalar(*scalar));                 // [1] = scalar
+  ASSERT_OK(builder->AppendScalar(*null_scalar));            // [2] = NULL
+  ASSERT_OK(builder->AppendScalars({scalar, null_scalar}));  // [3, 4] = {scalar, NULL}
+  ASSERT_OK(
+      builder->AppendScalar(*scalar, /*n_repeats=*/2));  // [5, 6] = {scalar, scalar}
+  ASSERT_OK(
+      builder->AppendScalar(*null_scalar, /*n_repeats=*/2));  // [7, 8] = {NULL, NULL}
 
   std::shared_ptr<Array> out;
   FinishAndCheckPadding(builder.get(), &out);
@@ -495,22 +534,30 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
   AssertTypeEqual(scalar->type, out->type());
   ASSERT_EQ(out->length(), 9);
 
-  const bool can_check_nulls = internal::HasValidityBitmap(out->type()->id());
+  auto out_type_id = out->type()->id();
+  const bool has_validity = internal::HasValidityBitmap(out_type_id);
   // For a dictionary builder, the output dictionary won't necessarily be the same
-  const bool can_check_values = !is_dictionary(out->type()->id());
+  const bool can_check_values = !is_dictionary(out_type_id);
 
-  if (can_check_nulls) {
+  if (has_validity) {
     ASSERT_EQ(out->null_count(), 4);
+  } else {
+    ASSERT_EQ(out->null_count(), 0);
+  }
+  if (scalar->is_valid) {
+    ASSERT_EQ(out->ComputeLogicalNullCount(), 4);
+  } else {
+    ASSERT_EQ(out->ComputeLogicalNullCount(), 9);
   }
 
   for (const auto index : {0, 1, 3, 5, 6}) {
-    ASSERT_FALSE(out->IsNull(index));
+    ASSERT_NE(out->IsNull(index), scalar->is_valid);
     ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
     ASSERT_OK(scalar_i->ValidateFull());
     if (can_check_values) AssertScalarsEqual(*scalar, *scalar_i, /*verbose=*/true);
   }
   for (const auto index : {2, 4, 7, 8}) {
-    ASSERT_EQ(out->IsNull(index), can_check_nulls);
+    ASSERT_TRUE(out->IsNull(index));
     ASSERT_OK_AND_ASSIGN(auto scalar_i, out->GetScalar(index));
     ASSERT_OK(scalar_i->ValidateFull());
     AssertScalarsEqual(*null_scalar, *scalar_i, /*verbose=*/true);
@@ -661,6 +708,13 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
   AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
 }
 
+void CheckSpanRoundTrip(const Array& array) {
+  ArraySpan span;
+  span.SetMembers(*array.data());
+  std::shared_ptr<Array> array2 = span.ToArray();
+  AssertArraysEqual(array, *array2);
+}
+
 TEST_F(TestArray, TestMakeEmptyArray) {
   FieldVector union_fields1({field("a", utf8()), field("b", int32())});
   FieldVector union_fields2({field("a", null()), field("b", list(large_utf8()))});
@@ -696,7 +750,16 @@ TEST_F(TestArray, TestMakeEmptyArray) {
     ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(type));
     ASSERT_OK(array->ValidateFull());
     ASSERT_EQ(array->length(), 0);
+    CheckSpanRoundTrip(*array);
   }
+}
+
+TEST_F(TestArray, ExtensionSpanRoundTrip) {
+  // Other types are checked in MakeEmptyArray but MakeEmptyArray doesn't
+  // work for extension types so we check that here
+  ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(dictionary(int8(), utf8())));
+  auto ext_array = ExtensionArray(dict_extension_type(), std::move(array));
+  CheckSpanRoundTrip(ext_array);
 }
 
 TEST_F(TestArray, TestAppendArraySlice) {

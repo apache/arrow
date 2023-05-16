@@ -23,12 +23,14 @@ namespace flight {
 ServerAuthHandler::~ServerAuthHandler() {}
 
 NoOpAuthHandler::~NoOpAuthHandler() {}
-Status NoOpAuthHandler::Authenticate(ServerAuthSender* outgoing,
+Status NoOpAuthHandler::Authenticate(const ServerCallContext& context,
+                                     ServerAuthSender* outgoing,
                                      ServerAuthReader* incoming) {
   return Status::OK();
 }
 
-Status NoOpAuthHandler::IsValid(const std::string& token, std::string* peer_identity) {
+Status NoOpAuthHandler::IsValid(const ServerCallContext& context,
+                                const std::string& token, std::string* peer_identity) {
   *peer_identity = "";
   return Status::OK();
 }

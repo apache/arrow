@@ -34,7 +34,9 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/util/slice_util_internal.h"
+#include "arrow/util/union_util.h"
 
 namespace arrow {
 
@@ -59,6 +61,38 @@ static inline void AdjustNonNullable(Type::type type_id, int64_t length,
     *null_count = 0;
   }
 }
+
+namespace internal {
+
+bool IsNullSparseUnion(const ArrayData& data, int64_t i) {
+  auto* union_type = checked_cast<const SparseUnionType*>(data.type.get());
+  const auto* types = reinterpret_cast<const int8_t*>(data.buffers[1]->data());
+  const int child_id = union_type->child_ids()[types[data.offset + i]];
+  return data.child_data[child_id]->IsNull(i);
+}
+
+bool IsNullDenseUnion(const ArrayData& data, int64_t i) {
+  auto* union_type = checked_cast<const DenseUnionType*>(data.type.get());
+  const auto* types = reinterpret_cast<const int8_t*>(data.buffers[1]->data());
+  const int child_id = union_type->child_ids()[types[data.offset + i]];
+  const auto* offsets = reinterpret_cast<const int32_t*>(data.buffers[2]->data());
+  const int64_t child_offset = offsets[data.offset + i];
+  return data.child_data[child_id]->IsNull(child_offset);
+}
+
+bool IsNullRunEndEncoded(const ArrayData& data, int64_t i) {
+  return ArraySpan(data).IsNullRunEndEncoded(i);
+}
+
+bool UnionMayHaveLogicalNulls(const ArrayData& data) {
+  return ArraySpan(data).MayHaveLogicalNulls();
+}
+
+bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
+  return ArraySpan(data).MayHaveLogicalNulls();
+}
+
+}  // namespace internal
 
 std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64_t length,
                                            std::vector<std::shared_ptr<Buffer>> buffers,
@@ -132,6 +166,13 @@ int64_t ArrayData::GetNullCount() const {
   return precomputed;
 }
 
+int64_t ArrayData::ComputeLogicalNullCount() const {
+  if (this->buffers[0]) {
+    return GetNullCount();
+  }
+  return ArraySpan(*this).ComputeLogicalNullCount();
+}
+
 // ----------------------------------------------------------------------
 // Methods for ArraySpan
 
@@ -157,7 +198,12 @@ void ArraySpan::SetMembers(const ArrayData& data) {
   }
 
   Type::type type_id = this->type->id();
-  if (data.buffers[0] == nullptr && type_id != Type::NA &&
+  if (type_id == Type::EXTENSION) {
+    const ExtensionType* ext_type = checked_cast<const ExtensionType*>(this->type);
+    type_id = ext_type->storage_type()->id();
+  }
+
+  if ((data.buffers.size() == 0 || data.buffers[0] == nullptr) && type_id != Type::NA &&
       type_id != Type::SPARSE_UNION && type_id != Type::DENSE_UNION) {
     // This should already be zero but we make for sure
     this->null_count = 0;
@@ -168,7 +214,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
     this->buffers[i] = {};
   }
 
-  if (this->type->id() == Type::DICTIONARY) {
+  if (type_id == Type::DICTIONARY) {
     this->child_data.resize(1);
     this->child_data[0].SetMembers(*data.dictionary);
   } else {
@@ -402,6 +448,20 @@ int64_t ArraySpan::GetNullCount() const {
   return precomputed;
 }
 
+int64_t ArraySpan::ComputeLogicalNullCount() const {
+  const auto t = this->type->id();
+  if (t == Type::SPARSE_UNION) {
+    return union_util::LogicalSparseUnionNullCount(*this);
+  }
+  if (t == Type::DENSE_UNION) {
+    return union_util::LogicalDenseUnionNullCount(*this);
+  }
+  if (t == Type::RUN_END_ENCODED) {
+    return ree_util::LogicalNullCount(*this);
+  }
+  return GetNullCount();
+}
+
 int ArraySpan::num_buffers() const { return GetNumBuffers(*this->type); }
 
 std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
@@ -412,16 +472,20 @@ std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
     result->buffers.emplace_back(this->GetBuffer(i));
   }
 
-  if (this->type->id() == Type::NA) {
+  Type::type type_id = this->type->id();
+  if (type_id == Type::EXTENSION) {
+    const ExtensionType* ext_type = checked_cast<const ExtensionType*>(this->type);
+    type_id = ext_type->storage_type()->id();
+  }
+
+  if (type_id == Type::NA) {
     result->null_count = this->length;
   } else if (this->buffers[0].data == nullptr) {
     // No validity bitmap, so the null count is 0
     result->null_count = 0;
   }
 
-  // TODO(wesm): what about extension arrays?
-
-  if (this->type->id() == Type::DICTIONARY) {
+  if (type_id == Type::DICTIONARY) {
     result->dictionary = this->dictionary().ToArrayData();
   } else {
     // Emit children, too
@@ -434,6 +498,44 @@ std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
 
 std::shared_ptr<Array> ArraySpan::ToArray() const {
   return MakeArray(this->ToArrayData());
+}
+
+bool ArraySpan::IsNullSparseUnion(int64_t i) const {
+  auto* union_type = checked_cast<const SparseUnionType*>(this->type);
+  const auto* types = reinterpret_cast<const int8_t*>(this->buffers[1].data);
+  const int child_id = union_type->child_ids()[types[this->offset + i]];
+  return this->child_data[child_id].IsNull(i);
+}
+
+bool ArraySpan::IsNullDenseUnion(int64_t i) const {
+  auto* union_type = checked_cast<const DenseUnionType*>(this->type);
+  const auto* types = reinterpret_cast<const int8_t*>(this->buffers[1].data);
+  const auto* offsets = reinterpret_cast<const int32_t*>(this->buffers[2].data);
+  const int64_t child_id = union_type->child_ids()[types[this->offset + i]];
+  const int64_t child_offset = offsets[this->offset + i];
+  return this->child_data[child_id].IsNull(child_offset);
+}
+
+bool ArraySpan::IsNullRunEndEncoded(int64_t i) const {
+  const auto& values = ree_util::ValuesArray(*this);
+  if (values.MayHaveLogicalNulls()) {
+    const int64_t physical_offset = ree_util::FindPhysicalIndex(*this, i, this->offset);
+    return ree_util::ValuesArray(*this).IsNull(physical_offset);
+  }
+  return false;
+}
+
+bool ArraySpan::UnionMayHaveLogicalNulls() const {
+  for (auto& child : this->child_data) {
+    if (child.MayHaveLogicalNulls()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ArraySpan::RunEndEncodedMayHaveLogicalNulls() const {
+  return ree_util::ValuesArray(*this).MayHaveLogicalNulls();
 }
 
 // ----------------------------------------------------------------------

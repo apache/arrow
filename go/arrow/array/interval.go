@@ -19,13 +19,14 @@ package array
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -55,7 +56,13 @@ func NewMonthIntervalData(data arrow.ArrayData) *MonthInterval {
 	return a
 }
 
-func (a *MonthInterval) Value(i int) arrow.MonthInterval            { return a.values[i] }
+func (a *MonthInterval) Value(i int) arrow.MonthInterval { return a.values[i] }
+func (a *MonthInterval) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return fmt.Sprintf("%v", a.Value(i))
+}
 func (a *MonthInterval) MonthIntervalValues() []arrow.MonthInterval { return a.values }
 
 func (a *MonthInterval) String() string {
@@ -67,7 +74,7 @@ func (a *MonthInterval) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -267,6 +274,20 @@ func (b *MonthIntervalBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *MonthIntervalBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(arrow.MonthInterval(v))
+	return nil
+}
+
 func (b *MonthIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var v *arrow.MonthInterval
 	if err := dec.Decode(&v); err != nil {
@@ -320,7 +341,18 @@ func NewDayTimeIntervalData(data arrow.ArrayData) *DayTimeInterval {
 	return a
 }
 
-func (a *DayTimeInterval) Value(i int) arrow.DayTimeInterval              { return a.values[i] }
+func (a *DayTimeInterval) Value(i int) arrow.DayTimeInterval { return a.values[i] }
+func (a *DayTimeInterval) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	data, err := json.Marshal(a.GetOneForMarshal(i))
+	if err != nil {
+		panic(err)
+	}
+	return string(data)
+}
+
 func (a *DayTimeInterval) DayTimeIntervalValues() []arrow.DayTimeInterval { return a.values }
 
 func (a *DayTimeInterval) String() string {
@@ -332,7 +364,7 @@ func (a *DayTimeInterval) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -530,6 +562,20 @@ func (b *DayTimeIntervalBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *DayTimeIntervalBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	var v arrow.DayTimeInterval
+	if err := json.Unmarshal([]byte(s), &v); err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(v)
+	return nil
+}
+
 func (b *DayTimeIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var v *arrow.DayTimeInterval
 	if err := dec.Decode(&v); err != nil {
@@ -583,6 +629,17 @@ func NewMonthDayNanoIntervalData(data arrow.ArrayData) *MonthDayNanoInterval {
 }
 
 func (a *MonthDayNanoInterval) Value(i int) arrow.MonthDayNanoInterval { return a.values[i] }
+func (a *MonthDayNanoInterval) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	data, err := json.Marshal(a.GetOneForMarshal(i))
+	if err != nil {
+		panic(err)
+	}
+	return string(data)
+}
+
 func (a *MonthDayNanoInterval) MonthDayNanoIntervalValues() []arrow.MonthDayNanoInterval {
 	return a.values
 }
@@ -596,7 +653,7 @@ func (a *MonthDayNanoInterval) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -794,6 +851,19 @@ func (b *MonthDayNanoIntervalBuilder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *MonthDayNanoIntervalBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	var v arrow.MonthDayNanoInterval
+	if err := json.Unmarshal([]byte(s), &v); err != nil {
+		return err
+	}
+	b.Append(v)
+	return nil
 }
 
 func (b *MonthDayNanoIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {

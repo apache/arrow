@@ -189,8 +189,6 @@ test_apt() {
                 "arm64v8/debian:bullseye" \
                 "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
-                "ubuntu:bionic" \
-                "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
@@ -201,7 +199,7 @@ test_apt() {
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
           case "${target}" in
-            arm64v8/ubuntu:bionic|arm64v8/ubuntu:focal)
+            arm64v8/ubuntu:focal)
               : # OK
               ;;
             *)
@@ -368,8 +366,8 @@ install_csharp() {
     local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
     local dotnet_download_url=$( \
       curl -sL ${dotnet_download_thank_you_url} | \
-        grep 'window\.open' | \
-        grep -E -o '[^"]+' | \
+        grep 'directLink' | \
+        grep -E -o 'https://download[^"]+' | \
         sed -n 2p)
     mkdir -p ${csharp_bin}
     curl -sL ${dotnet_download_url} | \
@@ -621,7 +619,6 @@ test_and_install_cpp() {
     -DARROW_JSON=ON \
     -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
-    -DARROW_PLASMA=${ARROW_PLASMA} \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
     -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
@@ -651,7 +648,6 @@ test_and_install_cpp() {
   local pythonpath=$(python -c "import site; print(site.getsitepackages()[0])")
 
   LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
-    --exclude-regex "plasma-serialization_tests" \
     --label-regex unittest \
     --output-on-failure \
     --parallel $NPROC \
@@ -689,9 +685,6 @@ test_python() {
   if [ "${ARROW_GCS}" = "ON" ]; then
     export PYARROW_WITH_GCS=1
   fi
-  if [ "${ARROW_PLASMA}" = "ON" ]; then
-    export PYARROW_WITH_PLASMA=1
-  fi
   if [ "${ARROW_S3}" = "ON" ]; then
     export PYARROW_WITH_S3=1
   fi
@@ -723,9 +716,6 @@ import pyarrow.parquet
   fi
   if [ "${ARROW_GCS}" == "ON" ]; then
     python -c "import pyarrow._gcsfs"
-  fi
-  if [ "${ARROW_PLASMA}" == "ON" ]; then
-    python -c "import pyarrow.plasma"
   fi
   if [ "${ARROW_S3}" == "ON" ]; then
     python -c "import pyarrow._s3fs"
@@ -800,9 +790,6 @@ test_ruby() {
   fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     modules="${modules} red-gandiva"
-  fi
-  if [ "${ARROW_PLASMA}" = "ON" ]; then
-    modules="${modules} red-plasma"
   fi
 
   for module in ${modules}; do
@@ -1028,7 +1015,7 @@ test_linux_wheels() {
   fi
 
   local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10 3.11}"
-  local platform_tags="manylinux_2_17_${arch}.manylinux2014_${arch}"
+  local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
 
   for python in ${python_versions}; do
     local pyver=${python/m}
@@ -1191,7 +1178,6 @@ fi
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_GCS:=OFF}
-: ${ARROW_PLASMA:=ON}
 : ${ARROW_S3:=OFF}
 
 TEST_SUCCESS=no

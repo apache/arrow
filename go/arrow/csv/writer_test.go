@@ -21,16 +21,18 @@ import (
 	"bytes"
 	ecsv "encoding/csv"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/csv"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/csv"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/google/uuid"
 )
 
 const (
@@ -131,18 +133,18 @@ func Example_writer() {
 
 var (
 	fullData = [][]string{
-		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256", "list(i64)", "binary"},
-		{"true", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45", "{1,2,3}", "AAEC"},
-		{"false", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0", "{4,5,6}", "AwQF"},
-		{"true", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45", "{7,8,9}", ""},
-		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256", "list(i64)", "binary", "uuid"},
+		{"true", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45", "{1,2,3}", "AAEC", "00000000-0000-0000-0000-000000000001"},
+		{"false", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0", "{4,5,6}", "AwQF", "00000000-0000-0000-0000-000000000002"},
+		{"true", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45", "{7,8,9}", "", "00000000-0000-0000-0000-000000000003"},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
 	}
 	bananaData = [][]string{
-		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256", "list(i64)", "binary"},
-		{"BANANA", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45", "{1,2,3}", "AAEC"},
-		{"MANGO", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0", "{4,5,6}", "AwQF"},
-		{"BANANA", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45", "{7,8,9}", ""},
-		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64", "str", "ts_s", "d32", "d64", "dec128", "dec256", "list(i64)", "binary", "uuid"},
+		{"BANANA", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45", "{1,2,3}", "AAEC", "00000000-0000-0000-0000-000000000001"},
+		{"MANGO", "0", "0", "0", "0", "1", "1", "1", "1", "0.1", "0.1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0", "{4,5,6}", "AwQF", "00000000-0000-0000-0000-000000000002"},
+		{"BANANA", "1", "1", "1", "1", "2", "2", "2", "2", "0.2", "0.2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45", "{7,8,9}", "", "00000000-0000-0000-0000-000000000003"},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
 	}
 )
 
@@ -220,6 +222,7 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 			{Name: "dec256", Type: &arrow.Decimal256Type{Precision: 5, Scale: 2}},
 			{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
 			{Name: "binary", Type: arrow.BinaryTypes.Binary},
+			{Name: "uuid", Type: types.NewUUIDType()},
 		},
 		nil,
 	)
@@ -253,6 +256,7 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 	listBuilder.Append(true)
 	listBuilderInt64.AppendValues([]int64{7, 8, 9}, nil)
 	b.Field(18).(*array.BinaryBuilder).AppendValues([][]byte{{0, 1, 2}, {3, 4, 5}, {}}, nil)
+	b.Field(19).(*types.UUIDBuilder).AppendValues([]uuid.UUID{uuid.MustParse("00000000-0000-0000-0000-000000000001"), uuid.MustParse("00000000-0000-0000-0000-000000000002"), uuid.MustParse("00000000-0000-0000-0000-000000000003")}, nil)
 
 	for _, field := range b.Fields() {
 		field.AppendNull()
@@ -375,7 +379,7 @@ func BenchmarkWrite(b *testing.B) {
 	rec := bldr.NewRecord()
 	defer rec.Release()
 
-	w := csv.NewWriter(ioutil.Discard, schema, csv.WithComma(';'), csv.WithCRLF(false))
+	w := csv.NewWriter(io.Discard, schema, csv.WithComma(';'), csv.WithCRLF(false))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

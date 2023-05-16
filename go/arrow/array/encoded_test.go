@@ -21,9 +21,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -250,6 +250,52 @@ func TestRunEndEncodedBuilder(t *testing.T) {
 	assert.Equal(t, "of", strValues.Value(3))
 	assert.Equal(t, "RLE", strValues.Value(4))
 	assert.True(t, strValues.IsNull(5))
+	assert.Equal(t, "Hello", strValues.ValueStr(0))
+}
+
+func TestRunEndEncodedStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	defer b.Release()
+
+	valBldr := b.ValueBuilder().(*array.StringBuilder)
+
+	b.Append(100)
+	valBldr.Append("Hello")
+	b.Append(100)
+	valBldr.Append("beautiful")
+	b.Append(50)
+	valBldr.Append("world")
+	b.ContinueRun(50)
+	b.Append(100)
+	valBldr.Append("of")
+	b.Append(100)
+	valBldr.Append("RLE")
+	b.AppendNull()
+
+	arr := b.NewArray().(*array.RunEndEncoded)
+	defer arr.Release()
+	logical := arr.LogicalValuesArray()
+	defer logical.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.RunEndEncoded)
+	defer arr1.Release()
+	logical1 := arr1.LogicalValuesArray()
+	defer logical1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+	assert.True(t, array.Equal(logical, logical1))
 }
 
 func TestREEBuilderOverflow(t *testing.T) {

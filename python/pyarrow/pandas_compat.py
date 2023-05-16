@@ -1015,9 +1015,9 @@ def _extract_index_level(table, result_table, field_name,
         values = values.copy()
 
     if isinstance(col.type, pa.lib.TimestampType) and col.type.tz is not None:
-        index_level = make_tz_aware(pd.Series(values), col.type.tz)
+        index_level = make_tz_aware(pd.Series(values, copy=False), col.type.tz)
     else:
-        index_level = pd.Series(values, dtype=values.dtype)
+        index_level = pd.Series(values, dtype=values.dtype, copy=False)
     result_table = result_table.remove_column(
         result_table.schema.get_field_index(field_name)
     )
@@ -1148,8 +1148,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         if pandas_dtype == "datetimetz":
             tz = pa.lib.string_to_tzinfo(
                 column_indexes[0]['metadata']['timezone'])
-            dt = level.astype(numpy_dtype)
-            level = dt.tz_localize('utc').tz_convert(tz)
+            level = pd.to_datetime(level, utc=True).tz_convert(tz)
         elif level.dtype != dtype:
             level = level.astype(dtype)
         # ARROW-9096: if original DataFrame was upcast we keep that

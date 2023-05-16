@@ -15,7 +15,6 @@
 // limitations under the License.
 
 //go:build !noasm
-// +build !noasm
 
 package utils_test
 
@@ -23,7 +22,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/internal/utils"
+	"github.com/apache/arrow/go/v13/internal/utils"
 )
 
 var (

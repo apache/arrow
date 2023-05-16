@@ -23,9 +23,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -58,6 +58,10 @@ func NewNullData(data arrow.ArrayData) *Null {
 	return a
 }
 
+func (a *Null) ValueStr(int) string { return NullValueStr }
+
+func (a *Null) Value(int) interface{} { return nil }
+
 func (a *Null) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -65,7 +69,7 @@ func (a *Null) String() string {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		o.WriteString("(null)")
+		o.WriteString(NullValueStr)
 	}
 	o.WriteString("]")
 	return o.String()
@@ -112,6 +116,14 @@ func (b *NullBuilder) Release() {
 func (b *NullBuilder) AppendNull() {
 	b.builder.length++
 	b.builder.nulls++
+}
+
+func (b *NullBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	return fmt.Errorf("cannot convert %q to null", s)
 }
 
 func (b *NullBuilder) AppendEmptyValue() { b.AppendNull() }

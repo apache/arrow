@@ -21,6 +21,8 @@ skip_on_r_older_than("3.5")
 library(lubridate, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
+
 # base::strptime() defaults to local timezone
 # but arrow's strptime defaults to UTC.
 # So that tests are consistent, set the local timezone to UTC
@@ -308,7 +310,7 @@ test_that("timestamp round trip correctly via strftime and strptime", {
     fmt2 <- paste(base_format2, fmt)
     fmt <- paste(base_format, paste0("%", fmt))
     test_df <- tibble::tibble(x = strftime(times, format = fmt))
-    expect_equal(
+    expect_equal_data_frame(
       test_df %>%
         arrow_table() %>%
         mutate(!!fmt := strptime(x, format = fmt2)) %>%
@@ -1026,7 +1028,7 @@ test_that("leap_year mirror lubridate", {
     .input %>%
       mutate(x = leap_year(test_year)) %>%
       collect(),
-    data.frame(
+    tibble::tibble(
       test_year = as.Date(c(
         "1998-01-01", # not leap year
         "1996-01-01", # leap year (divide by 4 rule)
@@ -1046,7 +1048,9 @@ test_that("am/pm mirror lubridate", {
         am2 = lubridate::am(test_time),
         pm2 = lubridate::pm(test_time)
       ) %>%
-      collect(),
+      # can't use collect() here due to how tibbles store datetimes
+      # TODO: add better explanation above
+      as.data.frame(),
     data.frame(
       test_time = strptime(
         x = c(

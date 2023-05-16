@@ -16,32 +16,29 @@
 # under the License.
 
 # ----------------------------------------------------------------------
+# Tests that don't require the full kernel library
+
+add_arrow_test(scalar_cast_test
+               ${ARROW_COMPUTE_TEST_ARGS}
+               SOURCES
+               scalar_cast_test.cc
+               test_util.cc)
+
+# ----------------------------------------------------------------------
 # Scalar kernels
 
-add_arrow_compute_test(scalar_cast_test SOURCES scalar_cast_test.cc test_util.cc)
-
 add_arrow_compute_test(scalar_type_test
-                       REQUIRE_ALL_KERNELS
                        SOURCES
                        scalar_boolean_test.cc
                        scalar_nested_test.cc
                        scalar_string_test.cc
                        test_util.cc)
 
-add_arrow_compute_test(scalar_if_else_test
-                       REQUIRE_ALL_KERNELS
-                       SOURCES
-                       scalar_if_else_test.cc
-                       test_util.cc)
+add_arrow_compute_test(scalar_if_else_test SOURCES scalar_if_else_test.cc test_util.cc)
 
-add_arrow_compute_test(scalar_temporal_test
-                       REQUIRE_ALL_KERNELS
-                       SOURCES
-                       scalar_temporal_test.cc
-                       test_util.cc)
+add_arrow_compute_test(scalar_temporal_test SOURCES scalar_temporal_test.cc test_util.cc)
 
 add_arrow_compute_test(scalar_math_test
-                       REQUIRE_ALL_KERNELS
                        SOURCES
                        scalar_arithmetic_test.cc
                        scalar_compare_test.cc
@@ -49,7 +46,6 @@ add_arrow_compute_test(scalar_math_test
                        test_util.cc)
 
 add_arrow_compute_test(scalar_utility_test
-                       REQUIRE_ALL_KERNELS
                        SOURCES
                        scalar_random_test.cc
                        scalar_set_lookup_test.cc
@@ -71,7 +67,6 @@ add_arrow_benchmark(scalar_temporal_benchmark PREFIX "arrow-compute")
 # Vector kernels
 
 add_arrow_compute_test(vector_test
-                       REQUIRE_ALL_KERNELS
                        SOURCES
                        vector_cumulative_ops_test.cc
                        vector_hash_test.cc
@@ -95,13 +90,7 @@ add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
 
 # Aggregates
 
-add_arrow_compute_test(aggregate_test
-                       REQUIRE_ALL_KERNELS
-                       SOURCES
-                       aggregate_test.cc
-                       hash_aggregate_test.cc
-                       test_util.cc)
-add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")
+add_arrow_compute_test(aggregate_test SOURCES aggregate_test.cc test_util.cc)
 
 # ----------------------------------------------------------------------
 # Utilities

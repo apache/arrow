@@ -23,11 +23,11 @@ import (
 	"io"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	"github.com/apache/arrow/go/v12/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/flight"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -98,7 +98,10 @@ func (f *flightServer) GetSchema(_ context.Context, in *flight.FlightDescriptor)
 }
 
 func (f *flightServer) DoGet(tkt *flight.Ticket, fs flight.FlightService_DoGetServer) error {
-	recs := arrdata.Records[string(tkt.GetTicket())]
+	recs, ok := arrdata.Records[string(tkt.GetTicket())]
+	if !ok {
+		return status.Error(codes.NotFound, "flight not found")
+	}
 
 	w := flight.NewRecordWriter(fs, ipc.WithSchema(recs[0].Schema()))
 	for _, r := range recs {

@@ -1335,6 +1335,28 @@ class DictionaryEncodeOptions(_DictionaryEncodeOptions):
         self._set_options(null_encoding)
 
 
+cdef class _RunEndEncodeOptions(FunctionOptions):
+    def _set_options(self, run_end_type):
+        run_end_ty = ensure_type(run_end_type)
+        self.wrapped.reset(new CRunEndEncodeOptions(pyarrow_unwrap_data_type(run_end_ty)))
+
+
+class RunEndEncodeOptions(_RunEndEncodeOptions):
+    """
+    Options for run-end encoding.
+
+    Parameters
+    ----------
+    run_end_type : DataType, default pyarrow.int32()
+        The data type of the run_ends array.
+
+        Accepted values are pyarrow.{int16(), int32(), int64()}.
+    """
+
+    def __init__(self, run_end_type=lib.int32()):
+        self._set_options(run_end_type)
+
+
 cdef class _TakeOptions(FunctionOptions):
     def _set_options(self, boundscheck):
         self.wrapped.reset(new CTakeOptions(boundscheck))
@@ -1963,7 +1985,7 @@ cdef class _SortOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
             )
         self.wrapped.reset(new CSortOptions(
             c_sort_keys, unwrap_null_placement(null_placement)))
@@ -1979,6 +2001,7 @@ class SortOptions(_SortOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
     null_placement : str, default "at_end"
         Where nulls in input should be sorted, only applying to
         columns/fields mentioned in `sort_keys`.
@@ -1994,7 +2017,7 @@ cdef class _SelectKOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         for name, order in sort_keys:
             c_sort_keys.push_back(
-                CSortKey(tobytes(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
             )
         self.wrapped.reset(new CSelectKOptions(k, c_sort_keys))
 
@@ -2013,6 +2036,7 @@ class SelectKOptions(_SelectKOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
     """
 
     def __init__(self, k, sort_keys):
@@ -2183,12 +2207,12 @@ cdef class _RankOptions(FunctionOptions):
         cdef vector[CSortKey] c_sort_keys
         if isinstance(sort_keys, str):
             c_sort_keys.push_back(
-                CSortKey(tobytes(""), unwrap_sort_order(sort_keys))
+                CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
             )
         else:
             for name, order in sort_keys:
                 c_sort_keys.push_back(
-                    CSortKey(tobytes(name), unwrap_sort_order(order))
+                    CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
                 )
         try:
             self.wrapped.reset(
@@ -2210,6 +2234,7 @@ class RankOptions(_RankOptions):
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        The field name can be a string column name or expression.
         Alternatively, one can simply pass "ascending" or "descending" as a string
         if the input is array-like.
     null_placement : str, default "at_end"
@@ -2230,38 +2255,6 @@ class RankOptions(_RankOptions):
 
     def __init__(self, sort_keys="ascending", *, null_placement="at_end", tiebreaker="first"):
         self._set_options(sort_keys, null_placement, tiebreaker)
-
-
-def _group_by(table, aggregates, keys):
-    cdef:
-        shared_ptr[CTable] c_table
-        vector[CAggregate] c_aggregates
-        vector[CFieldRef] c_keys
-        CAggregate c_aggr
-
-    c_table = (<Table> table).sp_table
-
-    for aggr_arg_indices, aggr_func_name, aggr_opts, aggr_name in aggregates:
-        c_aggr.function = tobytes(aggr_func_name)
-        if aggr_opts is not None:
-            c_aggr.options = (<FunctionOptions?>aggr_opts).wrapped
-        else:
-            c_aggr.options = <shared_ptr[CFunctionOptions]>nullptr
-        for field_idx in aggr_arg_indices:
-            c_aggr.target.push_back(CFieldRef(<int> field_idx))
-
-        c_aggr.name = tobytes(aggr_name)
-        c_aggregates.push_back(move(c_aggr))
-
-    for key_idx in keys:
-        c_keys.push_back(CFieldRef(<int> key_idx))
-
-    with nogil:
-        sp_table = GetResultValue(
-            CTableGroupBy(c_table, c_aggregates, c_keys)
-        )
-
-    return pyarrow_wrap_table(sp_table)
 
 
 cdef class Expression(_Weakrefable):

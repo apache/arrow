@@ -23,12 +23,11 @@
 
 #include <gmock/gmock.h>
 
+#include "arrow/acero/exec_plan.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/test_util.h"
 #include "arrow/compute/expression_internal.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/plan.h"
@@ -528,16 +527,16 @@ class TestScannerBase : public ::testing::TestWithParam<ScannerTestParams> {
     return as_one_batch;
   }
 
-  compute::Declaration MakeScanNode(std::shared_ptr<Dataset> dataset) {
+  acero::Declaration MakeScanNode(std::shared_ptr<Dataset> dataset) {
     ScanV2Options options(dataset);
     options.columns = ScanV2Options::AllColumns(*dataset->schema());
-    return compute::Declaration("scan2", options);
+    return acero::Declaration("scan2", options);
   }
 
-  RecordBatchVector RunNode(compute::Declaration scan_decl, bool ordered,
+  RecordBatchVector RunNode(acero::Declaration scan_decl, bool ordered,
                             MockDataset* mock_dataset) {
     Future<RecordBatchVector> batches_fut =
-        compute::DeclarationToBatchesAsync(std::move(scan_decl));
+        acero::DeclarationToBatchesAsync(std::move(scan_decl));
     if (ordered) {
       mock_dataset->DeliverBatchesInOrder(GetParam().slow);
     } else {
@@ -565,7 +564,7 @@ class TestScannerBase : public ::testing::TestWithParam<ScannerTestParams> {
   void CheckScanner(bool ordered) {
     std::shared_ptr<MockDataset> mock_dataset =
         MakeTestDataset(GetParam().num_fragments, GetParam().num_batches);
-    compute::Declaration scan_decl = MakeScanNode(mock_dataset);
+    acero::Declaration scan_decl = MakeScanNode(mock_dataset);
     RecordBatchVector scanned_batches = RunNode(scan_decl, ordered, mock_dataset.get());
     CheckScannedBatches(std::move(scanned_batches));
   }
@@ -586,9 +585,9 @@ void CheckScannerBackpressure(std::shared_ptr<MockDataset> dataset, ScanV2Option
                               int maxConcurrentFragments, int maxConcurrentBatches,
                               ::arrow::internal::ThreadPool* thread_pool) {
   // Start scanning
-  compute::Declaration scan_decl = compute::Declaration("scan2", std::move(options));
+  acero::Declaration scan_decl = acero::Declaration("scan2", std::move(options));
   Future<RecordBatchVector> batches_fut =
-      compute::DeclarationToBatchesAsync(std::move(scan_decl));
+      acero::DeclarationToBatchesAsync(std::move(scan_decl));
 
   auto get_num_inspected = [&] {
     int num_inspected = 0;
@@ -683,7 +682,7 @@ TEST(TestNewScanner, NestedRead) {
   // nested.x
   options.columns = {FieldPath({2, 0})};
   ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
-                       compute::DeclarationToBatches({"scan2", options}));
+                       acero::DeclarationToBatches({"scan2", options}));
   ASSERT_EQ(1, batches.size());
   for (const auto& batch : batches) {
     ASSERT_EQ("x", batch->schema()->field(0)->name());
@@ -739,7 +738,7 @@ TEST(TestNewScanner, PartitionSkip) {
     options.filter = greater(field_ref("filterable"), literal(75));
 
     ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
-                         compute::DeclarationToBatches({"scan2", options}));
+                         acero::DeclarationToBatches({"scan2", options}));
     ASSERT_EQ(1, batches.size());
     std::shared_ptr<RecordBatch> expected = MakeTestBatch(0);
     ASSERT_OK_AND_ASSIGN(expected, expected->SetColumn(1, field("filterable", int16()),
@@ -757,7 +756,7 @@ TEST(TestNewScanner, PartitionSkip) {
     options.filter = less(field_ref("filterable"), literal(75));
 
     ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
-                         compute::DeclarationToBatches({"scan2", options}));
+                         acero::DeclarationToBatches({"scan2", options}));
     ASSERT_EQ(1, batches.size());
     std::shared_ptr<RecordBatch> expected = MakeTestBatch(1);
     ASSERT_OK_AND_ASSIGN(expected, expected->SetColumn(1, field("filterable", int16()),
@@ -777,7 +776,7 @@ TEST(TestNewScanner, PartitionSkip) {
         Invalid,
         ::testing::HasSubstr(
             "The dataset schema defines the field FieldRef.FieldPath(1)"),
-        compute::DeclarationToBatches({"scan2", options}));
+        acero::DeclarationToBatches({"scan2", options}));
   }
 }
 
@@ -790,7 +789,7 @@ TEST(TestNewScanner, NoFragments) {
   ScanV2Options options(test_dataset);
   options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
   ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
-                       compute::DeclarationToBatches({"scan2", options}));
+                       acero::DeclarationToBatches({"scan2", options}));
   ASSERT_EQ(0, batches.size());
 }
 
@@ -805,7 +804,7 @@ TEST(TestNewScanner, EmptyFragment) {
   ScanV2Options options(test_dataset);
   options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
   ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
-                       compute::DeclarationToBatches({"scan2", options}));
+                       acero::DeclarationToBatches({"scan2", options}));
   ASSERT_EQ(0, batches.size());
 }
 
@@ -823,7 +822,7 @@ TEST(TestNewScanner, EmptyBatch) {
   ScanV2Options options(test_dataset);
   options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
   ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
-                       compute::DeclarationToBatches({"scan2", options}));
+                       acero::DeclarationToBatches({"scan2", options}));
   ASSERT_EQ(0, batches.size());
 }
 
@@ -836,8 +835,8 @@ TEST(TestNewScanner, NoColumns) {
   test_dataset->DeliverBatchesInOrder(false);
 
   ScanV2Options options(test_dataset);
-  ASSERT_OK_AND_ASSIGN(compute::BatchesWithCommonSchema batches_and_schema,
-                       compute::DeclarationToExecBatches({"scan2", options}));
+  ASSERT_OK_AND_ASSIGN(acero::BatchesWithCommonSchema batches_and_schema,
+                       acero::DeclarationToExecBatches({"scan2", options}));
   ASSERT_EQ(16, batches_and_schema.batches.size());
   for (const auto& batch : batches_and_schema.batches) {
     ASSERT_EQ(0, batch.values.size());
@@ -868,7 +867,7 @@ TEST(TestNewScanner, MissingColumn) {
   options.columns = {FieldPath({0}), FieldPath({2})};
 
   ASSERT_OK_AND_ASSIGN(std::vector<std::shared_ptr<RecordBatch>> batches,
-                       compute::DeclarationToBatches({"scan2", options}));
+                       acero::DeclarationToBatches({"scan2", options}));
 
   ASSERT_EQ(1, batches.size());
   AssertArraysEqual(*batch->column(0), *batches[0]->column(0));
@@ -1907,8 +1906,7 @@ class TestBackpressure : public ::testing::Test {
   }
 
   std::shared_ptr<Scanner> MakeScanner(::arrow::internal::Executor* io_executor) {
-    compute::BackpressureOptions low_backpressure(kResumeIfBelowBytes,
-                                                  kPauseIfAboveBytes);
+    acero::BackpressureOptions low_backpressure(kResumeIfBelowBytes, kPauseIfAboveBytes);
     io::IOContext io_context(default_memory_pool(), io_executor);
     std::shared_ptr<Dataset> dataset = MakeDataset();
     std::shared_ptr<ScanOptions> options = std::make_shared<ScanOptions>();
@@ -2194,7 +2192,7 @@ TEST(ScanOptions, TestMaterializedFields) {
 namespace {
 struct TestPlan {
   explicit TestPlan(compute::ExecContext* ctx = compute::threaded_exec_context())
-      : plan(compute::ExecPlan::Make(*ctx).ValueOrDie()) {
+      : plan(acero::ExecPlan::Make(*ctx).ValueOrDie()) {
     internal::Initialize();
   }
 
@@ -2215,9 +2213,9 @@ struct TestPlan {
         });
   }
 
-  compute::ExecPlan* get() { return plan.get(); }
+  acero::ExecPlan* get() { return plan.get(); }
 
-  std::shared_ptr<compute::ExecPlan> plan;
+  std::shared_ptr<acero::ExecPlan> plan;
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 };
 
@@ -2388,8 +2386,8 @@ TEST(ScanNode, Schema) {
   options->projection = Materialize({});  // set an empty projection
 
   ASSERT_OK_AND_ASSIGN(auto scan,
-                       compute::MakeExecNode("scan", plan.get(), {},
-                                             ScanNodeOptions{basic.dataset, options}));
+                       acero::MakeExecNode("scan", plan.get(), {},
+                                           ScanNodeOptions{basic.dataset, options}));
 
   auto fields = basic.dataset->schema()->fields();
   fields.push_back(field("__fragment_index", int32()));
@@ -2410,12 +2408,12 @@ TEST(ScanNode, Trivial) {
   // ensure all fields are materialized
   options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
-  ASSERT_OK(compute::Declaration::Sequence(
-                {
-                    {"scan", ScanNodeOptions{basic.dataset, options}},
-                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
-                })
-                .AddToPlan(plan.get()));
+  ASSERT_OK(
+      acero::Declaration::Sequence({
+                                       {"scan", ScanNodeOptions{basic.dataset, options}},
+                                       {"sink", acero::SinkNodeOptions{&plan.sink_gen}},
+                                   })
+          .AddToPlan(plan.get()));
 
   // trivial scan: the batches are returned unmodified
   auto expected = basic.batches;
@@ -2432,12 +2430,12 @@ TEST(ScanNode, FilteredOnVirtualColumn) {
   // ensure all fields are materialized
   options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
-  ASSERT_OK(compute::Declaration::Sequence(
-                {
-                    {"scan", ScanNodeOptions{basic.dataset, options}},
-                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
-                })
-                .AddToPlan(plan.get()));
+  ASSERT_OK(
+      acero::Declaration::Sequence({
+                                       {"scan", ScanNodeOptions{basic.dataset, options}},
+                                       {"sink", acero::SinkNodeOptions{&plan.sink_gen}},
+                                   })
+          .AddToPlan(plan.get()));
 
   auto expected = basic.batches;
 
@@ -2458,12 +2456,12 @@ TEST(ScanNode, DeferredFilterOnPhysicalColumn) {
   // ensure all fields are materialized
   options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
-  ASSERT_OK(compute::Declaration::Sequence(
-                {
-                    {"scan", ScanNodeOptions{basic.dataset, options}},
-                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
-                })
-                .AddToPlan(plan.get()));
+  ASSERT_OK(
+      acero::Declaration::Sequence({
+                                       {"scan", ScanNodeOptions{basic.dataset, options}},
+                                       {"sink", acero::SinkNodeOptions{&plan.sink_gen}},
+                                   })
+          .AddToPlan(plan.get()));
 
   // No post filtering is performed by ScanNode: all batches will be yielded whole.
   // To filter out rows from individual batches, construct a FilterNode.
@@ -2481,12 +2479,12 @@ TEST(ScanNode, DISABLED_ProjectionPushdown) {
   auto options = std::make_shared<ScanOptions>();
   options->projection = Materialize({"b"}, /*include_aug_fields=*/true);
 
-  ASSERT_OK(compute::Declaration::Sequence(
-                {
-                    {"scan", ScanNodeOptions{basic.dataset, options}},
-                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
-                })
-                .AddToPlan(plan.get()));
+  ASSERT_OK(
+      acero::Declaration::Sequence({
+                                       {"scan", ScanNodeOptions{basic.dataset, options}},
+                                       {"sink", acero::SinkNodeOptions{&plan.sink_gen}},
+                                   })
+          .AddToPlan(plan.get()));
 
   auto expected = basic.batches;
 
@@ -2509,13 +2507,13 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
   auto options = std::make_shared<ScanOptions>();
   options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
-  ASSERT_OK(compute::Declaration::Sequence(
+  ASSERT_OK(acero::Declaration::Sequence(
                 {
                     {"scan", ScanNodeOptions{basic.dataset, options}},
                     {"augmented_project",
-                     compute::ProjectNodeOptions{
+                     acero::ProjectNodeOptions{
                          {field_ref("a"), field_ref("b"), field_ref("c")}}},
-                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
+                    {"sink", acero::SinkNodeOptions{&plan.sink_gen}},
                 })
                 .AddToPlan(plan.get()));
 
@@ -2538,13 +2536,13 @@ TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
   auto options = std::make_shared<ScanOptions>();
   options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
 
-  ASSERT_OK(compute::Declaration::Sequence(
+  ASSERT_OK(acero::Declaration::Sequence(
                 {
                     {"scan", ScanNodeOptions{basic.dataset, options}},
                     {"augmented_project",
-                     compute::ProjectNodeOptions{
+                     acero::ProjectNodeOptions{
                          {field_ref("a"), field_ref("b"), field_ref("c")}}},
-                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
+                    {"sink", acero::SinkNodeOptions{&plan.sink_gen}},
                 })
                 .AddToPlan(plan.get()));
 
@@ -2569,8 +2567,8 @@ TEST(ScanNode, MinimalEndToEnd) {
   // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
   // predicate pushdown, a projection to skip materialization of unnecessary columns,
   // ...)
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       compute::ExecPlan::Make(exec_context));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<acero::ExecPlan> plan,
+                       acero::ExecPlan::Make(exec_context));
 
   std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
       TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
@@ -2601,29 +2599,29 @@ TEST(ScanNode, MinimalEndToEnd) {
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(
-      compute::ExecNode * scan,
-      compute::MakeExecNode("scan", plan.get(), {}, ScanNodeOptions{dataset, options}));
+      acero::ExecNode * scan,
+      acero::MakeExecNode("scan", plan.get(), {}, ScanNodeOptions{dataset, options}));
 
   // pipe the scan node into a filter node
-  ASSERT_OK_AND_ASSIGN(compute::ExecNode * filter,
-                       compute::MakeExecNode("filter", plan.get(), {scan},
-                                             compute::FilterNodeOptions{b_is_true}));
+  ASSERT_OK_AND_ASSIGN(acero::ExecNode * filter,
+                       acero::MakeExecNode("filter", plan.get(), {scan},
+                                           acero::FilterNodeOptions{b_is_true}));
 
   // pipe the filter node into a project node
   // NB: we're using the project node factory which preserves fragment/batch index
   // tagging, so we *can* reorder later if we choose. The tags will not appear in
   // our output.
-  ASSERT_OK_AND_ASSIGN(compute::ExecNode * project,
-                       compute::MakeExecNode("augmented_project", plan.get(), {filter},
-                                             compute::ProjectNodeOptions{{a_times_2}}));
+  ASSERT_OK_AND_ASSIGN(acero::ExecNode * project,
+                       acero::MakeExecNode("augmented_project", plan.get(), {filter},
+                                           acero::ProjectNodeOptions{{a_times_2}}));
 
   // finally, pipe the project node into a sink node
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
-  ASSERT_OK(compute::MakeExecNode("ordered_sink", plan.get(), {project},
-                                  compute::SinkNodeOptions{&sink_gen}));
+  ASSERT_OK(acero::MakeExecNode("ordered_sink", plan.get(), {project},
+                                acero::SinkNodeOptions{&sink_gen}));
 
   // translate sink_gen (async) to sink_reader (sync)
-  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
+  std::shared_ptr<RecordBatchReader> sink_reader = acero::MakeGeneratorReader(
       schema({field("a * 2", int32())}), std::move(sink_gen), exec_context.memory_pool());
 
   // start the ExecPlan
@@ -2664,8 +2662,8 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
   // predicate pushdown, a projection to skip materialization of unnecessary columns,
   // ...)
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       compute::ExecPlan::Make(exec_context));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<acero::ExecPlan> plan,
+                       acero::ExecPlan::Make(exec_context));
 
   std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
       TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
@@ -2696,36 +2694,36 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(
-      compute::ExecNode * scan,
-      compute::MakeExecNode("scan", plan.get(), {}, ScanNodeOptions{dataset, options}));
+      acero::ExecNode * scan,
+      acero::MakeExecNode("scan", plan.get(), {}, ScanNodeOptions{dataset, options}));
 
   // pipe the scan node into a filter node
-  ASSERT_OK_AND_ASSIGN(compute::ExecNode * filter,
-                       compute::MakeExecNode("filter", plan.get(), {scan},
-                                             compute::FilterNodeOptions{b_is_true}));
+  ASSERT_OK_AND_ASSIGN(acero::ExecNode * filter,
+                       acero::MakeExecNode("filter", plan.get(), {scan},
+                                           acero::FilterNodeOptions{b_is_true}));
 
   // pipe the filter node into a project node
   ASSERT_OK_AND_ASSIGN(
-      compute::ExecNode * project,
-      compute::MakeExecNode("project", plan.get(), {filter},
-                            compute::ProjectNodeOptions{{a_times_2}, {"a * 2"}}));
+      acero::ExecNode * project,
+      acero::MakeExecNode("project", plan.get(), {filter},
+                          acero::ProjectNodeOptions{{a_times_2}, {"a * 2"}}));
 
   // pipe the projection into a scalar aggregate node
   ASSERT_OK_AND_ASSIGN(
-      compute::ExecNode * aggregate,
-      compute::MakeExecNode("aggregate", plan.get(), {project},
-                            compute::AggregateNodeOptions{{compute::Aggregate{
-                                "sum", nullptr, "a * 2", "sum(a * 2)"}}}));
+      acero::ExecNode * aggregate,
+      acero::MakeExecNode("aggregate", plan.get(), {project},
+                          acero::AggregateNodeOptions{{compute::Aggregate{
+                              "sum", nullptr, "a * 2", "sum(a * 2)"}}}));
 
   // finally, pipe the aggregate node into a sink node
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
-  ASSERT_OK(compute::MakeExecNode("sink", plan.get(), {aggregate},
-                                  compute::SinkNodeOptions{&sink_gen}));
+  ASSERT_OK(acero::MakeExecNode("sink", plan.get(), {aggregate},
+                                acero::SinkNodeOptions{&sink_gen}));
 
   // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<RecordBatchReader> sink_reader =
-      compute::MakeGeneratorReader(schema({field("a*2 sum", int64())}),
-                                   std::move(sink_gen), exec_context.memory_pool());
+      acero::MakeGeneratorReader(schema({field("a*2 sum", int64())}), std::move(sink_gen),
+                                 exec_context.memory_pool());
 
   // start the ExecPlan
   plan->StartProducing();
@@ -2756,8 +2754,8 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // a Dataset (whose batches will be scanned), and ScanOptions (to specify a filter for
   // predicate pushdown, a projection to skip materialization of unnecessary columns,
   // ...)
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       compute::ExecPlan::Make(exec_context));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<acero::ExecPlan> plan,
+                       acero::ExecPlan::Make(exec_context));
 
   std::shared_ptr<Dataset> dataset = std::make_shared<InMemoryDataset>(
       TableFromJSON(schema({field("a", int32()), field("b", boolean())}),
@@ -2789,32 +2787,32 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
 
   // construct the scan node
   ASSERT_OK_AND_ASSIGN(
-      compute::ExecNode * scan,
-      compute::MakeExecNode("scan", plan.get(), {}, ScanNodeOptions{dataset, options}));
+      acero::ExecNode * scan,
+      acero::MakeExecNode("scan", plan.get(), {}, ScanNodeOptions{dataset, options}));
 
   // pipe the scan node into a project node
   ASSERT_OK_AND_ASSIGN(
-      compute::ExecNode * project,
-      compute::MakeExecNode("project", plan.get(), {scan},
-                            compute::ProjectNodeOptions{{a_times_2, b}, {"a * 2", "b"}}));
+      acero::ExecNode * project,
+      acero::MakeExecNode("project", plan.get(), {scan},
+                          acero::ProjectNodeOptions{{a_times_2, b}, {"a * 2", "b"}}));
 
   // pipe the projection into a grouped aggregate node
   ASSERT_OK_AND_ASSIGN(
-      compute::ExecNode * aggregate,
-      compute::MakeExecNode(
+      acero::ExecNode * aggregate,
+      acero::MakeExecNode(
           "aggregate", plan.get(), {project},
-          compute::AggregateNodeOptions{
+          acero::AggregateNodeOptions{
               {compute::Aggregate{"hash_sum", nullptr, "a * 2", "sum(a * 2)"}},
               /*keys=*/{"b"}}));
 
   // finally, pipe the aggregate node into a sink node
   AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
-  ASSERT_OK(compute::MakeExecNode("sink", plan.get(), {aggregate},
-                                  compute::SinkNodeOptions{&sink_gen}));
+  ASSERT_OK(acero::MakeExecNode("sink", plan.get(), {aggregate},
+                                acero::SinkNodeOptions{&sink_gen}));
 
   // translate sink_gen (async) to sink_reader (sync)
-  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      schema({field("sum(a * 2)", int64()), field("b", boolean())}), std::move(sink_gen),
+  std::shared_ptr<RecordBatchReader> sink_reader = acero::MakeGeneratorReader(
+      schema({field("b", boolean()), field("sum(a * 2)", int64())}), std::move(sink_gen),
       exec_context.memory_pool());
 
   // start the ExecPlan
@@ -2834,11 +2832,11 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   ASSERT_TRUE(plan->finished().Wait(/*seconds=*/1)) << "ExecPlan didn't finish within 1s";
 
   auto expected = TableFromJSON(
-      schema({field("sum(a * 2)", int64()), field("b", boolean())}), {
+      schema({field("b", boolean()), field("sum(a * 2)", int64())}), {
                                                                          R"JSON([
-                                               {"sum(a * 2)": 4,  "b": true},
-                                               {"sum(a * 2)": 12, "b": null},
-                                               {"sum(a * 2)": 40, "b": false}
+                                               {"b": true, "sum(a * 2)": 4},
+                                               {"b": null, "sum(a * 2)": 12},
+                                               {"b": false, "sum(a * 2)": 40}
                                           ])JSON"});
   AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
 }
@@ -2846,7 +2844,7 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
 TEST(ScanNode, OnlyLoadProjectedFields) {
   compute::ExecContext exec_context;
   arrow::dataset::internal::Initialize();
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto plan, acero::ExecPlan::Make());
 
   auto dummy_schema = schema(
       {field("key", int64()), field("shared", int64()), field("distinct", int64())});
@@ -2886,9 +2884,9 @@ TEST(ScanNode, OnlyLoadProjectedFields) {
   scan_options->projection =
       call("make_struct", {extract_expr}, compute::MakeStructOptions{{"shared"}});
 
-  auto declarations = compute::Declaration::Sequence(
-      {compute::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}})});
-  ASSERT_OK_AND_ASSIGN(auto actual, compute::DeclarationToTable(declarations));
+  auto declarations = acero::Declaration::Sequence(
+      {acero::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}})});
+  ASSERT_OK_AND_ASSIGN(auto actual, acero::DeclarationToTable(declarations));
   // Scan node always emits augmented fields so we drop those
   ASSERT_OK_AND_ASSIGN(auto actualMinusAgumented, actual->SelectColumns({0, 1, 2}));
   auto expected = TableFromJSON(dummy_schema, {R"([

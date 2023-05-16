@@ -21,6 +21,7 @@ from pyarrow import Codec
 from pyarrow import fs
 
 groups = [
+    'acero',
     'brotli',
     'bz2',
     'cython',
@@ -40,11 +41,9 @@ groups = [
     'pandas',
     'parquet',
     'parquet_encryption',
-    'plasma',
     's3',
     'snappy',
     'substrait',
-    'tensorflow',
     'flight',
     'slow',
     'requires_testing_data',
@@ -52,6 +51,7 @@ groups = [
 ]
 
 defaults = {
+    'acero': False,
     'brotli': Codec.is_available('brotli'),
     'bz2': Codec.is_available('bz2'),
     'cython': False,
@@ -72,13 +72,11 @@ defaults = {
     'pandas': False,
     'parquet': False,
     'parquet_encryption': False,
-    'plasma': False,
     'requires_testing_data': True,
     's3': False,
     'slow': False,
     'snappy': Codec.is_available('snappy'),
     'substrait': False,
-    'tensorflow': False,
     'zstd': Codec.is_available('zstd'),
 }
 
@@ -97,6 +95,12 @@ except ImportError:
 try:
     import pyarrow.gandiva  # noqa
     defaults['gandiva'] = True
+except ImportError:
+    pass
+
+try:
+    import pyarrow.acero  # noqa
+    defaults['acero'] = True
 except ImportError:
     pass
 
@@ -127,19 +131,6 @@ except ImportError:
 try:
     import pyarrow.parquet.encryption  # noqa
     defaults['parquet_encryption'] = True
-except ImportError:
-    pass
-
-
-try:
-    import pyarrow.plasma  # noqa
-    defaults['plasma'] = True
-except ImportError:
-    pass
-
-try:
-    import tensorflow  # noqa
-    defaults['tensorflow'] = True
 except ImportError:
     pass
 
@@ -186,7 +177,6 @@ def pytest_ignore_collect(path, config):
             'dataset',
             'orc',
             'parquet',
-            'plasma',
             'flight',
             'substrait',
         ]

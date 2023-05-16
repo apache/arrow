@@ -20,14 +20,18 @@ package compute_test
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/compute"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/compute"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -290,6 +294,128 @@ func TestRunEndFunctions(t *testing.T) {
 						valueType:  tt.valueType,
 						jsonData:   tt.data,
 					})
+				})
+			}
+		})
+	}
+}
+
+func benchRunEndEncode(b *testing.B, sz int, nullProb float64, runEndType, valueType arrow.DataType) {
+	b.Run("encode", func(b *testing.B) {
+		var (
+			mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
+			rng = gen.NewRandomArrayGenerator(seed, mem)
+		)
+
+		values := rng.ArrayOf(valueType.ID(), int64(sz), nullProb)
+		b.Cleanup(func() {
+			values.Release()
+		})
+
+		var (
+			res   compute.Datum
+			err   error
+			ctx   = compute.WithAllocator(context.Background(), mem)
+			input = &compute.ArrayDatum{Value: values.Data()}
+			opts  = compute.RunEndEncodeOptions{RunEndType: runEndType}
+
+			byts int64
+		)
+
+		for _, buf := range values.Data().Buffers() {
+			if buf != nil {
+				byts += int64(buf.Len())
+			}
+		}
+
+		b.SetBytes(byts)
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			res, err = compute.RunEndEncode(ctx, opts, input)
+			b.StopTimer()
+			if err != nil {
+				b.Fatal(err)
+			}
+			res.Release()
+			b.StartTimer()
+		}
+	})
+}
+
+func benchRunEndDecode(b *testing.B, sz int, nullProb float64, runEndType, valueType arrow.DataType) {
+	b.Run("decode", func(b *testing.B) {
+		var (
+			mem = memory.NewCheckedAllocator(memory.DefaultAllocator)
+			rng = gen.NewRandomArrayGenerator(seed, mem)
+		)
+
+		values := rng.ArrayOf(valueType.ID(), int64(sz), nullProb)
+		b.Cleanup(func() {
+			values.Release()
+		})
+
+		var (
+			res        compute.Datum
+			ctx        = compute.WithAllocator(context.Background(), mem)
+			opts       = compute.RunEndEncodeOptions{RunEndType: runEndType}
+			input, err = compute.RunEndEncode(ctx, opts, &compute.ArrayDatum{Value: values.Data()})
+			byts       int64
+		)
+
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		for _, buf := range values.Data().Buffers() {
+			if buf != nil {
+				byts += int64(buf.Len())
+			}
+		}
+
+		b.SetBytes(byts)
+		b.ResetTimer()
+		for n := 0; n < b.N; n++ {
+			res, err = compute.RunEndDecode(ctx, input)
+			b.StopTimer()
+			if err != nil {
+				b.Fatal(err)
+			}
+			res.Release()
+			b.StartTimer()
+		}
+	})
+}
+
+func BenchmarkRunEndKernels(b *testing.B) {
+	args := []struct {
+		sz       int
+		nullProb float64
+	}{
+		{CpuCacheSizes[2], 0},
+		{CpuCacheSizes[2], 0.5},
+		{CpuCacheSizes[2], 1},
+	}
+
+	runEnds := []struct {
+		dt     arrow.DataType
+		maxLen int
+	}{
+		{arrow.PrimitiveTypes.Int16, math.MaxInt16},
+		{arrow.PrimitiveTypes.Int32, math.MaxInt32},
+		{arrow.PrimitiveTypes.Int64, math.MaxInt64},
+	}
+
+	for _, a := range args {
+		b.Run(fmt.Sprintf("nullprob=%.1f", a.nullProb), func(b *testing.B) {
+			for _, runEndType := range runEnds {
+				sz := exec.Min(a.sz, runEndType.maxLen)
+				b.Run("run_ends_type="+runEndType.dt.String(), func(b *testing.B) {
+					for _, valType := range append(numericTypes, arrow.BinaryTypes.String, arrow.FixedWidthTypes.Boolean) {
+						b.Run("value_type="+valType.String(), func(b *testing.B) {
+							benchRunEndEncode(b, sz, a.nullProb, runEndType.dt, valType)
+							benchRunEndDecode(b, sz, a.nullProb, runEndType.dt, valType)
+						})
+					}
 				})
 			}
 		})

@@ -31,7 +31,7 @@ doc: style
 	-git add --all man/*.Rd
 
 test:
-	export ARROW_R_DEV=$(ARROW_R_DEV) && R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile .
+	export NOT_CRAN=true && export ARROW_R_DEV=$(ARROW_R_DEV) && R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile .
 	export NOT_CRAN=true && export ARROW_R_DEV=$(ARROW_R_DEV) && export AWS_EC2_METADATA_DISABLED=TRUE && export ARROW_LARGE_MEMORY_TESTS=$(ARROW_LARGE_MEMORY_TESTS) && R -s -e 'library(testthat); setwd(file.path(.libPaths()[1], "arrow", "tests")); system.time(test_check("arrow", filter="${file}", reporter=ifelse(nchar("${r}"), "${r}", "summary")))'
 
 deps:
@@ -42,7 +42,7 @@ deps:
 # we must rename .env to dotenv and then replace references to it in cpp/CMakeLists.txt
 sync-cpp:
 	cp ../NOTICE.txt inst/NOTICE.txt
-	rsync --archive --delete --exclude 'apidoc' --exclude 'build' --exclude 'build-support/boost_*' --exclude 'examples' --exclude 'src/gandiva' --exclude 'src/jni' --exclude 'src/plasma' --exclude 'src/skyhook' --exclude 'submodules' --exclude '**/*_test.cc' ../cpp tools/
+	rsync --archive --delete --exclude 'apidoc' --exclude 'build' --exclude 'build-support/boost_*' --exclude 'examples' --exclude 'src/gandiva' --exclude 'src/jni' --exclude 'src/skyhook' --exclude 'submodules' --exclude '**/*_test.cc' ../cpp tools/
 	cp -p ../.env tools/dotenv
 	cp -p ../NOTICE.txt tools/
 	cp -p ../LICENSE.txt tools/

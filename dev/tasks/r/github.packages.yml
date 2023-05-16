@@ -57,18 +57,23 @@ jobs:
           path: arrow/r/arrow_*.tar.gz
 
   linux-cpp:
-    name: C++ Binary {{ '${{ matrix.config.os }}-${{ matrix.config.version }}' }}
+    name: C++ Binary Linux OpenSSL {{ '${{ matrix.openssl }}' }}
     runs-on: ubuntu-latest
     needs: source
     strategy:
       fail-fast: false
       matrix:
-        config:
-          - { os: ubuntu, version: "18.04" }
-          - { os: ubuntu, version: "22.04" }
-          - { os: centos, version: "7" }
-    env:
-      UBUNTU: {{ '${{ matrix.config.version }}' }}
+        include:
+          - openssl: "3.0"
+            os: ubuntu
+            ubuntu: "22.04"
+          - extra-cmake-flags: >-
+              -DCMAKE_INCLUDE_PATH=/usr/include/openssl11
+              -DCMAKE_LIBRARY_PATH=/usr/lib64/openssl11
+            openssl: "1.1"
+            os: centos
+          - openssl: "1.0"
+            os: centos
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
@@ -77,12 +82,14 @@ jobs:
       - name: Build libarrow
         shell: bash
         env:
-          UBUNTU: {{ '"${{ matrix.config.version }}"' }}
+          UBUNTU: {{ '"${{ matrix.ubuntu }}"' }}
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
-          archery docker run  {{ '${{ matrix.config.os}}' }}-cpp-static
+          archery docker run \
+            -e EXTRA_CMAKE_FLAGS="{{ '${{ matrix.extra-cmake-flags }}' }}" \
+            {{ '${{ matrix.os }}' }}-cpp-static
       - name: Bundle libarrow
         shell: bash
         env:
@@ -96,7 +103,7 @@ jobs:
       - name: Upload binary artifact
         uses: actions/upload-artifact@v3
         with:
-          name: r-lib__libarrow__bin__{{ '${{ matrix.config.os}}-${{ matrix.config.version}}' }}
+          name: r-lib__libarrow__bin__linux-openssl-{{ '${{ matrix.openssl }}' }}
           path: arrow/r/libarrow/dist/arrow-*.zip
 
   windows-cpp:
@@ -179,7 +186,8 @@ jobs:
         shell: Rscript {0}
         env:
           NOT_CRAN: "true" # actions/setup-r sets this implicitly
-          ARROW_R_DEV: TRUE
+          ARROW_R_DEV: "true"
+          FORCE_AUTOBREW: "true" # this is ignored on windows
           # sccache for macos
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
@@ -248,7 +256,7 @@ jobs:
           - {image: "rocker/r-ver"} # whatever is latest ubuntu LTS
           - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
           - {image: "rocker/r-ver:3.6.3", libarrow_binary: "TRUE"} # debian:buster (10)
-          - {image: "rstudio/r-base:4.1-bionic"} # ubuntu-18.04
+          - {image: "rstudio/r-base:4.1-focal"} # ubuntu-20.04
           - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
     steps:
       # Get the arrow checkout just for the docker config scripts

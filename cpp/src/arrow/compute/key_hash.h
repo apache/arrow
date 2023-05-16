@@ -53,6 +53,10 @@ class ARROW_EXPORT Hashing32 {
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
                           int64_t offset, int64_t length);
 
+  static void HashFixed(int64_t hardware_flags, bool combine_hashes, uint32_t num_keys,
+                        uint64_t length_key, const uint8_t* keys, uint32_t* hashes,
+                        uint32_t* temp_hashes_for_combine);
+
  private:
   static const uint32_t PRIME32_1 = 0x9E3779B1;
   static const uint32_t PRIME32_2 = 0x85EBCA77;
@@ -61,10 +65,6 @@ class ARROW_EXPORT Hashing32 {
   static const uint32_t PRIME32_5 = 0x165667B1;
   static const uint32_t kCombineConst = 0x9e3779b9UL;
   static const int64_t kStripeSize = 4 * sizeof(uint32_t);
-
-  static void HashFixed(int64_t hardware_flags, bool combine_hashes, uint32_t num_keys,
-                        uint64_t length_key, const uint8_t* keys, uint32_t* hashes,
-                        uint32_t* temp_hashes_for_combine);
 
   static void HashVarLen(int64_t hardware_flags, bool combine_hashes, uint32_t num_rows,
                          const uint32_t* offsets, const uint8_t* concatenated_keys,
@@ -166,6 +166,9 @@ class ARROW_EXPORT Hashing64 {
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
                           int64_t offset, int64_t length);
 
+  static void HashFixed(bool combine_hashes, uint32_t num_keys, uint64_t length_key,
+                        const uint8_t* keys, uint64_t* hashes);
+
  private:
   static const uint64_t PRIME64_1 = 0x9E3779B185EBCA87ULL;
   static const uint64_t PRIME64_2 = 0xC2B2AE3D27D4EB4FULL;
@@ -174,9 +177,6 @@ class ARROW_EXPORT Hashing64 {
   static const uint64_t PRIME64_5 = 0x27D4EB2F165667C5ULL;
   static const uint32_t kCombineConst = 0x9e3779b9UL;
   static const int64_t kStripeSize = 4 * sizeof(uint64_t);
-
-  static void HashFixed(bool combine_hashes, uint32_t num_keys, uint64_t length_key,
-                        const uint8_t* keys, uint64_t* hashes);
 
   static void HashVarLen(bool combine_hashes, uint32_t num_rows, const uint32_t* offsets,
                          const uint8_t* concatenated_keys, uint64_t* hashes);

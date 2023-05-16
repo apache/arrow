@@ -19,11 +19,47 @@
 #include <cstdint>
 
 #include "arrow/builder.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
 
 namespace arrow {
 namespace ree_util {
+
+namespace {
+
+template <typename RunEndCType>
+int64_t LogicalNullCount(const ArraySpan& span) {
+  const auto& values = ValuesArray(span);
+  const auto& values_bitmap = values.buffers[0].data;
+  int64_t null_count = 0;
+
+  RunEndEncodedArraySpan<RunEndCType> ree_span(span);
+  auto end = ree_span.end();
+  for (auto it = ree_span.begin(); it != end; ++it) {
+    const bool is_null =
+        values_bitmap &&
+        !bit_util::GetBit(values_bitmap, values.offset + it.index_into_array());
+    if (is_null) {
+      null_count += it.run_length();
+    }
+  }
+  return null_count;
+}
+
+}  // namespace
+
+int64_t LogicalNullCount(const ArraySpan& span) {
+  const auto type_id = RunEndsArray(span).type->id();
+  if (type_id == Type::INT16) {
+    return LogicalNullCount<int16_t>(span);
+  }
+  if (type_id == Type::INT32) {
+    return LogicalNullCount<int32_t>(span);
+  }
+  DCHECK_EQ(type_id, Type::INT64);
+  return LogicalNullCount<int64_t>(span);
+}
 
 int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_offset) {
   const auto type_id = RunEndsArray(span).type->id();

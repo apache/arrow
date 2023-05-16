@@ -282,11 +282,18 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
       if (column_chunk->is_stats_set()) {
         stream << "\"True\", \"Stats\": {";
         std::string min = stats->EncodeMin(), max = stats->EncodeMax();
-        stream << "\"NumNulls\": \"" << stats->null_count() << "\", "
-               << "\"DistinctValues\": \"" << stats->distinct_count() << "\", "
-               << "\"Max\": \"" << FormatStatValue(descr->physical_type(), max) << "\", "
-               << "\"Min\": \"" << FormatStatValue(descr->physical_type(), min)
-               << "\" },";
+        stream << "\"NumNulls\": \"" << stats->null_count();
+        if (stats->HasDistinctCount()) {
+          stream << "\", "
+                 << "\"DistinctValues\": \"" << stats->distinct_count();
+        }
+        if (stats->HasMinMax()) {
+          stream << "\", "
+                 << "\"Max\": \"" << FormatStatValue(descr->physical_type(), max)
+                 << "\", "
+                 << "\"Min\": \"" << FormatStatValue(descr->physical_type(), min);
+        }
+        stream << "\" },";
       } else {
         stream << "\"False\",";
       }

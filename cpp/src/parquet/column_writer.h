@@ -42,11 +42,13 @@ class RleEncoder;
 namespace parquet {
 
 struct ArrowWriteContext;
+class ColumnChunkMetaDataBuilder;
 class ColumnDescriptor;
+class ColumnIndexBuilder;
 class DataPage;
 class DictionaryPage;
-class ColumnChunkMetaDataBuilder;
 class Encryptor;
+class OffsetIndexBuilder;
 class WriterProperties;
 
 class PARQUET_EXPORT LevelEncoder {
@@ -91,7 +93,11 @@ class PARQUET_EXPORT PageWriter {
       bool buffered_row_group = false,
       std::shared_ptr<Encryptor> header_encryptor = NULLPTR,
       std::shared_ptr<Encryptor> data_encryptor = NULLPTR,
-      bool page_write_checksum_enabled = false);
+      bool page_write_checksum_enabled = false,
+      // column_index_builder MUST outlive the PageWriter
+      ColumnIndexBuilder* column_index_builder = NULLPTR,
+      // offset_index_builder MUST outlive the PageWriter
+      OffsetIndexBuilder* offset_index_builder = NULLPTR);
 
   // The Column Writer decides if dictionary encoding is used if set and
   // if the dictionary encoding has fallen back to default encoding on reaching dictionary

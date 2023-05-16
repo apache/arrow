@@ -91,7 +91,7 @@ test_that("CSV scan options", {
   sb$FragmentScanOptions(options)
 
   tab <- sb$Finish()$ToTable()
-  expect_equal(as.data.frame(tab), tibble(chr = c("foo", NA)))
+  expect_equal_data_frame(tab, data.frame(chr = c("foo", NA), stringsAsFactors = FALSE))
 
   # Set default convert options in CsvFileFormat
   csv_format <- CsvFileFormat$create(

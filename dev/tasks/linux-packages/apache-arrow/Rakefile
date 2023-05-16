@@ -87,16 +87,6 @@ class ApacheArrowPackageTask < PackageTask
     false
   end
 
-  def apt_prepare_debian_control_c_ares(control, target)
-    case target
-    when /\Aubuntu-bionic/
-      use_system_c_ares = "#"
-    else
-      use_system_c_ares = ""
-    end
-    control.gsub(/@USE_SYSTEM_C_ARES@/, use_system_c_ares)
-  end
-
   def apt_prepare_debian_control_cuda_architecture(control, target)
     if apt_arm64_cuda_available_target?(target)
       cuda_architecture = "any"
@@ -106,20 +96,9 @@ class ApacheArrowPackageTask < PackageTask
     control.gsub(/@CUDA_ARCHITECTURE@/, cuda_architecture)
   end
 
-  def apt_prepare_debian_control_flight(control, target)
-    # We disable Flight for arm64 because Travis CI doesn't have
-    # enough resource to build with Flight.
-    if target.end_with?("-arm64")
-      enable_flight = "#"
-    else
-      enable_flight = ""
-    end
-    control.gsub(/@ENABLE_FLIGHT@/, enable_flight)
-  end
-
   def apt_prepare_debian_control_grpc(control, target)
     case target
-    when /\Aubuntu-(?:bionic|focal)/
+    when /\Aubuntu-focal/
       use_system_grpc = "#"
     else
       use_system_grpc = ""
@@ -138,13 +117,8 @@ class ApacheArrowPackageTask < PackageTask
     #
     # We can use system Protobuf without Flight because we can use
     # Protobuf 3.0.0 or later without Flight.
-    #
-    # We disable Flight for arm64 because Travis CI doesn't have
-    # enough resource to build with Flight.
-    #
-    # So, we can use system Protobuf only for arm64 for now.
     case target
-    when /\Adebian-bookworm/, /-arm64\z/
+    when /\Adebian-bookworm/
       use_system_protobuf = ""
     else
       use_system_protobuf = "#"
@@ -152,57 +126,11 @@ class ApacheArrowPackageTask < PackageTask
     control.gsub(/@USE_SYSTEM_PROTOBUF@/, use_system_protobuf)
   end
 
-  def apt_prepare_debian_control_python(control, target)
-    case target
-    when /\Aubuntu-bionic/
-      enable_python = "#"
-    else
-      enable_python = ""
-    end
-    control.gsub(/@ENABLE_PYTHON@/, enable_python)
-  end
-
-  def apt_prepare_debian_control_thrift(control, target)
-    case target
-    when /\Aubuntu-bionic/
-      use_system_thrift = "#"
-    else
-      use_system_thrift = ""
-    end
-    control.gsub(/@USE_SYSTEM_THRIFT@/, use_system_thrift)
-  end
-
-  def apt_prepare_debian_control_utf8proc(control, target)
-    case target
-    when /\Aubuntu-bionic/
-      use_system_utf8proc = "#"
-    else
-      use_system_utf8proc = ""
-    end
-    control.gsub(/@USE_SYSTEM_UTF8PROC@/, use_system_utf8proc)
-  end
-
-  def apt_prepare_debian_control_zstd(control, target)
-    case target
-    when /\Aubuntu-bionic/
-      use_system_zstd = "#"
-    else
-      use_system_zstd = ""
-    end
-    control.gsub(/@USE_SYSTEM_ZSTD@/, use_system_zstd)
-  end
-
   def apt_prepare_debian_control(control_in, target)
     control = control_in.dup
-    control = apt_prepare_debian_control_c_ares(control, target)
     control = apt_prepare_debian_control_cuda_architecture(control, target)
-    control = apt_prepare_debian_control_flight(control, target)
     control = apt_prepare_debian_control_grpc(control, target)
     control = apt_prepare_debian_control_protobuf(control, target)
-    control = apt_prepare_debian_control_python(control, target)
-    control = apt_prepare_debian_control_thrift(control, target)
-    control = apt_prepare_debian_control_utf8proc(control, target)
-    control = apt_prepare_debian_control_zstd(control, target)
     control
   end
 end

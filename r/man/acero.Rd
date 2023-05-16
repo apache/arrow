@@ -68,7 +68,7 @@ can assume that the function works in Acero just as it does in R.
 Functions can be called either as \code{pkg::fun()} or just \code{fun()}, i.e. both
 \code{str_sub()} and \code{stringr::str_sub()} work.
 
-In addition to these functions, you can call any of Arrow's 246 compute
+In addition to these functions, you can call any of Arrow's 254 compute
 functions directly. Arrow has many functions that don't map to an existing R
 function. In other cases where there is an R function mapping, you can still
 call the Arrow function directly if you don't want the adaptations that the R
@@ -85,30 +85,31 @@ as \code{arrow_ascii_is_decimal}.
 
 \subsection{base}{
 \itemize{
-\item \code{\link[=-]{-}}
 \item \code{\link[=!]{!}}
 \item \code{\link[=!=]{!=}}
-\item \code{\link[=*]{*}}
-\item \code{\link[=/]{/}}
-\item \code{\link[=&]{&}}
-\item \code{\link[=\%/\%]{\%/\%}}
 \item \code{\link[=\%\%]{\%\%}}
+\item \code{\link[=\%/\%]{\%/\%}}
 \item \code{\link[=\%in\%]{\%in\%}}
-\item \code{\link[=^]{^}}
+\item \code{\link[=&]{&}}
+\item \code{\link[=*]{*}}
 \item \code{\link[=+]{+}}
+\item \code{\link[=-]{-}}
+\item \code{\link[=/]{/}}
 \item \code{\link[=<]{<}}
 \item \code{\link[=<=]{<=}}
 \item \code{\link[===]{==}}
 \item \code{\link[=>]{>}}
 \item \code{\link[=>=]{>=}}
-\item \code{\link[=|]{|}}
+\item \code{\link[base:ISOdatetime]{ISOdate()}}
+\item \code{\link[base:ISOdatetime]{ISOdatetime()}}
+\item \code{\link[=^]{^}}
 \item \code{\link[base:MathFun]{abs()}}
 \item \code{\link[base:Trig]{acos()}}
 \item \code{\link[base:all]{all()}}
 \item \code{\link[base:any]{any()}}
-\item \code{\link[base:character]{as.character()}}
 \item \code{\link[base:as.Date]{as.Date()}}: Multiple \code{tryFormats} not supported in Arrow.
 Consider using the lubridate specialised parsing functions \code{ymd()}, \code{ymd()}, etc.
+\item \code{\link[base:character]{as.character()}}
 \item \code{\link[base:difftime]{as.difftime()}}: only supports \code{units = "secs"} (the default)
 \item \code{\link[base:double]{as.double()}}
 \item \code{\link[base:integer]{as.integer()}}
@@ -139,8 +140,6 @@ Consider using the lubridate specialised parsing functions \code{ymd()}, \code{y
 \item \code{\link[base:NA]{is.na()}}
 \item \code{\link[base:is.finite]{is.nan()}}
 \item \code{\link[base:numeric]{is.numeric()}}
-\item \code{\link[base:ISOdatetime]{ISOdate()}}
-\item \code{\link[base:ISOdatetime]{ISOdatetime()}}
 \item \code{\link[base:Log]{log()}}
 \item \code{\link[base:Log]{log10()}}
 \item \code{\link[base:Log]{log1p()}}
@@ -172,6 +171,7 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[base:chartr]{tolower()}}
 \item \code{\link[base:chartr]{toupper()}}
 \item \code{\link[base:Round]{trunc()}}
+\item \code{\link[=|]{|}}
 }
 }
 
@@ -186,7 +186,7 @@ Valid values are "s", "ms" (default), "us", "ns".
 \itemize{
 \item \code{\link[dplyr:across]{across()}}
 \item \code{\link[dplyr:between]{between()}}
-\item \code{\link[dplyr:case_when]{case_when()}}
+\item \code{\link[dplyr:case_when]{case_when()}}: \code{.ptype} and \code{.size} arguments not supported
 \item \code{\link[dplyr:coalesce]{coalesce()}}
 \item \code{\link[dplyr:desc]{desc()}}
 \item \code{\link[dplyr:across]{if_all()}}
@@ -234,8 +234,8 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[lubridate:format_ISO8601]{format_ISO8601()}}
 \item \code{\link[lubridate:hour]{hour()}}
 \item \code{\link[lubridate:date_utils]{is.Date()}}
-\item \code{\link[lubridate:is.instant]{is.instant()}}
 \item \code{\link[lubridate:posix_utils]{is.POSIXct()}}
+\item \code{\link[lubridate:is.instant]{is.instant()}}
 \item \code{\link[lubridate:is.instant]{is.timepoint()}}
 \item \code{\link[lubridate:week]{isoweek()}}
 \item \code{\link[lubridate:year]{isoyear()}}

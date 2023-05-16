@@ -1,4 +1,4 @@
-cython>=0.29
+cython>=0.29.31
 oldest-supported-numpy>=0.14
 setuptools_scm
 setuptools>=38.6.0

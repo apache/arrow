@@ -24,6 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -118,10 +119,25 @@ public class TestBasicOperation {
                 new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"),
                 forGrpcInsecure("localhost", 50051))
         ), 200, 500);
+    final FlightInfo info4 = new FlightInfo(schema, FlightDescriptor.path("a", "b"),
+            Arrays.asList(new FlightEndpoint(
+                            new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock")),
+                    new FlightEndpoint(
+                            new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"),
+                            forGrpcInsecure("localhost", 50051))
+            ), 200, 500, /*ordered*/ true, IpcOption.DEFAULT);
 
     Assertions.assertEquals(info1, FlightInfo.deserialize(info1.serialize()));
     Assertions.assertEquals(info2, FlightInfo.deserialize(info2.serialize()));
     Assertions.assertEquals(info3, FlightInfo.deserialize(info3.serialize()));
+    Assertions.assertEquals(info4, FlightInfo.deserialize(info4.serialize()));
+
+    Assertions.assertNotEquals(info3, info4);
+
+    Assertions.assertFalse(info1.getOrdered());
+    Assertions.assertFalse(info2.getOrdered());
+    Assertions.assertFalse(info3.getOrdered());
+    Assertions.assertTrue(info4.getOrdered());
   }
 
   @Test
@@ -411,6 +427,24 @@ public class TestBasicOperation {
         parsedMessage.asSchema();
       }
     }
+  }
+
+  @Test
+  public void testGrpcInsecureLocation() throws Exception {
+    Location location = Location.forGrpcInsecure(LOCALHOST, 9000);
+    Assertions.assertEquals(
+        new URI(LocationSchemes.GRPC_INSECURE, null, LOCALHOST, 9000, null, null, null),
+        location.getUri());
+    Assertions.assertEquals(new InetSocketAddress(LOCALHOST, 9000), location.toSocketAddress());
+  }
+
+  @Test
+  public void testGrpcTlsLocation() throws Exception {
+    Location location = Location.forGrpcTls(LOCALHOST, 9000);
+    Assertions.assertEquals(
+            new URI(LocationSchemes.GRPC_TLS, null, LOCALHOST, 9000, null, null, null),
+            location.getUri());
+    Assertions.assertEquals(new InetSocketAddress(LOCALHOST, 9000), location.toSocketAddress());
   }
 
   /**

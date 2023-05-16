@@ -22,7 +22,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/flight"
+	"github.com/apache/arrow/go/v13/arrow/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"

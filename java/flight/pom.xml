@@ -15,7 +15,7 @@
     <parent>
         <artifactId>arrow-java-root</artifactId>
         <groupId>org.apache.arrow</groupId>
-        <version>12.0.0-SNAPSHOT</version>
+        <version>13.0.0-SNAPSHOT</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -28,6 +28,7 @@
         <module>flight-core</module>
         <module>flight-grpc</module>
         <module>flight-sql</module>
+        <module>flight-sql-jdbc-core</module>
         <module>flight-sql-jdbc-driver</module>
         <module>flight-integration-tests</module>
     </modules>

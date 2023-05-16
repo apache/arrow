@@ -122,7 +122,6 @@ endmacro()
 
 macro(resolve_option_dependencies)
   if(MSVC_TOOLCHAIN)
-    # Plasma using glog is not fully tested on windows.
     set(ARROW_USE_GLOG OFF)
   endif()
 
@@ -265,7 +264,8 @@ takes precedence over ccache if a storage backend is configured" ON)
                 "Build Arrow Fuzzing executables"
                 OFF
                 DEPENDS
-                ARROW_TESTING)
+                ARROW_TESTING
+                ARROW_WITH_BROTLI)
 
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 
@@ -310,7 +310,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 "Build the Arrow Dataset Modules"
                 OFF
                 DEPENDS
-                ARROW_COMPUTE
+                ARROW_ACERO
                 ARROW_FILESYSTEM)
 
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
@@ -372,14 +372,11 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_ZLIB
                 ARROW_WITH_ZSTD)
 
-  define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
-
   define_option(ARROW_PYTHON
                 "Build some components needed by PyArrow.;\
 (This is a deprecated option. Use CMake presets instead.)"
                 OFF
                 DEPENDS
-                ARROW_COMPUTE
                 ARROW_CSV
                 ARROW_DATASET
                 ARROW_FILESYSTEM
@@ -404,6 +401,13 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_DATASET
                 ARROW_IPC
                 ARROW_PARQUET)
+
+  define_option(ARROW_ACERO
+                "Build the Arrow Acero Engine Module"
+                OFF
+                DEPENDS
+                ARROW_COMPUTE
+                ARROW_IPC)
 
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
@@ -613,6 +617,13 @@ Always OFF if building binaries" OFF)
 advised that if this is enabled 'install' will fail silently on components;\
 that have not been built"
                 OFF)
+
+  define_option_string(ARROW_GDB_INSTALL_DIR
+                       "Use a custom install directory for GDB plugin.;\
+In general, you don't need to specify this because the default;\
+(CMAKE_INSTALL_FULL_BINDIR on Windows, CMAKE_INSTALL_FULL_LIBDIR otherwise);\
+is reasonable."
+                       "")
 
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)

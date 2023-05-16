@@ -22,8 +22,8 @@
 #include <mutex>
 #include <unordered_map>
 
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/options.h"
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/flight/sql/types.h"
 #include "arrow/type.h"
@@ -96,10 +96,9 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
 
     ARROW_LOG(INFO)
         << "DoGetStatement: executing plan "
-        << compute::DeclarationToString(plan.root.declaration).ValueOr("Invalid plan");
+        << acero::DeclarationToString(plan.root.declaration).ValueOr("Invalid plan");
 
-    ARROW_ASSIGN_OR_RAISE(auto reader,
-                          compute::DeclarationToReader(plan.root.declaration));
+    ARROW_ASSIGN_OR_RAISE(auto reader, acero::DeclarationToReader(plan.root.declaration));
     return std::make_unique<RecordBatchStream>(std::move(reader));
   }
 
@@ -160,7 +159,7 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
       const std::string& serialized_plan) {
     std::shared_ptr<Buffer> plan_buf = Buffer::FromString(serialized_plan);
     ARROW_ASSIGN_OR_RAISE(engine::PlanInfo plan, engine::DeserializePlan(*plan_buf));
-    return compute::DeclarationToSchema(plan.root.declaration);
+    return acero::DeclarationToSchema(plan.root.declaration);
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> MakeFlightInfo(
@@ -168,9 +167,10 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
     ARROW_ASSIGN_OR_RAISE(auto ticket, CreateStatementQueryTicket(plan));
     std::vector<FlightEndpoint> endpoints{
         FlightEndpoint{Ticket{std::move(ticket)}, /*locations=*/{}}};
-    ARROW_ASSIGN_OR_RAISE(auto info,
-                          FlightInfo::Make(schema, descriptor, std::move(endpoints),
-                                           /*total_records=*/-1, /*total_bytes=*/-1));
+    ARROW_ASSIGN_OR_RAISE(
+        auto info,
+        FlightInfo::Make(schema, descriptor, std::move(endpoints),
+                         /*total_records=*/-1, /*total_bytes=*/-1, /*ordered=*/false));
     return std::make_unique<FlightInfo>(std::move(info));
   }
 
