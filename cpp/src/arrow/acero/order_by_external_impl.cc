@@ -43,7 +43,8 @@ class SortBasicExternalImpl : public OrderByExternalImpl {
   SortBasicExternalImpl(ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
                         const SortOptions& options = SortOptions{},int64_t buffer_size, std::string external_storage_path)
       : ctx_(ctx), output_schema_(output_schema), options_(options), 
-      buffer_size_(buffer_size), external_storage_path_(external_storage_path), batches_size_(0) {}
+      buffer_size_(buffer_size), external_storage_path_(external_storage_path), 
+      batches_size_(0), files_count_(0) {}
 
   Status InputReceived(const std::shared_ptr<RecordBatch>& batch) override {
     std::unique_lock<std::mutex> lock(mutex_);
@@ -58,11 +59,12 @@ class SortBasicExternalImpl : public OrderByExternalImpl {
     batches_size_ += batch_size;
 
     if (batches_size_ >= buffer_size_) {
-      batches_size_ = 0;
       ARROW_ASSIGN_OR_RAISE(auto table,
-                          Table::FromRecordBatches(output_schema_, std::move(batches_)));           
+                          Table::FromRecordBatches(output_schema_, std::move(batches_))); //todo check batches_            
       ARROW_ASSIGN_OR_RAISE(auto indices, SortIndices(table, options_, ctx_));
-      Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_);
+      ARROW_ASSIGN_OR_RAISE(auto sorted_table, Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_)); 
+      files_count_++;
+      batches_size_ = 0;
     }
 
     return Status::OK();
@@ -71,8 +73,7 @@ class SortBasicExternalImpl : public OrderByExternalImpl {
   Result<Datum> DoFinish() override {
     std::unique_lock<std::mutex> lock(mutex_);
     ARROW_ASSIGN_OR_RAISE(auto table,
-                          Table::FromRecordBatches(output_schema_, std::move(batches_)));
-                          
+                          Table::FromRecordBatches(output_schema_, std::move(batches_)));                
     ARROW_ASSIGN_OR_RAISE(auto indices, SortIndices(table, options_, ctx_));
     return Take(table, indices, TakeOptions::NoBoundsCheck(), ctx_);
   }
@@ -86,6 +87,7 @@ class SortBasicExternalImpl : public OrderByExternalImpl {
   std::mutex mutex_;
   std::vector<std::shared_ptr<RecordBatch>> batches_;
   int64_t batches_size_;
+  int64_t files_count_;
 
  private:
   const SortOptions options_;
