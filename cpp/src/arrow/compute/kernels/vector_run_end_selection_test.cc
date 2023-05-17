@@ -183,41 +183,6 @@ void DoAssertOutput(const std::shared_ptr<Array>& values,
   DoAssertFilterSlicedOutput(values, filter, null_options, expected);
 }
 
-template <typename RunEndTypes>
-struct REExREEFilterTest : public ::testing::Test {
-  using ValueRunEndType = typename RunEndTypes::ValueRunEndType;
-  using FilterRunEndType = typename RunEndTypes::FilterRunEndType;
-
-  std::shared_ptr<DataType> _value_run_end_type;
-  std::shared_ptr<DataType> _filter_run_end_type;
-
-  std::shared_ptr<DataType> _values_type;
-  std::shared_ptr<DataType> _filter_type;
-
-  REExREEFilterTest() {
-    _value_run_end_type = TypeTraits<ValueRunEndType>::type_singleton();
-    _filter_run_end_type = TypeTraits<FilterRunEndType>::type_singleton();
-    _filter_type = run_end_encoded(_filter_run_end_type, boolean());
-  }
-
-  void AssertOutput(const std::shared_ptr<DataType>& value_type,
-                    const std::string& values_json, const std::string& filter_json,
-                    const REERep& expected_with_drop_nulls,
-                    const REERep& expected_with_emit_nulls = REERep::None()) {
-    ASSERT_OK_AND_ASSIGN(
-        auto values,
-        REEFromJson(run_end_encoded(_value_run_end_type, value_type), values_json));
-    ASSERT_OK_AND_ASSIGN(auto filter, REEFromJson(_filter_type, filter_json));
-    DoAssertOutput(values, filter, kDropNulls, expected_with_drop_nulls);
-    if (expected_with_emit_nulls == REERep::None()) {
-      DoAssertOutput(values, filter, kEmitNulls, expected_with_drop_nulls);
-    } else {
-      DoAssertOutput(values, filter, kEmitNulls, expected_with_emit_nulls);
-    }
-  }
-};
-TYPED_TEST_SUITE_P(REExREEFilterTest);
-
 const std::vector<std::shared_ptr<DataType>> all_types = {
     null(),
     boolean(),
@@ -249,61 +214,106 @@ const std::vector<std::shared_ptr<DataType>> all_types = {
     large_binary(),
 };
 
-TYPED_TEST_P(REExREEFilterTest, AllNullsOutputForEveryTypeInput) {
-  const std::string one_null = "[null]";
-  const std::string four_nulls = "[null, null, null, null]";
-  for (auto& data_type : all_types) {
-    // Since all values are null, the physical output size is always 0 or 1 as
-    // the filtering process combines all the equal values into a single run.
+struct GenericTestInvocations {
+  template <class TypedTest>
+  static void AllNullsOutputForEveryTypeInput(TypedTest& self) {
+    const std::string one_null = "[null]";
+    const std::string four_nulls = "[null, null, null, null]";
+    for (auto& data_type : all_types) {
+      // Since all values are null, the physical output size is always 0 or 1 as
+      // the filtering process combines all the equal values into a single run.
 
-    this->AssertOutput(data_type, "[]", "[]", {0});
-    this->AssertOutput(data_type, one_null, "[1]", {1});
-    this->AssertOutput(data_type, one_null, "[0]", {0});
-    this->AssertOutput(data_type, one_null, "[null]", {0}, {1});
+      self.AssertOutput(data_type, "[]", "[]", {0});
+      self.AssertOutput(data_type, one_null, "[1]", {1});
+      self.AssertOutput(data_type, one_null, "[0]", {0});
+      self.AssertOutput(data_type, one_null, "[null]", {0}, {1});
 
-    this->AssertOutput(data_type, four_nulls, "[0, 1, 1, 0]", {2});
-    this->AssertOutput(data_type, four_nulls, "[1, 1, 0, 1]", {3});
+      self.AssertOutput(data_type, four_nulls, "[0, 1, 1, 0]", {2});
+      self.AssertOutput(data_type, four_nulls, "[1, 1, 0, 1]", {3});
 
-    this->AssertOutput(data_type, four_nulls, "[null, 0, 1, 0]", {1}, {2});
-    this->AssertOutput(data_type, four_nulls, "[1, 1, 0, null]", {2}, {3});
+      self.AssertOutput(data_type, four_nulls, "[null, 0, 1, 0]", {1}, {2});
+      self.AssertOutput(data_type, four_nulls, "[1, 1, 0, null]", {2}, {3});
 
-    this->AssertOutput(data_type, four_nulls, "[0, 0, 1, null]", {1}, {2});
-    this->AssertOutput(data_type, four_nulls, "[null, 1, 0, 1]", {2}, {3});
-    this->AssertOutput(data_type, four_nulls, "[null, 1, null, 1]", {2}, {4});
+      self.AssertOutput(data_type, four_nulls, "[0, 0, 1, null]", {1}, {2});
+      self.AssertOutput(data_type, four_nulls, "[null, 1, 0, 1]", {2}, {3});
+      self.AssertOutput(data_type, four_nulls, "[null, 1, null, 1]", {2}, {4});
 
-    this->AssertOutput(data_type,  // line break for alignment
-                       "[null, null, null, null, null, null, null, null, null, null]",
-                       "[null,    1,    0,    1, null,    0, null,    1,    0, null]",
-                       {3}, {7});
+      self.AssertOutput(data_type,  // line break for alignment
+                        "[null, null, null, null, null, null, null, null, null, null]",
+                        "[null,    1,    0,    1, null,    0, null,    1,    0, null]",
+                        {3}, {7});
+    }
   }
+
+  template <class TypedTest>
+  static void FilterPrimitiveTypeArrays(TypedTest& self) {
+    for (auto& data_type : {int8(), uint64(), boolean()}) {
+      self.AssertOutput(data_type, "[0]", "[1]", {1, "[1]", "[0]"});
+      self.AssertOutput(data_type, "[0]", "[0]", {});
+
+      self.AssertOutput(data_type, "[127]", "[1]", {1, "[1]", "[127]"});
+      self.AssertOutput(data_type, "[127]", "[0]", {});
+      self.AssertOutput(data_type, "[0]", "[null]", {}, {1, "[1]", "[null]"});
+      self.AssertOutput(data_type, "[127]", "[null]", {}, {1, "[1]", "[null]"});
+
+      self.AssertOutput(data_type, "[127, 0, 20, 0]", "[0, 1, 1, 0]",
+                        {2, "[1, 2]", "[0, 20]"});
+      self.AssertOutput(data_type, "[0, 127, 0, 127]", "[1, 1, 0, 1]",
+                        {3, "[1, 4]", "[0, 127]"});
+
+      self.AssertOutput(data_type, "[127, 127, 127, 0]", "[null, 0, 1, 0]",
+                        {1, "[1]", "[127]"}, {2, "[1, 2]", "[null, 127]"});
+      self.AssertOutput(data_type, "[0, 127, 127, 127]", "[1, 1, 0, null]",
+                        {2, "[1, 2]", "[0, 127]"}, {3, "[1, 2, 3]", "[0, 127, null]"});
+
+      self.AssertOutput(data_type,  // line break for alignment
+                        "[  10, 0,    0, 10, 10,   10, null, 10, 0, 10, 0]",
+                        "[null, 0, null,  1,  0, null,    1,  1, 1,  0, 1]",
+                        {5, "[1, 2, 3, 5]", "[10, null, 10, 0]"},
+                        {8, "[2, 3, 5, 6, 8]", "[null, 10, null, 10, 0]"});
+    }
+  }
+};
+
+template <typename RunEndTypes>
+struct REExREEFilterTest : public ::testing::Test {
+  using ValueRunEndType = typename RunEndTypes::ValueRunEndType;
+  using FilterRunEndType = typename RunEndTypes::FilterRunEndType;
+
+  std::shared_ptr<DataType> _value_run_end_type;
+  std::shared_ptr<DataType> _filter_run_end_type;
+
+  std::shared_ptr<DataType> _values_type;
+  std::shared_ptr<DataType> _filter_type;
+
+  REExREEFilterTest() {
+    _value_run_end_type = TypeTraits<ValueRunEndType>::type_singleton();
+    _filter_run_end_type = TypeTraits<FilterRunEndType>::type_singleton();
+    _filter_type = run_end_encoded(_filter_run_end_type, boolean());
+  }
+
+  void AssertOutput(const std::shared_ptr<DataType>& value_type,
+                    const std::string& values_json, const std::string& filter_json,
+                    const REERep& expected_with_drop_nulls,
+                    const REERep& expected_with_emit_nulls = REERep::None()) {
+    ASSERT_OK_AND_ASSIGN(
+        auto values,
+        REEFromJson(run_end_encoded(_value_run_end_type, value_type), values_json));
+    ASSERT_OK_AND_ASSIGN(auto filter, REEFromJson(_filter_type, filter_json));
+    DoAssertOutput(values, filter, kDropNulls, expected_with_drop_nulls);
+    DoAssertOutput(values, filter, kEmitNulls,
+                   expected_with_emit_nulls == REERep::None() ? expected_with_drop_nulls
+                                                              : expected_with_emit_nulls);
+  }
+};
+TYPED_TEST_SUITE_P(REExREEFilterTest);
+
+TYPED_TEST_P(REExREEFilterTest, AllNullsOutputForEveryTypeInput) {
+  GenericTestInvocations::AllNullsOutputForEveryTypeInput(*this);
 }
 
 TYPED_TEST_P(REExREEFilterTest, FilterPrimitiveTypeArrays) {
-  for (auto& data_type : {int8(), uint64(), boolean()}) {
-    this->AssertOutput(data_type, "[0]", "[1]", {1, "[1]", "[0]"});
-    this->AssertOutput(data_type, "[0]", "[0]", {});
-
-    this->AssertOutput(data_type, "[127]", "[1]", {1, "[1]", "[127]"});
-    this->AssertOutput(data_type, "[127]", "[0]", {});
-    this->AssertOutput(data_type, "[0]", "[null]", {}, {1, "[1]", "[null]"});
-    this->AssertOutput(data_type, "[127]", "[null]", {}, {1, "[1]", "[null]"});
-
-    this->AssertOutput(data_type, "[127, 0, 20, 0]", "[0, 1, 1, 0]",
-                       {2, "[1, 2]", "[0, 20]"});
-    this->AssertOutput(data_type, "[0, 127, 0, 127]", "[1, 1, 0, 1]",
-                       {3, "[1, 4]", "[0, 127]"});
-
-    this->AssertOutput(data_type, "[127, 127, 127, 0]", "[null, 0, 1, 0]",
-                       {1, "[1]", "[127]"}, {2, "[1, 2]", "[null, 127]"});
-    this->AssertOutput(data_type, "[0, 127, 127, 127]", "[1, 1, 0, null]",
-                       {2, "[1, 2]", "[0, 127]"}, {3, "[1, 2, 3]", "[0, 127, null]"});
-
-    this->AssertOutput(data_type,  // line break for alignment
-                       "[  10, 0,    0, 10, 10,   10, null, 10, 0, 10, 0]",
-                       "[null, 0, null,  1,  0, null,    1,  1, 1,  0, 1]",
-                       {5, "[1, 2, 3, 5]", "[10, null, 10, 0]"},
-                       {8, "[2, 3, 5, 6, 8]", "[null, 10, null, 10, 0]"});
-  }
+  GenericTestInvocations::FilterPrimitiveTypeArrays(*this);
 }
 
 REGISTER_TYPED_TEST_SUITE_P(REExREEFilterTest, AllNullsOutputForEveryTypeInput,
