@@ -52,9 +52,8 @@ class Executor;
 
 namespace acero {
 
-#ifndef NDEBUG
+/// \brief This must not be used in release-mode
 struct DebugOptions;
-#endif
 
 using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
 
@@ -68,9 +67,8 @@ class ARROW_ACERO_EXPORT ExecNodeOptions {
  public:
   virtual ~ExecNodeOptions() = default;
 
-#ifndef NDEBUG
+  /// \brief This must not be used in release-mode
   std::shared_ptr<DebugOptions> debug_opts;
-#endif
 };
 
 /// \brief A node representing a generic source of data for Acero

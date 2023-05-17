@@ -211,10 +211,10 @@ class AsofJoinNode;
 
 #ifndef NDEBUG
 // Get the debug-stream associated with the as-of-join node
-std::ostream* GetDebugStream(AsofJoinNode& node);
+std::ostream* GetDebugStream(AsofJoinNode* node);
 
 // Get the debug-mutex associated with the as-of-join node
-std::mutex* GetDebugMutex(AsofJoinNode& node);
+std::mutex* GetDebugMutex(AsofJoinNode* node);
 
 // A debug-facility that wraps output-stream insertions with synchronization. Code like
 //
@@ -233,7 +233,7 @@ std::mutex* GetDebugMutex(AsofJoinNode& node);
 //   DEBUG_SYNC(as_of_join_node, ... , DEBUG_MANIP(std::endl) , ...);
 class DebugSync {
  public:
-  explicit DebugSync(AsofJoinNode& node)
+  explicit DebugSync(AsofJoinNode* node)
       : debug_os_(GetDebugStream(node)),
         debug_mutex_(GetDebugMutex(node)),
         alt_debug_mutex_(),  // an alternative debug-mutex, if the node has none
@@ -329,9 +329,9 @@ struct MemoStore {
     row_index_t row;
   };
 
-  NDEBUG_EXPLICIT MemoStore(DEBUG_ADD(bool no_future, AsofJoinNode& node, size_t index))
+  NDEBUG_EXPLICIT MemoStore(DEBUG_ADD(bool no_future, AsofJoinNode* node, size_t index))
       : no_future_(no_future),
-        DEBUG_ADD(current_time_(std::numeric_limits<OnType>::lowest()), node_(&node),
+        DEBUG_ADD(current_time_(std::numeric_limits<OnType>::lowest()), node_(node),
                   index_(index)) {}
 
   // true when there are no future entries, which is the case for the LHS table and the
@@ -381,7 +381,7 @@ struct MemoStore {
 
   void Store(OnType for_time, const std::shared_ptr<RecordBatch>& batch, row_index_t row,
              OnType time, ByType key) {
-    DEBUG_SYNC(*node_, "memo ", index_, " store: for_time=", for_time, " row=", row,
+    DEBUG_SYNC(node_, "memo ", index_, " store: for_time=", for_time, " row=", row,
                " time=", time, " key=", key, DEBUG_MANIP(std::endl));
     if (no_future_ || entries_.count(key) == 0) {
       auto& e = entries_[key];
@@ -408,7 +408,7 @@ struct MemoStore {
   }
 
   bool RemoveEntriesWithLesserTime(OnType ts) {
-    DEBUG_SYNC(*node_, "memo ", index_, " remove: ts=", ts, DEBUG_MANIP(std::endl));
+    DEBUG_SYNC(node_, "memo ", index_, " remove: ts=", ts, DEBUG_MANIP(std::endl));
     bool updated = false;
     // remove future entries with lesser time
     for (auto fe = future_entries_.begin(); fe != future_entries_.end();) {
@@ -508,7 +508,7 @@ class KeyHasher {
       // write directly to the cache
       Hashing64::HashMultiColumn(column_arrays_, &ctx_, hashes_.data() + i);
     }
-    DEBUG_SYNC(*node_, "key hasher ", index_, " got hashes ",
+    DEBUG_SYNC(node_, "key hasher ", index_, " got hashes ",
                compute::internal::GenericToString(hashes_), DEBUG_MANIP(std::endl));
     batch_ = batch;  // associate cache with current batch
     return hashes_;
@@ -634,7 +634,7 @@ class InputState {
 
  public:
   InputState(size_t index, TolType tolerance, bool must_hash, bool may_rehash,
-             KeyHasher* key_hasher, AsofJoinNode& node, BackpressureHandler handler,
+             KeyHasher* key_hasher, AsofJoinNode* node, BackpressureHandler handler,
              const std::shared_ptr<arrow::Schema>& schema,
              const col_index_t time_col_index,
              const std::vector<col_index_t>& key_col_index)
@@ -658,13 +658,13 @@ class InputState {
 
   static Result<std::unique_ptr<InputState>> Make(
       size_t index, TolType tolerance, bool must_hash, bool may_rehash,
-      KeyHasher* key_hasher, AsofJoinNode& node, ExecNode* output,
+      KeyHasher* key_hasher, AsofJoinNode* node, ExecNode* output,
       std::atomic<int32_t>& backpressure_counter,
       const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
       const std::vector<col_index_t>& key_col_index) {
     constexpr size_t low_threshold = 4, high_threshold = 8;
     std::unique_ptr<BackpressureControl> backpressure_control =
-        std::make_unique<BackpressureController>(&node, output, backpressure_counter);
+        std::make_unique<BackpressureController>(node, output, backpressure_counter);
     ARROW_ASSIGN_OR_RAISE(auto handler,
                           BackpressureHandler::Make(low_threshold, high_threshold,
                                                     std::move(backpressure_control)));
@@ -942,7 +942,7 @@ class InputState {
   // Hasher for key elements
   mutable KeyHasher* key_hasher_;
   // Owning node
-  AsofJoinNode& node_;
+  AsofJoinNode* node_;
   // Index of this input
   size_t index_;
   // True if hashing is mandatory
@@ -984,7 +984,7 @@ struct CompositeReferenceRow {
 template <size_t MAX_TABLES>
 class CompositeReferenceTable {
  public:
-  NDEBUG_EXPLICIT CompositeReferenceTable(DEBUG_ADD(size_t n_tables, AsofJoinNode& node))
+  NDEBUG_EXPLICIT CompositeReferenceTable(DEBUG_ADD(size_t n_tables, AsofJoinNode* node))
       : DEBUG_ADD(n_tables_(n_tables), node_(node)) {
     DCHECK_GE(n_tables_, 1);
     DCHECK_LE(n_tables_, MAX_TABLES);
@@ -1142,7 +1142,7 @@ class CompositeReferenceTable {
 
 #ifndef NDEBUG
   // Owning node
-  AsofJoinNode& node_;
+  AsofJoinNode* node_;
 #endif
 
   // Adds a RecordBatch ref to the mapping, if needed
@@ -1253,7 +1253,7 @@ class AsofJoinNode : public ExecNode {
     auto& lhs = *state_.at(0);
 
     // Construct new target table if needed
-    CompositeReferenceTable<MAX_JOIN_TABLES> dst(DEBUG_ADD(state_.size(), *this));
+    CompositeReferenceTable<MAX_JOIN_TABLES> dst(DEBUG_ADD(state_.size(), this));
 
     // Generate rows into the dst table until we either run out of data or hit the row
     // limit, or run out of input
@@ -1341,7 +1341,7 @@ class AsofJoinNode : public ExecNode {
         if (!out_rb) break;
         ExecBatch out_b(*out_rb);
         out_b.index = batches_produced_++;
-        DEBUG_SYNC(*this, "produce batch ", out_b.index, ":", DEBUG_MANIP(std::endl),
+        DEBUG_SYNC(this, "produce batch ", out_b.index, ":", DEBUG_MANIP(std::endl),
                    out_rb->ToString(), DEBUG_MANIP(std::endl));
         Status st = output_->InputReceived(this, std::move(out_b));
         if (!st.ok()) {
@@ -1397,7 +1397,7 @@ class AsofJoinNode : public ExecNode {
       ARROW_ASSIGN_OR_RAISE(
           auto input_state,
           InputState::Make(i, tolerance_, must_hash_, may_rehash_, key_hashers_[i].get(),
-                           *this, inputs[i], backpressure_counter_,
+                           this, inputs[i], backpressure_counter_,
                            inputs[i]->output_schema(), indices_of_on_key_[i],
                            indices_of_by_key_[i]));
       state_.push_back(std::move(input_state));
@@ -1677,7 +1677,7 @@ class AsofJoinNode : public ExecNode {
 
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
-    DEBUG_SYNC(*this, "received batch from input ", k, ":", DEBUG_MANIP(std::endl),
+    DEBUG_SYNC(this, "received batch from input ", k, ":", DEBUG_MANIP(std::endl),
                rb->ToString(), DEBUG_MANIP(std::endl));
     ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
     process_.Push(true);
@@ -1807,9 +1807,9 @@ Result<std::shared_ptr<Schema>> MakeOutputSchema(
 }  // namespace asofjoin
 
 #ifndef NDEBUG
-std::ostream* GetDebugStream(AsofJoinNode& node) { return node.GetDebugStream(); }
+std::ostream* GetDebugStream(AsofJoinNode* node) { return node->GetDebugStream(); }
 
-std::mutex* GetDebugMutex(AsofJoinNode& node) { return node.GetDebugMutex(); }
+std::mutex* GetDebugMutex(AsofJoinNode* node) { return node->GetDebugMutex(); }
 #endif
 
 }  // namespace acero

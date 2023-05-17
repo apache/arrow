@@ -20,17 +20,19 @@
 #ifndef NDEBUG
 #include <mutex>
 #include <ostream>
+#endif
 
 namespace arrow {
 namespace acero {
 
 struct DebugOptions {
+#ifndef NDEBUG
   DebugOptions(std::ostream* os, std::mutex* mutex) : os(os), mutex(mutex) {}
 
   std::ostream* os;
   std::mutex* mutex;
-};
 #endif
+};
 
 }  // namespace acero
 }  // namespace arrow
