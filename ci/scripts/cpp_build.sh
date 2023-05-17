@@ -42,7 +42,7 @@ fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     echo -e "===\n=== ccache statistics before build\n==="
-    ccache -s
+    ccache -sv 2>/dev/null || ccache -s
 fi
 
 if [ "${ARROW_USE_TSAN}" == "ON" ] && [ ! -x "${ASAN_SYMBOLIZER_PATH}" ]; then
@@ -175,7 +175,7 @@ fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     echo -e "===\n=== ccache statistics after build\n==="
-    ccache -s
+    ccache -sv 2>/dev/null || ccache -s
 fi
 
 if command -v sccache &> /dev/null; then
