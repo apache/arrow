@@ -765,7 +765,7 @@ class TestFieldRef : public FieldPathTestFixture {
     if constexpr (Flattened) {
       return ref.GetAllFlattened(root, pool);
     } else {
-      return ref.GetAll(root);
+      return ToResult(ref.GetAll(root));
     }
   }
 
@@ -795,7 +795,8 @@ class TestFieldRef : public FieldPathTestFixture {
     }
 
     // Cases where multiple matches are found
-    auto multiple_matches = DoGetAll<Flattened>(*input, FieldRef("b", "b", "a"));
+    EXPECT_OK_AND_ASSIGN(auto multiple_matches,
+                         DoGetAll<Flattened>(*input, FieldRef("b", "b", "a")));
     EXPECT_EQ(multiple_matches.size(), 2);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Multiple matches for "),
@@ -805,7 +806,8 @@ class TestFieldRef : public FieldPathTestFixture {
         (DoGetOneOrNone<Flattened>(*input, FieldRef("b", "b", "a"))));
 
     // Cases where no match is found
-    auto no_matches = DoGetAll<Flattened>(*input, FieldRef("b", "b", "b"));
+    EXPECT_OK_AND_ASSIGN(auto no_matches,
+                         DoGetAll<Flattened>(*input, FieldRef("b", "b", "b")));
     EXPECT_EQ(no_matches.size(), 0);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("No match for "),

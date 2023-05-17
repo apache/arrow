@@ -1903,11 +1903,12 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     return out;
   }
   template <typename T>
-  std::vector<GetType<T>> GetAllFlattened(const T& root,
-                                          MemoryPool* pool = NULLPTR) const {
+  Result<std::vector<GetType<T>>> GetAllFlattened(const T& root,
+                                                  MemoryPool* pool = NULLPTR) const {
     std::vector<GetType<T>> out;
     for (const auto& match : FindAll(root)) {
-      out.push_back(match.GetFlattened(root, pool).ValueOrDie());
+      ARROW_ASSIGN_OR_RAISE(auto child, match.GetFlattened(root, pool));
+      out.push_back(std::move(child));
     }
     return out;
   }
@@ -1922,7 +1923,7 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   template <typename T>
   Result<GetType<T>> GetOneFlattened(const T& root, MemoryPool* pool = NULLPTR) const {
     ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
-    return match.GetFlattened(root, pool).ValueOrDie();
+    return match.GetFlattened(root, pool);
   }
 
   /// \brief Get the single child matching this FieldRef.
@@ -1942,7 +1943,7 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     if (match.empty()) {
       return static_cast<GetType<T>>(NULLPTR);
     }
-    return match.GetFlattened(root, pool).ValueOrDie();
+    return match.GetFlattened(root, pool);
   }
 
  private:
