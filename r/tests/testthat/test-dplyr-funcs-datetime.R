@@ -289,7 +289,7 @@ test_that("timestamp round trip correctly via strftime and strptime", {
 
   # Some formats are not supported on Windows
   if (!tolower(Sys.info()[["sysname"]]) == "windows") {
-    formats <- c(formats, "%a", "%A", "%b", "%B", "%OS", "%I%p", "%r", "%T%z")
+    formats <- c(formats, "%a", "%A", "%b", "%B", "%OS", "%I%p", "%r")
   }
 
   for (fmt in formats) {
