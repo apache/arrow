@@ -396,7 +396,7 @@ S3FileSystem$create <- function(
   if (length(log_level) == 1) {
     if (IsS3Initialized()) {
       warning(
-        "S3 is already initialized. Argument 'log_level' ignored.", 
+        "S3 is already initialized. Argument 'log_level' ignored.",
         call. = FALSE
       )
     } else {
