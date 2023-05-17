@@ -47,6 +47,32 @@ namespace red_arrow {
         });
       }
 
+      void each_raw_record(const arrow::RecordBatch& record_batch) {
+        rb::protect([&] {
+          const auto n_rows = record_batch.num_rows();
+          for (int64_t i = 0; i < n_rows; ++i) {
+            auto record = rb_ary_new_capa(n_columns_);
+            for (int j = 0; j < n_columns_; ++j) {
+              column_index_ = j;
+              const auto array = record_batch.column(j).get();\
+
+              // VISIT された時の挙動を変えてあげる必要がありそう？
+              // 既存の covert では全てのレコードを一度に返す実装になっていそう？
+              // 下記の行ごとに返すロジックは、arrow::Table 側の実装にも流用できそうなため
+              check_status(array->Accept(this),
+                           "[record-batch][each-raw-records]");
+              auto value = Qnil;
+              if (!array->IsNull(i)) {
+                value = convert_value(*array, i);
+              }
+              rb_ary_store(record, column_index_, value);
+            }
+            rb_yield(record);
+          }
+          return Qnil;
+        });
+      }
+
       void build(const arrow::Table& table) {
         rb::protect([&] {
           const auto n_rows = table.num_rows();
@@ -162,6 +188,24 @@ namespace red_arrow {
     }
 
     return records;
+  }
+
+  VALUE
+  record_batch_each_raw_record(VALUE rb_record_batch) {
+    // records はイテレートして返すので必要ないかと考えたが、Ruby の実装だと to_enum を呼ばれた場合
+    // Enumerator インスタンスを返すので考慮する必要がある？
+    auto garrow_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(rb_record_batch));
+    auto record_batch = garrow_record_batch_get_raw(garrow_record_batch).get();
+    const auto n_columns = record_batch->num_columns();
+
+    try {
+      RawRecordsBuilder builder(Qnil, n_columns);
+      builder.each_raw_record(*record_batch);
+    } catch (rb::State& state) {
+      state.jump();
+    }
+
+    return Qnil;
   }
 
   VALUE

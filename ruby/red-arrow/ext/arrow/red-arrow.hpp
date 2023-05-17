@@ -58,6 +58,7 @@ namespace red_arrow {
   VALUE chunked_array_values(VALUE obj);
 
   VALUE record_batch_raw_records(VALUE obj);
+  VALUE record_batch_each_raw_record(VALUE obj);
   VALUE table_raw_records(VALUE obj);
 
   inline VALUE time_unit_to_scale(const arrow::TimeUnit::type unit) {
