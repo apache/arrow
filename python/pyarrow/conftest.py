@@ -328,7 +328,7 @@ def varargs_agg_func_fixture():
                                    func_name,
                                    func_doc,
                                    {
-                                       "x": pa.float64(),
+                                       "x": pa.int64(),
                                        "y": pa.float64()
                                    },
                                    pa.float64()

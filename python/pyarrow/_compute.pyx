@@ -2771,10 +2771,10 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
         Then, it must take arguments equal to the number of
         in_types defined. It must return Scalar matching the
         out_type.
-
         To define a varargs function, pass a callable that takes
-        varargs. The last in_type will be the type of all varargs
-        arguments.
+        varargs. The in_type needs to match in type of inputs when
+        the function gets called.
+
     function_name : str
         Name of the function. This name must be globally unique.
     function_doc : dict

@@ -628,7 +628,7 @@ def test_aggregate_basic(unary_agg_func_fixture):
 
 
 def test_aggregate_varargs(varargs_agg_func_fixture):
-    arr1 = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
+    arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
     arr2 = pa.array([1.0, 2.0, 3.0, 4.0, 5.0], pa.float64())
 
     result = pc.call_function(

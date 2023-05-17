@@ -610,7 +610,7 @@ def test_output_field_names(use_threads):
 def test_aggregate_udf_basic(varargs_agg_func_fixture):
 
     test_table = pa.Table.from_pydict(
-        {"k": [1, 1, 2, 2], "v1": [1.0, 2.0, 3.0, 4.0],
+        {"k": [1, 1, 2, 2], "v1": [1, 2, 3, 4],
          "v2": [1.0, 1.0, 1.0, 1.0]}
     )
 
@@ -663,7 +663,7 @@ def test_aggregate_udf_basic(varargs_agg_func_fixture):
                         }
                       },
                       {
-                        "fp64": {
+                        "i64": {
                           "nullability": "NULLABILITY_NULLABLE"
                         }
                       },

@@ -991,9 +991,10 @@ ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
             return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
                                    call.id().name, " to have a direct reference");
           }
-          target.emplace_back(*arg_ref);
+          target.emplace_back(std::move(*arg_ref));
         }
-        return compute::Aggregate{std::move(fixed_arrow_func), nullptr, target, ""};
+        return compute::Aggregate{std::move(fixed_arrow_func),
+                                  options ? std::move(options) : nullptr, target, ""};
       }
     }
   };
