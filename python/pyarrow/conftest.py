@@ -305,6 +305,7 @@ def unary_agg_func_fixture():
                                    )
     return func, func_name
 
+
 @pytest.fixture(scope="session")
 def varargs_agg_func_fixture():
     """

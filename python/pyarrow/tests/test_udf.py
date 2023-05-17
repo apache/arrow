@@ -63,6 +63,7 @@ def bad_unary_agg_func_fixture():
                                    )
     return func, func_name
 
+
 @pytest.fixture(scope="session")
 def binary_func_fixture():
     """
