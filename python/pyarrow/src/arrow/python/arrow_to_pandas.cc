@@ -2059,22 +2059,22 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::INTERVAL_MONTH_DAY_NANO:  // fall through
       *output_type = PandasWriter::OBJECT;
       break;
-    case Type::DATE32:  // fall through
+    case Type::DATE32:
+      if (options.date_as_object) {
+        *output_type = PandasWriter::OBJECT;
+      } else if (options.coerce_temporal_nanoseconds) {
+        *output_type = PandasWriter::DATETIME_NANO;
+      } else {
+        *output_type = PandasWriter::DATETIME_DAY;
+      }
+      break;
     case Type::DATE64:
       if (options.date_as_object) {
         *output_type = PandasWriter::OBJECT;
       } else if (options.coerce_temporal_nanoseconds) {
         *output_type = PandasWriter::DATETIME_NANO;
       } else {
-        const auto& dt_type = checked_cast<const DateType&>(*data.type());
-        switch (dt_type.unit()) {
-          case DateUnit::DAY:
-            *output_type = PandasWriter::DATETIME_DAY;
-            break;
-          case DateUnit::MILLI:
-            *output_type = PandasWriter::DATETIME_MILLI;
-            break;
-        }
+        *output_type = PandasWriter::DATETIME_MILLI;
       }
       break;
     case Type::TIMESTAMP: {
