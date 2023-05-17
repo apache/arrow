@@ -3046,8 +3046,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
         prefix_length_encoder_(nullptr, pool),
         suffix_encoder_(nullptr, pool),
         last_value_(""),
-        kEmpty(ByteArray(0, reinterpret_cast<const uint8_t*>(""))),
-        prefix_lengths_(kBatchSize_, ::arrow::stl::allocator<int32_t>(pool_)) {}
+        kEmpty(ByteArray(0, reinterpret_cast<const uint8_t*>(""))) {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
@@ -3124,8 +3123,6 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   DeltaLengthByteArrayEncoder<ByteArrayType> suffix_encoder_;
   std::string last_value_;
   const ByteArray kEmpty;
-  ArrowPoolVector<int32_t> prefix_lengths_;
-  static constexpr int kBatchSize_ = 256;
 };
 
 template <>
@@ -3135,9 +3132,11 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
   }
 
   std::string_view last_value_view = last_value_;
+  constexpr int kBatchSize = 256;
+  std::array<int32_t, kBatchSize> prefix_lengths;
 
-  for (int i = 0; i < num_values; i += kBatchSize_) {
-    const int batch_size = std::min(kBatchSize_, num_values - i);
+  for (int i = 0; i < num_values; i += kBatchSize) {
+    const int batch_size = std::min(kBatchSize, num_values - i);
 
     for (int j = 0; j < batch_size; ++j) {
       // Convert to ByteArray, so we can pass to the suffix_encoder_.
@@ -3158,7 +3157,7 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
       }
 
       last_value_view = view;
-      prefix_lengths_[j] = k;
+      prefix_lengths[j] = k;
       const auto suffix_length = static_cast<uint32_t>(value.len - k);
 
       const uint8_t* suffix_ptr = value.ptr + k;
@@ -3166,7 +3165,7 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
       const ByteArray suffix(suffix_length, suffix_ptr);
       suffix_encoder_.Put(&suffix, 1);
     }
-    prefix_length_encoder_.Put(prefix_lengths_.data(), batch_size);
+    prefix_length_encoder_.Put(prefix_lengths.data(), batch_size);
   }
   last_value_ = last_value_view;
 }
@@ -3184,8 +3183,10 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
     throw ParquetException("Parquet cannot store strings with size 2GB or more");
   }
 
-  for (int i = 0; i < num_values; i += kBatchSize_) {
-    const int batch_size = std::min(kBatchSize_, num_values - i);
+  constexpr int kBatchSize = 256;
+  std::array<int32_t, kBatchSize> prefix_lengths;
+  for (int i = 0; i < num_values; i += kBatchSize) {
+    const int batch_size = std::min(kBatchSize, num_values - i);
     for (int j = 0; j < batch_size; j++) {
       auto view = string_view{reinterpret_cast<const char*>(src[i + j].ptr),
                               static_cast<uint32_t>(len)};
@@ -3200,18 +3201,15 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
       }
 
       last_value_view = view;
-      prefix_lengths_[j] = k;
+      prefix_lengths[j] = k;
       const auto suffix_length = static_cast<uint32_t>(len - k);
 
-      if (suffix_length == 0) {
-        continue;
-      }
       const uint8_t* suffix_ptr = src[i + j].ptr + k;
       // Convert to ByteArray, so it can be passed to the suffix_encoder_
       const ByteArray suffix(suffix_length, suffix_ptr);
       suffix_encoder_.Put(&suffix, 1);
     }
-    prefix_length_encoder_.Put(prefix_lengths_.data(), batch_size);
+    prefix_length_encoder_.Put(prefix_lengths.data(), batch_size);
   }
   last_value_ = last_value_view;
 }
