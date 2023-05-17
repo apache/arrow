@@ -74,7 +74,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                                                               sizeof(CType) * numeric_mda.getNumberOfElements());
 
                 // Pack the validity bitmap values.
-                auto packed_validity_bitmap = arrow::matlab::bit::bitPackMatlabLogicalArray(valid_elements).ValueOrDie()
+                auto packed_validity_bitmap = arrow::matlab::bit::bitPackMatlabLogicalArray(valid_elements).ValueOrDie();
 
                 auto array_data = arrow::ArrayData::Make(data_type, length, {packed_validity_bitmap, data_buffer});
                 array = arrow::MakeArray(array_data);
