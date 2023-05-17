@@ -13,8 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Linq;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -56,105 +54,6 @@ namespace Apache.Arrow.Tests
                         .Build();
 
                     Assert.Equal(0, array.Length);
-                }
-            }
-
-            public class Swap
-            {
-                [Fact]
-                public void SwapsExpectedBits()
-                {
-                    var array = new BooleanArray.Builder()
-                        .AppendRange(Enumerable.Repeat(false, 8))
-                        .Set(0, true)
-                        .Swap(0, 7)
-                        .Build();
-
-                    Assert.True(array.GetValue(0).HasValue);
-                    Assert.False(array.GetValue(0).Value);
-                    Assert.True(array.GetValue(7).HasValue);
-                    Assert.True(array.GetValue(7).Value);
-                    #pragma warning disable CS0618
-                    Assert.False(array.GetBoolean(0));
-                    Assert.True(array.GetBoolean(7));
-                    #pragma warning restore CS0618
-                }
-
-                [Fact]
-                public void ThrowsWhenIndexOutOfRange()
-                {
-                    Assert.Throws<ArgumentOutOfRangeException>(() =>
-                    {
-                        var builder = new BooleanArray.Builder();
-                        builder.Swap(0, 1);
-                    });
-                }
-            }
-
-            public class Set
-            {
-                [Theory]
-                [InlineData(8, 0)]
-                [InlineData(8, 4)]
-                [InlineData(8, 7)]
-                [InlineData(16, 8)]
-                [InlineData(16, 15)]
-                public void SetsExpectedBitToTrue(int length, int index)
-                {
-                    var array = new BooleanArray.Builder()
-                        .Resize(length)
-                        .Set(index, true)
-                        .Build();
-
-                    Assert.True(array.GetValue(index).Value);
-                }
-
-                [Theory]
-                [InlineData(8, 0)]
-                [InlineData(8, 4)]
-                [InlineData(8, 7)]
-                [InlineData(16, 8)]
-                [InlineData(16, 15)]
-                public void SetsExpectedBitsToFalse(int length, int index)
-                {
-                    var array = new BooleanArray.Builder()
-                        .Resize(length)
-                        .Set(index, false)
-                        .Build();
-
-                    Assert.False(array.GetValue(index).Value);
-                }
-
-                [Theory]
-                [InlineData(4)]
-                public void UnsetBitsAreUnchanged(int index)
-                {
-                    var array = new BooleanArray.Builder()
-                        .AppendRange(Enumerable.Repeat(false, 8))
-                        .Set(index, true)
-                        .Build();
-
-                    for (var i = 0; i < 8; i++)
-                    {
-                        if (i != index)
-                        {
-                            Assert.True(array.GetValue(i).HasValue);
-                            Assert.False(array.GetValue(i).Value);
-                            #pragma warning disable CS0618
-                            Assert.False(array.GetBoolean(i));
-                            #pragma warning restore CS0618
-                        }
-                    }
-                }
-
-                [Fact]
-                public void ThrowsWhenIndexOutOfRange()
-                {
-                    Assert.Throws<ArgumentOutOfRangeException>(() =>
-                    {
-                        var builder = new BooleanArray.Builder();
-                        builder.Set(builder.Length, false);
-                    });
                 }
             }
         }

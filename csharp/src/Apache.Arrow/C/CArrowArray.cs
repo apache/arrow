@@ -71,14 +71,14 @@ namespace Apache.Arrow.C
         /// <remarks>
         /// Do not call this on a pointer that was allocated elsewhere.
         /// </remarks>
-        public static void Free(CArrowArray* schema)
+        public static void Free(CArrowArray* array)
         {
-            if (schema->release != null)
+            if (array->release != null)
             {
                 // Call release if not already called.
-                schema->release(schema);
+                array->release(array);
             }
-            Marshal.FreeHGlobal((IntPtr)schema);
+            Marshal.FreeHGlobal((IntPtr)array);
         }
     }
 }

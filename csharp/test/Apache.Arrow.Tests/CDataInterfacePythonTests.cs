@@ -437,9 +437,14 @@ namespace Apache.Arrow.Tests
             }
 
             ArrowType type = CArrowSchemaImporter.ImportType(cSchema);
-            IArrowArray importedArray = CArrowArrayImporter.ImportArray(cArray, type);
+            StringArray importedArray = (StringArray)CArrowArrayImporter.ImportArray(cArray, type);
 
             Assert.Equal(5, importedArray.Length);
+            Assert.Equal("hello", importedArray.GetString(0));
+            Assert.Equal("world", importedArray.GetString(1));
+            Assert.Null(importedArray.GetString(2));
+            Assert.Equal("foo", importedArray.GetString(3));
+            Assert.Equal("bar", importedArray.GetString(4));
         }
 
         [SkippableFact]
@@ -472,7 +477,7 @@ namespace Apache.Arrow.Tests
                             pa.array(List("foo", "bar"))
                             ),
                     }),
-                    new[] { "col1", "col1", "col2", "col3", "col4", "col5", "col6" });
+                    new[] { "col1", "col2", "col3", "col4", "col5", "col6", "col7" });
 
                 dynamic batch = table.to_batches()[0];
 
@@ -485,6 +490,53 @@ namespace Apache.Arrow.Tests
             RecordBatch recordBatch = CArrowArrayImporter.ImportRecordBatch(cArray, schema);
 
             Assert.Equal(5, recordBatch.Length);
+
+            NullArray col1 = (NullArray)recordBatch.Column("col1");
+            Assert.Equal(5, col1.Length);
+
+            Int64Array col2 = (Int64Array)recordBatch.Column("col2");
+            Assert.Equal(new long[] { 1, 2, 3, 0, 5 }, col2.Values.ToArray());
+            Assert.False(col2.IsValid(3));
+
+            StringArray col3 = (StringArray)recordBatch.Column("col3");
+            Assert.Equal(5, col3.Length);
+            Assert.Equal("hello", col3.GetString(0));
+            Assert.Equal("world", col3.GetString(1));
+            Assert.Null(col3.GetString(2));
+            Assert.Equal("foo", col3.GetString(3));
+            Assert.Equal("bar", col3.GetString(4));
+
+            DoubleArray col4 = (DoubleArray)recordBatch.Column("col4");
+            Assert.Equal(new double[] { 0.0, 1.4, 2.5, 3.6, 4.7 }, col4.Values.ToArray());
+
+            ListArray col5 = (ListArray)recordBatch.Column("col5");
+            Assert.Equal(new long[] { 1, 2, 3, 4, 5, 4, 3 }, ((Int64Array)col5.Values).Values.ToArray());
+            Assert.Equal(new int[] { 0, 2, 4, 4, 4, 7 }, col5.ValueOffsets.ToArray());
+            Assert.False(col5.IsValid(2));
+            Assert.False(col5.IsValid(3));
+
+            StructArray col6 = (StructArray)recordBatch.Column("col6");
+            Assert.Equal(5, col6.Length);
+            Int64Array col6a = (Int64Array)col6.Fields[0];
+            Assert.Equal(new long[] { 10, 9, 0, 0, 0 }, col6a.Values.ToArray());
+            StringArray col6b = (StringArray)col6.Fields[1];
+            Assert.Equal("banana", col6b.GetString(0));
+            Assert.Equal("apple", col6b.GetString(1));
+            Assert.Equal("orange", col6b.GetString(2));
+            Assert.Equal("cherry", col6b.GetString(3));
+            Assert.Equal("grape", col6b.GetString(4));
+            DoubleArray col6c = (DoubleArray)col6.Fields[2];
+            Assert.Equal(new double[] { 0, 4.3, -9, 123.456, 0 }, col6c.Values.ToArray());
+
+            DictionaryArray col7 = (DictionaryArray)recordBatch.Column("col7");
+            Assert.Equal(5, col7.Length);
+            Int64Array col7a = (Int64Array)col7.Indices;
+            Assert.Equal(new long[] { 1, 0, 1, 1, 0 }, col7a.Values.ToArray());
+            Assert.False(col7a.IsValid(4));
+            StringArray col7b = (StringArray)col7.Dictionary;
+            Assert.Equal(2, col7b.Length);
+            Assert.Equal("foo", col7b.GetString(0));
+            Assert.Equal("bar", col7b.GetString(1));
         }
 
         [SkippableFact]
@@ -513,6 +565,25 @@ namespace Apache.Arrow.Tests
             IArrowArrayStream stream = CArrowArrayStreamImporter.ImportArrayStream(cArrayStream);
             var batch1 = stream.ReadNextRecordBatchAsync().Result;
             Assert.Equal(5, batch1.Length);
+
+            Int64Array col1 = (Int64Array)batch1.Column("col1");
+            Assert.Equal(5, col1.Length);
+            Assert.Equal(1, col1.GetValue(0));
+            Assert.Equal(2, col1.GetValue(1));
+            Assert.Equal(3, col1.GetValue(2));
+            Assert.Null(col1.GetValue(3));
+            Assert.Equal(5, col1.GetValue(4));
+
+            StringArray col2 = (StringArray)batch1.Column("col2");
+            Assert.Equal(5, col2.Length);
+            Assert.Equal("hello", col2.GetString(0));
+            Assert.Equal("world", col2.GetString(1));
+            Assert.Null(col2.GetString(2));
+            Assert.Equal("foo", col2.GetString(3));
+            Assert.Equal("bar", col2.GetString(4));
+
+            DoubleArray col3 = (DoubleArray)batch1.Column("col3");
+            Assert.Equal(new double[] { 0.0, 1.4, 2.5, 3.6, 4.7 }, col3.Values.ToArray());
 
             var batch2 = stream.ReadNextRecordBatchAsync().Result;
             Assert.Null(batch2);

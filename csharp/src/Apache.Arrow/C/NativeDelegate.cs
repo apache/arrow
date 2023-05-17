@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.C
 {
-    internal struct NativeDelegate<T>
+    internal readonly struct NativeDelegate<T>
     {
         private readonly T _managedDelegate; // For lifetime management
         private readonly IntPtr _nativePointer;
