@@ -80,6 +80,7 @@ may expose data type-specific methods or properties.
    StructArray
    UnionArray
    ExtensionArray
+   FixedShapeTensorArray
 
 .. _api.scalar:
 
@@ -110,6 +111,7 @@ classes may expose data type-specific methods or properties.
    UInt16Scalar
    UInt32Scalar
    UInt64Scalar
+   HalfFloatScalar
    FloatScalar
    DoubleScalar
    BinaryScalar
