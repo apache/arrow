@@ -3161,9 +3161,6 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
       prefix_lengths_[j] = k;
       const auto suffix_length = static_cast<uint32_t>(value.len - k);
 
-      if (suffix_length == 0) {
-        continue;
-      }
       const uint8_t* suffix_ptr = value.ptr + k;
       // Convert to ByteArray, so it can be passed to the suffix_encoder_.
       const ByteArray suffix(suffix_length, suffix_ptr);
