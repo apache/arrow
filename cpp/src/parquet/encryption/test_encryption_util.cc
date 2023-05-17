@@ -324,6 +324,9 @@ void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
   ASSERT_EQ(values_read, rows_should_read);
   // make sure we got the same number of values the metadata says
   ASSERT_EQ(col_md->num_values(), rows_read);
+  // GH-35571: need to use approximate floating-point comparison because of
+  // precision issues on MinGW32 (the values generated in the C++ test code
+  // may not exactly match those from the parquet-testing data files).
   if constexpr (std::is_floating_point_v<typename DType::c_type>) {
     ASSERT_EQ(read_col_data.rows(), expected_column_data.rows());
     for (int i = 0; i < read_col_data.rows(); ++i) {
