@@ -629,15 +629,11 @@ std::shared_ptr<acero::ExecPlan> PlanFromAggregateCase(
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  struct TestConsumerFactory {
-    std::shared_ptr<acero::SinkNodeConsumer> operator()() { return consumer; }
-    std::shared_ptr<acero::SinkNodeConsumer> consumer;
-  };
   EXPECT_OK_AND_ASSIGN(
       auto declarations,
-      DeserializePlans(*substrait, TestConsumerFactory{std::move(consumer)},
-                       default_extension_id_registry(), /*ext_set_out=*/nullptr,
-                       conversion_options));
+      DeserializePlans(
+          *substrait, [consumer = std::move(consumer)] { return std::move(consumer); },
+          default_extension_id_registry(), /*ext_set_out=*/nullptr, conversion_options));
   std::shared_ptr<acero::ExecPlan> plan;
   if (test_case.ordered) {
     EXPECT_OK_AND_ASSIGN(plan, acero::ExecPlan::Make(&ctx_for_ordered));
