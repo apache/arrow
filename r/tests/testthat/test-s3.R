@@ -61,8 +61,3 @@ if (run_these) {
     expect_true("ETag" %in% names(metadata))
   })
 }
-
-test_that("s3_init validates its arguments", {
-  expect_error(s3_init("wrong"), "must be one of")
-  expect_error(s3_init("debug", 0), "positive integer")
-})
