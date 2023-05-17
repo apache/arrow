@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath> // std::ceil
+
 #include <arrow/util/bit_util.h>
 #include <arrow/util/bitmap_generate.h>
 
-#include <cmath> // std::ceil
-
-#include "bitpack_matlab_logical_array.h"
+#include "arrow/matlab/bit/bit_pack_matlab_logical_array.h"
 
 namespace arrow::matlab::bit {
 
@@ -55,7 +55,6 @@ namespace arrow::matlab::bit {
 
         auto mutable_data = packed_validity_bitmap_buffer->mutable_data();
 
-        // TODO: Determine whether this needs to be Mutable or not.
         arrow::internal::GenerateBitsUnrolled(mutable_data, start_offset, unpacked_buffer_length, generator);
 
         auto buffer_result = std::static_pointer_cast<arrow::Buffer>(packed_validity_bitmap_buffer);
