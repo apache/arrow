@@ -236,17 +236,16 @@ BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
   return {scratch_space, sizeof(offset_type) * 2};
 }
 
-template <typename ArrowType>
-void SetRunForScalar(ArraySpan* span, std::shared_ptr<DataType> type,
-                     uint64_t* scratch_space) {
-  // Create a lenght-1 array with the value 1 for a REE scalar
-  using run_type = typename ArrowType::c_type;
-  auto buffer = reinterpret_cast<run_type*>(scratch_space);
-  buffer[0] = static_cast<run_type>(1);
+template <typename RunEndType>
+void FillRunEndsArrayForScalar(ArraySpan* span, std::shared_ptr<DataType> run_end_type) {
+  using RunEndCType = typename RunEndType::c_type;
+  auto buffer = reinterpret_cast<RunEndCType*>(span->scratch_space);
+  buffer[0] = static_cast<RunEndCType>(1);
   auto data_buffer =
-      std::make_shared<Buffer>(reinterpret_cast<uint8_t*>(buffer), sizeof(run_type));
-  auto data = ArrayData::Make(type, 1, {nullptr, data_buffer}, 0);
-  span->child_data[0].SetMembers(*data);
+      std::make_shared<Buffer>(reinterpret_cast<uint8_t*>(buffer), sizeof(RunEndCType));
+  auto data =
+      ArrayData::Make(std::move(run_end_type), 1, {nullptr, std::move(data_buffer)}, 0);
+  span->SetMembers(*data);
 }
 
 int GetNumBuffers(const DataType& type) {
@@ -450,14 +449,14 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     auto& run_end_type = scalar.run_end_type();
     switch (run_end_type->id()) {
       case Type::INT16:
-        SetRunForScalar<Int16Type>(this, run_end_type, this->scratch_space);
+        FillRunEndsArrayForScalar<Int16Type>(&this->child_data[0], run_end_type);
         break;
       case Type::INT32:
-        SetRunForScalar<Int32Type>(this, run_end_type, this->scratch_space);
+        FillRunEndsArrayForScalar<Int32Type>(&this->child_data[0], run_end_type);
         break;
       default:
         DCHECK_EQ(run_end_type->id(), Type::INT64);
-        SetRunForScalar<Int64Type>(this, run_end_type, this->scratch_space);
+        FillRunEndsArrayForScalar<Int64Type>(&this->child_data[0], run_end_type);
     }
     this->child_data[1].FillFromScalar(*scalar.value);
   } else if (type_id == Type::EXTENSION) {
