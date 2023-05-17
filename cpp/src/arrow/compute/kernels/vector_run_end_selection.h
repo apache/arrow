@@ -33,7 +33,7 @@ namespace arrow::compute::internal {
 
 /// \brief Common virtual base class for filter functions that involve run-end
 /// encoded arrays on one or both operands.
-class REEFilterExec {
+class ARROW_EXPORT REEFilterExec {
  public:
   virtual ~REEFilterExec() = default;
 
@@ -44,22 +44,25 @@ class REEFilterExec {
   virtual Status Exec(ArrayData* out) = 0;
 };
 
-Result<std::unique_ptr<REEFilterExec>> MakeREExREEFilterExec(
+ARROW_EXPORT Result<std::unique_ptr<REEFilterExec>> MakeREExREEFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     const FilterOptions& options);
 
-Result<std::unique_ptr<REEFilterExec>> MakeREExPlainFilterExec(
+ARROW_EXPORT Result<std::unique_ptr<REEFilterExec>> MakeREExPlainFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     const FilterOptions& options);
 
-Result<std::unique_ptr<REEFilterExec>> MakePlainxREEFilterExec(
+ARROW_EXPORT Result<std::unique_ptr<REEFilterExec>> MakePlainxREEFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     const FilterOptions& options);
 
-Status REExREEFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result);
+ARROW_EXPORT Status REExREEFilterExec(KernelContext* ctx, const ExecSpan& span,
+                                      ExecResult* result);
 
-Status REExPlainFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result);
+ARROW_EXPORT Status REExPlainFilterExec(KernelContext* ctx, const ExecSpan& span,
+                                        ExecResult* result);
 
-Status PlainxREEFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result);
+ARROW_EXPORT Status PlainxREEFilterExec(KernelContext* ctx, const ExecSpan& span,
+                                        ExecResult* result);
 
 }  // namespace arrow::compute::internal
