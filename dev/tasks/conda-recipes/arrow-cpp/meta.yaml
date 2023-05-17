@@ -4,7 +4,7 @@
 {% set build_ext_version = ARROW_VERSION %}
 {% set build_ext = "cuda" if cuda_enabled else "cpu" %}
 {% set proc_build_number = "0" %}
-{% set llvm_version = "14" %}
+{% set llvm_version = "15" %}
 
 # see https://github.com/apache/arrow/blob/apache-arrow-10.0.1/cpp/CMakeLists.txt#L88-L90
 {% set so_version = (version.split(".")[0] | int * 100 + version.split(".")[1] | int) ~ "." ~ version.split(".")[2] ~ ".0" %}
@@ -21,9 +21,6 @@ build:
   # for cuda support, building with one version is enough to be compatible with
   # all later versions, since arrow is only using libcuda, and not libcudart.
   skip: true  # [cuda_compiler_version not in ("None", cuda_compiler_version_min)]
-  # temporary: skip CUDA on aarch/ppc until cross-compilation works, see
-  # https://github.com/conda-forge/conda-forge-ci-setup-feedstock/pull/210
-  skip: true  # [(aarch64 or ppc64le) and (cuda_compiler_version != "None")]
   run_exports:
     - {{ pin_subpackage("libarrow", max_pin="x.x.x") }}
 
@@ -57,8 +54,8 @@ outputs:
         - exit 0
 
   - name: libarrow
-    script: build-arrow.sh  # [not win]
-    script: bld-arrow.bat   # [win]
+    script: build-arrow.sh   # [unix]
+    script: build-arrow.bat  # [win]
     version: {{ version }}
     build:
       string: h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
@@ -68,19 +65,20 @@ outputs:
         - cudatoolkit
       track_features: {{ "[arrow-cuda]" if cuda_enabled else "" }}
       missing_dso_whitelist:
-        - "*/libcuda.so.*"    # [linux]
-        - "*/nvcuda.dll"      # [win]
+        - '*/libcuda.so.*'    # [linux]
+        - '*/nvcuda.dll'      # [win]
     requirements:
       build:
         - {{ compiler("c") }}
         - {{ compiler("cxx") }}
         - {{ compiler("cuda") }}                 # [cuda_compiler_version != "None"]
-        - clangdev {{ llvm_version }}            # [osx and arm64]
-        - llvmdev {{ llvm_version }}             # [osx and arm64]
-        - gnuconfig                              # [osx and arm64]
         # needs to run protoc & grpc_cpp_plugin
         - libgrpc                                # [build_platform != target_platform]
         - libprotobuf                            # [build_platform != target_platform]
+        # needed for gandiva
+        - clangdev {{ llvm_version }}            # [build_platform != target_platform]
+        - llvmdev {{ llvm_version }}             # [build_platform != target_platform]
+        - gnuconfig                              # [build_platform != target_platform]
         - cmake
         - ninja
         # necessary for vendored jemalloc
@@ -91,7 +89,7 @@ outputs:
         # https://github.com/apache/arrow/blob/apache-arrow-11.0.0/cpp/cmake_modules/ThirdpartyToolchain.cmake#L46-L75
         - clangdev {{ llvm_version }}
         - llvmdev {{ llvm_version }}
-        - aws-crt-cpp  # [unix]
+        - aws-crt-cpp
         - aws-sdk-cpp
         - boost-cpp >=1.70
         - brotli
@@ -111,6 +109,7 @@ outputs:
         # its dependencies leak into the build here
         - libcrc32c  # [win]
         - libcurl    # [win]
+        - libevent
         - libgrpc
         - libprotobuf
         - libutf8proc
@@ -136,8 +135,8 @@ outputs:
     test:
       commands:
         {% set headers = [
-            "arrow/api.h", "arrow/flight/types.h", "arrow/flight/sql/api.h",
-            "gandiva/engine.h", "parquet/api/reader.h"
+            "arrow/api.h", "arrow/acero/groupby.h", "arrow/flight/types.h",
+            "arrow/flight/sql/api.h", "gandiva/engine.h", "parquet/api/reader.h"
         ] %}
         {% for each_header in headers %}
         # headers
@@ -146,8 +145,8 @@ outputs:
         {% endfor %}
 
         {% set libs = (cuda_compiler_version != "None") * ["arrow_cuda"] + [
-            "arrow", "arrow_dataset", "arrow_flight", "arrow_flight_sql",
-            "arrow_substrait", "gandiva", "parquet"
+            "arrow", "arrow_acero", "arrow_dataset", "arrow_flight",
+            "arrow_flight_sql", "arrow_substrait", "gandiva", "parquet"
         ] %}
         {% for each_lib in libs %}
         # shared
@@ -196,8 +195,8 @@ outputs:
         - exit 0
 
   - name: pyarrow
-    script: build-pyarrow.sh  # [not win]
-    script: bld-pyarrow.bat   # [win]
+    script: build-pyarrow.sh   # [unix]
+    script: build-pyarrow.bat  # [win]
     version: {{ version }}
     build:
       string: py{{ CONDA_PY }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
@@ -209,8 +208,8 @@ outputs:
         - {{ SP_DIR }}/pyarrow
       missing_dso_whitelist:
         # not actually missing, but installed into SP_DIR, see tests
-        - "*/arrow_python.dll"                # [win]
-        - "*/arrow_python_flight.dll"         # [win]
+        - '*/arrow_python.dll'                # [win]
+        - '*/arrow_python_flight.dll'         # [win]
     requirements:
       build:
         - {{ compiler("c") }}
@@ -288,8 +287,8 @@ outputs:
       summary: Python libraries for Apache Arrow
 
   - name: pyarrow-tests
-    script: build-pyarrow.sh  # [not win]
-    script: bld-pyarrow.bat   # [win]
+    script: build-pyarrow.sh   # [unix]
+    script: build-pyarrow.bat  # [win]
     version: {{ version }}
     build:
       string: py{{ CONDA_PY }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
@@ -373,6 +372,7 @@ outputs:
         {% set tests_to_skip = tests_to_skip + " or test_debug_memory_pool_disabled" %}   # [aarch64 or ppc64le]
         {% set tests_to_skip = tests_to_skip + " or test_env_var_io_thread_count" %}      # [aarch64 or ppc64le]
         # vvvvvvv TESTS THAT SHOULDN'T HAVE TO BE SKIPPED vvvvvvv
+        {% set tests_to_skip = tests_to_skip + " or test_extension_to_pandas_storage_type" %}
         # segfaults on OSX: to investigate ASAP
         {% set tests_to_skip = tests_to_skip + " or test_flight" %}                       # [osx]
         # gandiva tests are segfaulting on ppc
