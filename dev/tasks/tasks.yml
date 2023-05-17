@@ -304,6 +304,18 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
+  conda-linux-aarch64-cuda-py3:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_aarch64_cuda_compiler_version11.2
+    artifacts:
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
+
   ########################### Conda Linux (ppc64le) ###########################
 
   conda-linux-ppc64le-cpu-py3:
@@ -317,6 +329,18 @@ tasks:
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
+
+  conda-linux-ppc64le-cuda-py3:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_ppc64le_cuda_compiler_version11.2
+    artifacts:
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
   ############################## Conda OSX (x64) ##############################
 
