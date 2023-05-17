@@ -102,6 +102,8 @@ The final output is located under the ``${PWD}/docs`` directory.
 
    :ref:`docker-builds`.
 
+.. _building-docs-pr-preview:
+
 Building a docs preview in a Pull Request
 -----------------------------------------
 
@@ -183,11 +185,9 @@ build only a subset of it. You can build:
    used in the initial work as it makes the building faster and easier.
 
    To check for the correctness of the documentation overall one should
-   build the whole documentation with ``make html`` or use github actions.
+   build the whole documentation with ``make html`` or use
+   :ref:`GitHub Actions <building-docs-pr-preview>`.
 
-   To use github actions add a comment ``@github-actions crossbow submit preview-docs``
-   to the pull request holding the changes. This will build and host the
-   documentation for this specific PR.
 
 Building live
 ^^^^^^^^^^^^^
