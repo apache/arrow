@@ -1113,10 +1113,14 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
                                            DecodeBasicAggregate("mean")));
     DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, "std_dev"},
                                            DecodeBasicAggregate("stddev")));
-    for (const auto& fn_name : {"count", "first", "last"}) {
+    for (const auto& fn_name : {"count"}) {
       DCHECK_OK(
           AddSubstraitAggregateToArrow({kSubstraitAggregateGenericFunctionsUri, fn_name},
                                        DecodeBasicAggregate(fn_name)));
+    }
+    for (const auto& fn_name : {"first", "last"}) {
+      DCHECK_OK(AddSubstraitAggregateToArrow({kArrowSimpleExtensionFunctionsUri, fn_name},
+                                             DecodeBasicAggregate(fn_name)));
     }
 
     // --------------- Arrow -> Substrait Functions ---------------
