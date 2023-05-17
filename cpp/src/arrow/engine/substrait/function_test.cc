@@ -574,6 +574,8 @@ struct AggregateTestCase {
   std::shared_ptr<DataType> output_type;
   // The aggregation takes zero columns as input
   bool nullary = false;
+  // The aggregation is ordered
+  bool ordered = false;
 };
 
 std::shared_ptr<Table> GetInputTableForAggregateCase(const AggregateTestCase& test_case) {
@@ -601,6 +603,7 @@ std::shared_ptr<Table> GetOutputTableForAggregateCase(
 std::shared_ptr<acero::ExecPlan> PlanFromAggregateCase(
     const AggregateTestCase& test_case, std::shared_ptr<Table>* output_table,
     bool with_keys) {
+  static ExecContext ctx_for_ordered;
   std::shared_ptr<Table> input_table = GetInputTableForAggregateCase(test_case);
   std::vector<int> key_idxs = {};
   if (with_keys) {
@@ -626,10 +629,22 @@ std::shared_ptr<acero::ExecPlan> PlanFromAggregateCase(
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
+  struct TestConsumerFactory {
+    std::shared_ptr<acero::SinkNodeConsumer> operator()() { return consumer; }
+    std::shared_ptr<acero::SinkNodeConsumer> consumer;
+  };
   EXPECT_OK_AND_ASSIGN(
-      std::shared_ptr<acero::ExecPlan> plan,
-      DeserializePlan(*substrait, std::move(consumer), default_extension_id_registry(),
-                      /*ext_set_out=*/nullptr, conversion_options));
+      auto declarations,
+      DeserializePlans(*substrait, TestConsumerFactory{std::move(consumer)},
+                       default_extension_id_registry(), /*ext_set_out=*/nullptr,
+                       conversion_options));
+  std::shared_ptr<acero::ExecPlan> plan;
+  if (test_case.ordered) {
+    EXPECT_OK_AND_ASSIGN(plan, acero::ExecPlan::Make(&ctx_for_ordered));
+  } else {
+    EXPECT_OK_AND_ASSIGN(plan, acero::ExecPlan::Make());
+  }
+  ARROW_EXPECT_OK(declarations[0].AddToPlan(plan.get()));
   return plan;
 }
 
@@ -721,6 +736,38 @@ TEST(FunctionMapping, AggregateCases) {
        "[2, 1]",
        int64(),
        /*nullary=*/true},
+      {{kSubstraitAggregateGenericFunctionsUri, "first"},
+       {"[1, 2, 30]"},
+       {int32()},
+       "[1]",
+       "[1, 30]",
+       int32(),
+       false,
+       true},
+      {{kSubstraitAggregateGenericFunctionsUri, "first"},
+       {"[null, \"a\", \"b\"]"},
+       {utf8()},
+       "[\"a\"]",
+       "[\"a\", \"b\"]",
+       utf8(),
+       false,
+       true},
+      {{kSubstraitAggregateGenericFunctionsUri, "last"},
+       {"[1, 2, 30]"},
+       {int32()},
+       "[30]",
+       "[2, 30]",
+       int32(),
+       false,
+       true},
+      {{kSubstraitAggregateGenericFunctionsUri, "last"},
+       {"[\"a\", \"b\", null]"},
+       {utf8()},
+       "[\"b\"]",
+       "[\"b\", null]",
+       utf8(),
+       false,
+       true},
       {{kSubstraitArithmeticFunctionsUri, "variance"},
        "[1, 2, 3]",
        float64(),
