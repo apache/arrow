@@ -1,7 +1,7 @@
 MACOSX_DEPLOYMENT_TARGET:
 - '11.0'
 aws_crt_cpp:
-- 0.19.8
+- 0.20.1
 aws_sdk_cpp:
 - 1.10.57
 bzip2:
@@ -11,7 +11,7 @@ c_ares:
 c_compiler:
 - clang
 c_compiler_version:
-- '14'
+- '15'
 channel_sources:
 - conda-forge
 channel_targets:
@@ -21,17 +21,19 @@ cuda_compiler_version:
 cxx_compiler:
 - clangxx
 cxx_compiler_version:
-- '14'
+- '15'
 gflags:
 - '2.2'
 glog:
 - '0.6'
 google_cloud_cpp:
-- 2.8.0
+- 2.10.1
 libabseil:
 - '20230125'
+libevent:
+- 2.1.12
 libgrpc:
-- '1.52'
+- '1.54'
 libprotobuf:
 - '3.21'
 lz4_c:
@@ -41,8 +43,8 @@ macos_machine:
 numpy:
 - '1.21'
 - '1.23'
-- '1.20'
-- '1.20'
+- '1.21'
+- '1.21'
 openssl:
 - '3'
 orc:
@@ -57,7 +59,7 @@ python:
 - 3.8.* *_cpython
 - 3.9.* *_cpython
 re2:
-- 2023.02.02
+- 2023.03.02
 snappy:
 - '1'
 target_platform:
