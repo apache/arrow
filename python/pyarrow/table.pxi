@@ -2981,8 +2981,11 @@ def table_to_blocks(options, Table table, categories, extension_columns):
         c_options.extension_columns = {tobytes(col)
                                        for col in extension_columns}
 
-    # ARROW-3789(wesm); Convert date/timestamp types to datetime64[ns]
-    c_options.coerce_temporal_nanoseconds = True
+    # ARROW-33321 reenables support for date/timestamp conversion in pandas >= 2.0
+    from pyarrow.vendored.version import Version
+    if pandas_api.loose_version < Version('2.0.0'):
+        # ARROW-3789(wesm); Convert date/timestamp types to datetime64[ns]
+        c_options.coerce_temporal_nanoseconds = True
 
     if c_options.self_destruct:
         # Move the shared_ptr, table is now unsafe to use further

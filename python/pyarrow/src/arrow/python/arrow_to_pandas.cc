@@ -86,6 +86,8 @@ PandasOptions MakeInnerOptions(PandasOptions options) {
   // datetime.datetime does not support nanoseconds).
   // We force the object conversion to preserve the value of the timezone.
   // Nanoseconds are returned as integers.
+  // In ARROW-33321, we no longer need to coerce for pandas versions >= 2.0,
+  // which now support all temporal types.
   options.coerce_temporal_nanoseconds = false;
 
   return options;
@@ -2061,9 +2063,18 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::DATE64:
       if (options.date_as_object) {
         *output_type = PandasWriter::OBJECT;
+      } else if (options.coerce_temporal_nanoseconds) {
+        *output_type = PandasWriter::DATETIME_NANO;
       } else {
-        *output_type = options.coerce_temporal_nanoseconds ? PandasWriter::DATETIME_NANO
-                                                           : PandasWriter::DATETIME_DAY;
+        const auto& dt_type = checked_cast<const DateType&>(*data.type());
+        switch (dt_type.unit()) {
+          case DateUnit::DAY:
+            *output_type = PandasWriter::DATETIME_DAY;
+            break;
+          case DateUnit::MILLI:
+            *output_type = PandasWriter::DATETIME_MILLI;
+            break;
+        }
       }
       break;
     case Type::TIMESTAMP: {
