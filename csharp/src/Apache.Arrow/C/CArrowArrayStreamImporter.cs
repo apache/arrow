@@ -68,9 +68,10 @@ namespace Apache.Arrow.C
                 CArrowSchema* cSchema = CArrowSchema.Create();
                 try
                 {
-                    if (_cArrayStream->get_schema(_cArrayStream, cSchema) != 0)
+                    int errno = _cArrayStream->get_schema(_cArrayStream, cSchema);
+                    if (errno != 0)
                     {
-                        throw new Exception("This needs to be better");
+                        throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
                     }
                     _schema = CArrowSchemaImporter.ImportSchema(cSchema);
                 }
@@ -101,9 +102,10 @@ namespace Apache.Arrow.C
                 CArrowArray* cArray = CArrowArray.Create();
                 try
                 {
-                    if (_cArrayStream->get_next(_cArrayStream, cArray) != 0)
+                    int errno = _cArrayStream->get_next(_cArrayStream, cArray);
+                    if (errno != 0)
                     {
-                        throw new Exception("This too needs to be better");
+                        throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
                     }
                     if (cArray->release != null)
                     {

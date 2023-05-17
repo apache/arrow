@@ -31,6 +31,7 @@ namespace Apache.Arrow.Memory
 
         public IntPtr Allocate(int size)
         {
+            GC.AddMemoryPressure(size);
             return Acquire(Marshal.AllocHGlobal(size), 0, size);
         }
 
@@ -56,6 +57,7 @@ namespace Apache.Arrow.Memory
                     _pointers[i] = IntPtr.Zero;
                 }
             }
+            GC.RemoveMemoryPressure(_allocationSize);
             GC.SuppressFinalize(this);
         }
     }

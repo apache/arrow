@@ -70,20 +70,17 @@ namespace Apache.Arrow
                 _length = length;
                 return this;
             }
-
-            private void CheckIndex(int index)
-            {
-                if (index < 0 || index >= Length)
-                {
-                    throw new ArgumentOutOfRangeException(nameof(index));
-                }
-            }
         }
 
         public ArrayData Data { get; }
 
         public NullArray(ArrayData data)
         {
+            if (data.Length != data.NullCount)
+            {
+                throw new ArgumentException("Length must equal null count", nameof(data));
+            }
+
             data.EnsureDataType(ArrowTypeId.Null);
             data.EnsureBufferCount(0);
             Data = data;

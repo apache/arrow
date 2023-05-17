@@ -38,9 +38,9 @@ namespace Apache.Arrow.Memory
 
             NativeMemoryManager memory = new NativeMemoryManager(this, ptr, offset, length);
             Interlocked.Increment(ref _referenceCount);
-            Interlocked.Add(ref _managedMemory, length);
             if (length > 0)
             {
+                Interlocked.Add(ref _managedMemory, length);
                 GC.AddMemoryPressure(length);
             }
             return memory;
