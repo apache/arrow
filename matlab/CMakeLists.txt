@@ -548,7 +548,7 @@ if(WIN32)
   # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
   # to the RPATH of arrow_matlab and mexcall, including the MATLAB dependencies.
   # If Arrow_FOUND is true, this also includes the path to arrow_shared.
-  set_target_properties(arrow_matlab mexcall PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+  # set_target_properties(arrow_matlab mexcall PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 
   if(NOT Arrow_FOUND)
     # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
