@@ -196,6 +196,8 @@ class TestPageSerde : public ::testing::Test {
                         bool verification_checksum, bool has_dictionary = false,
                         bool write_data_page_v2 = false);
 
+  void TestPageCompressionRoundTrip(const std::vector<int>& page_sizes);
+
  protected:
   std::shared_ptr<::arrow::io::BufferOutputStream> out_stream_;
   std::shared_ptr<Buffer> out_buffer_;
@@ -704,20 +706,17 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
   ASSERT_THROW(page_reader_->NextPage(), ParquetException);
 }
 
-TEST_F(TestPageSerde, Compression) {
+void TestPageSerde::TestPageCompressionRoundTrip(const std::vector<int>& page_sizes) {
   auto codec_types = GetSupportedCodecTypes();
 
   const int32_t num_rows = 32;  // dummy value
   data_page_header_.num_values = num_rows;
 
-  const int num_pages = 10;
-
   std::vector<std::vector<uint8_t>> faux_data;
+  int num_pages = static_cast<int>(page_sizes.size());
   faux_data.resize(num_pages);
   for (int i = 0; i < num_pages; ++i) {
-    // The pages keep getting larger
-    int page_size = (i + 1) * 64;
-    test::random_bytes(page_size, 0, &faux_data[i]);
+    test::random_bytes(page_sizes[i], 0, &faux_data[i]);
   }
   for (auto codec_type : codec_types) {
     auto codec = GetCodec(codec_type);
@@ -753,7 +752,29 @@ TEST_F(TestPageSerde, Compression) {
 
     ResetStream();
   }
-}  // namespace parquet
+}
+
+TEST_F(TestPageSerde, Compression) {
+  std::vector<int> page_sizes;
+  page_sizes.reserve(10);
+  for (int i = 0; i < 10; ++i) {
+    // The pages keep getting larger
+    page_sizes.push_back((i + 1) * 64);
+  }
+  this->TestPageCompressionRoundTrip(page_sizes);
+}
+
+TEST_F(TestPageSerde, PageSizeResetWhenRead) {
+  // GH-35423: Parquet SerializedPageReader need to
+  // reset the size after getting a smaller page.
+  std::vector<int> page_sizes;
+  page_sizes.reserve(10);
+  for (int i = 0; i < 10; ++i) {
+    // The pages keep getting smaller
+    page_sizes.push_back((10 - i) * 64);
+  }
+  this->TestPageCompressionRoundTrip(page_sizes);
+}
 
 TEST_F(TestPageSerde, LZONotSupported) {
   // Must await PARQUET-530

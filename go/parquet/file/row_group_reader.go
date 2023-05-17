@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v12/parquet/metadata"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v13/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 

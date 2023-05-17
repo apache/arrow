@@ -63,7 +63,11 @@ class ARROW_EXPORT Buffer {
 
   Buffer(const uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm,
          std::shared_ptr<Buffer> parent = NULLPTR)
-      : is_mutable_(false), data_(data), size_(size), capacity_(size), parent_(parent) {
+      : is_mutable_(false),
+        data_(data),
+        size_(size),
+        capacity_(size),
+        parent_(std::move(parent)) {
     SetMemoryManager(std::move(mm));
   }
 

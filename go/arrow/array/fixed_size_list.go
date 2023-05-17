@@ -22,10 +22,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -49,7 +49,7 @@ func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
 func (a *FixedSizeList) ListValues() arrow.Array { return a.values }
 
 func (a *FixedSizeList) ValueStr(i int) string {
-	if !a.IsValid(i) {
+	if a.IsNull(i) {
 		return NullValueStr
 	}
 	return string(a.GetOneForMarshal(i).(json.RawMessage))
@@ -62,7 +62,7 @@ func (a *FixedSizeList) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -204,9 +204,14 @@ func (b *FixedSizeListBuilder) Append(v bool) {
 	b.unsafeAppendBoolToBitmap(v)
 }
 
+// AppendNull will append null values to the underlying values by itself
 func (b *FixedSizeListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
+	// require to append this due to value indexes
+	for i := int32(0); i < b.n; i++ {
+		b.values.AppendNull()
+	}
 }
 
 func (b *FixedSizeListBuilder) AppendEmptyValue() {
@@ -290,6 +295,10 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 }
 
 func (b *FixedSizeListBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
 	dec := json.NewDecoder(strings.NewReader(s))
 	return b.UnmarshalOne(dec)
 }
@@ -311,9 +320,6 @@ func (b *FixedSizeListBuilder) UnmarshalOne(dec *json.Decoder) error {
 		return err
 	case nil:
 		b.AppendNull()
-		for i := int32(0); i < b.n; i++ {
-			b.values.AppendNull()
-		}
 	default:
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprint(t),

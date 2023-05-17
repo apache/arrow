@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v12/arrow"	
+	"github.com/apache/arrow/go/v13/arrow"	
 	"github.com/goccy/go-json"
 )
 
@@ -62,7 +62,7 @@ func (a *{{.Name}}) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}

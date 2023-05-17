@@ -26,15 +26,15 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/file"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/file"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -250,33 +250,35 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 
 	var nullBitmap *memory.Buffer
 
-	if sr.hasRepeatedChild {
-		nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
-		nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
-		validityIO.ValidBits = nullBitmap.Bytes()
-		defLevels, err := sr.GetDefLevels()
-		if err != nil {
-			return nil, err
-		}
-		repLevels, err := sr.GetRepLevels()
-		if err != nil {
-			return nil, err
-		}
+	if lenBound > 0 {
+		if sr.hasRepeatedChild {
+			nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
+			nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
+			validityIO.ValidBits = nullBitmap.Bytes()
+			defLevels, err := sr.GetDefLevels()
+			if err != nil {
+				return nil, err
+			}
+			repLevels, err := sr.GetRepLevels()
+			if err != nil {
+				return nil, err
+			}
 
-		if err := file.DefRepLevelsToBitmap(defLevels, repLevels, sr.levelInfo, &validityIO); err != nil {
-			return nil, err
-		}
+			if err := file.DefRepLevelsToBitmap(defLevels, repLevels, sr.levelInfo, &validityIO); err != nil {
+				return nil, err
+			}
 
-	} else if sr.filtered.Nullable {
-		nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
-		nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
-		validityIO.ValidBits = nullBitmap.Bytes()
-		defLevels, err := sr.GetDefLevels()
-		if err != nil {
-			return nil, err
-		}
+		} else if sr.filtered.Nullable {
+			nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
+			nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
+			validityIO.ValidBits = nullBitmap.Bytes()
+			defLevels, err := sr.GetDefLevels()
+			if err != nil {
+				return nil, err
+			}
 
-		file.DefLevelsToBitmap(defLevels, sr.levelInfo, &validityIO)
+			file.DefLevelsToBitmap(defLevels, sr.levelInfo, &validityIO)
+		}
 	}
 
 	if nullBitmap != nil {

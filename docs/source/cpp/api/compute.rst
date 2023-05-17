@@ -34,7 +34,7 @@ Abstract Function classes
 Function execution
 ------------------
 
-.. doxygengroup:: compute-functions-executor
+.. doxygengroup:: compute-function-executor
    :content-only:
    :members:
 

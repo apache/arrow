@@ -18,6 +18,7 @@
 # CMake files
 CMakeFiles/*
 CMakeCache.txt
+build/
 
 # MEX files
 *.mex*

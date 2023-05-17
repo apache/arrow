@@ -163,7 +163,7 @@ def test_direct_read_dictionary_subfield(use_legacy_dataset):
     pq.write_table(table, bio)
     contents = bio.getvalue()
     result = pq.read_table(pa.BufferReader(contents),
-                           read_dictionary=['f0.list.item'],
+                           read_dictionary=['f0.list.element'],
                            use_legacy_dataset=use_legacy_dataset)
 
     arr = pa.array(data[0])

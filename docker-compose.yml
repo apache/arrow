@@ -161,6 +161,7 @@ x-hierarchy:
   - postgres
   - python-wheel-manylinux-2014:
     - java-jni-manylinux-2014
+  - python-wheel-manylinux-2-28
   - python-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
   - python-wheel-windows-vs2017
@@ -183,6 +184,8 @@ volumes:
     name: maven-cache
   python-wheel-manylinux2014-ccache:
     name: python-wheel-manylinux2014-ccache
+  python-wheel-manylinux-2-28-ccache:
+    name: python-wheel-manylinux-2-28-ccache
   python-wheel-windows-clcache:
     name: python-wheel-windows-clcache
   ubuntu-ccache:
@@ -1019,7 +1022,7 @@ services:
         python: ${PYTHON}
         manylinux: 2014
       context: .
-      dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
+      dockerfile: ci/docker/python-wheel-manylinux.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     environment:
@@ -1027,6 +1030,29 @@ services:
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
+    command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
+
+  # See available versions at:
+  #    https://quay.io/repository/pypa/manylinux_2_28_x86_64?tab=tags
+  python-wheel-manylinux-2-28:
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
+    build:
+      args:
+        arch: ${ARCH}
+        arch_short: ${ARCH_SHORT}
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2023-01-14-103cb93
+        vcpkg: ${VCPKG}
+        python: ${PYTHON}
+        manylinux: 2_28
+      context: .
+      dockerfile: ci/docker/python-wheel-manylinux.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
+    environment:
+      <<: *ccache
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux-2-28-ccache:/ccache:delegated
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
   python-wheel-manylinux-test-imports:

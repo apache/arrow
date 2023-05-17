@@ -275,6 +275,11 @@ class SerializedPageReader : public PageReader {
   }
 
   // Implement the PageReader interface
+  //
+  // The returned Page contains references that aren't guaranteed to live
+  // beyond the next call to NextPage(). SerializedPageReader reuses the
+  // decryption and decompression buffers internally, so if NextPage() is
+  // called then the content of previous page might be invalidated.
   std::shared_ptr<Page> NextPage() override;
 
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
@@ -582,10 +587,8 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
   }
 
   // Grow the uncompressed buffer if we need to.
-  if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
-    PARQUET_THROW_NOT_OK(
-        decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
-  }
+  PARQUET_THROW_NOT_OK(
+      decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
 
   if (levels_byte_len > 0) {
     // First copy the levels as-is
