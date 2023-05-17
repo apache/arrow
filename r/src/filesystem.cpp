@@ -288,9 +288,7 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs,
 #include <arrow/filesystem/s3fs.h>
 
 // [[s3::export]]
-bool IsS3Initialized() {
-  return fs::IsS3Initialized();
-}
+bool IsS3Initialized() { return fs::IsS3Initialized(); }
 
 // [[s3::export]]
 void InitS3(const std::string& log_level) {
