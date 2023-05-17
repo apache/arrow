@@ -32,16 +32,22 @@ import (
 )
 
 const (
-	ArrowExtTypesUri            = "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
-	SubstraitDefaultURIPrefix   = "https://github.com/substrait-io/substrait/blob/main/extensions/"
-	SubstraitArithmeticFuncsURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
-	SubstraitComparisonFuncsURI = "https://github.com/substrait-io/substrait/blob/main/extensions/functions_comparison.yaml"
+	// URI for official Arrow Substrait Extension Types
+	ArrowExtTypesUri          = "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+	SubstraitDefaultURIPrefix = extensions.SubstraitDefaultURIPrefix
+	// URI for official Substrait Arithemetic funcs extensions
+	SubstraitArithmeticFuncsURI = SubstraitDefaultURIPrefix + "functions_arithmetic.yaml"
+	// URI for official Substrait Comparison funcs extensions
+	SubstraitComparisonFuncsURI = SubstraitDefaultURIPrefix + "functions_comparison.yaml"
+
+	TimestampTzTimezone = "UTC"
 )
 
 var hashSeed maphash.Seed
-var DefaultExtensionIDRegistry = NewExtensionIDRegistry()
 
-const TimestampTzTimezone = "UTC"
+// the default extension registry that will contain the Arrow extension
+// type variations and types.
+var DefaultExtensionIDRegistry = NewExtensionIDRegistry()
 
 func init() {
 	hashSeed = maphash.MakeSeed()
@@ -154,8 +160,8 @@ func parseOption[typ ~string](sf *expr.ScalarFunction, optionName string, parser
 	return def, arrow.ErrNotImplemented
 }
 
-type substraitToArrow func(*expr.ScalarFunction) (fname string, opts compute.FunctionOptions, err error)
-type arrowToSubstrait func(fname string) (extensions.ID, []*types.FunctionOption, error)
+type substraitToArrow = func(*expr.ScalarFunction) (fname string, opts compute.FunctionOptions, err error)
+type arrowToSubstrait = func(fname string) (extensions.ID, []*types.FunctionOption, error)
 
 var substraitToArrowFuncMap = map[string]string{
 	"lt":  "less",
@@ -229,10 +235,20 @@ func encodeOptionlessOverflowableArithmetic(id extensions.ID) arrowToSubstrait {
 	}
 }
 
+// NewExtensionSetDefault is a convenince function to create a new extension
+// set using the Default arrow extension ID registry.
+//
+// See NewExtensionSet for more info.
 func NewExtensionSetDefault(set expr.ExtensionRegistry) ExtensionIDSet {
 	return &extensionSet{ExtensionRegistry: set, reg: DefaultExtensionIDRegistry}
 }
 
+// NewExtensionSet creates a new extension set given a substrait extension registry,
+// and an Arrow <--> Substrait registry for mapping substrait extensions to
+// their Arrow equivalents. This extension set can then be used to manage a
+// particular set of extensions in use by an expression or plan, so when
+// serializing you only need to serialize the extensions that have been
+// inserted into the extension set.
 func NewExtensionSet(set expr.ExtensionRegistry, reg *ExtensionIDRegistry) ExtensionIDSet {
 	return &extensionSet{ExtensionRegistry: set, reg: reg}
 }
@@ -248,7 +264,9 @@ func (e *extensionSet) GetSubstraitRegistry() expr.ExtensionRegistry { return e.
 func (e *extensionSet) DecodeTypeArrow(anchor uint32) (extensions.ID, arrow.DataType, bool) {
 	id, ok := e.Set.DecodeType(anchor)
 	if !ok {
-		return id, nil, false
+		if id, ok = e.Set.DecodeTypeVariation(anchor); !ok {
+			return id, nil, false
+		}
 	}
 
 	dt, ok := e.reg.GetTypeByID(id)
@@ -271,6 +289,15 @@ func (e *extensionSet) DecodeFunction(ref uint32) (extensions.ID, substraitToArr
 	return id, conv, ok
 }
 
+func (e *extensionSet) EncodeTypeVariation(dt arrow.DataType) (extensions.ID, uint32, bool) {
+	id, ok := e.reg.GetIDByType(dt)
+	if !ok {
+		return extensions.ID{}, 0, false
+	}
+
+	return id, e.Set.GetTypeVariationAnchor(id), true
+}
+
 func (e *extensionSet) EncodeType(dt arrow.DataType) (extensions.ID, uint32, bool) {
 	id, ok := e.reg.GetIDByType(dt)
 	if !ok {
@@ -284,6 +311,8 @@ func (e *extensionSet) EncodeFunction(id extensions.ID) uint32 {
 	return e.Set.GetFuncAnchor(id)
 }
 
+// ExtensionIDRegistry manages a set of mappings between Arrow types
+// and functions and their substrait equivalents.
 type ExtensionIDRegistry struct {
 	typeList []arrow.DataType
 	ids      []extensions.ID
@@ -295,6 +324,7 @@ type ExtensionIDRegistry struct {
 	arrowToSubstrait   map[string]arrowToSubstrait
 }
 
+// NewExtensionIDRegistry initializes a new registry for use.
 func NewExtensionIDRegistry() *ExtensionIDRegistry {
 	return &ExtensionIDRegistry{
 		typeList:           make([]arrow.DataType, 0),
@@ -306,6 +336,9 @@ func NewExtensionIDRegistry() *ExtensionIDRegistry {
 	}
 }
 
+// RegisterType creates a mapping between the given extension ID and the
+// provided Arrow data type. If this extension ID or arrow type are already
+// registered, an arrow.ErrInvalid error will be returned.
 func (e *ExtensionIDRegistry) RegisterType(id extensions.ID, dt arrow.DataType) error {
 	if _, ok := e.substraitToIdx[id]; ok {
 		return fmt.Errorf("%w: type id already registered", arrow.ErrInvalid)
@@ -324,6 +357,14 @@ func (e *ExtensionIDRegistry) RegisterType(id extensions.ID, dt arrow.DataType) 
 	return nil
 }
 
+// AddSubstraitScalarToArrow creates a mapping between a given extension ID
+// and a function which should return the corresponding Arrow compute function
+// name along with any relevant FunctionOptions based on the ScalarFunction
+// instance passed to it.
+//
+// Any relevant options should be parsed from the ScalarFunction's options
+// and used to ensure the correct arrow compute function is used and necessary
+// options are passed.
 func (e *ExtensionIDRegistry) AddSubstraitScalarToArrow(id extensions.ID, toArrow substraitToArrow) error {
 	if _, ok := e.substraitToArrowFn[id]; ok {
 		return fmt.Errorf("%w: extension id already registered as function", arrow.ErrInvalid)
@@ -333,6 +374,9 @@ func (e *ExtensionIDRegistry) AddSubstraitScalarToArrow(id extensions.ID, toArro
 	return nil
 }
 
+// AddArrowToSubstrait creates a mapping between the provided arrow compute function
+// and a function which should provide the correct substrait ExtensionID and function
+// options from that name.
 func (e *ExtensionIDRegistry) AddArrowToSubstrait(name string, fn arrowToSubstrait) error {
 	if _, ok := e.arrowToSubstrait[name]; ok {
 		return fmt.Errorf("%w: function name '%s' already registered for conversion to substrait", arrow.ErrInvalid, name)
@@ -342,6 +386,9 @@ func (e *ExtensionIDRegistry) AddArrowToSubstrait(name string, fn arrowToSubstra
 	return nil
 }
 
+// GetTypeByID returns the mapped arrow data type from the provided substrait
+// extension id. If no mapping exists for this substrait extension id,
+// the second return value will be false.
 func (e *ExtensionIDRegistry) GetTypeByID(id extensions.ID) (arrow.DataType, bool) {
 	idx, ok := e.substraitToIdx[id]
 	if !ok {
@@ -351,6 +398,9 @@ func (e *ExtensionIDRegistry) GetTypeByID(id extensions.ID) (arrow.DataType, boo
 	return e.typeList[idx], true
 }
 
+// GetIDByType is the inverse of GetTypeByID, returning the mapped substrait
+// extension ID corresponding to the provided arrow data type. The second
+// return is false if there is no mapping found.
 func (e *ExtensionIDRegistry) GetIDByType(typ arrow.DataType) (extensions.ID, bool) {
 	dthash := arrow.HashType(hashSeed, typ)
 	idx, ok := e.arrowToIdx[dthash]
@@ -361,6 +411,10 @@ func (e *ExtensionIDRegistry) GetIDByType(typ arrow.DataType) (extensions.ID, bo
 	return e.ids[idx], true
 }
 
+// GetSubstraitScalarToArrow returns the mapped conversion function for a
+// given substrait extension ID to convert a substrait ScalarFunction to
+// the corresponding Arrow compute function call. False is returned as
+// the second value if there is no mapping available.
 func (e *ExtensionIDRegistry) GetSubstraitScalarToArrow(id extensions.ID) (substraitToArrow, bool) {
 	conv, ok := e.substraitToArrowFn[id]
 	if !ok {
@@ -370,6 +424,9 @@ func (e *ExtensionIDRegistry) GetSubstraitScalarToArrow(id extensions.ID) (subst
 	return conv, true
 }
 
+// GetArrowToSubstrait returns the mapped function to convert an arrow compute
+// function to the corresponding Substrait ScalarFunction extension ID and options.
+// False is returned as the second value if there is no mapping found.
 func (e *ExtensionIDRegistry) GetArrowToSubstrait(name string) (conv arrowToSubstrait, ok bool) {
 	conv, ok = e.arrowToSubstrait[name]
 	if !ok {
@@ -381,6 +438,8 @@ func (e *ExtensionIDRegistry) GetArrowToSubstrait(name string) (conv arrowToSubs
 	return
 }
 
+// ExtensionIDSet is an interface for managing the mapping between arrow
+// and substrait types and function extensions.
 type ExtensionIDSet interface {
 	GetArrowRegistry() *ExtensionIDRegistry
 	GetSubstraitRegistry() expr.ExtensionRegistry
@@ -389,12 +448,18 @@ type ExtensionIDSet interface {
 	DecodeFunction(ref uint32) (extensions.ID, substraitToArrow, bool)
 
 	EncodeType(dt arrow.DataType) (extensions.ID, uint32, bool)
+	EncodeTypeVariation(dt arrow.DataType) (extensions.ID, uint32, bool)
 }
 
+// IsNullable is a convenience method to return whether or not
+// a substrait type has Nullability set to NullabilityRequired or not.
 func IsNullable(t types.Type) bool {
 	return t.GetNullability() != types.NullabilityRequired
 }
 
+// FieldsFromSubstrait produces a list of arrow fields from a list of
+// substrait types (such as the fields of a StructType) using nextName
+// to determine the names for the fields.
 func FieldsFromSubstrait(typeList []types.Type, nextName func() string, ext ExtensionIDSet) (out []arrow.Field, err error) {
 	out = make([]arrow.Field, len(typeList))
 	for i, t := range typeList {
@@ -417,6 +482,9 @@ func FieldsFromSubstrait(typeList []types.Type, nextName func() string, ext Exte
 	return
 }
 
+// ToSubstraitType converts an arrow data type to a Substrait Type. Since
+// arrow types don't have a nullable flag (it is in the arrow.Field) but
+// Substrait types do, the nullability must be passed in here.
 func ToSubstraitType(dt arrow.DataType, nullable bool, ext ExtensionIDSet) (types.Type, error) {
 	var nullability types.Nullability
 	if nullable {
@@ -436,14 +504,50 @@ func ToSubstraitType(dt arrow.DataType, nullable bool, ext ExtensionIDSet) (type
 		return &types.Int32Type{Nullability: nullability}, nil
 	case arrow.INT64:
 		return &types.Int64Type{Nullability: nullability}, nil
-	case arrow.UINT8, arrow.UINT16, arrow.UINT32, arrow.UINT64, arrow.FLOAT16:
-		_, anchor, ok := ext.EncodeType(dt)
+	case arrow.UINT8:
+		_, anchor, ok := ext.EncodeTypeVariation(dt)
 		if !ok {
 			return nil, arrow.ErrNotFound
 		}
-		return &types.UserDefinedType{
-			Nullability:   nullability,
-			TypeReference: anchor,
+		return &types.Int8Type{
+			Nullability:      nullability,
+			TypeVariationRef: anchor,
+		}, nil
+	case arrow.UINT16:
+		_, anchor, ok := ext.EncodeTypeVariation(dt)
+		if !ok {
+			return nil, arrow.ErrNotFound
+		}
+		return &types.Int16Type{
+			Nullability:      nullability,
+			TypeVariationRef: anchor,
+		}, nil
+	case arrow.UINT32:
+		_, anchor, ok := ext.EncodeTypeVariation(dt)
+		if !ok {
+			return nil, arrow.ErrNotFound
+		}
+		return &types.Int32Type{
+			Nullability:      nullability,
+			TypeVariationRef: anchor,
+		}, nil
+	case arrow.UINT64:
+		_, anchor, ok := ext.EncodeTypeVariation(dt)
+		if !ok {
+			return nil, arrow.ErrNotFound
+		}
+		return &types.Int64Type{
+			Nullability:      nullability,
+			TypeVariationRef: anchor,
+		}, nil
+	case arrow.FLOAT16:
+		_, anchor, ok := ext.EncodeTypeVariation(dt)
+		if !ok {
+			return nil, arrow.ErrNotFound
+		}
+		return &types.Int16Type{
+			Nullability:      nullability,
+			TypeVariationRef: anchor,
 		}, nil
 	case arrow.FLOAT32:
 		return &types.Float32Type{Nullability: nullability}, nil
@@ -534,8 +638,19 @@ func ToSubstraitType(dt arrow.DataType, nullable bool, ext ExtensionIDSet) (type
 	return nil, arrow.ErrNotImplemented
 }
 
+// FromSubstraitType returns the appropriate Arrow data type for the given
+// substrait type, using the extension set if necessary.
+// Since Substrait types contain their nullability also, the nullability
+// returned along with the data type.
 func FromSubstraitType(t types.Type, ext ExtensionIDSet) (arrow.DataType, bool, error) {
 	nullable := IsNullable(t)
+
+	if t.GetTypeVariationReference() > 0 {
+		_, dt, ok := ext.DecodeTypeArrow(t.GetTypeVariationReference())
+		if ok {
+			return dt, nullable, nil
+		}
+	}
 
 	switch t := t.(type) {
 	case *types.BooleanType:

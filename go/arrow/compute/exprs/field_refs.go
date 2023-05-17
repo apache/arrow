@@ -20,9 +20,6 @@ package exprs
 
 import (
 	"fmt"
-	"hash"
-	"hash/maphash"
-	"unsafe"
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
@@ -39,6 +36,8 @@ func getFields(typ arrow.DataType) []arrow.Field {
 	return nil
 }
 
+// GetRefField evaluates the substrait field reference to retrieve the
+// referenced field or return an error.
 func GetRefField(ref expr.ReferenceSegment, fields []arrow.Field) (*arrow.Field, error) {
 	if ref == nil {
 		return nil, compute.ErrEmpty
@@ -71,10 +70,20 @@ func GetRefField(ref expr.ReferenceSegment, fields []arrow.Field) (*arrow.Field,
 	return out, nil
 }
 
+// GetRefSchema evaluates the provided substrait field reference against
+// the schema to retrieve the referenced (potentially nested) field.
 func GetRefSchema(ref expr.ReferenceSegment, schema *arrow.Schema) (*arrow.Field, error) {
 	return GetRefField(ref, schema.Fields())
 }
 
+// GetScalar returns the evaluated referenced scalar value from the provided
+// scalar which must be appropriate to the type of reference.
+//
+// A StructFieldRef can only reference against a Struct-type scalar, a
+// ListElementRef can only reference against a List or LargeList scalar,
+// and a MapKeyRef will only reference against a Map scalar. An error is
+// returned if following the reference children ends up with an invalid
+// nested reference object.
 func GetScalar(ref expr.ReferenceSegment, s scalar.Scalar, mem memory.Allocator, ext ExtensionIDSet) (scalar.Scalar, error) {
 	if ref == nil {
 		return nil, compute.ErrEmpty
@@ -166,6 +175,8 @@ func GetScalar(ref expr.ReferenceSegment, s scalar.Scalar, mem memory.Allocator,
 	return out, nil
 }
 
+// GetReferencedValue retrieves the referenced (potentially nested) value from
+// the provided datum which may be a scalar, array, or record batch.
 func GetReferencedValue(mem memory.Allocator, ref expr.ReferenceSegment, value compute.Datum, ext ExtensionIDSet) (compute.Datum, error) {
 	if ref == nil {
 		return nil, compute.ErrEmpty
@@ -240,43 +251,4 @@ func GetReferencedValue(mem memory.Allocator, ref expr.ReferenceSegment, value c
 	}
 
 	return value, nil
-}
-
-var seed = maphash.MakeSeed()
-
-func addHash(s expr.ReferenceSegment, h hash.Hash) {
-	switch s := s.(type) {
-	case *expr.StructFieldRef:
-		h.Write(arrow.Int32Traits.CastToBytes([]int32{s.Field}))
-	case *expr.MapKeyRef:
-		h.Write([]byte(s.String()))
-	case *expr.ListElementRef:
-		h.Write(arrow.Int32Traits.CastToBytes([]int32{s.Offset}))
-	}
-
-	child := s.GetChild()
-	if child != nil {
-		addHash(child, h)
-	}
-}
-
-func hashFieldRef(ref *expr.FieldReference) uint64 {
-	var h maphash.Hash
-	h.SetSeed(seed)
-
-	if ref.Root != expr.RootReference {
-		// not implementing expression references yet, just root references
-		// ensure uniqueness by just using the pointer
-		return uint64(uintptr(unsafe.Pointer(ref)))
-	}
-
-	switch r := ref.Reference.(type) {
-	case expr.ReferenceSegment:
-		addHash(r, &h)
-		return h.Sum64()
-	case *expr.MaskExpression:
-		// not implementing mask expression references yet, just root references
-	}
-
-	return uint64(uintptr(unsafe.Pointer(ref)))
 }

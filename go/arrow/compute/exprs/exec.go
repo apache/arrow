@@ -129,6 +129,8 @@ func makeExecBatch(ctx context.Context, schema *arrow.Schema, partial compute.Da
 	return out, fmt.Errorf("%w: MakeExecBatch from %s", arrow.ErrNotImplemented, partial)
 }
 
+// ToArrowSchema takes a substrait NamedStruct and an extension set (for
+// type resolution mapping) and creates the equivalent Arrow Schema.
 func ToArrowSchema(base types.NamedStruct, ext ExtensionIDSet) (*arrow.Schema, error) {
 	fields := make([]arrow.Field, len(base.Names))
 	for i, typ := range base.Struct.Types {
@@ -146,7 +148,10 @@ func ToArrowSchema(base types.NamedStruct, ext ExtensionIDSet) (*arrow.Schema, e
 	return arrow.NewSchema(fields, nil), nil
 }
 
-type regCtxKey struct{}
+type (
+	regCtxKey struct{}
+	extCtxKey struct{}
+)
 
 func WithExtensionRegistry(ctx context.Context, reg *ExtensionIDRegistry) context.Context {
 	return context.WithValue(ctx, regCtxKey{}, reg)
@@ -156,6 +161,20 @@ func GetExtensionRegistry(ctx context.Context) *ExtensionIDRegistry {
 	v, ok := ctx.Value(regCtxKey{}).(*ExtensionIDRegistry)
 	if !ok {
 		v = DefaultExtensionIDRegistry
+	}
+	return v
+}
+
+func WithExtensionIDSet(ctx context.Context, ext ExtensionIDSet) context.Context {
+	return context.WithValue(ctx, extCtxKey{}, ext)
+}
+
+func GetExtensionIDSet(ctx context.Context) ExtensionIDSet {
+	v, ok := ctx.Value(extCtxKey{}).(ExtensionIDSet)
+	if !ok {
+		return NewExtensionSet(
+			expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection),
+			GetExtensionRegistry(ctx))
 	}
 	return v
 }
@@ -353,7 +372,17 @@ func literalToDatum(mem memory.Allocator, lit expr.Literal, ext ExtensionIDSet) 
 	return nil, arrow.ErrNotImplemented
 }
 
-func ExecuteScalarExpression(ctx context.Context, inputSchema *arrow.Schema, ext ExtensionIDSet, expression expr.Expression, partialInput compute.Datum) (compute.Datum, error) {
+// ExecuteScalarExpression executes the given substrait expression using the provided datum as input.
+// It will first create an exec batch using the input schema and the datum.
+// The datum may have missing or incorrectly ordered columns while the input schema
+// should describe the expected input schema for the expression. Missing fields will
+// be replaced with null scalars and incorrectly ordered columns will be re-ordered
+// according to the schema.
+//
+// You can provide an allocator to use through the context via compute.WithAllocator.
+//
+// You can provide the ExtensionIDSet to use through the context via WithExtensionIDSet.
+func ExecuteScalarExpression(ctx context.Context, inputSchema *arrow.Schema, expression expr.Expression, partialInput compute.Datum) (compute.Datum, error) {
 	if expression == nil {
 		return nil, arrow.ErrInvalid
 	}
@@ -368,9 +397,16 @@ func ExecuteScalarExpression(ctx context.Context, inputSchema *arrow.Schema, ext
 		}
 	}()
 
-	return ExecuteScalarBatch(ctx, batch, expression, ext)
+	return executeScalarBatch(ctx, batch, expression, GetExtensionIDSet(ctx))
 }
 
+// ExecuteScalarSubstrait uses the provided Substrait extended expression to
+// determine the expected input schema (replacing missing fields in the partial
+// input datum with null scalars and re-ordering columns if necessary) and
+// ExtensionIDSet to use. You can provide the extension registry to use
+// through the context via WithExtensionRegistry, otherwise the default
+// Arrow registry will be used. You can provide a memory.Allocator to use
+// the same way via compute.WithAllocator.
 func ExecuteScalarSubstrait(ctx context.Context, expression *expr.Extended, partialInput compute.Datum) (compute.Datum, error) {
 	if expression == nil {
 		return nil, arrow.ErrInvalid
@@ -396,7 +432,7 @@ func ExecuteScalarSubstrait(ctx context.Context, expression *expr.Extended, part
 		return nil, err
 	}
 
-	return ExecuteScalarExpression(ctx, sc, set, toExecute, partialInput)
+	return ExecuteScalarExpression(WithExtensionIDSet(ctx, set), sc, toExecute, partialInput)
 }
 
 func execFieldRef(ctx context.Context, e *expr.FieldReference, input compute.ExecBatch, ext ExtensionIDSet) (compute.Datum, error) {
@@ -437,7 +473,7 @@ func execFieldRef(ctx context.Context, e *expr.FieldReference, input compute.Exe
 	return out, nil
 }
 
-func ExecuteScalarBatch(ctx context.Context, input compute.ExecBatch, exp expr.Expression, ext ExtensionIDSet) (compute.Datum, error) {
+func executeScalarBatch(ctx context.Context, input compute.ExecBatch, exp expr.Expression, ext ExtensionIDSet) (compute.Datum, error) {
 	if !exp.IsScalar() {
 		return nil, fmt.Errorf("%w: ExecuteScalarExpression cannot execute non-scalar expressions",
 			arrow.ErrInvalid)
@@ -453,7 +489,7 @@ func ExecuteScalarBatch(ctx context.Context, input compute.ExecBatch, exp expr.E
 			return nil, fmt.Errorf("%w: cast without argument to cast", arrow.ErrInvalid)
 		}
 
-		arg, err := ExecuteScalarBatch(ctx, input, e.Input, ext)
+		arg, err := executeScalarBatch(ctx, input, e.Input, ext)
 		if err != nil {
 			return nil, err
 		}
@@ -486,7 +522,7 @@ func ExecuteScalarBatch(ctx context.Context, input compute.ExecBatch, exp expr.E
 			case types.Enum:
 				args[i] = compute.NewDatum(scalar.NewStringScalar(string(v)))
 			case expr.Expression:
-				args[i], err = ExecuteScalarBatch(ctx, input, v, ext)
+				args[i], err = executeScalarBatch(ctx, input, v, ext)
 				if err != nil {
 					return nil, err
 				}

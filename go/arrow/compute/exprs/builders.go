@@ -32,6 +32,9 @@ import (
 	"github.com/substrait-io/substrait-go/types"
 )
 
+// NewDefaultExtensionSet constructs an empty extension set using the default
+// Arrow Extension registry and the default collection of substrait extensions
+// from the Substrait-go repo.
 func NewDefaultExtensionSet() ExtensionIDSet {
 	return NewExtensionSetDefault(expr.NewEmptyExtensionRegistry(&extensions.DefaultCollection))
 }
@@ -223,6 +226,11 @@ func NewFieldRefFromDotPath(dotpath string, rootSchema *arrow.Schema) (expr.Refe
 	return out, nil
 }
 
+// RefFromFieldPath constructs a substrait field reference segment
+// from a compute.FieldPath which should be a slice of integers
+// indicating nested field paths to travel. This will return a
+// series of StructFieldRef's whose child is the next element in
+// the field path.
 func RefFromFieldPath(field compute.FieldPath) expr.ReferenceSegment {
 	if len(field) == 0 {
 		return nil
@@ -239,6 +247,9 @@ func RefFromFieldPath(field compute.FieldPath) expr.ReferenceSegment {
 	return seg
 }
 
+// NewFieldRef constructs a properly typed substrait field reference segment,
+// from a given arrow field reference, schema and extension set (for resolving
+// substrait types).
 func NewFieldRef(ref compute.FieldRef, schema *arrow.Schema, ext ExtensionIDSet) (*expr.FieldReference, error) {
 	path, err := ref.FindOne(schema)
 	if err != nil {
@@ -253,7 +264,193 @@ func NewFieldRef(ref compute.FieldRef, schema *arrow.Schema, ext ExtensionIDSet)
 	return expr.NewRootFieldRef(RefFromFieldPath(path), st.(*types.StructType))
 }
 
-type builder struct {
+// Builder wraps the substrait-go expression Builder and FuncArgBuilder
+// interfaces for a simple interface that can be passed around to build
+// substrait expressions from Arrow data.
+type Builder interface {
+	expr.Builder
+	expr.FuncArgBuilder
+}
+
+// ExprBuilder is the parent for building substrait expressions
+// via Arrow types and functions.
+//
+// The expectation is that it should be utilized like so:
+//
+//	bldr := NewExprBuilder(extSet)
+//	bldr.SetInputSchema(arrowschema)
+//	call, err := bldr.CallScalar("equal", nil,
+//	     bldr.FieldRef("i32"),
+//	     bldr.Literal(expr.NewPrimitiveLiteral(
+//	            int32(0), false)))
+//	ex, err := call.BuildExpr()
+//	...
+//	result, err := exprs.ExecuteScalarExpression(ctx, arrowschema,
+//	       ex, input)
+type ExprBuilder struct {
+	b           expr.ExprBuilder
 	extSet      ExtensionIDSet
 	inputSchema *arrow.Schema
+}
+
+// NewExprBuilder constructs a new Expression Builder that will use the
+// provided extension set and registry.
+func NewExprBuilder(extSet ExtensionIDSet) ExprBuilder {
+	return ExprBuilder{
+		b:      expr.ExprBuilder{Reg: extSet.GetSubstraitRegistry()},
+		extSet: extSet,
+	}
+}
+
+// SetInputSchema sets the current Arrow schema that will be utilized
+// for performing field reference and field type resolutions.
+func (e *ExprBuilder) SetInputSchema(s *arrow.Schema) error {
+	st, err := ToSubstraitType(arrow.StructOf(s.Fields()...), false, e.extSet)
+	if err != nil {
+		return err
+	}
+
+	e.inputSchema = s
+	e.b.BaseSchema = st.(*types.StructType)
+	return nil
+}
+
+// MustCallScalar is like CallScalar, but will panic on error rather than
+// return it.
+func (e *ExprBuilder) MustCallScalar(fn string, opts []*types.FunctionOption, args ...expr.FuncArgBuilder) Builder {
+	b, err := e.CallScalar(fn, opts, args...)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// CallScalar constructs a builder for a scalar function call. The function
+// name is expected to be valid in the Arrow function registry which will
+// map it properly to a substrait expression by resolving the types of
+// the arguments. Examples are: "greater", "multiply", "equal", etc.
+//
+// Can return arrow.ErrNotFound if there is no function mapping found.
+// Or will forward any error encountered when converting from an Arrow
+// function to a substrait one.
+func (e *ExprBuilder) CallScalar(fn string, opts []*types.FunctionOption, args ...expr.FuncArgBuilder) (Builder, error) {
+	conv, ok := e.extSet.GetArrowRegistry().GetArrowToSubstrait(fn)
+	if !ok {
+		return nil, arrow.ErrNotFound
+	}
+
+	id, convOpts, err := conv(fn)
+	if err != nil {
+		return nil, err
+	}
+
+	opts = append(opts, convOpts...)
+	return e.b.ScalarFunc(id, opts...).Args(args...), nil
+}
+
+// FieldPath uses a field path to construct a Field Reference
+// expression.
+func (e *ExprBuilder) FieldPath(path compute.FieldPath) Builder {
+	segments := make([]expr.ReferenceSegment, len(path))
+	for i, p := range path {
+		segments[i] = expr.NewStructFieldRef(int32(p))
+	}
+
+	return e.b.RootRef(expr.FlattenRefSegments(segments...))
+}
+
+// FieldIndex is shorthand for creating a single field reference
+// to the struct field index provided.
+func (e *ExprBuilder) FieldIndex(i int) Builder {
+	return e.b.RootRef(expr.NewStructFieldRef(int32(i)))
+}
+
+// FieldRef constructs a field reference expression to the field with
+// the given name from the input. It will be resolved to a field
+// index when calling BuildExpr.
+func (e *ExprBuilder) FieldRef(field string) Builder {
+	return &refBuilder{eb: e, fieldRef: compute.FieldRefName(field)}
+}
+
+// FieldRefList accepts a list of either integers or strings to
+// construct a field reference expression from. This will panic
+// if any of elems are not a string or int.
+//
+// Field names will be resolved to their indexes when BuildExpr is called
+// by using the provided Arrow schema.
+func (e *ExprBuilder) FieldRefList(elems ...any) Builder {
+	return &refBuilder{eb: e, fieldRef: compute.FieldRefList(elems...)}
+}
+
+// Literal wraps a substrait literal to be used as an argument to
+// building other expressions.
+func (e *ExprBuilder) Literal(l expr.Literal) Builder {
+	return e.b.Literal(l)
+}
+
+// WrapLiteral is a convenience for accepting functions like NewLiteral
+// which can potentially return an error. If an error is encountered,
+// it will be surfaced when BuildExpr is called.
+func (e *ExprBuilder) WrapLiteral(l expr.Literal, err error) Builder {
+	return e.b.Wrap(l, err)
+}
+
+// Must is a convenience wrapper for any method that returns a Builder
+// and error, panic'ing if it received an error or otherwise returning
+// the Builder.
+func (*ExprBuilder) Must(b Builder, err error) Builder {
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+// UnsafeCast returns a Cast expression whose FailBehavior is unspecified,
+// potentially allowing overflows or underflows.
+func (e *ExprBuilder) UnsafeCast(from Builder, to arrow.DataType) (Builder, error) {
+	t, err := ToSubstraitType(to, true, e.extSet)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.b.Cast(from, t).FailBehavior(types.BehaviorUnspecified), nil
+}
+
+// Cast returns a Cast expression with the FailBehavior of ThrowException,
+// erroring if the cast would result in an overflow/underflow.
+func (e *ExprBuilder) Cast(from Builder, to arrow.DataType) (Builder, error) {
+	t, err := ToSubstraitType(to, true, e.extSet)
+	if err != nil {
+		return nil, err
+	}
+
+	return e.b.Cast(from, t).FailBehavior(types.BehaviorThrowException), nil
+}
+
+type refBuilder struct {
+	eb *ExprBuilder
+
+	fieldRef compute.FieldRef
+}
+
+func (r *refBuilder) BuildFuncArg() (types.FuncArg, error) {
+	return r.BuildExpr()
+}
+
+func (r *refBuilder) BuildExpr() (expr.Expression, error) {
+	if r.eb.inputSchema == nil {
+		return nil, fmt.Errorf("%w: no input schema specified for ref", arrow.ErrInvalid)
+	}
+
+	path, err := r.fieldRef.FindOne(r.eb.inputSchema)
+	if err != nil {
+		return nil, err
+	}
+
+	segments := make([]expr.ReferenceSegment, len(path))
+	for i, p := range path {
+		segments[i] = expr.NewStructFieldRef(int32(p))
+	}
+
+	return r.eb.b.RootRef(expr.FlattenRefSegments(segments...)).Build()
 }

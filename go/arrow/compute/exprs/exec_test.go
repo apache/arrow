@@ -37,7 +37,7 @@ import (
 
 var (
 	extSet               = exprs.NewDefaultExtensionSet()
-	u32ID, u32TypeRef, _ = extSet.EncodeType(arrow.PrimitiveTypes.Uint32)
+	u32ID, u32TypeRef, _ = extSet.EncodeTypeVariation(arrow.PrimitiveTypes.Uint32)
 
 	boringSchema = types.NamedStruct{
 		Names: []string{
@@ -51,8 +51,8 @@ var (
 				&types.Int8Type{},
 				&types.Int32Type{},
 				&types.Int32Type{Nullability: types.NullabilityRequired},
-				&types.UserDefinedType{
-					TypeReference: u32TypeRef,
+				&types.Int32Type{
+					TypeVariationRef: u32TypeRef,
 				},
 				&types.Int64Type{},
 				&types.Float32Type{},
@@ -64,6 +64,19 @@ var (
 			},
 		},
 	}
+
+	boringArrowSchema = arrow.NewSchema([]arrow.Field{
+		{Name: "bool", Type: arrow.FixedWidthTypes.Boolean, Nullable: true},
+		{Name: "i8", Type: arrow.PrimitiveTypes.Int8, Nullable: true},
+		{Name: "i32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		{Name: "u32", Type: arrow.PrimitiveTypes.Uint32, Nullable: true},
+		{Name: "i64", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
+		{Name: "f32", Type: arrow.PrimitiveTypes.Float32, Nullable: true},
+		{Name: "f64", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+		{Name: "date32", Type: arrow.FixedWidthTypes.Date32, Nullable: true},
+		{Name: "str", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "bin", Type: arrow.BinaryTypes.Binary, Nullable: true},
+	}, nil)
 )
 
 func TestToArrowSchema(t *testing.T) {
@@ -86,6 +99,30 @@ func TestToArrowSchema(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Truef(t, expectedSchema.Equal(sc), "expected: %s\ngot: %s", expectedSchema, sc)
+}
+
+func assertEqual(t *testing.T, expected, actual any) bool {
+	switch e := expected.(type) {
+	case compute.Datum:
+		return assert.Truef(t, e.Equals(compute.NewDatumWithoutOwning(actual)),
+			"expected: %s\ngot: %s", e, actual)
+	case arrow.Array:
+		switch a := actual.(type) {
+		case compute.Datum:
+			if a.Kind() == compute.KindArray {
+				actual := a.(*compute.ArrayDatum).MakeArray()
+				defer actual.Release()
+				return assert.Truef(t, array.Equal(e, actual), "expected: %s\ngot: %s",
+					e, actual)
+			}
+		case arrow.Array:
+			return assert.Truef(t, array.Equal(e, a), "expected: %s\ngot: %s",
+				e, actual)
+		}
+		t.Errorf("expected arrow Array, got %s", actual)
+		return false
+	}
+	panic("unimplemented comparison")
 }
 
 func TestComparisons(t *testing.T) {
@@ -264,14 +301,14 @@ func TestExecuteFieldRef(t *testing.T) {
 			scoped := memory.NewCheckedAllocatorScope(mem)
 			defer scoped.CheckSize(t)
 
-			ctx := compute.WithAllocator(context.Background(), mem)
+			ctx := exprs.WithExtensionIDSet(compute.WithAllocator(context.Background(), mem), extSet)
 			dt := tt.input.(compute.ArrayLikeDatum).Type().(arrow.NestedType)
 			schema := arrow.NewSchema(dt.Fields(), nil)
 			ref, err := exprs.NewFieldRef(tt.ref, schema, extSet)
 			require.NoError(t, err)
 			assert.NotNil(t, ref)
 
-			actual, err := exprs.ExecuteScalarExpression(ctx, schema, extSet, ref, tt.input)
+			actual, err := exprs.ExecuteScalarExpression(ctx, schema, ref, tt.input)
 			require.NoError(t, err)
 			defer actual.Release()
 
@@ -288,29 +325,27 @@ func TestExecuteScalarFuncCall(t *testing.T) {
 		return arr
 	}
 
-	// scalarFromJSON := func(ty arrow.DataType, json string) scalar.Scalar {
-	// 	arr, _, err := array.FromJSON(mem, ty, strings.NewReader(json))
-	// 	require.NoError(t, err)
-	// 	defer arr.Release()
-	// 	s, err := scalar.GetScalar(arr, 0)
-	// 	require.NoError(t, err)
-	// 	return s
-	// }
-
 	basicSchema := arrow.NewSchema([]arrow.Field{
 		{Name: "a", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
 		{Name: "b", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
 	}, nil)
 
+	nestedSchema := arrow.NewSchema([]arrow.Field{
+		{Name: "a", Type: arrow.StructOf(basicSchema.Fields()...), Nullable: false},
+	}, nil)
+
+	bldr := exprs.NewExprBuilder(extSet)
+
 	tests := []struct {
 		name     string
-		ex       expr.Expression
+		ex       exprs.Builder
+		sc       *arrow.Schema
 		input    compute.Datum
 		expected compute.Datum
 	}{
-		{"add", expr.MustExpr(exprs.NewScalarCall(extSet, "add", nil,
-			expr.MustExpr(exprs.NewFieldRef(compute.FieldRefName("a"), basicSchema, extSet)),
-			expr.NewPrimitiveLiteral(float64(3.5), false))),
+		{"add", bldr.MustCallScalar("add", nil, bldr.FieldRef("a"),
+			bldr.Literal(expr.NewPrimitiveLiteral(float64(3.5), false))),
+			basicSchema,
 			compute.NewDatumWithoutOwning(fromJSON(arrow.StructOf(basicSchema.Fields()...),
 				`[
 				{"a": 6.125, "b": 3.375},
@@ -318,16 +353,27 @@ func TestExecuteScalarFuncCall(t *testing.T) {
 				{"a": -1, "b": 4.75}
 			]`)), compute.NewDatumWithoutOwning(fromJSON(arrow.PrimitiveTypes.Float64,
 				`[9.625, 3.5, 2.5]`))},
-		{"add sub", expr.MustExpr(exprs.NewScalarCall(extSet, "add", nil,
-			expr.MustExpr(exprs.NewFieldRef(compute.FieldRefName("a"), basicSchema, extSet)),
-			expr.NewPrimitiveLiteral(float64(3.5), false))),
+		{"add sub", bldr.MustCallScalar("add", nil, bldr.FieldRef("a"),
+			bldr.MustCallScalar("subtract", nil,
+				bldr.WrapLiteral(expr.NewLiteral(float64(3.5), false)),
+				bldr.FieldRef("b"))),
+			basicSchema,
 			compute.NewDatumWithoutOwning(fromJSON(arrow.StructOf(basicSchema.Fields()...),
 				`[
 				{"a": 6.125, "b": 3.375},
 				{"a": 0.0, "b": 1},
 				{"a": -1, "b": 4.75}
 			]`)), compute.NewDatumWithoutOwning(fromJSON(arrow.PrimitiveTypes.Float64,
-				`[9.625, 3.5, 2.5]`))},
+				`[6.25, 2.5, -2.25]`))},
+		{"add nested", bldr.MustCallScalar("add", nil,
+			bldr.FieldRefList("a", "a"), bldr.FieldRefList("a", "b")), nestedSchema,
+			compute.NewDatumWithoutOwning(fromJSON(arrow.StructOf(nestedSchema.Fields()...),
+				`[
+					{"a": {"a": 6.125, "b": 3.375}},
+					{"a": {"a": 0.0, "b": 1}},
+					{"a": {"a": -1, "b": 4.75}}
+				 ]`)), compute.NewDatumWithoutOwning(fromJSON(arrow.PrimitiveTypes.Float64,
+				`[9.5, 1, 3.75]`))},
 	}
 
 	for _, tt := range tests {
@@ -335,15 +381,81 @@ func TestExecuteScalarFuncCall(t *testing.T) {
 			scoped := memory.NewCheckedAllocatorScope(mem)
 			defer scoped.CheckSize(t)
 
-			ctx := compute.WithAllocator(context.Background(), mem)
+			bldr.SetInputSchema(tt.sc)
+			ex, err := tt.ex.BuildExpr()
+			require.NoError(t, err)
+
+			ctx := exprs.WithExtensionIDSet(compute.WithAllocator(context.Background(), mem), extSet)
 			dt := tt.input.(compute.ArrayLikeDatum).Type().(arrow.NestedType)
 			schema := arrow.NewSchema(dt.Fields(), nil)
 
-			actual, err := exprs.ExecuteScalarExpression(ctx, schema, extSet, tt.ex, tt.input)
+			actual, err := exprs.ExecuteScalarExpression(ctx, schema, ex, tt.input)
 			require.NoError(t, err)
 			defer actual.Release()
 
 			assert.Truef(t, tt.expected.Equals(actual), "expected: %s\ngot: %s", tt.expected, actual)
+		})
+	}
+}
+
+func TestGenerateMask(t *testing.T) {
+	sc, err := boringArrowSchema.AddField(0, arrow.Field{
+		Name: "in", Type: arrow.FixedWidthTypes.Boolean, Nullable: true})
+	require.NoError(t, err)
+
+	bldr := exprs.NewExprBuilder(extSet)
+	require.NoError(t, bldr.SetInputSchema(sc))
+
+	tests := []struct {
+		name   string
+		json   string
+		filter exprs.Builder
+	}{
+		{"simple", `[
+			{"i32": 0, "f32": -0.1, "in": true},
+			{"i32": 0, "f32":  0.3, "in": true},
+			{"i32": 1, "f32":  0.2, "in": false},
+			{"i32": 2, "f32": -0.1, "in": false},
+			{"i32": 0, "f32":  0.1, "in": true},
+			{"i32": 0, "f32": null, "in": true},
+			{"i32": 0, "f32":  1.0, "in": true}
+		]`, bldr.MustCallScalar("equal", nil,
+			bldr.FieldRef("i32"), bldr.Literal(expr.NewPrimitiveLiteral(int32(0), false)))},
+		{"complex", `[
+			{"f64":  0.3, "f32":  0.1, "in": true},
+			{"f64": -0.1, "f32":  0.3, "in": false},
+			{"f64":  0.1, "f32":  0.2, "in": true},
+			{"f64":  0.0, "f32": -0.1, "in": false},
+			{"f64":  1.0, "f32":  0.1, "in": true},
+			{"f64": -2.0, "f32": null, "in": null},
+			{"f64":  3.0, "f32":  1.0, "in": true}
+		]`, bldr.MustCallScalar("greater", nil,
+			bldr.MustCallScalar("multiply", nil,
+				bldr.Must(bldr.Cast(bldr.FieldRef("f32"), arrow.PrimitiveTypes.Float64)),
+				bldr.FieldRef("f64")),
+			bldr.Literal(expr.NewPrimitiveLiteral(float64(0), false)))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer mem.AssertSize(t, 0)
+
+			ctx := exprs.WithExtensionIDSet(compute.WithAllocator(context.Background(), mem), extSet)
+
+			rec, _, err := array.RecordFromJSON(mem, sc, strings.NewReader(tt.json))
+			require.NoError(t, err)
+			defer rec.Release()
+
+			input := compute.NewDatumWithoutOwning(rec)
+			expectedMask := rec.Column(0)
+
+			mask, err := exprs.ExecuteScalarExpression(ctx, sc,
+				expr.MustExpr(tt.filter.BuildExpr()), input)
+			require.NoError(t, err)
+			defer mask.Release()
+
+			assertEqual(t, expectedMask, mask)
 		})
 	}
 }
