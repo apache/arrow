@@ -3046,7 +3046,8 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
         prefix_length_encoder_(nullptr, pool),
         suffix_encoder_(nullptr, pool),
         last_value_(""),
-        kEmpty(ByteArray(0, reinterpret_cast<const uint8_t*>(""))) {}
+        kEmpty(ByteArray(0, reinterpret_cast<const uint8_t*>(""))),
+        prefix_lengths_(kBatchSize_, ::arrow::stl::allocator<int32_t>(pool_)) {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
@@ -3123,6 +3124,8 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   DeltaLengthByteArrayEncoder<ByteArrayType> suffix_encoder_;
   std::string last_value_;
   const ByteArray kEmpty;
+  ArrowPoolVector<int32_t> prefix_lengths_;
+  static constexpr int kBatchSize_ = 256;
 };
 
 template <>
@@ -3130,42 +3133,44 @@ void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_val
   if (num_values == 0) {
     return;
   }
-  ArrowPoolVector<int32_t> prefix_lengths(num_values,
-                                          ::arrow::stl::allocator<int32_t>(pool_));
+
   std::string_view last_value_view = last_value_;
 
-  for (int i = 0; i < num_values; i++) {
-    // Convert to ByteArray, so we can pass to the suffix_encoder_.
-    const ByteArray value = src[i];
-    if (ARROW_PREDICT_FALSE(value.len >= static_cast<int32_t>(kMaxByteArraySize))) {
-      throw ParquetException("Parquet cannot store strings with size 2GB or more");
-    }
-    auto view = std::string_view{value};
+  for (int i = 0; i < num_values; i += kBatchSize_) {
+    const int batch_size = std::min(kBatchSize_, num_values - i);
 
-    uint32_t j = 0;
-    const uint32_t common_length =
-        std::min(value.len, static_cast<uint32_t>(last_value_view.length()));
-    while (j < common_length) {
-      if (last_value_view[j] != view[j]) {
-        break;
+    for (int j = 0; j < batch_size; ++j) {
+      // Convert to ByteArray, so we can pass to the suffix_encoder_.
+      const ByteArray value = src[i + j];
+      if (ARROW_PREDICT_FALSE(value.len >= static_cast<int32_t>(kMaxByteArraySize))) {
+        throw ParquetException("Parquet cannot store strings with size 2GB or more");
       }
-      j++;
-    }
+      auto view = std::string_view{value};
 
-    last_value_view = view;
-    prefix_lengths[i] = j;
-    const auto suffix_length = static_cast<uint32_t>(value.len - j);
+      uint32_t k = 0;
+      const uint32_t common_length =
+          std::min(value.len, static_cast<uint32_t>(last_value_view.length()));
+      while (k < common_length) {
+        if (last_value_view[k] != view[k]) {
+          break;
+        }
+        k++;
+      }
 
-    if (suffix_length == 0) {
-      // suffix_encoder_.Put(&kEmpty, 1);
-      continue;
+      last_value_view = view;
+      prefix_lengths_[j] = k;
+      const auto suffix_length = static_cast<uint32_t>(value.len - k);
+
+      if (suffix_length == 0) {
+        continue;
+      }
+      const uint8_t* suffix_ptr = value.ptr + k;
+      // Convert to ByteArray, so it can be passed to the suffix_encoder_.
+      const ByteArray suffix(suffix_length, suffix_ptr);
+      suffix_encoder_.Put(&suffix, 1);
     }
-    const uint8_t* suffix_ptr = value.ptr + j;
-    // Convert to ByteArray, so it can be passed to the suffix_encoder_.
-    const ByteArray suffix(suffix_length, suffix_ptr);
-    suffix_encoder_.Put(&suffix, 1);
+    prefix_length_encoder_.Put(prefix_lengths_.data(), batch_size);
   }
-  prefix_length_encoder_.Put(prefix_lengths.data(), num_values);
   last_value_ = last_value_view;
 }
 
@@ -3174,8 +3179,7 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
   if (num_values == 0) {
     return;
   }
-  ArrowPoolVector<int32_t> prefix_lengths(num_values,
-                                          ::arrow::stl::allocator<int32_t>(pool_));
+
   std::string_view last_value_view = last_value_;
   const int32_t len = descr_->type_length();
 
@@ -3183,33 +3187,35 @@ void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
     throw ParquetException("Parquet cannot store strings with size 2GB or more");
   }
 
-  for (int i = 0; i < num_values; i++) {
-    auto view = string_view{reinterpret_cast<const char*>(src[i].ptr),
-                            static_cast<uint32_t>(len)};
-    int32_t j = 0;
-    const int32_t common_length =
-        std::min(len, static_cast<int32_t>(last_value_view.length()));
-    while (j < common_length) {
-      if (last_value_view[j] != view[j]) {
-        break;
+  for (int i = 0; i < num_values; i += kBatchSize_) {
+    const int batch_size = std::min(kBatchSize_, num_values - i);
+    for (int j = 0; j < batch_size; j++) {
+      auto view = string_view{reinterpret_cast<const char*>(src[i + j].ptr),
+                              static_cast<uint32_t>(len)};
+      int32_t k = 0;
+      const int32_t common_length =
+          std::min(len, static_cast<int32_t>(last_value_view.length()));
+      while (k < common_length) {
+        if (last_value_view[k] != view[k]) {
+          break;
+        }
+        k++;
       }
-      j++;
-    }
 
-    last_value_view = view;
-    prefix_lengths[i] = j;
-    const auto suffix_length = static_cast<uint32_t>(len - j);
+      last_value_view = view;
+      prefix_lengths_[j] = k;
+      const auto suffix_length = static_cast<uint32_t>(len - k);
 
-    if (suffix_length == 0) {
-      // suffix_encoder_.Put(&kEmpty, 1);
-      continue;
+      if (suffix_length == 0) {
+        continue;
+      }
+      const uint8_t* suffix_ptr = src[i + j].ptr + k;
+      // Convert to ByteArray, so it can be passed to the suffix_encoder_
+      const ByteArray suffix(suffix_length, suffix_ptr);
+      suffix_encoder_.Put(&suffix, 1);
     }
-    const uint8_t* suffix_ptr = src[i].ptr + j;
-    // Convert to ByteArray, so it can be passed to the suffix_encoder_
-    const ByteArray suffix(suffix_length, suffix_ptr);
-    suffix_encoder_.Put(&suffix, 1);
+    prefix_length_encoder_.Put(prefix_lengths_.data(), batch_size);
   }
-  prefix_length_encoder_.Put(prefix_lengths.data(), num_values);
   last_value_ = last_value_view;
 }
 
