@@ -23,15 +23,13 @@ namespace Apache.Arrow.Tests
 {
     public static class TestData
     {
-        public static RecordBatch CreateSampleRecordBatch(int length, bool createDictionaryArray = false, TimeUnit? time64TimeUnit = null)
+        public static RecordBatch CreateSampleRecordBatch(int length, bool createDictionaryArray = false)
         {
-            return CreateSampleRecordBatch(length, columnSetCount: 1, createDictionaryArray, time64TimeUnit);
+            return CreateSampleRecordBatch(length, columnSetCount: 1, createDictionaryArray);
         }
 
-        public static RecordBatch CreateSampleRecordBatch(int length, int columnSetCount, bool createAdvancedTypeArrays, TimeUnit? time64TimeUnit = null)
+        public static RecordBatch CreateSampleRecordBatch(int length, int columnSetCount, bool createAdvancedTypeArrays)
         {
-            Time64Type time64Type = time64TimeUnit == null ? Time64Type.Default : new Time64Type(time64TimeUnit.Value);
-
             Schema.Builder builder = new Schema.Builder();
             for (int i = 0; i < columnSetCount; i++)
             {
@@ -50,7 +48,7 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(Date32Type.Default, i));
                 builder.Field(CreateField(Date64Type.Default, i));
                 builder.Field(CreateField(Time32Type.Default, i));
-                builder.Field(CreateField(time64Type, i));
+                builder.Field(CreateField(Time64Type.Default, i));
                 builder.Field(CreateField(TimestampType.Default, i));
                 builder.Field(CreateField(StringType.Default, i));
                 builder.Field(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));

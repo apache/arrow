@@ -577,7 +577,7 @@ namespace Apache.Arrow.Tests
         [SkippableFact]
         public unsafe void RoundTripTestBatch()
         {
-            RecordBatch batch1 = TestData.CreateSampleRecordBatch(4, createDictionaryArray: true, time64TimeUnit: TimeUnit.Microsecond);
+            RecordBatch batch1 = TestData.CreateSampleRecordBatch(4, createDictionaryArray: true);
             RecordBatch batch2 = batch1.Clone();
 
             CArrowArray* cExportArray = CArrowArray.Create();
