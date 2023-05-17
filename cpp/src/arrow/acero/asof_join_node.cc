@@ -370,10 +370,13 @@ struct MemoStore {
     times_.swap(memo.times_);
   }
 
+  // Updates the current time to `ts` if it is less. A different thread may win the race
+  // to update the current time to more than `ts` but not to less. Returns whether the
+  // current time was changed from its value at the beginning of this invocation.
   bool UpdateTime(OnType ts) {
     OnType prev_time = current_time_;
     bool update = prev_time < ts;
-    while (prev_time < ts && current_time_.compare_exchange_weak(prev_time, ts)) {
+    while (prev_time < ts && !current_time_.compare_exchange_weak(prev_time, ts)) {
       // intentionally empty - standard CAS loop
     }
     return update;
@@ -394,6 +397,12 @@ struct MemoStore {
     } else {
       future_entries_[key].emplace(time, batch, row);
     }
+    // Maintain distinct times:
+    // If no times are currently maintained then the given time is distinct and hence
+    // pushed. Otherwise, the invariant is that the latest time is at the back. If no
+    // future times are maintained, then only one time is maintained, and hence it is
+    // overwritten with the given time. Otherwise, the given time must be no less than the
+    // latest time, due to time ordering, so it is pushed back only if it is distinct.
     if (times_.empty() || (!no_future_ && times_.back() != time)) {
       times_.push_back(time);
     } else {
