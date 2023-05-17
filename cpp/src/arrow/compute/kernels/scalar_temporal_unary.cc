@@ -120,7 +120,7 @@ struct AssumeTimezoneExtractor
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const AssumeTimezoneOptions& options = AssumeTimezoneState::Get(ctx);
     const auto& timezone = GetInputTimezone(*batch[0].type());
-    if (!timezone.empty()) {
+    if (!timezone.empty() && timezone != options.timezone) {
       return Status::Invalid("Timestamps already have a timezone: '", timezone,
                              "'. Cannot localize to '", options.timezone, "'.");
     }
