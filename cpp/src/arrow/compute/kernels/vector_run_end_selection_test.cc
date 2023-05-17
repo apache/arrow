@@ -107,6 +107,16 @@ Result<std::shared_ptr<Array>> REEFromRep(const std::shared_ptr<DataType>& ree_t
   return REEFromJson(ree_type, rep.logical_length, rep.run_ends_json, rep.values_json);
 }
 
+/// \brief Helper to make some tests used for REExAny tests compatible with PlainxREE
+/// tests.
+Result<std::shared_ptr<Array>> PlainArrayFromREERep(
+    const std::shared_ptr<DataType>& value_type, const REERep& rep) {
+  auto ree_type = run_end_encoded(int64(), value_type);
+  ARROW_ASSIGN_OR_RAISE(auto ree, REEFromRep(ree_type, rep));
+  ARROW_ASSIGN_OR_RAISE(auto decoded, RunEndDecode(ree));
+  return decoded.make_array();
+}
+
 Result<std::shared_ptr<Array>> FilterFromJson(
     const std::shared_ptr<DataType>& filter_type, const std::string& json) {
   if (filter_type->id() == Type::RUN_END_ENCODED) {
@@ -166,7 +176,8 @@ void DoAssertFilterSlicedOutput(const std::shared_ptr<Array>& values,
 
 void DoAssertOutput(const std::shared_ptr<Array>& values,
                     const std::shared_ptr<Array>& filter,
-                    const FilterOptions& null_options, const REERep& expected_rep) {
+                    const FilterOptions& null_options,
+                    const std::shared_ptr<Array>& expected) {
   ARROW_SCOPED_TRACE("assert output");
   ARROW_SCOPED_TRACE(null_options.null_selection_behavior ==
                              FilterOptions::NullSelectionBehavior::DROP
@@ -175,12 +186,21 @@ void DoAssertOutput(const std::shared_ptr<Array>& values,
   auto values_span = ArraySpan(*values->data());
   auto filter_span = ArraySpan(*filter->data());
   auto filter_exec = MakeREEFilterExec(values_span, filter_span, null_options);
-  ASSERT_OK_AND_ASSIGN(auto expected, REEFromRep(values->type(), expected_rep));
   {
     ARROW_SCOPED_TRACE("for full values and filter");
     DoAssertFilterOutput(values, filter, null_options, expected);
   }
   DoAssertFilterSlicedOutput(values, filter, null_options, expected);
+}
+
+/// \pre values is a RunEndEncodedArray
+void DoAssertOutput(const std::shared_ptr<Array>& values,
+                    const std::shared_ptr<Array>& filter,
+                    const FilterOptions& null_options, const REERep& expected_rep) {
+  auto values_span = ArraySpan(*values->data());
+  auto filter_span = ArraySpan(*filter->data());
+  ASSERT_OK_AND_ASSIGN(auto expected, REEFromRep(values->type(), expected_rep));
+  DoAssertOutput(values, filter, null_options, expected);
 }
 
 const std::vector<std::shared_ptr<DataType>> all_types = {
@@ -370,6 +390,86 @@ REGISTER_TYPED_TEST_SUITE_P(REExPlainFilterTest, AllNullsOutputForEveryTypeInput
 
 using ValidRunEndTypes = testing::Types<Int16Type, Int32Type, Int64Type>;
 INSTANTIATE_TYPED_TEST_SUITE_P(REExPlainFilterTest, REExPlainFilterTest,
+                               ValidRunEndTypes);
+
+template <typename RunEndType>
+struct PlainxREEFilterTest : public ::testing::Test {
+  std::shared_ptr<DataType> _filter_run_end_type;
+
+  PlainxREEFilterTest() {
+    _filter_run_end_type = TypeTraits<RunEndType>::type_singleton();
+  }
+
+  void AssertOutputAsString(const std::shared_ptr<DataType>& value_type,
+                            const std::string& values_json,
+                            const std::string& filter_json,
+                            const std::string& expected_with_drop_nulls,
+                            const std::string& expected_with_emit_nulls = "") {
+    auto values = ArrayFromJSON(value_type, values_json);
+    ASSERT_OK_AND_ASSIGN(
+        auto filter,
+        REEFromJson(run_end_encoded(_filter_run_end_type, boolean()), filter_json));
+    auto expected_with_drop_nulls_array =
+        ArrayFromJSON(value_type, expected_with_drop_nulls);
+    auto expected_with_emit_nulls_array =
+        expected_with_emit_nulls.empty()
+            ? expected_with_drop_nulls_array
+            : ArrayFromJSON(value_type, expected_with_emit_nulls);
+    DoAssertOutput(values, filter, kDropNulls, expected_with_drop_nulls_array);
+    DoAssertOutput(values, filter, kEmitNulls, expected_with_emit_nulls_array);
+  }
+
+  /// Take a REE representation, so this can be called with the same expected
+  /// representations used in REExREE and REExPlain tests even though the result
+  /// of PlainxREE filtering is a plain array and not a REE.
+  void AssertOutput(const std::shared_ptr<DataType>& value_type,
+                    const std::string& values_json, const std::string& filter_json,
+                    const REERep& expected_with_drop_nulls,
+                    const REERep& expected_with_emit_nulls = REERep::None()) {
+    auto values = ArrayFromJSON(value_type, values_json);
+    ASSERT_OK_AND_ASSIGN(
+        auto filter,
+        REEFromJson(run_end_encoded(_filter_run_end_type, boolean()), filter_json));
+
+    ASSERT_OK_AND_ASSIGN(auto expected_with_drop_nulls_array,
+                         PlainArrayFromREERep(value_type, expected_with_drop_nulls));
+
+    std::shared_ptr<Array> expected_with_emit_nulls_array;
+    if (expected_with_emit_nulls == REERep::None()) {
+      expected_with_emit_nulls_array = expected_with_drop_nulls_array;
+    } else {
+      ASSERT_OK_AND_ASSIGN(expected_with_emit_nulls_array,
+                           PlainArrayFromREERep(value_type, expected_with_emit_nulls));
+    }
+
+    DoAssertOutput(values, filter, kDropNulls, expected_with_drop_nulls_array);
+    DoAssertOutput(values, filter, kEmitNulls, expected_with_emit_nulls_array);
+  }
+};
+TYPED_TEST_SUITE_P(PlainxREEFilterTest);
+
+TYPED_TEST_P(PlainxREEFilterTest, SimpleTest) {
+  this->AssertOutputAsString(int32(),
+                             "[1, 2, 3, 4, 5, 6, 7, 8]",  // line break for alignment
+                             "[1, 0, 1, 1, 1, 1, 1, 0]", "[1, 3, 4, 5, 6, 7]");
+  this->AssertOutputAsString(
+      int8(),
+      "[1, 2, 3,    4,    5, 6,    7, 8]",  // line break for alignment
+      "[1, 0, 1, null, null, 1, null, 0]", "[1, 3, 6]", "[1, 3, null, null, 6, null]");
+}
+
+TYPED_TEST_P(PlainxREEFilterTest, AllNullsOutputForEveryTypeInput) {
+  GenericTestInvocations::AllNullsOutputForEveryTypeInput(*this);
+}
+
+TYPED_TEST_P(PlainxREEFilterTest, FilterPrimitiveTypeArrays) {
+  GenericTestInvocations::FilterPrimitiveTypeArrays(*this);
+}
+
+REGISTER_TYPED_TEST_SUITE_P(PlainxREEFilterTest, SimpleTest,
+                            AllNullsOutputForEveryTypeInput, FilterPrimitiveTypeArrays);
+
+INSTANTIATE_TYPED_TEST_SUITE_P(PlainxREEFilterTest, PlainxREEFilterTest,
                                ValidRunEndTypes);
 
 }  // namespace compute
