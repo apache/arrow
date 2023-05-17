@@ -1,9 +1,12 @@
 github.com/JohnCGriffin/overflow v0.0.0-20211019200055-46fa312c352c h1:RGWPOewvKIROun94nF7v2cua9qP+thov/7M50KEoeSU=
 github.com/JohnCGriffin/overflow v0.0.0-20211019200055-46fa312c352c/go.mod h1:X0CRv0ky0k6m906ixxpzmDRLvX58TFUKS2eePweuyxk=
 github.com/alecthomas/assert/v2 v2.0.3 h1:WKqJODfOiQG0nEJKFKzDIG3E29CN2/4zR9XGJzKIkbg=
+github.com/alecthomas/assert/v2 v2.2.2 h1:Z/iVC0xZfWTaFNE6bA3z07T86hd45Xe2eLt6WVy2bbk=
 github.com/alecthomas/participle/v2 v2.0.0-beta.5 h1:y6dsSYVb1G5eK6mgmy+BgI3Mw35a3WghArZ/Hbebrjo=
 github.com/alecthomas/participle/v2 v2.0.0-beta.5/go.mod h1:RC764t6n4L8D8ITAJv0qdokritYSNR3wV5cVwmIEaMM=
+github.com/alecthomas/participle/v2 v2.0.0/go.mod h1:rAKZdJldHu8084ojcWevWAL8KmEU+AT+Olodb+WoN2Y=
 github.com/alecthomas/repr v0.1.0 h1:ENn2e1+J3k09gyj2shc0dHr/yjaWSHRlrJ4DPMevDqE=
+github.com/alecthomas/repr v0.2.0 h1:HAzS41CIzNW5syS8Mf9UwXhNH1J9aix/BvDRf1Ml2Yk=
 github.com/andybalholm/brotli v1.0.4 h1:V7DdXeJtZscaqfNuAdSRuRFzuiKlHSC/Zh3zl9qY3JY=
 github.com/andybalholm/brotli v1.0.4/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
 github.com/apache/thrift v0.17.0 h1:cMd2aj52n+8VoAtvSvLn4kDC3aZ6IAkBuqWQ2IDu7wo=
@@ -71,6 +74,8 @@ github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKs
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/substrait-io/substrait-go v0.0.0-20230313160525-91a7220f50f3 h1:okAZLDdvZ0wnX226dHPHRRdvhNoS0FbEA3Zl1Fezzr4=
 github.com/substrait-io/substrait-go v0.0.0-20230313160525-91a7220f50f3/go.mod h1:O18iCb5byVWGHOlOwHInEIeWYGzzxgylLhZsmNHyGnQ=
+github.com/substrait-io/substrait-go v0.2.1-0.20230517203920-30fa08bd57d0 h1:ULhfcCHY7uxA133qmInVpNpqfjyicryPXIaxCjbDVbw=
+github.com/substrait-io/substrait-go v0.2.1-0.20230517203920-30fa08bd57d0/go.mod h1:qhpnLmrcvAnlZsUyPXZRqldiHapPTXC3t7xFgDi3aQg=
 github.com/zeebo/assert v1.3.0 h1:g7C04CbJuIDKNPFHmsk4hwZDO5O+kntRxzaUoNXj+IQ=
 github.com/zeebo/xxh3 v1.0.2 h1:xZmwmqxHZA8AI603jOQ0tMqmBr9lPeFwGg6d+xy9DC0=
 github.com/zeebo/xxh3 v1.0.2/go.mod h1:5NWz9Sef7zIDm2JHfFlcQvNekmcEl9ekUZQQKCYaDcA=
