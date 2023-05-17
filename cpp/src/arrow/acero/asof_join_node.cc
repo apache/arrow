@@ -285,9 +285,13 @@ class DebugSync {
 #define DEBUG_SYNC(node, ...) DebugSync(node).insert(__VA_ARGS__)
 #define DEBUG_MANIP(manip) \
   DebugSync::Manip([](DebugSync& d) -> DebugSync& { return d << manip; })
+#define NDEBUG_EXPLICIT
+#define DEBUG_ADD(ndebug, ...) ndebug, __VA_ARGS__
 #else
 #define DEBUG_SYNC(...)
 #define DEBUG_MANIP(...)
+#define NDEBUG_EXPLICIT explicit
+#define DEBUG_ADD(ndebug, ...) ndebug
 #endif
 
 struct MemoStore {
@@ -325,16 +329,11 @@ struct MemoStore {
     row_index_t row;
   };
 
-  MemoStore(AsofJoinNode& node, size_t index, bool no_future)
-      : node_(&node),
-        index_(index),
-        no_future_(no_future),
-        current_time_(std::numeric_limits<OnType>::lowest()) {}
+  NDEBUG_EXPLICIT MemoStore(DEBUG_ADD(bool no_future, AsofJoinNode& node, size_t index))
+      : no_future_(no_future),
+        DEBUG_ADD(current_time_(std::numeric_limits<OnType>::lowest()), node_(&node),
+                  index_(index)) {}
 
-  // Owning node
-  AsofJoinNode* node_;
-  // Index of owning input
-  size_t index_;
   // true when there are no future entries, which is the case for the LHS table and the
   // case for when the tolerance is non-positive. A non-positive-tolerance as-of-join
   // operation requires memorizing only the most recently observed entry per key. OTOH, a
@@ -352,10 +351,18 @@ struct MemoStore {
   std::unordered_map<ByType, std::queue<Entry>> future_entries_;
   // current and future (distinct) times of existing entries
   std::deque<OnType> times_;
+#ifndef NDEBUG
+  // Owning node
+  AsofJoinNode* node_;
+  // Index of owning input
+  size_t index_;
+#endif
 
   void swap(MemoStore& memo) {
+#ifndef NDEBUG
     std::swap(node_, memo.node_);
     std::swap(index_, memo.index_);
+#endif
     std::swap(no_future_, memo.no_future_);
     current_time_ = memo.current_time_.exchange(static_cast<OnType>(current_time_));
     entries_.swap(memo.entries_);
@@ -643,7 +650,7 @@ class InputState {
         must_hash_(must_hash),
         may_rehash_(may_rehash),
         tolerance_(tolerance),
-        memo_(node, index, /*no_future=*/index == 0 || !tolerance.positive) {
+        memo_(DEBUG_ADD(/*no_future=*/index == 0 || !tolerance.positive, node, index)) {
     for (size_t k = 0; k < key_col_index_.size(); k++) {
       key_type_id_[k] = schema_->fields()[key_col_index_[k]]->type()->id();
     }
@@ -863,7 +870,7 @@ class InputState {
 
   void Rehash() {
     DEBUG_SYNC(node_, "rehashing for input ", index_, ":", DEBUG_MANIP(std::endl));
-    MemoStore new_memo(node_, index_, memo_.no_future_);
+    MemoStore new_memo(DEBUG_ADD(memo_.no_future_, node_, index_));
     new_memo.current_time_ = (OnType)memo_.current_time_;
     for (auto e = memo_.entries_.begin(); e != memo_.entries_.end(); ++e) {
       auto& entry = e->second;
@@ -977,8 +984,8 @@ struct CompositeReferenceRow {
 template <size_t MAX_TABLES>
 class CompositeReferenceTable {
  public:
-  CompositeReferenceTable(AsofJoinNode& node, size_t n_tables)
-      : node_(node), n_tables_(n_tables) {
+  NDEBUG_EXPLICIT CompositeReferenceTable(DEBUG_ADD(size_t n_tables, AsofJoinNode& node))
+      : DEBUG_ADD(n_tables_(n_tables), node_(node)) {
     DCHECK_GE(n_tables_, 1);
     DCHECK_LE(n_tables_, MAX_TABLES);
   }
@@ -1130,11 +1137,13 @@ class CompositeReferenceTable {
   // Row table references
   std::vector<CompositeReferenceRow<MAX_TABLES>> rows_;
 
-  // Owning node
-  AsofJoinNode& node_;
-
   // Total number of tables in the composite table
   size_t n_tables_;
+
+#ifndef NDEBUG
+  // Owning node
+  AsofJoinNode& node_;
+#endif
 
   // Adds a RecordBatch ref to the mapping, if needed
   void AddRecordBatchRef(const std::shared_ptr<RecordBatch>& ref) {
@@ -1244,7 +1253,7 @@ class AsofJoinNode : public ExecNode {
     auto& lhs = *state_.at(0);
 
     // Construct new target table if needed
-    CompositeReferenceTable<MAX_JOIN_TABLES> dst(*this, state_.size());
+    CompositeReferenceTable<MAX_JOIN_TABLES> dst(DEBUG_ADD(state_.size(), *this));
 
     // Generate rows into the dst table until we either run out of data or hit the row
     // limit, or run out of input
