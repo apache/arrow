@@ -39,12 +39,22 @@ namespace arrow::compute::internal {
 
 namespace {
 
-using EmitFragment = std::function<void(int64_t, int64_t, bool)>;
+using EmitFragment =
+    std::function<void(int64_t absolute_i, int64_t frag_length, bool valid)>;
+
+using EmitRun = std::function<void(int64_t absolute_i, int64_t run_length, bool valid)>;
+
+using VisitFilterOutputFragments = Status (*)(MemoryPool*, const ArraySpan&,
+                                              const ArraySpan&,
+                                              FilterOptions::NullSelectionBehavior,
+                                              const EmitFragment&);
+
+using EmitRange = std::function<void(int64_t relative_i, int64_t range_length, bool)>;
 
 /// \brief Iterate over REE values and a REE filter, emitting fragments of runs that pass
 /// the filter.
 ///
-/// The filtering process can emit runs of the same value close to each other,
+/// The filtering process can emit fragments of the same value in sequence,
 /// so to ensure the output of the filter takes advantage of run-end encoding,
 /// these fragments should be combined by the caller.
 ///
@@ -74,22 +84,22 @@ Status VisitREExREEFilterOutputFragments(
     if (null_selection == FilterOptions::EMIT_NULL) {
       int64_t last_i = -1;
       bool last_emit = false;
-      bool last_emit_null = false;
+      bool last_valid = false;
       while (!it.is_end()) {
         const int64_t i = filter_values_offset + it.index_into_right_array();
         bool emit = last_emit;
-        bool emit_null = last_emit_null;
+        bool valid = last_valid;
         if (last_i != i) {
-          emit_null = !bit_util::GetBit(filter_is_valid, i);
-          emit = emit_null || bit_util::GetBit(filter_selection, i);
+          valid = bit_util::GetBit(filter_is_valid, i);
+          emit = !valid || bit_util::GetBit(filter_selection, i);
         }
         if (emit) {
           emit_fragment(values_offset + it.index_into_left_array(), it.run_length(),
-                        emit_null);
+                        valid);
         }
         last_i = i;
         last_emit = emit;
-        last_emit_null = emit_null;
+        last_valid = valid;
         ++it;
       }
     } else {  // DROP nulls
@@ -104,7 +114,7 @@ Status VisitREExREEFilterOutputFragments(
                       bit_util::GetBit(filter_selection, i);
         if (emit) {
           emit_fragment(values_offset + it.index_into_left_array(), it.run_length(),
-                        false);
+                        true);
         }
         last_i = i;
         last_emit = emit;
@@ -120,7 +130,7 @@ Status VisitREExREEFilterOutputFragments(
           (last_i == i) ? last_emit  // can skip GetBit() if filter index is same as last
                         : bit_util::GetBit(filter_selection, i);
       if (emit) {
-        emit_fragment(values_offset + it.index_into_left_array(), it.run_length(), false);
+        emit_fragment(values_offset + it.index_into_left_array(), it.run_length(), true);
       }
       last_i = i;
       last_emit = emit;
@@ -129,13 +139,6 @@ Status VisitREExREEFilterOutputFragments(
   }
   return Status::OK();
 }
-
-using EmitRun = std::function<void(int64_t, int64_t, bool)>;
-
-using VisitFilterOutputFragments = Status (*)(MemoryPool*, const ArraySpan&,
-                                              const ArraySpan&,
-                                              FilterOptions::NullSelectionBehavior,
-                                              const EmitFragment&);
 
 /// \param emit_run A callable that takes (run_value_i, run_length, valid).
 /// emit_run can be called with run_length=0, but is assumed to be a no-op in that
@@ -172,8 +175,8 @@ Status VisitREExAnyFilterCombinedOutputRuns(
       pool, values, filter, null_selection,
       [all_values_are_null, values_validity, &read_write, &open_run_length,
        &open_run_is_null, &open_run_value_i,
-       &emit_run](int64_t i, int64_t run_length, int64_t emit_null_from_filter) noexcept {
-        const bool emit_null = all_values_are_null || emit_null_from_filter ||
+       &emit_run](int64_t i, int64_t run_length, int64_t valid) noexcept {
+        const bool emit_null = all_values_are_null || !valid ||
                                (values_validity && !bit_util::GetBit(values_validity, i));
         if (emit_null) {
           if (open_run_is_null) {
@@ -189,9 +192,9 @@ Status VisitREExAnyFilterCombinedOutputRuns(
           // open_run_length > 0 because if open_run_length == 0, both branches on
           // open_run_is_null will lead to the same outcome:
           //
-          //   /\ emit_null() was not called or was a no-op
-          //   /\ open_run_length = open_run_length + run_length
-          //   /\ open_run_is_null
+          //      emit_null() was not called or was a no-op
+          //   && open_run_length == open_run_length + run_length
+          //   && open_run_is_null
           //
           // NOTE: emit_run is a no-op because run_length==0.
         } else {
@@ -226,9 +229,9 @@ Status VisitREExAnyFilterCombinedOutputRuns(
               // need to prove that the outcome of this branch is the same as
               // the outcome of the if-open_run_is_null branch above:
               //
-              //   /\ emit_null() was not called or was a no-op
-              //   /\ open_run_length = open_run_length + run_length
-              //   /\ not open_run_is_null
+              //      emit_null() was not called or was a no-op
+              //   && open_run_length == open_run_length + run_length
+              //   && not open_run_is_null
               //
               // Proof: given that open_run_length==0:
               // 1) emit_null(..,0,..) is a no-op
@@ -248,7 +251,7 @@ Status VisitREExAnyFilterCombinedOutputRuns(
         open_run_value_i = i;
       });
   RETURN_NOT_OK(status);
-  // Close the trailing open run if open_run_length > 0.
+  // Close the trailing open run. If open_run_length == 0, this is a no-op.
   emit_run(open_run_value_i, open_run_length, !open_run_is_null);
   return Status::OK();
 }
@@ -520,8 +523,6 @@ Status VisitREExPlainFilterOutputFragments(
   return Status::OK();
 }
 
-using EmitRange = std::function<void(int64_t range_start, int64_t range_length, bool)>;
-
 /// \brief Iterate over plain values and REE filter, emitting ranges that
 /// pass the filter.
 ///
@@ -549,10 +550,10 @@ void VisitPlainxREEFilterOutputRanges(MemoryPool* pool, const ArraySpan& values,
     if (null_selection == FilterOptions::EMIT_NULL) {
       while (!it.is_end(filter_span)) {
         const int64_t i = filter_values_offset + it.index_into_array();
-        const bool emit_null = !bit_util::GetBit(filter_is_valid, i);
-        const bool emit = emit_null || bit_util::GetBit(filter_selection, i);
+        const bool valid = bit_util::GetBit(filter_is_valid, i);
+        const bool emit = !valid || bit_util::GetBit(filter_selection, i);
         if (emit) {
-          emit_range(values.offset + it.logical_position(), it.run_length(), emit_null);
+          emit_range(it.logical_position(), it.run_length(), valid);
         }
         ++it;
       }
@@ -562,7 +563,7 @@ void VisitPlainxREEFilterOutputRanges(MemoryPool* pool, const ArraySpan& values,
         const bool emit =
             bit_util::GetBit(filter_is_valid, i) && bit_util::GetBit(filter_selection, i);
         if (emit) {
-          emit_range(values.offset + it.logical_position(), it.run_length(), false);
+          emit_range(it.logical_position(), it.run_length(), true);
         }
         ++it;
       }
@@ -572,7 +573,7 @@ void VisitPlainxREEFilterOutputRanges(MemoryPool* pool, const ArraySpan& values,
       const int64_t i = filter_values_offset + it.index_into_array();
       const bool emit = bit_util::GetBit(filter_selection, i);
       if (emit) {
-        emit_range(values.offset + it.logical_position(), it.run_length(), false);
+        emit_range(it.logical_position(), it.run_length(), true);
       }
       ++it;
     }
@@ -884,8 +885,8 @@ class PlainxREEFilterExecImpl final : public REEFilterExec {
     Status append_status;
     VisitOutputRanges([&](int64_t i, int64_t range_length, bool valid) noexcept {
       if (ARROW_PREDICT_TRUE(append_status.ok())) {
-        append_status =
-            builder->AppendArraySlice(values_, i - values_.offset, range_length);
+        append_status = valid ? builder->AppendArraySlice(values_, i, range_length)
+                              : builder->AppendNulls(range_length);
       }
       written_length += range_length;
     });
