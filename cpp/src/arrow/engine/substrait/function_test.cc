@@ -574,7 +574,7 @@ struct AggregateTestCase {
   std::shared_ptr<DataType> output_type;
   // The aggregation takes zero columns as input
   bool nullary = false;
-  // The aggregation is ordered
+  // Whether the aggregation is ordered (i.e., processing rows in order)
   bool ordered = false;
 };
 
