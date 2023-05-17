@@ -333,5 +333,44 @@ using RunEndTypePairs =
                    RunEndTypes<Int64Type, Int64Type>>;
 INSTANTIATE_TYPED_TEST_SUITE_P(REExREEFilterTest, REExREEFilterTest, RunEndTypePairs);
 
+template <typename RunEndType>
+struct REExPlainFilterTest : public ::testing::Test {
+  std::shared_ptr<DataType> _value_run_end_type;
+
+  REExPlainFilterTest() {
+    _value_run_end_type = TypeTraits<RunEndType>::type_singleton();
+  }
+
+  void AssertOutput(const std::shared_ptr<DataType>& value_type,
+                    const std::string& values_json, const std::string& filter_json,
+                    const REERep& expected_with_drop_nulls,
+                    const REERep& expected_with_emit_nulls = REERep::None()) {
+    ASSERT_OK_AND_ASSIGN(
+        auto values,
+        REEFromJson(run_end_encoded(_value_run_end_type, value_type), values_json));
+    auto filter = ArrayFromJSON(boolean(), filter_json);
+    DoAssertOutput(values, filter, kDropNulls, expected_with_drop_nulls);
+    DoAssertOutput(values, filter, kEmitNulls,
+                   expected_with_emit_nulls == REERep::None() ? expected_with_drop_nulls
+                                                              : expected_with_emit_nulls);
+  }
+};
+TYPED_TEST_SUITE_P(REExPlainFilterTest);
+
+TYPED_TEST_P(REExPlainFilterTest, AllNullsOutputForEveryTypeInput) {
+  GenericTestInvocations::AllNullsOutputForEveryTypeInput(*this);
+}
+
+TYPED_TEST_P(REExPlainFilterTest, FilterPrimitiveTypeArrays) {
+  GenericTestInvocations::FilterPrimitiveTypeArrays(*this);
+}
+
+REGISTER_TYPED_TEST_SUITE_P(REExPlainFilterTest, AllNullsOutputForEveryTypeInput,
+                            FilterPrimitiveTypeArrays);
+
+using ValidRunEndTypes = testing::Types<Int16Type, Int32Type, Int64Type>;
+INSTANTIATE_TYPED_TEST_SUITE_P(REExPlainFilterTest, REExPlainFilterTest,
+                               ValidRunEndTypes);
+
 }  // namespace compute
 }  // namespace arrow
