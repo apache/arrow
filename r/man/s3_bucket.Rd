@@ -24,5 +24,10 @@ relative path.
 \examples{
 \dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 bucket <- s3_bucket("voltrondata-labs-datasets")
+
+# Create an S3 bucket with logging turned on. This is useful for debugging.
+\dontrun{
+  bucket <- s3_bucket("voltrondata-labs-datasets", log_level = "debug")
+}
 \dontshow{\}) # examplesIf}
 }

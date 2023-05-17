@@ -288,7 +288,12 @@ void fs___CopyFiles(const std::shared_ptr<fs::FileSystem>& source_fs,
 #include <arrow/filesystem/s3fs.h>
 
 // [[s3::export]]
-void InitS3(const std::string& log_level, int num_event_loop_threads) {
+bool IsS3Initialized() {
+  return fs::IsS3Initialized();
+}
+
+// [[s3::export]]
+void InitS3(const std::string& log_level) {
   fs::S3GlobalOptions options;
 
   if (log_level == "off") {
@@ -308,8 +313,6 @@ void InitS3(const std::string& log_level, int num_event_loop_threads) {
   } else {
     options.log_level = arrow::fs::S3LogLevel::Off;
   }
-
-  options.num_event_loop_threads = num_event_loop_threads;
 
   StopIfNotOk(fs::InitializeS3(options));
 }

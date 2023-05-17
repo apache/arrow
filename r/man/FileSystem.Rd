@@ -59,6 +59,9 @@ buckets if\verb{$DeleteDir()} is called on the bucket level (default \code{FALSE
 negative, the AWS SDK default (typically 3 seconds).
 \item \code{connect_timeout}: Socket connection timeout in seconds. If negative, AWS
 SDK default is used (typically 1 second).
+\item \code{log_level}: string, one of: fatal, error, warn, info, debug, trace, or
+off. Sets the log level for S3 operations. Can only be set once per
+session.
 }
 
 \code{GcsFileSystem$create()} optionally takes arguments:

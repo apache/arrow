@@ -158,6 +158,9 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'    negative, the AWS SDK default (typically 3 seconds).
 #' - `connect_timeout`: Socket connection timeout in seconds. If negative, AWS
 #'    SDK default is used (typically 1 second).
+#' - `log_level`: string, one of: fatal, error, warn, info, debug, trace, or
+#'    off. Sets the log level for S3 operations. Can only be set once per
+#'    session.
 #'
 #' `GcsFileSystem$create()` optionally takes arguments:
 #'
@@ -384,7 +387,24 @@ S3FileSystem <- R6Class("S3FileSystem",
     region = function() fs___S3FileSystem__region(self)
   )
 )
-S3FileSystem$create <- function(anonymous = FALSE, ...) {
+S3FileSystem$create <- function(
+  anonymous = FALSE,
+  log_level = c("fatal", "error", "warn", "info", "debug", "trace", "off"),
+  ...) {
+  # Init S3 now only if log_level is set
+  # TODO: This is clunky
+  if (length(log_level) == 1) {
+    if (IsS3Initialized()) {
+      warning(
+        "S3 is already initialized. Argument 'log_level' ignored.", 
+        call. = FALSE
+      )
+    } else {
+      log_level <- rlang::arg_match(log_level)
+      InitS3(log_level)
+    }
+  }
+
   args <- list2(...)
   if (anonymous) {
     invalid_args <- intersect(
@@ -442,57 +462,6 @@ default_s3_options <- list(
   request_timeout = -1
 )
 
-# Enumerate possible values for AWS SDK log levels, used by s3_init
-s3_log_levels <- c("off", "fatal", "error", "warn", "info", "debug", "trace")
-
-#' Initialize S3
-#'
-#' Must be called before other S3 functions such as \link{s3_bucket}.
-#'
-#' @param log_level string for log level to set. See details.
-#' @param num_event_loop_threads How many threads to use for the AWS SDK's I/O
-#'   event loop. Defaults to 1.
-#' @details The parameter `log_level` must be one of: off, fatal, error, warn,
-#'   info, debug, or trace and is case insensitive.
-#'
-#' @examples
-#' # Initialize S3 with Debug-level logging
-#' \dontrun{
-#'   s3_init("debug")
-#' }
-s3_init <- function(log_level, num_event_loop_threads = 1) {
-  stopifnot(is.character(log_level))
-  stopifnot(is.numeric(num_event_loop_threads))
-
-  log_level_normalized <- tolower(log_level)
-
-  # Validate log_level
-  if (!(log_level_normalized %in% s3_log_levels)) {
-    stop(
-      "Argument 'log_level' must be one of: ",
-      paste(
-        paste(s3_log_levels[seq_len(length(s3_log_levels) - 1)], collapse = ", "),
-        s3_log_levels[length(s3_log_levels)],
-        sep = ", or "),
-      paste0(" but was '", log_level_normalized, "'."),
-      call. = FALSE)
-    return(invisible())
-  }
-
-  # Validate num_event_loop_threads
-  if (num_event_loop_threads < 1) {
-    stop(
-      "Argument 'num_event_loop_threads' should be a positive integer ",
-      "greater than or equal to 1 but was '", num_event_loop_threads, "'.",
-      call. = FALSE
-    )
-
-    return(invisible())
-  }
-
-  invisible(InitS3(log_level_normalized, num_event_loop_threads))
-}
-
 #' Connect to an AWS S3 bucket
 #'
 #' `s3_bucket()` is a convenience function to create an `S3FileSystem` object
@@ -506,6 +475,11 @@ s3_init <- function(log_level, num_event_loop_threads = 1) {
 #' are authorized to access the bucket's contents.
 #' @examplesIf FALSE
 #' bucket <- s3_bucket("voltrondata-labs-datasets")
+#'
+#' # Create an S3 bucket with logging turned on. This is useful for debugging.
+#' \dontrun{
+#'   bucket <- s3_bucket("voltrondata-labs-datasets", log_level = "debug")
+#' }
 #' @export
 s3_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))

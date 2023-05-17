@@ -1352,8 +1352,12 @@ fs___S3FileSystem__region <- function(fs) {
   .Call(`_arrow_fs___S3FileSystem__region`, fs)
 }
 
-InitS3 <- function(log_level, num_event_loop_threads) {
-  .Call(`_arrow_InitS3`, log_level, num_event_loop_threads)
+IsS3Initialized <- function() {
+  .Call(`_arrow_IsS3Initialized`)
+}
+
+InitS3 <- function(log_level) {
+  invisible(.Call(`_arrow_InitS3`, log_level))
 }
 
 FinalizeS3 <- function() {
