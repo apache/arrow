@@ -2669,10 +2669,10 @@ void DeltaLengthByteArrayEncoder<DType>::Put(const T* src, int num_values) {
     length_encoder_.Put(lengths.data(), batch_size);
   }
 
-  PARQUET_THROW_NOT_OK(sink_.Reserve(total_increment_size));
   if (AddWithOverflow(encoded_size_, total_increment_size, &encoded_size_)) {
     throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
   }
+  PARQUET_THROW_NOT_OK(sink_.Reserve(total_increment_size));
   for (int idx = 0; idx < num_values; idx++) {
     sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
   }
