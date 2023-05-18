@@ -104,7 +104,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install ninja-build
-        run: brew install ninja
+        run: choco install ninja
       - uses: msys2/setup-msys2@v2
       - name: Setup MSYS2
         shell: msys2 {0}
