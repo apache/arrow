@@ -36,8 +36,8 @@ import (
 )
 
 var (
-	extSet               = exprs.NewDefaultExtensionSet()
-	u32ID, u32TypeRef, _ = extSet.EncodeTypeVariation(arrow.PrimitiveTypes.Uint32)
+	extSet           = exprs.NewDefaultExtensionSet()
+	_, u32TypeRef, _ = extSet.EncodeTypeVariation(arrow.PrimitiveTypes.Uint32)
 
 	boringSchema = types.NamedStruct{
 		Names: []string{
