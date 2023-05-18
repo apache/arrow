@@ -36,7 +36,7 @@ func TestNewScalarFunc(t *testing.T) {
 		expr.NewPrimitiveLiteral(int32(10), false))
 	require.NoError(t, err)
 
-	assert.Equal(t, "add(i32(1), i32(10)) => i32", fn.String())
+	assert.Equal(t, "add(i32(1), i32(10), {overflow: [ERROR]}) => i32", fn.String())
 	assert.Equal(t, "add:i32_i32", fn.Name())
 }
 
