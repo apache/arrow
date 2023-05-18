@@ -17,6 +17,10 @@
   under the License.
 -->
 
+# arrow 12.0.0.1
+* Update vendored version of date library in Arrow C++, to ensure compatiblity with recent tzdb release 
+(version 0.4.0) (#35612).
+
 # arrow 12.0.0
 
 ## New features
