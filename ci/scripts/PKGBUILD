@@ -42,7 +42,7 @@ options=("staticlibs" "strip" "!buildflags")
 
 # For installing from a local checkout, set source_dir to . and don't include
 # a "source" param below
-source_dir="$ARROW_HOME"
+# source_dir="$ARROW_HOME"
 # else
 # source_dir=apache-${_realname}-${pkgver}
 
@@ -51,9 +51,9 @@ source_dir="$ARROW_HOME"
 #sha256sums=("ac2a77dd9168e9892e432c474611e86ded0be6dfe15f689c948751d37f81391a")
 # For github dev version:
 # Append `#commit=54b1b2f688e5e84b4c664b1e12a95f93b94ab2f3` to the URL to select a revision
-# source=("${source_dir}"::"git+https://github.com/apache/arrow")
-# sha256sums=("SKIP")
-# source_dir="${APPVEYOR_BUILD_FOLDER}/${source_dir}"
+source=("${source_dir}"::"git+https://github.com/thisisnic/arrow#commit=819dd3392bf9740e0e92467481962114548286ea")
+sha256sums=("SKIP")
+source_dir=arrow
 
 cpp_build_dir=build-${CARCH}-cpp
 
