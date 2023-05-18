@@ -129,35 +129,23 @@ ARROW_EXPORT extern const char digit_pairs[];
 // Write digits from right to left into a stack allocated buffer
 inline void FormatOneChar(char c, char** cursor) { *--*cursor = c; }
 
-#ifdef __MINGW32__
-// GH-35662: I don't know why but the template implementations + MinGW
-// + release build cause SEGV.
-inline void FormatOneDigit(int value, char** cursor) {
-  assert(value >= 0 && value <= 9);
-  FormatOneChar(static_cast<char>('0' + value), cursor);
-}
-
-inline void FormatTwoDigits(int value, char** cursor) {
-  assert(value >= 0 && value <= 99);
-  auto digit_pair = &digit_pairs[value * 2];
-  FormatOneChar(digit_pair[1], cursor);
-  FormatOneChar(digit_pair[0], cursor);
-}
-#else
 template <typename Int>
 void FormatOneDigit(Int value, char** cursor) {
   assert(value >= 0 && value <= 9);
   FormatOneChar(static_cast<char>('0' + value), cursor);
 }
 
+// GH-35662: I don't know why but the following combination causes SEGV:
+// * template implementation without inline
+// * MinGW
+// * Release build
 template <typename Int>
-void FormatTwoDigits(Int value, char** cursor) {
+inline void FormatTwoDigits(Int value, char** cursor) {
   assert(value >= 0 && value <= 99);
   auto digit_pair = &digit_pairs[value * 2];
   FormatOneChar(digit_pair[1], cursor);
   FormatOneChar(digit_pair[0], cursor);
 }
-#endif
 
 template <typename Int>
 void FormatAllDigits(Int value, char** cursor) {
