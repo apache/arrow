@@ -397,31 +397,40 @@ TEST(ArraySortIndicesFunction, DictionaryArray) {
       }
     }
   }
+}
 
-  auto expected_all_nulls = ArrayFromJSON(uint64(), "[0, 1, 2, 3]");
-  auto expected_empty = ArrayFromJSON(uint64(), "[]");
+TEST(ArraySortIndicesFunction, EmptyDictionaryArray) {
+  auto expected = ArrayFromJSON(uint64(), "[]");
+  auto dict_arr = DictArrayFromJSON(dictionary(int32(), utf8()), "[]", "[\"b\", \"a\"]");
+  auto options = ArraySortOptions::Defaults();
 
-  for (auto index_type : all_dictionary_index_types()) {
-    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+  ASSERT_OK_AND_ASSIGN(auto actual,
+                       CallFunction("array_sort_indices", {dict_arr}, &options));
+  ValidateOutput(actual);
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
 
-    auto dict_type = dictionary(index_type, utf8());
-    auto dict_arr_all_nulls =
-        DictArrayFromJSON(dict_type, "[null, 3, null, 1]", "[\"b\", null, \"a\", null]");
-    auto dict_arr_empty = DictArrayFromJSON(dict_type, "[]", "[\"b\", \"a\"]");
+TEST(ArraySortIndicesFunction, AllNullDictionaryArray) {
+  auto expected = ArrayFromJSON(uint64(), "[0, 1, 2, 3]");
+  auto dict_type = dictionary(int32(), utf8());
+  ArrayVector dict_arrs = {
+      DictArrayFromJSON(dict_type, "[null, 3, null, 1]", "[\"b\", null, \"a\", null]"),
+      DictArrayFromJSON(dict_type, "[null, null, null, null]", "[\"c\", \"a\"]"),
+      DictArrayFromJSON(dict_type, "[0, 1, 1, 0]", "[null, null]"),
+  };
 
-    for (auto order : AllOrders()) {
-      for (auto null_placement : AllNullPlacements()) {
-        ArraySortOptions options{order, null_placement};
+  int i = 0;
+  for (auto order : AllOrders()) {
+    for (auto null_placement : AllNullPlacements()) {
+      ArraySortOptions options{order, null_placement};
 
-        Datum actual;
-        ASSERT_OK_AND_ASSIGN(
-            actual, CallFunction("array_sort_indices", {dict_arr_all_nulls}, &options));
+      for (const auto& dict_arr : dict_arrs) {
+        ARROW_SCOPED_TRACE("i = ", i);
+        ASSERT_OK_AND_ASSIGN(auto actual,
+                             CallFunction("array_sort_indices", {dict_arr}, &options));
         ValidateOutput(actual);
-        AssertDatumsEqual(expected_all_nulls, actual, /*verbose=*/true);
-        ASSERT_OK_AND_ASSIGN(
-            actual, CallFunction("array_sort_indices", {dict_arr_empty}, &options));
-        ValidateOutput(actual);
-        AssertDatumsEqual(expected_empty, actual, /*verbose=*/true);
+        AssertDatumsEqual(expected, actual, /*verbose=*/true);
+        ++i;
       }
     }
   }

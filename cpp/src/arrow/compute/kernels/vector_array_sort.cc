@@ -203,8 +203,10 @@ class ArrayCompareSorter<DictionaryType> {
     // the original dictionary and sorting the decoded version.
 
     std::shared_ptr<Array> decoded_ranks;
-    // Skip the rank/take steps for cases with only nulls
-    if (IsAllNulls(dict_array)) {
+    // Skip the rank/take steps for cases with only nulls or no indices
+    if (dict_indices->length() == 0 ||
+        dict_indices->null_count() == dict_indices->length() ||
+        dict_values->null_count() == dict_values->length()) {
       ARROW_ASSIGN_OR_RAISE(decoded_ranks, MakeArrayOfNull(uint64(), dict_array.length(),
                                                            ctx->memory_pool()));
     } else {
@@ -222,22 +224,6 @@ class ArrayCompareSorter<DictionaryType> {
   }
 
  private:
-  static bool IsAllNulls(const DictionaryArray& dict_array) {
-    auto indices = dict_array.indices();
-    auto values = dict_array.dictionary();
-    if (values->null_count() == values->length() ||
-        indices->null_count() == indices->length()) {
-      return true;
-    }
-    for (int64_t i = 0; i < dict_array.length(); ++i) {
-      // TODO: Special handling for dictionary types in Array::IsValid/Null?
-      if (indices->IsValid(i) && values->IsValid(dict_array.GetValueIndex(i))) {
-        return false;
-      }
-    }
-    return true;
-  }
-
   static Result<std::shared_ptr<Array>> RanksWithNulls(
       const std::shared_ptr<Array>& array, ExecContext* ctx) {
     // Notes:
