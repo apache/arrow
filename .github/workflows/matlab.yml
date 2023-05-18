@@ -103,6 +103,12 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Install ninja-build
+        run: brew install ninja
+      - uses: msys2/setup-msys2@v2
+      - name: Setup MSYS2
+        shell: msys2 {0}
+        run: bash ci/scripts/msys2_setup.sh "matlab"
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v1
       - name: Build MATLAB Interface
