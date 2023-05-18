@@ -227,8 +227,9 @@ class RunEndEncodedArraySpan {
     int64_t physical_pos_;
   };
 
-  explicit RunEndEncodedArraySpan(const ArrayData& data)
-      : RunEndEncodedArraySpan(ArraySpan{data}) {}
+  // Prevent implicit ArrayData -> ArraySpan conversion in
+  // RunEndEncodedArraySpan instantiation.
+  RunEndEncodedArraySpan(const ArrayData& data) = delete;
 
   /// \brief Construct a RunEndEncodedArraySpan from an ArraySpan and new
   /// absolute offset and length.
