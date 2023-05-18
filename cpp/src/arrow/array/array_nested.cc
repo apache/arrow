@@ -177,6 +177,8 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
   // Final attempt to avoid invoking Concatenate().
   if (non_null_fragments.size() == 1) {
     return non_null_fragments[0];
+  } else if (non_null_fragments.size() == 0) {
+    return MakeEmptyArray(value_array->type(), memory_pool);
   }
 
   return Concatenate(non_null_fragments, memory_pool);
