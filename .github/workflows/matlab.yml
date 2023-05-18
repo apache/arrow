@@ -111,7 +111,7 @@ jobs:
         uses: matlab-actions/setup-matlab@v1
       - name: Build MATLAB Interface
         run: bash ci/scripts/matlab_build.sh $(pwd)
-      - name: Run MATLAB Testst
+      - name: Run MATLAB Tests
         env:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.

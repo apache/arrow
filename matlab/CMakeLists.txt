@@ -542,14 +542,7 @@ if(UNIX
   endif()
 endif()
 
-# On Windows, use the RPATH values below for runtime dependency resolution. This enables
-# relocation of the installation directory.
 if(WIN32)
-  # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
-  # to the RPATH of arrow_matlab and mexcall, including the MATLAB dependencies.
-  # If Arrow_FOUND is true, this also includes the path to arrow_shared.
-  # set_target_properties(arrow_matlab mexcall PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-
   if(NOT Arrow_FOUND)
     # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
     # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
@@ -563,8 +556,7 @@ if(WIN32)
             DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
             FILES_MATCHING
             REGEX "${ARROW_SHARED_LIB_FILENAME}\\..*dll"
-            PATTERN "cmake" EXCLUDE
-            PATTERN "pkgconfig" EXCLUDE)
+            PATTERN "cmake" EXCLUDE)
   endif()
 endif()
 
