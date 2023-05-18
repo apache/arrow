@@ -29,7 +29,7 @@ namespace arrow {
 namespace compute {
 
 constexpr auto kSeed = 0x0ff1ce;
-constexpr int32_t kDictionarySize = 20;  // a typical dictionary size
+constexpr int32_t kDictionarySize = 24;  // a typical dictionary size
 
 //
 // Array sort/rank benchmark helpers
@@ -105,12 +105,18 @@ static void ArraySortFuncInt64DictBenchmark(benchmark::State& state, const Runne
                                             int64_t min, int64_t max, int32_t dict_size) {
   RegressionArgs args(state);
 
-  const double null_proportion = args.null_proportion / 2;
+  double null_proportion = args.null_proportion;
+  double values_null_proportion = null_proportion / 2;
+  if (1.0 - null_proportion < std::numeric_limits<double>::epsilon()) {
+    values_null_proportion = null_proportion = 1.0;
+  }
+  double indices_null_proportion = null_proportion - values_null_proportion;
+
   const int64_t array_size = args.size / sizeof(int64_t);
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto dict_values = rand.Int64(dict_size, min, max, null_proportion);
-  auto dict_indices = rand.Int64(array_size, 0, dict_size - 1, null_proportion);
+  auto dict_values = rand.Int64(dict_size, min, max, values_null_proportion);
+  auto dict_indices = rand.Int64(array_size, 0, dict_size - 1, indices_null_proportion);
   auto dict_array = *DictionaryArray::FromArrays(dict_indices, dict_values);
 
   ArraySortFuncBenchmark(state, runner, dict_array);
@@ -136,12 +142,20 @@ static void ArraySortFuncStringDictBenchmark(benchmark::State& state,
                                              int32_t max_length, int32_t dict_size) {
   RegressionArgs args(state);
 
-  const double null_proportion = args.null_proportion / 2;
-  const int64_t array_size = args.size / sizeof(int64_t);
+  double null_proportion = args.null_proportion;
+  double values_null_proportion = null_proportion / 2;
+  if (1.0 - null_proportion < std::numeric_limits<double>::epsilon()) {
+    values_null_proportion = null_proportion = 1.0;
+  }
+  double indices_null_proportion = null_proportion - values_null_proportion;
+
+  const int64_t array_size =
+      GetStringArraySize(args.size, min_length, max_length, null_proportion);
 
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto dict_values = rand.String(dict_size, min_length, max_length, null_proportion);
-  auto dict_indices = rand.Int64(array_size, 0, dict_size - 1, null_proportion);
+  auto dict_values =
+      rand.String(dict_size, min_length, max_length, values_null_proportion);
+  auto dict_indices = rand.Int64(array_size, 0, dict_size - 1, indices_null_proportion);
   auto dict_array = *DictionaryArray::FromArrays(dict_indices, dict_values);
 
   ArraySortFuncBenchmark(state, runner, dict_array);
