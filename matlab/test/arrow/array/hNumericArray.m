@@ -83,8 +83,8 @@ classdef hNumericArray < matlab.unittest.TestCase
         end
 
         function MatlabConversion(tc, MakeDeepCopy)
-        % Tests the type-specific conversion methods, e.g. single for
-        % arrow.array.Float32Array, double for array.array.Float64Array
+            % Tests the type-specific conversion methods, e.g. single for
+            % arrow.array.Float32Array, double for array.array.Float64Array
 
             % Create array from a scalar
             A1 = tc.ArrowArrayConstructor(tc.MatlabArrayFcn(100), DeepCopy=MakeDeepCopy);
