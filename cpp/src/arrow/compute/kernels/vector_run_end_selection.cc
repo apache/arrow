@@ -688,9 +688,9 @@ class REExREEFilterExecImpl final : public REEFilterExec {
 
     int64_t logical_length = 0;
     int64_t write_offset = 0;
-    ValueRepr value;
     auto status =
         VisitCombinedOutputRuns([&](int64_t i, int64_t run_length, bool valid) noexcept {
+          ValueRepr value = {};
           logical_length += run_length;
           if (run_length > 0) {
             out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
@@ -800,9 +800,9 @@ class REExPlainFilterExecImpl final : public REEFilterExec {
 
     int64_t logical_length = 0;
     int64_t write_offset = 0;
-    ValueRepr value;
     auto status =
         VisitCombinedOutputRuns([&](int64_t i, int64_t run_length, bool valid) noexcept {
+          ValueRepr value = {};
           logical_length += run_length;
           if (run_length > 0) {
             out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
