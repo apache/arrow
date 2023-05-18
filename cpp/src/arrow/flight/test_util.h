@@ -180,6 +180,10 @@ Status ExampleNestedBatches(RecordBatchVector* out);
 ARROW_FLIGHT_EXPORT
 Status ExampleLargeBatches(RecordBatchVector* out);
 
+// Batches of data that previously Flight sent unaligned
+ARROW_FLIGHT_EXPORT
+arrow::Result<arrow::RecordBatchVector> ExampleAlignmentBatches();
+
 ARROW_FLIGHT_EXPORT
 arrow::Result<std::shared_ptr<RecordBatch>> VeryLargeBatch();
 

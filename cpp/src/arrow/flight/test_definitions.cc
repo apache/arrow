@@ -19,6 +19,8 @@
 
 #include <chrono>
 
+#include <gmock/gmock.h>
+
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_dict.h"
 #include "arrow/array/util.h"
@@ -26,6 +28,8 @@
 #include "arrow/flight/test_util.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/util/align_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
@@ -240,6 +244,30 @@ void DataTest::TestDoGetLargeBatch() {
   ASSERT_OK(ExampleLargeBatches(&expected_batches));
   Ticket ticket{"ticket-large-batch-1"};
   CheckDoGet(ticket, expected_batches);
+}
+
+void DataTest::TestDoGetAlignment() {
+  // Regression test for GH-32276
+  ASSERT_OK_AND_ASSIGN(RecordBatchVector expected_batches, ExampleAlignmentBatches());
+  Ticket ticket{"ticket-alignment"};
+  CheckDoGet(ticket, expected_batches);
+
+  ASSERT_OK_AND_ASSIGN(auto stream, client_->DoGet(ticket));
+  for (size_t i = 0; i < expected_batches.size(); i++) {
+    ASSERT_OK_AND_ASSIGN(auto chunk, stream->Next());
+    ASSERT_NE(nullptr, chunk.data);
+
+    std::vector<bool> needs_alignment;
+
+    ASSERT_TRUE(util::CheckAlignment(*expected_batches[i], util::kValueAlignment,
+                                     &needs_alignment));
+    ASSERT_THAT(needs_alignment, ::testing::Each(false));
+
+    needs_alignment.clear();
+    ASSERT_TRUE(
+        util::CheckAlignment(*chunk.data, util::kValueAlignment, &needs_alignment));
+    ASSERT_THAT(needs_alignment, ::testing::Each(false));
+  }
 }
 // Ensure FlightDataStream/RecordBatchStream::Close errors are propagated
 void DataTest::TestFlightDataStreamError() {

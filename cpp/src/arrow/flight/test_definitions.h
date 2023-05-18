@@ -76,6 +76,7 @@ class ARROW_FLIGHT_EXPORT DataTest : public FlightTest {
   void TestDoGetFloats();
   void TestDoGetDicts();
   void TestDoGetLargeBatch();
+  void TestDoGetAlignment();
   void TestFlightDataStreamError();
   void TestOverflowServerBatch();
   void TestOverflowClientBatch();
@@ -108,6 +109,7 @@ class ARROW_FLIGHT_EXPORT DataTest : public FlightTest {
   TEST_F(FIXTURE, TestDoGetFloats) { TestDoGetFloats(); }                             \
   TEST_F(FIXTURE, TestDoGetDicts) { TestDoGetDicts(); }                               \
   TEST_F(FIXTURE, TestDoGetLargeBatch) { TestDoGetLargeBatch(); }                     \
+  TEST_F(FIXTURE, TestDoGetAlignment) { TestDoGetAlignment(); }                       \
   TEST_F(FIXTURE, TestFlightDataStreamError) { TestFlightDataStreamError(); }         \
   TEST_F(FIXTURE, TestOverflowServerBatch) { TestOverflowServerBatch(); }             \
   TEST_F(FIXTURE, TestOverflowClientBatch) { TestOverflowClientBatch(); }             \

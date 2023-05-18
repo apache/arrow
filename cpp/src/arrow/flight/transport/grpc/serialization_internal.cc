@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/flight/platform.h"
+#include "arrow/type_fwd.h"
 
 #if defined(_MSC_VER)
 #pragma warning(push)
@@ -55,6 +56,7 @@
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/util/align_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 
@@ -379,6 +381,14 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->body)) {
           return ::grpc::Status(::grpc::StatusCode::INTERNAL,
                                 "Unable to read FlightData body");
+        }
+        // XXX: due to where we sit, we can't use a custom allocator
+        // XXX: any error here will likely crash or hang gRPC!
+        auto status =
+            util::EnsureAlignment(std::move(out->body), 64, default_memory_pool())
+                .Value(&out->body);
+        if (!status.ok()) {
+          return {::grpc::StatusCode::INTERNAL, status.ToString()};
         }
       } break;
       default:

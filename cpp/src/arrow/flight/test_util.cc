@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
+#include <limits>
 #include <sstream>
 
 // We need Windows fixes before including Boost
@@ -43,7 +44,9 @@
 #include "arrow/ipc/test_common.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
@@ -190,6 +193,10 @@ Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader
   } else if (ticket.ticket == "ticket-large-batch-1") {
     RecordBatchVector batches;
     RETURN_NOT_OK(ExampleLargeBatches(&batches));
+    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
+    return Status::OK();
+  } else if (ticket.ticket == "ticket-alignment") {
+    ARROW_ASSIGN_OR_RAISE(RecordBatchVector batches, ExampleAlignmentBatches());
     ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
     return Status::OK();
   } else {
@@ -677,6 +684,45 @@ Status ExampleLargeBatches(RecordBatchVector* out) {
   out->push_back(RecordBatch::Make(schema, array_length, arrays));
   out->push_back(RecordBatch::Make(schema, array_length, arrays));
   return Status::OK();
+}
+
+arrow::Result<arrow::RecordBatchVector> ExampleAlignmentBatches() {
+  const double null_probability = 0.3;
+  auto schema = ::arrow::schema({
+      field("int8", int8()),
+      field("int16", int16()),
+      field("int32", int32()),
+      field("int64", int64()),
+  });
+
+  RecordBatchVector batches;
+  for (int i = 0; i < 5; ++i) {
+    int64_t length = i + 1;
+    arrow::random::RandomArrayGenerator rand(2 * i + 3);
+
+    std::shared_ptr<Array> int8s, int16s, int32s, int64s;
+    int8s = rand.Numeric<Int8Type>(length, std::numeric_limits<int8_t>::min(),
+                                   std::numeric_limits<int8_t>::max(), null_probability);
+    int16s =
+        rand.Numeric<Int16Type>(length, std::numeric_limits<int16_t>::min(),
+                                std::numeric_limits<int16_t>::max(), null_probability);
+    int32s =
+        rand.Numeric<Int32Type>(length, std::numeric_limits<int32_t>::min(),
+                                std::numeric_limits<int32_t>::max(), null_probability);
+    int64s =
+        rand.Numeric<Int64Type>(length, std::numeric_limits<int64_t>::min(),
+                                std::numeric_limits<int64_t>::max(), null_probability);
+
+    std::shared_ptr<RecordBatch> batch = RecordBatch::Make(schema, length,
+                                                           {
+                                                               std::move(int8s),
+                                                               std::move(int16s),
+                                                               std::move(int32s),
+                                                               std::move(int64s),
+                                                           });
+    batches.push_back(batch);
+  }
+  return batches;
 }
 
 arrow::Result<std::shared_ptr<RecordBatch>> VeryLargeBatch() {
