@@ -18,6 +18,7 @@ classdef Float64Array < arrow.array.Array
 
     properties (Hidden, SetAccess=private)
         MatlabArray
+        NullSubstitionValue = NaN;
     end
 
     methods
@@ -40,7 +41,12 @@ classdef Float64Array < arrow.array.Array
         end
 
         function data = double(obj)
-            data = obj.Proxy.toMATLAB();
+            data = obj.toMATLAB();
+        end
+        
+        function matlabArray = toMATLAB(obj)
+            matlabArray = obj.Proxy.toMATLAB();
+            matlabArray(~obj.Valid) = obj.NullSubstitionValue;
         end
     end
 end
