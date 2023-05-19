@@ -37,6 +37,13 @@ func GetRootAsDecimal(buf []byte, offset flatbuffers.UOffsetT) *Decimal {
 	return x
 }
 
+func GetSizePrefixedRootAsDecimal(buf []byte, offset flatbuffers.UOffsetT) *Decimal {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &Decimal{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
 func (rcv *Decimal) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

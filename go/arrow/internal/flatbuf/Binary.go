@@ -34,6 +34,13 @@ func GetRootAsBinary(buf []byte, offset flatbuffers.UOffsetT) *Binary {
 	return x
 }
 
+func GetSizePrefixedRootAsBinary(buf []byte, offset flatbuffers.UOffsetT) *Binary {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &Binary{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
 func (rcv *Binary) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

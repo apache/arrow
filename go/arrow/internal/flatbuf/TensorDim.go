@@ -36,6 +36,13 @@ func GetRootAsTensorDim(buf []byte, offset flatbuffers.UOffsetT) *TensorDim {
 	return x
 }
 
+func GetSizePrefixedRootAsTensorDim(buf []byte, offset flatbuffers.UOffsetT) *TensorDim {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &TensorDim{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
 func (rcv *TensorDim) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

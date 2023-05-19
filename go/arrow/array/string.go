@@ -310,6 +310,103 @@ func arrayEqualLargeString(left, right *LargeString) bool {
 	return true
 }
 
+type StringView struct {
+	array
+	values      []arrow.StringHeader
+	dataBuffers []*memory.Buffer
+}
+
+func NewStringViewData(data arrow.ArrayData) *StringView {
+	a := &StringView{}
+	a.refCount = 1
+	a.setData(data.(*Data))
+	return a
+}
+
+func (a *StringView) setData(data *Data) {
+	if len(data.buffers) < 2 {
+		panic("len(data.buffers) < 2")
+	}
+	a.array.setData(data)
+
+	if valueData := data.buffers[1]; valueData != nil {
+		a.values = arrow.StringHeaderTraits.CastFromBytes(valueData.Bytes())
+	}
+
+	a.dataBuffers = data.buffers[2:]
+}
+
+func (a *StringView) ValueHeader(i int) *arrow.StringHeader {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	return &a.values[a.array.data.offset+i]
+}
+
+func (a *StringView) Value(i int) string {
+	s := a.ValueHeader(i)
+	if s.IsInline() {
+		return s.InlineData()
+	}
+	start := s.BufferOffset()
+	buf := a.dataBuffers[s.BufferIndex()]
+	value := buf.Bytes()[start : start+uint32(s.Len())]
+	return *(*string)(unsafe.Pointer(&value))
+}
+
+func (a *StringView) String() string {
+	var o strings.Builder
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString(NullValueStr)
+		default:
+			fmt.Fprintf(&o, "%q", a.Value(i))
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *StringView) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.Value(i)
+}
+
+func (a *StringView) GetOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.Value(i)
+}
+
+func (a *StringView) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		vals[i] = a.GetOneForMarshal(i)
+	}
+	return json.Marshal(vals)
+}
+
+func arrayEqualStringView(left, right *StringView) bool {
+	leftBufs, rightBufs := left.dataBuffers, right.dataBuffers
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if !left.ValueHeader(i).Equals(leftBufs, right.ValueHeader(i), rightBufs) {
+			return false
+		}
+	}
+	return true
+}
+
 // A StringBuilder is used to build a String array using the Append methods.
 type StringBuilder struct {
 	*BinaryBuilder
@@ -514,6 +611,7 @@ type StringLikeBuilder interface {
 var (
 	_ arrow.Array       = (*String)(nil)
 	_ arrow.Array       = (*LargeString)(nil)
+	_ arrow.Array       = (*StringView)(nil)
 	_ Builder           = (*StringBuilder)(nil)
 	_ Builder           = (*LargeStringBuilder)(nil)
 	_ StringLikeBuilder = (*StringBuilder)(nil)

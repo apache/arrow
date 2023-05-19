@@ -272,6 +272,10 @@ func (b BufferSpec) Equals(other BufferSpec) bool {
 type DataTypeLayout struct {
 	Buffers []BufferSpec
 	HasDict bool
+	// if this is non-nil, the number of buffers expected is only
+	// lower-bounded by len(buffers). Buffers beyond this lower bound
+	// are expected to conform to this variadic spec.
+	VariadicSpec *BufferSpec
 }
 
 func SpecFixedWidth(w int) BufferSpec { return BufferSpec{KindFixedWidth, w} }

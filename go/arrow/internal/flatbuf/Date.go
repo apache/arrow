@@ -39,6 +39,13 @@ func GetRootAsDate(buf []byte, offset flatbuffers.UOffsetT) *Date {
 	return x
 }
 
+func GetSizePrefixedRootAsDate(buf []byte, offset flatbuffers.UOffsetT) *Date {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &Date{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
 func (rcv *Date) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

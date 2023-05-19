@@ -33,6 +33,13 @@ func GetRootAsDuration(buf []byte, offset flatbuffers.UOffsetT) *Duration {
 	return x
 }
 
+func GetSizePrefixedRootAsDuration(buf []byte, offset flatbuffers.UOffsetT) *Duration {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &Duration{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
 func (rcv *Duration) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

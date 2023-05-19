@@ -38,6 +38,13 @@ func GetRootAsRunEndEncoded(buf []byte, offset flatbuffers.UOffsetT) *RunEndEnco
 	return x
 }
 
+func GetSizePrefixedRootAsRunEndEncoded(buf []byte, offset flatbuffers.UOffsetT) *RunEndEncoded {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &RunEndEncoded{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
 func (rcv *RunEndEncoded) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

@@ -33,6 +33,13 @@ func GetRootAsList(buf []byte, offset flatbuffers.UOffsetT) *List {
 	return x
 }
 
+func GetSizePrefixedRootAsList(buf []byte, offset flatbuffers.UOffsetT) *List {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &List{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
 func (rcv *List) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

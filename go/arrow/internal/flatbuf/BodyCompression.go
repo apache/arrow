@@ -36,6 +36,13 @@ func GetRootAsBodyCompression(buf []byte, offset flatbuffers.UOffsetT) *BodyComp
 	return x
 }
 
+func GetSizePrefixedRootAsBodyCompression(buf []byte, offset flatbuffers.UOffsetT) *BodyCompression {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &BodyCompression{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
 func (rcv *BodyCompression) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

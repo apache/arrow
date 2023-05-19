@@ -33,6 +33,13 @@ func GetRootAsFloatingPoint(buf []byte, offset flatbuffers.UOffsetT) *FloatingPo
 	return x
 }
 
+func GetSizePrefixedRootAsFloatingPoint(buf []byte, offset flatbuffers.UOffsetT) *FloatingPoint {
+	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
+	x := &FloatingPoint{}
+	x.Init(buf, n+offset+flatbuffers.SizeUint32)
+	return x
+}
+
 func (rcv *FloatingPoint) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

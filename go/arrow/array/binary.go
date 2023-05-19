@@ -24,6 +24,7 @@ import (
 	"unsafe"
 
 	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 	"github.com/apache/arrow/go/v14/internal/json"
 )
 
@@ -318,6 +319,111 @@ func arrayEqualLargeBinary(left, right *LargeBinary) bool {
 	return true
 }
 
+type BinaryView struct {
+	array
+	values      []arrow.StringHeader
+	dataBuffers []*memory.Buffer
+}
+
+func NewBinaryViewData(data arrow.ArrayData) *BinaryView {
+	a := &BinaryView{}
+	a.refCount = 1
+	a.setData(data.(*Data))
+	return a
+}
+
+func (a *BinaryView) setData(data *Data) {
+	if len(data.buffers) < 2 {
+		panic("len(data.buffers) < 2")
+	}
+	a.array.setData(data)
+
+	if valueData := data.buffers[1]; valueData != nil {
+		a.values = arrow.StringHeaderTraits.CastFromBytes(valueData.Bytes())
+	}
+
+	a.dataBuffers = data.buffers[2:]
+}
+
+func (a *BinaryView) ValueHeader(i int) *arrow.StringHeader {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	return &a.values[a.array.data.offset+i]
+}
+
+func (a *BinaryView) Value(i int) []byte {
+	s := a.ValueHeader(i)
+	if s.IsInline() {
+		return s.InlineBytes()
+	}
+	start := s.BufferOffset()
+	buf := a.dataBuffers[s.BufferIndex()]
+	return buf.Bytes()[start : start+uint32(s.Len())]
+}
+
+func (a *BinaryView) ValueString(i int) string {
+	b := a.Value(i)
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+func (a *BinaryView) String() string {
+	var o strings.Builder
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString(NullValueStr)
+		default:
+			fmt.Fprintf(&o, "%q", a.ValueString(i))
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *BinaryView) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return base64.StdEncoding.EncodeToString(a.Value(i))
+}
+
+func (a *BinaryView) GetOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.Value(i)
+}
+
+func (a *BinaryView) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		vals[i] = a.GetOneForMarshal(i)
+	}
+	// golang marshal standard says that []byte will be marshalled
+	// as a base64-encoded string
+	return json.Marshal(vals)
+}
+
+func arrayEqualBinaryView(left, right *BinaryView) bool {
+	leftBufs, rightBufs := left.dataBuffers, right.dataBuffers
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if !left.ValueHeader(i).Equals(leftBufs, right.ValueHeader(i), rightBufs) {
+			return false
+		}
+	}
+	return true
+}
+
 var (
 	_ arrow.Array = (*Binary)(nil)
+	_ arrow.Array = (*LargeBinary)(nil)
+	_ arrow.Array = (*BinaryView)(nil)
 )
