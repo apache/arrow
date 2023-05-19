@@ -42,6 +42,7 @@ class RleEncoder;
 namespace parquet {
 
 struct ArrowWriteContext;
+class BloomFilter;
 class ColumnChunkMetaDataBuilder;
 class ColumnDescriptor;
 class ColumnIndexBuilder;
@@ -125,7 +126,8 @@ class PARQUET_EXPORT ColumnWriter {
 
   static std::shared_ptr<ColumnWriter> Make(ColumnChunkMetaDataBuilder*,
                                             std::unique_ptr<PageWriter>,
-                                            const WriterProperties* properties);
+                                            const WriterProperties* properties,
+                                            BloomFilter* bloom_filter = nullptr);
 
   /// \brief Closes the ColumnWriter, commits any buffered values to pages.
   /// \return Total size of the column in bytes

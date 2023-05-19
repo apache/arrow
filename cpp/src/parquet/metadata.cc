@@ -28,6 +28,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "parquet/bloom_filter_writer.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
@@ -1776,7 +1777,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
         key_value_metadata_(std::move(key_value_metadata)) {
     if (properties_->file_encryption_properties() != nullptr &&
         properties_->file_encryption_properties()->encrypted_footer()) {
-      crypto_metadata_.reset(new format::FileCryptoMetaData());
+      crypto_metadata_ = std::make_unique<format::FileCryptoMetaData>();
     }
   }
 
@@ -1818,6 +1819,27 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     for (size_t i = 0; i < row_groups_.size(); ++i) {
       set_index_location(i, location.column_index_location, true);
       set_index_location(i, location.offset_index_location, false);
+    }
+  }
+
+  void SetBloomFilterReference(const RowGroupBloomFilterReference& reference) {
+    if (reference.empty()) {
+      // Return quickly if none of bloom filter is there, which is the most common case.
+      return;
+    }
+
+    for (size_t row_group_id = 0; row_group_id < row_groups_.size(); ++row_group_id) {
+      const std::map<int32_t, RowGroupBloomFilterReference::Reference>* offsets = nullptr;
+      if (reference.GetBloomFilterOffsets(row_group_id, &offsets)) {
+        auto& row_group_meta = row_groups_[row_group_id];
+        for (const auto& bloom_filter_offset : *offsets) {
+          int32_t column_id = bloom_filter_offset.first;
+          DCHECK(column_id < static_cast<int32_t>(row_group_meta.columns.size()));
+          auto& column_meta = row_group_meta.columns[column_id].meta_data;
+          int64_t offset = bloom_filter_offset.second.offset;
+          column_meta.__set_bloom_filter_offset(offset);
+        }
+      }
     }
   }
 
@@ -1960,6 +1982,11 @@ RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup() {
 
 void FileMetaDataBuilder::SetPageIndexLocation(const PageIndexLocation& location) {
   impl_->SetPageIndexLocation(location);
+}
+
+void FileMetaDataBuilder::SetBloomFilterReference(
+    const RowGroupBloomFilterReference& reference) {
+  impl_->SetBloomFilterReference(reference);
 }
 
 std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish(

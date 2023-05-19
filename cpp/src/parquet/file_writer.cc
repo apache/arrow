@@ -25,6 +25,7 @@
 
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "parquet/bloom_filter_writer.h"
 #include "parquet/column_writer.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
@@ -91,7 +92,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
                      RowGroupMetaDataBuilder* metadata, int16_t row_group_ordinal,
                      const WriterProperties* properties, bool buffered_row_group = false,
                      InternalFileEncryptor* file_encryptor = nullptr,
-                     PageIndexBuilder* page_index_builder = nullptr)
+                     PageIndexBuilder* page_index_builder = nullptr,
+                     BloomFilterWriter* bloom_filter_writer = nullptr)
       : sink_(std::move(sink)),
         metadata_(metadata),
         properties_(properties),
@@ -103,7 +105,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         num_rows_(0),
         buffered_row_group_(buffered_row_group),
         file_encryptor_(file_encryptor),
-        page_index_builder_(page_index_builder) {
+        page_index_builder_(page_index_builder),
+        bloom_filter_writer_(bloom_filter_writer) {
     if (buffered_row_group) {
       InitColumns();
     } else {
@@ -248,6 +251,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   bool buffered_row_group_;
   InternalFileEncryptor* file_encryptor_;
   PageIndexBuilder* page_index_builder_;
+  BloomFilterWriter* bloom_filter_writer_;
 
   void CheckRowsWritten() const {
     // verify when only one column is written at a time
@@ -290,6 +294,21 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       auto oi_builder = page_index_builder_ && properties_->page_index_enabled(path)
                             ? page_index_builder_->GetOffsetIndexBuilder(column_ordinal)
                             : nullptr;
+      auto bloom_filter =
+          bloom_filter_writer_ && properties_->bloom_filter_enabled(path)
+              ? bloom_filter_writer_->GetOrCreateBloomFilter(
+                    path,
+                    [&]() {
+                      int64_t ndv = properties_->bloom_filter_ndv(path);
+
+                      auto bloom_filter = std::make_unique<BlockSplitBloomFilter>();
+                      // TODO(mwish): add configurable ndv
+                      bloom_filter->Init(BlockSplitBloomFilter::OptimalNumOfBytes(
+                          static_cast<uint32_t>(ndv),
+                          /*fpp=*/0.05));
+                      return bloom_filter;
+                    })
+              : nullptr;
       std::unique_ptr<PageWriter> pager = PageWriter::Open(
           sink_, properties_->compression(path), properties_->compression_level(path),
           col_meta, static_cast<int16_t>(row_group_ordinal_),
@@ -297,7 +316,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
           buffered_row_group_, meta_encryptor, data_encryptor,
           properties_->page_checksum_enabled(), ci_builder, oi_builder);
       column_writers_.push_back(
-          ColumnWriter::Make(col_meta, std::move(pager), properties_));
+          ColumnWriter::Make(col_meta, std::move(pager), properties_, bloom_filter));
     }
   }
 
@@ -335,6 +354,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
       row_group_writer_.reset();
 
       WritePageIndex();
+      WriteBloomFilter();
 
       // Write magic bytes and metadata
       auto file_encryption_properties = properties_->file_encryption_properties();
@@ -367,9 +387,13 @@ class FileSerializer : public ParquetFileWriter::Contents {
     if (page_index_builder_) {
       page_index_builder_->AppendRowGroup();
     }
+    if (bloom_filter_writer_) {
+      bloom_filter_writer_->AppendRowGroup();
+    }
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
         sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
-        buffered_row_group, file_encryptor_.get(), page_index_builder_.get()));
+        buffered_row_group, file_encryptor_.get(), page_index_builder_.get(),
+        bloom_filter_writer_.get()));
     row_group_writer_ = std::make_unique<RowGroupWriter>(std::move(contents));
     return row_group_writer_.get();
   }
@@ -458,6 +482,16 @@ class FileSerializer : public ParquetFileWriter::Contents {
     }
   }
 
+  void WriteBloomFilter() {
+    if (bloom_filter_writer_ != nullptr) {
+      bloom_filter_writer_->WriteTo(sink_.get(), schema(), file_encryptor_.get());
+      const auto& ref = bloom_filter_writer_->reference();
+      if (!ref.empty()) {
+        metadata_->SetBloomFilterReference(ref);
+      }
+    }
+  }
+
   std::shared_ptr<ArrowOutputStream> sink_;
   bool is_open_;
   const std::shared_ptr<WriterProperties> properties_;
@@ -468,6 +502,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
   std::unique_ptr<RowGroupWriter> row_group_writer_;
   std::unique_ptr<PageIndexBuilder> page_index_builder_;
   std::unique_ptr<InternalFileEncryptor> file_encryptor_;
+  // Only one of the bloom filter writer is active at a time
+  std::unique_ptr<BloomFilterWriter> bloom_filter_writer_;
 
   void StartFile() {
     auto file_encryption_properties = properties_->file_encryption_properties();
@@ -508,6 +544,9 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
     if (properties_->page_index_enabled()) {
       page_index_builder_ = PageIndexBuilder::Make(&schema_);
+    }
+    if (properties_->bloom_filter_enabled()) {
+      bloom_filter_writer_ = std::make_unique<BloomFilterWriter>();
     }
   }
 };

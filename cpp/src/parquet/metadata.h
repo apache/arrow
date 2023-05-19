@@ -34,6 +34,7 @@ namespace parquet {
 
 class ColumnDescriptor;
 class EncodedStatistics;
+class RowGroupBloomFilterReference;
 class Statistics;
 class SchemaDescriptor;
 
@@ -541,6 +542,9 @@ class PARQUET_EXPORT FileMetaDataBuilder {
 
   // Update location to all page indexes in the parquet file
   void SetPageIndexLocation(const PageIndexLocation& location);
+
+  // Set reference to serialized bloom filter
+  void SetBloomFilterReference(const RowGroupBloomFilterReference& reference);
 
   // Complete the Thrift structure
   std::unique_ptr<FileMetaData> Finish(
