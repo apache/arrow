@@ -1,5 +1,6 @@
-classdef Int8Array < arrow.array.Array
-    % arrow.array.Int8Array
+function validateTypeAndShape(data, type)
+    % Validates data has the expected type and is a vector or empty 2D
+    % matrix. If data is numeric, validates is real and nonsparse.
 
     % Licensed to the Apache Software Foundation (ASF) under one or more
     % contributor license agreements.  See the NOTICE file distributed with
@@ -16,25 +17,20 @@ classdef Int8Array < arrow.array.Array
     % implied.  See the License for the specific language governing
     % permissions and limitations under the License.
 
-    properties (Hidden, SetAccess=private)
-        MatlabArray = int8([])
+    arguments
+        data
+        type(1, 1) string
     end
 
-    methods
-        function obj = Int8Array(data, opts)
-            arguments
-                data
-                opts.DeepCopy = false
-            end
-            
-            arrow.args.validateTypeAndShape(data, "int8");
-            obj@arrow.array.Array("Name", "arrow.array.proxy.Int8Array", "ConstructorArguments", {data, opts.DeepCopy});
-            % Store a reference to the array if not doing a deep copy
-            if (~opts.DeepCopy), obj.MatlabArray = data; end
-        end
-
-        function data = int8(obj)
-            data = obj.Proxy.toMATLAB();
-        end
+    % If data is empty, only require it's shape to be 2D to support 0x0 
+    % arrays. Otherwise, require data to be a vector.
+    %
+    % TODO: Consider supporting nonvector 2D arrays. We chould reshape them
+    % to column vectors if needed.
+    
+    expectedShape = "vector";
+    if isempty(data)
+        expectedShape = "2d";
     end
+    validateattributes(data, type, [expectedShape, "nonsparse", "real"]);
 end

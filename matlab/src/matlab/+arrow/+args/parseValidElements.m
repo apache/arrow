@@ -1,5 +1,7 @@
-classdef Int8Array < arrow.array.Array
-    % arrow.array.Int8Array
+function validElements = parseValidElements(data, detectNulls, nullDetectionFcn)
+    % Creates the validElements logical vector based on data if
+    % detectNulls is true. If so, data is based to the NullDetectionFcn.
+    % Otherwise, all elements in data are valid.
 
     % Licensed to the Apache Software Foundation (ASF) under one or more
     % contributor license agreements.  See the NOTICE file distributed with
@@ -16,25 +18,19 @@ classdef Int8Array < arrow.array.Array
     % implied.  See the License for the specific language governing
     % permissions and limitations under the License.
 
-    properties (Hidden, SetAccess=private)
-        MatlabArray = int8([])
-    end
-
-    methods
-        function obj = Int8Array(data, opts)
-            arguments
-                data
-                opts.DeepCopy = false
-            end
-            
-            arrow.args.validateTypeAndShape(data, "int8");
-            obj@arrow.array.Array("Name", "arrow.array.proxy.Int8Array", "ConstructorArguments", {data, opts.DeepCopy});
-            % Store a reference to the array if not doing a deep copy
-            if (~opts.DeepCopy), obj.MatlabArray = data; end
+    if detectNulls
+        % TODO: consider making validElements empty if everything is valid.
+        validElements = ~nullDetectionFcn(data);
+    
+        % If data was empty, it's ok for validElements to be a 0x0 
+        % logical array. 
+        expectedShape = 'vector';
+        if isempty(validElements)
+            expectedShape = '2d';
         end
-
-        function data = int8(obj)
-            data = obj.Proxy.toMATLAB();
-        end
+        validateattributes(validElements, "logical", {expectedShape, 'numel', numel(data)});
+    else
+        % TODO: consider making this an empty array if everything is valid
+        validElements = true([numel(data) 1]);
     end
 end

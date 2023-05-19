@@ -29,19 +29,8 @@ classdef Float64Array < arrow.array.Array
                 opts.DetectNulls(1, 1) logical = true
                 opts.NullDetectionFcn(1, 1) function_handle = @isnan
             end
-
-            validateattributes(data, "double", ["2d", "nonsparse", "real"]);
-            if ~isempty(data), validateattributes(data, "double", "vector"); end
-
-            if opts.DetectNulls
-                % TODO: consider making validElements empty if everything is valid.
-                validElements = ~opts.NullDetectionFcn(data);
-                validateattributes(validElements, "logical", {'vector', 'numel', numel(data)});
-            else
-                % TODO: consider making this an empty array if everything is valid
-                validElements = true([numel(data) 1]);
-            end
-
+            arrow.args.validateTypeAndShape(data, "double");
+            validElements = arrow.args.parseValidElements(data, opts.DetectNulls, opts.NullDetectionFcn);
             obj@arrow.array.Array("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {data, opts.DeepCopy, validElements});
             % Store a reference to the array if not doing a deep copy
             if (~opts.DeepCopy), obj.MatlabArray = data; end
@@ -57,3 +46,4 @@ classdef Float64Array < arrow.array.Array
         end
     end
 end
+
