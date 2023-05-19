@@ -3172,7 +3172,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
 struct ByteArrayVisitor {
   const ByteArray* src;
-  const uint32_t length;
+  const uint32_t type_length;
 
   std::string_view operator[](int i) const {
     if (ARROW_PREDICT_FALSE(src[i].len >= kMaxByteArraySize)) {
@@ -3186,13 +3186,13 @@ struct ByteArrayVisitor {
 
 struct FLBAVisitor {
   const FLBA* src;
-  const uint32_t length;
+  const uint32_t type_length;
 
   std::string_view operator[](int i) const {
-    return std::string_view{reinterpret_cast<const char*>(src[i].ptr), length};
+    return std::string_view{reinterpret_cast<const char*>(src[i].ptr), type_length};
   }
 
-  uint32_t len(int i) const { return length; }
+  uint32_t len(int i) const { return type_length; }
 };
 
 template <>
