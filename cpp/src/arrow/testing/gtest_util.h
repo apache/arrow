@@ -533,8 +533,8 @@ class ARROW_TESTING_EXPORT GatingTask {
 };
 
 /// \brief modify an array so that the buffer at index 1 (if it has one) is unaligned
-std::shared_ptr<ArrayData> UnalignValues(const ArrayData& array);
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayData> UnalignValues(const ArrayData& array);
 /// \brief modify an array so that the buffer at index 1 (if it has one) is unaligned
-std::shared_ptr<Array> UnalignValues(const Array& array);
+ARROW_TESTING_EXPORT std::shared_ptr<Array> UnalignValues(const Array& array);
 
 }  // namespace arrow
