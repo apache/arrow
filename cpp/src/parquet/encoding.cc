@@ -3086,6 +3086,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
     std::string_view last_value_view = last_value_;
     constexpr int kBatchSize = 256;
     std::array<int32_t, kBatchSize> prefix_lengths;
+    std::array<ByteArray, kBatchSize> suffixes;
     auto visitor = VisitorType{src, len};
 
     for (int i = 0; i < num_values; i += kBatchSize) {
@@ -3112,8 +3113,9 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
         // Convert to ByteArray, so it can be passed to the suffix_encoder_.
         const ByteArray suffix(suffix_length, suffix_ptr);
-        suffix_encoder_.Put(&suffix, 1);
+        suffixes[j] = suffix;
       }
+      suffix_encoder_.Put(suffixes.data(), batch_size);
       prefix_length_encoder_.Put(prefix_lengths.data(), batch_size);
     }
     last_value_ = last_value_view;
