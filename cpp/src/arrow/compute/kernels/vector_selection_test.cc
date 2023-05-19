@@ -252,14 +252,6 @@ class TestFilterKernel : public ::testing::Test {
  protected:
   TestFilterKernel() : emit_null_(FilterOptions::EMIT_NULL), drop_(FilterOptions::DROP) {}
 
-  void AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
-    auto& child = array->child_data[1];
-    auto builder = MakeBuilder(child->type).ValueOrDie();
-    ASSERT_OK(builder->AppendNulls(offset));
-    ASSERT_OK(builder->AppendArraySlice(ArraySpan(*child), 0, child->length));
-    array->child_data[1] = builder->Finish().ValueOrDie()->Slice(offset)->data();
-  }
-
   void DoAssertFilter(const std::shared_ptr<Array>& values,
                       const std::shared_ptr<Array>& filter,
                       const std::shared_ptr<Array>& expected) {
@@ -285,9 +277,11 @@ class TestFilterKernel : public ::testing::Test {
     }
   }
 
-  void AssertFilterSliced(const std::shared_ptr<Array>& values,
-                          const std::shared_ptr<Array>& filter,
-                          const std::shared_ptr<Array>& expected) {
+  void AssertFilter(const std::shared_ptr<Array>& values,
+                    const std::shared_ptr<Array>& filter,
+                    const std::shared_ptr<Array>& expected) {
+    DoAssertFilter(values, filter, expected);
+
     if (values->type_id() == Type::DENSE_UNION) {
       // Concatenation of dense union not supported
       return;
@@ -306,66 +300,6 @@ class TestFilterKernel : public ::testing::Test {
     auto values_sliced = values_with_filler->Slice(3, values->length());
     auto filter_sliced = filter_with_filler->Slice(2, filter->length());
     DoAssertFilter(values_sliced, filter_sliced, expected);
-  }
-
-  void AssertFilterREE(const std::shared_ptr<Array>& values,
-                       const std::shared_ptr<Array>& filter,
-                       const std::shared_ptr<Array>& expected) {
-    // TODO: create REE filter kernel for non-primitive types
-    if (!is_primitive(values->type_id())) {
-      return;
-    }
-    for (auto run_ends_type : {int16(), int32(), int64()}) {
-      ARROW_SCOPED_TRACE("for run ends array type ", *run_ends_type);
-      RunEndEncodeOptions options(run_ends_type);
-      ASSERT_OK_AND_ASSIGN(auto values_ree, RunEndEncode(values, options));
-      ASSERT_OK_AND_ASSIGN(auto filter_ree, RunEndEncode(filter, options));
-      ASSERT_OK_AND_ASSIGN(auto expected_ree, RunEndEncode(expected, options));
-      {
-        ARROW_SCOPED_TRACE("for run-end encoded non-sliced values and filter");
-        DoAssertFilter(values_ree.make_array(), filter_ree.make_array(),
-                       expected_ree.make_array());
-      }
-      {
-        ARROW_SCOPED_TRACE(
-            "for run-end encoded values and filter with sliced child arrays");
-        auto values_ree_sliced = values_ree.array()->Copy();
-        ASSERT_NO_FATAL_FAILURE(
-            AddArtificialOffsetInChildArray(values_ree_sliced.get(), 2));
-        auto filter_ree_sliced = filter_ree.array()->Copy();
-        ASSERT_NO_FATAL_FAILURE(
-            AddArtificialOffsetInChildArray(filter_ree_sliced.get(), 1000));
-        DoAssertFilter(values_ree.make_array(), filter_ree.make_array(),
-                       expected_ree.make_array());
-      }
-      {
-        ARROW_SCOPED_TRACE("for sliced run-end encoded arrays");
-        auto values_pad = ArrayFromJSON(values->type(), "[null, null]");
-        auto filter_pad = ArrayFromJSON(boolean(), "[true, true]");
-        ASSERT_OK_AND_ASSIGN(auto values_padded,
-                             Concatenate({values_pad, values, values_pad}));
-        ASSERT_OK_AND_ASSIGN(auto filter_padded,
-                             Concatenate({filter_pad, filter, filter_pad}));
-        ASSERT_OK_AND_ASSIGN(auto values_padded_ree,
-                             RunEndEncode(values_padded, options));
-        ASSERT_OK_AND_ASSIGN(auto filter_padded_ree,
-                             RunEndEncode(filter_padded, options));
-        int64_t originial_length = values->length();
-        ASSERT_ARRAYS_EQUAL(*filter_padded_ree.make_array()->Slice(2, originial_length),
-                            *filter_ree.make_array());
-        DoAssertFilter(values_padded_ree.make_array()->Slice(2, originial_length),
-                       filter_padded_ree.make_array()->Slice(2, originial_length),
-                       expected_ree.make_array());
-      }
-    }
-  }
-
-  void AssertFilter(const std::shared_ptr<Array>& values,
-                    const std::shared_ptr<Array>& filter,
-                    const std::shared_ptr<Array>& expected) {
-    DoAssertFilter(values, filter, expected);
-    AssertFilterSliced(values, filter, expected);
-    AssertFilterREE(values, filter, expected);
   }
 
   void AssertFilter(const std::shared_ptr<DataType>& type, const std::string& values,
@@ -496,29 +430,6 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
                                 ArrayFromJSON(boolean(), "[]"), this->emit_null_));
   ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
                                 ArrayFromJSON(boolean(), "[]"), this->drop_));
-}
-
-// inputs with runs of multiple elements of the same value, aimed at the REE kernel
-TYPED_TEST(TestFilterKernelWithNumeric, FilterNumericRuns) {
-  auto type = this->type_singleton();
-  this->AssertFilter(type, "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
-                     "[1, 1, 0, 0, 0, 0, 0, 1, 1]", "[1, 1, 127, 127]");
-  this->AssertFilter(type, "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
-                     "[1, 0, 1, 0, 1, 0, 1, 0, 1]", "[1, 0, 5, 127, 127]");
-  this->AssertFilter(type, "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
-                     "[1, 1, 1, 1, 1, 1, 1, 1, 1]", "[1, 1, 0, 5, 5, 5, 127, 127, 127]");
-  this->AssertFilter(type, "[1, 1, 0, 5, 5, 5, 127, 127, 127]",
-                     "[0, 0, 0, 0, 0, 0, 0, 0, 0]", "[]");
-
-  this->AssertFilter(type, "[null, 1, 1, null, null, 5, 5, null, null]",
-                     "[1, 1, 0, 0, 0, 0, 0, 1, 1]", "[null, 1, null, null]");
-  this->AssertFilter(type, "[null, 1, 1, null, null, 5, 5, null, null]",
-                     "[1, 0, 1, 0, 1, 0, 1, 0, 1]", "[null, 1, null, 5, null]");
-  this->AssertFilter(type, "[null, 1, 1, null, null, 5, 5, null, null]",
-                     "[1, 1, 1, 1, 1, 1, 1, 1, 1]",
-                     "[null, 1, 1, null, null, 5, 5, null, null]");
-  this->AssertFilter(type, "[null, 1, 1, null, null, 5, 5, null, null]",
-                     "[0, 0, 0, 0, 0, 0, 0, 0, 0]", "[]");
 }
 
 template <typename CType>
