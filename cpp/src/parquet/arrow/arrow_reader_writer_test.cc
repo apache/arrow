@@ -3074,6 +3074,26 @@ TEST(ArrowReadWrite, FixedSizeList) {
   CheckSimpleRoundtrip(table, 2, props_store_schema);
 }
 
+TEST(ArrowReadWrite, NullableFixedSizeList) {
+  using ::arrow::field;
+  using ::arrow::fixed_size_list;
+  using ::arrow::struct_;
+
+  auto type = fixed_size_list(::arrow::int16(), /*size=*/3);
+
+  const char* json = R"([
+      [1, 2, 3],
+      null,
+      [4, 2, 6],
+      null,
+      [7, 8, 3],
+      null])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
 TEST(ArrowReadWrite, ListOfStructOfList2) {
   using ::arrow::field;
   using ::arrow::list;
