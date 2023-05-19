@@ -299,7 +299,7 @@ arrow::Status ScanSinkExample() {
 /// in an execution plan. This includes source node using pregenerated
 /// data and collecting it into a table.
 ///
-/// This sort of custom souce is often not needed.  In most cases you can
+/// This sort of custom source is often not needed.  In most cases you can
 /// use a scan (for a dataset source) or a source like table_source, array_vector_source,
 /// exec_batch_source, or record_batch_source (for in-memory data)
 arrow::Status SourceSinkExample() {
