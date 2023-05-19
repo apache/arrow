@@ -25,16 +25,23 @@ classdef Float64Array < arrow.array.Array
         function obj = Float64Array(data, opts)
             arguments
                 data
-                opts.DeepCopy = false
+                opts.DeepCopy(1, 1) logical = false
+                opts.DetectNulls(1, 1) logical = true
+                opts.NullDetectionFcn(1, 1) function_handle = @isnan
             end
 
             validateattributes(data, "double", ["2d", "nonsparse", "real"]);
             if ~isempty(data), validateattributes(data, "double", "vector"); end
-            % Extract missing (i.e. null) values.
-            % TODO: Determine a more robust approach to handling "detection" of null values.
-            %       For example - add a name-value pair to allow clients to choose which values
-            %       should be considered null (if any).
-            validElements = ~isnan(data);
+
+            if opts.DetectNulls
+                % TODO: consider making validElements empty if everything is valid.
+                validElements = ~opts.NullDetectionFcn(data);
+                validateattributes(validElements, "logical", {'vector', 'numel', numel(data)});
+            else
+                % TODO: consider making this an empty array if everything is valid
+                validElements = true([numel(data) 1]);
+            end
+
             obj@arrow.array.Array("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {data, opts.DeepCopy, validElements});
             % Store a reference to the array if not doing a deep copy
             if (~opts.DeepCopy), obj.MatlabArray = data; end
