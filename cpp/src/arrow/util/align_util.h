@@ -73,7 +73,7 @@ namespace util {
 
 /// \brief if this is specified in one of the CheckAlignment or EnsureAlignment functions
 ///
-/// then the funciton will ensure each buffer is suitably aligned for the data type of the
+/// then the function will ensure each buffer is suitably aligned for the data type of the
 /// array.  For example, given an int32 buffer the validity buffer must be a multiple of 8
 /// and the values buffer must be a multiple of 32.  Given a large_string buffer the
 /// validity buffer and values buffers must be multiples of 8 and the offsets buffer must
