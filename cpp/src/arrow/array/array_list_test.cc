@@ -1284,6 +1284,7 @@ TEST_F(TestFixedSizeListArray, FlattenZeroLength) {
 TEST_F(TestFixedSizeListArray, FlattenNulls) {
   ASSERT_OK(builder_->AppendNulls(2));
   Done();
+  ASSERT_EQ(result_->data()->GetNullCount(), 2);
   ASSERT_OK_AND_ASSIGN(auto flattened, result_->Flatten());
   ASSERT_OK(flattened->ValidateFull());
   ASSERT_EQ(0, flattened->length());
