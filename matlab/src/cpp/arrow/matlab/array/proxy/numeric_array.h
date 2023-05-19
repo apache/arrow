@@ -32,6 +32,13 @@
 
 namespace arrow::matlab::array::proxy {
 
+namespace {
+const uint8_t* getUnpackedValidityBitmap(const ::matlab::data::TypedArray<bool>& valid_elements) {
+    const auto valid_elements_iterator(valid_elements.cbegin());
+    return reinterpret_cast<const uint8_t*>(valid_elements_iterator.operator->());
+}
+} // anonymous namespace
+
 template<typename CType>
 class NumericArray : public arrow::matlab::array::proxy::Array {
     public:
@@ -43,7 +50,8 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             // Get the mxArray from constructor arguments
             const ::matlab::data::TypedArray<CType> numeric_mda = constructor_arguments[0];
             const ::matlab::data::TypedArray<bool> make_copy = constructor_arguments[1];
-            const ::matlab::data::TypedArray<bool> valid_elements = constructor_arguments[2];
+
+            const auto has_validity_bitmap = constructor_arguments.getNumberOfElements() > 2;
 
             // Get raw pointer of mxArray
             auto it(numeric_mda.cbegin());
@@ -51,10 +59,10 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
 
             const auto make_deep_copy = make_copy[0];
 
-            const auto valid_elements_iterator(valid_elements.cbegin());
-            const uint8_t* unpacked_validity_bitmap = reinterpret_cast<const uint8_t*>(valid_elements_iterator.operator->());
-
             if (make_deep_copy) {
+                // Get the unpacked validity bitmap (if it exists)
+                auto unpacked_validity_bitmap = has_validity_bitmap ? getUnpackedValidityBitmap(constructor_arguments[2]) : nullptr;
+
                 BuilderType builder;
                 auto st = builder.AppendValues(dt, numeric_mda.getNumberOfElements(), unpacked_validity_bitmap);
 
@@ -74,7 +82,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                                                               sizeof(CType) * numeric_mda.getNumberOfElements());
 
                 // Pack the validity bitmap values.
-                auto packed_validity_bitmap = arrow::matlab::bit::bitPackMatlabLogicalArray(valid_elements).ValueOrDie();
+                auto packed_validity_bitmap = has_validity_bitmap ? arrow::matlab::bit::bitPackMatlabLogicalArray(constructor_arguments[2]).ValueOrDie() : nullptr;
 
                 auto array_data = arrow::ArrayData::Make(data_type, length, {packed_validity_bitmap, data_buffer});
                 array = arrow::MakeArray(array_data);
