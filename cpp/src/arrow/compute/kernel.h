@@ -152,6 +152,12 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndInteger();
 ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(
     std::shared_ptr<TypeMatcher> value_type_matcher);
 
+/// \brief Match run-end encoded types that use any valid run-end type and
+/// encode specific value types
+///
+/// @param[in] value_type_id a type id that the type of the values field should match
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(Type::type value_type_id);
+
 /// \brief Match run-end encoded types that encode specific run-end and value types
 ///
 /// @param[in] run_end_type_matcher a matcher that is applied to the run_ends field
