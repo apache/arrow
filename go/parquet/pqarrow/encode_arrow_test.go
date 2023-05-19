@@ -359,7 +359,7 @@ func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
 	}
 }
 
-func TestArrowBug(t *testing.T) {
+func TestWriteEmptyLists(t *testing.T) {
 	sc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.ListOf(arrow.FixedWidthTypes.Date32)},
 		{Name: "f2", Type: arrow.ListOf(arrow.FixedWidthTypes.Date64)},
