@@ -398,33 +398,6 @@ class MallocAlignment : public ::testing::Test {
       ASSERT_EQ(src.buffers[i]->address(), dst.buffers[i]->address());
     }
   }
-
-  std::shared_ptr<ArrayData> UnalignValues(const ArrayData& array) {
-    if (array.buffers.size() < 2) {
-      // We can't unalign the values if there isn't a values buffer but we can
-      // still make sure EnsureAligned is a no-op
-      return std::make_shared<ArrayData>(array);
-    }
-    std::vector<std::shared_ptr<Buffer>> new_buffers(array.buffers);
-
-    const auto& buffer_to_modify = array.buffers[1];
-    EXPECT_OK_AND_ASSIGN(
-        std::shared_ptr<Buffer> padded,
-        AllocateBuffer(buffer_to_modify->size() + 1, default_memory_pool()));
-    memcpy(padded->mutable_data() + 1, buffer_to_modify->data(),
-           buffer_to_modify->size());
-    std::shared_ptr<Buffer> unaligned = SliceBuffer(padded, 1);
-    new_buffers[1] = std::move(unaligned);
-
-    std::shared_ptr<ArrayData> array_data = std::make_shared<ArrayData>(array);
-    array_data->buffers = std::move(new_buffers);
-    return array_data;
-  }
-
-  std::shared_ptr<Array> UnalignValues(const Array& array) {
-    std::shared_ptr<ArrayData> array_data = UnalignValues(*array.data());
-    return MakeArray(array_data);
-  }
 };
 
 template <typename T>
@@ -437,7 +410,7 @@ TYPED_TEST_SUITE(MallocAlignmentNotRequired, TypesNotRequiringAlignment);
 
 TYPED_TEST(MallocAlignmentRequired, RoundTrip) {
   std::shared_ptr<ArrayData> data = SampleArray<TypeParam>();
-  std::shared_ptr<ArrayData> unaligned = this->UnalignValues(*data);
+  std::shared_ptr<ArrayData> unaligned = UnalignValues(*data);
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> aligned,
       util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
@@ -448,7 +421,7 @@ TYPED_TEST(MallocAlignmentRequired, RoundTrip) {
 
 TYPED_TEST(MallocAlignmentNotRequired, RoundTrip) {
   std::shared_ptr<ArrayData> data = SampleArray<TypeParam>();
-  std::shared_ptr<ArrayData> unaligned = this->UnalignValues(*data);
+  std::shared_ptr<ArrayData> unaligned = UnalignValues(*data);
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> aligned,
       util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
@@ -466,8 +439,8 @@ TEST_F(MallocAlignment, RunEndEncoded) {
                                                 std::move(values), 0));
 
   std::shared_ptr<ArrayData> unaligned_ree = std::make_shared<ArrayData>(*array->data());
-  unaligned_ree->child_data[0] = this->UnalignValues(*unaligned_ree->child_data[0]);
-  unaligned_ree->child_data[1] = this->UnalignValues(*unaligned_ree->child_data[1]);
+  unaligned_ree->child_data[0] = UnalignValues(*unaligned_ree->child_data[0]);
+  unaligned_ree->child_data[1] = UnalignValues(*unaligned_ree->child_data[1]);
 
   std::shared_ptr<ArrayData> aligned_ree = std::make_shared<ArrayData>(*unaligned_ree);
 
@@ -485,8 +458,8 @@ TEST_F(MallocAlignment, Dictionary) {
   std::shared_ptr<Array> array = ArrayFromJSON(int8_utf8, R"(["x", "x", "y"])");
 
   std::shared_ptr<ArrayData> unaligned_dict = std::make_shared<ArrayData>(*array->data());
-  unaligned_dict->dictionary = this->UnalignValues(*unaligned_dict->dictionary);
-  unaligned_dict = this->UnalignValues(*unaligned_dict);
+  unaligned_dict->dictionary = UnalignValues(*unaligned_dict->dictionary);
+  unaligned_dict = UnalignValues(*unaligned_dict);
 
   std::shared_ptr<ArrayData> aligned_dict = std::make_shared<ArrayData>(*unaligned_dict);
 
@@ -502,8 +475,8 @@ TEST_F(MallocAlignment, Dictionary) {
   array = ArrayFromJSON(int16_int8, R"([7, 11])");
 
   unaligned_dict = std::make_shared<ArrayData>(*array->data());
-  unaligned_dict->dictionary = this->UnalignValues(*unaligned_dict->dictionary);
-  unaligned_dict = this->UnalignValues(*unaligned_dict);
+  unaligned_dict->dictionary = UnalignValues(*unaligned_dict->dictionary);
+  unaligned_dict = UnalignValues(*unaligned_dict);
 
   aligned_dict = std::make_shared<ArrayData>(*unaligned_dict);
 
@@ -518,7 +491,7 @@ TEST_F(MallocAlignment, Dictionary) {
 TEST_F(MallocAlignment, Extension) {
   std::shared_ptr<Array> array = ExampleSmallint();
 
-  std::shared_ptr<ArrayData> unaligned = this->UnalignValues(*array->data());
+  std::shared_ptr<ArrayData> unaligned = UnalignValues(*array->data());
 
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> aligned,

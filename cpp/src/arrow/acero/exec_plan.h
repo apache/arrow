@@ -496,6 +496,9 @@ struct ARROW_ACERO_EXPORT Declaration {
   std::string label;
 };
 
+/// \brief describes how to handle unaligned buffers
+enum class UnalignedBufferHandling { kWarn, kIgnore, kReallocate, kAbort };
+
 /// \brief plan-wide options that can be specified when executing an execution plan
 struct ARROW_ACERO_EXPORT QueryOptions {
   /// \brief Should the plan use a legacy batching strategy
@@ -562,6 +565,31 @@ struct ARROW_ACERO_EXPORT QueryOptions {
   ///
   /// If set then the number of names must equal the number of output columns
   std::vector<std::string> field_names;
+
+  /// Various compute functions and acero internals will type pun array
+  /// buffers from uint8_t* to some kind of value type (e.g. we might
+  /// cast to int32_t* to add two int32 arrays)
+  ///
+  /// If the buffer is poorly algined (e.g. an int32 array is not aligned
+  /// on a 4-byte boundary) then this is technically undefined behavior.
+  /// However, most modern compilers and CPUs are fairly tolerant of this
+  /// behavior and nothing bad (beyond a small hit to performance) is likely
+  /// to happen.
+  ///
+  /// Note that this only applies to source buffers.  All buffers allocated interally
+  /// by Acero will be suitably aligned.
+  ///
+  /// If this field is set to kWarn then Acero will check if any buffers are unaligned
+  /// and, if they are, will emit a warning.
+  ///
+  /// If this field is set to kReallocate then Acero will allocate a new, suitably aligned
+  /// buffer and copy the contents from the old buffer into this new buffer.
+  ///
+  /// If this field is set to kError then Acero will gracefully abort the plan instead.
+  ///
+  /// If this field is set to kIgnore then Acero will not even check if the buffers are
+  /// unaligned.
+  UnalignedBufferHandling unaligned_buffer_handling = UnalignedBufferHandling::kWarn;
 };
 
 /// \brief Calculate the output schema of a declaration

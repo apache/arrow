@@ -621,7 +621,8 @@ Future<std::shared_ptr<Table>> DeclarationToTableImpl(
                        query_options.function_registry);
   std::shared_ptr<std::shared_ptr<Table>> output_table =
       std::make_shared<std::shared_ptr<Table>>();
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(query_options, exec_ctx));
   TableSinkNodeOptions sink_options(output_table.get());
   sink_options.sequence_output = query_options.sequence_output;
   sink_options.names = std::move(query_options.field_names);
@@ -648,7 +649,8 @@ Future<BatchesWithCommonSchema> DeclarationToExecBatchesImpl(
   std::shared_ptr<Schema> out_schema;
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(options, exec_ctx));
   SinkNodeOptions sink_options(&sink_gen, &out_schema);
   sink_options.sequence_output = options.sequence_output;
   Declaration with_sink = Declaration::Sequence({declaration, {"sink", sink_options}});
@@ -678,7 +680,8 @@ Future<BatchesWithCommonSchema> DeclarationToExecBatchesImpl(
 Future<> DeclarationToStatusImpl(Declaration declaration, QueryOptions options,
                                  ::arrow::internal::Executor* cpu_executor) {
   ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(options, exec_ctx));
   ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
   if (!last_node->is_sink()) {
     ConsumingSinkNodeOptions sink_options(NullSinkNodeConsumer::Make());
@@ -972,7 +975,8 @@ Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGen
     ::arrow::internal::Executor* cpu_executor, std::shared_ptr<Schema>* out_schema) {
   auto converter = std::make_shared<BatchConverter>();
   ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan,
+                        ExecPlan::Make(options, exec_ctx));
   Declaration with_sink = Declaration::Sequence(
       {declaration,
        {"sink", SinkNodeOptions(&converter->exec_batch_gen, &converter->schema)}});

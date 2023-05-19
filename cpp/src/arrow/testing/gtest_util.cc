@@ -1099,4 +1099,30 @@ std::shared_ptr<GatingTask> GatingTask::Make(double timeout_seconds) {
   return std::make_shared<GatingTask>(timeout_seconds);
 }
 
+std::shared_ptr<ArrayData> UnalignValues(const ArrayData& array) {
+  if (array.buffers.size() < 2) {
+    // We can't unalign the values if there isn't a values buffer but we can
+    // still make sure EnsureAligned is a no-op
+    return std::make_shared<ArrayData>(array);
+  }
+  std::vector<std::shared_ptr<Buffer>> new_buffers(array.buffers);
+
+  const auto& buffer_to_modify = array.buffers[1];
+  EXPECT_OK_AND_ASSIGN(
+      std::shared_ptr<Buffer> padded,
+      AllocateBuffer(buffer_to_modify->size() + 1, default_memory_pool()));
+  memcpy(padded->mutable_data() + 1, buffer_to_modify->data(), buffer_to_modify->size());
+  std::shared_ptr<Buffer> unaligned = SliceBuffer(padded, 1);
+  new_buffers[1] = std::move(unaligned);
+
+  std::shared_ptr<ArrayData> array_data = std::make_shared<ArrayData>(array);
+  array_data->buffers = std::move(new_buffers);
+  return array_data;
+}
+
+std::shared_ptr<Array> UnalignValues(const Array& array) {
+  std::shared_ptr<ArrayData> array_data = UnalignValues(*array.data());
+  return MakeArray(array_data);
+}
+
 }  // namespace arrow
