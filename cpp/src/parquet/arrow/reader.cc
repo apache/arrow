@@ -665,6 +665,9 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
     for (int x = 1; x <= data->length; x++) {
       int32_t size = offsets[x] - offsets[x - 1];
       if (size != type.list_size()) {
+        if (field()->nullable() && size == 0) {
+          continue;
+        }
         return Status::Invalid("Expected all lists to be of size=", type.list_size(),
                                " but index ", x, " had size=", size);
       }
