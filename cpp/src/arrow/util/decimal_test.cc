@@ -822,31 +822,19 @@ class TestDecimalFromReal : public ::testing::Test {
         {123.6f, 19, 0, "124"},
         {-123.6f, 19, 0, "-124"},
         // 2**62
-        {4.611686e+18f, 19, 0, "4611686018427387904"},
-        {-4.611686e+18f, 19, 0, "-4611686018427387904"},
+        {4.6116860184273879e+18, 19, 0, "4611686018427387904"},
+        {-4.6116860184273879e+18, 19, 0, "-4611686018427387904"},
         // 2**63
-        {9.223372e+18f, 19, 0, "9223372036854775808"},
-        {-9.223372e+18f, 19, 0, "-9223372036854775808"},
+        {9.2233720368547758e+18, 19, 0, "9223372036854775808"},
+        {-9.2233720368547758e+18, 19, 0, "-9223372036854775808"},
         // 2**64
-        {1.8446744e+19f, 20, 0, "18446744073709551616"},
-        {-1.8446744e+19f, 20, 0, "-18446744073709551616"}
+        {1.8446744073709552e+19, 20, 0, "18446744073709551616"},
+        {-1.8446744073709552e+19, 20, 0, "-18446744073709551616"}
         // clang-format on
     };
     for (const ParamType& param : params) {
-      auto expected = param.expected;
-#if defined(__MINGW32__) && !defined(__MINGW64__)
-      // Large/small double values are truncated with MinGW 32bit
-      if (sizeof(Real) == 8 &&
-          // param.real <= 2**62 || 2**62 <= param.real
-          (param.real <= -4.611686e+18f || 4.611686e+18f <= param.real)) {
-        const char* truncated = "000000000000";
-        // "4611686018427387904" ->
-        // "4611686000000000000"
-        expected.replace(expected.size() - strlen(truncated), strlen(truncated),
-                         truncated);
-      }
-#endif
-      CheckDecimalFromReal<Decimal>(param.real, param.precision, param.scale, expected);
+      CheckDecimalFromReal<Decimal>(param.real, param.precision, param.scale,
+                                    param.expected);
     }
   }
 
