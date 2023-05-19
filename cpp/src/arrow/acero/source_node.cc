@@ -108,7 +108,7 @@ struct SourceNode : ExecNode, public TracedNode {
               if (value.is_array()) {
                 ARROW_ASSIGN_OR_RAISE(
                     value, arrow::util::EnsureAlignment(value.array(),
-                                                        arrow::util::kMallocAlignment,
+                                                        arrow::util::kValueAlignment,
                                                         default_memory_pool()));
               }
             }

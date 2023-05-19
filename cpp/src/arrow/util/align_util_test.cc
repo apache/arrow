@@ -282,13 +282,13 @@ TEST(EnsureAlignment, Table) {
 using TypesRequiringSomeKindOfAlignment =
     testing::Types<Int16Type, Int32Type, Int64Type, UInt16Type, UInt32Type, UInt64Type,
                    FloatType, DoubleType, Date32Type, Date64Type, Time32Type, Time64Type,
-                   TimestampType, DurationType, MapType, DenseUnionType, LargeBinaryType,
-                   LargeListType, LargeStringType, MonthIntervalType, DayTimeIntervalType,
-                   MonthDayNanoIntervalType>;
+                   Decimal128Type, Decimal256Type, TimestampType, DurationType, MapType,
+                   DenseUnionType, LargeBinaryType, LargeListType, LargeStringType,
+                   MonthIntervalType, DayTimeIntervalType, MonthDayNanoIntervalType>;
 
 using TypesNotRequiringAlignment =
     testing::Types<NullType, Int8Type, UInt8Type, FixedSizeListType, FixedSizeBinaryType,
-                   BooleanType, Decimal128Type, Decimal256Type, SparseUnionType>;
+                   BooleanType, SparseUnionType>;
 
 TEST(EnsureAlignment, Malloc) {}
 
@@ -440,7 +440,7 @@ TYPED_TEST(MallocAlignmentRequired, RoundTrip) {
   std::shared_ptr<ArrayData> unaligned = this->UnalignValues(*data);
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> aligned,
-      util::EnsureAlignment(unaligned, util::kMallocAlignment, default_memory_pool()));
+      util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
 
   AssertArraysEqual(*MakeArray(data), *MakeArray(aligned));
   this->CheckModified(*unaligned, *aligned);
@@ -451,7 +451,7 @@ TYPED_TEST(MallocAlignmentNotRequired, RoundTrip) {
   std::shared_ptr<ArrayData> unaligned = this->UnalignValues(*data);
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> aligned,
-      util::EnsureAlignment(unaligned, util::kMallocAlignment, default_memory_pool()));
+      util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
 
   AssertArraysEqual(*MakeArray(data), *MakeArray(aligned));
   this->CheckUnmodified(*unaligned, *aligned);
@@ -473,7 +473,7 @@ TEST_F(MallocAlignment, RunEndEncoded) {
 
   ASSERT_OK_AND_ASSIGN(
       aligned_ree,
-      util::EnsureAlignment(aligned_ree, util::kMallocAlignment, default_memory_pool()));
+      util::EnsureAlignment(aligned_ree, util::kValueAlignment, default_memory_pool()));
 
   this->CheckModified(*unaligned_ree->child_data[0], *aligned_ree->child_data[0]);
   this->CheckUnmodified(*unaligned_ree->child_data[1], *aligned_ree->child_data[1]);
@@ -492,14 +492,14 @@ TEST_F(MallocAlignment, Dictionary) {
 
   ASSERT_OK_AND_ASSIGN(
       aligned_dict,
-      util::EnsureAlignment(aligned_dict, util::kMallocAlignment, default_memory_pool()));
+      util::EnsureAlignment(aligned_dict, util::kValueAlignment, default_memory_pool()));
 
   this->CheckUnmodified(*unaligned_dict, *aligned_dict);
   this->CheckModified(*unaligned_dict->dictionary, *aligned_dict->dictionary);
 
   // Dictionary values do not require alignment, dictionary keys do
-  std::shared_ptr<DataType> int16_dec128 = dictionary(int16(), decimal128(5, 2));
-  array = ArrayFromJSON(int16_dec128, R"(["123.45", "111.22"])");
+  std::shared_ptr<DataType> int16_int8 = dictionary(int16(), int8());
+  array = ArrayFromJSON(int16_int8, R"([7, 11])");
 
   unaligned_dict = std::make_shared<ArrayData>(*array->data());
   unaligned_dict->dictionary = this->UnalignValues(*unaligned_dict->dictionary);
@@ -509,7 +509,7 @@ TEST_F(MallocAlignment, Dictionary) {
 
   ASSERT_OK_AND_ASSIGN(
       aligned_dict,
-      util::EnsureAlignment(aligned_dict, util::kMallocAlignment, default_memory_pool()));
+      util::EnsureAlignment(aligned_dict, util::kValueAlignment, default_memory_pool()));
 
   this->CheckModified(*unaligned_dict, *aligned_dict);
   this->CheckUnmodified(*unaligned_dict->dictionary, *aligned_dict->dictionary);
@@ -522,7 +522,7 @@ TEST_F(MallocAlignment, Extension) {
 
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> aligned,
-      util::EnsureAlignment(unaligned, util::kMallocAlignment, default_memory_pool()));
+      util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
 
   this->CheckModified(*unaligned, *aligned);
 }

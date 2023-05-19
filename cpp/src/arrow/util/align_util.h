@@ -72,12 +72,13 @@ namespace util {
 // Functions to check if the provided Arrow object is aligned by the specified alignment
 
 /// \brief if this is specified in one of the CheckAlignment or EnsureAlignment functions
+///
 /// then the funciton will ensure each buffer is suitably aligned for the data type of the
 /// array.  For example, given an int32 buffer the validity buffer must be a multiple of 8
 /// and the values buffer must be a multiple of 32.  Given a large_string buffer the
 /// validity buffer and values buffers must be multiples of 8 and the offsets buffer must
 /// be a multiple of 64.
-constexpr int64_t kMallocAlignment = -3;
+constexpr int64_t kValueAlignment = -3;
 
 /// \brief calculate if the buffer's address is a multiple of `alignment`
 /// \param buffer the buffer to check

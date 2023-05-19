@@ -21,6 +21,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
@@ -34,100 +35,30 @@ bool CheckAlignment(const Buffer& buffer, int64_t alignment) {
 
 namespace {
 
-// Some buffers are frequently type-punned.  For example, in an int32 array the
-// values buffer is frequently cast to int32_t*
-//
-// This sort of punning is only valid if the pointer is aligned to a proper width
-// (e.g. 4 bytes in the case of int32).
-//
-// We generally assume that all buffers are at least 8-bit aligned and so we only
-// need to worry about buffers that are commonly cast to wider data types.  Note that
-// this alignment is something that is guaranteed by malloc (e.g. new int32_t[] will
-// return a buffer that is 4 byte aligned) or common libraries (e.g. numpy) but it is
-// not currently guaranteed by flight (GH-32276).
-//
-// By happy coincedence, for every data type, the only buffer that might need wider
-// alignment is the second buffer (at index 1).  This function returns the expected
-// alignment (in bits) of the second buffer for the given array to safely allow this cast.
-//
-// If the array's type doesn't have a second buffer or the second buffer is not expected
-// to be type punned, then we return 8.
-int GetMallocValuesAlignment(const ArrayData& array) {
-  // Make sure to use the storage type id
-  auto type_id = array.type->storage_id();
+// Returns the type that controls how the buffers of this ArrayData (not its children)
+// should behave
+Type::type GetTypeForBuffers(const ArrayData& array) {
+  Type::type type_id = array.type->storage_id();
   if (type_id == Type::DICTIONARY) {
-    // The values buffer is in a different ArrayData and so we only check the indices
-    // buffer here.  The values array data will be checked by the calling method.
-    type_id = ::arrow::internal::checked_pointer_cast<DictionaryType>(array.type)
-                  ->index_type()
-                  ->id();
+    return ::arrow::internal::checked_pointer_cast<DictionaryType>(array.type)
+        ->index_type()
+        ->id();
   }
-  switch (type_id) {
-    case Type::NA:                 // No buffers
-    case Type::FIXED_SIZE_LIST:    // No second buffer (values in child array)
-    case Type::FIXED_SIZE_BINARY:  // Fixed size binary could be dangerous but the
-                                   // compute kernels don't type pun this.  E.g. if
-                                   // an extension type is storing some kind of struct
-                                   // here then the user should do their own alignment
-                                   // check before casting to an array of structs
-    case Type::BOOL:               // Always treated as uint8_t*
-    case Type::INT8:               // Always treated as uint8_t*
-    case Type::UINT8:              // Always treated as uint8_t*
-    case Type::DECIMAL128:         // Always treated as uint8_t*
-    case Type::DECIMAL256:         // Always treated as uint8_t*
-    case Type::SPARSE_UNION:       // Types array is uint8_t, no offsets array
-    case Type::RUN_END_ENCODED:    // No buffers
-    case Type::STRUCT:             // No buffers beyond validity
-      // These have no buffers or all buffers need only byte alignment
-      return 1;
-    case Type::INT16:
-    case Type::UINT16:
-    case Type::HALF_FLOAT:
-      return 2;
-    case Type::INT32:
-    case Type::UINT32:
-    case Type::FLOAT:
-    case Type::STRING:  // Offsets may be cast to int32_t*, data is only uint8_t*
-    case Type::BINARY:  // Offsets may be cast to int32_t*, data is only uint8_t*
-    case Type::DATE32:
-    case Type::TIME32:
-    case Type::LIST:         // Offsets may be cast to int32_t*, data is in child array
-    case Type::MAP:          // This is a list array
-    case Type::DENSE_UNION:  // Has an offsets buffer of int32_t*
-    case Type::INTERVAL_MONTHS:  // Stored as int32_t*
-      return 4;
-    case Type::INT64:
-    case Type::UINT64:
-    case Type::DOUBLE:
-    case Type::LARGE_BINARY:  // Offsets may be cast to int64_t*
-    case Type::LARGE_LIST:    // Offsets may be cast to int64_t*
-    case Type::LARGE_STRING:  // Offsets may be cast to int64_t*
-    case Type::DATE64:
-    case Type::TIME64:
-    case Type::TIMESTAMP:
-    case Type::DURATION:
-    case Type::INTERVAL_DAY_TIME:  // Stored as two contiguous 32-bit integers but may be
-                                   // cast to struct* containing both integers
-      return 8;
-    case Type::INTERVAL_MONTH_DAY_NANO:  // Stored as two 32-bit integers and a 64-bit
-                                         // integer
-      return 16;
-    default:
-      Status::Invalid("Could not check alignment for type id ", type_id,
-                      " keeping existing alignment")
-          .Warn();
-      return 1;
-  }
+  return type_id;
 }
 
 // Checks to see if an array's own buffers are aligned but doesn't check
 // children
 bool CheckSelfAlignment(const ArrayData& array, int64_t alignment) {
-  if (alignment == kMallocAlignment) {
-    int malloc_alignment = GetMallocValuesAlignment(array);
-    if (array.buffers.size() >= 2) {
-      if (!CheckAlignment(*array.buffers[1], malloc_alignment)) {
-        return false;
+  if (alignment == kValueAlignment) {
+    Type::type type_id = GetTypeForBuffers(array);
+    for (std::size_t i = 0; i < array.buffers.size(); i++) {
+      if (array.buffers[i]) {
+        int expected_alignment =
+            RequiredValueAlignmentForBuffer(type_id, static_cast<int>(i));
+        if (!CheckAlignment(*array.buffers[i], expected_alignment)) {
+          return false;
+        }
       }
     }
   } else {
@@ -204,12 +135,17 @@ bool CheckAlignment(const Table& table, int64_t alignment,
   return all_aligned;
 }
 
+// Most allocators require a minimum of 8-byte alignment.
+constexpr int64_t kMinimumAlignment = 8;
+
 Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
                                                 int64_t alignment,
                                                 MemoryPool* memory_pool) {
   if (!CheckAlignment(*buffer, alignment)) {
-    ARROW_ASSIGN_OR_RAISE(auto new_buffer,
-                          AllocateBuffer(buffer->size(), alignment, memory_pool));
+    int64_t minimal_compatible_alignment = std::max(kMinimumAlignment, alignment);
+    ARROW_ASSIGN_OR_RAISE(
+        auto new_buffer,
+        AllocateBuffer(buffer->size(), minimal_compatible_alignment, memory_pool));
     std::memcpy(new_buffer->mutable_data(), buffer->data(), buffer->size());
     return std::move(new_buffer);
   } else {
@@ -222,24 +158,17 @@ Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> ar
                                                    MemoryPool* memory_pool) {
   if (!CheckAlignment(*array_data, alignment)) {
     std::vector<std::shared_ptr<Buffer>> buffers_ = array_data->buffers;
-    if (!CheckSelfAlignment(*array_data, alignment)) {
-      if (alignment == kMallocAlignment) {
-        DCHECK_GE(buffers_.size(), 2);
-        // If we get here then we know that the values buffer is not aligned properly.
-        // Since we need to copy the buffer we might as well update it to
-        // kDefaultBufferAlignment. This helps to avoid cases where the minimum required
-        // alignment is less than the allocator's minimum alignment (e.g. malloc requires
-        // a minimum of 8 byte alignment on a 64-bit system)
-        ARROW_ASSIGN_OR_RAISE(
-            buffers_[1], EnsureAlignment(std::move(buffers_[1]), kDefaultBufferAlignment,
-                                         memory_pool));
-      } else {
-        for (size_t i = 0; i < buffers_.size(); ++i) {
-          if (buffers_[i]) {
-            ARROW_ASSIGN_OR_RAISE(buffers_[i], EnsureAlignment(std::move(buffers_[i]),
-                                                               alignment, memory_pool));
-          }
+    Type::type type_id = GetTypeForBuffers(*array_data);
+    for (size_t i = 0; i < buffers_.size(); ++i) {
+      if (buffers_[i]) {
+        int64_t expected_alignment = alignment;
+        if (alignment == kValueAlignment) {
+          expected_alignment =
+              RequiredValueAlignmentForBuffer(type_id, static_cast<int>(i));
         }
+        ARROW_ASSIGN_OR_RAISE(
+            buffers_[i],
+            EnsureAlignment(std::move(buffers_[i]), expected_alignment, memory_pool));
       }
     }
 
@@ -257,7 +186,6 @@ Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> ar
         array_data->type, array_data->length, std::move(buffers_), array_data->child_data,
         array_data->dictionary, array_data->GetNullCount(), array_data->offset);
     return std::move(new_array_data);
-
   } else {
     return std::move(array_data);
   }
