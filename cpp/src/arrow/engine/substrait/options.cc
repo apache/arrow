@@ -130,8 +130,8 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     // schema
     int64_t tolerance = as_of_join_rel.tolerance();
     std::vector<std::shared_ptr<Schema>> input_schema(inputs.size());
-    for (size_t i = 0; i < inputs.size(); i++) {
-      input_schema[i] = inputs[i].output_schema;
+    for (size_t i2 = 0; i2 < inputs.size(); i2++) {
+      input_schema[i2] = inputs[i2].output_schema;
     }
     ARROW_ASSIGN_OR_RAISE(auto schema,
                           acero::asofjoin::MakeOutputSchema(input_schema, input_keys));
@@ -211,6 +211,35 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
     ARROW_ASSIGN_OR_RAISE(
         auto aggregate_schema,
         acero::aggregate::MakeOutputSchema(input_schema, keys, segment_keys, aggregates));
+
+    // check if this is a windowed aggregation
+    if (seg_agg_rel.has_window()) {
+      auto window = seg_agg_rel.window();
+      uint64_t preceding = 0, following = 0;
+      if (!window.has_preceding() && !window.has_following()) {
+        return Status::Invalid(
+            "substrait_ext::SegmentedAggregateRel with window requires at least one "
+            "window bound");
+      }
+      if (window.has_preceding()) {
+        preceding = window.preceding();
+      }
+      if (window.has_following()) {
+        following = window.following();
+      }
+      bool preceding_inclusive = true;
+      bool following_inclusive = true;
+      if (window.has_preceding_inclusive()) {
+        preceding_inclusive = window.preceding_inclusive();
+      }
+      if (window.has_following_inclusive()) {
+        following_inclusive = window.following_inclusive();
+      }
+      return internal::MakeAggregateWindowDeclaration(
+          std::move(inputs[0].declaration), std::move(aggregate_schema),
+          std::move(aggregates), std::move(keys), std::move(segment_keys), preceding,
+          following, preceding_inclusive, following_inclusive);
+    }
 
     return internal::MakeAggregateDeclaration(
         std::move(inputs[0].declaration), std::move(aggregate_schema),

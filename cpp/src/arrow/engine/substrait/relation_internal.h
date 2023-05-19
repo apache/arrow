@@ -75,6 +75,21 @@ ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
     std::vector<compute::Aggregate> aggregates, std::vector<FieldRef> keys,
     std::vector<FieldRef> segment_keys);
 
+/// \brief Make an windowed aggregate declaration info
+///
+/// \param[in] input_decl the input declaration to use
+/// \param[in] output_schema the schema to which field refs apply
+/// \param[in] aggregates the aggregates to use
+/// \param[in] keys the field-refs for grouping keys to use
+/// \param[in] segment_keys the field-refs for segment keys to use
+/// \param[in] preceding Window preceding boundary
+/// \param[in] following Window following boundary
+ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateWindowDeclaration(
+    acero::Declaration input_decl, std::shared_ptr<Schema> output_schema,
+    std::vector<compute::Aggregate> aggregates, std::vector<FieldRef> keys,
+    std::vector<FieldRef> segment_keys, uint64_t preceding, uint64_t following,
+    bool preceding_inclusive, bool following_inclusive);
+
 }  // namespace internal
 
 }  // namespace engine

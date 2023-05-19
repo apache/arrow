@@ -68,4 +68,22 @@ message SegmentedAggregateRel {
 
   // A list of one or more aggregate expressions along with an optional filter.
   repeated substrait.AggregateRel.Measure measures = 3;
+
+  // Window specification
+  WindowSpec window = 4;
+
+  message WindowSpec {
+    // Window boundary behind the current record
+    optional uint64 preceding = 1;
+
+    // Window boundary ahead of the current record
+    optional uint64 following = 2;
+
+    // True if preceding window is inclusive
+    optional bool preceding_inclusive = 3;
+
+    // True if following window is inclusive
+    optional bool following_inclusive = 4;
+  }
 }
+

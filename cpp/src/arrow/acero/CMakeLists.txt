@@ -29,7 +29,11 @@ endmacro()
 
 set(ARROW_ACERO_SRCS
     accumulation_queue.cc
-    aggregate_node.cc
+    scalar_aggregate_node.cc
+    groupby_aggregate_node.cc
+    window_groupby_node.cc
+    window_scalar_node.cc
+    aggregate_internal.cc
     asof_join_node.cc
     bloom_filter.cc
     exec_plan.cc
@@ -167,7 +171,8 @@ add_arrow_acero_test(tpch_node_test SOURCES tpch_node_test.cc)
 add_arrow_acero_test(union_node_test SOURCES union_node_test.cc)
 add_arrow_acero_test(aggregate_node_test SOURCES aggregate_node_test.cc)
 add_arrow_acero_test(util_test SOURCES util_test.cc task_util_test.cc)
-add_arrow_acero_test(hash_aggregate_test SOURCES hash_aggregate_test.cc)
+add_arrow_acero_test(hash_aggregate_test SOURCES hash_aggregate_test.cc
+                     window_aggregate_test.cc)
 
 if(ARROW_BUILD_BENCHMARKS)
   function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)

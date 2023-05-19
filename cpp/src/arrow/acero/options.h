@@ -297,6 +297,26 @@ class ARROW_ACERO_EXPORT ProjectNodeOptions : public ExecNodeOptions {
   std::vector<std::string> names;
 };
 
+/// windows proceed left to right
+class ARROW_ACERO_EXPORT WindowAggregateArgs {
+ public:
+  explicit WindowAggregateArgs(uint64_t left_boundary = 0, uint64_t right_boundary = 0,
+                               bool left_inclusive = true, bool right_inclusive = true)
+      : left_boundary(left_boundary),
+        right_boundary(right_boundary),
+        left_inclusive(left_inclusive),
+        right_inclusive(right_inclusive) {}
+
+  // left (preceding) boundary
+  uint64_t left_boundary;
+  // right (following) boundary
+  uint64_t right_boundary;
+  // is left boundary inclusive (if >0)
+  bool left_inclusive;
+  // is right boundary inclusive (if >0)
+  bool right_inclusive;
+};
+
 /// \brief a node which aggregates input batches and calculates summary statistics
 ///
 /// The node can summarize the entire input or it can group the input with grouping keys
@@ -334,17 +354,21 @@ class ARROW_ACERO_EXPORT AggregateNodeOptions : public ExecNodeOptions {
   /// \brief create an instance from values
   explicit AggregateNodeOptions(std::vector<Aggregate> aggregates,
                                 std::vector<FieldRef> keys = {},
-                                std::vector<FieldRef> segment_keys = {})
+                                std::vector<FieldRef> segment_keys = {},
+                                std::optional<WindowAggregateArgs> window_args = {})
       : aggregates(std::move(aggregates)),
         keys(std::move(keys)),
-        segment_keys(std::move(segment_keys)) {}
+        segment_keys(std::move(segment_keys)),
+        window_args(std::move(window_args)) {}
 
-  // aggregations which will be applied to the targetted fields
+  // aggregations which will be applied to the targeted fields
   std::vector<Aggregate> aggregates;
   // keys by which aggregations will be grouped (optional)
   std::vector<FieldRef> keys;
   // keys by which aggregations will be segmented (optional)
   std::vector<FieldRef> segment_keys;
+  // optional window lower bound
+  std::optional<WindowAggregateArgs> window_args;
 };
 
 /// \brief a default value at which backpressure will be applied
