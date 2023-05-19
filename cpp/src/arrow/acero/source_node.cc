@@ -59,6 +59,9 @@ Status HandleUnalignedBuffers(ExecBatch* batch, UnalignedBufferHandling handling
   for (auto& value : batch->values) {
     if (value.is_array()) {
       switch (handling) {
+        case UnalignedBufferHandling::kIgnore:
+          // Should be impossible to get here
+          return Status::OK();
         case UnalignedBufferHandling::kAbort:
           if (!arrow::util::CheckAlignment(*value.array(),
                                            arrow::util::kValueAlignment)) {
@@ -82,9 +85,6 @@ Status HandleUnalignedBuffers(ExecBatch* batch, UnalignedBufferHandling handling
                                            default_memory_pool()));
           break;
         }
-        default:
-          return Status::UnknownError("Unexpected UnalignedBufferHandling option: ",
-                                      static_cast<int>(handling));
       }
     }
   }

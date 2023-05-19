@@ -83,7 +83,9 @@ int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index) {
     case Type::INTERVAL_MONTH_DAY_NANO:  // Stored as two 32-bit integers and a 64-bit
                                          // integer
       return 8;
-    default:
+    case Type::DICTIONARY:
+    case Type::EXTENSION:
+    case Type::MAX_ID:
       Status::Invalid("Could not check alignment for type id ", type_id).Warn();
       return 1;
   }
