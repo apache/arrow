@@ -3189,7 +3189,7 @@ struct FLBAVisitor {
   const uint32_t length;
 
   std::string_view operator[](int i) const {
-    return std::string_view{reinterpret_cast<const char*>(src[i].ptr)};
+    return std::string_view{reinterpret_cast<const char*>(src[i].ptr), length};
   }
 
   const uint32_t len(int i) const { return length; }
@@ -3419,21 +3419,18 @@ class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoderImpl<FLBAType>,
   using Base::pool_;
 
   int Decode(FixedLenByteArray* buffer, int max_values) override {
-    int decoded_values_size = max_values;
-    if (MultiplyWithOverflow(decoded_values_size,
-                             descr_->type_length() * sizeof(ByteArray),
-                             &decoded_values_size)) {
-      throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
-    }
-    ArrowPoolVector<uint8_t> decode_values(decoded_values_size,
-                                           ::arrow::stl::allocator<uint8_t>(pool_));
-    auto decode_buf = reinterpret_cast<ByteArray*>(decode_values.data());
+    // GetInternal currently only support ByteArray.
+    std::vector<ByteArray> decode_byte_array(max_values);
+    const int decoded_values_size = GetInternal(decode_byte_array.data(), max_values);
+    const uint32_t type_length = descr_->type_length();
 
-    max_values = GetInternal(decode_buf, max_values);
-    for (int i = 0; i < max_values; i++) {
-      buffer[i].ptr = decode_buf->ptr + i * descr_->type_length();
+    for (int i = 0; i < decoded_values_size; i++) {
+      if (ARROW_PREDICT_FALSE(decode_byte_array[i].len != type_length)) {
+        throw ParquetException("Fixed length byte array length mismatch");
+      }
+      buffer[i].ptr = decode_byte_array.data()->ptr + i * type_length;
     }
-    return max_values;
+    return decoded_values_size;
   }
 };
 
