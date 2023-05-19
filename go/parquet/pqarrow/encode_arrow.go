@@ -246,6 +246,10 @@ type binary64arr interface {
 }
 
 func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr arrow.Array, defLevels, repLevels []int16, maybeParentNulls bool) (err error) {
+	if leafArr.Len() == 0 {
+		return
+	}
+
 	if leafArr.DataType().ID() == arrow.EXTENSION {
 		extensionArray := leafArr.(array.ExtensionArray)
 		// Replace leafArr with its underlying storage array
