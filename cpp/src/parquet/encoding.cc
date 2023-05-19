@@ -3181,7 +3181,7 @@ struct ByteArrayVisitor {
     return std::string_view{src[i]};
   }
 
-  const uint32_t len(int i) const { return src[i].len; }
+  uint32_t len(int i) const { return src[i].len; }
 };
 
 struct FLBAVisitor {
@@ -3192,7 +3192,7 @@ struct FLBAVisitor {
     return std::string_view{reinterpret_cast<const char*>(src[i].ptr), length};
   }
 
-  const uint32_t len(int i) const { return length; }
+  uint32_t len(int i) const { return length; }
 };
 
 template <>

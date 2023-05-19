@@ -1985,38 +1985,38 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
-//  void InitData(int nvalues) {
-//    auto rand = ::arrow::random::RandomArrayGenerator(42);
-//    const int min_prefix_length = 0;
-//    const int max_prefix_length = 30;
-//    const size_t max_element_length = 10;
-//
-//    ::arrow::StringBuilder builder;
-//    const auto prefix_array = std::static_pointer_cast<::arrow::StringArray>(
-//        rand.String(nvalues, /* min_length */ min_prefix_length,
-//                    /* max_length */ max_prefix_length, /*null_percent*/ 0));
-//
-//    std::string previous_element;
-//    for (int i = 0; i < nvalues; i++) {
-//      auto element = prefix_array->GetString(i);
-//
-//      if (previous_element.length() <= max_element_length) {
-//        previous_element = previous_element.append(element);
-//      } else {
-//        previous_element = element;
-//      }
-//      ASSERT_OK(builder.Append(previous_element));
-//    }
-//
-//    std::shared_ptr<::arrow::StringArray> array;
-//    ASSERT_OK(builder.Finish(&array));
-//    draws_ = reinterpret_cast<c_type*>(array->value_data()->mutable_data());
-//  }
-//
-//  void Execute(int nvalues, int repeats) {
-//    InitData(nvalues);
-//    CheckRoundtrip();
-//  }
+  //  void InitData(int nvalues) {
+  //    auto rand = ::arrow::random::RandomArrayGenerator(42);
+  //    const int min_prefix_length = 0;
+  //    const int max_prefix_length = 30;
+  //    const size_t max_element_length = 10;
+  //
+  //    ::arrow::StringBuilder builder;
+  //    const auto prefix_array = std::static_pointer_cast<::arrow::StringArray>(
+  //        rand.String(nvalues, /* min_length */ min_prefix_length,
+  //                    /* max_length */ max_prefix_length, /*null_percent*/ 0));
+  //
+  //    std::string previous_element;
+  //    for (int i = 0; i < nvalues; i++) {
+  //      auto element = prefix_array->GetString(i);
+  //
+  //      if (previous_element.length() <= max_element_length) {
+  //        previous_element = previous_element.append(element);
+  //      } else {
+  //        previous_element = element;
+  //      }
+  //      ASSERT_OK(builder.Append(previous_element));
+  //    }
+  //
+  //    std::shared_ptr<::arrow::StringArray> array;
+  //    ASSERT_OK(builder.Finish(&array));
+  //    draws_ = reinterpret_cast<c_type*>(array->value_data()->mutable_data());
+  //  }
+  //
+  //  void Execute(int nvalues, int repeats) {
+  //    InitData(nvalues);
+  //    CheckRoundtrip();
+  //  }
 
   void CheckRoundtrip() override {
     auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY,
