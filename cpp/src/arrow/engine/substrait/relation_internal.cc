@@ -367,7 +367,6 @@ struct SortBehavior {
       default:
         return Status::NotImplemented(
             "Acero does not support the specified sort direction: ", dir);
-        break;
     }
     return sort_behavior;
   }
