@@ -20,6 +20,7 @@ package array_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
@@ -2087,7 +2088,7 @@ func TestTimestampStringRoundTrip(t *testing.T) {
 func TestNewTimestampBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
-
+	timestamp := time.Now()
 	dtype := &arrow.TimestampType{Unit: arrow.Second}
 	ab := array.NewTimestampBuilder(mem, dtype)
 	defer ab.Release()
@@ -2105,9 +2106,10 @@ func TestNewTimestampBuilder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendTime(timestamp)
 
 	// check state of builder before NewTimestampArray
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.NewTimestampArray()
@@ -2119,9 +2121,9 @@ func TestNewTimestampBuilder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []arrow.Timestamp{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.TimestampValues(), "unexpected TimestampValues")
+	assert.Equal(t, []arrow.Timestamp{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, arrow.Timestamp(timestamp.Unix())}, a.TimestampValues(), "unexpected TimestampValues")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.TimestampValues(), 10, "unexpected length of TimestampValues")
+	assert.Len(t, a.TimestampValues(), 11, "unexpected length of TimestampValues")
 
 	a.Release()
 

@@ -2296,6 +2296,21 @@ func (b *TimestampBuilder) Release() {
 	}
 }
 
+func (b *TimestampBuilder) AppendTime(t time.Time) {
+	switch b.dtype.Unit {
+	case arrow.Nanosecond:
+		b.Append(arrow.Timestamp(t.UnixNano()))
+	case arrow.Microsecond:
+		b.Append(arrow.Timestamp(t.UnixMicro()))
+	case arrow.Millisecond:
+		b.Append(arrow.Timestamp(t.UnixMilli()))
+	case arrow.Second:
+		b.Append(arrow.Timestamp(t.Unix()))
+	default:
+		panic("arrow: invalid timestamp unit")
+	}
+}
+
 func (b *TimestampBuilder) Append(v arrow.Timestamp) {
 	b.Reserve(1)
 	b.UnsafeAppend(v)
