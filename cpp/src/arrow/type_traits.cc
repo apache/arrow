@@ -21,8 +21,6 @@
 
 namespace arrow {
 
-namespace {}  // namespace
-
 int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index) {
   if (buffer_index != 1) {
     // If the buffer index is 0 then either:
