@@ -833,8 +833,20 @@ class TestDecimalFromReal : public ::testing::Test {
         // clang-format on
     };
     for (const ParamType& param : params) {
-      CheckDecimalFromReal<Decimal>(param.real, param.precision, param.scale,
-                                    param.expected);
+      auto expected = param.expected;
+#if defined(__MINGW32__) && !defined(__MINGW64__)
+      // Large/small double values are truncated with MinGW 32bit
+      if (sizeof(Real) == 8 &&
+          // param.real <= 2**62 || 2**62 <= param.real
+          (param.real <= -4.611686e+18f || 4.611686e+18f <= param.real)) {
+        const char* truncated = "000000000000";
+        // "4611686018427387904" ->
+        // "4611686000000000000"
+        expected.replace(expected.size() - strlen(truncated), strlen(truncated),
+                         truncated);
+      }
+#endif
+      CheckDecimalFromReal<Decimal>(param.real, param.precision, param.scale, expected);
     }
   }
 
