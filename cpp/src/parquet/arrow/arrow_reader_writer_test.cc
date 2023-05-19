@@ -3082,11 +3082,11 @@ TEST(ArrowReadWrite, NullableFixedSizeList) {
   auto type = fixed_size_list(::arrow::int16(), /*size=*/3);
 
   const char* json = R"([
-      [1, 2, 3],
+      [null, 2, 3],
       null,
-      [4, 2, 6],
+      [4, null, 6],
       null,
-      [7, 8, 3],
+      [7, 8, null],
       null])";
   auto array = ::arrow::ArrayFromJSON(type, json);
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});

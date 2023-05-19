@@ -25,6 +25,8 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_base.h"
+#include "arrow/array/builder_nested.h"
 #include "arrow/buffer.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
@@ -662,16 +664,39 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
     DCHECK_EQ(field()->type()->id(), ::arrow::Type::FIXED_SIZE_LIST);
     const auto& type = checked_cast<::arrow::FixedSizeListType&>(*field()->type());
     const int32_t* offsets = reinterpret_cast<const int32_t*>(data->buffers[1]->data());
+    // Need to reassemble data with correct offsets and paddings.
+    if (field()->nullable() && data->null_count != 0) {
+      std::unique_ptr<::arrow::ArrayBuilder> temp_builder;
+      ARROW_RETURN_NOT_OK(::arrow::MakeBuilder(::arrow::default_memory_pool(),
+                                               field()->type(), &temp_builder));
+      auto fixed_sized_list_builder =
+          checked_cast<::arrow::FixedSizeListBuilder*>(temp_builder.get());
+      for (int x = 1; x <= data->length; x++) {
+        int32_t size = offsets[x] - offsets[x - 1];
+        if (size != type.list_size()) {
+          if (size == 0) {
+            ARROW_RETURN_NOT_OK(fixed_sized_list_builder->AppendNull());
+            continue;
+          }
+          return Status::Invalid("Expected all lists to be of size=", type.list_size(),
+                                 " but index ", x, " had size=", size);
+        }
+        ARROW_RETURN_NOT_OK(fixed_sized_list_builder->AppendValues(1));
+        ARROW_RETURN_NOT_OK(fixed_sized_list_builder->value_builder()->AppendArraySlice(
+            ::arrow::ArraySpan(*data->child_data[0]), offsets[x - 1], size));
+      }
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> result,
+                            fixed_sized_list_builder->Finish());
+      return std::make_shared<ChunkedArray>(result);
+    }
     for (int x = 1; x <= data->length; x++) {
       int32_t size = offsets[x] - offsets[x - 1];
       if (size != type.list_size()) {
-        if (field()->nullable() && size == 0) {
-          continue;
-        }
         return Status::Invalid("Expected all lists to be of size=", type.list_size(),
                                " but index ", x, " had size=", size);
       }
     }
+    // remove the offset buffer
     data->buffers.resize(1);
     std::shared_ptr<Array> result = ::arrow::MakeArray(data);
     return std::make_shared<ChunkedArray>(result);
