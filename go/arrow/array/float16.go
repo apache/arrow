@@ -39,7 +39,12 @@ func NewFloat16Data(data arrow.ArrayData) *Float16 {
 }
 
 func (a *Float16) Value(i int) float16.Num { return a.values[i] }
-func (a *Float16) ValueStr(i int) string { return a.Value(i).String()}
+func (a *Float16) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.Value(i).String()
+}
 
 func (a *Float16) Values() []float16.Num { return a.values }
 
@@ -52,7 +57,7 @@ func (a *Float16) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", a.values[i].Float32())
 		}

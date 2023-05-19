@@ -344,13 +344,23 @@ func (a *SparseUnion) MarshalJSON() ([]byte, error) {
 }
 
 func (a *SparseUnion) ValueStr(i int) string {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	val := a.GetOneForMarshal(i)
+	if val == nil {
+		// child is nil
+		return NullValueStr
+	}
+
+	data, err := json.Marshal(val)
+	if err != nil {
 		panic(err)
 	}
-	return buf.String()
+	return string(data)
 }
+
 func (a *SparseUnion) String() string {
 	var b strings.Builder
 	b.WriteByte('[')
@@ -584,12 +594,12 @@ func (a *DenseUnion) GetOneForMarshal(i int) interface{} {
 	childID := a.ChildID(i)
 	data := a.Field(childID)
 
-	offsets := a.RawValueOffsets()
-	if data.IsNull(int(offsets[i])) {
+	offset := int(a.RawValueOffsets()[i])
+	if data.IsNull(offset) {
 		return nil
 	}
 
-	return []interface{}{typeID, data.GetOneForMarshal(int(offsets[i]))}
+	return []interface{}{typeID, data.GetOneForMarshal(offset)}
 }
 
 func (a *DenseUnion) MarshalJSON() ([]byte, error) {
@@ -610,12 +620,21 @@ func (a *DenseUnion) MarshalJSON() ([]byte, error) {
 }
 
 func (a *DenseUnion) ValueStr(i int) string {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	val := a.GetOneForMarshal(i)
+	if val == nil {
+		// child in nil
+		return NullValueStr
+	}
+
+	data, err := json.Marshal(val)
+	if err != nil {
 		panic(err)
 	}
-	return buf.String()
+	return string(data)
 }
 
 func (a *DenseUnion) String() string {
@@ -730,8 +749,8 @@ func newUnionBuilder(mem memory.Allocator, children []Builder, typ arrow.UnionTy
 		mode:            typ.Mode(),
 		codes:           typ.TypeCodes(),
 		children:        children,
-		typeIDtoChildID: make([]int, typ.MaxTypeCode()+1),
-		typeIDtoBuilder: make([]Builder, typ.MaxTypeCode()+1),
+		typeIDtoChildID: make([]int, int(typ.MaxTypeCode())+1),     // convert to int as int8(127) +1 panics
+		typeIDtoBuilder: make([]Builder, int(typ.MaxTypeCode())+1), // convert to int as int8(127) +1 panics
 		childFields:     make([]arrow.Field, len(children)),
 		typesBuilder:    newInt8BufferBuilder(mem),
 	}
@@ -1005,6 +1024,10 @@ func (b *SparseUnionBuilder) Unmarshal(dec *json.Decoder) error {
 }
 
 func (b *SparseUnionBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
 	dec := json.NewDecoder(strings.NewReader(s))
 	return b.UnmarshalOne(dec)
 }
@@ -1110,10 +1133,15 @@ func NewEmptyDenseUnionBuilder(mem memory.Allocator) *DenseUnionBuilder {
 // children and type codes. Builders will be constructed for each child
 // using the fields in typ
 func NewDenseUnionBuilder(mem memory.Allocator, typ *arrow.DenseUnionType) *DenseUnionBuilder {
-	children := make([]Builder, len(typ.Fields()))
-	for i, f := range typ.Fields() {
-		children[i] = NewBuilder(mem, f.Type)
-		defer children[i].Release()
+	children := make([]Builder, 0, len(typ.Fields()))
+	defer func() {
+		for _, child := range children {
+			child.Release()
+		}
+	}()
+
+	for _, f := range typ.Fields() {
+		children = append(children, NewBuilder(mem, f.Type))
 	}
 	return NewDenseUnionBuilderWithBuilders(mem, typ, children)
 }
@@ -1255,6 +1283,10 @@ func (b *DenseUnionBuilder) Unmarshal(dec *json.Decoder) error {
 }
 
 func (d *DenseUnionBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		d.AppendNull()
+		return nil
+	}
 	dec := json.NewDecoder(strings.NewReader(s))
 	return d.UnmarshalOne(dec)
 }

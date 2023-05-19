@@ -948,6 +948,9 @@ def test_parquet_extension_with_nested_storage(tmpdir):
     assert table.column('lists').type == mylist_array.type
     assert table == orig_table
 
+    with pytest.raises(pa.ArrowInvalid, match='without all of its fields'):
+        pq.ParquetFile(filename).read(columns=['structs.left'])
+
 
 @pytest.mark.parquet
 def test_parquet_nested_extension(tmpdir):

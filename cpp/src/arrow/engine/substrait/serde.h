@@ -89,8 +89,7 @@ ARROW_ENGINE_EXPORT Result<std::vector<acero::Declaration>> DeserializePlans(
 /// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
 /// \param[in] conversion_options options to control how the conversion is to be done.
 /// Plan is returned here.
-/// \return an ExecNode corresponding to the single toplevel relation in the Substrait
-/// Plan
+/// \return an ExecPlan for the Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<acero::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<acero::SinkNodeConsumer>& consumer,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,
@@ -133,8 +132,7 @@ ARROW_ENGINE_EXPORT Result<std::vector<acero::Declaration>> DeserializePlans(
 /// \param[out] ext_set_out if non-null, the extension mapping used by the Substrait
 /// Plan is returned here.
 /// \param[in] conversion_options options to control how the conversion is to be done.
-/// \return a vector of ExecNode declarations, one for each toplevel relation in the
-/// Substrait Plan
+/// \return an ExecPlan for the Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::shared_ptr<acero::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<dataset::WriteNodeOptions>& write_options,
     const ExtensionIdRegistry* registry = NULLPTR, ExtensionSet* ext_set_out = NULLPTR,

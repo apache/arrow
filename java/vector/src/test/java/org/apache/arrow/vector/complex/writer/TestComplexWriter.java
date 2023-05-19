@@ -21,6 +21,7 @@ import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -61,8 +62,15 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.holders.DecimalHolder;
+import org.apache.arrow.vector.holders.DurationHolder;
+import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
 import org.apache.arrow.vector.holders.IntHolder;
+import org.apache.arrow.vector.holders.NullableDurationHolder;
+import org.apache.arrow.vector.holders.NullableFixedSizeBinaryHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampMilliTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
+import org.apache.arrow.vector.holders.TimeStampMilliTZHolder;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -355,6 +363,125 @@ public class TestComplexWriter {
   }
 
   @Test
+  public void listTimeStampMilliTZType() {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          if (j % 2 == 0) {
+            listWriter.writeNull();
+          } else {
+            TimeStampMilliTZHolder holder = new TimeStampMilliTZHolder();
+            holder.timezone = "FakeTimeZone";
+            holder.value = j;
+            listWriter.timeStampMilliTZ().write(holder);
+          }
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listReader.setPosition(i);
+        for (int j = 0; j < i % 7; j++) {
+          listReader.next();
+          if (j % 2 == 0) {
+            assertFalse("index is set: " + j, listReader.reader().isSet());
+          } else {
+            NullableTimeStampMilliTZHolder actual = new NullableTimeStampMilliTZHolder();
+            listReader.reader().read(actual);
+            assertEquals(j, actual.value);
+            assertEquals("FakeTimeZone", actual.timezone);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void listDurationType() {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          if (j % 2 == 0) {
+            listWriter.writeNull();
+          } else {
+            DurationHolder holder = new DurationHolder();
+            holder.unit = TimeUnit.MICROSECOND;
+            holder.value = j;
+            listWriter.duration().write(holder);
+          }
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listReader.setPosition(i);
+        for (int j = 0; j < i % 7; j++) {
+          listReader.next();
+          if (j % 2 == 0) {
+            assertFalse("index is set: " + j, listReader.reader().isSet());
+          } else {
+            NullableDurationHolder actual = new NullableDurationHolder();
+            listReader.reader().read(actual);
+            assertEquals(TimeUnit.MICROSECOND, actual.unit);
+            assertEquals(j, actual.value);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void listFixedSizeBinaryType() throws Exception {
+    List<ArrowBuf> bufs = new ArrayList<ArrowBuf>();
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          if (j % 2 == 0) {
+            listWriter.writeNull();
+          } else {
+            ArrowBuf buf = allocator.buffer(4);
+            buf.setInt(0, j);
+            FixedSizeBinaryHolder holder = new FixedSizeBinaryHolder();
+            holder.byteWidth = 4;
+            holder.buffer = buf;
+            listWriter.fixedSizeBinary().write(holder);
+            bufs.add(buf);
+          }
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listReader.setPosition(i);
+        for (int j = 0; j < i % 7; j++) {
+          listReader.next();
+          if (j % 2 == 0) {
+            assertFalse("index is set: " + j, listReader.reader().isSet());
+          } else {
+            NullableFixedSizeBinaryHolder actual = new NullableFixedSizeBinaryHolder();
+            listReader.reader().read(actual);
+            assertEquals(j, actual.buffer.getInt(0));
+            assertEquals(4, actual.byteWidth);
+          }
+        }
+      }
+    }
+    AutoCloseables.close(bufs);
+  }
+
+  @Test
   public void listScalarTypeNullable() {
     try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
@@ -605,14 +732,33 @@ public class TestComplexWriter {
   }
 
   @Test
-  public void simpleUnion() {
+  public void simpleUnion() throws Exception {
+    List<ArrowBuf> bufs = new ArrayList<ArrowBuf>();
     UnionVector vector = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
     UnionWriter unionWriter = new UnionWriter(vector);
     unionWriter.allocate();
     for (int i = 0; i < COUNT; i++) {
       unionWriter.setPosition(i);
-      if (i % 2 == 0) {
+      if (i % 5 == 0) {
         unionWriter.writeInt(i);
+      } else if (i % 5 == 1) {
+        TimeStampMilliTZHolder holder = new TimeStampMilliTZHolder();
+        holder.value = (long) i;
+        holder.timezone = "AsdfTimeZone";
+        unionWriter.write(holder);
+      } else if (i % 5 == 2) {
+        DurationHolder holder = new DurationHolder();
+        holder.value = (long) i;
+        holder.unit = TimeUnit.NANOSECOND;
+        unionWriter.write(holder);
+      } else if (i % 5 == 3) {
+        FixedSizeBinaryHolder holder = new FixedSizeBinaryHolder();
+        ArrowBuf buf = allocator.buffer(4);
+        buf.setInt(0, i);
+        holder.byteWidth = 4;
+        holder.buffer = buf;
+        unionWriter.write(holder);
+        bufs.add(buf);
       } else {
         unionWriter.writeFloat4((float) i);
       }
@@ -621,13 +767,29 @@ public class TestComplexWriter {
     UnionReader unionReader = new UnionReader(vector);
     for (int i = 0; i < COUNT; i++) {
       unionReader.setPosition(i);
-      if (i % 2 == 0) {
+      if (i % 5 == 0) {
         Assert.assertEquals(i, i, unionReader.readInteger());
+      } else if (i % 5 == 1) {
+        NullableTimeStampMilliTZHolder holder = new NullableTimeStampMilliTZHolder();
+        unionReader.read(holder);
+        Assert.assertEquals(i, holder.value);
+        Assert.assertEquals("AsdfTimeZone", holder.timezone);
+      } else if (i % 5 == 2) {
+        NullableDurationHolder holder = new NullableDurationHolder();
+        unionReader.read(holder);
+        Assert.assertEquals(i, holder.value);
+        Assert.assertEquals(TimeUnit.NANOSECOND, holder.unit);
+      } else if (i % 5 == 3) {
+        NullableFixedSizeBinaryHolder holder = new NullableFixedSizeBinaryHolder();
+        unionReader.read(holder);
+        assertEquals(i, holder.buffer.getInt(0));
+        assertEquals(4, holder.byteWidth);
       } else {
         Assert.assertEquals((float) i, unionReader.readFloat(), 1e-12);
       }
     }
     vector.close();
+    AutoCloseables.close(bufs);
   }
 
   @Test

@@ -52,4 +52,4 @@ variables for options for configuring the build source and enabled features.
 ## Further reading
 
 - For users looking for information about installing on Linux, see the [Linux installation article](./install.html).
-- For developers looking to understand the installation scripts, see the [instalation details article](./developers/install_details.html). 
+- For developers looking to understand the installation scripts, see the [installation details article](./developers/install_details.html). 
