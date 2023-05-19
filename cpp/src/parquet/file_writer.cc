@@ -546,7 +546,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
       page_index_builder_ = PageIndexBuilder::Make(&schema_);
     }
     if (properties_->bloom_filter_enabled()) {
-      bloom_filter_writer_ = std::make_unique<BloomFilterWriter>();
+      bloom_filter_writer_ = std::make_unique<BloomFilterWriter>(*properties_);
     }
   }
 };

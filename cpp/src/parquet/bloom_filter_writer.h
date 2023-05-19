@@ -43,9 +43,6 @@ class PARQUET_EXPORT BloomFilterWriter {
   /// Append a new row group to host all incoming bloom filters.
   void AppendRowGroup();
 
-  /// Drop the bloom filter if possible.
-  void DropRowGroupBloomFilter(const std::shared_ptr<schema::ColumnPath>& col_path);
-
   /// Return a BloomFilter defined by `col_path`.
   ///
   /// * If the col_path has a bloom filter, create a BloomFilter in

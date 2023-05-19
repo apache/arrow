@@ -27,13 +27,6 @@ bool RowGroupBloomFilterReference::GetBloomFilterOffsets(
   return false;
 }
 
-void BloomFilterWriter::DropRowGroupBloomFilter(
-    const std::shared_ptr<schema::ColumnPath>& col_path) {
-  if (properties_.bloom_filter_enabled(col_path)) {
-    row_group_bloom_filters_.back().erase(col_path->ToDotString());
-  }
-}
-
 void BloomFilterWriter::AppendRowGroup() { row_group_bloom_filters_.emplace_back(); }
 
 void BloomFilterWriter::WriteTo(::arrow::io::OutputStream* sink,
@@ -44,7 +37,6 @@ void BloomFilterWriter::WriteTo(::arrow::io::OutputStream* sink,
     return;
   }
 
-  size_t total_serialized_count = 0;
   for (const auto& row_group_bloom_filters : row_group_bloom_filters_) {
     reference_.AppendRowGroup();
 
@@ -70,7 +62,6 @@ void BloomFilterWriter::WriteTo(::arrow::io::OutputStream* sink,
         iter->second->WriteTo(sink);
         PARQUET_ASSIGN_OR_THROW(int64_t pos, sink->Tell());
         reference_.AddBloomFilter(column_id, offset, static_cast<int32_t>(pos - offset));
-        total_serialized_count++;
       }
     }
   }
