@@ -5366,15 +5366,9 @@ TEST(Substrait, SortAndFetch) {
     [null, null]
   ])"});
 
-  NamedTableProvider table_provider = [&](const std::vector<std::string>& names,
-                                          const Schema&) {
-    std::shared_ptr<acero::ExecNodeOptions> options =
-        std::make_shared<acero::TableSourceNodeOptions>(input_table);
-    return acero::Declaration("table_source", {}, options, "mock_source");
-  };
-
   ConversionOptions conversion_options;
-  conversion_options.named_table_provider = std::move(table_provider);
+  conversion_options.named_table_provider =
+      AlwaysProvideSameTable(std::move(input_table));
 
   CheckRoundTripResult(std::move(output_table), buf, {}, conversion_options);
 }

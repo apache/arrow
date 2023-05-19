@@ -58,6 +58,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 
@@ -331,18 +332,46 @@ ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
 
 namespace {
 
-bool IsSortNullsFirst(const substrait::SortField::SortDirection& direction) {
-  return direction % 2 == 1;
-}
+struct SortBehavior {
+  compute::NullPlacement null_placement;
+  compute::SortOrder sort_order;
 
-compute::SortOrder SortOrderFromDirection(
-    const substrait::SortField::SortDirection& direction) {
-  if (direction < 3) {
-    return compute::SortOrder::Ascending;
-  } else {
-    return compute::SortOrder::Descending;
+  static Result<SortBehavior> Make(substrait::SortField::SortDirection dir) {
+    SortBehavior sort_behavior;
+    switch (dir) {
+      case substrait::SortField::SortDirection::
+          SortField_SortDirection_SORT_DIRECTION_UNSPECIFIED:
+        return Status::Invalid("The substrait plan does not specify a sort direction");
+      case substrait::SortField::SortDirection::
+          SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_FIRST:
+        sort_behavior.null_placement = compute::NullPlacement::AtStart;
+        sort_behavior.sort_order = compute::SortOrder::Ascending;
+        break;
+      case substrait::SortField::SortDirection::
+          SortField_SortDirection_SORT_DIRECTION_ASC_NULLS_LAST:
+        sort_behavior.null_placement = compute::NullPlacement::AtEnd;
+        sort_behavior.sort_order = compute::SortOrder::Ascending;
+        break;
+      case substrait::SortField::SortDirection::
+          SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_FIRST:
+        sort_behavior.null_placement = compute::NullPlacement::AtStart;
+        sort_behavior.sort_order = compute::SortOrder::Descending;
+        break;
+      case substrait::SortField::SortDirection::
+          SortField_SortDirection_SORT_DIRECTION_DESC_NULLS_LAST:
+        sort_behavior.null_placement = compute::NullPlacement::AtEnd;
+        sort_behavior.sort_order = compute::SortOrder::Descending;
+        break;
+      case substrait::SortField::SortDirection::
+          SortField_SortDirection_SORT_DIRECTION_CLUSTERED:
+      default:
+        return Status::NotImplemented(
+            "Acero does not support the specified sort direction: ", dir);
+        break;
+    }
+    return sort_behavior;
   }
-}
+};
 
 }  // namespace
 
@@ -768,35 +797,21 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
       }
 
       std::vector<compute::SortKey> sort_keys;
-      compute::NullPlacement null_placement;
-      bool first = true;
+      sort_keys.reserve(sort.sorts_size());
+      // Substrait allows null placement to differ for each field.  Acero expects it to
+      // be consistent across all fields.  So we grab the null placement from the first
+      // key and verify all other keys have the same null placement
+      std::optional<SortBehavior> sample_sort_behavior;
       for (const auto& sort : sort.sorts()) {
-        if (sort.direction() == substrait::SortField::SortDirection::
-                                    SortField_SortDirection_SORT_DIRECTION_UNSPECIFIED) {
-          return Status::Invalid(
-              "substrait::SortRel with sort that had unspecified direction");
-        }
-        if (sort.direction() == substrait::SortField::SortDirection::
-                                    SortField_SortDirection_SORT_DIRECTION_CLUSTERED) {
-          return Status::NotImplemented(
-              "substrait::SortRel with sort with clustered sort direction");
-        }
-        // Substrait allows null placement to differ for each field.  Acero expects it to
-        // be consistent across all fields.  So we grab the null placement from the first
-        // key and verify all other keys have the same null placement
-        if (first) {
-          null_placement = IsSortNullsFirst(sort.direction())
-                               ? compute::NullPlacement::AtStart
-                               : compute::NullPlacement::AtEnd;
-          first = false;
-        } else {
-          if ((null_placement == compute::NullPlacement::AtStart &&
-               !IsSortNullsFirst(sort.direction())) ||
-              (null_placement == compute::NullPlacement::AtEnd &&
-               IsSortNullsFirst(sort.direction()))) {
+        ARROW_ASSIGN_OR_RAISE(SortBehavior sort_behavior,
+                              SortBehavior::Make(sort.direction()));
+        if (sample_sort_behavior) {
+          if (sample_sort_behavior->null_placement != sort_behavior.null_placement) {
             return Status::NotImplemented(
                 "substrait::SortRel with ordering with mixed null placement");
           }
+        } else {
+          sample_sort_behavior = sort_behavior;
         }
         if (sort.sort_kind_case() != substrait::SortField::SortKindCase::kDirection) {
           return Status::NotImplemented("substrait::SortRel with custom sort function");
@@ -805,17 +820,18 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                               FromProto(sort.expr(), ext_set, conversion_options));
         const FieldRef* field_ref = expr.field_ref();
         if (field_ref) {
-          sort_keys.push_back(
-              compute::SortKey(*field_ref, SortOrderFromDirection(sort.direction())));
+          sort_keys.push_back(compute::SortKey(*field_ref, sort_behavior.sort_order));
         } else {
           return Status::Invalid("Sort key expressions must be a direct reference.");
         }
       }
 
-      acero::Declaration sort_dec{"order_by",
-                                  {input.declaration},
-                                  acero::OrderByNodeOptions(compute::Ordering(
-                                      std::move(sort_keys), null_placement))};
+      DCHECK(sample_sort_behavior.has_value());
+      acero::Declaration sort_dec{
+          "order_by",
+          {input.declaration},
+          acero::OrderByNodeOptions(compute::Ordering(
+              std::move(sort_keys), sample_sort_behavior->null_placement))};
 
       DeclarationInfo sort_declaration{std::move(sort_dec), input.output_schema};
       return ProcessEmit(sort, std::move(sort_declaration),
