@@ -3076,6 +3076,49 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   }
 
  protected:
+  template <typename VisitorType>
+  void PutInternal(const T* src, int num_values) {
+    if (num_values == 0) {
+      return;
+    }
+    uint32_t len = descr_->type_length();
+
+    std::string_view last_value_view = last_value_;
+    constexpr int kBatchSize = 256;
+    std::array<int32_t, kBatchSize> prefix_lengths;
+    auto visitor = VisitorType{src, len};
+
+    for (int i = 0; i < num_values; i += kBatchSize) {
+      const int batch_size = std::min(kBatchSize, num_values - i);
+
+      for (int j = 0; j < batch_size; ++j) {
+        auto view = visitor[i + j];
+        len = visitor.len(i + j);
+
+        uint32_t k = 0;
+        const uint32_t common_length =
+            std::min(len, static_cast<uint32_t>(last_value_view.length()));
+        while (k < common_length) {
+          if (last_value_view[k] != view[k]) {
+            break;
+          }
+          k++;
+        }
+
+        last_value_view = view;
+        prefix_lengths[j] = k;
+        const auto suffix_length = len - k;
+        const uint8_t* suffix_ptr = src[i + j].ptr + k;
+
+        // Convert to ByteArray, so it can be passed to the suffix_encoder_.
+        const ByteArray suffix(suffix_length, suffix_ptr);
+        suffix_encoder_.Put(&suffix, 1);
+      }
+      prefix_length_encoder_.Put(prefix_lengths.data(), batch_size);
+    }
+    last_value_ = last_value_view;
+  }
+
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
     auto previous_len = static_cast<uint32_t>(last_value_.size());
@@ -3125,93 +3168,39 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   const ByteArray kEmpty;
 };
 
+struct ByteArrayVisitor {
+  const ByteArray* src;
+  const uint32_t length;
+
+  std::string_view operator[](int i) const {
+    if (ARROW_PREDICT_FALSE(src[i].len >= kMaxByteArraySize)) {
+      throw ParquetException("Parquet cannot store strings with size 2GB or more");
+    }
+    return std::string_view{src[i]};
+  }
+
+  const uint32_t len(int i) const { return src[i].len; }
+};
+
+struct FLBAVisitor {
+  const FLBA* src;
+  const uint32_t length;
+
+  std::string_view operator[](int i) const {
+    return std::string_view{reinterpret_cast<const char*>(src[i].ptr)};
+  }
+
+  const uint32_t len(int i) const { return length; }
+};
+
 template <>
 void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_values) {
-  if (num_values == 0) {
-    return;
-  }
-
-  std::string_view last_value_view = last_value_;
-  constexpr int kBatchSize = 256;
-  std::array<int32_t, kBatchSize> prefix_lengths;
-
-  for (int i = 0; i < num_values; i += kBatchSize) {
-    const int batch_size = std::min(kBatchSize, num_values - i);
-
-    for (int j = 0; j < batch_size; ++j) {
-      // Convert to ByteArray, so we can pass to the suffix_encoder_.
-      const ByteArray value = src[i + j];
-      if (ARROW_PREDICT_FALSE(value.len >= static_cast<int32_t>(kMaxByteArraySize))) {
-        throw ParquetException("Parquet cannot store strings with size 2GB or more");
-      }
-      auto view = std::string_view{value};
-
-      uint32_t k = 0;
-      const uint32_t common_length =
-          std::min(value.len, static_cast<uint32_t>(last_value_view.length()));
-      while (k < common_length) {
-        if (last_value_view[k] != view[k]) {
-          break;
-        }
-        k++;
-      }
-
-      last_value_view = view;
-      prefix_lengths[j] = k;
-      const auto suffix_length = static_cast<uint32_t>(value.len - k);
-
-      const uint8_t* suffix_ptr = value.ptr + k;
-      // Convert to ByteArray, so it can be passed to the suffix_encoder_.
-      const ByteArray suffix(suffix_length, suffix_ptr);
-      suffix_encoder_.Put(&suffix, 1);
-    }
-    prefix_length_encoder_.Put(prefix_lengths.data(), batch_size);
-  }
-  last_value_ = last_value_view;
+  PutInternal<ByteArrayVisitor>(src, num_values);
 }
 
 template <>
 void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
-  if (num_values == 0) {
-    return;
-  }
-
-  std::string_view last_value_view = last_value_;
-  const int32_t len = descr_->type_length();
-
-  if (ARROW_PREDICT_FALSE(len >= static_cast<int32_t>(kMaxByteArraySize))) {
-    throw ParquetException("Parquet cannot store strings with size 2GB or more");
-  }
-
-  constexpr int kBatchSize = 256;
-  std::array<int32_t, kBatchSize> prefix_lengths;
-  for (int i = 0; i < num_values; i += kBatchSize) {
-    const int batch_size = std::min(kBatchSize, num_values - i);
-    for (int j = 0; j < batch_size; j++) {
-      auto view = string_view{reinterpret_cast<const char*>(src[i + j].ptr),
-                              static_cast<uint32_t>(len)};
-      int32_t k = 0;
-      const int32_t common_length =
-          std::min(len, static_cast<int32_t>(last_value_view.length()));
-      while (k < common_length) {
-        if (last_value_view[k] != view[k]) {
-          break;
-        }
-        k++;
-      }
-
-      last_value_view = view;
-      prefix_lengths[j] = k;
-      const auto suffix_length = static_cast<uint32_t>(len - k);
-
-      const uint8_t* suffix_ptr = src[i + j].ptr + k;
-      // Convert to ByteArray, so it can be passed to the suffix_encoder_
-      const ByteArray suffix(suffix_length, suffix_ptr);
-      suffix_encoder_.Put(&suffix, 1);
-    }
-    prefix_length_encoder_.Put(prefix_lengths.data(), batch_size);
-  }
-  last_value_ = last_value_view;
+  PutInternal<FLBAVisitor>(src, num_values);
 }
 
 template <typename DType>
