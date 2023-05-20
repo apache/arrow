@@ -86,7 +86,7 @@ namespace Apache.Arrow.Ipc
                         .ConfigureAwait(false);
                     EnsureFullRead(bodyBuff, bytesRead);
 
-                    FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                    Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
                     result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
                 }).ConfigureAwait(false);
             }
@@ -124,7 +124,7 @@ namespace Apache.Arrow.Ipc
                     bytesRead = BaseStream.ReadFullBuffer(bodyBuff);
                     EnsureFullRead(bodyBuff, bytesRead);
 
-                    FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
+                    Google.FlatBuffers.ByteBuffer bodybb = CreateByteBuffer(bodyBuff);
                     result = CreateArrowObjectFromMessage(message, bodybb, bodyBuffOwner);
                 });
             }
@@ -149,7 +149,7 @@ namespace Apache.Arrow.Ipc
                 int bytesRead = await BaseStream.ReadFullBufferAsync(buff).ConfigureAwait(false);
                 EnsureFullRead(buff, bytesRead);
 
-                FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
+                Google.FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
                 Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
             }).ConfigureAwait(false);
         }
@@ -169,7 +169,7 @@ namespace Apache.Arrow.Ipc
                 int bytesRead = BaseStream.ReadFullBuffer(buff);
                 EnsureFullRead(buff, bytesRead);
 
-                FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
+                Google.FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
                 Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
             });
         }

@@ -16,7 +16,7 @@
 using System;
 using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Types;
-using FlatBuffers;
+using Google.FlatBuffers;
 using DateUnit = Apache.Arrow.Flatbuf.DateUnit;
 using TimeUnit = Apache.Arrow.Types.TimeUnit;
 

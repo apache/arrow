@@ -23,7 +23,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
-using FlatBuffers;
+using Google.FlatBuffers;
 
 namespace Apache.Arrow.Ipc
 {

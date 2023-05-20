@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using FlatBuffers;
+using Google.FlatBuffers;
 using System;
 
 namespace Apache.Arrow.Ipc
