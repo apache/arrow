@@ -188,6 +188,7 @@ namespace Apache.Arrow.IntegrationTest
                 "list" => ToListArrowType(type, children),
                 "fixedsizelist" => ToFixedSizeListArrowType(type, children),
                 "struct" => ToStructArrowType(type, children),
+                "null" => NullType.Default,
                 _ => throw new NotSupportedException($"JsonArrowType not supported: {type.Name}")
             };
         }
@@ -304,7 +305,8 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<FixedSizeListType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<NullType>
         {
             private JsonFieldData JsonFieldData { get; set; }
             public IArrowArray Array { get; private set; }
@@ -354,6 +356,11 @@ namespace Apache.Arrow.IntegrationTest
             public void Visit(Decimal256Type type)
             {
                 Array = new Decimal256Array(GetDecimalArrayData(type));
+            }
+
+            public void Visit(NullType type)
+            {
+                Array = new NullArray(JsonFieldData.Count);
             }
 
             private ArrayData GetDecimalArrayData(FixedSizeBinaryType type)

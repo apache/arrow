@@ -18,6 +18,7 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Apache.Arrow.Memory;
 
 namespace Apache.Arrow
 {
@@ -85,6 +86,12 @@ namespace Apache.Arrow
             _arrays = arrays;
             Schema = schema;
             Length = length;
+        }
+
+        public RecordBatch Clone(MemoryAllocator allocator = default)
+        {
+            IEnumerable<IArrowArray> arrays = _arrays.Select(array => ArrowArrayFactory.BuildArray(array.Data.Clone(allocator)));
+            return new RecordBatch(Schema, arrays, Length);
         }
     }
 }

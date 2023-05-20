@@ -17,7 +17,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Types;
 
@@ -25,6 +24,9 @@ namespace Apache.Arrow.C
 {
     public static class CArrowSchemaExporter
     {
+        private unsafe delegate void ReleaseArrowSchema(CArrowSchema* cArray);
+        private static unsafe readonly NativeDelegate<ReleaseArrowSchema> s_releaseSchema = new NativeDelegate<ReleaseArrowSchema>(ReleaseCArrowSchema);
+
         /// <summary>
         /// Export a type to a <see cref="CArrowSchema"/>.
         /// </summary>
@@ -63,8 +65,7 @@ namespace Apache.Arrow.C
 
             schema->dictionary = ConstructDictionary(datatype);
 
-            schema->release = (delegate* unmanaged[Stdcall]<CArrowSchema*, void>)Marshal.GetFunctionPointerForDelegate(
-                ReleaseCArrowSchema);
+            schema->release = (delegate* unmanaged[Stdcall]<CArrowSchema*, void>)s_releaseSchema.Pointer;
 
             schema->private_data = null;
         }
