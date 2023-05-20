@@ -24,9 +24,9 @@ add_custom_target(toolchain-benchmarks)
 add_custom_target(toolchain-tests)
 
 # Accumulate all bundled targets and we will splice them together later as
-# libarrow_dependencies.a so that third party libraries have something usable
-# to create statically-linked builds with some BUNDLED dependencies, including
-# allocators like jemalloc and mimalloc
+# libarrow_bundled_dependencies.a so that third party libraries have something
+# usable to create statically-linked builds with some BUNDLED dependencies,
+# including allocators like jemalloc and mimalloc
 set(ARROW_BUNDLED_STATIC_LIBS)
 
 # Accumulate all system dependencies to provide suitable static link
@@ -229,6 +229,7 @@ endmacro()
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
   set(one_value_args
+      ARROW_CMAKE_PACKAGE_NAME
       FORCE_ANY_NEWER_VERSION
       HAVE_ALT
       IS_RUNTIME_DEPENDENCY
@@ -290,8 +291,15 @@ macro(resolve_dependency DEPENDENCY_NAME)
     endif()
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
-    provide_find_module(${PACKAGE_NAME} "Arrow")
-    list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
+    if(NOT ARG_ARROW_CMAKE_PACKAGE_NAME)
+      set(ARG_ARROW_CMAKE_PACKAGE_NAME "Arrow")
+    endif()
+    if(ARG_ARROW_CMAKE_PACKAGE_NAME STREQUAL "Arrow")
+      provide_find_module(${PACKAGE_NAME} "Arrow")
+      list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
+    else()
+      provide_find_module(${PACKAGE_NAME} ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    endif()
     if(ARROW_BUILD_STATIC)
       find_package(PkgConfig QUIET)
       foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
@@ -2220,11 +2228,14 @@ macro(build_gtest)
 endmacro()
 
 if(ARROW_TESTING)
+  set(GTestAlt_NEED_CXX_STANDARD_CHECK TRUE)
   resolve_dependency(GTest
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
-                     1.10.0)
+                     1.10.0
+                     ARROW_CMAKE_PACKAGE_NAME
+                     "ArrowTesting")
 
   if(GTest_SOURCE STREQUAL "SYSTEM")
     find_package(PkgConfig QUIET)
@@ -2314,7 +2325,7 @@ macro(build_benchmark)
 endmacro()
 
 if(ARROW_BUILD_BENCHMARKS)
-  set(BENCHMARK_REQUIRED_VERSION 1.6.0)
+  set(BENCHMARK_REQUIRED_VERSION 1.6.1)
   resolve_dependency(benchmark
                      REQUIRED_VERSION
                      ${BENCHMARK_REQUIRED_VERSION}

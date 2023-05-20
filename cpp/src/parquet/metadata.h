@@ -251,6 +251,8 @@ class PARQUET_EXPORT RowGroupMetaData {
   const SchemaDescriptor* schema() const;
   // Indicate if all of the RowGroup's ColumnChunks can be decompressed.
   bool can_decompress() const;
+  // Sorting columns of the row group if any.
+  std::vector<SortingColumn> sorting_columns() const;
 
  private:
   explicit RowGroupMetaData(
@@ -523,10 +525,14 @@ struct PageIndexLocation {
 
 class PARQUET_EXPORT FileMetaDataBuilder {
  public:
-  // API convenience to get a MetaData reader
+  ARROW_DEPRECATED("Deprecated in 12.0.0. Use overload without KeyValueMetadata instead.")
   static std::unique_ptr<FileMetaDataBuilder> Make(
       const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-      std::shared_ptr<const KeyValueMetadata> key_value_metadata = NULLPTR);
+      std::shared_ptr<const KeyValueMetadata> key_value_metadata);
+
+  // API convenience to get a MetaData builder
+  static std::unique_ptr<FileMetaDataBuilder> Make(
+      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props);
 
   ~FileMetaDataBuilder();
 
@@ -537,7 +543,8 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   void SetPageIndexLocation(const PageIndexLocation& location);
 
   // Complete the Thrift structure
-  std::unique_ptr<FileMetaData> Finish();
+  std::unique_ptr<FileMetaData> Finish(
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR);
 
   // crypto metadata
   std::unique_ptr<FileCryptoMetaData> GetCryptoMetaData();

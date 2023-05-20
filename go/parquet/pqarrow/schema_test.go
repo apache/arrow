@@ -20,25 +20,34 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/metadata"
-	"github.com/apache/arrow/go/v12/parquet/pqarrow"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/flight"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/metadata"
+	"github.com/apache/arrow/go/v13/parquet/pqarrow"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGetOriginSchemaBase64(t *testing.T) {
+	uuidType := types.NewUUIDType()
 	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
+	extMd := arrow.NewMetadata([]string{ipc.ExtensionMetadataKeyName, ipc.ExtensionTypeKeyName, "PARQUET:field_id"}, []string{uuidType.Serialize(), uuidType.ExtensionName(), "-1"})
 	origArrSc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
 		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
+		{Name: "uuid", Type: uuidType, Metadata: extMd},
 	}, nil)
 
 	arrSerializedSc := flight.SerializeSchema(origArrSc, memory.DefaultAllocator)
+	if err := arrow.RegisterExtensionType(uuidType); err != nil {
+		t.Fatal(err)
+	}
+	defer arrow.UnregisterExtensionType(uuidType.ExtensionName())
 	pqschema, err := pqarrow.ToParquet(origArrSc, nil, pqarrow.DefaultWriterProps())
 	require.NoError(t, err)
 
@@ -59,6 +68,40 @@ func TestGetOriginSchemaBase64(t *testing.T) {
 			assert.True(t, origArrSc.Equal(arrsc))
 		})
 	}
+}
+
+func TestGetOriginSchemaUnregisteredExtension(t *testing.T) {
+	uuidType := types.NewUUIDType()
+	if err := arrow.RegisterExtensionType(uuidType); err != nil {
+		t.Fatal(err)
+	}
+
+	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
+	origArrSc := arrow.NewSchema([]arrow.Field{
+		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
+		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
+		{Name: "uuid", Type: uuidType, Metadata: md},
+	}, nil)
+	pqschema, err := pqarrow.ToParquet(origArrSc, nil, pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+
+	arrSerializedSc := flight.SerializeSchema(origArrSc, memory.DefaultAllocator)
+	kv := metadata.NewKeyValueMetadata()
+	kv.Append("ARROW:schema", base64.StdEncoding.EncodeToString(arrSerializedSc))
+
+	arrow.UnregisterExtensionType(uuidType.ExtensionName())
+	arrsc, err := pqarrow.FromParquet(pqschema, nil, kv)
+	require.NoError(t, err)
+
+	extMd := arrow.NewMetadata([]string{ipc.ExtensionMetadataKeyName, ipc.ExtensionTypeKeyName, "PARQUET:field_id"},
+		[]string{uuidType.Serialize(), uuidType.ExtensionName(), "-1"})
+	expArrSc := arrow.NewSchema([]arrow.Field{
+		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
+		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
+		{Name: "uuid", Type: uuidType.StorageType(), Metadata: extMd},
+	}, nil)
+
+	assert.Truef(t, expArrSc.Equal(arrsc), "expected: %s\ngot: %s", expArrSc, arrsc)
 }
 
 func TestToParquetWriterConfig(t *testing.T) {
@@ -366,4 +409,31 @@ func TestListStructBackwardCompatible(t *testing.T) {
 	arrsc, err := pqarrow.FromParquet(pqSchema, nil, metadata.KeyValueMetadata{})
 	assert.NoError(t, err)
 	assert.True(t, arrowSchema.Equal(arrsc))
+}
+
+// TestUnsupportedTypes tests the error message for unsupported types. This test should be updated
+// when support for these types is added.
+func TestUnsupportedTypes(t *testing.T) {
+	unsupportedTypes := []struct {
+		typ arrow.DataType
+	}{
+		// Non-exhaustive list of unsupported types
+		{typ: &arrow.Float16Type{}},
+		{typ: &arrow.DurationType{}},
+		{typ: &arrow.DayTimeIntervalType{}},
+		{typ: &arrow.MonthIntervalType{}},
+		{typ: &arrow.MonthDayNanoIntervalType{}},
+		{typ: &arrow.DenseUnionType{}},
+		{typ: &arrow.SparseUnionType{}},
+	}
+	for _, tc := range unsupportedTypes {
+		t.Run(tc.typ.ID().String(), func(t *testing.T) {
+			arrowFields := make([]arrow.Field, 0)
+			arrowFields = append(arrowFields, arrow.Field{Name: "unsupported", Type: tc.typ, Nullable: true})
+			arrowSchema := arrow.NewSchema(arrowFields, nil)
+			_, err := pqarrow.ToParquet(arrowSchema, nil, pqarrow.NewArrowWriterProperties())
+			assert.ErrorIs(t, err, arrow.ErrNotImplemented)
+			assert.ErrorContains(t, err, "support for "+tc.typ.ID().String())
+		})
+	}
 }

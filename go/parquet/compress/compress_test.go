@@ -18,11 +18,11 @@ package compress_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/parquet/compress"
+	"github.com/apache/arrow/go/v13/parquet/compress"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -130,7 +130,7 @@ func TestCompressReaderWriter(t *testing.T) {
 			wr.Close()
 
 			rdr := codec.NewReader(&buf)
-			out, err := ioutil.ReadAll(rdr)
+			out, err := io.ReadAll(rdr)
 			assert.NoError(t, err)
 			assert.Exactly(t, data, out)
 		})

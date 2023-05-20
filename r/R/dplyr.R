@@ -216,7 +216,8 @@ unique.RecordBatchReader <- unique.arrow_dplyr_query
 
 #' @export
 as.data.frame.arrow_dplyr_query <- function(x, row.names = NULL, optional = FALSE, ...) {
-  collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
+  out <- collect.arrow_dplyr_query(x, as_data_frame = TRUE, ...)
+  as.data.frame(out)
 }
 
 #' @export
@@ -284,17 +285,7 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 #'   mutate(x = gear / carb) %>%
 #'   show_exec_plan()
 show_exec_plan <- function(x) {
-  adq <- as_adq(x)
-
-  # do not show the plan if we have a nested query (as this will force the
-  # evaluation of the inner query/queries)
-  # TODO see if we can remove after ARROW-16628
-  if (is_collapsed(x) && has_head_tail(x$.data)) {
-    warn("The `ExecPlan` cannot be printed for a nested query.")
-    return(invisible(x))
-  }
-
-  result <- as_record_batch_reader(adq)
+  result <- as_record_batch_reader(as_adq(x))
   plan <- result$Plan()
   on.exit({
     plan$.unsafe_delete()
@@ -419,6 +410,25 @@ query_can_stream <- function(x) {
 
 is_collapsed <- function(x) inherits(x$.data, "arrow_dplyr_query")
 
-has_head_tail <- function(x) {
-  !is.null(x$head) || !is.null(x$tail) || (is_collapsed(x) && has_head_tail(x$.data))
+has_unordered_head <- function(x) {
+  if (is.null(x$head %||% x$tail)) {
+    # no head/tail
+    return(FALSE)
+  }
+  !has_order(x)
+}
+
+has_order <- function(x) {
+  length(x$arrange_vars) > 0 ||
+    has_implicit_order(x) ||
+    (is_collapsed(x) && has_order(x$.data))
+}
+
+has_implicit_order <- function(x) {
+  # Approximate what ExecNode$has_ordered_batches() would return (w/o building ExecPlan)
+  # An in-memory table has an implicit order
+  # TODO(GH-34698): FileSystemDataset and RecordBatchReader will have implicit order
+  inherits(x$.data, "ArrowTabular") &&
+    # But joins, aggregations, etc. will result in non-deterministic order
+    is.null(x$aggregations) && is.null(x$join) && is.null(x$union_all)
 }

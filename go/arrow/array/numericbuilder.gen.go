@@ -27,10 +27,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -174,6 +174,20 @@ func (b *Int64Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Int64Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 8*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(int64(v))
+	return nil
 }
 
 func (b *Int64Builder) UnmarshalOne(dec *json.Decoder) error {
@@ -385,6 +399,20 @@ func (b *Uint64Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Uint64Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseUint(s, 10, 8*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(uint64(v))
+	return nil
+}
+
 func (b *Uint64Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
@@ -592,6 +620,20 @@ func (b *Float64Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Float64Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseFloat(s, 8*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(float64(v))
+	return nil
 }
 
 func (b *Float64Builder) UnmarshalOne(dec *json.Decoder) error {
@@ -803,6 +845,20 @@ func (b *Int32Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Int32Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 4*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(int32(v))
+	return nil
+}
+
 func (b *Int32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
@@ -1010,6 +1066,20 @@ func (b *Uint32Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Uint32Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseUint(s, 10, 4*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(uint32(v))
+	return nil
 }
 
 func (b *Uint32Builder) UnmarshalOne(dec *json.Decoder) error {
@@ -1221,6 +1291,20 @@ func (b *Float32Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Float32Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseFloat(s, 4*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(float32(v))
+	return nil
+}
+
 func (b *Float32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
@@ -1428,6 +1512,20 @@ func (b *Int16Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Int16Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 2*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(int16(v))
+	return nil
 }
 
 func (b *Int16Builder) UnmarshalOne(dec *json.Decoder) error {
@@ -1639,6 +1737,20 @@ func (b *Uint16Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Uint16Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseUint(s, 10, 2*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(uint16(v))
+	return nil
+}
+
 func (b *Uint16Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
@@ -1846,6 +1958,20 @@ func (b *Int8Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Int8Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 1*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(int8(v))
+	return nil
 }
 
 func (b *Int8Builder) UnmarshalOne(dec *json.Decoder) error {
@@ -2057,6 +2183,20 @@ func (b *Uint8Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Uint8Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseUint(s, 10, 1*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(uint8(v))
+	return nil
+}
+
 func (b *Uint8Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
@@ -2265,6 +2405,20 @@ func (b *TimestampBuilder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *TimestampBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := arrow.TimestampFromString(s, b.dtype.Unit)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(v)
+	return nil
 }
 
 func (b *TimestampBuilder) UnmarshalOne(dec *json.Decoder) error {
@@ -2479,6 +2633,20 @@ func (b *Time32Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Time32Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	val, err := arrow.Time32FromString(s, b.dtype.Unit)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(val)
+	return nil
+}
+
 func (b *Time32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
@@ -2688,6 +2856,20 @@ func (b *Time64Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Time64Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	val, err := arrow.Time64FromString(s, b.dtype.Unit)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(val)
+	return nil
 }
 
 func (b *Time64Builder) UnmarshalOne(dec *json.Decoder) error {
@@ -2900,6 +3082,20 @@ func (b *Date32Builder) newData() (data *Data) {
 	return
 }
 
+func (b *Date32Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	tm, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(arrow.Date32FromTime(tm))
+	return nil
+}
+
 func (b *Date32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
@@ -3107,6 +3303,20 @@ func (b *Date64Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Date64Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	tm, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(arrow.Date64FromTime(tm))
+	return nil
 }
 
 func (b *Date64Builder) UnmarshalOne(dec *json.Decoder) error {
@@ -3317,6 +3527,20 @@ func (b *DurationBuilder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *DurationBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	dur, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+
+	b.Append(arrow.Duration(dur / b.dtype.Unit.Multiplier()))
+	return nil
 }
 
 func (b *DurationBuilder) UnmarshalOne(dec *json.Decoder) error {

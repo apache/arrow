@@ -73,6 +73,17 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
   return result;
 }
 
+bool PageCanUseChecksum(PageType::type pageType) {
+  switch (pageType) {
+    case PageType::type::DATA_PAGE:
+    case PageType::type::DATA_PAGE_V2:
+    case PageType::type::DICTIONARY_PAGE:
+      return true;
+    default:
+      return false;
+  }
+}
+
 std::string FormatStatValue(Type::type parquet_type, ::std::string_view val) {
   std::stringstream result;
 

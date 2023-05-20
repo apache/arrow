@@ -27,6 +27,7 @@
 #include "arrow/array/array_binary.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/sql/client.h"
@@ -37,6 +38,8 @@
 #include "arrow/flight/types.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/table_builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
 
@@ -143,10 +146,10 @@ class TestServerMiddleware : public ServerMiddleware {
 
 class TestServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
-        incoming_headers.equal_range("x-middleware");
+        context.incoming_headers().equal_range("x-middleware");
     std::string received = "";
     if (iter_pair.first != iter_pair.second) {
       const std::string_view& value = (*iter_pair.first).second;
@@ -210,8 +213,8 @@ class MiddlewareServer : public FlightServerBase {
       // Return a fake location - the test doesn't read it
       ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp("localhost", 10010));
       std::vector<FlightEndpoint> endpoints{FlightEndpoint{{"foo"}, {location}}};
-      ARROW_ASSIGN_OR_RAISE(auto info,
-                            FlightInfo::Make(*schema, descriptor, endpoints, -1, -1));
+      ARROW_ASSIGN_OR_RAISE(
+          auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
       *result = std::make_unique<FlightInfo>(info);
       return Status::OK();
     }
@@ -269,6 +272,142 @@ class MiddlewareScenario : public Scenario {
   }
 
   std::shared_ptr<TestClientMiddlewareFactory> client_middleware_;
+};
+
+/// \brief The server used for testing FlightInfo.ordered.
+///
+/// If the given command is "ordered", the server sets
+/// FlightInfo.ordered. The client that supports FlightInfo.ordered
+/// must read data from endpoints from front to back. The client that
+/// doesn't support FlightInfo.ordered may read data from endpoints in
+/// random order.
+///
+/// This scenario is passed only when the client supports
+/// FlightInfo.ordered.
+class OrderedServer : public FlightServerBase {
+  Status GetFlightInfo(const ServerCallContext& context,
+                       const FlightDescriptor& descriptor,
+                       std::unique_ptr<FlightInfo>* result) override {
+    const auto ordered = (descriptor.type == FlightDescriptor::DescriptorType::CMD &&
+                          descriptor.cmd == "ordered");
+    auto schema = BuildSchema();
+    std::vector<FlightEndpoint> endpoints;
+    if (ordered) {
+      endpoints.push_back(FlightEndpoint{{"1"}, {}});
+      endpoints.push_back(FlightEndpoint{{"2"}, {}});
+      endpoints.push_back(FlightEndpoint{{"3"}, {}});
+    } else {
+      endpoints.push_back(FlightEndpoint{{"1"}, {}});
+      endpoints.push_back(FlightEndpoint{{"3"}, {}});
+      endpoints.push_back(FlightEndpoint{{"2"}, {}});
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, ordered));
+    *result = std::make_unique<FlightInfo>(info);
+    return Status::OK();
+  }
+
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
+               std::unique_ptr<FlightDataStream>* stream) override {
+    ARROW_ASSIGN_OR_RAISE(auto builder, RecordBatchBuilder::Make(
+                                            BuildSchema(), arrow::default_memory_pool()));
+    auto number_builder = builder->GetFieldAs<Int32Builder>(0);
+    if (request.ticket == "1") {
+      ARROW_RETURN_NOT_OK(number_builder->Append(1));
+      ARROW_RETURN_NOT_OK(number_builder->Append(2));
+      ARROW_RETURN_NOT_OK(number_builder->Append(3));
+    } else if (request.ticket == "2") {
+      ARROW_RETURN_NOT_OK(number_builder->Append(10));
+      ARROW_RETURN_NOT_OK(number_builder->Append(20));
+      ARROW_RETURN_NOT_OK(number_builder->Append(30));
+    } else if (request.ticket == "3") {
+      ARROW_RETURN_NOT_OK(number_builder->Append(100));
+      ARROW_RETURN_NOT_OK(number_builder->Append(200));
+      ARROW_RETURN_NOT_OK(number_builder->Append(300));
+    } else {
+      return Status::KeyError("Could not find flight: ", request.ticket);
+    }
+    ARROW_ASSIGN_OR_RAISE(auto record_batch, builder->Flush());
+    std::vector<std::shared_ptr<RecordBatch>> record_batches{record_batch};
+    ARROW_ASSIGN_OR_RAISE(auto record_batch_reader,
+                          RecordBatchReader::Make(record_batches));
+    *stream = std::make_unique<RecordBatchStream>(record_batch_reader);
+    return Status::OK();
+  }
+
+ private:
+  std::shared_ptr<Schema> BuildSchema() {
+    return arrow::schema({arrow::field("number", arrow::int32(), false)});
+  }
+};
+
+/// \brief The ordered scenario.
+///
+/// This tests that the server and client get expected header values.
+class OrderedScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    server->reset(new OrderedServer());
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("ordered")));
+    if (!info->ordered()) {
+      return Status::Invalid("Server must return FlightInfo.ordered = true");
+    }
+    std::vector<std::shared_ptr<arrow::Table>> tables;
+    for (const auto& endpoint : info->endpoints()) {
+      if (!endpoint.locations.empty()) {
+        std::stringstream ss;
+        ss << "[";
+        for (const auto& location : endpoint.locations) {
+          if (ss.str().size() != 1) {
+            ss << ", ";
+          }
+          ss << location.ToString();
+        }
+        ss << "]";
+        return Status::Invalid(
+            "Expected to receive empty locations to use the original service: ",
+            ss.str());
+      }
+      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint.ticket));
+      ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
+      tables.push_back(table);
+    }
+    ARROW_ASSIGN_OR_RAISE(auto table, ConcatenateTables(tables));
+
+    // Build expected table
+    auto schema = arrow::schema({arrow::field("number", arrow::int32(), false)});
+    ARROW_ASSIGN_OR_RAISE(auto builder,
+                          RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
+    auto number_builder = builder->GetFieldAs<Int32Builder>(0);
+    ARROW_RETURN_NOT_OK(number_builder->Append(1));
+    ARROW_RETURN_NOT_OK(number_builder->Append(2));
+    ARROW_RETURN_NOT_OK(number_builder->Append(3));
+    ARROW_RETURN_NOT_OK(number_builder->Append(10));
+    ARROW_RETURN_NOT_OK(number_builder->Append(20));
+    ARROW_RETURN_NOT_OK(number_builder->Append(30));
+    ARROW_RETURN_NOT_OK(number_builder->Append(100));
+    ARROW_RETURN_NOT_OK(number_builder->Append(200));
+    ARROW_RETURN_NOT_OK(number_builder->Append(300));
+    ARROW_ASSIGN_OR_RAISE(auto expected_record_batch, builder->Flush());
+    std::vector<std::shared_ptr<RecordBatch>> expected_record_batches{
+        expected_record_batch};
+    ARROW_ASSIGN_OR_RAISE(auto expected_table,
+                          Table::FromRecordBatches(expected_record_batches));
+
+    // Check read data
+    if (!table->Equals(*expected_table)) {
+      return Status::Invalid("Read data isn't expected\n", "Expected:\n",
+                             expected_table->ToString(), "Actual:\n", table->ToString());
+    }
+    return Status::OK();
+  }
 };
 
 /// \brief Schema to be returned for mocking the statement/prepared statement results.
@@ -382,8 +521,8 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     }
     ARROW_ASSIGN_OR_RAISE(auto handle, sql::CreateStatementQueryTicket(ticket));
     std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}}};
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          FlightInfo::Make(*schema, descriptor, endpoints, -1, -1));
+    ARROW_ASSIGN_OR_RAISE(
+        auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     return std::make_unique<FlightInfo>(result);
   }
 
@@ -407,8 +546,8 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     }
     ARROW_ASSIGN_OR_RAISE(auto handle, sql::CreateStatementQueryTicket(ticket));
     std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}}};
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          FlightInfo::Make(*schema, descriptor, endpoints, -1, -1));
+    ARROW_ASSIGN_OR_RAISE(
+        auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     return std::make_unique<FlightInfo>(result);
   }
 
@@ -851,7 +990,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
       const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema) {
     std::vector<FlightEndpoint> endpoints{FlightEndpoint{{descriptor.cmd}, {}}};
     ARROW_ASSIGN_OR_RAISE(auto result,
-                          FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
+                          FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false))
 
     return std::make_unique<FlightInfo>(result);
   }
@@ -1329,6 +1468,9 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
     return Status::OK();
   } else if (scenario_name == "middleware") {
     *out = std::make_shared<MiddlewareScenario>();
+    return Status::OK();
+  } else if (scenario_name == "ordered") {
+    *out = std::make_shared<OrderedScenario>();
     return Status::OK();
   } else if (scenario_name == "flight_sql") {
     *out = std::make_shared<FlightSqlScenario>();

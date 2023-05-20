@@ -19,13 +19,73 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
 {{range .In}}
+func Test{{.Name}}StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+{{if .Opt.Parametric -}}
+{{ if or (eq .Name "Time64") -}}
+	dt := &arrow.{{.Name}}Type{Unit: arrow.Microsecond}
+{{else -}}
+	dt := &arrow.{{.Name}}Type{Unit: arrow.Second}
+{{end -}}
+	b := array.New{{.Name}}Builder(mem, dt)
+{{else -}}
+	b := array.New{{.Name}}Builder(mem)
+{{end -}}
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.{{.Name}})
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+{{if .Opt.Parametric -}}
+	b1 := array.New{{.Name}}Builder(mem, dt)
+{{else -}}
+	b1 := array.New{{.Name}}Builder(mem)
+{{end -}}
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.{{.Name}})
+	defer arr1.Release()
+
+{{ if or (eq .Name "Date64") -}}
+	assert.Exactly(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Exactly(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Exactly(t, arr.ValueStr(i), arr1.ValueStr(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i).ToTime(), arr1.Value(i).ToTime())
+		}
+	}
+{{else -}}
+	assert.True(t, array.Equal(arr, arr1))
+{{end -}}
+}
+
 func TestNew{{.Name}}Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)

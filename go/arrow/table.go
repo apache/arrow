@@ -17,9 +17,10 @@
 package arrow
 
 import (
+	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 )
 
 // Table represents a logical sequence of chunked arrays of equal length. It is
@@ -32,6 +33,10 @@ type Table interface {
 	NumCols() int64
 	Column(i int) *Column
 
+	// AddColumn adds a new column to the table and a corresponding field (of the same type)
+	// to its schema, at the specified position. Returns the new table with updated columns and schema.
+	AddColumn(pos int, f Field, c Column) (Table, error)
+
 	Retain()
 	Release()
 }
@@ -42,20 +47,19 @@ type Table interface {
 // To get strongly typed data from a Column, you need to iterate the
 // chunks and type assert each individual Array. For example:
 //
-// 		switch column.DataType().ID {
-//		case arrow.INT32:
-//			for _, c := range column.Data().Chunks() {
-//				arr := c.(*array.Int32)
-//				// do something with arr
-//			}
-//		case arrow.INT64:
-//			for _, c := range column.Data().Chunks() {
-//				arr := c.(*array.Int64)
-//				// do something with arr
-//			}
-//		case ...
+//	switch column.DataType().ID {
+//	case arrow.INT32:
+//		for _, c := range column.Data().Chunks() {
+//			arr := c.(*array.Int32)
+//			// do something with arr
 //		}
-//
+//	case arrow.INT64:
+//		for _, c := range column.Data().Chunks() {
+//			arr := c.(*array.Int64)
+//			// do something with arr
+//		}
+//	case ...
+//	}
 type Column struct {
 	field Field
 	data  *Chunked
@@ -69,7 +73,7 @@ type Column struct {
 // of the ref counting.
 func NewColumnFromArr(field Field, arr Array) Column {
 	if !TypeEqual(field.Type, arr.DataType()) {
-		panic("arrow/array: inconsistent data type")
+		panic(fmt.Errorf("%w: arrow/array: inconsistent data type %s vs %s", ErrInvalid, field.Type, arr.DataType()))
 	}
 
 	arr.Retain()
@@ -98,7 +102,7 @@ func NewColumn(field Field, chunks *Chunked) *Column {
 
 	if !TypeEqual(col.data.DataType(), col.field.Type) {
 		col.data.Release()
-		panic("arrow/array: inconsistent data type")
+		panic(fmt.Errorf("%w: arrow/array: inconsistent data type %s vs %s", ErrInvalid, col.data.DataType(), col.field.Type))
 	}
 
 	return &col
@@ -148,9 +152,9 @@ func NewChunked(dtype DataType, chunks []Array) *Chunked {
 		if chunk == nil {
 			continue
 		}
-		
+
 		if !TypeEqual(chunk.DataType(), dtype) {
-			panic("arrow/array: mismatch data type")
+			panic(fmt.Errorf("%w: arrow/array: mismatch data type %s vs %s", ErrInvalid, chunk.DataType().String(), dtype.String()))
 		}
 		chunk.Retain()
 		arr.chunks = append(arr.chunks, chunk)

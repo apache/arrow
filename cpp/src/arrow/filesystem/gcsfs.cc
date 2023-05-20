@@ -873,6 +873,12 @@ bool GcsFileSystem::Equals(const FileSystem& other) const {
   return impl_->options().Equals(fs.impl_->options());
 }
 
+Result<std::string> GcsFileSystem::PathFromUri(const std::string& uri_string) const {
+  return internal::PathFromUriHelper(uri_string, {"gs", "gcs"},
+                                     /*accept_local_paths=*/false,
+                                     internal::AuthorityHandlingBehavior::kPrepend);
+}
+
 Result<FileInfo> GcsFileSystem::GetFileInfo(const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
   return impl_->GetFileInfo(p);

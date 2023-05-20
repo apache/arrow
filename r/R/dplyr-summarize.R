@@ -172,7 +172,7 @@ agg_funcs[["::"]] <- function(lhs, rhs) {
 summarise.arrow_dplyr_query <- function(.data, ..., .groups = NULL) {
   call <- match.call()
   .data <- as_adq(.data)
-  exprs <- expand_across(.data, quos(...))
+  exprs <- expand_across(.data, quos(...), exclude_cols = .data$group_by_vars)
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
     unlist(lapply(exprs, all.vars)), # vars referenced in summarise
@@ -287,6 +287,11 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       stop(paste("Invalid .groups argument:", .groups))
     }
     out$drop_empty_groups <- .data$drop_empty_groups
+    if (getOption("arrow.summarise.sort", FALSE)) {
+      # Add sorting instructions for the rows to match dplyr
+      out$arrange_vars <- .data$selected_columns[.data$group_by_vars]
+      out$arrange_desc <- rep(FALSE, length(.data$group_by_vars))
+    }
   }
   out
 }

@@ -504,6 +504,18 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
                            " columns, requested metadata for column: ", i);
   }
 
+  std::vector<SortingColumn> sorting_columns() const {
+    std::vector<SortingColumn> sorting_columns;
+    if (!row_group_->__isset.sorting_columns) {
+      return sorting_columns;
+    }
+    sorting_columns.resize(row_group_->sorting_columns.size());
+    for (size_t i = 0; i < sorting_columns.size(); ++i) {
+      sorting_columns[i] = FromThrift(row_group_->sorting_columns[i]);
+    }
+    return sorting_columns;
+  }
+
  private:
   const format::RowGroup* row_group_;
   const SchemaDescriptor* schema_;
@@ -569,6 +581,10 @@ bool RowGroupMetaData::can_decompress() const {
     }
   }
   return true;
+}
+
+std::vector<SortingColumn> RowGroupMetaData::sorting_columns() const {
+  return impl_->sorting_columns();
 }
 
 // file metadata
@@ -1684,6 +1700,15 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
       total_compressed_size += column_builders_[i]->total_compressed_size();
     }
 
+    const auto& sorting_columns = properties_->sorting_columns();
+    if (!sorting_columns.empty()) {
+      std::vector<format::SortingColumn> thrift_sorting_columns(sorting_columns.size());
+      for (size_t i = 0; i < sorting_columns.size(); ++i) {
+        thrift_sorting_columns[i] = ToThrift(sorting_columns[i]);
+      }
+      row_group_->__set_sorting_columns(std::move(thrift_sorting_columns));
+    }
+
     row_group_->__set_file_offset(file_offset);
     row_group_->__set_total_compressed_size(total_compressed_size);
     row_group_->__set_total_byte_size(total_bytes_written);
@@ -1740,7 +1765,6 @@ void RowGroupMetaDataBuilder::Finish(int64_t total_bytes_written,
 }
 
 // file metadata
-// TODO(PARQUET-595) Support key_value_metadata
 class FileMetaDataBuilder::FileMetaDataBuilderImpl {
  public:
   explicit FileMetaDataBuilderImpl(
@@ -1797,7 +1821,8 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     }
   }
 
-  std::unique_ptr<FileMetaData> Finish() {
+  std::unique_ptr<FileMetaData> Finish(
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
     int64_t total_rows = 0;
     for (auto row_group : row_groups_) {
       total_rows += row_group.num_rows;
@@ -1805,7 +1830,12 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->__set_num_rows(total_rows);
     metadata_->__set_row_groups(row_groups_);
 
-    if (key_value_metadata_) {
+    if (key_value_metadata_ || key_value_metadata) {
+      if (!key_value_metadata_) {
+        key_value_metadata_ = key_value_metadata;
+      } else if (key_value_metadata) {
+        key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
+      }
       metadata_->key_value_metadata.clear();
       metadata_->key_value_metadata.reserve(key_value_metadata_->size());
       for (int64_t i = 0; i < key_value_metadata_->size(); ++i) {
@@ -1829,7 +1859,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->__set_version(file_version);
     metadata_->__set_created_by(properties_->created_by());
 
-    // Users cannot set the `ColumnOrder` since we donot not have user defined sort order
+    // Users cannot set the `ColumnOrder` since we do not have user defined sort order
     // in the spec yet.
     // We always default to `TYPE_DEFINED_ORDER`. We can expose it in
     // the API once we have user defined sort orders in the Parquet format.
@@ -1910,6 +1940,12 @@ std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
       new FileMetaDataBuilder(schema, std::move(props), std::move(key_value_metadata)));
 }
 
+std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
+    const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props) {
+  return std::unique_ptr<FileMetaDataBuilder>(
+      new FileMetaDataBuilder(schema, std::move(props)));
+}
+
 FileMetaDataBuilder::FileMetaDataBuilder(
     const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
     std::shared_ptr<const KeyValueMetadata> key_value_metadata)
@@ -1926,7 +1962,10 @@ void FileMetaDataBuilder::SetPageIndexLocation(const PageIndexLocation& location
   impl_->SetPageIndexLocation(location);
 }
 
-std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish() { return impl_->Finish(); }
+std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish(
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
+  return impl_->Finish(key_value_metadata);
+}
 
 std::unique_ptr<FileCryptoMetaData> FileMetaDataBuilder::GetCryptoMetaData() {
   return impl_->BuildFileCryptoMetaData();

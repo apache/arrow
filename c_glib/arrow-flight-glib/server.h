@@ -55,6 +55,19 @@ gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
                                  GArrowWriteOptions *options);
 
 
+#define GAFLIGHT_TYPE_SERVER_CALL_CONTEXT       \
+  (gaflight_server_call_context_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightServerCallContext,
+                         gaflight_server_call_context,
+                         GAFLIGHT,
+                         SERVER_CALL_CONTEXT,
+                         GObject)
+struct _GAFlightServerCallContextClass
+{
+  GObjectClass parent_class;
+};
+
+
 #define GAFLIGHT_TYPE_SERVER_AUTH_SENDER        \
   (gaflight_server_auth_sender_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightServerAuthSender,
@@ -124,10 +137,12 @@ struct _GAFlightServerCustomAuthHandlerClass
   GAFlightServerAuthHandlerClass parent_class;
 
   void (*authenticate)(GAFlightServerCustomAuthHandler *handler,
+                       GAFlightServerCallContext *context,
                        GAFlightServerAuthSender *sender,
                        GAFlightServerAuthReader *reader,
                        GError **error);
   void (*is_valid)(GAFlightServerCustomAuthHandler *handler,
+                   GAFlightServerCallContext *context,
                    GBytes *token,
                    GBytes **peer_identity,
                    GError **error);
@@ -137,6 +152,7 @@ GARROW_AVAILABLE_IN_12_0
 void
 gaflight_server_custom_auth_handler_authenticate(
   GAFlightServerCustomAuthHandler *handler,
+  GAFlightServerCallContext *context,
   GAFlightServerAuthSender *sender,
   GAFlightServerAuthReader *reader,
   GError **error);
@@ -145,6 +161,7 @@ GARROW_AVAILABLE_IN_12_0
 void
 gaflight_server_custom_auth_handler_is_valid(
   GAFlightServerCustomAuthHandler *handler,
+  GAFlightServerCallContext *context,
   GBytes *token,
   GBytes **peer_identity,
   GError **error);
@@ -164,19 +181,6 @@ struct _GAFlightServerOptionsClass
 GARROW_AVAILABLE_IN_5_0
 GAFlightServerOptions *
 gaflight_server_options_new(GAFlightLocation *location);
-
-
-#define GAFLIGHT_TYPE_SERVER_CALL_CONTEXT       \
-  (gaflight_server_call_context_get_type())
-G_DECLARE_DERIVABLE_TYPE(GAFlightServerCallContext,
-                         gaflight_server_call_context,
-                         GAFLIGHT,
-                         SERVER_CALL_CONTEXT,
-                         GObject)
-struct _GAFlightServerCallContextClass
-{
-  GObjectClass parent_class;
-};
 
 
 #define GAFLIGHT_TYPE_SERVABLE (gaflight_servable_get_type())

@@ -17,7 +17,56 @@
   under the License.
 -->
 
-# arrow 11.0.0.9000
+# arrow 12.0.0.9000
+
+# arrow 12.0.0
+
+## New features
+
+* The `read_parquet()` and `read_feather()` functions can now accept URL
+  arguments (#33287, #34708).
+* The `json_credentials` argument in `GcsFileSystem$create()` now accepts
+  a file path containing the appropriate authentication token (@amoeba,
+  #34421, #34524).
+* The `$options` member of `GcsFileSystem` objects can now be inspected
+  (@amoeba, #34422, #34477).
+* The `read_csv_arrow()` and `read_json_arrow()` functions now accept literal text input wrapped in
+  `I()` to improve compatability with `readr::read_csv()` (@eitsupi, #18487,
+  #33968).
+* Nested fields can now be accessed using `$` and `[[` in dplyr expressions
+  (#18818, #19706).
+
+## Installation
+
+* Hosted static libarrow binaries for Ubuntu 18.04 and 20.04 had previously
+  been built on Ubuntu 18.04, which will stop receiving LTS updates as of May
+  2023. These binaries are now built on Centos 7 (#32292, #34048).
+
+## Minor improvements and fixes
+
+* Fix crash that occurred at process exit related to finalizing the S3
+  filesystem component (#15054, #33858).
+* Implement the Arrow C++ `FetchNode` and `OrderByNode` to improve performance
+  and simplify building query plans from dplyr expressions (#34437, #34685).
+* Fix a bug where different R metadata were written depending on subtle
+  argument passing semantics in `arrow_table()` (#35038, #35039).
+* Improve error message when attempting to convert a `data.frame` with `NULL`
+  column names to a `Table` (#15247, #34798).
+* Vignettes were updated to reflect improvements in the `open_csv_dataset()`
+  family of functions (#33998, #34710).
+* Fixed a crash that occurred when arrow ALTREP vectors were
+  materialized and converted back to arrow Arrays (#34211, #34489).
+* Improved conda install instructions (#32512, #34398).
+* Improved documentation URL configurations (@eitsupi, #34276).
+* Updated links to JIRA issues that were migrated to GitHub
+  (@eitsupi, #33631, #34260).
+* The `dplyr::n()` function is now mapped to the `count_all` kernel to improve
+  performance and simplify the R implementation (#33892, #33917).
+* Improved the experience of using the `s3_bucket()` filesystem helper
+  with `endpoint_override` and fixed surprising behaviour that occurred
+  when passing some combinations of arguments (@cboettig, #33904, #34009).
+* Do not raise error if `schema` is supplied and `col_names = TRUE` in
+  `open_csv_dataset()` (#34217, #34092).
 
 # arrow 11.0.0.3
 

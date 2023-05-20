@@ -196,6 +196,7 @@ Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
 
   info->total_records = pb_info.total_records();
   info->total_bytes = pb_info.total_bytes();
+  info->ordered = pb_info.ordered();
   return Status::OK();
 }
 
@@ -236,6 +237,7 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
 
   pb_info->set_total_records(info.total_records());
   pb_info->set_total_bytes(info.total_bytes());
+  pb_info->set_ordered(info.ordered());
   return Status::OK();
 }
 

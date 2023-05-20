@@ -92,3 +92,9 @@ java-native-cpp/
 dev/archery/build
 
 swift/Arrow/.build
+
+# Go dependencies
+go/vendor
+
+# direnv
+.envrc

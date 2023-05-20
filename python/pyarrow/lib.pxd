@@ -199,6 +199,11 @@ cdef class ExtensionType(BaseExtensionType):
         const CPyExtensionType* cpy_ext_type
 
 
+cdef class FixedShapeTensorType(BaseExtensionType):
+    cdef:
+        const CFixedShapeTensorType* tensor_ext_type
+
+
 cdef class PyExtensionType(ExtensionType):
     pass
 
@@ -469,7 +474,11 @@ cdef class ChunkedArray(_PandasConvertible):
     cdef getitem(self, int64_t i)
 
 
-cdef class Table(_PandasConvertible):
+cdef class _Tabular(_PandasConvertible):
+    pass
+
+
+cdef class Table(_Tabular):
     cdef:
         shared_ptr[CTable] sp_table
         CTable* table
@@ -477,7 +486,7 @@ cdef class Table(_PandasConvertible):
     cdef void init(self, const shared_ptr[CTable]& table)
 
 
-cdef class RecordBatch(_PandasConvertible):
+cdef class RecordBatch(_Tabular):
     cdef:
         shared_ptr[CRecordBatch] sp_batch
         CRecordBatch* batch

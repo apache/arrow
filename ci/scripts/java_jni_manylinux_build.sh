@@ -39,6 +39,7 @@ export ARROW_ACERO
 export ARROW_DATASET
 : ${ARROW_GANDIVA:=ON}
 export ARROW_GANDIVA
+: ${ARROW_GCS:=ON}
 : ${ARROW_JEMALLOC:=ON}
 : ${ARROW_RPATH_ORIGIN:=ON}
 : ${ARROW_ORC:=ON}
@@ -55,7 +56,7 @@ export ARROW_ORC
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics before build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 export ARROW_TEST_DATA="${arrow_dir}/testing/data"
@@ -75,6 +76,7 @@ cmake \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_GANDIVA_PC_CXX_FLAGS=${GANDIVA_CXX_FLAGS} \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
+  -DARROW_GCS=${ARROW_GCS} \
   -DARROW_JEMALLOC=${ARROW_JEMALLOC} \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
@@ -128,7 +130,7 @@ ${arrow_dir}/ci/scripts/java_jni_build.sh \
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics after build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 

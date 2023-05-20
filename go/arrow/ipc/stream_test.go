@@ -18,13 +18,13 @@ package ipc_test
 
 import (
 	"io"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 func TestStream(t *testing.T) {
@@ -35,7 +35,7 @@ func TestStream(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile(tempDir, "go-arrow-stream-")
+			f, err := os.CreateTemp(tempDir, "go-arrow-stream-")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -74,7 +74,7 @@ func TestStreamCompressed(t *testing.T) {
 							mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 							defer mem.AssertSize(t, 0)
 
-							f, err := ioutil.TempFile(tempDir, "go-arrow-stream-")
+							f, err := os.CreateTemp(tempDir, "go-arrow-stream-")
 							if err != nil {
 								t.Fatal(err)
 							}

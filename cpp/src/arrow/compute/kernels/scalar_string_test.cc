@@ -1140,7 +1140,8 @@ TYPED_TEST(TestStringKernels, BinaryRepeatWithScalarRepeat) {
                                   "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
   std::vector<std::pair<int, std::string>> nrepeats_and_expected{{
       {0, R"(["", null, "", "", "", "", "", "", "", ""])"},
-      {1, R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!",
+      {1,
+       R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!",
               "$. A3", "!ɑⱤⱤow"])"},
       {4, R"(["aAazZæÆ&aAazZæÆ&aAazZæÆ&aAazZæÆ&", null, "", "bbbb",
               "ɑɽⱤoWɑɽⱤoWɑɽⱤoWɑɽⱤoW", "ıIıIıIıI", "ⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺ",
@@ -1894,11 +1895,17 @@ TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
   // N.B. BSD strptime only supports (+/-)HHMM and not the wider range
   // of values GNU strptime supports.
   std::string input1 = R"(["5/1/2020 +0100", null, "12/11/1900 -0130"])";
-  std::string output1 =
+  std::string output =
       R"(["2020-04-30T23:00:00.000000", null, "1900-12-11T01:30:00.000000"])";
-  StrptimeOptions options("%m/%d/%Y %z", TimeUnit::MICRO, /*error_is_null=*/true);
-  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO, "UTC"), output1,
-                   &options);
+  StrptimeOptions options1("%m/%d/%Y %z", TimeUnit::MICRO, /*error_is_null=*/true);
+  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO, "UTC"), output,
+                   &options1);
+
+  // format without whitespace before %z (GH-35448)
+  std::string input2 = R"(["2020-05-01T00:00+0100", null, "1900-12-11T00:00-0130"])";
+  StrptimeOptions options2("%Y-%m-%dT%H:%M%z", TimeUnit::MICRO, /*error_is_null=*/true);
+  this->CheckUnary("strptime", input2, timestamp(TimeUnit::MICRO, "UTC"), output,
+                   &options2);
 }
 
 TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {

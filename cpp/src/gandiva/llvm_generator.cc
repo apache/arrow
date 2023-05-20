@@ -279,7 +279,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   arguments.push_back(types()->i64_ptr_type());  // offsets
   arguments.push_back(types()->i64_ptr_type());  // bitmaps
   arguments.push_back(types()->i64_ptr_type());  // holders
-  llvm::Type* selection_vector_type;
+  llvm::Type* selection_vector_type = nullptr;
   switch (selection_vector_mode) {
     case SelectionVector::MODE_NONE:
     case SelectionVector::MODE_UINT16:

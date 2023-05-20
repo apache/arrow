@@ -45,7 +45,6 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/visit_type_inline.h"
 #include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
@@ -53,6 +52,7 @@
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -762,7 +762,7 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       RETURN_NOT_OK(AppendSequence(value));
     } else if (PySet_Check(value) || (Py_TYPE(value) == &PyDictValues_Type)) {
       RETURN_NOT_OK(AppendIterable(value));
-    } else if (PyDict_Check(value) && this->options_.type->id() == Type::MAP) {
+    } else if (PyDict_Check(value) && this->type()->id() == Type::MAP) {
       // Branch to support Python Dict with `map` DataType.
       auto items = PyDict_Items(value);
       OwnedRef item_ref(items);

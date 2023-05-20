@@ -616,17 +616,21 @@ test_that("min() and max() on character strings", {
       collect(),
     tbl,
   )
-  compare_dplyr_binding(
-    .input %>%
-      group_by(fct) %>%
-      summarize(
-        min_chr = min(chr, na.rm = TRUE),
-        max_chr = max(chr, na.rm = TRUE)
-      ) %>%
-      arrange(min_chr) %>%
-      collect(),
-    tbl,
-  )
+  withr::with_options(list(arrow.summarise.sort = FALSE), {
+    # TODO(#29887 / ARROW-14313) sorting on dictionary columns not supported
+    # so turn off arrow.summarise.sort so that we don't order_by fct after summarize
+    compare_dplyr_binding(
+      .input %>%
+        group_by(fct) %>%
+        summarize(
+          min_chr = min(chr, na.rm = TRUE),
+          max_chr = max(chr, na.rm = TRUE)
+        ) %>%
+        arrange(min_chr) %>%
+        collect(),
+      tbl,
+    )
+  })
 })
 
 test_that("summarise() with !!sym()", {
@@ -1167,5 +1171,26 @@ test_that("Can use across() within summarise()", {
       summarise(across(everything())) %>%
       collect(),
     regexp = "Expression int is not an aggregate expression or is not supported in Arrow; pulling data into R"
+  )
+})
+
+test_that("across() does not select grouping variables within summarise()", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, dbl, chr) %>%
+      group_by(chr) %>%
+      summarise(across(everything(), sum)) %>%
+      arrange(chr) %>%
+      collect(),
+    example_data
+  )
+
+  expect_error(
+    example_data %>%
+      select(int, dbl) %>%
+      arrow_table() %>%
+      group_by(int) %>%
+      summarise(across(int, sum)),
+    "Column `int` doesn't exist"
   )
 })

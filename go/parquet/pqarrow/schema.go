@@ -22,13 +22,14 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/file"
-	"github.com/apache/arrow/go/v12/parquet/metadata"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/flight"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/file"
+	"github.com/apache/arrow/go/v13/parquet/metadata"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -354,7 +355,15 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		return fieldToNode(name, arrow.Field{Name: name, Type: dictType.ValueType, Nullable: field.Nullable, Metadata: field.Metadata},
 			props, arrprops)
 	case arrow.EXTENSION:
-		return nil, xerrors.New("not implemented yet")
+		return fieldToNode(name, arrow.Field{
+			Name:     name,
+			Type:     field.Type.(arrow.ExtensionType).StorageType(),
+			Nullable: field.Nullable,
+			Metadata: arrow.MetadataFrom(map[string]string{
+				ipc.ExtensionTypeKeyName:     field.Type.(arrow.ExtensionType).ExtensionName(),
+				ipc.ExtensionMetadataKeyName: field.Type.(arrow.ExtensionType).Serialize(),
+			}),
+		}, props, arrprops)
 	case arrow.MAP:
 		mapType := field.Type.(*arrow.MapType)
 		keyNode, err := fieldToNode("key", mapType.KeyField(), props, arrprops)
@@ -379,7 +388,7 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 		}
 		return schema.MapOf(field.Name, keyNode, valueNode, repFromNullable(field.Nullable), -1)
 	default:
-		return nil, xerrors.New("not implemented yet")
+		return nil, fmt.Errorf("%w: support for %s", arrow.ErrNotImplemented, field.Type.ID())
 	}
 
 	return schema.NewPrimitiveNodeLogical(name, repType, logicalType, typ, length, fieldIDFromMeta(field.Metadata))
@@ -948,7 +957,24 @@ func getNestedFactory(origin, inferred arrow.DataType) func(fieldList []arrow.Fi
 func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (modified bool, err error) {
 	nchildren := len(inferred.Children)
 	switch origin.Type.ID() {
-	case arrow.EXTENSION, arrow.SPARSE_UNION, arrow.DENSE_UNION:
+	case arrow.EXTENSION:
+		extType := origin.Type.(arrow.ExtensionType)
+		modified, err = applyOriginalStorageMetadata(arrow.Field{
+			Type:     extType.StorageType(),
+			Metadata: origin.Metadata,
+		}, inferred)
+		if err != nil {
+			return
+		}
+
+		if !arrow.TypeEqual(extType.StorageType(), inferred.Field.Type) {
+			return modified, fmt.Errorf("%w: mismatch storage type '%s' for extension type '%s'",
+				arrow.ErrInvalid, inferred.Field.Type, extType)
+		}
+
+		inferred.Field.Type = extType
+		modified = true
+	case arrow.SPARSE_UNION, arrow.DENSE_UNION:
 		err = xerrors.New("unimplemented type")
 	case arrow.STRUCT:
 		typ := origin.Type.(*arrow.StructType)
@@ -1053,10 +1079,6 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 }
 
 func applyOriginalMetadata(origin arrow.Field, inferred *SchemaField) (bool, error) {
-	if origin.Type.ID() == arrow.EXTENSION {
-		return false, xerrors.New("extension types not implemented yet")
-	}
-
 	return applyOriginalStorageMetadata(origin, inferred)
 }
 

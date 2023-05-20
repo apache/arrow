@@ -17,14 +17,17 @@
 
 import Foundation
 
-public class ChunkedArray<T> {
-    let arrays: [ArrowArray<T>]
-    let type: ArrowType.Info
-    let nullCount: UInt
-    let length: UInt
-    var arrayCount: UInt {get{return UInt(self.arrays.count)}}
+public protocol AsString {
+    func asString(_ index: UInt) -> String
+}
+public class ChunkedArray<T> : AsString {
+    public let arrays: [ArrowArray<T>]
+    public let type: ArrowType.Info
+    public let nullCount: UInt
+    public let length: UInt
+    public var arrayCount: UInt {get{return UInt(self.arrays.count)}}
     
-    init(_ arrays: [ArrowArray<T>]) throws {
+    public init(_ arrays: [ArrowArray<T>]) throws {
         if arrays.count == 0 {
             throw ValidationError.arrayHasNoElements
         }
@@ -42,8 +45,32 @@ public class ChunkedArray<T> {
         self.nullCount = nullCount
     }
     
-    subscript(_ index: UInt) -> ArrowArray<T> {
-        return arrays[Int(index)]
+    public subscript(_ index: UInt) -> T? {
+        if arrays.count == 0 {
+            return nil
+        }
+        
+        var localIndex = index
+        var arrayIndex = 0;
+        var len: UInt = arrays[arrayIndex].length
+        while localIndex > len {
+            arrayIndex += 1
+            if arrayIndex > arrays.count {
+                return nil
+            }
+            
+            localIndex -= len
+            len = arrays[arrayIndex].length
+        }
+        
+        return arrays[arrayIndex][localIndex]
     }
     
+    public func asString(_ index: UInt) -> String {
+        if self[index] == nil {
+            return ""
+        }
+        
+        return "\(self[index]!)"
+    }
 }

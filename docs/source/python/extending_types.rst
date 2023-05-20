@@ -357,3 +357,163 @@ pandas ``ExtensionArray``. This method should have the following signature::
 
 This way, you can control the conversion of a pyarrow ``Array`` of your pyarrow
 extension type to a pandas ``ExtensionArray`` that can be stored in a DataFrame.
+
+
+Canonical extension types
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can find the official list of canonical extension types in the
+:ref:`format_canonical_extensions` section. Here we add examples on how to
+use them in pyarrow.
+
+Fixed size tensor
+"""""""""""""""""
+
+To create an array of tensors with equal shape (fixed shape tensor array) we
+first need to define a fixed shape tensor extension type with value type
+and shape:
+
+.. code-block:: python
+
+   >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
+
+Then we need the storage array with :func:`pyarrow.list_` type where ``value_type```
+is the fixed shape tensor value type and list size is a product of ``tensor_type``
+shape elements. Then we can create an array of tensors with
+``pa.ExtensionArray.from_storage()`` method:
+
+.. code-block:: python
+
+   >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+   >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
+   >>> tensor_array = pa.ExtensionArray.from_storage(tensor_type, storage)
+
+We can also create another array of tensors with different value type:
+
+.. code-block:: python
+
+   >>> tensor_type_2 = pa.fixed_shape_tensor(pa.float32(), (2, 2))
+   >>> storage_2 = pa.array(arr, pa.list_(pa.float32(), 4))
+   >>> tensor_array_2 = pa.ExtensionArray.from_storage(tensor_type_2, storage_2)
+
+Extension arrays can be used as columns in  ``pyarrow.Table`` or
+``pyarrow.RecordBatch``:
+
+.. code-block:: python
+
+   >>> data = [
+   ...     pa.array([1, 2, 3]),
+   ...     pa.array(['foo', 'bar', None]),
+   ...     pa.array([True, None, True]),
+   ...     tensor_array,
+   ...     tensor_array_2
+   ... ]
+   >>> my_schema = pa.schema([('f0', pa.int8()),
+   ...                        ('f1', pa.string()),
+   ...                        ('f2', pa.bool_()),
+   ...                        ('tensors_int', tensor_type),
+   ...                        ('tensors_float', tensor_type_2)])
+   >>> table = pa.Table.from_arrays(data, schema=my_schema)
+   >>> table
+   pyarrow.Table
+   f0: int8
+   f1: string
+   f2: bool
+   tensors_int: extension<arrow.fixed_size_tensor>
+   tensors_float: extension<arrow.fixed_size_tensor>
+   ----
+   f0: [[1,2,3]]
+   f1: [["foo","bar",null]]
+   f2: [[true,null,true]]
+   tensors_int: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
+   tensors_float: [[[1,2,3,4],[10,20,30,40],[100,200,300,400]]]
+
+We can also convert a tensor array to a single multi-dimensional numpy ndarray.
+With the conversion the length of the arrow array becomes the first dimension
+in the numpy ndarray:
+
+.. code-block:: python
+
+   >>> numpy_tensor = tensor_array_2.to_numpy_ndarray()
+   >>> numpy_tensor
+   array([[[  1.,   2.],
+           [  3.,   4.]],
+          [[ 10.,  20.],
+           [ 30.,  40.]],
+          [[100., 200.],
+           [300., 400.]]])
+    >>> numpy_tensor.shape
+   (3, 2, 2)
+
+.. note::
+
+   Both optional parameters, ``permutation`` and ``dim_names``, are meant to provide the user
+   with the information about the logical layout of the data compared to the physical layout.
+
+   The conversion to numpy ndarray is only possible for trivial permutations (``None`` or
+   ``[0, 1, ... N-1]`` where ``N`` is the number of tensor dimensions).
+
+And also the other way around, we can convert a numpy ndarray to a fixed shape tensor array:
+
+.. code-block:: python
+
+   >>> pa.FixedShapeTensorArray.from_numpy_ndarray(numpy_tensor)
+   <pyarrow.lib.FixedShapeTensorArray object at ...>
+   [
+     [
+       1,
+       2,
+       3,
+       4
+     ],
+     [
+       10,
+       20,
+       30,
+       40
+     ],
+     [
+       100,
+       200,
+       300,
+       400
+     ]
+   ]
+
+With the conversion the first dimension of the ndarray becomes the length of the pyarrow extension
+array. We can see in the example that ndarray of shape ``(3, 2, 2)`` becomes an arrow array of
+length 3 with tensor elements of shape ``(2, 2)``.
+
+.. code-block:: python
+
+   # ndarray of shape (3, 2, 2)
+   >>> numpy_tensor.shape
+   (3, 2, 2)
+
+   # arrow array of length 3 with tensor elements of shape (2, 2)
+   >>> pyarrow_tensor_array = pa.FixedShapeTensorArray.from_numpy_ndarray(numpy_tensor)
+   >>> len(pyarrow_tensor_array)
+   3
+   >>> pyarrow_tensor_array.type.shape
+   [2, 2]
+
+The extension type can also have ``permutation`` and ``dim_names`` defined. For
+example
+
+.. code-block:: python
+
+    >>> tensor_type = pa.fixed_shape_tensor(pa.float64(), [2, 2, 3], permutation=[0, 2, 1])
+
+or
+
+.. code-block:: python
+
+    >>> tensor_type = pa.fixed_shape_tensor(pa.bool_(), [2, 2, 3], dim_names=['C', 'H', 'W'])
+
+for ``NCHW`` format where:
+
+* N: number of images which is in our case the length of an array and is always on
+  the first dimension
+* C: number of channels of the image
+* H: height of the image
+* W: width of the image

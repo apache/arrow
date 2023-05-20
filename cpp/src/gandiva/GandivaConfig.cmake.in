@@ -27,6 +27,7 @@
 @PACKAGE_INIT@
 
 set(ARROW_LLVM_VERSIONS "@ARROW_LLVM_VERSIONS@")
+set(ARROW_ZSTD_SOURCE "@zstd_SOURCE@")
 
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
@@ -36,6 +37,9 @@ else()
   unset(GANDIVA_CMAKE_MODULE_PATH_OLD)
 endif()
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+if(ARROW_WITH_ZSTD AND "${ARROW_ZSTD_SOURCE}" STREQUAL "SYSTEM")
+  find_dependency(zstdAlt)
+endif()
 find_dependency(LLVMAlt)
 if(DEFINED GANDIVA_CMAKE_MODULE_PATH_OLD)
   set(CMAKE_MODULE_PATH ${GANDIVA_CMAKE_MODULE_PATH_OLD})
