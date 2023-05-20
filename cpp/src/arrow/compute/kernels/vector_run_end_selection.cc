@@ -929,6 +929,7 @@ REEFilterExec* MakeREEFilterExec(MemoryPool* pool, const DataType& value_type,
       return FactoryFunctor<UInt8Type>{}(pool, values, filter, options);
     case Type::UINT16:
     case Type::INT16:
+    case Type::HALF_FLOAT:
       return FactoryFunctor<UInt16Type>{}(pool, values, filter, options);
     case Type::UINT32:
     case Type::INT32:
