@@ -480,8 +480,11 @@ namespace Apache.Arrow.Tests
                             pa.array(List(1, 0, 1, 1, null)),
                             pa.array(List("foo", "bar"))
                             ),
+                        pa.FixedSizeListArray.from_arrays(
+                            pa.array(List(1, 2, 3, 4, null, 6, 7, null, null, null)),
+                            2),
                     }),
-                    new[] { "col1", "col2", "col3", "col4", "col5", "col6", "col7" });
+                    new[] { "col1", "col2", "col3", "col4", "col5", "col6", "col7", "col8" });
 
                 dynamic batch = table.to_batches()[0];
 
@@ -541,6 +544,13 @@ namespace Apache.Arrow.Tests
             Assert.Equal(2, col7b.Length);
             Assert.Equal("foo", col7b.GetString(0));
             Assert.Equal("bar", col7b.GetString(1));
+
+            FixedSizeListArray col8 = (FixedSizeListArray)recordBatch.Column("col8");
+            Assert.Equal(5, col8.Length);
+            Int64Array col8a = (Int64Array)col8.Values;
+            Assert.Equal(new long[] { 1, 2, 3, 4, 0, 6, 7, 0, 0, 0 }, col8a.Values.ToArray());
+            Assert.True(col8a.IsValid(3));
+            Assert.False(col8a.IsValid(9));
         }
 
         [SkippableFact]
