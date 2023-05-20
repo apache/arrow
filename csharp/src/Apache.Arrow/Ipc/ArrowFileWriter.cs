@@ -195,13 +195,6 @@ namespace Apache.Arrow.Ipc
             int dictionaryCount = DictionaryBlocks?.Count ?? 0;
             Flatbuf.Footer.StartDictionariesVector(Builder, dictionaryCount);
 
-            for (int i = dictionaryCount - 1; i >= 0; i--)
-            {
-                Block dictionary = DictionaryBlocks[i];
-                Flatbuf.Block.CreateBlock(
-                    Builder, dictionary.Offset, dictionary.MetadataLength, dictionary.BodyLength);
-            }
-
             Google.FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
 
             // Serialize and write the footer flatbuffer
@@ -261,13 +254,6 @@ namespace Apache.Arrow.Ipc
 
             int dictionaryCount = DictionaryBlocks?.Count ?? 0;
             Flatbuf.Footer.StartDictionariesVector(Builder, dictionaryCount);
-
-            for (int i = dictionaryCount - 1; i >= 0; i--)
-            {
-                Block dictionary = DictionaryBlocks[i];
-                Flatbuf.Block.CreateBlock(
-                    Builder, dictionary.Offset, dictionary.MetadataLength, dictionary.BodyLength);
-            }
 
             Google.FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
 
