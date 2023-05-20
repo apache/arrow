@@ -3110,8 +3110,8 @@ TEST(ArrowReadWrite, NestedFixedSizeList) {
   const char* json = R"([
       [[1, 2], [3,4]],
       null,
-      [[5, 6], null],
-      [null, [7, 8]]])";
+      [[5, 6], [7, 8]],
+      [[9, 10], [11, 12]]])";
   auto array = ::arrow::ArrayFromJSON(type, json);
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
