@@ -17,6 +17,7 @@
 
 #include "arrow/filesystem/azurefs.h"
 
+#include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 
 
@@ -62,15 +63,7 @@ class AzureFileSystem::Impl
 
  protected:
   AzureOptions options_;
-}
-
-AzureFileSystem::AzureFileSystem(const AzureOptions& options,
-                                 const io::IOContext& io_context)
-    : FileSystem(io_context), impl_(std::make_unique<Impl>(options, io_context)) {
-  default_async_is_sync_ = false;
-}
-
-AzureFileSystem::~AzureFileSystem() {}
+};
 
 AzureOptions AzureFileSystem::options() const { return impl_->options(); }
 
@@ -157,6 +150,12 @@ Result<std::shared_ptr<AzureFileSystem>> AzureFileSystem::Make(
   std::shared_ptr<AzureFileSystem> ptr(new AzureFileSystem(options, io_context));
   RETURN_NOT_OK(ptr->impl_->Init());
   return ptr;
+}
+
+AzureFileSystem::AzureFileSystem(const AzureOptions& options,
+                                 const io::IOContext& io_context)
+    : FileSystem(io_context), impl_(std::make_unique<Impl>(options, io_context)) {
+  default_async_is_sync_ = false;
 }
 
 }  // namespace fs
