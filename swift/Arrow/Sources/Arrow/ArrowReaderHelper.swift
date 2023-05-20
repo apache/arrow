@@ -76,8 +76,18 @@ func makeArrayHolder(_ field: org_apache_arrow_flatbuf_Field, buffers: [ArrowBuf
     case .utf8:
         let arrowData = try ArrowData(ArrowType.ArrowString, buffers: buffers,
                                       nullCount: buffers[0].length, stride: MemoryLayout<Int8>.stride)
-        let chuckedArray = try ChunkedArray<String>([StringArray(arrowData)])
-        return ChunkedArrayHolder(chuckedArray)
+        return ChunkedArrayHolder(try ChunkedArray<String>([StringArray(arrowData)]))
+    case .date:
+        let dateType = field.type(type: org_apache_arrow_flatbuf_Date.self)!
+        if dateType.unit == .day {
+            let arrowData = try ArrowData(ArrowType.ArrowString, buffers: buffers,
+                                          nullCount: buffers[0].length, stride: MemoryLayout<Date>.stride)
+            return ChunkedArrayHolder(try ChunkedArray<Date>([Date32Array(arrowData)]))
+        }
+        
+        let arrowData = try ArrowData(ArrowType.ArrowString, buffers: buffers,
+                                      nullCount: buffers[0].length, stride: MemoryLayout<Date>.stride)
+        return ChunkedArrayHolder(try ChunkedArray<Date>([Date64Array(arrowData)]))
     default:
         throw ValidationError.unknownType
     }
@@ -125,6 +135,13 @@ func findArrowType(_ field: org_apache_arrow_flatbuf_Field) -> ArrowType.Info {
         }
     case .utf8:
         return ArrowType.ArrowString
+    case .date:
+        let dateType = field.type(type: org_apache_arrow_flatbuf_Date.self)!
+        if dateType.unit == .day {
+            return ArrowType.ArrowDate32
+        }
+        
+        return ArrowType.ArrowDate64
     default:
         return ArrowType.ArrowUnknown
     }
