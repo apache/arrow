@@ -23,6 +23,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
+#include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/kernels/vector_run_end_selection.h"
 #include "arrow/util/logging.h"
 
@@ -144,6 +145,7 @@ void DoAssertFilterOutput(const std::shared_ptr<Array>& values,
   auto output = ArrayData::Make(values->type(), 0, {nullptr});
   ASSERT_OK(filter_exec->Exec(output.get()));
   auto output_array = MakeArray(output);
+  ValidateOutput(output_array);
   ASSERT_ARRAYS_EQUAL(*output_array, *expected);
 
   if (output->type->id() == Type::RUN_END_ENCODED) {
