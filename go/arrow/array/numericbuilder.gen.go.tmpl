@@ -69,6 +69,23 @@ func (b *{{.Name}}Builder) Release() {
 	}
 }
 
+{{ if (eq .Name "Timestamp") -}}
+func (b *TimestampBuilder) AppendTime(t time.Time) {
+	switch b.dtype.Unit {
+	case arrow.Nanosecond:
+		b.Append(arrow.Timestamp(t.UnixNano()))
+	case arrow.Microsecond:
+		b.Append(arrow.Timestamp(t.UnixMicro()))
+	case arrow.Millisecond:
+		b.Append(arrow.Timestamp(t.UnixMilli()))
+	case arrow.Second:
+		b.Append(arrow.Timestamp(t.Unix()))
+	default:
+		panic("arrow: invalid timestamp unit")
+	}
+}
+{{end -}}
+
 func (b *{{.Name}}Builder) Append(v {{or .QualifiedType .Type}}) {
 	b.Reserve(1)
 	b.UnsafeAppend(v)

@@ -90,6 +90,13 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
+  {{ if (eq .Name "Timestamp") -}}
+  timestamp := time.Now()
+	dtype := &arrow.TimestampType{Unit: arrow.Second}
+	ab := array.NewTimestampBuilder(mem, dtype)
+	defer ab.Release()
+  {{ end -}}
+
 {{if .Opt.Parametric -}}
 	dtype := &arrow.{{.Name}}Type{Unit: arrow.Second}
 	ab := array.New{{.Name}}Builder(mem, dtype)
@@ -111,9 +118,16 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+  {{ if (eq .Name "Timestamp") -}}
+  ab.AppendTime(timestamp)
+  {{ end -}}
 
 	// check state of builder before New{{.Name}}Array
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+  {{ if (eq .Name "Timestamp") -}}
+	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
+  {{ else -}}
+  assert.Equal(t, 10, ab.Len(), "unexpected Len()")
+  {{ end -}}
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.New{{.Name}}Array()
@@ -125,9 +139,17 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []{{or .QualifiedType .Type}}{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.{{.Name}}Values(), "unexpected {{.Name}}Values")
+  {{ if (eq .Name "Timestamp") -}}
+  assert.Equal(t, []{{or .QualifiedType .Type}}{1, 2, 3, 0, 5, 6, 0, 8, 9, arrow.Timestamp(timestamp.Unix())}, a.{{.Name}}Values(), "unexpected {{.Name}}Values")
+  {{ else -}}
+  assert.Equal(t, []{{or .QualifiedType .Type}}{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.{{.Name}}Values(), "unexpected {{.Name}}Values")
+  {{ end -}}
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.{{.Name}}Values(), 10, "unexpected length of {{.Name}}Values")
+  {{ if (eq .Name "Timestamp") -}}
+	assert.Len(t, a.{{.Name}}Values(), 11, "unexpected length of {{.Name}}Values")
+  {{ else -}}
+  assert.Len(t, a.{{.Name}}Values(), 10, "unexpected length of {{.Name}}Values")
+  {{ end -}}
 
 	a.Release()
 
