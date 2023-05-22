@@ -252,14 +252,14 @@ Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSc
           "'. Is this a '", format_->type_name(), "' file?: ", result.status().message());
     }
 
-    if (partition_schema->num_fields()) {
-      auto field_check =
-          result->get()->CanReferenceFieldsByNames(partition_schema->field_names());
-      if (ARROW_PREDICT_FALSE(field_check.ok())) {
-        return Status::Invalid(
-            "Error creating dataset. Partitioning field(s) present in fragment.");
-      }
-    }
+    // if (partition_schema->num_fields()) {
+    //   auto field_check =
+    //       result->get()->CanReferenceFieldsByNames(partition_schema->field_names());
+    //   if (ARROW_PREDICT_FALSE(field_check.ok())) {
+    //     return Status::Invalid(
+    //         "Error creating dataset. Partitioning field(s) present in fragment.");
+    //   }
+    // }
 
     schemas.push_back(result.MoveValueUnsafe());
   }

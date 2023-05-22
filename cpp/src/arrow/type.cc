@@ -2114,7 +2114,7 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
     return Status::Invalid("Can't unify schema with duplicate field names.");
   }
 
-  SchemaBuilder builder{schemas[0], SchemaBuilder::CONFLICT_MERGE, field_merge_options};
+  SchemaBuilder builder{schemas[0], SchemaBuilder::CONFLICT_APPEND, field_merge_options};
 
   for (size_t i = 1; i < schemas.size(); i++) {
     const auto& schema = schemas[i];
