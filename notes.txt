@@ -1,0 +1,29 @@
+docker-compose run -it ubuntu-cpp /bin/bash
+
+/opt/crosstool-ng-latest/bin/ct-ng list-samples
+/opt/crosstool-ng-latest/bin/ct-ng armv8-rpi4-linux-gnueabihf
+/opt/crosstool-ng-latest/bin/ct-ng armeb-unknown-linux-gnueabi
+gcc-user@721de6553228:/opt/crosstool-ng-latest$ /opt/crosstool-ng-latest/bin/ct-ng show-config                
+[l...]   armeb-unknown-linux-gnueabi
+    Languages       : C,C++
+    OS              : linux-5.16.9
+    Binutils        : binutils-2.38
+    Compiler        : gcc-11.2.0
+    C library       : glibc-2.35
+    Debug tools     : duma-2_5_15 gdb-11.2 ltrace-0.7.3 strace-5.16
+    Companion libs  : expat-2.4.1 gettext-0.21 gmp-6.2.1 isl-0.24 libelf-0.8.13 libiconv-1.16 mpc-1.2.1 mpfr-4.1.0 ncurses-6.2 zlib-1.2.13
+    Companion tools :
+ 
+
+ Modify on .config:
+ ```
+CT_ZLIB_V_1_2_12=y
+CT_ZLIB_VERSION="1.2.12"
+```
+for
+```
+CT_ZLIB_V_1_2_13=y
+CT_ZLIB_VERSION="1.2.13"
+```
+
+ /opt/crosstool-ng-latest/bin/ct-ng build
