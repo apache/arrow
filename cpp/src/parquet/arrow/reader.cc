@@ -644,9 +644,7 @@ class ListReader : public ColumnReaderImpl {
 
   const std::shared_ptr<Field> field() override { return field_; }
 
-  ::arrow::MemoryPool* memory_pool() {
-    return ctx_->pool;
-  }
+  ::arrow::MemoryPool* memory_pool() { return ctx_->pool; }
 
  private:
   std::shared_ptr<ReaderContext> ctx_;
@@ -672,8 +670,8 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
     if (field()->nullable() && data->null_count != 0) {
       const auto& validity_bitmap = data->buffers[0];
       std::unique_ptr<::arrow::ArrayBuilder> temp_builder;
-      ARROW_RETURN_NOT_OK(::arrow::MakeBuilder(memory_pool(),
-                                               field()->type(), &temp_builder));
+      ARROW_RETURN_NOT_OK(
+          ::arrow::MakeBuilder(memory_pool(), field()->type(), &temp_builder));
       auto fixed_sized_list_builder =
           checked_cast<::arrow::FixedSizeListBuilder*>(temp_builder.get());
       std::optional<int> non_null_begin;

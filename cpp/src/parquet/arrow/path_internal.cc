@@ -314,8 +314,8 @@ struct NullableTerminalNode {
 // Type parameters:
 //    |RangeSelector| - A strategy for determine the range of the child node to
 //    process.
-//       this varies depending on the type of list "int32_t* offsets", "int64_t* offsets" or
-//       fixed.
+//       this varies depending on the type of list "int32_t* offsets", "int64_t* offsets"
+//       or fixed.
 template <typename RangeSelector>
 class ListPathNode {
  public:
