@@ -319,6 +319,14 @@ func literalToDatum(mem memory.Allocator, lit expr.Literal, ext ExtensionIDSet) 
 		fields := make([]scalar.Scalar, len(v.Value))
 		names := make([]string, len(v.Value))
 
+		for i, l := range v.Value {
+			lit, err := literalToDatum(mem, l, ext)
+			if err != nil {
+				return nil, err
+			}
+			fields[i] = lit.(*compute.ScalarDatum).Value
+		}
+
 		s, err := scalar.NewStructScalarWithNames(fields, names)
 		return compute.NewDatum(s), err
 	case *expr.ProtoLiteral:
@@ -503,9 +511,9 @@ func executeScalarBatch(ctx context.Context, input compute.ExecBatch, exp expr.E
 		var opts *compute.CastOptions
 		switch e.FailureBehavior {
 		case types.BehaviorThrowException:
-			opts = compute.SafeCastOptions(dt)
-		case types.BehaviorUnspecified:
 			opts = compute.UnsafeCastOptions(dt)
+		case types.BehaviorUnspecified:
+			return nil, fmt.Errorf("%w: cast behavior unspecified", arrow.ErrInvalid)
 		case types.BehaviorReturnNil:
 			return nil, fmt.Errorf("%w: cast behavior return nil", arrow.ErrNotImplemented)
 		}
@@ -561,25 +569,6 @@ func executeScalarBatch(ctx context.Context, input compute.ExecBatch, exp expr.E
 		k, err := fn.DispatchBest(argTypes...)
 		if err != nil {
 			return nil, err
-		}
-
-		var newArgs []compute.Datum
-		// cast arguments if necessary
-		for i, arg := range args {
-			if !arrow.TypeEqual(argTypes[i], arg.(compute.ArrayLikeDatum).Type()) {
-				if newArgs == nil {
-					newArgs = make([]compute.Datum, len(args))
-					copy(newArgs, args)
-				}
-				newArgs[i], err = compute.CastDatum(ctx, arg, compute.SafeCastOptions(argTypes[i]))
-				if err != nil {
-					return nil, err
-				}
-				defer newArgs[i].Release()
-			}
-		}
-		if newArgs != nil {
-			args = newArgs
 		}
 
 		kctx := &exec.KernelCtx{Ctx: ctx, Kernel: k}

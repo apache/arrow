@@ -405,19 +405,8 @@ func (*ExprBuilder) Must(b Builder, err error) Builder {
 	return b
 }
 
-// UnsafeCast returns a Cast expression whose FailBehavior is unspecified,
-// potentially allowing overflows or underflows.
-func (e *ExprBuilder) UnsafeCast(from Builder, to arrow.DataType) (Builder, error) {
-	t, err := ToSubstraitType(to, true, e.extSet)
-	if err != nil {
-		return nil, err
-	}
-
-	return e.b.Cast(from, t).FailBehavior(types.BehaviorUnspecified), nil
-}
-
 // Cast returns a Cast expression with the FailBehavior of ThrowException,
-// erroring if the cast would result in an overflow/underflow.
+// erroring for invalid casts.
 func (e *ExprBuilder) Cast(from Builder, to arrow.DataType) (Builder, error) {
 	t, err := ToSubstraitType(to, true, e.extSet)
 	if err != nil {
