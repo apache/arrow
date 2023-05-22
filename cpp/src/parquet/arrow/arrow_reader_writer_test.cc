@@ -3010,6 +3010,27 @@ TEST(ArrowReadWrite, ListOfStructOfList1) {
   CheckSimpleRoundtrip(table, 2);
 }
 
+TEST(ArrowReadWrite, ListOfStructOfList2) {
+  using ::arrow::field;
+  using ::arrow::list;
+  using ::arrow::struct_;
+
+  auto type =
+      list(field("item",
+                 struct_({field("a", ::arrow::int16(), /*nullable=*/false),
+                          field("b", list(::arrow::int64()), /*nullable=*/false)}),
+                 /*nullable=*/false));
+
+  const char* json = R"([
+      [{"a": 123, "b": [1, 2, 3]}],
+      null,
+      [],
+      [{"a": 456, "b": []}, {"a": 789, "b": [null]}, {"a": 876, "b": [4, 5, 6]}]])";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+  CheckSimpleRoundtrip(table, 2);
+}
+
 TEST(ArrowReadWrite, ListWithNoValues) {
   using ::arrow::Buffer;
   using ::arrow::field;
@@ -3074,7 +3095,7 @@ TEST(ArrowReadWrite, FixedSizeList) {
   CheckSimpleRoundtrip(table, 2, props_store_schema);
 }
 
-TEST(ArrowReadWrite, NullableFixedSizeList) {
+TEST(ArrowReadWrite, FixedSizeList2) {
   using ::arrow::field;
   using ::arrow::fixed_size_list;
   using ::arrow::struct_;
