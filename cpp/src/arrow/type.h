@@ -1902,6 +1902,10 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     }
     return out;
   }
+  /// \brief Get all children matching this FieldRef.
+  ///
+  /// Unlike `FieldRef::GetAll`, this variant is not zero-copy and the retrieved
+  /// children's null bitmaps are ANDed with their ancestors'
   template <typename T>
   Result<std::vector<GetType<T>>> GetAllFlattened(const T& root,
                                                   MemoryPool* pool = NULLPTR) const {
@@ -1920,6 +1924,10 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
     return match.Get(root).ValueOrDie();
   }
+  /// \brief Get the single child matching this FieldRef.
+  ///
+  /// Unlike `FieldRef::GetOne`, this variant is not zero-copy and the retrieved
+  /// child's null bitmap is ANDed with its ancestors'
   template <typename T>
   Result<GetType<T>> GetOneFlattened(const T& root, MemoryPool* pool = NULLPTR) const {
     ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
@@ -1936,6 +1944,11 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     }
     return match.Get(root).ValueOrDie();
   }
+  /// \brief Get the single child matching this FieldRef.
+  ///
+  /// Return nullptr if none match, emit an error if multiple match.
+  /// Unlike `FieldRef::GetOneOrNone`, this variant is not zero-copy and the
+  /// retrieved child's null bitmap is ANDed with its ancestors'
   template <typename T>
   Result<GetType<T>> GetOneOrNoneFlattened(const T& root,
                                            MemoryPool* pool = NULLPTR) const {
