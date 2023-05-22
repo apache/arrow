@@ -36,6 +36,7 @@
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
@@ -358,9 +359,37 @@ std::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
   return std::nullopt;
 }
 
+const std::string kAceroAlignmentHandlingEnvVar = "ACERO_ALIGNMENT_HANDLING";
+
+UnalignedBufferHandling DetermineDefaultUnalignedBufferHandling() {
+  auto maybe_value = ::arrow::internal::GetEnvVar(kAceroAlignmentHandlingEnvVar);
+  if (!maybe_value.ok()) {
+    return UnalignedBufferHandling::kWarn;
+  }
+  std::string value = maybe_value.MoveValueUnsafe();
+  if (::arrow::internal::AsciiEqualsCaseInsensitive(value, "warn")) {
+    return UnalignedBufferHandling::kWarn;
+  } else if (::arrow::internal::AsciiEqualsCaseInsensitive(value, "ignore")) {
+    return UnalignedBufferHandling::kIgnore;
+  } else if (::arrow::internal::AsciiEqualsCaseInsensitive(value, "reallocate")) {
+    return UnalignedBufferHandling::kReallocate;
+  } else if (::arrow::internal::AsciiEqualsCaseInsensitive(value, "abort")) {
+    return UnalignedBufferHandling::kAbort;
+  } else {
+    ARROW_LOG(WARNING) << "unrecognized value for ACERO_ALIGNMENT_HANDLING: " << value;
+    return UnalignedBufferHandling::kWarn;
+  }
+}
+
 }  // namespace
 
 const uint32_t ExecPlan::kMaxBatchSize;
+
+UnalignedBufferHandling GetDefaultUnalignedBufferHandling() {
+  static UnalignedBufferHandling default_value =
+      DetermineDefaultUnalignedBufferHandling();
+  return default_value;
+}
 
 Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
     QueryOptions opts, ExecContext ctx,

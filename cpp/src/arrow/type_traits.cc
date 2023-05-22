@@ -86,9 +86,13 @@ int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index) {
     case Type::DICTIONARY:
     case Type::EXTENSION:
     case Type::MAX_ID:
-      Status::Invalid("Could not check alignment for type id ", type_id).Warn();
+      Status::Invalid("RequiredValueAlignmentForBuffer called with invalid type id ",
+                      type_id)
+          .Warn();
       return 1;
   }
+  Status::Invalid("Could not check alignment for type id ", type_id).Warn();
+  return 1;
 }
 
 }  // namespace arrow

@@ -143,8 +143,14 @@ struct SourceNode : ExecNode, public TracedNode {
               batch_size = morsel_length;
             }
             ExecBatch batch = morsel.Slice(offset, batch_size);
-            UnalignedBufferHandling unaligned_buffer_handling =
+            std::optional<UnalignedBufferHandling> opt_unaligned_buffer_handling =
                 plan_->query_context()->options().unaligned_buffer_handling;
+            UnalignedBufferHandling unaligned_buffer_handling;
+            if (opt_unaligned_buffer_handling.has_value()) {
+              unaligned_buffer_handling = *opt_unaligned_buffer_handling;
+            } else {
+              unaligned_buffer_handling = GetDefaultUnalignedBufferHandling();
+            }
             ARROW_RETURN_NOT_OK(
                 HandleUnalignedBuffers(&batch, unaligned_buffer_handling));
             if (has_ordering) {

@@ -499,6 +499,13 @@ struct ARROW_ACERO_EXPORT Declaration {
 /// \brief describes how to handle unaligned buffers
 enum class UnalignedBufferHandling { kWarn, kIgnore, kReallocate, kAbort };
 
+/// \brief get the default behavior of unaligned buffer handling
+///
+/// This is configurable via the ACERO_ALIGNMENT_HANDLING environment variable which
+/// can be set to "warn", "ignore", "reallocate", or "abort".  If the environment
+/// variable is not set, or is set to an invalid value, this will return kWarn
+UnalignedBufferHandling GetDefaultUnalignedBufferHandling();
+
 /// \brief plan-wide options that can be specified when executing an execution plan
 struct ARROW_ACERO_EXPORT QueryOptions {
   /// \brief Should the plan use a legacy batching strategy
@@ -589,7 +596,10 @@ struct ARROW_ACERO_EXPORT QueryOptions {
   ///
   /// If this field is set to kIgnore then Acero will not even check if the buffers are
   /// unaligned.
-  UnalignedBufferHandling unaligned_buffer_handling = UnalignedBufferHandling::kWarn;
+  ///
+  /// If this field is not set then it will be treated as kWarn unless overridden
+  /// by the ACERO_ALIGNMENT_HANDLING environment variable
+  std::optional<UnalignedBufferHandling> unaligned_buffer_handling;
 };
 
 /// \brief Calculate the output schema of a declaration
