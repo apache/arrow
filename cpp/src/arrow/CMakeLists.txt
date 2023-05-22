@@ -238,12 +238,12 @@ set(ARROW_SRCS
     vendored/base64.cpp
     vendored/datetime/tz.cpp
     vendored/double-conversion/bignum.cc
-    vendored/double-conversion/double-conversion.cc
     vendored/double-conversion/bignum-dtoa.cc
-    vendored/double-conversion/fast-dtoa.cc
     vendored/double-conversion/cached-powers.cc
+    vendored/double-conversion/double-to-string.cc
+    vendored/double-conversion/fast-dtoa.cc
     vendored/double-conversion/fixed-dtoa.cc
-    vendored/double-conversion/diy-fp.cc
+    vendored/double-conversion/string-to-double.cc
     vendored/double-conversion/strtod.cc)
 
 if(ARROW_JEMALLOC)

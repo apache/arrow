@@ -404,6 +404,28 @@ arrow::Status ScanProjectSinkExample() {
 
 // (Doc section: Project Example)
 
+// This is a variation of ScanProjectSinkExample introducing how to use the
+// Declaration::Sequence function
+arrow::Status ScanProjectSequenceSinkExample() {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
+
+  auto options = std::make_shared<arrow::dataset::ScanOptions>();
+  // projection
+  cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"), cp::literal(2)});
+  options->projection = cp::project({}, {});
+
+  auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
+
+  // (Doc section: Project Sequence Example)
+  // Inputs do not have to be passed to the project node when using Sequence
+  ac::Declaration plan =
+      ac::Declaration::Sequence({{"scan", std::move(scan_node_options)},
+                                 {"project", ac::ProjectNodeOptions({a_times_2})}});
+  // (Doc section: Project Sequence Example)
+
+  return ExecutePlanAndCollectAsTable(std::move(plan));
+}
+
 // (Doc section: Scalar Aggregate Example)
 
 /// \brief An example showing an aggregation node to aggregate an entire table
@@ -798,7 +820,8 @@ enum ExampleMode {
   WRITE = 11,
   UNION = 12,
   TABLE_SOURCE_TABLE_SINK = 13,
-  RECORD_BATCH_READER_SOURCE = 14
+  RECORD_BATCH_READER_SOURCE = 14,
+  PROJECT_SEQUENCE = 15
 };
 
 int main(int argc, char** argv) {
@@ -832,6 +855,10 @@ int main(int argc, char** argv) {
     case PROJECT:
       PrintBlock("Project Example");
       status = ScanProjectSinkExample();
+      break;
+    case PROJECT_SEQUENCE:
+      PrintBlock("Project Example (using Declaration::Sequence)");
+      status = ScanProjectSequenceSinkExample();
       break;
     case GROUP_AGGREGATION:
       PrintBlock("Aggregate Example");
