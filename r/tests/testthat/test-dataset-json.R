@@ -19,19 +19,23 @@ skip_if_not_available("dataset")
 
 library(dplyr, warn.conflicts = FALSE)
 
-json_dir <- make_temp_dir()
-dir.create(file.path(json_dir, 5))
-dir.create(file.path(json_dir, 6))
-
-con_file1 <- file(file.path(json_dir, 5, "file1.json"), open = "wb")
-jsonlite::stream_out(df1, con = con_file1, verbose = FALSE)
-close(con_file1)
-
-con_file2 <- file(file.path(json_dir, 6, "file2.json"), open = "wb")
-jsonlite::stream_out(df2, con = con_file2, verbose = FALSE)
-close(con_file2)
-
 test_that("JSON dataset", {
+
+  # set up JSON directory for testing
+  json_dir <- make_temp_dir()
+
+  on.exit(unlink(json_dir, recursive = TRUE))
+  dir.create(file.path(json_dir, 5))
+  dir.create(file.path(json_dir, 6))
+
+  con_file1 <- file(file.path(json_dir, 5, "file1.json"), open = "wb")
+  jsonlite::stream_out(df1, con = con_file1, verbose = FALSE)
+  close(con_file1)
+
+  con_file2 <- file(file.path(json_dir, 6, "file2.json"), open = "wb")
+  jsonlite::stream_out(df2, con = con_file2, verbose = FALSE)
+  close(con_file2)
+
   ds <- open_dataset(json_dir, format = "json", partitioning = "part")
 
   expect_r6_class(ds$format, "JsonFileFormat")
