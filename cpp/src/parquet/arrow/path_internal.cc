@@ -141,7 +141,7 @@ int64_t LazyNullCount(const Array& array) { return array.data()->null_count.load
 bool LazyNoNulls(const Array& array) {
   int64_t null_count = LazyNullCount(array);
   return null_count == 0 ||
-         // kUnkownNullCount comparison is needed to account
+         // kUnknownNullCount comparison is needed to account
          // for null arrays.
          (null_count == ::arrow::kUnknownNullCount &&
           array.null_bitmap_data() == nullptr);
@@ -312,9 +312,9 @@ struct NullableTerminalNode {
 // at least one other node).
 //
 // Type parameters:
-//    |RangeSelector| - A strategy for determine the the range of the child node to
+//    |RangeSelector| - A strategy for determine the range of the child node to
 //    process.
-//       this varies depending on the type of list (int32_t* offsets, int64_t* offsets of
+//       this varies depending on the type of list "int32_t* offsets", "int64_t* offsets" or
 //       fixed.
 template <typename RangeSelector>
 class ListPathNode {
