@@ -796,7 +796,7 @@ set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADER
                                                           SKIP_UNITY_BUILD_INCLUSION ON)
 
 add_arrow_test(scalar_test)
-add_arrow_test(type_test)
+add_arrow_test(type_test SOURCES field_ref_test.cc type_test.cc)
 
 add_arrow_test(table_test
                SOURCES
