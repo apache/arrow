@@ -372,7 +372,7 @@ build times if they are not required for your application:
    options should be sufficient. However, if you wish to build any tests/benchmarks
    then ``ARROW_JSON`` is also required (it will be enabled automatically).
    If extended format support is desired then adding ``ARROW_PARQUET``, ``ARROW_CSV``,
-    ``ARROW_JSON``, or ``ARROW_ORC`` shouldn't enable any additional components.
+   ``ARROW_JSON``, or ``ARROW_ORC`` shouldn't enable any additional components.
 
 .. note::
    In general, it's a good idea to enable ``ARROW_COMPUTE`` if you anticipate using

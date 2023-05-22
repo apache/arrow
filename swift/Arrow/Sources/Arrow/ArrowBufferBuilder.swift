@@ -51,6 +51,9 @@ public class BaseBufferBuilder<T> {
 
     func resizeLength(_ data: ArrowBuffer, len: UInt = 0) -> UInt {
         if len == 0 || len < data.length * 2 {
+            if data.length == 0 || data.length * 2 < ArrowBuffer.min_length {
+                return ArrowBuffer.min_length
+            }
             return UInt(data.length * 2);
         }
         
