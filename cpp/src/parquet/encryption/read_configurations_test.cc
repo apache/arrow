@@ -236,7 +236,7 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   }
 
   // Iterate over the decryption configurations and use each one to read the encrypted
-  // parqeut file.
+  // parquet file.
   for (unsigned index = 0; index < vector_of_decryption_configurations_.size(); ++index) {
     unsigned decryption_config_num = index + 1;
     CheckResults(file_name, decryption_config_num, encryption_config_num);
@@ -254,7 +254,7 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   }
 
   // Iterate over the decryption configurations and use each one to read the encrypted
-  // parqeut file.
+  // parquet file.
   for (unsigned index = 0; index < vector_of_decryption_configurations_.size(); ++index) {
     unsigned decryption_config_num = index + 1;
     CheckResults(file_name, decryption_config_num, encryption_config_num);

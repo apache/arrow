@@ -690,7 +690,7 @@ def test_recordbatch_select_column():
     assert batch.column('a').equals(batch.column(0))
 
     with pytest.raises(
-            KeyError, match='Field "d" does not exist in record batch schema'):
+            KeyError, match='Field "d" does not exist in schema'):
         batch.column('d')
 
     with pytest.raises(TypeError):
@@ -1042,7 +1042,7 @@ def test_table_select_column():
     assert table.column('a').equals(table.column(0))
 
     with pytest.raises(KeyError,
-                       match='Field "d" does not exist in table schema'):
+                       match='Field "d" does not exist in schema'):
         table.column('d')
 
     with pytest.raises(TypeError):
@@ -1059,7 +1059,7 @@ def test_table_column_with_duplicates():
                       pa.array([7, 8, 9])], names=['a', 'b', 'a'])
 
     with pytest.raises(KeyError,
-                       match='Field "a" exists 2 times in table schema'):
+                       match='Field "a" exists 2 times in schema'):
         table.column('a')
 
 

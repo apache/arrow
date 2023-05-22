@@ -108,7 +108,7 @@ void RegressionSetArgs(benchmark::internal::Benchmark* bench) {
 // RAII struct to handle some of the boilerplate in regression benchmarks
 struct RegressionArgs {
   // size of memory tested (per iteration) in bytes
-  const int64_t size;
+  int64_t size;
 
   // proportion of nulls in generated arrays
   double null_proportion;

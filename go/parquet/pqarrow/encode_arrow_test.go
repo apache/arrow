@@ -359,6 +359,38 @@ func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
 	}
 }
 
+func TestWriteEmptyLists(t *testing.T) {
+	sc := arrow.NewSchema([]arrow.Field{
+		{Name: "f1", Type: arrow.ListOf(arrow.FixedWidthTypes.Date32)},
+		{Name: "f2", Type: arrow.ListOf(arrow.FixedWidthTypes.Date64)},
+		{Name: "f3", Type: arrow.ListOf(arrow.FixedWidthTypes.Timestamp_us)},
+		{Name: "f4", Type: arrow.ListOf(arrow.FixedWidthTypes.Timestamp_ms)},
+		{Name: "f5", Type: arrow.ListOf(arrow.FixedWidthTypes.Time32ms)},
+		{Name: "f6", Type: arrow.ListOf(arrow.FixedWidthTypes.Time64ns)},
+		{Name: "f7", Type: arrow.ListOf(arrow.FixedWidthTypes.Time64us)},
+	}, nil)
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
+	defer bldr.Release()
+	for _, b := range bldr.Fields() {
+		b.AppendNull()
+	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	props := parquet.NewWriterProperties(
+		parquet.WithVersion(parquet.V1_0),
+	)
+	arrprops := pqarrow.DefaultWriterProps()
+	var buf bytes.Buffer
+	fw, err := pqarrow.NewFileWriter(sc, &buf, props, arrprops)
+	require.NoError(t, err)
+	err = fw.Write(rec)
+	require.NoError(t, err)
+	err = fw.Close()
+	require.NoError(t, err)
+}
+
 func TestArrowReadWriteTableChunkedCols(t *testing.T) {
 	chunkSizes := []int{2, 4, 10, 2}
 	const totalLen = int64(18)

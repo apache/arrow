@@ -40,7 +40,7 @@ public class ArrowReader {
         for index in 0 ..< schema.fieldsCount {
             let field = schema.fields(at: index)!
             let arrowField = ArrowField(field.name!, type: findArrowType(field), isNullable: field.nullable)
-            builder.addField(arrowField)
+            let _ = builder.addField(arrowField)
             if field.typeType == .struct_ {
                 throw ValidationError.unknownType
             }
@@ -133,7 +133,7 @@ public class ArrowReader {
 
             let messageStartOffset = recordBatch.offset + (Int64(MemoryLayout<Int32>.size) * messageOffset)
             let messageEndOffset = messageStartOffset + Int64(messageLength)
-            let recordBatchData = fileData[messageStartOffset ... messageEndOffset]
+            let recordBatchData = fileData[messageStartOffset ..< messageEndOffset]
             let mbb = ByteBuffer(data: recordBatchData)
             let message = org_apache_arrow_flatbuf_Message.getRootAsMessage(bb: mbb)
             switch message.headerType {

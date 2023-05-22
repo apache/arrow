@@ -24,3 +24,5 @@ Sources are taken from git changeset ffd522e7188bef30a00c74dc7eb9de5faff90092
 
 Changes:
 - enclosed in `arrow_vendored` namespace
+- remove `struct arbitrary_seed` definition because of https://github.com/apache/arrow/issues/35596
+
