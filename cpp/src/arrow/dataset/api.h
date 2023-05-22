@@ -36,7 +36,4 @@
 #ifdef ARROW_PARQUET
 #include "arrow/dataset/file_parquet.h"
 #endif
-#ifdef ARROW_JSON
-#include "arrow/dataset/file_json.h"
-#endif
 #include "arrow/dataset/scanner.h"
