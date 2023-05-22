@@ -98,6 +98,10 @@ const (
 	stringHeaderInlineSize = 12
 )
 
+func IsStringHeaderInline(length int) bool {
+	return length < stringHeaderInlineSize
+}
+
 // StringHeader is a variable length string (utf8) or byte slice with
 // a 4 byte prefix and inline optimization for small values (12 bytes
 // or fewer). This is similar to Go's standard string  but limited by
@@ -142,11 +146,11 @@ func (sh *StringHeader) Prefix() [StringHeaderPrefixLen]byte {
 }
 
 func (sh *StringHeader) BufferIndex() uint32 {
-	return endian.Native.Uint32(sh.data[:])
+	return endian.Native.Uint32(sh.data[StringHeaderPrefixLen:])
 }
 
 func (sh *StringHeader) BufferOffset() uint32 {
-	return endian.Native.Uint32(sh.data[4:])
+	return endian.Native.Uint32(sh.data[StringHeaderPrefixLen+4:])
 }
 
 func (sh *StringHeader) InlineBytes() (data []byte) {
@@ -179,8 +183,8 @@ func (sh *StringHeader) SetString(data string) int {
 }
 
 func (sh *StringHeader) SetIndexOffset(bufferIndex, offset uint32) {
-	endian.Native.PutUint32(sh.data[:], bufferIndex)
-	endian.Native.PutUint32(sh.data[4:], offset)
+	endian.Native.PutUint32(sh.data[StringHeaderPrefixLen:], bufferIndex)
+	endian.Native.PutUint32(sh.data[StringHeaderPrefixLen+4:], offset)
 }
 
 func (sh *StringHeader) Equals(buffers []*memory.Buffer, other *StringHeader, otherBuffers []*memory.Buffer) bool {

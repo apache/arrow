@@ -28,6 +28,11 @@ import (
 	"github.com/apache/arrow/go/v14/internal/json"
 )
 
+type StringLike interface {
+	arrow.Array
+	Value(int) string
+}
+
 // String represents an immutable sequence of variable-length UTF-8 strings.
 type String struct {
 	array
@@ -323,6 +328,11 @@ func NewStringViewData(data arrow.ArrayData) *StringView {
 	return a
 }
 
+// Reset resets the String with a different set of Data.
+func (a *StringView) Reset(data arrow.ArrayData) {
+	a.setData(data.(*Data))
+}
+
 func (a *StringView) setData(data *Data) {
 	if len(data.buffers) < 2 {
 		panic("len(data.buffers) < 2")
@@ -441,10 +451,6 @@ func (b *StringBuilder) Value(i int) string {
 	return string(b.BinaryBuilder.Value(i))
 }
 
-// func (b *StringBuilder) UnsafeAppend(v string) {
-// 	b.BinaryBuilder.UnsafeAppend([]byte(v))
-// }
-
 // NewArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
 // so it can be used to build a new array.
 func (b *StringBuilder) NewArray() arrow.Array {
@@ -538,10 +544,6 @@ func (b *LargeStringBuilder) Value(i int) string {
 	return string(b.BinaryBuilder.Value(i))
 }
 
-// func (b *LargeStringBuilder) UnsafeAppend(v string) {
-// 	b.BinaryBuilder.UnsafeAppend([]byte(v))
-// }
-
 // NewArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
 // so it can be used to build a new array.
 func (b *LargeStringBuilder) NewArray() arrow.Array {
@@ -601,9 +603,87 @@ func (b *LargeStringBuilder) UnmarshalJSON(data []byte) error {
 	return b.Unmarshal(dec)
 }
 
+type StringViewBuilder struct {
+	*BinaryViewBuilder
+}
+
+func NewStringViewBuilder(mem memory.Allocator) *StringViewBuilder {
+	bldr := &StringViewBuilder{
+		BinaryViewBuilder: NewBinaryViewBuilder(mem),
+	}
+	bldr.dtype = arrow.BinaryTypes.StringView
+	return bldr
+}
+
+func (b *StringViewBuilder) Append(v string) {
+	b.BinaryViewBuilder.AppendString(v)
+}
+
+func (b *StringViewBuilder) AppendValues(v []string, valid []bool) {
+	b.BinaryViewBuilder.AppendStringValues(v, valid)
+}
+
+func (b *StringViewBuilder) UnmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case string:
+		b.Append(v)
+	case []byte:
+		b.BinaryViewBuilder.Append(v)
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf([]byte{}),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *StringViewBuilder) Unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.UnmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *StringViewBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary view builder must unpack from json array, found %s", delim)
+	}
+
+	return b.Unmarshal(dec)
+}
+
+func (b *StringViewBuilder) NewArray() arrow.Array {
+	return b.NewStringViewArray()
+}
+
+func (b *StringViewBuilder) NewStringViewArray() (a *StringView) {
+	data := b.newData()
+	a = NewStringViewData(data)
+	data.Release()
+	return
+}
+
 type StringLikeBuilder interface {
 	Builder
 	Append(string)
+	AppendValues([]string, []bool)
 	UnsafeAppend([]byte)
 	ReserveData(int)
 }
@@ -614,6 +694,8 @@ var (
 	_ arrow.Array       = (*StringView)(nil)
 	_ Builder           = (*StringBuilder)(nil)
 	_ Builder           = (*LargeStringBuilder)(nil)
+	_ Builder           = (*StringViewBuilder)(nil)
 	_ StringLikeBuilder = (*StringBuilder)(nil)
 	_ StringLikeBuilder = (*LargeStringBuilder)(nil)
+	_ StringLikeBuilder = (*StringViewBuilder)(nil)
 )
