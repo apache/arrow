@@ -13,20 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 
-namespace Apache.Arrow.Types
+namespace Apache.Arrow.Ipc
 {
-    public sealed class Time64Type : TimeType
+    public interface IArrowArrayStream : IArrowReader, IDisposable
     {
-        public static readonly Time64Type Default = new Time64Type();
-
-        public override ArrowTypeId TypeId => ArrowTypeId.Time64;
-        public override string Name => "time64";
-        public override int BitWidth => 64;
-
-        public Time64Type(TimeUnit unit = TimeUnit.Nanosecond)
-            : base(unit) { }
-
-        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
+        Schema Schema { get; }
     }
 }
