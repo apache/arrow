@@ -178,18 +178,17 @@ sw %>%
 This operation can be accomplished in arrow by computing the aggregation separately, for example within a join operation: 
 
 ```{r}
-
-sw %>%  
+sw %>%
   select(1:4) %>%
   filter(!is.na(hair_color)) %>%
-  left_join(sw %>% 
-    group_by(hair_color) %>%
-    summarize(mean_height = mean(height, na.rm = TRUE)) 
+  left_join(
+    sw %>% 
+      group_by(hair_color) %>%
+      summarize(mean_height = mean(height, na.rm = TRUE)) 
     ) %>%
   filter(height < mean_height) %>% 
-  select(-mean_height) %>%
+  select(!mean_height) %>%
   collect()
-
 ```
 
 
