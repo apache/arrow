@@ -25,6 +25,9 @@ namespace Apache.Arrow
     public class Date32Array : PrimitiveArray<int>
     {
         private static readonly DateTime _epochDate = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+#if NET6_0_OR_GREATER
+        private static readonly int _epochDayNumber = new DateOnly(1970, 1, 1).DayNumber;
+#endif
 
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Date32Array"/> objects.
@@ -57,6 +60,13 @@ namespace Apache.Arrow
                 // DateTimeOffset.Date property.
                 return (int)(dateTimeOffset.UtcDateTime.Date - _epochDate).TotalDays;
             }
+
+#if NET6_0_OR_GREATER
+            protected override int Convert(DateOnly date)
+            {
+                return (int)(date.DayNumber - _epochDayNumber);
+            }
+#endif
         }
 
         public Date32Array(

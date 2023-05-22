@@ -69,6 +69,13 @@ namespace Apache.Arrow
                 long days = millis / MillisecondsPerDay;
                 return (millis < 0 ? days - 1 : days) * MillisecondsPerDay;
             }
+
+#if NET6_0_OR_GREATER
+            protected override long Convert(DateOnly date)
+            {
+                return (long)date.DayNumber - _epochDayNumber;
+            }
+#endif
         }
 
         public Date64Array(ArrayData data)
