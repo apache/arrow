@@ -21,14 +21,14 @@ import (
 	"math/bits"
 	"reflect"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/bitutils"
-	"github.com/apache/arrow/go/v12/parquet"
-	format "github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
+	"github.com/apache/arrow/go/v13/parquet"
+	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 )
 
 //go:generate go run ../../../arrow/_tools/tmpl/main.go -i -data=physical_types.tmpldata plain_encoder_types.gen.go.tmpl typed_encoder.gen.go.tmpl

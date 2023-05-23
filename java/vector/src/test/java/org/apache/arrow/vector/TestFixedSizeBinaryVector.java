@@ -207,25 +207,25 @@ public class TestFixedSizeBinaryVector {
     try {
       vector.set(0, smallValue);
       failWithException(errorMsg);
-    } catch (AssertionError ignore) {
+    } catch (AssertionError | IllegalArgumentException ignore) {
     }
 
     try {
       vector.set(0, smallHolder);
       failWithException(errorMsg);
-    } catch (AssertionError ignore) {
+    } catch (AssertionError | IllegalArgumentException ignore) {
     }
 
     try {
       vector.set(0, smallNullableHolder);
       failWithException(errorMsg);
-    } catch (AssertionError ignore) {
+    } catch (AssertionError | IllegalArgumentException ignore) {
     }
 
     try {
       vector.set(0, smallBuf);
       failWithException(errorMsg);
-    } catch (AssertionError ignore) {
+    } catch (AssertionError | IllegalArgumentException ignore) {
     }
 
     // test large inputs, byteWidth matches but value or buffer is bigger than byteWidth
@@ -243,25 +243,25 @@ public class TestFixedSizeBinaryVector {
     try {
       vector.setSafe(0, smallValue);
       failWithException(errorMsg);
-    } catch (AssertionError ignore) {
+    } catch (AssertionError | IllegalArgumentException ignore) {
     }
 
     try {
       vector.setSafe(0, smallHolder);
       failWithException(errorMsg);
-    } catch (AssertionError ignore) {
+    } catch (AssertionError | IllegalArgumentException ignore) {
     }
 
     try {
       vector.setSafe(0, smallNullableHolder);
       failWithException(errorMsg);
-    } catch (AssertionError ignore) {
+    } catch (AssertionError | IllegalArgumentException ignore) {
     }
 
     try {
       vector.setSafe(0, smallBuf);
       failWithException(errorMsg);
-    } catch (AssertionError ignore) {
+    } catch (AssertionError | IllegalArgumentException ignore) {
     }
 
     // test large inputs, byteWidth matches but value or buffer is bigger than byteWidth

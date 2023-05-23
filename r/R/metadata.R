@@ -22,6 +22,14 @@
   # drop problems attributes (most likely from readr)
   x[["attributes"]][["problems"]] <- NULL
 
+  # remove the class if it's just data.frame
+  if (identical(x$attributes$class, "data.frame")) {
+    x$attributes <- x$attributes[names(x$attributes) != "class"]
+    if (is_empty(x$attributes)) {
+      x <- x[names(x) != "attributes"]
+    }
+  }
+
   out <- serialize(x, NULL, ascii = TRUE)
 
   # if the metadata is over 100 kB, compress
@@ -62,6 +70,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
     expr = {
       columns_metadata <- r_metadata$columns
       if (is.data.frame(x)) {
+        # if columns metadata exists, apply it here
         if (length(names(x)) && !is.null(columns_metadata)) {
           for (name in intersect(names(columns_metadata), names(x))) {
             x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])

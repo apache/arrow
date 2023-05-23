@@ -48,7 +48,7 @@ using compute::threaded_exec_context;
 
 namespace acero {
 
-/// \addtogroup execnode-components
+/// \addtogroup acero-internals
 /// @{
 
 class ARROW_ACERO_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
@@ -118,6 +118,10 @@ class ARROW_ACERO_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan
   std::string ToString() const;
 };
 
+// Acero can be extended by providing custom implementations of ExecNode.  The methods
+// below are documented in detail and provide careful instruction on how to fulfill the
+// ExecNode contract.  It's suggested you familiarize yourself with the Acero
+// documentation in the C++ user guide.
 class ARROW_ACERO_EXPORT ExecNode {
  public:
   using NodeVector = std::vector<ExecNode*>;
@@ -377,16 +381,36 @@ inline Result<ExecNode*> MakeExecNode(
   return factory(plan, std::move(inputs), options);
 }
 
-/// \brief Helper class for declaring sets of ExecNodes efficiently
+/// @}
+
+/// \addtogroup acero-api
+/// @{
+
+/// \brief Helper class for declaring execution nodes
 ///
-/// A Declaration represents an unconstructed ExecNode (and potentially more since its
-/// inputs may also be Declarations). The node can be constructed and added to a plan
-/// with Declaration::AddToPlan, which will recursively construct any inputs as necessary.
+/// A Declaration represents an unconstructed ExecNode (and potentially an entire graph
+/// since its inputs may also be Declarations)
+///
+/// A Declaration can be converted to a plan and executed using one of the
+/// DeclarationToXyz methods.
+///
+/// For more direct control, a Declaration can be added to an existing execution
+/// plan with Declaration::AddToPlan, which will recursively construct any inputs as
+/// necessary.
 struct ARROW_ACERO_EXPORT Declaration {
   using Input = std::variant<ExecNode*, Declaration>;
 
   Declaration() {}
 
+  /// \brief construct a declaration
+  /// \param factory_name the name of the exec node to construct.  The node must have
+  ///                     been added to the exec node registry with this name.
+  /// \param inputs the inputs to the node, these should be other declarations
+  /// \param options options that control the behavior of the node.  You must use
+  ///                the appropriate subclass.  For example, if `factory_name` is
+  ///                "project" then `options` should be ProjectNodeOptions.
+  /// \param label a label to give the node.  Can be used to distinguish it from other
+  ///              nodes of the same type in the plan.
   Declaration(std::string factory_name, std::vector<Input> inputs,
               std::shared_ptr<ExecNodeOptions> options, std::string label)
       : factory_name{std::move(factory_name)},
@@ -447,18 +471,32 @@ struct ARROW_ACERO_EXPORT Declaration {
   ///     });
   static Declaration Sequence(std::vector<Declaration> decls);
 
+  /// \brief add the declaration to an already created execution plan
+  /// \param plan the plan to add the node to
+  /// \param registry the registry to use to lookup the node factory
+  ///
+  /// This method will recursively call AddToPlan on all of the declaration's inputs.
+  /// This method is only for advanced use when the DeclarationToXyz methods are not
+  /// sufficient.
+  ///
+  /// \return the instantiated execution node
   Result<ExecNode*> AddToPlan(ExecPlan* plan, ExecFactoryRegistry* registry =
                                                   default_exec_factory_registry()) const;
 
   // Validate a declaration
   bool IsValid(ExecFactoryRegistry* registry = default_exec_factory_registry()) const;
 
+  /// \brief the name of the factory to use when creating a node
   std::string factory_name;
+  /// \brief the declarations's inputs
   std::vector<Input> inputs;
+  /// \brief options to control the behavior of the node
   std::shared_ptr<ExecNodeOptions> options;
+  /// \brief a label to give the node in the plan
   std::string label;
 };
 
+/// \brief plan-wide options that can be specified when executing an execution plan
 struct ARROW_ACERO_EXPORT QueryOptions {
   /// \brief Should the plan use a legacy batching strategy
   ///
@@ -705,6 +743,8 @@ ARROW_ACERO_EXPORT Future<> DeclarationToStatusAsync(
 ARROW_ACERO_EXPORT Future<> DeclarationToStatusAsync(Declaration declaration,
                                                      ExecContext exec_context);
 
+/// @}
+
 /// \brief Wrap an ExecBatch generator in a RecordBatchReader.
 ///
 /// The RecordBatchReader does not impose any ordering on emitted batches.
@@ -723,8 +763,6 @@ ARROW_ACERO_EXPORT
 Result<std::function<Future<std::optional<ExecBatch>>()>> MakeReaderGenerator(
     std::shared_ptr<RecordBatchReader> reader, arrow::internal::Executor* io_executor,
     int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart);
-
-/// @}
 
 }  // namespace acero
 }  // namespace arrow

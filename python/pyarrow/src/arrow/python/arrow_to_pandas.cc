@@ -808,18 +808,13 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   return Status::OK();
 }
 
-template<typename F1, typename F2, typename F3>
-Status ConvertMapHelper(
-    F1 resetRow,
-    F2 addPairToRow,
-    F3 stealRow,
-    const ChunkedArray& data,
-    PyArrayObject* py_keys,
-    PyArrayObject* py_items,
-    // needed for null checks in items
-    const std::vector<std::shared_ptr<Array>> item_arrays,
-    PyObject** out_values) {
-
+template <typename F1, typename F2, typename F3>
+Status ConvertMapHelper(F1 resetRow, F2 addPairToRow, F3 stealRow,
+                        const ChunkedArray& data, PyArrayObject* py_keys,
+                        PyArrayObject* py_items,
+                        // needed for null checks in items
+                        const std::vector<std::shared_ptr<Array>> item_arrays,
+                        PyObject** out_values) {
   OwnedRef key_value;
   OwnedRef item_value;
 
@@ -893,7 +888,8 @@ Status CheckMapAsPydictsTypeError() {
     PyErr_Fetch(&type, &value, &traceback);
     std::string message;
     RETURN_NOT_OK(internal::PyObject_StdStringStr(value, &message));
-    message += ". If keys are not hashable, then you must use the option "
+    message +=
+        ". If keys are not hashable, then you must use the option "
         "[maps_as_pydicts=None (default)]";
 
     // resets the error
@@ -902,8 +898,8 @@ Status CheckMapAsPydictsTypeError() {
   return ConvertPyError();
 }
 
-Status CheckForDuplicateKeys(bool error_on_duplicate_keys,
-                             Py_ssize_t total_dict_len, Py_ssize_t total_raw_len) {
+Status CheckForDuplicateKeys(bool error_on_duplicate_keys, Py_ssize_t total_dict_len,
+                             Py_ssize_t total_raw_len) {
   if (total_dict_len < total_raw_len) {
     const char* message =
         "[maps_as_pydicts] "
@@ -979,11 +975,7 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
                           PyTuple_Pack(2, key_value.obj(), item_value.obj()));
           return CheckPyError();
         },
-        [&list_item]{ return list_item.detach(); },
-        data,
-        py_keys,
-        py_items,
-        item_arrays,
+        [&list_item] { return list_item.detach(); }, data, py_keys, py_items, item_arrays,
         out_values);
   } else {
     // Use a native pydict
@@ -998,9 +990,8 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
       error_on_duplicate_keys = true;
     } else {
       auto val = std::underlying_type_t<MapConversionType>(options.maps_as_pydicts);
-      return Status::UnknownError(
-          "Received unknown option for maps_as_pydicts: " + std::to_string(val)
-      );
+      return Status::UnknownError("Received unknown option for maps_as_pydicts: " +
+                                  std::to_string(val));
     }
 
     auto status = ConvertMapHelper(
@@ -1009,26 +1000,23 @@ Status ConvertMap(PandasOptions options, const ChunkedArray& data,
           dict_item.reset(PyDict_New());
           return CheckPyError();
         },
-        [&dict_item]([[maybe_unused]] int64_t idx, OwnedRef& key_value, OwnedRef& item_value) {
+        [&dict_item]([[maybe_unused]] int64_t idx, OwnedRef& key_value,
+                     OwnedRef& item_value) {
           auto setitem_result =
               PyDict_SetItem(dict_item.obj(), key_value.obj(), item_value.obj());
           ARROW_RETURN_NOT_OK(CheckMapAsPydictsTypeError());
           // returns -1 if there are internal errors around hashing/resizing
-          return setitem_result == 0 ?
-            Status::OK() :
-            Status::UnknownError("[maps_as_pydicts] "
-                "Unexpected failure inserting Arrow (key, value) pair into Python dict"
-            );
+          return setitem_result == 0 ? Status::OK()
+                                     : Status::UnknownError(
+                                           "[maps_as_pydicts] "
+                                           "Unexpected failure inserting Arrow (key, "
+                                           "value) pair into Python dict");
         },
-        [&dict_item, &total_dict_len]{
+        [&dict_item, &total_dict_len] {
           total_dict_len += PyDict_Size(dict_item.obj());
           return dict_item.detach();
         },
-        data,
-        py_keys,
-        py_items,
-        item_arrays,
-        out_values);
+        data, py_keys, py_items, item_arrays, out_values);
 
     ARROW_RETURN_NOT_OK(status);
     // If there were no errors generating the pydicts,
@@ -2202,14 +2190,14 @@ class PandasBlockCreator {
 
 // Helper function for extension chunked arrays
 // Constructing a storage chunked array of an extension chunked array
-std::shared_ptr<ChunkedArray> GetStorageChunkedArray(std::shared_ptr<ChunkedArray> arr){
-      auto value_type = checked_cast<const ExtensionType&>(*arr->type()).storage_type();
-      ArrayVector storage_arrays;
-      for (int c = 0; c < arr->num_chunks(); c++) {
-        const auto& arr_ext = checked_cast<const ExtensionArray&>(*arr->chunk(c));
-        storage_arrays.emplace_back(arr_ext.storage());
-      }
-      return std::make_shared<ChunkedArray>(std::move(storage_arrays), value_type);
+std::shared_ptr<ChunkedArray> GetStorageChunkedArray(std::shared_ptr<ChunkedArray> arr) {
+  auto value_type = checked_cast<const ExtensionType&>(*arr->type()).storage_type();
+  ArrayVector storage_arrays;
+  for (int c = 0; c < arr->num_chunks(); c++) {
+    const auto& arr_ext = checked_cast<const ExtensionArray&>(*arr->chunk(c));
+    storage_arrays.emplace_back(arr_ext.storage());
+  }
+  return std::make_shared<ChunkedArray>(std::move(storage_arrays), value_type);
 };
 
 class ConsolidatedBlockCreator : public PandasBlockCreator {
@@ -2239,7 +2227,7 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
     } else {
       // In case of an extension array default to the storage type
       if (arrays_[column_index]->type()->id() == Type::EXTENSION) {
-          arrays_[column_index] = GetStorageChunkedArray(arrays_[column_index]);
+        arrays_[column_index] = GetStorageChunkedArray(arrays_[column_index]);
       }
       return GetPandasWriterType(*arrays_[column_index], options_, out);
     }
@@ -2465,7 +2453,7 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
 
   // In case of an extension array default to the storage type
   if (arr->type()->id() == Type::EXTENSION) {
-      arr = GetStorageChunkedArray(arr);
+    arr = GetStorageChunkedArray(arr);
   }
 
   PandasWriter::type output_type;

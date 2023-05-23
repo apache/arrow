@@ -25,11 +25,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -48,12 +48,12 @@ func NewDecimal256Data(data arrow.ArrayData) *Decimal256 {
 }
 
 func (a *Decimal256) Value(i int) decimal256.Num { return a.values[i] }
+
 func (a *Decimal256) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
-	} else {
-		return a.GetOneForMarshal(i).(string)
 	}
+	return a.GetOneForMarshal(i).(string)
 }
 
 func (a *Decimal256) Values() []decimal256.Num { return a.values }
@@ -67,7 +67,7 @@ func (a *Decimal256) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", a.Value(i))
 		}

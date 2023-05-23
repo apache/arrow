@@ -156,6 +156,12 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
                                  list_array.value_offset(list_array_length));
   }
 
+  // Second shortcut: if the list array is *all* nulls, then just return
+  // an empty array.
+  if (list_array.null_count() == list_array.length()) {
+    return MakeEmptyArray(value_array->type(), memory_pool);
+  }
+
   // The ListArray contains nulls: there may be a non-empty sub-list behind
   // a null and it must not be contained in the result.
   std::vector<std::shared_ptr<Array>> non_null_fragments;
@@ -177,6 +183,8 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
   // Final attempt to avoid invoking Concatenate().
   if (non_null_fragments.size() == 1) {
     return non_null_fragments[0];
+  } else if (non_null_fragments.size() == 0) {
+    return MakeEmptyArray(value_array->type(), memory_pool);
   }
 
   return Concatenate(non_null_fragments, memory_pool);

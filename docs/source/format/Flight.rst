@@ -90,9 +90,21 @@ A client that wishes to download the data would:
    An endpoint contains a list of locations (server addresses) where
    this data can be retrieved from, and a ``Ticket``, an opaque binary
    token that the server will use to identify the data being
-   requested. There is no ordering defined on endpoints or the data
-   within, so if the dataset is sorted, applications should return
-   data in a single endpoint.
+   requested.
+
+   If ``FlightInfo.ordered`` is true, this signals there is some order
+   between data from different endpoints. Clients should produce the
+   same results as if the data returned from each of the endpoints was
+   concatenated, in order, from front to back.
+
+   If ``FlightInfo.ordered`` is false, the client may return data
+   from any of the endpoints in arbitrary order. Data from any
+   specific endpoint must be returned in order, but the data from
+   different endpoints may be interleaved to allow parallel fetches.
+
+   Note that since some clients may ignore ``FlightInfo.ordered``, if
+   ordering is important and client support can not be ensured,
+   servers should return a single endpoint.
 
    The response also contains other metadata, like the schema, and
    optionally an estimate of the dataset size.
@@ -117,7 +129,9 @@ A client that wishes to download the data would:
    The client must consume all endpoints to retrieve the complete data
    set. The client can consume endpoints in any order, or even in
    parallel, or distribute the endpoints among multiple machines for
-   consumption; this is up to the application to implement.
+   consumption; this is up to the application to implement. The client
+   can also use ``FlightInfo.ordered``. See the previous item for
+   details of ``FlightInfo.ordered``.
 
 Uploading Data
 --------------
@@ -216,7 +230,7 @@ Flight is primarily defined in terms of its Protobuf and gRPC
 specification below, but Arrow implementations may also support
 alternative transports (see :ref:`status-flight-rpc`). In that case,
 implementations should use the following URI schemes for the given
-transport implemenatations:
+transport implementations:
 
 +----------------------------+----------------------------+
 | Transport                  | URI Scheme                 |

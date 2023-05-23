@@ -60,6 +60,7 @@ using internal::ConcatAbstractPath;
 using internal::EnsureTrailingSlash;
 using internal::GetAbstractPathParent;
 using internal::kSep;
+using internal::ParseFileSystemUri;
 using internal::RemoveLeadingSlash;
 using internal::RemoveTrailingSlash;
 using internal::ToSlashes;
@@ -252,6 +253,10 @@ Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenOutputStream(
 Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenAppendStream(
     const std::string& path) {
   return OpenAppendStream(path, std::shared_ptr<const KeyValueMetadata>{});
+}
+
+Result<std::string> FileSystem::PathFromUri(const std::string& uri_string) const {
+  return Status::NotImplemented("PathFromUri is not yet supported on this filesystem");
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -484,6 +489,10 @@ Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenAppendStream(
   return base_fs_->OpenAppendStream(real_path, metadata);
 }
 
+Result<std::string> SubTreeFileSystem::PathFromUri(const std::string& uri_string) const {
+  return base_fs_->PathFromUri(uri_string);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // SlowFileSystem implementation
 
@@ -504,6 +513,10 @@ SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
       latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
 
 bool SlowFileSystem::Equals(const FileSystem& other) const { return this == &other; }
+
+Result<std::string> SlowFileSystem::PathFromUri(const std::string& uri_string) const {
+  return base_fs_->PathFromUri(uri_string);
+}
 
 Result<FileInfo> SlowFileSystem::GetFileInfo(const std::string& path) {
   latencies_->Sleep();
@@ -662,23 +675,6 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
 
 namespace {
 
-Result<Uri> ParseFileSystemUri(const std::string& uri_string) {
-  Uri uri;
-  auto status = uri.Parse(uri_string);
-  if (!status.ok()) {
-#ifdef _WIN32
-    // Could be a "file:..." URI with backslashes instead of regular slashes.
-    RETURN_NOT_OK(uri.Parse(ToSlashes(uri_string)));
-    if (uri.scheme() != "file") {
-      return status;
-    }
-#else
-    return status;
-#endif
-  }
-  return std::move(uri);
-}
-
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
                                                           const std::string& uri_string,
                                                           const io::IOContext& io_context,
@@ -763,7 +759,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
   if (internal::DetectAbsolutePath(uri_string)) {
     // Normalize path separators
     if (out_path != nullptr) {
-      *out_path = ToSlashes(uri_string);
+      *out_path =
+          std::string(RemoveTrailingSlash(ToSlashes(uri_string), /*preserve_root=*/true));
     }
     return std::make_shared<LocalFileSystem>();
   }

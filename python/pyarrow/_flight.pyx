@@ -1002,12 +1002,12 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         return pyarrow_wrap_table(c_table)
 
     def read_chunk(self):
-        """Read the next RecordBatch along with any metadata.
+        """Read the next FlightStreamChunk along with any metadata.
 
         Returns
         -------
-        data : RecordBatch
-            The next RecordBatch in the stream.
+        data : FlightStreamChunk
+            The next FlightStreamChunk in the stream.
         app_metadata : Buffer or None
             Application-specific metadata for the batch as defined by
             Flight.

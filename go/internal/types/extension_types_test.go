@@ -21,10 +21,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/types"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,4 +65,37 @@ func TestExtensionRecordBuilder(t *testing.T) {
 	record1, _, err := array.RecordFromJSON(memory.DefaultAllocator, schema, bytes.NewReader(b))
 	require.NoError(t, err)
 	require.Equal(t, record, record1)
+}
+
+func TestUUIDStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	extBuilder := array.NewExtensionBuilder(mem, types.NewUUIDType())
+	defer extBuilder.Release()
+	b := types.NewUUIDBuilder(extBuilder)
+	b.Append(uuid.Nil)
+	b.AppendNull()
+	b.Append(uuid.NameSpaceURL)
+	b.AppendNull()
+	b.Append(testUUID)
+
+	arr := b.NewArray()
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	extBuilder1 := array.NewExtensionBuilder(mem, types.NewUUIDType())
+	defer extBuilder1.Release()
+	b1 := types.NewUUIDBuilder(extBuilder1)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray()
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }

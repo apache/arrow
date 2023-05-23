@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/arrow/tensor"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/tensor"
 )
 
 // This example demonstrates how to build an array of int64 values using a builder and Append.
@@ -53,7 +53,7 @@ func Example_minimal() {
 	for i, v := range ints.Int64Values() {
 		fmt.Printf("ints[%d] = ", i)
 		if ints.IsNull(i) {
-			fmt.Println("(null)")
+			fmt.Println(array.NullValueStr)
 		} else {
 			fmt.Println(v)
 		}
@@ -97,7 +97,7 @@ func Example_fromMemory() {
 	for i := 0; i < n; i++ {
 		fmt.Printf("bools[%d] = ", i)
 		if bools.IsNull(i) {
-			fmt.Println("(null)")
+			fmt.Println(array.NullValueStr)
 		} else {
 			fmt.Printf("%t\n", bools.Value(i))
 		}
@@ -225,7 +225,6 @@ func Example_fixedSizeListArray() {
 	vb.Append(2)
 
 	lb.AppendNull()
-	vb.AppendValues([]int64{-1, -1, -1}, nil)
 
 	lb.Append(true)
 	vb.Append(3)
@@ -641,7 +640,7 @@ func Example_mapArray() {
 			if itemArr.IsValid(int(j)) {
 				fmt.Printf("%v", itemArr.Value(int(j)))
 			} else {
-				fmt.Printf("(null)")
+				fmt.Printf(array.NullValueStr)
 			}
 		}
 		fmt.Printf("}\n")

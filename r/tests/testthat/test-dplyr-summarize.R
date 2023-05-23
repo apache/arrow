@@ -1173,3 +1173,24 @@ test_that("Can use across() within summarise()", {
     regexp = "Expression int is not an aggregate expression or is not supported in Arrow; pulling data into R"
   )
 })
+
+test_that("across() does not select grouping variables within summarise()", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, dbl, chr) %>%
+      group_by(chr) %>%
+      summarise(across(everything(), sum)) %>%
+      arrange(chr) %>%
+      collect(),
+    example_data
+  )
+
+  expect_error(
+    example_data %>%
+      select(int, dbl) %>%
+      arrow_table() %>%
+      group_by(int) %>%
+      summarise(across(int, sum)),
+    "Column `int` doesn't exist"
+  )
+})

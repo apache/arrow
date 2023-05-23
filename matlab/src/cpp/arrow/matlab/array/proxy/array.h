@@ -15,11 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "float64_array.h"
+#pragma once
+
+#include "arrow/array.h"
+
+#include "libmexclass/proxy/Proxy.h"
 
 namespace arrow::matlab::array::proxy {
-void Float64Array::Print(libmexclass::proxy::method::Context& context) {
-    // TODO: Return an MDA string representation of the Arrow array. 
-    std::cout << array->ToString() << std::endl;
+
+class Array : public libmexclass::proxy::Proxy {
+    public:
+        Array(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+    
+        virtual ~Array() {}
+
+    protected:
+
+        void toString(libmexclass::proxy::method::Context& context);
+
+        void length(libmexclass::proxy::method::Context& context);
+
+        virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
+
+        std::shared_ptr<arrow::Array> array;
+};
+
 }
-} // namespace arrow::matlab::array::proxy

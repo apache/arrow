@@ -879,8 +879,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
           coerce_timestamps_unit_(::arrow::TimeUnit::SECOND),
           truncated_timestamps_allowed_(false),
           store_schema_(false),
-          // TODO: At some point we should flip this.
-          compliant_nested_types_(false),
+          compliant_nested_types_(true),
           engine_version_(V2),
           use_threads_(kArrowDefaultUseThreads),
           executor_(NULLPTR) {}
@@ -935,16 +934,16 @@ class PARQUET_EXPORT ArrowWriterProperties {
     /// \brief When enabled, will not preserve Arrow field names for list types.
     ///
     /// Instead of using the field names Arrow uses for the values array of
-    /// list types (default "item"), will use "entries", as is specified in
+    /// list types (default "item"), will use "element", as is specified in
     /// the Parquet spec.
     ///
-    /// This is disabled by default, but will be enabled by default in future.
+    /// This is enabled by default.
     Builder* enable_compliant_nested_types() {
       compliant_nested_types_ = true;
       return this;
     }
 
-    /// Preserve Arrow list field name (default behavior).
+    /// Preserve Arrow list field name.
     Builder* disable_compliant_nested_types() {
       compliant_nested_types_ = false;
       return this;
