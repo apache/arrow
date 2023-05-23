@@ -96,7 +96,7 @@ public final class AceroSubstraitConsumer {
         ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
     ) {
       String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(namedTables, arrowArrayStream);
-      JniWrapper.get().executeSerializedPlanNamedTables(
+      JniWrapper.get().executeSerializedPlan(
           plan,
           mapTableToMemoryAddress,
           streamOutput.memoryAddress()
@@ -115,7 +115,7 @@ public final class AceroSubstraitConsumer {
         ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
     ) {
       String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(namedTables, arrowArrayStream);
-      JniWrapper.get().executeSerializedPlanNamedTables(
+      JniWrapper.get().executeSerializedPlan(
           plan,
           mapTableToMemoryAddress,
           streamOutput.memoryAddress()

@@ -632,50 +632,11 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
 
 /*
  * Class:     org_apache_arrow_dataset_substrait_JniWrapper
- * Method:    executeSerializedPlanLocalFiles
- * Signature: (Ljava/lang/String;J)V
- */
-JNIEXPORT void JNICALL
-    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanLocalFiles__Ljava_lang_String_2J (
-    JNIEnv* env, jobject, jstring plan, jlong c_arrow_array_stream_address_out) {
-  JNI_METHOD_START
-  auto* arrow_stream = reinterpret_cast<ArrowArrayStream*>(c_arrow_array_stream_address_out);
-  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::engine::SerializeJsonPlan(JStringToCString(env, plan)));
-  std::shared_ptr<arrow::RecordBatchReader> reader =
-    JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer));
-  JniAssertOkOrThrow(arrow::ExportRecordBatchReader(reader, arrow_stream));
-  JNI_METHOD_END()
-}
-
-/*
- * Class:     org_apache_arrow_dataset_substrait_JniWrapper
- * Method:    executeSerializedPlanLocalFiles
- * Signature: (Ljava/nio/ByteBuffer;J)V
- */
-JNIEXPORT void JNICALL
-    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanLocalFiles__Ljava_nio_ByteBuffer_2J (
-    JNIEnv* env, jobject, jobject plan, jlong c_arrow_array_stream_address_out) {
-  JNI_METHOD_START
-  auto* arrow_stream = reinterpret_cast<ArrowArrayStream*>(c_arrow_array_stream_address_out);
-  // mapping arrow::Buffer
-  auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(plan));
-  int length = env->GetDirectBufferCapacity(plan);
-  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
-  std::memcpy(buffer->mutable_data(), buff, length);
-  // execute plan
-  std::shared_ptr<arrow::RecordBatchReader> reader =
-    JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer));
-  JniAssertOkOrThrow(arrow::ExportRecordBatchReader(reader, arrow_stream));
-  JNI_METHOD_END()
-}
-
-/*
- * Class:     org_apache_arrow_dataset_substrait_JniWrapper
- * Method:    executeSerializedPlanNamedTables
+ * Method:    executeSerializedPlan
  * Signature: (Ljava/lang/String;[Ljava/lang/String;J)V
  */
 JNIEXPORT void JNICALL
-    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanNamedTables__Ljava_lang_String_2_3Ljava_lang_String_2J (
+    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlan__Ljava_lang_String_2_3Ljava_lang_String_2J (
     JNIEnv* env, jobject, jstring plan, jobjectArray table_to_memory_address_input,
     jlong memory_address_output) {
   JNI_METHOD_START
@@ -704,11 +665,11 @@ JNIEXPORT void JNICALL
 
 /*
  * Class:     org_apache_arrow_dataset_substrait_JniWrapper
- * Method:    executeSerializedPlanNamedTables
+ * Method:    executeSerializedPlan
  * Signature: (Ljava/nio/ByteBuffer;[Ljava/lang/String;J)V
  */
 JNIEXPORT void JNICALL
-    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlanNamedTables__Ljava_nio_ByteBuffer_2_3Ljava_lang_String_2J (
+    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlan__Ljava_nio_ByteBuffer_2_3Ljava_lang_String_2J (
     JNIEnv* env, jobject, jobject plan, jobjectArray table_to_memory_address_input,
     jlong memory_address_output) {
   JNI_METHOD_START

@@ -41,24 +41,6 @@ final class JniWrapper {
   }
 
   /**
-   * Consume the JSON Substrait Plan that contains Local Files and export the RecordBatchReader into
-   * C-Data Interface ArrowArrayStream.
-   *
-   * @param planInput the JSON Substrait plan.
-   * @param memoryAddressOutput the memory address where RecordBatchReader is exported.
-   */
-  public native void executeSerializedPlanLocalFiles(String planInput, long memoryAddressOutput);
-
-  /**
-   * Consume the binary Substrait Plan that contains Local Files and export the RecordBatchReader into
-   * C-Data Interface ArrowArrayStream.
-   *
-   * @param planInput the binary Substrait plan.
-   * @param memoryAddressOutput the memory address where RecordBatchReader is exported.
-   */
-  public native void executeSerializedPlanLocalFiles(ByteBuffer planInput, long memoryAddressOutput);
-
-  /**
    * Consume the JSON Substrait Plan that contains Named Tables and export the RecordBatchReader into
    * C-Data Interface ArrowArrayStream.
    *
@@ -71,7 +53,7 @@ final class JniWrapper {
    * @param memoryAddressOutput the memory address where RecordBatchReader is exported.
    *
    */
-  public native void executeSerializedPlanNamedTables(String planInput, String[] mapTableToMemoryAddressInput,
+  public native void executeSerializedPlan(String planInput, String[] mapTableToMemoryAddressInput,
                                                       long memoryAddressOutput);
 
   /**
@@ -86,6 +68,6 @@ final class JniWrapper {
    * mapTableToMemoryAddress[1]="140650250895360";}</pre>
    * @param memoryAddressOutput the memory address where RecordBatchReader is exported.
    */
-  public native void executeSerializedPlanNamedTables(ByteBuffer planInput, String[] mapTableToMemoryAddressInput,
+  public native void executeSerializedPlan(ByteBuffer planInput, String[] mapTableToMemoryAddressInput,
                                                       long memoryAddressOutput);
 }

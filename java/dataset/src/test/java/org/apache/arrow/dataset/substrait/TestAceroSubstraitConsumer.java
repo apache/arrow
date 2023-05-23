@@ -37,15 +37,11 @@ import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -55,21 +51,6 @@ public class TestAceroSubstraitConsumer extends TestDataset {
   @ClassRule
   public static final TemporaryFolder TMP = new TemporaryFolder();
   public static final String AVRO_SCHEMA_USER = "user.avsc";
-  private RootAllocator allocator = null;
-
-  @Before
-  public void setUp() {
-    allocator = new RootAllocator(Long.MAX_VALUE);
-  }
-
-  @After
-  public void tearDown() {
-    allocator.close();
-  }
-
-  protected BufferAllocator rootAllocator() {
-    return allocator;
-  }
 
   @Test
   public void testRunQueryLocalFiles() throws Exception {
@@ -227,9 +208,6 @@ public class TestAceroSubstraitConsumer extends TestDataset {
   }
 
   private static String planReplaceLocalFileURI(String plan, String uri) {
-    StringBuilder builder = new StringBuilder(plan);
-    builder.replace(builder.indexOf("FILENAME_PLACEHOLDER"),
-        builder.indexOf("FILENAME_PLACEHOLDER") + "FILENAME_PLACEHOLDER".length(), uri);
-    return builder.toString();
+    return plan.replace("FILENAME_PLACEHOLDER", uri);
   }
 }
