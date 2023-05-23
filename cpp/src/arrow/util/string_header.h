@@ -81,7 +81,7 @@ namespace arrow {
 /// be performed on index/offset StringHeaders without also accessing the buffers
 /// storing their out-of-line data. Which states pertain to each accessor and
 /// constructor are listed in their comments.
-struct StringHeader {
+struct alignas(8) StringHeader {
  public:
   using value_type = char;
 
@@ -159,9 +159,9 @@ struct StringHeader {
   bool IsInline() const { return IsInline(size_); }
 
   static constexpr bool IsInline(uint32_t size) { return size <= kInlineSize; }
-  static constexpr bool IsInline(size_t size) { return size <= kInlineSize; }
-  static constexpr bool IsInline(int64_t size) {
-    return size <= static_cast<int64_t>(kInlineSize);
+  template <typename I>
+  static constexpr bool IsInline(I size) {
+    return size <= static_cast<I>(kInlineSize);
   }
 
   /// Return a RAW POINTER view's data.
@@ -226,13 +226,11 @@ struct StringHeader {
   /// NOT VALID FOR INLINE VIEWS.
   const char* GetRawPointer() const { return value_.data; }
 
-  /// Return an INLINE view's data pointer.
+  /// Return a the inline data of a view.
   ///
-  /// NOT VALID FOR VIEWS WHICH ARE NOT INLINE.
-  const char* GetInlineData() const& {
-    assert(IsInline());
-    return prefix_.data();
-  }
+  /// For inline views, this points to the entire data of the view.
+  /// For other views, this points to the 4 byte prefix.
+  const char* GetInlineData() const& { return prefix_.data(); }
   const char* GetInlineData() && = delete;
 
   /// Mutate into a RAW POINTER view.
@@ -328,6 +326,7 @@ struct StringHeader {
 };
 
 static_assert(sizeof(StringHeader) == 16, "struct size expected to be exactly 16 bytes");
-static_assert(alignof(StringHeader) == 8, "struct alignment expected to be exactly 8 bytes");
+static_assert(alignof(StringHeader) == 8,
+              "struct alignment expected to be exactly 8 bytes");
 
 }  // namespace arrow

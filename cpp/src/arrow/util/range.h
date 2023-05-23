@@ -21,9 +21,9 @@
 #include <cstdint>
 #include <iterator>
 #include <numeric>
+#include <tuple>
 #include <utility>
 #include <vector>
-#include <tuple>
 
 namespace arrow::internal {
 

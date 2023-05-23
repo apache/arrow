@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//#pragma once
+// #pragma once
 
 #include "gandiva/gdv_function_stubs.h"
 

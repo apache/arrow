@@ -807,7 +807,8 @@ class ARROW_EXPORT StringViewType : public BinaryViewType {
 
   static constexpr const char* type_name() { return "utf8_view"; }
 
-  explicit StringViewType(bool has_raw_pointers = false) : BinaryViewType(Type::STRING_VIEW, has_raw_pointers) {}
+  explicit StringViewType(bool has_raw_pointers = false)
+      : BinaryViewType(Type::STRING_VIEW, has_raw_pointers) {}
 
   std::string ToString() const override;
   std::string name() const override { return "utf8_view"; }

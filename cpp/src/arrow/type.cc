@@ -2551,16 +2551,16 @@ TYPE_FACTORY(large_binary, LargeBinaryType)
 TYPE_FACTORY(date64, Date64Type)
 TYPE_FACTORY(date32, Date32Type)
 
-const std::shared_ptr<DataType>& utf8_view(bool has_raw_pointers) {                              
-  static std::shared_ptr<DataType> io = std::make_shared<StringViewType>(); 
-  static std::shared_ptr<DataType> raw = std::make_shared<StringViewType>(true); 
-  return has_raw_pointers ? raw : io;                                                       
+const std::shared_ptr<DataType>& utf8_view(bool has_raw_pointers) {
+  static std::shared_ptr<DataType> io = std::make_shared<StringViewType>();
+  static std::shared_ptr<DataType> raw = std::make_shared<StringViewType>(true);
+  return has_raw_pointers ? raw : io;
 }
 
-const std::shared_ptr<DataType>& binary_view(bool has_raw_pointers) {                              
-  static std::shared_ptr<DataType> io = std::make_shared<BinaryViewType>(); 
-  static std::shared_ptr<DataType> raw = std::make_shared<BinaryViewType>(true); 
-  return has_raw_pointers ? raw : io;                                                       
+const std::shared_ptr<DataType>& binary_view(bool has_raw_pointers) {
+  static std::shared_ptr<DataType> io = std::make_shared<BinaryViewType>();
+  static std::shared_ptr<DataType> raw = std::make_shared<BinaryViewType>(true);
+  return has_raw_pointers ? raw : io;
 }
 
 std::shared_ptr<DataType> fixed_size_binary(int32_t byte_width) {

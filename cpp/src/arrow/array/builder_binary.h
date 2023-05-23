@@ -490,7 +490,7 @@ class ARROW_EXPORT StringHeapBuilder {
   void UnsafeAppend(StringHeader* raw_not_inlined) {
     memcpy(current_out_buffer_, raw_not_inlined->GetRawPointer(),
            raw_not_inlined->size());
-    raw_not_inlined->SetIndexOffset(blocks_.size() - 1, current_offset_);
+    raw_not_inlined->SetIndexOffset(static_cast<uint32_t>(blocks_.size() - 1), current_offset_);
     current_out_buffer_ += raw_not_inlined->size();
     current_remaining_bytes_ -= raw_not_inlined->size();
     current_offset_ += raw_not_inlined->size();
@@ -539,7 +539,7 @@ class ARROW_EXPORT StringHeapBuilder {
   int64_t alignment_;
   std::vector<std::shared_ptr<Buffer>> blocks_;
 
-  size_t current_offset_ = 0;
+  uint32_t current_offset_ = 0;
   uint8_t* current_out_buffer_ = nullptr;
   int64_t current_remaining_bytes_ = 0;
 };

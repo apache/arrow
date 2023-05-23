@@ -365,8 +365,9 @@ Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
         input,
         [&](std::string_view v) {
           if constexpr (std::is_same_v<offset_type, int32_t>) {
-            if (ARROW_PREDICT_FALSE(char_builder.length() + v.size() >
-                                    std::numeric_limits<int32_t>::max())) {
+            if (ARROW_PREDICT_FALSE(
+                    char_builder.length() + v.size() >
+                    static_cast<size_t>(std::numeric_limits<int32_t>::max()))) {
               return Status::Invalid("Failed casting from ", input.type->ToString(),
                                      " to ", out->type()->ToString(),
                                      ": input array viewed too many characters");
@@ -406,6 +407,7 @@ Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
 
     auto* headers = output->buffers[1]->mutable_data_as<StringHeader>();
     if (check_utf8) {
+      (void)SimpleUtf8Validation;
       Utf8Validator validator;
       return VisitArraySpanInline<I>(
           input,

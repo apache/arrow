@@ -360,12 +360,12 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     this->buffers[1].data = reinterpret_cast<uint8_t*>(this->scratch_space);
     if (scalar.is_valid) {
       if (checked_cast<const BinaryViewType*>(type)->has_raw_pointers()) {
-        new (this->scratch_space) StringHeader{scalar.value->data_as<char>(),
-                                               static_cast<uint32_t>(scalar.value->size())};
+        new (this->scratch_space) StringHeader{
+            scalar.value->data_as<char>(), static_cast<uint32_t>(scalar.value->size())};
       } else {
-        new (this->scratch_space) StringHeader{scalar.value->data_as<char>(),
-                                               static_cast<uint32_t>(scalar.value->size()),
-                                               0, scalar.value->data_as<char>()};
+        new (this->scratch_space) StringHeader{
+            scalar.value->data_as<char>(), static_cast<uint32_t>(scalar.value->size()), 0,
+            scalar.value->data_as<char>()};
       }
       this->buffers[2].data =
           const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(&scalar.value));

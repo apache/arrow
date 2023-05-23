@@ -49,11 +49,11 @@ writing code which would break when it is replaced by std::span.)");
   constexpr span(T* begin, T* end)
       : data_{begin}, size_{static_cast<std::size_t>(end - begin)} {}
 
-  template <
-      typename R,
-      typename = std::enable_if_t<std::is_same_v<decltype(std::declval<R&>().data()), T*>>,
-      typename = std::enable_if_t<
-          std::is_convertible_v<decltype(std::declval<R&>().size()), std::size_t>>>
+  template <typename R,
+            typename =
+                std::enable_if_t<std::is_same_v<decltype(std::declval<R&>().data()), T*>>,
+            typename = std::enable_if_t<
+                std::is_convertible_v<decltype(std::declval<R&>().size()), std::size_t>>>
   // NOLINTNEXTLINE runtime/explicit, non-const reference
   constexpr span(R& range) : span{range.data(), range.size()} {}
 
@@ -90,9 +90,7 @@ writing code which would break when it is replaced by std::span.)");
     }
     return true;
   }
-  constexpr bool operator!=(span const& other) const {
-    return !(*this == other);
-  }
+  constexpr bool operator!=(span const& other) const { return !(*this == other); }
 
  private:
   T* data_{};

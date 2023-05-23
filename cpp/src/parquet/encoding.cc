@@ -149,13 +149,11 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   }
 
  protected:
-  template <typename ArrayType>
+  template <typename ArrayType, bool IsView = ::arrow::is_binary_view_like_type<
+                                    typename ArrayType::TypeClass>::value>
   void PutBinaryArray(const ArrayType& array) {
-    constexpr bool kIsView =
-        ::arrow::is_binary_view_like_type<typename ArrayType::TypeClass>::value;
-
     int64_t total_bytes = 0;
-    if constexpr (kIsView) {
+    if constexpr (IsView) {
       for (const auto& char_buffer :
            ::arrow::util::span{array.data()->buffers}.subspan(2)) {
         total_bytes += char_buffer->size();
@@ -171,7 +169,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
           if (ARROW_PREDICT_FALSE(view.size() > kMaxByteArraySize)) {
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
-          if constexpr (kIsView) {
+          if constexpr (IsView) {
             Put(view);
           } else {
             UnsafePutByteArray(view.data(), static_cast<uint32_t>(view.size()));
