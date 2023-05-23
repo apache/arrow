@@ -720,6 +720,9 @@ TEST_P(TestRunEndEncodedArray, Printing) {
             "  []\n"
             "-- values:\n"
             "  []");
+
+  // NOLINTNEXTLINE
+  EXPECT_FALSE(true);
 }
 
 }  // anonymous namespace

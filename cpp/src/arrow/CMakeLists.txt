@@ -772,6 +772,7 @@ add_arrow_test(array_test
                array/array_struct_test.cc
                array/array_union_test.cc
                array/array_view_test.cc
+               array/array_test_main.cc
                PRECOMPILED_HEADERS
                "$<$<COMPILE_LANGUAGE:CXX>:arrow/testing/pch.h>")
 
