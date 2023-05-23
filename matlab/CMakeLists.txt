@@ -545,10 +545,9 @@ endif()
 if(WIN32)
   if(NOT Arrow_FOUND)
     # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-    # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
-    # install libarrow.dylib (symlink) and the real files it points to.
+    # to be copied to CMAKE_PACKAGED_INSTALL_DIR.
     #
-    # The subfolders cmake and pkgconfig are excluded as they will be empty.
+    # The subfolder cmake is excluded as it will be empty.
     # Note: The following CMake Issue suggests enabling an option to exclude all
     # folders that would be empty after installation:
     # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
