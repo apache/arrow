@@ -56,7 +56,7 @@ class TestingTimeUsagePrinter : public testing::EmptyTestEventListener {
       return a.time_used > b.time_used;
     });
     std::cout << "Top 20 slowest tests:" << std::endl;
-    for (int i = 0; i < std::max(20, static_cast<int>(testing_time_ms.size())); ++i) {
+    for (int i = 0; i < std::min(20, static_cast<int>(testing_time_ms.size())); ++i) {
       std::cout << "Test: " << testing_time_ms[i].name << " " << testing_time_ms[i].time_used << "(ms)" << std::endl;
     }
   }

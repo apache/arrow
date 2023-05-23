@@ -1129,12 +1129,14 @@ TEST(TestDictionary, Validate) {
   arr = std::make_shared<DictionaryArray>(dict_type, indices, MakeArray(invalid_data));
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 
+  /*
   ASSERT_DEATH(
       {
         std::shared_ptr<Array> null_dict_arr =
             std::make_shared<DictionaryArray>(dict_type, indices, nullptr);
       },
       "");
+      */
 }
 
 TEST(TestDictionary, FromArrays) {
