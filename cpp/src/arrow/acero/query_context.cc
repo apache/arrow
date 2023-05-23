@@ -24,7 +24,7 @@ using arrow::internal::CpuInfo;
 namespace acero {
 
 namespace {
-io::IOContext GetIoContext(QueryOptions& opts, const ExecContext& exec_context) {
+io::IOContext GetIoContext(const QueryOptions& opts, const ExecContext& exec_context) {
   if (opts.custom_io_executor == nullptr) {
     return io::IOContext(exec_context.memory_pool());
   }
