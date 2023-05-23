@@ -103,8 +103,10 @@ public final class AceroSubstraitConsumer {
       );
       return Data.importArrayStream(this.allocator, streamOutput);
     } finally {
-      for (ArrowArrayStream stream : arrowArrayStream) {
-        stream.close();
+      try {
+        AutoCloseables.close(arrowArrayStream);
+      } catch (Exception e) {
+        throw new RuntimeException(e);
       }
     }
   }
@@ -124,8 +126,6 @@ public final class AceroSubstraitConsumer {
     } finally {
       try {
         AutoCloseables.close(arrowArrayStream);
-      } catch (RuntimeException e) {
-        throw e;
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
