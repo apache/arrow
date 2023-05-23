@@ -95,6 +95,10 @@ static const std::vector<Id> kFunctionIds = {
     {kSubstraitArithmeticFunctionsUri, "add"},
 };
 
+static const std::vector<Id> kAggregateIds = {
+    {kSubstraitArithmeticFunctionsUri, "sum"},
+};
+
 static const std::vector<std::string_view> kTempFunctionNames = {
     "temp_func_1",
     "temp_func_2",
@@ -108,6 +112,13 @@ static const std::vector<TypeName> kTempTypeNames = {
 static Id kNonExistentId{kArrowExtTypesUri, "non_existent"};
 static TypeName kNonExistentTypeName{timestamp(TimeUnit::SECOND, "non_existent_tz_1"),
                                      "non_existent_type_1"};
+
+ExtensionIdRegistry::SubstraitAggregateToArrow MakeSubstraitAggregateToArrow(
+    const std::string& name) {
+  return [&name](const SubstraitCall& call) -> Result<arrow::compute::Aggregate> {
+    return arrow::compute::Aggregate{std::string(call.id().name), std::string(name)};
+  };
+}
 
 using ExtensionIdRegistryParams =
     std::tuple<std::shared_ptr<ExtensionIdRegistryProvider>, std::string>;
@@ -168,6 +179,32 @@ TEST_P(ExtensionIdRegistryTest, ReregisterFunctions) {
   }
 }
 
+TEST_P(ExtensionIdRegistryTest, GetAggregates) {
+  auto provider = std::get<0>(GetParam());
+  auto registry = provider->get();
+
+  for (Id func_id : kAggregateIds) {
+    ASSERT_OK_AND_ASSIGN(auto converter, registry->GetSubstraitAggregateToArrow(func_id));
+    ASSERT_TRUE(converter);
+  }
+  ASSERT_RAISES(NotImplemented, registry->GetSubstraitAggregateToArrow(kNonExistentId));
+  ASSERT_FALSE(registry->GetType(kNonExistentId));
+  ASSERT_FALSE(registry->GetType(*kNonExistentTypeName.type));
+}
+
+TEST_P(ExtensionIdRegistryTest, ReregisterAggregates) {
+  auto provider = std::get<0>(GetParam());
+  auto registry = provider->get();
+
+  for (Id function_id : kAggregateIds) {
+    ASSERT_RAISES(Invalid, registry->CanAddSubstraitAggregateToArrow(function_id));
+    ASSERT_RAISES(
+        Invalid,
+        registry->AddSubstraitAggregateToArrow(
+            function_id, MakeSubstraitAggregateToArrow(std::string(function_id.name))));
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(
     Substrait, ExtensionIdRegistryTest,
     testing::Values(
@@ -221,6 +258,24 @@ TEST(ExtensionIdRegistryTest, RegisterTempFunctions) {
       ASSERT_RAISES(Invalid, registry->CanAddSubstraitCallToArrow(id));
       ASSERT_RAISES(Invalid, registry->AddSubstraitCallToArrow(id, std::string(name)));
       ASSERT_OK(default_registry->CanAddSubstraitCallToArrow(id));
+    }
+  }
+}
+
+TEST(ExtensionIdRegistryTest, RegisterTempAggregates) {
+  auto default_registry = default_extension_id_registry();
+  constexpr int rounds = 3;
+  for (int i = 0; i < rounds; i++) {
+    auto registry = MakeExtensionIdRegistry();
+
+    for (std::string_view name : kTempFunctionNames) {
+      auto id = Id{kArrowExtTypesUri, name};
+      auto converter = MakeSubstraitAggregateToArrow(std::string(name));
+      ASSERT_OK(registry->CanAddSubstraitAggregateToArrow(id));
+      ASSERT_OK(registry->AddSubstraitAggregateToArrow(id, converter));
+      ASSERT_RAISES(Invalid, registry->CanAddSubstraitAggregateToArrow(id));
+      ASSERT_RAISES(Invalid, registry->AddSubstraitAggregateToArrow(id, converter));
+      ASSERT_OK(default_registry->CanAddSubstraitAggregateToArrow(id));
     }
   }
 }
@@ -283,6 +338,56 @@ TEST(ExtensionIdRegistryTest, RegisterNestedFunctions) {
     ASSERT_RAISES(Invalid, registry1->AddSubstraitCallToArrow(id1, std::string(name1)));
     ASSERT_OK(default_registry->CanAddSubstraitCallToArrow(id1));
   }
+}
+
+TEST(ExtensionIdRegistryTest, RegisterNestedAggregates) {
+  std::string_view name1 = kTempFunctionNames[0];
+  std::string_view name2 = kTempFunctionNames[1];
+  auto id1 = Id{kArrowExtTypesUri, name1};
+  auto id2 = Id{kArrowExtTypesUri, name2};
+  auto converter1 = MakeSubstraitAggregateToArrow(std::string(name1));
+  auto converter2 = MakeSubstraitAggregateToArrow(std::string(name2));
+
+  auto default_registry = default_extension_id_registry();
+  constexpr int rounds = 3;
+  for (int i = 0; i < rounds; i++) {
+    auto registry1 = MakeExtensionIdRegistry();
+
+    ASSERT_OK(registry1->CanAddSubstraitAggregateToArrow(id1));
+    ASSERT_OK(registry1->AddSubstraitAggregateToArrow(id1, converter1));
+
+    for (int j = 0; j < rounds; j++) {
+      auto registry2 = MakeExtensionIdRegistry();
+
+      ASSERT_OK(registry2->CanAddSubstraitAggregateToArrow(id2));
+      ASSERT_OK(registry2->AddSubstraitAggregateToArrow(id2, converter2));
+      ASSERT_RAISES(Invalid, registry2->CanAddSubstraitAggregateToArrow(id2));
+      ASSERT_RAISES(Invalid, registry2->AddSubstraitAggregateToArrow(id2, converter2));
+      ASSERT_OK(default_registry->CanAddSubstraitAggregateToArrow(id2));
+    }
+
+    ASSERT_RAISES(Invalid, registry1->CanAddSubstraitAggregateToArrow(id1));
+    ASSERT_RAISES(Invalid, registry1->AddSubstraitAggregateToArrow(id1, converter1));
+    ASSERT_OK(default_registry->CanAddSubstraitAggregateToArrow(id1));
+  }
+}
+
+TEST(ExtensionIdRegistryTest, GetSimpleExtension) {
+  auto default_registry = default_extension_id_registry();
+  std::string call_name("does_not_matter");
+  SubstraitCall call{Id{kArrowSimpleExtensionFunctionsUri, call_name}, int32(),
+                     /*output_nullable=*/false};
+  call.SetValueArg(0, arrow::compute::field_ref("anything_goes"));
+  ASSERT_OK_AND_ASSIGN(auto func_converter,
+                       default_registry->GetSubstraitCallToArrow(call.id()));
+  ASSERT_OK_AND_ASSIGN(arrow::compute::Expression func_expr, func_converter(call));
+  const arrow::compute::Expression::Call* func_call = func_expr.call();
+  ASSERT_TRUE(func_call);
+  ASSERT_EQ(call_name, func_call->function_name);
+  ASSERT_OK_AND_ASSIGN(auto aggr_converter,
+                       default_registry->GetSubstraitAggregateToArrow(call.id()));
+  ASSERT_OK_AND_ASSIGN(arrow::compute::Aggregate aggr, aggr_converter(call));
+  ASSERT_EQ(call_name, aggr.function);
 }
 
 }  // namespace engine

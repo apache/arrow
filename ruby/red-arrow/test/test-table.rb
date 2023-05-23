@@ -589,6 +589,13 @@ class TableTest < Test::Unit::TestCase
 0	1
       TABLE
     end
+
+    test("empty result") do
+      selected_table = @table.filter([false] * @table.size).select_columns(:a)
+      assert_equal(<<-TABLE, selected_table.to_s)
+	a
+      TABLE
+    end
   end
 
   sub_test_case("#column_names") do

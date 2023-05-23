@@ -339,6 +339,9 @@ const int* GetIndex(const KeyToIndex& key_to_index, const Key& key) {
 
 namespace {
 
+ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
+    const std::string& arrow_function_name);
+
 ExtensionIdRegistry::SubstraitCallToArrow kSimpleSubstraitToArrow =
     [](const SubstraitCall& call) -> Result<::arrow::compute::Expression> {
   std::vector<::arrow::compute::Expression> args;
@@ -353,6 +356,11 @@ ExtensionIdRegistry::SubstraitCallToArrow kSimpleSubstraitToArrow =
     args.push_back(std::move(arg));
   }
   return ::arrow::compute::call(std::string(call.id().name), std::move(args));
+};
+
+ExtensionIdRegistry::SubstraitAggregateToArrow kSimpleSubstraitAggregateToArrow =
+    [](const SubstraitCall& call) -> Result<::arrow::compute::Aggregate> {
+  return DecodeBasicAggregate(std::string(call.id().name))(call);
 };
 
 struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
@@ -592,6 +600,9 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 
   Result<SubstraitAggregateToArrow> GetSubstraitAggregateToArrow(
       Id substrait_function_id) const override {
+    if (substrait_function_id.uri == kArrowSimpleExtensionFunctionsUri) {
+      return kSimpleSubstraitAggregateToArrow;
+    }
     auto maybe_converter = substrait_to_arrow_agg_.find(substrait_function_id);
     if (maybe_converter == substrait_to_arrow_agg_.end()) {
       if (parent_) {
@@ -1102,9 +1113,15 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
                                            DecodeBasicAggregate("mean")));
     DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, "std_dev"},
                                            DecodeBasicAggregate("stddev")));
-    DCHECK_OK(
-        AddSubstraitAggregateToArrow({kSubstraitAggregateGenericFunctionsUri, "count"},
-                                     DecodeBasicAggregate("count")));
+    for (const auto& fn_name : {"count"}) {
+      DCHECK_OK(
+          AddSubstraitAggregateToArrow({kSubstraitAggregateGenericFunctionsUri, fn_name},
+                                       DecodeBasicAggregate(fn_name)));
+    }
+    for (const auto& fn_name : {"first", "last"}) {
+      DCHECK_OK(AddSubstraitAggregateToArrow({kArrowSimpleExtensionFunctionsUri, fn_name},
+                                             DecodeBasicAggregate(fn_name)));
+    }
 
     // --------------- Arrow -> Substrait Functions ---------------
     for (const auto& fn_name : {"add", "subtract", "multiply", "divide"}) {

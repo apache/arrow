@@ -1,9 +1,4 @@
-40a41,44
-> #if defined(_MSC_VER)
-> #pragma warning(disable : 4244)
-> #endif
-> 
-84c88,106
+82c82,100
 <   if (length != 1) {
 ---
 > 
@@ -24,4 +19,4 @@
 >           result_builder->AddCharacter('0');
 >       }
 >     }
->   } else {
+>   } else { 

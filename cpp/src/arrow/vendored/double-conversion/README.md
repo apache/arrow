@@ -17,7 +17,7 @@
   under the License.
 -->
 
-The files in this directory are vendored from double-conversion git tag v3.1.5
+The files in this directory are vendored from double-conversion git tag v3.2.1
 
 To update, run:
 
@@ -28,7 +28,7 @@ To update, run:
 For example:
 
 ```
-./update.sh 3.1.5
+./update.sh 3.2.1
 ```
 
 If there are errors patching changes, you may have to manually intervene and resolve patch errors.
