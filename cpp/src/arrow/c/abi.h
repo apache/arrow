@@ -104,40 +104,40 @@ struct ArrowArray {
 typedef int32_t ArrowDeviceType;
 
 /// \brief CPU device, same as using ArrowArray directly
-#define ARROW_DEVICE_CPU = 1
+#define ARROW_DEVICE_CPU 1
 /// \brief CUDA GPU Device
-#define ARROW_DEVICE_CUDA = 2
+#define ARROW_DEVICE_CUDA 2
 /// \brief Pinned CUDA CPU memory by cudaMallocHost
-#define ARROW_DEVICE_CUDA_HOST = 3
+#define ARROW_DEVICE_CUDA_HOST 3
 /// \brief OpenCL Device
-#define ARROW_DEVICE_OPENCL = 4
+#define ARROW_DEVICE_OPENCL 4
 /// \brief Vulkan buffer for next-gen graphics
-#define ARROW_DEVICE_VULKAN = 7
+#define ARROW_DEVICE_VULKAN 7
 /// \brief Metal for Apple GPU
-#define ARROW_DEVICE_METAL = 8
+#define ARROW_DEVICE_METAL 8
 /// \brief Verilog simulator buffer
-#define ARROW_DEVICE_VPI = 9
+#define ARROW_DEVICE_VPI 9
 /// \brief ROCm GPUs for AMD GPUs
-#define ARROW_DEVICE_ROCM = 10
+#define ARROW_DEVICE_ROCM 10
 /// \brief Pinned ROCm CPU memory allocated by hipMallocHost
-#define ARROW_DEVICE_ROCM_HOST = 11
+#define ARROW_DEVICE_ROCM_HOST 11
 /// \brief Reserved for extension
 ///
 /// used to quickly test extension devices, semantics
 /// can differ based on the implementation
-#define ARROW_DEVICE_EXT_DEV = 12
+#define ARROW_DEVICE_EXT_DEV 12
 /// \brief CUDA managed/unified memory allocated by cudaMallocManaged
-#define ARROW_DEVICE_CUDA_MANAGED = 13
+#define ARROW_DEVICE_CUDA_MANAGED 13
 /// \brief unified shared memory allocated on a oneAPI
 /// non-partitioned device.
 ///
 /// A call to the oneAPI runtime is required to determine the device
 /// type, the USM allocation type, and the sycl context it is bound to.
-#define ARROW_DEVICE_ONEAPI = 14
+#define ARROW_DEVICE_ONEAPI 14
 /// \brief GPU support for next-gen WebGPU standard
-#define ARROW_DEVICE_WEBGPU = 15
+#define ARROW_DEVICE_WEBGPU 15
 /// \brief Qualcomm Hexagon DSP
-#define ARROW_DEVICE_HEXAGON = 16
+#define ARROW_DEVICE_HEXAGON 16
 
 /// @}
 
@@ -182,7 +182,7 @@ struct ArrowDeviceArray {
   ///   OpenCL: cl_event*
   ///   Vulkan: VkEvent*
   ///   Metal: MTLEvent*
-  ///   OneAPI: syscl::event*
+  ///   OneAPI: sycl::event*
   ///
   void* sync_event;
   /// \brief Reserved bytes for future expansion.
@@ -252,9 +252,10 @@ struct ArrowDeviceArrayStream {
   ///
   /// All ArrowDeviceArrays that are produced by this
   /// stream should have the same device_type as set
-  /// here. The device_type needs to be provided here
-  /// so that consumers can provide the correct type
-  /// of queue_ptr when calling get_next.
+  /// here. Including it here in the stream object is
+  /// a convenience to allow consumers simpler processing
+  /// since they can assume all arrays that result from
+  /// this stream to be on this device type.
   ArrowDeviceType device_type;
 
   /// \brief Callback to get the stream schema
