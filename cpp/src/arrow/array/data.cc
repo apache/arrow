@@ -237,15 +237,15 @@ BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
 }
 
 template <typename RunEndType>
-void FillRunEndsArrayForScalar(ArraySpan* span, std::shared_ptr<DataType> run_end_type) {
+void FillRunEndsArrayForScalar(ArraySpan* span, const DataType* run_end_type) {
   using RunEndCType = typename RunEndType::c_type;
   auto buffer = reinterpret_cast<RunEndCType*>(span->scratch_space);
   buffer[0] = static_cast<RunEndCType>(1);
-  auto data_buffer =
-      std::make_shared<Buffer>(reinterpret_cast<uint8_t*>(buffer), sizeof(RunEndCType));
-  auto data =
-      ArrayData::Make(std::move(run_end_type), 1, {nullptr, std::move(data_buffer)}, 0);
-  span->SetMembers(*data);
+  span->type = run_end_type;
+  span->length = 1;
+  span->null_count = 0;
+  span->buffers[1].data = reinterpret_cast<uint8_t*>(buffer);
+  span->buffers[1].size = sizeof(RunEndCType);
 }
 
 int GetNumBuffers(const DataType& type) {
@@ -449,14 +449,14 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     auto& run_end_type = scalar.run_end_type();
     switch (run_end_type->id()) {
       case Type::INT16:
-        FillRunEndsArrayForScalar<Int16Type>(&this->child_data[0], run_end_type);
+        FillRunEndsArrayForScalar<Int16Type>(&this->child_data[0], run_end_type.get());
         break;
       case Type::INT32:
-        FillRunEndsArrayForScalar<Int32Type>(&this->child_data[0], run_end_type);
+        FillRunEndsArrayForScalar<Int32Type>(&this->child_data[0], run_end_type.get());
         break;
       default:
         DCHECK_EQ(run_end_type->id(), Type::INT64);
-        FillRunEndsArrayForScalar<Int64Type>(&this->child_data[0], run_end_type);
+        FillRunEndsArrayForScalar<Int64Type>(&this->child_data[0], run_end_type.get());
     }
     this->child_data[1].FillFromScalar(*scalar.value);
   } else if (type_id == Type::EXTENSION) {
