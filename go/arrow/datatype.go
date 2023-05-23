@@ -210,6 +210,11 @@ type BinaryDataType interface {
 	binary()
 }
 
+type BinaryViewDataType interface {
+	BinaryDataType
+	view()
+}
+
 type OffsetsDataType interface {
 	DataType
 	OffsetTypeTraits() OffsetTraits

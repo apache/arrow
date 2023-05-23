@@ -218,6 +218,7 @@ func (*BinaryViewType) Name() string          { return "binary_view" }
 func (*BinaryViewType) String() string        { return "binary_view" }
 func (*BinaryViewType) IsUtf8() bool          { return false }
 func (*BinaryViewType) binary()               {}
+func (*BinaryViewType) view()                 {}
 func (t *BinaryViewType) Fingerprint() string { return typeFingerprint(t) }
 func (*BinaryViewType) Layout() DataTypeLayout {
 	variadic := SpecVariableWidth()
@@ -232,6 +233,7 @@ func (*StringViewType) Name() string          { return "string_view" }
 func (*StringViewType) String() string        { return "string_view" }
 func (*StringViewType) IsUtf8() bool          { return true }
 func (*StringViewType) binary()               {}
+func (*StringViewType) view()                 {}
 func (t *StringViewType) Fingerprint() string { return typeFingerprint(t) }
 func (*StringViewType) Layout() DataTypeLayout {
 	variadic := SpecVariableWidth()
