@@ -49,8 +49,9 @@ Computation inputs are represented as a general :class:`Datum` class,
 which is a tagged union of several shapes of data such as :class:`Scalar`,
 :class:`Array` and :class:`ChunkedArray`.  Many compute functions support
 both array (chunked or not) and scalar inputs, however some will mandate
-either.  For example, while ``sort_indices`` requires its first and only
-input to be an array.
+particular input types. For example, while ``array_sort_indices`` requires its 
+first and only input to be an array, the generalized ``sort_indices`` 
+function accepts an array, chunked array, record batch or table.
 
 .. _invoking-compute-functions:
 
