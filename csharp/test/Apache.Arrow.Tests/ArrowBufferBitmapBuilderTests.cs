@@ -83,7 +83,7 @@ namespace Apache.Arrow.Tests
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
                 int initialCapacity = builder.Capacity;
-                builder.AppendRange(Enumerable.Repeat(true, initialCapacity)); // Fill to capacity.
+                builder.AppendRange(true, initialCapacity); // Fill to capacity.
 
                 // Act
                 var actualReturnValue = builder.Append(true);
@@ -136,7 +136,7 @@ namespace Apache.Arrow.Tests
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
-                builder.AppendRange(Enumerable.Repeat(true, 8));
+                builder.AppendRange(true, 8);
 
                 // Act
                 var actualReturnValue = builder.Append(new Span<byte>(bytesToAppend), validBits);
@@ -162,7 +162,7 @@ namespace Apache.Arrow.Tests
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
-                builder.AppendRange(Enumerable.Repeat(true, 9));
+                builder.AppendRange(true, 9);
 
                 // Act
                 var actualReturnValue = builder.Append(new Span<byte>(bytesToAppend), validBits);
@@ -180,7 +180,7 @@ namespace Apache.Arrow.Tests
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
-                builder.AppendRange(Enumerable.Repeat(true, 8));
+                builder.AppendRange(true, 8);
 
                 // Act
                 var actualReturnValue = builder.Append(Span<byte>.Empty, 8);
@@ -198,7 +198,7 @@ namespace Apache.Arrow.Tests
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder();
-                builder.AppendRange(Enumerable.Repeat(true, 8));
+                builder.AppendRange(true, 8);
 
                 // Act
                 Assert.Throws<ArgumentException>(() => builder.Append(new byte[] { 0b0010111 }, 9));
@@ -213,7 +213,7 @@ namespace Apache.Arrow.Tests
             [InlineData(new bool[] {}, new[] { true, false }, 2, 1, 1)]
             [InlineData(new[] { true, false }, new bool[] {}, 2, 1, 1)]
             [InlineData(new[] { true, false }, new[] { true, false }, 4, 2, 2)]
-            public void IncreasesLength(
+            public void AppendingEnumerableIncreasesLength(
                 bool[] initialContents,
                 bool[] toAppend,
                 int expectedLength,
@@ -226,6 +226,35 @@ namespace Apache.Arrow.Tests
 
                 // Act
                 var actualReturnValue = builder.AppendRange(toAppend);
+
+                // Assert
+                Assert.Equal(builder, actualReturnValue);
+                Assert.Equal(expectedLength, builder.Length);
+                Assert.True(builder.Capacity >= expectedLength);
+                Assert.Equal(expectedSetBitCount, builder.SetBitCount);
+                Assert.Equal(expectedUnsetBitCount, builder.UnsetBitCount);
+            }
+
+            [Theory]
+            [InlineData(new bool[] { }, true, 0, 0, 0, 0)]
+            [InlineData(new bool[] { }, true, 2, 2, 2, 0)]
+            [InlineData(new[] { true, false }, false, 0, 2, 1, 1)]
+            [InlineData(new[] { true, false }, false, 2, 4, 1, 3)]
+            [InlineData(new[] { true, false }, true, 2, 4, 3, 1)]
+            public void AppendingValueMultipleTimesIncreasesLength(
+                bool[] initialContents,
+                bool valueToAppend,
+                int numberOfTimes,
+                int expectedLength,
+                int expectedSetBitCount,
+                int expectedUnsetBitCount)
+            {
+                // Arrange
+                var builder = new ArrowBuffer.BitmapBuilder();
+                builder.AppendRange(initialContents);
+
+                // Act
+                var actualReturnValue = builder.AppendRange(valueToAppend, numberOfTimes);
 
                 // Assert
                 Assert.Equal(builder, actualReturnValue);
@@ -329,7 +358,7 @@ namespace Apache.Arrow.Tests
             {
                 // Arrange
                 var builder = new ArrowBuffer.BitmapBuilder(initialCapacity);
-                builder.AppendRange(Enumerable.Repeat(true, numBitsToAppend));
+                builder.AppendRange(true, numBitsToAppend);
 
                 // Act
                 var actualReturnValue = builder.Reserve(additionalCapacity);

@@ -69,7 +69,7 @@ func (a *List) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -191,6 +191,7 @@ func (a *LargeList) ValueStr(i int) string {
 	}
 	return string(a.GetOneForMarshal(i).(json.RawMessage))
 }
+
 func (a *LargeList) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -199,7 +200,7 @@ func (a *LargeList) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -547,8 +548,12 @@ func (b *baseListBuilder) newData() (data *Data) {
 }
 
 func (b *baseListBuilder) AppendValueFromString(s string) error {
-	dec := json.NewDecoder(strings.NewReader(s))
-	return b.UnmarshalOne(dec)
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	return b.UnmarshalOne(json.NewDecoder(strings.NewReader(s)))
 }
 
 func (b *baseListBuilder) UnmarshalOne(dec *json.Decoder) error {

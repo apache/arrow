@@ -31,6 +31,11 @@ from ..utils.logger import logger
 from ..utils.command import Command, capture_stdout, default_bin
 
 
+class PythonCommand(Command):
+    def __init__(self, python_bin=None):
+        self.bin = default_bin(python_bin, "python")
+
+
 class Flake8(Command):
     def __init__(self, flake8_bin=None):
         self.bin = default_bin(flake8_bin, "flake8")

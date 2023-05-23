@@ -132,6 +132,7 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
     }
     holder.isSet = 1;
     holder.value = valueBuffer.getLong((long) index * TYPE_WIDTH);
+    holder.timezone = timeZone;
   }
 
   /**
@@ -167,6 +168,9 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
   public void set(int index, NullableTimeStampMicroTZHolder holder) throws IllegalArgumentException {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
+    } else if (!this.timeZone.equals(holder.timezone)) {
+      throw new IllegalArgumentException(
+          String.format("holder.timezone: %s not equal to vector timezone: %s", holder.timezone, this.timeZone));
     } else if (holder.isSet > 0) {
       BitVectorHelper.setBit(validityBuffer, index);
       setValue(index, holder.value);
@@ -182,6 +186,10 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
    * @param holder  data holder for value of element
    */
   public void set(int index, TimeStampMicroTZHolder holder) {
+    if (!this.timeZone.equals(holder.timezone)) {
+      throw new IllegalArgumentException(
+          String.format("holder.timezone: %s not equal to vector timezone: %s", holder.timezone, this.timeZone));
+    }
     BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, holder.value);
   }

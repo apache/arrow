@@ -22,18 +22,58 @@ public class ChunkedArrayHolder {
     public let length: UInt
     public let nullCount: UInt
     public let holder: Any
-            
+    public let getBufferData: () throws -> [Data]
+    public let getBufferDataSizes: () throws -> [Int]
     public init<T>(_ chunked: ChunkedArray<T>) {
         self.holder = chunked
         self.length = chunked.length
         self.type = chunked.type
         self.nullCount = chunked.nullCount
+        self.getBufferData = {() throws -> [Data] in 
+            var bufferData = [Data]()
+            var numBuffers = 2;
+            if !isFixedPrimitive(try toFBTypeEnum(chunked.type)) {
+                numBuffers = 3
+            }
+
+            for _ in 0 ..< numBuffers {
+                bufferData.append(Data())
+            }
+
+            for arrow_data in chunked.arrays {
+                for index in 0 ..< numBuffers {
+                    arrow_data.arrowData.buffers[index].append(to: &bufferData[index])
+                }
+            }
+
+            return bufferData;
+        }
+        
+        self.getBufferDataSizes = {() throws -> [Int] in
+            var bufferDataSizes = [Int]()
+            var numBuffers = 2;
+            if !isFixedPrimitive(try toFBTypeEnum(chunked.type)) {
+                numBuffers = 3
+            }
+            for _ in 0 ..< numBuffers {
+                bufferDataSizes.append(Int(0))
+            }
+            
+            for arrow_data in chunked.arrays {
+                for index in 0 ..< numBuffers {
+                    bufferDataSizes[index] += Int(arrow_data.arrowData.buffers[index].capacity);
+                }
+            }
+
+            return bufferDataSizes;
+        }
+
     }
 }
 
 public class ArrowColumn {
     public let field: ArrowField
-    private let dataHolder: ChunkedArrayHolder
+    fileprivate let dataHolder: ChunkedArrayHolder
     public var type: ArrowType.Info {get{return self.dataHolder.type}}
     public var length: UInt {get{return self.dataHolder.length}}
     public var nullCount: UInt {get{return self.dataHolder.nullCount}}
@@ -60,6 +100,15 @@ public class ArrowTable {
         self.rowCount = columns[0].length
     }
     
+    public func toRecordBatch() -> RecordBatch {
+        var rbColumns = [ChunkedArrayHolder]()
+        for column in self.columns {
+            rbColumns.append(column.dataHolder)
+        }
+        
+        return RecordBatch(schema, columns: rbColumns)
+    }
+    
     public class Builder {
         let schemaBuilder = ArrowSchema.Builder()
         var columns = [ArrowColumn]()
@@ -70,19 +119,19 @@ public class ArrowTable {
 
         public func addColumn<T>(_ fieldName: String, chunked: ChunkedArray<T>) -> Builder {
             let field = ArrowField(fieldName, type: chunked.type, isNullable: chunked.nullCount != 0)
-            self.schemaBuilder.addField(field)
+            let _ = self.schemaBuilder.addField(field)
             self.columns.append(ArrowColumn(field, chunked: chunked))
             return self
         }
 
         public func addColumn<T>(_ field: ArrowField, arrowArray: ArrowArray<T>) throws -> Builder {
-            self.schemaBuilder.addField(field)
+            let _ = self.schemaBuilder.addField(field)
             self.columns.append(ArrowColumn(field, chunked: try ChunkedArray([arrowArray])))
             return self
         }
 
         public func addColumn<T>(_ field: ArrowField, chunked: ChunkedArray<T>) -> Builder {
-            self.schemaBuilder.addField(field)
+            let _ = self.schemaBuilder.addField(field)
             self.columns.append(ArrowColumn(field, chunked: chunked))
             return self
         }
@@ -107,6 +156,33 @@ public class RecordBatch {
         self.schema = schema
         self.columns = columns
         self.length = columns[0].length
+    }
+    
+    public class Builder {
+        let schemaBuilder = ArrowSchema.Builder()
+        var columns = [ChunkedArrayHolder]()
+        
+        public func addColumn(_ fieldName: String, chunked: ChunkedArrayHolder) -> Builder {
+            let field = ArrowField(fieldName, type: chunked.type, isNullable: chunked.nullCount != 0)
+            let _ = self.schemaBuilder.addField(field)
+            self.columns.append(chunked)
+            return self
+        }
+
+        public func addColumn(_ field: ArrowField, chunked: ChunkedArrayHolder) -> Builder {
+            let _ = self.schemaBuilder.addField(field)
+            self.columns.append(chunked)
+            return self
+        }
+
+        public func finish() -> RecordBatch {
+            return RecordBatch(self.schemaBuilder.finish(), columns: self.columns)
+        }
+    }
+    
+    public func data<T>(for columnIndex: Int) -> ChunkedArray<T> {
+        let arrayHolder = column(columnIndex)
+        return (arrayHolder.holder as! ChunkedArray<T>)
     }
     
     public func column(_ index: Int) -> ChunkedArrayHolder {
