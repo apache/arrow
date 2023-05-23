@@ -139,6 +139,27 @@ namespace Apache.Arrow
             }
 
             /// <summary>
+            /// Append multiple bits.
+            /// </summary>
+            /// <param name="value">Value of bits to append.</param>
+            /// <param name="length">Number of times the value should be added.</param>
+            /// <returns>Returns the builder (for fluent-style composition).</returns>
+            public BitmapBuilder AppendRange(bool value, int length)
+            {
+                if (length < 0)
+                    throw new ArgumentOutOfRangeException(nameof(length));
+
+                EnsureAdditionalCapacity(length);
+                Span<byte> span = Span;
+                BitUtility.SetBits(span, Length, length, value);
+
+                Length += length;
+                SetBitCount += value ? length : 0;
+
+                return this;
+            }
+
+            /// <summary>
             /// Toggle the bit at a particular index.
             /// </summary>
             /// <param name="index">Index of bit to toggle.</param>
