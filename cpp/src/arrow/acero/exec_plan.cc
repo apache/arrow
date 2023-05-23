@@ -359,7 +359,7 @@ std::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
   return std::nullopt;
 }
 
-const std::string kAceroAlignmentHandlingEnvVar = "ACERO_ALIGNMENT_HANDLING";
+const char* kAceroAlignmentHandlingEnvVar = "ACERO_ALIGNMENT_HANDLING";
 
 UnalignedBufferHandling DetermineDefaultUnalignedBufferHandling() {
   auto maybe_value = ::arrow::internal::GetEnvVar(kAceroAlignmentHandlingEnvVar);
