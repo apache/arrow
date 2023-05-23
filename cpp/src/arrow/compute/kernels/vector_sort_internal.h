@@ -468,7 +468,13 @@ Result<NullPartitionResult> SortChunkedArray(
 // Helpers for Sort/SelectK/Rank implementations
 
 struct SortField {
-  int field_index;
+  SortField() = default;
+  SortField(FieldPath path, SortOrder order) : path(std::move(path)), order(order) {}
+  SortField(int index, SortOrder order) : SortField(FieldPath({index}), order) {}
+
+  bool is_nested() const { return path.indices().size() > 1; }
+
+  FieldPath path;
   SortOrder order;
 };
 
@@ -496,7 +502,10 @@ Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
   ARROW_ASSIGN_OR_RAISE(const auto fields, FindSortKeys(schema, sort_keys));
   std::vector<ResolvedSortKey> resolved;
   resolved.reserve(fields.size());
-  std::transform(fields.begin(), fields.end(), std::back_inserter(resolved), factory);
+  for (const auto& f : fields) {
+    ARROW_ASSIGN_OR_RAISE(auto resolved_key, factory(f));
+    resolved.push_back(std::move(resolved_key));
+  }
   return resolved;
 }
 
@@ -504,8 +513,13 @@ template <typename ResolvedSortKey, typename TableOrBatch>
 Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
     const TableOrBatch& table_or_batch, const std::vector<SortKey>& sort_keys) {
   return ResolveSortKeys<ResolvedSortKey>(
-      *table_or_batch.schema(), sort_keys, [&](const SortField& f) {
-        return ResolvedSortKey{table_or_batch.column(f.field_index), f.order};
+      *table_or_batch.schema(), sort_keys,
+      [&](const SortField& f) -> Result<ResolvedSortKey> {
+        if (f.is_nested()) {
+          ARROW_ASSIGN_OR_RAISE(auto child, f.path.GetFlattened(table_or_batch));
+          return ResolvedSortKey{std::move(child), f.order};
+        }
+        return ResolvedSortKey{table_or_batch.column(f.path[0]), f.order};
       });
 }
 
@@ -737,17 +751,32 @@ struct ResolvedTableSortKey {
   static Result<std::vector<ResolvedTableSortKey>> Make(
       const Table& table, const RecordBatchVector& batches,
       const std::vector<SortKey>& sort_keys) {
-    auto factory = [&](const SortField& f) {
-      const auto& type = table.schema()->field(f.field_index)->type();
+    auto factory = [&](const SortField& f) -> Result<ResolvedTableSortKey> {
+      std::shared_ptr<DataType> type;
+      int64_t null_count = 0;
+      ArrayVector chunks;
+      chunks.reserve(batches.size());
+
       // We must expose a homogenous chunking for all ResolvedSortKey,
-      // so we can't simply pass `table.column(f.field_index)`
-      ArrayVector chunks(batches.size());
-      std::transform(batches.begin(), batches.end(), chunks.begin(),
-                     [&](const std::shared_ptr<RecordBatch>& batch) {
-                       return batch->column(f.field_index);
-                     });
-      return ResolvedTableSortKey(type, std::move(chunks), f.order,
-                                  table.column(f.field_index)->null_count());
+      // so we can't simply access the column from the table directly.
+      if (f.is_nested()) {
+        ARROW_ASSIGN_OR_RAISE(auto schema_field, f.path.Get(*table.schema()));
+        type = schema_field->type();
+        for (const auto& batch : batches) {
+          ARROW_ASSIGN_OR_RAISE(auto child, f.path.GetFlattened(*batch));
+          null_count += child->null_count();
+          chunks.push_back(std::move(child));
+        }
+      } else {
+        null_count = table.column(f.path[0])->null_count();
+        type = table.schema()->field(f.path[0])->type();
+        std::transform(batches.begin(), batches.end(), std::back_inserter(chunks),
+                       [&](const std::shared_ptr<RecordBatch>& batch) {
+                         return batch->column(f.path[0]);
+                       });
+      }
+
+      return ResolvedTableSortKey(type, std::move(chunks), f.order, null_count);
     };
 
     return ::arrow::compute::internal::ResolveSortKeys<ResolvedTableSortKey>(

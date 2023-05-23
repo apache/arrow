@@ -2115,6 +2115,73 @@ INSTANTIATE_TEST_SUITE_P(AllNull, TestTableSortIndicesRandom,
                          testing::Combine(first_sort_keys, num_sort_keys,
                                           testing::Values(1.0)));
 
+class TestNestedSortIndices : public ::testing::Test {
+ protected:
+  static std::shared_ptr<Array> GetArray() {
+    auto child_type = struct_({field("a", uint8()), field("b", uint32())});
+    auto child_array = ArrayFromJSON(child_type,
+                                     R"([{"a": 5,    "b": null},
+                                         {"a": null, "b": 7   },
+                                         {"a": null, "b": 9   },
+                                         {"a": 2,    "b": 4   },
+                                         {"a": 5,    "b": 1   },
+                                         {"a": 3,    "b": null},
+                                         {"a": 2,    "b": 3   }
+                                         ])");
+
+    // The top-level validity bitmap is created independently to test null inheritance for
+    // child fields.
+    std::shared_ptr<Buffer> parent_bitmap;
+    ARROW_CHECK_OK(GetBitmapFromVector<bool>({1, 1, 1, 1, 1, 0, 1}, &parent_bitmap));
+
+    auto array =
+        *StructArray::Make({child_array}, {field("a", child_type)}, parent_bitmap);
+    ARROW_CHECK_OK(array->ValidateFull());
+    return array;
+  }
+
+  static std::shared_ptr<RecordBatch> GetRecordBatch() {
+    auto batch = *RecordBatch::FromStructArray(GetArray());
+    ARROW_CHECK_OK(batch->ValidateFull());
+    return batch;
+  }
+
+  static std::shared_ptr<ChunkedArray> GetChunkedArray() {
+    auto array = GetArray();
+    ArrayVector chunks(2);
+    chunks[0] = *array->SliceSafe(0, 3);
+    chunks[1] = *array->SliceSafe(3);
+    auto chunked = *ChunkedArray::Make(std::move(chunks));
+    ARROW_CHECK_OK(chunked->ValidateFull());
+    return chunked;
+  }
+
+  static std::shared_ptr<Table> GetTable() {
+    auto chunked = GetChunkedArray();
+    auto columns = *chunked->Flatten();
+    auto table =
+        Table::Make(arrow::schema(chunked->type()->fields()), std::move(columns));
+    ARROW_CHECK_OK(table->ValidateFull());
+    return table;
+  }
+
+  template <typename T>
+  void DoTest(const std::shared_ptr<T>& input) const {
+    std::vector<SortKey> sort_keys = {SortKey(FieldRef("a", "a"), SortOrder::Ascending),
+                                      SortKey(FieldRef("a", "b"), SortOrder::Descending)};
+
+    SortOptions options(sort_keys, NullPlacement::AtEnd);
+    AssertSortIndices(input, options, "[3, 6, 4, 0, 2, 1, 5]");
+    options.null_placement = NullPlacement::AtStart;
+    AssertSortIndices(input, options, "[5, 2, 1, 3, 6, 0, 4]");
+  }
+};
+
+TEST_F(TestNestedSortIndices, Array) { DoTest(GetArray()); }
+TEST_F(TestNestedSortIndices, ChunkedArray) { DoTest(GetChunkedArray()); }
+TEST_F(TestNestedSortIndices, RecordBatch) { DoTest(GetRecordBatch()); }
+TEST_F(TestNestedSortIndices, Table) { DoTest(GetTable()); }
+
 // ----------------------------------------------------------------------
 // Tests for Rank
 

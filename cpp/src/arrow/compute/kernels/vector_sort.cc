@@ -20,6 +20,9 @@
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 
+template <>
+struct std::hash<arrow::FieldPath> : public arrow::FieldPath::Hash {};
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -850,12 +853,22 @@ class SortIndicesMetaFunction : public MetaFunction {
                             ExecContext* ctx) const override {
     const SortOptions& sort_options = static_cast<const SortOptions&>(*options);
     switch (args[0].kind()) {
-      case Datum::ARRAY:
-        return SortIndices(*args[0].make_array(), sort_options, ctx);
-        break;
-      case Datum::CHUNKED_ARRAY:
-        return SortIndices(*args[0].chunked_array(), sort_options, ctx);
-        break;
+      case Datum::ARRAY: {
+        auto array = args[0].make_array();
+        if (array->type_id() == Type::STRUCT) {
+          ARROW_ASSIGN_OR_RAISE(auto batch, RecordBatch::FromStructArray(array))
+          return SortIndices(*batch, sort_options, ctx);
+        }
+        return SortIndices(*array, sort_options, ctx);
+      } break;
+      case Datum::CHUNKED_ARRAY: {
+        const auto& chunked_array = args[0].chunked_array();
+        if (chunked_array->type()->id() == Type::STRUCT) {
+          ARROW_ASSIGN_OR_RAISE(auto table, ToTable(chunked_array))
+          return SortIndices(*table, sort_options, ctx);
+        }
+        return SortIndices(*chunked_array, sort_options, ctx);
+      } break;
       case Datum::RECORD_BATCH: {
         return SortIndices(*args[0].record_batch(), sort_options, ctx);
       } break;
@@ -872,6 +885,18 @@ class SortIndicesMetaFunction : public MetaFunction {
   }
 
  private:
+  static Result<std::shared_ptr<Table>> ToTable(
+      const std::shared_ptr<ChunkedArray>& chunked_array) {
+    if (chunked_array->null_count() == 0) {
+      return Table::FromChunkedStructArray(chunked_array);
+    }
+    // We avoid using `Table::FromChunkedStructArray` here since it doesn't take top-level
+    // validity into account for the columns.
+    ARROW_ASSIGN_OR_RAISE(auto columns, chunked_array->Flatten());
+    return Table::Make(schema(chunked_array->type()->fields()), std::move(columns),
+                       chunked_array->length());
+  }
+
   Result<Datum> SortIndices(const Array& values, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
@@ -913,8 +938,9 @@ class SortIndicesMetaFunction : public MetaFunction {
       return Status::Invalid("Must specify one or more sort keys");
     }
     if (n_sort_keys == 1) {
-      ARROW_ASSIGN_OR_RAISE(auto array, PrependInvalidColumn(GetColumn(
-                                            batch, options.sort_keys[0].target)));
+      ARROW_ASSIGN_OR_RAISE(
+          auto array,
+          PrependInvalidColumn(options.sort_keys[0].target.GetOneFlattened(batch)));
       return SortIndices(*array, options, ctx);
     }
 
@@ -950,8 +976,9 @@ class SortIndicesMetaFunction : public MetaFunction {
       return Status::Invalid("Must specify one or more sort keys");
     }
     if (n_sort_keys == 1) {
-      ARROW_ASSIGN_OR_RAISE(auto chunked_array, PrependInvalidColumn(GetColumn(
-                                                    table, options.sort_keys[0].target)));
+      ARROW_ASSIGN_OR_RAISE(
+          auto chunked_array,
+          PrependInvalidColumn(options.sort_keys[0].target.GetOneFlattened(table)));
       return SortIndices(*chunked_array, options, ctx);
     }
 
@@ -979,17 +1006,15 @@ class SortIndicesMetaFunction : public MetaFunction {
 Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
                                             const std::vector<SortKey>& sort_keys) {
   std::vector<SortField> fields;
-  std::unordered_set<int> seen;
+  std::unordered_set<FieldPath> seen;
   fields.reserve(sort_keys.size());
   seen.reserve(sort_keys.size());
 
   for (const auto& sort_key : sort_keys) {
-    RETURN_NOT_OK(CheckNonNested(sort_key.target));
-
     ARROW_ASSIGN_OR_RAISE(auto match,
                           PrependInvalidColumn(sort_key.target.FindOne(schema)));
-    if (seen.insert(match[0]).second) {
-      fields.push_back({match[0], sort_key.order});
+    if (seen.insert(match).second) {
+      fields.push_back(SortField(std::move(match), sort_key.order));
     }
   }
   return fields;
