@@ -794,11 +794,9 @@ Status check_binary(SEXP x, int64_t size) {
 }
 
 template <typename T>
-class RPrimitiveConverter<T, enable_if_binary<T>>
+class RPrimitiveConverter<T, enable_if_binary_like<T>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  using OffsetType = typename T::offset_type;
-
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     RETURN_NOT_OK(this->Reserve(size - offset));
     RETURN_NOT_OK(check_binary(x, size));
@@ -811,39 +809,18 @@ class RPrimitiveConverter<T, enable_if_binary<T>>
     auto append_value = [this](SEXP raw) {
       R_xlen_t n = XLENGTH(raw);
       ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(n));
-      this->primitive_builder_->UnsafeAppend(RAW_RO(raw), static_cast<OffsetType>(n));
-      return Status::OK();
-    };
-    return VisitVector(RVectorIterator<SEXP>(x, offset), size, append_null, append_value);
-  }
 
-  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
-    auto task = [this, values, size]() { return this->Extend(values, size); };
-    tasks.Append(!ALTREP(values), std::move(task));
-  }
-};
-
-template <typename T>
-class RPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::value>>
-    : public PrimitiveConverter<T, RConverter> {
- public:
-  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
-    RETURN_NOT_OK(this->Reserve(size - offset));
-    RETURN_NOT_OK(check_binary(x, size));
-
-    auto append_null = [this]() {
-      this->primitive_builder_->UnsafeAppendNull();
-      return Status::OK();
-    };
-
-    auto append_value = [this](SEXP raw) {
-      R_xlen_t n = XLENGTH(raw);
-
-      if (n != this->primitive_builder_->byte_width()) {
-        return Status::Invalid("invalid size");
+      if constexpr (std::is_same_v<T, FixedSizeBinaryType>) {
+        if (n != this->primitive_builder_->byte_width()) {
+          return Status::Invalid("invalid size");
+        }
+        this->primitive_builder_->UnsafeAppend(RAW_RO(raw));
+      } else if constexpr (std::is_same_v<T, BinaryViewType>) {
+        this->primitive_builder_->UnsafeAppend(RAW_RO(raw), static_cast<int64_t>(n));
+      } else {
+        this->primitive_builder_->UnsafeAppend(RAW_RO(raw),
+                                               static_cast<typename T::offset_type>(n));
       }
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->ReserveData(n));
-      this->primitive_builder_->UnsafeAppend(RAW_RO(raw));
       return Status::OK();
     };
     return VisitVector(RVectorIterator<SEXP>(x, offset), size, append_null, append_value);
@@ -859,8 +836,6 @@ template <typename T>
 class RPrimitiveConverter<T, enable_if_string_like<T>>
     : public PrimitiveConverter<T, RConverter> {
  public:
-  using OffsetType = typename T::offset_type;
-
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
     RVectorType rtype = GetVectorType(x);
     if (rtype != STRING) {
