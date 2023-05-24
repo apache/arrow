@@ -32,7 +32,7 @@ The current :ref:`C Data Interface <c-data-interface>`, and most
 implementations of it, make the assumption that all data buffers provided
 are CPU buffers. Since Apache Arrow is designed to be a universal in-memory
 format for representing tabular ("columnar") data, there will be the desire
-to leverage this data on Non-CPU hardware such as GPUs. One example of such
+to leverage this data on non-CPU hardware such as GPUs. One example of such
 a case is the `RAPIDS cuDF library` which uses the Arrow memory format with
 CUDA for NVIDIA GPUs. Since copying data from host to device and back is
 expensive, the ideal would be to be able to leave the data on the device
