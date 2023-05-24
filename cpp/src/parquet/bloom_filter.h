@@ -49,8 +49,8 @@ class PARQUET_EXPORT BloomFilter {
   /// @param hash the hash of value to insert into Bloom filter.
   virtual void InsertHash(uint64_t hash) = 0;
 
-  /// Insert element to set represented by Bloom filter bitset.
-  /// @param hashes the hash of value to insert into Bloom filter.
+  /// Insert elements to set represented by Bloom filter bitset.
+  /// @param hashes the hash values to insert into Bloom filter.
   /// @param num_values the length of hash to insert.
   virtual void InsertHashes(const uint64_t* hashes, int num_values) = 0;
 
