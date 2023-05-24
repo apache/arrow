@@ -672,18 +672,7 @@ TEST_F(TestThreadPool, QuickShutdown) {
   add_tester.CheckNotAllComputed();
 }
 
-#ifndef ARROW_ENABLE_THREADING
-TEST_F(TestThreadPool, SetCapacity) {
-  auto pool = this->MakeThreadPool(5);
-
-  ASSERT_EQ(pool->GetCapacity(), 5);
-  ASSERT_EQ(pool->GetActualCapacity(), 5);
-
-  ASSERT_OK(pool->SetCapacity(7));
-  ASSERT_EQ(pool->GetCapacity(), 7);
-
-}
-#else//  ARROW_ENABLE_THREADING
+#ifdef ARROW_ENABLE_THREADING
 TEST_F(TestThreadPool, SetCapacity) {
   auto pool = this->MakeThreadPool(5);
 
@@ -744,6 +733,17 @@ TEST_F(TestThreadPool, SetCapacity) {
 
   // Ensure nothing got stuck
   ASSERT_OK(pool->Shutdown());
+}
+#else // ARROW_ENABLE_THREADING
+TEST_F(TestThreadPool, SetCapacity) {
+  auto pool = this->MakeThreadPool(5);
+
+  ASSERT_EQ(pool->GetCapacity(), 5);
+  ASSERT_EQ(pool->GetActualCapacity(), 5);
+
+  ASSERT_OK(pool->SetCapacity(7));
+  ASSERT_EQ(pool->GetCapacity(), 7);
+
 }
 #endif
 // Test Submit() functionality

@@ -359,12 +359,12 @@ class ARROW_EXPORT SerialExecutor : public Executor {
           // the next call.
           executor->Pause();
         });
-#ifndef ARROW_ENABLE_THREADING
+#ifdef ARROW_ENABLE_THREADING
         // future must run on this thread
-        next_fut.Wait();
-#else
         // Borrow this thread and run tasks until the future is finished
         executor->RunLoop();
+#else
+        next_fut.Wait();
 #endif
         if (!next_fut.is_finished()) {
           // Not clear this is possible since RunLoop wouldn't generally exit
@@ -392,7 +392,6 @@ class ARROW_EXPORT SerialExecutor : public Executor {
     static SerialExecutor* GetCurrentExecutor();
 
   virtual bool IsCurrentExecutor() {return current_executor==this;}
-
 
 #endif
 
@@ -441,66 +440,7 @@ protected:
 
 };
 
-#ifndef ARROW_ENABLE_THREADING
-// an executor implementation which pretends to be a thread pool but runs everything
-// on the main thread using a static queue (shared between all thread pools, otherwise
-// cross-threadpool dependencies will break everything)
-class ARROW_EXPORT ThreadPool : public SerialExecutor
-{
-  public:
-
-    ARROW_FRIEND_EXPORT friend ThreadPool* GetCpuThreadPool();
-
-
-    static Result<std::shared_ptr<ThreadPool>> Make(int threads);
-
-    // Like Make(), but takes care that the returned ThreadPool is compatible
-    // with destruction late at process exit.
-    static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
-
-    // Destroy thread pool; the pool will first be shut down
-    ~ThreadPool() override;
-
-    // Return the desired number of worker threads.
-    // The actual number of workers may lag a bit before being adjusted to
-    // match this value.
-    virtual int GetCapacity() override;
-
-    virtual int GetActualCapacity();
-  
-    bool OwnsThisThread() override
-    {
-      return true;
-    }
-
-    // Dynamically change the number of worker threads.
-    // without threading this is equal to the 
-    // number of tasks that can be running at once
-    // (inside each other)
-    Status SetCapacity(int threads);
-
-    static int DefaultCapacity(){return 8;}
-
-    // Shutdown the pool.  Once the pool starts shutting down, new tasks
-    // cannot be submitted anymore.
-    // If "wait" is true, shutdown waits for all pending tasks to be finished.
-    // If "wait" is false, workers are stopped as soon as currently executing
-    // tasks are finished.
-    Status Shutdown(bool wait = true);
-
-    // Wait for the thread pool to become idle
-    //
-    // This is useful for sequencing tests
-    void WaitForIdle();    
-  protected:
-    static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
-    ThreadPool();
-
-
-
-};
-
-#else // ARROW_ENABLE_THREADING
+#ifdef ARROW_ENABLE_THREADING
 
 /// An Executor implementation spawning tasks in FIFO manner on a fixed-size
 /// pool of worker threads.
@@ -581,6 +521,65 @@ class ARROW_EXPORT ThreadPool : public Executor {
   State* state_;
   bool shutdown_on_destroy_;
 };
+#else // ARROW_ENABLE_THREADING
+// an executor implementation which pretends to be a thread pool but runs everything
+// on the main thread using a static queue (shared between all thread pools, otherwise
+// cross-threadpool dependencies will break everything)
+class ARROW_EXPORT ThreadPool : public SerialExecutor
+{
+  public:
+
+    ARROW_FRIEND_EXPORT friend ThreadPool* GetCpuThreadPool();
+
+
+    static Result<std::shared_ptr<ThreadPool>> Make(int threads);
+
+    // Like Make(), but takes care that the returned ThreadPool is compatible
+    // with destruction late at process exit.
+    static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
+
+    // Destroy thread pool; the pool will first be shut down
+    ~ThreadPool() override;
+
+    // Return the desired number of worker threads.
+    // The actual number of workers may lag a bit before being adjusted to
+    // match this value.
+    virtual int GetCapacity() override;
+
+    virtual int GetActualCapacity();
+  
+    bool OwnsThisThread() override
+    {
+      return true;
+    }
+
+    // Dynamically change the number of worker threads.
+    // without threading this is equal to the 
+    // number of tasks that can be running at once
+    // (inside each other)
+    Status SetCapacity(int threads);
+
+    static int DefaultCapacity(){return 8;}
+
+    // Shutdown the pool.  Once the pool starts shutting down, new tasks
+    // cannot be submitted anymore.
+    // If "wait" is true, shutdown waits for all pending tasks to be finished.
+    // If "wait" is false, workers are stopped as soon as currently executing
+    // tasks are finished.
+    Status Shutdown(bool wait = true);
+
+    // Wait for the thread pool to become idle
+    //
+    // This is useful for sequencing tests
+    void WaitForIdle();    
+  protected:
+    static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
+    ThreadPool();
+
+
+
+};
+
 #endif // ARROW_ENABLE_THREADING
 
 // Return the process-global thread pool for CPU-bound tasks.

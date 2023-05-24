@@ -149,7 +149,10 @@ class ConcreteFutureImpl : public FutureImpl {
   }
 
   void DoWait() {
-    #ifndef ARROW_ENABLE_THREADING
+    #ifdef ARROW_ENABLE_THREADING
+      std::unique_lock<std::mutex> lock(mutex_);
+      cv_.wait(lock, [this] { return IsFutureFinished(state_); });
+    #else      
       while(true)
       {
         if(IsFutureFinished(state_))
@@ -158,14 +161,17 @@ class ConcreteFutureImpl : public FutureImpl {
         }
         arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
       }
-    #else
-      std::unique_lock<std::mutex> lock(mutex_);
-      cv_.wait(lock, [this] { return IsFutureFinished(state_); });
     #endif
   }
 
   bool DoWait(double seconds) {
-    #ifndef ARROW_ENABLE_THREADING
+    #ifdef ARROW_ENABLE_THREADING
+      std::unique_lock<std::mutex> lock(mutex_);
+
+      cv_.wait_for(lock, std::chrono::duration<double>(seconds),
+                  [this] { return IsFutureFinished(state_); });
+      return IsFutureFinished(state_);
+    #else
       auto start = std::chrono::steady_clock::now();
       std::chrono::duration<double> fsec=std::chrono::duration<double>(seconds);
       while(std::chrono::steady_clock::now()-start < fsec)
@@ -177,14 +183,6 @@ class ConcreteFutureImpl : public FutureImpl {
         }
         arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
       }
-      return IsFutureFinished(state_);
-
-    #else
-
-      std::unique_lock<std::mutex> lock(mutex_);
-
-      cv_.wait_for(lock, std::chrono::duration<double>(seconds),
-                  [this] { return IsFutureFinished(state_); });
       return IsFutureFinished(state_);
     #endif
   }

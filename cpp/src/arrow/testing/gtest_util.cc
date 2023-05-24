@@ -725,7 +725,10 @@ void TestInitialized(const ArrayData& array) {
 }
 
 void SleepFor(double seconds) {
-#ifndef ARROW_ENABLE_THREADING
+#ifdef ARROW_ENABLE_THREADING
+  std::this_thread::sleep_for(
+      std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
+#else
       std::chrono::duration<double> secs_left=std::chrono::duration<double>(seconds);
       auto start_time = std::chrono::steady_clock::now();
       auto end_time= start_time+secs_left;
@@ -741,9 +744,6 @@ void SleepFor(double seconds) {
         }
         // run one task then check time
       }
-#else
-  std::this_thread::sleep_for(
-      std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
 #endif
 }
 
@@ -1105,38 +1105,29 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
 
 
   void RunTask() {
-    #ifndef ARROW_ENABLE_THREADING
+    #ifdef ARROW_ENABLE_THREADING
+      std::unique_lock<std::mutex> lk(mx_);
+      num_running_++;
+      running_cv_.notify_all();
+      if (!unlocked_cv_.wait_for(
+              lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
+              [this] { return unlocked_; })) {
+        status_ &= Status::Invalid("Timed out (" + std::to_string(timeout_seconds_) + "," +
+                                  std::to_string(unlocked_) +
+                                  " seconds) waiting for the gating task to be unlocked");
+      }
+      num_finished_++;
+    #else
     // can't wait here for anything, so make a future to do the waiting
       num_running_++;
       auto future=RunTaskFuture();
       future.Wait();
       return;
-    #else
-    std::unique_lock<std::mutex> lk(mx_);
-    num_running_++;
-    running_cv_.notify_all();
-    if (!unlocked_cv_.wait_for(
-            lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
-            [this] { return unlocked_; })) {
-      status_ &= Status::Invalid("Timed out (" + std::to_string(timeout_seconds_) + "," +
-                                 std::to_string(unlocked_) +
-                                 " seconds) waiting for the gating task to be unlocked");
-    }
-    num_finished_++;
     #endif
   }
 
   Status WaitForRunning(int count) {
-#ifndef ARROW_ENABLE_THREADING
-  BusyWait(timeout_seconds_,[this, count] { return num_running_ >= count; });
-  if(num_running_>=count)
-  {
-      return Status::OK();
-  }else
-  {
-    return Status::Invalid("Timed out waiting for tasks to launch");
-  }
-#else    
+#ifdef ARROW_ENABLE_THREADING
     std::unique_lock<std::mutex> lk(mx_);
     if (running_cv_.wait_for(
             lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
@@ -1144,6 +1135,15 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
       return Status::OK();
     }
     return Status::Invalid("Timed out waiting for tasks to launch");
+#else    
+    BusyWait(timeout_seconds_,[this, count] { return num_running_ >= count; });
+    if(num_running_>=count)
+    {
+        return Status::OK();
+    }else
+    {
+      return Status::Invalid("Timed out waiting for tasks to launch");
+    }
 #endif    
   }
 
