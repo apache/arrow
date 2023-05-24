@@ -176,7 +176,7 @@ class PARQUET_EXPORT BloomFilter {
 ///
 /// This implementation sets 8 bits in each tiny Bloom filter. Each tiny Bloom
 /// filter is 32 bytes to take advantage of 32-byte SIMD instructions.
-class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
+class PARQUET_EXPORT BlockSplitBloomFilter final : public BloomFilter {
  public:
   /// The constructor of BlockSplitBloomFilter. It uses XXH64 as hash function.
   ///
@@ -265,12 +265,12 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   void WriteTo(ArrowOutputStream* sink) const override;
   uint32_t GetBitsetSize() const override { return num_bytes_; }
 
+  uint64_t Hash(int32_t value) const override { return hasher_->Hash(value); }
   uint64_t Hash(int64_t value) const override { return hasher_->Hash(value); }
   uint64_t Hash(float value) const override { return hasher_->Hash(value); }
   uint64_t Hash(double value) const override { return hasher_->Hash(value); }
   uint64_t Hash(const Int96* value) const override { return hasher_->Hash(value); }
   uint64_t Hash(const ByteArray* value) const override { return hasher_->Hash(value); }
-  uint64_t Hash(int32_t value) const override { return hasher_->Hash(value); }
   uint64_t Hash(const FLBA* value, uint32_t len) const override {
     return hasher_->Hash(value, len);
   }
@@ -297,6 +297,11 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
               uint64_t* hashes) const override {
     hasher_->Hashes(values, type_len, num_values, hashes);
   }
+
+  uint64_t Hash(int32_t* value) const { return hasher_->Hash(*value); }
+  uint64_t Hash(int64_t* value) const { return hasher_->Hash(*value); }
+  uint64_t Hash(float* value) const { return hasher_->Hash(*value); }
+  uint64_t Hash(double* value) const { return hasher_->Hash(*value); }
 
   /// Deserialize the Bloom filter from an input stream. It is used when reconstructing
   /// a Bloom filter from a parquet filter.

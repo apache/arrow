@@ -29,6 +29,7 @@
 #include "arrow/io/file.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
@@ -353,6 +354,107 @@ TEST(XxHashTest, TestBloomFilterHashes) {
     EXPECT_EQ(HASHES_OF_LOOPING_BYTES_WITH_SEED_0[i], hashes[i])
         << "Hash with seed 0 Error: " << i;
   }
+}
+
+template <typename DType>
+class TestBatchBloomFilter : public testing::Test {
+ public:
+  using T = typename DType::c_type;
+
+  // FLBA Type length
+  constexpr static int kTypeLength = 8;
+  constexpr static int kStringLength = 8;
+  constexpr static int kTestDataSize = 64;
+
+  // GenerateTestData with size 64.
+  std::vector<T> GenerateTestData();
+
+  // Underlying data
+  std::unique_ptr<XxHasher> bloom_filter_hasher;
+
+  // The Lifetime owner for Test data
+  std::vector<std::string> members;
+};
+
+template <typename DType>
+std::vector<typename DType::c_type> TestBatchBloomFilter<DType>::GenerateTestData() {
+  using Type = typename DType::c_type;
+  std::vector<Type> values;
+  if constexpr (std::is_integral_v<Type>) {
+    ::arrow::randint(kTestDataSize, 0, 1000000, &values);
+  } else if constexpr (std::is_floating_point_v<Type>) {
+    ::arrow::random_real(kTestDataSize, /*seed=*/0, /*min_value=*/0.0, 11111111111.0,
+                         &values);
+  } else {
+    for (int i = 0; i < kTestDataSize; ++i) {
+      std::string tmp = GetRandomString(kStringLength);
+      members.push_back(tmp);
+    }
+    for (int i = 0; i < kTestDataSize; ++i) {
+      if constexpr (std::is_same_v<Type, FLBA>) {
+        FLBA flba(reinterpret_cast<const uint8_t*>(members[i].c_str()));
+        values.push_back(flba);
+      } else {
+        ByteArray ba(kTypeLength, reinterpret_cast<const uint8_t*>(members[i].c_str()));
+        values.push_back(ba);
+      }
+    }
+  }
+  return values;
+}
+
+using TestTypes = ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType, FLBAType,
+                                   ByteArrayType>;
+
+TYPED_TEST_SUITE(TestBatchBloomFilter, TestTypes);
+
+TYPED_TEST(TestBatchBloomFilter, Basic) {
+  using Type = typename TestFixture::T;
+  std::vector<Type> test_data = TestFixture::GenerateTestData();
+  BlockSplitBloomFilter batch_insert_filter;
+  BlockSplitBloomFilter filter;
+
+  // Bloom filter fpp parameter
+  const double fpp = 0.05;
+  filter.Init(BlockSplitBloomFilter::OptimalNumOfBytes(TestFixture::kTestDataSize, fpp));
+  batch_insert_filter.Init(
+      BlockSplitBloomFilter::OptimalNumOfBytes(TestFixture::kTestDataSize, fpp));
+
+  std::vector<uint64_t> hashes;
+  for (int i = 0; i < static_cast<int>(test_data.size()); ++i) {
+    uint64_t hash = 0;
+    if constexpr (std::is_same_v<Type, FLBA>) {
+      hash = filter.Hash(&test_data[i], TestFixture::kTypeLength);
+    } else {
+      hash = filter.Hash(&test_data[i]);
+    }
+    hashes.push_back(hash);
+  }
+
+  std::vector<uint64_t> batch_hashes(test_data.size());
+  if constexpr (std::is_same_v<Type, FLBA>) {
+    batch_insert_filter.Hashes(test_data.data(), TestFixture::kTypeLength,
+                               static_cast<int>(test_data.size()), batch_hashes.data());
+  } else {
+    batch_insert_filter.Hashes(test_data.data(), static_cast<int>(test_data.size()),
+                               batch_hashes.data());
+  }
+
+  EXPECT_EQ(hashes, batch_hashes);
+
+  std::shared_ptr<Buffer> buffer;
+  std::shared_ptr<Buffer> batch_insert_buffer;
+  {
+    auto sink = CreateOutputStream();
+    filter.WriteTo(sink.get());
+    ASSERT_OK_AND_ASSIGN(buffer, sink->Finish());
+  }
+  {
+    auto sink = CreateOutputStream();
+    batch_insert_filter.WriteTo(sink.get());
+    ASSERT_OK_AND_ASSIGN(batch_insert_buffer, sink->Finish());
+  }
+  EXPECT_TRUE(buffer->Equals(*batch_insert_buffer));
 }
 
 }  // namespace test
