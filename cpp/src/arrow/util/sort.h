@@ -28,17 +28,17 @@
 
 namespace arrow::internal {
 
-template <typename T, typename Cmp = std::less<T>>
-std::vector<int64_t> ArgSort(arrow::util::span<T> values, Cmp&& cmp = {}) {
-  std::vector<int64_t> indices(values.size());
+template <typename I = int64_t, typename T, typename Cmp = std::less<T>>
+std::vector<I> ArgSort(arrow::util::span<T> values, Cmp&& cmp = {}) {
+  std::vector<I> indices(values.size());
   std::iota(indices.begin(), indices.end(), 0);
   std::sort(indices.begin(), indices.end(),
-            [&](int64_t i, int64_t j) -> bool { return cmp(values[i], values[j]); });
+            [&](I i, I j) -> bool { return cmp(values[i], values[j]); });
   return indices;
 }
 
-template <typename Range, typename... Cmp>
-std::vector<int64_t> ArgSort(const Range& values, Cmp&&... cmp) {
+template <typename I = int64_t, typename Range, typename... Cmp>
+std::vector<I> ArgSort(const Range& values, Cmp&&... cmp) {
   return ArgSort(arrow::util::span{values}, std::forward<Cmp>(cmp)...);
 }
 

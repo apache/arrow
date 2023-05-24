@@ -1082,11 +1082,11 @@ Status FromRawPointerStringHeaders(const ArraySpan& raw,
     return Write(LinearSearch);
   }
 
-  auto sort_indices = ArgSort(
+  auto sort_indices = ArgSort<uint32_t>(
       char_buffers, [](const auto& l, const auto& r) { return l->data() < r->data(); });
 
   auto first_overlapping = std::adjacent_find(
-      sort_indices.begin(), sort_indices.end(), [&](int64_t before, int64_t after) {
+      sort_indices.begin(), sort_indices.end(), [&](uint32_t before, uint32_t after) {
         return char_buffers[before]->data() + char_buffers[before]->size() <=
                char_buffers[after]->data();
       });
@@ -1112,8 +1112,8 @@ Status FromRawPointerStringHeaders(const ArraySpan& raw,
       return {};
     }
 
-    auto buffer_index = *(one_past_potential_super - 1);
-    const auto& char_buffer = *char_buffers[buffer_index];
+    uint32_t buffer_index = *(one_past_potential_super - 1);
+    const Buffer& char_buffer = *char_buffers[buffer_index];
     if (ARROW_PREDICT_TRUE(IsInBuffer(char_buffer, s))) return buffer_index;
 
     return {};
