@@ -671,11 +671,7 @@ class ArrayWriter {
         }
       } else {
         writer_->Key("PREFIX");
-        if constexpr (IsUtf8) {
-          writer_->String(s.GetPrefix().data(), StringHeader::kPrefixSize);
-        } else {
-          writer_->String(HexEncode(s.GetPrefix().data(), StringHeader::kPrefixSize));
-        }
+        writer_->String(HexEncode(s.GetPrefix().data(), StringHeader::kPrefixSize));
         writer_->Key("BUFFER_INDEX");
         writer_->Int64(s.GetBufferIndex());
         writer_->Key("OFFSET");
@@ -1511,15 +1507,9 @@ class ArrayReader {
       RETURN_NOT_INT("OFFSET", json_offset, json_view_obj);
 
       std::array<char, StringHeader::kPrefixSize> prefix;
-      if constexpr (ViewType::is_utf8) {
-        DCHECK_EQ(json_prefix->value.GetStringLength(), StringHeader::kPrefixSize);
-        auto prefix_ptr = json_prefix->value.GetString();
-        prefix = {prefix_ptr[0], prefix_ptr[1], prefix_ptr[2], prefix_ptr[3]};
-      } else {
-        DCHECK_EQ(json_prefix->value.GetStringLength(), StringHeader::kPrefixSize * 2);
-        RETURN_NOT_OK(ParseHexValues(GetStringView(json_prefix->value),
-                                     reinterpret_cast<uint8_t*>(prefix.data())));
-      }
+      DCHECK_EQ(json_prefix->value.GetStringLength(), StringHeader::kPrefixSize * 2);
+      RETURN_NOT_OK(ParseHexValues(GetStringView(json_prefix->value),
+                                   reinterpret_cast<uint8_t*>(prefix.data())));
 
       header = StringHeader{size, prefix,
                             static_cast<uint32_t>(json_buffer_index->value.GetInt64()),
