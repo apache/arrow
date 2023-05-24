@@ -120,17 +120,17 @@ template <typename T, typename Enable = void>
 struct WrapBytes {};
 
 template <typename T>
-struct WrapBytes<T, enable_if_t<is_string_type<T>::value ||
-                                is_string_view_type<T>::value>> {
+struct WrapBytes<T,
+                 enable_if_t<is_string_type<T>::value || is_string_view_type<T>::value>> {
   static inline PyObject* Wrap(const char* data, int64_t length) {
     return PyUnicode_FromStringAndSize(data, length);
   }
 };
 
 template <typename T>
-struct WrapBytes<T, enable_if_t<is_binary_type<T>::value ||
-                                is_binary_view_type<T>::value ||
-                                is_fixed_size_binary_type<T>::value>> {
+struct WrapBytes<T,
+                 enable_if_t<is_binary_type<T>::value || is_binary_view_type<T>::value ||
+                             is_fixed_size_binary_type<T>::value>> {
   static inline PyObject* Wrap(const char* data, int64_t length) {
     return PyBytes_FromStringAndSize(data, length);
   }
@@ -1132,9 +1132,8 @@ struct ObjectWriterVisitor {
   }
 
   template <typename Type>
-  enable_if_t<is_base_binary_type<Type>::value ||
-              is_binary_view_like_type<Type>::value ||
-              is_fixed_size_binary_type<Type>::value,
+  enable_if_t<is_base_binary_type<Type>::value || is_binary_view_like_type<Type>::value ||
+                  is_fixed_size_binary_type<Type>::value,
               Status>
   Visit(const Type& type) {
     auto WrapValue = [](const std::string_view& view, PyObject** out) {

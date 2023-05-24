@@ -488,7 +488,7 @@ TEST(StringViewArray, BinaryViewArrayFromRawPointerViews) {
     std::vector<StringHeader> raw(arr->length());
     RETURN_NOT_OK(internal::SwapStringHeaderPointers(*arr->data(), raw.data()));
     for (size_t i = 0; i < raw.size(); ++i) {
-      if (std::string_view{raw[i]} != arr->GetView(i)) {
+      if (static_cast<std::string_view>(raw[i]) != arr->GetView(i)) {
         return Status::Invalid("Produced incorrect raw pointer headers");
       }
     }
