@@ -19,6 +19,7 @@ import datetime
 import decimal
 import pickle
 import pytest
+import sys
 import weakref
 
 import numpy as np
@@ -295,6 +296,9 @@ def test_cast():
         pa.scalar('foo').cast('int32')
 
 
+# TODO: We should test on windows once ARROW-13168 is resolved.
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Timezone database is not available on Windows yet")
 def test_cast_timestamp_to_string():
     # GH-35370
     pytest.importorskip("pytz")
