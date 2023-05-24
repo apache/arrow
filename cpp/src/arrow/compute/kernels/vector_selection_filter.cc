@@ -343,7 +343,7 @@ inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
   bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
 }
 
-Status PrimitiveFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& values = batch[0].array;
   const ArraySpan& filter = batch[1].array;
   FilterOptions::NullSelectionBehavior null_selection =
@@ -639,7 +639,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
 #undef APPEND_RAW_DATA
 #undef APPEND_SINGLE_VALUE
 
-Status BinaryFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status BinaryFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   FilterOptions::NullSelectionBehavior null_selection =
       FilterState::Get(ctx).null_selection_behavior;
 
@@ -690,7 +690,7 @@ Status BinaryFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
 // ----------------------------------------------------------------------
 // Null filter
 
-Status NullFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status NullFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   int64_t output_length =
       GetFilterOutputSize(batch[1].array, FilterState::Get(ctx).null_selection_behavior);
   out->value = std::make_shared<NullArray>(output_length)->data();
@@ -700,7 +700,7 @@ Status NullFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 // ----------------------------------------------------------------------
 // Dictionary filter
 
-Status DictionaryFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status DictionaryFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   DictionaryArray dict_values(batch[0].array.ToArrayData());
   Datum result;
   RETURN_NOT_OK(Filter(Datum(dict_values.indices()), batch[1].array.ToArrayData(),
@@ -715,7 +715,7 @@ Status DictionaryFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
 // ----------------------------------------------------------------------
 // Extension filter
 
-Status ExtensionFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status ExtensionFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   ExtensionArray ext_values(batch[0].array.ToArrayData());
   Datum result;
   RETURN_NOT_OK(Filter(Datum(ext_values.storage()), batch[1].array.ToArrayData(),
@@ -726,7 +726,7 @@ Status ExtensionFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   return Status::OK();
 }
 
-Status StructFilter(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status StructFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   // Transform filter to selection indices and then use Take.
   std::shared_ptr<ArrayData> indices;
   RETURN_NOT_OK(GetTakeIndices(batch[1].array,
@@ -887,20 +887,20 @@ std::unique_ptr<Function> MakeFilterMetaFunction() {
 
 void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
   *out = {
-      {InputType(match::Primitive()), PrimitiveFilter},
-      {InputType(match::BinaryLike()), BinaryFilter},
-      {InputType(match::LargeBinaryLike()), BinaryFilter},
+      {InputType(match::Primitive()), PrimitiveFilterExec},
+      {InputType(match::BinaryLike()), BinaryFilterExec},
+      {InputType(match::LargeBinaryLike()), BinaryFilterExec},
       {InputType(Type::FIXED_SIZE_BINARY), FSBFilterExec},
-      {InputType(null()), NullFilter},
+      {InputType(null()), NullFilterExec},
       {InputType(Type::DECIMAL128), FSBFilterExec},
       {InputType(Type::DECIMAL256), FSBFilterExec},
-      {InputType(Type::DICTIONARY), DictionaryFilter},
-      {InputType(Type::EXTENSION), ExtensionFilter},
+      {InputType(Type::DICTIONARY), DictionaryFilterExec},
+      {InputType(Type::EXTENSION), ExtensionFilterExec},
       {InputType(Type::LIST), ListFilterExec},
       {InputType(Type::LARGE_LIST), LargeListFilterExec},
       {InputType(Type::FIXED_SIZE_LIST), FSLFilterExec},
       {InputType(Type::DENSE_UNION), DenseUnionFilterExec},
-      {InputType(Type::STRUCT), StructFilter},
+      {InputType(Type::STRUCT), StructFilterExec},
       {InputType(Type::MAP), MapFilterExec},
   };
 }

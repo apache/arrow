@@ -434,7 +434,7 @@ void TakeIndexDispatch(const ArraySpan& values, const ArraySpan& indices,
   }
 }
 
-Status PrimitiveTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& values = batch[0].array;
   const ArraySpan& indices = batch[1].array;
 
@@ -478,7 +478,7 @@ Status PrimitiveTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
 // ----------------------------------------------------------------------
 // Null take
 
-Status NullTake(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status NullTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   if (TakeState::Get(ctx).boundscheck) {
     RETURN_NOT_OK(CheckIndexBounds(batch[1].array, batch[0].length()));
   }
@@ -709,11 +709,11 @@ std::unique_ptr<Function> MakeTakeMetaFunction() {
 
 void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
   *out = {
-      {InputType(match::Primitive()), PrimitiveTake},
+      {InputType(match::Primitive()), PrimitiveTakeExec},
       {InputType(match::BinaryLike()), VarBinaryTakeExec},
       {InputType(match::LargeBinaryLike()), LargeVarBinaryTakeExec},
       {InputType(Type::FIXED_SIZE_BINARY), FSBTakeExec},
-      {InputType(null()), NullTake},
+      {InputType(null()), NullTakeExec},
       {InputType(Type::DECIMAL128), FSBTakeExec},
       {InputType(Type::DECIMAL256), FSBTakeExec},
       {InputType(Type::DICTIONARY), DictionaryTake},
