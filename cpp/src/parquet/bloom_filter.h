@@ -183,7 +183,7 @@ class PARQUET_EXPORT BloomFilter {
 ///
 /// This implementation sets 8 bits in each tiny Bloom filter. Each tiny Bloom
 /// filter is 32 bytes to take advantage of 32-byte SIMD instructions.
-class PARQUET_EXPORT BlockSplitBloomFilter final : public BloomFilter {
+class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
  public:
   /// The constructor of BlockSplitBloomFilter. It uses XXH64 as hash function.
   ///
@@ -314,6 +314,9 @@ class PARQUET_EXPORT BlockSplitBloomFilter final : public BloomFilter {
   /// @return The BlockSplitBloomFilter.
   static BlockSplitBloomFilter Deserialize(const ReaderProperties& properties,
                                            ArrowInputStream* input_stream);
+
+ private:
+  void InsertHashImpl(uint64_t hash);
 
  private:
   // Bytes in a tiny Bloom filter block.

@@ -212,7 +212,7 @@ bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {
   return true;
 }
 
-void BlockSplitBloomFilter::InsertHash(uint64_t hash) {
+void BlockSplitBloomFilter::InsertHashImpl(uint64_t hash) {
   const uint32_t bucket_index =
       static_cast<uint32_t>(((hash >> 32) * (num_bytes_ / kBytesPerFilterBlock)) >> 32);
   const uint32_t key = static_cast<uint32_t>(hash);
@@ -227,10 +227,11 @@ void BlockSplitBloomFilter::InsertHash(uint64_t hash) {
   }
 }
 
+void BlockSplitBloomFilter::InsertHash(uint64_t hash) { InsertHashImpl(hash); }
+
 void BlockSplitBloomFilter::InsertHashes(const uint64_t* hashes, int num_values) {
   for (int i = 0; i < num_values; ++i) {
-    // BlockSplitBloomFilter is marked by final, so InsertHash would be de-virtualized.
-    InsertHash(hashes[i]);
+    InsertHashImpl(hashes[i]);
   }
 }
 
