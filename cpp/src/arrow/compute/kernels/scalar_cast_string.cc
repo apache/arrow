@@ -300,7 +300,7 @@ Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
     InitializeUTF8();
   }
 
-  auto SimpleUtf8Validation = [&] {
+  [[maybe_unused]] auto SimpleUtf8Validation = [&] {
     if (check_utf8) {
       Utf8Validator validator;
       return ArraySpanVisitor<I>::Visit(input, &validator);
@@ -407,7 +407,6 @@ Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
 
     auto* headers = output->buffers[1]->mutable_data_as<StringHeader>();
     if (check_utf8) {
-      (void)SimpleUtf8Validation;
       Utf8Validator validator;
       return VisitArraySpanInline<I>(
           input,

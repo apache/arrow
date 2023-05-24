@@ -284,7 +284,7 @@ class ArrayDataEndianSwapper {
     const int64_t length = data_->buffers[1]->size() / sizeof(StringHeader);
 
     for (int64_t i = 0; i < length; i++) {
-      uint32_t size = s[i].size();
+      auto size = static_cast<uint32_t>(s[i].size());
 #if ARROW_LITTLE_ENDIAN
       size = bit_util::FromBigEndian(size);
 #else
@@ -1050,7 +1050,8 @@ Status FromRawPointerStringHeaders(const ArraySpan& raw,
 
             s.SetIndexOffset(
                 buffer_index,
-                s.data() - char_buffers[buffer_index]->template data_as<char>());
+                static_cast<uint32_t>(
+                    s.data() - char_buffers[buffer_index]->template data_as<char>()));
           }
           *io++ = s;
         },

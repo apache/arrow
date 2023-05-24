@@ -770,7 +770,7 @@ class BinaryViewColumn(PrimitiveColumn):
 
     def _get_buffers(self):
         char_buffers = []
-        DEFAULT_BUFFER_SIZE = 32 # ¯\_(ツ)_/¯
+        DEFAULT_BUFFER_SIZE = 32  # ¯\_(ツ)_/¯
         INLINE_SIZE = 12
 
         data = []
@@ -794,7 +794,12 @@ class BinaryViewColumn(PrimitiveColumn):
                         assert len(char_buffers[-1]) <= DEFAULT_BUFFER_SIZE
 
                 buffer_index = len(char_buffers) - 1
-                prefix = self._encode_value(v[:4].ljust(4, b'\0'))
+
+                # the prefix is always 4 bytes so it may not be utf-8
+                # even if the whole string view is
+                prefix = v[:4].ljust(4, b'\0')
+                prefix = frombytes(binascii.hexlify(prefix).upper())
+
                 data.append(OrderedDict([
                     ('SIZE', len(v)),
                     ('PREFIX', prefix),
@@ -807,7 +812,7 @@ class BinaryViewColumn(PrimitiveColumn):
                     ('SIZE', len(v)),
                     ('INLINED', inlined),
                 ]))
- 
+
         return [
             ('VALIDITY', [int(x) for x in self.is_valid]),
             ('DATA', data),
