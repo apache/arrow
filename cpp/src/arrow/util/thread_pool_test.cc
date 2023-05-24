@@ -341,7 +341,7 @@ TEST(SerialExecutor, AsyncGeneratorWithCleanup) {
   // must run before the terminal item is delivered from the iterator.
   bool follow_up_ran = false;
   Iterator<TestInt> iter =
-  
+
       SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
         return [=, &follow_up_ran]() -> Future<TestInt> {
           Future<TestInt> end =
@@ -584,9 +584,9 @@ TEST_F(TestThreadPool, StressSpawn) {
 }
 
 TEST_F(TestThreadPool, OwnsCurrentThread) {
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Test requires threading support";
-  #endif
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   auto pool = this->MakeThreadPool(30);
   std::atomic<bool> one_failed{false};
 
@@ -603,9 +603,9 @@ TEST_F(TestThreadPool, OwnsCurrentThread) {
   ASSERT_FALSE(one_failed);
 }
 TEST_F(TestThreadPool, StressSpawnThreaded) {
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Test requires threading support";
-  #endif
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
 
   auto pool = this->MakeThreadPool(30);
   SpawnAddsThreaded(pool.get(), 20, 100, task_add<int>);
@@ -623,9 +623,9 @@ TEST_F(TestThreadPool, StressSpawnSlow) {
 }
 
 TEST_F(TestThreadPool, StressSpawnSlowThreaded) {
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Test requires threading support";
-  #endif
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   auto pool = this->MakeThreadPool(30);
   SpawnAddsThreaded(pool.get(), 20, 100, task_slow_add<int>{/*seconds=*/0.002});
 }
@@ -637,9 +637,9 @@ TEST_F(TestThreadPool, SpawnWithStopToken) {
 }
 
 TEST_F(TestThreadPool, StressSpawnThreadedWithStopToken) {
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Test requires threading support";
-  #endif
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   StopSource stop_source;
   auto pool = this->MakeThreadPool(30);
   SpawnAddsThreaded(pool.get(), 20, 100, task_add<int>, stop_source.token());
@@ -652,9 +652,9 @@ TEST_F(TestThreadPool, SpawnWithStopTokenCancelled) {
 }
 
 TEST_F(TestThreadPool, StressSpawnThreadedWithStopTokenCancelled) {
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Test requires threading support";
-  #endif
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   StopSource stop_source;
   auto pool = this->MakeThreadPool(30);
   SpawnAddsThreadedAndCancel(pool.get(), 20, 100, task_slow_add<int>{/*seconds=*/0.02},
@@ -734,7 +734,7 @@ TEST_F(TestThreadPool, SetCapacity) {
   // Ensure nothing got stuck
   ASSERT_OK(pool->Shutdown());
 }
-#else // ARROW_ENABLE_THREADING
+#else  // ARROW_ENABLE_THREADING
 TEST_F(TestThreadPool, SetCapacity) {
   auto pool = this->MakeThreadPool(5);
 
@@ -743,7 +743,6 @@ TEST_F(TestThreadPool, SetCapacity) {
 
   ASSERT_OK(pool->SetCapacity(7));
   ASSERT_EQ(pool->GetCapacity(), 7);
-
 }
 #endif
 // Test Submit() functionality
@@ -830,10 +829,10 @@ class TestThreadPoolForkSafety : public TestThreadPool {};
 
 TEST_F(TestThreadPoolForkSafety, Basics) {
   {
-  #ifndef ARROW_ENABLE_THREADING
+#ifndef ARROW_ENABLE_THREADING
     GTEST_SKIP() << "Test requires threading support";
-  #endif
-    
+#endif
+
     // Fork after task submission
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
@@ -877,12 +876,12 @@ TEST_F(TestThreadPoolForkSafety, Basics) {
 }
 
 TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
-  // ARROW-15593: race condition in after-fork ThreadPool reinitialization
-  // when SpawnReal() was called from multiple threads in a forked child.
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Test requires threading support";
-  #endif
-    auto run_in_child = [](ThreadPool* pool) {
+// ARROW-15593: race condition in after-fork ThreadPool reinitialization
+// when SpawnReal() was called from multiple threads in a forked child.
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+  auto run_in_child = [](ThreadPool* pool) {
     const int n_threads = 5;
     std::vector<Future<int>> futures;
     std::vector<std::thread> threads;
@@ -931,7 +930,7 @@ TEST_F(TestThreadPoolForkSafety, NestedChild) {
     GTEST_SKIP() << "Nested fork is not supported on macos";
 #endif
 #ifndef ARROW_ENABLE_THREADING
-  GTEST_SKIP() << "Test requires threading support";
+    GTEST_SKIP() << "Test requires threading support";
 #endif
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
@@ -966,9 +965,9 @@ TEST_F(TestThreadPoolForkSafety, NestedChild) {
 #endif
 
 TEST(TestGlobalThreadPool, Capacity) {
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Test requires threading support";
-  #endif
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   // Sanity check
   auto pool = GetCpuThreadPool();
   int capacity = pool->GetCapacity();

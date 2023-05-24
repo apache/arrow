@@ -1514,18 +1514,18 @@ class AsofJoinNode : public ExecNode {
   }
 
   Status StartProducing() override {
-    #ifndef ARROW_ENABLE_THREADING
-      return Status::NotImplemented("ASOF join requires threading enabled");
-    #endif
+#ifndef ARROW_ENABLE_THREADING
+    return Status::NotImplemented("ASOF join requires threading enabled");
+#endif
 
-      ARROW_ASSIGN_OR_RAISE(process_task_, plan_->query_context()->BeginExternalTask(
-                                              "AsofJoinNode::ProcessThread"));
-      if (!process_task_.is_valid()) {
-        // Plan has already aborted.  Do not start process thread
-        return Status::OK();
-      }
-      process_thread_ = std::thread(&AsofJoinNode::ProcessThreadWrapper, this);
+    ARROW_ASSIGN_OR_RAISE(process_task_, plan_->query_context()->BeginExternalTask(
+                                             "AsofJoinNode::ProcessThread"));
+    if (!process_task_.is_valid()) {
+      // Plan has already aborted.  Do not start process thread
       return Status::OK();
+    }
+    process_thread_ = std::thread(&AsofJoinNode::ProcessThreadWrapper, this);
+    return Status::OK();
   }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {}

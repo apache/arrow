@@ -149,42 +149,38 @@ class ConcreteFutureImpl : public FutureImpl {
   }
 
   void DoWait() {
-    #ifdef ARROW_ENABLE_THREADING
-      std::unique_lock<std::mutex> lock(mutex_);
-      cv_.wait(lock, [this] { return IsFutureFinished(state_); });
-    #else      
-      while(true)
-      {
-        if(IsFutureFinished(state_))
-        {
-          return;
-        }
-        arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
+#ifdef ARROW_ENABLE_THREADING
+    std::unique_lock<std::mutex> lock(mutex_);
+    cv_.wait(lock, [this] { return IsFutureFinished(state_); });
+#else
+    while (true) {
+      if (IsFutureFinished(state_)) {
+        return;
       }
-    #endif
+      arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
+    }
+#endif
   }
 
   bool DoWait(double seconds) {
-    #ifdef ARROW_ENABLE_THREADING
-      std::unique_lock<std::mutex> lock(mutex_);
+#ifdef ARROW_ENABLE_THREADING
+    std::unique_lock<std::mutex> lock(mutex_);
 
-      cv_.wait_for(lock, std::chrono::duration<double>(seconds),
-                  [this] { return IsFutureFinished(state_); });
-      return IsFutureFinished(state_);
-    #else
-      auto start = std::chrono::steady_clock::now();
-      std::chrono::duration<double> fsec=std::chrono::duration<double>(seconds);
-      while(std::chrono::steady_clock::now()-start < fsec)
-      {
-        // run one task then check time
-        if(IsFutureFinished(state_))
-        {
-          return true;
-        }
-        arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
+    cv_.wait_for(lock, std::chrono::duration<double>(seconds),
+                 [this] { return IsFutureFinished(state_); });
+    return IsFutureFinished(state_);
+#else
+    auto start = std::chrono::steady_clock::now();
+    std::chrono::duration<double> fsec = std::chrono::duration<double>(seconds);
+    while (std::chrono::steady_clock::now() - start < fsec) {
+      // run one task then check time
+      if (IsFutureFinished(state_)) {
+        return true;
       }
-      return IsFutureFinished(state_);
-    #endif
+      arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
+    }
+    return IsFutureFinished(state_);
+#endif
   }
 
   std::mutex mutex_;

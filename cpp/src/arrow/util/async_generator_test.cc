@@ -994,9 +994,9 @@ TEST(TestAsyncUtil, GeneratorIterator) {
 }
 
 TEST(TestAsyncUtil, MakeTransferredGenerator) {
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Test requires threading support";
-  #endif
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   std::mutex mutex;
   std::condition_variable cv;
   std::atomic<bool> finished(false);
@@ -1498,14 +1498,15 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
       return TestInt(count);
     }));
 #else
-  // if threading is disabled, we can't call Task() as we do below because it will
-  // never return and will block everything
+    // if threading is disabled, we can't call Task() as we do below because it will
+    // never return and will block everything
     if (count == 0) {
-      return gating_task->AsyncTask().Then([](){return Future<TestInt>::MakeFinished(Status::Invalid("X"));});
-    }else{
-      return gating_task->AsyncTask().Then([count](){return  TestInt(count);});
+      return gating_task->AsyncTask().Then(
+          []() { return Future<TestInt>::MakeFinished(Status::Invalid("X")); });
+    } else {
+      return gating_task->AsyncTask().Then([count]() { return TestInt(count); });
     }
-#endif    
+#endif
   };
   auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
   auto should_be_invalid = readahead();
@@ -1536,7 +1537,7 @@ TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
     auto count = counter++;
 
 #ifdef ARROW_ENABLE_THREADING
-   return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
+    return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
       if (count == 0) {
         failure_gating_task->Task()();
         return Status::Invalid("X");
@@ -1546,15 +1547,16 @@ TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
       return TestInt(0);
     }));
 #else
-  // if threading is disabled, we can't call Task() as we do below because it will
-  // never return and will block everything
+    // if threading is disabled, we can't call Task() as we do below because it will
+    // never return and will block everything
     if (count == 0) {
-      return failure_gating_task->AsyncTask().Then([](){return Future<TestInt>::MakeFinished(Status::Invalid("X"));});
-    }else{
-      return in_flight_gating_task->AsyncTask().Then([](){return  TestInt(0);});
+      return failure_gating_task->AsyncTask().Then(
+          []() { return Future<TestInt>::MakeFinished(Status::Invalid("X")); });
+    } else {
+      return in_flight_gating_task->AsyncTask().Then([]() { return TestInt(0); });
     }
-  #endif
-  };  
+#endif
+  };
   auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
   auto should_be_invalid = readahead();
   ASSERT_OK(in_flight_gating_task->WaitForRunning(10));

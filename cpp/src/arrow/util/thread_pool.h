@@ -21,13 +21,13 @@
 #include <memory>
 #include <queue>
 #include <type_traits>
-#include <utility>
 #include <unordered_set>
+#include <utility>
 
-#include "arrow/util/config.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/cancel.h"
+#include "arrow/util/config.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
@@ -198,9 +198,8 @@ class ARROW_EXPORT Executor {
 
   // Return true if this is the current executor being called
   // n.b. this defaults to just calling OwnsThisThread
-  // unless the threadpool is disabled 
-  virtual bool IsCurrentExecutor() {return OwnsThisThread();}
-
+  // unless the threadpool is disabled
+  virtual bool IsCurrentExecutor() { return OwnsThisThread(); }
 
   /// \brief An interface to represent something with a custom destructor
   ///
@@ -279,14 +278,13 @@ class ARROW_EXPORT SerialExecutor : public Executor {
 
   ~SerialExecutor() override;
 
-  virtual int GetCapacity() override { return 1; };
+  int GetCapacity() override { return 1; };
   bool OwnsThisThread() override;
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                    StopCallback&&) override;
 
   // Return the number of tasks either running or in the queue.
   int GetNumTasks();
-
 
   /// \brief Runs the TopLevelTask and any scheduled tasks
   ///
@@ -385,18 +383,17 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   }
 
 #ifndef ARROW_ENABLE_THREADING
-    // run loop until everything is done (or one go round loop if once_only=True)
-    // returns true if any tasks were run in the last go round the loop (i.e. if it
-    // returns false, all executors are waiting)
-    static bool RunTasksOnAllExecutors(bool once_only=false); 
-    static SerialExecutor* GetCurrentExecutor();
+  // run loop until everything is done (or one go round loop if once_only=True)
+  // returns true if any tasks were run in the last go round the loop (i.e. if it
+  // returns false, all executors are waiting)
+  static bool RunTasksOnAllExecutors(bool once_only = false);
+  static SerialExecutor* GetCurrentExecutor();
 
-  virtual bool IsCurrentExecutor() {return current_executor==this;}
+  virtual bool IsCurrentExecutor() { return current_executor == this; }
 
 #endif
 
-
-protected:
+ protected:
   virtual void RunLoop();
 
   // State uses mutex
@@ -404,7 +401,6 @@ protected:
   std::shared_ptr<State> state_;
 
   SerialExecutor();
-
 
   // We mark the serial executor "finished" when there should be
   // no more tasks scheduled on it.  It's not strictly needed but
@@ -423,21 +419,20 @@ protected:
     final_fut.AddCallback([this](const FTSync&) { Finish(); });
     RunLoop();
     return final_fut;
-  } 
+  }
 
 #ifndef ARROW_ENABLE_THREADING
   // we have to run tasks from all live executors
   // during RunLoop if we don't have threading
-    static std::unordered_set<SerialExecutor*> all_executors;
-    // a pointer to the last one called by the loop
-    // so all tasks get spawned equally
-    // on multiple calls to RunTasksOnAllExecutors
-    static SerialExecutor* last_called_executor;
-    // without threading we can't tell which executor called the
-    // current process - so we set it in spawning the task
-    static SerialExecutor* current_executor;
-#endif // ARROW_ENABLE_THREADING
-
+  static std::unordered_set<SerialExecutor*> all_executors;
+  // a pointer to the last one called by the loop
+  // so all tasks get spawned equally
+  // on multiple calls to RunTasksOnAllExecutors
+  static SerialExecutor* last_called_executor;
+  // without threading we can't tell which executor called the
+  // current process - so we set it in spawning the task
+  static SerialExecutor* current_executor;
+#endif  // ARROW_ENABLE_THREADING
 };
 
 #ifdef ARROW_ENABLE_THREADING
@@ -521,66 +516,58 @@ class ARROW_EXPORT ThreadPool : public Executor {
   State* state_;
   bool shutdown_on_destroy_;
 };
-#else // ARROW_ENABLE_THREADING
+#else  // ARROW_ENABLE_THREADING
 // an executor implementation which pretends to be a thread pool but runs everything
 // on the main thread using a static queue (shared between all thread pools, otherwise
 // cross-threadpool dependencies will break everything)
-class ARROW_EXPORT ThreadPool : public SerialExecutor
-{
-  public:
+class ARROW_EXPORT ThreadPool : public SerialExecutor {
+ public:
+  ARROW_FRIEND_EXPORT friend ThreadPool* GetCpuThreadPool();
 
-    ARROW_FRIEND_EXPORT friend ThreadPool* GetCpuThreadPool();
+  static Result<std::shared_ptr<ThreadPool>> Make(int threads);
 
+  // Like Make(), but takes care that the returned ThreadPool is compatible
+  // with destruction late at process exit.
+  static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
 
-    static Result<std::shared_ptr<ThreadPool>> Make(int threads);
+  // Destroy thread pool; the pool will first be shut down
+  ~ThreadPool() override;
 
-    // Like Make(), but takes care that the returned ThreadPool is compatible
-    // with destruction late at process exit.
-    static Result<std::shared_ptr<ThreadPool>> MakeEternal(int threads);
+  // Return the desired number of worker threads.
+  // The actual number of workers may lag a bit before being adjusted to
+  // match this value.
+  int GetCapacity() override;
 
-    // Destroy thread pool; the pool will first be shut down
-    ~ThreadPool() override;
+  virtual int GetActualCapacity();
 
-    // Return the desired number of worker threads.
-    // The actual number of workers may lag a bit before being adjusted to
-    // match this value.
-    virtual int GetCapacity() override;
+  bool OwnsThisThread() override { return true; }
 
-    virtual int GetActualCapacity();
-  
-    bool OwnsThisThread() override
-    {
-      return true;
-    }
+  // Dynamically change the number of worker threads.
+  // without threading this is equal to the
+  // number of tasks that can be running at once
+  // (inside each other)
+  Status SetCapacity(int threads);
 
-    // Dynamically change the number of worker threads.
-    // without threading this is equal to the 
-    // number of tasks that can be running at once
-    // (inside each other)
-    Status SetCapacity(int threads);
+  static int DefaultCapacity() { return 8; }
 
-    static int DefaultCapacity(){return 8;}
+  // Shutdown the pool.  Once the pool starts shutting down, new tasks
+  // cannot be submitted anymore.
+  // If "wait" is true, shutdown waits for all pending tasks to be finished.
+  // If "wait" is false, workers are stopped as soon as currently executing
+  // tasks are finished.
+  Status Shutdown(bool wait = true);
 
-    // Shutdown the pool.  Once the pool starts shutting down, new tasks
-    // cannot be submitted anymore.
-    // If "wait" is true, shutdown waits for all pending tasks to be finished.
-    // If "wait" is false, workers are stopped as soon as currently executing
-    // tasks are finished.
-    Status Shutdown(bool wait = true);
+  // Wait for the thread pool to become idle
+  //
+  // This is useful for sequencing tests
+  void WaitForIdle();
 
-    // Wait for the thread pool to become idle
-    //
-    // This is useful for sequencing tests
-    void WaitForIdle();    
-  protected:
-    static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
-    ThreadPool();
-
-
-
+ protected:
+  static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
+  ThreadPool();
 };
 
-#endif // ARROW_ENABLE_THREADING
+#endif  // ARROW_ENABLE_THREADING
 
 // Return the process-global thread pool for CPU-bound tasks.
 ARROW_EXPORT ThreadPool* GetCpuThreadPool();

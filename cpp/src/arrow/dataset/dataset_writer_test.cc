@@ -380,11 +380,11 @@ TEST_F(DatasetWriterTestFixture, MinRowGroupBackpressure) {
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
-  // Use a gated filesystem to queue up many writes behind a file open to make sure the
-  // file isn't opened multiple times.
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Concurrent writes tests need threads";
-  #endif
+// Use a gated filesystem to queue up many writes behind a file open to make sure the
+// file isn't opened multiple times.
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   auto gated_fs = UseGatedFs();
   auto dataset_writer = MakeDatasetWriter();
   for (int i = 0; i < 10; i++) {
@@ -397,10 +397,10 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
-  // NBATCHES must be less than I/O executor concurrency to avoid deadlock / test failure
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Concurrent writes tests need threads";
-  #endif
+// NBATCHES must be less than I/O executor concurrency to avoid deadlock / test failure
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   constexpr int NBATCHES = 6;
   auto gated_fs = UseGatedFs();
   std::vector<ExpectedFile> expected_files;
@@ -418,9 +418,9 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
 }
 
 TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
-  #ifndef ARROW_ENABLE_THREADING
-    GTEST_SKIP() << "Concurrent writes tests need threads";
-  #endif
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   auto gated_fs = UseGatedFs();
   std::atomic<bool> paused = false;
   write_options_.max_open_files = 2;

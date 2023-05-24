@@ -1604,7 +1604,7 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
 TEST(ExecPlanExecution, SegmentedAggregationWithMultiThreading) {
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading enabled";
-#endif  
+#endif
   BatchesWithSchema data;
   data.batches = {ExecBatchFromJSON({int32()}, "[[1]]")};
   data.schema = schema({field("i32", int32())});
