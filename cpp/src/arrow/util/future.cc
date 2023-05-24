@@ -25,6 +25,7 @@
 #include <numeric>
 
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"

@@ -71,6 +71,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/future.h"
 #include "arrow/util/hash_util.h"

@@ -20,6 +20,7 @@
 #include <chrono>
 #include <mutex>
 #include <optional>
+
 #include <vector>
 
 #include "arrow/array/builder_primitive.h"
@@ -28,6 +29,7 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
+#include "arrow/util/config.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"

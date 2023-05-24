@@ -23,6 +23,7 @@
 #include <mutex>
 #include <utility>
 
+#include "arrow/util/config.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"

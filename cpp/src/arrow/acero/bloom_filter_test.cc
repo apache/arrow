@@ -28,6 +28,7 @@
 #include "arrow/acero/util.h"
 #include "arrow/compute/key_hash.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/config.h"
 #include "arrow/util/cpu_info.h"
 
 namespace arrow {

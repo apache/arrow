@@ -32,6 +32,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
+#include "arrow/util/config.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/vector.h"
 

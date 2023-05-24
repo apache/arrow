@@ -32,7 +32,7 @@ class ARROW_EXPORT Mutex {
  public:
   Mutex();
   Mutex(Mutex&&) = default;
-  Mutex& operator=(Mutex&&) = default;
+  Mutex& operator=(Mutex&&) = default;l`
 
   /// A Guard is falsy if a lock could not be acquired.
   class ARROW_EXPORT Guard {

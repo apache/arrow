@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <mutex>
 
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
