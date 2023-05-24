@@ -361,48 +361,25 @@ TEST(XxHashTest, TestBloomFilterHashes) {
 template <typename DType>
 class TestBatchBloomFilter : public testing::Test {
  public:
-  constexpr static int kStringLength = 8;
   constexpr static int kTestDataSize = 64;
-
-  // FLBA Type length
-  constexpr static int kTypeLength = 8;
 
   // GenerateTestData with size 64.
   std::vector<typename DType::c_type> GenerateTestData();
 
   // The Lifetime owner for Test data
-  std::vector<std::string> members;
+  std::vector<uint8_t> members;
 };
 
 template <typename DType>
 std::vector<typename DType::c_type> TestBatchBloomFilter<DType>::GenerateTestData() {
-  using Type = typename DType::c_type;
-  std::vector<Type> values;
-  if constexpr (std::is_integral_v<Type>) {
-    ::arrow::randint(kTestDataSize, 0, 1000000, &values);
-  } else if constexpr (std::is_floating_point_v<Type>) {
-    ::arrow::random_real(kTestDataSize, /*seed=*/0, /*min_value=*/0.0, 11111111111.0,
-                         &values);
-  } else {
-    for (int i = 0; i < kTestDataSize; ++i) {
-      std::string tmp = GetRandomString(kStringLength);
-      members.push_back(tmp);
-    }
-    for (int i = 0; i < kTestDataSize; ++i) {
-      if constexpr (std::is_same_v<Type, FLBA>) {
-        FLBA flba(reinterpret_cast<const uint8_t*>(members[i].c_str()));
-        values.push_back(flba);
-      } else {
-        ByteArray ba(kTypeLength, reinterpret_cast<const uint8_t*>(members[i].c_str()));
-        values.push_back(ba);
-      }
-    }
-  }
+  std::vector<typename DType::c_type> values(kTestDataSize);
+  GenerateData(kTestDataSize, values.data(), &members);
   return values;
 }
 
+// Note: BloomFilter doesn't support BooleanType.
 using BloomFilterTestTypes = ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType,
-                                              FLBAType, ByteArrayType>;
+                                              Int96Type, FLBAType, ByteArrayType>;
 
 TYPED_TEST_SUITE(TestBatchBloomFilter, BloomFilterTestTypes);
 
@@ -422,7 +399,7 @@ TYPED_TEST(TestBatchBloomFilter, Basic) {
   for (int i = 0; i < static_cast<int>(test_data.size()); ++i) {
     uint64_t hash = 0;
     if constexpr (std::is_same_v<Type, FLBA>) {
-      hash = filter.Hash(&test_data[i], TestFixture::kTypeLength);
+      hash = filter.Hash(&test_data[i], kGenerateDataFLBALength);
     } else {
       hash = filter.Hash(&test_data[i]);
     }
@@ -431,7 +408,7 @@ TYPED_TEST(TestBatchBloomFilter, Basic) {
 
   std::vector<uint64_t> batch_hashes(test_data.size());
   if constexpr (std::is_same_v<Type, FLBA>) {
-    batch_insert_filter.Hashes(test_data.data(), TestFixture::kTypeLength,
+    batch_insert_filter.Hashes(test_data.data(), kGenerateDataFLBALength,
                                static_cast<int>(test_data.size()), batch_hashes.data());
   } else {
     batch_insert_filter.Hashes(test_data.data(), static_cast<int>(test_data.size()),
