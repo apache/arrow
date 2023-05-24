@@ -874,15 +874,6 @@ class FilterMetaFunction : public MetaFunction {
 
 // ----------------------------------------------------------------------
 
-template <typename Impl>
-Status FilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  // TODO: where are the values and filter length equality checked?
-  int64_t output_length =
-      GetFilterOutputSize(batch[1].array, FilterState::Get(ctx).null_selection_behavior);
-  Impl kernel(ctx, batch, output_length, out);
-  return kernel.ExecFilter();
-}
-
 }  // namespace
 
 const FilterOptions* GetDefaultFilterOptions() {
@@ -899,19 +890,18 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::Primitive()), PrimitiveFilter},
       {InputType(match::BinaryLike()), BinaryFilter},
       {InputType(match::LargeBinaryLike()), BinaryFilter},
-      {InputType(Type::FIXED_SIZE_BINARY), FilterExec<FSBSelectionImpl>},
+      {InputType(Type::FIXED_SIZE_BINARY), FSBFilterExec},
       {InputType(null()), NullFilter},
-      {InputType(Type::DECIMAL128), FilterExec<FSBSelectionImpl>},
-      {InputType(Type::DECIMAL256), FilterExec<FSBSelectionImpl>},
+      {InputType(Type::DECIMAL128), FSBFilterExec},
+      {InputType(Type::DECIMAL256), FSBFilterExec},
       {InputType(Type::DICTIONARY), DictionaryFilter},
       {InputType(Type::EXTENSION), ExtensionFilter},
-      {InputType(Type::LIST), FilterExec<ListSelectionImpl<ListType>>},
-      {InputType(Type::LARGE_LIST), FilterExec<ListSelectionImpl<LargeListType>>},
-      {InputType(Type::FIXED_SIZE_LIST), FilterExec<FSLSelectionImpl>},
-      {InputType(Type::DENSE_UNION), FilterExec<DenseUnionSelectionImpl>},
+      {InputType(Type::LIST), ListFilterExec},
+      {InputType(Type::LARGE_LIST), LargeListFilterExec},
+      {InputType(Type::FIXED_SIZE_LIST), FSLFilterExec},
+      {InputType(Type::DENSE_UNION), DenseUnionFilterExec},
       {InputType(Type::STRUCT), StructFilter},
-      // TODO: Reuse ListType kernel for MAP
-      {InputType(Type::MAP), FilterExec<ListSelectionImpl<MapType>>},
+      {InputType(Type::MAP), MapFilterExec},
   };
 }
 

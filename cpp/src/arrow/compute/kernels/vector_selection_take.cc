@@ -696,15 +696,6 @@ class TakeMetaFunction : public MetaFunction {
 
 // ----------------------------------------------------------------------
 
-template <typename Impl>
-Status TakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  if (TakeState::Get(ctx).boundscheck) {
-    RETURN_NOT_OK(CheckIndexBounds(batch[1].array, batch[0].length()));
-  }
-  Impl kernel(ctx, batch, /*output_length=*/batch[1].length(), out);
-  return kernel.ExecTake();
-}
-
 }  // namespace
 
 const TakeOptions* GetDefaultTakeOptions() {
@@ -719,22 +710,20 @@ std::unique_ptr<Function> MakeTakeMetaFunction() {
 void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
   *out = {
       {InputType(match::Primitive()), PrimitiveTake},
-      {InputType(match::BinaryLike()), TakeExec<VarBinarySelectionImpl<BinaryType>>},
-      {InputType(match::LargeBinaryLike()),
-       TakeExec<VarBinarySelectionImpl<LargeBinaryType>>},
-      {InputType(Type::FIXED_SIZE_BINARY), TakeExec<FSBSelectionImpl>},
+      {InputType(match::BinaryLike()), VarBinaryTakeExec},
+      {InputType(match::LargeBinaryLike()), LargeVarBinaryTakeExec},
+      {InputType(Type::FIXED_SIZE_BINARY), FSBTakeExec},
       {InputType(null()), NullTake},
-      {InputType(Type::DECIMAL128), TakeExec<FSBSelectionImpl>},
-      {InputType(Type::DECIMAL256), TakeExec<FSBSelectionImpl>},
+      {InputType(Type::DECIMAL128), FSBTakeExec},
+      {InputType(Type::DECIMAL256), FSBTakeExec},
       {InputType(Type::DICTIONARY), DictionaryTake},
       {InputType(Type::EXTENSION), ExtensionTake},
-      {InputType(Type::LIST), TakeExec<ListSelectionImpl<ListType>>},
-      {InputType(Type::LARGE_LIST), TakeExec<ListSelectionImpl<LargeListType>>},
-      {InputType(Type::FIXED_SIZE_LIST), TakeExec<FSLSelectionImpl>},
-      {InputType(Type::DENSE_UNION), TakeExec<DenseUnionSelectionImpl>},
-      {InputType(Type::STRUCT), TakeExec<StructSelectionImpl>},
-      // TODO: Reuse ListType kernel for MAP
-      {InputType(Type::MAP), TakeExec<ListSelectionImpl<MapType>>},
+      {InputType(Type::LIST), ListTakeExec},
+      {InputType(Type::LARGE_LIST), LargeListTakeExec},
+      {InputType(Type::FIXED_SIZE_LIST), FSLTakeExec},
+      {InputType(Type::DENSE_UNION), DenseUnionTakeExec},
+      {InputType(Type::STRUCT), StructTakeExec},
+      {InputType(Type::MAP), MapTakeExec},
   };
 }
 
