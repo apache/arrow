@@ -26,11 +26,10 @@ classdef Float64Array < arrow.array.Array
             arguments
                 data
                 opts.DeepCopy(1, 1) logical = false
-                opts.DetectNulls(1, 1) logical = true
-                opts.NullDetectionFcn(1, 1) function_handle = @isnan
+                opts.InferNulls(1, 1) logical = true
             end
             arrow.args.validateTypeAndShape(data, "double");
-            validElements = arrow.args.parseValidElements(data, opts.DetectNulls, opts.NullDetectionFcn);
+            validElements = arrow.args.parseValidElements(data, opts.InferNulls);
             obj@arrow.array.Array("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {data, opts.DeepCopy, validElements});
             % Store a reference to the array if not doing a deep copy
             if (~opts.DeepCopy), obj.MatlabArray = data; end

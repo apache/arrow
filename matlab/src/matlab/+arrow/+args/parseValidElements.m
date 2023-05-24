@@ -1,7 +1,7 @@
 function validElements = parseValidElements(data, detectNulls, nullDetectionFcn)
-    % Creates the validElements logical vector based on data if
-    % detectNulls is true. If so, data is based to the NullDetectionFcn.
-    % Otherwise, all elements in data are valid.
+    % Returns a logical vector of the validElements in data. If inferNulls
+    % is true, calls ismissing on data to determine which elements are 
+    % null.
 
     % Licensed to the Apache Software Foundation (ASF) under one or more
     % contributor license agreements.  See the NOTICE file distributed with
@@ -20,15 +20,7 @@ function validElements = parseValidElements(data, detectNulls, nullDetectionFcn)
 
     if detectNulls
         % TODO: consider making validElements empty if everything is valid.
-        validElements = ~nullDetectionFcn(data);
-    
-        % If data was empty, it's ok for validElements to be a 0x0 
-        % logical array. 
-        expectedShape = 'vector';
-        if isempty(validElements)
-            expectedShape = '2d';
-        end
-        validateattributes(validElements, "logical", {expectedShape, 'numel', numel(data)});
+        validElements = ~ismissing(data);
     else
         % TODO: consider making this an empty array if everything is valid
         validElements = true([numel(data) 1]);
