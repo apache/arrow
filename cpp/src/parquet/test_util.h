@@ -755,7 +755,8 @@ inline void GenerateData(int num_values, T* out, std::vector<uint8_t>* heap) {
 }
 
 template <typename T>
-inline void GenerateBoundData(int num_values, T* out, T min, T max, std::vector<uint8_t>* heap) {
+inline void GenerateBoundData(int num_values, T* out, T min, T max,
+                              std::vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
   random_numbers(num_values, 0, min, max, out);
 }
@@ -774,7 +775,8 @@ inline void GenerateData<Int96>(int num_values, Int96* out, std::vector<uint8_t>
 }
 
 template <>
-inline void GenerateData<ByteArray>(int num_values, ByteArray* out, std::vector<uint8_t>* heap) {
+inline void GenerateData<ByteArray>(int num_values, ByteArray* out,
+                                    std::vector<uint8_t>* heap) {
   // seed the prng so failure is deterministic
   int max_byte_array_len = 12;
   heap->resize(num_values * max_byte_array_len);
@@ -789,7 +791,6 @@ inline void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* 
   heap->resize(num_values * kGenerateDataFLBALength);
   random_fixed_byte_array(num_values, 0, heap->data(), kGenerateDataFLBALength, out);
 }
-
 
 }  // namespace test
 }  // namespace parquet
