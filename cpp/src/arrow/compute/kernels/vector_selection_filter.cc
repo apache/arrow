@@ -899,19 +899,19 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::Primitive()), PrimitiveFilter},
       {InputType(match::BinaryLike()), BinaryFilter},
       {InputType(match::LargeBinaryLike()), BinaryFilter},
-      {InputType(Type::FIXED_SIZE_BINARY), FilterExec<FSBImpl>},
+      {InputType(Type::FIXED_SIZE_BINARY), FilterExec<FSBSelectionImpl>},
       {InputType(null()), NullFilter},
-      {InputType(Type::DECIMAL128), FilterExec<FSBImpl>},
-      {InputType(Type::DECIMAL256), FilterExec<FSBImpl>},
+      {InputType(Type::DECIMAL128), FilterExec<FSBSelectionImpl>},
+      {InputType(Type::DECIMAL256), FilterExec<FSBSelectionImpl>},
       {InputType(Type::DICTIONARY), DictionaryFilter},
       {InputType(Type::EXTENSION), ExtensionFilter},
-      {InputType(Type::LIST), FilterExec<ListImpl<ListType>>},
-      {InputType(Type::LARGE_LIST), FilterExec<ListImpl<LargeListType>>},
-      {InputType(Type::FIXED_SIZE_LIST), FilterExec<FSLImpl>},
-      {InputType(Type::DENSE_UNION), FilterExec<DenseUnionImpl>},
+      {InputType(Type::LIST), FilterExec<ListSelectionImpl<ListType>>},
+      {InputType(Type::LARGE_LIST), FilterExec<ListSelectionImpl<LargeListType>>},
+      {InputType(Type::FIXED_SIZE_LIST), FilterExec<FSLSelectionImpl>},
+      {InputType(Type::DENSE_UNION), FilterExec<DenseUnionSelectionImpl>},
       {InputType(Type::STRUCT), StructFilter},
       // TODO: Reuse ListType kernel for MAP
-      {InputType(Type::MAP), FilterExec<ListImpl<MapType>>},
+      {InputType(Type::MAP), FilterExec<ListSelectionImpl<MapType>>},
   };
 }
 

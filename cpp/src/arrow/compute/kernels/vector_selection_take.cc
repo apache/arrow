@@ -719,21 +719,22 @@ std::unique_ptr<Function> MakeTakeMetaFunction() {
 void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
   *out = {
       {InputType(match::Primitive()), PrimitiveTake},
-      {InputType(match::BinaryLike()), TakeExec<VarBinaryImpl<BinaryType>>},
-      {InputType(match::LargeBinaryLike()), TakeExec<VarBinaryImpl<LargeBinaryType>>},
-      {InputType(Type::FIXED_SIZE_BINARY), TakeExec<FSBImpl>},
+      {InputType(match::BinaryLike()), TakeExec<VarBinarySelectionImpl<BinaryType>>},
+      {InputType(match::LargeBinaryLike()),
+       TakeExec<VarBinarySelectionImpl<LargeBinaryType>>},
+      {InputType(Type::FIXED_SIZE_BINARY), TakeExec<FSBSelectionImpl>},
       {InputType(null()), NullTake},
-      {InputType(Type::DECIMAL128), TakeExec<FSBImpl>},
-      {InputType(Type::DECIMAL256), TakeExec<FSBImpl>},
+      {InputType(Type::DECIMAL128), TakeExec<FSBSelectionImpl>},
+      {InputType(Type::DECIMAL256), TakeExec<FSBSelectionImpl>},
       {InputType(Type::DICTIONARY), DictionaryTake},
       {InputType(Type::EXTENSION), ExtensionTake},
-      {InputType(Type::LIST), TakeExec<ListImpl<ListType>>},
-      {InputType(Type::LARGE_LIST), TakeExec<ListImpl<LargeListType>>},
-      {InputType(Type::FIXED_SIZE_LIST), TakeExec<FSLImpl>},
-      {InputType(Type::DENSE_UNION), TakeExec<DenseUnionImpl>},
-      {InputType(Type::STRUCT), TakeExec<StructImpl>},
+      {InputType(Type::LIST), TakeExec<ListSelectionImpl<ListType>>},
+      {InputType(Type::LARGE_LIST), TakeExec<ListSelectionImpl<LargeListType>>},
+      {InputType(Type::FIXED_SIZE_LIST), TakeExec<FSLSelectionImpl>},
+      {InputType(Type::DENSE_UNION), TakeExec<DenseUnionSelectionImpl>},
+      {InputType(Type::STRUCT), TakeExec<StructSelectionImpl>},
       // TODO: Reuse ListType kernel for MAP
-      {InputType(Type::MAP), TakeExec<ListImpl<MapType>>},
+      {InputType(Type::MAP), TakeExec<ListSelectionImpl<MapType>>},
   };
 }
 

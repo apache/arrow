@@ -358,10 +358,10 @@ inline Status VisitNoop() { return Status::OK(); }
 // types. Common generated kernels are shared between Binary/String and
 // LargeBinary/LargeString
 template <typename Type>
-struct VarBinaryImpl : public Selection<VarBinaryImpl<Type>, Type> {
+struct VarBinarySelectionImpl : public Selection<VarBinarySelectionImpl<Type>, Type> {
   using offset_type = typename Type::offset_type;
 
-  using Base = Selection<VarBinaryImpl<Type>, Type>;
+  using Base = Selection<VarBinarySelectionImpl<Type>, Type>;
   LIFT_BASE_MEMBERS();
 
   TypedBufferBuilder<offset_type> offset_builder;
@@ -369,8 +369,8 @@ struct VarBinaryImpl : public Selection<VarBinaryImpl<Type>, Type> {
 
   static constexpr int64_t kOffsetLimit = std::numeric_limits<offset_type>::max() - 1;
 
-  VarBinaryImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
-                ExecResult* out)
+  VarBinarySelectionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
+                         ExecResult* out)
       : Base(ctx, batch, output_length, out),
         offset_builder(ctx->memory_pool()),
         data_builder(ctx->memory_pool()) {}
@@ -433,14 +433,14 @@ struct VarBinaryImpl : public Selection<VarBinaryImpl<Type>, Type> {
   }
 };
 
-struct FSBImpl : public Selection<FSBImpl, FixedSizeBinaryType> {
-  using Base = Selection<FSBImpl, FixedSizeBinaryType>;
+struct FSBSelectionImpl : public Selection<FSBSelectionImpl, FixedSizeBinaryType> {
+  using Base = Selection<FSBSelectionImpl, FixedSizeBinaryType>;
   LIFT_BASE_MEMBERS();
 
   TypedBufferBuilder<uint8_t> data_builder;
 
-  FSBImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
-          ExecResult* out)
+  FSBSelectionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
+                   ExecResult* out)
       : Base(ctx, batch, output_length, out), data_builder(ctx->memory_pool()) {}
 
   template <typename Adapter>
@@ -467,17 +467,17 @@ struct FSBImpl : public Selection<FSBImpl, FixedSizeBinaryType> {
 };
 
 template <typename Type>
-struct ListImpl : public Selection<ListImpl<Type>, Type> {
+struct ListSelectionImpl : public Selection<ListSelectionImpl<Type>, Type> {
   using offset_type = typename Type::offset_type;
 
-  using Base = Selection<ListImpl<Type>, Type>;
+  using Base = Selection<ListSelectionImpl<Type>, Type>;
   LIFT_BASE_MEMBERS();
 
   TypedBufferBuilder<offset_type> offset_builder;
   typename TypeTraits<Type>::OffsetBuilderType child_index_builder;
 
-  ListImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
-           ExecResult* out)
+  ListSelectionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
+                    ExecResult* out)
       : Base(ctx, batch, output_length, out),
         offset_builder(ctx->memory_pool()),
         child_index_builder(ctx->memory_pool()) {}
@@ -486,7 +486,7 @@ struct ListImpl : public Selection<ListImpl<Type>, Type> {
   Status GenerateOutput() {
     ValuesArrayType typed_values(this->values.ToArrayData());
 
-    // TODO presize child_index_builder with a similar heuristic as VarBinaryImpl
+    // TODO presize child_index_builder with a similar heuristic as VarBinarySelectionImpl
 
     offset_type offset = 0;
     Adapter adapter(this);
@@ -531,8 +531,9 @@ struct ListImpl : public Selection<ListImpl<Type>, Type> {
   }
 };
 
-struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
-  using Base = Selection<DenseUnionImpl, DenseUnionType>;
+struct DenseUnionSelectionImpl
+    : public Selection<DenseUnionSelectionImpl, DenseUnionType> {
+  using Base = Selection<DenseUnionSelectionImpl, DenseUnionType>;
   LIFT_BASE_MEMBERS();
 
   TypedBufferBuilder<int32_t> value_offset_buffer_builder_;
@@ -540,8 +541,8 @@ struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
   std::vector<int8_t> type_codes_;
   std::vector<Int32Builder> child_indices_builders_;
 
-  DenseUnionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
-                 ExecResult* out)
+  DenseUnionSelectionImpl(KernelContext* ctx, const ExecSpan& batch,
+                          int64_t output_length, ExecResult* out)
       : Base(ctx, batch, output_length, out),
         value_offset_buffer_builder_(ctx->memory_pool()),
         child_id_buffer_builder_(ctx->memory_pool()),
@@ -606,14 +607,14 @@ struct DenseUnionImpl : public Selection<DenseUnionImpl, DenseUnionType> {
   }
 };
 
-struct FSLImpl : public Selection<FSLImpl, FixedSizeListType> {
+struct FSLSelectionImpl : public Selection<FSLSelectionImpl, FixedSizeListType> {
   Int64Builder child_index_builder;
 
-  using Base = Selection<FSLImpl, FixedSizeListType>;
+  using Base = Selection<FSLSelectionImpl, FixedSizeListType>;
   LIFT_BASE_MEMBERS();
 
-  FSLImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
-          ExecResult* out)
+  FSLSelectionImpl(KernelContext* ctx, const ExecSpan& batch, int64_t output_length,
+                   ExecResult* out)
       : Base(ctx, batch, output_length, out), child_index_builder(ctx->memory_pool()) {}
 
   template <typename Adapter>
@@ -663,8 +664,8 @@ struct FSLImpl : public Selection<FSLImpl, FixedSizeListType> {
 // we instead convert the filter to selection indices and then invoke take.
 
 // Struct selection implementation. ONLY used for Take
-struct StructImpl : public Selection<StructImpl, StructType> {
-  using Base = Selection<StructImpl, StructType>;
+struct StructSelectionImpl : public Selection<StructSelectionImpl, StructType> {
+  using Base = Selection<StructSelectionImpl, StructType>;
   LIFT_BASE_MEMBERS();
   using Base::Base;
 
