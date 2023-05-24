@@ -86,8 +86,6 @@ PandasOptions MakeInnerOptions(PandasOptions options) {
   // datetime.datetime does not support nanoseconds).
   // We force the object conversion to preserve the value of the timezone.
   // Nanoseconds are returned as integers.
-  // In ARROW-33321, we no longer need to coerce for pandas versions >= 2.0,
-  // which now support all temporal types.
   options.coerce_temporal_nanoseconds = false;
 
   return options;

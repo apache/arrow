@@ -714,7 +714,8 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
             ordered=item['ordered'])
         block = _int.make_block(cat, placement=placement)
     elif 'timezone' in item:
-        dtype = make_datetimetz(item['timezone'])
+        unit, _ = np.datetime_data(block_arr.dtype)
+        dtype = make_datetimetz(unit=unit, tz=item['timezone'])
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock,
                                 dtype=dtype)
@@ -738,9 +739,9 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
     return block
 
 
-def make_datetimetz(tz):
+def make_datetimetz(unit, tz):
     tz = pa.lib.string_to_tzinfo(tz)
-    return _pandas_api.datetimetz_type('ns', tz=tz)
+    return _pandas_api.datetimetz_type(unit, tz=tz)
 
 
 def table_to_blockmanager(options, table, categories=None,

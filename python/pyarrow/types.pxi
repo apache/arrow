@@ -40,10 +40,20 @@ cdef dict _pandas_type_map = {
     _Type_HALF_FLOAT: np.float16,
     _Type_FLOAT: np.float32,
     _Type_DOUBLE: np.float64,
-    _Type_DATE32: np.dtype('datetime64[ns]'),
-    _Type_DATE64: np.dtype('datetime64[ns]'),
-    _Type_TIMESTAMP: np.dtype('datetime64[ns]'),
-    _Type_DURATION: np.dtype('timedelta64[ns]'),
+    _Type_DATE32: np.dtype('datetime64[D]'),
+    _Type_DATE64: np.dtype('datetime64[ms]'),
+    _Type_TIMESTAMP: {
+        's': np.dtype('datetime64[s]'),
+        'ms': np.dtype('datetime64[ms]'),
+        'us': np.dtype('datetime64[us]'),
+        'ns': np.dtype('datetime64[ns]'),
+    },
+    _Type_DURATION: {
+        's': np.dtype('timedelta64[s]'),
+        'ms': np.dtype('timedelta64[ms]'),
+        'us': np.dtype('timedelta64[us]'),
+        'ns': np.dtype('timedelta64[ns]'),
+    },
     _Type_BINARY: np.object_,
     _Type_FIXED_SIZE_BINARY: np.object_,
     _Type_STRING: np.object_,
@@ -1012,16 +1022,16 @@ cdef class TimestampType(DataType):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> t = pa.timestamp('s', tz='UTC')
+        >>> t = pa.timestamp('ms', tz='UTC')
         >>> t.to_pandas_dtype()
-        datetime64[ns, UTC]
+        datetime64[ms, UTC]
         """
         if self.tz is None:
-            return _pandas_type_map[_Type_TIMESTAMP]
+            return _pandas_type_map[_Type_TIMESTAMP][self.units]
         else:
             # Return DatetimeTZ
             from pyarrow.pandas_compat import make_datetimetz
-            return make_datetimetz(self.tz)
+            return make_datetimetz(unit=self.unit, tz=self.tz)
 
     def __reduce__(self):
         return timestamp, (self.unit, self.tz)
@@ -1121,6 +1131,19 @@ cdef class DurationType(DataType):
         's'
         """
         return timeunit_to_string(self.duration_type.unit())
+
+    def to_pandas_dtype(self):
+        """
+        Return the equivalent NumPy / Pandas dtype.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> d = pa.duration('ms')
+        >>> d.to_pandas_dtype()
+        timedelta64[ms]
+        """
+        return _pandas_type_map[_Type_DURATION][self.units]
 
 
 cdef class FixedSizeBinaryType(DataType):
