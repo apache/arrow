@@ -586,6 +586,8 @@ services:
       <<: *ccache
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
+      # Avoid creating huge static libraries
+      ARROW_BUILD_STATIC: "OFF"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       # GH-33920: Disable Flight SQL to reduce build time.
       # We'll be able to re-enable this with Ubuntu 24.04 because
@@ -598,6 +600,8 @@ services:
       ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
+      # 1 GB isn't enough for a single sanitizer build
+      CCACHE_MAXSIZE: 2G
       Protobuf_SOURCE: "AUTO"
     command: *cpp-command
 
