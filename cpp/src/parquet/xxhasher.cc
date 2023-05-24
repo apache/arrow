@@ -29,9 +29,9 @@ uint64_t XxHashHelper(T value, uint32_t seed) {
 }
 
 template <typename T>
-void XxHashesHelper(const T* value, uint32_t seed, int num_values, uint64_t* results) {
+void XxHashesHelper(const T* values, uint32_t seed, int num_values, uint64_t* results) {
   for (int i = 0; i < num_values; ++i) {
-    results[i] = XxHashHelper(value[i], seed);
+    results[i] = XxHashHelper(values[i], seed);
   }
 }
 

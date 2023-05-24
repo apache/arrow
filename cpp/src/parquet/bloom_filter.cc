@@ -227,4 +227,11 @@ void BlockSplitBloomFilter::InsertHash(uint64_t hash) {
   }
 }
 
+void BlockSplitBloomFilter::InsertHashes(const uint64_t* hashes, int num_values) {
+  for (int i = 0; i < num_values; ++i) {
+    // BlockSplitBloomFilter is marked by final, so InsertHash would be de-virtualized.
+    InsertHash(hashes[i]);
+  }
+}
+
 }  // namespace parquet

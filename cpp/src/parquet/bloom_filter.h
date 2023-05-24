@@ -108,57 +108,64 @@ class PARQUET_EXPORT BloomFilter {
 
   /// Batch compute hashes for 32 bits values by using its plain encoding result.
   ///
-  /// @param values the value to hash.
+  /// @param values values a pointer to the values to hash.
   /// @param num_values the number of values to hash.
-  /// @param hashes the output hash value, it length should be equal to num_values.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
   virtual void Hashes(const int32_t* values, int num_values, uint64_t* hashes) const = 0;
 
   /// Batch compute hashes for 64 bits values by using its plain encoding result.
   ///
-  /// @param values the value to hash.
+  /// @param values values a pointer to the values to hash.
   /// @param num_values the number of values to hash.
-  /// @param hashes the output hash value, it length should be equal to num_values.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
   virtual void Hashes(const int64_t* values, int num_values, uint64_t* hashes) const = 0;
 
   /// Batch compute hashes for float values by using its plain encoding result.
   ///
-  /// @param values the value to hash.
+  /// @param values values a pointer to the values to hash.
   /// @param num_values the number of values to hash.
-  /// @param hashes the output hash value, it length should be equal to num_values.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
   virtual void Hashes(const float* values, int num_values, uint64_t* hashes) const = 0;
 
   /// Batch compute hashes for double values by using its plain encoding result.
   ///
-  /// @param values the value to hash.
+  /// @param values values a pointer to the values to hash.
   /// @param num_values the number of values to hash.
-  /// @param hashes the output hash value, it length should be equal to num_values.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
   virtual void Hashes(const double* values, int num_values, uint64_t* hashes) const = 0;
 
   /// Batch compute hashes for Int96 values by using its plain encoding result.
   ///
-  /// @param values the value to hash.
+  /// @param values values a pointer to the values to hash.
   /// @param num_values the number of values to hash.
-  /// @param hashes the output hash value, it length should be equal to num_values.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
   virtual void Hashes(const Int96* values, int num_values, uint64_t* hashes) const = 0;
 
   /// Batch compute hashes for ByteArray values by using its plain encoding result.
   ///
-  /// @param values the value to hash.
+  /// @param values values a pointer to the values to hash.
   /// @param num_values the number of values to hash.
-  /// @param hashes the output hash value, it length should be equal to num_values.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
   virtual void Hashes(const ByteArray* values, int num_values,
                       uint64_t* hashes) const = 0;
 
   /// Batch compute hashes for fixed byte array values by using its plain encoding result.
   ///
-  /// @param values the value address.
+  /// @param values values a pointer to the values to hash.
   /// @param type_len the value length.
   /// @param num_values the number of values to hash.
-  /// @param hashes the output hash value, it length should be equal to num_values.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
   virtual void Hashes(const FLBA* values, uint32_t type_len, int num_values,
                       uint64_t* hashes) const = 0;
 
-  virtual ~BloomFilter() {}
+  virtual ~BloomFilter() = default;
 
  protected:
   // Hash strategy available for Bloom filter.
@@ -257,11 +264,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter final : public BloomFilter {
 
   bool FindHash(uint64_t hash) const override;
   void InsertHash(uint64_t hash) override;
-  void InsertHashes(const uint64_t* hashes, int num_values) override {
-    for (int i = 0; i < num_values; ++i) {
-      InsertHash(hashes[i]);
-    }
-  }
+  void InsertHashes(const uint64_t* hashes, int num_values) override;
   void WriteTo(ArrowOutputStream* sink) const override;
   uint32_t GetBitsetSize() const override { return num_bytes_; }
 
@@ -298,10 +301,10 @@ class PARQUET_EXPORT BlockSplitBloomFilter final : public BloomFilter {
     hasher_->Hashes(values, type_len, num_values, hashes);
   }
 
-  uint64_t Hash(int32_t* value) const { return hasher_->Hash(*value); }
-  uint64_t Hash(int64_t* value) const { return hasher_->Hash(*value); }
-  uint64_t Hash(float* value) const { return hasher_->Hash(*value); }
-  uint64_t Hash(double* value) const { return hasher_->Hash(*value); }
+  uint64_t Hash(const int32_t* value) const { return hasher_->Hash(*value); }
+  uint64_t Hash(const int64_t* value) const { return hasher_->Hash(*value); }
+  uint64_t Hash(const float* value) const { return hasher_->Hash(*value); }
+  uint64_t Hash(const double* value) const { return hasher_->Hash(*value); }
 
   /// Deserialize the Bloom filter from an input stream. It is used when reconstructing
   /// a Bloom filter from a parquet filter.

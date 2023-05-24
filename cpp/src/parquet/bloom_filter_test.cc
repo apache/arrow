@@ -324,9 +324,10 @@ const int64_t HASHES_OF_LOOPING_BYTES_WITH_SEED_0[32] = {
  * }
  */
 TEST(XxHashTest, TestBloomFilter) {
-  uint8_t bytes[32] = {};
+  constexpr int kNumValues = 32;
+  uint8_t bytes[kNumValues] = {};
 
-  for (int i = 0; i < 32; i++) {
+  for (int i = 0; i < kNumValues; i++) {
     ByteArray byte_array(i, bytes);
     bytes[i] = i;
 
@@ -338,19 +339,20 @@ TEST(XxHashTest, TestBloomFilter) {
 
 // Same as TestBloomFilter but using Batch interface
 TEST(XxHashTest, TestBloomFilterHashes) {
-  uint8_t bytes[32] = {};
+  constexpr int kNumValues = 32;
+  uint8_t bytes[kNumValues] = {};
 
   std::vector<ByteArray> byte_array_vector;
-  for (int i = 0; i < 32; i++) {
+  for (int i = 0; i < kNumValues; i++) {
     bytes[i] = i;
     byte_array_vector.emplace_back(i, bytes);
   }
   auto hasher_seed_0 = std::make_unique<XxHasher>();
   std::vector<uint64_t> hashes;
-  hashes.resize(32);
+  hashes.resize(kNumValues);
   hasher_seed_0->Hashes(byte_array_vector.data(),
                         static_cast<int>(byte_array_vector.size()), hashes.data());
-  for (int i = 0; i < 32; i++) {
+  for (int i = 0; i < kNumValues; i++) {
     EXPECT_EQ(HASHES_OF_LOOPING_BYTES_WITH_SEED_0[i], hashes[i])
         << "Hash with seed 0 Error: " << i;
   }
@@ -359,12 +361,6 @@ TEST(XxHashTest, TestBloomFilterHashes) {
 template <typename DType>
 class TestBatchBloomFilter : public testing::Test {
  public:
-  using T = typename DType::c_type;
-
-  void SetUp() {}
-
-  void TearDown() {}
-
   constexpr static int kStringLength = 8;
   constexpr static int kTestDataSize = 64;
 
@@ -372,7 +368,7 @@ class TestBatchBloomFilter : public testing::Test {
   constexpr static int kTypeLength = 8;
 
   // GenerateTestData with size 64.
-  std::vector<T> GenerateTestData();
+  std::vector<typename DType::c_type> GenerateTestData();
 
   // The Lifetime owner for Test data
   std::vector<std::string> members;
@@ -411,7 +407,7 @@ using BloomFilterTestTypes = ::testing::Types<Int32Type, Int64Type, FloatType, D
 TYPED_TEST_SUITE(TestBatchBloomFilter, BloomFilterTestTypes);
 
 TYPED_TEST(TestBatchBloomFilter, Basic) {
-  using Type = typename TestFixture::T;
+  using Type = typename TypeParam::c_type;
   std::vector<Type> test_data = TestFixture::GenerateTestData();
   BlockSplitBloomFilter batch_insert_filter;
   BlockSplitBloomFilter filter;
