@@ -31,7 +31,7 @@ const (
 	MetadataVersionV3 MetadataVersion = 2
 	/// >= 0.8.0 (December 2017). Non-backwards compatible with V3.
 	MetadataVersionV4 MetadataVersion = 3
-	/// >= 1.0.0 (July 2020. Backwards compatible with V4 (V5 readers can read V4
+	/// >= 1.0.0 (July 2020). Backwards compatible with V4 (V5 readers can read V4
 	/// metadata and IPC messages). Implementations are recommended to provide a
 	/// V4 compatibility mode with V5 format changes disabled.
 	///
@@ -39,6 +39,16 @@ const (
 	/// - Union buffer layout has changed. In V5, Unions don't have a validity
 	///   bitmap buffer.
 	MetadataVersionV5 MetadataVersion = 4
+	/// >= 13.0.0 (May 2023). Backwards compatible with V5 (V6 readers can read V5
+	/// metadata and IPC messages). Implementations are recommended to provide a
+	/// V5 compatibility mode with V6 format changes disabled.
+	///
+	/// Incompatible changes between V5 and V6:
+	/// - variadicCounts field added to RecordBatch table in order to support
+	///   the variable number of buffers possible with Utf8View and BinaryView
+	///   columns. Those types can't be safely read by a <V6 reader and should
+	///   be rejected.
+	MetadataVersionV6 MetadataVersion = 5
 )
 
 var EnumNamesMetadataVersion = map[MetadataVersion]string{
@@ -47,6 +57,7 @@ var EnumNamesMetadataVersion = map[MetadataVersion]string{
 	MetadataVersionV3: "V3",
 	MetadataVersionV4: "V4",
 	MetadataVersionV5: "V5",
+	MetadataVersionV6: "V6",
 }
 
 var EnumValuesMetadataVersion = map[string]MetadataVersion{
@@ -55,6 +66,7 @@ var EnumValuesMetadataVersion = map[string]MetadataVersion{
 	"V3": MetadataVersionV3,
 	"V4": MetadataVersionV4,
 	"V5": MetadataVersionV5,
+	"V6": MetadataVersionV6,
 }
 
 func (v MetadataVersion) String() string {

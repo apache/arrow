@@ -277,7 +277,7 @@ type dictEncoder struct {
 }
 
 func (d *dictEncoder) encodeMetadata(p *Payload, isDelta bool, id, nrows int64) error {
-	p.meta = writeDictionaryMessage(d.mem, id, isDelta, nrows, p.size, d.fields, d.meta, d.codec)
+	p.meta = writeDictionaryMessage(d.mem, id, isDelta, nrows, p.size, d.fields, d.meta, d.codec, d.variadicCounts)
 	return nil
 }
 
@@ -300,8 +300,9 @@ func (d *dictEncoder) Encode(p *Payload, id int64, isDelta bool, dict arrow.Arra
 type recordEncoder struct {
 	mem memory.Allocator
 
-	fields []fieldMetadata
-	meta   []bufferMetadata
+	fields         []fieldMetadata
+	meta           []bufferMetadata
+	variadicCounts []int64
 
 	depth           int64
 	start           int64
@@ -946,7 +947,7 @@ func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {
 }
 
 func (w *recordEncoder) encodeMetadata(p *Payload, nrows int64) error {
-	p.meta = writeRecordMessage(w.mem, nrows, p.size, w.fields, w.meta, w.codec)
+	p.meta = writeRecordMessage(w.mem, nrows, p.size, w.fields, w.meta, w.codec, w.variadicCounts)
 	return nil
 }
 

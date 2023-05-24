@@ -36,6 +36,7 @@ const (
 	MetadataV3 = MetadataVersion(flatbuf.MetadataVersionV3) // version for Arrow-0.3.0 to 0.7.1
 	MetadataV4 = MetadataVersion(flatbuf.MetadataVersionV4) // version for >= Arrow-0.8.0
 	MetadataV5 = MetadataVersion(flatbuf.MetadataVersionV5) // version for >= Arrow-1.0.0, backward compatible with v4
+	MetadataV6 = MetadataVersion(flatbuf.MetadataVersionV6) // version for >= Arrow-13.0.0, backwards compatible with v5
 )
 
 func (m MetadataVersion) String() string {
