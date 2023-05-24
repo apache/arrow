@@ -97,7 +97,7 @@ TEST(BasicTest, TestBloomFilter) {
     for (const auto v : kNegativeIntLookups) {
       false_positives += bloom_filter.FindHash(bloom_filter.Hash(v));
     }
-    // (this is a crude check, see FPPTest below for a more rigourous formula)
+    // (this is a crude check, see FPPTest below for a more rigorous formula)
     EXPECT_LE(false_positives, 2);
 
     // Serialize Bloom filter to memory output stream
@@ -326,11 +326,31 @@ TEST(XxHashTest, TestBloomFilter) {
   uint8_t bytes[32] = {};
 
   for (int i = 0; i < 32; i++) {
-    ByteArray byteArray(i, bytes);
+    ByteArray byte_array(i, bytes);
     bytes[i] = i;
 
     auto hasher_seed_0 = std::make_unique<XxHasher>();
-    EXPECT_EQ(HASHES_OF_LOOPING_BYTES_WITH_SEED_0[i], hasher_seed_0->Hash(&byteArray))
+    EXPECT_EQ(HASHES_OF_LOOPING_BYTES_WITH_SEED_0[i], hasher_seed_0->Hash(&byte_array))
+        << "Hash with seed 0 Error: " << i;
+  }
+}
+
+// Same as TestBloomFilter but using Batch interface
+TEST(XxHashTest, TestBloomFilterHashes) {
+  uint8_t bytes[32] = {};
+
+  std::vector<ByteArray> byte_array_vector;
+  for (int i = 0; i < 32; i++) {
+    bytes[i] = i;
+    byte_array_vector.emplace_back(i, bytes);
+  }
+  auto hasher_seed_0 = std::make_unique<XxHasher>();
+  std::vector<uint64_t> hashes;
+  hashes.resize(32);
+  hasher_seed_0->Hashes(byte_array_vector.data(),
+                        static_cast<int>(byte_array_vector.size()), hashes.data());
+  for (int i = 0; i < 32; i++) {
+    EXPECT_EQ(HASHES_OF_LOOPING_BYTES_WITH_SEED_0[i], hashes[i])
         << "Hash with seed 0 Error: " << i;
   }
 }
