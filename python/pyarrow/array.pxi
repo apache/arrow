@@ -700,7 +700,8 @@ cdef class _PandasConvertible(_Weakrefable):
             bint split_blocks=False,
             bint self_destruct=False,
             str maps_as_pydicts=None,
-            types_mapper=None
+            types_mapper=None,
+            bint coerce_temporal_nanoseconds=False
     ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
@@ -775,6 +776,11 @@ cdef class _PandasConvertible(_Weakrefable):
             expected to return a pandas ExtensionDtype or ``None`` if the
             default conversion should be used for that type. If you have
             a dictionary mapping, you can pass ``dict.get`` as function.
+        coerce_temporal_nanoseconds : bool, default False
+            A legacy option to coerce date32, date64, datetime, and timestamp
+            types to use nanoseconds when converting to pandas. This was the
+            default behavior in pandas version 1.x. In pandas version 2.0,
+            non-nanosecond time units are now supported.
 
         Returns
         -------
@@ -850,7 +856,8 @@ cdef class _PandasConvertible(_Weakrefable):
             safe=safe,
             split_blocks=split_blocks,
             self_destruct=self_destruct,
-            maps_as_pydicts=maps_as_pydicts
+            maps_as_pydicts=maps_as_pydicts,
+            coerce_temporal_nanoseconds=coerce_temporal_nanoseconds
         )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata,
@@ -870,6 +877,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.safe_cast = options['safe']
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
+    result.coerce_temporal_nanoseconds = options['coerce_temporal_nanoseconds']
     result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
 
     maps_as_pydicts = options['maps_as_pydicts']
