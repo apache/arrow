@@ -382,8 +382,8 @@ struct MemoStore {
     return update;
   }
 
-  void Store(OnType for_time, const std::shared_ptr<RecordBatch>& batch, row_index_t row,
-             OnType time, ByType key) {
+  void Store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, OnType time,
+             DEBUG_ADD(ByType key, OnType for_time)) {
     DEBUG_SYNC(node_, "memo ", index_, " store: for_time=", for_time, " row=", row,
                " time=", time, " key=", key, DEBUG_MANIP(std::endl));
     if (no_future_ || entries_.count(key) == 0) {
@@ -408,6 +408,7 @@ struct MemoStore {
     } else {
       times_.back() = time;
     }
+    // `time` is the most advanced seen yet - `UpdateTime(time)` would work but not needed
     current_time_ = time;
   }
 
@@ -863,7 +864,7 @@ class InputState {
         may_rehash_ = false;
         Rehash();
       }
-      memo_.Store(ts, rb, latest_ref_row_, latest_time, GetLatestKey());
+      memo_.Store(rb, latest_ref_row_, latest_time, DEBUG_ADD(GetLatestKey(), ts));
       // negative tolerance means a last-known entry was stored - set `updated` to `true`
       updated = memo_.no_future_;
       ARROW_ASSIGN_OR_RAISE(advanced, Advance());
