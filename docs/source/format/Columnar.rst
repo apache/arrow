@@ -374,14 +374,27 @@ The views buffer contains `length` view structures with the following layout:
       |------------|------------|------------|-------------|
       | length     | prefix     | buf. index | offset      |
 
-For the long string case, the buffer index indicates which character buffer
-stores the characters and the offset indicates where in that buffer the
-characters begin. All integers (length, buffer index, and offset) are unsigned.
-The half-open range ``[offset, offset + length)`` must be entirely contained
-within the indicated buffer. Views must be aligned to an 8-byte boundary. This
-restriction enables more efficient interoperation with systems where the index
-and offset are replaced by a raw pointer.
+In both the long and short string cases, the first four bytes encode the
+length of the string and can be used to determine how the rest of the view
+should be interpreted.
 
+In the short string case the string's bytes are inlined- stored inside the
+view itself, in the twelve bytes which follow the length.
+
+In the long string case, a buffer index indicates which character buffer
+stores the characters and an offset indicates where in that buffer the
+characters begin. Buffer index 0 refers to the first character buffer, IE
+the first buffer **after** the validity buffer and the views buffer.
+The half-open range ``[offset, offset + length)`` must be entirely contained
+within the indicated buffer. A copy of the first four bytes of the string is
+stored inline in the prefix, after the length. This prefix enables a
+profitable fast path for string comparisons, which are frequently determined
+within the first four bytes.
+
+Views must be aligned to an 8-byte boundary. This restriction enables more
+efficient interoperation with systems where the index and offset are replaced
+by a raw pointer. All integers (length, buffer index, and offset) are unsigned
+for compatibility with engines which already implement these views.
 This layout is adapted from TU Munich's `UmbraDB`_.
 
 .. _variable-size-list-layout:
