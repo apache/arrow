@@ -46,7 +46,7 @@ C FFI declarations should be just as simple as with the current C data
 interface.
 
 Applications and libraries can then use Arrow schemas and Arrow formatted
-memory on non-cpu devices to exchange data just as easily as they do
+memory on non-CPU devices to exchange data just as easily as they do
 now with CPU data. This will enable leaving data on those devices longer
 and avoiding costly copies back and forth between the host and device
 just to leverage new libraries and runtimes.
