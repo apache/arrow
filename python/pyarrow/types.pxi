@@ -23,6 +23,8 @@ import re
 import sys
 import warnings
 
+from pyarrow.lib import _pandas_api
+
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
@@ -123,6 +125,22 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
 def _is_primitive(Type type):
     # This is simply a redirect, the official API is in pyarrow.types.
     return is_primitive(type)
+
+
+def _get_pandas_type(type, unit=None):
+    if type not in _pandas_type_map:
+        return None
+    if type in [_Type_DATE32, _Type_DATE64, _Type_TIMESTAMP, _Type_DURATION]:
+        from pyarrow.vendored.version import Version
+        # ARROW-3789: Convert date/timestamp types to datetime64[ns]
+        if _pandas_api.loose_version < Version('2.0.0'):
+            if type == _Type_DURATION:
+                return np.dtype('timedelta64[ns]')
+            return np.dtype('datetime64[ns]')
+    pandas_type = _pandas_type_map[type]
+    if isinstance(pandas_type, dict):
+        pandas_type = pandas_type.get(unit, None)
+    return pandas_type
 
 
 # Workaround for Cython parsing bug
@@ -285,10 +303,10 @@ cdef class DataType(_Weakrefable):
         <class 'numpy.int64'>
         """
         cdef Type type_id = self.type.id()
-        if type_id in _pandas_type_map:
-            return _pandas_type_map[type_id]
-        else:
+        dtype = _get_pandas_type(type_id)
+        if not dtype:
             raise NotImplementedError(str(self))
+        return dtype
 
     def _export_to_c(self, out_ptr):
         """
@@ -1027,11 +1045,11 @@ cdef class TimestampType(DataType):
         datetime64[ms, UTC]
         """
         if self.tz is None:
-            return _pandas_type_map[_Type_TIMESTAMP][self.unit]
+            return _get_pandas_type(_Type_TIMESTAMP, self.unit)
         else:
             # Return DatetimeTZ
             from pyarrow.pandas_compat import make_datetimetz
-            return make_datetimetz(unit=self.unit, tz=self.tz)
+            return make_datetimetz(unit=unit, tz=self.tz)
 
     def __reduce__(self):
         return timestamp, (self.unit, self.tz)
@@ -1143,7 +1161,7 @@ cdef class DurationType(DataType):
         >>> d.to_pandas_dtype()
         timedelta64[ms]
         """
-        return _pandas_type_map[_Type_DURATION][self.unit]
+        return return _get_pandas_type(_Type_TIMESTAMP, self.unit)
 
 
 cdef class FixedSizeBinaryType(DataType):

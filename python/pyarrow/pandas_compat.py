@@ -740,6 +740,10 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
 
 
 def make_datetimetz(unit, tz):
+    from pyarrow.vendored.version import Version
+    # ARROW-3789: Convert date/timestamp types to datetime64[ns]
+    if _pandas_api.loose_version < Version('2.0.0'):
+        unit = 'ns'
     tz = pa.lib.string_to_tzinfo(tz)
     return _pandas_api.datetimetz_type(unit, tz=tz)
 
