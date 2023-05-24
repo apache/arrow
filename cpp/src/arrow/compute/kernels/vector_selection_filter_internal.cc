@@ -38,6 +38,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/ree_util.h"
 
 namespace arrow {
 
@@ -84,13 +85,74 @@ int64_t GetBitmapFilterOutputSize(const ArraySpan& filter,
   return output_size;
 }
 
-// TODO(pr-35750): Handle run-end encoded filters in compute kernels
+template <typename FilterRunEndType>
+int64_t GetREEFilterOutputSizeImpl(const ArraySpan& filter,
+                                   FilterOptions::NullSelectionBehavior null_selection) {
+  using FilterRunEndCType = typename FilterRunEndType::c_type;
+  const ArraySpan& filter_values = ::arrow::ree_util::ValuesArray(filter);
+  const int64_t filter_values_offset = filter_values.offset;
+  const uint8_t* filter_is_valid = filter_values.buffers[0].data;
+  const uint8_t* filter_selection = filter_values.buffers[1].data;
+  const bool filter_may_have_nulls = filter_values.MayHaveNulls();
+
+  int64_t output_size = 0;
+  const ::arrow::ree_util::RunEndEncodedArraySpan<FilterRunEndCType> filter_span(filter);
+  auto it = filter_span.begin();
+  if (filter_may_have_nulls) {
+    if (null_selection == FilterOptions::EMIT_NULL) {
+      for (; !it.is_end(filter_span); ++it) {
+        const int64_t i = filter_values_offset + it.index_into_array();
+        if (!bit_util::GetBit(filter_is_valid, i) ||
+            bit_util::GetBit(filter_selection, i)) {
+          output_size += it.run_length();
+        }
+      }
+    } else {  // DROP nulls
+      for (; !it.is_end(filter_span); ++it) {
+        const int64_t i = filter_values_offset + it.index_into_array();
+        if (bit_util::GetBit(filter_is_valid, i) &&
+            bit_util::GetBit(filter_selection, i)) {
+          output_size += it.run_length();
+        }
+      }
+    }
+  } else {
+    for (; !it.is_end(filter_span); ++it) {
+      const int64_t i = filter_values_offset + it.index_into_array();
+      if (bit_util::GetBit(filter_selection, i)) {
+        output_size += it.run_length();
+      }
+    }
+  }
+  return output_size;
+}
+
+int64_t GetREEFilterOutputSize(const ArraySpan& filter,
+                               FilterOptions::NullSelectionBehavior null_selection) {
+  const auto& ree_type = checked_cast<const RunEndEncodedType&>(*filter.type);
+  DCHECK_EQ(ree_type.value_type()->id(), Type::BOOL);
+  if (filter.length == 0) {
+    return 0;
+  }
+  switch (ree_type.run_end_type()->id()) {
+    case Type::INT16:
+      return GetREEFilterOutputSizeImpl<Int16Type>(filter, null_selection);
+    case Type::INT32:
+      return GetREEFilterOutputSizeImpl<Int32Type>(filter, null_selection);
+    default:
+      DCHECK(ree_type.run_end_type()->id() == Type::INT64);
+      return GetREEFilterOutputSizeImpl<Int64Type>(filter, null_selection);
+  }
+}
 
 }  // namespace
 
 int64_t GetFilterOutputSize(const ArraySpan& filter,
                             FilterOptions::NullSelectionBehavior null_selection) {
-  return GetBitmapFilterOutputSize(filter, null_selection);
+  if (filter.type->id() == Type::BOOL) {
+    return GetBitmapFilterOutputSize(filter, null_selection);
+  }
+  return GetREEFilterOutputSize(filter, null_selection);
 }
 
 namespace {

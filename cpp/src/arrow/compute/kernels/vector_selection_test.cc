@@ -42,6 +42,16 @@ using std::string_view;
 
 namespace compute {
 
+namespace {
+
+template <typename T>
+Result<std::shared_ptr<Array>> REEncode(const T& array) {
+  ARROW_ASSIGN_OR_RAISE(auto datum, RunEndEncode(array));
+  return datum.make_array();
+}
+
+}  // namespace
+
 // ----------------------------------------------------------------------
 
 TEST(GetTakeIndices, Basics) {
@@ -105,9 +115,13 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
       }
     }
     ASSERT_EQ(out_position, indices.length());
+
     // Check that the end length agrees with the output of GetFilterOutputSize
     ASSERT_EQ(out_position,
               internal::GetFilterOutputSize(*filter.data(), FilterOptions::DROP));
+    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(*filter.data()));
+    ASSERT_EQ(out_position,
+              internal::GetFilterOutputSize(*ree_filter->data(), FilterOptions::DROP));
   }
 
   ASSERT_OK_AND_ASSIGN(
@@ -132,9 +146,13 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
     }
 
     ASSERT_EQ(out_position, indices.length());
+
     // Check that the end length agrees with the output of GetFilterOutputSize
     ASSERT_EQ(out_position,
               internal::GetFilterOutputSize(*filter.data(), FilterOptions::EMIT_NULL));
+    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(*filter.data()));
+    ASSERT_EQ(out_position, internal::GetFilterOutputSize(*ree_filter->data(),
+                                                          FilterOptions::EMIT_NULL));
   }
 }
 
