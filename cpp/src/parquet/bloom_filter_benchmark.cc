@@ -58,24 +58,24 @@ void GenerateBenchmarkData(uint32_t size, T* data,
     std::default_random_engine gen(/*seed*/ 0);
     std::uniform_int_distribution<T> d(std::numeric_limits<T>::min(),
                                        std::numeric_limits<T>::max());
-    for (int i = 0; i < size; ++i) {
+    for (uint32_t i = 0; i < size; ++i) {
       data[i] = d(gen);
     }
   } else if constexpr (std::is_floating_point_v<T>) {
     std::default_random_engine gen(/*seed*/ 0);
     std::uniform_real_distribution<T> d(std::numeric_limits<T>::lowest(),
                                         std::numeric_limits<T>::max());
-    for (int i = 0; i < size; ++i) {
+    for (uint32_t i = 0; i < size; ++i) {
       data[i] = d(gen);
     }
   } else if constexpr (std::is_same_v<FLBA, T>) {
     GenerateRandomString(kGenerateBenchmarkDataStringLength * size, heap);
-    for (int i = 0; i < size; ++i) {
+    for (uint32_t i = 0; i < size; ++i) {
       data[i].ptr = heap->data() + i * kGenerateBenchmarkDataStringLength;
     }
   } else if constexpr (std::is_same_v<ByteArray, T>) {
     GenerateRandomString(kGenerateBenchmarkDataStringLength * size, heap);
-    for (int i = 0; i < size; ++i) {
+    for (uint32_t i = 0; i < size; ++i) {
       data[i].ptr = heap->data() + i * kGenerateBenchmarkDataStringLength;
       data[i].len = kGenerateBenchmarkDataStringLength;
     }
@@ -83,7 +83,7 @@ void GenerateBenchmarkData(uint32_t size, T* data,
     std::default_random_engine gen(/*seed*/ 0);
     std::uniform_int_distribution<int> d(std::numeric_limits<int>::min(),
                                          std::numeric_limits<int>::max());
-    for (int i = 0; i < size; ++i) {
+    for (uint32_t i = 0; i < size; ++i) {
       data[i].value[0] = d(gen);
       data[i].value[1] = d(gen);
       data[i].value[2] = d(gen);
@@ -103,8 +103,9 @@ static void BM_ComputeHash(::benchmark::State& state) {
       uint64_t hash = 0;
       if constexpr (std::is_same_v<DType, FLBAType>) {
         hash = filter->Hash(&value, kGenerateBenchmarkDataStringLength);
-      } else if constexpr (std::is_same_v<DType, Int96Type> ||
-                           std::is_same_v<DType, ByteArrayType>) {
+      } else if constexpr (std::is_same_v<DType, Int96Type>) {
+        hash = filter->Hash(&value);
+      } else if constexpr (std::is_same_v<DType, ByteArrayType>) {
         hash = filter->Hash(&value);
       } else {
         hash = filter->Hash(value);
