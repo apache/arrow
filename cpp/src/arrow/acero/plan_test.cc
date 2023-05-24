@@ -985,9 +985,9 @@ TEST(ExecPlanExecution, StressSourceSinkStopped) {
         EXPECT_THAT(first_batch_fut,
                     Finishes(ResultWith(Optional(random_data.batches[0]))));
       }
-      
-      plan->StopProducing();     
-      Future<> finished = plan->finished();      
+
+      plan->StopProducing();
+      Future<> finished = plan->finished();
       CheckFinishesCancelledOrOk(plan->finished());
     }
   }

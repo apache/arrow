@@ -25,6 +25,7 @@
 #include "arrow/acero/visibility.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/config.h"
 
 namespace arrow {
 namespace acero {

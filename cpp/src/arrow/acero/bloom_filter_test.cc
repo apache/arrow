@@ -507,10 +507,10 @@ TEST(BloomFilter, Scaling) {
   num_build.push_back(4000000);
 
   std::vector<BloomFilterBuildStrategy> strategy;
-#ifndef ARROW_ENABLE_THREADING
-  strategy.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
-#else
+#ifdef ARROW_ENABLE_THREADING
   strategy.push_back(BloomFilterBuildStrategy::PARALLEL);
+#else
+  strategy.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
 #endif
 
   for (bool use_avx2 : {false, true}) {
