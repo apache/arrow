@@ -429,7 +429,7 @@ TYPED_TEST(TestBatchBloomFilter, Basic) {
     batch_insert_filter.WriteTo(sink.get());
     ASSERT_OK_AND_ASSIGN(batch_insert_buffer, sink->Finish());
   }
-  EXPECT_TRUE(buffer->Equals(*batch_insert_buffer));
+  AssertBufferEqual(*buffer, *batch_insert_buffer);
 }
 
 }  // namespace test

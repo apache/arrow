@@ -23,41 +23,46 @@
 namespace parquet {
 namespace benchmark {
 
+constexpr static uint32_t kBloomFilterElementSize = 1024;
+
+std::unique_ptr<BloomFilter> createBloomFilter(uint32_t elementSize) {
+  std::unique_ptr<BlockSplitBloomFilter> block_split_bloom_filter =
+      std::make_unique<BlockSplitBloomFilter>();
+  block_split_bloom_filter->Init(
+      BlockSplitBloomFilter::OptimalNumOfBytes(elementSize, /*fpp=*/0.05));
+  std::unique_ptr<BloomFilter> bloom_filter = std::move(block_split_bloom_filter);
+  ::benchmark::DoNotOptimize(bloom_filter);
+  return bloom_filter;
+}
+
 template <typename DType>
-static void BM_CountHash(::benchmark::State& state) {
+static void BM_ComputeHash(::benchmark::State& state) {
   using T = typename DType::c_type;
-  std::vector<T> values(1024);
+  std::vector<T> values(kBloomFilterElementSize);
   std::vector<uint8_t> heap;
-  test::GenerateData(1024, values.data(), &heap);
-  BlockSplitBloomFilter block_split_bloom_filter;
-  block_split_bloom_filter.Init(
-      BlockSplitBloomFilter::OptimalNumOfBytes(1024, /*fpp=*/0.05));
-  BloomFilter* filter = &block_split_bloom_filter;
-  ::benchmark::DoNotOptimize(filter);
+  test::GenerateData(kBloomFilterElementSize, values.data(), &heap);
+  auto filter = createBloomFilter(kBloomFilterElementSize);
   for (auto _ : state) {
-    for (int i = 0; i < 1024; ++i) {
+    for (const auto& value : values) {
       if constexpr (std::is_same_v<DType, FLBAType>) {
-        filter->Hash(&values[i], test::kGenerateDataFLBALength);
+        filter->Hash(&value, test::kGenerateDataFLBALength);
       } else {
-        filter->Hash(values[i]);
+        filter->Hash(value);
       }
+      ::benchmark::ClobberMemory();
     }
   }
   state.SetItemsProcessed(state.iterations() * values.size());
 }
 
 template <typename DType>
-static void BM_BatchCountHash(::benchmark::State& state) {
+static void BM_BatchComputeHash(::benchmark::State& state) {
   using T = typename DType::c_type;
-  std::vector<T> values(1024);
+  std::vector<T> values(kBloomFilterElementSize);
   std::vector<uint8_t> heap;
-  test::GenerateData(1024, values.data(), &heap);
-  BlockSplitBloomFilter block_split_bloom_filter;
-  block_split_bloom_filter.Init(
-      BlockSplitBloomFilter::OptimalNumOfBytes(1024, /*fpp=*/0.05));
-  BloomFilter* filter = &block_split_bloom_filter;
-  ::benchmark::DoNotOptimize(filter);
-  std::vector<uint64_t> hashes(1024);
+  test::GenerateData(kBloomFilterElementSize, values.data(), &heap);
+  auto filter = createBloomFilter(kBloomFilterElementSize);
+  std::vector<uint64_t> hashes(kBloomFilterElementSize);
   for (auto _ : state) {
     if constexpr (std::is_same_v<DType, FLBAType>) {
       filter->Hashes(values.data(), test::kGenerateDataFLBALength,
@@ -65,25 +70,23 @@ static void BM_BatchCountHash(::benchmark::State& state) {
     } else {
       filter->Hashes(values.data(), static_cast<int>(values.size()), hashes.data());
     }
+    ::benchmark::ClobberMemory();
   }
   state.SetItemsProcessed(state.iterations() * values.size());
 }
 
 static void BM_InsertHash(::benchmark::State& state) {
   using T = int32_t;
-  std::vector<T> values(1024);
+  std::vector<T> values(kBloomFilterElementSize);
   std::vector<uint8_t> heap;
-  test::GenerateData(1024, values.data(), &heap);
-  BlockSplitBloomFilter block_split_bloom_filter;
-  block_split_bloom_filter.Init(
-      BlockSplitBloomFilter::OptimalNumOfBytes(1024, /*fpp=*/0.05));
-  BloomFilter* filter = &block_split_bloom_filter;
-  ::benchmark::DoNotOptimize(filter);
+  test::GenerateData(kBloomFilterElementSize, values.data(), &heap);
+  auto filter = createBloomFilter(kBloomFilterElementSize);
   std::vector<uint64_t> hashes(1024);
   filter->Hashes(values.data(), static_cast<int>(values.size()), hashes.data());
   for (auto _ : state) {
     for (auto hash : hashes) {
       filter->InsertHash(hash);
+      ::benchmark::ClobberMemory();
     }
   }
   state.SetItemsProcessed(state.iterations() * values.size());
@@ -91,58 +94,68 @@ static void BM_InsertHash(::benchmark::State& state) {
 
 static void BM_BatchInsertHash(::benchmark::State& state) {
   using T = int32_t;
-  std::vector<T> values(1024);
+  std::vector<T> values(kBloomFilterElementSize);
   std::vector<uint8_t> heap;
-  test::GenerateData(1024, values.data(), &heap);
-  BlockSplitBloomFilter block_split_bloom_filter;
-  block_split_bloom_filter.Init(
-      BlockSplitBloomFilter::OptimalNumOfBytes(1024, /*fpp=*/0.05));
-  BloomFilter* filter = &block_split_bloom_filter;
-  ::benchmark::DoNotOptimize(filter);
-  std::vector<uint64_t> hashes(1024);
+  test::GenerateData(kBloomFilterElementSize, values.data(), &heap);
+  auto filter = createBloomFilter(kBloomFilterElementSize);
+  std::vector<uint64_t> hashes(kBloomFilterElementSize);
   filter->Hashes(values.data(), static_cast<int>(values.size()), hashes.data());
   for (auto _ : state) {
     filter->InsertHashes(hashes.data(), static_cast<int>(hashes.size()));
+    ::benchmark::ClobberMemory();
   }
   state.SetItemsProcessed(state.iterations() * values.size());
 }
 
-static void BM_FindHash(::benchmark::State& state) {
+static void BM_FindExistsHash(::benchmark::State& state) {
   using T = int32_t;
-  std::vector<T> values(1024);
+  std::vector<T> values(kBloomFilterElementSize);
   std::vector<uint8_t> heap;
-  test::GenerateData(1024, values.data(), &heap);
-  BlockSplitBloomFilter block_split_bloom_filter;
-  block_split_bloom_filter.Init(
-      BlockSplitBloomFilter::OptimalNumOfBytes(1024, /*fpp=*/0.05));
-  BloomFilter* filter = &block_split_bloom_filter;
-  ::benchmark::DoNotOptimize(filter);
-  std::vector<uint64_t> hashes(1024);
+  test::GenerateData(kBloomFilterElementSize, values.data(), &heap);
+  auto filter = createBloomFilter(kBloomFilterElementSize);
+  std::vector<uint64_t> hashes(kBloomFilterElementSize);
   filter->Hashes(values.data(), static_cast<int>(values.size()), hashes.data());
-  filter->InsertHashes(hashes.data(), static_cast<int>(hashes.size()));
+  // Insert all but the last hash.
+  filter->InsertHashes(hashes.data(), static_cast<int>(hashes.size()) - 1);
+  uint32_t exists = values[0];
   for (auto _ : state) {
-    for (auto hash : hashes) {
-      filter->FindHash(hash);
-    }
+    bool found = filter->FindHash(exists);
+    ::benchmark::DoNotOptimize(found);
   }
-  state.SetItemsProcessed(state.iterations() * values.size());
+  state.SetItemsProcessed(state.iterations());
 }
 
-BENCHMARK_TEMPLATE(BM_CountHash, Int32Type);
-BENCHMARK_TEMPLATE(BM_CountHash, Int64Type);
-BENCHMARK_TEMPLATE(BM_CountHash, FloatType);
-BENCHMARK_TEMPLATE(BM_CountHash, DoubleType);
-BENCHMARK_TEMPLATE(BM_BatchCountHash, Int32Type);
-BENCHMARK_TEMPLATE(BM_BatchCountHash, Int64Type);
-BENCHMARK_TEMPLATE(BM_BatchCountHash, FloatType);
-BENCHMARK_TEMPLATE(BM_BatchCountHash, DoubleType);
+static void BM_FindNotExistsHash(::benchmark::State& state) {
+  using T = int32_t;
+  std::vector<T> values(kBloomFilterElementSize);
+  std::vector<uint8_t> heap;
+  test::GenerateData(kBloomFilterElementSize, values.data(), &heap);
+  auto filter = createBloomFilter(kBloomFilterElementSize);
+  std::vector<uint64_t> hashes(kBloomFilterElementSize);
+  filter->Hashes(values.data(), static_cast<int>(values.size()), hashes.data());
+  // Insert all but the last hash.
+  filter->InsertHashes(hashes.data(), static_cast<int>(hashes.size()) - 1);
+  uint32_t unexist = values.back();
+  for (auto _ : state) {
+    bool found = filter->FindHash(unexist);
+    ::benchmark::DoNotOptimize(found);
+  }
+  state.SetItemsProcessed(state.iterations());
+}
+
+BENCHMARK_TEMPLATE(BM_ComputeHash, Int32Type);
+BENCHMARK_TEMPLATE(BM_ComputeHash, Int64Type);
+BENCHMARK_TEMPLATE(BM_ComputeHash, FloatType);
+BENCHMARK_TEMPLATE(BM_ComputeHash, DoubleType);
+BENCHMARK_TEMPLATE(BM_BatchComputeHash, Int32Type);
+BENCHMARK_TEMPLATE(BM_BatchComputeHash, Int64Type);
+BENCHMARK_TEMPLATE(BM_BatchComputeHash, FloatType);
+BENCHMARK_TEMPLATE(BM_BatchComputeHash, DoubleType);
 
 BENCHMARK(BM_InsertHash);
-BENCHMARK(BM_InsertHash);
 BENCHMARK(BM_BatchInsertHash);
-BENCHMARK(BM_BatchInsertHash);
-BENCHMARK(BM_FindHash);
-BENCHMARK(BM_FindHash);
+BENCHMARK(BM_FindExistsHash);
+BENCHMARK(BM_FindNotExistsHash);
 
 }  // namespace benchmark
 }  // namespace parquet
