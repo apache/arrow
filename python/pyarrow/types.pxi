@@ -1049,7 +1049,7 @@ cdef class TimestampType(DataType):
         else:
             # Return DatetimeTZ
             from pyarrow.pandas_compat import make_datetimetz
-            return make_datetimetz(unit=unit, tz=self.tz)
+            return make_datetimetz(self.unit, self.tz)
 
     def __reduce__(self):
         return timestamp, (self.unit, self.tz)
@@ -1161,7 +1161,7 @@ cdef class DurationType(DataType):
         >>> d.to_pandas_dtype()
         timedelta64[ms]
         """
-        return return _get_pandas_type(_Type_TIMESTAMP, self.unit)
+        return _get_pandas_type(_Type_TIMESTAMP, self.unit)
 
 
 cdef class FixedSizeBinaryType(DataType):

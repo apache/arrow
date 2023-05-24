@@ -715,7 +715,7 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
         block = _int.make_block(cat, placement=placement)
     elif 'timezone' in item:
         unit, _ = np.datetime_data(block_arr.dtype)
-        dtype = make_datetimetz(unit=unit, tz=item['timezone'])
+        dtype = make_datetimetz(unit, item['timezone'])
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock,
                                 dtype=dtype)
