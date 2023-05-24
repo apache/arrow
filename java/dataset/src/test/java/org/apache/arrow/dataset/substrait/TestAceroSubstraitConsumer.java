@@ -70,11 +70,9 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
     try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator())
         .runQuery(
-            planReplaceLocalFileURI(
-                new String(Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
-                    .getResource("substrait/local_files_users.json").toURI()))),
-                writeSupport.getOutputURI()
-            )
+            new String(Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
+                .getResource("substrait/local_files_users.json").toURI()))).replace("FILENAME_PLACEHOLDER",
+                writeSupport.getOutputURI())
         )
     ) {
       assertEquals(schema, arrowReader.getVectorSchemaRoot().getSchema());
@@ -205,9 +203,5 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         assertEquals(3, rowcount);
       }
     }
-  }
-
-  private static String planReplaceLocalFileURI(String plan, String uri) {
-    return plan.replace("FILENAME_PLACEHOLDER", uri);
   }
 }

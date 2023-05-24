@@ -106,7 +106,7 @@ public final class AceroSubstraitConsumer {
       try {
         AutoCloseables.close(arrowArrayStream);
       } catch (Exception e) {
-        throw new RuntimeException(e);
+        throw e;
       }
     }
   }
@@ -127,7 +127,7 @@ public final class AceroSubstraitConsumer {
       try {
         AutoCloseables.close(arrowArrayStream);
       } catch (Exception e) {
-        throw new RuntimeException(e);
+        throw e;
       }
     }
   }
