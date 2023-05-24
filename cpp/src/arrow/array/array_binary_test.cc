@@ -380,7 +380,7 @@ StringHeader NotInline(std::string_view prefix, size_t length, size_t buffer_ind
   assert(prefix.size() == 4);
   assert(!StringHeader::IsInline(length));
   StringHeader s{prefix.data(), length};
-  s.SetIndexOffset(buffer_index, offset);
+  s.SetIndexOffset(static_cast<uint32_t>(buffer_index), static_cast<uint32_t>(offset));
   return s;
 }
 
