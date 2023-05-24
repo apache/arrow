@@ -44,11 +44,13 @@ static void BM_ComputeHash(::benchmark::State& state) {
   auto filter = createBloomFilter(kBloomFilterElementSize);
   for (auto _ : state) {
     for (const auto& value : values) {
+      uint64_t hash = 0;
       if constexpr (std::is_same_v<DType, FLBAType>) {
-        filter->Hash(&value, test::kGenerateDataFLBALength);
+        hash = filter->Hash(&value, test::kGenerateDataFLBALength);
       } else {
-        filter->Hash(value);
+        hash = filter->Hash(value);
       }
+      ::benchmark::DoNotOptimize(hash);
       ::benchmark::ClobberMemory();
     }
   }
@@ -70,6 +72,7 @@ static void BM_BatchComputeHash(::benchmark::State& state) {
     } else {
       filter->Hashes(values.data(), static_cast<int>(values.size()), hashes.data());
     }
+    ::benchmark::DoNotOptimize(hashes);
     ::benchmark::ClobberMemory();
   }
   state.SetItemsProcessed(state.iterations() * values.size());

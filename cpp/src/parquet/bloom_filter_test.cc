@@ -396,12 +396,12 @@ TYPED_TEST(TestBatchBloomFilter, Basic) {
       BlockSplitBloomFilter::OptimalNumOfBytes(TestFixture::kTestDataSize, fpp));
 
   std::vector<uint64_t> hashes;
-  for (int i = 0; i < static_cast<int>(test_data.size()); ++i) {
+  for (const Type& value : test_data) {
     uint64_t hash = 0;
     if constexpr (std::is_same_v<Type, FLBA>) {
-      hash = filter.Hash(&test_data[i], kGenerateDataFLBALength);
+      hash = filter.Hash(&value, kGenerateDataFLBALength);
     } else {
-      hash = filter.Hash(&test_data[i]);
+      hash = filter.Hash(&value);
     }
     hashes.push_back(hash);
   }
