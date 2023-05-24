@@ -17,7 +17,7 @@
 
 from collections import namedtuple
 import warnings
-
+cimport cpython
 
 cpdef enum MetadataVersion:
     V1 = <char> CMetadataVersion_V1
@@ -809,6 +809,29 @@ cdef class RecordBatchReader(_Weakrefable):
         with nogil:
             c_reader = GetResultValue(ImportRecordBatchReader(
                 <ArrowArrayStream*> c_ptr))
+
+        self = RecordBatchReader.__new__(RecordBatchReader)
+        self.reader = c_reader
+        return self
+
+    @staticmethod
+    def _import_from_c_capsule(stream):
+        cdef:
+            ArrowArrayStream* c_stream
+            shared_ptr[CRecordBatchReader] c_reader
+            RecordBatchReader self
+
+        # sanity checks
+        if not cpython.PyCapsule_IsValid(stream, 'arrowarraystream'):
+            raise ValueError(
+                "Not an ArrayArrayStream object"
+            )
+        c_stream = <ArrowArrayStream*>cpython.PyCapsule_GetPointer(
+            stream, 'arrowarraystream'
+        )
+
+        with nogil:
+            c_reader = GetResultValue(ImportRecordBatchReader(c_stream))
 
         self = RecordBatchReader.__new__(RecordBatchReader)
         self.reader = c_reader
