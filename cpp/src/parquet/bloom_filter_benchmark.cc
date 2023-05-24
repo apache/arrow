@@ -122,7 +122,7 @@ static void BM_FindHash(::benchmark::State& state) {
   filter->InsertHashes(hashes.data(), static_cast<int>(hashes.size()));
   for (auto _ : state) {
     for (auto hash : hashes) {
-      ::benchmark::DoNotOptimize(filter->FindHash(hash));
+      filter->FindHash(hash);
     }
   }
   state.SetItemsProcessed(state.iterations() * values.size());
