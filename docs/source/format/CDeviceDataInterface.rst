@@ -33,17 +33,20 @@ implementations of it, make the assumption that all data buffers provided
 are CPU buffers. Since Apache Arrow is designed to be a universal in-memory
 format for representing tabular ("columnar") data, there will be the desire
 to leverage this data on non-CPU hardware such as GPUs. One example of such
-a case is the `RAPIDS cuDF library` which uses the Arrow memory format with
+a case is the `RAPIDS cuDF library`_ which uses the Arrow memory format with
 CUDA for NVIDIA GPUs. Since copying data from host to device and back is
 expensive, the ideal would be to be able to leave the data on the device
 for as long as possible, even when passing it between runtimes and
 libraries.
 
 The Arrow C Device data interface builds on the existing C data interface
-by adding a very small, stable set of C definitions to it. For non-C/C++
-languages and runtimes, translating the C definitions to corresponding
-C FFI declarations should be just as simple as with the current C data
-interface.
+by adding a very small, stable set of C definitions to it. These definitions
+are equivalents to the ``ArrowArray`` and ``ArrowArrayStream`` structures
+from the C Data Interface which add members to allow specifying the device
+type and pass necessary information to synchronize with the producer.
+For non-C/C++ languages and runtimes, translating the C definitions to
+corresponding C FFI declarations should be just as simple as with the
+current C data interface.
 
 Applications and libraries can then use Arrow schemas and Arrow formatted
 memory on non-CPU devices to exchange data just as easily as they do
@@ -60,7 +63,7 @@ Goals
 * Allow zero-copy sharing of Arrow formatted device memory between
   independant runtimes and components running in the same process.
 * Avoid the need for one-to-one adaptation layers such as the
-  `CUDA Array Interface` for Python processes to pass CUDA data.
+  `CUDA Array Interface`_ for Python processes to pass CUDA data.
 * Enable integration without explicit dependencies (either at compile-time
   or runtime) on the Arrow software project itself.
 
@@ -150,7 +153,7 @@ provided memory buffers were allocated on. This, in conjunction with the
 ``device_id``, should be sufficient to reference the correct data buffers.
 
 We then use macros to define values for different device types. The provided
-macro values are compatible with the widely used `dlpack` ``DLDeviceType``
+macro values are compatible with the widely used `dlpack`_ ``DLDeviceType``
 definition values, using the same value for each as the equivalent
 ``kDL<type>`` enum from dlpack.h. The list will be kept in sync with those
 equivalent enum values over time to ensure compatibility, rather than
@@ -168,7 +171,7 @@ so the storage type is not compiler dependent.
 
 .. c:macro:: ARROW_DEVICE_CUDA
 
-    A `CUDA` GPU Device. This could represent data allocated either with the
+    A `CUDA`_ GPU Device. This could represent data allocated either with the
     runtime library (``cudaMalloc``) or the device driver (``cuMemAlloc``).
 
 .. c:macro:: ARROW_DEVICE_CUDA_HOST
@@ -178,16 +181,16 @@ so the storage type is not compiler dependent.
 
 .. c:macro:: ARROW_DEVICE_OPENCL
 
-    Data allocated on the device by using the `OpenCL (Open Computing Language)`
+    Data allocated on the device by using the `OpenCL (Open Computing Language)`_
     framework.
 
 .. c:macro:: ARROW_DEVICE_VULKAN
 
-    Data allocated by the `Vulkan` framework and libraries.
+    Data allocated by the `Vulkan`_ framework and libraries.
 
 .. c:macro:: ARROW_DEVICE_METAL
 
-    Data on Apple GPU devices using the `Metal` framework and libraries.
+    Data on Apple GPU devices using the `Metal`_ framework and libraries.
 
 .. c:macro:: ARROW_DEVICE_VPI
 
@@ -195,7 +198,7 @@ so the storage type is not compiler dependent.
 
 .. c:macro:: ARROW_DEVICE_ROCM
 
-    An AMD device using the `ROCm` stack.
+    An AMD device using the `ROCm`_ stack.
 
 .. c:macro:: ARROW_DEVICE_ROCM_HOST
 
@@ -215,7 +218,7 @@ so the storage type is not compiler dependent.
 
 .. c:macro:: ARROW_DEVICE_ONEAPI
 
-    Unified shared memory allocated on an Intel `oneAPI` non-partitioned
+    Unified shared memory allocated on an Intel `oneAPI`_ non-partitioned
     device. A call to the ``oneAPI`` runtime is required to determine
     the specific device type, the USM allocation type and the sycl context
     that it is bound to.
@@ -409,7 +412,7 @@ could be used for any device:
         assert(status == cudaSuccess);
 
         // record event on the stream, assuming that the passed in
-        // stream is where the work to produce the data will be processing.        
+        // stream is where the work to produce the data will be processing.
         status = cudaEventRecord(*ev_ptr, stream);
         assert(status == cudaSuccess);
 
@@ -444,7 +447,7 @@ could be used for any device:
 Device Stream Interface
 ================
 
-Like the :ref:`C stream interface <c-stream-interface>`, the C Device data 
+Like the :ref:`C stream interface <c-stream-interface>`, the C Device data
 interface also specifies a higher-level structure for easing communication
 of streaming data within a single process. Defining an ``ArrowDeviceArrayStream``
 structure.
@@ -456,7 +459,7 @@ An Arrow C device stream exposes a streaming source of data chunks, each with
 the same schema. Chunks are obtained by calling a blocking pull-style iteration
 function. It is expected that all chunks should be providing data on the same
 device type (but not necessarily the same device id). If it is necessary
-to provide a stream of data on multiple device types, a producer should 
+to provide a stream of data on multiple device types, a producer should
 provide a separate stream object for each device type.
 
 Structure definition
@@ -502,7 +505,7 @@ streaming source of Arrow arrays. It has the following fields:
 
 .. c:member:: ArrowDeviceType device_type
 
-    The device type that this stream produces data on. All 
+    The device type that this stream produces data on. All
     ``ArrowDeviceArray``s that are produced by this stream should have the
     same device type as is set here. This is a convenience for the consumer
     to not have to check every array that is retrieved and instead allows
@@ -534,7 +537,7 @@ streaming source of Arrow arrays. It has the following fields:
 
     On success, the consumer must check whether the ``ArrowDeviceArray``'s
     embedded ``ArrowArray`` is marked :ref:`released <c-data-interface-released>`.
-    If the embedded ``ArrowDeviceArray.array`` is released, then the end of the 
+    If the embedded ``ArrowDeviceArray.array`` is released, then the end of the
     stream has been reached. Otherwise, the ``ArrowDeviceArray`` contains a
     valid data chunk.
 
@@ -543,11 +546,11 @@ streaming source of Arrow arrays. It has the following fields:
     *Mandatory.* This callback allows the consumer to get a textual description
     of the last error.
 
-    This callback must ONLY be called if the last operation on the 
+    This callback must ONLY be called if the last operation on the
     ``ArrowDeviceArrayStream`` returned an error. It must NOT be called on a
     released ``ArrowDeviceArrayStream``.
 
-    *Return value:* a pointer to a NULL-terminated character string 
+    *Return value:* a pointer to a NULL-terminated character string
     (UTF8-encoded). NULL can also be returned if no detailed description is
     available.
 
@@ -570,28 +573,41 @@ Result lifetimes
 ----------------
 
 The data returned by the ``get_schema`` and ``get_next`` callbacks must be
-released independantly. Their lifetimes are not tied to that of 
+released independantly. Their lifetimes are not tied to that of
 ``ArrowDeviceArrayStream``.
 
 Stream lifetime
 ---------------
 
-Lifetime of the C stream is managed using a release callback with similar 
+Lifetime of the C stream is managed using a release callback with similar
 usage as in :ref:`C data interface <c-data-interface-released>`.
 
 Thread safety
 -------------
 
 The stream source is not assumed to be thread-safe. Consumers wanting to
-call ``get_next`` from several threads should ensure those calls are 
+call ``get_next`` from several threads should ensure those calls are
 serialized.
 
 Updating this specification
 ===========================
 
+.. note::
+    Since this specification is still considered experimental, there is the
+    (still very low) possibility it might change slightly. Once it is
+    supported in an official Arrow release and the "experimental" tag is
+    removed from it, this section will apply and the ABI will be frozen.
+    
+    The reason for the "experimental" tag is because we don't know what we
+    don't know. While it was attempted to ensure this is generic enough to
+    work with a multitude of different frameworks, it's also possible that
+    something was missed. Once there is some usage of this and we are
+    confident there isn't any necessary modifications, the "experimental"
+    tag will be removed and the ABI frozen.
+
 Once this specification is supported in an official Arrow release, the C ABI
-is frozen. This means that the ``ArrowDeviceArray`` structure definition 
-should not change in any way -- including adding new members. 
+is frozen. This means that the ``ArrowDeviceArray`` structure definition
+should not change in any way -- including adding new members.
 
 Backwards-compatible changes are allowed, for example new macro values for
 :c:typedef:`ArrowDeviceType` or converting the reserved 24 bytes into a
@@ -599,7 +615,6 @@ different type/member without changing the size of the structure.
 
 Any incompatible changes should be part of a new specification, for example
 ``ArrowDeviceArrayV2``.
-
 
 
 .. _RAPIDS cuDF library: https://docs.rapids.ai/api/cudf/stable/
