@@ -361,16 +361,18 @@ class TestBatchBloomFilter : public testing::Test {
  public:
   using T = typename DType::c_type;
 
-  // FLBA Type length
-  constexpr static int kTypeLength = 8;
+  void SetUp() {}
+
+  void TearDown() {}
+
   constexpr static int kStringLength = 8;
   constexpr static int kTestDataSize = 64;
 
+  // FLBA Type length
+  constexpr static int kTypeLength = 8;
+
   // GenerateTestData with size 64.
   std::vector<T> GenerateTestData();
-
-  // Underlying data
-  std::unique_ptr<XxHasher> bloom_filter_hasher;
 
   // The Lifetime owner for Test data
   std::vector<std::string> members;
@@ -403,10 +405,10 @@ std::vector<typename DType::c_type> TestBatchBloomFilter<DType>::GenerateTestDat
   return values;
 }
 
-using TestTypes = ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType, FLBAType,
-                                   ByteArrayType>;
+using BloomFilterTestTypes = ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType,
+                                              FLBAType, ByteArrayType>;
 
-TYPED_TEST_SUITE(TestBatchBloomFilter, TestTypes);
+TYPED_TEST_SUITE(TestBatchBloomFilter, BloomFilterTestTypes);
 
 TYPED_TEST(TestBatchBloomFilter, Basic) {
   using Type = typename TestFixture::T;
