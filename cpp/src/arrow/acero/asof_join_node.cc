@@ -1822,5 +1822,10 @@ std::ostream* GetDebugStream(AsofJoinNode* node) { return node->GetDebugStream()
 std::mutex* GetDebugMutex(AsofJoinNode* node) { return node->GetDebugMutex(); }
 #endif
 
+#undef DEBUG_SYNC
+#undef DEBUG_MANIP
+#undef NDEBUG_EXPLICIT
+#undef DEBUG_ADD
+
 }  // namespace acero
 }  // namespace arrow
