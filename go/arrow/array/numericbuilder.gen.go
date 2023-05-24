@@ -143,6 +143,10 @@ func (b *Int64Builder) Resize(n int) {
 	}
 }
 
+func (b *Int64Builder) Value(i int) int64 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Int64 array from the memory buffers used by the builder and resets the Int64Builder
 // so it can be used to build a new array.
 func (b *Int64Builder) NewArray() arrow.Array {
@@ -364,6 +368,10 @@ func (b *Uint64Builder) Resize(n int) {
 		b.data.Resize(arrow.Uint64Traits.BytesRequired(n))
 		b.rawData = arrow.Uint64Traits.CastFromBytes(b.data.Bytes())
 	}
+}
+
+func (b *Uint64Builder) Value(i int) uint64 {
+	return b.rawData[i]
 }
 
 // NewArray creates a Uint64 array from the memory buffers used by the builder and resets the Uint64Builder
@@ -589,6 +597,10 @@ func (b *Float64Builder) Resize(n int) {
 	}
 }
 
+func (b *Float64Builder) Value(i int) float64 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Float64 array from the memory buffers used by the builder and resets the Float64Builder
 // so it can be used to build a new array.
 func (b *Float64Builder) NewArray() arrow.Array {
@@ -810,6 +822,10 @@ func (b *Int32Builder) Resize(n int) {
 		b.data.Resize(arrow.Int32Traits.BytesRequired(n))
 		b.rawData = arrow.Int32Traits.CastFromBytes(b.data.Bytes())
 	}
+}
+
+func (b *Int32Builder) Value(i int) int32 {
+	return b.rawData[i]
 }
 
 // NewArray creates a Int32 array from the memory buffers used by the builder and resets the Int32Builder
@@ -1035,6 +1051,10 @@ func (b *Uint32Builder) Resize(n int) {
 	}
 }
 
+func (b *Uint32Builder) Value(i int) uint32 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Uint32 array from the memory buffers used by the builder and resets the Uint32Builder
 // so it can be used to build a new array.
 func (b *Uint32Builder) NewArray() arrow.Array {
@@ -1256,6 +1276,10 @@ func (b *Float32Builder) Resize(n int) {
 		b.data.Resize(arrow.Float32Traits.BytesRequired(n))
 		b.rawData = arrow.Float32Traits.CastFromBytes(b.data.Bytes())
 	}
+}
+
+func (b *Float32Builder) Value(i int) float32 {
+	return b.rawData[i]
 }
 
 // NewArray creates a Float32 array from the memory buffers used by the builder and resets the Float32Builder
@@ -1481,6 +1505,10 @@ func (b *Int16Builder) Resize(n int) {
 	}
 }
 
+func (b *Int16Builder) Value(i int) int16 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Int16 array from the memory buffers used by the builder and resets the Int16Builder
 // so it can be used to build a new array.
 func (b *Int16Builder) NewArray() arrow.Array {
@@ -1702,6 +1730,10 @@ func (b *Uint16Builder) Resize(n int) {
 		b.data.Resize(arrow.Uint16Traits.BytesRequired(n))
 		b.rawData = arrow.Uint16Traits.CastFromBytes(b.data.Bytes())
 	}
+}
+
+func (b *Uint16Builder) Value(i int) uint16 {
+	return b.rawData[i]
 }
 
 // NewArray creates a Uint16 array from the memory buffers used by the builder and resets the Uint16Builder
@@ -1927,6 +1959,10 @@ func (b *Int8Builder) Resize(n int) {
 	}
 }
 
+func (b *Int8Builder) Value(i int) int8 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Int8 array from the memory buffers used by the builder and resets the Int8Builder
 // so it can be used to build a new array.
 func (b *Int8Builder) NewArray() arrow.Array {
@@ -2148,6 +2184,10 @@ func (b *Uint8Builder) Resize(n int) {
 		b.data.Resize(arrow.Uint8Traits.BytesRequired(n))
 		b.rawData = arrow.Uint8Traits.CastFromBytes(b.data.Bytes())
 	}
+}
+
+func (b *Uint8Builder) Value(i int) uint8 {
+	return b.rawData[i]
 }
 
 // NewArray creates a Uint8 array from the memory buffers used by the builder and resets the Uint8Builder
@@ -2374,6 +2414,10 @@ func (b *Time32Builder) Resize(n int) {
 	}
 }
 
+func (b *Time32Builder) Value(i int) arrow.Time32 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Time32 array from the memory buffers used by the builder and resets the Time32Builder
 // so it can be used to build a new array.
 func (b *Time32Builder) NewArray() arrow.Array {
@@ -2596,6 +2640,10 @@ func (b *Time64Builder) Resize(n int) {
 		b.data.Resize(arrow.Time64Traits.BytesRequired(n))
 		b.rawData = arrow.Time64Traits.CastFromBytes(b.data.Bytes())
 	}
+}
+
+func (b *Time64Builder) Value(i int) arrow.Time64 {
+	return b.rawData[i]
 }
 
 // NewArray creates a Time64 array from the memory buffers used by the builder and resets the Time64Builder
@@ -2821,6 +2869,10 @@ func (b *Date32Builder) Resize(n int) {
 	}
 }
 
+func (b *Date32Builder) Value(i int) arrow.Date32 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Date32 array from the memory buffers used by the builder and resets the Date32Builder
 // so it can be used to build a new array.
 func (b *Date32Builder) NewArray() arrow.Array {
@@ -3042,6 +3094,10 @@ func (b *Date64Builder) Resize(n int) {
 		b.data.Resize(arrow.Date64Traits.BytesRequired(n))
 		b.rawData = arrow.Date64Traits.CastFromBytes(b.data.Bytes())
 	}
+}
+
+func (b *Date64Builder) Value(i int) arrow.Date64 {
+	return b.rawData[i]
 }
 
 // NewArray creates a Date64 array from the memory buffers used by the builder and resets the Date64Builder
@@ -3266,6 +3322,10 @@ func (b *DurationBuilder) Resize(n int) {
 		b.data.Resize(arrow.DurationTraits.BytesRequired(n))
 		b.rawData = arrow.DurationTraits.CastFromBytes(b.data.Bytes())
 	}
+}
+
+func (b *DurationBuilder) Value(i int) arrow.Duration {
+	return b.rawData[i]
 }
 
 // NewArray creates a Duration array from the memory buffers used by the builder and resets the DurationBuilder

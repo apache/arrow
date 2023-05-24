@@ -264,6 +264,10 @@ func (b *BinaryMemoTable) GetOrInsertNull() (idx int, found bool) {
 	return
 }
 
+func (b *BinaryMemoTable) Value(i int) []byte {
+	return b.builder.Value(i)
+}
+
 // helper function to get the offset into the builder data for a given
 // index value.
 func (b *BinaryMemoTable) findOffset(idx int) uintptr {
