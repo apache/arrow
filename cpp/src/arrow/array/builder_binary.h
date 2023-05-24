@@ -494,7 +494,7 @@ class ARROW_EXPORT StringHeapBuilder {
                                     current_offset_);
     current_out_buffer_ += raw_not_inlined->size();
     current_remaining_bytes_ -= raw_not_inlined->size();
-    current_offset_ += raw_not_inlined->size();
+    current_offset_ += static_cast<uint32_t>(raw_not_inlined->size());
   }
 
   /// \brief Ensure that the indicated number of bytes can be appended via
