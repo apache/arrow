@@ -1467,6 +1467,11 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     thrift_encodings.push_back(ToThrift(Encoding::RLE));
     // Add dictionary page encoding stats
     if (has_dictionary) {
+      // For Parquet V1, Dictionary Data Page and Dictionary Index Page encodings
+      // is PLAIN_DICTIONARY, but the actual DATA is PLAIN, so force adding PLAIN.
+      if (properties_->version() == ParquetVersion::PARQUET_1_0) {
+        thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
+      }
       for (const auto& entry : dict_encoding_stats) {
         format::PageEncodingStats dict_enc_stat;
         dict_enc_stat.__set_page_type(format::PageType::DICTIONARY_PAGE);
