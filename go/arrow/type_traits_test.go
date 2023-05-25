@@ -17,6 +17,7 @@
 package arrow_test
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"testing"
@@ -247,7 +248,7 @@ func TestTimestampTraits(t *testing.T) {
 		arrow.TimestampTraits.PutValue(b2[beg:end], arrow.Timestamp(i))
 	}
 
-	if !reflect.DeepEqual(b1, b2) {
+	if !bytes.Equal(b1, b2) {
 		v1 := arrow.TimestampTraits.CastFromBytes(b1)
 		v2 := arrow.TimestampTraits.CastFromBytes(b2)
 		t.Fatalf("invalid values:\nb1=%v\nb2=%v\nv1=%v\nv2=%v\n", b1, b2, v1, v2)
