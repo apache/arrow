@@ -74,11 +74,7 @@ namespace Apache.Arrow.C
         {
             var ptr = (CArrowArrayStream*)Marshal.AllocHGlobal(sizeof(CArrowArrayStream));
 
-            ptr->get_schema = null;
-            ptr->get_next = null;
-            ptr->get_last_error = null;
-            ptr->release = null;
-            ptr->private_data = null;
+            *ptr = default;
 
             return ptr;
         }

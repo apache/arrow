@@ -52,15 +52,7 @@ namespace Apache.Arrow.C
         {
             var ptr = (CArrowSchema*)Marshal.AllocHGlobal(sizeof(CArrowSchema));
 
-            ptr->format = null;
-            ptr->name = null;
-            ptr->metadata = null;
-            ptr->flags = 0;
-            ptr->n_children = 0;
-            ptr->children = null;
-            ptr->dictionary = null;
-            ptr->release = null;
-            ptr->private_data = null;
+            *ptr = default;
 
             return ptr;
         }
