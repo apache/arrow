@@ -1462,40 +1462,40 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_total_compressed_size(compressed_size);
 
     std::vector<format::Encoding::type> thrift_encodings;
-    if (has_dictionary) {
-      thrift_encodings.push_back(ToThrift(properties_->dictionary_index_encoding()));
-      if (properties_->version() == ParquetVersion::PARQUET_1_0) {
-        thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
-      } else {
-        thrift_encodings.push_back(ToThrift(properties_->dictionary_page_encoding()));
-      }
-    } else {  // Dictionary not enabled
-      thrift_encodings.push_back(ToThrift(properties_->encoding(column_->path())));
-    }
-    thrift_encodings.push_back(ToThrift(Encoding::RLE));
-    // Only PLAIN encoding is supported for fallback in V1
-    // TODO(majetideepak): Use user specified encoding for V2
-    if (dictionary_fallback) {
-      thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
-    }
-    column_chunk_->meta_data.__set_encodings(thrift_encodings);
     std::vector<format::PageEncodingStats> thrift_encoding_stats;
+    // Force Emplace encoding for RL/DL.
+    thrift_encodings.push_back(ToThrift(Encoding::RLE));
     // Add dictionary page encoding stats
-    for (const auto& entry : dict_encoding_stats) {
-      format::PageEncodingStats dict_enc_stat;
-      dict_enc_stat.__set_page_type(format::PageType::DICTIONARY_PAGE);
-      dict_enc_stat.__set_encoding(ToThrift(entry.first));
-      dict_enc_stat.__set_count(entry.second);
-      thrift_encoding_stats.push_back(dict_enc_stat);
+    if (has_dictionary) {
+      for (const auto& entry : dict_encoding_stats) {
+        format::PageEncodingStats dict_enc_stat;
+        dict_enc_stat.__set_page_type(format::PageType::DICTIONARY_PAGE);
+        format::Encoding::type dict_encoding = ToThrift(entry.first);
+        dict_enc_stat.__set_encoding(dict_encoding);
+        dict_enc_stat.__set_count(entry.second);
+        thrift_encoding_stats.push_back(dict_enc_stat);
+        auto iter =
+            std::find(thrift_encodings.begin(), thrift_encodings.end(), dict_encoding);
+        if (iter == thrift_encodings.end()) {
+          thrift_encodings.push_back(dict_encoding);
+        }
+      }
     }
     // Add data page encoding stats
     for (const auto& entry : data_encoding_stats) {
       format::PageEncodingStats data_enc_stat;
       data_enc_stat.__set_page_type(format::PageType::DATA_PAGE);
-      data_enc_stat.__set_encoding(ToThrift(entry.first));
+      format::Encoding::type data_encoding = ToThrift(entry.first);
+      data_enc_stat.__set_encoding(data_encoding);
       data_enc_stat.__set_count(entry.second);
       thrift_encoding_stats.push_back(data_enc_stat);
+      auto iter =
+          std::find(thrift_encodings.begin(), thrift_encodings.end(), data_encoding);
+      if (iter == thrift_encodings.end()) {
+        thrift_encodings.push_back(data_encoding);
+      }
     }
+    column_chunk_->meta_data.__set_encodings(thrift_encodings);
     column_chunk_->meta_data.__set_encoding_stats(thrift_encoding_stats);
 
     const auto& encrypt_md =

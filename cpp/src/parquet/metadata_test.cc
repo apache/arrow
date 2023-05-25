@@ -66,7 +66,6 @@ std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
   // column metadata
   col1_builder->SetStatistics(stats_int);
   col2_builder->SetStatistics(stats_float);
-  dict_encoding_stats.clear();
   col1_builder->Finish(nrows / 2, /*dictionary_page_offset=*/0, 0, 10, 512, 600,
                        /*has_dictionary=*/false, false, dict_encoding_stats,
                        data_encoding_stats);
@@ -209,7 +208,7 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(10, rg2_column1->data_page_offset());
     ASSERT_EQ(26, rg2_column2->data_page_offset());
     ASSERT_EQ(2, rg2_column1->encoding_stats().size());
-    ASSERT_EQ(2, rg2_column2->encoding_stats().size());
+    ASSERT_EQ(3, rg2_column2->encoding_stats().size());
 
     // Test FileMetaData::set_file_path
     ASSERT_TRUE(rg2_column1->file_path().empty());
