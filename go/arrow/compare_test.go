@@ -99,6 +99,18 @@ func TestTypeEqual(t *testing.T) {
 			&ListType{elem: Field{Type: &ListType{elem: Field{Type: &ListType{elem: Field{Type: PrimitiveTypes.Uint16}}}}}}, &ListType{elem: Field{Type: &ListType{elem: Field{Type: PrimitiveTypes.Uint8}}}}, false, false,
 		},
 		{
+			&ListType{elem: Field{Type: PrimitiveTypes.Uint64, Nullable: true}}, &ListType{elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, false, true,
+		},
+		{
+			&FixedSizeListType{n: 2, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, &FixedSizeListType{n: 3, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, false, true,
+		},
+		{
+			&FixedSizeListType{n: 2, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, &FixedSizeListType{n: 2, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, true, true,
+		},
+		{
+			&FixedSizeListType{n: 2, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, &FixedSizeListType{n: 2, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: true}}, false, true,
+		},
+		{
 			&StructType{
 				fields: []Field{
 					{Name: "f1", Type: PrimitiveTypes.Uint16, Nullable: true},
