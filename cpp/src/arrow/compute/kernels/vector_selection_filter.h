@@ -31,7 +31,6 @@ namespace internal {
 int64_t GetBitmapFilterOutputSize(const ArraySpan& filter,
                                   FilterOptions::NullSelectionBehavior null_selection);
 
-
 const FilterOptions* GetDefaultFilterOptions();
 
 std::unique_ptr<Function> MakeFilterMetaFunction();
