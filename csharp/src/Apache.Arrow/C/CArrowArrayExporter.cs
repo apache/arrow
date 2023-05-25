@@ -195,11 +195,7 @@ namespace Apache.Arrow.C
 #endif
         private unsafe static void ReleaseArray(CArrowArray* cArray)
         {
-            if (cArray->private_data != null)
-            {
-                Dispose(&cArray->private_data);
-            }
-            cArray->private_data = null;
+            Dispose(&cArray->private_data);
             cArray->release = null;
         }
 
@@ -212,6 +208,10 @@ namespace Apache.Arrow.C
         private unsafe static void Dispose(void** ptr)
         {
             GCHandle gch = GCHandle.FromIntPtr((IntPtr)(*ptr));
+            if (!gch.IsAllocated)
+            {
+                return;
+            }
             ((IDisposable)gch.Target).Dispose();
             gch.Free();
             *ptr = null;
