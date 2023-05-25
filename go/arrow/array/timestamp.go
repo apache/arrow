@@ -154,18 +154,11 @@ func (b *TimestampBuilder) Release() {
 }
 
 func (b *TimestampBuilder) AppendTime(t time.Time) {
-	switch b.dtype.Unit {
-	case arrow.Nanosecond:
-		b.Append(arrow.Timestamp(t.UnixNano()))
-	case arrow.Microsecond:
-		b.Append(arrow.Timestamp(t.UnixMicro()))
-	case arrow.Millisecond:
-		b.Append(arrow.Timestamp(t.UnixMilli()))
-	case arrow.Second:
-		b.Append(arrow.Timestamp(t.Unix()))
-	default:
-		panic("arrow: invalid timestamp unit")
+	ts, err := arrow.TimestampFromTime(t, b.dtype.Unit)
+	if err != nil {
+		panic(err)
 	}
+	b.Append(ts)
 }
 
 func (b *TimestampBuilder) Append(v arrow.Timestamp) {
@@ -305,7 +298,6 @@ func (b *TimestampBuilder) UnmarshalOne(dec *json.Decoder) error {
 	case string:
 		loc, _ := b.dtype.GetZone()
 		tm, _, err := arrow.TimestampFromStringInLocation(v, b.dtype.Unit, loc)
-
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value:  v,
