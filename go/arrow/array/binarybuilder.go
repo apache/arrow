@@ -507,18 +507,22 @@ func (b *BinaryViewBuilder) AppendValues(v [][]byte, valid []bool) {
 
 	b.Reserve(len(v))
 	outOfLineTotal := 0
-	for _, vv := range v {
-		if !arrow.IsStringHeaderInline(len(vv)) {
-			outOfLineTotal += len(vv)
+	for i, vv := range v {
+		if len(valid) == 0 || valid[i] {
+			if !arrow.IsStringHeaderInline(len(vv)) {
+				outOfLineTotal += len(vv)
+			}
 		}
 	}
 
 	b.ReserveData(outOfLineTotal)
 	for i, vv := range v {
-		hdr := &b.rawData[b.length+i]
-		hdr.SetBytes(vv)
-		if !hdr.IsInline() {
-			b.blockBuilder.UnsafeAppend(hdr, vv)
+		if len(valid) == 0 || valid[i] {
+			hdr := &b.rawData[b.length+i]
+			hdr.SetBytes(vv)
+			if !hdr.IsInline() {
+				b.blockBuilder.UnsafeAppend(hdr, vv)
+			}
 		}
 	}
 
@@ -536,18 +540,22 @@ func (b *BinaryViewBuilder) AppendStringValues(v []string, valid []bool) {
 
 	b.Reserve(len(v))
 	outOfLineTotal := 0
-	for _, vv := range v {
-		if !arrow.IsStringHeaderInline(len(vv)) {
-			outOfLineTotal += len(vv)
+	for i, vv := range v {
+		if len(valid) == 0 || valid[i] {
+			if !arrow.IsStringHeaderInline(len(vv)) {
+				outOfLineTotal += len(vv)
+			}
 		}
 	}
 
 	b.ReserveData(outOfLineTotal)
 	for i, vv := range v {
-		hdr := &b.rawData[b.length+i]
-		hdr.SetString(vv)
-		if !hdr.IsInline() {
-			b.blockBuilder.UnsafeAppendString(hdr, vv)
+		if len(valid) == 0 || valid[i] {
+			hdr := &b.rawData[b.length+i]
+			hdr.SetString(vv)
+			if !hdr.IsInline() {
+				b.blockBuilder.UnsafeAppendString(hdr, vv)
+			}
 		}
 	}
 

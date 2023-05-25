@@ -49,7 +49,7 @@ enum MetadataVersion:short {
   ///   bitmap buffer.
   V5,
 
-  /// >= 13.0.0 (May 2023). Backwards compatible with V5 (V6 readers can read V5
+  /// >= 1.4.0 (May 2023). Backwards compatible with V5 (V6 readers can read V5
   /// metadata and IPC messages). Implementations are recommended to provide a
   /// V5 compatibility mode with V6 format changes disabled.
   ///

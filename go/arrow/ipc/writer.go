@@ -603,6 +603,33 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		p.body = append(p.body, voffsets)
 		p.body = append(p.body, values)
 
+	case arrow.BinaryViewDataType:
+		data := arr.Data()
+		values := data.Buffers()[1]
+		arrLen := int64(arr.Len())
+		typeWidth := int64(arrow.StringHeaderSizeBytes)
+		minLength := paddedLength(arrLen*typeWidth, kArrowAlignment)
+
+		switch {
+		case needTruncate(int64(data.Offset()), values, minLength):
+			// non-zero offset: slice the buffer
+			offset := int64(data.Offset()) * typeWidth
+			// send padding if available
+			len := minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(values.Len())-offset)
+			values = memory.NewBufferBytes(values.Bytes()[offset : offset+len])
+		default:
+			if values != nil {
+				values.Retain()
+			}
+		}
+		p.body = append(p.body, values)
+
+		w.variadicCounts = append(w.variadicCounts, int64(len(data.Buffers())-2))
+		for _, b := range data.Buffers()[2:] {
+			b.Retain()
+			p.body = append(p.body, b)
+		}
+
 	case *arrow.StructType:
 		w.depth--
 		arr := arr.(*array.Struct)

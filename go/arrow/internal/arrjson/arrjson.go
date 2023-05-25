@@ -158,6 +158,10 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 		typ = nameJSON{"utf8"}
 	case *arrow.LargeStringType:
 		typ = nameJSON{"largeutf8"}
+	case *arrow.BinaryViewType:
+		typ = nameJSON{"binary_view"}
+	case *arrow.StringViewType:
+		typ = nameJSON{"utf8_view"}
 	case *arrow.Date32Type:
 		typ = unitZoneJSON{Name: "date", Unit: "DAY"}
 	case *arrow.Date64Type:
@@ -342,6 +346,10 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		arrowType = arrow.BinaryTypes.String
 	case "largeutf8":
 		arrowType = arrow.BinaryTypes.LargeString
+	case "binary_view":
+		arrowType = arrow.BinaryTypes.BinaryView
+	case "utf8_view":
+		arrowType = arrow.BinaryTypes.StringView
 	case "date":
 		t := unitZoneJSON{}
 		if err = json.Unmarshal(typ, &t); err != nil {
@@ -818,6 +826,7 @@ type Array struct {
 	Offset   interface{}           `json:"OFFSET,omitempty"`
 	Size     interface{}           `json:"SIZE,omitempty"`
 	Children []Array               `json:"children,omitempty"`
+	Variadic []string              `json:"VARIADIC_BUFFERS,omitempty"`
 }
 
 func (a *Array) MarshalJSON() ([]byte, error) {
@@ -1077,6 +1086,30 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		valids := validsFromJSON(arr.Valids)
 		bldr.AppendValues(data, valids)
 		return returnNewArrayData(bldr)
+
+	case *arrow.BinaryViewType:
+		valids := validsToBitmap(validsFromJSON(arr.Valids), mem)
+		nulls := arr.Count - bitutil.CountSetBits(valids.Bytes(), 0, arr.Count)
+		headers := stringHeadersFromJSON(mem, true, arr.Data)
+		extraBufs := variadicBuffersFromJSON(arr.Variadic)
+		defer valids.Release()
+		defer headers.Release()
+
+		return array.NewData(dt, arr.Count,
+			append([]*memory.Buffer{valids, headers}, extraBufs...),
+			nil, nulls, 0)
+
+	case *arrow.StringViewType:
+		valids := validsToBitmap(validsFromJSON(arr.Valids), mem)
+		nulls := arr.Count - bitutil.CountSetBits(valids.Bytes(), 0, arr.Count)
+		headers := stringHeadersFromJSON(mem, false, arr.Data)
+		extraBufs := variadicBuffersFromJSON(arr.Variadic)
+		defer valids.Release()
+		defer headers.Release()
+
+		return array.NewData(dt, arr.Count,
+			append([]*memory.Buffer{valids, headers}, extraBufs...),
+			nil, nulls, 0)
 
 	case *arrow.ListType:
 		valids := validsFromJSON(arr.Valids)
@@ -1486,6 +1519,24 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Offset: strOffsets,
 		}
 
+	case *array.StringView:
+		variadic := variadicBuffersToJSON(arr.Data().Buffers()[2:])
+		return Array{
+			Name:     field.Name,
+			Count:    arr.Len(),
+			Valids:   validsToJSON(arr),
+			Data:     stringHeadersToJSON(arr, false),
+			Variadic: variadic,
+		}
+	case *array.BinaryView:
+		variadic := variadicBuffersToJSON(arr.Data().Buffers()[2:])
+		return Array{
+			Name:     field.Name,
+			Count:    arr.Len(),
+			Valids:   validsToJSON(arr),
+			Data:     stringHeadersToJSON(arr, true),
+			Variadic: variadic,
+		}
 	case *array.List:
 		o := Array{
 			Name:   field.Name,
@@ -2305,6 +2356,116 @@ func durationToJSON(arr *array.Duration) []interface{} {
 			o[i] = strconv.FormatInt(int64(arr.Value(i)), 10)
 		} else {
 			o[i] = "0"
+		}
+	}
+	return o
+}
+
+func variadicBuffersFromJSON(bufs []string) []*memory.Buffer {
+	out := make([]*memory.Buffer, len(bufs))
+	for i, data := range bufs {
+		rawData, err := hex.DecodeString(data)
+		if err != nil {
+			panic(err)
+		}
+
+		out[i] = memory.NewBufferBytes(rawData)
+	}
+	return out
+}
+
+func variadicBuffersToJSON(bufs []*memory.Buffer) []string {
+	out := make([]string, len(bufs))
+	for i, data := range bufs {
+		out[i] = strings.ToUpper(hex.EncodeToString(data.Bytes()))
+	}
+	return out
+}
+
+func stringHeadersFromJSON(mem memory.Allocator, isBinary bool, data []interface{}) *memory.Buffer {
+	buf := memory.NewResizableBuffer(mem)
+	buf.Resize(arrow.StringHeaderTraits.BytesRequired(len(data)))
+
+	values := arrow.StringHeaderTraits.CastFromBytes(buf.Bytes())
+
+	for i, d := range data {
+		switch v := d.(type) {
+		case nil:
+			continue
+		case map[string]interface{}:
+			if inlined, ok := v["INLINED"]; ok {
+				if isBinary {
+					val, err := hex.DecodeString(inlined.(string))
+					if err != nil {
+						panic(fmt.Errorf("could not decode %v: %v", inlined, err))
+					}
+					values[i].SetBytes(val)
+				} else {
+					values[i].SetString(inlined.(string))
+				}
+				continue
+			}
+
+			idx, offset := v["BUFFER_INDEX"].(json.Number), v["OFFSET"].(json.Number)
+			bufIdx, err := idx.Int64()
+			if err != nil {
+				panic(err)
+			}
+
+			bufOffset, err := offset.Int64()
+			if err != nil {
+				panic(err)
+			}
+
+			values[i].SetIndexOffset(uint32(bufIdx), uint32(bufOffset))
+			prefix, err := hex.DecodeString(v["PREFIX"].(string))
+			if err != nil {
+				panic(err)
+			}
+			sz, err := v["SIZE"].(json.Number).Int64()
+			if err != nil {
+				panic(err)
+			}
+
+			rawData := make([]byte, sz)
+			copy(rawData, prefix)
+			values[i].SetBytes(rawData)
+		}
+	}
+	return buf
+}
+
+func stringHeadersToJSON(arr array.ViewLike, isBinary bool) []interface{} {
+	type StringHeader struct {
+		Size      int     `json:"SIZE"`
+		Prefix    *string `json:"PREFIX,omitempty"`
+		BufferIdx *int    `json:"BUFFER_INDEX,omitempty"`
+		BufferOff *int    `json:"OFFSET,omitempty"`
+		Inlined   *string `json:"INLINED,omitempty"`
+	}
+
+	o := make([]interface{}, arr.Len())
+	for i := range o {
+		hdr := arr.ValueHeader(i)
+		if hdr.IsInline() {
+			data := hdr.InlineData()
+			if isBinary {
+				data = strings.ToUpper(hex.EncodeToString(hdr.InlineBytes()))
+			}
+			o[i] = StringHeader{
+				Size:    hdr.Len(),
+				Inlined: &data,
+			}
+		} else {
+			idx, off := int(hdr.BufferIndex()), int(hdr.BufferOffset())
+			prefix := hdr.Prefix()
+			encodedPrefix := strings.ToUpper(hex.EncodeToString(prefix[:]))
+			o[i] = StringHeader{
+				Size:      hdr.Len(),
+				Prefix:    &encodedPrefix,
+				BufferIdx: &idx,
+				BufferOff: &off,
+			}
 		}
 	}
 	return o

@@ -319,6 +319,11 @@ func arrayEqualLargeBinary(left, right *LargeBinary) bool {
 	return true
 }
 
+type ViewLike interface {
+	arrow.Array
+	ValueHeader(int) *arrow.StringHeader
+}
+
 type BinaryView struct {
 	array
 	values      []arrow.StringHeader
