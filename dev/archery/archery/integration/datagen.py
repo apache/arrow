@@ -1839,6 +1839,7 @@ def get_generated_json_files(tempdir=None):
 
         generate_view_case()
         .skip_category('C#')
+        .skip_category('Go')
         .skip_category('Java')
         .skip_category('JS')
         .skip_category('Rust'),
