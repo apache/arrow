@@ -60,7 +60,7 @@ namespace arrow::matlab::array::proxy {
         }
 
         auto validity_bitmap = array->null_bitmap();
-        ::matlab::data::TypedArray<bool> valid_elements_mda = arrow::matlab::bit::bitUnpackArrowBuffer(validity_bitmap, array_length);
+        auto valid_elements_mda = arrow::matlab::bit::bitUnpackArrowBuffer(validity_bitmap, array_length);
         context.outputs[0] = valid_elements_mda;
     }
 
