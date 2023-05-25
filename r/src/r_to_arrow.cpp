@@ -794,7 +794,8 @@ Status check_binary(SEXP x, int64_t size) {
 }
 
 template <typename T>
-class RPrimitiveConverter<T, enable_if_binary_like<T>>
+class RPrimitiveConverter<
+    T, enable_if_t<is_binary_like_type<T>::value && !is_decimal_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
