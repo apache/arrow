@@ -370,7 +370,6 @@ if(ARROW_ENABLE_TIMING_TESTS)
   add_definitions(-DARROW_WITH_TIMING_TESTS)
 endif()
 
-
 if(NOT ARROW_BUILD_BENCHMARKS)
   set(NO_BENCHMARKS 1)
 else()
@@ -920,6 +919,7 @@ endif()
 # Handle platform-related libraries like -pthread
 
 set(ARROW_SYSTEM_LINK_LIBS)
+
 list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
 if(CMAKE_THREAD_LIBS_INIT)
   string(APPEND ARROW_PC_LIBS_PRIVATE " ${CMAKE_THREAD_LIBS_INIT}")
