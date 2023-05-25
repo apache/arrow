@@ -163,6 +163,8 @@ static void ConvertViews(benchmark::State& state) {  // NOLINT non-const referen
         return std::pair{0, 256};
       case kLongAndNeverInlineable:
         return std::pair{13, 256};
+      default:
+        Unreachable();
     }
   }();
 
