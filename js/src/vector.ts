@@ -149,7 +149,7 @@ export class Vector<T extends DataType = any> {
     }
 
     /**
-     * The Array or TypedAray constructor used for the JS representation
+     * The Array or TypedArray constructor used for the JS representation
      *  of the element's values in {@link Vector.prototype.toArray `toArray()`}.
      */
     public get ArrayType(): T['ArrayType'] { return this.type.ArrayType; }
