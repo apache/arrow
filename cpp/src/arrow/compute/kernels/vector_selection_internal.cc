@@ -727,7 +727,6 @@ struct StructSelectionImpl : public Selection<StructSelectionImpl, StructType> {
 
 template <typename Impl>
 Status FilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  // TODO: where are the values and filter length equality checked?
   int64_t output_length =
       GetFilterOutputSize(batch[1].array, FilterState::Get(ctx).null_selection_behavior);
   Impl kernel(ctx, batch, output_length, out);
