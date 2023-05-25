@@ -1309,7 +1309,7 @@ static inline int offset_bit_width(Type::type type_id) {
   return 0;
 }
 
-/// \brief get the alignment a buffer should have to be considered "value aligned"
+/// \brief Get the alignment a buffer should have to be considered "value aligned"
 ///
 /// Some buffers are frequently type-punned.  For example, in an int32 array the
 /// values buffer is frequently cast to int32_t*
@@ -1329,6 +1329,7 @@ static inline int offset_bit_width(Type::type type_id) {
 ///                type for an extension array.
 /// \param buffer_index the index of the buffer to check, for example 0 will typically
 ///                     give you the alignment expected of the validity buffer
+/// \return the required value alignment in bytes (1 if no alignment required)
 int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index);
 
 /// \brief Check for an integer type (signed or unsigned)

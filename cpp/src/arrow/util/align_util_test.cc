@@ -290,8 +290,6 @@ using TypesNotRequiringAlignment =
     testing::Types<NullType, Int8Type, UInt8Type, FixedSizeListType, FixedSizeBinaryType,
                    BooleanType, SparseUnionType>;
 
-TEST(EnsureAlignment, Malloc) {}
-
 template <typename ArrowType>
 std::shared_ptr<DataType> sample_type() {
   return TypeTraits<ArrowType>::type_singleton();
@@ -374,7 +372,7 @@ std::shared_ptr<ArrayData> SampleArray<SparseUnionType>() {
   return arr.data();
 }
 
-class MallocAlignment : public ::testing::Test {
+class ValueAlignment : public ::testing::Test {
  public:
   void CheckModified(const ArrayData& src, const ArrayData& dst) {
     ASSERT_EQ(src.buffers.size(), dst.buffers.size());
@@ -401,36 +399,38 @@ class MallocAlignment : public ::testing::Test {
 };
 
 template <typename T>
-class MallocAlignmentRequired : public MallocAlignment {};
+class ValueAlignmentRequired : public ValueAlignment {};
 template <typename T>
-class MallocAlignmentNotRequired : public MallocAlignment {};
+class ValueAlignmentNotRequired : public ValueAlignment {};
 
-TYPED_TEST_SUITE(MallocAlignmentRequired, TypesRequiringSomeKindOfAlignment);
-TYPED_TEST_SUITE(MallocAlignmentNotRequired, TypesNotRequiringAlignment);
+TYPED_TEST_SUITE(ValueAlignmentRequired, TypesRequiringSomeKindOfAlignment);
+TYPED_TEST_SUITE(ValueAlignmentNotRequired, TypesNotRequiringAlignment);
 
-TYPED_TEST(MallocAlignmentRequired, RoundTrip) {
+TYPED_TEST(ValueAlignmentRequired, RoundTrip) {
   std::shared_ptr<ArrayData> data = SampleArray<TypeParam>();
   std::shared_ptr<ArrayData> unaligned = UnalignValues(*data);
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> aligned,
       util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
 
+  ASSERT_TRUE(util::CheckAlignment(*aligned, util::kValueAlignment));
   AssertArraysEqual(*MakeArray(data), *MakeArray(aligned));
   this->CheckModified(*unaligned, *aligned);
 }
 
-TYPED_TEST(MallocAlignmentNotRequired, RoundTrip) {
+TYPED_TEST(ValueAlignmentNotRequired, RoundTrip) {
   std::shared_ptr<ArrayData> data = SampleArray<TypeParam>();
   std::shared_ptr<ArrayData> unaligned = UnalignValues(*data);
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> aligned,
       util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
 
+  ASSERT_TRUE(util::CheckAlignment(*aligned, util::kValueAlignment));
   AssertArraysEqual(*MakeArray(data), *MakeArray(aligned));
   this->CheckUnmodified(*unaligned, *aligned);
 }
 
-TEST_F(MallocAlignment, RunEndEncoded) {
+TEST_F(ValueAlignment, RunEndEncoded) {
   // Run end requires alignment, value type does not
   std::shared_ptr<Array> run_ends = ArrayFromJSON(int32(), "[3, 5]");
   std::shared_ptr<Array> values = ArrayFromJSON(int8(), "[50, 100]");
@@ -447,13 +447,14 @@ TEST_F(MallocAlignment, RunEndEncoded) {
   ASSERT_OK_AND_ASSIGN(
       aligned_ree,
       util::EnsureAlignment(aligned_ree, util::kValueAlignment, default_memory_pool()));
+  ASSERT_TRUE(util::CheckAlignment(*aligned_ree, util::kValueAlignment));
 
   this->CheckModified(*unaligned_ree->child_data[0], *aligned_ree->child_data[0]);
   this->CheckUnmodified(*unaligned_ree->child_data[1], *aligned_ree->child_data[1]);
 }
 
-TEST_F(MallocAlignment, Dictionary) {
-  // Dictionary values require alignment, dictionary keys do not
+TEST_F(ValueAlignment, Dictionary) {
+  // Dictionary values require alignment, dictionary indices do not
   std::shared_ptr<DataType> int8_utf8 = dictionary(int8(), utf8());
   std::shared_ptr<Array> array = ArrayFromJSON(int8_utf8, R"(["x", "x", "y"])");
 
@@ -467,10 +468,11 @@ TEST_F(MallocAlignment, Dictionary) {
       aligned_dict,
       util::EnsureAlignment(aligned_dict, util::kValueAlignment, default_memory_pool()));
 
+  ASSERT_TRUE(util::CheckAlignment(*aligned_dict, util::kValueAlignment));
   this->CheckUnmodified(*unaligned_dict, *aligned_dict);
   this->CheckModified(*unaligned_dict->dictionary, *aligned_dict->dictionary);
 
-  // Dictionary values do not require alignment, dictionary keys do
+  // Dictionary values do not require alignment, dictionary indices do
   std::shared_ptr<DataType> int16_int8 = dictionary(int16(), int8());
   array = ArrayFromJSON(int16_int8, R"([7, 11])");
 
@@ -484,11 +486,12 @@ TEST_F(MallocAlignment, Dictionary) {
       aligned_dict,
       util::EnsureAlignment(aligned_dict, util::kValueAlignment, default_memory_pool()));
 
+  ASSERT_TRUE(util::CheckAlignment(*aligned_dict, util::kValueAlignment));
   this->CheckModified(*unaligned_dict, *aligned_dict);
   this->CheckUnmodified(*unaligned_dict->dictionary, *aligned_dict->dictionary);
 }
 
-TEST_F(MallocAlignment, Extension) {
+TEST_F(ValueAlignment, Extension) {
   std::shared_ptr<Array> array = ExampleSmallint();
 
   std::shared_ptr<ArrayData> unaligned = UnalignValues(*array->data());
@@ -497,6 +500,7 @@ TEST_F(MallocAlignment, Extension) {
       std::shared_ptr<ArrayData> aligned,
       util::EnsureAlignment(unaligned, util::kValueAlignment, default_memory_pool()));
 
+  ASSERT_TRUE(util::CheckAlignment(*aligned, util::kValueAlignment));
   this->CheckModified(*unaligned, *aligned);
 }
 

@@ -74,23 +74,26 @@ namespace util {
 /// \brief if this is specified in one of the CheckAlignment or EnsureAlignment functions
 ///
 /// then the function will ensure each buffer is suitably aligned for the data type of the
-/// array.  For example, given an int32 buffer the validity buffer must be a multiple of 8
-/// and the values buffer must be a multiple of 32.  Given a large_string buffer the
-/// validity buffer and values buffers must be multiples of 8 and the offsets buffer must
-/// be a multiple of 64.
+/// array.  For example, given an int32 buffer the values buffer's address must be a
+/// multiple of 4.  Given a large_string buffer the offsets buffer's address must be a
+/// multiple of 8.
 constexpr int64_t kValueAlignment = -3;
 
-/// \brief calculate if the buffer's address is a multiple of `alignment`
+/// \brief Calculate if the buffer's address is a multiple of `alignment`
 /// \param buffer the buffer to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 ARROW_EXPORT bool CheckAlignment(const Buffer& buffer, int64_t alignment);
-/// \brief calculate if all buffer's in the array data are aligned
+/// \brief Calculate if all buffers in the array data are aligned
+///
+/// This will also check the buffers in the dictionary and any children
 /// \param array the array data to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 ARROW_EXPORT bool CheckAlignment(const ArrayData& array, int64_t alignment);
-/// \brief calculate if all buffer's in the array are aligned
+/// \brief Calculate if all buffers in the array are aligned
+///
+/// This will also check the buffers in the dictionary and any children
 /// \param array the array to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 ARROW_EXPORT bool CheckAlignment(const Array& array, int64_t alignment);
 
 // Following functions require an additional boolean vector which stores the
@@ -102,21 +105,21 @@ ARROW_EXPORT bool CheckAlignment(const Array& array, int64_t alignment);
 // objects can be ignored for further checking if we already know that they are
 // completely aligned.
 
-/// \brief calculate which (if any) chunks in a chunked array are unaligned
+/// \brief Calculate which (if any) chunks in a chunked array are unaligned
 /// \param array the array to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 /// \param needs_alignment an output vector that will store the results of the check
 ///        it must be set to a valid vector.  Extra elements will be added to the end
 ///        of the vector for each chunk that is checked.  `true` will be stored if
 ///        the chunk is unaligned.
-/// \param offset an optional offset to specify which chunk to start checking at
+/// \param offset the index of the chunk to start checking
 /// \return true if all chunks (starting at `offset`) are aligned, false otherwise
 ARROW_EXPORT bool CheckAlignment(const ChunkedArray& array, int64_t alignment,
                                  std::vector<bool>* needs_alignment, int offset = 0);
 
 /// \brief calculate which (if any) columns in a record batch are unaligned
 /// \param batch the batch to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 /// \param needs_alignment an output vector that will store the results of the
 ///        check.  It must be set to a valid vector.  Extra elements will be added
 ///        to the end of the vector for each column that is checked.  `true` will be
@@ -126,7 +129,7 @@ ARROW_EXPORT bool CheckAlignment(const RecordBatch& batch, int64_t alignment,
 
 /// \brief calculate which (if any) columns in a table are unaligned
 /// \param table the table to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 /// \param needs_alignment an output vector that will store the results of the
 ///        check.  It must be set to a valid vector.  Extra elements will be added
 ///        to the end of the vector for each column that is checked.  `true` will be
@@ -140,7 +143,7 @@ ARROW_EXPORT bool CheckAlignment(const Table& table, int64_t alignment,
 /// If the input buffer is already aligned then this method will return the input buffer
 ///
 /// \param buffer the buffer to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 /// \param memory_pool a memory pool that will be used to allocate a new buffer if the
 ///        input buffer is not sufficiently aligned
 ARROW_EXPORT Result<std::shared_ptr<Buffer>> EnsureAlignment(
@@ -152,7 +155,7 @@ ARROW_EXPORT Result<std::shared_ptr<Buffer>> EnsureAlignment(
 /// buffer.
 ///
 /// \param array_data the array data to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 /// \param memory_pool a memory pool that will be used to allocate new buffers if any
 ///        input buffer is not sufficiently aligned
 ARROW_EXPORT Result<std::shared_ptr<ArrayData>> EnsureAlignment(
@@ -164,7 +167,7 @@ ARROW_EXPORT Result<std::shared_ptr<ArrayData>> EnsureAlignment(
 /// buffer.
 ///
 /// \param array the array to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 /// \param memory_pool a memory pool that will be used to allocate new buffers if any
 ///        input buffer is not sufficiently aligned
 ARROW_EXPORT Result<std::shared_ptr<Array>> EnsureAlignment(std::shared_ptr<Array> array,
@@ -177,7 +180,7 @@ ARROW_EXPORT Result<std::shared_ptr<Array>> EnsureAlignment(std::shared_ptr<Arra
 /// buffer.
 ///
 /// \param array the chunked array to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 /// \param memory_pool a memory pool that will be used to allocate new buffers if any
 ///        input buffer is not sufficiently aligned
 ARROW_EXPORT Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(
@@ -189,7 +192,7 @@ ARROW_EXPORT Result<std::shared_ptr<ChunkedArray>> EnsureAlignment(
 /// buffer.
 ///
 /// \param batch the batch to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 /// \param memory_pool a memory pool that will be used to allocate new buffers if any
 ///        input buffer is not sufficiently aligned
 ARROW_EXPORT Result<std::shared_ptr<RecordBatch>> EnsureAlignment(
@@ -201,7 +204,7 @@ ARROW_EXPORT Result<std::shared_ptr<RecordBatch>> EnsureAlignment(
 /// buffer.
 ///
 /// \param table the table to check
-/// \param alignment the alignment to check for
+/// \param alignment the alignment (in bytes) to check for
 /// \param memory_pool a memory pool that will be used to allocate new buffers if any
 ///        input buffer is not sufficiently aligned
 ARROW_EXPORT Result<std::shared_ptr<Table>> EnsureAlignment(std::shared_ptr<Table> table,

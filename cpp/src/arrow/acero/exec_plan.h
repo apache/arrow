@@ -496,13 +496,13 @@ struct ARROW_ACERO_EXPORT Declaration {
   std::string label;
 };
 
-/// \brief describes how to handle unaligned buffers
-enum class UnalignedBufferHandling { kWarn, kIgnore, kReallocate, kAbort };
+/// \brief How to handle unaligned buffers
+enum class UnalignedBufferHandling { kWarn, kIgnore, kReallocate, kError };
 
 /// \brief get the default behavior of unaligned buffer handling
 ///
 /// This is configurable via the ACERO_ALIGNMENT_HANDLING environment variable which
-/// can be set to "warn", "ignore", "reallocate", or "abort".  If the environment
+/// can be set to "warn", "ignore", "reallocate", or "error".  If the environment
 /// variable is not set, or is set to an invalid value, this will return kWarn
 UnalignedBufferHandling GetDefaultUnalignedBufferHandling();
 
@@ -573,17 +573,19 @@ struct ARROW_ACERO_EXPORT QueryOptions {
   /// If set then the number of names must equal the number of output columns
   std::vector<std::string> field_names;
 
+  /// \brief Policy for unaligned buffers in source data
+  ///
   /// Various compute functions and acero internals will type pun array
   /// buffers from uint8_t* to some kind of value type (e.g. we might
   /// cast to int32_t* to add two int32 arrays)
   ///
-  /// If the buffer is poorly algined (e.g. an int32 array is not aligned
-  /// on a 4-byte boundary) then this is technically undefined behavior.
+  /// If the buffer is poorly aligned (e.g. an int32 array is not aligned
+  /// on a 4-byte boundary) then this is technically undefined behavior in C++.
   /// However, most modern compilers and CPUs are fairly tolerant of this
   /// behavior and nothing bad (beyond a small hit to performance) is likely
   /// to happen.
   ///
-  /// Note that this only applies to source buffers.  All buffers allocated interally
+  /// Note that this only applies to source buffers.  All buffers allocated internally
   /// by Acero will be suitably aligned.
   ///
   /// If this field is set to kWarn then Acero will check if any buffers are unaligned

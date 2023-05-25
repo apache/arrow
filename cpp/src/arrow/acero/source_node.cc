@@ -62,12 +62,12 @@ Status HandleUnalignedBuffers(ExecBatch* batch, UnalignedBufferHandling handling
         case UnalignedBufferHandling::kIgnore:
           // Should be impossible to get here
           return Status::OK();
-        case UnalignedBufferHandling::kAbort:
+        case UnalignedBufferHandling::kError:
           if (!arrow::util::CheckAlignment(*value.array(),
                                            arrow::util::kValueAlignment)) {
             return Status::Invalid(
                 "An input buffer was poorly aligned and UnalignedBufferHandling is set "
-                "to kAbort");
+                "to kError");
           }
           break;
         case UnalignedBufferHandling::kWarn:
@@ -76,7 +76,8 @@ Status HandleUnalignedBuffers(ExecBatch* batch, UnalignedBufferHandling handling
             ARROW_LOG(WARNING)
                 << "An input buffer was poorly aligned.  This could lead to crashes or "
                    "poor performance on some hardware.  Please ensure that all Acero "
-                   "sources generate aligned buffers.";
+                   "sources generate aligned buffers, or change the unaligned buffer "
+                   "handling configuration to silence this warning.";
           }
           break;
         case UnalignedBufferHandling::kReallocate: {

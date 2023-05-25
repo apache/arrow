@@ -373,8 +373,8 @@ UnalignedBufferHandling DetermineDefaultUnalignedBufferHandling() {
     return UnalignedBufferHandling::kIgnore;
   } else if (::arrow::internal::AsciiEqualsCaseInsensitive(value, "reallocate")) {
     return UnalignedBufferHandling::kReallocate;
-  } else if (::arrow::internal::AsciiEqualsCaseInsensitive(value, "abort")) {
-    return UnalignedBufferHandling::kAbort;
+  } else if (::arrow::internal::AsciiEqualsCaseInsensitive(value, "error")) {
+    return UnalignedBufferHandling::kError;
   } else {
     ARROW_LOG(WARNING) << "unrecognized value for ACERO_ALIGNMENT_HANDLING: " << value;
     return UnalignedBufferHandling::kWarn;
