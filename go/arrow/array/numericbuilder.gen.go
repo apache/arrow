@@ -2432,7 +2432,6 @@ func (b *Time32Builder) UnmarshalOne(dec *json.Decoder) error {
 		b.AppendNull()
 	case string:
 		tm, err := arrow.Time32FromString(v, b.dtype.Unit)
-
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value:  v,
@@ -2657,7 +2656,6 @@ func (b *Time64Builder) UnmarshalOne(dec *json.Decoder) error {
 		b.AppendNull()
 	case string:
 		tm, err := arrow.Time64FromString(v, b.dtype.Unit)
-
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value:  v,

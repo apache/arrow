@@ -113,11 +113,7 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 	ab.Append(10)
 
 	// check state of builder before New{{.Name}}Array
-  {{ if (eq .Name "Timestamp") -}}
-	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
-  {{ else -}}
-  assert.Equal(t, 10, ab.Len(), "unexpected Len()")
-  {{ end -}}
+	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
 	a := ab.New{{.Name}}Array()
