@@ -180,7 +180,7 @@ func process(data interface{}, specs []pathSpec) {
 			}
 		}
 
-		ioutil.WriteFile(spec.out, generated, fileMode(spec.in))
+		os.WriteFile(spec.out, generated, fileMode(spec.in))
 	}
 }
 
