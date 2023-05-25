@@ -1463,15 +1463,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
     std::vector<format::Encoding::type> thrift_encodings;
     std::vector<format::PageEncodingStats> thrift_encoding_stats;
-    // Force Emplace encoding for RL/DL.
-    thrift_encodings.push_back(ToThrift(Encoding::RLE));
     // Add dictionary page encoding stats
     if (has_dictionary) {
-      // For Parquet V1, Dictionary Data Page and Dictionary Index Page encodings
-      // is PLAIN_DICTIONARY, but the actual DATA is PLAIN, so force adding PLAIN.
-      if (properties_->version() == ParquetVersion::PARQUET_1_0) {
-        thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
-      }
       for (const auto& entry : dict_encoding_stats) {
         format::PageEncodingStats dict_enc_stat;
         dict_enc_stat.__set_page_type(format::PageType::DICTIONARY_PAGE);
@@ -1485,7 +1478,11 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
           thrift_encodings.push_back(dict_encoding);
         }
       }
+      // Dictionary Data Page Encoding.
+      thrift_encodings.push_back(ToThrift(properties_->dictionary_page_encoding()));
     }
+    // Force add encoding for RL/DL.
+    thrift_encodings.push_back(ToThrift(Encoding::RLE));
     // Add data page encoding stats
     for (const auto& entry : data_encoding_stats) {
       format::PageEncodingStats data_enc_stat;
@@ -1494,6 +1491,12 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       data_enc_stat.__set_encoding(data_encoding);
       data_enc_stat.__set_count(entry.second);
       thrift_encoding_stats.push_back(data_enc_stat);
+      if (data_encoding == format::Encoding::PLAIN_DICTIONARY &&
+          properties_->version() == ParquetVersion::PARQUET_1_0) {
+        // For Parquet V1, Dictionary Data Page and Dictionary Index Page encodings
+        // is PLAIN_DICTIONARY, but the actual DATA is PLAIN, so force adding PLAIN.
+        data_encoding = format::Encoding::PLAIN;
+      }
       auto iter =
           std::find(thrift_encodings.begin(), thrift_encodings.end(), data_encoding);
       if (iter == thrift_encodings.end()) {
