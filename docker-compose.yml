@@ -712,6 +712,7 @@ services:
     environment:
       <<: *ccache
       BUILD_DOCS_C_GLIB: "ON"
+      GITHUB_ACTIONS:
     volumes: *debian-volumes
     command: &c-glib-command >
       /bin/bash -c "
@@ -739,6 +740,7 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
+      GITHUB_ACTIONS:
     volumes: *ubuntu-volumes
     command: *c-glib-command
 
@@ -770,6 +772,7 @@ services:
     environment:
       <<: *ccache
       BUILD_DOCS_C_GLIB: "ON"
+      GITHUB_ACTIONS:
     volumes: *debian-volumes
     command: &ruby-command >
       /bin/bash -c "
@@ -799,6 +802,7 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
+      GITHUB_ACTIONS:
     volumes: *ubuntu-volumes
     command: *ruby-command
 
