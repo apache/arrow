@@ -28,10 +28,10 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
-#include "arrow/util/config.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/config.h"
 #include "gtest/gtest.h"
 
 using namespace std::string_view_literals;  // NOLINT
