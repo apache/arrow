@@ -18,6 +18,7 @@ package array_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
@@ -25,22 +26,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-{{range .In}}
-func Test{{.Name}}StringRoundTrip(t *testing.T) {
+func TestTimestampStringRoundTrip(t *testing.T) {
 	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-{{if .Opt.Parametric -}}
-{{ if or (eq .Name "Time64") -}}
-	dt := &arrow.{{.Name}}Type{Unit: arrow.Microsecond}
-{{else -}}
-	dt := &arrow.{{.Name}}Type{Unit: arrow.Second}
-{{end -}}
-	b := array.New{{.Name}}Builder(mem, dt)
-{{else -}}
-	b := array.New{{.Name}}Builder(mem)
-{{end -}}
+	dt := &arrow.TimestampType{Unit: arrow.Second}
+	b := array.NewTimestampBuilder(mem, dt)
 	defer b.Release()
 
 	b.Append(1)
@@ -54,48 +46,29 @@ func Test{{.Name}}StringRoundTrip(t *testing.T) {
 	b.Append(9)
 	b.Append(10)
 
-	arr := b.NewArray().(*array.{{.Name}})
+	arr := b.NewArray().(*array.Timestamp)
 	defer arr.Release()
 
 	// 2. create array via AppendValueFromString
-{{if .Opt.Parametric -}}
-	b1 := array.New{{.Name}}Builder(mem, dt)
-{{else -}}
-	b1 := array.New{{.Name}}Builder(mem)
-{{end -}}
+	b1 := array.NewTimestampBuilder(mem, dt)
 	defer b1.Release()
 
 	for i := 0; i < arr.Len(); i++ {
 		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
 	}
 
-	arr1 := b1.NewArray().(*array.{{.Name}})
+	arr1 := b1.NewArray().(*array.Timestamp)
 	defer arr1.Release()
 
-{{ if or (eq .Name "Date64") -}}
-	assert.Exactly(t, arr.Len(), arr1.Len())
-	for i := 0; i < arr.Len(); i++ {
-		assert.Exactly(t, arr.IsValid(i), arr1.IsValid(i))
-		assert.Exactly(t, arr.ValueStr(i), arr1.ValueStr(i))
-		if arr.IsValid(i) {
-			assert.Exactly(t, arr.Value(i).ToTime(), arr1.Value(i).ToTime())
-		}
-	}
-{{else -}}
 	assert.True(t, array.Equal(arr, arr1))
-{{end -}}
 }
 
-func TestNew{{.Name}}Builder(t *testing.T) {
+func TestNewTimestampBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
-
-{{if .Opt.Parametric -}}
-	dtype := &arrow.{{.Name}}Type{Unit: arrow.Second}
-	ab := array.New{{.Name}}Builder(mem, dtype)
-{{else}}
-	ab := array.New{{.Name}}Builder(mem)
-{{end -}}
+	timestamp := time.Now()
+	dtype := &arrow.TimestampType{Unit: arrow.Second}
+	ab := array.NewTimestampBuilder(mem, dtype)
 	defer ab.Release()
 
 	ab.Retain()
@@ -111,48 +84,45 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 	ab.Append(8)
 	ab.Append(9)
 	ab.Append(10)
+	ab.AppendTime(timestamp)
 
-	// check state of builder before New{{.Name}}Array
-  {{ if (eq .Name "Timestamp") -}}
+	// check state of builder before NewTimestampArray
 	assert.Equal(t, 11, ab.Len(), "unexpected Len()")
-  {{ else -}}
-  assert.Equal(t, 10, ab.Len(), "unexpected Len()")
-  {{ end -}}
 	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
 
-	a := ab.New{{.Name}}Array()
+	a := ab.NewTimestampArray()
 
-	// check state of builder after New{{.Name}}Array
-	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), New{{.Name}}Array did not reset state")
-	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), New{{.Name}}Array did not reset state")
-	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), New{{.Name}}Array did not reset state")
+	// check state of builder after NewTimestampArray
+	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewTimestampArray did not reset state")
+	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewTimestampArray did not reset state")
+	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewTimestampArray did not reset state")
 
 	// check state of array
 	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []{{or .QualifiedType .Type}}{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.{{.Name}}Values(), "unexpected {{.Name}}Values")
+	assert.Equal(t, []arrow.Timestamp{1, 2, 3, 0, 5, 6, 0, 8, 9, 10, arrow.Timestamp(timestamp.Unix())}, a.TimestampValues(), "unexpected TimestampValues")
 	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.{{.Name}}Values(), 10, "unexpected length of {{.Name}}Values")
+	assert.Len(t, a.TimestampValues(), 11, "unexpected length of TimestampValues")
 
 	a.Release()
 
 	ab.Append(7)
 	ab.Append(8)
 
-	a = ab.New{{.Name}}Array()
+	a = ab.NewTimestampArray()
 
 	assert.Equal(t, 0, a.NullN())
-	assert.Equal(t, []{{or .QualifiedType .Type}}{7, 8}, a.{{.Name}}Values())
-	assert.Len(t, a.{{.Name}}Values(), 2)
+	assert.Equal(t, []arrow.Timestamp{7, 8}, a.TimestampValues())
+	assert.Len(t, a.TimestampValues(), 2)
 
 	a.Release()
 
 	var (
-		want   = []{{or .QualifiedType .Type}}{1, 2, 3, 4}
+		want   = []arrow.Timestamp{1, 2, 3, 4}
 		valids = []bool{true, true, false, true}
 	)
 
 	ab.AppendValues(want, valids)
-	a = ab.New{{.Name}}Array()
+	a = ab.NewTimestampArray()
 
 	sub := array.MakeFromData(a.Data())
 	defer sub.Release()
@@ -161,8 +131,8 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 		t.Fatalf("invalid type: got=%q, want=%q", got, want)
 	}
 
-	if _, ok := sub.(*array.{{.Name}}); !ok {
-		t.Fatalf("could not type-assert to array.{{.Name}}")
+	if _, ok := sub.(*array.Timestamp); !ok {
+		t.Fatalf("could not type-assert to array.Timestamp")
 	}
 
 	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
@@ -175,9 +145,9 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 	sub1 := array.MakeFromData(slice)
 	defer sub1.Release()
 
-	v, ok := sub1.(*array.{{.Name}})
+	v, ok := sub1.(*array.Timestamp)
 	if !ok {
-		t.Fatalf("could not type-assert to array.{{.Name}}")
+		t.Fatalf("could not type-assert to array.Timestamp")
 	}
 
 	if got, want := v.String(), `[(null) 4]`; got != want {
@@ -187,73 +157,61 @@ func TestNew{{.Name}}Builder(t *testing.T) {
 	a.Release()
 }
 
-func Test{{.Name}}Builder_AppendValues(t *testing.T) {
+func TestTimestampBuilder_AppendValues(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-{{if .Opt.Parametric -}}
-	dtype := &arrow.{{.Name}}Type{Unit: arrow.Second}
-	ab := array.New{{.Name}}Builder(mem, dtype)
-{{else}}
-	ab := array.New{{.Name}}Builder(mem)
-{{end -}}
+	dtype := &arrow.TimestampType{Unit: arrow.Second}
+	ab := array.NewTimestampBuilder(mem, dtype)
 	defer ab.Release()
 
-	exp := []{{or .QualifiedType .Type}}{0, 1, 2, 3}
+	exp := []arrow.Timestamp{0, 1, 2, 3}
 	ab.AppendValues(exp, nil)
-	a := ab.New{{.Name}}Array()
-	assert.Equal(t, exp, a.{{.Name}}Values())
+	a := ab.NewTimestampArray()
+	assert.Equal(t, exp, a.TimestampValues())
 
 	a.Release()
 }
 
-func Test{{.Name}}Builder_Empty(t *testing.T) {
+func TestTimestampBuilder_Empty(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-{{if .Opt.Parametric -}}
-	dtype := &arrow.{{.Name}}Type{Unit: arrow.Second}
-	ab := array.New{{.Name}}Builder(mem, dtype)
-{{else}}
-	ab := array.New{{.Name}}Builder(mem)
-{{end -}}
+	dtype := &arrow.TimestampType{Unit: arrow.Second}
+	ab := array.NewTimestampBuilder(mem, dtype)
 	defer ab.Release()
 
-	exp := []{{or .QualifiedType .Type}}{0, 1, 2, 3}
+	exp := []arrow.Timestamp{0, 1, 2, 3}
 
-	ab.AppendValues([]{{or .QualifiedType .Type}}{}, nil)
-	a := ab.New{{.Name}}Array()
+	ab.AppendValues([]arrow.Timestamp{}, nil)
+	a := ab.NewTimestampArray()
 	assert.Zero(t, a.Len())
 	a.Release()
 
 	ab.AppendValues(nil, nil)
-	a = ab.New{{.Name}}Array()
+	a = ab.NewTimestampArray()
 	assert.Zero(t, a.Len())
 	a.Release()
 
-	ab.AppendValues([]{{or .QualifiedType .Type}}{}, nil)
+	ab.AppendValues([]arrow.Timestamp{}, nil)
 	ab.AppendValues(exp, nil)
-	a = ab.New{{.Name}}Array()
-	assert.Equal(t, exp, a.{{.Name}}Values())
+	a = ab.NewTimestampArray()
+	assert.Equal(t, exp, a.TimestampValues())
 	a.Release()
 
 	ab.AppendValues(exp, nil)
-	ab.AppendValues([]{{or .QualifiedType .Type}}{}, nil)
-	a = ab.New{{.Name}}Array()
-	assert.Equal(t, exp, a.{{.Name}}Values())
+	ab.AppendValues([]arrow.Timestamp{}, nil)
+	a = ab.NewTimestampArray()
+	assert.Equal(t, exp, a.TimestampValues())
 	a.Release()
 }
 
-func Test{{.Name}}Builder_Resize(t *testing.T) {
+func TestTimestampBuilder_Resize(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-{{if .Opt.Parametric -}}
-	dtype := &arrow.{{.Name}}Type{Unit: arrow.Second}
-	ab := array.New{{.Name}}Builder(mem, dtype)
-{{else}}
-	ab := array.New{{.Name}}Builder(mem)
-{{end -}}
+	dtype := &arrow.TimestampType{Unit: arrow.Second}
+	ab := array.NewTimestampBuilder(mem, dtype)
 	defer ab.Release()
 
 	assert.Equal(t, 0, ab.Cap())
@@ -275,6 +233,3 @@ func Test{{.Name}}Builder_Resize(t *testing.T) {
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
 }
-{{end}}
-
-
