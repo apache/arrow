@@ -22,12 +22,16 @@ namespace Apache.Arrow.C
 {
     public static class CArrowArrayStreamExporter
     {
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private unsafe delegate int GetSchemaArrayStream(CArrowArrayStream* cArrayStream, CArrowSchema* cSchema);
         private static unsafe NativeDelegate<GetSchemaArrayStream> s_getSchemaArrayStream = new NativeDelegate<GetSchemaArrayStream>(GetSchema);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private unsafe delegate int GetNextArrayStream(CArrowArrayStream* cArrayStream, CArrowArray* cArray);
         private static unsafe NativeDelegate<GetNextArrayStream> s_getNextArrayStream = new NativeDelegate<GetNextArrayStream>(GetNext);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private unsafe delegate byte* GetLastErrorArrayStream(CArrowArrayStream* cArrayStream);
         private static unsafe NativeDelegate<GetLastErrorArrayStream> s_getLastErrorArrayStream = new NativeDelegate<GetLastErrorArrayStream>(GetLastError);
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private unsafe delegate void ReleaseArrayStream(CArrowArrayStream* cArrayStream);
         private static unsafe NativeDelegate<ReleaseArrayStream> s_releaseArrayStream = new NativeDelegate<ReleaseArrayStream>(Release);
 

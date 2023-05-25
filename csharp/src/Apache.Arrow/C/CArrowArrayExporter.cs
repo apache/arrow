@@ -22,6 +22,7 @@ namespace Apache.Arrow.C
 {
     public static class CArrowArrayExporter
     {
+        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowArray> s_releaseArray = new NativeDelegate<ReleaseArrowArray>(ReleaseArray);
 
