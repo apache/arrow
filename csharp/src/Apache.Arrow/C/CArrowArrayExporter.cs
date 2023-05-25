@@ -15,6 +15,7 @@
 
 
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 
@@ -22,10 +23,14 @@ namespace Apache.Arrow.C
 {
     public static class CArrowArrayExporter
     {
+#if NET5_0_OR_GREATER
+        private static unsafe delegate* unmanaged[Stdcall]<CArrowArray*, void> ReleaseArrayPtr => &ReleaseArray;
+#else
         [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowArray> s_releaseArray = new NativeDelegate<ReleaseArrowArray>(ReleaseArray);
-
+        private static unsafe delegate* unmanaged[Stdcall]<CArrowArray*, void> ReleaseArrayPtr => (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;
+#endif
         /// <summary>
         /// Export an <see cref="IArrowArray"/> to a <see cref="CArrowArray"/>. Whether or not the
         /// export succeeds, the original array becomes invalid. Clone an array to continue using it
@@ -59,7 +64,7 @@ namespace Apache.Arrow.C
             try
             {
                 ConvertArray(allocationOwner, array.Data, cArray);
-                cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)(IntPtr)s_releaseArray.Pointer;
+                cArray->release = ReleaseArrayPtr;
                 cArray->private_data = FromDisposable(allocationOwner);
                 allocationOwner = null;
             }
@@ -102,7 +107,7 @@ namespace Apache.Arrow.C
             try
             {
                 ConvertRecordBatch(allocationOwner, batch, cArray);
-                cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;
+                cArray->release = ReleaseArrayPtr;
                 cArray->private_data = FromDisposable(allocationOwner);
                 allocationOwner = null;
             }
@@ -117,7 +122,7 @@ namespace Apache.Arrow.C
             cArray->length = array.Length;
             cArray->offset = array.Offset;
             cArray->null_count = array.NullCount;
-            cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;
+            cArray->release = ReleaseArrayPtr;
             cArray->private_data = null;
 
             cArray->n_buffers = array.Buffers?.Length ?? 0;
@@ -162,7 +167,7 @@ namespace Apache.Arrow.C
             cArray->length = batch.Length;
             cArray->offset = 0;
             cArray->null_count = 0;
-            cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;
+            cArray->release = ReleaseArrayPtr;
             cArray->private_data = null;
 
             cArray->n_buffers = 1;
@@ -185,6 +190,9 @@ namespace Apache.Arrow.C
             cArray->dictionary = null;
         }
 
+#if NET5_0_OR_GREATER
+        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
+#endif
         private unsafe static void ReleaseArray(CArrowArray* cArray)
         {
             if (cArray->private_data != null)
