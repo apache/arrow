@@ -63,8 +63,8 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-Status PreallocateData(KernelContext* ctx, int64_t length, int bit_width,
-                       bool allocate_validity, ArrayData* out) {
+Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit_width,
+                                     bool allocate_validity, ArrayData* out) {
   // Preallocate memory
   out->length = length;
   out->buffers.resize(2);

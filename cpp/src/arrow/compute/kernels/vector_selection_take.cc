@@ -458,8 +458,8 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
   // allocating the validity bitmap altogether and save time and space. A
   // streamlined PrimitiveTakeImpl would need to be written that skips all
   // interactions with the output validity bitmap, though.
-  RETURN_NOT_OK(PreallocateData(ctx, indices.length, bit_width,
-                                /*allocate_validity=*/true, out_arr));
+  RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, indices.length, bit_width,
+                                              /*allocate_validity=*/true, out_arr));
   switch (bit_width) {
     case 1:
       TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);

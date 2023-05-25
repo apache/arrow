@@ -380,8 +380,8 @@ Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
   bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
 
   const int bit_width = values.type->bit_width();
-  RETURN_NOT_OK(
-      PreallocateData(ctx, output_length, bit_width, allocate_validity, out_arr));
+  RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, output_length, bit_width,
+                                              allocate_validity, out_arr));
 
   switch (bit_width) {
     case 1:
