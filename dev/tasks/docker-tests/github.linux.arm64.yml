@@ -34,9 +34,7 @@ jobs:
         shell: bash
         env:
           ARCH: arm64v8
-          CLANG_TOOLS: "10"
-          LLVM: "10"
-          UBUNTU: "20.04"
+          UBUNTU: "22.04"
           # TODO: DELETE
           CMAKE_ARGS: >-
             -DCMAKE_TOOLCHAIN_FILE=/toolchains/shared.cmake

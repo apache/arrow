@@ -80,6 +80,7 @@ RUN apt-get update -y -q && \
         gawk \
         libtool-bin \
         bison \
+        libncurses5-dev \
         g++ \
         gcc \
         gdb \
@@ -137,9 +138,16 @@ RUN CROSSTOOL_NG_VERSION=1.25.0 && \
     tar -zxf crosstool-ng-${CROSSTOOL_NG_VERSION}.tar.gz && \
     cd crosstool-ng-crosstool-ng-${CROSSTOOL_NG_VERSION} && \
     ./bootstrap && \
-    ./configure --prefix=/opt/crosstool-ng-latest && \
+    ./configure --prefix=/opt/crosstool-ng && \
     make -j$(nproc) && \
     make install
+
+#RUN git clone https://github.com/crosstool-ng/crosstool-ng.git && \
+#    cd crosstool-ng && \
+#    ./bootstrap && \
+#    ./configure --prefix=/opt/crosstool-ng && \
+#    make -j$(nproc) && \
+#    make install    
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local

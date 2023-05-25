@@ -64,6 +64,11 @@ case "$(uname)" in
     n_jobs=${NPROC:-1}
     ;;
 esac
+CONFIG_FILE=arm-be.config
+pushd /opt/crosstool-ng
+cp "/arrow/${CONFIG_FILE}" .config
+/opt/crosstool-ng/bin/ct-ng build
+popd
 
 mkdir -p ${build_dir}
 pushd ${build_dir}
@@ -77,6 +82,7 @@ cmake \
   -DARROW_S3=OFF \
   -DARROW_SUBSTRAIT=OFF \
   -DCMAKE_BUILD_PARALLEL_LEVEL=2 \
+  -DCMAKE_TOOLCHAIN_FILE= ../\
   -DCMAKE_UNITY_BUILD=ON \
   -DPARQUET_BUILD_EXAMPLES=OFF \
   -DPARQUET_BUILD_EXECUTABLES=OFF \

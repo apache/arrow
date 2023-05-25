@@ -1088,7 +1088,13 @@ tasks:
       image: {{ image }}
 {% endfor %}
 
-  test-cpp-arm64:
+  test-cpp-arm64-be:
+    ci: github
+    template: docker-tests/github.linux.arm64.yml
+    params:
+      image: ubuntu-cpp-crosstool
+
+  test-cpp-arm64-le:
     ci: github
     template: docker-tests/github.linux.arm64.yml
     params:
