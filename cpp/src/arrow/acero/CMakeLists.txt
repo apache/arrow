@@ -55,7 +55,6 @@ set(ARROW_ACERO_SRCS
     union_node.cc
     util.cc)
 
-
 append_acero_avx2_src(bloom_filter_avx2.cc)
 append_acero_avx2_src(swiss_join_avx2.cc)
 

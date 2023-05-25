@@ -20,7 +20,6 @@
 #include <chrono>
 #include <mutex>
 #include <optional>
-
 #include <vector>
 
 #include "arrow/array/builder_primitive.h"
