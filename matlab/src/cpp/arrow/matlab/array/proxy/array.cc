@@ -54,7 +54,7 @@ namespace arrow::matlab::array::proxy {
             auto validity_buffer = factory.createBuffer<bool>(array_length);
             auto validity_buffer_ptr = validity_buffer.get();
             std::fill(validity_buffer_ptr, validity_buffer_ptr + array_length, true);
-            ::matlab::data::TypedArray<bool> valid_elements_mda = factory.createArrayFromBuffer<bool>({array_length, 1}, std::move(validity_buffer));
+            auto valid_elements_mda = factory.createArrayFromBuffer<bool>({array_length, 1}, std::move(validity_buffer));
             context.outputs[0] = valid_elements_mda;
             return;
         }
