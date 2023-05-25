@@ -29,7 +29,7 @@ type typeEqualsConfig struct {
 type TypeEqualOption func(*typeEqualsConfig)
 
 // CheckMetadata is an option for TypeEqual that allows checking for metadata
-// equality besides type equality. It only makes sense for STRUCT type.
+// equality besides type equality. It only makes sense for types with metadata.
 func CheckMetadata() TypeEqualOption {
 	return func(cfg *typeEqualsConfig) {
 		cfg.metadata = true

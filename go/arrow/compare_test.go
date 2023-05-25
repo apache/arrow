@@ -18,6 +18,7 @@ package arrow
 
 import (
 	"testing"
+	"time"
 )
 
 func TestTypeEqual(t *testing.T) {
@@ -285,6 +286,19 @@ func TestTypeEqual(t *testing.T) {
 		{
 			MapOf(PrimitiveTypes.Int32, FixedWidthTypes.Timestamp_ns),
 			MapOf(PrimitiveTypes.Int32, FixedWidthTypes.Timestamp_ns),
+			true, false,
+		},
+		{
+			MapOf(BinaryTypes.String, &TimestampType{
+				Unit:     0,
+				TimeZone: "UTC",
+				loc:      time.UTC,
+			}),
+			MapOf(BinaryTypes.String, &TimestampType{
+				Unit:     0,
+				TimeZone: "UTC",
+				loc:      nil,
+			}),
 			true, false,
 		},
 		{
