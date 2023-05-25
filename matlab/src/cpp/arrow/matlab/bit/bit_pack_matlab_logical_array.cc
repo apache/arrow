@@ -41,7 +41,7 @@ namespace arrow::matlab::bit {
         // Compute the bit packed length from the unpacked length.
         const auto packed_buffer_length = bitPackedLength(unpacked_buffer_length);
 
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::ResizableBuffer> packed_validity_bitmap_buffer,  arrow::AllocateResizableBuffer(packed_buffer_length));
+        ARROW_ASSIGN_OR_RAISE(auto packed_validity_bitmap_buffer,  arrow::AllocateResizableBuffer(packed_buffer_length));
 
         // Get pointers to the internal uint8_t arrays behind arrow::Buffer and mxArray
         // Get raw bool array pointer from MATLAB logical array.
@@ -57,8 +57,7 @@ namespace arrow::matlab::bit {
 
         arrow::internal::GenerateBitsUnrolled(mutable_data, start_offset, unpacked_buffer_length, generator);
 
-        auto buffer_result = std::static_pointer_cast<arrow::Buffer>(packed_validity_bitmap_buffer);
-        return arrow::Result<std::shared_ptr<arrow::Buffer>>{buffer_result};
+        return packed_validity_bitmap_buffer;
     }
 
 }
