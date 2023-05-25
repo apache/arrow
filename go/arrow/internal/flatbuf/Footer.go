@@ -36,13 +36,6 @@ func GetRootAsFooter(buf []byte, offset flatbuffers.UOffsetT) *Footer {
 	return x
 }
 
-func GetSizePrefixedRootAsFooter(buf []byte, offset flatbuffers.UOffsetT) *Footer {
-	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
-	x := &Footer{}
-	x.Init(buf, n+offset+flatbuffers.SizeUint32)
-	return x
-}
-
 func (rcv *Footer) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

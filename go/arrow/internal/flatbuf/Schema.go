@@ -35,13 +35,6 @@ func GetRootAsSchema(buf []byte, offset flatbuffers.UOffsetT) *Schema {
 	return x
 }
 
-func GetSizePrefixedRootAsSchema(buf []byte, offset flatbuffers.UOffsetT) *Schema {
-	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
-	x := &Schema{}
-	x.Init(buf, n+offset+flatbuffers.SizeUint32)
-	return x
-}
-
 func (rcv *Schema) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

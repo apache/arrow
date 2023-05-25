@@ -48,17 +48,6 @@ enum MetadataVersion:short {
   /// - Union buffer layout has changed. In V5, Unions don't have a validity
   ///   bitmap buffer.
   V5,
-
-  /// >= 1.4.0 (May 2023). Backwards compatible with V5 (V6 readers can read V5
-  /// metadata and IPC messages). Implementations are recommended to provide a
-  /// V5 compatibility mode with V6 format changes disabled.
-  ///
-  /// Incompatible changes between V5 and V6:
-  /// - variadicCounts field added to RecordBatch table in order to support
-  ///   the variable number of buffers possible with Utf8View and BinaryView
-  ///   columns. Those types can't be safely read by a <V6 reader and should
-  ///   be rejected.
-  V6,
 }
 
 /// Represents Arrow Features that might not have full support

@@ -33,13 +33,6 @@ func GetRootAsInterval(buf []byte, offset flatbuffers.UOffsetT) *Interval {
 	return x
 }
 
-func GetSizePrefixedRootAsInterval(buf []byte, offset flatbuffers.UOffsetT) *Interval {
-	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
-	x := &Interval{}
-	x.Init(buf, n+offset+flatbuffers.SizeUint32)
-	return x
-}
-
 func (rcv *Interval) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

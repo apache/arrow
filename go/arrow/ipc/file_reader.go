@@ -488,9 +488,6 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.ArrayData {
 		return ctx.loadBinary(dt)
 
 	case arrow.BinaryViewDataType:
-		if ctx.version < MetadataV6 {
-			panic("arrow/ipc: cannot safely read BinaryView/StringView columns with metadata version <V6")
-		}
 		return ctx.loadBinaryView(dt)
 
 	case *arrow.FixedSizeBinaryType:

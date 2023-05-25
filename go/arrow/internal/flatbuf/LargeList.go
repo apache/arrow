@@ -35,13 +35,6 @@ func GetRootAsLargeList(buf []byte, offset flatbuffers.UOffsetT) *LargeList {
 	return x
 }
 
-func GetSizePrefixedRootAsLargeList(buf []byte, offset flatbuffers.UOffsetT) *LargeList {
-	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
-	x := &LargeList{}
-	x.Init(buf, n+offset+flatbuffers.SizeUint32)
-	return x
-}
-
 func (rcv *LargeList) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

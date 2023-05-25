@@ -58,13 +58,6 @@ func GetRootAsMap(buf []byte, offset flatbuffers.UOffsetT) *Map {
 	return x
 }
 
-func GetSizePrefixedRootAsMap(buf []byte, offset flatbuffers.UOffsetT) *Map {
-	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
-	x := &Map{}
-	x.Init(buf, n+offset+flatbuffers.SizeUint32)
-	return x
-}
-
 func (rcv *Map) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

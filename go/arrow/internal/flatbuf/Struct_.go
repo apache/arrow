@@ -36,13 +36,6 @@ func GetRootAsStruct_(buf []byte, offset flatbuffers.UOffsetT) *Struct_ {
 	return x
 }
 
-func GetSizePrefixedRootAsStruct_(buf []byte, offset flatbuffers.UOffsetT) *Struct_ {
-	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
-	x := &Struct_{}
-	x.Init(buf, n+offset+flatbuffers.SizeUint32)
-	return x
-}
-
 func (rcv *Struct_) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

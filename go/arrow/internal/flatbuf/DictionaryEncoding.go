@@ -33,13 +33,6 @@ func GetRootAsDictionaryEncoding(buf []byte, offset flatbuffers.UOffsetT) *Dicti
 	return x
 }
 
-func GetSizePrefixedRootAsDictionaryEncoding(buf []byte, offset flatbuffers.UOffsetT) *DictionaryEncoding {
-	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
-	x := &DictionaryEncoding{}
-	x.Init(buf, n+offset+flatbuffers.SizeUint32)
-	return x
-}
-
 func (rcv *DictionaryEncoding) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

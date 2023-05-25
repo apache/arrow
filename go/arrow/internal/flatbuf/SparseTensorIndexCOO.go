@@ -65,13 +65,6 @@ func GetRootAsSparseTensorIndexCOO(buf []byte, offset flatbuffers.UOffsetT) *Spa
 	return x
 }
 
-func GetSizePrefixedRootAsSparseTensorIndexCOO(buf []byte, offset flatbuffers.UOffsetT) *SparseTensorIndexCOO {
-	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
-	x := &SparseTensorIndexCOO{}
-	x.Init(buf, n+offset+flatbuffers.SizeUint32)
-	return x
-}
-
 func (rcv *SparseTensorIndexCOO) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

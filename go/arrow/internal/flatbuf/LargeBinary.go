@@ -35,13 +35,6 @@ func GetRootAsLargeBinary(buf []byte, offset flatbuffers.UOffsetT) *LargeBinary 
 	return x
 }
 
-func GetSizePrefixedRootAsLargeBinary(buf []byte, offset flatbuffers.UOffsetT) *LargeBinary {
-	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
-	x := &LargeBinary{}
-	x.Init(buf, n+offset+flatbuffers.SizeUint32)
-	return x
-}
-
 func (rcv *LargeBinary) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

@@ -34,13 +34,6 @@ func GetRootAsSparseMatrixIndexCSX(buf []byte, offset flatbuffers.UOffsetT) *Spa
 	return x
 }
 
-func GetSizePrefixedRootAsSparseMatrixIndexCSX(buf []byte, offset flatbuffers.UOffsetT) *SparseMatrixIndexCSX {
-	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
-	x := &SparseMatrixIndexCSX{}
-	x.Init(buf, n+offset+flatbuffers.SizeUint32)
-	return x
-}
-
 func (rcv *SparseMatrixIndexCSX) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

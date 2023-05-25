@@ -34,13 +34,6 @@ func GetRootAsUtf8(buf []byte, offset flatbuffers.UOffsetT) *Utf8 {
 	return x
 }
 
-func GetSizePrefixedRootAsUtf8(buf []byte, offset flatbuffers.UOffsetT) *Utf8 {
-	n := flatbuffers.GetUOffsetT(buf[offset+flatbuffers.SizeUint32:])
-	x := &Utf8{}
-	x.Init(buf, n+offset+flatbuffers.SizeUint32)
-	return x
-}
-
 func (rcv *Utf8) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i

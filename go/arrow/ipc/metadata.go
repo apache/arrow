@@ -35,7 +35,7 @@ import (
 var Magic = []byte("ARROW1")
 
 const (
-	currentMetadataVersion = MetadataV6
+	currentMetadataVersion = MetadataV5
 	minMetadataVersion     = MetadataV4
 
 	// constants for the extension type metadata keys for the type name and
