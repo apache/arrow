@@ -147,8 +147,7 @@ namespace Apache.Arrow.C
 #endif
         private unsafe static void Release(CArrowArrayStream* cArrayStream)
         {
-            ExportedArrayStream arrayStream = ExportedArrayStream.FromPointer(cArrayStream->private_data);
-            arrayStream.Dispose();
+            ExportedArrayStream.Free(&cArrayStream->private_data);
             cArrayStream->release = null;
         }
 
@@ -170,6 +169,18 @@ namespace Apache.Arrow.C
                 ExportedArrayStream result = new ExportedArrayStream(arrayStream);
                 GCHandle gch = GCHandle.Alloc(result);
                 return (void*)GCHandle.ToIntPtr(gch);
+            }
+
+            public static void Free(void** ptr)
+            {
+                GCHandle gch = GCHandle.FromIntPtr((IntPtr)ptr);
+                if (!gch.IsAllocated)
+                {
+                    return;
+                }
+                ((ExportedArrayStream)gch.Target).Dispose();
+                gch.Free();
+                *ptr = null;
             }
 
             public static ExportedArrayStream FromPointer(void* ptr)
