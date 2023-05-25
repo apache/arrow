@@ -180,8 +180,6 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
                                      BufferVector{nullptr, out_buffer}, /*null_count=*/0);
 }
 
-}  // namespace
-
 Result<std::shared_ptr<ArrayData>> GetTakeIndicesFromBitmap(
     const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
     MemoryPool* memory_pool) {
@@ -196,6 +194,16 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesFromBitmap(
         "Filter length exceeds UINT32_MAX, "
         "consider a different strategy for selecting elements");
   }
+}
+
+// TODO(pr-35750): Handle run-end encoded filters in compute kernels
+
+}  // namespace
+
+Result<std::shared_ptr<ArrayData>> GetTakeIndices(
+    const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
+    MemoryPool* memory_pool) {
+  return GetTakeIndicesFromBitmap(filter, null_selection, memory_pool);
 }
 
 namespace {

@@ -51,6 +51,10 @@ using internal::OptionalBitBlockCounter;
 namespace compute {
 namespace internal {
 
+namespace {
+
+using FilterState = OptionsWrapper<FilterOptions>;
+
 int64_t GetBitmapFilterOutputSize(const ArraySpan& filter,
                                   FilterOptions::NullSelectionBehavior null_selection) {
   int64_t output_size = 0;
@@ -80,9 +84,16 @@ int64_t GetBitmapFilterOutputSize(const ArraySpan& filter,
   return output_size;
 }
 
-namespace {
+// TODO(pr-35750): Handle run-end encoded filters in compute kernels
 
-using FilterState = OptionsWrapper<FilterOptions>;
+}  // namespace
+
+int64_t GetFilterOutputSize(const ArraySpan& filter,
+                            FilterOptions::NullSelectionBehavior null_selection) {
+  return GetBitmapFilterOutputSize(filter, null_selection);
+}
+
+namespace {
 
 // ----------------------------------------------------------------------
 // Optimized and streamlined filter for primitive types

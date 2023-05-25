@@ -30,10 +30,6 @@ namespace internal {
 
 struct SelectionKernelData;
 
-Result<std::shared_ptr<ArrayData>> GetTakeIndicesFromBitmap(
-    const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
-    MemoryPool* memory_pool);
-
 const TakeOptions* GetDefaultTakeOptions();
 
 std::unique_ptr<Function> MakeTakeMetaFunction();

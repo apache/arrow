@@ -60,21 +60,10 @@ using internal::OptionalBitIndexer;
 namespace compute {
 namespace internal {
 
+namespace {
+
 using FilterState = OptionsWrapper<FilterOptions>;
 using TakeState = OptionsWrapper<TakeOptions>;
-
-int64_t GetFilterOutputSize(const ArraySpan& filter,
-                            FilterOptions::NullSelectionBehavior null_selection) {
-  return GetBitmapFilterOutputSize(filter, null_selection);
-}
-
-Result<std::shared_ptr<ArrayData>> GetTakeIndices(
-    const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
-    MemoryPool* memory_pool) {
-  return GetTakeIndicesFromBitmap(filter, null_selection, memory_pool);
-}
-
-namespace {
 
 // ----------------------------------------------------------------------
 // DropNull Implementation
