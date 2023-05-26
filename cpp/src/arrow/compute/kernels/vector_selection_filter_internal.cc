@@ -27,7 +27,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/kernels/vector_selection_filter.h"
+#include "arrow/compute/kernels/vector_selection_filter_internal.h"
 #include "arrow/compute/kernels/vector_selection_internal.h"
 #include "arrow/datum.h"
 #include "arrow/extension_type.h"

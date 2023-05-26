@@ -28,7 +28,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/vector_selection_internal.h"
-#include "arrow/compute/kernels/vector_selection_take.h"
+#include "arrow/compute/kernels/vector_selection_take_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"

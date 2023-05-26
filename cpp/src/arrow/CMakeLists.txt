@@ -414,9 +414,9 @@ list(APPEND
      compute/kernels/util_internal.cc
      compute/kernels/vector_hash.cc
      compute/kernels/vector_selection.cc
-     compute/kernels/vector_selection_filter.cc
+     compute/kernels/vector_selection_filter_internal.cc
      compute/kernels/vector_selection_internal.cc
-     compute/kernels/vector_selection_take.cc
+     compute/kernels/vector_selection_take_internal.cc
      compute/row/encode_internal.cc
      compute/row/compare_internal.cc
      compute/row/grouper.cc
