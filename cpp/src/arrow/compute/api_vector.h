@@ -670,6 +670,7 @@ Result<Datum> CumulativeMin(
 ///
 /// \param[in] array array input
 /// \param[in] options options, specifying overflow behavior and period
+/// \param[in] check_overflow whether to return error on overflow
 /// \param[in] ctx the function execution context, optional
 /// \return result as array
 ARROW_EXPORT
