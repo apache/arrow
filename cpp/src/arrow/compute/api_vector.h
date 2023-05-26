@@ -237,7 +237,7 @@ using CumulativeSumOptions = CumulativeOptions;  // For backward compatibility
 /// \brief Options for pairwise functions
 class ARROW_EXPORT PairwiseDiffOptions : public FunctionOptions {
  public:
-  explicit PairwiseDiffOptions(double periods = 1, bool check_overflow = false);
+  explicit PairwiseDiffOptions(int64_t periods = 1, bool check_overflow = false);
   static constexpr char const kTypeName[] = "PairwiseDiffOptions";
   static PairwiseDiffOptions Defaults() { return PairwiseDiffOptions(); }
 

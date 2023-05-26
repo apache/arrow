@@ -221,7 +221,7 @@ RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_plac
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
 
-PairwiseDiffOptions::PairwiseDiffOptions(double periods, bool check_overflow)
+PairwiseDiffOptions::PairwiseDiffOptions(int64_t periods, bool check_overflow)
     : FunctionOptions(internal::kPairwiseDiffOptionsType),
       periods(periods),
       check_overflow(check_overflow) {}
