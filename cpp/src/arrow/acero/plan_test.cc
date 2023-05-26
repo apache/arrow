@@ -1706,7 +1706,7 @@ TEST(ExecPlanExecution, SegmentedAggregationWithBatchCrossingSegment) {
 
 TEST(ExecPlanExecution, UnalignedInput) {
   std::shared_ptr<Array> array = ArrayFromJSON(int32(), "[1, 2, 3]");
-  std::shared_ptr<Array> unaligned = UnalignValues(*array);
+  std::shared_ptr<Array> unaligned = UnalignBuffers(*array);
   ASSERT_OK_AND_ASSIGN(ExecBatch sample_batch,
                        ExecBatch::Make({unaligned}, array->length()));
 

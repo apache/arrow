@@ -82,6 +82,8 @@ namespace util {
 constexpr int64_t kValueAlignment = -3;
 
 /// \brief Calculate if the buffer's address is a multiple of `alignment`
+///
+/// If `alignment` is less than or equal to 0 then this method will always return true
 /// \param buffer the buffer to check
 /// \param alignment the alignment (in bytes) to check for
 ARROW_EXPORT bool CheckAlignment(const Buffer& buffer, int64_t alignment);
@@ -143,6 +145,9 @@ ARROW_EXPORT bool CheckAlignment(const Table& table, int64_t alignment,
 /// buffer
 ///
 /// If the input buffer is already aligned then this method will return the input buffer
+/// If the input buffer is not already aligned then this method will allocate a new
+/// buffer.  The alignment of the new buffer will have at least
+/// max(kDefaultBufferAlignment, alignment) bytes of alignment.
 ///
 /// \param buffer the buffer to check
 /// \param alignment the alignment (in bytes) to check for

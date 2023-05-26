@@ -22,13 +22,19 @@
 namespace arrow {
 
 int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index) {
+  if (buffer_index == 2 && type_id == Type::DENSE_UNION) {
+    // A dense union array is the only array (so far) that requires alignment
+    // on a buffer with a buffer_index that is not equal to 1
+    return 4;
+  }
   if (buffer_index != 1) {
     // If the buffer index is 0 then either:
     //  * The array type has no buffers, thus this shouldn't be called anyways
     //  * The array has a validity buffer at 0, no alignment needed
     //  * The array is a union array and has a types buffer at 0, no alignment needed
     // If the buffer index is > 1 then, in all current cases, it represents binary
-    //  data and no alignment is needed
+    //  data and no alignment is needed.  The only exception is dense union buffers
+    //  which are checked above.
     return 1;
   }
   DCHECK_NE(type_id, Type::DICTIONARY);
@@ -45,7 +51,8 @@ int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index) {
     case Type::BOOL:               // Always treated as uint8_t*
     case Type::INT8:               // Always treated as uint8_t*
     case Type::UINT8:              // Always treated as uint8_t*
-    case Type::SPARSE_UNION:       // No second buffer
+    case Type::DENSE_UNION:        // Union arrays have a uint8_t* types buffer here
+    case Type::SPARSE_UNION:       // Union arrays have a uint8_t* types buffer here
     case Type::RUN_END_ENCODED:    // No buffers
     case Type::STRUCT:             // No second buffer
       return 1;
@@ -60,9 +67,8 @@ int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index) {
     case Type::BINARY:  // Offsets may be cast to int32_t*
     case Type::DATE32:
     case Type::TIME32:
-    case Type::LIST:         // Offsets may be cast to int32_t*, data is in child array
-    case Type::MAP:          // This is a list array
-    case Type::DENSE_UNION:  // Has an offsets buffer of int32_t*
+    case Type::LIST:  // Offsets may be cast to int32_t*, data is in child array
+    case Type::MAP:   // This is a list array
     case Type::INTERVAL_MONTHS:    // Stored as int32_t*
     case Type::INTERVAL_DAY_TIME:  // Stored as two contiguous 32-bit integers
       return 4;

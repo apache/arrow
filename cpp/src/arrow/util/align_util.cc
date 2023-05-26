@@ -21,6 +21,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -30,6 +31,9 @@ namespace arrow {
 namespace util {
 
 bool CheckAlignment(const Buffer& buffer, int64_t alignment) {
+  if (alignment <= 0) {
+    return true;
+  }
   return buffer.address() % alignment == 0;
 }
 
@@ -135,9 +139,6 @@ bool CheckAlignment(const Table& table, int64_t alignment,
   return all_aligned;
 }
 
-// Most allocators require a minimum of 8-byte alignment.
-constexpr int64_t kMinimumAlignment = 8;
-
 Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
                                                 int64_t alignment,
                                                 MemoryPool* memory_pool) {
@@ -153,10 +154,10 @@ Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
     if (!buffer->is_cpu()) {
       return Status::NotImplemented("Reallocating an unaligned non-CPU buffer.");
     }
-    int64_t minimal_compatible_alignment = std::max(kMinimumAlignment, alignment);
+    int64_t minimum_desired_alignment = std::max(kDefaultBufferAlignment, alignment);
     ARROW_ASSIGN_OR_RAISE(
         auto new_buffer,
-        AllocateBuffer(buffer->size(), minimal_compatible_alignment, memory_pool));
+        AllocateBuffer(buffer->size(), minimum_desired_alignment, memory_pool));
     std::memcpy(new_buffer->mutable_data(), buffer->data(), buffer->size());
     return std::move(new_buffer);
   } else {
