@@ -235,18 +235,14 @@ class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
 using CumulativeSumOptions = CumulativeOptions;  // For backward compatibility
 
 /// \brief Options for pairwise functions
-class ARROW_EXPORT PairwiseDiffOptions : public FunctionOptions {
+class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
  public:
-  explicit PairwiseDiffOptions(int64_t periods = 1, bool check_overflow = false);
-  static constexpr char const kTypeName[] = "PairwiseDiffOptions";
-  static PairwiseDiffOptions Defaults() { return PairwiseDiffOptions(); }
+  explicit PairwiseOptions(int64_t periods = 1);
+  static constexpr char const kTypeName[] = "PairwiseOptions";
+  static PairwiseOptions Defaults() { return PairwiseOptions(); }
 
   /// Periods to shift for applying the binary operation, accepts negative values.
   int64_t periods = 1;
-
-  /// When true, returns an Invalid Status when overflow is detected, otherwise result is
-  /// wrapped around.
-  bool check_overflow = false;
 };
 
 /// @}
@@ -678,7 +674,8 @@ Result<Datum> CumulativeMin(
 /// \return result as array
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
-                                            const PairwiseDiffOptions& options,
+                                            const PairwiseOptions& options,
+                                            bool check_overflow = false,
                                             ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------

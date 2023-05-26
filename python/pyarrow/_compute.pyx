@@ -1969,25 +1969,23 @@ class CumulativeOptions(_CumulativeOptions):
         self._set_options(start, skip_nulls)
 
 
-cdef class _PairwiseDiffOptions(FunctionOptions):
-    def _set_options(self, period, check_overflow):
-        self.wrapped.reset(new CPairwiseDiffOptions(period, check_overflow))
+cdef class _PairwiseOptions(FunctionOptions):
+    def _set_options(self, period):
+        self.wrapped.reset(new CPairwiseOptions(period))
 
 
-class PairwiseDiffOptions(_PairwiseDiffOptions):
+class PairwiseOptions(_PairwiseOptions):
     """
-    Options for `pairwise_diff` function.
+    Options for `pairwise` functions.
 
     Parameters
     ----------
     period : int, default 1
-        Period for computing difference.
-    check_overflow : bool, default False
-        When true, return error on overflow. When false, wrap around on overflow.
+        Period for applying the period function.
     """
 
-    def __init__(self, period=1, check_overflow=False):
-        self._set_options(period, check_overflow)
+    def __init__(self, period=1):
+        self._set_options(period)
 
 
 cdef class _ArraySortOptions(FunctionOptions):

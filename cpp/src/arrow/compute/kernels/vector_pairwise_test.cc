@@ -87,7 +87,7 @@ class TestDiffKernel : public ::testing::Test {
 
 TEST_F(TestDiffKernel, Empty) {
   for (int64_t period = -2; period <= 2; ++period) {
-    PairwiseDiffOptions options(period);
+    PairwiseOptions options(period);
     for (auto input_type : test_input_types_) {
       ASSERT_OK_AND_ASSIGN(auto output_type, GetOutputType(input_type));
       auto input = ArrayFromJSON(input_type, "[]");
@@ -99,7 +99,7 @@ TEST_F(TestDiffKernel, Empty) {
 
 TEST_F(TestDiffKernel, AllNull) {
   for (int64_t period = -2; period <= 2; ++period) {
-    PairwiseDiffOptions options(period);
+    PairwiseOptions options(period);
     for (auto input_type : test_input_types_) {
       ASSERT_OK_AND_ASSIGN(auto output_type, GetOutputType(input_type));
       auto input = ArrayFromJSON(input_type, "[null, null, null]");
@@ -111,7 +111,7 @@ TEST_F(TestDiffKernel, AllNull) {
 
 TEST_F(TestDiffKernel, Numeric) {
   {
-    PairwiseDiffOptions options(1);
+    PairwiseOptions options(1);
     for (auto input_type : test_numerical_types_) {
       ASSERT_OK_AND_ASSIGN(auto output_type, GetOutputType(input_type));
       auto input = ArrayFromJSON(input_type, "[null, 1, 2, null, 4, 5, 6]");
@@ -121,7 +121,7 @@ TEST_F(TestDiffKernel, Numeric) {
   }
 
   {
-    PairwiseDiffOptions options(2);
+    PairwiseOptions options(2);
     for (auto input_type : test_numerical_types_) {
       ASSERT_OK_AND_ASSIGN(auto output_type, GetOutputType(input_type));
       auto input = ArrayFromJSON(input_type, "[null, 1, 2, null, 4, 5, 6]");
@@ -131,7 +131,7 @@ TEST_F(TestDiffKernel, Numeric) {
   }
 
   {
-    PairwiseDiffOptions options(-1);
+    PairwiseOptions options(-1);
     for (auto input_type : test_numerical_types_) {
       ASSERT_OK_AND_ASSIGN(auto output_type, GetOutputType(input_type));
       auto input = ArrayFromJSON(input_type, "[6, 5, 4, null, 2, 1, null]");
@@ -141,7 +141,7 @@ TEST_F(TestDiffKernel, Numeric) {
   }
 
   {
-    PairwiseDiffOptions options(-2);
+    PairwiseOptions options(-2);
     for (auto input_type : test_numerical_types_) {
       ASSERT_OK_AND_ASSIGN(auto output_type, GetOutputType(input_type));
       auto input = ArrayFromJSON(input_type, "[6, 5, 4, null, 2, 1, null]");
@@ -153,24 +153,25 @@ TEST_F(TestDiffKernel, Numeric) {
 
 TEST_F(TestDiffKernel, Overflow) {
   {
-    PairwiseDiffOptions options(1);
+    PairwiseOptions options(1);
     auto input = ArrayFromJSON(uint8(), "[3, 2, 1]");
     auto output = ArrayFromJSON(uint8(), "[null, 255, 255]");
     CheckVectorUnary("pairwise_diff", input, output, &options);
   }
 
   {
-    PairwiseDiffOptions options(1, /*check_overflow=*/true);
+    PairwiseOptions options(1);
     auto input = ArrayFromJSON(uint8(), "[3, 2, 1]");
     auto output = ArrayFromJSON(uint8(), "[null, 255, 255]");
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("overflow"),
-                                    CallFunction("pairwise_diff", {input}, &options));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, testing::HasSubstr("overflow"),
+        CallFunction("pairwise_diff_checked", {input}, &options));
   }
 }
 
 TEST_F(TestDiffKernel, Temporal) {
   {
-    PairwiseDiffOptions options(1);
+    PairwiseOptions options(1);
     for (auto input_type : test_temporal_types_) {
       ASSERT_OK_AND_ASSIGN(auto output_type, GetOutputType(input_type));
       auto input = ArrayFromJSON(input_type, "[null, 5, 1, null, 9, 6, 37]");
@@ -186,14 +187,14 @@ TEST_F(TestDiffKernel, Temporal) {
 
 TEST_F(TestDiffKernel, Decimal) {
   {
-    PairwiseDiffOptions options(1);
+    PairwiseOptions options(1);
     auto input = ArrayFromJSON(decimal(4, 2), R"(["11.00", "22.11", "-10.25", "33.45"])");
     auto output = ArrayFromJSON(decimal(5, 2), R"([null, "11.11", "-32.36", "43.70"])");
     CheckVectorUnary("pairwise_diff", input, output, &options);
   }
 
   {
-    PairwiseDiffOptions options(-1);
+    PairwiseOptions options(-1);
     auto input = ArrayFromJSON(
         decimal(40, 30),
         R"(["1111111111.222222222222222222222222222222", "2222222222.333333333333333333333333333333"])");
@@ -203,7 +204,7 @@ TEST_F(TestDiffKernel, Decimal) {
   }
 
   {  /// Out of range decimal precision
-    PairwiseDiffOptions options(1);
+    PairwiseOptions options(1);
     auto input = ArrayFromJSON(decimal(38, 0), R"(["1e38"])");
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,

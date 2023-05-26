@@ -555,7 +555,7 @@ Compute Options
    ModeOptions
    NullOptions
    PadOptions
-   PairwiseDiffOptions
+   PairwiseOptions
    PartitionNthOptions
    QuantileOptions
    ReplaceSliceOptions

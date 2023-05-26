@@ -50,7 +50,7 @@ from pyarrow._compute import (  # noqa
     ModeOptions,
     NullOptions,
     PadOptions,
-    PairwiseDiffOptions,
+    PairwiseOptions,
     PartitionNthOptions,
     QuantileOptions,
     RandomOptions,

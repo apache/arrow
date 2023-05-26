@@ -1851,16 +1851,21 @@ replaced, based on the remaining inputs.
 Pairwise functions
 ~~~~~~~~~~~~~~~~~~~~
 Pairwise functions are unary vector functions that performs a binary operation on 
-a pair of elements in the input array, typically on adjacent elements.
+a pair of elements in the input array, typically on adjacent elements. The n-th
+output is computed by applying the binary operation on the n-th and (n-p)-th, 
+where p is the period. The default period is 1. The period can also be negative.
 
-+------------------------+-------+----------------------+----------------------+--------------------------------+-------+
-| Function name          | Arity | Input types          | Output type          | Options class                  | Notes |
-+========================+=======+======================+======================+================================+=======+
-| pairwise_diff          | Unary | Numeric/Temporal     | Numeric/Temporal     | :struct:`PairwiseDiffOptions`  | \(1)  |
-+------------------------+-------+----------------------+----------------------+--------------------------------+-------+
-* \(1) Computes the first order difference of an array, i.e. output[i] =  
-  input[i] - input[i-period]. The default period is 1. The period can also 
-  be negative. It internally calls the scalar function ``Subtract`` to compute 
-  the differences, so its behavior and supported types are the same as 
-  ``Subtract``. The period and handling of overflow can be specified in
-  :struct:`PairwiseDiffOptions`. 
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+| Function name          | Arity | Input types          | Output type          | Options class                  | Notes    |
++========================+=======+======================+======================+================================+==========+
+| pairwise_diff          | Unary | Numeric/Temporal     | Numeric/Temporal     | :struct:`PairwiseOptions`      | \(1)(2)  |
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+| pairwise_diff_checked  | Unary | Numeric/Temporal     | Numeric/Temporal     | :struct:`PairwiseOptions`      | \(1)(3)  |
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+
+* \(1) Computes the first order difference of an array, It internally calls 
+  the scalar function ``Subtract`` (or the checked variant) to compute 
+  differences, so its behavior and supported types are the same as 
+  ``Subtract``. The period can be specified in :struct:`PairwiseOptions`. 
+* \(2) Wraps around the result when overflow is detected.
+* \(3) Returns an ``Invalid`` :class:`Status` when overflow is detected.

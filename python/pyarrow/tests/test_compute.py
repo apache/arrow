@@ -155,7 +155,7 @@ def test_option_class_equality():
         pc.ModeOptions(),
         pc.NullOptions(),
         pc.PadOptions(5),
-        pc.PairwiseDiffOptions(period=1, check_overflow=False),
+        pc.PairwiseOptions(period=1),
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.CumulativeOptions(start=None, skip_nulls=False),
         pc.QuantileOptions(),
@@ -3511,4 +3511,4 @@ def test_pairwise_diff():
     arr = pa.array([1, 2, 3, None, 4, 5], type=pa.uint8())
     with pytest.raises(pa.ArrowInvalid,
                        match="overflow"):
-        pa.compute.pairwise_diff(arr, period=-1, check_overflow=True)
+        pa.compute.pairwise_diff_checked(arr, period=-1)

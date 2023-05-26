@@ -108,21 +108,15 @@ Status PairwiseKernelImpl(const ArraySpan& input, int64_t periods,
   return Status::OK();
 }
 
-template <typename InputType, typename OutputType, typename Subtract,
-          typename SubtractChecked>
+template <typename InputType, typename OutputType, typename Op>
 Status PairwiseDiffKernel(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  const PairwiseDiffOptions& options = OptionsWrapper<PairwiseDiffOptions>::Get(ctx);
+  const PairwiseOptions& options = OptionsWrapper<PairwiseOptions>::Get(ctx);
   std::shared_ptr<ArrayData> result;
   auto input = batch[0].array;
   ARROW_ASSIGN_OR_RAISE(auto output_type,
                         GetDiffOutputType<InputType>(input.type->GetSharedPtr()));
-  if (options.check_overflow) {
-    RETURN_NOT_OK((PairwiseKernelImpl<InputType, OutputType, SubtractChecked>(
-        batch[0].array, options.periods, output_type, &result)));
-  } else {
-    RETURN_NOT_OK((PairwiseKernelImpl<InputType, OutputType, Subtract>(
-        batch[0].array, options.periods, output_type, &result)));
-  }
+  RETURN_NOT_OK((PairwiseKernelImpl<InputType, OutputType, Op>(
+      batch[0].array, options.periods, output_type, &result)));
 
   out->value = std::move(result);
   return Status::OK();
@@ -130,18 +124,29 @@ Status PairwiseDiffKernel(KernelContext* ctx, const ExecSpan& batch, ExecResult*
 
 const FunctionDoc pairwise_diff_doc(
     "Compute first order difference of an array",
-    ("This function computes the first order difference of an array, i.e. output[i]\n"
-     "= input[i] - input[i - p] if i >= p, otherwise output[i] = null, where p is \n"
-     "the period. The period can also be negative. It internally calls the scalar \n"
-     "function Subtract to compute the differences, so its behavior and supported \n"
-     "types are the same as Subtract.\n"
+    ("Computes the first order difference of an array, It internally calls \n"
+     "the scalar function \"subtract\" to compute \n differences, so its \n"
+     "behavior and supported types are the same as \n"
+     "\"subtract\". The period can be specified in :struct:`PairwiseOptions`.\n"
      "\n"
-     "The period and handling of overflow can be specified in PairwiseDiffOptions."),
-    {"input"}, "PairwiseDiffOptions");
+     "Results will wrap around on integer overflow. Use function \n"
+     "\"pairwise_diff_checked\" if you want overflow to return an error."),
+    {"input"}, "PairwiseOptions");
 
-const PairwiseDiffOptions* GetDefaultPairwiseDiffOptions() {
-  static const auto kDefaultPairwiseDiffOptions = PairwiseDiffOptions::Defaults();
-  return &kDefaultPairwiseDiffOptions;
+const FunctionDoc pairwise_diff_checked_doc(
+    "Compute first order difference of an array",
+    ("Computes the first order difference of an array, It internally calls \n"
+     "the scalar function \"subtract_checked\" (or the checked variant) to compute \n"
+     "differences, so its behavior and supported types are the same as \n"
+     "\"subtract_checked\". The period can be specified in :struct:`PairwiseOptions`.\n"
+     "\n"
+     "This function returns an error on overflow. For a variant that doesn't \n"
+     "fail on overflow, use function \"pairwise_diff\"."),
+    {"input"}, "PairwiseOptions");
+
+const PairwiseOptions* GetDefaultPairwiseOptions() {
+  static const auto kDefaultPairwiseOptions = PairwiseOptions::Defaults();
+  return &kDefaultPairwiseOptions;
 }
 
 struct PairwiseKernelData {
@@ -150,27 +155,20 @@ struct PairwiseKernelData {
   ArrayKernelExec exec;
 };
 
-void RegisterPairwiseDiffKernels(FunctionRegistry* registry) {
+template <typename Op, typename OpDate32>
+void RegisterPairwiseDiffKernels(std::string_view func_name, const FunctionDoc& doc,
+                                 FunctionRegistry* registry) {
   std::vector<PairwiseKernelData> pairwise_diff_kernels = {
-      {int8(), int8(), PairwiseDiffKernel<Int8Type, Int8Type, Subtract, SubtractChecked>},
-      {uint8(), uint8(),
-       PairwiseDiffKernel<UInt8Type, UInt8Type, Subtract, SubtractChecked>},
-      {int16(), int16(),
-       PairwiseDiffKernel<Int16Type, Int16Type, Subtract, SubtractChecked>},
-      {uint16(), uint16(),
-       PairwiseDiffKernel<UInt16Type, UInt16Type, Subtract, SubtractChecked>},
-      {int32(), int32(),
-       PairwiseDiffKernel<Int32Type, Int32Type, Subtract, SubtractChecked>},
-      {uint32(), uint32(),
-       PairwiseDiffKernel<UInt32Type, UInt32Type, Subtract, SubtractChecked>},
-      {int64(), int64(),
-       PairwiseDiffKernel<Int64Type, Int64Type, Subtract, SubtractChecked>},
-      {uint64(), uint64(),
-       PairwiseDiffKernel<UInt64Type, UInt64Type, Subtract, SubtractChecked>},
-      {float32(), float32(),
-       PairwiseDiffKernel<FloatType, FloatType, Subtract, SubtractChecked>},
-      {float64(), float64(),
-       PairwiseDiffKernel<DoubleType, DoubleType, Subtract, SubtractChecked>},
+      {int8(), int8(), PairwiseDiffKernel<Int8Type, Int8Type, Op>},
+      {uint8(), uint8(), PairwiseDiffKernel<UInt8Type, UInt8Type, Op>},
+      {int16(), int16(), PairwiseDiffKernel<Int16Type, Int16Type, Op>},
+      {uint16(), uint16(), PairwiseDiffKernel<UInt16Type, UInt16Type, Op>},
+      {int32(), int32(), PairwiseDiffKernel<Int32Type, Int32Type, Op>},
+      {uint32(), uint32(), PairwiseDiffKernel<UInt32Type, UInt32Type, Op>},
+      {int64(), int64(), PairwiseDiffKernel<Int64Type, Int64Type, Op>},
+      {uint64(), uint64(), PairwiseDiffKernel<UInt64Type, UInt64Type, Op>},
+      {float32(), float32(), PairwiseDiffKernel<FloatType, FloatType, Op>},
+      {float64(), float64(), PairwiseDiffKernel<DoubleType, DoubleType, Op>},
   };
 
   auto decimal_resolver = [](KernelContext*,
@@ -181,12 +179,12 @@ void RegisterPairwiseDiffKernels(FunctionRegistry* registry) {
     return decimal(decimal_type->precision() + 1, decimal_type->scale());
   };
 
-  pairwise_diff_kernels.emplace_back(PairwiseKernelData{
-      Type::DECIMAL128, OutputType(decimal_resolver),
-      PairwiseDiffKernel<Decimal128Type, Decimal128Type, Subtract, SubtractChecked>});
-  pairwise_diff_kernels.emplace_back(PairwiseKernelData{
-      Type::DECIMAL256, OutputType(decimal_resolver),
-      PairwiseDiffKernel<Decimal256Type, Decimal256Type, Subtract, SubtractChecked>});
+  pairwise_diff_kernels.emplace_back(
+      PairwiseKernelData{Type::DECIMAL128, OutputType(decimal_resolver),
+                         PairwiseDiffKernel<Decimal128Type, Decimal128Type, Op>});
+  pairwise_diff_kernels.emplace_back(
+      PairwiseKernelData{Type::DECIMAL256, OutputType(decimal_resolver),
+                         PairwiseDiffKernel<Decimal256Type, Decimal256Type, Op>});
 
   auto identity_resolver =
       [](KernelContext*, const std::vector<TypeHolder>& types) -> Result<TypeHolder> {
@@ -197,8 +195,7 @@ void RegisterPairwiseDiffKernels(FunctionRegistry* registry) {
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     OutputType out_type(duration(unit));
-    auto exec =
-        PairwiseDiffKernel<TimestampType, DurationType, Subtract, SubtractChecked>;
+    auto exec = PairwiseDiffKernel<TimestampType, DurationType, Op>;
     pairwise_diff_kernels.emplace_back(PairwiseKernelData{in_type, out_type, exec});
   }
 
@@ -206,7 +203,7 @@ void RegisterPairwiseDiffKernels(FunctionRegistry* registry) {
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
     OutputType out_type(identity_resolver);
-    auto exec = PairwiseDiffKernel<DurationType, DurationType, Subtract, SubtractChecked>;
+    auto exec = PairwiseDiffKernel<DurationType, DurationType, Op>;
     pairwise_diff_kernels.emplace_back(
         PairwiseKernelData{in_type, out_type, std::move(exec)});
   }
@@ -215,7 +212,7 @@ void RegisterPairwiseDiffKernels(FunctionRegistry* registry) {
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
     InputType in_type(match::Time32TypeUnit(unit));
     OutputType out_type(duration(unit));
-    auto exec = PairwiseDiffKernel<Time32Type, DurationType, Subtract, SubtractChecked>;
+    auto exec = PairwiseDiffKernel<Time32Type, DurationType, Op>;
     pairwise_diff_kernels.emplace_back(
         PairwiseKernelData{in_type, out_type, std::move(exec)});
   }
@@ -224,7 +221,7 @@ void RegisterPairwiseDiffKernels(FunctionRegistry* registry) {
   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::Time64TypeUnit(unit));
     OutputType out_type(duration(unit));
-    auto exec = PairwiseDiffKernel<Time64Type, DurationType, Subtract, SubtractChecked>;
+    auto exec = PairwiseDiffKernel<Time64Type, DurationType, Op>;
     pairwise_diff_kernels.emplace_back(
         PairwiseKernelData{in_type, out_type, std::move(exec)});
   }
@@ -233,8 +230,7 @@ void RegisterPairwiseDiffKernels(FunctionRegistry* registry) {
   {
     InputType in_type(date32());
     OutputType out_type(duration(TimeUnit::SECOND));
-    auto exec = PairwiseDiffKernel<Date32Type, DurationType, SubtractDate32,
-                                   SubtractCheckedDate32>;
+    auto exec = PairwiseDiffKernel<Date32Type, DurationType, OpDate32>;
     pairwise_diff_kernels.emplace_back(
         PairwiseKernelData{in_type, out_type, std::move(exec)});
   }
@@ -243,7 +239,7 @@ void RegisterPairwiseDiffKernels(FunctionRegistry* registry) {
   {
     InputType in_type(date64());
     OutputType out_type(duration(TimeUnit::MILLI));
-    auto exec = PairwiseDiffKernel<Date64Type, DurationType, Subtract, SubtractChecked>;
+    auto exec = PairwiseDiffKernel<Date64Type, DurationType, Op>;
     pairwise_diff_kernels.emplace_back(
         PairwiseKernelData{in_type, out_type, std::move(exec)});
   }
@@ -252,10 +248,9 @@ void RegisterPairwiseDiffKernels(FunctionRegistry* registry) {
   base_kernel.can_execute_chunkwise = false;
   base_kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   base_kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  base_kernel.init = OptionsWrapper<PairwiseDiffOptions>::Init;
-  auto func =
-      std::make_shared<VectorFunction>("pairwise_diff", Arity::Unary(), pairwise_diff_doc,
-                                       GetDefaultPairwiseDiffOptions());
+  base_kernel.init = OptionsWrapper<PairwiseOptions>::Init;
+  auto func = std::make_shared<VectorFunction>(std::string(func_name), Arity::Unary(),
+                                               doc, GetDefaultPairwiseOptions());
 
   for (const auto& kernel_data : pairwise_diff_kernels) {
     base_kernel.signature =
@@ -268,7 +263,10 @@ void RegisterPairwiseDiffKernels(FunctionRegistry* registry) {
 }
 
 void RegisterVectorPairwise(FunctionRegistry* registry) {
-  RegisterPairwiseDiffKernels(registry);
+  RegisterPairwiseDiffKernels<Subtract, SubtractDate32>("pairwise_diff",
+                                                        pairwise_diff_doc, registry);
+  RegisterPairwiseDiffKernels<SubtractChecked, SubtractCheckedDate32>(
+      "pairwise_diff_checked", pairwise_diff_checked_doc, registry);
 }
 
 }  // namespace arrow::compute::internal
