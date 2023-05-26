@@ -274,13 +274,21 @@ class WriteClientStream : public UcxClientStream {
   Status WritesDone() override {
     std::unique_lock<std::mutex> guard(driver_mutex_);
     if (!writes_done_) {
+      // Must get set before we release the lock by waiting on the condition variable
+      writes_done_ = true;
+
+      // Can't do anything - this can happen if we get a server error;
+      // we'll unwind a read/write and try to Finish() which calls us,
+      // but it's pointless at that point (the driver thread may have
+      // exited)
+      if (finished_) return Status::OK();
+
       ARROW_ASSIGN_OR_RAISE(auto headers, HeadersFrame::Make({}));
       outgoing_ =
           driver_->SendFrameAsync(FrameType::kHeaders, std::move(headers).GetBuffer());
       working_cv_.notify_all();
       completed_cv_.wait(guard, [this] { return outgoing_.is_finished(); });
 
-      writes_done_ = true;
       auto status = outgoing_.status();
       outgoing_ = Future<>();
       RETURN_NOT_OK(status);
