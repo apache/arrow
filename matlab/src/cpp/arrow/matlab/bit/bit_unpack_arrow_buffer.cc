@@ -25,7 +25,7 @@ namespace arrow::matlab::bit {
 
         ::matlab::data::ArrayFactory factory;
         
-        const size_t array_length = static_cast<size_t>(length);
+        const auto array_length = static_cast<size_t>(length);
         
         auto unpacked_buffer = factory.createBuffer<bool>(array_length);
         auto unpacked_buffer_ptr = unpacked_buffer.get();
