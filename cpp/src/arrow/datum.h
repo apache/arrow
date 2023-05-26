@@ -43,14 +43,18 @@ class Table;
 /// \class Datum
 /// \brief Variant type for various Arrow C++ data structures
 struct ARROW_EXPORT Datum {
+  /// \brief The kind of datum stored
   enum Kind { NONE, SCALAR, ARRAY, CHUNKED_ARRAY, RECORD_BATCH, TABLE };
 
+  /// \brief A placeholder type to represent empty datum
   struct Empty {};
 
-  // Datums variants may have a length. This special value indicate that the
-  // current variant does not have a length.
+  /// \brief Datums variants may have a length. This special value indicate that the
+  /// current variant does not have a length.
   static constexpr int64_t kUnknownLength = -1;
 
+  /// \brief Storage of the actual datum. Note: For arrays, it stores ArrayData instead of
+  /// Array for easier data processing
   std::variant<Empty, std::shared_ptr<Scalar>, std::shared_ptr<ArrayData>,
                std::shared_ptr<ChunkedArray>, std::shared_ptr<RecordBatch>,
                std::shared_ptr<Table>>
@@ -64,28 +68,46 @@ struct ARROW_EXPORT Datum {
   Datum(Datum&& other) = default;
   Datum& operator=(Datum&& other) = default;
 
+  /// \brief Construct from a Scalar
   Datum(std::shared_ptr<Scalar> value)  // NOLINT implicit conversion
       : value(std::move(value)) {}
 
+  /// \brief Construct from an ArrayData
   Datum(std::shared_ptr<ArrayData> value)  // NOLINT implicit conversion
       : value(std::move(value)) {}
 
+  /// \brief Construct from an ArrayData
   Datum(ArrayData arg)  // NOLINT implicit conversion
       : value(std::make_shared<ArrayData>(std::move(arg))) {}
 
-  Datum(const Array& value);                   // NOLINT implicit conversion
-  Datum(const std::shared_ptr<Array>& value);  // NOLINT implicit conversion
-  Datum(std::shared_ptr<ChunkedArray> value);  // NOLINT implicit conversion
-  Datum(std::shared_ptr<RecordBatch> value);   // NOLINT implicit conversion
-  Datum(std::shared_ptr<Table> value);         // NOLINT implicit conversion
+  /// \brief Construct from an Array
+  Datum(const Array& value);  // NOLINT implicit conversion
 
-  // Explicit constructors from const-refs. Can be expensive, prefer the
-  // shared_ptr constructors
+  /// \brief Construct from an Array
+  Datum(const std::shared_ptr<Array>& value);  // NOLINT implicit conversion
+
+  /// \brief Construct from a ChunkedArray
+  Datum(std::shared_ptr<ChunkedArray> value);  // NOLINT implicit conversion
+
+  /// \brief Construct from a RecordBatch
+  Datum(std::shared_ptr<RecordBatch> value);  // NOLINT implicit conversion
+
+  /// \brief Construct from a Table
+  Datum(std::shared_ptr<Table> value);  // NOLINT implicit conversion
+
+  /// \brief Construct from a ChunkedArray. Can be expensive, prefer the
+  /// shared_ptr constructor
   explicit Datum(const ChunkedArray& value);
+
+  /// \brief Construct from a RecordBatch. Can be expensive, prefer the
+  /// shared_ptr constructor
   explicit Datum(const RecordBatch& value);
+
+  /// \brief Construct from a Table. Can be expensive, prefer the
+  /// shared_ptr constructor
   explicit Datum(const Table& value);
 
-  // Cast from subtypes of Array or Scalar to Datum
+  /// \brief Cast from concrete types of Array or Scalar to Datum
   template <typename T, bool IsArray = std::is_base_of_v<Array, T>,
             bool IsScalar = std::is_base_of_v<Scalar, T>,
             typename = enable_if_t<IsArray || IsScalar>>
@@ -93,7 +115,7 @@ struct ARROW_EXPORT Datum {
       : Datum(std::shared_ptr<typename std::conditional<IsArray, Array, Scalar>::type>(
             std::move(value))) {}
 
-  // Cast from subtypes of Array or Scalar to Datum
+  /// \brief Cast from concrete types of Array or Scalar to Datum
   template <typename T, typename TV = typename std::remove_reference_t<T>,
             bool IsArray = std::is_base_of_v<Array, T>,
             bool IsScalar = std::is_base_of_v<Scalar, T>,
@@ -101,32 +123,47 @@ struct ARROW_EXPORT Datum {
   Datum(T&& value)  // NOLINT implicit conversion
       : Datum(std::make_shared<TV>(std::forward<T>(value))) {}
 
-  // Many Scalars are copyable, let that happen
+  /// \brief Copy from concrete types of Scalar. The scalar type must copyable.
   template <typename T, typename = enable_if_t<std::is_base_of_v<Scalar, T>>>
   Datum(const T& value)  // NOLINT implicit conversion
       : Datum(std::make_shared<T>(value)) {}
 
   // Convenience constructors
+  /// \brief A convenience constructor. Stores a bool scalar.
   explicit Datum(bool value);
+  /// \brief A convenience constructor. Stores a int8 scalar.
   explicit Datum(int8_t value);
+  /// \brief A convenience constructor. Stores a uint8 scalar.
   explicit Datum(uint8_t value);
+  /// \brief A convenience constructor. Stores a int16 scalar.
   explicit Datum(int16_t value);
+  /// \brief A convenience constructor. Stores a uint16 scalar.
   explicit Datum(uint16_t value);
+  /// \brief A convenience constructor. Stores a int32 scalar.
   explicit Datum(int32_t value);
+  /// \brief A convenience constructor. Stores a uint32 scalar.
   explicit Datum(uint32_t value);
+  /// \brief A convenience constructor. Stores a int64 scalar.
   explicit Datum(int64_t value);
+  /// \brief A convenience constructor. Stores a uint64 scalar.
   explicit Datum(uint64_t value);
+  /// \brief A convenience constructor. Stores a float scalar.
   explicit Datum(float value);
+  /// \brief A convenience constructor. Stores a double scalar.
   explicit Datum(double value);
+  /// \brief A convenience constructor. Stores a string scalar.
   explicit Datum(std::string value);
+  /// \brief A convenience constructor. Stores a string scalar.
   explicit Datum(const char* value);
 
-  // Forward to convenience constructors for a DurationScalar from std::chrono::duration
+  /// \brief Forward to convenience constructors for a DurationScalar from
+  /// std::chrono::duration
   template <template <typename, typename> class StdDuration, typename Rep,
             typename Period,
             typename = decltype(DurationScalar{StdDuration<Rep, Period>{}})>
   explicit Datum(StdDuration<Rep, Period> d) : Datum{DurationScalar(d)} {}
 
+  /// \brief The kind of data stored in Datum
   Datum::Kind kind() const {
     switch (this->value.index()) {
       case 0:
@@ -146,6 +183,8 @@ struct ARROW_EXPORT Datum {
     }
   }
 
+  /// \brief Retrieve the stored array as ArrayData, use make_array() if Array is desired
+  /// \throws std::bad_variant_access if the datum is not an array
   const std::shared_ptr<ArrayData>& array() const {
     return std::get<std::shared_ptr<ArrayData>>(this->value);
   }
@@ -155,49 +194,74 @@ struct ARROW_EXPORT Datum {
   /// \see arrow::util::TotalBufferSize for caveats
   int64_t TotalBufferSize() const;
 
+  /// \brief Get the stored ArrayData in mutable form, primarily used in kernel
+  /// implementations
   ArrayData* mutable_array() const { return this->array().get(); }
 
+  /// \brief Retrieve the stored array as Array
+  /// \throws std::bad_variant_access if the datum is not an array
   std::shared_ptr<Array> make_array() const;
 
+  /// \brief Retrieve the chunked array stored
+  /// \throws std::bad_variant_access if the datum is not a chunked array
   const std::shared_ptr<ChunkedArray>& chunked_array() const {
     return std::get<std::shared_ptr<ChunkedArray>>(this->value);
   }
 
+  /// \brief Retrieve the record batch stored
+  /// \throws std::bad_variant_access if the datum is not a record batch
   const std::shared_ptr<RecordBatch>& record_batch() const {
     return std::get<std::shared_ptr<RecordBatch>>(this->value);
   }
 
+  /// \brief Retrieve the table stored
+  /// \throws std::bad_variant_access if the datum is not a table
   const std::shared_ptr<Table>& table() const {
     return std::get<std::shared_ptr<Table>>(this->value);
   }
 
+  /// \brief Retrieve the scalar stored
+  /// \throws std::bad_variant_access if the datum is not a scalar
   const std::shared_ptr<Scalar>& scalar() const {
     return std::get<std::shared_ptr<Scalar>>(this->value);
   }
 
+  /// \brief Retrieve the datum as its concrete array type
+  /// \throws std::bad_variant_access if the datum is not an array
+  /// \tparam ExactType the expected array type, may cause undefined behavior if it is not
+  /// the type of the stored array
   template <typename ExactType>
   std::shared_ptr<ExactType> array_as() const {
     return internal::checked_pointer_cast<ExactType>(this->make_array());
   }
 
+  /// \brief Retrieve the datum as its concrete scalar type
+  /// \throws std::bad_variant_access if the datum is not a scalar
+  /// \tparam ExactType the expected scalar type, may cause undefined behavior if it is
+  /// not the type of the stored scalar
   template <typename ExactType>
   const ExactType& scalar_as() const {
     return internal::checked_cast<const ExactType&>(*this->scalar());
   }
 
+  /// \brief True if Datum contains an array
   bool is_array() const { return this->kind() == Datum::ARRAY; }
 
+  /// \brief True if Datum contains a chunked array
   bool is_chunked_array() const { return this->kind() == Datum::CHUNKED_ARRAY; }
 
+  /// \brief True if Datum contains an array or a chunked array
   bool is_arraylike() const {
     return this->kind() == Datum::ARRAY || this->kind() == Datum::CHUNKED_ARRAY;
   }
 
+  /// \brief True if Datum contains a scalar
   bool is_scalar() const { return this->kind() == Datum::SCALAR; }
 
   /// \brief True if Datum contains a scalar or array-like data
   bool is_value() const { return this->is_arraylike() || this->is_scalar(); }
 
+  /// \brief Returns the null count. Only valid for scalar and array-like data
   int64_t null_count() const;
 
   /// \brief The value type of the variant, if any
@@ -220,11 +284,13 @@ struct ARROW_EXPORT Datum {
   /// \return empty if not arraylike
   ArrayVector chunks() const;
 
+  /// \brief True if the two data are equal
   bool Equals(const Datum& other) const;
 
   bool operator==(const Datum& other) const { return Equals(other); }
   bool operator!=(const Datum& other) const { return !Equals(other); }
 
+  /// \brief Print the kind of datum stored
   std::string ToString() const;
 };
 
