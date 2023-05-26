@@ -52,11 +52,13 @@ public class ArrowSchema {
     public class Builder {
         private var fields: [ArrowField] = []
         
+        @discardableResult
         public func addField(_ field: ArrowField) -> Builder {
             fields.append(field)
             return self
         }
 
+        @discardableResult
         public func addField(_ name: String, type: ArrowType.Info, isNullable: Bool) -> Builder {
             fields.append(ArrowField(name, type: type, isNullable: isNullable))
             return self
