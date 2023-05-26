@@ -63,6 +63,9 @@ typedef uint64_t hash_t;
 template <uint64_t AlgNum>
 inline hash_t ComputeStringHash(const void* data, int64_t length);
 
+hash_t ComputeBitmapHash(const uint8_t* bitmap, int64_t length, int64_t bit_offset,
+                         int64_t num_bits);
+
 template <typename Scalar, uint64_t AlgNum>
 struct ScalarHelperBase {
   static bool CompareScalars(Scalar u, Scalar v) { return u == v; }
