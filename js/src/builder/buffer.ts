@@ -20,6 +20,7 @@ import {
     TypedArray, TypedArrayConstructor,
     BigIntArray, BigIntArrayConstructor
 } from '../interfaces.js';
+import { DataType } from '../type.js';
 
 /** @ignore */ type DataValue<T> = T extends TypedArray ? number : T extends BigIntArray ? WideValue<T> : T;
 /** @ignore */ type WideValue<T extends BigIntArray> = T extends BigIntArray ? bigint | Int32Array | Uint32Array : never;
@@ -134,8 +135,8 @@ export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 }
 
 /** @ignore */
-export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
-    constructor(data = new Int32Array(1)) { super(data, 1); }
+export class OffsetsBufferBuilder<T extends DataType> extends DataBufferBuilder<T['TOffset']> {
+    constructor(type: T) { super(new type.OffsetType(1), 1); }
     public append(value: number) {
         return this.set(this.length - 1, value);
     }

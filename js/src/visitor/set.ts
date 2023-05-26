@@ -25,7 +25,7 @@ import { float64ToUint16 } from '../util/math.js';
 import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum.js';
 import {
     DataType, Dictionary,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
     Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64,
     Date_, DateDay, DateMillisecond,
@@ -57,6 +57,7 @@ export interface SetVisitor extends Visitor {
     visitFloat32<T extends Float32>(data: Data<T>, index: number, value: T['TValue']): void;
     visitFloat64<T extends Float64>(data: Data<T>, index: number, value: T['TValue']): void;
     visitUtf8<T extends Utf8>(data: Data<T>, index: number, value: T['TValue']): void;
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>, index: number, value: T['TValue']): void;
     visitBinary<T extends Binary>(data: Data<T>, index: number, value: T['TValue']): void;
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>, index: number, value: T['TValue']): void;
     visitDate<T extends Date_>(data: Data<T>, index: number, value: T['TValue']): void;
@@ -117,10 +118,10 @@ export const setEpochMsToNanosecondsLong = (data: Int32Array, index: number, epo
 };
 
 /** @ignore */
-export const setVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, index: number, value: Uint8Array) => {
+export const setVariableWidthBytes = (values: Uint8Array, valueOffsets: Uint32Array | BigUint64Array, index: number, value: Uint8Array) => {
     if (index + 1 < valueOffsets.length) {
-        const { [index]: x, [index + 1]: y } = valueOffsets;
-        values.set(value.subarray(0, y - x), x);
+        const { [index]: x, [index + 1]: y } = valueOffsets as BigUint64Array;
+        values.set(value.subarray(0, Number(y - x)), Number(x));
     }
 };
 
@@ -158,7 +159,7 @@ export const setFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }
 /** @ignore */
 const setBinary = <T extends Binary>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => setVariableWidthBytes(values, valueOffsets, index, value);
 /** @ignore */
-const setUtf8 = <T extends Utf8>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => {
+const setUtf8 = <T extends Utf8 | LargeUtf8>({ values, valueOffsets }: Data<T>, index: number, value: T['TValue']) => {
     setVariableWidthBytes(values, valueOffsets, index, encodeUtf8(value));
 };
 
@@ -339,6 +340,7 @@ SetVisitor.prototype.visitFloat16 = wrapSet(setFloat16);
 SetVisitor.prototype.visitFloat32 = wrapSet(setFloat);
 SetVisitor.prototype.visitFloat64 = wrapSet(setFloat);
 SetVisitor.prototype.visitUtf8 = wrapSet(setUtf8);
+SetVisitor.prototype.visitLargeUtf8 = wrapSet(setUtf8);
 SetVisitor.prototype.visitBinary = wrapSet(setBinary);
 SetVisitor.prototype.visitFixedSizeBinary = wrapSet(setFixedSizeBinary);
 SetVisitor.prototype.visitDate = wrapSet(setDate);

@@ -19,7 +19,7 @@ import { Field } from './schema.js';
 import { Vector } from './vector.js';
 import { MapRow } from './row/map.js';
 import { StructRow, StructRowProxy } from './row/struct.js';
-import { TypedArrayConstructor } from './interfaces.js';
+import { BigIntArrayConstructor, TypedArrayConstructor } from './interfaces.js';
 import { bigIntToNumber } from './util/bigint.js';
 
 import {
@@ -38,9 +38,11 @@ export type IsSigned = { 'true': true; 'false': false };
 export interface DataType<TType extends Type = Type, TChildren extends TypeMap = any> {
     readonly TType: TType;
     readonly TArray: any;
+    readonly TOffset: any;
     readonly TValue: any;
     readonly TChildren: TChildren;
     readonly ArrayType: any;
+    readonly OffsetType: TypedArrayConstructor<Uint32Array> | BigIntArrayConstructor<BigUint64Array>;
     readonly children: Field<TChildren[keyof TChildren]>[];
 }
 
@@ -57,6 +59,7 @@ export abstract class DataType<TType extends Type = Type, TChildren extends Type
     /** @nocollapse */ static isFloat(x: any): x is Float { return x?.typeId === Type.Float; }
     /** @nocollapse */ static isBinary(x: any): x is Binary { return x?.typeId === Type.Binary; }
     /** @nocollapse */ static isUtf8(x: any): x is Utf8 { return x?.typeId === Type.Utf8; }
+    /** @nocollapse */ static isLargeUtf8(x: any): x is LargeUtf8 { return x?.typeId === Type.LargeUtf8; }
     /** @nocollapse */ static isBool(x: any): x is Bool { return x?.typeId === Type.Bool; }
     /** @nocollapse */ static isDecimal(x: any): x is Decimal { return x?.typeId === Type.Decimal; }
     /** @nocollapse */ static isDate(x: any): x is Date_ { return x?.typeId === Type.Date; }
@@ -79,6 +82,7 @@ export abstract class DataType<TType extends Type = Type, TChildren extends Type
     protected static [Symbol.toStringTag] = ((proto: DataType) => {
         (<any>proto).children = null;
         (<any>proto).ArrayType = Array;
+        (<any>proto).OffsetType = Array;
         return proto[Symbol.toStringTag] = 'DataType';
     })(DataType.prototype);
 }
@@ -246,7 +250,7 @@ export class Binary extends DataType<Type.Binary> {
 }
 
 /** @ignore */
-export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array> }
+export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TOffset: Uint32Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetType: TypedArrayConstructor<Uint32Array> }
 /** @ignore */
 export class Utf8 extends DataType<Type.Utf8> {
     constructor() {
@@ -256,8 +260,25 @@ export class Utf8 extends DataType<Type.Utf8> {
     public toString() { return `Utf8`; }
     protected static [Symbol.toStringTag] = ((proto: Utf8) => {
         (<any>proto).ArrayType = Uint8Array;
+        (<any>proto).OffsetType = Uint32Array;
         return proto[Symbol.toStringTag] = 'Utf8';
     })(Utf8.prototype);
+}
+
+/** @ignore */
+export interface LargeUtf8 extends DataType<Type.LargeUtf8> { TArray: Uint8Array; TOffset: BigUint64Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetType: BigIntArrayConstructor<BigUint64Array> }
+/** @ignore */
+export class LargeUtf8 extends DataType<Type.LargeUtf8> {
+    constructor() {
+        super();
+    }
+    public get typeId() { return Type.LargeUtf8 as Type.LargeUtf8; }
+    public toString() { return `LargeUtf8`; }
+    protected static [Symbol.toStringTag] = ((proto: LargeUtf8) => {
+        (<any>proto).ArrayType = Uint8Array;
+        (<any>proto).OffsetType = BigUint64Array;
+        return proto[Symbol.toStringTag] = 'LargeUtf8';
+    })(LargeUtf8.prototype);
 }
 
 /** @ignore */
@@ -547,6 +568,7 @@ export class FixedSizeBinary extends DataType<Type.FixedSizeBinary> {
     protected static [Symbol.toStringTag] = ((proto: FixedSizeBinary) => {
         (<any>proto).byteWidth = null;
         (<any>proto).ArrayType = Uint8Array;
+        (<any>proto).OffsetType = Uint32Array;
         return proto[Symbol.toStringTag] = 'FixedSizeBinary';
     })(FixedSizeBinary.prototype);
 }

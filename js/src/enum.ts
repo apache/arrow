@@ -201,6 +201,7 @@ export enum Type {
     SparseUnion = -24,
     IntervalDayTime = -25,
     IntervalYearMonth = -26,
+    LargeUtf8 = -27,
 }
 
 export enum BufferType {

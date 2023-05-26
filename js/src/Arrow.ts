@@ -36,7 +36,7 @@ export {
     Bool,
     Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64,
     Float, Float16, Float32, Float64,
-    Utf8,
+    Utf8, LargeUtf8,
     Binary,
     FixedSizeBinary,
     Date_, DateDay, DateMillisecond,
@@ -76,6 +76,7 @@ export { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecond
 export { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder } from './builder/timestamp.js';
 export { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from './builder/interval.js';
 export { Utf8Builder } from './builder/utf8.js';
+export { LargeUtf8Builder } from './builder/largeutf8.js';
 export { BinaryBuilder } from './builder/binary.js';
 export { ListBuilder } from './builder/list.js';
 export { FixedSizeListBuilder } from './builder/fixedsizelist.js';

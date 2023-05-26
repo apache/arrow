@@ -17,7 +17,7 @@
 
 import { Vector } from './vector.js';
 import { BufferType, Type, UnionMode } from './enum.js';
-import { DataType, strideForType } from './type.js';
+import { DataType, LargeUtf8, strideForType } from './type.js';
 import { popcnt_bit_range, truncateBitmap } from './util/bit.js';
 
 // When slicing, we do not know the null count of the sliced range without
@@ -34,7 +34,7 @@ import { popcnt_bit_range, truncateBitmap } from './util/bit.js';
 
 /** @ignore */
 export interface Buffers<T extends DataType> {
-    [BufferType.OFFSET]: Int32Array;
+    [BufferType.OFFSET]: T['TOffset'];
     [BufferType.DATA]: T['TArray'];
     [BufferType.VALIDITY]: Uint8Array;
     [BufferType.TYPE]: T['TArray'];
@@ -306,6 +306,14 @@ class MakeDataVisitor extends Visitor {
         const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
         return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
     }
+    public visitLargeUtf8<T extends LargeUtf8>(props: LargeUtf8DataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const data = toUint8Array(props['data']);
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const valueOffsets = toInt32Array(props['valueOffsets']);
+        const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
+        return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
+    }
     public visitBinary<T extends Binary>(props: BinaryDataProps<T>) {
         const { ['type']: type, ['offset']: offset = 0 } = props;
         const data = toUint8Array(props['data']);
@@ -427,6 +435,7 @@ interface IntervalDataProps<T extends Interval> extends DataProps_<T> { data?: D
 interface FixedSizeBinaryDataProps<T extends FixedSizeBinary> extends DataProps_<T> { data?: DataBuffer<T> }
 interface BinaryDataProps<T extends Binary> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
 interface Utf8DataProps<T extends Utf8> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
+interface LargeUtf8DataProps<T extends LargeUtf8> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
 interface ListDataProps<T extends List> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; child: Data<T['valueType']> }
 interface FixedSizeListDataProps<T extends FixedSizeList> extends DataProps_<T> { child: Data<T['valueType']> }
 interface StructDataProps<T extends Struct> extends DataProps_<T> { children: Data[] }
@@ -449,6 +458,7 @@ export type DataProps<T extends DataType> = (
     T extends FixedSizeBinary /* */ ? FixedSizeBinaryDataProps<T> :
     T extends Binary /*          */ ? BinaryDataProps<T> :
     T extends Utf8 /*            */ ? Utf8DataProps<T> :
+    T extends LargeUtf8 /*       */ ? LargeUtf8DataProps<T> :
     T extends List /*            */ ? ListDataProps<T> :
     T extends FixedSizeList /*   */ ? FixedSizeListDataProps<T> :
     T extends Struct /*          */ ? StructDataProps<T> :

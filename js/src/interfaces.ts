@@ -32,6 +32,7 @@ import type { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicros
 import type { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder } from './builder/timestamp.js';
 import type { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from './builder/interval.js';
 import type { Utf8Builder } from './builder/utf8.js';
+import type { LargeUtf8Builder } from './builder/largeutf8.js';
 import type { BinaryBuilder } from './builder/binary.js';
 import type { ListBuilder } from './builder/list.js';
 import type { FixedSizeListBuilder } from './builder/fixedsizelist.js';
@@ -104,7 +105,7 @@ export type BuilderCtorArgs<
     TArgs extends any[] = any[],
     TCtor extends new (type: R, ...args: TArgs) => T =
     new (type: R, ...args: TArgs) => T
-    > = TCtor extends new (type: R, ...args: infer TArgs) => T ? TArgs : never;
+> = TCtor extends new (type: R, ...args: infer TArgs) => T ? TArgs : never;
 
 /**
  * Obtain the constructor function of an instance type
@@ -114,7 +115,7 @@ export type ConstructorType<
     T,
     TCtor extends new (...args: any[]) => T =
     new (...args: any[]) => T
-    > = TCtor extends new (...args: any[]) => T ? TCtor : never;
+> = TCtor extends new (...args: any[]) => T ? TCtor : never;
 
 /** @ignore */
 export type BuilderCtorType<
@@ -122,7 +123,7 @@ export type BuilderCtorType<
     R extends DataType = any,
     TCtor extends new (options: BuilderOptions<R, any>) => T =
     new (options: BuilderOptions<R, any>) => T
-    > = TCtor extends new (options: BuilderOptions<R, any>) => T ? TCtor : never;
+> = TCtor extends new (options: BuilderOptions<R, any>) => T ? TCtor : never;
 
 /** @ignore */
 export type BuilderType<T extends Type | DataType = any, TNull = any> =
@@ -200,6 +201,7 @@ export type TypeToDataType<T extends Type> = {
     [Type.Float64]: type.Float64;
     [Type.Float]: type.Float;
     [Type.Utf8]: type.Utf8;
+    [Type.LargeUtf8]: type.LargeUtf8;
     [Type.Binary]: type.Binary;
     [Type.FixedSizeBinary]: type.FixedSizeBinary;
     [Type.Date]: type.Date_;
@@ -248,6 +250,7 @@ type TypeToBuilder<T extends Type = any, TNull = any> = {
     [Type.Float64]: Float64Builder<TNull>;
     [Type.Float]: FloatBuilder<any, TNull>;
     [Type.Utf8]: Utf8Builder<TNull>;
+    [Type.LargeUtf8]: LargeUtf8Builder<TNull>;
     [Type.Binary]: BinaryBuilder<TNull>;
     [Type.FixedSizeBinary]: FixedSizeBinaryBuilder<TNull>;
     [Type.Date]: DateBuilder<any, TNull>;
@@ -296,6 +299,7 @@ type DataTypeToBuilder<T extends DataType = any, TNull = any> = {
     [Type.Float64]: T extends type.Float64 ? Float64Builder<TNull> : never;
     [Type.Float]: T extends type.Float ? FloatBuilder<T, TNull> : never;
     [Type.Utf8]: T extends type.Utf8 ? Utf8Builder<TNull> : never;
+    [Type.LargeUtf8]: T extends type.LargeUtf8 ? LargeUtf8Builder<TNull> : never;
     [Type.Binary]: T extends type.Binary ? BinaryBuilder<TNull> : never;
     [Type.FixedSizeBinary]: T extends type.FixedSizeBinary ? FixedSizeBinaryBuilder<TNull> : never;
     [Type.Date]: T extends type.Date_ ? DateBuilder<T, TNull> : never;

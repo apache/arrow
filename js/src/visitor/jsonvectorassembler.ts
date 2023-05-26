@@ -27,7 +27,7 @@ import { BitIterator, getBit, getBool } from '../util/bit.js';
 import {
     DataType,
     Float, Int, Date_, Interval, Time, Timestamp, Union,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct, IntArray,
+    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct, IntArray, LargeUtf8,
 } from '../type.js';
 
 /** @ignore */
@@ -97,6 +97,9 @@ export class JSONVectorAssembler extends Visitor {
         return { 'DATA': [...data.values] };
     }
     public visitUtf8<T extends Utf8>(data: Data<T>) {
+        return { 'DATA': [...new Vector([data])], 'OFFSET': [...data.valueOffsets] };
+    }
+    public visitLargeUtf8<T extends LargeUtf8>(data: Data<T>) {
         return { 'DATA': [...new Vector([data])], 'OFFSET': [...data.valueOffsets] };
     }
     public visitBinary<T extends Binary>(data: Data<T>) {

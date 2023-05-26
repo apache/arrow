@@ -22,7 +22,7 @@ import {
     DataType, strideForType,
     Float, Int, Decimal, FixedSizeBinary,
     Date_, Time, Timestamp, Interval,
-    Utf8, Binary, List, Map_,
+    Utf8, LargeUtf8, Binary, List, Map_,
 } from './type.js';
 import { createIsValidFunction } from './builder/valid.js';
 import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer.js';
@@ -163,6 +163,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     public toVector() { return new Vector([this.flush()]); }
 
     public get ArrayType() { return this.type.ArrayType; }
+    public get OffsetType() { return this.type.OffsetType; }
     public get nullCount() { return this._nulls.numInvalid; }
     public get numChildren() { return this.children.length; }
 
@@ -355,13 +356,13 @@ export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary 
 }
 
 /** @ignore */
-export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_, TNull = any> extends Builder<T, TNull> {
+export abstract class VariableWidthBuilder<T extends Binary | Utf8 | LargeUtf8 | List | Map_, TNull = any> extends Builder<T, TNull> {
     protected _pendingLength = 0;
-    protected _offsets: OffsetsBufferBuilder;
+    protected _offsets: OffsetsBufferBuilder<T>;
     protected _pending: Map<number, any> | undefined;
     constructor(opts: BuilderOptions<T, TNull>) {
         super(opts);
-        this._offsets = new OffsetsBufferBuilder();
+        this._offsets = new OffsetsBufferBuilder(opts.type);
     }
     public setValue(index: number, value: T['TValue']) {
         const pending = this._pending || (this._pending = new Map());
