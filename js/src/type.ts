@@ -42,7 +42,7 @@ export interface DataType<TType extends Type = Type, TChildren extends TypeMap =
     readonly TValue: any;
     readonly TChildren: TChildren;
     readonly ArrayType: any;
-    readonly OffsetType: TypedArrayConstructor<Uint32Array> | BigIntArrayConstructor<BigUint64Array>;
+    readonly OffsetType: TypedArrayConstructor<Int32Array> | BigIntArrayConstructor<BigInt64Array>;
     readonly children: Field<TChildren[keyof TChildren]>[];
 }
 
@@ -250,7 +250,7 @@ export class Binary extends DataType<Type.Binary> {
 }
 
 /** @ignore */
-export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TOffset: Uint32Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetType: TypedArrayConstructor<Uint32Array> }
+export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TOffset: Int32Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetType: TypedArrayConstructor<Int32Array> }
 /** @ignore */
 export class Utf8 extends DataType<Type.Utf8> {
     constructor() {
@@ -260,13 +260,13 @@ export class Utf8 extends DataType<Type.Utf8> {
     public toString() { return `Utf8`; }
     protected static [Symbol.toStringTag] = ((proto: Utf8) => {
         (<any>proto).ArrayType = Uint8Array;
-        (<any>proto).OffsetType = Uint32Array;
+        (<any>proto).OffsetType = Int32Array;
         return proto[Symbol.toStringTag] = 'Utf8';
     })(Utf8.prototype);
 }
 
 /** @ignore */
-export interface LargeUtf8 extends DataType<Type.LargeUtf8> { TArray: Uint8Array; TOffset: BigUint64Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetType: BigIntArrayConstructor<BigUint64Array> }
+export interface LargeUtf8 extends DataType<Type.LargeUtf8> { TArray: Uint8Array; TOffset: BigInt64Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetType: BigIntArrayConstructor<BigInt64Array> }
 /** @ignore */
 export class LargeUtf8 extends DataType<Type.LargeUtf8> {
     constructor() {
@@ -276,7 +276,7 @@ export class LargeUtf8 extends DataType<Type.LargeUtf8> {
     public toString() { return `LargeUtf8`; }
     protected static [Symbol.toStringTag] = ((proto: LargeUtf8) => {
         (<any>proto).ArrayType = Uint8Array;
-        (<any>proto).OffsetType = BigUint64Array;
+        (<any>proto).OffsetType = BigInt64Array;
         return proto[Symbol.toStringTag] = 'LargeUtf8';
     })(LargeUtf8.prototype);
 }

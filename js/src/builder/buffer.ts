@@ -101,7 +101,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
 (BufferBuilder.prototype as any).offset = 0;
 
 /** @ignore */
-export class DataBufferBuilder<T extends TypedArray> extends BufferBuilder<T, number> {
+export class DataBufferBuilder<T extends TypedArray | BigIntArray> extends BufferBuilder<T, number> {
     public last() { return this.get(this.length - 1); }
     public get(index: number) { return this.buffer[index]; }
     public set(index: number, value: number) {
@@ -137,10 +137,10 @@ export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 /** @ignore */
 export class OffsetsBufferBuilder<T extends DataType> extends DataBufferBuilder<T['TOffset']> {
     constructor(type: T) { super(new type.OffsetType(1), 1); }
-    public append(value: number) {
+    public append(value: number | bigint) {
         return this.set(this.length - 1, value);
     }
-    public set(index: number, value: number) {
+    public set(index: number, value: number | bigint) {
         const offset = this.length - 1;
         const buffer = this.reserve(index - offset + 1).buffer;
         if (offset < index++) {

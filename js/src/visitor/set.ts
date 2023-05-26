@@ -118,9 +118,10 @@ export const setEpochMsToNanosecondsLong = (data: Int32Array, index: number, epo
 };
 
 /** @ignore */
-export const setVariableWidthBytes = (values: Uint8Array, valueOffsets: Uint32Array | BigUint64Array, index: number, value: Uint8Array) => {
+export const setVariableWidthBytes = <T extends Int32Array | BigInt64Array>(values: Uint8Array, valueOffsets: T, index: number, value: Uint8Array) => {
     if (index + 1 < valueOffsets.length) {
-        const { [index]: x, [index + 1]: y } = valueOffsets as BigUint64Array;
+        const x = valueOffsets[index] as T extends Int32Array ? number : bigint;
+        const y = valueOffsets[index + 1] as T extends Int32Array ? number : bigint;
         values.set(value.subarray(0, Number(y - x)), Number(x));
     }
 };
