@@ -73,7 +73,7 @@ Object.assign(DecimalBigNum.prototype, BigNum.prototype, { 'constructor': Decima
 function bigNumToNumber<T extends BN<BigNumArray>>(bn: T) {
     const { buffer, byteOffset, length, 'signed': signed } = bn;
     const words = new BigUint64Array(buffer, byteOffset, length);
-    const negative = signed && words[words.length - 1] & (BigInt(1) << BigInt(63));
+    const negative = signed && words.at(-1)! & (BigInt(1) << BigInt(63));
     let number = negative ? BigInt(1) : BigInt(0);
     let i = BigInt(0);
     if (!negative) {
@@ -105,7 +105,7 @@ export const bigNumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T
     let array = new Uint16Array(a.buffer, a.byteOffset, a.byteLength / 2);
 
     // detect positive numbers
-    const highOrderWord = new Int16Array([array[array.length - 1]])[0];
+    const highOrderWord = new Int16Array([array.at(-1)!])[0];
     if (highOrderWord >= 0) {
         return unsignedBigNumToString(a);
     }
