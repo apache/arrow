@@ -45,7 +45,7 @@ namespace arrow::matlab::array::proxy {
     }
 
     void Array::valid(libmexclass::proxy::method::Context& context) {
-        size_t array_length = static_cast<size_t>(array->length());
+        auto array_length = static_cast<size_t>(array->length());
         
         // If the Arrow array has no null values, then return a MATLAB
         // logical array that is all "true" for the validity bitmap.
