@@ -525,7 +525,8 @@ class PARQUET_EXPORT WriterProperties {
     /// Enable writing page index in general for all columns. Default disabled.
     ///
     /// Page index contains statistics for data pages and can be used to skip pages
-    /// when scanning data in ordered and unordered columns.
+    /// when scanning data in ordered and unordered columns. Note that it does not
+    /// write statistics to the page header once page index is enabled.
     ///
     /// Please check the link below for more details:
     /// https://github.com/apache/parquet-format/blob/master/PageIndex.md
@@ -541,6 +542,8 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Enable writing page index for column specified by `path`. Default disabled.
+    /// Note that it does not write statistics to the page header once page index is
+    /// enabled.
     Builder* enable_write_page_index(const std::string& path) {
       page_index_enabled_[path] = true;
       return this;
