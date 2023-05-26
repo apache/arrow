@@ -672,7 +672,7 @@ Result<Datum> CumulativeMin(
 /// 1, Diff([1, 4, 9, 10, 15]) = [null, 3, 5, 1, 5]. With p = 2, Diff([1, 4, 9, 10, 15]) =
 /// [null, null, 8, 6, 6]
 ///
-/// \param[in] datum array input
+/// \param[in] array array input
 /// \param[in] options options, specifying overflow behavior and period
 /// \param[in] ctx the function execution context, optional
 /// \return result as array
