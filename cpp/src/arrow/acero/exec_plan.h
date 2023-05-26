@@ -177,9 +177,9 @@ class ARROW_ACERO_EXPORT ExecNode {
   /// non-deterministic.  For example, a hash-join has no predictable output order.
   ///
   /// If the ordering is Ordering::Implicit then there is a meaningful order but that
-  /// odering is not represented by any column in the data.  The most common case for this
-  /// is when reading data from an in-memory table.  The data has an implicit "row order"
-  /// which is not neccesarily represented in the data set.
+  /// ordering is not represented by any column in the data.  The most common case for
+  /// this is when reading data from an in-memory table.  The data has an implicit "row
+  /// order" which is not necessarily represented in the data set.
   ///
   /// A filter or project node will not modify the ordering.  Nothing needs to be done
   /// other than ensure the index assigned to output batches is the same as the
@@ -516,7 +516,7 @@ struct ARROW_ACERO_EXPORT QueryOptions {
   /// otherwise.
   ///
   /// If explicitly set to true then plan execution will fail if there is no
-  /// meaningful ordering.  This can be useful to valdiate a query that should
+  /// meaningful ordering.  This can be useful to validate a query that should
   /// be emitting ordered results.
   ///
   /// If explicitly set to false then batches will be emit immediately even if there
@@ -539,6 +539,13 @@ struct ARROW_ACERO_EXPORT QueryOptions {
   /// a default thread pool will be chosen whose behavior will be controlled by
   /// the `use_threads` option.
   ::arrow::internal::Executor* custom_cpu_executor = NULLPTR;
+
+  /// \brief custom executor to use for IO work
+  ///
+  /// Must be null or remain valid for the duration of the plan.  If this is null then
+  /// the global io thread pool will be chosen whose behavior will be controlled by
+  /// the "ARROW_IO_THREADS" environment.
+  ::arrow::internal::Executor* custom_io_executor = NULLPTR;
 
   /// \brief a memory pool to use for allocations
   ///

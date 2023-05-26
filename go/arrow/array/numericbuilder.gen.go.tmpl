@@ -217,13 +217,6 @@ func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
       return err
     }
     b.Append(val)
-  {{else if or (eq .Name "Timestamp") -}}
-  	v, err := arrow.TimestampFromString(s, b.dtype.Unit)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(v)
   {{else if (eq .Name "Duration") -}}
 	dur, err := time.ParseDuration(s)
 	if err != nil {
@@ -289,14 +282,9 @@ func (b *{{.Name}}Builder) UnmarshalOne(dec *json.Decoder) error {
 		b.Append({{.QualifiedType}}(n))
 	case float64:
 		b.Append({{.QualifiedType}}(v))
-{{else if or (eq .Name "Time32") (eq .Name "Time64") (eq .Name "Timestamp") -}}
+{{else if or (eq .Name "Time32") (eq .Name "Time64") -}}
 	case string:
-{{if (eq .Name "Timestamp") -}}
-		loc, _ := b.dtype.GetZone()
-		tm, _, err := arrow.TimestampFromStringInLocation(v, b.dtype.Unit, loc)
-{{else -}}
 		tm, err := {{.QualifiedType}}FromString(v, b.dtype.Unit)
-{{end}}
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value: v,

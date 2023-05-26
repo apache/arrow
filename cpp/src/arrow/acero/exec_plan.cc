@@ -105,7 +105,7 @@ struct ExecPlanImpl : public ExecPlan {
     if (query_context_.exec_context()->executor() == nullptr) {
       finished_.MarkFinished(Status::Invalid(
           "An exec plan must have an executor for CPU tasks.  To run without threads use "
-          "a SerialExeuctor (the arrow::compute::DeclarationTo... methods should take "
+          "a SerialExecutor (the arrow::compute::DeclarationTo... methods should take "
           "care of this for you and are an easier way to execute an ExecPlan.)"));
       return;
     }

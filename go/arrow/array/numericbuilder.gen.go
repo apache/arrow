@@ -2264,232 +2264,6 @@ func (b *Uint8Builder) UnmarshalJSON(data []byte) error {
 	return b.Unmarshal(dec)
 }
 
-type TimestampBuilder struct {
-	builder
-
-	dtype   *arrow.TimestampType
-	data    *memory.Buffer
-	rawData []arrow.Timestamp
-}
-
-func NewTimestampBuilder(mem memory.Allocator, dtype *arrow.TimestampType) *TimestampBuilder {
-	return &TimestampBuilder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
-}
-
-func (b *TimestampBuilder) Type() arrow.DataType { return b.dtype }
-
-// Release decreases the reference count by 1.
-// When the reference count goes to zero, the memory is freed.
-func (b *TimestampBuilder) Release() {
-	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
-
-	if atomic.AddInt64(&b.refCount, -1) == 0 {
-		if b.nullBitmap != nil {
-			b.nullBitmap.Release()
-			b.nullBitmap = nil
-		}
-		if b.data != nil {
-			b.data.Release()
-			b.data = nil
-			b.rawData = nil
-		}
-	}
-}
-
-func (b *TimestampBuilder) Append(v arrow.Timestamp) {
-	b.Reserve(1)
-	b.UnsafeAppend(v)
-}
-
-func (b *TimestampBuilder) AppendNull() {
-	b.Reserve(1)
-	b.UnsafeAppendBoolToBitmap(false)
-}
-
-func (b *TimestampBuilder) AppendEmptyValue() {
-	b.Append(0)
-}
-
-func (b *TimestampBuilder) UnsafeAppend(v arrow.Timestamp) {
-	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
-	b.rawData[b.length] = v
-	b.length++
-}
-
-func (b *TimestampBuilder) UnsafeAppendBoolToBitmap(isValid bool) {
-	if isValid {
-		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
-	} else {
-		b.nulls++
-	}
-	b.length++
-}
-
-// AppendValues will append the values in the v slice. The valid slice determines which values
-// in v are valid (not null). The valid slice must either be empty or be equal in length to v. If empty,
-// all values in v are appended and considered valid.
-func (b *TimestampBuilder) AppendValues(v []arrow.Timestamp, valid []bool) {
-	if len(v) != len(valid) && len(valid) != 0 {
-		panic("len(v) != len(valid) && len(valid) != 0")
-	}
-
-	if len(v) == 0 {
-		return
-	}
-
-	b.Reserve(len(v))
-	arrow.TimestampTraits.Copy(b.rawData[b.length:], v)
-	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
-}
-
-func (b *TimestampBuilder) init(capacity int) {
-	b.builder.init(capacity)
-
-	b.data = memory.NewResizableBuffer(b.mem)
-	bytesN := arrow.TimestampTraits.BytesRequired(capacity)
-	b.data.Resize(bytesN)
-	b.rawData = arrow.TimestampTraits.CastFromBytes(b.data.Bytes())
-}
-
-// Reserve ensures there is enough space for appending n elements
-// by checking the capacity and calling Resize if necessary.
-func (b *TimestampBuilder) Reserve(n int) {
-	b.builder.reserve(n, b.Resize)
-}
-
-// Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
-// additional memory will be allocated. If n is smaller, the allocated memory may reduced.
-func (b *TimestampBuilder) Resize(n int) {
-	nBuilder := n
-	if n < minBuilderCapacity {
-		n = minBuilderCapacity
-	}
-
-	if b.capacity == 0 {
-		b.init(n)
-	} else {
-		b.builder.resize(nBuilder, b.init)
-		b.data.Resize(arrow.TimestampTraits.BytesRequired(n))
-		b.rawData = arrow.TimestampTraits.CastFromBytes(b.data.Bytes())
-	}
-}
-
-// NewArray creates a Timestamp array from the memory buffers used by the builder and resets the TimestampBuilder
-// so it can be used to build a new array.
-func (b *TimestampBuilder) NewArray() arrow.Array {
-	return b.NewTimestampArray()
-}
-
-// NewTimestampArray creates a Timestamp array from the memory buffers used by the builder and resets the TimestampBuilder
-// so it can be used to build a new array.
-func (b *TimestampBuilder) NewTimestampArray() (a *Timestamp) {
-	data := b.newData()
-	a = NewTimestampData(data)
-	data.Release()
-	return
-}
-
-func (b *TimestampBuilder) newData() (data *Data) {
-	bytesRequired := arrow.TimestampTraits.BytesRequired(b.length)
-	if bytesRequired > 0 && bytesRequired < b.data.Len() {
-		// trim buffers
-		b.data.Resize(bytesRequired)
-	}
-	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
-	b.reset()
-
-	if b.data != nil {
-		b.data.Release()
-		b.data = nil
-		b.rawData = nil
-	}
-
-	return
-}
-
-func (b *TimestampBuilder) AppendValueFromString(s string) error {
-	if s == NullValueStr {
-		b.AppendNull()
-		return nil
-	}
-	v, err := arrow.TimestampFromString(s, b.dtype.Unit)
-	if err != nil {
-		b.AppendNull()
-		return err
-	}
-	b.Append(v)
-	return nil
-}
-
-func (b *TimestampBuilder) UnmarshalOne(dec *json.Decoder) error {
-	t, err := dec.Token()
-	if err != nil {
-		return err
-	}
-
-	switch v := t.(type) {
-	case nil:
-		b.AppendNull()
-	case string:
-		loc, _ := b.dtype.GetZone()
-		tm, _, err := arrow.TimestampFromStringInLocation(v, b.dtype.Unit, loc)
-
-		if err != nil {
-			return &json.UnmarshalTypeError{
-				Value:  v,
-				Type:   reflect.TypeOf(arrow.Timestamp(0)),
-				Offset: dec.InputOffset(),
-			}
-		}
-
-		b.Append(tm)
-	case json.Number:
-		n, err := v.Int64()
-		if err != nil {
-			return &json.UnmarshalTypeError{
-				Value:  v.String(),
-				Type:   reflect.TypeOf(arrow.Timestamp(0)),
-				Offset: dec.InputOffset(),
-			}
-		}
-		b.Append(arrow.Timestamp(n))
-	case float64:
-		b.Append(arrow.Timestamp(v))
-
-	default:
-		return &json.UnmarshalTypeError{
-			Value:  fmt.Sprint(t),
-			Type:   reflect.TypeOf(arrow.Timestamp(0)),
-			Offset: dec.InputOffset(),
-		}
-	}
-
-	return nil
-}
-
-func (b *TimestampBuilder) Unmarshal(dec *json.Decoder) error {
-	for dec.More() {
-		if err := b.UnmarshalOne(dec); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (b *TimestampBuilder) UnmarshalJSON(data []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	t, err := dec.Token()
-	if err != nil {
-		return err
-	}
-
-	if delim, ok := t.(json.Delim); !ok || delim != '[' {
-		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
-	}
-
-	return b.Unmarshal(dec)
-}
-
 type Time32Builder struct {
 	builder
 
@@ -2658,7 +2432,6 @@ func (b *Time32Builder) UnmarshalOne(dec *json.Decoder) error {
 		b.AppendNull()
 	case string:
 		tm, err := arrow.Time32FromString(v, b.dtype.Unit)
-
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value:  v,
@@ -2883,7 +2656,6 @@ func (b *Time64Builder) UnmarshalOne(dec *json.Decoder) error {
 		b.AppendNull()
 	case string:
 		tm, err := arrow.Time64FromString(v, b.dtype.Unit)
-
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value:  v,
@@ -3644,7 +3416,6 @@ var (
 	_ Builder = (*Uint16Builder)(nil)
 	_ Builder = (*Int8Builder)(nil)
 	_ Builder = (*Uint8Builder)(nil)
-	_ Builder = (*TimestampBuilder)(nil)
 	_ Builder = (*Time32Builder)(nil)
 	_ Builder = (*Time64Builder)(nil)
 	_ Builder = (*Date32Builder)(nil)
