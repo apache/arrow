@@ -28,6 +28,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/builder_primitive.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/hashing.h"
@@ -484,6 +486,171 @@ TEST(BinaryMemoTable, Empty) {
   BinaryMemoTable<BinaryBuilder>::builder_offset_type offsets[1];
   table.CopyOffsets(0, offsets);
   EXPECT_EQ(offsets[0], 0);
+}
+
+hash_t HashDataBitmap(const ArraySpan& array) {
+  EXPECT_EQ(array.type->id(), Type::BOOL);
+  const auto& bitmap = array.buffers[1];
+  return ComputeBitmapHash(bitmap.data, bitmap.size,
+                           /*seed=*/0,
+                           /*bit_offset=*/array.offset,
+                           /*num_bits=*/array.length);
+}
+
+std::shared_ptr<BooleanArray> BuildBooleanArray(int len, bool start) {
+  // This could be memoized in the future to speed up tests.
+  BooleanBuilder builder;
+  for (int i = 0; i < len; ++i) {
+    EXPECT_TRUE(builder.Append(((i % 2) ^ start) == 1).ok());
+  }
+  std::shared_ptr<BooleanArray> array;
+  EXPECT_TRUE(builder.Finish(&array).ok());
+  return array;
+}
+
+hash_t HashConcatenation(const ArrayVector& arrays, int64_t bits_offset = -1,
+                         int64_t num_bits = -1) {
+  EXPECT_OK_AND_ASSIGN(auto concat, Concatenate(arrays));
+  EXPECT_EQ(concat->type()->id(), Type::BOOL);
+  if (bits_offset == -1 || num_bits == -1) {
+    return HashDataBitmap(*concat->data());
+  }
+  auto slice = concat->Slice(bits_offset, num_bits);
+  return HashDataBitmap(*slice->data());
+}
+
+TEST(SmallBitmapHash, Empty) {
+  for (bool start : {false, true}) {
+    auto block = BuildBooleanArray(64, start);
+    for (int len = 0; len < 64; len++) {
+      auto prefix = BuildBooleanArray(len, start);
+      auto expected_hash = HashDataBitmap(*prefix->data());
+
+      auto slice = block->Slice(0, len);
+      auto slice_hash = HashDataBitmap(*slice->data());
+      ASSERT_EQ(expected_hash, slice_hash);
+
+      for (int j = 1; j < len; j++) {
+        auto fragment = BuildBooleanArray(len - j, start ^ (j % 2));
+        expected_hash = HashDataBitmap(*fragment->data());
+
+        slice = block->Slice(j, len - j);
+        slice_hash = HashDataBitmap(*slice->data());
+        ASSERT_EQ(expected_hash, slice_hash);
+      }
+    }
+  }
+}
+
+TEST(TestBitmapHash, Empty) {
+  BooleanBuilder builder;
+  std::shared_ptr<BooleanArray> block_of_bools;
+  {
+    ASSERT_OK(builder.AppendValues(2, true));
+    ASSERT_OK(builder.AppendValues(3, false));
+    ASSERT_OK(builder.AppendValues(5, true));
+    ASSERT_OK(builder.AppendValues(7, false));
+    ASSERT_OK(builder.AppendValues(11, true));
+    ASSERT_OK(builder.AppendValues(13, false));
+    ASSERT_OK(builder.AppendValues(17, true));
+    ASSERT_OK(builder.AppendValues(5, false));
+    ASSERT_OK(builder.AppendValues(1, true));
+    ASSERT_OK(builder.Finish(&block_of_bools));
+    ASSERT_EQ(block_of_bools->length(), 64);
+  }
+  const auto hash_of_block = HashDataBitmap(*block_of_bools->data());
+
+  std::shared_ptr<BooleanArray> negated_block_of_bools;
+  {
+    ASSERT_OK(builder.AppendValues(2, false));
+    ASSERT_OK(builder.AppendValues(3, true));
+    ASSERT_OK(builder.AppendValues(5, false));
+    ASSERT_OK(builder.AppendValues(7, true));
+    ASSERT_OK(builder.AppendValues(11, false));
+    ASSERT_OK(builder.AppendValues(13, true));
+    ASSERT_OK(builder.AppendValues(17, false));
+    ASSERT_OK(builder.AppendValues(5, true));
+    ASSERT_OK(builder.AppendValues(1, false));
+    ASSERT_OK(builder.Finish(&negated_block_of_bools));
+    ASSERT_EQ(negated_block_of_bools->length(), 64);
+  }
+  const auto hash_of_negated_block = HashDataBitmap(*negated_block_of_bools->data());
+
+  constexpr bool kSlowTests = true;
+  constexpr auto kMaxPadding = 64 + 32 + 1;
+  auto step = [&](int& i) {
+    const auto kStep = kSlowTests ? 1 : 8;
+    if (i + kStep >= kMaxPadding && i != kMaxPadding - 1) {
+      i = kMaxPadding - 1;
+    } else {
+      i += kStep;
+    }
+  };
+
+  for (int start_bits = 0; start_bits < 8; ++start_bits) {
+    for (int prefix_pad_len = 0; prefix_pad_len < kMaxPadding; step(prefix_pad_len)) {
+      auto prefix_pad = BuildBooleanArray(prefix_pad_len, start_bits & 0x1);
+      for (int suffix_pad_len = 0; suffix_pad_len < kMaxPadding; step(suffix_pad_len)) {
+        auto suffix_pad = BuildBooleanArray(suffix_pad_len, (start_bits >> 1) & 0x1);
+
+        // A block of 64 bools in the middle
+        auto hash = HashConcatenation({prefix_pad, block_of_bools, suffix_pad},
+                                      prefix_pad_len, 64);
+        ASSERT_EQ(hash, hash_of_block);
+        // Negated
+        hash = HashConcatenation({prefix_pad, negated_block_of_bools, suffix_pad},
+                                 prefix_pad_len, 64);
+        ASSERT_EQ(hash, hash_of_negated_block);
+
+        std::shared_ptr<BooleanArray> bools;
+        // Trailing bits and leading bits around a block
+        for (int trailing_len = 1; trailing_len < kMaxPadding; step(trailing_len)) {
+          auto trailing = BuildBooleanArray(trailing_len, (start_bits >> 1) & 0x1);
+          auto expected_hash = HashConcatenation({block_of_bools, trailing});
+          auto hash =
+              HashConcatenation({prefix_pad, block_of_bools, trailing, suffix_pad},
+                                prefix_pad_len, 64 + trailing_len);
+          ASSERT_EQ(hash, expected_hash);
+          // Negated
+          expected_hash = HashConcatenation({negated_block_of_bools, trailing});
+          hash = HashConcatenation(
+              {prefix_pad, negated_block_of_bools, trailing, suffix_pad}, prefix_pad_len,
+              64 + trailing_len);
+          ASSERT_EQ(hash, expected_hash);
+
+          // Use the trailing bits as leading bits now
+          auto leading = trailing;
+          auto leading_len = trailing_len;
+          expected_hash = HashConcatenation({leading, block_of_bools});
+          hash = HashConcatenation({prefix_pad, leading, block_of_bools, suffix_pad},
+                                   prefix_pad_len, leading_len + 64);
+          ASSERT_EQ(hash, expected_hash);
+          // Negated
+          expected_hash = HashConcatenation({leading, negated_block_of_bools});
+          hash =
+              HashConcatenation({prefix_pad, leading, negated_block_of_bools, suffix_pad},
+                                prefix_pad_len, leading_len + 64);
+          ASSERT_EQ(hash, expected_hash);
+
+          // leading and trailing at the same time
+          expected_hash = HashConcatenation({leading, block_of_bools, trailing});
+          hash = HashConcatenation(
+              {prefix_pad, leading, block_of_bools, trailing, suffix_pad}, prefix_pad_len,
+              leading_len + 64 + trailing_len);
+          ASSERT_EQ(hash, expected_hash);
+          // Negated
+          expected_hash = HashConcatenation({leading, negated_block_of_bools, trailing});
+          hash = HashConcatenation(
+              {prefix_pad, leading, negated_block_of_bools, trailing, suffix_pad},
+              prefix_pad_len, leading_len + 64 + trailing_len);
+          ASSERT_EQ(hash, expected_hash);
+        }
+      }
+    }
+    if (!kSlowTests) {
+      break;
+    }
+  }
 }
 
 }  // namespace internal
