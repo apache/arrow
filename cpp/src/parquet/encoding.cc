@@ -1271,7 +1271,7 @@ struct ArrowBinaryHelper {
   Status AppendNull() { return builder->AppendNull(); }
 
   typename EncodingTraits<ByteArrayType>::Accumulator* out;
-  ::arrow::BinaryBuilder* builder;
+  ::arrow::LargeBinaryBuilder* builder;
   int64_t chunk_space_remaining;
 };
 
@@ -1349,7 +1349,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  ::arrow::BinaryDictionary32Builder* builder) override {
+                  ::arrow::BinaryDictionary64Builder* builder) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
                                      valid_bits_offset, builder, &result));
@@ -1862,7 +1862,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  ::arrow::BinaryDictionary32Builder* builder) override {
+                  ::arrow::BinaryDictionary64Builder* builder) override {
     int result = 0;
     if (null_count == 0) {
       PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));

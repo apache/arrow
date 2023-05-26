@@ -220,7 +220,12 @@
         "features-main"
       ],
       "displayName": "Debug build with tests and more optional components",
-      "cacheVariables": {}
+      "cacheVariables": {
+        "ARROW_BUILD_EXAMPLES": "ON",
+        "PARQUET_BUILD_EXAMPLES": "ON",
+        "ARROW_BUILD_TESTS": "ON",
+        "ARROW_BUILD_UTILITIES": "ON"
+      }
     },
     {
       "name": "ninja-debug-cuda",

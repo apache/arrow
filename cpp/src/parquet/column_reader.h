@@ -470,6 +470,11 @@ class BinaryRecordReader : virtual public RecordReader {
   virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
 };
 
+class LargeBinaryRecordReader : virtual public RecordReader {
+ public:
+  virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
+};
+
 /// \brief Read records directly to dictionary-encoded Arrow form (int32
 /// indices). Only valid for BYTE_ARRAY columns
 class DictionaryRecordReader : virtual public RecordReader {

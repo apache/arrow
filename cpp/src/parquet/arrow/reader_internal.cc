@@ -85,6 +85,7 @@ using ::arrow::internal::SafeLeftShift;
 using ::arrow::util::SafeLoadAs;
 
 using parquet::internal::BinaryRecordReader;
+using parquet::internal::LargeBinaryRecordReader;
 using parquet::internal::DictionaryRecordReader;
 using parquet::internal::RecordReader;
 using parquet::schema::GroupNode;
@@ -482,7 +483,7 @@ Status TransferBinary(RecordReader* reader, MemoryPool* pool,
   ::arrow::compute::CastOptions cast_options;
   cast_options.allow_invalid_utf8 = true;  // avoid spending time validating UTF8 data
 
-  auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
+  auto binary_reader = dynamic_cast<LargeBinaryRecordReader*>(reader);
   DCHECK(binary_reader);
   auto chunks = binary_reader->GetBuilderChunks();
   for (auto& chunk : chunks) {

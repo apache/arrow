@@ -715,6 +715,29 @@ class Dictionary32Builder : public internal::DictionaryBuilderBase<Int32Builder,
   }
 };
 
+/// \brief A DictionaryArray builder that always returns int64 dictionary
+/// indices so that data cast to dictionary form will have a consistent index
+/// type, e.g. for creating a ChunkedArray
+template <typename T>
+class Dictionary64Builder : public internal::DictionaryBuilderBase<Int64Builder, T> {
+ public:
+  using BASE = internal::DictionaryBuilderBase<Int64Builder, T>;
+  using BASE::BASE;
+
+  /// \brief Append dictionary indices directly without modifying memo
+  ///
+  /// NOTE: Experimental API
+  Status AppendIndices(const int64_t* values, int64_t length,
+                       const uint8_t* valid_bytes = NULLPTR) {
+    int64_t null_count_before = this->indices_builder_.null_count();
+    ARROW_RETURN_NOT_OK(this->indices_builder_.AppendValues(values, length, valid_bytes));
+    this->capacity_ = this->indices_builder_.capacity();
+    this->length_ += length;
+    this->null_count_ += this->indices_builder_.null_count() - null_count_before;
+    return Status::OK();
+  }
+};
+
 // ----------------------------------------------------------------------
 // Binary / Unicode builders
 // (compatibility aliases; those used to be derived classes with additional
@@ -724,6 +747,7 @@ using BinaryDictionaryBuilder = DictionaryBuilder<BinaryType>;
 using StringDictionaryBuilder = DictionaryBuilder<StringType>;
 using BinaryDictionary32Builder = Dictionary32Builder<BinaryType>;
 using StringDictionary32Builder = Dictionary32Builder<StringType>;
+using BinaryDictionary64Builder = Dictionary64Builder<LargeBinaryType>;
 
 /// @}
 

@@ -45,6 +45,8 @@ class NumericBuilder;
 class FixedSizeBinaryBuilder;
 template <typename T>
 class Dictionary32Builder;
+template <typename T>
+class Dictionary64Builder;
 
 }  // namespace arrow
 
@@ -144,11 +146,11 @@ struct EncodingTraits<ByteArrayType> {
   /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
   /// overflow the capacity of a single arrow::BinaryArray
   struct Accumulator {
-    std::unique_ptr<::arrow::BinaryBuilder> builder;
+    std::unique_ptr<::arrow::LargeBinaryBuilder> builder;
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
-  using ArrowType = ::arrow::BinaryType;
-  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::BinaryType>;
+  using ArrowType = ::arrow::LargeBinaryType;
+  using DictAccumulator = ::arrow::Dictionary64Builder<::arrow::LargeBinaryType>;
 };
 
 template <>

@@ -1,0 +1,359 @@
+diff --git a/cpp/CMakePresets.json b/cpp/CMakePresets.json
+index 7882be57a..40ccd64a9 100644
+--- a/cpp/CMakePresets.json
++++ b/cpp/CMakePresets.json
+@@ -220,7 +220,12 @@
+         "features-main"
+       ],
+       "displayName": "Debug build with tests and more optional components",
+-      "cacheVariables": {}
++      "cacheVariables": {
++        "ARROW_BUILD_EXAMPLES": "ON",
++        "PARQUET_BUILD_EXAMPLES": "ON",
++        "ARROW_BUILD_TESTS": "ON",
++        "ARROW_BUILD_UTILITIES": "ON"
++      }
+     },
+     {
+       "name": "ninja-debug-cuda",
+diff --git a/cpp/examples/arrow/parquet_read_write.cc b/cpp/examples/arrow/parquet_read_write.cc
+index 3b8b4c221..20fe2c20b 100644
+--- a/cpp/examples/arrow/parquet_read_write.cc
++++ b/cpp/examples/arrow/parquet_read_write.cc
+@@ -120,7 +120,7 @@ arrow::Status WriteFullFile(std::string path_to_file) {
+ 
+   ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(*table.get(),
+                                                  arrow::default_memory_pool(), outfile,
+-                                                 /*chunk_size=*/3, props, arrow_props));
++                                                 /*chunk_size=*/1024*1024*1024, props, arrow_props));
+   return arrow::Status::OK();
+ }
+ 
+diff --git a/cpp/examples/parquet/parquet_arrow/reader_writer.cc b/cpp/examples/parquet/parquet_arrow/reader_writer.cc
+index f5d96ec16..b4e28c662 100644
+--- a/cpp/examples/parquet/parquet_arrow/reader_writer.cc
++++ b/cpp/examples/parquet/parquet_arrow/reader_writer.cc
+@@ -56,20 +56,22 @@ void write_parquet_file(const arrow::Table& table) {
+   // the parquet file. Normally you would choose this to be rather large but
+   // for the example, we use a small value to have multiple RowGroups.
+   PARQUET_THROW_NOT_OK(
+-      parquet::arrow::WriteTable(table, arrow::default_memory_pool(), outfile, 3));
++      parquet::arrow::WriteTable(table, arrow::default_memory_pool(), outfile, 1024*1024 * 1024));
+ }
+ 
+ // #2: Fully read in the file
+-void read_whole_file() {
+-  std::cout << "Reading parquet-arrow-example.parquet at once" << std::endl;
++void read_whole_file(const std::string & filename) {
++  std::cout << "Reading " << filename << " at once" << std::endl;
+   std::shared_ptr<arrow::io::ReadableFile> infile;
+   PARQUET_ASSIGN_OR_THROW(infile,
+-                          arrow::io::ReadableFile::Open("parquet-arrow-example.parquet",
++                          arrow::io::ReadableFile::Open(filename,
+                                                         arrow::default_memory_pool()));
+ 
+   std::unique_ptr<parquet::arrow::FileReader> reader;
+   PARQUET_THROW_NOT_OK(
+       parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
++
++
+   std::shared_ptr<arrow::Table> table;
+   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
+   std::cout << "Loaded " << table->num_rows() << " rows in " << table->num_columns()
+@@ -94,18 +96,18 @@ void read_single_rowgroup() {
+ }
+ 
+ // #4: Read only a single column of the whole parquet file
+-void read_single_column() {
+-  std::cout << "Reading first column of parquet-arrow-example.parquet" << std::endl;
++void read_single_column(const std::string & filename) {
++  std::cout << "Reading first column of " << filename << std::endl;
+   std::shared_ptr<arrow::io::ReadableFile> infile;
+   PARQUET_ASSIGN_OR_THROW(infile,
+-                          arrow::io::ReadableFile::Open("parquet-arrow-example.parquet",
++                          arrow::io::ReadableFile::Open(filename,
+                                                         arrow::default_memory_pool()));
+ 
+   std::unique_ptr<parquet::arrow::FileReader> reader;
+   PARQUET_THROW_NOT_OK(
+       parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
+   std::shared_ptr<arrow::ChunkedArray> array;
+-  PARQUET_THROW_NOT_OK(reader->ReadColumn(0, &array));
++  PARQUET_THROW_NOT_OK(reader->ReadColumn(5, &array));
+   PARQUET_THROW_NOT_OK(arrow::PrettyPrint(*array, 4, &std::cout));
+   std::cout << std::endl;
+ }
+@@ -131,10 +133,10 @@ void read_single_column_chunk() {
+ }
+ 
+ int main(int argc, char** argv) {
+-  std::shared_ptr<arrow::Table> table = generate_table();
+-  write_parquet_file(*table);
+-  read_whole_file();
+-  read_single_rowgroup();
+-  read_single_column();
+-  read_single_column_chunk();
++//  std::shared_ptr<arrow::Table> table = generate_table();
++//  write_parquet_file(*table);
++  read_whole_file("minimal_repro.parquet");
++//  read_single_rowgroup();
++//  read_single_column("minimal_repro.parquet");
++//  read_single_column_chunk();
+ }
+diff --git a/cpp/src/arrow/array/array_nested.cc b/cpp/src/arrow/array/array_nested.cc
+index 745312f1d..3a5184d1d 100644
+--- a/cpp/src/arrow/array/array_nested.cc
++++ b/cpp/src/arrow/array/array_nested.cc
+@@ -207,8 +207,8 @@ inline void SetListData(BaseListArray<TYPE>* self, const std::shared_ptr<ArrayDa
+   self->raw_value_offsets_ =
+       data->GetValuesSafe<typename TYPE::offset_type>(1, /*offset=*/0);
+ 
+-  ARROW_CHECK_EQ(self->list_type_->value_type()->id(), data->child_data[0]->type->id());
+-  DCHECK(self->list_type_->value_type()->Equals(data->child_data[0]->type));
++//  ARROW_CHECK_EQ(self->list_type_->value_type()->id(), data->child_data[0]->type->id());
++//  DCHECK(self->list_type_->value_type()->Equals(data->child_data[0]->type));
+   self->values_ = MakeArray(self->data_->child_data[0]);
+ }
+ 
+diff --git a/cpp/src/arrow/array/builder_binary.cc b/cpp/src/arrow/array/builder_binary.cc
+index 571f450aa..9754275e7 100644
+--- a/cpp/src/arrow/array/builder_binary.cc
++++ b/cpp/src/arrow/array/builder_binary.cc
+@@ -137,6 +137,7 @@ namespace internal {
+ ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_value_length,
+                                            MemoryPool* pool)
+     : max_chunk_value_length_(max_chunk_value_length), builder_(new BinaryBuilder(pool)) {
++  assert(false);
+   DCHECK_LE(max_chunk_value_length, kBinaryMemoryLimit);
+ }
+ 
+diff --git a/cpp/src/arrow/array/builder_dict.h b/cpp/src/arrow/array/builder_dict.h
+index cb0aaf309..9a248dc6f 100644
+--- a/cpp/src/arrow/array/builder_dict.h
++++ b/cpp/src/arrow/array/builder_dict.h
+@@ -715,6 +715,29 @@ class Dictionary32Builder : public internal::DictionaryBuilderBase<Int32Builder,
+   }
+ };
+ 
++/// \brief A DictionaryArray builder that always returns int64 dictionary
++/// indices so that data cast to dictionary form will have a consistent index
++/// type, e.g. for creating a ChunkedArray
++template <typename T>
++class Dictionary64Builder : public internal::DictionaryBuilderBase<Int64Builder, T> {
++ public:
++  using BASE = internal::DictionaryBuilderBase<Int64Builder, T>;
++  using BASE::BASE;
++
++  /// \brief Append dictionary indices directly without modifying memo
++  ///
++  /// NOTE: Experimental API
++  Status AppendIndices(const int64_t* values, int64_t length,
++                       const uint8_t* valid_bytes = NULLPTR) {
++    int64_t null_count_before = this->indices_builder_.null_count();
++    ARROW_RETURN_NOT_OK(this->indices_builder_.AppendValues(values, length, valid_bytes));
++    this->capacity_ = this->indices_builder_.capacity();
++    this->length_ += length;
++    this->null_count_ += this->indices_builder_.null_count() - null_count_before;
++    return Status::OK();
++  }
++};
++
+ // ----------------------------------------------------------------------
+ // Binary / Unicode builders
+ // (compatibility aliases; those used to be derived classes with additional
+@@ -724,6 +747,7 @@ using BinaryDictionaryBuilder = DictionaryBuilder<BinaryType>;
+ using StringDictionaryBuilder = DictionaryBuilder<StringType>;
+ using BinaryDictionary32Builder = Dictionary32Builder<BinaryType>;
+ using StringDictionary32Builder = Dictionary32Builder<StringType>;
++using BinaryDictionary64Builder = Dictionary64Builder<LargeBinaryType>;
+ 
+ /// @}
+ 
+diff --git a/cpp/src/arrow/array/validate.cc b/cpp/src/arrow/array/validate.cc
+index 0f2bd4583..7fc907986 100644
+--- a/cpp/src/arrow/array/validate.cc
++++ b/cpp/src/arrow/array/validate.cc
+@@ -298,12 +298,12 @@ struct ValidateArrayImpl {
+                                field_data.length, " < ", data.length + data.offset, ")");
+       }
+ 
+-      const auto& field_type = type.field(i)->type();
+-      if (!field_data.type->Equals(*field_type)) {
+-        return Status::Invalid("Struct child array #", i, " does not match type field: ",
+-                               field_data.type->ToString(), " vs ",
+-                               field_type->ToString());
+-      }
++//      const auto& field_type = type.field(i)->type();
++//      if (!field_data.type->Equals(*field_type)) {
++//        return Status::Invalid("Struct child array #", i, " does not match type field: ",
++//                               field_data.type->ToString(), " vs ",
++//                               field_type->ToString());
++//      }
+     }
+     return Status::OK();
+   }
+diff --git a/cpp/src/arrow/type.h b/cpp/src/arrow/type.h
+index 48228d43e..73c1a9d44 100644
+--- a/cpp/src/arrow/type.h
++++ b/cpp/src/arrow/type.h
+@@ -676,7 +676,7 @@ class ARROW_EXPORT BaseBinaryType : public DataType {
+   ~BaseBinaryType() override;
+ };
+ 
+-constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int32_t>::max() - 1;
++constexpr int64_t kBinaryMemoryLimit = std::numeric_limits<int64_t>::max() - 1;
+ 
+ /// \addtogroup binary-datatypes
+ ///
+diff --git a/cpp/src/parquet/arrow/reader.cc b/cpp/src/parquet/arrow/reader.cc
+index 40fbdcbb5..f7b31b67f 100644
+--- a/cpp/src/parquet/arrow/reader.cc
++++ b/cpp/src/parquet/arrow/reader.cc
+@@ -90,6 +90,8 @@ namespace {
+     case 1:
+       return chunked.chunk(0)->data();
+     default:
++//      auto flattened = chunked.Flatten().ValueOrDie();
++//      return flattened[0]->chunk(0)->data();
+       // ARROW-3762(wesm): If item reader yields a chunked array, we reject as
+       // this is not yet implemented
+       return Status::NotImplemented(
+diff --git a/cpp/src/parquet/arrow/reader_internal.cc b/cpp/src/parquet/arrow/reader_internal.cc
+index a294b712a..3785eac26 100644
+--- a/cpp/src/parquet/arrow/reader_internal.cc
++++ b/cpp/src/parquet/arrow/reader_internal.cc
+@@ -85,6 +85,7 @@ using ::arrow::internal::SafeLeftShift;
+ using ::arrow::util::SafeLoadAs;
+ 
+ using parquet::internal::BinaryRecordReader;
++using parquet::internal::LargeBinaryRecordReader;
+ using parquet::internal::DictionaryRecordReader;
+ using parquet::internal::RecordReader;
+ using parquet::schema::GroupNode;
+@@ -482,7 +483,7 @@ Status TransferBinary(RecordReader* reader, MemoryPool* pool,
+   ::arrow::compute::CastOptions cast_options;
+   cast_options.allow_invalid_utf8 = true;  // avoid spending time validating UTF8 data
+ 
+-  auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
++  auto binary_reader = dynamic_cast<LargeBinaryRecordReader*>(reader);
+   DCHECK(binary_reader);
+   auto chunks = binary_reader->GetBuilderChunks();
+   for (auto& chunk : chunks) {
+diff --git a/cpp/src/parquet/arrow/schema_internal.cc b/cpp/src/parquet/arrow/schema_internal.cc
+index 064bf4f55..dbff14d93 100644
+--- a/cpp/src/parquet/arrow/schema_internal.cc
++++ b/cpp/src/parquet/arrow/schema_internal.cc
+@@ -113,7 +113,7 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
+ Result<std::shared_ptr<ArrowType>> FromByteArray(const LogicalType& logical_type) {
+   switch (logical_type.type()) {
+     case LogicalType::Type::STRING:
+-      return ::arrow::utf8();
++      return ::arrow::large_utf8();
+     case LogicalType::Type::DECIMAL:
+       return MakeArrowDecimal(logical_type);
+     case LogicalType::Type::NONE:
+diff --git a/cpp/src/parquet/column_reader.cc b/cpp/src/parquet/column_reader.cc
+index 3294aaaf2..3cfdb6cb8 100644
+--- a/cpp/src/parquet/column_reader.cc
++++ b/cpp/src/parquet/column_reader.cc
+@@ -2094,14 +2094,14 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
+ };
+ 
+ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
+-                                     virtual public BinaryRecordReader {
++                                     virtual public LargeBinaryRecordReader {
+  public:
+   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
+                                ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
+                                          read_dense_for_nullable) {
+     ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
+-    accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
++    accumulator_.builder = std::make_unique<::arrow::LargeBinaryBuilder>(pool);
+   }
+ 
+   ::arrow::ArrayVector GetBuilderChunks() override {
+@@ -2213,7 +2213,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
+  private:
+   using BinaryDictDecoder = DictDecoder<ByteArrayType>;
+ 
+-  ::arrow::BinaryDictionary32Builder builder_;
++  ::arrow::BinaryDictionary64Builder builder_;
+   std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
+ };
+ 
+diff --git a/cpp/src/parquet/column_reader.h b/cpp/src/parquet/column_reader.h
+index 334b8bcff..b652a89d8 100644
+--- a/cpp/src/parquet/column_reader.h
++++ b/cpp/src/parquet/column_reader.h
+@@ -470,6 +470,11 @@ class BinaryRecordReader : virtual public RecordReader {
+   virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
+ };
+ 
++class LargeBinaryRecordReader : virtual public RecordReader {
++ public:
++  virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
++};
++
+ /// \brief Read records directly to dictionary-encoded Arrow form (int32
+ /// indices). Only valid for BYTE_ARRAY columns
+ class DictionaryRecordReader : virtual public RecordReader {
+diff --git a/cpp/src/parquet/encoding.cc b/cpp/src/parquet/encoding.cc
+index 134a22f28..b52cd3b30 100644
+--- a/cpp/src/parquet/encoding.cc
++++ b/cpp/src/parquet/encoding.cc
+@@ -1271,7 +1271,7 @@ struct ArrowBinaryHelper {
+   Status AppendNull() { return builder->AppendNull(); }
+ 
+   typename EncodingTraits<ByteArrayType>::Accumulator* out;
+-  ::arrow::BinaryBuilder* builder;
++  ::arrow::LargeBinaryBuilder* builder;
+   int64_t chunk_space_remaining;
+ };
+ 
+@@ -1349,7 +1349,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
+ 
+   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                   int64_t valid_bits_offset,
+-                  ::arrow::BinaryDictionary32Builder* builder) override {
++                  ::arrow::BinaryDictionary64Builder* builder) override {
+     int result = 0;
+     PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
+                                      valid_bits_offset, builder, &result));
+@@ -1862,7 +1862,7 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
+ 
+   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                   int64_t valid_bits_offset,
+-                  ::arrow::BinaryDictionary32Builder* builder) override {
++                  ::arrow::BinaryDictionary64Builder* builder) override {
+     int result = 0;
+     if (null_count == 0) {
+       PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
+diff --git a/cpp/src/parquet/encoding.h b/cpp/src/parquet/encoding.h
+index 9f9b740ff..ab80284e6 100644
+--- a/cpp/src/parquet/encoding.h
++++ b/cpp/src/parquet/encoding.h
+@@ -45,6 +45,8 @@ class NumericBuilder;
+ class FixedSizeBinaryBuilder;
+ template <typename T>
+ class Dictionary32Builder;
++template <typename T>
++class Dictionary64Builder;
+ 
+ }  // namespace arrow
+ 
+@@ -144,11 +146,11 @@ struct EncodingTraits<ByteArrayType> {
+   /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
+   /// overflow the capacity of a single arrow::BinaryArray
+   struct Accumulator {
+-    std::unique_ptr<::arrow::BinaryBuilder> builder;
++    std::unique_ptr<::arrow::LargeBinaryBuilder> builder;
+     std::vector<std::shared_ptr<::arrow::Array>> chunks;
+   };
+-  using ArrowType = ::arrow::BinaryType;
+-  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::BinaryType>;
++  using ArrowType = ::arrow::LargeBinaryType;
++  using DictAccumulator = ::arrow::Dictionary64Builder<::arrow::LargeBinaryType>;
+ };
+ 
+ template <>

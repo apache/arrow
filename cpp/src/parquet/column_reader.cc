@@ -2094,14 +2094,14 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
 };
 
 class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
-                                     virtual public BinaryRecordReader {
+                                     virtual public LargeBinaryRecordReader {
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
                                          read_dense_for_nullable) {
     ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
+    accumulator_.builder = std::make_unique<::arrow::LargeBinaryBuilder>(pool);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -2213,7 +2213,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
  private:
   using BinaryDictDecoder = DictDecoder<ByteArrayType>;
 
-  ::arrow::BinaryDictionary32Builder builder_;
+  ::arrow::BinaryDictionary64Builder builder_;
   std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
 };
 

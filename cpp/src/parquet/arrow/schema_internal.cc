@@ -113,7 +113,7 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
 Result<std::shared_ptr<ArrowType>> FromByteArray(const LogicalType& logical_type) {
   switch (logical_type.type()) {
     case LogicalType::Type::STRING:
-      return ::arrow::utf8();
+      return ::arrow::large_utf8();
     case LogicalType::Type::DECIMAL:
       return MakeArrowDecimal(logical_type);
     case LogicalType::Type::NONE:
