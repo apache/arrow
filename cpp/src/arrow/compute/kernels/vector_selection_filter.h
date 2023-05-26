@@ -22,11 +22,12 @@
 
 #include "arrow/array/data.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/kernels/vector_selection_internal.h"
 
 namespace arrow {
 namespace compute {
 namespace internal {
+
+struct SelectionKernelData;
 
 const FilterOptions* GetDefaultFilterOptions();
 
