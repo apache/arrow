@@ -6136,7 +6136,7 @@ func makeViewTypesWantJSONs() string {
       {
         "name": "binary_view",
         "type": {
-          "name": "binary_view"
+          "name": "binaryview"
         },
         "nullable": true,
         "children": []
@@ -6144,7 +6144,7 @@ func makeViewTypesWantJSONs() string {
       {
         "name": "string_view",
         "type": {
-          "name": "utf8_view"
+          "name": "utf8view"
         },
         "nullable": true,
         "children": []
