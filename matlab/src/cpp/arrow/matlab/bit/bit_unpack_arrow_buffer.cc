@@ -21,7 +21,7 @@
 
 namespace arrow::matlab::bit {
     ::matlab::data::TypedArray<bool> bitUnpackArrowBuffer(const std::shared_ptr<arrow::Buffer>& packed_buffer, int64_t length) {
-        const uint8_t* packed_buffer_ptr = packed_buffer->data();
+        const auto packed_buffer_ptr = packed_buffer->data();
 
         ::matlab::data::ArrayFactory factory;
         
