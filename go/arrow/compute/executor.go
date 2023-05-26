@@ -171,6 +171,8 @@ func addComputeDataPrealloc(dt arrow.DataType, widths []bufferPrealloc) []buffer
 		return append(widths, bufferPrealloc{bitWidth: 32, addLen: 1})
 	case arrow.LARGE_BINARY, arrow.LARGE_STRING, arrow.LARGE_LIST:
 		return append(widths, bufferPrealloc{bitWidth: 64, addLen: 1})
+	case arrow.STRING_VIEW, arrow.BINARY_VIEW:
+		return append(widths, bufferPrealloc{bitWidth: arrow.StringHeaderSizeBytes * 8})
 	}
 	return widths
 }

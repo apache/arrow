@@ -826,7 +826,6 @@ class BinaryViewColumn(PrimitiveColumn):
         ]
 
 
-
 class StringViewColumn(BinaryViewColumn):
 
     def _encode_value(self, x):

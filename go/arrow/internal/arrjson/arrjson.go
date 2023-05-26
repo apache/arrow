@@ -159,9 +159,9 @@ func typeToJSON(arrowType arrow.DataType) (json.RawMessage, error) {
 	case *arrow.LargeStringType:
 		typ = nameJSON{"largeutf8"}
 	case *arrow.BinaryViewType:
-		typ = nameJSON{"binary_view"}
+		typ = nameJSON{"binaryview"}
 	case *arrow.StringViewType:
-		typ = nameJSON{"utf8_view"}
+		typ = nameJSON{"utf8view"}
 	case *arrow.Date32Type:
 		typ = unitZoneJSON{Name: "date", Unit: "DAY"}
 	case *arrow.Date64Type:
@@ -346,9 +346,9 @@ func typeFromJSON(typ json.RawMessage, children []FieldWrapper) (arrowType arrow
 		arrowType = arrow.BinaryTypes.String
 	case "largeutf8":
 		arrowType = arrow.BinaryTypes.LargeString
-	case "binary_view":
+	case "binaryview":
 		arrowType = arrow.BinaryTypes.BinaryView
-	case "utf8_view":
+	case "utf8view":
 		arrowType = arrow.BinaryTypes.StringView
 	case "date":
 		t := unitZoneJSON{}
