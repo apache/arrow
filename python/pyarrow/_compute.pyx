@@ -1968,6 +1968,25 @@ class CumulativeOptions(_CumulativeOptions):
     def __init__(self, start=None, *, skip_nulls=False):
         self._set_options(start, skip_nulls)
 
+cdef class _PairwiseDiffOptions(FunctionOptions):
+    def _set_options(self, period, check_overflow):
+        self.wrapped.reset(new CPairwiseDiffOptions(period, check_overflow))
+
+
+class PairwiseDiffOptions(_PairwiseDiffOptions):
+    """
+    Options for `pairwise_diff` function.
+
+    Parameters
+    ----------
+    period : int, default 1
+        Period for computing difference.
+    check_overflow : bool, default False
+        When true, return error on overflow. When false, wrap around on overflow.
+    """
+
+    def __init__(self, period=1, check_overflow=False):
+        self._set_options(period, check_overflow)
 
 cdef class _ArraySortOptions(FunctionOptions):
     def _set_options(self, order, null_placement):

@@ -234,6 +234,21 @@ class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
 };
 using CumulativeSumOptions = CumulativeOptions;  // For backward compatibility
 
+/// \brief Options for pairwise functions
+class ARROW_EXPORT PairwiseDiffOptions : public FunctionOptions {
+ public:
+  explicit PairwiseDiffOptions(double periods = 1, bool check_overflow = false);
+  static constexpr char const kTypeName[] = "PairwiseDiffOptions";
+  static PairwiseDiffOptions Defaults() { return PairwiseDiffOptions(); }
+
+  /// Periods to shift for applying the binary operation, accepts negative values.
+  int64_t periods = 1;
+
+  /// When true, returns an Invalid Status when overflow is detected, otherwise result is
+  /// wrapped around.
+  bool check_overflow = false;
+};
+
 /// @}
 
 /// \brief Filter with a boolean selection filter
@@ -649,6 +664,22 @@ ARROW_EXPORT
 Result<Datum> CumulativeMin(
     const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
+
+/// \brief Return the first order difference of an array.
+///
+/// Computes the first order difference of an array, i.e. output[i] = input[i] - input[i -
+/// p] if i >= p, otherwise output[i] = null, where p is the period. For example, with p =
+/// 1, Diff([1, 4, 9, 10, 15]) = [null, 3, 5, 1, 5]. With p = 2, Diff([1, 4, 9, 10, 15]) =
+/// [null, null, 8, 6, 6]
+///
+/// \param[in] datum array input
+/// \param[in] options options, specifying overflow behavior and period
+/// \param[in] ctx the function execution context, optional
+/// \return result as array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
+                                            const PairwiseDiffOptions& options,
+                                            ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
 // Deprecated functions

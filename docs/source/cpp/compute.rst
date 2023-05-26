@@ -1847,3 +1847,20 @@ replaced, based on the remaining inputs.
   results in a corresponding null in the output.
 
   Also see: :ref:`if_else <cpp-compute-scalar-selections>`.
+
+Pairwise functions
+~~~~~~~~~~~~~~~~~~~~
+Pairwise functions are unary vector functions that performs a binary operation on 
+a pair of elements in the input array, typically on adjacent elements.
+
++------------------------+-------+----------------------+----------------------+--------------------------------+-------+
+| Function name          | Arity | Input types          | Output type          | Options class                  | Notes |
++========================+=======+======================+======================+================================+=======+
+| pairwise_diff          | Unary | Numeric/Temporal     | Numeric/Temporal     | :struct:`PairwiseDiffOptions`  | \(1)  |
++------------------------+-------+----------------------+----------------------+--------------------------------+-------+
+* \(1) Computes the first order difference of an array, i.e. output[i] =  
+  input[i] - input[i-period]. The default period is 1. The period can also 
+  be negative. It internally calls the scalar function ``Subtract`` to compute 
+  the differences, so its behavior and supported types are the same as 
+  ``Subtract``. The period and handling of overflow can be specified in
+  :struct:`PairwiseDiffOptions`. 
