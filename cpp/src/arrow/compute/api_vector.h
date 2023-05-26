@@ -213,10 +213,8 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 /// \brief Options for cumulative sum function
 class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
  public:
-  explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false,
-                                bool check_overflow = false);
-  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false,
-                                bool check_overflow = false);
+  explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false);
+  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false);
   static constexpr char const kTypeName[] = "CumulativeSumOptions";
   static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
 
@@ -226,9 +224,6 @@ class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
   /// If true, nulls in the input are ignored and produce a corresponding null output.
   /// When false, the first null encountered is propagated through the remaining output.
   bool skip_nulls = false;
-
-  /// When true, returns an Invalid Status when overflow is detected
-  bool check_overflow = false;
 };
 
 /// @}
@@ -601,7 +596,7 @@ ARROW_EXPORT
 Result<Datum> CumulativeSum(
     const Datum& values,
     const CumulativeSumOptions& options = CumulativeSumOptions::Defaults(),
-    ExecContext* ctx = NULLPTR);
+    bool check_overflow = false, ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
 // Deprecated functions
