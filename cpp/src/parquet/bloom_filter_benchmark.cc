@@ -155,7 +155,7 @@ static void BM_InsertHash(::benchmark::State& state) {
   for (auto _ : state) {
     state.PauseTiming();
     auto filter = CreateBloomFilter(kNumBloomFilterInserts);
-    state.KeepRunning();
+    state.ResumeTiming();
     for (auto hash : hashes) {
       filter->InsertHash(hash);
     }
@@ -169,7 +169,7 @@ static void BM_BatchInsertHash(::benchmark::State& state) {
   for (auto _ : state) {
     state.PauseTiming();
     auto filter = CreateBloomFilter(kNumBloomFilterInserts);
-    state.KeepRunning();
+    state.ResumeTiming();
     filter->InsertHashes(hashes.data(), static_cast<int>(hashes.size()));
     ::benchmark::ClobberMemory();
   }
