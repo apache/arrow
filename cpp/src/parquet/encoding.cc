@@ -3428,7 +3428,7 @@ class DeltaByteArrayFLBADecoder : public DeltaByteArrayDecoderImpl<FLBAType>,
       if (ARROW_PREDICT_FALSE(decode_byte_array[i].len != type_length)) {
         throw ParquetException("Fixed length byte array length mismatch");
       }
-      buffer[i].ptr = decode_byte_array.data()->ptr + i * type_length;
+      buffer[i].ptr = decode_byte_array[i].ptr;
     }
     return decoded_values_size;
   }
