@@ -21,8 +21,7 @@ import {
     BigIntArray, BigIntArrayConstructor
 } from '../interfaces.js';
 
-/** @ignore */ type DataValue<T> = T extends TypedArray ? number : T extends BigIntArray ? WideValue<T> : T;
-/** @ignore */ type WideValue<T extends BigIntArray> = T extends BigIntArray ? bigint | Int32Array | Uint32Array : never;
+/** @ignore */ type DataValue<T> = T extends TypedArray ? number : T extends BigIntArray ? bigint : T;
 /** @ignore */ type ArrayCtor<T extends TypedArray | BigIntArray> =
     T extends TypedArray ? TypedArrayConstructor<T> :
     T extends BigIntArray ? BigIntArrayConstructor<T> :
