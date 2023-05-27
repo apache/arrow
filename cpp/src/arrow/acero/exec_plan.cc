@@ -189,7 +189,8 @@ struct ExecPlanImpl : public ExecPlan {
           // dealing with external tasks will need to trigger those external tasks to end
           // early.
           StopProducing();
-        });
+        },
+        query_context_.options().stop_token);
     scheduler_finished.AddCallback([this](const Status& st) {
       if (st.ok()) {
         if (stopped_.load()) {
@@ -913,17 +914,20 @@ Status DeclarationToStatus(Declaration declaration, QueryOptions query_options) 
 namespace {
 struct BatchConverter {
   ~BatchConverter() {
+    Close();
+    Status abandoned_status = exec_plan->finished().status();
+    if (!abandoned_status.ok()) {
+      abandoned_status.Warn();
+    }
+  }
+  void Close() {
     if (!exec_plan) {
       return;
     }
     if (exec_plan->finished().is_finished()) {
       return;
     }
-    exec_plan->StopProducing();
-    Status abandoned_status = exec_plan->finished().status();
-    if (!abandoned_status.ok()) {
-      abandoned_status.Warn();
-    }
+    stop_source.RequestStop();
   }
 
   Future<std::shared_ptr<RecordBatch>> operator()() {
@@ -965,14 +969,17 @@ struct BatchConverter {
   AsyncGenerator<std::optional<ExecBatch>> exec_batch_gen;
   std::shared_ptr<Schema> schema;
   std::shared_ptr<ExecPlan> exec_plan;
+  StopSource stop_source;
+  StopToken stop_token = stop_source.token();
 };
 
-Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGenerator(
+Result<std::shared_ptr<BatchConverter>> DeclarationToBatchConverter(
     Declaration declaration, QueryOptions options,
     ::arrow::internal::Executor* cpu_executor, std::shared_ptr<Schema>* out_schema) {
   auto converter = std::make_shared<BatchConverter>();
   ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan,
+                        ExecPlan::Make(options, exec_ctx));
   Declaration with_sink = Declaration::Sequence(
       {declaration,
        {"sink", SinkNodeOptions(&converter->exec_batch_gen, &converter->schema)}});
@@ -981,7 +988,7 @@ Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGen
   plan->StartProducing();
   converter->exec_plan = std::move(plan);
   ARROW_ASSIGN_OR_RAISE(*out_schema, converter->InitializeSchema(options.field_names));
-  return [conv = std::move(converter)] { return (*conv)(); };
+  return std::move(converter);
 }
 
 }  // namespace
@@ -992,21 +999,31 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration decla
     return Status::Invalid("Cannot use synchronous methods with a custom CPU executor");
   }
   std::shared_ptr<Schema> schema;
+  std::shared_ptr<BatchConverter> converter;
+  auto make_gen = [&](::arrow::internal::Executor* executor)
+      -> Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> {
+    ExecContext exec_ctx(options.memory_pool, executor, options.function_registry);
+    ARROW_ASSIGN_OR_RAISE(
+        converter,
+        DeclarationToBatchConverter(declaration, std::move(options), executor, &schema));
+    return [converter] { return (*converter)(); };
+  };
+  internal::SerialExecutor* ser_exec = nullptr;
   auto batch_iterator = std::make_unique<Iterator<std::shared_ptr<RecordBatch>>>(
-      ::arrow::internal::IterateSynchronously<std::shared_ptr<RecordBatch>>(
-          [&](::arrow::internal::Executor* executor)
-              -> Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> {
-            ExecContext exec_ctx(options.memory_pool, executor,
-                                 options.function_registry);
-            return DeclarationToRecordBatchGenerator(declaration, std::move(options),
-                                                     executor, &schema);
-          },
-          options.use_threads));
+      options.use_threads
+          ? ::arrow::internal::IterateSynchronously<std::shared_ptr<RecordBatch>>(
+                std::move(make_gen), options.use_threads)
+          : internal::SerialExecutor::IterateGenerator<std::shared_ptr<RecordBatch>>(
+                std::move(make_gen), &ser_exec));
 
   struct PlanReader : RecordBatchReader {
-    PlanReader(std::shared_ptr<Schema> schema,
-               std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> iterator)
-        : schema_(std::move(schema)), iterator_(std::move(iterator)) {}
+    PlanReader(std::shared_ptr<Schema> schema, std::shared_ptr<BatchConverter> converter,
+               std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> iterator,
+               internal::SerialExecutor* ser_exec)
+        : schema_(std::move(schema)),
+          converter_(std::move(converter)),
+          iterator_(std::move(iterator)),
+          ser_exec_(ser_exec) {}
 
     std::shared_ptr<Schema> schema() const override { return schema_; }
 
@@ -1022,6 +1039,10 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration decla
         // Already closed
         return Status::OK();
       }
+      converter_->Close();
+      if (ser_exec_) {
+        ARROW_RETURN_NOT_OK(ser_exec_->Spawn([]() {}, converter_->stop_token));
+      }
       // End plan and read from generator until finished
       std::shared_ptr<RecordBatch> batch;
       do {
@@ -1032,10 +1053,13 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration decla
     }
 
     std::shared_ptr<Schema> schema_;
+    std::shared_ptr<BatchConverter> converter_;
     std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> iterator_;
+    internal::SerialExecutor* ser_exec_;
   };
 
-  return std::make_unique<PlanReader>(std::move(schema), std::move(batch_iterator));
+  return std::make_unique<PlanReader>(std::move(schema), std::move(converter),
+                                      std::move(batch_iterator), ser_exec);
 }
 
 Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(

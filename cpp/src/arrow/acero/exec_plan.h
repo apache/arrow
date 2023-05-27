@@ -32,6 +32,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/ordering.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/cancel.h"
 #include "arrow/util/future.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/tracing.h"
@@ -555,6 +556,9 @@ struct ARROW_ACERO_EXPORT QueryOptions {
   ///
   /// If set then the number of names must equal the number of output columns
   std::vector<std::string> field_names;
+
+  /// \brief An optional stop-token for the query. Defaults to unstoppable.
+  StopToken stop_token = StopToken::Unstoppable();
 };
 
 /// \brief Calculate the output schema of a declaration
