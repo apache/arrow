@@ -96,7 +96,7 @@ export class Vector<T extends DataType = any> {
         this.type = type;
         this.stride = strideForType(type);
         this.numChildren = type.children?.length ?? 0;
-        this.length = this._offsets[this._offsets.length - 1];
+        this.length = this._offsets.at(-1)!;
     }
 
     declare protected _offsets: number[] | Uint32Array;
