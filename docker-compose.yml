@@ -66,6 +66,7 @@ x-sccache: &sccache
   AWS_ACCESS_KEY_ID:
   AWS_SECRET_ACCESS_KEY:
   SCCACHE_BUCKET:
+  SCCACHE_REGION:
   SCCACHE_S3_KEY_PREFIX: ${SCCACHE_S3_KEY_PREFIX:-sccache}
 
 # CPU/memory limit presets to pass to Docker.
