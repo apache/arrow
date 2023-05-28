@@ -425,3 +425,27 @@ test_that("filter() with across()", {
     tbl
   )
 })
+
+test_that(".by argument", {
+  compare_dplyr_binding(
+    .input %>%
+      filter(is.na(lgl), .by = chr) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(int > 2, pnorm(dbl) > .99, .by = chr) %>%
+      collect(),
+    tbl,
+    warning = "Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow; pulling data into R"
+  )
+  expect_error(
+    tbl %>%
+      arrow_table() %>%
+      group_by(chr) %>%
+      filter(is.na(lgl), .by = chr),
+    "Can't supply `\\.by` when `\\.data` is a grouped arrow dplyr query"
+  )
+})
