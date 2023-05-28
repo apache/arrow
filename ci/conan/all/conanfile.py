@@ -39,7 +39,7 @@ class ArrowConan(ConanFile):
     license = ("Apache-2.0",)
     url = "https://github.com/conan-io/conan-center-index"
     homepage = "https://arrow.apache.org/"
-    topics = ("memory", "gandiva", "parquet", "skyhook", "plasma", "hdfs", "csv", "cuda", "gcs", "json", "hive", "s3", "grpc")
+    topics = ("memory", "gandiva", "parquet", "skyhook", "hdfs", "csv", "cuda", "gcs", "json", "hive", "s3", "grpc")
     settings = "os", "arch", "compiler", "build_type"
     options = {
         "shared": [True, False],
@@ -48,7 +48,6 @@ class ArrowConan(ConanFile):
         "parquet": ["auto", True, False],
         "substrait": [True, False],
         "skyhook": [True, False],
-        "plasma": [True, False],
         "cli": [True, False],
         "compute": ["auto", True, False],
         "acero": ["auto", True, False],
@@ -57,6 +56,7 @@ class ArrowConan(ConanFile):
         "encryption": [True, False],
         "filesystem_layer":  [True, False],
         "hdfs_bridgs": [True, False],
+        "plasma": [True, False, "deprecated"],
         "simd_level": [None, "default", "sse4_2", "avx2", "avx512", "neon", ],
         "runtime_simd_level": [None, "sse4_2", "avx2", "avx512", "max"],
         "with_backtrace": [True, False],
@@ -94,7 +94,7 @@ class ArrowConan(ConanFile):
         "parquet": "auto",
         "skyhook": False,
         "substrait": False,
-        "plasma": False,
+        "plasma": "deprecated",
         "cli": False,
         "compute": "auto",
         "acero": "auto",
@@ -189,6 +189,8 @@ class ArrowConan(ConanFile):
                         f"{self.ref} requires C++{self._minimum_cpp_standard}, which your compiler does not support."
                     )
 
+        if self.options.plasma != "deprecated":
+            self.output.warning("plasma option is deprecated since Arrow 12.0.0, do not use anymore.")
         if self.options.shared:
             del self.options.fPIC
         if self.options.compute == False and not self._compute(True):
@@ -254,12 +256,6 @@ class ArrowConan(ConanFile):
         else:
             return bool(self.options.parquet)
 
-    def _plasma(self, required=False):
-        if Version(self.version) >= "12.0.0":
-            return False
-        else:
-            return required or self.options.plasma
-
     def _dataset_modules(self, required=False):
         if required or self.options.dataset_modules == "auto":
             return bool(self.options.get_safe("substrait", False))
@@ -296,7 +292,7 @@ class ArrowConan(ConanFile):
 
     def _with_gflags(self, required=False):
         if required or self.options.with_gflags == "auto":
-            return bool(self._plasma() or self._with_glog() or self._with_grpc())
+            return bool(self._with_glog() or self._with_grpc())
         else:
             return bool(self.options.with_gflags)
 
@@ -413,26 +409,6 @@ class ArrowConan(ConanFile):
             self.requires("libbacktrace/cci.20210118")
 
     def source(self):
-        # START
-        # This block should be removed when we update upstream:
-        # https://github.com/conan-io/conan-center-index/tree/master/recipes/arrow/
-        if not self.version in self.conan_data.get("sources", {}):
-            import shutil
-            top_level = os.environ.get("ARROW_HOME")
-            shutil.copytree(os.path.join(top_level, "cpp"),
-                            os.path.join(self.source_folder, "cpp"))
-            shutil.copytree(os.path.join(top_level, "format"),
-                            os.path.join(self.source_folder, "format"))
-            top_level_files = [
-                ".env",
-                "LICENSE.txt",
-                "NOTICE.txt",
-            ]
-            for top_level_file in top_level_files:
-                shutil.copy(os.path.join(top_level, top_level_file),
-                            self.source_folder)
-            return
-        # END
         get(self, **self.conan_data["sources"][self.version],
                   filename=f"apache-arrow-{self.version}.tar.gz", destination=self.source_folder, strip_root=True)
 
@@ -454,9 +430,7 @@ class ArrowConan(ConanFile):
         tc.variables["ARROW_GANDIVA"] = bool(self.options.gandiva)
         tc.variables["ARROW_PARQUET"] = self._parquet()
         tc.variables["ARROW_SUBSTRAIT"] = bool(self.options.get_safe("substrait", False))
-        if Version(self.version) < "12.0.0":
-            tc.variables["ARROW_PLASMA"] = bool(self._plasma())
-        tc.variables["ARROW_ACERO"] = self._acero()
+        tc.variables["ARROW_ACERO"] = bool(self.options.acero)
         tc.variables["ARROW_DATASET"] = self._dataset_modules()
         tc.variables["ARROW_FILESYSTEM"] = bool(self.options.filesystem_layer)
         tc.variables["PARQUET_REQUIRE_ENCRYPTION"] = bool(self.options.encryption)
@@ -564,6 +538,7 @@ class ArrowConan(ConanFile):
             for filename in glob.glob(os.path.join(self.source_folder, "cpp", "cmake_modules", "Find*.cmake")):
                 if os.path.basename(filename) not in [
                     "FindArrow.cmake",
+                    "FindArrowAcero.cmake",
                     "FindArrowCUDA.cmake",
                     "FindArrowDataset.cmake",
                     "FindArrowFlight.cmake",
@@ -575,7 +550,6 @@ class ArrowConan(ConanFile):
                     "FindArrowTesting.cmake",
                     "FindGandiva.cmake",
                     "FindParquet.cmake",
-                    "FindPlasma.cmake",
                 ]:
                     os.remove(filename)
 
@@ -637,14 +611,17 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libarrow_substrait"].names["cmake_find_package"] = "arrow_substrait"
             self.cpp_info.components["libarrow_substrait"].names["cmake_find_package_multi"] = "arrow_substrait"
             self.cpp_info.components["libarrow_substrait"].names["pkg_config"] = "arrow_substrait"
-            self.cpp_info.components["libarrow_substrait"].requires = ["libparquet", "dataset", "acero"]
+            self.cpp_info.components["libarrow_substrait"].requires = ["libparquet", "dataset"]
 
-        if self._plasma():
-            self.cpp_info.components["libplasma"].libs = [self._lib_name("plasma")]
-            self.cpp_info.components["libplasma"].names["cmake_find_package"] = "plasma"
-            self.cpp_info.components["libplasma"].names["cmake_find_package_multi"] = "plasma"
-            self.cpp_info.components["libplasma"].names["pkg_config"] = "plasma"
-            self.cpp_info.components["libplasma"].requires = ["libarrow"]
+        # Plasma was deprecated in Arrow 12.0.0
+        del self.options.plasma
+
+        if self.options.acero:
+            self.cpp_info.components["libacero"].libs = [self._lib_name("acero")]
+            self.cpp_info.components["libacero"].names["cmake_find_package"] = "acero"
+            self.cpp_info.components["libacero"].names["cmake_find_package_multi"] = "acero"
+            self.cpp_info.components["libacero"].names["pkg_config"] = "acero"
+            self.cpp_info.components["libacero"].requires = ["libarrow"]
 
         if self.options.gandiva:
             self.cpp_info.components["libgandiva"].libs = [self._lib_name("gandiva")]
@@ -669,13 +646,12 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libarrow_flight_sql"].names["pkg_config"] = "flight_sql"
             self.cpp_info.components["libarrow_flight_sql"].requires = ["libarrow", "libarrow_flight"]
 
-        if self._acero():
-            self.cpp_info.components["acero"].libs = ["arrow_acero"]
-
         if self._dataset_modules():
             self.cpp_info.components["dataset"].libs = ["arrow_dataset"]
+            if self._parquet():
+                self.cpp_info.components["dataset"].requires = ["libparquet"]
 
-        if (self.options.cli and (self.options.with_cuda or self._with_flight_rpc() or self._parquet())) or self._plasma():
+        if self.options.cli and (self.options.with_cuda or self._with_flight_rpc() or self._parquet()):
             binpath = os.path.join(self.package_folder, "bin")
             self.output.info(f"Appending PATH env var: {binpath}")
             self.env_info.PATH.append(binpath)
