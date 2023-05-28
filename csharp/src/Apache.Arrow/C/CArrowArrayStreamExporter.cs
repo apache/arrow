@@ -213,7 +213,7 @@ namespace Apache.Arrow.C
             {
                 if (LastError != null)
                 {
-                    Marshal.FreeCoTaskMem((IntPtr)LastError);
+                    Marshal.FreeHGlobal((IntPtr)LastError);
                     LastError = null;
                 }
             }
