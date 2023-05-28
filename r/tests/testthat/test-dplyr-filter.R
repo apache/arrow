@@ -436,6 +436,13 @@ test_that(".by argument", {
   )
   compare_dplyr_binding(
     .input %>%
+      filter(.by = chr) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
       filter(int > 2, pnorm(dbl) > .99, .by = chr) %>%
       collect(),
     tbl,

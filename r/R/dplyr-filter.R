@@ -31,7 +31,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) 
   filts <- expand_across(out, quos(...))
   if (length(filts) == 0) {
     # Nothing to do
-    return(out)
+    return(as_adq(.data))
   }
 
   # tidy-eval the filter expressions inside an Arrow data_mask
