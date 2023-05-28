@@ -26,7 +26,6 @@ namespace Apache.Arrow.C
 #if NET5_0_OR_GREATER
         private static unsafe delegate* unmanaged[Stdcall]<CArrowArray*, void> ReleaseArrayPtr => &ReleaseArray;
 #else
-        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowArray> s_releaseArray = new NativeDelegate<ReleaseArrowArray>(ReleaseArray);
         private static unsafe delegate* unmanaged[Stdcall]<CArrowArray*, void> ReleaseArrayPtr => (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;

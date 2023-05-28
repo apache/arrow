@@ -29,22 +29,18 @@ namespace Apache.Arrow.C
         private static unsafe delegate* unmanaged[Stdcall]<CArrowArrayStream*, byte*> GetLastErrorPtr => &GetLastError;
         private static unsafe delegate* unmanaged[Stdcall]<CArrowArrayStream*, void> ReleasePtr => &Release;
 #else
-        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private unsafe delegate int GetSchemaArrayStream(CArrowArrayStream* cArrayStream, CArrowSchema* cSchema);
         private static unsafe NativeDelegate<GetSchemaArrayStream> s_getSchemaArrayStream = new NativeDelegate<GetSchemaArrayStream>(GetSchema);
         private static unsafe delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowSchema*, int> GetSchemaPtr =>
             (delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowSchema*, int>)s_getSchemaArrayStream.Pointer;
-        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private unsafe delegate int GetNextArrayStream(CArrowArrayStream* cArrayStream, CArrowArray* cArray);
         private static unsafe NativeDelegate<GetNextArrayStream> s_getNextArrayStream = new NativeDelegate<GetNextArrayStream>(GetNext);
         private static unsafe delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowArray*, int> GetNextPtr =>
             (delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowArray*, int>)s_getNextArrayStream.Pointer;
-        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private unsafe delegate byte* GetLastErrorArrayStream(CArrowArrayStream* cArrayStream);
         private static unsafe NativeDelegate<GetLastErrorArrayStream> s_getLastErrorArrayStream = new NativeDelegate<GetLastErrorArrayStream>(GetLastError);
         private static unsafe delegate* unmanaged[Stdcall]<CArrowArrayStream*, byte*> GetLastErrorPtr =>
             (delegate* unmanaged[Stdcall]<CArrowArrayStream*, byte*>)s_getLastErrorArrayStream.Pointer;
-        [UnmanagedFunctionPointer(CallingConvention.StdCall)]
         private unsafe delegate void ReleaseArrayStream(CArrowArrayStream* cArrayStream);
         private static unsafe NativeDelegate<ReleaseArrayStream> s_releaseArrayStream = new NativeDelegate<ReleaseArrayStream>(Release);
         private static unsafe delegate* unmanaged[Stdcall]<CArrowArrayStream*, void> ReleasePtr =>
