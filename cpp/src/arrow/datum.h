@@ -101,12 +101,14 @@ struct ARROW_EXPORT Datum {
   /// This can be expensive, prefer the shared_ptr<ChunkedArray> constructor
   explicit Datum(const ChunkedArray& value);
 
-  /// \brief Construct from a RecordBatch. Can be expensive, prefer the
-  /// shared_ptr constructor
+  /// \brief Construct from a RecordBatch.
+  ///
+  /// This can be expensive, prefer the shared_ptr<RecordBatch> constructor
   explicit Datum(const RecordBatch& value);
 
-  /// \brief Construct from a Table. Can be expensive, prefer the
-  /// shared_ptr constructor
+  /// \brief Construct from a Table.
+  ///
+  /// This can be expensive, prefer the shared_ptr<Table> constructor
   explicit Datum(const Table& value);
 
   /// \brief Cast from concrete types of Array or Scalar to Datum
@@ -117,7 +119,7 @@ struct ARROW_EXPORT Datum {
       : Datum(std::shared_ptr<typename std::conditional<IsArray, Array, Scalar>::type>(
             std::move(value))) {}
 
-  /// \brief Cast from concrete types of Array or Scalar to Datum
+  /// \brief Cast from concrete subtypes of Array or Scalar to Datum
   template <typename T, typename TV = typename std::remove_reference_t<T>,
             bool IsArray = std::is_base_of_v<Array, T>,
             bool IsScalar = std::is_base_of_v<Scalar, T>,
@@ -126,7 +128,7 @@ struct ARROW_EXPORT Datum {
       : Datum(std::make_shared<TV>(std::forward<T>(value))) {}
 
   /// \brief Copy from concrete types of Scalar.
-  /// 
+  ///
   /// The concrete scalar type must be copyable (not all of them are).
   template <typename T, typename = enable_if_t<std::is_base_of_v<Scalar, T>>>
   Datum(const T& value)  // NOLINT implicit conversion
@@ -135,29 +137,29 @@ struct ARROW_EXPORT Datum {
   // Convenience constructors
   /// \brief Convenience constructor storing a bool scalar.
   explicit Datum(bool value);
-  /// \brief A convenience constructor. Stores a int8 scalar.
+  /// \brief Convenience constructor storing an int8 scalar.
   explicit Datum(int8_t value);
-  /// \brief A convenience constructor. Stores a uint8 scalar.
+  /// \brief Convenience constructor storing a uint8 scalar.
   explicit Datum(uint8_t value);
-  /// \brief A convenience constructor. Stores a int16 scalar.
+  /// \brief Convenience constructor storing an int16 scalar.
   explicit Datum(int16_t value);
-  /// \brief A convenience constructor. Stores a uint16 scalar.
+  /// \brief Convenience constructor storing a uint16 scalar.
   explicit Datum(uint16_t value);
-  /// \brief A convenience constructor. Stores a int32 scalar.
+  /// \brief Convenience constructor storing an int32 scalar.
   explicit Datum(int32_t value);
-  /// \brief A convenience constructor. Stores a uint32 scalar.
+  /// \brief Convenience constructor storing a uint32 scalar.
   explicit Datum(uint32_t value);
-  /// \brief A convenience constructor. Stores a int64 scalar.
+  /// \brief Convenience constructor storing an int64 scalar.
   explicit Datum(int64_t value);
-  /// \brief A convenience constructor. Stores a uint64 scalar.
+  /// \brief Convenience constructor storing a uint64 scalar.
   explicit Datum(uint64_t value);
-  /// \brief A convenience constructor. Stores a float scalar.
+  /// \brief Convenience constructor storing a float scalar.
   explicit Datum(float value);
-  /// \brief A convenience constructor. Stores a double scalar.
+  /// \brief Convenience constructor storing a double scalar.
   explicit Datum(double value);
-  /// \brief A convenience constructor. Stores a string scalar.
+  /// \brief Convenience constructor storing a string scalar.
   explicit Datum(std::string value);
-  /// \brief A convenience constructor. Stores a string scalar.
+  /// \brief Convenience constructor storing a string scalar.
   explicit Datum(const char* value);
 
   /// \brief Convenience constructor for a DurationScalar from std::chrono::duration
@@ -187,7 +189,7 @@ struct ARROW_EXPORT Datum {
   }
 
   /// \brief Retrieve the stored array as ArrayData
-  /// 
+  ///
   /// Use make_array() if an Array is desired (which is more expensive).
   /// \throws std::bad_variant_access if the datum is not an array
   const std::shared_ptr<ArrayData>& array() const {
@@ -200,8 +202,9 @@ struct ARROW_EXPORT Datum {
   int64_t TotalBufferSize() const;
 
   /// \brief Get the stored ArrayData in mutable form
-  /// 
-  /// For internal use primarily. Keep in mind a shared_ptr<Datum> may have multiple owners.
+  ///
+  /// For internal use primarily. Keep in mind a shared_ptr<Datum> may have multiple
+  /// owners.
   ArrayData* mutable_array() const { return this->array().get(); }
 
   /// \brief Retrieve the stored array as Array
