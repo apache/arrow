@@ -31,6 +31,7 @@ from pyarrow import Table, IntegerArray, RecordBatch, RecordBatchReader, Schema
 
 
 class Scanner(Protocol):
+    """A scanner implementation for a dataset."""
     @abstractmethod
     def count_rows(self) -> int:
         ...
@@ -43,13 +44,12 @@ class Scanner(Protocol):
     def take(self, indices: IntegerArray) -> Table:
         ...
     
-    @abstractmethod
     def to_table(self) -> Table:
-        ...
+        self.to_reader().read_all()
     
-    @abstractmethod
     def to_batches(self) -> Iterator[RecordBatch]:
-        ...
+        for batch in self.to_reader():
+            yield batch
 
     @abstractmethod
     def to_reader(self) -> RecordBatchReader:
@@ -68,6 +68,9 @@ class Scannable(Protocol):
 
 
 class Fragment(Scannable):
+    """A fragment of a dataset.
+    
+    This class should be pickleable so that it can be used in a distrubuted scan."""
     ...
 
 
