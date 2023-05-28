@@ -1154,7 +1154,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
 // AWS doc says "5 MB" but it's not clear whether those are MB or MiB,
 // so I chose the safer value.
 // (see https://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html)
-static constexpr int64_t kMinimumPartUpload = 5 * 1024 * 1024;
+static constexpr int64_t kMinimumPartUpload = 10 * 1024 * 1024;
 
 // An OutputStream that writes to a S3 object
 class ObjectOutputStream final : public io::OutputStream {
@@ -1304,26 +1304,30 @@ class ObjectOutputStream final : public io::OutputStream {
       return Status::Invalid("Operation on closed stream");
     }
 
-    if (!current_part_ && nbytes >= part_upload_threshold_) {
-      // No current part and data large enough, upload it directly
-      // (without copying if the buffer is owned)
-      RETURN_NOT_OK(UploadPart(data, nbytes, owned_buffer));
-      pos_ += nbytes;
-      return Status::OK();
-    }
-    // Can't upload data on its own, need to buffer it
-    if (!current_part_) {
-      ARROW_ASSIGN_OR_RAISE(
-          current_part_,
-          io::BufferOutputStream::Create(part_upload_threshold_, io_context_.pool()));
-      current_part_size_ = 0;
-    }
-    RETURN_NOT_OK(current_part_->Write(data, nbytes));
-    pos_ += nbytes;
-    current_part_size_ += nbytes;
+    const int8_t* data_ptr = reinterpret_cast<const int8_t*>(data);
+    int64_t offset = 0;
 
-    if (current_part_size_ >= part_upload_threshold_) {
-      // Current part large enough, upload it
+    while (offset < nbytes) {
+      if (!current_part_) {
+        ARROW_ASSIGN_OR_RAISE(
+            current_part_,
+            io::BufferOutputStream::Create(part_upload_threshold_, io_context_.pool()));
+        current_part_size_ = 0;
+      }
+
+      // Try to fill current buffer
+      const int64_t to_copy =
+          std::min(nbytes - offset, part_upload_threshold_ - current_part_size_);
+      RETURN_NOT_OK(current_part_->Write(data_ptr + offset, to_copy));
+      current_part_size_ += to_copy;
+      offset += to_copy;
+
+      // If buffer isn't full, break
+      if (current_part_size_ < part_upload_threshold_) {
+        break;
+      }
+
+      // Upload current buffer
       RETURN_NOT_OK(CommitCurrentPart());
     }
 
@@ -1407,20 +1411,6 @@ class ObjectOutputStream final : public io::OutputStream {
     }
 
     ++part_number_;
-    // With up to 10000 parts in an upload (S3 limit), a stream writing chunks
-    // of exactly 5MB would be limited to 50GB total.  To avoid that, we bump
-    // the upload threshold every 100 parts.  So the pattern is:
-    // - part 1 to 99: 5MB threshold
-    // - part 100 to 199: 10MB threshold
-    // - part 200 to 299: 15MB threshold
-    // ...
-    // - part 9900 to 9999: 500MB threshold
-    // So the total size limit is 2475000MB or ~2.4TB, while keeping manageable
-    // chunk sizes and avoiding too much buffering in the common case of a small-ish
-    // stream.  If the limit's not enough, we can revisit.
-    if (part_number_ % 100 == 0) {
-      part_upload_threshold_ += kMinimumPartUpload;
-    }
 
     return Status::OK();
   }
