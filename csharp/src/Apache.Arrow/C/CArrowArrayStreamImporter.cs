@@ -1,4 +1,4 @@
-// Licensed to the Apache Software Foundation (ASF) under one
+﻿// Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
 // regarding copyright ownership.  The ASF licenses this file
@@ -106,6 +106,11 @@ namespace Apache.Arrow.C
                 if (_disposed)
                 {
                     throw new ObjectDisposedException(typeof(ImportedArrowArrayStream).Name);
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return new(Task.FromCanceled<RecordBatch>(cancellationToken));
                 }
 
                 RecordBatch result = null;
