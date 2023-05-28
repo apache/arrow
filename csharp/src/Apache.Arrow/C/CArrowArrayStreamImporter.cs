@@ -1,4 +1,4 @@
-﻿// Licensed to the Apache Software Foundation (ASF) under one
+// Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
 // regarding copyright ownership.  The ASF licenses this file
@@ -53,6 +53,16 @@ namespace Apache.Arrow.C
             private readonly Schema _schema;
             private bool _disposed;
 
+            internal static string GetLastError(CArrowArrayStream* arrayStream, int errno)
+            {
+                byte* error = arrayStream->get_last_error(arrayStream);
+                if (error == null)
+                {
+                    return $"Array stream operation failed with no message. Error code: {errno}";
+                }
+                return StringUtil.PtrToStringUtf8(error);
+            }
+
             public ImportedArrowArrayStream(CArrowArrayStream* cArrayStream)
             {
                 if (cArrayStream == null)
@@ -71,7 +81,7 @@ namespace Apache.Arrow.C
                     int errno = _cArrayStream->get_schema(_cArrayStream, cSchema);
                     if (errno != 0)
                     {
-                        throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
+                        throw new Exception(GetLastError(cArrayStream, errno));
                     }
                     _schema = CArrowSchemaImporter.ImportSchema(cSchema);
                 }
@@ -105,7 +115,7 @@ namespace Apache.Arrow.C
                     int errno = _cArrayStream->get_next(_cArrayStream, cArray);
                     if (errno != 0)
                     {
-                        throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
+                        return new(Task.FromException<RecordBatch>(new Exception(GetLastError(_cArrayStream, errno))));
                     }
                     if (cArray->release != null)
                     {
