@@ -1307,28 +1307,40 @@ class ObjectOutputStream final : public io::OutputStream {
     const int8_t* data_ptr = reinterpret_cast<const int8_t*>(data);
     int64_t offset = 0;
 
-    while (offset < nbytes) {
-      if (!current_part_) {
-        ARROW_ASSIGN_OR_RAISE(
-            current_part_,
-            io::BufferOutputStream::Create(part_upload_threshold_, io_context_.pool()));
-        current_part_size_ = 0;
-      }
-
+    // Handle case where we have some bytes bufferred from prior calls.
+    if (current_part_size_ > 0) {
       // Try to fill current buffer
       const int64_t to_copy =
           std::min(nbytes - offset, part_upload_threshold_ - current_part_size_);
       RETURN_NOT_OK(current_part_->Write(data_ptr + offset, to_copy));
       current_part_size_ += to_copy;
       offset += to_copy;
+      pos_ += to_copy;
 
       // If buffer isn't full, break
       if (current_part_size_ < part_upload_threshold_) {
-        break;
+        return Status::OK();
       }
 
       // Upload current buffer
       RETURN_NOT_OK(CommitCurrentPart());
+    }
+
+    // We can upload chunks without copying them into a buffer
+    while (nbytes - offset >= part_upload_threshold_) {
+      RETURN_NOT_OK(UploadPart(data_ptr + offset, part_upload_threshold_));
+      offset += part_upload_threshold_;
+      pos_ += part_upload_threshold_;
+    }
+
+    // Buffer remaining bytes
+    if (offset < nbytes) {
+      current_part_size_ = nbytes - offset;
+      ARROW_ASSIGN_OR_RAISE(
+          current_part_,
+          io::BufferOutputStream::Create(part_upload_threshold_, io_context_.pool()));
+      RETURN_NOT_OK(current_part_->Write(data_ptr + offset, current_part_size_));
+      pos_ += current_part_size_;
     }
 
     return Status::OK();
