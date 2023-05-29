@@ -180,6 +180,7 @@ set(ARROW_SRCS
     tensor/csf_converter.cc
     tensor/csx_converter.cc
     type.cc
+    type_traits.cc
     visitor.cc
     c/bridge.cc
     io/buffered.cc

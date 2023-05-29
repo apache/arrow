@@ -36,6 +36,7 @@
 #include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
@@ -358,9 +359,37 @@ std::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
   return std::nullopt;
 }
 
+const char* kAceroAlignmentHandlingEnvVar = "ACERO_ALIGNMENT_HANDLING";
+
+UnalignedBufferHandling DetermineDefaultUnalignedBufferHandling() {
+  auto maybe_value = ::arrow::internal::GetEnvVar(kAceroAlignmentHandlingEnvVar);
+  if (!maybe_value.ok()) {
+    return UnalignedBufferHandling::kWarn;
+  }
+  std::string value = maybe_value.MoveValueUnsafe();
+  if (::arrow::internal::AsciiEqualsCaseInsensitive(value, "warn")) {
+    return UnalignedBufferHandling::kWarn;
+  } else if (::arrow::internal::AsciiEqualsCaseInsensitive(value, "ignore")) {
+    return UnalignedBufferHandling::kIgnore;
+  } else if (::arrow::internal::AsciiEqualsCaseInsensitive(value, "reallocate")) {
+    return UnalignedBufferHandling::kReallocate;
+  } else if (::arrow::internal::AsciiEqualsCaseInsensitive(value, "error")) {
+    return UnalignedBufferHandling::kError;
+  } else {
+    ARROW_LOG(WARNING) << "unrecognized value for ACERO_ALIGNMENT_HANDLING: " << value;
+    return UnalignedBufferHandling::kWarn;
+  }
+}
+
 }  // namespace
 
 const uint32_t ExecPlan::kMaxBatchSize;
+
+UnalignedBufferHandling GetDefaultUnalignedBufferHandling() {
+  static UnalignedBufferHandling default_value =
+      DetermineDefaultUnalignedBufferHandling();
+  return default_value;
+}
 
 Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
     QueryOptions opts, ExecContext ctx,
@@ -621,7 +650,8 @@ Future<std::shared_ptr<Table>> DeclarationToTableImpl(
                        query_options.function_registry);
   std::shared_ptr<std::shared_ptr<Table>> output_table =
       std::make_shared<std::shared_ptr<Table>>();
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(query_options, exec_ctx));
   TableSinkNodeOptions sink_options(output_table.get());
   sink_options.sequence_output = query_options.sequence_output;
   sink_options.names = std::move(query_options.field_names);
@@ -648,7 +678,8 @@ Future<BatchesWithCommonSchema> DeclarationToExecBatchesImpl(
   std::shared_ptr<Schema> out_schema;
   AsyncGenerator<std::optional<ExecBatch>> sink_gen;
   ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(options, exec_ctx));
   SinkNodeOptions sink_options(&sink_gen, &out_schema);
   sink_options.sequence_output = options.sequence_output;
   Declaration with_sink = Declaration::Sequence({declaration, {"sink", sink_options}});
@@ -678,7 +709,8 @@ Future<BatchesWithCommonSchema> DeclarationToExecBatchesImpl(
 Future<> DeclarationToStatusImpl(Declaration declaration, QueryOptions options,
                                  ::arrow::internal::Executor* cpu_executor) {
   ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan, ExecPlan::Make(exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> exec_plan,
+                        ExecPlan::Make(options, exec_ctx));
   ARROW_ASSIGN_OR_RAISE(ExecNode * last_node, declaration.AddToPlan(exec_plan.get()));
   if (!last_node->is_sink()) {
     ConsumingSinkNodeOptions sink_options(NullSinkNodeConsumer::Make());
@@ -972,7 +1004,8 @@ Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGen
     ::arrow::internal::Executor* cpu_executor, std::shared_ptr<Schema>* out_schema) {
   auto converter = std::make_shared<BatchConverter>();
   ExecContext exec_ctx(options.memory_pool, cpu_executor, options.function_registry);
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan, ExecPlan::Make(exec_ctx));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ExecPlan> plan,
+                        ExecPlan::Make(options, exec_ctx));
   Declaration with_sink = Declaration::Sequence(
       {declaration,
        {"sink", SinkNodeOptions(&converter->exec_batch_gen, &converter->schema)}});

@@ -528,4 +528,13 @@ class ARROW_TESTING_EXPORT GatingTask {
   std::shared_ptr<Impl> impl_;
 };
 
+/// \brief create an exact copy of the data where each buffer has a max alignment of 1
+///
+/// This method does not recurse into the dictionary or children
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayData> UnalignBuffers(const ArrayData& array);
+/// \brief create an exact copy of the array where each buffer has a max alignment of 1
+///
+/// This method does not recurse into the dictionary or children
+ARROW_TESTING_EXPORT std::shared_ptr<Array> UnalignBuffers(const Array& array);
+
 }  // namespace arrow
