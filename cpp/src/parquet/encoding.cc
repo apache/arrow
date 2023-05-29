@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -1126,6 +1127,39 @@ inline int DecodePlain<ByteArray>(const uint8_t* data, int64_t data_size, int nu
   return bytes_decoded;
 }
 
+static inline int64_t ReadLargeByteArray(const uint8_t* data, int64_t data_size,
+                                    LargeByteArray* out) {
+  if (ARROW_PREDICT_FALSE(data_size < 4)) {
+    ParquetException::EofException();
+  }
+  const int32_t len = SafeLoadAs<int32_t>(data);
+  if (len < 0) {
+    throw ParquetException("Invalid BYTE_ARRAY value");
+  }
+  const int64_t consumed_length = static_cast<int64_t>(len) + 4;
+  if (ARROW_PREDICT_FALSE(data_size < consumed_length)) {
+    ParquetException::EofException();
+  }
+  *out = LargeByteArray{static_cast<uint32_t>(len), data + 4};
+  return consumed_length;
+}
+
+template <>
+inline int DecodePlain<LargeByteArray>(const uint8_t* data, int64_t data_size, int num_values,
+                                  int type_length, LargeByteArray* out) {
+  int bytes_decoded = 0;
+  for (int i = 0; i < num_values; ++i) {
+    const auto increment = ReadLargeByteArray(data, data_size, out + i);
+    if (ARROW_PREDICT_FALSE(increment > INT_MAX - bytes_decoded)) {
+      throw ParquetException("BYTE_ARRAY chunk too large");
+    }
+    data += increment;
+    data_size -= increment;
+    bytes_decoded += static_cast<int>(increment);
+  }
+  return bytes_decoded;
+}
+
 // Template specialization for FIXED_LEN_BYTE_ARRAY. The written values do not
 // own their own data.
 template <>
@@ -1850,9 +1884,9 @@ template <>
 void DictDecoderImpl<LargeByteArrayType>::SetDict(TypedDecoder<LargeByteArrayType>* dictionary) {
   DecodeDict(dictionary);
 
-  auto dict_values = reinterpret_cast<LargeByteArray*>(dictionary_->mutable_data());
+  auto dict_values = reinterpret_cast<ByteArray*>(dictionary_->mutable_data());
 
-  uint32_t total_size = 0;
+  int total_size = 0;
   for (int i = 0; i < dictionary_length_; ++i) {
     total_size += dict_values[i].len;
   }
