@@ -64,6 +64,9 @@ struct Type {
     DOUBLE = 5,
     BYTE_ARRAY = 6,
     FIXED_LEN_BYTE_ARRAY = 7,
+
+    // workaround
+    LARGE_BYTE_ARRAY = 8,
     // Should always be last element.
     UNDEFINED = 8
   };
@@ -588,6 +591,26 @@ inline bool operator!=(const ByteArray& left, const ByteArray& right) {
   return !(left == right);
 }
 
+struct LargeByteArray {
+  LargeByteArray() : len(0), ptr(NULLPTR) {}
+  LargeByteArray(uint64_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
+
+  LargeByteArray(::std::string_view view)  // NOLINT implicit conversion
+      : LargeByteArray(view.size(),
+                  reinterpret_cast<const uint8_t*>(view.data())) {}
+  uint64_t len;
+  const uint8_t* ptr;
+};
+
+inline bool operator==(const LargeByteArray& left, const LargeByteArray& right) {
+  return left.len == right.len &&
+         (left.len == 0 || std::memcmp(left.ptr, right.ptr, left.len) == 0);
+}
+
+inline bool operator!=(const LargeByteArray& left, const LargeByteArray& right) {
+  return !(left == right);
+}
+
 struct FixedLenByteArray {
   FixedLenByteArray() : ptr(NULLPTR) {}
   explicit FixedLenByteArray(const uint8_t* ptr) : ptr(ptr) {}
@@ -740,6 +763,14 @@ struct type_traits<Type::BYTE_ARRAY> {
   static constexpr const char* printf_code = "s";
 };
 
+template<>
+struct type_traits<Type::LARGE_BYTE_ARRAY> {
+  using value_type = LargeByteArray;
+
+  static constexpr int value_byte_size = sizeof(LargeByteArray);
+  static constexpr const char* printf_code = "ls";
+};
+
 template <>
 struct type_traits<Type::FIXED_LEN_BYTE_ARRAY> {
   using value_type = FixedLenByteArray;
@@ -761,6 +792,7 @@ using Int96Type = PhysicalType<Type::INT96>;
 using FloatType = PhysicalType<Type::FLOAT>;
 using DoubleType = PhysicalType<Type::DOUBLE>;
 using ByteArrayType = PhysicalType<Type::BYTE_ARRAY>;
+using LargeByteArrayType = PhysicalType<Type::LARGE_BYTE_ARRAY>;
 using FLBAType = PhysicalType<Type::FIXED_LEN_BYTE_ARRAY>;
 
 template <typename Type>

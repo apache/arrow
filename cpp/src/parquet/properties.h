@@ -116,6 +116,12 @@ class PARQUET_EXPORT ReaderProperties {
     page_checksum_verification_ = check_crc;
   }
 
+  bool use_binary_large_variants() const { return use_binary_large_variants_; }
+
+  void set_use_binary_large_variants(bool use_binary_large_variants) {
+    use_binary_large_variants_ = use_binary_large_variants;
+  }
+
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
@@ -124,6 +130,7 @@ class PARQUET_EXPORT ReaderProperties {
   bool buffered_stream_enabled_ = false;
   bool page_checksum_verification_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
+  bool use_binary_large_variants_ = false;
 };
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();
@@ -851,6 +858,14 @@ class PARQUET_EXPORT ArrowReaderProperties {
     return coerce_int96_timestamp_unit_;
   }
 
+  void set_use_binary_large_variants(bool use_binary_large_variants) {
+    use_binary_large_variants_ = use_binary_large_variants;
+  }
+
+  bool use_binary_large_variants() const {
+    return use_binary_large_variants_;
+  }
+
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
@@ -859,6 +874,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::io::IOContext io_context_;
   ::arrow::io::CacheOptions cache_options_;
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
+  bool use_binary_large_variants_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

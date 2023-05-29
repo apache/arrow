@@ -1988,33 +1988,33 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   void DebugPrintState() override {
-    const int16_t* def_levels = this->def_levels();
-    const int16_t* rep_levels = this->rep_levels();
-    const int64_t total_levels_read = levels_position_;
-
-    const T* vals = reinterpret_cast<const T*>(this->values());
-
-    if (leaf_info_.def_level > 0) {
-      std::cout << "def levels: ";
-      for (int64_t i = 0; i < total_levels_read; ++i) {
-        std::cout << def_levels[i] << " ";
-      }
-      std::cout << std::endl;
-    }
-
-    if (leaf_info_.rep_level > 0) {
-      std::cout << "rep levels: ";
-      for (int64_t i = 0; i < total_levels_read; ++i) {
-        std::cout << rep_levels[i] << " ";
-      }
-      std::cout << std::endl;
-    }
-
-    std::cout << "values: ";
-    for (int64_t i = 0; i < this->values_written(); ++i) {
-      std::cout << vals[i] << " ";
-    }
-    std::cout << std::endl;
+//    const int16_t* def_levels = this->def_levels();
+//    const int16_t* rep_levels = this->rep_levels();
+//    const int64_t total_levels_read = levels_position_;
+//
+//    const T* vals = reinterpret_cast<const T*>(this->values());
+//
+//    if (leaf_info_.def_level > 0) {
+//      std::cout << "def levels: ";
+//      for (int64_t i = 0; i < total_levels_read; ++i) {
+//        std::cout << def_levels[i] << " ";
+//      }
+//      std::cout << std::endl;
+//    }
+//
+//    if (leaf_info_.rep_level > 0) {
+//      std::cout << "rep levels: ";
+//      for (int64_t i = 0; i < total_levels_read; ++i) {
+//        std::cout << rep_levels[i] << " ";
+//      }
+//      std::cout << std::endl;
+//    }
+//
+//    std::cout << "values: ";
+//    for (int64_t i = 0; i < this->values_written(); ++i) {
+////      std::cout << vals[i] << " ";
+//    }
+//    std::cout << std::endl;
   }
 
   void ResetValues() {
@@ -2094,14 +2094,14 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
 };
 
 class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
-                                     virtual public LargeBinaryRecordReader {
+                                     virtual public BinaryRecordReader {
  public:
   ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
       : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
                                          read_dense_for_nullable) {
     ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    accumulator_.builder = std::make_unique<::arrow::LargeBinaryBuilder>(pool);
+    accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -2133,6 +2133,48 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
  private:
   // Helper data structure for accumulating builder chunks
   typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
+};
+
+class LargeByteArrayChunkedRecordReader : public TypedRecordReader<LargeByteArrayType>,
+                                          virtual public LargeBinaryRecordReader {
+ public:
+  LargeByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
+                               ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+      : TypedRecordReader<LargeByteArrayType>(descr, leaf_info, pool,
+                                         read_dense_for_nullable) {
+    ARROW_DCHECK_EQ(descr_->physical_type(), Type::LARGE_BYTE_ARRAY);
+    accumulator_.builder = std::make_unique<::arrow::LargeBinaryBuilder>(pool);
+  }
+
+  ::arrow::ArrayVector GetBuilderChunks() override {
+    ::arrow::ArrayVector result = accumulator_.chunks;
+    if (result.size() == 0 || accumulator_.builder->length() > 0) {
+      std::shared_ptr<::arrow::Array> last_chunk;
+      PARQUET_THROW_NOT_OK(accumulator_.builder->Finish(&last_chunk));
+      result.push_back(std::move(last_chunk));
+    }
+    accumulator_.chunks = {};
+    return result;
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override {
+    int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
+        static_cast<int>(values_to_read), &accumulator_);
+    CheckNumberDecoded(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    int64_t num_decoded = this->current_decoder_->DecodeArrow(
+        static_cast<int>(values_to_read), static_cast<int>(null_count),
+        valid_bits_->mutable_data(), values_written_, &accumulator_);
+    CheckNumberDecoded(num_decoded, values_to_read - null_count);
+    ResetValues();
+  }
+
+ private:
+  // Helper data structure for accumulating builder chunks
+  typename EncodingTraits<LargeByteArrayType>::Accumulator accumulator_;
 };
 
 class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
@@ -2213,6 +2255,88 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
  private:
   using BinaryDictDecoder = DictDecoder<ByteArrayType>;
 
+  ::arrow::BinaryDictionary32Builder builder_;
+  std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
+};
+
+class LargeByteArrayDictionaryRecordReader : public TypedRecordReader<LargeByteArrayType>,
+                                            virtual public DictionaryRecordReader {
+ public:
+  LargeByteArrayDictionaryRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
+                                  ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+      : TypedRecordReader<LargeByteArrayType>(descr, leaf_info, pool, read_dense_for_nullable),
+        builder_(pool) {
+    this->read_dictionary_ = true;
+  }
+
+  std::shared_ptr<::arrow::ChunkedArray> GetResult() override {
+    FlushBuilder();
+    std::vector<std::shared_ptr<::arrow::Array>> result;
+    std::swap(result, result_chunks_);
+    return std::make_shared<::arrow::ChunkedArray>(std::move(result), builder_.type());
+  }
+
+  void FlushBuilder() {
+    if (builder_.length() > 0) {
+      std::shared_ptr<::arrow::Array> chunk;
+      PARQUET_THROW_NOT_OK(builder_.Finish(&chunk));
+      result_chunks_.emplace_back(std::move(chunk));
+
+      // Also clears the dictionary memo table
+      builder_.Reset();
+    }
+  }
+
+  void MaybeWriteNewDictionary() {
+    if (this->new_dictionary_) {
+      /// If there is a new dictionary, we may need to flush the builder, then
+      /// insert the new dictionary values
+      FlushBuilder();
+      builder_.ResetFull();
+      auto decoder = dynamic_cast<LargeBinaryDictDecoder*>(this->current_decoder_);
+      decoder->InsertDictionary(&builder_);
+      this->new_dictionary_ = false;
+    }
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override {
+    int64_t num_decoded = 0;
+    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
+      MaybeWriteNewDictionary();
+      auto decoder = dynamic_cast<LargeBinaryDictDecoder*>(this->current_decoder_);
+      num_decoded = decoder->DecodeIndices(static_cast<int>(values_to_read), &builder_);
+    } else {
+      num_decoded = this->current_decoder_->DecodeArrowNonNull(
+          static_cast<int>(values_to_read), &builder_);
+
+      /// Flush values since they have been copied into the builder
+      ResetValues();
+    }
+    CheckNumberDecoded(num_decoded, values_to_read);
+  }
+
+  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    int64_t num_decoded = 0;
+    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
+      MaybeWriteNewDictionary();
+      auto decoder = dynamic_cast<LargeBinaryDictDecoder*>(this->current_decoder_);
+      num_decoded = decoder->DecodeIndicesSpaced(
+          static_cast<int>(values_to_read), static_cast<int>(null_count),
+          valid_bits_->mutable_data(), values_written_, &builder_);
+    } else {
+      num_decoded = this->current_decoder_->DecodeArrow(
+          static_cast<int>(values_to_read), static_cast<int>(null_count),
+          valid_bits_->mutable_data(), values_written_, &builder_);
+
+      /// Flush values since they have been copied into the builder
+      ResetValues();
+    }
+    ARROW_DCHECK_EQ(num_decoded, values_to_read - null_count);
+  }
+
+ private:
+  using LargeBinaryDictDecoder = DictDecoder<LargeByteArrayType>;
+
   ::arrow::BinaryDictionary64Builder builder_;
   std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
 };
@@ -2231,11 +2355,17 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
                                                         LevelInfo leaf_info,
                                                         ::arrow::MemoryPool* pool,
                                                         bool read_dictionary,
-                                                        bool read_dense_for_nullable) {
+                                                        bool read_dense_for_nullable,
+                                                        bool use_binary_string_large_variants) {
   if (read_dictionary) {
     return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
   } else {
+    if (use_binary_string_large_variants) {
+      return std::make_shared<LargeByteArrayDictionaryRecordReader>(
+          descr, leaf_info, pool, read_dense_for_nullable);
+    }
+
     return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool,
                                                           read_dense_for_nullable);
   }
@@ -2246,7 +2376,8 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
 std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                  LevelInfo leaf_info, MemoryPool* pool,
                                                  bool read_dictionary,
-                                                 bool read_dense_for_nullable) {
+                                                 bool read_dense_for_nullable,
+                                                 bool use_binary_string_large_variants) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,
@@ -2268,7 +2399,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                              read_dense_for_nullable);
     case Type::BYTE_ARRAY: {
       return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
-                                       read_dense_for_nullable);
+                                       read_dense_for_nullable, use_binary_string_large_variants);
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,

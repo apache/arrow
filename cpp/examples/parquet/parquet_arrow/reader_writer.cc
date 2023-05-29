@@ -68,9 +68,19 @@ void read_whole_file(const std::string & filename) {
                                                         arrow::default_memory_pool()));
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
-  PARQUET_THROW_NOT_OK(
-      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
 
+  parquet::arrow::FileReaderBuilder builder;
+
+  parquet::ReaderProperties props = parquet::default_reader_properties();
+
+//  props.set_use_binary_large_variants(true);
+
+  PARQUET_THROW_NOT_OK(builder.Open(infile, props));
+
+  PARQUET_THROW_NOT_OK(builder.Build(&reader));
+
+//  PARQUET_THROW_NOT_OK(
+//      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
 
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));

@@ -321,7 +321,8 @@ class PARQUET_EXPORT RecordReader {
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr, LevelInfo leaf_info,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      bool read_dictionary = false, bool read_dense_for_nullable = false);
+      bool read_dictionary = false, bool read_dense_for_nullable = false,
+      bool use_binary_string_large_variants = false);
 
   virtual ~RecordReader() = default;
 
@@ -470,7 +471,7 @@ class BinaryRecordReader : virtual public RecordReader {
   virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
 };
 
-class LargeBinaryRecordReader : virtual public RecordReader {
+class LargeBinaryRecordReader : virtual public BinaryRecordReader {
  public:
   virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
 };

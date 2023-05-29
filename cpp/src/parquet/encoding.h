@@ -62,6 +62,7 @@ using Int96Encoder = TypedEncoder<Int96Type>;
 using FloatEncoder = TypedEncoder<FloatType>;
 using DoubleEncoder = TypedEncoder<DoubleType>;
 using ByteArrayEncoder = TypedEncoder<ByteArrayType>;
+using LargeByteArrayEncoder = TypedEncoder<LargeByteArrayType>;
 using FLBAEncoder = TypedEncoder<FLBAType>;
 
 template <typename DType>
@@ -74,6 +75,7 @@ using Int96Decoder = TypedDecoder<Int96Type>;
 using FloatDecoder = TypedDecoder<FloatType>;
 using DoubleDecoder = TypedDecoder<DoubleType>;
 using ByteArrayDecoder = TypedDecoder<ByteArrayType>;
+using LargeByteArrayDecoder = TypedDecoder<LargeByteArrayType>;
 class FLBADecoder;
 
 template <typename T>
@@ -142,6 +144,21 @@ template <>
 struct EncodingTraits<ByteArrayType> {
   using Encoder = ByteArrayEncoder;
   using Decoder = ByteArrayDecoder;
+
+  /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
+  /// overflow the capacity of a single arrow::BinaryArray
+  struct Accumulator {
+    std::unique_ptr<::arrow::BinaryBuilder> builder;
+    std::vector<std::shared_ptr<::arrow::Array>> chunks;
+  };
+  using ArrowType = ::arrow::BinaryType;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::BinaryType>;
+};
+
+template <>
+struct EncodingTraits<LargeByteArrayType> {
+  using Encoder = LargeByteArrayEncoder;
+  using Decoder = LargeByteArrayDecoder;
 
   /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
   /// overflow the capacity of a single arrow::BinaryArray
