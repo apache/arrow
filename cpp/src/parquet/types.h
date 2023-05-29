@@ -593,12 +593,12 @@ inline bool operator!=(const ByteArray& left, const ByteArray& right) {
 
 struct LargeByteArray {
   LargeByteArray() : len(0), ptr(NULLPTR) {}
-  LargeByteArray(uint64_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
+  LargeByteArray(uint32_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
 
   LargeByteArray(::std::string_view view)  // NOLINT implicit conversion
       : LargeByteArray(view.size(),
                   reinterpret_cast<const uint8_t*>(view.data())) {}
-  uint64_t len;
+  uint32_t len;
   const uint8_t* ptr;
 };
 

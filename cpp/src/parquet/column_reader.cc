@@ -2142,7 +2142,7 @@ class LargeByteArrayChunkedRecordReader : public TypedRecordReader<LargeByteArra
                                ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
       : TypedRecordReader<LargeByteArrayType>(descr, leaf_info, pool,
                                          read_dense_for_nullable) {
-    ARROW_DCHECK_EQ(descr_->physical_type(), Type::LARGE_BYTE_ARRAY);
+    ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
     accumulator_.builder = std::make_unique<::arrow::LargeBinaryBuilder>(pool);
   }
 
@@ -2362,7 +2362,7 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
                                                              read_dense_for_nullable);
   } else {
     if (use_binary_string_large_variants) {
-      return std::make_shared<LargeByteArrayDictionaryRecordReader>(
+      return std::make_shared<LargeByteArrayChunkedRecordReader>(
           descr, leaf_info, pool, read_dense_for_nullable);
     }
 
