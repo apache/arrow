@@ -1309,6 +1309,29 @@ static inline int offset_bit_width(Type::type type_id) {
   return 0;
 }
 
+/// \brief Get the alignment a buffer should have to be considered "value aligned"
+///
+/// Some buffers are frequently type-punned.  For example, in an int32 array the
+/// values buffer is frequently cast to int32_t*
+///
+/// This sort of punning is technically only valid if the pointer is aligned to a
+/// proper width (e.g. 4 bytes in the case of int32).  However, most modern compilers
+/// are quite permissive if we get this wrong.  Note that this alignment is something
+/// that is guaranteed by malloc (e.g. new int32_t[] will return a buffer that is 4
+/// byte aligned) or common libraries (e.g. numpy) but it is not currently guaranteed
+/// by flight (GH-32276).
+///
+/// We call this "value aligned" and this method will calculate that required alignment.
+///
+/// \param type_id the type of the array containing the buffer
+///                Note: this should be the indices type for a dictionary array since
+///                A dictionary array's buffers are indices.  It should be the storage
+///                type for an extension array.
+/// \param buffer_index the index of the buffer to check, for example 0 will typically
+///                     give you the alignment expected of the validity buffer
+/// \return the required value alignment in bytes (1 if no alignment required)
+int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index);
+
 /// \brief Check for an integer type (signed or unsigned)
 ///
 /// \param[in] type the type to check
