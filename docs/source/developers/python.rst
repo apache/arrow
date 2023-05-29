@@ -47,6 +47,13 @@ Some of the issues can be automatically fixed by passing the ``--fix`` option:
 
    $ archery lint --python --fix
 
+The Python code base also includes some C++ files. To fix formatting in those
+files, add the ``--clang-format`` option:
+
+.. code-block::
+
+   $ archery lint --python --clang-format --fix
+
 .. _python-unit-testing:
 
 Unit Testing

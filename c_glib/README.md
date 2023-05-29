@@ -67,9 +67,9 @@ GLib (replace the version number in the following commands with the
 one you use):
 
 ```console
-% wget https://downloads.apache.org/arrow/arrow-3.0.0/apache-arrow-3.0.0.tar.gz
-% tar xf apache-arrow-3.0.0.tar.gz
-% cd apache-arrow-3.0.0
+$ wget 'https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/arrow-12.0.0/apache-arrow-12.0.0.tar.gz'
+$ tar xf apache-arrow-12.0.0.tar.gz
+$ cd apache-arrow-12.0.0
 ```
 
 You need to build and install Arrow C++ before you build and install

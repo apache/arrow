@@ -54,17 +54,17 @@ using UdfWrapperCallback = std::function<PyObject*(
 
 /// \brief register a Scalar user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterScalarFunction(
-    PyObject* user_function, UdfWrapperCallback wrapper,
-    const UdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
+    PyObject* user_function, UdfWrapperCallback wrapper, const UdfOptions& options,
+    compute::FunctionRegistry* registry = NULLPTR);
 
 /// \brief register a Table user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterTabularFunction(
-    PyObject* user_function, UdfWrapperCallback wrapper,
-    const UdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
-
-Result<std::shared_ptr<RecordBatchReader>> ARROW_PYTHON_EXPORT CallTabularFunction(
-    const std::string& func_name, const std::vector<Datum>& args,
+    PyObject* user_function, UdfWrapperCallback wrapper, const UdfOptions& options,
     compute::FunctionRegistry* registry = NULLPTR);
+
+Result<std::shared_ptr<RecordBatchReader>> ARROW_PYTHON_EXPORT
+CallTabularFunction(const std::string& func_name, const std::vector<Datum>& args,
+                    compute::FunctionRegistry* registry = NULLPTR);
 
 }  // namespace py
 

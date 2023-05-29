@@ -186,7 +186,8 @@ jobs:
         shell: Rscript {0}
         env:
           NOT_CRAN: "true" # actions/setup-r sets this implicitly
-          ARROW_R_DEV: TRUE
+          ARROW_R_DEV: "true"
+          FORCE_AUTOBREW: "true" # this is ignored on windows
           # sccache for macos
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |

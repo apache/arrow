@@ -39,16 +39,12 @@ import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -58,21 +54,6 @@ public class TestAceroSubstraitConsumer extends TestDataset {
   @ClassRule
   public static final TemporaryFolder TMP = new TemporaryFolder();
   public static final String AVRO_SCHEMA_USER = "user.avsc";
-  private RootAllocator allocator = null;
-
-  @Before
-  public void setUp() {
-    allocator = new RootAllocator(Long.MAX_VALUE);
-  }
-
-  @After
-  public void tearDown() {
-    allocator.close();
-  }
-
-  protected BufferAllocator rootAllocator() {
-    return allocator;
-  }
 
   @Test
   public void testRunQueryLocalFiles() throws Exception {
@@ -92,11 +73,9 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
     try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator())
         .runQuery(
-            planReplaceLocalFileURI(
-                new String(Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
-                    .getResource("substrait/local_files_users.json").toURI()))),
-                writeSupport.getOutputURI()
-            )
+            new String(Files.readAllBytes(Paths.get(TestAceroSubstraitConsumer.class.getClassLoader()
+                .getResource("substrait/local_files_users.json").toURI()))).replace("FILENAME_PLACEHOLDER",
+                writeSupport.getOutputURI())
         )
     ) {
       assertEquals(schema, arrowReader.getVectorSchemaRoot().getSchema());
@@ -231,12 +210,16 @@ public class TestAceroSubstraitConsumer extends TestDataset {
 
   @Test
   public void testDeserializeExtendedExpressions() {
-    // Expression: n_nationkey + 7, n_nationkey > 23
-    String binaryExtendedExpressions =
-        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IA" +
-            "RoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRooChwaGhoEKgIQAiIKGggSBgoCEgAiACIGGgQKAigCGg" +
-            "hjb2x1bW5fMBoqCh4aHAgBGgQKAhACIgoaCBIGCgISACIAIgYaBAoCKAoaCGNvbHVtbl8xIh4KAklECgROQU1FEhI" +
-            "KBCoCEAIKCLIBBQiWARgBGAI=";
+    // Extended Expression 01: n_nationkey + 7
+    // Extended Expression 02: n_nationkey > 23
+    // OK generado por POJO: String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRopChoaGBoEKgIQASIIGgYSBAoCEgAiBhoECgIoAhoLcHJvamVjdF9vbmUaKwocGhoIARoEKgIQASIIGgYSBAoCEgAiBhoECgIoChoLcHJvamVjdF90d28iGgoCSUQKBE5BTUUSDgoEKgIQAQoEYgIQARgC";
+    String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRISGhAIAhACGgpsdDphbnlfYW55GikKGhoYGgQqAhABIggaBhIECgISACIGGgQKAigCGgtwcm9qZWN0X29uZRorChwaGggBGgQqAhABIggaBhIECgISACIGGgQKAigKGgtwcm9qZWN0X3R3bxoqChwaGggCGgQKAhABIggaBhIECgISACIGGgQKAigUGgpmaWx0ZXJfb25lIhoKAklECgROQU1FEg4KBCoCEAEKBGICEAEYAg==";
+//    String binaryExtendedExpressions =
+//        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IA" +
+//            "RoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRooChwaGhoEKgIQAiIKGggSBgoCEgAiACIGGgQKAigCGg" +
+//            "hjb2x1bW5fMBoqCh4aHAgBGgQKAhACIgoaCBIGCgISACIAIgYaBAoCKAoaCGNvbHVtbl8xIh4KAklECgROQU1FEhI" +
+//            "KBCoCEAIKCLIBBQiWARgBGAI=";
+
     // get binary plan
     byte[] expression = Base64.getDecoder().decode(binaryExtendedExpressions);
     ByteBuffer substraitExpression = ByteBuffer.allocateDirect(expression.length);
@@ -244,6 +227,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     // deserialize extended expression
     List<String> extededExpressionList =
         new AceroSubstraitConsumer(rootAllocator()).runDeserializeExpressions(substraitExpression);
+    System.out.println(extededExpressionList);
     assertEquals(2, extededExpressionList.size() / 2);
     assertEquals("column_0", extededExpressionList.get(0));
     assertEquals("column_1", extededExpressionList.get(2));
@@ -251,7 +235,8 @@ public class TestAceroSubstraitConsumer extends TestDataset {
 
   @Test(expected = RuntimeException.class)
   public void testBaseParquetReadWithExtendedExpressions() throws Exception {
-    // Extended Expression: { id + 2, id > 10 }
+    // Extended Expression 01: id + 2
+    // Extended Expression 02: id > 10
     // Parsed as: [column_0, add(FieldPath(0), 2), column_1, (FieldPath(0) > 10)] :
     //  -> Fail with: java.lang.RuntimeException: Inferring column projection from FieldRef FieldRef.FieldPath(0)
     // Parsed as: [column_0, add(FieldPath("id"), 2), column_1, (FieldPath("id") > 10)] :
@@ -285,12 +270,5 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         }
       }
     }
-  }
-
-  private static String planReplaceLocalFileURI(String plan, String uri) {
-    StringBuilder builder = new StringBuilder(plan);
-    builder.replace(builder.indexOf("FILENAME_PLACEHOLDER"),
-        builder.indexOf("FILENAME_PLACEHOLDER") + "FILENAME_PLACEHOLDER".length(), uri);
-    return builder.toString();
   }
 }

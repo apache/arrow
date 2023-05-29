@@ -24,7 +24,6 @@
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include <google/protobuf/message.h>
-#include <google/protobuf/stubs/status.h>
 #include <google/protobuf/util/json_util.h>
 #include <google/protobuf/util/message_differencer.h>
 #include <google/protobuf/util/type_resolver.h>
@@ -166,6 +165,13 @@ Result<std::vector<acero::Declaration>> DeserializePlans(
     std::vector<std::string> names;
     if (plan_rel.has_root()) {
       names.assign(plan_rel.root().names().begin(), plan_rel.root().names().end());
+    }
+    if (names.size() > 0) {
+      if (decl_info.output_schema->num_fields() != plan_rel.root().names_size()) {
+        return Status::Invalid("Substrait plan has ", plan_rel.root().names_size(),
+                               " names that cannot be applied to extension schema:\n",
+                               decl_info.output_schema->ToString(false));
+      }
     }
 
     // pipe each relation

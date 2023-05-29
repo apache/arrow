@@ -24,7 +24,8 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
 }
 collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
   if (as_data_frame) {
-    as.data.frame(x, ...)
+    df <- x$to_data_frame()
+    apply_arrow_r_metadata(df, x$metadata$r)
   } else {
     x
   }
@@ -33,6 +34,10 @@ collect.Dataset <- function(x, as_data_frame = TRUE, ...) {
   collect.ArrowTabular(compute.Dataset(x), as_data_frame)
 }
 collect.RecordBatchReader <- collect.Dataset
+
+collect.StructArray <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.vector(x)
+}
 
 compute.ArrowTabular <- function(x, ...) x
 compute.arrow_dplyr_query <- function(x, ...) {

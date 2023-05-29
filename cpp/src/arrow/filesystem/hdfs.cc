@@ -473,6 +473,12 @@ bool HadoopFileSystem::Equals(const FileSystem& other) const {
   return options().Equals(hdfs.options());
 }
 
+Result<std::string> HadoopFileSystem::PathFromUri(const std::string& uri_string) const {
+  return internal::PathFromUriHelper(uri_string, {"hdfs", "viewfs"},
+                                     /*accept_local_paths=*/false,
+                                     internal::AuthorityHandlingBehavior::kIgnore);
+}
+
 Result<std::vector<FileInfo>> HadoopFileSystem::GetFileInfo(const FileSelector& select) {
   return impl_->GetFileInfo(select);
 }

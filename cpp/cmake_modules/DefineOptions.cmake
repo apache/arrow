@@ -264,7 +264,8 @@ takes precedence over ccache if a storage backend is configured" ON)
                 "Build Arrow Fuzzing executables"
                 OFF
                 DEPENDS
-                ARROW_TESTING)
+                ARROW_TESTING
+                ARROW_WITH_BROTLI)
 
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 

@@ -106,16 +106,14 @@ public final class AceroSubstraitConsumer {
         ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
     ) {
       String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(namedTables, arrowArrayStream);
-      JniWrapper.get().executeSerializedPlanNamedTables(
+      JniWrapper.get().executeSerializedPlan(
           plan,
           mapTableToMemoryAddress,
           streamOutput.memoryAddress()
       );
       return Data.importArrayStream(this.allocator, streamOutput);
     } finally {
-      for (ArrowArrayStream stream : arrowArrayStream) {
-        stream.close();
-      }
+      AutoCloseables.close(arrowArrayStream);
     }
   }
 
@@ -125,20 +123,14 @@ public final class AceroSubstraitConsumer {
         ArrowArrayStream streamOutput = ArrowArrayStream.allocateNew(this.allocator)
     ) {
       String[] mapTableToMemoryAddress = getMapTableToMemoryAddress(namedTables, arrowArrayStream);
-      JniWrapper.get().executeSerializedPlanNamedTables(
+      JniWrapper.get().executeSerializedPlan(
           plan,
           mapTableToMemoryAddress,
           streamOutput.memoryAddress()
       );
       return Data.importArrayStream(this.allocator, streamOutput);
     } finally {
-      try {
-        AutoCloseables.close(arrowArrayStream);
-      } catch (RuntimeException e) {
-        throw e;
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
+      AutoCloseables.close(arrowArrayStream);
     }
   }
 

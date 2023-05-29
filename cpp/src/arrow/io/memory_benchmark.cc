@@ -101,7 +101,8 @@ static void Read(void* src, void* dst, size_t size) {
   memset(&c, 0, sizeof(c));
   memset(&d, 0, sizeof(d));
 
-  benchmark::DoNotOptimize(a + b + c + d);
+  auto result = a + b + c + d;
+  benchmark::DoNotOptimize(result);
 }
 
 // See http://codearcana.com/posts/2013/05/18/achieving-maximum-memory-bandwidth.html
@@ -124,7 +125,8 @@ static void StreamRead(void* src, void* dst, size_t size) {
     VectorStreamLoadAsm(simd[i + 3], d);
   }
 
-  benchmark::DoNotOptimize(a + b + c + d);
+  auto result = a + b + c + d;
+  benchmark::DoNotOptimize(result);
 }
 
 static void StreamWrite(void* src, void* dst, size_t size) {

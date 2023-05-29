@@ -23,26 +23,25 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow/endian"
+	"github.com/apache/arrow/go/v13/arrow/endian"
 )
 
 var (
-	Int64Traits     int64Traits
-	Uint64Traits    uint64Traits
-	Float64Traits   float64Traits
-	Int32Traits     int32Traits
-	Uint32Traits    uint32Traits
-	Float32Traits   float32Traits
-	Int16Traits     int16Traits
-	Uint16Traits    uint16Traits
-	Int8Traits      int8Traits
-	Uint8Traits     uint8Traits
-	TimestampTraits timestampTraits
-	Time32Traits    time32Traits
-	Time64Traits    time64Traits
-	Date32Traits    date32Traits
-	Date64Traits    date64Traits
-	DurationTraits  durationTraits
+	Int64Traits    int64Traits
+	Uint64Traits   uint64Traits
+	Float64Traits  float64Traits
+	Int32Traits    int32Traits
+	Uint32Traits   uint32Traits
+	Float32Traits  float32Traits
+	Int16Traits    int16Traits
+	Uint16Traits   uint16Traits
+	Int8Traits     int8Traits
+	Uint8Traits    uint8Traits
+	Time32Traits   time32Traits
+	Time64Traits   time64Traits
+	Date32Traits   date32Traits
+	Date64Traits   date64Traits
+	DurationTraits durationTraits
 )
 
 // Int64 traits
@@ -524,54 +523,6 @@ func (uint8Traits) CastToBytes(b []uint8) []byte {
 
 // Copy copies src to dst.
 func (uint8Traits) Copy(dst, src []uint8) { copy(dst, src) }
-
-// Timestamp traits
-
-const (
-	// TimestampSizeBytes specifies the number of bytes required to store a single Timestamp in memory
-	TimestampSizeBytes = int(unsafe.Sizeof(Timestamp(0)))
-)
-
-type timestampTraits struct{}
-
-// BytesRequired returns the number of bytes required to store n elements in memory.
-func (timestampTraits) BytesRequired(n int) int { return TimestampSizeBytes * n }
-
-// PutValue
-func (timestampTraits) PutValue(b []byte, v Timestamp) {
-	endian.Native.PutUint64(b, uint64(v))
-}
-
-// CastFromBytes reinterprets the slice b to a slice of type Timestamp.
-//
-// NOTE: len(b) must be a multiple of TimestampSizeBytes.
-func (timestampTraits) CastFromBytes(b []byte) []Timestamp {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	var res []Timestamp
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len / TimestampSizeBytes
-	s.Cap = h.Cap / TimestampSizeBytes
-
-	return res
-}
-
-// CastToBytes reinterprets the slice b to a slice of bytes.
-func (timestampTraits) CastToBytes(b []Timestamp) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	var res []byte
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len * TimestampSizeBytes
-	s.Cap = h.Cap * TimestampSizeBytes
-
-	return res
-}
-
-// Copy copies src to dst.
-func (timestampTraits) Copy(dst, src []Timestamp) { copy(dst, src) }
 
 // Time32 traits
 

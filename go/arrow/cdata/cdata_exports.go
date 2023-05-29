@@ -45,11 +45,11 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/endian"
-	"github.com/apache/arrow/go/v12/arrow/internal"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/endian"
+	"github.com/apache/arrow/go/v13/arrow/internal"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
 )
 
 func encodeCMetadata(keys, values []string) []byte {
@@ -410,13 +410,6 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	out.release = (*[0]byte)(C.goReleaseArray)
 	switch arr := arr.(type) {
 	case array.ListLike:
-		out.n_children = 1
-		childPtrs := allocateArrowArrayPtrArr(1)
-		children := allocateArrowArrayArr(1)
-		exportArray(arr.ListValues(), &children[0], nil)
-		childPtrs[0] = &children[0]
-		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
-	case *array.FixedSizeList:
 		out.n_children = 1
 		childPtrs := allocateArrowArrayPtrArr(1)
 		children := allocateArrowArrayArr(1)

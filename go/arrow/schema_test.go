@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/endian"
+	"github.com/apache/arrow/go/v13/arrow/endian"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -259,6 +259,13 @@ func TestSchema(t *testing.T) {
 				t.Fatalf("invalid number of fields. got=%d, want=%d", got, want)
 			}
 
+			if got, want := s.Field(0), tc.fields[0]; !got.Equal(want) {
+				t.Fatalf("invalid field: got=%#v, want=%#v", got, want)
+			}
+
+			fields := s.Fields()
+			fields[0].Name = "other"
+			// check that the fields are copied and not shared
 			if got, want := s.Field(0), tc.fields[0]; !got.Equal(want) {
 				t.Fatalf("invalid field: got=%#v, want=%#v", got, want)
 			}

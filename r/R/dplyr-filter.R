@@ -19,6 +19,7 @@
 # The following S3 methods are registered on load if dplyr is present
 
 filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
+  .data <- as_adq(.data)
   # TODO something with the .preserve argument
   filts <- expand_across(.data, quos(...))
   if (length(filts) == 0) {

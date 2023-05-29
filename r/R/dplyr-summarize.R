@@ -172,7 +172,7 @@ agg_funcs[["::"]] <- function(lhs, rhs) {
 summarise.arrow_dplyr_query <- function(.data, ..., .groups = NULL) {
   call <- match.call()
   .data <- as_adq(.data)
-  exprs <- expand_across(.data, quos(...))
+  exprs <- expand_across(.data, quos(...), exclude_cols = .data$group_by_vars)
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
     unlist(lapply(exprs, all.vars)), # vars referenced in summarise

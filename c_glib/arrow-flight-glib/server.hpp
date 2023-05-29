@@ -27,6 +27,12 @@
 arrow::flight::FlightDataStream *
 gaflight_data_stream_get_raw(GAFlightDataStream *stream);
 
+GAFlightServerCallContext *
+gaflight_server_call_context_new_raw(
+  const arrow::flight::ServerCallContext *flight_call_context);
+const arrow::flight::ServerCallContext *
+gaflight_server_call_context_get_raw(GAFlightServerCallContext *call_context);
+
 GAFlightServerAuthSender *
 gaflight_server_auth_sender_new_raw(
   arrow::flight::ServerAuthSender *flight_sender);
@@ -44,10 +50,6 @@ gaflight_server_auth_handler_get_raw(GAFlightServerAuthHandler *handler);
 
 arrow::flight::FlightServerOptions *
 gaflight_server_options_get_raw(GAFlightServerOptions *options);
-
-GAFlightServerCallContext *
-gaflight_server_call_context_new_raw(
-  const arrow::flight::ServerCallContext *flight_context);
 
 
 struct _GAFlightServableInterface
