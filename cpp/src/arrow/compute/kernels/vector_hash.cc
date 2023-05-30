@@ -740,11 +740,10 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
   }
 }
 
-const FunctionDoc unique_doc(
-    "Compute unique elements",
-    ("Return an array with distinct values.\n"
-     "Nulls are considered as a distinct value as well."),
-    {"array"});
+const FunctionDoc unique_doc("Compute unique elements",
+                             ("Return an array with distinct values.\n"
+                              "Nulls are considered as a distinct value as well."),
+                             {"array"});
 
 const FunctionDoc value_counts_doc(
     "Compute counts of unique elements",
