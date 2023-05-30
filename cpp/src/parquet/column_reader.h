@@ -492,6 +492,7 @@ using Int96Reader = TypedColumnReader<Int96Type>;
 using FloatReader = TypedColumnReader<FloatType>;
 using DoubleReader = TypedColumnReader<DoubleType>;
 using ByteArrayReader = TypedColumnReader<ByteArrayType>;
+using LargeByteArrayReader = TypedColumnReader<LargeByteArrayType>;
 using FixedLenByteArrayReader = TypedColumnReader<FLBAType>;
 
 }  // namespace parquet

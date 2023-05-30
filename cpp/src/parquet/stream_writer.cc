@@ -251,6 +251,10 @@ void StreamWriter::WriteNullValue(ColumnWriter* writer) {
       static_cast<ByteArrayWriter*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
                                                         &kRepLevelZero, nullptr);
       break;
+    case Type::LARGE_BYTE_ARRAY:
+      static_cast<LargeByteArrayWriter*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
+                                                            &kRepLevelZero, nullptr);
+      break;
     case Type::FIXED_LEN_BYTE_ARRAY:
       static_cast<FixedLenByteArrayWriter*>(writer)->WriteBatch(
           kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);

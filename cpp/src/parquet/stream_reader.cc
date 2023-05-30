@@ -488,6 +488,9 @@ void StreamReader::SkipRowsInColumn(ColumnReader* reader, int64_t num_rows_to_sk
     case Type::BYTE_ARRAY:
       num_skipped = static_cast<ByteArrayReader*>(reader)->Skip(num_rows_to_skip);
       break;
+    case Type::LARGE_BYTE_ARRAY:
+      num_skipped = static_cast<LargeByteArrayReader*>(reader)->Skip(num_rows_to_skip);
+      break;
     case Type::FIXED_LEN_BYTE_ARRAY:
       num_skipped = static_cast<FixedLenByteArrayReader*>(reader)->Skip(num_rows_to_skip);
       break;

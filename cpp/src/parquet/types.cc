@@ -260,6 +260,7 @@ SortOrder::type DefaultSortOrder(Type::type primitive) {
     case Type::DOUBLE:
       return SortOrder::SIGNED;
     case Type::BYTE_ARRAY:
+    case Type::LARGE_BYTE_ARRAY:
     case Type::FIXED_LEN_BYTE_ARRAY:
       return SortOrder::UNSIGNED;
     case Type::INT96:

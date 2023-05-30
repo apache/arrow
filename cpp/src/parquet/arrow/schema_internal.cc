@@ -110,17 +110,34 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
   }
 }
 
-Result<std::shared_ptr<ArrowType>> FromByteArray(const LogicalType& logical_type, bool use_binary_large_variant) {
+Result<std::shared_ptr<ArrowType>> FromByteArray(const LogicalType& logical_type) {
   switch (logical_type.type()) {
     case LogicalType::Type::STRING:
-      return use_binary_large_variant ? ::arrow::large_utf8() : ::arrow::utf8();
+      return ::arrow::utf8();
     case LogicalType::Type::DECIMAL:
       return MakeArrowDecimal(logical_type);
     case LogicalType::Type::NONE:
     case LogicalType::Type::ENUM:
     case LogicalType::Type::JSON:
     case LogicalType::Type::BSON:
-      return use_binary_large_variant ? ::arrow::large_binary() : ::arrow::binary();
+      return ::arrow::binary();
+    default:
+      return Status::NotImplemented("Unhandled logical logical_type ",
+                                    logical_type.ToString(), " for binary array");
+  }
+}
+
+Result<std::shared_ptr<ArrowType>> FromLargeByteArray(const LogicalType& logical_type) {
+  switch (logical_type.type()) {
+    case LogicalType::Type::STRING:
+      return ::arrow::large_utf8();
+    case LogicalType::Type::DECIMAL:
+      return MakeArrowDecimal(logical_type);
+    case LogicalType::Type::NONE:
+    case LogicalType::Type::ENUM:
+    case LogicalType::Type::JSON:
+    case LogicalType::Type::BSON:
+      return ::arrow::large_binary();
     default:
       return Status::NotImplemented("Unhandled logical logical_type ",
                                     logical_type.ToString(), " for binary array");
@@ -200,7 +217,7 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     case ParquetType::DOUBLE:
       return ::arrow::float64();
     case ParquetType::BYTE_ARRAY:
-      return FromByteArray(logical_type, use_binary_large_variant);
+      return use_binary_large_variant ? FromLargeByteArray(logical_type) : FromByteArray(logical_type);
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
       return FromFLBA(logical_type, type_length);
     default: {

@@ -65,10 +65,11 @@ struct Type {
     BYTE_ARRAY = 6,
     FIXED_LEN_BYTE_ARRAY = 7,
 
-    // workaround
+    // This parquet type does not actually exist (AFAIK) and is used to
+    // create proper type traits
     LARGE_BYTE_ARRAY = 8,
     // Should always be last element.
-    UNDEFINED = 8
+    UNDEFINED = 9
   };
 };
 
