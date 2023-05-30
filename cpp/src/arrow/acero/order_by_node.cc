@@ -30,12 +30,17 @@
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/tracing_internal.h"
+#include "arrow/util/type_fwd.h"
+#include "parquet/arrow/writer.h"
+#include "parquet/arrow/reader.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 
 using compute::TakeOptions;
+using parquet::ArrowWriterProperties;
+using parquet::WriterProperties;
 
 namespace acero {
 namespace {
@@ -152,6 +157,92 @@ class OrderByNode : public ExecNode, public TracedNode {
   Ordering ordering_;
   std::vector<std::shared_ptr<RecordBatch>> accumulation_queue_;
   std::mutex mutex_;
+};
+
+class OrderedSpillingAccumulationQueue {
+ public:
+  OrderedSpillingAccumulationQueue(int64_t buffer_size, std::string path_to_folder,
+                                   ExecPlan* plan, std::shared_ptr<Schema> output_schema,
+                                   Ordering new_ordering)
+      : buffer_size_(buffer_size),
+        plan_(plan),
+        output_schema_(output_schema),
+        path_to_folder_(path_to_folder),
+        ordering_(new_ordering),
+        accumulation_queue_size_(0),
+        spill_count_(0) {}
+
+  // Inserts a batch into the queue.  This may trigger a write to disk if enough data is
+  // accumulated If it does, then SpillCount should be incremented before this method
+  // returns (but the write can happen in the background, asynchronously)
+  Status push_back(std::shared_ptr<RecordBatch> record_batch) {
+    mutex_.lock();
+    accumulation_queue_.push_back(record_batch);
+    accumulation_queue_size_ += record_batch->num_rows();
+
+    if (accumulation_queue_size_ >= buffer_size_) {
+      spill_count_++;
+      ARROW_ASSIGN_OR_RAISE(
+          auto table,
+          Table::FromRecordBatches(
+              output_schema_, std::move(accumulation_queue_)));  // todo check batches_
+      accumulation_queue_size_ = 0;
+      accumulation_queue_ = make_shared<std::vector<std::shared_ptr<RecordBatch>>>();
+      mutex_.unlock();
+
+      // sort
+      SortOptions sort_options(ordering_.sort_keys(), ordering_.null_placement());
+      ExecContext* ctx = plan_->query_context()->exec_context();
+      ARROW_ASSIGN_OR_RAISE(auto indices, SortIndices(table, sort_options, ctx));
+      ARROW_ASSIGN_OR_RAISE(auto sorted_table,
+                            Take(table, indices, TakeOptions::NoBoundsCheck(), ctx));
+      std::shared_ptr<arrow::Table> sorted_table_ptr = sorted_table.table();
+      // write to external storage
+      std::string folder_path = path_to_folder_ + "/0_sort_" + spill_count_ + ".parquet";
+      std::shared_ptr<WriterProperties> props =
+          WriterProperties::Builder().compression(arrow::Compression::SNAPPY)->build();
+      std::shared_ptr<ArrowWriterProperties> arrow_props =
+          ArrowWriterProperties::Builder().store_schema()->build();
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::io::FileOutputStream> outfile,
+                            arrow::io::FileOutputStream::Open(folder_path));
+      plan_->query_context()->ScheduleIOTask(
+          [sorted_table_ptr, outfile, props, arrow_props]() mutable {
+            ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(
+                *(sorted_table_ptr.get()), arrow::default_memory_pool(), outfile,
+                /*chunk_size=*/3, props, arrow_props));
+          },
+          "OrderByNode::OrderedSpillingAccumulationQueue::Spillover");
+
+    } else {
+      mutex_.unlock();
+    }
+    return Status::OK();
+  }
+
+  // The number of files that have been written to disk.  This should also include any data in memory
+  // so it will be the number of files written to disk + 1 if there is in-memory data.
+  int SpillCount() {
+    {
+      std::lock_guard lk(mutex_);
+      return spill_count_;
+    }
+  }
+
+  // This should only be called after all calls to InsertBatch have been completed.  This starts reading
+  // the data that was spilled. It will grab the next batch of data from the given spilled file.  If spill_index
+  // == SpillCount() - 1 then this might be data that is already in-memory.
+  Future<std::optional<ExecBatch>> FetchNextBatch(int spill_index);
+
+ private:
+  std::mutex mutex_;
+  std::vector<std::shared_ptr<RecordBatch>> accumulation_queue_;
+  int64_t spill_count_;
+  int64_t accumulation_queue_size_;
+  int64_t buffer_size_;
+  std::shared_ptr<Schema> output_schema_;
+  std::string path_to_folder_;
+  Ordering ordering_;
+  ExecPlan* plan_ ;
 };
 
 }  // namespace
