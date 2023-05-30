@@ -581,7 +581,7 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 		return arrayEqualDuration(l, r)
 	case *Map:
 		r := right.(*Map)
-		return arrayApproxEqualList(l.List, r.List, opt)
+		return arrayApproxEqualMap(l, r, opt)
 	case *Dictionary:
 		r := right.(*Dictionary)
 		return arrayApproxEqualDict(l, r, opt)
@@ -727,6 +727,60 @@ func arrayApproxEqualStruct(left, right *Struct, opt equalOption) bool {
 	for i, lf := range left.fields {
 		rf := right.fields[i]
 		if !arrayApproxEqual(lf, rf, opt) {
+			return false
+		}
+	}
+	return true
+}
+
+// arrayApproxEqualMap doesn't care about the order of keys (in Go map traversal order is undefined)
+func arrayApproxEqualMap(left, right *Map, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		l, r := left.newListValue(i).(*Struct), right.newListValue(i).(*Struct)
+		eq := arrayApproxEqualSingleMapEntry(l, r, opt)
+		l.Release()
+		r.Release()
+		if !eq {
+			return false
+		}
+	}
+	return true
+}
+
+// arrayApproxEqualSingleMapEntry is a helper function that checks if a single entry pair is approx equal.
+// Basically, it doesn't care about key order
+func arrayApproxEqualSingleMapEntry(left, right *Struct, opt equalOption) bool {
+	// we get here only if the left & right lengths are 1, and the values are valid
+	lElems := make([]arrow.Array, left.Len())
+	rElems := make([]arrow.Array, right.Len())
+	for i := 0; i < left.Len(); i++ {
+		lElems[i] = NewSlice(left, int64(i), int64(i+1))
+		rElems[i] = NewSlice(right, int64(i), int64(i+1))
+	}
+	defer func() {
+		for i := range lElems {
+			lElems[i].Release()
+			rElems[i].Release()
+		}
+	}()
+
+	used := make(map[int]bool, right.Len())
+	for _, ll := range lElems {
+		found := false
+		for i, rr := range rElems {
+			if used[i] {
+				continue
+			}
+			if arrayApproxEqual(ll, rr, opt) {
+				found = true
+				used[i] = true
+				break
+			}
+		}
+		if !found {
 			return false
 		}
 	}
