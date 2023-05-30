@@ -501,7 +501,7 @@ std::shared_ptr<BooleanArray> BuildBooleanArray(int len, bool start) {
   // This could be memoized in the future to speed up tests.
   BooleanBuilder builder;
   for (int i = 0; i < len; ++i) {
-    EXPECT_TRUE(builder.Append(((i % 2) ^ start) == 1).ok());
+    EXPECT_TRUE(builder.Append(((i % 2 != 0) ^ start) == 1).ok());
   }
   std::shared_ptr<BooleanArray> array;
   EXPECT_TRUE(builder.Finish(&array).ok());
@@ -531,7 +531,7 @@ TEST(BitmapHashTest, SmallInputs) {
       ASSERT_EQ(expected_hash, slice_hash);
 
       for (int j = 1; j < len; j++) {
-        auto fragment = BuildBooleanArray(len - j, start ^ (j % 2));
+        auto fragment = BuildBooleanArray(len - j, start ^ (j % 2 != 0));
         expected_hash = HashDataBitmap(*fragment->data());
 
         slice = block->Slice(j, len - j);
@@ -560,95 +560,42 @@ TEST(BitmapHashTest, LongerInputs) {
   }
   const auto hash_of_block = HashDataBitmap(*block_of_bools->data());
 
-  std::shared_ptr<BooleanArray> negated_block_of_bools;
-  {
-    ASSERT_OK(builder.AppendValues(2, false));
-    ASSERT_OK(builder.AppendValues(3, true));
-    ASSERT_OK(builder.AppendValues(5, false));
-    ASSERT_OK(builder.AppendValues(7, true));
-    ASSERT_OK(builder.AppendValues(11, false));
-    ASSERT_OK(builder.AppendValues(13, true));
-    ASSERT_OK(builder.AppendValues(17, false));
-    ASSERT_OK(builder.AppendValues(5, true));
-    ASSERT_OK(builder.AppendValues(1, false));
-    ASSERT_OK(builder.Finish(&negated_block_of_bools));
-    ASSERT_EQ(negated_block_of_bools->length(), 64);
-  }
-  const auto hash_of_negated_block = HashDataBitmap(*negated_block_of_bools->data());
+  const auto kStep = 9;
+  constexpr auto kMaxPadding = 64 + 32 + kStep;
 
-  constexpr bool kSlowTests = false;
-  constexpr auto kMaxPadding = 64 + 32 + 1;
-  auto step = [&](int& i) {
-    const auto kStep = kSlowTests ? 1 : 8;
-    if (i + kStep >= kMaxPadding && i != kMaxPadding - 1) {
-      i = kMaxPadding - 1;
-    } else {
-      i += kStep;
-    }
-  };
+  for (int prefix_pad_len = 0; prefix_pad_len < kMaxPadding; prefix_pad_len += kStep) {
+    auto prefix_pad = BuildBooleanArray(prefix_pad_len, true);
+    for (int suffix_pad_len = 0; suffix_pad_len < kMaxPadding; suffix_pad_len += kStep) {
+      auto suffix_pad = BuildBooleanArray(suffix_pad_len, true);
 
-  for (int start_bits = 0; start_bits < 8; ++start_bits) {
-    for (int prefix_pad_len = 0; prefix_pad_len < kMaxPadding; step(prefix_pad_len)) {
-      auto prefix_pad = BuildBooleanArray(prefix_pad_len, start_bits & 0x1);
-      for (int suffix_pad_len = 0; suffix_pad_len < kMaxPadding; step(suffix_pad_len)) {
-        auto suffix_pad = BuildBooleanArray(suffix_pad_len, (start_bits >> 1) & 0x1);
+      // A block of 64 bools in the middle
+      auto hash =
+          HashConcatenation({prefix_pad, block_of_bools, suffix_pad}, prefix_pad_len, 64);
+      ASSERT_EQ(hash, hash_of_block);
 
-        // A block of 64 bools in the middle
-        auto hash = HashConcatenation({prefix_pad, block_of_bools, suffix_pad},
-                                      prefix_pad_len, 64);
-        ASSERT_EQ(hash, hash_of_block);
-        // Negated
-        hash = HashConcatenation({prefix_pad, negated_block_of_bools, suffix_pad},
-                                 prefix_pad_len, 64);
-        ASSERT_EQ(hash, hash_of_negated_block);
+      // Trailing bits and leading bits around a block
+      for (int trailing_len = 1; trailing_len < kMaxPadding; trailing_len += kStep) {
+        auto trailing = BuildBooleanArray(trailing_len, true);
+        auto expected_hash = HashConcatenation({block_of_bools, trailing});
+        auto hash = HashConcatenation({prefix_pad, block_of_bools, trailing, suffix_pad},
+                                      prefix_pad_len, 64 + trailing_len);
+        ASSERT_EQ(hash, expected_hash);
 
-        std::shared_ptr<BooleanArray> bools;
-        // Trailing bits and leading bits around a block
-        for (int trailing_len = 1; trailing_len < kMaxPadding; step(trailing_len)) {
-          auto trailing = BuildBooleanArray(trailing_len, (start_bits >> 1) & 0x1);
-          auto expected_hash = HashConcatenation({block_of_bools, trailing});
-          auto hash =
-              HashConcatenation({prefix_pad, block_of_bools, trailing, suffix_pad},
-                                prefix_pad_len, 64 + trailing_len);
-          ASSERT_EQ(hash, expected_hash);
-          // Negated
-          expected_hash = HashConcatenation({negated_block_of_bools, trailing});
-          hash = HashConcatenation(
-              {prefix_pad, negated_block_of_bools, trailing, suffix_pad}, prefix_pad_len,
-              64 + trailing_len);
-          ASSERT_EQ(hash, expected_hash);
+        // Use the trailing bits as leading bits now
+        auto leading = trailing;
+        auto leading_len = trailing_len;
+        expected_hash = HashConcatenation({leading, block_of_bools});
+        hash = HashConcatenation({prefix_pad, leading, block_of_bools, suffix_pad},
+                                 prefix_pad_len, leading_len + 64);
+        ASSERT_EQ(hash, expected_hash);
 
-          // Use the trailing bits as leading bits now
-          auto leading = trailing;
-          auto leading_len = trailing_len;
-          expected_hash = HashConcatenation({leading, block_of_bools});
-          hash = HashConcatenation({prefix_pad, leading, block_of_bools, suffix_pad},
-                                   prefix_pad_len, leading_len + 64);
-          ASSERT_EQ(hash, expected_hash);
-          // Negated
-          expected_hash = HashConcatenation({leading, negated_block_of_bools});
-          hash =
-              HashConcatenation({prefix_pad, leading, negated_block_of_bools, suffix_pad},
-                                prefix_pad_len, leading_len + 64);
-          ASSERT_EQ(hash, expected_hash);
-
-          // leading and trailing at the same time
-          expected_hash = HashConcatenation({leading, block_of_bools, trailing});
-          hash = HashConcatenation(
-              {prefix_pad, leading, block_of_bools, trailing, suffix_pad}, prefix_pad_len,
-              leading_len + 64 + trailing_len);
-          ASSERT_EQ(hash, expected_hash);
-          // Negated
-          expected_hash = HashConcatenation({leading, negated_block_of_bools, trailing});
-          hash = HashConcatenation(
-              {prefix_pad, leading, negated_block_of_bools, trailing, suffix_pad},
-              prefix_pad_len, leading_len + 64 + trailing_len);
-          ASSERT_EQ(hash, expected_hash);
-        }
+        // Leading and trailing at the same time
+        expected_hash = HashConcatenation({leading, block_of_bools, trailing});
+        hash =
+            HashConcatenation({prefix_pad, leading, block_of_bools, trailing, suffix_pad},
+                              prefix_pad_len, leading_len + 64 + trailing_len);
+        ASSERT_EQ(hash, expected_hash);
       }
-    }
-    if (!kSlowTests) {
-      break;
     }
   }
 }

@@ -177,15 +177,13 @@ struct ScalarHashImpl {
     // Hash the relevant child arrays for each type taking offset and length
     // from the parent array into account if necessary.
     switch (a.type->id()) {
-      case Type::RUN_END_ENCODED:
-        // Hash only the values, not the run lengths.
-        RETURN_NOT_OK(ArrayHash(a.child_data[1], offset, length));
-        break;
       case Type::STRUCT:
         for (const auto& child : a.child_data) {
           RETURN_NOT_OK(ArrayHash(child, offset, length));
         }
         break;
+        // TODO(GH-35830): Investigate what should be the correct behavior for
+        // each nested type.
       default:
         // By default, just hash the arrays without considering
         // the offset and length of the parent.
