@@ -79,6 +79,7 @@ public abstract class TestDataset {
       List<ArrowRecordBatch> batches = new ArrayList<>();
       while (reader.loadNextBatch()) {
         VectorSchemaRoot root = reader.getVectorSchemaRoot();
+        System.out.println(root.getSchema());
         final VectorUnloader unloader = new VectorUnloader(root);
         batches.add(unloader.getRecordBatch());
       }

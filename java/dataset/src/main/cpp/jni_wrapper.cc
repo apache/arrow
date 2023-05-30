@@ -35,7 +35,6 @@
 #include "org_apache_arrow_dataset_jni_JniWrapper.h"
 #include "org_apache_arrow_dataset_jni_NativeMemoryPool.h"
 #include "org_apache_arrow_dataset_substrait_JniWrapper.h"
-#include "iostream"
 
 namespace {
 
@@ -196,7 +195,6 @@ arrow::Result<std::shared_ptr<arrow::Schema>> SchemaFromColumnNames(
       return arrow::Status::Invalid("Partition column '", ref.ToString(), "' is not in dataset schema");
     }
   }
-
   return schema(std::move(columns))->WithMetadata(input->metadata());
 }
 }  // namespace
@@ -457,7 +455,6 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
     JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns_subset, jobject columns_to_produce_or_filter, jlong batch_size,
     jlong memory_pool_id) {
   JNI_METHOD_START
-  std::cout << "Inicio createScanner" << std::endl;
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
   if (pool == nullptr) {
     JniThrow("Memory pool does not exist or has been closed");
@@ -472,13 +469,11 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
   }
   if (columns_to_produce_or_filter != nullptr) {
-    std::cout << "Inicio columns_to_produce_or_filter" << std::endl;
     auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(columns_to_produce_or_filter));
     int length = env->GetDirectBufferCapacity(columns_to_produce_or_filter);
     std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
     std::memcpy(buffer->mutable_data(), buff, length);
     // execute expression
-    std::cout << "Call DeserializeExpressions" << std::endl;
     arrow::engine::BoundExpressions bounded_expression =
       JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
     // validate result
@@ -487,17 +482,14 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
     std::vector<std::string> project_names;
     arrow::compute::Expression filter_expr;
     int filter_count = 0;
-    std::cout << "Iterate bounded_expression.named_expressions" << std::endl;
     for(arrow::engine::NamedExpression named_expression : bounded_expression.named_expressions) {
       if (named_expression.expression.type()->id() == arrow::Type::BOOL) {
-        std::cout << "Filter: " + named_expression.expression.ToString() << std::endl;
         if (filter_count > 1) {
-          std::cout << "Error! Only one filter expression is supported" << std::endl;
+          JniThrow("Only one filter expression is able to process");
         }
         filter_expr = named_expression.expression;
         filter_count++;
       } else {
-        std::cout << "Project: " + named_expression.expression.ToString() << std::endl;
         project_exprs.push_back(named_expression.expression);
         project_names.push_back(named_expression.name);
       }

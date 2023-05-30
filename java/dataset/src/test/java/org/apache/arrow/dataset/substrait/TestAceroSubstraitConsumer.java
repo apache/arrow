@@ -39,7 +39,6 @@ import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
-import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -88,7 +87,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
   }
 
   @Test
-  public void testRunQueryNamedTableNation() throws Exception {
+  public void testRunQueryNamedTable() throws Exception {
     //Query:
     //SELECT id, name FROM Users
     //Isthmus:
@@ -126,7 +125,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
   }
 
   @Test(expected = RuntimeException.class)
-  public void testRunQueryNamedTableNationWithException() throws Exception {
+  public void testRunQueryNamedTableWithException() throws Exception {
     //Query:
     //SELECT id, name FROM Users
     //Isthmus:
@@ -163,7 +162,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
   }
 
   @Test
-  public void testRunBinaryQueryNamedTableNation() throws Exception {
+  public void testRunBinaryQueryNamedTable() throws Exception {
     //Query:
     //SELECT id, name FROM Users
     //Isthmus:
@@ -210,17 +209,17 @@ public class TestAceroSubstraitConsumer extends TestDataset {
 
   @Test
   public void testDeserializeExtendedExpressions() {
-    // Extended Expression 01: n_nationkey + 7
-    // Extended Expression 02: n_nationkey > 23
-    // OK generado por POJO: String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRopChoaGBoEKgIQASIIGgYSBAoCEgAiBhoECgIoAhoLcHJvamVjdF9vbmUaKwocGhoIARoEKgIQASIIGgYSBAoCEgAiBhoECgIoChoLcHJvamVjdF90d28iGgoCSUQKBE5BTUUSDgoEKgIQAQoEYgIQARgC";
-//    String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRISGhAIAhACGgpsdDphbnlfYW55GikKGhoYGgQqAhABIggaBhIECgISACIGGgQKAigCGgtwcm9qZWN0X29uZRorChwaGggBGgQqAhABIggaBhIECgISACIGGgQKAigKGgtwcm9qZWN0X3R3bxoqChwaGggCGgQKAhABIggaBhIECgISACIGGgQKAigUGgpmaWx0ZXJfb25lIhoKAklECgROQU1FEg4KBCoCEAEKBGICEAEYAg==";
-    String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISFBoSCAIQARoMY29uY2F0OnZjaGFyEhIaEAgCEAIaCmx0OmFueV9hbnkaMQoaGhgaBCoCEAEiCBoGEgQKAhIAIgYaBAoCKAIaE2FkZF90d29fdG9fY29sdW1uX2EaOwoiGiAIARoEYgIQASIKGggSBgoEEgIIASIKGggSBgoEEgIIAhoVY29uY2F0X2NvbHVtbl9hX2FuZF9iGioKHBoaCAIaBAoCEAEiCBoGEgQKAhIAIgYaBAoCKBQaCmZpbHRlcl9vbmUiKgoCSUQKBE5BTUUKCExBU1ROQU1FEhQKBCoCEAEKBGICEAEKBGICEAEYAg==";
-//    String binaryExtendedExpressions =
-//        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IA" +
-//            "RoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRooChwaGhoEKgIQAiIKGggSBgoCEgAiACIGGgQKAigCGg" +
-//            "hjb2x1bW5fMBoqCh4aHAgBGgQKAhACIgoaCBIGCgISACIAIgYaBAoCKAoaCGNvbHVtbl8xIh4KAklECgROQU1FEhI" +
-//            "KBCoCEAIKCLIBBQiWARgBGAI=";
-
+    // Extended Expression 01 (`add` `2` to column `id`): id + 2
+    // Extended Expression 02 (`concatenate` column `name` || column `name`): name || name
+    // Extended Expression 03 (`filter` 'id' < 20): id < 20
+    // Extended expression result: [add_two_to_column_a, add(FieldPath(0), 2),
+    // concat_column_a_and_b, binary_join_element_wise(FieldPath(1), FieldPath(1), ""),
+    // filter_one, (FieldPath(0) < 20)]
+    String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlz" +
+        "b24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISFBoSCAIQARoMY29uY2F0OnZjaGFyEhIaEAgCEAIaCmx0OmFueV9hbnkaMQoaGhgaBCoCEAE" +
+        "iCBoGEgQKAhIAIgYaBAoCKAIaE2FkZF90d29fdG9fY29sdW1uX2EaOwoiGiAIARoEYgIQASIKGggSBgoEEgIIASIKGggSBgoEEgIIARoVY2" +
+        "9uY2F0X2NvbHVtbl9hX2FuZF9iGjcKHBoaCAIaBAoCEAEiCBoGEgQKAhIAIgYaBAoCKBQaF2ZpbHRlcl9pZF9sb3dlcl90aGFuXzIwIhoKA" +
+        "klECgROQU1FEg4KBCoCEAEKBGICEAEYAg==";
     // get binary plan
     byte[] expression = Base64.getDecoder().decode(binaryExtendedExpressions);
     ByteBuffer substraitExpression = ByteBuffer.allocateDirect(expression.length);
@@ -229,75 +228,41 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     List<String> extededExpressionList =
         new AceroSubstraitConsumer(rootAllocator()).runDeserializeExpressions(substraitExpression);
     System.out.println(extededExpressionList);
-    assertEquals(2, extededExpressionList.size() / 2);
-    assertEquals("column_0", extededExpressionList.get(0));
-    assertEquals("column_1", extededExpressionList.get(2));
+    assertEquals(3, extededExpressionList.size() / 2);
+    assertEquals("add_two_to_column_a", extededExpressionList.get(0));
+    assertEquals("add(FieldPath(0), 2)", extededExpressionList.get(1));
+    assertEquals("concat_column_a_and_b", extededExpressionList.get(2));
+    assertEquals("binary_join_element_wise(FieldPath(1), FieldPath(1), \"\")", extededExpressionList.get(3));
+    assertEquals("filter_id_lower_than_20", extededExpressionList.get(4));
+    assertEquals("(FieldPath(0) < 20)", extededExpressionList.get(5));
   }
 
-  @Test(expected = RuntimeException.class)
-  public void testBaseParquetReadWithExtendedExpressions() throws Exception {
-    // Extended Expression 01: id + 2
-    // Extended Expression 02: id > 10
-    // Parsed as: [column_0, add(FieldPath(0), 2), column_1, (FieldPath(0) > 10)] :
-    //  -> Fail with: java.lang.RuntimeException: Inferring column projection from FieldRef FieldRef.FieldPath(0)
-    // Parsed as: [column_0, add(FieldPath("id"), 2), column_1, (FieldPath("id") > 10)] :
-    //  -> OK
-    final Schema schema = new Schema(Arrays.asList(
-        Field.nullable("ID", new ArrowType.Int(32, true)),
-        Field.nullable("NAME", new ArrowType.Utf8())
-    ), Collections.emptyMap());
-    // Base64.getEncoder().encodeToString(plan.toByteArray());
-    String binaryExtendedExpressions =
-        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwSERoPCAEaC2FkZDppMzJfaTMyGigKHBoaGgQqAhACIgoaCBIG" +
-            "CgISACIAIgYaBAoCKAIaCGNvbHVtbl8wIh4KAklECgROQU1FEhIKBCoCEAIKCLIBBQiWARgBGAI=";
-    // get binary plan
-    byte[] extendedExpressions = Base64.getDecoder().decode(binaryExtendedExpressions);
-    ByteBuffer substraitExtendedExpressions = ByteBuffer.allocateDirect(extendedExpressions.length);
-    substraitExtendedExpressions.put(extendedExpressions);
-    ParquetWriteSupport writeSupport = ParquetWriteSupport
-        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
-    ScanOptions options = new ScanOptions(/*batchSize*/ 32768, Optional.empty(),
-        Optional.of(substraitExtendedExpressions));
-    try (
-        DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
-            FileFormat.PARQUET, writeSupport.getOutputURI());
-        Dataset dataset = datasetFactory.finish();
-        Scanner scanner = dataset.newScan(options);
-        ArrowReader reader = scanner.scanBatches()
-    ) {
-      while (reader.loadNextBatch()) {
-        try (VectorSchemaRoot root = reader.getVectorSchemaRoot()) {
-          System.out.print(root.contentToTSVString());
-        }
-      }
-    }
-  }
-
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testBaseParquetReadWithExtendedExpressionsProjectAndFilter() throws Exception {
-    // Extended Expression 01: id + 2
-    // Extended Expression 02: id > 10
-    // Parsed as: [column_0, add(FieldPath(0), 2), column_1, (FieldPath(0) > 10)] :
-    //  -> Fail with: java.lang.RuntimeException: Inferring column projection from FieldRef FieldRef.FieldPath(0)
-    // Parsed as: [column_0, add(FieldPath("id"), 2), column_1, (FieldPath("id") > 10)] :
-    //  -> OK
+    // Extended Expression 01 (`add` `2` to column `id`): id + 2
+    // Extended Expression 02 (`concatenate` column `name` || column `name`): name || name
+    // Extended Expression 03 (`filter` 'id' < 20): id < 20
+    // Extended expression result: [add_two_to_column_a, add(FieldPath(0), 2),
+    // concat_column_a_and_b, binary_join_element_wise(FieldPath(1), FieldPath(1), ""),
+    // filter_one, (FieldPath(0) < 20)]
+    // Base64.getEncoder().encodeToString(plan.toByteArray()): Generated throughout Substrait POJO Extended Expressions
+    String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlz" +
+        "b24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISFBoSCAIQARoMY29uY2F0OnZjaGFyEhIaEAgCEAIaCmx0OmFueV9hbnkaMQoaGhgaBCoCEAE" +
+        "iCBoGEgQKAhIAIgYaBAoCKAIaE2FkZF90d29fdG9fY29sdW1uX2EaOwoiGiAIARoEYgIQASIKGggSBgoEEgIIASIKGggSBgoEEgIIARoVY2" +
+        "9uY2F0X2NvbHVtbl9hX2FuZF9iGjcKHBoaCAIaBAoCEAEiCBoGEgQKAhIAIgYaBAoCKBQaF2ZpbHRlcl9pZF9sb3dlcl90aGFuXzIwIhoKA" +
+        "klECgROQU1FEg4KBCoCEAEKBGICEAEYAg==";
     final Schema schema = new Schema(Arrays.asList(
         Field.nullable("ID", new ArrowType.Int(32, true)),
         Field.nullable("NAME", new ArrowType.Utf8())
     ), Collections.emptyMap());
-    // Base64.getEncoder().encodeToString(plan.toByteArray());
-    String binaryExtendedExpressions =
-        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISFBoSCAIQARoMY29uY2F0OnZjaGFyEhIaEAgCEAIaCmx0OmFueV9hbnkaMQoaGhgaBCoCEAEiCBoGEgQKAhIAIgYaBAoCKAIaE2FkZF90d29fdG9fY29sdW1uX2EaOwoiGiAIARoEYgIQASIKGggSBgoEEgIIASIKGggSBgoEEgIIARoVY29uY2F0X2NvbHVtbl9hX2FuZF9iGioKHBoaCAIaBAoCEAEiCBoGEgQKAhIAIgYaBAoCKBQaCmZpbHRlcl9vbmUiGgoCSUQKBE5BTUUSDgoEKgIQAQoEYgIQARgC";
     // get binary plan
     byte[] extendedExpressions = Base64.getDecoder().decode(binaryExtendedExpressions);
     ByteBuffer substraitExtendedExpressions = ByteBuffer.allocateDirect(extendedExpressions.length);
     substraitExtendedExpressions.put(extendedExpressions);
-    System.out.println("escasa");
     ParquetWriteSupport writeSupport = ParquetWriteSupport
-        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "value_a", 11, "value_b", 21, "value_c", 45, "value_d");
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768, Optional.empty(),
         Optional.of(substraitExtendedExpressions));
-    System.out.println("nnnn");
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, writeSupport.getOutputURI());
@@ -305,12 +270,16 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         Scanner scanner = dataset.newScan(options);
         ArrowReader reader = scanner.scanBatches()
     ) {
-      System.out.println("aaa");
+      // schema is adding: (metadata: {parquet.avro.schema={"type":"record","name":"Users",
+      // "namespace":"org.apache.arrow.dataset","fields":[{"name":"id","type":["int","null"]},
+      // {"name":"name","type":["string","null"]}]}, writer.model.name=avro})
+      // assertEquals(schema, reader.getVectorSchemaRoot().getSchema());
+      int rowcount = 0;
       while (reader.loadNextBatch()) {
-        try (VectorSchemaRoot root = reader.getVectorSchemaRoot()) {
-          System.out.print(root.contentToTSVString());
-        }
+        System.out.println(reader.getVectorSchemaRoot().contentToTSVString());
+        rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
+      assertEquals(2, rowcount);
     }
   }
 }
