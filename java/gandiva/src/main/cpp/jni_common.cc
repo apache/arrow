@@ -41,6 +41,7 @@
 #include "env_helper.h"
 #include "id_to_module_map.h"
 #include "module_holder.h"
+#include "gandiva/secondary_cache.h"
 #include "org_apache_arrow_gandiva_evaluator_JniWrapper.h"
 
 using gandiva::ConditionPtr;
@@ -79,6 +80,14 @@ static jclass vector_expander_ret_class_;
 static jmethodID vector_expander_method_;
 static jfieldID vector_expander_ret_address_;
 static jfieldID vector_expander_ret_capacity_;
+
+static jclass secondary_cache_class_;
+static jmethodID cache_get_method_;
+static jmethodID cache_set_method_;
+static jmethodID cache_release_mem_method_;
+static jclass cache_buf_ret_class_;
+static jfieldID cache_buf_ret_address_;
+static jfieldID cache_buf_ret_size_;
 
 // module maps
 gandiva::IdToModuleMap<std::shared_ptr<ProjectorHolder>> projector_modules_;
@@ -119,6 +128,28 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
       env->GetFieldID(vector_expander_ret_class_, "address", "J");
   vector_expander_ret_capacity_ =
       env->GetFieldID(vector_expander_ret_class_, "capacity", "J");
+
+
+  jclass local_cache_class =
+      env->FindClass("org/apache/arrow/gandiva/evaluator/JavaSecondaryCacheInterface");
+  secondary_cache_class_ = (jclass)env->NewGlobalRef(local_cache_class);
+  env->DeleteLocalRef(local_expander_ret_class);
+
+  cache_get_method_ = env->GetMethodID(secondary_cache_class_, "get",
+                                       "(JJ)Lorg/apache/arrow/gandiva/evaluator/"
+                                       "JavaSecondaryCacheInterface$BufferResult;");
+  cache_set_method_ = env->GetMethodID(secondary_cache_class_, "set", "(JJJJ)V");
+  cache_release_mem_method_ =
+      env->GetMethodID(secondary_cache_class_, "releaseBufferResult", "(J)V");
+
+  jclass local_cache_ret_class = env->FindClass(
+      "org/apache/arrow/gandiva/evaluator/JavaSecondaryCacheInterface$BufferResult");
+  cache_buf_ret_class_ = (jclass)env->NewGlobalRef(local_cache_ret_class);
+  env->DeleteLocalRef(local_cache_ret_class);
+
+  cache_buf_ret_address_ = env->GetFieldID(cache_buf_ret_class_, "address", "J");
+  cache_buf_ret_size_ = env->GetFieldID(cache_buf_ret_class_, "size", "J");
+
   return JNI_VERSION;
 }
 
@@ -129,6 +160,8 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(gandiva_exception_);
   env->DeleteGlobalRef(vector_expander_class_);
   env->DeleteGlobalRef(vector_expander_ret_class_);
+  env->DeleteGlobalRef(secondary_cache_class_);
+  env->DeleteGlobalRef(cache_buf_ret_class_);
 }
 
 DataTypePtr ProtoTypeToTime32(const types::ExtGandivaType& ext_type) {
@@ -601,6 +634,56 @@ void releaseProjectorInput(jbyteArray schema_arr, jbyte* schema_bytes,
   env->ReleaseByteArrayElements(exprs_arr, exprs_bytes, JNI_ABORT);
 }
 
+///
+/// \brief Secondary cache class for performing the upcall to java
+///
+class JavaSecondaryCache : public gandiva::SecondaryCacheInterface {
+ public:
+  JavaSecondaryCache(JNIEnv* env, jobject jcache) : env_(env), jcache_(jcache) {}
+
+  // get from the secondary cache using the serialized expression as the key
+  std::shared_ptr<arrow::Buffer> Get(std::shared_ptr<arrow::Buffer> key);
+
+  // create a new entry in the secondary cache using the serialized expression as the key
+  // and object code as the value
+  void Set(std::shared_ptr<arrow::Buffer> key, std::shared_ptr<arrow::Buffer> value);
+
+ private:
+  JNIEnv* env_;
+  jobject jcache_;
+};
+
+std::shared_ptr<arrow::Buffer> JavaSecondaryCache::Get(
+    std::shared_ptr<arrow::Buffer> key) {
+  jobject ret =
+      env_->CallObjectMethod(jcache_, cache_get_method_, key->address(), key->size());
+  if (ret == nullptr) {
+    return nullptr;
+  }
+
+  jlong ret_address = env_->GetLongField(ret, cache_buf_ret_address_);
+  jlong ret_size = env_->GetLongField(ret, cache_buf_ret_size_);
+
+  arrow::Buffer data(reinterpret_cast<uint8_t*>(ret_address), ret_size);
+
+  // copy the buffer and release the original memory
+  auto result = arrow::Buffer::CopyNonOwned(data, arrow::default_cpu_memory_manager());
+  env_->CallObjectMethod(jcache_, cache_release_mem_method_, data.address());
+
+  if (result.ok()) {
+    auto buffer = std::move(result.ValueOrDie());
+    return buffer;
+  } else {
+    return nullptr;
+  }
+}
+
+void JavaSecondaryCache::Set(std::shared_ptr<arrow::Buffer> key,
+                             std::shared_ptr<arrow::Buffer> value) {
+  env_->CallObjectMethod(jcache_, cache_set_method_, key->address(), key->size(),
+                         value->address(), value->size());
+}
+
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_buildProjector(
     JNIEnv* env, jobject obj, jbyteArray schema_arr, jbyteArray exprs_arr,
     jint selection_vector_type, jlong configuration_id) {
@@ -621,6 +704,12 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
   FieldVector ret_types;
   gandiva::Status status;
   auto mode = gandiva::SelectionVector::MODE_NONE;
+
+  std::shared_ptr<JavaSecondaryCache> sec_cache = nullptr;
+  if (jcache != nullptr) {
+    // enable the secondary cache
+    sec_cache = std::make_shared<JavaSecondaryCache>(env, jcache);
+  }
 
   std::shared_ptr<Configuration> config = ConfigHolder::MapLookup(configuration_id);
   std::stringstream ss;
@@ -920,6 +1009,11 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_gandiva_evaluator_JniWrapper_build
   ConditionPtr condition_ptr;
   SchemaPtr schema_ptr;
   gandiva::Status status;
+
+  std::shared_ptr<JavaSecondaryCache> sec_cache = nullptr;
+  if (jcache != nullptr) {
+    sec_cache = std::make_shared<JavaSecondaryCache>(env, jcache);
+  }
 
   std::shared_ptr<Configuration> config = ConfigHolder::MapLookup(configuration_id);
   std::stringstream ss;

@@ -88,6 +88,7 @@ std::once_flag llvm_init_once_flag;
 static bool llvm_init = false;
 static llvm::StringRef cpu_name;
 static llvm::SmallVector<std::string, 10> cpu_attrs;
+static char* cpu_details_;
 
 void Engine::InitOnce() {
   DCHECK_EQ(llvm_init, false);
@@ -111,7 +112,18 @@ void Engine::InitOnce() {
   }
   ARROW_LOG(INFO) << "Detected CPU Name : " << cpu_name.str();
   ARROW_LOG(INFO) << "Detected CPU Features:" << cpu_attrs_str;
+
+  std::string cpu_details = cpu_name.str();
+  cpu_details += cpu_attrs_str;
+  cpu_details_ = strdup(cpu_details.c_str());
+
   llvm_init = true;
+}
+
+char* Engine::GetCpuIdentifier() {
+  DCHECK_EQ(llvm_init, true);
+
+  return cpu_details_;
 }
 
 Engine::Engine(const std::shared_ptr<Configuration>& conf,
