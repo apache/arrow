@@ -97,7 +97,7 @@ uint64_t MurmurHashBitmap64A(const uint8_t* key, uint64_t seed, uint64_t bits_of
     if (ARROW_PREDICT_TRUE(shift == 0)) {
       // Fast case: no shift.
       do {
-        uint64_t k1 = *data;
+        uint64_t k1 = bit_util::ToLittleEndian(*data);
         ++data;
         HASHING_ROUND(k1);
       } while (data != end);
@@ -106,11 +106,12 @@ uint64_t MurmurHashBitmap64A(const uint8_t* key, uint64_t seed, uint64_t bits_of
       k0 = *data & msb_mask;
       ++data;
       while (data != end) {
-        uint64_t k1 = k0 | (*data & lsb_mask);
+        auto data0_le = bit_util::ToLittleEndian(*data);
+        uint64_t k1 = k0 | (data0_le & lsb_mask);
         if (shift > 0) {
           k1 = ROTR64(k1, shift);
         }
-        k0 = *data & msb_mask;
+        k0 = data0_le & msb_mask;
         ++data;
         HASHING_ROUND(k1);
       }
