@@ -84,6 +84,10 @@ void read_whole_file(const std::string & filename) {
 //  PARQUET_THROW_NOT_OK(
 //      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
 
+  std::shared_ptr<::arrow::Schema> schema;
+
+  [[maybe_unused]] auto metadata = reader->GetSchema(&schema);
+
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
   std::cout << "Loaded " << table->num_rows() << " rows in " << table->num_columns()
@@ -144,10 +148,6 @@ void read_single_column_chunk() {
 }
 
 int main(int argc, char** argv) {
-//  std::shared_ptr<arrow::Table> table = generate_table();
-//  write_parquet_file(*table);
-  read_whole_file("chunked_jira.parquet");
-//  read_single_rowgroup();
-//  read_single_column("minimal_repro.parquet");
-//  read_single_column_chunk();
+//  read_whole_file("chunked_jira.parquet");
+  read_whole_file("minimal_repro.parquet");
 }

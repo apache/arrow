@@ -110,17 +110,17 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
   }
 }
 
-Result<std::shared_ptr<ArrowType>> FromByteArray(const LogicalType& logical_type) {
+Result<std::shared_ptr<ArrowType>> FromByteArray(const LogicalType& logical_type, bool use_binary_large_variant) {
   switch (logical_type.type()) {
     case LogicalType::Type::STRING:
-      return ::arrow::large_utf8();
+      return use_binary_large_variant ? ::arrow::large_utf8() : ::arrow::utf8();
     case LogicalType::Type::DECIMAL:
       return MakeArrowDecimal(logical_type);
     case LogicalType::Type::NONE:
     case LogicalType::Type::ENUM:
     case LogicalType::Type::JSON:
     case LogicalType::Type::BSON:
-      return ::arrow::binary();
+      return use_binary_large_variant ? ::arrow::large_binary() : ::arrow::binary();
     default:
       return Status::NotImplemented("Unhandled logical logical_type ",
                                     logical_type.ToString(), " for binary array");
@@ -181,7 +181,7 @@ Result<std::shared_ptr<ArrowType>> FromInt64(const LogicalType& logical_type) {
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,
-    const ::arrow::TimeUnit::type int96_arrow_time_unit) {
+    const ::arrow::TimeUnit::type int96_arrow_time_unit, bool use_binary_large_variant) {
   if (logical_type.is_invalid() || logical_type.is_null()) {
     return ::arrow::null();
   }
@@ -200,7 +200,7 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     case ParquetType::DOUBLE:
       return ::arrow::float64();
     case ParquetType::BYTE_ARRAY:
-      return FromByteArray(logical_type);
+      return FromByteArray(logical_type, use_binary_large_variant);
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
       return FromFLBA(logical_type, type_length);
     default: {
@@ -213,9 +213,10 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(
     const schema::PrimitiveNode& primitive,
-    const ::arrow::TimeUnit::type int96_arrow_time_unit) {
+    const ::arrow::TimeUnit::type int96_arrow_time_unit,
+    bool use_binary_large_variant) {
   return GetArrowType(primitive.physical_type(), *primitive.logical_type(),
-                      primitive.type_length(), int96_arrow_time_unit);
+                      primitive.type_length(), int96_arrow_time_unit, use_binary_large_variant);
 }
 
 }  // namespace arrow

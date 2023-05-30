@@ -473,7 +473,7 @@ bool IsDictionaryReadSupported(const ArrowType& type) {
     SchemaTreeContext* ctx) {
   ASSIGN_OR_RAISE(
       std::shared_ptr<ArrowType> storage_type,
-      GetArrowType(primitive_node, ctx->properties.coerce_int96_timestamp_unit()));
+      GetArrowType(primitive_node, ctx->properties.coerce_int96_timestamp_unit(), ctx->properties.use_binary_large_variants()));
   if (ctx->properties.read_dictionary(column_index) &&
       IsDictionaryReadSupported(*storage_type)) {
     return ::arrow::dictionary(::arrow::int32(), storage_type);
