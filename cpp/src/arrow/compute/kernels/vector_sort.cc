@@ -892,6 +892,10 @@ class SortIndicesMetaFunction : public MetaFunction {
     }
     // We avoid using `Table::FromChunkedStructArray` here since it doesn't take top-level
     // validity into account for the columns.
+    //
+    // TODO: We could instead use the provided sort keys to only flatten the selected
+    // columns (via `GetFlattenedField`). Same for the Array -> RecordBatch conversion,
+    // since `RecordBatch::FromStructArray` flattens all columns as well.
     ARROW_ASSIGN_OR_RAISE(auto columns, chunked_array->Flatten());
     return Table::Make(schema(chunked_array->type()->fields()), std::move(columns),
                        chunked_array->length());
