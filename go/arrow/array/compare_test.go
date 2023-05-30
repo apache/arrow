@@ -400,6 +400,22 @@ func TestArrayApproxEqualMaps(t *testing.T) {
 		assert.False(t, array.ApproxEqual(a, b))
 		assert.False(t, array.ApproxEqual(a, b, array.WithUnorderedMapKeys(true)))
 	})
+
+	t.Run("different value", func(t *testing.T) {
+		m := map[string]string{"x": "x", "y": "y", "z": "z", "extra": "extra"}
+
+		keys := []string{"z", "y", "x", "extra"}
+		a := testStringMap(mem, m, keys)
+		defer a.Release()
+
+		m["extra"] = "different"
+		b := testStringMap(mem, m, keys)
+		defer b.Release()
+
+		assert.Equal(t, a.NullN(), b.NullN())
+		assert.False(t, array.ApproxEqual(a, b))
+		assert.False(t, array.ApproxEqual(a, b, array.WithUnorderedMapKeys(true)))
+	})
 }
 
 func arrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
