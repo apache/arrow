@@ -576,7 +576,7 @@ TEST(TestBitmapHash, Empty) {
   }
   const auto hash_of_negated_block = HashDataBitmap(*negated_block_of_bools->data());
 
-  constexpr bool kSlowTests = true;
+  constexpr bool kSlowTests = false;
   constexpr auto kMaxPadding = 64 + 32 + 1;
   auto step = [&](int& i) {
     const auto kStep = kSlowTests ? 1 : 8;
