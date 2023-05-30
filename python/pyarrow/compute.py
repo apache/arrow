@@ -488,7 +488,7 @@ def fill_null(values, fill_value):
 
     If fill_value is scalar-like, then every null element in values
     will be replaced with fill_value. If fill_value is array-like,
-    then the i-th element in values will be replaced witth the i-th
+    then the i-th element in values will be replaced with the i-th
     element in fill_value.
 
     The fill_value's type must be the same as that of values, or it
