@@ -645,6 +645,10 @@ static inline std::string ByteArrayToString(const ByteArray& a) {
   return std::string(reinterpret_cast<const char*>(a.ptr), a.len);
 }
 
+static inline std::string LargeByteArrayToString(const LargeByteArray& a) {
+  return std::string(reinterpret_cast<const char*>(a.ptr), a.len);
+}
+
 static inline void Int96SetNanoSeconds(parquet::Int96& i96, int64_t nanoseconds) {
   std::memcpy(&i96.value, &nanoseconds, sizeof(nanoseconds));
 }

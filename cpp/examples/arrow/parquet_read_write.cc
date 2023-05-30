@@ -120,7 +120,7 @@ arrow::Status WriteFullFile(std::string path_to_file) {
 
   ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(*table.get(),
                                                  arrow::default_memory_pool(), outfile,
-                                                 /*chunk_size=*/1024*1024*1024, props, arrow_props));
+                                                 /*chunk_size=*/3, props, arrow_props));
   return arrow::Status::OK();
 }
 

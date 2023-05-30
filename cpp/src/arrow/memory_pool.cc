@@ -888,9 +888,6 @@ class PoolBuffer final : public ResizableBuffer {
         capacity_ = new_capacity;
       }
     } else {
-      if (new_size > static_cast<int64_t>(pow(2, 59))) {
-        assert(false);
-      }
       RETURN_NOT_OK(Reserve(new_size));
     }
     size_ = new_size;
