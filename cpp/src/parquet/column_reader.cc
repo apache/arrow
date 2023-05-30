@@ -2337,7 +2337,7 @@ class LargeByteArrayDictionaryRecordReader : public TypedRecordReader<LargeByteA
  private:
   using LargeBinaryDictDecoder = DictDecoder<LargeByteArrayType>;
 
-  ::arrow::BinaryDictionary64Builder builder_;
+  ::arrow::LargeBinaryDictionary32Builder builder_;
   std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
 };
 

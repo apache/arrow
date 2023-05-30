@@ -45,8 +45,6 @@ class NumericBuilder;
 class FixedSizeBinaryBuilder;
 template <typename T>
 class Dictionary32Builder;
-template <typename T>
-class Dictionary64Builder;
 
 }  // namespace arrow
 
@@ -167,7 +165,7 @@ struct EncodingTraits<LargeByteArrayType> {
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
   using ArrowType = ::arrow::LargeBinaryType;
-  using DictAccumulator = ::arrow::Dictionary64Builder<::arrow::LargeBinaryType>;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::LargeBinaryType>;
 };
 
 template <>

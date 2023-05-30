@@ -1551,7 +1551,7 @@ class PlainLargeByteArrayDecoder : public PlainDecoder<LargeByteArrayType>,
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  ::arrow::BinaryDictionary64Builder* builder) override {
+                  ::arrow::LargeBinaryDictionary32Builder* builder) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
                                      valid_bits_offset, builder, &result));
@@ -2101,7 +2101,7 @@ void DictDecoderImpl<ByteArrayType>::InsertDictionary(::arrow::ArrayBuilder* bui
 
 template <>
 void DictDecoderImpl<LargeByteArrayType>::InsertDictionary(::arrow::ArrayBuilder* builder) {
-  auto binary_builder = checked_cast<::arrow::BinaryDictionary64Builder*>(builder);
+  auto binary_builder = checked_cast<::arrow::LargeBinaryDictionary32Builder*>(builder);
 
   // Make a BinaryArray referencing the internal dictionary data
   auto arr = std::make_shared<::arrow::LargeBinaryArray>(
@@ -2331,7 +2331,7 @@ class DictLargeByteArrayDecoderImpl : public DictDecoderImpl<LargeByteArrayType>
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  ::arrow::BinaryDictionary64Builder* builder) override {
+                  ::arrow::LargeBinaryDictionary32Builder* builder) override {
     int result = 0;
     if (null_count == 0) {
       PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
