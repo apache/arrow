@@ -71,11 +71,13 @@ void read_whole_file(const std::string & filename) {
 
   parquet::arrow::FileReaderBuilder builder;
 
-  parquet::ReaderProperties props = parquet::default_reader_properties();
+  parquet::ArrowReaderProperties properties;
 
-//  props.set_use_binary_large_variants(true);
+  properties.set_use_binary_large_variants(true);
 
-  PARQUET_THROW_NOT_OK(builder.Open(infile, props));
+  builder.properties(properties);
+
+  PARQUET_THROW_NOT_OK(builder.Open(infile));
 
   PARQUET_THROW_NOT_OK(builder.Build(&reader));
 
@@ -145,7 +147,7 @@ void read_single_column_chunk() {
 int main(int argc, char** argv) {
 //  std::shared_ptr<arrow::Table> table = generate_table();
 //  write_parquet_file(*table);
-  read_whole_file("minimal_repro.parquet");
+  read_whole_file("chunked_jira.parquet");
 //  read_single_rowgroup();
 //  read_single_column("minimal_repro.parquet");
 //  read_single_column_chunk();

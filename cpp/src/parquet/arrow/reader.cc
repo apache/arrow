@@ -219,6 +219,7 @@ class FileReaderImpl : public FileReader {
     ctx->iterator_factory = SomeRowGroupsFactory(row_groups);
     ctx->filter_leaves = true;
     ctx->included_leaves = included_leaves;
+    ctx->use_binary_large_variants = reader_properties_.use_binary_large_variants();
     return GetReader(manifest_.schema_fields[i], ctx, out);
   }
 
@@ -462,7 +463,7 @@ class LeafReader : public ColumnReaderImpl {
         input_(std::move(input)),
         descr_(input_->descr()) {
     record_reader_ = RecordReader::Make(
-        descr_, leaf_info, ctx_->pool, field_->type()->id() == ::arrow::Type::DICTIONARY, false, true /* use_binary_large_variants */);
+        descr_, leaf_info, ctx_->pool, field_->type()->id() == ::arrow::Type::DICTIONARY, false, ctx_->use_binary_large_variants);
     NextRowGroup();
   }
 
