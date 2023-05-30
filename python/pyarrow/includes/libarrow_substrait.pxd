@@ -49,6 +49,23 @@ cdef extern from "arrow/engine/substrait/extension_set.h" \
 
     ExtensionIdRegistry* default_extension_id_registry()
 
+cdef extern from "arrow/engine/substrait/relation.h" namespace "arrow::engine" nogil:
+
+    cdef cppclass CNamedExpression "arrow::engine::NamedExpression":
+        CExpression expression
+        c_string name
+
+    cdef cppclass CBoundExpressions "arrow::engine::BoundExpressions":
+        std_vector[CNamedExpression] named_expressions
+        shared_ptr[CSchema] schema
+
+cdef extern from "arrow/engine/substrait/serde.h" namespace "arrow::engine" nogil:
+
+    CResult[shared_ptr[CBuffer]] SerializeExpressions(
+        const CBoundExpressions& bound_expressions)
+
+    CResult[CBoundExpressions] DeserializeExpressions(
+        const CBuffer& serialized_expressions)
 
 cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil:
     CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(

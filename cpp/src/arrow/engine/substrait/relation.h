@@ -22,6 +22,7 @@
 #include "arrow/compute/api_aggregate.h"
 //#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/acero/exec_plan.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/type_fwd.h"
 

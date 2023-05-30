@@ -141,9 +141,6 @@ DeclarationFactory MakeWriteDeclarationFactory(
   };
 }
 
-constexpr uint32_t kMinimumMajorVersion = 0;
-constexpr uint32_t kMinimumMinorVersion = 20;
-
 Result<std::vector<acero::Declaration>> DeserializePlans(
     const Buffer& buf, DeclarationFactory declaration_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,

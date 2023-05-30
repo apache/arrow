@@ -454,9 +454,10 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_closeDataset
  * Signature: (J[Ljava/lang/String;JJ)J
  */
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScanner(
-    JNIEnv* env, jobject, jlong dataset_id, jobjectArray columnsSubset, jobject columnsToProduce, jlong batch_size,
+    JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns_subset, jobject columns_to_produce_or_filter, jlong batch_size,
     jlong memory_pool_id) {
   JNI_METHOD_START
+  std::cout << "Inicio createScanner" << std::endl;
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
   if (pool == nullptr) {
     JniThrow("Memory pool does not exist or has been closed");
@@ -466,27 +467,43 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
   std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
       JniGetOrThrow(dataset->NewScan());
   JniAssertOkOrThrow(scanner_builder->Pool(pool));
-  if (columnsSubset != nullptr) {
-    std::vector<std::string> column_vector = ToStringVector(env, columnsSubset);
+  if (columns_subset != nullptr) {
+    std::vector<std::string> column_vector = ToStringVector(env, columns_subset);
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
   }
-  if (columnsToProduce != nullptr) {
-    auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(columnsToProduce));
-    int length = env->GetDirectBufferCapacity(columnsToProduce);
+  if (columns_to_produce_or_filter != nullptr) {
+    std::cout << "Inicio columns_to_produce_or_filter" << std::endl;
+    auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(columns_to_produce_or_filter));
+    int length = env->GetDirectBufferCapacity(columns_to_produce_or_filter);
     std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
     std::memcpy(buffer->mutable_data(), buff, length);
     // execute expression
-    arrow::engine::BoundExpressions round_tripped =
+    std::cout << "Call DeserializeExpressions" << std::endl;
+    arrow::engine::BoundExpressions bounded_expression =
       JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
     // validate result
     // create exprs / names
-    std::vector<arrow::compute::Expression> exprs;
-    std::vector<std::string> names;
-    for(arrow::engine::NamedExpression named_expression : round_tripped.named_expressions) {
-        exprs.push_back(named_expression.expression);
-        names.push_back(named_expression.name);
+    std::vector<arrow::compute::Expression> project_exprs;
+    std::vector<std::string> project_names;
+    arrow::compute::Expression filter_expr;
+    int filter_count = 0;
+    std::cout << "Iterate bounded_expression.named_expressions" << std::endl;
+    for(arrow::engine::NamedExpression named_expression : bounded_expression.named_expressions) {
+      if (named_expression.expression.type()->id() == arrow::Type::BOOL) {
+        std::cout << "Filter: " + named_expression.expression.ToString() << std::endl;
+        if (filter_count > 1) {
+          std::cout << "Error! Only one filter expression is supported" << std::endl;
+        }
+        filter_expr = named_expression.expression;
+        filter_count++;
+      } else {
+        std::cout << "Project: " + named_expression.expression.ToString() << std::endl;
+        project_exprs.push_back(named_expression.expression);
+        project_names.push_back(named_expression.name);
+      }
     }
-    JniAssertOkOrThrow(scanner_builder->Project(exprs, names));
+    JniAssertOkOrThrow(scanner_builder->Project(project_exprs, project_names));
+    JniAssertOkOrThrow(scanner_builder->Filter(filter_expr));
   }
   JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
 

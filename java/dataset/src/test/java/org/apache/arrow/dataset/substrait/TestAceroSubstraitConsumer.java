@@ -213,7 +213,8 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     // Extended Expression 01: n_nationkey + 7
     // Extended Expression 02: n_nationkey > 23
     // OK generado por POJO: String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRopChoaGBoEKgIQASIIGgYSBAoCEgAiBhoECgIoAhoLcHJvamVjdF9vbmUaKwocGhoIARoEKgIQASIIGgYSBAoCEgAiBhoECgIoChoLcHJvamVjdF90d28iGgoCSUQKBE5BTUUSDgoEKgIQAQoEYgIQARgC";
-    String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRISGhAIAhACGgpsdDphbnlfYW55GikKGhoYGgQqAhABIggaBhIECgISACIGGgQKAigCGgtwcm9qZWN0X29uZRorChwaGggBGgQqAhABIggaBhIECgISACIGGgQKAigKGgtwcm9qZWN0X3R3bxoqChwaGggCGgQKAhABIggaBhIECgISACIGGgQKAigUGgpmaWx0ZXJfb25lIhoKAklECgROQU1FEg4KBCoCEAEKBGICEAEYAg==";
+//    String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRISGhAIAhACGgpsdDphbnlfYW55GikKGhoYGgQqAhABIggaBhIECgISACIGGgQKAigCGgtwcm9qZWN0X29uZRorChwaGggBGgQqAhABIggaBhIECgISACIGGgQKAigKGgtwcm9qZWN0X3R3bxoqChwaGggCGgQKAhABIggaBhIECgISACIGGgQKAigUGgpmaWx0ZXJfb25lIhoKAklECgROQU1FEg4KBCoCEAEKBGICEAEYAg==";
+    String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISFBoSCAIQARoMY29uY2F0OnZjaGFyEhIaEAgCEAIaCmx0OmFueV9hbnkaMQoaGhgaBCoCEAEiCBoGEgQKAhIAIgYaBAoCKAIaE2FkZF90d29fdG9fY29sdW1uX2EaOwoiGiAIARoEYgIQASIKGggSBgoEEgIIASIKGggSBgoEEgIIAhoVY29uY2F0X2NvbHVtbl9hX2FuZF9iGioKHBoaCAIaBAoCEAEiCBoGEgQKAhIAIgYaBAoCKBQaCmZpbHRlcl9vbmUiKgoCSUQKBE5BTUUKCExBU1ROQU1FEhQKBCoCEAEKBGICEAEKBGICEAEYAg==";
 //    String binaryExtendedExpressions =
 //        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IA" +
 //            "RoLYWRkOmkzMl9pMzISEhoQCAIQARoKZ3Q6YW55X2FueRooChwaGhoEKgIQAiIKGggSBgoCEgAiACIGGgQKAigCGg" +
@@ -264,6 +265,47 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         Scanner scanner = dataset.newScan(options);
         ArrowReader reader = scanner.scanBatches()
     ) {
+      while (reader.loadNextBatch()) {
+        try (VectorSchemaRoot root = reader.getVectorSchemaRoot()) {
+          System.out.print(root.contentToTSVString());
+        }
+      }
+    }
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testBaseParquetReadWithExtendedExpressionsProjectAndFilter() throws Exception {
+    // Extended Expression 01: id + 2
+    // Extended Expression 02: id > 10
+    // Parsed as: [column_0, add(FieldPath(0), 2), column_1, (FieldPath(0) > 10)] :
+    //  -> Fail with: java.lang.RuntimeException: Inferring column projection from FieldRef FieldRef.FieldPath(0)
+    // Parsed as: [column_0, add(FieldPath("id"), 2), column_1, (FieldPath("id") > 10)] :
+    //  -> OK
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("ID", new ArrowType.Int(32, true)),
+        Field.nullable("NAME", new ArrowType.Utf8())
+    ), Collections.emptyMap());
+    // Base64.getEncoder().encodeToString(plan.toByteArray());
+    String binaryExtendedExpressions =
+        "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlzb24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISFBoSCAIQARoMY29uY2F0OnZjaGFyEhIaEAgCEAIaCmx0OmFueV9hbnkaMQoaGhgaBCoCEAEiCBoGEgQKAhIAIgYaBAoCKAIaE2FkZF90d29fdG9fY29sdW1uX2EaOwoiGiAIARoEYgIQASIKGggSBgoEEgIIASIKGggSBgoEEgIIARoVY29uY2F0X2NvbHVtbl9hX2FuZF9iGioKHBoaCAIaBAoCEAEiCBoGEgQKAhIAIgYaBAoCKBQaCmZpbHRlcl9vbmUiGgoCSUQKBE5BTUUSDgoEKgIQAQoEYgIQARgC";
+    // get binary plan
+    byte[] extendedExpressions = Base64.getDecoder().decode(binaryExtendedExpressions);
+    ByteBuffer substraitExtendedExpressions = ByteBuffer.allocateDirect(extendedExpressions.length);
+    substraitExtendedExpressions.put(extendedExpressions);
+    System.out.println("escasa");
+    ParquetWriteSupport writeSupport = ParquetWriteSupport
+        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+    ScanOptions options = new ScanOptions(/*batchSize*/ 32768, Optional.empty(),
+        Optional.of(substraitExtendedExpressions));
+    System.out.println("nnnn");
+    try (
+        DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.PARQUET, writeSupport.getOutputURI());
+        Dataset dataset = datasetFactory.finish();
+        Scanner scanner = dataset.newScan(options);
+        ArrowReader reader = scanner.scanBatches()
+    ) {
+      System.out.println("aaa");
       while (reader.loadNextBatch()) {
         try (VectorSchemaRoot root = reader.getVectorSchemaRoot()) {
           System.out.print(root.contentToTSVString());
