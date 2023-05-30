@@ -60,34 +60,16 @@ void write_parquet_file(const arrow::Table& table) {
 }
 
 // #2: Fully read in the file
-void read_whole_file(const std::string & filename) {
-  std::cout << "Reading " << filename << " at once" << std::endl;
+void read_whole_file() {
+  std::cout << "Reading parquet-arrow-example.parquet at once" << std::endl;
   std::shared_ptr<arrow::io::ReadableFile> infile;
   PARQUET_ASSIGN_OR_THROW(infile,
-                          arrow::io::ReadableFile::Open(filename,
+                          arrow::io::ReadableFile::Open("parquet-arrow-example.parquet",
                                                         arrow::default_memory_pool()));
 
   std::unique_ptr<parquet::arrow::FileReader> reader;
-
-  parquet::arrow::FileReaderBuilder builder;
-
-  parquet::ArrowReaderProperties properties;
-
-  properties.set_use_binary_large_variants(true);
-
-  builder.properties(properties);
-
-  PARQUET_THROW_NOT_OK(builder.Open(infile));
-
-  PARQUET_THROW_NOT_OK(builder.Build(&reader));
-
-//  PARQUET_THROW_NOT_OK(
-//      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
-
-  std::shared_ptr<::arrow::Schema> schema;
-
-  [[maybe_unused]] auto metadata = reader->GetSchema(&schema);
-
+  PARQUET_THROW_NOT_OK(
+      parquet::arrow::OpenFile(infile, arrow::default_memory_pool(), &reader));
   std::shared_ptr<arrow::Table> table;
   PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
   std::cout << "Loaded " << table->num_rows() << " rows in " << table->num_columns()
@@ -113,6 +95,7 @@ void read_single_rowgroup() {
 
 // #4: Read only a single column of the whole parquet file
 void read_single_column() {
+  std::cout << "Reading first column of parquet-arrow-example.parquet" << std::endl;
   std::shared_ptr<arrow::io::ReadableFile> infile;
   PARQUET_ASSIGN_OR_THROW(infile,
                           arrow::io::ReadableFile::Open("parquet-arrow-example.parquet",
@@ -148,6 +131,10 @@ void read_single_column_chunk() {
 }
 
 int main(int argc, char** argv) {
-//  read_whole_file("chunked_jira.parquet");
-  read_whole_file("minimal_repro.parquet");
+  std::shared_ptr<arrow::Table> table = generate_table();
+  write_parquet_file(*table);
+  read_whole_file();
+  read_single_rowgroup();
+  read_single_column();
+  read_single_column_chunk();
 }
