@@ -1150,11 +1150,14 @@ class ObjectInputFile final : public io::RandomAccessFile {
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
-// Minimum size for each part of a multipart upload, except for the last part.
-// AWS doc says "5 MB" but it's not clear whether those are MB or MiB,
-// so I chose the safer value.
-// (see https://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html)
-static constexpr int64_t kMinimumPartUpload = 10 * 1024 * 1024;
+// Upload size per part. While AWS and Minio support different sizes for each
+// part (only requiring a minimum of 5MB), Cloudflare R2 requires that every
+// part be exactly equal (except for the last part). We set this to 10 MB, so
+// that in combination with the maximum number of parts of 10,000, this gives a
+// file limit of 100k MB (or about 98 GB).
+// (see https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html)
+// (for rational, see: https://github.com/apache/arrow/issues/34363)
+static constexpr int64_t kPartUploadSize = 10 * 1024 * 1024;
 
 // An OutputStream that writes to a S3 object
 class ObjectOutputStream final : public io::OutputStream {
@@ -1305,20 +1308,22 @@ class ObjectOutputStream final : public io::OutputStream {
     }
 
     const int8_t* data_ptr = reinterpret_cast<const int8_t*>(data);
-    int64_t offset = 0;
+    auto advance_ptr = [&data_ptr, &nbytes](const int64_t offset) {
+      data_ptr += offset;
+      nbytes -= offset;
+    };
 
     // Handle case where we have some bytes bufferred from prior calls.
     if (current_part_size_ > 0) {
       // Try to fill current buffer
-      const int64_t to_copy =
-          std::min(nbytes - offset, part_upload_threshold_ - current_part_size_);
-      RETURN_NOT_OK(current_part_->Write(data_ptr + offset, to_copy));
+      const int64_t to_copy = std::min(nbytes, kPartUploadSize - current_part_size_);
+      RETURN_NOT_OK(current_part_->Write(data_ptr, to_copy));
       current_part_size_ += to_copy;
-      offset += to_copy;
+      advance_ptr(to_copy);
       pos_ += to_copy;
 
       // If buffer isn't full, break
-      if (current_part_size_ < part_upload_threshold_) {
+      if (current_part_size_ < kPartUploadSize) {
         return Status::OK();
       }
 
@@ -1327,19 +1332,18 @@ class ObjectOutputStream final : public io::OutputStream {
     }
 
     // We can upload chunks without copying them into a buffer
-    while (nbytes - offset >= part_upload_threshold_) {
-      RETURN_NOT_OK(UploadPart(data_ptr + offset, part_upload_threshold_));
-      offset += part_upload_threshold_;
-      pos_ += part_upload_threshold_;
+    while (nbytes >= kPartUploadSize) {
+      RETURN_NOT_OK(UploadPart(data_ptr, kPartUploadSize));
+      advance_ptr(kPartUploadSize);
+      pos_ += kPartUploadSize;
     }
 
     // Buffer remaining bytes
-    if (offset < nbytes) {
-      current_part_size_ = nbytes - offset;
-      ARROW_ASSIGN_OR_RAISE(
-          current_part_,
-          io::BufferOutputStream::Create(part_upload_threshold_, io_context_.pool()));
-      RETURN_NOT_OK(current_part_->Write(data_ptr + offset, current_part_size_));
+    if (nbytes > 0) {
+      current_part_size_ = nbytes;
+      ARROW_ASSIGN_OR_RAISE(current_part_, io::BufferOutputStream::Create(
+                                               kPartUploadSize, io_context_.pool()));
+      RETURN_NOT_OK(current_part_->Write(data_ptr, current_part_size_));
       pos_ += current_part_size_;
     }
 
@@ -1484,7 +1488,6 @@ class ObjectOutputStream final : public io::OutputStream {
   int32_t part_number_ = 1;
   std::shared_ptr<io::BufferOutputStream> current_part_;
   int64_t current_part_size_ = 0;
-  int64_t part_upload_threshold_ = kMinimumPartUpload;
 
   // This struct is kept alive through background writes to avoid problems
   // in the completion handler.
