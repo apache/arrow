@@ -26,8 +26,7 @@ classdef UInt32Array < arrow.array.Array
                 data
                 opts.DeepCopy = false
             end
-            validateattributes(data, "uint32", ["2d", "nonsparse", "real"]);
-            if ~isempty(data), validateattributes(data, "uint32", "vector"); end
+            arrow.args.validateTypeAndShape(data, "uint32");
             obj@arrow.array.Array("Name", "arrow.array.proxy.UInt32Array", "ConstructorArguments", {data, opts.DeepCopy});
             % Store a reference to the array if not doing a deep copy
             if (~opts.DeepCopy), obj.MatlabArray = data; end
