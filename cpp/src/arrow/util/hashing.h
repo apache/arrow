@@ -66,9 +66,6 @@ inline hash_t ComputeStringHash(const void* data, int64_t length);
 /// \brief A hash function for bitmaps that can handle offsets and lengths in
 /// terms of number of bits. The hash only depends on the bits actually hashed.
 ///
-/// The key (a bitmap) is read as a sequence of 64-bit words before the trailing
-/// bytes. So if the input is 64-bit aligned, all memory accesses are aligned.
-///
 /// It's the caller's responsibility to ensure that bits_offset + num_bits are
 /// readable from the bitmap.
 ///
