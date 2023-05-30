@@ -167,6 +167,8 @@ class ScanTaskStagingArea {
         ScanTaskEntry scan_task;
         scan_task.scan_task_index = i;
         scan_task.num_batches = this->fragment_scanner->NumBatchesInScanTask(i);
+        std::cout << "  Fragment " << fragment_index << " detected "
+                  << scan_task.num_batches << " batches in scan task " << i << std::endl;
         scan_task.launched = false;
         scan_tasks.push_back(scan_task);
       }
