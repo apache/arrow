@@ -303,43 +303,103 @@ func TestArrayApproxEqualFloats(t *testing.T) {
 	}
 }
 
+func testStringMap(mem memory.Allocator, m map[string]string, keys []string) *array.Map {
+	dt := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+	builder := array.NewMapBuilderWithType(mem, dt)
+	defer builder.Release()
+	key, item := builder.KeyBuilder().(*array.StringBuilder), builder.ItemBuilder().(*array.StringBuilder)
+
+	builder.AppendNull()
+	builder.Append(true)
+
+	for _, k := range keys {
+		key.Append(k)
+
+		v, ok := m[k]
+		if !ok {
+			item.AppendNull()
+			continue
+		}
+
+		item.Append(v)
+	}
+
+	return builder.NewMapArray()
+}
+
 func TestArrayApproxEqualMaps(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	getArr := func(values []string) *array.Map {
-		dt := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
-		builder := array.NewMapBuilderWithType(mem, dt)
-		defer builder.Release()
-		key, item := builder.KeyBuilder().(*array.StringBuilder), builder.ItemBuilder().(*array.StringBuilder)
+	t.Run("different order", func(t *testing.T) {
+		m := map[string]string{"x": "x", "y": "y", "z": "z"}
 
-		builder.AppendNull()
-		builder.Append(true)
-		for _, k := range values {
-			key.Append(k)
-			item.Append(k)
+		keys := []string{"z", "y", "x", "null"}
+		a := testStringMap(mem, m, keys)
+		defer a.Release()
 
-			key.Append("null_" + k)
-			item.AppendNull()
-		}
+		asc := make([]string, len(keys))
+		copy(asc, keys)
+		sort.Strings(asc)
+		assert.NotEqual(t, keys, asc)
 
-		return builder.NewMapArray()
-	}
+		b := testStringMap(mem, m, asc)
+		defer b.Release()
 
-	descKeys := []string{"z", "y", "x"}
-	desc := getArr(descKeys)
-	defer desc.Release()
+		assert.False(t, array.ApproxEqual(a, b))
+		assert.True(t, array.ApproxEqual(a, b, array.WithUnorderedMapKeys(true)))
+	})
 
-	askKeys := make([]string, len(descKeys))
-	copy(askKeys, descKeys)
-	sort.Strings(askKeys)
-	assert.NotEqual(t, descKeys, askKeys)
+	t.Run("extra left value", func(t *testing.T) {
+		m := map[string]string{"x": "x", "y": "y", "z": "z", "extra": "extra"}
 
-	asc := getArr(askKeys)
-	defer asc.Release()
+		aKeys := []string{"z", "y", "x", "extra"}
+		a := testStringMap(mem, m, aKeys)
+		defer a.Release()
 
-	assert.False(t, array.ApproxEqual(desc, asc))
-	assert.True(t, array.ApproxEqual(desc, asc, array.WithUnorderedMapKeys(true)))
+		bKeys := []string{"z", "y", "x"}
+		b := testStringMap(mem, m, bKeys)
+		defer b.Release()
+
+		assert.NotEqual(t, aKeys, bKeys)
+		assert.Equal(t, a.NullN(), b.NullN())
+		assert.False(t, array.ApproxEqual(a, b))
+		assert.False(t, array.ApproxEqual(a, b, array.WithUnorderedMapKeys(true)))
+	})
+
+	t.Run("extra right value", func(t *testing.T) {
+		m := map[string]string{"x": "x", "y": "y", "z": "z", "extra": "extra"}
+
+		aKeys := []string{"z", "y", "x"}
+		a := testStringMap(mem, m, aKeys)
+		defer a.Release()
+
+		bKeys := []string{"z", "y", "x", "extra"}
+		b := testStringMap(mem, m, bKeys)
+		defer b.Release()
+
+		assert.NotEqual(t, aKeys, bKeys)
+		assert.Equal(t, a.NullN(), b.NullN())
+		assert.False(t, array.ApproxEqual(a, b))
+		assert.False(t, array.ApproxEqual(a, b, array.WithUnorderedMapKeys(true)))
+	})
+
+	t.Run("unmatched value", func(t *testing.T) {
+		m := map[string]string{"x": "x", "y": "y", "z": "z", "extra": "extra", "extra2": "extra"}
+
+		aKeys := []string{"z", "y", "x", "extra"}
+		a := testStringMap(mem, m, aKeys)
+		defer a.Release()
+
+		bKeys := []string{"z", "y", "x", "extra2"}
+		b := testStringMap(mem, m, bKeys)
+		defer b.Release()
+
+		assert.NotEqual(t, aKeys, bKeys)
+		assert.Equal(t, a.NullN(), b.NullN())
+		assert.False(t, array.ApproxEqual(a, b))
+		assert.False(t, array.ApproxEqual(a, b, array.WithUnorderedMapKeys(true)))
+	})
 }
 
 func arrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
