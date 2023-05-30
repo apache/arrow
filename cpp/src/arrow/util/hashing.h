@@ -81,8 +81,8 @@ inline hash_t ComputeStringHash(const void* data, int64_t length);
 /// \param seed The seed for the hash function (useful when chaining hash functions).
 /// \param bits_offset The offset in bits relative to the start of the bitmap.
 /// \param num_bits The number of bits after the offset to be hashed.
-hash_t ComputeBitmapHash(const uint8_t* bitmap, int64_t length, hash_t seed,
-                         int64_t bits_offset, int64_t num_bits);
+ARROW_EXPORT hash_t ComputeBitmapHash(const uint8_t* bitmap, int64_t length, hash_t seed,
+                                      int64_t bits_offset, int64_t num_bits);
 
 template <typename Scalar, uint64_t AlgNum>
 struct ScalarHelperBase {
