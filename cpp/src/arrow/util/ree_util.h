@@ -227,20 +227,39 @@ class RunEndEncodedArraySpan {
     int64_t physical_pos_;
   };
 
-  explicit RunEndEncodedArraySpan(const ArrayData& data)
-      : RunEndEncodedArraySpan(ArraySpan{data}) {}
+  // Prevent implicit ArrayData -> ArraySpan conversion in
+  // RunEndEncodedArraySpan instantiation.
+  explicit RunEndEncodedArraySpan(const ArrayData& data) = delete;
 
-  explicit RunEndEncodedArraySpan(const ArraySpan& array_span)
-      : array_span{array_span}, run_ends_(RunEnds<RunEndCType>(array_span)) {
-    assert(array_span.type->id() == Type::RUN_END_ENCODED);
+  /// \brief Construct a RunEndEncodedArraySpan from an ArraySpan and new
+  /// absolute offset and length.
+  ///
+  /// RunEndEncodedArraySpan{span, off, len} is equivalent to:
+  ///
+  ///   span.SetSlice(off, len);
+  ///   RunEndEncodedArraySpan{span}
+  ///
+  /// ArraySpan::SetSlice() updates the null_count to kUnknownNullCount, but
+  /// we don't need that here as REE arrays have null_count set to 0 by
+  /// convention.
+  explicit RunEndEncodedArraySpan(const ArraySpan& array_span, int64_t offset,
+                                  int64_t length)
+      : array_span_{array_span},
+        run_ends_(RunEnds<RunEndCType>(array_span_)),
+        length_(length),
+        offset_(offset) {
+    assert(array_span_.type->id() == Type::RUN_END_ENCODED);
   }
 
-  int64_t length() const { return array_span.length; }
-  int64_t offset() const { return array_span.offset; }
+  explicit RunEndEncodedArraySpan(const ArraySpan& array_span)
+      : RunEndEncodedArraySpan(array_span, array_span.offset, array_span.length) {}
+
+  int64_t offset() const { return offset_; }
+  int64_t length() const { return length_; }
 
   int64_t PhysicalIndex(int64_t logical_pos) const {
-    return internal::FindPhysicalIndex(run_ends_, RunEndsArray(array_span).length,
-                                       logical_pos, offset());
+    return internal::FindPhysicalIndex(run_ends_, RunEndsArray(array_span_).length,
+                                       logical_pos, offset_);
   }
 
   /// \brief Create an iterator from a logical position and its
@@ -296,9 +315,9 @@ class RunEndEncodedArraySpan {
                     (length() == 0) ? PhysicalIndex(0) : PhysicalIndex(length() - 1) + 1);
   }
 
-  // Pre-condition: physical_pos < RunEndsArray(array_span).length);
+  // Pre-condition: physical_pos < RunEndsArray(array_span_).length);
   inline int64_t run_end(int64_t physical_pos) const {
-    assert(physical_pos < RunEndsArray(array_span).length);
+    assert(physical_pos < RunEndsArray(array_span_).length);
     // Logical index of the end of the run at physical_pos with offset applied
     const int64_t logical_run_end =
         std::max<int64_t>(static_cast<int64_t>(run_ends_[physical_pos]) - offset(), 0);
@@ -306,11 +325,11 @@ class RunEndEncodedArraySpan {
     return std::min(logical_run_end, length());
   }
 
- public:
-  const ArraySpan array_span;
-
  private:
+  const ArraySpan& array_span_;
   const RunEndCType* run_ends_;
+  const int64_t length_;
+  const int64_t offset_;
 };
 
 /// \brief Iterate over two run-end encoded arrays in runs or sub-runs that are
