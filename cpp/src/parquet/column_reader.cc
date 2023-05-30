@@ -2355,19 +2355,27 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
                                                         LevelInfo leaf_info,
                                                         ::arrow::MemoryPool* pool,
                                                         bool read_dictionary,
-                                                        bool read_dense_for_nullable,
-                                                        bool use_binary_string_large_variants) {
+                                                        bool read_dense_for_nullable) {
   if (read_dictionary) {
     return std::make_shared<ByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
   } else {
-    if (use_binary_string_large_variants) {
-      return std::make_shared<LargeByteArrayChunkedRecordReader>(
-          descr, leaf_info, pool, read_dense_for_nullable);
-    }
-
     return std::make_shared<ByteArrayChunkedRecordReader>(descr, leaf_info, pool,
                                                           read_dense_for_nullable);
+  }
+}
+
+std::shared_ptr<RecordReader> MakeLargeByteArrayRecordReader(const ColumnDescriptor* descr,
+                                                             LevelInfo leaf_info,
+                                                             ::arrow::MemoryPool* pool,
+                                                             bool read_dictionary,
+                                                             bool read_dense_for_nullable) {
+  if (read_dictionary) {
+    return std::make_shared<LargeByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
+                                                             read_dense_for_nullable);
+  } else {
+    return std::make_shared<LargeByteArrayChunkedRecordReader>(
+        descr, leaf_info, pool, read_dense_for_nullable);
   }
 }
 
@@ -2398,8 +2406,10 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
       return std::make_shared<TypedRecordReader<DoubleType>>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
     case Type::BYTE_ARRAY: {
-      return MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
-                                       read_dense_for_nullable, use_binary_string_large_variants);
+      return use_binary_string_large_variants ? MakeLargeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
+                                                                          read_dense_for_nullable)
+                                              : MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
+                                                                          read_dense_for_nullable);
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,
