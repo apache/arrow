@@ -515,6 +515,18 @@ TEST(ArraySortIndicesFunction, ChunkedArray) {
 // ----------------------------------------------------------------------
 // Tests for SortToIndices
 
+void AssertSortIndices(const Datum& datum, const SortOptions& options,
+                       const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(datum, options));
+  ValidateOutput(*actual);
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+void AssertSortIndices(const Datum& datum, const SortOptions& options,
+                       const std::string& expected) {
+  AssertSortIndices(datum, options, ArrayFromJSON(uint64(), expected));
+}
+
 template <typename T>
 void AssertSortIndices(const std::shared_ptr<T>& input, SortOrder order,
                        NullPlacement null_placement,
@@ -523,20 +535,6 @@ void AssertSortIndices(const std::shared_ptr<T>& input, SortOrder order,
   ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*input, options));
   ValidateOutput(*actual);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
-}
-
-template <typename T>
-void AssertSortIndices(const std::shared_ptr<T>& input, const SortOptions& options,
-                       const std::shared_ptr<Array>& expected) {
-  ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(Datum(*input), options));
-  ValidateOutput(*actual);
-  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
-}
-
-template <typename T>
-void AssertSortIndices(const std::shared_ptr<T>& input, const SortOptions& options,
-                       const std::string& expected) {
-  AssertSortIndices(input, options, ArrayFromJSON(uint64(), expected));
 }
 
 template <typename T>
@@ -2118,24 +2116,29 @@ INSTANTIATE_TEST_SUITE_P(AllNull, TestTableSortIndicesRandom,
 class TestNestedSortIndices : public ::testing::Test {
  protected:
   static std::shared_ptr<Array> GetArray() {
-    auto child_type = struct_({field("a", uint8()), field("b", uint32())});
-    auto child_array = ArrayFromJSON(child_type,
-                                     R"([{"a": 5,    "b": null},
-                                         {"a": null, "b": 7   },
-                                         {"a": null, "b": 9   },
-                                         {"a": 2,    "b": 4   },
-                                         {"a": 5,    "b": 1   },
-                                         {"a": 3,    "b": null},
-                                         {"a": 2,    "b": 3   }
-                                         ])");
+    auto struct_type =
+        struct_({field("a", struct_({field("a", uint8()), field("b", uint32())})),
+                 field("b", int32())});
+    auto struct_array = checked_pointer_cast<StructArray>(
+        ArrayFromJSON(struct_type,
+                      R"([{"a": {"a": 5,    "b": null}, "b": 8   },
+                          {"a": {"a": null, "b": 7   }, "b": 3   },
+                          {"a": {"a": null, "b": 9   }, "b": 3   },
+                          {"a": {"a": 2,    "b": 4   }, "b": 6   },
+                          {"a": {"a": 5,    "b": 1   }, "b": null},
+                          {"a": {"a": 3,    "b": null}, "b": 2   },
+                          {"a": {"a": 2,    "b": 3   }, "b": 0   },
+                          {"a": {"a": 2,    "b": 4   }, "b": 1   },
+                          {"a": {"a": null, "b": 7   }, "b": null}])"));
 
     // The top-level validity bitmap is created independently to test null inheritance for
     // child fields.
     std::shared_ptr<Buffer> parent_bitmap;
-    ARROW_CHECK_OK(GetBitmapFromVector<bool>({1, 1, 1, 1, 1, 0, 1}, &parent_bitmap));
+    ARROW_CHECK_OK(
+        GetBitmapFromVector<bool>({1, 1, 1, 1, 1, 0, 1, 1, 1}, &parent_bitmap));
 
     auto array =
-        *StructArray::Make({child_array}, {field("a", child_type)}, parent_bitmap);
+        *StructArray::Make(struct_array->fields(), struct_type->fields(), parent_bitmap);
     ARROW_CHECK_OK(array->ValidateFull());
     return array;
   }
@@ -2165,15 +2168,24 @@ class TestNestedSortIndices : public ::testing::Test {
     return table;
   }
 
-  template <typename T>
-  void DoTest(const std::shared_ptr<T>& input) const {
+  void DoTest(const Datum& datum) const {
     std::vector<SortKey> sort_keys = {SortKey(FieldRef("a", "a"), SortOrder::Ascending),
-                                      SortKey(FieldRef("a", "b"), SortOrder::Descending)};
+                                      SortKey(FieldRef("a", "b"), SortOrder::Descending),
+                                      SortKey(FieldRef("b"), SortOrder::Ascending)};
 
     SortOptions options(sort_keys, NullPlacement::AtEnd);
-    AssertSortIndices(input, options, "[3, 6, 4, 0, 2, 1, 5]");
+    AssertSortIndices(datum, options, "[7, 3, 6, 4, 0, 2, 1, 8, 5]");
     options.null_placement = NullPlacement::AtStart;
-    AssertSortIndices(input, options, "[5, 2, 1, 3, 6, 0, 4]");
+    AssertSortIndices(datum, options, "[5, 2, 8, 1, 7, 3, 6, 0, 4]");
+
+    // Sort keys referencing a struct array are invalid
+    options.sort_keys = {SortKey(FieldRef("a", "a"), SortOrder::Descending),
+                         SortKey(FieldRef("a"), SortOrder::Ascending)};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        TypeError,
+        ::testing::HasSubstr(
+            "Unsupported type for RecordBatch sorting: struct<a: uint8, b: uint32>"),
+        SortIndices(datum, options));
   }
 };
 
