@@ -752,7 +752,8 @@ func arrayApproxEqualMap(left, right *Map, opt equalOption) bool {
 func arrayApproxEqualSingleMapEntry(left, right *Struct, opt equalOption) bool {
 	defer left.Release()
 	defer right.Release()
-	// we get here only if the left & right lengths are 1, and the values are valid
+
+	// Every element here is a key-value pair
 	lElems := make([]arrow.Array, left.Len())
 	rElems := make([]arrow.Array, right.Len())
 	for i := 0; i < left.Len(); i++ {
