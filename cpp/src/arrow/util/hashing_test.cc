@@ -519,7 +519,7 @@ hash_t HashConcatenation(const ArrayVector& arrays, int64_t bits_offset = -1,
   return HashDataBitmap(*slice->data());
 }
 
-TEST(SmallBitmapHash, Empty) {
+TEST(BitmapHashTest, SmallInputs) {
   for (bool start : {false, true}) {
     auto block = BuildBooleanArray(64, start);
     for (int len = 0; len < 64; len++) {
@@ -542,7 +542,7 @@ TEST(SmallBitmapHash, Empty) {
   }
 }
 
-TEST(TestBitmapHash, Empty) {
+TEST(BitmapHashTest, LongerInputs) {
   BooleanBuilder builder;
   std::shared_ptr<BooleanArray> block_of_bools;
   {
