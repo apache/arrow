@@ -17,6 +17,7 @@
 
 #include "benchmark/benchmark.h"
 
+#include "arrow/util/logging.h"
 #include "parquet/bloom_filter.h"
 #include "parquet/properties.h"
 
@@ -26,18 +27,18 @@ namespace parquet {
 namespace benchmark {
 
 constexpr static uint32_t kNumBloomFilterInserts = 16 * 1024;
+// The sample string length for FLBA and ByteArray benchmarks
+constexpr static uint32_t kDataStringLength = 8;
 
-std::unique_ptr<BloomFilter> CreateBloomFilter(uint32_t element_size) {
+std::unique_ptr<BloomFilter> CreateBloomFilter(uint32_t num_values) {
   std::unique_ptr<BlockSplitBloomFilter> block_split_bloom_filter =
       std::make_unique<BlockSplitBloomFilter>();
   block_split_bloom_filter->Init(
-      BlockSplitBloomFilter::OptimalNumOfBytes(element_size, /*fpp=*/0.05));
+      BlockSplitBloomFilter::OptimalNumOfBytes(num_values, /*fpp=*/0.05));
   std::unique_ptr<BloomFilter> bloom_filter = std::move(block_split_bloom_filter);
   ::benchmark::DoNotOptimize(bloom_filter);
   return bloom_filter;
 }
-
-constexpr static uint32_t kGenerateBenchmarkDataStringLength = 8;
 
 void GenerateRandomString(uint32_t length, uint32_t seed, std::vector<uint8_t>* heap) {
   // Character set used to generate random string
@@ -54,7 +55,7 @@ void GenerateRandomString(uint32_t length, uint32_t seed, std::vector<uint8_t>* 
 
 template <typename T>
 void GenerateBenchmarkData(uint32_t size, uint32_t seed, T* data,
-                           [[maybe_unused]] std::vector<uint8_t>* heap) {
+                           [[maybe_unused]] std::vector<uint8_t>* heap = nullptr) {
   if constexpr (std::is_integral_v<T>) {
     std::default_random_engine gen(seed);
     std::uniform_int_distribution<T> d(std::numeric_limits<T>::min(),
@@ -70,15 +71,15 @@ void GenerateBenchmarkData(uint32_t size, uint32_t seed, T* data,
       data[i] = d(gen);
     }
   } else if constexpr (std::is_same_v<FLBA, T>) {
-    GenerateRandomString(kGenerateBenchmarkDataStringLength * size, seed, heap);
+    GenerateRandomString(kDataStringLength * size, seed, heap);
     for (uint32_t i = 0; i < size; ++i) {
-      data[i].ptr = heap->data() + i * kGenerateBenchmarkDataStringLength;
+      data[i].ptr = heap->data() + i * kDataStringLength;
     }
   } else if constexpr (std::is_same_v<ByteArray, T>) {
-    GenerateRandomString(kGenerateBenchmarkDataStringLength * size, seed, heap);
+    GenerateRandomString(kDataStringLength * size, seed, heap);
     for (uint32_t i = 0; i < size; ++i) {
-      data[i].ptr = heap->data() + i * kGenerateBenchmarkDataStringLength;
-      data[i].len = kGenerateBenchmarkDataStringLength;
+      data[i].ptr = heap->data() + i * kDataStringLength;
+      data[i].len = kDataStringLength;
     }
   } else if constexpr (std::is_same_v<Int96, T>) {
     std::default_random_engine gen(seed);
@@ -92,15 +93,13 @@ void GenerateBenchmarkData(uint32_t size, uint32_t seed, T* data,
   }
 }
 
-std::vector<uint64_t> GetHashValues(uint32_t element_size, uint32_t seed) {
-  std::vector<uint8_t> heap;
-  // Use int32_t to generate hash values.
-  std::vector<int32_t> values(element_size);
-  GenerateBenchmarkData(element_size, seed, values.data(), &heap);
-  // create a temp filter to count hash values
-  auto filter = CreateBloomFilter(/*element_size=*/8);
-  std::vector<uint64_t> hashes;
-  hashes.resize(element_size);
+std::vector<uint64_t> GetHashValues(uint32_t num_values, uint32_t seed) {
+  // Generate sample data values
+  std::vector<int64_t> values(num_values);
+  GenerateBenchmarkData(num_values, seed, values.data());
+  // Create a temp filter to compute hash values
+  auto filter = CreateBloomFilter(/*num_values=*/8);
+  std::vector<uint64_t> hashes(num_values);
   filter->Hashes(values.data(), static_cast<int>(values.size()), hashes.data());
   return hashes;
 }
@@ -113,10 +112,11 @@ static void BM_ComputeHash(::benchmark::State& state) {
   GenerateBenchmarkData(kNumBloomFilterInserts, /*seed=*/0, values.data(), &heap);
   auto filter = CreateBloomFilter(kNumBloomFilterInserts);
   for (auto _ : state) {
+    uint64_t total = 0;
     for (const auto& value : values) {
       uint64_t hash = 0;
       if constexpr (std::is_same_v<DType, FLBAType>) {
-        hash = filter->Hash(&value, kGenerateBenchmarkDataStringLength);
+        hash = filter->Hash(&value, kDataStringLength);
       } else if constexpr (std::is_same_v<DType, Int96Type>) {
         hash = filter->Hash(&value);
       } else if constexpr (std::is_same_v<DType, ByteArrayType>) {
@@ -124,8 +124,9 @@ static void BM_ComputeHash(::benchmark::State& state) {
       } else {
         hash = filter->Hash(value);
       }
-      ::benchmark::DoNotOptimize(hash);
+      total += hash;
     }
+    ::benchmark::DoNotOptimize(total);
   }
   state.SetItemsProcessed(state.iterations() * values.size());
 }
@@ -140,8 +141,8 @@ static void BM_BatchComputeHash(::benchmark::State& state) {
   std::vector<uint64_t> hashes(kNumBloomFilterInserts);
   for (auto _ : state) {
     if constexpr (std::is_same_v<DType, FLBAType>) {
-      filter->Hashes(values.data(), kGenerateBenchmarkDataStringLength,
-                     static_cast<int>(values.size()), hashes.data());
+      filter->Hashes(values.data(), kDataStringLength, static_cast<int>(values.size()),
+                     hashes.data());
     } else {
       filter->Hashes(values.data(), static_cast<int>(values.size()), hashes.data());
     }
@@ -176,30 +177,36 @@ static void BM_BatchInsertHash(::benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * hashes.size());
 }
 
-static void BM_FindExistsHash(::benchmark::State& state) {
+static void BM_FindExistingHash(::benchmark::State& state) {
   std::vector<uint64_t> hashes = GetHashValues(kNumBloomFilterInserts, /*seed=*/0);
   auto filter = CreateBloomFilter(kNumBloomFilterInserts);
   filter->InsertHashes(hashes.data(), kNumBloomFilterInserts);
   for (auto _ : state) {
+    uint64_t total = 0;
     for (auto hash : hashes) {
       bool found = filter->FindHash(hash);
-      ::benchmark::DoNotOptimize(found);
+      total += found;
     }
+    ARROW_CHECK_EQ(total, hashes.size());
+    ::benchmark::DoNotOptimize(total);
   }
   state.SetItemsProcessed(state.iterations() * hashes.size());
 }
 
-static void BM_FindNotExistsHash(::benchmark::State& state) {
+static void BM_FindNonExistingHash(::benchmark::State& state) {
   std::vector<uint64_t> hashes = GetHashValues(kNumBloomFilterInserts, /*seed=*/0);
   auto filter = CreateBloomFilter(kNumBloomFilterInserts);
   filter->InsertHashes(hashes.data(), kNumBloomFilterInserts);
-  // Use different seed to generate un-exist data.
+  // Use different seed to generate non-existing data.
   hashes = GetHashValues(kNumBloomFilterInserts, /*seed=*/100000);
   for (auto _ : state) {
+    uint64_t total = 0;
     for (auto hash : hashes) {
       bool found = filter->FindHash(hash);
-      ::benchmark::DoNotOptimize(found);
+      total += found;
     }
+    ARROW_CHECK_LE(total, 0.1 * hashes.size());
+    ::benchmark::DoNotOptimize(total);
   }
   state.SetItemsProcessed(state.iterations() * hashes.size());
 }
@@ -221,8 +228,8 @@ BENCHMARK_TEMPLATE(BM_BatchComputeHash, Int96Type);
 
 BENCHMARK(BM_InsertHash);
 BENCHMARK(BM_BatchInsertHash);
-BENCHMARK(BM_FindExistsHash);
-BENCHMARK(BM_FindNotExistsHash);
+BENCHMARK(BM_FindExistingHash);
+BENCHMARK(BM_FindNonExistingHash);
 
 }  // namespace benchmark
 }  // namespace parquet

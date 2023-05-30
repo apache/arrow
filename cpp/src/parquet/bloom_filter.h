@@ -51,7 +51,7 @@ class PARQUET_EXPORT BloomFilter {
 
   /// Insert elements to set represented by Bloom filter bitset.
   /// @param hashes the hash values to insert into Bloom filter.
-  /// @param num_values the length of hash to insert.
+  /// @param num_values the number of hash values to insert.
   virtual void InsertHashes(const uint64_t* hashes, int num_values) = 0;
 
   /// Write this Bloom filter to an output stream. A Bloom filter structure should
@@ -316,9 +316,8 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
                                            ArrowInputStream* input_stream);
 
  private:
-  void InsertHashImpl(uint64_t hash);
+  inline void InsertHashImpl(uint64_t hash);
 
- private:
   // Bytes in a tiny Bloom filter block.
   static constexpr int kBytesPerFilterBlock = 32;
 
@@ -335,11 +334,6 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   static constexpr uint32_t SALT[kBitsSetPerBlock] = {
       0x47b6137bU, 0x44974d91U, 0x8824ad5bU, 0xa2b7289dU,
       0x705495c7U, 0x2df1424bU, 0x9efc4947U, 0x5c6bfb31U};
-
-  /// Set bits in mask array according to input key.
-  /// @param key the value to calculate mask values.
-  /// @param mask the mask array is used to set inside a block
-  void SetMask(uint32_t key, BlockMask& mask) const;
 
   // Memory pool to allocate aligned buffer for bitset
   ::arrow::MemoryPool* pool_;
