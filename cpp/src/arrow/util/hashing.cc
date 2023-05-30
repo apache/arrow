@@ -51,32 +51,29 @@ uint64_t MurmurHashBitmap64(const uint8_t* key, uint64_t seed, uint64_t bits_off
 
   uint64_t h = seed ^ (num_bits * m);
 
-#define HASHING_ROUND(k) \
-  (k) *= m;              \
-  (k) ^= (k) >> r;       \
-  (k) *= m;              \
-                         \
-  h ^= (k);              \
-  h *= m
-
   BitmapWordReader<uint64_t> reader(key, bits_offset, num_bits);
   auto nwords = reader.words();
   while (nwords--) {
     auto k = reader.NextWord();
-    HASHING_ROUND(k);
+    k *= m;
+    k ^= k >> r;
+    k *= m;
+
+    h ^= k;
+    h *= m;
   }
+  int valid_bits;
   auto nbytes = reader.trailing_bytes();
   if (nbytes) {
     uint64_t k = 0;
     do {
-      int valid_bits;
       auto byte = reader.NextTrailingByte(valid_bits);
       k = (k << 8) | static_cast<uint64_t>(byte);
     } while (--nbytes);
-    HASHING_ROUND(k);
+    h ^= k;
+    h *= m;
   }
 
-  // Finalize.
   h ^= h >> r;
   h *= m;
   h ^= h >> r;
