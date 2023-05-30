@@ -27,6 +27,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/exp/slices"
 )
 
 func TestArrayEqual(t *testing.T) {
@@ -300,6 +301,44 @@ func TestArrayApproxEqualFloats(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestArrayApproxEqualMaps(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	getArr := func(values []string) *array.Map {
+		dt := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+		builder := array.NewMapBuilderWithType(mem, dt)
+		defer builder.Release()
+		key, item := builder.KeyBuilder().(*array.StringBuilder), builder.ItemBuilder().(*array.StringBuilder)
+
+		builder.AppendNull()
+		builder.Append(true)
+		for _, k := range values {
+			key.Append(k)
+			item.Append(k)
+
+			key.Append("null_" + k)
+			item.AppendNull()
+		}
+
+		return builder.NewMapArray()
+	}
+
+	descKeys := []string{"z", "y", "x"}
+	desc := getArr(descKeys)
+	defer desc.Release()
+
+	askKeys := make([]string, len(descKeys))
+	copy(askKeys, descKeys)
+	slices.Sort(askKeys)
+	assert.NotEqual(t, descKeys, askKeys)
+
+	asc := getArr(askKeys)
+	defer asc.Release()
+
+	assert.True(t, array.ApproxEqual(desc, asc))
 }
 
 func arrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
