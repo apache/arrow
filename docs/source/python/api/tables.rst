@@ -46,6 +46,18 @@ Classes
    TableGroupBy
    RecordBatchReader
 
+Dataframe Interchange Protocol
+------------------------------
+
+.. currentmodule:: pyarrow.interchange
+
+.. autosummary::
+   :toctree: ../generated/
+
+   from_dataframe
+
+.. currentmodule:: pyarrow
+
 .. _api.tensor:
 
 Tensors
