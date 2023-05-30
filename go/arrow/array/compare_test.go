@@ -19,6 +19,7 @@ package array_test
 import (
 	"fmt"
 	"math"
+	"sort"
 	"testing"
 
 	"github.com/apache/arrow/go/v13/arrow"
@@ -27,7 +28,6 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/slices"
 )
 
 func TestArrayEqual(t *testing.T) {
@@ -332,7 +332,7 @@ func TestArrayApproxEqualMaps(t *testing.T) {
 
 	askKeys := make([]string, len(descKeys))
 	copy(askKeys, descKeys)
-	slices.Sort(askKeys)
+	sort.Strings(askKeys)
 	assert.NotEqual(t, descKeys, askKeys)
 
 	asc := getArr(askKeys)
