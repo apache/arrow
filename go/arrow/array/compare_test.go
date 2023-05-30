@@ -338,7 +338,8 @@ func TestArrayApproxEqualMaps(t *testing.T) {
 	asc := getArr(askKeys)
 	defer asc.Release()
 
-	assert.True(t, array.ApproxEqual(desc, asc))
+	assert.False(t, array.ApproxEqual(desc, asc))
+	assert.True(t, array.ApproxEqual(desc, asc, array.WithUnorderedMapKeys(true)))
 }
 
 func arrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
