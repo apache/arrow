@@ -739,11 +739,7 @@ func arrayApproxEqualMap(left, right *Map, opt equalOption) bool {
 		if left.IsNull(i) {
 			continue
 		}
-		l, r := left.newListValue(i).(*Struct), right.newListValue(i).(*Struct)
-		eq := arrayApproxEqualSingleMapEntry(l, r, opt)
-		l.Release()
-		r.Release()
-		if !eq {
+		if !arrayApproxEqualSingleMapEntry(left.newListValue(i).(*Struct), right.newListValue(i).(*Struct), opt) {
 			return false
 		}
 	}
@@ -751,8 +747,11 @@ func arrayApproxEqualMap(left, right *Map, opt equalOption) bool {
 }
 
 // arrayApproxEqualSingleMapEntry is a helper function that checks if a single entry pair is approx equal.
-// Basically, it doesn't care about key order
+// Basically, it doesn't care about key order.
+// structs passed will be released
 func arrayApproxEqualSingleMapEntry(left, right *Struct, opt equalOption) bool {
+	defer left.Release()
+	defer right.Release()
 	// we get here only if the left & right lengths are 1, and the values are valid
 	lElems := make([]arrow.Array, left.Len())
 	rElems := make([]arrow.Array, right.Len())
