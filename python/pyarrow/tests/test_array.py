@@ -2825,6 +2825,61 @@ def test_fixed_size_list_array_flatten_with_slice():
     assert array[2:].flatten() == pa.array([3], type=pa.float64())
 
 
+def test_fixed_size_list_array_from_numpy_ndarray():
+    values = np.array([[1, 2], [3, 4], [5, 6]], dtype=np.int64)
+    result = pa.FixedSizeListArray.from_numpy_ndarray(values)
+    assert result.to_pylist() == [[1, 2], [3, 4], [5, 6]]
+    assert result.type == pa.list_(pa.int64(), 2)
+
+    # String-types should work
+    values = np.array([["a", "b"], ["c", "d"], ["e", "f"]], dtype=np.object_)
+    result = pa.FixedSizeListArray.from_numpy_ndarray(values)
+    assert result.to_pylist() == [["a", "b"], ["c", "d"], ["e", "f"]]
+    assert result.type == pa.list_(pa.string(), 2)
+
+    values = np.ones((0, 5), dtype=np.int64)
+    result = pa.FixedSizeListArray.from_numpy_ndarray(values)
+    assert result.to_pylist() == []
+    assert result.type == pa.list_(pa.int64(), 5)
+
+    # Zero-size lists are not permitted
+    with pytest.raises(ValueError):
+        values = np.ones((5, 0), dtype=np.int64)
+        result = pa.FixedSizeListArray.from_numpy_ndarray(values)
+
+    # 1D array is not supported
+    with pytest.raises(NotImplementedError):
+        values = np.ones(5, dtype=np.int64)
+        pa.FixedSizeListArray.from_numpy_ndarray(values)
+
+    # 3D array is not supported
+    with pytest.raises(NotImplementedError):
+        values = np.ones((3, 3, 3), dtype=np.int64)
+        pa.FixedSizeListArray.from_numpy_ndarray(values)
+
+    # Data must be C-contiguous
+    with pytest.raises(ValueError):
+        values = np.ones((3, 3), order='F', dtype=np.int64)
+        pa.FixedSizeListArray.from_numpy_ndarray(values)
+
+
+def test_fixed_size_list_array_to_numpy_ndarray():
+    array = pa.array([[1, 2], [3, 4], [5, 6]],
+                     type=pa.list_(pa.int64(), list_size=2))
+    result = array.to_numpy_ndarray()
+    expected = np.array([[1, 2], [3, 4], [5, 6]], dtype=np.int64)
+    np.testing.assert_array_equal(result, expected)
+
+    # An array with a null value.
+    array = pa.array([[1, 2], None, [5, 6]],
+                     type=pa.list_(pa.float64(), list_size=2))
+    result = array.to_numpy_ndarray()
+
+    # The null entry should be expanded to multiple nulls.
+    expected = np.array([[1.0, 2.0], [np.nan, np.nan], [5, 6]], dtype=np.float64)
+    np.testing.assert_array_equal(result, expected)
+
+
 def test_map_array_values_offsets():
     ty = pa.map_(pa.utf8(), pa.int32())
     ty_values = pa.struct([pa.field("key", pa.utf8(), nullable=False),

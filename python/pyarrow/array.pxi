@@ -2294,6 +2294,46 @@ cdef class FixedSizeListArray(BaseListArray):
         result.validate()
         return result
 
+    @staticmethod
+    def from_numpy_ndarray(obj):
+        """
+        Convert a 2D numpy ndarray to a fixed size list array.
+
+        The first dimension of the ndarray is the array length, and the second
+        dimension is the list size.
+
+        The numpy array needs to be C-contiguous.
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+            The numpy array to convert.
+
+        Returns
+        -------
+        FixedSizeListArray
+        """
+        if not obj.flags["C_CONTIGUOUS"]:
+            raise ValueError("The data in the numpy array needs to be in a single, "
+                             "C-style contiguous segment.")
+
+        if len(obj.shape) != 2:
+            raise NotImplementedError("Only 2D numpy arrays are supported")
+
+        list_size = obj.shape[1]
+        if list_size <= 0:
+            raise ValueError("The list size needs to be positive")
+        array = np.ravel(obj, order="C")
+
+        return FixedSizeListArray.from_arrays(array, list_size=list_size)
+
+    def to_numpy_ndarray(self):
+        """
+        Output self as a 2D numpy ndarray.
+        """
+        flat = np.asarray(self.values)
+        return flat.reshape((len(self), self.type.list_size))
+
     @property
     def values(self):
         cdef CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
