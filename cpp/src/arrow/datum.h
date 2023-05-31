@@ -133,7 +133,7 @@ struct ARROW_EXPORT Datum {
       : Datum(std::make_shared<T>(value)) {}
 
   // Convenience constructors
-  /// \brief A convenience constructor. Stores a bool scalar.
+  /// \brief Convenience constructor storing a bool scalar.
   explicit Datum(bool value);
   /// \brief A convenience constructor. Stores a int8 scalar.
   explicit Datum(int8_t value);
