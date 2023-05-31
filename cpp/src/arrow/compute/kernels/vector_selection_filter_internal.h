@@ -17,29 +17,23 @@
 
 #pragma once
 
-#include "arrow/array.h"
+#include <cstdint>
+#include <memory>
 
-#include "libmexclass/proxy/Proxy.h"
+#include "arrow/array/data.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernels/vector_selection_internal.h"
 
-namespace arrow::matlab::array::proxy {
+namespace arrow {
+namespace compute {
+namespace internal {
 
-class Array : public libmexclass::proxy::Proxy {
-    public:
-        Array(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-    
-        virtual ~Array() {}
+const FilterOptions* GetDefaultFilterOptions();
 
-    protected:
+std::unique_ptr<Function> MakeFilterMetaFunction();
 
-        void toString(libmexclass::proxy::method::Context& context);
+void PopulateFilterKernels(std::vector<SelectionKernelData>* out);
 
-        void length(libmexclass::proxy::method::Context& context);
-
-        void valid(libmexclass::proxy::method::Context& context);
-
-        virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
-
-        std::shared_ptr<arrow::Array> array;
-};
-
-}
+}  // namespace internal
+}  // namespace compute
+}  // namespace arrow

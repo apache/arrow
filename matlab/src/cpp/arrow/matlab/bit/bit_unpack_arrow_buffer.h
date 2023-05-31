@@ -17,29 +17,10 @@
 
 #pragma once
 
-#include "arrow/array.h"
+#include "arrow/buffer.h"
 
-#include "libmexclass/proxy/Proxy.h"
+#include "MatlabDataArray.hpp"
 
-namespace arrow::matlab::array::proxy {
-
-class Array : public libmexclass::proxy::Proxy {
-    public:
-        Array(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-    
-        virtual ~Array() {}
-
-    protected:
-
-        void toString(libmexclass::proxy::method::Context& context);
-
-        void length(libmexclass::proxy::method::Context& context);
-
-        void valid(libmexclass::proxy::method::Context& context);
-
-        virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
-
-        std::shared_ptr<arrow::Array> array;
-};
-
+namespace arrow::matlab::bit {
+    ::matlab::data::TypedArray<bool> bitUnpackArrowBuffer(const std::shared_ptr<arrow::Buffer>& packed_buffer, int64_t length);
 }
