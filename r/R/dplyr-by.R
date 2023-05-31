@@ -51,7 +51,7 @@ check_by <- function(by,
   if (is_grouped_adq(data)) {
     message <- paste0(
       "Can't supply `", by_arg, "` when `",
-      data_arg, "` is a grouped arrow dplyr query."
+      data_arg, "` is grouped data."
     )
     abort(message)
   }
