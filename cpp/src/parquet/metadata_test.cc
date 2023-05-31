@@ -159,8 +159,22 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg1_column2->compression());
     ASSERT_EQ(nrows / 2, rg1_column1->num_values());
     ASSERT_EQ(nrows / 2, rg1_column2->num_values());
-    ASSERT_EQ(3, rg1_column1->encodings().size());
-    ASSERT_EQ(3, rg1_column2->encodings().size());
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::RLE_DICTIONARY,
+                                                  parquet::Encoding::PLAIN};
+      auto& encoding_vec = rg1_column1->encodings();
+      ASSERT_EQ(encodings, std::set<parquet::Encoding::type>(encoding_vec.begin(),
+                                                             encoding_vec.end()));
+    }
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::RLE_DICTIONARY,
+                                                  parquet::Encoding::PLAIN};
+      auto& encoding_vec = rg1_column2->encodings();
+      ASSERT_EQ(encodings, std::set<parquet::Encoding::type>(encoding_vec.begin(),
+                                                             encoding_vec.end()));
+    }
     ASSERT_EQ(512, rg1_column1->total_compressed_size());
     ASSERT_EQ(512, rg1_column2->total_compressed_size());
     ASSERT_EQ(600, rg1_column1->total_uncompressed_size());
@@ -196,8 +210,21 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(nrows / 2, rg2_column2->num_values());
     ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column1->compression());
     ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column2->compression());
-    ASSERT_EQ(2, rg2_column1->encodings().size());
-    ASSERT_EQ(3, rg2_column2->encodings().size());
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::PLAIN};
+      auto& encoding_vec = rg2_column1->encodings();
+      ASSERT_EQ(encodings, std::set<parquet::Encoding::type>(encoding_vec.begin(),
+                                                             encoding_vec.end()));
+    }
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::RLE_DICTIONARY,
+                                                  parquet::Encoding::PLAIN};
+      auto& encoding_vec = rg2_column2->encodings();
+      ASSERT_EQ(encodings, std::set<parquet::Encoding::type>(encoding_vec.begin(),
+                                                             encoding_vec.end()));
+    }
     ASSERT_EQ(512, rg2_column1->total_compressed_size());
     ASSERT_EQ(512, rg2_column2->total_compressed_size());
     ASSERT_EQ(600, rg2_column1->total_uncompressed_size());

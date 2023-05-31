@@ -1468,6 +1468,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       for (const auto& entry : dict_encoding_stats) {
         format::PageEncodingStats dict_enc_stat;
         dict_enc_stat.__set_page_type(format::PageType::DICTIONARY_PAGE);
+        // Dictionary Encoding would be PLAIN_DICTIONARY in v1 and
+        // PLAIN in v2.
         format::Encoding::type dict_encoding = ToThrift(entry.first);
         dict_enc_stat.__set_encoding(dict_encoding);
         dict_enc_stat.__set_count(entry.second);
@@ -1478,10 +1480,10 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
           thrift_encodings.push_back(dict_encoding);
         }
       }
-      // Dictionary Data Page Encoding.
-      thrift_encodings.push_back(ToThrift(properties_->dictionary_page_encoding()));
     }
     // Force add encoding for RL/DL.
+    // TODO(mwish): BIT_PACKED encoding is supported, but it will not be
+    //  added here. And when RL/DL is empty, it will not be added.
     thrift_encodings.push_back(ToThrift(Encoding::RLE));
     // Add data page encoding stats
     for (const auto& entry : data_encoding_stats) {
