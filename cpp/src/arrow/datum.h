@@ -197,8 +197,9 @@ struct ARROW_EXPORT Datum {
   /// \see arrow::util::TotalBufferSize for caveats
   int64_t TotalBufferSize() const;
 
-  /// \brief Get the stored ArrayData in mutable form, primarily used in kernel
-  /// implementations
+  /// \brief Get the stored ArrayData in mutable form
+  /// 
+  /// For internal use primarily. Keep in mind a shared_ptr<Datum> may have multiple owners.
   ArrayData* mutable_array() const { return this->array().get(); }
 
   /// \brief Retrieve the stored array as Array
