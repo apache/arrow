@@ -2093,15 +2093,41 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
   std::unique_ptr<::arrow::FixedSizeBinaryBuilder> builder_;
 };
 
-class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
-                                     virtual public BinaryRecordReader {
+// Below concept could be used to simplify type assertion, but it seems like c++20 is not
+// available
+//template <typename T>
+//concept ByteArrayTypeConcept = std::is_same<T, ByteArrayType>::value ||
+//                               std::is_same<T, LargeByteArrayType>::value;
+
+template<typename T>
+struct IsByteArrayType : std::false_type {};
+
+template<>
+struct IsByteArrayType<ByteArrayType> : std::true_type {};
+
+template<>
+struct IsByteArrayType<LargeByteArrayType> : std::true_type {};
+
+template<typename BAT>
+struct ByteArrayBuilderTypeTrait {
+  using BuilderType = typename std::conditional<std::is_same<BAT, LargeByteArrayType>::value,
+                                                ::arrow::LargeBinaryBuilder,
+                                                ::arrow::BinaryBuilder>::type;
+};
+
+template<typename BAT>
+class ChunkedRecordReader : public TypedRecordReader<BAT>,
+                            virtual public BinaryRecordReader {
  public:
-  ByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                               ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
-      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool,
+  using BuilderType = typename ByteArrayBuilderTypeTrait<BAT>::BuilderType;
+
+  ChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
+                      ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+      : TypedRecordReader<BAT>(descr, leaf_info, pool,
                                          read_dense_for_nullable) {
-    ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    accumulator_.builder = std::make_unique<::arrow::BinaryBuilder>(pool);
+    static_assert(IsByteArrayType<BAT>::value, "Invalid ByteArrayType");
+    ARROW_DCHECK_EQ(TypedRecordReader<BAT>::descr_->physical_type(), Type::BYTE_ARRAY);
+    accumulator_.builder = std::make_unique<BuilderType>(pool);
   }
 
   ::arrow::ArrayVector GetBuilderChunks() override {
@@ -2119,7 +2145,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
     int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
         static_cast<int>(values_to_read), &accumulator_);
     CheckNumberDecoded(num_decoded, values_to_read);
-    ResetValues();
+    TypedRecordReader<BAT>::ResetValues();
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
@@ -2127,55 +2153,16 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
         static_cast<int>(values_to_read), static_cast<int>(null_count),
         valid_bits_->mutable_data(), values_written_, &accumulator_);
     CheckNumberDecoded(num_decoded, values_to_read - null_count);
-    ResetValues();
+    TypedRecordReader<BAT>::ResetValues();
   }
 
  private:
   // Helper data structure for accumulating builder chunks
-  typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
+  typename EncodingTraits<BAT>::Accumulator accumulator_;
 };
 
-class LargeByteArrayChunkedRecordReader : public TypedRecordReader<LargeByteArrayType>,
-                                          virtual public LargeBinaryRecordReader {
- public:
-  LargeByteArrayChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                               ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
-      : TypedRecordReader<LargeByteArrayType>(descr, leaf_info, pool,
-                                         read_dense_for_nullable) {
-    ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
-    accumulator_.builder = std::make_unique<::arrow::LargeBinaryBuilder>(pool);
-  }
-
-  ::arrow::ArrayVector GetBuilderChunks() override {
-    ::arrow::ArrayVector result = accumulator_.chunks;
-    if (result.size() == 0 || accumulator_.builder->length() > 0) {
-      std::shared_ptr<::arrow::Array> last_chunk;
-      PARQUET_THROW_NOT_OK(accumulator_.builder->Finish(&last_chunk));
-      result.push_back(std::move(last_chunk));
-    }
-    accumulator_.chunks = {};
-    return result;
-  }
-
-  void ReadValuesDense(int64_t values_to_read) override {
-    int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
-        static_cast<int>(values_to_read), &accumulator_);
-    CheckNumberDecoded(num_decoded, values_to_read);
-    ResetValues();
-  }
-
-  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
-    int64_t num_decoded = this->current_decoder_->DecodeArrow(
-        static_cast<int>(values_to_read), static_cast<int>(null_count),
-        valid_bits_->mutable_data(), values_written_, &accumulator_);
-    CheckNumberDecoded(num_decoded, values_to_read - null_count);
-    ResetValues();
-  }
-
- private:
-  // Helper data structure for accumulating builder chunks
-  typename EncodingTraits<LargeByteArrayType>::Accumulator accumulator_;
-};
+using ByteArrayChunkedRecordReader = ChunkedRecordReader<ByteArrayType>;
+using LargeByteArrayChunkedRecordReader = ChunkedRecordReader<LargeByteArrayType>;
 
 class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
                                         virtual public DictionaryRecordReader {
