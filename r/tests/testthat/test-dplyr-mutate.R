@@ -451,6 +451,27 @@ test_that("Can mutate with .by argument as long as there are no aggregations", {
   )
   compare_dplyr_binding(
     .input %>%
+      select(int, chr) %>%
+      mutate(int = int + 6L, .by = starts_with("chr")) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(int, chr) %>%
+      mutate(new_col = int + 6L, .by = c(chr, int)) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(int, chr) %>%
+      mutate(new_col = int + 6L, .by = c("chr", "int")) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
       select(mean = int, chr) %>%
       # rename `int` to `mean` and use `mean` in `mutate()` to test that
       # `all_funs()` does not incorrectly identify it as an aggregate function

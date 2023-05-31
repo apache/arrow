@@ -436,7 +436,28 @@ test_that(".by argument", {
   )
   compare_dplyr_binding(
     .input %>%
+      filter(is.na(lgl), .by = starts_with("chr")) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
       filter(.by = chr) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(.by = c(int, chr)) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(.by = c("int", "chr")) %>%
       select(chr, int, lgl) %>%
       collect(),
     tbl
