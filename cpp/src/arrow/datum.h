@@ -186,7 +186,9 @@ struct ARROW_EXPORT Datum {
     }
   }
 
-  /// \brief Retrieve the stored array as ArrayData, use make_array() if Array is desired
+  /// \brief Retrieve the stored array as ArrayData
+  /// 
+  /// Use make_array() if an Array is desired (which is more expensive).
   /// \throws std::bad_variant_access if the datum is not an array
   const std::shared_ptr<ArrayData>& array() const {
     return std::get<std::shared_ptr<ArrayData>>(this->value);
