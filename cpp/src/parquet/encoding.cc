@@ -1271,12 +1271,13 @@ int PlainBooleanDecoder::Decode(bool* buffer, int max_values) {
   return max_values;
 }
 
-struct ArrowBinaryHelper {
-  explicit ArrowBinaryHelper(typename EncodingTraits<ByteArrayType>::Accumulator* out) {
+template <typename BAT>
+struct ArrowBinaryHelperBase {
+  explicit ArrowBinaryHelperBase(typename EncodingTraits<BAT>::Accumulator* out) {
     this->out = out;
     this->builder = out->builder.get();
     this->chunk_space_remaining =
-        ::arrow::kBinaryMemoryLimit - this->builder->value_data_length();
+        EncodingTraits<BAT>::memory_limit - this->builder->value_data_length();
   }
 
   Status PushChunk() {
@@ -1303,47 +1304,13 @@ struct ArrowBinaryHelper {
 
   Status AppendNull() { return builder->AppendNull(); }
 
-  typename EncodingTraits<ByteArrayType>::Accumulator* out;
-  ::arrow::BinaryBuilder* builder;
+  typename EncodingTraits<BAT>::Accumulator* out;
+  typename EncodingTraits<BAT>::BinaryBuilder* builder;
   int64_t chunk_space_remaining;
 };
 
-struct ArrowLargeBinaryHelper {
-  explicit ArrowLargeBinaryHelper(typename EncodingTraits<LargeByteArrayType>::Accumulator* out) {
-    this->out = out;
-    this->builder = out->builder.get();
-    this->chunk_space_remaining =
-        ::arrow::kLargeBinaryMemoryLimit - this->builder->value_data_length();
-  }
-
-  Status PushChunk() {
-    std::shared_ptr<::arrow::Array> result;
-    RETURN_NOT_OK(builder->Finish(&result));
-    out->chunks.push_back(result);
-    chunk_space_remaining = ::arrow::kLargeBinaryMemoryLimit;
-    return Status::OK();
-  }
-
-  bool CanFit(int64_t length) const { return length <= chunk_space_remaining; }
-
-  void UnsafeAppend(const uint8_t* data, int64_t length) {
-    chunk_space_remaining -= length;
-    builder->UnsafeAppend(data, length);
-  }
-
-  void UnsafeAppendNull() { builder->UnsafeAppendNull(); }
-
-  Status Append(const uint8_t* data, int64_t length) {
-    chunk_space_remaining -= length;
-    return builder->Append(data, length);
-  }
-
-  Status AppendNull() { return builder->AppendNull(); }
-
-  typename EncodingTraits<LargeByteArrayType>::Accumulator* out;
-  ::arrow::LargeBinaryBuilder* builder;
-  int64_t chunk_space_remaining;
-};
+using ArrowBinaryHelper = ArrowBinaryHelperBase<ByteArrayType>;
+using ArrowLargeBinaryHelper = ArrowBinaryHelperBase<LargeByteArrayType>;
 
 template <>
 inline int PlainDecoder<ByteArrayType>::DecodeArrow(

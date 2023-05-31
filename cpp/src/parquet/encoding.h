@@ -24,6 +24,7 @@
 
 #include "arrow/util/spaced.h"
 
+#include "arrow/type.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -142,30 +143,37 @@ template <>
 struct EncodingTraits<ByteArrayType> {
   using Encoder = ByteArrayEncoder;
   using Decoder = ByteArrayDecoder;
+  using BinaryBuilder = ::arrow::BinaryBuilder;
 
   /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
   /// overflow the capacity of a single arrow::BinaryArray
   struct Accumulator {
-    std::unique_ptr<::arrow::BinaryBuilder> builder;
+    std::unique_ptr<BinaryBuilder> builder;
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
   using ArrowType = ::arrow::BinaryType;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::BinaryType>;
+
+
+  static constexpr auto memory_limit = ::arrow::kBinaryMemoryLimit;
 };
 
 template <>
 struct EncodingTraits<LargeByteArrayType> {
   using Encoder = LargeByteArrayEncoder;
   using Decoder = LargeByteArrayDecoder;
+  using BinaryBuilder = ::arrow::LargeBinaryBuilder;
 
   /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
   /// overflow the capacity of a single arrow::BinaryArray
   struct Accumulator {
-    std::unique_ptr<::arrow::LargeBinaryBuilder> builder;
+    std::unique_ptr<BinaryBuilder> builder;
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
   using ArrowType = ::arrow::LargeBinaryType;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::LargeBinaryType>;
+
+  static constexpr auto memory_limit = ::arrow::kLargeBinaryMemoryLimit;
 };
 
 template <>
