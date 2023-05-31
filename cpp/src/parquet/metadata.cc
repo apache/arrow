@@ -1484,8 +1484,9 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       }
     }
     // Force add encoding for RL/DL.
-    // TODO(mwish): BIT_PACKED encoding is supported, but it will not be
-    //  added here. And when RL/DL is empty, it will not be added.
+    // FIXME(mwish): BIT_PACKED encoding is supported, but it will not be
+    //  added here.
+    // FIXME(mwish): And even when RL/DL is empty, RLE will be added.
     thrift_encodings.push_back(ToThrift(Encoding::RLE));
     // Add data page encoding stats
     for (const auto& entry : data_encoding_stats) {
