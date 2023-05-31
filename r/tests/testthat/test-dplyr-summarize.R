@@ -1214,6 +1214,6 @@ test_that(".by argument", {
       arrow_table() %>%
       group_by(some_grouping) %>%
       summarize(total = sum(int, na.rm = TRUE), .by = starts_with("dbl")),
-    "Can't supply `\\.by` when `\\.data` is a grouped arrow dplyr query"
+    "Can't supply `\\.by` when `\\.data` is grouped data"
   )
 })

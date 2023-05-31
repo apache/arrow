@@ -454,6 +454,6 @@ test_that(".by argument", {
       arrow_table() %>%
       group_by(chr) %>%
       filter(is.na(lgl), .by = chr),
-    "Can't supply `\\.by` when `\\.data` is a grouped arrow dplyr query"
+    "Can't supply `\\.by` when `\\.data` is grouped data"
   )
 })

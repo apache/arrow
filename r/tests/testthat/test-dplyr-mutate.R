@@ -488,7 +488,7 @@ test_that("Can't supply .by after group_by", {
       group_by(chr) %>%
       mutate(int = int + 6L, .by = chr) %>%
       collect(),
-    "Can't supply `\\.by` when `\\.data` is a grouped arrow dplyr query"
+    "Can't supply `\\.by` when `\\.data` is grouped data"
   )
 })
 
