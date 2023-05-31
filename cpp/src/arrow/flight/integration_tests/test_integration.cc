@@ -42,6 +42,8 @@
 #include "arrow/table_builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/string.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 namespace flight {
@@ -405,6 +407,470 @@ class OrderedScenario : public Scenario {
     if (!table->Equals(*expected_table)) {
       return Status::Invalid("Read data isn't expected\n", "Expected:\n",
                              expected_table->ToString(), "Actual:\n", table->ToString());
+    }
+    return Status::OK();
+  }
+};
+
+/// \brief The server used for testing FlightEndpoint.expiration_time.
+///
+/// GetFlightInfo() returns a FlightInfo that has the following
+/// three FlightEndpoints:
+///
+/// 1. No expiration time
+/// 2. 2 seconds expiration time
+/// 3. 3 seconds expiration time
+///
+/// The client can't read data from the first endpoint multiple times
+/// but can read data from the second and third endpoints. The client
+/// can't re-read data from the second endpoint 2 seconds later. The
+/// client can't re-read data from the third endpoint 3 seconds
+/// later.
+///
+/// The client can cancel a returned FlightInfo by pre-defined
+/// CancelFlightInfo action. The client can't read data from endpoints
+/// even within 3 seconds after the action.
+///
+/// The client can extend the expiration time of a FlightEndpoint in
+/// a returned FlightInfo by pre-defined RefreshFlightEndpoint
+/// action. The client can read data from endpoints multiple times
+/// within more 10 seconds after the action.
+///
+/// The client can close a returned FlightInfo explicitly by
+/// pre-defined CloseFlightInfo action. The client can't read data
+/// from endpoints even within 3 seconds after the action.
+class ExpirationTimeServer : public FlightServerBase {
+ private:
+  struct EndpointStatus {
+    EndpointStatus(std::optional<Timestamp> expiration_time)
+        : expiration_time(expiration_time),
+          num_gets(0),
+          cancelled(false),
+          closed(false) {}
+
+    std::optional<Timestamp> expiration_time;
+    uint32_t num_gets;
+    bool cancelled;
+    bool closed;
+  };
+
+ public:
+  ExpirationTimeServer() : FlightServerBase(), statuses_() {}
+
+  Status GetFlightInfo(const ServerCallContext& context,
+                       const FlightDescriptor& descriptor,
+                       std::unique_ptr<FlightInfo>* result) override {
+    auto schema = BuildSchema();
+    std::vector<FlightEndpoint> endpoints;
+    AddEndpoint(endpoints, "No expiration time", std::nullopt);
+    AddEndpoint(endpoints, "2 seconds",
+                Timestamp::clock::now() + std::chrono::seconds{2});
+    AddEndpoint(endpoints, "3 seconds",
+                Timestamp::clock::now() + std::chrono::seconds{3});
+    ARROW_ASSIGN_OR_RAISE(
+        auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
+    *result = std::make_unique<FlightInfo>(info);
+    return Status::OK();
+  }
+
+  Status DoGet(const ServerCallContext& context, const Ticket& request,
+               std::unique_ptr<FlightDataStream>* stream) override {
+    ARROW_ASSIGN_OR_RAISE(auto index, ExtractIndexFromTicket(request.ticket));
+    auto& status = statuses_[index];
+    if (status.cancelled) {
+      return Status::KeyError("Invalid flight: canceled: ", request.ticket);
+    }
+    if (status.expiration_time.has_value()) {
+      auto expiration_time = status.expiration_time.value();
+      if (expiration_time < Timestamp::clock::now()) {
+        return Status::KeyError("Invalid flight: expired: ", request.ticket);
+      }
+    } else {
+      if (status.num_gets > 0) {
+        return Status::KeyError("Invalid flight: can't read multiple times: ",
+                                request.ticket);
+      }
+    }
+    status.num_gets++;
+    ARROW_ASSIGN_OR_RAISE(auto builder, RecordBatchBuilder::Make(
+                                            BuildSchema(), arrow::default_memory_pool()));
+    auto number_builder = builder->GetFieldAs<UInt32Builder>(0);
+    ARROW_RETURN_NOT_OK(number_builder->Append(index));
+    ARROW_ASSIGN_OR_RAISE(auto record_batch, builder->Flush());
+    std::vector<std::shared_ptr<RecordBatch>> record_batches{record_batch};
+    ARROW_ASSIGN_OR_RAISE(auto record_batch_reader,
+                          RecordBatchReader::Make(record_batches));
+    *stream = std::make_unique<RecordBatchStream>(record_batch_reader);
+    return Status::OK();
+  }
+
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* result_stream) override {
+    std::vector<Result> results;
+    if (action.type == ActionType::kCancelFlightInfo.type) {
+      ARROW_ASSIGN_OR_RAISE(auto info,
+                            FlightInfo::Deserialize(std::string_view(*action.body)));
+      for (const auto& endpoint : info->endpoints()) {
+        auto index_result = ExtractIndexFromTicket(endpoint.ticket.ticket);
+        using CancelResult = ActionCancelFlightInfoResult::CancelResult;
+        auto cancel_result = CancelResult::kUnspecified;
+        if (index_result.ok()) {
+          auto index = *index_result;
+          if (statuses_[index].cancelled) {
+            cancel_result = CancelResult::kNotCancellable;
+          } else {
+            statuses_[index].cancelled = true;
+            cancel_result = CancelResult::kCancelled;
+          }
+        } else {
+          cancel_result = CancelResult::kNotCancellable;
+        }
+        auto result = ActionCancelFlightInfoResult{cancel_result};
+        ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
+        results.push_back(Result{Buffer::FromString(std::move(serialized))});
+      }
+    } else if (action.type == ActionType::kRefreshFlightEndpoint.type) {
+      ARROW_ASSIGN_OR_RAISE(auto endpoint,
+                            FlightEndpoint::Deserialize(std::string_view(*action.body)));
+      ARROW_ASSIGN_OR_RAISE(auto index, ExtractIndexFromTicket(endpoint.ticket.ticket));
+      if (statuses_[index].cancelled) {
+        return Status::Invalid("Invalid flight: canceled: ", endpoint.ticket.ticket);
+      }
+      endpoint.ticket.ticket += ": refreshed (+ 10 seconds)";
+      endpoint.expiration_time = Timestamp::clock::now() + std::chrono::seconds{10};
+      statuses_[index].expiration_time = endpoint.expiration_time.value();
+      ARROW_ASSIGN_OR_RAISE(auto serialized, endpoint.SerializeToString());
+      results.push_back(Result{Buffer::FromString(std::move(serialized))});
+    } else if (action.type == ActionType::kCloseFlightInfo.type) {
+      ARROW_ASSIGN_OR_RAISE(auto info,
+                            FlightInfo::Deserialize(std::string_view(*action.body)));
+      for (const auto& endpoint : info->endpoints()) {
+        auto index_result = ExtractIndexFromTicket(endpoint.ticket.ticket);
+        if (!index_result.ok()) {
+          continue;
+        }
+        auto index = *index_result;
+        statuses_[index].closed = true;
+      }
+    } else {
+      return Status::Invalid("Unknown action: ", action.type);
+    }
+    *result_stream = std::make_unique<SimpleResultStream>(std::move(results));
+    return Status::OK();
+  }
+
+  Status ListActions(const ServerCallContext& context,
+                     std::vector<ActionType>* actions) override {
+    *actions = {
+        ActionType::kCancelFlightInfo,
+        ActionType::kRefreshFlightEndpoint,
+        ActionType::kCloseFlightInfo,
+    };
+    return Status::OK();
+  }
+
+ private:
+  void AddEndpoint(std::vector<FlightEndpoint>& endpoints, std::string ticket,
+                   std::optional<Timestamp> expiration_time) {
+    endpoints.push_back(FlightEndpoint{
+        {std::to_string(statuses_.size()) + ": " + ticket}, {}, expiration_time});
+    statuses_.emplace_back(expiration_time);
+  }
+
+  arrow::Result<uint32_t> ExtractIndexFromTicket(const std::string& ticket) {
+    auto index_string = arrow::internal::SplitString(ticket, ':', 2)[0];
+    uint32_t index;
+    if (!arrow::internal::ParseUnsigned(index_string.data(), index_string.length(),
+                                        &index)) {
+      return Status::KeyError("Invalid flight: no index: ", ticket);
+    }
+    if (index >= statuses_.size()) {
+      return Status::KeyError("Invalid flight: out of index: ", ticket);
+    }
+    return index;
+  }
+
+  std::shared_ptr<Schema> BuildSchema() {
+    return arrow::schema({arrow::field("number", arrow::uint32(), false)});
+  }
+
+  std::vector<EndpointStatus> statuses_;
+};
+
+/// \brief The expiration time scenario - DoGet.
+///
+/// This tests that the client can read data that isn't expired yet
+/// multiple times and can't read data after it's expired.
+class ExpirationTimeDoGetScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<ExpirationTimeServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(
+        auto info, client->GetFlightInfo(FlightDescriptor::Command("expiration_time")));
+    std::vector<std::shared_ptr<arrow::Table>> tables;
+    // First read from all endpoints
+    for (const auto& endpoint : info->endpoints()) {
+      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint.ticket));
+      ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
+      tables.push_back(table);
+    }
+    // Re-reads only from endpoints that have expiration time
+    for (const auto& endpoint : info->endpoints()) {
+      if (endpoint.expiration_time.has_value()) {
+        ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint.ticket));
+        ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
+        tables.push_back(table);
+      } else {
+        auto reader = client->DoGet(endpoint.ticket);
+        if (reader.ok()) {
+          return Status::Invalid(
+              "Data that doesn't have expiration time "
+              "can be read multiple times");
+        }
+      }
+    }
+    // Re-reads after expired
+    for (const auto& endpoint : info->endpoints()) {
+      if (!endpoint.expiration_time.has_value()) {
+        continue;
+      }
+      const auto& expiration_time = endpoint.expiration_time.value();
+      if (expiration_time > Timestamp::clock::now()) {
+        std::this_thread::sleep_for(expiration_time - Timestamp::clock::now());
+      }
+      auto reader = client->DoGet(endpoint.ticket);
+      if (reader.ok()) {
+        return Status::Invalid("Expired data can't be read");
+      }
+    }
+    ARROW_ASSIGN_OR_RAISE(auto table, ConcatenateTables(tables));
+
+    // Build expected table
+    auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
+    ARROW_ASSIGN_OR_RAISE(auto builder,
+                          RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
+    auto number_builder = builder->GetFieldAs<UInt32Builder>(0);
+    // First reads
+    ARROW_RETURN_NOT_OK(number_builder->Append(0));
+    ARROW_RETURN_NOT_OK(number_builder->Append(1));
+    ARROW_RETURN_NOT_OK(number_builder->Append(2));
+    // Re-reads only from endpoints that have expiration time
+    ARROW_RETURN_NOT_OK(number_builder->Append(1));
+    ARROW_RETURN_NOT_OK(number_builder->Append(2));
+    ARROW_ASSIGN_OR_RAISE(auto expected_record_batch, builder->Flush());
+    std::vector<std::shared_ptr<RecordBatch>> expected_record_batches{
+        expected_record_batch};
+    ARROW_ASSIGN_OR_RAISE(auto expected_table,
+                          Table::FromRecordBatches(expected_record_batches));
+
+    // Check read data
+    if (!table->Equals(*expected_table)) {
+      return Status::Invalid("Read data isn't expected\n", "Expected:\n",
+                             expected_table->ToString(), "Actual:\n", table->ToString());
+    }
+    return Status::OK();
+  }
+};
+
+/// \brief The expiration time scenario - ListActions.
+///
+/// This tests that the client can get pre-defined actions and the
+/// server uses pre-defined ActionTypes for ListActions.
+class ExpirationTimeListActionsScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<ExpirationTimeServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(auto action_types, client->ListActions());
+    std::vector<std::string> actual_action_types;
+    for (const auto& action_type : action_types) {
+      actual_action_types.push_back(action_type.type);
+    }
+    std::sort(actual_action_types.begin(), actual_action_types.end());
+    std::vector<std::string> expected_action_types = {
+        "CancelFlightInfo",
+        "CloseFlightInfo",
+        "RefreshFlightEndpoint",
+    };
+    if (actual_action_types != expected_action_types) {
+      return Status::Invalid(
+          "Invalid ListActions response: expected=[",
+          arrow::internal::JoinStrings(expected_action_types, ", "), "] actual=[",
+          arrow::internal::JoinStrings(actual_action_types, ", "), "]");
+    }
+    return Status::OK();
+  }
+};
+
+/// \brief The expiration time scenario - CancelFlightInfo.
+///
+/// This tests that the client can cancel a FlightInfo explicitly and
+/// the server returns an error for DoGet against endpoints in the
+/// cancelled FlightInfo.
+class ExpirationTimeCancelFlightInfoScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<ExpirationTimeServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("expiration")));
+    ARROW_ASSIGN_OR_RAISE(auto cancel_result, client->CancelFlightInfo(*info));
+    if (cancel_result->result != ActionCancelFlightInfoResult::CancelResult::kCancelled) {
+      return Status::Invalid("CancelFlightInfo must return CANCEL_RESULT_CANCELLED: ",
+                             cancel_result->ToString());
+    }
+    for (const auto& endpoint : info->endpoints()) {
+      auto reader = client->DoGet(endpoint.ticket);
+      if (reader.ok()) {
+        return Status::Invalid("DoGet after CancelFlightInfo must be failed");
+      }
+    }
+    return Status::OK();
+  }
+};
+
+/// \brief The expiration time scenario - RefreshFlightEndpoint.
+///
+/// This tests that the client can refresh a FlightEndpoint and read
+/// data in refreshed expiration time even when the original
+/// expiration time is over.
+class ExpirationTimeRefreshFlightEndpointScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<ExpirationTimeServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("expiration")));
+    std::vector<std::shared_ptr<arrow::Table>> tables;
+    // First read from all endpoints
+    for (const auto& endpoint : info->endpoints()) {
+      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint.ticket));
+      ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
+      tables.push_back(table);
+    }
+    // Refresh all endpoints that have expiration time
+    std::vector<std::unique_ptr<FlightEndpoint>> refreshed_endpoints;
+    Timestamp max_expiration_time;
+    for (const auto& endpoint : info->endpoints()) {
+      if (!endpoint.expiration_time.has_value()) {
+        continue;
+      }
+      const auto& expiration_time = endpoint.expiration_time.value();
+      if (expiration_time > max_expiration_time) {
+        max_expiration_time = expiration_time;
+      }
+      ARROW_ASSIGN_OR_RAISE(auto refreshed_endpoint,
+                            client->RefreshFlightEndpoint(endpoint));
+      if (!refreshed_endpoint->expiration_time.has_value()) {
+        return Status::Invalid("Refreshed endpoint must have expiration time: ",
+                               refreshed_endpoint->ToString());
+      }
+      const auto& refreshed_expiration_time = refreshed_endpoint->expiration_time.value();
+      if (refreshed_expiration_time <= expiration_time) {
+        return Status::Invalid("Refreshed endpoint must have newer expiration time\n",
+                               "Original:\n", endpoint.ToString(), "Refreshed:\n",
+                               refreshed_endpoint->ToString());
+      }
+      refreshed_endpoints.push_back(std::move(refreshed_endpoint));
+    }
+    // Expire all not refreshed endpoints
+    {
+      std::vector<Timestamp> refreshed_expiration_times;
+      for (const auto& endpoint : refreshed_endpoints) {
+        refreshed_expiration_times.push_back(endpoint->expiration_time.value());
+      }
+      std::sort(refreshed_expiration_times.begin(), refreshed_expiration_times.end());
+      if (refreshed_expiration_times[0] < max_expiration_time) {
+        return Status::Invalid(
+            "One or more refreshed expiration time "
+            "are shorter than original expiration time\n",
+            "Original:  ", max_expiration_time.time_since_epoch().count(), "\n",
+            "Refreshed: ", refreshed_expiration_times[0].time_since_epoch().count(),
+            "\n");
+      }
+      if (max_expiration_time > Timestamp::clock::now()) {
+        std::this_thread::sleep_for(max_expiration_time - Timestamp::clock::now());
+      }
+    }
+    // Re-reads only from refreshed endpoints
+    for (const auto& endpoint : refreshed_endpoints) {
+      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint->ticket));
+      ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
+      tables.push_back(table);
+    }
+    ARROW_ASSIGN_OR_RAISE(auto table, ConcatenateTables(tables));
+
+    // Build expected table
+    auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
+    ARROW_ASSIGN_OR_RAISE(auto builder,
+                          RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
+    auto number_builder = builder->GetFieldAs<UInt32Builder>(0);
+    // First reads
+    ARROW_RETURN_NOT_OK(number_builder->Append(0));
+    ARROW_RETURN_NOT_OK(number_builder->Append(1));
+    ARROW_RETURN_NOT_OK(number_builder->Append(2));
+    // Re-reads only from refreshed endpoints
+    ARROW_RETURN_NOT_OK(number_builder->Append(1));
+    ARROW_RETURN_NOT_OK(number_builder->Append(2));
+    ARROW_ASSIGN_OR_RAISE(auto expected_record_batch, builder->Flush());
+    std::vector<std::shared_ptr<RecordBatch>> expected_record_batches{
+        expected_record_batch};
+    ARROW_ASSIGN_OR_RAISE(auto expected_table,
+                          Table::FromRecordBatches(expected_record_batches));
+
+    // Check read data
+    if (!table->Equals(*expected_table)) {
+      return Status::Invalid("Read data isn't expected\n", "Expected:\n",
+                             expected_table->ToString(), "Actual:\n", table->ToString());
+    }
+    return Status::OK();
+  }
+};
+
+/// \brief The expiration time scenario - CloseFlightInfo.
+///
+/// This tests that the client can close a FlightInfo explicitly and
+/// the server returns an error for DoGet against endpoints in the
+/// closed FlightInfo.
+class ExpirationTimeCloseFlightInfoScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<ExpirationTimeServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("expiration")));
+    ARROW_RETURN_NOT_OK(client->CloseFlightInfo(*info));
+    for (const auto& endpoint : info->endpoints()) {
+      auto reader = client->DoGet(endpoint.ticket);
+      if (reader.ok()) {
+        return Status::Invalid("DoGet after CloseFlightInfo must be failed");
+      }
     }
     return Status::OK();
   }
@@ -1471,6 +1937,21 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
     return Status::OK();
   } else if (scenario_name == "ordered") {
     *out = std::make_shared<OrderedScenario>();
+    return Status::OK();
+  } else if (scenario_name == "expiration_time:do_get") {
+    *out = std::make_shared<ExpirationTimeDoGetScenario>();
+    return Status::OK();
+  } else if (scenario_name == "expiration_time:list_actions") {
+    *out = std::make_shared<ExpirationTimeListActionsScenario>();
+    return Status::OK();
+  } else if (scenario_name == "expiration_time:cancel_flight_info") {
+    *out = std::make_shared<ExpirationTimeCancelFlightInfoScenario>();
+    return Status::OK();
+  } else if (scenario_name == "expiration_time:refresh_flight_endpoint") {
+    *out = std::make_shared<ExpirationTimeRefreshFlightEndpointScenario>();
+    return Status::OK();
+  } else if (scenario_name == "expiration_time:close_flight_info") {
+    *out = std::make_shared<ExpirationTimeCloseFlightInfoScenario>();
     return Status::OK();
   } else if (scenario_name == "flight_sql") {
     *out = std::make_shared<FlightSqlScenario>();

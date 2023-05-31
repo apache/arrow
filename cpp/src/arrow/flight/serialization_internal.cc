@@ -75,6 +75,22 @@ Status ToProto(const Result& result, pb::Result* pb_result) {
   return Status::OK();
 }
 
+// ActionCancelFlightInfoResult
+
+Status FromProto(const pb::ActionCancelFlightInfoResult& pb_result,
+                 ActionCancelFlightInfoResult* result) {
+  result->result =
+      static_cast<ActionCancelFlightInfoResult::CancelResult>(pb_result.result());
+  return Status::OK();
+}
+
+Status ToProto(const ActionCancelFlightInfoResult& result,
+               pb::ActionCancelFlightInfoResult* pb_result) {
+  pb_result->set_result(
+      static_cast<protocol::ActionCancelFlightInfoResult_CancelResult>(result.result));
+  return Status::OK();
+}
+
 // Criteria
 
 Status FromProto(const pb::Criteria& pb_criteria, Criteria* criteria) {
@@ -138,6 +154,12 @@ Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint
   for (int i = 0; i < pb_endpoint.location_size(); ++i) {
     RETURN_NOT_OK(FromProto(pb_endpoint.location(i), &endpoint->locations[i]));
   }
+  if (pb_endpoint.has_expiration_time()) {
+    const auto& pb_expiration_time = pb_endpoint.expiration_time();
+    endpoint->expiration_time =
+        Timestamp(std::chrono::seconds{pb_expiration_time.seconds()} +
+                  std::chrono::nanoseconds{pb_expiration_time.nanos()});
+  }
   return Status::OK();
 }
 
@@ -146,6 +168,15 @@ Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint) 
   pb_endpoint->clear_location();
   for (const Location& location : endpoint.locations) {
     RETURN_NOT_OK(ToProto(location, pb_endpoint->add_location()));
+  }
+  if (endpoint.expiration_time.has_value()) {
+    const auto expiration_time = endpoint.expiration_time.value();
+    const auto since_epoch = expiration_time.time_since_epoch();
+    const auto since_epoch_ns =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(since_epoch).count();
+    auto pb_expiration_time = pb_endpoint->mutable_expiration_time();
+    pb_expiration_time->set_seconds(since_epoch_ns / 1000000000);
+    pb_expiration_time->set_nanos(since_epoch_ns % 1000000000);
   }
   return Status::OK();
 }

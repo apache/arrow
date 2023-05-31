@@ -594,7 +594,16 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   virtual Status EndTransaction(const ServerCallContext& context,
                                 const ActionEndTransactionRequest& request);
 
+  /// \brief Attempt to explicitly cancel a FlightInfo.
+  /// \param[in] context  The call context.
+  /// \param[in] info     The FlightInfo to cancel.
+  /// \return             The cancellation result.
+  virtual arrow::Result<ActionCancelFlightInfoResult> CancelFlightInfo(
+      const ServerCallContext& context, const FlightInfo& info);
+
   /// \brief Attempt to explicitly cancel a query.
+  /// Deprecated since 13.0.0. Use CancelFlightInfo() instead.
+  ///
   /// \param[in] context  The call context.
   /// \param[in] request  The query to cancel.
   /// \return             The cancellation result.
@@ -653,6 +662,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
                  "Response Message: ActionCreatePreparedStatementResult"};
   const ActionType kCancelQueryActionType =
       ActionType{"CancelQuery",
+                 "Deprecated since 13.0.0. Use CancelFlightInfo instead.\n"
                  "Explicitly cancel a running query.\n"
                  "Request Message: ActionCancelQueryRequest\n"
                  "Response Message: ActionCancelQueryResult"};

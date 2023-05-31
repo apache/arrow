@@ -29,6 +29,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/util/formatting.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/uri.h"
 
@@ -448,7 +449,13 @@ std::string FlightEndpoint::ToString() const {
     ss << location.ToString();
     first = false;
   }
-  ss << "]>";
+  ss << "]";
+  auto type = timestamp(TimeUnit::SECOND);
+  arrow::internal::StringFormatter<TimestampType> formatter(type.get());
+  auto expiration_time_t = Timestamp::clock::to_time_t(expiration_time.value());
+  ss << " expiration_time=";
+  formatter(expiration_time_t, [&ss](std::string_view formatted) { ss << formatted; });
+  ss << ">";
   return ss.str();
 }
 
@@ -486,6 +493,22 @@ std::string ActionType::ToString() const {
   return arrow::util::StringBuilder("<ActionType type='", type, "' description='",
                                     description, "'>");
 }
+
+const ActionType ActionType::kCancelFlightInfo =
+    ActionType{"CancelFlightInfo",
+               "Explicitly cancel a running FlightInfo.\n"
+               "Request Message: FlightInfo to be canceled\n"
+               "Response Message: ActionCancelFlightInfoResult"};
+const ActionType ActionType::kRefreshFlightEndpoint =
+    ActionType{"RefreshFlightEndpoint",
+               "Extend expiration time of the given FlightEndpoint.\n"
+               "Request Message: FlightEndpoint to be refreshed\n"
+               "Response Message: Refreshed FlightEndpoint"};
+const ActionType ActionType::kCloseFlightInfo =
+    ActionType{"CloseFlightInfo",
+               "Close the given FlightInfo explicitly.\n"
+               "Request Message: FlightInfo to be closed\n"
+               "Response Message: N/A"};
 
 bool ActionType::Equals(const ActionType& other) const {
   return type == other.type && description == other.description;
@@ -632,6 +655,62 @@ arrow::Result<Result> Result::Deserialize(std::string_view serialized) {
     return Status::Invalid("Not a valid Result");
   }
   Result out;
+  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
+  return out;
+}
+
+std::string ActionCancelFlightInfoResult::ToString() const {
+  std::stringstream ss;
+  ss << "<ActionCancelFlightInfoResult result=";
+  switch (result) {
+    case CancelResult::kUnspecified:
+      ss << "unspecified";
+      break;
+    case CancelResult::kCancelled:
+      ss << "cancelled";
+      break;
+    case CancelResult::kCancelling:
+      ss << "cancelling";
+      break;
+    case CancelResult::kNotCancellable:
+      ss << "not-cancellable";
+      break;
+    default:
+      break;
+  }
+  return ss.str();
+}
+
+bool ActionCancelFlightInfoResult::Equals(
+    const ActionCancelFlightInfoResult& other) const {
+  return result == other.result;
+}
+
+arrow::Result<std::string> ActionCancelFlightInfoResult::SerializeToString() const {
+  pb::ActionCancelFlightInfoResult pb_result;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
+
+  std::string out;
+  if (!pb_result.SerializeToString(&out)) {
+    return Status::IOError(
+        "Serialized ActionCancelFlightInfoResult exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<ActionCancelFlightInfoResult> ActionCancelFlightInfoResult::Deserialize(
+    std::string_view serialized) {
+  pb::ActionCancelFlightInfoResult pb_result;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized ActionCancelFlightInfoResult size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_result.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid ActionCancelFlightInfoResult");
+  }
+  ActionCancelFlightInfoResult out;
   RETURN_NOT_OK(internal::FromProto(pb_result, &out));
   return out;
 }

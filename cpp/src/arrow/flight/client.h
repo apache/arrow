@@ -247,6 +247,40 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return DoAction({}, action).Value(results);
   }
 
+  /// \brief Perform the CancelFlightInfo action, returning a
+  /// ActionCancelFlightInfoResult
+  ///
+  /// \param[in] options Per-RPC options
+  /// \param[in] info The FlightInfo to be cancelled
+  /// \return Arrow result with a ActionCancelFlightInfoResult
+  arrow::Result<std::unique_ptr<ActionCancelFlightInfoResult>> CancelFlightInfo(
+      const FlightCallOptions& options, const FlightInfo& info);
+  arrow::Result<std::unique_ptr<ActionCancelFlightInfoResult>> CancelFlightInfo(
+      const FlightInfo& info) {
+    return CancelFlightInfo({}, info);
+  }
+
+  /// \brief Perform the RefreshFlightEndpoint action, returning a refreshed
+  /// FlightEndpoint
+  ///
+  /// \param[in] options Per-RPC options
+  /// \param[in] endpoint The FlightEndpoint to be refreshed
+  /// \return Arrow result with a refreshed FlightEndpoint
+  arrow::Result<std::unique_ptr<FlightEndpoint>> RefreshFlightEndpoint(
+      const FlightCallOptions& options, const FlightEndpoint& endpoint);
+  arrow::Result<std::unique_ptr<FlightEndpoint>> RefreshFlightEndpoint(
+      const FlightEndpoint& endpoint) {
+    return RefreshFlightEndpoint({}, endpoint);
+  }
+
+  /// \brief Perform the CloseFlightInfo action
+  ///
+  /// \param[in] options Per-RPC options
+  /// \param[in] info The FlightInfo to be closed
+  /// \return Arrow status
+  Status CloseFlightInfo(const FlightCallOptions& options, const FlightInfo& info);
+  Status CloseFlightInfo(const FlightInfo& info) { return CloseFlightInfo({}, info); }
+
   /// \brief Retrieve a list of available Action types
   /// \param[in] options Per-RPC options
   /// \return Arrow result with the available actions

@@ -27,6 +27,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/sql/protocol_internal.h"
 #include "arrow/flight/sql/sql_info_internal.h"
 #include "arrow/type.h"
@@ -257,6 +258,17 @@ arrow::Result<ActionBeginTransactionRequest> ParseActionBeginTransactionRequest(
   return result;
 }
 
+arrow::Result<FlightInfo> ParseActionCancelFlightInfoRequest(
+    const google::protobuf::Any& any) {
+  flight::pb::FlightInfo pb_info;
+  if (!any.UnpackTo(&pb_info)) {
+    return Status::Invalid("Unable to unpack FlightInfo");
+  }
+  FlightInfo::Data info;
+  ARROW_RETURN_NOT_OK(flight::internal::FromProto(pb_info, &info));
+  return FlightInfo(std::move(info));
+}
+
 arrow::Result<ActionCancelQueryRequest> ParseActionCancelQueryRequest(
     const google::protobuf::Any& any) {
   pb::sql::ActionCancelQueryRequest command;
@@ -390,6 +402,11 @@ arrow::Result<Result> PackActionResult(ActionBeginTransactionResult result) {
   pb::sql::ActionBeginTransactionResult pb_result;
   pb_result.set_transaction_id(std::move(result.transaction_id));
   return PackActionResult(pb_result);
+}
+
+arrow::Result<Result> PackActionResult(ActionCancelFlightInfoResult result) {
+  ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
+  return Result{Buffer::FromString(std::move(serialized))};
 }
 
 arrow::Result<Result> PackActionResult(CancelResult result) {
@@ -751,6 +768,7 @@ Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
   *actions = {
       FlightSqlServerBase::kBeginSavepointActionType,
       FlightSqlServerBase::kBeginTransactionActionType,
+      ActionType::kCancelFlightInfo,
       FlightSqlServerBase::kCancelQueryActionType,
       FlightSqlServerBase::kCreatePreparedStatementActionType,
       FlightSqlServerBase::kCreatePreparedSubstraitPlanActionType,
@@ -784,6 +802,12 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(ActionBeginTransactionResult result,
                           BeginTransaction(context, internal_command));
     ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
+
+    results.push_back(std::move(packed_result));
+  } else if (action.type == ActionType::kCancelFlightInfo.type) {
+    ARROW_ASSIGN_OR_RAISE(auto info, ParseActionCancelFlightInfoRequest(any));
+    ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, info));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
   } else if (action.type == FlightSqlServerBase::kCancelQueryActionType.type) {
@@ -1046,9 +1070,15 @@ arrow::Result<ActionBeginTransactionResult> FlightSqlServerBase::BeginTransactio
   return Status::NotImplemented("BeginTransaction not implemented");
 }
 
+arrow::Result<ActionCancelFlightInfoResult> FlightSqlServerBase::CancelFlightInfo(
+    const ServerCallContext& context, const FlightInfo& info) {
+  return Status::NotImplemented("CancelFlightInfo not implemented");
+}
+
 arrow::Result<CancelResult> FlightSqlServerBase::CancelQuery(
     const ServerCallContext& context, const ActionCancelQueryRequest& request) {
-  return Status::NotImplemented("CancelQuery not implemented");
+  ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, *request.info));
+  return static_cast<CancelResult>(result.result);
 }
 
 arrow::Result<ActionCreatePreparedStatementResult>

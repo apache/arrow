@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -54,6 +55,21 @@ class Uri;
 }  // namespace internal
 
 namespace flight {
+
+/// \brief A timestamp compatible with Protocol Buffer's
+/// google.protobuf.Timestamp:
+///
+/// https://protobuf.dev/reference/protobuf/google.protobuf/#timestamp
+///
+/// > A Timestamp represents a point in time independent of any time
+/// > zone or calendar, represented as seconds and fractions of
+/// > seconds at nanosecond resolution in UTC Epoch time. It is
+/// > encoded using the Proleptic Gregorian Calendar which extends the
+/// > Gregorian calendar backwards to year one. It is encoded assuming
+/// > all minutes are 60 seconds long, i.e. leap seconds are "smeared"
+/// > so that no leap second table is needed for interpretation. Range
+/// > is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z.
+using Timestamp = std::chrono::system_clock::time_point;
 
 /// \brief A Flight-specific status code.
 enum class FlightStatusCode : int8_t {
@@ -161,6 +177,10 @@ struct ARROW_FLIGHT_EXPORT ActionType {
 
   /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<ActionType> Deserialize(std::string_view serialized);
+
+  static const ActionType kCancelFlightInfo;
+  static const ActionType kRefreshFlightEndpoint;
+  static const ActionType kCloseFlightInfo;
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
@@ -229,6 +249,46 @@ struct ARROW_FLIGHT_EXPORT Result {
 
   /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<Result> Deserialize(std::string_view serialized);
+};
+
+/// \brief The result of the CancelFlightInfo action.
+struct ARROW_FLIGHT_EXPORT ActionCancelFlightInfoResult {
+  enum class CancelResult {
+    /// The cancellation status is unknown. Servers should avoid using
+    /// this value (send a kNotCancellable if the requested query is
+    /// not known). Clients can retry the request.
+    kUnspecified = 0,
+    /// The cancellation request is complete. Subsequent requests with
+    /// the same payload may return kCancelled or a kNotCancellable error.
+    kCancelled = 1,
+    /// The cancellation request is in progress. The client may retry
+    /// the cancellation request.
+    kCancelling = 2,
+    // The query is not cancellable. The client should not retry the
+    // cancellation request.
+    kNotCancellable = 3,
+  };
+
+  CancelResult result;
+
+  std::string ToString() const;
+  bool Equals(const ActionCancelFlightInfoResult& other) const;
+
+  friend bool operator==(const ActionCancelFlightInfoResult& left,
+                         const ActionCancelFlightInfoResult& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const ActionCancelFlightInfoResult& left,
+                         const ActionCancelFlightInfoResult& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<ActionCancelFlightInfoResult> Deserialize(
+      std::string_view serialized);
 };
 
 /// \brief message for simple auth
@@ -440,6 +500,11 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
   /// ticket can only be redeemed on the current service where the ticket was
   /// generated
   std::vector<Location> locations;
+
+  /// Expiration time of this stream. If present, clients may assume
+  /// they can retry DoGet requests. Otherwise, clients should avoid
+  /// retrying DoGet requests.
+  std::optional<Timestamp> expiration_time;
 
   std::string ToString() const;
   bool Equals(const FlightEndpoint& other) const;
