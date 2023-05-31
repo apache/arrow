@@ -35,8 +35,8 @@ libraries in the Python ecosystem. See more about the
 standard in the
 `protocol documentation <https://data-apis.org/dataframe-protocol/latest/index.html>`_.
 
-``__dataframe__()`` method
---------------------------
+From pyarrow to other libraries: ``__dataframe__()`` method
+-----------------------------------------------------------
 
 The ``__dataframe__()`` method creates a new exchange object that
 the consumer library can take and construct an object of it's own.
@@ -48,8 +48,8 @@ the consumer library can take and construct an object of it's own.
     >>> table.__dataframe__()
     <pyarrow.interchange.dataframe._PyArrowDataFrame object at ...>
 
-from_dataframe() method
------------------------
+From other libraries to pyarrow: ``from_dataframe()``
+-----------------------------------------------------
 
 With ``from_dataframe()`` method, we can construct a :class:`pyarrow.Table`
 from any dataframe object that implements the
