@@ -1493,12 +1493,6 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       data_enc_stat.__set_encoding(data_encoding);
       data_enc_stat.__set_count(entry.second);
       thrift_encoding_stats.push_back(data_enc_stat);
-      if (data_encoding == format::Encoding::PLAIN_DICTIONARY &&
-          properties_->version() == ParquetVersion::PARQUET_1_0) {
-        // For Parquet V1, Dictionary Data Page and Dictionary Index Page encodings
-        // is PLAIN_DICTIONARY, but the actual DATA is PLAIN, so force adding PLAIN.
-        data_encoding = format::Encoding::PLAIN;
-      }
       auto iter =
           std::find(thrift_encodings.begin(), thrift_encodings.end(), data_encoding);
       if (iter == thrift_encodings.end()) {

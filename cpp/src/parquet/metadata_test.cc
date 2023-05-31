@@ -79,6 +79,13 @@ std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
   return f_builder->Finish();
 }
 
+void AssertEncodings(const ColumnChunkMetaData& data,
+                     const std::set<parquet::Encoding::type>& expected) {
+  std::set<parquet::Encoding::type> encodings(data.encodings().begin(),
+                                              data.encodings().end());
+  ASSERT_EQ(encodings, expected);
+}
+
 TEST(Metadata, TestBuildAccess) {
   parquet::schema::NodeVector fields;
   parquet::schema::NodePtr root;
@@ -163,17 +170,13 @@ TEST(Metadata, TestBuildAccess) {
       std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
                                                   parquet::Encoding::RLE_DICTIONARY,
                                                   parquet::Encoding::PLAIN};
-      auto& encoding_vec = rg1_column1->encodings();
-      ASSERT_EQ(encodings, std::set<parquet::Encoding::type>(encoding_vec.begin(),
-                                                             encoding_vec.end()));
+      AssertEncodings(*rg1_column1, encodings);
     }
     {
       std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
                                                   parquet::Encoding::RLE_DICTIONARY,
                                                   parquet::Encoding::PLAIN};
-      auto& encoding_vec = rg1_column2->encodings();
-      ASSERT_EQ(encodings, std::set<parquet::Encoding::type>(encoding_vec.begin(),
-                                                             encoding_vec.end()));
+      AssertEncodings(*rg1_column2, encodings);
     }
     ASSERT_EQ(512, rg1_column1->total_compressed_size());
     ASSERT_EQ(512, rg1_column2->total_compressed_size());
@@ -213,17 +216,13 @@ TEST(Metadata, TestBuildAccess) {
     {
       std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
                                                   parquet::Encoding::PLAIN};
-      auto& encoding_vec = rg2_column1->encodings();
-      ASSERT_EQ(encodings, std::set<parquet::Encoding::type>(encoding_vec.begin(),
-                                                             encoding_vec.end()));
+      AssertEncodings(*rg2_column1, encodings);
     }
     {
       std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
                                                   parquet::Encoding::RLE_DICTIONARY,
                                                   parquet::Encoding::PLAIN};
-      auto& encoding_vec = rg2_column2->encodings();
-      ASSERT_EQ(encodings, std::set<parquet::Encoding::type>(encoding_vec.begin(),
-                                                             encoding_vec.end()));
+      AssertEncodings(*rg2_column2, encodings);
     }
     ASSERT_EQ(512, rg2_column1->total_compressed_size());
     ASSERT_EQ(512, rg2_column2->total_compressed_size());
