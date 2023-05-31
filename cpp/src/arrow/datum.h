@@ -53,8 +53,9 @@ struct ARROW_EXPORT Datum {
   /// current variant does not have a length.
   static constexpr int64_t kUnknownLength = -1;
 
-  /// \brief Storage of the actual datum. Note: For arrays, it stores ArrayData instead of
-  /// Array for easier data processing
+  /// \brief Storage of the actual datum.
+  ///
+  /// Note: For arrays, ArrayData is stored instead of Array for easier processing
   std::variant<Empty, std::shared_ptr<Scalar>, std::shared_ptr<ArrayData>,
                std::shared_ptr<ChunkedArray>, std::shared_ptr<RecordBatch>,
                std::shared_ptr<Table>>
