@@ -28,7 +28,7 @@ it supports chunking, meaning accessing the
 data in “batches” of rows.
 
 
-Python dataframe interchange protocol is designed by the
+The Python dataframe interchange protocol is designed by the
 `Consortium for Python Data API Standards <https://data-apis.org/>`_
 in order to enable data interchange between dataframe
 libraries in the Python ecosystem. See more about the
@@ -38,7 +38,7 @@ standard in the
 ``__dataframe__()`` method
 --------------------------
 
-``__dataframe__()`` method creates a new exchange object that
+The ``__dataframe__()`` method creates a new exchange object that
 the consumer library can take and construct an object of it's own.
 
 .. code-block::
@@ -51,7 +51,7 @@ the consumer library can take and construct an object of it's own.
 from_dataframe() method
 -----------------------
 
-With ``from_dataframe()`` method, we can construct a ``pa.table``
+With ``from_dataframe()`` method, we can construct a :class:`pyarrow.Table`
 from any dataframe object that implements the
 ``__dataframe__()`` method via the dataframe interchange
 protocol.
