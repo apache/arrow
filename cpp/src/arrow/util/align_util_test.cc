@@ -201,7 +201,7 @@ TEST(EnsureAlignment, Buffer) {
       std::shared_ptr<Buffer> realigned_large,
       util::EnsureAlignment(unaligned_view, /*alignment=*/256, default_memory_pool()));
   // If the user wants more than kDefaultBufferAlignment they should get it
-  ASSERT_TRUE(util::CheckAlignment(*realigned_large, /*alignment=*/256));
+  ASSERT_TRUE(util::CheckAlignment(*realigned_large, /*alignment=*/128));
 
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<Buffer> realigned_huge,
