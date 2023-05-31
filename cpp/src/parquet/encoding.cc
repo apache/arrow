@@ -1388,10 +1388,11 @@ inline int PlainDecoder<FLBAType>::DecodeArrow(
   return values_decoded;
 }
 
-class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
-                              virtual public ByteArrayDecoder {
+template <typename BAT>
+class PlainByteArrayDecoderBase : public PlainDecoder<BAT>,
+                                  virtual public TypedDecoder<BAT> {
  public:
-  using Base = PlainDecoder<ByteArrayType>;
+  using Base = PlainDecoder<BAT>;
   using Base::DecodeSpaced;
   using Base::PlainDecoder;
 
@@ -1400,7 +1401,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  ::arrow::BinaryDictionary32Builder* builder) override {
+                  typename EncodingTraits<BAT>::DictAccumulator* builder) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
                                      valid_bits_offset, builder, &result));
@@ -1412,7 +1413,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
+                  typename EncodingTraits<BAT>::Accumulator* out) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
                                           valid_bits_offset, out, &result));
@@ -1422,28 +1423,28 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
  private:
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
-                          typename EncodingTraits<ByteArrayType>::Accumulator* out,
+                          typename EncodingTraits<BAT>::Accumulator* out,
                           int* out_values_decoded) {
-    ArrowBinaryHelper helper(out);
+    ArrowBinaryHelperBase<BAT> helper(out);
     int values_decoded = 0;
 
     RETURN_NOT_OK(helper.builder->Reserve(num_values));
     RETURN_NOT_OK(helper.builder->ReserveData(
-        std::min<int64_t>(len_, helper.chunk_space_remaining)));
+        std::min<int64_t>(PlainDecoder<BAT>::len_, helper.chunk_space_remaining)));
 
     int i = 0;
     RETURN_NOT_OK(VisitNullBitmapInline(
         valid_bits, valid_bits_offset, num_values, null_count,
         [&]() {
-          if (ARROW_PREDICT_FALSE(len_ < 4)) {
+          if (ARROW_PREDICT_FALSE(PlainDecoder<BAT>::len_ < 4)) {
             ParquetException::EofException();
           }
-          auto value_len = SafeLoadAs<int32_t>(data_);
+          auto value_len = SafeLoadAs<int32_t>(PlainDecoder<BAT>::data_);
           if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
             return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
           }
           auto increment = value_len + 4;
-          if (ARROW_PREDICT_FALSE(len_ < increment)) {
+          if (ARROW_PREDICT_FALSE(PlainDecoder<BAT>::len_ < increment)) {
             ParquetException::EofException();
           }
           if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
@@ -1451,11 +1452,11 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
             RETURN_NOT_OK(helper.PushChunk());
             RETURN_NOT_OK(helper.builder->Reserve(num_values - i));
             RETURN_NOT_OK(helper.builder->ReserveData(
-                std::min<int64_t>(len_, helper.chunk_space_remaining)));
+                std::min<int64_t>(PlainDecoder<BAT>::len_, helper.chunk_space_remaining)));
           }
-          helper.UnsafeAppend(data_ + 4, value_len);
-          data_ += increment;
-          len_ -= increment;
+          helper.UnsafeAppend(PlainDecoder<BAT>::data_ + 4, value_len);
+          PlainDecoder<BAT>::data_ += increment;
+          PlainDecoder<BAT>::len_ -= increment;
           ++values_decoded;
           ++i;
           return Status::OK();
@@ -1466,7 +1467,7 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
           return Status::OK();
         }));
 
-    num_values_ -= values_decoded;
+    PlainDecoder<BAT>::num_values_ -= values_decoded;
     *out_values_decoded = values_decoded;
     return Status::OK();
   }
@@ -1481,148 +1482,33 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
     RETURN_NOT_OK(VisitNullBitmapInline(
         valid_bits, valid_bits_offset, num_values, null_count,
         [&]() {
-          if (ARROW_PREDICT_FALSE(len_ < 4)) {
+          if (ARROW_PREDICT_FALSE(PlainDecoder<BAT>::len_ < 4)) {
             ParquetException::EofException();
           }
-          auto value_len = SafeLoadAs<int32_t>(data_);
+          auto value_len = SafeLoadAs<int32_t>(PlainDecoder<BAT>::data_);
           if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
             return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
           }
           auto increment = value_len + 4;
-          if (ARROW_PREDICT_FALSE(len_ < increment)) {
+          if (ARROW_PREDICT_FALSE(PlainDecoder<BAT>::len_ < increment)) {
             ParquetException::EofException();
           }
-          RETURN_NOT_OK(builder->Append(data_ + 4, value_len));
-          data_ += increment;
-          len_ -= increment;
+          RETURN_NOT_OK(builder->Append(PlainDecoder<BAT>::data_ + 4, value_len));
+          PlainDecoder<BAT>::data_ += increment;
+          PlainDecoder<BAT>::len_ -= increment;
           ++values_decoded;
           return Status::OK();
         },
         [&]() { return builder->AppendNull(); }));
 
-    num_values_ -= values_decoded;
+    PlainDecoder<BAT>::num_values_ -= values_decoded;
     *out_values_decoded = values_decoded;
     return Status::OK();
   }
 };
 
-class PlainLargeByteArrayDecoder : public PlainDecoder<LargeByteArrayType>,
-                                   virtual public LargeByteArrayDecoder {
- public:
-  using Base = PlainDecoder<LargeByteArrayType>;
-  using Base::DecodeSpaced;
-  using Base::PlainDecoder;
-
-  // ----------------------------------------------------------------------
-  // Dictionary read paths
-
-  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                  int64_t valid_bits_offset,
-                  ::arrow::LargeBinaryDictionary32Builder* builder) override {
-    int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
-                                     valid_bits_offset, builder, &result));
-    return result;
-  }
-
-  // ----------------------------------------------------------------------
-  // Optimized dense binary read paths
-
-  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                  int64_t valid_bits_offset,
-                  typename EncodingTraits<LargeByteArrayType>::Accumulator* out) override {
-    int result = 0;
-    PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
-                                          valid_bits_offset, out, &result));
-    return result;
-  }
-
- private:
-  Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
-                          int64_t valid_bits_offset,
-                          typename EncodingTraits<LargeByteArrayType>::Accumulator* out,
-                          int* out_values_decoded) {
-    ArrowLargeBinaryHelper helper(out);
-    int values_decoded = 0;
-
-    RETURN_NOT_OK(helper.builder->Reserve(num_values));
-    RETURN_NOT_OK(helper.builder->ReserveData(
-        std::min<int64_t>(len_, helper.chunk_space_remaining)));
-
-    int i = 0;
-    RETURN_NOT_OK(VisitNullBitmapInline(
-        valid_bits, valid_bits_offset, num_values, null_count,
-        [&]() {
-          if (ARROW_PREDICT_FALSE(len_ < 4)) {
-            ParquetException::EofException();
-          }
-          auto value_len = SafeLoadAs<int32_t>(data_);
-          if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
-            return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
-          }
-          auto increment = value_len + 4;
-          if (ARROW_PREDICT_FALSE(len_ < increment)) {
-            ParquetException::EofException();
-          }
-          if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
-            // This element would exceed the capacity of a chunk
-            RETURN_NOT_OK(helper.PushChunk());
-            RETURN_NOT_OK(helper.builder->Reserve(num_values - i));
-            RETURN_NOT_OK(helper.builder->ReserveData(
-                std::min<int64_t>(len_, helper.chunk_space_remaining)));
-          }
-          helper.UnsafeAppend(data_ + 4, value_len);
-          data_ += increment;
-          len_ -= increment;
-          ++values_decoded;
-          ++i;
-          return Status::OK();
-        },
-        [&]() {
-          helper.UnsafeAppendNull();
-          ++i;
-          return Status::OK();
-        }));
-
-    num_values_ -= values_decoded;
-    *out_values_decoded = values_decoded;
-    return Status::OK();
-  }
-
-  template <typename BuilderType>
-  Status DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                     int64_t valid_bits_offset, BuilderType* builder,
-                     int* out_values_decoded) {
-    RETURN_NOT_OK(builder->Reserve(num_values));
-    int values_decoded = 0;
-
-    RETURN_NOT_OK(VisitNullBitmapInline(
-        valid_bits, valid_bits_offset, num_values, null_count,
-        [&]() {
-          if (ARROW_PREDICT_FALSE(len_ < 4)) {
-            ParquetException::EofException();
-          }
-          auto value_len = SafeLoadAs<int32_t>(data_);
-          if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
-            return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
-          }
-          auto increment = value_len + 4;
-          if (ARROW_PREDICT_FALSE(len_ < increment)) {
-            ParquetException::EofException();
-          }
-          RETURN_NOT_OK(builder->Append(data_ + 4, value_len));
-          data_ += increment;
-          len_ -= increment;
-          ++values_decoded;
-          return Status::OK();
-        },
-        [&]() { return builder->AppendNull(); }));
-
-    num_values_ -= values_decoded;
-    *out_values_decoded = values_decoded;
-    return Status::OK();
-  }
-};
+using PlainByteArrayDecoder = PlainByteArrayDecoderBase<ByteArrayType>;
+using PlainLargeByteArrayDecoder = PlainByteArrayDecoderBase<LargeByteArrayType>;
 
 class PlainFLBADecoder : public PlainDecoder<FLBAType>, virtual public FLBADecoder {
  public:
