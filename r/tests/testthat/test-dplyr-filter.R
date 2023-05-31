@@ -441,6 +441,7 @@ test_that(".by argument", {
       collect(),
     tbl
   )
+  # filter should pulling not grouped data into R when using the .by argument
   compare_dplyr_binding(
     .input %>%
       filter(int > 2, pnorm(dbl) > .99, .by = chr) %>%
