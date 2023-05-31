@@ -2164,12 +2164,14 @@ class ChunkedRecordReader : public TypedRecordReader<BAT>,
 using ByteArrayChunkedRecordReader = ChunkedRecordReader<ByteArrayType>;
 using LargeByteArrayChunkedRecordReader = ChunkedRecordReader<LargeByteArrayType>;
 
-class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
-                                        virtual public DictionaryRecordReader {
+
+template <typename BAT>
+class DictionaryRecordReaderImpl : public TypedRecordReader<BAT>,
+                                  virtual public DictionaryRecordReader {
  public:
-  ByteArrayDictionaryRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
+  DictionaryRecordReaderImpl(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                   ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
-      : TypedRecordReader<ByteArrayType>(descr, leaf_info, pool, read_dense_for_nullable),
+      : TypedRecordReader<BAT>(descr, leaf_info, pool, read_dense_for_nullable),
         builder_(pool) {
     this->read_dictionary_ = true;
   }
@@ -2206,7 +2208,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
 
   void ReadValuesDense(int64_t values_to_read) override {
     int64_t num_decoded = 0;
-    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
+    if (TypedRecordReader<BAT>::current_encoding_ == Encoding::RLE_DICTIONARY) {
       MaybeWriteNewDictionary();
       auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
       num_decoded = decoder->DecodeIndices(static_cast<int>(values_to_read), &builder_);
@@ -2215,14 +2217,14 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
           static_cast<int>(values_to_read), &builder_);
 
       /// Flush values since they have been copied into the builder
-      ResetValues();
+      TypedRecordReader<BAT>::ResetValues();
     }
     CheckNumberDecoded(num_decoded, values_to_read);
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
     int64_t num_decoded = 0;
-    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
+    if (TypedRecordReader<BAT>::current_encoding_ == Encoding::RLE_DICTIONARY) {
       MaybeWriteNewDictionary();
       auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
       num_decoded = decoder->DecodeIndicesSpaced(
@@ -2234,99 +2236,20 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
           valid_bits_->mutable_data(), values_written_, &builder_);
 
       /// Flush values since they have been copied into the builder
-      ResetValues();
+      TypedRecordReader<BAT>::ResetValues();
     }
     ARROW_DCHECK_EQ(num_decoded, values_to_read - null_count);
   }
 
  private:
-  using BinaryDictDecoder = DictDecoder<ByteArrayType>;
+  using BinaryDictDecoder = DictDecoder<BAT>;
 
-  ::arrow::BinaryDictionary32Builder builder_;
+  typename EncodingTraits<BAT>::DictAccumulator builder_;
   std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
 };
 
-class LargeByteArrayDictionaryRecordReader : public TypedRecordReader<LargeByteArrayType>,
-                                            virtual public DictionaryRecordReader {
- public:
-  LargeByteArrayDictionaryRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                                  ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
-      : TypedRecordReader<LargeByteArrayType>(descr, leaf_info, pool, read_dense_for_nullable),
-        builder_(pool) {
-    this->read_dictionary_ = true;
-  }
-
-  std::shared_ptr<::arrow::ChunkedArray> GetResult() override {
-    FlushBuilder();
-    std::vector<std::shared_ptr<::arrow::Array>> result;
-    std::swap(result, result_chunks_);
-    return std::make_shared<::arrow::ChunkedArray>(std::move(result), builder_.type());
-  }
-
-  void FlushBuilder() {
-    if (builder_.length() > 0) {
-      std::shared_ptr<::arrow::Array> chunk;
-      PARQUET_THROW_NOT_OK(builder_.Finish(&chunk));
-      result_chunks_.emplace_back(std::move(chunk));
-
-      // Also clears the dictionary memo table
-      builder_.Reset();
-    }
-  }
-
-  void MaybeWriteNewDictionary() {
-    if (this->new_dictionary_) {
-      /// If there is a new dictionary, we may need to flush the builder, then
-      /// insert the new dictionary values
-      FlushBuilder();
-      builder_.ResetFull();
-      auto decoder = dynamic_cast<LargeBinaryDictDecoder*>(this->current_decoder_);
-      decoder->InsertDictionary(&builder_);
-      this->new_dictionary_ = false;
-    }
-  }
-
-  void ReadValuesDense(int64_t values_to_read) override {
-    int64_t num_decoded = 0;
-    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
-      MaybeWriteNewDictionary();
-      auto decoder = dynamic_cast<LargeBinaryDictDecoder*>(this->current_decoder_);
-      num_decoded = decoder->DecodeIndices(static_cast<int>(values_to_read), &builder_);
-    } else {
-      num_decoded = this->current_decoder_->DecodeArrowNonNull(
-          static_cast<int>(values_to_read), &builder_);
-
-      /// Flush values since they have been copied into the builder
-      ResetValues();
-    }
-    CheckNumberDecoded(num_decoded, values_to_read);
-  }
-
-  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
-    int64_t num_decoded = 0;
-    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
-      MaybeWriteNewDictionary();
-      auto decoder = dynamic_cast<LargeBinaryDictDecoder*>(this->current_decoder_);
-      num_decoded = decoder->DecodeIndicesSpaced(
-          static_cast<int>(values_to_read), static_cast<int>(null_count),
-          valid_bits_->mutable_data(), values_written_, &builder_);
-    } else {
-      num_decoded = this->current_decoder_->DecodeArrow(
-          static_cast<int>(values_to_read), static_cast<int>(null_count),
-          valid_bits_->mutable_data(), values_written_, &builder_);
-
-      /// Flush values since they have been copied into the builder
-      ResetValues();
-    }
-    ARROW_DCHECK_EQ(num_decoded, values_to_read - null_count);
-  }
-
- private:
-  using LargeBinaryDictDecoder = DictDecoder<LargeByteArrayType>;
-
-  ::arrow::LargeBinaryDictionary32Builder builder_;
-  std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
-};
+using ByteArrayDictionaryRecordReader = DictionaryRecordReaderImpl<ByteArrayType>;
+using LargeByteArrayDictionaryRecordReader = DictionaryRecordReaderImpl<LargeByteArrayType>;
 
 // TODO(wesm): Implement these to some satisfaction
 template <>
