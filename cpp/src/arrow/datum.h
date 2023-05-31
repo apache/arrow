@@ -96,8 +96,9 @@ struct ARROW_EXPORT Datum {
   /// \brief Construct from a Table
   Datum(std::shared_ptr<Table> value);  // NOLINT implicit conversion
 
-  /// \brief Construct from a ChunkedArray. Can be expensive, prefer the
-  /// shared_ptr constructor
+  /// \brief Construct from a ChunkedArray.
+  ///
+  /// This can be expensive, prefer the shared_ptr<ChunkedArray> constructor
   explicit Datum(const ChunkedArray& value);
 
   /// \brief Construct from a RecordBatch. Can be expensive, prefer the
