@@ -943,6 +943,7 @@ func (ps *ParquetIOTestSuite) TestReadNestedStruct() {
 			arrow.Field{Name: "int64", Type: arrow.PrimitiveTypes.Int64},
 		),
 	})
+	field := arrow.Field{Name: "struct", Type: dt, Nullable: true}
 
 	builder := array.NewStructBuilder(mem, dt)
 	defer builder.Release()
@@ -955,38 +956,17 @@ func (ps *ParquetIOTestSuite) TestReadNestedStruct() {
 	nested.FieldBuilder(2).(*array.Int64Builder).Append(int64(-2))
 	builder.AppendNull()
 
-	expected := builder.NewStructArray()
+	arr := builder.NewStructArray()
+	defer arr.Release()
+
+	expected := array.NewTable(
+		arrow.NewSchema([]arrow.Field{field}, nil),
+		[]arrow.Column{*arrow.NewColumn(field, arrow.NewChunked(dt, []arrow.Array{arr}))},
+		-1,
+	)
+	defer arr.Release() // NewChunked
 	defer expected.Release()
-
-	sc := schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Required, schema.FieldList{
-		schema.Must(schema.NewPrimitiveNodeLogical("decimals", parquet.Repetitions.Required, schema.NewDecimalLogicalType(6, 3), parquet.Types.ByteArray, -1, -1)),
-	}, -1))
-
-	sink := encoding.NewBufferWriter(0, mem)
-	defer sink.Release()
-	writer := file.NewParquetWriter(sink, sc)
-
-	rgw := writer.AppendRowGroup()
-	cw, err := rgw.NextColumn()
-	ps.NoError(err)
-
-	props := pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem))
-	ctx := pqarrow.NewArrowWriteContext(context.TODO(), &props)
-	ps.NoError(pqarrow.WriteArrowToColumn(ctx, cw, expected, nil, nil, false))
-	ps.NoError(cw.Close())
-	ps.NoError(rgw.Close())
-	ps.NoError(writer.Close())
-
-	rdr := ps.createReader(mem, sink.Bytes())
-	cr, err := rdr.GetColumn(context.TODO(), 0)
-	ps.NoError(err)
-
-	chunked, err := cr.NextBatch(smallSize)
-	ps.NoError(err)
-	defer chunked.Release()
-
-	ps.Len(chunked.Chunks(), 1)
-	ps.True(array.Equal(expected, chunked.Chunk(0)))
+	ps.roundTripTable(mem, expected, true)
 }
 
 func (ps *ParquetIOTestSuite) writeColumn(mem memory.Allocator, sc *schema.GroupNode, values arrow.Array) []byte {
