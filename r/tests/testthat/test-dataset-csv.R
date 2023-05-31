@@ -561,6 +561,14 @@ test_that("open_delim_dataset params passed through to open_dataset", {
 
   expect_named(ds, c("int", "dbl", "lgl", "chr", "fct", "ts"))
 
+  # skip with no column names or schema
+  ds <- open_csv_dataset(
+    csv_dir,
+    skip = 10
+  ) %>% collect()
+
+  expect_equal(nrow(ds), 2)
+
   # timestamp_parsers
   skip("GH-33708: timestamp_parsers don't appear to be working properly")
 
