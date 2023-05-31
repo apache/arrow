@@ -931,6 +931,64 @@ func (ps *ParquetIOTestSuite) TestReadDecimals() {
 	ps.True(array.Equal(expected, chunked.Chunk(0)))
 }
 
+func (ps *ParquetIOTestSuite) TestReadNestedStruct() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	dt := arrow.StructOf(arrow.Field{
+		Name: "nested",
+		Type: arrow.StructOf(
+			arrow.Field{Name: "bool", Type: arrow.FixedWidthTypes.Boolean},
+			arrow.Field{Name: "int32", Type: arrow.PrimitiveTypes.Int32},
+			arrow.Field{Name: "int64", Type: arrow.PrimitiveTypes.Int64},
+		),
+	})
+
+	builder := array.NewStructBuilder(mem, dt)
+	defer builder.Release()
+	nested := builder.FieldBuilder(0).(*array.StructBuilder)
+
+	builder.Append(true)
+	nested.Append(true)
+	nested.FieldBuilder(0).(*array.BooleanBuilder).Append(true)
+	nested.FieldBuilder(1).(*array.Int32Builder).Append(int32(-1))
+	nested.FieldBuilder(2).(*array.Int64Builder).Append(int64(-2))
+	builder.AppendNull()
+
+	expected := builder.NewStructArray()
+	defer expected.Release()
+
+	sc := schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Required, schema.FieldList{
+		schema.Must(schema.NewPrimitiveNodeLogical("decimals", parquet.Repetitions.Required, schema.NewDecimalLogicalType(6, 3), parquet.Types.ByteArray, -1, -1)),
+	}, -1))
+
+	sink := encoding.NewBufferWriter(0, mem)
+	defer sink.Release()
+	writer := file.NewParquetWriter(sink, sc)
+
+	rgw := writer.AppendRowGroup()
+	cw, err := rgw.NextColumn()
+	ps.NoError(err)
+
+	props := pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem))
+	ctx := pqarrow.NewArrowWriteContext(context.TODO(), &props)
+	ps.NoError(pqarrow.WriteArrowToColumn(ctx, cw, expected, nil, nil, false))
+	ps.NoError(cw.Close())
+	ps.NoError(rgw.Close())
+	ps.NoError(writer.Close())
+
+	rdr := ps.createReader(mem, sink.Bytes())
+	cr, err := rdr.GetColumn(context.TODO(), 0)
+	ps.NoError(err)
+
+	chunked, err := cr.NextBatch(smallSize)
+	ps.NoError(err)
+	defer chunked.Release()
+
+	ps.Len(chunked.Chunks(), 1)
+	ps.True(array.Equal(expected, chunked.Chunk(0)))
+}
+
 func (ps *ParquetIOTestSuite) writeColumn(mem memory.Allocator, sc *schema.GroupNode, values arrow.Array) []byte {
 	var buf bytes.Buffer
 	arrsc, err := pqarrow.FromParquet(schema.NewSchema(sc), nil, nil)
