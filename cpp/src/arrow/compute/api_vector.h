@@ -592,6 +592,13 @@ Result<Datum> RunEndEncode(
 ARROW_EXPORT
 Result<Datum> RunEndDecode(const Datum& value, ExecContext* ctx = NULLPTR);
 
+/// \brief Compute the cumulative sum of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative sum behavior
+/// \param[in] check_overflow whether to check for overflow, if true, return Invalid
+/// status on overflow, otherwise wrap around on overflow
+/// \param[in] ctx the function execution context, optional
 ARROW_EXPORT
 Result<Datum> CumulativeSum(
     const Datum& values,
