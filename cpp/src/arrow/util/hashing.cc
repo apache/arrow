@@ -82,11 +82,10 @@ uint64_t MurmurHashBitmap64(const uint8_t* key, uint64_t seed, uint64_t bits_off
 
 }  // namespace
 
-hash_t ComputeBitmapHash(const uint8_t* bitmap, int64_t length, hash_t seed,
-                         int64_t bits_offset, int64_t num_bits) {
+hash_t ComputeBitmapHash(const uint8_t* bitmap, hash_t seed, int64_t bits_offset,
+                         int64_t num_bits) {
   DCHECK_GE(bits_offset, 0);
   DCHECK_GE(num_bits, 0);
-  DCHECK_LE(bit_util::BytesForBits(bits_offset + num_bits), length);
   return MurmurHashBitmap64(bitmap, seed, bits_offset, num_bits);
 }
 

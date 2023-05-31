@@ -491,7 +491,7 @@ TEST(BinaryMemoTable, Empty) {
 hash_t HashDataBitmap(const ArraySpan& array) {
   EXPECT_EQ(array.type->id(), Type::BOOL);
   const auto& bitmap = array.buffers[1];
-  return ComputeBitmapHash(bitmap.data, bitmap.size,
+  return ComputeBitmapHash(bitmap.data,
                            /*seed=*/0,
                            /*bit_offset=*/array.offset,
                            /*num_bits=*/array.length);

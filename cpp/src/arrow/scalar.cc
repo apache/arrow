@@ -155,7 +155,6 @@ struct ScalarHashImpl {
   Status ArrayHash(const ArraySpan& a, int64_t offset, int64_t length) {
     // Calculate null count within the range
     const auto* validity = a.buffers[0].data;
-    const int64_t validity_size = a.buffers[0].size;
     int64_t null_count = 0;
     if (validity != NULLPTR) {
       if (offset == a.offset && length == a.length) {
@@ -170,7 +169,7 @@ struct ScalarHashImpl {
       // We can't visit values without unboxing the whole array, so only hash
       // the null bitmap for now. Only hash the null bitmap if the null count
       // is not 0 to ensure hash consistency.
-      hash_ = internal::ComputeBitmapHash(validity, validity_size, /*seed=*/hash_,
+      hash_ = internal::ComputeBitmapHash(validity, /*seed=*/hash_,
                                           /*bits_offset=*/offset, /*num_bits=*/length);
     }
 
