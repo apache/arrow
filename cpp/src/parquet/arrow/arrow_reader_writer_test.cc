@@ -3834,13 +3834,14 @@ TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
   ASSERT_EQ(expected, calculated);
 }
 
-void TryReadDataFile(const std::string& path,
-                     ::arrow::StatusCode expected_code = ::arrow::StatusCode::OK) {
+void TryReadDataFileWithProperties(const std::string& path,
+                                   const ArrowReaderProperties& properties,
+                                   ::arrow::StatusCode expected_code = ::arrow::StatusCode::OK) {
   auto pool = ::arrow::default_memory_pool();
 
   std::unique_ptr<FileReader> arrow_reader;
   Status s =
-      FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), &arrow_reader);
+      FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), properties, &arrow_reader);
   if (s.ok()) {
     std::shared_ptr<::arrow::Table> table;
     s = arrow_reader->ReadTable(&table);
@@ -3849,6 +3850,11 @@ void TryReadDataFile(const std::string& path,
   ASSERT_EQ(s.code(), expected_code)
       << "Expected reading file to return " << arrow::Status::CodeAsString(expected_code)
       << ", but got " << s.ToString();
+}
+
+void TryReadDataFile(const std::string& path,
+                     ::arrow::StatusCode expected_code = ::arrow::StatusCode::OK) {
+  TryReadDataFileWithProperties(path, default_arrow_reader_properties(), expected_code);
 }
 
 TEST(TestArrowReaderAdHoc, Int96BadMemoryAccess) {
@@ -3860,6 +3866,18 @@ TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   // PARQUET-1481
   auto path = test::get_data_file("PARQUET-1481.parquet", /*is_good=*/false);
   TryReadDataFile(path, ::arrow::StatusCode::IOError);
+}
+
+TEST(TestArrowParquet, LargeByteArray) {
+  auto path = test::get_data_file("chunked_string_map.parquet");
+
+  TryReadDataFile(path, ::arrow::StatusCode::NotImplemented);
+
+  auto reader_properties = default_arrow_reader_properties();
+
+  reader_properties.set_use_binary_large_variants(true);
+
+  TryReadDataFileWithProperties(path, reader_properties);
 }
 
 TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
