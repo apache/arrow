@@ -125,7 +125,9 @@ struct ARROW_EXPORT Datum {
   Datum(T&& value)  // NOLINT implicit conversion
       : Datum(std::make_shared<TV>(std::forward<T>(value))) {}
 
-  /// \brief Copy from concrete types of Scalar. The scalar type must copyable.
+  /// \brief Copy from concrete types of Scalar.
+  /// 
+  /// The concrete scalar type must be copyable (not all of them are).
   template <typename T, typename = enable_if_t<std::is_base_of_v<Scalar, T>>>
   Datum(const T& value)  // NOLINT implicit conversion
       : Datum(std::make_shared<T>(value)) {}
