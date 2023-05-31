@@ -49,14 +49,10 @@ Classes
 Dataframe Interchange Protocol
 ------------------------------
 
-.. currentmodule:: pyarrow.interchange
-
 .. autosummary::
    :toctree: ../generated/
 
-   from_dataframe
-
-.. currentmodule:: pyarrow
+   interchange.from_dataframe
 
 .. _api.tensor:
 
