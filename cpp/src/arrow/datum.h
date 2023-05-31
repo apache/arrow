@@ -267,7 +267,9 @@ struct ARROW_EXPORT Datum {
   /// \brief True if Datum contains a scalar or array-like data
   bool is_value() const { return this->is_arraylike() || this->is_scalar(); }
 
-  /// \brief Returns the null count. Only valid for scalar and array-like data
+  /// \brief Return the null count.
+  ///
+  /// Only valid for scalar and array-like data.
   int64_t null_count() const;
 
   /// \brief The value type of the variant, if any
