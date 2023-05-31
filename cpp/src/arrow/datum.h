@@ -160,8 +160,7 @@ struct ARROW_EXPORT Datum {
   /// \brief A convenience constructor. Stores a string scalar.
   explicit Datum(const char* value);
 
-  /// \brief Forward to convenience constructors for a DurationScalar from
-  /// std::chrono::duration
+  /// \brief Convenience constructor for a DurationScalar from std::chrono::duration
   template <template <typename, typename> class StdDuration, typename Rep,
             typename Period,
             typename = decltype(DurationScalar{StdDuration<Rep, Period>{}})>
