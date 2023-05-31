@@ -99,36 +99,6 @@ def from_dataframe(df: DataFrameObject, allow_copy=True) -> pa.Table:
     ----
     n_atendees: [[100,10,1]]
     country: [["Italy","Spain","Slovenia"]]
-
-    Convert a polars dataframe to a pyarrow table:
-
-    >>> import polars as pl
-    >>> from datetime import datetime
-    >>> arr = [datetime(2023, 5, 20, 10, 0),
-    ...        datetime(2023, 5, 20, 11, 0),
-    ...        datetime(2023, 5, 20, 13, 30)]
-    >>> df = pl.DataFrame({
-    ...          'Talk': ['About Polars','Intro into PyArrow','Coding in Rust'],
-    ...          'Time': arr,
-    ...      })
-    >>> df
-    shape: (3, 2)
-    ┌────────────────────┬─────────────────────┐
-    │ Talk               ┆ Time                │
-    │ ---                ┆ ---                 │
-    │ str                ┆ datetime[μs]        │
-    ╞════════════════════╪═════════════════════╡
-    │ About Polars       ┆ 2023-05-20 10:00:00 │
-    │ Intro into PyArrow ┆ 2023-05-20 11:00:00 │
-    │ Coding in Rust     ┆ 2023-05-20 13:30:00 │
-    └────────────────────┴─────────────────────┘
-    >>> from_dataframe(df)
-    pyarrow.Table
-    Talk: large_string
-    Time: timestamp[us]
-    ----
-    Talk: [["About Polars","Intro into PyArrow","Coding in Rust"]]
-    Time: [[2023-05-20 10:00:00.000000,2023-05-20 11:00:00.000000,2023-05-20 13:30:00.000000]]
     """
     if isinstance(df, pa.Table):
         return df
