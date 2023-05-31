@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <iostream>
-
 #include "arrow/python/udf.h"
 #include "arrow/table.h"
 #include "arrow/compute/api_aggregate.h"
@@ -149,7 +147,7 @@ struct PythonTableUdfKernelInit {
 
     Status Consume(compute::KernelContext* ctx, const compute::ExecSpan& batch) {
       ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToExecBatch().ToRecordBatch(input_schema, ctx->memory_pool()));
-      values.push_back(rb);
+      values.push_back(std::move(rb));
       return Status::OK();
     }
 
@@ -185,7 +183,7 @@ struct PythonTableUdfKernelInit {
 
       UdfContext udf_context{ctx->memory_pool(), table->num_rows()};
       for (int arg_id = 0; arg_id < num_args; arg_id++) {
-        // Since we combined chunks thComere is only one chunk
+        // Since we combined chunks there is only one chunk
         std::shared_ptr<Array> c_data = table->column(arg_id)->chunk(0);
         PyObject* data = wrap_array(c_data);
         PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
@@ -204,11 +202,9 @@ struct PythonTableUdfKernelInit {
         }
         out->value = std::move(val);
         return Status::OK();
-      } else {
-        return Status::TypeError("Unexpected output type: ", Py_TYPE(result.obj())->tp_name,
-                                 " (expected Scalar)");
       }
-      return Status::OK();
+      return Status::TypeError("Unexpected output type: ", Py_TYPE(result.obj())->tp_name,
+                               " (expected Scalar)");
     }
 
     UdfWrapperCallback agg_cb;

@@ -2769,7 +2769,7 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
         The first argument is the context argument of type
         UdfContext.
         Then, it must take arguments equal to the number of
-        in_types defined. It must return Scalar matching the
+        in_types defined. It must return a Scalar matching the
         out_type.
         To define a varargs function, pass a callable that takes
         varargs. The in_type needs to match in type of inputs when
