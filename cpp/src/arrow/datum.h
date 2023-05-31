@@ -111,7 +111,7 @@ struct ARROW_EXPORT Datum {
   /// This can be expensive, prefer the shared_ptr<Table> constructor
   explicit Datum(const Table& value);
 
-  /// \brief Cast from concrete types of Array or Scalar to Datum
+  /// \brief Cast from concrete subtypes of Array or Scalar to Datum
   template <typename T, bool IsArray = std::is_base_of_v<Array, T>,
             bool IsScalar = std::is_base_of_v<Scalar, T>,
             typename = enable_if_t<IsArray || IsScalar>>
