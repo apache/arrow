@@ -18,7 +18,6 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
-#include <chrono>
 #include <memory>
 
 #include "arrow/acero/exec_plan.h"
@@ -27,6 +26,7 @@
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/plan.h"
+#include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/reader.h"
@@ -56,8 +56,7 @@ TEST(WriteNode, CustomNullability) {
   ASSERT_TRUE(table->field(0)->nullable());
   ASSERT_FALSE(table->field(1)->nullable());
 
-  auto now = std::chrono::high_resolution_clock::now();
-  auto fs = std::make_shared<fs::internal::MockFileSystem>(now);
+  auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
 
   auto ipc_format = std::make_shared<dataset::IpcFileFormat>();
 
