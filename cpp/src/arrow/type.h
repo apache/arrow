@@ -1673,6 +1673,10 @@ class ARROW_EXPORT FieldPath {
   bool empty() const { return indices_.empty(); }
   bool operator==(const FieldPath& other) const { return indices() == other.indices(); }
   bool operator!=(const FieldPath& other) const { return indices() != other.indices(); }
+  bool operator<(const FieldPath& other) const;
+  bool operator>(const FieldPath& other) { return other < *this; }
+  bool operator<=(const FieldPath& other) { return !(*this > other); }
+  bool operator>=(const FieldPath& other) { return !(*this < other); }
 
   const std::vector<int>& indices() const { return indices_; }
   int operator[](size_t i) const { return indices_[i]; }

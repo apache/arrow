@@ -476,7 +476,48 @@ class ParquetFragmentScanner : public FragmentScanner {
     return Status::OK();
   }
 
-  Future<> Initialize(std::shared_ptr<io::RandomAccessFile> file) {
+  // We need to convert from a list of paths ([2, 1, 0], [0, 3]) to a list of leaf indices
+  //
+  // First we sort the paths in DFS order(well, get the sorted path indices) so the above
+  // example would change to something like [[0, 3], [2, 1, 0]]
+  //
+  // Then we walk through the schema in DFS fashion, counting leaf nodes, until we
+  // encounter the next item in the sorted list
+  //
+  // 0 - Not leaf
+  // 0 0 - leaf_counter=0
+  // 0 1 - leaf_counter=1
+  // 0 2 - Not leaf
+  // 0 2 0 - leaf_counter=2
+  // 0 2 1 - leaf_counter=3
+  // 0 3 - leaf_counter=4*
+  //
+  // Here we mark down 4 for the [0, 3] element.  Keep in mind that the eventual return
+  // value will have the 4 in position 1 of the returned list (to maintain order)
+  //
+  // If we encounter a non-leaf node then we need to load all leaves under that node
+  void CalculateDesiredColumns(const FragmentScanRequest& request) {
+    std::vector<std::size_t> sorted_path_indices(
+        request.fragment_selection->columns().size());
+    std::iota(sorted_path_indices.begin(), sorted_path_indices.end(), 0);
+    std::sort(sorted_path_indices.begin(), sorted_path_indices.end(),
+              [&](const auto& lhs, const auto& rhs) {
+                return request.fragment_selection->columns()[lhs].path <
+                       request.fragment_selection->columns()[rhs].path;
+              });
+    for (const auto& column : request.fragment_selection->columns()) {
+      sorted_paths.push_back(column.path);
+    }
+    std::vector<int> desired_columns_.reserve(
+        request.fragment_selection->columns().size());
+
+    for (const auto& column : request.fragment_selection->columns()) {
+      desired_columns_.push_back(PathToLeafIndex(column.path));
+    }
+  }
+
+  Future<> Initialize(std::shared_ptr<io::RandomAccessFile> file,
+                      const FragmentScanRequest& request) {
     parquet::ReaderProperties properties = MakeParquetReaderProperties();
     // TODO(ARROW-12259): workaround since we have Future<(move-only type)>
     auto reader_fut = parquet::ParquetFileReader::OpenAsync(
@@ -515,7 +556,7 @@ class ParquetFragmentScanner : public FragmentScanner {
         std::make_shared<ParquetFragmentScanner>(std::move(path),
                                                  inspection.file_metadata, scan_options,
                                                  format_reader_options, exec_context);
-    return parquet_fragment_scanner->Initialize(std::move(file))
+    return parquet_fragment_scanner->Initialize(std::move(file), request)
         .Then([fragment_scanner = std::static_pointer_cast<FragmentScanner>(
                    parquet_fragment_scanner)]() { return fragment_scanner; });
   }
@@ -529,6 +570,7 @@ class ParquetFragmentScanner : public FragmentScanner {
   compute::ExecContext* exec_context_;
 
   // These are set during Initialize
+  std::vector<int> desired_columns_;
   std::unique_ptr<parquet::arrow::FileReader> file_reader_;
   int32_t batch_size_;
 };

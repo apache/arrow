@@ -1053,6 +1053,28 @@ size_t FieldPath::hash() const {
   return internal::ComputeStringHash<0>(indices().data(), indices().size() * sizeof(int));
 }
 
+bool FieldPath::operator<(const FieldPath& other) const {
+  std::size_t idx;
+  for (idx = 0; idx < indices().size(); idx++) {
+    if (idx >= other.indices_.size()) {
+      // *this is something like [2, 5, 0] and other is something like [2, 5]
+      return false;
+    }
+    if (indices_[idx] < other.indices_[idx]) {
+      return true;
+    }
+    if (indices_[idx] > other.indices_[idx]) {
+      return false;
+    }
+  }
+  if (idx < other.indices_.size()) {
+    // *this is something like [2, 5] and other is something like [2, 5, 0]
+    return true;
+  }
+  // Equality
+  return false;
+}
+
 std::string FieldPath::ToString() const {
   if (this->indices().empty()) {
     return "FieldPath(empty)";

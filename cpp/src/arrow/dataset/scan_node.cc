@@ -17,7 +17,6 @@
 
 #include <functional>
 #include <future>
-#include <iostream>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -108,7 +107,6 @@ class ScanTaskStagingArea {
   void InsertInspectedFragment(std::shared_ptr<FragmentScanner> fragment_scanner,
                                int fragment_index,
                                std::unique_ptr<ScanTaskLauncher> task_launcher) {
-    std::cout << "  Inserting fragment into staging area" << std::endl;
     auto fragment_entry = std::make_unique<FragmentEntry>(
         std::move(fragment_scanner), fragment_index, std::move(task_launcher));
 
@@ -146,7 +144,6 @@ class ScanTaskStagingArea {
     std::lock_guard lg(mutex_);
     total_num_fragments_ = num_fragments;
     if (num_fragments_processed_ == total_num_fragments_) {
-      std::cout << "  Ending on finish" << std::endl;
       completion_cb_();
     }
   }
@@ -167,8 +164,6 @@ class ScanTaskStagingArea {
         ScanTaskEntry scan_task;
         scan_task.scan_task_index = i;
         scan_task.num_batches = this->fragment_scanner->NumBatchesInScanTask(i);
-        std::cout << "  Fragment " << fragment_index << " detected "
-                  << scan_task.num_batches << " batches in scan task " << i << std::endl;
         scan_task.launched = false;
         scan_tasks.push_back(scan_task);
       }
@@ -198,13 +193,7 @@ class ScanTaskStagingArea {
   }
 
   void TryAndLaunchTasksUnlocked() {
-    if (!root_) {
-      std::cout << "  Can't launch tasks because there are none" << std::endl;
-      return;
-    }
-    if (num_scan_tasks_running_ >= run_limit_) {
-      std::cout << "  Can't even start trying to run tasks because we hit the limit"
-                << std::endl;
+    if (!root_ || num_scan_tasks_running_ >= run_limit_) {
       return;
     }
     FragmentEntry* itr = root_.get();
@@ -212,13 +201,9 @@ class ScanTaskStagingArea {
     while (itr != nullptr) {
       for (auto& scan_task : itr->scan_tasks) {
         if (!scan_task.launched) {
-          std::cout << "  Launching a scan task frag=" << itr->fragment_index
-                    << std::endl;
           scan_task.launched = true;
           LaunchScanTaskUnlocked(itr, scan_task.scan_task_index, num_preceding_batches);
           if (num_scan_tasks_running_ >= run_limit_) {
-            std::cout << "  Can't launch more tasks because we hit the limit"
-                      << std::endl;
             // We've launched as many as we can
             return;
           }
@@ -226,8 +211,6 @@ class ScanTaskStagingArea {
         if (scan_task.num_batches >= 0) {
           num_preceding_batches += scan_task.num_batches;
         } else {
-          std::cout << "  Can't launch task because waiting for troublemaker"
-                    << std::endl;
           // A scan task is running that doesn't know how many batches it has.  We can't
           // proceed
           return;
@@ -242,19 +225,17 @@ class ScanTaskStagingArea {
     std::lock_guard lg(mutex_);
     batches_completed_ += num_batches;
     num_scan_tasks_running_--;
-    std::cout << "  MarkScanTaskFinished(batches_completed_=" << batches_completed_ << ")"
-              << std::endl;
-    const auto& itr = fragment_entry->scan_tasks.cbegin();
+    auto itr = fragment_entry->scan_tasks.cbegin();
     std::size_t old_size = fragment_entry->scan_tasks.size();
     while (itr != fragment_entry->scan_tasks.cend()) {
       if (itr->scan_task_index == scan_task_number) {
         fragment_entry->scan_tasks.erase(itr);
         break;
       }
+      itr++;
     }
     DCHECK_LT(fragment_entry->scan_tasks.size(), old_size);
     if (fragment_entry->scan_tasks.empty()) {
-      std::cout << "Fragment complete: " << fragment_entry->fragment_index << std::endl;
       FragmentEntry* prev = fragment_entry->prev;
       if (prev == nullptr) {
         // The current root has finished
@@ -279,7 +260,6 @@ class ScanTaskStagingArea {
       }
       num_fragments_processed_++;
       if (num_fragments_processed_ == total_num_fragments_) {
-        std::cout << "  Completion via fragment end" << std::endl;
         completion_cb_();
         return;
       }
@@ -476,20 +456,16 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
           ->async_scheduler()
           ->AddAsyncGenerator<std::shared_ptr<RecordBatch>>(
               std::move(batch_gen),
-              [this, scan_task_number, batch_counter = batch_count.get()](
-                  const std::shared_ptr<RecordBatch>& batch) {
-                std::cout << "  ScanTask(" << scan_task_number << "," << (*batch_counter)
-                          << ")" << std::endl;
+              [this, batch_counter =
+                         batch_count.get()](const std::shared_ptr<RecordBatch>& batch) {
                 (*batch_counter)++;
                 return HandleBatch(batch);
               },
               "ScanNode::ScanBatch::Next",
-              [this, scan_task_number, task_complete_cb = std::move(task_complete_cb),
+              [this, task_complete_cb = std::move(task_complete_cb),
                batch_count = std::move(batch_count)]() {
                 node_->plan_->query_context()->ScheduleTask(
-                    [scan_task_number, task_complete_cb, batch_count] {
-                      std::cout << "  Scan task complete(" << scan_task_number << ")"
-                                << std::endl;
+                    [task_complete_cb, batch_count] {
                       task_complete_cb(*batch_count);
                       return Status::OK();
                     },
@@ -553,7 +529,6 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
     }
 
     Result<Future<>> operator()() override {
-      std::cout << "START: Inspecting fragment: " << fragment_->ToString() << std::endl;
       return fragment_
           ->InspectFragment(node_->options_.format_options,
                             node_->plan_->query_context()->exec_context(),
@@ -629,7 +604,6 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
           CreateTaskLauncher(std::move(fragment_evolution), extracted.remaining_columns,
                              filter_minus_part, std::move(extracted.known_values)));
 
-      std::cout << "  BeginScan: " << fragment_->ToString() << std::endl;
       return fragment_
           ->BeginScan(task_launcher->scan_request(), *inspected_fragment,
                       node_->plan_->query_context()->exec_context())
@@ -674,7 +648,6 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
         ->AddAsyncGenerator<std::shared_ptr<Fragment>>(
             std::move(frag_gen),
             [this](const std::shared_ptr<Fragment>& fragment) {
-              std::cout << "  Listed fragment: " << fragment->ToString() << std::endl;
               inspection_throttle_->AddTask(std::make_unique<InspectFragmentTask>(
                   this, fragment, fragment_index_++));
               return Status::OK();
@@ -702,7 +675,6 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
         std::move(completion));
     plan_->query_context()->async_scheduler()->AddSimpleTask(
         [this] {
-          std::cout << "START: ListFragments::GetFragments" << std::endl;
           return GetFragments(options_.dataset.get(), options_.filter)
               .Then([this](const AsyncGenerator<std::shared_ptr<Fragment>>& frag_gen) {
                 InspectFragments(frag_gen);
