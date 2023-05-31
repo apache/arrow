@@ -1463,6 +1463,12 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
     std::vector<format::Encoding::type> thrift_encodings;
     std::vector<format::PageEncodingStats> thrift_encoding_stats;
+    auto add_encoding = [&thrift_encodings](format::Encoding::type value) {
+      auto it = std::find(thrift_encodings.begin(), thrift_encodings.end(), value);
+      if (it == thrift_encodings.end()) {
+        thrift_encodings.push_back(value);
+      }
+    };
     // Add dictionary page encoding stats
     if (has_dictionary) {
       for (const auto& entry : dict_encoding_stats) {
@@ -1474,11 +1480,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         dict_enc_stat.__set_encoding(dict_encoding);
         dict_enc_stat.__set_count(entry.second);
         thrift_encoding_stats.push_back(dict_enc_stat);
-        auto iter =
-            std::find(thrift_encodings.begin(), thrift_encodings.end(), dict_encoding);
-        if (iter == thrift_encodings.end()) {
-          thrift_encodings.push_back(dict_encoding);
-        }
+        add_encoding(dict_encoding);
       }
     }
     // Force add encoding for RL/DL.
@@ -1493,11 +1495,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
       data_enc_stat.__set_encoding(data_encoding);
       data_enc_stat.__set_count(entry.second);
       thrift_encoding_stats.push_back(data_enc_stat);
-      auto iter =
-          std::find(thrift_encodings.begin(), thrift_encodings.end(), data_encoding);
-      if (iter == thrift_encodings.end()) {
-        thrift_encodings.push_back(data_encoding);
-      }
+      add_encoding(data_encoding);
     }
     column_chunk_->meta_data.__set_encodings(thrift_encodings);
     column_chunk_->meta_data.__set_encoding_stats(thrift_encoding_stats);
