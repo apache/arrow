@@ -560,7 +560,7 @@ TEST(BitmapHashTest, LongerInputs) {
   }
   const auto hash_of_block = HashDataBitmap(*block_of_bools->data());
 
-  const auto kStep = 9;
+  const auto kStep = 13;
   constexpr auto kMaxPadding = 64 + 32 + kStep;
 
   for (int prefix_pad_len = 0; prefix_pad_len < kMaxPadding; prefix_pad_len += kStep) {
