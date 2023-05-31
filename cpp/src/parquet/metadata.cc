@@ -1483,7 +1483,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         add_encoding(dict_encoding);
       }
     }
-    // Force add encoding for RL/DL.
+    // Always add encoding for RL/DL.
     // BIT_PACKED is supported in `LevelEncoder`, but would only be used
     // in benchmark and testing.
     // And for now, we always add RLE even if there are no levels at all,
