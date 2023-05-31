@@ -5172,6 +5172,34 @@ def test_dataset_partition_with_slash(tmpdir):
     assert encoded_paths == file_paths
 
 
+def test_preserve_nullability_parquet(tempdir):
+    # GH-35730
+    schema_nullable = pa.schema([
+        pa.field("x", pa.int64(), nullable=False),
+        pa.field("y", pa.int64(), nullable=True)])
+
+    schema = pa.schema([
+        pa.field("x", pa.int64()),
+        pa.field("y", pa.int64())])
+
+    array = [[1, 2, 3], [None, 5, None]]
+
+    table = pa.Table.from_arrays(array,
+                                 schema=schema_nullable)
+
+    pq.write_to_dataset(table, tempdir/"nulltest1")
+    dataset = ds.dataset(tempdir/"nulltest1", format="parquet")
+    # nullability of field is preserved
+    assert dataset.to_table().schema.equals(schema_nullable)
+
+    table_no_null = pa.Table.from_arrays(array, schema=schema)
+
+    # we can specify the nullability of a field through the schema
+    pa.dataset.write_dataset(table_no_null, tempdir/"nulltest2", schema=schema_nullable)
+    dataset = ds.dataset(tempdir/"nulltest2", format="parquet")
+    assert dataset.to_table().schema.equals(schema_nullable)
+
+
 @pytest.mark.parametrize('dstype', [
     "fs", "mem"
 ])
