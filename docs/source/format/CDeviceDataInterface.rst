@@ -23,7 +23,7 @@
 The Arrow C Device data interface
 =================================
 
-.. note:: The Arrow C Device Data Interface should be considered experimental
+.. warning:: The Arrow C Device Data Interface should be considered experimental
 
 Rationale
 =========
