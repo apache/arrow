@@ -828,22 +828,24 @@ std::unique_ptr<Function> MakeTakeMetaFunction() {
 }
 
 void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
+  auto take_indices = match::Integer();
+
   *out = {
-      {InputType(match::Primitive()), PrimitiveTakeExec},
-      {InputType(match::BinaryLike()), VarBinaryTakeExec},
-      {InputType(match::LargeBinaryLike()), LargeVarBinaryTakeExec},
-      {InputType(Type::FIXED_SIZE_BINARY), FSBTakeExec},
-      {InputType(null()), NullTakeExec},
-      {InputType(Type::DECIMAL128), FSBTakeExec},
-      {InputType(Type::DECIMAL256), FSBTakeExec},
-      {InputType(Type::DICTIONARY), DictionaryTake},
-      {InputType(Type::EXTENSION), ExtensionTake},
-      {InputType(Type::LIST), ListTakeExec},
-      {InputType(Type::LARGE_LIST), LargeListTakeExec},
-      {InputType(Type::FIXED_SIZE_LIST), FSLTakeExec},
-      {InputType(Type::DENSE_UNION), DenseUnionTakeExec},
-      {InputType(Type::STRUCT), StructTakeExec},
-      {InputType(Type::MAP), MapTakeExec},
+      {InputType(match::Primitive()), take_indices, PrimitiveTakeExec},
+      {InputType(match::BinaryLike()), take_indices, VarBinaryTakeExec},
+      {InputType(match::LargeBinaryLike()), take_indices, LargeVarBinaryTakeExec},
+      {InputType(Type::FIXED_SIZE_BINARY), take_indices, FSBTakeExec},
+      {InputType(null()), take_indices, NullTakeExec},
+      {InputType(Type::DECIMAL128), take_indices, FSBTakeExec},
+      {InputType(Type::DECIMAL256), take_indices, FSBTakeExec},
+      {InputType(Type::DICTIONARY), take_indices, DictionaryTake},
+      {InputType(Type::EXTENSION), take_indices, ExtensionTake},
+      {InputType(Type::LIST), take_indices, ListTakeExec},
+      {InputType(Type::LARGE_LIST), take_indices, LargeListTakeExec},
+      {InputType(Type::FIXED_SIZE_LIST), take_indices, FSLTakeExec},
+      {InputType(Type::DENSE_UNION), take_indices, DenseUnionTakeExec},
+      {InputType(Type::STRUCT), take_indices, StructTakeExec},
+      {InputType(Type::MAP), take_indices, MapTakeExec},
   };
 }
 

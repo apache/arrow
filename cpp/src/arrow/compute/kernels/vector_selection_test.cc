@@ -50,6 +50,29 @@ Result<std::shared_ptr<Array>> REEncode(const T& array) {
   return datum.make_array();
 }
 
+Result<std::shared_ptr<Array>> REEFromJson(const std::shared_ptr<DataType>& ree_type,
+                                           const std::string& json) {
+  auto ree_type_ptr = checked_cast<const RunEndEncodedType*>(ree_type.get());
+  auto array = ArrayFromJSON(ree_type_ptr->value_type(), json);
+  ARROW_ASSIGN_OR_RAISE(
+      auto datum, RunEndEncode(array, RunEndEncodeOptions{ree_type_ptr->run_end_type()}));
+  return datum.make_array();
+}
+
+Result<std::shared_ptr<Array>> FilterFromJson(
+    const std::shared_ptr<DataType>& filter_type, const std::string& json) {
+  if (filter_type->id() == Type::RUN_END_ENCODED) {
+    return REEFromJson(filter_type, json);
+  } else {
+    return ArrayFromJSON(filter_type, json);
+  }
+}
+
+Result<std::shared_ptr<Array>> REEncode(const std::shared_ptr<Array>& array) {
+  ARROW_ASSIGN_OR_RAISE(auto datum, RunEndEncode(array));
+  return datum.make_array();
+}
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -219,15 +242,25 @@ TEST(GetTakeIndices, RandomlyGenerated) {
 // Filter tests
 
 std::shared_ptr<Array> CoalesceNullToFalse(std::shared_ptr<Array> filter) {
-  if (filter->null_count() == 0) {
+  const bool is_ree = filter->type_id() == Type::RUN_END_ENCODED;
+  // Work directly on run values array in case of REE
+  const ArrayData& data = is_ree ? *filter->data()->child_data[1] : *filter->data();
+  if (data.GetNullCount() == 0) {
     return filter;
   }
-  const auto& data = *filter->data();
   auto is_true = std::make_shared<BooleanArray>(data.length, data.buffers[1], nullptr, 0,
                                                 data.offset);
   auto is_valid = std::make_shared<BooleanArray>(data.length, data.buffers[0], nullptr, 0,
                                                  data.offset);
   EXPECT_OK_AND_ASSIGN(Datum out_datum, And(is_true, is_valid));
+  if (is_ree) {
+    const auto& ree_filter = checked_cast<const RunEndEncodedArray&>(*filter);
+    EXPECT_OK_AND_ASSIGN(
+        auto new_ree_filter,
+        RunEndEncodedArray::Make(ree_filter.length(), ree_filter.run_ends(),
+                                 /*values=*/out_datum.make_array(), ree_filter.offset()));
+    return new_ree_filter;
+  }
   return out_datum.make_array();
 }
 
@@ -274,23 +307,30 @@ class TestFilterKernel : public ::testing::Test {
     // add N(=2) dummy values at the start and end of `filter`.
     ARROW_SCOPED_TRACE("for sliced values and filter");
     ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(values->type(), 3));
-    auto filter_filler = ArrayFromJSON(boolean(), "[true, false]");
-    ASSERT_OK_AND_ASSIGN(auto values_sliced,
+    ASSERT_OK_AND_ASSIGN(auto filter_filler,
+                         FilterFromJson(filter->type(), "[true, false]"));
+    ASSERT_OK_AND_ASSIGN(auto values_with_filler,
                          Concatenate({values_filler, values, values_filler}));
-    ASSERT_OK_AND_ASSIGN(auto filter_sliced,
+    ASSERT_OK_AND_ASSIGN(auto filter_with_filler,
                          Concatenate({filter_filler, filter, filter_filler}));
-    values_sliced = values_sliced->Slice(3, values->length());
-    filter_sliced = filter_sliced->Slice(2, filter->length());
+    auto values_sliced = values_with_filler->Slice(3, values->length());
+    auto filter_sliced = filter_with_filler->Slice(2, filter->length());
     DoAssertFilter(values_sliced, filter_sliced, expected);
   }
 
   void AssertFilter(const std::shared_ptr<DataType>& type, const std::string& values,
                     const std::string& filter, const std::string& expected) {
-    AssertFilter(ArrayFromJSON(type, values), ArrayFromJSON(boolean(), filter),
-                 ArrayFromJSON(type, expected));
+    auto values_array = ArrayFromJSON(type, values);
+    auto filter_array = ArrayFromJSON(boolean(), filter);
+    auto expected_array = ArrayFromJSON(type, expected);
+    AssertFilter(values_array, filter_array, expected_array);
+
+    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter_array));
+    ARROW_SCOPED_TRACE("for plain values and REE filter");
+    AssertFilter(values_array, ree_filter, expected_array);
   }
 
-  FilterOptions emit_null_, drop_;
+  const FilterOptions emit_null_, drop_;
 };
 
 void ValidateFilter(const std::shared_ptr<Array>& values,
