@@ -1857,9 +1857,11 @@ def test_strftime():
     times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
     timezones = ["CET", "UTC", "Europe/Ljubljana"]
 
-    formats = ["%a", "%A", "%w", "%d", "%b", "%B", "%m", "%y", "%Y", "%H",
-               "%I", "%p", "%M", "%z", "%Z", "%j", "%U", "%W", "%c", "%x",
-               "%X", "%%", "%G", "%V", "%u"]
+    formats = ["%a", "%A", "%w", "%d", "%b", "%B", "%m", "%y", "%Y", "%H", "%I",
+               "%p", "%M", "%z", "%Z", "%j", "%U", "%W", "%%", "%G", "%V", "%u"]
+    if sys.platform != "win32":
+        # Locale-dependent formats don't match on Windows
+        formats.extend(["%c", "%x", "%X"])
 
     for timezone in timezones:
         ts = pd.to_datetime(times).tz_localize(timezone)
