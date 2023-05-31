@@ -1486,8 +1486,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     // Force add encoding for RL/DL.
     // BIT_PACKED is supported in `LevelEncoder`, but would only be used
     // in benchmark and testing.
-    // And even when RL/DL is empty(`column_->max_definition_level() == 0`),
-    // RLE would be added here.
+    // And for now, we always add RLE even if there are no levels at all,
+    // while parquet-mr is more fine-grained.
     add_encoding(format::Encoding::RLE);
     // Add data page encoding stats
     for (const auto& entry : data_encoding_stats) {
