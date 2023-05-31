@@ -48,6 +48,10 @@ the consumer library can take and construct an object of it's own.
     >>> table.__dataframe__()
     <pyarrow.interchange.dataframe._PyArrowDataFrame object at ...>
 
+This is meant to be used by the consumer library when calling
+``from_dataframe()`` method and is not meant to be used manually
+by the user.
+
 From other libraries to pyarrow: ``from_dataframe()``
 -----------------------------------------------------
 
@@ -82,7 +86,7 @@ pyarrow table with the use of the interchange protocol:
     n_atendees: [[100,10,1]]
     country: [["Italy","Spain","Slovenia"]]
 
-We can do the same with polars dataframe:
+We can do the same with a polars dataframe:
 
 .. code-block::
 
