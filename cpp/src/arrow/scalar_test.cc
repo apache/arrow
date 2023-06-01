@@ -1128,7 +1128,7 @@ class TestListScalar : public ::testing::Test {
     auto a =
         ArrayFromJSON(list_struct_type, R"([[{"a": 5}, {"a": 6}], [{"a": 7}, null]])");
     auto b = ArrayFromJSON(list_struct_type, R"([[{"a": 7}, null]])");
-    EXPECT_OK_AND_ASSIGN(auto a0, a->GetScalar(1));
+    EXPECT_OK_AND_ASSIGN(auto a0, a->GetScalar(0));
     EXPECT_OK_AND_ASSIGN(auto a1, a->GetScalar(1));
     EXPECT_OK_AND_ASSIGN(auto b0, b->GetScalar(0));
     ASSERT_EQ(a1->hash(), b0->hash());
