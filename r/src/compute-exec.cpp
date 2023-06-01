@@ -309,7 +309,8 @@ std::shared_ptr<acero::ExecNode> ExecNode_Scan(
 // [[dataset::export]]
 void ExecPlan_Write(
     const std::shared_ptr<acero::ExecPlan>& plan,
-    const std::shared_ptr<acero::ExecNode>& final_node, cpp11::strings metadata,
+    const std::shared_ptr<acero::ExecNode>& final_node,
+    const std::shared_ptr<arrow::Schema>& schema,
     const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
     const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
     const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
@@ -333,9 +334,8 @@ void ExecPlan_Write(
   opts.min_rows_per_group = min_rows_per_group;
   opts.max_rows_per_group = max_rows_per_group;
 
-  auto kv = strings_to_kvm(metadata);
   MakeExecNodeOrStop("write", final_node->plan(), {final_node.get()},
-                     ds::WriteNodeOptions{std::move(opts), std::move(kv)});
+                     ds::WriteNodeOptions{std::move(opts), std::move(schema)});
 
   StopIfNotOk(plan->Validate());
 
