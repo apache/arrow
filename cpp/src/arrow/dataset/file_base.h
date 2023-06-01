@@ -475,7 +475,7 @@ class ARROW_DS_EXPORT WriteNodeOptions : public acero::ExecNodeOptions {
   ///
   /// By default, we will use the output schema of the input.
   ///
-  /// This can be used to alter schema metadata, field nullability, or field metadata
+  /// This can be used to alter schema metadata, field nullability, or field metadata.
   /// However, this cannot be used to change the type of data.  If the custom schema does
   /// not have the same number of fields and the same data types as the input then the
   /// plan will fail.
