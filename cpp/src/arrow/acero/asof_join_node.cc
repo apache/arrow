@@ -668,7 +668,7 @@ class InputState {
 
   static Result<std::unique_ptr<InputState>> Make(
       size_t index, TolType tolerance, bool must_hash, bool may_rehash,
-      KeyHasher* key_hasher, AsofJoinNode* node, ExecNode* output,
+      KeyHasher* key_hasher, ExecNode* node, AsofJoinNode* output,
       std::atomic<int32_t>& backpressure_counter,
       const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
       const std::vector<col_index_t>& key_col_index) {
@@ -679,7 +679,7 @@ class InputState {
                           BackpressureHandler::Make(low_threshold, high_threshold,
                                                     std::move(backpressure_control)));
     return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
-                                        key_hasher, node, std::move(handler), schema,
+                                        key_hasher, output, std::move(handler), schema,
                                         time_col_index, key_col_index);
   }
 
@@ -1407,7 +1407,7 @@ class AsofJoinNode : public ExecNode {
       ARROW_ASSIGN_OR_RAISE(
           auto input_state,
           InputState::Make(i, tolerance_, must_hash_, may_rehash_, key_hashers_[i].get(),
-                           this, inputs[i], backpressure_counter_,
+                           inputs[i], this, backpressure_counter_,
                            inputs[i]->output_schema(), indices_of_on_key_[i],
                            indices_of_by_key_[i]));
       state_.push_back(std::move(input_state));
