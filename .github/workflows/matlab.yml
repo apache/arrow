@@ -96,7 +96,7 @@ jobs:
           select-by-folder: matlab/test 
   windows:
     name: AMD64 Windows 2022 MATLAB
-    runs-on: windows-latest
+    runs-on: windows-2022
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository        
