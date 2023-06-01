@@ -288,7 +288,12 @@ func (t *StructType) String() string {
 	return o.String()
 }
 
-func (t *StructType) Fields() []Field   { return t.fields }
+func (t *StructType) Fields() []Field {
+	fields := make([]Field, len(t.fields))
+	copy(fields, t.fields)
+	return fields
+}
+
 func (t *StructType) Field(i int) Field { return t.fields[i] }
 
 func (t *StructType) FieldByName(name string) (Field, bool) {
@@ -490,7 +495,12 @@ func (t *unionType) init(fields []Field, typeCodes []UnionTypeCode) {
 	}
 }
 
-func (t unionType) Fields() []Field            { return t.children }
+func (t unionType) Fields() []Field {
+	fields := make([]Field, len(t.children))
+	copy(fields, t.children)
+	return fields
+}
+
 func (t unionType) TypeCodes() []UnionTypeCode { return t.typeCodes }
 func (t unionType) ChildIDs() []int            { return t.childIDs[:] }
 
