@@ -113,7 +113,7 @@ To do so, post the comment ``@github-actions crossbow submit preview-docs``
 to the pull request. The rendered documentation will then be available within the
 GitHub Actions response, where you need to click on the Crossbow build badge:
 
-.. figure:: /developers/images/docs_preview_1.jpeg
+.. figure:: ./images/docs_preview_1.jpeg
    :scale: 70 %
    :alt: Github-actions response with the crossbow build status.
 
@@ -122,7 +122,7 @@ GitHub Actions response, where you need to click on the Crossbow build badge:
 and then in the summary of the workflow you can find the link to the Docs Preview
 summary at the bottom of the page:
 
-.. figure:: /developers/images/docs_preview_2.jpeg
+.. figure:: ./images/docs_preview_2.jpeg
    :scale: 70 %
    :alt: Crossbow workflow page with the Docs Preview summary section.
 
