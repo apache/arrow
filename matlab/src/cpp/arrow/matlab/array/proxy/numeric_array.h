@@ -26,10 +26,18 @@
 #include "arrow/type_traits.h"
 
 #include "arrow/matlab/array/proxy/array.h"
+#include "arrow/matlab/bit/bit_pack_matlab_logical_array.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
 namespace arrow::matlab::array::proxy {
+
+namespace {
+const uint8_t* getUnpackedValidityBitmap(const ::matlab::data::TypedArray<bool>& valid_elements) {
+    const auto valid_elements_iterator(valid_elements.cbegin());
+    return reinterpret_cast<const uint8_t*>(valid_elements_iterator.operator->());
+}
+} // anonymous namespace
 
 template<typename CType>
 class NumericArray : public arrow::matlab::array::proxy::Array {
@@ -43,6 +51,8 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             const ::matlab::data::TypedArray<CType> numeric_mda = constructor_arguments[0];
             const ::matlab::data::TypedArray<bool> make_copy = constructor_arguments[1];
 
+            const auto has_validity_bitmap = constructor_arguments.getNumberOfElements() > 2;
+
             // Get raw pointer of mxArray
             auto it(numeric_mda.cbegin());
             auto dt = it.operator->();
@@ -50,8 +60,11 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             const auto make_deep_copy = make_copy[0];
 
             if (make_deep_copy) {
+                // Get the unpacked validity bitmap (if it exists)
+                auto unpacked_validity_bitmap = has_validity_bitmap ? getUnpackedValidityBitmap(constructor_arguments[2]) : nullptr;
+
                 BuilderType builder;
-                auto st = builder.AppendValues(dt, numeric_mda.getNumberOfElements());
+                auto st = builder.AppendValues(dt, numeric_mda.getNumberOfElements(), unpacked_validity_bitmap);
 
                 // TODO: handle error case
                 if (st.ok()) {
@@ -68,12 +81,11 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                 auto data_buffer = std::make_shared<arrow::Buffer>(reinterpret_cast<const uint8_t*>(dt),
                                                               sizeof(CType) * numeric_mda.getNumberOfElements());
 
-                // TODO: Implement null support
-                std::shared_ptr<arrow::Buffer> null_buffer = nullptr;
+                // Pack the validity bitmap values.
+                auto packed_validity_bitmap = has_validity_bitmap ? arrow::matlab::bit::bitPackMatlabLogicalArray(constructor_arguments[2]).ValueOrDie() : nullptr;
 
-                auto array_data = arrow::ArrayData::Make(data_type, length, {null_buffer, data_buffer});
+                auto array_data = arrow::ArrayData::Make(data_type, length, {packed_validity_bitmap, data_buffer});
                 array = arrow::MakeArray(array_data);
-
             }
         }
 

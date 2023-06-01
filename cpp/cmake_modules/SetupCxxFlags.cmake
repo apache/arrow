@@ -642,8 +642,10 @@ if(NOT MSVC)
   string(APPEND CMAKE_CXX_FLAGS_RELEASE "${CXX_RELEASE_FLAGS}")
   string(APPEND CMAKE_C_FLAGS_DEBUG "${DEBUG_FLAGS}")
   string(APPEND CMAKE_CXX_FLAGS_DEBUG "${DEBUG_FLAGS}")
-  string(APPEND CMAKE_C_FLAGS_RELWITHDEBINFO "${C_RELEASE_FLAGS} ${DEBUG_FLAGS}")
-  string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CXX_RELEASE_FLAGS} ${DEBUG_FLAGS}")
+  # We must put release flags after debug flags to use optimization
+  # flags in release flags. RelWithDebInfo must enable optimization.
+  string(APPEND CMAKE_C_FLAGS_RELWITHDEBINFO "${DEBUG_FLAGS} ${C_RELEASE_FLAGS}")
+  string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO "${DEBUG_FLAGS} ${CXX_RELEASE_FLAGS}")
 endif()
 
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")

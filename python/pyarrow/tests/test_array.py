@@ -1414,16 +1414,19 @@ def test_chunked_array_data_warns():
 
 
 def test_cast_integers_unsafe():
-    # We let NumPy do the unsafe casting
+    # We let NumPy do the unsafe casting.
+    # Note that NEP50 in the NumPy spec no longer allows
+    # the np.array() constructor to pass the dtype directly
+    # if it results in an unsafe cast.
     unsafe_cases = [
         (np.array([50000], dtype='i4'), 'int32',
-         np.array([50000], dtype='i2'), pa.int16()),
+         np.array([50000]).astype(dtype='i2'), pa.int16()),
         (np.array([70000], dtype='i4'), 'int32',
-         np.array([70000], dtype='u2'), pa.uint16()),
+         np.array([70000]).astype(dtype='u2'), pa.uint16()),
         (np.array([-1], dtype='i4'), 'int32',
-         np.array([-1], dtype='u2'), pa.uint16()),
+         np.array([-1]).astype(dtype='u2'), pa.uint16()),
         (np.array([50000], dtype='u2'), pa.uint16(),
-         np.array([50000], dtype='i2'), pa.int16())
+         np.array([50000]).astype(dtype='i2'), pa.int16())
     ]
 
     for case in unsafe_cases:

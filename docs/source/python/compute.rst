@@ -496,7 +496,7 @@ the GCD of one column with the scalar value 30.  We will be re-using the
    value: [[90,630,1827,2709]]
    category: [["A","B","C","D"]]
 
-Note that ``ds.field('')_call(...)`` returns a :func:`pyarrow.compute.Expression`.
+Note that ``ds.field('')._call(...)`` returns a :func:`pyarrow.compute.Expression`.
 The arguments passed to this function call are expressions, not scalar values 
 (notice the difference between :func:`pyarrow.scalar` and :func:`pyarrow.compute.scalar`,
 the latter produces an expression). 
