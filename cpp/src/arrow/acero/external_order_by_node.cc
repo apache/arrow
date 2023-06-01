@@ -45,30 +45,35 @@ using parquet::WriterProperties;
 namespace acero {
 namespace {
 
-class OrderByNode : public ExecNode, public TracedNode {
+class ExternalOrderByNode : public ExecNode, public TracedNode {
  public:
   OrderByNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-              std::shared_ptr<Schema> output_schema, Ordering new_ordering)
+              std::shared_ptr<Schema> output_schema, Ordering new_ordering,
+              int64_t buffer_size, std::string path_to_folder)
       : ExecNode(plan, std::move(inputs), {"input"}, std::move(output_schema)),
         TracedNode(this),
-        ordering_(std::move(new_ordering)) {}
+        ordering_(std::move(new_ordering)),
+        buffer_size_(buffer_size),
+        path_to_folder_(path_to_folder) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "FetchNode"));
-
-    const auto& order_options = checked_cast<const OrderByNodeOptions&>(options);
+    const auto& order_options = checked_cast<const ExternalOrderByNode&>(options);
 
     if (order_options.ordering.is_implicit() || order_options.ordering.is_unordered()) {
       return Status::Invalid("`ordering` must be an explicit non-empty ordering");
     }
 
+    //todo check buffer_size && path_to_folder
+
     std::shared_ptr<Schema> output_schema = inputs[0]->output_schema();
-    return plan->EmplaceNode<OrderByNode>(
-        plan, std::move(inputs), std::move(output_schema), order_options.ordering);
+    return plan->EmplaceNode<ExternalOrderByNode>(
+        plan, std::move(inputs), std::move(output_schema), order_options.ordering,
+        order_options.buffer_size, order_options.path_to_folder);
   }
 
-  const char* kind_name() const override { return "OrderByNode"; }
+  const char* kind_name() const override { return "ExternalOrderByNode"; }
 
   const Ordering& ordering() const override { return ordering_; }
 
@@ -148,14 +153,15 @@ class OrderByNode : public ExecNode, public TracedNode {
  protected:
   std::string ToStringExtra(int indent = 0) const override {
     std::stringstream ss;
-    ss << "ordering=" << ordering_.ToString();
+    ss << "external ordering=" << ordering_.ToString();
     return ss.str();
   }
 
  private:
   AtomicCounter counter_;
+  int64_t buffer_size_;
+  std::string path_to_folder_;
   Ordering ordering_;
-  std::vector<std::shared_ptr<RecordBatch>> accumulation_queue_;
   std::mutex mutex_;
 };
 

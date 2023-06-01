@@ -542,6 +542,20 @@ class ARROW_ACERO_EXPORT OrderByNodeOptions : public ExecNodeOptions {
   Ordering ordering;
 };
 
+class ARROW_ACERO_EXPORT ExternalOrderByNodeOptions : public OrderByNodeOptions {
+ public:
+  static constexpr std::string_view kName = "external_order_by";
+  explicit OrderByNodeOptions(Ordering ordering, int64_t buffer_size,
+                              std::string path_to_folder)
+      : OrderByNodeOptions(ordering),
+        buffer_size(std::move(buffer_size)),
+        path_to_folder(std::move(path_to_folder)) {}
+
+  /// \brief buffer_size defines the number of row buffer can hold, path_to_folder defines temporal folder used for spillover.
+  int64_t buffer_size;
+  std::string path_to_folder;
+};
+
 enum class JoinType {
   LEFT_SEMI,
   RIGHT_SEMI,
