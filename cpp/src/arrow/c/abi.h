@@ -261,7 +261,7 @@ struct ArrowDeviceArrayStream {
   /// \brief Callback to get the stream schema
   /// (will be the same for all arrays in the stream).
   ///
-  /// If successful, the ArrowSchema must be released independantly from the stream.
+  /// If successful, the ArrowSchema must be released independently from the stream.
   /// The schema should be accessible via CPU memory.
   ///
   /// \param[in] self The ArrowDeviceArrayStream object itself
