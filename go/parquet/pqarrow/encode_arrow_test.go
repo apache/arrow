@@ -19,7 +19,6 @@ package pqarrow_test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -32,7 +31,6 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/decimal128"
 	"github.com/apache/arrow/go/v13/arrow/ipc"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/bitutils"
 	"github.com/apache/arrow/go/v13/internal/types"
 	"github.com/apache/arrow/go/v13/internal/utils"
 	"github.com/apache/arrow/go/v13/parquet"
@@ -931,6 +929,44 @@ func (ps *ParquetIOTestSuite) TestReadDecimals() {
 	ps.True(array.Equal(expected, chunked.Chunk(0)))
 }
 
+func (ps *ParquetIOTestSuite) TestReadNestedStruct() {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	dt := arrow.StructOf(arrow.Field{
+		Name: "nested",
+		Type: arrow.StructOf(
+			arrow.Field{Name: "bool", Type: arrow.FixedWidthTypes.Boolean},
+			arrow.Field{Name: "int32", Type: arrow.PrimitiveTypes.Int32},
+			arrow.Field{Name: "int64", Type: arrow.PrimitiveTypes.Int64},
+		),
+	})
+	field := arrow.Field{Name: "struct", Type: dt, Nullable: true}
+
+	builder := array.NewStructBuilder(mem, dt)
+	defer builder.Release()
+	nested := builder.FieldBuilder(0).(*array.StructBuilder)
+
+	builder.Append(true)
+	nested.Append(true)
+	nested.FieldBuilder(0).(*array.BooleanBuilder).Append(true)
+	nested.FieldBuilder(1).(*array.Int32Builder).Append(int32(-1))
+	nested.FieldBuilder(2).(*array.Int64Builder).Append(int64(-2))
+	builder.AppendNull()
+
+	arr := builder.NewStructArray()
+	defer arr.Release()
+
+	expected := array.NewTable(
+		arrow.NewSchema([]arrow.Field{field}, nil),
+		[]arrow.Column{*arrow.NewColumn(field, arrow.NewChunked(dt, []arrow.Array{arr}))},
+		-1,
+	)
+	defer arr.Release() // NewChunked
+	defer expected.Release()
+	ps.roundTripTable(mem, expected, true)
+}
+
 func (ps *ParquetIOTestSuite) writeColumn(mem memory.Allocator, sc *schema.GroupNode, values arrow.Array) []byte {
 	var buf bytes.Buffer
 	arrsc, err := pqarrow.FromParquet(schema.NewSchema(sc), nil, nil)
@@ -1032,29 +1068,9 @@ func (ps *ParquetIOTestSuite) roundTripTable(_ memory.Allocator, expected arrow.
 	tblChunk := tbl.Column(0).Data()
 
 	ps.Equal(len(exChunk.Chunks()), len(tblChunk.Chunks()))
-	if exChunk.DataType().ID() != arrow.STRUCT {
-		exc := exChunk.Chunk(0)
-		tbc := tblChunk.Chunk(0)
-		ps.Truef(array.Equal(exc, tbc), "expected: %T %s\ngot: %T %s", exc, exc, tbc, tbc)
-	} else {
-		// current impl of ArrayEquals for structs doesn't correctly handle nulls in the parent
-		// with a non-nullable child when comparing. Since after the round trip, the data in the
-		// child will have the nulls, not the original data.
-		ex := exChunk.Chunk(0)
-		tb := tblChunk.Chunk(0)
-		ps.Equal(ex.NullN(), tb.NullN())
-		if ex.NullN() > 0 {
-			ps.Equal(ex.NullBitmapBytes()[:int(bitutil.BytesForBits(int64(ex.Len())))], tb.NullBitmapBytes()[:int(bitutil.BytesForBits(int64(tb.Len())))])
-		}
-		ps.Equal(ex.Len(), tb.Len())
-		// only compare the non-null values
-		ps.NoErrorf(bitutils.VisitSetBitRuns(ex.NullBitmapBytes(), int64(ex.Data().Offset()), int64(ex.Len()), func(pos, length int64) error {
-			if !ps.True(array.SliceEqual(ex, pos, pos+length, tb, pos, pos+length)) {
-				return errors.New("failed")
-			}
-			return nil
-		}), "expected: %s\ngot: %s", ex, tb)
-	}
+	exc := exChunk.Chunk(0)
+	tbc := tblChunk.Chunk(0)
+	ps.Truef(array.ApproxEqual(exc, tbc), "expected: %T %s\ngot: %T %s", exc, exc, tbc, tbc)
 }
 
 func makeEmptyListsArray(size int) arrow.Array {
