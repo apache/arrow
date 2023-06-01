@@ -336,8 +336,10 @@ void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan,
   opts.min_rows_per_group = min_rows_per_group;
   opts.max_rows_per_group = max_rows_per_group;
 
-  MakeExecNodeOrStop("write", final_node->plan(), {final_node.get()},
-                     ds::WriteNodeOptions{std::move(opts), std::move(schema)});
+  ds::WriteNodeOptions options(std::move(opts));
+  options.custom_schema = std::move(schema);
+
+  MakeExecNodeOrStop("write", final_node->plan(), {final_node.get()}, std::move(options));
 
   StopIfNotOk(plan->Validate());
 
