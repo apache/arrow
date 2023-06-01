@@ -478,6 +478,8 @@ class ARROW_DS_EXPORT WriteNodeOptions : public acero::ExecNodeOptions {
   /// not have the same number of fields and the same data types as the input then the
   /// plan will fail.
   std::shared_ptr<Schema> custom_schema;
+  /// \brief Optional metadata to attach to written batches
+  std::shared_ptr<const KeyValueMetadata> custom_metadata;
 };
 
 /// @}

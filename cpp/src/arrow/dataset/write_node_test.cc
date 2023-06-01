@@ -35,13 +35,31 @@
 #include "arrow/testing/matchers.h"
 
 #include "arrow/table.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 
 namespace dataset {
 
-TEST(WriteNode, CustomNullability) {
-  internal::Initialize();
+class SimpleWriteNodeTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    internal::Initialize();
+    mock_fs_ = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+    auto ipc_format = std::make_shared<dataset::IpcFileFormat>();
+
+    fs_write_options_.filesystem = mock_fs_;
+    fs_write_options_.base_dir = "/my_dataset";
+    fs_write_options_.basename_template = "{i}.arrow";
+    fs_write_options_.file_write_options = ipc_format->DefaultWriteOptions();
+    fs_write_options_.partitioning = dataset::Partitioning::Default();
+  }
+
+  std::shared_ptr<fs::internal::MockFileSystem> mock_fs_;
+  dataset::FileSystemDatasetWriteOptions fs_write_options_;
+};
+
+TEST_F(SimpleWriteNodeTest, CustomNullability) {
   // Create an input table with a nullable and a non-nullable type
   ExecBatch batch = gen::Gen({gen::Step()})->FailOnError()->ExecBatch(/*num_rows=*/1);
   std::shared_ptr<Schema> test_schema =
@@ -56,20 +74,12 @@ TEST(WriteNode, CustomNullability) {
   ASSERT_TRUE(table->field(0)->nullable());
   ASSERT_FALSE(table->field(1)->nullable());
 
-  auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
-
-  auto ipc_format = std::make_shared<dataset::IpcFileFormat>();
-
-  dataset::FileSystemDatasetWriteOptions fs_write_options;
-  fs_write_options.filesystem = fs;
-  fs_write_options.base_dir = "/my_dataset";
-  fs_write_options.basename_template = "{i}.arrow";
-  fs_write_options.file_write_options = ipc_format->DefaultWriteOptions();
-  fs_write_options.partitioning = dataset::Partitioning::Default();
-  dataset::WriteNodeOptions write_options(fs_write_options);
+  dataset::WriteNodeOptions write_options(fs_write_options_);
   write_options.custom_schema = test_schema;
 
-  // Write the data to disk
+  // Write the data to disk (these plans use a project because it destroys whatever
+  // metadata happened to be in the table source node's output schema).  This more
+  // accurately simulates reading from a dataset.
   acero::Declaration plan = acero::Declaration::Sequence(
       {{"table_source", acero::TableSourceNodeOptions(table)},
        {"project",
@@ -80,7 +90,7 @@ TEST(WriteNode, CustomNullability) {
 
   // Read the file back out and verify the nullability
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::RandomAccessFile> file,
-                       fs->OpenInputFile("/my_dataset/0.arrow"));
+                       mock_fs_->OpenInputFile("/my_dataset/0.arrow"));
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ipc::RecordBatchFileReader> file_reader,
                        ipc::RecordBatchFileReader::Open(file));
   std::shared_ptr<Schema> file_schema = file_reader->schema();
@@ -100,20 +110,64 @@ TEST(WriteNode, CustomNullability) {
 
   ASSERT_THAT(
       DeclarationToStatus(plan),
-      Raises(StatusCode::Invalid,
+      Raises(StatusCode::TypeError,
              ::testing::HasSubstr("did not have the same number of fields as the data")));
 
   // Incorrect types
   write_options.custom_schema =
       schema({field("nullable_i32", int32()), field("non_nullable_i32", int32())});
   plan = acero::Declaration::Sequence(
-      {{"table_source", acero::TableSourceNodeOptions(std::move(table))},
+      {{"table_source", acero::TableSourceNodeOptions(table)},
        {"project",
         acero::ProjectNodeOptions({compute::field_ref(0), compute::field_ref(1)})},
        {"write", write_options}});
   ASSERT_THAT(
       DeclarationToStatus(plan),
-      Raises(StatusCode::Invalid, ::testing::HasSubstr("and the input data has type")));
+      Raises(StatusCode::TypeError, ::testing::HasSubstr("and the input data has type")));
+
+  // Cannot have both custom_schema and custom_metadata
+  write_options.custom_schema = test_schema;
+  write_options.custom_metadata = key_value_metadata({{"foo", "bar"}});
+  plan = acero::Declaration::Sequence(
+      {{"table_source", acero::TableSourceNodeOptions(std::move(table))},
+       {"project",
+        acero::ProjectNodeOptions({compute::field_ref(0), compute::field_ref(1)})},
+       {"write", write_options}});
+  ASSERT_THAT(DeclarationToStatus(plan),
+              Raises(StatusCode::TypeError,
+                     ::testing::HasSubstr(
+                         "Do not provide both custom_metadata and custom_schema")));
+}
+
+TEST_F(SimpleWriteNodeTest, CustomMetadata) {
+  constexpr int64_t kRowsPerChunk = 1;
+  constexpr int64_t kNumChunks = 1;
+  // Create an input table with no schema metadata
+  std::shared_ptr<Table> table =
+      gen::Gen({gen::Step()})->FailOnError()->Table(kRowsPerChunk, kNumChunks);
+
+  std::shared_ptr<KeyValueMetadata> custom_metadata =
+      key_value_metadata({{"foo", "bar"}});
+
+  dataset::WriteNodeOptions write_options(fs_write_options_);
+  write_options.custom_metadata = custom_metadata;
+
+  // Write the data to disk
+  acero::Declaration plan = acero::Declaration::Sequence(
+      {{"table_source", acero::TableSourceNodeOptions(table)},
+       {"project", acero::ProjectNodeOptions({compute::field_ref(0)})},
+       {"write", write_options}});
+
+  ASSERT_OK(DeclarationToStatus(plan));
+
+  // Read the file back out and verify the schema metadata
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::RandomAccessFile> file,
+                       mock_fs_->OpenInputFile("/my_dataset/0.arrow"));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ipc::RecordBatchFileReader> file_reader,
+                       ipc::RecordBatchFileReader::Open(file));
+  std::shared_ptr<Schema> file_schema = file_reader->schema();
+
+  ASSERT_TRUE(custom_metadata->Equals(*file_schema->metadata()));
 }
 
 }  // namespace dataset

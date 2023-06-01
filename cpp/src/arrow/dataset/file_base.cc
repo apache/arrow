@@ -475,14 +475,22 @@ Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
 
   const WriteNodeOptions write_node_options =
       checked_cast<const WriteNodeOptions&>(options);
-  const std::shared_ptr<Schema>& custom_schema = write_node_options.custom_schema;
+  std::shared_ptr<Schema> custom_schema = write_node_options.custom_schema;
+  const std::shared_ptr<const KeyValueMetadata>& custom_metadata =
+      write_node_options.custom_metadata;
   const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
 
   const std::shared_ptr<Schema>& input_schema = inputs[0]->output_schema();
 
   if (custom_schema != nullptr) {
+    if (custom_metadata) {
+      return Status::TypeError(
+          "Do not provide both custom_metadata and custom_schema.  If custom_schema is "
+          "used then custom_schema->metadata should be used instead of custom_metadata");
+    }
+
     if (custom_schema->num_fields() != input_schema->num_fields()) {
-      return Status::Invalid(
+      return Status::TypeError(
           "The provided custom_schema did not have the same number of fields as the "
           "data.  The custom schema can only be used to add metadata / nullability to "
           "fields and cannot change the type or number of fields.");
@@ -490,15 +498,19 @@ Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
     for (int field_idx = 0; field_idx < input_schema->num_fields(); field_idx++) {
       if (!input_schema->field(field_idx)->type()->Equals(
               custom_schema->field(field_idx)->type())) {
-        return Status::Invalid("The provided custom_schema specified type ",
-                               custom_schema->field(field_idx)->type()->ToString(),
-                               " for field ", field_idx, "and the input data has type ",
-                               input_schema->field(field_idx),
-                               "The custom schema can only be used to add metadata / "
-                               "nullability to fields and "
-                               "cannot change the type or number of fields.");
+        return Status::TypeError("The provided custom_schema specified type ",
+                                 custom_schema->field(field_idx)->type()->ToString(),
+                                 " for field ", field_idx, "and the input data has type ",
+                                 input_schema->field(field_idx),
+                                 "The custom schema can only be used to add metadata / "
+                                 "nullability to fields and "
+                                 "cannot change the type or number of fields.");
       }
     }
+  }
+
+  if (custom_metadata) {
+    custom_schema = input_schema->WithMetadata(custom_metadata);
   }
 
   if (!write_options.partitioning) {
