@@ -25,13 +25,6 @@ namespace internal {
 
 namespace {
 
-/// \brief Rotate-right, 64-bit.
-///
-/// This compiles to a single instruction on CPUs that have rotation instructions.
-///
-/// \pre n must be in the range [1, 64].
-#define ROTR64(v, n) (((v) >> (n)) | ((v) << (64 - (n))))
-
 /// \brief A hash function for bitmaps that can handle offsets and lengths in
 /// terms of number of bits. The hash only depends on the bits actually hashed.
 ///
