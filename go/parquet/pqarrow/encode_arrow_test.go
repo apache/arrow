@@ -19,7 +19,6 @@ package pqarrow_test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -32,7 +31,6 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/decimal128"
 	"github.com/apache/arrow/go/v13/arrow/ipc"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/bitutils"
 	"github.com/apache/arrow/go/v13/internal/types"
 	"github.com/apache/arrow/go/v13/internal/utils"
 	"github.com/apache/arrow/go/v13/parquet"
@@ -1070,29 +1068,9 @@ func (ps *ParquetIOTestSuite) roundTripTable(_ memory.Allocator, expected arrow.
 	tblChunk := tbl.Column(0).Data()
 
 	ps.Equal(len(exChunk.Chunks()), len(tblChunk.Chunks()))
-	if exChunk.DataType().ID() != arrow.STRUCT {
-		exc := exChunk.Chunk(0)
-		tbc := tblChunk.Chunk(0)
-		ps.Truef(array.Equal(exc, tbc), "expected: %T %s\ngot: %T %s", exc, exc, tbc, tbc)
-	} else {
-		// current impl of ArrayEquals for structs doesn't correctly handle nulls in the parent
-		// with a non-nullable child when comparing. Since after the round trip, the data in the
-		// child will have the nulls, not the original data.
-		ex := exChunk.Chunk(0)
-		tb := tblChunk.Chunk(0)
-		ps.Equal(ex.NullN(), tb.NullN())
-		if ex.NullN() > 0 {
-			ps.Equal(ex.NullBitmapBytes()[:int(bitutil.BytesForBits(int64(ex.Len())))], tb.NullBitmapBytes()[:int(bitutil.BytesForBits(int64(tb.Len())))])
-		}
-		ps.Equal(ex.Len(), tb.Len())
-		// only compare the non-null values
-		ps.NoErrorf(bitutils.VisitSetBitRuns(ex.NullBitmapBytes(), int64(ex.Data().Offset()), int64(ex.Len()), func(pos, length int64) error {
-			if !ps.True(array.SliceEqual(ex, pos, pos+length, tb, pos, pos+length)) {
-				return errors.New("failed")
-			}
-			return nil
-		}), "expected: %s\ngot: %s", ex, tb)
-	}
+	exc := exChunk.Chunk(0)
+	tbc := tblChunk.Chunk(0)
+	ps.Truef(array.ApproxEqual(exc, tbc), "expected: %T %s\ngot: %T %s", exc, exc, tbc, tbc)
 }
 
 func makeEmptyListsArray(size int) arrow.Array {

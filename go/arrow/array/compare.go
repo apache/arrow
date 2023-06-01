@@ -735,10 +735,14 @@ func arrayApproxEqualFixedSizeList(left, right *FixedSizeList, opt equalOption) 
 }
 
 func arrayApproxEqualStruct(left, right *Struct, opt equalOption) bool {
-	for i, lf := range left.fields {
-		rf := right.fields[i]
-		if !arrayApproxEqual(lf, rf, opt) {
-			return false
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		for j := range left.fields {
+			if !sliceApproxEqual(left.fields[j], int64(i), int64(i+1), right.fields[j], int64(i), int64(i+1), opt) {
+				return false
+			}
 		}
 	}
 	return true
