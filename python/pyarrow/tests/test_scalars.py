@@ -143,6 +143,15 @@ def test_hashing():
     assert len(set_from_array) == 500
 
 
+def test_hashing_struct_scalar():
+    # GH-35360
+    a = pa.array([[{'a': 5}, {'a': 6}], [{'a': 7}, None]])
+    b = pa.array([[{'a': 7}, None]])
+    hash1 = hash(a[1])
+    hash2 = hash(b[0])
+    assert hash1 == hash2
+
+
 def test_bool():
     false = pa.scalar(False)
     true = pa.scalar(True)
