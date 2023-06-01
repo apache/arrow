@@ -227,7 +227,6 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     // deserialize extended expression
     List<String> extededExpressionList =
         new AceroSubstraitConsumer(rootAllocator()).runDeserializeExpressions(substraitExpression);
-    System.out.println(extededExpressionList);
     assertEquals(3, extededExpressionList.size() / 2);
     assertEquals("add_two_to_column_a", extededExpressionList.get(0));
     assertEquals("add(FieldPath(0), 2)", extededExpressionList.get(1));
@@ -251,16 +250,21 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         "iCBoGEgQKAhIAIgYaBAoCKAIaE2FkZF90d29fdG9fY29sdW1uX2EaOwoiGiAIARoEYgIQASIKGggSBgoEEgIIASIKGggSBgoEEgIIARoVY2" +
         "9uY2F0X2NvbHVtbl9hX2FuZF9iGjcKHBoaCAIaBAoCEAEiCBoGEgQKAhIAIgYaBAoCKBQaF2ZpbHRlcl9pZF9sb3dlcl90aGFuXzIwIhoKA" +
         "klECgROQU1FEg4KBCoCEAEKBGICEAEYAg==";
+    Map<String, String> metadataSchema = new HashMap<>();
+    metadataSchema.put("parquet.avro.schema", "{\"type\":\"record\",\"name\":\"Users\"," +
+        "\"namespace\":\"org.apache.arrow.dataset\",\"fields\":[{\"name\":\"id\"," +
+        "\"type\":[\"int\",\"null\"]},{\"name\":\"name\",\"type\":[\"string\",\"null\"]}]}");
+    metadataSchema.put("writer.model.name", "avro");
     final Schema schema = new Schema(Arrays.asList(
-        Field.nullable("ID", new ArrowType.Int(32, true)),
-        Field.nullable("NAME", new ArrowType.Utf8())
-    ), Collections.emptyMap());
-    // get binary plan
+        Field.nullable("add_two_to_column_a", new ArrowType.Int(32, true)),
+        Field.nullable("concat_column_a_and_b", new ArrowType.Utf8())
+    ), metadataSchema);
     byte[] extendedExpressions = Base64.getDecoder().decode(binaryExtendedExpressions);
     ByteBuffer substraitExtendedExpressions = ByteBuffer.allocateDirect(extendedExpressions.length);
     substraitExtendedExpressions.put(extendedExpressions);
     ParquetWriteSupport writeSupport = ParquetWriteSupport
-        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "value_a", 11, "value_b", 21, "value_c", 45, "value_d");
+        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 19, "value_19", 1, "value_1",
+            11, "value_11", 21, "value_21", 45, "value_45");
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768, Optional.empty(),
         Optional.of(substraitExtendedExpressions));
     try (
@@ -270,16 +274,64 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         Scanner scanner = dataset.newScan(options);
         ArrowReader reader = scanner.scanBatches()
     ) {
-      // schema is adding: (metadata: {parquet.avro.schema={"type":"record","name":"Users",
-      // "namespace":"org.apache.arrow.dataset","fields":[{"name":"id","type":["int","null"]},
-      // {"name":"name","type":["string","null"]}]}, writer.model.name=avro})
-      // assertEquals(schema, reader.getVectorSchemaRoot().getSchema());
+      assertEquals(schema, reader.getVectorSchemaRoot().getSchema());
       int rowcount = 0;
       while (reader.loadNextBatch()) {
-        System.out.println(reader.getVectorSchemaRoot().contentToTSVString());
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
-      assertEquals(2, rowcount);
+      assertEquals(3, rowcount);
+    }
+  }
+
+  @Test(expected = RuntimeException.class)
+  public void testBaseParquetReadWithExtendedExpressionsProjectAndFilterException() throws Exception {
+    // Extended Expression 01 (`add` `2` to column `id`): id + 2
+    // Extended Expression 02 (`concatenate` column `name` || column `name`): name || name
+    // Extended Expression 03 (`filter` 'id' < 20): id < 20
+    // Extended Expression 04 (`filter` 'id' < 20): id < 20
+    // Extended expression result: [add_two_to_column_a, add(FieldPath(0), 2), concat_column_a_and_b,
+    // binary_join_element_wise(FieldPath(1), FieldPath(1), ""), filter_id_lower_than_20, (FieldPath(0) < 20),
+    // filter_id_lower_than_10, (FieldPath(0) < 10)]
+    // Base64.getEncoder().encodeToString(plan.toByteArray()): Generated throughout Substrait POJO Extended Expressions
+    String binaryExtendedExpressions = "Ch4IARIaL2Z1bmN0aW9uc19hcml0aG1ldGljLnlhbWwKHggCEhovZnVuY3Rpb25zX2NvbXBhcmlz" +
+        "b24ueWFtbBIRGg8IARoLYWRkOmkzMl9pMzISFBoSCAIQARoMY29uY2F0OnZjaGFyEhIaEAgCEAIaCmx0OmFueV9hbnkSEhoQCAIQAhoKbHQ" +
+        "6YW55X2FueRoxChoaGBoEKgIQASIIGgYSBAoCEgAiBhoECgIoAhoTYWRkX3R3b190b19jb2x1bW5fYRo7CiIaIAgBGgRiAhABIgoaCBIGCg" +
+        "QSAggBIgoaCBIGCgQSAggBGhVjb25jYXRfY29sdW1uX2FfYW5kX2IaNwocGhoIAhoECgIQASIIGgYSBAoCEgAiBhoECgIoFBoXZmlsdGVyX" +
+        "2lkX2xvd2VyX3RoYW5fMjAaNwocGhoIAhoECgIQASIIGgYSBAoCEgAiBhoECgIoChoXZmlsdGVyX2lkX2xvd2VyX3RoYW5fMTAiGgoCSUQK" +
+        "BE5BTUUSDgoEKgIQAQoEYgIQARgC";
+    Map<String, String> metadataSchema = new HashMap<>();
+    metadataSchema.put("parquet.avro.schema", "{\"type\":\"record\",\"name\":\"Users\"," +
+        "\"namespace\":\"org.apache.arrow.dataset\",\"fields\":[{\"name\":\"id\"," +
+        "\"type\":[\"int\",\"null\"]},{\"name\":\"name\",\"type\":[\"string\",\"null\"]}]}");
+    metadataSchema.put("writer.model.name", "avro");
+    final Schema schema = new Schema(Arrays.asList(
+        Field.nullable("add_two_to_column_a", new ArrowType.Int(32, true)),
+        Field.nullable("concat_column_a_and_b", new ArrowType.Utf8())
+    ), metadataSchema);
+    byte[] extendedExpressions = Base64.getDecoder().decode(binaryExtendedExpressions);
+    ByteBuffer substraitExtendedExpressions = ByteBuffer.allocateDirect(extendedExpressions.length);
+    substraitExtendedExpressions.put(extendedExpressions);
+    ParquetWriteSupport writeSupport = ParquetWriteSupport
+        .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 19, "value_19", 1, "value_1", 11,
+            "value_11", 21, "value_21", 45, "value_45");
+    ScanOptions options = new ScanOptions(/*batchSize*/ 32768, Optional.empty(),
+        Optional.of(substraitExtendedExpressions));
+    try (
+        DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.PARQUET, writeSupport.getOutputURI());
+        Dataset dataset = datasetFactory.finish();
+        Scanner scanner = dataset.newScan(options);
+        ArrowReader reader = scanner.scanBatches()
+    ) {
+      assertEquals(schema, reader.getVectorSchemaRoot().getSchema());
+      int rowcount = 0;
+      while (reader.loadNextBatch()) {
+        rowcount += reader.getVectorSchemaRoot().getRowCount();
+      }
+      assertEquals(3, rowcount);
+    } catch (Exception e) {
+      assertEquals("The process only support one filter expression declared", e.getMessage());
+      throw e;
     }
   }
 }

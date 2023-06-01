@@ -473,19 +473,16 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
     int length = env->GetDirectBufferCapacity(columns_to_produce_or_filter);
     std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
     std::memcpy(buffer->mutable_data(), buff, length);
-    // execute expression
     arrow::engine::BoundExpressions bounded_expression =
       JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
-    // validate result
-    // create exprs / names
     std::vector<arrow::compute::Expression> project_exprs;
     std::vector<std::string> project_names;
     arrow::compute::Expression filter_expr;
     int filter_count = 0;
     for(arrow::engine::NamedExpression named_expression : bounded_expression.named_expressions) {
       if (named_expression.expression.type()->id() == arrow::Type::BOOL) {
-        if (filter_count > 1) {
-          JniThrow("Only one filter expression is able to process");
+        if (filter_count > 0) {
+          JniThrow("The process only support one filter expression declared");
         }
         filter_expr = named_expression.expression;
         filter_count++;
@@ -498,7 +495,6 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
     JniAssertOkOrThrow(scanner_builder->Filter(filter_expr));
   }
   JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
-
   auto scanner = JniGetOrThrow(scanner_builder->Finish());
   std::shared_ptr<DisposableScannerAdaptor> scanner_adaptor =
       JniGetOrThrow(DisposableScannerAdaptor::Create(scanner));
