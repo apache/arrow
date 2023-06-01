@@ -241,7 +241,7 @@ ExecPlan <- R6Class("ExecPlan",
       ExecPlan_Write(
         self,
         node,
-        node$schema()$WithMetadata(final_metadata),
+        node$schema$WithMetadata(final_metadata),
         ...
       )
     },
