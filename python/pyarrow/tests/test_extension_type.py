@@ -1299,9 +1299,9 @@ def test_extension_to_pandas_storage_type(registered_period_type):
     assert result["ext"].dtype == pandas_dtype
 
     import pandas as pd
+    # Skip tests for 2.0.x, See: GH-35821
     if (
-        Version(pd.__version__) > Version("2.0.0") and
-        Version(pd.__version__) != Version("2.0.1")
+        Version(pd.__version__) >= Version("2.1.0")
     ):
         # Check the usage of types_mapper
         result = table.to_pandas(types_mapper=pd.ArrowDtype)

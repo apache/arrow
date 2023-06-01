@@ -66,6 +66,7 @@ x-sccache: &sccache
   AWS_ACCESS_KEY_ID:
   AWS_SECRET_ACCESS_KEY:
   SCCACHE_BUCKET:
+  SCCACHE_REGION:
   SCCACHE_S3_KEY_PREFIX: ${SCCACHE_S3_KEY_PREFIX:-sccache}
 
 # CPU/memory limit presets to pass to Docker.
@@ -586,6 +587,8 @@ services:
       <<: *ccache
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
+      # Avoid creating huge static libraries
+      ARROW_BUILD_STATIC: "OFF"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       # GH-33920: Disable Flight SQL to reduce build time.
       # We'll be able to re-enable this with Ubuntu 24.04 because
@@ -598,6 +601,8 @@ services:
       ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
+      # 1 GB isn't enough for a single sanitizer build
+      CCACHE_MAXSIZE: 2G
       Protobuf_SOURCE: "AUTO"
     command: *cpp-command
 
@@ -708,6 +713,7 @@ services:
     environment:
       <<: *ccache
       BUILD_DOCS_C_GLIB: "ON"
+      GITHUB_ACTIONS:
     volumes: *debian-volumes
     command: &c-glib-command >
       /bin/bash -c "
@@ -735,6 +741,7 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
+      GITHUB_ACTIONS:
     volumes: *ubuntu-volumes
     command: *c-glib-command
 
@@ -766,6 +773,7 @@ services:
     environment:
       <<: *ccache
       BUILD_DOCS_C_GLIB: "ON"
+      GITHUB_ACTIONS:
     volumes: *debian-volumes
     command: &ruby-command >
       /bin/bash -c "
@@ -795,6 +803,7 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
+      GITHUB_ACTIONS:
     volumes: *ubuntu-volumes
     command: *ruby-command
 

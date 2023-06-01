@@ -18,15 +18,72 @@
 import FlatBuffers
 import Foundation
 
-fileprivate func makeFixedHolder<T>(_: T.Type, buffers: [ArrowBuffer]) throws -> ChunkedArrayHolder {
-    let nullCount = buffers[0].length
-    let arrowData = try ArrowData(ArrowType.ArrowInt32, buffers: buffers,
-                                  nullCount: nullCount, stride: MemoryLayout<T>.stride)
-    let chuckedArray = try ChunkedArray<T>([FixedArray<T>(arrowData)])
-    return ChunkedArrayHolder(chuckedArray)
+fileprivate func makeStringHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+    do {
+        let arrowData = try ArrowData(ArrowType.ArrowString, buffers: buffers,
+                                      nullCount: buffers[0].length, stride: MemoryLayout<Int8>.stride)
+        return .success(ArrowArrayHolder(StringArray(arrowData)))
+    } catch let error as ArrowError {
+        return .failure(error)
+    } catch {
+        return .failure(.unknownError("\(error)"))
+    }
 }
 
-func makeArrayHolder(_ field: org_apache_arrow_flatbuf_Field, buffers: [ArrowBuffer]) throws -> ChunkedArrayHolder {
+fileprivate func makeFloatHolder(_ floatType: org_apache_arrow_flatbuf_FloatingPoint, buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+    switch floatType.precision {
+    case .single:
+        return makeFixedHolder(Float.self, buffers: buffers)
+    case .double:
+        return makeFixedHolder(Double.self, buffers: buffers)
+    default:
+        return .failure(.unknownType)
+    }
+}
+
+fileprivate func makeDateHolder(_ dateType: org_apache_arrow_flatbuf_Date, buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+    do  {
+        if dateType.unit == .day {
+            let arrowData = try ArrowData(ArrowType.ArrowString, buffers: buffers,
+                                          nullCount: buffers[0].length, stride: MemoryLayout<Date>.stride)
+            return .success(ArrowArrayHolder(Date32Array(arrowData)))
+        }
+        
+        let arrowData = try ArrowData(ArrowType.ArrowString, buffers: buffers,
+                                      nullCount: buffers[0].length, stride: MemoryLayout<Date>.stride)
+        return .success(ArrowArrayHolder(Date64Array(arrowData)))
+    } catch let error as ArrowError {
+        return .failure(error)
+    } catch {
+        return .failure(.unknownError("\(error)"))
+    }
+}
+
+fileprivate func makeBoolHolder(_ buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+    do {
+        let arrowData = try ArrowData(ArrowType.ArrowInt32, buffers: buffers,
+                                      nullCount: buffers[0].length, stride: MemoryLayout<UInt8>.stride)
+        return .success(ArrowArrayHolder(BoolArray(arrowData)))
+    } catch let error as ArrowError {
+        return .failure(error)
+    } catch {
+        return .failure(.unknownError("\(error)"))
+    }
+}
+
+fileprivate func makeFixedHolder<T>(_: T.Type, buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
+    do {
+        let arrowData = try ArrowData(ArrowType.ArrowInt32, buffers: buffers,
+                                      nullCount: buffers[0].length, stride: MemoryLayout<T>.stride)
+        return .success(ArrowArrayHolder(FixedArray<T>(arrowData)))
+    } catch let error as ArrowError {
+        return .failure(error)
+    } catch {
+        return .failure(.unknownError("\(error)"))
+    }
+}
+
+func makeArrayHolder(_ field: org_apache_arrow_flatbuf_Field, buffers: [ArrowBuffer]) -> Result<ArrowArrayHolder, ArrowError> {
     let type = field.typeType
     switch type {
     case .int:
@@ -34,62 +91,42 @@ func makeArrayHolder(_ field: org_apache_arrow_flatbuf_Field, buffers: [ArrowBuf
         let bitWidth = intType.bitWidth
         if bitWidth == 8 {
             if intType.isSigned {
-                return try makeFixedHolder(Int8.self, buffers: buffers)
+                return makeFixedHolder(Int8.self, buffers: buffers)
             } else {
-                return try makeFixedHolder(UInt8.self, buffers: buffers)
+                return makeFixedHolder(UInt8.self, buffers: buffers)
             }
         } else if bitWidth == 16 {
             if intType.isSigned {
-                return try makeFixedHolder(Int16.self, buffers: buffers)
+                return makeFixedHolder(Int16.self, buffers: buffers)
             } else {
-                return try makeFixedHolder(UInt16.self, buffers: buffers)
+                return makeFixedHolder(UInt16.self, buffers: buffers)
             }
         } else if bitWidth == 32 {
             if intType.isSigned {
-                return try makeFixedHolder(Int32.self, buffers: buffers)
+                return makeFixedHolder(Int32.self, buffers: buffers)
             } else {
-                return try makeFixedHolder(UInt32.self, buffers: buffers)
+                return makeFixedHolder(UInt32.self, buffers: buffers)
             }
         } else if bitWidth == 64 {
             if intType.isSigned {
-                return try makeFixedHolder(Int64.self, buffers: buffers)
+                return makeFixedHolder(Int64.self, buffers: buffers)
             } else {
-                return try makeFixedHolder(UInt64.self, buffers: buffers)
+                return makeFixedHolder(UInt64.self, buffers: buffers)
             }
         }
-        throw ValidationError.unknownType
+        return .failure(.unknownType)
     case .bool:
-        let arrowData = try ArrowData(ArrowType.ArrowInt32, buffers: buffers,
-                                      nullCount: buffers[0].length, stride: MemoryLayout<UInt8>.stride)
-        let chuckedArray = try ChunkedArray<Bool>([BoolArray(arrowData)])
-        return ChunkedArrayHolder(chuckedArray)
+        return makeBoolHolder(buffers)
     case .floatingpoint:
         let floatType = field.type(type: org_apache_arrow_flatbuf_FloatingPoint.self)!
-        switch floatType.precision {
-        case .single:
-            return try makeFixedHolder(Float.self, buffers: buffers)
-        case .double:
-            return try makeFixedHolder(Double.self, buffers: buffers)
-        default:
-            throw ValidationError.unknownType
-        }
+        return makeFloatHolder(floatType, buffers: buffers)
     case .utf8:
-        let arrowData = try ArrowData(ArrowType.ArrowString, buffers: buffers,
-                                      nullCount: buffers[0].length, stride: MemoryLayout<Int8>.stride)
-        return ChunkedArrayHolder(try ChunkedArray<String>([StringArray(arrowData)]))
+        return makeStringHolder(buffers)
     case .date:
         let dateType = field.type(type: org_apache_arrow_flatbuf_Date.self)!
-        if dateType.unit == .day {
-            let arrowData = try ArrowData(ArrowType.ArrowString, buffers: buffers,
-                                          nullCount: buffers[0].length, stride: MemoryLayout<Date>.stride)
-            return ChunkedArrayHolder(try ChunkedArray<Date>([Date32Array(arrowData)]))
-        }
-        
-        let arrowData = try ArrowData(ArrowType.ArrowString, buffers: buffers,
-                                      nullCount: buffers[0].length, stride: MemoryLayout<Date>.stride)
-        return ChunkedArrayHolder(try ChunkedArray<Date>([Date64Array(arrowData)]))
+        return makeDateHolder(dateType, buffers: buffers)
     default:
-        throw ValidationError.unknownType
+        return .failure(.unknownType)
     }
 }
 
@@ -149,7 +186,7 @@ func findArrowType(_ field: org_apache_arrow_flatbuf_Field) -> ArrowType.Info {
 
 func validateBufferIndex(_ recordBatch: org_apache_arrow_flatbuf_RecordBatch, index: Int32) throws {
     if index >= recordBatch.buffersCount {
-        throw ArrowError.runtimeError("Buffer index is out of bounds: \(index)")
+        throw ArrowError.outOfBounds(index: Int64(index))
     }
 }
 

@@ -18,6 +18,7 @@ classdef Float64Array < arrow.array.Array
 
     properties (Hidden, SetAccess=private)
         MatlabArray
+        NullSubstitionValue = NaN;
     end
 
     methods
@@ -29,13 +30,23 @@ classdef Float64Array < arrow.array.Array
 
             validateattributes(data, "double", ["2d", "nonsparse", "real"]);
             if ~isempty(data), validateattributes(data, "double", "vector"); end
-            obj@arrow.array.Array("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {data, opts.DeepCopy});
+            % Extract missing (i.e. null) values.
+            % TODO: Determine a more robust approach to handling "detection" of null values.
+            %       For example - add a name-value pair to allow clients to choose which values
+            %       should be considered null (if any).
+            validElements = ~isnan(data);
+            obj@arrow.array.Array("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {data, opts.DeepCopy, validElements});
             % Store a reference to the array if not doing a deep copy
             if (~opts.DeepCopy), obj.MatlabArray = data; end
         end
 
         function data = double(obj)
-            data = obj.Proxy.toMATLAB();
+            data = obj.toMATLAB();
+        end
+        
+        function matlabArray = toMATLAB(obj)
+            matlabArray = obj.Proxy.toMATLAB();
+            matlabArray(~obj.Valid) = obj.NullSubstitionValue;
         end
     end
 end

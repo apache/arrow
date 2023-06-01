@@ -18,6 +18,7 @@
 #include <immintrin.h>
 
 #include "arrow/compute/key_map.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
