@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <iostream>
+
 #include "arrow/python/udf.h"
 #include "arrow/table.h"
 #include "arrow/compute/api_aggregate.h"
@@ -83,8 +85,7 @@ arrow::Status AggregateUdfMerge(compute::KernelContext* ctx, compute::KernelStat
 }
 
 arrow::Status AggregateUdfFinalize(compute::KernelContext* ctx, arrow::Datum* out) {
-  auto udf = checked_cast<ScalarUdfAggregator*>(ctx->state());
-  return SafeCallIntoPython([&]() -> Status {return udf->Finalize(ctx, out);});
+  return checked_cast<ScalarUdfAggregator*>(ctx->state())->Finalize(ctx, out);
 }
 
 struct PythonTableUdfKernelInit {
@@ -162,9 +163,6 @@ struct PythonTableUdfKernelInit {
       std::shared_ptr<OwnedRefNoGIL>& function = state->agg_function;
       const int num_args = input_schema->num_fields();
 
-      OwnedRef arg_tuple(PyTuple_New(num_args));
-      RETURN_NOT_OK(CheckPyError());
-
       // Note: The way that batches are concatenated together
       // would result in using double amount of the memory.
       // This is OK for now because non decomposable aggregate
@@ -180,21 +178,30 @@ struct PythonTableUdfKernelInit {
       ARROW_ASSIGN_OR_RAISE(
         table, table->CombineChunks(ctx->memory_pool())
       );
-
       UdfContext udf_context{ctx->memory_pool(), table->num_rows()};
-      for (int arg_id = 0; arg_id < num_args; arg_id++) {
-        // Since we combined chunks there is only one chunk
-        std::shared_ptr<Array> c_data = table->column(arg_id)->chunk(0);
-        PyObject* data = wrap_array(c_data);
-        PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
+
+      if (table->num_rows() == 0) {
+          return Status::Invalid("Finalized is called with empty inputs");
       }
 
-      OwnedRef result(agg_cb(function->obj(), udf_context, arg_tuple.obj()));
-      RETURN_NOT_OK(CheckPyError());
+      std::unique_ptr<OwnedRef> result;
+      RETURN_NOT_OK(SafeCallIntoPython([&] {
+        OwnedRef arg_tuple(PyTuple_New(num_args));
+        RETURN_NOT_OK(CheckPyError());
 
+        for (int arg_id = 0; arg_id < num_args; arg_id++) {
+          // Since we combined chunks there is only one chunk
+          std::shared_ptr<Array> c_data = table->column(arg_id)->chunk(0);
+          PyObject* data = wrap_array(c_data);
+          PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
+        }
+        result = std::make_unique<OwnedRef>(agg_cb(function->obj(), udf_context, arg_tuple.obj()));
+        RETURN_NOT_OK(CheckPyError());
+        return Status::OK();
+      }));
       // unwrapping the output for expected output type
-      if (is_scalar(result.obj())) {
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> val, unwrap_scalar(result.obj()));
+      if (is_scalar(result->obj())) {
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> val, unwrap_scalar(result->obj()));
         if (*output_type != *val->type) {
           return Status::TypeError("Expected output datatype ", output_type->ToString(),
                                    ", but function returned datatype ",
@@ -203,7 +210,7 @@ struct PythonTableUdfKernelInit {
         out->value = std::move(val);
         return Status::OK();
       }
-      return Status::TypeError("Unexpected output type: ", Py_TYPE(result.obj())->tp_name,
+      return Status::TypeError("Unexpected output type: ", Py_TYPE(result->obj())->tp_name,
                                " (expected Scalar)");
     }
 

@@ -2697,10 +2697,11 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
         all arguments are scalar, else it must return an Array.
 
         To define a varargs function, pass a callable that takes
-        varargs. The last in_type will be the type of all varargs
+        *args. The last in_type will be the type of all varargs
         arguments.
     function_name : str
-        Name of the function. This name must be globally unique.
+        Name of the function. There should only be one function
+        registered with this name in the function registry.
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).
@@ -2759,8 +2760,8 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     In other words, non-decomposable aggregate function cannot be
     split into consume/merge/finalize steps.
 
-    This is mostly useful with segemented aggregation, where the data
-    to be aggregated is continuous.
+    This is often used with ordered or segmented aggregation where groups
+    can be emit before accumulating all of the input data.
 
     Parameters
     ----------
@@ -2772,11 +2773,13 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
         in_types defined. It must return a Scalar matching the
         out_type.
         To define a varargs function, pass a callable that takes
-        varargs. The in_type needs to match in type of inputs when
+        *args. The in_type needs to match in type of inputs when
         the function gets called.
 
     function_name : str
-        Name of the function. This name must be globally unique.
+        Name of the function. This name must be unique, i.e.,
+        there should only be one function registered with
+        this name in the function registry.
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).
@@ -2799,21 +2802,21 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     >>> import pyarrow.compute as pc
     >>>
     >>> func_doc = {}
-    >>> func_doc["summary"] = "simple mean udf"
-    >>> func_doc["description"] = "compute mean"
+    >>> func_doc["summary"] = "simple median udf"
+    >>> func_doc["description"] = "compute median"
     >>>
-    >>> def compute_mean(ctx, array):
-    ...     return pa.scalar(np.nanmean(array))
+    >>> def compute_median(ctx, array):
+    ...     return pa.scalar(np.median(array))
     >>>
-    >>> func_name = "py_compute_mean"
+    >>> func_name = "py_compute_median"
     >>> in_types = {"array": pa.int64()}
     >>> out_type = pa.float64()
-    >>> pc.register_aggregate_function(compute_mean, func_name, func_doc,
+    >>> pc.register_aggregate_function(compute_median, func_name, func_doc,
     ...                   in_types, out_type)
     >>>
     >>> func = pc.get_function(func_name)
     >>> func.name
-    'py_compute_mean'
+    'py_compute_median'
     >>> answer = pc.call_function(func_name, [pa.array([20, 40])])
     >>> answer
     <pyarrow.DoubleScalar: 30.0>
@@ -2843,7 +2846,8 @@ def register_tabular_function(func, function_name, function_doc, in_types, out_t
         returns on each invocation a StructArray matching
         the out_type, where an empty array indicates end.
     function_name : str
-        Name of the function. This name must be globally unique.
+        Name of the function. There should only be one function
+        registered with this name in the function registry.
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).
@@ -2873,7 +2877,7 @@ def _register_user_defined_function(register_func, func, function_name, function
     """
     Register a user-defined function.
 
-    This method itself doesn't care what the type of the UDF
+    This method itself doesn't care about the type of the UDF
     (i.e., scalar vs tabular vs aggregate)
 
     Parameters
@@ -2883,7 +2887,8 @@ def _register_user_defined_function(register_func, func, function_name, function
     func : callable
         A callable implementing the user-defined function.
     function_name : str
-        Name of the function. This name must be globally unique.
+        Name of the function. There should only be one function
+        registered with this name in the function registry.
     function_doc : dict
         A dictionary object with keys "summary" (str),
         and "description" (str).

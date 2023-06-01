@@ -626,6 +626,11 @@ def test_aggregate_basic(unary_agg_func_fixture):
     expected = pa.scalar(30.0)
     assert result == expected
 
+def test_aggregate_empty(unary_agg_func_fixture):
+    arr = pa.array([], pa.float64())
+
+    with pytest.raises(RuntimeError, match='.*empty inputs.*'):
+        pc.call_function("y=avg(x)", [arr])
 
 def test_aggregate_varargs(varargs_agg_func_fixture):
     arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
@@ -642,7 +647,4 @@ def test_aggregate_exception(bad_unary_agg_func_fixture):
     arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
 
     with pytest.raises(RuntimeError, match='Oops'):
-        try:
-            pc.call_function("y=bad_len(x)", [arr])
-        except Exception as e:
-            raise e
+        pc.call_function("y=bad_len(x)", [arr])
