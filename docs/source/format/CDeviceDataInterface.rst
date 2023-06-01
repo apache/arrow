@@ -286,10 +286,10 @@ has the following fields:
     * Metal: ``MTLEvent*``
     * OneAPI: ``sycl::event*``
 
-    If an event is provided, then the producer MUST ensure that the event
-    is triggered/recorded at the end of the processing stream once the data
-    is considered available for use.
-
+    If an event is provided, then the producer MUST ensure that the exported
+    data is available on the device before the event is triggered. The 
+    consumer SHOULD wait on the event before trying to access the exported
+    data.
 
 .. c:member:: int64_t ArrowDeviceArray.reserved[3]
 
@@ -297,14 +297,64 @@ has the following fields:
     structure. In order to do so without potentially breaking ABI changes,
     we reserve 24 bytes at the end of the object. This also has the added
     benefit of bringing the total size of this structure to exactly 128
-    bytes (a power of 2) on 64-bit systems. These bytes should be zero'd
-    out after allocation in order to ensure safe evolution of the ABI in
-    the future.
+    bytes (a power of 2) on 64-bit systems. These bytes MUST be zero'd
+    out after initialization by the producer in order to ensure safe 
+    evolution of the ABI in the future.
 
 .. note::
     Rather than store the shape / types of the data alongside the
     ``ArrowDeviceArray``, users should utilize the existing ``ArrowSchema``
     structure to pass any data type and shape information.
+
+Synchronization event types
+---------------------------
+
+The table below lists the expected event types for each device type.
+If no event type is supported ("N/A"), then the ``sync_event`` member
+should always be null. 
+
+Remember that the event *CAN* be null if synchronization is not needed
+to access the data.
+
++---------------------------+--------------------+---------+
+| Device Type               | Actual Event Type  | Notes   |
++===========================+====================+=========+
+| ARROW_DEVICE_CPU          | N/A                |         |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_CUDA         | ``cudaEvent_t*``   |         |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_CUDA_HOST    | ``cudaEvent_t*``   |         |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_OPENCL       | ``cl_event*``      |         |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_VULKAN       | ``VkEvent*``       |         |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_METAL        | ``MTLEvent*``      |         |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_VPI          | N/A                | (1)     |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_ROCM         | ``hipEvent_t*``    |         |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_ROCM_HOST    | ``hipEvent_t*``    |         |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_EXT_DEV      |                    | (2)     |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_CUDA_MANAGED | ``cudaEvent_t*``   |         |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_ONEAPI       | ``sycl::event*``   |         |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_WEBGPU       | N/A                | (1)     |
++---------------------------+--------------------+---------+
+| ARROW_DEVICE_HEXAGON      | N/A                | (1)     |
++---------------------------+--------------------+---------+
+
+Notes:
+
+* \(1) Currently unknown if framework has an event type to support.
+* \(2) Extension Device has producer defined semantics and thus if
+       synchronization is needed for an extension device, the producer
+       should document the type.
+
 
 Semantics
 =========
@@ -361,8 +411,13 @@ is, the data reachable on the device through the ``buffers`` member of
 the embedded ``ArrowArray``) to be immutable, as either party could otherwise
 see inconsistent data while the other is mutating it.
 
-Likewise, if the ``sync_event`` member is non-NULL, the consumer should not
-attempt to access or read the data until they have synchronized on that event.
+Synchronization
+---------------
+
+If the ``sync_event`` member is non-NULL, the consumer should not attempt 
+to access or read the data until they have synchronized on that event. If
+the ``sync_event`` member is NULL, then it MUST be safe to access the data
+without any synchronization necessary on the part of the consumer.
 
 C producer example
 ====================
@@ -382,7 +437,7 @@ could be used for any device:
     static void release_int32_device_array(struct ArrowArray* array) {
         assert(array->n_buffers == 2);
         // destroy the event
-        cudaEvent_t* ev_ptr = reinterpret_cast<cudaEvent_t*>(array->private_data);
+        cudaEvent_t* ev_ptr = (cudaEvent_t*)(array->private_data);
         cudaError_t status = cudaEventDestroy(*ev_ptr);
         assert(status == cudaSuccess);
         free(ev_ptr);
@@ -396,10 +451,10 @@ could be used for any device:
         array->release = NULL;
     }
 
-    __host__ void export_int32_device_array(void* cudaAllocdPtr,
-                                            cudaStream_t stream,
-                                            int64_t length,
-                                            struct ArrowDeviceArray* array) {
+    void export_int32_device_array(void* cudaAllocdPtr,
+                                   cudaStream_t stream,
+                                   int64_t length,
+                                   struct ArrowDeviceArray* array) {
         // get device id
         int device;
         cudaError_t status;
@@ -428,12 +483,14 @@ could be used for any device:
                 .dictionary = NULL,
                 // bookeeping
                 .release = &release_int32_device_array,
-                .private_data = reinterpret_cast<void*>(ev_ptr),
+                // store the event pointer as private data in the array
+                // so that we can access it in the release callback.
+                .private_data = (void*)(ev_ptr),
             },
-            .device_id = static_cast<int64_t>(device),
+            .device_id = (int64_t)(device),
             .device_type = ARROW_DEVICE_CUDA,
             // pass the event pointer to the consumer
-            .sync_event = reinterpret_cast<void*>(ev_ptr),
+            .sync_event = (void*)(ev_ptr),
         };
 
         // allocate list of buffers
@@ -443,9 +500,15 @@ could be used for any device:
         array->array.buffers[1] = cudaAllocdPtr;
     }
 
-================
+    // calling the release callback should be done using the array member
+    // of the device array.
+    static void release_device_array_helper(struct ArrowDeviceArray* arr) {
+        arr->array.release(&arr->array);
+    }
+
+=======================
 Device Stream Interface
-================
+=======================
 
 Like the :ref:`C stream interface <c-stream-interface>`, the C Device data
 interface also specifies a higher-level structure for easing communication
@@ -594,15 +657,12 @@ Updating this specification
 
 .. note::
     Since this specification is still considered experimental, there is the
-    (still very low) possibility it might change slightly. Once it is
-    supported in an official Arrow release and the "experimental" tag is
-    removed from it, this section will apply and the ABI will be frozen.
-    
-    The reason for the "experimental" tag is because we don't know what we
-    don't know. While it was attempted to ensure this is generic enough to
-    work with a multitude of different frameworks, it's also possible that
-    something was missed. Once there is some usage of this and we are
-    confident there isn't any necessary modifications, the "experimental"
+    (still very low) possibility it might change slightly. The reason for
+    tagging this as "experimental" is because we don't know what we don't know.
+    Work and research was done to ensure a generic ABI compatible with many
+    different frameworks, but it is always possible something was missed.
+    Once this is supported in an official Arrow release and usage is observed
+    to confirm there aren't any modifications necessary, the "experimental"
     tag will be removed and the ABI frozen.
 
 Once this specification is supported in an official Arrow release, the C ABI

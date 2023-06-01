@@ -79,8 +79,8 @@ target environment.**
    format/FlightSql
    format/Integration
    format/CDataInterface
-   format/CDeviceDataInterface
    format/CStreamInterface
+   format/CDeviceDataInterface
    format/ADBC
    format/Other
    format/Glossary
