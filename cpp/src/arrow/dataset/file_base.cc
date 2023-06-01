@@ -455,11 +455,14 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   // when reading from a single input file.
   const auto& custom_schema = scanner->options()->projected_schema;
 
+  WriteNodeOptions write_node_options(write_options);
+  write_node_options.custom_schema = custom_schema;
+
   acero::Declaration plan = acero::Declaration::Sequence({
       {"scan", ScanNodeOptions{dataset, scanner->options()}},
       {"filter", acero::FilterNodeOptions{scanner->options()->filter}},
       {"project", acero::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-      {"write", WriteNodeOptions{write_options, custom_schema}},
+      {"write", std::move(write_node_options)},
   });
 
   return acero::DeclarationToStatus(std::move(plan), scanner->options()->use_threads);

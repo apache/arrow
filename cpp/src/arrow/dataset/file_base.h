@@ -34,6 +34,7 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/io/file.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 
@@ -463,9 +464,10 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
 /// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
 class ARROW_DS_EXPORT WriteNodeOptions : public acero::ExecNodeOptions {
  public:
-  explicit WriteNodeOptions(FileSystemDatasetWriteOptions options,
-                            std::shared_ptr<Schema> custom_schema = NULLPTR)
-      : write_options(std::move(options)), custom_schema(std::move(custom_schema)) {}
+  explicit WriteNodeOptions(
+      FileSystemDatasetWriteOptions options,
+      std::shared_ptr<const KeyValueMetadata> custom_metadata = NULLPTR)
+      : write_options(std::move(options)), custom_metadata(std::move(custom_metadata)) {}
 
   /// \brief Options to control how to write the dataset
   FileSystemDatasetWriteOptions write_options;
