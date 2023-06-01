@@ -14,19 +14,31 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#include "arrow/acero/groupby.h"
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include <memory>
 
+#include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 
 namespace acero {
+
+Result<std::shared_ptr<Table>> TableGroupBy(
+    std::shared_ptr<Table> table, std::vector<Aggregate> aggregates,
+    std::vector<FieldRef> keys, bool use_threads = false,
+    MemoryPool* memory_pool = default_memory_pool()) {
+  Declaration plan = Declaration::Sequence(
+      {{"table_source", TableSourceNodeOptions(std::move(table))},
+       {"aggregate", AggregateNodeOptions(std::move(aggregates), std::move(keys))}});
+  return DeclarationToTable(std::move(plan), use_threads, memory_pool);
+}
 
 TEST(GroupByConvenienceFunc, Basic) {
   std::shared_ptr<Schema> in_schema =
