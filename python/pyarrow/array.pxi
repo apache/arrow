@@ -2196,7 +2196,7 @@ cdef class LargeListArray(BaseListArray):
         ...     type=pa.large_list(pa.int32()),
         ... )
         >>> array.values
-        <pyarrow.lib.Int32Array object at 0x12d174100>
+        <pyarrow.lib.Int32Array object at ...>
         [
           1,
           2,
@@ -2385,7 +2385,7 @@ cdef class FixedSizeListArray(BaseListArray):
         ...     type=pa.list_(pa.int32(), 2)
         ... )
         >>> array.values
-        <pyarrow.lib.Int32Array object at 0x12d1743a0>
+        <pyarrow.lib.Int32Array object at ...>
         [
           1,
           2,
