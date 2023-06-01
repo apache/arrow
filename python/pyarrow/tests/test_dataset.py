@@ -5074,6 +5074,59 @@ def test_dataset_partition_with_slash(tmpdir):
     assert encoded_paths == file_paths
 
 
+@pytest.mark.parquet
+def test_write_dataset_preserve_nullability(tempdir):
+    # GH-35730
+    schema_nullable = pa.schema([
+        pa.field("x", pa.int64(), nullable=False),
+        pa.field("y", pa.int64(), nullable=True)])
+
+    arrays = [[1, 2, 3], [None, 5, None]]
+    table = pa.Table.from_arrays(arrays, schema=schema_nullable)
+
+    pq.write_to_dataset(table, tempdir / "nulltest1")
+    dataset = ds.dataset(tempdir / "nulltest1", format="parquet")
+    # nullability of field is preserved
+    assert dataset.to_table().schema.equals(schema_nullable)
+
+    ds.write_dataset(table, tempdir / "nulltest2", format="parquet")
+    dataset = ds.dataset(tempdir / "nulltest2", format="parquet")
+    assert dataset.to_table().schema.equals(schema_nullable)
+
+    ds.write_dataset([table, table], tempdir / "nulltest3", format="parquet")
+    dataset = ds.dataset(tempdir / "nulltest3", format="parquet")
+    assert dataset.to_table().schema.equals(schema_nullable)
+
+
+def test_write_dataset_preserve_field_metadata(tempdir):
+    schema_metadata = pa.schema([
+        pa.field("x", pa.int64(), metadata={b'foo': b'bar'}),
+        pa.field("y", pa.int64())])
+
+    schema_no_meta = pa.schema([
+        pa.field("x", pa.int64()),
+        pa.field("y", pa.int64())])
+
+    arrays = [[1, 2, 3], [None, 5, None]]
+    table = pa.Table.from_arrays(arrays, schema=schema_metadata)
+    table_no_meta = pa.Table.from_arrays(arrays, schema=schema_no_meta)
+
+    # If no schema is provided the schema of the first table will be used
+    ds.write_dataset([table, table_no_meta], tempdir / "test1", format="parquet")
+    dataset = ds.dataset(tempdir / "test1", format="parquet")
+    assert dataset.to_table().schema.equals(schema_metadata, check_metadata=True)
+
+    ds.write_dataset([table_no_meta, table], tempdir / "test2", format="parquet")
+    dataset = ds.dataset(tempdir / "test2", format="parquet")
+    assert dataset.to_table().schema.equals(schema_no_meta, check_metadata=True)
+
+    # If a schema is provided it will override the schema of the input
+    ds.write_dataset([table_no_meta, table], tempdir / "test3", format="parquet",
+                     schema=schema_metadata)
+    dataset = ds.dataset(tempdir / "test3", format="parquet")
+    assert dataset.to_table().schema.equals(schema_metadata, check_metadata=True)
+
+
 @pytest.mark.parametrize('dstype', [
     "fs", "mem"
 ])
