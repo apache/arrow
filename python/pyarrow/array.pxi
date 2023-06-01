@@ -1914,7 +1914,7 @@ cdef class BaseListArray(Array):
         The returned Array is logically a concatenation of all the sub-lists
         in this Array.
 
-        Note that this method is different from ``self.values()`` in that
+        Note that this method is different from ``self.values`` in that
         it takes care of the slicing offset as well as null elements backed
         by non-empty sub-lists.
 
@@ -2053,6 +2053,38 @@ cdef class ListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the ListArray.
+
+        This is logically a concatenation of all the sub-lists in this array.
+
+        Note even null values are included. If any of the list slots
+        are null, but are backed by a non-empty sub-list, those values
+        will be included in the output.
+
+        Compare with ``flatten``, which returns only the non-null
+        values.
+
+        Returns
+        -------
+        values : Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> array = pa.array([[1, 2], None, [3, 4, None, 6]])
+        >>> array.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        """
         cdef CListArray* arr = <CListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2140,6 +2172,40 @@ cdef class LargeListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the LargeListArray.
+
+        This is logically a concatenation of all the sub-lists in this array.
+
+        Note even null values are included. If any of the list slots
+        are null, but are backed by a non-empty sub-list, those values
+        will be included in the output.
+
+        Compare with ``flatten``, which returns only the non-null
+        values.
+
+        Returns
+        -------
+        values : Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> array = pa.array(
+        ...     [[1, 2], None, [3, 4, None, 6]],
+        ...     type=pa.large_list(pa.int32()),
+        ... )
+        >>> array.values
+        <pyarrow.lib.Int32Array object at 0x12d174100>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+        """
         cdef CLargeListArray* arr = <CLargeListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2296,6 +2362,40 @@ cdef class FixedSizeListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the
+        FixedSizeListArray.
+
+        This is logically a concatenation of all the sub-lists in this array.
+
+        Note even null values are included.
+
+        Compare with ``flatten``, which returns only the non-null
+        sub-list values.
+
+        Returns
+        -------
+        values : Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> array = pa.array(
+        ...     [[1, 2], None, [3, None]],
+        ...     type=pa.list_(pa.int32(), 2)
+        ... )
+        >>> array.values
+        <pyarrow.lib.Int32Array object at 0x12d1743a0>
+        [
+          1,
+          2,
+          null,
+          null,
+          3,
+          null
+        ]
+
+        """
         cdef CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
