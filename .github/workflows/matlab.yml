@@ -170,7 +170,7 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2022-09-13"
-      - name: Build MATLAB Interface 
+      - name: Build MATLAB Interface
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
