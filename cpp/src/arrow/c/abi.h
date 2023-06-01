@@ -177,7 +177,7 @@ struct ArrowDeviceArray {
   /// method for the device (e.g. cudaStreamWaitEvent / hipStreamWaitEvent).
   ///
   /// Expected type to coerce this void* to depending on device type:
-  ///   cuda: cudaEvent_t*
+  ///   CUDA: cudaEvent_t*
   ///   ROCm: hipEvent_t*
   ///   OpenCL: cl_event*
   ///   Vulkan: VkEvent*
