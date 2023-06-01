@@ -116,12 +116,6 @@ class PARQUET_EXPORT ReaderProperties {
     page_checksum_verification_ = check_crc;
   }
 
-  bool use_binary_large_variants() const { return use_binary_large_variants_; }
-
-  void set_use_binary_large_variants(bool use_binary_large_variants) {
-    use_binary_large_variants_ = use_binary_large_variants;
-  }
-
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
