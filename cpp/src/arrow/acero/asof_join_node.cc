@@ -679,7 +679,7 @@ class InputState {
                           BackpressureHandler::Make(low_threshold, high_threshold,
                                                     std::move(backpressure_control)));
     return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
-                                        key_hasher, node, std::move(handler), schema,
+                                        key_hasher, output, std::move(handler), schema,
                                         time_col_index, key_col_index);
   }
 
