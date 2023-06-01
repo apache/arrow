@@ -48,12 +48,12 @@ func NewDecimal128Data(data arrow.ArrayData) *Decimal128 {
 }
 
 func (a *Decimal128) Value(i int) decimal128.Num { return a.values[i] }
+
 func (a *Decimal128) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
-	}	else {
-		return a.GetOneForMarshal(i).(string)
 	}
+	return a.GetOneForMarshal(i).(string)
 }
 
 func (a *Decimal128) Values() []decimal128.Num { return a.values }
@@ -67,7 +67,7 @@ func (a *Decimal128) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", a.Value(i))
 		}

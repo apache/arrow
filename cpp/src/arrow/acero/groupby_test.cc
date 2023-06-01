@@ -21,6 +21,7 @@
 
 #include <memory>
 
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {
@@ -122,6 +123,32 @@ TEST(GroupByConvenienceFunc, Invalid) {
       Invalid, ::testing::HasSubstr("is not an aggregate function"),
       TableGroupBy(in_table, {{"add", {"value"}, "value_add"}}, {}));
 }
+
+void TestVarStdMultiBatch(const std::string& var_std_func_name) {
+  std::shared_ptr<Schema> in_schema = schema({field("value", float64())});
+  std::shared_ptr<Table> in_table = TableFromJSON(in_schema, {R"([
+    [1],
+    [2],
+    [3]
+  ])",
+                                                              R"([
+    [4],
+    [4],
+    [4]
+  ])"});
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> actual,
+                       TableGroupBy(in_table, {{var_std_func_name, {"value"}, "x"}}, {},
+                                    /*use_threads=*/false));
+
+  ASSERT_OK_AND_ASSIGN(auto var_scalar, actual->column(0)->GetScalar(0));
+  // the next assertion will fail if only the second batch affects the result
+  ASSERT_NE(0, std::dynamic_pointer_cast<DoubleScalar>(var_scalar)->value);
+}
+
+TEST(GroupByConvenienceFunc, VarianceMultiBatch) { TestVarStdMultiBatch("variance"); }
+
+TEST(GroupByConvenienceFunc, StdDevMultiBatch) { TestVarStdMultiBatch("stddev"); }
 
 }  // namespace acero
 }  // namespace arrow

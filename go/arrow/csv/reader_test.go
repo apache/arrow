@@ -388,8 +388,8 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool, stringsCanBeN
 	str1Value := `""`
 	str2Value := `"null"`
 	if stringsCanBeNull {
-		str1Value = "(null)"
-		str2Value = "(null)"
+		str1Value = array.NullValueStr
+		str2Value = array.NullValueStr
 	}
 
 	want := fmt.Sprintf(`rec[0]["bool"]: [true]

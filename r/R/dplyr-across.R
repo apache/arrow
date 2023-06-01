@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-expand_across <- function(.data, quos_in) {
+expand_across <- function(.data, quos_in, exclude_cols = NULL) {
   quos_out <- list()
   # retrieve items using their values to preserve naming of quos other than across
   for (quo_i in seq_along(quos_in)) {
@@ -49,7 +49,8 @@ expand_across <- function(.data, quos_in) {
         names = across_call[[".names"]],
         .caller_env = quo_env,
         mask = .data,
-        inline = TRUE
+        inline = TRUE,
+        exclude_cols = exclude_cols
       )
 
       new_quos <- quosures_from_setup(setup, quo_env)
@@ -106,10 +107,11 @@ quosures_from_setup <- function(setup, quo_env) {
   set_names(new_quo_list, setup$names)
 }
 
-across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE) {
+across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE, exclude_cols = NULL) {
   cols <- enquo(cols)
 
-  vars <- names(dplyr::select(mask, !!cols))
+  sim_df <- dplyr::select(as.data.frame(implicit_schema(mask)), !(!!exclude_cols))
+  vars <- names(dplyr::select(sim_df, !!cols))
 
   if (is.null(fns)) {
     if (!is.null(names)) {

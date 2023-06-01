@@ -57,7 +57,7 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
    * @param allocator allocator for memory management.
    */
   public IntervalMonthDayNanoVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(MinorType.INTERVALDAY.getType()), allocator);
+    this(name, FieldType.nullable(MinorType.INTERVALMONTHDAYNANO.getType()), allocator);
   }
 
   /**

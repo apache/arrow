@@ -95,9 +95,9 @@ class ChunkedArraySorter : public TypeVisitor {
       const auto array = checked_cast<const ArrayType*>(arrays[i]);
       end_offset += array->length();
       null_count += array->null_count();
-      sorted[i] =
-          array_sorter_(indices_begin_ + begin_offset, indices_begin_ + end_offset,
-                        *array, begin_offset, options);
+      ARROW_ASSIGN_OR_RAISE(sorted[i], array_sorter_(indices_begin_ + begin_offset,
+                                                     indices_begin_ + end_offset, *array,
+                                                     begin_offset, options, ctx_));
       begin_offset = end_offset;
     }
     DCHECK_EQ(end_offset, indices_end_ - indices_begin_);

@@ -28,11 +28,11 @@ public class ArrowData {
         switch(type) {
             case let .PrimitiveInfo(typeId):
                 if typeId == ArrowTypeId.Unknown {
-                    throw ValidationError.unknownType
+                    throw ArrowError.unknownType
                 }
             case let .VariableInfo(typeId):
                 if typeId == ArrowTypeId.Unknown {
-                    throw ValidationError.unknownType
+                    throw ArrowError.unknownType
                 }
         }
 

@@ -1193,24 +1193,24 @@ tasks:
       image: conda-python
 {% endfor %}
 
-  test-conda-python-3.8-hypothesis:
+  test-conda-python-3.11-hypothesis:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: 3.8
+        PYTHON: 3.11
         HYPOTHESIS_PROFILE: ci
         PYARROW_TEST_HYPOTHESIS: ON
         # limit to execute hypothesis tests only
         PYTEST_ARGS: "-m hypothesis"
       image: conda-python-pandas
 
-  test-conda-python-3.9-substrait:
+  test-conda-python-3.10-substrait:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: "3.9"
+        PYTHON: "3.10"
       image: conda-python-substrait
 
   test-debian-11-python-3:
@@ -1470,11 +1470,11 @@ tasks:
 
   ############################## Integration tests ############################
 
-{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.7", "1.0", "1.19", True),
-                                                                     ("3.7", "latest", "latest", False),
-                                                                     ("3.8", "latest", "latest", False),
-                                                                     ("3.8", "nightly", "nightly", False),
-                                                                     ("3.9", "upstream_devel", "nightly", False)] %}
+{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.8", "1.0", "1.19", True),
+                                                                     ("3.9", "latest", "latest", False),
+                                                                     ("3.10", "latest", "latest", False),
+                                                                     ("3.10", "nightly", "nightly", False),
+                                                                     ("3.11", "upstream_devel", "nightly", False)] %}
   test-conda-python-{{ python_version }}-pandas-{{ pandas_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1495,12 +1495,12 @@ tasks:
 {% endfor %}
 
 {% for dask_version in ["latest", "upstream_devel"] %}
-  test-conda-python-3.9-dask-{{ dask_version }}:
+  test-conda-python-3.11-dask-{{ dask_version }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: 3.9
+        PYTHON: 3.11
         DASK: "{{ dask_version }}"
       # use the latest dask release, so prevent reusing any cached layers
       flags: --no-leaf-cache
@@ -1508,12 +1508,12 @@ tasks:
 {% endfor %}
 
 {% for hdfs_version in ["2.9.2", "3.2.1"] %}
-  test-conda-python-3.7-hdfs-{{ hdfs_version }}:
+  test-conda-python-3.10-hdfs-{{ hdfs_version }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: 3.7
+        PYTHON: "3.10"
         HDFS: "{{ hdfs_version }}"
       image: conda-python-hdfs
 {% endfor %}

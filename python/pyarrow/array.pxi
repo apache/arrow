@@ -811,6 +811,9 @@ cdef class _PandasConvertible(_Weakrefable):
         pyarrow.RecordBatch
         n_legs: int64
         animals: string
+        ----
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
         >>> batch.to_pandas()
            n_legs        animals
         0       2       Flamingo

@@ -22,9 +22,15 @@
 #include <numeric>
 #include <random>
 #include <string_view>
+#ifndef NDEBUG
+#include <sstream>
+#endif
 #include <unordered_set>
 
 #include "arrow/acero/options.h"
+#ifndef NDEBUG
+#include "arrow/acero/options_internal.h"
+#endif
 #include "arrow/acero/test_nodes.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
@@ -226,19 +232,12 @@ Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string fr
   return new_batches;
 }
 
-// code generation for the by_key types supported by AsofJoinNodeOptions constructors
-// which cannot be directly done using templates because of failure to deduce the template
-// argument for an invocation with a string- or initializer_list-typed keys-argument
-#define EXPAND_BY_KEY_TYPE(macro) \
-  macro(const FieldRef);          \
-  macro(std::vector<FieldRef>);   \
-  macro(std::initializer_list<FieldRef>);
-
 void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r0_batches,
                     const BatchesWithSchema& r1_batches,
                     const BatchesWithSchema& exp_batches,
-                    const AsofJoinNodeOptions join_options) {
+                    const AsofJoinNodeOptions join_options,
+                    std::function<void(const Table&, const Table&)> check_tables) {
   Declaration join{"asofjoin", join_options};
 
   join.inputs.emplace_back(Declaration{
@@ -254,20 +253,8 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
   ASSERT_OK_AND_ASSIGN(auto exp_table,
                        TableFromExecBatches(exp_batches.schema, exp_batches.batches));
 
-  AssertTablesEqual(*exp_table, *res_table,
-                    /*same_chunk_layout=*/true, /*flatten=*/true);
+  check_tables(*exp_table, *res_table);
 }
-
-#define CHECK_RUN_OUTPUT(by_key_type)                                            \
-  void CheckRunOutput(                                                           \
-      const BatchesWithSchema& l_batches, const BatchesWithSchema& r0_batches,   \
-      const BatchesWithSchema& r1_batches, const BatchesWithSchema& exp_batches, \
-      const FieldRef time, by_key_type key, const int64_t tolerance) {           \
-    CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches,               \
-                   GetRepeatedOptions(3, time, {key}, tolerance));               \
-  }
-
-EXPAND_BY_KEY_TYPE(CHECK_RUN_OUTPUT)
 
 void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
                        const BatchesWithSchema& r_batches,
@@ -451,6 +438,53 @@ struct BasicTest {
     return types;
   }
 
+// code generation for the by_key types supported by AsofJoinNodeOptions constructors
+// which cannot be directly done using templates because of failure to deduce the template
+// argument for an invocation with a string- or initializer_list-typed keys-argument
+#define EXPAND_BY_KEY_TYPE(macro) \
+  macro(const FieldRef);          \
+  macro(std::vector<FieldRef>);   \
+  macro(std::initializer_list<FieldRef>);
+
+#define CHECK_RUN_OUTPUT(by_key_type)                                            \
+  void CheckRunOutput(                                                           \
+      const BatchesWithSchema& l_batches, const BatchesWithSchema& r0_batches,   \
+      const BatchesWithSchema& r1_batches, const BatchesWithSchema& exp_batches, \
+      const FieldRef time, by_key_type key, const int64_t tolerance) {           \
+    CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches,               \
+                   GetRepeatedOptions(3, time, {key}, tolerance));               \
+  }
+
+  EXPAND_BY_KEY_TYPE(CHECK_RUN_OUTPUT)
+
+#undef CHECK_RUN_OUTPUT
+#undef EXPAND_BY_KEY_TYPE
+
+  void CheckRunOutput(const BatchesWithSchema& l_batches,
+                      const BatchesWithSchema& r0_batches,
+                      const BatchesWithSchema& r1_batches,
+                      const BatchesWithSchema& exp_batches,
+                      const AsofJoinNodeOptions join_options) {
+#ifndef NDEBUG
+    auto debug_sstr = dynamic_cast<std::stringstream*>(join_options.debug_opts->os);
+    if (debug_sstr) debug_sstr->str("");
+#endif
+    acero::CheckRunOutput(
+        l_batches, r0_batches, r1_batches, exp_batches, join_options,
+        [&](const Table& exp_table, const Table& res_table) {
+#ifndef NDEBUG
+          if (debug_sstr) {
+            (*debug_sstr) << "Comparing flattened expected table:" << std::endl
+                          << exp_table.ToString() << std::endl
+                          << "with flattened result table:" << std::endl
+                          << res_table.ToString() << std::endl;
+          }
+#endif
+          AssertTablesEqual(exp_table, res_table, /*same_chunk_layout=*/true,
+                            /*flatten=*/true);
+        });
+  }
+
   void RunSingleByKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
@@ -578,6 +612,7 @@ struct BasicTest {
     std::uniform_int_distribution<size_t> r1_distribution(0, r1_types.size() - 1);
 
     for (int i = 0; i < 100; i++) {
+      ARROW_SCOPED_TRACE("Iteration: ", i);
       auto time_type = time_types[time_distribution(engine)];
       ARROW_SCOPED_TRACE("Time type: ", *time_type);
       auto key_type = key_types[key_distribution(engine)];
@@ -590,6 +625,7 @@ struct BasicTest {
       ARROW_SCOPED_TRACE("Right-1 type: ", *r1_type);
 
       RunTypes({time_type, key_type, l_type, r0_type, r1_type}, batches_runner);
+      if (testing::Test::HasFatalFailure()) break;
 
       auto end_time = std::chrono::system_clock::now();
       std::chrono::duration<double> diff = end_time - start_time;
@@ -630,6 +666,16 @@ struct BasicTest {
                    exp_emptykey_batches, exp_batches);
   }
 
+  AsofJoinNodeOptions GetRepeatedOptions(size_t repeat, FieldRef on_key,
+                                         std::vector<FieldRef> by_key,
+                                         int64_t tolerance) {
+    auto options = acero::GetRepeatedOptions(repeat, on_key, by_key, tolerance);
+#ifndef NDEBUG
+    options.debug_opts = debug_opts;
+#endif
+    return options;
+  }
+
   std::vector<std::string_view> l_data;
   std::vector<std::string_view> r0_data;
   std::vector<std::string_view> r1_data;
@@ -637,6 +683,10 @@ struct BasicTest {
   std::vector<std::string_view> exp_emptykey_data;
   std::vector<std::string_view> exp_data;
   int64_t tolerance;
+
+#ifndef NDEBUG
+  std::shared_ptr<DebugOptions> debug_opts;
+#endif
 };
 
 using AsofJoinBasicParams = std::tuple<std::function<void(BasicTest&)>, std::string>;
@@ -645,7 +695,29 @@ void PrintTo(const AsofJoinBasicParams& x, ::std::ostream* os) {
   *os << "AsofJoinBasicParams: " << std::get<1>(x);
 }
 
-struct AsofJoinBasicTest : public testing::TestWithParam<AsofJoinBasicParams> {};
+struct AsofJoinBasicTest : public testing::TestWithParam<AsofJoinBasicParams> {
+ public:
+  BasicTest PrepareTest(BasicTest basic_test) {
+#ifndef NDEBUG
+    basic_test.debug_opts = std::make_shared<DebugOptions>(&debug_sstr, &debug_mutex);
+#endif
+    return basic_test;
+  }
+
+#ifndef NDEBUG
+  void SetUp() override { debug_sstr.str(std::string("")); }
+
+  void TearDown() override {
+    auto test_info = ::testing::UnitTest::GetInstance()->current_test_info();
+    if (test_info && test_info->result()->Failed()) {
+      std::cerr << "AsofJoinTest debug:" << std::endl << debug_sstr.str() << std::endl;
+    }
+  }
+
+  std::stringstream debug_sstr;
+  std::mutex debug_mutex;
+#endif
+};
 
 class AsofJoinTest : public testing::Test {};
 
@@ -661,7 +733,7 @@ BasicTest GetBasicTest1Backward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic1Backward, {
-  BasicTest basic_test = GetBasicTest1Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest1Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -678,7 +750,7 @@ BasicTest GetBasicTest1Forward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic1Forward, {
-  BasicTest basic_test = GetBasicTest1Forward();
+  BasicTest basic_test = PrepareTest(GetBasicTest1Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -695,7 +767,7 @@ BasicTest GetBasicTest2Backward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic2Backward, {
-  BasicTest basic_test = GetBasicTest2Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest2Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -712,7 +784,7 @@ BasicTest GetBasicTest2Forward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic2Forward, {
-  BasicTest basic_test = GetBasicTest2Forward();
+  BasicTest basic_test = PrepareTest(GetBasicTest2Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -730,7 +802,7 @@ BasicTest GetBasicTest3Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic3Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic3_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest3Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest3Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -748,7 +820,7 @@ BasicTest GetBasicTest3Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic3Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic3_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest3Forward();
+  BasicTest basic_test = PrepareTest(GetBasicTest3Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -778,7 +850,7 @@ BasicTest GetBasicTest4Backward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic4Backward, {
-  BasicTest basic_test = GetBasicTest4Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest4Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -808,7 +880,7 @@ BasicTest GetBasicTest4Forward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic4Forward, {
-  BasicTest basic_test = GetBasicTest4Forward();
+  BasicTest basic_test = PrepareTest(GetBasicTest4Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -838,7 +910,7 @@ BasicTest GetBasicTest5Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic5Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic5_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest5Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest5Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -868,7 +940,7 @@ BasicTest GetBasicTest5Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic5Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic5_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest5Forward();
+  BasicTest basic_test = PrepareTest(GetBasicTest5Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -898,7 +970,28 @@ BasicTest GetBasicTest6Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic6Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic6_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest6Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest6Backward());
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
+
+BasicTest GetBasicTest7Forward() {
+  // Right times in distant future
+  return BasicTest(
+      /*l*/ {R"([[0, 1, 1]])", R"([[1000, 2, 2]])", R"([[2000, 1, 3]])"},
+      /*r0*/ {R"([[0, 1, 10], [1500, 1, 11], [2500, 1, 12]])"},
+      /*r1*/ {R"([[0, 1, 100], [1500, 1, 101], [2500, 1, 102]])"},
+      /*exp_nokey*/
+      {R"([[0, 0, 1, 10, 100], [1000, 0, 2, 11, 101], [2000, 0, 3, 12, 102]])"},
+      /*exp_emptykey*/
+      {R"([[0, 1, 1, 10, 100], [1000, 2, 2, 11, 101], [2000, 1, 3, 12, 102]])"},
+      /*exp*/
+      {R"([[0, 1, 1, 10, 100], [1000, 2, 2, null, null], [2000, 1, 3, 12, 102]])"}, 1000);
+}
+
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic7Forward, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic7_" + std::get<1>(GetParam()));
+  BasicTest basic_test = PrepareTest(GetBasicTest7Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -923,7 +1016,7 @@ BasicTest GetEmptyTest1Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty1Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty1Backward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest1Backward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest1Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -948,7 +1041,7 @@ BasicTest GetEmptyTest1Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty1Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty1Forward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest1Forward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest1Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -973,7 +1066,7 @@ BasicTest GetEmptyTest2Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty2Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty2Backward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest2Backward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest2Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -998,7 +1091,7 @@ BasicTest GetEmptyTest2Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty2Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty2Forward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest2Forward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest2Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1027,7 +1120,7 @@ BasicTest GetEmptyTest3Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty3Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty3Backward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest3Backward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest3Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1056,7 +1149,7 @@ BasicTest GetEmptyTest3Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty3Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty3Forward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest3Forward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest3Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1085,7 +1178,7 @@ BasicTest GetEmptyTest4Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty4Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty4Backward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest4Backward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest4Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1114,7 +1207,7 @@ BasicTest GetEmptyTest4Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty4Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty4Forward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest4Forward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest4Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1137,7 +1230,7 @@ BasicTest GetEmptyTest5Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty5Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty5Backward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest5Backward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest5Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1160,7 +1253,7 @@ BasicTest GetEmptyTest5Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty5Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty5Forward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest5Forward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest5Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })

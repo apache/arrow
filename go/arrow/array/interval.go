@@ -56,7 +56,7 @@ func NewMonthIntervalData(data arrow.ArrayData) *MonthInterval {
 	return a
 }
 
-func (a *MonthInterval) Value(i int) arrow.MonthInterval            { return a.values[i] }
+func (a *MonthInterval) Value(i int) arrow.MonthInterval { return a.values[i] }
 func (a *MonthInterval) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
@@ -74,7 +74,7 @@ func (a *MonthInterval) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -287,7 +287,7 @@ func (b *MonthIntervalBuilder) AppendValueFromString(s string) error {
 	b.Append(arrow.MonthInterval(v))
 	return nil
 }
- 
+
 func (b *MonthIntervalBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var v *arrow.MonthInterval
 	if err := dec.Decode(&v); err != nil {
@@ -341,13 +341,18 @@ func NewDayTimeIntervalData(data arrow.ArrayData) *DayTimeInterval {
 	return a
 }
 
-func (a *DayTimeInterval) Value(i int) arrow.DayTimeInterval              { return a.values[i] }
+func (a *DayTimeInterval) Value(i int) arrow.DayTimeInterval { return a.values[i] }
 func (a *DayTimeInterval) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	return fmt.Sprintf("%q", a.Value(i))
+	data, err := json.Marshal(a.GetOneForMarshal(i))
+	if err != nil {
+		panic(err)
+	}
+	return string(data)
 }
+
 func (a *DayTimeInterval) DayTimeIntervalValues() []arrow.DayTimeInterval { return a.values }
 
 func (a *DayTimeInterval) String() string {
@@ -359,7 +364,7 @@ func (a *DayTimeInterval) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -628,7 +633,11 @@ func (a *MonthDayNanoInterval) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	return fmt.Sprintf("%q", a.Value(i))
+	data, err := json.Marshal(a.GetOneForMarshal(i))
+	if err != nil {
+		panic(err)
+	}
+	return string(data)
 }
 
 func (a *MonthDayNanoInterval) MonthDayNanoIntervalValues() []arrow.MonthDayNanoInterval {
@@ -644,7 +653,7 @@ func (a *MonthDayNanoInterval) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
