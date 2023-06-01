@@ -53,6 +53,26 @@ jobs:
         run: sudo apt-get install ninja-build
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v1
+      - name: Install ccache
+        run: sudo apt-get install ccache
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: |
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: matlab-ccache-ubuntu-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: matlab-ccache-ubuntu-${{ env.CACHE_VERSION }}-
+        env:
+          # We can invalidate the current cache by updating this.
+          CACHE_VERSION: "2022-09-13"
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
       - name: Run MATLAB Tests
@@ -99,8 +119,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: matlab-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
-          restore-keys: matlab-ccache-windows-${{ env.CACHE_VERSION }}-
+          key: matlab-ccache-macos-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: matlab-ccache-macos-${{ env.CACHE_VERSION }}-
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2022-09-13"
