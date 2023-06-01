@@ -128,7 +128,7 @@ def test_parquet_metadata_api():
     assert col_meta.is_stats_set is True
     assert isinstance(col_meta.statistics, pq.Statistics)
     assert col_meta.compression == 'SNAPPY'
-    assert col_meta.encodings == ('PLAIN', 'RLE')
+    assert set(col_meta.encodings) == {'PLAIN', 'RLE'}
     assert col_meta.has_dictionary_page is False
     assert col_meta.dictionary_page_offset is None
     assert col_meta.data_page_offset > 0
