@@ -307,16 +307,18 @@ std::shared_ptr<acero::ExecNode> ExecNode_Scan(
 }
 
 // [[dataset::export]]
-void ExecPlan_Write(
-    const std::shared_ptr<acero::ExecPlan>& plan,
-    const std::shared_ptr<acero::ExecNode>& final_node,
-    const std::shared_ptr<arrow::Schema>& schema,
-    const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
-    const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
-    const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
-    arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions,
-    uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group,
-    uint64_t max_rows_per_group) {
+void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan,
+                    const std::shared_ptr<acero::ExecNode>& final_node,
+                    const std::shared_ptr<arrow::Schema>& schema,
+                    const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
+                    const std::shared_ptr<fs::FileSystem>& filesystem,
+                    std::string base_dir,
+                    const std::shared_ptr<ds::Partitioning>& partitioning,
+                    std::string basename_template,
+                    arrow::dataset::ExistingDataBehavior existing_data_behavior,
+                    int max_partitions, uint32_t max_open_files,
+                    uint64_t max_rows_per_file, uint64_t min_rows_per_group,
+                    uint64_t max_rows_per_group) {
   arrow::dataset::internal::Initialize();
 
   // TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
