@@ -158,7 +158,7 @@ struct ArrowDeviceArray {
   /// \brief The device id to identify a specific device
   /// if multiple of this type are on the system.
   ///
-  /// the semantics of the id will be hardware dependant.
+  /// the semantics of the id will be hardware dependent.
   int64_t device_id;
   /// \brief The type of device which can access this memory.
   ArrowDeviceType device_type;
