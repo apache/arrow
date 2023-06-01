@@ -33,8 +33,8 @@
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/io/file.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 
