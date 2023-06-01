@@ -107,9 +107,7 @@ jobs:
         uses: matlab-actions/setup-matlab@v1
       - name: Build
         shell: cmd
-        run: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "ci/scripts/matlab_build.sh $(pwd)"
+        run: call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
       - name: Run MATLAB Tests
         env:
           # Add the installation directory to the MATLAB Search Path by
