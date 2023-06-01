@@ -538,7 +538,7 @@ class KeyHasher {
 
 class BackpressureController : public BackpressureControl {
  public:
-  BackpressureController(ExecNode* node, AsofJoinNode* output,
+  BackpressureController(ExecNode* node, ExecNode* output,
                          std::atomic<int32_t>& backpressure_counter)
       : node_(node), output_(output), backpressure_counter_(backpressure_counter) {}
 
@@ -547,7 +547,7 @@ class BackpressureController : public BackpressureControl {
 
  private:
   ExecNode* node_;
-  AsofJoinNode* output_;
+  ExecNode* output_;
   std::atomic<int32_t>& backpressure_counter_;
 };
 
