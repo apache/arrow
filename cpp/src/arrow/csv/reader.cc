@@ -435,11 +435,7 @@ class BlockParsingOperator {
       num_rows_seen_ += parser->total_num_rows();
     }
     RETURN_NOT_OK(block.consume_bytes(parsed_size));
-#ifdef ARROW_WITH_OPENTELEMETRY
-    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-        ::arrow::internal::tracing::UnwrapSpan(span.details.get());
-    raw_span->SetAttribute("parsed_size", parsed_size);
-#endif
+    ATTRIBUTE_ON_CURRENT_SPAN("parsed_size", parsed_size);
     return ParsedBlock{std::move(parser), block.block_index,
                        static_cast<int64_t>(parsed_size) + block.bytes_skipped};
   }

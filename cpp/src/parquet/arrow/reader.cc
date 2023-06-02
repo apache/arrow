@@ -297,9 +297,7 @@ class FileReaderImpl : public FileReader {
     auto status = reader->NextBatch(records_to_read, out);
 
     uint64_t size_bytes = ::arrow::util::TotalBufferSize(*out->get());
-    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-        ::arrow::internal::tracing::UnwrapSpan(span.details.get());
-    raw_span->SetAttribute("parquet.arrow.output_batch_size_bytes", size_bytes);
+    ATTRIBUTE_ON_CURRENT_SPAN("parquet.arrow.output_batch_size_bytes", size_bytes);
     return status;
 #else
     return reader->NextBatch(records_to_read, out);

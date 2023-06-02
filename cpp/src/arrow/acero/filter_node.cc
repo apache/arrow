@@ -79,10 +79,6 @@ class FilterNode : public MapNode {
                         {"filter.expression.simplified", simplified_filter.ToString()},
                         {"filter.length", batch.length},
                         {"input_batch.size_bytes", batch.TotalBufferSize()}});
-#ifdef ARROW_WITH_OPENTELEMETRY
-    opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-        ::arrow::internal::tracing::UnwrapSpan(span.details.get());
-#endif
 
     ARROW_ASSIGN_OR_RAISE(
         Datum mask, ExecuteScalarExpression(simplified_filter, batch,
@@ -91,14 +87,10 @@ class FilterNode : public MapNode {
     if (mask.is_scalar()) {
       const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
       if (mask_scalar.is_valid && mask_scalar.value) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-        raw_span->SetAttribute("output_batch.size_bytes", batch.TotalBufferSize());
-#endif
+        ATTRIBUTE_ON_CURRENT_SPAN("output_batch.size_bytes", batch.TotalBufferSize());
         return batch;
       }
-#ifdef ARROW_WITH_OPENTELEMETRY
-      raw_span->SetAttribute("output_batch.size_bytes", 0);
-#endif
+      ATTRIBUTE_ON_CURRENT_SPAN("output_batch.size_bytes", 0);
       return batch.Slice(0, 0);
     }
 
@@ -112,9 +104,7 @@ class FilterNode : public MapNode {
       ARROW_ASSIGN_OR_RAISE(value, Filter(value, mask, FilterOptions::Defaults()));
     }
     auto filtered_batch = ExecBatch::Make(std::move(values));
-#ifdef ARROW_WITH_OPENTELEMETRY
-    raw_span->SetAttribute("output_batch.size_bytes", filtered_batch->TotalBufferSize());
-#endif
+    ATTRIBUTE_ON_CURRENT_SPAN("output_batch.size_bytes", filtered_batch->TotalBufferSize());
     return filtered_batch;
   }
 

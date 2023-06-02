@@ -179,6 +179,9 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
 #define EVENT_ON_CURRENT_SPAN(...) \
   ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()->AddEvent(__VA_ARGS__)
 
+#define ATTRIBUTE_ON_CURRENT_SPAN(...) \
+  ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()->SetAttribute(__VA_ARGS__)
+
 #define EVENT(target_span, ...) \
   ::arrow::internal::tracing::UnwrapSpan(target_span.details.get())->AddEvent(__VA_ARGS__)
 
