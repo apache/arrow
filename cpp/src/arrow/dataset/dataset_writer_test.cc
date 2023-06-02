@@ -398,10 +398,10 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
-// NBATCHES must be less than I/O executor concurrency to avoid deadlock / test failure
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Concurrent writes tests need threads";
 #endif
+  // NBATCHES must be less than I/O executor concurrency to avoid deadlock / test failure
   constexpr int NBATCHES = 6;
   auto gated_fs = UseGatedFs();
   std::vector<ExpectedFile> expected_files;
