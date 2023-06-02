@@ -1293,6 +1293,41 @@ func (b *BinaryDictionaryBuilder) InsertStringDictValues(arr *String) (err error
 	return
 }
 
+func (b *BinaryDictionaryBuilder) GetValueIndex(i int) int {
+	switch b := b.idxBuilder.Builder.(type) {
+	case *Uint8Builder:
+		return int(b.Value(i))
+	case *Int8Builder:
+		return int(b.Value(i))
+	case *Uint16Builder:
+		return int(b.Value(i))
+	case *Int16Builder:
+		return int(b.Value(i))
+	case *Uint32Builder:
+		return int(b.Value(i))
+	case *Int32Builder:
+		return int(b.Value(i))
+	case *Uint64Builder:
+		return int(b.Value(i))
+	case *Int64Builder:
+		return int(b.Value(i))
+	default:
+		return -1
+	}
+}
+
+func (b *BinaryDictionaryBuilder) Value(i int) []byte {
+	switch mt := b.memoTable.(type) {
+	case *hashing.BinaryMemoTable:
+		return mt.Value(i)
+	}
+	return nil
+}
+
+func (b *BinaryDictionaryBuilder) ValueStr(i int) string {
+	return string(b.Value(i))
+}
+
 type FixedSizeBinaryDictionaryBuilder struct {
 	dictionaryBuilder
 	byteWidth int

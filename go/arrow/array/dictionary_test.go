@@ -431,6 +431,10 @@ func TestBasicStringDictionaryBuilder(t *testing.T) {
 	assert.NoError(t, builder.AppendString("test2"))
 	assert.NoError(t, builder.AppendString("test"))
 
+	assert.Equal(t, "test", builder.ValueStr(builder.GetValueIndex(0)))
+	assert.Equal(t, "test2", builder.ValueStr(builder.GetValueIndex(1)))
+	assert.Equal(t, "test", builder.ValueStr(builder.GetValueIndex(2)))
+
 	result := bldr.NewDictionaryArray()
 	defer result.Release()
 

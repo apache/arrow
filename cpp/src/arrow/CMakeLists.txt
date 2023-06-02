@@ -180,6 +180,7 @@ set(ARROW_SRCS
     tensor/csf_converter.cc
     tensor/csx_converter.cc
     type.cc
+    type_traits.cc
     visitor.cc
     c/bridge.cc
     io/buffered.cc
@@ -215,6 +216,7 @@ set(ARROW_SRCS
     util/delimiting.cc
     util/formatting.cc
     util/future.cc
+    util/hashing.cc
     util/int_util.cc
     util/io_util.cc
     util/logging.cc
@@ -414,6 +416,9 @@ list(APPEND
      compute/kernels/util_internal.cc
      compute/kernels/vector_hash.cc
      compute/kernels/vector_selection.cc
+     compute/kernels/vector_selection_filter_internal.cc
+     compute/kernels/vector_selection_internal.cc
+     compute/kernels/vector_selection_take_internal.cc
      compute/row/encode_internal.cc
      compute/row/compare_internal.cc
      compute/row/grouper.cc
@@ -796,7 +801,7 @@ set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADER
                                                           SKIP_UNITY_BUILD_INCLUSION ON)
 
 add_arrow_test(scalar_test)
-add_arrow_test(type_test)
+add_arrow_test(type_test SOURCES field_ref_test.cc type_test.cc)
 
 add_arrow_test(table_test
                SOURCES

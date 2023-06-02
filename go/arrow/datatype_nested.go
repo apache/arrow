@@ -27,6 +27,9 @@ import (
 
 type NestedType interface {
 	DataType
+
+	// Fields method provides a copy of NestedType fields
+	// (so it can be safely mutated and will not result in updating the NestedType).
 	Fields() []Field
 }
 
@@ -288,7 +291,14 @@ func (t *StructType) String() string {
 	return o.String()
 }
 
-func (t *StructType) Fields() []Field   { return t.fields }
+// Fields method provides a copy of StructType fields
+// (so it can be safely mutated and will not result in updating the StructType).
+func (t *StructType) Fields() []Field {
+	fields := make([]Field, len(t.fields))
+	copy(fields, t.fields)
+	return fields
+}
+
 func (t *StructType) Field(i int) Field { return t.fields[i] }
 
 func (t *StructType) FieldByName(name string) (Field, bool) {
@@ -490,7 +500,14 @@ func (t *unionType) init(fields []Field, typeCodes []UnionTypeCode) {
 	}
 }
 
-func (t unionType) Fields() []Field            { return t.children }
+// Fields method provides a copy of union type fields
+// (so it can be safely mutated and will not result in updating the union type).
+func (t unionType) Fields() []Field {
+	fields := make([]Field, len(t.children))
+	copy(fields, t.children)
+	return fields
+}
+
 func (t unionType) TypeCodes() []UnionTypeCode { return t.typeCodes }
 func (t unionType) ChildIDs() []int            { return t.childIDs[:] }
 

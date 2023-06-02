@@ -57,13 +57,13 @@ requiring a lot of local development environment setup.
    on the right top corner of the documentations page. This
    will handle making a fork and a pull request for you.
 
-   .. figure:: /developers/images/edit_page.jpeg
+   .. figure:: ../images/edit_page.jpeg
       :scale: 20 %
       :alt: click on edit this page
 
       On the right corner of the file in GitHub click on pen icon.
 
-   .. figure:: /developers/images/github_edit_page.jpeg
+   .. figure:: ../images/github_edit_page.jpeg
       :scale: 30 %
       :alt: edit file in GitHub.
 

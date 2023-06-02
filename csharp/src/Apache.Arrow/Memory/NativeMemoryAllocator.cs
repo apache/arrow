@@ -21,6 +21,8 @@ namespace Apache.Arrow.Memory
 {
     public class NativeMemoryAllocator : MemoryAllocator
     {
+        internal static readonly INativeAllocationOwner ExclusiveOwner = new NativeAllocationOwner();
+
         public NativeMemoryAllocator(int alignment = DefaultAlignment) 
             : base(alignment) { }
 
@@ -46,6 +48,15 @@ namespace Apache.Arrow.Memory
             manager.Memory.Span.Fill(0);
 
             return manager;
+        }
+
+        private sealed class NativeAllocationOwner : INativeAllocationOwner
+        {
+            public void Release(IntPtr ptr, int offset, int length)
+            {
+                Marshal.FreeHGlobal(ptr);
+                GC.RemoveMemoryPressure(length);
+            }
         }
     }
 }

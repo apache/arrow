@@ -1121,6 +1121,18 @@ class TestListScalar : public ::testing::Test {
     ASSERT_NE(set_bitmap_scalar->value->data()->buffers[0], nullptr);
     // ... yet it's hashing equal to the other scalar
     ASSERT_EQ(empty_bitmap_scalar.hash(), set_bitmap_scalar->hash());
+
+    // GH-35360: the hash value of a scalar from a list of structs should
+    // pay attention to the offset so it hashes the equivalent validity bitmap
+    auto list_struct_type = list(struct_({field("a", int64())}));
+    auto a =
+        ArrayFromJSON(list_struct_type, R"([[{"a": 5}, {"a": 6}], [{"a": 7}, null]])");
+    auto b = ArrayFromJSON(list_struct_type, R"([[{"a": 7}, null]])");
+    EXPECT_OK_AND_ASSIGN(auto a0, a->GetScalar(0));
+    EXPECT_OK_AND_ASSIGN(auto a1, a->GetScalar(1));
+    EXPECT_OK_AND_ASSIGN(auto b0, b->GetScalar(0));
+    ASSERT_EQ(a1->hash(), b0->hash());
+    ASSERT_NE(a0->hash(), b0->hash());
   }
 
  protected:

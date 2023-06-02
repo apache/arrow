@@ -90,9 +90,7 @@ func (a *{{.Name}}) ValueStr(i int) string {
   return a.values[i].FormattedString()
 {{else if or (eq .Name "Time32") (eq .Name "Time64") -}}
   return a.values[i].FormattedString(a.DataType().(*{{.QualifiedType}}Type).Unit)
-{{else if or (eq .Name "Timestamp") -}}
-	return a.values[i].ToTime(a.DataType().(*{{.QualifiedType}}Type).Unit).Format("2006-01-02 15:04:05.999999999")
-{{else if (eq .Name "Duration") -}}	
+{{else if (eq .Name "Duration") -}}
 	// return value and suffix as a string such as "12345ms"
 	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*{{.QualifiedType}}Type).Unit)	
 {{else if or (eq .Name "Int8") (eq .Name "Int16") (eq .Name "Int32") (eq .Name "Int64") -}}
@@ -116,9 +114,7 @@ func (a *{{.Name}}) GetOneForMarshal(i int) interface{} {
 	return a.values[i].ToTime().Format("2006-01-02")
 {{else if or (eq .Name "Time32") (eq .Name "Time64") -}}
 	return a.values[i].ToTime(a.DataType().(*{{.QualifiedType}}Type).Unit).Format("15:04:05.999999999")
-{{else if or (eq .Name "Timestamp") -}}
-	return a.values[i].ToTime(a.DataType().(*{{.QualifiedType}}Type).Unit).Format("2006-01-02 15:04:05.999999999")
-{{else if (eq .Name "Duration") -}}	
+{{else if (eq .Name "Duration") -}}
 	// return value and suffix as a string such as "12345ms"
 	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*{{.QualifiedType}}Type).Unit.String())	
 {{else if (eq .Size "1")}}

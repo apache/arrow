@@ -23,6 +23,7 @@
 
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -30,6 +31,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace compute {
@@ -344,5 +346,15 @@ TEST(TestCumulativeSum, HasStartDoSkip) {
   }
 }
 
+TEST(TestCumulativeSum, ConvenienceFunctionCheckOverflow) {
+  ASSERT_ARRAYS_EQUAL(*CumulativeSum(ArrayFromJSON(int8(), "[127, 1]"),
+                                     CumulativeSumOptions::Defaults(), false)
+                           ->make_array(),
+                      *ArrayFromJSON(int8(), "[127, -128]"));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("overflow"),
+                                  CumulativeSum(ArrayFromJSON(int8(), "[127, 1]"),
+                                                CumulativeSumOptions::Defaults(), true));
+}
 }  // namespace compute
 }  // namespace arrow

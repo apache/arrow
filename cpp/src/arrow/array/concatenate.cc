@@ -125,9 +125,9 @@ Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
     // the first offset from buffers[i] will be adjusted to values_length
     // (the cumulative length of values spanned by offsets in previous buffers)
     RETURN_NOT_OK(PutOffsets<Offset>(buffers[i], values_length, &dst[elements_length],
-                                     &values_ranges->at(i)));
+                                     &(*values_ranges)[i]));
     elements_length += buffers[i]->size() / sizeof(Offset);
-    values_length += static_cast<Offset>(values_ranges->at(i).length);
+    values_length += static_cast<Offset>((*values_ranges)[i].length);
   }
 
   // the final element in dst is the length of all values spanned by the offsets
