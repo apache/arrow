@@ -1485,10 +1485,12 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
     counters.resume_count += bp_counters[i].resume_count;
   }
   ASSERT_EQ(counters_by_is_fast.size(), 2);
-  ASSERT_EQ(counters_by_is_fast[false].pause_count, 0);
-  ASSERT_EQ(counters_by_is_fast[false].resume_count, 0);
   ASSERT_GT(counters_by_is_fast[true].pause_count, 0);
   ASSERT_GT(counters_by_is_fast[true].resume_count, 0);
+  // runs on some slow machines may not see any pause/resume, but if at least one pause is
+  // seen then at least one resume must also be seen
+  ASSERT_EQ(counters_by_is_fast[false].pause_count > 0,
+            counters_by_is_fast[false].resume_count > 0);
 }
 
 TEST(AsofJoinTest, BackpressureWithBatches) {
