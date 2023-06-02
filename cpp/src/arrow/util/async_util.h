@@ -273,7 +273,7 @@ class ARROW_EXPORT ThrottledAsyncTaskScheduler : public AsyncTaskScheduler {
   /// Pause the throttle
   ///
   /// Any tasks that have been submitted already will continue.  However, no new tasks
-  /// will be run until the throttle is resumed.\
+  /// will be run until the throttle is resumed.
   ///
   /// This method should be idempotent
   virtual void Pause() = 0;
