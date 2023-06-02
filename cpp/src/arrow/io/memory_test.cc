@@ -870,8 +870,10 @@ TEST(CacheOptions, Basics) {
   check(CacheOptions::MakeFromNetworkMetrics(5, 500, .75, 5), 2.5, 5);
 }
 
-#ifdef ARROW_ENABLE_THREADING
 TEST(IOThreadPool, Capacity) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading enabled";
+#endif  
   // Simple sanity check
   auto pool = internal::GetIOThreadPool();
   int capacity = pool->GetCapacity();
@@ -880,7 +882,6 @@ TEST(IOThreadPool, Capacity) {
   ASSERT_OK(SetIOThreadPoolCapacity(capacity + 1));
   ASSERT_EQ(GetIOThreadPoolCapacity(), capacity + 1);
 }
-#endif
 
 }  // namespace io
 }  // namespace arrow
