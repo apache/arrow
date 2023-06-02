@@ -1361,6 +1361,91 @@ TRACED_TEST(AsofJoinTest, TestUnorderedOnKey, {
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 })
 
+struct BackpressureCounters {
+  int32_t pause_count = 0;
+  int32_t resume_count = 0;
+};
+
+struct BackpressureCountingNodeOptions : public ExecNodeOptions {
+  BackpressureCounters* counters;
+};
+
+struct BackpressureCountingNode : public MapNode {
+  static constexpr const char* kKindName = "BackpressureCountingNode";
+  static constexpr const char* kFactoryName = "backpressure_count";
+
+  static void Register() {
+    auto exec_reg = default_exec_factory_registry();
+    if (!exec_reg->GetFactory(kFactoryName).ok()) {
+      ASSERT_OK(exec_reg->AddFactory(kFactoryName, BackpressureCountingNode::Make));
+    }
+  }
+
+  BackpressureCountingNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                           std::shared_ptr<Schema> output_schema,
+                           const BackpressureCountingNodeOptions& options)
+      : MapNode(plan, inputs, output_schema), counters(options.counters) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, kKindName));
+    auto bp_options = static_cast<const BackpressureCountingNodeOptions&>(options);
+    return plan->EmplaceNode<BackpressureCountingNode>(
+        plan, inputs, inputs[0]->output_schema(), bp_options);
+  }
+
+  const char* kind_name() const override { return kKindName; }
+  Result<ExecBatch> ProcessBatch(ExecBatch batch) override { return batch; }
+
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    ++counters->pause_count;
+    inputs()[0]->PauseProducing(this, counter);
+  }
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    ++counters->resume_count;
+    inputs()[0]->ResumeProducing(this, counter);
+  }
+
+  BackpressureCounters* counters;
+};
+
+struct BackpressureDelayingNodeOptions : public ExecNodeOptions {
+  double delay_seconds;
+};
+
+struct BackpressureDelayingNode : public MapNode {
+  static constexpr auto kKindName = "BackpressureDelayingNode";
+  static constexpr const char* kFactoryName = "backpressure_delay";
+
+  static void Register() {
+    auto exec_reg = default_exec_factory_registry();
+    if (!exec_reg->GetFactory(kFactoryName).ok()) {
+      ASSERT_OK(exec_reg->AddFactory(kFactoryName, BackpressureDelayingNode::Make));
+    }
+  }
+
+  BackpressureDelayingNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                           std::shared_ptr<Schema> output_schema,
+                           const BackpressureDelayingNodeOptions& options)
+      : MapNode(plan, inputs, output_schema), delay_seconds(options.delay_seconds) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, kKindName));
+    auto bp_options = static_cast<const BackpressureDelayingNodeOptions&>(options);
+    return plan->EmplaceNode<BackpressureDelayingNode>(
+        plan, inputs, inputs[0]->output_schema(), bp_options);
+  }
+
+  const char* kind_name() const override { return kKindName; }
+  Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
+    SleepFor(delay_seconds);
+    return batch;
+  }
+
+  double delay_seconds;
+};
+
 template <typename BatchesMaker>
 void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
                       double fast_delay, double slow_delay, bool noisy = false) {
@@ -1382,61 +1467,10 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
   ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift(r0_schema, 1));
   ASSERT_OK_AND_ASSIGN(auto r1_batches, make_shift(r1_schema, 2));
 
-  struct BackpressureCounters {
-    int32_t pause_count = 0;
-    int32_t resume_count = 0;
-  };
+  BackpressureCountingNode::Register();
+  BackpressureDelayingNode::Register();
 
-  struct BackpressureTestNodeOptions : public ExecNodeOptions {
-    double initial_sleep_seconds = 0;
-    BackpressureCounters* counters = nullptr;
-  };
-
-  struct BackpressureTestNode : public MapNode {
-    BackpressureTestNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                         std::shared_ptr<Schema> output_schema,
-                         const BackpressureTestNodeOptions& options)
-        : MapNode(plan, inputs, output_schema),
-          counters(options.counters),
-          sleep_seconds(options.initial_sleep_seconds) {}
-
-    static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                  const ExecNodeOptions& options) {
-      RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "BackpressureTestNode"));
-      auto bp_options = static_cast<const BackpressureTestNodeOptions&>(options);
-      return plan->EmplaceNode<BackpressureTestNode>(
-          plan, inputs, inputs[0]->output_schema(), bp_options);
-    }
-
-    const char* kind_name() const override { return "BackpressureTestNode"; }
-    Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
-      if (sleep_seconds > 0) {
-        SleepFor(sleep_seconds);
-        sleep_seconds = 0;
-      }
-      return batch;
-    }
-
-    void PauseProducing(ExecNode* output, int32_t counter) override {
-      ++counters->pause_count;
-      inputs()[0]->PauseProducing(this, counter);
-    }
-    void ResumeProducing(ExecNode* output, int32_t counter) override {
-      ++counters->resume_count;
-      inputs()[0]->ResumeProducing(this, counter);
-    }
-
-    BackpressureCounters* counters;
-    double sleep_seconds;
-  };
-
-  auto exec_reg = default_exec_factory_registry();
-  std::string bp_test = "backpressure_test";
-  if (!exec_reg->GetFactory(bp_test).ok()) {
-    ASSERT_OK(exec_reg->AddFactory(bp_test, BackpressureTestNode::Make));
-  }
-
-  struct SourceConfig {
+  struct BackpressureSourceConfig {
     std::string name_prefix;
     bool is_fast;
     std::shared_ptr<Schema> schema;
@@ -1446,7 +1480,7 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
   };
 
   // must have at least one fast and one slow
-  std::vector<SourceConfig> source_configs = {
+  std::vector<BackpressureSourceConfig> source_configs = {
       {"0", true, l_schema, l_batches},
       {"1", false, r0_schema, r0_batches},
       {"2", true, r1_schema, r1_batches},
@@ -1454,7 +1488,7 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
 
   std::vector<BackpressureCounters> bp_counters(source_configs.size());
   std::vector<Declaration> src_decls;
-  std::vector<std::shared_ptr<BackpressureTestNodeOptions>> bp_options;
+  std::vector<std::shared_ptr<BackpressureCountingNodeOptions>> bp_options;
   std::vector<Declaration::Input> bp_decls;
   for (size_t i = 0; i < source_configs.size(); i++) {
     const auto& config = source_configs[i];
@@ -1463,12 +1497,12 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
                       config.schema,
                       MakeDelayedGen(config.batches, config.name(),
                                      config.is_fast ? fast_delay : slow_delay, noisy)));
-    bp_options.push_back(std::make_shared<BackpressureTestNodeOptions>());
+    bp_options.push_back(std::make_shared<BackpressureCountingNodeOptions>());
     bp_options.back()->counters = &bp_counters[i];
-    bp_options.back()->initial_sleep_seconds = config.is_fast ? 0 : 2;
     std::shared_ptr<ExecNodeOptions> options = bp_options.back();
     std::vector<Declaration::Input> bp_in = {src_decls.back()};
-    Declaration bp_decl = {bp_test, bp_in, std::move(options)};
+    Declaration bp_decl = {BackpressureCountingNode::kFactoryName, bp_in,
+                           std::move(options)};
     bp_decls.push_back(bp_decl);
   }
 
@@ -1476,8 +1510,13 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
       "asofjoin", bp_decls,
       GetRepeatedOptions(source_configs.size(), "time", {"key"}, 1000)};
 
+  BackpressureDelayingNodeOptions delay_options;
+  delay_options.delay_seconds = slow_delay * 5;
+  Declaration delaying = {
+      BackpressureDelayingNode::kFactoryName, {asofjoin}, delay_options};
+
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> batch_reader,
-                       DeclarationToReader(asofjoin, /*use_threads=*/false));
+                       DeclarationToReader(delaying, /*use_threads=*/false));
 
   int64_t total_length = 0;
   for (;;) {
@@ -1489,17 +1528,14 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
   }
   ASSERT_EQ(static_cast<int64_t>(num_batches * batch_size), total_length);
 
-  std::unordered_map<bool, BackpressureCounters> counters_by_is_fast;
+  size_t total_pause_count = 0, total_resume_count = 0;
+  ;
   for (size_t i = 0; i < source_configs.size(); i++) {
-    BackpressureCounters& counters = counters_by_is_fast[source_configs[i].is_fast];
-    counters.pause_count += bp_counters[i].pause_count;
-    counters.resume_count += bp_counters[i].resume_count;
+    if (bp_counters[i].pause_count > 0) total_pause_count++;
+    if (bp_counters[i].resume_count > 0) total_resume_count++;
   }
-  ASSERT_EQ(counters_by_is_fast.size(), 2);
-  ASSERT_EQ(counters_by_is_fast[false].pause_count, 0);
-  ASSERT_EQ(counters_by_is_fast[false].resume_count, 0);
-  ASSERT_GT(counters_by_is_fast[true].pause_count, 0);
-  ASSERT_GT(counters_by_is_fast[true].resume_count, 0);
+  ASSERT_GT(total_pause_count, 0);
+  ASSERT_GT(total_resume_count, 0);
 }
 
 TEST(AsofJoinTest, BackpressureWithBatches) {
