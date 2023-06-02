@@ -57,13 +57,11 @@ jobs:
         run: sudo apt-get install ccache
       - name: Setup ccache
         shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
+        run: ci/scripts/ccache_setup.sh
       - name: ccache info
         id: ccache-info
         shell: bash
-        run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
         uses: actions/cache@v3
         with:
@@ -108,13 +106,11 @@ jobs:
         run: brew install ccache
       - name: Setup ccache
         shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
+        run: ci/scripts/ccache_setup.sh
       - name: ccache info
         id: ccache-info
         shell: bash
-        run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
         uses: actions/cache@v3
         with:
@@ -150,17 +146,14 @@ jobs:
         run: ci/scripts/download_tz_database.sh
       - name: Install ccache
         shell: bash
-        run: |
-          ci/scripts/install_ccache.sh 4.6.3 /usr
+        run: ci/scripts/install_ccache.sh 4.6.3 /usr
       - name: Setup ccache
         shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
+        run: ci/scripts/ccache_setup.sh
       - name: ccache info
         id: ccache-info
         shell: bash
-        run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
         uses: actions/cache@v3
         with:
