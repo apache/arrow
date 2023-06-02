@@ -452,13 +452,13 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
       AsyncGenerator<std::shared_ptr<RecordBatch>> batch_gen =
           scanner->RunScanTask(scan_task_number);
       auto batch_count = std::make_shared<int>(0);
+      int* batch_count_view = batch_count.get();
       node_->plan_->query_context()
           ->async_scheduler()
           ->AddAsyncGenerator<std::shared_ptr<RecordBatch>>(
               std::move(batch_gen),
-              [this, batch_counter =
-                         batch_count.get()](const std::shared_ptr<RecordBatch>& batch) {
-                (*batch_counter)++;
+              [this, batch_count_view](const std::shared_ptr<RecordBatch>& batch) {
+                (*batch_count_view)++;
                 return HandleBatch(batch);
               },
               "ScanNode::ScanBatch::Next",

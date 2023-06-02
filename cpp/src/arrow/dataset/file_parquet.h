@@ -247,7 +247,7 @@ class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
   ///
   /// kCustom - Pre-buffering, stream buffering, and batch size settings will be
   ///           configured according to reader_properties and arrow_reader_properties.
-  ParquetScanStrategy scan_strategy = ParquetScanStrategy::kMaxSpeed;
+  ParquetScanStrategy scan_strategy = ParquetScanStrategy::kLeastMemory;
 
   /// Reader properties.
   ///
