@@ -165,6 +165,33 @@ sw2 %>%
   transmute(name, height, mass, res = residuals(lm(mass ~ height)))
 ```
 
+Because window functions are not supported, computing an aggregation like `mean()` on a grouped table or within a rowwise opertation like `filter()`  is not supported:
+
+```{r}
+sw %>%
+  select(1:4) %>%
+  filter(!is.na(hair_color)) %>%
+  group_by(hair_color) %>%
+  filter(height < mean(height, na.rm = TRUE))
+```
+
+This operation can be accomplished in arrow by computing the aggregation separately, for example within a join operation: 
+
+```{r}
+sw %>%
+  select(1:4) %>%
+  filter(!is.na(hair_color)) %>%
+  left_join(
+    sw %>%
+      group_by(hair_color) %>%
+      summarize(mean_height = mean(height, na.rm = TRUE))
+    ) %>%
+  filter(height < mean_height) %>%
+  select(!mean_height) %>%
+  collect()
+```
+
+
 ## Further reading
 
 - To learn more about multi-file datasets, see the [dataset article](./dataset.html).

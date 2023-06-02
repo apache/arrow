@@ -20,15 +20,15 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/types"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/metadata"
-	"github.com/apache/arrow/go/v12/parquet/pqarrow"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/flight"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/metadata"
+	"github.com/apache/arrow/go/v13/parquet/pqarrow"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -409,4 +409,31 @@ func TestListStructBackwardCompatible(t *testing.T) {
 	arrsc, err := pqarrow.FromParquet(pqSchema, nil, metadata.KeyValueMetadata{})
 	assert.NoError(t, err)
 	assert.True(t, arrowSchema.Equal(arrsc))
+}
+
+// TestUnsupportedTypes tests the error message for unsupported types. This test should be updated
+// when support for these types is added.
+func TestUnsupportedTypes(t *testing.T) {
+	unsupportedTypes := []struct {
+		typ arrow.DataType
+	}{
+		// Non-exhaustive list of unsupported types
+		{typ: &arrow.Float16Type{}},
+		{typ: &arrow.DurationType{}},
+		{typ: &arrow.DayTimeIntervalType{}},
+		{typ: &arrow.MonthIntervalType{}},
+		{typ: &arrow.MonthDayNanoIntervalType{}},
+		{typ: &arrow.DenseUnionType{}},
+		{typ: &arrow.SparseUnionType{}},
+	}
+	for _, tc := range unsupportedTypes {
+		t.Run(tc.typ.ID().String(), func(t *testing.T) {
+			arrowFields := make([]arrow.Field, 0)
+			arrowFields = append(arrowFields, arrow.Field{Name: "unsupported", Type: tc.typ, Nullable: true})
+			arrowSchema := arrow.NewSchema(arrowFields, nil)
+			_, err := pqarrow.ToParquet(arrowSchema, nil, pqarrow.NewArrowWriterProperties())
+			assert.ErrorIs(t, err, arrow.ErrNotImplemented)
+			assert.ErrorContains(t, err, "support for "+tc.typ.ID().String())
+		})
+	}
 }

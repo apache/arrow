@@ -418,7 +418,7 @@ bar with a note that we made recent pushes to the branch
 ARROW-14816. That’s great, now we can make the Pull Request
 by clicking on **Compare & pull request**.
 
-.. figure:: /developers/images/R_tutorial_create_pr_notice.jpeg
+.. figure:: ../../images/R_tutorial_create_pr_notice.jpeg
    :scale: 60 %
    :alt: GitHub page of the Apache Arrow repository showing a notice bar
          indicating change has been made in our branch and a Pull Request
@@ -436,7 +436,7 @@ with GH-14816: [R] Implement bindings for lubridate::mday()*.
 
 We will also add a description to make it clear to others what we are trying to do.
 
-.. figure:: /developers/images/R_tutorial_pr_descr.jpeg
+.. figure:: ../../images/R_tutorial_pr_descr.jpeg
    :scale: 50 %
    :alt: GitHub page of the Pull Request showing the editor for the
          title and a description.
@@ -446,7 +446,7 @@ We will also add a description to make it clear to others what we are trying to 
 Once we click **Create pull request** our code can be reviewed as
 a Pull Request in the Apache Arrow repository.
 
-.. figure:: /developers/images/R_tutorial_pr.jpeg
+.. figure:: ../../images/R_tutorial_pr.jpeg
    :scale: 50 %
    :alt: GitHub page of the Pull Request showing the title and a
          description.

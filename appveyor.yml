@@ -58,4 +58,4 @@ build_script:
 test: off
 
 after_build:
-  - ccache -s
+  - ccache -sv

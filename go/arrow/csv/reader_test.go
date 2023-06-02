@@ -20,19 +20,18 @@ import (
 	"bytes"
 	stdcsv "encoding/csv"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/csv"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/types"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/csv"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -329,7 +328,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool, stringsCanBeN
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	raw, err := ioutil.ReadFile(filepath)
+	raw, err := os.ReadFile(filepath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -389,8 +388,8 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool, stringsCanBeN
 	str1Value := `""`
 	str2Value := `"null"`
 	if stringsCanBeNull {
-		str1Value = "(null)"
-		str2Value = "(null)"
+		str1Value = array.NullValueStr
+		str2Value = array.NullValueStr
 	}
 
 	want := fmt.Sprintf(`rec[0]["bool"]: [true]
@@ -469,7 +468,7 @@ func TestCSVReaderWithChunk(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	raw, err := ioutil.ReadFile("testdata/simple.csv")
+	raw, err := os.ReadFile("testdata/simple.csv")
 	if err != nil {
 		t.Fatal(err)
 	}

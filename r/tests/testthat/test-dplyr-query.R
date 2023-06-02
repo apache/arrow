@@ -119,14 +119,14 @@ test_that("collect(as_data_frame=FALSE)", {
   # collect(as_data_frame = FALSE) always returns Table now
   expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
-  expect_equal(as.data.frame(b2), expected)
+  expect_equal_data_frame(b2, expected)
 
   b3 <- batch %>%
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     collect(as_data_frame = FALSE)
   expect_r6_class(b3, "Table")
-  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+  expect_equal_data_frame(b3, set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
     select(int, strng = chr) %>%
@@ -134,8 +134,8 @@ test_that("collect(as_data_frame=FALSE)", {
     group_by(int) %>%
     collect(as_data_frame = FALSE)
   expect_r6_class(b4, "Table")
-  expect_equal(
-    as.data.frame(b4),
+  expect_equal_data_frame(
+    b4,
     expected %>%
       rename(strng = chr) %>%
       group_by(int)
@@ -156,14 +156,14 @@ test_that("compute()", {
 
   expect_r6_class(b2, "Table")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
-  expect_equal(as.data.frame(b2), expected)
+  expect_equal_data_frame(b2, expected)
 
   b3 <- batch %>%
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     compute()
   expect_r6_class(b3, "Table")
-  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+  expect_equal_data_frame(b3, set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
     select(int, strng = chr) %>%
@@ -171,8 +171,8 @@ test_that("compute()", {
     group_by(int) %>%
     compute()
   expect_r6_class(b4, "Table")
-  expect_equal(
-    as.data.frame(b4),
+  expect_equal_data_frame(
+    b4,
     expected %>%
       rename(strng = chr) %>%
       group_by(int)
@@ -210,8 +210,7 @@ test_that("arrange then head returns the right data (ARROW-14162)", {
       arrange(mpg, disp) %>%
       head(4) %>%
       collect(),
-    mtcars,
-    ignore_attr = "row.names"
+    tibble::as_tibble(mtcars)
   )
 })
 
@@ -222,8 +221,7 @@ test_that("arrange then tail returns the right data", {
       arrange(mpg, disp) %>%
       tail(4) %>%
       collect(),
-    mtcars,
-    ignore_attr = "row.names"
+    tibble::as_tibble(mtcars)
   )
 })
 
@@ -559,8 +557,8 @@ test_that("compute() on a grouped query returns a Table with groups in metadata"
     group_by(int) %>%
     compute()
   expect_r6_class(tab1, "Table")
-  expect_equal(
-    as.data.frame(tab1),
+  expect_equal_data_frame(
+    tab1,
     tbl %>%
       group_by(int)
   )

@@ -24,8 +24,10 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .before = NULL,
                                      .after = NULL) {
   call <- match.call()
+  .data <- as_adq(.data)
+  grv <- .data$group_by_vars
 
-  expression_list <- expand_across(.data, quos(...))
+  expression_list <- expand_across(.data, quos(...), exclude_cols = grv)
   exprs <- ensure_named_exprs(expression_list)
 
   .keep <- match.arg(.keep)
@@ -36,8 +38,6 @@ mutate.arrow_dplyr_query <- function(.data,
     # Nothing to do
     return(.data)
   }
-
-  .data <- as_adq(.data)
 
   # Restrict the cases we support for now
   has_aggregations <- any(unlist(lapply(exprs, all_funs)) %in% names(agg_funcs))
@@ -86,7 +86,7 @@ mutate.arrow_dplyr_query <- function(.data,
   }
 
   # Deduplicate new_vars and remove NULL columns from new_vars
-  new_vars <- intersect(new_vars, names(.data$selected_columns))
+  new_vars <- intersect(union(new_vars, grv), names(.data$selected_columns))
 
   # Respect .before and .after
   if (!quo_is_null(.before) || !quo_is_null(.after)) {
@@ -117,7 +117,9 @@ mutate.Dataset <- mutate.ArrowTabular <- mutate.RecordBatchReader <- mutate.arro
 
 transmute.arrow_dplyr_query <- function(.data, ...) {
   dots <- check_transmute_args(...)
-  expression_list <- expand_across(.data, dots)
+  .data <- as_adq(.data)
+  grv <- .data$group_by_vars
+  expression_list <- expand_across(.data, dots, exclude_cols = grv)
 
   has_null <- map_lgl(expression_list, quo_is_null)
   .data <- dplyr::mutate(.data, !!!expression_list, .keep = "none")
@@ -129,7 +131,7 @@ transmute.arrow_dplyr_query <- function(.data, ...) {
   cur_exprs <- map_chr(expression_list, as_label)
   transmute_order <- names(cur_exprs)
   transmute_order[!nzchar(transmute_order)] <- cur_exprs[!nzchar(transmute_order)]
-  dplyr::select(.data, all_of(transmute_order))
+  dplyr::select(.data, all_of(c(grv, transmute_order)))
 }
 transmute.Dataset <- transmute.ArrowTabular <- transmute.RecordBatchReader <- transmute.arrow_dplyr_query
 

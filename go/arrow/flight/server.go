@@ -22,7 +22,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/apache/arrow/go/v12/arrow/flight/internal/flight"
+	"github.com/apache/arrow/go/v13/arrow/flight/internal/flight"
 	"google.golang.org/grpc"
 )
 
@@ -52,14 +52,9 @@ type (
 	Empty                           = flight.Empty
 )
 
-// FlightService_ServiceDesc is the grpc.ServiceDesc for the FlightService
-// server. It should only be used for direct call of grpc.RegisterService,
-// and not introspected or modified (even as a copy).
-var FlightService_ServiceDesc = flight.FlightService_ServiceDesc
-
 // RegisterFlightServiceServer registers an existing flight server onto an
 // existing grpc server, or anything that is a grpc service registrar.
-func RegisterFlightServiceServer(s grpc.ServiceRegistrar, srv FlightServer) {
+func RegisterFlightServiceServer(s *grpc.Server, srv FlightServer) {
 	flight.RegisterFlightServiceServer(s, srv)
 }
 

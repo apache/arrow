@@ -36,17 +36,17 @@ function BigNum(this: any, x: any, ...xs: any) {
 }
 
 BigNum.prototype[isArrowBigNumSymbol] = true;
-BigNum.prototype.toJSON = function <T extends BN<BigNumArray>>(this: T) { return `"${bignumToString(this)}"`; };
-BigNum.prototype.valueOf = function <T extends BN<BigNumArray>>(this: T) { return bignumToNumber(this); };
-BigNum.prototype.toString = function <T extends BN<BigNumArray>>(this: T) { return bignumToString(this); };
+BigNum.prototype.toJSON = function <T extends BN<BigNumArray>>(this: T) { return `"${bigNumToString(this)}"`; };
+BigNum.prototype.valueOf = function <T extends BN<BigNumArray>>(this: T) { return bigNumToNumber(this); };
+BigNum.prototype.toString = function <T extends BN<BigNumArray>>(this: T) { return bigNumToString(this); };
 BigNum.prototype[Symbol.toPrimitive] = function <T extends BN<BigNumArray>>(this: T, hint: 'string' | 'number' | 'default' = 'default') {
     switch (hint) {
-        case 'number': return bignumToNumber(this);
-        case 'string': return bignumToString(this);
-        case 'default': return bignumToBigInt(this);
+        case 'number': return bigNumToNumber(this);
+        case 'string': return bigNumToString(this);
+        case 'default': return bigNumToBigInt(this);
     }
     // @ts-ignore
-    return bignumToString(this);
+    return bigNumToString(this);
 };
 
 /** @ignore */
@@ -70,10 +70,10 @@ Object.assign(UnsignedBigNum.prototype, BigNum.prototype, { 'constructor': Unsig
 Object.assign(DecimalBigNum.prototype, BigNum.prototype, { 'constructor': DecimalBigNum, 'signed': true, 'TypedArray': Uint32Array, 'BigIntArray': BigUint64Array });
 
 /** @ignore */
-function bignumToNumber<T extends BN<BigNumArray>>(bn: T) {
+function bigNumToNumber<T extends BN<BigNumArray>>(bn: T) {
     const { buffer, byteOffset, length, 'signed': signed } = bn;
     const words = new BigUint64Array(buffer, byteOffset, length);
-    const negative = signed && words[words.length - 1] & (BigInt(1) << BigInt(63));
+    const negative = signed && words.at(-1)! & (BigInt(1) << BigInt(63));
     let number = negative ? BigInt(1) : BigInt(0);
     let i = BigInt(0);
     if (!negative) {
@@ -90,12 +90,52 @@ function bignumToNumber<T extends BN<BigNumArray>>(bn: T) {
 }
 
 /** @ignore */
-export const bignumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T extends BN<BigNumArray>>(a: T) => a.byteLength === 8 ? `${new a['BigIntArray'](a.buffer, a.byteOffset, 1)[0]}` : decimalToString(a));
-/** @ignore */
-export const bignumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint } = (<T extends BN<BigNumArray>>(a: T) => a.byteLength === 8 ? new a['BigIntArray'](a.buffer, a.byteOffset, 1)[0] : <any>decimalToString(a));
+export const bigNumToString: { <T extends BN<BigNumArray>>(a: T): string } = (<T extends BN<BigNumArray>>(a: T) => {
+    // use BigInt native implementation
+    if (a.byteLength === 8) {
+        const bigIntArray = new a['BigIntArray'](a.buffer, a.byteOffset, 1);
+        return `${bigIntArray[0]}`;
+    }
+
+    // unsigned numbers
+    if (!a['signed']) {
+        return unsignedBigNumToString(a);
+    }
+
+    let array = new Uint16Array(a.buffer, a.byteOffset, a.byteLength / 2);
+
+    // detect positive numbers
+    const highOrderWord = new Int16Array([array.at(-1)!])[0];
+    if (highOrderWord >= 0) {
+        return unsignedBigNumToString(a);
+    }
+
+    // flip the negative value
+    array = array.slice();
+    let carry = 1;
+    for (let i = 0; i < array.length; i++) {
+        const elem = array[i];
+        const updated = ~elem + carry;
+        array[i] = updated;
+        carry &= elem === 0 ? 1 : 0;
+    }
+
+    const negated = unsignedBigNumToString(<any>array);
+    return `-${negated}`;
+});
 
 /** @ignore */
-function decimalToString<T extends BN<BigNumArray>>(a: T) {
+export const bigNumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint } = (<T extends BN<BigNumArray>>(a: T) => {
+    if (a.byteLength === 8) {
+        const bigIntArray = new a['BigIntArray'](a.buffer, a.byteOffset, 1);
+        return bigIntArray[0];
+    } else {
+        return <any>bigNumToString(a);
+    }
+});
+
+/** @ignore */
+function unsignedBigNumToString<T extends BN<BigNumArray>>(a: T) {
     let digits = '';
     const base64 = new Uint32Array(2);
     let base32 = new Uint16Array(a.buffer, a.byteOffset, a.byteLength / 2);

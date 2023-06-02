@@ -229,7 +229,7 @@ prepare_key_value_metadata <- function(metadata) {
       call. = FALSE
     )
   }
-  if (is.list(metadata[["r"]])) {
+  if (!is_empty(metadata) && is.list(metadata[["r"]])) {
     metadata[["r"]] <- .serialize_arrow_r_metadata(metadata[["r"]])
   }
   map_chr(metadata, as.character)

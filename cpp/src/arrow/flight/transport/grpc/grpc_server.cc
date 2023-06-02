@@ -117,11 +117,18 @@ class GrpcServerAuthSender : public ServerAuthSender {
 
 class GrpcServerCallContext : public ServerCallContext {
   explicit GrpcServerCallContext(::grpc::ServerContext* context)
-      : context_(context), peer_(context_->peer()) {}
+      : context_(context), peer_(context_->peer()) {
+    for (const auto& entry : context->client_metadata()) {
+      incoming_headers_.insert(
+          {std::string_view(entry.first.data(), entry.first.length()),
+           std::string_view(entry.second.data(), entry.second.length())});
+    }
+  }
 
   const std::string& peer_identity() const override { return peer_identity_; }
   const std::string& peer() const override { return peer_; }
   bool is_cancelled() const override { return context_->IsCancelled(); }
+  const CallHeaders& incoming_headers() const override { return incoming_headers_; }
 
   // Helper method that runs interceptors given the result of an RPC,
   // then returns the final gRPC status to send to the client
@@ -156,6 +163,7 @@ class GrpcServerCallContext : public ServerCallContext {
   std::string peer_identity_;
   std::vector<std::shared_ptr<ServerMiddleware>> middleware_;
   std::unordered_map<std::string, std::shared_ptr<ServerMiddleware>> middleware_map_;
+  CallHeaders incoming_headers_;
 };
 
 class GrpcAddServerHeaders : public AddCallHeaders {
@@ -299,7 +307,8 @@ class GrpcServiceHandler final : public FlightService::Service {
       } else {
         token = std::string(auth_header->second.data(), auth_header->second.length());
       }
-      GRPC_RETURN_NOT_OK(auth_handler_->IsValid(token, &flight_context.peer_identity_));
+      GRPC_RETURN_NOT_OK(
+          auth_handler_->IsValid(flight_context, token, &flight_context.peer_identity_));
     }
 
     return MakeCallContext(method, context, flight_context);
@@ -310,17 +319,11 @@ class GrpcServiceHandler final : public FlightService::Service {
                                  GrpcServerCallContext& flight_context) {
     // Run server middleware
     const CallInfo info{method};
-    CallHeaders incoming_headers;
-    for (const auto& entry : context->client_metadata()) {
-      incoming_headers.insert(
-          {std::string_view(entry.first.data(), entry.first.length()),
-           std::string_view(entry.second.data(), entry.second.length())});
-    }
 
     GrpcAddServerHeaders outgoing_headers(context);
     for (const auto& factory : middleware_) {
       std::shared_ptr<ServerMiddleware> instance;
-      Status result = factory.second->StartCall(info, incoming_headers, &instance);
+      Status result = factory.second->StartCall(info, flight_context, &instance);
       if (!result.ok()) {
         // Interceptor rejected call, end the request on all existing
         // interceptors
@@ -352,8 +355,8 @@ class GrpcServiceHandler final : public FlightService::Service {
     }
     GrpcServerAuthSender outgoing{stream};
     GrpcServerAuthReader incoming{stream};
-    RETURN_WITH_MIDDLEWARE(flight_context,
-                           auth_handler_->Authenticate(&outgoing, &incoming));
+    RETURN_WITH_MIDDLEWARE(flight_context, auth_handler_->Authenticate(
+                                               flight_context, &outgoing, &incoming));
   }
 
   ::grpc::Status ListFlights(ServerContext* context, const pb::Criteria* request,

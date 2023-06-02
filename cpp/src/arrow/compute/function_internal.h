@@ -286,7 +286,7 @@ static inline Result<decltype(MakeScalar(std::declval<T>()))> GenericToScalar(
 template <typename T>
 static inline Result<decltype(MakeScalar(std::declval<T>()))> GenericToScalar(
     const std::optional<T>& value) {
-  return value.has_value() ? MakeScalar(value.value()) : MakeScalar(nullptr);
+  return value.has_value() ? MakeScalar(value.value()) : MakeScalar("");
 }
 
 // For Clang/libc++: when iterating through vector<bool>, we can't

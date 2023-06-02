@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/goccy/go-json"
 )
 
@@ -62,7 +62,7 @@ func (a *Int64) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -157,7 +157,7 @@ func (a *Uint64) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -252,7 +252,7 @@ func (a *Float64) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -347,7 +347,7 @@ func (a *Int32) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -442,7 +442,7 @@ func (a *Uint32) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -537,7 +537,7 @@ func (a *Float32) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -632,7 +632,7 @@ func (a *Int16) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -727,7 +727,7 @@ func (a *Uint16) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -822,7 +822,7 @@ func (a *Int8) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -917,7 +917,7 @@ func (a *Uint8) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -977,96 +977,6 @@ func arrayEqualUint8(left, right *Uint8) bool {
 	return true
 }
 
-// A type which represents an immutable sequence of arrow.Timestamp values.
-type Timestamp struct {
-	array
-	values []arrow.Timestamp
-}
-
-// NewTimestampData creates a new Timestamp.
-func NewTimestampData(data arrow.ArrayData) *Timestamp {
-	a := &Timestamp{}
-	a.refCount = 1
-	a.setData(data.(*Data))
-	return a
-}
-
-// Reset resets the array for re-use.
-func (a *Timestamp) Reset(data *Data) {
-	a.setData(data)
-}
-
-// Value returns the value at the specified index.
-func (a *Timestamp) Value(i int) arrow.Timestamp { return a.values[i] }
-
-// Values returns the values.
-func (a *Timestamp) TimestampValues() []arrow.Timestamp { return a.values }
-
-// String returns a string representation of the array.
-func (a *Timestamp) String() string {
-	o := new(strings.Builder)
-	o.WriteString("[")
-	for i, v := range a.values {
-		if i > 0 {
-			fmt.Fprintf(o, " ")
-		}
-		switch {
-		case a.IsNull(i):
-			o.WriteString("(null)")
-		default:
-			fmt.Fprintf(o, "%v", v)
-		}
-	}
-	o.WriteString("]")
-	return o.String()
-}
-
-func (a *Timestamp) setData(data *Data) {
-	a.array.setData(data)
-	vals := data.buffers[1]
-	if vals != nil {
-		a.values = arrow.TimestampTraits.CastFromBytes(vals.Bytes())
-		beg := a.array.data.offset
-		end := beg + a.array.data.length
-		a.values = a.values[beg:end]
-	}
-}
-
-func (a *Timestamp) ValueStr(i int) string {
-	if a.IsNull(i) {
-		return NullValueStr
-	}
-	return a.values[i].ToTime(a.DataType().(*arrow.TimestampType).Unit).Format("2006-01-02 15:04:05.999999999")
-}
-
-func (a *Timestamp) GetOneForMarshal(i int) interface{} {
-	if a.IsNull(i) {
-		return nil
-	}
-	return a.values[i].ToTime(a.DataType().(*arrow.TimestampType).Unit).Format("2006-01-02 15:04:05.999999999")
-}
-
-func (a *Timestamp) MarshalJSON() ([]byte, error) {
-	vals := make([]interface{}, a.Len())
-	for i := range a.values {
-		vals[i] = a.GetOneForMarshal(i)
-	}
-
-	return json.Marshal(vals)
-}
-
-func arrayEqualTimestamp(left, right *Timestamp) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
 // A type which represents an immutable sequence of arrow.Time32 values.
 type Time32 struct {
 	array
@@ -1102,7 +1012,7 @@ func (a *Time32) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -1126,8 +1036,7 @@ func (a *Time32) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	a.values[i].FormattedString(a.DataType().(*arrow.Time32Type).Unit)
-	return a.values[i].ToTime(a.DataType().(*arrow.Time32Type).Unit).Format("15:04:05.999999999")
+	return a.values[i].FormattedString(a.DataType().(*arrow.Time32Type).Unit)
 }
 
 func (a *Time32) GetOneForMarshal(i int) interface{} {
@@ -1193,7 +1102,7 @@ func (a *Time64) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -1217,7 +1126,7 @@ func (a *Time64) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	return a.values[i].ToTime(a.DataType().(*arrow.Time64Type).Unit).Format("15:04:05.999999999")
+	return a.values[i].FormattedString(a.DataType().(*arrow.Time64Type).Unit)
 }
 
 func (a *Time64) GetOneForMarshal(i int) interface{} {
@@ -1283,7 +1192,7 @@ func (a *Date32) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -1307,7 +1216,7 @@ func (a *Date32) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	return a.values[i].ToTime().Format("2006-01-02")
+	return a.values[i].FormattedString()
 }
 
 func (a *Date32) GetOneForMarshal(i int) interface{} {
@@ -1373,7 +1282,7 @@ func (a *Date64) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -1397,7 +1306,7 @@ func (a *Date64) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	return a.values[i].ToTime().Format("2006-01-02")
+	return a.values[i].FormattedString()
 }
 
 func (a *Date64) GetOneForMarshal(i int) interface{} {
@@ -1463,7 +1372,7 @@ func (a *Duration) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -1488,7 +1397,7 @@ func (a *Duration) ValueStr(i int) string {
 		return NullValueStr
 	}
 	// return value and suffix as a string such as "12345ms"
-	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*arrow.DurationType).Unit.String())
+	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*arrow.DurationType).Unit)
 }
 
 func (a *Duration) GetOneForMarshal(i int) interface{} {

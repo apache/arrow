@@ -21,7 +21,7 @@ package kernels
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v13/arrow"
 )
 
 var castNumericUnsafe func(itype, otype arrow.Type, in, out []byte, len int) = castNumericGo

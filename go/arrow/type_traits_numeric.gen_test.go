@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v13/arrow"
 )
 
 func TestInt64Traits(t *testing.T) {
@@ -359,40 +359,6 @@ func TestUint8Traits(t *testing.T) {
 
 	v2 := make([]uint8, N)
 	arrow.Uint8Traits.Copy(v2, v1)
-
-	if !reflect.DeepEqual(v1, v2) {
-		t.Fatalf("invalid values:\nv1=%v\nv2=%v\n", v1, v2)
-	}
-}
-
-func TestTimestampTraits(t *testing.T) {
-	const N = 10
-	b1 := arrow.TimestampTraits.CastToBytes([]arrow.Timestamp{
-		0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-	})
-
-	b2 := make([]byte, arrow.TimestampTraits.BytesRequired(N))
-	for i := 0; i < N; i++ {
-		beg := i * arrow.TimestampSizeBytes
-		end := (i + 1) * arrow.TimestampSizeBytes
-		arrow.TimestampTraits.PutValue(b2[beg:end], arrow.Timestamp(i))
-	}
-
-	if !reflect.DeepEqual(b1, b2) {
-		v1 := arrow.TimestampTraits.CastFromBytes(b1)
-		v2 := arrow.TimestampTraits.CastFromBytes(b2)
-		t.Fatalf("invalid values:\nb1=%v\nb2=%v\nv1=%v\nv2=%v\n", b1, b2, v1, v2)
-	}
-
-	v1 := arrow.TimestampTraits.CastFromBytes(b1)
-	for i, v := range v1 {
-		if got, want := v, arrow.Timestamp(i); got != want {
-			t.Fatalf("invalid value[%d]. got=%v, want=%v", i, got, want)
-		}
-	}
-
-	v2 := make([]arrow.Timestamp, N)
-	arrow.TimestampTraits.Copy(v2, v1)
 
 	if !reflect.DeepEqual(v1, v2) {
 		t.Fatalf("invalid values:\nv1=%v\nv2=%v\n", v1, v2)

@@ -26,6 +26,7 @@ next_version = sys.argv[3]
 
 main_versions_path = dir_path + "/docs/source/_static/versions.json"
 r_versions_path = dir_path + "/r/pkgdown/assets/versions.json"
+r_html_path = dir_path + "/r/pkgdown/assets/versions.html"
 
 split_version = version.split(".")
 split_next_version = next_version.split(".")
@@ -87,3 +88,14 @@ else:
 with open(r_versions_path, 'w') as json_file:
     json.dump(new_r_versions, json_file, indent=4)
     json_file.write("\n")
+
+# Load the updated versions JSON file
+with open(r_versions_path) as json_file:
+    data = json.load(json_file)
+
+# Write HTML to file
+with open(r_html_path, 'w') as html_file:
+    html_file.write('<!DOCTYPE html>\n<html>\n<body>')
+    for i in data:
+        html_file.write(f'<p><a href="../{i["version"]}r/">{i["name"]}</a></p>\n')
+    html_file.write('</body>\n</html>\n')

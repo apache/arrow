@@ -24,7 +24,7 @@
 // to mean Py_ssize_t (defining this to suppress deprecation warning)
 #define PY_SSIZE_T_CLEAN
 
-#include <Python.h> // IWYU pragma: export
+#include <Python.h>  // IWYU pragma: export
 #include <datetime.h>
 
 // Work around C2528 error
@@ -32,5 +32,10 @@
 #if _MSC_VER >= 1900
 #undef timezone
 #endif
-#endif
 
+// https://bugs.python.org/issue36020
+// TODO(wjones127): Can remove once we drop support for CPython 3.9
+#ifdef snprintf
+#undef snprintf
+#endif
+#endif

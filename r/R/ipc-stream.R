@@ -106,7 +106,7 @@ read_ipc_stream <- function(file, as_data_frame = TRUE, ...) {
   # https://issues.apache.org/jira/browse/ARROW-6830
   out <- RecordBatchStreamReader$create(file)$read_table()
   if (as_data_frame) {
-    out <- as.data.frame(out)
+    out <- collect.ArrowTabular(out)
   }
   out
 }

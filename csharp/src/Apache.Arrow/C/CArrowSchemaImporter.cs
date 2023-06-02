@@ -227,7 +227,7 @@ namespace Apache.Arrow.C
                         _ => throw new InvalidDataException($"Unsupported time unit for import: {format[2]}"),
                     };
 
-                    string timezone = format.Split(':')[1];
+                    string timezone = format.Substring(format.IndexOf(':') + 1);
                     return new TimestampType(timeUnit, timezone);
                 }
 

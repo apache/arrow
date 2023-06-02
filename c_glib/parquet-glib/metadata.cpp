@@ -38,10 +38,12 @@ G_BEGIN_DECLS
 
 struct GParquetColumnChunkMetadataPrivate {
   parquet::ColumnChunkMetaData *metadata;
+  GParquetRowGroupMetadata *owner;
 };
 
 enum {
   PROP_METADATA = 1,
+  PROP_OWNER,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GParquetColumnChunkMetadata,
@@ -54,11 +56,14 @@ G_DEFINE_TYPE_WITH_PRIVATE(GParquetColumnChunkMetadata,
       GPARQUET_COLUMN_CHUNK_METADATA(object)))
 
 static void
-gparquet_column_chunk_metadata_finalize(GObject *object)
+gparquet_column_chunk_metadata_dispose(GObject *object)
 {
   auto priv = GPARQUET_COLUMN_CHUNK_METADATA_GET_PRIVATE(object);
-  delete priv->metadata;
-  G_OBJECT_CLASS(gparquet_column_chunk_metadata_parent_class)->finalize(object);
+  if (priv->owner) {
+    g_object_unref(priv->owner);
+    priv->owner = nullptr;
+  }
+  G_OBJECT_CLASS(gparquet_column_chunk_metadata_parent_class)->dispose(object);
 }
 
 static void
@@ -73,6 +78,9 @@ gparquet_column_chunk_metadata_set_property(GObject *object,
   case PROP_METADATA:
     priv->metadata =
       static_cast<parquet::ColumnChunkMetaData *>(g_value_get_pointer(value));
+    break;
+  case PROP_OWNER:
+    priv->owner = GPARQUET_ROW_GROUP_METADATA(g_value_dup_object(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -90,15 +98,24 @@ gparquet_column_chunk_metadata_class_init(
   GParquetColumnChunkMetadataClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->finalize = gparquet_column_chunk_metadata_finalize;
+  gobject_class->dispose = gparquet_column_chunk_metadata_dispose;
   gobject_class->set_property = gparquet_column_chunk_metadata_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("metadata", "Metadata",
+  spec = g_param_spec_pointer("metadata",
+                              "Metadata",
                               "The raw parquet::ColumnChunkMetaData *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_METADATA, spec);
+
+  spec = g_param_spec_object("owner",
+                             "Owner",
+                             "The row group metadata that owns this metadata",
+                             GPARQUET_TYPE_ROW_GROUP_METADATA,
+                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_OWNER, spec);
 }
 
 /**
@@ -213,6 +230,7 @@ gparquet_column_chunk_metadata_get_statistics(
 
 struct GParquetRowGroupMetadataPrivate {
   parquet::RowGroupMetaData *metadata;
+  GParquetFileMetadata *owner;
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GParquetRowGroupMetadata,
@@ -225,11 +243,14 @@ G_DEFINE_TYPE_WITH_PRIVATE(GParquetRowGroupMetadata,
       GPARQUET_ROW_GROUP_METADATA(object)))
 
 static void
-gparquet_row_group_metadata_finalize(GObject *object)
+gparquet_row_group_metadata_dispose(GObject *object)
 {
   auto priv = GPARQUET_ROW_GROUP_METADATA_GET_PRIVATE(object);
-  delete priv->metadata;
-  G_OBJECT_CLASS(gparquet_row_group_metadata_parent_class)->finalize(object);
+  if (priv->owner) {
+    g_object_unref(priv->owner);
+    priv->owner = nullptr;
+  }
+  G_OBJECT_CLASS(gparquet_row_group_metadata_parent_class)->dispose(object);
 }
 
 static void
@@ -244,6 +265,9 @@ gparquet_row_group_metadata_set_property(GObject *object,
   case PROP_METADATA:
     priv->metadata =
       static_cast<parquet::RowGroupMetaData *>(g_value_get_pointer(value));
+    break;
+  case PROP_OWNER:
+    priv->owner = GPARQUET_FILE_METADATA(g_value_dup_object(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -260,7 +284,7 @@ static void
 gparquet_row_group_metadata_class_init(GParquetRowGroupMetadataClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->finalize = gparquet_row_group_metadata_finalize;
+  gobject_class->finalize = gparquet_row_group_metadata_dispose;
   gobject_class->set_property = gparquet_row_group_metadata_set_property;
 
   GParamSpec *spec;
@@ -269,6 +293,14 @@ gparquet_row_group_metadata_class_init(GParquetRowGroupMetadataClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_METADATA, spec);
+
+  spec = g_param_spec_object("owner",
+                             "Owner",
+                             "The file group metadata that owns this metadata",
+                             GPARQUET_TYPE_FILE_METADATA,
+                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_OWNER, spec);
 }
 
 /**
@@ -335,7 +367,8 @@ gparquet_row_group_metadata_get_column_chunk(GParquetRowGroupMetadata *metadata,
                     status,
                     "[parquet][row-group-metadata][get-column-chunk]")) {
     return gparquet_column_chunk_metadata_new_raw(
-      parquet_column_chunk_metadata.release());
+      parquet_column_chunk_metadata.release(),
+      metadata);
   } else {
     return NULL;
   }
@@ -602,7 +635,8 @@ gparquet_file_metadata_get_row_group(GParquetFileMetadata *metadata,
     END_PARQUET_CATCH_EXCEPTIONS
   })();
   if (garrow::check(error, status, "[parquet][file-metadata][get-row-group]")) {
-    return gparquet_row_group_metadata_new_raw(parquet_row_group_metadata.release());
+    return gparquet_row_group_metadata_new_raw(parquet_row_group_metadata.release(),
+                                               metadata);
   } else {
     return NULL;
   }
@@ -664,12 +698,14 @@ G_END_DECLS
 
 GParquetColumnChunkMetadata *
 gparquet_column_chunk_metadata_new_raw(
-  parquet::ColumnChunkMetaData *parquet_metadata)
+  parquet::ColumnChunkMetaData *parquet_metadata,
+  GParquetRowGroupMetadata *owner)
 {
   auto metadata =
     GPARQUET_COLUMN_CHUNK_METADATA(
       g_object_new(GPARQUET_TYPE_COLUMN_CHUNK_METADATA,
                    "metadata", parquet_metadata,
+                   "owner", owner,
                    NULL));
   return metadata;
 }
@@ -683,11 +719,13 @@ gparquet_column_chunk_metadata_get_raw(GParquetColumnChunkMetadata *metadata)
 
 
 GParquetRowGroupMetadata *
-gparquet_row_group_metadata_new_raw(parquet::RowGroupMetaData *parquet_metadata)
+gparquet_row_group_metadata_new_raw(parquet::RowGroupMetaData *parquet_metadata,
+                                    GParquetFileMetadata *owner)
 {
   auto metadata =
     GPARQUET_ROW_GROUP_METADATA(g_object_new(GPARQUET_TYPE_ROW_GROUP_METADATA,
                                              "metadata", parquet_metadata,
+                                             "owner", owner,
                                              NULL));
   return metadata;
 }

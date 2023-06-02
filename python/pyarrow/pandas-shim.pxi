@@ -190,7 +190,7 @@ cdef class _PandasAPIShim(object):
 
     cpdef is_sparse(self, obj):
         if self._have_pandas_internal():
-            return self._types_api.is_sparse(obj)
+            return isinstance(obj.dtype, self.pd.SparseDtype)
         else:
             return False
 
@@ -224,10 +224,6 @@ cdef class _PandasAPIShim(object):
                                   self.pd.api.types.PeriodDtype)):
             return obj.array
         return obj.values
-
-    def assert_frame_equal(self, *args, **kwargs):
-        self._check_import()
-        return self._pd.util.testing.assert_frame_equal
 
     def get_rangeindex_attribute(self, level, name):
         # public start/stop/step attributes added in pandas 0.25.0

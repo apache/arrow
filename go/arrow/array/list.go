@@ -22,10 +22,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -41,6 +41,8 @@ type List struct {
 	values  arrow.Array
 	offsets []int32
 }
+
+var _ ListLike = (*List)(nil)
 
 // NewListData returns a new List array value, from data.
 func NewListData(data arrow.ArrayData) *List {
@@ -67,7 +69,7 @@ func (a *List) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -79,9 +81,7 @@ func (a *List) String() string {
 }
 
 func (a *List) newListValue(i int) arrow.Array {
-	j := i + a.array.data.offset
-	beg := int64(a.offsets[j])
-	end := int64(a.offsets[j+1])
+	beg, end := a.ValueOffsets(i)
 	return NewSlice(a.values, beg, end)
 }
 
@@ -161,7 +161,8 @@ func (a *List) Release() {
 
 func (a *List) ValueOffsets(i int) (start, end int64) {
 	debug.Assert(i >= 0 && i < a.array.data.length, "index out of range")
-	start, end = int64(a.offsets[i+a.data.offset]), int64(a.offsets[i+a.data.offset+1])
+	j := i + a.array.data.offset
+	start, end = int64(a.offsets[j]), int64(a.offsets[j+1])
 	return
 }
 
@@ -171,6 +172,8 @@ type LargeList struct {
 	values  arrow.Array
 	offsets []int64
 }
+
+var _ ListLike = (*LargeList)(nil)
 
 // NewLargeListData returns a new LargeList array value, from data.
 func NewLargeListData(data arrow.ArrayData) *LargeList {
@@ -188,6 +191,7 @@ func (a *LargeList) ValueStr(i int) string {
 	}
 	return string(a.GetOneForMarshal(i).(json.RawMessage))
 }
+
 func (a *LargeList) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -196,7 +200,7 @@ func (a *LargeList) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -208,9 +212,7 @@ func (a *LargeList) String() string {
 }
 
 func (a *LargeList) newListValue(i int) arrow.Array {
-	j := i + a.array.data.offset
-	beg := int64(a.offsets[j])
-	end := int64(a.offsets[j+1])
+	beg, end := a.ValueOffsets(i)
 	return NewSlice(a.values, beg, end)
 }
 
@@ -280,7 +282,8 @@ func (a *LargeList) Offsets() []int64 { return a.offsets }
 
 func (a *LargeList) ValueOffsets(i int) (start, end int64) {
 	debug.Assert(i >= 0 && i < a.array.data.length, "index out of range")
-	start, end = a.offsets[i], a.offsets[i+1]
+	j := i + a.array.data.offset
+	start, end = a.offsets[j], a.offsets[j+1]
 	return
 }
 
@@ -545,8 +548,12 @@ func (b *baseListBuilder) newData() (data *Data) {
 }
 
 func (b *baseListBuilder) AppendValueFromString(s string) error {
-	dec := json.NewDecoder(strings.NewReader(s))
-	return b.UnmarshalOne(dec)
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	return b.UnmarshalOne(json.NewDecoder(strings.NewReader(s)))
 }
 
 func (b *baseListBuilder) UnmarshalOne(dec *json.Decoder) error {

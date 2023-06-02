@@ -25,14 +25,14 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/float16"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/hashing"
-	"github.com/apache/arrow/go/v12/internal/utils"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/hashing"
+	"github.com/apache/arrow/go/v13/internal/utils"
 	"github.com/goccy/go-json"
 )
 
@@ -254,6 +254,9 @@ func (d *Dictionary) CanCompareIndices(other *Dictionary) bool {
 }
 
 func (d *Dictionary) ValueStr(i int) string {
+	if d.IsNull(i) {
+		return NullValueStr
+	}
 	return d.Dictionary().ValueStr(d.GetValueIndex(i))
 }
 
@@ -713,7 +716,6 @@ func (b *dictionaryBuilder) ResetFull() {
 
 func (b *dictionaryBuilder) Cap() int { return b.idxBuilder.Cap() }
 
-// UnmarshalJSON is not yet implemented for dictionary builders and will always error.
 func (b *dictionaryBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
@@ -742,11 +744,29 @@ func (b *dictionaryBuilder) Unmarshal(dec *json.Decoder) error {
 }
 
 func (b *dictionaryBuilder) AppendValueFromString(s string) error {
-	return fmt.Errorf("%w: AppendValueFromString to dictionary not yet implemented", arrow.ErrNotImplemented)
+	bldr := NewBuilder(b.mem, b.dt.ValueType)
+	defer bldr.Release()
+
+	if err := bldr.AppendValueFromString(s); err != nil {
+		return err
+	}
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+	return b.AppendArray(arr)
 }
 
 func (b *dictionaryBuilder) UnmarshalOne(dec *json.Decoder) error {
-	return errors.New("unmarshal json to dictionary not yet implemented")
+	bldr := NewBuilder(b.mem, b.dt.ValueType)
+	defer bldr.Release()
+
+	if err := bldr.UnmarshalOne(dec); err != nil {
+		return err
+	}
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+	return b.AppendArray(arr)
 }
 
 func (b *dictionaryBuilder) NewArray() arrow.Array {
@@ -1271,6 +1291,41 @@ func (b *BinaryDictionaryBuilder) InsertStringDictValues(arr *String) (err error
 		}
 	}
 	return
+}
+
+func (b *BinaryDictionaryBuilder) GetValueIndex(i int) int {
+	switch b := b.idxBuilder.Builder.(type) {
+	case *Uint8Builder:
+		return int(b.Value(i))
+	case *Int8Builder:
+		return int(b.Value(i))
+	case *Uint16Builder:
+		return int(b.Value(i))
+	case *Int16Builder:
+		return int(b.Value(i))
+	case *Uint32Builder:
+		return int(b.Value(i))
+	case *Int32Builder:
+		return int(b.Value(i))
+	case *Uint64Builder:
+		return int(b.Value(i))
+	case *Int64Builder:
+		return int(b.Value(i))
+	default:
+		return -1
+	}
+}
+
+func (b *BinaryDictionaryBuilder) Value(i int) []byte {
+	switch mt := b.memoTable.(type) {
+	case *hashing.BinaryMemoTable:
+		return mt.Value(i)
+	}
+	return nil
+}
+
+func (b *BinaryDictionaryBuilder) ValueStr(i int) string {
+	return string(b.Value(i))
 }
 
 type FixedSizeBinaryDictionaryBuilder struct {

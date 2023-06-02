@@ -19,15 +19,14 @@ package arrio_test
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/arrio"
-	"github.com/apache/arrow/go/v12/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/arrio"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 type copyKind int
@@ -93,13 +92,13 @@ func TestCopy(t *testing.T) {
 							mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 							defer mem.AssertSize(t, 0)
 
-							f, err := ioutil.TempFile(tempDir, "go-arrow-copy-")
+							f, err := os.CreateTemp(tempDir, "go-arrow-copy-")
 							if err != nil {
 								t.Fatal(err)
 							}
 							defer f.Close()
 
-							o, err := ioutil.TempFile(tempDir, "go-arrow-copy-")
+							o, err := os.CreateTemp(tempDir, "go-arrow-copy-")
 							if err != nil {
 								t.Fatal(err)
 							}
