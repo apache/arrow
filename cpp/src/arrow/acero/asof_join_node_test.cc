@@ -1529,7 +1529,6 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
   ASSERT_EQ(static_cast<int64_t>(num_batches * batch_size), total_length);
 
   size_t total_pause_count = 0, total_resume_count = 0;
-  ;
   for (size_t i = 0; i < source_configs.size(); i++) {
     if (bp_counters[i].pause_count > 0) total_pause_count++;
     if (bp_counters[i].resume_count > 0) total_resume_count++;
