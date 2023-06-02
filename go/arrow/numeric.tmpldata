@@ -79,18 +79,6 @@
     "Size": "1"
   },
   {
-    "Name": "Timestamp",
-    "name": "timestamp",
-    "Type": "Timestamp",
-    "QualifiedType": "arrow.Timestamp",
-    "InternalType": "int64",
-    "Default": "0",
-    "Size": "8",
-    "Opt": {
-      "Parametric": true
-    }
-  },
-  {
     "Name": "Time32",
     "name": "time32",
     "Type": "Time32",

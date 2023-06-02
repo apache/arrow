@@ -17,10 +17,10 @@
 package array
 
 import (
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"	
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"	
 	"github.com/goccy/go-json"
 )
 
@@ -147,6 +147,10 @@ func (b *{{.Name}}Builder) Resize(n int) {
 	}
 }
 
+func (b *{{.Name}}Builder) Value(i int) {{or .QualifiedType .Type}} {
+	return b.rawData[i]
+}
+
 // NewArray creates a {{.Name}} array from the memory buffers used by the builder and resets the {{.Name}}Builder
 // so it can be used to build a new array.
 func (b *{{.Name}}Builder) NewArray() arrow.Array {
@@ -217,38 +221,34 @@ func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
       return err
     }
     b.Append(val)
-  {{else if or (eq .Name "Timestamp") -}}
-  	v, err := arrow.TimestampFromString(s, b.dtype.Unit)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(v)
-  {{else if (eq .Name "Duration") -}}	
-    return fmt.Errorf("%w: AppendValueFromString not implemented for Duration", ErrNotImplemented)
+  {{else if (eq .Name "Duration") -}}
+	dur, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+
+	b.Append(arrow.Duration(dur / b.dtype.Unit.Multiplier()))
   {{else if or (eq .Name "Int8") (eq .Name "Int16") (eq .Name "Int32") (eq .Name "Int64") -}}
-    v, err := strconv.ParseInt(s, 10, {{.Size}})
+    v, err := strconv.ParseInt(s, 10, {{.Size}} * 8)
     if err != nil {
         b.AppendNull()
         return err
     }
     b.Append({{.name}}(v))
   {{else if or (eq .Name "Uint8") (eq .Name "Uint16") (eq .Name "Uint32") (eq .Name "Uint64") -}}
-    v, err := strconv.ParseUint(s, 10, {{.Size}})
+    v, err := strconv.ParseUint(s, 10, {{.Size}} * 8)
     if err != nil {
         b.AppendNull()
         return err
     }
     b.Append({{.name}}(v))
   {{else if or (eq .Name "Float32") (eq .Name "Float64") -}}
-    v, err := strconv.ParseFloat(s, {{.Size}})
+    v, err := strconv.ParseFloat(s, {{.Size}} * 8)
     if err != nil {
       b.AppendNull()
       return err
     }
     b.Append({{.name}}(v))
-  {{else}}
-    return fmt.Errorf("%w: AppendValueFromString not implemented for {{.Name}}", ErrNotImplemented)
   {{end -}}
 	return nil
 }
@@ -286,14 +286,9 @@ func (b *{{.Name}}Builder) UnmarshalOne(dec *json.Decoder) error {
 		b.Append({{.QualifiedType}}(n))
 	case float64:
 		b.Append({{.QualifiedType}}(v))
-{{else if or (eq .Name "Time32") (eq .Name "Time64") (eq .Name "Timestamp") -}}
+{{else if or (eq .Name "Time32") (eq .Name "Time64") -}}
 	case string:
-{{if (eq .Name "Timestamp") -}}
-		loc, _ := b.dtype.GetZone()
-		tm, _, err := arrow.TimestampFromStringInLocation(v, b.dtype.Unit, loc)
-{{else -}}
 		tm, err := {{.QualifiedType}}FromString(v, b.dtype.Unit)
-{{end}}
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value: v,

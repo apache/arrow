@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 // Useful operations to implement kernels handling run-end encoded arrays
 
 #include <algorithm>

@@ -23,10 +23,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -83,12 +83,15 @@ func (a *Struct) Field(i int) arrow.Array { return a.fields[i] }
 
 // ValueStr returns the string representation (as json) of the value at index i.
 func (a *Struct) ValueStr(i int) string {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+
+	data, err := json.Marshal(a.GetOneForMarshal(i))
+	if err != nil {
 		panic(err)
 	}
-	return buf.String()
+	return string(data)
 }
 
 func (a *Struct) String() string {
@@ -118,14 +121,15 @@ func (a *Struct) String() string {
 // newStructFieldWithParentValidityMask returns the Interface at fieldIndex
 // with a nullBitmapBytes adjusted according on the parent struct nullBitmapBytes.
 // From the docs:
-//   "When reading the struct array the parent validity bitmap takes priority."
+//
+//	"When reading the struct array the parent validity bitmap takes priority."
 func (a *Struct) newStructFieldWithParentValidityMask(fieldIndex int) arrow.Array {
 	field := a.Field(fieldIndex)
 	nullBitmapBytes := field.NullBitmapBytes()
 	maskedNullBitmapBytes := make([]byte, len(nullBitmapBytes))
 	copy(maskedNullBitmapBytes, nullBitmapBytes)
 	for i := 0; i < field.Len(); i++ {
-		if !a.IsValid(i) {
+		if a.IsNull(i) {
 			bitutil.ClearBit(maskedNullBitmapBytes, i)
 		}
 	}
@@ -362,8 +366,13 @@ func (b *StructBuilder) newData() (data *Data) {
 }
 
 func (b *StructBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
 	if !strings.HasPrefix(s, "{") && !strings.HasSuffix(s, "}") {
-		return fmt.Errorf("%w: invalid string for struct should be be of form: {*}", arrow.ErrInvalid,)
+		return fmt.Errorf("%w: invalid string for struct should be be of form: {*}", arrow.ErrInvalid)
 	}
 	dec := json.NewDecoder(strings.NewReader(s))
 	return b.UnmarshalOne(dec)

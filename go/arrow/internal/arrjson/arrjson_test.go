@@ -19,12 +19,12 @@ package arrjson
 import (
 	"errors"
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -53,7 +53,7 @@ func TestReadWrite(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile(tempDir, "go-arrow-read-write-")
+			f, err := os.CreateTemp(tempDir, "go-arrow-read-write-")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -82,7 +82,7 @@ func TestReadWrite(t *testing.T) {
 				t.Fatalf("could not sync data to disk: %v", err)
 			}
 
-			fileBytes, _ := ioutil.ReadFile(f.Name())
+			fileBytes, _ := os.ReadFile(f.Name())
 			assert.JSONEq(t, wantJSONs[name], string(fileBytes))
 
 			_, err = f.Seek(0, io.SeekStart)
@@ -92,7 +92,7 @@ func TestReadWrite(t *testing.T) {
 
 			r, err := NewReader(f, WithAllocator(mem), WithSchema(recs[0].Schema()))
 			if err != nil {
-				raw, _ := ioutil.ReadFile(f.Name())
+				raw, _ := os.ReadFile(f.Name())
 				t.Fatalf("could not read JSON file: %v\n%v\n", err, string(raw))
 			}
 			defer r.Release()

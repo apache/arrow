@@ -278,12 +278,12 @@ public class NullVector implements FieldVector {
 
   @Override
   public int hashCode(int index) {
-    return 31 * valueCount;
+    return 31;
   }
 
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
-    return 31 * valueCount;
+    return 31;
   }
 
   @Override

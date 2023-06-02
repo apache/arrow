@@ -26,15 +26,15 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/file"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/file"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -168,16 +168,6 @@ func (sr *structReader) Release() {
 }
 
 func newStructReader(rctx *readerCtx, filtered *arrow.Field, levelInfo file.LevelInfo, children []*ColumnReader, props ArrowReadProperties) *ColumnReader {
-	// there could be a mix of children some might be repeated and some might not be
-	// if possible use one that isn't since that will be guaranteed to have the least
-	// number of levels to reconstruct a nullable bitmap
-	var result *ColumnReader
-	for _, child := range children {
-		if !child.IsOrHasRepeatedChild() {
-			result = child
-		}
-	}
-
 	ret := &structReader{
 		rctx:      rctx,
 		filtered:  filtered,
@@ -186,10 +176,18 @@ func newStructReader(rctx *readerCtx, filtered *arrow.Field, levelInfo file.Leve
 		props:     props,
 		refCount:  1,
 	}
-	if result != nil {
-		ret.defRepLevelChild = result
-		ret.hasRepeatedChild = false
-	} else {
+
+	// there could be a mix of children some might be repeated and some might not be
+	// if possible use one that isn't since that will be guaranteed to have the least
+	// number of levels to reconstruct a nullable bitmap
+	for _, child := range children {
+		if !child.IsOrHasRepeatedChild() {
+			ret.defRepLevelChild = child
+			break
+		}
+	}
+
+	if ret.defRepLevelChild == nil {
 		ret.defRepLevelChild = children[0]
 		ret.hasRepeatedChild = true
 	}
@@ -250,24 +248,7 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 
 	var nullBitmap *memory.Buffer
 
-	if sr.hasRepeatedChild {
-		nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
-		nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
-		validityIO.ValidBits = nullBitmap.Bytes()
-		defLevels, err := sr.GetDefLevels()
-		if err != nil {
-			return nil, err
-		}
-		repLevels, err := sr.GetRepLevels()
-		if err != nil {
-			return nil, err
-		}
-
-		if err := file.DefRepLevelsToBitmap(defLevels, repLevels, sr.levelInfo, &validityIO); err != nil {
-			return nil, err
-		}
-
-	} else if sr.filtered.Nullable {
+	if lenBound > 0 && (sr.hasRepeatedChild || sr.filtered.Nullable) {
 		nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
 		nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
 		validityIO.ValidBits = nullBitmap.Bytes()
@@ -276,7 +257,18 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 			return nil, err
 		}
 
-		file.DefLevelsToBitmap(defLevels, sr.levelInfo, &validityIO)
+		if sr.hasRepeatedChild {
+			repLevels, err := sr.GetRepLevels()
+			if err != nil {
+				return nil, err
+			}
+
+			if err := file.DefRepLevelsToBitmap(defLevels, repLevels, sr.levelInfo, &validityIO); err != nil {
+				return nil, err
+			}
+		} else {
+			file.DefLevelsToBitmap(defLevels, sr.levelInfo, &validityIO)
+		}
 	}
 
 	if nullBitmap != nil {

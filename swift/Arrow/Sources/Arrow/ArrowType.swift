@@ -17,10 +17,19 @@
 
 import Foundation
 
-enum ValidationError: Error {
+func FlatBuffersVersion_23_1_4() {
+}
+                                                                                                                
+public enum ArrowError: Error {
+    case none
     case unknownType
-    case outOfBounds(index: UInt)
+    case runtimeError(String)
+    case outOfBounds(index: Int64)
     case arrayHasNoElements
+    case unknownError(String)
+    case notImplemented
+    case ioError(String)
+    case invalid(String)
 }
 
 public enum ArrowTypeId {
@@ -65,10 +74,10 @@ public class ArrowType {
     public static let ArrowInt16 = Info.PrimitiveInfo(ArrowTypeId.Int16)
     public static let ArrowInt32 = Info.PrimitiveInfo(ArrowTypeId.Int32)
     public static let ArrowInt64 = Info.PrimitiveInfo(ArrowTypeId.Int64)
+    public static let ArrowUInt8 = Info.PrimitiveInfo(ArrowTypeId.UInt8)
     public static let ArrowUInt16 = Info.PrimitiveInfo(ArrowTypeId.UInt16)
     public static let ArrowUInt32 = Info.PrimitiveInfo(ArrowTypeId.UInt32)
     public static let ArrowUInt64 = Info.PrimitiveInfo(ArrowTypeId.UInt64)
-    public static let ArrowUInt8 = Info.PrimitiveInfo(ArrowTypeId.UInt8)
     public static let ArrowFloat = Info.PrimitiveInfo(ArrowTypeId.Float)
     public static let ArrowDouble = Info.PrimitiveInfo(ArrowTypeId.Double)
     public static let ArrowUnknown = Info.PrimitiveInfo(ArrowTypeId.Unknown)

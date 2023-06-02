@@ -22,7 +22,7 @@ package memory
 import (
 	"runtime"
 
-	cga "github.com/apache/arrow/go/v12/arrow/memory/internal/cgoalloc"
+	cga "github.com/apache/arrow/go/v13/arrow/memory/internal/cgoalloc"
 )
 
 // CgoArrowAllocator is an allocator which exposes the C++ memory pool class

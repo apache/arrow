@@ -2656,11 +2656,12 @@ void DeltaLengthByteArrayEncoder<DType>::Put(const T* src, int num_values) {
 
   constexpr int kBatchSize = 256;
   std::array<int32_t, kBatchSize> lengths;
+  uint32_t total_increment_size = 0;
   for (int idx = 0; idx < num_values; idx += kBatchSize) {
     const int batch_size = std::min(kBatchSize, num_values - idx);
     for (int j = 0; j < batch_size; ++j) {
       const int32_t len = src[idx + j].len;
-      if (AddWithOverflow(encoded_size_, len, &encoded_size_)) {
+      if (AddWithOverflow(total_increment_size, len, &total_increment_size)) {
         throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
       }
       lengths[j] = len;
@@ -2668,7 +2669,10 @@ void DeltaLengthByteArrayEncoder<DType>::Put(const T* src, int num_values) {
     length_encoder_.Put(lengths.data(), batch_size);
   }
 
-  PARQUET_THROW_NOT_OK(sink_.Reserve(encoded_size_));
+  if (AddWithOverflow(encoded_size_, total_increment_size, &encoded_size_)) {
+    throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
+  }
+  PARQUET_THROW_NOT_OK(sink_.Reserve(total_increment_size));
   for (int idx = 0; idx < num_values; idx++) {
     sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
   }

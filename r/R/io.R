@@ -232,6 +232,7 @@ mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
 #' @param random_access Logical: whether the result must be a RandomAccessFile
 #' @return An `InputStream` or a subclass of one.
 #' @keywords internal
+#' @importFrom utils download.file
 make_readable_file <- function(file, mmap = TRUE, random_access = TRUE) {
   if (inherits(file, "SubTreeFileSystem")) {
     filesystem <- file$base_fs

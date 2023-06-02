@@ -504,6 +504,18 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
                            " columns, requested metadata for column: ", i);
   }
 
+  std::vector<SortingColumn> sorting_columns() const {
+    std::vector<SortingColumn> sorting_columns;
+    if (!row_group_->__isset.sorting_columns) {
+      return sorting_columns;
+    }
+    sorting_columns.resize(row_group_->sorting_columns.size());
+    for (size_t i = 0; i < sorting_columns.size(); ++i) {
+      sorting_columns[i] = FromThrift(row_group_->sorting_columns[i]);
+    }
+    return sorting_columns;
+  }
+
  private:
   const format::RowGroup* row_group_;
   const SchemaDescriptor* schema_;
@@ -569,6 +581,10 @@ bool RowGroupMetaData::can_decompress() const {
     }
   }
   return true;
+}
+
+std::vector<SortingColumn> RowGroupMetaData::sorting_columns() const {
+  return impl_->sorting_columns();
 }
 
 // file metadata
@@ -1446,40 +1462,44 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_total_compressed_size(compressed_size);
 
     std::vector<format::Encoding::type> thrift_encodings;
-    if (has_dictionary) {
-      thrift_encodings.push_back(ToThrift(properties_->dictionary_index_encoding()));
-      if (properties_->version() == ParquetVersion::PARQUET_1_0) {
-        thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
-      } else {
-        thrift_encodings.push_back(ToThrift(properties_->dictionary_page_encoding()));
-      }
-    } else {  // Dictionary not enabled
-      thrift_encodings.push_back(ToThrift(properties_->encoding(column_->path())));
-    }
-    thrift_encodings.push_back(ToThrift(Encoding::RLE));
-    // Only PLAIN encoding is supported for fallback in V1
-    // TODO(majetideepak): Use user specified encoding for V2
-    if (dictionary_fallback) {
-      thrift_encodings.push_back(ToThrift(Encoding::PLAIN));
-    }
-    column_chunk_->meta_data.__set_encodings(thrift_encodings);
     std::vector<format::PageEncodingStats> thrift_encoding_stats;
+    auto add_encoding = [&thrift_encodings](format::Encoding::type value) {
+      auto it = std::find(thrift_encodings.begin(), thrift_encodings.end(), value);
+      if (it == thrift_encodings.end()) {
+        thrift_encodings.push_back(value);
+      }
+    };
     // Add dictionary page encoding stats
-    for (const auto& entry : dict_encoding_stats) {
-      format::PageEncodingStats dict_enc_stat;
-      dict_enc_stat.__set_page_type(format::PageType::DICTIONARY_PAGE);
-      dict_enc_stat.__set_encoding(ToThrift(entry.first));
-      dict_enc_stat.__set_count(entry.second);
-      thrift_encoding_stats.push_back(dict_enc_stat);
+    if (has_dictionary) {
+      for (const auto& entry : dict_encoding_stats) {
+        format::PageEncodingStats dict_enc_stat;
+        dict_enc_stat.__set_page_type(format::PageType::DICTIONARY_PAGE);
+        // Dictionary Encoding would be PLAIN_DICTIONARY in v1 and
+        // PLAIN in v2.
+        format::Encoding::type dict_encoding = ToThrift(entry.first);
+        dict_enc_stat.__set_encoding(dict_encoding);
+        dict_enc_stat.__set_count(entry.second);
+        thrift_encoding_stats.push_back(dict_enc_stat);
+        add_encoding(dict_encoding);
+      }
     }
+    // Always add encoding for RL/DL.
+    // BIT_PACKED is supported in `LevelEncoder`, but would only be used
+    // in benchmark and testing.
+    // And for now, we always add RLE even if there are no levels at all,
+    // while parquet-mr is more fine-grained.
+    add_encoding(format::Encoding::RLE);
     // Add data page encoding stats
     for (const auto& entry : data_encoding_stats) {
       format::PageEncodingStats data_enc_stat;
       data_enc_stat.__set_page_type(format::PageType::DATA_PAGE);
-      data_enc_stat.__set_encoding(ToThrift(entry.first));
+      format::Encoding::type data_encoding = ToThrift(entry.first);
+      data_enc_stat.__set_encoding(data_encoding);
       data_enc_stat.__set_count(entry.second);
       thrift_encoding_stats.push_back(data_enc_stat);
+      add_encoding(data_encoding);
     }
+    column_chunk_->meta_data.__set_encodings(thrift_encodings);
     column_chunk_->meta_data.__set_encoding_stats(thrift_encoding_stats);
 
     const auto& encrypt_md =
@@ -1682,6 +1702,15 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
       // sometimes column metadata is encrypted and not available to read,
       // so we must get total_compressed_size from column builder
       total_compressed_size += column_builders_[i]->total_compressed_size();
+    }
+
+    const auto& sorting_columns = properties_->sorting_columns();
+    if (!sorting_columns.empty()) {
+      std::vector<format::SortingColumn> thrift_sorting_columns(sorting_columns.size());
+      for (size_t i = 0; i < sorting_columns.size(); ++i) {
+        thrift_sorting_columns[i] = ToThrift(sorting_columns[i]);
+      }
+      row_group_->__set_sorting_columns(std::move(thrift_sorting_columns));
     }
 
     row_group_->__set_file_offset(file_offset);

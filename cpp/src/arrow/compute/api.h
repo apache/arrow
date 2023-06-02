@@ -33,11 +33,6 @@
 #include "arrow/compute/registry.h"       // IWYU pragma: export
 #include "arrow/datum.h"                  // IWYU pragma: export
 
-/// \defgroup execnode-expressions Utilities for creating expressions to
-/// use in execution plans
-/// @{
-/// @}
-
 #include "arrow/compute/expression.h"  // IWYU pragma: export
 
 /// \defgroup execnode-row Utilities for working with data in a row-major format
@@ -46,7 +41,7 @@
 
 #include "arrow/compute/row/grouper.h"  // IWYU pragma: export
 
-/// \defgroup execnode-components Components associated with ExecBatch
+/// \defgroup acero-internals Acero internals, useful for those extending Acero
 /// @{
 /// @}
 

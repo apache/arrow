@@ -144,8 +144,7 @@ static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("sort_keys", &SelectKOptions::sort_keys));
 static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOptions>(
     DataMember("start", &CumulativeSumOptions::start),
-    DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls),
-    DataMember("check_overflow", &CumulativeSumOptions::check_overflow));
+    DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls));
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
@@ -199,16 +198,12 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
-CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls,
-                                           bool check_overflow)
-    : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls,
-                           check_overflow) {}
-CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls,
-                                           bool check_overflow)
+CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls)
+    : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls) {}
+CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls)
     : FunctionOptions(internal::kCumulativeSumOptionsType),
       start(std::move(start)),
-      skip_nulls(skip_nulls),
-      check_overflow(check_overflow) {}
+      skip_nulls(skip_nulls) {}
 constexpr char CumulativeSumOptions::kTypeName[];
 
 RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement,
@@ -381,8 +376,8 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
 // Cumulative functions
 
 Result<Datum> CumulativeSum(const Datum& values, const CumulativeSumOptions& options,
-                            ExecContext* ctx) {
-  auto func_name = (options.check_overflow) ? "cumulative_sum_checked" : "cumulative_sum";
+                            bool check_overflow, ExecContext* ctx) {
+  auto func_name = check_overflow ? "cumulative_sum_checked" : "cumulative_sum";
   return CallFunction(func_name, {Datum(values)}, &options, ctx);
 }
 
