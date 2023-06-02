@@ -545,8 +545,6 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory___3Lj
     JNIEnv* env, jobject, jobjectArray uris, jint file_format_id) {
   JNI_METHOD_START
 
-  using FsPathPair = std::pair<std::shared_ptr<arrow::fs::FileSystem>, std::string>;
-
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
       JniGetOrThrow(GetFileFormat(file_format_id));
   arrow::dataset::FileSystemFactoryOptions options;
@@ -562,32 +560,21 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory___3Lj
     JniThrow("Unrecognized file type in URI: " + *elem);
   }
 
-  std::vector<FsPathPair> filesystems;
-  filesystems.reserve(uri_vec.size());
-  std::transform(uri_vec.begin(), uri_vec.end(), std::back_inserter(filesystems),
-    [](const auto& s) -> FsPathPair {
-    std::string output_path;
-    auto fs = JniGetOrThrow(arrow::fs::FileSystemFromUri(s, &output_path));
-    return {fs, output_path};
-  });
+  std::vector<std::string> output_paths;
+  std::string first_path;
+  // We know that uri_vec isn't empty, from the conditional above
+  auto fs = JniGetOrThrow(arrow::fs::FileSystemFromUri(uri_vec[0], &first_path));
+  output_paths.push_back(first_path);
 
-  // If all URIs, ensure that they all share a FileSystem type
-  if (std::unique(filesystems.begin(), filesystems.end(),
-        [] (const auto& p1, const auto& p2) {
-          return p1.first->type_name() == p2.first->type_name();
-        }) - filesystems.begin() != 1) {
-    JniThrow("Different filesystems are not supported in a multi-file dataset.");
-  }
-
-  // Retrieve output paths
-  std::transform(filesystems.begin(), filesystems.end(), uri_vec.begin(),
-    [] (auto& p) {
-    return p.second;
+  std::transform(uri_vec.begin() + 1, uri_vec.end(), std::back_inserter(output_paths),
+    [&](const auto& s) -> std::string {
+    auto result = JniGetOrThrow(fs->PathFromUri(s));
+    return std::move(result);
   });
 
   std::shared_ptr<arrow::dataset::DatasetFactory> d =
       JniGetOrThrow(arrow::dataset::FileSystemDatasetFactory::Make(
-        filesystems[0].first, uri_vec, file_format, options));
+        std::move(fs), std::move(output_paths), file_format, options));
   return CreateNativeRef(d);
   JNI_METHOD_END(-1L)
 }

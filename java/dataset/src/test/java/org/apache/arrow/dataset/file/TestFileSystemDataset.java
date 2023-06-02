@@ -124,12 +124,24 @@ public class TestFileSystemDataset extends TestNativeDataset {
     AutoCloseables.close(factory);
   }
 
+
   @Test
   public void testMultipleParquetInvalidUri() throws Exception {
     RuntimeException exc = assertThrows(RuntimeException.class,
         () -> new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, new String[]{"https://example.com", "file:///test/location"}));
     Assertions.assertEquals("Unrecognized filesystem type in URI: https://example.com", exc.getMessage());
+  }
+
+  @Test
+  public void testMultipleParquetMultipleFilesystemTypes() throws Exception {
+    RuntimeException exc = assertThrows(RuntimeException.class,
+        () -> new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.PARQUET, new String[]{"file:///test/location", "s3:///test/bucket/file" }));
+    Assertions.assertTrue(
+            exc.getMessage().startsWith("The filesystem expected a URI with one of the schemes (file) but received s3"
+            )
+    );
   }
 
   @Test
