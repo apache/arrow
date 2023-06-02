@@ -1388,14 +1388,17 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
   };
 
   struct BackpressureTestNodeOptions : public ExecNodeOptions {
-    BackpressureCounters* counters;
+    double initial_sleep_seconds = 0;
+    BackpressureCounters* counters = nullptr;
   };
 
   struct BackpressureTestNode : public MapNode {
     BackpressureTestNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                          std::shared_ptr<Schema> output_schema,
                          const BackpressureTestNodeOptions& options)
-        : MapNode(plan, inputs, output_schema), counters(options.counters) {}
+        : MapNode(plan, inputs, output_schema),
+          counters(options.counters),
+          sleep_seconds(options.initial_sleep_seconds) {}
 
     static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                   const ExecNodeOptions& options) {
@@ -1406,7 +1409,13 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
     }
 
     const char* kind_name() const override { return "BackpressureTestNode"; }
-    Result<ExecBatch> ProcessBatch(ExecBatch batch) override { return batch; }
+    Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
+      if (sleep_seconds > 0) {
+        SleepFor(sleep_seconds);
+        sleep_seconds = 0;
+      }
+      return batch;
+    }
 
     void PauseProducing(ExecNode* output, int32_t counter) override {
       ++counters->pause_count;
@@ -1418,6 +1427,7 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
     }
 
     BackpressureCounters* counters;
+    double sleep_seconds;
   };
 
   auto exec_reg = default_exec_factory_registry();
@@ -1455,6 +1465,7 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
                                      config.is_fast ? fast_delay : slow_delay, noisy)));
     bp_options.push_back(std::make_shared<BackpressureTestNodeOptions>());
     bp_options.back()->counters = &bp_counters[i];
+    bp_options.back()->initial_sleep_seconds = config.is_fast ? 0 : 2;
     std::shared_ptr<ExecNodeOptions> options = bp_options.back();
     std::vector<Declaration::Input> bp_in = {src_decls.back()};
     Declaration bp_decl = {bp_test, bp_in, std::move(options)};
@@ -1485,12 +1496,10 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
     counters.resume_count += bp_counters[i].resume_count;
   }
   ASSERT_EQ(counters_by_is_fast.size(), 2);
+  ASSERT_EQ(counters_by_is_fast[false].pause_count, 0);
+  ASSERT_EQ(counters_by_is_fast[false].resume_count, 0);
   ASSERT_GT(counters_by_is_fast[true].pause_count, 0);
   ASSERT_GT(counters_by_is_fast[true].resume_count, 0);
-  // runs on some slow machines may not see any pause/resume, but if at least one pause is
-  // seen then at least one resume must also be seen
-  ASSERT_EQ(counters_by_is_fast[false].pause_count > 0,
-            counters_by_is_fast[false].resume_count > 0);
 }
 
 TEST(AsofJoinTest, BackpressureWithBatches) {
