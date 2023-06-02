@@ -381,11 +381,11 @@ TEST_F(DatasetWriterTestFixture, MinRowGroupBackpressure) {
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
-// Use a gated filesystem to queue up many writes behind a file open to make sure the
-// file isn't opened multiple times.
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Concurrent writes tests need threads";
 #endif
+  // Use a gated filesystem to queue up many writes behind a file open to make sure the
+  // file isn't opened multiple times.
   auto gated_fs = UseGatedFs();
   auto dataset_writer = MakeDatasetWriter();
   for (int i = 0; i < 10; i++) {
