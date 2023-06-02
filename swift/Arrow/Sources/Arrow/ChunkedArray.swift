@@ -17,16 +17,86 @@
 
 import Foundation
 
-public class ChunkedArray<T> {
-    let arrays: [ArrowArray<T>]
-    let type: ArrowType.Info
-    let nullCount: UInt
-    let length: UInt
-    var arrayCount: UInt {get{return UInt(self.arrays.count)}}
+public protocol AsString {
+    func asString(_ index: UInt) -> String
+}
+
+public class ChunkedArrayHolder {
+    public let type: ArrowType.Info
+    public let length: UInt
+    public let nullCount: UInt
+    public let holder: Any
+    public let getBufferData: () -> Result<[Data], ArrowError>
+    public let getBufferDataSizes: () -> Result<[Int], ArrowError>
+    public init<T>(_ chunked: ChunkedArray<T>) {
+        self.holder = chunked
+        self.length = chunked.length
+        self.type = chunked.type
+        self.nullCount = chunked.nullCount
+        self.getBufferData = {() -> Result<[Data], ArrowError> in
+            var bufferData = [Data]()
+            var numBuffers = 2;
+            switch toFBTypeEnum(chunked.type) {
+            case .success(let fbType):
+                if !isFixedPrimitive(fbType) {
+                    numBuffers = 3
+                }
+            case .failure(let error):
+                return .failure(error)
+            }
+
+            for _ in 0 ..< numBuffers {
+                bufferData.append(Data())
+            }
+
+            for arrow_data in chunked.arrays {
+                for index in 0 ..< numBuffers {
+                    arrow_data.arrowData.buffers[index].append(to: &bufferData[index])
+                }
+            }
+
+            return .success(bufferData);
+        }
+        
+        self.getBufferDataSizes = {() -> Result<[Int], ArrowError> in
+            var bufferDataSizes = [Int]()
+            var numBuffers = 2;
+            
+            switch toFBTypeEnum(chunked.type) {
+            case .success(let fbType):
+                if !isFixedPrimitive(fbType) {
+                    numBuffers = 3
+                }
+            case .failure(let error):
+                return .failure(error)
+            }
+            
+            for _ in 0 ..< numBuffers {
+                bufferDataSizes.append(Int(0))
+            }
+            
+            for arrow_data in chunked.arrays {
+                for index in 0 ..< numBuffers {
+                    bufferDataSizes[index] += Int(arrow_data.arrowData.buffers[index].capacity)
+                }
+            }
+
+            return .success(bufferDataSizes)
+        }
+
+    }
+}
+
+public class ChunkedArray<T> : AsString {
+    public let arrays: [ArrowArray<T>]
+    public let type: ArrowType.Info
+    public let nullCount: UInt
+    public let length: UInt
+    public var arrayCount: UInt {get{return UInt(self.arrays.count)}}
     
-    init(_ arrays: [ArrowArray<T>]) throws {
+    public init(_ arrays: [ArrowArray<T>]) throws {
         if arrays.count == 0 {
-            throw ValidationError.arrayHasNoElements
+            throw ArrowError.arrayHasNoElements
         }
         
         self.type = arrays[0].arrowData.type
@@ -42,8 +112,32 @@ public class ChunkedArray<T> {
         self.nullCount = nullCount
     }
     
-    subscript(_ index: UInt) -> ArrowArray<T> {
-        return arrays[Int(index)]
+    public subscript(_ index: UInt) -> T? {
+        if arrays.count == 0 {
+            return nil
+        }
+        
+        var localIndex = index
+        var arrayIndex = 0;
+        var len: UInt = arrays[arrayIndex].length
+        while localIndex > (len - 1) {
+            arrayIndex += 1
+            if arrayIndex > arrays.count {
+                return nil
+            }
+            
+            localIndex -= len
+            len = arrays[arrayIndex].length
+        }
+        
+        return arrays[arrayIndex][localIndex]
     }
     
+    public func asString(_ index: UInt) -> String {
+        if self[index] == nil {
+            return ""
+        }
+        
+        return "\(self[index]!)"
+    }
 }

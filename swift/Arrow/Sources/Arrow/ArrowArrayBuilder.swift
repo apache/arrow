@@ -107,7 +107,7 @@ public class ArrowArrayBuilders {
         } else if t == Double.self {
             return try NumberArrayBuilder<T>()
         } else {
-            throw ValidationError.unknownType
+            throw ArrowError.unknownType
         }
     }
 

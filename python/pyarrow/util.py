@@ -23,6 +23,7 @@ import functools
 import gc
 import socket
 import sys
+import textwrap
 import types
 import warnings
 
@@ -32,10 +33,67 @@ _DEPR_MSG = (
 )
 
 
-def implements(f):
-    def decorator(g):
-        g.__doc__ = f.__doc__
-        return g
+def doc(*docstrings, **params):
+    """
+    A decorator that takes docstring templates, concatenates them, and finally
+    performs string substitution on them.
+    This decorator will add a variable "_docstring_components" to the wrapped
+    callable to keep track of the original docstring template for potential future use.
+    If the docstring is a template, it will be saved as a string.
+    Otherwise, it will be saved as a callable and the docstring will be obtained via
+    the __doc__ attribute.
+    This decorator can not be used on Cython classes due to a CPython constraint,
+    which enforces the __doc__ attribute to be read-only.
+    See https://github.com/python/cpython/issues/91309
+
+    Parameters
+    ----------
+    *docstrings : None, str, or callable
+        The string / docstring / docstring template to be prepended in order
+        before the default docstring under the callable.
+    **params
+        The key/value pairs used to format the docstring template.
+    """
+
+    def decorator(decorated):
+        docstring_components = []
+
+        # collect docstrings and docstring templates
+        for docstring in docstrings:
+            if docstring is None:
+                continue
+            if hasattr(docstring, "_docstring_components"):
+                docstring_components.extend(
+                    docstring._docstring_components
+                )
+            elif isinstance(docstring, str) or docstring.__doc__:
+                docstring_components.append(docstring)
+
+        # append the callable's docstring last
+        if decorated.__doc__:
+            docstring_components.append(textwrap.dedent(decorated.__doc__))
+
+        params_applied = [
+            component.format(**params)
+            if isinstance(component, str) and len(params) > 0
+            else component
+            for component in docstring_components
+        ]
+
+        decorated.__doc__ = "".join(
+            [
+                component
+                if isinstance(component, str)
+                else textwrap.dedent(component.__doc__ or "")
+                for component in params_applied
+            ]
+        )
+
+        decorated._docstring_components = (
+            docstring_components
+        )
+        return decorated
+
     return decorator
 
 

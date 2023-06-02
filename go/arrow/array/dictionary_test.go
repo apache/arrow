@@ -23,12 +23,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -385,6 +385,39 @@ func (p *PrimitiveDictionaryTestSuite) TestResetFull() {
 	p.True(array.ArrayEqual(exdict, result.Dictionary()))
 }
 
+func (p *PrimitiveDictionaryTestSuite) TestStringRoundTrip() {
+	dt := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: p.typ}
+	b := array.NewDictionaryBuilder(p.mem, dt)
+	defer b.Release()
+
+	builder := reflect.ValueOf(b)
+	fn := builder.MethodByName("Append")
+	p.Nil(fn.Call([]reflect.Value{reflect.ValueOf(1).Convert(p.reftyp)})[0].Interface())
+	p.Nil(fn.Call([]reflect.Value{reflect.ValueOf(2).Convert(p.reftyp)})[0].Interface())
+	p.Nil(fn.Call([]reflect.Value{reflect.ValueOf(1).Convert(p.reftyp)})[0].Interface())
+	b.AppendNull()
+
+	p.EqualValues(4, b.Len())
+	p.EqualValues(1, b.NullN())
+
+	arr := b.NewArray().(*array.Dictionary)
+	defer arr.Release()
+	p.True(arrow.TypeEqual(dt, arr.DataType()))
+
+	b1 := array.NewDictionaryBuilder(p.mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		p.NoError(b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Dictionary)
+	defer arr1.Release()
+
+	p.Equal(arr.Len(), arr1.Len())
+	p.True(array.Equal(arr, arr1))
+}
+
 func TestBasicStringDictionaryBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
@@ -397,6 +430,10 @@ func TestBasicStringDictionaryBuilder(t *testing.T) {
 	assert.NoError(t, builder.Append([]byte("test")))
 	assert.NoError(t, builder.AppendString("test2"))
 	assert.NoError(t, builder.AppendString("test"))
+
+	assert.Equal(t, "test", builder.ValueStr(builder.GetValueIndex(0)))
+	assert.Equal(t, "test2", builder.ValueStr(builder.GetValueIndex(1)))
+	assert.Equal(t, "test", builder.ValueStr(builder.GetValueIndex(2)))
 
 	result := bldr.NewDictionaryArray()
 	defer result.Release()
@@ -808,6 +845,39 @@ func TestFixedSizeBinaryDictionaryBuilderDeltaDictionary(t *testing.T) {
 	assert.True(t, array.ArrayEqual(fsbArr2, delta2))
 }
 
+func TestFixedSizeBinaryDictionaryStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: &arrow.FixedSizeBinaryType{ByteWidth: 4}}
+	b := array.NewDictionaryBuilder(mem, dictType)
+	defer b.Release()
+
+	builder := b.(*array.FixedSizeBinaryDictionaryBuilder)
+	test := []byte{12, 12, 11, 12}
+	test2 := []byte{12, 12, 11, 11}
+	assert.NoError(t, builder.Append(test))
+	assert.NoError(t, builder.Append(test2))
+	assert.NoError(t, builder.Append(test))
+
+	arr := builder.NewDictionaryArray()
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDictionaryBuilder(mem, dictType)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Dictionary)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
 func TestDecimalDictionaryBuilderBasic(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
@@ -1173,7 +1243,7 @@ func TestDictionaryGetValueIndex(t *testing.T) {
 			const offset = 1
 			slicedDictArr := array.NewSlice(dictArr, offset, int64(dictArr.Len()))
 			defer slicedDictArr.Release()
-
+			assert.EqualValues(t, "10", slicedDictArr.(*array.Dictionary).ValueStr(0))
 			for i := 0; i < indices.Len(); i++ {
 				assert.EqualValues(t, i64Index.Value(i), dictArr.GetValueIndex(i))
 				if i < slicedDictArr.Len() {
@@ -1624,7 +1694,7 @@ func TestDictionaryUnifierChunkedArrayNestedDict(t *testing.T) {
 	assert.EqualError(t, err, "unimplemented dictionary value type, list<item: dictionary<values=utf8, indices=uint32, ordered=false>, nullable>")
 }
 
-func TestDictioanryUnifierTableZeroColumns(t *testing.T) {
+func TestDictionaryUnifierTableZeroColumns(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 

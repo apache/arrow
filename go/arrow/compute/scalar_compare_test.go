@@ -24,15 +24,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/compute"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/kernels"
-	"github.com/apache/arrow/go/v12/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/arrow/scalar"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/compute"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/kernels"
+	"github.com/apache/arrow/go/v13/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -873,9 +873,9 @@ func (c *CompareFixedSizeBinary) TestArrayScalar() {
 		valAba = `YWJh`
 		valAbc = `YWJj`
 		valAbd = `YWJk`
-		valA   = `YQ`
-		valB   = `Yg`
-		valC   = `Yw`
+		valA   = `YQ==`
+		valB   = `Yg==`
+		valC   = `Yw==`
 	)
 
 	const (
@@ -883,7 +883,6 @@ func (c *CompareFixedSizeBinary) TestArrayScalar() {
 		lhs1    = `["aba", "abc", "abd", null]`
 		rhs1    = "abc"
 		lhs2bin = `["` + valA + `","` + valB + `","` + valC + `", null]`
-		lhs2    = `["a", "b", "c", null]`
 		rhs2    = "b"
 	)
 
@@ -968,9 +967,9 @@ func (c *CompareFixedSizeBinary) TestScalarArray() {
 		valAba = `YWJh`
 		valAbc = `YWJj`
 		valAbd = `YWJk`
-		valA   = `YQ`
-		valB   = `Yg`
-		valC   = `Yw`
+		valA   = `YQ==`
+		valB   = `Yg==`
+		valC   = `Yw==`
 	)
 
 	const (
@@ -1078,13 +1077,11 @@ func (c *CompareFixedSizeBinary) TestArrayArray() {
 
 	// base64 encoding
 	const (
-		valAba = `YWJh`
 		valAbc = `YWJj`
 		valAbd = `YWJk`
-		valA   = `YQ`
-		valB   = `Yg`
-		valC   = `Yw`
-		valD   = `ZA`
+		valA   = `YQ==`
+		valC   = `Yw==`
+		valD   = `ZA==`
 	)
 
 	const (
@@ -1092,8 +1089,6 @@ func (c *CompareFixedSizeBinary) TestArrayArray() {
 		rhs1bin = `["` + valAbc + `","` + valAbd + `","` + valAbc + `","` + valAbc + `", null]`
 		lhs1    = `["abc", "abc", "abd", null, "abc"]`
 		rhs1    = `["abc", "abd", "abc", "abc", null]`
-		lhs2    = `["a", "a", "d", null, "a"]`
-		rhs2    = `["a", "d", "c", "a", null]`
 		lhs2bin = `["` + valA + `","` + valA + `","` + valD + `", null, "` + valA + `"]`
 		rhs2bin = `["` + valA + `","` + valD + `","` + valC + `","` + valA + `", null]`
 	)

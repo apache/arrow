@@ -21,11 +21,47 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestInt64StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewInt64Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Int64)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewInt64Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Int64)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
 
 func TestNewInt64Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
@@ -191,6 +227,42 @@ func TestInt64Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
+}
+
+func TestUint64StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewUint64Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Uint64)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewUint64Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Uint64)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }
 
 func TestNewUint64Builder(t *testing.T) {
@@ -359,6 +431,42 @@ func TestUint64Builder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
+func TestFloat64StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewFloat64Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Float64)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewFloat64Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Float64)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
 func TestNewFloat64Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -523,6 +631,42 @@ func TestFloat64Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
+}
+
+func TestInt32StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewInt32Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Int32)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewInt32Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Int32)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }
 
 func TestNewInt32Builder(t *testing.T) {
@@ -691,6 +835,42 @@ func TestInt32Builder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
+func TestUint32StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewUint32Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Uint32)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewUint32Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Uint32)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
 func TestNewUint32Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -855,6 +1035,42 @@ func TestUint32Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
+}
+
+func TestFloat32StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewFloat32Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Float32)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewFloat32Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Float32)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }
 
 func TestNewFloat32Builder(t *testing.T) {
@@ -1023,6 +1239,42 @@ func TestFloat32Builder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
+func TestInt16StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewInt16Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Int16)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewInt16Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Int16)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
 func TestNewInt16Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -1187,6 +1439,42 @@ func TestInt16Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
+}
+
+func TestUint16StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewUint16Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Uint16)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewUint16Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Uint16)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }
 
 func TestNewUint16Builder(t *testing.T) {
@@ -1355,6 +1643,42 @@ func TestUint16Builder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
+func TestInt8StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewInt8Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Int8)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewInt8Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Int8)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
 func TestNewInt8Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -1519,6 +1843,42 @@ func TestInt8Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
+}
+
+func TestUint8StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewUint8Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Uint8)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewUint8Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Uint8)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }
 
 func TestNewUint8Builder(t *testing.T) {
@@ -1687,174 +2047,41 @@ func TestUint8Builder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
-func TestNewTimestampBuilder(t *testing.T) {
+func TestTime32StringRoundTrip(t *testing.T) {
+	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	dtype := &arrow.TimestampType{Unit: arrow.Second}
-	ab := array.NewTimestampBuilder(mem, dtype)
-	defer ab.Release()
+	dt := &arrow.Time32Type{Unit: arrow.Second}
+	b := array.NewTime32Builder(mem, dt)
+	defer b.Release()
 
-	ab.Retain()
-	ab.Release()
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
 
-	ab.Append(1)
-	ab.Append(2)
-	ab.Append(3)
-	ab.AppendNull()
-	ab.Append(5)
-	ab.Append(6)
-	ab.AppendNull()
-	ab.Append(8)
-	ab.Append(9)
-	ab.Append(10)
+	arr := b.NewArray().(*array.Time32)
+	defer arr.Release()
 
-	// check state of builder before NewTimestampArray
-	assert.Equal(t, 10, ab.Len(), "unexpected Len()")
-	assert.Equal(t, 2, ab.NullN(), "unexpected NullN()")
+	// 2. create array via AppendValueFromString
+	b1 := array.NewTime32Builder(mem, dt)
+	defer b1.Release()
 
-	a := ab.NewTimestampArray()
-
-	// check state of builder after NewTimestampArray
-	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewTimestampArray did not reset state")
-	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewTimestampArray did not reset state")
-	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewTimestampArray did not reset state")
-
-	// check state of array
-	assert.Equal(t, 2, a.NullN(), "unexpected null count")
-	assert.Equal(t, []arrow.Timestamp{1, 2, 3, 0, 5, 6, 0, 8, 9, 10}, a.TimestampValues(), "unexpected TimestampValues")
-	assert.Equal(t, []byte{0xb7}, a.NullBitmapBytes()[:1]) // 4 bytes due to minBuilderCapacity
-	assert.Len(t, a.TimestampValues(), 10, "unexpected length of TimestampValues")
-
-	a.Release()
-
-	ab.Append(7)
-	ab.Append(8)
-
-	a = ab.NewTimestampArray()
-
-	assert.Equal(t, 0, a.NullN())
-	assert.Equal(t, []arrow.Timestamp{7, 8}, a.TimestampValues())
-	assert.Len(t, a.TimestampValues(), 2)
-
-	a.Release()
-
-	var (
-		want   = []arrow.Timestamp{1, 2, 3, 4}
-		valids = []bool{true, true, false, true}
-	)
-
-	ab.AppendValues(want, valids)
-	a = ab.NewTimestampArray()
-
-	sub := array.MakeFromData(a.Data())
-	defer sub.Release()
-
-	if got, want := sub.DataType().ID(), a.DataType().ID(); got != want {
-		t.Fatalf("invalid type: got=%q, want=%q", got, want)
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
 	}
 
-	if _, ok := sub.(*array.Timestamp); !ok {
-		t.Fatalf("could not type-assert to array.Timestamp")
-	}
+	arr1 := b1.NewArray().(*array.Time32)
+	defer arr1.Release()
 
-	if got, want := a.String(), `[1 2 (null) 4]`; got != want {
-		t.Fatalf("got=%q, want=%q", got, want)
-	}
-
-	slice := array.NewSliceData(a.Data(), 2, 4)
-	defer slice.Release()
-
-	sub1 := array.MakeFromData(slice)
-	defer sub1.Release()
-
-	v, ok := sub1.(*array.Timestamp)
-	if !ok {
-		t.Fatalf("could not type-assert to array.Timestamp")
-	}
-
-	if got, want := v.String(), `[(null) 4]`; got != want {
-		t.Fatalf("got=%q, want=%q", got, want)
-	}
-
-	a.Release()
-}
-
-func TestTimestampBuilder_AppendValues(t *testing.T) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	dtype := &arrow.TimestampType{Unit: arrow.Second}
-	ab := array.NewTimestampBuilder(mem, dtype)
-	defer ab.Release()
-
-	exp := []arrow.Timestamp{0, 1, 2, 3}
-	ab.AppendValues(exp, nil)
-	a := ab.NewTimestampArray()
-	assert.Equal(t, exp, a.TimestampValues())
-
-	a.Release()
-}
-
-func TestTimestampBuilder_Empty(t *testing.T) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	dtype := &arrow.TimestampType{Unit: arrow.Second}
-	ab := array.NewTimestampBuilder(mem, dtype)
-	defer ab.Release()
-
-	exp := []arrow.Timestamp{0, 1, 2, 3}
-
-	ab.AppendValues([]arrow.Timestamp{}, nil)
-	a := ab.NewTimestampArray()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues(nil, nil)
-	a = ab.NewTimestampArray()
-	assert.Zero(t, a.Len())
-	a.Release()
-
-	ab.AppendValues([]arrow.Timestamp{}, nil)
-	ab.AppendValues(exp, nil)
-	a = ab.NewTimestampArray()
-	assert.Equal(t, exp, a.TimestampValues())
-	a.Release()
-
-	ab.AppendValues(exp, nil)
-	ab.AppendValues([]arrow.Timestamp{}, nil)
-	a = ab.NewTimestampArray()
-	assert.Equal(t, exp, a.TimestampValues())
-	a.Release()
-}
-
-func TestTimestampBuilder_Resize(t *testing.T) {
-	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-	defer mem.AssertSize(t, 0)
-
-	dtype := &arrow.TimestampType{Unit: arrow.Second}
-	ab := array.NewTimestampBuilder(mem, dtype)
-	defer ab.Release()
-
-	assert.Equal(t, 0, ab.Cap())
-	assert.Equal(t, 0, ab.Len())
-
-	ab.Reserve(63)
-	assert.Equal(t, 64, ab.Cap())
-	assert.Equal(t, 0, ab.Len())
-
-	for i := 0; i < 63; i++ {
-		ab.Append(0)
-	}
-	assert.Equal(t, 64, ab.Cap())
-	assert.Equal(t, 63, ab.Len())
-
-	ab.Resize(5)
-	assert.Equal(t, 5, ab.Len())
-
-	ab.Resize(32)
-	assert.Equal(t, 5, ab.Len())
+	assert.True(t, array.Equal(arr, arr1))
 }
 
 func TestNewTime32Builder(t *testing.T) {
@@ -2027,6 +2254,43 @@ func TestTime32Builder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
+func TestTime64StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dt := &arrow.Time64Type{Unit: arrow.Microsecond}
+	b := array.NewTime64Builder(mem, dt)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Time64)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewTime64Builder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Time64)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
 func TestNewTime64Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -2197,6 +2461,42 @@ func TestTime64Builder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
+func TestDate32StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewDate32Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Date32)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDate32Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Date32)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
 func TestNewDate32Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -2363,6 +2663,49 @@ func TestDate32Builder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
+func TestDate64StringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewDate64Builder(mem)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Date64)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDate64Builder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Date64)
+	defer arr1.Release()
+
+	assert.Exactly(t, arr.Len(), arr1.Len())
+	for i := 0; i < arr.Len(); i++ {
+		assert.Exactly(t, arr.IsValid(i), arr1.IsValid(i))
+		assert.Exactly(t, arr.ValueStr(i), arr1.ValueStr(i))
+		if arr.IsValid(i) {
+			assert.Exactly(t, arr.Value(i).ToTime(), arr1.Value(i).ToTime())
+		}
+	}
+}
+
 func TestNewDate64Builder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -2527,6 +2870,43 @@ func TestDate64Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
+}
+
+func TestDurationStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dt := &arrow.DurationType{Unit: arrow.Second}
+	b := array.NewDurationBuilder(mem, dt)
+	defer b.Release()
+
+	b.Append(1)
+	b.Append(2)
+	b.Append(3)
+	b.AppendNull()
+	b.Append(5)
+	b.Append(6)
+	b.AppendNull()
+	b.Append(8)
+	b.Append(9)
+	b.Append(10)
+
+	arr := b.NewArray().(*array.Duration)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDurationBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Duration)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }
 
 func TestNewDurationBuilder(t *testing.T) {

@@ -27,8 +27,11 @@
 
 #include <gmock/gmock.h>
 
+#include "arrow/array.h"
 #include "arrow/memory_pool.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -36,8 +39,6 @@
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
-
-using testing::ElementsAre;
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
@@ -359,151 +360,6 @@ TEST(TestField, TestMerge) {
     ASSERT_OK_AND_ASSIGN(result, f2->MergeWith(f1, options));
     ASSERT_TRUE(result->Equals(f2));
   }
-}
-
-TEST(TestFieldPath, Basics) {
-  auto f0 = field("alpha", int32());
-  auto f1 = field("beta", int32());
-  auto f2 = field("alpha", int32());
-  auto f3 = field("beta", int32());
-  Schema s({f0, f1, f2, f3});
-
-  // retrieving a field with single-element FieldPath is equivalent to Schema::field
-  for (int index = 0; index < s.num_fields(); ++index) {
-    ASSERT_OK_AND_EQ(s.field(index), FieldPath({index}).Get(s));
-  }
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("empty indices cannot be traversed"),
-                                  FieldPath().Get(s));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, testing::HasSubstr("index out of range"),
-                                  FieldPath({s.num_fields() * 2}).Get(s));
-}
-
-TEST(TestFieldRef, Basics) {
-  auto f0 = field("alpha", int32());
-  auto f1 = field("beta", int32());
-  auto f2 = field("alpha", int32());
-  auto f3 = field("beta", int32());
-  Schema s({f0, f1, f2, f3});
-
-  // lookup by index returns Indices{index}
-  for (int index = 0; index < s.num_fields(); ++index) {
-    EXPECT_THAT(FieldRef(index).FindAll(s), ElementsAre(FieldPath{index}));
-  }
-  // out of range index results in a failure to match
-  EXPECT_THAT(FieldRef(s.num_fields() * 2).FindAll(s), ElementsAre());
-
-  // lookup by name returns the Indices of both matching fields
-  EXPECT_THAT(FieldRef("alpha").FindAll(s), ElementsAre(FieldPath{0}, FieldPath{2}));
-  EXPECT_THAT(FieldRef("beta").FindAll(s), ElementsAre(FieldPath{1}, FieldPath{3}));
-}
-
-TEST(TestFieldRef, FromDotPath) {
-  ASSERT_OK_AND_EQ(FieldRef("alpha"), FieldRef::FromDotPath(R"(.alpha)"));
-
-  ASSERT_OK_AND_EQ(FieldRef("", ""), FieldRef::FromDotPath(R"(..)"));
-
-  ASSERT_OK_AND_EQ(FieldRef(2), FieldRef::FromDotPath(R"([2])"));
-
-  ASSERT_OK_AND_EQ(FieldRef("beta", 3), FieldRef::FromDotPath(R"(.beta[3])"));
-
-  ASSERT_OK_AND_EQ(FieldRef(5, "gamma", "delta", 7),
-                   FieldRef::FromDotPath(R"([5].gamma.delta[7])"));
-
-  ASSERT_OK_AND_EQ(FieldRef("hello world"), FieldRef::FromDotPath(R"(.hello world)"));
-
-  ASSERT_OK_AND_EQ(FieldRef(R"([y]\tho.\)"), FieldRef::FromDotPath(R"(.\[y\]\\tho\.\)"));
-
-  ASSERT_OK_AND_EQ(FieldRef(), FieldRef::FromDotPath(R"()"));
-
-  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"(alpha)"));
-  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([134234)"));
-  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([1stuf])"));
-}
-
-TEST(TestFieldRef, DotPathRoundTrip) {
-  auto check_roundtrip = [](const FieldRef& ref) {
-    auto dot_path = ref.ToDotPath();
-    ASSERT_OK_AND_EQ(ref, FieldRef::FromDotPath(dot_path));
-  };
-
-  check_roundtrip(FieldRef());
-  check_roundtrip(FieldRef("foo"));
-  check_roundtrip(FieldRef("foo", 1, "bar", 2, 3));
-  check_roundtrip(FieldRef(1, 2, 3));
-  check_roundtrip(FieldRef("foo", 1, FieldRef("bar", 2, 3), FieldRef()));
-}
-
-TEST(TestFieldPath, Nested) {
-  auto f0 = field("alpha", int32());
-  auto f1_0 = field("alpha", int32());
-  auto f1 = field("beta", struct_({f1_0}));
-  auto f2_0 = field("alpha", int32());
-  auto f2_1_0 = field("alpha", int32());
-  auto f2_1_1 = field("alpha", int32());
-  auto f2_1 = field("gamma", struct_({f2_1_0, f2_1_1}));
-  auto f2 = field("beta", struct_({f2_0, f2_1}));
-  Schema s({f0, f1, f2});
-
-  // retrieving fields with nested indices
-  EXPECT_EQ(FieldPath({0}).Get(s), f0);
-  EXPECT_EQ(FieldPath({1, 0}).Get(s), f1_0);
-  EXPECT_EQ(FieldPath({2, 0}).Get(s), f2_0);
-  EXPECT_EQ(FieldPath({2, 1, 0}).Get(s), f2_1_0);
-  EXPECT_EQ(FieldPath({2, 1, 1}).Get(s), f2_1_1);
-}
-
-TEST(TestFieldRef, Nested) {
-  auto f0 = field("alpha", int32());
-  auto f1_0 = field("alpha", int32());
-  auto f1 = field("beta", struct_({f1_0}));
-  auto f2_0 = field("alpha", int32());
-  auto f2_1_0 = field("alpha", int32());
-  auto f2_1_1 = field("alpha", int32());
-  auto f2_1 = field("gamma", struct_({f2_1_0, f2_1_1}));
-  auto f2 = field("beta", struct_({f2_0, f2_1}));
-  Schema s({f0, f1, f2});
-
-  EXPECT_THAT(FieldRef("beta", "alpha").FindAll(s),
-              ElementsAre(FieldPath{1, 0}, FieldPath{2, 0}));
-  EXPECT_THAT(FieldRef("beta", "gamma", "alpha").FindAll(s),
-              ElementsAre(FieldPath{2, 1, 0}, FieldPath{2, 1, 1}));
-}
-
-TEST(TestFieldRef, Flatten) {
-  FieldRef ref;
-
-  auto assert_name = [](const FieldRef& ref, const std::string& expected) {
-    ASSERT_TRUE(ref.IsName());
-    ASSERT_EQ(*ref.name(), expected);
-  };
-
-  auto assert_path = [](const FieldRef& ref, const std::vector<int>& expected) {
-    ASSERT_TRUE(ref.IsFieldPath());
-    ASSERT_EQ(ref.field_path()->indices(), expected);
-  };
-
-  auto assert_nested = [](const FieldRef& ref, const std::vector<FieldRef>& expected) {
-    ASSERT_TRUE(ref.IsNested());
-    ASSERT_EQ(*ref.nested_refs(), expected);
-  };
-
-  assert_path(FieldRef(), {});
-  assert_path(FieldRef(1, 2, 3), {1, 2, 3});
-  // If all leaves are field paths, they are fully flattened
-  assert_path(FieldRef(1, FieldRef(2, 3)), {1, 2, 3});
-  assert_path(FieldRef(1, FieldRef(2, 3), FieldRef(), FieldRef(FieldRef(4), FieldRef(5))),
-              {1, 2, 3, 4, 5});
-  assert_path(FieldRef(FieldRef(), FieldRef(FieldRef(), FieldRef())), {});
-
-  assert_name(FieldRef("foo"), "foo");
-
-  // Nested empty field refs are optimized away
-  assert_nested(FieldRef("foo", 1, FieldRef(), FieldRef(FieldRef(), "bar")),
-                {FieldRef("foo"), FieldRef(1), FieldRef("bar")});
-  // For now, subsequences of indices are not concatenated
-  assert_nested(FieldRef("foo", FieldRef("bar"), FieldRef(1, 2), FieldRef(3)),
-                {FieldRef("foo"), FieldRef("bar"), FieldRef(1, 2), FieldRef(3)});
 }
 
 using TestSchema = ::testing::Test;

@@ -125,9 +125,9 @@ Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
     // the first offset from buffers[i] will be adjusted to values_length
     // (the cumulative length of values spanned by offsets in previous buffers)
     RETURN_NOT_OK(PutOffsets<Offset>(buffers[i], values_length, &dst[elements_length],
-                                     &values_ranges->at(i)));
+                                     &(*values_ranges)[i]));
     elements_length += buffers[i]->size() / sizeof(Offset);
-    values_length += static_cast<Offset>(values_ranges->at(i).length);
+    values_length += static_cast<Offset>((*values_ranges)[i].length);
   }
 
   // the final element in dst is the length of all values spanned by the offsets
@@ -459,8 +459,16 @@ class ConcatenateImpl {
   }
 
   Status Visit(const ExtensionType& e) {
-    // XXX can we just concatenate their storage?
-    return Status::NotImplemented("concatenation of ", e);
+    ArrayDataVector storage_data(in_.size());
+    for (size_t i = 0; i < in_.size(); ++i) {
+      storage_data[i] = in_[i]->Copy();
+      storage_data[i]->type = e.storage_type();
+    }
+    std::shared_ptr<ArrayData> out_storage;
+    RETURN_NOT_OK(ConcatenateImpl(storage_data, pool_).Concatenate(&out_storage));
+    out_storage->type = in_[0]->type;
+    out_ = std::move(out_storage);
+    return Status::OK();
   }
 
  private:

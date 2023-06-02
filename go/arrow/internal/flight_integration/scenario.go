@@ -28,15 +28,15 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v12/arrow/flight/flightsql/schema_ref"
-	"github.com/apache/arrow/go/v12/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/flight"
+	"github.com/apache/arrow/go/v13/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v13/arrow/flight/flightsql/schema_ref"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -55,6 +55,8 @@ func GetScenario(name string, args ...string) Scenario {
 		return &authBasicProtoTester{}
 	case "middleware":
 		return &middlewareScenarioTester{}
+	case "ordered":
+		return &orderedScenarioTester{}
 	case "flight_sql":
 		return &flightSqlScenarioTester{}
 	case "flight_sql:extension":
@@ -524,6 +526,168 @@ func (m *middlewareScenarioTester) GetFlightInfo(ctx context.Context, desc *flig
 		TotalRecords: -1,
 		TotalBytes:   -1,
 	}, nil
+}
+
+type orderedScenarioTester struct {
+	flight.BaseFlightServer
+}
+
+func (m *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	info, err := client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD, Cmd: []byte("ordered")})
+	if err != nil {
+		return err
+	}
+
+	if !info.GetOrdered() {
+		return fmt.Errorf("expected to server return FlightInfo.ordered = true")
+	}
+
+	recs := make([]arrow.Record, len(info.Endpoint))
+	for i, ep := range info.Endpoint {
+		if len(ep.Location) != 0 {
+			return fmt.Errorf("expected to receive empty locations to use the original service: %s",
+				ep.Location)
+		}
+
+		stream, err := client.DoGet(ctx, ep.Ticket)
+		if err != nil {
+			return err
+		}
+
+		rdr, err := flight.NewRecordReader(stream)
+		if err != nil {
+			return err
+		}
+		defer rdr.Release()
+
+		for rdr.Next() {
+			record := rdr.Record()
+			record.Retain()
+			defer record.Release()
+			recs[i] = record
+		}
+		if rdr.Err() != nil {
+			return rdr.Err()
+		}
+	}
+
+	// Build expected records
+	mem := memory.DefaultAllocator
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Int32},
+		},
+		nil,
+	)
+	expected_table, _ := array.TableFromJSON(mem, schema, []string{
+		`[
+                   {"number": 1},
+                   {"number": 2},
+                   {"number": 3}
+                 ]`,
+		`[
+                   {"number": 10},
+                   {"number": 20},
+                   {"number": 30}
+                 ]`,
+		`[
+                   {"number": 100},
+                   {"number": 200},
+                   {"number": 300}
+                 ]`,
+	})
+	defer expected_table.Release()
+
+	table := array.NewTableFromRecords(schema, recs)
+	defer table.Release()
+	if !array.TableEqual(table, expected_table) {
+		return fmt.Errorf("read data isn't expected\n" +
+			"Expected:\n" +
+			"%s\n" +
+			"num-rows: %d\n" +
+			"num-cols: %d\n" +
+			"Actual:\n" +
+			"%s\n" +
+			"num-rows: %d\n" +
+			"num-cols: %d",
+			expected_table.Schema(),
+			expected_table.NumRows(),
+			expected_table.NumCols(),
+			table.Schema(),
+			table.NumRows(),
+			table.NumCols())
+	}
+
+	return nil
+}
+
+func (m *orderedScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(m)
+	initServer(port, srv)
+	return srv
+}
+
+func (m *orderedScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	ordered := desc.Type == flight.DescriptorCMD && string(desc.Cmd) == "ordered"
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Int32},
+		},
+		nil,
+	)
+	return &flight.FlightInfo{
+		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		Endpoint: []*flight.FlightEndpoint{
+			{
+				Ticket:   &flight.Ticket{Ticket: []byte("1")},
+				Location: []*flight.Location{},
+			},
+			{
+				Ticket:   &flight.Ticket{Ticket: []byte("2")},
+				Location: []*flight.Location{},
+			},
+			{
+				Ticket:   &flight.Ticket{Ticket: []byte("3")},
+				Location: []*flight.Location{},
+			},
+		},
+		TotalRecords: -1,
+		TotalBytes:   -1,
+		Ordered:      ordered,
+	}, nil
+}
+
+func (m *orderedScenarioTester) DoGet(tkt *flight.Ticket, fs flight.FlightService_DoGetServer) error {
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Int32},
+		},
+		nil,
+	)
+	b := array.NewRecordBuilder(memory.DefaultAllocator, schema)
+	defer b.Release()
+	if string(tkt.GetTicket()) == "1" {
+		b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3}, nil)
+	} else if string(tkt.GetTicket()) == "2" {
+		b.Field(0).(*array.Int32Builder).AppendValues([]int32{10, 20, 30}, nil)
+	} else if string(tkt.GetTicket()) == "3" {
+		b.Field(0).(*array.Int32Builder).AppendValues([]int32{100, 200, 300}, nil)
+	}
+	w := flight.NewRecordWriter(fs, ipc.WithSchema(schema))
+	rec := b.NewRecord()
+	defer rec.Release()
+	w.Write(rec)
+
+	return nil
 }
 
 const (

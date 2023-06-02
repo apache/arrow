@@ -26,7 +26,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow/flight/internal/flight"
+	"github.com/apache/arrow/go/v13/arrow/flight/internal/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -120,10 +120,6 @@ func CreateClientMiddleware(middleware CustomClientMiddleware) ClientMiddleware 
 			}
 
 			if err != nil {
-				if isHdrs {
-					md, _ := cs.Header()
-					hdrs.HeadersReceived(ctx, metadata.Join(md, cs.Trailer()))
-				}
 				if isPostcall {
 					post.CallCompleted(ctx, err)
 				}
@@ -271,6 +267,10 @@ func NewFlightClient(addr string, auth ClientAuthHandler, opts ...grpc.DialOptio
 // being the inner most wrapper around the actual call. It also passes along the dialoptions passed in such
 // as TLS certs and so on.
 func NewClientWithMiddleware(addr string, auth ClientAuthHandler, middleware []ClientMiddleware, opts ...grpc.DialOption) (Client, error) {
+	return NewClientWithMiddlewareCtx(context.Background(), addr, auth, middleware, opts...)
+}
+
+func NewClientWithMiddlewareCtx(ctx context.Context, addr string, auth ClientAuthHandler, middleware []ClientMiddleware, opts ...grpc.DialOption) (Client, error) {
 	unary := make([]grpc.UnaryClientInterceptor, 0, len(middleware))
 	stream := make([]grpc.StreamClientInterceptor, 0, len(middleware))
 	if auth != nil {
@@ -288,7 +288,7 @@ func NewClientWithMiddleware(addr string, auth ClientAuthHandler, middleware []C
 		}
 	}
 	opts = append(opts, grpc.WithChainUnaryInterceptor(unary...), grpc.WithChainStreamInterceptor(stream...))
-	conn, err := grpc.Dial(addr, opts...)
+	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
 		return nil, err
 	}

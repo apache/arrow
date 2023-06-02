@@ -1064,7 +1064,6 @@ class TestListScalar : public ::testing::Test {
   using ScalarType = typename TypeTraits<T>::ScalarType;
 
   void SetUp() {
-    //     type_ = std::make_shared<T>(int16());
     type_ = MakeListType<T>(int16(), 3);
     value_ = ArrayFromJSON(int16(), "[1, 2, null]");
   }
@@ -1106,6 +1105,36 @@ class TestListScalar : public ::testing::Test {
     ASSERT_RAISES(Invalid, scalar.ValidateFull());
   }
 
+  void TestHashing() {
+    // GH-35521: the hash value of a non-null list scalar should not
+    // depend on the presence or absence of a null bitmap in the underlying
+    // list values.
+    ScalarType empty_bitmap_scalar(ArrayFromJSON(int16(), "[1, 2, 3]"));
+    ASSERT_OK(empty_bitmap_scalar.ValidateFull());
+    // Underlying list array doesn't have a null bitmap
+    ASSERT_EQ(empty_bitmap_scalar.value->data()->buffers[0], nullptr);
+
+    auto list_array = ArrayFromJSON(type_, "[[1, 2, 3], [4, 5, null]]");
+    ASSERT_OK_AND_ASSIGN(auto set_bitmap_scalar_uncasted, list_array->GetScalar(0));
+    auto set_bitmap_scalar = checked_pointer_cast<ScalarType>(set_bitmap_scalar_uncasted);
+    // Underlying list array has a null bitmap
+    ASSERT_NE(set_bitmap_scalar->value->data()->buffers[0], nullptr);
+    // ... yet it's hashing equal to the other scalar
+    ASSERT_EQ(empty_bitmap_scalar.hash(), set_bitmap_scalar->hash());
+
+    // GH-35360: the hash value of a scalar from a list of structs should
+    // pay attention to the offset so it hashes the equivalent validity bitmap
+    auto list_struct_type = list(struct_({field("a", int64())}));
+    auto a =
+        ArrayFromJSON(list_struct_type, R"([[{"a": 5}, {"a": 6}], [{"a": 7}, null]])");
+    auto b = ArrayFromJSON(list_struct_type, R"([[{"a": 7}, null]])");
+    EXPECT_OK_AND_ASSIGN(auto a0, a->GetScalar(0));
+    EXPECT_OK_AND_ASSIGN(auto a1, a->GetScalar(1));
+    EXPECT_OK_AND_ASSIGN(auto b0, b->GetScalar(0));
+    ASSERT_EQ(a1->hash(), b0->hash());
+    ASSERT_NE(a0->hash(), b0->hash());
+  }
+
  protected:
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Array> value_;
@@ -1118,6 +1147,8 @@ TYPED_TEST_SUITE(TestListScalar, ListScalarTestTypes);
 TYPED_TEST(TestListScalar, Basics) { this->TestBasics(); }
 
 TYPED_TEST(TestListScalar, ValidateErrors) { this->TestValidateErrors(); }
+
+TYPED_TEST(TestListScalar, TestHashing) { this->TestHashing(); }
 
 TEST(TestFixedSizeListScalar, ValidateErrors) {
   const auto ty = fixed_size_list(int16(), 3);

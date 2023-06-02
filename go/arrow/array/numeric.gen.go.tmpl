@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v12/arrow"	
+	"github.com/apache/arrow/go/v13/arrow"	
 	"github.com/goccy/go-json"
 )
 
@@ -62,7 +62,7 @@ func (a *{{.Name}}) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", v)
 		}
@@ -82,6 +82,30 @@ func (a *{{.Name}}) setData(data *Data) {
 	}
 }
 
+func (a *{{.Name}}) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+{{if or (eq .Name "Date32") (eq .Name "Date64") -}}
+  return a.values[i].FormattedString()
+{{else if or (eq .Name "Time32") (eq .Name "Time64") -}}
+  return a.values[i].FormattedString(a.DataType().(*{{.QualifiedType}}Type).Unit)
+{{else if (eq .Name "Duration") -}}
+	// return value and suffix as a string such as "12345ms"
+	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*{{.QualifiedType}}Type).Unit)	
+{{else if or (eq .Name "Int8") (eq .Name "Int16") (eq .Name "Int32") (eq .Name "Int64") -}}
+  return strconv.FormatInt(int64(a.Value(i)), 10)
+{{else if or (eq .Name "Uint8") (eq .Name "Uint16") (eq .Name "Uint32") (eq .Name "Uint64") -}}
+  return strconv.FormatUint(uint64(a.Value(i)), 10)
+{{else if or (eq .Name "Float32") -}}
+  return strconv.FormatFloat(float64(a.Value(i)), 'g', -1, 32)
+{{else if or (eq .Name "Float64") -}}
+  return strconv.FormatFloat(float64(a.Value(i)), 'g', -1, 64)
+{{else}}
+	return fmt.Sprintf("%v", a.values[i])
+{{end -}}
+}
+
 func (a *{{.Name}}) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
@@ -90,9 +114,7 @@ func (a *{{.Name}}) GetOneForMarshal(i int) interface{} {
 	return a.values[i].ToTime().Format("2006-01-02")
 {{else if or (eq .Name "Time32") (eq .Name "Time64") -}}
 	return a.values[i].ToTime(a.DataType().(*{{.QualifiedType}}Type).Unit).Format("15:04:05.999999999")
-{{else if or (eq .Name "Timestamp") -}}
-	return a.values[i].ToTime(a.DataType().(*{{.QualifiedType}}Type).Unit).Format("2006-01-02 15:04:05.999999999")
-{{else if (eq .Name "Duration") -}}	
+{{else if (eq .Name "Duration") -}}
 	// return value and suffix as a string such as "12345ms"
 	return fmt.Sprintf("%d%s", a.values[i], a.DataType().(*{{.QualifiedType}}Type).Unit.String())	
 {{else if (eq .Size "1")}}
@@ -106,7 +128,7 @@ func (a *{{.Name}}) MarshalJSON() ([]byte, error) {
 {{if .QualifiedType -}}
 	vals := make([]interface{}, a.Len())
 	for i := range a.values {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 {{else -}}
 	vals := make([]interface{}, a.Len())

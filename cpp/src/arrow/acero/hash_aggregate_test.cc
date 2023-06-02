@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/acero/aggregate_node.h"
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/test_util_internal.h"
@@ -86,6 +87,78 @@ using compute::TDigestOptions;
 using compute::VarianceOptions;
 
 namespace acero {
+
+TEST(AggregateSchema, NoKeys) {
+  auto input_schema = schema({field("x", int32())});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("is a hash aggregate function"),
+      aggregate::MakeOutputSchema(input_schema, {}, {},
+                                  {{"hash_count", nullptr, "x", "hash_count"}}));
+  ASSERT_OK_AND_ASSIGN(auto output_schema,
+                       aggregate::MakeOutputSchema(input_schema, {}, {},
+                                                   {{"count", nullptr, "x", "count"}}));
+  AssertSchemaEqual(schema({field("count", int64())}), output_schema);
+}
+
+TEST(AggregateSchema, SingleKey) {
+  auto input_schema = schema({field("x", int32()), field("y", int32())});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("is a scalar aggregate function"),
+      aggregate::MakeOutputSchema(input_schema, {FieldRef("y")}, {},
+                                  {{"count", nullptr, "x", "count"}}));
+  ASSERT_OK_AND_ASSIGN(
+      auto output_schema,
+      aggregate::MakeOutputSchema(input_schema, {FieldRef("y")}, {},
+                                  {{"hash_count", nullptr, "x", "hash_count"}}));
+  AssertSchemaEqual(schema({field("y", int32()), field("hash_count", int64())}),
+                    output_schema);
+}
+
+TEST(AggregateSchema, DoubleKey) {
+  auto input_schema =
+      schema({field("x", int32()), field("y", int32()), field("z", int32())});
+  ASSERT_OK_AND_ASSIGN(
+      auto output_schema,
+      aggregate::MakeOutputSchema(input_schema, {FieldRef("z"), FieldRef("y")}, {},
+                                  {{"hash_count", nullptr, "x", "hash_count"}}));
+  AssertSchemaEqual(
+      schema({field("z", int32()), field("y", int32()), field("hash_count", int64())}),
+      output_schema);
+}
+
+TEST(AggregateSchema, SingleSegmentKey) {
+  auto input_schema = schema({field("x", int32()), field("y", int32())});
+  ASSERT_OK_AND_ASSIGN(auto output_schema,
+                       aggregate::MakeOutputSchema(input_schema, {}, {FieldRef("y")},
+                                                   {{"count", nullptr, "x", "count"}}));
+  AssertSchemaEqual(schema({field("y", int32()), field("count", int64())}),
+                    output_schema);
+}
+
+TEST(AggregateSchema, DoubleSegmentKey) {
+  auto input_schema =
+      schema({field("x", int32()), field("y", int32()), field("z", int32())});
+  ASSERT_OK_AND_ASSIGN(
+      auto output_schema,
+      aggregate::MakeOutputSchema(input_schema, {}, {FieldRef("z"), FieldRef("y")},
+                                  {{"count", nullptr, "x", "count"}}));
+  AssertSchemaEqual(
+      schema({field("z", int32()), field("y", int32()), field("count", int64())}),
+      output_schema);
+}
+
+TEST(AggregateSchema, SingleKeyAndSegmentKey) {
+  auto input_schema =
+      schema({field("x", int32()), field("y", int32()), field("z", int32())});
+  ASSERT_OK_AND_ASSIGN(
+      auto output_schema,
+      aggregate::MakeOutputSchema(input_schema, {FieldRef("y")}, {FieldRef("z")},
+                                  {{"hash_count", nullptr, "x", "hash_count"}}));
+  AssertSchemaEqual(
+      schema({field("z", int32()), field("y", int32()), field("hash_count", int64())}),
+      output_schema);
+}
+
 namespace {
 
 using GroupByFunction = std::function<Result<Datum>(
@@ -329,7 +402,7 @@ Result<Datum> RunGroupBy(const BatchesWithSchema& input,
                          const std::vector<std::string>& segment_key_names,
                          const std::vector<Aggregate>& aggregates, bool use_threads,
                          bool segmented = false, bool naive = false) {
-  if (segment_key_names.size() > 0) {
+  if (!use_threads) {
     ARROW_ASSIGN_OR_RAISE(auto thread_pool, arrow::internal::ThreadPool::Make(1));
     ExecContext seq_ctx(default_memory_pool(), thread_pool.get());
     return RunGroupBy(input, key_names, segment_key_names, aggregates, &seq_ctx,
@@ -1288,46 +1361,87 @@ void SortBy(std::vector<std::string> names, Datum* aggregated_and_grouped) {
 }  // namespace
 
 TEST_P(GroupBy, CountOnly) {
-  for (bool use_threads : {true, false}) {
-    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+  const std::vector<std::string> json = {
+      // Test inputs ("argument", "key")
+      R"([[1.0,   1],
+          [null,  1]])",
+      R"([[0.0,   2],
+          [null,  3],
+          [null,  2],
+          [4.0,   null],
+          [3.25,  1],
+          [3.25,  1],
+          [0.125, 2]])",
+      R"([[-0.25, 2],
+          [0.75,  null],
+          [null,  3]])",
+  };
+  const auto skip_nulls = std::make_shared<CountOptions>(CountOptions::ONLY_VALID);
+  const auto only_nulls = std::make_shared<CountOptions>(CountOptions::ONLY_NULL);
+  const auto count_all = std::make_shared<CountOptions>(CountOptions::ALL);
+  const auto possible_count_options = std::vector<std::shared_ptr<CountOptions>>{
+      nullptr,  // default = skip_nulls
+      skip_nulls,
+      only_nulls,
+      count_all,
+  };
+  const auto expected_results = std::vector<std::string>{
+      // Results ("key_0", "hash_count")
+      // nullptr = skip_nulls
+      R"([[1, 3],
+          [2, 3],
+          [3, 0],
+          [null, 2]])",
+      // skip_nulls
+      R"([[1, 3],
+          [2, 3],
+          [3, 0],
+          [null, 2]])",
+      // only_nulls
+      R"([[1, 1],
+          [2, 1],
+          [3, 2],
+          [null, 0]])",
+      // count_all
+      R"([[1, 4],
+          [2, 4],
+          [3, 2],
+          [null, 2]])",
+  };
+  // NOTE: the "key" column (1) does not appear in the possible run-end
+  // encoding transformations because GroupBy kernels do not support run-end
+  // encoded key arrays.
+  for (const auto& re_encode_cols : std::vector<std::vector<int>>{{}, {0}}) {
+    for (bool use_threads : {/*true, */ false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      for (size_t i = 0; i < possible_count_options.size(); i++) {
+        SCOPED_TRACE(possible_count_options[i] ? possible_count_options[i]->ToString()
+                                               : "default");
+        auto table = TableFromJSON(
+            schema({field("argument", float64()), field("key", int64())}), json);
 
-    auto table =
-        TableFromJSON(schema({field("argument", float64()), field("key", int64())}), {R"([
-    [1.0,   1],
-    [null,  1]
-                        ])",
-                                                                                      R"([
-    [0.0,   2],
-    [null,  3],
-    [4.0,   null],
-    [3.25,  1],
-    [0.125, 2]
-                        ])",
-                                                                                      R"([
-    [-0.25, 2],
-    [0.75,  null],
-    [null,  3]
-                        ])"});
+        auto transformed_table = table;
+        if (!re_encode_cols.empty()) {
+          ASSERT_OK_AND_ASSIGN(transformed_table,
+                               RunEndEncodeTableColumns(*table, re_encode_cols));
+        }
 
-    ASSERT_OK_AND_ASSIGN(
-        Datum aggregated_and_grouped,
-        GroupByTest({table->GetColumnByName("argument")}, {table->GetColumnByName("key")},
-                    {
-                        {"hash_count", nullptr},
-                    },
-                    use_threads));
-    SortBy({"key_0"}, &aggregated_and_grouped);
+        ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                             GroupByTest({transformed_table->GetColumnByName("argument")},
+                                         {transformed_table->GetColumnByName("key")},
+                                         {
+                                             {"hash_count", possible_count_options[i]},
+                                         },
+                                         use_threads));
+        SortBy({"key_0"}, &aggregated_and_grouped);
 
-    AssertDatumsEqual(
-        ArrayFromJSON(struct_({field("key_0", int64()), field("hash_count", int64())}),
-                      R"([
-    [1, 2],
-    [2, 3],
-    [3, 0],
-    [null, 2]
-  ])"),
-        aggregated_and_grouped,
-        /*verbose=*/true);
+        AssertDatumsEqual(aggregated_and_grouped,
+                          ArrayFromJSON(struct_({field("key_0", int64()),
+                                                 field("hash_count", int64())}),
+                                        expected_results[i]),
+                          /*verbose=*/true);
+      }
+    }
   }
 }
 
@@ -4133,6 +4247,256 @@ TEST_P(GroupBy, MinMaxWithNewGroupsInChunkedArray) {
                     /*verbose=*/true);
 }
 
+TEST_P(GroupBy, FirstLastBasicTypes) {
+  std::vector<std::shared_ptr<DataType>> types;
+  types.insert(types.end(), boolean());
+  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+  types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
+
+  const std::vector<std::string> numeric_table = {R"([
+    [1,    1],
+    [null, 5],
+    [null, 1],
+    [null, 7]
+])",
+                                                  R"([
+    [0,    2],
+    [null, 3],
+    [3,    4],
+    [5,    4],
+    [4,    null],
+    [3,    1],
+    [6,    6],
+    [5,    5],
+    [0,    2],
+    [7,    7]
+])",
+                                                  R"([
+    [0,    2],
+    [1,    null],
+    [6,    5],
+    [null, 5],
+    [null, 6],
+    [null, 3]
+])"};
+
+  const std::string numeric_expected =
+      R"([
+    [1,    1,    3,    1,   3],
+    [2,    0,    0,    0,   0],
+    [3,    null,  null,  null,  null],
+    [4,    3,     5,    3,   5],
+    [5,    5,     6,    null,   null],
+    [6,    6,     6,    6,      null],
+    [7,    7,     7,    null,   7],
+    [null, 4,     1,    4,   1]
+    ])";
+
+  const std::vector<std::string> date64_table = {R"([
+    [86400000,    1],
+    [null, 1]
+])",
+                                                 R"([
+    [0,    2],
+    [null, 3],
+    [259200000,    4],
+    [432000000,    4],
+    [345600000,    null],
+    [259200000,    1],
+    [0,    2]
+])",
+                                                 R"([
+    [0,    2],
+    [86400000,    null],
+    [null, 3]
+])"};
+
+  const std::string date64_expected =
+      R"([
+    [1,    86400000,259200000,86400000,259200000],
+    [2,    0,0,0,0],
+    [3,    null,null,null,null],
+    [4,    259200000,432000000,259200000,432000000],
+    [null, 345600000,86400000,345600000,86400000]
+    ])";
+
+  const std::vector<std::string> boolean_table = {R"([
+    [true,    1],
+    [null, 1]
+])",
+                                                  R"([
+    [false,    2],
+    [null, 3],
+    [false,    4],
+    [true,    4],
+    [true,    null],
+    [false,    1],
+    [false,    2]
+])",
+                                                  R"([
+    [false,    2],
+    [false,    null],
+    [null, 3]
+])"};
+
+  const std::string boolean_expected =
+      R"([
+    [1,    true,false,true,false],
+    [2,    false,false,false,false],
+    [3,    null,null,null,null],
+    [4,    false,true,false,true],
+    [null, true,false,true,false]
+    ])";
+
+  auto keep_nulls = std::make_shared<ScalarAggregateOptions>(false, 1);
+
+  for (const auto& ty : types) {
+    SCOPED_TRACE(ty->ToString());
+    auto in_schema = schema({field("argument0", ty), field("key", int64())});
+    auto table = TableFromJSON(in_schema, (ty->name() == "date64") ? date64_table
+                                          : (ty->name() == "bool") ? boolean_table
+                                                                   : numeric_table);
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         GroupByTest(
+                             {
+                                 table->GetColumnByName("argument0"),
+                                 table->GetColumnByName("argument0"),
+                                 table->GetColumnByName("argument0"),
+                                 table->GetColumnByName("argument0"),
+                             },
+                             {table->GetColumnByName("key")},
+                             {
+                                 {"hash_first", nullptr},
+                                 {"hash_last", nullptr},
+                                 {"hash_first", keep_nulls},
+                                 {"hash_last", keep_nulls},
+                             },
+                             /*use_threads=*/false));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("key_0", int64()),
+                                        field("hash_first", ty),
+                                        field("hash_last", ty),
+                                        field("hash_first", ty),
+                                        field("hash_last", ty),
+                                    }),
+                                    (ty->name() == "date64") ? date64_expected
+                                    : (ty->name() == "bool") ? boolean_expected
+                                                             : numeric_expected),
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, FirstLastBinary) {
+  // First / last doesn't support multi threaded execution
+  bool use_threads = false;
+  for (const auto& ty : BaseBinaryTypes()) {
+    auto table = TableFromJSON(schema({
+                                   field("argument0", ty),
+                                   field("key", int64()),
+                               }),
+                               {R"([
+    ["aaaa", 1],
+    [null,   5],
+    [null,   1]
+])",
+                                R"([
+    ["bcd",  2],
+    [null,   3],
+    ["2",    null],
+    ["d",    1],
+    ["ee",   5],
+    ["bc",   2]
+])",
+                                R"([
+    ["babcd", 2],
+    ["123",   null],
+    [null,    5],
+    [null,    3]
+])"});
+
+    auto keep_nulls = std::make_shared<ScalarAggregateOptions>(false, 1);
+    ASSERT_OK_AND_ASSIGN(
+        Datum aggregated_and_grouped,
+        GroupByTest(
+            {table->GetColumnByName("argument0"), table->GetColumnByName("argument0"),
+             table->GetColumnByName("argument0"), table->GetColumnByName("argument0")},
+            {table->GetColumnByName("key")},
+            {{"hash_first", nullptr},
+             {"hash_last", nullptr},
+             {"hash_first", keep_nulls},
+             {"hash_last", keep_nulls}},
+            use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(
+        ArrayFromJSON(struct_({field("key_0", int64()), field("hash_first", ty),
+                               field("hash_last", ty), field("hash_first", ty),
+                               field("hash_last", ty)}),
+                      R"([
+      [1,    "aaaa",    "d", "aaaa", "d"],
+      [2,    "bcd",    "babcd", "bcd", "babcd"],
+      [3,    null,    null, null, null],
+      [5,    "ee",    "ee", null, null],
+      [null, "2",    "123", "2", "123"]
+    ])"),
+        aggregated_and_grouped,
+        /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, FirstLastFixedSizeBinary) {
+  const auto ty = fixed_size_binary(3);
+  bool use_threads = false;
+
+  auto table = TableFromJSON(schema({
+                                 field("argument0", ty),
+                                 field("key", int64()),
+                             }),
+                             {R"([
+    ["aaa", 1],
+    [null,  1]
+])",
+                              R"([
+    ["bac", 2],
+    [null,  3],
+    ["234", null],
+    ["ddd", 1],
+    ["bcd", 2]
+])",
+                              R"([
+    ["bab", 2],
+    ["123", null],
+    [null,  3]
+])"});
+
+  ASSERT_OK_AND_ASSIGN(
+      Datum aggregated_and_grouped,
+      GroupByTest(
+          {table->GetColumnByName("argument0"), table->GetColumnByName("argument0")},
+          {table->GetColumnByName("key")},
+          {{"hash_first", nullptr}, {"hash_last", nullptr}}, use_threads));
+  ValidateOutput(aggregated_and_grouped);
+  SortBy({"key_0"}, &aggregated_and_grouped);
+
+  AssertDatumsEqual(
+      ArrayFromJSON(struct_({field("key_0", int64()), field("hash_first", ty),
+                             field("hash_last", ty)}),
+                    R"([
+    [1,    "aaa", "ddd"],
+    [2,    "bac", "bab"],
+    [3,    null,  null],
+    [null, "234", "123"]
+  ])"),
+      aggregated_and_grouped,
+      /*verbose=*/true);
+}
+
 TEST_P(GroupBy, SmallChunkSizeSumOnly) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
@@ -4670,10 +5034,16 @@ void TestSegment(GroupByFunction group_by, const std::shared_ptr<Table>& table,
       is_scalar_aggregate ? "count" : "hash_count",
       is_scalar_aggregate ? "sum" : "hash_sum",
       is_scalar_aggregate ? "min_max" : "hash_min_max",
+      is_scalar_aggregate ? "first_last" : "hash_first_last",
+      is_scalar_aggregate ? "first" : "hash_first",
+      is_scalar_aggregate ? "last" : "hash_last",
   };
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        group_by(
                            {
+                               table->GetColumnByName("argument"),
+                               table->GetColumnByName("argument"),
+                               table->GetColumnByName("argument"),
                                table->GetColumnByName("argument"),
                                table->GetColumnByName("argument"),
                                table->GetColumnByName("argument"),
@@ -4683,6 +5053,9 @@ void TestSegment(GroupByFunction group_by, const std::shared_ptr<Table>& table,
                                {names[0], nullptr, "agg_0", names[0]},
                                {names[1], nullptr, "agg_1", names[1]},
                                {names[2], nullptr, "agg_2", names[2]},
+                               {names[3], nullptr, "agg_3", names[3]},
+                               {names[4], nullptr, "agg_4", names[4]},
+                               {names[5], nullptr, "agg_5", names[5]},
                            },
                            /*use_threads=*/false, /*naive=*/false));
 
@@ -4703,31 +5076,34 @@ void TestSegmentKey(GroupByFunction group_by, const std::shared_ptr<Table>& tabl
 }
 
 Result<std::shared_ptr<Table>> GetSingleSegmentInputAsChunked() {
-  auto table = TableFromJSON(schema({field("argument", float64()), field("key", int64()),
-                                     field("segment_key", int64())}),
+  auto table = TableFromJSON(schema({field("segment_key", int64()), field("key", int64()),
+                                     field("argument", float64())}),
                              {R"([{"argument": 1.0,   "key": 1,    "segment_key": 1},
                          {"argument": null,  "key": 1,    "segment_key": 1}
                         ])",
-                              R"([{"argument": 0.0,   "key": 2,    "segment_key": 1},
-                         {"argument": null,  "key": 3,    "segment_key": 1},
-                         {"argument": 4.0,   "key": null, "segment_key": 1},
-                         {"argument": 3.25,  "key": 1,    "segment_key": 1},
-                         {"argument": 0.125, "key": 2,    "segment_key": 1},
-                         {"argument": -0.25, "key": 2,    "segment_key": 1},
-                         {"argument": 0.75,  "key": null, "segment_key": 1},
-                         {"argument": null,  "key": 3,    "segment_key": 1}
+                              R"([
+                          {"argument": 0.0,   "key": 2,    "segment_key": 1},
+                          {"argument": null,  "key": 3,    "segment_key": 1},
+                          {"argument": 4.0,   "key": null, "segment_key": 1},
+                          {"argument": 3.25,  "key": 1,    "segment_key": 1},
+                          {"argument": 0.125, "key": 2,    "segment_key": 1},
+                          {"argument": -0.25, "key": 2,    "segment_key": 1},
+                          {"argument": 0.75,  "key": null, "segment_key": 1},
+                          {"argument": null,  "key": 3,    "segment_key": 1}
                         ])",
-                              R"([{"argument": 1.0,   "key": 1,    "segment_key": 0},
-                         {"argument": null,  "key": 1,    "segment_key": 0}
+                              R"([
+                          {"argument": 1.0,   "key": 1,    "segment_key": 0},
+                          {"argument": null,  "key": 1,    "segment_key": 0}
                         ])",
-                              R"([{"argument": 0.0,   "key": 2,    "segment_key": 0},
-                         {"argument": null,  "key": 3,    "segment_key": 0},
-                         {"argument": 4.0,   "key": null, "segment_key": 0},
-                         {"argument": 3.25,  "key": 1,    "segment_key": 0},
-                         {"argument": 0.125, "key": 2,    "segment_key": 0},
-                         {"argument": -0.25, "key": 2,    "segment_key": 0},
-                         {"argument": 0.75,  "key": null, "segment_key": 0},
-                         {"argument": null,  "key": 3,    "segment_key": 0}
+                              R"([
+                          {"argument": 0.0,   "key": 2,    "segment_key": 0},
+                          {"argument": null,  "key": 3,    "segment_key": 0},
+                          {"argument": 4.0,   "key": null, "segment_key": 0},
+                          {"argument": 3.25,  "key": 1,    "segment_key": 0},
+                          {"argument": 0.125, "key": 2,    "segment_key": 0},
+                          {"argument": -0.25, "key": 2,    "segment_key": 0},
+                          {"argument": 0.75,  "key": null, "segment_key": 0},
+                          {"argument": null,  "key": 3,    "segment_key": 0}
                         ])"});
   return table;
 }
@@ -4738,45 +5114,57 @@ Result<std::shared_ptr<Table>> GetSingleSegmentInputAsCombined() {
 }
 
 Result<std::shared_ptr<ChunkedArray>> GetSingleSegmentScalarOutput() {
-  return ChunkedArrayFromJSON(struct_({
-                                  field("key_0", int64()),
-                                  field("count", int64()),
-                                  field("sum", float64()),
-                                  field("min_max", struct_({
-                                                       field("min", float64()),
-                                                       field("max", float64()),
-                                                   })),
-                              }),
-                              {R"([
-    [1, 7, 8.875, {"min": -0.25, "max": 4.0}]
+  return ChunkedArrayFromJSON(
+      struct_({
+          field("key_0", int64()),
+          field("count", int64()),
+          field("sum", float64()),
+          field("min_max", struct_({
+                               field("min", float64()),
+                               field("max", float64()),
+                           })),
+          field("first_last",
+                struct_({field("first", float64()), field("last", float64())})),
+          field("first", float64()),
+          field("last", float64()),
+      }),
+      {R"([
+    [1, 7, 8.875, {"min": -0.25, "max": 4.0}, {"first": 1.0, "last": 0.75}, 1.0, 0.75]
   ])",
-                               R"([
-    [0, 7, 8.875, {"min": -0.25, "max": 4.0}]
+       R"([
+    [0, 7, 8.875, {"min": -0.25, "max": 4.0}, {"first": 1.0, "last": 0.75}, 1.0, 0.75]
+
   ])"});
 }
 
 Result<std::shared_ptr<ChunkedArray>> GetSingleSegmentKeyOutput() {
   return ChunkedArrayFromJSON(struct_({
-                                  field("key_0", int64()),
                                   field("key_1", int64()),
+                                  field("key_0", int64()),
                                   field("hash_count", int64()),
                                   field("hash_sum", float64()),
                                   field("hash_min_max", struct_({
                                                             field("min", float64()),
                                                             field("max", float64()),
                                                         })),
+                                  field("hash_first_last", struct_({
+                                                               field("first", float64()),
+                                                               field("last", float64()),
+                                                           })),
+                                  field("hash_first", float64()),
+                                  field("hash_last", float64()),
                               }),
                               {R"([
-    [1,    1, 2, 4.25,   {"min": 1.0,   "max": 3.25} ],
-    [2,    1, 3, -0.125, {"min": -0.25, "max": 0.125}],
-    [3,    1, 0, null,   {"min": null,  "max": null} ],
-    [null, 1, 2, 4.75,   {"min": 0.75,  "max": 4.0}  ]
+    [1,    1, 2, 4.25,   {"min": 1.0,   "max": 3.25}, {"first": 1.0, "last": 3.25}, 1.0, 3.25 ],
+    [1,    2, 3, -0.125, {"min": -0.25, "max": 0.125}, {"first": 0.0, "last": -0.25}, 0.0, -0.25],
+    [1,    3, 0, null,   {"min": null,  "max": null}, {"first": null, "last": null}, null, null],
+    [1, null, 2, 4.75,   {"min": 0.75,  "max": 4.0},  {"first": 4.0, "last": 0.75}, 4.0, 0.75]
   ])",
                                R"([
-    [1,    0, 2, 4.25,   {"min": 1.0,   "max": 3.25} ],
-    [2,    0, 3, -0.125, {"min": -0.25, "max": 0.125}],
-    [3,    0, 0, null,   {"min": null,  "max": null} ],
-    [null, 0, 2, 4.75,   {"min": 0.75,  "max": 4.0}  ]
+    [0,    1, 2, 4.25,   {"min": 1.0,   "max": 3.25}, {"first": 1.0, "last": 3.25}, 1.0, 3.25 ],
+    [0,    2, 3, -0.125, {"min": -0.25, "max": 0.125}, {"first": 0.0, "last": -0.25}, 0.0, -0.25],
+    [0,    3, 0, null,   {"min": null,  "max": null}, {"first": null, "last": null}, null, null],
+    [0, null, 2, 4.75,   {"min": 0.75,  "max": 4.0}, {"first": 4.0, "last": 0.75}, 4.0, 0.75]
   ])"});
 }
 
@@ -4833,7 +5221,7 @@ Result<std::shared_ptr<Table>> GetEmptySegmentKeysInputAsCombined() {
 Result<std::shared_ptr<Array>> GetEmptySegmentKeyOutput() {
   ARROW_ASSIGN_OR_RAISE(auto chunked, GetSingleSegmentKeyOutput());
   ARROW_ASSIGN_OR_RAISE(auto table, Table::FromChunkedStructArray(chunked));
-  ARROW_ASSIGN_OR_RAISE(auto removed, table->RemoveColumn(1));
+  ARROW_ASSIGN_OR_RAISE(auto removed, table->RemoveColumn(0));
   auto sliced = removed->Slice(0, 4);
   ARROW_ASSIGN_OR_RAISE(auto batch, sliced->CombineChunksToBatch());
   return batch->ToStructArray();
@@ -4854,14 +5242,13 @@ TEST_P(SegmentedKeyGroupBy, EmptySegmentKeyCombined) {
   TestEmptySegmentKey(GetParam(), GetEmptySegmentKeysInputAsCombined);
 }
 
-// adds a named copy of the last (single-segment-key) column to the obtained table
+// adds a named copy of the first (single-segment-key) column to the obtained table
 Result<std::shared_ptr<Table>> GetMultiSegmentInput(
     std::function<Result<std::shared_ptr<Table>>()> get_table,
     const std::string& add_name) {
   ARROW_ASSIGN_OR_RAISE(auto table, get_table());
-  int last = table->num_columns() - 1;
-  auto add_field = field(add_name, table->schema()->field(last)->type());
-  return table->AddColumn(table->num_columns(), add_field, table->column(last));
+  auto add_field = field(add_name, table->schema()->field(0)->type());
+  return table->AddColumn(table->num_columns(), add_field, table->column(0));
 }
 
 Result<std::shared_ptr<Table>> GetMultiSegmentInputAsChunked(
@@ -4874,12 +5261,12 @@ Result<std::shared_ptr<Table>> GetMultiSegmentInputAsCombined(
   return GetMultiSegmentInput(GetSingleSegmentInputAsCombined, add_name);
 }
 
-// adds a named copy of the last (single-segment-key) column to the expected output table
+// adds a named copy of the first(single-segment-key) column to the expected output table
 Result<std::shared_ptr<ChunkedArray>> GetMultiSegmentKeyOutput(
     const std::string& add_name) {
   ARROW_ASSIGN_OR_RAISE(auto chunked, GetSingleSegmentKeyOutput());
   ARROW_ASSIGN_OR_RAISE(auto table, Table::FromChunkedStructArray(chunked));
-  int existing_key_field_idx = 1;
+  int existing_key_field_idx = 0;
   auto add_field =
       field(add_name, table->schema()->field(existing_key_field_idx)->type());
   ARROW_ASSIGN_OR_RAISE(auto added,

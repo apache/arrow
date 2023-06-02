@@ -321,9 +321,9 @@ class ORCFileReader::Impl {
     std::vector<std::shared_ptr<Field>> fields;
     fields.reserve(size);
     for (int child = 0; child < size; ++child) {
-      ARROW_ASSIGN_OR_RAISE(auto elemtype, GetArrowType(type.getSubtype(child)));
-      std::string name = type.getFieldName(child);
-      fields.push_back(field(std::move(name), std::move(elemtype)));
+      const std::string& name = type.getFieldName(child);
+      ARROW_ASSIGN_OR_RAISE(auto elem_field, GetArrowField(name, type.getSubtype(child)));
+      fields.push_back(std::move(elem_field));
     }
     ARROW_ASSIGN_OR_RAISE(auto metadata, ReadMetadata());
     return std::make_shared<Schema>(std::move(fields), std::move(metadata));

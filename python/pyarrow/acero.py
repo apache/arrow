@@ -23,10 +23,9 @@
 # cython: language_level = 3
 
 from pyarrow.lib import Table
-from pyarrow.compute import Expression
+from pyarrow.compute import Expression, field
 
 from pyarrow._acero import (  # noqa
-    _group_by,
     Declaration,
     ExecNodeOptions,
     TableSourceNodeOptions,
@@ -41,11 +40,24 @@ try:
     import pyarrow.dataset as ds
     from pyarrow._dataset import ScanNodeOptions
 except ImportError:
-    ds = None
+    class DatasetModuleStub:
+        class Dataset:
+            pass
+
+        class InMemoryDataset:
+            pass
+    ds = DatasetModuleStub
 
 
 def _dataset_to_decl(dataset, use_threads=True):
     decl = Declaration("scan", ScanNodeOptions(dataset, use_threads=use_threads))
+
+    # Get rid of special dataset columns
+    # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
+    projections = [field(f) for f in dataset.schema.names]
+    decl = Declaration.from_sequence(
+        [decl, Declaration("project", ProjectNodeOptions(projections))]
+    )
 
     filter_expr = dataset._scan_options.get("filter")
     if filter_expr is not None:
@@ -157,11 +169,18 @@ def _perform_join(join_type, left_operand, left_keys,
             "table_source", TableSourceNodeOptions(right_operand)
         )
 
-    join_opts = HashJoinNodeOptions(
-        join_type, left_keys, right_keys, left_columns, right_columns,
-        output_suffix_for_left=left_suffix or "",
-        output_suffix_for_right=right_suffix or "",
-    )
+    if coalesce_keys:
+        join_opts = HashJoinNodeOptions(
+            join_type, left_keys, right_keys, left_columns, right_columns,
+            output_suffix_for_left=left_suffix or "",
+            output_suffix_for_right=right_suffix or "",
+        )
+    else:
+        join_opts = HashJoinNodeOptions(
+            join_type, left_keys, right_keys,
+            output_suffix_for_left=left_suffix or "",
+            output_suffix_for_right=right_suffix or "",
+        )
     decl = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source]
     )
@@ -269,8 +288,15 @@ def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):
     if output_type == Table:
         return result_table
     elif output_type == ds.InMemoryDataset:
-        # Get rid of special dataset columns
-        # "__fragment_index", "__batch_index", "__last_in_fragment", "__filename"
-        return ds.InMemoryDataset(result_table.select(table_or_dataset.schema.names))
+        return ds.InMemoryDataset(result_table)
     else:
         raise TypeError("Unsupported output type")
+
+
+def _group_by(table, aggregates, keys):
+
+    decl = Declaration.from_sequence([
+        Declaration("table_source", TableSourceNodeOptions(table)),
+        Declaration("aggregate", AggregateNodeOptions(aggregates, keys=keys))
+    ])
+    return decl.to_table(use_threads=True)

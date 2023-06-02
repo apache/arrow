@@ -341,6 +341,10 @@ ARROW_TESTING_EXPORT
 std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
                                      const std::vector<std::string>& json);
 
+ARROW_TESTING_EXPORT
+Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
+    const Table& table, const std::vector<int>& column_indices);
+
 // Given an array, return a new identical array except for one validity bit
 // set to a new value.
 // This is useful to force the underlying "value" of null entries to otherwise
@@ -527,5 +531,14 @@ class ARROW_TESTING_EXPORT GatingTask {
   class Impl;
   std::shared_ptr<Impl> impl_;
 };
+
+/// \brief create an exact copy of the data where each buffer has a max alignment of 1
+///
+/// This method does not recurse into the dictionary or children
+ARROW_TESTING_EXPORT std::shared_ptr<ArrayData> UnalignBuffers(const ArrayData& array);
+/// \brief create an exact copy of the array where each buffer has a max alignment of 1
+///
+/// This method does not recurse into the dictionary or children
+ARROW_TESTING_EXPORT std::shared_ptr<Array> UnalignBuffers(const Array& array);
 
 }  // namespace arrow

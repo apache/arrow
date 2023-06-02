@@ -170,6 +170,7 @@ from pyarrow.lib import (null, bool_,
                          union, sparse_union, dense_union,
                          dictionary,
                          run_end_encoded,
+                         fixed_shape_tensor,
                          field,
                          type_for_alias,
                          DataType, DictionaryType, StructType,
@@ -178,7 +179,7 @@ from pyarrow.lib import (null, bool_,
                          TimestampType, Time32Type, Time64Type, DurationType,
                          FixedSizeBinaryType, Decimal128Type, Decimal256Type,
                          BaseExtensionType, ExtensionType,
-                         RunEndEncodedType,
+                         RunEndEncodedType, FixedShapeTensorType,
                          PyExtensionType, UnknownExtensionType,
                          register_extension_type, unregister_extension_type,
                          DictionaryMemo,
@@ -199,6 +200,7 @@ from pyarrow.lib import (null, bool_,
                          Int16Array, UInt16Array,
                          Int32Array, UInt32Array,
                          Int64Array, UInt64Array,
+                         HalfFloatArray, FloatArray, DoubleArray,
                          ListArray, LargeListArray, MapArray,
                          FixedSizeListArray, UnionArray,
                          BinaryArray, StringArray,
@@ -209,7 +211,7 @@ from pyarrow.lib import (null, bool_,
                          Time32Array, Time64Array, DurationArray,
                          MonthDayNanoIntervalArray,
                          Decimal128Array, Decimal256Array, StructArray, ExtensionArray,
-                         RunEndEncodedArray,
+                         RunEndEncodedArray, FixedShapeTensorArray,
                          scalar, NA, _NULL as NULL, Scalar,
                          NullScalar, BooleanScalar,
                          Int8Scalar, Int16Scalar, Int32Scalar, Int64Scalar,
@@ -225,7 +227,7 @@ from pyarrow.lib import (null, bool_,
                          StringScalar, LargeStringScalar,
                          FixedSizeBinaryScalar, DictionaryScalar,
                          MapScalar, StructScalar, UnionScalar,
-                         ExtensionScalar)
+                         RunEndEncodedScalar, ExtensionScalar)
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
@@ -269,21 +271,10 @@ from pyarrow.lib import (ArrowCancelled,
                          ArrowTypeError,
                          ArrowSerializationError)
 
-# Serialization
-from pyarrow.lib import (deserialize_from, deserialize,
-                         deserialize_components,
-                         serialize, serialize_to, read_serialized,
-                         SerializationCallbackError,
-                         DeserializationCallbackError)
-
 import pyarrow.hdfs as hdfs
 
 from pyarrow.ipc import serialize_pandas, deserialize_pandas
 import pyarrow.ipc as ipc
-
-from pyarrow.serialization import (default_serialization_context,
-                                   register_default_serialization_handlers,
-                                   register_torch_serialization_handlers)
 
 import pyarrow.types as types
 
@@ -294,9 +285,6 @@ import pyarrow.types as types
 from pyarrow.filesystem import FileSystem as _FileSystem
 from pyarrow.filesystem import LocalFileSystem as _LocalFileSystem
 from pyarrow.hdfs import HadoopFileSystem as _HadoopFileSystem
-
-from pyarrow.lib import SerializationContext as _SerializationContext
-from pyarrow.lib import SerializedPyObject as _SerializedPyObject
 
 
 _localfs = _LocalFileSystem._get_instance()
@@ -318,11 +306,6 @@ _deprecated = {
     "HadoopFileSystem": (_HadoopFileSystem, "HadoopFileSystem"),
 }
 
-_serialization_deprecatd = {
-    "SerializationContext": _SerializationContext,
-    "SerializedPyObject": _SerializedPyObject,
-}
-
 
 def __getattr__(name):
     if name in _deprecated:
@@ -330,10 +313,6 @@ def __getattr__(name):
         _warnings.warn(_msg.format(name, new_name),
                        FutureWarning, stacklevel=2)
         return obj
-    elif name in _serialization_deprecatd:
-        _warnings.warn(_serialization_msg.format(name),
-                       FutureWarning, stacklevel=2)
-        return _serialization_deprecatd[name]
 
     raise AttributeError(
         "module 'pyarrow' has no attribute '{0}'".format(name)

@@ -182,9 +182,6 @@ include "io.pxi"
 # IPC / Messaging
 include "ipc.pxi"
 
-# Python serialization
-include "serialization.pxi"
-
 # Micro-benchmark routines
 include "benchmark.pxi"
 

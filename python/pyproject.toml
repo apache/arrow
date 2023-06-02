@@ -17,7 +17,7 @@
 
 [build-system]
 requires = [
-    "cython >= 0.29.22",
+    "cython >= 0.29.31",
     "oldest-supported-numpy>=0.14",
     "setuptools_scm",
     "setuptools >= 40.1.0",

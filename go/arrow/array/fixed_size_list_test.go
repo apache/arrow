@@ -20,9 +20,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFixedSizeListArray(t *testing.T) {
@@ -171,6 +172,8 @@ func TestFixedSizeListArrayStringer(t *testing.T) {
 	if got, want := arr.String(), want; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
+	assert.Equal(t, "[0,1,2]", arr.ValueStr(0))
+	assert.Equal(t, array.NullValueStr, arr.ValueStr(1))
 }
 
 func TestFixedSizeListArraySlice(t *testing.T) {
@@ -212,4 +215,43 @@ func TestFixedSizeListArraySlice(t *testing.T) {
 	if got, want := sub.String(), want; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
+}
+
+func TestFixedSizeListStringRoundTrip(t *testing.T) {
+	// 1. create array
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	const N = 3
+	var (
+		values = [][N]int32{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}, {9, -9, -8}}
+		valid  = []bool{true, false, true, true}
+	)
+
+	b := array.NewFixedSizeListBuilder(pool, N, arrow.PrimitiveTypes.Int32)
+	defer b.Release()
+
+	vb := b.ValueBuilder().(*array.Int32Builder)
+	vb.Reserve(len(values))
+
+	for i, v := range values {
+		b.Append(valid[i])
+		vb.AppendValues(v[:], nil)
+	}
+
+	arr := b.NewArray().(*array.FixedSizeList)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewFixedSizeListBuilder(pool, N, arrow.PrimitiveTypes.Int32)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.FixedSizeList)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }

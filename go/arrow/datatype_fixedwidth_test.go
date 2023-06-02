@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v12/arrow"
+	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -262,7 +262,7 @@ func TestTime64Type(t *testing.T) {
 		{arrow.Microsecond, "22:10:15.123456", arrow.Time64((22*h + 10*m + 15*s + 123456*us).Microseconds()), false},
 		{arrow.Microsecond, "12:34:56.78901234", arrow.Time64(0), true},
 		{arrow.Nanosecond, "12:34:56.78901234", arrow.Time64(12*h + 34*m + 56*s + 789012340), false},
-		{arrow.Nanosecond, "12:34:56.1234567890", arrow.Time64(0), true},
+		{arrow.Nanosecond, "12:34:56.123456789 9", arrow.Time64(0), true},
 	} {
 		t.Run("FromString", func(t *testing.T) {
 			v, e := arrow.Time64FromString(tc.str, tc.unit)

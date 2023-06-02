@@ -1611,7 +1611,7 @@ TEST(ExecPlanExecution, SegmentedAggregationWithMultiThreading) {
        {"aggregate", AggregateNodeOptions{/*aggregates=*/{
                                               {"count", nullptr, "i32", "count(i32)"},
                                           },
-                                          /*keys=*/{"i32"}, /*segment_leys=*/{"i32"}}}});
+                                          /*keys=*/{}, /*segment_keys=*/{"i32"}}}});
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, HasSubstr("multi-threaded"),
                                   DeclarationToExecBatches(std::move(plan)));
 }
@@ -1640,7 +1640,7 @@ TEST(ExecPlanExecution, SegmentedAggregationWithOneSegment) {
                        DeclarationToExecBatches(std::move(plan), /*use_threads=*/false));
 
   auto expected = ExecBatchFromJSON({int32(), int32(), int64(), float64()},
-                                    R"([[1, 1, 6, 2], [2, 1, 6, 2]])");
+                                    R"([[1, 1, 6, 2], [1, 2, 6, 2]])");
   AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
                                       {expected});
 }
@@ -1670,7 +1670,7 @@ TEST(ExecPlanExecution, SegmentedAggregationWithTwoSegments) {
 
   auto expected = ExecBatchFromJSON(
       {int32(), int32(), int64(), float64()},
-      R"([[1, 1, 3, 1.5], [2, 1, 1, 1], [1, 2, 3, 3], [2, 2, 5, 2.5]])");
+      R"([[1, 1, 3, 1.5], [1, 2, 1, 1], [2, 1, 3, 3], [2, 2, 5, 2.5]])");
   AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
                                       {expected});
 }
@@ -1702,6 +1702,46 @@ TEST(ExecPlanExecution, SegmentedAggregationWithBatchCrossingSegment) {
                                     R"([[1, 1, 2, 1], [2, 2, 4, 2], [3, 3, 6, 3]])");
   AssertExecBatchesEqualIgnoringOrder(actual_batches.schema, actual_batches.batches,
                                       {expected});
+}
+
+TEST(ExecPlanExecution, UnalignedInput) {
+  std::shared_ptr<Array> array = ArrayFromJSON(int32(), "[1, 2, 3]");
+  std::shared_ptr<Array> unaligned = UnalignBuffers(*array);
+  ASSERT_OK_AND_ASSIGN(ExecBatch sample_batch,
+                       ExecBatch::Make({unaligned}, array->length()));
+
+  BatchesWithSchema data;
+  data.batches = {std::move(sample_batch)};
+  data.schema = schema({field("i32", int32())});
+
+  Declaration plan = Declaration::Sequence({
+      {"exec_batch_source", ExecBatchSourceNodeOptions(data.schema, data.batches)},
+  });
+
+  int64_t initial_bytes_allocated = default_memory_pool()->total_bytes_allocated();
+
+  // By default we should warn and so the plan should finish ok
+  ASSERT_OK(DeclarationToStatus(plan));
+  ASSERT_EQ(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
+
+  QueryOptions query_options;
+
+#ifndef ARROW_UBSAN
+  // Nothing should happen if we ignore alignment
+  query_options.unaligned_buffer_handling = UnalignedBufferHandling::kIgnore;
+  ASSERT_OK(DeclarationToStatus(plan, query_options));
+  ASSERT_EQ(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
+#endif
+
+  query_options.unaligned_buffer_handling = UnalignedBufferHandling::kError;
+  ASSERT_THAT(DeclarationToStatus(plan, query_options),
+              Raises(StatusCode::Invalid,
+                     testing::HasSubstr("An input buffer was poorly aligned")));
+  ASSERT_EQ(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
+
+  query_options.unaligned_buffer_handling = UnalignedBufferHandling::kReallocate;
+  ASSERT_OK(DeclarationToStatus(plan, query_options));
+  ASSERT_LT(initial_bytes_allocated, default_memory_pool()->total_bytes_allocated());
 }
 
 }  // namespace acero

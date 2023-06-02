@@ -130,6 +130,32 @@ Schema <- R6Class("Schema",
       codes <- set_names(codes, names)
 
       call2("schema", !!!codes)
+    },
+    WithNames = function(names) {
+      if (!inherits(names, "character")) {
+        abort(
+          paste("Replacement names must be character vector, not", class(names)[1])
+        )
+      }
+
+      if (length(names) != length(self$names)) {
+        abort(
+          c(
+            "Replacement names must contain same number of items as current names",
+            i = paste("Current names length:", length(self$names)),
+            x = paste("Replacement names length:", length(names))
+          )
+        )
+      }
+
+      existing_metadata <- self$metadata
+      renamed_schema <- Schema__WithNames(self, names)
+
+      # if we have R metadata containing column names, update names there too
+      if (!is.null(existing_metadata$r$columns)) {
+        names(existing_metadata$r$columns) <- names
+      }
+      renamed_schema$WithMetadata(existing_metadata)
     }
   ),
   active = list(
@@ -203,7 +229,7 @@ prepare_key_value_metadata <- function(metadata) {
       call. = FALSE
     )
   }
-  if (is.list(metadata[["r"]])) {
+  if (!is_empty(metadata) && is.list(metadata[["r"]])) {
     metadata[["r"]] <- .serialize_arrow_r_metadata(metadata[["r"]])
   }
   map_chr(metadata, as.character)
@@ -388,3 +414,6 @@ as_schema.StructType <- function(x, ...) {
 as.data.frame.Schema <- function(x, row.names = NULL, optional = FALSE, ...) {
   as.data.frame(Table__from_schema(x))
 }
+
+#' @export
+`names<-.Schema` <- function(x, value) x$WithNames(value)

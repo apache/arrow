@@ -28,6 +28,7 @@ export ARROW_HOME=${source_dir}
 export CONAN_HOOK_ERROR_LEVEL=40
 
 conan_args=()
+conan_args+=(--build=missing)
 if [ -n "${ARROW_CONAN_PARQUET:-}" ]; then
   conan_args+=(--options arrow:parquet=${ARROW_CONAN_PARQUET})
 fi

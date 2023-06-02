@@ -20,11 +20,11 @@ import (
 	"io"
 	"sync"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -337,6 +337,12 @@ func (b *BufferWriter) Finish() *memory.Buffer {
 	b.buffer = nil
 	b.Reset(0)
 	return buf
+}
+
+// Release the underlying buffer and not allocate anything else. To re-use this buffer, Reset() or Finish() should be called
+func (b *BufferWriter) Release() {
+	b.buffer.Release()
+	b.buffer = nil
 }
 
 func (b *BufferWriter) Truncate() {

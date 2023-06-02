@@ -22,8 +22,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )

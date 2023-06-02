@@ -21,6 +21,7 @@ from pyarrow import Codec
 from pyarrow import fs
 
 groups = [
+    'acero',
     'brotli',
     'bz2',
     'cython',
@@ -50,6 +51,7 @@ groups = [
 ]
 
 defaults = {
+    'acero': False,
     'brotli': Codec.is_available('brotli'),
     'bz2': Codec.is_available('bz2'),
     'cython': False,
@@ -93,6 +95,12 @@ except ImportError:
 try:
     import pyarrow.gandiva  # noqa
     defaults['gandiva'] = True
+except ImportError:
+    pass
+
+try:
+    import pyarrow.acero  # noqa
+    defaults['acero'] = True
 except ImportError:
     pass
 

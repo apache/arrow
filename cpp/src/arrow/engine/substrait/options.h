@@ -81,10 +81,10 @@ class ARROW_ENGINE_EXPORT ExtensionDetails {
 class ARROW_ENGINE_EXPORT ExtensionProvider {
  public:
   virtual ~ExtensionProvider() = default;
-  virtual Result<RelationInfo> MakeRel(const ConversionOptions& conv_opts,
-                                       const std::vector<DeclarationInfo>& inputs,
-                                       const ExtensionDetails& ext_details,
-                                       const ExtensionSet& ext_set) = 0;
+  virtual Result<DeclarationInfo> MakeRel(const ConversionOptions& conv_opts,
+                                          const std::vector<DeclarationInfo>& inputs,
+                                          const ExtensionDetails& ext_details,
+                                          const ExtensionSet& ext_set) = 0;
 };
 
 /// \brief Get the default extension provider

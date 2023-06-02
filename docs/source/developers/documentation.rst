@@ -102,8 +102,110 @@ The final output is located under the ``${PWD}/docs`` directory.
 
    :ref:`docker-builds`.
 
+.. _building-docs-pr-preview:
+
+Building a docs preview in a Pull Request
+-----------------------------------------
+
+You can build and preview the documentation within a GitHub pull request you are working on.
+
+To do so, post the comment ``@github-actions crossbow submit preview-docs``
+to the pull request. The rendered documentation will then be available within the
+GitHub Actions response, where you need to click on the Crossbow build badge:
+
+.. figure:: ./images/docs_preview_1.jpeg
+   :scale: 70 %
+   :alt: Github-actions response with the crossbow build status.
+
+   Crossbow build status
+
+and then in the summary of the workflow you can find the link to the Docs Preview
+summary at the bottom of the page:
+
+.. figure:: ./images/docs_preview_2.jpeg
+   :scale: 70 %
+   :alt: Crossbow workflow page with the Docs Preview summary section.
+
+   Docs Preview summary section
+
+Building for dev purposes
+-------------------------
+
+Building subsections
+^^^^^^^^^^^^^^^^^^^^
+
+To make it easier for developers to update parts of the documentation, one can
+build only a subset of it. You can build:
+
+* Specifications and protocol section (``docs/source/format``) with:
+
+  .. code-block:: shell
+
+     pushd arrow/docs
+     make format
+     popd
+
+  Rendered HTML format can be found in ``arrow/docs/_build/html/format``.
+
+* Development section (``docs/source/developers``) with:
+
+  .. code-block:: shell
+
+     pushd arrow/docs
+     make dev
+     popd
+
+  Rendered HTML format can be found in ``arrow/docs/_build/html/developers``.
+
+* C++ section (``docs/source/cpp``) with:
+
+  .. code-block:: shell
+
+     pushd arrow/docs
+     make cpp
+     popd
+
+  Rendered HTML format can be found in ``arrow/docs/_build/html/cpp``.
+
+* Python section (``docs/source/python``) with:
+
+  .. code-block:: shell
+
+     pushd arrow/docs
+     make python
+     popd
+
+  Rendered HTML format can be found in ``arrow/docs/_build/html/python``.
+
+.. note::
+
+   When building only a part of the documentation the links will get broken!
+
+   For this reason building only a subset of the documentation should only be
+   used in the initial work as it makes the building faster and easier.
+
+   To check for the correctness of the documentation overall one should
+   build the whole documentation with ``make html`` or use
+   :ref:`GitHub Actions <building-docs-pr-preview>`.
+
+
+Building live
+^^^^^^^^^^^^^
+
+You can also build the documentation (or a part of it) live. This means the
+changes saved will automatically trigger the documentation to be rebuilt.
+
+.. code-block:: shell
+
+   pushd arrow/docs
+   make html-live
+
+The same way one could use ``make format-live``, ``make dev-live``, ``make cpp-live``
+or ``make python-live`` to auto-build part of the documentation.
+
+
 Building a single directory for dev purposes without all the pre-requisites
----------------------------------------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can build documentation in a single directory without needing to install
 all of the pre-requisites by installing sphinx, setting up a temporary
