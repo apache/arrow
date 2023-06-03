@@ -47,14 +47,15 @@ namespace {
 
 class ExternalOrderByNode : public ExecNode, public TracedNode {
  public:
-  OrderByNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+  ExternalOrderByNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
               std::shared_ptr<Schema> output_schema, Ordering new_ordering,
               int64_t buffer_size, std::string path_to_folder)
-      : ExecNode(plan, std::move(inputs), {"input"}, std::move(output_schema)),
+      : ExecNode(plan, std::move(inputs), {"input"}, output_schema),
         TracedNode(this),
-        ordering_(std::move(new_ordering)),
+        ordering_(new_ordering),
         buffer_size_(buffer_size),
-        path_to_folder_(path_to_folder) {}
+        path_to_folder_(path_to_folder),
+        accumulation_queue_(plan, output_schema, new_ordering, buffer_size, path_to_folder) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -110,10 +111,7 @@ class ExternalOrderByNode : public ExecNode, public TracedNode {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
                           batch.ToRecordBatch(output_schema_));
 
-    {
-      std::lock_guard lk(mutex_);
-      accumulation_queue_.push_back(std::move(record_batch));
-    }
+    accumulation_queue_.push_back(std::move(record_batch));
 
     if (counter_.Increment()) {
       return DoFinish();
@@ -122,6 +120,9 @@ class ExternalOrderByNode : public ExecNode, public TracedNode {
   }
 
   Status DoFinish() {
+    accumulation_queue_.push_finshed();
+    std::vector<ExecBatch> batches;
+
     ARROW_ASSIGN_OR_RAISE(
         auto table,
         Table::FromRecordBatches(output_schema_, std::move(accumulation_queue_)));
@@ -163,13 +164,14 @@ class ExternalOrderByNode : public ExecNode, public TracedNode {
   std::string path_to_folder_;
   Ordering ordering_;
   std::mutex mutex_;
+  OrderedSpillingAccumulationQueue accumulation_queue_;
 };
 
 class OrderedSpillingAccumulationQueue {
  public:
-  OrderedSpillingAccumulationQueue(int64_t buffer_size, std::string path_to_folder,
-                                   ExecPlan* plan, std::shared_ptr<Schema> output_schema,
-                                   Ordering new_ordering)
+  OrderedSpillingAccumulationQueue(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
+                                   Ordering new_ordering, int64_t buffer_size,
+                                   std::string path_to_folder)
       : buffer_size_(buffer_size),
         plan_(plan),
         output_schema_(output_schema),
@@ -222,6 +224,13 @@ class OrderedSpillingAccumulationQueue {
       mutex_.unlock();
     }
     return Status::OK();
+  }
+
+  Status push_finshed(){
+        mutex_.lock();
+
+
+
   }
 
   // The number of files that have been written to disk.  This should also include any data in memory
