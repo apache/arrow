@@ -26,8 +26,7 @@ classdef Float32Array < arrow.array.Array
                 data
                 opts.DeepCopy = false
             end
-            validateattributes(data, "single", ["2d", "nonsparse", "real"]);
-            if ~isempty(data), validateattributes(data, "single", "vector"); end
+            arrow.args.validateTypeAndShape(data, "single");
             obj@arrow.array.Array("Name", "arrow.array.proxy.Float32Array", "ConstructorArguments", {data, opts.DeepCopy});
             % Store a reference to the array if not doing a deep copy
             if (~opts.DeepCopy), obj.MatlabArray = data; end
