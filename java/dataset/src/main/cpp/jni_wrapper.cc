@@ -741,23 +741,18 @@ JNIEXPORT jobjectArray JNICALL
     JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
   // validate is not empty!
   // create response
-  int totalExpression = round_tripped.named_expressions.size();
   jobjectArray extendedExpressionOutput = (jobjectArray)env->NewObjectArray(totalExpression*2,env->FindClass("java/lang/String"),0);
-  int i; int j = 0;
-  for (i=0; i<totalExpression; i++) {
+  int j = 0;
+  for (const auto& expression : round_tripped.named_expressions) {
     env->SetObjectArrayElement(
       extendedExpressionOutput,
       j++,
-      env->NewStringUTF(
-        round_tripped.named_expressions[i].name.c_str()
-      )
+      env->NewStringUTF(expression.name.c_str())
     );
     env->SetObjectArrayElement(
       extendedExpressionOutput,
       j++,
-      env->NewStringUTF(
-        round_tripped.named_expressions[i].expression.ToString().c_str()
-      )
+      env->NewStringUTF(expression.expression.ToString().c_str())
     );
   }
   return extendedExpressionOutput;

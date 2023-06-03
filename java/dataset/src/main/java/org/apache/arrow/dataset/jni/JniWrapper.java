@@ -71,8 +71,7 @@ public class JniWrapper {
    * @param datasetId the native pointer of the arrow::dataset::Dataset instance.
    * @param columnsSubset desired column names. Columns not in this list will not be emitted when performing scan
    *                      operation. Null equals to "all columns".
-   * @param columnsToProduce Set expressions which will be evaluated to produce the materialized columns. Null equals
-   *                         to "no produce".
+   * @param columnsToProduce Expressions to materialize new columns (if desired).
    * @param batchSize batch size of scanned record batches.
    * @param memoryPool identifier of memory pool used in the native scanner.
    * @return the native pointer of the arrow::dataset::Scanner instance.
