@@ -1985,38 +1985,51 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
-  //  void InitData(int nvalues) {
-  //    auto rand = ::arrow::random::RandomArrayGenerator(42);
-  //    const int min_prefix_length = 0;
-  //    const int max_prefix_length = 30;
-  //    const size_t max_element_length = 10;
-  //
-  //    ::arrow::StringBuilder builder;
-  //    const auto prefix_array = std::static_pointer_cast<::arrow::StringArray>(
-  //        rand.String(nvalues, /* min_length */ min_prefix_length,
-  //                    /* max_length */ max_prefix_length, /*null_percent*/ 0));
-  //
-  //    std::string previous_element;
-  //    for (int i = 0; i < nvalues; i++) {
-  //      auto element = prefix_array->GetString(i);
-  //
-  //      if (previous_element.length() <= max_element_length) {
-  //        previous_element = previous_element.append(element);
-  //      } else {
-  //        previous_element = element;
-  //      }
-  //      ASSERT_OK(builder.Append(previous_element));
-  //    }
-  //
-  //    std::shared_ptr<::arrow::StringArray> array;
-  //    ASSERT_OK(builder.Finish(&array));
-  //    draws_ = reinterpret_cast<c_type*>(array->value_data()->mutable_data());
-  //  }
-  //
-  //  void Execute(int nvalues, int repeats) {
-  //    InitData(nvalues);
-  //    CheckRoundtrip();
-  //  }
+  void InitData(int nvalues, double null_probability) {
+    auto rand = ::arrow::random::RandomArrayGenerator(42);
+    const int min_prefix_length = 0;
+    const int max_prefix_length = 50;
+    const size_t max_element_length = 100;
+
+    ::arrow::StringBuilder builder;
+    const auto prefix_array = std::static_pointer_cast<::arrow::StringArray>(
+        rand.String(/*size*/ nvalues, /*min_length*/ min_prefix_length,
+                    /*max_length*/ max_prefix_length, /*null_percent*/ null_probability));
+
+    std::string previous_element;
+    for (int i = 0; i < nvalues; i++) {
+      auto element = prefix_array->GetString(i);
+
+      if (previous_element.length() <= max_element_length) {
+        previous_element = previous_element.append(element);
+      } else {
+        previous_element = element;
+      }
+      ASSERT_OK(builder.Append(previous_element));
+    }
+
+    std::shared_ptr<::arrow::StringArray> array;
+    ASSERT_OK(builder.Finish(&array));
+    draws_ = reinterpret_cast<c_type*>(array->value_data()->mutable_data());
+  }
+
+  void Execute(int nvalues, double null_probability) {
+    InitData(nvalues, null_probability);
+    CheckRoundtrip();
+  }
+
+  void ExecuteSpaced(int nvalues, int repeats, int64_t valid_bits_offset,
+                     double null_probability) {
+    InitData(nvalues, null_probability);
+
+    int64_t size = num_values_ + valid_bits_offset;
+    auto rand = ::arrow::random::RandomArrayGenerator(1923);
+    const auto array = rand.UInt8(size, 0, 100, null_probability);
+    const auto valid_bits = array->null_bitmap_data();
+    if (valid_bits) {
+      CheckRoundtripSpaced(valid_bits, valid_bits_offset);
+    }
+  }
 
   void CheckRoundtrip() override {
     auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY,
@@ -2065,11 +2078,11 @@ TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(250, 2));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(250, /*null_probability*/ 0.1));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
-      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_prob*/ 0));
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_probability*/ 0));
 
-  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 200));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, /*null_probability*/ 0.1));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 10, /*valid_bits_offset*/ 64,
       /*null_probability*/ 0.1));
