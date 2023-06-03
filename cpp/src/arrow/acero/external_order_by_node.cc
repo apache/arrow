@@ -190,6 +190,7 @@ class OrderedSpillingAccumulationQueue {
 
     if (accumulation_queue_size_ >= buffer_size_) {
       spill_count_++;
+      int64_t spill_index=spill_count_-1;
       ARROW_ASSIGN_OR_RAISE(
           auto table,
           Table::FromRecordBatches(
@@ -198,45 +199,60 @@ class OrderedSpillingAccumulationQueue {
       accumulation_queue_ = make_shared<std::vector<std::shared_ptr<RecordBatch>>>();
       mutex_.unlock();
 
-      // sort
-      SortOptions sort_options(ordering_.sort_keys(), ordering_.null_placement());
-      ExecContext* ctx = plan_->query_context()->exec_context();
-      ARROW_ASSIGN_OR_RAISE(auto indices, SortIndices(table, sort_options, ctx));
-      ARROW_ASSIGN_OR_RAISE(auto sorted_table,
-                            Take(table, indices, TakeOptions::NoBoundsCheck(), ctx));
-      std::shared_ptr<arrow::Table> sorted_table_ptr = sorted_table.table();
-      // write to external storage
-      std::string folder_path = path_to_folder_ + "/0_sort_" + spill_count_ + ".parquet";
-      std::shared_ptr<WriterProperties> props =
-          WriterProperties::Builder().compression(arrow::Compression::SNAPPY)->build();
-      std::shared_ptr<ArrowWriterProperties> arrow_props =
-          ArrowWriterProperties::Builder().store_schema()->build();
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::io::FileOutputStream> outfile,
-                            arrow::io::FileOutputStream::Open(folder_path));
-      plan_->query_context()->ScheduleIOTask(
-          [sorted_table_ptr, outfile, props, arrow_props]() mutable {
-            ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(
-                *(sorted_table_ptr.get()), arrow::default_memory_pool(), outfile,
-                /*chunk_size=*/3, props, arrow_props));
-          },
-          "OrderByNode::OrderedSpillingAccumulationQueue::Spillover");
+      ARROW_ASSIGN_OR_RAISE(auto sorted_table, sort_table(table));
+      ARROW_RETURN_NOT_OK(schedule_write_task(sorted_table, spill_index));
     } else {
       mutex_.unlock();
     }
     return Status::OK();
   }
 
-  Status push_finshed(){
-        mutex_.lock();
+  Status push_finshed() {
+    mutex_.lock();
+    batch_size_ = buffer_size_ / spill_count_;
+    if (accumulation_queue_size_ > 0) {
+      if (accumulation_queue_size_ > batch_size_) {
+        spill_count_++;
+        int64_t spill_index = spill_count_ - 1;
+        int64_t output_size = accumulation_queue_size_ - batch_size_;
+        ARROW_ASSIGN_OR_RAISE(
+            auto table,
+            Table::FromRecordBatches(
+                output_schema_, std::move(accumulation_queue_)));  // todo check batches_
+        accumulation_queue_size_ = 0;
+        mutex_.unlock();
+
+        //output oversize part of data
+        TableBatchReader reader(table);
+        reader.set_chunksize(std::move(output_size));
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> next, reader.Next());
+        std::vector<std::shared_ptr<RecordBatch>> batches;
+        batches.push_back(std::move(next));
+        ARROW_ASSIGN_OR_RAISE(
+            auto output_table, Table::FromRecordBatches(output_schema_, std::move(batches)));
+        ARROW_ASSIGN_OR_RAISE(auto sorted_table, sort_table(output_table));
+        ARROW_RETURN_NOT_OK(schedule_write_task(sorted_table, spill_index));
+
+        //todo buffer the remanent data
+        reader.set_chunksize(batch_size_);
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch, reader.Next());
+
+      }else{
+        //todo buffer the remanent data
 
 
+      }
 
+    } else {
+      mutex_.unlock();
+    }
+    return Status::OK();
   }
 
   // The number of files that have been written to disk.  This should also include any data in memory
   // so it will be the number of files written to disk + 1 if there is in-memory data.
   int SpillCount() {
-    {
+    {// to do check whether the lock is reentried
       std::lock_guard lk(mutex_);
       return spill_count_;
     }
@@ -247,12 +263,41 @@ class OrderedSpillingAccumulationQueue {
   // == SpillCount() - 1 then this might be data that is already in-memory.
   Future<std::optional<ExecBatch>> FetchNextBatch(int spill_index);
 
+  protected:
+   Result<std::shared_ptr<arrow::Table>> sort_table(std::shared_ptr<arrow::Table> table) {
+      SortOptions sort_options(ordering_.sort_keys(), ordering_.null_placement());
+      ExecContext* ctx = plan_->query_context()->exec_context();
+      ARROW_ASSIGN_OR_RAISE(auto indices, SortIndices(table, sort_options, ctx));
+      ARROW_ASSIGN_OR_RAISE(auto sorted_table,
+                            Take(table, indices, TakeOptions::NoBoundsCheck(), ctx));
+      return sorted_table.table();
+   }
+
+   Status schedule_write_task(std::shared_ptr<arrow::Table> table, int spill_index) {
+    std::string folder_path =
+        path_to_folder_ + "/sort_" + std::to_string(spill_index) + ".parquet";
+    std::shared_ptr<WriterProperties> props =
+        WriterProperties::Builder().compression(arrow::Compression::SNAPPY)->build();
+    std::shared_ptr<ArrowWriterProperties> arrow_props =
+        ArrowWriterProperties::Builder().store_schema()->build();
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::io::FileOutputStream> outfile,
+                          arrow::io::FileOutputStream::Open(folder_path));
+    plan_->query_context()->ScheduleIOTask(
+        [table, outfile, props, arrow_props]() mutable {
+          ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(
+              *(table.get()), arrow::default_memory_pool(), outfile,
+              /*chunk_size=*/3, props, arrow_props));
+        },
+        "OrderByNode::OrderedSpillingAccumulationQueue::Spillover");
+   }
+
  private:
   std::mutex mutex_;
   std::vector<std::shared_ptr<RecordBatch>> accumulation_queue_;
   int64_t spill_count_;
   int64_t accumulation_queue_size_;
   int64_t buffer_size_;
+  int64_t batch_size_;
   std::shared_ptr<Schema> output_schema_;
   std::string path_to_folder_;
   Ordering ordering_;
