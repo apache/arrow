@@ -41,6 +41,7 @@ set(ARROW_ACERO_SRCS
     hash_join_node.cc
     map_node.cc
     options.cc
+    external_order_by_node.cc
     order_by_node.cc
     order_by_impl.cc
     partition_util.cc
