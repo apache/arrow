@@ -1554,7 +1554,7 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
 }
 
 TEST(AsofJoinTest, BackpressureWithBatches) {
-  return TestBackpressure(MakeIntegerBatches, /*num_batches=*/10, /*batch_size=*/1,
+  return TestBackpressure(MakeIntegerBatches, /*num_batches=*/20, /*batch_size=*/1,
                           /*fast_delay=*/0.01, /*slow_delay=*/0.1, /*noisy=*/false);
 }
 
@@ -1618,7 +1618,7 @@ T GetEnvValue(const std::string& var, T default_value) {
 }  // namespace
 
 TEST(AsofJoinTest, BackpressureWithBatchesGen) {
-  int num_batches = GetEnvValue("ARROW_BACKPRESSURE_DEMO_NUM_BATCHES", 10);
+  int num_batches = GetEnvValue("ARROW_BACKPRESSURE_DEMO_NUM_BATCHES", 20);
   int batch_size = GetEnvValue("ARROW_BACKPRESSURE_DEMO_BATCH_SIZE", 1);
   return TestBackpressure(MakeIntegerBatchGenForTest, num_batches, batch_size,
                           /*fast_delay=*/0.001, /*slow_delay=*/0.01);
