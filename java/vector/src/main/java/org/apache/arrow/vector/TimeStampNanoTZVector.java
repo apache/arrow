@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampNanoTZReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -39,7 +37,6 @@ import org.apache.arrow.vector.util.TransferPair;
  * (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class TimeStampNanoTZVector extends TimeStampVector {
-  private Supplier<FieldReader> reader;
   private final String timeZone;
 
   /**
@@ -65,11 +62,6 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
     super(name, fieldType, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) fieldType.getType();
     timeZone = arrowType.getTimezone();
-    reader = () -> {
-      final FieldReader fieldReader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
   }
 
   /**
@@ -83,21 +75,11 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
     super(field, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) field.getFieldType().getType();
     timeZone = arrowType.getTimezone();
-    reader = () -> {
-      final FieldReader fieldReader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader.get();
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return TimeStampNanoTZReaderImpl.class;
   }
 
   /**
@@ -241,7 +223,7 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
@@ -256,7 +238,7 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
   }
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param field Field object used by the target vector

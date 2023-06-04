@@ -65,11 +65,6 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
     super(name, fieldType, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) fieldType.getType();
     timeZone = arrowType.getTimezone();
-    reader = () -> {
-      final FieldReader fieldReader = new TimeStampMicroTZReaderImpl(TimeStampMicroTZVector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
   }
 
   /**
@@ -83,21 +78,11 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
     super(field, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) field.getFieldType().getType();
     timeZone = arrowType.getTimezone();
-    reader = () -> {
-      final FieldReader fieldReader = new TimeStampMicroTZReaderImpl(TimeStampMicroTZVector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader.get();
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return TimeStampMicroTZReaderImpl.class;
   }
 
   /**
@@ -239,7 +224,7 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
@@ -254,7 +239,7 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
   }
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param field Field object used by the target vector

@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TinyIntReaderImpl;
@@ -39,7 +37,6 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public final class TinyIntVector extends BaseFixedWidthVector implements BaseIntVector {
   public static final byte TYPE_WIDTH = 1;
-  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a TinyIntVector. This doesn't allocate any memory for
@@ -73,21 +70,11 @@ public final class TinyIntVector extends BaseFixedWidthVector implements BaseInt
    */
   public TinyIntVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = () -> {
-      final FieldReader fieldReader = new TinyIntReaderImpl(TinyIntVector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader.get();
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return TinyIntReaderImpl.class;
   }
 
   /**
@@ -324,7 +311,7 @@ public final class TinyIntVector extends BaseFixedWidthVector implements BaseInt
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
@@ -337,7 +324,7 @@ public final class TinyIntVector extends BaseFixedWidthVector implements BaseInt
   }
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param field Field object used by the target vector

@@ -567,10 +567,13 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   @Override
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return UnionListReader.class;
+  }
+
+  @Override
   public UnionListReader getReader() {
-    if (reader == null) {
-      reader = new UnionListReader(this);
-    }
+    reader = (UnionListReader) super.getReader();
     return reader;
   }
 

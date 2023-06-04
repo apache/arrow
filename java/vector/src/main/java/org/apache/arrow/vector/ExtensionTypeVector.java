@@ -131,6 +131,12 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> e
   }
 
   @Override
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    throw new UnsupportedOperationException("Readers for extension types depend on the underlying vector, " +
+        "asking for a concrete implementation class of the reader type is invalid.");
+  }
+
+  @Override
   public FieldReader getReader() {
     return underlyingVector.getReader();
   }

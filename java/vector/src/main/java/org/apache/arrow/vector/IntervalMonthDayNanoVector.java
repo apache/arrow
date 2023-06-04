@@ -82,21 +82,11 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
    */
   public IntervalMonthDayNanoVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = () -> {
-      final FieldReader fieldReader = new IntervalMonthDayNanoReaderImpl(IntervalMonthDayNanoVector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader.get();
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return IntervalMonthDayNanoReaderImpl.class;
   }
 
   /**
@@ -390,7 +380,7 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector

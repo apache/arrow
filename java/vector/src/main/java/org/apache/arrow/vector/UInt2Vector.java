@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.UInt2ReaderImpl;
@@ -46,7 +44,6 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
   public static final char MAX_UINT2 = (char) 0XFFFF;
 
   public static final byte TYPE_WIDTH = 2;
-  private Supplier<FieldReader> reader;
 
   public UInt2Vector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(MinorType.UINT2.getType()), allocator);
@@ -63,16 +60,11 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
    */
   public UInt2Vector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = () -> {
-      final FieldReader fieldReader = new UInt2ReaderImpl(UInt2Vector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
   }
 
   @Override
-  public FieldReader getReader() {
-    return reader.get();
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return UInt2ReaderImpl.class;
   }
 
   @Override
@@ -298,7 +290,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
   }
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param field Field object used by the target vector

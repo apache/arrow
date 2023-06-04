@@ -21,7 +21,6 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.math.BigDecimal;
 import java.nio.ByteOrder;
-import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -46,7 +45,6 @@ public final class DecimalVector extends BaseFixedWidthVector {
   public static final int MAX_PRECISION = 38;
   public static final byte TYPE_WIDTH = 16;
   private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
-  private Supplier<FieldReader> reader;
 
   private final int precision;
   private final int scale;
@@ -85,23 +83,13 @@ public final class DecimalVector extends BaseFixedWidthVector {
   public DecimalVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
     ArrowType.Decimal arrowType = (ArrowType.Decimal) field.getFieldType().getType();
-    reader = () -> {
-      final FieldReader fieldReader = new DecimalReaderImpl(DecimalVector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
     this.precision = arrowType.getPrecision();
     this.scale = arrowType.getScale();
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader.get();
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return DecimalReaderImpl.class;
   }
 
   /**
@@ -536,7 +524,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
@@ -549,7 +537,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param field Field object used by the target vector

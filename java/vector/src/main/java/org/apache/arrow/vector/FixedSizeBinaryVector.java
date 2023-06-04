@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -41,7 +39,6 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   private final int byteWidth;
-  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a FixedSizeBinaryVector. This doesn't allocate any memory for
@@ -76,22 +73,12 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    */
   public FixedSizeBinaryVector(Field field, BufferAllocator allocator) {
     super(field, allocator, ((FixedSizeBinary) field.getFieldType().getType()).getByteWidth());
-    reader = () -> {
-      final FieldReader fieldReader = new FixedSizeBinaryReaderImpl(FixedSizeBinaryVector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
     byteWidth = ((FixedSizeBinary) field.getFieldType().getType()).getByteWidth();
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader.get();
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return FixedSizeBinaryReaderImpl.class;
   }
 
   /**
@@ -341,7 +328,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref       name of the target vector
@@ -354,7 +341,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param field Field object used by the target vector

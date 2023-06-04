@@ -20,8 +20,6 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
@@ -47,8 +45,6 @@ public final class BitVector extends BaseFixedWidthVector {
   private static final int HASH_CODE_FOR_ZERO = 17;
 
   private static final int HASH_CODE_FOR_ONE = 19;
-
-  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a BitVector. This doesn't allocate any memory for
@@ -82,21 +78,11 @@ public final class BitVector extends BaseFixedWidthVector {
    */
   public BitVector(Field field, BufferAllocator allocator) {
     super(field, allocator, 0);
-    reader = () -> {
-      final FieldReader fieldReader = new BitReaderImpl(BitVector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader.get();
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return BitReaderImpl.class;
   }
 
   /**
@@ -548,7 +534,7 @@ public final class BitVector extends BaseFixedWidthVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref       name of the target vector
@@ -561,7 +547,7 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param field Field object used by the target vector

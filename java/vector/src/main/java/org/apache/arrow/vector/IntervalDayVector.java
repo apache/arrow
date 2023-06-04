@@ -77,20 +77,18 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
   public IntervalDayVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
     reader = () -> {
-      final FieldReader fieldReader = new IntervalDayReaderImpl(IntervalDayVector.this);
-      reader = () -> fieldReader;
+      final FieldReader fieldReader;
+      synchronized (this) {
+        fieldReader = new IntervalDayReaderImpl(IntervalDayVector.this);
+        reader = () -> fieldReader;
+      }
       return fieldReader;
     };
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader.get();
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return IntervalDayReaderImpl.class;
   }
 
   /**
@@ -381,7 +379,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
@@ -394,7 +392,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param field Field object used by the target vector

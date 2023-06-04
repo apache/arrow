@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.BigIntReaderImpl;
@@ -39,7 +37,6 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public final class BigIntVector extends BaseFixedWidthVector implements BaseIntVector {
   public static final byte TYPE_WIDTH = 8;
-  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a BigIntVector. This doesn't allocate any memory for
@@ -73,21 +70,11 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
    */
   public BigIntVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = () -> {
-      final FieldReader fieldReader = new BigIntReaderImpl(BigIntVector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader.get();
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return BigIntReaderImpl.class;
   }
 
   /**
@@ -292,7 +279,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector

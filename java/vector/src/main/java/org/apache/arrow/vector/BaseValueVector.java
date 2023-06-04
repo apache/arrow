@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.Iterator;
 
@@ -24,6 +25,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.util.ValueVectorUtility;
@@ -49,6 +51,8 @@ public abstract class BaseValueVector implements ValueVector {
   public static final int INITIAL_VALUE_ALLOCATION = 3970;
 
   protected final BufferAllocator allocator;
+
+  protected volatile FieldReader fieldReader;
 
   protected BaseValueVector(BufferAllocator allocator) {
     this.allocator = Preconditions.checkNotNull(allocator, "allocator cannot be null");
@@ -141,6 +145,43 @@ public abstract class BaseValueVector implements ValueVector {
       bufferSize += DataSizeRoundingUtil.roundUpTo8Multiple((long) valueCount * typeWidth);
     }
     return allocator.getRoundingPolicy().getRoundedSize(bufferSize);
+  }
+
+  /**
+   * Each vector has a different reader that implements the FieldReader interface. Overridden methods must make
+   * sure to return the correct type of the reader implementation to instantiate the reader properly.
+   *
+   * @return Returns the implementation class type of the vector's reader.
+   */
+  protected abstract Class<? extends FieldReader> getReaderImplClass();
+
+  /**
+   * Default implementation to create a reader for the vector. Depends on the individual vector
+   * class' implementation of `getReaderImpl()` to initialize the reader appropriately.
+   *
+   * @return Concrete instance of FieldReader by using lazy initialization.
+   */
+  public FieldReader getReader() {
+    FieldReader reader = fieldReader;
+
+    if (reader != null) {
+      return reader;
+    }
+    synchronized (this) {
+      if (fieldReader == null) {
+        try {
+          fieldReader =
+              (FieldReader) Class.forName(getReaderImplClass().getName()).getConstructor(getClass())
+                  .newInstance(this);
+        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException |
+                 InvocationTargetException e) {
+          logger.error("Unable to instantiate FieldReader for {} because of: ", getClass().getSimpleName(), e);
+          throw new RuntimeException(e);
+        }
+      }
+
+      return fieldReader;
+    }
   }
 
   /**

@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeSecReaderImpl;
@@ -39,7 +37,6 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public final class TimeSecVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 4;
-  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a TimeSecVector. This doesn't allocate any memory for
@@ -73,21 +70,11 @@ public final class TimeSecVector extends BaseFixedWidthVector {
    */
   public TimeSecVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = () -> {
-      final FieldReader fieldReader = new TimeSecReaderImpl(TimeSecVector.this);
-      reader = () -> fieldReader;
-      return fieldReader;
-    };
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader.get();
+  protected Class<? extends FieldReader> getReaderImplClass() {
+    return TimeSecReaderImpl.class;
   }
 
   /**
@@ -297,7 +284,7 @@ public final class TimeSecVector extends BaseFixedWidthVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
