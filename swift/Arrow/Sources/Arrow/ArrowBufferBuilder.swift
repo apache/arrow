@@ -39,7 +39,7 @@ public class BaseBufferBuilder<T> {
     public var length: UInt = 0
     public var nullCount : UInt  = 0
 
-    init(values: ArrowBuffer, nulls: ArrowBuffer, stride: Int = MemoryLayout<T>.stride) throws {
+    init(values: ArrowBuffer, nulls: ArrowBuffer, stride: Int = MemoryLayout<T>.stride) {
         self.stride = stride
         self.values = values
         self.nulls = nulls
@@ -51,6 +51,9 @@ public class BaseBufferBuilder<T> {
 
     func resizeLength(_ data: ArrowBuffer, len: UInt = 0) -> UInt {
         if len == 0 || len < data.length * 2 {
+            if data.length == 0 || data.length * 2 < ArrowBuffer.min_length {
+                return ArrowBuffer.min_length
+            }
             return UInt(data.length * 2);
         }
         
@@ -65,7 +68,7 @@ public class FixedBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder {
         self.defaultVal = try FixedBufferBuilder<T>.defaultValueForType()
         let values = ArrowBuffer.createBuffer(0, size: UInt(MemoryLayout<T>.stride))
         let nulls = ArrowBuffer.createBuffer(0, size: UInt(MemoryLayout<UInt8>.stride))
-        try super.init(values: values, nulls: nulls)
+        super.init(values: values, nulls: nulls)
     }
 
     public func append(_ newValue: ItemType?) {
@@ -77,10 +80,11 @@ public class FixedBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder {
         }
 
         if let val = newValue {
+            BitUtility.setBit(index + self.offset, buffer: self.nulls)
             self.values.rawPointer.advanced(by: byteIndex).storeBytes(of: val, as: T.self)
         } else {
             self.nullCount += 1
-            BitUtility.setBit(index + self.offset, buffer: self.nulls)
+            BitUtility.clearBit(index + self.offset, buffer: self.nulls)
             self.values.rawPointer.advanced(by: byteIndex).storeBytes(of: defaultVal, as: T.self)
         }
     }
@@ -130,7 +134,7 @@ public class FixedBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder {
             return Double(0) as! T
         }
         
-        throw ValidationError.unknownType
+        throw ArrowError.unknownType
     }
 }
 
@@ -139,7 +143,7 @@ public class BoolBufferBuilder: BaseBufferBuilder<Bool>, ArrowBufferBuilder {
     public required init() throws {
         let values = ArrowBuffer.createBuffer(0, size: UInt(MemoryLayout<UInt8>.stride))
         let nulls = ArrowBuffer.createBuffer(0, size: UInt(MemoryLayout<UInt8>.stride))
-        try super.init(values: values, nulls: nulls)
+        super.init(values: values, nulls: nulls)
     }
 
     public func append(_ newValue: ItemType?) {
@@ -150,6 +154,7 @@ public class BoolBufferBuilder: BaseBufferBuilder<Bool>, ArrowBufferBuilder {
         }
 
         if newValue != nil {
+            BitUtility.setBit(index + self.offset, buffer: self.nulls)
             if newValue == true {
                 BitUtility.setBit(index + self.offset, buffer: self.values)
             } else {
@@ -158,7 +163,7 @@ public class BoolBufferBuilder: BaseBufferBuilder<Bool>, ArrowBufferBuilder {
             
         } else {
             self.nullCount += 1
-            BitUtility.setBit(index + self.offset, buffer: self.nulls)
+            BitUtility.clearBit(index + self.offset, buffer: self.nulls)
             BitUtility.clearBit(index + self.offset, buffer: self.values)
         }
     }
@@ -193,7 +198,7 @@ public class VariableBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder 
         let values = ArrowBuffer.createBuffer(0, size: UInt(binaryStride))
         let nulls = ArrowBuffer.createBuffer(0, size: UInt(binaryStride))
         self.offsets = ArrowBuffer.createBuffer(0, size: UInt(MemoryLayout<Int32>.stride))
-        try super.init(values: values, nulls: nulls, stride: binaryStride)
+        super.init(values: values, nulls: nulls, stride: binaryStride)
     }
 
     public func append(_ newValue: ItemType?) {
@@ -225,6 +230,8 @@ public class VariableBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder 
 
         if isNull {
             self.nullCount += 1
+            BitUtility.clearBit(index + self.offset, buffer: self.nulls)
+        } else {
             BitUtility.setBit(index + self.offset, buffer: self.nulls)
         }
 

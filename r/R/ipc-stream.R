@@ -98,7 +98,7 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' @export
 read_ipc_stream <- function(file, as_data_frame = TRUE, ...) {
   if (!inherits(file, "InputStream")) {
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, random_access = FALSE)
     on.exit(file$close())
   }
 
@@ -106,7 +106,7 @@ read_ipc_stream <- function(file, as_data_frame = TRUE, ...) {
   # https://issues.apache.org/jira/browse/ARROW-6830
   out <- RecordBatchStreamReader$create(file)$read_table()
   if (as_data_frame) {
-    out <- as.data.frame(out)
+    out <- collect.ArrowTabular(out)
   }
   out
 }

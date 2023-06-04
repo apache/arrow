@@ -761,16 +761,6 @@ struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
   }
 };
 
-// A scalar kernel that ignores (assumed all-null) inputs and returns null.
-Status NullToNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return Status::OK();
-}
-
-void AddNullExec(ScalarFunction* func) {
-  std::vector<InputType> input_types(func->arity().num_args, InputType(Type::NA));
-  DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
-}
-
 template <typename Op, typename FunctionImpl = ArithmeticFunction>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
                                                        FunctionDoc doc) {

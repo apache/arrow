@@ -907,7 +907,7 @@ transferring ownership to the consumer:
          // Bookkeeping
          .release = &release_malloced_array
       };
-      child->buffers = malloc(sizeof(void*) * array->n_buffers);
+      child->buffers = malloc(sizeof(void*) * child->n_buffers);
       child->buffers[0] = float32_nulls;
       child->buffers[1] = float32_data;
 
@@ -927,7 +927,7 @@ transferring ownership to the consumer:
          // Bookkeeping
          .release = &release_malloced_array
       };
-      child->buffers = malloc(sizeof(void*) * array->n_buffers);
+      child->buffers = malloc(sizeof(void*) * child->n_buffers);
       child->buffers[0] = utf8_nulls;
       child->buffers[1] = utf8_offsets;
       child->buffers[2] = utf8_data;

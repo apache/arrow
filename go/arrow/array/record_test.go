@@ -21,9 +21,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -56,6 +56,15 @@ func TestRecord(t *testing.T) {
 	}()
 	defer col2.Release()
 
+	col2_1 := func() arrow.Array {
+		b := array.NewFloat64Builder(mem)
+		defer b.Release()
+
+		b.AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		return b.NewFloat64Array()
+	}()
+	defer col2_1.Release()
+
 	cols := []arrow.Array{col1, col2}
 	rec := array.NewRecord(schema, cols, -1)
 	defer rec.Release()
@@ -81,6 +90,17 @@ func TestRecord(t *testing.T) {
 	}
 	if got, want := rec.ColumnName(0), schema.Field(0).Name; got != want {
 		t.Fatalf("invalid column name: got=%q, want=%q", got, want)
+	}
+	if _, err := rec.SetColumn(0, col2_1); err == nil {
+		t.Fatalf("expected an error")
+	}
+	newRec, err := rec.SetColumn(1, col2_1);
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer newRec.Release()
+	if !reflect.DeepEqual(newRec.Column(1), col2_1) {
+		t.Fatalf("invalid column: got=%q, want=%q", rec.Column(1), col2_1)
 	}
 
 	for _, tc := range []struct {

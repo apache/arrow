@@ -39,6 +39,8 @@ rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
 install_dir=${build_dir}/cpp-install
+: ${ARROW_ACERO:=ON}
+export ARROW_ACERO
 : ${ARROW_BUILD_TESTS:=ON}
 : ${ARROW_DATASET:=ON}
 export ARROW_DATASET
@@ -47,8 +49,6 @@ export ARROW_GANDIVA
 : ${ARROW_ORC:=ON}
 export ARROW_ORC
 : ${ARROW_PARQUET:=ON}
-: ${ARROW_PLASMA:=ON}
-export ARROW_PLASMA
 : ${ARROW_S3:=ON}
 : ${ARROW_USE_CCACHE:=OFF}
 : ${CMAKE_BUILD_TYPE:=Release}
@@ -56,7 +56,7 @@ export ARROW_PLASMA
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics before build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 export ARROW_TEST_DATA="${arrow_dir}/testing/data"
@@ -67,16 +67,17 @@ mkdir -p "${build_dir}/cpp"
 pushd "${build_dir}/cpp"
 
 cmake \
+  -DARROW_ACERO=${ARROW_ACERO} \
   -DARROW_BUILD_SHARED=OFF \
   -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
   -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
+  -DARROW_SUBSTRAIT=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
   -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
-  -DARROW_PLASMA=${ARROW_PLASMA} \
   -DARROW_S3=${ARROW_S3} \
   -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
   -DAWSSDK_SOURCE=BUNDLED \
@@ -97,7 +98,7 @@ if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
   # MinIO is required
   exclude_tests="arrow-s3fs-test"
   # unstable
-  exclude_tests="${exclude_tests}|arrow-compute-hash-join-node-test"
+  exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
   ctest \
     --exclude-regex "${exclude_tests}" \
     --label-regex unittest \
@@ -117,7 +118,7 @@ ${arrow_dir}/ci/scripts/java_jni_build.sh \
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics after build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 
@@ -135,11 +136,9 @@ archery linking check-dependencies \
   --allow libgandiva_jni \
   --allow libncurses \
   --allow libobjc \
-  --allow libplasma_java \
   --allow libz \
   libarrow_cdata_jni.dylib \
   libarrow_dataset_jni.dylib \
   libarrow_orc_jni.dylib \
-  libgandiva_jni.dylib \
-  libplasma_java.dylib
+  libgandiva_jni.dylib
 popd

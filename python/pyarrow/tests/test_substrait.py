@@ -116,7 +116,7 @@ def test_invalid_plan():
     }
     """
     buf = pa._substrait._parse_json_plan(tobytes(query))
-    exec_message = "No RelRoot in plan"
+    exec_message = "Plan has no relations"
     with pytest.raises(ArrowInvalid, match=exec_message):
         substrait.run_query(buf)
 
@@ -443,7 +443,6 @@ def test_udf_via_substrait(unary_func_fixture, use_threads):
     function, name = unary_func_fixture
     expected_tb = test_table.add_column(1, 'y', function(
         mock_scalar_udf_context(10), test_table['x']))
-    res_tb = res_tb.rename_columns(['x', 'y'])
     assert res_tb == expected_tb
 
 
@@ -563,3 +562,46 @@ def test_udf_via_substrait_wrong_udf_name():
     with pytest.raises(pa.ArrowKeyError) as excinfo:
         pa.substrait.run_query(buf, table_provider=table_provider)
     assert "No function registered" in str(excinfo.value)
+
+
+@pytest.mark.parametrize("use_threads", [True, False])
+def test_output_field_names(use_threads):
+    in_table = pa.Table.from_pydict({"x": [1, 2, 3]})
+
+    def table_provider(names, schema):
+        return in_table
+
+    substrait_query = """
+    {
+      "version": { "major": 9999 },
+      "relations": [
+        {
+          "root": {
+            "input": {
+              "read": {
+                "base_schema": {
+                  "struct": {
+                    "types": [{"i64": {}}]
+                  },
+                  "names": ["x"]
+                },
+                "namedTable": {
+                  "names": ["t1"]
+                }
+              }
+            },
+            "names": ["out"]
+          }
+        }
+      ]
+    }
+    """
+
+    buf = pa._substrait._parse_json_plan(tobytes(substrait_query))
+    reader = pa.substrait.run_query(
+        buf, table_provider=table_provider, use_threads=use_threads)
+    res_tb = reader.read_all()
+
+    expected = pa.Table.from_pydict({"out": [1, 2, 3]})
+
+    assert res_tb == expected

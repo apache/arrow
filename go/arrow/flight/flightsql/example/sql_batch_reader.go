@@ -26,11 +26,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 func getArrowTypeFromString(dbtype string) arrow.DataType {
@@ -56,7 +56,7 @@ func getArrowTypeFromString(dbtype string) arrow.DataType {
 		return arrow.PrimitiveTypes.Float64
 	case "blob":
 		return arrow.BinaryTypes.Binary
-	case "text", "date", "char":
+	case "text", "date", "char", "clob":
 		return arrow.BinaryTypes.String
 	default:
 		panic("invalid sqlite type: " + dbtype)

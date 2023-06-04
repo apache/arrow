@@ -26,7 +26,7 @@ An object of class \code{DateUnit} (inherits from \code{arrow-enum}) of length 2
 
 An object of class \code{Type::type} (inherits from \code{arrow-enum}) of length 37.
 
-An object of class \code{StatusCode} (inherits from \code{arrow-enum}) of length 17.
+An object of class \code{StatusCode} (inherits from \code{arrow-enum}) of length 13.
 
 An object of class \code{FileMode} (inherits from \code{arrow-enum}) of length 3.
 

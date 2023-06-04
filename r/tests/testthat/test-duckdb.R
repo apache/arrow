@@ -17,6 +17,8 @@
 
 skip_if_not_available("dataset")
 skip_on_cran()
+# DuckDB 0.7.1-1 may have errors with R<4.0
+skip_on_r_older_than("4.0")
 
 # this test needs to be the first one since all other test blocks are skipped
 # if duckdb is not installed
@@ -166,7 +168,8 @@ test_that("to_arrow roundtrip, with dataset", {
       filter(int > 5 & part > 1) %>%
       mutate(dbl_plus = dbl + 1) %>%
       collect() %>%
-      arrange(part, int)
+      arrange(part, int) %>%
+      as.data.frame()
   )
 })
 

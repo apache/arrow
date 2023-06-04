@@ -23,16 +23,16 @@
 #include <string_view>
 
 #include "arrow/array.h"
+#include "arrow/python/arrow_to_python_internal.h"
+#include "arrow/python/common.h"
+#include "arrow/python/helpers.h"
+#include "arrow/python/platform.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/regex.h"
 #include "arrow/util/value_parsing.h"
-#include "arrow/python/arrow_to_python_internal.h"
-#include "arrow/python/common.h"
-#include "arrow/python/helpers.h"
-#include "arrow/python/platform.h"
 
 namespace arrow {
 
@@ -88,7 +88,7 @@ void InitDatetime() {
 #endif
 
 // The following code is adapted from
-// https://github.com/numpy/numpy/blob/master/numpy/core/src/multiarray/datetime.c
+// https://github.com/numpy/numpy/blob/main/numpy/core/src/multiarray/datetime.c
 
 // Days per month, regular year and leap year
 static int64_t _days_per_month_table[2][12] = {

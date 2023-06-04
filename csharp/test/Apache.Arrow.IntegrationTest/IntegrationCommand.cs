@@ -119,9 +119,9 @@ namespace Apache.Arrow.IntegrationTest
 
         private RecordBatch CreateRecordBatch(Schema schema, JsonRecordBatch jsonRecordBatch)
         {
-            if (schema.Fields.Count != jsonRecordBatch.Columns.Count)
+            if (schema.FieldsList.Count != jsonRecordBatch.Columns.Count)
             {
-                throw new NotSupportedException($"jsonRecordBatch.Columns.Count '{jsonRecordBatch.Columns.Count}' doesn't match schema field count '{schema.Fields.Count}'");
+                throw new NotSupportedException($"jsonRecordBatch.Columns.Count '{jsonRecordBatch.Columns.Count}' doesn't match schema field count '{schema.FieldsList.Count}'");
             }
 
             List<IArrowArray> arrays = new List<IArrowArray>(jsonRecordBatch.Columns.Count);
@@ -173,6 +173,7 @@ namespace Apache.Arrow.IntegrationTest
                 "date" => ToDateArrowType(type),
                 "time" => ToTimeArrowType(type),
                 "timestamp" => ToTimestampArrowType(type),
+                "null" => NullType.Default,
                 _ => throw new NotSupportedException($"JsonArrowType not supported: {type.Name}")
             };
         }
@@ -273,7 +274,8 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<ListType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<NullType>
         {
             private JsonFieldData JsonFieldData { get; }
             public IArrowArray Array { get; private set; }
@@ -323,6 +325,11 @@ namespace Apache.Arrow.IntegrationTest
             public void Visit(Decimal256Type type)
             {
                 Array = new Decimal256Array(GetDecimalArrayData(type));
+            }
+
+            public void Visit(NullType type)
+            {
+                Array = new NullArray(JsonFieldData.Count);
             }
 
             private ArrayData GetDecimalArrayData(FixedSizeBinaryType type)

@@ -10,6 +10,8 @@ source:
   path: ../../../../
 
 build:
+  # 4.1 not usable anymore unless https://github.com/conda-forge/r-base-feedstock/pull/236 gets merged
+  skip: true  # [unix and (r_base == "4.1")]
   merge_build_host: true  # [win]
   number: 0
   rpaths:
@@ -57,8 +59,8 @@ requirements:
 
 test:
   commands:
-    - $R -e "library('arrow')"           # [not win]
-    - "\"%R%\" -e \"library('arrow'); data(mtcars); write_parquet(mtcars, 'test.parquet')\""  # [win]
+    - $R -e "library('arrow'); stopifnot(arrow_with_acero(), arrow_with_dataset(), arrow_with_parquet(), arrow_with_s3())"           # [not win]
+    - "\"%R%\" -e \"library('arrow'); stopifnot(arrow_with_acero(), arrow_with_dataset(), arrow_with_parquet(), arrow_with_s3())\""  # [win]
 
 about:
   home: https://github.com/apache/arrow

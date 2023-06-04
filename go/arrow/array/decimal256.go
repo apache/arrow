@@ -25,11 +25,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -49,6 +49,13 @@ func NewDecimal256Data(data arrow.ArrayData) *Decimal256 {
 
 func (a *Decimal256) Value(i int) decimal256.Num { return a.values[i] }
 
+func (a *Decimal256) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.GetOneForMarshal(i).(string)
+}
+
 func (a *Decimal256) Values() []decimal256.Num { return a.values }
 
 func (a *Decimal256) String() string {
@@ -60,7 +67,7 @@ func (a *Decimal256) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", a.Value(i))
 		}
@@ -80,7 +87,7 @@ func (a *Decimal256) setData(data *Data) {
 	}
 }
 
-func (a *Decimal256) getOneForMarshal(i int) interface{} {
+func (a *Decimal256) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -94,7 +101,7 @@ func (a *Decimal256) getOneForMarshal(i int) interface{} {
 func (a *Decimal256) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		vals[i] = a.getOneForMarshal(i)
+		vals[i] = a.GetOneForMarshal(i)
 	}
 	return json.Marshal(vals)
 }
@@ -259,7 +266,21 @@ func (b *Decimal256Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Decimal256Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Decimal256Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	val, err := decimal256.FromString(s, b.dtype.Precision, b.dtype.Scale)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(val)
+	return nil
+}
+
+func (b *Decimal256Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -298,9 +319,9 @@ func (b *Decimal256Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Decimal256Builder) unmarshal(dec *json.Decoder) error {
+func (b *Decimal256Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -322,7 +343,7 @@ func (b *Decimal256Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("arrow/array: decimal256 builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

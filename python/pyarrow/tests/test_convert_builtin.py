@@ -133,6 +133,18 @@ def test_failing_iterator():
         pa.array((1 // 0 for x in range(10)), size=10)
 
 
+class ObjectWithOnlyGetitem:
+    def __getitem__(self, key):
+        return 3
+
+
+def test_object_with_getitem():
+    # https://github.com/apache/arrow/issues/34944
+    # considered as sequence because of __getitem__, but has no length
+    with pytest.raises(TypeError, match="has no len()"):
+        pa.array(ObjectWithOnlyGetitem())
+
+
 def _as_list(xs):
     return xs
 
@@ -1119,6 +1131,33 @@ def test_sequence_timestamp_with_timezone_inference():
         pytz.timezone('Europe/Moscow').localize(
             datetime.datetime(2010, 8, 13, 5, 0, 0, 437699)
         ),
+    ]
+    expected = [
+        pa.timestamp('us', tz=None),
+        pa.timestamp('us', tz='UTC'),
+        pa.timestamp('us', tz=None),
+        pa.timestamp('us', tz='US/Eastern'),
+        pa.timestamp('us', tz='Europe/Moscow')
+    ]
+    for dt, expected_type in zip(data, expected):
+        prepended = [dt] + data
+        arr = pa.array(prepended)
+        assert arr.type == expected_type
+
+
+def test_sequence_timestamp_with_zoneinfo_timezone_inference():
+    pytest.importorskip("zoneinfo")
+    import zoneinfo
+
+    data = [
+        datetime.datetime(2007, 7, 13, 8, 23, 34, 123456),  # naive
+        datetime.datetime(2008, 1, 5, 5, 0, 0, 1000,
+                          tzinfo=datetime.timezone.utc),
+        None,
+        datetime.datetime(2006, 1, 13, 12, 34, 56, 432539,
+                          tzinfo=zoneinfo.ZoneInfo(key='US/Eastern')),
+        datetime.datetime(2010, 8, 13, 5, 0, 0, 437699,
+                          tzinfo=zoneinfo.ZoneInfo(key='Europe/Moscow')),
     ]
     expected = [
         pa.timestamp('us', tz=None),

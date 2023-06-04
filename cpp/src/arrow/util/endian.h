@@ -180,7 +180,7 @@ static inline T FromLittleEndian(T value) {
 }
 #endif
 
-// Handle endianness in *word* granuality (keep individual array element untouched)
+// Handle endianness in *word* granularity (keep individual array element untouched)
 namespace little_endian {
 
 namespace detail {

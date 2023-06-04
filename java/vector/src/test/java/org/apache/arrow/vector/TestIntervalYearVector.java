@@ -22,6 +22,9 @@ import static org.junit.Assert.assertSame;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.types.IntervalUnit;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -55,6 +58,11 @@ public class TestIntervalYearVector {
       assertEquals("1 year 8 months ", vector.getAsStringBuilder(20).toString());
       assertEquals("2 years 6 months ", vector.getAsStringBuilder(30).toString());
 
+      assertEquals(Types.MinorType.INTERVALYEAR, vector.getMinorType());
+      ArrowType fieldType = vector.getField().getType();
+      assertEquals(ArrowType.ArrowTypeID.Interval, fieldType.getTypeID());
+      ArrowType.Interval intervalType = (ArrowType.Interval) fieldType;
+      assertEquals(IntervalUnit.YEAR_MONTH, intervalType.getUnit());
     }
   }
 

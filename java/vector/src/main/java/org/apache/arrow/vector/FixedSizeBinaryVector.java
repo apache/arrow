@@ -144,6 +144,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     }
     holder.isSet = 1;
     holder.buffer = valueBuffer.slice((long) index * byteWidth, byteWidth);
+    holder.byteWidth = byteWidth;
   }
 
   /**
@@ -263,7 +264,10 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    * @param holder  holder that carries data buffer.
    */
   public void set(int index, FixedSizeBinaryHolder holder) {
-    assert holder.byteWidth == byteWidth;
+    if (this.byteWidth != holder.byteWidth) {
+      throw new IllegalArgumentException(
+          String.format("holder.byteWidth: %d not equal to vector byteWidth: %d", holder.byteWidth, this.byteWidth));
+    }
     set(index, holder.buffer);
   }
 
@@ -288,9 +292,11 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
    * @param holder  holder that carries data buffer.
    */
   public void set(int index, NullableFixedSizeBinaryHolder holder) {
-    assert holder.byteWidth == byteWidth;
     if (holder.isSet < 0) {
       throw new IllegalArgumentException("holder has a negative isSet value");
+    } else if (this.byteWidth != holder.byteWidth) {
+      throw new IllegalArgumentException(
+          String.format("holder.byteWidth: %d not equal to vector byteWidth: %d", holder.byteWidth, this.byteWidth));
     } else if (holder.isSet > 0) {
       set(index, holder.buffer);
     } else {

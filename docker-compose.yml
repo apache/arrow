@@ -66,6 +66,7 @@ x-sccache: &sccache
   AWS_ACCESS_KEY_ID:
   AWS_SECRET_ACCESS_KEY:
   SCCACHE_BUCKET:
+  SCCACHE_REGION:
   SCCACHE_S3_KEY_PREFIX: ${SCCACHE_S3_KEY_PREFIX:-sccache}
 
 # CPU/memory limit presets to pass to Docker.
@@ -143,6 +144,7 @@ x-hierarchy:
     - ubuntu-r
     - ubuntu-r-only-r
   - ubuntu-cpp-bundled
+  - ubuntu-cpp-minimal
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
   - ubuntu-csharp
@@ -160,6 +162,7 @@ x-hierarchy:
   - postgres
   - python-wheel-manylinux-2014:
     - java-jni-manylinux-2014
+  - python-wheel-manylinux-2-28
   - python-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
   - python-wheel-windows-vs2017
@@ -182,6 +185,8 @@ volumes:
     name: maven-cache
   python-wheel-manylinux2014-ccache:
     name: python-wheel-manylinux2014-ccache
+  python-wheel-manylinux-2-28-ccache:
+    name: python-wheel-manylinux-2-28-ccache
   python-wheel-windows-clcache:
     name: python-wheel-windows-clcache
   ubuntu-ccache:
@@ -359,7 +364,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -395,7 +400,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-static
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-static
     build:
       context: .
@@ -443,7 +448,7 @@ services:
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_HOME: /arrow
       LIBARROW_MINIMAL: "false"
-    command: /bin/bash -c " 
+    command: /bin/bash -c "
           scl enable devtoolset-8 '/arrow/r/inst/build_arrow_static.sh'"
 
   ubuntu-cpp-bundled:
@@ -464,6 +469,47 @@ services:
       <<: [*ccache, *sccache]
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       CMAKE_GENERATOR: "Unix Makefiles"
+    volumes: *ubuntu-volumes
+    command: *cpp-command
+
+  ubuntu-cpp-minimal:
+    # Arrow build with minimal components/dependencies
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp-minimal.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-minimal
+      args:
+        arch: ${ARCH}
+        base: "${ARCH}/ubuntu:${UBUNTU}"
+        llvm: ${LLVM}
+    shm_size: *shm-size
+    ulimits: *ulimits
+    environment:
+      <<: [*ccache, *sccache]
+      ARROW_BUILD_UTILITIES: "OFF"
+      ARROW_COMPUTE: "OFF"
+      ARROW_CSV: "OFF"
+      ARROW_DATASET: "OFF"
+      ARROW_FILESYSTEM: "OFF"
+      ARROW_FLIGHT: "OFF"
+      ARROW_GANDIVA: "OFF"
+      ARROW_GCS: "OFF"
+      ARROW_HDFS: "OFF"
+      ARROW_ORC: "OFF"
+      ARROW_PARQUET: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_SUBSTRAIT: "OFF"
+      ARROW_WITH_BROTLI: "OFF"
+      ARROW_WITH_BZ2: "OFF"
+      ARROW_WITH_LZ4: "OFF"
+      ARROW_WITH_SNAPPY: "OFF"
+      ARROW_WITH_ZLIB: "OFF"
+      ARROW_WITH_ZSTD: "OFF"
+      PARQUET_BUILD_EXAMPLES: "OFF"
+      PARQUET_BUILD_EXECUTABLES: "OFF"
+      PARQUET_REQUIRE_ENCRYPTION: "OFF"
     volumes: *ubuntu-volumes
     command: *cpp-command
 
@@ -503,7 +549,6 @@ services:
       ARROW_JSON: "OFF"
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "OFF"
-      ARROW_PLASMA: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_OPENTELEMETRY: "OFF"
@@ -542,6 +587,8 @@ services:
       <<: *ccache
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
+      # Avoid creating huge static libraries
+      ARROW_BUILD_STATIC: "OFF"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       # GH-33920: Disable Flight SQL to reduce build time.
       # We'll be able to re-enable this with Ubuntu 24.04 because
@@ -554,6 +601,8 @@ services:
       ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
+      # 1 GB isn't enough for a single sanitizer build
+      CCACHE_MAXSIZE: 2G
       Protobuf_SOURCE: "AUTO"
     command: *cpp-command
 
@@ -563,7 +612,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-thread-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -664,6 +713,7 @@ services:
     environment:
       <<: *ccache
       BUILD_DOCS_C_GLIB: "ON"
+      GITHUB_ACTIONS:
     volumes: *debian-volumes
     command: &c-glib-command >
       /bin/bash -c "
@@ -678,7 +728,7 @@ services:
     #   docker-compose run --rm ubuntu-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     build:
       context: .
@@ -691,6 +741,7 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
+      GITHUB_ACTIONS:
     volumes: *ubuntu-volumes
     command: *c-glib-command
 
@@ -722,6 +773,7 @@ services:
     environment:
       <<: *ccache
       BUILD_DOCS_C_GLIB: "ON"
+      GITHUB_ACTIONS:
     volumes: *debian-volumes
     command: &ruby-command >
       /bin/bash -c "
@@ -738,7 +790,7 @@ services:
     #   docker-compose run --rm ubuntu-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
     build:
       context: .
@@ -751,6 +803,7 @@ services:
     ulimits: *ulimits
     environment:
       <<: *ccache
+      GITHUB_ACTIONS:
     volumes: *ubuntu-volumes
     command: *ruby-command
 
@@ -819,7 +872,6 @@ services:
       ARROW_JSON: "ON"
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "ON"
-      ARROW_PLASMA: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_OPENTELEMETRY: "OFF"
@@ -861,7 +913,7 @@ services:
     #   docker-compose run --rm ubuntu-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -881,7 +933,10 @@ services:
     #   docker-compose build ubuntu-swift
     #   docker-compose run --rm ubuntu-swift
     # Parameters:
-    image: swift:5.7.3
+    image: ubuntu-swift
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-swift.dockerfile
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     command: >
@@ -939,7 +994,7 @@ services:
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -976,7 +1031,7 @@ services:
         python: ${PYTHON}
         manylinux: 2014
       context: .
-      dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
+      dockerfile: ci/docker/python-wheel-manylinux.dockerfile
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     environment:
@@ -984,6 +1039,29 @@ services:
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
+    command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
+
+  # See available versions at:
+  #    https://quay.io/repository/pypa/manylinux_2_28_x86_64?tab=tags
+  python-wheel-manylinux-2-28:
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
+    build:
+      args:
+        arch: ${ARCH}
+        arch_short: ${ARCH_SHORT}
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2023-01-14-103cb93
+        vcpkg: ${VCPKG}
+        python: ${PYTHON}
+        manylinux: 2_28
+      context: .
+      dockerfile: ci/docker/python-wheel-manylinux.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
+    environment:
+      <<: *ccache
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux-2-28-ccache:/ccache:delegated
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
   python-wheel-manylinux-test-imports:
@@ -1248,7 +1326,6 @@ services:
       ARROW_JAVA_CDATA: "ON"
       ARROW_ORC: "OFF"
       ARROW_PARQUET: "OFF"
-      ARROW_PLASMA: "OFF"
       JAVA_JNI_CMAKE_ARGS: >-
         -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
         -DARROW_JAVA_JNI_ENABLE_C=ON
@@ -1346,11 +1423,11 @@ services:
       /bin/bash -c "/arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
-    # Only 18.04 and amd64 supported
+    # Only 20.04 and amd64 supported
     # Usage:
     #   docker-compose build ubuntu-r-sanitizer
     #   docker-compose run ubuntu-r-sanitizer
-    image: ${REPO}:amd64-ubuntu-18.04-r-sanitizer
+    image: ${REPO}:amd64-ubuntu-20.04-r-sanitizer
     cap_add:
       # LeakSanitizer and gdb requires ptrace(2)
       - SYS_PTRACE
@@ -1358,7 +1435,7 @@ services:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-18.04-r-sanitizer
+        - ${REPO}:amd64-ubuntu-20.04-r-sanitizer
       args:
         base: wch1/r-debug:latest
         r_bin: RDsan
@@ -1400,16 +1477,16 @@ services:
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
   ubuntu-r-valgrind:
-    # Only 18.04 and amd64 supported
+    # Only 20.04 and amd64 supported
     # Usage:
     #   docker-compose build ubuntu-r-valgrind
     #   docker-compose run ubuntu-r-valgrind
-    image: ${REPO}:amd64-ubuntu-18.04-r-valgrind
+    image: ${REPO}:amd64-ubuntu-20.04-r-valgrind
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:amd64-ubuntu-18.04-r-valgrind
+        - ${REPO}:amd64-ubuntu-20.04-r-valgrind
       args:
         base: wch1/r-debug:latest
         r_bin: RDvalgrind
@@ -1469,6 +1546,7 @@ services:
     volumes: *debian-volumes
     command: &go-command >
       /bin/bash -c "
+        git config --global --add safe.directory /arrow &&
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/go_test.sh /arrow"
 
@@ -1505,8 +1583,9 @@ services:
     shm_size: *shm-size
     volumes: *debian-volumes
     command: &go-cgo-python-command >
-        /bin/bash -c "
-          /arrow/ci/scripts/go_cgo_python_test.sh /arrow"
+      /bin/bash -c "
+        git config --global --add safe.directory /arrow &&
+        /arrow/ci/scripts/go_cgo_python_test.sh /arrow"
 
   ############################# JavaScript ####################################
 
@@ -1538,16 +1617,16 @@ services:
     # Usage:
     #   docker-compose build ubuntu-csharp
     #   docker-compose run ubuntu-csharp
-    image: ${REPO}:${ARCH}-ubuntu-20.04-csharp-${DOTNET}
+    image: ${REPO}:${ARCH}-ubuntu-22.04-csharp-${DOTNET}
     build:
       context: .
-      dockerfile: ci/docker/ubuntu-20.04-csharp.dockerfile
+      dockerfile: ci/docker/ubuntu-22.04-csharp.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-20.04-csharp-${DOTNET}
+        - ${REPO}:${ARCH}-ubuntu-22.04-csharp-${DOTNET}
       args:
         arch: ${ARCH}
         dotnet: ${DOTNET}
-        platform: focal
+        platform: jammy
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     command: &csharp-command >
@@ -1854,7 +1933,7 @@ services:
     #   docker-compose build ubuntu-verify-rc
     #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc
     # Parameters:
-    #   UBUNTU: 18.04, 20.04, 22.04
+    #   UBUNTU: 20.04, 22.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
     build:
       context: .

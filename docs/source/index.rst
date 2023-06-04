@@ -82,6 +82,7 @@ target environment.**
    format/CStreamInterface
    format/ADBC
    format/Other
+   format/Changing
    format/Glossary
 
 .. _toc.development:

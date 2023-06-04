@@ -63,6 +63,7 @@ RUN \
     libzstd-dev \
     llvm-dev \
     lsb-release \
+    meson \
     mlir-15-tools \
     ninja-build \
     nlohmann-json3-dev \
@@ -81,6 +82,4 @@ RUN \
     :; \
   fi && \
   apt clean && \
-  python3 -m pip install --no-use-pep517 meson && \
-  ln -s /usr/local/bin/meson /usr/bin/ && \
   rm -rf /var/lib/apt/lists/*

@@ -19,10 +19,10 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -172,6 +172,8 @@ func TestDecimal256Slice(t *testing.T) {
 	if got, want := v.String(), `[(null) {[4 4 4 4]}]`; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
+	assert.Equal(t, array.NullValueStr, v.ValueStr(0))
+	assert.Equal(t, "2.510840694e+57", v.ValueStr(1))
 
 	if got, want := v.NullN(), 1; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
@@ -180,4 +182,46 @@ func TestDecimal256Slice(t *testing.T) {
 	if got, want := v.Data().Offset(), 2; got != want {
 		t.Fatalf("invalid offset: got=%d, want=%d", got, want)
 	}
+}
+
+func TestDecimal256StringRoundTrip(t *testing.T) {
+	dt := &arrow.Decimal256Type{Precision: 70, Scale: 10}
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewDecimal256Builder(mem, dt)
+	defer b.Release()
+
+	values := []decimal256.Num{
+		decimal256.New(1, 1, 1, 1),
+		decimal256.New(2, 2, 2, 2),
+		decimal256.New(3, 3, 3, 3),
+		{},
+		decimal256.FromI64(-5),
+		decimal256.FromI64(-6),
+		{},
+		decimal256.FromI64(8),
+		decimal256.FromI64(9),
+		decimal256.FromI64(10),
+	}
+	valid := []bool{true, true, true, false, true, true, false, true, true, true}
+
+	b.AppendValues(values, valid)
+
+	arr := b.NewArray().(*array.Decimal256)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDecimal256Builder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Decimal256)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }

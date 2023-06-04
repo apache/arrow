@@ -19,20 +19,13 @@
 # distutils: language = c++
 
 from datetime import timedelta
-import io
-import warnings
-
-from libcpp cimport nullptr
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport _Weakrefable
 
-from pyarrow.lib import (ArrowException,
-                         tobytes, frombytes)
-
-cimport cpython as cp
+from pyarrow.lib import tobytes, frombytes
 
 
 cdef ParquetCipher cipher_from_name(name):

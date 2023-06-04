@@ -30,7 +30,7 @@
 #include <vector>
 
 #include "arrow/array/data.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -168,7 +168,7 @@ constexpr int64_t kUnsequencedIndex = -1;
 /// than is desirable for this class. Microbenchmarks would help determine for
 /// sure. See ARROW-8928.
 
-/// \addtogroup execnode-components
+/// \addtogroup acero-internals
 /// @{
 
 struct ARROW_EXPORT ExecBatch {
@@ -181,6 +181,12 @@ struct ARROW_EXPORT ExecBatch {
   /// \brief Infer the ExecBatch length from values.
   static Result<int64_t> InferLength(const std::vector<Datum>& values);
 
+  /// Creates an ExecBatch with length-validation.
+  ///
+  /// If any value is given, then all values must have a common length. If the given
+  /// length is negative, then the length of the ExecBatch is set to this common length,
+  /// or to 1 if no values are given. Otherwise, the given length must equal the common
+  /// length, if any value is given.
   static Result<ExecBatch> Make(std::vector<Datum> values, int64_t length = -1);
 
   Result<std::shared_ptr<RecordBatch>> ToRecordBatch(
@@ -240,6 +246,8 @@ struct ARROW_EXPORT ExecBatch {
 
   ExecBatch Slice(int64_t offset, int64_t length) const;
 
+  Result<ExecBatch> SelectValues(const std::vector<int>& ids) const;
+
   /// \brief A convenience for returning the types from the batch.
   std::vector<TypeHolder> GetTypes() const {
     std::vector<TypeHolder> result;
@@ -256,6 +264,13 @@ inline bool operator==(const ExecBatch& l, const ExecBatch& r) { return l.Equals
 inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equals(r); }
 
 ARROW_EXPORT void PrintTo(const ExecBatch&, std::ostream*);
+
+/// @}
+
+/// \defgroup compute-internals Utilities for calling functions, useful for those
+/// extending the function registry
+///
+/// @{
 
 struct ExecValue {
   ArraySpan array = {};
@@ -405,8 +420,6 @@ struct ARROW_EXPORT ExecSpan {
   int64_t length = 0;
   std::vector<ExecValue> values;
 };
-
-/// @}
 
 /// \defgroup compute-call-function One-shot calls to compute functions
 ///

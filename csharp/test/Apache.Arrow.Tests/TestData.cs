@@ -84,7 +84,7 @@ namespace Apache.Arrow.Tests
 
         public static IEnumerable<IArrowArray> CreateArrays(Schema schema, int length)
         {
-            int fieldCount = schema.Fields.Count;
+            int fieldCount = schema.FieldsList.Count;
             List<IArrowArray> arrays = new List<IArrowArray>(fieldCount);
             for (int i = 0; i < fieldCount; i++)
             {
@@ -126,7 +126,8 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
-            IArrowTypeVisitor<FixedSizeBinaryType>
+            IArrowTypeVisitor<FixedSizeBinaryType>,
+            IArrowTypeVisitor<NullType>
         {
             private int Length { get; }
             public IArrowArray Array { get; private set; }
@@ -315,6 +316,11 @@ namespace Apache.Arrow.Tests
 
                 ArrayData arrayData = new ArrayData(type, Length, 0, 0, new[] { validityBuffer, valueBuffer });
                 Array = new FixedSizeBinaryArray(arrayData);
+            }
+
+            public void Visit(NullType type)
+            {
+                Array = new NullArray(Length);
             }
 
             private void GenerateArray<T, TArray, TArrayBuilder>(IArrowArrayBuilder<T, TArray, TArrayBuilder> builder, Func<int, T> generator)

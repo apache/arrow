@@ -384,6 +384,43 @@ def test_open_pull_request(load_fixture, responses, fixture_name, expected_label
 
 
 @pytest.mark.parametrize(('fixture_name', 'expected_label'), [
+    ('event-pull-request-target-opened-non-committer.json',
+     PullRequestState.committer_review.value),
+])
+def test_open_pull_request_with_committer_list(load_fixture, responses, fixture_name,
+                                               expected_label):
+    responses.add(
+        responses.GET,
+        github_url('/repositories/169101701/pulls/26'),
+        json=load_fixture('pull-request-26.json'),
+        status=200
+    )
+    responses.add(
+        responses.GET,
+        github_url('/repos/ursa-labs/ursabot/issues/26/labels'),
+        json=[],
+        status=200
+    )
+    responses.add(
+        responses.POST,
+        github_url(
+            '/repos/ursa-labs/ursabot/issues/26/labels'
+        ),
+        status=201
+    )
+    payload = load_fixture(fixture_name)
+
+    # Even though the author_association is not committer the list overrides.
+    bot = PullRequestWorkflowBot(
+        'pull_request_target', payload, token='', committers=['kszucs'])
+    bot.handle()
+
+    # Setting awaiting committer review or awaiting review label
+    post = responses.calls[-1]
+    assert json.loads(post.request.body) == [expected_label]
+
+
+@pytest.mark.parametrize(('fixture_name', 'expected_label'), [
     ('event-pull-request-target-opened-committer.json',
      PullRequestState.committer_review.value),
 ])

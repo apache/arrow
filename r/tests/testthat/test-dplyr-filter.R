@@ -18,6 +18,8 @@
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
+skip_if_not_available("acero")
+
 tbl <- example_data
 # Add some better string data
 tbl$verses <- verses[[1]]

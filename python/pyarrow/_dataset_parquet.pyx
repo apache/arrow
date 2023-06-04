@@ -31,7 +31,6 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow._fs cimport FileSystem
-from pyarrow.util import _is_path_like, _stringify_path
 
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._dataset cimport (
@@ -50,7 +49,7 @@ from pyarrow._dataset cimport (
 
 from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
-    FileMetaData, RowGroupMetaData, ColumnChunkMetaData
+    FileMetaData,
 )
 
 
@@ -209,6 +208,27 @@ cdef class ParquetFileFormat(FileFormat):
 
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):
+        """
+        Make a FileFragment from a given file.
+
+        Parameters
+        ----------
+        file : file-like object, path-like or str
+            The file or file path to make a fragment from.
+        filesystem : Filesystem, optional
+            If `filesystem` is given, `file` must be a string and specifies
+            the path of the file to read from the filesystem.
+        partition_expression : Expression, optional
+            An expression that is guaranteed true for all rows in the fragment.  Allows
+            fragment to be potentially skipped while scanning with a filter.
+        row_groups : Iterable, optional
+            The indices of the row groups to include
+
+        Returns
+        -------
+        fragment : Fragment
+            The file fragment
+        """
         cdef:
             vector[int] c_row_groups
 
@@ -576,7 +596,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             use_deprecated_int96_timestamps=False,
             coerce_timestamps=None,
             allow_truncated_timestamps=False,
-            use_compliant_nested_type=False,
+            use_compliant_nested_type=True,
         )
         self._set_properties()
         self._set_arrow_properties()

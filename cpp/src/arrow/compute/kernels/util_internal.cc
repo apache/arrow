@@ -20,6 +20,7 @@
 #include <cstdint>
 
 #include "arrow/array/data.h"
+#include "arrow/compute/function.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 
@@ -29,6 +30,14 @@ using internal::checked_cast;
 
 namespace compute {
 namespace internal {
+
+namespace {
+
+Status NullToNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return Status::OK();
+}
+
+}  // namespace
 
 ExecValue GetExecValue(const Datum& value) {
   ExecValue result;
@@ -47,6 +56,11 @@ int64_t GetTrueCount(const ArraySpan& mask) {
   } else {
     return CountSetBits(mask.buffers[1].data, mask.offset, mask.length);
   }
+}
+
+void AddNullExec(ScalarFunction* func) {
+  std::vector<InputType> input_types(func->arity().num_args, InputType(Type::NA));
+  DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
 }
 
 }  // namespace internal

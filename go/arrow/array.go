@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 // ArrayData is the underlying memory and metadata of an Arrow array, corresponding
@@ -105,6 +105,11 @@ type Array interface {
 	// IsValid returns true if value at index is not null.
 	// NOTE: IsValid will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
 	IsValid(i int) bool
+	// ValueStr returns the value at index as a string.
+	ValueStr(i int) string
+
+	// Get single value to be marshalled with `json.Marshal`
+	GetOneForMarshal(i int) interface{}
 
 	Data() ArrayData
 

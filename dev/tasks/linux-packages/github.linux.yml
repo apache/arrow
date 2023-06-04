@@ -1,0 +1,142 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+{% import 'macros.jinja' as macros with context %}
+
+{{ macros.github_header() }}
+
+jobs:
+  package:
+    name: Package
+    {% if architecture == "amd64" %}
+    runs-on: ubuntu-22.04
+    {% else %}
+    runs-on: ["self-hosted", "Linux", "arm64"]
+    {% endif %}
+    env:
+      ARCHITECTURE: {{ architecture }}
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_login_dockerhub()|indent }}
+
+      - name: Free up disk space
+        if: |
+          env.ARCHITECTURE == 'amd64'
+        run: |
+          df -h
+          du -hsc /opt/hostedtoolcache/*
+          # 5.3GB
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || :
+          # 1.4GB
+          sudo rm -rf /opt/hostedtoolcache/go || :
+          # 489MB
+          sudo rm -rf /opt/hostedtoolcache/PyPy || :
+          # 376MB
+          sudo rm -rf /opt/hostedtoolcache/node || :
+          df -h
+      - name: Set up Ruby
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            rake \
+            ruby \
+            ruby-dev
+      - name: Prepare apache-arrow-apt-source for arm64
+        if: |
+          env.ARCHITECTURE == 'arm64'
+        run: |
+          pushd arrow/dev/tasks/linux-packages/apache-arrow-apt-source/apt
+          for target in *-*; do
+            cp -a ${target} ${target}-arm64
+          done
+          popd
+      - name: Prepare apache-arrow-release for arm64
+        if: |
+          env.ARCHITECTURE == 'arm64'
+        run: |
+          pushd arrow/dev/tasks/linux-packages/apache-arrow-release/yum
+          for target in *-*; do
+            cp -a ${target} ${target}-aarch64
+          done
+          popd
+      - name: Build
+        run: |
+          set -e
+          pushd arrow/dev/tasks/linux-packages
+          rake version:update
+          rake docker:pull || :
+          rake --trace {{ task_namespace }}:build BUILD_DIR=build
+          popd
+        env:
+          APT_TARGETS: {{ target }}
+          ARROW_VERSION: {{ arrow.version }}
+          REPO: {{ '${{ secrets.REPO }}' }}
+          YUM_TARGETS: {{ target }}
+      - name: Docker Push
+        continue-on-error: true
+        shell: bash
+        run: |
+          pushd arrow/dev/tasks/linux-packages
+          rake docker:push
+          popd
+        env:
+          APT_TARGETS: {{ target }}
+          REPO: {{ '${{ secrets.REPO }}' }}
+          YUM_TARGETS: {{ target }}
+      - name: Set up test
+        run: |
+          sudo apt install -y \
+            apt-utils \
+            cpio \
+            createrepo-c \
+            devscripts \
+            gpg \
+            rpm \
+            rsync
+          gem install --user-install apt-dists-merge
+          (echo "Key-Type: RSA"; \
+           echo "Key-Length: 4096"; \
+           echo "Name-Real: Test"; \
+           echo "Name-Email: test@example.com"; \
+           echo "%no-protection") | \
+            gpg --full-generate-key --batch
+          GPG_KEY_ID=$(gpg --list-keys --with-colon test@example.com | grep fpr | cut -d: -f10)
+          echo "GPG_KEY_ID=${GPG_KEY_ID}" >> ${GITHUB_ENV}
+          case "{{ target }}" in
+            almalinux-*|amazon-linux-*|centos-*)
+              repositories_dir=arrow/dev/tasks/linux-packages/apache-arrow-release/yum/repositories
+              rpm2cpio ${repositories_dir}/*/*/*/Packages/apache-arrow-release-*.rpm | \
+                cpio -id
+              mv etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow \
+                arrow/dev/tasks/linux-packages/KEYS
+              ;;
+          esac
+          gpg --export --armor test@example.com >> arrow/dev/tasks/linux-packages/KEYS
+      - name: Test
+        run: |
+          set -e
+          pushd arrow/dev/tasks/linux-packages
+          rake --trace {{ task_namespace }}:test
+          rm -rf {{ task_namespace }}/repositories
+          popd
+        env:
+          APT_TARGETS: {{ target }}
+          ARROW_VERSION: {{ arrow.version }}
+          YUM_TARGETS: {{ target }}
+
+      {% set patterns = upload_extensions | format_all("arrow/dev/tasks/linux-packages/*/*/repositories/**/*{}") %}
+      {{ macros.github_upload_releases(patterns)|indent }}

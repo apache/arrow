@@ -24,9 +24,9 @@ add_custom_target(toolchain-benchmarks)
 add_custom_target(toolchain-tests)
 
 # Accumulate all bundled targets and we will splice them together later as
-# libarrow_dependencies.a so that third party libraries have something usable
-# to create statically-linked builds with some BUNDLED dependencies, including
-# allocators like jemalloc and mimalloc
+# libarrow_bundled_dependencies.a so that third party libraries have something
+# usable to create statically-linked builds with some BUNDLED dependencies,
+# including allocators like jemalloc and mimalloc
 set(ARROW_BUNDLED_STATIC_LIBS)
 
 # Accumulate all system dependencies to provide suitable static link
@@ -118,6 +118,11 @@ if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
     set(ARROW_PACKAGE_PREFIX $ENV{CONDA_PREFIX})
   endif()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "SYSTEM")
+  # GoogleTest provided by conda can't be used on macOS because it's
+  # built with C++14. So we accept auto fallback only for GoogleTest.
+  if("${GTest_SOURCE}" STREQUAL "")
+    set(GTest_SOURCE "AUTO")
+  endif()
   message(STATUS "Using CONDA_PREFIX for ARROW_PACKAGE_PREFIX: ${ARROW_PACKAGE_PREFIX}")
 else()
   set(ARROW_ACTUAL_DEPENDENCY_SOURCE "${ARROW_DEPENDENCY_SOURCE}")
@@ -224,6 +229,7 @@ endmacro()
 macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
   set(one_value_args
+      ARROW_CMAKE_PACKAGE_NAME
       FORCE_ANY_NEWER_VERSION
       HAVE_ALT
       IS_RUNTIME_DEPENDENCY
@@ -285,8 +291,15 @@ macro(resolve_dependency DEPENDENCY_NAME)
     endif()
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
-    provide_find_module(${PACKAGE_NAME} "Arrow")
-    list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
+    if(NOT ARG_ARROW_CMAKE_PACKAGE_NAME)
+      set(ARG_ARROW_CMAKE_PACKAGE_NAME "Arrow")
+    endif()
+    if(ARG_ARROW_CMAKE_PACKAGE_NAME STREQUAL "Arrow")
+      provide_find_module(${PACKAGE_NAME} "Arrow")
+      list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
+    else()
+      provide_find_module(${PACKAGE_NAME} ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    endif()
     if(ARROW_BUILD_STATIC)
       find_package(PkgConfig QUIET)
       foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
@@ -1459,7 +1472,6 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
-   OR ARROW_PLASMA
    OR ARROW_USE_GLOG
    OR ARROW_WITH_GRPC)
   set(ARROW_NEED_GFLAGS 1)
@@ -2191,45 +2203,39 @@ macro(build_gtest)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::gtest SHARED IMPORTED)
-  set_target_properties(GTest::gtest
+  add_library(arrow::GTest::gtest SHARED IMPORTED)
+  set_target_properties(arrow::GTest::gtest
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
                                    INTERFACE_COMPILE_DEFINITIONS
                                    "GTEST_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::gtest_main SHARED IMPORTED)
-  set_target_properties(GTest::gtest_main
+  add_library(arrow::GTest::gtest_main SHARED IMPORTED)
+  set_target_properties(arrow::GTest::gtest_main
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
 
-  add_library(GTest::gmock SHARED IMPORTED)
-  set_target_properties(GTest::gmock
+  add_library(arrow::GTest::gmock SHARED IMPORTED)
+  set_target_properties(arrow::GTest::gmock
                         PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
                                    INTERFACE_COMPILE_DEFINITIONS
                                    "GMOCK_LINKED_AS_SHARED_LIBRARY=1"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
   add_dependencies(toolchain-tests googletest_ep)
-  add_dependencies(GTest::gtest googletest_ep)
-  add_dependencies(GTest::gtest_main googletest_ep)
-  add_dependencies(GTest::gmock googletest_ep)
+  add_dependencies(arrow::GTest::gtest googletest_ep)
+  add_dependencies(arrow::GTest::gtest_main googletest_ep)
+  add_dependencies(arrow::GTest::gmock googletest_ep)
 endmacro()
 
 if(ARROW_TESTING)
-  if(CMAKE_VERSION VERSION_LESS 3.23)
-    set(GTEST_USE_CONFIG TRUE)
-  else()
-    set(GTEST_USE_CONFIG FALSE)
-  endif()
-  # We can't find shred library version of GoogleTest on Windows with
-  # Conda's gtest package because it doesn't provide GTestConfig.cmake
-  # provided by GoogleTest and CMake's built-in FindGTtest.cmake
-  # doesn't support gtest_dll.dll.
+  set(GTestAlt_NEED_CXX_STANDARD_CHECK TRUE)
   resolve_dependency(GTest
+                     HAVE_ALT
+                     TRUE
                      REQUIRED_VERSION
                      1.10.0
-                     USE_CONFIG
-                     ${GTEST_USE_CONFIG})
+                     ARROW_CMAKE_PACKAGE_NAME
+                     "ArrowTesting")
 
   if(GTest_SOURCE STREQUAL "SYSTEM")
     find_package(PkgConfig QUIET)
@@ -2248,10 +2254,16 @@ if(ARROW_TESTING)
 
       string(APPEND ARROW_TESTING_PC_LIBS " $<TARGET_FILE:GTest::gtest>")
     endif()
+    set(ARROW_GTEST_GMOCK GTest::gmock)
+    set(ARROW_GTEST_GTEST GTest::gtest)
+    set(ARROW_GTEST_GTEST_MAIN GTest::gtest_main)
   else()
     # TODO: How to solve BUNDLED case? Do we install bundled GoogleTest?
     # string(APPEND ARROW_TESTING_PC_CFLAGS " -I${GTEST_INCLUDE_DIR}")
     # string(APPEND ARROW_TESTING_PC_LIBS " -lgtest")
+    set(ARROW_GTEST_GMOCK arrow::GTest::gmock)
+    set(ARROW_GTEST_GTEST arrow::GTest::gtest)
+    set(ARROW_GTEST_GTEST_MAIN arrow::GTest::gtest_main)
   endif()
 endif()
 
@@ -2313,7 +2325,7 @@ macro(build_benchmark)
 endmacro()
 
 if(ARROW_BUILD_BENCHMARKS)
-  set(BENCHMARK_REQUIRED_VERSION 1.6.0)
+  set(BENCHMARK_REQUIRED_VERSION 1.6.1)
   resolve_dependency(benchmark
                      REQUIRED_VERSION
                      ${BENCHMARK_REQUIRED_VERSION}
@@ -2811,7 +2823,7 @@ macro(ensure_absl)
       # 20211102 or later. We need to update
       # ARROW_ABSL_REQUIRED_LTS_VERSIONS list when new Abseil LTS is
       # released.
-      set(ARROW_ABSL_REQUIRED_LTS_VERSIONS 20211102 20220623)
+      set(ARROW_ABSL_REQUIRED_LTS_VERSIONS 20230125 20220623 20211102)
       foreach(_VERSION ${ARROW_ABSL_REQUIRED_LTS_VERSIONS})
         find_package(absl ${_VERSION})
         if(absl_FOUND)
@@ -3872,7 +3884,11 @@ macro(build_grpc)
       "${EP_COMMON_CMAKE_ARGS}"
       "-DCMAKE_C_FLAGS=${GRPC_C_FLAGS}"
       "-DCMAKE_CXX_FLAGS=${GRPC_CXX_FLAGS}"
+      -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
       -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
+      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
+      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
+      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY}
       -DgRPC_ABSL_PROVIDER=package
       -DgRPC_BUILD_CSHARP_EXT=OFF
       -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF
@@ -3888,13 +3904,9 @@ macro(build_grpc)
       -DgRPC_PROTOBUF_PROVIDER=package
       -DgRPC_RE2_PROVIDER=package
       -DgRPC_SSL_PROVIDER=package
-      -DgRPC_ZLIB_PROVIDER=package
-      -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX})
+      -DgRPC_ZLIB_PROVIDER=package)
   if(PROTOBUF_VENDORED)
     list(APPEND GRPC_CMAKE_ARGS -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG)
-  endif()
-  if(OPENSSL_ROOT_DIR)
-    list(APPEND GRPC_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
   endif()
 
   # XXX the gRPC git checkout is huge and takes a long time
@@ -4182,7 +4194,7 @@ macro(build_google_cloud_cpp_storage)
   message(STATUS "Building google-cloud-cpp from source")
   message(STATUS "Only building the google-cloud-cpp::storage component")
 
-  # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/master/doc/packaging.md
+  # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md
   ensure_absl()
   build_crc32c_once()
 
@@ -4224,10 +4236,10 @@ macro(build_google_cloud_cpp_storage)
       -DGOOGLE_CLOUD_CPP_ENABLE=storage
       # We need this to build with OpenSSL 3.0.
       # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
-      -DGOOGLE_CLOUD_CPP_ENABLE_WERROR=OFF)
-  if(OPENSSL_ROOT_DIR)
-    list(APPEND GOOGLE_CLOUD_CPP_CMAKE_ARGS -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
-  endif()
+      -DGOOGLE_CLOUD_CPP_ENABLE_WERROR=OFF
+      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
+      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
+      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY})
 
   add_custom_target(google_cloud_cpp_dependencies)
 
@@ -4252,24 +4264,12 @@ macro(build_google_cloud_cpp_storage)
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_common${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 
-  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
-  if(CMAKE_VERSION VERSION_GREATER 3.9)
-    find_package(Patch)
-    if(Patch_FOUND)
-      # This patch is for google-cloud-cpp <= 1.42.0
-      # Upstreamed: https://github.com/googleapis/google-cloud-cpp/pull/9345
-      set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
-          ${Patch_EXECUTABLE} "<SOURCE_DIR>/cmake/FindCurlWithTargets.cmake"
-          "${CMAKE_SOURCE_DIR}/build-support/google-cloud-cpp-curl-static-windows.patch")
-    endif()
-  endif()
   externalproject_add(google_cloud_cpp_ep
                       ${EP_COMMON_OPTIONS}
                       INSTALL_DIR ${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}
                       URL ${google_cloud_cpp_storage_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${GOOGLE_CLOUD_CPP_CMAKE_ARGS}
-                      PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
                       BUILD_BYPRODUCTS ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}
                                        ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}
                                        ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}
@@ -4729,16 +4729,25 @@ macro(build_awssdk)
     set(AWSSDK_BUILD_TYPE release)
   endif()
 
-  # provide hint for AWS SDK to link with the already located openssl
-  get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
       -DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}
-      -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}\\$<SEMICOLON>${OPENSSL_ROOT_HINT}
+      -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}
       -DENABLE_TESTING=OFF
       -DENABLE_UNITY_BUILD=ON
-      -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT})
+      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
+      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
+      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY}
+      -Dcrypto_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
+      -Dcrypto_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
+  if(ARROW_OPENSSL_USE_SHARED)
+    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
+         -Dcrypto_SHARED_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
+  else()
+    list(APPEND AWSSDK_COMMON_CMAKE_ARGS
+         -Dcrypto_STATIC_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
+  endif()
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
       -DBUILD_DEPS=OFF
@@ -4754,10 +4763,10 @@ macro(build_awssdk)
     # provide hint for AWS SDK to link with the already located libcurl and zlib
     list(APPEND
          AWSSDK_CMAKE_ARGS
-         -DCURL_LIBRARY=${CURL_ROOT_HINT}/lib
          -DCURL_INCLUDE_DIR=${CURL_ROOT_HINT}/include
-         -DZLIB_LIBRARY=${ZLIB_ROOT_HINT}/lib
-         -DZLIB_INCLUDE_DIR=${ZLIB_ROOT_HINT}/include)
+         -DCURL_LIBRARY=${CURL_ROOT_HINT}/lib
+         -DZLIB_INCLUDE_DIR=${ZLIB_ROOT_HINT}/include
+         -DZLIB_LIBRARY=${ZLIB_ROOT_HINT}/lib)
   endif()
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
@@ -4879,9 +4888,15 @@ macro(build_awssdk)
     set(S2N_TLS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
     list(APPEND
          S2N_TLS_CMAKE_ARGS
-         -DS2N_INTERN_LIBCRYPTO=ON # internalize libcrypto to avoid name conflict with openssl
-         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX} # path to find crypto provided by aws-lc
-         -DCMAKE_C_FLAGS=${S2N_TLS_C_FLAGS})
+         # internalize libcrypto to avoid name conflict with OpenSSL
+         -DS2N_INTERN_LIBCRYPTO=ON
+         # path to find crypto provided by aws-lc
+         -DCMAKE_PREFIX_PATH=${AWS_LC_PREFIX}
+         -DCMAKE_C_FLAGS=${S2N_TLS_C_FLAGS}
+         # paths to find crypto provided by aws-lc
+         -Dcrypto_INCLUDE_DIR=${AWS_LC_PREFIX}/include
+         -Dcrypto_LIBRARY=${AWS_LC_STATIC_LIBRARY}
+         -Dcrypto_STATIC_LIBRARY=${AWS_LC_STATIC_LIBRARY})
 
     externalproject_add(s2n_tls_ep
                         ${EP_COMMON_OPTIONS}
@@ -5067,11 +5082,12 @@ if(ARROW_S3)
       foreach(AWSSDK_LINK_LIBRARY ${AWSSDK_LINK_LIBRARIES})
         string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:${AWSSDK_LINK_LIBRARY}>")
       endforeach()
+    else()
+      if(UNIX)
+        string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
+      endif()
+      string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
     endif()
-    if(UNIX)
-      string(APPEND ARROW_PC_REQUIRES_PRIVATE " libcurl")
-    endif()
-    string(APPEND ARROW_PC_REQUIRES_PRIVATE " openssl")
   endif()
 
   if(APPLE)

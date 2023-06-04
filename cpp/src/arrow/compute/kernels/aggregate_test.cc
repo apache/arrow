@@ -1502,6 +1502,211 @@ TEST(TestNullMeanKernel, Basics) {
 }
 
 //
+// First / Last
+//
+
+template <typename ArrowType>
+class TestFirstLastKernel : public ::testing::Test {
+  using Traits = TypeTraits<ArrowType>;
+  using ArrayType = typename Traits::ArrayType;
+  using c_type = typename ArrowType::c_type;
+  using ScalarType = typename Traits::ScalarType;
+
+ public:
+  void AssertFirstLastIs(const Datum& array, c_type expected_first, c_type expected_last,
+                         const ScalarAggregateOptions& options) {
+    ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("first", {array}, &options));
+    const auto& out_first = out.scalar_as<ScalarType>();
+    ASSERT_EQ(expected_first, out_first.value);
+
+    ASSERT_OK_AND_ASSIGN(out, CallFunction("last", {array}, &options));
+    const auto& out_last = out.scalar_as<ScalarType>();
+    ASSERT_EQ(expected_last, out_last.value);
+  }
+
+  void AssertFirstLastIsNull(const Datum& array, const ScalarAggregateOptions& options) {
+    ASSERT_OK_AND_ASSIGN(Datum out, First(array, options));
+    const auto& out_first = out.scalar_as<ScalarType>();
+    ASSERT_FALSE(out_first.is_valid);
+
+    ASSERT_OK_AND_ASSIGN(out, Last(array, options));
+    const auto& out_last = out.scalar_as<ScalarType>();
+    ASSERT_FALSE(out_last.is_valid);
+  }
+
+  void AssertFirstLastIsNull(const std::string& json,
+                             const ScalarAggregateOptions& options) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertFirstLastIsNull(array, options);
+  }
+
+  void AssertFirstLastIsNull(const std::vector<std::string>& json,
+                             const ScalarAggregateOptions& options) {
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertFirstLastIsNull(array, options);
+  }
+
+  void AssertFirstLastIs(const std::string& json, c_type expected_first,
+                         c_type expected_last, const ScalarAggregateOptions& options) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertFirstLastIs(array, expected_first, expected_last, options);
+  }
+
+  void AssertFirstLastIs(const std::vector<std::string>& json, c_type expected_min,
+                         c_type expected_max, const ScalarAggregateOptions& options) {
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertFirstLastIs(array, expected_min, expected_max, options);
+  }
+
+  std::shared_ptr<DataType> type_singleton() {
+    return default_type_instance<ArrowType>();
+  }
+};
+
+class TestBooleanFirstLastKernel : public TestFirstLastKernel<BooleanType> {};
+
+template <typename ArrowType>
+class TestNumericFirstLastKernel : public TestFirstLastKernel<ArrowType> {};
+
+template <typename ArrowType>
+class TestTemporalFirstLastKernel : public TestFirstLastKernel<ArrowType> {};
+
+TEST_F(TestBooleanFirstLastKernel, Basics) {
+  ScalarAggregateOptions options;
+  std::vector<std::string> chunked_input0 = {"[]", "[]"};
+  std::vector<std::string> chunked_input1 = {"[null, true, null]", "[true, null]"};
+  std::vector<std::string> chunked_input2 = {"[false, false, false]", "[false]"};
+  std::vector<std::string> chunked_input3 = {"[null, true]", "[false, null]"};
+  std::vector<std::string> chunked_input4 = {"[false, null]", "[null, true]"};
+  auto ty = struct_({field("first", boolean()), field("last", boolean())});
+
+  this->AssertFirstLastIsNull("[]", options);
+  this->AssertFirstLastIsNull("[null, null, null]", options);
+  this->AssertFirstLastIsNull(chunked_input0, options);
+  this->AssertFirstLastIs(chunked_input1, true, true, options);
+  this->AssertFirstLastIs(chunked_input2, false, false, options);
+  this->AssertFirstLastIs(chunked_input3, true, false, options);
+  this->AssertFirstLastIs(chunked_input4, false, true, options);
+
+  options.skip_nulls = false;
+  this->AssertFirstLastIsNull("[]", options);
+  this->AssertFirstLastIsNull("[null, null, null]", options);
+  this->AssertFirstLastIsNull(chunked_input0, options);
+  this->AssertFirstLastIsNull(chunked_input1, options);
+  this->AssertFirstLastIs(chunked_input2, false, false, options);
+  this->AssertFirstLastIsNull(chunked_input3, options);
+  this->AssertFirstLastIs(chunked_input4, false, true, options);
+}
+
+TYPED_TEST_SUITE(TestNumericFirstLastKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericFirstLastKernel, Basics) {
+  ScalarAggregateOptions options;
+  std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 8, null, 3, 4]"};
+  std::vector<std::string> chunked_input2 = {"[null, null, null, 7]",
+                                             "[null, 8, null, 3, 4, null]"};
+  std::vector<std::string> chunked_input3 = {"[null, null, null]", "[null, null]"};
+  auto item_ty = default_type_instance<TypeParam>();
+
+  this->AssertFirstLastIs("[5, 1, 2, 3, 4]", 5, 4, options);
+  this->AssertFirstLastIs("[5, null, 2, 3, null]", 5, 3, options);
+  this->AssertFirstLastIs(chunked_input1, 5, 4, options);
+  this->AssertFirstLastIs(chunked_input1[1], 9, 4, options);
+  this->AssertFirstLastIs(chunked_input2, 7, 4, options);
+  this->AssertFirstLastIsNull(chunked_input3[0], options);
+  this->AssertFirstLastIsNull(chunked_input3, options);
+
+  options.skip_nulls = false;
+  this->AssertFirstLastIsNull(chunked_input2[1], options);
+  this->AssertFirstLastIsNull(chunked_input2, options);
+}
+
+TYPED_TEST_SUITE(TestTemporalFirstLastKernel, TemporalArrowTypes);
+TYPED_TEST(TestTemporalFirstLastKernel, Basics) {
+  ScalarAggregateOptions options;
+  std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 8, null, 3, 4]"};
+  std::vector<std::string> chunked_input2 = {"[null, null, null, null]",
+                                             "[null, 8, null, 3 ,4, null]"};
+  auto item_ty = default_type_instance<TypeParam>();
+
+  this->AssertFirstLastIs("[5, 1, 2, 3, 4]", 5, 4, options);
+  this->AssertFirstLastIs("[5, null, 2, 3, null]", 5, 3, options);
+  this->AssertFirstLastIs(chunked_input1, 5, 4, options);
+  this->AssertFirstLastIs(chunked_input2, 8, 4, options);
+
+  options.skip_nulls = false;
+  this->AssertFirstLastIsNull(chunked_input2, options);
+}
+
+template <typename ArrowType>
+class TestBaseBinaryFirstLastKernel : public ::testing::Test {};
+TYPED_TEST_SUITE(TestBaseBinaryFirstLastKernel, BaseBinaryArrowTypes);
+TYPED_TEST(TestBaseBinaryFirstLastKernel, Basics) {
+  std::vector<std::string> chunked_input1 = {R"(["cc", "", "aa", "b", "c"])",
+                                             R"(["d", "", null, "b", null])"};
+  std::vector<std::string> chunked_input2 = {R"(["aa", null, "aa", "b", "c"])",
+                                             R"(["d", "", "aa", "b", "bb"])"};
+  std::vector<std::string> chunked_input3 = {R"(["bb", "", "aa", "b", null])",
+                                             R"(["d", "", null, "b", "aa"])"};
+  auto ty = std::make_shared<TypeParam>();
+  Datum null = ScalarFromJSON(ty, R"(null)");
+
+  // SKIP nulls by default
+  EXPECT_THAT(First(ArrayFromJSON(ty, R"([])")), ResultWith(null));
+  EXPECT_THAT(First(ArrayFromJSON(ty, R"([null, null, null])")), ResultWith(null));
+  EXPECT_THAT(First(ArrayFromJSON(ty, chunked_input1[0])),
+              ResultWith(ScalarFromJSON(ty, R"("cc")")));
+  EXPECT_THAT(First(ChunkedArrayFromJSON(ty, chunked_input1)),
+              ResultWith(ScalarFromJSON(ty, R"("cc")")));
+  EXPECT_THAT(First(ChunkedArrayFromJSON(ty, chunked_input3)),
+              ResultWith(ScalarFromJSON(ty, R"("bb")")));
+
+  EXPECT_THAT(Last(ArrayFromJSON(ty, R"([])")), ResultWith(null));
+  EXPECT_THAT(Last(ArrayFromJSON(ty, R"([null, null, null])")), ResultWith(null));
+  EXPECT_THAT(Last(ArrayFromJSON(ty, chunked_input1[0])),
+              ResultWith(ScalarFromJSON(ty, R"("c")")));
+  EXPECT_THAT(Last(ChunkedArrayFromJSON(ty, chunked_input1)),
+              ResultWith(ScalarFromJSON(ty, R"("b")")));
+  EXPECT_THAT(Last(ChunkedArrayFromJSON(ty, chunked_input3)),
+              ResultWith(ScalarFromJSON(ty, R"("aa")")));
+
+  EXPECT_THAT(Last(MakeNullScalar(ty)), ResultWith(null));
+}
+
+TEST(TestFixedSizeBinaryFirstLastKernel, Basics) {
+  auto ty = fixed_size_binary(2);
+  std::vector<std::string> chunked_input1 = {R"(["cd", "aa", "ab", "bb", "cc"])",
+                                             R"(["da", "aa", null, "bb", "bb"])"};
+  std::vector<std::string> chunked_input2 = {R"([null, null, null, null, null])",
+                                             R"(["dd", "aa", "ab", "bb", "aa"])"};
+  std::vector<std::string> chunked_input3 = {R"(["aa", "aa", "ab", "bb", null])",
+                                             R"([null, null, null, null, null])"};
+  Datum null = ScalarFromJSON(ty, R"(null)");
+
+  // SKIP nulls by default
+  EXPECT_THAT(First(ArrayFromJSON(ty, R"([])")), ResultWith(null));
+  EXPECT_THAT(First(ArrayFromJSON(ty, R"([null, null, null])")), ResultWith(null));
+  EXPECT_THAT(First(ArrayFromJSON(ty, chunked_input1[0])),
+              ResultWith(ScalarFromJSON(ty, R"("cd")")));
+  EXPECT_THAT(First(ChunkedArrayFromJSON(ty, chunked_input1)),
+              ResultWith(ScalarFromJSON(ty, R"("cd")")));
+  EXPECT_THAT(First(ChunkedArrayFromJSON(ty, chunked_input2)),
+              ResultWith(ScalarFromJSON(ty, R"("dd")")));
+  EXPECT_THAT(First(ChunkedArrayFromJSON(ty, chunked_input3)),
+              ResultWith(ScalarFromJSON(ty, R"("aa")")));
+
+  EXPECT_THAT(Last(ArrayFromJSON(ty, R"([])")), ResultWith(null));
+  EXPECT_THAT(Last(ArrayFromJSON(ty, R"([null, null, null])")), ResultWith(null));
+  EXPECT_THAT(Last(ArrayFromJSON(ty, chunked_input1[0])),
+              ResultWith(ScalarFromJSON(ty, R"("cc")")));
+  EXPECT_THAT(Last(ChunkedArrayFromJSON(ty, chunked_input1)),
+              ResultWith(ScalarFromJSON(ty, R"("bb")")));
+  EXPECT_THAT(Last(ChunkedArrayFromJSON(ty, chunked_input2)),
+              ResultWith(ScalarFromJSON(ty, R"("aa")")));
+  EXPECT_THAT(Last(ChunkedArrayFromJSON(ty, chunked_input3)),
+              ResultWith(ScalarFromJSON(ty, R"("bb")")));
+}
+
+//
 // Min / Max
 //
 

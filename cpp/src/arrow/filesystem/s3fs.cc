@@ -1150,11 +1150,14 @@ class ObjectInputFile final : public io::RandomAccessFile {
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
-// Minimum size for each part of a multipart upload, except for the last part.
-// AWS doc says "5 MB" but it's not clear whether those are MB or MiB,
-// so I chose the safer value.
-// (see https://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPart.html)
-static constexpr int64_t kMinimumPartUpload = 5 * 1024 * 1024;
+// Upload size per part. While AWS and Minio support different sizes for each
+// part (only requiring a minimum of 5MB), Cloudflare R2 requires that every
+// part be exactly equal (except for the last part). We set this to 10 MB, so
+// that in combination with the maximum number of parts of 10,000, this gives a
+// file limit of 100k MB (or about 98 GB).
+// (see https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html)
+// (for rational, see: https://github.com/apache/arrow/issues/34363)
+static constexpr int64_t kPartUploadSize = 10 * 1024 * 1024;
 
 // An OutputStream that writes to a S3 object
 class ObjectOutputStream final : public io::OutputStream {
@@ -1304,27 +1307,44 @@ class ObjectOutputStream final : public io::OutputStream {
       return Status::Invalid("Operation on closed stream");
     }
 
-    if (!current_part_ && nbytes >= part_upload_threshold_) {
-      // No current part and data large enough, upload it directly
-      // (without copying if the buffer is owned)
-      RETURN_NOT_OK(UploadPart(data, nbytes, owned_buffer));
-      pos_ += nbytes;
-      return Status::OK();
-    }
-    // Can't upload data on its own, need to buffer it
-    if (!current_part_) {
-      ARROW_ASSIGN_OR_RAISE(
-          current_part_,
-          io::BufferOutputStream::Create(part_upload_threshold_, io_context_.pool()));
-      current_part_size_ = 0;
-    }
-    RETURN_NOT_OK(current_part_->Write(data, nbytes));
-    pos_ += nbytes;
-    current_part_size_ += nbytes;
+    const int8_t* data_ptr = reinterpret_cast<const int8_t*>(data);
+    auto advance_ptr = [&data_ptr, &nbytes](const int64_t offset) {
+      data_ptr += offset;
+      nbytes -= offset;
+    };
 
-    if (current_part_size_ >= part_upload_threshold_) {
-      // Current part large enough, upload it
+    // Handle case where we have some bytes bufferred from prior calls.
+    if (current_part_size_ > 0) {
+      // Try to fill current buffer
+      const int64_t to_copy = std::min(nbytes, kPartUploadSize - current_part_size_);
+      RETURN_NOT_OK(current_part_->Write(data_ptr, to_copy));
+      current_part_size_ += to_copy;
+      advance_ptr(to_copy);
+      pos_ += to_copy;
+
+      // If buffer isn't full, break
+      if (current_part_size_ < kPartUploadSize) {
+        return Status::OK();
+      }
+
+      // Upload current buffer
       RETURN_NOT_OK(CommitCurrentPart());
+    }
+
+    // We can upload chunks without copying them into a buffer
+    while (nbytes >= kPartUploadSize) {
+      RETURN_NOT_OK(UploadPart(data_ptr, kPartUploadSize));
+      advance_ptr(kPartUploadSize);
+      pos_ += kPartUploadSize;
+    }
+
+    // Buffer remaining bytes
+    if (nbytes > 0) {
+      current_part_size_ = nbytes;
+      ARROW_ASSIGN_OR_RAISE(current_part_, io::BufferOutputStream::Create(
+                                               kPartUploadSize, io_context_.pool()));
+      RETURN_NOT_OK(current_part_->Write(data_ptr, current_part_size_));
+      pos_ += current_part_size_;
     }
 
     return Status::OK();
@@ -1407,20 +1427,6 @@ class ObjectOutputStream final : public io::OutputStream {
     }
 
     ++part_number_;
-    // With up to 10000 parts in an upload (S3 limit), a stream writing chunks
-    // of exactly 5MB would be limited to 50GB total.  To avoid that, we bump
-    // the upload threshold every 100 parts.  So the pattern is:
-    // - part 1 to 99: 5MB threshold
-    // - part 100 to 199: 10MB threshold
-    // - part 200 to 299: 15MB threshold
-    // ...
-    // - part 9900 to 9999: 500MB threshold
-    // So the total size limit is 2475000MB or ~2.4TB, while keeping manageable
-    // chunk sizes and avoiding too much buffering in the common case of a small-ish
-    // stream.  If the limit's not enough, we can revisit.
-    if (part_number_ % 100 == 0) {
-      part_upload_threshold_ += kMinimumPartUpload;
-    }
 
     return Status::OK();
   }
@@ -1482,7 +1488,6 @@ class ObjectOutputStream final : public io::OutputStream {
   int32_t part_number_ = 1;
   std::shared_ptr<io::BufferOutputStream> current_part_;
   int64_t current_part_size_ = 0;
-  int64_t part_upload_threshold_ = kMinimumPartUpload;
 
   // This struct is kept alive through background writes to avoid problems
   // in the completion handler.
@@ -2235,6 +2240,11 @@ bool S3FileSystem::Equals(const FileSystem& other) const {
   return options().Equals(s3fs.options());
 }
 
+Result<std::string> S3FileSystem::PathFromUri(const std::string& uri_string) const {
+  return internal::PathFromUriHelper(uri_string, {"s3"}, /*accept_local_paths=*/false,
+                                     internal::AuthorityHandlingBehavior::kPrepend);
+}
+
 S3Options S3FileSystem::options() const { return impl_->options(); }
 
 std::string S3FileSystem::region() const { return impl_->region(); }
@@ -2571,100 +2581,137 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
 
 namespace {
 
-std::mutex aws_init_lock;
-Aws::SDKOptions aws_options;
-std::atomic<bool> aws_initialized(false);
+struct AwsInstance : public ::arrow::internal::Executor::Resource {
+  AwsInstance() : is_initialized_(false), is_finalized_(false) {}
+  ~AwsInstance() { Finalize(/*from_destructor=*/true); }
 
-Status DoInitializeS3(const S3GlobalOptions& options) {
-  Aws::Utils::Logging::LogLevel aws_log_level;
+  // Returns true iff the instance was newly initialized with `options`
+  Result<bool> EnsureInitialized(const S3GlobalOptions& options) {
+    bool expected = false;
+    if (is_finalized_.load()) {
+      return Status::Invalid("Attempt to initialize S3 after it has been finalized");
+    }
+    if (is_initialized_.compare_exchange_strong(expected, true)) {
+      DoInitialize(options);
+      return true;
+    }
+    return false;
+  }
+
+  bool IsInitialized() { return !is_finalized_ && is_initialized_; }
+
+  void Finalize(bool from_destructor = false) {
+    bool expected = true;
+    is_finalized_.store(true);
+    if (is_initialized_.compare_exchange_strong(expected, false)) {
+      if (from_destructor) {
+        ARROW_LOG(WARNING)
+            << " arrow::fs::FinalizeS3 was not called even though S3 was initialized.  "
+               "This could lead to a segmentation fault at exit";
+        RegionResolver::ResetDefaultInstance();
+        Aws::ShutdownAPI(aws_options_);
+      }
+    }
+  }
+
+ private:
+  void DoInitialize(const S3GlobalOptions& options) {
+    Aws::Utils::Logging::LogLevel aws_log_level;
 
 #define LOG_LEVEL_CASE(level_name)                             \
   case S3LogLevel::level_name:                                 \
     aws_log_level = Aws::Utils::Logging::LogLevel::level_name; \
     break;
 
-  switch (options.log_level) {
-    LOG_LEVEL_CASE(Fatal)
-    LOG_LEVEL_CASE(Error)
-    LOG_LEVEL_CASE(Warn)
-    LOG_LEVEL_CASE(Info)
-    LOG_LEVEL_CASE(Debug)
-    LOG_LEVEL_CASE(Trace)
-    default:
-      aws_log_level = Aws::Utils::Logging::LogLevel::Off;
-  }
+    switch (options.log_level) {
+      LOG_LEVEL_CASE(Fatal)
+      LOG_LEVEL_CASE(Error)
+      LOG_LEVEL_CASE(Warn)
+      LOG_LEVEL_CASE(Info)
+      LOG_LEVEL_CASE(Debug)
+      LOG_LEVEL_CASE(Trace)
+      default:
+        aws_log_level = Aws::Utils::Logging::LogLevel::Off;
+    }
 
 #undef LOG_LEVEL_CASE
 
 #ifdef ARROW_S3_HAS_CRT
-  aws_options.ioOptions.clientBootstrap_create_fn =
-      [ev_threads = options.num_event_loop_threads]() {
-        // https://github.com/aws/aws-sdk-cpp/blob/1.11.15/src/aws-cpp-sdk-core/source/Aws.cpp#L65
-        Aws::Crt::Io::EventLoopGroup event_loop_group(ev_threads);
-        Aws::Crt::Io::DefaultHostResolver default_host_resolver(
-            event_loop_group, /*maxHosts=*/8, /*maxTTL=*/30);
-        auto client_bootstrap = Aws::MakeShared<Aws::Crt::Io::ClientBootstrap>(
-            "Aws_Init_Cleanup", event_loop_group, default_host_resolver);
-        client_bootstrap->EnableBlockingShutdown();
-        return client_bootstrap;
-      };
+    aws_options_.ioOptions.clientBootstrap_create_fn =
+        [ev_threads = options.num_event_loop_threads]() {
+          // https://github.com/aws/aws-sdk-cpp/blob/1.11.15/src/aws-cpp-sdk-core/source/Aws.cpp#L65
+          Aws::Crt::Io::EventLoopGroup event_loop_group(ev_threads);
+          Aws::Crt::Io::DefaultHostResolver default_host_resolver(
+              event_loop_group, /*maxHosts=*/8, /*maxTTL=*/30);
+          auto client_bootstrap = Aws::MakeShared<Aws::Crt::Io::ClientBootstrap>(
+              "Aws_Init_Cleanup", event_loop_group, default_host_resolver);
+          client_bootstrap->EnableBlockingShutdown();
+          return client_bootstrap;
+        };
 #endif
-
-  aws_options.loggingOptions.logLevel = aws_log_level;
-  // By default the AWS SDK logs to files, log to console instead
-  aws_options.loggingOptions.logger_create_fn = [] {
-    return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
-        aws_options.loggingOptions.logLevel);
-  };
+    aws_options_.loggingOptions.logLevel = aws_log_level;
+    // By default the AWS SDK logs to files, log to console instead
+    aws_options_.loggingOptions.logger_create_fn = [this] {
+      return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
+          aws_options_.loggingOptions.logLevel);
+    };
 #if (defined(AWS_SDK_VERSION_MAJOR) &&                          \
      (AWS_SDK_VERSION_MAJOR > 1 || AWS_SDK_VERSION_MINOR > 9 || \
       (AWS_SDK_VERSION_MINOR == 9 && AWS_SDK_VERSION_PATCH >= 272)))
-  // ARROW-18290: escape all special chars for compatibility with non-AWS S3 backends.
-  // This configuration options is only available with AWS SDK 1.9.272 and later.
-  aws_options.httpOptions.compliantRfc3986Encoding = true;
+    // ARROW-18290: escape all special chars for compatibility with non-AWS S3 backends.
+    // This configuration options is only available with AWS SDK 1.9.272 and later.
+    aws_options_.httpOptions.compliantRfc3986Encoding = true;
 #endif
-  Aws::InitAPI(aws_options);
-  aws_initialized.store(true);
-  return Status::OK();
+    Aws::InitAPI(aws_options_);
+  }
+
+  Aws::SDKOptions aws_options_;
+  std::atomic<bool> is_initialized_;
+  std::atomic<bool> is_finalized_;
+};
+
+std::shared_ptr<AwsInstance> CreateAwsInstance() {
+  auto instance = std::make_shared<AwsInstance>();
+  // Don't let S3 be shutdown until all Arrow threads are done using it
+  arrow::internal::GetCpuThreadPool()->KeepAlive(instance);
+  io::internal::GetIOThreadPool()->KeepAlive(instance);
+  return instance;
 }
 
-Status DoFinalizeS3() {
-  RegionResolver::ResetDefaultInstance();
-  Aws::ShutdownAPI(aws_options);
-  aws_initialized.store(false);
-  return Status::OK();
+AwsInstance& GetAwsInstance() {
+  static auto instance = CreateAwsInstance();
+  return *instance;
+}
+
+Result<bool> EnsureAwsInstanceInitialized(const S3GlobalOptions& options) {
+  return GetAwsInstance().EnsureInitialized(options);
 }
 
 }  // namespace
 
 Status InitializeS3(const S3GlobalOptions& options) {
-  std::lock_guard<std::mutex> lock(aws_init_lock);
-  return DoInitializeS3(options);
+  ARROW_ASSIGN_OR_RAISE(bool successfully_initialized,
+                        EnsureAwsInstanceInitialized(options));
+  if (!successfully_initialized) {
+    return Status::Invalid(
+        "S3 was already initialized.  It is safe to use but the options passed in this "
+        "call have been ignored.");
+  }
+  return Status::OK();
 }
 
 Status EnsureS3Initialized() {
-  std::lock_guard<std::mutex> lock(aws_init_lock);
-  if (!aws_initialized.load()) {
-    S3GlobalOptions options{S3LogLevel::Fatal};
-    return DoInitializeS3(options);
-  }
-  return Status::OK();
+  return EnsureAwsInstanceInitialized({S3LogLevel::Fatal}).status();
 }
 
 Status FinalizeS3() {
-  std::lock_guard<std::mutex> lock(aws_init_lock);
-  return DoFinalizeS3();
-}
-
-Status EnsureS3Finalized() {
-  std::lock_guard<std::mutex> lock(aws_init_lock);
-  if (aws_initialized.load()) {
-    return DoFinalizeS3();
-  }
+  GetAwsInstance().Finalize();
   return Status::OK();
 }
 
-bool IsS3Initialized() { return aws_initialized.load(); }
+Status EnsureS3Finalized() { return FinalizeS3(); }
+
+bool IsS3Initialized() { return GetAwsInstance().IsInitialized(); }
 
 // -----------------------------------------------------------------------
 // Top-level utility functions

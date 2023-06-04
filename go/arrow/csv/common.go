@@ -22,8 +22,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 var (
@@ -222,6 +222,9 @@ func validate(schema *arrow.Schema) {
 		case *arrow.TimestampType:
 		case *arrow.Date32Type, *arrow.Date64Type:
 		case *arrow.Decimal128Type, *arrow.Decimal256Type:
+		case *arrow.ListType:
+		case *arrow.BinaryType:
+		case arrow.ExtensionType:
 		default:
 			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}

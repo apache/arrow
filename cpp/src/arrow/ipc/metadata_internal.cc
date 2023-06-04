@@ -367,8 +367,8 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
         return Status::Invalid("Map's keys must be non-nullable");
       } else {
         auto map = static_cast<const flatbuf::Map*>(type_data);
-        *out = std::make_shared<MapType>(children[0]->type()->field(0)->type(),
-                                         children[0]->type()->field(1)->type(),
+        *out = std::make_shared<MapType>(children[0]->type()->field(0)->WithName("key"),
+                                         children[0]->type()->field(1)->WithName("value"),
                                          map->keysSorted());
       }
       return Status::OK();
@@ -386,8 +386,19 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
     case flatbuf::Type::Union:
       return UnionFromFlatbuffer(static_cast<const flatbuf::Union*>(type_data), children,
                                  out);
+    case flatbuf::Type::RunEndEncoded:
+      if (children.size() != 2) {
+        return Status::Invalid("RunEndEncoded must have exactly 2 child fields");
+      }
+      if (!is_run_end_type(children[0]->type()->id())) {
+        return Status::Invalid(
+            "RunEndEncoded run_ends field must be typed as: int16, int32, or int64");
+      }
+      *out =
+          std::make_shared<RunEndEncodedType>(children[0]->type(), children[1]->type());
+      return Status::OK();
     default:
-      return Status::Invalid("Unrecognized type:" + ToChars(static_cast<int>(type)));
+      return Status::Invalid("Unrecognized type: " + ToChars(static_cast<int>(type)));
   }
 }
 
@@ -691,7 +702,10 @@ class FieldToFlatbufferVisitor {
   }
 
   Status Visit(const RunEndEncodedType& type) {
-    return Status::NotImplemented("run-end encoded type in IPC");
+    fb_type_ = flatbuf::Type::RunEndEncoded;
+    RETURN_NOT_OK(VisitChildFields(type));
+    type_offset_ = flatbuf::CreateRunEndEncoded(fbb_).Union();
+    return Status::OK();
   }
 
   Status Visit(const ExtensionType& type) {

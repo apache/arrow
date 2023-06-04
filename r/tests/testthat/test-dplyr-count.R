@@ -17,6 +17,8 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
+
 tbl <- example_data
 tbl$some_grouping <- rep(c(1, 2), 5)
 tbl$another_grouping <- rep(c(1, 2), 5)

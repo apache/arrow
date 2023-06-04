@@ -146,6 +146,7 @@ public final class DurationVector extends BaseFixedWidthVector {
     }
     holder.isSet = 1;
     holder.value = get(valueBuffer, index);
+    holder.unit = this.unit;
   }
 
   /**
@@ -246,6 +247,9 @@ public final class DurationVector extends BaseFixedWidthVector {
   public void set(int index, NullableDurationHolder holder) throws IllegalArgumentException {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
+    } else if (!this.unit.equals(holder.unit)) {
+      throw new IllegalArgumentException(
+          String.format("holder.unit: %s not equal to vector unit: %s", holder.unit, this.unit));
     } else if (holder.isSet > 0) {
       set(index, holder.value);
     } else {
@@ -260,6 +264,10 @@ public final class DurationVector extends BaseFixedWidthVector {
    * @param holder  data holder for value of element
    */
   public void set(int index, DurationHolder holder) {
+    if (!this.unit.equals(holder.unit)) {
+      throw new IllegalArgumentException(
+          String.format("holder.unit: %s not equal to vector unit: %s", holder.unit, this.unit));
+    }
     set(index, holder.value);
   }
 

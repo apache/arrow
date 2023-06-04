@@ -213,26 +213,27 @@ TEST(FlightTypes, FlightInfo) {
   auto endpoint1 = FlightEndpoint{Ticket{"foo"}, {}};
   auto endpoint2 = FlightEndpoint{Ticket{"foo"}, {location}};
   std::vector<FlightInfo> values = {
-      MakeFlightInfo(schema1, desc1, {}, -1, -1),
-      MakeFlightInfo(schema1, desc2, {}, -1, -1),
-      MakeFlightInfo(schema2, desc1, {}, -1, -1),
-      MakeFlightInfo(schema1, desc1, {endpoint1}, -1, 42),
-      MakeFlightInfo(schema1, desc2, {endpoint1, endpoint2}, 64, -1),
+      MakeFlightInfo(schema1, desc1, {}, -1, -1, false),
+      MakeFlightInfo(schema1, desc2, {}, -1, -1, true),
+      MakeFlightInfo(schema2, desc1, {}, -1, -1, false),
+      MakeFlightInfo(schema1, desc1, {endpoint1}, -1, 42, true),
+      MakeFlightInfo(schema1, desc2, {endpoint1, endpoint2}, 64, -1, false),
   };
   std::vector<std::string> reprs = {
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
-      "endpoints=[] total_records=-1 total_bytes=-1>",
+      "endpoints=[] total_records=-1 total_bytes=-1 ordered=false>",
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='bar'> "
-      "endpoints=[] total_records=-1 total_bytes=-1>",
+      "endpoints=[] total_records=-1 total_bytes=-1 ordered=true>",
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
-      "endpoints=[] total_records=-1 total_bytes=-1>",
+      "endpoints=[] total_records=-1 total_bytes=-1 ordered=false>",
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
       "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[]>] "
-      "total_records=-1 total_bytes=42>",
+      "total_records=-1 total_bytes=42 ordered=true>",
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='bar'> "
       "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[]>, "
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
-      "[grpc+tcp://localhost:1234]>] total_records=64 total_bytes=-1>",
+      "[grpc+tcp://localhost:1234]>] total_records=64 total_bytes=-1 "
+      "ordered=false>",
   };
 
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::FlightInfo>(values, reprs));

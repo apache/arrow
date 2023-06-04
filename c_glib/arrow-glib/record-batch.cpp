@@ -418,7 +418,8 @@ gchar *
 garrow_record_batch_to_string(GArrowRecordBatch *record_batch, GError **error)
 {
   const auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
-  return g_strdup(arrow_record_batch->ToString().c_str());
+  const auto string = arrow_record_batch->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**

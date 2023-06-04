@@ -25,13 +25,13 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/float16"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"golang.org/x/exp/constraints"
 	"golang.org/x/exp/slices"
 )
@@ -239,21 +239,21 @@ func RechunkArraysConsistently(groups [][]arrow.Array) [][]arrow.Array {
 	}
 
 	rechunked := make([][]arrow.Array, len(groups))
-	offsets := make([]int, len(groups))
+	offsets := make([]int64, len(groups))
 	// scan all array vectors at once, rechunking along the way
 	var start int64
 	for start < int64(totalLen) {
 		// first compute max possible length for next chunk
-		chunkLength := math.MaxInt64
+		var chunkLength int64 = math.MaxInt64
 		for i, g := range groups {
 			offset := offsets[i]
 			// skip any done arrays including 0-length
-			for offset == g[0].Len() {
+			for offset == int64(g[0].Len()) {
 				g = g[1:]
 				offset = 0
 			}
 			arr := g[0]
-			chunkLength = Min(chunkLength, arr.Len()-offset)
+			chunkLength = Min(chunkLength, int64(arr.Len())-offset)
 
 			offsets[i] = offset
 			groups[i] = g
@@ -263,7 +263,7 @@ func RechunkArraysConsistently(groups [][]arrow.Array) [][]arrow.Array {
 		for i, g := range groups {
 			offset := offsets[i]
 			arr := g[0]
-			if offset == 0 && arr.Len() == chunkLength {
+			if offset == 0 && int64(arr.Len()) == chunkLength {
 				// slice spans entire array
 				arr.Retain()
 				rechunked[i] = append(rechunked[i], arr)

@@ -127,7 +127,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
     const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema) {
   std::vector<FlightEndpoint> endpoints{FlightEndpoint{{descriptor.cmd}, {}}};
   ARROW_ASSIGN_OR_RAISE(auto result,
-                        FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
+                        FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false))
 
   return std::make_unique<FlightInfo>(result);
 }
@@ -304,8 +304,11 @@ class SQLiteFlightSqlServer::Impl {
     ARROW_ASSIGN_OR_RAISE(auto ticket,
                           EncodeTransactionQuery(query, command.transaction_id));
     std::vector<FlightEndpoint> endpoints{FlightEndpoint{std::move(ticket), {}}};
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          FlightInfo::Make(*schema, descriptor, endpoints, -1, -1))
+    // TODO: Set true only when "ORDER BY" is used in a main "SELECT"
+    // in the given query.
+    const bool ordered = false;
+    ARROW_ASSIGN_OR_RAISE(
+        auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, ordered));
 
     return std::make_unique<FlightInfo>(result);
   }
@@ -392,7 +395,7 @@ class SQLiteFlightSqlServer::Impl {
         auto result,
         FlightInfo::Make(include_schema ? *SqlSchema::GetTablesSchemaWithIncludedSchema()
                                         : *SqlSchema::GetTablesSchema(),
-                         descriptor, endpoints, -1, -1))
+                         descriptor, endpoints, -1, -1, false))
 
     return std::make_unique<FlightInfo>(std::move(result));
   }
@@ -573,9 +576,10 @@ class SQLiteFlightSqlServer::Impl {
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTypeInfo(
       const ServerCallContext& context, const GetXdbcTypeInfo& command) {
-    const std::shared_ptr<RecordBatch>& type_info_result =
-        command.data_type.has_value() ? DoGetTypeInfoResult(command.data_type.value())
-                                      : DoGetTypeInfoResult();
+    ARROW_ASSIGN_OR_RAISE(auto type_info_result,
+                          command.data_type.has_value()
+                              ? DoGetTypeInfoResult(command.data_type.value())
+                              : DoGetTypeInfoResult());
 
     ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make({type_info_result}));
     return std::make_unique<RecordBatchStream>(reader);

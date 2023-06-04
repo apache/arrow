@@ -17,6 +17,7 @@ using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -28,36 +29,49 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void PrimitiveArrayBuildersProduceExpectedArray()
         {
-            TestArrayBuilder<Int8Array, Int8Array.Builder>(x => x.Append(10).Append(20).Append(30));
-            TestArrayBuilder<Int16Array, Int16Array.Builder>(x => x.Append(10).Append(20).Append(30));
-            TestArrayBuilder<Int32Array, Int32Array.Builder>(x => x.Append(10).Append(20).Append(30));
-            TestArrayBuilder<Int64Array, Int64Array.Builder>(x => x.Append(10).Append(20).Append(30));
-            TestArrayBuilder<UInt8Array, UInt8Array.Builder>(x => x.Append(10).Append(20).Append(30));
-            TestArrayBuilder<UInt16Array, UInt16Array.Builder>(x => x.Append(10).Append(20).Append(30));
-            TestArrayBuilder<UInt32Array, UInt32Array.Builder>(x => x.Append(10).Append(20).Append(30));
-            TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(10).Append(20).Append(30));
-            TestArrayBuilder<FloatArray, FloatArray.Builder>(x => x.Append(10).Append(20).Append(30));
-            TestArrayBuilder<DoubleArray, DoubleArray.Builder>(x => x.Append(10).Append(20).Append(30));
-            TestArrayBuilder<Time32Array, Time32Array.Builder>(x => x.Append(10).Append(20).Append(30));
-            TestArrayBuilder<Time64Array, Time64Array.Builder>(x => x.Append(10).Append(20).Append(30));
+            Test<sbyte, Int8Array, Int8Array.Builder>();
+            Test<short, Int16Array, Int16Array.Builder>();
+            Test<int, Int32Array, Int32Array.Builder>();
+            Test<long, Int64Array, Int64Array.Builder>();
+            Test<byte, UInt8Array, UInt8Array.Builder>();
+            Test<ushort, UInt16Array, UInt16Array.Builder>();
+            Test<uint, UInt32Array, UInt32Array.Builder>();
+            Test<ulong, UInt64Array, UInt64Array.Builder>();
+            Test<Half, HalfFloatArray, HalfFloatArray.Builder>();
+            Test<float, FloatArray, FloatArray.Builder>();
+            Test<double, DoubleArray, DoubleArray.Builder>();
+            Test<int, Time32Array, Time32Array.Builder>();
+            Test<long, Time64Array, Time64Array.Builder>();
+
+            static void Test<T, TArray, TBuilder>()
+                where T : struct, INumber<T>
+                where TArray : PrimitiveArray<T>
+                where TBuilder : PrimitiveArrayBuilder<T, TArray, TBuilder>, new() =>
+                TestArrayBuilder<TArray, TBuilder>(x => x.Append(T.CreateChecked(10)).Append(T.CreateChecked(20)).Append(T.CreateChecked(30)));
         }
 
         [Fact]
         public void PrimitiveArrayBuildersProduceExpectedArrayWithNulls()
         {
-            TestArrayBuilder<Int8Array, Int8Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2, 0x09);
-            TestArrayBuilder<Int16Array, Int16Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
-            TestArrayBuilder<Int32Array, Int32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
-            TestArrayBuilder<Int64Array, Int64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
-            TestArrayBuilder<UInt8Array, UInt8Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2, 0x09);
-            TestArrayBuilder<UInt16Array, UInt16Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
-            TestArrayBuilder<UInt32Array, UInt32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
-            TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
-            TestArrayBuilder<UInt64Array, UInt64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
-            TestArrayBuilder<FloatArray, FloatArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
-            TestArrayBuilder<DoubleArray, DoubleArray.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
-            TestArrayBuilder<Time32Array, Time32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
-            TestArrayBuilder<Time64Array, Time64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(456), 4, 2, 0x09);
+            Test<sbyte, Int8Array, Int8Array.Builder>();
+            Test<short, Int16Array, Int16Array.Builder>();
+            Test<int, Int32Array, Int32Array.Builder>();
+            Test<long, Int64Array, Int64Array.Builder>();
+            Test<byte, UInt8Array, UInt8Array.Builder>();
+            Test<ushort, UInt16Array, UInt16Array.Builder>();
+            Test<uint, UInt32Array, UInt32Array.Builder>();
+            Test<ulong, UInt64Array, UInt64Array.Builder>();
+            Test<Half, HalfFloatArray, HalfFloatArray.Builder>();
+            Test<float, FloatArray, FloatArray.Builder>();
+            Test<double, DoubleArray, DoubleArray.Builder>();
+            Test<int, Time32Array, Time32Array.Builder>();
+            Test<long, Time64Array, Time64Array.Builder>();
+
+            static void Test<T, TArray, TBuilder>()
+                where T : struct, INumber<T>
+                where TArray : PrimitiveArray<T>
+                where TBuilder : PrimitiveArrayBuilder<T, TArray, TBuilder>, new() =>
+                TestArrayBuilder<TArray, TBuilder>(x => x.Append(T.CreateChecked(123)).AppendNull().AppendNull().Append(T.CreateChecked(127)), 4, 2, 0x09);
         }
 
         [Fact]
@@ -138,7 +152,7 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ListArrayBuilderValidityBuffer()
         {
-            ListArray listArray = new ListArray.Builder(Int64Type.Default).Append().AppendNull().Build();   
+            ListArray listArray = new ListArray.Builder(Int64Type.Default).Append().AppendNull().Build();
             Assert.False(listArray.IsValid(2));
         }
 
@@ -146,7 +160,7 @@ namespace Apache.Arrow.Tests
         public void NestedListArrayBuilder()
         {
             var childListType = new ListType(Int64Type.Default);
-            var parentListBuilder = new ListArray.Builder(childListType);
+            var parentListBuilder = new ListArray.Builder((IArrowType)childListType);
             var childListBuilder = parentListBuilder.ValueBuilder as ListArray.Builder;
             Assert.NotNull(childListBuilder);
             var valueBuilder = childListBuilder.ValueBuilder as Int64Array.Builder;

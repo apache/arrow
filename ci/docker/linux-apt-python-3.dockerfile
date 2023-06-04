@@ -45,7 +45,8 @@ RUN if [ "${numba}" != "" ]; then \
         /arrow/ci/scripts/install_numba.sh ${numba} \
     ; fi
 
-ENV ARROW_BUILD_STATIC=OFF \
+ENV ARROW_ACERO=ON \
+    ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_COMPUTE=ON \

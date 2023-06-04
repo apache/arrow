@@ -595,6 +595,30 @@ TEST(AsyncTaskScheduler, ScanningStress) {
     ASSERT_EQ(kExpectedBatchesScanned, batches_scanned.load());
   }
 }
+
+TEST(AsyncTaskScheduler, ThrottleStress) {
+  // Queue up a bunch of throttled fast tasks. It shouldn't cause stack overflow
+  constexpr int kNumTasks = 1024 * 10;
+  int num_tasks_run = 0;
+  Future<> slow_task = Future<>::Make();
+  Future<> finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) {
+    std::shared_ptr<ThrottledAsyncTaskScheduler> throttled =
+        ThrottledAsyncTaskScheduler::Make(scheduler, 1);
+    EXPECT_TRUE(throttled->AddSimpleTask([slow_task] { return slow_task; }, kDummyName));
+    for (int task_idx = 0; task_idx < kNumTasks; task_idx++) {
+      throttled->AddSimpleTask(
+          [&] {
+            num_tasks_run++;
+            return Future<>::MakeFinished();
+          },
+          kDummyName);
+    }
+    return Status::OK();
+  });
+  slow_task.MarkFinished();
+  ASSERT_FINISHES_OK(finished);
+  ASSERT_EQ(kNumTasks, num_tasks_run);
+}
 #endif
 
 class TaskWithPriority : public AsyncTaskScheduler::Task {

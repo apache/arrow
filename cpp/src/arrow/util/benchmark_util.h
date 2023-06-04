@@ -108,7 +108,7 @@ void RegressionSetArgs(benchmark::internal::Benchmark* bench) {
 // RAII struct to handle some of the boilerplate in regression benchmarks
 struct RegressionArgs {
   // size of memory tested (per iteration) in bytes
-  const int64_t size;
+  int64_t size;
 
   // proportion of nulls in generated arrays
   double null_proportion;
@@ -147,7 +147,14 @@ class MemoryPoolMemoryManager : public benchmark::MemoryManager {
     global_allocations_start = default_pool->num_allocations();
   }
 
-  void Stop(benchmark::MemoryManager::Result* result) override {
+// BENCHMARK_DONT_OPTIMIZE is used here to detect Google Benchmark
+// 1.8.0. We can remove this Stop(Result*) when we require Google
+// Benchmark 1.8.0 or later.
+#ifndef BENCHMARK_DONT_OPTIMIZE
+  void Stop(Result* result) override { Stop(*result); }
+#endif
+
+  void Stop(benchmark::MemoryManager::Result& result) override {
     // If num_allocations is still zero, we assume that the memory pool wasn't passed down
     // so we should record them.
     MemoryPool* default_pool = default_memory_pool();
@@ -166,9 +173,9 @@ class MemoryPoolMemoryManager : public benchmark::MemoryManager {
                            << " allocations.\n";
       }
 
-      result->max_bytes_used = memory_pool->max_memory();
-      result->total_allocated_bytes = memory_pool->total_bytes_allocated();
-      result->num_allocs = memory_pool->num_allocations();
+      result.max_bytes_used = memory_pool->max_memory();
+      result.total_allocated_bytes = memory_pool->total_bytes_allocated();
+      result.num_allocs = memory_pool->num_allocations();
     }
   }
 

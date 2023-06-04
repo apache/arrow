@@ -128,6 +128,8 @@ static auto kTakeOptionsType = GetFunctionOptionsType<TakeOptions>(
 static auto kDictionaryEncodeOptionsType =
     GetFunctionOptionsType<DictionaryEncodeOptions>(DataMember(
         "null_encoding_behavior", &DictionaryEncodeOptions::null_encoding_behavior));
+static auto kRunEndEncodeOptionsType = GetFunctionOptionsType<RunEndEncodeOptions>(
+    DataMember("run_end_type", &RunEndEncodeOptions::run_end_type));
 static auto kArraySortOptionsType = GetFunctionOptionsType<ArraySortOptions>(
     DataMember("order", &ArraySortOptions::order),
     DataMember("null_placement", &ArraySortOptions::null_placement));
@@ -142,8 +144,7 @@ static auto kSelectKOptionsType = GetFunctionOptionsType<SelectKOptions>(
     DataMember("sort_keys", &SelectKOptions::sort_keys));
 static auto kCumulativeSumOptionsType = GetFunctionOptionsType<CumulativeSumOptions>(
     DataMember("start", &CumulativeSumOptions::start),
-    DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls),
-    DataMember("check_overflow", &CumulativeSumOptions::check_overflow));
+    DataMember("skip_nulls", &CumulativeSumOptions::skip_nulls));
 static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
@@ -165,6 +166,10 @@ DictionaryEncodeOptions::DictionaryEncodeOptions(NullEncodingBehavior null_encod
       null_encoding_behavior(null_encoding) {}
 constexpr char DictionaryEncodeOptions::kTypeName[];
 
+RunEndEncodeOptions::RunEndEncodeOptions(std::shared_ptr<DataType> run_end_type)
+    : FunctionOptions(internal::kRunEndEncodeOptionsType),
+      run_end_type{std::move(run_end_type)} {}
+
 ArraySortOptions::ArraySortOptions(SortOrder order, NullPlacement null_placement)
     : FunctionOptions(internal::kArraySortOptionsType),
       order(order),
@@ -175,6 +180,10 @@ SortOptions::SortOptions(std::vector<SortKey> sort_keys, NullPlacement null_plac
     : FunctionOptions(internal::kSortOptionsType),
       sort_keys(std::move(sort_keys)),
       null_placement(null_placement) {}
+SortOptions::SortOptions(const Ordering& ordering)
+    : FunctionOptions(internal::kSortOptionsType),
+      sort_keys(ordering.sort_keys()),
+      null_placement(ordering.null_placement()) {}
 constexpr char SortOptions::kTypeName[];
 
 PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_placement)
@@ -189,16 +198,12 @@ SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
       sort_keys(std::move(sort_keys)) {}
 constexpr char SelectKOptions::kTypeName[];
 
-CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls,
-                                           bool check_overflow)
-    : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls,
-                           check_overflow) {}
-CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls,
-                                           bool check_overflow)
+CumulativeSumOptions::CumulativeSumOptions(double start, bool skip_nulls)
+    : CumulativeSumOptions(std::make_shared<DoubleScalar>(start), skip_nulls) {}
+CumulativeSumOptions::CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls)
     : FunctionOptions(internal::kCumulativeSumOptionsType),
       start(std::move(start)),
-      skip_nulls(skip_nulls),
-      check_overflow(check_overflow) {}
+      skip_nulls(skip_nulls) {}
 constexpr char CumulativeSumOptions::kTypeName[];
 
 RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement,
@@ -214,6 +219,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kTakeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDictionaryEncodeOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRunEndEncodeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kArraySortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
@@ -310,6 +316,15 @@ Result<Datum> DictionaryEncode(const Datum& value, const DictionaryEncodeOptions
   return CallFunction("dictionary_encode", {value}, &options, ctx);
 }
 
+Result<Datum> RunEndEncode(const Datum& value, const RunEndEncodeOptions& options,
+                           ExecContext* ctx) {
+  return CallFunction("run_end_encode", {value}, &options, ctx);
+}
+
+Result<Datum> RunEndDecode(const Datum& value, ExecContext* ctx) {
+  return CallFunction("run_end_decode", {value}, ctx);
+}
+
 const char kValuesFieldName[] = "values";
 const char kCountsFieldName[] = "counts";
 const int32_t kValuesFieldIndex = 0;
@@ -361,8 +376,8 @@ Result<std::shared_ptr<Array>> DropNull(const Array& values, ExecContext* ctx) {
 // Cumulative functions
 
 Result<Datum> CumulativeSum(const Datum& values, const CumulativeSumOptions& options,
-                            ExecContext* ctx) {
-  auto func_name = (options.check_overflow) ? "cumulative_sum_checked" : "cumulative_sum";
+                            bool check_overflow, ExecContext* ctx) {
+  auto func_name = check_overflow ? "cumulative_sum_checked" : "cumulative_sum";
   return CallFunction(func_name, {Datum(values)}, &options, ctx);
 }
 

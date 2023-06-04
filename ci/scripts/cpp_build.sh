@@ -42,7 +42,7 @@ fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     echo -e "===\n=== ccache statistics before build\n==="
-    ccache -s
+    ccache -sv 2>/dev/null || ccache -s
 fi
 
 if [ "${ARROW_USE_TSAN}" == "ON" ] && [ ! -x "${ASAN_SYMBOLIZER_PATH}" ]; then
@@ -70,6 +70,7 @@ pushd ${build_dir}
 
 cmake \
   -Dabsl_SOURCE=${absl_SOURCE:-} \
+  -DARROW_ACERO=${ARROW_ACERO:-ON} \
   -DARROW_BOOST_USE_SHARED=${ARROW_BOOST_USE_SHARED:-ON} \
   -DARROW_BUILD_BENCHMARKS_REFERENCE=${ARROW_BUILD_BENCHMARKS:-OFF} \
   -DARROW_BUILD_BENCHMARKS=${ARROW_BUILD_BENCHMARKS:-OFF} \
@@ -103,7 +104,6 @@ cmake \
   -DARROW_NO_DEPRECATED_API=${ARROW_NO_DEPRECATED_API:-OFF} \
   -DARROW_ORC=${ARROW_ORC:-OFF} \
   -DARROW_PARQUET=${ARROW_PARQUET:-OFF} \
-  -DARROW_PLASMA=${ARROW_PLASMA:-OFF} \
   -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
   -DARROW_S3=${ARROW_S3:-OFF} \
   -DARROW_SKYHOOK=${ARROW_SKYHOOK:-OFF} \
@@ -125,6 +125,7 @@ cmake \
   -DARROW_WITH_OPENTELEMETRY=${ARROW_WITH_OPENTELEMETRY:-OFF} \
   -DARROW_WITH_MUSL=${ARROW_WITH_MUSL:-OFF} \
   -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-OFF} \
+  -DARROW_WITH_UCX=${ARROW_WITH_UCX:-OFF} \
   -DARROW_WITH_UTF8PROC=${ARROW_WITH_UTF8PROC:-ON} \
   -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-OFF} \
   -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-OFF} \
@@ -174,7 +175,7 @@ fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     echo -e "===\n=== ccache statistics after build\n==="
-    ccache -s
+    ccache -sv 2>/dev/null || ccache -s
 fi
 
 if command -v sccache &> /dev/null; then

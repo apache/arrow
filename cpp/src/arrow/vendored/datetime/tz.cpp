@@ -202,6 +202,35 @@ namespace
     using co_task_mem_ptr = std::unique_ptr<wchar_t[], task_mem_deleter>;
 }
 
+static
+std::wstring
+convert_utf8_to_utf16(const std::string& s)
+{
+    std::wstring out;
+    const int size = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, NULL, 0);
+
+    if (size == 0)
+    {
+        std::string msg = "Failed to determine required size when converting \"";
+        msg += s;
+        msg += "\" to UTF-16.";
+        throw std::runtime_error(msg);
+    }
+
+    out.resize(size);
+    const int check = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &out[0], size);
+
+    if (size != check)
+    {
+        std::string msg = "Failed to convert \"";
+        msg += s;
+        msg += "\" to UTF-16.";
+        throw std::runtime_error(msg);
+    }
+
+    return out;
+}
+
 // We might need to know certain locations even if not using the remote API,
 // so keep these routines out of that block for now.
 static
@@ -271,8 +300,90 @@ get_download_folder()
 
 #  endif  // !_WIN32
 
-#endif  // !USE_OS_TZDB
+/*
+ * This class is provided to mimic the following usage of `ifstream`:
+ *
+ * std::ifstream is(filename);
+ *
+ * file_streambuf ibuf(filename);
+ * std::istream is(&ibuf);
+ *
+ * This is required because `ifstream` does not support opening files
+ * containing wide characters on Windows. On Windows, `file_streambuf` uses
+ * `file_open()` to convert the file name to UTF-16 before opening it with
+ * `_wfopen()`.
+ *
+ * Note that this is not an exact re-implementation of `ifstream`,
+ * but is enough for usage here.
+ *
+ * It is partially based on these two implementations:
+ * - fdinbuf from http://www.josuttis.com/cppcode/fdstream.html
+ * - stdiobuf https://stackoverflow.com/questions/12342542/convert-file-to-ifstream-c-android-ndk
+ *
+ * Apparently MSVC provides non-standard overloads of `ifstream` that support
+ * a `const wchar_t*` file name, but MinGW does not https://stackoverflow.com/a/822032
+ */
+class file_streambuf
+  : public std::streambuf
+{
+private:
+    FILE* file_;
+    static const int buffer_size_ = 1024;
+    char buffer_[buffer_size_];
 
+public:
+    ~file_streambuf()
+    {
+        if (file_)
+        {
+            ::fclose(file_);
+        }
+    }
+    file_streambuf(const file_streambuf&) = delete;
+    file_streambuf& operator=(const file_streambuf&) = delete;
+
+    file_streambuf(const std::string& filename)
+        : file_(file_open(filename))
+    {
+    }
+
+protected:
+    virtual
+    int_type
+    underflow()
+    {
+        if (gptr() == egptr() && file_)
+        {
+            const size_t size = ::fread(buffer_, 1, buffer_size_, file_);
+            setg(buffer_, buffer_, buffer_ + size);
+        }
+        return (gptr() == egptr())
+            ? traits_type::eof()
+                : traits_type::to_int_type(*gptr());
+    }
+
+private:
+    FILE*
+    file_open(const std::string& filename)
+    {
+#  ifdef _WIN32
+        std::wstring wfilename = convert_utf8_to_utf16(filename);
+        FILE* file = ::_wfopen(wfilename.c_str(), L"rb");
+#  else // !_WIN32
+        FILE* file = ::fopen(filename.c_str(), "rb");
+#  endif // _WIN32
+        if (file == NULL)
+        {
+            std::string msg = "Error opening file \"";
+            msg += filename;
+            msg += "\".";
+            throw std::runtime_error(msg);
+        }
+        return file;
+    }
+};
+
+#endif  // !USE_OS_TZDB
 namespace arrow_vendored
 {
 namespace date
@@ -309,9 +420,9 @@ access_install()
 }
 
 void
-set_install(const std::string& s)
+set_install(const std::string& install)
 {
-    access_install() = s;
+    access_install() = install;
 }
 
 static
@@ -565,15 +676,8 @@ load_timezone_mappings_from_xml_file(const std::string& input_path)
     std::vector<detail::timezone_mapping> mappings;
     std::string line;
 
-    std::ifstream is(input_path);
-    if (!is.is_open())
-    {
-        // We don't emit file exceptions because that's an implementation detail.
-        std::string msg = "Error opening time zone mapping file \"";
-        msg += input_path;
-        msg += "\".";
-        throw std::runtime_error(msg);
-    }
+    file_streambuf ibuf(input_path);
+    std::istream is(&ibuf);
 
     auto error = [&input_path, &line_num](const char* info)
     {
@@ -703,7 +807,6 @@ load_timezone_mappings_from_xml_file(const std::string& input_path)
         }
     }
 
-    is.close();
     return mappings;
 }
 
@@ -2675,16 +2778,16 @@ find_read_and_leap_seconds()
             std::getline(in, line);
             if (!line.empty() && line[0] != '#')
             {
-                std::istringstream in(line);
-                in.exceptions(std::ios::failbit | std::ios::badbit);
+                std::istringstream iss(line);
+                iss.exceptions(std::ios::failbit | std::ios::badbit);
                 std::string word;
-                in >> word;
+                iss >> word;
                 if (word == "Leap")
                 {
                     int y, m, d;
-                    in >> y;
-                    m = static_cast<int>(parse_month(in));
-                    in >> d;
+                    iss >> y;
+                    m = static_cast<int>(parse_month(iss));
+                    iss >> d;
                     leap_seconds.push_back(leap_second(sys_days{year{y}/m/d} + days{1},
                                                                  detail::undocumented{}));
                 }
@@ -2709,11 +2812,11 @@ find_read_and_leap_seconds()
             std::getline(in, line);
             if (!line.empty() && line[0] != '#')
             {
-                std::istringstream in(line);
-                in.exceptions(std::ios::failbit | std::ios::badbit);
+                std::istringstream iss(line);
+                iss.exceptions(std::ios::failbit | std::ios::badbit);
                 using seconds = std::chrono::seconds;
                 seconds::rep s;
-                in >> s;
+                iss >> s;
                 if (s == 2272060800)
                     continue;
                 leap_seconds.push_back(leap_second(sys_seconds{seconds{s}} - offset,
@@ -2722,6 +2825,7 @@ find_read_and_leap_seconds()
         }
         return leap_seconds;
     }
+#if !MISSING_LEAP_SECONDS
     in.clear();
     in.open(get_tz_dir() + std::string(1, folder_delimiter) + "right/UTC",
                      std::ios_base::binary);
@@ -2736,6 +2840,7 @@ find_read_and_leap_seconds()
     {
         return load_just_leaps(in);
     }
+#endif
     return {};
 }
 
@@ -2842,7 +2947,8 @@ bool
 file_exists(const std::string& filename)
 {
 #ifdef _WIN32
-    return ::_access(filename.c_str(), 0) == 0;
+    std::wstring wfilename = convert_utf8_to_utf16(filename);
+    return ::_waccess(wfilename.c_str(), 0) == 0;
 #else
     return ::access(filename.c_str(), F_OK) == 0;
 #endif
@@ -3419,16 +3525,27 @@ std::string
 get_version(const std::string& path)
 {
     std::string version;
-    std::ifstream infile(path + "version");
-    if (infile.is_open())
+
+    std::string path_version = path + "version";
+
+    if (file_exists(path_version))
     {
+        file_streambuf inbuf(path_version);
+        std::istream infile(&inbuf);
+
         infile >> version;
+
         if (!infile.fail())
             return version;
     }
-    else
+
+    std::string path_news = path + "NEWS";
+
+    if (file_exists(path_news))
     {
-        infile.open(path + "NEWS");
+        file_streambuf inbuf(path_news);
+        std::istream infile(&inbuf);
+
         while (infile)
         {
             infile >> version;
@@ -3439,6 +3556,7 @@ get_version(const std::string& path)
             }
         }
     }
+
     throw std::runtime_error("Unable to get Timezone database version from " + path);
 }
 
@@ -3510,7 +3628,13 @@ init_tzdb()
 
     for (const auto& filename : files)
     {
-        std::ifstream infile(path + filename);
+        std::string file_path = path + filename;
+        if (!file_exists(file_path))
+        {
+          continue;
+        }
+        file_streambuf inbuf(file_path);
+        std::istream infile(&inbuf);
         while (infile)
         {
             std::getline(infile, line);
@@ -3542,6 +3666,10 @@ init_tzdb()
                 else if (line[0] == '\t' && continue_zone)
                 {
                     db->zones.back().add(line);
+                }
+                else if (word.size() > 0 && word[0] == '#')
+                {
+                    continue;
                 }
                 else
                 {
@@ -3925,7 +4053,7 @@ tzdb::current_zone() const
             auto p = result.find("ZONE=\"");
             if (p != std::string::npos)
             {
-                result.erase(p, p+6);
+                result.erase(0, p+6);
                 result.erase(result.rfind('"'));
                 return locate_zone(result);
             }

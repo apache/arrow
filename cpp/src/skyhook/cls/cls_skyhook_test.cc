@@ -16,7 +16,7 @@
 // under the License.
 #include "skyhook/client/file_skyhook.h"
 
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/api.h"

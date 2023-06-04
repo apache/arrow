@@ -165,10 +165,11 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'    credentials using standard GCS configuration methods.
 #' - `access_token`: optional string for authentication. Should be provided along
 #'   with `expiration`
-#' - `expiration`: optional date representing point at which `access_token` will
-#'   expire.
-#' - `json_credentials`: optional string for authentication. Point to a JSON
-#'   credentials file downloaded from GCS.
+#' - `expiration`: `POSIXct`. optional datetime representing point at which
+#'   `access_token` will expire.
+#' - `json_credentials`: optional string for authentication. Either a string
+#'   containing JSON credentials or a path to their location on the filesystem.
+#'   If a path to credentials is given, the file should be UTF-8 encoded.
 #' - `endpoint_override`: if non-empty, will connect to provided host name / port,
 #'   such as "localhost:9001", instead of default GCS ones. This is primarily useful
 #'   for testing purposes.
@@ -360,6 +361,7 @@ get_path_and_filesystem <- function(x, filesystem = NULL) {
 }
 
 is_url <- function(x) is.string(x) && grepl("://", x)
+is_http_url <- function(x) is_url(x) && grepl("^http", x)
 are_urls <- function(x) if (!is.character(x)) FALSE else grepl("://", x)
 
 #' @usage NULL
@@ -503,7 +505,21 @@ gs_bucket <- function(bucket, ...) {
 #' @rdname FileSystem
 #' @export
 GcsFileSystem <- R6Class("GcsFileSystem",
-  inherit = FileSystem
+  inherit = FileSystem,
+  active = list(
+    options = function() {
+      out <- fs___GcsFileSystem__options(self)
+
+      # Convert from nanoseconds to POSIXct w/ UTC tz
+      if ("expiration" %in% names(out)) {
+        out$expiration <- as.POSIXct(
+          out$expiration / 1000000000, origin = "1970-01-01", tz = "UTC"
+        )
+      }
+
+      out
+    }
+  )
 )
 GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ...) {
   # The default retry limit in C++ is 15 minutes, but that is experienced as
@@ -547,7 +563,21 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
     )
   }
 
+  # Stop if expiration isn't a POSIXct
+  if ("expiration" %in% names(options) && !inherits(options$expiration, "POSIXct")) {
+    stop(
+      paste(
+        "Option 'expiration' must be of class POSIXct, not",
+        class(options$expiration)[[1]]),
+      call. = FALSE)
+  }
+
   options$retry_limit_seconds <- retry_limit_seconds
+
+  # Handle reading json_credentials from the filesystem
+  if ("json_credentials" %in% names(options) && file.exists(options[["json_credentials"]])) {
+    options[["json_credentials"]] <- paste(read_file_utf8(options[["json_credentials"]]), collapse = "\n")
+  }
 
   fs___GcsFileSystem__Make(anonymous, options)
 }
@@ -633,4 +663,11 @@ clean_path_rel <- function(path) {
   # Make sure all path separators are "/", not "\" as on Windows
   path_sep <- ifelse(tolower(Sys.info()[["sysname"]]) == "windows", "\\\\", "/")
   gsub(path_sep, "/", path)
+}
+
+read_file_utf8 <- function(file) {
+  res <- readBin(file, "raw", n = file.size(file))
+  res <- rawToChar(res)
+  Encoding(res) <- "UTF-8"
+  res
 }

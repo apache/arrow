@@ -184,24 +184,25 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ASSERT_EQ(VERY_LARGE_SIZE, this->values_read_);
     this->values_.resize(VERY_LARGE_SIZE);
     ASSERT_EQ(this->values_, this->values_out_);
-    std::vector<Encoding::type> encodings = this->metadata_encodings();
+    std::vector<Encoding::type> encodings_vector = this->metadata_encodings();
+    std::set<Encoding::type> encodings(encodings_vector.begin(), encodings_vector.end());
 
     if (this->type_num() == Type::BOOLEAN) {
       // Dictionary encoding is not allowed for boolean type
       // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case
-      std::vector<Encoding::type> expected({Encoding::PLAIN, Encoding::RLE});
+      std::set<Encoding::type> expected({Encoding::PLAIN, Encoding::RLE});
       ASSERT_EQ(encodings, expected);
     } else if (version == ParquetVersion::PARQUET_1_0) {
-      // There are 4 encodings (PLAIN_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case
+      // There are 3 encodings (PLAIN_DICTIONARY, PLAIN, RLE) in a fallback case
       // for version 1.0
-      std::vector<Encoding::type> expected(
-          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      std::set<Encoding::type> expected(
+          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::RLE});
       ASSERT_EQ(encodings, expected);
     } else {
-      // There are 4 encodings (RLE_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case for
+      // There are 3 encodings (RLE_DICTIONARY, PLAIN, RLE) in a fallback case for
       // version 2.0
-      std::vector<Encoding::type> expected(
-          {Encoding::RLE_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      std::set<Encoding::type> expected(
+          {Encoding::RLE_DICTIONARY, Encoding::PLAIN, Encoding::RLE});
       ASSERT_EQ(encodings, expected);
     }
 
@@ -688,7 +689,6 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainChecksum) {
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredDictChecksum) {
-  // Note: DictionaryPage will not have checksum.
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED,
                                  /* enable_dictionary */ true, false, SMALL_SIZE,
                                  Codec::UseDefaultCompressionLevel(),
@@ -1480,6 +1480,75 @@ TEST_F(ColumnWriterTestSizeEstimated, BufferedCompression) {
   EXPECT_EQ(0, required_writer->total_compressed_bytes());
   EXPECT_EQ(written_size, required_writer->total_bytes_written());
   EXPECT_GT(written_size, required_writer->total_compressed_bytes_written());
+}
+
+TEST(TestColumnWriter, WriteDataPageV2HeaderNullCount) {
+  auto sink = CreateOutputStream();
+  auto list_type = GroupNode::Make("list", Repetition::REPEATED,
+                                   {schema::Int32("elem", Repetition::OPTIONAL)});
+  auto schema = std::static_pointer_cast<GroupNode>(GroupNode::Make(
+      "schema", Repetition::REQUIRED,
+      {
+          schema::Int32("non_null", Repetition::OPTIONAL),
+          schema::Int32("half_null", Repetition::OPTIONAL),
+          schema::Int32("all_null", Repetition::OPTIONAL),
+          GroupNode::Make("half_null_list", Repetition::OPTIONAL, {list_type}),
+          GroupNode::Make("half_empty_list", Repetition::OPTIONAL, {list_type}),
+          GroupNode::Make("half_list_of_null", Repetition::OPTIONAL, {list_type}),
+          GroupNode::Make("all_single_list", Repetition::OPTIONAL, {list_type}),
+      }));
+  auto properties = WriterProperties::Builder()
+                        /* Use V2 data page to read null_count from header */
+                        .data_page_version(ParquetDataPageVersion::V2)
+                        /* Disable stats to test null_count is properly set */
+                        ->disable_statistics()
+                        ->disable_dictionary()
+                        ->build();
+  auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
+  auto rg_writer = file_writer->AppendRowGroup();
+
+  constexpr int32_t num_rows = 10;
+  constexpr int32_t num_cols = 7;
+  const std::vector<std::vector<int16_t>> def_levels_by_col = {
+      {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 0, 1, 0, 1, 0, 1, 0, 1, 0},
+      {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 3, 0, 3, 0, 3, 0, 3, 0, 3},
+      {1, 3, 1, 3, 1, 3, 1, 3, 1, 3}, {2, 3, 2, 3, 2, 3, 2, 3, 2, 3},
+      {3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+  };
+  const std::vector<int16_t> ref_levels(num_rows, 0);
+  const std::vector<int32_t> values(num_rows, 123);
+  const std::vector<int64_t> expect_null_count_by_col = {0, 5, 10, 5, 5, 5, 0};
+
+  for (int32_t i = 0; i < num_cols; ++i) {
+    auto writer = static_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+    writer->WriteBatch(num_rows, def_levels_by_col[i].data(),
+                       i >= 3 ? ref_levels.data() : nullptr, values.data());
+  }
+
+  ASSERT_NO_THROW(file_writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  auto file_reader = ParquetFileReader::Open(
+      std::make_shared<::arrow::io::BufferReader>(buffer), default_reader_properties());
+  auto metadata = file_reader->metadata();
+  ASSERT_EQ(1, metadata->num_row_groups());
+  auto row_group_reader = file_reader->RowGroup(0);
+
+  std::shared_ptr<Page> page;
+  for (int32_t i = 0; i < num_cols; ++i) {
+    auto page_reader = row_group_reader->GetColumnPageReader(i);
+    int64_t num_nulls_read = 0;
+    int64_t num_rows_read = 0;
+    int64_t num_values_read = 0;
+    while ((page = page_reader->NextPage()) != nullptr) {
+      auto data_page = std::static_pointer_cast<DataPageV2>(page);
+      num_nulls_read += data_page->num_nulls();
+      num_rows_read += data_page->num_rows();
+      num_values_read += data_page->num_values();
+    }
+    EXPECT_EQ(expect_null_count_by_col[i], num_nulls_read);
+    EXPECT_EQ(num_rows, num_rows_read);
+    EXPECT_EQ(num_rows, num_values_read);
+  }
 }
 
 }  // namespace test

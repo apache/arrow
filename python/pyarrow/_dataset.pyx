@@ -27,22 +27,30 @@ from libcpp cimport bool
 
 import pyarrow as pa
 from pyarrow.lib cimport *
-from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pc
+from pyarrow.lib import ArrowTypeError, frombytes, tobytes, _pac
 from pyarrow.includes.libarrow_dataset cimport *
+from pyarrow._acero cimport ExecNodeOptions
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._compute import _forbid_instantiation
-from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
+from pyarrow._fs cimport FileSystem, FileSelector
 from pyarrow._csv cimport (
     ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
 from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
+from pyarrow._json cimport ParseOptions as JsonParseOptions
+from pyarrow._json cimport ReadOptions as JsonReadOptions
 
-
-_orc_fileformat = None
-_orc_imported = False
 
 _DEFAULT_BATCH_SIZE = 2**17
 _DEFAULT_BATCH_READAHEAD = 16
 _DEFAULT_FRAGMENT_READAHEAD = 4
+
+
+# Initialise support for Datasets in ExecPlan
+Initialize()
+
+
+_orc_fileformat = None
+_orc_imported = False
 
 
 def _get_orc_fileformat():
@@ -229,7 +237,6 @@ cdef class Dataset(_Weakrefable):
     def _get_fragments(self, Expression filter):
         cdef:
             CExpression c_filter
-            CFragmentIterator c_iterator
 
         if filter is None:
             c_fragments = move(GetResultValue(self.dataset.GetFragments()))
@@ -708,6 +715,7 @@ cdef class Dataset(_Weakrefable):
         Count rows matching the scanner filter.
 
         Parameters
+        ----------
         filter : Expression, default None
             Scan will return only the rows matching the filter.
             If possible the predicate will be pushed down to exploit the
@@ -803,10 +811,9 @@ cdef class Dataset(_Weakrefable):
         if isinstance(sorting, str):
             sorting = [(sorting, "ascending")]
 
-        res = _pc()._exec_plan._sort_source(self, output_type=InMemoryDataset,
-                                            sort_options=_pc().SortOptions(
-                                                sort_keys=sorting, **kwargs
-                                            ))
+        res = _pac()._sort_source(
+            self, output_type=InMemoryDataset, sort_keys=sorting, **kwargs
+        )
         return res
 
     def join(self, right_dataset, keys, right_keys=None, join_type="left outer",
@@ -852,10 +859,12 @@ cdef class Dataset(_Weakrefable):
         """
         if right_keys is None:
             right_keys = keys
-        return _pc()._exec_plan._perform_join(join_type, self, keys, right_dataset, right_keys,
-                                              left_suffix=left_suffix, right_suffix=right_suffix,
-                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
-                                              output_type=InMemoryDataset)
+        return _pac()._perform_join(
+            join_type, self, keys, right_dataset, right_keys,
+            left_suffix=left_suffix, right_suffix=right_suffix,
+            use_threads=use_threads, coalesce_keys=coalesce_keys,
+            output_type=InMemoryDataset
+        )
 
 
 cdef class InMemoryDataset(Dataset):
@@ -877,7 +886,6 @@ cdef class InMemoryDataset(Dataset):
 
     def __init__(self, source, Schema schema=None):
         cdef:
-            RecordBatchReader reader
             shared_ptr[CInMemoryDataset] in_memory_dataset
 
         if isinstance(source, (pa.RecordBatch, pa.Table)):
@@ -977,7 +985,7 @@ cdef class FileSystemDataset(Dataset):
         The top-level schema of the Dataset.
     format : FileFormat
         File format of the fragments, currently only ParquetFileFormat,
-        IpcFileFormat, and CsvFileFormat are supported.
+        IpcFileFormat, CsvFileFormat, and JsonFileFormat are supported.
     filesystem : FileSystem
         FileSystem of the fragments.
     root_partition : Expression, optional
@@ -1072,7 +1080,7 @@ cdef class FileSystemDataset(Dataset):
             The top-level schema of the DataDataset.
         format : FileFormat
             File format to create fragments from, currently only
-            ParquetFileFormat, IpcFileFormat, and CsvFileFormat are supported.
+            ParquetFileFormat, IpcFileFormat, CsvFileFormat, and JsonFileFormat are supported.
         filesystem : FileSystem
             The filesystem which files are from.
         partitions : list[Expression], optional
@@ -1080,9 +1088,6 @@ cdef class FileSystemDataset(Dataset):
         root_partition : Expression, optional
             The top-level partition of the DataDataset.
         """
-        cdef:
-            FileFragment fragment
-
         if root_partition is None:
             root_partition = _true
 
@@ -1176,6 +1181,7 @@ cdef class FileFormat(_Weakrefable):
         classes = {
             'ipc': IpcFileFormat,
             'csv': CsvFileFormat,
+            'json': JsonFileFormat,
             'parquet': _get_parquet_symbol('ParquetFileFormat'),
             'orc': _get_orc_fileformat(),
         }
@@ -1234,8 +1240,14 @@ cdef class FileFormat(_Weakrefable):
         filesystem : Filesystem, optional
             If `filesystem` is given, `file` must be a string and specifies
             the path of the file to read from the filesystem.
-        partition_expression : Expression
-            The filter expression.
+        partition_expression : Expression, optional
+            An expression that is guaranteed true for all rows in the fragment.  Allows
+            fragment to be potentially skipped while scanning with a filter.
+
+        Returns
+        -------
+        fragment : Fragment
+            The file fragment
         """
         if partition_expression is None:
             partition_expression = _true
@@ -1306,10 +1318,11 @@ cdef class Fragment(_Weakrefable):
         type_name = frombytes(sp.get().type_name())
 
         classes = {
-            # IpcFileFormat, CsvFileFormat and OrcFileFormat do not have
+            # IpcFileFormat, CsvFileFormat, JsonFileFormat and OrcFileFormat do not have
             # corresponding subclasses of FileFragment
             'ipc': FileFragment,
             'csv': FileFragment,
+            'json': FileFragment,
             'orc': FileFragment,
             'parquet': _get_parquet_symbol('ParquetFileFragment'),
         }
@@ -1815,7 +1828,7 @@ cdef class FileFragment(Fragment):
         else:
             # parquet has a subclass -> type embedded in class name
             typ = ""
-        partition_dict = _get_partition_keys(self.partition_expression)
+        partition_dict = get_partition_keys(self.partition_expression)
         partition = ", ".join(
             [f"{key}={val}" for key, val in partition_dict.items()]
         )
@@ -1919,6 +1932,7 @@ cdef class FragmentScanOptions(_Weakrefable):
 
         classes = {
             'csv': CsvFragmentScanOptions,
+            'json': JsonFragmentScanOptions,
             'parquet': _get_parquet_symbol('ParquetFragmentScanOptions'),
         }
 
@@ -2173,6 +2187,126 @@ cdef class CsvFileWriteOptions(FileWriteOptions):
     cdef void init(self, const shared_ptr[CFileWriteOptions]& sp):
         FileWriteOptions.init(self, sp)
         self.csv_options = <CCsvFileWriteOptions*> sp.get()
+
+
+cdef class JsonFileFormat(FileFormat):
+    """
+    FileFormat for JSON files.
+
+    Parameters
+    ----------
+    default_fragment_scan_options : JsonFragmentScanOptions
+        Default options for fragments scan.
+    parse_options : pyarrow.json.ParseOptions
+        Options regarding json parsing.
+    read_options : pyarrow.json.ReadOptions
+        General read options.
+    """
+    cdef:
+        CJsonFileFormat* json_format
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, default_fragment_scan_options=None,
+                 JsonParseOptions parse_options=None,
+                 JsonReadOptions read_options=None):
+        self.init(shared_ptr[CFileFormat](new CJsonFileFormat()))
+        if parse_options is not None or read_options is not None:
+            if default_fragment_scan_options is not None:
+                raise ValueError('If `default_fragment_scan_options` is '
+                                 'given, cannot specify read_options')
+            self.default_fragment_scan_options = JsonFragmentScanOptions(
+                parse_options=parse_options,
+                read_options=read_options)
+        elif isinstance(default_fragment_scan_options, dict):
+            self.default_fragment_scan_options = JsonFragmentScanOptions(
+                **default_fragment_scan_options)
+        elif isinstance(default_fragment_scan_options, JsonFragmentScanOptions):
+            self.default_fragment_scan_options = default_fragment_scan_options
+        elif default_fragment_scan_options is not None:
+            raise TypeError('`default_fragment_scan_options` must be either '
+                            'a dictionary or an instance of '
+                            'JsonFragmentScanOptions')
+
+    cdef void init(self, const shared_ptr[CFileFormat]& sp):
+        FileFormat.init(self, sp)
+        self.json_format = <CJsonFileFormat*> sp.get()
+
+    cdef _set_default_fragment_scan_options(self, FragmentScanOptions options):
+        if options.type_name == 'json':
+            self.json_format.default_fragment_scan_options = options.wrapped
+            self.default_fragment_scan_options.read_options = options.read_options
+            self.default_fragment_scan_options.parse_options = options.parse_options
+        else:
+            super()._set_default_fragment_scan_options(options)
+
+    def equals(self, JsonFileFormat other):
+        return (other and
+                self.default_fragment_scan_options ==
+                other.default_fragment_scan_options)
+
+    def __reduce__(self):
+        return JsonFileFormat, (self.default_fragment_scan_options,)
+
+    def __repr__(self):
+        return "<JsonFileFormat>"
+
+
+cdef class JsonFragmentScanOptions(FragmentScanOptions):
+    """
+    Scan-specific options for JSON fragments.
+
+    Parameters
+    ----------
+    parse_options : pyarrow.json.ParseOptions
+        Options regarding JSON parsing.
+    read_options : pyarrow.json.ReadOptions
+        General read options.
+    """
+    cdef:
+        CJsonFragmentScanOptions* json_options
+
+     # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, JsonParseOptions parse_options=None,
+                 JsonReadOptions read_options=None):
+        self.init(shared_ptr[CFragmentScanOptions](
+            new CJsonFragmentScanOptions()))
+        if parse_options is not None:
+            self.parse_options = parse_options
+        if read_options is not None:
+            self.read_options = read_options
+
+    cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
+        FragmentScanOptions.init(self, sp)
+        self.json_options = <CJsonFragmentScanOptions*> sp.get()
+
+    @property
+    def parse_options(self):
+        return JsonParseOptions.wrap(self.json_options.parse_options)
+
+    @parse_options.setter
+    def parse_options(self, JsonParseOptions parse_options not None):
+        self.json_options.parse_options = parse_options.options
+
+    @property
+    def read_options(self):
+        return JsonReadOptions.wrap(self.json_options.read_options)
+
+    @read_options.setter
+    def read_options(self, JsonReadOptions read_options not None):
+        self.json_options.read_options = read_options.options
+
+    def equals(self, JsonFragmentScanOptions other):
+        return (
+            other and
+            self.read_options.equals(other.read_options) and
+            self.parse_options.equals(other.parse_options))
+
+    def __reduce__(self):
+        return JsonFragmentScanOptions, (self.parse_options, self.read_options)
 
 
 cdef class Partitioning(_Weakrefable):
@@ -3351,7 +3485,6 @@ cdef class Scanner(_Weakrefable):
             default pool.
         """
         cdef:
-            shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
             shared_ptr[CScanner] scanner
             RecordBatchReader reader
@@ -3512,7 +3645,7 @@ cdef class Scanner(_Weakrefable):
         return reader
 
 
-def _get_partition_keys(Expression partition_expression):
+def get_partition_keys(Expression partition_expression):
     """
     Extract partition keys (equality constraints between a field and a scalar)
     from an expression as a dict mapping the field's name to its value.
@@ -3520,6 +3653,17 @@ def _get_partition_keys(Expression partition_expression):
     NB: All expressions yielded by a HivePartitioning or DirectoryPartitioning
     will be conjunctions of equality conditions and are accessible through this
     function. Other subexpressions will be ignored.
+
+    Parameters
+    ----------
+    partition_expression : pyarrow.dataset.Expression
+
+    Returns
+    -------
+    dict
+
+    Examples
+    --------
 
     For example, an expression of
     <pyarrow.dataset.Expression ((part == A:string) and (year == 2016:int32))>
@@ -3566,10 +3710,8 @@ cdef void _filesystemdataset_write_visitor(
         str path
         str base_dir
         WrittenFile written_file
-        object parquet_metadata
         FileFormat file_format
 
-    parquet_metadata = None
     path = frombytes(deref(file_writer).destination().path)
     base_dir = frombytes(visit_args['base_dir'])
     file_format = FileFormat.wrap(file_writer.format())
@@ -3599,7 +3741,6 @@ def _filesystemdataset_write(
     cdef:
         CFileSystemDatasetWriteOptions c_options
         shared_ptr[CScanner] c_scanner
-        vector[shared_ptr[CRecordBatch]] c_batches
         dict visit_args
 
     c_options.file_write_options = file_options.unwrap()
@@ -3637,3 +3778,45 @@ def _filesystemdataset_write(
     c_scanner = data.unwrap()
     with nogil:
         check_status(CFileSystemDataset.Write(c_options, c_scanner))
+
+
+cdef class _ScanNodeOptions(ExecNodeOptions):
+
+    def _set_options(self, Dataset dataset, dict scan_options):
+        cdef:
+            shared_ptr[CScanOptions] c_scan_options
+
+        c_scan_options = Scanner._make_scan_options(dataset, scan_options)
+
+        self.wrapped.reset(
+            new CScanNodeOptions(dataset.unwrap(), c_scan_options)
+        )
+
+
+class ScanNodeOptions(_ScanNodeOptions):
+    """
+    A Source node which yields batches from a Dataset scan.
+
+    This is the option class for the "scan" node factory.
+
+    This node is capable of applying pushdown projections or filters
+    to the file readers which reduce the amount of data that needs to
+    be read (if supported by the file format). But note that this does not
+    construct associated filter or project nodes to perform the final
+    filtering or projection. Rather, you may supply the same filter
+    expression or projection to the scan node that you also supply
+    to the filter or project node.
+
+    Yielded batches will be augmented with fragment/batch indices to
+    enable stable ordering for simple ExecPlans.
+
+    Parameters
+    ----------
+    dataset : pyarrow.dataset.Dataset
+        The table which acts as the data source.
+    **kwargs : dict, optional
+        Scan options. See `Scanner.from_dataset` for possible arguments.
+    """
+
+    def __init__(self, Dataset dataset, **kwargs):
+        self._set_options(dataset, kwargs)

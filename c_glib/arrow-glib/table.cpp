@@ -684,7 +684,8 @@ gchar *
 garrow_table_to_string(GArrowTable *table, GError **error)
 {
   const auto arrow_table = garrow_table_get_raw(table);
-  return g_strdup(arrow_table->ToString().c_str());
+  const auto string = arrow_table->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**

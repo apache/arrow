@@ -21,7 +21,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/apache/arrow/go/v12/arrow/endian"
+	"github.com/apache/arrow/go/v13/arrow/endian"
 )
 
 type Metadata struct {
@@ -66,6 +66,13 @@ func MetadataFrom(kv map[string]string) Metadata {
 func (md Metadata) Len() int         { return len(md.keys) }
 func (md Metadata) Keys() []string   { return md.keys }
 func (md Metadata) Values() []string { return md.values }
+func (md Metadata) ToMap() map[string]string {
+	m := make(map[string]string, len(md.keys))
+	for i := range md.keys {
+		m[md.keys[i]] = md.values[i]
+	}
+	return m
+}
 
 func (md Metadata) String() string {
 	o := new(strings.Builder)
@@ -89,6 +96,16 @@ func (md Metadata) FindKey(k string) int {
 		}
 	}
 	return -1
+}
+
+// GetValue returns the value associated with the provided key name.
+// If the key does not exist, the second return value is false.
+func (md Metadata) GetValue(k string) (string, bool) {
+	i := md.FindKey(k)
+	if i < 0 {
+		return "", false
+	}
+	return md.values[i], true
 }
 
 func (md Metadata) clone() Metadata {
@@ -177,7 +194,11 @@ func (sc *Schema) WithEndianness(e endian.Endianness) *Schema {
 func (sc *Schema) Endianness() endian.Endianness { return sc.endianness }
 func (sc *Schema) IsNativeEndian() bool          { return sc.endianness == endian.NativeEndian }
 func (sc *Schema) Metadata() Metadata            { return sc.meta }
-func (sc *Schema) Fields() []Field               { return sc.fields }
+func (sc *Schema) Fields() []Field { 
+	fields := make([]Field, len(sc.fields))
+	copy(fields, sc.fields)
+	return fields
+}
 func (sc *Schema) Field(i int) Field             { return sc.fields[i] }
 
 func (sc *Schema) FieldsByName(n string) ([]Field, bool) {
@@ -220,6 +241,19 @@ func (sc *Schema) Equal(o *Schema) bool {
 		}
 	}
 	return true
+}
+
+// AddField adds a field at the given index and return a new schema.
+func (s *Schema) AddField(i int, field Field) (*Schema, error) {
+	if i < 0 || i > len(s.fields) {
+		return nil, fmt.Errorf("arrow: invalid field index %d", i)
+	}
+
+	fields := make([]Field, len(s.fields)+1)
+	copy(fields[:i], s.fields[:i])
+	fields[i] = field
+	copy(fields[i+1:], s.fields[i:])
+	return NewSchema(fields, &s.meta), nil
 }
 
 func (s *Schema) String() string {

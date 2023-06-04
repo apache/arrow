@@ -37,9 +37,12 @@ ARG java=1.8.0
 RUN yum install -y java-$java-openjdk-devel rh-maven35 && yum clean all
 ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
 
+# Install the gcs testbench
+COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
+RUN PYTHON=python /arrow/ci/scripts/install_gcs_testbench.sh default
+
 # For ci/scripts/{cpp,java}_*.sh
 ENV ARROW_HOME=/tmp/local \
     ARROW_JAVA_CDATA=ON \
     ARROW_JAVA_JNI=ON \
-    ARROW_PLASMA=ON \
     ARROW_USE_CCACHE=ON

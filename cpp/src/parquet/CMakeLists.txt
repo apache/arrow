@@ -114,7 +114,7 @@ else()
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
-set(PARQUET_MIN_TEST_LIBS GTest::gtest_main GTest::gtest Boost::headers)
+set(PARQUET_MIN_TEST_LIBS ${ARROW_GTEST_GTEST_MAIN} ${ARROW_GTEST_GTEST} Boost::headers)
 
 if(APPLE)
   set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
@@ -155,6 +155,7 @@ set(PARQUET_SRCS
     arrow/schema_internal.cc
     arrow/writer.cc
     bloom_filter.cc
+    bloom_filter_reader.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
@@ -334,6 +335,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_test.cc
+                 bloom_filter_reader_test.cc
                  properties_test.cc
                  statistics_test.cc
                  encoding_test.cc
@@ -399,6 +401,7 @@ endif()
 add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc test_util.cc)
 add_parquet_test(schema_test)
 
+add_parquet_benchmark(bloom_filter_benchmark)
 add_parquet_benchmark(column_reader_benchmark)
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)

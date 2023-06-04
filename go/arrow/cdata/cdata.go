@@ -47,10 +47,10 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -100,12 +100,12 @@ var formatToSimpleType = map[string]arrow.DataType{
 
 // decode metadata from C which is encoded as
 //
-//  [int32] -> number of metadata pairs
-//	for 0..n
-//		[int32] -> number of bytes in key
-//		[n bytes] -> key value
-//		[int32] -> number of bytes in value
-//		[n bytes] -> value
+//	 [int32] -> number of metadata pairs
+//		for 0..n
+//			[int32] -> number of bytes in key
+//			[n bytes] -> key value
+//			[int32] -> number of bytes in value
+//			[n bytes] -> value
 func decodeCMetadata(md *C.char) arrow.Metadata {
 	if md == nil {
 		return arrow.Metadata{}
@@ -413,8 +413,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 
 	if imp.arr.n_buffers > 0 {
 		// get a view of the buffers, zero-copy. we're just looking at the pointers
-		const maxlen = 0x7fffffff
-		imp.cbuffers = (*[maxlen]*C.void)(unsafe.Pointer(imp.arr.buffers))[:imp.arr.n_buffers:imp.arr.n_buffers]
+		imp.cbuffers = unsafe.Slice((**C.void)(unsafe.Pointer(imp.arr.buffers)), imp.arr.n_buffers)
 	}
 
 	// handle each of our type cases

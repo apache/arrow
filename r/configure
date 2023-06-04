@@ -17,39 +17,81 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Anticonf (tm) script by Jeroen Ooms, Jim Hester (2017)
-# License: MIT
+# This script makes sure we have our C++ dependencies in order
+# so that we can compile the bindings in src/ and build the
+# R package's shared library.
 #
-# This script will query 'pkg-config' for the required cflags and ldflags.
-# If pkg-config is unavailable or does not find the library, try setting
-# INCLUDE_DIR and LIB_DIR manually via e.g:
-# R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
+# The core logic is:
+#
+# * Find libarrow on the system. If it is present, make sure
+#   that its version is compatible with the R package.
+# * If no suitable libarrow is found, download it (where allowed)
+#   or build it from source.
+# * Determine what features this libarrow has and what other
+#   flags it requires, and set them in src/Makevars for use when
+#   compiling the bindings.
+# * Run a test program to confirm that arrow headers are found
+#
+# It is intended to be flexible enough to account for several
+# workflows, and should be expected to always result in a successful
+# build as long as you haven't set environment variables that
+# would limit its options.
+#
+# * Installing a released version from source, as from CRAN, with
+#   no other prior setup
+#   * On macOS, autobrew is used to retrieve libarrow and dependencies
+#   * On Linux, the nixlibs.R build script will download or build
+# * Installing a released version but first installing libarrow.
+#   It will use pkg-config and brew to search for libraries.
+# * Installing a development version from source as a user.
+#   Any libarrow found on the system corresponding to a release will not match
+#   the dev version and will thus be skipped. nixlibs.R will be used to build libarrow.
+# * TODO(GH-35049): Installing a dev version as an infrequent contributor.
+#   Currently the configure script doesn't offer much to make this easy.
+#   If you expect to rebuild multiple times, you should set up a dev
+#   environment.
+# * Installing a dev version as a regular developer. 
+#   The best way is to maintain your own cmake build and install it
+#   to a directory (not system) that you set as the env var
+#   $ARROW_HOME.  
+#
+# For more information, see the various installation and developer vignettes.
 
 # Library settings
 PKG_CONFIG_NAME="arrow"
-PKG_DEB_NAME="(unsuppored)"
-PKG_RPM_NAME="(unsuppored)"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
 
-# Make some env vars case-insensitive
+# Some env vars that control the build (all logical, case insensitive)
+# Development mode, also increases verbosity in the bundled build
 ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
+# autobrew is how mac binaries are built on CRAN; FORCE ensures we use it here
 FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
+# The bundled build compiles arrow C++ from source; FORCE ensures we don't pick up
+# any other packages that may be found on the system
 FORCE_BUNDLED_BUILD=`echo $FORCE_BUNDLED_BUILD | tr '[:upper:]' '[:lower:]'`
+# If present, `pkg-config` will be used to find libarrow on the system,
+# unless this is set to false
 ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
-LIBARROW_MINIMAL=`echo $LIBARROW_MINIMAL | tr '[:upper:]' '[:lower:]'`
+# Just used in testing: whether or not it is ok to download dependencies (in the
+# bundled build)
 TEST_OFFLINE_BUILD=`echo $TEST_OFFLINE_BUILD | tr '[:upper:]' '[:lower:]'`
-NOT_CRAN=`echo $NOT_CRAN | tr '[:upper:]' '[:lower:]'`
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
+: ${PKG_CONFIG:="pkg-config"}
 
-# generate code
+# These will only be set in the bundled build
+S3_LIBS=""
+GCS_LIBS=""
+
+# If in development mode, run the codegen script to render arrowExports.*
 if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
   echo "*** Generating code with data-raw/codegen.R"
   ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
 
+# Arrow requires C++17, so check for it
 if [ ! "`${R_HOME}/bin/R CMD config CXX17`" ]; then
   echo "------------------------- NOTE ---------------------------"
   echo "Cannot install arrow: a C++17 compiler is required."
@@ -58,188 +100,284 @@ if [ ! "`${R_HOME}/bin/R CMD config CXX17`" ]; then
   exit 1
 fi
 
-if [ -f "tools/apache-arrow.rb" ]; then
-  # If you want to use a local apache-arrow.rb formula, do
-  # $ cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
-  # before R CMD build or INSTALL (assuming a local checkout of the apache/arrow repository)
-  cp tools/autobrew .
-  if [ "$FORCE_AUTOBREW" != "false" ]; then
-    # It is possible to turn off forced autobrew if the formula is included,
-    # but most likely you shouldn't because the included formula will reference
-    # the C++ library at the version that matches the R package.
-    FORCE_AUTOBREW="true"
-  fi
-fi
-
-if [ "$FORCE_AUTOBREW" = "true" ] || [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
+# Test if pkg-config is available to use
+if ${PKG_CONFIG} --version >/dev/null 2>&1; then
+  PKG_CONFIG_AVAILABLE="true"
+else
+  PKG_CONFIG_AVAILABLE="false"
   ARROW_USE_PKG_CONFIG="false"
 fi
 
-S3_LIBS=""
-GCS_LIBS=""
-# Note that cflags may be empty in case of success
-if [ "$ARROW_HOME" ] && [ "$FORCE_BUNDLED_BUILD" != "true" ]; then
-  echo "*** Using ARROW_HOME as the source of libarrow"
-  PKG_CFLAGS="-I$ARROW_HOME/include $PKG_CFLAGS"
-  PKG_LIBS="-larrow"
-  LIB_DIR="$ARROW_HOME/lib"
-  PKG_DIRS="-L$LIB_DIR"
-elif [ "$INCLUDE_DIR" ] && [ "$LIB_DIR" ]; then
-  echo "*** Using INCLUDE_DIR/LIB_DIR as the source of libarrow"
-  PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
-  PKG_LIBS="-larrow"
-  PKG_DIRS="-L$LIB_DIR"
-else
-  # Use pkg-config to find libarrow if available and allowed
-  pkg-config --version >/dev/null 2>&1
-  if [ $? -eq 0 ]; then
-    PKG_CONFIG_AVAILABLE=true
-  else
-    PKG_CONFIG_AVAILABLE=false
-  fi
-  if [ "$PKG_CONFIG_AVAILABLE" = "true" ] && [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
-    # Set the search paths and compile flags
-    PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
-    PKGCONFIG_LIBS=`pkg-config --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
-    PKGCONFIG_DIRS=`pkg-config --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
-  fi
+# find openssl on macos. macOS ships with libressl. openssl is installable
+# with brew, but it is generally not linked. We can over-ride this and find
+# openssl but setting OPENSSL_ROOT_DIR (which cmake will pick up later in
+# the installation process). FWIW, arrow's cmake process uses this
+# same process to find openssl, but doing it now allows us to catch it in
+# nixlibs.R and throw a nicer error.
+if [ "${OPENSSL_ROOT_DIR}" = "" ] && brew --prefix openssl >/dev/null 2>&1; then
+  export OPENSSL_ROOT_DIR="`brew --prefix openssl`"
+  export PKG_CONFIG_PATH="${OPENSSL_ROOT_DIR}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+fi
 
-  if [ "$PKGCONFIG_LIBS" != "" ]; then
-    FOUND_LIB_DIR=`echo $PKGCONFIG_DIRS | sed -e 's/^-L//'`
-    echo "*** Arrow C++ libraries found via pkg-config at $FOUND_LIB_DIR"
-    PKG_CFLAGS="$PKGCONFIG_CFLAGS $PKG_CFLAGS"
-    PKG_LIBS="${PKGCONFIG_LIBS}"
-    PKG_DIRS="${PKGCONFIG_DIRS}"
-    LIB_DIR=${FOUND_LIB_DIR}
+#############
+# Functions #
+#############
 
-    # Check for version mismatch
-    PC_LIB_VERSION=`pkg-config --modversion arrow`
-    echo $PC_LIB_VERSION | grep -e 'SNAPSHOT$' >/dev/null 2>&1
-    # If on a release (i.e. not SNAPSHOT) and version != R package version, warn
-    if [ $? -eq 1 ] && [ "$PC_LIB_VERSION" != "$VERSION" ]; then
-      echo "**** Warning: library version mismatch"
-      echo "**** C++ is $PC_LIB_VERSION but R is $VERSION"
-      echo "**** If installation fails, upgrade the C++ library to match"
-      echo "**** or retry with ARROW_USE_PKG_CONFIG=false"
-    fi
+find_or_build_libarrow () {
+  if [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
+    do_bundled_build
+  elif [ "$FORCE_AUTOBREW" = "true" ]; then
+    do_autobrew
   else
-    if [ "$UNAME" = "Darwin" ] && [ "$FORCE_BUNDLED_BUILD" != "true" ]; then
-      if [ "$FORCE_AUTOBREW" != "true" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
-        echo "*** Using Homebrew ${PKG_BREW_NAME}"
-        BREWDIR=`brew --prefix`
-        PKG_LIBS="-larrow -larrow_bundled_dependencies"
-        PKG_DIRS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_DIRS"
-        PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include $PKG_CFLAGS"
+    find_arrow
+    if [ "$_LIBARROW_FOUND" = "false" ]; then
+      # If we haven't found a suitable version of libarrow, build it
+      if [ "$UNAME" = "Darwin" ] && ! echo $VERSION | grep -q "000"; then
+        # Only autobrew on release version (for testing, use FORCE_AUTOBREW above)
+        # (dev versions end in .9000, and nightly gets something like .10000xxx)
+        do_autobrew
       else
-        echo "*** Downloading ${PKG_BREW_NAME}"
-        if [ -f "autobrew" ]; then
-          echo "**** Using local manifest for ${PKG_BREW_NAME}"
-        else
-          curl -sfL "https://autobrew.github.io/scripts/$PKG_BREW_NAME" > autobrew
-          if [ $? -ne 0 ]; then
-            echo "Failed to download manifest for ${PKG_BREW_NAME}"
-          fi
-        fi
-        . autobrew
-        if [ $? -ne 0 ]; then
-          echo "Failed to retrieve binary for ${PKG_BREW_NAME}"
-        fi
-        # autobrew sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
+        do_bundled_build
+      fi
+    fi
+  fi
+}
+
+# This function looks in a few places for libarrow on the system already.
+# If the found library version is not compatible with the R package,
+# it won't be used.
+find_arrow () {
+  # Preserve original PKG_CONFIG_PATH. We'll add ${LIB_DIR}/pkgconfig to it if needed
+  OLD_PKG_CONFIG_PATH="${PKG_CONFIG_PATH}"
+
+  if [ "$ARROW_HOME" ] && [ -d "$ARROW_HOME" ]; then
+    # 1. ARROW_HOME is a directory you've built and installed libarrow into.
+    #    If the env var is set, we use it
+    _LIBARROW_FOUND="${ARROW_HOME}"
+    echo "*** Trying Arrow C++ in ARROW_HOME: $_LIBARROW_FOUND"
+    export PKG_CONFIG_PATH="${_LIBARROW_FOUND}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+  elif [ "$ARROW_USE_PKG_CONFIG" != "false" ] && ${PKG_CONFIG} ${PKG_CONFIG_NAME}; then
+    # 2. Use pkg-config to find arrow on the system
+    _LIBARROW_FOUND="`${PKG_CONFIG} --variable=prefix --silence-errors ${PKG_CONFIG_NAME}`"
+    echo "*** Trying Arrow C++ found by pkg-config: $_LIBARROW_FOUND"
+  elif brew --prefix ${PKG_BREW_NAME} > /dev/null 2>&1; then
+    # 3. On macOS, look for Homebrew apache-arrow
+    #    (note that if you have pkg-config, homebrew arrow may have already been found)
+    _LIBARROW_FOUND=`brew --prefix ${PKG_BREW_NAME}`
+    echo "*** Trying Arrow C++ found by Homebrew: ${_LIBARROW_FOUND}"
+    export PKG_CONFIG_PATH="${_LIBARROW_FOUND}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+  else
+    _LIBARROW_FOUND="false"
+  fi
+
+  if [ "$_LIBARROW_FOUND" != "false" ]; then
+    # We found a library, so check for version mismatch
+    if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+      PC_LIB_VERSION=`${PKG_CONFIG} --modversion ${PKG_CONFIG_NAME}`
+    else
+      PC_LIB_VERSION=`grep '^Version' ${_LIBARROW_FOUND}/lib/pkgconfig/arrow.pc | sed s/Version:\ //`
+    fi
+    # This is in an R script for convenience and testability. 
+    # Success means the found C++ library is ok to use.
+    # Error means the versions don't line up and we shouldn't use it.
+    # More specific messaging to the user is in the R script
+    if ! ${R_HOME}/bin/Rscript tools/check-versions.R $VERSION $PC_LIB_VERSION 2> /dev/null; then
+      _LIBARROW_FOUND="false"
+    fi
+  fi
+
+  if [ "$_LIBARROW_FOUND" = "false" ]; then
+    # We didn't find a suitable library, so reset the pkg-config search path
+    export PKG_CONFIG_PATH="${OLD_PKG_CONFIG_PATH}"
+  fi
+}
+
+do_bundled_build () {
+  ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
+
+  # Handle a few special cases, using what we know about the bundled build
+  # and our ability to make edits to it since we "own" it.
+  _LIBARROW_FOUND="`pwd`/libarrow/arrow-${VERSION}"
+  LIB_DIR="${_LIBARROW_FOUND}/lib"
+  if [ -d "$LIB_DIR" ]; then
+    if [ "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
+      # Use pkg-config to do static linking of libarrow's dependencies
+      export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+      # pkg-config on CentOS 7 doesn't have --define-prefix option.
+      if ${PKG_CONFIG} --help | grep -- --define-prefix >/dev/null 2>&1; then
+        # --define-prefix is for binary packages. Binary packages
+        # uses "/arrow/r/libarrow/dist" as prefix but it doesn't
+        # match the extracted path. --define-prefix uses a directory
+        # that arrow.pc exists as its prefix instead of
+        # "/arrow/r/libarrow/dist".
+        PKG_CONFIG="${PKG_CONFIG} --define-prefix"
+      else
+        # Rewrite prefix= in arrow.pc on CentOS 7.
+        sed \
+          -i.bak \
+          -e "s,prefix=/arrow/r/libarrow/dist,prefix=${LIB_DIR}/..,g" \
+          ${LIB_DIR}/pkgconfig/*.pc
+        rm -f ${LIB_DIR}/pkgconfig/*.pc.bak
       fi
     else
-      if [ "${NOT_CRAN}" = "true" ]; then
-        # Set some default values
-        if [ "${LIBARROW_BINARY}" = "" ]; then
-          export LIBARROW_BINARY=true
-        fi
-        if [ "${LIBARROW_MINIMAL}" = "" ]; then
-          export LIBARROW_MINIMAL=false
-        fi
-      fi
+      # This case must be ARROW_DEPENDENCY_SOURCE=BUNDLED.
+      # These would be identified by pkg-config, in Requires.private and Libs.private.
+      # Rather than try to re-implement pkg-config, we can just hard-code them here.
+      S3_LIBS="-lcurl -lssl -lcrypto"
+      GCS_LIBS="-lcurl -lssl -lcrypto"
+    fi
+  else
+    # If the library directory does not exist, the script must not have been successful
+    _LIBARROW_FOUND="false"
+  fi
+}
 
-      # find openssl on macos. macOS ships with libressl. openssl is installable
-      # with brew, but it is generally not linked. We can over-ride this and find
-      # openssl but setting OPENSSL_ROOT_DIR (which cmake will pick up later in
-      # the installation process). FWIW, arrow's cmake process uses this
-      # same process to find openssl, but doing it now allows us to catch it in
-      # nixlibs.R and throw a nicer error.
-      if [ "$UNAME" = "Darwin" ] && [ "${OPENSSL_ROOT_DIR}" = "" ]; then
-        brew --prefix openssl >/dev/null 2>&1
-        if [ $? -eq 0 ]; then
-          export OPENSSL_ROOT_DIR="`brew --prefix openssl`"
-          export PKG_CONFIG_PATH="`brew --prefix openssl`/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-        fi
-      fi
+do_autobrew () {
+  echo "*** Downloading ${PKG_BREW_NAME}"
 
-      if [ "${ARROW_DEPENDENCY_SOURCE}" = "" ]; then
-        export ARROW_DEPENDENCY_SOURCE=AUTO
-      fi
-      if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ] && \
-           [ "${PKG_CONFIG_AVAILABLE}" = "false" ]; then
-        export ARROW_DEPENDENCY_SOURCE=BUNDLED
-        echo "**** pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED"
-      fi
+  # Setup for local autobrew testing
+  if [ -f "tools/apache-arrow.rb" ]; then
+    # If you want to use a local apache-arrow.rb formula, do
+    # $ cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
+    # before R CMD build or INSTALL (assuming a local checkout of the apache/arrow repository).
+    # If you have this, you should use the local autobrew script so they match.
+    cp tools/autobrew .
+  fi
 
-      ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
-
-      LIB_DIR="`pwd`/libarrow/arrow-${VERSION}/lib"
-      if [ -d "$LIB_DIR" ]; then
-        if [ "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
-          # Use pkg-config to do static linking of libarrow's dependencies
-          export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-          PKG_CONFIG="pkg-config"
-          # pkg-config on CentOS 7 doesn't have --define-prefix option.
-          if ${PKG_CONFIG} --help | grep -- --define-prefix >/dev/null 2>&1; then
-            # --define-prefix is for binary packages. Binary packages
-            # uses "/arrow/r/libarrow/dist" as prefix but it doesn't
-            # match the extracted path. --define-prefix uses a directory
-            # that arrow.pc exists as its prefix instead of
-            # "/arrow/r/libarrow/dist".
-            PKG_CONFIG="${PKG_CONFIG} --define-prefix"
-          else
-            # Rewrite prefix= in arrow.pc on CentOS 7.
-            sed \
-              -i.bak \
-              -e "s,prefix=/arrow/r/libarrow/dist,prefix=${LIB_DIR}/..,g" \
-              ${LIB_DIR}/pkgconfig/*.pc
-            rm -f ${LIB_DIR}/pkgconfig/*.pc.bak
-          fi
-          PKG_CONFIG="${PKG_CONFIG} --silence-errors"
-          PKG_CFLAGS="`${PKG_CONFIG} --cflags ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
-          PKG_DIRS="`${PKG_CONFIG} --libs-only-L ${PKG_CONFIG_NAME}`"
-          PKG_LIBS="`${PKG_CONFIG} --libs-only-l --libs-only-other ${PKG_CONFIG_NAME}`"
-        else
-          # This case must be ARROW_DEPENDENCY_SOURCE=BUNDLED.
-          PKG_CFLAGS="-I${LIB_DIR}/../include $PKG_CFLAGS"
-          PKG_DIRS="-L${LIB_DIR}"
-          if [ "${OPENSSL_ROOT_DIR}" != "" ]; then
-            PKG_DIRS="${PKG_DIRS} -L${OPENSSL_ROOT_DIR}/lib"
-          fi
-          PKG_LIBS="-larrow"
-          if [ -n "$(find "$LIB_DIR" -name 'libarrow_bundled_dependencies.*')" ]; then
-            PKG_LIBS="$PKG_LIBS -larrow_bundled_dependencies"
-          fi
-          S3_LIBS="-lcurl -lssl -lcrypto"
-          GCS_LIBS="-lcurl -lssl -lcrypto"
-        fi
-      fi
+  if [ -f "autobrew" ]; then
+    echo "**** Using local manifest for ${PKG_BREW_NAME}"
+  else
+    if ! curl -sfL "https://autobrew.github.io/scripts/$PKG_BREW_NAME" > autobrew; then
+      echo "Failed to download manifest for ${PKG_BREW_NAME}"
+      # Fall back to the local copy
+      cp tools/autobrew .
     fi
   fi
+  if ! . autobrew; then
+    echo "Failed to retrieve binary for ${PKG_BREW_NAME}"
+  fi
+  # autobrew sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
+  # TODO: move PKG_LIBS and PKG_CFLAGS out of autobrew and use set_pkg_vars
+}
+
+# Once libarrow is obtained, this function sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
+# either from pkg-config or by inferring things about the directory in $1
+set_pkg_vars () {
+  LIB_DIR="$1/lib"
+  if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+    set_pkg_vars_with_pc
+  else
+    set_pkg_vars_without_pc $1
+  fi
+
+  # Set any user-defined CXXFLAGS
+  if [ "$ARROW_R_CXXFLAGS" ]; then
+    PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
+  fi
+
+  # Finally, check cmake options for enabled features
+  add_feature_flags
+}
+
+# If we have pkg-config, it will tell us what libarrow needs
+set_pkg_vars_with_pc () {
+  PKG_CFLAGS="`${PKG_CONFIG} --cflags --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
+  PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
+  PKG_DIRS=`${PKG_CONFIG} --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
+}
+
+# If we don't have pkg-config, we can make some inferences
+set_pkg_vars_without_pc () {
+  PKG_CFLAGS="-I$1/include $PKG_CFLAGS"
+  if grep -q "_GLIBCXX_USE_CXX11_ABI=0" "${LIB_DIR}/pkgconfig/arrow.pc"; then
+    PKG_CFLAGS="${PKG_CFLAGS} -D_GLIBCXX_USE_CXX11_ABI=0"
+  fi
+  PKG_DIRS="-L${LIB_DIR}"
+  if [ "${OPENSSL_ROOT_DIR}" != "" ]; then
+    PKG_DIRS="${PKG_DIRS} -L${OPENSSL_ROOT_DIR}/lib"
+  fi
+  PKG_LIBS="-larrow"
+  if [ -n "$(find "$LIB_DIR" -name 'libarrow_bundled_dependencies.*')" ]; then
+    PKG_LIBS="$PKG_LIBS -larrow_bundled_dependencies"
+  fi
+
+  # If on Raspberry Pi, need to manually link against latomic
+  # See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
+  # pkg-config will handle this for us automatically, see ARROW-6312
+  if grep raspbian /etc/os-release >/dev/null 2>&1; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
+    PKG_LIBS="$PKG_LIBS -latomic"
+  fi
+}
+
+add_feature_flags () {
+  # Now we need to check what features it was built with and enable
+  # the corresponding feature flags in the R bindings (-DARROW_R_WITH_stuff).
+  # We do this by inspecting ArrowOptions.cmake, which the libarrow build
+  # generates.
+  ARROW_OPTS_CMAKE="$LIB_DIR/cmake/Arrow/ArrowOptions.cmake"
+  if [ ! -f "${ARROW_OPTS_CMAKE}" ]; then
+    echo "*** $ARROW_OPTS_CMAKE not found; some features will not be enabled"
+  else
+    if arrow_built_with ARROW_PARQUET; then
+      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
+      PKG_LIBS="-lparquet $PKG_LIBS"
+      # NOTE: parquet is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
+    if arrow_built_with ARROW_DATASET; then
+      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
+      PKG_LIBS="-larrow_dataset $PKG_LIBS"
+      # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
+    if arrow_built_with ARROW_ACERO; then
+      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ACERO"
+      PKG_LIBS="-larrow_acero $PKG_LIBS"
+      # NOTE: arrow-acero is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
+    if arrow_built_with ARROW_SUBSTRAIT; then
+      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_SUBSTRAIT"
+      PKG_LIBS="-larrow_substrait $PKG_LIBS"
+      # NOTE: arrow-substrait is assumed to have the same -L flag as arrow
+      # so there is no need to add its location to PKG_DIRS
+    fi
+    if arrow_built_with ARROW_JSON; then
+      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
+    fi
+    if arrow_built_with ARROW_S3; then
+      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
+      PKG_LIBS="$PKG_LIBS $S3_LIBS"
+    fi
+    if arrow_built_with ARROW_GCS; then
+      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_GCS"
+      PKG_LIBS="$PKG_LIBS $GCS_LIBS"
+    fi
+  fi
+}
+
+arrow_built_with() {
+  # Function to check cmake options for features
+  grep -i 'set('"$1"' "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+}
+
+##############
+# Main logic #
+##############
+
+# First:
+find_or_build_libarrow
+
+# We should have a valid libarrow build in $_LIBARROW_FOUND
+# Now set `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS` based on that.
+# _LIBARROW_FOUND should only be unset in the FORCE_AUTOBREW case,
+# and autobrew sets its own PKG_* vars. (See the TODO about changing that.)
+if [ "$_LIBARROW_FOUND" != "false" ] && [ "$_LIBARROW_FOUND" != "" ]; then
+  set_pkg_vars ${_LIBARROW_FOUND}
 fi
 
-# If on Raspberry Pi, need to manually link against latomic
-# See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
-if grep raspbian /etc/os-release >/dev/null 2>&1; then
-  PKG_CFLAGS="$PKG_CFLAGS -DARROW_CXXFLAGS=-latomic"
-  PKG_LIBS="-latomic $PKG_LIBS"
-fi
-
-# Set any user-defined CXXFLAGS
-if [ "$ARROW_R_CXXFLAGS" ]; then
-  PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
-fi
-
-# Test that we can find libarrow
+# Test that we can compile something with those flags
 CXX17="`${R_HOME}/bin/R CMD config CXX17` -E"
 CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX17FLAGS`
 CXX17STD=`"${R_HOME}"/bin/R CMD config CXX17STD`
@@ -248,48 +386,14 @@ TEST_CMD="${CXX17} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX17FLAGS} ${CXX17STD} -xc++ -"
 echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 
 if [ $? -eq 0 ]; then
-  # Check for features
-  ARROW_OPTS_CMAKE="$LIB_DIR/cmake/Arrow/ArrowOptions.cmake"
-
-  arrow_built_with() {
-    # Function to check cmake options for features
-    grep -i 'set('"$1"' "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
-  }
-
-  if arrow_built_with ARROW_PARQUET; then
-    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
-    PKG_LIBS="-lparquet $PKG_LIBS"
-    # NOTE: parquet is assumed to have the same -L flag as arrow
-    # so there is no need to add its location to PKG_DIRS
-  fi
-  if arrow_built_with ARROW_DATASET; then
-    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
-    PKG_LIBS="-larrow_dataset $PKG_LIBS"
-    # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
-    # so there is no need to add its location to PKG_DIRS
-  fi
-  if arrow_built_with ARROW_SUBSTRAIT; then
-    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_SUBSTRAIT"
-    PKG_LIBS="-larrow_substrait $PKG_LIBS"
-    # NOTE: arrow-substrait is assumed to have the same -L flag as arrow
-    # so there is no need to add its location to PKG_DIRS
-  fi
-  if arrow_built_with ARROW_JSON; then
-    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
-  fi
-  if arrow_built_with ARROW_S3; then
-    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
-    PKG_LIBS="$PKG_LIBS $S3_LIBS"
-  fi
-  if arrow_built_with ARROW_GCS; then
-    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_GCS"
-    PKG_LIBS="$PKG_LIBS $GCS_LIBS"
-  fi
-
-  # prepend PKG_DIRS to PKG_LIBS
+  # Prepend PKG_DIRS to PKG_LIBS and write to Makevars
   PKG_LIBS="$PKG_DIRS $PKG_LIBS"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
+  sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars
+  # Success
+  exit 0
+
 else
   echo "------------------------- NOTE ---------------------------"
   echo "There was an issue preparing the Arrow C++ libraries."
@@ -300,21 +404,3 @@ else
   exit 1
 
 fi
-
-# Write to Makevars
-sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars
-
-# This is removed because a (bad?) CRAN check fails when arrow.so is stripped
-# # Add stripping
-# if [ "$R_STRIP_SHARED_LIB" != "" ]; then
-#   # R_STRIP_SHARED_LIB is set in the global Renviron and should be available here
-#   echo "
-# strip: \$(SHLIB)
-# 	$R_STRIP_SHARED_LIB \$(SHLIB) >/dev/null 2>&1 || true
-#
-# .phony: strip
-# " >> src/Makevars
-# fi
-
-# Success
-exit 0

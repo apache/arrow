@@ -29,6 +29,7 @@
 #include "arrow/compare.h"
 #include "arrow/pretty_print.h"
 #include "arrow/type.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
@@ -151,18 +152,49 @@ struct ScalarHashImpl {
 
   Status ArrayHash(const Array& a) { return ArrayHash(*a.data()); }
 
-  Status ArrayHash(const ArrayData& a) {
-    RETURN_NOT_OK(StdHash(a.length) & StdHash(a.GetNullCount()));
-    if (a.buffers[0] != nullptr) {
-      // We can't visit values without unboxing the whole array, so only hash
-      // the null bitmap for now.
-      RETURN_NOT_OK(BufferHash(*a.buffers[0]));
+  Status ArrayHash(const ArraySpan& a, int64_t offset, int64_t length) {
+    // Calculate null count within the range
+    const auto* validity = a.buffers[0].data;
+    int64_t null_count = 0;
+    if (validity != NULLPTR) {
+      if (offset == a.offset && length == a.length) {
+        null_count = a.GetNullCount();
+      } else {
+        null_count = length - internal::CountSetBits(validity, offset, length);
+      }
     }
-    for (const auto& child : a.child_data) {
-      RETURN_NOT_OK(ArrayHash(*child));
+
+    RETURN_NOT_OK(StdHash(length) & StdHash(null_count));
+    if (null_count != 0) {
+      // We can't visit values without unboxing the whole array, so only hash
+      // the null bitmap for now. Only hash the null bitmap if the null count
+      // is not 0 to ensure hash consistency.
+      hash_ = internal::ComputeBitmapHash(validity, /*seed=*/hash_,
+                                          /*bits_offset=*/offset, /*num_bits=*/length);
+    }
+
+    // Hash the relevant child arrays for each type taking offset and length
+    // from the parent array into account if necessary.
+    switch (a.type->id()) {
+      case Type::STRUCT:
+        for (const auto& child : a.child_data) {
+          RETURN_NOT_OK(ArrayHash(child, offset, length));
+        }
+        break;
+        // TODO(GH-35830): Investigate what should be the correct behavior for
+        // each nested type.
+      default:
+        // By default, just hash the arrays without considering
+        // the offset and length of the parent.
+        for (const auto& child : a.child_data) {
+          RETURN_NOT_OK(ArrayHash(child));
+        }
+        break;
     }
     return Status::OK();
   }
+
+  Status ArrayHash(const ArraySpan& a) { return ArrayHash(a, a.offset, a.length); }
 
   explicit ScalarHashImpl(const Scalar& scalar) : hash_(scalar.type->Hash()) {
     AccumulateHashFrom(scalar);
@@ -1049,8 +1081,12 @@ Status CastImpl(const StringScalar& from, ScalarType* to) {
   return Status::OK();
 }
 
-// binary to string
-Status CastImpl(const BinaryScalar& from, StringScalar* to) {
+// binary/large binary/large string to string
+template <typename ScalarType>
+enable_if_t<std::is_base_of_v<BaseBinaryScalar, ScalarType> &&
+                !std::is_same<ScalarType, StringScalar>::value,
+            Status>
+CastImpl(const ScalarType& from, StringScalar* to) {
   to->value = from.value;
   return Status::OK();
 }

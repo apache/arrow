@@ -16,7 +16,6 @@
 // under the License.
 
 #include <arrow/api.h>
-#include <arrow/compute/exec/expression.h>
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/discovery.h>
 #include <arrow/dataset/file_base.h>
@@ -24,6 +23,7 @@
 #include <arrow/dataset/scanner.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/path_util.h>
+#include "arrow/compute/expression.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -32,7 +32,7 @@
  * \brief Run Example
  *
  * Make sure there is a parquet dataset with the column_names
- * mentioned in the Congiguration struct.
+ * mentioned in the Configuration struct.
  *
  * Example run:
  * ./dataset_parquet_scan_example file:///<some-path>/data.parquet

@@ -20,9 +20,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestListArray(t *testing.T) {
@@ -289,6 +290,7 @@ func TestListArraySlice(t *testing.T) {
 			if got, want := arr.String(), `[[0 1 2] (null) [] [3 4 5 6]]`; got != want {
 				t.Fatalf("got=%q, want=%q", got, want)
 			}
+			assert.Equal(t, "[0,1,2]", arr.ValueStr(0))
 
 			sub := array.NewSlice(arr, 1, 4).(array.ListLike)
 			defer sub.Release()
@@ -298,4 +300,88 @@ func TestListArraySlice(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestListStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewListBuilder(mem, arrow.PrimitiveTypes.Int32)
+	defer b.Release()
+	vb := b.ValueBuilder().(*array.Int32Builder)
+
+	var values = [][]int32{
+		{0, 1, 2, 3, 4, 5, 6},
+		{1, 2, 3, 4, 5, 6, 7},
+		{2, 3, 4, 5, 6, 7, 8},
+		{3, 4, 5, 6, 7, 8, 9},
+	}
+	for _, value := range values {
+		b.AppendNull()
+		b.Append(true)
+		for _, el := range value {
+			vb.Append(el)
+			vb.AppendNull()
+		}
+		b.Append(false)
+	}
+
+	arr := b.NewArray().(*array.List)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewListBuilder(mem, arrow.PrimitiveTypes.Int32)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.List)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
+func TestLargeListStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewLargeListBuilder(mem, arrow.PrimitiveTypes.Int32)
+	defer b.Release()
+	vb := b.ValueBuilder().(*array.Int32Builder)
+
+	var values = [][]int32{
+		{0, 1, 2, 3, 4, 5, 6},
+		{1, 2, 3, 4, 5, 6, 7},
+		{2, 3, 4, 5, 6, 7, 8},
+		{3, 4, 5, 6, 7, 8, 9},
+	}
+	for _, value := range values {
+		b.AppendNull()
+		b.Append(true)
+		for _, el := range value {
+			vb.Append(el)
+			vb.AppendNull()
+		}
+		b.Append(false)
+	}
+
+	arr := b.NewArray().(*array.LargeList)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewLargeListBuilder(mem, arrow.PrimitiveTypes.Int32)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.LargeList)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }

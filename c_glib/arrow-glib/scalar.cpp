@@ -361,7 +361,8 @@ gchar *
 garrow_scalar_to_string(GArrowScalar *scalar)
 {
   const auto arrow_scalar = garrow_scalar_get_raw(scalar);
-  return g_strdup(arrow_scalar->ToString().c_str());
+  const auto string = arrow_scalar->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**

@@ -1414,16 +1414,19 @@ def test_chunked_array_data_warns():
 
 
 def test_cast_integers_unsafe():
-    # We let NumPy do the unsafe casting
+    # We let NumPy do the unsafe casting.
+    # Note that NEP50 in the NumPy spec no longer allows
+    # the np.array() constructor to pass the dtype directly
+    # if it results in an unsafe cast.
     unsafe_cases = [
         (np.array([50000], dtype='i4'), 'int32',
-         np.array([50000], dtype='i2'), pa.int16()),
+         np.array([50000]).astype(dtype='i2'), pa.int16()),
         (np.array([70000], dtype='i4'), 'int32',
-         np.array([70000], dtype='u2'), pa.uint16()),
+         np.array([70000]).astype(dtype='u2'), pa.uint16()),
         (np.array([-1], dtype='i4'), 'int32',
-         np.array([-1], dtype='u2'), pa.uint16()),
+         np.array([-1]).astype(dtype='u2'), pa.uint16()),
         (np.array([50000], dtype='u2'), pa.uint16(),
-         np.array([50000], dtype='i2'), pa.int16())
+         np.array([50000]).astype(dtype='i2'), pa.int16())
     ]
 
     for case in unsafe_cases:
@@ -3283,6 +3286,7 @@ def test_array_protocol():
         pa.array(arr)
 
     # ARROW-7066 - allow ChunkedArray output
+    # GH-33727 - if num_chunks=1 return Array
     class MyArray2:
         def __init__(self, data):
             self.data = data
@@ -3292,7 +3296,21 @@ def test_array_protocol():
 
     arr = MyArray2(np.array([1, 2, 3], dtype='int64'))
     result = pa.array(arr)
-    expected = pa.chunked_array([[1, 2, 3]], type=pa.int64())
+    expected = pa.array([1, 2, 3], type=pa.int64())
+    assert result.equals(expected)
+
+    class MyArray3:
+        def __init__(self, data1, data2):
+            self.data1 = data1
+            self.data2 = data2
+
+        def __arrow_array__(self, type=None):
+            return pa.chunked_array([self.data1, self.data2], type=type)
+
+    np_arr = np.array([1, 2, 3], dtype='int64')
+    arr = MyArray3(np_arr, np_arr)
+    result = pa.array(arr)
+    expected = pa.chunked_array([[1, 2, 3], [1, 2, 3]], type=pa.int64())
     assert result.equals(expected)
 
 
@@ -3407,3 +3425,74 @@ def test_array_accepts_pyarrow_array():
     # Test memory_pool keyword is accepted
     result = pa.array(arr, memory_pool=pa.default_memory_pool())
     assert arr == result
+
+
+def check_run_end_encoded(ree_array, run_ends, values, logical_length, physical_length,
+                          physical_offset):
+    assert ree_array.run_ends.to_pylist() == run_ends
+    assert ree_array.values.to_pylist() == values
+    assert len(ree_array) == logical_length
+    assert ree_array.find_physical_length() == physical_length
+    assert ree_array.find_physical_offset() == physical_offset
+
+
+def check_run_end_encoded_from_arrays_with_type(ree_type=None):
+    run_ends = [3, 5, 10, 19]
+    values = [1, 2, 1, 3]
+    ree_array = pa.RunEndEncodedArray.from_arrays(run_ends, values, ree_type)
+    check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
+
+
+def test_run_end_encoded_from_arrays():
+    check_run_end_encoded_from_arrays_with_type()
+    for run_end_type in [pa.int16(), pa.int32(), pa.int64()]:
+        for value_type in [pa.uint32(), pa.int32(), pa.uint64(), pa.int64()]:
+            ree_type = pa.run_end_encoded(run_end_type, value_type)
+            check_run_end_encoded_from_arrays_with_type(ree_type)
+
+
+def test_run_end_encoded_from_buffers():
+    run_ends = [3, 5, 10, 19]
+    values = [1, 2, 1, 3]
+
+    ree_type = pa.run_end_encoded(run_end_type=pa.int32(), value_type=pa.uint8())
+    length = 19
+    buffers = [None]
+    null_count = 0
+    offset = 0
+    children = [run_ends, values]
+
+    ree_array = pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
+                                                   null_count, offset,
+                                                   children)
+    check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
+    # buffers = []
+    ree_array = pa.RunEndEncodedArray.from_buffers(ree_type, length, [],
+                                                   null_count, offset,
+                                                   children)
+    check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
+    # null_count = -1
+    ree_array = pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
+                                                   -1, offset,
+                                                   children)
+    check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
+    # offset = 4
+    ree_array = pa.RunEndEncodedArray.from_buffers(ree_type, length - 4, buffers,
+                                                   null_count, 4, children)
+    check_run_end_encoded(ree_array, run_ends, values, length - 4, 3, 1)
+    # buffers = [None, None]
+    with pytest.raises(ValueError):
+        pa.RunEndEncodedArray.from_buffers(ree_type, length, [None, None],
+                                           null_count, offset, children)
+    # children = None
+    with pytest.raises(ValueError):
+        pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
+                                           null_count, offset, None)
+    # len(children) == 1
+    with pytest.raises(ValueError):
+        pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
+                                           null_count, offset, [run_ends])
+    # null_count = 1
+    with pytest.raises(ValueError):
+        pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
+                                           1, offset, children)

@@ -529,7 +529,10 @@ def test_recordbatch_basics():
     assert batch.schema == schema
     assert str(batch) == """pyarrow.RecordBatch
 c0: int16
-c1: int32"""
+c1: int32
+----
+c0: [0,1,2,3,4]
+c1: [-10,-5,0,null,10]"""
 
     assert batch.to_string(show_metadata=True) == """\
 pyarrow.RecordBatch
@@ -687,7 +690,7 @@ def test_recordbatch_select_column():
     assert batch.column('a').equals(batch.column(0))
 
     with pytest.raises(
-            KeyError, match='Field "d" does not exist in record batch schema'):
+            KeyError, match='Field "d" does not exist in schema'):
         batch.column('d')
 
     with pytest.raises(TypeError):
@@ -1039,7 +1042,7 @@ def test_table_select_column():
     assert table.column('a').equals(table.column(0))
 
     with pytest.raises(KeyError,
-                       match='Field "d" does not exist in table schema'):
+                       match='Field "d" does not exist in schema'):
         table.column('d')
 
     with pytest.raises(TypeError):
@@ -1056,7 +1059,7 @@ def test_table_column_with_duplicates():
                       pa.array([7, 8, 9])], names=['a', 'b', 'a'])
 
     with pytest.raises(KeyError,
-                       match='Field "a" exists 2 times in table schema'):
+                       match='Field "a" exists 2 times in schema'):
         table.column('a')
 
 
@@ -1989,6 +1992,7 @@ def test_table_select():
     assert result.equals(expected)
 
 
+@pytest.mark.acero
 def test_table_group_by():
     def sorted_by_keys(d):
         # Ensure a guaranteed order of keys for aggregation results.
@@ -2156,7 +2160,7 @@ def test_table_to_recordbatchreader():
     assert reader.read_next_batch().num_rows == 1
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2183,7 +2187,7 @@ def test_table_join():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_unique_key():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2210,7 +2214,7 @@ def test_table_join_unique_key():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_collisions():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2234,7 +2238,7 @@ def test_table_join_collisions():
     ], names=["colA", "colB", "colVals", "colB", "colVals"])
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_filter_expression():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2258,7 +2262,7 @@ def test_table_filter_expression():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_many_columns():
     t1 = pa.table({
         "colA": [1, 2, 6],

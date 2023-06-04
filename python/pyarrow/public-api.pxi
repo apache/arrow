@@ -111,11 +111,15 @@ cdef api object pyarrow_wrap_data_type(
         out = Decimal128Type.__new__(Decimal128Type)
     elif type.get().id() == _Type_DECIMAL256:
         out = Decimal256Type.__new__(Decimal256Type)
+    elif type.get().id() == _Type_RUN_END_ENCODED:
+        out = RunEndEncodedType.__new__(RunEndEncodedType)
     elif type.get().id() == _Type_EXTENSION:
         ext_type = <const CExtensionType*> type.get()
         cpy_ext_type = dynamic_cast[_CPyExtensionTypePtr](ext_type)
         if cpy_ext_type != nullptr:
             return cpy_ext_type.GetInstance()
+        elif ext_type.extension_name() == b"arrow.fixed_shape_tensor":
+            out = FixedShapeTensorType.__new__(FixedShapeTensorType)
         else:
             out = BaseExtensionType.__new__(BaseExtensionType)
     else:

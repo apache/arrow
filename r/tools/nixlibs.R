@@ -53,6 +53,17 @@ try_download <- function(from_url, to_file, hush = quietly) {
   !inherits(status, "try-error") && status == 0
 }
 
+not_cran <- env_is("NOT_CRAN", "true")
+if (not_cran) {
+  # Set more eager defaults
+  if (env_is("LIBARROW_BINARY", "")) {
+    Sys.setenv(LIBARROW_BINARY = "true")
+  }
+  if (env_is("LIBARROW_MINIMAL", "")) {
+    Sys.setenv(LIBARROW_MINIMAL = "false")
+  }
+}
+
 # For local debugging, set ARROW_R_DEV=TRUE to make this script print more
 quietly <- !env_is("ARROW_R_DEV", "true")
 
@@ -96,12 +107,13 @@ download_binary <- function(lib) {
 # of action based on the current system. Other values you can set it to:
 # * "FALSE" (not case-sensitive), to skip this option altogether
 # * "TRUE" (not case-sensitive), to try to discover your current OS, or
-# * Some other string: a "distro-version" that corresponds to a binary that is
-#   available, to override what this function may discover by default.
+# * Some other string: a "linux-openssl-${OPENSSL_VERSION}" that corresponds to
+#   a binary that is available, to override what this function may discover by
+#   default.
 #   Possible values are:
-#    * "centos-7" (gcc 8 (devtoolset), openssl 1, glib 2.17)
-#    * "ubuntu-18.04" (gcc 8, openssl 1, glib 2.27)
-#    * "ubuntu-22.04" (openssl 3)
+#    * "linux-openssl-1.0" (OpenSSL 1.0)
+#    * "linux-openssl-1.1" (OpenSSL 1.1)
+#    * "linux-openssl-3.0" (OpenSSL 3.0)
 #   These string values, along with `NULL`, are the potential return values of
 #   this function.
 identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
@@ -160,7 +172,7 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
   }
 }
 
-# This tests that curl and openssl are present (bc we can include their headers)
+# This tests that curl and OpenSSL are present (bc we can include their headers)
 # and it checks for other versions/features and raises errors that we grep for
 test_for_curl_and_openssl <- "
 #include <ciso646>
@@ -168,14 +180,13 @@ test_for_curl_and_openssl <- "
 #error Using libc++
 #endif
 
-#if !( __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 27)
-#error glibc version too old
-#endif
-
 #include <curl/curl.h>
 #include <openssl/opensslv.h>
 #if OPENSSL_VERSION_NUMBER < 0x10002000L
 #error OpenSSL version too old
+#endif
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#error Using OpenSSL version 1.0
 #endif
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #error Using OpenSSL version 3
@@ -190,14 +201,13 @@ compile_test_program <- function(code) {
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
-# TODO(ARROW-16976): drop "ubuntu-18.04" and just use "centos-7"
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
   if (is.null(attr(errs, "status"))) {
-    # There was no error in compiling: so we found libcurl and openssl > 1.0.2,
-    # openssl is < 3.0, glibc is >= 2.27, and we're not using a strict libc++
-    cat("*** Found libcurl and openssl >= 1.0.2\n")
-    return("ubuntu-18.04")
+    # There was no error in compiling: so we found libcurl and OpenSSL >= 1.1,
+    # openssl is < 3.0
+    cat("*** Found libcurl and OpenSSL >= 1.1\n")
+    return("linux-openssl-1.1")
     # Else, check for dealbreakers:
   } else if (any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our binaries are all built with GNU stdlib so they fail with libc++
@@ -207,23 +217,18 @@ determine_binary_from_stderr <- function(errs) {
     cat("*** libcurl not found\n")
     return(NULL)
   } else if (header_not_found("openssl/opensslv", errs)) {
-    cat("*** openssl not found\n")
+    cat("*** OpenSSL not found\n")
     return(NULL)
   } else if (any(grepl("OpenSSL version too old", errs))) {
-    cat("*** openssl found but version >= 1.0.2 is required for some features\n")
+    cat("*** OpenSSL found but version >= 1.0.2 is required for some features\n")
     return(NULL)
     # Else, determine which other binary will work
-  } else if (any(grepl("glibc version too old", errs))) {
-    # ubuntu-18.04 has glibc 2.27, so even if you install newer compilers
-    # (e.g. devtoolset on centos) and have curl/openssl, you run into problems
-    # TODO(ARROW-16976): build binaries with older glibc
-    cat("*** Checking glibc version\n")
-    # If we're here, we're on an older OS but with a new enough compiler
-    # (e.g. CentOS 7 with devtoolset-8)
-    return("centos-7")
+  } else if (any(grepl("Using OpenSSL version 1.0", errs))) {
+    cat("*** Found libcurl and OpenSSL < 1.1\n")
+    return("linux-openssl-1.0")
   } else if (any(grepl("Using OpenSSL version 3", errs))) {
-    cat("*** Found libcurl and openssl >= 3.0.0\n")
-    return("ubuntu-22.04")
+    cat("*** Found libcurl and OpenSSL >= 3.0.0\n")
+    return("linux-openssl-3.0")
   }
   NULL
 }
@@ -380,11 +385,14 @@ build_libarrow <- function(src_dir, dst_dir) {
   # We'll need to compile R bindings with these libs, so delete any .o files
   system("rm src/*.o", ignore.stdout = TRUE, ignore.stderr = TRUE)
   # Set up make for parallel building
+  # CRAN policy says not to use more than 2 cores during checks
+  # If you have more and want to use more, set MAKEFLAGS or NOT_CRAN
+  ncores <- parallel::detectCores()
+  if (!not_cran) {
+    ncores <- min(ncores, 2)
+  }
   makeflags <- Sys.getenv("MAKEFLAGS")
   if (makeflags == "") {
-    # CRAN policy says not to use more than 2 cores during checks
-    # If you have more and want to use more, set MAKEFLAGS
-    ncores <- min(parallel::detectCores(), 2)
     makeflags <- sprintf("-j%s", ncores)
     Sys.setenv(MAKEFLAGS = makeflags)
   }
@@ -422,8 +430,16 @@ build_libarrow <- function(src_dir, dst_dir) {
     CC = sub("^.*ccache", "", R_CMD_config("CC")),
     CXX = paste(sub("^.*ccache", "", R_CMD_config("CXX17")), R_CMD_config("CXX17STD")),
     # CXXFLAGS = R_CMD_config("CXX17FLAGS"), # We don't want the same debug symbols
-    LDFLAGS = R_CMD_config("LDFLAGS")
+    LDFLAGS = R_CMD_config("LDFLAGS"),
+    N_JOBS = ncores
   )
+
+  dep_source <- Sys.getenv("ARROW_DEPENDENCY_SOURCE")
+  if (dep_source %in% c("", "AUTO") && !nzchar(Sys.which("pkg-config"))) {
+    cat("**** pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED\n")
+    env_var_list <- c(env_var_list, ARROW_DEPENDENCY_SOURCE = "BUNDLED")
+  }
+
   env_var_list <- with_cloud_support(env_var_list)
 
   # turn_off_all_optional_features() needs to happen after

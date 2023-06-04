@@ -20,10 +20,10 @@
 #include <arrow/array.h>
 #include <arrow/builder.h>
 
+#include <arrow/acero/exec_plan.h>
 #include <arrow/compute/api.h>
 #include <arrow/compute/api_vector.h>
 #include <arrow/compute/cast.h>
-#include <arrow/compute/exec/exec_plan.h>
 
 #include <arrow/csv/api.h>
 
@@ -54,6 +54,7 @@
 // Demonstrate various operators in Arrow Streaming Execution Engine
 
 namespace cp = ::arrow::compute;
+namespace ac = ::arrow::acero;
 
 constexpr char kSep[] = "******";
 
@@ -256,10 +257,10 @@ arrow::Result<BatchesWithSchema> MakeGroupableBatches(int multiplicity = 1) {
   return out;
 }
 
-arrow::Status ExecutePlanAndCollectAsTable(cp::Declaration plan) {
+arrow::Status ExecutePlanAndCollectAsTable(ac::Declaration plan) {
   // collect sink_reader into a Table
   std::shared_ptr<arrow::Table> response_table;
-  ARROW_ASSIGN_OR_RAISE(response_table, cp::DeclarationToTable(std::move(plan)));
+  ARROW_ASSIGN_OR_RAISE(response_table, ac::DeclarationToTable(std::move(plan)));
 
   std::cout << "Results : " << response_table->ToString() << std::endl;
 
@@ -283,7 +284,7 @@ arrow::Status ScanSinkExample() {
   // construct the scan node
   auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
 
-  cp::Declaration scan{"scan", std::move(scan_node_options)};
+  ac::Declaration scan{"scan", std::move(scan_node_options)};
 
   return ExecutePlanAndCollectAsTable(std::move(scan));
 }
@@ -298,15 +299,15 @@ arrow::Status ScanSinkExample() {
 /// in an execution plan. This includes source node using pregenerated
 /// data and collecting it into a table.
 ///
-/// This sort of custom souce is often not needed.  In most cases you can
+/// This sort of custom source is often not needed.  In most cases you can
 /// use a scan (for a dataset source) or a source like table_source, array_vector_source,
 /// exec_batch_source, or record_batch_source (for in-memory data)
 arrow::Status SourceSinkExample() {
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
-  auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
+  auto source_node_options = ac::SourceNodeOptions{basic_data.schema, basic_data.gen()};
 
-  cp::Declaration source{"source", std::move(source_node_options)};
+  ac::Declaration source{"source", std::move(source_node_options)};
 
   return ExecutePlanAndCollectAsTable(std::move(source));
 }
@@ -327,9 +328,9 @@ arrow::Status TableSourceSinkExample() {
 
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
   int max_batch_size = 2;
-  auto table_source_options = cp::TableSourceNodeOptions{table, max_batch_size};
+  auto table_source_options = ac::TableSourceNodeOptions{table, max_batch_size};
 
-  cp::Declaration source{"table_source", std::move(table_source_options)};
+  ac::Declaration source{"table_source", std::move(table_source_options)};
 
   return ExecutePlanAndCollectAsTable(std::move(source));
 }
@@ -362,14 +363,14 @@ arrow::Status ScanFilterSinkExample() {
   auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
   std::cout << "Scan node options created" << std::endl;
 
-  cp::Declaration scan{"scan", std::move(scan_node_options)};
+  ac::Declaration scan{"scan", std::move(scan_node_options)};
 
   // pipe the scan node into the filter node
   // Need to set the filter in scan node options and filter node options.
   // At scan node it is used for on-disk / push-down filtering.
   // At filter node it is used for in-memory filtering.
-  cp::Declaration filter{
-      "filter", {std::move(scan)}, cp::FilterNodeOptions(std::move(filter_expr))};
+  ac::Declaration filter{
+      "filter", {std::move(scan)}, ac::FilterNodeOptions(std::move(filter_expr))};
 
   return ExecutePlanAndCollectAsTable(std::move(filter));
 }
@@ -394,14 +395,36 @@ arrow::Status ScanProjectSinkExample() {
 
   auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
 
-  cp::Declaration scan{"scan", std::move(scan_node_options)};
-  cp::Declaration project{
-      "project", {std::move(scan)}, cp::ProjectNodeOptions({a_times_2})};
+  ac::Declaration scan{"scan", std::move(scan_node_options)};
+  ac::Declaration project{
+      "project", {std::move(scan)}, ac::ProjectNodeOptions({a_times_2})};
 
   return ExecutePlanAndCollectAsTable(std::move(project));
 }
 
 // (Doc section: Project Example)
+
+// This is a variation of ScanProjectSinkExample introducing how to use the
+// Declaration::Sequence function
+arrow::Status ScanProjectSequenceSinkExample() {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
+
+  auto options = std::make_shared<arrow::dataset::ScanOptions>();
+  // projection
+  cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"), cp::literal(2)});
+  options->projection = cp::project({}, {});
+
+  auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
+
+  // (Doc section: Project Sequence Example)
+  // Inputs do not have to be passed to the project node when using Sequence
+  ac::Declaration plan =
+      ac::Declaration::Sequence({{"scan", std::move(scan_node_options)},
+                                 {"project", ac::ProjectNodeOptions({a_times_2})}});
+  // (Doc section: Project Sequence Example)
+
+  return ExecutePlanAndCollectAsTable(std::move(plan));
+}
 
 // (Doc section: Scalar Aggregate Example)
 
@@ -416,12 +439,12 @@ arrow::Status ScanProjectSinkExample() {
 arrow::Status SourceScalarAggregateSinkExample() {
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
-  auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
+  auto source_node_options = ac::SourceNodeOptions{basic_data.schema, basic_data.gen()};
 
-  cp::Declaration source{"source", std::move(source_node_options)};
+  ac::Declaration source{"source", std::move(source_node_options)};
   auto aggregate_options =
-      cp::AggregateNodeOptions{/*aggregates=*/{{"sum", nullptr, "a", "sum(a)"}}};
-  cp::Declaration aggregate{
+      ac::AggregateNodeOptions{/*aggregates=*/{{"sum", nullptr, "a", "sum(a)"}}};
+  ac::Declaration aggregate{
       "aggregate", {std::move(source)}, std::move(aggregate_options)};
 
   return ExecutePlanAndCollectAsTable(std::move(aggregate));
@@ -443,14 +466,14 @@ arrow::Status SourceGroupAggregateSinkExample() {
 
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
-  auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
+  auto source_node_options = ac::SourceNodeOptions{basic_data.schema, basic_data.gen()};
 
-  cp::Declaration source{"source", std::move(source_node_options)};
+  ac::Declaration source{"source", std::move(source_node_options)};
   auto options = std::make_shared<cp::CountOptions>(cp::CountOptions::ONLY_VALID);
   auto aggregate_options =
-      cp::AggregateNodeOptions{/*aggregates=*/{{"hash_count", options, "a", "count(a)"}},
+      ac::AggregateNodeOptions{/*aggregates=*/{{"hash_count", options, "a", "count(a)"}},
                                /*keys=*/{"b"}};
-  cp::Declaration aggregate{
+  ac::Declaration aggregate{
       "aggregate", {std::move(source)}, std::move(aggregate_options)};
 
   return ExecutePlanAndCollectAsTable(std::move(aggregate));
@@ -467,19 +490,19 @@ arrow::Status SourceGroupAggregateSinkExample() {
 arrow::Status SourceConsumingSinkExample() {
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
-  auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
+  auto source_node_options = ac::SourceNodeOptions{basic_data.schema, basic_data.gen()};
 
-  cp::Declaration source{"source", std::move(source_node_options)};
+  ac::Declaration source{"source", std::move(source_node_options)};
 
   std::atomic<uint32_t> batches_seen{0};
   arrow::Future<> finish = arrow::Future<>::Make();
-  struct CustomSinkNodeConsumer : public cp::SinkNodeConsumer {
+  struct CustomSinkNodeConsumer : public ac::SinkNodeConsumer {
     CustomSinkNodeConsumer(std::atomic<uint32_t>* batches_seen, arrow::Future<> finish)
         : batches_seen(batches_seen), finish(std::move(finish)) {}
 
     arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema,
-                       cp::BackpressureControl* backpressure_control,
-                       cp::ExecPlan* plan) override {
+                       ac::BackpressureControl* backpressure_control,
+                       ac::ExecPlan* plan) override {
       // This will be called as the plan is started (before the first call to Consume)
       // and provides the schema of the data coming into the node, controls for pausing /
       // resuming input, and a pointer to the plan itself which can be used to access
@@ -504,13 +527,13 @@ arrow::Status SourceConsumingSinkExample() {
   std::shared_ptr<CustomSinkNodeConsumer> consumer =
       std::make_shared<CustomSinkNodeConsumer>(&batches_seen, finish);
 
-  cp::Declaration consuming_sink{"consuming_sink",
+  ac::Declaration consuming_sink{"consuming_sink",
                                  {std::move(source)},
-                                 cp::ConsumingSinkNodeOptions(std::move(consumer))};
+                                 ac::ConsumingSinkNodeOptions(std::move(consumer))};
 
   // Since we are consuming the data within the plan there is no output and we simply
   // run the plan to completion instead of collecting into a table.
-  ARROW_RETURN_NOT_OK(cp::DeclarationToStatus(std::move(consuming_sink)));
+  ARROW_RETURN_NOT_OK(ac::DeclarationToStatus(std::move(consuming_sink)));
 
   std::cout << "The consuming sink node saw " << batches_seen.load() << " batches"
             << std::endl;
@@ -521,11 +544,11 @@ arrow::Status SourceConsumingSinkExample() {
 // (Doc section: OrderBySink Example)
 
 arrow::Status ExecutePlanAndCollectAsTableWithCustomSink(
-    std::shared_ptr<cp::ExecPlan> plan, std::shared_ptr<arrow::Schema> schema,
+    std::shared_ptr<ac::ExecPlan> plan, std::shared_ptr<arrow::Schema> schema,
     arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen) {
   // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader =
-      cp::MakeGeneratorReader(schema, std::move(sink_gen), arrow::default_memory_pool());
+      ac::MakeGeneratorReader(schema, std::move(sink_gen), arrow::default_memory_pool());
 
   // validate the ExecPlan
   ARROW_RETURN_NOT_OK(plan->Validate());
@@ -556,20 +579,20 @@ arrow::Status ExecutePlanAndCollectAsTableWithCustomSink(
 /// ASCENDING or DESCENDING and it is configurable. The output
 /// is obtained as a table from the sink node.
 arrow::Status SourceOrderBySinkExample() {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(*cp::threaded_exec_context()));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ac::ExecPlan> plan,
+                        ac::ExecPlan::Make(*cp::threaded_exec_context()));
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeSortTestBasicBatches());
 
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
-  auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
-  ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
-                        cp::MakeExecNode("source", plan.get(), {}, source_node_options));
+  auto source_node_options = ac::SourceNodeOptions{basic_data.schema, basic_data.gen()};
+  ARROW_ASSIGN_OR_RAISE(ac::ExecNode * source,
+                        ac::MakeExecNode("source", plan.get(), {}, source_node_options));
 
-  ARROW_RETURN_NOT_OK(cp::MakeExecNode(
+  ARROW_RETURN_NOT_OK(ac::MakeExecNode(
       "order_by_sink", plan.get(), {source},
-      cp::OrderBySinkNodeOptions{
+      ac::OrderBySinkNodeOptions{
           cp::SortOptions{{cp::SortKey{"a", cp::SortOrder::Descending}}}, &sink_gen}));
 
   return ExecutePlanAndCollectAsTableWithCustomSink(plan, basic_data.schema, sink_gen);
@@ -588,15 +611,15 @@ arrow::Status SourceOrderBySinkExample() {
 arrow::Status SourceHashJoinSinkExample() {
   ARROW_ASSIGN_OR_RAISE(auto input, MakeGroupableBatches());
 
-  cp::Declaration left{"source", cp::SourceNodeOptions{input.schema, input.gen()}};
-  cp::Declaration right{"source", cp::SourceNodeOptions{input.schema, input.gen()}};
+  ac::Declaration left{"source", ac::SourceNodeOptions{input.schema, input.gen()}};
+  ac::Declaration right{"source", ac::SourceNodeOptions{input.schema, input.gen()}};
 
-  cp::HashJoinNodeOptions join_opts{
-      cp::JoinType::INNER,
+  ac::HashJoinNodeOptions join_opts{
+      ac::JoinType::INNER,
       /*left_keys=*/{"str"},
       /*right_keys=*/{"str"}, cp::literal(true), "l_", "r_"};
 
-  cp::Declaration hashjoin{
+  ac::Declaration hashjoin{
       "hashjoin", {std::move(left), std::move(right)}, std::move(join_opts)};
 
   return ExecutePlanAndCollectAsTable(std::move(hashjoin));
@@ -614,19 +637,19 @@ arrow::Status SourceHashJoinSinkExample() {
 /// sink node where output can be obtained as a table.
 arrow::Status SourceKSelectExample() {
   ARROW_ASSIGN_OR_RAISE(auto input, MakeGroupableBatches());
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(*cp::threaded_exec_context()));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ac::ExecPlan> plan,
+                        ac::ExecPlan::Make(*cp::threaded_exec_context()));
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
   ARROW_ASSIGN_OR_RAISE(
-      cp::ExecNode * source,
-      cp::MakeExecNode("source", plan.get(), {},
-                       cp::SourceNodeOptions{input.schema, input.gen()}));
+      ac::ExecNode * source,
+      ac::MakeExecNode("source", plan.get(), {},
+                       ac::SourceNodeOptions{input.schema, input.gen()}));
 
   cp::SelectKOptions options = cp::SelectKOptions::TopKDefault(/*k=*/2, {"i32"});
 
-  ARROW_RETURN_NOT_OK(cp::MakeExecNode("select_k_sink", plan.get(), {source},
-                                       cp::SelectKSinkNodeOptions{options, &sink_gen}));
+  ARROW_RETURN_NOT_OK(ac::MakeExecNode("select_k_sink", plan.get(), {source},
+                                       ac::SelectKSinkNodeOptions{options, &sink_gen}));
 
   auto schema = arrow::schema(
       {arrow::field("i32", arrow::int32()), arrow::field("str", arrow::utf8())});
@@ -653,7 +676,7 @@ arrow::Status ScanFilterWriteExample(const std::string& file_path) {
 
   auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
 
-  cp::Declaration scan{"scan", std::move(scan_node_options)};
+  ac::Declaration scan{"scan", std::move(scan_node_options)};
 
   arrow::AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
@@ -686,11 +709,11 @@ arrow::Status ScanFilterWriteExample(const std::string& file_path) {
 
   arrow::dataset::WriteNodeOptions write_node_options{write_options};
 
-  cp::Declaration write{"write", {std::move(scan)}, std::move(write_node_options)};
+  ac::Declaration write{"write", {std::move(scan)}, std::move(write_node_options)};
 
   // Since the write node has no output we simply run the plan to completion and the
   // data should be written
-  ARROW_RETURN_NOT_OK(cp::DeclarationToStatus(std::move(write)));
+  ARROW_RETURN_NOT_OK(ac::DeclarationToStatus(std::move(write)));
 
   std::cout << "Dataset written to " << base_path << std::endl;
   return arrow::Status::OK();
@@ -708,14 +731,14 @@ arrow::Status ScanFilterWriteExample(const std::string& file_path) {
 arrow::Status SourceUnionSinkExample() {
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
-  cp::Declaration lhs{"source",
-                      cp::SourceNodeOptions{basic_data.schema, basic_data.gen()}};
+  ac::Declaration lhs{"source",
+                      ac::SourceNodeOptions{basic_data.schema, basic_data.gen()}};
   lhs.label = "lhs";
-  cp::Declaration rhs{"source",
-                      cp::SourceNodeOptions{basic_data.schema, basic_data.gen()}};
+  ac::Declaration rhs{"source",
+                      ac::SourceNodeOptions{basic_data.schema, basic_data.gen()}};
   rhs.label = "rhs";
-  cp::Declaration union_plan{
-      "union", {std::move(lhs), std::move(rhs)}, cp::ExecNodeOptions{}};
+  ac::Declaration union_plan{
+      "union", {std::move(lhs), std::move(rhs)}, ac::ExecNodeOptions{}};
 
   return ExecutePlanAndCollectAsTable(std::move(union_plan));
 }
@@ -732,21 +755,21 @@ arrow::Status SourceUnionSinkExample() {
 /// receiving data as batches and the table sink node
 /// which emits the output as a table.
 arrow::Status TableSinkExample() {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
-                        cp::ExecPlan::Make(*cp::threaded_exec_context()));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ac::ExecPlan> plan,
+                        ac::ExecPlan::Make(*cp::threaded_exec_context()));
 
   ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
 
-  auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
+  auto source_node_options = ac::SourceNodeOptions{basic_data.schema, basic_data.gen()};
 
-  ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
-                        cp::MakeExecNode("source", plan.get(), {}, source_node_options));
+  ARROW_ASSIGN_OR_RAISE(ac::ExecNode * source,
+                        ac::MakeExecNode("source", plan.get(), {}, source_node_options));
 
   std::shared_ptr<arrow::Table> output_table;
-  auto table_sink_options = cp::TableSinkNodeOptions{&output_table};
+  auto table_sink_options = ac::TableSinkNodeOptions{&output_table};
 
   ARROW_RETURN_NOT_OK(
-      cp::MakeExecNode("table_sink", plan.get(), {source}, table_sink_options));
+      ac::MakeExecNode("table_sink", plan.get(), {source}, table_sink_options));
   // validate the ExecPlan
   ARROW_RETURN_NOT_OK(plan->Validate());
   std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
@@ -775,8 +798,8 @@ arrow::Status RecordBatchReaderSourceSinkExample() {
   ARROW_ASSIGN_OR_RAISE(auto table, GetTable());
   std::shared_ptr<arrow::RecordBatchReader> reader =
       std::make_shared<arrow::TableBatchReader>(table);
-  cp::Declaration reader_source{"record_batch_reader_source",
-                                cp::RecordBatchReaderSourceNodeOptions{reader}};
+  ac::Declaration reader_source{"record_batch_reader_source",
+                                ac::RecordBatchReaderSourceNodeOptions{reader}};
   return ExecutePlanAndCollectAsTable(std::move(reader_source));
 }
 
@@ -797,7 +820,8 @@ enum ExampleMode {
   WRITE = 11,
   UNION = 12,
   TABLE_SOURCE_TABLE_SINK = 13,
-  RECORD_BATCH_READER_SOURCE = 14
+  RECORD_BATCH_READER_SOURCE = 14,
+  PROJECT_SEQUENCE = 15
 };
 
 int main(int argc, char** argv) {
@@ -831,6 +855,10 @@ int main(int argc, char** argv) {
     case PROJECT:
       PrintBlock("Project Example");
       status = ScanProjectSinkExample();
+      break;
+    case PROJECT_SEQUENCE:
+      PrintBlock("Project Example (using Declaration::Sequence)");
+      status = ScanProjectSequenceSinkExample();
       break;
     case GROUP_AGGREGATION:
       PrintBlock("Aggregate Example");

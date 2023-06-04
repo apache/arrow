@@ -79,6 +79,15 @@ class RunCompressorBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
+  /// \brief Called right before a run of empty values is being closed
+  ///
+  /// Subclasses can override this function to perform an additional action when
+  /// a run of empty values is appended (i.e. run-length is known and a single
+  /// empty value is appended to the inner builder).
+  ///
+  /// \param length the greater than 0 length of the value run being closed
+  virtual Status WillCloseRunOfEmptyValues(int64_t length) { return Status::OK(); }
+
   /// \brief Allocate enough memory for a given number of array elements.
   ///
   /// NOTE: Conservatively resizing a run-length compressed array for a given
@@ -103,8 +112,6 @@ class RunCompressorBuilder : public ArrayBuilder {
   Status AppendNull() final { return AppendNulls(1); }
   Status AppendNulls(int64_t length) override;
 
-  // These two fail with Status::NotImplemented as it is impossible to compress
-  // unknown placeholder values.
   Status AppendEmptyValue() final { return AppendEmptyValues(1); }
   Status AppendEmptyValues(int64_t length) override;
 
@@ -179,9 +186,12 @@ class ARROW_EXPORT RunEndEncodedBuilder : public ArrayBuilder {
 
     ~ValueRunBuilder() override = default;
 
-    Status WillCloseRun(const std::shared_ptr<const Scalar>& value,
-                        int64_t length) override {
-      return ree_builder_.CloseRun(value, length);
+    Status WillCloseRun(const std::shared_ptr<const Scalar>&, int64_t length) override {
+      return ree_builder_.CloseRun(length);
+    }
+
+    Status WillCloseRunOfEmptyValues(int64_t length) override {
+      return ree_builder_.CloseRun(length);
     }
 
    private:
@@ -263,7 +273,7 @@ class ARROW_EXPORT RunEndEncodedBuilder : public ArrayBuilder {
 
   // Pre-condition: !value_run_builder_.has_open_run()
   template <typename RunEndCType>
-  Status DoAppendArray(const ArraySpan& to_append);
+  Status DoAppendArraySlice(const ArraySpan& array, int64_t offset, int64_t length);
 
   template <typename RunEndCType>
   Status DoAppendRunEnd(int64_t run_end);
@@ -276,8 +286,7 @@ class ARROW_EXPORT RunEndEncodedBuilder : public ArrayBuilder {
   /// length_ to reflect the new run.
   ///
   /// Pre-condition: run_length > 0.
-  [[nodiscard]] Status CloseRun(const std::shared_ptr<const Scalar>& value,
-                                int64_t run_length);
+  [[nodiscard]] Status CloseRun(int64_t run_length);
 
   ArrayBuilder& run_end_builder();
   ArrayBuilder& value_builder();

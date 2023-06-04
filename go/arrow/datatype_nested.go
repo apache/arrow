@@ -22,13 +22,23 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 )
 
-type NestedType interface {
-	DataType
-	Fields() []Field
-}
+type (
+	NestedType interface {
+		DataType
+
+		// Fields method provides a copy of NestedType fields
+		// (so it can be safely mutated and will not result in updating the NestedType).
+		Fields() []Field
+	}
+
+	ListLikeType interface {
+		DataType
+		Elem() DataType
+	}
+)
 
 // ListType describes a nested type in which each array slot contains
 // a variable-size sequence of values, all having the same relative type.
@@ -94,11 +104,11 @@ func (t *ListType) ElemField() Field {
 
 func (t *ListType) Fields() []Field { return []Field{t.ElemField()} }
 
-func (ListType) Layout() DataTypeLayout {
+func (*ListType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int32SizeBytes)}}
 }
 
-func (ListType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
+func (*ListType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
 
 type LargeListType struct {
 	ListType
@@ -118,11 +128,11 @@ func (t *LargeListType) Fingerprint() string {
 	return ""
 }
 
-func (LargeListType) Layout() DataTypeLayout {
+func (*LargeListType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int64SizeBytes)}}
 }
 
-func (LargeListType) OffsetTypeTraits() OffsetTraits { return Int64Traits }
+func (*LargeListType) OffsetTypeTraits() OffsetTraits { return Int64Traits }
 
 func LargeListOfField(f Field) *LargeListType {
 	if f.Type == nil {
@@ -131,10 +141,10 @@ func LargeListOfField(f Field) *LargeListType {
 	return &LargeListType{ListType{elem: f}}
 }
 
-// ListOf returns the list type with element type t.
-// For example, if t represents int32, ListOf(t) represents []int32.
+// LargeListOf returns the list type with element type t.
+// For example, if t represents int32, LargeListOf(t) represents []int32.
 //
-// ListOf panics if t is nil or invalid. NullableElem defaults to true
+// LargeListOf panics if t is nil or invalid. NullableElem defaults to true
 func LargeListOf(t DataType) *LargeListType {
 	if t == nil {
 		panic("arrow: nil DataType")
@@ -142,7 +152,7 @@ func LargeListOf(t DataType) *LargeListType {
 	return &LargeListType{ListType{elem: Field{Name: "item", Type: t, Nullable: true}}}
 }
 
-// ListOfNonNullable is like ListOf but NullableElem defaults to false, indicating
+// LargeListOfNonNullable is like ListOf but NullableElem defaults to false, indicating
 // that the child type should be marked as non-nullable.
 func LargeListOfNonNullable(t DataType) *LargeListType {
 	if t == nil {
@@ -227,7 +237,7 @@ func (t *FixedSizeListType) Fingerprint() string {
 
 func (t *FixedSizeListType) Fields() []Field { return []Field{t.ElemField()} }
 
-func (FixedSizeListType) Layout() DataTypeLayout {
+func (*FixedSizeListType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap()}}
 }
 
@@ -288,7 +298,14 @@ func (t *StructType) String() string {
 	return o.String()
 }
 
-func (t *StructType) Fields() []Field   { return t.fields }
+// Fields method provides a copy of StructType fields
+// (so it can be safely mutated and will not result in updating the StructType).
+func (t *StructType) Fields() []Field {
+	fields := make([]Field, len(t.fields))
+	copy(fields, t.fields)
+	return fields
+}
+
 func (t *StructType) Field(i int) Field { return t.fields[i] }
 
 func (t *StructType) FieldByName(name string) (Field, bool) {
@@ -320,7 +337,7 @@ func (t *StructType) Fingerprint() string {
 	return b.String()
 }
 
-func (StructType) Layout() DataTypeLayout {
+func (*StructType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap()}}
 }
 
@@ -379,12 +396,10 @@ func (t *MapType) KeyType() DataType      { return t.KeyField().Type }
 func (t *MapType) ItemField() Field       { return t.value.Elem().(*StructType).Field(1) }
 func (t *MapType) ItemType() DataType     { return t.ItemField().Type }
 func (t *MapType) ValueType() *StructType { return t.value.Elem().(*StructType) }
-func (t *MapType) ValueField() Field {
-	return Field{
-		Name: "entries",
-		Type: t.ValueType(),
-	}
-}
+func (t *MapType) ValueField() Field      { return Field{Name: "entries", Type: t.ValueType()} }
+
+// Elem returns the MapType's element type (if treating MapType as ListLikeType)
+func (t *MapType) Elem() DataType { return t.ValueType() }
 
 func (t *MapType) SetItemNullable(nullable bool) {
 	t.value.Elem().(*StructType).fields[1].Nullable = nullable
@@ -410,7 +425,7 @@ func (t *MapType) Layout() DataTypeLayout {
 	return t.value.Layout()
 }
 
-func (MapType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
+func (*MapType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
 
 type (
 	// UnionTypeCode is an alias to int8 which is the type of the ids
@@ -490,9 +505,16 @@ func (t *unionType) init(fields []Field, typeCodes []UnionTypeCode) {
 	}
 }
 
-func (t unionType) Fields() []Field            { return t.children }
-func (t unionType) TypeCodes() []UnionTypeCode { return t.typeCodes }
-func (t unionType) ChildIDs() []int            { return t.childIDs[:] }
+// Fields method provides a copy of union type fields
+// (so it can be safely mutated and will not result in updating the union type).
+func (t *unionType) Fields() []Field {
+	fields := make([]Field, len(t.children))
+	copy(fields, t.children)
+	return fields
+}
+
+func (t *unionType) TypeCodes() []UnionTypeCode { return t.typeCodes }
+func (t *unionType) ChildIDs() []int            { return t.childIDs[:] }
 
 func (t *unionType) validate(fields []Field, typeCodes []UnionTypeCode, _ UnionMode) error {
 	if len(fields) != len(typeCodes) {
@@ -750,7 +772,22 @@ func (f Field) String() string {
 
 var (
 	_ DataType = (*ListType)(nil)
+	_ DataType = (*LargeListType)(nil)
 	_ DataType = (*FixedSizeListType)(nil)
 	_ DataType = (*StructType)(nil)
 	_ DataType = (*MapType)(nil)
+	_ DataType = (*DenseUnionType)(nil)
+	_ DataType = (*SparseUnionType)(nil)
+
+	_ NestedType = (*ListType)(nil)
+	_ NestedType = (*LargeListType)(nil)
+	_ NestedType = (*FixedSizeListType)(nil)
+	_ NestedType = (*MapType)(nil)
+	_ NestedType = (*DenseUnionType)(nil)
+	_ NestedType = (*SparseUnionType)(nil)
+
+	_ ListLikeType = (*ListType)(nil)
+	_ ListLikeType = (*LargeListType)(nil)
+	_ ListLikeType = (*FixedSizeListType)(nil)
+	_ ListLikeType = (*MapType)(nil)
 )

@@ -21,13 +21,13 @@ package kernels
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/bitutils"
-	"github.com/apache/arrow/go/v12/internal/hashing"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
+	"github.com/apache/arrow/go/v13/internal/hashing"
 )
 
 type HashState interface {
@@ -459,10 +459,15 @@ func hashExec(ctx *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) e
 	return impl.Flush(out)
 }
 
-func uniqueFinalize(ctx *exec.KernelCtx, _ []*exec.ArraySpan) ([]*exec.ArraySpan, error) {
+func uniqueFinalize(ctx *exec.KernelCtx, results []*exec.ArraySpan) ([]*exec.ArraySpan, error) {
 	impl, ok := ctx.State.(HashState)
 	if !ok {
 		return nil, fmt.Errorf("%w: HashState in invalid state", arrow.ErrInvalid)
+	}
+
+	for _, r := range results {
+		// release any pre-allocation we did
+		r.Release()
 	}
 
 	uniques, err := impl.GetDictionary()

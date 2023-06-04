@@ -23,7 +23,7 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 )
 
 var (
@@ -134,6 +134,11 @@ func (n Num) Div(rhs Num) (res, rem Num) {
 	return FromBigInt(out), FromBigInt(remainder)
 }
 
+func (n Num) Pow(rhs Num) Num {
+	b := n.BigInt()
+	return FromBigInt(b.Exp(b, rhs.BigInt(), nil))
+}
+
 func scalePositiveFloat64(v float64, prec, scale int32) (float64, error) {
 	var pscale float64
 	if scale >= -38 && scale <= 38 {
@@ -168,12 +173,16 @@ func fromPositiveFloat64(v float64, prec, scale int32) (Num, error) {
 // Aren't floating point values so much fun?
 //
 // example value to use:
-//    v := float32(1.8446746e+15)
+//
+//	v := float32(1.8446746e+15)
 //
 // You'll end up with a different values if you do:
-// 	  FromFloat64(float64(v), 20, 4)
+//
+//	FromFloat64(float64(v), 20, 4)
+//
 // vs
-//    FromFloat32(v, 20, 4)
+//
+//	FromFloat32(v, 20, 4)
 //
 // because float64(v) == 1844674629206016 rather than 1844674600000000
 func fromPositiveFloat32(v float32, prec, scale int32) (Num, error) {
@@ -215,6 +224,8 @@ func FromFloat64(v float64, prec, scale int32) (Num, error) {
 	return fromPositiveFloat64(v, prec, scale)
 }
 
+var pt5 = big.NewFloat(0.5)
+
 func FromString(v string, prec, scale int32) (n Num, err error) {
 	// time for some math!
 	// Our input precision means "number of digits of precision" but the
@@ -250,8 +261,19 @@ func FromString(v string, prec, scale int32) (n Num, err error) {
 		return
 	}
 
+	// Since we're going to truncate this to get an integer, we need to round
+	// the value instead because of edge cases so that we match how other implementations
+	// (e.g. C++) handles Decimal values. So if we're negative we'll subtract 0.5 and if
+	// we're positive we'll add 0.5.
+	out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).SetPrec(precInBits)
+	if out.Signbit() {
+		out.Sub(out, pt5)
+	} else {
+		out.Add(out, pt5)
+	}
+
 	var tmp big.Int
-	val, _ := out.Mul(out, big.NewFloat(math.Pow10(int(scale)))).SetPrec(precInBits).Int(&tmp)
+	val, _ := out.Int(&tmp)
 	if val.BitLen() > 127 {
 		return Num{}, errors.New("bitlen too large for decimal128")
 	}
@@ -297,7 +319,9 @@ func (n Num) HighBits() int64 { return n.hi }
 // Sign returns:
 //
 // -1 if x <  0
-//  0 if x == 0
+//
+//	0 if x == 0
+//
 // +1 if x >  0
 func (n Num) Sign() int {
 	if n == (Num{}) {
@@ -321,10 +345,12 @@ func (n Num) BigInt() *big.Int {
 	return toBigIntPositive(n)
 }
 
+// Greater returns true if the value represented by n is > other
 func (n Num) Greater(other Num) bool {
 	return other.Less(n)
 }
 
+// GreaterEqual returns true if the value represented by n is >= other
 func (n Num) GreaterEqual(other Num) bool {
 	return !n.Less(other)
 }
@@ -332,6 +358,48 @@ func (n Num) GreaterEqual(other Num) bool {
 // Less returns true if the value represented by n is < other
 func (n Num) Less(other Num) bool {
 	return n.hi < other.hi || (n.hi == other.hi && n.lo < other.lo)
+}
+
+// LessEqual returns true if the value represented by n is <= other
+func (n Num) LessEqual(other Num) bool {
+	return !n.Greater(other)
+}
+
+// Max returns the largest Decimal128 that was passed in the arguments
+func Max(first Num, rest ...Num) Num {
+	answer := first
+	for _, number := range rest {
+		if number.Greater(answer) {
+			answer = number
+		}
+	}
+	return answer
+}
+
+// Min returns the smallest Decimal128 that was passed in the arguments
+func Min(first Num, rest ...Num) Num {
+	answer := first
+	for _, number := range rest {
+		if number.Less(answer) {
+			answer = number
+		}
+	}
+	return answer
+}
+
+// Cmp compares the numbers represented by n and other and returns:
+//
+//	+1 if n > other
+//	 0 if n == other
+//	-1 if n < other
+func (n Num) Cmp(other Num) int {
+	switch {
+	case n.Greater(other):
+		return 1
+	case n.Less(other):
+		return -1
+	}
+	return 0
 }
 
 // IncreaseScaleBy returns a new decimal128.Num with the value scaled up by

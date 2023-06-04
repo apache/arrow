@@ -31,7 +31,7 @@
 #include <vector>
 
 #include "arrow/compute/api_aggregate.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/visibility.h"
 #include "arrow/result.h"

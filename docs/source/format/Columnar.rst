@@ -325,6 +325,31 @@ Generally the first slot in the offsets array is 0, and the last slot
 is the length of the values array. When serializing this layout, we
 recommend normalizing the offsets to start at 0.
 
+**Example Layout: ``VarBinary``**
+
+``['joe', null, null, 'mark']``
+
+will be represented as follows: ::
+
+  * Length: 4, Null count: 2
+  * Validity bitmap buffer:
+
+    | Byte 0 (validity bitmap) | Bytes 1-63            |
+    |--------------------------|-----------------------|
+    | 00001001                 | 0 (padding)           |
+
+  * Offsets buffer:
+
+    | Bytes 0-19     | Bytes 20-63           |
+    |----------------|-----------------------|
+    | 0, 3, 3, 3, 7  | unspecified           |
+
+   * Value buffer:
+
+    | Bytes 0-6      | Bytes 7-63           |
+    |----------------|----------------------|
+    | joemark        | unspecified          |
+
 .. _variable-size-list-layout:
 
 Variable-size List Layout
@@ -501,19 +526,15 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
 
         * Offsets buffer:
 
-          | Bytes 0-19     |
-          |----------------|
-          | 0, 3, 3, 3, 7  |
+          | Bytes 0-19     | Bytes 20-63           |
+          |----------------|-----------------------|
+          | 0, 3, 3, 3, 7  | unspecified           |
 
-         * Values array:
-            * Length: 7, Null count: 0
-            * Validity bitmap buffer: Not required
+         * Value buffer:
 
-            * Value buffer:
-
-              | Bytes 0-6      |
-              |----------------|
-              | joemark        |
+          | Bytes 0-6      | Bytes 7-63            |
+          |----------------|-----------------------|
+          | joemark        | unspecified           |
 
       * field-1 array (int32 array):
         * Length: 4, Null count: 1
@@ -694,13 +715,11 @@ will have the following layout: ::
           |------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
           | 0          | 0           | 0           | 3           | 3           | 3           | 7           | unspecified |
 
-        * Values array (VarBinary):
-          * Length: 7,  Null count: 0
-          * Validity bitmap buffer: Not required
+        * Values buffer:
 
-            | Bytes 0-6  | Bytes 7-63            |
-            |------------|-----------------------|
-            | joemark    | unspecified (padding) |
+          | Bytes 0-6  | Bytes 7-63            |
+          |------------|-----------------------|
+          | joemark    | unspecified (padding) |
 
 Only the slot in the array corresponding to the type index is considered. All
 "unselected" values are ignored and could be any semantically correct array
@@ -1326,4 +1345,4 @@ the Arrow spec.
 .. _Intel performance guide: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
 .. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
-.. _Parquet: https://parquet.apache.org/documentation/latest/
+.. _Parquet: https://parquet.apache.org/docs/

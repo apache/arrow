@@ -54,21 +54,39 @@ on:
 {% endmacro %}
 
 {%- macro github_install_archery() -%}
-  - name: Set up Python
+  - name: Set up Python by actions/setup-python
+    if: runner.arch == 'X64'
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
       python-version: 3.8
+  - name: Set up Python by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt update
+      sudo apt-get install -y python3-pip
+      pip install -U pip
+      echo "$HOME/.local/bin" >>"$GITHUB_PATH"
   - name: Install Archery
     shell: bash
     run: pip install -e arrow/dev/archery[all]
 {% endmacro %}
 
 {%- macro github_upload_releases(pattern) -%}
-  - name: Set up Python
+  - name: Set up Python by actions/setup-python
+    if: runner.arch == 'X64'
     uses: actions/setup-python@v4
     with:
       python-version: 3.8
+  - name: Set up Python by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt update
+      sudo apt install -y \
+        libgit2-dev \
+        libpython3-dev \
+        python3-pip
+      sudo python3 -m pip install --upgrade pip
   - name: Checkout Crossbow
     uses: actions/checkout@v3
     with:
@@ -76,7 +94,9 @@ on:
       ref: {{ job.branch }}
   - name: Setup Crossbow
     shell: bash
-    run: pip install -e arrow/dev/archery[crossbow]
+    run: |
+      python3 -m pip install -e arrow/dev/archery[crossbow]
+      echo "$HOME/.local/bin" >> $GITHUB_PATH
   - name: Upload artifacts
     shell: bash
     run: |
@@ -112,11 +132,20 @@ on:
 
 {%- macro github_upload_gemfury(pattern) -%}
   {%- if arrow.is_default_branch() -%}
+  - name: Set up Ruby by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt update
+      sudo apt install -y ruby-full
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      path=$(ls {{ pattern }})
-      curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+      PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
+      gem install --user-install gemfury
+      fury \
+        --api-token=${CROSSBOW_GEMFURY_TOKEN} \
+        --as=${CROSSBOW_GEMFURY_ORG} \
+        {{ pattern }}
     env:
       CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
       CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
@@ -167,61 +196,6 @@ on:
       conda install -y anaconda-client
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
     displayName: Upload packages to Anaconda
-  {% endif %}
-{% endmacro %}
-
-{%- macro travis_checkout_arrow() -%}
-  - git clone --no-checkout --branch {{ arrow.branch }} {{ arrow.remote }} arrow
-  - git -C arrow checkout {{ arrow.head }}
-  - git -C arrow submodule update --init --recursive
-{% endmacro %}
-
-{%- macro travis_install_archery() -%}
-  - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install docker-compose
-  - sudo -H pip3 install -e arrow/dev/archery[docker]
-{% endmacro %}
-
-{%- macro travis_docker_login() -%}
-  - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin
-{% endmacro %}
-
-{%- macro travis_upload_releases(pattern) -%}
-  - sudo -H pip3 install pygit2==1.8.0 cryptography==36
-  - sudo -H pip3 install -e arrow/dev/archery[crossbow]
-  - |
-    archery crossbow \
-      --queue-path $(pwd) \
-      --queue-remote {{ queue_remote_url }} \
-      upload-artifacts \
-      --sha {{ task.branch }} \
-      --tag {{ task.tag }} \
-    {% if pattern is string %}
-      "{{ pattern }}"
-    {% elif pattern is iterable %}
-      {% for p in pattern %}
-      "{{ p }}" {{ "\\" if not loop.last else "" }}
-      {% endfor %}
-    {% endif %}
-  - git fetch origin {{ job.branch }}:remotes/origin/{{ job.branch }}
-  - |
-    archery crossbow \
-      --queue-path $(pwd) \
-      --queue-remote {{ queue_remote_url }} \
-      status \
-      --task-filter '{{ task.name }}' \
-      --no-fetch \
-      --validate \
-      {{ job.branch }}
-{% endmacro %}
-
-{%- macro travis_upload_gemfury(pattern) -%}
-  {%- if arrow.is_default_branch() -%}
-  - |
-    WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
-    curl \
-      -F "package=@${WHEEL_PATH}" \
-      "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
   {% endif %}
 {% endmacro %}
 
@@ -320,12 +294,12 @@ on:
       path: repo/libarrow/bin/windows
   {% endif %}
   {% if get_nix %}
-    {% for os in ["ubuntu-18.04", "ubuntu-22.04", "centos-7"] %}
-  - name: Get {{ os }} binary
+    {% for openssl_version in ["1.0", "1.1", "3.0"] %}
+  - name: Get Linux OpenSSL {{ openssl_version }} binary
     uses: actions/download-artifact@v3
     with:
-      name: r-lib__libarrow__bin__{{ os }}
-      path: repo/libarrow/bin/{{ os }}
+      name: r-lib__libarrow__bin__linux-openssl-{{ openssl_version }}
+      path: repo/libarrow/bin/linux-openssl-{{ openssl_version }}
     {% endfor %}
   {% endif %}
   - name: Get src pkg
@@ -380,6 +354,7 @@ on:
             "AWS_ACCESS_KEY_ID": '${{ secrets.AWS_ACCESS_KEY_ID }}',
             "AWS_SECRET_ACCESS_KEY": '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
             "SCCACHE_BUCKET": '${{ secrets.SCCACHE_BUCKET }}',
+            "SCCACHE_REGION": '${{ secrets.SCCACHE_REGION }}',
             "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
           }
  %}
@@ -393,6 +368,7 @@ on:
             "AWS_ACCESS_KEY_ID": '$(AWS_ACCESS_KEY_ID)',
             "AWS_SECRET_ACCESS_KEY": '$(AWS_SECRET_ACCESS_KEY)',
             "SCCACHE_BUCKET": '$(SCCACHE_BUCKET)',
+            "SCCACHE_REGION": '$(SCCACHE_REGION)',
             "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
           }
   %}

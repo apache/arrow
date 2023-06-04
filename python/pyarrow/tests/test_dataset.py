@@ -35,6 +35,7 @@ import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.csv
+import pyarrow.json
 import pyarrow.feather
 import pyarrow.fs as fs
 from pyarrow.tests.util import (change_cwd, _filesystem_uri,
@@ -714,15 +715,16 @@ def test_expression_arithmetic_operators():
 
 def test_partition_keys():
     a, b, c = [ds.field(f) == f for f in 'abc']
-    assert ds._get_partition_keys(a) == {'a': 'a'}
-    assert ds._get_partition_keys(a & b & c) == {f: f for f in 'abc'}
+    assert ds.get_partition_keys(a) == {'a': 'a'}
+    assert ds.get_partition_keys(a) == ds._get_partition_keys(a)
+    assert ds.get_partition_keys(a & b & c) == {f: f for f in 'abc'}
 
     nope = ds.field('d') >= 3
-    assert ds._get_partition_keys(nope) == {}
-    assert ds._get_partition_keys(a & nope) == {'a': 'a'}
+    assert ds.get_partition_keys(nope) == {}
+    assert ds.get_partition_keys(a & nope) == {'a': 'a'}
 
     null = ds.field('a').is_null()
-    assert ds._get_partition_keys(null) == {'a': None}
+    assert ds.get_partition_keys(null) == {'a': None}
 
 
 @pytest.mark.parquet
@@ -804,6 +806,12 @@ def test_file_format_pickling():
             skip_rows=3, column_names=['foo'])),
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
             skip_rows=3, block_size=2**20)),
+        ds.JsonFileFormat(),
+        ds.JsonFileFormat(
+            parse_options=pa.json.ParseOptions(newlines_in_values=True,
+                                               unexpected_field_behavior="ignore")),
+        ds.JsonFileFormat(read_options=pa.json.ReadOptions(
+            use_threads=False, block_size=14)),
     ]
     try:
         formats.append(ds.OrcFileFormat())
@@ -834,6 +842,12 @@ def test_fragment_scan_options_pickling():
             convert_options=pa.csv.ConvertOptions(strings_can_be_null=True)),
         ds.CsvFragmentScanOptions(
             read_options=pa.csv.ReadOptions(block_size=2**16)),
+        ds.JsonFragmentScanOptions(),
+        ds.JsonFragmentScanOptions(
+            pa.json.ParseOptions(newlines_in_values=False,
+                                 unexpected_field_behavior="error")),
+        ds.JsonFragmentScanOptions(
+            read_options=pa.json.ReadOptions(use_threads=True, block_size=512)),
     ]
 
     if pq is not None:
@@ -957,6 +971,28 @@ def test_make_csv_fragment_from_buffer(dataset_reader):
 
     csv_format = ds.CsvFileFormat()
     fragment = csv_format.make_fragment(buffer)
+
+    # When buffer, fragment open returns a BufferReader, not NativeFile
+    assert isinstance(fragment.open(), pa.BufferReader)
+
+    expected = pa.table([['a', 'b', 'c'],
+                         [12, 11, 10],
+                         ['dog', 'cat', 'rabbit']],
+                        names=['alpha', 'num', 'animal'])
+    assert dataset_reader.to_table(fragment).equals(expected)
+
+    pickled = pickle.loads(pickle.dumps(fragment))
+    assert dataset_reader.to_table(pickled).equals(fragment.to_table())
+
+
+def test_make_json_fragment_from_buffer(dataset_reader):
+    content = '{"alpha" : "a", "num": 12, "animal" : "dog"}\n' + \
+        '{"alpha" : "b", "num": 11, "animal" : "cat"}\n' + \
+        '{"alpha" : "c", "num": 10, "animal" : "rabbit"}\n'
+    buffer = pa.py_buffer(content.encode('utf-8'))
+
+    json_format = ds.JsonFileFormat()
+    fragment = json_format.make_fragment(buffer)
 
     # When buffer, fragment open returns a BufferReader, not NativeFile
     assert isinstance(fragment.open(), pa.BufferReader)
@@ -3173,6 +3209,69 @@ def test_csv_fragment_options(tempdir, dataset_reader):
         pa.table({'col0': pa.array(['foo', 'spam', 'MYNULL'])}))
 
 
+@pytest.mark.pandas
+def test_json_format(tempdir, dataset_reader):
+    table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.json')
+    out = table.to_pandas().to_json(orient='records')[1:-1].replace('},{', '}\n{')
+    with open(path, 'w') as f:
+        f.write(out)
+
+    dataset = ds.dataset(path, format=ds.JsonFileFormat())
+    result = dataset_reader.to_table(dataset)
+    assert result.equals(table)
+
+    assert_dataset_fragment_convenience_methods(dataset)
+
+    dataset = ds.dataset(path, format='json')
+    result = dataset_reader.to_table(dataset)
+    assert result.equals(table)
+
+
+def test_json_format_options(tempdir, dataset_reader):
+    table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.json')
+    out = table.to_pandas().to_json(orient='records')[1:-1].replace('},{', '}\n{')
+    with open(path, 'w') as f:
+        f.write(out)
+
+    with pytest.raises(ValueError,
+                       match="try to increase block size"):
+        dataset = ds.dataset(path, format=ds.JsonFileFormat(
+            read_options=pa.json.ReadOptions(block_size=4)))
+
+    dataset = ds.dataset(path, format=ds.JsonFileFormat(
+        read_options=pa.json.ReadOptions(block_size=64)))
+    result = dataset_reader.to_table(dataset)
+    assert result.equals(table)
+
+
+def test_json_fragment_options(tempdir, dataset_reader):
+    table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+
+    path = str(tempdir / 'test.json')
+    out = table.to_pandas().to_json(orient='records')[1:-1].replace('},{', '}\n{')
+    with open(path, 'w') as f:
+        f.write(out)
+
+    with pytest.raises(ValueError,
+                       match="try to increase block size"):
+        options = ds.JsonFragmentScanOptions(
+            read_options=pa.json.ReadOptions(block_size=4))
+        dataset = ds.dataset(path, format=ds.JsonFileFormat(options))
+
+    options = ds.JsonFragmentScanOptions(
+        read_options=pa.json.ReadOptions(block_size=64))
+    dataset = ds.dataset(path, format=ds.JsonFileFormat(options))
+    result = dataset_reader.to_table(dataset)
+    assert result.equals(table)
+
+
 def test_encoding(tempdir, dataset_reader):
     path = str(tempdir / 'test.csv')
 
@@ -3640,12 +3739,12 @@ def test_dataset_preserved_partitioning(tempdir):
     # through discovery, but without partitioning
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
-    assert dataset.partitioning is None
+    assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
 
     # through discovery, with hive partitioning but not specified
     full_table, path = _create_partitioned_dataset(tempdir)
     dataset = ds.dataset(path)
-    assert dataset.partitioning is None
+    assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
 
     # through discovery, with hive partitioning (from a partitioning factory)
     dataset = ds.dataset(path, partitioning="hive")
@@ -5071,6 +5170,59 @@ def test_dataset_partition_with_slash(tmpdir):
     file_paths = sorted(os.listdir(path))
 
     assert encoded_paths == file_paths
+
+
+@pytest.mark.parquet
+def test_write_dataset_preserve_nullability(tempdir):
+    # GH-35730
+    schema_nullable = pa.schema([
+        pa.field("x", pa.int64(), nullable=False),
+        pa.field("y", pa.int64(), nullable=True)])
+
+    arrays = [[1, 2, 3], [None, 5, None]]
+    table = pa.Table.from_arrays(arrays, schema=schema_nullable)
+
+    pq.write_to_dataset(table, tempdir / "nulltest1")
+    dataset = ds.dataset(tempdir / "nulltest1", format="parquet")
+    # nullability of field is preserved
+    assert dataset.to_table().schema.equals(schema_nullable)
+
+    ds.write_dataset(table, tempdir / "nulltest2", format="parquet")
+    dataset = ds.dataset(tempdir / "nulltest2", format="parquet")
+    assert dataset.to_table().schema.equals(schema_nullable)
+
+    ds.write_dataset([table, table], tempdir / "nulltest3", format="parquet")
+    dataset = ds.dataset(tempdir / "nulltest3", format="parquet")
+    assert dataset.to_table().schema.equals(schema_nullable)
+
+
+def test_write_dataset_preserve_field_metadata(tempdir):
+    schema_metadata = pa.schema([
+        pa.field("x", pa.int64(), metadata={b'foo': b'bar'}),
+        pa.field("y", pa.int64())])
+
+    schema_no_meta = pa.schema([
+        pa.field("x", pa.int64()),
+        pa.field("y", pa.int64())])
+
+    arrays = [[1, 2, 3], [None, 5, None]]
+    table = pa.Table.from_arrays(arrays, schema=schema_metadata)
+    table_no_meta = pa.Table.from_arrays(arrays, schema=schema_no_meta)
+
+    # If no schema is provided the schema of the first table will be used
+    ds.write_dataset([table, table_no_meta], tempdir / "test1", format="parquet")
+    dataset = ds.dataset(tempdir / "test1", format="parquet")
+    assert dataset.to_table().schema.equals(schema_metadata, check_metadata=True)
+
+    ds.write_dataset([table_no_meta, table], tempdir / "test2", format="parquet")
+    dataset = ds.dataset(tempdir / "test2", format="parquet")
+    assert dataset.to_table().schema.equals(schema_no_meta, check_metadata=True)
+
+    # If a schema is provided it will override the schema of the input
+    ds.write_dataset([table_no_meta, table], tempdir / "test3", format="parquet",
+                     schema=schema_metadata)
+    dataset = ds.dataset(tempdir / "test3", format="parquet")
+    assert dataset.to_table().schema.equals(schema_metadata, check_metadata=True)
 
 
 @pytest.mark.parametrize('dstype', [

@@ -21,10 +21,9 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (check_status, _Weakrefable, Field, MemoryPool,
-                          ensure_type, maybe_unbox_memory_pool,
+from pyarrow.lib cimport (_Weakrefable, MemoryPool,
+                          maybe_unbox_memory_pool,
                           get_input_stream, pyarrow_wrap_table,
-                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type,
                           pyarrow_wrap_schema, pyarrow_unwrap_schema)
 
 
@@ -41,8 +40,6 @@ cdef class ReadOptions(_Weakrefable):
         This will determine multi-threading granularity as well as
         the size of individual chunks in the Table.
     """
-    cdef:
-        CJSONReadOptions options
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -85,6 +82,24 @@ cdef class ReadOptions(_Weakrefable):
             self.block_size
         )
 
+    def equals(self, ReadOptions other):
+        return (
+            self.use_threads == other.use_threads and
+            self.block_size == other.block_size
+        )
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+
+    @staticmethod
+    cdef ReadOptions wrap(CJSONReadOptions options):
+        out = ReadOptions()
+        out.options = options  # shallow copy
+        return out
+
 
 cdef class ParseOptions(_Weakrefable):
     """
@@ -107,9 +122,6 @@ cdef class ParseOptions(_Weakrefable):
          - "infer": unexpected JSON fields are type-inferred and included in
            the output
     """
-
-    cdef:
-        CJSONParseOptions options
 
     __slots__ = ()
 
@@ -198,6 +210,25 @@ cdef class ParseOptions(_Weakrefable):
             )
 
         self.options.unexpected_field_behavior = v
+
+    def equals(self, ParseOptions other):
+        return (
+            self.explicit_schema == other.explicit_schema and
+            self.newlines_in_values == other.newlines_in_values and
+            self.unexpected_field_behavior == other.unexpected_field_behavior
+        )
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+
+    @staticmethod
+    cdef ParseOptions wrap(CJSONParseOptions options):
+        out = ParseOptions()
+        out.options = options  # shallow copy
+        return out
 
 
 cdef _get_reader(input_file, shared_ptr[CInputStream]* out):

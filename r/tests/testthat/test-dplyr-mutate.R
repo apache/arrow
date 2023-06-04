@@ -18,6 +18,8 @@
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
+skip_if_not_available("acero")
+
 tbl <- example_data
 # Add some better string data
 tbl$verses <- verses[[1]]
@@ -67,6 +69,17 @@ test_that("transmute", {
       select(int, chr) %>%
       filter(int > 5) %>%
       transmute(int = int + 6L) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("transmute after group_by", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, dbl, chr) %>%
+      group_by(chr, int) %>%
+      transmute(dbl + 1) %>%
       collect(),
     tbl
   )
@@ -395,6 +408,15 @@ test_that("Can mutate after group_by as long as there are no aggregations", {
       collect(),
     tbl
   )
+  # Check the column order when .keep = "none"
+  compare_dplyr_binding(
+    .input %>%
+      select(chr, int) %>%
+      group_by(chr) %>%
+      mutate(int + 1, .keep = "none") %>%
+      collect(),
+    tbl
+  )
   expect_warning(
     tbl %>%
       Table$create() %>%
@@ -648,5 +670,43 @@ test_that("Can use across() within transmute()", {
       ) %>%
       collect(),
     example_data
+  )
+})
+
+test_that("across() does not select grouping variables within mutate()", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, dbl, chr) %>%
+      group_by(chr) %>%
+      mutate(across(everything(), round)) %>%
+      collect(),
+    example_data
+  )
+
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      group_by(chr) %>%
+      mutate(across(chr, as.character)),
+    "Column `chr` doesn't exist"
+  )
+})
+
+test_that("across() does not select grouping variables within transmute()", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, dbl, chr) %>%
+      group_by(chr) %>%
+      transmute(across(everything(), round)) %>%
+      collect(),
+    example_data
+  )
+
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      group_by(chr) %>%
+      transmute(across(chr, as.character)),
+    "Column `chr` doesn't exist"
   )
 })

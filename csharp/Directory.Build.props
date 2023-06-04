@@ -29,12 +29,12 @@
     <Product>Apache Arrow library</Product>
     <Copyright>Copyright 2016-2019 The Apache Software Foundation</Copyright>
     <Company>The Apache Software Foundation</Company>
-    <Version>12.0.0-SNAPSHOT</Version>
+    <Version>13.0.0-SNAPSHOT</Version>
   </PropertyGroup>
 
   <PropertyGroup>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <LangVersion>8.0</LangVersion>
+    <LangVersion>latest</LangVersion>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(CSharpDir)ApacheArrow.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>

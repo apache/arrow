@@ -21,9 +21,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -373,12 +373,13 @@ func (s *UnionFactorySuite) TestMakeDenseUnions() {
 
 	children := make([]arrow.Array, 4)
 	children[0], _, _ = array.FromJSON(s.mem, arrow.BinaryTypes.String, strings.NewReader(`["abc", "def", "xyz"]`))
+	defer children[0].Release()
 	children[1], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Uint8, strings.NewReader(`[10, 20, 30]`))
+	defer children[1].Release()
 	children[2], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64, strings.NewReader(`[1.618, 2.718, 3.142]`))
+	defer children[2].Release()
 	children[3], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[-12]`))
-	for _, c := range children {
-		defer c.Release()
-	}
+	defer children[3].Release()
 
 	fieldNames := []string{"str", "int1", "real", "int2"}
 
@@ -458,6 +459,46 @@ func (s *UnionFactorySuite) TestMakeDenseUnions() {
 	})
 }
 
+func (s *UnionFactorySuite) TestDenseUnionStringRoundTrip() {
+	// typeIDs:                  {0, 1, 2, 0, 1, 3, 2, 0, 2, 1}
+	offsets := s.offsetsFromSlice(0, 0, 0, 1, 1, 0, 1, 2, 1, 2)
+	defer offsets.Release()
+
+	children := make([]arrow.Array, 4)
+	children[0], _, _ = array.FromJSON(s.mem, arrow.BinaryTypes.String, strings.NewReader(`["abc", "def", "xyz"]`))
+	defer children[0].Release()
+	children[1], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Uint8, strings.NewReader(`[10, 20, 30]`))
+	defer children[1].Release()
+	children[2], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64, strings.NewReader(`[1.618, 2.718, 3.142]`))
+	defer children[2].Release()
+	children[3], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8, strings.NewReader(`[-12]`))
+	defer children[3].Release()
+
+	fields := []string{"str", "int1", "real", "int2"}
+
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(s.T(), 0)
+
+	dt := arrow.DenseUnionFromArrays(children, fields, s.codes)
+	arr, err := array.NewDenseUnionFromArraysWithFieldCodes(s.logicalTypeIDs, offsets, children, fields, s.codes)
+	s.NoError(err)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDenseUnionBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		s.NoError(b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.DenseUnion)
+	defer arr1.Release()
+
+	s.True(array.Equal(arr, arr1))
+}
+
 func (s *UnionFactorySuite) TestMakeSparse() {
 	children := make([]arrow.Array, 4)
 	children[0], _, _ = array.FromJSON(s.mem, arrow.BinaryTypes.String,
@@ -531,6 +572,47 @@ func (s *UnionFactorySuite) TestMakeSparse() {
 		_, err := array.NewSparseUnionFromArrays(s.typeIDs, children)
 		s.Error(err)
 	})
+}
+
+func (s *UnionFactorySuite) TestSparseUnionStringRoundTrip() {
+	children := make([]arrow.Array, 4)
+	children[0], _, _ = array.FromJSON(s.mem, arrow.BinaryTypes.String,
+		strings.NewReader(`["abc", "", "", "def", "", "", "", "xyz", "", ""]`))
+	defer children[0].Release()
+	children[1], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Uint8,
+		strings.NewReader(`[0, 10, 0, 0, 20, 0, 0, 0, 0, 30]`))
+	defer children[1].Release()
+	children[2], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Float64,
+		strings.NewReader(`[0.0, 0.0, 1.618, 0.0, 0.0, 0.0, 2.718, 0.0, 3.142, 0.0]`))
+	defer children[2].Release()
+	children[3], _, _ = array.FromJSON(s.mem, arrow.PrimitiveTypes.Int8,
+		strings.NewReader(`[0, 0, 0, 0, 0, -12, 0, 0, 0, 0]`))
+	defer children[3].Release()
+
+	fields := []string{"str", "int1", "real", "int2"}
+
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(s.T(), 0)
+
+	dt := arrow.SparseUnionFromArrays(children, fields, s.codes)
+
+	arr, err := array.NewSparseUnionFromArraysWithFieldCodes(s.logicalTypeIDs, children, fields, s.codes)
+	s.NoError(err)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewSparseUnionBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		s.NoError(b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.SparseUnion)
+	defer arr1.Release()
+
+	s.True(array.Equal(arr, arr1))
 }
 
 type UnionBuilderSuite struct {

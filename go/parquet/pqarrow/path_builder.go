@@ -17,14 +17,15 @@
 package pqarrow
 
 import (
+	"fmt"
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/bitutils"
-	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
+	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
 	"golang.org/x/xerrors"
 )
 
@@ -399,7 +400,7 @@ func (p *pathBuilder) Visit(arr arrow.Array) error {
 		p.maybeAddNullable(arr)
 		larr := arr.(*array.FixedSizeList)
 		listSize := larr.DataType().(*arrow.FixedSizeListType).Len()
-		// technically we could encoded fixed sized lists with two level encodings
+		// technically we could encode fixed sized lists with two level encodings
 		// but we always use 3 level encoding, so we increment def levels as well
 		p.info.maxDefLevel++
 		p.info.maxRepLevel++
@@ -412,7 +413,20 @@ func (p *pathBuilder) Visit(arr arrow.Array) error {
 		// if arr.data.offset > 0, slice?
 		return p.Visit(larr.ListValues())
 	case arrow.DICTIONARY:
-		return xerrors.New("dictionary types not implemented yet")
+		// only currently handle dictionaryarray where the dictionary
+		// is a primitive type
+		dictArr := arr.(*array.Dictionary)
+		valType := dictArr.DataType().(*arrow.DictionaryType).ValueType
+		if _, ok := valType.(arrow.NestedType); ok {
+			return fmt.Errorf("%w: writing DictionaryArray with nested dictionary type not yet supported",
+				arrow.ErrNotImplemented)
+		}
+		if dictArr.Dictionary().NullN() > 0 {
+			return fmt.Errorf("%w: writing DictionaryArray with null encoded in dictionary not yet supported",
+				arrow.ErrNotImplemented)
+		}
+		p.addTerminalInfo(arr)
+		return nil
 	case arrow.STRUCT:
 		p.maybeAddNullable(arr)
 		infoBackup := p.info
@@ -426,7 +440,7 @@ func (p *pathBuilder) Visit(arr arrow.Array) error {
 		}
 		return nil
 	case arrow.EXTENSION:
-		return xerrors.New("extension types not implemented yet")
+		return p.Visit(arr.(array.ExtensionArray).Storage())
 	case arrow.SPARSE_UNION, arrow.DENSE_UNION:
 		return xerrors.New("union types aren't supported in parquet")
 	default:

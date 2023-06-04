@@ -14,12 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build go1.18 && noasm
+//go:build go1.18 && (noasm || !amd64)
 
 package kernels
 
 import (
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
 	"golang.org/x/exp/constraints"
 )
 

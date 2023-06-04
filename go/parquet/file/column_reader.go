@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v12/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v13/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -134,6 +134,8 @@ type columnChunkReader struct {
 	// is set when an error is encountered
 	err          error
 	defLvlBuffer []int16
+
+	newDictionary bool
 }
 
 // NewColumnReader returns a column reader for the provided column initialized with the given pagereader that will
@@ -225,6 +227,7 @@ func (c *columnChunkReader) configureDict(page *DictionaryPage) error {
 		return xerrors.New("parquet: dictionary index must be plain encoding")
 	}
 
+	c.newDictionary = true
 	c.curDecoder = c.decoders[enc]
 	return nil
 }

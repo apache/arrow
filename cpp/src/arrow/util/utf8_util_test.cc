@@ -346,6 +346,9 @@ TEST(SkipUTF8BOM, Basics) {
   CheckTruncated("\xef\xbb");
 }
 
+// Currently a known issue with Valgrind and wide string AVX2 instructions
+// https://sourceware.org/bugzilla/show_bug.cgi?id=22954
+#ifndef ARROW_VALGRIND
 TEST(UTF8ToWideString, Basics) {
   auto CheckOk = [](const std::string& s, const std::wstring& expected) -> void {
     ASSERT_OK_AND_ASSIGN(std::wstring ws, UTF8ToWideString(s));
@@ -366,6 +369,7 @@ TEST(UTF8ToWideString, Basics) {
   CheckInvalid("\xff");
   CheckInvalid("h\xc3");
 }
+#endif
 
 TEST(WideStringToUTF8, Basics) {
   auto CheckOk = [](const std::wstring& ws, const std::string& expected) -> void {

@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"

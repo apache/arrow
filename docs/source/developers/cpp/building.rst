@@ -317,7 +317,7 @@ several optional system components which you can opt into building by passing
 boolean flags to ``cmake``.
 
 * ``-DARROW_BUILD_UTILITIES=ON`` : Build Arrow commandline utilities
-* ``-DARROW_COMPUTE=ON``: Computational kernel functions and other support
+* ``-DARROW_COMPUTE=ON``: Build all computational kernel functions
 * ``-DARROW_CSV=ON``: CSV reader module
 * ``-DARROW_CUDA=ON``: CUDA integration for GPU development. Depends on NVIDIA
   CUDA toolkit. The CUDA toolchain used to build the library can be customized
@@ -340,8 +340,6 @@ boolean flags to ``cmake``.
 * ``-DARROW_ORC=ON``: Arrow integration with Apache ORC
 * ``-DARROW_PARQUET=ON``: Apache Parquet libraries and Arrow integration
 * ``-DPARQUET_REQUIRE_ENCRYPTION=ON``: Parquet Modular Encryption
-* ``-DARROW_PLASMA=ON``: Plasma Shared Memory Object Store
-* ``-DARROW_PLASMA_JAVA_CLIENT=ON``: Build Java client for Plasma
 * ``-DARROW_PYTHON=ON``: This option is deprecated since 10.0.0. This
   will be removed in a future release. Use CMake presets instead. Or
   you can enable ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
@@ -369,8 +367,18 @@ build times if they are not required for your application:
 
 * ``-DARROW_IPC=ON``: build the IPC extensions
 
-.. warning::
-   Plasma is deprecated as of Arrow 10.0.0, and will be removed in 12.0.0 or so.
+.. note::
+   If your use-case is limited to reading/writing Arrow data then the default
+   options should be sufficient. However, if you wish to build any tests/benchmarks
+   then ``ARROW_JSON`` is also required (it will be enabled automatically).
+   If extended format support is desired then adding ``ARROW_PARQUET``, ``ARROW_CSV``,
+   ``ARROW_JSON``, or ``ARROW_ORC`` shouldn't enable any additional components.
+
+.. note::
+   In general, it's a good idea to enable ``ARROW_COMPUTE`` if you anticipate using
+   any compute kernels beyond ``cast``. While there are (as of 12.0.0) a handful of
+   additional kernels built in by default, this list may change in the future as it's
+   partly based on kernel usage in the current format implementations.
 
 Optional Targets
 ~~~~~~~~~~~~~~~~
@@ -609,7 +617,6 @@ and benchmarks, and their dependencies:
 * ``make arrow`` for Arrow core libraries
 * ``make parquet`` for Parquet libraries
 * ``make gandiva`` for Gandiva (LLVM expression compiler) libraries
-* ``make plasma`` for Plasma libraries, server
 
 .. note::
    If you have selected Ninja as CMake generator, replace ``make arrow`` with

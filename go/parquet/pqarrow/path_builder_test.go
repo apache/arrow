@@ -20,9 +20,11 @@ import (
 	"context"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -356,6 +358,52 @@ func TestNestedListsSomeNullsSomeEmpty(t *testing.T) {
 
 	assert.Equal(t, []int16{0, 5, 4, 5, 3, 3, 5, 5}, result.defLevels)
 	assert.Equal(t, []int16{0, 0, 2, 2, 1, 1, 0, 2}, result.repLevels)
+}
+
+func TestNestedExtensionListsWithSomeNulls(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	listType := arrow.ListOf(types.NewUUIDType())
+	bldr := array.NewListBuilder(mem, listType)
+	defer bldr.Release()
+
+	nestedBldr := bldr.ValueBuilder().(*array.ListBuilder)
+	vb := nestedBldr.ValueBuilder().(*types.UUIDBuilder)
+
+	uuid1 := uuid.New()
+	uuid3 := uuid.New()
+	uuid4 := uuid.New()
+	uuid5 := uuid.New()
+
+	// produce: [null, [[uuid1, null, uuid3], null, null], [[uuid4, uuid5]]]
+
+	bldr.AppendNull()
+	bldr.Append(true)
+	nestedBldr.Append(true)
+	vb.Append(uuid1)
+	vb.AppendNull()
+	vb.Append(uuid3)
+	nestedBldr.AppendNull()
+	nestedBldr.AppendNull()
+	bldr.Append(true)
+	nestedBldr.Append(true)
+	vb.AppendValues([]uuid.UUID{uuid4, uuid5}, nil)
+
+	arr := bldr.NewListArray()
+	defer arr.Release()
+
+	mp, err := newMultipathLevelBuilder(arr, true)
+	require.NoError(t, err)
+	defer mp.Release()
+
+	ctx := arrowCtxFromContext(NewArrowWriteContext(context.Background(), nil))
+	result, err := mp.write(0, ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, []int16{0, 5, 4, 5, 2, 2, 5, 5}, result.defLevels)
+	assert.Equal(t, []int16{0, 0, 2, 2, 1, 1, 0, 2}, result.repLevels)
+	assert.Equal(t, result.leafArr.NullN(), 1)
 }
 
 // triplenested translates to parquet:

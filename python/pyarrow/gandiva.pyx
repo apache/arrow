@@ -19,27 +19,23 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from libcpp cimport bool as c_bool, nullptr
-from libcpp.memory cimport shared_ptr, unique_ptr, make_shared
+from libcpp.memory cimport shared_ptr
 from libcpp.string cimport string as c_string
 from libcpp.vector cimport vector as c_vector
 from libcpp.unordered_set cimport unordered_set as c_unordered_set
-from libc.stdint cimport int64_t, int32_t, uint8_t, uintptr_t
+from libc.stdint cimport int64_t, int32_t
 
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
+from pyarrow.lib cimport (DataType, Field, MemoryPool, RecordBatch,
                           Schema, check_status, pyarrow_wrap_array,
                           pyarrow_wrap_data_type, ensure_type, _Weakrefable,
                           pyarrow_wrap_field)
-from pyarrow.lib import frombytes
 
 from pyarrow.includes.libgandiva cimport (
     CCondition, CGandivaExpression,
     CNode, CProjector, CFilter,
     CSelectionVector,
-    CSelectionVector_Mode,
     _ensure_selection_mode,
-    CConfiguration,
     CConfigurationBuilder,
     TreeExprBuilder_MakeExpression,
     TreeExprBuilder_MakeFunction,
@@ -69,7 +65,6 @@ from pyarrow.includes.libgandiva cimport (
     TreeExprBuilder_MakeInExpressionDate64,
     TreeExprBuilder_MakeInExpressionTimeStamp,
     TreeExprBuilder_MakeInExpressionString,
-    TreeExprBuilder_MakeInExpressionBinary,
     SelectionVector_MakeInt16,
     SelectionVector_MakeInt32,
     SelectionVector_MakeInt64,

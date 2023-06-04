@@ -53,7 +53,6 @@ cmake -GNinja \
       -DARROW_ORC=on \
       -DARROW_PARQUET=on \
       -DARROW_PYTHON=on \
-      -DARROW_PLASMA=on \
       -DARROW_S3=on \
       -DARROW_BUILD_TESTS=off \
       ..
@@ -70,7 +69,6 @@ export PYARROW_WITH_FLIGHT=1
 export PYARROW_WITH_GCS=1
 export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
-export PYARROW_WITH_PLASMA=1
 
 python setup.py clean
 find pyarrow -name "*.so" -delete

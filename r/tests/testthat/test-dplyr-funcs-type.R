@@ -19,6 +19,7 @@ library(dplyr, warn.conflicts = FALSE)
 suppressPackageStartupMessages(library(bit64))
 suppressPackageStartupMessages(library(lubridate))
 
+skip_if_not_available("acero")
 
 tbl <- example_data
 

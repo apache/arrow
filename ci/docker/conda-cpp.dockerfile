@@ -35,7 +35,10 @@ RUN mamba install -q -y \
         --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         doxygen \
+        libnuma \
         python=${python} \
+        ucx \
+        ucx-proc=*=cpu \
         valgrind && \
     mamba clean --all
 
@@ -46,7 +49,8 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
-ENV ARROW_BUILD_TESTS=ON \
+ENV ARROW_ACERO=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=CONDA \
     ARROW_FLIGHT=ON \
@@ -56,7 +60,6 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_HOME=$CONDA_PREFIX \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA=ON \
     ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \
@@ -65,6 +68,7 @@ ENV ARROW_BUILD_TESTS=ON \
     # Blocked on https://issues.apache.org/jira/browse/ARROW-15066
     ARROW_WITH_OPENTELEMETRY=OFF \
     ARROW_WITH_SNAPPY=ON \
+    ARROW_WITH_UCX=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
     GTest_SOURCE=BUNDLED \

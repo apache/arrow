@@ -18,12 +18,9 @@
 # cython: language_level = 3
 
 import collections
-import contextlib
 import enum
 import re
-import socket
 import time
-import threading
 import warnings
 import weakref
 
@@ -43,7 +40,7 @@ import pyarrow.lib as lib
 cdef CFlightCallOptions DEFAULT_CALL_OPTIONS
 
 
-cdef int check_flight_status(const CStatus& status) nogil except -1:
+cdef int check_flight_status(const CStatus& status) except -1 nogil:
     cdef shared_ptr[FlightStatusDetail] detail
 
     if status.ok():
@@ -126,7 +123,6 @@ cdef class FlightCallOptions(_Weakrefable):
             Serialization options for reading IPC format.
         """
         cdef IpcWriteOptions c_write_options
-        cdef IpcReadOptions c_read_options
 
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
@@ -552,7 +548,7 @@ cdef class FlightDescriptor(_Weakrefable):
         elif self.descriptor_type == DescriptorType.CMD:
             return f"<pyarrow.flight.FlightDescriptor cmd={self.command!r}>"
         else:
-            return f"<pyarrow.flight.FlightDescriptor UNKNOWN>"
+            return "<pyarrow.flight.FlightDescriptor UNKNOWN>"
 
     @staticmethod
     cdef CFlightDescriptor unwrap(descriptor) except *:
@@ -1006,12 +1002,12 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         return pyarrow_wrap_table(c_table)
 
     def read_chunk(self):
-        """Read the next RecordBatch along with any metadata.
+        """Read the next FlightStreamChunk along with any metadata.
 
         Returns
         -------
-        data : RecordBatch
-            The next RecordBatch in the stream.
+        data : FlightStreamChunk
+            The next FlightStreamChunk in the stream.
         app_metadata : Buffer or None
             Application-specific metadata for the batch as defined by
             Flight.
@@ -1043,7 +1039,9 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
-        reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+        with nogil:
+            reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+
         return reader
 
 
@@ -1283,7 +1281,6 @@ cdef class FlightClient(_Weakrefable):
               write_size_limit_bytes, disable_server_verification,
               generic_options):
         cdef:
-            int c_port = 0
             CLocation c_location = Location.unwrap(location)
             CFlightClientOptions c_options = CFlightClientOptions.Defaults()
             function[cb_client_middleware_start_call] start_call = \

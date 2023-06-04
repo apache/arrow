@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/float16"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
 )
 
 // RecordEqual reports whether the two provided records are equal.
@@ -385,8 +386,9 @@ func sliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbe
 const defaultAbsoluteTolerance = 1e-5
 
 type equalOption struct {
-	atol   float64 // absolute tolerance
-	nansEq bool    // whether NaNs are considered equal.
+	atol             float64 // absolute tolerance
+	nansEq           bool    // whether NaNs are considered equal.
+	unorderedMapKeys bool    // whether maps are allowed to have different entries order
 }
 
 func (eq equalOption) f16(f1, f2 float16.Num) bool {
@@ -447,6 +449,13 @@ func WithNaNsEqual(v bool) EqualOption {
 func WithAbsTolerance(atol float64) EqualOption {
 	return func(o *equalOption) {
 		o.atol = atol
+	}
+}
+
+// WithUnorderedMapKeys configures the comparison functions so that Map with different entries order are considered equal.
+func WithUnorderedMapKeys(v bool) EqualOption {
+	return func(o *equalOption) {
+		o.unorderedMapKeys = v
 	}
 }
 
@@ -581,6 +590,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 		return arrayEqualDuration(l, r)
 	case *Map:
 		r := right.(*Map)
+		if opt.unorderedMapKeys {
+			return arrayApproxEqualMap(l, r, opt)
+		}
 		return arrayApproxEqualList(l.List, r.List, opt)
 	case *Dictionary:
 		r := right.(*Dictionary)
@@ -724,11 +736,91 @@ func arrayApproxEqualFixedSizeList(left, right *FixedSizeList, opt equalOption) 
 }
 
 func arrayApproxEqualStruct(left, right *Struct, opt equalOption) bool {
-	for i, lf := range left.fields {
-		rf := right.fields[i]
-		if !arrayApproxEqual(lf, rf, opt) {
+	return bitutils.VisitSetBitRuns(
+		left.NullBitmapBytes(),
+		int64(left.Offset()), int64(left.Len()),
+		approxEqualStructRun(left, right, opt),
+	) == nil
+}
+
+func approxEqualStructRun(left, right *Struct, opt equalOption) bitutils.VisitFn {
+	return func(pos int64, length int64) error {
+		for i := range left.fields {
+			if !sliceApproxEqual(left.fields[i], pos, pos+length, right.fields[i], pos, pos+length, opt) {
+				return arrow.ErrInvalid
+			}
+		}
+		return nil
+	}
+}
+
+// arrayApproxEqualMap doesn't care about the order of keys (in Go map traversal order is undefined)
+func arrayApproxEqualMap(left, right *Map, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if !arrayApproxEqualSingleMapEntry(left.newListValue(i).(*Struct), right.newListValue(i).(*Struct), opt) {
 			return false
 		}
 	}
 	return true
+}
+
+// arrayApproxEqualSingleMapEntry is a helper function that checks if a single entry pair is approx equal.
+// Basically, it doesn't care about key order.
+// structs passed will be released
+func arrayApproxEqualSingleMapEntry(left, right *Struct, opt equalOption) bool {
+	defer left.Release()
+	defer right.Release()
+
+	// we don't compare the validity bitmap, but we want other checks from baseArrayEqual
+	switch {
+	case left.Len() != right.Len():
+		return false
+	case left.NullN() != right.NullN():
+		return false
+	case !arrow.TypeEqual(left.DataType(), right.DataType()): // We do not check for metadata as in the C++ implementation.
+		return false
+	case left.NullN() == left.Len():
+		return true
+	}
+
+	used := make(map[int]bool, right.Len())
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+
+		found := false
+		lBeg, lEnd := int64(i), int64(i+1)
+		for j := 0; j < right.Len(); j++ {
+			if used[j] {
+				continue
+			}
+			if right.IsNull(j) {
+				used[j] = true
+				continue
+			}
+
+			rBeg, rEnd := int64(j), int64(j+1)
+
+			// check keys (field 0)
+			if !sliceApproxEqual(left.Field(0), lBeg, lEnd, right.Field(0), rBeg, rEnd, opt) {
+				continue
+			}
+
+			// only now check the values
+			if sliceApproxEqual(left.Field(1), lBeg, lEnd, right.Field(1), rBeg, rEnd, opt) {
+				found = true
+				used[j] = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return len(used) == right.Len()
 }

@@ -499,6 +499,66 @@ TEST(RandomList, Basics) {
   }
 }
 
+TEST(RandomChildFieldNullablity, List) {
+  random::RandomArrayGenerator rng(42);
+
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_list_field = arrow::field("list", arrow::list(item), false);
+  auto list_field = arrow::field("list", arrow::list(nest_list_field), true);
+  auto array = rng.ArrayOf(*list_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({list_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
+
+TEST(RandomChildFieldNullablity, Struct) {
+  random::RandomArrayGenerator rng(42);
+
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_struct_field = arrow::field("struct", arrow::struct_({item}), false);
+  auto struct_field = arrow::field("struct", arrow::struct_({nest_struct_field}), true);
+  auto array = rng.ArrayOf(*struct_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({struct_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
+
+TEST(RandomChildFieldNullablity, Map) {
+  random::RandomArrayGenerator rng(42);
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_map_field =
+      arrow::field("map", arrow::map(arrow::int8(), item, false), false);
+  auto map_field =
+      arrow::field("struct", arrow::map(arrow::int8(), nest_map_field, false), true);
+  auto array = rng.ArrayOf(*map_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({map_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
+
+TEST(RandomRunEndEncoded, Basics) {
+  random::RandomArrayGenerator rng(42);
+  for (const double null_probability : {0.0, 0.1, 1.0}) {
+    SCOPED_TRACE("null_probability = " + std::to_string(null_probability));
+    auto array = rng.ArrayOf(run_end_encoded(int32(), int16()), 12345, null_probability);
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), 12345);
+    const auto& ree_array = checked_cast<const RunEndEncodedArray&>(*array);
+    ASSERT_EQ(*ree_array.type(), *run_end_encoded(int32(), int16()));
+    const int64_t physical_length = ree_array.run_ends()->length();
+    ASSERT_EQ(ree_array.values()->length(), physical_length);
+    if (null_probability == 0.0) {
+      ASSERT_EQ(ree_array.values()->null_count(), 0);
+    }
+    if (null_probability == 1.0) {
+      ASSERT_EQ(ree_array.values()->null_count(), physical_length);
+    }
+  }
+}
+
 template <typename T>
 class UniformRealTest : public ::testing::Test {
  protected:

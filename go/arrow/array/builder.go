@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
 )
 
@@ -61,6 +61,9 @@ type Builder interface {
 	// AppendEmptyValue adds a new zero value of the appropriate type
 	AppendEmptyValue()
 
+	// AppendValueFromString adds a new value from a string. Inverse of array.ValueStr(i int) string
+	AppendValueFromString(string) error
+
 	// Reserve ensures there is enough space for appending n elements
 	// by checking the capacity and calling Resize if necessary.
 	Reserve(n int)
@@ -79,8 +82,8 @@ type Builder interface {
 	init(capacity int)
 	resize(newBits int, init func(int))
 
-	unmarshalOne(*json.Decoder) error
-	unmarshal(*json.Decoder) error
+	UnmarshalOne(*json.Decoder) error
+	Unmarshal(*json.Decoder) error
 
 	newData() *Data
 }
@@ -318,7 +321,11 @@ func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return NewMapBuilderWithType(mem, typ)
 	case arrow.EXTENSION:
 		typ := dtype.(arrow.ExtensionType)
-		return NewExtensionBuilder(mem, typ)
+		bldr := NewExtensionBuilder(mem, typ)
+		if custom, ok := typ.(ExtensionBuilderWrapper); ok {
+			return custom.NewBuilder(bldr)
+		}
+		return bldr
 	case arrow.FIXED_SIZE_LIST:
 		typ := dtype.(*arrow.FixedSizeListType)
 		return NewFixedSizeListBuilder(mem, typ.Len(), typ.Elem())

@@ -14,9 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module github.com/apache/arrow/go/v12
+module github.com/apache/arrow/go/v13
 
-go 1.18
+go 1.20
 
 require (
 	github.com/JohnCGriffin/overflow v0.0.0-20211019200055-46fa312c352c
@@ -26,6 +26,7 @@ require (
 	github.com/goccy/go-json v0.9.11
 	github.com/golang/snappy v0.0.4
 	github.com/google/flatbuffers v2.0.8+incompatible
+	github.com/google/uuid v1.3.0
 	github.com/klauspost/asmfmt v1.3.2
 	github.com/klauspost/compress v1.15.9
 	github.com/klauspost/cpuid/v2 v2.0.9
@@ -49,7 +50,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
@@ -58,7 +58,7 @@ require (
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/stretchr/objx v0.4.0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
-	golang.org/x/net v0.6.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/text v0.7.0 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect

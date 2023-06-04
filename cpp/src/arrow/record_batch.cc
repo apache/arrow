@@ -198,14 +198,20 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::MakeEmpty(
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
-    const std::shared_ptr<Array>& array) {
+    const std::shared_ptr<Array>& array, MemoryPool* memory_pool) {
   if (array->type_id() != Type::STRUCT) {
     return Status::TypeError("Cannot construct record batch from array of type ",
                              *array->type());
   }
-  if (array->null_count() != 0) {
-    return Status::Invalid(
-        "Unable to construct record batch from a StructArray with non-zero nulls.");
+  if (array->null_count() != 0 || array->offset() != 0) {
+    // If the struct array has a validity map or offset we need to push those into
+    // the child arrays via Flatten since the RecordBatch doesn't have validity/offset
+    const std::shared_ptr<StructArray>& struct_array =
+        internal::checked_pointer_cast<StructArray>(array);
+    ARROW_ASSIGN_OR_RAISE(std::vector<std::shared_ptr<Array>> fields,
+                          struct_array->Flatten(memory_pool));
+    return Make(arrow::schema(array->type()->fields()), array->length(),
+                std::move(fields));
   }
   return Make(arrow::schema(array->type()->fields()), array->length(),
               array->data()->child_data);
@@ -226,7 +232,8 @@ const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name();
 }
 
-bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata) const {
+bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
+                         const EqualOptions& opts) const {
   if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
     return false;
   }
@@ -236,7 +243,7 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata) const {
   }
 
   for (int i = 0; i < num_columns(); ++i) {
-    if (!column(i)->Equals(other.column(i))) {
+    if (!column(i)->Equals(other.column(i), opts)) {
       return false;
     }
   }
@@ -244,13 +251,13 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata) const {
   return true;
 }
 
-bool RecordBatch::ApproxEquals(const RecordBatch& other) const {
+bool RecordBatch::ApproxEquals(const RecordBatch& other, const EqualOptions& opts) const {
   if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
     return false;
   }
 
   for (int i = 0; i < num_columns(); ++i) {
-    if (!column(i)->ApproxEquals(other.column(i))) {
+    if (!column(i)->ApproxEquals(other.column(i), opts)) {
       return false;
     }
   }

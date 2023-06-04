@@ -41,7 +41,7 @@ jobs:
       - name: Checkout Crossbow
         uses: actions/checkout@v3
         with:
-          ref: {{ default_branch|default("master") }}
+          ref: {{ default_branch|default("main") }}
           path: crossbow
           fetch-depth: 1
       - name: Prepare docs
