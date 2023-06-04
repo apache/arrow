@@ -78,7 +78,18 @@ struct ARROW_EXPORT AzureOptions {
 
 /// \brief Azure-backed FileSystem implementation for ABFS and ADLS.
 ///
+/// ABFS (Azure Blob Storage - https://azure.microsoft.com/en-us/products/storage/blobs/)
+/// object-based cloud storage system.
+///
+/// ADLS (Azure Data Lake Storage - https://azure.microsoft.com/en-us/products/storage/data-lake-storage/)
+/// is a scalable data storage system designed for big-data applications.
+/// ADLS provides filesystem semantics, file-level security, and Hadoop
+/// compatibility. Gen1 exists as a separate object that will retired
+/// on Feb 29, 2024. New ADLS accounts will use Gen2 instead, which is
+/// implemented on top of ABFS.
+/// 
 /// TODO: GH-18014 Complete the internal implementation
+/// and review the documentation
 class ARROW_EXPORT AzureFileSystem : public FileSystem {
  public:
   ~AzureFileSystem() override = default;
