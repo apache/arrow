@@ -88,42 +88,42 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   /// Return the original Azure options when constructing the filesystem
   AzureOptions options() const;
 
-  virtual bool Equals(const FileSystem& other) const override;
+  bool Equals(const FileSystem& other) const override;
 
-  virtual Result<FileInfo> GetFileInfo(const std::string& path) override;
+  Result<FileInfo> GetFileInfo(const std::string& path) override;
 
-  virtual Result<FileInfoVector> GetFileInfo(const FileSelector& select) override;
+  Result<FileInfoVector> GetFileInfo(const FileSelector& select) override;
 
-  virtual Status CreateDir(const std::string& path, bool recursive = true) override;
+  Status CreateDir(const std::string& path, bool recursive = true) override;
 
-  virtual Status DeleteDir(const std::string& path) override;
+  Status DeleteDir(const std::string& path) override;
 
-  virtual Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
 
-  virtual Status DeleteRootDirContents() override;
+  Status DeleteRootDirContents() override;
 
-  virtual Status DeleteFile(const std::string& path) override;
+  Status DeleteFile(const std::string& path) override;
 
-  virtual Status Move(const std::string& src, const std::string& dest) override;
+  Status Move(const std::string& src, const std::string& dest) override;
 
-  virtual Status CopyFile(const std::string& src, const std::string& dest) override;
+  Status CopyFile(const std::string& src, const std::string& dest) override;
 
-  virtual Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(
       const std::string& path) override;
 
-  virtual Result<std::shared_ptr<io::InputStream>> OpenInputStream(const FileInfo& info) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const FileInfo& info) override;
 
-  virtual Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const std::string& path) override;
 
-  virtual Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const FileInfo& info) override;
 
-  virtual Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 
-  virtual Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
 

@@ -20,7 +20,6 @@
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 
-
 namespace arrow {
 namespace fs {
 
@@ -38,8 +37,7 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
 // -----------------------------------------------------------------------
 // AzureFilesystem Implementation
 
-class AzureFileSystem::Impl
-    : public std::enable_shared_from_this<AzureFileSystem::Impl> {
+class AzureFileSystem::Impl : public std::enable_shared_from_this<AzureFileSystem::Impl> {
  public:
   io::IOContext io_context_;
   std::string dfs_endpoint_url_;
@@ -74,8 +72,7 @@ bool AzureFileSystem::Equals(const FileSystem& other) const {
   if (other.type_name() != type_name()) {
     return false;
   }
-  const auto& azure_fs =
-      ::arrow::internal::checked_cast<const AzureFileSystem&>(other);
+  const auto& azure_fs = ::arrow::internal::checked_cast<const AzureFileSystem&>(other);
   return options().Equals(azure_fs.options());
 }
 

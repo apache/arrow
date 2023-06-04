@@ -151,6 +151,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     env:
+      ARROW_AZURE: ON
       ARROW_BUILD_TESTS: ON
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
@@ -232,6 +233,7 @@ jobs:
           - os: windows-2019
             name: Windows 2019
     env:
+      ARROW_AZURE: OFF
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
       ARROW_BUILD_SHARED: ON
@@ -335,6 +337,7 @@ jobs:
           - msystem_lower: clang64
             msystem_upper: CLANG64
     env:
+      ARROW_AZURE: OFF
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
