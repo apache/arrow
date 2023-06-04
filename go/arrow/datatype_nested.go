@@ -37,6 +37,7 @@ type (
 	ListLikeType interface {
 		DataType
 		Elem() DataType
+		ElemField() Field
 	}
 )
 
@@ -400,6 +401,9 @@ func (t *MapType) ValueField() Field      { return Field{Name: "entries", Type: 
 
 // Elem returns the MapType's element type (if treating MapType as ListLikeType)
 func (t *MapType) Elem() DataType { return t.ValueType() }
+
+// ElemField returns the MapType's element field (if treating MapType as ListLikeType)
+func (t *MapType) ElemField() Field { return t.ValueField() }
 
 func (t *MapType) SetItemNullable(nullable bool) {
 	t.value.Elem().(*StructType).fields[1].Nullable = nullable
