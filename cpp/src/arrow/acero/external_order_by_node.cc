@@ -237,6 +237,8 @@ class OrderedSpillingAccumulationQueue {
         reader.set_chunksize(batch_size_);
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch, reader.Next());
 
+
+    plan_->query_context()->async_scheduler()->
       }else{
         //todo buffer the remanent data
 
@@ -258,12 +260,46 @@ class OrderedSpillingAccumulationQueue {
     }
   }
 
-  // This should only be called after all calls to InsertBatch have been completed.  This starts reading
-  // the data that was spilled. It will grab the next batch of data from the given spilled file.  If spill_index
+  // This should only be called after all calls to InsertBatch have been completed.  This
+  // starts reading the data that was spilled. It will grab the next batch of data from
+  // the given spilled file.  If spill_index
   // == SpillCount() - 1 then this might be data that is already in-memory.
-  Future<std::optional<ExecBatch>> FetchNextBatch(int spill_index);
+  Future<std::optional<ExecBatch>> FetchNextBatch(int spill_index) {
+    std::string path_to_file = get_path_to_file(spill_index);
+    Future<std::optional<ExecBatch>> future = Future<std::optional<ExecBatch>>::Make();
+    arrow::MemoryPool* pool = arrow::default_memory_pool();
+
+    // Configure general Parquet reader settings
+    auto reader_properties = parquet::ReaderProperties(pool);
+    reader_properties.set_buffer_size(4096 * 4);
+    reader_properties.enable_buffered_stream();
+
+    // Configure Arrow-specific Parquet reader settings
+    auto arrow_reader_props = parquet::ArrowReaderProperties();
+    arrow_reader_props.set_batch_size(batch_size_);
+
+    parquet::arrow::FileReaderBuilder reader_builder;
+    ARROW_RETURN_NOT_OK(
+        reader_builder.OpenFile(path_to_file, /*memory_map=*/false, reader_properties));
+    reader_builder.memory_pool(pool);
+    reader_builder.properties(arrow_reader_props);
+
+    std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+    ARROW_ASSIGN_OR_RAISE(arrow_reader, reader_builder.Build());
+
+    std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
+    ARROW_RETURN_NOT_OK(arrow_reader->GetRecordBatchReader(&rb_reader));
+    for (arrow::Result<std::shared_ptr<arrow::RecordBatch>> maybe_batch : *rb_reader) {
+      // Operate on each batch...
+    }
+    return future;
+  }
 
   protected:
+   inline std::string get_path_to_file(int spill_index) {
+      return path_to_folder_ + "/sort_" + std::to_string(spill_index) + ".parquet";
+   }
+
    Result<std::shared_ptr<arrow::Table>> sort_table(std::shared_ptr<arrow::Table> table) {
       SortOptions sort_options(ordering_.sort_keys(), ordering_.null_placement());
       ExecContext* ctx = plan_->query_context()->exec_context();
@@ -274,14 +310,13 @@ class OrderedSpillingAccumulationQueue {
    }
 
    Status schedule_write_task(std::shared_ptr<arrow::Table> table, int spill_index) {
-    std::string folder_path =
-        path_to_folder_ + "/sort_" + std::to_string(spill_index) + ".parquet";
+    std::string path_to_file =get_path_to_file(spill_index);
     std::shared_ptr<WriterProperties> props =
         WriterProperties::Builder().compression(arrow::Compression::SNAPPY)->build();
     std::shared_ptr<ArrowWriterProperties> arrow_props =
         ArrowWriterProperties::Builder().store_schema()->build();
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::io::FileOutputStream> outfile,
-                          arrow::io::FileOutputStream::Open(folder_path));
+                          arrow::io::FileOutputStream::Open(path_to_file));
     plan_->query_context()->ScheduleIOTask(
         [table, outfile, props, arrow_props]() mutable {
           ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(
