@@ -25,20 +25,13 @@
 #include "arrow/builder.h"
 #include "arrow/type_traits.h"
 
+#include "arrow/matlab/error/error.h"
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/bit/bit_pack_matlab_logical_array.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
 namespace arrow::matlab::array::proxy {
-
-#define RETURN_ERROR_IF_NOT_OK(expr)                                                        \
-    do {                                                                                    \
-        arrow::Status _status = (expr);                                                     \
-        if (!_status.ok()) {                                                                \
-            return libmexclass::error::Error{"arrow:matlab:MakeFailed", _status.message()}; \
-        }                                                                                   \
-    } while (0)
 
 namespace {
 const uint8_t* getUnpackedValidityBitmap(const ::matlab::data::TypedArray<bool>& valid_elements) {
@@ -81,12 +74,12 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
 
 
             auto status = builder.AppendValues(dt, numeric_mda.getNumberOfElements(), unpacked_validity_bitmap);
-            RETURN_ERROR_IF_NOT_OK(status);
+            MATLAB_ERROR_IF_NOT_OK(status, error::APPEND_VALUES_ERROR_ID);
 
             auto maybe_array = builder.Finish();
-            RETURN_ERROR_IF_NOT_OK(maybe_array.status());
+            MATLAB_ERROR_IF_NOT_OK(maybe_array.status(), error::BUILD_ARRAY_ERROR_ID);
 
-            return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(maybe_array.ValueOrDie());
+            return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(std::move(maybe_array).ValueUnsafe());
 
         } else {
             const auto data_type = arrow::CTypeTraits<CType>::type_singleton();
@@ -100,10 +93,9 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             if (has_validity_bitmap) {
                 // Pack the validity bitmap values.
                 auto maybe_buffer = arrow::matlab::bit::bitPackMatlabLogicalArray(constructor_arguments[2]);
-                RETURN_ERROR_IF_NOT_OK(maybe_buffer.status());
-                packed_validity_bitmap = maybe_buffer.ValueOrDie();
+                MATLAB_ERROR_IF_NOT_OK(maybe_buffer.status(), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
+                packed_validity_bitmap = std::move(maybe_buffer).ValueUnsafe();
             }
-
             auto array_data = arrow::ArrayData::Make(data_type, length, {packed_validity_bitmap, data_buffer});
             return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(arrow::MakeArray(array_data));
         }

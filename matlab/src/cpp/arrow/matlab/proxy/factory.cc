@@ -18,7 +18,7 @@
 #include "arrow/matlab/array/proxy/numeric_array.h"
 
 #include "factory.h"
-
+#include "arrow/matlab/error/error.h"
 #include <iostream>
 
 namespace arrow::matlab::proxy {
@@ -38,7 +38,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.array.proxy.Int32Array  , arrow::matlab::array::proxy::NumericArray<int32_t>);
     REGISTER_PROXY(arrow.array.proxy.Int64Array  , arrow::matlab::array::proxy::NumericArray<int64_t>);
 
-    return libmexclass::error::Error{"arrow:matlab:UnknownClass", "Did not find matching C++ proxy for " + class_name};
+    return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID, "Did not find matching C++ proxy for " + class_name};
 };
 
 }
