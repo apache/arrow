@@ -174,8 +174,8 @@ class PrimitiveFilterImpl {
       out_is_valid_ = out_arr->buffers[0]->mutable_data();
     }
     out_data_ = reinterpret_cast<T*>(out_arr->buffers[1]->mutable_data());
+    out_offset_ = out_arr->offset;  // NOTE(felipecrv): is this ever non-zero?
     out_length_ = out_arr->length;
-    DCHECK_EQ(out_arr->offset, 0);
     out_position_ = 0;
   }
 
@@ -199,10 +199,11 @@ class PrimitiveFilterImpl {
           [&](int64_t position, int64_t segment_length, bool filter_valid) {
             if (filter_valid) {
               CopyBitmap(values_is_valid_, values_offset_ + position, segment_length,
-                         out_is_valid_, out_position_);
+                         out_is_valid_, out_offset_ + out_position_);
               WriteValueSegment(position, segment_length);
             } else {
-              bit_util::SetBitsTo(out_is_valid_, out_position_, segment_length, false);
+              bit_util::SetBitsTo(out_is_valid_, out_offset_ + out_position_,
+                                  segment_length, false);
               memset(out_data_ + out_position_, 0, segment_length * sizeof(T));
               out_position_ += segment_length;
             }
@@ -213,7 +214,7 @@ class PrimitiveFilterImpl {
     if (out_is_valid_) {
       // Set all to valid, so only if nulls are produced by EMIT_NULL, we need
       // to set out_is_valid[i] to false.
-      bit_util::SetBitsTo(out_is_valid_, 0, out_length_, true);
+      bit_util::SetBitsTo(out_is_valid_, out_offset_, out_length_, true);
     }
     return VisitPlainxREEFilterOutputSegments(
         filter_, /*filter_may_have_nulls=*/true, null_selection_,
@@ -221,7 +222,8 @@ class PrimitiveFilterImpl {
           if (filter_valid) {
             WriteValueSegment(position, segment_length);
           } else {
-            bit_util::SetBitsTo(out_is_valid_, out_position_, segment_length, false);
+            bit_util::SetBitsTo(out_is_valid_, out_offset_ + out_position_,
+                                segment_length, false);
             memset(out_data_ + out_position_, 0, segment_length * sizeof(T));
             out_position_ += segment_length;
           }
@@ -252,13 +254,13 @@ class PrimitiveFilterImpl {
                                                  values_length_);
 
     auto WriteNotNull = [&](int64_t index) {
-      bit_util::SetBit(out_is_valid_, out_position_);
+      bit_util::SetBit(out_is_valid_, out_offset_ + out_position_);
       // Increments out_position_
       WriteValue(index);
     };
 
     auto WriteMaybeNull = [&](int64_t index) {
-      bit_util::SetBitTo(out_is_valid_, out_position_,
+      bit_util::SetBitTo(out_is_valid_, out_offset_ + out_position_,
                          bit_util::GetBit(values_is_valid_, values_offset_ + index));
       // Increments out_position_
       WriteValue(index);
@@ -271,14 +273,15 @@ class PrimitiveFilterImpl {
       BitBlockCount data_block = data_counter.NextWord();
       if (filter_block.AllSet() && data_block.AllSet()) {
         // Fastest path: all values in block are included and not null
-        bit_util::SetBitsTo(out_is_valid_, out_position_, filter_block.length, true);
+        bit_util::SetBitsTo(out_is_valid_, out_offset_ + out_position_,
+                            filter_block.length, true);
         WriteValueSegment(in_position, filter_block.length);
         in_position += filter_block.length;
       } else if (filter_block.AllSet()) {
         // Faster: all values are selected, but some values are null
         // Batch copy bits from values validity bitmap to output validity bitmap
         CopyBitmap(values_is_valid_, values_offset_ + in_position, filter_block.length,
-                   out_is_valid_, out_position_);
+                   out_is_valid_, out_offset_ + out_position_);
         WriteValueSegment(in_position, filter_block.length);
         in_position += filter_block.length;
       } else if (filter_block.NoneSet() && null_selection_ == FilterOptions::DROP) {
@@ -317,7 +320,7 @@ class PrimitiveFilterImpl {
                 WriteNotNull(in_position);
               } else if (!is_valid) {
                 // Filter slot is null, so we have a null in the output
-                bit_util::ClearBit(out_is_valid_, out_position_);
+                bit_util::ClearBit(out_is_valid_, out_offset_ + out_position_);
                 WriteNull();
               }
               ++in_position;
@@ -353,7 +356,7 @@ class PrimitiveFilterImpl {
                 WriteMaybeNull(in_position);
               } else if (!is_valid) {
                 // Filter slot is null, so we have a null in the output
-                bit_util::ClearBit(out_is_valid_, out_position_);
+                bit_util::ClearBit(out_is_valid_, out_offset_ + out_position_);
                 WriteNull();
               }
               ++in_position;
@@ -390,27 +393,29 @@ class PrimitiveFilterImpl {
   FilterOptions::NullSelectionBehavior null_selection_;
   uint8_t* out_is_valid_ = NULLPTR;
   T* out_data_;
+  int64_t out_offset_;
   int64_t out_length_;
   int64_t out_position_;
 };
 
 template <>
 inline void PrimitiveFilterImpl<BooleanType>::WriteValue(int64_t in_position) {
-  bit_util::SetBitTo(out_data_, out_position_++,
+  bit_util::SetBitTo(out_data_, out_offset_ + out_position_++,
                      bit_util::GetBit(values_data_, values_offset_ + in_position));
 }
 
 template <>
 inline void PrimitiveFilterImpl<BooleanType>::WriteValueSegment(int64_t in_start,
                                                                 int64_t length) {
-  CopyBitmap(values_data_, values_offset_ + in_start, length, out_data_, out_position_);
+  CopyBitmap(values_data_, values_offset_ + in_start, length, out_data_,
+             out_offset_ + out_position_);
   out_position_ += length;
 }
 
 template <>
 inline void PrimitiveFilterImpl<BooleanType>::WriteNull() {
   // Zero the bit
-  bit_util::ClearBit(out_data_, out_position_++);
+  bit_util::ClearBit(out_data_, out_offset_ + out_position_++);
 }
 
 Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
