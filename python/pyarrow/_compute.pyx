@@ -2676,6 +2676,8 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
     """
     Register a user-defined scalar function.
 
+    This API is EXPERIMENTAL.
+
     A scalar function is a function that executes elementwise
     operations on arrays or scalars, i.e. a scalar function must
     be computed row-by-row with no state where each output row
@@ -2752,8 +2754,9 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
 
 def register_aggregate_function(func, function_name, function_doc, in_types, out_type,
                                 func_registry=None):
-    """
-    Register a user-defined non-decomposable aggregate function.
+    """Register a user-defined non-decomposable aggregate function.
+
+    This API is EXPERIMENTAL.
 
     A non-decomposable aggregation function is a function that executes
     aggregate operations on the whole data that it is aggregating.
@@ -2828,8 +2831,9 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
 
 def register_tabular_function(func, function_name, function_doc, in_types, out_type,
                               func_registry=None):
-    """
-    Register a user-defined tabular function.
+    """Register a user-defined tabular function.
+
+    This API is EXPERIMENTAL.
 
     A tabular function is one accepting a context argument of type
     UdfContext and returning a generator of struct arrays.

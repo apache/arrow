@@ -381,16 +381,16 @@ Status RegisterAggregateFunction(PyObject* agg_function, UdfWrapperCallback agg_
   auto aggregate_func = std::make_shared<compute::ScalarAggregateFunction>(
       options.func_name, options.arity, options.func_doc, &default_scalar_aggregate_options);
 
-  Py_INCREF(agg_function);
   std::vector<compute::InputType> input_types;
   for (const auto& in_dtype : options.input_types) {
     input_types.emplace_back(in_dtype);
   }
   compute::OutputType output_type(options.output_type);
 
-  auto init = [agg_wrapper, agg_function, options](
+  compute::KernelInit init = [agg_wrapper, agg_function, options](
                   compute::KernelContext* ctx,
                   const compute::KernelInitArgs& args) -> Result<std::unique_ptr<compute::KernelState>> {
+    // Py_INCREF because OwnedRefNoGIL will call Py_XDECREF in destructor
     Py_INCREF(agg_function);
     return std::make_unique<PythonUdfScalarAggregatorImpl>(
       agg_wrapper,
