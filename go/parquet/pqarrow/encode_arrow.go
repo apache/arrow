@@ -36,6 +36,10 @@ import (
 
 // get the count of the number of leaf arrays for the type
 func calcLeafCount(dt arrow.DataType) int {
+	if dt, ok := dt.(arrow.ListLikeType); ok {
+		return calcLeafCount(dt.Elem())
+	}
+
 	switch dt.ID() {
 	case arrow.EXTENSION:
 		return calcLeafCount(dt.(arrow.ExtensionType).StorageType())
@@ -43,12 +47,6 @@ func calcLeafCount(dt arrow.DataType) int {
 		panic("arrow type not implemented")
 	case arrow.DICTIONARY:
 		return calcLeafCount(dt.(*arrow.DictionaryType).ValueType)
-	case arrow.LIST:
-		return calcLeafCount(dt.(*arrow.ListType).Elem())
-	case arrow.FIXED_SIZE_LIST:
-		return calcLeafCount(dt.(*arrow.FixedSizeListType).Elem())
-	case arrow.MAP:
-		return calcLeafCount(dt.(*arrow.MapType).ValueType())
 	case arrow.STRUCT:
 		nleaves := 0
 		for _, f := range dt.(*arrow.StructType).Fields() {
