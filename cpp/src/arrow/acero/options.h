@@ -545,9 +545,9 @@ class ARROW_ACERO_EXPORT OrderByNodeOptions : public ExecNodeOptions {
 class ARROW_ACERO_EXPORT ExternalOrderByNodeOptions : public OrderByNodeOptions {
  public:
   static constexpr std::string_view kName = "external_order_by";
-  explicit OrderByNodeOptions(Ordering ordering, int64_t buffer_size,
+  explicit ExternalOrderByNodeOptions(Ordering ordering, int64_t buffer_size,
                               std::string path_to_folder)
-      : OrderByNodeOptions(ordering),
+      : OrderByNodeOptions(std::move(ordering)),
         buffer_size(std::move(buffer_size)),
         path_to_folder(std::move(path_to_folder)) {}
 
