@@ -2300,7 +2300,9 @@ cdef class RecordBatch(_Tabular):
         >>> buf = batch.serialize()
         >>> buf
         <pyarrow.Buffer address=0x... size=... is_cpu=True is_mutable=True>
-        >>> # Reconstruct RecordBatch from IPC message Buffer and original Schema
+
+        Reconstruct RecordBatch from IPC message Buffer and original Schema
+        
         >>> pa.ipc.read_record_batch(buf, batch.schema)
         pyarrow.RecordBatch
         n_legs: int64
