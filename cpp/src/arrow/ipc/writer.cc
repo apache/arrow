@@ -229,7 +229,7 @@ class RecordBatchSerializer {
     auto CompressOne = [&](size_t i) {
       if (out_->body_buffers[i]->size() > 0) {
         ::arrow::util::tracing::Span span;
-        START_SPAN(span, "arrow::ipc::DecompressBuffers",
+        START_SPAN(span, "arrow::ipc::CompressBuffers",
                    {{"buffer_index", i},
                     {"ipc.compression.codec", options_.codec.get()->name().c_str()},
                     {"ipc.options.use_threads", options_.use_threads},
