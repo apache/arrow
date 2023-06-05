@@ -193,7 +193,7 @@ class PrimitiveFilterImpl {
     }
     if (values_is_valid_) {
       DCHECK(out_is_valid_);
-      // Fast path: values can be null, so the validity bitmap should be copied
+      // Slower path: values can be null, so the validity bitmap should be copied
       return VisitPlainxREEFilterOutputSegments(
           filter_, /*filter_may_have_nulls=*/true, null_selection_,
           [&](int64_t position, int64_t segment_length, bool filter_valid) {
@@ -208,6 +208,8 @@ class PrimitiveFilterImpl {
             }
           });
     }
+    // Faster path: only write to out_is_valid_ if filter contains nulls and
+    // null_selection is EMIT_NULL
     if (out_is_valid_) {
       // Set all to valid, so only if nulls are produced by EMIT_NULL, we need
       // to set out_is_valid[i] to false.
