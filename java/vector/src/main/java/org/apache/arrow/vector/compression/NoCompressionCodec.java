@@ -72,5 +72,10 @@ public class NoCompressionCodec implements CompressionCodec {
           throw new IllegalArgumentException("Unsupported codec type: " + codecType);
       }
     }
+
+    @Override
+    public CompressionCodec createCodec(CompressionUtil.CodecType codecType, int compressionLevel) {
+      return createCodec(codecType);
+    }
   }
 }
