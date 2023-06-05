@@ -194,7 +194,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     if (!submit_result->TryAddCallback([this, task_inner = std::move(task)]() mutable {
           return [this, task_inner2 = std::move(task_inner)](const Status& st) {
 #ifdef ARROW_WITH_OPENTELEMETRY
-      // TraceTaskFinished(task_inner2.get());
+      TraceTaskFinished(task_inner2.get());
 #endif
             OnTaskFinished(st);
           };
@@ -245,7 +245,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     // It's important that the task's span be active while we run the submit function.
     // Normally the submit function should transfer the span to the thread task as the
     // active span.
-    // auto scope = TraceTaskSubmitted(task.get(), span_);
+    auto scope = TraceTaskSubmitted(task.get(), span_);
 #endif
     running_tasks_++;
     lk.unlock();
