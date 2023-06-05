@@ -107,20 +107,16 @@ Here is an example of a Java program that queries a Parquet file using Java Subs
 Executing Projections and Filters Using Extended Expressions
 ============================================================
 
-Using `Extended Expression`_ we could leverage our current Dataset operations to
-also support Projections and Filters by. To gain access to Projections and Filters
-is needed to define that operations using current Extended Expression Java POJO
-classes defined into `Substrait Java`_ project.
+Dataset also supports projections and filters with Substrait's extended expressions.
+This requires the substrait-java library.
 
-Here is an example of a Java program that queries a Parquet file to project new
-columns and also filter then based on Extended Expression definitions. This example
-show us:
+This Java program:
 
-- Load TPCH parquet file Nation.parquet.
-- Produce new Projections and apply Filter into dataset using extended expression definition.
-    - Expression 01 - CONCAT: N_NAME || ' - ' || N_COMMENT = col 1 || ' - ' || col 3.
-    - Expression 02 - ADD: N_REGIONKEY + 10 = col 1 + 10.
-    - Expression 03 - FILTER: N_NATIONKEY > 18 = col 3 > 18.
+- Loads a Parquet file containing the "nation" table from the TPC-H benchmark.
+- Projects two new columns:
+    - ``N_NAME || ' - ' || N_COMMENT``
+    - ``N_REGIONKEY + 10``
+- Applies a filter: ``N_NATIONKEY > 18``
 
 .. code-block:: Java
 
@@ -159,12 +155,7 @@ show us:
 
     public class ClientSubstraitExtendedExpressions {
       public static void main(String[] args) throws Exception {
-        // create extended expression for: project two new columns + one filter
         String binaryExtendedExpressions = createExtendedExpresionMessageUsingPOJOClasses();
-        // project and filter dataset using extended expression definition - 03 Expressions:
-        // Expression 01 - CONCAT: N_NAME || ' - ' || N_COMMENT = col 1 || ' - ' || col 3
-        // Expression 02 - ADD: N_REGIONKEY + 10 = col 1 + 10
-        // Expression 03 - FILTER: N_NATIONKEY > 18 = col 3 > 18
         projectAndFilterDataset(binaryExtendedExpressions);
       }
 
