@@ -42,7 +42,8 @@ cdef dict _pandas_type_map = {
     _Type_HALF_FLOAT: np.float16,
     _Type_FLOAT: np.float32,
     _Type_DOUBLE: np.float64,
-    _Type_DATE32: np.dtype('datetime64[D]'),
+    # Pandas does not support [D]ay, so default to [s]econd for date32
+    _Type_DATE32: np.dtype('datetime64[s]'),
     _Type_DATE64: np.dtype('datetime64[ms]'),
     _Type_TIMESTAMP: {
         's': np.dtype('datetime64[s]'),
@@ -131,9 +132,8 @@ def _get_pandas_type(type, unit=None):
     if type not in _pandas_type_map:
         return None
     if type in [_Type_DATE32, _Type_DATE64, _Type_TIMESTAMP, _Type_DURATION]:
-        from pyarrow.vendored.version import Version
-        # ARROW-3789: Convert date/timestamp types to datetime64[ns]
-        if _pandas_api.loose_version < Version('2.0.0'):
+        if _pandas_api.is_v1():
+            # ARROW-3789: Convert date/timestamp types to datetime64[ns]
             if type == _Type_DURATION:
                 return np.dtype('timedelta64[ns]')
             return np.dtype('datetime64[ns]')
@@ -1161,7 +1161,7 @@ cdef class DurationType(DataType):
         >>> d.to_pandas_dtype()
         timedelta64[ms]
         """
-        return _get_pandas_type(_Type_TIMESTAMP, self.unit)
+        return _get_pandas_type(_Type_DURATION, self.unit)
 
 
 cdef class FixedSizeBinaryType(DataType):

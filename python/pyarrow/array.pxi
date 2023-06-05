@@ -1697,10 +1697,8 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         arr = dtype.__from_arrow__(obj)
         return pandas_api.series(arr, name=name, copy=False)
 
-    # ARROW-33321 reenables support for date/timestamp conversion in pandas >= 2.0
-    from pyarrow.vendored.version import Version
-    if pandas_api.loose_version < Version('2.0.0'):
-        # ARROW-3789(wesm): Convert date/timestamp types to datetime64[ns]
+    if pandas_api.is_v1():
+        # ARROW-3789: Convert date/timestamp types to datetime64[ns]
         c_options.coerce_temporal_nanoseconds = True
 
     if isinstance(obj, Array):
