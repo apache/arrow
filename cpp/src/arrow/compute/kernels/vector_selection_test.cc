@@ -73,71 +73,55 @@ Result<std::shared_ptr<Array>> REEncode(const std::shared_ptr<Array>& array) {
   return datum.make_array();
 }
 
+void CheckTakeCase(const BooleanArray& filter,
+                   const std::shared_ptr<Array>& expected_indices,
+                   FilterOptions::NullSelectionBehavior null_selection) {
+  ASSERT_OK_AND_ASSIGN(auto indices,
+                       internal::GetTakeIndices(*filter.data(), null_selection));
+  auto indices_array = MakeArray(indices);
+  ValidateOutput(indices);
+  AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
+
+  ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter));
+  ASSERT_OK_AND_ASSIGN(auto indices_from_ree,
+                       internal::GetTakeIndices(*ree_filter->data(), null_selection));
+  auto indices_from_ree_array = MakeArray(indices);
+  ValidateOutput(indices_from_ree);
+  AssertArraysEqual(*expected_indices, *indices_from_ree_array, /*verbose=*/true);
+}
+
+void CheckTakeCase(const std::string& filter_json, const std::string& indices_json,
+                   FilterOptions::NullSelectionBehavior null_selection,
+                   const std::shared_ptr<DataType>& indices_type = uint16()) {
+  auto filter = ArrayFromJSON(boolean(), filter_json);
+  auto expected_indices = ArrayFromJSON(indices_type, indices_json);
+  const auto &boolean_filter = checked_cast<const BooleanArray&>(*filter);
+  CheckTakeCase(boolean_filter, expected_indices, null_selection);
+}
+
 }  // namespace
 
 // ----------------------------------------------------------------------
 
 TEST(GetTakeIndices, Basics) {
-  auto CheckCase = [&](const std::string& filter_json, const std::string& indices_json,
-                       FilterOptions::NullSelectionBehavior null_selection,
-                       const std::shared_ptr<DataType>& indices_type = uint16()) {
-    auto filter = ArrayFromJSON(boolean(), filter_json);
-    auto expected_indices = ArrayFromJSON(indices_type, indices_json);
-    ASSERT_OK_AND_ASSIGN(auto indices,
-                         internal::GetTakeIndices(*filter->data(), null_selection));
-    auto indices_array = MakeArray(indices);
-    ValidateOutput(indices);
-    AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
-
-    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(*filter));
-    ASSERT_OK_AND_ASSIGN(auto indices_from_ree,
-                         internal::GetTakeIndices(*ree_filter->data(), null_selection));
-    auto indices_from_ree_array = MakeArray(indices);
-    ValidateOutput(indices_from_ree);
-    AssertArraysEqual(*expected_indices, *indices_from_ree_array, /*verbose=*/true);
-  };
-
   // Drop null cases
-  CheckCase("[]", "[]", FilterOptions::DROP);
-  CheckCase("[null]", "[]", FilterOptions::DROP);
-  CheckCase("[null, false, true, true, false, true]", "[2, 3, 5]", FilterOptions::DROP);
+  CheckTakeCase("[]", "[]", FilterOptions::DROP);
+  CheckTakeCase("[null]", "[]", FilterOptions::DROP);
+  CheckTakeCase("[null, false, true, true, false, true]", "[2, 3, 5]",
+                FilterOptions::DROP);
 
   // Emit null cases
-  CheckCase("[]", "[]", FilterOptions::EMIT_NULL);
-  CheckCase("[null]", "[null]", FilterOptions::EMIT_NULL);
-  CheckCase("[null, false, true, true]", "[null, 2, 3]", FilterOptions::EMIT_NULL);
+  CheckTakeCase("[]", "[]", FilterOptions::EMIT_NULL);
+  CheckTakeCase("[null]", "[null]", FilterOptions::EMIT_NULL);
+  CheckTakeCase("[null, false, true, true]", "[null, 2, 3]", FilterOptions::EMIT_NULL);
 }
 
 TEST(GetTakeIndices, NullValidityBuffer) {
   BooleanArray filter(1, *AllocateEmptyBitmap(1), /*null_bitmap=*/nullptr);
   auto expected_indices = ArrayFromJSON(uint16(), "[]");
 
-  ASSERT_OK_AND_ASSIGN(auto indices,
-                       internal::GetTakeIndices(*filter.data(), FilterOptions::DROP));
-  auto indices_array = MakeArray(indices);
-  ValidateOutput(indices);
-  AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
-
-  ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter));
-  ASSERT_OK_AND_ASSIGN(
-      auto indices_from_ree,
-      internal::GetTakeIndices(*ree_filter->data(), FilterOptions::DROP));
-  auto indices_from_ree_array = MakeArray(indices);
-  ValidateOutput(indices_from_ree);
-  AssertArraysEqual(*expected_indices, *indices_from_ree_array, /*verbose=*/true);
-
-  ASSERT_OK_AND_ASSIGN(
-      indices, internal::GetTakeIndices(*filter.data(), FilterOptions::EMIT_NULL));
-  indices_array = MakeArray(indices);
-  ValidateOutput(indices);
-  AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
-
-  ASSERT_OK_AND_ASSIGN(
-      indices_from_ree,
-      internal::GetTakeIndices(*ree_filter->data(), FilterOptions::EMIT_NULL));
-  indices_from_ree_array = MakeArray(indices);
-  ValidateOutput(indices_from_ree);
-  AssertArraysEqual(*expected_indices, *indices_from_ree_array, /*verbose=*/true);
+  CheckTakeCase(filter, expected_indices, FilterOptions::DROP);
+  CheckTakeCase(filter, expected_indices, FilterOptions::EMIT_NULL);
 }
 
 template <typename IndexArrayType>
