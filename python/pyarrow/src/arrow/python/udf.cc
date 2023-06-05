@@ -135,9 +135,9 @@ struct PythonTableUdfKernelInit {
       output_type(output_type) {
         std::vector<std::shared_ptr<Field>> fields;
         for (size_t i = 0; i < input_types.size(); i++) {
-          fields.push_back(field("", input_types[i]));
+          fields.push_back(std::move(field("", input_types[i])));
         }
-        input_schema = schema(fields);
+        input_schema = schema(std::move(fields));
       };
 
     ~PythonUdfScalarAggregatorImpl() {
@@ -153,8 +153,12 @@ struct PythonTableUdfKernelInit {
     }
 
     Status MergeFrom(compute::KernelContext* ctx, compute::KernelState&& src) {
-      const auto& other_state = checked_cast<const PythonUdfScalarAggregatorImpl&>(src);
-      values.insert(values.end(), other_state.values.begin(), other_state.values.end());
+      auto& other_values = checked_cast<PythonUdfScalarAggregatorImpl&>(src).values;
+      values.insert(values.end(),
+        std::make_move_iterator(other_values.begin()),
+        std::make_move_iterator(other_values.end()));
+
+      other_values.erase(other_values.begin(), other_values.end());
       return Status::OK();
     }
 

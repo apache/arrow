@@ -986,15 +986,17 @@ ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
         std::vector<FieldRef> target;
         for (int i = 0; i < call.size(); i++) {
           ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(i));
-          FieldRef* arg_ref = arg.field_ref();
+          const FieldRef* arg_ref = arg.field_ref();
           if (!arg_ref) {
             return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
                                    call.id().name, " to have a direct reference");
           }
-          target.emplace_back(std::move(*arg_ref));
+          // Copy arg_ref here because field_ref() return const FieldRef*
+          target.emplace_back(*arg_ref);
         }
         return compute::Aggregate{std::move(fixed_arrow_func),
-                                  options ? std::move(options) : nullptr, std::move(target), ""};
+                                  options ? std::move(options) : nullptr,
+                                  std::move(target), ""};
       }
     }
   };
