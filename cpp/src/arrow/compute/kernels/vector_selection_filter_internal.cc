@@ -523,11 +523,9 @@ Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArraySpan& values,
         (raw_offsets[position + length] - raw_offsets[position]);
     APPEND_RAW_DATA(raw_data + raw_offsets[position], run_data_bytes);
     // Append offsets
-    offset_type cur_offset = raw_offsets[position];
     for (int64_t i = 0; i < length; ++i) {
       offset_builder.UnsafeAppend(offset);
-      offset += raw_offsets[i + position + 1] - cur_offset;
-      cur_offset = raw_offsets[i + position + 1];
+      offset += raw_offsets[i + position + 1] - raw_offsets[i + position + 1];
     }
     return Status::OK();
   };
