@@ -777,10 +777,12 @@ cdef class _PandasConvertible(_Weakrefable):
             default conversion should be used for that type. If you have
             a dictionary mapping, you can pass ``dict.get`` as function.
         coerce_temporal_nanoseconds : bool, default False
+            Only applicable to pandas version >= 2.0.
             A legacy option to coerce date32, date64, datetime, and timestamp
-            types to use nanoseconds when converting to pandas. This was the
-            default behavior in pandas version 1.x. In pandas version 2.0,
-            non-nanosecond time units are now supported.
+            time units to nanoseconds when converting to pandas. This is the
+            default behavior in pandas version 1.x. Set this option to True if
+            you'd like to use this coercion when using pandas version >= 2.0
+            for backwards compatibility (not recommended otherwise).
 
         Returns
         -------
