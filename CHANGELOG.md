@@ -1,5 +1,5 @@
 
-# Apache Arrow 12.0.1 (2023-06-07)
+# Apache Arrow 12.0.1 (2023-06-05)
 
 ## Bug Fixes
 
@@ -24,8 +24,6 @@
 * [GH-35821](https://github.com/apache/arrow/issues/35821) - [Python][CI] Skip extension type test failing with pandas 2.0.2 (#35822)
 * [GH-35845](https://github.com/apache/arrow/issues/35845) - [CI][Python] Fix usage of assert_frame_equal in test_hdfs.py (#35842)
 * [GH-35850](https://github.com/apache/arrow/issues/35850) - [C++] Don't disable optimization with RelWithDebInfo (#35856)
-* [GH-35932](https://github.com/apache/arrow/issues/35932) - [Java] Make JDBC test less brittle (#35940)
-* [GH-35946](https://github.com/apache/arrow/issues/35946) - [CI][Packaging] Free up more disk space for Linux packages (#35947)
 
 
 ## New Features and Improvements
@@ -35,7 +33,6 @@
 * [GH-35329](https://github.com/apache/arrow/issues/35329) - [Python] Address pandas.types.is_sparse deprecation (#35366)
 * [GH-35433](https://github.com/apache/arrow/issues/35433) - [CI] Unpin urllib3, upgrade gcs-testbench (#35434)
 * [GH-35458](https://github.com/apache/arrow/issues/35458) - [C++][Benchmarking] Require Google Benchmark 1.6.1 or later (#35459)
-* [GH-35937](https://github.com/apache/arrow/issues/35937) - [R] Update NEWS for 12.0.1 (#35938)
 
 
 
