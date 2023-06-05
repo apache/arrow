@@ -197,12 +197,8 @@ class DatasetWriterFileQueue {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> next_batch, PopStagedBatch());
     int64_t rows_popped = next_batch->num_rows();
     rows_currently_staged_ -= next_batch->num_rows();
-#ifdef ARROW_WITH_OPENTELEMETRY
-    ::arrow::internal::tracing::UnwrapSpan(span.details.get())
-        ->SetAttribute("batch.size_rows", next_batch->num_rows());
-    ::arrow::internal::tracing::UnwrapSpan(span.details.get())
-        ->SetAttribute("rows_currently_staged", rows_currently_staged_);
-#endif
+    ATTRIBUTE_ON_CURRENT_SPAN("batch.size_rows", next_batch->num_rows());
+    ATTRIBUTE_ON_CURRENT_SPAN("rows_currently_staged", rows_currently_staged_);
     ScheduleBatch(std::move(next_batch));
     return rows_popped;
   }
