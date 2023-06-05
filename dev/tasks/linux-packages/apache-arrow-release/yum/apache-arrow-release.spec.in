@@ -95,7 +95,7 @@ else
 fi
 
 %changelog
-* Wed Jun 07 2023 Raúl Cumplido <raulcumplido@gmail.com> - 12.0.1-1
+* Mon Jun 05 2023 Raúl Cumplido <raulcumplido@gmail.com> - 12.0.1-1
 - New upstream release.
 
 * Fri Apr 21 2023 Raúl Cumplido <raulcumplido@gmail.com> - 12.0.0-1
