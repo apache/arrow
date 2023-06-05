@@ -1362,8 +1362,8 @@ TRACED_TEST(AsofJoinTest, TestUnorderedOnKey, {
 })
 
 struct BackpressureCounters {
-  int32_t pause_count = 0;
-  int32_t resume_count = 0;
+  std::atomic<int32_t> pause_count = 0;
+  std::atomic<int32_t> resume_count = 0;
 };
 
 struct BackpressureCountingNodeOptions : public ExecNodeOptions {
