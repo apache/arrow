@@ -174,7 +174,7 @@ class PrimitiveFilterImpl {
       out_is_valid_ = out_arr->buffers[0]->mutable_data();
     }
     out_data_ = reinterpret_cast<T*>(out_arr->buffers[1]->mutable_data());
-    out_offset_ = out_arr->offset;  // NOTE(felipecrv): is this ever non-zero?
+    out_offset_ = out_arr->offset;
     out_length_ = out_arr->length;
     out_position_ = 0;
   }
@@ -204,7 +204,8 @@ class PrimitiveFilterImpl {
             } else {
               bit_util::SetBitsTo(out_is_valid_, out_offset_ + out_position_,
                                   segment_length, false);
-              memset(out_data_ + out_position_, 0, segment_length * sizeof(T));
+              memset(out_data_ + out_offset_ + out_position_, 0,
+                     segment_length * sizeof(T));
               out_position_ += segment_length;
             }
           });
@@ -224,7 +225,8 @@ class PrimitiveFilterImpl {
           } else {
             bit_util::SetBitsTo(out_is_valid_, out_offset_ + out_position_,
                                 segment_length, false);
-            memset(out_data_ + out_position_, 0, segment_length * sizeof(T));
+            memset(out_data_ + out_offset_ + out_position_, 0,
+                   segment_length * sizeof(T));
             out_position_ += segment_length;
           }
         });
@@ -370,7 +372,7 @@ class PrimitiveFilterImpl {
   // Write the next out_position given the selected in_position for the input
   // data and advance out_position
   void WriteValue(int64_t in_position) {
-    out_data_[out_position_++] = values_data_[in_position];
+    out_data_[out_offset_ + out_position_++] = values_data_[in_position];
   }
 
   void WriteValueSegment(int64_t in_start, int64_t length) {
@@ -380,7 +382,7 @@ class PrimitiveFilterImpl {
 
   void WriteNull() {
     // Zero the memory
-    out_data_[out_position_++] = T{};
+    out_data_[out_offset_ + out_position_++] = T{};
   }
 
  private:
@@ -572,9 +574,10 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
   const uint8_t* values_is_valid = values.buffers[0].data;
   const int64_t values_offset = values.offset;
 
+  const int64_t out_offset = out->offset;
   uint8_t* out_is_valid = out->buffers[0]->mutable_data();
   // Zero bits and then only have to set valid values to true
-  bit_util::SetBitsTo(out_is_valid, 0, output_length, false);
+  bit_util::SetBitsTo(out_is_valid, out_offset, output_length, false);
 
   int64_t in_position = 0;
   int64_t out_position = 0;
@@ -587,7 +590,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
         for (int64_t i = 0; i < segment_length; ++i, ++in_position, ++out_position) {
           offset_builder.UnsafeAppend(offset);
           if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
-            bit_util::SetBit(out_is_valid, out_position);
+            bit_util::SetBit(out_is_valid, out_offset + out_position);
             APPEND_SINGLE_VALUE();
           }
         }
@@ -637,7 +640,8 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
           // Fastest path: filter values are all true and not null
           if (values_valid_block.AllSet()) {
             // The values aren't null either
-            bit_util::SetBitsTo(out_is_valid, out_position, filter_block.length, true);
+            bit_util::SetBitsTo(out_is_valid, out_offset + out_position,
+                                filter_block.length, true);
 
             // Bulk-append raw data
             offset_type block_data_bytes =
@@ -656,7 +660,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
                  ++i, ++in_position, ++out_position) {
               offset_builder.UnsafeAppend(offset);
               if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
-                bit_util::SetBit(out_is_valid, out_position);
+                bit_util::SetBit(out_is_valid, out_offset + out_position);
                 APPEND_SINGLE_VALUE();
               }
             }
@@ -669,7 +673,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
             for (int64_t i = 0; i < filter_block.length; ++i, ++in_position) {
               if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 offset_builder.UnsafeAppend(offset);
-                bit_util::SetBit(out_is_valid, out_position++);
+                bit_util::SetBit(out_is_valid, out_offset + out_position++);
                 APPEND_SINGLE_VALUE();
               }
             }
@@ -680,7 +684,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
               if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 offset_builder.UnsafeAppend(offset);
                 if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
-                  bit_util::SetBit(out_is_valid, out_position);
+                  bit_util::SetBit(out_is_valid, out_offset + out_position);
                   APPEND_SINGLE_VALUE();
                 }
                 ++out_position;
@@ -698,7 +702,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
               if (bit_util::GetBit(filter_is_valid, filter_offset + in_position) &&
                   bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 offset_builder.UnsafeAppend(offset);
-                bit_util::SetBit(out_is_valid, out_position++);
+                bit_util::SetBit(out_is_valid, out_offset + out_position++);
                 APPEND_SINGLE_VALUE();
               }
             }
@@ -708,7 +712,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
                   bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 offset_builder.UnsafeAppend(offset);
                 if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
-                  bit_util::SetBit(out_is_valid, out_position);
+                  bit_util::SetBit(out_is_valid, out_offset + out_position);
                   APPEND_SINGLE_VALUE();
                 }
                 ++out_position;
@@ -727,7 +731,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
               if (filter_not_null &&
                   bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 offset_builder.UnsafeAppend(offset);
-                bit_util::SetBit(out_is_valid, out_position++);
+                bit_util::SetBit(out_is_valid, out_offset + out_position++);
                 APPEND_SINGLE_VALUE();
               } else if (!filter_not_null) {
                 offset_builder.UnsafeAppend(offset);
@@ -742,7 +746,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
                   bit_util::GetBit(filter_data, filter_offset + in_position)) {
                 offset_builder.UnsafeAppend(offset);
                 if (bit_util::GetBit(values_is_valid, values_offset + in_position)) {
-                  bit_util::SetBit(out_is_valid, out_position);
+                  bit_util::SetBit(out_is_valid, out_offset + out_position);
                   APPEND_SINGLE_VALUE();
                 }
                 ++out_position;
