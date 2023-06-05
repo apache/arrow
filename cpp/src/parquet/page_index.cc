@@ -853,8 +853,7 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
       return std::make_unique<TypedColumnIndexImpl<DoubleType>>(descr, column_index);
     case Type::BYTE_ARRAY:
       return std::make_unique<TypedColumnIndexImpl<ByteArrayType>>(descr, column_index);
-    case Type::LARGE_BYTE_ARRAY:
-      return std::make_unique<TypedColumnIndexImpl<LargeByteArrayType>>(descr, column_index);
+      // TODO AP FIX ARTHUR PASSOS
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_unique<TypedColumnIndexImpl<FLBAType>>(descr, column_index);
     case Type::UNDEFINED:
@@ -899,8 +898,7 @@ std::unique_ptr<ColumnIndexBuilder> ColumnIndexBuilder::Make(
       return std::make_unique<ColumnIndexBuilderImpl<DoubleType>>(descr);
     case Type::BYTE_ARRAY:
       return std::make_unique<ColumnIndexBuilderImpl<ByteArrayType>>(descr);
-    case Type::LARGE_BYTE_ARRAY:
-      return std::make_unique<ColumnIndexBuilderImpl<LargeByteArrayType>>(descr);
+      // TODO AP FIX ARTHUR PASSOS
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_unique<ColumnIndexBuilderImpl<FLBAType>>(descr);
     case Type::UNDEFINED:

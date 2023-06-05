@@ -64,10 +64,6 @@ struct Type {
     DOUBLE = 5,
     BYTE_ARRAY = 6,
     FIXED_LEN_BYTE_ARRAY = 7,
-
-    // This parquet type does not actually exist (AFAIK) and is used to
-    // create proper type traits
-    LARGE_BYTE_ARRAY = 8,
     // Should always be last element.
     UNDEFINED = 9
   };
@@ -768,13 +764,13 @@ struct type_traits<Type::BYTE_ARRAY> {
   static constexpr const char* printf_code = "s";
 };
 
-template<>
-struct type_traits<Type::LARGE_BYTE_ARRAY> {
-  using value_type = LargeByteArray;
-
-  static constexpr int value_byte_size = sizeof(LargeByteArray);
-  static constexpr const char* printf_code = "ls";
-};
+//template<>
+//struct type_traits<Type::LARGE_BYTE_ARRAY> {
+//  using value_type = LargeByteArray;
+//
+//  static constexpr int value_byte_size = sizeof(LargeByteArray);
+//  static constexpr const char* printf_code = "ls";
+//};
 
 template <>
 struct type_traits<Type::FIXED_LEN_BYTE_ARRAY> {
@@ -796,8 +792,20 @@ using Int64Type = PhysicalType<Type::INT64>;
 using Int96Type = PhysicalType<Type::INT96>;
 using FloatType = PhysicalType<Type::FLOAT>;
 using DoubleType = PhysicalType<Type::DOUBLE>;
-using ByteArrayType = PhysicalType<Type::BYTE_ARRAY>;
-using LargeByteArrayType = PhysicalType<Type::LARGE_BYTE_ARRAY>;
+
+struct ByteArrayType
+{
+  using c_type = typename type_traits<Type::BYTE_ARRAY>::value_type;
+  static constexpr Type::type type_num = Type::BYTE_ARRAY;
+};
+
+
+struct LargeByteArrayType
+{
+    using c_type = typename type_traits<Type::BYTE_ARRAY>::value_type;
+    static constexpr Type::type type_num = Type::BYTE_ARRAY;
+};
+
 using FLBAType = PhysicalType<Type::FIXED_LEN_BYTE_ARRAY>;
 
 template <typename Type>

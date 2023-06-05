@@ -462,14 +462,15 @@ std::unique_ptr<typename EncodingTraits<DType>::Encoder> MakeTypedEncoder(
 PARQUET_EXPORT
 std::unique_ptr<Decoder> MakeDecoder(
     Type::type type_num, Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), bool use_binary_large_variant = false);
 
 namespace detail {
 
 PARQUET_EXPORT
 std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
                                          const ColumnDescriptor* descr,
-                                         ::arrow::MemoryPool* pool);
+                                         ::arrow::MemoryPool* pool,
+                                         bool use_binary_large_variant);
 
 }  // namespace detail
 
@@ -478,7 +479,7 @@ std::unique_ptr<DictDecoder<DType>> MakeDictDecoder(
     const ColumnDescriptor* descr = NULLPTR,
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
   using OutType = DictDecoder<DType>;
-  auto decoder = detail::MakeDictDecoder(DType::type_num, descr, pool);
+  auto decoder = detail::MakeDictDecoder(DType::type_num, descr, pool, std::is_same_v<DType, LargeByteArrayType>);
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(decoder.release()));
 }
 
@@ -487,7 +488,8 @@ std::unique_ptr<typename EncodingTraits<DType>::Decoder> MakeTypedDecoder(
     Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR,
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
   using OutType = typename EncodingTraits<DType>::Decoder;
-  std::unique_ptr<Decoder> base = MakeDecoder(DType::type_num, encoding, descr, pool);
+
+  std::unique_ptr<Decoder> base = MakeDecoder(DType::type_num, encoding, descr, pool, std::is_same_v<DType, LargeByteArrayType>);
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
 

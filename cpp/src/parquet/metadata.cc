@@ -123,8 +123,6 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
       return MakeTypedColumnStats<FloatType>(meta_data, descr);
     case Type::BYTE_ARRAY:
       return MakeTypedColumnStats<ByteArrayType>(meta_data, descr);
-    case Type::LARGE_BYTE_ARRAY:
-      return MakeTypedColumnStats<LargeByteArrayType>(meta_data, descr);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return MakeTypedColumnStats<FLBAType>(meta_data, descr);
     case Type::UNDEFINED:
