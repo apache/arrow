@@ -170,15 +170,39 @@ Result<std::shared_ptr<Schema>> GetProjectedSchemaFromExpression(
 // Scan options has a number of options that we can infer from the dataset
 // schema if they are not specified.
 Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
-                            const std::shared_ptr<Schema>& dataset_schema) {
+                            const std::shared_ptr<Dataset>& dataset) {
   if (scan_options->dataset_schema == nullptr) {
-    scan_options->dataset_schema = dataset_schema;
+    scan_options->dataset_schema = dataset->schema();
   }
 
   if (!scan_options->filter.IsBound()) {
     ARROW_ASSIGN_OR_RAISE(scan_options->filter,
-                          scan_options->filter.Bind(*dataset_schema));
+                          scan_options->filter.Bind(*dataset->schema()));
   }
+
+  // std::shared_ptr<FileSystemDataset> fs_dataset = std::dynamic_pointer_cast<FileSystemDataset>(dataset);
+  // if (fs_dataset) { 
+  //   std::shared_ptr<Partitioning> partitioning = fs_dataset->partitioning();
+
+  //   if (partitioning->schema()->num_fields()) {
+  //     auto field_check =
+  //         dataset->schema()->CanReferenceFieldsByNames(partitioning->schema()->field_names());
+      
+  //     // Partitioning field present in fragment. Doing deep check with data type
+  //     if (ARROW_PREDICT_FALSE(field_check.ok())) {
+  //       const FieldVector fields = partitioning->schema()->fields();
+
+  //       for(auto &it:fields){
+  //         if (it && dataset->schema()->GetFieldIndex(it->name())!=-1) {
+  //             if (it->type() != dataset->schema()->GetFieldByName(it->name())->type()) {
+  //                 return Status::Invalid(
+  //                     "Error creating dataset. Partitioning field(s) present in fragment with different datatype.");
+  //             }
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 
   if (!scan_options->projected_schema) {
     // If the user specifies a projection expression we can maybe infer from
@@ -186,7 +210,7 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     if (scan_options->projection.IsBound()) {
       ARROW_ASSIGN_OR_RAISE(
           auto project_schema,
-          GetProjectedSchemaFromExpression(scan_options->projection, dataset_schema));
+          GetProjectedSchemaFromExpression(scan_options->projection, dataset->schema()));
       if (project_schema->num_fields() > 0) {
         scan_options->projected_schema = std::move(project_schema);
       }
@@ -205,7 +229,7 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
       // process resultant dataset_schema after projection
       ARROW_ASSIGN_OR_RAISE(
           auto projected_schema,
-          GetProjectedSchemaFromExpression(scan_options->projection, dataset_schema));
+          GetProjectedSchemaFromExpression(scan_options->projection, dataset->schema()));
 
       if (projected_schema->num_fields() > 0) {
         // create the projected schema only if the provided expressions
@@ -220,7 +244,7 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
         // if projected_fields are not found, we default to creating the projected_schema
         // and projection from the dataset_schema.
         ARROW_ASSIGN_OR_RAISE(auto projection_descr,
-                              ProjectionDescr::Default(*dataset_schema));
+                              ProjectionDescr::Default(*dataset->schema()));
         scan_options->projected_schema = std::move(projection_descr.schema);
         scan_options->projection = projection_descr.expression;
       }
@@ -231,12 +255,12 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     ARROW_ASSIGN_OR_RAISE(
         auto projection_descr,
         ProjectionDescr::FromNames(scan_options->projected_schema->field_names(),
-                                   *dataset_schema));
+                                   *dataset->schema()));
     scan_options->projection = projection_descr.expression;
   }
 
   if (!scan_options->projection.IsBound()) {
-    auto fields = dataset_schema->fields();
+    auto fields = dataset->schema()->fields();
     for (const auto& aug_field : kAugmentedFields) {
       fields.push_back(aug_field);
     }
@@ -426,7 +450,7 @@ Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
     Executor* cpu_executor, bool sequence_fragments, bool use_legacy_batching) {
-  RETURN_NOT_OK(NormalizeScanOptions(scan_options_, dataset_->schema()));
+  RETURN_NOT_OK(NormalizeScanOptions(scan_options_, dataset_));
 
   auto exec_context =
       std::make_shared<compute::ExecContext>(scan_options_->pool, cpu_executor);
@@ -992,7 +1016,7 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
   auto dataset = scan_node_options.dataset;
   bool require_sequenced_output = scan_node_options.require_sequenced_output;
 
-  RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset->schema()));
+  RETURN_NOT_OK(NormalizeScanOptions(scan_options, dataset));
 
   // using a generator for speculative forward compatibility with async fragment discovery
   ARROW_ASSIGN_OR_RAISE(auto fragments_it, dataset->GetFragments(scan_options->filter));

@@ -252,14 +252,24 @@ Result<std::vector<std::shared_ptr<Schema>>> FileSystemDatasetFactory::InspectSc
           "'. Is this a '", format_->type_name(), "' file?: ", result.status().message());
     }
 
-    // if (partition_schema->num_fields()) {
-    //   auto field_check =
-    //       result->get()->CanReferenceFieldsByNames(partition_schema->field_names());
-    //   if (ARROW_PREDICT_FALSE(field_check.ok())) {
-    //     return Status::Invalid(
-    //         "Error creating dataset. Partitioning field(s) present in fragment.");
-    //   }
-    // }
+    if (partition_schema->num_fields()) {
+      auto field_check =
+          result->get()->CanReferenceFieldsByNames(partition_schema->field_names());
+      
+      // Partitioning field present in fragment. Doing deep check with data type
+      if (ARROW_PREDICT_FALSE(field_check.ok())) {
+        const FieldVector fields = partition_schema->fields();
+
+        for(auto &it:fields){
+          if (it && result->get()->GetFieldIndex(it->name())!=-1) {
+              if (it->type() != result->get()->GetFieldByName(it->name())->type()) {
+                  return Status::Invalid(
+                      "Error creating dataset. Partitioning field(s) present in fragment with different datatype.");
+              }
+          }
+        }
+      }
+    }
 
     schemas.push_back(result.MoveValueUnsafe());
   }
