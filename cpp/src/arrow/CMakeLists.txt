@@ -216,6 +216,7 @@ set(ARROW_SRCS
     util/delimiting.cc
     util/formatting.cc
     util/future.cc
+    util/hashing.cc
     util/int_util.cc
     util/io_util.cc
     util/logging.cc

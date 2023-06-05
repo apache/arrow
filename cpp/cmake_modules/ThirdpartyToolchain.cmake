@@ -2823,7 +2823,7 @@ macro(ensure_absl)
       # 20211102 or later. We need to update
       # ARROW_ABSL_REQUIRED_LTS_VERSIONS list when new Abseil LTS is
       # released.
-      set(ARROW_ABSL_REQUIRED_LTS_VERSIONS 20211102 20220623)
+      set(ARROW_ABSL_REQUIRED_LTS_VERSIONS 20230125 20220623 20211102)
       foreach(_VERSION ${ARROW_ABSL_REQUIRED_LTS_VERSIONS})
         find_package(absl ${_VERSION})
         if(absl_FOUND)

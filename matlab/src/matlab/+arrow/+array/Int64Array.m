@@ -26,8 +26,7 @@ classdef Int64Array < arrow.array.Array
                 data
                 opts.DeepCopy = false
             end
-            validateattributes(data, "int64", ["2d", "nonsparse", "real"]);
-            if ~isempty(data), validateattributes(data, "int64", "vector"); end
+            arrow.args.validateTypeAndShape(data, "int64");
             obj@arrow.array.Array("Name", "arrow.array.proxy.Int64Array", "ConstructorArguments", {data, opts.DeepCopy});
             % Store a reference to the array if not doing a deep copy
             if (~opts.DeepCopy), obj.MatlabArray = data; end

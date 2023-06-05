@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
 )
 
 // RecordEqual reports whether the two provided records are equal.
@@ -735,13 +736,22 @@ func arrayApproxEqualFixedSizeList(left, right *FixedSizeList, opt equalOption) 
 }
 
 func arrayApproxEqualStruct(left, right *Struct, opt equalOption) bool {
-	for i, lf := range left.fields {
-		rf := right.fields[i]
-		if !arrayApproxEqual(lf, rf, opt) {
-			return false
+	return bitutils.VisitSetBitRuns(
+		left.NullBitmapBytes(),
+		int64(left.Offset()), int64(left.Len()),
+		approxEqualStructRun(left, right, opt),
+	) == nil
+}
+
+func approxEqualStructRun(left, right *Struct, opt equalOption) bitutils.VisitFn {
+	return func(pos int64, length int64) error {
+		for i := range left.fields {
+			if !sliceApproxEqual(left.fields[i], pos, pos+length, right.fields[i], pos, pos+length, opt) {
+				return arrow.ErrInvalid
+			}
 		}
+		return nil
 	}
-	return true
 }
 
 // arrayApproxEqualMap doesn't care about the order of keys (in Go map traversal order is undefined)
