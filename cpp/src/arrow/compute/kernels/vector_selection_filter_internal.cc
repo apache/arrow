@@ -91,7 +91,7 @@ int64_t GetREEFilterOutputSize(const ArraySpan& filter,
   DCHECK_EQ(ree_type.value_type()->id(), Type::BOOL);
   int64_t output_size = 0;
   VisitPlainxREEFilterOutputSegments(
-      filter, true, null_selection,
+      filter, /*filter_may_have_nulls=*/true, null_selection,
       [&output_size](int64_t, int64_t segment_length, bool) {
         output_size += segment_length;
       });
@@ -105,6 +105,7 @@ int64_t GetFilterOutputSize(const ArraySpan& filter,
   if (filter.type->id() == Type::BOOL) {
     return GetBitmapFilterOutputSize(filter, null_selection);
   }
+  DCHECK_EQ(filter.type->id(), Type::RUN_END_ENCODED);
   return GetREEFilterOutputSize(filter, null_selection);
 }
 
@@ -190,7 +191,8 @@ class PrimitiveFilterImpl {
             DCHECK(filter_valid);
           });
     }
-    if (values_is_valid_ && out_is_valid_) {
+    if (values_is_valid_) {
+      DCHECK(out_is_valid_);
       // Fast path: values can be null, so the validity bitmap should be copied
       return VisitPlainxREEFilterOutputSegments(
           filter_, /*filter_may_have_nulls=*/true, null_selection_,
@@ -976,11 +978,11 @@ class FilterMetaFunction : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    auto& filter_type = *args[1].type();
+    const auto& filter_type = *args[1].type();
     const bool filter_is_plain_bool = filter_type.id() == Type::BOOL;
     const bool filter_is_ree_bool =
         filter_type.id() == Type::RUN_END_ENCODED &&
-        checked_cast<arrow::RunEndEncodedType&>(filter_type).value_type()->id() ==
+        checked_cast<const arrow::RunEndEncodedType&>(filter_type).value_type()->id() ==
             Type::BOOL;
     if (!filter_is_plain_bool && !filter_is_ree_bool) {
       return Status::NotImplemented("Filter argument must be boolean type");

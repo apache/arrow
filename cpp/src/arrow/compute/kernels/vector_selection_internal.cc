@@ -103,7 +103,7 @@ void VisitPlainxREEFilterOutputSegmentsImpl(
   const int64_t filter_values_offset = filter_values.offset;
   const uint8_t* filter_is_valid = filter_values.buffers[0].data;
   const uint8_t* filter_selection = filter_values.buffers[1].data;
-  filter_may_have_nulls = filter_may_have_nulls && filter_is_valid != NULLPTR &&
+  filter_may_have_nulls = filter_may_have_nulls && filter_is_valid != nullptr &&
                           filter_values.null_count != 0;
 
   const arrow::ree_util::RunEndEncodedArraySpan<FilterRunEndCType> filter_span(filter);

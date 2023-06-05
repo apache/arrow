@@ -211,7 +211,6 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
     // Check that the end length agrees with the output of GetFilterOutputSize
     ASSERT_EQ(out_position,
               internal::GetFilterOutputSize(*filter.data(), FilterOptions::EMIT_NULL));
-    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(*filter.data()));
     ASSERT_EQ(out_position, internal::GetFilterOutputSize(*ree_filter->data(),
                                                           FilterOptions::EMIT_NULL));
   }

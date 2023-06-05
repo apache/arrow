@@ -288,7 +288,7 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesFromBitmap(
 Result<std::shared_ptr<ArrayData>> GetTakeIndicesFromREEBitmap(
     const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
     MemoryPool* memory_pool) {
-  auto& ree_type = checked_cast<const RunEndEncodedType&>(*filter.type);
+  const auto& ree_type = checked_cast<const RunEndEncodedType&>(*filter.type);
   // The resulting array will contain indexes of the same type as the run-end type of the
   // run-end encoded filter. Run-end encoded arrays have to pick the smallest run-end type
   // to maximize memory savings, so we can be re-use that decision here and get a good
