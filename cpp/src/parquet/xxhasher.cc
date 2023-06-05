@@ -27,6 +27,14 @@ template <typename T>
 uint64_t XxHashHelper(T value, uint32_t seed) {
   return XXH64(reinterpret_cast<const void*>(&value), sizeof(T), seed);
 }
+
+template <typename T>
+void XxHashesHelper(const T* values, uint32_t seed, int num_values, uint64_t* results) {
+  for (int i = 0; i < num_values; ++i) {
+    results[i] = XxHashHelper(values[i], seed);
+  }
+}
+
 }  // namespace
 
 uint64_t XxHasher::Hash(int32_t value) const {
@@ -57,6 +65,44 @@ uint64_t XxHasher::Hash(const Int96* value) const {
 uint64_t XxHasher::Hash(const ByteArray* value) const {
   return XXH64(reinterpret_cast<const void*>(value->ptr), value->len,
                kParquetBloomXxHashSeed);
+}
+
+void XxHasher::Hashes(const int32_t* values, int num_values, uint64_t* hashes) const {
+  XxHashesHelper(values, kParquetBloomXxHashSeed, num_values, hashes);
+}
+
+void XxHasher::Hashes(const int64_t* values, int num_values, uint64_t* hashes) const {
+  XxHashesHelper(values, kParquetBloomXxHashSeed, num_values, hashes);
+}
+
+void XxHasher::Hashes(const float* values, int num_values, uint64_t* hashes) const {
+  XxHashesHelper(values, kParquetBloomXxHashSeed, num_values, hashes);
+}
+
+void XxHasher::Hashes(const double* values, int num_values, uint64_t* hashes) const {
+  XxHashesHelper(values, kParquetBloomXxHashSeed, num_values, hashes);
+}
+
+void XxHasher::Hashes(const Int96* values, int num_values, uint64_t* hashes) const {
+  for (int i = 0; i < num_values; ++i) {
+    hashes[i] = XXH64(reinterpret_cast<const void*>(values[i].value),
+                      sizeof(values[i].value), kParquetBloomXxHashSeed);
+  }
+}
+
+void XxHasher::Hashes(const ByteArray* values, int num_values, uint64_t* hashes) const {
+  for (int i = 0; i < num_values; ++i) {
+    hashes[i] = XXH64(reinterpret_cast<const void*>(values[i].ptr), values[i].len,
+                      kParquetBloomXxHashSeed);
+  }
+}
+
+void XxHasher::Hashes(const FLBA* values, uint32_t type_len, int num_values,
+                      uint64_t* hashes) const {
+  for (int i = 0; i < num_values; ++i) {
+    hashes[i] = XXH64(reinterpret_cast<const void*>(values[i].ptr), type_len,
+                      kParquetBloomXxHashSeed);
+  }
 }
 
 }  // namespace parquet

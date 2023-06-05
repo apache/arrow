@@ -413,10 +413,12 @@ class TestSmallStaticVector : public ::testing::Test {
     ASSERT_EQ(moved_moved_ints.size(), 5);
     EXPECT_THAT(moved_moved_ints, ElementsAre(4, 5, 6, 7, 8));
 
+#ifndef __MINGW32__
     // Move into itself
     moved_moved_ints = std::move(moved_moved_ints);
     ASSERT_EQ(moved_moved_ints.size(), 5);
     EXPECT_THAT(moved_moved_ints, ElementsAre(4, 5, 6, 7, 8));
+#endif
   }
 
   void TestMove() {

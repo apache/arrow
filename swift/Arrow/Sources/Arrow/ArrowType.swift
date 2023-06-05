@@ -19,11 +19,17 @@ import Foundation
 
 func FlatBuffersVersion_23_1_4() {
 }
-
-public enum ValidationError: Error {
+                                                                                                                
+public enum ArrowError: Error {
+    case none
     case unknownType
-    case outOfBounds(index: UInt)
+    case runtimeError(String)
+    case outOfBounds(index: Int64)
     case arrayHasNoElements
+    case unknownError(String)
+    case notImplemented
+    case ioError(String)
+    case invalid(String)
 }
 
 public enum ArrowTypeId {

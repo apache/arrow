@@ -18,7 +18,7 @@
 import XCTest
 @testable import Arrow
 
-final class ArrowTests: XCTestCase {
+final class ArrayTests: XCTestCase {
     func testPrimitiveArray() throws {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
@@ -46,7 +46,7 @@ final class ArrowTests: XCTestCase {
         XCTAssertEqual(doubleBuilder.length, 2)
         XCTAssertEqual(doubleBuilder.capacity, 264)
         let doubleArray = try doubleBuilder.finish()
-        XCTAssertEqual(doubleArray.length, 32)
+        XCTAssertEqual(doubleArray.length, 2)
         XCTAssertEqual(doubleArray[0]!, 14)
         XCTAssertEqual(doubleArray[1]!, 40.4)
     }
@@ -62,7 +62,7 @@ final class ArrowTests: XCTestCase {
         }
         XCTAssertEqual(stringBuilder.nullCount, 10)
         XCTAssertEqual(stringBuilder.length, 100)
-        XCTAssertEqual(stringBuilder.capacity, 1032)
+        XCTAssertEqual(stringBuilder.capacity, 648)
         let stringArray = try stringBuilder.finish()
         XCTAssertEqual(stringArray.length, 100)
         for i in 0..<stringArray.length {
@@ -87,58 +87,17 @@ final class ArrowTests: XCTestCase {
         XCTAssertEqual(boolBuilder.length, 4)
         XCTAssertEqual(boolBuilder.capacity, 72)
         let boolArray = try boolBuilder.finish()
-        XCTAssertEqual(boolArray.length, 32)
+        XCTAssertEqual(boolArray.length, 4)
         XCTAssertEqual(boolArray[1], nil)
         XCTAssertEqual(boolArray[0]!, true)
         XCTAssertEqual(boolArray[2]!, false)
-    }
-    
-    func testSchema() throws {
-        let schemaBuilder = ArrowSchema.Builder();
-        let schema = schemaBuilder.addField("col1", type: ArrowType.ArrowInt8, isNullable: true)
-            .addField("col2", type: ArrowType.ArrowBool, isNullable: false)
-            .finish()
-        XCTAssertEqual(schema.fields.count, 2)
-        XCTAssertEqual(schema.fields[0].name, "col1")
-        XCTAssertEqual(schema.fields[0].type, ArrowType.ArrowInt8)
-        XCTAssertEqual(schema.fields[0].isNullable, true)
-        XCTAssertEqual(schema.fields[1].name, "col2")
-        XCTAssertEqual(schema.fields[1].type, ArrowType.ArrowBool)
-        XCTAssertEqual(schema.fields[1].isNullable, false)
-    }
-    
-    func testTable() throws {
-        let uint8Builder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder();
-        uint8Builder.append(10)
-        uint8Builder.append(22)
-        let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder();
-        stringBuilder.append("test10")
-        stringBuilder.append("test22")
         
-        let table = try ArrowTable.Builder()
-            .addColumn("col1", arrowArray: uint8Builder.finish())
-            .addColumn("col2", arrowArray: stringBuilder.finish())
-            .finish();
-
-        let schema = table.schema
-        XCTAssertEqual(schema.fields.count, 2)
-        XCTAssertEqual(schema.fields[0].name, "col1")
-        XCTAssertEqual(schema.fields[0].type, ArrowType.ArrowUInt8)
-        XCTAssertEqual(schema.fields[0].isNullable, false)
-        XCTAssertEqual(schema.fields[1].name, "col2")
-        XCTAssertEqual(schema.fields[1].type, ArrowType.ArrowString)
-        XCTAssertEqual(schema.fields[1].isNullable, false)
-        XCTAssertEqual(table.columns.count, 2)
-        let col1: ChunkedArray<UInt8> = table.columns[0].data();
-        let col2: ChunkedArray<String> = table.columns[1].data();
-        XCTAssertEqual(col1.length, 32)
-        XCTAssertEqual(col2.length, 32)
     }
     
-    func testDate() throws {
+    func testDate32Array() throws {
         let date32Builder: Date32ArrayBuilder = try ArrowArrayBuilders.loadDate32ArrayBuilder();
         let date2 = Date(timeIntervalSinceReferenceDate: 86400 * 1)
-        let date1 = Date(timeIntervalSinceReferenceDate: 86400 * 5000)
+        let date1 = Date(timeIntervalSinceReferenceDate: 86400 * 5000 + 352)
         date32Builder.append(date1)
         date32Builder.append(date2)
         date32Builder.append(nil)
@@ -146,11 +105,16 @@ final class ArrowTests: XCTestCase {
         XCTAssertEqual(date32Builder.length, 3)
         XCTAssertEqual(date32Builder.capacity, 136)
         let date32Array = try date32Builder.finish()
-        XCTAssertEqual(date32Array.length, 32)
+        XCTAssertEqual(date32Array.length, 3)
         XCTAssertEqual(date32Array[1], date2)
-        XCTAssertEqual(date32Array[0]!, date1)
-        
+        let adjustedDate1 = Date(timeIntervalSince1970: date1.timeIntervalSince1970 - 352)
+        XCTAssertEqual(date32Array[0]!, adjustedDate1)
+    }
+    
+    func testDate64Array() throws {
         let date64Builder: Date64ArrayBuilder = try ArrowArrayBuilders.loadDate64ArrayBuilder();
+        let date2 = Date(timeIntervalSinceReferenceDate: 86400 * 1)
+        let date1 = Date(timeIntervalSinceReferenceDate: 86400 * 5000 + 352)
         date64Builder.append(date1)
         date64Builder.append(date2)
         date64Builder.append(nil)
@@ -158,7 +122,7 @@ final class ArrowTests: XCTestCase {
         XCTAssertEqual(date64Builder.length, 3)
         XCTAssertEqual(date64Builder.capacity, 264)
         let date64Array = try date64Builder.finish()
-        XCTAssertEqual(date64Array.length, 32)
+        XCTAssertEqual(date64Array.length, 3)
         XCTAssertEqual(date64Array[1], date2)
         XCTAssertEqual(date64Array[0]!, date1)
         

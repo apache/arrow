@@ -24,6 +24,7 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
 
     properties (Dependent)
         Length
+        Valid % Validity bitmap
     end
     
     methods
@@ -32,19 +33,27 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
         end
 
         function numElements = get.Length(obj)
-            numElements = obj.Proxy.Length();
+            numElements = obj.Proxy.length();
+        end
+
+        function validElements = get.Valid(obj)
+            validElements = obj.Proxy.valid();
+        end
+
+        function matlabArray = toMATLAB(obj)
+            matlabArray = obj.Proxy.toMATLAB();
         end
     end
 
     methods (Access = private)
-        function str = ToString(obj)
-            str = obj.Proxy.ToString();
+        function str = toString(obj)
+            str = obj.Proxy.toString();
         end
     end
 
     methods (Access=protected)
         function displayScalarObject(obj)
-            disp(obj.ToString());
+            disp(obj.toString());
         end
     end
 end

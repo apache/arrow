@@ -129,7 +129,7 @@ func (a *Struct) newStructFieldWithParentValidityMask(fieldIndex int) arrow.Arra
 	maskedNullBitmapBytes := make([]byte, len(nullBitmapBytes))
 	copy(maskedNullBitmapBytes, nullBitmapBytes)
 	for i := 0; i < field.Len(); i++ {
-		if !a.IsValid(i) {
+		if a.IsNull(i) {
 			bitutil.ClearBit(maskedNullBitmapBytes, i)
 		}
 	}

@@ -50,29 +50,6 @@ std::string ToString(JoinType t) {
   std::abort();
 }
 
-Result<std::shared_ptr<SourceNodeOptions>> SourceNodeOptions::FromTable(
-    const Table& table, arrow::internal::Executor* executor) {
-  std::shared_ptr<RecordBatchReader> reader = std::make_shared<TableBatchReader>(table);
-
-  if (executor == nullptr) return Status::TypeError("No executor provided.");
-
-  // Map the RecordBatchReader to a SourceNode
-  ARROW_ASSIGN_OR_RAISE(auto batch_gen, MakeReaderGenerator(std::move(reader), executor));
-
-  return std::make_shared<SourceNodeOptions>(table.schema(), batch_gen);
-}
-
-Result<std::shared_ptr<SourceNodeOptions>> SourceNodeOptions::FromRecordBatchReader(
-    std::shared_ptr<RecordBatchReader> reader, std::shared_ptr<Schema> schema,
-    arrow::internal::Executor* executor) {
-  if (executor == nullptr) return Status::TypeError("No executor provided.");
-
-  // Map the RecordBatchReader to a SourceNode
-  ARROW_ASSIGN_OR_RAISE(auto batch_gen, MakeReaderGenerator(std::move(reader), executor));
-
-  return std::make_shared<SourceNodeOptions>(std::move(schema), std::move(batch_gen));
-}
-
 namespace {
 ExecBatchIteratorMaker VecToItMaker(std::vector<ExecBatch> batches) {
   auto batches_ptr = std::make_shared<std::vector<std::shared_ptr<ExecBatch>>>();

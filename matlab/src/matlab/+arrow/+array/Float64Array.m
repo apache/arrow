@@ -18,24 +18,31 @@ classdef Float64Array < arrow.array.Array
 
     properties (Hidden, SetAccess=private)
         MatlabArray
+        NullSubstitionValue = NaN;
     end
 
     methods
         function obj = Float64Array(data, opts)
             arguments
                 data
-                opts.DeepCopy = false
+                opts.DeepCopy(1, 1) logical = false
+                opts.InferNulls(1, 1) logical = true
             end
-
-            validateattributes(data, "double", ["2d", "nonsparse", "real"]);
-            if ~isempty(data), validateattributes(data, "double", "vector"); end
-            obj@arrow.array.Array("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {data, opts.DeepCopy});
+            arrow.args.validateTypeAndShape(data, "double");
+            validElements = arrow.args.parseValidElements(data, opts.InferNulls);
+            obj@arrow.array.Array("Name", "arrow.array.proxy.Float64Array", "ConstructorArguments", {data, opts.DeepCopy, validElements});
             % Store a reference to the array if not doing a deep copy
             if (~opts.DeepCopy), obj.MatlabArray = data; end
         end
 
         function data = double(obj)
-            data = obj.Proxy.ToMatlab();
+            data = obj.toMATLAB();
+        end
+        
+        function matlabArray = toMATLAB(obj)
+            matlabArray = obj.Proxy.toMATLAB();
+            matlabArray(~obj.Valid) = obj.NullSubstitionValue;
         end
     end
 end
+

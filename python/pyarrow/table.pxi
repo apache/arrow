@@ -5430,11 +5430,6 @@ list[tuple(str, str, FunctionOptions)]
                 aggr_name = func_nohash
             else:
                 aggr_name = "_".join(target) + "_" + func_nohash
-            # Calculate target indices by resolving field names
-            target_indices = [
-                self._table.schema.get_field_index(f) for f in target]
-            group_by_aggrs.append((target_indices, func, opt, aggr_name))
+            group_by_aggrs.append((target, func, opt, aggr_name))
 
-        key_indices = [
-            self._table.schema.get_field_index(k) for k in self.keys]
-        return _pac()._group_by(self._table, group_by_aggrs, key_indices)
+        return _pac()._group_by(self._table, group_by_aggrs, self.keys)

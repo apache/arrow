@@ -95,3 +95,6 @@ swift/Arrow/.build
 
 # Go dependencies
 go/vendor
+
+# direnv
+.envrc
