@@ -17,8 +17,6 @@
 
 package org.apache.arrow.adapter.jdbc;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -42,6 +40,8 @@ import org.apache.arrow.vector.util.ObjectMapperFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.skyscreamer.jsonassert.JSONAssert;
+import org.skyscreamer.jsonassert.JSONCompareMode;
 
 import com.fasterxml.jackson.databind.ObjectWriter;
 
@@ -78,7 +78,7 @@ public class JdbcToArrowCommentMetadataTest {
     boolean includeMetadata = false;
     String schemaJson = schemaSerializer.writeValueAsString(getSchemaWithCommentFromQuery(includeMetadata));
     String expectedSchema = getExpectedSchema("/h2/expectedSchemaWithComments.json");
-    assertThat(schemaJson).isEqualTo(expectedSchema);
+    JSONAssert.assertEquals(schemaJson, expectedSchema, JSONCompareMode.NON_EXTENSIBLE);
   }
 
   @Test
@@ -92,7 +92,7 @@ public class JdbcToArrowCommentMetadataTest {
         COLUMN1 BOOLEAN,
         COLUMNN INT COMMENT 'Informative description of columnN'
      */
-    assertThat(schemaJson).isEqualTo(expectedSchema);
+    JSONAssert.assertEquals(schemaJson, expectedSchema, JSONCompareMode.NON_EXTENSIBLE);
   }
 
   private Schema getSchemaWithCommentFromQuery(boolean includeMetadata) throws SQLException {
