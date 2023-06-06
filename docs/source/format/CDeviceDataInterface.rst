@@ -155,7 +155,7 @@ provided memory buffers were allocated on. This, in conjunction with the
 We then use macros to define values for different device types. The provided
 macro values are compatible with the widely used `dlpack`_ ``DLDeviceType``
 definition values, using the same value for each as the equivalent
-``kDL<type>`` enum from dlpack.h. The list will be kept in sync with those
+``kDL<type>`` enum from ``dlpack.h``. The list will be kept in sync with those
 equivalent enum values over time to ensure compatibility, rather than
 potentially diverging. To avoid the Arrow project having to be in the
 position of vetting new hardware devices, new additions should first be
@@ -202,7 +202,7 @@ so the storage type is not compiler dependent.
 
 .. c:macro:: ARROW_DEVICE_ROCM_HOST
 
-    CPU memory pinned and page-locked allocated ``hipMallocHost``.
+    CPU memory that was pinned and page-locked by ROCm by using ``hipMallocHost``.
 
 .. c:macro:: ARROW_DEVICE_EXT_DEV
 
@@ -265,10 +265,10 @@ has the following fields:
     Optional. An event-like object to synchronize on if needed.
 
     Many devices, like GPUs, are primarily asynchronous with respect to
-    CPU processing. As such in order to safely access memory, it is often
+    CPU processing. As such, in order to safely access device memory, it is often
     necessary to have an object to synchronize processing with. Since
     different devices will use different types to specify this, we use a
-    void* which can be coerced into a pointer to whatever the device
+    ``void*`` which can be coerced into a pointer to whatever the device
     appropriate type is.
 
     If synchronization is not needed, this can be null. If this is non-null
@@ -481,7 +481,7 @@ could be used for any device:
                 .n_children = 0,
                 .children = NULL,
                 .dictionary = NULL,
-                // bookeeping
+                // bookkeeping
                 .release = &release_int32_device_array,
                 // store the event pointer as private data in the array
                 // so that we can access it in the release callback.
@@ -512,8 +512,7 @@ Device Stream Interface
 
 Like the :ref:`C stream interface <c-stream-interface>`, the C Device data
 interface also specifies a higher-level structure for easing communication
-of streaming data within a single process. Defining an ``ArrowDeviceArrayStream``
-structure.
+of streaming data within a single process.
 
 Semantics
 =========
