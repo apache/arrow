@@ -873,7 +873,7 @@ TEST(CacheOptions, Basics) {
 TEST(IOThreadPool, Capacity) {
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading enabled";
-#endif  
+#endif
   // Simple sanity check
   auto pool = internal::GetIOThreadPool();
   int capacity = pool->GetCapacity();
