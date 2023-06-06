@@ -359,7 +359,7 @@ func (imp *cimporter) doImportChildren() error {
 			imp.children[i].importChild(imp, c)
 		}
 	case arrow.MAP: // only one child to import, it's a struct array
-		imp.children[0].dt = imp.dt.(*arrow.MapType).ValueType()
+		imp.children[0].dt = imp.dt.(*arrow.MapType).Elem()
 		if err := imp.children[0].importChild(imp, children[0]); err != nil {
 			return err
 		}

@@ -417,7 +417,7 @@ func TestMapOf(t *testing.T) {
 				t.Fatalf("invalid item type. got=%q, want=%q", got, want)
 			}
 
-			if got, want := got.ValueType(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
+			if got, want := got.Elem(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
 				t.Fatalf("invalid value type. got=%q, want=%q", got, want)
 			}
 
@@ -477,7 +477,7 @@ func TestMapOfWithMetadata(t *testing.T) {
 				t.Fatalf("invalid item type. got=%q, want=%q", got, want)
 			}
 
-			if got, want := got.ValueType(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
+			if got, want := got.Elem(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
 				t.Fatalf("invalid value type. got=%q, want=%q", got, want)
 			}
 
@@ -485,11 +485,11 @@ func TestMapOfWithMetadata(t *testing.T) {
 				t.Fatalf("invalid String() result. got=%q, want=%q", got, want)
 			}
 
-			if !reflect.DeepEqual(got.ValueType().fields[0].Metadata, tc.keyMetadata) {
-				t.Fatalf("invalid key metadata. got=%v, want=%v", got.ValueType().fields[0].Metadata, tc.keyMetadata)
+			if !reflect.DeepEqual(got.Elem().(*StructType).fields[0].Metadata, tc.keyMetadata) {
+				t.Fatalf("invalid key metadata. got=%v, want=%v", got.Elem().(*StructType).fields[0].Metadata, tc.keyMetadata)
 			}
-			if !reflect.DeepEqual(got.ValueType().fields[1].Metadata, tc.itemMetadata) {
-				t.Fatalf("invalid item metadata. got=%v, want=%v", got.ValueType().fields[1].Metadata, tc.itemMetadata)
+			if !reflect.DeepEqual(got.Elem().(*StructType).fields[1].Metadata, tc.itemMetadata) {
+				t.Fatalf("invalid item metadata. got=%v, want=%v", got.Elem().(*StructType).fields[1].Metadata, tc.itemMetadata)
 			}
 		})
 	}

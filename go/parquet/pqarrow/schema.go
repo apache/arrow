@@ -1002,7 +1002,7 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 			}
 			inferred.Field.Type = factory(modifiedChildren)
 		}
-	case arrow.FIXED_SIZE_LIST, arrow.LIST, arrow.MAP:
+	case arrow.FIXED_SIZE_LIST, arrow.LIST, arrow.LARGE_LIST, arrow.MAP: // arrow.ListLike
 		if nchildren != 1 {
 			return
 		}
@@ -1012,17 +1012,9 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 		}
 
 		modified = origin.Type.ID() != inferred.Field.Type.ID()
-		var childModified bool
-		switch typ := origin.Type.(type) {
-		case *arrow.FixedSizeListType:
-			childModified, err = applyOriginalMetadata(arrow.Field{Type: typ.Elem()}, &inferred.Children[0])
-		case *arrow.ListType:
-			childModified, err = applyOriginalMetadata(arrow.Field{Type: typ.Elem()}, &inferred.Children[0])
-		case *arrow.MapType:
-			childModified, err = applyOriginalMetadata(arrow.Field{Type: typ.ValueType()}, &inferred.Children[0])
-		}
+		childModified, err := applyOriginalMetadata(arrow.Field{Type: origin.Type.(arrow.ListLikeType).Elem()}, &inferred.Children[0])
 		if err != nil {
-			return
+			return modified, err
 		}
 		modified = modified || childModified
 		if modified {
