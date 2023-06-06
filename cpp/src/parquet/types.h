@@ -588,26 +588,6 @@ inline bool operator!=(const ByteArray& left, const ByteArray& right) {
   return !(left == right);
 }
 
-struct LargeByteArray {
-  LargeByteArray() : len(0), ptr(NULLPTR) {}
-  LargeByteArray(uint64_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
-
-  LargeByteArray(::std::string_view view)  // NOLINT implicit conversion
-      : LargeByteArray(view.size(),
-                  reinterpret_cast<const uint8_t*>(view.data())) {}
-  uint64_t len;
-  const uint8_t* ptr;
-};
-
-inline bool operator==(const LargeByteArray& left, const LargeByteArray& right) {
-  return left.len == right.len &&
-         (left.len == 0 || std::memcmp(left.ptr, right.ptr, left.len) == 0);
-}
-
-inline bool operator!=(const LargeByteArray& left, const LargeByteArray& right) {
-  return !(left == right);
-}
-
 struct FixedLenByteArray {
   FixedLenByteArray() : ptr(NULLPTR) {}
   explicit FixedLenByteArray(const uint8_t* ptr) : ptr(ptr) {}
@@ -639,10 +619,6 @@ inline bool operator==(const Int96& left, const Int96& right) {
 inline bool operator!=(const Int96& left, const Int96& right) { return !(left == right); }
 
 static inline std::string ByteArrayToString(const ByteArray& a) {
-  return std::string(reinterpret_cast<const char*>(a.ptr), a.len);
-}
-
-static inline std::string LargeByteArrayToString(const LargeByteArray& a) {
   return std::string(reinterpret_cast<const char*>(a.ptr), a.len);
 }
 

@@ -226,14 +226,6 @@ inline void TypedScanner<ByteArrayType>::FormatValue(void* val, char* buffer, in
 }
 
 template <>
-inline void TypedScanner<LargeByteArrayType>::FormatValue(void* val, char* buffer, int bufsize,
-                                                     int width) {
-  std::string fmt = format_fwf<LargeByteArrayType>(width);
-  std::string result = LargeByteArrayToString(*reinterpret_cast<LargeByteArray*>(val));
-  snprintf(buffer, bufsize, fmt.c_str(), result.c_str());
-}
-
-template <>
 inline void TypedScanner<FLBAType>::FormatValue(void* val, char* buffer, int bufsize,
                                                 int width) {
   std::string fmt = format_fwf<FLBAType>(width);
