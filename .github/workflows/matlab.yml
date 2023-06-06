@@ -161,7 +161,7 @@ jobs:
           path: |
             cpp/**
           key: cpp-ccache-for-matlab-windows-${{ steps.get-date.outputs.date }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-for-matlab-windows-${{ steps.get-date.outputs.date }}-
+          restore-keys: cpp-ccache-for-matlab-windows-
       - name: Build MATLAB Interface
         shell: cmd
         run: |
