@@ -2754,7 +2754,8 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
 
 def register_aggregate_function(func, function_name, function_doc, in_types, out_type,
                                 func_registry=None):
-    """Register a user-defined non-decomposable aggregate function.
+    """
+    Register a user-defined non-decomposable aggregate function.
 
     This API is EXPERIMENTAL.
 
@@ -2778,7 +2779,6 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
         To define a varargs function, pass a callable that takes
         *args. The in_type needs to match in type of inputs when
         the function gets called.
-
     function_name : str
         Name of the function. This name must be unique, i.e.,
         there should only be one function registered with
@@ -2831,7 +2831,8 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
 
 def register_tabular_function(func, function_name, function_doc, in_types, out_type,
                               func_registry=None):
-    """Register a user-defined tabular function.
+    """
+    Register a user-defined tabular function.
 
     This API is EXPERIMENTAL.
 
