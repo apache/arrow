@@ -47,7 +47,6 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                 array = numeric_array;
             }
 
-    
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
             using ArrowType = typename arrow::CTypeTraits<CType>::ArrowType;
             using BuilderType = typename arrow::CTypeTraits<CType>::BuilderType;
