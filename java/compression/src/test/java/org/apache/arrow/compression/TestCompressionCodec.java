@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.stream.Stream;
 
@@ -93,6 +94,9 @@ class TestCompressionCodec {
 
       CompressionCodec zstdCodec = new ZstdCompressionCodec();
       params.add(Arguments.arguments(len, zstdCodec));
+
+      CompressionCodec zstdCodecAndCompressionLevel = new ZstdCompressionCodec(7);
+      params.add(Arguments.arguments(len, zstdCodecAndCompressionLevel));
     }
     return params;
   }
@@ -235,7 +239,7 @@ class TestCompressionCodec {
       try (final ArrowStreamWriter writer = new ArrowStreamWriter(
           root, new DictionaryProvider.MapDictionaryProvider(),
           Channels.newChannel(compressedStream),
-          IpcOption.DEFAULT, factory, codec)) {
+          IpcOption.DEFAULT, factory, codec, Optional.of(7))) {
         writer.start();
         writer.writeBatch();
         writer.end();
@@ -262,7 +266,7 @@ class TestCompressionCodec {
       try (final ArrowFileWriter writer = new ArrowFileWriter(
           root, new DictionaryProvider.MapDictionaryProvider(),
           Channels.newChannel(compressedStream),
-          new HashMap<>(), IpcOption.DEFAULT, factory, codec)) {
+          new HashMap<>(), IpcOption.DEFAULT, factory, codec, Optional.of(7))) {
         writer.start();
         writer.writeBatch();
         writer.end();

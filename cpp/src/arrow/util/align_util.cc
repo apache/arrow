@@ -21,23 +21,68 @@
 #include "arrow/chunked_array.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
 namespace util {
 
 bool CheckAlignment(const Buffer& buffer, int64_t alignment) {
+  if (alignment <= 0) {
+    return true;
+  }
   return buffer.address() % alignment == 0;
 }
 
-bool CheckAlignment(const ArrayData& array, int64_t alignment) {
-  for (const auto& buffer : array.buffers) {
-    if (buffer) {
-      if (!CheckAlignment(*buffer, alignment)) return false;
+namespace {
+
+// Returns the type that controls how the buffers of this ArrayData (not its children)
+// should behave
+Type::type GetTypeForBuffers(const ArrayData& array) {
+  Type::type type_id = array.type->storage_id();
+  if (type_id == Type::DICTIONARY) {
+    return ::arrow::internal::checked_pointer_cast<DictionaryType>(array.type)
+        ->index_type()
+        ->id();
+  }
+  return type_id;
+}
+
+// Checks to see if an array's own buffers are aligned but doesn't check
+// children
+bool CheckSelfAlignment(const ArrayData& array, int64_t alignment) {
+  if (alignment == kValueAlignment) {
+    Type::type type_id = GetTypeForBuffers(array);
+    for (std::size_t i = 0; i < array.buffers.size(); i++) {
+      if (array.buffers[i]) {
+        int expected_alignment =
+            RequiredValueAlignmentForBuffer(type_id, static_cast<int>(i));
+        if (!CheckAlignment(*array.buffers[i], expected_alignment)) {
+          return false;
+        }
+      }
+    }
+  } else {
+    for (const auto& buffer : array.buffers) {
+      if (buffer) {
+        if (!CheckAlignment(*buffer, alignment)) return false;
+      }
     }
   }
+  return true;
+}
 
-  if (array.type->id() == Type::DICTIONARY) {
+}  // namespace
+
+bool CheckAlignment(const ArrayData& array, int64_t alignment) {
+  if (!CheckSelfAlignment(array, alignment)) {
+    return false;
+  }
+
+  if (array.dictionary) {
     if (!CheckAlignment(*array.dictionary, alignment)) return false;
   }
 
@@ -97,9 +142,22 @@ bool CheckAlignment(const Table& table, int64_t alignment,
 Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
                                                 int64_t alignment,
                                                 MemoryPool* memory_pool) {
+  if (alignment == kValueAlignment) {
+    return Status::Invalid(
+        "The kValueAlignment option may only be used to call EnsureAlignment on arrays "
+        "or tables and cannot be used with buffers");
+  }
+  if (alignment <= 0) {
+    return Status::Invalid("Alignment must be a positive integer");
+  }
   if (!CheckAlignment(*buffer, alignment)) {
-    ARROW_ASSIGN_OR_RAISE(auto new_buffer,
-                          AllocateBuffer(buffer->size(), alignment, memory_pool));
+    if (!buffer->is_cpu()) {
+      return Status::NotImplemented("Reallocating an unaligned non-CPU buffer.");
+    }
+    int64_t minimum_desired_alignment = std::max(kDefaultBufferAlignment, alignment);
+    ARROW_ASSIGN_OR_RAISE(
+        auto new_buffer,
+        AllocateBuffer(buffer->size(), minimum_desired_alignment, memory_pool));
     std::memcpy(new_buffer->mutable_data(), buffer->data(), buffer->size());
     return std::move(new_buffer);
   } else {
@@ -111,11 +169,18 @@ Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> ar
                                                    int64_t alignment,
                                                    MemoryPool* memory_pool) {
   if (!CheckAlignment(*array_data, alignment)) {
-    std::vector<std::shared_ptr<Buffer>> buffers_ = array_data->buffers;
-    for (size_t i = 0; i < buffers_.size(); ++i) {
-      if (buffers_[i]) {
+    std::vector<std::shared_ptr<Buffer>> buffers = array_data->buffers;
+    Type::type type_id = GetTypeForBuffers(*array_data);
+    for (size_t i = 0; i < buffers.size(); ++i) {
+      if (buffers[i]) {
+        int64_t expected_alignment = alignment;
+        if (alignment == kValueAlignment) {
+          expected_alignment =
+              RequiredValueAlignmentForBuffer(type_id, static_cast<int>(i));
+        }
         ARROW_ASSIGN_OR_RAISE(
-            buffers_[i], EnsureAlignment(std::move(buffers_[i]), alignment, memory_pool));
+            buffers[i],
+            EnsureAlignment(std::move(buffers[i]), expected_alignment, memory_pool));
       }
     }
 
@@ -130,10 +195,9 @@ Result<std::shared_ptr<ArrayData>> EnsureAlignment(std::shared_ptr<ArrayData> ar
     }
 
     auto new_array_data = ArrayData::Make(
-        array_data->type, array_data->length, std::move(buffers_), array_data->child_data,
+        array_data->type, array_data->length, std::move(buffers), array_data->child_data,
         array_data->dictionary, array_data->GetNullCount(), array_data->offset);
     return std::move(new_array_data);
-
   } else {
     return std::move(array_data);
   }

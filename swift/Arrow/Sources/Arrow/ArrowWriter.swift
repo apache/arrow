@@ -53,45 +53,70 @@ public class ArrowWriter {
         }
     }
 
-    private func writeField(_ fbb: inout FlatBufferBuilder, field: ArrowField) throws -> Offset {
+    private func writeField(_ fbb: inout FlatBufferBuilder, field: ArrowField) -> Result<Offset, ArrowError> {
         let nameOffset = fbb.create(string: field.name)
-        let fieldTypeOfffset = try toFBType(&fbb, infoType: field.type)
+        let fieldTypeOffsetResult = toFBType(&fbb, infoType: field.type)
         let startOffset = org_apache_arrow_flatbuf_Field.startField(&fbb)
         org_apache_arrow_flatbuf_Field.add(name: nameOffset, &fbb)
         org_apache_arrow_flatbuf_Field.add(nullable: field.isNullable, &fbb)
-        org_apache_arrow_flatbuf_Field.add(typeType: try toFBTypeEnum(field.type), &fbb)
-        org_apache_arrow_flatbuf_Field.add(type: fieldTypeOfffset, &fbb)
-        return org_apache_arrow_flatbuf_Field.endField(&fbb, start: startOffset)
+        switch toFBTypeEnum(field.type) {
+        case .success(let type):
+            org_apache_arrow_flatbuf_Field.add(typeType: type, &fbb)
+        case .failure(let error):
+            return .failure(error)
+        }
+        
+        switch fieldTypeOffsetResult {
+        case .success(let offset):
+            org_apache_arrow_flatbuf_Field.add(type: offset, &fbb)
+            return .success(org_apache_arrow_flatbuf_Field.endField(&fbb, start: startOffset))
+        case .failure(let error):
+            return .failure(error)
+        }
     }
 
-    private func writeSchema(_ fbb: inout FlatBufferBuilder, schema: ArrowSchema) throws -> Offset {
+    private func writeSchema(_ fbb: inout FlatBufferBuilder, schema: ArrowSchema) -> Result<Offset, ArrowError> {
         var fieldOffsets = [Offset]()
         for field in schema.fields {
-            fieldOffsets.append(try writeField(&fbb, field: field))
+            switch writeField(&fbb, field: field) {
+            case .success(let offset):
+                fieldOffsets.append(offset)
+            case .failure(let error):
+                return .failure(error)
+            }
+            
         }
 
         let fieldsOffset: Offset = fbb.createVector(ofOffsets: fieldOffsets)
         let schemaOffset = org_apache_arrow_flatbuf_Schema.createSchema(&fbb, endianness: .little, fieldsVectorOffset: fieldsOffset)
-        return schemaOffset
+        return .success(schemaOffset)
 
     }
     
-    private func writeRecordBatches(_ writer: inout DataWriter, batches: [RecordBatch]) throws -> [org_apache_arrow_flatbuf_Block] {
+    private func writeRecordBatches(_ writer: inout DataWriter, batches: [RecordBatch]) -> Result<[org_apache_arrow_flatbuf_Block], ArrowError> {
         var rbBlocks = [org_apache_arrow_flatbuf_Block]()
 
         for batch in batches {
             let startIndex = writer.count
-            let rbResult = try writeRecordBatch(batch: batch)
-            withUnsafeBytes(of: rbResult.1.o.littleEndian) {writer.append(Data($0))}
-            writer.append(rbResult.0)
-            try writeRecordBatchData(&writer, batch: batch)
-            rbBlocks.append(org_apache_arrow_flatbuf_Block(offset: Int64(startIndex), metaDataLength: Int32(0), bodyLength: Int64(rbResult.1.o)))
+            switch writeRecordBatch(batch: batch) {
+            case .success(let rbResult):
+                withUnsafeBytes(of: rbResult.1.o.littleEndian) {writer.append(Data($0))}
+                writer.append(rbResult.0)
+                switch writeRecordBatchData(&writer, batch: batch) {
+                case .success(_):
+                    rbBlocks.append(org_apache_arrow_flatbuf_Block(offset: Int64(startIndex), metaDataLength: Int32(0), bodyLength: Int64(rbResult.1.o)))
+                case .failure(let error):
+                    return .failure(error)
+                }
+            case .failure(let error):
+                return .failure(error)
+            }
         }
                 
-        return rbBlocks
+        return .success(rbBlocks)
     }
         
-    private func writeRecordBatch(batch: RecordBatch) throws -> (Data, Offset) {
+    private func writeRecordBatch(batch: RecordBatch) -> Result<(Data, Offset), ArrowError> {
         let schema = batch.schema
         var output = Data()
         var fbb = FlatBufferBuilder()
@@ -112,7 +137,7 @@ public class ArrowWriter {
         var bufferOffset = Int(0)
         for index in 0 ..< batch.schema.fields.count {
             let column = batch.column(index)
-            let colBufferDataSizes = try column.getBufferDataSizes()
+            let colBufferDataSizes = column.getBufferDataSizes()
             for var bufferDataSize in colBufferDataSizes {
                 bufferDataSize = getPadForAlignment(bufferDataSize)
                 let buffer = org_apache_arrow_flatbuf_Buffer(offset: Int64(bufferOffset), length: Int64(bufferDataSize))
@@ -140,66 +165,95 @@ public class ArrowWriter {
         let messageOffset = org_apache_arrow_flatbuf_Message.endMessage(&fbb, start: startMessage)
         fbb.finish(offset: messageOffset)
         output.append(fbb.data)
-        return (output, Offset(offset: UInt32(output.count)))
+        return .success((output, Offset(offset: UInt32(output.count))))
     }
     
-    private func writeRecordBatchData(_ writer: inout DataWriter, batch: RecordBatch) throws {
+    private func writeRecordBatchData(_ writer: inout DataWriter, batch: RecordBatch) -> Result<Bool, ArrowError> {
         for index in 0 ..< batch.schema.fields.count {
             let column = batch.column(index)
-            let colBufferData = try column.getBufferData()
+            let colBufferData = column.getBufferData();
             for var bufferData in colBufferData {
                 addPadForAlignment(&bufferData)
                 writer.append(bufferData)
             }
         }
+
+        return .success(true)
     }
     
-    private func writeFooter(schema: ArrowSchema, rbBlocks: [org_apache_arrow_flatbuf_Block])  throws -> Data {
+    private func writeFooter(schema: ArrowSchema, rbBlocks: [org_apache_arrow_flatbuf_Block])  -> Result<Data, ArrowError> {
         var fbb: FlatBufferBuilder = FlatBufferBuilder()
-        let schemaOffset = try writeSchema(&fbb, schema: schema)
-        
-        let _ = fbb.startVector(rbBlocks.count, elementSize: MemoryLayout<org_apache_arrow_flatbuf_Block>.size)
-        for blkInfo in rbBlocks.reversed() {
-            fbb.create(struct: blkInfo)
+        switch writeSchema(&fbb, schema: schema) {
+        case .success(let schemaOffset):
+            fbb.startVector(rbBlocks.count, elementSize: MemoryLayout<org_apache_arrow_flatbuf_Block>.size)
+            for blkInfo in rbBlocks.reversed() {
+                fbb.create(struct: blkInfo)
+            }
+            
+            let rbBlkEnd = fbb.endVector(len: rbBlocks.count)
+            
+            
+            let footerStartOffset = org_apache_arrow_flatbuf_Footer.startFooter(&fbb)
+            org_apache_arrow_flatbuf_Footer.add(schema: schemaOffset, &fbb)
+            org_apache_arrow_flatbuf_Footer.addVectorOf(recordBatches: rbBlkEnd, &fbb)
+            let footerOffset = org_apache_arrow_flatbuf_Footer.endFooter(&fbb, start: footerStartOffset)
+            fbb.finish(offset: footerOffset)
+        case .failure(let error):
+            return .failure(error)
+        }
+
+        return .success(fbb.data)
+    }
+
+    private func writeStream(_ writer: inout DataWriter, schema: ArrowSchema, batches: [RecordBatch]) -> Result<Bool, ArrowError> {
+        var fbb: FlatBufferBuilder = FlatBufferBuilder()
+        switch writeSchema(&fbb, schema: schema) {
+        case .success(let schemaOffset):
+            fbb.finish(offset: schemaOffset)
+            writer.append(fbb.data)
+        case .failure(let error):
+            return .failure(error)
         }
         
-        let rbBlkEnd = fbb.endVector(len: rbBlocks.count)
-        
+        switch writeRecordBatches(&writer, batches: batches) {
+        case .success(let rbBlocks):
+            switch writeFooter(schema: schema, rbBlocks: rbBlocks) {
+            case .success(let footerData):
+                fbb.finish(offset: Offset(offset: fbb.buffer.size))
+                let footerOffset = writer.count
+                writer.append(footerData)
+                addPadForAlignment(&writer)
+                
+                withUnsafeBytes(of: Int32(0).littleEndian) { writer.append(Data($0)) }
+                let footerDiff = (UInt32(writer.count) - UInt32(footerOffset));
+                withUnsafeBytes(of: footerDiff.littleEndian) { writer.append(Data($0)) }
+            case .failure(let error):
+                return .failure(error)
+            }
+        case .failure(let error):
+            return .failure(error)
+        }
 
-        let footerStartOffset = org_apache_arrow_flatbuf_Footer.startFooter(&fbb)
-        org_apache_arrow_flatbuf_Footer.add(schema: schemaOffset, &fbb)
-        org_apache_arrow_flatbuf_Footer.addVectorOf(recordBatches: rbBlkEnd, &fbb)
-        let footerOffset = org_apache_arrow_flatbuf_Footer.endFooter(&fbb, start: footerStartOffset)
-        fbb.finish(offset: footerOffset)
-        return fbb.data
+        return .success(true)
     }
 
-    private func writeStream(_ writer: inout DataWriter, schema: ArrowSchema, batches: [RecordBatch]) throws {
-        var fbb: FlatBufferBuilder = FlatBufferBuilder()
-        let schemaOffset = try writeSchema(&fbb, schema: schema)
-        fbb.finish(offset: schemaOffset)
-        writer.append(fbb.data)
-        
-        let rbBlocks = try writeRecordBatches(&writer, batches: batches)
-        let footerData = try writeFooter(schema: schema, rbBlocks: rbBlocks)
-        fbb.finish(offset: Offset(offset: fbb.buffer.size))
-        let footerOffset = writer.count
-        writer.append(footerData)
-        addPadForAlignment(&writer)
-        
-        withUnsafeBytes(of: Int32(0).littleEndian) { writer.append(Data($0)) }
-        let footerDiff = (UInt32(writer.count) - UInt32(footerOffset));
-        withUnsafeBytes(of: footerDiff.littleEndian) { writer.append(Data($0)) }
-    }
-
-    public func toStream(_ schema: ArrowSchema, batches: [RecordBatch]) throws -> Data {
+    public func toStream(_ schema: ArrowSchema, batches: [RecordBatch]) -> Result<Data, ArrowError> {
         var writer: any DataWriter = InMemDataWriter()
-        try writeStream(&writer, schema: schema, batches: batches)
-        return (writer as! InMemDataWriter).data
+        switch writeStream(&writer, schema: schema, batches: batches) {
+        case .success(_):
+            return .success((writer as! InMemDataWriter).data)
+        case .failure(let error):
+            return .failure(error)
+        }
     }
 
-    public func toFile(_ fileName: URL, schema: ArrowSchema, batches: [RecordBatch]) throws {
-        try Data().write(to: fileName)
+    public func toFile(_ fileName: URL, schema: ArrowSchema, batches: [RecordBatch]) -> Result<Bool, ArrowError> {
+        do {
+            try Data().write(to: fileName)
+        } catch {
+            return .failure(.ioError("\(error)"))
+        }
+        
         let fileHandle = FileHandle(forUpdatingAtPath: fileName.path)!
         defer { fileHandle.closeFile() }
         
@@ -208,7 +262,13 @@ public class ArrowWriter {
 
         var writer: any DataWriter = FileDataWriter(fileHandle)
         writer.append(FILEMARKER.data(using: .utf8)!)
-        try writeStream(&writer, schema: schema, batches: batches)
-        writer.append(FILEMARKER.data(using: .utf8)!)
+        switch writeStream(&writer, schema: schema, batches: batches) {
+        case .success(_):
+            writer.append(FILEMARKER.data(using: .utf8)!)
+        case .failure(let error):
+            return .failure(error)
+        }
+        
+        return .success(true)
     }
 }

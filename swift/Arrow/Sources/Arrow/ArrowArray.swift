@@ -17,7 +17,60 @@
 
 import Foundation
 
-public class ArrowArray<T> {
+public class ArrowArrayHolder {
+    public let type: ArrowType.Info
+    public let length: UInt
+    public let nullCount: UInt
+    public let array: Any
+    public let getBufferData: () -> [Data]
+    public let getBufferDataSizes: () -> [Int]
+    private let getArrowColumn: (ArrowField, [ArrowArrayHolder]) throws -> ArrowColumn
+    public init<T>(_ arrowArray: ArrowArray<T>) {
+        self.array = arrowArray
+        self.length = arrowArray.length
+        self.type = arrowArray.arrowData.type
+        self.nullCount = arrowArray.nullCount
+        self.getBufferData = {() -> [Data] in
+            var bufferData = [Data]()
+            for buffer in arrowArray.arrowData.buffers {
+                bufferData.append(Data())
+                buffer.append(to: &bufferData[bufferData.count - 1])
+            }
+
+            return bufferData;
+        }
+        
+        self.getBufferDataSizes = {() -> [Int] in
+            var bufferDataSizes = [Int]()
+            for buffer in arrowArray.arrowData.buffers {
+                bufferDataSizes.append(Int(buffer.capacity))
+            }
+
+            return bufferDataSizes
+        }
+        
+        self.getArrowColumn = {(field: ArrowField, arrayHolders: [ArrowArrayHolder]) throws -> ArrowColumn in
+            var arrays = [ArrowArray<T>]()
+            for arrayHolder in arrayHolders {
+                if let array = arrayHolder.array as? ArrowArray<T> {
+                    arrays.append(array)
+                }
+            }
+            
+            return ArrowColumn(field, chunked: ChunkedArrayHolder(try ChunkedArray<T>(arrays)))
+        }
+    }
+    
+    public static func makeArrowColumn(_ field: ArrowField, holders: [ArrowArrayHolder]) -> Result<ArrowColumn, ArrowError> {
+        do {
+            return .success(try holders[0].getArrowColumn(field, holders))
+        } catch {
+            return .failure(.runtimeError("\(error)"))
+        }
+    }
+}
+
+public class ArrowArray<T>: AsString {
     public typealias ItemType = T
     public let arrowData: ArrowData
     public var nullCount : UInt {get{return self.arrowData.nullCount}}
@@ -29,7 +82,7 @@ public class ArrowArray<T> {
 
     public func isNull(_ at: UInt) throws -> Bool {
         if at >= self.length {
-            throw ValidationError.outOfBounds(index: at)
+            throw ArrowError.outOfBounds(index: Int64(at))
         }
         
         return self.arrowData.isNull(at)
@@ -39,6 +92,14 @@ public class ArrowArray<T> {
         get{
             fatalError("subscript() has not been implemented")
         }
+    }
+    
+    public func asString(_ index: UInt) -> String {
+        if self[index] == nil {
+            return ""
+        }
+        
+        return "\(self[index]!)"
     }
 }
 

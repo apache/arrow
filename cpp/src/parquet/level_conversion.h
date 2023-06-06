@@ -151,7 +151,7 @@ struct PARQUET_EXPORT ValidityBitmapInputOutput {
   int64_t values_read = 0;
   // Input/Output. The number of nulls encountered.
   int64_t null_count = 0;
-  // Output only. The validity bitmap to populate. May be be null only
+  // Output only. The validity bitmap to populate. Maybe be null only
   // for DefRepLevelsToListInfo (if all that is needed is list offsets).
   uint8_t* valid_bits = NULLPTR;
   // Input only, offset into valid_bits to start at.

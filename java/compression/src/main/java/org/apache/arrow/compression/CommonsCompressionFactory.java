@@ -40,4 +40,16 @@ public class CommonsCompressionFactory implements CompressionCodec.Factory {
         throw new IllegalArgumentException("Compression type not supported: " + codecType);
     }
   }
+
+  @Override
+  public CompressionCodec createCodec(CompressionUtil.CodecType codecType, int compressionLevel) {
+    switch (codecType) {
+      case LZ4_FRAME:
+        return new Lz4CompressionCodec();
+      case ZSTD:
+        return new ZstdCompressionCodec(compressionLevel);
+      default:
+        throw new IllegalArgumentException("Compression type not supported: " + codecType);
+    }
+  }
 }

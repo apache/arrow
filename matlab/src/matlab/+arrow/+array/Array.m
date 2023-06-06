@@ -24,6 +24,7 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
 
     properties (Dependent)
         Length
+        Valid % Validity bitmap
     end
     
     methods
@@ -33,6 +34,10 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
 
         function numElements = get.Length(obj)
             numElements = obj.Proxy.length();
+        end
+
+        function validElements = get.Valid(obj)
+            validElements = obj.Proxy.valid();
         end
 
         function matlabArray = toMATLAB(obj)

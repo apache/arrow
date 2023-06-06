@@ -28,7 +28,6 @@ macro(append_acero_avx2_src SRC)
 endmacro()
 
 set(ARROW_ACERO_SRCS
-    groupby.cc
     accumulation_queue.cc
     aggregate_node.cc
     asof_join_node.cc
@@ -166,7 +165,7 @@ add_arrow_acero_test(pivot_longer_node_test SOURCES pivot_longer_node_test.cc
 add_arrow_acero_test(asof_join_node_test SOURCES asof_join_node_test.cc test_nodes.cc)
 add_arrow_acero_test(tpch_node_test SOURCES tpch_node_test.cc)
 add_arrow_acero_test(union_node_test SOURCES union_node_test.cc)
-add_arrow_acero_test(groupby_test SOURCES groupby_test.cc)
+add_arrow_acero_test(aggregate_node_test SOURCES aggregate_node_test.cc)
 add_arrow_acero_test(util_test SOURCES util_test.cc task_util_test.cc)
 add_arrow_acero_test(hash_aggregate_test SOURCES hash_aggregate_test.cc)
 

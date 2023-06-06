@@ -168,16 +168,6 @@ func (sr *structReader) Release() {
 }
 
 func newStructReader(rctx *readerCtx, filtered *arrow.Field, levelInfo file.LevelInfo, children []*ColumnReader, props ArrowReadProperties) *ColumnReader {
-	// there could be a mix of children some might be repeated and some might not be
-	// if possible use one that isn't since that will be guaranteed to have the least
-	// number of levels to reconstruct a nullable bitmap
-	var result *ColumnReader
-	for _, child := range children {
-		if !child.IsOrHasRepeatedChild() {
-			result = child
-		}
-	}
-
 	ret := &structReader{
 		rctx:      rctx,
 		filtered:  filtered,
@@ -186,10 +176,18 @@ func newStructReader(rctx *readerCtx, filtered *arrow.Field, levelInfo file.Leve
 		props:     props,
 		refCount:  1,
 	}
-	if result != nil {
-		ret.defRepLevelChild = result
-		ret.hasRepeatedChild = false
-	} else {
+
+	// there could be a mix of children some might be repeated and some might not be
+	// if possible use one that isn't since that will be guaranteed to have the least
+	// number of levels to reconstruct a nullable bitmap
+	for _, child := range children {
+		if !child.IsOrHasRepeatedChild() {
+			ret.defRepLevelChild = child
+			break
+		}
+	}
+
+	if ret.defRepLevelChild == nil {
 		ret.defRepLevelChild = children[0]
 		ret.hasRepeatedChild = true
 	}
@@ -250,15 +248,16 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 
 	var nullBitmap *memory.Buffer
 
-	if lenBound > 0 {
+	if lenBound > 0 && (sr.hasRepeatedChild || sr.filtered.Nullable) {
+		nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
+		nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
+		validityIO.ValidBits = nullBitmap.Bytes()
+		defLevels, err := sr.GetDefLevels()
+		if err != nil {
+			return nil, err
+		}
+
 		if sr.hasRepeatedChild {
-			nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
-			nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
-			validityIO.ValidBits = nullBitmap.Bytes()
-			defLevels, err := sr.GetDefLevels()
-			if err != nil {
-				return nil, err
-			}
 			repLevels, err := sr.GetRepLevels()
 			if err != nil {
 				return nil, err
@@ -267,16 +266,7 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 			if err := file.DefRepLevelsToBitmap(defLevels, repLevels, sr.levelInfo, &validityIO); err != nil {
 				return nil, err
 			}
-
-		} else if sr.filtered.Nullable {
-			nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
-			nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
-			validityIO.ValidBits = nullBitmap.Bytes()
-			defLevels, err := sr.GetDefLevels()
-			if err != nil {
-				return nil, err
-			}
-
+		} else {
 			file.DefLevelsToBitmap(defLevels, sr.levelInfo, &validityIO)
 		}
 	}

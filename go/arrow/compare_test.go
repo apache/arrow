@@ -18,6 +18,7 @@ package arrow
 
 import (
 	"testing"
+	"time"
 )
 
 func TestTypeEqual(t *testing.T) {
@@ -97,6 +98,18 @@ func TestTypeEqual(t *testing.T) {
 		},
 		{
 			&ListType{elem: Field{Type: &ListType{elem: Field{Type: &ListType{elem: Field{Type: PrimitiveTypes.Uint16}}}}}}, &ListType{elem: Field{Type: &ListType{elem: Field{Type: PrimitiveTypes.Uint8}}}}, false, false,
+		},
+		{
+			&ListType{elem: Field{Type: PrimitiveTypes.Uint64, Nullable: true}}, &ListType{elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, false, true,
+		},
+		{
+			&FixedSizeListType{n: 2, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, &FixedSizeListType{n: 3, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, false, true,
+		},
+		{
+			&FixedSizeListType{n: 2, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, &FixedSizeListType{n: 2, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, true, true,
+		},
+		{
+			&FixedSizeListType{n: 2, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: false}}, &FixedSizeListType{n: 2, elem: Field{Type: PrimitiveTypes.Uint64, Nullable: true}}, false, true,
 		},
 		{
 			&StructType{
@@ -275,6 +288,59 @@ func TestTypeEqual(t *testing.T) {
 				},
 				index: map[string]int{"f1": 0, "f2": 1},
 			},
+			false, true,
+		},
+		{
+			MapOf(BinaryTypes.String, PrimitiveTypes.Int32),
+			MapOf(BinaryTypes.String, PrimitiveTypes.Int32),
+			true, false,
+		},
+		{
+			MapOf(PrimitiveTypes.Int32, FixedWidthTypes.Timestamp_ns),
+			MapOf(PrimitiveTypes.Int32, FixedWidthTypes.Timestamp_ns),
+			true, false,
+		},
+		{
+			MapOf(BinaryTypes.String, &TimestampType{
+				Unit:     0,
+				TimeZone: "UTC",
+				loc:      time.UTC,
+			}),
+			MapOf(BinaryTypes.String, &TimestampType{
+				Unit:     0,
+				TimeZone: "UTC",
+				loc:      nil,
+			}),
+			true, false,
+		},
+		{
+			MapOf(PrimitiveTypes.Int32, FixedWidthTypes.Timestamp_ns),
+			MapOf(PrimitiveTypes.Int32, FixedWidthTypes.Timestamp_us),
+			false, false,
+		},
+		{
+			MapOf(BinaryTypes.String, FixedWidthTypes.Timestamp_ns),
+			MapOf(PrimitiveTypes.Int32, FixedWidthTypes.Timestamp_ns),
+			false, false,
+		},
+		{
+			MapOfWithMetadata(BinaryTypes.String, MetadataFrom(map[string]string{"key": "v1"}), FixedWidthTypes.Timestamp_ns, MetadataFrom(map[string]string{"item": "v1"})),
+			MapOfWithMetadata(BinaryTypes.String, MetadataFrom(map[string]string{"key": "v1"}), FixedWidthTypes.Timestamp_ns, MetadataFrom(map[string]string{"item": "v1"})),
+			true, true,
+		},
+		{
+			MapOfWithMetadata(BinaryTypes.String, MetadataFrom(map[string]string{"key": "v1"}), FixedWidthTypes.Timestamp_ns, MetadataFrom(map[string]string{"item": "v1"})),
+			MapOfWithMetadata(BinaryTypes.String, MetadataFrom(map[string]string{"key": "v2"}), FixedWidthTypes.Timestamp_ns, MetadataFrom(map[string]string{"item": "v2"})),
+			true, false,
+		},
+		{
+			MapOfWithMetadata(BinaryTypes.String, MetadataFrom(map[string]string{"key": "v1"}), FixedWidthTypes.Timestamp_ns, MetadataFrom(map[string]string{"item": "v1"})),
+			MapOfWithMetadata(BinaryTypes.String, MetadataFrom(map[string]string{"key": "v1"}), FixedWidthTypes.Timestamp_ns, MetadataFrom(map[string]string{"item": "v2"})),
+			false, true,
+		},
+		{
+			MapOfWithMetadata(BinaryTypes.String, MetadataFrom(map[string]string{"key": "v1"}), FixedWidthTypes.Timestamp_ns, MetadataFrom(map[string]string{"item": "v1"})),
+			MapOfWithMetadata(BinaryTypes.String, MetadataFrom(map[string]string{"key": "v2"}), FixedWidthTypes.Timestamp_ns, MetadataFrom(map[string]string{"item": "v1"})),
 			false, true,
 		},
 	}

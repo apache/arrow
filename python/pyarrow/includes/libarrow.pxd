@@ -2346,6 +2346,12 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CIndexOptions(shared_ptr[CScalar] value)
         shared_ptr[CScalar] value
 
+    cdef cppclass CAggregate "arrow::compute::Aggregate":
+        c_string function
+        shared_ptr[CFunctionOptions] options
+        vector[CFieldRef] target
+        c_string name
+
     cdef enum CMapLookupOccurrence \
             "arrow::compute::MapLookupOptions::Occurrence":
         CMapLookupOccurrence_ALL "arrow::compute::MapLookupOptions::ALL"
