@@ -335,7 +335,10 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_UTF8PROC)
 
   define_option(ARROW_GCS
-                "Build Arrow with GCS support (requires the GCloud SDK for C++)" OFF)
+                "Build Arrow with GCS support (requires the GCloud SDK for C++)"
+                OFF
+                DEPENDS
+                ARROW_WITH_SNAPPY)
 
   define_option(ARROW_HDFS "Build the Arrow HDFS bridge" OFF)
 
