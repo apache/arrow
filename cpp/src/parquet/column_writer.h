@@ -233,7 +233,6 @@ using Int96Writer = TypedColumnWriter<Int96Type>;
 using FloatWriter = TypedColumnWriter<FloatType>;
 using DoubleWriter = TypedColumnWriter<DoubleType>;
 using ByteArrayWriter = TypedColumnWriter<ByteArrayType>;
-using LargeByteArrayWriter = TypedColumnWriter<LargeByteArrayType>;
 using FixedLenByteArrayWriter = TypedColumnWriter<FLBAType>;
 
 namespace internal {

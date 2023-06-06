@@ -471,11 +471,6 @@ class BinaryRecordReader : virtual public RecordReader {
   virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
 };
 
-class LargeBinaryRecordReader : virtual public BinaryRecordReader {
- public:
-  virtual std::vector<std::shared_ptr<::arrow::Array>> GetBuilderChunks() = 0;
-};
-
 /// \brief Read records directly to dictionary-encoded Arrow form (int32
 /// indices). Only valid for BYTE_ARRAY columns
 class DictionaryRecordReader : virtual public RecordReader {
@@ -492,7 +487,6 @@ using Int96Reader = TypedColumnReader<Int96Type>;
 using FloatReader = TypedColumnReader<FloatType>;
 using DoubleReader = TypedColumnReader<DoubleType>;
 using ByteArrayReader = TypedColumnReader<ByteArrayType>;
-using LargeByteArrayReader = TypedColumnReader<LargeByteArrayType>;
 using FixedLenByteArrayReader = TypedColumnReader<FLBAType>;
 
 }  // namespace parquet

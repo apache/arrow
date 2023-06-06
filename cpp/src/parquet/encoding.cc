@@ -26,7 +26,6 @@
 #include <string_view>
 #include <utility>
 #include <vector>
-#include <type_traits>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_dict.h"
