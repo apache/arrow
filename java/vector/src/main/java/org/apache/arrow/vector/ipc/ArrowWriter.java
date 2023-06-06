@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.apache.arrow.util.AutoCloseables;
@@ -72,7 +73,8 @@ public abstract class ArrowWriter implements AutoCloseable {
   }
 
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
-    this(root, provider, out, option, NoCompressionCodec.Factory.INSTANCE, CompressionUtil.CodecType.NO_COMPRESSION);
+    this(root, provider, out, option, NoCompressionCodec.Factory.INSTANCE, CompressionUtil.CodecType.NO_COMPRESSION,
+            Optional.empty());
   }
 
   /**
@@ -84,11 +86,17 @@ public abstract class ArrowWriter implements AutoCloseable {
    * @param option             IPC write options
    * @param compressionFactory Compression codec factory
    * @param codecType          Compression codec
+   * @param compressionLevel   Compression level
    */
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option,
-                        CompressionCodec.Factory compressionFactory, CompressionUtil.CodecType codecType) {
+                        CompressionCodec.Factory compressionFactory, CompressionUtil.CodecType codecType,
+                        Optional<Integer> compressionLevel) {
     this.unloader = new VectorUnloader(
-        root, /*includeNullCount*/ true, compressionFactory.createCodec(codecType), /*alignBuffers*/ true);
+        root, /*includeNullCount*/ true,
+        compressionLevel.isPresent() ?
+            compressionFactory.createCodec(codecType, compressionLevel.get()) :
+            compressionFactory.createCodec(codecType),
+        /*alignBuffers*/ true);
     this.out = new WriteChannel(out);
     this.option = option;
 
