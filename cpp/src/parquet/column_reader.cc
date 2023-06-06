@@ -1988,33 +1988,33 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   }
 
   void DebugPrintState() override {
-//    const int16_t* def_levels = this->def_levels();
-//    const int16_t* rep_levels = this->rep_levels();
-//    const int64_t total_levels_read = levels_position_;
-//
-//    const T* vals = reinterpret_cast<const T*>(this->values());
-//
-//    if (leaf_info_.def_level > 0) {
-//      std::cout << "def levels: ";
-//      for (int64_t i = 0; i < total_levels_read; ++i) {
-//        std::cout << def_levels[i] << " ";
-//      }
-//      std::cout << std::endl;
-//    }
-//
-//    if (leaf_info_.rep_level > 0) {
-//      std::cout << "rep levels: ";
-//      for (int64_t i = 0; i < total_levels_read; ++i) {
-//        std::cout << rep_levels[i] << " ";
-//      }
-//      std::cout << std::endl;
-//    }
-//
-//    std::cout << "values: ";
-//    for (int64_t i = 0; i < this->values_written(); ++i) {
-////      std::cout << vals[i] << " ";
-//    }
-//    std::cout << std::endl;
+    const int16_t* def_levels = this->def_levels();
+    const int16_t* rep_levels = this->rep_levels();
+    const int64_t total_levels_read = levels_position_;
+
+    const T* vals = reinterpret_cast<const T*>(this->values());
+
+    if (leaf_info_.def_level > 0) {
+      std::cout << "def levels: ";
+      for (int64_t i = 0; i < total_levels_read; ++i) {
+        std::cout << def_levels[i] << " ";
+      }
+      std::cout << std::endl;
+    }
+
+    if (leaf_info_.rep_level > 0) {
+      std::cout << "rep levels: ";
+      for (int64_t i = 0; i < total_levels_read; ++i) {
+        std::cout << rep_levels[i] << " ";
+      }
+      std::cout << std::endl;
+    }
+
+    std::cout << "values: ";
+    for (int64_t i = 0; i < this->values_written(); ++i) {
+      std::cout << vals[i] << " ";
+    }
+    std::cout << std::endl;
   }
 
   void ResetValues() {
@@ -2171,6 +2171,10 @@ using LargeByteArrayChunkedRecordReader = ChunkedRecordReader<LargeByteArrayType
 template <typename BAT>
 class DictionaryRecordReaderImpl : public TypedRecordReader<BAT>,
                                   virtual public DictionaryRecordReader {
+  using BASE = TypedRecordReader<BAT>;
+  using BASE::current_encoding_;
+  using BASE::ResetValues;
+
  public:
   DictionaryRecordReaderImpl(const ColumnDescriptor* descr, LevelInfo leaf_info,
                                   ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
@@ -2211,7 +2215,7 @@ class DictionaryRecordReaderImpl : public TypedRecordReader<BAT>,
 
   void ReadValuesDense(int64_t values_to_read) override {
     int64_t num_decoded = 0;
-    if (TypedRecordReader<BAT>::current_encoding_ == Encoding::RLE_DICTIONARY) {
+    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
       MaybeWriteNewDictionary();
       auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
       num_decoded = decoder->DecodeIndices(static_cast<int>(values_to_read), &builder_);
@@ -2220,14 +2224,14 @@ class DictionaryRecordReaderImpl : public TypedRecordReader<BAT>,
           static_cast<int>(values_to_read), &builder_);
 
       /// Flush values since they have been copied into the builder
-      TypedRecordReader<BAT>::ResetValues();
+      ResetValues();
     }
     CheckNumberDecoded(num_decoded, values_to_read);
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
     int64_t num_decoded = 0;
-    if (TypedRecordReader<BAT>::current_encoding_ == Encoding::RLE_DICTIONARY) {
+    if (current_encoding_ == Encoding::RLE_DICTIONARY) {
       MaybeWriteNewDictionary();
       auto decoder = dynamic_cast<BinaryDictDecoder*>(this->current_decoder_);
       num_decoded = decoder->DecodeIndicesSpaced(
@@ -2239,7 +2243,7 @@ class DictionaryRecordReaderImpl : public TypedRecordReader<BAT>,
           valid_bits_->mutable_data(), values_written_, &builder_);
 
       /// Flush values since they have been copied into the builder
-      TypedRecordReader<BAT>::ResetValues();
+      ResetValues();
     }
     ARROW_DCHECK_EQ(num_decoded, values_to_read - null_count);
   }
@@ -2260,6 +2264,9 @@ void TypedRecordReader<Int96Type>::DebugPrintState() {}
 
 template <>
 void TypedRecordReader<ByteArrayType>::DebugPrintState() {}
+
+template <>
+void TypedRecordReader<LargeByteArrayType>::DebugPrintState() {}
 
 template <>
 void TypedRecordReader<FLBAType>::DebugPrintState() {}
