@@ -464,10 +464,22 @@ CsvTableReader$create <- function(file,
 CsvReadOptions <- R6Class("CsvReadOptions",
   inherit = ArrowObject,
   public = list(
-    encoding = NULL
+    encoding = NULL,
+    print = function(...) {
+      cat("CsvReadOptions")
+      cat("\nencoding:", self$encoding)
+      cat("\ncolumn_names:", self$column_names)
+      cat("\nblock_size:", self$block_size)
+      cat("\nskip_rows:", self$skip_rows)
+      cat("\nautogenerate_column_names:", self$autogenerate_column_names)
+      invisible(self)
+    }
   ),
   active = list(
-    column_names = function() csv___ReadOptions__column_names(self)
+    column_names = function() csv___ReadOptions__column_names(self),
+    block_size = function() csv___ReadOptions__block_size(self),
+    skip_rows = function() csv___ReadOptions__skip_rows(self),
+    autogenerate_column_names = function() csv___ReadOptions__autogenerate_column_names(self)
   )
 )
 CsvReadOptions$create <- function(use_threads = option_use_threads(),
@@ -491,6 +503,7 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
   )
 
   options$encoding <- encoding
+
   options
 }
 

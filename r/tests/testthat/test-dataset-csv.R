@@ -574,3 +574,14 @@ test_that("open_delim_dataset params passed through to open_dataset", {
 
   expect_equal(ds$time, "16-01-2023")
 })
+
+test_that("CSV options printing", {
+  default_read_options <- CsvReadOptions$create()
+  default_write_options <- CsvWriteOptions$create()
+  default_parse_options <- CsvParseOptions$create()
+
+  expect_output(print(default_read_options), "Something will go here")
+  expect_output(print(default_write_options), "And here")
+  expect_output(print(default_parse_options), "Here too")
+
+})
