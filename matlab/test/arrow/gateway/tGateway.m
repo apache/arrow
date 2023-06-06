@@ -18,8 +18,8 @@ classdef tGateway < matlab.unittest.TestCase
 
     methods (Test)
         function UnknownProxyError(testCase)
-        % Verify the gateway function errors if given the name of an
-        % unknown proxy class.
+            % Verify the gateway function errors if given the name of an
+            % unknown proxy class.
             id = "arrow:matlab:proxy:UnknownProxy";
             fcn = @()libmexclass.proxy.gateway("Create", "NotAProxyClass", {});
             testCase.verifyError(fcn, id);
