@@ -155,13 +155,17 @@ jobs:
         shell: bash
         run: |
           echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
         uses: actions/cache@v3
         with:
           path: |
-            cpp/**
-          key: cpp-ccache-for-matlab-windows-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-for-matlab-windows-
+            ${{ steps.ccache-info.outputs.cache-dir }}
+          key: ccache-for-build-matlab-windows-${{ steps.get-date.outputs.date }}-${{ hashFiles('cpp/**', 'matlab/**') }}
+          restore-keys: ccache-for-build-matlab-windows-
       - name: Build MATLAB Interface
         shell: cmd
         run: |
