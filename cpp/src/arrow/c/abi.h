@@ -123,15 +123,15 @@ struct ArrowDeviceArray {
   // the Allocated Array
   //
   // the buffers in the array (along with the buffers of any
-  // children) are what is allocated on the device.  
+  // children) are what is allocated on the device.
   struct ArrowArray array;
-  // The device id to identify a specific device  
+  // The device id to identify a specific device
   int64_t device_id;
   // The type of device which can access this memory.
   ArrowDeviceType device_type;
-  // An event-like object to synchronize on if needed.  
+  // An event-like object to synchronize on if needed.
   void* sync_event;
-  // Reserved bytes for future expansion.  
+  // Reserved bytes for future expansion.
   int64_t reserved[3];
 };
 
@@ -187,14 +187,14 @@ struct ArrowArrayStream {
 // device, if a producer wants data to be produced on multiple devices
 // then multiple streams should be provided. One per device.
 struct ArrowDeviceArrayStream {
-  // The device that this stream produces data on.  
+  // The device that this stream produces data on.
   ArrowDeviceType device_type;
 
   // Callback to get the stream schema
   // (will be the same for all arrays in the stream).
   //
   // Return value 0 if successful, an `errno`-compatible error code otherwise.
-  //    
+  //
   // If successful, the ArrowSchema must be released independently from the stream.
   // The schema should be accessible via CPU memory.
   int (*get_schema)(struct ArrowDeviceArrayStream* self, struct ArrowSchema* out);
@@ -206,7 +206,7 @@ struct ArrowDeviceArrayStream {
   //
   // If successful, the ArrowDeviceArray must be released independently from the stream.
   int (*get_next)(struct ArrowDeviceArrayStream* self, struct ArrowDeviceArray* out);
-  
+
   // Callback to get optional detailed error information.
   // This must only be called if the last stream operation failed
   // with a non-0 return code.
