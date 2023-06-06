@@ -139,7 +139,7 @@ static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = false;
-static constexpr bool DEFAULT_IS_COLUMN_INDEX_ENABLED = false;
+static constexpr bool DEFAULT_IS_COLUMN_INDEX_ENABLED = true;
 
 class PARQUET_EXPORT ColumnProperties {
  public:
