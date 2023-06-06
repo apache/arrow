@@ -529,7 +529,7 @@ class KeyHasher {
   size_t index_;
   std::vector<col_index_t> indices_;
   std::vector<KeyColumnMetadata> metadata_;
-  const RecordBatch* batch_;
+  std::atomic<const RecordBatch*> batch_;
   std::vector<HashType> hashes_;
   LightContext ctx_;
   std::vector<KeyColumnArray> column_arrays_;
