@@ -1360,6 +1360,9 @@ class PlainByteArrayDecoderBase : public PlainDecoder<BAT>,
                                   virtual public TypedDecoder<BAT> {
  public:
   using Base = PlainDecoder<BAT>;
+  using Base::len_;
+  using Base::data_;
+  using Base::num_values_;
   using Base::DecodeSpaced;
   using Base::PlainDecoder;
 
@@ -1397,21 +1400,21 @@ class PlainByteArrayDecoderBase : public PlainDecoder<BAT>,
 
     RETURN_NOT_OK(helper.builder->Reserve(num_values));
     RETURN_NOT_OK(helper.builder->ReserveData(
-        std::min<int64_t>(PlainDecoder<BAT>::len_, helper.chunk_space_remaining)));
+        std::min<int64_t>(len_, helper.chunk_space_remaining)));
 
     int i = 0;
     RETURN_NOT_OK(VisitNullBitmapInline(
         valid_bits, valid_bits_offset, num_values, null_count,
         [&]() {
-          if (ARROW_PREDICT_FALSE(PlainDecoder<BAT>::len_ < 4)) {
+          if (ARROW_PREDICT_FALSE(len_ < 4)) {
             ParquetException::EofException();
           }
-          auto value_len = SafeLoadAs<int32_t>(PlainDecoder<BAT>::data_);
+          auto value_len = SafeLoadAs<int32_t>(data_);
           if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
             return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
           }
           auto increment = value_len + 4;
-          if (ARROW_PREDICT_FALSE(PlainDecoder<BAT>::len_ < increment)) {
+          if (ARROW_PREDICT_FALSE(len_ < increment)) {
             ParquetException::EofException();
           }
           if (ARROW_PREDICT_FALSE(!helper.CanFit(value_len))) {
@@ -1419,11 +1422,11 @@ class PlainByteArrayDecoderBase : public PlainDecoder<BAT>,
             RETURN_NOT_OK(helper.PushChunk());
             RETURN_NOT_OK(helper.builder->Reserve(num_values - i));
             RETURN_NOT_OK(helper.builder->ReserveData(
-                std::min<int64_t>(PlainDecoder<BAT>::len_, helper.chunk_space_remaining)));
+                std::min<int64_t>(len_, helper.chunk_space_remaining)));
           }
-          helper.UnsafeAppend(PlainDecoder<BAT>::data_ + 4, value_len);
-          PlainDecoder<BAT>::data_ += increment;
-          PlainDecoder<BAT>::len_ -= increment;
+          helper.UnsafeAppend(data_ + 4, value_len);
+          data_ += increment;
+          len_ -= increment;
           ++values_decoded;
           ++i;
           return Status::OK();
@@ -1434,7 +1437,7 @@ class PlainByteArrayDecoderBase : public PlainDecoder<BAT>,
           return Status::OK();
         }));
 
-    PlainDecoder<BAT>::num_values_ -= values_decoded;
+    num_values_ -= values_decoded;
     *out_values_decoded = values_decoded;
     return Status::OK();
   }
@@ -1449,26 +1452,26 @@ class PlainByteArrayDecoderBase : public PlainDecoder<BAT>,
     RETURN_NOT_OK(VisitNullBitmapInline(
         valid_bits, valid_bits_offset, num_values, null_count,
         [&]() {
-          if (ARROW_PREDICT_FALSE(PlainDecoder<BAT>::len_ < 4)) {
+          if (ARROW_PREDICT_FALSE(len_ < 4)) {
             ParquetException::EofException();
           }
-          auto value_len = SafeLoadAs<int32_t>(PlainDecoder<BAT>::data_);
+          auto value_len = SafeLoadAs<int32_t>(data_);
           if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > INT32_MAX - 4)) {
             return Status::Invalid("Invalid or corrupted value_len '", value_len, "'");
           }
           auto increment = value_len + 4;
-          if (ARROW_PREDICT_FALSE(PlainDecoder<BAT>::len_ < increment)) {
+          if (ARROW_PREDICT_FALSE(len_ < increment)) {
             ParquetException::EofException();
           }
-          RETURN_NOT_OK(builder->Append(PlainDecoder<BAT>::data_ + 4, value_len));
-          PlainDecoder<BAT>::data_ += increment;
-          PlainDecoder<BAT>::len_ -= increment;
+          RETURN_NOT_OK(builder->Append(data_ + 4, value_len));
+          data_ += increment;
+          len_ -= increment;
           ++values_decoded;
           return Status::OK();
         },
         [&]() { return builder->AppendNull(); }));
 
-    PlainDecoder<BAT>::num_values_ -= values_decoded;
+    num_values_ -= values_decoded;
     *out_values_decoded = values_decoded;
     return Status::OK();
   }
