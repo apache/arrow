@@ -632,3 +632,61 @@ func TestDate64SliceDataWithNull(t *testing.T) {
 		t.Fatalf("got=%v, want=%v", got, want)
 	}
 }
+
+func TestInt64MarshalJSON(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		vs = []int64{-5474557666971701248}
+	)
+
+	b := array.NewInt64Builder(pool)
+	defer b.Release()
+
+	for _, v := range vs {
+		b.Append(v)
+	}
+
+	arr := b.NewArray().(*array.Int64)
+	defer arr.Release()
+
+	jsonBytes, err := json.Marshal(arr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(jsonBytes)
+	want := `[-5474557666971701248]`
+	if got != want {
+		t.Fatalf("got=%s, want=%s", got, want)
+	}
+}
+
+func TestUInt64MarshalJSON(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		vs = []uint64{14697929703826477056}
+	)
+
+	b := array.NewUint64Builder(pool)
+	defer b.Release()
+
+	for _, v := range vs {
+		b.Append(v)
+	}
+
+	arr := b.NewArray().(*array.Uint64)
+	defer arr.Release()
+
+	jsonBytes, err := json.Marshal(arr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(jsonBytes)
+	want := `[14697929703826477056]`
+	if got != want {
+		t.Fatalf("got=%s, want=%s", got, want)
+	}
+}
