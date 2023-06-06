@@ -37,6 +37,7 @@ cdef class _PandasAPIShim(object):
         object _array_like_types, _is_extension_array_dtype
         bint has_sparse
         bint _pd024
+        bint _is_v1
 
     def __init__(self):
         self._tried_importing_pandas = False

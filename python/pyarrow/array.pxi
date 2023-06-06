@@ -722,12 +722,12 @@ cdef class _PandasConvertible(_Weakrefable):
         integer_object_nulls : bool, default False
             Cast integers with nulls to objects
         date_as_object : bool, default True
-            Cast dates to objects. If False, convert to datetime64[ns] dtype.
+            Cast dates to objects. If False, convert to datetime64 dtype.
         timestamp_as_object : bool, default False
             Cast non-nanosecond timestamps (np.datetime64) to objects. This is
             useful if you have timestamps that don't fit in the normal date
             range of nanosecond timestamps (1678 CE-2262 CE).
-            If False, all timestamps are converted to datetime64[ns] dtype.
+            If False, all timestamps are converted to datetime64 dtype.
         use_threads : bool, default True
             Whether to parallelize the conversion using multiple threads.
         deduplicate_objects : bool, default True

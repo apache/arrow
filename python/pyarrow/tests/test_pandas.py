@@ -1055,7 +1055,7 @@ class TestConvertDateTimeLikeTypes:
 
         result = table.to_pandas()
         expected_df = pd.DataFrame({
-            'datetime': date_array
+            'datetime': pd.Series(date_array, dtype='datetime64[us]')
         })
         tm.assert_frame_equal(expected_df, result)
 
@@ -1108,7 +1108,7 @@ class TestConvertDateTimeLikeTypes:
         assert isinstance(table[0].chunk(0), pa.TimestampArray)
 
         result = table.to_pandas()
-        expected_df = pd.DataFrame({"datetime": date_array})
+        expected_df = pd.DataFrame({"datetime": pd.Series(date_array, dtype='datetime64[us]')})
 
         # https://github.com/pandas-dev/pandas/issues/21142
         expected_df["datetime"] = pd.to_datetime(expected_df["datetime"])
@@ -1177,8 +1177,8 @@ class TestConvertDateTimeLikeTypes:
         expected_d = np.array(['2000-01-01', None, '1970-01-01',
                                '2040-02-26'], dtype='datetime64[D]')
 
-        expected_ns = np.array(['2000-01-01', None, '1970-01-01',
-                                '2040-02-26'], dtype='datetime64[ns]')
+        expected_s = np.array(['2000-01-01', None, '1970-01-01',
+                                '2040-02-26'], dtype='datetime64[s]')
 
         objects = [pa.array(data),
                    pa.chunked_array([data])]
@@ -1190,8 +1190,8 @@ class TestConvertDateTimeLikeTypes:
             npt.assert_array_equal(result, expected_obj)
 
             result = obj.to_pandas(date_as_object=False)
-            assert result.dtype == expected_ns.dtype
-            npt.assert_array_equal(result, expected_ns)
+            assert result.dtype == expected_s.dtype
+            npt.assert_array_equal(result, expected_s)
 
     def test_table_convert_date_as_object(self):
         df = pd.DataFrame({
@@ -1205,7 +1205,7 @@ class TestConvertDateTimeLikeTypes:
         df_datetime = table.to_pandas(date_as_object=False)
         df_object = table.to_pandas()
 
-        tm.assert_frame_equal(df.astype('datetime64[ns]'), df_datetime,
+        tm.assert_frame_equal(df.astype('datetime64[s]'), df_datetime,
                               check_dtype=True)
         tm.assert_frame_equal(df, df_object, check_dtype=True)
 
@@ -1266,9 +1266,8 @@ class TestConvertDateTimeLikeTypes:
                               dtype='datetime64[D]'))
         ex_values[1] = pd.NaT.value
 
-        ex_datetime64ns = ex_values.astype('datetime64[ns]')
-        expected_pandas = pd.DataFrame({'date32': ex_datetime64ns,
-                                        'date64': ex_datetime64ns},
+        expected_pandas = pd.DataFrame({'date32': ex_values.astype('datetime64[s]'),
+                                        'date64': ex_values.astype('datetime64[ms]')},
                                        columns=colnames)
         table_pandas = table.to_pandas(date_as_object=False)
         tm.assert_frame_equal(table_pandas, expected_pandas)
@@ -1428,8 +1427,11 @@ class TestConvertDateTimeLikeTypes:
             dtype='datetime64[s]')
         _check_array_from_pandas_roundtrip(datetime64_s)
 
-    def test_timestamp_to_pandas_ns(self):
+    def test_timestamp_to_pandas_coerces_to_ns(self):
         # non-ns timestamp gets cast to ns on conversion to pandas
+        if Version(pd.__version__) >= Version("2.0.0"):
+            pytest.skip("pandas >= 2.0 supports non-nanosecond datetime64")
+
         arr = pa.array([1, 2, 3], pa.timestamp('ms'))
         expected = pd.Series(pd.to_datetime([1, 2, 3], unit='ms'))
         s = arr.to_pandas()
@@ -1474,7 +1476,7 @@ class TestConvertDateTimeLikeTypes:
         # ARROW-7907 table with chunked array with 0 chunks
         table = pa.table({'a': pa.chunked_array([], type=pa.timestamp('us'))})
         result = table.to_pandas()
-        expected = pd.DataFrame({'a': pd.Series([], dtype="datetime64[ns]")})
+        expected = pd.DataFrame({'a': pd.Series([], dtype="datetime64[us]")})
         tm.assert_frame_equal(result, expected)
 
     @pytest.mark.parametrize('dtype', [pa.date32(), pa.date64()])

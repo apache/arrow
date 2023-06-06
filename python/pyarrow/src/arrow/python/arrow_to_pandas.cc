@@ -1569,7 +1569,28 @@ class DatetimeWriter : public TypedPandasWriter<NPY_DATETIME> {
   }
 };
 
-using DatetimeSecondWriter = DatetimeWriter<TimeUnit::SECOND>;
+class DatetimeSecondWriter : public DatetimeWriter<TimeUnit::SECOND> {
+ public:
+  using DatetimeWriter<TimeUnit::SECOND>::DatetimeWriter;
+
+  Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
+    Type::type type = data->type()->id();
+    int64_t* out_values = this->GetBlockColumnStart(rel_placement);
+    if (type == Type::DATE32) {
+      // Convert from days since epoch to datetime64[s]
+      ConvertDatetimeLikeNanos<int32_t, 86400L>(*data, out_values);
+    } else {
+      const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
+      DCHECK_EQ(TimeUnit::SECOND, ts_type.unit())
+                << "Should only call instances of this writer "
+                << "with arrays of the correct unit";
+      ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull,
+                                      this->GetBlockColumnStart(rel_placement));
+    }
+    return Status::OK();
+  }
+};
+
 using DatetimeMilliWriter = DatetimeWriter<TimeUnit::MILLI>;
 using DatetimeMicroWriter = DatetimeWriter<TimeUnit::MICRO>;
 
@@ -2063,7 +2084,9 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
       } else if (options.coerce_temporal_nanoseconds) {
         *output_type = PandasWriter::DATETIME_NANO;
       } else {
-        *output_type = PandasWriter::DATETIME_DAY;
+        // Pandas doesn't support Days, so convert to seconds.
+        // This matches _pandas_type_map in types.pxi.
+        *output_type = PandasWriter::DATETIME_SECOND;
       }
       break;
     case Type::DATE64:
