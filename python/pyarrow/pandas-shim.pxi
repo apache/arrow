@@ -225,10 +225,6 @@ cdef class _PandasAPIShim(object):
             return obj.array
         return obj.values
 
-    def assert_frame_equal(self, *args, **kwargs):
-        self._check_import()
-        return self._pd.util.testing.assert_frame_equal
-
     def get_rangeindex_attribute(self, level, name):
         # public start/stop/step attributes added in pandas 0.25.0
         self._check_import()

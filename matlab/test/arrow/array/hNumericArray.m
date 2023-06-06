@@ -117,17 +117,17 @@ classdef hNumericArray < matlab.unittest.TestCase
             tc.verifyError(fcn, "MATLAB:expectedReal");
         end
 
-        function ErrorIfNotTwoDimensional(tc, MakeDeepCopy)
+        function ErrorIfNonVector(tc, MakeDeepCopy)
             data = tc.MatlabArrayFcn([1 2 3 4 5 6 7 8 9]);
             data = reshape(data, 3, 1, 3);
             fcn = @() tc.ArrowArrayConstructor(tc.MatlabArrayFcn(data), DeepCopy=MakeDeepCopy);
-            tc.verifyError(fcn, "MATLAB:expected2D");
+            tc.verifyError(fcn, "MATLAB:expectedVector");
         end
 
-        function ErrorIfNonVector(tc, MakeDeepCopy)
-            data = tc.MatlabArrayFcn([1 2; 3 4]);
+        function ErrorIfEmptyArrayIsNotTwoDimensional(tc, MakeDeepCopy)
+            data = tc.MatlabArrayFcn(reshape([], [1 0 0]));
             fcn = @() tc.ArrowArrayConstructor(data, DeepCopy=MakeDeepCopy);
-            tc.verifyError(fcn, "MATLAB:expectedVector");
+            tc.verifyError(fcn, "MATLAB:expected2D");
         end
     end
 end

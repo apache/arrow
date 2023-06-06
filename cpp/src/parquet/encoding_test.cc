@@ -114,52 +114,6 @@ TEST(VectorBooleanTest, TestEncodeIntDecode) {
   }
 }
 
-// ----------------------------------------------------------------------
-// test data generation
-
-template <typename T>
-void GenerateData(int num_values, T* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
-  random_numbers(num_values, 0, std::numeric_limits<T>::min(),
-                 std::numeric_limits<T>::max(), out);
-}
-
-template <typename T>
-void GenerateBoundData(int num_values, T* out, T min, T max, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
-  random_numbers(num_values, 0, min, max, out);
-}
-
-template <>
-void GenerateData<bool>(int num_values, bool* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
-  random_bools(num_values, 0.5, 0, out);
-}
-
-template <>
-void GenerateData<Int96>(int num_values, Int96* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
-  random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
-                       std::numeric_limits<int32_t>::max(), out);
-}
-
-template <>
-void GenerateData<ByteArray>(int num_values, ByteArray* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
-  int max_byte_array_len = 12;
-  heap->resize(num_values * max_byte_array_len);
-  random_byte_array(num_values, 0, heap->data(), out, 2, max_byte_array_len);
-}
-
-static int flba_length = 8;
-
-template <>
-void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
-  heap->resize(num_values * flba_length);
-  random_fixed_byte_array(num_values, 0, heap->data(), flba_length, out);
-}
-
 template <typename T>
 void VerifyResults(T* result, T* expected, int num_values) {
   for (int i = 0; i < num_values; ++i) {
@@ -180,7 +134,7 @@ void VerifyResultsSpaced(T* result, T* expected, int num_values,
 template <>
 void VerifyResults<FLBA>(FLBA* result, FLBA* expected, int num_values) {
   for (int i = 0; i < num_values; ++i) {
-    ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, flba_length)) << i;
+    ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, kGenerateDataFLBALength)) << i;
   }
 }
 
@@ -189,7 +143,7 @@ void VerifyResultsSpaced<FLBA>(FLBA* result, FLBA* expected, int num_values,
                                const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
     if (bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
-      ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, flba_length)) << i;
+      ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, kGenerateDataFLBALength)) << i;
     }
   }
 }
@@ -205,9 +159,9 @@ std::shared_ptr<ColumnDescriptor> ExampleDescr() {
 
 template <>
 std::shared_ptr<ColumnDescriptor> ExampleDescr<FLBAType>() {
-  auto node = schema::PrimitiveNode::Make("name", Repetition::OPTIONAL,
-                                          Type::FIXED_LEN_BYTE_ARRAY,
-                                          ConvertedType::DECIMAL, flba_length, 10, 2);
+  auto node = schema::PrimitiveNode::Make(
+      "name", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::DECIMAL,
+      kGenerateDataFLBALength, 10, 2);
   return std::make_shared<ColumnDescriptor>(node, 0, 0);
 }
 

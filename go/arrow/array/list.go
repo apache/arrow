@@ -611,4 +611,14 @@ var (
 	_ arrow.Array = (*LargeList)(nil)
 	_ Builder     = (*ListBuilder)(nil)
 	_ Builder     = (*LargeListBuilder)(nil)
+
+	_ ListLike = (*List)(nil)
+	_ ListLike = (*LargeList)(nil)
+	_ ListLike = (*FixedSizeList)(nil)
+	_ ListLike = (*Map)(nil)
+
+	_ ListLikeBuilder = (*ListBuilder)(nil)
+	_ ListLikeBuilder = (*LargeListBuilder)(nil)
+	_ ListLikeBuilder = (*FixedSizeListBuilder)(nil)
+	_ ListLikeBuilder = (*MapBuilder)(nil)
 )

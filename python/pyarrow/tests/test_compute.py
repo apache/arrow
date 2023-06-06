@@ -36,6 +36,8 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.lib import ArrowNotImplementedError
+from pyarrow.tests import util
+
 
 all_array_types = [
     ('bool', [True, False, False, True, True]),
@@ -180,17 +182,19 @@ def test_option_class_equality():
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
     ]
-    # TODO: We should test on windows once ARROW-13168 is resolved.
-    # Timezone database is not available on Windows yet
-    if sys.platform != 'win32':
+    # Timezone database might not be installed on Windows
+    if sys.platform != "win32" or util.windows_has_tzdata():
         options.append(pc.AssumeTimezoneOptions("Europe/Ljubljana"))
 
     classes = {type(option) for option in options}
 
     for cls in exported_option_classes:
-        # Timezone database is not available on Windows yet
-        if cls not in classes and sys.platform != 'win32' and \
-                cls != pc.AssumeTimezoneOptions:
+        # Timezone database might not be installed on Windows
+        if (
+            cls not in classes
+            and (sys.platform != "win32" or util.windows_has_tzdata())
+            and cls != pc.AssumeTimezoneOptions
+        ):
             try:
                 options.append(cls())
             except TypeError:
@@ -1846,17 +1850,18 @@ def test_strptime():
     assert got == pa.array([None, None, None], type=pa.timestamp('s'))
 
 
-# TODO: We should test on windows once ARROW-13168 is resolved.
 @pytest.mark.pandas
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="Timezone database is not available on Windows yet")
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 def test_strftime():
     times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
     timezones = ["CET", "UTC", "Europe/Ljubljana"]
 
-    formats = ["%a", "%A", "%w", "%d", "%b", "%B", "%m", "%y", "%Y", "%H",
-               "%I", "%p", "%M", "%z", "%Z", "%j", "%U", "%W", "%c", "%x",
-               "%X", "%%", "%G", "%V", "%u"]
+    formats = ["%a", "%A", "%w", "%d", "%b", "%B", "%m", "%y", "%Y", "%H", "%I",
+               "%p", "%M", "%z", "%Z", "%j", "%U", "%W", "%%", "%G", "%V", "%u"]
+    if sys.platform != "win32":
+        # Locale-dependent formats don't match on Windows
+        formats.extend(["%c", "%x", "%X"])
 
     for timezone in timezones:
         ts = pd.to_datetime(times).tz_localize(timezone)
@@ -2029,18 +2034,16 @@ def test_extract_datetime_components():
     _check_datetime_components(timestamps)
 
     # Test timezone aware timestamp array
-    if sys.platform == 'win32':
-        # TODO: We should test on windows once ARROW-13168 is resolved.
-        pytest.skip('Timezone database is not available on Windows yet')
+    if sys.platform == "win32" and not util.windows_has_tzdata():
+        pytest.skip('Timezone database is not installed on Windows')
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
 
 
-# TODO: We should test on windows once ARROW-13168 is resolved.
 @pytest.mark.pandas
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="Timezone database is not available on Windows yet")
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 def test_assume_timezone():
     ts_type = pa.timestamp("ns")
     timestamps = pd.to_datetime(["1970-01-01T00:00:59.123456789",
@@ -2235,9 +2238,8 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
-# TODO: We should test on windows once ARROW-13168 is resolved.
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="Timezone database is not available on Windows yet")
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
 @pytest.mark.pandas

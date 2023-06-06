@@ -35,6 +35,8 @@ class Array : public libmexclass::proxy::Proxy {
 
         void length(libmexclass::proxy::method::Context& context);
 
+        void valid(libmexclass::proxy::method::Context& context);
+
         virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
 
         std::shared_ptr<arrow::Array> array;
