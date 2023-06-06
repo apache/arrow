@@ -862,7 +862,6 @@ func (a *Int8) MarshalJSON() ([]byte, error) {
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
 			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
-
 		} else {
 			vals[i] = nil
 		}
@@ -958,7 +957,6 @@ func (a *Uint8) MarshalJSON() ([]byte, error) {
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
 			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
-
 		} else {
 			vals[i] = nil
 		}
