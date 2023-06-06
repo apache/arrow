@@ -765,11 +765,8 @@ using ByteArrayType = PhysicalType<Type::BYTE_ARRAY>;
 /*
  * TODO AP add a comment explaining why the below is needed
  * */
-struct LargeByteArrayType
-{
-    using c_type = typename type_traits<Type::BYTE_ARRAY>::value_type;
-    static constexpr Type::type type_num = Type::BYTE_ARRAY;
-};
+struct LargeByteArrayType : public ByteArrayType
+{};
 
 using FLBAType = PhysicalType<Type::FIXED_LEN_BYTE_ARRAY>;
 
