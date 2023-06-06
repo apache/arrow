@@ -1040,18 +1040,18 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration decla
         DeclarationToBatchConverter(declaration, std::move(options), executor, &schema));
     return [converter] { return (*converter)(); };
   };
-  internal::SerialExecutor* ser_exec = nullptr;
+  arrow::internal::SerialExecutor* ser_exec = nullptr;
   auto batch_iterator = std::make_unique<Iterator<std::shared_ptr<RecordBatch>>>(
       options.use_threads
           ? ::arrow::internal::IterateSynchronously<std::shared_ptr<RecordBatch>>(
                 std::move(make_gen), options.use_threads)
-          : internal::SerialExecutor::IterateGenerator<std::shared_ptr<RecordBatch>>(
-                std::move(make_gen), &ser_exec));
+          : arrow::internal::SerialExecutor::IterateGenerator<
+                std::shared_ptr<RecordBatch>>(std::move(make_gen), &ser_exec));
 
   struct PlanReader : RecordBatchReader {
     PlanReader(std::shared_ptr<Schema> schema, std::shared_ptr<BatchConverter> converter,
                std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> iterator,
-               internal::SerialExecutor* ser_exec)
+               arrow::internal::SerialExecutor* ser_exec)
         : schema_(std::move(schema)),
           converter_(std::move(converter)),
           iterator_(std::move(iterator)),
@@ -1087,7 +1087,7 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration decla
     std::shared_ptr<Schema> schema_;
     std::shared_ptr<BatchConverter> converter_;
     std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> iterator_;
-    internal::SerialExecutor* ser_exec_;
+    arrow::internal::SerialExecutor* ser_exec_;
   };
 
   return std::make_unique<PlanReader>(std::move(schema), std::move(converter),
