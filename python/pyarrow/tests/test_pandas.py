@@ -70,7 +70,7 @@ def _alltypes_example(size=100):
         # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
         # us, ns
         'datetime': np.arange("2016-01-01T00:00:00.001", size,
-                              dtype='datetime64[ms]').astype("datetime64[ns]"),
+                              dtype='datetime64[ms]'),
         'str': [str(x) for x in range(size)],
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'empty_str': [''] * size
@@ -86,8 +86,9 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     table = klass.from_pandas(df, schema=schema,
                               preserve_index=preserve_index,
                               nthreads=2 if use_threads else 1)
+    print(table)
     result = table.to_pandas(use_threads=use_threads)
-
+    print(result)
     if expected_schema:
         # all occurrences of _check_pandas_roundtrip passes expected_schema
         # without the pandas generated key-value metadata
@@ -1023,7 +1024,7 @@ class TestConvertDateTimeLikeTypes:
                 '2007-07-13T01:23:34.123',
                 '2006-01-13T12:34:56.432',
                 '2010-08-13T05:46:57.437'],
-                dtype='datetime64[ms]').astype("datetime64[ns]")
+                dtype='datetime64[ms]')
         })
         df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
         _check_pandas_roundtrip(df)
@@ -1443,7 +1444,7 @@ class TestConvertDateTimeLikeTypes:
     def test_timestamp_to_pandas_out_of_bounds(self):
         # ARROW-7758 check for out of bounds timestamps for non-ns timestamps
 
-        if Version(pd.__version__) >= Version("2.1.0.dev"):
+        if Version(pd.__version__) < Version("2.1.0.dev"):
             # GH-35235: test fail due to __from_pyarrow__ being added to pandas
             # https://github.com/pandas-dev/pandas/pull/52201
             # Needs: https://github.com/apache/arrow/issues/33321
@@ -2857,7 +2858,7 @@ class TestConvertMisc:
         cases.append(boolean_objects)
 
         cases.append(np.arange("2016-01-01T00:00:00.001", N * K,
-                               dtype='datetime64[ms]').astype("datetime64[ns]")
+                               dtype='datetime64[ms]')
                      .reshape(N, K).copy())
 
         strided_mask = (random_numbers > 0).astype(bool)[:, 0]

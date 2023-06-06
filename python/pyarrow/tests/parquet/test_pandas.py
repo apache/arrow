@@ -344,7 +344,7 @@ def test_index_column_name_duplicate(tempdir, use_legacy_dataset):
         }
     }
     path = str(tempdir / 'data.parquet')
-    dfx = pd.DataFrame(data).set_index('time', drop=False)
+    dfx = pd.DataFrame(data, dtype='datetime64[us]').set_index('time', drop=False)
     tdfx = pa.Table.from_pandas(dfx)
     _write_table(tdfx, path)
     arrow_table = _read_table(path, use_legacy_dataset=use_legacy_dataset)

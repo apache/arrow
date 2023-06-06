@@ -1268,7 +1268,7 @@ def _test_write_to_dataset_with_partitions(base_path,
                               'nan': [np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
-    output_df["date"] = output_df["date"].astype('datetime64[ns]')
+    output_df["date"] = output_df["date"]
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False,
@@ -1301,7 +1301,8 @@ def _test_write_to_dataset_with_partitions(base_path,
 
     assert dataset_cols == set(output_table.schema.names)
 
-    input_table = dataset.read()
+    input_table = dataset.read(use_pandas_metadata=True)
+
     input_df = input_table.to_pandas()
 
     # Read data back in and compare with original DataFrame
@@ -1329,7 +1330,7 @@ def _test_write_to_dataset_no_partitions(base_path,
                               'num': list(range(10)),
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
-    output_df["date"] = output_df["date"].astype('datetime64[ns]')
+    output_df["date"] = output_df["date"]
     cols = output_df.columns.tolist()
     output_table = pa.Table.from_pandas(output_df)
 
@@ -1355,7 +1356,7 @@ def _test_write_to_dataset_no_partitions(base_path,
     input_df = input_table.to_pandas()
     input_df = input_df.drop_duplicates()
     input_df = input_df[cols]
-    assert output_df.equals(input_df)
+    tm.assert_frame_equal(output_df, input_df)
 
 
 @pytest.mark.pandas
@@ -1458,7 +1459,7 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
                               'nan': [np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
-    output_df["date"] = output_df["date"].astype('datetime64[ns]')
+    output_df["date"] = output_df["date"]
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df)
     path = str(tempdir)

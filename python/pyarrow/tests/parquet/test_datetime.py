@@ -153,7 +153,7 @@ def test_coerce_timestamps_truncated(tempdir):
     df_ms = table_ms.to_pandas()
 
     arrays_expected = {'datetime64': [dt_ms, dt_ms]}
-    df_expected = pd.DataFrame(arrays_expected)
+    df_expected = pd.DataFrame(arrays_expected, dtype='datetime64[ms]')
     tm.assert_frame_equal(df_expected, df_ms)
 
 
