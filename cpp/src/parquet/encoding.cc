@@ -26,6 +26,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <type_traits>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_dict.h"
@@ -1929,433 +1930,226 @@ void DictDecoderImpl<LargeByteArrayType>::InsertDictionary(::arrow::ArrayBuilder
   PARQUET_THROW_NOT_OK(binary_builder->InsertMemoValues(*arr));
 }
 
-class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
-                                 virtual public ByteArrayDecoder {
- public:
-  using BASE = DictDecoderImpl<ByteArrayType>;
-  using BASE::DictDecoderImpl;
+template <typename BAT = ByteArrayType>
+class DictByteArrayDecoderImpl : public DictDecoderImpl<BAT>,
+                                 virtual public TypedDecoder<BAT> {
 
-  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                  int64_t valid_bits_offset,
-                  ::arrow::BinaryDictionary32Builder* builder) override {
-    int result = 0;
-    if (null_count == 0) {
-      PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
-    } else {
-      PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
-                                       valid_bits_offset, builder, &result));
-    }
-    return result;
-  }
+   public:
+    using BASE = DictDecoderImpl<BAT>;
+    using BASE::DictDecoderImpl;
+    using BASE::dictionary_;
+    using BASE::idx_decoder_;
+    using BASE::IndexInBounds;
 
-  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                  int64_t valid_bits_offset,
-                  typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
-    int result = 0;
-    if (null_count == 0) {
-      PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull(num_values, out, &result));
-    } else {
-      PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
-                                            valid_bits_offset, out, &result));
-    }
-    return result;
-  }
-
- private:
-  Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
-                          int64_t valid_bits_offset,
-                          typename EncodingTraits<ByteArrayType>::Accumulator* out,
-                          int* out_num_values) {
-    constexpr int32_t kBufferSize = 1024;
-    int32_t indices[kBufferSize];
-
-    ArrowBinaryHelper helper(out);
-
-    auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
-    int values_decoded = 0;
-    int num_indices = 0;
-    int pos_indices = 0;
-
-    auto visit_valid = [&](int64_t position) -> Status {
-      if (num_indices == pos_indices) {
-        // Refill indices buffer
-        const auto batch_size =
-            std::min<int32_t>(kBufferSize, num_values - null_count - values_decoded);
-        num_indices = idx_decoder_.GetBatch(indices, batch_size);
-        if (ARROW_PREDICT_FALSE(num_indices < 1)) {
-          return Status::Invalid("Invalid number of indices: ", num_indices);
-        }
-        pos_indices = 0;
-      }
-      const auto index = indices[pos_indices++];
-      RETURN_NOT_OK(IndexInBounds(index));
-      const auto& val = dict_values[index];
-      if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
-        RETURN_NOT_OK(helper.PushChunk());
-      }
-      RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
-      ++values_decoded;
-      return Status::OK();
-    };
-
-    auto visit_null = [&]() -> Status {
-      RETURN_NOT_OK(helper.AppendNull());
-      return Status::OK();
-    };
-
-    ::arrow::internal::BitBlockCounter bit_blocks(valid_bits, valid_bits_offset,
-                                                  num_values);
-    int64_t position = 0;
-    while (position < num_values) {
-      const auto block = bit_blocks.NextWord();
-      if (block.AllSet()) {
-        for (int64_t i = 0; i < block.length; ++i, ++position) {
-          ARROW_RETURN_NOT_OK(visit_valid(position));
-        }
-      } else if (block.NoneSet()) {
-        for (int64_t i = 0; i < block.length; ++i, ++position) {
-          ARROW_RETURN_NOT_OK(visit_null());
-        }
+    int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                    int64_t valid_bits_offset,
+                    typename EncodingTraits<BAT>::DictAccumulator* builder) override {
+      int result = 0;
+      if (null_count == 0) {
+        PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
       } else {
-        for (int64_t i = 0; i < block.length; ++i, ++position) {
-          if (bit_util::GetBit(valid_bits, valid_bits_offset + position)) {
-            ARROW_RETURN_NOT_OK(visit_valid(position));
-          } else {
-            ARROW_RETURN_NOT_OK(visit_null());
-          }
-        }
+        PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
+                                         valid_bits_offset, builder, &result));
       }
+      return result;
     }
 
-    *out_num_values = values_decoded;
-    return Status::OK();
-  }
+    int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                    int64_t valid_bits_offset,
+                    typename EncodingTraits<BAT>::Accumulator* out) override {
+      int result = 0;
+      if (null_count == 0) {
+        PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull(num_values, out, &result));
+      } else {
+        PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
+                                              valid_bits_offset, out, &result));
+      }
+      return result;
+    }
 
-  Status DecodeArrowDenseNonNull(int num_values,
-                                 typename EncodingTraits<ByteArrayType>::Accumulator* out,
-                                 int* out_num_values) {
-    constexpr int32_t kBufferSize = 2048;
-    int32_t indices[kBufferSize];
-    int values_decoded = 0;
+   private:
+    Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
+                            int64_t valid_bits_offset,
+                            typename EncodingTraits<BAT>::Accumulator* out,
+                            int* out_num_values) {
+      constexpr int32_t kBufferSize = 1024;
+      int32_t indices[kBufferSize];
 
-    ArrowBinaryHelper helper(out);
-    auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
+      ArrowBinaryHelperBase<BAT> helper(out);
 
-    while (values_decoded < num_values) {
-      int32_t batch_size = std::min<int32_t>(kBufferSize, num_values - values_decoded);
-      int num_indices = idx_decoder_.GetBatch(indices, batch_size);
-      if (num_indices == 0) ParquetException::EofException();
-      for (int i = 0; i < num_indices; ++i) {
-        auto idx = indices[i];
-        RETURN_NOT_OK(IndexInBounds(idx));
-        const auto& val = dict_values[idx];
+      auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
+      int values_decoded = 0;
+      int num_indices = 0;
+      int pos_indices = 0;
+
+      auto visit_valid = [&](int64_t position) -> Status {
+        if (num_indices == pos_indices) {
+          // Refill indices buffer
+          const auto batch_size =
+              std::min<int32_t>(kBufferSize, num_values - null_count - values_decoded);
+          num_indices = idx_decoder_.GetBatch(indices, batch_size);
+          if (ARROW_PREDICT_FALSE(num_indices < 1)) {
+            return Status::Invalid("Invalid number of indices: ", num_indices);
+          }
+          pos_indices = 0;
+        }
+        const auto index = indices[pos_indices++];
+        RETURN_NOT_OK(IndexInBounds(index));
+        const auto& val = dict_values[index];
         if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
           RETURN_NOT_OK(helper.PushChunk());
         }
         RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
-      }
-      values_decoded += num_indices;
-    }
-    *out_num_values = values_decoded;
-    return Status::OK();
-  }
+        ++values_decoded;
+        return Status::OK();
+      };
 
-  template <typename BuilderType>
-  Status DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                     int64_t valid_bits_offset, BuilderType* builder,
-                     int* out_num_values) {
-    constexpr int32_t kBufferSize = 1024;
-    int32_t indices[kBufferSize];
+      auto visit_null = [&]() -> Status {
+        RETURN_NOT_OK(helper.AppendNull());
+        return Status::OK();
+      };
 
-    RETURN_NOT_OK(builder->Reserve(num_values));
-    ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
-
-    auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
-
-    int values_decoded = 0;
-    int num_appended = 0;
-    while (num_appended < num_values) {
-      bool is_valid = bit_reader.IsSet();
-      bit_reader.Next();
-
-      if (is_valid) {
-        int32_t batch_size =
-            std::min<int32_t>(kBufferSize, num_values - num_appended - null_count);
-        int num_indices = idx_decoder_.GetBatch(indices, batch_size);
-
-        int i = 0;
-        while (true) {
-          // Consume all indices
-          if (is_valid) {
-            auto idx = indices[i];
-            RETURN_NOT_OK(IndexInBounds(idx));
-            const auto& val = dict_values[idx];
-            RETURN_NOT_OK(builder->Append(val.ptr, val.len));
-            ++i;
-            ++values_decoded;
-          } else {
-            RETURN_NOT_OK(builder->AppendNull());
-            --null_count;
-          }
-          ++num_appended;
-          if (i == num_indices) {
-            // Do not advance the bit_reader if we have fulfilled the decode
-            // request
-            break;
-          }
-          is_valid = bit_reader.IsSet();
-          bit_reader.Next();
-        }
-      } else {
-        RETURN_NOT_OK(builder->AppendNull());
-        --null_count;
-        ++num_appended;
-      }
-    }
-    *out_num_values = values_decoded;
-    return Status::OK();
-  }
-
-  template <typename BuilderType>
-  Status DecodeArrowNonNull(int num_values, BuilderType* builder, int* out_num_values) {
-    constexpr int32_t kBufferSize = 2048;
-    int32_t indices[kBufferSize];
-
-    RETURN_NOT_OK(builder->Reserve(num_values));
-
-    auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
-
-    int values_decoded = 0;
-    while (values_decoded < num_values) {
-      int32_t batch_size = std::min<int32_t>(kBufferSize, num_values - values_decoded);
-      int num_indices = idx_decoder_.GetBatch(indices, batch_size);
-      if (num_indices == 0) ParquetException::EofException();
-      for (int i = 0; i < num_indices; ++i) {
-        auto idx = indices[i];
-        RETURN_NOT_OK(IndexInBounds(idx));
-        const auto& val = dict_values[idx];
-        RETURN_NOT_OK(builder->Append(val.ptr, val.len));
-      }
-      values_decoded += num_indices;
-    }
-    *out_num_values = values_decoded;
-    return Status::OK();
-  }
-};
-
-class DictLargeByteArrayDecoderImpl : public DictDecoderImpl<LargeByteArrayType>,
-                                 virtual public LargeByteArrayDecoder {
- public:
-  using BASE = DictDecoderImpl<LargeByteArrayType>;
-  using BASE::DictDecoderImpl;
-
-  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                  int64_t valid_bits_offset,
-                  ::arrow::LargeBinaryDictionary32Builder* builder) override {
-    int result = 0;
-    if (null_count == 0) {
-      PARQUET_THROW_NOT_OK(DecodeArrowNonNull(num_values, builder, &result));
-    } else {
-      PARQUET_THROW_NOT_OK(DecodeArrow(num_values, null_count, valid_bits,
-                                       valid_bits_offset, builder, &result));
-    }
-    return result;
-  }
-
-  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                  int64_t valid_bits_offset,
-                  typename EncodingTraits<LargeByteArrayType>::Accumulator* out) override {
-    int result = 0;
-    if (null_count == 0) {
-      PARQUET_THROW_NOT_OK(DecodeArrowDenseNonNull(num_values, out, &result));
-    } else {
-      PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
-                                            valid_bits_offset, out, &result));
-    }
-    return result;
-  }
-
- private:
-  Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
-                          int64_t valid_bits_offset,
-                          typename EncodingTraits<LargeByteArrayType>::Accumulator* out,
-                          int* out_num_values) {
-    constexpr int32_t kBufferSize = 1024;
-    int32_t indices[kBufferSize];
-
-    ArrowLargeBinaryHelper helper(out);
-
-    auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
-    int values_decoded = 0;
-    int num_indices = 0;
-    int pos_indices = 0;
-
-    auto visit_valid = [&](int64_t position) -> Status {
-      if (num_indices == pos_indices) {
-        // Refill indices buffer
-        const auto batch_size =
-            std::min<int32_t>(kBufferSize, num_values - null_count - values_decoded);
-        num_indices = idx_decoder_.GetBatch(indices, batch_size);
-        if (ARROW_PREDICT_FALSE(num_indices < 1)) {
-          return Status::Invalid("Invalid number of indices: ", num_indices);
-        }
-        pos_indices = 0;
-      }
-      const auto index = indices[pos_indices++];
-      RETURN_NOT_OK(IndexInBounds(index));
-      const auto& val = dict_values[index];
-      if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
-        RETURN_NOT_OK(helper.PushChunk());
-      }
-      RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
-      ++values_decoded;
-      return Status::OK();
-    };
-
-    auto visit_null = [&]() -> Status {
-      RETURN_NOT_OK(helper.AppendNull());
-      return Status::OK();
-    };
-
-    ::arrow::internal::BitBlockCounter bit_blocks(valid_bits, valid_bits_offset,
-                                                  num_values);
-    int64_t position = 0;
-    while (position < num_values) {
-      const auto block = bit_blocks.NextWord();
-      if (block.AllSet()) {
-        for (int64_t i = 0; i < block.length; ++i, ++position) {
-          ARROW_RETURN_NOT_OK(visit_valid(position));
-        }
-      } else if (block.NoneSet()) {
-        for (int64_t i = 0; i < block.length; ++i, ++position) {
-          ARROW_RETURN_NOT_OK(visit_null());
-        }
-      } else {
-        for (int64_t i = 0; i < block.length; ++i, ++position) {
-          if (bit_util::GetBit(valid_bits, valid_bits_offset + position)) {
+      ::arrow::internal::BitBlockCounter bit_blocks(valid_bits, valid_bits_offset,
+                                                    num_values);
+      int64_t position = 0;
+      while (position < num_values) {
+        const auto block = bit_blocks.NextWord();
+        if (block.AllSet()) {
+          for (int64_t i = 0; i < block.length; ++i, ++position) {
             ARROW_RETURN_NOT_OK(visit_valid(position));
-          } else {
+          }
+        } else if (block.NoneSet()) {
+          for (int64_t i = 0; i < block.length; ++i, ++position) {
             ARROW_RETURN_NOT_OK(visit_null());
           }
+        } else {
+          for (int64_t i = 0; i < block.length; ++i, ++position) {
+            if (bit_util::GetBit(valid_bits, valid_bits_offset + position)) {
+              ARROW_RETURN_NOT_OK(visit_valid(position));
+            } else {
+              ARROW_RETURN_NOT_OK(visit_null());
+            }
+          }
         }
       }
+
+      *out_num_values = values_decoded;
+      return Status::OK();
     }
 
-    *out_num_values = values_decoded;
-    return Status::OK();
-  }
+    Status DecodeArrowDenseNonNull(int num_values,
+                                   typename EncodingTraits<BAT>::Accumulator* out,
+                                   int* out_num_values) {
+      constexpr int32_t kBufferSize = 2048;
+      int32_t indices[kBufferSize];
+      int values_decoded = 0;
 
-  Status DecodeArrowDenseNonNull(int num_values,
-                                 typename EncodingTraits<LargeByteArrayType>::Accumulator* out,
-                                 int* out_num_values) {
-    constexpr int32_t kBufferSize = 2048;
-    int32_t indices[kBufferSize];
-    int values_decoded = 0;
+      ArrowBinaryHelperBase<BAT> helper(out);
+      auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
-    ArrowLargeBinaryHelper helper(out);
-    auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
-
-    while (values_decoded < num_values) {
-      int32_t batch_size = std::min<int32_t>(kBufferSize, num_values - values_decoded);
-      int num_indices = idx_decoder_.GetBatch(indices, batch_size);
-      if (num_indices == 0) ParquetException::EofException();
-      for (int i = 0; i < num_indices; ++i) {
-        auto idx = indices[i];
-        RETURN_NOT_OK(IndexInBounds(idx));
-        const auto& val = dict_values[idx];
-        if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
-          RETURN_NOT_OK(helper.PushChunk());
-        }
-        RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
-      }
-      values_decoded += num_indices;
-    }
-    *out_num_values = values_decoded;
-    return Status::OK();
-  }
-
-  template <typename BuilderType>
-  Status DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                     int64_t valid_bits_offset, BuilderType* builder,
-                     int* out_num_values) {
-    constexpr int32_t kBufferSize = 1024;
-    int32_t indices[kBufferSize];
-
-    RETURN_NOT_OK(builder->Reserve(num_values));
-    ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
-
-    auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
-
-    int values_decoded = 0;
-    int num_appended = 0;
-    while (num_appended < num_values) {
-      bool is_valid = bit_reader.IsSet();
-      bit_reader.Next();
-
-      if (is_valid) {
-        int32_t batch_size =
-            std::min<int32_t>(kBufferSize, num_values - num_appended - null_count);
+      while (values_decoded < num_values) {
+        int32_t batch_size = std::min<int32_t>(kBufferSize, num_values - values_decoded);
         int num_indices = idx_decoder_.GetBatch(indices, batch_size);
-
-        int i = 0;
-        while (true) {
-          // Consume all indices
-          if (is_valid) {
-            auto idx = indices[i];
-            RETURN_NOT_OK(IndexInBounds(idx));
-            const auto& val = dict_values[idx];
-            RETURN_NOT_OK(builder->Append(val.ptr, val.len));
-            ++i;
-            ++values_decoded;
-          } else {
-            RETURN_NOT_OK(builder->AppendNull());
-            --null_count;
+        if (num_indices == 0) ParquetException::EofException();
+        for (int i = 0; i < num_indices; ++i) {
+          auto idx = indices[i];
+          RETURN_NOT_OK(IndexInBounds(idx));
+          const auto& val = dict_values[idx];
+          if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
+            RETURN_NOT_OK(helper.PushChunk());
           }
-          ++num_appended;
-          if (i == num_indices) {
-            // Do not advance the bit_reader if we have fulfilled the decode
-            // request
-            break;
-          }
-          is_valid = bit_reader.IsSet();
-          bit_reader.Next();
+          RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
         }
-      } else {
-        RETURN_NOT_OK(builder->AppendNull());
-        --null_count;
-        ++num_appended;
+        values_decoded += num_indices;
       }
+      *out_num_values = values_decoded;
+      return Status::OK();
     }
-    *out_num_values = values_decoded;
-    return Status::OK();
-  }
 
-  template <typename BuilderType>
-  Status DecodeArrowNonNull(int num_values, BuilderType* builder, int* out_num_values) {
-    constexpr int32_t kBufferSize = 2048;
-    int32_t indices[kBufferSize];
+    template <typename BuilderType>
+    Status DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                       int64_t valid_bits_offset, BuilderType* builder,
+                       int* out_num_values) {
+      constexpr int32_t kBufferSize = 1024;
+      int32_t indices[kBufferSize];
 
-    RETURN_NOT_OK(builder->Reserve(num_values));
+      RETURN_NOT_OK(builder->Reserve(num_values));
+      ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
 
-    auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
+      auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
 
-    int values_decoded = 0;
-    while (values_decoded < num_values) {
-      int32_t batch_size = std::min<int32_t>(kBufferSize, num_values - values_decoded);
-      int num_indices = idx_decoder_.GetBatch(indices, batch_size);
-      if (num_indices == 0) ParquetException::EofException();
-      for (int i = 0; i < num_indices; ++i) {
-        auto idx = indices[i];
-        RETURN_NOT_OK(IndexInBounds(idx));
-        const auto& val = dict_values[idx];
-        RETURN_NOT_OK(builder->Append(val.ptr, val.len));
+      int values_decoded = 0;
+      int num_appended = 0;
+      while (num_appended < num_values) {
+        bool is_valid = bit_reader.IsSet();
+        bit_reader.Next();
+
+        if (is_valid) {
+          int32_t batch_size =
+              std::min<int32_t>(kBufferSize, num_values - num_appended - null_count);
+          int num_indices = idx_decoder_.GetBatch(indices, batch_size);
+
+          int i = 0;
+          while (true) {
+            // Consume all indices
+            if (is_valid) {
+              auto idx = indices[i];
+              RETURN_NOT_OK(IndexInBounds(idx));
+              const auto& val = dict_values[idx];
+              RETURN_NOT_OK(builder->Append(val.ptr, val.len));
+              ++i;
+              ++values_decoded;
+            } else {
+              RETURN_NOT_OK(builder->AppendNull());
+              --null_count;
+            }
+            ++num_appended;
+            if (i == num_indices) {
+              // Do not advance the bit_reader if we have fulfilled the decode
+              // request
+              break;
+            }
+            is_valid = bit_reader.IsSet();
+            bit_reader.Next();
+          }
+        } else {
+          RETURN_NOT_OK(builder->AppendNull());
+          --null_count;
+          ++num_appended;
+        }
       }
-      values_decoded += num_indices;
+      *out_num_values = values_decoded;
+      return Status::OK();
     }
-    *out_num_values = values_decoded;
-    return Status::OK();
-  }
+
+    template <typename BuilderType>
+    Status DecodeArrowNonNull(int num_values, BuilderType* builder, int* out_num_values) {
+      constexpr int32_t kBufferSize = 2048;
+      int32_t indices[kBufferSize];
+
+      RETURN_NOT_OK(builder->Reserve(num_values));
+
+      auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
+
+      int values_decoded = 0;
+      while (values_decoded < num_values) {
+        int32_t batch_size = std::min<int32_t>(kBufferSize, num_values - values_decoded);
+        int num_indices = idx_decoder_.GetBatch(indices, batch_size);
+        if (num_indices == 0) ParquetException::EofException();
+        for (int i = 0; i < num_indices; ++i) {
+          auto idx = indices[i];
+          RETURN_NOT_OK(IndexInBounds(idx));
+          const auto& val = dict_values[idx];
+          RETURN_NOT_OK(builder->Append(val.ptr, val.len));
+        }
+        values_decoded += num_indices;
+      }
+      *out_num_values = values_decoded;
+      return Status::OK();
+    }
 };
+
+using DictLargeByteArrayDecoderImpl = DictByteArrayDecoderImpl<LargeByteArrayType>;
 
 // ----------------------------------------------------------------------
 // DeltaBitPackEncoder
@@ -3800,7 +3594,7 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
       if (use_binary_large_variant) {
         return std::make_unique<DictLargeByteArrayDecoderImpl>(descr, pool);
       } else {
-        return std::make_unique<DictByteArrayDecoderImpl>(descr, pool);
+        return std::make_unique<DictByteArrayDecoderImpl<>>(descr, pool);
       }
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_unique<DictDecoderImpl<FLBAType>>(descr, pool);
