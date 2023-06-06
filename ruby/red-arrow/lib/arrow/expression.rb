@@ -31,10 +31,14 @@ module Arrow
           else
             return nil
           end
+          options = nil
           if arguments.last.is_a?(FunctionOptions)
             options = arguments.pop
-          else
-            options = nil
+          elsif arguments.last.is_a?(Hash)
+            function = Function.find(function_name)
+            if function
+              options = function.resolve_options(arguments.pop)
+            end
           end
           CallExpression.new(function_name, arguments, options)
         else
