@@ -2119,6 +2119,9 @@ template<typename BAT>
 class ChunkedRecordReader : public TypedRecordReader<BAT>,
                             virtual public BinaryRecordReader {
  public:
+  using BASE = TypedRecordReader<BAT>;
+  using BASE::descr_;
+  using BASE::ResetValues;
   using BuilderType = typename ByteArrayBuilderTypeTrait<BAT>::BuilderType;
 
   ChunkedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info,
@@ -2126,7 +2129,7 @@ class ChunkedRecordReader : public TypedRecordReader<BAT>,
       : TypedRecordReader<BAT>(descr, leaf_info, pool,
                                          read_dense_for_nullable) {
     static_assert(IsByteArrayType<BAT>::value, "Invalid ByteArrayType");
-    ARROW_DCHECK_EQ(TypedRecordReader<BAT>::descr_->physical_type(), Type::BYTE_ARRAY);
+    ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
     accumulator_.builder = std::make_unique<BuilderType>(pool);
   }
 
@@ -2145,7 +2148,7 @@ class ChunkedRecordReader : public TypedRecordReader<BAT>,
     int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
         static_cast<int>(values_to_read), &accumulator_);
     CheckNumberDecoded(num_decoded, values_to_read);
-    TypedRecordReader<BAT>::ResetValues();
+    ResetValues();
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
@@ -2153,7 +2156,7 @@ class ChunkedRecordReader : public TypedRecordReader<BAT>,
         static_cast<int>(values_to_read), static_cast<int>(null_count),
         valid_bits_->mutable_data(), values_written_, &accumulator_);
     CheckNumberDecoded(num_decoded, values_to_read - null_count);
-    TypedRecordReader<BAT>::ResetValues();
+    ResetValues();
   }
 
  private:
