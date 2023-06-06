@@ -240,7 +240,7 @@ has the following fields:
 
 .. c:member:: struct ArrowArray ArrowDeviceArray.array
 
-    The allocated array data. The values in the ``void**`` buffers (along
+    *Mandatory.* The allocated array data. The values in the ``void**`` buffers (along
     with the buffers of any children) are what is allocated on the device.
     The buffer values should be device pointers. The rest of the structure
     should be accessible to the CPU.
@@ -252,17 +252,17 @@ has the following fields:
 
 .. c:member:: int64_t ArrowDeviceArray.device_id
 
-    The device id to identify a specific device if multiple devices of this
+    *Mandatory.* The device id to identify a specific device if multiple devices of this
     type are on the system. The semantics of the id will be hardware dependent,
     but we use an ``int64_t`` to future-proof the id as devices change over time.
 
 .. c:member:: ArrowDeviceType ArrowDeviceArray.device_type
 
-    The type of the device which can access the buffers in the array.
+    *Mandatory.* The type of the device which can access the buffers in the array.
 
 .. c:member:: void* ArrowDeviceArray.sync_event
 
-    Optional. An event-like object to synchronize on if needed.
+    *Optional.* An event-like object to synchronize on if needed.
 
     Many devices, like GPUs, are primarily asynchronous with respect to
     CPU processing. As such, in order to safely access device memory, it is often
@@ -276,35 +276,24 @@ has the following fields:
     (e.g. ``cudaStreamWaitEvent`` or ``hipStreamWaitEvent``) before attempting
     to access the memory in the buffers.
 
-    Expected types to coerce this ``void*`` to depending on the reported
-    device type:
-
-    * CUDA: ``cudaEvent_t*``
-    * ROCm: ``hipEvent_t*``
-    * OpenCL: ``cl_event*``
-    * Vulkan: ``VkEvent*``
-    * Metal: ``MTLEvent*``
-    * OneAPI: ``sycl::event*``
-
     If an event is provided, then the producer MUST ensure that the exported
     data is available on the device before the event is triggered. The 
     consumer SHOULD wait on the event before trying to access the exported
     data.
 
+.. seealso::
+    The :ref:`synchronization event types <_c-device-data-interface-event-types>`
+    section below.
+
 .. c:member:: int64_t ArrowDeviceArray.reserved[3]
 
     As non-CPU development expands, there may be a need to expand this
     structure. In order to do so without potentially breaking ABI changes,
-    we reserve 24 bytes at the end of the object. This also has the added
-    benefit of bringing the total size of this structure to exactly 128
-    bytes (a power of 2) on 64-bit systems. These bytes MUST be zero'd
+    we reserve 24 bytes at the end of the object. These bytes MUST be zero'd
     out after initialization by the producer in order to ensure safe 
     evolution of the ABI in the future.
 
-.. note::
-    Rather than store the shape / types of the data alongside the
-    ``ArrowDeviceArray``, users should utilize the existing ``ArrowSchema``
-    structure to pass any data type and shape information.
+.. _c-device-data-interface-event-types:
 
 Synchronization event types
 ---------------------------
@@ -361,6 +350,11 @@ Semantics
 
 Memory management
 -----------------
+
+First and foremost: Out of everything in this interface, it is *only* the
+data buffers themselves which reside in device memory (i.e. the ``buffers`` 
+member of the ``ArrowArray`` struct). Everything else should be in CPU
+memory.
 
 The ``ArrowDeviceArray`` structure contains an ``ArrowArray`` object which
 itself has :ref:`specific semantics <c-data-interface-semantics>` for releasing
@@ -471,6 +465,7 @@ could be used for any device:
         status = cudaEventRecord(*ev_ptr, stream);
         assert(status == cudaSuccess);
 
+        memset(array, 0, sizeof(struct ArrowDeviceArray));
         // initialize fields
         *array = (struct ArrowDeviceArray) {
             .array = (struct ArrowArray) {
@@ -567,7 +562,7 @@ streaming source of Arrow arrays. It has the following fields:
 
 .. c:member:: ArrowDeviceType device_type
 
-    The device type that this stream produces data on. All
+    *Mandatory.* The device type that this stream produces data on. All
     ``ArrowDeviceArray``s that are produced by this stream should have the
     same device type as is set here. This is a convenience for the consumer
     to not have to check every array that is retrieved and instead allows
@@ -650,6 +645,17 @@ Thread safety
 The stream source is not assumed to be thread-safe. Consumers wanting to
 call ``get_next`` from several threads should ensure those calls are
 serialized.
+
+Interoperability with other interchange formats
+===============================================
+
+Other interchange APIs, such as the `CUDA Array Interface`_, include
+members to pass the shape and the data types of the data buffers being
+exported. This information is necessary to interpret the raw bytes in the
+device data buffers that are being shared. Rather than store the 
+shape / types of the data alongside the ``ArrowDeviceArray``, users 
+should utilize the existing ``ArrowSchema`` structure to pass any data 
+type and shape information.
 
 Updating this specification
 ===========================
