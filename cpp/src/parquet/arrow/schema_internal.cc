@@ -110,34 +110,18 @@ Result<std::shared_ptr<ArrowType>> MakeArrowTimestamp(const LogicalType& logical
   }
 }
 
-Result<std::shared_ptr<ArrowType>> FromByteArray(const LogicalType& logical_type) {
+Result<std::shared_ptr<ArrowType>> FromByteArray(const LogicalType& logical_type,
+                                                 bool use_binary_large_variant) {
   switch (logical_type.type()) {
     case LogicalType::Type::STRING:
-      return ::arrow::utf8();
+      return use_binary_large_variant ? ::arrow::large_utf8() : ::arrow::utf8();
     case LogicalType::Type::DECIMAL:
       return MakeArrowDecimal(logical_type);
     case LogicalType::Type::NONE:
     case LogicalType::Type::ENUM:
     case LogicalType::Type::JSON:
     case LogicalType::Type::BSON:
-      return ::arrow::binary();
-    default:
-      return Status::NotImplemented("Unhandled logical logical_type ",
-                                    logical_type.ToString(), " for binary array");
-  }
-}
-
-Result<std::shared_ptr<ArrowType>> FromLargeByteArray(const LogicalType& logical_type) {
-  switch (logical_type.type()) {
-    case LogicalType::Type::STRING:
-      return ::arrow::large_utf8();
-    case LogicalType::Type::DECIMAL:
-      return MakeArrowDecimal(logical_type);
-    case LogicalType::Type::NONE:
-    case LogicalType::Type::ENUM:
-    case LogicalType::Type::JSON:
-    case LogicalType::Type::BSON:
-      return ::arrow::large_binary();
+      return use_binary_large_variant ? ::arrow::large_binary() : ::arrow::binary();
     default:
       return Status::NotImplemented("Unhandled logical logical_type ",
                                     logical_type.ToString(), " for binary array");
@@ -217,7 +201,7 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     case ParquetType::DOUBLE:
       return ::arrow::float64();
     case ParquetType::BYTE_ARRAY:
-      return use_binary_large_variant ? FromLargeByteArray(logical_type) : FromByteArray(logical_type);
+      return FromByteArray(logical_type, use_binary_large_variant);
     case ParquetType::FIXED_LEN_BYTE_ARRAY:
       return FromFLBA(logical_type, type_length);
     default: {
