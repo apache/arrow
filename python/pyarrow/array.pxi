@@ -2054,20 +2054,25 @@ cdef class ListArray(BaseListArray):
     @property
     def values(self):
         """
-        Return the underlying array of values which backs the ListArray.
+        Return the underlying array of values which backs the ListArray
+        ignoring the array's offset.
 
         This is logically a concatenation of all the sub-lists in this array.
 
-        Note even null values are included. If any of the list slots
-        are null, but are backed by a non-empty sub-list, those values
-        will be included in the output.
+        If any of the list elements are null, but are backed by a
+        non-empty sub-list, those elements will be included in the
+        output.
 
-        Compare with ``flatten``, which returns only the non-null
-        values.
+        Compare with :meth:`flatten`, which returns only the non-null
+        values taking into consideration the array's offset.
 
         Returns
         -------
         values : Array
+
+        See Also
+        --------
+        ListArray.flatten : ...
 
         Examples
         --------
@@ -2173,20 +2178,25 @@ cdef class LargeListArray(BaseListArray):
     @property
     def values(self):
         """
-        Return the underlying array of values which backs the LargeListArray.
+        Return the underlying array of values which backs the LargeListArray
+        ignoring the array's offset.
 
         This is logically a concatenation of all the sub-lists in this array.
 
-        Note even null values are included. If any of the list slots
-        are null, but are backed by a non-empty sub-list, those values
-        will be included in the output.
+        If any of the list elements are null, but are backed by a
+        non-empty sub-list, those elements will be included in the
+        output.
 
-        Compare with ``flatten``, which returns only the non-null
-        values.
+        Compare with :meth:`flatten`, which returns only the non-null
+        values taking into consideration the array's offset.
 
         Returns
         -------
         values : Array
+
+        See Also
+        --------
+        LargeListArray.flatten : ...
 
         Examples
         --------
@@ -2368,14 +2378,18 @@ cdef class FixedSizeListArray(BaseListArray):
 
         This is logically a concatenation of all the sub-lists in this array.
 
-        Note even null values are included.
+        Note even null elements are included.
 
-        Compare with ``flatten``, which returns only the non-null
+        Compare with :meth:`flatten`, which returns only the non-null
         sub-list values.
 
         Returns
         -------
         values : Array
+
+        See Also
+        --------
+        FixedSizeListArray.flatten : ...
 
         Examples
         --------
