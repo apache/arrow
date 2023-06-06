@@ -733,8 +733,7 @@ void SleepFor(double seconds) {
   auto secs_left = std::chrono::duration<double>(seconds);
   auto start_time = std::chrono::steady_clock::now();
   auto end_time = start_time + secs_left;
-  auto now = start_time;
-  while (now < end_time) {
+  while (std::chrono::steady_clock::now() < end_time) {
     bool run_task = arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
     now = std::chrono::steady_clock::now();
     if (!run_task) {
