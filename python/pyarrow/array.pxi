@@ -2076,9 +2076,40 @@ cdef class ListArray(BaseListArray):
 
         Examples
         --------
+
+        The values include null elements from sub-lists:
+
         >>> import pyarrow as pa
         >>> array = pa.array([[1, 2], None, [3, 4, None, 6]])
         >>> array.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        If an array is sliced, the slice still uses the same
+        underlying data as the original array, just with an
+        offset. Since values ignores the offset, the values are the
+        same:
+
+        >>> sliced = array.slice(1, 2)
+        >>> sliced
+        <pyarrow.lib.ListArray object at ...>
+        [
+          null,
+          [
+            3,
+            4,
+            null,
+            6
+          ]
+        ]
+        >>> sliced.values
         <pyarrow.lib.Int64Array object at ...>
         [
           1,
@@ -2200,12 +2231,43 @@ cdef class LargeListArray(BaseListArray):
 
         Examples
         --------
+
+        The values include null elements from the sub-lists:
+
         >>> import pyarrow as pa
         >>> array = pa.array(
         ...     [[1, 2], None, [3, 4, None, 6]],
         ...     type=pa.large_list(pa.int32()),
         ... )
         >>> array.values
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        If an array is sliced, the slice still uses the same
+        underlying data as the original array, just with an
+        offset. Since values ignores the offset, the values are the
+        same:
+
+        >>> sliced = array.slice(1, 2)
+        >>> sliced
+        <pyarrow.lib.LargeListArray object at ...>
+        [
+          null,
+          [
+            3,
+            4,
+            null,
+            6
+          ]
+        ]
+        >>> sliced.values
         <pyarrow.lib.Int32Array object at ...>
         [
           1,
