@@ -26,9 +26,9 @@ import org.apache.arrow.util.Preconditions;
  * Options used during scanning.
  */
 public class ScanOptions {
-  private final Optional<String[]> columns;
-  private final Optional<ByteBuffer> projectExpression;
+  private final Optional<String[]> columnsSubset;
   private final long batchSize;
+  private Optional<ByteBuffer> columnsProduceOrFilter;
 
   /**
    * Constructor.
@@ -51,44 +51,72 @@ public class ScanOptions {
   /**
    * Constructor.
    * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
-   * @param columns (Optional) Projected columns. {@link Optional#empty()} for scanning all columns. Otherwise,
+   * @param columnsSubset (Optional) Projected columns. {@link Optional#empty()} for scanning all columns. Otherwise,
    *                Only columns present in the Array will be scanned.
    */
-  public ScanOptions(long batchSize, Optional<String[]> columns) {
-    Preconditions.checkNotNull(columns);
+  public ScanOptions(long batchSize, Optional<String[]> columnsSubset) {
+    Preconditions.checkNotNull(columnsSubset);
     this.batchSize = batchSize;
-    this.columns = columns;
-    this.projectExpression = Optional.empty();
-  }
-
-  /**
-   * Constructor.
-   * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
-   * @param columns (Optional) Projected columns. {@link Optional#empty()} for scanning all columns. Otherwise,
-   *                Only columns present in the Array will be scanned.
-   * @param projectExpression (Optional) Expressions to evaluate to produce columns
-   */
-  public ScanOptions(long batchSize, Optional<String[]> columns, Optional<ByteBuffer> projectExpression) {
-    Preconditions.checkNotNull(columns);
-    Preconditions.checkNotNull(projectExpression);
-    this.batchSize = batchSize;
-    this.columns = columns;
-    this.projectExpression = projectExpression;
+    this.columnsSubset = columnsSubset;
+    this.columnsProduceOrFilter = Optional.empty();
   }
 
   public ScanOptions(long batchSize) {
-    this(batchSize, Optional.empty(), Optional.empty());
+    this(batchSize, Optional.empty());
   }
 
-  public Optional<String[]> getColumns() {
-    return columns;
+  public Optional<String[]> getColumnsSubset() {
+    return columnsSubset;
   }
 
   public long getBatchSize() {
     return batchSize;
   }
 
-  public Optional<ByteBuffer> getProjectExpression() {
-    return projectExpression;
+  public Optional<ByteBuffer> getColumnsProduceOrFilter() {
+    return columnsProduceOrFilter;
+  }
+
+  /**
+   * Builder for Options used during scanning.
+   */
+  public static class Builder {
+    private final long batchSize;
+    private final Optional<String[]> columnsSubset;
+    private Optional<ByteBuffer> columnsProduceOrFilter = Optional.empty();
+
+    /**
+     * Constructor.
+     * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
+     * @param columnsSubset (Optional) Projected columns. {@link Optional#empty()} for scanning all columns. Otherwise,
+     *                Only columns present in the Array will be scanned.
+     */
+    public Builder(long batchSize, Optional<String[]> columnsSubset) {
+      Preconditions.checkNotNull(columnsSubset);
+      this.batchSize = batchSize;
+      this.columnsSubset = columnsSubset;
+    }
+
+    /**
+     * Define binary extended expression message for projects new columns or applies filter.
+     *
+     * @param columnsProduceOrFilter (Optional) Expressions to evaluate to projects new columns or applies filter.
+     * @return the ScanOptions configured.
+     */
+    public Builder columnsProduceOrFilter(Optional<ByteBuffer> columnsProduceOrFilter) {
+      Preconditions.checkNotNull(columnsProduceOrFilter);
+      this.columnsProduceOrFilter = columnsProduceOrFilter;
+      return this;
+    }
+
+    public ScanOptions build() {
+      return new ScanOptions(this);
+    }
+  }
+
+  private ScanOptions(Builder builder) {
+    columnsSubset = builder.columnsSubset;
+    batchSize = builder.batchSize;
+    columnsProduceOrFilter = builder.columnsProduceOrFilter;
   }
 }

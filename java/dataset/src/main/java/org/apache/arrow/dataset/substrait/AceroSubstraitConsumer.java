@@ -19,7 +19,6 @@ package org.apache.arrow.dataset.substrait;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -89,15 +88,6 @@ public final class AceroSubstraitConsumer {
    */
   public ArrowReader runQuery(ByteBuffer plan, Map<String, ArrowReader> namedTables) throws Exception {
     return execute(plan, namedTables);
-  }
-
-  public List<String> runDeserializeExpressions(ByteBuffer plan) {
-    return executeDeserializeExpressions(plan);
-  }
-
-  private List<String> executeDeserializeExpressions(ByteBuffer extendedExpression) {
-    String[] extendedExpressions = JniWrapper.get().executeDeserializeExpressions(extendedExpression);
-    return Arrays.asList(extendedExpressions);
   }
 
   private ArrowReader execute(String plan, Map<String, ArrowReader> namedTables) throws Exception {

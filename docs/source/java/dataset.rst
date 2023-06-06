@@ -163,7 +163,8 @@ User can specify projections (new columns) or filters in ScanOptions. For exampl
 
 .. code-block:: Java
 
-   ByteBuffer substraitExtendedExpressions = ...; // createExtendedExpresionMessageUsingSubstraitPOJOClasses
+   ByteBuffer substraitExtendedExpressions = ...;
+   // Use Substrait APIs to create an Expression and serialize to a ByteBuffer
    ScanOptions options = new ScanOptions(32768, Optional.empty(), Optional.of(substraitExtendedExpressions));
 
 .. seealso::

@@ -54,7 +54,7 @@ final class JniWrapper {
    *
    */
   public native void executeSerializedPlan(String planInput, String[] mapTableToMemoryAddressInput,
-                                           long memoryAddressOutput);
+                                                      long memoryAddressOutput);
 
   /**
    * Consume the binary Substrait Plan that contains Named Tables and export the RecordBatchReader into
@@ -69,8 +69,5 @@ final class JniWrapper {
    * @param memoryAddressOutput the memory address where RecordBatchReader is exported.
    */
   public native void executeSerializedPlan(ByteBuffer planInput, String[] mapTableToMemoryAddressInput,
-                                           long memoryAddressOutput);
-
-  // add description
-  public native String[] executeDeserializeExpressions(ByteBuffer extendedExpressions);
+                                                      long memoryAddressOutput);
 }

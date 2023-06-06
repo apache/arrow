@@ -768,39 +768,3 @@ JNIEXPORT void JNICALL
   JniAssertOkOrThrow(arrow::ExportRecordBatchReader(reader_out, arrow_stream_out));
   JNI_METHOD_END()
 }
-
-/*
- * Class:     org_apache_arrow_dataset_substrait_JniWrapper
- * Method:    executeDeserializeExpressions
- * Signature: (Ljava/nio/ByteBuffer;)[Ljava/lang/String;
- */
-JNIEXPORT jobjectArray JNICALL
-    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeDeserializeExpressions (
-    JNIEnv* env, jobject, jobject expression) {
-  JNI_METHOD_START
-  auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(expression));
-  int length = env->GetDirectBufferCapacity(expression);
-  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
-  std::memcpy(buffer->mutable_data(), buff, length);
-  // execute expression
-      arrow::engine::BoundExpressions round_tripped =
-    JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
-  // validate is not empty!
-  // create response
-  jobjectArray extendedExpressionOutput = (jobjectArray)env->NewObjectArray(totalExpression*2,env->FindClass("java/lang/String"),0);
-  int j = 0;
-  for (const auto& expression : round_tripped.named_expressions) {
-    env->SetObjectArrayElement(
-      extendedExpressionOutput,
-      j++,
-      env->NewStringUTF(expression.name.c_str())
-    );
-    env->SetObjectArrayElement(
-      extendedExpressionOutput,
-      j++,
-      env->NewStringUTF(expression.expression.ToString().c_str())
-    );
-  }
-  return extendedExpressionOutput;
-  JNI_METHOD_END(nullptr)
-}
