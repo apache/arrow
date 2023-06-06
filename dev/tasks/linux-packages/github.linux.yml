@@ -37,7 +37,9 @@ jobs:
         if: |
           env.ARCHITECTURE == 'amd64'
         run: |
+          ls -lhs /usr/local/bin/
           df -h
+          du -hsc /opt/* /usr/local/*
           du -hsc /opt/hostedtoolcache/*
           # 5.3GB
           sudo rm -rf /opt/hostedtoolcache/CodeQL || :
