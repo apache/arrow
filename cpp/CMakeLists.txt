@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
 # Compiler id for Apple Clang is now AppleClang.
@@ -166,19 +166,15 @@ if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1"
 endif()
 
 # Needed for linting targets, etc.
-if(${CMAKE_VERSION} VERSION_LESS "3.12.0")
-  find_package(PythonInterp)
-else()
-  # Use the first Python installation on PATH, not the newest one
-  set(Python3_FIND_STRATEGY "LOCATION")
-  # On Windows, use registry last, not first
-  set(Python3_FIND_REGISTRY "LAST")
-  # On macOS, use framework last, not first
-  set(Python3_FIND_FRAMEWORK "LAST")
+# Use the first Python installation on PATH, not the newest one
+set(Python3_FIND_STRATEGY "LOCATION")
+# On Windows, use registry last, not first
+set(Python3_FIND_REGISTRY "LAST")
+# On macOS, use framework last, not first
+set(Python3_FIND_FRAMEWORK "LAST")
 
-  find_package(Python3)
-  set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
-endif()
+find_package(Python3)
+set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 
 # ----------------------------------------------------------------------
 # cmake options
@@ -231,11 +227,6 @@ if(ARROW_USE_CCACHE
     # meaningful to the compiler
     set(ENV{CCACHE_COMMENTS} "1")
   endif()
-endif()
-
-if(ARROW_USE_PRECOMPILED_HEADERS AND ${CMAKE_VERSION} VERSION_LESS "3.16.0")
-  message(WARNING "Precompiled headers need CMake 3.16.0 or later, disabling")
-  set(ARROW_USE_PRECOMPILED_HEADERS OFF)
 endif()
 
 if(ARROW_OPTIONAL_INSTALL)

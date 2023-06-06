@@ -41,9 +41,9 @@ Building requires:
 
 * A C++17-enabled compiler. On Linux, gcc 7.1 and higher should be
   sufficient. For Windows, at least Visual Studio VS2017 is required.
-* CMake 3.5 or higher
+* CMake 3.16 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
-* At least 1GB of RAM for a minimal build, 4GB for a minimal  
+* At least 1GB of RAM for a minimal build, 4GB for a minimal
   debug build with tests and 8GB for a full build using
   :ref:`docker <docker-builds>`.
 
@@ -446,12 +446,7 @@ several times with different options if you want to exercise all of them.
 CMake version requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-While we support CMake 3.5 and higher, some features require a newer version of
-CMake:
-
-* Building the benchmarks requires 3.6 or higher
-* Building zstd from source requires 3.7 or higher
-* Building Gandiva JNI bindings requires 3.11 or higher
+We support CMake 3.16 and higher.
 
 LLVM and Clang Tools
 ~~~~~~~~~~~~~~~~~~~~
