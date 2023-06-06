@@ -33,9 +33,8 @@
 
 namespace arrow::matlab::error {
     // TODO: Make Error ID Enum class to avoid defining static constexpr
-    static const std::string APPEND_VALUES_ERROR_ID = "arrow:matlab:proxy:make:FailedToAppendValues";
-    static const std::string BUILD_ARRAY_ERROR_ID = "arrow:matlab:proxy:make:FailedToAppendValues";
-    static const std::string BITPACK_VALIDITY_BITMAP_ERROR_ID = "arrow:matlab:proxy:make:FailedToBitPackValidityBitmap";
-    static const std::string UNKNOWN_PROXY_ERROR_ID = "arrow:matlab:proxy:UnknownProxy";
-
+    static const char* APPEND_VALUES_ERROR_ID = "arrow:matlab:proxy:make:FailedToAppendValues";
+    static const char* BUILD_ARRAY_ERROR_ID = "arrow:matlab:proxy:make:FailedToAppendValues";
+    static const char* BITPACK_VALIDITY_BITMAP_ERROR_ID = "arrow:matlab:proxy:make:FailedToBitPackValidityBitmap";
+    static const char* UNKNOWN_PROXY_ERROR_ID = "arrow:matlab:proxy:UnknownProxy";
 }
