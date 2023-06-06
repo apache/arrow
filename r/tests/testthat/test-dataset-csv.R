@@ -577,11 +577,8 @@ test_that("open_delim_dataset params passed through to open_dataset", {
 
 test_that("CSV options printing", {
   default_read_options <- CsvReadOptions$create()
-  default_write_options <- CsvWriteOptions$create()
-  default_parse_options <- CsvParseOptions$create()
+  custom_read_options <- CsvReadOptions$create(skip_rows = 102)
 
-  expect_output(print(default_read_options), "Something will go here")
-  expect_output(print(default_write_options), "And here")
-  expect_output(print(default_parse_options), "Here too")
-
+  expect_output(print(default_read_options), "skip_rows: 0")
+  expect_output(print(custom_read_options), "skip_rows: 102")
 })

@@ -466,12 +466,13 @@ CsvReadOptions <- R6Class("CsvReadOptions",
   public = list(
     encoding = NULL,
     print = function(...) {
-      cat("CsvReadOptions")
-      cat("\nencoding:", self$encoding)
-      cat("\ncolumn_names:", self$column_names)
-      cat("\nblock_size:", self$block_size)
-      cat("\nskip_rows:", self$skip_rows)
-      cat("\nautogenerate_column_names:", self$autogenerate_column_names)
+      cat("CsvReadOptions\n")
+      for (attr in c(
+        "column_names", "block_size", "skip_rows", "autogenerate_column_names",
+        "use_threads", "skip_rows_after_names", "encoding"
+      )) {
+        cat(sprintf("%s: %s\n", attr, self[[attr]]))
+      }
       invisible(self)
     }
   ),
@@ -479,7 +480,9 @@ CsvReadOptions <- R6Class("CsvReadOptions",
     column_names = function() csv___ReadOptions__column_names(self),
     block_size = function() csv___ReadOptions__block_size(self),
     skip_rows = function() csv___ReadOptions__skip_rows(self),
-    autogenerate_column_names = function() csv___ReadOptions__autogenerate_column_names(self)
+    autogenerate_column_names = function() csv___ReadOptions__autogenerate_column_names(self),
+    use_threads = function() csv___ReadOptions__use_threads(self),
+    skip_rows_after_names = function() csv___ReadOptions__skip_rows_after_names(self)
   )
 )
 CsvReadOptions$create <- function(use_threads = option_use_threads(),
