@@ -1272,12 +1272,9 @@ class TestConvertDateTimeLikeTypes:
                               dtype='datetime64[D]'))
         ex_values[1] = pd.NaT.value
 
-        expected_pandas = pd.DataFrame({'date32': ex_values,
-                                        'date64': ex_values},
+        expected_pandas = pd.DataFrame({'date32': ex_values.astype('datetime64[s]'),
+                                        'date64': ex_values.astype('datetime64[ms]')},
                                        columns=colnames)
-        expected_pandas = expected_pandas.astype(
-            {'date32': 'datetime64[s]', 'date64': 'datetime64[ms]'}
-        )
         table_pandas = table.to_pandas(date_as_object=False)
         tm.assert_frame_equal(table_pandas, expected_pandas)
 

@@ -1582,8 +1582,8 @@ class DatetimeSecondWriter : public DatetimeWriter<TimeUnit::SECOND> {
     } else {
       const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
       DCHECK_EQ(TimeUnit::SECOND, ts_type.unit())
-                << "Should only call instances of this writer "
-                << "with arrays of the correct unit";
+          << "Should only call instances of this writer "
+          << "with arrays of the correct unit";
       ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull,
                                       this->GetBlockColumnStart(rel_placement));
     }
