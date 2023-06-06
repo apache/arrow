@@ -101,9 +101,7 @@ func (a *Int64) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-
 			vals[i] = a.values[i]
-
 		} else {
 			vals[i] = nil
 		}
@@ -198,9 +196,7 @@ func (a *Uint64) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-
 			vals[i] = a.values[i]
-
 		} else {
 			vals[i] = nil
 		}
@@ -295,9 +291,7 @@ func (a *Float64) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-
 			vals[i] = a.values[i]
-
 		} else {
 			vals[i] = nil
 		}
@@ -392,9 +386,7 @@ func (a *Int32) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-
 			vals[i] = a.values[i]
-
 		} else {
 			vals[i] = nil
 		}
@@ -489,9 +481,7 @@ func (a *Uint32) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-
 			vals[i] = a.values[i]
-
 		} else {
 			vals[i] = nil
 		}
@@ -586,9 +576,7 @@ func (a *Float32) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-
 			vals[i] = a.values[i]
-
 		} else {
 			vals[i] = nil
 		}
@@ -683,9 +671,7 @@ func (a *Int16) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-
 			vals[i] = a.values[i]
-
 		} else {
 			vals[i] = nil
 		}
@@ -780,9 +766,7 @@ func (a *Uint16) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-
 			vals[i] = a.values[i]
-
 		} else {
 			vals[i] = nil
 		}
@@ -877,7 +861,6 @@ func (a *Int8) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-
 			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
 
 		} else {
@@ -974,7 +957,6 @@ func (a *Uint8) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-
 			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
 
 		} else {
