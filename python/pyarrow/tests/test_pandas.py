@@ -86,9 +86,9 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     table = klass.from_pandas(df, schema=schema,
                               preserve_index=preserve_index,
                               nthreads=2 if use_threads else 1)
-    print(table)
+
     result = table.to_pandas(use_threads=use_threads)
-    print(result)
+
     if expected_schema:
         # all occurrences of _check_pandas_roundtrip passes expected_schema
         # without the pandas generated key-value metadata
@@ -1109,7 +1109,8 @@ class TestConvertDateTimeLikeTypes:
         assert isinstance(table[0].chunk(0), pa.TimestampArray)
 
         result = table.to_pandas()
-        expected_df = pd.DataFrame({"datetime": pd.Series(date_array, dtype='datetime64[us]')})
+        expected_df = pd.DataFrame(
+            {"datetime": pd.Series(date_array, dtype='datetime64[us]')})
 
         # https://github.com/pandas-dev/pandas/issues/21142
         expected_df["datetime"] = pd.to_datetime(expected_df["datetime"])
@@ -1179,7 +1180,7 @@ class TestConvertDateTimeLikeTypes:
                                '2040-02-26'], dtype='datetime64[D]')
 
         expected_s = np.array(['2000-01-01', None, '1970-01-01',
-                                '2040-02-26'], dtype='datetime64[s]')
+                               '2040-02-26'], dtype='datetime64[s]')
 
         objects = [pa.array(data),
                    pa.chunked_array([data])]
