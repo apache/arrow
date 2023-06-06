@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// \file abi.h Arrow C-Data Interface
+/// \file abi.h Arrow C Data Interface
 ///
-/// The Arrow C-Data interface defines a very small, stable set
+/// The Arrow C Data interface defines a very small, stable set
 /// of C definitions which can be easily copied into any project's
 /// source code and vendored to be used for columnar data interchange
 /// in the Arrow format. For non-C/C++ languages and runtimes,
