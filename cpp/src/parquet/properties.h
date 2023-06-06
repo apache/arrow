@@ -544,8 +544,6 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Enable writing page index for column specified by `path`. Default disabled.
-    /// Note that it does not write statistics to the page header once page index is
-    /// enabled.
     Builder* enable_write_page_index(const std::string& path) {
       page_index_enabled_[path] = true;
       return this;
