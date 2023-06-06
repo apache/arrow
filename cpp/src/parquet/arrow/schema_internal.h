@@ -40,7 +40,7 @@ Result<std::shared_ptr<::arrow::DataType>> FromInt64(const LogicalType& logical_
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(Type::type physical_type,
                                                         const LogicalType& logical_type,
                                                         int type_length,
-                                                        bool use_binary_large_variant = false);
+                                                        bool use_binary_large_variant);
 
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,
