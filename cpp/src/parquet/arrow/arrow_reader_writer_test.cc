@@ -5252,16 +5252,33 @@ class ParquetPageIndexRoundTripTest : public ::testing::Test {
       auto row_group_index_reader = page_index_reader->RowGroup(rg);
       ASSERT_NE(row_group_index_reader, nullptr);
 
+      auto row_group_reader = reader->RowGroup(rg);
+      ASSERT_NE(row_group_reader, nullptr);
+
       for (int col = 0; col < metadata->num_columns(); ++col) {
         auto column_index = row_group_index_reader->GetColumnIndex(col);
         column_indexes_.emplace_back(column_index.get());
 
+        bool expect_no_page_index =
+            expect_columns_without_index.find(col) != expect_columns_without_index.cend();
+
         auto offset_index = row_group_index_reader->GetOffsetIndex(col);
-        if (expect_columns_without_index.find(col) !=
-            expect_columns_without_index.cend()) {
+        if (expect_no_page_index) {
           ASSERT_EQ(offset_index, nullptr);
         } else {
           CheckOffsetIndex(offset_index.get(), expect_num_pages, &offset_lower_bound);
+        }
+
+        // Verify page stats are not written to page header if page index is enabled.
+        auto page_reader = row_group_reader->GetColumnPageReader(col);
+        ASSERT_NE(page_reader, nullptr);
+        std::shared_ptr<Page> page = nullptr;
+        while ((page = page_reader->NextPage()) != nullptr) {
+          if (page->type() == PageType::DATA_PAGE ||
+              page->type() == PageType::DATA_PAGE_V2) {
+            ASSERT_EQ(std::static_pointer_cast<DataPage>(page)->statistics().is_set(),
+                      expect_no_page_index);
+          }
         }
       }
     }
