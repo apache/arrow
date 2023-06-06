@@ -209,8 +209,8 @@ struct PythonUdfScalarAggregatorImpl : public ScalarUdfAggregator {
         out->value = std::move(val);
         return Status::OK();
       }
-      return Status::TypeError("Unexpected output type: ", Py_TYPE(result->obj())->tp_name,
-                               " (expected Scalar)");
+      return Status::TypeError("Unexpected output type: ",
+                               Py_TYPE(result->obj())->tp_name, " (expected Scalar)");
     }));
     return Status::OK();
   }
