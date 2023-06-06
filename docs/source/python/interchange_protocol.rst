@@ -49,13 +49,13 @@ the consumer library can take and construct an object of it's own.
     <pyarrow.interchange.dataframe._PyArrowDataFrame object at ...>
 
 This is meant to be used by the consumer library when calling
-``from_dataframe()`` method and is not meant to be used manually
+the ``from_dataframe()`` function and is not meant to be used manually
 by the user.
 
 From other libraries to pyarrow: ``from_dataframe()``
 -----------------------------------------------------
 
-With ``from_dataframe()`` method, we can construct a :class:`pyarrow.Table`
+With the ``from_dataframe()`` function, we can construct a :class:`pyarrow.Table`
 from any dataframe object that implements the
 ``__dataframe__()`` method via the dataframe interchange
 protocol.
