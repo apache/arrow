@@ -37,7 +37,7 @@ jobs:
         if: |
           env.ARCHITECTURE == 'amd64'
         run: |
-          ls -lhs /usr/local/share/
+          du -hsc /usr/local/share/*
           du -hs /usr/local/bin
           df -h
           du -hsc /opt/* /usr/local/*
