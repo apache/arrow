@@ -44,6 +44,9 @@ namespace internal {
 
 // Read the name of variable i from the Feather file as a mxArray*.
 mxArray* ReadVariableName(const std::string& column_name) {
+  // Lei: make a small change to verify ccache setup
+  int a = 1;
+  // --------------------------------------------------
   return util::ConvertUTF8StringToUTF16CharMatrix(column_name);
 }
 
