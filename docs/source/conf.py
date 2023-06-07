@@ -79,6 +79,7 @@ extensions = [
 # Show members for classes in .. autosummary
 autodoc_default_options = {
     'members': None,
+    'special-members': '__dataframe__',
     'undoc-members': None,
     'show-inheritance': None,
     'inherited-members': None
