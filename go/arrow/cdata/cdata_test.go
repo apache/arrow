@@ -122,6 +122,7 @@ func TestPrimitiveSchemas(t *testing.T) {
 		{&arrow.Decimal128Type{Precision: 16, Scale: 4}, "d:16,4"},
 		{&arrow.Decimal128Type{Precision: 15, Scale: 0}, "d:15,0"},
 		{&arrow.Decimal128Type{Precision: 15, Scale: -4}, "d:15,-4"},
+		{&arrow.Decimal256Type{Precision: 15, Scale: -4}, "d:15,-4,256"},
 	}
 
 	for _, tt := range tests {
@@ -134,6 +135,31 @@ func TestPrimitiveSchemas(t *testing.T) {
 			assert.True(t, arrow.TypeEqual(tt.typ, f.Type))
 
 			assert.True(t, schemaIsReleased(&sc))
+		})
+	}
+}
+
+func TestDecimalSchemaErrors(t *testing.T) {
+	tests := []struct {
+		fmt          string
+		errorMessage string
+	}{
+		{"d:", "invalid decimal spec 'd:': wrong number of properties"},
+		{"d:1", "invalid decimal spec 'd:1': wrong number of properties"},
+		{"d:1,2,3,4", "invalid decimal spec 'd:1,2,3,4': wrong number of properties"},
+		{"d:a,2,3", "could not parse decimal precision in 'd:a,2,3':"},
+		{"d:1,a,3", "could not parse decimal scale in 'd:1,a,3':"},
+		{"d:1,2,a", "could not parse decimal bitwidth in 'd:1,2,a':"},
+		{"d:1,2,384", "only decimal128 and decimal256 are supported, got 'd:1,2,384'"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.fmt, func(t *testing.T) {
+			sc := testPrimitive(tt.fmt)
+
+			_, err := ImportCArrowField(&sc)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errorMessage)
 		})
 	}
 }
