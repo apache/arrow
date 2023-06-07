@@ -319,7 +319,7 @@ func (sr *structReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err erro
 	}()
 	arr := array.NewStructData(data)
 	// making struct will retain childArrData extra time for the fields construction
-	arrow.ReleaseArrayData(childArrData)
+	//arrow.ReleaseArrayData(childArrData)
 	defer func() {
 		arr.Release()
 	}()
@@ -569,20 +569,13 @@ func transferZeroCopy(pfx string, rdr file.RecordReader, dt arrow.DataType) (res
 	defer func() {
 		array.AssertData(pfx+".transferZeroCopy", result.(*array.Data))
 	}()
-	bitmap := rdr.ReleaseValidBits()
-	values := rdr.ReleaseValues()
-	defer func() {
-		if bitmap != nil {
-			bitmap.Release()
-		}
-		if values != nil {
-			values.Release()
-		}
-	}()
 
-	return array.NewData(dt, rdr.ValuesWritten(),
-		[]*memory.Buffer{bitmap, values},
-		nil, int(rdr.NullCount()), 0)
+	bits := rdr.ReleaseValidBits()
+	vals := rdr.ReleaseValues()
+	buffers := []*memory.Buffer{bits, vals}
+	defer memory.ReleaseBuffers(buffers)
+
+	return array.NewData(dt, rdr.ValuesWritten(), buffers, nil, int(rdr.NullCount()), 0)
 }
 
 func transferBinary(pfx string, rdr file.RecordReader, dt arrow.DataType) (result *arrow.Chunked) {

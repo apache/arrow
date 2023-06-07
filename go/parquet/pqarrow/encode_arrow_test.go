@@ -726,6 +726,7 @@ func (ps *ParquetIOTestSuite) checkSingleColumnRead(mem memory.Allocator, typ ar
 
 	chunked, err := cr.NextBatch(smallSize)
 	ps.NoError(err)
+	defer chunked.Release()
 
 	ps.Len(chunked.Chunks(), 1)
 	ps.True(array.Equal(values, chunked.Chunk(0)))
@@ -995,6 +996,7 @@ func (ps *ParquetIOTestSuite) readAndCheckSingleColumnFile(mem memory.Allocator,
 
 	chunked, err := cr.NextBatch(smallSize)
 	ps.NoError(err)
+	defer chunked.Release()
 
 	ps.Len(chunked.Chunks(), 1)
 	ps.NotNil(chunked.Chunk(0))

@@ -139,6 +139,9 @@ func AssertTable(pfx string, tbl arrow.Table) {
 func AssertChunked(pfx string, arr *arrow.Chunked) {
 	pfx += ".AssertChunked"
 	debug.Assert(arr != nil, pfx+": arr != nil")
+	if arr == nil {
+		return
+	}
 	debug.Assert(arr.GetRefCount() == 1, pfx+": data.GetRefCount()="+strconv.Itoa(int(arr.GetRefCount())))
 
 	if arr == nil {

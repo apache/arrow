@@ -35,7 +35,7 @@ type Buffer struct {
 
 // NewBufferBytes creates a fixed-size buffer from the specified data.
 func NewBufferBytes(data []byte) *Buffer {
-	return &Buffer{refCount: 0, buf: data, length: len(data)}
+	return &Buffer{refCount: 1, buf: data, length: len(data)}
 }
 
 // NewResizableBuffer creates a mutable, resizable buffer with an Allocator for managing memory.
