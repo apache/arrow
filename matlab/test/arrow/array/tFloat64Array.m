@@ -1,21 +1,20 @@
+% Licensed to the Apache Software Foundation (ASF) under one or more
+% contributor license agreements.  See the NOTICE file distributed with
+% this work for additional information regarding copyright ownership.
+% The ASF licenses this file to you under the Apache License, Version
+% 2.0 (the "License"); you may not use this file except in compliance
+% with the License.  You may obtain a copy of the License at
+%
+%   http://www.apache.org/licenses/LICENSE-2.0
+%
+% Unless required by applicable law or agreed to in writing, software
+% distributed under the License is distributed on an "AS IS" BASIS,
+% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+% implied.  See the License for the specific language governing
+% permissions and limitations under the License.
+    
 classdef tFloat64Array < hNumericArray
     % Tests for arrow.array.Float64Array
-
-    % Licensed to the Apache Software Foundation (ASF) under one or more
-    % contributor license agreements.  See the NOTICE file distributed with
-    % this work for additional information regarding copyright ownership.
-    % The ASF licenses this file to you under the Apache License, Version
-    % 2.0 (the "License"); you may not use this file except in compliance
-    % with the License.  You may obtain a copy of the License at
-    %
-    %   http://www.apache.org/licenses/LICENSE-2.0
-    %
-    % Unless required by applicable law or agreed to in writing, software
-    % distributed under the License is distributed on an "AS IS" BASIS,
-    % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-    % implied.  See the License for the specific language governing
-    % permissions and limitations under the License.
-    
 
     properties
         ArrowArrayClassName = "arrow.array.Float64Array"
@@ -79,7 +78,7 @@ classdef tFloat64Array < hNumericArray
             testCase.verifyEqual(arrowArray.Valid, expectedValid);
         end
 
-        function ValidEmpty(testCase, MakeDeepCopy)
+        function EmptyArrayValidBitmap(testCase, MakeDeepCopy)
             % Create an empty 0x0 MATLAB array.
             matlabArray = double.empty(0, 0);
             arrowArray = arrow.array.Float64Array(matlabArray, DeepCopy=MakeDeepCopy);
@@ -95,6 +94,79 @@ classdef tFloat64Array < hNumericArray
             matlabArray = double.empty(1, 0);
             arrowArray = arrow.array.Float64Array(matlabArray, DeepCopy=MakeDeepCopy);
             testCase.verifyEqual(arrowArray.Valid, expectedValid);
+        end
+
+        function LogicalValidNVPair(testCase)
+            matlabArray = [1 2 3]; 
+
+            % Supply a scalar true value for Valid 
+            arrowArray = arrow.array.Float64Array(matlabArray, Valid=true);
+            testCase.verifyEqual(arrowArray.Valid, [true; true; true]);
+            testCase.verifyEqual(toMATLAB(arrowArray), [1; 2; 3]);
+
+            % Supply a scalar false value for Valid
+            arrowArray = arrow.array.Float64Array(matlabArray, Valid=false);
+            testCase.verifyEqual(arrowArray.Valid, [false; false; false]);
+            testCase.verifyEqual(toMATLAB(arrowArray), [NaN; NaN; NaN]);
+
+            % Supply a logical vector for Valid
+            arrowArray = arrow.array.Float64Array(matlabArray, Valid=[false; true; true]);
+            testCase.verifyEqual(arrowArray.Valid, [false; true; true]);
+            testCase.verifyEqual(toMATLAB(arrowArray), [NaN; 2; 3]);
+        end
+
+        function NumericlValidNVPair(testCase)
+            matlabArray = [1 2 3]; 
+
+            % Supply 1 valid index for Valid
+            arrowArray = arrow.array.Float64Array(matlabArray, Valid=2);
+            testCase.verifyEqual(arrowArray.Valid, [false; true; false]);
+            testCase.verifyEqual(toMATLAB(arrowArray), [NaN; 2; NaN]);
+
+            % Supply a numeric vector for Valid 
+            arrowArray = arrow.array.Float64Array(matlabArray, Valid=[1 3]);
+            testCase.verifyEqual(arrowArray.Valid, [true; false; true]);
+            testCase.verifyEqual(toMATLAB(arrowArray), [1; NaN; 3]);
+        end
+
+        function InvalidNumericValidNVPair(testCase)
+            matlabArray = [1 2 3]; 
+
+            % Valid contains complex numbers
+            fcn = @() arrow.array.Float64Array(matlabArray, Valid=[1i 2]);
+            testCase.verifyError(fcn, "MATLAB:expectedInteger");
+
+            % Valid contains floating point numbers
+            fcn = @() arrow.array.Float64Array(matlabArray, Valid=[1.1 3]);
+            testCase.verifyError(fcn, "MATLAB:expectedInteger");
+
+            % Valid contains negative numbers
+            fcn = @() arrow.array.Float64Array(matlabArray, Valid=-1);
+            testCase.verifyError(fcn, "MATLAB:notGreater");
+
+            % Valid contains 0
+            fcn = @() arrow.array.Float64Array(matlabArray, Valid=[0 1]);
+            testCase.verifyError(fcn, "MATLAB:notGreater");
+
+            % Valid contains values greater than num elements
+            fcn = @() arrow.array.Float64Array(matlabArray, Valid=4);
+            testCase.verifyError(fcn, "MATLAB:notLessEqual");
+        end
+
+        function InvalidLogicalValidNVPair(testCase)
+            matlabArray = [1 2 3]; 
+
+            % Valid has more elements than the array
+            fcn = @() arrow.array.Float64Array(matlabArray, Valid=[true false false true]);
+            testCase.verifyError(fcn, "MATLAB:incorrectNumel");
+
+            % Valid has less elements than the array
+            fcn = @() arrow.array.Float64Array(matlabArray, Valid=[true false]);
+            testCase.verifyError(fcn, "MATLAB:incorrectNumel");
+
+            % Valid is empty 
+            fcn = @() arrow.array.Float64Array(matlabArray, Valid=logical.empty(0, 1));
+            testCase.verifyError(fcn, "MATLAB:incorrectNumel");
         end
     end
 end
