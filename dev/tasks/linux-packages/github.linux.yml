@@ -42,6 +42,7 @@ jobs:
           df -h
           du -hsc /opt/* /usr/local/*
           du -hsc /opt/hostedtoolcache/*
+          # ~1GB (From 1.2GB to 214MB)
           sudo rm  -rf /usr/local/bin/aliyun \
                 /usr/local/bin/azcopy \
                 /usr/local/bin/bicep \
