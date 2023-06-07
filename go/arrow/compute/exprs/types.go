@@ -623,7 +623,7 @@ func ToSubstraitType(dt arrow.DataType, nullable bool, ext ExtensionIDSet) (type
 		if err != nil {
 			return nil, err
 		}
-		valueType, err := ToSubstraitType(dt.ValueType(), dt.ValueField().Nullable, ext)
+		valueType, err := ToSubstraitType(dt.Elem(), dt.ElemField().Nullable, ext)
 		if err != nil {
 			return nil, err
 		}
