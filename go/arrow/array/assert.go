@@ -20,9 +20,7 @@ func AssertArray(pfx string, arr arrow.Array) {
 	switch arr := arr.(type) {
 	case ExtensionArray:
 		assertExtensionArrayData(pfx, data, arr.Storage())
-	case *List:
-		assertListLike(pfx, arr)
-	case *LargeList:
+	case ListLike:
 		assertListLike(pfx, arr)
 	default:
 		AssertData(pfx, data)
@@ -43,7 +41,7 @@ func AssertDataN(pfx string, data *Data, n int64) {
 		AssertData(pfx+".data.dictionary", data.dictionary)
 	}
 	for i, child := range data.childData {
-		AssertData(pfx+"childData["+strconv.Itoa(i)+"]", child.(*Data))
+		AssertData(pfx+".childData["+strconv.Itoa(i)+"]", child.(*Data))
 	}
 }
 

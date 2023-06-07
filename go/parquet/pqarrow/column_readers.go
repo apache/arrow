@@ -433,7 +433,6 @@ func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error)
 	}()
 
 	buffers := []*memory.Buffer{nil, offsetsBuffer}
-	//defer func() { memory.ReleaseBuffers(buffers) }()
 	if validityIO.NullCount > 0 {
 		buffers[0] = validityBuffer
 	}
@@ -454,8 +453,6 @@ func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error)
 		data.Buffers()[1] = nil
 	}
 	out := array.MakeFromData(data)
-	// list will retain child data extra time for the recursive MakeFromData
-	item.Release()
 	defer func() {
 		out.Release()
 	}()
