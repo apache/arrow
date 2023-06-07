@@ -400,7 +400,7 @@ func (ar *ArrowReadDictSuite) writeSimple() {
 		pqarrow.DefaultWriterProps()))
 }
 
-func (ArrowReadDictSuite) NullProbabilities() []float64 {
+func (*ArrowReadDictSuite) NullProbabilities() []float64 {
 	return []float64{0.0, 0.5, 1}
 }
 
@@ -428,6 +428,7 @@ func (ar *ArrowReadDictSuite) checkStreamReadWholeFile(expected arrow.Table) {
 	recs := make([]arrow.Record, 0)
 	for rrdr.Next() {
 		rec := rrdr.Record()
+		rec.Retain()
 		defer rec.Release()
 		recs = append(recs, rec)
 	}
