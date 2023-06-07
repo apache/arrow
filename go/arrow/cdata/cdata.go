@@ -738,7 +738,7 @@ func importCArrayAsType(arr *CArrowArray, dt arrow.DataType) (imp *cimporter, er
 	return
 }
 
-func initReader(rdr *nativeCRecordBatchReader, stream *CArrowArrayStream) {
+func initReader(rdr *nativeCRecordBatchReader, stream *CArrowArrayStream) error {
 	rdr.stream = C.get_stream()
 	C.ArrowArrayStreamMove(stream, rdr.stream)
 	rdr.arr = C.get_arr()
@@ -751,6 +751,20 @@ func initReader(rdr *nativeCRecordBatchReader, stream *CArrowArrayStream) {
 		C.free(unsafe.Pointer(r.stream))
 		C.free(unsafe.Pointer(r.arr))
 	})
+
+	var sc CArrowSchema
+	errno := C.stream_get_schema(rdr.stream, &sc)
+	if errno != 0 {
+		return rdr.getError(int(errno))
+	}
+	defer C.ArrowSchemaRelease(&sc)
+	s, err := ImportCArrowSchema((*CArrowSchema)(&sc))
+	if err != nil {
+		return err
+	}
+	rdr.schema = s
+
+	return nil
 }
 
 // Record Batch reader that conforms to arrio.Reader for the ArrowArrayStream interface
@@ -823,20 +837,6 @@ func (n *nativeCRecordBatchReader) next() error {
 }
 
 func (n *nativeCRecordBatchReader) Schema() *arrow.Schema {
-	if n.schema == nil {
-		var sc CArrowSchema
-		errno := C.stream_get_schema(n.stream, &sc)
-		if errno != 0 {
-			panic(n.getError(int(errno)))
-		}
-		defer C.ArrowSchemaRelease(&sc)
-		s, err := ImportCArrowSchema((*CArrowSchema)(&sc))
-		if err != nil {
-			panic(err)
-		}
-
-		n.schema = s
-	}
 	return n.schema
 }
 

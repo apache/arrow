@@ -924,3 +924,19 @@ func TestRecordReaderError(t *testing.T) {
 	}
 	assert.Contains(t, err.Error(), "Expected error message")
 }
+
+func TestRecordReaderImportError(t *testing.T) {
+	// Regression test for apache/arrow#35974
+
+	err := fallibleSchemaTestDeprecated()
+	if err == nil {
+		t.Fatalf("Expected error but got nil")
+	}
+	assert.Contains(t, err.Error(), "Expected error message")
+
+	err = fallibleSchemaTest()
+	if err == nil {
+		t.Fatalf("Expected error but got nil")
+	}
+	assert.Contains(t, err.Error(), "Expected error message")
+}
