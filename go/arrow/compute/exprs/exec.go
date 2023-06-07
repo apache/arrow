@@ -285,7 +285,7 @@ func literalToDatum(mem memory.Allocator, lit expr.Literal, ext ExtensionIDSet) 
 				return nil, fmt.Errorf("%w: key type mismatch for %s, got key with type %s",
 					arrow.ErrInvalid, mapType, scalarKey.DataType())
 			}
-			if !arrow.TypeEqual(mapType.ValueType(), scalarValue.DataType()) {
+			if !arrow.TypeEqual(mapType.ItemType(), scalarValue.DataType()) {
 				return nil, fmt.Errorf("%w: value type mismatch for %s, got key with type %s",
 					arrow.ErrInvalid, mapType, scalarValue.DataType())
 			}
@@ -293,7 +293,7 @@ func literalToDatum(mem memory.Allocator, lit expr.Literal, ext ExtensionIDSet) 
 			keys[i], values[i] = scalarKey, scalarValue
 		}
 
-		keyBldr, valBldr := array.NewBuilder(mem, mapType.KeyType()), array.NewBuilder(mem, mapType.ValueType())
+		keyBldr, valBldr := array.NewBuilder(mem, mapType.KeyType()), array.NewBuilder(mem, mapType.ItemType())
 		defer keyBldr.Release()
 		defer valBldr.Release()
 
