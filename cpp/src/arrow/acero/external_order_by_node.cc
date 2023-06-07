@@ -28,6 +28,7 @@
 #include "arrow/acero/util.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
+#include "arrow/io/file.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/tracing_internal.h"
 #include "arrow/util/type_fwd.h"
@@ -50,137 +51,17 @@ using parquet::WriterProperties;
 namespace acero {
 namespace {
 
-class ExternalOrderByNode : public ExecNode, public TracedNode {
- public:
-  ExternalOrderByNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-              std::shared_ptr<Schema> output_schema, Ordering new_ordering,
-              int64_t buffer_size, std::string path_to_folder)
-      : ExecNode(plan, std::move(inputs), {"input"}, output_schema),
-        TracedNode(this),
-        ordering_(new_ordering),
-        buffer_size_(buffer_size),
-        path_to_folder_(path_to_folder),
-        accumulation_queue_(plan, output_schema, new_ordering, buffer_size, path_to_folder) {}
-
-  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "FetchNode"));
-    const auto& order_options = checked_cast<const ExternalOrderByNode&>(options);
-
-    if (order_options.ordering.is_implicit() || order_options.ordering.is_unordered()) {
-      return Status::Invalid("`ordering` must be an explicit non-empty ordering");
-    }
-    
-    //todo check buffer_size && path_to_folder
-
-    std::shared_ptr<Schema> output_schema = inputs[0]->output_schema();
-    return plan->EmplaceNode<ExternalOrderByNode>(
-        plan, std::move(inputs), std::move(output_schema), order_options.ordering,
-        order_options.buffer_size, order_options.path_to_folder);
-  }
-
-  const char* kind_name() const override { return "ExternalOrderByNode"; }
-
-  const Ordering& ordering() const override { return ordering_; }
-
-  Status InputFinished(ExecNode* input, int total_batches) override {
-    DCHECK_EQ(input, inputs_[0]);
-    EVENT_ON_CURRENT_SPAN("InputFinished", {{"batches.length", total_batches}});
-    // We can't send InputFinished downstream because we might change the # of batches
-    // when we sort it.  So that happens later in DoFinish
-    if (counter_.SetTotal(total_batches)) {
-      return DoFinish();
-    }
-    return Status::OK();
-  }
-
-  Status StartProducing() override {
-    NoteStartProducing(ToStringExtra());
-    return Status::OK();
-  }
-
-  void PauseProducing(ExecNode* output, int32_t counter) override {
-    inputs_[0]->PauseProducing(this, counter);
-  }
-
-  void ResumeProducing(ExecNode* output, int32_t counter) override {
-    inputs_[0]->ResumeProducing(this, counter);
-  }
-
-  Status StopProducingImpl() override { return Status::OK(); }
-
-  Status InputReceived(ExecNode* input, ExecBatch batch) override {
-    auto scope = TraceInputReceived(batch);
-    DCHECK_EQ(input, inputs_[0]);
-
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
-                          batch.ToRecordBatch(output_schema_));
-
-    accumulation_queue_.push_back(std::move(record_batch));
-
-    if (counter_.Increment()) {
-      return DoFinish();
-    }
-    return Status::OK();
-  }
-
-  Status DoFinish() {
-    accumulation_queue_.push_finshed();
-    std::vector<ExecBatch> batches;
-
-    ARROW_ASSIGN_OR_RAISE(
-        auto table,
-        Table::FromRecordBatches(output_schema_, std::move(accumulation_queue_)));
-    SortOptions sort_options(ordering_.sort_keys(), ordering_.null_placement());
-    ExecContext* ctx = plan_->query_context()->exec_context();
-    ARROW_ASSIGN_OR_RAISE(auto indices, SortIndices(table, sort_options, ctx));
-    ARROW_ASSIGN_OR_RAISE(Datum sorted,
-                          Take(table, indices, TakeOptions::NoBoundsCheck(), ctx));
-    const std::shared_ptr<Table>& sorted_table = sorted.table();
-    TableBatchReader reader(*sorted_table);
-    reader.set_chunksize(ExecPlan::kMaxBatchSize);
-    int batch_index = 0;
-    while (true) {
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> next, reader.Next());
-      if (!next) {
-        return output_->InputFinished(this, batch_index);
-      }
-      int index = batch_index++;
-      plan_->query_context()->ScheduleTask(
-          [this, batch = std::move(next), index]() mutable {
-            ExecBatch exec_batch(*batch);
-            exec_batch.index = index;
-            return output_->InputReceived(this, std::move(exec_batch));
-          },
-          "OrderByNode::ProcessBatch");
-    }
-  }
-
- protected:
-  std::string ToStringExtra(int indent = 0) const override {
-    std::stringstream ss;
-    ss << "external ordering=" << ordering_.ToString();
-    return ss.str();
-  }
-
- private:
-  AtomicCounter counter_;
-  int64_t buffer_size_;
-  std::string path_to_folder_;
-  Ordering ordering_;
-  OrderedSpillingAccumulationQueue accumulation_queue_;
-};
-
 class OrderedSpillingAccumulationQueue {
  public:
   OrderedSpillingAccumulationQueue(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
                                    Ordering new_ordering, int64_t buffer_size,
                                    std::string path_to_folder)
-      : buffer_size_(buffer_size),
-        plan_(plan),
+      : plan_(plan),
         output_schema_(output_schema),
-        path_to_folder_(path_to_folder),
         ordering_(new_ordering),
+        buffer_size_(buffer_size),
+        path_to_folder_(path_to_folder),
+
         accumulation_queue_size_(0),
         spill_count_(0),
         exec_batch_in_memory_(nullptr),
@@ -202,7 +83,7 @@ class OrderedSpillingAccumulationQueue {
           Table::FromRecordBatches(
               output_schema_, std::move(accumulation_queue_)));  // todo check batches_
       accumulation_queue_size_ = 0;
-      accumulation_queue_ = make_shared<std::vector<std::shared_ptr<RecordBatch>>>();
+      accumulation_queue_ = std::vector<std::shared_ptr<RecordBatch>>();
       mutex_.unlock();
 
       ARROW_ASSIGN_OR_RAISE(auto sorted_table, sort_table(table));
@@ -214,7 +95,6 @@ class OrderedSpillingAccumulationQueue {
   }
 
   Status push_finshed() {
-    bool  = false;
     if(accumulation_queue_size_>0){
       spill_count_++;
     }
@@ -321,8 +201,10 @@ class OrderedSpillingAccumulationQueue {
           ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(
               *(table.get()), arrow::default_memory_pool(), outfile,
               /*chunk_size=*/3, props, arrow_props));
+          return Status::OK();
         },
         "OrderByNode::OrderedSpillingAccumulationQueue::Spillover");
+    return Status::OK();
   }
 
   static Result<arrow::AsyncGenerator<std::optional<ExecBatch>>> MakeGenerator(
@@ -371,27 +253,124 @@ class OrderedSpillingAccumulationQueue {
   }
 
  private:
+  ExecPlan* plan_;
+  std::shared_ptr<Schema> output_schema_;
+  Ordering ordering_;
+  int64_t buffer_size_;
+  std::string path_to_folder_;
+  int64_t accumulation_queue_size_;
+  int64_t spill_count_;
+  std::shared_ptr<ExecBatch> exec_batch_in_memory_;
+  bool has_only_memory_spill_count_;
+
   std::mutex mutex_;
   std::vector<std::shared_ptr<RecordBatch>> accumulation_queue_;
   std::vector<arrow::AsyncGenerator<std::optional<ExecBatch>>> asyncGenerators_;
-  std::shared_ptr<ExecBatch> exec_batch_in_memory_;
-  bool has_only_memory_spill_count_;
-  int64_t spill_count_;
-  int64_t accumulation_queue_size_;
-  int64_t buffer_size_;
   int64_t batch_size_;
-  std::shared_ptr<Schema> output_schema_;
-  std::string path_to_folder_;
-  Ordering ordering_;
-  ExecPlan* plan_;
 };
+
+class ExternalOrderByNode : public ExecNode, public TracedNode {
+ public:
+  ExternalOrderByNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                      std::shared_ptr<Schema> output_schema, Ordering new_ordering,
+                      int64_t buffer_size, std::string path_to_folder)
+      : ExecNode(plan, std::move(inputs), {"input"}, std::move(output_schema)),
+        TracedNode(this),
+        ordering_(std::move(new_ordering)),
+        buffer_size_(std::move(buffer_size)),
+        path_to_folder_(std::move(path_to_folder)),
+        accumulation_queue_(plan, output_schema_, ordering_, buffer_size_,
+                            path_to_folder_) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "FetchNode"));
+    const auto& order_options = checked_cast<const ExternalOrderByNodeOptions&>(options);
+
+    if (order_options.ordering.is_implicit() || order_options.ordering.is_unordered()) {
+      return Status::Invalid("`ordering` must be an explicit non-empty ordering");
+    }
+    
+    //todo check buffer_size && path_to_folder
+
+    std::shared_ptr<Schema> output_schema = inputs[0]->output_schema();
+    return plan->EmplaceNode<ExternalOrderByNode>(
+        plan, std::move(inputs), std::move(output_schema), order_options.ordering,
+        order_options.buffer_size, order_options.path_to_folder);
+  }
+
+  const char* kind_name() const override { return "ExternalOrderByNode"; }
+
+  const Ordering& ordering() const override { return ordering_; }
+
+  Status InputFinished(ExecNode* input, int total_batches) override {
+    DCHECK_EQ(input, inputs_[0]);
+    EVENT_ON_CURRENT_SPAN("InputFinished", {{"batches.length", total_batches}});
+    // We can't send InputFinished downstream because we might change the # of batches
+    // when we sort it.  So that happens later in DoFinish
+    if (counter_.SetTotal(total_batches)) {
+      return DoFinish();
+    }
+    return Status::OK();
+  }
+
+  Status StartProducing() override {
+    NoteStartProducing(ToStringExtra());
+    return Status::OK();
+  }
+
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->PauseProducing(this, counter);
+  }
+
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->ResumeProducing(this, counter);
+  }
+
+  Status StopProducingImpl() override { return Status::OK(); }
+
+  Status InputReceived(ExecNode* input, ExecBatch batch) override {
+    auto scope = TraceInputReceived(batch);
+    DCHECK_EQ(input, inputs_[0]);
+
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> record_batch,
+                          batch.ToRecordBatch(output_schema_));
+    RETURN_NOT_OK(accumulation_queue_.push_back(std::move(record_batch)));
+
+    if (counter_.Increment()) {
+      return DoFinish();
+    }
+    return Status::OK();
+  }
+
+  Status DoFinish() {
+    ARROW_RETURN_NOT_OK(accumulation_queue_.push_finshed());
+    std::vector<ExecBatch> batches;
+    return Status::OK();
+  }
+
+ protected:
+  std::string ToStringExtra(int indent = 0) const override {
+    std::stringstream ss;
+    ss << "external ordering=" << ordering_.ToString();
+    return ss.str();
+  }
+
+ private:
+  AtomicCounter counter_;
+  Ordering ordering_;
+  int64_t buffer_size_;
+  std::string path_to_folder_;
+  OrderedSpillingAccumulationQueue accumulation_queue_;
+};
+
 }  // namespace
 
 namespace internal {
 
-void RegisterOrderByNode(ExecFactoryRegistry* registry) {
+void RegisterExternalOrderByNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(
-      registry->AddFactory(std::string(OrderByNodeOptions::kName), OrderByNode::Make));
+      registry->AddFactory(std::string(ExternalOrderByNodeOptions::kName), ExternalOrderByNode::Make));
 }
 
 }  // namespace internal
