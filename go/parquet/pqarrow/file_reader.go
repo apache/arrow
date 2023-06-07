@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -128,10 +127,7 @@ type ColumnReader struct {
 
 // NextBatch returns a chunked array after reading `size` values, potentially
 // across multiple row groups.
-func (c *ColumnReader) NextBatch(size int64) (ccc *arrow.Chunked, err error) {
-	defer func() {
-		assertBuildArray("ColumnReader.NextBatch("+strconv.Itoa(int(size))+")", ccc, err)
-	}()
+func (c *ColumnReader) NextBatch(size int64) (*arrow.Chunked, error) {
 	if err := c.LoadBatch(size); err != nil {
 		return nil, err
 	}
@@ -252,10 +248,7 @@ func (fr *FileReader) ReadColumn(rowGroups []int, rdr *ColumnReader) (*arrow.Chu
 }
 
 // ReadTable reads the entire file into an array.Table
-func (fr *FileReader) ReadTable(ctx context.Context) (tbl arrow.Table, err error) {
-	defer func() {
-		assertReadTable("FileReader.ReadTable", tbl, err)
-	}()
+func (fr *FileReader) ReadTable(ctx context.Context) (arrow.Table, error) {
 	var (
 		cols = []int{}
 		rgs  = []int{}
@@ -668,14 +661,7 @@ func (r *recordReader) next() bool {
 			}
 		}
 	}()
-	readField := func(idx int, rdr *ColumnReader) (err error) {
-		defer func() {
-			if err != nil {
-				return
-			}
-			pfx := fmt.Sprintf("recordReader.readField(%d)", idx)
-			array.AssertArray(pfx, cols[idx])
-		}()
+	readField := func(idx int, rdr *ColumnReader) error {
 		batch, err := rdr.NextBatch(r.batchSize)
 		if err != nil {
 			return err
@@ -686,13 +672,11 @@ func (r *recordReader) next() bool {
 			return io.EOF
 		}
 
-		data, err := chunksToSingle("recordReader", batch)
+		data, err := chunksToSingle(batch)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			data.Release()
-		}()
+		defer data.Release()
 
 		cols[idx] = array.MakeFromData(data)
 		return nil
