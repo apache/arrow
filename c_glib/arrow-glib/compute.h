@@ -386,6 +386,9 @@ garrow_execute_plan_build_hash_join_node(GArrowExecutePlan *plan,
                                          GArrowExecuteNode *right,
                                          GArrowHashJoinNodeOptions *options,
                                          GError **error);
+GARROW_AVAILABLE_IN_13_0
+GList *
+garrow_execute_plan_get_nodes(GArrowExecutePlan *plan);
 GARROW_AVAILABLE_IN_6_0
 gboolean
 garrow_execute_plan_validate(GArrowExecutePlan *plan,
