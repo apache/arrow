@@ -161,7 +161,7 @@ func (a *CheckedAllocator) AssertSize(t TestingT, sz int) {
 			}
 			callersMsg.WriteString("\t")
 			// frame.Func is a useful source of information if it's present.
-			// Tt may be nil for non-Go code or fully inlined functions.
+			// It may be nil for non-Go code or fully inlined functions.
 			if fn := frame.Func; fn != nil {
 				// format as func name + the offset in bytes from func entrypoint
 				callersMsg.WriteString(fmt.Sprintf("%s+%x", fn.Name(), frame.PC-fn.Entry()))
