@@ -115,10 +115,7 @@ func (lr *leafReader) LoadBatch(nrecords int64) (err error) {
 	return
 }
 
-func (lr *leafReader) BuildArray(int64) (ccc *arrow.Chunked, err error) {
-	defer func() {
-		assertBuildArray("leafReader", ccc, err)
-	}()
+func (lr *leafReader) BuildArray(int64) (*arrow.Chunked, error) {
 	return lr.clearOut(), nil
 }
 
@@ -250,11 +247,7 @@ func (sr *structReader) LoadBatch(nrecords int64) error {
 
 func (sr *structReader) Field() *arrow.Field { return sr.filtered }
 
-func (sr *structReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error) {
-	defer func() {
-		assertBuildArray("structReader", ccc, err)
-	}()
-
+func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 	validityIO := file.ValidityBitmapInputOutput{
 		ReadUpperBound: lenBound,
 		Read:           lenBound,
@@ -291,17 +284,19 @@ func (sr *structReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err erro
 	}
 
 	childArrData := make([]arrow.ArrayData, len(sr.children))
-	defer arrow.ReleaseArrayData(childArrData)
+	defer releaseArrayData(childArrData)
 	// gather children arrays and def levels
 	for i, child := range sr.children {
-		childArrData[i], err = func() (arrow.ArrayData, error) {
-			field, err := child.BuildArray(lenBound)
-			if err != nil {
-				return nil, err
-			}
-			defer field.Release()
-			return chunksToSingle("structReader", field)
-		}()
+		field, err := child.BuildArray(lenBound)
+		if err != nil {
+			return nil, err
+		}
+
+		childArrData[i], err = chunksToSingle(field)
+		field.Release() // release field before checking
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if !sr.filtered.Nullable && !sr.hasRepeatedChild {
@@ -314,15 +309,9 @@ func (sr *structReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err erro
 		defer nullBitmap.Release()
 	}
 	data := array.NewData(sr.filtered.Type, int(validityIO.Read), buffers, childArrData, int(validityIO.NullCount), 0)
-	defer func() {
-		data.Release()
-	}()
+	defer data.Release()
 	arr := array.NewStructData(data)
-	// making struct will retain childArrData extra time for the fields construction
-	//arrow.ReleaseArrayData(childArrData)
-	defer func() {
-		arr.Release()
-	}()
+	defer arr.Release()
 	return arrow.NewChunked(sr.filtered.Type, []arrow.Array{arr}), nil
 }
 
@@ -370,15 +359,11 @@ func (lr *listReader) LoadBatch(nrecords int64) error {
 	return lr.itemRdr.LoadBatch(nrecords)
 }
 
-func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error) {
-	defer func() {
-		assertBuildArray("listReader", ccc, err)
-	}()
-
+func (lr *listReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 	var (
-		defLevels []int16
-		repLevels []int16
-		//err            error
+		defLevels      []int16
+		repLevels      []int16
+		err            error
 		validityBuffer *memory.Buffer
 	)
 
@@ -414,9 +399,7 @@ func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		arr.Release()
-	}()
+	defer arr.Release()
 
 	// resize to actual number of elems returned
 	offsetsBuffer.Resize(arrow.Int32Traits.BytesRequired(int(validityIO.Read) + 1))
@@ -424,13 +407,11 @@ func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error)
 		validityBuffer.Resize(int(bitutil.BytesForBits(validityIO.Read)))
 	}
 
-	item, err := chunksToSingle("listReader", arr)
+	item, err := chunksToSingle(arr)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		item.Release()
-	}()
+	defer item.Release()
 
 	buffers := []*memory.Buffer{nil, offsetsBuffer}
 	if validityIO.NullCount > 0 {
@@ -438,9 +419,7 @@ func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error)
 	}
 
 	data := array.NewData(lr.field.Type, int(validityIO.Read), buffers, []arrow.ArrayData{item}, int(validityIO.NullCount), 0)
-	defer func() {
-		data.Release()
-	}()
+	defer data.Release()
 	if lr.field.Type.ID() == arrow.FIXED_SIZE_LIST {
 		defer data.Buffers()[1].Release()
 		listSize := lr.field.Type.(*arrow.FixedSizeListType).Len()
@@ -453,9 +432,7 @@ func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error)
 		data.Buffers()[1] = nil
 	}
 	out := array.MakeFromData(data)
-	defer func() {
-		out.Release()
-	}()
+	defer out.Release()
 	return arrow.NewChunked(lr.field.Type, []arrow.Array{out}), nil
 }
 
@@ -472,19 +449,7 @@ func newFixedSizeListReader(rctx *readerCtx, field *arrow.Field, info file.Level
 // helper function to combine chunks into a single array.
 //
 // nested data conversion for chunked array outputs not yet implemented
-func chunksToSingle(pfx string, chunked *arrow.Chunked) (data arrow.ArrayData, err error) {
-	defer func() {
-		if err != nil {
-			return
-		}
-		switch len(chunked.Chunks()) {
-		case 0:
-			array.AssertData(pfx+".chunksToSingle", data.(*array.Data))
-		default:
-			array.AssertDataN(pfx+".chunksToSingle", data.(*array.Data), 2)
-		}
-	}()
-
+func chunksToSingle(chunked *arrow.Chunked) (arrow.ArrayData, error) {
 	switch len(chunked.Chunks()) {
 	case 0:
 		return array.NewData(chunked.DataType(), 0, []*memory.Buffer{nil, nil}, nil, 0, 0), nil
@@ -498,11 +463,7 @@ func chunksToSingle(pfx string, chunked *arrow.Chunked) (data arrow.ArrayData, e
 }
 
 // create a chunked arrow array from the raw record data
-func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column) (ccc *arrow.Chunked, err error) {
-	defer func() {
-		assertBuildArray("transferColumnData", ccc, err)
-	}()
-
+func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column) (*arrow.Chunked, error) {
 	dt := valueType
 	if valueType.ID() == arrow.EXTENSION {
 		dt = valueType.(arrow.ExtensionType).StorageType()
@@ -511,13 +472,13 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 	var data arrow.ArrayData
 	switch dt.ID() {
 	case arrow.DICTIONARY:
-		return transferDictionary("transferColumnData", rdr, valueType), nil
+		return transferDictionary(rdr, valueType), nil
 	case arrow.NULL:
 		return arrow.NewChunked(arrow.Null, []arrow.Array{array.NewNull(rdr.ValuesWritten())}), nil
 	case arrow.INT32, arrow.INT64, arrow.FLOAT32, arrow.FLOAT64:
-		data = transferZeroCopy("transferColumnData", rdr, valueType) // can just reference the raw data without copying
+		data = transferZeroCopy(rdr, valueType) // can just reference the raw data without copying
 	case arrow.BOOL:
-		data = transferBool("transferColumnData", rdr)
+		data = transferBool(rdr)
 	case arrow.UINT8,
 		arrow.UINT16,
 		arrow.UINT32,
@@ -527,17 +488,17 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 		arrow.DATE32,
 		arrow.TIME32,
 		arrow.TIME64:
-		data = transferInt("transferColumnData", rdr, valueType)
+		data = transferInt(rdr, valueType)
 	case arrow.DATE64:
-		data = transferDate64("transferColumnData", rdr, valueType)
+		data = transferDate64(rdr, valueType)
 	case arrow.FIXED_SIZE_BINARY, arrow.BINARY, arrow.STRING, arrow.LARGE_BINARY, arrow.LARGE_STRING:
-		return transferBinary("transferColumnData", rdr, valueType), nil
+		return transferBinary(rdr, valueType), nil
 	case arrow.DECIMAL:
 		switch descr.PhysicalType() {
 		case parquet.Types.Int32, parquet.Types.Int64:
-			data = transferDecimalInteger("transferColumnData", rdr, valueType)
+			data = transferDecimalInteger(rdr, valueType)
 		case parquet.Types.ByteArray, parquet.Types.FixedLenByteArray:
-			return transferDecimalBytes("transferColumnData", rdr.(file.BinaryRecordReader), valueType)
+			return transferDecimalBytes(rdr.(file.BinaryRecordReader), valueType)
 		default:
 			return nil, errors.New("physical type for decimal128 must be int32, int64, bytearray or fixed len byte array")
 		}
@@ -545,12 +506,12 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 		tstype := valueType.(*arrow.TimestampType)
 		switch tstype.Unit {
 		case arrow.Millisecond, arrow.Microsecond:
-			data = transferZeroCopy("transferColumnData", rdr, valueType)
+			data = transferZeroCopy(rdr, valueType)
 		case arrow.Nanosecond:
 			if descr.PhysicalType() == parquet.Types.Int96 {
-				data = transferInt96("transferColumnData", rdr, valueType)
+				data = transferInt96(rdr, valueType)
 			} else {
-				data = transferZeroCopy("transferColumnData", rdr, valueType)
+				data = transferZeroCopy(rdr, valueType)
 			}
 		default:
 			return nil, errors.New("time unit not supported")
@@ -565,30 +526,30 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 	return arrow.NewChunked(valueType, []arrow.Array{arr}), nil
 }
 
-func transferZeroCopy(pfx string, rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
+func transferZeroCopy(rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
+	bitmap := rdr.ReleaseValidBits()
+	values := rdr.ReleaseValues()
 	defer func() {
-		array.AssertData(pfx+".transferZeroCopy", result.(*array.Data))
+		if bitmap != nil {
+			bitmap.Release()
+		}
+		if values != nil {
+			values.Release()
+		}
 	}()
 
-	bits := rdr.ReleaseValidBits()
-	vals := rdr.ReleaseValues()
-	buffers := []*memory.Buffer{bits, vals}
-	defer memory.ReleaseBuffers(buffers)
-
-	return array.NewData(dt, rdr.ValuesWritten(), buffers, nil, int(rdr.NullCount()), 0)
+	return array.NewData(dt, rdr.ValuesWritten(),
+		[]*memory.Buffer{bitmap, values},
+		nil, int(rdr.NullCount()), 0)
 }
 
-func transferBinary(pfx string, rdr file.RecordReader, dt arrow.DataType) (result *arrow.Chunked) {
-	pfx += ".transferBinary"
-	defer func() {
-		assertBuildArray(pfx, result, nil)
-	}()
+func transferBinary(rdr file.RecordReader, dt arrow.DataType) (result *arrow.Chunked) {
 	brdr := rdr.(file.BinaryRecordReader)
 	if brdr.ReadDictionary() {
-		return transferDictionary(pfx, brdr, &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: dt})
+		return transferDictionary(brdr, &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: dt})
 	}
 	chunks := brdr.GetBuilderChunks()
-	defer arrow.ReleaseArrays(chunks)
+	defer releaseArrays(chunks)
 
 	switch dt := dt.(type) {
 	case arrow.ExtensionType:
@@ -605,11 +566,7 @@ func transferBinary(pfx string, rdr file.RecordReader, dt arrow.DataType) (resul
 	return arrow.NewChunked(dt, chunks)
 }
 
-func transferInt(pfx string, rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
-	defer func() {
-		array.AssertData(pfx+".transferInt", result.(*array.Data))
-	}()
-
+func transferInt(rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
 	var (
 		output reflect.Value
 	)
@@ -681,11 +638,7 @@ func transferInt(pfx string, rdr file.RecordReader, dt arrow.DataType) (result a
 	}, nil, int(rdr.NullCount()), 0)
 }
 
-func transferBool(pfx string, rdr file.RecordReader) (result arrow.ArrayData) {
-	defer func() {
-		array.AssertData(pfx+".transferBool", result.(*array.Data))
-	}()
-
+func transferBool(rdr file.RecordReader) (result arrow.ArrayData) {
 	// TODO(mtopol): optimize this so we don't convert bitmap to []bool back to bitmap
 	length := rdr.ValuesWritten()
 	data := make([]byte, int(bitutil.BytesForBits(int64(length))))
@@ -713,11 +666,7 @@ var milliPerDay = time.Duration(24 * time.Hour).Milliseconds()
 
 // parquet equivalent for date64 is a 32-bit integer of the number of days
 // since the epoch. Convert each value to milliseconds for date64
-func transferDate64(pfx string, rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
-	defer func() {
-		array.AssertData(pfx+".transferDate64", result.(*array.Data))
-	}()
-
+func transferDate64(rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
 	length := rdr.ValuesWritten()
 	values := arrow.Int32Traits.CastFromBytes(rdr.Values())
 
@@ -737,10 +686,7 @@ func transferDate64(pfx string, rdr file.RecordReader, dt arrow.DataType) (resul
 }
 
 // coerce int96 to nanosecond timestamp
-func transferInt96(pfx string, rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
-	defer func() {
-		array.AssertData(pfx+".transferInt96", result.(*array.Data))
-	}()
+func transferInt96(rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
 	length := rdr.ValuesWritten()
 	values := parquet.Int96Traits.CastFromBytes(rdr.Values())
 
@@ -765,10 +711,7 @@ func transferInt96(pfx string, rdr file.RecordReader, dt arrow.DataType) (result
 }
 
 // convert physical integer storage of a decimal logical type to a decimal128 typed array
-func transferDecimalInteger(pfx string, rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
-	defer func() {
-		array.AssertData(pfx+".transferDecimalInteger", result.(*array.Data))
-	}()
+func transferDecimalInteger(rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
 	length := rdr.ValuesWritten()
 
 	var values reflect.Value
@@ -864,10 +807,7 @@ type varOrFixedBin interface {
 }
 
 // convert physical byte storage, instead of integers, to decimal128
-func transferDecimalBytes(pfx string, rdr file.BinaryRecordReader, dt arrow.DataType) (ccc *arrow.Chunked, err error) {
-	defer func() {
-		assertBuildArray(pfx+".transferDecimalBytes", ccc, err)
-	}()
+func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arrow.Chunked, error) {
 	convert := func(arr arrow.Array) (arrow.Array, error) {
 		length := arr.Len()
 		data := make([]byte, arrow.Decimal128Traits.BytesRequired(length))
@@ -900,7 +840,7 @@ func transferDecimalBytes(pfx string, rdr file.BinaryRecordReader, dt arrow.Data
 	}
 
 	chunks := rdr.GetBuilderChunks()
-	//var err error
+	var err error
 	for idx, chunk := range chunks {
 		defer chunk.Release()
 		if chunks[idx], err = convert(chunk); err != nil {
@@ -911,12 +851,25 @@ func transferDecimalBytes(pfx string, rdr file.BinaryRecordReader, dt arrow.Data
 	return arrow.NewChunked(dt, chunks), nil
 }
 
-func transferDictionary(pfx string, rdr file.RecordReader, logicalValueType arrow.DataType) (result *arrow.Chunked) {
-	defer func() {
-		assertBuildArray(pfx+".transferDictionary", result, nil)
-	}()
+func transferDictionary(rdr file.RecordReader, logicalValueType arrow.DataType) (result *arrow.Chunked) {
 	brdr := rdr.(file.BinaryRecordReader)
 	chunks := brdr.GetBuilderChunks()
-	defer arrow.ReleaseArrays(chunks)
+	defer releaseArrays(chunks)
 	return arrow.NewChunked(logicalValueType, chunks)
+}
+
+func releaseArrays(arrays []arrow.Array) {
+	for _, a := range arrays {
+		if a != nil {
+			a.Release()
+		}
+	}
+}
+
+func releaseArrayData(data []arrow.ArrayData) {
+	for _, d := range data {
+		if d != nil {
+			d.Release()
+		}
+	}
 }
