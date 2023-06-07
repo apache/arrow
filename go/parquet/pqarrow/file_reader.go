@@ -669,7 +669,7 @@ func (r *recordReader) next() bool {
 			return io.EOF
 		}
 
-		arrdata, err := chunksToSingle(data)
+		arrdata, err := chunksToSingle("recordReader", data)
 		if err != nil {
 			return err
 		}

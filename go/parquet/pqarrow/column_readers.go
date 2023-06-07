@@ -121,7 +121,10 @@ func (lr *leafReader) LoadBatch(nrecords int64) (err error) {
 	return
 }
 
-func (lr *leafReader) BuildArray(_ int64) (*arrow.Chunked, error) {
+func (lr *leafReader) BuildArray(int64) (ccc *arrow.Chunked, err error) {
+	defer func() {
+		assertBuildArray("leafReader", ccc, err)
+	}()
 	return lr.out, nil
 }
 
@@ -240,7 +243,11 @@ func (sr *structReader) LoadBatch(nrecords int64) error {
 
 func (sr *structReader) Field() *arrow.Field { return sr.filtered }
 
-func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
+func (sr *structReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error) {
+	defer func() {
+		assertBuildArray("structReader", ccc, err)
+	}()
+
 	validityIO := file.ValidityBitmapInputOutput{
 		ReadUpperBound: lenBound,
 		Read:           lenBound,
@@ -282,7 +289,7 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 		if err != nil {
 			return nil, err
 		}
-		arrdata, err := chunksToSingle(field)
+		arrdata, err := chunksToSingle("structReader", field)
 		if err != nil {
 			return nil, err
 		}
@@ -349,11 +356,15 @@ func (lr *listReader) LoadBatch(nrecords int64) error {
 	return lr.itemRdr.LoadBatch(nrecords)
 }
 
-func (lr *listReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
+func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error) {
+	defer func() {
+		assertBuildArray("listReader", ccc, err)
+	}()
+
 	var (
-		defLevels      []int16
-		repLevels      []int16
-		err            error
+		defLevels []int16
+		repLevels []int16
+		//err            error
 		validityBuffer *memory.Buffer
 	)
 
@@ -396,7 +407,7 @@ func (lr *listReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 		validityBuffer.Resize(int(bitutil.BytesForBits(validityIO.Read)))
 	}
 
-	item, err := chunksToSingle(arr)
+	item, err := chunksToSingle("listReader", arr)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +449,13 @@ func newFixedSizeListReader(rctx *readerCtx, field *arrow.Field, info file.Level
 // helper function to combine chunks into a single array.
 //
 // nested data conversion for chunked array outputs not yet implemented
-func chunksToSingle(chunked *arrow.Chunked) (arrow.ArrayData, error) {
+func chunksToSingle(pfx string, chunked *arrow.Chunked) (data arrow.ArrayData, err error) {
+	defer func() {
+		if err != nil {
+			array.AssertData(pfx+".chunksToSingle", data.(*array.Data))
+		}
+	}()
+
 	switch len(chunked.Chunks()) {
 	case 0:
 		return array.NewData(chunked.DataType(), 0, []*memory.Buffer{nil, nil}, nil, 0, 0), nil
@@ -450,7 +467,11 @@ func chunksToSingle(chunked *arrow.Chunked) (arrow.ArrayData, error) {
 }
 
 // create a chunked arrow array from the raw record data
-func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column) (*arrow.Chunked, error) {
+func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column) (ccc *arrow.Chunked, err error) {
+	defer func() {
+		assertBuildArray("transferColumnData", ccc, err)
+	}()
+
 	dt := valueType
 	if valueType.ID() == arrow.EXTENSION {
 		dt = valueType.(arrow.ExtensionType).StorageType()
@@ -525,8 +546,9 @@ func transferZeroCopy(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData 
 		}
 	}()
 
-	return array.NewData(dt, rdr.ValuesWritten(), []*memory.Buffer{
-		bitmap, values}, nil, int(rdr.NullCount()), 0)
+	return array.NewData(dt, rdr.ValuesWritten(),
+		[]*memory.Buffer{bitmap, values},
+		nil, int(rdr.NullCount()), 0)
 }
 
 func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
