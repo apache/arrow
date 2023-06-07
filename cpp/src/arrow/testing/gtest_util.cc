@@ -739,7 +739,7 @@ void SleepFor(double seconds) {
     now = std::chrono::steady_clock::now();
     if (!run_task) {
       // all executors are empty, just sleep for the rest of the time
-      std::this_thread::sleep_for(end_time - now);
+      std::this_thread::sleep_for(end_time - std::chrono::steady_clock::now());
     }
     // run one task then check time
   }
@@ -1123,7 +1123,6 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
     num_running_++;
     auto future = RunTaskFuture();
     future.Wait();
-    return;
 #endif
   }
 

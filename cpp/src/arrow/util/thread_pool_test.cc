@@ -342,7 +342,6 @@ TEST(SerialExecutor, AsyncGeneratorWithCleanup) {
   // must run before the terminal item is delivered from the iterator.
   bool follow_up_ran = false;
   Iterator<TestInt> iter =
-
       SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
         return [=, &follow_up_ran]() -> Future<TestInt> {
           Future<TestInt> end =
@@ -603,6 +602,7 @@ TEST_F(TestThreadPool, OwnsCurrentThread) {
   ASSERT_FALSE(pool->OwnsThisThread());
   ASSERT_FALSE(one_failed);
 }
+
 TEST_F(TestThreadPool, StressSpawnThreaded) {
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
@@ -880,8 +880,8 @@ TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
 #endif
-// ARROW-15593: race condition in after-fork ThreadPool reinitialization
-// when SpawnReal() was called from multiple threads in a forked child.
+  // ARROW-15593: race condition in after-fork ThreadPool reinitialization
+  // when SpawnReal() was called from multiple threads in a forked child.
   auto run_in_child = [](ThreadPool* pool) {
     const int n_threads = 5;
     std::vector<Future<int>> futures;
