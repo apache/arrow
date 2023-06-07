@@ -60,7 +60,7 @@ jobs:
           du -hs /usr/local/share
           # 1.3GB
           sudo rm -rf /usr/local/share/powershell
-          du -hs /usr/loca/share
+          du -hs /usr/local/share
           # 5.3GB
           sudo rm -rf /opt/hostedtoolcache/CodeQL || :
           # 1.4GB
