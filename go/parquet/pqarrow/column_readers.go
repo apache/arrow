@@ -564,15 +564,13 @@ func transferBinary(pfx string, rdr file.RecordReader, dt arrow.DataType) (resul
 		return transferDictionary(pfx, brdr, &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: dt})
 	}
 	chunks := brdr.GetBuilderChunks()
-	defer arrow.ReleaseArrays(chunks...)
+	defer arrow.ReleaseArrays(chunks)
 
 	switch dt := dt.(type) {
 	case arrow.ExtensionType:
 		for idx, chunk := range chunks {
-			array.NewExtensionData()
 			chunks[idx] = array.NewExtensionArrayWithStorage(dt, chunk)
-			// release twice: once for array.NewExtensionArrayWithStorage & once for actually removing from chunks
-			arrow.ReleaseArrays(chunk, chunk)
+			chunk.Release()
 		}
 	case *arrow.StringType, *arrow.LargeStringType:
 		for idx, chunk := range chunks {
@@ -895,6 +893,6 @@ func transferDictionary(pfx string, rdr file.RecordReader, logicalValueType arro
 	}()
 	brdr := rdr.(file.BinaryRecordReader)
 	chunks := brdr.GetBuilderChunks()
-	defer arrow.ReleaseArrays(chunks...)
+	defer arrow.ReleaseArrays(chunks)
 	return arrow.NewChunked(logicalValueType, chunks)
 }
