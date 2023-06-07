@@ -259,6 +259,7 @@ struct SourceNode : ExecNode, public TracedNode {
         return;
       }
       to_finish = backpressure_future_;
+      backpressure_future_ = Future<>::MakeFinished();
     }
     to_finish.MarkFinished();
   }
@@ -270,6 +271,7 @@ struct SourceNode : ExecNode, public TracedNode {
       std::lock_guard<std::mutex> lg(mutex_);
       if (!backpressure_future_.is_finished()) {
         to_finish = backpressure_future_;
+        backpressure_future_ = Future<>::MakeFinished();
       }
     }
     if (to_finish.is_valid()) {
