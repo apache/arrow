@@ -107,7 +107,7 @@ func (a *CheckedAllocator) Free(b []byte) {
 const (
 	defAllocFrames       = 4
 	defReallocFrames     = 3
-	defMaxRetainedFrames = 30
+	defMaxRetainedFrames = 0
 )
 
 // Use the environment variables ARROW_CHECKED_ALLOC_FRAMES and ARROW_CHECKED_REALLOC_FRAMES

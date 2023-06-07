@@ -139,7 +139,11 @@ func (d *Data) Release() {
 	debug.Assert(atomic.LoadInt64(&d.refCount) > 0, "too many releases")
 
 	if atomic.AddInt64(&d.refCount, -1) == 0 {
-		memory.ReleaseBuffers(d.buffers)
+		for _, b := range d.buffers {
+			if b != nil {
+				b.Release()
+			}
+		}
 
 		for _, b := range d.childData {
 			b.Release()
