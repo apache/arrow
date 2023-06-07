@@ -480,13 +480,13 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 	var data arrow.ArrayData
 	switch dt.ID() {
 	case arrow.DICTIONARY:
-		return transferDictionary(rdr, valueType), nil
+		return transferDictionary("transferColumnData", rdr, valueType), nil
 	case arrow.NULL:
 		return arrow.NewChunked(arrow.Null, []arrow.Array{array.NewNull(rdr.ValuesWritten())}), nil
 	case arrow.INT32, arrow.INT64, arrow.FLOAT32, arrow.FLOAT64:
-		data = transferZeroCopy(rdr, valueType) // can just reference the raw data without copying
+		data = transferZeroCopy("transferColumnData", rdr, valueType) // can just reference the raw data without copying
 	case arrow.BOOL:
-		data = transferBool(rdr)
+		data = transferBool("transferColumnData", rdr)
 	case arrow.UINT8,
 		arrow.UINT16,
 		arrow.UINT32,
@@ -496,17 +496,17 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 		arrow.DATE32,
 		arrow.TIME32,
 		arrow.TIME64:
-		data = transferInt(rdr, valueType)
+		data = transferInt("transferColumnData", rdr, valueType)
 	case arrow.DATE64:
-		data = transferDate64(rdr, valueType)
+		data = transferDate64("transferColumnData", rdr, valueType)
 	case arrow.FIXED_SIZE_BINARY, arrow.BINARY, arrow.STRING, arrow.LARGE_BINARY, arrow.LARGE_STRING:
-		return transferBinary(rdr, valueType), nil
+		return transferBinary("transferColumnData", rdr, valueType), nil
 	case arrow.DECIMAL:
 		switch descr.PhysicalType() {
 		case parquet.Types.Int32, parquet.Types.Int64:
-			data = transferDecimalInteger(rdr, valueType)
+			data = transferDecimalInteger("transferColumnData", rdr, valueType)
 		case parquet.Types.ByteArray, parquet.Types.FixedLenByteArray:
-			return transferDecimalBytes(rdr.(file.BinaryRecordReader), valueType)
+			return transferDecimalBytes("transferColumnData", rdr.(file.BinaryRecordReader), valueType)
 		default:
 			return nil, errors.New("physical type for decimal128 must be int32, int64, bytearray or fixed len byte array")
 		}
@@ -514,12 +514,12 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 		tstype := valueType.(*arrow.TimestampType)
 		switch tstype.Unit {
 		case arrow.Millisecond, arrow.Microsecond:
-			data = transferZeroCopy(rdr, valueType)
+			data = transferZeroCopy("transferColumnData", rdr, valueType)
 		case arrow.Nanosecond:
 			if descr.PhysicalType() == parquet.Types.Int96 {
-				data = transferInt96(rdr, valueType)
+				data = transferInt96("transferColumnData", rdr, valueType)
 			} else {
-				data = transferZeroCopy(rdr, valueType)
+				data = transferZeroCopy("transferColumnData", rdr, valueType)
 			}
 		default:
 			return nil, errors.New("time unit not supported")
@@ -534,7 +534,10 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 	return arrow.NewChunked(valueType, []arrow.Array{arr}), nil
 }
 
-func transferZeroCopy(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
+func transferZeroCopy(pfx string, rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
+	defer func() {
+		array.AssertData(pfx+".transferZeroCopy", result.(*array.Data))
+	}()
 	bitmap := rdr.ReleaseValidBits()
 	values := rdr.ReleaseValues()
 	defer func() {
@@ -551,10 +554,14 @@ func transferZeroCopy(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData 
 		nil, int(rdr.NullCount()), 0)
 }
 
-func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
+func transferBinary(pfx string, rdr file.RecordReader, dt arrow.DataType) (result *arrow.Chunked) {
+	pfx += ".transferBinary"
+	defer func() {
+		assertBuildArray(pfx, result, nil)
+	}()
 	brdr := rdr.(file.BinaryRecordReader)
 	if brdr.ReadDictionary() {
-		return transferDictionary(brdr, &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: dt})
+		return transferDictionary(pfx, brdr, &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: dt})
 	}
 	chunks := brdr.GetBuilderChunks()
 	switch {
@@ -580,7 +587,11 @@ func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
 	return arrow.NewChunked(dt, chunks)
 }
 
-func transferInt(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
+func transferInt(pfx string, rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
+	defer func() {
+		array.AssertData(pfx+".transferInt", result.(*array.Data))
+	}()
+
 	var (
 		output reflect.Value
 	)
@@ -652,7 +663,11 @@ func transferInt(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	}, nil, int(rdr.NullCount()), 0)
 }
 
-func transferBool(rdr file.RecordReader) arrow.ArrayData {
+func transferBool(pfx string, rdr file.RecordReader) (result arrow.ArrayData) {
+	defer func() {
+		array.AssertData(pfx+".transferBool", result.(*array.Data))
+	}()
+
 	// TODO(mtopol): optimize this so we don't convert bitmap to []bool back to bitmap
 	length := rdr.ValuesWritten()
 	data := make([]byte, int(bitutil.BytesForBits(int64(length))))
@@ -680,7 +695,11 @@ var milliPerDay = time.Duration(24 * time.Hour).Milliseconds()
 
 // parquet equivalent for date64 is a 32-bit integer of the number of days
 // since the epoch. Convert each value to milliseconds for date64
-func transferDate64(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
+func transferDate64(pfx string, rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
+	defer func() {
+		array.AssertData(pfx+".transferDate64", result.(*array.Data))
+	}()
+
 	length := rdr.ValuesWritten()
 	values := arrow.Int32Traits.CastFromBytes(rdr.Values())
 
@@ -700,7 +719,10 @@ func transferDate64(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 }
 
 // coerce int96 to nanosecond timestamp
-func transferInt96(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
+func transferInt96(pfx string, rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
+	defer func() {
+		array.AssertData(pfx+".transferInt96", result.(*array.Data))
+	}()
 	length := rdr.ValuesWritten()
 	values := parquet.Int96Traits.CastFromBytes(rdr.Values())
 
@@ -725,7 +747,10 @@ func transferInt96(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 }
 
 // convert physical integer storage of a decimal logical type to a decimal128 typed array
-func transferDecimalInteger(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
+func transferDecimalInteger(pfx string, rdr file.RecordReader, dt arrow.DataType) (result arrow.ArrayData) {
+	defer func() {
+		array.AssertData(pfx+".transferDecimalInteger", result.(*array.Data))
+	}()
 	length := rdr.ValuesWritten()
 
 	var values reflect.Value
@@ -821,7 +846,10 @@ type varOrFixedBin interface {
 }
 
 // convert physical byte storage, instead of integers, to decimal128
-func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arrow.Chunked, error) {
+func transferDecimalBytes(pfx string, rdr file.BinaryRecordReader, dt arrow.DataType) (ccc *arrow.Chunked, err error) {
+	defer func() {
+		assertBuildArray(pfx+".transferDecimalBytes", ccc, err)
+	}()
 	convert := func(arr arrow.Array) (arrow.Array, error) {
 		length := arr.Len()
 		data := make([]byte, arrow.Decimal128Traits.BytesRequired(length))
@@ -854,7 +882,7 @@ func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arro
 	}
 
 	chunks := rdr.GetBuilderChunks()
-	var err error
+	//var err error
 	for idx, chunk := range chunks {
 		defer chunk.Release()
 		if chunks[idx], err = convert(chunk); err != nil {
@@ -865,7 +893,10 @@ func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arro
 	return arrow.NewChunked(dt, chunks), nil
 }
 
-func transferDictionary(rdr file.RecordReader, logicalValueType arrow.DataType) *arrow.Chunked {
+func transferDictionary(pfx string, rdr file.RecordReader, logicalValueType arrow.DataType) (result *arrow.Chunked) {
+	defer func() {
+		assertBuildArray(pfx+".transferDictionary", result, nil)
+	}()
 	brdr := rdr.(file.BinaryRecordReader)
 	chunks := brdr.GetBuilderChunks()
 	for _, chunk := range chunks {
