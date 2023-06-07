@@ -117,7 +117,7 @@ func (lr *leafReader) LoadBatch(nrecords int64) (err error) {
 			}
 		}
 	}
-	lr.out, err = transferColumnData(lr.recordRdr, lr.field.Type, lr.descr, lr.rctx.mem)
+	lr.out, err = transferColumnData(lr.recordRdr, lr.field.Type, lr.descr)
 	return
 }
 
@@ -450,7 +450,7 @@ func chunksToSingle(chunked *arrow.Chunked) (arrow.ArrayData, error) {
 }
 
 // create a chunked arrow array from the raw record data
-func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column, mem memory.Allocator) (*arrow.Chunked, error) {
+func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column) (*arrow.Chunked, error) {
 	dt := valueType
 	if valueType.ID() == arrow.EXTENSION {
 		dt = valueType.(arrow.ExtensionType).StorageType()
