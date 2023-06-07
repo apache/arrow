@@ -232,14 +232,35 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 	case "d": // decimal types are d:<precision>,<scale>[,<bitsize>] size is assumed 128 if left out
 		props := typs[1]
 		propList := strings.Split(props, ",")
-		if len(propList) == 3 {
-			err = xerrors.New("only decimal128 is supported")
-			return
+		bitwidth := 128
+		var precision, scale int
+
+		if len(propList) < 2 || len(propList) > 3 {
+			return ret, xerrors.Errorf("invalid decimal spec '%s': wrong number of properties", f)
+		} else if len(propList) == 3 {
+			bitwidth, err = strconv.Atoi(propList[2])
+			if err != nil {
+				return ret, xerrors.Errorf("could not parse decimal bitwidth in '%s': %s", f, err.Error())
+			}
 		}
 
-		precision, _ := strconv.Atoi(propList[0])
-		scale, _ := strconv.Atoi(propList[1])
-		dt = &arrow.Decimal128Type{Precision: int32(precision), Scale: int32(scale)}
+		precision, err = strconv.Atoi(propList[0])
+		if err != nil {
+			return ret, xerrors.Errorf("could not parse decimal precision in '%s': %s", f, err.Error())
+		}
+
+		scale, err = strconv.Atoi(propList[1])
+		if err != nil {
+			return ret, xerrors.Errorf("could not parse decimal scale in '%s': %s", f, err.Error())
+		}
+
+		if bitwidth == 128 {
+			dt = &arrow.Decimal128Type{Precision: int32(precision), Scale: int32(scale)}
+		} else if bitwidth == 256 {
+			dt = &arrow.Decimal256Type{Precision: int32(precision), Scale: int32(scale)}
+		} else {
+			return ret, xerrors.Errorf("only decimal128 and decimal256 are supported, got '%s'", f)
+		}
 	}
 
 	if f[0] == '+' { // types with children
