@@ -22,6 +22,24 @@ func AssertArray(pfx string, arr arrow.Array) {
 	AssertData(pfx, arr.Data().(*Data))
 }
 
+func AssertDataN(pfx string, data *Data, n int64) {
+	pfx += ".AssertDataN(" + strconv.Itoa(int(n)) + ")"
+	debug.Assert(data != nil, pfx+": data != nil")
+	if data == nil {
+		return
+	}
+	debug.Assert(data.refCount == n, pfx+": data.refCount="+strconv.Itoa(int(data.refCount)))
+	for i, buff := range data.buffers {
+		memory.AssertBuffer(pfx+"buff["+strconv.Itoa(i)+"]", buff)
+	}
+	if data.dictionary != nil {
+		AssertData(pfx+".data.dictionary", data.dictionary)
+	}
+	for i, child := range data.childData {
+		AssertData(pfx+"childData["+strconv.Itoa(i)+"]", child.(*Data))
+	}
+}
+
 func AssertData(pfx string, data *Data) {
 	pfx += ".AssertData"
 	debug.Assert(data != nil, pfx+": data != nil")
@@ -36,7 +54,7 @@ func AssertData(pfx string, data *Data) {
 		AssertData(pfx+".data.dictionary", data.dictionary)
 	}
 	for i, child := range data.childData {
-		AssertData(pfx+"childData["+strconv.Itoa(i)+"]", child.(*Data))
+		AssertData(pfx+".childData["+strconv.Itoa(i)+"]", child.(*Data))
 	}
 }
 

@@ -258,6 +258,7 @@ func (sr *structReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err erro
 	if lenBound > 0 && (sr.hasRepeatedChild || sr.filtered.Nullable) {
 		nullBitmap = memory.NewResizableBuffer(sr.rctx.mem)
 		nullBitmap.Resize(int(bitutil.BytesForBits(lenBound)))
+		defer nullBitmap.Release()
 		validityIO.ValidBits = nullBitmap.Bytes()
 		defLevels, err := sr.GetDefLevels()
 		if err != nil {
@@ -282,18 +283,22 @@ func (sr *structReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err erro
 		nullBitmap.Resize(int(bitutil.BytesForBits(validityIO.Read)))
 	}
 
-	childArrData := make([]arrow.ArrayData, 0)
+	childArrData := make([]arrow.ArrayData, len(sr.children))
+	defer func() {
+		for _, data := range childArrData {
+			data.Release()
+		}
+	}()
 	// gather children arrays and def levels
-	for _, child := range sr.children {
-		field, err := child.BuildArray(lenBound)
-		if err != nil {
-			return nil, err
-		}
-		arrdata, err := chunksToSingle("structReader", field)
-		if err != nil {
-			return nil, err
-		}
-		childArrData = append(childArrData, arrdata)
+	for i, child := range sr.children {
+		childArrData[i], err = func() (arrow.ArrayData, error) {
+			field, err := child.BuildArray(lenBound)
+			if err != nil {
+				return nil, err
+			}
+			defer field.Release()
+			return chunksToSingle("structReader", field)
+		}()
 	}
 
 	if !sr.filtered.Nullable && !sr.hasRepeatedChild {
@@ -303,6 +308,7 @@ func (sr *structReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err erro
 	buffers := make([]*memory.Buffer, 1)
 	if validityIO.NullCount > 0 {
 		buffers[0] = nullBitmap
+		defer nullBitmap.Release()
 	}
 
 	data := array.NewData(sr.filtered.Type, int(validityIO.Read), buffers, childArrData, int(validityIO.NullCount), 0)
@@ -452,7 +458,13 @@ func newFixedSizeListReader(rctx *readerCtx, field *arrow.Field, info file.Level
 func chunksToSingle(pfx string, chunked *arrow.Chunked) (data arrow.ArrayData, err error) {
 	defer func() {
 		if err != nil {
+			return
+		}
+		switch len(chunked.Chunks()) {
+		case 0:
 			array.AssertData(pfx+".chunksToSingle", data.(*array.Data))
+		default:
+			array.AssertDataN(pfx+".chunksToSingle", data.(*array.Data), 2)
 		}
 	}()
 
@@ -460,7 +472,9 @@ func chunksToSingle(pfx string, chunked *arrow.Chunked) (data arrow.ArrayData, e
 	case 0:
 		return array.NewData(chunked.DataType(), 0, []*memory.Buffer{nil, nil}, nil, 0, 0), nil
 	case 1:
-		return chunked.Chunk(0).Data(), nil
+		data := chunked.Chunk(0).Data()
+		data.Retain() // we pass control to the caller
+		return data, nil
 	default: // if an item reader yields a chunked array, this is not yet implemented
 		return nil, arrow.ErrNotImplemented
 	}
