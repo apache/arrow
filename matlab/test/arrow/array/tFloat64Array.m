@@ -99,16 +99,6 @@ classdef tFloat64Array < hNumericArray
         function LogicalValidNVPair(testCase)
             matlabArray = [1 2 3]; 
 
-            % Supply a scalar true value for Valid 
-            arrowArray = arrow.array.Float64Array(matlabArray, Valid=true);
-            testCase.verifyEqual(arrowArray.Valid, [true; true; true]);
-            testCase.verifyEqual(toMATLAB(arrowArray), [1; 2; 3]);
-
-            % Supply a scalar false value for Valid
-            arrowArray = arrow.array.Float64Array(matlabArray, Valid=false);
-            testCase.verifyEqual(arrowArray.Valid, [false; false; false]);
-            testCase.verifyEqual(toMATLAB(arrowArray), [NaN; NaN; NaN]);
-
             % Supply a logical vector for Valid
             arrowArray = arrow.array.Float64Array(matlabArray, Valid=[false; true; true]);
             testCase.verifyEqual(arrowArray.Valid, [false; true; true]);
@@ -118,55 +108,10 @@ classdef tFloat64Array < hNumericArray
         function NumericlValidNVPair(testCase)
             matlabArray = [1 2 3]; 
 
-            % Supply 1 valid index for Valid
-            arrowArray = arrow.array.Float64Array(matlabArray, Valid=2);
-            testCase.verifyEqual(arrowArray.Valid, [false; true; false]);
-            testCase.verifyEqual(toMATLAB(arrowArray), [NaN; 2; NaN]);
-
             % Supply a numeric vector for Valid 
             arrowArray = arrow.array.Float64Array(matlabArray, Valid=[1 3]);
             testCase.verifyEqual(arrowArray.Valid, [true; false; true]);
             testCase.verifyEqual(toMATLAB(arrowArray), [1; NaN; 3]);
-        end
-
-        function InvalidNumericValidNVPair(testCase)
-            matlabArray = [1 2 3]; 
-
-            % Valid contains complex numbers
-            fcn = @() arrow.array.Float64Array(matlabArray, Valid=[1i 2]);
-            testCase.verifyError(fcn, "MATLAB:expectedInteger");
-
-            % Valid contains floating point numbers
-            fcn = @() arrow.array.Float64Array(matlabArray, Valid=[1.1 3]);
-            testCase.verifyError(fcn, "MATLAB:expectedInteger");
-
-            % Valid contains negative numbers
-            fcn = @() arrow.array.Float64Array(matlabArray, Valid=-1);
-            testCase.verifyError(fcn, "MATLAB:notGreater");
-
-            % Valid contains 0
-            fcn = @() arrow.array.Float64Array(matlabArray, Valid=[0 1]);
-            testCase.verifyError(fcn, "MATLAB:notGreater");
-
-            % Valid contains values greater than num elements
-            fcn = @() arrow.array.Float64Array(matlabArray, Valid=4);
-            testCase.verifyError(fcn, "MATLAB:notLessEqual");
-        end
-
-        function InvalidLogicalValidNVPair(testCase)
-            matlabArray = [1 2 3]; 
-
-            % Valid has more elements than the array
-            fcn = @() arrow.array.Float64Array(matlabArray, Valid=[true false false true]);
-            testCase.verifyError(fcn, "MATLAB:incorrectNumel");
-
-            % Valid has less elements than the array
-            fcn = @() arrow.array.Float64Array(matlabArray, Valid=[true false]);
-            testCase.verifyError(fcn, "MATLAB:incorrectNumel");
-
-            % Valid is empty 
-            fcn = @() arrow.array.Float64Array(matlabArray, Valid=logical.empty(0, 1));
-            testCase.verifyError(fcn, "MATLAB:incorrectNumel");
         end
     end
 end

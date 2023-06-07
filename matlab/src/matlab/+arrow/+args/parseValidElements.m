@@ -55,6 +55,7 @@ function validElements = parseInferNulls(data, inferNulls)
     if inferNulls
         % TODO: consider making validElements empty if everything is valid.
         validElements = ~ismissing(data);
+        validElements = reshape(validElements, [], 1);
     else
         % TODO: consider making this an empty array if everything is valid
         validElements = true([numel(data) 1]);
