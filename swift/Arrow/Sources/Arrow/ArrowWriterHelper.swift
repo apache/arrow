@@ -24,7 +24,8 @@ extension Data {
     }
 }
 
-func toFBTypeEnum(_ infoType: ArrowType.Info) -> Result<org_apache_arrow_flatbuf_Type_, ArrowError> {
+func toFBTypeEnum(_ arrowType: ArrowType) -> Result<org_apache_arrow_flatbuf_Type_, ArrowError> {
+    let infoType = arrowType.info
     if infoType == ArrowType.ArrowInt8 || infoType == ArrowType.ArrowInt16 ||
         infoType == ArrowType.ArrowInt64 || infoType == ArrowType.ArrowUInt8 ||
         infoType == ArrowType.ArrowUInt16 || infoType == ArrowType.ArrowUInt32 ||
@@ -34,16 +35,20 @@ func toFBTypeEnum(_ infoType: ArrowType.Info) -> Result<org_apache_arrow_flatbuf
         return .success(org_apache_arrow_flatbuf_Type_.floatingpoint)
     } else if infoType == ArrowType.ArrowString {
         return .success(org_apache_arrow_flatbuf_Type_.utf8)
+    } else if infoType == ArrowType.ArrowBinary {
+        return .success(org_apache_arrow_flatbuf_Type_.binary)
     } else if infoType == ArrowType.ArrowBool {
         return .success(org_apache_arrow_flatbuf_Type_.bool)
     } else if infoType == ArrowType.ArrowDate32 || infoType == ArrowType.ArrowDate64 {
         return .success(org_apache_arrow_flatbuf_Type_.date)
+    } else if infoType == ArrowType.ArrowTime32 || infoType == ArrowType.ArrowTime64 {
+        return .success(org_apache_arrow_flatbuf_Type_.time)
     }
-
-    return .failure(.unknownType)
+    return .failure(.unknownType("Unable to find flatbuf type for Arrow type: \(infoType)"))
 }
 
-func toFBType(_ fbb: inout FlatBufferBuilder, infoType: ArrowType.Info) -> Result<Offset, ArrowError> {
+func toFBType(_ fbb: inout FlatBufferBuilder, arrowType: ArrowType) -> Result<Offset, ArrowError> {
+    let infoType = arrowType.info
     if infoType == ArrowType.ArrowInt8 || infoType == ArrowType.ArrowUInt8 {
         return .success(org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 8, isSigned: infoType == ArrowType.ArrowInt8))
     } else if infoType == ArrowType.ArrowInt16 || infoType == ArrowType.ArrowUInt16 {
@@ -58,6 +63,8 @@ func toFBType(_ fbb: inout FlatBufferBuilder, infoType: ArrowType.Info) -> Resul
         return .success(org_apache_arrow_flatbuf_FloatingPoint.createFloatingPoint(&fbb, precision: .double))
     } else if infoType == ArrowType.ArrowString {
         return .success(org_apache_arrow_flatbuf_Utf8.endUtf8(&fbb, start: org_apache_arrow_flatbuf_Utf8.startUtf8(&fbb)))
+    } else if infoType == ArrowType.ArrowBinary {
+        return .success(org_apache_arrow_flatbuf_Binary.endBinary(&fbb, start: org_apache_arrow_flatbuf_Binary.startBinary(&fbb)))
     } else if infoType == ArrowType.ArrowBool {
         return .success(org_apache_arrow_flatbuf_Bool.endBool(&fbb, start: org_apache_arrow_flatbuf_Bool.startBool(&fbb)))
     } else if infoType == ArrowType.ArrowDate32 {
@@ -68,9 +75,19 @@ func toFBType(_ fbb: inout FlatBufferBuilder, infoType: ArrowType.Info) -> Resul
         let startOffset = org_apache_arrow_flatbuf_Date.startDate(&fbb)
         org_apache_arrow_flatbuf_Date.add(unit: .millisecond, &fbb)
         return .success(org_apache_arrow_flatbuf_Date.endDate(&fbb, start: startOffset))
+    } else if infoType == ArrowType.ArrowTime32 {
+        let startOffset = org_apache_arrow_flatbuf_Time.startTime(&fbb)
+        let timeType = arrowType as! ArrowTypeTime32
+        org_apache_arrow_flatbuf_Time.add(unit: timeType.unit == .Seconds ? .second : .millisecond, &fbb)
+        return .success(org_apache_arrow_flatbuf_Time.endTime(&fbb, start: startOffset))
+    } else if infoType == ArrowType.ArrowTime64 {
+        let startOffset = org_apache_arrow_flatbuf_Time.startTime(&fbb)
+        let timeType = arrowType as! ArrowTypeTime64
+        org_apache_arrow_flatbuf_Time.add(unit: timeType.unit == .Microseconds ? .microsecond : .nanosecond, &fbb)
+        return .success(org_apache_arrow_flatbuf_Time.endTime(&fbb, start: startOffset))
     }
-    
-    return .failure(.unknownType)
+
+    return .failure(.unknownType("Unable to add flatbuf type for Arrow type: \(infoType)"))
 }
 
 func addPadForAlignment(_ data: inout Data, alignment: Int = 8) {

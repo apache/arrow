@@ -22,7 +22,7 @@ public protocol AsString {
 }
 
 public class ChunkedArrayHolder {
-    public let type: ArrowType.Info
+    public let type: ArrowType
     public let length: UInt
     public let nullCount: UInt
     public let holder: Any
@@ -89,7 +89,7 @@ public class ChunkedArrayHolder {
 
 public class ChunkedArray<T> : AsString {
     public let arrays: [ArrowArray<T>]
-    public let type: ArrowType.Info
+    public let type: ArrowType
     public let nullCount: UInt
     public let length: UInt
     public var arrayCount: UInt {get{return UInt(self.arrays.count)}}
