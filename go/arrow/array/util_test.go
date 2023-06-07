@@ -28,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
 	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/goccy/go-json"
@@ -417,16 +418,36 @@ func TestDecimal128JSON(t *testing.T) {
 	assert.JSONEq(t, `["123.4567", null, "-78.9"]`, string(data))
 }
 
+func TestDecimal256JSON(t *testing.T) {
+	dt := &arrow.Decimal256Type{Precision: 10, Scale: 4}
+	bldr := array.NewDecimal256Builder(memory.DefaultAllocator, dt)
+	defer bldr.Release()
+
+	bldr.AppendValues([]decimal256.Num{decimal256.FromU64(1234567), {}, decimal256.FromI64(-789000)}, []bool{true, false, true})
+	expected := bldr.NewArray()
+	defer expected.Release()
+
+	arr, _, err := array.FromJSON(memory.DefaultAllocator, dt, strings.NewReader(`["123.4567", null, "-78.9000"]`))
+	assert.NoError(t, err)
+	defer arr.Release()
+
+	assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+
+	data, err := json.Marshal(arr)
+	assert.NoError(t, err)
+	assert.JSONEq(t, `["123.4567", null, "-78.9"]`, string(data))
+}
+
 func TestArrRecordsJSONRoundTrip(t *testing.T) {
 	for k, v := range arrdata.Records {
-		if k == "decimal128" || k == "fixed_width_types" {
+		if k == "decimal128" || k == "decimal256" || k == "fixed_width_types" {
 			// test these separately since the sample data in the arrdata
 			// records doesn't lend itself to exactness when going to/from
 			// json. The fixed_width_types one uses negative values for
 			// time32 and time64 which correctly get interpreted into times,
 			// but re-encoding them in json produces the normalized positive
 			// values instead of re-creating negative ones.
-			// the decimal128 values don't get parsed *exactly* due to fun
+			// the decimal128/decimal256 values don't get parsed *exactly* due to fun
 			// float weirdness due to their size, so smaller tests will work fine.
 			continue
 		}
