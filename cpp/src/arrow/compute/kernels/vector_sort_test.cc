@@ -2168,7 +2168,7 @@ class TestNestedSortIndices : public ::testing::Test {
     return table;
   }
 
-  void DoTest(const Datum& datum) const {
+  void TestSort(const Datum& datum) const {
     std::vector<SortKey> sort_keys = {SortKey(FieldRef("a", "a"), SortOrder::Ascending),
                                       SortKey(FieldRef("a", "b"), SortOrder::Descending),
                                       SortKey(FieldRef("b"), SortOrder::Ascending)};
@@ -2178,21 +2178,34 @@ class TestNestedSortIndices : public ::testing::Test {
     options.null_placement = NullPlacement::AtStart;
     AssertSortIndices(datum, options, "[5, 2, 8, 1, 7, 3, 6, 0, 4]");
 
-    // Sort keys referencing a struct array are invalid
-    options.sort_keys = {SortKey(FieldRef("a", "a"), SortOrder::Descending),
-                         SortKey(FieldRef("a"), SortOrder::Ascending)};
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError,
-        ::testing::HasSubstr(
-            "Unsupported type for RecordBatch sorting: struct<a: uint8, b: uint32>"),
-        SortIndices(datum, options));
+    options.sort_keys = {SortKey(FieldRef("a"), SortOrder::Ascending),
+                         SortKey(FieldRef("b"), SortOrder::Ascending)};
+    options.null_placement = NullPlacement::AtEnd;
+    AssertSortIndices(datum, options, "[6, 7, 3, 4, 0, 1, 8, 2, 5]");
+    options.null_placement = NullPlacement::AtStart;
+    AssertSortIndices(datum, options, "[5, 8, 1, 2, 6, 7, 3, 0, 4]");
+
+    // Implementations may have an optimized path for cases with one sort key.
+    options.sort_keys = {SortKey(FieldRef("a"), SortOrder::Ascending)};
+    options.null_placement = NullPlacement::AtEnd;
+    AssertSortIndices(datum, options, "[6, 3, 7, 4, 0, 1, 8, 2, 5]");
+  }
+
+  void TestArraySort() const {
+    auto array = GetArray();
+    AssertSortIndices(array, SortOrder::Ascending, NullPlacement::AtEnd,
+                      "[6, 7, 3, 4, 0, 1, 8, 2, 5]");
+    AssertSortIndices(array, SortOrder::Ascending, NullPlacement::AtStart,
+                      "[5, 8, 1, 2, 6, 7, 3, 0, 4]");
   }
 };
 
-TEST_F(TestNestedSortIndices, Array) { DoTest(GetArray()); }
-TEST_F(TestNestedSortIndices, ChunkedArray) { DoTest(GetChunkedArray()); }
-TEST_F(TestNestedSortIndices, RecordBatch) { DoTest(GetRecordBatch()); }
-TEST_F(TestNestedSortIndices, Table) { DoTest(GetTable()); }
+TEST_F(TestNestedSortIndices, ArraySort) { TestArraySort(); }
+
+TEST_F(TestNestedSortIndices, SortStructArray) { TestSort(GetArray()); }
+TEST_F(TestNestedSortIndices, SortChunkedArray) { TestSort(GetChunkedArray()); }
+TEST_F(TestNestedSortIndices, SortRecordBatch) { TestSort(GetRecordBatch()); }
+TEST_F(TestNestedSortIndices, SortTable) { TestSort(GetTable()); }
 
 // ----------------------------------------------------------------------
 // Tests for Rank

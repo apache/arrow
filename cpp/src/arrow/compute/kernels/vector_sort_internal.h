@@ -464,6 +464,12 @@ Result<NullPartitionResult> SortChunkedArray(
     const std::shared_ptr<DataType>& physical_type, const ArrayVector& physical_chunks,
     SortOrder sort_order, NullPlacement null_placement);
 
+Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_begin,
+                                            uint64_t* indices_end,
+                                            const StructArray& array,
+                                            SortOrder sort_order,
+                                            NullPlacement null_placement);
+
 // ----------------------------------------------------------------------
 // Helpers for Sort/SelectK/Rank implementations
 
