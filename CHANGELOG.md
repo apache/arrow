@@ -1,4 +1,44 @@
 
+# Apache Arrow 12.0.1 (2023-06-07)
+
+## Bug Fixes
+
+* [GH-34784](https://github.com/apache/arrow/issues/34784) - [Go] Fix 32-bit build (#35767)
+* [GH-35131](https://github.com/apache/arrow/issues/35131) - [R] Test failure with dev waldo (#35308)
+* [GH-35321](https://github.com/apache/arrow/issues/35321) - [Python][CI] Skip extension type test failing with pandas 2.0.1 (#35324)
+* [GH-35337](https://github.com/apache/arrow/issues/35337) - [Go] ASAN tests fail with Go1.20+ (#35338)
+* [GH-35389](https://github.com/apache/arrow/issues/35389) - [Python] Fix coalesce_keys=False option in join operation (#35505)
+* [GH-35404](https://github.com/apache/arrow/issues/35404) - [Docs] Fix logo url and temporarily pin sphinx to 5.x to  (#35405)
+* [GH-35410](https://github.com/apache/arrow/issues/35410) - [CI] Pin urllib3 for gcs testbench (#35412)
+* [GH-35423](https://github.com/apache/arrow/issues/35423) - [C++][Parquet] Parquet PageReader Force decompression buffer resize smaller (#35428)
+* [GH-35426](https://github.com/apache/arrow/issues/35426) - [CI][Packaging][Conan] Build grpc (#35427)
+* [GH-35498](https://github.com/apache/arrow/issues/35498) - [C++] Relax EnsureAlignment check in Acero from requiring 64-byte aligned buffers to requiring value-aligned buffers (#35565)
+* [GH-35519](https://github.com/apache/arrow/issues/35519) - [C++][Parquet] Fixing exception handling in parquet FileSerializer (#35520)
+* [GH-35538](https://github.com/apache/arrow/issues/35538) - [C++] Remove unnecessary status.h include from protobuf (#35673)
+* [GH-35594](https://github.com/apache/arrow/issues/35594) - [R][C++] Bump vendored date library (#35612)
+* [GH-35695](https://github.com/apache/arrow/issues/35695) - [CI][Packaging][Conan] Use build missing dependencies instead of defining them individually (#35696)
+* [GH-35730](https://github.com/apache/arrow/issues/35730) - [C++] Add the ability to specify custom schema on a dataset write (#35860)
+* [GH-35771](https://github.com/apache/arrow/issues/35771) - [Java] Bump Jackson to avoid CVE (#35791)
+* [GH-35799](https://github.com/apache/arrow/issues/35799) - [CI] Set s3 region for sccache (#35801)
+* [GH-35820](https://github.com/apache/arrow/issues/35820) - [C++][CI] EnsureAlignment.Buffer fails on test-build-vcpkg-win (#35834)
+* [GH-35821](https://github.com/apache/arrow/issues/35821) - [Python][CI] Skip extension type test failing with pandas 2.0.2 (#35822)
+* [GH-35845](https://github.com/apache/arrow/issues/35845) - [CI][Python] Fix usage of assert_frame_equal in test_hdfs.py (#35842)
+* [GH-35850](https://github.com/apache/arrow/issues/35850) - [C++] Don't disable optimization with RelWithDebInfo (#35856)
+* [GH-35932](https://github.com/apache/arrow/issues/35932) - [Java] Make JDBC test less brittle (#35940)
+* [GH-35946](https://github.com/apache/arrow/issues/35946) - [CI][Packaging] Free up more disk space for Linux packages (#35947)
+
+
+## New Features and Improvements
+
+* [GH-34657](https://github.com/apache/arrow/issues/34657) - [Go] Add ValueString(i int) string to array (#34986)
+* [GH-34789](https://github.com/apache/arrow/issues/34789) - [CI][Python] Update the Python versions in our nightly CI matrix (#35548)
+* [GH-35329](https://github.com/apache/arrow/issues/35329) - [Python] Address pandas.types.is_sparse deprecation (#35366)
+* [GH-35433](https://github.com/apache/arrow/issues/35433) - [CI] Unpin urllib3, upgrade gcs-testbench (#35434)
+* [GH-35458](https://github.com/apache/arrow/issues/35458) - [C++][Benchmarking] Require Google Benchmark 1.6.1 or later (#35459)
+* [GH-35937](https://github.com/apache/arrow/issues/35937) - [R] Update NEWS for 12.0.1 (#35938)
+
+
+
 # Apache Arrow 12.0.0 (2023-04-20 07:00:00)
 
 ## Bug Fixes
