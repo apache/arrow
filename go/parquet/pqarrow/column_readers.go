@@ -421,6 +421,7 @@ func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error)
 	defer item.Release()
 
 	buffers := []*memory.Buffer{nil, offsetsBuffer}
+	defer memory.ReleaseBuffers(buffers)
 	if validityIO.NullCount > 0 {
 		buffers[0] = validityBuffer
 	}

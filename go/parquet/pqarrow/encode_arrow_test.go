@@ -1182,7 +1182,7 @@ func prepareListOfListTable(dt arrow.DataType, size, nullCount int, nullablePare
 
 func (ps *ParquetIOTestSuite) TestSingleEmptyListsColumnReadWrite() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
-	//defer mem.AssertSize(ps.T(), 0) // FIXME: known leak
+	defer mem.AssertSize(ps.T(), 0)
 
 	expected := prepareEmptyListsTable(smallSize)
 	defer expected.Release()
