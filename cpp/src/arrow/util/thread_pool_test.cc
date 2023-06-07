@@ -877,11 +877,11 @@ TEST_F(TestThreadPoolForkSafety, Basics) {
 }
 
 TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
-// ARROW-15593: race condition in after-fork ThreadPool reinitialization
-// when SpawnReal() was called from multiple threads in a forked child.
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";
 #endif
+// ARROW-15593: race condition in after-fork ThreadPool reinitialization
+// when SpawnReal() was called from multiple threads in a forked child.
   auto run_in_child = [](ThreadPool* pool) {
     const int n_threads = 5;
     std::vector<Future<int>> futures;
