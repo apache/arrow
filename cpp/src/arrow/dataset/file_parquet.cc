@@ -224,7 +224,7 @@ Status ResolveOneFieldRef(
   return Status::OK();
 }
 
-bool IsValidFieldRef(const FieldRef& ref) {
+bool IsNamedFieldRef(const FieldRef& ref) {
   if (ref.IsName()) return true;
   if (const auto* nested_refs = ref.nested_refs()) {
     for (const auto& nested_ref : *nested_refs) {
@@ -237,10 +237,10 @@ bool IsValidFieldRef(const FieldRef& ref) {
 
 // Converts a field ref into a position-independent ref (containing only a sequence of
 // names) based on the dataset schema. Returns `false` if no conversion was needed.
-Result<bool> ValidateFieldRef(const FieldRef& ref, const Schema& dataset_schema,
-                              FieldRef* out) {
-  if (ARROW_PREDICT_TRUE(IsValidFieldRef(ref))) {
-    return false;
+Status MaybeConvertFieldRef(const FieldRef& ref, const Schema& dataset_schema,
+                            FieldRef* out) {
+  if (ARROW_PREDICT_TRUE(IsNamedFieldRef(ref))) {
+    return Status::OK();
   }
 
   ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOne(dataset_schema));
@@ -256,7 +256,7 @@ Result<bool> ValidateFieldRef(const FieldRef& ref, const Schema& dataset_schema,
 
   *out =
       named_refs.size() == 1 ? std::move(named_refs[0]) : FieldRef(std::move(named_refs));
-  return true;
+  return Status::OK();
 }
 
 // Compute the column projection based on the scan options
@@ -287,7 +287,7 @@ Result<std::vector<int>> InferColumnProjection(const parquet::arrow::FileReader&
     // In the (unlikely) absence of a known dataset schema, we require that all
     // materialized refs are named.
     if (options.dataset_schema) {
-      ARROW_RETURN_NOT_OK(ValidateFieldRef(ref, *options.dataset_schema, &ref));
+      ARROW_RETURN_NOT_OK(MaybeConvertFieldRef(ref, *options.dataset_schema, &ref));
     }
     RETURN_NOT_OK(ResolveOneFieldRef(manifest, ref, field_lookup, duplicate_fields,
                                      &columns_selection));
