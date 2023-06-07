@@ -286,7 +286,7 @@ func literalToDatum(mem memory.Allocator, lit expr.Literal, ext ExtensionIDSet) 
 					arrow.ErrInvalid, mapType, scalarKey.DataType())
 			}
 			if !arrow.TypeEqual(mapType.ItemType(), scalarValue.DataType()) {
-				return nil, fmt.Errorf("%w: value type mismatch for %s, got key with type %s",
+				return nil, fmt.Errorf("%w: value type mismatch for %s, got value with type %s",
 					arrow.ErrInvalid, mapType, scalarValue.DataType())
 			}
 
