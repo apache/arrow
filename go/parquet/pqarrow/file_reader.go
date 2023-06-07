@@ -248,7 +248,10 @@ func (fr *FileReader) ReadColumn(rowGroups []int, rdr *ColumnReader) (*arrow.Chu
 }
 
 // ReadTable reads the entire file into an array.Table
-func (fr *FileReader) ReadTable(ctx context.Context) (arrow.Table, error) {
+func (fr *FileReader) ReadTable(ctx context.Context) (tbl arrow.Table, err error) {
+	defer func() {
+		assertReadTable("FileReader.ReadTable", tbl, err)
+	}()
 	var (
 		cols = []int{}
 		rgs  = []int{}
@@ -364,6 +367,11 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 
 	// output slice of columns
 	columns := make([]arrow.Column, len(sc.Fields()))
+	defer func() {
+		for _, col := range columns {
+			col.Release()
+		}
+	}()
 	for data := range results {
 		if data.err != nil {
 			err = data.err

@@ -139,6 +139,10 @@ type Chunked struct {
 	dtype  DataType
 }
 
+func (a *Chunked) GetRefCount() int64 {
+	return a.refCount
+}
+
 // NewChunked returns a new chunked array from the slice of arrays.
 //
 // NewChunked panics if the chunks do not have the same data type.

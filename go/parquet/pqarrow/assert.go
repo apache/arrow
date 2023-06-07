@@ -1,23 +1,20 @@
 package pqarrow
 
 import (
-	"strconv"
-
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/parquet/internal/debug"
 )
 
 func assertBuildArray(pfx string, arr *arrow.Chunked, err error) {
 	if err != nil {
 		return
 	}
-	pfx += ".assertBuildArray"
-	debug.Assert(arr != nil, pfx+": arr != nil")
-	if arr == nil {
+	array.AssertChunked(pfx+".assertBuildArray", arr)
+}
+
+func assertReadTable(pfx string, arr arrow.Table, err error) {
+	if err != nil {
 		return
 	}
-	for i, chunk := range arr.Chunks() {
-		array.AssertArray(pfx+".chunk["+strconv.Itoa(i)+"]", chunk)
-	}
+	array.AssertTable(pfx+".assertReadTable", arr)
 }

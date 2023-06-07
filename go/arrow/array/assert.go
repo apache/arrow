@@ -15,11 +15,18 @@ func AssertArray(pfx string, arr arrow.Array) {
 	if arr == nil {
 		return
 	}
-	if arr, ok := arr.(ExtensionArray); ok {
-		assertExtensionArray(pfx, arr)
-		return
+
+	data := arr.Data().(*Data)
+	switch arr := arr.(type) {
+	case ExtensionArray:
+		assertExtensionArrayData(pfx, data, arr.Storage())
+	case *List:
+		assertListLike(pfx, arr)
+	case *LargeList:
+		assertListLike(pfx, arr)
+	default:
+		AssertData(pfx, data)
 	}
-	AssertData(pfx, arr.Data().(*Data))
 }
 
 func AssertDataN(pfx string, data *Data, n int64) {
@@ -58,13 +65,11 @@ func AssertData(pfx string, data *Data) {
 	}
 }
 
-func assertExtensionArray(pfx string, arr ExtensionArray) {
-	debug.Assert(arr.Data() != nil, pfx+": arr.Data() != nil")
-	if arr.Data() == nil {
+func assertExtensionArrayData(pfx string, data *Data, storage arrow.Array) {
+	debug.Assert(data != nil, pfx+": data != nil")
+	if data == nil {
 		return
 	}
-
-	data := arr.Data().(*Data)
 	debug.Assert(data.refCount == 1, pfx+": data.refCount="+strconv.Itoa(int(data.refCount)))
 
 	// we allow the copies to have N references
@@ -87,7 +92,17 @@ func assertExtensionArray(pfx string, arr ExtensionArray) {
 			buff *memory.Buffer
 		}{n: 1, buff: b}
 	}
-	for _, b := range arr.Storage().Data().Buffers() {
+
+	debug.Assert(storage != nil, pfx+": storage != nil")
+	if storage == nil {
+		return
+	}
+	debug.Assert(storage.Data() != nil, pfx+": storage.Data() != nil")
+	if storage.Data() == nil {
+		return
+	}
+
+	for _, b := range storage.Data().Buffers() {
 		if b == nil {
 			continue
 		}
@@ -106,4 +121,55 @@ func assertExtensionArray(pfx string, arr ExtensionArray) {
 	for _, c := range copies {
 		memory.AssertBufferN(pfx, c.buff, c.n)
 	}
+}
+
+func AssertTable(pfx string, tbl arrow.Table) {
+	pfx += ".AssertTable"
+	debug.Assert(tbl != nil, pfx+": table != nil")
+	if tbl == nil {
+		return
+	}
+
+	table := tbl.(*simpleTable)
+	debug.Assert(table.refCount == 1, pfx+": table.refCount="+strconv.Itoa(int(table.refCount)))
+
+	for i, col := range table.cols {
+		AssertChunked(pfx+".col["+strconv.Itoa(i)+"]", col.Data())
+	}
+}
+
+func AssertChunked(pfx string, arr *arrow.Chunked) {
+	pfx += ".AssertChunked"
+	debug.Assert(arr != nil, pfx+": arr != nil")
+	debug.Assert(arr.GetRefCount() == 1, pfx+": data.GetRefCount()="+strconv.Itoa(int(arr.GetRefCount())))
+
+	if arr == nil {
+		return
+	}
+	for i, chunk := range arr.Chunks() {
+		AssertArray(pfx+".chunk["+strconv.Itoa(i)+"]", chunk)
+	}
+}
+
+func assertListLike(pfx string, arr ListLike) {
+	pfx += ".assertListLike"
+	values := arr.ListValues()
+	debug.Assert(values != nil, pfx+": values != nil")
+	if values == nil {
+		return
+	}
+	// check that the array data is in ref1
+	data := arr.Data().(*Data)
+	debug.Assert(data != nil, pfx+": data != nil")
+	if data == nil {
+		return
+	}
+	debug.Assert(data.refCount == 1, pfx+": data.refCount="+strconv.Itoa(int(data.refCount)))
+	for i, buff := range data.buffers {
+		memory.AssertBuffer(pfx+".buff["+strconv.Itoa(i)+"]", buff)
+	}
+
+	debug.Assert(len(data.childData) == 1, pfx+": len(data.childData) ="+strconv.Itoa(len(data.childData)))
+	debug.Assert(data.childData[0] == values.Data(), pfx+": data.childData[0] == values.Data()")
+	AssertDataN(pfx+".values", values.Data().(*Data), 2)
 }
