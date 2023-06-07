@@ -60,6 +60,11 @@ struct Add {
   static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + right;
   }
+
+  template <typename T>
+  static constexpr T Identity() {
+    return static_cast<T>(0);
+  }
 };
 
 struct AddChecked {
@@ -84,6 +89,11 @@ struct AddChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + right;
+  }
+
+  template <typename T>
+  static constexpr T Identity() {
+    return static_cast<T>(0);
   }
 };
 
@@ -331,6 +341,11 @@ struct Multiply {
   static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left * right;
   }
+
+  template <typename T>
+  static constexpr T Identity() {
+    return static_cast<T>(1);
+  }
 };
 
 struct MultiplyChecked {
@@ -355,6 +370,11 @@ struct MultiplyChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left * right;
+  }
+
+  template <typename T>
+  static constexpr T Identity() {
+    return static_cast<T>(1);
   }
 };
 
@@ -602,6 +622,70 @@ struct Sign {
   static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
                                                         Status*) {
     return (arg == 0) ? 0 : arg.Sign();
+  }
+};
+
+struct Max {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_not_floating_value<T> Call(KernelContext*, Arg0 arg0,
+                                                        Arg1 arg1, Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    return std::max(arg0, arg1);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                    Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    if (std::isnan(left)) {
+      return right;
+    } else if (std::isnan(right)) {
+      return left;
+    } else {
+      return std::max(left, right);
+    }
+  }
+
+  template <typename T>
+  static constexpr enable_if_decimal_value<T, T> Identity() {
+    return T::GetMinSentinel();
+  }
+
+  template <typename T>
+  static constexpr T Identity() {
+    return std::numeric_limits<T>::min();
+  }
+};
+
+struct Min {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_not_floating_value<T> Call(KernelContext*, Arg0 arg0,
+                                                        Arg1 arg1, Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    return std::min(arg0, arg1);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                    Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
+    if (std::isnan(left)) {
+      return right;
+    } else if (std::isnan(right)) {
+      return left;
+    } else {
+      return std::min(left, right);
+    }
+  }
+
+  template <typename T>
+  static constexpr enable_if_decimal_value<T, T> Identity() {
+    return T::GetMaxSentinel();
+  }
+
+  template <typename T>
+  static constexpr T Identity() {
+    return std::numeric_limits<T>::max();
   }
 };
 

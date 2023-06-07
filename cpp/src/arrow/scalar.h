@@ -693,6 +693,9 @@ inline std::shared_ptr<Scalar> MakeScalar(std::string value) {
   return std::make_shared<StringScalar>(std::move(value));
 }
 
+inline std::shared_ptr<Scalar> MakeScalar(const std::shared_ptr<Scalar>& scalar) {
+  return scalar;
+}
 /// @}
 
 template <typename ValueRef>

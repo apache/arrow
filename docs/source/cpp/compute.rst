@@ -1613,28 +1613,39 @@ Array-wise ("vector") functions
 Cumulative Functions
 ~~~~~~~~~~~~~~~~~~~~
 
-Cumulative functions are vector functions that perform a running total on their
-input using a given binary associative operation and output an array containing
-the corresponding intermediate running values. The input is expected to be of
-numeric type. By default these functions do not detect overflow. They are also
-available in an overflow-checking variant, suffixed ``_checked``, which returns
-an ``Invalid`` :class:`Status` when overflow is detected.
+Cumulative functions are vector functions that perform a running accumulation on 
+their input using a given binary associative operation with an identidy element 
+(a monoid) and output an array containing the corresponding intermediate running 
+values. The input is expected to be of numeric type. By default these functions 
+do not detect overflow. They are alsoavailable in an overflow-checking variant, 
+suffixed ``_checked``, which returns an ``Invalid`` :class:`Status` when 
+overflow is detected.
 
 +------------------------+-------+-------------+-------------+--------------------------------+-------+
-| Function name          | Arity | Input types | Output type | Options class                  | Notes |
-+========================+=======+=============+=============+================================+=======+
-| cumulative_sum         | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_sum_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
+| Function name           | Arity | Input types | Output type | Options class                  | Notes |
++=========================+=======+=============+=============+================================+=======+
+| cumulative_sum          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_sum_checked  | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_prod         | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_prod_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_max          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_min          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
 
-* \(1) CumulativeSumOptions has two optional parameters. The first parameter
-  :member:`CumulativeSumOptions::start` is a starting value for the running
-  sum. It has a default value of 0. Specified values of ``start`` must have the
-  same type as the input. The second parameter
-  :member:`CumulativeSumOptions::skip_nulls` is a boolean. When set to
+* \(1) CumulativeOptions has two optional parameters. The first parameter
+  :member:`CumulativeOptions::start` is a starting value for the running
+  accumulation. It has a default value of 0 for `sum`, 1 for `prod`, min of 
+  input type for `max`, and max of input type for `min`. Specified values of 
+  ``start`` must be castable to the input type. The second parameter
+  :member:`CumulativeOptions::skip_nulls` is a boolean. When set to
   false (the default), the first encountered null is propagated. When set to
-  true, each null in the input produces a corresponding null in the output.
+  true, each null in the input produces a corresponding null in the output and
+  doesn't affect the accumulation forward.
 
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
