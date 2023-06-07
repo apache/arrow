@@ -160,7 +160,11 @@ func (a *CheckedAllocator) AssertSize(t TestingT, sz int) {
 				break
 			}
 			callersMsg.WriteString("\t")
-			callersMsg.WriteString(fmt.Sprintf("%s+%x\n\t\t", frame.Func.Name(), frame.PC-frame.Func.Entry()))
+			if fn := frame.Func; fn != nil {
+				callersMsg.WriteString(fmt.Sprintf("%s+%x\n\t\t", fn.Name(), frame.PC-fn.Entry()))
+			} else {
+				callersMsg.WriteString(fmt.Sprintf("%s, line %d\n\t\t", frame.Function, frame.Line))
+			}
 			callersMsg.WriteString("\n\t\t")
 			callersMsg.WriteString(frame.File + ":" + strconv.Itoa(frame.Line))
 			callersMsg.WriteString("\n")

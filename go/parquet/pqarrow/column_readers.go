@@ -284,11 +284,7 @@ func (sr *structReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err erro
 	}
 
 	childArrData := make([]arrow.ArrayData, len(sr.children))
-	defer func() {
-		for _, data := range childArrData {
-			data.Release()
-		}
-	}()
+	defer arrow.ReleaseArrayData(childArrData)
 	// gather children arrays and def levels
 	for i, child := range sr.children {
 		childArrData[i], err = func() (arrow.ArrayData, error) {
@@ -310,11 +306,16 @@ func (sr *structReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err erro
 		buffers[0] = nullBitmap
 		defer nullBitmap.Release()
 	}
-
 	data := array.NewData(sr.filtered.Type, int(validityIO.Read), buffers, childArrData, int(validityIO.NullCount), 0)
-	defer data.Release()
-	arr := array.MakeFromData(data)
-	defer arr.Release()
+	defer func() {
+		data.Release()
+	}()
+	arr := array.NewStructData(data)
+	// making struct will retain childArrData extra time for the fields construction
+	arrow.ReleaseArrayData(childArrData)
+	defer func() {
+		arr.Release()
+	}()
 	return arrow.NewChunked(sr.filtered.Type, []arrow.Array{arr}), nil
 }
 
