@@ -763,7 +763,11 @@ using DoubleType = PhysicalType<Type::DOUBLE>;
 using ByteArrayType = PhysicalType<Type::BYTE_ARRAY>;
 
 /*
- * TODO AP add a comment explaining why the below is needed
+ * Parquet does not have a LARGE_BYTE_ARRAY_TYPE, but arrow does.
+ * It is used to store ByteArrays with length > 2^31 - 1.
+ * The below LargeByteArrayType is used by other classes to select the proper
+ * Readers/Writers/Builders/Encoders/Decoders by using the templated EncodingTraits.
+ * Since there is not a parquet equivalent, a struct has to be used as a workaround
  * */
 struct LargeByteArrayType : public ByteArrayType
 {};
