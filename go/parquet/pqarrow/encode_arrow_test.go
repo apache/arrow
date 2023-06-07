@@ -1190,9 +1190,7 @@ func (ps *ParquetIOTestSuite) TestSingleEmptyListsColumnReadWrite() {
 
 	reader := ps.createReader(mem, buf.Bytes())
 	tbl := ps.readTable(reader)
-	defer func() {
-		tbl.Release()
-	}()
+	defer tbl.Release()
 
 	ps.EqualValues(expected.NumCols(), tbl.NumCols())
 	ps.EqualValues(expected.NumRows(), tbl.NumRows())

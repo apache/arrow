@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strconv"
 	"sync"
 	"sync/atomic"
 
@@ -128,10 +127,7 @@ type ColumnReader struct {
 
 // NextBatch returns a chunked array after reading `size` values, potentially
 // across multiple row groups.
-func (c *ColumnReader) NextBatch(size int64) (ccc *arrow.Chunked, err error) {
-	defer func() {
-		assertBuildArray("ColumnReader.NextBatch("+strconv.Itoa(int(size))+")", ccc, err)
-	}()
+func (c *ColumnReader) NextBatch(size int64) (*arrow.Chunked, error) {
 	if err := c.LoadBatch(size); err != nil {
 		return nil, err
 	}
@@ -252,10 +248,7 @@ func (fr *FileReader) ReadColumn(rowGroups []int, rdr *ColumnReader) (*arrow.Chu
 }
 
 // ReadTable reads the entire file into an array.Table
-func (fr *FileReader) ReadTable(ctx context.Context) (tbl arrow.Table, err error) {
-	defer func() {
-		assertReadTable("FileReader.ReadTable", tbl, err)
-	}()
+func (fr *FileReader) ReadTable(ctx context.Context) (arrow.Table, error) {
 	var (
 		cols = []int{}
 		rgs  = []int{}
@@ -371,11 +364,7 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 
 	// output slice of columns
 	columns := make([]arrow.Column, len(sc.Fields()))
-	defer func() {
-		for _, col := range columns {
-			col.Release()
-		}
-	}()
+	defer releaseColumns(columns)
 	for data := range results {
 		if data.err != nil {
 			err = data.err
@@ -661,40 +650,25 @@ func (r *recordReader) Schema() *arrow.Schema { return r.sc }
 
 func (r *recordReader) next() bool {
 	cols := make([]arrow.Array, len(r.sc.Fields()))
-	defer func() {
-		for _, c := range cols {
-			if c != nil {
-				c.Release()
-			}
-		}
-	}()
-	readField := func(idx int, rdr *ColumnReader) (err error) {
-		defer func() {
-			if err != nil {
-				return
-			}
-			pfx := fmt.Sprintf("recordReader.readField(%d)", idx)
-			array.AssertArray(pfx, cols[idx])
-		}()
-		batch, err := rdr.NextBatch(r.batchSize)
+	defer releaseArrays(cols)
+	readField := func(idx int, rdr *ColumnReader) error {
+		data, err := rdr.NextBatch(r.batchSize)
 		if err != nil {
 			return err
 		}
-		defer batch.Release()
+		defer data.Release()
 
-		if batch.Len() == 0 {
+		if data.Len() == 0 {
 			return io.EOF
 		}
 
-		data, err := chunksToSingle("recordReader", batch)
+		arrdata, err := chunksToSingle(data)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			data.Release()
-		}()
+		defer arrdata.Release()
 
-		cols[idx] = array.MakeFromData(data)
+		cols[idx] = array.MakeFromData(arrdata)
 		return nil
 	}
 
