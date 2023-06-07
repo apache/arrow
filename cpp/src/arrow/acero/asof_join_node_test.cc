@@ -19,9 +19,12 @@
 
 #include <chrono>
 #include <memory>
+#include <mutex>
 #include <numeric>
 #include <random>
 #include <string_view>
+#include "arrow/acero/exec_plan.h"
+#include "arrow/testing/future_util.h"
 #ifndef NDEBUG
 #include <sstream>
 #endif
@@ -32,6 +35,7 @@
 #include "arrow/acero/options_internal.h"
 #endif
 #include "arrow/acero/map_node.h"
+#include "arrow/acero/query_context.h"
 #include "arrow/acero/test_nodes.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
@@ -44,6 +48,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 
 #define TRACED_TEST(t_class, t_name, t_body)  \
   TEST(t_class, t_name) {                     \
@@ -1411,46 +1416,134 @@ struct BackpressureCountingNode : public MapNode {
   BackpressureCounters* counters;
 };
 
-struct BackpressureDelayingNodeOptions : public ExecNodeOptions {
-  explicit BackpressureDelayingNodeOptions(std::function<bool()> gate) : gate(gate) {}
+class Gate {
+ public:
+  void ReleaseAllBatches() {
+    std::lock_guard lg(mutex_);
+    num_allowed_batches_ = -1;
+    NotifyAll();
+  }
 
-  std::function<bool()> gate;
+  void ReleaseOneBatch() {
+    std::lock_guard lg(mutex_);
+    DCHECK_GE(num_allowed_batches_, 0)
+        << "you can't call ReleaseOneBatch() after calling ReleaseAllBatches()";
+    num_allowed_batches_++;
+    NotifyAll();
+  }
+
+  Future<> WaitForNextReleasedBatch() {
+    std::lock_guard lg(mutex_);
+    if (current_waiter_.is_valid()) {
+      return current_waiter_;
+    }
+    Future<> fut;
+    if (num_allowed_batches_ < 0 || num_released_batches_ < num_allowed_batches_) {
+      num_released_batches_++;
+      return Future<>::MakeFinished();
+    }
+
+    current_waiter_ = Future<>::Make();
+    return current_waiter_;
+  }
+
+ private:
+  void NotifyAll() {
+    if (current_waiter_.is_valid()) {
+      Future<> to_unlock = current_waiter_;
+      current_waiter_ = {};
+      to_unlock.MarkFinished();
+    }
+  }
+
+  Future<> current_waiter_;
+  int num_released_batches_ = 0;
+  int num_allowed_batches_ = 0;
+  std::mutex mutex_;
 };
 
-struct BackpressureDelayingNode : public MapNode {
+struct GatedNodeOptions : public ExecNodeOptions {
+  explicit GatedNodeOptions(Gate* gate) : gate(gate) {}
+  Gate* gate;
+};
+
+struct GatedNode : public ExecNode, public TracedNode {
   static constexpr auto kKindName = "BackpressureDelayingNode";
   static constexpr const char* kFactoryName = "backpressure_delay";
 
   static void Register() {
     auto exec_reg = default_exec_factory_registry();
     if (!exec_reg->GetFactory(kFactoryName).ok()) {
-      ASSERT_OK(exec_reg->AddFactory(kFactoryName, BackpressureDelayingNode::Make));
+      ASSERT_OK(exec_reg->AddFactory(kFactoryName, GatedNode::Make));
     }
   }
 
-  BackpressureDelayingNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                           std::shared_ptr<Schema> output_schema,
-                           const BackpressureDelayingNodeOptions& options)
-      : MapNode(plan, inputs, output_schema), gate(options.gate) {}
+  GatedNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+            std::shared_ptr<Schema> output_schema, const GatedNodeOptions& options)
+      : ExecNode(plan, inputs, {"input"}, output_schema),
+        TracedNode(this),
+        gate_(options.gate) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, kKindName));
-    auto bp_options = static_cast<const BackpressureDelayingNodeOptions&>(options);
-    return plan->EmplaceNode<BackpressureDelayingNode>(
-        plan, inputs, inputs[0]->output_schema(), bp_options);
+    auto gated_node_opts = static_cast<const GatedNodeOptions&>(options);
+    return plan->EmplaceNode<GatedNode>(plan, inputs, inputs[0]->output_schema(),
+                                        gated_node_opts);
   }
 
   const char* kind_name() const override { return kKindName; }
-  Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
-    while (!gate()) {
-      SleepABit();
-    }
-    return batch;
+
+  const Ordering& ordering() const override { return inputs_[0]->ordering(); }
+  Status InputFinished(ExecNode* input, int total_batches) override {
+    return output_->InputFinished(this, total_batches);
+  }
+  Status StartProducing() override {
+    NoteStartProducing(ToStringExtra());
+    return Status::OK();
   }
 
-  std::function<bool()> gate;
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->PauseProducing(this, counter);
+  }
+
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    inputs_[0]->ResumeProducing(this, counter);
+  }
+
+  Status StopProducingImpl() override { return Status::OK(); }
+
+  Status InputReceived(ExecNode* input, ExecBatch batch) override {
+    auto scope = TraceInputReceived(batch);
+    DCHECK_EQ(input, inputs_[0]);
+
+    // If we are ready to release the batch, do so immediately.
+    Future<> maybe_unlocked = gate_->WaitForNextReleasedBatch();
+    if (maybe_unlocked.is_finished()) {
+      return output_->InputReceived(this, std::move(batch));
+    }
+
+    // Otherwise, we will wait for the gate to notify us and then check if we are
+    // ready to relese a batch again.
+    maybe_unlocked.AddCallback([this, input, batch](const Status& st) {
+      DCHECK_OK(st);
+      plan_->query_context()->ScheduleTask(
+          [this, input, batch] { return InputReceived(input, batch); },
+          "GatedNode::ResumeAfterNotify");
+    });
+    return Status::OK();
+  }
+
+  Gate* gate_;
 };
+
+AsyncGenerator<std::optional<ExecBatch>> GetGen(
+    AsyncGenerator<std::optional<ExecBatch>> gen) {
+  return gen;
+}
+AsyncGenerator<std::optional<ExecBatch>> GetGen(BatchesWithSchema bws) {
+  return bws.gen(false, false);
+}
 
 template <typename BatchesMaker>
 void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
@@ -1474,7 +1567,7 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
   ASSERT_OK_AND_ASSIGN(auto r1_batches, make_shift(r1_schema, 2));
 
   BackpressureCountingNode::Register();
-  BackpressureDelayingNode::Register();
+  GatedNode::Register();
 
   struct BackpressureSourceConfig {
     std::string name_prefix;
@@ -1484,6 +1577,9 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
 
     std::string name() const { return name_prefix + ";" + (is_fast ? "fast" : "slow"); }
   };
+
+  Gate gate;
+  GatedNodeOptions gate_options(&gate);
 
   // must have at least one fast and one slow
   std::vector<BackpressureSourceConfig> source_configs = {
@@ -1498,11 +1594,9 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
   std::vector<Declaration::Input> bp_decls;
   for (size_t i = 0; i < source_configs.size(); i++) {
     const auto& config = source_configs[i];
-    src_decls.emplace_back(
-        "source", SourceNodeOptions(
-                      config.schema,
-                      MakeDelayedGen(config.batches, config.name(),
-                                     config.is_fast ? fast_delay : slow_delay, noisy)));
+
+    src_decls.emplace_back("source",
+                           SourceNodeOptions(config.schema, GetGen(config.batches)));
     bp_options.push_back(
         std::make_shared<BackpressureCountingNodeOptions>(&bp_counters[i]));
     std::shared_ptr<ExecNodeOptions> options = bp_options.back();
@@ -1516,36 +1610,30 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
       "asofjoin", bp_decls,
       GetRepeatedOptions(source_configs.size(), "time", {"key"}, 1000)};
 
-  BackpressureDelayingNodeOptions delay_options([&bp_counters]() {
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<internal::ThreadPool> tpool,
+                       internal::ThreadPool::Make(1));
+  ExecContext exec_ctx(default_memory_pool(), tpool.get());
+  Future<BatchesWithCommonSchema> batches_fut =
+      DeclarationToExecBatchesAsync(asofjoin, exec_ctx);
+
+  BusyWait(10.0, [&] {
+    int total_paused = 0;
     for (const auto& counters : bp_counters) {
-      if (counters.pause_count > 0 || counters.resume_count > 0) {
-        return true;
-      }
+      total_paused += counters.pause_count;
     }
-    return false;
+    // One of the inputs is gated.  The other two will eventually be paused by the asof
+    // join node
+    return total_paused >= 2;
   });
-  Declaration delaying = {
-      BackpressureDelayingNode::kFactoryName, {asofjoin}, delay_options};
 
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> batch_reader,
-                       DeclarationToReader(delaying, /*use_threads=*/false));
+  gate.ReleaseAllBatches();
+  ASSERT_FINISHES_OK_AND_ASSIGN(BatchesWithCommonSchema batches, batches_fut);
 
-  int64_t total_length = 0;
-  for (;;) {
-    ASSERT_OK_AND_ASSIGN(auto batch, batch_reader->Next());
-    if (!batch) {
-      break;
-    }
-    total_length += batch->num_rows();
-  }
-  ASSERT_EQ(static_cast<int64_t>(num_batches * batch_size), total_length);
-
-  size_t total_count = 0;
+  size_t total_resumed = 0;
   for (const auto& counters : bp_counters) {
-    total_count += counters.pause_count;
-    total_count += counters.resume_count;
+    total_resumed += counters.resume_count;
   }
-  ASSERT_GT(total_count, 0);
+  ASSERT_GE(total_resumed, 2);
 }
 
 TEST(AsofJoinTest, BackpressureWithBatches) {
