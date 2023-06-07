@@ -2865,7 +2865,8 @@ def test_cumulative_sum(start, skip_nulls):
         for i, arr in enumerate(arrays):
             result = pc.cumulative_sum(arr, start=strt, skip_nulls=skip_nulls)
             # Add `start` offset to expected array before comparing
-            expected = pc.add(expected_arrays[i], strt if strt is not None else 0)
+            expected = pc.add(expected_arrays[i], strt if strt is not None
+                              else 0)
             assert result.equals(expected)
 
     starts = [None, start, pa.scalar(start, type=pa.float32()),
@@ -2885,7 +2886,8 @@ def test_cumulative_sum(start, skip_nulls):
         for i, arr in enumerate(arrays):
             result = pc.cumulative_sum(arr, start=strt, skip_nulls=skip_nulls)
             # Add `start` offset to expected array before comparing
-            expected = pc.add(expected_arrays[i], strt if strt is not None else 0)
+            expected = pc.add(expected_arrays[i], strt if strt is not None
+                              else 0)
             np.testing.assert_array_almost_equal(result.to_numpy(
                 zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
 
@@ -2917,7 +2919,8 @@ def test_cumulative_prod(start, skip_nulls):
         for i, arr in enumerate(arrays):
             result = pc.cumulative_prod(arr, start=strt, skip_nulls=skip_nulls)
             # Multiply `start` offset to expected array before comparing
-            expected = pc.multiply(expected_arrays[i], strt if strt is not None else 1)
+            expected = pc.multiply(expected_arrays[i], strt if strt is not None
+                                   else 1)
             assert result.equals(expected)
 
     starts = [None, start, pa.scalar(start, type=pa.float32()),
@@ -2937,7 +2940,8 @@ def test_cumulative_prod(start, skip_nulls):
         for i, arr in enumerate(arrays):
             result = pc.cumulative_prod(arr, start=strt, skip_nulls=skip_nulls)
             # Multiply `start` offset to expected array before comparing
-            expected = pc.multiply(expected_arrays[i], strt if strt is not None else 1)
+            expected = pc.multiply(expected_arrays[i], strt if strt is not None
+                                   else 1)
             np.testing.assert_array_almost_equal(result.to_numpy(
                 zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
 
@@ -2993,7 +2997,8 @@ def test_cumulative_max(start, skip_nulls):
             result = pc.cumulative_max(arr, start=strt, skip_nulls=skip_nulls)
             # Max `start` offset with expected array before comparing
             expected = pc.max_element_wise(
-                expected_arrays[i], strt if strt is not None else -1e9, skip_nulls=False)
+                expected_arrays[i], strt if strt is not None else -1e9,
+                skip_nulls=False)
             np.testing.assert_array_almost_equal(result.to_numpy(
                 zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
 
@@ -3049,7 +3054,8 @@ def test_cumulative_min(start, skip_nulls):
             result = pc.cumulative_min(arr, start=strt, skip_nulls=skip_nulls)
             # Min `start` offset with expected array before comparing
             expected = pc.min_element_wise(
-                expected_arrays[i], strt if strt is not None else 1e9, skip_nulls=False)
+                expected_arrays[i], strt if strt is not None else 1e9,
+                skip_nulls=False)
             np.testing.assert_array_almost_equal(result.to_numpy(
                 zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
 
