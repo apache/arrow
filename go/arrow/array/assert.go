@@ -30,7 +30,7 @@ func AssertDataN(pfx string, data *Data, n int64) {
 	}
 	debug.Assert(data.refCount == n, pfx+": data.refCount="+strconv.Itoa(int(data.refCount)))
 	for i, buff := range data.buffers {
-		memory.AssertBuffer(pfx+"buff["+strconv.Itoa(i)+"]", buff)
+		memory.AssertBuffer(pfx+".buff["+strconv.Itoa(i)+"]", buff)
 	}
 	if data.dictionary != nil {
 		AssertData(pfx+".data.dictionary", data.dictionary)
@@ -48,7 +48,7 @@ func AssertData(pfx string, data *Data) {
 	}
 	debug.Assert(data.refCount == 1, pfx+": data.refCount="+strconv.Itoa(int(data.refCount)))
 	for i, buff := range data.buffers {
-		memory.AssertBuffer(pfx+"buff["+strconv.Itoa(i)+"]", buff)
+		memory.AssertBuffer(pfx+".buff["+strconv.Itoa(i)+"]", buff)
 	}
 	if data.dictionary != nil {
 		AssertData(pfx+".data.dictionary", data.dictionary)

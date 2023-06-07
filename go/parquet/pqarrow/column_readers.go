@@ -71,10 +71,7 @@ func (lr *leafReader) Retain() {
 
 func (lr *leafReader) Release() {
 	if atomic.AddInt64(&lr.refCount, -1) == 0 {
-		if lr.out != nil {
-			lr.out.Release()
-			lr.out = nil
-		}
+		lr.releaseOut()
 		if lr.recordRdr != nil {
 			lr.recordRdr.Release()
 			lr.recordRdr = nil
@@ -93,10 +90,7 @@ func (lr *leafReader) GetRepLevels() ([]int16, error) {
 func (lr *leafReader) IsOrHasRepeatedChild() bool { return false }
 
 func (lr *leafReader) LoadBatch(nrecords int64) (err error) {
-	if lr.out != nil {
-		lr.out.Release()
-		lr.out = nil
-	}
+	lr.releaseOut()
 	lr.recordRdr.Reset()
 
 	if err := lr.recordRdr.Reserve(nrecords); err != nil {
@@ -125,7 +119,20 @@ func (lr *leafReader) BuildArray(int64) (ccc *arrow.Chunked, err error) {
 	defer func() {
 		assertBuildArray("leafReader", ccc, err)
 	}()
-	return lr.out, nil
+	return lr.clearOut(), nil
+}
+
+// releaseOut will clear lr.out as well as release it if it wasn't nil
+func (lr *leafReader) releaseOut() {
+	if out := lr.clearOut(); out != nil {
+		out.Release()
+	}
+}
+
+// clearOut will clear lt.out and return the old value
+func (lr *leafReader) clearOut() (out *arrow.Chunked) {
+	out, lr.out = lr.out, nil
+	return out
 }
 
 func (lr *leafReader) Field() *arrow.Field { return lr.field }
@@ -407,6 +414,9 @@ func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error)
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		arr.Release()
+	}()
 
 	// resize to actual number of elems returned
 	offsetsBuffer.Resize(arrow.Int32Traits.BytesRequired(int(validityIO.Read) + 1))
@@ -418,16 +428,20 @@ func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error)
 	if err != nil {
 		return nil, err
 	}
-	defer item.Release()
+	defer func() {
+		item.Release()
+	}()
 
 	buffers := []*memory.Buffer{nil, offsetsBuffer}
-	defer memory.ReleaseBuffers(buffers)
+	//defer func() { memory.ReleaseBuffers(buffers) }()
 	if validityIO.NullCount > 0 {
 		buffers[0] = validityBuffer
 	}
 
 	data := array.NewData(lr.field.Type, int(validityIO.Read), buffers, []arrow.ArrayData{item}, int(validityIO.NullCount), 0)
-	defer data.Release()
+	defer func() {
+		data.Release()
+	}()
 	if lr.field.Type.ID() == arrow.FIXED_SIZE_LIST {
 		defer data.Buffers()[1].Release()
 		listSize := lr.field.Type.(*arrow.FixedSizeListType).Len()
@@ -440,7 +454,11 @@ func (lr *listReader) BuildArray(lenBound int64) (ccc *arrow.Chunked, err error)
 		data.Buffers()[1] = nil
 	}
 	out := array.MakeFromData(data)
-	defer out.Release()
+	// list will retain child data extra time for the recursive MakeFromData
+	item.Release()
+	defer func() {
+		out.Release()
+	}()
 	return arrow.NewChunked(lr.field.Type, []arrow.Array{out}), nil
 }
 
