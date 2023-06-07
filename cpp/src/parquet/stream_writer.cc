@@ -251,7 +251,6 @@ void StreamWriter::WriteNullValue(ColumnWriter* writer) {
       static_cast<ByteArrayWriter*>(writer)->WriteBatch(kBatchSizeOne, &kDefLevelZero,
                                                         &kRepLevelZero, nullptr);
       break;
-      // TODO AP FIX ARTHUR PASSOS
     case Type::FIXED_LEN_BYTE_ARRAY:
       static_cast<FixedLenByteArrayWriter*>(writer)->WriteBatch(
           kBatchSizeOne, &kDefLevelZero, &kRepLevelZero, nullptr);
