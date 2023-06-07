@@ -38,9 +38,25 @@ jobs:
           env.ARCHITECTURE == 'amd64'
         run: |
           ls -lhs /usr/local/bin/
+          du -hs /usr/local/bin
           df -h
           du -hsc /opt/* /usr/local/*
           du -hsc /opt/hostedtoolcache/*
+          sudo rm  -rf /usr/local/bin/aliyun \
+                /usr/local/bin/azcopy \
+                /usr/local/bin/bicep \
+                /usr/local/bin/cmake-gui \
+                /usr/local/bin/cpack \
+                /usr/local/bin/helm \
+                /usr/local/bin/hub \
+                /usr/local/bin/kubectl \
+                /usr/local/bin/minikube \
+                /usr/local/bin/node \
+                /usr/local/bin/packer \
+                /usr/local/bin/pulumi* \
+                /usr/local/bin/stack \
+                /usr/local/bin/terraform
+          du -hs /usr/local/bin
           # 5.3GB
           sudo rm -rf /opt/hostedtoolcache/CodeQL || :
           # 1.4GB
