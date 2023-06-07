@@ -22,5 +22,5 @@ import "unsafe"
 
 func hashString(val string, alg uint64) uint64 {
 	buf := unsafe.Slice(unsafe.StringData(val), len(val))
-	return hash(buf, alg)
+	return Hash(buf, alg)
 }

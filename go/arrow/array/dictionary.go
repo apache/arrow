@@ -28,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
 	"github.com/apache/arrow/go/v13/arrow/float16"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
@@ -45,12 +46,12 @@ import (
 //
 // For example, the array:
 //
-//      ["foo", "bar", "foo", "bar", "foo", "bar"]
+//	["foo", "bar", "foo", "bar", "foo", "bar"]
 //
 // with dictionary ["bar", "foo"], would have the representation of:
 //
-//      indices: [1, 0, 1, 0, 1, 0]
-//      dictionary: ["bar", "foo"]
+//	indices: [1, 0, 1, 0, 1, 0]
+//	dictionary: ["bar", "foo"]
 //
 // The indices in principle may be any integer type.
 type Dictionary struct {
@@ -883,6 +884,11 @@ func getvalFn(arr arrow.Array) func(i int) interface{} {
 			val := typedarr.Value(i)
 			return (*(*[arrow.Decimal128SizeBytes]byte)(unsafe.Pointer(&val)))[:]
 		}
+	case *Decimal256:
+		return func(i int) interface{} {
+			val := typedarr.Value(i)
+			return (*(*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&val)))[:]
+		}
 	case *DayTimeInterval:
 		return func(i int) interface{} {
 			val := typedarr.Value(i)
@@ -1373,7 +1379,7 @@ type Decimal256DictionaryBuilder struct {
 	dictionaryBuilder
 }
 
-func (b *Decimal256DictionaryBuilder) Append(v decimal128.Num) error {
+func (b *Decimal256DictionaryBuilder) Append(v decimal256.Num) error {
 	return b.appendValue((*(*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&v)))[:])
 }
 func (b *Decimal256DictionaryBuilder) InsertDictValues(arr *Decimal256) (err error) {
