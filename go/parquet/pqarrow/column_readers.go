@@ -564,24 +564,20 @@ func transferBinary(pfx string, rdr file.RecordReader, dt arrow.DataType) (resul
 		return transferDictionary(pfx, brdr, &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: dt})
 	}
 	chunks := brdr.GetBuilderChunks()
-	switch {
-	case dt.ID() == arrow.EXTENSION:
-		etype := dt.(arrow.ExtensionType)
-		for idx, chk := range chunks {
-			chunks[idx] = array.NewExtensionArrayWithStorage(etype, chk)
-			chk.Release() // NewExtensionArrayWithStorage will call retain on chk, so it still needs to be released
-			defer chunks[idx].Release()
+	defer arrow.ReleaseArrays(chunks...)
+
+	switch dt := dt.(type) {
+	case arrow.ExtensionType:
+		for idx, chunk := range chunks {
+			array.NewExtensionData()
+			chunks[idx] = array.NewExtensionArrayWithStorage(dt, chunk)
+			// release twice: once for array.NewExtensionArrayWithStorage & once for actually removing from chunks
+			arrow.ReleaseArrays(chunk, chunk)
 		}
-	case dt == arrow.BinaryTypes.String || dt == arrow.BinaryTypes.LargeString:
-		for idx := range chunks {
-			prev := chunks[idx]
-			chunks[idx] = array.MakeFromData(chunks[idx].Data())
-			prev.Release()
-			defer chunks[idx].Release()
-		}
-	default:
-		for idx := range chunks {
-			defer chunks[idx].Release()
+	case *arrow.StringType, *arrow.LargeStringType:
+		for idx, chunk := range chunks {
+			chunks[idx] = array.MakeFromData(chunk.Data())
+			chunk.Release()
 		}
 	}
 	return arrow.NewChunked(dt, chunks)
@@ -899,8 +895,6 @@ func transferDictionary(pfx string, rdr file.RecordReader, logicalValueType arro
 	}()
 	brdr := rdr.(file.BinaryRecordReader)
 	chunks := brdr.GetBuilderChunks()
-	for _, chunk := range chunks {
-		defer chunk.Release()
-	}
+	defer arrow.ReleaseArrays(chunks...)
 	return arrow.NewChunked(logicalValueType, chunks)
 }
