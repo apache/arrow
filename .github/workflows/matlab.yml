@@ -66,8 +66,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: ccache-for-build-matlab-ubuntu-${{ hashFiles('cpp/**', 'matlab/**') }}
-          restore-keys: ccache-for-build-matlab-ubuntu-
+          key: matlab-ccache-ubuntu-${{ hashFiles('cpp/**', 'matlab/**') }}
+          restore-keys: matlab-ccache-ubuntu-
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
       - name: Run MATLAB Tests
@@ -112,8 +112,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: ccache-for-build-matlab-macos-${{ hashFiles('cpp/**', 'matlab/**') }}
-          restore-keys: ccache-for-build-matlab-macos-
+          key: matlab-ccache-macos-${{ hashFiles('cpp/**', 'matlab/**') }}
+          restore-keys: matlab-ccache-macos-
       - name: Build MATLAB Interface
         run: ci/scripts/matlab_build.sh $(pwd)
       - name: Run MATLAB Tests
@@ -153,8 +153,8 @@ jobs:
         with:
           path: |
             ${{ steps.ccache-info.outputs.cache-dir }}
-          key: ccache-for-build-matlab-windows-${{ hashFiles('cpp/**', 'matlab/**') }}
-          restore-keys: ccache-for-build-matlab-windows-
+          key: matlab-ccache-windows-${{ hashFiles('cpp/**', 'matlab/**') }}
+          restore-keys: matlab-ccache-windows-
       - name: Build MATLAB Interface
         shell: cmd
         run: |
