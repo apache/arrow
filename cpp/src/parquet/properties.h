@@ -154,7 +154,7 @@ class PARQUET_EXPORT ColumnProperties {
         statistics_enabled_(statistics_enabled),
         max_stats_size_(max_stats_size),
         compression_level_(Codec::UseDefaultCompressionLevel()),
-        page_index_enabled_(DEFAULT_IS_PAGE_INDEX_ENABLED) {}
+        page_index_enabled_(page_index_enabled) {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 

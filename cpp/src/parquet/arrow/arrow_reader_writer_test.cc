@@ -5163,6 +5163,7 @@ TEST(TestArrowReadWrite, FuzzReader) {
 namespace {
 
 struct ColumnIndexObject {
+  bool empty = false;
   std::vector<bool> null_pages;
   std::vector<std::string> min_values;
   std::vector<std::string> max_values;
@@ -5184,6 +5185,7 @@ struct ColumnIndexObject {
 
   explicit ColumnIndexObject(const ColumnIndex* column_index) {
     if (column_index == nullptr) {
+      empty = true;
       return;
     }
     null_pages = column_index->null_pages();
@@ -5348,6 +5350,30 @@ TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTrip) {
           ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(3)},
                             /*max_values=*/{encode_int64(3)}, BoundaryOrder::Ascending,
                             /*null_counts=*/{1}}));
+}
+
+TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTripWithStatsDisabled) {
+  auto writer_properties = WriterProperties::Builder()
+                               .enable_write_page_index()
+                               ->disable_statistics()
+                               ->max_row_group_length(4)
+                               ->build();
+  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
+                                 ::arrow::field("c1", ::arrow::utf8()),
+                                 ::arrow::field("c2", ::arrow::list(::arrow::int64()))});
+  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([
+      [1,     "a",  [1]      ],
+      [2,     "b",  [1, 2]   ],
+      [3,     "c",  [null]   ],
+      [null,  "d",  []       ],
+      [5,     null, [3, 3, 3]],
+      [6,     "f",  null     ]
+    ])"}));
+
+  ReadPageIndexes(/*expect_num_row_groups=*/2, /*expect_num_pages=*/1);
+  for (auto& column_index : column_indexes_) {
+    EXPECT_TRUE(column_index.empty);
+  }
 }
 
 TEST_F(ParquetPageIndexRoundTripTest, DropLargeStats) {
