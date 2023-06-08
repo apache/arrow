@@ -1776,7 +1776,7 @@ if(ARROW_WITH_PROTOBUF)
                      PC_PACKAGE_NAMES
                      protobuf)
 
-  if(NOT Protobuf_USE_STATIC_LIBS AND MSVC_TOOLCHAIN)
+  if(NOT Protobuf_USE_STATIC_LIBS)
     add_definitions(-DPROTOBUF_USE_DLLS)
   endif()
 
