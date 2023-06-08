@@ -30,7 +30,7 @@ namespace arrow {
 using ::arrow::Result;
 
 Result<std::shared_ptr<::arrow::DataType>> FromByteArray(const LogicalType& logical_type,
-                                                         bool use_binary_large_variant);
+                                                         bool use_large_binary_variants);
 
 Result<std::shared_ptr<::arrow::DataType>> FromFLBA(const LogicalType& logical_type,
                                                     int32_t physical_length);
@@ -40,17 +40,17 @@ Result<std::shared_ptr<::arrow::DataType>> FromInt64(const LogicalType& logical_
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(Type::type physical_type,
                                                         const LogicalType& logical_type,
                                                         int type_length,
-                                                        bool use_binary_large_variant);
+                                                        bool use_large_binary_variants);
 
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,
     ::arrow::TimeUnit::type int96_arrow_time_unit = ::arrow::TimeUnit::NANO,
-    bool use_binary_large_variant = false);
+    bool use_large_binary_variants = false);
 
 Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
     const schema::PrimitiveNode& primitive,
     ::arrow::TimeUnit::type int96_arrow_time_unit = ::arrow::TimeUnit::NANO,
-    bool use_binary_large_variant = false);
+    bool use_large_binary_variants = false);
 
 }  // namespace arrow
 }  // namespace parquet

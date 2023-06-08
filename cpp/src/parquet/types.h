@@ -65,7 +65,7 @@ struct Type {
     BYTE_ARRAY = 6,
     FIXED_LEN_BYTE_ARRAY = 7,
     // Should always be last element.
-    UNDEFINED
+    UNDEFINED = 8
   };
 };
 

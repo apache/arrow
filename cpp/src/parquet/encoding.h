@@ -462,7 +462,7 @@ std::unique_ptr<typename EncodingTraits<DType>::Encoder> MakeTypedEncoder(
 PARQUET_EXPORT
 std::unique_ptr<Decoder> MakeDecoder(
     Type::type type_num, Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), bool use_binary_large_variant = false);
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(), bool use_large_binary_variants = false);
 
 namespace detail {
 
@@ -470,7 +470,7 @@ PARQUET_EXPORT
 std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
                                          const ColumnDescriptor* descr,
                                          ::arrow::MemoryPool* pool,
-                                         bool use_binary_large_variant);
+                                         bool use_large_binary_variants);
 
 }  // namespace detail
 

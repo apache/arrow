@@ -3870,13 +3870,9 @@ TEST(TestArrowReaderAdHoc, CorruptedSchema) {
 
 TEST(TestArrowParquet, LargeByteArray) {
   auto path = test::get_data_file("chunked_string_map.parquet");
-
   TryReadDataFile(path, ::arrow::StatusCode::NotImplemented);
-
   auto reader_properties = default_arrow_reader_properties();
-
-  reader_properties.set_use_binary_large_variants(true);
-
+  reader_properties.set_use_large_binary_variants(true);
   TryReadDataFileWithProperties(path, reader_properties);
 }
 

@@ -124,7 +124,6 @@ class PARQUET_EXPORT ReaderProperties {
   bool buffered_stream_enabled_ = false;
   bool page_checksum_verification_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
-  bool use_binary_large_variants_ = false;
 };
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();
@@ -785,7 +784,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
         pre_buffer_(false),
         cache_options_(::arrow::io::CacheOptions::Defaults()),
         coerce_int96_timestamp_unit_(::arrow::TimeUnit::NANO),
-        use_binary_large_variants_(false) {}
+        use_large_binary_variants_(false) {}
 
   /// \brief Set whether to use the IO thread pool to parse columns in parallel.
   ///
@@ -853,12 +852,12 @@ class PARQUET_EXPORT ArrowReaderProperties {
     return coerce_int96_timestamp_unit_;
   }
 
-  void set_use_binary_large_variants(bool use_binary_large_variants) {
-    use_binary_large_variants_ = use_binary_large_variants;
+  void set_use_large_binary_variants(bool use_large_binary_variants) {
+    use_large_binary_variants_ = use_large_binary_variants;
   }
 
-  bool use_binary_large_variants() const {
-    return use_binary_large_variants_;
+  bool use_large_binary_variants() const {
+    return use_large_binary_variants_;
   }
 
  private:
@@ -869,7 +868,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::io::IOContext io_context_;
   ::arrow::io::CacheOptions cache_options_;
   ::arrow::TimeUnit::type coerce_int96_timestamp_unit_;
-  bool use_binary_large_variants_;
+  bool use_large_binary_variants_;
 };
 
 /// EXPERIMENTAL: Constructs the default ArrowReaderProperties

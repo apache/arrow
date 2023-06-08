@@ -1926,7 +1926,7 @@ template <>
 void DictDecoderImpl<LargeByteArrayType>::InsertDictionary(::arrow::ArrayBuilder* builder) {
   auto binary_builder = checked_cast<::arrow::LargeBinaryDictionary32Builder*>(builder);
 
-  // Make a BinaryArray referencing the internal dictionary data
+  // Make a LargeBinaryArray referencing the internal dictionary data
   auto arr = std::make_shared<::arrow::LargeBinaryArray>(
       dictionary_length_, byte_array_offsets_, byte_array_data_);
   PARQUET_THROW_NOT_OK(binary_builder->InsertMemoValues(*arr));
@@ -3507,7 +3507,7 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
 
 std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encoding,
                                      const ColumnDescriptor* descr,
-                                     ::arrow::MemoryPool* pool, bool use_binary_large_variant) {
+                                     ::arrow::MemoryPool* pool, bool use_large_binary_variants) {
   if (encoding == Encoding::PLAIN) {
     switch (type_num) {
       case Type::BOOLEAN:
@@ -3523,7 +3523,7 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       case Type::DOUBLE:
         return std::make_unique<PlainDecoder<DoubleType>>(descr);
       case Type::BYTE_ARRAY:
-        if (use_binary_large_variant) {
+        if (use_large_binary_variants) {
           return std::make_unique<PlainLargeByteArrayDecoder>(descr);
         } else {
           return std::make_unique<PlainByteArrayDecoder>(descr);
@@ -3578,7 +3578,7 @@ namespace detail {
 std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
                                          const ColumnDescriptor* descr,
                                          MemoryPool* pool,
-                                         bool use_binary_large_variant) {
+                                         bool use_large_binary_variants) {
   switch (type_num) {
     case Type::BOOLEAN:
       ParquetException::NYI("Dictionary encoding not implemented for boolean type");
@@ -3593,7 +3593,7 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
     case Type::DOUBLE:
       return std::make_unique<DictDecoderImpl<DoubleType>>(descr, pool);
     case Type::BYTE_ARRAY:
-      if (use_binary_large_variant) {
+      if (use_large_binary_variants) {
         return std::make_unique<DictLargeByteArrayDecoderImpl>(descr, pool);
       } else {
         return std::make_unique<DictByteArrayDecoderImpl<>>(descr, pool);
