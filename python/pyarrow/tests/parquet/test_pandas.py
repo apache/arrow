@@ -344,7 +344,12 @@ def test_index_column_name_duplicate(tempdir, use_legacy_dataset):
         }
     }
     path = str(tempdir / 'data.parquet')
+
+    # Pandas v2 defaults to [ns], but Arrow defaults to [us] time units
+    # so we need to cast the pandas dtype. Pandas v1 will always silently
+    # coerce to [ns] due to lack of non-[ns] support.
     dfx = pd.DataFrame(data, dtype='datetime64[us]').set_index('time', drop=False)
+
     tdfx = pa.Table.from_pandas(dfx)
     _write_table(tdfx, path)
     arrow_table = _read_table(path, use_legacy_dataset=use_legacy_dataset)

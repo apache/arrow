@@ -90,7 +90,6 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
     table = klass.from_pandas(df, schema=schema,
                               preserve_index=preserve_index,
                               nthreads=2 if use_threads else 1)
-
     result = table.to_pandas(use_threads=use_threads)
 
     if expected_schema:
@@ -1025,6 +1024,7 @@ class TestConvertDateTimeLikeTypes:
     @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
     def test_timestamps_with_timezone(self, unit):
         if Version(pd.__version__) < Version("2.0.0"):
+            # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
             unit = 'ns'
         df = pd.DataFrame({
             'datetime64': np.array([
@@ -1062,6 +1062,9 @@ class TestConvertDateTimeLikeTypes:
         assert isinstance(table[0].chunk(0), pa.TimestampArray)
 
         result = table.to_pandas()
+        # Pandas v2 defaults to [ns], but Arrow defaults to [us] time units
+        # so we need to cast the pandas dtype. Pandas v1 will always silently
+        # coerce to [ns] due to lack of non-[ns] support.
         expected_df = pd.DataFrame({
             'datetime': pd.Series(date_array, dtype='datetime64[us]')
         })
@@ -1116,6 +1119,10 @@ class TestConvertDateTimeLikeTypes:
         assert isinstance(table[0].chunk(0), pa.TimestampArray)
 
         result = table.to_pandas()
+
+        # Pandas v2 defaults to [ns], but Arrow defaults to [us] time units
+        # so we need to cast the pandas dtype. Pandas v1 will always silently
+        # coerce to [ns] due to lack of non-[ns] support.
         expected_df = pd.DataFrame(
             {"datetime": pd.Series(date_array, dtype='datetime64[us]')})
 
@@ -1188,10 +1195,11 @@ class TestConvertDateTimeLikeTypes:
 
         expected_dtype = 'datetime64[ms]'
         if Version(pd.__version__) < Version("2.0.0"):
+            # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
             expected_dtype = 'datetime64[ns]'
 
-        expected_s = np.array(['2000-01-01', None, '1970-01-01',
-                               '2040-02-26'], dtype=expected_dtype)
+        expected = np.array(['2000-01-01', None, '1970-01-01',
+                             '2040-02-26'], dtype=expected_dtype)
 
         objects = [pa.array(data),
                    pa.chunked_array([data])]
@@ -1203,8 +1211,8 @@ class TestConvertDateTimeLikeTypes:
             npt.assert_array_equal(result, expected_obj)
 
             result = obj.to_pandas(date_as_object=False)
-            assert result.dtype == expected_s.dtype
-            npt.assert_array_equal(result, expected_s)
+            assert result.dtype == expected.dtype
+            npt.assert_array_equal(result, expected)
 
     def test_table_convert_date_as_object(self):
         df = pd.DataFrame({
@@ -1279,6 +1287,8 @@ class TestConvertDateTimeLikeTypes:
                               dtype='datetime64[D]'))
         ex_values[1] = pd.NaT.value
 
+        # date32 and date64 convert to [ms] in pandas v2, but
+        # in pandas v1 they are siliently coerced to [ns]
         ex_datetime64ms = ex_values.astype('datetime64[ms]')
         expected_pandas = pd.DataFrame({'date32': ex_datetime64ms,
                                         'date64': ex_datetime64ms},
@@ -3426,6 +3436,7 @@ def test_table_from_pandas_schema_field_order_metadata():
     result = table.to_pandas()
     coerce_cols_to_types = {"float": "float32"}
     if Version(pd.__version__) >= Version("2.0.0"):
+        # Pandas v2 now support non-nanosecond time units
         coerce_cols_to_types["datetime"] = "datetime64[s, UTC]"
     expected = df[["float", "datetime"]].astype(coerce_cols_to_types)
 

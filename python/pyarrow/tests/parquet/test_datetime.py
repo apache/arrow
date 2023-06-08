@@ -50,7 +50,11 @@ pytestmark = pytest.mark.parquet
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_pandas_parquet_datetime_tz(use_legacy_dataset):
+    # Pandas v2 defaults to [ns], but Arrow defaults to [us] time units
+    # so we need to cast the pandas dtype. Pandas v1 will always silently
+    # coerce to [ns] due to lack of non-[ns] support.
     s = pd.Series([datetime.datetime(2017, 9, 6)], dtype='datetime64[us]')
+
     s = s.dt.tz_localize('utc')
 
     s.index = s
@@ -70,7 +74,6 @@ def test_pandas_parquet_datetime_tz(use_legacy_dataset):
     table_read = pq.read_pandas(f, use_legacy_dataset=use_legacy_dataset)
 
     df_read = table_read.to_pandas()
-
     tm.assert_frame_equal(df, df_read)
 
 
