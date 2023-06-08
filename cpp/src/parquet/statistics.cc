@@ -463,6 +463,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  public:
   using T = typename DType::c_type;
 
+  // Currently, this function will call by ColumnWriter to create the
+  // statistics collector during write.
   TypedStatisticsImpl(const ColumnDescriptor* descr, MemoryPool* pool)
       : descr_(descr),
         pool_(pool),
@@ -472,9 +474,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     comparator_ = std::static_pointer_cast<TypedComparator<DType>>(comp);
     TypedStatisticsImpl::Reset();
     has_null_count_ = true;
-    has_distinct_count_ = true;
+    has_distinct_count_ = false;
   }
 
+  // Currently, this function will call by testing.
   TypedStatisticsImpl(const T& min, const T& max, int64_t num_values, int64_t null_count,
                       int64_t distinct_count)
       : pool_(default_memory_pool()),
@@ -482,24 +485,29 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         max_buffer_(AllocateBuffer(pool_, 0)) {
     TypedStatisticsImpl::IncrementNumValues(num_values);
     TypedStatisticsImpl::IncrementNullCount(null_count);
-    IncrementDistinctCount(distinct_count);
+    SetDistinctCount(distinct_count);
 
     Copy(min, &min_, min_buffer_.get());
     Copy(max, &max_, max_buffer_.get());
     has_min_max_ = true;
   }
 
+  // Currently, this function will call by ColumnChunkMetaData during read.
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
                       bool has_null_count, bool has_distinct_count, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
     TypedStatisticsImpl::IncrementNumValues(num_values);
-    if (has_null_count_) {
+    if (has_null_count) {
       TypedStatisticsImpl::IncrementNullCount(null_count);
+    } else {
+      has_null_count_ = false;
     }
     if (has_distinct_count) {
-      IncrementDistinctCount(distinct_count);
+      SetDistinctCount(distinct_count);
+    } else {
+      has_distinct_count_ = false;
     }
 
     if (!encoded_min.empty()) {
@@ -554,12 +562,15 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->num_values_ += other.num_values();
     if (other.HasNullCount()) {
       this->statistics_.null_count += other.null_count();
+    } else {
+      this->has_null_count_ = false;
     }
-    if (other.HasDistinctCount()) {
-      this->statistics_.distinct_count += other.distinct_count();
-    }
+    // Distinct count cannot be merged.
+    this->has_distinct_count_ = false;
     if (other.HasMinMax()) {
       SetMinMax(other.min(), other.max());
+    } else {
+      this->has_min_max_ = false;
     }
   }
 
@@ -602,6 +613,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   EncodedStatistics Encode() override {
+    // Currently, distinct_count will never be set in EncodedStatistics.
     EncodedStatistics s;
     if (HasMinMax()) {
       s.set_min(this->EncodeMin());
@@ -637,8 +649,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
 
-  void IncrementDistinctCount(int64_t n) {
-    statistics_.distinct_count += n;
+  void SetDistinctCount(int64_t n) {
+    statistics_.distinct_count = n;
     has_distinct_count_ = true;
   }
 

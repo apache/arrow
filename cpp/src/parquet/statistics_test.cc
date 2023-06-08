@@ -377,6 +377,35 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     ASSERT_EQ(total->max(), std::max(statistics1->max(), statistics2->max()));
   }
 
+  void TestMergeEmpty() {
+    EncodedStatistics encoded_statistics1;
+    encoded_statistics1.has_distinct_count = false;
+    // NOTE: currently, has_null_count_ in Statistics is always true.
+    auto statistics1 =
+        Statistics::Make(this->schema_.Column(0), &encoded_statistics1, 1000);
+    auto s1 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(statistics1);
+
+    EXPECT_FALSE(statistics1->HasMinMax());
+    EXPECT_FALSE(statistics1->HasDistinctCount());
+
+    EncodedStatistics encoded_statistics2;
+    encoded_statistics2.has_distinct_count = true;
+    encoded_statistics2.distinct_count = 500;
+    auto statistics2 =
+        Statistics::Make(this->schema_.Column(0), &encoded_statistics2, 1000);
+
+    EXPECT_FALSE(statistics2->HasMinMax());
+    EXPECT_TRUE(statistics2->HasDistinctCount());
+    auto s2 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(statistics2);
+
+    auto total = MakeStatistics<TestType>(this->schema_.Column(0));
+    total->Merge(*s1);
+    total->Merge(*s2);
+
+    EXPECT_FALSE(total->HasDistinctCount());
+    EXPECT_EQ(2000, total->num_values());
+  }
+
   void TestEquals() {
     const auto n_values = 1;
     auto statistics_have_minmax1 = MakeStatistics<TestType>(this->schema_.Column(0));
@@ -583,6 +612,11 @@ TYPED_TEST_SUITE(TestNumericStatistics, NumericTypes);
 TYPED_TEST(TestNumericStatistics, Merge) {
   this->SetUpSchema(Repetition::OPTIONAL);
   ASSERT_NO_FATAL_FAILURE(this->TestMerge());
+}
+
+TYPED_TEST(TestNumericStatistics, MergeEmpty) {
+  this->SetUpSchema(Repetition::OPTIONAL);
+  ASSERT_NO_FATAL_FAILURE(this->TestMergeEmpty());
 }
 
 TYPED_TEST(TestNumericStatistics, Equals) {
@@ -1210,6 +1244,22 @@ TEST(TestStatisticsSortOrderMinMax, Unsigned) {
   ASSERT_EQ(12, stats->num_values());
   ASSERT_EQ(0x00, stats->EncodeMin()[0]);
   ASSERT_EQ(0x0b, stats->EncodeMax()[0]);
+}
+
+TEST(TestEncodedStatistics, CopySafe) {
+  EncodedStatistics encoded_statistics;
+  encoded_statistics.set_max("abc");
+  encoded_statistics.has_max = true;
+
+  encoded_statistics.set_min("abc");
+  encoded_statistics.has_min = true;
+
+  EncodedStatistics copy_statistics = encoded_statistics;
+  copy_statistics.set_max("abcd");
+  copy_statistics.set_min("a");
+
+  EXPECT_EQ("abc", encoded_statistics.min());
+  EXPECT_EQ("abc", encoded_statistics.max());
 }
 
 }  // namespace test
