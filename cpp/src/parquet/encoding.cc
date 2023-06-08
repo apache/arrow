@@ -1524,6 +1524,38 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   // Perform type-specific initiatialization
   void SetDict(TypedDecoder<Type>* dictionary) override;
 
+  template <typename T = Type,
+      typename = std::enable_if_t<std::is_same_v<T, ByteArrayType>
+          || std::is_same_v<T, LargeByteArrayType>>>
+  void SetByteArrayDict(TypedDecoder<Type>* dictionary)
+  {
+    DecodeDict(dictionary);
+
+    auto dict_values = reinterpret_cast<ByteArray*>(dictionary_->mutable_data());
+
+    int total_size = 0;
+    for (int i = 0; i < dictionary_length_; ++i) {
+      total_size += dict_values[i].len;
+    }
+    PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
+                                                  /*shrink_to_fit=*/false));
+    PARQUET_THROW_NOT_OK(
+        byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(int32_t),
+                                    /*shrink_to_fit=*/false));
+
+    int32_t offset = 0;
+    uint8_t* bytes_data = byte_array_data_->mutable_data();
+    int32_t* bytes_offsets =
+        reinterpret_cast<int32_t*>(byte_array_offsets_->mutable_data());
+    for (int i = 0; i < dictionary_length_; ++i) {
+      memcpy(bytes_data + offset, dict_values[i].ptr, dict_values[i].len);
+      bytes_offsets[i] = offset;
+      dict_values[i].ptr = bytes_data + offset;
+      offset += dict_values[i].len;
+    }
+    bytes_offsets[dictionary_length_] = offset;
+  }
+
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
     if (len == 0) {
@@ -1690,60 +1722,12 @@ void DictDecoderImpl<BooleanType>::SetDict(TypedDecoder<BooleanType>* dictionary
 
 template <>
 void DictDecoderImpl<ByteArrayType>::SetDict(TypedDecoder<ByteArrayType>* dictionary) {
-  DecodeDict(dictionary);
-
-  auto dict_values = reinterpret_cast<ByteArray*>(dictionary_->mutable_data());
-
-  int total_size = 0;
-  for (int i = 0; i < dictionary_length_; ++i) {
-    total_size += dict_values[i].len;
-  }
-  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
-                                                /*shrink_to_fit=*/false));
-  PARQUET_THROW_NOT_OK(
-      byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(int32_t),
-                                  /*shrink_to_fit=*/false));
-
-  int32_t offset = 0;
-  uint8_t* bytes_data = byte_array_data_->mutable_data();
-  int32_t* bytes_offsets =
-      reinterpret_cast<int32_t*>(byte_array_offsets_->mutable_data());
-  for (int i = 0; i < dictionary_length_; ++i) {
-    memcpy(bytes_data + offset, dict_values[i].ptr, dict_values[i].len);
-    bytes_offsets[i] = offset;
-    dict_values[i].ptr = bytes_data + offset;
-    offset += dict_values[i].len;
-  }
-  bytes_offsets[dictionary_length_] = offset;
+  SetByteArrayDict(dictionary);
 }
 
 template <>
 void DictDecoderImpl<LargeByteArrayType>::SetDict(TypedDecoder<LargeByteArrayType>* dictionary) {
-  DecodeDict(dictionary);
-
-  auto dict_values = reinterpret_cast<ByteArray*>(dictionary_->mutable_data());
-
-  int total_size = 0;
-  for (int i = 0; i < dictionary_length_; ++i) {
-    total_size += dict_values[i].len;
-  }
-  PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
-                                                /*shrink_to_fit=*/false));
-  PARQUET_THROW_NOT_OK(
-      byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(int32_t),
-                                  /*shrink_to_fit=*/false));
-
-  int32_t offset = 0;
-  uint8_t* bytes_data = byte_array_data_->mutable_data();
-  int32_t* bytes_offsets =
-      reinterpret_cast<int32_t*>(byte_array_offsets_->mutable_data());
-  for (int i = 0; i < dictionary_length_; ++i) {
-    memcpy(bytes_data + offset, dict_values[i].ptr, dict_values[i].len);
-    bytes_offsets[i] = offset;
-    dict_values[i].ptr = bytes_data + offset;
-    offset += dict_values[i].len;
-  }
-  bytes_offsets[dictionary_length_] = offset;
+  SetByteArrayDict(dictionary);
 }
 
 template <>
