@@ -1572,27 +1572,7 @@ class DatetimeWriter : public TypedPandasWriter<NPY_DATETIME> {
   }
 };
 
-class DatetimeSecondWriter : public DatetimeWriter<TimeUnit::SECOND> {
- public:
-  using DatetimeWriter<TimeUnit::SECOND>::DatetimeWriter;
-
-  Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
-    Type::type type = data->type()->id();
-    int64_t* out_values = this->GetBlockColumnStart(rel_placement);
-    if (type == Type::DATE32) {
-      // Convert from days since epoch to datetime64[s]
-      ConvertDatetimeLikeNanos<int32_t, 86400L>(*data, out_values);
-    } else {
-      const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
-      DCHECK_EQ(TimeUnit::SECOND, ts_type.unit())
-          << "Should only call instances of this writer "
-          << "with arrays of the correct unit";
-      ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull,
-                                      this->GetBlockColumnStart(rel_placement));
-    }
-    return Status::OK();
-  }
-};
+using DatetimeSecondWriter = DatetimeWriter<TimeUnit::SECOND>;
 
 class DatetimeMilliWriter : public DatetimeWriter<TimeUnit::MILLI> {
  public:
@@ -1601,8 +1581,10 @@ class DatetimeMilliWriter : public DatetimeWriter<TimeUnit::MILLI> {
   Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
     Type::type type = data->type()->id();
     int64_t* out_values = this->GetBlockColumnStart(rel_placement);
-    if (type == Type::DATE64) {
-      // Convert from days since epoch to datetime64[s]
+    if (type == Type::DATE32) {
+      // Convert from days since epoch to datetime64[ms]
+      ConvertDatetimeLikeNanos<int32_t, 86400000L>(*data, out_values);
+    } else if (type == Type::DATE64) {
       ConvertDatetimeLikeNanos<int64_t, 1LL>(*data, out_values);
     } else {
       const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
@@ -1663,32 +1645,6 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
     return Status::OK();
   }
 };
-
-// class DatetimeTZWriter : public DatetimeNanoWriter {
-//  public:
-//   DatetimeTZWriter(const PandasOptions& options, const std::string& timezone,
-//                    int64_t num_rows)
-//       : DatetimeNanoWriter(options, num_rows, 1), timezone_(timezone) {}
-
-//  protected:
-//   Status GetResultBlock(PyObject** out) override {
-//     RETURN_NOT_OK(MakeBlock1D());
-//     *out = block_arr_.obj();
-//     return Status::OK();
-//   }
-
-//   Status AddResultMetadata(PyObject* result) override {
-//     PyObject* py_tz = PyUnicode_FromStringAndSize(
-//         timezone_.c_str(), static_cast<Py_ssize_t>(timezone_.size()));
-//     RETURN_IF_PYERROR();
-//     PyDict_SetItemString(result, "timezone", py_tz);
-//     Py_DECREF(py_tz);
-//     return Status::OK();
-//   }
-
-//  private:
-//   std::string timezone_;
-// };
 
 // TODO (do not merge) how to templatize this..
 #define TZ_WRITER(NAME, PARENT_CLASS)                                       \
@@ -2141,17 +2097,7 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::INTERVAL_MONTH_DAY_NANO:  // fall through
       *output_type = PandasWriter::OBJECT;
       break;
-    case Type::DATE32:
-      if (options.date_as_object) {
-        *output_type = PandasWriter::OBJECT;
-      } else if (options.coerce_temporal_nanoseconds) {
-        *output_type = PandasWriter::DATETIME_NANO;
-      } else {
-        // Pandas doesn't support Days, so convert to seconds.
-        // This matches _pandas_type_map in types.pxi.
-        *output_type = PandasWriter::DATETIME_SECOND;
-      }
-      break;
+    case Type::DATE32: // fall through
     case Type::DATE64:
       if (options.date_as_object) {
         *output_type = PandasWriter::OBJECT;

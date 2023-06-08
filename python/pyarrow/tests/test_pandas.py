@@ -1182,7 +1182,7 @@ class TestConvertDateTimeLikeTypes:
         expected_days = np.array(['2000-01-01', None, '1970-01-01',
                                   '2040-02-26'], dtype='datetime64[D]')
 
-        expected_dtype = 'datetime64[s]'
+        expected_dtype = 'datetime64[ms]'
         if Version(pd.__version__) < Version("2.0.0"):
             expected_dtype = 'datetime64[ns]'
 
@@ -1214,7 +1214,7 @@ class TestConvertDateTimeLikeTypes:
         df_datetime = table.to_pandas(date_as_object=False)
         df_object = table.to_pandas()
 
-        tm.assert_frame_equal(df.astype('datetime64[s]'), df_datetime,
+        tm.assert_frame_equal(df.astype('datetime64[ms]'), df_datetime,
                               check_dtype=True)
         tm.assert_frame_equal(df, df_object, check_dtype=True)
 
@@ -1275,12 +1275,9 @@ class TestConvertDateTimeLikeTypes:
                               dtype='datetime64[D]'))
         ex_values[1] = pd.NaT.value
 
-        expected_pandas = pd.DataFrame({'date32': ex_values.astype('datetime64[s]'),
+        expected_pandas = pd.DataFrame({'date32': ex_values.astype('datetime64[ms]'),
                                         'date64': ex_values.astype('datetime64[ms]')},
                                        columns=colnames)
-        expected_pandas = expected_pandas.astype(
-            {'date32': 'datetime64[s]', 'date64': 'datetime64[ms]'}
-        )
         table_pandas = table.to_pandas(date_as_object=False)
         tm.assert_frame_equal(table_pandas, expected_pandas)
 

@@ -42,8 +42,8 @@ cdef dict _pandas_type_map = {
     _Type_HALF_FLOAT: np.float16,
     _Type_FLOAT: np.float32,
     _Type_DOUBLE: np.float64,
-    # Pandas does not support [D]ay, so default to [s]econd for date32
-    _Type_DATE32: np.dtype('datetime64[s]'),
+    # Pandas does not support [D]ay, so default to [ms] for date32
+    _Type_DATE32: np.dtype('datetime64[ms]'),
     _Type_DATE64: np.dtype('datetime64[ms]'),
     _Type_TIMESTAMP: {
         's': np.dtype('datetime64[s]'),
