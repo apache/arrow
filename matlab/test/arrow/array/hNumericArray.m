@@ -133,6 +133,8 @@ classdef hNumericArray < matlab.unittest.TestCase
         end
 
         function LogicalValidNVPair(tc, MakeDeepCopy)
+            % Verify the expected elements are treated as null when Valid
+            % is provided as a logical array
             data = tc.MatlabArrayFcn([1 2 3 4]);
             arrowArray = tc.ArrowArrayConstructor(data, Valid=[false true true false], DeepCopy=MakeDeepCopy);
         
@@ -144,6 +146,8 @@ classdef hNumericArray < matlab.unittest.TestCase
         end
 
         function NumericValidNVPair(tc, MakeDeepCopy)
+            % Verify the expected elements are treated as null when Valid
+            % is provided as a array of indices
             data = tc.MatlabArrayFcn([1 2 3 4]);
             arrowArray = tc.ArrowArrayConstructor(data, Valid=[2 4], DeepCopy=MakeDeepCopy);
         
@@ -151,6 +155,7 @@ classdef hNumericArray < matlab.unittest.TestCase
             expectedData([1 3]) = tc.NullSubstitutionValue;
             tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
             tc.verifyEqual(toMATLAB(arrowArray), expectedData);
+            tc.verifyEqual(arrowArray.Valid, [false; true; false; true]);
         end
     end
 end
