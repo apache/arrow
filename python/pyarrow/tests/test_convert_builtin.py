@@ -2363,3 +2363,27 @@ def test_array_from_pylist_offset_overflow():
     assert isinstance(arr, pa.ChunkedArray)
     assert len(arr) == 2**31
     assert len(arr.chunks) > 1
+
+
+@parametrize_with_collections_types
+def test_array_accepts_pyarrow_scalar(seq):
+    sequence = seq([pa.scalar(1), pa.scalar("a"), pa.scalar(3.0)])
+    with pytest.raises(pa.ArrowInvalid,
+                       match="cannot mix scalars with different types"):
+        pa.array(sequence)
+
+    sequence = seq([1, pa.scalar("a"), None])
+    with pytest.raises(pa.ArrowInvalid,
+                       match="pyarrow scalars cannot be mixed with other "
+                             "Python scalar values currently"):
+        pa.array(sequence)
+
+    # arr = pa.array([1, 2, 3])
+    # result = pa.array([arr.sum()])
+    # expect = pa.array([6])
+    # assert expect == result
+
+    # sequence = seq([pa.scalar(1), pa.scalar(2), pa.scalar(3)])
+    # result = pa.array(sequence)
+    # expect = pa.array([1, 2, 3])
+    # assert expect == result
