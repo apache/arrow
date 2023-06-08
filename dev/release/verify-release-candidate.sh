@@ -602,6 +602,10 @@ test_and_install_cpp() {
     ARROW_CMAKE_OPTIONS="${ARROW_CMAKE_OPTIONS:-} -G ${CMAKE_GENERATOR}"
   fi
 
+  if [ "$(uname)" == "Darwin" ]; then
+    brew uninstall grpc protobuf
+  fi
+
   cmake \
     -DARROW_BOOST_USE_SHARED=ON \
     -DARROW_BUILD_EXAMPLES=OFF \
