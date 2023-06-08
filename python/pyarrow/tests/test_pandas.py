@@ -1237,10 +1237,12 @@ class TestConvertDateTimeLikeTypes:
     def test_table_coerce_temporal_nanoseconds(self):
         df = pd.DataFrame({'date': [date(2000, 1, 1)]}, dtype='datetime64[ms]')
         table = pa.Table.from_pandas(df)
-        result_df = table.to_pandas(coerce_temporal_nanoseconds=True, date_as_object=False)
+        result_df = table.to_pandas(
+            coerce_temporal_nanoseconds=True, date_as_object=False)
         expected_df = df.astype('datetime64[ns]')
         tm.assert_frame_equal(result_df, expected_df)
-        result_df = table.to_pandas(coerce_temporal_nanoseconds=False, date_as_object=False)
+        result_df = table.to_pandas(
+            coerce_temporal_nanoseconds=False, date_as_object=False)
         tm.assert_frame_equal(result_df, df)
 
     def test_date_infer(self):
