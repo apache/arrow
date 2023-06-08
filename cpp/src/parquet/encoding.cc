@@ -1277,7 +1277,6 @@ struct ArrowBinaryHelperBase {
 };
 
 using ArrowBinaryHelper = ArrowBinaryHelperBase<ByteArrayType>;
-using ArrowLargeBinaryHelper = ArrowBinaryHelperBase<LargeByteArrayType>;
 
 template <>
 inline int PlainDecoder<ByteArrayType>::DecodeArrow(
