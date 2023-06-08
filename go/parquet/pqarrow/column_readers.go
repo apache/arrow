@@ -306,8 +306,8 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 	buffers := make([]*memory.Buffer, 1)
 	if validityIO.NullCount > 0 {
 		buffers[0] = nullBitmap
-		defer nullBitmap.Release()
 	}
+
 	data := array.NewData(sr.filtered.Type, int(validityIO.Read), buffers, childArrData, int(validityIO.NullCount), 0)
 	defer data.Release()
 	arr := array.NewStructData(data)
