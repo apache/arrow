@@ -343,6 +343,9 @@ class PandasWriter {
     DATETIME_MILLI,
     DATETIME_MICRO,
     DATETIME_NANO,
+    DATETIME_SECOND_TZ,
+    DATETIME_MILLI_TZ,
+    DATETIME_MICRO_TZ,
     DATETIME_NANO_TZ,
     TIMEDELTA_SECOND,
     TIMEDELTA_MILLI,
@@ -1591,7 +1594,28 @@ class DatetimeSecondWriter : public DatetimeWriter<TimeUnit::SECOND> {
   }
 };
 
-using DatetimeMilliWriter = DatetimeWriter<TimeUnit::MILLI>;
+class DatetimeMilliWriter : public DatetimeWriter<TimeUnit::MILLI> {
+ public:
+  using DatetimeWriter<TimeUnit::MILLI>::DatetimeWriter;
+
+  Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
+    Type::type type = data->type()->id();
+    int64_t* out_values = this->GetBlockColumnStart(rel_placement);
+    if (type == Type::DATE64) {
+      // Convert from days since epoch to datetime64[s]
+      ConvertDatetimeLikeNanos<int64_t, 1LL>(*data, out_values);
+    } else {
+      const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
+      DCHECK_EQ(TimeUnit::MILLI, ts_type.unit())
+          << "Should only call instances of this writer "
+          << "with arrays of the correct unit";
+      ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull,
+                                      this->GetBlockColumnStart(rel_placement));
+    }
+    return Status::OK();
+  }
+};
+
 using DatetimeMicroWriter = DatetimeWriter<TimeUnit::MICRO>;
 
 class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
@@ -1640,31 +1664,64 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
   }
 };
 
-class DatetimeTZWriter : public DatetimeNanoWriter {
- public:
-  DatetimeTZWriter(const PandasOptions& options, const std::string& timezone,
-                   int64_t num_rows)
-      : DatetimeNanoWriter(options, num_rows, 1), timezone_(timezone) {}
+// class DatetimeTZWriter : public DatetimeNanoWriter {
+//  public:
+//   DatetimeTZWriter(const PandasOptions& options, const std::string& timezone,
+//                    int64_t num_rows)
+//       : DatetimeNanoWriter(options, num_rows, 1), timezone_(timezone) {}
 
- protected:
-  Status GetResultBlock(PyObject** out) override {
-    RETURN_NOT_OK(MakeBlock1D());
-    *out = block_arr_.obj();
-    return Status::OK();
-  }
+//  protected:
+//   Status GetResultBlock(PyObject** out) override {
+//     RETURN_NOT_OK(MakeBlock1D());
+//     *out = block_arr_.obj();
+//     return Status::OK();
+//   }
 
-  Status AddResultMetadata(PyObject* result) override {
-    PyObject* py_tz = PyUnicode_FromStringAndSize(
-        timezone_.c_str(), static_cast<Py_ssize_t>(timezone_.size()));
-    RETURN_IF_PYERROR();
-    PyDict_SetItemString(result, "timezone", py_tz);
-    Py_DECREF(py_tz);
-    return Status::OK();
-  }
+//   Status AddResultMetadata(PyObject* result) override {
+//     PyObject* py_tz = PyUnicode_FromStringAndSize(
+//         timezone_.c_str(), static_cast<Py_ssize_t>(timezone_.size()));
+//     RETURN_IF_PYERROR();
+//     PyDict_SetItemString(result, "timezone", py_tz);
+//     Py_DECREF(py_tz);
+//     return Status::OK();
+//   }
 
- private:
-  std::string timezone_;
-};
+//  private:
+//   std::string timezone_;
+// };
+
+// TODO (do not merge) how to templatize this..
+#define TZ_WRITER(NAME, PARENT_CLASS)                                       \
+  class NAME : public PARENT_CLASS {                                        \
+    public:                                                                 \
+      NAME(const PandasOptions& options, const std::string& timezone,       \
+                      int64_t num_rows)                                     \
+          : PARENT_CLASS(options, num_rows, 1), timezone_(timezone) {}      \
+                                                                            \
+    protected:                                                              \
+      Status GetResultBlock(PyObject** out) override {                      \
+        RETURN_NOT_OK(MakeBlock1D());                                       \
+        *out = block_arr_.obj();                                            \
+        return Status::OK();                                                \
+      }                                                                     \
+                                                                            \
+      Status AddResultMetadata(PyObject* result) override {                 \
+        PyObject* py_tz = PyUnicode_FromStringAndSize(                      \
+            timezone_.c_str(), static_cast<Py_ssize_t>(timezone_.size()));  \
+        RETURN_IF_PYERROR();                                                \
+        PyDict_SetItemString(result, "timezone", py_tz);                    \
+        Py_DECREF(py_tz);                                                   \
+        return Status::OK();                                                \
+      }                                                                     \
+                                                                            \
+    private:                                                                \
+      std::string timezone_;                                                \
+    };
+
+TZ_WRITER(DatetimeSecondTZWriter, DatetimeSecondWriter)
+TZ_WRITER(DatetimeMilliTZWriter, DatetimeMilliWriter)
+TZ_WRITER(DatetimeMicroTZWriter, DatetimeMicroWriter)
+TZ_WRITER(DatetimeNanoTZWriter, DatetimeNanoWriter)
 
 template <TimeUnit::type UNIT>
 class TimedeltaWriter : public TypedPandasWriter<NPY_TIMEDELTA> {
@@ -1966,6 +2023,12 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
     *writer = std::make_shared<CategoricalWriter<TYPE>>(options, num_rows); \
     break;
 
+#define TZ_CASE(NAME, TYPE)                                                                   \
+  case PandasWriter::NAME: {                                                \
+    const auto& ts_type = checked_cast<const TimestampType&>(type);                     \
+    *writer = std::make_shared<TYPE>(options, ts_type.timezone(), num_rows);\
+  } break;
+
   switch (writer_type) {
     case PandasWriter::CATEGORICAL: {
       const auto& index_type = *checked_cast<const DictionaryType&>(type).index_type();
@@ -2012,10 +2075,10 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
       BLOCK_CASE(TIMEDELTA_MILLI, TimedeltaMilliWriter);
       BLOCK_CASE(TIMEDELTA_MICRO, TimedeltaMicroWriter);
       BLOCK_CASE(TIMEDELTA_NANO, TimedeltaNanoWriter);
-    case PandasWriter::DATETIME_NANO_TZ: {
-      const auto& ts_type = checked_cast<const TimestampType&>(type);
-      *writer = std::make_shared<DatetimeTZWriter>(options, ts_type.timezone(), num_rows);
-    } break;
+      TZ_CASE(DATETIME_SECOND_TZ, DatetimeSecondTZWriter);
+      TZ_CASE(DATETIME_MILLI_TZ, DatetimeMilliTZWriter);
+      TZ_CASE(DATETIME_MICRO_TZ, DatetimeMicroTZWriter);
+      TZ_CASE(DATETIME_NANO_TZ, DatetimeNanoTZWriter);
     default:
       return Status::NotImplemented("Unsupported block type");
   }
@@ -2104,24 +2167,43 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
         // Nanoseconds are never out of bounds for pandas, so in that case
         // we don't convert to object
         *output_type = PandasWriter::OBJECT;
-      } else if (!ts_type.timezone().empty()) {
-        *output_type = PandasWriter::DATETIME_NANO_TZ;
       } else if (options.coerce_temporal_nanoseconds) {
-        *output_type = PandasWriter::DATETIME_NANO;
+        if (!ts_type.timezone().empty()) {
+          *output_type = PandasWriter::DATETIME_NANO_TZ;
+        } else {
+          *output_type = PandasWriter::DATETIME_NANO;
+        }
       } else {
-        switch (ts_type.unit()) {
-          case TimeUnit::SECOND:
-            *output_type = PandasWriter::DATETIME_SECOND;
-            break;
-          case TimeUnit::MILLI:
-            *output_type = PandasWriter::DATETIME_MILLI;
-            break;
-          case TimeUnit::MICRO:
-            *output_type = PandasWriter::DATETIME_MICRO;
-            break;
-          case TimeUnit::NANO:
-            *output_type = PandasWriter::DATETIME_NANO;
-            break;
+        if (!ts_type.timezone().empty()) {
+          switch (ts_type.unit()) {
+            case TimeUnit::SECOND:
+              *output_type = PandasWriter::DATETIME_SECOND_TZ;
+              break;
+            case TimeUnit::MILLI:
+              *output_type = PandasWriter::DATETIME_MILLI_TZ;
+              break;
+            case TimeUnit::MICRO:
+              *output_type = PandasWriter::DATETIME_MICRO_TZ;
+              break;
+            case TimeUnit::NANO:
+              *output_type = PandasWriter::DATETIME_NANO_TZ;
+              break;
+          }
+        } else {
+          switch (ts_type.unit()) {
+            case TimeUnit::SECOND:
+              *output_type = PandasWriter::DATETIME_SECOND;
+              break;
+            case TimeUnit::MILLI:
+              *output_type = PandasWriter::DATETIME_MILLI;
+              break;
+            case TimeUnit::MICRO:
+              *output_type = PandasWriter::DATETIME_MICRO;
+              break;
+            case TimeUnit::NANO:
+              *output_type = PandasWriter::DATETIME_NANO;
+              break;
+          }
         }
       }
     } break;
@@ -2275,6 +2357,9 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
       int block_placement = 0;
       std::shared_ptr<PandasWriter> writer;
       if (output_type == PandasWriter::CATEGORICAL ||
+          output_type == PandasWriter::DATETIME_SECOND_TZ ||
+          output_type == PandasWriter::DATETIME_MILLI_TZ ||
+          output_type == PandasWriter::DATETIME_MICRO_TZ ||
           output_type == PandasWriter::DATETIME_NANO_TZ ||
           output_type == PandasWriter::EXTENSION) {
         RETURN_NOT_OK(MakeWriter(options_, output_type, type, num_rows_,
@@ -2310,6 +2395,9 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
     PandasWriter::type output_type = this->column_types_[i];
     switch (output_type) {
       case PandasWriter::CATEGORICAL:
+      case PandasWriter::DATETIME_SECOND_TZ:
+      case PandasWriter::DATETIME_MILLI_TZ:
+      case PandasWriter::DATETIME_MICRO_TZ:
       case PandasWriter::DATETIME_NANO_TZ:
       case PandasWriter::EXTENSION: {
         auto it = this->singleton_blocks_.find(i);

@@ -50,7 +50,7 @@ pytestmark = pytest.mark.parquet
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_pandas_parquet_datetime_tz(use_legacy_dataset):
-    s = pd.Series([datetime.datetime(2017, 9, 6)])
+    s = pd.Series([datetime.datetime(2017, 9, 6)], dtype='datetime64[us]')
     s = s.dt.tz_localize('utc')
 
     s.index = s
@@ -64,12 +64,13 @@ def test_pandas_parquet_datetime_tz(use_legacy_dataset):
 
     arrow_table = pa.Table.from_pandas(df)
 
-    _write_table(arrow_table, f, coerce_timestamps='ms')
+    _write_table(arrow_table, f)
     f.seek(0)
 
     table_read = pq.read_pandas(f, use_legacy_dataset=use_legacy_dataset)
 
     df_read = table_read.to_pandas()
+
     tm.assert_frame_equal(df, df_read)
 
 

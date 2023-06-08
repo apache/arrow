@@ -1018,13 +1018,16 @@ class TestConvertDateTimeLikeTypes:
             expected_schema=schema,
         )
 
-    def test_timestamps_with_timezone(self):
+    @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
+    def test_timestamps_with_timezone(self, unit):
+        if Version(pd.__version__) < Version("2.0.0"):
+            unit = 'ns'
         df = pd.DataFrame({
             'datetime64': np.array([
                 '2007-07-13T01:23:34.123',
                 '2006-01-13T12:34:56.432',
                 '2010-08-13T05:46:57.437'],
-                dtype='datetime64[ms]')
+                dtype=f'datetime64[{unit}]')
         })
         df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
         _check_pandas_roundtrip(df)
@@ -1272,8 +1275,8 @@ class TestConvertDateTimeLikeTypes:
                               dtype='datetime64[D]'))
         ex_values[1] = pd.NaT.value
 
-        expected_pandas = pd.DataFrame({'date32': ex_values,
-                                        'date64': ex_values},
+        expected_pandas = pd.DataFrame({'date32': ex_values.astype('datetime64[s]'),
+                                        'date64': ex_values.astype('datetime64[ms]')},
                                        columns=colnames)
         expected_pandas = expected_pandas.astype(
             {'date32': 'datetime64[s]', 'date64': 'datetime64[ms]'}
@@ -3395,7 +3398,7 @@ def test_table_from_pandas_schema_with_custom_metadata():
     assert table.schema.metadata.get(b'meta') == b'True'
 
 
-def test_table_from_pandas_schema_field_order_metadat():
+def test_table_from_pandas_schema_field_order_metadata():
     # ARROW-10532
     # ensure that a different field order in specified schema doesn't
     # mangle metadata
@@ -3419,7 +3422,9 @@ def test_table_from_pandas_schema_field_order_metadat():
     assert metadata_datetime["metadata"] == {'timezone': 'UTC'}
 
     result = table.to_pandas()
-    expected = df[["float", "datetime"]].astype({"float": "float32"})
+    expected = df[["float", "datetime"]].astype(
+        {"float": "float32", "datetime": "datetime64[s, UTC]"}
+    )
     tm.assert_frame_equal(result, expected)
 
 
