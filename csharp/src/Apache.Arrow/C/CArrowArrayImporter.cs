@@ -116,7 +116,7 @@ namespace Apache.Arrow.C
             {
                 if (_cArray.release != null)
                 {
-                    fixed (CArrowArray * cArray =  &_cArray)
+                    fixed (CArrowArray* cArray = &_cArray)
                     {
                         cArray->release(cArray);
                     }
