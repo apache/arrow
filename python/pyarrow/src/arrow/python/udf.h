@@ -43,14 +43,14 @@ struct ARROW_PYTHON_EXPORT UdfOptions {
   std::shared_ptr<DataType> output_type;
 };
 
-/// \brief A context passed as the first argument of scalar UDF functions.
-struct ARROW_PYTHON_EXPORT ScalarUdfContext {
+/// \brief A context passed as the first argument of UDF functions.
+struct ARROW_PYTHON_EXPORT UdfContext {
   MemoryPool* pool;
   int64_t batch_length;
 };
 
 using UdfWrapperCallback = std::function<PyObject*(
-    PyObject* user_function, const ScalarUdfContext& context, PyObject* inputs)>;
+    PyObject* user_function, const UdfContext& context, PyObject* inputs)>;
 
 /// \brief register a Scalar user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterScalarFunction(
@@ -59,6 +59,11 @@ Status ARROW_PYTHON_EXPORT RegisterScalarFunction(
 
 /// \brief register a Table user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterTabularFunction(
+    PyObject* user_function, UdfWrapperCallback wrapper, const UdfOptions& options,
+    compute::FunctionRegistry* registry = NULLPTR);
+
+/// \brief register a Aggregate user-defined-function from Python
+Status ARROW_PYTHON_EXPORT RegisterAggregateFunction(
     PyObject* user_function, UdfWrapperCallback wrapper, const UdfOptions& options,
     compute::FunctionRegistry* registry = NULLPTR);
 
