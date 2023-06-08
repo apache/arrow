@@ -152,7 +152,7 @@ class ConcreteFutureImpl : public FutureImpl {
   void DoWait() {
 #ifdef ARROW_ENABLE_THREADING
     std::unique_lock<std::mutex> lock(mutex_);
-    
+
     cv_.wait(lock, [this] { return IsFutureFinished(state_); });
 #else
     while (true) {
