@@ -856,9 +856,7 @@ class PARQUET_EXPORT ArrowReaderProperties {
     use_large_binary_variants_ = use_large_binary_variants;
   }
 
-  bool use_large_binary_variants() const {
-    return use_large_binary_variants_;
-  }
+  bool use_large_binary_variants() const { return use_large_binary_variants_; }
 
  private:
   bool use_threads_;

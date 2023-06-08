@@ -767,8 +767,7 @@ using ByteArrayType = PhysicalType<Type::BYTE_ARRAY>;
  * will not exceed 2^31 - 1. However, arrow supports StringType/BinaryType and their
  * large variants (i.e. LargeStringType and LargeBinaryType).
  * */
-struct LargeByteArrayType : public ByteArrayType
-{};
+struct LargeByteArrayType : public ByteArrayType {};
 
 using FLBAType = PhysicalType<Type::FIXED_LEN_BYTE_ARRAY>;
 

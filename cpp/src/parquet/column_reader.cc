@@ -2095,8 +2095,8 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
 
 // TODO Below concept could be used to simplify type assertion,
 //  but it requires c++20
-//template <typename T>
-//concept ByteArrayTypeConcept = std::is_same<T, ByteArrayType>::value ||
+// template <typename T>
+// concept ByteArrayTypeConcept = std::is_same<T, ByteArrayType>::value ||
 //                               std::is_same<T, LargeByteArrayType>::value;
 
 template <typename T>
@@ -2110,12 +2110,13 @@ struct IsByteArrayType<LargeByteArrayType> : std::true_type {};
 
 template <typename BAT>
 struct ByteArrayBuilderTypeTrait {
-  using BuilderType = typename std::conditional<std::is_same<BAT, LargeByteArrayType>::value,
-                                                ::arrow::LargeBinaryBuilder,
-                                                ::arrow::BinaryBuilder>::type;
+  using BuilderType =
+      typename std::conditional<std::is_same<BAT, LargeByteArrayType>::value,
+                                ::arrow::LargeBinaryBuilder,
+                                ::arrow::BinaryBuilder>::type;
 };
 
-template<typename BAT>
+template <typename BAT>
 class ByteArrayChunkedRecordReaderImpl : public TypedRecordReader<BAT>,
                                          virtual public BinaryRecordReader {
  public:
@@ -2125,9 +2126,9 @@ class ByteArrayChunkedRecordReaderImpl : public TypedRecordReader<BAT>,
   using BuilderType = typename ByteArrayBuilderTypeTrait<BAT>::BuilderType;
 
   ByteArrayChunkedRecordReaderImpl(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                      ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
-      : TypedRecordReader<BAT>(descr, leaf_info, pool,
-                                         read_dense_for_nullable) {
+                                   ::arrow::MemoryPool* pool,
+                                   bool read_dense_for_nullable)
+      : TypedRecordReader<BAT>(descr, leaf_info, pool, read_dense_for_nullable) {
     static_assert(IsByteArrayType<BAT>::value, "Invalid ByteArrayType");
     ARROW_DCHECK_EQ(descr_->physical_type(), Type::BYTE_ARRAY);
     accumulator_.builder = std::make_unique<BuilderType>(pool);
@@ -2165,7 +2166,8 @@ class ByteArrayChunkedRecordReaderImpl : public TypedRecordReader<BAT>,
 };
 
 using ByteArrayChunkedRecordReader = ByteArrayChunkedRecordReaderImpl<ByteArrayType>;
-using LargeByteArrayChunkedRecordReader = ByteArrayChunkedRecordReaderImpl<LargeByteArrayType>;
+using LargeByteArrayChunkedRecordReader =
+    ByteArrayChunkedRecordReaderImpl<LargeByteArrayType>;
 
 template <typename BAT>
 class ByteArrayDictionaryRecordReaderImpl : public TypedRecordReader<BAT>,
@@ -2176,7 +2178,8 @@ class ByteArrayDictionaryRecordReaderImpl : public TypedRecordReader<BAT>,
 
  public:
   ByteArrayDictionaryRecordReaderImpl(const ColumnDescriptor* descr, LevelInfo leaf_info,
-                                  ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+                                      ::arrow::MemoryPool* pool,
+                                      bool read_dense_for_nullable)
       : TypedRecordReader<BAT>(descr, leaf_info, pool, read_dense_for_nullable),
         builder_(pool) {
     this->read_dictionary_ = true;
@@ -2254,8 +2257,10 @@ class ByteArrayDictionaryRecordReaderImpl : public TypedRecordReader<BAT>,
   std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
 };
 
-using ByteArrayDictionaryRecordReader = ByteArrayDictionaryRecordReaderImpl<ByteArrayType>;
-using LargeByteArrayDictionaryRecordReader = ByteArrayDictionaryRecordReaderImpl<LargeByteArrayType>;
+using ByteArrayDictionaryRecordReader =
+    ByteArrayDictionaryRecordReaderImpl<ByteArrayType>;
+using LargeByteArrayDictionaryRecordReader =
+    ByteArrayDictionaryRecordReaderImpl<LargeByteArrayType>;
 
 // TODO(wesm): Implement these to some satisfaction
 template <>
@@ -2284,17 +2289,15 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
   }
 }
 
-std::shared_ptr<RecordReader> MakeLargeByteArrayRecordReader(const ColumnDescriptor* descr,
-                                                             LevelInfo leaf_info,
-                                                             ::arrow::MemoryPool* pool,
-                                                             bool read_dictionary,
-                                                             bool read_dense_for_nullable) {
+std::shared_ptr<RecordReader> MakeLargeByteArrayRecordReader(
+    const ColumnDescriptor* descr, LevelInfo leaf_info, ::arrow::MemoryPool* pool,
+    bool read_dictionary, bool read_dense_for_nullable) {
   if (read_dictionary) {
-    return std::make_shared<LargeByteArrayDictionaryRecordReader>(descr, leaf_info, pool,
-                                                             read_dense_for_nullable);
-  } else {
-    return std::make_shared<LargeByteArrayChunkedRecordReader>(
+    return std::make_shared<LargeByteArrayDictionaryRecordReader>(
         descr, leaf_info, pool, read_dense_for_nullable);
+  } else {
+    return std::make_shared<LargeByteArrayChunkedRecordReader>(descr, leaf_info, pool,
+                                                               read_dense_for_nullable);
   }
 }
 
@@ -2325,10 +2328,11 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
       return std::make_shared<TypedRecordReader<DoubleType>>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
     case Type::BYTE_ARRAY: {
-      return use_binary_string_large_variants ? MakeLargeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
-                                                                          read_dense_for_nullable)
-                                              : MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
-                                                                          read_dense_for_nullable);
+      return use_binary_string_large_variants
+                 ? MakeLargeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
+                                                  read_dense_for_nullable)
+                 : MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
+                                             read_dense_for_nullable);
     }
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<FLBARecordReader>(descr, leaf_info, pool,

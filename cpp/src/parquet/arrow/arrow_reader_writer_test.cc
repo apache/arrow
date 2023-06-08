@@ -3834,14 +3834,14 @@ TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
   ASSERT_EQ(expected, calculated);
 }
 
-void TryReadDataFileWithProperties(const std::string& path,
-                                   const ArrowReaderProperties& properties,
-                                   ::arrow::StatusCode expected_code = ::arrow::StatusCode::OK) {
+void TryReadDataFileWithProperties(
+    const std::string& path, const ArrowReaderProperties& properties,
+    ::arrow::StatusCode expected_code = ::arrow::StatusCode::OK) {
   auto pool = ::arrow::default_memory_pool();
 
   std::unique_ptr<FileReader> arrow_reader;
-  Status s =
-      FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), properties, &arrow_reader);
+  Status s = FileReader::Make(pool, ParquetFileReader::OpenFile(path, false), properties,
+                              &arrow_reader);
   if (s.ok()) {
     std::shared_ptr<::arrow::Table> table;
     s = arrow_reader->ReadTable(&table);

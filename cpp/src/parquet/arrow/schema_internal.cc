@@ -214,10 +214,10 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(
     const schema::PrimitiveNode& primitive,
-    const ::arrow::TimeUnit::type int96_arrow_time_unit,
-    bool use_large_binary_variants) {
+    const ::arrow::TimeUnit::type int96_arrow_time_unit, bool use_large_binary_variants) {
   return GetArrowType(primitive.physical_type(), *primitive.logical_type(),
-                      primitive.type_length(), int96_arrow_time_unit, use_large_binary_variants);
+                      primitive.type_length(), int96_arrow_time_unit,
+                      use_large_binary_variants);
 }
 
 }  // namespace arrow
