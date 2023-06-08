@@ -33,8 +33,8 @@ classdef tParseValidElements < matlab.unittest.TestCase
         end
 
         function InferNullsFalse(testCase)
-        % Verify all elements are treated as Valid wen InferNulls=false is
-        % provided - including values for which that ismissing returns true.
+            % Verify all elements are treated as Valid wen InferNulls=false is
+            % provided - including values for which that ismissing returns true.
             data = [1 NaN 3 NaN 5];
             validElements = parseValidElements(data, InferNulls=false);
             expectedValidElements = [true; true; true; true; true];
