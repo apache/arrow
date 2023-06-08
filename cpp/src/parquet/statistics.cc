@@ -560,7 +560,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Merge(const TypedStatistics<DType>& other) override {
     this->num_values_ += other.num_values();
-    if (other.HasNullCount()) {
+    // Merge always runs when Merge builder's page statistics
+    // into column chunk statistics, so it tent to have null count.
+    if (ARROW_PREDICT_TRUE(other.HasNullCount())) {
       this->statistics_.null_count += other.null_count();
     } else {
       this->has_null_count_ = false;
