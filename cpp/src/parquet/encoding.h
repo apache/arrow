@@ -24,7 +24,6 @@
 
 #include "arrow/util/spaced.h"
 
-#include "arrow/type.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -153,9 +152,6 @@ struct EncodingTraits<ByteArrayType> {
   };
   using ArrowType = ::arrow::BinaryType;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::BinaryType>;
-
-
-  static constexpr auto memory_limit = ::arrow::kBinaryMemoryLimit;
 };
 
 template <>
@@ -172,8 +168,6 @@ struct EncodingTraits<LargeByteArrayType> {
   };
   using ArrowType = ::arrow::LargeBinaryType;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::LargeBinaryType>;
-
-  static constexpr auto memory_limit = ::arrow::kLargeBinaryMemoryLimit;
 };
 
 template <>

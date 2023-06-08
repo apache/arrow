@@ -1238,20 +1238,36 @@ int PlainBooleanDecoder::Decode(bool* buffer, int max_values) {
   return max_values;
 }
 
+template <typename DType>
+struct ArrowBinaryHelperTraits;
+
+template <>
+struct ArrowBinaryHelperTraits<ByteArrayType>
+{
+  static constexpr auto memory_limit = ::arrow::kBinaryMemoryLimit;
+};
+
+template <>
+struct ArrowBinaryHelperTraits<LargeByteArrayType>
+{
+  static constexpr auto memory_limit = ::arrow::kLargeBinaryMemoryLimit;
+};
+
 template <typename BAT>
 struct ArrowBinaryHelperBase {
+
   explicit ArrowBinaryHelperBase(typename EncodingTraits<BAT>::Accumulator* out) {
     this->out = out;
     this->builder = out->builder.get();
     this->chunk_space_remaining =
-        EncodingTraits<BAT>::memory_limit - this->builder->value_data_length();
+        ArrowBinaryHelperTraits<BAT>::memory_limit - this->builder->value_data_length();
   }
 
   Status PushChunk() {
     std::shared_ptr<::arrow::Array> result;
     RETURN_NOT_OK(builder->Finish(&result));
     out->chunks.push_back(result);
-    chunk_space_remaining = ::arrow::kBinaryMemoryLimit;
+    chunk_space_remaining = ArrowBinaryHelperTraits<BAT>::memory_limit;
     return Status::OK();
   }
 
