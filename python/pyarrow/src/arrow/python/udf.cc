@@ -15,12 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
+#include "arrow/python/udf.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/python/common.h"
-#include "arrow/python/udf.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 
@@ -129,7 +128,9 @@ struct PythonUdfScalarAggregatorImpl : public ScalarUdfAggregator {
                                 std::shared_ptr<OwnedRefNoGIL> agg_function,
                                 std::vector<std::shared_ptr<DataType>> input_types,
                                 std::shared_ptr<DataType> output_type)
-      : agg_cb(std::move(agg_cb)), agg_function(agg_function), output_type(std::move(output_type)) {
+      : agg_cb(std::move(agg_cb)),
+        agg_function(agg_function),
+        output_type(std::move(output_type)) {
     Py_INCREF(agg_function->obj());
     std::vector<std::shared_ptr<Field>> fields;
     for (size_t i = 0; i < input_types.size(); i++) {
