@@ -26,8 +26,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/util/benchmark_util.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 constexpr auto kSeed = 0x0ff1ce;
 
@@ -135,6 +134,13 @@ struct TakeBenchmark {
     Bench(values);
   }
 
+  void StringView() {
+    int32_t string_min_length = 0, string_max_length = 32;
+    auto values = rand.StringView(args.size, string_min_length, string_max_length,
+                                  args.null_proportion);
+    Bench(values);
+  }
+
   void Bench(const std::shared_ptr<Array>& values) {
     double indices_null_proportion = indices_have_nulls ? args.null_proportion : 0;
     auto indices =
@@ -192,6 +198,21 @@ struct FilterBenchmark {
                                         (1 - args.values_null_proportion));
     }
     auto values = std::static_pointer_cast<StringArray>(rand.String(
+        array_size, string_min_length, string_max_length, args.values_null_proportion));
+    Bench(values);
+  }
+
+  void StringView() {
+    int32_t string_min_length = 0, string_max_length = 32;
+    int32_t string_mean_length = (string_max_length + string_min_length) / 2;
+    // for an array of 50% null strings, we need to generate twice as many strings
+    // to ensure that they have an average of args.size total characters
+    int64_t array_size = args.size;
+    if (args.values_null_proportion < 1) {
+      array_size = static_cast<int64_t>(args.size / string_mean_length /
+                                        (1 - args.values_null_proportion));
+    }
+    auto values = std::static_pointer_cast<StringViewArray>(rand.StringView(
         array_size, string_min_length, string_max_length, args.values_null_proportion));
     Bench(values);
   }
@@ -263,6 +284,14 @@ static void FilterStringFilterWithNulls(benchmark::State& state) {
   FilterBenchmark(state, true).String();
 }
 
+static void FilterStringViewFilterNoNulls(benchmark::State& state) {
+  FilterBenchmark(state, false).StringView();
+}
+
+static void FilterStringViewFilterWithNulls(benchmark::State& state) {
+  FilterBenchmark(state, true).StringView();
+}
+
 static void FilterRecordBatchNoNulls(benchmark::State& state) {
   FilterBenchmark(state, false).BenchRecordBatch();
 }
@@ -304,7 +333,19 @@ static void TakeStringRandomIndicesWithNulls(benchmark::State& state) {
 }
 
 static void TakeStringMonotonicIndices(benchmark::State& state) {
-  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).FSLInt64();
+  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).String();
+}
+
+static void TakeStringViewRandomIndicesNoNulls(benchmark::State& state) {
+  TakeBenchmark(state, false).StringView();
+}
+
+static void TakeStringViewRandomIndicesWithNulls(benchmark::State& state) {
+  TakeBenchmark(state, true).StringView();
+}
+
+static void TakeStringViewMonotonicIndices(benchmark::State& state) {
+  TakeBenchmark(state, /*indices_with_nulls=*/false, /*monotonic=*/true).StringView();
 }
 
 void FilterSetArgs(benchmark::internal::Benchmark* bench) {
@@ -321,6 +362,8 @@ BENCHMARK(FilterFSLInt64FilterNoNulls)->Apply(FilterSetArgs);
 BENCHMARK(FilterFSLInt64FilterWithNulls)->Apply(FilterSetArgs);
 BENCHMARK(FilterStringFilterNoNulls)->Apply(FilterSetArgs);
 BENCHMARK(FilterStringFilterWithNulls)->Apply(FilterSetArgs);
+BENCHMARK(FilterStringViewFilterNoNulls)->Apply(FilterSetArgs);
+BENCHMARK(FilterStringViewFilterWithNulls)->Apply(FilterSetArgs);
 
 void FilterRecordBatchSetArgs(benchmark::internal::Benchmark* bench) {
   for (auto num_cols : std::vector<int>({10, 50, 100})) {
@@ -349,6 +392,8 @@ BENCHMARK(TakeFSLInt64MonotonicIndices)->Apply(TakeSetArgs);
 BENCHMARK(TakeStringRandomIndicesNoNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeStringRandomIndicesWithNulls)->Apply(TakeSetArgs);
 BENCHMARK(TakeStringMonotonicIndices)->Apply(TakeSetArgs);
+BENCHMARK(TakeStringViewRandomIndicesNoNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeStringViewRandomIndicesWithNulls)->Apply(TakeSetArgs);
+BENCHMARK(TakeStringViewMonotonicIndices)->Apply(TakeSetArgs);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

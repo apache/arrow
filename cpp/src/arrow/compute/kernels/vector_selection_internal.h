@@ -85,6 +85,9 @@ Status DenseUnionTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status StructTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status MapTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 
+void CloneBinaryViewCharacterBuffers(const ArraySpan&, ArrayData*);
+
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

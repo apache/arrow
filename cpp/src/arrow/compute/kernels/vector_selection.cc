@@ -45,6 +45,8 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/range.h"
+#include "arrow/util/span.h"
 
 namespace arrow {
 

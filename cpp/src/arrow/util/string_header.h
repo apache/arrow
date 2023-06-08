@@ -158,7 +158,6 @@ struct alignas(8) StringHeader {
   /// This function is safe for use against both RAW POINTER and INDEX/OFFSET views.
   bool IsInline() const { return IsInline(size_); }
 
-  static constexpr bool IsInline(uint32_t size) { return size <= kInlineSize; }
   template <typename I>
   static constexpr bool IsInline(I size) {
     return size <= static_cast<I>(kInlineSize);
@@ -226,6 +225,20 @@ struct alignas(8) StringHeader {
   /// NOT VALID FOR INLINE VIEWS.
   const char* GetRawPointer() const { return value_.data; }
 
+  /// Return an INDEX/OFFSET view's data pointer.
+  ///
+  /// NOT VALID FOR INLINE VIEWS.
+  template <typename BufferPtr>
+  const char* GetPointerFromBuffers(const BufferPtr* char_buffers) const {
+    return char_buffers[GetBufferIndex()]->template data_as<char>() + GetBufferOffset();
+  }
+
+  /// Return an INDEX/OFFSET view's data pointer.
+  template <typename BufferPtr>
+  const char* GetPointerFromBuffersOrInlineData(const BufferPtr* char_buffers) const {
+    return IsInline() ? GetInlineData() : GetPointerFromBuffers(char_buffers);
+  }
+
   /// Return a the inline data of a view.
   ///
   /// For inline views, this points to the entire data of the view.
@@ -249,7 +262,7 @@ struct alignas(8) StringHeader {
     value_.io_data = {buffer_index, offset};
   }
 
-  /// Compare an INDEX/OFFSET view in place.
+  /// Equality compare an INDEX/OFFSET view in place.
   ///
   /// Equivalent comparison will be accomplished by (for example) first converting both
   /// views to std::string_view and comparing those, but this would not take advantage
@@ -263,14 +276,22 @@ struct alignas(8) StringHeader {
     if (IsInline()) {
       return InlinedAsInt64() == other.InlinedAsInt64();
     }
-    auto* ptr =
-        char_buffers[GetBufferIndex()]->template data_as<char>() + GetBufferOffset();
-    auto* other_ptr =
-        other_char_buffers[other.GetBufferIndex()]->template data_as<char>() +
-        other.GetBufferOffset();
     // Sizes are equal and this is not inline, therefore both are out of line and we
     // have already checked that their kPrefixSize first characters are equal.
-    return memcmp(ptr + kPrefixSize, other_ptr + kPrefixSize, size() - kPrefixSize) == 0;
+    return memcmp(GetPointerFromBuffers(char_buffers) + kPrefixSize,
+                  other.GetPointerFromBuffers(other_char_buffers) + kPrefixSize,
+                  size() - kPrefixSize) == 0;
+  }
+
+  /// Less-than compare an INDEX/OFFSET view in place.
+  ///
+  /// Equivalent comparison will be accomplished by (for example) first converting both
+  /// views to std::string_view and comparing those, but this would not take advantage
+  /// of the cached 4 byte prefix.
+  template <typename BufferPtr>
+  bool LessThanIndexOffset(const BufferPtr* char_buffers, const StringHeader& other,
+                           const BufferPtr* other_char_buffers) const {
+    return CompareIndexOffset(char_buffers, other, other_char_buffers) < 0;
   }
 
  private:
@@ -284,8 +305,7 @@ struct alignas(8) StringHeader {
       return memcmp(prefix_.data(), other.prefix_.data(), kPrefixSize);
     }
     int32_t size = std::min(size_, other.size_) - kPrefixSize;
-    assert(size >= 0);
-    if (size == 0) {
+    if (size <= 0) {
       // One string is just the prefix.
       return size_ - other.size_;
     }
@@ -294,6 +314,30 @@ struct alignas(8) StringHeader {
       return (result != 0) ? result : size_ - other.size_;
     }
     int32_t result = memcmp(data() + kPrefixSize, other.data() + kPrefixSize, size);
+    return (result != 0) ? result : size_ - other.size_;
+  }
+
+  template <typename BufferPtr>
+  int CompareIndexOffset(const BufferPtr* char_buffers, const StringHeader& other,
+                         const BufferPtr* other_char_buffers) const {
+    if (PrefixAsInt() != other.PrefixAsInt()) {
+      // The result is decided on prefix. The shorter will be less
+      // because the prefix is padded with zeros.
+      return memcmp(prefix_.data(), other.prefix_.data(), kPrefixSize);
+    }
+    int32_t size = std::min(size_, other.size_) - kPrefixSize;
+    if (size <= 0) {
+      // One string is just the prefix.
+      return size_ - other.size_;
+    }
+    if (static_cast<uint32_t>(size) <= kInlineSize && IsInline() && other.IsInline()) {
+      int32_t result = memcmp(value_.inlined.data(), other.value_.inlined.data(), size);
+      return (result != 0) ? result : size_ - other.size_;
+    }
+
+    int32_t result = memcmp(
+        GetPointerFromBuffersOrInlineData(char_buffers) + kPrefixSize,
+        other.GetPointerFromBuffersOrInlineData(other_char_buffers) + kPrefixSize, size);
     return (result != 0) ? result : size_ - other.size_;
   }
 

@@ -593,7 +593,7 @@ TYPED_TEST(TestFilterKernelWithDecimal, FilterNumeric) {
                                 ArrayFromJSON(boolean(), "[]"), this->drop_));
 }
 
-TEST(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
+TEST_F(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
   auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
   auto filter = ArrayFromJSON(boolean(), "[true, true, false, true]");
 
@@ -642,6 +642,14 @@ TYPED_TEST(TestFilterKernelWithString, FilterString) {
   this->AssertFilter(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");
   this->AssertFilter(R"([null, "b", "c"])", "[0, 1, 0]", R"(["b"])");
   this->AssertFilter(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b"])");
+}
+
+TEST_F(TestFilterKernel, FilterStringView) {
+  for (auto type : {utf8_view(), binary_view()}) {
+    AssertFilter(type, R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");
+    AssertFilter(type, R"([null, "b", "c"])", "[0, 1, 0]", R"(["b"])");
+    AssertFilter(type, R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b"])");
+  }
 }
 
 TYPED_TEST(TestFilterKernelWithString, FilterDictionary) {
@@ -1292,6 +1300,24 @@ TYPED_TEST(TestTakeKernelWithString, TakeString) {
                                      "[2, 5]", &arr));
 }
 
+TEST_F(TestTakeKernel, TakeStringView) {
+  for (auto type : {utf8_view(), binary_view()}) {
+    ARROW_SCOPED_TRACE(*type);
+    CheckTake(type, R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");
+    CheckTake(type, R"([null, "b", "c"])", "[0, 1, 0]", "[null, \"b\", null]");
+    CheckTake(type, R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b", "a"])");
+
+    this->TestNoValidityBitmapButUnknownNullCount(type, R"(["a", "b", "c"])",
+                                                  "[0, 1, 0]");
+
+    std::shared_ptr<Array> arr;
+    ASSERT_RAISES(IndexError,
+                  TakeJSON(type, R"(["a", "b", "c"])", int8(), "[0, 9, 0]", &arr));
+    ASSERT_RAISES(IndexError, TakeJSON(type, R"(["a", "b", null, "ddd", "ee"])", int64(),
+                                       "[2, 5]", &arr));
+  }
+}
+
 TYPED_TEST(TestTakeKernelWithString, TakeDictionary) {
   auto dict = R"(["a", "b", "c", "d", "e"])";
   this->AssertTakeDictionary(dict, "[3, 4, 2]", "[0, 1, 0]", "[3, 4, 3]");
@@ -1897,6 +1923,7 @@ TEST(TestFilter, RandomBoolean) { FilterRandomTest<>::Test(boolean()); }
 TEST(TestFilter, RandomString) {
   FilterRandomTest<>::Test(utf8());
   FilterRandomTest<>::Test(large_utf8());
+  FilterRandomTest<>::Test(utf8_view());
 }
 
 TEST(TestFilter, RandomFixedSizeBinary) {
@@ -1911,6 +1938,7 @@ TEST(TestTake, RandomBoolean) { TakeRandomTest<BooleanType>::Test(boolean()); }
 TEST(TestTake, RandomString) {
   TakeRandomTest<StringType>::Test(utf8());
   TakeRandomTest<LargeStringType>::Test(large_utf8());
+  TakeRandomTest<StringViewType>::Test(utf8_view());
 }
 
 TEST(TestTake, RandomFixedSizeBinary) {
@@ -2046,10 +2074,19 @@ TYPED_TEST_SUITE(TestDropNullKernelWithString, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestDropNullKernelWithString, DropNullString) {
   this->AssertDropNull(R"(["a", "b", "c"])", R"(["a", "b", "c"])");
-  this->AssertDropNull(R"([null, "b", "c"])", "[\"b\", \"c\"]");
+  this->AssertDropNull(R"([null, "b", "c"])", R"(["b", "c"])");
   this->AssertDropNull(R"(["a", "b", null])", R"(["a", "b"])");
 
   this->TestNoValidityBitmapButUnknownNullCount(this->value_type(), R"(["a", "b", "c"])");
+}
+
+TEST_F(TestDropNullKernel, DropNullStringView) {
+  for (auto type : {utf8_view(), binary_view()}) {
+    CheckDropNull(type, R"(["a", "b", "c"])", R"(["a", "b", "c"])");
+    CheckDropNull(type, R"([null, "b", "c"])", R"(["b", "c"])");
+    CheckDropNull(type, R"(["a", "b", null])", R"(["a", "b"])");
+    this->TestNoValidityBitmapButUnknownNullCount(type, R"(["a", "b", "c"])");
+  }
 }
 
 TYPED_TEST(TestDropNullKernelWithString, DropNullDictionary) {

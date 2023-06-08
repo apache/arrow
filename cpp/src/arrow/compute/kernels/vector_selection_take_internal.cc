@@ -48,8 +48,7 @@ using internal::BitBlockCounter;
 using internal::CheckIndexBounds;
 using internal::OptionalBitBlockCounter;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
 
@@ -386,7 +385,9 @@ struct PrimitiveTakeImpl {
             ++position;
           }
         } else {
-          memset(out + position, 0, sizeof(ValueCType) * block.length);
+          memset(static_cast<void*>(
+                     out + position),  // silence "StringHeader is non-trivial" warning
+                 0, sizeof(ValueCType) * block.length);
           position += block.length;
         }
       } else {
@@ -423,7 +424,9 @@ struct PrimitiveTakeImpl {
             ++position;
           }
         } else {
-          memset(out + position, 0, sizeof(ValueCType) * block.length);
+          memset(static_cast<void*>(
+                     out + position),  // silence "StringHeader is non-trivial" warning
+                 0, sizeof(ValueCType) * block.length);
           position += block.length;
         }
       }
@@ -592,6 +595,24 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
       DCHECK(false) << "Invalid values byte width";
       break;
   }
+  return Status::OK();
+}
+
+Status BinaryViewTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+  const ArraySpan& indices = batch[1].array;
+
+  if (TakeState::Get(ctx).boundscheck) {
+    RETURN_NOT_OK(CheckIndexBounds(indices, values.length));
+  }
+
+  ArrayData* out_arr = out->array_data().get();
+  RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, indices.length,
+                                              8 * sizeof(StringHeader),
+                                              /*allocate_validity=*/true, out_arr));
+  TakeIndexDispatch<PrimitiveTakeImpl, StringHeader>(values, indices, out_arr);
+
+  CloneBinaryViewCharacterBuffers(values, out_arr);
   return Status::OK();
 }
 
@@ -834,6 +855,8 @@ void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::Primitive()), take_indices, PrimitiveTakeExec},
       {InputType(match::BinaryLike()), take_indices, VarBinaryTakeExec},
       {InputType(match::LargeBinaryLike()), take_indices, LargeVarBinaryTakeExec},
+      {InputType(Type::BINARY_VIEW), take_indices, BinaryViewTakeExec},
+      {InputType(Type::STRING_VIEW), take_indices, BinaryViewTakeExec},
       {InputType(Type::FIXED_SIZE_BINARY), take_indices, FSBTakeExec},
       {InputType(null()), take_indices, NullTakeExec},
       {InputType(Type::DECIMAL128), take_indices, FSBTakeExec},
@@ -849,6 +872,5 @@ void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
   };
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

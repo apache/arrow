@@ -25,8 +25,7 @@
 #include "arrow/util/benchmark_util.h"
 #include "arrow/util/logging.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 constexpr auto kSeed = 0x0ff1ce;
 constexpr int32_t kDictionarySize = 24;  // a typical dictionary size
@@ -132,6 +131,21 @@ static void ArraySortFuncStringBenchmark(benchmark::State& state, const Runner& 
 
   auto rand = random::RandomArrayGenerator(kSeed);
   auto values = rand.String(array_size, min_length, max_length, args.null_proportion);
+
+  ArraySortFuncBenchmark(state, runner, values);
+}
+
+template <typename Runner>
+static void ArraySortFuncStringViewBenchmark(benchmark::State& state,
+                                             const Runner& runner, int32_t min_length,
+                                             int32_t max_length) {
+  RegressionArgs args(state);
+
+  const int64_t array_size =
+      GetStringArraySize(args.size, min_length, max_length, args.null_proportion);
+
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto values = rand.StringView(array_size, min_length, max_length, args.null_proportion);
 
   ArraySortFuncBenchmark(state, runner, values);
 }
@@ -269,6 +283,18 @@ static void ArraySortIndicesStringWideDict(benchmark::State& state) {
   const auto max_length = 64;
   ArraySortFuncStringDictBenchmark(state, SortRunner(state), min_length, max_length,
                                    dict_size);
+}
+
+static void ArraySortIndicesStringViewNarrow(benchmark::State& state) {
+  const auto min_length = 0;
+  const auto max_length = 16;
+  ArraySortFuncStringViewBenchmark(state, SortRunner(state), min_length, max_length);
+}
+
+static void ArraySortIndicesStringViewWide(benchmark::State& state) {
+  const auto min_length = 0;
+  const auto max_length = 64;
+  ArraySortFuncStringViewBenchmark(state, SortRunner(state), min_length, max_length);
 }
 
 static void ArrayRankStringNarrow(benchmark::State& state) {
@@ -458,6 +484,8 @@ BENCHMARK(ArraySortIndicesBool)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ArraySortIndicesStringNarrow)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ArraySortIndicesStringWide)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ArraySortIndicesStringWideDict)->Apply(ArraySortIndicesSetArgs);
+BENCHMARK(ArraySortIndicesStringViewNarrow)->Apply(ArraySortIndicesSetArgs);
+BENCHMARK(ArraySortIndicesStringViewWide)->Apply(ArraySortIndicesSetArgs);
 
 BENCHMARK(ChunkedArraySortIndicesInt64Narrow)->Apply(ArraySortIndicesSetArgs);
 BENCHMARK(ChunkedArraySortIndicesInt64Wide)->Apply(ArraySortIndicesSetArgs);
@@ -534,5 +562,4 @@ BENCHMARK(ArrayRankStringWide)->Apply(ArrayRankSetArgs);
 BENCHMARK(ChunkedArrayRankInt64Narrow)->Apply(ArrayRankSetArgs);
 BENCHMARK(ChunkedArrayRankInt64Wide)->Apply(ArrayRankSetArgs);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

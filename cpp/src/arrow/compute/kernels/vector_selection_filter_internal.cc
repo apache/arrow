@@ -39,6 +39,8 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/range.h"
+#include "arrow/util/span.h"
 
 namespace arrow {
 
@@ -149,12 +151,11 @@ class DropNullCounter {
 /// generate one take function for each byte width. We use the same
 /// implementation here for boolean and fixed-byte-size inputs with some
 /// template specialization.
-template <typename ArrowType>
+template <typename ArrowType,
+          typename T = std::conditional_t<std::is_same<ArrowType, BooleanType>::value,
+                                          uint8_t, typename ArrowType::c_type>>
 class PrimitiveFilterImpl {
  public:
-  using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
-                                      uint8_t, typename ArrowType::c_type>::type;
-
   PrimitiveFilterImpl(const ArraySpan& values, const ArraySpan& filter,
                       FilterOptions::NullSelectionBehavior null_selection,
                       ArrayData* out_arr)
@@ -206,7 +207,7 @@ class PrimitiveFilterImpl {
             } else {
               bit_util::SetBitsTo(out_is_valid_, out_offset_ + out_position_,
                                   segment_length, false);
-              memset(out_data_ + out_offset_ + out_position_, 0,
+              memset(static_cast<void*>(out_data_ + out_offset_ + out_position_), 0,
                      segment_length * sizeof(T));
               out_position_ += segment_length;
             }
@@ -228,7 +229,7 @@ class PrimitiveFilterImpl {
           } else {
             bit_util::SetBitsTo(out_is_valid_, out_offset_ + out_position_,
                                 segment_length, false);
-            memset(out_data_ + out_offset_ + out_position_, 0,
+            memset(static_cast<void*>(out_data_ + out_offset_ + out_position_), 0,
                    segment_length * sizeof(T));
             out_position_ += segment_length;
           }
@@ -824,6 +825,45 @@ Status BinaryFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
   return Status::OK();
 }
 
+Status BinaryViewFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+  const ArraySpan& filter = batch[1].array;
+  const bool is_ree_filter = filter.type->id() == Type::RUN_END_ENCODED;
+  FilterOptions::NullSelectionBehavior null_selection =
+      FilterState::Get(ctx).null_selection_behavior;
+
+  int64_t output_length = GetFilterOutputSize(filter, null_selection);
+
+  ArrayData* out_arr = out->array_data().get();
+
+  const bool filter_null_count_is_zero =
+      is_ree_filter ? filter.child_data[1].null_count == 0 : filter.null_count == 0;
+
+  // The output precomputed null count is unknown except in the narrow
+  // condition that all the values are non-null and the filter will not cause
+  // any new nulls to be created.
+  if (values.null_count == 0 &&
+      (null_selection == FilterOptions::DROP || filter_null_count_is_zero == 0)) {
+    out_arr->null_count = 0;
+  } else {
+    out_arr->null_count = kUnknownNullCount;
+  }
+
+  // When neither the values nor filter is known to have any nulls, we will
+  // elect the optimized ExecNonNull path where there is no need to populate a
+  // validity bitmap.
+  bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
+
+  RETURN_NOT_OK(PreallocatePrimitiveArrayData(
+      ctx, output_length, sizeof(StringHeader) * CHAR_BIT, allocate_validity, out_arr));
+
+  PrimitiveFilterImpl<BinaryViewType, StringHeader>(values, filter, null_selection,
+                                                    out_arr)
+      .Exec();
+  CloneBinaryViewCharacterBuffers(values, out_arr);
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // Null filter
 
@@ -1037,6 +1077,8 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::Primitive()), plain_filter, PrimitiveFilterExec},
       {InputType(match::BinaryLike()), plain_filter, BinaryFilterExec},
       {InputType(match::LargeBinaryLike()), plain_filter, BinaryFilterExec},
+      {InputType(Type::BINARY_VIEW), plain_filter, BinaryViewFilterExec},
+      {InputType(Type::STRING_VIEW), plain_filter, BinaryViewFilterExec},
       {InputType(Type::FIXED_SIZE_BINARY), plain_filter, FSBFilterExec},
       {InputType(null()), plain_filter, NullFilterExec},
       {InputType(Type::DECIMAL128), plain_filter, FSBFilterExec},

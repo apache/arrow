@@ -33,6 +33,7 @@
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -77,14 +78,35 @@ struct PartitionNthToIndices {
     }
     const auto p = PartitionNulls<ArrayType, NonStablePartitioner>(
         out_begin, out_end, arr, 0, options.null_placement);
+
     auto nth_begin = out_begin + pivot;
     if (nth_begin >= p.non_nulls_begin && nth_begin < p.non_nulls_end) {
-      std::nth_element(p.non_nulls_begin, nth_begin, p.non_nulls_end,
-                       [&arr](uint64_t left, uint64_t right) {
-                         const auto lval = GetView::LogicalValue(arr.GetView(left));
-                         const auto rval = GetView::LogicalValue(arr.GetView(right));
-                         return lval < rval;
-                       });
+      if constexpr (is_binary_view_like_type<InType>::value) {
+        const StringHeader* headers = arr.raw_values();
+        const auto* char_buffers = arr.data()->buffers.data() + 2;
+
+        auto Partition = [&](auto has_raw_pointers) {
+          std::nth_element(p.non_nulls_begin, nth_begin, p.non_nulls_end,
+                           [&](uint64_t left, uint64_t right) {
+                             const auto& lval = headers[left];
+                             const auto& rval = headers[right];
+                             if constexpr (has_raw_pointers) return lval < rval;
+                             // we must compare the views in place with the array's
+                             // character buffers
+                             return lval.LessThanIndexOffset(char_buffers, rval,
+                                                             char_buffers);
+                           });
+        };
+        arr.has_raw_pointers() ? Partition(/*has_raw_pointers=*/std::true_type{})
+                               : Partition(/*has_raw_pointers=*/std::false_type{});
+      } else {
+        std::nth_element(p.non_nulls_begin, nth_begin, p.non_nulls_end,
+                         [&arr](uint64_t left, uint64_t right) {
+                           const auto lval = GetView::LogicalValue(arr.GetView(left));
+                           const auto rval = GetView::LogicalValue(arr.GetView(right));
+                           return lval < rval;
+                         });
+      }
     }
     return Status::OK();
   }
@@ -168,6 +190,53 @@ class ArrayCompareSorter {
             // If we use 'right < left' here, '<' is only required.
             return rhs < lhs;
           });
+    }
+    return p;
+  }
+};
+
+template <>
+class ArrayCompareSorter<BinaryViewType> {
+ public:
+  Result<NullPartitionResult> operator()(uint64_t* indices_begin, uint64_t* indices_end,
+                                         const Array& array, int64_t offset,
+                                         const ArraySortOptions& options, ExecContext*) {
+    const auto& values = checked_cast<const BinaryViewArray&>(array);
+    const StringHeader* headers = values.raw_values();
+
+    const auto p = PartitionNulls<BinaryViewArray, StablePartitioner>(
+        indices_begin, indices_end, values, offset, options.null_placement);
+    const auto* char_buffers = values.data()->buffers.data() + 2;
+
+    auto Sort = [&](auto has_raw_pointers, auto ascending) {
+      std::stable_sort(
+          p.non_nulls_begin, p.non_nulls_end, [&](uint64_t left, uint64_t right) {
+            const auto& lhs = headers[left - offset];
+            const auto& rhs = headers[right - offset];
+
+            if constexpr (has_raw_pointers) {
+              if constexpr (ascending) return lhs < rhs;
+              if constexpr (!ascending) return rhs < lhs;
+            }
+
+            // we must compare the views in place with the array's
+            // character buffers
+            if constexpr (ascending) {
+              return lhs.LessThanIndexOffset(char_buffers, rhs, char_buffers);
+            } else {
+              return rhs.LessThanIndexOffset(char_buffers, lhs, char_buffers);
+            }
+          });
+    };
+
+    if (options.order == SortOrder::Ascending) {
+      values.has_raw_pointers()
+          ? Sort(/*has_raw_pointers=*/std::true_type{}, /*ascending=*/std::true_type{})
+          : Sort(/*has_raw_pointers=*/std::false_type{}, /*ascending=*/std::true_type{});
+    } else {
+      values.has_raw_pointers()
+          ? Sort(/*has_raw_pointers=*/std::true_type{}, /*ascending=*/std::false_type{})
+          : Sort(/*has_raw_pointers=*/std::false_type{}, /*ascending=*/std::false_type{});
     }
     return p;
   }
@@ -501,6 +570,11 @@ struct ArraySorter<
   ArrayCompareSorter<Type> impl;
 };
 
+template <>
+struct ArraySorter<BinaryViewType> {
+  ArrayCompareSorter<BinaryViewType> impl;
+};
+
 struct ArraySorterFactory {
   ArraySortFunc sorter;
 
@@ -594,6 +668,15 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
     base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
+
+  base.signature = KernelSignature::Make({utf8_view()}, uint64());
+  base.exec = ExecTemplate<UInt64Type, StringViewType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
+
+  base.signature = KernelSignature::Make({binary_view()}, uint64());
+  base.exec = ExecTemplate<UInt64Type, BinaryViewType>::Exec;
+  DCHECK_OK(func->AddKernel(base));
+
   base.signature = KernelSignature::Make({Type::FIXED_SIZE_BINARY}, uint64());
   base.exec = ExecTemplate<UInt64Type, FixedSizeBinaryType>::Exec;
   DCHECK_OK(func->AddKernel(base));

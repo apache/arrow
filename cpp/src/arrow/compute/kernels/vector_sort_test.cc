@@ -593,7 +593,7 @@ template <typename ArrowType>
 class TestArraySortIndicesForTemporal : public TestArraySortIndices<ArrowType> {};
 TYPED_TEST_SUITE(TestArraySortIndicesForTemporal, TemporalArrowTypes);
 
-using StringSortTestTypes = testing::Types<StringType, LargeStringType>;
+using StringSortTestTypes = testing::Types<StringType, LargeStringType, StringViewType>;
 
 template <typename ArrowType>
 class TestArraySortIndicesForStrings : public TestArraySortIndices<ArrowType> {};

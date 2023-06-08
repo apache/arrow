@@ -39,7 +39,9 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/range.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/span.h"
 
 namespace arrow {
 
@@ -915,6 +917,21 @@ Status StructTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out
 
 Status MapTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return TakeExec<ListSelectionImpl<MapType>>(ctx, batch, out);
+}
+
+void CloneBinaryViewCharacterBuffers(const ArraySpan& values, ArrayData* out_arr) {
+  // copy the character buffers into the output
+  util::span char_buffers(
+      reinterpret_cast<const std::shared_ptr<Buffer>*>(values.buffers[2].data),
+      values.buffers[2].size / sizeof(std::shared_ptr<Buffer>));
+
+  out_arr->buffers.resize(char_buffers.size() + 2);
+  auto out_char_buffers = util::span(out_arr->buffers).subspan(2);
+
+  for (auto&& [out_char_buffer, char_buffer] :
+       arrow::internal::Zip(out_char_buffers, char_buffers)) {
+    out_char_buffer = char_buffer;
+  }
 }
 
 }  // namespace internal
