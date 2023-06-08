@@ -1481,13 +1481,7 @@ class TestConvertDateTimeLikeTypes:
 
     def test_timestamp_to_pandas_out_of_bounds(self):
         # ARROW-7758 check for out of bounds timestamps for non-ns timestamps
-
-        if Version(pd.__version__) < Version("2.1.0.dev"):
-            # GH-35235: test fail due to __from_pyarrow__ being added to pandas
-            # https://github.com/pandas-dev/pandas/pull/52201
-            # Needs: https://github.com/apache/arrow/issues/33321
-            pytest.skip(
-                "Need support converting to non-nano datetime64 for pandas >= 2.0")
+        # that end up getting coerced into ns timestamps.
 
         for unit in ['s', 'ms', 'us']:
             for tz in [None, 'America/New_York']:
@@ -1496,20 +1490,20 @@ class TestConvertDateTimeLikeTypes:
 
                 msg = "would result in out of bounds timestamp"
                 with pytest.raises(ValueError, match=msg):
-                    arr.to_pandas()
+                    print(arr.to_pandas(coerce_temporal_nanoseconds=True))
 
                 with pytest.raises(ValueError, match=msg):
-                    table.to_pandas()
+                    table.to_pandas(coerce_temporal_nanoseconds=True)
 
                 with pytest.raises(ValueError, match=msg):
                     # chunked array
-                    table.column('a').to_pandas()
+                    table.column('a').to_pandas(coerce_temporal_nanoseconds=True)
 
                 # just ensure those don't give an error, but do not
                 # check actual garbage output
-                arr.to_pandas(safe=False)
-                table.to_pandas(safe=False)
-                table.column('a').to_pandas(safe=False)
+                arr.to_pandas(safe=False, coerce_temporal_nanoseconds=True)
+                table.to_pandas(safe=False, coerce_temporal_nanoseconds=True)
+                table.column('a').to_pandas(safe=False, coerce_temporal_nanoseconds=True)
 
     def test_timestamp_to_pandas_empty_chunked(self):
         # ARROW-7907 table with chunked array with 0 chunks
