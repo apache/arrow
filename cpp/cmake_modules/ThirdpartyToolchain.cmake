@@ -1758,8 +1758,10 @@ endmacro()
 
 if(ARROW_WITH_PROTOBUF)
   if(ARROW_FLIGHT_SQL)
-    # Flight SQL uses proto3 optionals, which require 3.15 or later.
-    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.15.0")
+    # Flight SQL uses proto3 optionals, which require 3.12 or later.
+    # 3.12.0-3.14.0: need --experimental_allow_proto3_optional
+    # 3.15.0-: don't need --experimental_allow_proto3_optional
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.12.0")
   elseif(ARROW_SUBSTRAIT)
     # Substrait protobuf files use proto3 syntax
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.0.0")
