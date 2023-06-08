@@ -65,6 +65,8 @@ RUN apt-get update -y -q && \
         libgoogle-glog-dev \
         libgrpc++-dev \
         liblz4-dev \
+        libprotobuf-dev \
+        libprotoc-dev \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
