@@ -1159,7 +1159,7 @@ cdef class DurationType(DataType):
         >>> import pyarrow as pa
         >>> d = pa.duration('ms')
         >>> d.to_pandas_dtype()
-        timedelta64[ms]
+        dtype('<m8[ms]')
         """
         return _get_pandas_type(_Type_DURATION, self.unit)
 
