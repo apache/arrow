@@ -864,7 +864,7 @@ BasicDecimal256& BasicDecimal256::operator<<=(uint32_t bits) {
   }
   uint32_t in_word_shift = bits % 64;
   auto array_le = bit_util::little_endian::Make(&array_);
-  for (int i = kWordWidth; i >= cross_word_shift; i--) {
+  for (int i = kWordWidth - 1; i >= cross_word_shift; i--) {
     // Account for shifts larger then 64 bits
     array_le[i] = array_le[i - cross_word_shift];
     array_le[i] <<= in_word_shift;

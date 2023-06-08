@@ -72,7 +72,7 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
   static constexpr int kMaxPrecision = DecimalType::kMaxPrecision;
   static constexpr int kMaxScale = DecimalType::kMaxScale;
 
-  static const auto DecimalPowerOfTen(int exp) {
+  static const auto& DecimalPowerOfTen(int exp) {
     DCHECK(exp >= 0 && exp <= kMaxPrecision);
     return DecimalTypeTraits::powers_of_ten()[exp];
   }
