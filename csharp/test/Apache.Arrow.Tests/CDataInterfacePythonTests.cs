@@ -437,7 +437,7 @@ namespace Apache.Arrow.Tests
             }
 
             ArrowType type = CArrowSchemaImporter.ImportType(cSchema);
-            StringArray importedArray = (StringArray)CArrowArrayImporter.ImportArray(cArray, type, freeOnRelease: true);
+            StringArray importedArray = (StringArray)CArrowArrayImporter.ImportArray(cArray, type);
 
             Assert.Equal(5, importedArray.Length);
             Assert.Equal("hello", importedArray.GetString(0));
@@ -445,6 +445,8 @@ namespace Apache.Arrow.Tests
             Assert.Null(importedArray.GetString(2));
             Assert.Equal("foo", importedArray.GetString(3));
             Assert.Equal("bar", importedArray.GetString(4));
+
+            CArrowArray.Free(cArray);
         }
 
         [SkippableFact]
@@ -487,7 +489,8 @@ namespace Apache.Arrow.Tests
             }
 
             Schema schema = CArrowSchemaImporter.ImportSchema(cSchema);
-            RecordBatch recordBatch = CArrowArrayImporter.ImportRecordBatch(cArray, schema, freeOnRelease: true);
+            RecordBatch recordBatch = CArrowArrayImporter.ImportRecordBatch(cArray, schema);
+            CArrowArray.Free(cArray);
 
             Assert.Equal(5, recordBatch.Length);
 
@@ -562,7 +565,9 @@ namespace Apache.Arrow.Tests
                 batchReader._export_to_c(streamPtr);
             }
 
-            IArrowArrayStream stream = CArrowArrayStreamImporter.ImportArrayStream(cArrayStream, freeOnRelease: true);
+            IArrowArrayStream stream = CArrowArrayStreamImporter.ImportArrayStream(cArrayStream);
+            CArrowArrayStream.Free(cArrayStream);
+
             var batch1 = stream.ReadNextRecordBatchAsync().Result;
             Assert.Equal(5, batch1.Length);
 
@@ -674,13 +679,14 @@ namespace Apache.Arrow.Tests
             }
 
             Schema schema = CArrowSchemaImporter.ImportSchema(cImportSchema);
-            RecordBatch importedBatch = CArrowArrayImporter.ImportRecordBatch(cImportArray, schema, freeOnRelease: true);
+            RecordBatch importedBatch = CArrowArrayImporter.ImportRecordBatch(cImportArray, schema);
 
             ArrowReaderVerifier.CompareBatches(batch2, importedBatch, strictCompare: false); // Non-strict because span lengths won't match.
 
             // Since we allocated, we are responsible for freeing the pointer.
             CArrowArray.Free(cExportArray);
             CArrowSchema.Free(cExportSchema);
+            CArrowArray.Free(cImportArray);
             CArrowSchema.Free(cImportSchema);
         }
 

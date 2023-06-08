@@ -43,50 +43,39 @@ namespace Apache.Arrow.C
         /// </code>
         /// </examples>
         /// <param name="ptr">The pointer to the stream being imported</param>
-        /// <param name="freeOnRelease">If true, frees the memory for the CArrowArrayStream on final release.</param>
         /// <returns>The imported C# array stream</returns>
-        public static unsafe IArrowArrayStream ImportArrayStream(CArrowArrayStream* ptr, bool freeOnRelease = false)
+        public static unsafe IArrowArrayStream ImportArrayStream(CArrowArrayStream* ptr)
         {
-            return new ImportedArrowArrayStream(ptr, freeOnRelease);
+            return new ImportedArrowArrayStream(ptr);
         }
 
         private sealed unsafe class ImportedArrowArrayStream : IArrowArrayStream
         {
-            private readonly CArrowArrayStream* _cArrayStream;
+            private readonly CArrowArrayStream _cArrayStream;
             private readonly Schema _schema;
-            private readonly bool _freeOnRelease;
             private bool _disposed;
 
-            public ImportedArrowArrayStream(CArrowArrayStream* cArrayStream, bool freeOnRelease)
+            public ImportedArrowArrayStream(CArrowArrayStream* cArrayStream)
             {
                 if (cArrayStream == null)
                 {
                     throw new ArgumentNullException(nameof(cArrayStream));
                 }
-                _cArrayStream = cArrayStream;
-                if (_cArrayStream->release == null)
+                if (cArrayStream->release == null)
                 {
                     throw new ArgumentException("Tried to import an array stream that has already been released.", nameof(cArrayStream));
                 }
-                _freeOnRelease = freeOnRelease;
 
-                CArrowSchema* cSchema = CArrowSchema.Create();
-                try
+                CArrowSchema cSchema = new CArrowSchema();
+                int errno = cArrayStream->get_schema(cArrayStream, &cSchema);
+                if (errno != 0)
                 {
-                    int errno = _cArrayStream->get_schema(_cArrayStream, cSchema);
-                    if (errno != 0)
-                    {
-                        throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
-                    }
-                    _schema = CArrowSchemaImporter.ImportSchema(cSchema);
+                    throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
                 }
-                finally
-                {
-                    if (_schema == null)
-                    {
-                        CArrowSchema.Free(cSchema);
-                    }
-                }
+                _schema = CArrowSchemaImporter.ImportSchema(&cSchema);
+
+                _cArrayStream = *cArrayStream;
+                cArrayStream->release = null;
             }
 
             ~ImportedArrowArrayStream()
@@ -104,24 +93,17 @@ namespace Apache.Arrow.C
                 }
 
                 RecordBatch result = null;
-                CArrowArray* cArray = CArrowArray.Create();
-                try
+                CArrowArray cArray = new CArrowArray();
+                fixed (CArrowArrayStream* cArrayStream = &_cArrayStream)
                 {
-                    int errno = _cArrayStream->get_next(_cArrayStream, cArray);
+                    int errno = cArrayStream->get_next(cArrayStream, &cArray);
                     if (errno != 0)
                     {
                         throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
                     }
-                    if (cArray->release != null)
+                    if (cArray.release != null)
                     {
-                        result = CArrowArrayImporter.ImportRecordBatch(cArray, _schema, freeOnRelease: true);
-                    }
-                }
-                finally
-                {
-                    if (result == null)
-                    {
-                        CArrowArray.Free(cArray);
+                        result = CArrowArrayImporter.ImportRecordBatch(&cArray, _schema);
                     }
                 }
 
@@ -130,13 +112,12 @@ namespace Apache.Arrow.C
 
             public void Dispose()
             {
-                if (!_disposed && _cArrayStream->release != null)
+                if (!_disposed && _cArrayStream.release != null)
                 {
                     _disposed = true;
-                    _cArrayStream->release(_cArrayStream);
-                    if (_freeOnRelease)
+                    fixed (CArrowArrayStream * cArrayStream = &_cArrayStream)
                     {
-                        CArrowArrayStream.Free(_cArrayStream);
+                        cArrayStream->release(cArrayStream);
                     }
                 }
                 GC.SuppressFinalize(this);
