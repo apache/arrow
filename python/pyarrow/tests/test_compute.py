@@ -1844,9 +1844,9 @@ def largest_scaled_float_not_above(val, scale):
     float_val = float(val) / 10**scale
     if float_val * 10**scale > val:
         # Take the float just below... it *should* satisfy
-        float_val = math.nextafter(float_val, 0.0)
+        float_val = np.nextafter(float_val, 0.0)
         if float_val * 10**scale > val:
-            float_val = math.nextafter(float_val, 0.0)
+            float_val = np.nextafter(float_val, 0.0)
     assert float_val * 10**scale <= val
     return float_val
 
