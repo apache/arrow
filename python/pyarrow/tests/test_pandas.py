@@ -1503,7 +1503,8 @@ class TestConvertDateTimeLikeTypes:
                 # check actual garbage output
                 arr.to_pandas(safe=False, coerce_temporal_nanoseconds=True)
                 table.to_pandas(safe=False, coerce_temporal_nanoseconds=True)
-                table.column('a').to_pandas(safe=False, coerce_temporal_nanoseconds=True)
+                table.column('a').to_pandas(
+                    safe=False, coerce_temporal_nanoseconds=True)
 
     def test_timestamp_to_pandas_empty_chunked(self):
         # ARROW-7907 table with chunked array with 0 chunks
