@@ -1491,7 +1491,7 @@ class BoolWriter : public TypedPandasWriter<NPY_BOOL> {
 // Date / timestamp types
 
 template <typename T, int64_t SHIFT>
-inline void ConvertDatetimeLikeNanos(const ChunkedArray& data, int64_t* out_values) {
+inline void ConvertDatetime(const ChunkedArray& data, int64_t* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = *data.chunk(c);
     const T* in_values = GetPrimitiveValues<T>(arr);
@@ -1583,9 +1583,9 @@ class DatetimeMilliWriter : public DatetimeWriter<TimeUnit::MILLI> {
     int64_t* out_values = this->GetBlockColumnStart(rel_placement);
     if (type == Type::DATE32) {
       // Convert from days since epoch to datetime64[ms]
-      ConvertDatetimeLikeNanos<int32_t, 86400000L>(*data, out_values);
+      ConvertDatetime<int32_t, 86400000L>(*data, out_values);
     } else if (type == Type::DATE64) {
-      ConvertDatetimeLikeNanos<int64_t, 1LL>(*data, out_values);
+      ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_values);
     } else {
       const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
       DCHECK_EQ(TimeUnit::MILLI, ts_type.unit())
@@ -1618,11 +1618,11 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
 
     if (type == Type::DATE32) {
       // Convert from days since epoch to datetime64[ns]
-      ConvertDatetimeLikeNanos<int32_t, kNanosecondsInDay>(*data, out_values);
+      ConvertDatetime<int32_t, kNanosecondsInDay>(*data, out_values);
     } else if (type == Type::DATE64) {
       // Date64Type is millisecond timestamp stored as int64_t
       // TODO(wesm): Do we want to make sure to zero out the milliseconds?
-      ConvertDatetimeLikeNanos<int64_t, 1000000L>(*data, out_values);
+      ConvertDatetime<int64_t, 1000000L>(*data, out_values);
     } else if (type == Type::TIMESTAMP) {
       const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
 
@@ -1722,11 +1722,11 @@ class TimedeltaNanoWriter : public TimedeltaWriter<TimeUnit::NANO> {
       if (ts_type.unit() == TimeUnit::NANO) {
         ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_values);
       } else if (ts_type.unit() == TimeUnit::MICRO) {
-        ConvertDatetimeLikeNanos<int64_t, 1000L>(*data, out_values);
+        ConvertDatetime<int64_t, 1000L>(*data, out_values);
       } else if (ts_type.unit() == TimeUnit::MILLI) {
-        ConvertDatetimeLikeNanos<int64_t, 1000000L>(*data, out_values);
+        ConvertDatetime<int64_t, 1000000L>(*data, out_values);
       } else if (ts_type.unit() == TimeUnit::SECOND) {
-        ConvertDatetimeLikeNanos<int64_t, 1000000000L>(*data, out_values);
+        ConvertDatetime<int64_t, 1000000000L>(*data, out_values);
       } else {
         return Status::NotImplemented("Unsupported time unit");
       }

@@ -1268,9 +1268,6 @@ def _test_write_to_dataset_with_partitions(base_path,
                               'nan': [np.nan] * 10,
                               'date': np.arange('2017-01-01', '2017-01-11',
                                                 dtype='datetime64[D]')})
-    # Arrow to Pandas v2 will convert date32 to [ms]. Pandas v1 will always
-    # silently coerce to [ns] due to non-[ns] support.
-    output_df["date"] = output_df["date"].astype('datetime64[ms]')
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False,
@@ -1315,6 +1312,15 @@ def _test_write_to_dataset_with_partitions(base_path,
     # Partitioned columns become 'categorical' dtypes
     for col in partition_by:
         output_df[col] = output_df[col].astype('category')
+
+    if schema:
+        expected_date_type = schema.field_by_name('date').type.to_pandas_dtype()
+    else:
+        # Arrow to Pandas v2 will convert date32 to [ms]. Pandas v1 will always
+        # silently coerce to [ns] due to non-[ns] support.
+        expected_date_type = 'datetime64[ms]'
+    output_df["date"] = output_df["date"].astype(expected_date_type)
+
     tm.assert_frame_equal(output_df, input_df)
 
 

@@ -1214,7 +1214,10 @@ class TestConvertDateTimeLikeTypes:
             assert result.dtype == expected.dtype
             npt.assert_array_equal(result, expected)
 
-    def test_table_convert_date_as_object(self):
+    @pytest.mark.parametrize("coerce_to_ns,expected_type",
+                             [(False, 'datetime64[ms]'),
+                              (True, 'datetime64[ns]')])
+    def test_table_convert_date_as_object(self, coerce_to_ns, expected_type):
         df = pd.DataFrame({
             'date': [date(2000, 1, 1),
                      None,
@@ -1223,12 +1226,22 @@ class TestConvertDateTimeLikeTypes:
 
         table = pa.Table.from_pandas(df, preserve_index=False)
 
-        df_datetime = table.to_pandas(date_as_object=False)
+        df_datetime = table.to_pandas(date_as_object=False,
+                                      coerce_temporal_nanoseconds=coerce_to_ns)
         df_object = table.to_pandas()
 
-        tm.assert_frame_equal(df.astype('datetime64[ms]'), df_datetime,
+        tm.assert_frame_equal(df.astype(expected_type), df_datetime,
                               check_dtype=True)
         tm.assert_frame_equal(df, df_object, check_dtype=True)
+
+    def test_table_coerce_temporal_nanoseconds(self):
+        df = pd.DataFrame({'date': [date(2000, 1, 1)]}, dtype='datetime64[ms]')
+        table = pa.Table.from_pandas(df)
+        result_df = table.to_pandas(coerce_temporal_nanoseconds=True, date_as_object=False)
+        expected_df = df.astype('datetime64[ns]')
+        tm.assert_frame_equal(result_df, expected_df)
+        result_df = table.to_pandas(coerce_temporal_nanoseconds=False, date_as_object=False)
+        tm.assert_frame_equal(result_df, df)
 
     def test_date_infer(self):
         df = pd.DataFrame({
