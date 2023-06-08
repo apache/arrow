@@ -60,3 +60,8 @@ test_that("JSON dataset", {
     c(rep(5, 10), rep(6, 10))
   )
 })
+
+test_that("JSON Fragment scan options", {
+  options <- FragmentScanOptions$create("json")
+  expect_equal(options$type, "json")
+})
