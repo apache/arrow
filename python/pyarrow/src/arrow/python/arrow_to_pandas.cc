@@ -1647,32 +1647,31 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
 };
 
 // TODO (do not merge) how to templatize this..
-#define TZ_WRITER(NAME, PARENT_CLASS)                                       \
-  class NAME : public PARENT_CLASS {                                        \
-    public:                                                                 \
-      NAME(const PandasOptions& options, const std::string& timezone,       \
-                      int64_t num_rows)                                     \
-          : PARENT_CLASS(options, num_rows, 1), timezone_(timezone) {}      \
-                                                                            \
-    protected:                                                              \
-      Status GetResultBlock(PyObject** out) override {                      \
-        RETURN_NOT_OK(MakeBlock1D());                                       \
-        *out = block_arr_.obj();                                            \
-        return Status::OK();                                                \
-      }                                                                     \
-                                                                            \
-      Status AddResultMetadata(PyObject* result) override {                 \
-        PyObject* py_tz = PyUnicode_FromStringAndSize(                      \
-            timezone_.c_str(), static_cast<Py_ssize_t>(timezone_.size()));  \
-        RETURN_IF_PYERROR();                                                \
-        PyDict_SetItemString(result, "timezone", py_tz);                    \
-        Py_DECREF(py_tz);                                                   \
-        return Status::OK();                                                \
-      }                                                                     \
-                                                                            \
-    private:                                                                \
-      std::string timezone_;                                                \
-    };
+#define TZ_WRITER(NAME, PARENT_CLASS)                                                 \
+  class NAME : public PARENT_CLASS {                                                  \
+   public:                                                                            \
+    NAME(const PandasOptions& options, const std::string& timezone, int64_t num_rows) \
+        : PARENT_CLASS(options, num_rows, 1), timezone_(timezone) {}                  \
+                                                                                      \
+   protected:                                                                         \
+    Status GetResultBlock(PyObject** out) override {                                  \
+      RETURN_NOT_OK(MakeBlock1D());                                                   \
+      *out = block_arr_.obj();                                                        \
+      return Status::OK();                                                            \
+    }                                                                                 \
+                                                                                      \
+    Status AddResultMetadata(PyObject* result) override {                             \
+      PyObject* py_tz = PyUnicode_FromStringAndSize(                                  \
+          timezone_.c_str(), static_cast<Py_ssize_t>(timezone_.size()));              \
+      RETURN_IF_PYERROR();                                                            \
+      PyDict_SetItemString(result, "timezone", py_tz);                                \
+      Py_DECREF(py_tz);                                                               \
+      return Status::OK();                                                            \
+    }                                                                                 \
+                                                                                      \
+   private:                                                                           \
+    std::string timezone_;                                                            \
+  };
 
 TZ_WRITER(DatetimeSecondTZWriter, DatetimeSecondWriter)
 TZ_WRITER(DatetimeMilliTZWriter, DatetimeMilliWriter)
@@ -1979,10 +1978,10 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
     *writer = std::make_shared<CategoricalWriter<TYPE>>(options, num_rows); \
     break;
 
-#define TZ_CASE(NAME, TYPE)                                                                   \
-  case PandasWriter::NAME: {                                                \
-    const auto& ts_type = checked_cast<const TimestampType&>(type);                     \
-    *writer = std::make_shared<TYPE>(options, ts_type.timezone(), num_rows);\
+#define TZ_CASE(NAME, TYPE)                                                  \
+  case PandasWriter::NAME: {                                                 \
+    const auto& ts_type = checked_cast<const TimestampType&>(type);          \
+    *writer = std::make_shared<TYPE>(options, ts_type.timezone(), num_rows); \
   } break;
 
   switch (writer_type) {
@@ -2097,7 +2096,7 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::INTERVAL_MONTH_DAY_NANO:  // fall through
       *output_type = PandasWriter::OBJECT;
       break;
-    case Type::DATE32: // fall through
+    case Type::DATE32:  // fall through
     case Type::DATE64:
       if (options.date_as_object) {
         *output_type = PandasWriter::OBJECT;
