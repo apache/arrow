@@ -154,14 +154,15 @@ struct alignas(8) StringHeader {
     SetIndexOffset(buffer_index, offset);
   }
 
-  /// True if the view's data is entirely stored inline.
-  /// This function is safe for use against both RAW POINTER and INDEX/OFFSET views.
-  bool IsInline() const { return IsInline(size_); }
-
   template <typename I>
   static constexpr bool IsInline(I size) {
     return size <= static_cast<I>(kInlineSize);
   }
+  static constexpr bool IsInline(uint32_t size) { return size <= kInlineSize; }
+
+  /// True if the view's data is entirely stored inline.
+  /// This function is safe for use against both RAW POINTER and INDEX/OFFSET views.
+  bool IsInline() const { return IsInline(size_); }
 
   /// Return a RAW POINTER view's data.
   const char* data() const& { return IsInline() ? prefix_.data() : value_.data; }

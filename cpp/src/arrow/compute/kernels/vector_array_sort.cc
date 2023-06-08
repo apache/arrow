@@ -90,7 +90,7 @@ struct PartitionNthToIndices {
                            [&](uint64_t left, uint64_t right) {
                              const auto& lval = headers[left];
                              const auto& rval = headers[right];
-                             if constexpr (has_raw_pointers) return lval < rval;
+                             if constexpr (has_raw_pointers.value) return lval < rval;
                              // we must compare the views in place with the array's
                              // character buffers
                              return lval.LessThanIndexOffset(char_buffers, rval,
@@ -214,14 +214,14 @@ class ArrayCompareSorter<BinaryViewType> {
             const auto& lhs = headers[left - offset];
             const auto& rhs = headers[right - offset];
 
-            if constexpr (has_raw_pointers) {
-              if constexpr (ascending) return lhs < rhs;
-              if constexpr (!ascending) return rhs < lhs;
+            if constexpr (has_raw_pointers.value) {
+              if constexpr (ascending.value) return lhs < rhs;
+              if constexpr (!ascending.value) return rhs < lhs;
             }
 
             // we must compare the views in place with the array's
             // character buffers
-            if constexpr (ascending) {
+            if constexpr (ascending.value) {
               return lhs.LessThanIndexOffset(char_buffers, rhs, char_buffers);
             } else {
               return rhs.LessThanIndexOffset(char_buffers, lhs, char_buffers);
