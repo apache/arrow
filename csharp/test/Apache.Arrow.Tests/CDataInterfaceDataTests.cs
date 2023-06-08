@@ -60,7 +60,7 @@ namespace Apache.Arrow.Tests
             CArrowArray* cArray = CArrowArray.Create();
             CArrowArrayExporter.ExportArray(array, cArray);
             Assert.False(cArray->release == null);
-            CArrowArrayImporter.ImportArray(cArray, array.Data.DataType).Dispose();
+            CArrowArrayImporter.ImportArray(cArray, array.Data.DataType, freeOnRelease: false).Dispose();
             Assert.True(cArray->release == null);
             CArrowArray.Free(cArray);
         }
@@ -82,10 +82,9 @@ namespace Apache.Arrow.Tests
 
             Assert.Throws<InvalidOperationException>(() =>
             {
-                CArrowArrayImporter.ImportArray(cArray, GetTestArray().Data.DataType);
+                CArrowArrayImporter.ImportArray(cArray, GetTestArray().Data.DataType, freeOnRelease: true);
             });
             Assert.True(wasCalled);
-            CArrowArray.Free(cArray);
 
             GC.KeepAlive(releaseCallback);
         }

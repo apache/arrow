@@ -30,6 +30,7 @@ namespace Apache.Arrow.C
         /// <remarks>
         /// This will call the release callback on the passed struct if the function fails.
         /// Otherwise, the release callback is called when the IArrowArrayStream is disposed.
+        /// If freeOnRelease is set, it will also free the memory for the CArrowArrayStream itself on disposal.
         /// </remarks>
         /// <examples>
         /// Typically, you will allocate an uninitialized CArrowArrayStream pointer,
@@ -42,18 +43,19 @@ namespace Apache.Arrow.C
         /// IArrowArrayStream importedStream = CArrowArrayStreamImporter.ImportStream(importedPtr);
         /// </code>
         /// </examples>
-        public static unsafe IArrowArrayStream ImportArrayStream(CArrowArrayStream* ptr)
+        public static unsafe IArrowArrayStream ImportArrayStream(CArrowArrayStream* ptr, bool freeOnRelease)
         {
-            return new ImportedArrowArrayStream(ptr);
+            return new ImportedArrowArrayStream(ptr, freeOnRelease);
         }
 
         private sealed unsafe class ImportedArrowArrayStream : IArrowArrayStream
         {
             private readonly CArrowArrayStream* _cArrayStream;
             private readonly Schema _schema;
+            private readonly bool _freeOnRelease;
             private bool _disposed;
 
-            public ImportedArrowArrayStream(CArrowArrayStream* cArrayStream)
+            public ImportedArrowArrayStream(CArrowArrayStream* cArrayStream, bool freeOnRelease)
             {
                 if (cArrayStream == null)
                 {
@@ -64,6 +66,7 @@ namespace Apache.Arrow.C
                 {
                     throw new ArgumentException("Tried to import an array stream that has already been released.", nameof(cArrayStream));
                 }
+                _freeOnRelease = freeOnRelease;
 
                 CArrowSchema* cSchema = CArrowSchema.Create();
                 try
@@ -109,7 +112,7 @@ namespace Apache.Arrow.C
                     }
                     if (cArray->release != null)
                     {
-                        result = CArrowArrayImporter.ImportRecordBatch(cArray, _schema);
+                        result = CArrowArrayImporter.ImportRecordBatch(cArray, _schema, freeOnRelease: true);
                     }
                 }
                 finally
@@ -129,6 +132,10 @@ namespace Apache.Arrow.C
                 {
                     _disposed = true;
                     _cArrayStream->release(_cArrayStream);
+                    if (_freeOnRelease)
+                    {
+                        CArrowArrayStream.Free(_cArrayStream);
+                    }
                 }
                 GC.SuppressFinalize(this);
             }

@@ -29,7 +29,8 @@ namespace Apache.Arrow.C
         /// </summary>
         /// <remarks>
         /// This will call the release callback once all of the buffers in the returned
-        /// IArrowArray are disposed.
+        /// IArrowArray are disposed. If freeOnRelease is set, it will also free the memory
+        /// for the CArrowArray itself on disposal.
         /// </remarks>
         /// <examples>
         /// Typically, you will allocate an uninitialized CArrowArray pointer,
@@ -42,12 +43,12 @@ namespace Apache.Arrow.C
         /// IArrowArray importedArray = CArrowArrayImporter.ImportArray(importedPtr);
         /// </code>
         /// </examples>
-        public static unsafe IArrowArray ImportArray(CArrowArray* ptr, IArrowType type)
+        public static unsafe IArrowArray ImportArray(CArrowArray* ptr, IArrowType type, bool freeOnRelease)
         {
             ImportedArrowArray importedArray = null;
             try
             {
-                importedArray = new ImportedArrowArray(ptr);
+                importedArray = new ImportedArrowArray(ptr, freeOnRelease);
                 return importedArray.GetAsArray(type);
             }
             finally
@@ -61,7 +62,8 @@ namespace Apache.Arrow.C
         /// </summary>
         /// <remarks>
         /// This will call the release callback once all of the buffers in the returned
-        /// RecordBatch are disposed.
+        /// RecordBatch are disposed. If freeOnRelease is set, it will also free the memory
+        /// for the CArrowArray itself on disposal.
         /// </remarks>
         /// <examples>
         /// Typically, you will allocate an uninitialized CArrowArray pointer,
@@ -74,12 +76,12 @@ namespace Apache.Arrow.C
         /// RecordBatch batch = CArrowArrayImporter.ImportRecordBatch(importedPtr, schema);
         /// </code>
         /// </examples>
-        public static unsafe RecordBatch ImportRecordBatch(CArrowArray* ptr, Schema schema)
+        public static unsafe RecordBatch ImportRecordBatch(CArrowArray* ptr, Schema schema, bool freeOnRelease)
         {
             ImportedArrowArray importedArray = null;
             try
             {
-                importedArray = new ImportedArrowArray(ptr);
+                importedArray = new ImportedArrowArray(ptr, freeOnRelease);
                 return importedArray.GetAsRecordBatch(schema);
             }
             finally
@@ -91,8 +93,9 @@ namespace Apache.Arrow.C
         private sealed unsafe class ImportedArrowArray : ImportedAllocationOwner
         {
             private readonly CArrowArray* _cArray;
+            private readonly bool _freeOnRelease;
 
-            public ImportedArrowArray(CArrowArray* cArray)
+            public ImportedArrowArray(CArrowArray* cArray, bool freeOnRelease)
             {
                 if (cArray == null)
                 {
@@ -103,6 +106,7 @@ namespace Apache.Arrow.C
                 {
                     throw new ArgumentException("Tried to import an array that has already been released.", nameof(cArray));
                 }
+                _freeOnRelease = freeOnRelease;
             }
 
             protected override void FinalRelease()
@@ -110,6 +114,10 @@ namespace Apache.Arrow.C
                 if (_cArray->release != null)
                 {
                     _cArray->release(_cArray);
+                    if (_freeOnRelease)
+                    {
+                        CArrowArray.Free(_cArray);
+                    }
                 }
             }
 
