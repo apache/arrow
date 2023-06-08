@@ -180,10 +180,7 @@ func (a *CheckedAllocator) AssertSize(t TestingT, sz int) {
 		}
 
 		file, line := f.FileLine(info.pc)
-		t.Errorf(`LEAK of %d bytes FROM
-	%s+%x
-		%s:%d
-%v`,
+		t.Errorf("LEAK of %d bytes FROM\n\t%s+%x\n\t\t%s:%d\n%v",
 			info.sz,
 			f.Name(), info.pc-f.Entry(), // func name + offset in bytes between frame & entrypoint to func
 			file, line, // a proper file name + line, so it's really easy to find the leak
