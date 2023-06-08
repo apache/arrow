@@ -74,28 +74,12 @@ func NewExtensionArrayWithStorage(dt arrow.ExtensionType, storage arrow.Array) a
 		panic(fmt.Errorf("arrow/array: storage type %s for extension type %s, does not match expected type %s", storage.DataType(), dt.ExtensionName(), dt.StorageType()))
 	}
 
-	base := ExtensionArrayBase{}
-	base.refCount = 1
-	base.storage = storage
-	storage.Retain()
-
 	storageData := storage.Data().(*Data)
 	// create a new data instance with the ExtensionType as the datatype but referencing the
 	// same underlying buffers to share them with the storage array.
-	baseData := NewData(dt, storageData.length, storageData.buffers, storageData.childData, storageData.nulls, storageData.offset)
-	defer baseData.Release()
-	base.array.setData(baseData)
-
-	// use the ExtensionType's ArrayType to construct the correctly typed object
-	// to use as the ExtensionArray interface. reflect.New returns a pointer to
-	// the newly created object.
-	arr := reflect.New(base.ExtensionType().ArrayType())
-	// set the embedded ExtensionArrayBase to the value we created above. We know
-	// that this field will exist because the interface requires embedding ExtensionArrayBase
-	// so we don't have to separately check, this will panic if called on an ArrayType
-	// that doesn't embed ExtensionArrayBase which is what we want.
-	arr.Elem().FieldByName("ExtensionArrayBase").Set(reflect.ValueOf(base))
-	return arr.Interface().(ExtensionArray)
+	data := NewData(dt, storageData.length, storageData.buffers, storageData.childData, storageData.nulls, storageData.offset)
+	defer data.Release()
+	return NewExtensionData(data)
 }
 
 // NewExtensionData expects a data with a datatype of arrow.ExtensionType and

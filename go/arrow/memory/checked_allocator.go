@@ -160,14 +160,32 @@ func (a *CheckedAllocator) AssertSize(t TestingT, sz int) {
 				break
 			}
 			callersMsg.WriteString("\t")
-			callersMsg.WriteString(frame.Function)
-			callersMsg.WriteString(fmt.Sprintf(" line %d", frame.Line))
+			// frame.Func is a useful source of information if it's present.
+			// It may be nil for non-Go code or fully inlined functions.
+			if fn := frame.Func; fn != nil {
+				// format as func name + the offset in bytes from func entrypoint
+				callersMsg.WriteString(fmt.Sprintf("%s+%x", fn.Name(), frame.PC-fn.Entry()))
+			} else {
+				// fallback to outer func name + file line
+				callersMsg.WriteString(fmt.Sprintf("%s, line %d", frame.Function, frame.Line))
+			}
+
+			// Write a proper file name + line, so it's really easy to find the leak
+			callersMsg.WriteString("\n\t\t")
+			callersMsg.WriteString(frame.File + ":" + strconv.Itoa(frame.Line))
 			callersMsg.WriteString("\n")
 			if !more {
 				break
 			}
 		}
-		t.Errorf("LEAK of %d bytes FROM %s line %d\n%v", info.sz, f.Name(), info.line, callersMsg.String())
+
+		file, line := f.FileLine(info.pc)
+		t.Errorf("LEAK of %d bytes FROM\n\t%s+%x\n\t\t%s:%d\n%v",
+			info.sz,
+			f.Name(), info.pc-f.Entry(), // func name + offset in bytes between frame & entrypoint to func
+			file, line, // a proper file name + line, so it's really easy to find the leak
+			callersMsg.String(),
+		)
 		return true
 	})
 
