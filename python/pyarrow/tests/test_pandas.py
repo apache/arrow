@@ -3419,9 +3419,10 @@ def test_table_from_pandas_schema_field_order_metadata():
     assert metadata_datetime["metadata"] == {'timezone': 'UTC'}
 
     result = table.to_pandas()
-    expected = df[["float", "datetime"]].astype(
-        {"float": "float32", "datetime": "datetime64[s, UTC]"}
-    )
+    expected = df[["float", "datetime"]].astype({"float": "float32"})
+    if Version(pd.__version__) >= Version("2.0.0"):
+        expected = df[["float", "datetime"]].astype({"datetime": "datetime64[s, UTC]"})
+
     tm.assert_frame_equal(result, expected)
 
 
