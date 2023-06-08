@@ -17,7 +17,7 @@
   under the License.
 -->
 
-The files in this directory are vendored from double-conversion git tag v3.2.1
+The files in this directory are vendored from double-conversion git tag v3.3.0
 
 To update, run:
 
