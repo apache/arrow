@@ -1591,8 +1591,7 @@ class DatetimeMilliWriter : public DatetimeWriter<TimeUnit::MILLI> {
       DCHECK_EQ(TimeUnit::MILLI, ts_type.unit())
           << "Should only call instances of this writer "
           << "with arrays of the correct unit";
-      ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull,
-                                      this->GetBlockColumnStart(rel_placement));
+      ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_values);
     }
     return Status::OK();
   }
