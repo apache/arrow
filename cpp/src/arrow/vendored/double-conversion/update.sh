@@ -49,8 +49,4 @@ namespace arrow_vendored {' \
     *.{h,cc}
 rm *.bak
 
-# Custom changes for Arrow
-patch double-to-string.cc  patches/double-to-string.cc.patch
-patch double-to-string.h  patches/double-to-string.h.patch
-
 popd
