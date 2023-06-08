@@ -128,7 +128,8 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #'  Available `read_options` parameters:
 #'  * `use_threads`: Whether to use the global CPU thread pool. Default `TRUE`. If `FALSE`, JSON input must end with an
 #'  empty line.
-#'  * `block_size`: Block size we request from the IO layer; also determines size of chunks when `use_threads` is `TRUE`.
+#'  * `block_size`: Block size we request from the IO layer; also determines size of chunks when `use_threads`
+#'   is `TRUE`.
 #'
 #'  Available `parse_options` parameters:
 #'  * `newlines_in_values`:Logical: are values allowed to contain CR (`0x0d` or `\r`) and LF (`0x0a` or `\n`)
