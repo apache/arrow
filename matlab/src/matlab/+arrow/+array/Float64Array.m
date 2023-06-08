@@ -39,7 +39,7 @@ classdef Float64Array < arrow.array.Array
         function data = double(obj)
             data = obj.toMATLAB();
         end
-        
+
         function matlabArray = toMATLAB(obj)
             matlabArray = obj.Proxy.toMATLAB();
             matlabArray(~obj.Valid) = obj.NullSubstitionValue;
