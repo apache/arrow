@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <iostream>
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/function.h"
@@ -130,29 +129,29 @@ struct PythonUdfScalarAggregatorImpl : public ScalarUdfAggregator {
                                 std::shared_ptr<OwnedRefNoGIL> agg_function,
                                 std::vector<std::shared_ptr<DataType>> input_types,
                                 std::shared_ptr<DataType> output_type)
-      : agg_cb(agg_cb), agg_function(agg_function), output_type(output_type) {
+      : agg_cb(std::move(agg_cb)), agg_function(agg_function), output_type(std::move(output_type)) {
     Py_INCREF(agg_function->obj());
     std::vector<std::shared_ptr<Field>> fields;
     for (size_t i = 0; i < input_types.size(); i++) {
-      fields.push_back(std::move(field("", input_types[i])));
+      fields.push_back(field("", input_types[i]));
     }
     input_schema = schema(std::move(fields));
   };
 
-  ~PythonUdfScalarAggregatorImpl() {
+  ~PythonUdfScalarAggregatorImpl() override {
     if (_Py_IsFinalizing()) {
       agg_function->detach();
     }
   }
 
-  Status Consume(compute::KernelContext* ctx, const compute::ExecSpan& batch) {
+  Status Consume(compute::KernelContext* ctx, const compute::ExecSpan& batch) override {
     ARROW_ASSIGN_OR_RAISE(
         auto rb, batch.ToExecBatch().ToRecordBatch(input_schema, ctx->memory_pool()));
     values.push_back(std::move(rb));
     return Status::OK();
   }
 
-  Status MergeFrom(compute::KernelContext* ctx, compute::KernelState&& src) {
+  Status MergeFrom(compute::KernelContext* ctx, compute::KernelState&& src) override {
     auto& other_values = checked_cast<PythonUdfScalarAggregatorImpl&>(src).values;
     values.insert(values.end(), std::make_move_iterator(other_values.begin()),
                   std::make_move_iterator(other_values.end()));
@@ -161,7 +160,7 @@ struct PythonUdfScalarAggregatorImpl : public ScalarUdfAggregator {
     return Status::OK();
   }
 
-  Status Finalize(compute::KernelContext* ctx, Datum* out) {
+  Status Finalize(compute::KernelContext* ctx, Datum* out) override {
     auto state =
         arrow::internal::checked_cast<PythonUdfScalarAggregatorImpl*>(ctx->state());
     std::shared_ptr<OwnedRefNoGIL>& function = state->agg_function;
