@@ -75,8 +75,8 @@ classdef tParseValidElements < matlab.unittest.TestCase
         end
 
         function ComplexValidIndicesError(testCase)
-        % Verify parseValidElements errors if Valid is a numeric array
-        % containing complex numbers.
+            % Verify parseValidElements errors if Valid is a numeric array
+            % containing complex numbers.
             data = [1 2 3];
             fcn = @() parseValidElements(data, Valid=[1i 2]);
             testCase.verifyError(fcn, "MATLAB:expectedInteger");
