@@ -1700,7 +1700,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         return pandas_api.series(arr, name=name, copy=False)
 
     if pandas_api.is_v1():
-        # ARROW-3789: Convert date/timestamp types to datetime64[ns]
+        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
         c_options.coerce_temporal_nanoseconds = True
 
     if isinstance(obj, Array):

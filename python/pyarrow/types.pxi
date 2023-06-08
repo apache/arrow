@@ -133,7 +133,7 @@ def _get_pandas_type(type, unit=None):
         return None
     if type in [_Type_DATE32, _Type_DATE64, _Type_TIMESTAMP, _Type_DURATION]:
         if _pandas_api.is_v1():
-            # ARROW-3789: Convert date/timestamp types to datetime64[ns]
+            # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
             if type == _Type_DURATION:
                 return np.dtype('timedelta64[ns]')
             return np.dtype('datetime64[ns]')

@@ -67,10 +67,14 @@ def _alltypes_example(size=100):
         'float32': np.arange(size, dtype=np.float32),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
-        # TODO(wesm): Pandas only support ns resolution, Arrow supports s, ms,
-        # us, ns
-        'datetime': np.arange("2016-01-01T00:00:00.001", size,
-                              dtype='datetime64[ms]'),
+        'datetime[s]': np.arange("2016-01-01T00:00:00.001", size,
+                                 dtype='datetime64[s]'),
+        'datetime[ms]': np.arange("2016-01-01T00:00:00.001", size,
+                                  dtype='datetime64[ms]'),
+        'datetime[us]': np.arange("2016-01-01T00:00:00.001", size,
+                                  dtype='datetime64[us]'),
+        'datetime[ns]': np.arange("2016-01-01T00:00:00.001", size,
+                                  dtype='datetime64[ns]'),
         'str': [str(x) for x in range(size)],
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'empty_str': [''] * size
@@ -1275,8 +1279,9 @@ class TestConvertDateTimeLikeTypes:
                               dtype='datetime64[D]'))
         ex_values[1] = pd.NaT.value
 
-        expected_pandas = pd.DataFrame({'date32': ex_values.astype('datetime64[ms]'),
-                                        'date64': ex_values.astype('datetime64[ms]')},
+        ex_datetime64ms = ex_values.astype('datetime64[ms]')
+        expected_pandas = pd.DataFrame({'date32': ex_datetime64ms,
+                                        'date64': ex_datetime64ms},
                                        columns=colnames)
         table_pandas = table.to_pandas(date_as_object=False)
         tm.assert_frame_equal(table_pandas, expected_pandas)
@@ -3419,9 +3424,10 @@ def test_table_from_pandas_schema_field_order_metadata():
     assert metadata_datetime["metadata"] == {'timezone': 'UTC'}
 
     result = table.to_pandas()
-    expected = df[["float", "datetime"]].astype({"float": "float32"})
+    coerce_cols_to_types = {"float": "float32"}
     if Version(pd.__version__) >= Version("2.0.0"):
-        expected = df[["float", "datetime"]].astype({"datetime": "datetime64[s, UTC]"})
+        coerce_cols_to_types["datetime"] = "datetime64[s, UTC]"
+    expected = df[["float", "datetime"]].astype(coerce_cols_to_types)
 
     tm.assert_frame_equal(result, expected)
 

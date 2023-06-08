@@ -223,8 +223,9 @@ def test_to_numpy_writable():
 
 
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
-def test_to_numpy_datetime64(unit):
-    arr = pa.array([1, 2, 3], pa.timestamp(unit))
+@pytest.mark.parametrize('tz', [None, "UTC"])
+def test_to_numpy_datetime64(unit, tz):
+    arr = pa.array([1, 2, 3], pa.timestamp(unit, tz=tz))
     expected = np.array([1, 2, 3], dtype="datetime64[{}]".format(unit))
     np_arr = arr.to_numpy()
     np.testing.assert_array_equal(np_arr, expected)
