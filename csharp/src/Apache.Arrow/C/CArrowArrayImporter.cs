@@ -29,8 +29,7 @@ namespace Apache.Arrow.C
         /// </summary>
         /// <remarks>
         /// This will call the release callback once all of the buffers in the returned
-        /// IArrowArray are disposed. If freeOnRelease is set, it will also free the memory
-        /// for the CArrowArray itself on disposal.
+        /// IArrowArray are disposed.
         /// </remarks>
         /// <examples>
         /// Typically, you will allocate an uninitialized CArrowArray pointer,
@@ -43,7 +42,11 @@ namespace Apache.Arrow.C
         /// IArrowArray importedArray = CArrowArrayImporter.ImportArray(importedPtr);
         /// </code>
         /// </examples>
-        public static unsafe IArrowArray ImportArray(CArrowArray* ptr, IArrowType type, bool freeOnRelease)
+        /// <param name="ptr">The pointer to the array being imported</param>
+        /// <param name="type">The type of the array being imported</param>
+        /// <param name="freeOnRelease">If true, frees the memory for the CArrowArray on final release.</param>
+        /// <returns>The imported C# array</returns>
+        public static unsafe IArrowArray ImportArray(CArrowArray* ptr, IArrowType type, bool freeOnRelease = false)
         {
             ImportedArrowArray importedArray = null;
             try
@@ -62,8 +65,7 @@ namespace Apache.Arrow.C
         /// </summary>
         /// <remarks>
         /// This will call the release callback once all of the buffers in the returned
-        /// RecordBatch are disposed. If freeOnRelease is set, it will also free the memory
-        /// for the CArrowArray itself on disposal.
+        /// RecordBatch are disposed.
         /// </remarks>
         /// <examples>
         /// Typically, you will allocate an uninitialized CArrowArray pointer,
@@ -76,7 +78,11 @@ namespace Apache.Arrow.C
         /// RecordBatch batch = CArrowArrayImporter.ImportRecordBatch(importedPtr, schema);
         /// </code>
         /// </examples>
-        public static unsafe RecordBatch ImportRecordBatch(CArrowArray* ptr, Schema schema, bool freeOnRelease)
+        /// <param name="ptr">The pointer to the record batch being imported</param>
+        /// <param name="schema">The schema type of the record batch being imported</param>
+        /// <param name="freeOnRelease">If true, frees the memory for the CArrowArray on final release.</param>
+        /// <returns>The imported C# record batch</returns>
+        public static unsafe RecordBatch ImportRecordBatch(CArrowArray* ptr, Schema schema, bool freeOnRelease = false)
         {
             ImportedArrowArray importedArray = null;
             try

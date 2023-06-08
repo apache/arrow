@@ -30,7 +30,6 @@ namespace Apache.Arrow.C
         /// <remarks>
         /// This will call the release callback on the passed struct if the function fails.
         /// Otherwise, the release callback is called when the IArrowArrayStream is disposed.
-        /// If freeOnRelease is set, it will also free the memory for the CArrowArrayStream itself on disposal.
         /// </remarks>
         /// <examples>
         /// Typically, you will allocate an uninitialized CArrowArrayStream pointer,
@@ -43,7 +42,10 @@ namespace Apache.Arrow.C
         /// IArrowArrayStream importedStream = CArrowArrayStreamImporter.ImportStream(importedPtr);
         /// </code>
         /// </examples>
-        public static unsafe IArrowArrayStream ImportArrayStream(CArrowArrayStream* ptr, bool freeOnRelease)
+        /// <param name="ptr">The pointer to the stream being imported</param>
+        /// <param name="freeOnRelease">If true, frees the memory for the CArrowArrayStream on final release.</param>
+        /// <returns>The imported C# array stream</returns>
+        public static unsafe IArrowArrayStream ImportArrayStream(CArrowArrayStream* ptr, bool freeOnRelease = false)
         {
             return new ImportedArrowArrayStream(ptr, freeOnRelease);
         }
