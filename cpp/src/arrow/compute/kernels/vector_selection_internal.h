@@ -87,7 +87,6 @@ Status MapTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 
 void CloneBinaryViewCharacterBuffers(const ArraySpan&, ArrayData*);
 
-
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow
