@@ -568,11 +568,13 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       this->has_null_count_ = false;
     }
     // Distinct count cannot be merged.
-    this->has_distinct_count_ = false;
+    if (has_distinct_count_) {
+      has_distinct_count_ = false;
+    }
+    // If !other.HasMinMax, might be all-nulls or nulls and nan,
+    // so, not clear `this->has_min_max_` here.
     if (other.HasMinMax()) {
       SetMinMax(other.min(), other.max());
-    } else {
-      this->has_min_max_ = false;
     }
   }
 
