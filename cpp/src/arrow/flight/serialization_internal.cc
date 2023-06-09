@@ -157,8 +157,8 @@ Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint
   if (pb_endpoint.has_expiration_time()) {
     const auto& pb_expiration_time = pb_endpoint.expiration_time();
     endpoint->expiration_time =
-        Timestamp(std::chrono::seconds{pb_expiration_time.seconds()} +
-                  std::chrono::nanoseconds{pb_expiration_time.nanos()});
+        Timestamp{std::chrono::seconds{pb_expiration_time.seconds()} +
+                  std::chrono::nanoseconds{pb_expiration_time.nanos()}};
   }
   return Status::OK();
 }
