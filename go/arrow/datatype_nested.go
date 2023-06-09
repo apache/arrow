@@ -333,6 +333,24 @@ func (t *StructType) FieldIdx(name string) (int, bool) {
 	return -1, false
 }
 
+// FieldsByName returns all fields with the given name.
+func (t *StructType) FieldsByName(n string) ([]Field, bool) {
+	indices, ok := t.index[n]
+	if !ok {
+		return nil, ok
+	}
+	fields := make([]Field, 0, len(indices))
+	for _, v := range indices {
+		fields = append(fields, t.fields[v])
+	}
+	return fields, ok
+}
+
+// FieldIndices returns indices of all fields with the given name, or nil.
+func (t *StructType) FieldIndices(name string) []int {
+	return t.index[name]
+}
+
 func (t *StructType) Fingerprint() string {
 	var b strings.Builder
 	b.WriteString(typeFingerprint(t))
