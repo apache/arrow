@@ -94,6 +94,7 @@ int64_t GetREEFilterOutputSize(const ArraySpan& filter,
       filter, /*filter_may_have_nulls=*/true, null_selection,
       [&output_size](int64_t, int64_t segment_length, bool) {
         output_size += segment_length;
+        return true;
       });
   return output_size;
 }
@@ -189,6 +190,7 @@ class PrimitiveFilterImpl {
             // Fastest path: all values in range are included and not null
             WriteValueSegment(position, segment_length);
             DCHECK(filter_valid);
+            return true;
           });
     }
     if (values_is_valid_) {
@@ -208,6 +210,7 @@ class PrimitiveFilterImpl {
                      segment_length * sizeof(T));
               out_position_ += segment_length;
             }
+            return true;
           });
     }
     // Faster path: only write to out_is_valid_ if filter contains nulls and
@@ -229,6 +232,7 @@ class PrimitiveFilterImpl {
                    segment_length * sizeof(T));
             out_position_ += segment_length;
           }
+          return true;
         });
   }
 
@@ -543,9 +547,8 @@ Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArraySpan& values,
         [&status, emit_segment = std::move(emit_segment)](
             int64_t position, int64_t segment_length, bool filter_valid) {
           DCHECK(filter_valid);
-          if (status.ok()) {
-            status = emit_segment(position, segment_length);
-          }
+          status = emit_segment(position, segment_length);
+          return status.ok();
         });
     RETURN_NOT_OK(std::move(status));
   } else {
@@ -605,9 +608,8 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
         filter, true, null_selection,
         [&status, emit_segment = std::move(emit_segment)](
             int64_t position, int64_t segment_length, bool filter_valid) {
-          if (status.ok()) {
-            status = emit_segment(position, segment_length, filter_valid);
-          }
+          status = emit_segment(position, segment_length, filter_valid);
+          return status.ok();
         });
     RETURN_NOT_OK(std::move(status));
   } else {

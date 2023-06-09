@@ -114,8 +114,9 @@ void VisitPlainxREEFilterOutputSegmentsImpl(
         const int64_t i = filter_values_offset + it.index_into_array();
         const bool valid = bit_util::GetBit(filter_is_valid, i);
         const bool emit = !valid || bit_util::GetBit(filter_selection, i);
-        if (emit) {
-          emit_segment(it.logical_position(), it.run_length(), valid);
+        if (ARROW_PREDICT_FALSE(
+                emit && !emit_segment(it.logical_position(), it.run_length(), valid))) {
+          break;
         }
         ++it;
       }
@@ -124,8 +125,9 @@ void VisitPlainxREEFilterOutputSegmentsImpl(
         const int64_t i = filter_values_offset + it.index_into_array();
         const bool emit =
             bit_util::GetBit(filter_is_valid, i) && bit_util::GetBit(filter_selection, i);
-        if (emit) {
-          emit_segment(it.logical_position(), it.run_length(), true);
+        if (ARROW_PREDICT_FALSE(
+                emit && !emit_segment(it.logical_position(), it.run_length(), true))) {
+          break;
         }
         ++it;
       }
@@ -134,8 +136,9 @@ void VisitPlainxREEFilterOutputSegmentsImpl(
     while (!it.is_end(filter_span)) {
       const int64_t i = filter_values_offset + it.index_into_array();
       const bool emit = bit_util::GetBit(filter_selection, i);
-      if (emit) {
-        emit_segment(it.logical_position(), it.run_length(), true);
+      if (ARROW_PREDICT_FALSE(
+              emit && !emit_segment(it.logical_position(), it.run_length(), true))) {
+        break;
       }
       ++it;
     }
@@ -314,9 +317,6 @@ struct Selection {
       VisitPlainxREEFilterOutputSegments(
           selection, true, null_selection,
           [&](int64_t position, int64_t segment_length, bool filter_valid) {
-            if (!status.ok()) {
-              return;
-            }
             if (filter_valid) {
               for (int64_t i = 0; i < segment_length; ++i) {
                 status = AppendMaybeNull(position + i);
@@ -326,6 +326,7 @@ struct Selection {
                 status = AppendNull();
               }
             }
+            return status.ok();
           });
       return status;
     }
