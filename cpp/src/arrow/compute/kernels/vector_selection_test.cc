@@ -95,7 +95,7 @@ void CheckTakeCase(const std::string& filter_json, const std::string& indices_js
                    const std::shared_ptr<DataType>& indices_type = uint16()) {
   auto filter = ArrayFromJSON(boolean(), filter_json);
   auto expected_indices = ArrayFromJSON(indices_type, indices_json);
-  const auto &boolean_filter = checked_cast<const BooleanArray&>(*filter);
+  const auto& boolean_filter = checked_cast<const BooleanArray&>(*filter);
   CheckTakeCase(boolean_filter, expected_indices, null_selection);
 }
 
