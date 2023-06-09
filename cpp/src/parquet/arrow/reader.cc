@@ -1220,6 +1220,7 @@ Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_facto
   ctx->pool = pool_;
   ctx->iterator_factory = iterator_factory;
   ctx->filter_leaves = false;
+  ctx->use_large_binary_variants = reader_properties_.use_large_binary_variants();
   std::unique_ptr<ColumnReaderImpl> result;
   RETURN_NOT_OK(GetReader(manifest_.schema_fields[i], ctx, &result));
   *out = std::move(result);
