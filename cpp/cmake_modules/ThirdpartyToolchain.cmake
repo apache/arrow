@@ -109,12 +109,6 @@ if("${jemalloc_SOURCE}" STREQUAL "")
   set(jemalloc_SOURCE "BUNDLED")
 endif()
 
-# GH-36013 bundled opentelemetry-cpp build is broken, change the default
-# to CONDA until a patched bundled version is available.
-if("${opentelemetry-cpp_SOURCE}" STREQUAL "")
-  set(opentelemetry-cpp_SOURCE "CONDA")
-endif()
-
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
 
 if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
