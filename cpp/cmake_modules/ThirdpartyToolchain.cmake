@@ -109,6 +109,12 @@ if("${jemalloc_SOURCE}" STREQUAL "")
   set(jemalloc_SOURCE "BUNDLED")
 endif()
 
+# GH-36013 bundled opentelemetry-cpp build is broken, change the default
+# to CONDA until a patched bundled version is available.
+if("${opentelemetry-cpp_SOURCE}" STREQUAL "")
+  set(opentelemetry-cpp_SOURCE "CONDA")
+endif()
+
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
 
 if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
@@ -4511,6 +4517,7 @@ endif()
 
 macro(build_opentelemetry)
   message(STATUS "Building OpenTelemetry from source")
+  message(WARNING "This can lead to build errors due to conflicting abseil (GH-36013).")
 
   set(OPENTELEMETRY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/opentelemetry_ep-install")
   set(OPENTELEMETRY_INCLUDE_DIR "${OPENTELEMETRY_PREFIX}/include")

@@ -91,7 +91,6 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
-    ARROW_WITH_OPENTELEMETRY=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
@@ -104,3 +103,7 @@ ENV absl_SOURCE=BUNDLED \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
     xsimd_SOURCE=BUNDLED
+
+# GH-36013 disabling opentelemetry here because we can't
+# get the patched version from conda
+#    ARROW_WITH_OPENTELEMETRY=ON \
