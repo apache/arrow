@@ -1767,7 +1767,7 @@ cdef class ParquetWriter(_Weakrefable):
             int64_t c_row_group_size
 
         if row_group_size is None or row_group_size == -1:
-            c_row_group_size = ctable.num_rows()
+            c_row_group_size = min(ctable.num_rows(), 1024*1024)
         elif row_group_size == 0:
             raise ValueError('Row group size cannot be 0')
         else:
