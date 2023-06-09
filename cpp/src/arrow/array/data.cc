@@ -228,11 +228,12 @@ void ArraySpan::SetMembers(const ArrayData& data) {
 namespace {
 
 template <typename offset_type>
-void SetOffsetsForScalar(ArraySpan* span, offset_type* buffer, int64_t value_size,
+void SetOffsetsForScalar(ArraySpan* span, uint8_t* buffer, int64_t value_size,
                          int buffer_index = 1) {
-  buffer[0] = 0;
-  buffer[1] = static_cast<offset_type>(value_size);
-  span->buffers[buffer_index].data = reinterpret_cast<uint8_t*>(buffer);
+  auto* offsets = reinterpret_cast<offset_type*>(buffer);
+  offsets[0] = 0;
+  offsets[1] = static_cast<offset_type>(value_size);
+  span->buffers[buffer_index].data = buffer;
   span->buffers[buffer_index].size = 2 * sizeof(offset_type);
 }
 
@@ -265,13 +266,12 @@ int GetNumBuffers(const DataType& type) {
 namespace internal {
 
 void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
-  memset(span->scratch_space, 0x00, sizeof(span->scratch_space));
-
   span->type = type;
   span->length = 0;
   int num_buffers = GetNumBuffers(*type);
   for (int i = 0; i < num_buffers; ++i) {
-    span->buffers[i].data = reinterpret_cast<uint8_t*>(span->scratch_space);
+    static int64_t zero{0};
+    span->buffers[i].data = reinterpret_cast<uint8_t*>(&zero);
     span->buffers[i].size = 0;
   }
 
@@ -298,6 +298,7 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
 void ArraySpan::FillFromScalar(const Scalar& value) {
   static uint8_t kTrueBit = 0x01;
   static uint8_t kFalseBit = 0x00;
+  auto* scratch_space = const_cast<Scalar&>(value).scratch_space_.data();
 
   this->type = value.type.get();
   this->length = 1;
@@ -329,7 +330,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
   } else if (is_base_binary_like(type_id)) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
-    this->buffers[1].data = reinterpret_cast<uint8_t*>(this->scratch_space);
+    this->buffers[1].data = scratch_space;
     const uint8_t* data_buffer = nullptr;
     int64_t data_size = 0;
     if (scalar.is_valid) {
@@ -337,12 +338,10 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       data_size = scalar.value->size();
     }
     if (is_binary_like(type_id)) {
-      SetOffsetsForScalar<int32_t>(this, reinterpret_cast<int32_t*>(this->scratch_space),
-                                   data_size);
+      SetOffsetsForScalar<int32_t>(this, scratch_space, data_size);
     } else {
       // is_large_binary_like
-      SetOffsetsForScalar<int64_t>(this, reinterpret_cast<int64_t*>(this->scratch_space),
-                                   data_size);
+      SetOffsetsForScalar<int64_t>(this, scratch_space, data_size);
     }
     this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
     this->buffers[2].size = data_size;
@@ -354,6 +353,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     const auto& scalar = checked_cast<const BaseListScalar&>(value);
 
     int64_t value_length = 0;
+    (void)value_length;
     this->child_data.resize(1);
     if (scalar.value != nullptr) {
       // When the scalar is null, scalar.value can also be null
@@ -367,11 +367,9 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
 
     if (type_id == Type::LIST || type_id == Type::MAP) {
-      SetOffsetsForScalar<int32_t>(this, reinterpret_cast<int32_t*>(this->scratch_space),
-                                   value_length);
+      SetOffsetsForScalar<int32_t>(this, scratch_space, value_length);
     } else if (type_id == Type::LARGE_LIST) {
-      SetOffsetsForScalar<int64_t>(this, reinterpret_cast<int64_t*>(this->scratch_space),
-                                   value_length);
+      SetOffsetsForScalar<int64_t>(this, scratch_space, value_length);
     } else {
       // FIXED_SIZE_LIST: does not have a second buffer
       this->buffers[1] = {};
@@ -387,18 +385,16 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     // First buffer is kept null since unions have no validity vector
     this->buffers[0] = {};
 
-    this->buffers[1].data = reinterpret_cast<uint8_t*>(this->scratch_space);
+    this->buffers[1].data = scratch_space;
     this->buffers[1].size = 1;
-    int8_t* type_codes = reinterpret_cast<int8_t*>(this->scratch_space);
+    auto* type_codes = reinterpret_cast<int8_t*>(scratch_space);
     type_codes[0] = checked_cast<const UnionScalar&>(value).type_code;
 
     this->child_data.resize(this->type->num_fields());
     if (type_id == Type::DENSE_UNION) {
       const auto& scalar = checked_cast<const DenseUnionScalar&>(value);
       // Has offset; start 4 bytes in so it's aligned to a 32-bit boundaries
-      SetOffsetsForScalar<int32_t>(this,
-                                   reinterpret_cast<int32_t*>(this->scratch_space) + 1, 1,
-                                   /*buffer_index=*/2);
+      SetOffsetsForScalar<int32_t>(this, scratch_space, 1, 2);
       // We can't "see" the other arrays in the union, but we put the "active"
       // union array in the right place and fill zero-length arrays for the
       // others
