@@ -827,21 +827,21 @@ if(NOT MSVC_TOOLCHAIN)
   string(APPEND EP_C_FLAGS " -fPIC")
 endif()
 
-set(EP_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-set(EP_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+  set(EP_CXX_FLAGS_${CONFIG}
+      "${CMAKE_CXX_FLAGS_${CONFIG}} ${CMAKE_CXX_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreaded}"
+  )
+  set(EP_C_FLAGS_${CONFIG}
+      "${CMAKE_C_FLAGS_${CONFIG}} ${CMAKE_C_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreaded}"
+  )
+endforeach()
 if(MSVC_TOOLCHAIN)
   string(REPLACE "/WX" "" EP_CXX_FLAGS_DEBUG "${EP_CXX_FLAGS_DEBUG}")
   string(REPLACE "/WX" "" EP_C_FLAGS_DEBUG "${EP_C_FLAGS_DEBUG}")
-  string(APPEND EP_CXX_FLAGS_DEBUG " ${CMAKE_CXX_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreadedDebug}")
-  string(APPEND EP_C_FLAGS_DEBUG " ${CMAKE_C_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreadedDebug}")
 else()
   string(APPEND EP_CXX_FLAGS_DEBUG " -Wno-error")
   string(APPEND EP_C_FLAGS_DEBUG " -Wno-error")
 endif()
-foreach(CONFIG MINSIZEREL RELEASE RELWITHDEBINFO)
-  set(EP_CXX_FLAGS_${CONFIG} "${CMAKE_CXX_FLAGS_${CONFIG}} ${CMAKE_CXX_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreaded}")
-  set(EP_C_FLAGS_${CONFIG} "${CMAKE_C_FLAGS_${CONFIG}} ${CMAKE_C_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreaded}")
-endforeach()
 
 # CC/CXX environment variables are captured on the first invocation of the
 # builder (e.g make or ninja) instead of when CMake is invoked into to build
