@@ -322,7 +322,7 @@ class PARQUET_EXPORT RecordReader {
       const ColumnDescriptor* descr, LevelInfo leaf_info,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       bool read_dictionary = false, bool read_dense_for_nullable = false,
-      bool use_binary_string_large_variants = false);
+      bool use_large_binary_variants = false);
 
   virtual ~RecordReader() = default;
 

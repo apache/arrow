@@ -2307,7 +2307,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                  LevelInfo leaf_info, MemoryPool* pool,
                                                  bool read_dictionary,
                                                  bool read_dense_for_nullable,
-                                                 bool use_binary_string_large_variants) {
+                                                 bool use_large_binary_variants) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
       return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,
@@ -2328,7 +2328,7 @@ std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
       return std::make_shared<TypedRecordReader<DoubleType>>(descr, leaf_info, pool,
                                                              read_dense_for_nullable);
     case Type::BYTE_ARRAY: {
-      return use_binary_string_large_variants
+      return use_large_binary_variants
                  ? MakeLargeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
                                                   read_dense_for_nullable)
                  : MakeByteArrayRecordReader(descr, leaf_info, pool, read_dictionary,
