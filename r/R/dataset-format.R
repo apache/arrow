@@ -582,8 +582,21 @@ ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
 JsonFragmentScanOptions <- R6Class("JsonFragmentScanOptions", inherit = FragmentScanOptions)
 JsonFragmentScanOptions$create <- function(...) {
   dots <- list2(...)
-  parse_opt_choices <- dots[names(dots) %in% names(formals(JsonParseOptions$create))]
-  read_opt_choices <- dots[names(dots) %in% names(formals(JsonReadOptions$create))]
+  valid_parse_options <- names(formals(JsonParseOptions$create))
+  valid_read_options <- names(formals(JsonReadOptions$create))
+  valid_options <- c(valid_parse_options, valid_read_options)
+
+  parse_opt_choices <- dots[names(dots) %in% valid_parse_options]
+  read_opt_choices <- dots[names(dots) %in% valid_read_options]
+
+  if (length(setdiff(names(dots), valid_options)) > 0) {
+    abort(
+      c(
+        paste("`JsonFragmentScanOptions` must match one or more of:", oxford_paste(valid_options, quote_symbol = "`")),
+        i = paste("Invalid selection(s):", oxford_paste(setdiff(names(dots), valid_options), quote_symbol = "`"))
+      )
+    )
+  }
 
   parse_options <- do.call(JsonParseOptions$create, parse_opt_choices)
   read_options <- do.call(JsonReadOptions$create, read_opt_choices)

@@ -64,4 +64,7 @@ test_that("JSON dataset", {
 test_that("JSON Fragment scan options", {
   options <- FragmentScanOptions$create("json")
   expect_equal(options$type, "json")
+
+  expect_error(FragmentScanOptions$create("json", invalid_selection = TRUE), regexp = "invalid_selection")
+
 })
