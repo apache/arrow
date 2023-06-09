@@ -827,13 +827,26 @@ if(NOT MSVC_TOOLCHAIN)
   string(APPEND EP_C_FLAGS " -fPIC")
 endif()
 
+# We pass MSVC runtime related options via
+# CMAKE_${LANG}_FLAGS_${CONFIG} explicitly because external projects
+# may not require CMake 3.15 or later. If an external project doesn't
+# require CMake 3.15 or later, CMAKE_MSVC_RUNTIME_LIBRARY is ignored.
+# If CMAKE_MSVC_RUNTIME_LIBRARY is ignored, an external project may
+# use different MSVC runtime. For example, Apache Arrow C++ uses /MTd
+# (multi threaded debug) but an external project uses /MT (multi
+# threaded release). It causes an link error.
 foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
-  set(EP_CXX_FLAGS_${CONFIG}
-      "${CMAKE_CXX_FLAGS_${CONFIG}} ${CMAKE_CXX_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreaded}"
-  )
-  set(EP_C_FLAGS_${CONFIG}
-      "${CMAKE_C_FLAGS_${CONFIG}} ${CMAKE_C_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_MultiThreaded}"
-  )
+  set(EP_CXX_FLAGS_${CONFIG} "${CMAKE_CXX_FLAGS_${CONFIG}}")
+  set(EP_C_FLAGS_${CONFIG} "${CMAKE_C_FLAGS_${CONFIG}}")
+  if(CONFIG STREQUAL DEBUG)
+    set(EP_MSVC_RUNTIME_LIRARY MultiThreadedDebug)
+  else()
+    set(EP_MSVC_RUNTIME_LIRARY MultiThreaded)
+  endif()
+  string(APPEND EP_CXX_FLAGS_${CONFIG}
+    " ${CMAKE_CXX_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_${EP_MSVC_RUNTIME_LIBRARY}}")
+  string(APPEND EP_C_FLAGS_${CONFIG}
+    " ${CMAKE_C_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_${EP_MSVC_RUNTIME_LIBRARY}}")
 endforeach()
 if(MSVC_TOOLCHAIN)
   string(REPLACE "/WX" "" EP_CXX_FLAGS_DEBUG "${EP_CXX_FLAGS_DEBUG}")
