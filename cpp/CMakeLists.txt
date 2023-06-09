@@ -37,15 +37,15 @@ cmake_policy(SET CMP0063 NEW)
 
 # RPATH settings on macOS do not affect install_name.
 # https://cmake.org/cmake/help/latest/policy/CMP0068.html
-if(POLICY CMP0068)
-  cmake_policy(SET CMP0068 NEW)
-endif()
+cmake_policy(SET CMP0068 NEW)
 
 # find_package() uses <PackageName>_ROOT variables.
 # https://cmake.org/cmake/help/latest/policy/CMP0074.html
-if(POLICY CMP0074)
-  cmake_policy(SET CMP0074 NEW)
-endif()
+cmake_policy(SET CMP0074 NEW)
+
+# MSVC runtime library flags are selected by an abstraction.
+# https://cmake.org/cmake/help/latest/policy/CMP0091.html
+cmake_policy(SET CMP0091 NEW)
 
 set(ARROW_VERSION "13.0.0-SNAPSHOT")
 
