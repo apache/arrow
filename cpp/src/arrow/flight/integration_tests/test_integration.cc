@@ -631,7 +631,7 @@ class ExpirationTimeDoGetScenario : public Scenario {
         if (reader.ok()) {
           return Status::Invalid(
               "Data that doesn't have expiration time "
-              "can be read multiple times");
+              "can't be read multiple times");
         }
       }
     }
