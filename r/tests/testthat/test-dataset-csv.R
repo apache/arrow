@@ -588,7 +588,7 @@ test_that("CSVReadOptions field access", {
   expect_equal(options$skip_rows, 0)
   expect_equal(options$autogenerate_column_names, FALSE)
   expect_equal(options$skip_rows_after_names, 0)
-  expect_equal(options$use_threads, TRUE)
+  expect_equal(options$use_threads, option_use_threads())
   expect_equal(options$column_names, character(0))
   expect_equal(options$block_size, 1048576L)
   expect_equal(options$encoding, "UTF-8")
