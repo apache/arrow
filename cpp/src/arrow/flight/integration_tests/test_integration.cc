@@ -1947,11 +1947,11 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
   } else if (scenario_name == "expiration_time:cancel_flight_info") {
     *out = std::make_shared<ExpirationTimeCancelFlightInfoScenario>();
     return Status::OK();
-  } else if (scenario_name == "expiration_time:refresh_flight_endpoint") {
-    *out = std::make_shared<ExpirationTimeRefreshFlightEndpointScenario>();
-    return Status::OK();
   } else if (scenario_name == "expiration_time:close_flight_info") {
     *out = std::make_shared<ExpirationTimeCloseFlightInfoScenario>();
+    return Status::OK();
+  } else if (scenario_name == "expiration_time:refresh_flight_endpoint") {
+    *out = std::make_shared<ExpirationTimeRefreshFlightEndpointScenario>();
     return Status::OK();
   } else if (scenario_name == "flight_sql") {
     *out = std::make_shared<FlightSqlScenario>();
