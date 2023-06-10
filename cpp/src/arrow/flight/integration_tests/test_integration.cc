@@ -1782,10 +1782,9 @@ class FlightSqlExtensionScenario : public FlightSqlScenario {
     ARROW_RETURN_NOT_OK(ValidateSchema(GetQuerySchema(), *schema));
 
     ARROW_ASSIGN_OR_RAISE(info, sql_client->ExecuteSubstrait({}, kSubstraitPlan));
-    ARROW_ASSIGN_OR_RAISE(sql::CancelResult cancel_result,
-                          sql_client->CancelQuery({}, *info));
-    ARROW_RETURN_NOT_OK(
-        AssertEq(sql::CancelResult::kCancelled, cancel_result, "Wrong cancel result"));
+    ARROW_ASSIGN_OR_RAISE(auto cancel_result, sql_client->CancelFlightInfo({}, *info));
+    ARROW_RETURN_NOT_OK(AssertEq(ActionCancelFlightInfoResult::CancelResult::kCancelled,
+                                 cancel_result->result, "Wrong cancel result"));
 
     ARROW_ASSIGN_OR_RAISE(const int64_t updated_rows,
                           sql_client->ExecuteSubstraitUpdate({}, kSubstraitPlan));

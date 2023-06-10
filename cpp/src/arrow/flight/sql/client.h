@@ -323,14 +323,23 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] savepoint    The savepoint.
   Status Rollback(const FlightCallOptions& options, const Savepoint& savepoint);
 
+  /// \brief Explicitly cancel a FlightInfo.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] info         The FlightInfo to cancel.
+  ::arrow::Result<std::unique_ptr<ActionCancelFlightInfoResult>> CancelFlightInfo(
+      const FlightCallOptions& options, const FlightInfo& info) {
+    return impl_->CancelFlightInfo(options, info);
+  }
+
   /// \brief Explicitly cancel a query.
   ///
   /// \param[in] options      RPC-layer hints for this call.
   /// \param[in] info         The FlightInfo of the query to cancel.
   ///
-  /// \deprecated Deprecated since 13.0.0. Use
-  /// FlightClient::CancelFlightInfo() instead.
-  ARROW_DEPRECATED("Deprecated in 13.0.0. Use FlightClient::CancelFlightInfo() instead.")
+  /// \deprecated Deprecated since 13.0.0. Use CancelFlightInfo()
+  /// instead.
+  ARROW_DEPRECATED("Deprecated in 13.0.0. Use CancelFlightInfo() instead.")
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
 

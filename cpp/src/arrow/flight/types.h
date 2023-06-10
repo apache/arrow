@@ -291,6 +291,10 @@ struct ARROW_FLIGHT_EXPORT ActionCancelFlightInfoResult {
       std::string_view serialized);
 };
 
+ARROW_FLIGHT_EXPORT
+std::ostream& operator<<(std::ostream& os,
+                         ActionCancelFlightInfoResult::CancelResult result);
+
 /// \brief message for simple auth
 struct ARROW_FLIGHT_EXPORT BasicAuth {
   std::string username;

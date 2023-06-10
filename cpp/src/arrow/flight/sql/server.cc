@@ -258,17 +258,6 @@ arrow::Result<ActionBeginTransactionRequest> ParseActionBeginTransactionRequest(
   return result;
 }
 
-arrow::Result<FlightInfo> ParseActionCancelFlightInfoRequest(
-    const google::protobuf::Any& any) {
-  flight::pb::FlightInfo pb_info;
-  if (!any.UnpackTo(&pb_info)) {
-    return Status::Invalid("Unable to unpack FlightInfo");
-  }
-  FlightInfo::Data info;
-  ARROW_RETURN_NOT_OK(flight::internal::FromProto(pb_info, &info));
-  return FlightInfo(std::move(info));
-}
-
 arrow::Result<ActionCancelQueryRequest> ParseActionCancelQueryRequest(
     const google::protobuf::Any& any) {
   pb::sql::ActionCancelQueryRequest command;
@@ -805,8 +794,9 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
 
     results.push_back(std::move(packed_result));
   } else if (action.type == ActionType::kCancelFlightInfo.type) {
-    ARROW_ASSIGN_OR_RAISE(auto info, ParseActionCancelFlightInfoRequest(any));
-    ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, info));
+    std::string_view body(*action.body);
+    ARROW_ASSIGN_OR_RAISE(auto info, FlightInfo::Deserialize(body));
+    ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, *info));
     ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));

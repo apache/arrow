@@ -661,23 +661,7 @@ arrow::Result<Result> Result::Deserialize(std::string_view serialized) {
 
 std::string ActionCancelFlightInfoResult::ToString() const {
   std::stringstream ss;
-  ss << "<ActionCancelFlightInfoResult result=";
-  switch (result) {
-    case CancelResult::kUnspecified:
-      ss << "unspecified";
-      break;
-    case CancelResult::kCancelled:
-      ss << "cancelled";
-      break;
-    case CancelResult::kCancelling:
-      ss << "cancelling";
-      break;
-    case CancelResult::kNotCancellable:
-      ss << "not-cancellable";
-      break;
-    default:
-      break;
-  }
+  ss << "<ActionCancelFlightInfoResult result=" << result << ">";
   return ss.str();
 }
 
@@ -713,6 +697,25 @@ arrow::Result<ActionCancelFlightInfoResult> ActionCancelFlightInfoResult::Deseri
   ActionCancelFlightInfoResult out;
   RETURN_NOT_OK(internal::FromProto(pb_result, &out));
   return out;
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         ActionCancelFlightInfoResult::CancelResult result) {
+  switch (result) {
+    case ActionCancelFlightInfoResult::CancelResult::kUnspecified:
+      os << "Unspecified";
+      break;
+    case ActionCancelFlightInfoResult::CancelResult::kCancelled:
+      os << "Cancelled";
+      break;
+    case ActionCancelFlightInfoResult::CancelResult::kCancelling:
+      os << "Cancelling";
+      break;
+    case ActionCancelFlightInfoResult::CancelResult::kNotCancellable:
+      os << "NotCancellable";
+      break;
+  }
+  return os;
 }
 
 Status ResultStream::Next(std::unique_ptr<Result>* info) { return Next().Value(info); }
