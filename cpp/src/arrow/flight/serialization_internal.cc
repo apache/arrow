@@ -175,8 +175,8 @@ Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint) 
     const auto since_epoch_ns =
         std::chrono::duration_cast<std::chrono::nanoseconds>(since_epoch).count();
     auto pb_expiration_time = pb_endpoint->mutable_expiration_time();
-    pb_expiration_time->set_seconds(since_epoch_ns / 1000000000);
-    pb_expiration_time->set_nanos(since_epoch_ns % 1000000000);
+    pb_expiration_time->set_seconds(since_epoch_ns / std::nano::den);
+    pb_expiration_time->set_nanos(since_epoch_ns % std::nano::den);
   }
   return Status::OK();
 }
