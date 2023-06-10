@@ -719,78 +719,6 @@ class ParquetFile:
 
         return indices
 
-    @property
-    def sort_order(self):
-        """
-        Return the sort order of the file, if any.
-
-        Returns
-        -------
-        sort_order : tuple of SortingColumn or None
-            The sort order of the file. If the file is not sorted, None is returned.
-
-        Examples
-        --------
-
-        Parquet files can be written with a sort order. However, you are responsible
-        for ensuring the data provided is sorted; the parquet writer doesn't perform
-        the sorting for you.
-
-        >>> import pyarrow.parquet as pq
-        >>> import pyarrow as pa
-        >>> table = pa.table({'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                              "Brittle stars", "Centipede"]})
-        >>> sort_keys = (("n_legs", "descending"), ("animal", "ascending"))
-        >>> table = table.sort_by(sort_keys)
-
-        While the sort_by function takes arguments in terms of column names, the
-        Parquet API requires indices. Use the
-        :meth:`pyarrow.parquet.SortingColumn.from_sort_order` method to convert
-        the sort keys.
-
-        >>> sorting_columns = pq.SortingColumn.from_sort_order(table.schema, sort_keys)
-        >>> sorting_columns
-        (<pyarrow._parquet.SortingColumn object at 0x1065e4210>
-           column_index: 0
-           descending: True
-           nulls_first: False,
-         <pyarrow._parquet.SortingColumn object at 0x1065e7a90>
-           column_index: 1
-           descending: False
-           nulls_first: False)
-
-        Write the table to a Parquet file with the sort order and read it back:
-
-        >>> pq.write_table(table, 'sorted_animals.parquet',
-        ...                sorting_columns = sorting_columns)
-        >>> parquet_file = pq.ParquetFile('sorted_animals.parquet')
-        >>> parquet_file.sort_order
-        (<pyarrow._parquet.SortingColumn object at 0x1065e7810>
-           column_index: 0
-           descending: True
-           nulls_first: False,
-         <pyarrow._parquet.SortingColumn object at 0x1065e47d0>
-           column_index: 1
-           descending: False
-           nulls_first: False)
-        """
-        metadata = self.metadata
-        sorting_columns = {
-            metadata.row_group(i).sorting_columns
-            for i in range(metadata.num_row_groups)
-        }
-
-        if len(sorting_columns) > 1:
-            # There are inconsistent sorting columns, so no global sort order
-            return None
-        sorting_columns = sorting_columns.pop()
-        if len(sorting_columns) == 0:
-            # There are no sorting columns
-            return None
-        else:
-            return sorting_columns
-
 
 _SPARK_DISALLOWED_CHARS = re.compile('[ ,;{}()\n\t=]')
 
@@ -972,7 +900,6 @@ sorting_columns : Sequence of SortingColumn, default None
     Specify the sort order of the data being written. The writer does not sort
     the data nor does it verify that the data is sorted. The sort order is
     written to the row group metadata, which can then be used by readers.
-    See example at :attr:`ParquetFile.sort_order`.
 """
 
 _parquet_writer_example_doc = """\
