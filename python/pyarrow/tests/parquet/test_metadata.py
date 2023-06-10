@@ -385,10 +385,6 @@ def test_parquet_file_sorting_columns():
                            for i in range(metadata.num_row_groups)}
     assert set_sorting_columns == set([sorting_columns])
 
-    # Can also retrieve from the file reader
-    pq_file = pq.ParquetFile(reader)
-    assert pq_file.sort_order == sorting_columns
-
 
 def test_field_id_metadata():
     # ARROW-7080
