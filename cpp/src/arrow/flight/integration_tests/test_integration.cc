@@ -631,7 +631,7 @@ class ExpirationTimeDoGetScenario : public Scenario {
         if (reader.ok()) {
           return Status::Invalid(
               "Data that doesn't have expiration time "
-              "can't be read multiple times");
+              "shouldn't be readable multiple times");
         }
       }
     }
@@ -646,7 +646,7 @@ class ExpirationTimeDoGetScenario : public Scenario {
       }
       auto reader = client->DoGet(endpoint.ticket);
       if (reader.ok()) {
-        return Status::Invalid("Expired data can't be read");
+        return Status::Invalid("Expired data shouldn't be readable");
       }
     }
     ARROW_ASSIGN_OR_RAISE(auto table, ConcatenateTables(tables));
