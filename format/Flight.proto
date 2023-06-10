@@ -351,8 +351,8 @@ message FlightEndpoint {
 
   /*
    * Expiration time of this stream. If present, clients may assume
-   * they can retry DoGet requests. Otherwise, clients should avoid
-   * retrying DoGet requests.
+   * they can retry DoGet requests. Otherwise, it is
+   * application-defined whether DoGet requests may be retried.
    */
   google.protobuf.Timestamp expiration_time = 3;
 }
