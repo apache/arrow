@@ -14,7 +14,7 @@
 % permissions and limitations under the License.
 
 classdef tParseValidElements < matlab.unittest.TestCase
-    % Tests for arrow.args.parseValidElements
+% Tests for arrow.args.parseValidElements
     
     methods(Test)
         % Test methods

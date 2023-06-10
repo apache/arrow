@@ -14,7 +14,7 @@
 % permissions and limitations under the License.
     
 classdef tFloat64Array < hNumericArray
-    % Tests for arrow.array.Float64Array
+% Tests for arrow.array.Float64Array
 
     properties
         ArrowArrayClassName = "arrow.array.Float64Array"

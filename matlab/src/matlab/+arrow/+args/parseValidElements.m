@@ -14,11 +14,11 @@
 % permissions and limitations under the License.
 
 function validElements = parseValidElements(data, opts)
-    % Returns a logical vector of the validElements in data. 
-
-    % opts is a scalar struct that is required to have a field called
-    % InferNulls. opts may have a field named Valid. If so, it takes 
-    % precedence over InferNulls.
+% Returns a logical vector of the validElements in data. 
+%
+% opts is a scalar struct that is required to have a field called
+% InferNulls. opts may have a field named Valid. If so, it takes 
+% precedence over InferNulls.
 
     if isfield(opts, "Valid")
         validElements = parseValid(numel(data), opts.Valid);
