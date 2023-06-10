@@ -1233,15 +1233,6 @@ macro(find_curl)
   if(NOT TARGET CURL::libcurl)
     find_package(CURL REQUIRED)
     list(APPEND ARROW_SYSTEM_DEPENDENCIES CURL)
-    if(NOT TARGET CURL::libcurl)
-      # For CMake 3.11 or older
-      add_library(CURL::libcurl UNKNOWN IMPORTED)
-      set_target_properties(CURL::libcurl
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${CURL_INCLUDE_DIRS}"
-                                       IMPORTED_LOCATION "${CURL_LIBRARIES}"
-                                       INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
-    endif()
   endif()
 endmacro()
 
@@ -1733,34 +1724,11 @@ if(ARROW_WITH_PROTOBUF)
   if(TARGET arrow::protobuf::libprotobuf)
     set(ARROW_PROTOBUF_LIBPROTOBUF arrow::protobuf::libprotobuf)
   else()
-    # CMake 3.8 or older don't define the targets
-    if(NOT TARGET protobuf::libprotobuf)
-      add_library(protobuf::libprotobuf UNKNOWN IMPORTED)
-      set_target_properties(protobuf::libprotobuf
-                            PROPERTIES IMPORTED_LOCATION "${PROTOBUF_LIBRARY}"
-                                       INTERFACE_INCLUDE_DIRECTORIES
-                                       "${PROTOBUF_INCLUDE_DIR}")
-    endif()
     set(ARROW_PROTOBUF_LIBPROTOBUF protobuf::libprotobuf)
   endif()
   if(TARGET arrow::protobuf::libprotoc)
     set(ARROW_PROTOBUF_LIBPROTOC arrow::protobuf::libprotoc)
   else()
-    # CMake 3.8 or older don't define the targets
-    if(NOT TARGET protobuf::libprotoc)
-      if(PROTOBUF_PROTOC_LIBRARY AND NOT Protobuf_PROTOC_LIBRARY)
-        # Old CMake versions have a different casing.
-        set(Protobuf_PROTOC_LIBRARY ${PROTOBUF_PROTOC_LIBRARY})
-      endif()
-      if(NOT Protobuf_PROTOC_LIBRARY)
-        message(FATAL_ERROR "libprotoc was set to ${Protobuf_PROTOC_LIBRARY}")
-      endif()
-      add_library(protobuf::libprotoc UNKNOWN IMPORTED)
-      set_target_properties(protobuf::libprotoc
-                            PROPERTIES IMPORTED_LOCATION "${Protobuf_PROTOC_LIBRARY}"
-                                       INTERFACE_INCLUDE_DIRECTORIES
-                                       "${PROTOBUF_INCLUDE_DIR}")
-    endif()
     set(ARROW_PROTOBUF_LIBPROTOC protobuf::libprotoc)
   endif()
   if(TARGET arrow::protobuf::protoc)
@@ -4146,9 +4114,8 @@ macro(build_google_cloud_cpp_storage)
   list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${CRC32C_PREFIX})
   list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
 
-  # JOIN is CMake >=3.12 only
-  string(REPLACE ";" ${EP_LIST_SEPARATOR} GOOGLE_CLOUD_CPP_PREFIX_PATH
-                 "${GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST}")
+  string(JOIN ${EP_LIST_SEPARATOR} GOOGLE_CLOUD_CPP_PREFIX_PATH
+         ${GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST})
 
   set(GOOGLE_CLOUD_CPP_INSTALL_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/google_cloud_cpp_ep-install")
@@ -4537,9 +4504,8 @@ macro(build_opentelemetry)
   add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json
                    opentelemetry_proto_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
-  # JOIN is CMake >=3.12 only
-  string(REPLACE ";" "${EP_LIST_SEPARATOR}" OPENTELEMETRY_PREFIX_PATH
-                 "${OPENTELEMETRY_PREFIX_PATH_LIST}")
+  string(JOIN "${EP_LIST_SEPARATOR}" OPENTELEMETRY_PREFIX_PATH
+         ${OPENTELEMETRY_PREFIX_PATH_LIST})
   list(APPEND OPENTELEMETRY_CMAKE_ARGS "-DCMAKE_PREFIX_PATH=${OPENTELEMETRY_PREFIX_PATH}")
 
   if(CMAKE_SYSTEM_PROCESSOR STREQUAL "s390x")

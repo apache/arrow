@@ -430,11 +430,10 @@ takes precedence over ccache if a storage backend is configured" ON)
   #   one of the other methods, pass -D$NAME_SOURCE=BUNDLED
   # * SYSTEM: Use CMake's find_package and find_library without any custom
   #   paths. If individual packages are on non-default locations, you can pass
-  #   $NAME_ROOT arguments to CMake, or set environment variables for the same
-  #   with CMake 3.11 and higher.  If your system packages are in a non-default
-  #   location, or if you are using a non-standard toolchain, you can also pass
-  #   ARROW_PACKAGE_PREFIX to set the *_ROOT variables to look in that
-  #   directory
+  #   $NAME_ROOT arguments to CMake, or set environment variables for the same.
+  #   If your system packages are in a non-default location, or if you are using
+  #   a non-standard toolchain, you can also pass ARROW_PACKAGE_PREFIX to set
+  #   the *_ROOT variables to look in that directory
   # * CONDA: Same as SYSTEM but set all *_ROOT variables to
   #   ENV{CONDA_PREFIX}. If this is run within an active conda environment,
   #   then ENV{CONDA_PREFIX} will be used for dependencies unless
