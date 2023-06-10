@@ -39,7 +39,7 @@ namespace Apache.Arrow.C
         public long n_children;
         public CArrowSchema** children;
         public CArrowSchema* dictionary;
-        public delegate* unmanaged[Stdcall]<CArrowSchema*, void> release;
+        internal delegate* unmanaged[Stdcall]<CArrowSchema*, void> release;
         public void* private_data;
 
         /// <summary>
