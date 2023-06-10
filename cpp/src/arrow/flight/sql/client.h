@@ -324,10 +324,13 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   Status Rollback(const FlightCallOptions& options, const Savepoint& savepoint);
 
   /// \brief Explicitly cancel a query.
-  /// Deprecated since 13.0.0. Use FlightClient::CancelFlightInfo() instead.
   ///
   /// \param[in] options      RPC-layer hints for this call.
   /// \param[in] info         The FlightInfo of the query to cancel.
+  ///
+  /// \deprecated Deprecated since 13.0.0. Use
+  /// FlightClient::CancelFlightInfo() instead.
+  ARROW_DEPRECATED("Deprecated in 13.0.0. Use FlightClient::CancelFlightInfo() instead.")
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
 
