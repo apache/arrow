@@ -1412,10 +1412,8 @@ struct BackpressureCountingNode : public MapNode {
 };
 
 struct BackpressureDelayingNodeOptions : public ExecNodeOptions {
-  BackpressureDelayingNodeOptions(double delay_seconds, std::function<bool()> gate)
-      : delay_seconds(delay_seconds), gate(gate) {}
+  explicit BackpressureDelayingNodeOptions(std::function<bool()> gate) : gate(gate) {}
 
-  double delay_seconds;
   std::function<bool()> gate;
 };
 
@@ -1433,9 +1431,7 @@ struct BackpressureDelayingNode : public MapNode {
   BackpressureDelayingNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
                            std::shared_ptr<Schema> output_schema,
                            const BackpressureDelayingNodeOptions& options)
-      : MapNode(plan, inputs, output_schema),
-        gate(options.gate),
-        delay_seconds(options.delay_seconds) {}
+      : MapNode(plan, inputs, output_schema), gate(options.gate) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -1448,13 +1444,12 @@ struct BackpressureDelayingNode : public MapNode {
   const char* kind_name() const override { return kKindName; }
   Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
     while (!gate()) {
-      SleepFor(delay_seconds);
+      SleepABit();
     }
     return batch;
   }
 
   std::function<bool()> gate;
-  double delay_seconds;
 };
 
 template <typename BatchesMaker>
@@ -1521,7 +1516,7 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
       "asofjoin", bp_decls,
       GetRepeatedOptions(source_configs.size(), "time", {"key"}, 1000)};
 
-  BackpressureDelayingNodeOptions delay_options(slow_delay * 5, [&bp_counters]() {
+  BackpressureDelayingNodeOptions delay_options([&bp_counters]() {
     for (const auto& counters : bp_counters) {
       if (counters.pause_count > 0 || counters.resume_count > 0) {
         return true;
