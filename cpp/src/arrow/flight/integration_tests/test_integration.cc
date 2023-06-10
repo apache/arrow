@@ -477,6 +477,9 @@ class ExpirationTimeServer : public FlightServerBase {
                std::unique_ptr<FlightDataStream>* stream) override {
     ARROW_ASSIGN_OR_RAISE(auto index, ExtractIndexFromTicket(request.ticket));
     auto& status = statuses_[index];
+    if (status.closed) {
+      return Status::KeyError("Invalid flight: closed: ", request.ticket);
+    }
     if (status.cancelled) {
       return Status::KeyError("Invalid flight: canceled: ", request.ticket);
     }
