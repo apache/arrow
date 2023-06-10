@@ -499,16 +499,16 @@ const ActionType ActionType::kCancelFlightInfo =
                "Explicitly cancel a running FlightInfo.\n"
                "Request Message: FlightInfo to be canceled\n"
                "Response Message: ActionCancelFlightInfoResult"};
-const ActionType ActionType::kRefreshFlightEndpoint =
-    ActionType{"RefreshFlightEndpoint",
-               "Extend expiration time of the given FlightEndpoint.\n"
-               "Request Message: FlightEndpoint to be refreshed\n"
-               "Response Message: Refreshed FlightEndpoint"};
 const ActionType ActionType::kCloseFlightInfo =
     ActionType{"CloseFlightInfo",
                "Close the given FlightInfo explicitly.\n"
                "Request Message: FlightInfo to be closed\n"
                "Response Message: N/A"};
+const ActionType ActionType::kRefreshFlightEndpoint =
+    ActionType{"RefreshFlightEndpoint",
+               "Extend expiration time of the given FlightEndpoint.\n"
+               "Request Message: FlightEndpoint to be refreshed\n"
+               "Response Message: Refreshed FlightEndpoint"};
 
 bool ActionType::Equals(const ActionType& other) const {
   return type == other.type && description == other.description;

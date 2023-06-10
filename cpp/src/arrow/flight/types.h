@@ -179,8 +179,8 @@ struct ARROW_FLIGHT_EXPORT ActionType {
   static arrow::Result<ActionType> Deserialize(std::string_view serialized);
 
   static const ActionType kCancelFlightInfo;
-  static const ActionType kRefreshFlightEndpoint;
   static const ActionType kCloseFlightInfo;
+  static const ActionType kRefreshFlightEndpoint;
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
