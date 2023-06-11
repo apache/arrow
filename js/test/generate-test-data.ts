@@ -73,6 +73,7 @@ interface TestDataVectorGenerator extends Visitor {
     visitUint64: typeof generateBigInt;
     visitFloat: typeof generateFloat;
     visitUtf8: typeof generateUtf8;
+    visitLargeUtf8: typeof generateLargeUtf8;
     visitBinary: typeof generateBinary;
     visitFixedSizeBinary: typeof generateFixedSizeBinary;
     visitDate: typeof generateDate;
@@ -304,7 +305,7 @@ function generateFloat<T extends Float>(this: TestDataVectorGenerator, type: T, 
 
 function generateUtf8<T extends Utf8>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
     const nullBitmap = createBitmap(length, nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, 10, 20, nullCount != 0);
+    const valueOffsets = createVariableWidthOffsets32(length, nullBitmap, 10, 20, nullCount != 0);
     const values: string[] = new Array(valueOffsets.length - 1).fill(null);
     [...valueOffsets.slice(1)]
         .map((o, i) => isValid(nullBitmap, i) ? o - valueOffsets[i] : null)
@@ -324,9 +325,31 @@ function generateUtf8<T extends Utf8>(this: TestDataVectorGenerator, type: T, le
     return { values: () => values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, valueOffsets, data })]) };
 }
 
+function generateLargeUtf8<T extends Utf8>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
+    const nullBitmap = createBitmap(length, nullCount);
+    const valueOffsets = createVariableWidthOffsets64(length, nullBitmap, 10, 20, nullCount != 0);
+    const values: string[] = new Array(valueOffsets.length - 1).fill(null);
+    [...valueOffsets.slice(1)]
+        .map((o, i) => isValid(nullBitmap, i) ? o - valueOffsets[i] : null)
+        .reduce((map, length, i) => {
+            if (length !== null) {
+                if (length > 0) {
+                    do {
+                        values[i] = randomString(Number(length));
+                    } while (map.has(values[i]));
+                    return map.set(values[i], i);
+                }
+                values[i] = '';
+            }
+            return map;
+        }, new Map<string, number>());
+    const data = createVariableWidthBytes(length, nullBitmap, valueOffsets, (i) => encodeUtf8(values[i]));
+    return { values: () => values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, valueOffsets, data })]) };
+}
+
 function generateBinary<T extends Binary>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
     const nullBitmap = createBitmap(length, nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, 10, 20, nullCount != 0);
+    const valueOffsets = createVariableWidthOffsets32(length, nullBitmap, 10, 20, nullCount != 0);
     const values = [...valueOffsets.slice(1)]
         .map((o, i) => isValid(nullBitmap, i) ? o - valueOffsets[i] : null)
         .map((length) => length == null ? null : randomBytes(length));
@@ -425,7 +448,7 @@ function generateList<T extends List>(this: TestDataVectorGenerator, type: T, le
     const childVec = child.vector;
     const nullBitmap = createBitmap(length, nullCount);
     const stride = childVec.length / (length - nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, stride, stride);
+    const valueOffsets = createVariableWidthOffsets32(length, nullBitmap, stride, stride);
     const values = memoize(() => {
         const childValues = child.values();
         const values: (T['valueType'] | null)[] = [...valueOffsets.slice(1)]
@@ -563,7 +586,7 @@ function generateMap<T extends Map_>(this: TestDataVectorGenerator,
     const childVec = child.vector;
     const nullBitmap = createBitmap(length, nullCount);
     const stride = childVec.length / (length - nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, stride, stride);
+    const valueOffsets = createVariableWidthOffsets32(length, nullBitmap, stride, stride);
     const values = memoize(() => {
         const childValues: { key: K; value: V }[] = <any>child.values();
         const values: (Record<K, V> | null)[] = [...valueOffsets.slice(1)]
@@ -642,24 +665,38 @@ function createBitmap(length: number, nullCount: number) {
     return bytes;
 }
 
-function createVariableWidthOffsets(length: number, nullBitmap: Uint8Array, min = 10, max = Number.POSITIVE_INFINITY, allowEmpty = true) {
-    const offsets = new Int32Array(length + 1);
-    iterateBitmap(length, nullBitmap, (i, valid) => {
-        if (!valid) {
-            offsets[i + 1] = offsets[i];
-        } else {
-            do {
-                offsets[i + 1] = offsets[i] + Math.min(max, Math.max(min, Math.trunc(rand() * max)));
-            } while (!allowEmpty && offsets[i + 1] === offsets[i]);
-        }
-    });
-    return offsets;
+function createVariableWidthOffsets32(length: number, nullBitmap: Uint8Array, min = 10, max = Number.POSITIVE_INFINITY, allowEmpty = true) {
+  const offsets = new Int32Array(length + 1);
+  iterateBitmap(length, nullBitmap, (i, valid) => {
+      if (!valid) {
+          offsets[i + 1] = offsets[i];
+      } else {
+          do {
+              offsets[i + 1] = offsets[i] + Math.min(max, Math.max(min, Math.trunc(rand() * max)));
+          } while (!allowEmpty && offsets[i + 1] === offsets[i]);
+      }
+  });
+  return offsets;
 }
 
-function createVariableWidthBytes(length: number, nullBitmap: Uint8Array, offsets: Int32Array, getBytes: (index: number) => Uint8Array) {
-    const bytes = new Uint8Array(offsets[length]);
+function createVariableWidthOffsets64(length: number, nullBitmap: Uint8Array, min = 10, max = Number.POSITIVE_INFINITY, allowEmpty = true) {
+  const offsets = new BigInt64Array(length + 1);
+  iterateBitmap(length, nullBitmap, (i, valid) => {
+      if (!valid) {
+          offsets[i + 1] = offsets[i];
+      } else {
+          do {
+              offsets[i + 1] = offsets[i] + BigInt(Math.min(max, Math.max(min, Math.trunc(rand() * max))));
+          } while (!allowEmpty && offsets[i + 1] === offsets[i]);
+      }
+  });
+  return offsets;
+}
+
+function createVariableWidthBytes(length: number, nullBitmap: Uint8Array, offsets: Int32Array | BigInt64Array, getBytes: (index: number) => Uint8Array) {
+    const bytes = new Uint8Array(Number(offsets[length]));
     iterateBitmap(length, nullBitmap, (i, valid) => {
-        valid && bytes.set(getBytes(i), offsets[i]);
+        valid && bytes.set(getBytes(i), Number(offsets[i]));
     });
     return bytes;
 }

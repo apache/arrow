@@ -233,6 +233,7 @@ VectorAssembler.prototype.visitBool = assembleBoolVector;
 VectorAssembler.prototype.visitInt = assembleFlatVector;
 VectorAssembler.prototype.visitFloat = assembleFlatVector;
 VectorAssembler.prototype.visitUtf8 = assembleFlatListVector;
+VectorAssembler.prototype.visitLargeUtf8 = assembleFlatListVector;
 VectorAssembler.prototype.visitBinary = assembleFlatListVector;
 VectorAssembler.prototype.visitFixedSizeBinary = assembleFlatVector;
 VectorAssembler.prototype.visitDate = assembleFlatVector;

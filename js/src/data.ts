@@ -29,7 +29,7 @@ import { popcnt_bit_range, truncateBitmap } from './util/bit.js';
 
 /** @ignore */ export type NullBuffer = Uint8Array | null | undefined;
 /** @ignore */ export type TypeIdsBuffer = Int8Array | ArrayLike<number> | Iterable<number> | undefined;
-/** @ignore */ export type ValueOffsetsBuffer = Int32Array | ArrayLike<number> | Iterable<number> | undefined;
+/** @ignore */ export type ValueOffsetsBuffer = Int32Array | BigInt64Array | ArrayLike<number> | Iterable<number> | undefined;
 /** @ignore */ export type DataBuffer<T extends DataType> = T['TArray'] | ArrayLike<number> | Iterable<number> | undefined;
 
 /** @ignore */
@@ -435,7 +435,7 @@ interface IntervalDataProps<T extends Interval> extends DataProps_<T> { data?: D
 interface FixedSizeBinaryDataProps<T extends FixedSizeBinary> extends DataProps_<T> { data?: DataBuffer<T> }
 interface BinaryDataProps<T extends Binary> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
 interface Utf8DataProps<T extends Utf8> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
-interface LargeUtf8DataProps<T extends LargeUtf8> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
+interface LargeUtf8DataProps<T extends LargeUtf8> extends DataProps_<T> { valueOffsets: BigInt64Array; data?: DataBuffer<T> }
 interface ListDataProps<T extends List> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; child: Data<T['valueType']> }
 interface FixedSizeListDataProps<T extends FixedSizeList> extends DataProps_<T> { child: Data<T['valueType']> }
 interface StructDataProps<T extends Struct> extends DataProps_<T> { children: Data[] }
@@ -484,6 +484,7 @@ export function makeData<T extends Interval>(props: IntervalDataProps<T>): Data<
 export function makeData<T extends FixedSizeBinary>(props: FixedSizeBinaryDataProps<T>): Data<T>;
 export function makeData<T extends Binary>(props: BinaryDataProps<T>): Data<T>;
 export function makeData<T extends Utf8>(props: Utf8DataProps<T>): Data<T>;
+export function makeData<T extends LargeUtf8>(props: LargeUtf8DataProps<T>): Data<T>;
 export function makeData<T extends List>(props: ListDataProps<T>): Data<T>;
 export function makeData<T extends FixedSizeList>(props: FixedSizeListDataProps<T>): Data<T>;
 export function makeData<T extends Struct>(props: StructDataProps<T>): Data<T>;

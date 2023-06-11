@@ -24,7 +24,7 @@ import { getBool, BitIterator } from '../util/bit.js';
 import { createElementComparator } from '../util/vector.js';
 import {
     DataType, Dictionary,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
     Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64,
     Date_, DateDay, DateMillisecond,
@@ -56,6 +56,7 @@ export interface IndexOfVisitor extends Visitor {
     visitFloat32<T extends Float32>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitFloat64<T extends Float64>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitUtf8<T extends Utf8>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitBinary<T extends Binary>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>, value: T['TValue'] | null, index?: number): number;
     visitDate<T extends Date_>(data: Data<T>, value: T['TValue'] | null, index?: number): number;

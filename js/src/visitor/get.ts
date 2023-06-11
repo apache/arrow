@@ -34,7 +34,7 @@ import {
     Interval, IntervalDayTime, IntervalYearMonth,
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
-    Union, DenseUnion, SparseUnion,
+    Union, DenseUnion, SparseUnion, LargeUtf8,
 } from '../type.js';
 
 /** @ignore */
@@ -59,6 +59,7 @@ export interface GetVisitor extends Visitor {
     visitFloat32<T extends Float32>(data: Data<T>, index: number): T['TValue'] | null;
     visitFloat64<T extends Float64>(data: Data<T>, index: number): T['TValue'] | null;
     visitUtf8<T extends Utf8>(data: Data<T>, index: number): T['TValue'] | null;
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>, index: number): T['TValue'] | null;
     visitBinary<T extends Binary>(data: Data<T>, index: number): T['TValue'] | null;
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>, index: number): T['TValue'] | null;
     visitDate<T extends Date_>(data: Data<T>, index: number): T['TValue'] | null;

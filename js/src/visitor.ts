@@ -36,6 +36,7 @@ export abstract class Visitor {
     public visitInt(_node: any, ..._args: any[]): any { return null; }
     public visitFloat(_node: any, ..._args: any[]): any { return null; }
     public visitUtf8(_node: any, ..._args: any[]): any { return null; }
+    public visitLargeUtf8(_node: any, ..._args: any[]): any { return null; }
     public visitBinary(_node: any, ..._args: any[]): any { return null; }
     public visitFixedSizeBinary(_node: any, ..._args: any[]): any { return null; }
     public visitDate(_node: any, ..._args: any[]): any { return null; }

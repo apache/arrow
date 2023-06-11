@@ -42,6 +42,7 @@ export interface JSONVectorAssembler extends Visitor {
     visitInt<T extends Int>(data: Data<T>): { DATA: number[] | string[] };
     visitFloat<T extends Float>(data: Data<T>): { DATA: number[] };
     visitUtf8<T extends Utf8>(data: Data<T>): { DATA: string[]; OFFSET: number[] };
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>): { DATA: string[]; OFFSET: bigint[] };
     visitBinary<T extends Binary>(data: Data<T>): { DATA: string[]; OFFSET: number[] };
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>): { DATA: string[] };
     visitDate<T extends Date_>(data: Data<T>): { DATA: number[] };
