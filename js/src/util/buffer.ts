@@ -17,7 +17,7 @@
 
 import { encodeUtf8 } from '../util/utf8.js';
 import { TypedArray, TypedArrayConstructor, BigIntArrayConstructor } from '../interfaces.js';
-import { isPromise, isIterable, isAsyncIterable, isIteratorResult, isFlatbuffersByteBuffer, BigInt64Array, BigUint64Array } from './compat.js';
+import { isPromise, isIterable, isAsyncIterable, isIteratorResult, isFlatbuffersByteBuffer } from './compat.js';
 import { ByteBuffer } from 'flatbuffers';
 
 /** @ignore */
