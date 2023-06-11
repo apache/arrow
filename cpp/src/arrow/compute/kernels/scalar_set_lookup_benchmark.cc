@@ -56,8 +56,8 @@ static void SetLookupBenchmarkString(benchmark::State& state,
 template <typename Type>
 static void SetLookupBenchmarkNumeric(benchmark::State& state,
                                       const std::string& func_name,
-                                      const int64_t value_set_length) {
-  const int64_t array_length = 1 << 18;
+                                      const int64_t value_set_length,
+                                      const int64_t array_length) {
   const int64_t value_min = 0;
   const int64_t value_max = std::numeric_limits<typename Type::c_type>::max();
   const double null_probability = 0.1 / value_set_length;
@@ -91,43 +91,51 @@ static void IsInStringLargeSet(benchmark::State& state) {
 }
 
 static void IndexInInt8SmallSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int8Type>(state, "index_in_meta_binary", state.range(0));
+  SetLookupBenchmarkNumeric<Int8Type>(state, "index_in_meta_binary", state.range(0),
+                                      1 << 18);
 }
 
 static void IndexInInt16SmallSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int16Type>(state, "index_in_meta_binary", state.range(0));
+  SetLookupBenchmarkNumeric<Int16Type>(state, "index_in_meta_binary", state.range(0),
+                                       1 << 18);
 }
 
 static void IndexInInt32SmallSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int32Type>(state, "index_in_meta_binary", state.range(0));
+  SetLookupBenchmarkNumeric<Int32Type>(state, "index_in_meta_binary", state.range(0),
+                                       1 << 18);
 }
 
 static void IndexInInt64SmallSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int64Type>(state, "index_in_meta_binary", state.range(0));
+  SetLookupBenchmarkNumeric<Int64Type>(state, "index_in_meta_binary", state.range(0),
+                                       1 << 18);
 }
 
 static void IndexInInt32LargeSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int32Type>(state, "index_in_meta_binary", state.range(0));
+  SetLookupBenchmarkNumeric<Int32Type>(state, "index_in_meta_binary", state.range(0), 10);
 }
 
 static void IsInInt8SmallSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int8Type>(state, "is_in_meta_binary", state.range(0));
+  SetLookupBenchmarkNumeric<Int8Type>(state, "is_in_meta_binary", state.range(0),
+                                      1 << 18);
 }
 
 static void IsInInt16SmallSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int16Type>(state, "is_in_meta_binary", state.range(0));
+  SetLookupBenchmarkNumeric<Int16Type>(state, "is_in_meta_binary", state.range(0),
+                                       1 << 18);
 }
 
 static void IsInInt32SmallSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int32Type>(state, "is_in_meta_binary", state.range(0));
+  SetLookupBenchmarkNumeric<Int32Type>(state, "is_in_meta_binary", state.range(0),
+                                       1 << 18);
 }
 
 static void IsInInt64SmallSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int64Type>(state, "is_in_meta_binary", state.range(0));
+  SetLookupBenchmarkNumeric<Int64Type>(state, "is_in_meta_binary", state.range(0),
+                                       1 << 18);
 }
 
 static void IsInInt32LargeSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int32Type>(state, "is_in_meta_binary", state.range(0));
+  SetLookupBenchmarkNumeric<Int32Type>(state, "is_in_meta_binary", state.range(0), 10);
 }
 
 BENCHMARK(IndexInStringSmallSet)->RangeMultiplier(4)->Range(2, 64);
