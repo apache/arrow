@@ -289,7 +289,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
             // DenseUnions
             valueOffsets = _offsets?.flush(length);
         } else if (valueOffsets = _offsets?.flush(length)) { // Variable-width primitives (Binary, Utf8), and Lists
-            // Binary, Utf8
+            // Binary, Utf8, LargeUtf8
             data = _values?.flush(Number(_offsets.last()));
         } else { // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, and Interval)
             data = _values?.flush(length);
