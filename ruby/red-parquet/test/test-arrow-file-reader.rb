@@ -22,11 +22,14 @@ class TestArrowFileReader < Test::Unit::TestCase
     visible_arrays = [Arrow::BooleanArray.new([true, false])]
     visible_array = Arrow::ChunkedArray.new(visible_arrays)
     table = Arrow::Table.new(@schema, [visible_array])
-    @file = Tempfile.open(["red-parquet", ".parquet"])
-    chunk_size = 1
-    writer = Parquet::ArrowFileWriter.new(table.schema, @file.path)
-    writer.write_table(table, chunk_size)
-    writer.close
+    Tempfile.create(["red-parquet", ".parquet"]) do |file|
+      @file = file
+      chunk_size = 1
+      writer = Parquet::ArrowFileWriter.new(table.schema, @file.path)
+      writer.write_table(table, chunk_size)
+      writer.close
+      yield
+    end
   end
 
   sub_test_case("#each_row_group") do
