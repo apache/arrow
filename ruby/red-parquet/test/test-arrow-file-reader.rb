@@ -17,11 +17,8 @@
 
 class TestArrowFileReader < Test::Unit::TestCase
   def setup
-    visible_field = Arrow::Field.new("visible", :boolean)
-    @schema = Arrow::Schema.new([visible_field])
-    visible_arrays = [Arrow::BooleanArray.new([true, false])]
-    visible_array = Arrow::ChunkedArray.new(visible_arrays)
-    table = Arrow::Table.new(@schema, [visible_array])
+    @schema = Arrow::Schema.new(visible: :boolean)
+    table = Arrow::Table.new(@schema, [[true], [false]])
     Tempfile.create(["red-parquet", ".parquet"]) do |file|
       @file = file
       Parquet::ArrowFileWriter.open(table.schema, @file.path) do |writer|
@@ -34,19 +31,14 @@ class TestArrowFileReader < Test::Unit::TestCase
 
   sub_test_case("#each_row_group") do
     test("without block") do
-      first_visible_arrays = [Arrow::BooleanArray.new([true])]
-      first_visible_array = Arrow::ChunkedArray.new(first_visible_arrays)
-      second_visible_arrays = [Arrow::BooleanArray.new([false])]
-      second_visible_array = Arrow::ChunkedArray.new(second_visible_arrays)
-
       Arrow::FileInputStream.open(@file.path) do |input|
         reader = Parquet::ArrowFileReader.new(input)
         each_row_group = reader.each_row_group
         assert_equal({
                        size: 2,
                        to_a: [
-                         Arrow::Table.new(@schema, [first_visible_array]),
-                         Arrow::Table.new(@schema, [second_visible_array])
+                         Arrow::Table.new(@schema, [[true]]),
+                         Arrow::Table.new(@schema, [[false]])
                        ],
                      },
                      {
