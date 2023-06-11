@@ -199,7 +199,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         return this.children.reduce((size, child) => size + child.reservedByteLength, size);
     }
 
-    declare protected _offsets: DataBufferBuilder<Int32Array>;
+    declare protected _offsets: DataBufferBuilder<Int32Array | BigInt64Array>;
     public get valueOffsets() { return this._offsets ? this._offsets.buffer : null; }
 
     declare protected _values: BufferBuilder<T['TArray'], any>;
