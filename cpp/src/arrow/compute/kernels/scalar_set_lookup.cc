@@ -36,16 +36,23 @@ namespace {
 
 template <typename Type>
 struct SetLookupState : public KernelState {
-  explicit SetLookupState(MemoryPool* pool) : lookup_table(pool, 0) {}
+  explicit SetLookupState(MemoryPool* pool) : lookup_table(pool, 0), memory_pool(pool) {}
 
   Status Init(const SetLookupOptions& options) {
     if (options.value_set.is_array()) {
       const ArrayData& value_set = *options.value_set.array();
       memo_index_to_value_index.reserve(value_set.length);
+      lookup_table =
+          MemoTable(memory_pool,
+                    ::arrow::internal::HashTable<char>::kLoadFactor * value_set.length);
       RETURN_NOT_OK(AddArrayValueSet(options, *options.value_set.array()));
     } else if (options.value_set.kind() == Datum::CHUNKED_ARRAY) {
       const ChunkedArray& value_set = *options.value_set.chunked_array();
       memo_index_to_value_index.reserve(value_set.length());
+      lookup_table =
+          MemoTable(memory_pool,
+                    ::arrow::internal::HashTable<char>::kLoadFactor * value_set.length());
+
       int64_t offset = 0;
       for (const std::shared_ptr<Array>& chunk : value_set.chunks()) {
         RETURN_NOT_OK(AddArrayValueSet(options, *chunk->data(), offset));
@@ -99,6 +106,7 @@ struct SetLookupState : public KernelState {
 
   using MemoTable = typename HashTraits<Type>::MemoTableType;
   MemoTable lookup_table;
+  MemoryPool* memory_pool;
   // When there are duplicates in value_set, the MemoTable indices must
   // be mapped back to indices in the value_set.
   std::vector<int32_t> memo_index_to_value_index;
