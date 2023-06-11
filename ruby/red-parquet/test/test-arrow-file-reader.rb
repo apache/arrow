@@ -24,10 +24,10 @@ class TestArrowFileReader < Test::Unit::TestCase
     table = Arrow::Table.new(@schema, [visible_array])
     Tempfile.create(["red-parquet", ".parquet"]) do |file|
       @file = file
-      chunk_size = 1
-      writer = Parquet::ArrowFileWriter.new(table.schema, @file.path)
-      writer.write_table(table, chunk_size)
-      writer.close
+      Parquet::ArrowFileWriter.open(table.schema, @file.path) do |writer|
+        chunk_size = 1
+        writer.write_table(table, chunk_size)
+      end
       yield
     end
   end
