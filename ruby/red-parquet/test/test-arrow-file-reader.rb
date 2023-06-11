@@ -30,6 +30,21 @@ class TestArrowFileReader < Test::Unit::TestCase
   end
 
   sub_test_case("#each_row_group") do
+    test("block") do
+      Arrow::FileInputStream.open(@file.path) do |input|
+        reader = Parquet::ArrowFileReader.new(input)
+        row_groups = []
+        reader.each_row_group do |row_group|
+          row_groups << row_group
+        end
+        assert_equal([
+                       Arrow::Table.new(@schema, [[true]]),
+                       Arrow::Table.new(@schema, [[false]])
+                     ],
+                     row_groups)
+      end
+    end
+
     test("without block") do
       Arrow::FileInputStream.open(@file.path) do |input|
         reader = Parquet::ArrowFileReader.new(input)
