@@ -38,3 +38,4 @@ This allows to easily integrate PyArrow with other languages and technologies.
    integration/python_java
    integration/extending
    integration/cuda
+   integration/dataset
