@@ -28,7 +28,13 @@ See Extending PyArrow Datasets for more information:
 https://arrow.apache.org/docs/python/integration/dataset.html
 """
 from abc import abstractmethod, abstractproperty
-from typing import Iterator, List, Optional, Protocol, runtime_checkable
+from typing import Iterator, List, Optional
+
+# TODO: remove once we drop support for Python 3.7
+if sys.version_info >= (3, 8):
+    from typing import Protocol, runtime_checkable
+else:
+    from typing_extensions import Protocol, runtime_checkable
 
 from pyarrow.dataset import Expression
 from pyarrow import Table, RecordBatchReader, Schema
