@@ -698,13 +698,13 @@ std::unique_ptr<PageWriter> PageWriter::Open(
     OffsetIndexBuilder* offset_index_builder) {
   if (buffered_row_group) {
     return std::unique_ptr<PageWriter>(new BufferedPageWriter(
-        std::move(sink), codec, *codec_options.get(), metadata, row_group_ordinal,
+        std::move(sink), codec, *codec_options, metadata, row_group_ordinal,
         column_chunk_ordinal, page_write_checksum_enabled, pool,
         std::move(meta_encryptor), std::move(data_encryptor), column_index_builder,
         offset_index_builder));
   } else {
     return std::unique_ptr<PageWriter>(new SerializedPageWriter(
-        std::move(sink), codec, *codec_options.get(), metadata, row_group_ordinal,
+        std::move(sink), codec, *codec_options, metadata, row_group_ordinal,
         column_chunk_ordinal, page_write_checksum_enabled, pool,
         std::move(meta_encryptor), std::move(data_encryptor), column_index_builder,
         offset_index_builder));

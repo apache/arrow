@@ -175,10 +175,16 @@ class PARQUET_EXPORT ColumnProperties {
 
   void set_compression_level(int compression_level) {
     compression_level_ = compression_level;
+    codec_options_->compression_level_ = compression_level;
   }
 
   void set_codec_options(const std::shared_ptr<CodecOptions>& codec_options) {
     codec_options_ = codec_options;
+    // reset compression_level if not default value
+    compression_level_ =
+        codec_options->compression_level_ == Codec::UseDefaultCompressionLevel()
+            ? compression_level_
+            : codec_options->compression_level_;
   }
 
   void set_page_index_enabled(bool page_index_enabled) {
