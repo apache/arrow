@@ -13,27 +13,21 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef UInt32Array < arrow.array.Array
+classdef UInt32Array < arrow.array.NumericArray
 % arrow.array.UInt32Array
 
-    properties (Hidden, SetAccess=private)
-        MatlabArray = uint32([])
+    properties (Access=protected)
+        NullSubstitutionValue = uint32(0)
     end
 
     methods
-        function obj = UInt32Array(data, opts)
-            arguments
-                data
-                opts.DeepCopy = false
-            end
-            arrow.args.validateTypeAndShape(data, "uint32");
-            obj@arrow.array.Array("Name", "arrow.array.proxy.UInt32Array", "ConstructorArguments", {data, opts.DeepCopy});
-            % Store a reference to the array if not doing a deep copy
-            if (~opts.DeepCopy), obj.MatlabArray = data; end
+        function obj = UInt32Array(data, varargin)
+            obj@arrow.array.NumericArray(data, "uint32", ...
+                "arrow.array.proxy.UInt32Array", varargin{:});
         end
 
         function data = uint32(obj)
-            data = obj.Proxy.toMATLAB();
+            data = obj.toMATLAB();
         end
     end
 end

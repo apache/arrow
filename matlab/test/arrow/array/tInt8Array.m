@@ -23,6 +23,7 @@ classdef tInt8Array < hNumericArray
         MatlabArrayFcn = @int8 % int8 function
         MaxValue = intmax("int8")
         MinValue = intmin("int8")
+        NullSubstitutionValue = int8(0)
     end
 
 end

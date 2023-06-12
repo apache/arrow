@@ -23,6 +23,7 @@ classdef tFloat32Array < hNumericArray
         MatlabArrayFcn = @single % single function
         MaxValue = realmax("single")
         MinValue = realmin("single")
+        NullSubstitutionValue = single(NaN)
     end
 
     methods(Test)
