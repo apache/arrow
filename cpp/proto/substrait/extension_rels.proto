@@ -69,4 +69,3 @@ message SegmentedAggregateRel {
   // A list of one or more aggregate expressions along with an optional filter.
   repeated substrait.AggregateRel.Measure measures = 3;
 }
-
