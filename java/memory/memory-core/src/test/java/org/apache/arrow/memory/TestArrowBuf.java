@@ -28,6 +28,10 @@ import java.util.Arrays;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 
 public class TestArrowBuf {
 
@@ -146,4 +150,14 @@ public class TestArrowBuf {
     }
   }
 
+  @Test
+  public void testEnabledAssertion() {
+    ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(Level.TRACE);
+    ClassLoader.getSystemClassLoader().setDefaultAssertionStatus(true);
+    try (BufferAllocator allocator = new RootAllocator(128)) {
+      ArrowBuf buf = allocator.buffer(2);
+    } catch (Exception e) {
+      assertFalse(e.getMessage().contains("event log for"));
+    }
+  }
 }
