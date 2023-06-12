@@ -763,9 +763,13 @@ using DoubleType = PhysicalType<Type::DOUBLE>;
 using ByteArrayType = PhysicalType<Type::BYTE_ARRAY>;
 
 /*
- * Parquet uses ByteArrayType for variable length strings and binaries and their lengths
- * will not exceed 2^31 - 1. However, arrow supports StringType/BinaryType and their
- * large variants (i.e. LargeStringType and LargeBinaryType).
+ * Parquet has defined ByteArrayType for variable length string and binary values with a
+ * maximum length of 2^31 - 1. By default, arrow StringType and BinaryType are used to
+ * map parquet ByteArrayType. However, arrow StringArray/BinaryArray uses int32_t to
+ * store the offset of each string/binary value in a concatenated buffer which may
+ * overflow (though unlikely in most cases). As arrow has defined LargeStringType and
+ * LargeBinaryType which use int64_t as the offset type, we define LargeByteArrayType
+ * below to indicate parquet reader/writer to use those large variants from arrow.
  * */
 struct LargeByteArrayType : public ByteArrayType {};
 
