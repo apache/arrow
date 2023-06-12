@@ -18,6 +18,7 @@
 // +build test
 
 #include <assert.h>
+#include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -414,4 +415,35 @@ int test_exported_stream(struct ArrowArrayStream* stream) {
     }
   }
   return 0;
+}
+
+struct FallibleStream {
+  // empty structs are a GNU extension
+  int dummy;
+};
+
+const char* FallibleGetLastError(struct ArrowArrayStream* stream) {
+  return "Expected error message";
+}
+
+int FallibleGetSchema(struct ArrowArrayStream* stream, struct ArrowSchema* schema) {
+  return EINVAL;
+}
+
+int FallibleGetNext(struct ArrowArrayStream* stream, struct ArrowArray* array) {
+  return EINVAL;
+}
+
+void FallibleRelease(struct ArrowArrayStream* stream) {
+  memset(stream, 0, sizeof(*stream));
+}
+
+static struct FallibleStream kFallibleStream;
+
+void test_stream_schema_fallible(struct ArrowArrayStream* stream) {
+  stream->get_last_error = FallibleGetLastError;
+  stream->get_schema = FallibleGetSchema;
+  stream->get_next = FallibleGetNext;
+  stream->private_data = &kFallibleStream;
+  stream->release = FallibleRelease;
 }

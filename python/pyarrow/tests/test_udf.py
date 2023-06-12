@@ -24,19 +24,80 @@ from pyarrow import compute as pc
 # UDFs are all tested with a dataset scan
 pytestmark = pytest.mark.dataset
 
+# For convience, most of the test here doesn't care about udf func docs
+empty_udf_doc = {"summary": "", "description": ""}
+
 try:
     import pyarrow.dataset as ds
 except ImportError:
     ds = None
 
 
-def mock_scalar_udf_context(batch_length=10):
-    from pyarrow._compute import _get_scalar_udf_context
-    return _get_scalar_udf_context(pa.default_memory_pool(), batch_length)
+def mock_udf_context(batch_length=10):
+    from pyarrow._compute import _get_udf_context
+    return _get_udf_context(pa.default_memory_pool(), batch_length)
 
 
 class MyError(RuntimeError):
     pass
+
+
+@pytest.fixture(scope="session")
+def exception_agg_func_fixture():
+    def func(ctx, x):
+        raise RuntimeError("Oops")
+        return pa.scalar(len(x))
+
+    func_name = "y=exception_len(x)"
+    func_doc = empty_udf_doc
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.int64(),
+                                   },
+                                   pa.int64()
+                                   )
+    return func, func_name
+
+
+@pytest.fixture(scope="session")
+def wrong_output_dtype_agg_func_fixture(scope="session"):
+    def func(ctx, x):
+        return pa.scalar(len(x), pa.int32())
+
+    func_name = "y=wrong_output_dtype(x)"
+    func_doc = empty_udf_doc
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.int64(),
+                                   },
+                                   pa.int64()
+                                   )
+    return func, func_name
+
+
+@pytest.fixture(scope="session")
+def wrong_output_type_agg_func_fixture(scope="session"):
+    def func(ctx, x):
+        return len(x)
+
+    func_name = "y=wrong_output_type(x)"
+    func_doc = empty_udf_doc
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.int64(),
+                                   },
+                                   pa.int64()
+                                   )
+    return func, func_name
 
 
 @pytest.fixture(scope="session")
@@ -228,11 +289,11 @@ def check_scalar_function(func_fixture,
         if all_scalar:
             batch_length = 1
 
-    expected_output = function(mock_scalar_udf_context(batch_length), *inputs)
     func = pc.get_function(name)
     assert func.name == name
 
     result = pc.call_function(name, inputs, length=batch_length)
+    expected_output = function(mock_udf_context(batch_length), *inputs)
     assert result == expected_output
     # At the moment there is an issue when handling nullary functions.
     # See: ARROW-15286 and ARROW-16290.
@@ -593,3 +654,47 @@ def test_udt_datasource1_generator():
 def test_udt_datasource1_exception():
     with pytest.raises(RuntimeError, match='datasource1_exception'):
         _test_datasource1_udt(datasource1_exception)
+
+
+def test_agg_basic(unary_agg_func_fixture):
+    arr = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
+    result = pc.call_function("y=avg(x)", [arr])
+    expected = pa.scalar(30.0)
+    assert result == expected
+
+
+def test_agg_empty(unary_agg_func_fixture):
+    empty = pa.array([], pa.float64())
+
+    with pytest.raises(pa.ArrowInvalid, match='empty inputs'):
+        pc.call_function("y=avg(x)", [empty])
+
+
+def test_agg_wrong_output_dtype(wrong_output_dtype_agg_func_fixture):
+    arr = pa.array([10, 20, 30, 40, 50], pa.int64())
+    with pytest.raises(pa.ArrowTypeError, match="output datatype"):
+        pc.call_function("y=wrong_output_dtype(x)", [arr])
+
+
+def test_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
+    arr = pa.array([10, 20, 30, 40, 50], pa.int64())
+    with pytest.raises(pa.ArrowTypeError, match="output type"):
+        pc.call_function("y=wrong_output_type(x)", [arr])
+
+
+def test_agg_varargs(varargs_agg_func_fixture):
+    arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
+    arr2 = pa.array([1.0, 2.0, 3.0, 4.0, 5.0], pa.float64())
+
+    result = pc.call_function(
+        "y=sum_mean(x...)", [arr1, arr2]
+    )
+    expected = pa.scalar(33.0)
+    assert result == expected
+
+
+def test_agg_exception(exception_agg_func_fixture):
+    arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
+
+    with pytest.raises(RuntimeError, match='Oops'):
+        pc.call_function("y=exception_len(x)", [arr])

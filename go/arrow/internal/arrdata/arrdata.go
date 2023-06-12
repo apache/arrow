@@ -793,7 +793,7 @@ func makeMapsRecords() []arrow.Record {
 	chunks := [][]arrow.Array{
 		{
 			mapOf(mem, dtype.KeysSorted, []arrow.Array{
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
 						arrayOf(mem, []string{"111", "222", "333", "444", "555"}, mask[:5]),
@@ -815,7 +815,7 @@ func makeMapsRecords() []arrow.Record {
 						arrayOf(mem, []string{"4111", "4222", "4333", "4444", "4555"}, mask[:5]),
 					},
 				}, nil),
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
 						arrayOf(mem, []string{"-111", "-222", "-333", "-444", "-555"}, mask[:5]),
@@ -841,7 +841,7 @@ func makeMapsRecords() []arrow.Record {
 		},
 		{
 			mapOf(mem, dtype.KeysSorted, []arrow.Array{
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
 						arrayOf(mem, []string{"-111", "-222", "-333", "-444", "-555"}, mask[:5]),
@@ -863,7 +863,7 @@ func makeMapsRecords() []arrow.Record {
 						arrayOf(mem, []string{"-4111", "-4222", "-4333", "-4444", "-4555"}, mask[:5]),
 					},
 				}, nil),
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
 						arrayOf(mem, []string{"111", "222", "333", "444", "555"}, mask[:5]),

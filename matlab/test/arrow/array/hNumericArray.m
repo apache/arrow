@@ -1,21 +1,22 @@
-classdef hNumericArray < matlab.unittest.TestCase
-    % Test class containing shared tests for numeric arrays.
+% Licensed to the Apache Software Foundation (ASF) under one or more
+% contributor license agreements.  See the NOTICE file distributed with
+% this work for additional information regarding copyright ownership.
+% The ASF licenses this file to you under the Apache License, Version
+% 2.0 (the "License"); you may not use this file except in compliance
+% with the License.  You may obtain a copy of the License at
+%
+%   http://www.apache.org/licenses/LICENSE-2.0
+%
+% Unless required by applicable law or agreed to in writing, software
+% distributed under the License is distributed on an "AS IS" BASIS,
+% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+% implied.  See the License for the specific language governing
+% permissions and limitations under the License.
 
-    % Licensed to the Apache Software Foundation (ASF) under one or more
-    % contributor license agreements.  See the NOTICE file distributed with
-    % this work for additional information regarding copyright ownership.
-    % The ASF licenses this file to you under the Apache License, Version
-    % 2.0 (the "License"); you may not use this file except in compliance
-    % with the License.  You may obtain a copy of the License at
-    %
-    %   http://www.apache.org/licenses/LICENSE-2.0
-    %
-    % Unless required by applicable law or agreed to in writing, software
-    % distributed under the License is distributed on an "AS IS" BASIS,
-    % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-    % implied.  See the License for the specific language governing
-    % permissions and limitations under the License.
-    properties (Abstract)
+classdef hNumericArray < matlab.unittest.TestCase
+% Test class containing shared tests for numeric arrays.
+
+      properties (Abstract)
         ArrowArrayClassName(1, 1) string
         ArrowArrayConstructor
         MatlabArrayFcn
@@ -30,7 +31,7 @@ classdef hNumericArray < matlab.unittest.TestCase
 
     methods(TestClassSetup)
         function verifyOnMatlabPath(tc)
-            % Verify the arrow array class is on the MATLAB Search Path.
+        % Verify the arrow array class is on the MATLAB Search Path.
             tc.assertTrue(~isempty(which(tc.ArrowArrayClassName)), ...
                 """" + tc.ArrowArrayClassName + """must be on the MATLAB path. " + ...
                 "Use ""addpath"" to add folders to the MATLAB path.");
@@ -45,9 +46,9 @@ classdef hNumericArray < matlab.unittest.TestCase
         end
 
         function ShallowCopyTest(tc)
-            % By default, NumericArrays do not create a deep copy on
-            % construction when constructed from a MATLAB array. Instead,
-            % it stores a shallow copy of the array keep the memory alive.
+        % By default, NumericArrays do not create a deep copy on
+        % construction when constructed from a MATLAB array. Instead,
+        % it stores a shallow copy of the array keep the memory alive.
             A = tc.ArrowArrayConstructor(tc.MatlabArrayFcn([1, 2, 3]));
             tc.verifyEqual(A.MatlabArray, tc.MatlabArrayFcn([1, 2, 3]));
             tc.verifyEqual(toMATLAB(A), tc.MatlabArrayFcn([1 2 3]'));
@@ -58,8 +59,8 @@ classdef hNumericArray < matlab.unittest.TestCase
         end
 
         function DeepCopyTest(tc)
-            % Verify NumericArrays does not store shallow copy of the 
-            % MATLAB array if DeepCopy=true was supplied.
+        % Verify NumericArrays does not store shallow copy of the 
+        % MATLAB array if DeepCopy=true was supplied.
             A = tc.ArrowArrayConstructor(tc.MatlabArrayFcn([1, 2, 3]), DeepCopy=true);
             tc.verifyEqual(A.MatlabArray, tc.MatlabArrayFcn([]));
             tc.verifyEqual(toMATLAB(A), tc.MatlabArrayFcn([1 2 3]'));
@@ -83,8 +84,8 @@ classdef hNumericArray < matlab.unittest.TestCase
         end
 
         function MatlabConversion(tc, MakeDeepCopy)
-            % Tests the type-specific conversion methods, e.g. single for
-            % arrow.array.Float32Array, double for array.array.Float64Array
+        % Tests the type-specific conversion methods, e.g. single for
+        % arrow.array.Float32Array, double for array.array.Float64Array
 
             % Create array from a scalar
             A1 = tc.ArrowArrayConstructor(tc.MatlabArrayFcn(100), DeepCopy=MakeDeepCopy);

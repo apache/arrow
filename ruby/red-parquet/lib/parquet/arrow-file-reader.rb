@@ -15,22 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base
-FROM ${base}
+module Parquet
+  class ArrowFileReader
+    def each_row_group
+      return to_enum(__method__) {n_row_groups} unless block_given?
 
-ENV DEBIAN_FRONTEND noninteractive
-
-# Install python3 and pip so we can install pyarrow to test the C data interface.
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends \
-        python3 \
-        python3-pip && \
-    apt-get clean
-
-RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
-    ln -s /usr/bin/pip3 /usr/local/bin/pip
-
-# Need a newer pip than Debian's to install manylinux201x wheels
-RUN pip install -U pip
-
-RUN pip install pyarrow cffi --only-binary pyarrow
+      n_row_groups.times do |i|
+        yield(read_row_group(i))
+      end
+    end
+  end
+end

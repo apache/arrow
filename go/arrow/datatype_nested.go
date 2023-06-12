@@ -37,6 +37,7 @@ type (
 	ListLikeType interface {
 		DataType
 		Elem() DataType
+		ElemField() Field
 	}
 )
 
@@ -391,15 +392,22 @@ func (t *MapType) String() string {
 	return o.String()
 }
 
-func (t *MapType) KeyField() Field        { return t.value.Elem().(*StructType).Field(0) }
-func (t *MapType) KeyType() DataType      { return t.KeyField().Type }
-func (t *MapType) ItemField() Field       { return t.value.Elem().(*StructType).Field(1) }
-func (t *MapType) ItemType() DataType     { return t.ItemField().Type }
-func (t *MapType) ValueType() *StructType { return t.value.Elem().(*StructType) }
-func (t *MapType) ValueField() Field      { return Field{Name: "entries", Type: t.ValueType()} }
+func (t *MapType) KeyField() Field    { return t.value.Elem().(*StructType).Field(0) }
+func (t *MapType) KeyType() DataType  { return t.KeyField().Type }
+func (t *MapType) ItemField() Field   { return t.value.Elem().(*StructType).Field(1) }
+func (t *MapType) ItemType() DataType { return t.ItemField().Type }
+
+// Deprecated: use MapType.Elem().(*StructType) instead
+func (t *MapType) ValueType() *StructType { return t.Elem().(*StructType) }
+
+// Deprecated: use MapType.ElemField() instead
+func (t *MapType) ValueField() Field { return t.ElemField() }
 
 // Elem returns the MapType's element type (if treating MapType as ListLikeType)
-func (t *MapType) Elem() DataType { return t.ValueType() }
+func (t *MapType) Elem() DataType { return t.value.Elem() }
+
+// ElemField returns the MapType's element field (if treating MapType as ListLikeType)
+func (t *MapType) ElemField() Field { return Field{Name: "entries", Type: t.Elem()} }
 
 func (t *MapType) SetItemNullable(nullable bool) {
 	t.value.Elem().(*StructType).fields[1].Nullable = nullable
@@ -419,7 +427,7 @@ func (t *MapType) Fingerprint() string {
 	return fingerprint + "{" + keyFingerprint + itemFingerprint + "}"
 }
 
-func (t *MapType) Fields() []Field { return []Field{t.ValueField()} }
+func (t *MapType) Fields() []Field { return []Field{t.ElemField()} }
 
 func (t *MapType) Layout() DataTypeLayout {
 	return t.value.Layout()

@@ -589,7 +589,7 @@ func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) arrow.ArrayData {
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)
 
-	sub := ctx.loadChild(dt.ValueType())
+	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()
 
 	return array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub}, int(field.NullCount()), 0)

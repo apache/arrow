@@ -1,21 +1,20 @@
-classdef tFloat64Array < hNumericArray
-    % Tests for arrow.array.Float64Array
-
-    % Licensed to the Apache Software Foundation (ASF) under one or more
-    % contributor license agreements.  See the NOTICE file distributed with
-    % this work for additional information regarding copyright ownership.
-    % The ASF licenses this file to you under the Apache License, Version
-    % 2.0 (the "License"); you may not use this file except in compliance
-    % with the License.  You may obtain a copy of the License at
-    %
-    %   http://www.apache.org/licenses/LICENSE-2.0
-    %
-    % Unless required by applicable law or agreed to in writing, software
-    % distributed under the License is distributed on an "AS IS" BASIS,
-    % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-    % implied.  See the License for the specific language governing
-    % permissions and limitations under the License.
+% Licensed to the Apache Software Foundation (ASF) under one or more
+% contributor license agreements.  See the NOTICE file distributed with
+% this work for additional information regarding copyright ownership.
+% The ASF licenses this file to you under the Apache License, Version
+% 2.0 (the "License"); you may not use this file except in compliance
+% with the License.  You may obtain a copy of the License at
+%
+%   http://www.apache.org/licenses/LICENSE-2.0
+%
+% Unless required by applicable law or agreed to in writing, software
+% distributed under the License is distributed on an "AS IS" BASIS,
+% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+% implied.  See the License for the specific language governing
+% permissions and limitations under the License.
     
+classdef tFloat64Array < hNumericArray
+% Tests for arrow.array.Float64Array
 
     properties
         ArrowArrayClassName = "arrow.array.Float64Array"
@@ -79,7 +78,7 @@ classdef tFloat64Array < hNumericArray
             testCase.verifyEqual(arrowArray.Valid, expectedValid);
         end
 
-        function ValidEmpty(testCase, MakeDeepCopy)
+        function EmptyArrayValidBitmap(testCase, MakeDeepCopy)
             % Create an empty 0x0 MATLAB array.
             matlabArray = double.empty(0, 0);
             arrowArray = arrow.array.Float64Array(matlabArray, DeepCopy=MakeDeepCopy);
@@ -95,6 +94,24 @@ classdef tFloat64Array < hNumericArray
             matlabArray = double.empty(1, 0);
             arrowArray = arrow.array.Float64Array(matlabArray, DeepCopy=MakeDeepCopy);
             testCase.verifyEqual(arrowArray.Valid, expectedValid);
+        end
+
+        function LogicalValidNVPair(testCase)
+            matlabArray = [1 2 3]; 
+
+            % Supply a logical vector for Valid
+            arrowArray = arrow.array.Float64Array(matlabArray, Valid=[false; true; true]);
+            testCase.verifyEqual(arrowArray.Valid, [false; true; true]);
+            testCase.verifyEqual(toMATLAB(arrowArray), [NaN; 2; 3]);
+        end
+
+        function NumericlValidNVPair(testCase)
+            matlabArray = [1 2 3]; 
+
+            % Supply a numeric vector for Valid 
+            arrowArray = arrow.array.Float64Array(matlabArray, Valid=[1 3]);
+            testCase.verifyEqual(arrowArray.Valid, [true; false; true]);
+            testCase.verifyEqual(toMATLAB(arrowArray), [1; NaN; 3]);
         end
     end
 end

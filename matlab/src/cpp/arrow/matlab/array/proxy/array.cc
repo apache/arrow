@@ -21,7 +21,7 @@
 
 namespace arrow::matlab::array::proxy {
 
-    Array::Array(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+    Array::Array() {
 
         // Register Proxy methods.
         REGISTER_METHOD(Array, toString);
