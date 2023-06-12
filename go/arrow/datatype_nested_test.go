@@ -284,7 +284,7 @@ func TestStructField(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, flds, []Field{fields[2]})
 
-	flds, ok = ty.FieldsByName("f4")
+	_, ok = ty.FieldsByName("f4")
 	assert.False(t, ok)
 
 	assert.Equal(t, ty.FieldIndices("f1"), []int{0})
@@ -328,7 +328,7 @@ func TestStructField(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, flds, []Field{fields[1]})
 
-	flds, ok = ty.FieldsByName("f3")
+	_, ok = ty.FieldsByName("f3")
 	assert.False(t, ok)
 
 	assert.Equal(t, ty.FieldIndices("f1"), []int{0, 2})
