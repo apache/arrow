@@ -328,33 +328,6 @@ ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
       aggregate_schema};
 }
 
-ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateWindowDeclaration(
-    acero::Declaration input_decl, std::shared_ptr<Schema> aggregate_schema,
-    std::vector<compute::Aggregate> aggregates, std::vector<FieldRef> keys,
-    std::vector<FieldRef> segment_keys, uint64_t preceding, uint64_t following,
-    bool preceding_inclusive, bool following_inclusive) {
-  return DeclarationInfo{
-      acero::Declaration::Sequence(
-          {std::move(input_decl),
-           {"aggregate",
-            acero::AggregateNodeOptions{
-                aggregates, keys, segment_keys,
-                acero::WindowAggregateArgs{preceding, following, preceding_inclusive,
-                                           following_inclusive}}}}),
-      aggregate_schema};
-}
-
-ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeWindowedAggregateDeclaration(
-    acero::Declaration input_decl, std::shared_ptr<Schema> aggregate_schema,
-    std::vector<compute::Aggregate> aggregates, std::vector<FieldRef> keys,
-    std::vector<FieldRef> segment_keys) {
-  return DeclarationInfo{
-      acero::Declaration::Sequence(
-          {std::move(input_decl),
-           {"aggregate", acero::AggregateNodeOptions{aggregates, keys, segment_keys}}}),
-      aggregate_schema};
-}
-
 }  // namespace internal
 
 namespace {

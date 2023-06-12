@@ -541,14 +541,6 @@ bool operator==(const Declaration& l, const Declaration& r) {
       if (l_agg->target != r_agg->target) return false;
       if (l_agg->name != r_agg->name) return false;
     }
-    if (l_opts->window_args->left_boundary != r_opts->window_args->left_boundary)
-      return false;
-    if (l_opts->window_args->right_boundary != r_opts->window_args->right_boundary)
-      return false;
-    if (l_opts->window_args->left_inclusive != r_opts->window_args->left_inclusive)
-      return false;
-    if (l_opts->window_args->right_inclusive != r_opts->window_args->right_inclusive)
-      return false;
 
     return l_opts->keys == r_opts->keys;
   }
@@ -619,14 +611,6 @@ static inline void PrintToImpl(const std::string& factory_name,
       for (const auto& key : o->keys) {
         *os << key.ToString() << ",";
       }
-      *os << "}";
-    }
-    if (o->window_args) {
-      *os << ",windowing={";
-      *os << "left_boundary=" << o->window_args->left_boundary << ",";
-      *os << "left_inclusive=" << o->window_args->left_inclusive << ",";
-      *os << "right_boundary=" << o->window_args->right_boundary << ",";
-      *os << "right_inclusive=" << o->window_args->right_inclusive << ",";
       *os << "}";
     }
     return;
