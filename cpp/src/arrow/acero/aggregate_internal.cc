@@ -256,16 +256,8 @@ void RegisterAggregateNode(ExecFactoryRegistry* registry) {
         const auto& aggregate_options =
             checked_cast<const AggregateNodeOptions&>(options);
 
-        auto has_window = aggregate_options.window_args;
-
         if (aggregate_options.keys.empty()) {
-          if (has_window) {
-            return aggregate::WindowScalarNode::Make(plan, std::move(inputs), options);
-          }
           return aggregate::ScalarAggregateNode::Make(plan, std::move(inputs), options);
-        }
-        if (has_window) {
-          return aggregate::WindowGroupByNode::Make(plan, std::move(inputs), options);
         }
         return aggregate::GroupByNode::Make(plan, std::move(inputs), options);
       }));
