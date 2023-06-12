@@ -77,6 +77,9 @@ type Builder interface {
 	// a new array.
 	NewArray() arrow.Array
 
+	// IsNull returns if a previously appended value at a given index is null or not.
+	IsNull(i int) bool
+
 	UnsafeAppendBoolToBitmap(bool)
 
 	init(capacity int)
@@ -112,6 +115,10 @@ func (b *builder) Cap() int { return b.capacity }
 
 // NullN returns the number of null values in the array builder.
 func (b *builder) NullN() int { return b.nulls }
+
+func (b *builder) IsNull(i int) bool {
+	return b.nullBitmap.Len() != 0 && bitutil.BitIsNotSet(b.nullBitmap.Bytes(), i)
+}
 
 func (b *builder) init(capacity int) {
 	toAlloc := bitutil.CeilByte(capacity) / 8
