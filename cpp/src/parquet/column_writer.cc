@@ -460,7 +460,11 @@ class SerializedPageWriter : public PageWriter {
         ToThrift(page.definition_level_encoding()));
     data_page_header.__set_repetition_level_encoding(
         ToThrift(page.repetition_level_encoding()));
-    data_page_header.__set_statistics(ToThrift(page.statistics()));
+
+    // Write page statistics only when page index is not enabled.
+    if (column_index_builder_ == nullptr) {
+      data_page_header.__set_statistics(ToThrift(page.statistics()));
+    }
 
     page_header.__set_type(format::PageType::DATA_PAGE);
     page_header.__set_data_page_header(data_page_header);
@@ -479,7 +483,11 @@ class SerializedPageWriter : public PageWriter {
         page.repetition_levels_byte_length());
 
     data_page_header.__set_is_compressed(page.is_compressed());
-    data_page_header.__set_statistics(ToThrift(page.statistics()));
+
+    // Write page statistics only when page index is not enabled.
+    if (column_index_builder_ == nullptr) {
+      data_page_header.__set_statistics(ToThrift(page.statistics()));
+    }
 
     page_header.__set_type(format::PageType::DATA_PAGE_V2);
     page_header.__set_data_page_header_v2(data_page_header);

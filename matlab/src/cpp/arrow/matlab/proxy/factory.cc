@@ -18,12 +18,12 @@
 #include "arrow/matlab/array/proxy/numeric_array.h"
 
 #include "factory.h"
-
+#include "arrow/matlab/error/error.h"
 #include <iostream>
 
 namespace arrow::matlab::proxy {
 
-std::shared_ptr<Proxy> Factory::make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments) {
+libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments) {
     // Register MATLAB Proxy classes with corresponding C++ Proxy classes.
     REGISTER_PROXY(arrow.array.proxy.Float32Array, arrow::matlab::array::proxy::NumericArray<float>);
     REGISTER_PROXY(arrow.array.proxy.Float64Array, arrow::matlab::array::proxy::NumericArray<double>);
@@ -38,9 +38,7 @@ std::shared_ptr<Proxy> Factory::make_proxy(const ClassName& class_name, const Fu
     REGISTER_PROXY(arrow.array.proxy.Int32Array  , arrow::matlab::array::proxy::NumericArray<int32_t>);
     REGISTER_PROXY(arrow.array.proxy.Int64Array  , arrow::matlab::array::proxy::NumericArray<int64_t>);
 
-    // TODO: Decide what to do in the case that there isn't a Proxy match.
-    std::cout << "Did not find a matching C++ proxy for: " + class_name << std::endl;
-    return nullptr;
+    return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID, "Did not find matching C++ proxy for " + class_name};
 };
 
 }

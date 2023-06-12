@@ -783,19 +783,19 @@ func newByteArrayRecordReader(descr *schema.Column, info LevelInfo, dtype arrow.
 	}}
 }
 
-func (fr *byteArrayRecordReader) ReserveValues(extra int64, hasNullable bool) error {
-	fr.bldr.Reserve(int(extra))
-	return fr.primitiveRecordReader.ReserveValues(extra, hasNullable)
+func (br *byteArrayRecordReader) ReserveValues(extra int64, hasNullable bool) error {
+	br.bldr.Reserve(int(extra))
+	return br.primitiveRecordReader.ReserveValues(extra, hasNullable)
 }
 
-func (fr *byteArrayRecordReader) Retain() {
-	fr.bldr.Retain()
-	fr.primitiveRecordReader.Retain()
+func (br *byteArrayRecordReader) Retain() {
+	br.bldr.Retain()
+	br.primitiveRecordReader.Retain()
 }
 
-func (fr *byteArrayRecordReader) Release() {
-	fr.bldr.Release()
-	fr.primitiveRecordReader.Release()
+func (br *byteArrayRecordReader) Release() {
+	br.bldr.Release()
+	br.primitiveRecordReader.Release()
 }
 
 func (br *byteArrayRecordReader) ReadValuesDense(toRead int64) error {

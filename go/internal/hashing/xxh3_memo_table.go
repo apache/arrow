@@ -195,9 +195,9 @@ func (BinaryMemoTable) getHash(val interface{}) uint64 {
 	case string:
 		return hashString(v, 0)
 	case []byte:
-		return hash(v, 0)
+		return Hash(v, 0)
 	case ByteSlice:
-		return hash(v.Bytes(), 0)
+		return Hash(v.Bytes(), 0)
 	default:
 		panic("invalid type for binarymemotable")
 	}

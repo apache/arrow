@@ -19,6 +19,9 @@ package arrow
 import (
 	"reflect"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestListOf(t *testing.T) {
@@ -414,7 +417,7 @@ func TestMapOf(t *testing.T) {
 				t.Fatalf("invalid item type. got=%q, want=%q", got, want)
 			}
 
-			if got, want := got.ValueType(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
+			if got, want := got.Elem(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
 				t.Fatalf("invalid value type. got=%q, want=%q", got, want)
 			}
 
@@ -474,7 +477,7 @@ func TestMapOfWithMetadata(t *testing.T) {
 				t.Fatalf("invalid item type. got=%q, want=%q", got, want)
 			}
 
-			if got, want := got.ValueType(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
+			if got, want := got.Elem(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
 				t.Fatalf("invalid value type. got=%q, want=%q", got, want)
 			}
 
@@ -482,12 +485,59 @@ func TestMapOfWithMetadata(t *testing.T) {
 				t.Fatalf("invalid String() result. got=%q, want=%q", got, want)
 			}
 
-			if !reflect.DeepEqual(got.ValueType().fields[0].Metadata, tc.keyMetadata) {
-				t.Fatalf("invalid key metadata. got=%v, want=%v", got.ValueType().fields[0].Metadata, tc.keyMetadata)
+			if !reflect.DeepEqual(got.Elem().(*StructType).fields[0].Metadata, tc.keyMetadata) {
+				t.Fatalf("invalid key metadata. got=%v, want=%v", got.Elem().(*StructType).fields[0].Metadata, tc.keyMetadata)
 			}
-			if !reflect.DeepEqual(got.ValueType().fields[1].Metadata, tc.itemMetadata) {
-				t.Fatalf("invalid item metadata. got=%v, want=%v", got.ValueType().fields[1].Metadata, tc.itemMetadata)
+			if !reflect.DeepEqual(got.Elem().(*StructType).fields[1].Metadata, tc.itemMetadata) {
+				t.Fatalf("invalid item metadata. got=%v, want=%v", got.Elem().(*StructType).fields[1].Metadata, tc.itemMetadata)
 			}
+		})
+	}
+}
+
+func TestFieldsImmutability(t *testing.T) {
+	cases := []struct {
+		dt       NestedType
+		expected []Field
+	}{
+		{
+			dt:       ListOfField(Field{Name: "name", Type: PrimitiveTypes.Int64}),
+			expected: ListOfField(Field{Name: "name", Type: PrimitiveTypes.Int64}).Fields(),
+		},
+		{
+			dt:       LargeListOfField(Field{Name: "name", Type: PrimitiveTypes.Int64}),
+			expected: LargeListOfField(Field{Name: "name", Type: PrimitiveTypes.Int64}).Fields(),
+		},
+		{
+			dt:       FixedSizeListOfField(1, Field{Name: "name", Type: PrimitiveTypes.Int64}),
+			expected: FixedSizeListOfField(1, Field{Name: "name", Type: PrimitiveTypes.Int64}).Fields(),
+		},
+		{
+			dt:       MapOf(BinaryTypes.String, PrimitiveTypes.Int64),
+			expected: MapOf(BinaryTypes.String, PrimitiveTypes.Int64).Fields(),
+		},
+		{
+			dt:       StructOf(Field{Name: "name", Type: PrimitiveTypes.Int64}),
+			expected: StructOf(Field{Name: "name", Type: PrimitiveTypes.Int64}).Fields(),
+		},
+		{
+			dt:       RunEndEncodedOf(BinaryTypes.String, PrimitiveTypes.Int64),
+			expected: RunEndEncodedOf(BinaryTypes.String, PrimitiveTypes.Int64).Fields(),
+		},
+		{
+			dt:       UnionOf(DenseMode, []Field{{Name: "name", Type: PrimitiveTypes.Int64}}, []UnionTypeCode{0}),
+			expected: UnionOf(DenseMode, []Field{{Name: "name", Type: PrimitiveTypes.Int64}}, []UnionTypeCode{0}).Fields(),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.dt.String(), func(t *testing.T) {
+			fields := tc.dt.Fields()
+			fields[0].Nullable = !fields[0].Nullable
+			fields[0].Name = uuid.NewString()
+			fields[0].Type = nil
+
+			assert.Equal(t, tc.expected, tc.dt.Fields())
 		})
 	}
 }

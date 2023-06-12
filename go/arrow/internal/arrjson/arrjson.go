@@ -1098,7 +1098,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 
 	case *arrow.MapType:
 		valids := validsFromJSON(arr.Valids)
-		elems := arrayFromJSON(mem, dt.ValueType(), arr.Children[0])
+		elems := arrayFromJSON(mem, dt.Elem(), arr.Children[0])
 		defer elems.Release()
 
 		bitmap := validsToBitmap(valids, mem)
@@ -1429,7 +1429,7 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 			Valids: validsToJSON(arr),
 			Offset: arr.Offsets(),
 			Children: []Array{
-				arrayToJSON(arrow.Field{Name: "entries", Type: arr.DataType().(*arrow.MapType).ValueType()}, arr.ListValues()),
+				arrayToJSON(arrow.Field{Name: "entries", Type: arr.DataType().(*arrow.MapType).Elem()}, arr.ListValues()),
 			},
 		}
 		return o

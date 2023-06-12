@@ -387,16 +387,16 @@ Status WriteBatch(
 
 class DatasetWritingSinkNodeConsumer : public acero::SinkNodeConsumer {
  public:
-  DatasetWritingSinkNodeConsumer(std::shared_ptr<const KeyValueMetadata> custom_metadata,
+  DatasetWritingSinkNodeConsumer(std::shared_ptr<Schema> custom_schema,
                                  FileSystemDatasetWriteOptions write_options)
-      : custom_metadata_(std::move(custom_metadata)),
+      : custom_schema_(std::move(custom_schema)),
         write_options_(std::move(write_options)) {}
 
   Status Init(const std::shared_ptr<Schema>& schema,
               acero::BackpressureControl* backpressure_control,
               acero::ExecPlan* plan) override {
-    if (custom_metadata_) {
-      schema_ = schema->WithMetadata(custom_metadata_);
+    if (custom_schema_) {
+      schema_ = custom_schema_;
     } else {
       schema_ = schema;
     }
@@ -434,7 +434,7 @@ class DatasetWritingSinkNodeConsumer : public acero::SinkNodeConsumer {
                       });
   }
 
-  std::shared_ptr<const KeyValueMetadata> custom_metadata_;
+  std::shared_ptr<Schema> custom_schema_;
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
   Future<> finished_ = Future<>::Make();
@@ -453,13 +453,16 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
   // The projected_schema is currently used by pyarrow to preserve the custom metadata
   // when reading from a single input file.
-  const auto& custom_metadata = scanner->options()->projected_schema->metadata();
+  const auto& custom_schema = scanner->options()->projected_schema;
+
+  WriteNodeOptions write_node_options(write_options);
+  write_node_options.custom_schema = custom_schema;
 
   acero::Declaration plan = acero::Declaration::Sequence({
       {"scan", ScanNodeOptions{dataset, scanner->options()}},
       {"filter", acero::FilterNodeOptions{scanner->options()->filter}},
       {"project", acero::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-      {"write", WriteNodeOptions{write_options, custom_metadata}},
+      {"write", std::move(write_node_options)},
   });
 
   return acero::DeclarationToStatus(std::move(plan), scanner->options()->use_threads);
@@ -475,16 +478,50 @@ Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
 
   const WriteNodeOptions write_node_options =
       checked_cast<const WriteNodeOptions&>(options);
+  std::shared_ptr<Schema> custom_schema = write_node_options.custom_schema;
   const std::shared_ptr<const KeyValueMetadata>& custom_metadata =
       write_node_options.custom_metadata;
   const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
+
+  const std::shared_ptr<Schema>& input_schema = inputs[0]->output_schema();
+
+  if (custom_schema != nullptr) {
+    if (custom_metadata) {
+      return Status::TypeError(
+          "Do not provide both custom_metadata and custom_schema.  If custom_schema is "
+          "used then custom_schema->metadata should be used instead of custom_metadata");
+    }
+
+    if (custom_schema->num_fields() != input_schema->num_fields()) {
+      return Status::TypeError(
+          "The provided custom_schema did not have the same number of fields as the "
+          "data.  The custom schema can only be used to add metadata / nullability to "
+          "fields and cannot change the type or number of fields.");
+    }
+    for (int field_idx = 0; field_idx < input_schema->num_fields(); field_idx++) {
+      if (!input_schema->field(field_idx)->type()->Equals(
+              custom_schema->field(field_idx)->type())) {
+        return Status::TypeError("The provided custom_schema specified type ",
+                                 custom_schema->field(field_idx)->type()->ToString(),
+                                 " for field ", field_idx, "and the input data has type ",
+                                 input_schema->field(field_idx),
+                                 "The custom schema can only be used to add metadata / "
+                                 "nullability to fields and "
+                                 "cannot change the type or number of fields.");
+      }
+    }
+  }
+
+  if (custom_metadata) {
+    custom_schema = input_schema->WithMetadata(custom_metadata);
+  }
 
   if (!write_options.partitioning) {
     return Status::Invalid("Must provide partitioning");
   }
 
   std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
-      std::make_shared<DatasetWritingSinkNodeConsumer>(custom_metadata, write_options);
+      std::make_shared<DatasetWritingSinkNodeConsumer>(custom_schema, write_options);
 
   ARROW_ASSIGN_OR_RAISE(
       auto node,

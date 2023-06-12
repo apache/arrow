@@ -1758,8 +1758,10 @@ endmacro()
 
 if(ARROW_WITH_PROTOBUF)
   if(ARROW_FLIGHT_SQL)
-    # Flight SQL uses proto3 optionals, which require 3.15 or later.
-    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.15.0")
+    # Flight SQL uses proto3 optionals, which require 3.12 or later.
+    # 3.12.0-3.14.0: need --experimental_allow_proto3_optional
+    # 3.15.0-: don't need --experimental_allow_proto3_optional
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.12.0")
   elseif(ARROW_SUBSTRAIT)
     # Substrait protobuf files use proto3 syntax
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.0.0")
@@ -2823,7 +2825,7 @@ macro(ensure_absl)
       # 20211102 or later. We need to update
       # ARROW_ABSL_REQUIRED_LTS_VERSIONS list when new Abseil LTS is
       # released.
-      set(ARROW_ABSL_REQUIRED_LTS_VERSIONS 20211102 20220623)
+      set(ARROW_ABSL_REQUIRED_LTS_VERSIONS 20230125 20220623 20211102)
       foreach(_VERSION ${ARROW_ABSL_REQUIRED_LTS_VERSIONS})
         find_package(absl ${_VERSION})
         if(absl_FOUND)
