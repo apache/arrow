@@ -17,7 +17,7 @@ classdef Float32Array < arrow.array.NumericArray
 % arrow.array.Float32Array
 
     properties (Access=protected)
-        NullSubstitionValue = single(NaN);
+        NullSubstitutionValue = single(NaN);
     end
 
     methods

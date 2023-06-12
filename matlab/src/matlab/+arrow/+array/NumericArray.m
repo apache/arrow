@@ -22,7 +22,7 @@ classdef NumericArray < arrow.array.Array
     end
 
     properties(Abstract, Access=protected)
-        NullSubstitionValue;
+        NullSubstitutionValue;
     end
 
     methods
@@ -45,7 +45,7 @@ classdef NumericArray < arrow.array.Array
         
         function matlabArray = toMATLAB(obj)
             matlabArray = obj.Proxy.toMATLAB();
-            matlabArray(~obj.Valid) = obj.NullSubstitionValue;
+            matlabArray(~obj.Valid) = obj.NullSubstitutionValue;
         end
     end
 end

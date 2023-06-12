@@ -17,7 +17,7 @@ classdef Float64Array < arrow.array.NumericArray
 % arrow.array.Float64Array
 
     properties (Access=protected)
-        NullSubstitionValue = NaN;
+        NullSubstitutionValue = NaN;
     end
 
     methods

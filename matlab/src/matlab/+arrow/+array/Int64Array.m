@@ -23,7 +23,7 @@ classdef Int64Array < arrow.array.NumericArray
     methods
         function obj = Int64Array(data, varargin)
           obj@arrow.array.NumericArray(data, "int64", ...
-                "arrow.array.proxy.Int32Array", varargin{:});
+                "arrow.array.proxy.Int64Array", varargin{:});
         end
 
         function data = int64(obj)

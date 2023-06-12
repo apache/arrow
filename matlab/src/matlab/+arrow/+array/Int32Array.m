@@ -17,7 +17,7 @@ classdef Int32Array < arrow.array.NumericArray
 % arrow.array.Int32Array
 
     properties (Access=protected)
-        NullSubstitionValue = int32(0)
+        NullSubstitutionValue = int32(0)
     end
 
     methods

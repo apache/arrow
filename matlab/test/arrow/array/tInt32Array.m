@@ -15,7 +15,7 @@
 
 classdef tInt32Array < hNumericArray
 % Tests for arrow.array.Int32Array
-    
+
     properties
         ArrowArrayClassName = "arrow.array.Int32Array"
         ArrowArrayConstructor = @arrow.array.Int32Array
@@ -23,6 +23,6 @@ classdef tInt32Array < hNumericArray
         MatlabArrayFcn = @int32 % int32 function
         MaxValue = intmax("int32")
         MinValue = intmin("int32")
+        NullSubstitutionValue = int32(0)
     end
-
 end

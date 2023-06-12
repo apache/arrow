@@ -17,7 +17,7 @@ classdef Int8Array < arrow.array.NumericArray
 % arrow.array.Int8Array
 
     properties (Access=protected)
-        NullSubstitionValue = int8(0);
+        NullSubstitutionValue = int8(0);
     end
 
     methods

@@ -23,5 +23,6 @@ classdef tUInt16Array < hNumericArray
         MatlabArrayFcn = @uint16 % uint16 function
         MaxValue = intmax("uint16")
         MinValue = intmin("uint16")
+        NullSubstitutionValue = uint16(0)
     end
 end
