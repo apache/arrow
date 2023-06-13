@@ -530,6 +530,17 @@ class ExpirationTimeServer : public FlightServerBase {
         ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
         results.push_back(Result{Buffer::FromString(std::move(serialized))});
       }
+    } else if (action.type == ActionType::kCloseFlightInfo.type) {
+      ARROW_ASSIGN_OR_RAISE(auto info,
+                            FlightInfo::Deserialize(std::string_view(*action.body)));
+      for (const auto& endpoint : info->endpoints()) {
+        auto index_result = ExtractIndexFromTicket(endpoint.ticket.ticket);
+        if (!index_result.ok()) {
+          continue;
+        }
+        auto index = *index_result;
+        statuses_[index].closed = true;
+      }
     } else if (action.type == ActionType::kRefreshFlightEndpoint.type) {
       ARROW_ASSIGN_OR_RAISE(auto endpoint,
                             FlightEndpoint::Deserialize(std::string_view(*action.body)));
@@ -542,17 +553,6 @@ class ExpirationTimeServer : public FlightServerBase {
       statuses_[index].expiration_time = endpoint.expiration_time.value();
       ARROW_ASSIGN_OR_RAISE(auto serialized, endpoint.SerializeToString());
       results.push_back(Result{Buffer::FromString(std::move(serialized))});
-    } else if (action.type == ActionType::kCloseFlightInfo.type) {
-      ARROW_ASSIGN_OR_RAISE(auto info,
-                            FlightInfo::Deserialize(std::string_view(*action.body)));
-      for (const auto& endpoint : info->endpoints()) {
-        auto index_result = ExtractIndexFromTicket(endpoint.ticket.ticket);
-        if (!index_result.ok()) {
-          continue;
-        }
-        auto index = *index_result;
-        statuses_[index].closed = true;
-      }
     } else {
       return Status::Invalid("Unknown action: ", action.type);
     }
