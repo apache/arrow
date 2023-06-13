@@ -255,8 +255,8 @@ struct ARROW_FLIGHT_EXPORT Result {
 struct ARROW_FLIGHT_EXPORT ActionCancelFlightInfoResult {
   enum class CancelResult {
     /// The cancellation status is unknown. Servers should avoid using
-    /// this value (send a kNotCancellable if the requested query is
-    /// not known). Clients can retry the request.
+    /// this value (send a kNotCancellable if the requested FlightInfo
+    /// is not known). Clients can retry the request.
     kUnspecified = 0,
     /// The cancellation request is complete. Subsequent requests with
     /// the same payload may return kCancelled or a kNotCancellable error.
@@ -264,7 +264,7 @@ struct ARROW_FLIGHT_EXPORT ActionCancelFlightInfoResult {
     /// The cancellation request is in progress. The client may retry
     /// the cancellation request.
     kCancelling = 2,
-    // The query is not cancellable. The client should not retry the
+    // The FlightInfo is not cancellable. The client should not retry the
     // cancellation request.
     kNotCancellable = 3,
   };
