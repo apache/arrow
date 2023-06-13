@@ -23,6 +23,6 @@ classdef tInt64Array < hNumericArray
         MatlabArrayFcn = @int64 % int64 function
         MaxValue = intmax("int64")
         MinValue = intmin("int64")
+        NullSubstitutionValue = int64(0)
     end
-
 end

@@ -13,27 +13,21 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef UInt16Array < arrow.array.Array
+classdef UInt16Array < arrow.array.NumericArray
 % arrow.array.UInt16Array
 
-    properties (Hidden, SetAccess=private)
-        MatlabArray = uint16([])
+    properties (Access=protected)
+        NullSubstitutionValue = uint16(0)
     end
 
     methods
-        function obj = UInt16Array(data, opts)
-            arguments
-                data
-                opts.DeepCopy = false
-            end
-            arrow.args.validateTypeAndShape(data, "uint16");
-            obj@arrow.array.Array("Name", "arrow.array.proxy.UInt16Array", "ConstructorArguments", {data, opts.DeepCopy});
-            % Store a reference to the array if not doing a deep copy
-            if (~opts.DeepCopy), obj.MatlabArray = data; end
+        function obj = UInt16Array(data, varargin)
+            obj@arrow.array.NumericArray(data, "uint16", ...
+                "arrow.array.proxy.UInt16Array", varargin{:});
         end
 
         function data = uint16(obj)
-            data = obj.Proxy.toMATLAB();
+            data = obj.toMATLAB();
         end
     end
 end

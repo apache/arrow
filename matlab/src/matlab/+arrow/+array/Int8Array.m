@@ -13,28 +13,21 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Int8Array < arrow.array.Array
+classdef Int8Array < arrow.array.NumericArray
 % arrow.array.Int8Array
 
-    properties (Hidden, SetAccess=private)
-        MatlabArray = int8([])
+    properties (Access=protected)
+        NullSubstitutionValue = int8(0);
     end
 
     methods
-        function obj = Int8Array(data, opts)
-            arguments
-                data
-                opts.DeepCopy = false
-            end
-            
-            arrow.args.validateTypeAndShape(data, "int8");
-            obj@arrow.array.Array("Name", "arrow.array.proxy.Int8Array", "ConstructorArguments", {data, opts.DeepCopy});
-            % Store a reference to the array if not doing a deep copy
-            if (~opts.DeepCopy), obj.MatlabArray = data; end
+        function obj = Int8Array(data, varargin)
+             obj@arrow.array.NumericArray(data, "int8", ...
+                "arrow.array.proxy.Int8Array", varargin{:});
         end
 
         function data = int8(obj)
-            data = obj.Proxy.toMATLAB();
+            data = obj.toMATLAB();
         end
     end
 end

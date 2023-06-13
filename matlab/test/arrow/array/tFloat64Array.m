@@ -23,6 +23,7 @@ classdef tFloat64Array < hNumericArray
         MatlabArrayFcn = @double % double function
         MaxValue = realmax("double")
         MinValue = realmin("double")
+        NullSubstitutionValue = NaN
     end
 
     methods(Test)

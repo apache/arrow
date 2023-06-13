@@ -12,29 +12,22 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-    
-classdef Int16Array < arrow.array.Array
+
+classdef Int16Array < arrow.array.NumericArray
 % arrow.array.Int16Array
 
-    properties (Hidden, SetAccess=private)
-        MatlabArray = int16([])
+    properties (Access=protected)
+        NullSubstitutionValue = int16(0)
     end
 
     methods
-        function obj = Int16Array(data, opts)
-            arguments
-                data
-                opts.DeepCopy = false
-            end
-
-            arrow.args.validateTypeAndShape(data, "int16");
-            obj@arrow.array.Array("Name", "arrow.array.proxy.Int16Array", "ConstructorArguments", {data, opts.DeepCopy});
-            % Store a reference to the array if not doing a deep copy
-            if (~opts.DeepCopy), obj.MatlabArray = data; end
+        function obj = Int16Array(data, varargin)
+            obj@arrow.array.NumericArray(data, "int16", ...
+                "arrow.array.proxy.Int16Array", varargin{:});
         end
 
         function data = int16(obj)
-            data = obj.Proxy.toMATLAB();
+            data = obj.toMATLAB();
         end
     end
 end

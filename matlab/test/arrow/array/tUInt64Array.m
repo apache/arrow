@@ -1,4 +1,5 @@
 % Licensed to the Apache Software Foundation (ASF) under one or more
+>>>>>>> b27d47fde (Add abstract NumericArray class)
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
 % The ASF licenses this file to you under the Apache License, Version
@@ -12,7 +13,7 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-    
+
 classdef tUInt64Array < hNumericArray
 % Tests for arrow.array.UInt64Array
 
@@ -23,5 +24,6 @@ classdef tUInt64Array < hNumericArray
         MatlabArrayFcn = @uint64 % uint64 function
         MaxValue = intmax("uint64")
         MinValue = intmin("uint64")
+        NullSubstitutionValue = uint64(0)
     end
 end

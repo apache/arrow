@@ -23,6 +23,7 @@ classdef tFloat32Array < hNumericArray
         MatlabArrayFcn = @single % single function
         MaxValue = realmax("single")
         MinValue = realmin("single")
+        NullSubstitutionValue = single(NaN)
     end
 
     methods(Test)
@@ -30,6 +31,83 @@ classdef tFloat32Array < hNumericArray
             A1 = arrow.array.Float32Array(single([Inf -Inf]), DeepCopy=MakeDeepCopy);
             data = single(A1);
             testCase.verifyEqual(data, single([Inf -Inf]'));
+        end
+
+        function ValidBasic(testCase, MakeDeepCopy)
+            % Create a MATLAB array with one null value (i.e. one NaN).
+            % Verify NaN is considered a null value by default.
+            matlabArray = single([1, NaN, 3]');
+            arrowArray = arrow.array.Float32Array(matlabArray, DeepCopy=MakeDeepCopy);
+            expectedValid = [true, false, true]';
+            testCase.verifyEqual(arrowArray.Valid, expectedValid);
+        end
+
+        function InferNulls(testCase, MakeDeepCopy)
+            matlabArray = single([1, NaN, 3]);
+
+            % Verify NaN is treated as a null value when InferNulls=true.
+            arrowArray1 = arrow.array.Float32Array(matlabArray, InferNulls=true, DeepCopy=MakeDeepCopy);
+            expectedValid1 = [true false true]';
+            testCase.verifyEqual(arrowArray1.Valid, expectedValid1);
+            testCase.verifyEqual(toMATLAB(arrowArray1), matlabArray');
+
+            % Verify NaN is not treated as a null value when InferNulls=false.
+            arrowArray2 = arrow.array.Float32Array(matlabArray, InferNulls=false, DeepCopy=MakeDeepCopy);
+            expectedValid2 = [true true true]';
+            testCase.verifyEqual(arrowArray2.Valid, expectedValid2);
+            testCase.verifyEqual(toMATLAB(arrowArray2), matlabArray');
+        end
+
+        function ValidNoNulls(testCase, MakeDeepCopy)
+            % Create a MATLAB array with no null values (i.e. no NaNs).
+            matlabArray = single([1, 2, 3]');
+            arrowArray = arrow.array.Float32Array(matlabArray, DeepCopy=MakeDeepCopy);
+            expectedValid = [true, true, true]';
+            testCase.verifyEqual(arrowArray.Valid, expectedValid);
+        end
+
+        function ValidAllNulls(testCase, MakeDeepCopy)
+            % Create a MATLAB array with all null values (i.e. all NaNs).
+            matlabArray = single([NaN, NaN, NaN]');
+            arrowArray = arrow.array.Float32Array(matlabArray, DeepCopy=MakeDeepCopy);
+            expectedValid = [false, false, false]';
+            testCase.verifyEqual(arrowArray.Valid, expectedValid);
+        end
+
+        function EmptyArrayValidBitmap(testCase, MakeDeepCopy)
+            % Create an empty 0x0 MATLAB array.
+            matlabArray = single.empty(0, 0);
+            arrowArray = arrow.array.Float32Array(matlabArray, DeepCopy=MakeDeepCopy);
+            expectedValid = logical.empty(0, 1);
+            testCase.verifyEqual(arrowArray.Valid, expectedValid);
+
+            % Create an empty 0x1 MATLAB array.
+            matlabArray = single.empty(0, 1);
+            arrowArray = arrow.array.Float32Array(matlabArray, DeepCopy=MakeDeepCopy);
+            testCase.verifyEqual(arrowArray.Valid, expectedValid);
+
+            % Create an empty 1x0 MATLAB array.
+            matlabArray = single.empty(1, 0);
+            arrowArray = arrow.array.Float32Array(matlabArray, DeepCopy=MakeDeepCopy);
+            testCase.verifyEqual(arrowArray.Valid, expectedValid);
+        end
+
+        function LogicalValidNVPair(testCase)
+            matlabArray = single([1 2 3]); 
+
+            % Supply a logical vector for Valid
+            arrowArray = arrow.array.Float32Array(matlabArray, Valid=[false; true; true]);
+            testCase.verifyEqual(arrowArray.Valid, [false; true; true]);
+            testCase.verifyEqual(toMATLAB(arrowArray), single([NaN; 2; 3]));
+        end
+
+        function NumericlValidNVPair(testCase)
+            matlabArray = single([1 2 3]); 
+
+            % Supply a numeric vector for Valid 
+            arrowArray = arrow.array.Float32Array(matlabArray, Valid=[1 3]);
+            testCase.verifyEqual(arrowArray.Valid, [true; false; true]);
+            testCase.verifyEqual(toMATLAB(arrowArray), single([1; NaN; 3]));
         end
     end
 end

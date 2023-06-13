@@ -15,7 +15,7 @@
 
 classdef tUInt8Array < hNumericArray
 % Tests for arrow.array.UInt8Array
-    
+
     properties
         ArrowArrayClassName = "arrow.array.UInt8Array"
         ArrowArrayConstructor = @arrow.array.UInt8Array
@@ -23,5 +23,6 @@ classdef tUInt8Array < hNumericArray
         MatlabArrayFcn = @uint8 % uint8 function
         MaxValue = intmax("uint8")
         MinValue = intmin("uint8")
+        NullSubstitutionValue = uint8(0)
     end
 end

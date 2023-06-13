@@ -12,28 +12,22 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-    
-classdef UInt8Array < arrow.array.Array
+
+classdef UInt8Array < arrow.array.NumericArray
 % arrow.array.UInt8Array
 
-    properties (Hidden, SetAccess=private)
-        MatlabArray = uint8([])
+    properties (Access=protected)
+        NullSubstitutionValue = uint8(0)
     end
 
     methods
-        function obj = UInt8Array(data, opts)
-            arguments
-                data
-                opts.DeepCopy = false
-            end
-            arrow.args.validateTypeAndShape(data, "uint8");
-            obj@arrow.array.Array("Name", "arrow.array.proxy.UInt8Array", "ConstructorArguments", {data, opts.DeepCopy});
-            % Store a reference to the array if not doing a deep copy
-            if (~opts.DeepCopy), obj.MatlabArray = data; end
+        function obj = UInt8Array(data, varargin)
+            obj@arrow.array.NumericArray(data, "uint8", ...
+                "arrow.array.proxy.UInt8Array", varargin{:});
         end
 
         function data = uint8(obj)
-            data = obj.Proxy.toMATLAB();
+            data = obj.toMATLAB();
         end
     end
 end
