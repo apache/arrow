@@ -29,7 +29,9 @@ endmacro()
 
 set(ARROW_ACERO_SRCS
     accumulation_queue.cc
-    aggregate_node.cc
+    scalar_aggregate_node.cc
+    groupby_aggregate_node.cc
+    aggregate_internal.cc
     asof_join_node.cc
     bloom_filter.cc
     exec_plan.cc
