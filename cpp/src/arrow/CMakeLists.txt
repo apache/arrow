@@ -228,6 +228,7 @@ set(ARROW_SRCS
     util/hashing.cc
     util/int_util.cc
     util/io_util.cc
+    util/list_util.cc
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
