@@ -82,9 +82,9 @@ std::optional<uint64_t> GetConstantValidityWord(const ExecValue& data) {
   return {};
 }
 
-// if the condition is null then output is null otherwise we take validity from the
-// selected argument
-// ie. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)
+/// If the condition is null then output is null otherwise we take validity from the
+/// selected argument
+/// (i.e. cond.valid & (cond.data & left.valid | ~cond.data & right.valid)).
 struct IfElseNullPromoter {
   KernelContext* ctx;
   const ArraySpan& cond;
@@ -368,7 +368,7 @@ void RunIfElseLoopInverted(const ArraySpan& cond, const HandleBlock& handle_bloc
 }
 
 /// Runs if-else when cond is a scalar. Two special functions are required,
-/// 1.CopyArrayData, 2. BroadcastScalar
+/// 1. CopyArrayData, 2. BroadcastScalar
 template <typename CopyArrayData, typename BroadcastScalar>
 Status RunIfElseScalar(const BooleanScalar& cond, const ExecValue& left,
                        const ExecValue& right, ExecResult* out,
