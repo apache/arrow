@@ -1891,6 +1891,7 @@ services:
       CMAKE_GENERATOR: Ninja
       DEBIAN_FRONTEND: "noninteractive"
       DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
+      GITHUB_ACTIONS:
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
       USE_CONDA: 1
@@ -1922,6 +1923,7 @@ services:
     environment:
       <<: *ccache
       CMAKE_GENERATOR: Ninja
+      GITHUB_ACTIONS:
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
     command: >
@@ -1950,6 +1952,7 @@ services:
     environment:
       <<: *ccache
       CMAKE_GENERATOR: Ninja
+      GITHUB_ACTIONS:
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
     command: >
