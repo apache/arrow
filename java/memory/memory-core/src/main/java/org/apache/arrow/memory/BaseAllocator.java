@@ -56,7 +56,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       DEBUG = false;
     }
     logger.info("Debug mode " + (DEBUG ? "enabled."
-        : "disabled. Enable that by the following VM option -Darrow.memory.debug.allocator=true."));
+        : "disabled. Enable with the VM option -Darrow.memory.debug.allocator=true."));
   }
 
   public static final Config DEFAULT_CONFIG = ImmutableConfig.builder().build();
