@@ -457,6 +457,7 @@ class ExpirationTimeServer : public FlightServerBase {
   Status GetFlightInfo(const ServerCallContext& context,
                        const FlightDescriptor& descriptor,
                        std::unique_ptr<FlightInfo>* result) override {
+    statuses_.clear();
     auto schema = BuildSchema();
     std::vector<FlightEndpoint> endpoints;
     AddEndpoint(endpoints, "No expiration time", std::nullopt);
