@@ -603,9 +603,6 @@ struct ARROW_ACERO_EXPORT QueryOptions {
   /// If this field is not set then it will be treated as kWarn unless overridden
   /// by the ACERO_ALIGNMENT_HANDLING environment variable
   std::optional<UnalignedBufferHandling> unaligned_buffer_handling;
-
-  /// \brief An optional stop-token for the query. Defaults to unstoppable.
-  StopToken stop_token = StopToken::Unstoppable();
 };
 
 /// \brief Calculate the output schema of a declaration
