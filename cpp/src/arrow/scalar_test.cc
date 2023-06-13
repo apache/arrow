@@ -334,13 +334,12 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_TRUE(struct_nan.ApproxEquals(struct_other_nan, options));
   }
 
-  void TestListOf() {
-    auto ty = list(type_);
-
-    ListScalar list_val(ArrayFromJSON(type_, "[0, null, 1.0]"), ty);
-    ListScalar list_other_val(ArrayFromJSON(type_, "[0, null, 1.1]"), ty);
-    ListScalar list_nan(ArrayFromJSON(type_, "[0, null, NaN]"), ty);
-    ListScalar list_other_nan(ArrayFromJSON(type_, "[0, null, NaN]"), ty);
+  template <typename ListScalarClass>
+  void TestListOf(const std::shared_ptr<DataType>& list_ty) {
+    ListScalarClass list_val(ArrayFromJSON(type_, "[0, null, 1.0]"), list_ty);
+    ListScalarClass list_other_val(ArrayFromJSON(type_, "[0, null, 1.1]"), list_ty);
+    ListScalarClass list_nan(ArrayFromJSON(type_, "[0, null, NaN]"), list_ty);
+    ListScalarClass list_other_nan(ArrayFromJSON(type_, "[0, null, NaN]"), list_ty);
 
     EqualOptions options = EqualOptions::Defaults().atol(0.05);
     ASSERT_TRUE(list_val.Equals(list_val, options));
@@ -391,6 +390,10 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_TRUE(list_nan.ApproxEquals(list_other_nan, options));
   }
 
+  void TestListOf() { TestListOf<ListScalar>(list(type_)); }
+
+  void TestListViewOf() { TestListOf<ListViewScalar>(list_view(type_)); }
+
  protected:
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Scalar> scalar_val_, scalar_other_, scalar_nan_, scalar_other_nan_,
@@ -408,6 +411,8 @@ TYPED_TEST(TestRealScalar, ApproxEquals) { this->TestApproxEquals(); }
 TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 
 TYPED_TEST(TestRealScalar, ListOf) { this->TestListOf(); }
+
+TYPED_TEST(TestRealScalar, ListViewOf) { this->TestListViewOf(); }
 
 template <typename T>
 class TestDecimalScalar : public ::testing::Test {
@@ -1135,12 +1140,33 @@ class TestListScalar : public ::testing::Test {
     ASSERT_NE(a0->hash(), b0->hash());
   }
 
+  void TestCast(ScalarType& scalar, const std::shared_ptr<DataType>& to_type) {
+    EXPECT_OK_AND_ASSIGN(auto cast_scalar, scalar.CastTo(to_type));
+    ASSERT_OK(cast_scalar->ValidateFull());
+    ASSERT_EQ(*cast_scalar->type, *to_type);
+
+    ASSERT_EQ(scalar.is_valid, cast_scalar->is_valid);
+    ASSERT_TRUE(scalar.is_valid);
+    ASSERT_ARRAYS_EQUAL(*scalar.value,
+                        *checked_cast<const BaseListScalar&>(*cast_scalar).value);
+  }
+
+  void TestCast() {
+    ScalarType scalar(value_);
+    TestCast(scalar, list(value_->type()));
+    TestCast(scalar, large_list(value_->type()));
+    TestCast(scalar, list_view(value_->type()));
+    TestCast(scalar,
+             fixed_size_list(value_->type(), static_cast<int32_t>(value_->length())));
+  }
+
  protected:
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Array> value_;
 };
 
-using ListScalarTestTypes = ::testing::Types<ListType, LargeListType, FixedSizeListType>;
+using ListScalarTestTypes =
+    ::testing::Types<ListType, LargeListType, ListViewType, FixedSizeListType>;
 
 TYPED_TEST_SUITE(TestListScalar, ListScalarTestTypes);
 
@@ -1148,7 +1174,9 @@ TYPED_TEST(TestListScalar, Basics) { this->TestBasics(); }
 
 TYPED_TEST(TestListScalar, ValidateErrors) { this->TestValidateErrors(); }
 
-TYPED_TEST(TestListScalar, TestHashing) { this->TestHashing(); }
+TYPED_TEST(TestListScalar, Hashing) { this->TestHashing(); }
+
+TYPED_TEST(TestListScalar, Cast) { this->TestCast(); }
 
 TEST(TestFixedSizeListScalar, ValidateErrors) {
   const auto ty = fixed_size_list(int16(), 3);

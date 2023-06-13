@@ -1127,6 +1127,33 @@ Status CastImpl(const StructScalar& from, StringScalar* to) {
   return Status::OK();
 }
 
+template <typename T>
+using is_list_or_list_view_type =
+    std::integral_constant<bool, std::is_same<T, ListType>::value ||
+                                     std::is_same<T, ListViewType>::value ||
+                                     std::is_same<T, LargeListType>::value ||
+                                     std::is_same<T, FixedSizeListType>::value>;
+
+// casts between list and list-view types
+template <typename ToScalar>
+enable_if_t<is_list_or_list_view_type<typename ToScalar::TypeClass>::value, Status>
+CastImpl(const BaseListScalar& from, ToScalar* to) {
+  DCHECK(from.type->id() == Type::LIST || from.type->id() == Type::LARGE_LIST ||
+         from.type->id() == Type::LIST_VIEW || from.type->id() == Type::FIXED_SIZE_LIST);
+
+  if constexpr (sizeof(typename ToScalar::TypeClass::offset_type) < sizeof(int64_t)) {
+    if (from.value->length() >
+        std::numeric_limits<typename ToScalar::TypeClass::offset_type>::max()) {
+      return Status::Invalid(from.type->ToString(), " too large to cast to ",
+                             to->type->ToString());
+    }
+  }
+
+  DCHECK_EQ(from.is_valid, to->is_valid);
+  to->value = from.value;
+  return Status::OK();
+}
+
 // list based types (list, large list and map (fixed sized list too)) to string
 Status CastImpl(const BaseListScalar& from, StringScalar* to) {
   std::stringstream ss;
@@ -1183,10 +1210,29 @@ struct FromTypeVisitor : CastImplVisitor {
 
   // identity cast only for parameter free types
   template <typename T1 = ToType>
-  typename std::enable_if<TypeTraits<T1>::is_parameter_free, Status>::type Visit(
+  typename std::enable_if_t<TypeTraits<T1>::is_parameter_free, Status> Visit(
       const ToType&) {
     checked_cast<ToScalar*>(out_)->value = checked_cast<const ToScalar&>(from_).value;
     return Status::OK();
+  }
+
+  Status CastFromListViewLike(const BaseListType& base_list_type) {
+    return CastImpl(checked_cast<const BaseListScalar&>(from_),
+                    checked_cast<ToScalar*>(out_));
+  }
+
+  Status Visit(const ListType& list_type) { return CastFromListViewLike(list_type); }
+
+  Status Visit(const LargeListType& large_list_type) {
+    return CastFromListViewLike(large_list_type);
+  }
+
+  Status Visit(const ListViewType& list_view_type) {
+    return CastFromListViewLike(list_view_type);
+  }
+
+  Status Visit(const FixedSizeListType& fixed_size_list_type) {
+    return CastFromListViewLike(fixed_size_list_type);
   }
 
   Status Visit(const NullType&) { return NotImplemented(); }
