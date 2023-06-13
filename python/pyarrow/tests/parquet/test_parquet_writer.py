@@ -93,6 +93,14 @@ def test_validate_schema_write_table(tempdir):
         with pytest.raises(ValueError):
             w.write_table(simple_table)
 
+def test_parquet_invalid_writer():
+
+    with pytest.raises(TypeError):
+        some_schema = pa.schema([pa.field("x", pa.int32())])
+        pq.ParquetWriter(None, some_schema)
+
+    with pytest.raises(TypeError):
+        pq.ParquetWriter("some_path", None)
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
