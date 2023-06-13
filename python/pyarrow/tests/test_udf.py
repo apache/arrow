@@ -299,6 +299,43 @@ def raising_func_fixture():
     return raising_func, func_name
 
 
+@pytest.fixture(scope="session")
+def unary_vector_func_fixture():
+    """
+    Reigster a vector function
+    """
+    import numpy as np
+    def pct_rank(ctx, x):
+        return pa.array(x.to_pandas().rank(pct=True))
+
+    func_name = "y=pct_rank(x)"
+    doc = empty_udf_doc
+    pc.register_vector_function(pct_rank, func_name, doc, {'x': pa.float64()}, pa.float64())
+
+    return pct_rank, func_name
+
+
+@pytest.fixture(scope="session")
+def struct_vector_func_fixture():
+    """
+    Reigster a vector function that returns a struct array
+    """
+    def pivot(ctx, k, v, c):
+        df = pa.RecordBatch.from_arrays([k, v, c], names=['k', 'v', 'c']).to_pandas()
+        df_pivot = df.pivot(columns='c', values='v', index='k').reset_index()
+        return pa.RecordBatch.from_pandas(df_pivot).to_struct_array()
+
+    func_name = "y=pivot(x)"
+    doc = empty_udf_doc
+    pc.register_vector_function(
+        pivot, func_name, doc,
+        {'k': pa.int64(), 'v': pa.float64(), 'c': pa.utf8()},
+        pa.struct([('k', pa.int64()), ('v1', pa.float64()), ('v2', pa.float64())])
+    )
+
+    return pivot, func_name
+
+
 def check_scalar_function(func_fixture,
                           inputs, *,
                           run_in_dataset=True,
@@ -797,3 +834,25 @@ def test_hash_agg_random(sum_agg_func_fixture):
         [("value", "sum")]).rename_columns(['id', 'value_sum_udf'])
 
     assert result.sort_by('id') == expected.sort_by('id')
+
+
+def test_vector_basic(unary_vector_func_fixture):
+    arr = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
+    result = pc.call_function("y=pct_rank(x)", [arr])
+    expected = pa.array(arr.to_pandas().rank(pct=True))
+    assert result == expected
+
+
+def test_vector_struct(struct_vector_func_fixture):
+    k = pa.array(
+        [1, 1, 2, 2], pa.int64()
+    )
+    v = pa.array(
+        [1.0, 2.0, 3.0, 4.0], pa.float64()
+    )
+    c = pa.array(
+        ['v1', 'v2', 'v1', 'v2']
+    )
+    result = pc.call_function("y=pivot(x)", [k, v, c])
+    expected = struct_vector_func_fixture[0](None, k, v, c)
+    assert result == expected

@@ -2707,6 +2707,10 @@ cdef get_register_aggregate_function():
     reg.register_func = RegisterAggregateFunction
     return reg
 
+cdef get_register_vector_function():
+    cdef RegisterUdf reg = RegisterUdf.__new__(RegisterUdf)
+    reg.register_func = RegisterVectorFunction
+    return reg
 
 def register_scalar_function(func, function_name, function_doc, in_types, out_type,
                              func_registry=None):
@@ -2788,6 +2792,11 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
                                            func, function_name, function_doc, in_types,
                                            out_type, func_registry)
 
+def register_vector_function(func, function_name, function_doc, in_types, out_type,
+                             func_registry=None):
+    return _register_user_defined_function(get_register_vector_function(),
+                                           func, function_name, function_doc, in_types,
+                                           out_type, func_registry)
 
 def register_aggregate_function(func, function_name, function_doc, in_types, out_type,
                                 func_registry=None):

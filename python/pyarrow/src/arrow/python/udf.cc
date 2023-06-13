@@ -517,6 +517,40 @@ Status RegisterUdf(PyObject* user_function, compute::KernelInit kernel_init,
   return Status::OK();
 }
 
+Status RegisterVectorUdf(PyObject* user_function, compute::KernelInit kernel_init,
+                   UdfWrapperCallback wrapper, const UdfOptions& options,
+                   compute::FunctionRegistry* registry) {
+  if (!PyCallable_Check(user_function)) {
+    return Status::TypeError("Expected a callable Python object.");
+  }
+  auto vector_func = std::make_shared<compute::VectorFunction>(
+      options.func_name, options.arity, options.func_doc);
+  Py_INCREF(user_function);
+  std::vector<compute::InputType> input_types;
+  for (const auto& in_dtype : options.input_types) {
+    input_types.emplace_back(in_dtype);
+  }
+  compute::OutputType output_type(options.output_type);
+
+  auto udf_data = std::make_shared<PythonUdf>(
+      std::make_shared<OwnedRefNoGIL>(user_function), wrapper,
+      TypeHolder::FromTypes(options.input_types), options.output_type);
+  compute::VectorKernel kernel(
+      compute::KernelSignature::Make(std::move(input_types), std::move(output_type),
+                                     options.arity.is_varargs),
+      PythonUdfExec, kernel_init, NULL);
+  kernel.data = std::move(udf_data);
+
+  kernel.mem_allocation = compute::MemAllocation::NO_PREALLOCATE;
+  kernel.null_handling = compute::NullHandling::COMPUTED_NO_PREALLOCATE;
+  RETURN_NOT_OK(vector_func->AddKernel(std::move(kernel)));
+  if (registry == NULLPTR) {
+    registry = compute::GetFunctionRegistry();
+  }
+  RETURN_NOT_OK(registry->AddFunction(std::move(vector_func)));
+  return Status::OK();
+}
+
 }  // namespace
 
 Status RegisterScalarFunction(PyObject* function, UdfWrapperCallback cb,
@@ -525,6 +559,14 @@ Status RegisterScalarFunction(PyObject* function, UdfWrapperCallback cb,
   return RegisterUdf(function,
                      PythonUdfKernelInit{std::make_shared<OwnedRefNoGIL>(function)}, cb,
                      options, registry);
+}
+
+Status RegisterVectorFunction(PyObject* user_function, UdfWrapperCallback wrapper,
+                              const UdfOptions& options,
+                              compute::FunctionRegistry* registry) {
+  return RegisterVectorUdf(user_function,
+                           PythonUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function)},
+                           wrapper, options, registry);
 }
 
 Status RegisterTabularFunction(PyObject* function, UdfWrapperCallback cb,
@@ -553,6 +595,7 @@ Status RegisterScalarAggregateFunction(PyObject* function, UdfWrapperCallback cb
   }
 
   // Py_INCREF here so that once a function is registered
+
   // its refcount gets increased by 1 and doesn't get gced
   // if all existing refs are gone
   Py_INCREF(function);
