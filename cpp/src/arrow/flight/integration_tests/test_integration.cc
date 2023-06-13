@@ -564,8 +564,8 @@ class ExpirationTimeServer : public FlightServerBase {
                      std::vector<ActionType>* actions) override {
     *actions = {
         ActionType::kCancelFlightInfo,
-        ActionType::kRefreshFlightEndpoint,
         ActionType::kCloseFlightInfo,
+        ActionType::kRefreshFlightEndpoint,
     };
     return Status::OK();
   }
@@ -746,6 +746,34 @@ class ExpirationTimeCancelFlightInfoScenario : public Scenario {
   }
 };
 
+/// \brief The expiration time scenario - CloseFlightInfo.
+///
+/// This tests that the client can close a FlightInfo explicitly and
+/// the server returns an error for DoGet against endpoints in the
+/// closed FlightInfo.
+class ExpirationTimeCloseFlightInfoScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<ExpirationTimeServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("expiration")));
+    ARROW_RETURN_NOT_OK(client->CloseFlightInfo(*info));
+    for (const auto& endpoint : info->endpoints()) {
+      auto reader = client->DoGet(endpoint.ticket);
+      if (reader.ok()) {
+        return Status::Invalid("DoGet after CloseFlightInfo must be failed");
+      }
+    }
+    return Status::OK();
+  }
+};
+
 /// \brief The expiration time scenario - RefreshFlightEndpoint.
 ///
 /// This tests that the client can refresh a FlightEndpoint and read
@@ -844,34 +872,6 @@ class ExpirationTimeRefreshFlightEndpointScenario : public Scenario {
     if (!table->Equals(*expected_table)) {
       return Status::Invalid("Read data isn't expected\n", "Expected:\n",
                              expected_table->ToString(), "Actual:\n", table->ToString());
-    }
-    return Status::OK();
-  }
-};
-
-/// \brief The expiration time scenario - CloseFlightInfo.
-///
-/// This tests that the client can close a FlightInfo explicitly and
-/// the server returns an error for DoGet against endpoints in the
-/// closed FlightInfo.
-class ExpirationTimeCloseFlightInfoScenario : public Scenario {
-  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
-                    FlightServerOptions* options) override {
-    *server = std::make_unique<ExpirationTimeServer>();
-    return Status::OK();
-  }
-
-  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
-
-  Status RunClient(std::unique_ptr<FlightClient> client) override {
-    ARROW_ASSIGN_OR_RAISE(auto info,
-                          client->GetFlightInfo(FlightDescriptor::Command("expiration")));
-    ARROW_RETURN_NOT_OK(client->CloseFlightInfo(*info));
-    for (const auto& endpoint : info->endpoints()) {
-      auto reader = client->DoGet(endpoint.ticket);
-      if (reader.ok()) {
-        return Status::Invalid("DoGet after CloseFlightInfo must be failed");
-      }
     }
     return Status::OK();
   }
