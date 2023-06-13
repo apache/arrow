@@ -31,8 +31,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
-import java.util.function.BiFunction;
 
 import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
@@ -1111,26 +1109,23 @@ public class TestBaseAllocator {
           1024, new PooledByteBufAllocatorL().empty.memoryAddress())) {
         buf.memoryAddress();
       }
-      BiFunction<List<String>, Level, Boolean> listAppenderContains =
-          (List<String> values, Level level) -> memoryLogsAppender.list.stream()
-              .anyMatch(
-                  log -> log.toString().contains(values.get(0)) &&
-                      log.toString().contains(values.get(1)) &&
-                      log.toString().contains(values.get(2)) &&
-                      log.getLevel().equals(level)
-              );
       boolean result = false;
       long startTime = System.currentTimeMillis();
-      while (true && (System.currentTimeMillis() - startTime) < 20000) {
-        result = listAppenderContains.apply(Arrays.asList("Memory Usage: \n", "Large buffers outstanding: ",
-                "Normal buffers outstanding: "), Level.TRACE);
-        if (result) {
+      while (true) {
+        result = memoryLogsAppender.list.stream()
+            .anyMatch(
+                log -> log.toString().contains("Memory Usage: \n") &&
+                    log.toString().contains("Large buffers outstanding: ") &&
+                    log.toString().contains("Normal buffers outstanding: ") &&
+                    log.getLevel().equals(Level.TRACE)
+            );
+        if (result || (System.currentTimeMillis() - startTime) > 10000) { // 10 seconds maximum for time to write logs
           break;
         }
       }
-      memoryLogsAppender.stop();
       assertTrue(result);
     } finally {
+      memoryLogsAppender.stop();
       logger.detachAppender(memoryLogsAppender);
       logger.setLevel(null);
     }
