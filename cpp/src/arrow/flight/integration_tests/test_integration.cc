@@ -442,16 +442,13 @@ class OrderedScenario : public Scenario {
 class ExpirationTimeServer : public FlightServerBase {
  private:
   struct EndpointStatus {
-    EndpointStatus(std::optional<Timestamp> expiration_time)
-        : expiration_time(expiration_time),
-          num_gets(0),
-          cancelled(false),
-          closed(false) {}
+    explicit EndpointStatus(std::optional<Timestamp> expiration_time)
+        : expiration_time(expiration_time) {}
 
     std::optional<Timestamp> expiration_time;
-    uint32_t num_gets;
-    bool cancelled;
-    bool closed;
+    uint32_t num_gets = 0;
+    bool cancelled = false;
+    bool closed = false;
   };
 
  public:
