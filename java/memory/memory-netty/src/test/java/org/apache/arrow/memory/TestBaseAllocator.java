@@ -1111,7 +1111,7 @@ public class TestBaseAllocator {
       }
       boolean result = false;
       long startTime = System.currentTimeMillis();
-      while (true) {
+      while ((System.currentTimeMillis() - startTime) < 10000) { // 10 seconds maximum for time to read logs
         result = memoryLogsAppender.list.stream()
             .anyMatch(
                 log -> log.toString().contains("Memory Usage: \n") &&
@@ -1119,7 +1119,7 @@ public class TestBaseAllocator {
                     log.toString().contains("Normal buffers outstanding: ") &&
                     log.getLevel().equals(Level.TRACE)
             );
-        if (result || (System.currentTimeMillis() - startTime) > 10000) { // 10 seconds maximum for time to write logs
+        if (result) {
           break;
         }
       }
