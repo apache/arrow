@@ -141,6 +141,7 @@ public class TestArrowBuf {
   @Test
   public void testEnabledAssertion() {
     ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(Level.TRACE);
+    System.out.println(ClassLoader.getSystemClassLoader());
     ClassLoader.getSystemClassLoader().setDefaultAssertionStatus(true);
     try (BufferAllocator allocator = new RootAllocator(128)) {
       ArrowBuf buf = allocator.buffer(2);
@@ -148,7 +149,7 @@ public class TestArrowBuf {
       assertFalse(e.getMessage().contains("event log for:"));
     } finally {
       ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
-      ClassLoader.getSystemClassLoader().setDefaultAssertionStatus(false);
+      ClassLoader.getSystemClassLoader().clearAssertionStatus();
     }
   }
 
