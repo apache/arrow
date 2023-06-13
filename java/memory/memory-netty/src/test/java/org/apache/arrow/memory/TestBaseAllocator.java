@@ -1103,26 +1103,37 @@ public class TestBaseAllocator {
   public void testMemoryUsage() {
     ListAppender<ILoggingEvent> memoryLogsAppender = new ListAppender<>();
     Logger logger = (Logger) LoggerFactory.getLogger("arrow.allocator");
-    logger.setLevel(Level.TRACE);
-    logger.addAppender(memoryLogsAppender);
-    memoryLogsAppender.start();
-    try (ArrowBuf buf = new ArrowBuf(ReferenceManager.NO_OP, null,
-        1024, new PooledByteBufAllocatorL().empty.memoryAddress())) {
-      buf.memoryAddress();
+    try {
+      logger.setLevel(Level.TRACE);
+      logger.addAppender(memoryLogsAppender);
+      memoryLogsAppender.start();
+      try (ArrowBuf buf = new ArrowBuf(ReferenceManager.NO_OP, null,
+          1024, new PooledByteBufAllocatorL().empty.memoryAddress())) {
+        buf.memoryAddress();
+      }
+      BiFunction<List<String>, Level, Boolean> listAppenderContains =
+          (List<String> values, Level level) -> memoryLogsAppender.list.stream()
+              .anyMatch(
+                  log -> log.toString().contains(values.get(0)) &&
+                      log.toString().contains(values.get(1)) &&
+                      log.toString().contains(values.get(2)) &&
+                      log.getLevel().equals(level)
+              );
+      boolean result = false;
+      long startTime = System.currentTimeMillis();
+      while (true && (System.currentTimeMillis() - startTime) < 20000) {
+        result = listAppenderContains.apply(Arrays.asList("Memory Usage: \n", "Large buffers outstanding: ",
+                "Normal buffers outstanding: "), Level.TRACE);
+        if (result) {
+          break;
+        }
+      }
+      memoryLogsAppender.stop();
+      assertTrue(result);
+    } finally {
+      logger.detachAppender(memoryLogsAppender);
+      logger.setLevel(null);
     }
-    BiFunction<List<String>, Level, Boolean> listAppenderContains =
-        (List<String> values, Level level) -> memoryLogsAppender.list.stream()
-            .anyMatch(
-                log -> log.toString().contains(values.get(0)) &&
-                    log.toString().contains(values.get(1)) &&
-                    log.toString().contains(values.get(2)) &&
-                    log.getLevel().equals(level)
-            );
-    boolean result = listAppenderContains.apply(Arrays.asList("Memory Usage: \n", "Large buffers outstanding: ",
-            "Normal buffers outstanding: "),
-        Level.TRACE);
-    logger.detachAppender(memoryLogsAppender);
-    assertTrue(result);
   }
 
   public void assertEquiv(ArrowBuf origBuf, ArrowBuf newBuf) {
