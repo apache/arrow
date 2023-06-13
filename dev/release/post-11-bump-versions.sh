@@ -74,7 +74,7 @@ if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ]; then
   }
   deb_lib_suffix=$(so_version $version)
   next_deb_lib_suffix=$(so_version $next_version)
-  echo "HERE ${deb_lib_suffix} and ${next_deb_lib_suffix}"
+  echo "TOMATO ${deb_lib_suffix} and ${next_deb_lib_suffix}"
   if [ "${deb_lib_suffix}" != "${next_deb_lib_suffix}" ]; then
     cd $SOURCE_DIR/../tasks/linux-packages/apache-arrow
     for target in debian*/lib*${deb_lib_suffix}.install; do
