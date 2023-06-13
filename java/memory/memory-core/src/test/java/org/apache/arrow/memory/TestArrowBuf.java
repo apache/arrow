@@ -146,13 +146,16 @@ public class TestArrowBuf {
       ArrowBuf buf = allocator.buffer(2);
     } catch (Exception e) {
       assertFalse(e.getMessage().contains("event log for:"));
+    } finally {
+      ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
+      ClassLoader.getSystemClassLoader().setDefaultAssertionStatus(false);
     }
   }
 
   @Test
   public void testEnabledHistoricalLog() {
+    ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(Level.TRACE);
     try {
-      ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(Level.TRACE);
       Field fieldDebug = BaseAllocator.class.getField("DEBUG");
       fieldDebug.setAccessible(true);
       Field modifiersDebug = Field.class.getDeclaredField("modifiers");
@@ -163,10 +166,13 @@ public class TestArrowBuf {
         ArrowBuf buf = allocator.buffer(2);
       } catch (Exception e) {
         assertTrue(e.getMessage().contains("event log for:")); // JDK8, JDK11
+      } finally {
         fieldDebug.set(null, false);
       }
     } catch (Exception e) {
       assertTrue(e.toString().contains("java.lang.NoSuchFieldException: modifiers")); // JDK17+
+    } finally {
+      ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
     }
   }
 }
