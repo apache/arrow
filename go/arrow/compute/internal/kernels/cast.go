@@ -46,6 +46,7 @@ type CastState = CastOptions
 // This can be used for casting a type to itself, or for casts between
 // equivalent representations such as Int32 and Date32.
 func ZeroCopyCastExec(_ *exec.KernelCtx, batch *exec.ExecSpan, out *exec.ExecResult) error {
+	out.Release()
 	dt := out.Type
 	*out = batch.Values[0].Array
 	out.Type = dt

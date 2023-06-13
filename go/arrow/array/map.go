@@ -150,7 +150,7 @@ type MapBuilder struct {
 func NewMapBuilder(mem memory.Allocator, keytype, itemtype arrow.DataType, keysSorted bool) *MapBuilder {
 	etype := arrow.MapOf(keytype, itemtype)
 	etype.KeysSorted = keysSorted
-	listBldr := NewListBuilder(mem, etype.ValueType())
+	listBldr := NewListBuilder(mem, etype.Elem())
 	keyBldr := listBldr.ValueBuilder().(*StructBuilder).FieldBuilder(0)
 	keyBldr.Retain()
 	itemBldr := listBldr.ValueBuilder().(*StructBuilder).FieldBuilder(1)
@@ -167,7 +167,7 @@ func NewMapBuilder(mem memory.Allocator, keytype, itemtype arrow.DataType, keysS
 }
 
 func NewMapBuilderWithType(mem memory.Allocator, dt *arrow.MapType) *MapBuilder {
-	listBldr := NewListBuilder(mem, dt.ValueType())
+	listBldr := NewListBuilder(mem, dt.Elem())
 	keyBldr := listBldr.ValueBuilder().(*StructBuilder).FieldBuilder(0)
 	keyBldr.Retain()
 	itemBldr := listBldr.ValueBuilder().(*StructBuilder).FieldBuilder(1)
@@ -178,7 +178,7 @@ func NewMapBuilderWithType(mem memory.Allocator, dt *arrow.MapType) *MapBuilder 
 		itemBuilder: itemBldr,
 		etype:       dt,
 		keytype:     dt.KeyType(),
-		itemtype:    dt.ValueType(),
+		itemtype:    dt.ItemType(),
 		keysSorted:  dt.KeysSorted,
 	}
 }
@@ -209,6 +209,11 @@ func (b *MapBuilder) Cap() int { return b.listBuilder.Cap() }
 
 // NullN returns the number of null values in the array builder.
 func (b *MapBuilder) NullN() int { return b.listBuilder.NullN() }
+
+// IsNull returns if a previously appended value at a given index is null or not.
+func (b *MapBuilder) IsNull(i int) bool {
+	return b.listBuilder.IsNull(i)
+}
 
 // Append adds a new Map element to the array, calling Append(false) is
 // equivalent to calling AppendNull.

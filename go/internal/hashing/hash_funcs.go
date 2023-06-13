@@ -53,9 +53,9 @@ func hashFloat64(val float64, alg uint64) uint64 {
 var exprimes = [2]uint64{1609587929392839161, 9650029242287828579}
 
 // for smaller amounts of bytes this is faster than even calling into
-// xxh3 to do the hash, so we specialize in order to get the benefits
+// xxh3 to do the Hash, so we specialize in order to get the benefits
 // of that performance.
-func hash(b []byte, alg uint64) uint64 {
+func Hash(b []byte, alg uint64) uint64 {
 	n := uint32(len(b))
 	if n <= 16 {
 		switch {

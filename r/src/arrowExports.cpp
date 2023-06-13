@@ -1414,6 +1414,46 @@ BEGIN_CPP11
 END_CPP11
 }
 // csv.cpp
+SEXP csv___ReadOptions__block_size(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__block_size(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__block_size(options));
+END_CPP11
+}
+// csv.cpp
+SEXP csv___ReadOptions__skip_rows(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__skip_rows(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__skip_rows(options));
+END_CPP11
+}
+// csv.cpp
+SEXP csv___ReadOptions__autogenerate_column_names(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__autogenerate_column_names(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__autogenerate_column_names(options));
+END_CPP11
+}
+// csv.cpp
+SEXP csv___ReadOptions__use_threads(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__use_threads(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__use_threads(options));
+END_CPP11
+}
+// csv.cpp
+SEXP csv___ReadOptions__skip_rows_after_names(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__skip_rows_after_names(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__skip_rows_after_names(options));
+END_CPP11
+}
+// csv.cpp
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(cpp11::list options);
 extern "C" SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
 BEGIN_CPP11
@@ -5649,6 +5689,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 
+		{ "_arrow_csv___ReadOptions__block_size", (DL_FUNC) &_arrow_csv___ReadOptions__block_size, 1}, 
+		{ "_arrow_csv___ReadOptions__skip_rows", (DL_FUNC) &_arrow_csv___ReadOptions__skip_rows, 1}, 
+		{ "_arrow_csv___ReadOptions__autogenerate_column_names", (DL_FUNC) &_arrow_csv___ReadOptions__autogenerate_column_names, 1}, 
+		{ "_arrow_csv___ReadOptions__use_threads", (DL_FUNC) &_arrow_csv___ReadOptions__use_threads, 1}, 
+		{ "_arrow_csv___ReadOptions__skip_rows_after_names", (DL_FUNC) &_arrow_csv___ReadOptions__skip_rows_after_names, 1}, 
 		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1}, 
 		{ "_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4}, 
 		{ "_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1}, 

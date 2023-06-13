@@ -189,7 +189,7 @@ module Arrow
           message =
              "pattern must be either String or Regexp: #{pattern.inspect}"
           raise ArgumentError, message
-        end 
+        end
       end
 
       def start_with?(substring, ignore_case: false)

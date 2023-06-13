@@ -27,6 +27,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/apache/arrow/go/v13/internal/types"
 	"github.com/stretchr/testify/assert"
@@ -878,7 +879,7 @@ func TestFixedSizeBinaryDictionaryStringRoundTrip(t *testing.T) {
 	assert.True(t, array.Equal(arr, arr1))
 }
 
-func TestDecimalDictionaryBuilderBasic(t *testing.T) {
+func TestDecimal128DictionaryBuilderBasic(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
@@ -888,6 +889,34 @@ func TestDecimalDictionaryBuilderBasic(t *testing.T) {
 	defer bldr.Release()
 
 	builder := bldr.(*array.Decimal128DictionaryBuilder)
+	for _, v := range test {
+		assert.NoError(t, builder.Append(v))
+	}
+
+	result := bldr.NewDictionaryArray()
+	defer result.Release()
+
+	indices, _, _ := array.FromJSON(mem, dictType.IndexType, strings.NewReader("[0, 0, 1, 0]"))
+	defer indices.Release()
+	dict, _, _ := array.FromJSON(mem, dictType.ValueType, strings.NewReader("[12, 11]"))
+	defer dict.Release()
+
+	expected := array.NewDictionaryArray(dictType, indices, dict)
+	defer expected.Release()
+
+	assert.True(t, array.ArrayApproxEqual(expected, result))
+}
+
+func TestDecimal256DictionaryBuilderBasic(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	test := []decimal256.Num{decimal256.FromI64(12), decimal256.FromI64(12), decimal256.FromI64(11), decimal256.FromI64(12)}
+	dictType := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: &arrow.Decimal256Type{Precision: 2, Scale: 0}}
+	bldr := array.NewDictionaryBuilder(mem, dictType)
+	defer bldr.Release()
+
+	builder := bldr.(*array.Decimal256DictionaryBuilder)
 	for _, v := range test {
 		assert.NoError(t, builder.Append(v))
 	}

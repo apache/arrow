@@ -89,11 +89,11 @@ func TestHashingBoundsStrings(t *testing.T) {
 			str[idx] = uint8(idx)
 		}
 
-		h := hash(str, 1)
+		h := Hash(str, 1)
 		diff := 0
 		for i := 0; i < 120; i++ {
 			str[len(str)-1] = uint8(i)
-			if hash(str, 1) != h {
+			if Hash(str, 1) != h {
 				diff++
 			}
 		}

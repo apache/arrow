@@ -95,6 +95,7 @@ Collate:
     'dictionary.R'
     'dplyr-across.R'
     'dplyr-arrange.R'
+    'dplyr-by.R'
     'dplyr-collect.R'
     'dplyr-count.R'
     'dplyr-datetime-helpers.R'
