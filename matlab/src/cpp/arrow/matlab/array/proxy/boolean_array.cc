@@ -38,8 +38,8 @@ namespace arrow::matlab::array::proxy {
 
             const auto data_type = arrow::boolean();
             const auto array_length = logical_mda.getNumberOfElements();
-            const auto validity_bitmap_buffer = std::move(maybe_validity_bitmap_buffer).ValueUnsafe();
-            const auto data_buffer = std::move(maybe_packed_logical_buffer).ValueUnsafe();
+            const auto validity_bitmap_buffer = *maybe_validity_bitmap_buffer;
+            const auto data_buffer = *maybe_packed_logical_buffer;
 
             auto array_data = arrow::ArrayData::Make(data_type, array_length, {validity_bitmap_buffer, data_buffer});
             return std::make_shared<arrow::matlab::array::proxy::BooleanArray>(arrow::MakeArray(array_data));
