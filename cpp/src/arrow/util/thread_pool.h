@@ -301,10 +301,8 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   /// approach is to use a stop token to cause the generator to exhaust early.
   template <typename T>
   static Iterator<T> IterateGenerator(
-      internal::FnOnce<Result<std::function<Future<T>()>>(Executor*)> initial_task,
-      internal::SerialExecutor** serial_executor_out = NULLPTR) {
+      internal::FnOnce<Result<std::function<Future<T>()>>(Executor*)> initial_task) {
     auto serial_executor = std::unique_ptr<SerialExecutor>(new SerialExecutor());
-    if (serial_executor_out) *serial_executor_out = serial_executor.get();
     auto maybe_generator = std::move(initial_task)(serial_executor.get());
     if (!maybe_generator.ok()) {
       return MakeErrorIterator<T>(maybe_generator.status());
