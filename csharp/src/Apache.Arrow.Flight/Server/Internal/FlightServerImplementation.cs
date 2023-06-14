@@ -37,6 +37,7 @@ namespace Apache.Arrow.Flight.Server.Internal
         {
             var readStream = new FlightServerRecordBatchStreamReader(requestStream);
             var writeStream = new StreamWriter<FlightPutResult, Protocol.PutResult>(responseStream, putResult => putResult.ToProtocol());
+
             if (_flightServer.SqlProducer != null && await FlightSqlProducer.GetCommand(readStream).ConfigureAwait(false) is { } command)
             {
                 await _flightServer.SqlProducer.DoPut(command, readStream, writeStream, context).ConfigureAwait(false);
