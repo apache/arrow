@@ -378,7 +378,6 @@ Status FlightListing::Next(std::unique_ptr<FlightInfo>* info) {
   return Next().Value(info);
 }
 
-
 arrow::Result<Location> Location::Parse(const std::string& uri_string) {
   Location location;
   RETURN_NOT_OK(location.uri_->Parse(uri_string));

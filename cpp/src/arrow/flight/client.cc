@@ -569,8 +569,8 @@ Status FlightClient::DoAction(const FlightCallOptions& options, const Action& ac
   return DoAction(options, action).Value(results);
 }
 
-arrow::Result<std::unique_ptr<CancelFlightInfoResult>>
-FlightClient::CancelFlightInfo(const FlightCallOptions& options, const FlightInfo& info) {
+arrow::Result<std::unique_ptr<CancelFlightInfoResult>> FlightClient::CancelFlightInfo(
+    const FlightCallOptions& options, const FlightInfo& info) {
   ARROW_ASSIGN_OR_RAISE(auto body, info.SerializeToString());
   Action action{ActionType::kCancelFlightInfo.type, Buffer::FromString(body)};
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
