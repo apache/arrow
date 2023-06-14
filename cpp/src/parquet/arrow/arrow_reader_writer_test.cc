@@ -5369,8 +5369,8 @@ TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTripWithStatsDisabled) {
 
   ReadPageIndexes(/*expect_num_row_groups=*/1, /*expect_num_pages=*/1);
   for (auto& column_index : column_indexes_) {
-    // Means page is empty.
-    EXPECT_TRUE(column_index.null_pages.empty());
+    // Means page index is empty.
+    EXPECT_EQ(ColumnIndexObject{}, column_index);
   }
 }
 
