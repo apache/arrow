@@ -28,7 +28,7 @@ namespace Apache.Arrow.Flight.Internal
     /// <summary>
     /// This class handles writing schemas
     /// </summary>
-    internal class SchemaWriter : ArrowStreamWriter
+    public class SchemaWriter : ArrowStreamWriter
     {
         private SchemaWriter(Stream baseStream, Schema schema) : base(baseStream, schema)
         {

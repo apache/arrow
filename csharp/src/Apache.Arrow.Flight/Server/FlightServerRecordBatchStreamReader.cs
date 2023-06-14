@@ -13,19 +13,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Threading;
 using System.Threading.Tasks;
-using Apache.Arrow.Flight.Protocol;
-using Apache.Arrow.Flight.Internal;
 using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Server
 {
     public class FlightServerRecordBatchStreamReader : FlightRecordBatchStreamReader
     {
-        internal FlightServerRecordBatchStreamReader(IAsyncStreamReader<FlightData> flightDataStream) : base(flightDataStream)
+        public FlightServerRecordBatchStreamReader(IAsyncStreamReader<FlightData> flightDataStream) : base(new ProtocolFlightDataStreamReaderProxy(flightDataStream))
+        {
+        }
+
+        internal FlightServerRecordBatchStreamReader(IAsyncStreamReader<Protocol.FlightData> flightDataStream) : base(flightDataStream)
         {
         }
 
         public ValueTask<FlightDescriptor> FlightDescriptor => GetFlightDescriptor();
+
+        private class ProtocolFlightDataStreamReaderProxy : IAsyncStreamReader<Protocol.FlightData>
+        {
+             private readonly IAsyncStreamReader<FlightData> _clientStreamReader;
+
+            internal ProtocolFlightDataStreamReaderProxy(IAsyncStreamReader<FlightData> clientStreamReader)
+            {
+                _clientStreamReader = clientStreamReader;
+            }
+
+            public Task<bool> MoveNext(CancellationToken cancellationToken) => _clientStreamReader.MoveNext(cancellationToken);
+
+            public Protocol.FlightData Current => _clientStreamReader.Current.ToProtocol();
+        }
     }
 }

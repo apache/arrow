@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0</TargetFrameworks>
   </PropertyGroup>
   
   <ItemGroup>
@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <Protobuf Include="..\..\..\format\Flight.proto" Access="internal" />
+    <Protobuf Include="..\..\..\format\FlightSql.proto" Access="public" />
   </ItemGroup>
 
 </Project>
