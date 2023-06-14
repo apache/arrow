@@ -170,10 +170,8 @@ public abstract class BaseValueVector implements ValueVector {
     synchronized (this) {
       if (fieldReader == null) {
         try {
-          fieldReader =
-              (FieldReader) Class.forName(getReaderImplClass().getName()).getConstructor(getClass())
-                  .newInstance(this);
-        } catch (ClassNotFoundException | NoSuchMethodException | InstantiationException | IllegalAccessException |
+          fieldReader = getReaderImplClass().getDeclaredConstructor(getClass()).newInstance(this);
+        } catch (NoSuchMethodException | InstantiationException | IllegalAccessException |
                  InvocationTargetException e) {
           logger.error("Unable to instantiate FieldReader for {} because of: ", getClass().getSimpleName(), e);
           throw new RuntimeException(e);
