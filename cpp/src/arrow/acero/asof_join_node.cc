@@ -370,15 +370,10 @@ struct MemoStore {
     times_.swap(memo.times_);
   }
 
-  // Updates the current time to `ts` if it is less. A different thread may win the race
-  // to update the current time to more than `ts` but not to less. Returns whether the
-  // current time was changed from its value at the beginning of this invocation.
+  // Updates the current time to `ts` if it is less. Returns true if updated.
   bool UpdateTime(OnType ts) {
-    OnType prev_time = current_time_;
-    bool update = prev_time < ts;
-    while (prev_time < ts && !current_time_.compare_exchange_weak(prev_time, ts)) {
-      // intentionally empty - standard CAS loop
-    }
+    bool update = current_time_ < ts;
+    if (update) current_time_ = ts;
     return update;
   }
 
@@ -822,8 +817,11 @@ class InputState {
         ++batches_processed_;
         latest_ref_row_ = 0;
         have_active_batch &= !queue_.TryPop();
-        if (have_active_batch)
+        if (have_active_batch) {
           DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
+          key_hasher_->Invalidate();  // batch changed - invalidate key hasher's cache
+          memo_.UpdateTime(GetTime(queue_.UnsyncFront().get(), 0));  // time changed
+        }
       }
     }
     return have_active_batch;
@@ -899,8 +897,6 @@ class InputState {
 
   Status Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
     if (rb->num_rows() > 0) {
-      key_hasher_->Invalidate();  // batch changed - invalidate key hasher's cache
-      memo_.UpdateTime(GetTime(rb.get(), 0));  // time changed - update in MemoStore
       queue_.Push(rb);  // only after above updates - push batch for processing
     } else {
       ++batches_processed_;  // don't enqueue empty batches, just record as processed
