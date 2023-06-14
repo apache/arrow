@@ -783,6 +783,7 @@ Export the array type as a ``ArrowSchema`` with C-malloc()ed children:
          if (child->release != NULL) {
             child->release(child);
          }
+         free(child);
       }
       free(schema->children);
       // Mark released
@@ -857,6 +858,7 @@ transferring ownership to the consumer:
          if (child->release != NULL) {
             child->release(child);
          }
+         free(child);
       }
       free(array->children);
       // Free buffers

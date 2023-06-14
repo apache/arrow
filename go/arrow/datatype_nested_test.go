@@ -94,14 +94,14 @@ func TestStructOf(t *testing.T) {
 			fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32}},
 			want: &StructType{
 				fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32}},
-				index:  map[string]int{"f1": 0},
+				index:  map[string][]int{"f1": []int{0}},
 			},
 		},
 		{
 			fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32, Nullable: true}},
 			want: &StructType{
 				fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32, Nullable: true}},
-				index:  map[string]int{"f1": 0},
+				index:  map[string][]int{"f1": []int{0}},
 			},
 		},
 		{
@@ -114,7 +114,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f1", Type: PrimitiveTypes.Int32},
 					{Name: "", Type: PrimitiveTypes.Int64},
 				},
-				index: map[string]int{"f1": 0, "": 1},
+				index: map[string][]int{"f1": []int{0}, "": []int{1}},
 			},
 		},
 		{
@@ -127,7 +127,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f1", Type: PrimitiveTypes.Int32},
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 				},
-				index: map[string]int{"f1": 0, "f2": 1},
+				index: map[string][]int{"f1": []int{0}, "f2": []int{1}},
 			},
 		},
 		{
@@ -142,7 +142,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 					{Name: "f3", Type: ListOf(PrimitiveTypes.Float64)},
 				},
-				index: map[string]int{"f1": 0, "f2": 1, "f3": 2},
+				index: map[string][]int{"f1": []int{0}, "f2": []int{1}, "f3": []int{2}},
 			},
 		},
 		{
@@ -157,7 +157,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 					{Name: "f3", Type: ListOf(ListOf(PrimitiveTypes.Float64))},
 				},
-				index: map[string]int{"f1": 0, "f2": 1, "f3": 2},
+				index: map[string][]int{"f1": []int{0}, "f2": []int{1}, "f3": []int{2}},
 			},
 		},
 		{
@@ -172,7 +172,22 @@ func TestStructOf(t *testing.T) {
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 					{Name: "f3", Type: ListOf(ListOf(StructOf(Field{Name: "f1", Type: PrimitiveTypes.Float64})))},
 				},
-				index: map[string]int{"f1": 0, "f2": 1, "f3": 2},
+				index: map[string][]int{"f1": []int{0}, "f2": []int{1}, "f3": []int{2}},
+			},
+		},
+		{
+			fields: []Field{
+				{Name: "f1", Type: PrimitiveTypes.Int32},
+				{Name: "f2", Type: PrimitiveTypes.Int64},
+				{Name: "f1", Type: PrimitiveTypes.Int64},
+			},
+			want: &StructType{
+				fields: []Field{
+					{Name: "f1", Type: PrimitiveTypes.Int32},
+					{Name: "f2", Type: PrimitiveTypes.Int64},
+					{Name: "f1", Type: PrimitiveTypes.Int64},
+				},
+				index: map[string][]int{"f1": []int{0, 2}, "f2": []int{1}},
 			},
 		},
 	} {
@@ -217,33 +232,108 @@ func TestStructOf(t *testing.T) {
 			}
 		})
 	}
+}
 
-	for _, tc := range []struct {
-		fields []Field
-	}{
-		{
-			fields: []Field{
-				{Name: "", Type: PrimitiveTypes.Int32},
-				{Name: "", Type: PrimitiveTypes.Int32},
-			},
-		},
-		{
-			fields: []Field{
-				{Name: "x", Type: PrimitiveTypes.Int32},
-				{Name: "x", Type: PrimitiveTypes.Int32},
-			},
-		},
-	} {
-		t.Run("", func(t *testing.T) {
-			defer func() {
-				e := recover()
-				if e == nil {
-					t.Fatalf("should have panicked")
-				}
-			}()
-			_ = StructOf(tc.fields...)
-		})
+func TestStructField(t *testing.T) {
+	fields := []Field{
+		{Name: "f1", Type: PrimitiveTypes.Int32},
+		{Name: "f2", Type: PrimitiveTypes.Int64},
+		{Name: "f3", Type: ListOf(ListOf(PrimitiveTypes.Float64))},
 	}
+	ty := StructOf(fields...)
+
+	field, ok := ty.FieldByName("f1")
+	assert.True(t, ok)
+	assert.True(t, field.Equal(fields[0]))
+
+	field, ok = ty.FieldByName("f2")
+	assert.True(t, ok)
+	assert.True(t, field.Equal(fields[1]))
+
+	field, ok = ty.FieldByName("f3")
+	assert.True(t, ok)
+	assert.True(t, field.Equal(fields[2]))
+
+	_, ok = ty.FieldByName("f4")
+	assert.False(t, ok)
+
+	idx, ok := ty.FieldIdx("f1")
+	assert.True(t, ok)
+	assert.Equal(t, idx, 0)
+
+	idx, ok = ty.FieldIdx("f2")
+	assert.True(t, ok)
+	assert.Equal(t, idx, 1)
+
+	idx, ok = ty.FieldIdx("f3")
+	assert.True(t, ok)
+	assert.Equal(t, idx, 2)
+
+	_, ok = ty.FieldIdx("f4")
+	assert.False(t, ok)
+
+	flds, ok := ty.FieldsByName("f1")
+	assert.True(t, ok)
+	assert.Equal(t, flds, []Field{fields[0]})
+
+	flds, ok = ty.FieldsByName("f2")
+	assert.True(t, ok)
+	assert.Equal(t, flds, []Field{fields[1]})
+
+	flds, ok = ty.FieldsByName("f3")
+	assert.True(t, ok)
+	assert.Equal(t, flds, []Field{fields[2]})
+
+	_, ok = ty.FieldsByName("f4")
+	assert.False(t, ok)
+
+	assert.Equal(t, ty.FieldIndices("f1"), []int{0})
+	assert.Equal(t, ty.FieldIndices("f2"), []int{1})
+	assert.Equal(t, ty.FieldIndices("f3"), []int{2})
+	assert.Equal(t, ty.FieldIndices("f4"), []int(nil))
+
+	fields = []Field{
+		{Name: "f1", Type: PrimitiveTypes.Int32},
+		{Name: "f2", Type: PrimitiveTypes.Int64},
+		{Name: "f1", Type: PrimitiveTypes.Int64},
+	}
+	ty = StructOf(fields...)
+	field, ok = ty.FieldByName("f1")
+	assert.True(t, ok)
+	assert.True(t, field.Equal(fields[0]))
+
+	field, ok = ty.FieldByName("f2")
+	assert.True(t, ok)
+	assert.True(t, field.Equal(fields[1]))
+
+	_, ok = ty.FieldByName("f3")
+	assert.False(t, ok)
+
+	idx, ok = ty.FieldIdx("f1")
+	assert.True(t, ok)
+	assert.Equal(t, idx, 0)
+
+	idx, ok = ty.FieldIdx("f2")
+	assert.True(t, ok)
+	assert.Equal(t, idx, 1)
+
+	_, ok = ty.FieldIdx("f3")
+	assert.False(t, ok)
+
+	flds, ok = ty.FieldsByName("f1")
+	assert.True(t, ok)
+	assert.Equal(t, flds, []Field{fields[0], fields[2]})
+
+	flds, ok = ty.FieldsByName("f2")
+	assert.True(t, ok)
+	assert.Equal(t, flds, []Field{fields[1]})
+
+	_, ok = ty.FieldsByName("f3")
+	assert.False(t, ok)
+
+	assert.Equal(t, ty.FieldIndices("f1"), []int{0, 2})
+	assert.Equal(t, ty.FieldIndices("f2"), []int{1})
+	assert.Equal(t, ty.FieldIndices("f3"), []int(nil))
 }
 
 func TestFieldEqual(t *testing.T) {

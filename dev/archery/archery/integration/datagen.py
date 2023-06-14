@@ -1722,7 +1722,6 @@ def get_generated_json_files(tempdir=None):
 
         generate_duplicate_fieldnames_case()
         .skip_category('C#')
-        .skip_category('Go')
         .skip_category('JS'),
 
         generate_dictionary_case()
