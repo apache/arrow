@@ -28,7 +28,6 @@ RUN mamba install -q -y \
         --file arrow/ci/conda_env_python.txt \
         --file arrow/ci/conda_env_sphinx.txt \
         gdb \
-        $([ "$python" == "3.7" ] && echo "pickle5") \
         python=${python} \
         nomkl && \
     mamba clean --all
