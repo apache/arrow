@@ -1645,37 +1645,36 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
   }
 };
 
-// TODO (do not merge) how to templatize this..
-#define TZ_WRITER(NAME, PARENT_CLASS)                                                 \
-  class NAME : public PARENT_CLASS {                                                  \
-   public:                                                                            \
-    NAME(const PandasOptions& options, const std::string& timezone, int64_t num_rows) \
-        : PARENT_CLASS(options, num_rows, 1), timezone_(timezone) {}                  \
-                                                                                      \
-   protected:                                                                         \
-    Status GetResultBlock(PyObject** out) override {                                  \
-      RETURN_NOT_OK(MakeBlock1D());                                                   \
-      *out = block_arr_.obj();                                                        \
-      return Status::OK();                                                            \
-    }                                                                                 \
-                                                                                      \
-    Status AddResultMetadata(PyObject* result) override {                             \
-      PyObject* py_tz = PyUnicode_FromStringAndSize(                                  \
-          timezone_.c_str(), static_cast<Py_ssize_t>(timezone_.size()));              \
-      RETURN_IF_PYERROR();                                                            \
-      PyDict_SetItemString(result, "timezone", py_tz);                                \
-      Py_DECREF(py_tz);                                                               \
-      return Status::OK();                                                            \
-    }                                                                                 \
-                                                                                      \
-   private:                                                                           \
-    std::string timezone_;                                                            \
-  };
+template<typename BASE>
+class DatetimeTZWriter : public BASE {
+  public:
+  DatetimeTZWriter(const PandasOptions& options, const std::string& timezone, int64_t num_rows)
+      : BASE(options, num_rows, 1), timezone_(timezone) {}
 
-TZ_WRITER(DatetimeSecondTZWriter, DatetimeSecondWriter)
-TZ_WRITER(DatetimeMilliTZWriter, DatetimeMilliWriter)
-TZ_WRITER(DatetimeMicroTZWriter, DatetimeMicroWriter)
-TZ_WRITER(DatetimeNanoTZWriter, DatetimeNanoWriter)
+  protected:
+  Status GetResultBlock(PyObject** out) override {
+    RETURN_NOT_OK(this->MakeBlock1D());
+    *out = this->block_arr_.obj();
+    return Status::OK();
+  }
+
+  Status AddResultMetadata(PyObject* result) override {
+    PyObject* py_tz = PyUnicode_FromStringAndSize(
+        timezone_.c_str(), static_cast<Py_ssize_t>(timezone_.size()));
+    RETURN_IF_PYERROR();
+    PyDict_SetItemString(result, "timezone", py_tz);
+    Py_DECREF(py_tz);
+    return Status::OK();
+  }
+
+  private:
+  std::string timezone_;
+};
+
+using DatetimeSecondTZWriter = DatetimeTZWriter<DatetimeSecondWriter>;
+using DatetimeMilliTZWriter = DatetimeTZWriter<DatetimeMilliWriter>;
+using DatetimeMicroTZWriter = DatetimeTZWriter<DatetimeMicroWriter>;
+using DatetimeNanoTZWriter = DatetimeTZWriter<DatetimeNanoWriter>;
 
 template <TimeUnit::type UNIT>
 class TimedeltaWriter : public TypedPandasWriter<NPY_TIMEDELTA> {
