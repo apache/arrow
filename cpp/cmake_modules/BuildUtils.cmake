@@ -613,7 +613,8 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
            ${BUILD_SUPPORT_DIR}/run-test.sh
            ${CMAKE_BINARY_DIR}
            benchmark
-           ${BENCHMARK_PATH}
+           ${BENCHMARK_PATH})
+
   set_property(TEST ${BENCHMARK_NAME}
                APPEND
                PROPERTY LABELS ${ARG_LABELS})
