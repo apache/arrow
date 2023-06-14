@@ -14,15 +14,21 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
+using Apache.Arrow.Flight.Sql;
 using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Server
 {
     public abstract class FlightServer
     {
+        protected internal FlightSqlProducer FlightSqlProducer { get; }
+
+        protected FlightServer(FlightSqlProducer flightSqlProducer = null)
+        {
+            FlightSqlProducer = flightSqlProducer;
+        }
+
         public virtual Task DoPut(FlightServerRecordBatchStreamReader requestStream, IAsyncStreamWriter<FlightPutResult> responseStream, ServerCallContext context)
         {
             throw new NotImplementedException();
@@ -54,6 +60,11 @@ namespace Apache.Arrow.Flight.Server
         }
 
         public virtual Task<FlightInfo> GetFlightInfo(FlightDescriptor request, ServerCallContext context)
+        {
+            throw new NotImplementedException();
+        }
+
+        public virtual Task Handshake(FlightHandshakeStreamReader requestStream, IAsyncStreamWriter<FlightHandshakeResponse> responseStream, ServerCallContext context)
         {
             throw new NotImplementedException();
         }

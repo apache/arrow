@@ -14,12 +14,10 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Internal;
 using Apache.Arrow.Flight.Protocol;
-using Apache.Arrow.Flight.Server;
+using Apache.Arrow.Flight.Sql;
 using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Server.Internal
@@ -35,16 +33,32 @@ namespace Apache.Arrow.Flight.Server.Internal
             _flightServer = flightServer;
         }
 
-        public override async Task DoPut(IAsyncStreamReader<FlightData> requestStream, IServerStreamWriter<Protocol.PutResult> responseStream, ServerCallContext context)
+        public override async Task DoPut(IAsyncStreamReader<Protocol.FlightData> requestStream, IServerStreamWriter<Protocol.PutResult> responseStream, ServerCallContext context)
         {
             var readStream = new FlightServerRecordBatchStreamReader(requestStream);
             var writeStream = new StreamWriter<FlightPutResult, Protocol.PutResult>(responseStream, putResult => putResult.ToProtocol());
-            await _flightServer.DoPut(readStream, writeStream, context).ConfigureAwait(false);
+            if (_flightServer.FlightSqlProducer != null && await FlightSqlProducer.GetCommand(readStream).ConfigureAwait(false) is { } command)
+            {
+                await _flightServer.FlightSqlProducer.DoPut(command, readStream, writeStream, context).ConfigureAwait(false);
+            }
+            else
+            {
+                await _flightServer.DoPut(readStream, writeStream, context).ConfigureAwait(false);
+            }
         }
 
-        public override Task DoGet(Protocol.Ticket request, IServerStreamWriter<FlightData> responseStream, ServerCallContext context)
+        public override Task DoGet(Protocol.Ticket request, IServerStreamWriter<Protocol.FlightData> responseStream, ServerCallContext context)
         {
-            return _flightServer.DoGet(new FlightTicket(request.Ticket_), new FlightServerRecordBatchStreamWriter(responseStream), context);
+            var flightTicket = new FlightTicket(request.Ticket_);
+            var flightServerRecordBatchStreamWriter = new FlightServerRecordBatchStreamWriter(responseStream);
+
+            if (_flightServer.FlightSqlProducer != null && FlightSqlProducer.GetCommand(flightTicket) != null)
+            {
+                return _flightServer.FlightSqlProducer.DoGet(flightTicket, flightServerRecordBatchStreamWriter, context);
+            }
+
+            return _flightServer.DoGet(flightTicket, flightServerRecordBatchStreamWriter, context);
+
         }
 
         public override Task ListFlights(Protocol.Criteria request, IServerStreamWriter<Protocol.FlightInfo> responseStream, ServerCallContext context)
@@ -57,6 +71,12 @@ namespace Apache.Arrow.Flight.Server.Internal
         {
             var action = new FlightAction(request);
             var writeStream = new StreamWriter<FlightResult, Protocol.Result>(responseStream, result => result.ToProtocol());
+
+            if (_flightServer.FlightSqlProducer != null && FlightSqlProducer.SupportsAction(action))
+            {
+                return _flightServer.FlightSqlProducer.DoAction(action, writeStream, context);
+            }
+
             return _flightServer.DoAction(action, writeStream, context);
         }
 
@@ -74,12 +94,21 @@ namespace Apache.Arrow.Flight.Server.Internal
         public override async Task<Protocol.FlightInfo> GetFlightInfo(Protocol.FlightDescriptor request, ServerCallContext context)
         {
             var flightDescriptor = new FlightDescriptor(request);
-            var flightInfo = await _flightServer.GetFlightInfo(flightDescriptor, context).ConfigureAwait(false);
+            FlightInfo flightInfo;
+
+            if (_flightServer.FlightSqlProducer != null && FlightSqlProducer.GetCommand(flightDescriptor) is {} command)
+            {
+                flightInfo = await _flightServer.FlightSqlProducer.GetFlightInfo(command, flightDescriptor, context).ConfigureAwait(false);
+            }
+            else
+            {
+                flightInfo = await _flightServer.GetFlightInfo(flightDescriptor, context).ConfigureAwait(false);
+            }
 
             return flightInfo.ToProtocol();
         }
 
-        public override Task DoExchange(IAsyncStreamReader<FlightData> requestStream, IServerStreamWriter<FlightData> responseStream, ServerCallContext context)
+        public override Task DoExchange(IAsyncStreamReader<Protocol.FlightData> requestStream, IServerStreamWriter<Protocol.FlightData> responseStream, ServerCallContext context)
         {
             //Exchange is not yet implemented
             throw new NotImplementedException();
@@ -87,8 +116,9 @@ namespace Apache.Arrow.Flight.Server.Internal
 
         public override Task Handshake(IAsyncStreamReader<HandshakeRequest> requestStream, IServerStreamWriter<HandshakeResponse> responseStream, ServerCallContext context)
         {
-            //Handshake is not yet implemented
-            throw new NotImplementedException();
+            var readStream = new FlightHandshakeStreamReader(new FlightHandshakeStreamReaderAdaptor(requestStream));
+            var writeStream = new StreamWriter<FlightHandshakeResponse, Protocol.HandshakeResponse>(responseStream, result => result.ToProtocol());
+            return _flightServer.Handshake(readStream, writeStream, context);
         }
 
         public override Task ListActions(Empty request, IServerStreamWriter<Protocol.ActionType> responseStream, ServerCallContext context)
