@@ -439,32 +439,32 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             "expiration_time:do_get",
             description=("Ensure FlightEndpoint.expiration_time with "
                          "DoGet is working as expected."),
-            skip={"Java", "Go", "JS", "C#", "Rust"},
+            skip={"Java", "JS", "C#", "Rust"},
         ),
         Scenario(
             "expiration_time:list_actions",
             description=("Ensure FlightEndpoint.expiration_time related "
                          "pre-defined actions is working with ListActions "
                          "as expected."),
-            skip={"Java", "Go", "JS", "C#", "Rust"},
+            skip={"Java", "JS", "C#", "Rust"},
         ),
         Scenario(
             "expiration_time:cancel_flight_info",
             description=("Ensure FlightEndpoint.expiration_time and "
                          "CancelFlightInfo are working as expected."),
-            skip={"Java", "Go", "JS", "C#", "Rust"},
+            skip={"Java", "JS", "C#", "Rust"},
         ),
         Scenario(
             "expiration_time:close_flight_info",
             description=("Ensure FlightEndpoint.expiration_time and "
                          "CloseFlightInfo are working as expected."),
-            skip={"Java", "Go", "JS", "C#", "Rust"},
+            skip={"Java", "JS", "C#", "Rust"},
         ),
         Scenario(
             "expiration_time:refresh_flight_endpoint",
             description=("Ensure FlightEndpoint.expiration_time and "
                          "RefreshFlightEndpoint are working as expected."),
-            skip={"Java", "Go", "JS", "C#", "Rust"},
+            skip={"Java", "JS", "C#", "Rust"},
         ),
         Scenario(
             "flight_sql",

@@ -511,6 +511,12 @@ func (BaseServer) BeginSavepoint(context.Context, ActionBeginSavepointRequest) (
 	return nil, status.Error(codes.Unimplemented, "BeginSavepoint not implemented")
 }
 
+func (BaseServer) CancelFlightInfo(context.Context, flight.FlightInfo) (flight.ActionCancelFlightInfoResult, error) {
+	var result flight.ActionCancelFlightInfoResult
+	result.Result = flight.CancelResultUnspecified
+	return result, status.Error(codes.Unimplemented, "CancelFlightInfo not implemented")
+}
+
 func (BaseServer) CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error) {
 	return CancelResultUnspecified, status.Error(codes.Unimplemented, "CancelQuery not implemented")
 }
@@ -639,7 +645,10 @@ type Server interface {
 	EndSavepoint(context.Context, ActionEndSavepointRequest) error
 	// EndTransaction commits or rollsback a transaction
 	EndTransaction(context.Context, ActionEndTransactionRequest) error
+	// CancelFlightInfo attempts to explicitly cancel a FlightInfo
+	CancelFlightInfo(context.Context, flight.FlightInfo) (flight.ActionCancelFlightInfoResult, error)
 	// CancelQuery attempts to explicitly cancel a query
+	// Deprecated since 13.0.0. Use CancelFlightInfo instead.
 	CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error)
 
 	mustEmbedBaseServer()
@@ -913,7 +922,10 @@ func (f *flightSqlServer) ListActions(_ *flight.Empty, stream flight.FlightServi
 		ClosePreparedStatementActionType,
 		BeginSavepointActionType,
 		BeginTransactionActionType,
+		flight.CancelFlightInfoActionType,
 		CancelQueryActionType,
+		flight.CloseFlightInfoActionType,
+		flight.RefreshFlightEndpointActionType,
 		CreatePreparedSubstraitPlanActionType,
 		EndSavepointActionType,
 		EndTransactionActionType,
@@ -981,6 +993,30 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 			return err
 		}
 		return stream.Send(out)
+	case flight.CancelFlightInfoActionType:
+		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+		}
+
+		var (
+			info    flight.FlightInfo
+			result  flight.ActionCancelFlightInfoResult
+			err     error
+		)
+
+		if err = anycmd.UnmarshalTo(&info); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
+		}
+
+		if result, err = f.srv.CancelFlightInfo(stream.Context(), info); err != nil {
+			return err
+		}
+
+		out, err := packActionResult(&result)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
 	case CancelQueryActionType:
 		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
@@ -1010,6 +1046,66 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 			return err
 		}
 		return stream.Send(out)
+	// case flight.CloseFlightInfoActionType:
+		// TODO
+		// if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
+		// 	return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+		// }
+
+		// var (
+		// 	request pb.FlightInfo
+		// 	result  pb.ActionCancelFlightInfoResult
+		// 	info    flight.FlightInfo
+		// 	err     error
+		// )
+
+		// if err = anycmd.UnmarshalTo(&request); err != nil {
+		// 	return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
+		// }
+
+		// if err = proto.Unmarshal(request, &info); err != nil {
+		// 	return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightInfo for CancelQuery: %s", err)
+		// }
+
+		// if result.Result, err = f.srv.CancelFlightInfo(stream.Context(), &info); err != nil {
+		// 	return err
+		// }
+
+		// out, err := packActionResult(&result)
+		// if err != nil {
+		// 	return err
+		// }
+		// return stream.Send(out)
+	// case flight.RefreshFlightEndpointActionType:
+		// TODO
+		// if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
+		// 	return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
+		// }
+
+		// var (
+		// 	request pb.FlightInfo
+		// 	result  pb.ActionCancelFlightInfoResult
+		// 	info    flight.FlightInfo
+		// 	err     error
+		// )
+
+		// if err = anycmd.UnmarshalTo(&request); err != nil {
+		// 	return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
+		// }
+
+		// if err = proto.Unmarshal(request, &info); err != nil {
+		// 	return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightInfo for CancelQuery: %s", err)
+		// }
+
+		// if result.Result, err = f.srv.CancelFlightInfo(stream.Context(), &info); err != nil {
+		// 	return err
+		// }
+
+		// out, err := packActionResult(&result)
+		// if err != nil {
+		// 	return err
+		// }
+		// return stream.Send(out)
 	case CreatePreparedStatementActionType:
 		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())

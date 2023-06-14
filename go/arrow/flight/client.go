@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 type (
@@ -65,6 +66,9 @@ type Client interface {
 	// in order to use the Handshake endpoints of the service.
 	Authenticate(context.Context, ...grpc.CallOption) error
 	AuthenticateBasicToken(ctx context.Context, username string, password string, opts ...grpc.CallOption) (context.Context, error)
+	CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (ActionCancelFlightInfoResult, error)
+	CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) error
+	RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error)
 	Close() error
 	// join the interface from the FlightServiceClient instead of re-defining all
 	// the endpoints here.
@@ -346,6 +350,92 @@ func (c *client) Authenticate(ctx context.Context, opts ...grpc.CallOption) erro
 	}
 
 	return c.authHandler.Authenticate(ctx, &clientAuthConn{stream})
+}
+
+func (c *client) CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (result ActionCancelFlightInfoResult, err error) {
+	var action flight.Action
+	action.Type = CancelFlightInfoActionType
+	if action.Body, err = proto.Marshal(info); err != nil {
+		return
+	}
+
+	stream, err := c.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return
+	}
+	res, err := stream.Recv()
+	if err != nil {
+		return
+	}
+	if err = proto.Unmarshal(res.Body, &result); err != nil {
+		return
+	}
+	for {
+		_, err = stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (c *client) CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (err error) {
+	var action flight.Action
+	action.Type = CloseFlightInfoActionType
+	if action.Body, err = proto.Marshal(info); err != nil {
+		return
+	}
+
+	stream, err := c.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return
+	}
+	for {
+		_, err = stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (c *client) RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error) {
+	var err error
+
+	var action flight.Action
+	action.Type = RefreshFlightEndpointActionType
+	if action.Body, err = proto.Marshal(endpoint); err != nil {
+		return nil, err
+	}
+
+	stream, err := c.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return nil, err
+	}
+	res, err := stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+	var refreshedEndpoint FlightEndpoint
+	if err = proto.Unmarshal(res.Body, &refreshedEndpoint); err != nil {
+		return nil, err
+	}
+	for {
+		_, err = stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &refreshedEndpoint, nil
 }
 
 func (c *client) Close() error {
