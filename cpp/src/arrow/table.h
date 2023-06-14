@@ -281,6 +281,9 @@ struct ARROW_EXPORT ConcatenateTablesOptions {
   /// is the result of concatenating the corresponding columns in all input tables.
   bool unify_schemas = false;
 
+  /// options to control how fields are merged when unifying schemas
+  ///
+  /// This field will be ignored if unify_schemas is false
   Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults();
 
   static ConcatenateTablesOptions Defaults() { return {}; }
