@@ -463,7 +463,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  public:
   using T = typename DType::c_type;
 
-  // Currently, this function will call by ColumnWriter to create the
+  // Currently, this function will be called by ColumnWriter to create the
   // statistics collector during write.
   TypedStatisticsImpl(const ColumnDescriptor* descr, MemoryPool* pool)
       : descr_(descr),
@@ -477,7 +477,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     has_distinct_count_ = false;
   }
 
-  // Currently, this function will call by testing.
+  // Currently, this function will be only called by testing.
   TypedStatisticsImpl(const T& min, const T& max, int64_t num_values, int64_t null_count,
                       int64_t distinct_count)
       : pool_(default_memory_pool()),
@@ -492,7 +492,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     has_min_max_ = true;
   }
 
-  // Currently, this function will call by ColumnChunkMetaData during read.
+  // Currently, this function will be called by ColumnChunkMetaData during read.
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,

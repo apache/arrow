@@ -150,9 +150,11 @@ class PARQUET_EXPORT EncodedStatistics {
   void ApplyStatSizeLimits(size_t length) {
     if (max_.length() > length) {
       has_max = false;
+      max_.clear();
     }
     if (min_.length() > length) {
       has_min = false;
+      min_.clear();
     }
   }
 
