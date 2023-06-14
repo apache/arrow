@@ -760,6 +760,12 @@ TEST_F(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
       sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket));
 }
 
+TEST_F(TestFlightSqlServer, CancelFlightInfo) {
+  // Not supported
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo({}, {}));
+  ASSERT_RAISES(NotImplemented, sql_client->CancelFlightInfo({}, *flight_info));
+}
+
 TEST_F(TestFlightSqlServer, CancelQuery) {
   // Not supported
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo({}, {}));
