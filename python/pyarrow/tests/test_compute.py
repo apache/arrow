@@ -1929,7 +1929,7 @@ def check_cast_float_to_decimal(float_ty, float_val, decimal_ty, decimal_ctx,
             f"diff_digits = {diff_digits!r}")
 
 
-# XXX Cannot test float32 as case generators above assume float64
+# Cannot test float32 as case generators above assume float64
 @pytest.mark.parametrize('float_ty', [pa.float64()], ids=str)
 @pytest.mark.parametrize('decimal_ty', decimal_type_traits,
                          ids=lambda v: v.name)
@@ -1945,6 +1945,66 @@ def test_cast_float_to_decimal(float_ty, decimal_ty, case_generator):
                 float_ty, case.float_val,
                 decimal_ty.factory(case.precision, case.scale),
                 ctx, decimal_ty.max_precision)
+
+
+@pytest.mark.parametrize('float_ty', [pa.float32(), pa.float64()], ids=str)
+@pytest.mark.parametrize('decimal_traits', decimal_type_traits,
+                         ids=lambda v: v.name)
+def test_cast_float_to_decimal_random(float_ty, decimal_traits):
+    """
+    Test float-to-decimal conversion against exactly generated values.
+    """
+    r = random.Random(43)
+    np_float_ty = {
+        pa.float32(): np.float32,
+        pa.float64(): np.float64,
+    }[float_ty]
+    mantissa_bits = {
+        pa.float32(): 24,
+        pa.float64(): 53,
+    }[float_ty]
+    float_exp_min, float_exp_max = {
+        pa.float32(): (-126, 127),
+        pa.float64(): (-1022, 1023),
+    }[float_ty]
+    mantissa_digits = math.floor(math.log10(2**mantissa_bits))
+    max_precision = decimal_traits.max_precision
+
+    with decimal.localcontext() as ctx:
+        precision = mantissa_digits
+        ctx.prec = precision
+        # The scale must be chosen so as
+        # 1) it's within bounds for the decimal type
+        # 2) the floating point exponent is within bounds
+        min_scale = max(-max_precision,
+                        precision + math.ceil(math.log10(2**float_exp_min)))
+        max_scale = min(max_precision,
+                        math.floor(math.log10(2**float_exp_max)))
+        for scale in range(min_scale, max_scale):
+            decimal_ty = decimal_traits.factory(precision, scale)
+            # We want to random-generate a float from its mantissa bits
+            # and exponent, and compute the expected value in the
+            # decimal domain. The float exponent has to ensure the
+            # expected value doesn't overflow and doesn't lose precision.
+            float_exp = (-mantissa_bits +
+                         math.floor(math.log2(10**(precision - scale))))
+            assert float_exp_min <= float_exp <= float_exp_max
+            for i in range(5):
+                mantissa = r.randrange(0, 2**mantissa_bits)
+                float_val = np.ldexp(np_float_ty(mantissa), float_exp)
+                assert isinstance(float_val, np_float_ty)
+                # Make sure we compute the exact expected value and
+                # round by half-to-even when converting to the expected precision.
+                if float_exp >= 0:
+                    expected = decimal.Decimal(mantissa) * 2**float_exp
+                else:
+                    expected = decimal.Decimal(mantissa) / 2**-float_exp
+                expected_as_int = round(expected.scaleb(scale))
+                actual = pc.cast(
+                    pa.scalar(float_val, type=float_ty), decimal_ty).as_py()
+                actual_as_int = round(actual.scaleb(scale))
+                # We allow for a minor rounding error between expected and actual
+                assert abs(actual_as_int - expected_as_int) <= 1
 
 
 def test_strptime():

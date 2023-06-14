@@ -48,18 +48,20 @@ using internal::uint128_t;
 namespace {
 
 struct BaseDecimalRealConversion {
-  // Return 10**exp, with a fast lookup, assuming `exp` is withing bounds
+  // Return 10**exp, with a fast lookup, assuming `exp` is within bounds
   template <typename Real>
   static Real PowerOfTen(int32_t exp) {
-    DCHECK(exp >= -76 && exp <= 76);
-    return RealTraits<Real>::powers_of_ten()[exp + 76];
+    constexpr int N = kPrecomputedPowersOfTen;
+    DCHECK(exp >= -N && exp <= N);
+    return RealTraits<Real>::powers_of_ten()[exp + N];
   }
 
   // Return 10**exp, with a fast lookup if possible
   template <typename Real>
   static Real LargePowerOfTen(int32_t exp) {
-    if (ARROW_PREDICT_TRUE(exp >= -76 && exp <= 76)) {
-      return RealTraits<Real>::powers_of_ten()[exp + 76];
+    constexpr int N = kPrecomputedPowersOfTen;
+    if (ARROW_PREDICT_TRUE(exp >= -N && exp <= N)) {
+      return RealTraits<Real>::powers_of_ten()[exp + N];
     } else {
       return std::pow(static_cast<Real>(10), static_cast<Real>(exp));
     }
@@ -165,6 +167,7 @@ struct DecimalRealConversion : public BaseDecimalRealConversion {
           total_exp += exp;
           // The supplementary right shift required so that
           // `x * 10^total_exp / 2^total_shift` fits in the decimal.
+          DCHECK_LT(static_cast<size_t>(total_exp), sizeof(kCeilLog2PowersOfTen));
           const int bits =
               std::min(right_shift_by, kCeilLog2PowersOfTen[total_exp] - total_shift);
           total_shift += bits;
@@ -891,7 +894,7 @@ struct Decimal256RealConversion
       return x;
     }
     const int cross_word_shift = bits / 64;
-    if (cross_word_shift >= Decimal256::kWordWidth) {
+    if (cross_word_shift >= Decimal256::kNumWords) {
       return Decimal256();
     }
     const uint32_t in_word_shift = bits % 64;
@@ -908,9 +911,9 @@ struct Decimal256RealConversion
       const uint64_t carry_bits = array_le[cross_word_shift] << (64 - in_word_shift);
       shifted_out = (shifted_out > 0) | (shifted_out >> in_word_shift) | carry_bits;
     }
-    for (int i = cross_word_shift; i < Decimal256::kWordWidth; ++i) {
+    for (int i = cross_word_shift; i < Decimal256::kNumWords; ++i) {
       shifted_le[i - cross_word_shift] = array_le[i] >> in_word_shift;
-      if (in_word_shift != 0 && i + 1 < Decimal256::kWordWidth) {
+      if (in_word_shift != 0 && i + 1 < Decimal256::kNumWords) {
         const uint64_t carry_bits = array_le[i + 1] << (64 - in_word_shift);
         shifted_le[i - cross_word_shift] |= carry_bits;
       }

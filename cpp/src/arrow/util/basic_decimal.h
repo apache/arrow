@@ -54,7 +54,7 @@ class ARROW_EXPORT GenericBasicDecimal {
  public:
   static constexpr int kBitWidth = BIT_WIDTH;
   static constexpr int kByteWidth = kBitWidth / 8;
-  static constexpr int kWordWidth = NWORDS;
+  static constexpr int kNumWords = NWORDS;
 
   // A constructor tag to introduce a little-endian encoded array
   static constexpr LittleEndianArrayTag LittleEndianArray{};

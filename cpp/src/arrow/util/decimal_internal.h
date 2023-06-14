@@ -65,7 +65,9 @@ constexpr float kFloatInf = std::numeric_limits<float>::infinity();
 //   >>> int(1e38)
 //   99999999999999997748809823456034029568
 
-constexpr float kFloatPowersOfTen[2 * 76 + 1] = {
+constexpr int kPrecomputedPowersOfTen = 76;
+
+constexpr float kFloatPowersOfTen[2 * kPrecomputedPowersOfTen + 1] = {
     0,         0,         0,         0,         0,         0,         0,
     0,         0,         0,         0,         0,         0,         0,
     0,         0,         0,         0,         0,         0,         0,
@@ -89,7 +91,7 @@ constexpr float kFloatPowersOfTen[2 * 76 + 1] = {
     kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf,
     kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf};
 
-constexpr double kDoublePowersOfTen[2 * 76 + 1] = {
+constexpr double kDoublePowersOfTen[2 * kPrecomputedPowersOfTen + 1] = {
     1e-76, 1e-75, 1e-74, 1e-73, 1e-72, 1e-71, 1e-70, 1e-69, 1e-68, 1e-67, 1e-66, 1e-65,
     1e-64, 1e-63, 1e-62, 1e-61, 1e-60, 1e-59, 1e-58, 1e-57, 1e-56, 1e-55, 1e-54, 1e-53,
     1e-52, 1e-51, 1e-50, 1e-49, 1e-48, 1e-47, 1e-46, 1e-45, 1e-44, 1e-43, 1e-42, 1e-41,
@@ -427,6 +429,7 @@ constexpr BasicDecimal256 kDecimal256HalfPowersOfTen[] = {
 
 #undef BasicDecimal256FromLE
 
+// ceil(log2(10 ^ k)) for k in [0...76]
 constexpr int kCeilLog2PowersOfTen[76 + 1] = {
     0,   4,   7,   10,  14,  17,  20,  24,  27,  30,  34,  37,  40,  44,  47,  50,
     54,  57,  60,  64,  67,  70,  74,  77,  80,  84,  87,  90,  94,  97,  100, 103,

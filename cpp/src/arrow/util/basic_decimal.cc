@@ -858,13 +858,13 @@ BasicDecimal256& BasicDecimal256::operator<<=(uint32_t bits) {
     return *this;
   }
   const int cross_word_shift = bits / 64;
-  if (cross_word_shift >= kWordWidth) {
+  if (cross_word_shift >= kNumWords) {
     array_ = {0, 0, 0, 0};
     return *this;
   }
   uint32_t in_word_shift = bits % 64;
   auto array_le = bit_util::little_endian::Make(&array_);
-  for (int i = kWordWidth - 1; i >= cross_word_shift; i--) {
+  for (int i = kNumWords - 1; i >= cross_word_shift; i--) {
     // Account for shifts larger then 64 bits
     array_le[i] = array_le[i - cross_word_shift];
     array_le[i] <<= in_word_shift;
@@ -885,7 +885,7 @@ BasicDecimal256& BasicDecimal256::operator>>=(uint32_t bits) {
   const uint64_t extended =
       static_cast<uint64_t>(static_cast<int64_t>(array_[kHighWordIndex]) >> 63);
   const int cross_word_shift = bits / 64;
-  if (cross_word_shift >= kWordWidth) {
+  if (cross_word_shift >= kNumWords) {
     array_.fill(extended);
     return *this;
   }
@@ -895,10 +895,10 @@ BasicDecimal256& BasicDecimal256::operator>>=(uint32_t bits) {
   WordArray shifted_le;
   shifted_le.fill(extended);
   // Iterate from LSW to MSW
-  for (int i = cross_word_shift; i < kWordWidth; ++i) {
+  for (int i = cross_word_shift; i < kNumWords; ++i) {
     shifted_le[i - cross_word_shift] = array_le[i] >> in_word_shift;
     if (in_word_shift != 0) {
-      const uint64_t carry_bits = (i + 1 < kWordWidth ? array_le[i + 1] : extended)
+      const uint64_t carry_bits = (i + 1 < kNumWords ? array_le[i + 1] : extended)
                                   << (64 - in_word_shift);
       shifted_le[i - cross_word_shift] |= carry_bits;
     }
