@@ -157,7 +157,7 @@ public abstract class BaseValueVector implements ValueVector {
 
   /**
    * Default implementation to create a reader for the vector. Depends on the individual vector
-   * class' implementation of `getReaderImpl()` to initialize the reader appropriately.
+   * class' implementation of {@link #getReaderImplClass} to initialize the reader appropriately.
    *
    * @return Concrete instance of FieldReader by using lazy initialization.
    */
