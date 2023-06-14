@@ -462,6 +462,12 @@ class TypeInferrer {
 
     RETURN_NOT_OK(Validate());
 
+    if (arrow_scalar_count_ > 0 and arrow_scalar_count_ + none_count_ != total_count_){
+      return Status::Invalid(
+              "pyarrow scalars cannot be mixed "
+              "with other Python scalar values currently");
+    }
+
     if (numpy_dtype_count_ > 0) {
       // All NumPy scalars and Nones/nulls
       if (numpy_dtype_count_ + none_count_ == total_count_) {
@@ -501,12 +507,6 @@ class TypeInferrer {
               "numpy.datetime64 scalars cannot be mixed "
               "with other Python scalar values currently");
       }
-    }
-
-    if (arrow_scalar_count_ > 0 and arrow_scalar_count_ + none_count_ != total_count_){
-      return Status::Invalid(
-              "pyarrow scalars cannot be mixed "
-              "with other Python scalar values currently");
     }
 
     if (list_count_) {
@@ -576,19 +576,13 @@ class TypeInferrer {
   }
 
   Status VisitArrowScalar(PyObject* obj, bool* keep_going) {
-    Result<std::shared_ptr<Scalar>> result = arrow::py::unwrap_scalar(obj);
-    if (!result.ok()){
-      return internal::InvalidValue(obj, "Oh, what?");
-    }
-    std::shared_ptr<Scalar> scalar = result.ValueOrDie();
-
+    ARROW_ASSIGN_OR_RAISE(auto scalar, arrow::py::unwrap_scalar(obj));
     // Check that all the scalar types for the sequence are the same
-    std::shared_ptr<DataType> type = (*scalar->type).GetSharedPtr();
-    if (arrow_scalar_count_ > 0 and type != scalar_type_) {
+    if (arrow_scalar_count_ > 0 and *scalar->type != *scalar_type_) {
       return internal::InvalidValue(obj,
                                     "cannot mix scalars with different types");
     }
-    scalar_type_ = type;
+    scalar_type_ = scalar->type;
     ++arrow_scalar_count_;
     return Status::OK();
   }
