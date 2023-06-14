@@ -745,10 +745,10 @@ func (tester *expirationTimeScenarioTester) ExtractIndexFromTicket(ticket string
 	indexString := strings.SplitN(ticket, ":", 2)[0]
 	index, err := strconv.Atoi(indexString)
 	if err != nil {
-		return 0, fmt.Errorf("Invalid flight: no index: %s: %s", ticket, err)
+		return 0, fmt.Errorf("invalid flight: no index: %s: %s", ticket, err)
 	}
 	if index >= len(tester.statuses) {
-		return 0, fmt.Errorf("Invalid flight: out of index: %s", ticket)
+		return 0, fmt.Errorf("invalid flight: out of index: %s", ticket)
 	}
 	return index, nil
 }
@@ -798,7 +798,7 @@ func (tester *expirationTimeScenarioTester) DoGet(tkt *flight.Ticket, fs flight.
 					"can't read multiple times: %s", ticket)
 		}
 	} else {
-		availableDuration := st.expirationTime.Sub(time.Now())
+		availableDuration := time.Until(*st.expirationTime)
 		if availableDuration < 0 {
 			return status.Errorf(codes.InvalidArgument,
 				"Invalid flight: expired: %s", ticket)
@@ -986,7 +986,7 @@ func (tester *expirationTimeDoGetScenarioTester) RunClient(addr string, opts ...
 		if ep.ExpirationTime == nil {
 			if err == nil {
 				rdr.Release()
-				return fmt.Errorf("Data that doesn't have " +
+				return fmt.Errorf("data that doesn't have " +
 					"expiration time shouldn't be " +
 					"readable multiple times")
 			}
@@ -1015,7 +1015,7 @@ func (tester *expirationTimeDoGetScenarioTester) RunClient(addr string, opts ...
 		}
 
 		expirationTime := ep.ExpirationTime.AsTime()
-		avalilableDuration := expirationTime.Sub(time.Now())
+		avalilableDuration := time.Until(expirationTime)
 		if avalilableDuration > 0 {
 			time.Sleep(avalilableDuration)
 		}
@@ -1028,7 +1028,7 @@ func (tester *expirationTimeDoGetScenarioTester) RunClient(addr string, opts ...
 		rdr, err := flight.NewRecordReader(stream)
 		if err == nil {
 			rdr.Release()
-			return fmt.Errorf("Expired data shouldn't be readable")
+			return fmt.Errorf("expired data shouldn't be readable")
 		}
 	}
 
@@ -1151,7 +1151,7 @@ func (tester *expirationTimeCancelFlightInfoScenarioTester) RunClient(addr strin
 		return err
 	}
 	if result.Result != flight.CancelResultCancelled {
-		fmt.Errorf("CancelFlightInfo must return CANCEL_RESULT_CANCELLED: ", result.Result)
+		return fmt.Errorf("invalid: CancelFlightInfo must return CANCEL_RESULT_CANCELLED: ", result.Result)
 	}
 	for _, ep := range info.Endpoint {
 		stream, err := client.DoGet(ctx, ep.Ticket)
@@ -1161,7 +1161,7 @@ func (tester *expirationTimeCancelFlightInfoScenarioTester) RunClient(addr strin
 		rdr, err := flight.NewRecordReader(stream)
 		if err == nil {
 			rdr.Release()
-			return fmt.Errorf("DoGet after CancelFlightInfo must be failed")
+			return fmt.Errorf("invalid: DoGet after CancelFlightInfo must be failed")
 		}
 	}
 
@@ -1266,12 +1266,12 @@ func (tester *expirationTimeRefreshFlightEndpointScenarioTester) RunClient(addr 
 			return err
 		}
 		if refreshedEndpoint.ExpirationTime == nil {
-			return fmt.Errorf("Refreshed endpoint must have expiration time: %s",
+			return fmt.Errorf("refreshed endpoint must have expiration time: %s",
 				refreshedEndpoint)
 		}
 		refreshedExpirationTime := refreshedEndpoint.ExpirationTime.AsTime()
 		if refreshedExpirationTime.Sub(expirationTime) <= 0 {
-			return fmt.Errorf("Refreshed endpoint must have newer expiration time\n"+
+			return fmt.Errorf("refreshed endpoint must have newer expiration time\n"+
 				"Original: %s\nRefreshed: %s",
 				ep, refreshedEndpoint)
 		}
@@ -1292,14 +1292,14 @@ func (tester *expirationTimeRefreshFlightEndpointScenarioTester) RunClient(addr 
 			})
 		if refreshedExpirationTimes[0].Sub(maxExpirationTime) <= 0 {
 			return fmt.Errorf(
-				"One or more refreshed expiration time "+
+				"one or more refreshed expiration time "+
 					"are shorter than original expiration time\n"+
 					"Original:  %s\n"+
 					"Refreshed: %s\n",
 				maxExpirationTime,
 				refreshedExpirationTimes[0])
 		}
-		duration := maxExpirationTime.Sub(time.Now())
+		duration := time.Until(maxExpirationTime)
 		if duration > 0 {
 			time.Sleep(duration)
 		}
