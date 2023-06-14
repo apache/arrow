@@ -2149,8 +2149,6 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<BAT>,
   }
 };
 
-using DictLargeByteArrayDecoderImpl = DictByteArrayDecoderImpl<LargeByteArrayType>;
-
 // ----------------------------------------------------------------------
 // DeltaBitPackEncoder
 
@@ -3592,9 +3590,9 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
       return std::make_unique<DictDecoderImpl<DoubleType>>(descr, pool);
     case Type::BYTE_ARRAY:
       if (use_large_binary_variants) {
-        return std::make_unique<DictLargeByteArrayDecoderImpl>(descr, pool);
+        return std::make_unique<DictByteArrayDecoderImpl<LargeByteArrayType>>(descr, pool);
       } else {
-        return std::make_unique<DictByteArrayDecoderImpl<>>(descr, pool);
+        return std::make_unique<DictByteArrayDecoderImpl<ByteArrayType>>(descr, pool);
       }
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_unique<DictDecoderImpl<FLBAType>>(descr, pool);
