@@ -65,6 +65,11 @@ jobs:
             go: 1.17
             staticcheck: v0.2.2
             runs-on: ["self-hosted", "arm", "linux"]
+          - arch-label: ARM64
+            arch: arm64v8
+            go: 1.18
+            staticcheck: v0.3.3
+            runs-on: ["self-hosted", "arm", "linux"]
     env:
       ARCH: ${{ matrix.arch }}
       GO: ${{ matrix.go }}
@@ -121,6 +126,27 @@ jobs:
         run: |
           python3 -m pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python3 ci/scripts/go_bench_adapt.py
+
+  build386:
+    name: Go Cross-build for 386
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 20    
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0          
+      - name: Install Go        
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
+          cache: true
+          cache-dependency-path: go/go.sum
+      - name: Run build
+        run: |
+          cd go
+          GOARCH=386 go build ./...
 
   docker_cgo:
     name: AMD64 Debian 11 Go ${{ matrix.go }} - CGO
