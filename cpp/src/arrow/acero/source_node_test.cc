@@ -51,9 +51,8 @@ struct PauseThenStopNode : public MapNode {
 
   const char* kind_name() const override { return ThisNode::kKindName; }
   Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
-    if (num_pass == 2) {
+    if (num_pass == 1) {
       inputs()[0]->PauseProducing(this, 1);
-    } else if (num_pass == 1) {
       ARROW_RETURN_NOT_OK(static_cast<ThisNode*>(this)->DoStopProducing());
     }
     if (num_pass > 0) --num_pass;
@@ -113,9 +112,12 @@ template <typename ThisNode>
 void TestPauseThenStop() {
   ASSERT_OK(ThisNode::Register());
 
-  constexpr int num_pass = 2, num_batches = 10, batch_size = 1;
-  ASSERT_GE(num_pass, 2);
-  ASSERT_GT(num_batches, num_pass);
+  // number of batches, number of batches to pass before pausing, batch size
+  constexpr int num_batches = 10, num_pass = 2, batch_size = 1;
+  // the above constants can be changed subject to the following restrictions
+  // to ensure that the test works
+  ASSERT_GE(num_pass, 1);            // must pass at least one batch before pausing
+  ASSERT_GT(num_batches, num_pass);  // must have more batches after pausing
   auto t_schema = schema({field("time", int32()), field("value", int32())});
   ASSERT_OK_AND_ASSIGN(auto t_batches,
                        MakeIntegerBatches({[](int row) -> int64_t { return row; },
