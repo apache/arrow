@@ -50,7 +50,7 @@ Result<std::shared_ptr<Array>> REEncode(const T& array) {
   return datum.make_array();
 }
 
-Result<std::shared_ptr<Array>> REEFromJson(const std::shared_ptr<DataType>& ree_type,
+Result<std::shared_ptr<Array>> REEFromJSON(const std::shared_ptr<DataType>& ree_type,
                                            const std::string& json) {
   auto ree_type_ptr = checked_cast<const RunEndEncodedType*>(ree_type.get());
   auto array = ArrayFromJSON(ree_type_ptr->value_type(), json);
@@ -59,10 +59,10 @@ Result<std::shared_ptr<Array>> REEFromJson(const std::shared_ptr<DataType>& ree_
   return datum.make_array();
 }
 
-Result<std::shared_ptr<Array>> FilterFromJson(
+Result<std::shared_ptr<Array>> FilterFromJSON(
     const std::shared_ptr<DataType>& filter_type, const std::string& json) {
   if (filter_type->id() == Type::RUN_END_ENCODED) {
-    return REEFromJson(filter_type, json);
+    return REEFromJSON(filter_type, json);
   } else {
     return ArrayFromJSON(filter_type, json);
   }
@@ -73,9 +73,9 @@ Result<std::shared_ptr<Array>> REEncode(const std::shared_ptr<Array>& array) {
   return datum.make_array();
 }
 
-void CheckTakeCase(const BooleanArray& filter,
-                   const std::shared_ptr<Array>& expected_indices,
-                   FilterOptions::NullSelectionBehavior null_selection) {
+void CheckTakeIndicesCase(const BooleanArray& filter,
+                          const std::shared_ptr<Array>& expected_indices,
+                          FilterOptions::NullSelectionBehavior null_selection) {
   ASSERT_OK_AND_ASSIGN(auto indices,
                        internal::GetTakeIndices(*filter.data(), null_selection));
   auto indices_array = MakeArray(indices);
@@ -90,13 +90,13 @@ void CheckTakeCase(const BooleanArray& filter,
   AssertArraysEqual(*expected_indices, *indices_from_ree_array, /*verbose=*/true);
 }
 
-void CheckTakeCase(const std::string& filter_json, const std::string& indices_json,
-                   FilterOptions::NullSelectionBehavior null_selection,
-                   const std::shared_ptr<DataType>& indices_type = uint16()) {
+void CheckTakeIndicesCase(const std::string& filter_json, const std::string& indices_json,
+                          FilterOptions::NullSelectionBehavior null_selection,
+                          const std::shared_ptr<DataType>& indices_type = uint16()) {
   auto filter = ArrayFromJSON(boolean(), filter_json);
   auto expected_indices = ArrayFromJSON(indices_type, indices_json);
   const auto& boolean_filter = checked_cast<const BooleanArray&>(*filter);
-  CheckTakeCase(boolean_filter, expected_indices, null_selection);
+  CheckTakeIndicesCase(boolean_filter, expected_indices, null_selection);
 }
 
 }  // namespace
@@ -105,23 +105,24 @@ void CheckTakeCase(const std::string& filter_json, const std::string& indices_js
 
 TEST(GetTakeIndices, Basics) {
   // Drop null cases
-  CheckTakeCase("[]", "[]", FilterOptions::DROP);
-  CheckTakeCase("[null]", "[]", FilterOptions::DROP);
-  CheckTakeCase("[null, false, true, true, false, true]", "[2, 3, 5]",
-                FilterOptions::DROP);
+  CheckTakeIndicesCase("[]", "[]", FilterOptions::DROP);
+  CheckTakeIndicesCase("[null]", "[]", FilterOptions::DROP);
+  CheckTakeIndicesCase("[null, false, true, true, false, true]", "[2, 3, 5]",
+                       FilterOptions::DROP);
 
   // Emit null cases
-  CheckTakeCase("[]", "[]", FilterOptions::EMIT_NULL);
-  CheckTakeCase("[null]", "[null]", FilterOptions::EMIT_NULL);
-  CheckTakeCase("[null, false, true, true]", "[null, 2, 3]", FilterOptions::EMIT_NULL);
+  CheckTakeIndicesCase("[]", "[]", FilterOptions::EMIT_NULL);
+  CheckTakeIndicesCase("[null]", "[null]", FilterOptions::EMIT_NULL);
+  CheckTakeIndicesCase("[null, false, true, true]", "[null, 2, 3]",
+                       FilterOptions::EMIT_NULL);
 }
 
 TEST(GetTakeIndices, NullValidityBuffer) {
   BooleanArray filter(1, *AllocateEmptyBitmap(1), /*null_bitmap=*/nullptr);
   auto expected_indices = ArrayFromJSON(uint16(), "[]");
 
-  CheckTakeCase(filter, expected_indices, FilterOptions::DROP);
-  CheckTakeCase(filter, expected_indices, FilterOptions::EMIT_NULL);
+  CheckTakeIndicesCase(filter, expected_indices, FilterOptions::DROP);
+  CheckTakeIndicesCase(filter, expected_indices, FilterOptions::EMIT_NULL);
 }
 
 template <typename IndexArrayType>
@@ -291,7 +292,7 @@ class TestFilterKernel : public ::testing::Test {
     ARROW_SCOPED_TRACE("for sliced values and filter");
     ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(values->type(), 3));
     ASSERT_OK_AND_ASSIGN(auto filter_filler,
-                         FilterFromJson(filter->type(), "[true, false]"));
+                         FilterFromJSON(filter->type(), "[true, false]"));
     ASSERT_OK_AND_ASSIGN(auto values_with_filler,
                          Concatenate({values_filler, values, values_filler}));
     ASSERT_OK_AND_ASSIGN(auto filter_with_filler,
