@@ -1409,6 +1409,21 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     return sql::ActionBeginTransactionResult{kTransactionId};
   }
 
+  // TODO: This isn't used yet because some implementations don't
+  // support CancelFlightInfo yet.
+  arrow::Result<ActionCancelFlightInfoResult> CancelFlightInfo(
+      const ServerCallContext& context, const FlightInfo& info) override {
+    ARROW_RETURN_NOT_OK(AssertEq<size_t>(1, info.endpoints().size(),
+                                         "Expected 1 endpoint for CancelFlightInfo"));
+    const FlightEndpoint& endpoint = info.endpoints()[0];
+    ARROW_ASSIGN_OR_RAISE(auto ticket,
+                          sql::StatementQueryTicket::Deserialize(endpoint.ticket.ticket));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("PLAN HANDLE", ticket.statement_handle,
+                                              "Unexpected ticket in CancelFlightInfo"));
+    return ActionCancelFlightInfoResult{
+        ActionCancelFlightInfoResult::CancelResult::kCancelled};
+  }
+
   arrow::Result<sql::CancelResult> CancelQuery(
       const ServerCallContext& context,
       const sql::ActionCancelQueryRequest& request) override {
@@ -1783,9 +1798,14 @@ class FlightSqlExtensionScenario : public FlightSqlScenario {
     ARROW_RETURN_NOT_OK(ValidateSchema(GetQuerySchema(), *schema));
 
     ARROW_ASSIGN_OR_RAISE(info, sql_client->ExecuteSubstrait({}, kSubstraitPlan));
-    ARROW_ASSIGN_OR_RAISE(auto cancel_result, sql_client->CancelFlightInfo({}, *info));
-    ARROW_RETURN_NOT_OK(AssertEq(ActionCancelFlightInfoResult::CancelResult::kCancelled,
-                                 cancel_result->result, "Wrong cancel result"));
+    // TODO: Use CancelQuery() instead of CancelFlightInfo() here
+    // because some Flight SQL implementations still don't support
+    // CancelFlightInfo yet.
+    ARROW_SUPPRESS_DEPRECATION_WARNING
+    ARROW_ASSIGN_OR_RAISE(auto cancel_result, sql_client->CancelQuery({}, *info));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    ARROW_RETURN_NOT_OK(
+        AssertEq(sql::CancelResult::kCancelled, cancel_result, "Wrong cancel result"));
 
     ARROW_ASSIGN_OR_RAISE(const int64_t updated_rows,
                           sql_client->ExecuteSubstraitUpdate({}, kSubstraitPlan));
