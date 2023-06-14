@@ -131,9 +131,7 @@ jobs:
     name: Go Cross-build for 386
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 20
-    env:
-      GOARCH: "386"
+    timeout-minutes: 20    
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -148,7 +146,7 @@ jobs:
       - name: Run build
         run: |
           cd go
-          go build ./...
+          GOARCH=386 go build ./...
 
   docker_cgo:
     name: AMD64 Debian 11 Go ${{ matrix.go }} - CGO
