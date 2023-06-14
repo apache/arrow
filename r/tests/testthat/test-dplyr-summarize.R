@@ -1194,3 +1194,26 @@ test_that("across() does not select grouping variables within summarise()", {
     "Column `int` doesn't exist"
   )
 })
+
+test_that(".by argument", {
+  compare_dplyr_binding(
+    .input %>%
+      summarize(total = sum(int, na.rm = TRUE), .by = some_grouping) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      summarize(total = sum(int, na.rm = TRUE), .by = starts_with("dbl")) %>%
+      arrange(dbl) %>%
+      collect(),
+    tbl
+  )
+  expect_error(
+    tbl %>%
+      arrow_table() %>%
+      group_by(some_grouping) %>%
+      summarize(total = sum(int, na.rm = TRUE), .by = starts_with("dbl")),
+    "Can't supply `\\.by` when `\\.data` is grouped data"
+  )
+})

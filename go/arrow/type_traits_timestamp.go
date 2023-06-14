@@ -45,26 +45,14 @@ func (timestampTraits) PutValue(b []byte, v Timestamp) {
 func (timestampTraits) CastFromBytes(b []byte) []Timestamp {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	var res []Timestamp
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len / TimestampSizeBytes
-	s.Cap = h.Cap / TimestampSizeBytes
-
-	return res
+	return unsafe.Slice((*Timestamp)(unsafe.Pointer(h.Data)), cap(b)/TimestampSizeBytes)[:len(b)/TimestampSizeBytes]
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (timestampTraits) CastToBytes(b []Timestamp) []byte {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	var res []byte
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len * TimestampSizeBytes
-	s.Cap = h.Cap * TimestampSizeBytes
-
-	return res
+	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*TimestampSizeBytes)[:len(b)*TimestampSizeBytes]
 }
 
 // Copy copies src to dst.

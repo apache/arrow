@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,16 +17,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-ARG go=1.17
-ARG staticcheck=v0.2.2
-FROM ${arch}/golang:${go}-buster
+set -ex
 
-# FROM collects all the args, get back the staticcheck version arg
-ARG staticcheck
+cd ~
+pushd /src
+tinygo build -tags noasm -o ~/example_tinygo arrow/_examples/helloworld/main.go
+popd
 
-RUN GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@${staticcheck}
-
-# Copy the go.mod and go.sum over and pre-download all the dependencies
-COPY go/ /arrow/go
-RUN cd /arrow/go && go mod download
+./example_tinygo

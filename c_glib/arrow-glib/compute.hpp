@@ -59,7 +59,9 @@ garrow_execute_node_options_get_raw(GArrowExecuteNodeOptions *options);
 
 
 GArrowExecuteNode *
-garrow_execute_node_new_raw(arrow::acero::ExecNode *arrow_node);
+garrow_execute_node_new_raw(
+  arrow::acero::ExecNode* arrow_node,
+  GArrowExecuteNodeOptions *options);
 arrow::acero::ExecNode *
 garrow_execute_node_get_raw(GArrowExecuteNode *node);
 

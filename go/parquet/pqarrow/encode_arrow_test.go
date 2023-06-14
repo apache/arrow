@@ -320,6 +320,7 @@ func writeTableToBuffer(t *testing.T, mem memory.Allocator, tbl arrow.Table, row
 }
 
 func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
+	t.Helper()
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
@@ -338,6 +339,7 @@ func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
 
 		chunked, err := crdr.NextBatch(tbl.NumRows())
 		require.NoError(t, err)
+		defer chunked.Release()
 
 		require.EqualValues(t, tbl.NumRows(), chunked.Len())
 
@@ -724,6 +726,7 @@ func (ps *ParquetIOTestSuite) checkSingleColumnRead(mem memory.Allocator, typ ar
 
 	chunked, err := cr.NextBatch(smallSize)
 	ps.NoError(err)
+	defer chunked.Release()
 
 	ps.Len(chunked.Chunks(), 1)
 	ps.True(array.Equal(values, chunked.Chunk(0)))
@@ -993,6 +996,7 @@ func (ps *ParquetIOTestSuite) readAndCheckSingleColumnFile(mem memory.Allocator,
 
 	chunked, err := cr.NextBatch(smallSize)
 	ps.NoError(err)
+	defer chunked.Release()
 
 	ps.Len(chunked.Chunks(), 1)
 	ps.NotNil(chunked.Chunk(0))
@@ -1040,10 +1044,7 @@ func (ps *ParquetIOTestSuite) TestSingleColumnRequiredWrite() {
 	}
 }
 
-func (ps *ParquetIOTestSuite) roundTripTable(_ memory.Allocator, expected arrow.Table, storeSchema bool) {
-	mem := memory.NewCheckedAllocator(memory.DefaultAllocator) // FIXME: currently overriding allocator to isolate leaks between roundTripTable and caller
-	//defer mem.AssertSize(ps.T(), 0)                            // FIXME: known leak
-
+func (ps *ParquetIOTestSuite) roundTripTable(mem memory.Allocator, expected arrow.Table, storeSchema bool) {
 	var buf bytes.Buffer
 	var props pqarrow.ArrowWriterProperties
 	if storeSchema {
@@ -1180,7 +1181,7 @@ func prepareListOfListTable(dt arrow.DataType, size, nullCount int, nullablePare
 
 func (ps *ParquetIOTestSuite) TestSingleEmptyListsColumnReadWrite() {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
-	//defer mem.AssertSize(ps.T(), 0) // FIXME: known leak
+	defer mem.AssertSize(ps.T(), 0)
 
 	expected := prepareEmptyListsTable(smallSize)
 	defer expected.Release()

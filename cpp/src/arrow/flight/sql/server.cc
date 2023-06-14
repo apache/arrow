@@ -361,14 +361,22 @@ arrow::Result<ActionEndTransactionRequest> ParseActionEndTransactionRequest(
 
 arrow::Result<Result> PackActionResult(const google::protobuf::Message& message) {
   google::protobuf::Any any;
+#if PROTOBUF_VERSION >= 3015000
   if (!any.PackFrom(message)) {
     return Status::IOError("Failed to pack ", message.GetTypeName());
   }
+#else
+  any.PackFrom(message);
+#endif
 
   std::string buffer;
+#if PROTOBUF_VERSION >= 3015000
   if (!any.SerializeToString(&buffer)) {
     return Status::IOError("Failed to serialize packed ", message.GetTypeName());
   }
+#else
+  any.SerializeToString(&buffer);
+#endif
   return Result{Buffer::FromString(std::move(buffer))};
 }
 

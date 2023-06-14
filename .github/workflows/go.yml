@@ -394,3 +394,20 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/go_test.sh $(pwd)
+
+  tinygo:
+    name: TinyGo
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    env:
+      TINYGO_VERSION: 0.27.0
+    timeout-minutes: 60
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Build and Run Example
+        run: |
+          docker run --rm -v $(pwd)/go:/src -v $(pwd)/ci/scripts:/ci-scripts "tinygo/tinygo:$TINYGO_VERSION" /ci-scripts/go_tinygo_example.sh

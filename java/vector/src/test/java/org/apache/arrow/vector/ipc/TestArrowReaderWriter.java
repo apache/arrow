@@ -86,6 +86,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import org.apache.arrow.vector.util.DictionaryUtility;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -610,6 +611,88 @@ public class TestArrowReaderWriter {
     vector2.close();
     AutoCloseables.close(closeableList);
 
+  }
+
+  // Tests that the ArrowStreamWriter re-emits dictionaries when they change
+  @Test
+  public void testWriteReadStreamWithDictionaryReplacement() throws Exception {
+    DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+    provider.put(dictionary1);
+
+    String[] batch0 = {"foo", "bar", "baz", "bar", "baz"};
+    String[] batch1 = {"foo", "aa", "bar", "bb", "baz", "cc"};
+
+    VarCharVector vector = newVarCharVector("varchar", allocator);
+    vector.allocateNewSafe();
+    for (int i = 0; i < batch0.length; ++i) {
+      vector.set(i, batch0[i].getBytes(StandardCharsets.UTF_8));
+    }
+    vector.setValueCount(batch0.length);
+    FieldVector encodedVector1 = (FieldVector) DictionaryEncoder.encode(vector, dictionary1);
+
+    List<Field> fields = Arrays.asList(encodedVector1.getField());
+    try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+      try (VectorSchemaRoot root =
+               new VectorSchemaRoot(fields, Arrays.asList(encodedVector1), encodedVector1.getValueCount());
+           ArrowStreamWriter writer = new ArrowStreamWriter(root, provider, newChannel(out))) {
+        writer.start();
+
+        // Write batch with initial data and dictionary
+        writer.writeBatch();
+
+        // Create data for the next batch, using an extended dictionary with the same id
+        vector.reset();
+        for (int i = 0; i < batch1.length; ++i) {
+          vector.set(i, batch1[i].getBytes(StandardCharsets.UTF_8));
+        }
+        vector.setValueCount(batch1.length);
+
+        // Re-encode and move encoded data into the vector schema root
+        provider.put(dictionary3);
+        FieldVector encodedVector2 = (FieldVector) DictionaryEncoder.encode(vector, dictionary3);
+        TransferPair transferPair = encodedVector2.makeTransferPair(root.getVector(0));
+        transferPair.transfer();
+
+        // Write second batch
+        root.setRowCount(batch1.length);
+        writer.writeBatch();
+
+        writer.end();
+      }
+
+      try (ArrowStreamReader reader = new ArrowStreamReader(
+          new ByteArrayReadableSeekableByteChannel(out.toByteArray()), allocator)) {
+        VectorSchemaRoot root = reader.getVectorSchemaRoot();
+
+        // Read and verify first batch
+        assertTrue(reader.loadNextBatch());
+        assertEquals(batch0.length, root.getRowCount());
+        FieldVector readEncoded1 = root.getVector(0);
+        long dictionaryId = readEncoded1.getField().getDictionary().getId();
+        try (VarCharVector decodedValues =
+                 (VarCharVector) DictionaryEncoder.decode(readEncoded1, reader.lookup(dictionaryId))) {
+          for (int i = 0; i < batch0.length; ++i) {
+            assertEquals(batch0[i], new String(decodedValues.get(i), StandardCharsets.UTF_8));
+          }
+        }
+
+        // Read and verify second batch
+        assertTrue(reader.loadNextBatch());
+        assertEquals(batch1.length, root.getRowCount());
+        FieldVector readEncoded2 = root.getVector(0);
+        dictionaryId = readEncoded2.getField().getDictionary().getId();
+        try (VarCharVector decodedValues =
+                 (VarCharVector) DictionaryEncoder.decode(readEncoded2, reader.lookup(dictionaryId))) {
+          for (int i = 0; i < batch1.length; ++i) {
+            assertEquals(batch1[i], new String(decodedValues.get(i), StandardCharsets.UTF_8));
+          }
+        }
+
+        assertFalse(reader.loadNextBatch());
+      }
+    }
+
+    vector.close();
   }
 
   private void serializeDictionaryBatch(
