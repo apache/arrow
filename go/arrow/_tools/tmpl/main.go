@@ -18,7 +18,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"go/format"
@@ -28,6 +27,8 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 const Ext = ".tmpl"

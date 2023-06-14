@@ -49,6 +49,8 @@ to "us-east-1" if no other alternatives are found.
 such as "localhost:9000". This is useful for connecting to file systems
 that emulate S3.
 \item \code{scheme}: S3 connection transport (default "https")
+\item \code{proxy_options}: optional string, URI of a proxy to use when connecting
+to S3
 \item \code{background_writes}: logical, whether \code{OutputStream} writes will be issued
 in the background, without blocking (default \code{TRUE})
 \item \code{allow_bucket_creation}: logical, if TRUE, the filesystem will create
@@ -87,6 +89,13 @@ the filesystem encounters errors. Default is 15 seconds.
 \section{Methods}{
 
 \itemize{
+\item \code{path(x)}: Create a \code{SubTreeFileSystem} from the current \code{FileSystem}
+rooted at the specified path \code{x}.
+\item \code{cd(x)}: Create a \code{SubTreeFileSystem} from the current \code{FileSystem}
+rooted at the specified path \code{x}.
+\item \code{ls(path, ...)}: List files or objects at the given path or from the root
+of the \code{FileSystem} if \code{path} is not provided. Additional arguments passed
+to \code{FileSelector$create}, see \link{FileSelector}.
 \item \verb{$GetFileInfo(x)}: \code{x} may be a \link{FileSelector} or a character
 vector of paths. Returns a list of \link{FileInfo}
 \item \verb{$CreateDir(path, recursive = TRUE)}: Create a directory and subdirectories.
@@ -125,6 +134,8 @@ containing a \code{S3FileSystem}
 \item \verb{$base_fs}: for \code{SubTreeFileSystem}, the \code{FileSystem} it contains
 \item \verb{$base_path}: for \code{SubTreeFileSystem}, the path in \verb{$base_fs} which is considered
 root in this \code{SubTreeFileSystem}.
+\item \verb{$options}: for \code{GcsFileSystem}, the options used to create the
+\code{GcsFileSystem} instance as a \code{list}
 }
 }
 

@@ -2274,7 +2274,12 @@ cdef class RecordBatch(_Tabular):
 
     def serialize(self, memory_pool=None):
         """
-        Write RecordBatch to Buffer as encapsulated IPC message.
+        Write RecordBatch to Buffer as encapsulated IPC message, which does not
+        include a Schema.
+
+        To reconstruct a RecordBatch from the encapsulated IPC message Buffer 
+        returned by this function, a Schema must be passed separately. See 
+        Examples.
 
         Parameters
         ----------
@@ -2292,8 +2297,19 @@ cdef class RecordBatch(_Tabular):
         >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
         >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
         ...                                     names=["n_legs", "animals"])
-        >>> batch.serialize()
+        >>> buf = batch.serialize()
+        >>> buf
         <pyarrow.Buffer address=0x... size=... is_cpu=True is_mutable=True>
+
+        Reconstruct RecordBatch from IPC message Buffer and original Schema
+
+        >>> pa.ipc.read_record_batch(buf, batch.schema)
+        pyarrow.RecordBatch
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [2,2,4,4,5,100]
+        animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
         """
         cdef shared_ptr[CBuffer] buffer
         cdef CIpcWriteOptions options = CIpcWriteOptions.Defaults()

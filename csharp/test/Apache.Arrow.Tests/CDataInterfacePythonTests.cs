@@ -445,6 +445,8 @@ namespace Apache.Arrow.Tests
             Assert.Null(importedArray.GetString(2));
             Assert.Equal("foo", importedArray.GetString(3));
             Assert.Equal("bar", importedArray.GetString(4));
+
+            CArrowArray.Free(cArray);
         }
 
         [SkippableFact]
@@ -488,6 +490,7 @@ namespace Apache.Arrow.Tests
 
             Schema schema = CArrowSchemaImporter.ImportSchema(cSchema);
             RecordBatch recordBatch = CArrowArrayImporter.ImportRecordBatch(cArray, schema);
+            CArrowArray.Free(cArray);
 
             Assert.Equal(5, recordBatch.Length);
 
@@ -563,6 +566,8 @@ namespace Apache.Arrow.Tests
             }
 
             IArrowArrayStream stream = CArrowArrayStreamImporter.ImportArrayStream(cArrayStream);
+            CArrowArrayStream.Free(cArrayStream);
+
             var batch1 = stream.ReadNextRecordBatchAsync().Result;
             Assert.Equal(5, batch1.Length);
 
