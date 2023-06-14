@@ -20,7 +20,6 @@
 package utils
 
 import (
-	"io"
 	"os"
 	"strings"
 
