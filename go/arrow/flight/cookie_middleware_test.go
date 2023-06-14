@@ -36,6 +36,15 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// strings.Cut is go1.18+ so let's just stick a duplicate of it in here
+// for now since we want to support go1.17
+func cut(s, sep string) (before, after string, found bool) {
+	if i := strings.Index(s, sep); i >= 0 {
+		return s[:i], s[i+len(sep):], true
+	}
+	return s, "", false
+}
+
 type serverAddCookieMiddleware struct {
 	expectedCookies map[string]string
 
@@ -60,13 +69,13 @@ func (s *serverAddCookieMiddleware) StartCall(ctx context.Context) context.Conte
 
 		var part string
 		for len(line) > 0 {
-			part, line, _ = strings.Cut(line, ";")
+			part, line, _ = cut(line, ";")
 			part = textproto.TrimString(part)
 			if part == "" {
 				continue
 			}
 
-			name, val, _ := strings.Cut(part, "=")
+			name, val, _ := cut(part, "=")
 			name = textproto.TrimString(name)
 			if len(val) > 1 && val[0] == '"' && val[len(val)-1] == '"' {
 				val = val[1 : len(val)-1]
