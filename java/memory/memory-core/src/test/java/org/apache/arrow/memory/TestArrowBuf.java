@@ -139,6 +139,10 @@ public class TestArrowBuf {
   }
 
   @Test
+  /**
+   * Test that allocation history is not recorded even though
+   * assertions are enabled in tests (GH-34338).
+   */
   public void testEnabledAssertion() {
     ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(Level.TRACE);
     try (BufferAllocator allocator = new RootAllocator(128)) {
