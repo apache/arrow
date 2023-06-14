@@ -15,10 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import namedtuple
 import datetime
+import decimal
 from functools import lru_cache, partial
 import inspect
 import itertools
+import math
 import os
 import pickle
 import pytest
@@ -1820,6 +1823,188 @@ def test_fsl_to_fsl_cast(value_type):
     err_msg = 'Size of FixedSizeList is not the same.'
     with pytest.raises(pa.lib.ArrowTypeError, match=err_msg):
         fsl.cast(cast_type)
+
+
+DecimalTypeTraits = namedtuple('DecimalTypeTraits',
+                               ('name', 'factory', 'max_precision'))
+
+FloatToDecimalCase = namedtuple('FloatToDecimalCase',
+                                ('precision', 'scale', 'float_val'))
+
+decimal_type_traits = [DecimalTypeTraits('decimal128', pa.decimal128, 38),
+                       DecimalTypeTraits('decimal256', pa.decimal256, 76)]
+
+
+def largest_scaled_float_not_above(val, scale):
+    """
+    Find the largest float f such as `f * 10**scale <= val`
+    """
+    assert val >= 0
+    assert scale >= 0
+    float_val = float(val) / 10**scale
+    if float_val * 10**scale > val:
+        # Take the float just below... it *should* satisfy
+        float_val = np.nextafter(float_val, 0.0)
+        if float_val * 10**scale > val:
+            float_val = np.nextafter(float_val, 0.0)
+    assert float_val * 10**scale <= val
+    return float_val
+
+
+def scaled_float(int_val, scale):
+    """
+    Return a float representation (possibly approximate) of `int_val**-scale`
+    """
+    assert isinstance(int_val, int)
+    unscaled = decimal.Decimal(int_val)
+    scaled = unscaled.scaleb(-scale)
+    float_val = float(scaled)
+    return float_val
+
+
+def integral_float_to_decimal_cast_cases(float_ty, max_precision):
+    """
+    Return FloatToDecimalCase instances with integral values.
+    """
+    mantissa_digits = 16
+    for precision in range(1, max_precision, 3):
+        for scale in range(0, precision, 2):
+            yield FloatToDecimalCase(precision, scale, 0.0)
+            yield FloatToDecimalCase(precision, scale, 1.0)
+            epsilon = 10**max(precision - mantissa_digits, scale)
+            abs_maxval = largest_scaled_float_not_above(
+                10**precision - epsilon, scale)
+            yield FloatToDecimalCase(precision, scale, abs_maxval)
+
+
+def real_float_to_decimal_cast_cases(float_ty, max_precision):
+    """
+    Return FloatToDecimalCase instances with real values.
+    """
+    mantissa_digits = 16
+    for precision in range(1, max_precision, 3):
+        for scale in range(0, precision, 2):
+            epsilon = 2 * 10**max(precision - mantissa_digits, 0)
+            abs_minval = largest_scaled_float_not_above(epsilon, scale)
+            abs_maxval = largest_scaled_float_not_above(
+                10**precision - epsilon, scale)
+            yield FloatToDecimalCase(precision, scale, abs_minval)
+            yield FloatToDecimalCase(precision, scale, abs_maxval)
+
+
+def random_float_to_decimal_cast_cases(float_ty, max_precision):
+    """
+    Return random-generated FloatToDecimalCase instances.
+    """
+    r = random.Random(42)
+    for precision in range(1, max_precision, 6):
+        for scale in range(0, precision, 4):
+            for i in range(20):
+                unscaled = r.randrange(0, 10**precision)
+                float_val = scaled_float(unscaled, scale)
+                assert float_val * 10**scale < 10**precision
+                yield FloatToDecimalCase(precision, scale, float_val)
+
+
+def check_cast_float_to_decimal(float_ty, float_val, decimal_ty, decimal_ctx,
+                                max_precision):
+    # Use the Python decimal module to build the expected result
+    # using the right precision
+    decimal_ctx.prec = decimal_ty.precision
+    decimal_ctx.rounding = decimal.ROUND_HALF_EVEN
+    expected = decimal_ctx.create_decimal_from_float(float_val)
+    # Round `expected` to `scale` digits after the decimal point
+    expected = expected.quantize(decimal.Decimal(1).scaleb(-decimal_ty.scale))
+    s = pa.scalar(float_val, type=float_ty)
+    actual = pc.cast(s, decimal_ty).as_py()
+    if actual != expected:
+        # Allow the last digit to vary. The tolerance is higher for
+        # very high precisions as rounding errors can accumulate in
+        # the iterative algorithm (GH-35576).
+        diff_digits = abs(actual - expected) * 10**decimal_ty.scale
+        limit = 2 if decimal_ty.precision < max_precision - 1 else 4
+        assert diff_digits <= limit, (
+            f"float_val = {float_val!r}, precision={decimal_ty.precision}, "
+            f"expected = {expected!r}, actual = {actual!r}, "
+            f"diff_digits = {diff_digits!r}")
+
+
+# Cannot test float32 as case generators above assume float64
+@pytest.mark.parametrize('float_ty', [pa.float64()], ids=str)
+@pytest.mark.parametrize('decimal_ty', decimal_type_traits,
+                         ids=lambda v: v.name)
+@pytest.mark.parametrize('case_generator',
+                         [integral_float_to_decimal_cast_cases,
+                          real_float_to_decimal_cast_cases,
+                          random_float_to_decimal_cast_cases],
+                         ids=['integrals', 'reals', 'random'])
+def test_cast_float_to_decimal(float_ty, decimal_ty, case_generator):
+    with decimal.localcontext() as ctx:
+        for case in case_generator(float_ty, decimal_ty.max_precision):
+            check_cast_float_to_decimal(
+                float_ty, case.float_val,
+                decimal_ty.factory(case.precision, case.scale),
+                ctx, decimal_ty.max_precision)
+
+
+@pytest.mark.parametrize('float_ty', [pa.float32(), pa.float64()], ids=str)
+@pytest.mark.parametrize('decimal_traits', decimal_type_traits,
+                         ids=lambda v: v.name)
+def test_cast_float_to_decimal_random(float_ty, decimal_traits):
+    """
+    Test float-to-decimal conversion against exactly generated values.
+    """
+    r = random.Random(43)
+    np_float_ty = {
+        pa.float32(): np.float32,
+        pa.float64(): np.float64,
+    }[float_ty]
+    mantissa_bits = {
+        pa.float32(): 24,
+        pa.float64(): 53,
+    }[float_ty]
+    float_exp_min, float_exp_max = {
+        pa.float32(): (-126, 127),
+        pa.float64(): (-1022, 1023),
+    }[float_ty]
+    mantissa_digits = math.floor(math.log10(2**mantissa_bits))
+    max_precision = decimal_traits.max_precision
+
+    with decimal.localcontext() as ctx:
+        precision = mantissa_digits
+        ctx.prec = precision
+        # The scale must be chosen so as
+        # 1) it's within bounds for the decimal type
+        # 2) the floating point exponent is within bounds
+        min_scale = max(-max_precision,
+                        precision + math.ceil(math.log10(2**float_exp_min)))
+        max_scale = min(max_precision,
+                        math.floor(math.log10(2**float_exp_max)))
+        for scale in range(min_scale, max_scale):
+            decimal_ty = decimal_traits.factory(precision, scale)
+            # We want to random-generate a float from its mantissa bits
+            # and exponent, and compute the expected value in the
+            # decimal domain. The float exponent has to ensure the
+            # expected value doesn't overflow and doesn't lose precision.
+            float_exp = (-mantissa_bits +
+                         math.floor(math.log2(10**(precision - scale))))
+            assert float_exp_min <= float_exp <= float_exp_max
+            for i in range(5):
+                mantissa = r.randrange(0, 2**mantissa_bits)
+                float_val = np.ldexp(np_float_ty(mantissa), float_exp)
+                assert isinstance(float_val, np_float_ty)
+                # Make sure we compute the exact expected value and
+                # round by half-to-even when converting to the expected precision.
+                if float_exp >= 0:
+                    expected = decimal.Decimal(mantissa) * 2**float_exp
+                else:
+                    expected = decimal.Decimal(mantissa) / 2**-float_exp
+                expected_as_int = round(expected.scaleb(scale))
+                actual = pc.cast(
+                    pa.scalar(float_val, type=float_ty), decimal_ty).as_py()
+                actual_as_int = round(actual.scaleb(scale))
+                # We allow for a minor rounding error between expected and actual
+                assert abs(actual_as_int - expected_as_int) <= 1
 
 
 def test_strptime():
