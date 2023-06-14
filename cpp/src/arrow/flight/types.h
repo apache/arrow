@@ -699,6 +699,11 @@ class ARROW_FLIGHT_EXPORT ResultStream {
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status Next(std::unique_ptr<Result>* info);
+
+  /// \brief Read and drop the all rest messages to get error from a server.
+  /// \return Status OK if this is no error from a server, any other status if a
+  /// server returns an error.
+  Status Drain();
 };
 
 /// \brief A holder for a RecordBatch with associated Flight metadata.

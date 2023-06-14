@@ -378,6 +378,7 @@ Status FlightListing::Next(std::unique_ptr<FlightInfo>* info) {
   return Next().Value(info);
 }
 
+
 arrow::Result<Location> Location::Parse(const std::string& uri_string) {
   Location location;
   RETURN_NOT_OK(location.uri_->Parse(uri_string));
@@ -719,6 +720,14 @@ std::ostream& operator<<(std::ostream& os,
 }
 
 Status ResultStream::Next(std::unique_ptr<Result>* info) { return Next().Value(info); }
+
+Status ResultStream::Drain() {
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto result, Next());
+    if (!result) break;
+  }
+  return Status::OK();
+}
 
 Status MetadataRecordBatchReader::Next(FlightStreamChunk* next) {
   return Next().Value(next);

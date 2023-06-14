@@ -577,6 +577,7 @@ FlightClient::CancelFlightInfo(const FlightCallOptions& options, const FlightInf
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
   ARROW_ASSIGN_OR_RAISE(auto cancel_result, ActionCancelFlightInfoResult::Deserialize(
                                                 std::string_view(*result->body)));
+  ARROW_RETURN_NOT_OK(stream->Drain());
   return std::make_unique<ActionCancelFlightInfoResult>(std::move(cancel_result));
 }
 
@@ -588,6 +589,7 @@ arrow::Result<std::unique_ptr<FlightEndpoint>> FlightClient::RefreshFlightEndpoi
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
   ARROW_ASSIGN_OR_RAISE(auto refreshed_endpoint,
                         FlightEndpoint::Deserialize(std::string_view(*result->body)));
+  ARROW_RETURN_NOT_OK(stream->Drain());
   return std::make_unique<FlightEndpoint>(std::move(refreshed_endpoint));
 }
 
@@ -596,6 +598,7 @@ Status FlightClient::CloseFlightInfo(const FlightCallOptions& options,
   ARROW_ASSIGN_OR_RAISE(auto body, info.SerializeToString());
   Action action{ActionType::kCloseFlightInfo.type, Buffer::FromString(body)};
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
+  ARROW_RETURN_NOT_OK(stream->Drain());
   return Status::OK();
 }
 

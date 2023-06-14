@@ -994,18 +994,14 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 		}
 		return stream.Send(out)
 	case flight.CancelFlightInfoActionType:
-		if err := proto.Unmarshal(cmd.Body, &anycmd); err != nil {
-			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
-		}
-
 		var (
 			info    flight.FlightInfo
 			result  flight.ActionCancelFlightInfoResult
 			err     error
 		)
 
-		if err = anycmd.UnmarshalTo(&info); err != nil {
-			return status.Errorf(codes.InvalidArgument, "unable to unmarshal google.protobuf.Any: %s", err.Error())
+		if err = proto.Unmarshal(cmd.Body, &info); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
 		}
 
 		if result, err = f.srv.CancelFlightInfo(stream.Context(), info); err != nil {
