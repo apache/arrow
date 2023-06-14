@@ -621,14 +621,14 @@ func (o *orderedScenarioTester) RunClient(addr string, opts ...grpc.DialOption) 
 	table := array.NewTableFromRecords(schema, recs)
 	defer table.Release()
 	if !array.TableEqual(table, expected_table) {
-		return fmt.Errorf("read data isn't expected\n" +
-			"Expected:\n" +
-			"%s\n" +
-			"num-rows: %d\n" +
-			"num-cols: %d\n" +
-			"Actual:\n" +
-			"%s\n" +
-			"num-rows: %d\n" +
+		return fmt.Errorf("read data isn't expected\n"+
+			"Expected:\n"+
+			"%s\n"+
+			"num-rows: %d\n"+
+			"num-cols: %d\n"+
+			"Actual:\n"+
+			"%s\n"+
+			"num-rows: %d\n"+
 			"num-cols: %d",
 			expected_table.Schema(),
 			expected_table.NumRows(),
@@ -705,9 +705,9 @@ func (o *orderedScenarioTester) DoGet(tkt *flight.Ticket, fs flight.FlightServic
 
 type expirationTimeEndpointStatus struct {
 	expirationTime *time.Time
-	numGets uint32
-	cancelled bool
-	closed bool
+	numGets        uint32
+	cancelled      bool
+	closed         bool
 }
 
 type expirationTimeScenarioTester struct {
@@ -722,10 +722,10 @@ func (tester *expirationTimeScenarioTester) MakeServer(port int) flight.Server {
 	return srv
 }
 
-func (tester *expirationTimeScenarioTester) AppendGetFlightInfo(endpoints []*flight.FlightEndpoint, ticket string, expirationTime *time.Time) ([]*flight.FlightEndpoint) {
+func (tester *expirationTimeScenarioTester) AppendGetFlightInfo(endpoints []*flight.FlightEndpoint, ticket string, expirationTime *time.Time) []*flight.FlightEndpoint {
 	index := len(tester.statuses)
 	endpoint := flight.FlightEndpoint{
-		Ticket: &flight.Ticket{Ticket: []byte(strconv.Itoa(index) + ": " + ticket)},
+		Ticket:   &flight.Ticket{Ticket: []byte(strconv.Itoa(index) + ": " + ticket)},
 		Location: []*flight.Location{},
 	}
 	if expirationTime != nil {
@@ -734,9 +734,9 @@ func (tester *expirationTimeScenarioTester) AppendGetFlightInfo(endpoints []*fli
 	endpoints = append(endpoints, &endpoint)
 	tester.statuses[index] = expirationTimeEndpointStatus{
 		expirationTime: expirationTime,
-		numGets: 0,
-		cancelled: false,
-		closed: false,
+		numGets:        0,
+		cancelled:      false,
+		closed:         false,
 	}
 	return endpoints
 }
@@ -794,8 +794,8 @@ func (tester *expirationTimeScenarioTester) DoGet(tkt *flight.Ticket, fs flight.
 	if st.expirationTime == nil {
 		if st.numGets > 0 {
 			return status.Errorf(codes.InvalidArgument,
-				"Invalid flight: " +
-				"can't read multiple times: %s", ticket)
+				"Invalid flight: "+
+					"can't read multiple times: %s", ticket)
 		}
 	} else {
 		availableDuration := st.expirationTime.Sub(time.Now())
@@ -862,7 +862,7 @@ func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream 
 			cancelResult := flight.CancelResultUnspecified
 			if err == nil {
 				st := tester.statuses[index]
-				if (st.cancelled) {
+				if st.cancelled {
 					cancelResult = flight.CancelResultNotCancellable
 				} else {
 					st.cancelled = true
@@ -873,7 +873,7 @@ func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream 
 				cancelResult = flight.CancelResultNotCancellable
 			}
 			result := flight.ActionCancelFlightInfoResult{Result: cancelResult}
-			out, err:= packActionResult(&result)
+			out, err := packActionResult(&result)
 			if err != nil {
 				return err
 			}
@@ -916,7 +916,7 @@ func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream 
 		st := tester.statuses[index]
 		st.expirationTime = &refreshedExpirationTime
 		tester.statuses[index] = st
-		out, err:= packActionResult(&endpoint)
+		out, err := packActionResult(&endpoint)
 		if err != nil {
 			return err
 		}
@@ -1016,7 +1016,7 @@ func (tester *expirationTimeDoGetScenarioTester) RunClient(addr string, opts ...
 
 		expirationTime := ep.ExpirationTime.AsTime()
 		avalilableDuration := expirationTime.Sub(time.Now())
-		if (avalilableDuration > 0) {
+		if avalilableDuration > 0 {
 			time.Sleep(avalilableDuration)
 		}
 
@@ -1062,14 +1062,14 @@ func (tester *expirationTimeDoGetScenarioTester) RunClient(addr string, opts ...
 	table := array.NewTableFromRecords(schema, recs)
 	defer table.Release()
 	if !array.TableEqual(table, expectedTable) {
-		return fmt.Errorf("read data isn't expected\n" +
-			"Expected:\n" +
-			"%s\n" +
-			"numRows: %d\n" +
-			"numCols: %d\n" +
-			"Actual:\n" +
-			"%s\n" +
-			"numRows: %d\n" +
+		return fmt.Errorf("read data isn't expected\n"+
+			"Expected:\n"+
+			"%s\n"+
+			"numRows: %d\n"+
+			"numCols: %d\n"+
+			"Actual:\n"+
+			"%s\n"+
+			"numRows: %d\n"+
 			"numCols: %d",
 			expectedTable.Schema(),
 			expectedTable.NumRows(),
@@ -1117,10 +1117,10 @@ func (tester *expirationTimeListActionsScenarioTester) RunClient(addr string, op
 		"RefreshFlightEndpoint",
 	}
 	if !reflect.DeepEqual(actionTypeNames, expectedActionTypeNames) {
-		return fmt.Errorf("action types aren't expected\n" +
-			"Expected:\n" +
-			"%s\n" +
-			"Actual:\n" +
+		return fmt.Errorf("action types aren't expected\n"+
+			"Expected:\n"+
+			"%s\n"+
+			"Actual:\n"+
 			"%s",
 			expectedActionTypeNames,
 			actionTypeNames)
@@ -1271,7 +1271,7 @@ func (tester *expirationTimeRefreshFlightEndpointScenarioTester) RunClient(addr 
 		}
 		refreshedExpirationTime := refreshedEndpoint.ExpirationTime.AsTime()
 		if refreshedExpirationTime.Sub(expirationTime) <= 0 {
-			return fmt.Errorf("Refreshed endpoint must have newer expiration time\n" +
+			return fmt.Errorf("Refreshed endpoint must have newer expiration time\n"+
 				"Original: %s\nRefreshed: %s",
 				ep, refreshedEndpoint)
 		}
@@ -1292,15 +1292,15 @@ func (tester *expirationTimeRefreshFlightEndpointScenarioTester) RunClient(addr 
 			})
 		if refreshedExpirationTimes[0].Sub(maxExpirationTime) <= 0 {
 			return fmt.Errorf(
-				"One or more refreshed expiration time " +
-				"are shorter than original expiration time\n" +
-				"Original:  %s\n" +
-				"Refreshed: %s\n",
+				"One or more refreshed expiration time "+
+					"are shorter than original expiration time\n"+
+					"Original:  %s\n"+
+					"Refreshed: %s\n",
 				maxExpirationTime,
-				refreshedExpirationTimes[0]);
+				refreshedExpirationTimes[0])
 		}
 		duration := maxExpirationTime.Sub(time.Now())
-		if (duration > 0) {
+		if duration > 0 {
 			time.Sleep(duration)
 		}
 	}
@@ -1358,14 +1358,14 @@ func (tester *expirationTimeRefreshFlightEndpointScenarioTester) RunClient(addr 
 	table := array.NewTableFromRecords(schema, recs)
 	defer table.Release()
 	if !array.TableEqual(table, expectedTable) {
-		return fmt.Errorf("read data isn't expected\n" +
-			"Expected:\n" +
-			"%s\n" +
-			"numRows: %d\n" +
-			"numCols: %d\n" +
-			"Actual:\n" +
-			"%s\n" +
-			"numRows: %d\n" +
+		return fmt.Errorf("read data isn't expected\n"+
+			"Expected:\n"+
+			"%s\n"+
+			"numRows: %d\n"+
+			"numCols: %d\n"+
+			"Actual:\n"+
+			"%s\n"+
+			"numRows: %d\n"+
 			"numCols: %d",
 			expectedTable.Schema(),
 			expectedTable.NumRows(),
