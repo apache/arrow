@@ -315,7 +315,7 @@ struct Selection {
     if (is_ree_filter) {
       Status status;
       VisitPlainxREEFilterOutputSegments(
-          selection, true, null_selection,
+          selection, /*filter_may_have_nulls=*/true, null_selection,
           [&](int64_t position, int64_t segment_length, bool filter_valid) {
             if (filter_valid) {
               for (int64_t i = 0; i < segment_length; ++i) {

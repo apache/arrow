@@ -543,7 +543,7 @@ Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArraySpan& values,
   if (is_ree_filter) {
     Status status;
     VisitPlainxREEFilterOutputSegments(
-        filter, true, null_selection,
+        filter, /*filter_may_have_nulls=*/false, null_selection,
         [&status, emit_segment = std::move(emit_segment)](
             int64_t position, int64_t segment_length, bool filter_valid) {
           DCHECK(filter_valid);
@@ -605,7 +605,7 @@ Status BinaryFilterImpl(KernelContext* ctx, const ArraySpan& values,
     };
     Status status;
     VisitPlainxREEFilterOutputSegments(
-        filter, true, null_selection,
+        filter, /*filter_may_have_nulls=*/true, null_selection,
         [&status, emit_segment = std::move(emit_segment)](
             int64_t position, int64_t segment_length, bool filter_valid) {
           status = emit_segment(position, segment_length, filter_valid);
