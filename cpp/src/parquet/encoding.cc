@@ -1529,7 +1529,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
     auto dict_values = reinterpret_cast<ByteArray*>(dictionary_->mutable_data());
 
-    int total_size = 0;
+    int32_t total_size = 0;
     for (int i = 0; i < dictionary_length_; ++i) {
       if (AddWithOverflow(total_size, dict_values[i].len, &total_size)) {
         throw ParquetException("String/Binary length to large");
