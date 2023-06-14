@@ -872,7 +872,7 @@ func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream 
 			} else {
 				cancelResult = flight.CancelResultNotCancellable
 			}
-			result := flight.ActionCancelFlightInfoResult{Result: cancelResult}
+			result := flight.CancelFlightInfoResult{Result: cancelResult}
 			out, err := packActionResult(&result)
 			if err != nil {
 				return err

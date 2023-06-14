@@ -513,7 +513,6 @@ class ExpirationTimeServer : public FlightServerBase {
                             FlightInfo::Deserialize(std::string_view(*action.body)));
       for (const auto& endpoint : info->endpoints()) {
         auto index_result = ExtractIndexFromTicket(endpoint.ticket.ticket);
-        using CancelResult = ActionCancelFlightInfoResult::CancelResult;
         auto cancel_result = CancelResult::kUnspecified;
         if (index_result.ok()) {
           auto index = *index_result;
@@ -526,7 +525,7 @@ class ExpirationTimeServer : public FlightServerBase {
         } else {
           cancel_result = CancelResult::kNotCancellable;
         }
-        auto result = ActionCancelFlightInfoResult{cancel_result};
+        auto result = CancelFlightInfoResult{cancel_result};
         ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
         results.push_back(Result{Buffer::FromString(std::move(serialized))});
       }
@@ -732,7 +731,7 @@ class ExpirationTimeCancelFlightInfoScenario : public Scenario {
     ARROW_ASSIGN_OR_RAISE(auto info,
                           client->GetFlightInfo(FlightDescriptor::Command("expiration")));
     ARROW_ASSIGN_OR_RAISE(auto cancel_result, client->CancelFlightInfo(*info));
-    if (cancel_result->result != ActionCancelFlightInfoResult::CancelResult::kCancelled) {
+    if (cancel_result->result != CancelResult::kCancelled) {
       return Status::Invalid("CancelFlightInfo must return CANCEL_RESULT_CANCELLED: ",
                              cancel_result->ToString());
     }
@@ -1411,7 +1410,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
 
   // TODO: This isn't used yet because some implementations don't
   // support CancelFlightInfo yet.
-  arrow::Result<ActionCancelFlightInfoResult> CancelFlightInfo(
+  arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
       const ServerCallContext& context, const FlightInfo& info) override {
     ARROW_RETURN_NOT_OK(AssertEq<size_t>(1, info.endpoints().size(),
                                          "Expected 1 endpoint for CancelFlightInfo"));
@@ -1420,8 +1419,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
                           sql::StatementQueryTicket::Deserialize(endpoint.ticket.ticket));
     ARROW_RETURN_NOT_OK(AssertEq<std::string>("PLAN HANDLE", ticket.statement_handle,
                                               "Unexpected ticket in CancelFlightInfo"));
-    return ActionCancelFlightInfoResult{
-        ActionCancelFlightInfoResult::CancelResult::kCancelled};
+    return CancelFlightInfoResult{CancelResult::kCancelled};
   }
 
   arrow::Result<sql::CancelResult> CancelQuery(

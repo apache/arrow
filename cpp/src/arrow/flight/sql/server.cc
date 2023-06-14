@@ -393,7 +393,7 @@ arrow::Result<Result> PackActionResult(ActionBeginTransactionResult result) {
   return PackActionResult(pb_result);
 }
 
-arrow::Result<Result> PackActionResult(ActionCancelFlightInfoResult result) {
+arrow::Result<Result> PackActionResult(CancelFlightInfoResult result) {
   ARROW_ASSIGN_OR_RAISE(auto serialized, result.SerializeToString());
   return Result{Buffer::FromString(std::move(serialized))};
 }
@@ -1060,7 +1060,7 @@ arrow::Result<ActionBeginTransactionResult> FlightSqlServerBase::BeginTransactio
   return Status::NotImplemented("BeginTransaction not implemented");
 }
 
-arrow::Result<ActionCancelFlightInfoResult> FlightSqlServerBase::CancelFlightInfo(
+arrow::Result<CancelFlightInfoResult> FlightSqlServerBase::CancelFlightInfo(
     const ServerCallContext& context, const FlightInfo& info) {
   return Status::NotImplemented("CancelFlightInfo not implemented");
 }

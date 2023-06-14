@@ -511,8 +511,8 @@ func (BaseServer) BeginSavepoint(context.Context, ActionBeginSavepointRequest) (
 	return nil, status.Error(codes.Unimplemented, "BeginSavepoint not implemented")
 }
 
-func (BaseServer) CancelFlightInfo(context.Context, flight.FlightInfo) (flight.ActionCancelFlightInfoResult, error) {
-	var result flight.ActionCancelFlightInfoResult
+func (BaseServer) CancelFlightInfo(context.Context, flight.FlightInfo) (flight.CancelFlightInfoResult, error) {
+	var result flight.CancelFlightInfoResult
 	result.Result = flight.CancelResultUnspecified
 	return result, status.Error(codes.Unimplemented, "CancelFlightInfo not implemented")
 }
@@ -646,7 +646,7 @@ type Server interface {
 	// EndTransaction commits or rollsback a transaction
 	EndTransaction(context.Context, ActionEndTransactionRequest) error
 	// CancelFlightInfo attempts to explicitly cancel a FlightInfo
-	CancelFlightInfo(context.Context, flight.FlightInfo) (flight.ActionCancelFlightInfoResult, error)
+	CancelFlightInfo(context.Context, flight.FlightInfo) (flight.CancelFlightInfoResult, error)
 	// CancelQuery attempts to explicitly cancel a query
 	// Deprecated since 13.0.0. Use CancelFlightInfo instead.
 	CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error)
@@ -996,7 +996,7 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 	case flight.CancelFlightInfoActionType:
 		var (
 			info    flight.FlightInfo
-			result  flight.ActionCancelFlightInfoResult
+			result  flight.CancelFlightInfoResult
 			err     error
 		)
 

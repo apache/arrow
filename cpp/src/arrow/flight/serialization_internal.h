@@ -48,8 +48,8 @@ Status SchemaToString(const Schema& schema, std::string* out);
 Status FromProto(const pb::ActionType& pb_type, ActionType* type);
 Status FromProto(const pb::Action& pb_action, Action* action);
 Status FromProto(const pb::Result& pb_result, Result* result);
-Status FromProto(const pb::ActionCancelFlightInfoResult& pb_result,
-                 ActionCancelFlightInfoResult* result);
+Status FromProto(const pb::CancelFlightInfoResult& pb_result,
+                 CancelFlightInfoResult* result);
 Status FromProto(const pb::Criteria& pb_criteria, Criteria* criteria);
 Status FromProto(const pb::Location& pb_location, Location* location);
 Status FromProto(const pb::Ticket& pb_ticket, Ticket* ticket);
@@ -67,8 +67,8 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info);
 Status ToProto(const ActionType& type, pb::ActionType* pb_type);
 Status ToProto(const Action& action, pb::Action* pb_action);
 Status ToProto(const Result& result, pb::Result* pb_result);
-Status ToProto(const ActionCancelFlightInfoResult& result,
-               pb::ActionCancelFlightInfoResult* pb_result);
+Status ToProto(const CancelFlightInfoResult& result,
+               pb::CancelFlightInfoResult* pb_result);
 Status ToProto(const Criteria& criteria, pb::Criteria* pb_criteria);
 Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result);
 Status ToProto(const Ticket& ticket, pb::Ticket* pb_ticket);

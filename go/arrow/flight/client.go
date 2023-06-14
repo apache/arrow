@@ -66,7 +66,7 @@ type Client interface {
 	// in order to use the Handshake endpoints of the service.
 	Authenticate(context.Context, ...grpc.CallOption) error
 	AuthenticateBasicToken(ctx context.Context, username string, password string, opts ...grpc.CallOption) (context.Context, error)
-	CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (ActionCancelFlightInfoResult, error)
+	CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (CancelFlightInfoResult, error)
 	CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) error
 	RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error)
 	Close() error
@@ -352,7 +352,7 @@ func (c *client) Authenticate(ctx context.Context, opts ...grpc.CallOption) erro
 	return c.authHandler.Authenticate(ctx, &clientAuthConn{stream})
 }
 
-func (c *client) CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (result ActionCancelFlightInfoResult, err error) {
+func (c *client) CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (result CancelFlightInfoResult, err error) {
 	var action flight.Action
 	action.Type = CancelFlightInfoActionType
 	if action.Body, err = proto.Marshal(info); err != nil {

@@ -49,8 +49,8 @@ type (
 	Action                          = flight.Action
 	ActionType                      = flight.ActionType
 	Result                          = flight.Result
-	ActionCancelFlightInfoResult    = flight.ActionCancelFlightInfoResult
-	ActionCancelFlightInfoResult_CancelResult = flight.ActionCancelFlightInfoResult_CancelResult
+	CancelFlightInfoResult    = flight.CancelFlightInfoResult
+	CancelResult = flight.CancelResult
 	Empty                           = flight.Empty
 )
 
@@ -66,17 +66,17 @@ const (
 	// The cancellation status is unknown. Servers should avoid
 	// using this value (send a NOT_FOUND error if the requested
 	// FlightInfo is not known). Clients can retry the request.
-	CancelResultUnspecified = flight.ActionCancelFlightInfoResult_CANCEL_RESULT_UNSPECIFIED
+	CancelResultUnspecified = flight.CancelResult_CANCEL_RESULT_UNSPECIFIED
 	// The cancellation request is complete. Subsequent requests
 	// with the same payload may return CancelResultCancelled or a
 	// arrow.ErrNotFound error.
-	CancelResultCancelled = flight.ActionCancelFlightInfoResult_CANCEL_RESULT_CANCELLED
+	CancelResultCancelled = flight.CancelResult_CANCEL_RESULT_CANCELLED
 	// The cancellation request is in progress. The client may
 	// retry the cancellation request.
-	CancelResultCancelling = flight.ActionCancelFlightInfoResult_CANCEL_RESULT_CANCELLING
+	CancelResultCancelling = flight.CancelResult_CANCEL_RESULT_CANCELLING
 	// The FlightInfo is not cancellable. The client should not
 	// retry the cancellation request.
-	CancelResultNotCancellable = flight.ActionCancelFlightInfoResult_CANCEL_RESULT_NOT_CANCELLABLE
+	CancelResultNotCancellable = flight.CancelResult_CANCEL_RESULT_NOT_CANCELLABLE
 )
 
 // RegisterFlightServiceServer registers an existing flight server onto an

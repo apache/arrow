@@ -251,35 +251,35 @@ struct ARROW_FLIGHT_EXPORT Result {
   static arrow::Result<Result> Deserialize(std::string_view serialized);
 };
 
-/// \brief The result of the CancelFlightInfo action.
-struct ARROW_FLIGHT_EXPORT ActionCancelFlightInfoResult {
-  enum class CancelResult {
-    /// The cancellation status is unknown. Servers should avoid using
-    /// this value (send a kNotCancellable if the requested FlightInfo
-    /// is not known). Clients can retry the request.
-    kUnspecified = 0,
-    /// The cancellation request is complete. Subsequent requests with
-    /// the same payload may return kCancelled or a kNotCancellable error.
-    kCancelled = 1,
-    /// The cancellation request is in progress. The client may retry
-    /// the cancellation request.
-    kCancelling = 2,
-    // The FlightInfo is not cancellable. The client should not retry the
-    // cancellation request.
-    kNotCancellable = 3,
-  };
+enum class CancelResult {
+  /// The cancellation status is unknown. Servers should avoid using
+  /// this value (send a kNotCancellable if the requested FlightInfo
+  /// is not known). Clients can retry the request.
+  kUnspecified = 0,
+  /// The cancellation request is complete. Subsequent requests with
+  /// the same payload may return kCancelled or a kNotCancellable error.
+  kCancelled = 1,
+  /// The cancellation request is in progress. The client may retry
+  /// the cancellation request.
+  kCancelling = 2,
+  // The FlightInfo is not cancellable. The client should not retry the
+  // cancellation request.
+  kNotCancellable = 3,
+};
 
+/// \brief The result of the CancelFlightInfo action.
+struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult {
   CancelResult result;
 
   std::string ToString() const;
-  bool Equals(const ActionCancelFlightInfoResult& other) const;
+  bool Equals(const CancelFlightInfoResult& other) const;
 
-  friend bool operator==(const ActionCancelFlightInfoResult& left,
-                         const ActionCancelFlightInfoResult& right) {
+  friend bool operator==(const CancelFlightInfoResult& left,
+                         const CancelFlightInfoResult& right) {
     return left.Equals(right);
   }
-  friend bool operator!=(const ActionCancelFlightInfoResult& left,
-                         const ActionCancelFlightInfoResult& right) {
+  friend bool operator!=(const CancelFlightInfoResult& left,
+                         const CancelFlightInfoResult& right) {
     return !(left == right);
   }
 
@@ -287,13 +287,11 @@ struct ARROW_FLIGHT_EXPORT ActionCancelFlightInfoResult {
   arrow::Result<std::string> SerializeToString() const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<ActionCancelFlightInfoResult> Deserialize(
-      std::string_view serialized);
+  static arrow::Result<CancelFlightInfoResult> Deserialize(std::string_view serialized);
 };
 
 ARROW_FLIGHT_EXPORT
-std::ostream& operator<<(std::ostream& os,
-                         ActionCancelFlightInfoResult::CancelResult result);
+std::ostream& operator<<(std::ostream& os, CancelResult result);
 
 /// \brief message for simple auth
 struct ARROW_FLIGHT_EXPORT BasicAuth {

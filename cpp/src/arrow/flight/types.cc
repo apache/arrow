@@ -660,19 +660,18 @@ arrow::Result<Result> Result::Deserialize(std::string_view serialized) {
   return out;
 }
 
-std::string ActionCancelFlightInfoResult::ToString() const {
+std::string CancelFlightInfoResult::ToString() const {
   std::stringstream ss;
-  ss << "<ActionCancelFlightInfoResult result=" << result << ">";
+  ss << "<CancelFlightInfoResult result=" << result << ">";
   return ss.str();
 }
 
-bool ActionCancelFlightInfoResult::Equals(
-    const ActionCancelFlightInfoResult& other) const {
+bool CancelFlightInfoResult::Equals(const CancelFlightInfoResult& other) const {
   return result == other.result;
 }
 
-arrow::Result<std::string> ActionCancelFlightInfoResult::SerializeToString() const {
-  pb::ActionCancelFlightInfoResult pb_result;
+arrow::Result<std::string> CancelFlightInfoResult::SerializeToString() const {
+  pb::CancelFlightInfoResult pb_result;
   RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
 
   std::string out;
@@ -683,9 +682,9 @@ arrow::Result<std::string> ActionCancelFlightInfoResult::SerializeToString() con
   return out;
 }
 
-arrow::Result<ActionCancelFlightInfoResult> ActionCancelFlightInfoResult::Deserialize(
+arrow::Result<CancelFlightInfoResult> CancelFlightInfoResult::Deserialize(
     std::string_view serialized) {
-  pb::ActionCancelFlightInfoResult pb_result;
+  pb::CancelFlightInfoResult pb_result;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid(
         "Serialized ActionCancelFlightInfoResult size should not exceed 2 GiB");
@@ -695,24 +694,23 @@ arrow::Result<ActionCancelFlightInfoResult> ActionCancelFlightInfoResult::Deseri
   if (!pb_result.ParseFromZeroCopyStream(&input)) {
     return Status::Invalid("Not a valid ActionCancelFlightInfoResult");
   }
-  ActionCancelFlightInfoResult out;
+  CancelFlightInfoResult out;
   RETURN_NOT_OK(internal::FromProto(pb_result, &out));
   return out;
 }
 
-std::ostream& operator<<(std::ostream& os,
-                         ActionCancelFlightInfoResult::CancelResult result) {
+std::ostream& operator<<(std::ostream& os, CancelResult result) {
   switch (result) {
-    case ActionCancelFlightInfoResult::CancelResult::kUnspecified:
+    case CancelResult::kUnspecified:
       os << "Unspecified";
       break;
-    case ActionCancelFlightInfoResult::CancelResult::kCancelled:
+    case CancelResult::kCancelled:
       os << "Cancelled";
       break;
-    case ActionCancelFlightInfoResult::CancelResult::kCancelling:
+    case CancelResult::kCancelling:
       os << "Cancelling";
       break;
-    case ActionCancelFlightInfoResult::CancelResult::kNotCancellable:
+    case CancelResult::kNotCancellable:
       os << "NotCancellable";
       break;
   }
