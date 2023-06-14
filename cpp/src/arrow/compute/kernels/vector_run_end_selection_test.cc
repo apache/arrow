@@ -84,7 +84,7 @@ struct REERep {
   }
 };
 
-Result<std::shared_ptr<Array>> REEFromJson(const std::shared_ptr<DataType>& ree_type,
+Result<std::shared_ptr<Array>> REEFromJSON(const std::shared_ptr<DataType>& ree_type,
                                            const std::string& json) {
   auto ree_type_ptr = checked_cast<const RunEndEncodedType*>(ree_type.get());
   auto array = ArrayFromJSON(ree_type_ptr->value_type(), json);
@@ -93,7 +93,7 @@ Result<std::shared_ptr<Array>> REEFromJson(const std::shared_ptr<DataType>& ree_
   return datum.make_array();
 }
 
-Result<std::shared_ptr<Array>> REEFromJson(const std::shared_ptr<DataType>& ree_type,
+Result<std::shared_ptr<Array>> REEFromJSON(const std::shared_ptr<DataType>& ree_type,
                                            int64_t logical_length,
                                            const std::string& run_ends_json,
                                            const std::string& values_json) {
@@ -105,7 +105,7 @@ Result<std::shared_ptr<Array>> REEFromJson(const std::shared_ptr<DataType>& ree_
 
 Result<std::shared_ptr<Array>> REEFromRep(const std::shared_ptr<DataType>& ree_type,
                                           const REERep& rep) {
-  return REEFromJson(ree_type, rep.logical_length, rep.run_ends_json, rep.values_json);
+  return REEFromJSON(ree_type, rep.logical_length, rep.run_ends_json, rep.values_json);
 }
 
 /// \brief Helper to make some tests used for REExAny tests compatible with PlainxREE
@@ -118,10 +118,10 @@ Result<std::shared_ptr<Array>> PlainArrayFromREERep(
   return decoded.make_array();
 }
 
-Result<std::shared_ptr<Array>> FilterFromJson(
+Result<std::shared_ptr<Array>> FilterFromJSON(
     const std::shared_ptr<DataType>& filter_type, const std::string& json) {
   if (filter_type->id() == Type::RUN_END_ENCODED) {
-    return REEFromJson(filter_type, json);
+    return REEFromJSON(filter_type, json);
   } else {
     return ArrayFromJSON(filter_type, json);
   }
@@ -166,7 +166,7 @@ void DoAssertFilterSlicedOutput(const std::shared_ptr<Array>& values,
   ARROW_SCOPED_TRACE("for sliced values and filter");
   ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(values->type(), M));
   ASSERT_OK_AND_ASSIGN(auto filter_filler,
-                       FilterFromJson(filter->type(), "[true, false]"));
+                       FilterFromJSON(filter->type(), "[true, false]"));
   ASSERT_OK_AND_ASSIGN(auto values_with_filler,
                        Concatenate({values_filler, values, values_filler}));
   ASSERT_OK_AND_ASSIGN(auto filter_with_filler,
@@ -320,8 +320,8 @@ struct REExREEFilterTest : public ::testing::Test {
                     const REERep& expected_with_emit_nulls = REERep::None()) {
     ASSERT_OK_AND_ASSIGN(
         auto values,
-        REEFromJson(run_end_encoded(_value_run_end_type, value_type), values_json));
-    ASSERT_OK_AND_ASSIGN(auto filter, REEFromJson(_filter_type, filter_json));
+        REEFromJSON(run_end_encoded(_value_run_end_type, value_type), values_json));
+    ASSERT_OK_AND_ASSIGN(auto filter, REEFromJSON(_filter_type, filter_json));
     DoAssertOutput(values, filter, kDropNulls, expected_with_drop_nulls);
     DoAssertOutput(values, filter, kEmitNulls,
                    expected_with_emit_nulls == REERep::None() ? expected_with_drop_nulls
@@ -369,7 +369,7 @@ struct REExPlainFilterTest : public ::testing::Test {
                     const REERep& expected_with_emit_nulls = REERep::None()) {
     ASSERT_OK_AND_ASSIGN(
         auto values,
-        REEFromJson(run_end_encoded(_value_run_end_type, value_type), values_json));
+        REEFromJSON(run_end_encoded(_value_run_end_type, value_type), values_json));
     auto filter = ArrayFromJSON(boolean(), filter_json);
     DoAssertOutput(values, filter, kDropNulls, expected_with_drop_nulls);
     DoAssertOutput(values, filter, kEmitNulls,
@@ -410,7 +410,7 @@ struct PlainxREEFilterTest : public ::testing::Test {
     auto values = ArrayFromJSON(value_type, values_json);
     ASSERT_OK_AND_ASSIGN(
         auto filter,
-        REEFromJson(run_end_encoded(_filter_run_end_type, boolean()), filter_json));
+        REEFromJSON(run_end_encoded(_filter_run_end_type, boolean()), filter_json));
     auto expected_with_drop_nulls_array =
         ArrayFromJSON(value_type, expected_with_drop_nulls);
     auto expected_with_emit_nulls_array =
@@ -431,7 +431,7 @@ struct PlainxREEFilterTest : public ::testing::Test {
     auto values = ArrayFromJSON(value_type, values_json);
     ASSERT_OK_AND_ASSIGN(
         auto filter,
-        REEFromJson(run_end_encoded(_filter_run_end_type, boolean()), filter_json));
+        REEFromJSON(run_end_encoded(_filter_run_end_type, boolean()), filter_json));
 
     ASSERT_OK_AND_ASSIGN(auto expected_with_drop_nulls_array,
                          PlainArrayFromREERep(value_type, expected_with_drop_nulls));
