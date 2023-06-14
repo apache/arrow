@@ -1,4 +1,9 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Apache.Arrow.Flight.Server;
 using Apache.Arrow.Types;
 using Arrow.Flight.Protocol.Sql;

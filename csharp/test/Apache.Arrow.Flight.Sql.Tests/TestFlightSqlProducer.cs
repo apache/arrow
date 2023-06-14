@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.Reflection;
+using System.Threading.Tasks;
 using Apache.Arrow.Flight.Protocol;
 using Apache.Arrow.Flight.Server;
 using Apache.Arrow.Types;
