@@ -150,7 +150,6 @@ if [ "${TYPE}" = "local" ]; then
     amzn)
       package_version+=".${distribution}${distribution_version}"
       release_path+="/amazon-linux"
-      amazon-linux-extras install -y epel
       ;;
     centos)
       package_version+=".el${distribution_version}"
