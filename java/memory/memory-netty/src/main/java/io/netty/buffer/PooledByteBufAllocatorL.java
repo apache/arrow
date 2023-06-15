@@ -265,7 +265,7 @@ public class PooledByteBufAllocatorL {
       @Override
       public void run() {
         while (true) {
-          memoryLogger.trace("Memory Usage: \n{}", PooledByteBufAllocatorL.this.toString());
+          memoryLogger.trace("Memory Usage: \n{}", PooledByteBufAllocatorL.this.allocator);
           try {
             Thread.sleep(MEMORY_LOGGER_FREQUENCY_SECONDS * 1000);
           } catch (InterruptedException e) {

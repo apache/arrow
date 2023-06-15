@@ -81,3 +81,19 @@ func TestBuilder_resize(t *testing.T) {
 	assert.Equal(t, n, b.Len())
 	assert.Equal(t, n-1, b.NullN())
 }
+
+func TestBuilder_IsNull(t *testing.T) {
+	b := &builder{mem: memory.NewGoAllocator()}
+	n := 32
+	b.init(n)
+
+	assert.True(t, b.IsNull(0))
+	assert.True(t, b.IsNull(1))
+
+	for i := 0; i < n; i++ {
+		b.UnsafeAppendBoolToBitmap(i%2 == 0)
+	}
+	for i := 0; i < n; i++ {
+		assert.Equal(t, i%2 != 0, b.IsNull(i))
+	}
+}

@@ -19,7 +19,16 @@ import XCTest
 import FlatBuffers
 @testable import Arrow
 
-func checkBoolRecordBatch(_ recordBatches: [RecordBatch]) {
+@discardableResult
+func checkBoolRecordBatch(_ result: Result<[RecordBatch], ArrowError>) throws -> [RecordBatch] {
+    let recordBatches: [RecordBatch]
+    switch result {
+    case .success(let rbBatches):
+        recordBatches = rbBatches
+    case .failure(let error):
+        throw error
+    }
+    
     XCTAssertEqual(recordBatches.count, 1)
     for recordBatch in recordBatches {
         XCTAssertEqual(recordBatch.length, 5)
@@ -31,7 +40,7 @@ func checkBoolRecordBatch(_ recordBatches: [RecordBatch]) {
         XCTAssertEqual(recordBatch.schema.fields[1].type, ArrowType.ArrowString)
         for index in 0..<recordBatch.length {
             let column = recordBatch.columns[0]
-            let str = column.holder as! AsString
+            let str = column.array as! AsString
             let val = "\(str.asString(index))"
             if index == 0 || index == 4 {
                 XCTAssertEqual(val, "true")
@@ -42,6 +51,8 @@ func checkBoolRecordBatch(_ recordBatches: [RecordBatch]) {
             }
         }
     }
+    
+    return recordBatches
 }
 
 func currentDirectory(path: String = #file) -> URL {
@@ -52,7 +63,15 @@ final class IPCFileReaderTests: XCTestCase {
     func testFileReader_double() throws {
         let fileURL = currentDirectory().appendingPathComponent("../../testdata_double.arrow")
         let arrowReader = ArrowReader()
-        let recordBatches = try arrowReader.fromFile(fileURL)
+        let result = arrowReader.fromFile(fileURL)
+        let recordBatches: [RecordBatch]
+        switch result {
+        case .success(let rbBatches):
+            recordBatches = rbBatches
+        case .failure(let error):
+            throw error
+        }
+
         XCTAssertEqual(recordBatches.count, 1)
         for recordBatch in recordBatches {
             XCTAssertEqual(recordBatch.length, 5)
@@ -64,7 +83,7 @@ final class IPCFileReaderTests: XCTestCase {
             XCTAssertEqual(recordBatch.schema.fields[1].type, ArrowType.ArrowString)
             for index in 0..<recordBatch.length {
                 let column = recordBatch.columns[1]
-                let str = column.holder as! AsString
+                let str = column.array as! AsString
                 let val = "\(str.asString(index))"
                 if index != 1 {
                     XCTAssertNotEqual(val, "")
@@ -78,28 +97,37 @@ final class IPCFileReaderTests: XCTestCase {
     func testFileReader_bool() throws {
         let fileURL = currentDirectory().appendingPathComponent("../../testdata_bool.arrow")
         let arrowReader = ArrowReader()
-        let fileRBs = try arrowReader.fromFile(fileURL)
-        checkBoolRecordBatch(fileRBs)
+        try checkBoolRecordBatch(arrowReader.fromFile(fileURL))
     }
+    
     
     func testFileWriter_bool() throws {
         //read existing file
         let fileURL = currentDirectory().appendingPathComponent("../../testdata_bool.arrow")
         let arrowReader = ArrowReader()
-        let fileRBs = try arrowReader.fromFile(fileURL)
-        checkBoolRecordBatch(fileRBs)
+        let fileRBs = try checkBoolRecordBatch(arrowReader.fromFile(fileURL))
         let arrowWriter = ArrowWriter()
         //write data from file to a stream
-        let writeData = try arrowWriter.toStream(fileRBs[0].schema, batches: fileRBs)
-        //read stream back into recordbatches
-        checkBoolRecordBatch(try arrowReader.fromStream(writeData))
+        switch arrowWriter.toStream(fileRBs[0].schema, batches: fileRBs) {
+        case .success(let writeData):
+            //read stream back into recordbatches
+            try checkBoolRecordBatch(arrowReader.fromStream(writeData))
+        case .failure(let error):
+            throw error
+        }
+
         //write file record batches to another file
         let outputUrl = currentDirectory().appendingPathComponent("../../testfilewriter_bool.arrow")
-        try arrowWriter.toFile(outputUrl, schema: fileRBs[0].schema, batches: fileRBs)
-        checkBoolRecordBatch(try arrowReader.fromFile(outputUrl))
+        switch arrowWriter.toFile(outputUrl, schema: fileRBs[0].schema, batches: fileRBs) {
+        case .success(_):
+            try checkBoolRecordBatch(arrowReader.fromFile(outputUrl))
+        case .failure(let error):
+            throw error
+        }
+        
     }
 
-    func makeSchema() throws -> ArrowSchema {
+    func makeSchema() -> ArrowSchema {
         let schemaBuilder = ArrowSchema.Builder();
         return schemaBuilder.addField("col1", type: ArrowType.ArrowUInt8, isNullable: true)
             .addField("col2", type: ArrowType.ArrowString, isNullable: false)
@@ -111,50 +139,74 @@ final class IPCFileReaderTests: XCTestCase {
         let uint8Builder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder();
         uint8Builder.append(10)
         uint8Builder.append(22)
+        uint8Builder.append(33)
+        uint8Builder.append(44)
         let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder();
         stringBuilder.append("test10")
         stringBuilder.append("test22")
+        stringBuilder.append("test33")
+        stringBuilder.append("test44")
         let date32Builder = try ArrowArrayBuilders.loadDate32ArrayBuilder();
         let date2 = Date(timeIntervalSinceReferenceDate: 86400 * 1)
         let date1 = Date(timeIntervalSinceReferenceDate: 86400 * 5000 + 352)
         date32Builder.append(date1)
         date32Builder.append(date2)
-        
-        let intHolder = ChunkedArrayHolder(try ChunkedArray([uint8Builder.finish()]))
-        let stringHolder = ChunkedArrayHolder(try ChunkedArray([stringBuilder.finish()]))
-        let date32Holder = ChunkedArrayHolder(try ChunkedArray([date32Builder.finish()]))
-        return RecordBatch.Builder()
-            .addColumn("col1", chunked: intHolder)
-            .addColumn("col2", chunked: stringHolder)
-            .addColumn("col3", chunked: date32Holder)
+        date32Builder.append(date1)
+        date32Builder.append(date2)
+
+        let intHolder = ArrowArrayHolder(try uint8Builder.finish())
+        let stringHolder = ArrowArrayHolder(try stringBuilder.finish())
+        let date32Holder = ArrowArrayHolder(try date32Builder.finish())
+        let result = RecordBatch.Builder()
+            .addColumn("col1", arrowArray: intHolder)
+            .addColumn("col2", arrowArray: stringHolder)
+            .addColumn("col3", arrowArray: date32Holder)
             .finish()
+        switch result {
+        case .success(let recordBatch):
+            return recordBatch
+        case .failure(let error):
+            throw error
+        }
     }
     
     func testInMemoryToFromStream() throws {
         //read existing file
-        let schema = try makeSchema()
+        let schema = makeSchema()
         let recordBatch = try makeRecordBatch()
         let arrowWriter = ArrowWriter()
-        let writeData = try arrowWriter.toStream(schema, batches: [recordBatch])
-        let arrowReader = ArrowReader()
-        let recordBatches = try arrowReader.fromStream(writeData)
-        XCTAssertEqual(recordBatches.count, 1)
-        for recordBatch in recordBatches {
-            XCTAssertEqual(recordBatch.length, 2)
-            XCTAssertEqual(recordBatch.columns.count, 3)
-            XCTAssertEqual(recordBatch.schema.fields.count, 3)
-            XCTAssertEqual(recordBatch.schema.fields[0].name, "col1")
-            XCTAssertEqual(recordBatch.schema.fields[0].type, ArrowType.ArrowUInt8)
-            XCTAssertEqual(recordBatch.schema.fields[1].name, "col2")
-            XCTAssertEqual(recordBatch.schema.fields[1].type, ArrowType.ArrowString)
-            XCTAssertEqual(recordBatch.schema.fields[2].name, "col3")
-            XCTAssertEqual(recordBatch.schema.fields[2].type, ArrowType.ArrowDate32)
-            let dateVal = "\((recordBatch.columns[2].holder as! AsString).asString(0))"
-            XCTAssertEqual(dateVal, "2014-09-10 00:00:00 +0000")
-            let stringVal = "\((recordBatch.columns[1].holder as! AsString).asString(1))"
-            XCTAssertEqual(stringVal, "test22")
-            let uintVal = "\((recordBatch.columns[0].holder as! AsString).asString(0))"
-            XCTAssertEqual(uintVal, "10")
+        switch arrowWriter.toStream(schema, batches: [recordBatch]) {
+        case .success(let writeData):
+            let arrowReader = ArrowReader()
+            switch arrowReader.fromStream(writeData) {
+            case .success(let recordBatches):
+                XCTAssertEqual(recordBatches.count, 1)
+                for recordBatch in recordBatches {
+                    XCTAssertEqual(recordBatch.length, 4)
+                    XCTAssertEqual(recordBatch.columns.count, 3)
+                    XCTAssertEqual(recordBatch.schema.fields.count, 3)
+                    XCTAssertEqual(recordBatch.schema.fields[0].name, "col1")
+                    XCTAssertEqual(recordBatch.schema.fields[0].type, ArrowType.ArrowUInt8)
+                    XCTAssertEqual(recordBatch.schema.fields[1].name, "col2")
+                    XCTAssertEqual(recordBatch.schema.fields[1].type, ArrowType.ArrowString)
+                    XCTAssertEqual(recordBatch.schema.fields[2].name, "col3")
+                    XCTAssertEqual(recordBatch.schema.fields[2].type, ArrowType.ArrowDate32)
+                    let dateVal = "\((recordBatch.columns[2].array as! AsString).asString(0))"
+                    XCTAssertEqual(dateVal, "2014-09-10 00:00:00 +0000")
+                    let stringVal = "\((recordBatch.columns[1].array as! AsString).asString(1))"
+                    XCTAssertEqual(stringVal, "test22")
+                    let uintVal = "\((recordBatch.columns[0].array as! AsString).asString(0))"
+                    XCTAssertEqual(uintVal, "10")
+                    let stringVal2 = "\((recordBatch.columns[1].array as! AsString).asString(3))"
+                    XCTAssertEqual(stringVal2, "test44")
+                    let uintVal2 = "\((recordBatch.columns[0].array as! AsString).asString(3))"
+                    XCTAssertEqual(uintVal2, "44")
+                }
+            case.failure(let error):
+                throw error
+            }
+        case .failure(let error):
+            throw error
         }
     }
 }

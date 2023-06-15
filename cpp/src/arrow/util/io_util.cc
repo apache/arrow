@@ -2138,7 +2138,8 @@ int64_t GetCurrentRSS() {
   return static_cast<int64_t>(info.WorkingSetSize);
 
 #elif defined(__APPLE__)
-  // OSX ------------------------------------------------------
+// OSX ------------------------------------------------------
+#ifdef MACH_TASK_BASIC_INFO
   struct mach_task_basic_info info;
   mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
   if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
@@ -2146,6 +2147,15 @@ int64_t GetCurrentRSS() {
     ARROW_LOG(WARNING) << "Can't resolve RSS value";
     return 0;
   }
+#else
+  struct task_basic_info info;
+  mach_msg_type_number_t infoCount = TASK_BASIC_INFO_COUNT;
+  if (task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
+      KERN_SUCCESS) {
+    ARROW_LOG(WARNING) << "Can't resolve RSS value";
+    return 0;
+  }
+#endif
   return static_cast<int64_t>(info.resident_size);
 
 #elif defined(__linux__)

@@ -107,21 +107,11 @@ class ApacheArrowPackageTask < PackageTask
   end
 
   def apt_prepare_debian_control_protobuf(control, target)
-    # Flight requires Protobuf 3.15.0 or later but Ubuntu 22.04
-    # doesn't provide Protobuf 3.15.0 or later yet.
-    #
-    # See also:
-    #   * cpp/cmake_modules/ThirdpartyToolchain.cmake
-    #   * https://packages.debian.org/search?keywords=libprotobuf-dev
-    #   * https://packages.ubuntu.com/search?keywords=libprotobuf-dev
-    #
-    # We can use system Protobuf without Flight because we can use
-    # Protobuf 3.0.0 or later without Flight.
     case target
-    when /\Adebian-bookworm/
-      use_system_protobuf = ""
-    else
+    when /\Aubuntu-focal/
       use_system_protobuf = "#"
+    else
+      use_system_protobuf = ""
     end
     control.gsub(/@USE_SYSTEM_PROTOBUF@/, use_system_protobuf)
   end

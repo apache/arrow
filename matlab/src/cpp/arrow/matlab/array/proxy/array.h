@@ -25,7 +25,7 @@ namespace arrow::matlab::array::proxy {
 
 class Array : public libmexclass::proxy::Proxy {
     public:
-        Array(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+        Array();
     
         virtual ~Array() {}
 
@@ -34,6 +34,8 @@ class Array : public libmexclass::proxy::Proxy {
         void toString(libmexclass::proxy::method::Context& context);
 
         void length(libmexclass::proxy::method::Context& context);
+
+        void valid(libmexclass::proxy::method::Context& context);
 
         virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
 

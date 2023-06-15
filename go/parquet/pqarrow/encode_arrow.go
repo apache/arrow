@@ -36,25 +36,17 @@ import (
 
 // get the count of the number of leaf arrays for the type
 func calcLeafCount(dt arrow.DataType) int {
-	switch dt.ID() {
-	case arrow.EXTENSION:
-		return calcLeafCount(dt.(arrow.ExtensionType).StorageType())
-	case arrow.SPARSE_UNION, arrow.DENSE_UNION:
-		panic("arrow type not implemented")
-	case arrow.DICTIONARY:
-		return calcLeafCount(dt.(*arrow.DictionaryType).ValueType)
-	case arrow.LIST:
-		return calcLeafCount(dt.(*arrow.ListType).Elem())
-	case arrow.FIXED_SIZE_LIST:
-		return calcLeafCount(dt.(*arrow.FixedSizeListType).Elem())
-	case arrow.MAP:
-		return calcLeafCount(dt.(*arrow.MapType).ValueType())
-	case arrow.STRUCT:
+	switch dt := dt.(type) {
+	case arrow.ExtensionType:
+		return calcLeafCount(dt.StorageType())
+	case arrow.NestedType:
 		nleaves := 0
-		for _, f := range dt.(*arrow.StructType).Fields() {
+		for _, f := range dt.Fields() {
 			nleaves += calcLeafCount(f.Type)
 		}
 		return nleaves
+	case *arrow.DictionaryType:
+		return calcLeafCount(dt.ValueType)
 	default:
 		return 1
 	}
@@ -287,12 +279,16 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		case arrow.INT32:
 			data = leafArr.(*array.Int32).Int32Values()
 		case arrow.DATE32, arrow.UINT32:
-			data = arrow.Int32Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
-			data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
-		case arrow.TIME32:
-			if leafArr.DataType().(*arrow.Time32Type).Unit != arrow.Second {
+			if leafArr.Data().Buffers()[1] != nil {
 				data = arrow.Int32Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
 				data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
+			}
+		case arrow.TIME32:
+			if leafArr.DataType().(*arrow.Time32Type).Unit != arrow.Second {
+				if leafArr.Data().Buffers()[1] != nil {
+					data = arrow.Int32Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
+					data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
+				}
 			} else { // coerce time32 if necessary by multiplying by 1000
 				ctx.dataBuffer.ResizeNoShrink(arrow.Int32Traits.BytesRequired(leafArr.Len()))
 				data = arrow.Int32Traits.CastFromBytes(ctx.dataBuffer.Bytes())
@@ -351,8 +347,10 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				// user explicitly requested coercion to specific unit
 				if tstype.Unit == ctx.props.coerceTimestampUnit {
 					// no conversion necessary
-					data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
-					data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
+					if leafArr.Data().Buffers()[1] != nil {
+						data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
+						data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
+					}
 				} else {
 					ctx.dataBuffer.ResizeNoShrink(arrow.Int64Traits.BytesRequired(leafArr.Len()))
 					data = arrow.Int64Traits.CastFromBytes(ctx.dataBuffer.Bytes())
@@ -380,8 +378,10 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				}
 			} else {
 				// no data conversion neccessary
-				data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
-				data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
+				if leafArr.Data().Buffers()[1] != nil {
+					data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
+					data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
+				}
 			}
 		case arrow.UINT32:
 			ctx.dataBuffer.ResizeNoShrink(arrow.Int64Traits.BytesRequired(leafArr.Len()))
@@ -392,8 +392,10 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		case arrow.INT64:
 			data = leafArr.(*array.Int64).Int64Values()
 		case arrow.UINT64, arrow.TIME64, arrow.DATE64:
-			data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
-			data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
+			if leafArr.Data().Buffers()[1] != nil {
+				data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
+				data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
+			}
 		default:
 			return fmt.Errorf("unimplemented arrow type to write to int64 column: %s", leafArr.DataType().Name())
 		}

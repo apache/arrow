@@ -16,6 +16,8 @@
 // under the License.
 
 #include <mutex>
+#include <utility>
+#include <unordered_map>
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
@@ -24,12 +26,15 @@
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
+#include "arrow/engine/substrait/util.h"
 #include "arrow/ipc/api.h"
 #include "arrow/util/iterator.h"
 #include "jni_util.h"
 #include "org_apache_arrow_dataset_file_JniWrapper.h"
 #include "org_apache_arrow_dataset_jni_JniWrapper.h"
 #include "org_apache_arrow_dataset_jni_NativeMemoryPool.h"
+#include "org_apache_arrow_dataset_substrait_JniWrapper.h"
 
 namespace {
 
@@ -259,6 +264,52 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(java_reservation_listener_class);
 
   default_memory_pool_id = -1L;
+}
+
+/// Unpack the named tables passed through JNI.
+///
+/// Named tables are encoded as a string array, where every two elements
+/// encode (1) the table name and (2) the address of an ArrowArrayStream
+/// containing the table data.  This function will eagerly read all
+/// tables into Tables.
+std::unordered_map<std::string, std::shared_ptr<arrow::Table>> LoadNamedTables(JNIEnv* env, const jobjectArray& str_array) {
+  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_record_batch_reader;
+  int length = env->GetArrayLength(str_array);
+  if (length % 2 != 0) {
+    JniThrow("Can not map odd number of array elements to key/value pairs");
+  }
+  std::shared_ptr<arrow::Table> output_table;
+  for (int pos = 0; pos < length; pos++) {
+    auto j_string_key = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, pos));
+    pos++;
+    auto j_string_value = reinterpret_cast<jstring>(env->GetObjectArrayElement(str_array, pos));
+    uintptr_t memory_address = 0;
+    try {
+      memory_address = std::stol(JStringToCString(env, j_string_value));
+    } catch(const std::exception& ex) {
+      JniThrow("Failed to parse memory address from string value. Error: " + std::string(ex.what()));
+    } catch (...) {
+      JniThrow("Failed to parse memory address from string value.");
+    }
+    auto* arrow_stream_in = reinterpret_cast<ArrowArrayStream*>(memory_address);
+    std::shared_ptr<arrow::RecordBatchReader> readerIn = JniGetOrThrow(arrow::ImportRecordBatchReader(arrow_stream_in));
+    output_table = JniGetOrThrow(readerIn->ToTable());
+    map_table_to_record_batch_reader[JStringToCString(env, j_string_key)] = output_table;
+  }
+  return map_table_to_record_batch_reader;
+}
+
+/// Find the arrow Table associated with a given table name
+std::shared_ptr<arrow::Table> GetTableByName(const std::vector<std::string>& names,
+    const std::unordered_map<std::string, std::shared_ptr<arrow::Table>>& tables) {
+  if (names.size() != 1) {
+    JniThrow("Tables with hierarchical names are not supported");
+  }
+  const auto& it = tables.find(names[0]);
+  if (it == tables.end()) {
+    JniThrow("Table is referenced, but not provided: " + names[0]);
+  }
+  return it->second;
 }
 
 /*
@@ -520,7 +571,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_releaseBuffe
  * Signature: (Ljava/lang/String;II)J
  */
 JNIEXPORT jlong JNICALL
-Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
+Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory__Ljava_lang_String_2I(
     JNIEnv* env, jobject, jstring uri, jint file_format_id) {
   JNI_METHOD_START
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
@@ -529,6 +580,50 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
   std::shared_ptr<arrow::dataset::DatasetFactory> d =
       JniGetOrThrow(arrow::dataset::FileSystemDatasetFactory::Make(
           JStringToCString(env, uri), file_format, options));
+  return CreateNativeRef(d);
+  JNI_METHOD_END(-1L)
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_file_JniWrapper
+ * Method:    makeFileSystemDatasetFactory
+ * Signature: ([Ljava/lang/String;II)J
+ */
+JNIEXPORT jlong JNICALL
+Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory___3Ljava_lang_String_2I(
+    JNIEnv* env, jobject, jobjectArray uris, jint file_format_id) {
+  JNI_METHOD_START
+
+  std::shared_ptr<arrow::dataset::FileFormat> file_format =
+      JniGetOrThrow(GetFileFormat(file_format_id));
+  arrow::dataset::FileSystemFactoryOptions options;
+
+  std::vector<std::string> uri_vec = ToStringVector(env, uris);
+  if (uri_vec.size() == 0) {
+    JniThrow("No URIs provided.");
+  }
+
+  // If not all URIs, throw exception
+  if (auto elem = std::find_if_not(uri_vec.begin(), uri_vec.end(), arrow::fs::internal::IsLikelyUri);
+      elem != uri_vec.end()) {
+    JniThrow("Unrecognized file type in URI: " + *elem);
+  }
+
+  std::vector<std::string> output_paths;
+  std::string first_path;
+  // We know that uri_vec isn't empty, from the conditional above
+  auto fs = JniGetOrThrow(arrow::fs::FileSystemFromUri(uri_vec[0], &first_path));
+  output_paths.push_back(first_path);
+
+  std::transform(uri_vec.begin() + 1, uri_vec.end(), std::back_inserter(output_paths),
+    [&](const auto& s) -> std::string {
+    auto result = JniGetOrThrow(fs->PathFromUri(s));
+    return std::move(result);
+  });
+
+  std::shared_ptr<arrow::dataset::DatasetFactory> d =
+      JniGetOrThrow(arrow::dataset::FileSystemDatasetFactory::Make(
+        std::move(fs), std::move(output_paths), file_format, options));
   return CreateNativeRef(d);
   JNI_METHOD_END(-1L)
 }
@@ -576,5 +671,74 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
       SchemaFromColumnNames(schema, partition_column_vector).ValueOrDie());
   options.max_partitions = max_partitions;
   JniAssertOkOrThrow(arrow::dataset::FileSystemDataset::Write(options, scanner));
+  JNI_METHOD_END()
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_substrait_JniWrapper
+ * Method:    executeSerializedPlan
+ * Signature: (Ljava/lang/String;[Ljava/lang/String;J)V
+ */
+JNIEXPORT void JNICALL
+    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlan__Ljava_lang_String_2_3Ljava_lang_String_2J (
+    JNIEnv* env, jobject, jstring plan, jobjectArray table_to_memory_address_input,
+    jlong memory_address_output) {
+  JNI_METHOD_START
+  // get mapping of table name to memory address
+  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader =
+    LoadNamedTables(env, table_to_memory_address_input);
+  // create table provider
+  arrow::engine::NamedTableProvider table_provider =
+    [&map_table_to_reader](const std::vector<std::string>& names, const arrow::Schema&) {
+    std::shared_ptr<arrow::Table> output_table = GetTableByName(names, map_table_to_reader);
+    std::shared_ptr<arrow::acero::ExecNodeOptions> options =
+      std::make_shared<arrow::acero::TableSourceNodeOptions>(std::move(output_table));
+    return arrow::acero::Declaration("table_source", {}, options, "java_source");
+  };
+  arrow::engine::ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+  // execute plan
+  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::engine::SerializeJsonPlan(
+    JStringToCString(env, plan)));
+  std::shared_ptr<arrow::RecordBatchReader> reader_out =
+    JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, nullptr, nullptr, conversion_options));
+  auto* arrow_stream_out = reinterpret_cast<ArrowArrayStream*>(memory_address_output);
+  JniAssertOkOrThrow(arrow::ExportRecordBatchReader(reader_out, arrow_stream_out));
+  JNI_METHOD_END()
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_substrait_JniWrapper
+ * Method:    executeSerializedPlan
+ * Signature: (Ljava/nio/ByteBuffer;[Ljava/lang/String;J)V
+ */
+JNIEXPORT void JNICALL
+    Java_org_apache_arrow_dataset_substrait_JniWrapper_executeSerializedPlan__Ljava_nio_ByteBuffer_2_3Ljava_lang_String_2J (
+    JNIEnv* env, jobject, jobject plan, jobjectArray table_to_memory_address_input,
+    jlong memory_address_output) {
+  JNI_METHOD_START
+  // get mapping of table name to memory address
+  std::unordered_map<std::string, std::shared_ptr<arrow::Table>> map_table_to_reader =
+    LoadNamedTables(env, table_to_memory_address_input);
+  // create table provider
+  arrow::engine::NamedTableProvider table_provider =
+    [&map_table_to_reader](const std::vector<std::string>& names, const arrow::Schema&) {
+    std::shared_ptr<arrow::Table> output_table = GetTableByName(names, map_table_to_reader);
+    std::shared_ptr<arrow::acero::ExecNodeOptions> options =
+      std::make_shared<arrow::acero::TableSourceNodeOptions>(std::move(output_table));
+    return arrow::acero::Declaration("table_source", {}, options, "java_source");
+  };
+  arrow::engine::ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+  // mapping arrow::Buffer
+  auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(plan));
+  int length = env->GetDirectBufferCapacity(plan);
+  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
+  std::memcpy(buffer->mutable_data(), buff, length);
+  // execute plan
+  std::shared_ptr<arrow::RecordBatchReader> reader_out =
+    JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, nullptr, nullptr, conversion_options));
+  auto* arrow_stream_out = reinterpret_cast<ArrowArrayStream*>(memory_address_output);
+  JniAssertOkOrThrow(arrow::ExportRecordBatchReader(reader_out, arrow_stream_out));
   JNI_METHOD_END()
 }

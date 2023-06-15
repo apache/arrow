@@ -77,20 +77,20 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 
 	var (
 		k        exec.Kernel
-		executor kernelExecutor
+		executor KernelExecutor
 	)
 
 	switch fn.Kind() {
 	case FuncScalar:
 		executor = scalarExecPool.Get().(*scalarExecutor)
 		defer func() {
-			executor.clear()
+			executor.Clear()
 			scalarExecPool.Put(executor.(*scalarExecutor))
 		}()
 	case FuncVector:
 		executor = vectorExecPool.Get().(*vectorExecutor)
 		defer func() {
-			executor.clear()
+			executor.Clear()
 			vectorExecPool.Put(executor.(*vectorExecutor))
 		}()
 	default:

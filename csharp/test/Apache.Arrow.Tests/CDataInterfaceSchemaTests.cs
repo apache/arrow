@@ -114,6 +114,8 @@ namespace Apache.Arrow.Tests
             });
             Assert.True(wasCalled);
             CArrowSchema.Free(cSchema);
+
+            GC.KeepAlive(releaseCallback);
         }
     }
 }

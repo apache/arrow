@@ -82,7 +82,7 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
       // offsets until we get to the children).
       if (offsets != nullptr) {
         ++offsets;
-        // Use cumulative offsets because variable size lists are more common then
+        // Use cumulative offsets because variable size lists are more common than
         // fixed size lists so it should be cheaper to make these cumulative and
         // subtract when validating fixed size lists.
         *offsets = *(offsets - 1);

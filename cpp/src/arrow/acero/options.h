@@ -52,6 +52,9 @@ class Executor;
 
 namespace acero {
 
+/// \brief This must not be used in release-mode
+struct DebugOptions;
+
 using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
 
 /// \addtogroup acero-nodes
@@ -63,6 +66,9 @@ using AsyncExecBatchGenerator = AsyncGenerator<std::optional<ExecBatch>>;
 class ARROW_ACERO_EXPORT ExecNodeOptions {
  public:
   virtual ~ExecNodeOptions() = default;
+
+  /// \brief This must not be used in release-mode
+  std::shared_ptr<DebugOptions> debug_opts;
 };
 
 /// \brief A node representing a generic source of data for Acero
@@ -333,7 +339,7 @@ class ARROW_ACERO_EXPORT AggregateNodeOptions : public ExecNodeOptions {
         keys(std::move(keys)),
         segment_keys(std::move(segment_keys)) {}
 
-  // aggregations which will be applied to the targetted fields
+  // aggregations which will be applied to the targeted fields
   std::vector<Aggregate> aggregates;
   // keys by which aggregations will be grouped (optional)
   std::vector<FieldRef> keys;

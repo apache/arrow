@@ -26,7 +26,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 type ListLike interface {
@@ -611,4 +611,14 @@ var (
 	_ arrow.Array = (*LargeList)(nil)
 	_ Builder     = (*ListBuilder)(nil)
 	_ Builder     = (*LargeListBuilder)(nil)
+
+	_ ListLike = (*List)(nil)
+	_ ListLike = (*LargeList)(nil)
+	_ ListLike = (*FixedSizeList)(nil)
+	_ ListLike = (*Map)(nil)
+
+	_ ListLikeBuilder = (*ListBuilder)(nil)
+	_ ListLikeBuilder = (*LargeListBuilder)(nil)
+	_ ListLikeBuilder = (*FixedSizeListBuilder)(nil)
+	_ ListLikeBuilder = (*MapBuilder)(nil)
 )

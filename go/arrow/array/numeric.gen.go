@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // A type which represents an immutable sequence of int64 values.
@@ -101,7 +101,7 @@ func (a *Int64) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
@@ -196,7 +196,7 @@ func (a *Uint64) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
@@ -291,7 +291,7 @@ func (a *Float64) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
@@ -386,7 +386,7 @@ func (a *Int32) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
@@ -481,7 +481,7 @@ func (a *Uint32) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
@@ -576,7 +576,7 @@ func (a *Float32) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
@@ -671,7 +671,7 @@ func (a *Int16) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
@@ -766,7 +766,7 @@ func (a *Uint16) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
 		if a.IsValid(i) {
-			vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data
+			vals[i] = a.values[i]
 		} else {
 			vals[i] = nil
 		}
@@ -966,96 +966,6 @@ func (a *Uint8) MarshalJSON() ([]byte, error) {
 }
 
 func arrayEqualUint8(left, right *Uint8) bool {
-	for i := 0; i < left.Len(); i++ {
-		if left.IsNull(i) {
-			continue
-		}
-		if left.Value(i) != right.Value(i) {
-			return false
-		}
-	}
-	return true
-}
-
-// A type which represents an immutable sequence of arrow.Timestamp values.
-type Timestamp struct {
-	array
-	values []arrow.Timestamp
-}
-
-// NewTimestampData creates a new Timestamp.
-func NewTimestampData(data arrow.ArrayData) *Timestamp {
-	a := &Timestamp{}
-	a.refCount = 1
-	a.setData(data.(*Data))
-	return a
-}
-
-// Reset resets the array for re-use.
-func (a *Timestamp) Reset(data *Data) {
-	a.setData(data)
-}
-
-// Value returns the value at the specified index.
-func (a *Timestamp) Value(i int) arrow.Timestamp { return a.values[i] }
-
-// Values returns the values.
-func (a *Timestamp) TimestampValues() []arrow.Timestamp { return a.values }
-
-// String returns a string representation of the array.
-func (a *Timestamp) String() string {
-	o := new(strings.Builder)
-	o.WriteString("[")
-	for i, v := range a.values {
-		if i > 0 {
-			fmt.Fprintf(o, " ")
-		}
-		switch {
-		case a.IsNull(i):
-			o.WriteString(NullValueStr)
-		default:
-			fmt.Fprintf(o, "%v", v)
-		}
-	}
-	o.WriteString("]")
-	return o.String()
-}
-
-func (a *Timestamp) setData(data *Data) {
-	a.array.setData(data)
-	vals := data.buffers[1]
-	if vals != nil {
-		a.values = arrow.TimestampTraits.CastFromBytes(vals.Bytes())
-		beg := a.array.data.offset
-		end := beg + a.array.data.length
-		a.values = a.values[beg:end]
-	}
-}
-
-func (a *Timestamp) ValueStr(i int) string {
-	if a.IsNull(i) {
-		return NullValueStr
-	}
-	return a.values[i].ToTime(a.DataType().(*arrow.TimestampType).Unit).Format("2006-01-02 15:04:05.999999999")
-}
-
-func (a *Timestamp) GetOneForMarshal(i int) interface{} {
-	if a.IsNull(i) {
-		return nil
-	}
-	return a.values[i].ToTime(a.DataType().(*arrow.TimestampType).Unit).Format("2006-01-02 15:04:05.999999999")
-}
-
-func (a *Timestamp) MarshalJSON() ([]byte, error) {
-	vals := make([]interface{}, a.Len())
-	for i := range a.values {
-		vals[i] = a.GetOneForMarshal(i)
-	}
-
-	return json.Marshal(vals)
-}
-
-func arrayEqualTimestamp(left, right *Timestamp) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue

@@ -27,7 +27,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // Struct represents an ordered sequence of relative types.
@@ -129,7 +129,7 @@ func (a *Struct) newStructFieldWithParentValidityMask(fieldIndex int) arrow.Arra
 	maskedNullBitmapBytes := make([]byte, len(nullBitmapBytes))
 	copy(maskedNullBitmapBytes, nullBitmapBytes)
 	for i := 0; i < field.Len(); i++ {
-		if !a.IsValid(i) {
+		if a.IsNull(i) {
 			bitutil.ClearBit(maskedNullBitmapBytes, i)
 		}
 	}

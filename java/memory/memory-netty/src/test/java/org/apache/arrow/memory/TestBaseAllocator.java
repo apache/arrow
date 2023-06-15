@@ -39,7 +39,13 @@ import org.apache.arrow.memory.util.AssertionUtil;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
+import org.slf4j.LoggerFactory;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import io.netty.buffer.PooledByteBufAllocatorL;
 import sun.misc.Unsafe;
 
 public class TestBaseAllocator {
@@ -1088,6 +1094,40 @@ public class TestBaseAllocator {
       });
       exMessage = exception.getMessage();
       assertTrue(exMessage.contains("Memory leaked: (256)"));
+    }
+  }
+
+  @Test
+  public void testMemoryUsage() {
+    ListAppender<ILoggingEvent> memoryLogsAppender = new ListAppender<>();
+    Logger logger = (Logger) LoggerFactory.getLogger("arrow.allocator");
+    try {
+      logger.setLevel(Level.TRACE);
+      logger.addAppender(memoryLogsAppender);
+      memoryLogsAppender.start();
+      try (ArrowBuf buf = new ArrowBuf(ReferenceManager.NO_OP, null,
+          1024, new PooledByteBufAllocatorL().empty.memoryAddress())) {
+        buf.memoryAddress();
+      }
+      boolean result = false;
+      long startTime = System.currentTimeMillis();
+      while ((System.currentTimeMillis() - startTime) < 10000) { // 10 seconds maximum for time to read logs
+        result = memoryLogsAppender.list.stream()
+            .anyMatch(
+                log -> log.toString().contains("Memory Usage: \n") &&
+                    log.toString().contains("Large buffers outstanding: ") &&
+                    log.toString().contains("Normal buffers outstanding: ") &&
+                    log.getLevel().equals(Level.TRACE)
+            );
+        if (result) {
+          break;
+        }
+      }
+      assertTrue(result);
+    } finally {
+      memoryLogsAppender.stop();
+      logger.detachAppender(memoryLogsAppender);
+      logger.setLevel(null);
     }
   }
 

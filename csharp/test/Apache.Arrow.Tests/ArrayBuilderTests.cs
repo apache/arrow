@@ -160,7 +160,7 @@ namespace Apache.Arrow.Tests
         public void NestedListArrayBuilder()
         {
             var childListType = new ListType(Int64Type.Default);
-            var parentListBuilder = new ListArray.Builder(childListType);
+            var parentListBuilder = new ListArray.Builder((IArrowType)childListType);
             var childListBuilder = parentListBuilder.ValueBuilder as ListArray.Builder;
             Assert.NotNull(childListBuilder);
             var valueBuilder = childListBuilder.ValueBuilder as Int64Array.Builder;
