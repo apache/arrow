@@ -41,23 +41,13 @@ func (stringHeaderTraits) PutValue(b []byte, v StringHeader) {
 func (stringHeaderTraits) CastFromBytes(b []byte) (res []StringHeader) {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len / StringHeaderSizeBytes
-	s.Cap = h.Cap / StringHeaderSizeBytes
-
-	return
+	return unsafe.Slice((*StringHeader)(unsafe.Pointer(h.Data)), cap(b)/StringHeaderSizeBytes)[:len(b)/StringHeaderSizeBytes]
 }
 
 func (stringHeaderTraits) CastToBytes(b []StringHeader) (res []byte) {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len * StringHeaderSizeBytes
-	s.Cap = h.Cap * StringHeaderSizeBytes
-
-	return
+	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*StringHeaderSizeBytes)[:len(b)*StringHeaderSizeBytes]
 }
 
 func (stringHeaderTraits) Copy(dst, src []StringHeader) { copy(dst, src) }

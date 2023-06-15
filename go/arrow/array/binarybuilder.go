@@ -372,8 +372,8 @@ func (b *BinaryBuilder) UnmarshalJSON(data []byte) error {
 }
 
 const (
-	dfltBlockSize      = 1 << 20 // 1 MB
-	viewValueSizeLimit = math.MaxUint32
+	dfltBlockSize             = 1 << 20 // 1 MB
+	viewValueSizeLimit uint32 = math.MaxUint32
 )
 
 type BinaryViewBuilder struct {
@@ -443,7 +443,7 @@ func (b *BinaryViewBuilder) Resize(n int) {
 }
 
 func (b *BinaryViewBuilder) ReserveData(length int) {
-	if length > viewValueSizeLimit {
+	if uint32(length) > viewValueSizeLimit {
 		panic(fmt.Errorf("%w: BinaryView or StringView elements cannot reference strings larger than 4GB",
 			arrow.ErrInvalid))
 	}
@@ -455,7 +455,7 @@ func (b *BinaryViewBuilder) Reserve(n int) {
 }
 
 func (b *BinaryViewBuilder) Append(v []byte) {
-	if len(v) > viewValueSizeLimit {
+	if uint32(len(v)) > viewValueSizeLimit {
 		panic(fmt.Errorf("%w: BinaryView or StringView elements cannot reference strings larger than 4GB", arrow.ErrInvalid))
 	}
 
