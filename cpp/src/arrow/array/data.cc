@@ -228,7 +228,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
 namespace {
 
 template <typename offset_type>
-void SetOffsetsForScalar(ArraySpan* span, uint8_t* buffer, int64_t value_size,
+void SetOffsetsForScalar(ArraySpan* span, uint8_t* buffer, offset_type value_size,
                          int buffer_index = 1) {
   auto* offsets = reinterpret_cast<offset_type*>(buffer);
   offsets[0] = 0;
@@ -298,7 +298,7 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
 void ArraySpan::FillFromScalar(const Scalar& value) {
   static uint8_t kTrueBit = 0x01;
   static uint8_t kFalseBit = 0x00;
-  auto* scratch_space = const_cast<Scalar&>(value).scratch_space_.data();
+  auto* scratch_space = const_cast<Scalar&>(value).scratch_space_;
 
   this->type = value.type.get();
   this->length = 1;
@@ -338,10 +338,10 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       data_size = scalar.value->size();
     }
     if (is_binary_like(type_id)) {
-      SetOffsetsForScalar<int32_t>(this, scratch_space, data_size);
+      SetOffsetsForScalar(this, scratch_space, static_cast<int32_t>(data_size));
     } else {
       // is_large_binary_like
-      SetOffsetsForScalar<int64_t>(this, scratch_space, data_size);
+      SetOffsetsForScalar(this, scratch_space, data_size);
     }
     this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
     this->buffers[2].size = data_size;
@@ -366,9 +366,9 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
 
     if (type_id == Type::LIST || type_id == Type::MAP) {
-      SetOffsetsForScalar<int32_t>(this, scratch_space, value_length);
+      SetOffsetsForScalar(this, scratch_space, static_cast<int32_t>(value_length));
     } else if (type_id == Type::LARGE_LIST) {
-      SetOffsetsForScalar<int64_t>(this, scratch_space, value_length);
+      SetOffsetsForScalar(this, scratch_space, value_length);
     } else {
       // FIXED_SIZE_LIST: does not have a second buffer
       this->buffers[1] = {};
@@ -381,24 +381,29 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       this->child_data[i].FillFromScalar(*scalar.value[i]);
     }
   } else if (is_union(type_id)) {
+    // Dense union needs scratch space to store both offsets and a type code
+    struct UnionScratchSpace {
+      uint8_t type_code;
+      alignas(int32_t) uint8_t offsets[sizeof(int32_t) * 2];
+    };
+    auto* union_scratch_space = new (scratch_space) UnionScratchSpace{};
+
     // First buffer is kept null since unions have no validity vector
     this->buffers[0] = {};
 
-    this->buffers[1].data = scratch_space;
+    this->buffers[1].data = &union_scratch_space->type_code;
     this->buffers[1].size = 1;
-    auto* type_codes = reinterpret_cast<int8_t*>(scratch_space);
-    type_codes[0] = checked_cast<const UnionScalar&>(value).type_code;
+    new (&union_scratch_space->type_code)
+        int8_t{checked_cast<const UnionScalar&>(value).type_code};
 
     this->child_data.resize(this->type->num_fields());
     if (type_id == Type::DENSE_UNION) {
       const auto& scalar = checked_cast<const DenseUnionScalar&>(value);
-      // Has offset; start 4 bytes in so it's aligned to a 32-bit boundaries
-      SetOffsetsForScalar<int32_t>(this, scratch_space, 1, 2);
+      SetOffsetsForScalar(this, union_scratch_space->offsets, static_cast<int32_t>(1), 2);
       // We can't "see" the other arrays in the union, but we put the "active"
       // union array in the right place and fill zero-length arrays for the
       // others
-      const std::vector<int>& child_ids =
-          checked_cast<const UnionType*>(this->type)->child_ids();
+      const auto& child_ids = checked_cast<const UnionType*>(this->type)->child_ids();
       DCHECK_GE(scalar.type_code, 0);
       DCHECK_LT(scalar.type_code, static_cast<int>(child_ids.size()));
       for (int i = 0; i < static_cast<int>(this->child_data.size()); ++i) {

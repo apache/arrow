@@ -112,10 +112,11 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
   Scalar(std::shared_ptr<DataType> type, bool is_valid)
       : type(std::move(type)), is_valid(is_valid) {}
 
+ private:
   // 16 bytes of scratch space to enable ArraySpan to be a view onto any
   // Scalar- including binary scalars where we need to create a buffer
   // that looks like two 32-bit or 64-bit offsets.
-  alignas(int64_t) std::array<uint8_t, sizeof(int64_t) * 2> scratch_space_;
+  alignas(int64_t) mutable uint8_t scratch_space_[sizeof(int64_t) * 2];
   friend struct ArraySpan;
 };
 
