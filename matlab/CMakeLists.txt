@@ -585,23 +585,21 @@ endif()
 
 message(STATUS "=================ARROW_SHARED_LIB: ${ARROW_SHARED_LIB}")
 
-if(WIN32)
-  if(NOT Arrow_FOUND)
-    # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-    # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
-    # install libarrow.dylib (symlink) and the real files it points to.
-    #
-    # The subfolders cmake and pkgconfig are excluded as they will be empty.
-    # Note: The following CMake Issue suggests enabling an option to exclude all
-    # folders that would be empty after installation:
-    # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
-    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-            FILES_MATCHING
-            REGEX ${ARROW_SHARED_LIB}
-            PATTERN "cmake" EXCLUDE
-            PATTERN "pkgconfig" EXCLUDE)
-  endif()
+if(NOT Arrow_FOUND)
+  # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
+  # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
+  # install libarrow.dylib (symlink) and the real files it points to.
+  #
+  # The subfolders cmake and pkgconfig are excluded as they will be empty.
+  # Note: The following CMake Issue suggests enabling an option to exclude all
+  # folders that would be empty after installation:
+  # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
+  install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
+          DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
+          FILES_MATCHING
+          REGEX ${ARROW_SHARED_LIB}
+          PATTERN "cmake" EXCLUDE
+          PATTERN "pkgconfig" EXCLUDE)
 endif()
 
 
