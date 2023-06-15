@@ -495,9 +495,9 @@ class KeyHasher {
                        4 * kMiniBatchLength * sizeof(uint32_t));
   }
 
-  void Invalidate() {
-    batch_ = NULLPTR;  // invalidate cached hashes for batch - required when it changes
-  }
+  // invalidate cached hashes for batch - required when it changes
+  // only this method can be called concurrently with HashesFor
+  void Invalidate() { batch_ = NULLPTR; }
 
   // compute and cache a hash for each row of the given batch
   const std::vector<HashType>& HashesFor(const RecordBatch* batch) {
