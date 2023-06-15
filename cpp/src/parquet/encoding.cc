@@ -1529,6 +1529,8 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
     auto dict_values = reinterpret_cast<ByteArray*>(dictionary_->mutable_data());
 
+    using offset_type = typename EncodingTraits<Type>::ArrowType::offset_type;
+
     int32_t total_size = 0;
     for (int i = 0; i < dictionary_length_; ++i) {
       if (AddWithOverflow(total_size, dict_values[i].len, &total_size)) {
@@ -1538,13 +1540,13 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
                                                   /*shrink_to_fit=*/false));
     PARQUET_THROW_NOT_OK(
-        byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(int32_t),
+        byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(offset_type),
                                     /*shrink_to_fit=*/false));
 
-    int32_t offset = 0;
+    offset_type offset = 0;
     uint8_t* bytes_data = byte_array_data_->mutable_data();
-    int32_t* bytes_offsets =
-        reinterpret_cast<int32_t*>(byte_array_offsets_->mutable_data());
+    auto* bytes_offsets =
+        reinterpret_cast<offset_type*>(byte_array_offsets_->mutable_data());
     for (int i = 0; i < dictionary_length_; ++i) {
       memcpy(bytes_data + offset, dict_values[i].ptr, dict_values[i].len);
       bytes_offsets[i] = offset;
