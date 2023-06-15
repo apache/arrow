@@ -332,8 +332,8 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   VectorKernel filter_base;
   filter_base.init = FilterState::Init;
   RegisterSelectionFunction("array_filter", array_filter_doc, filter_base,
-                            /*selection_type=*/boolean(), filter_kernels,
-                            GetDefaultFilterOptions(), registry);
+                            std::move(filter_kernels), GetDefaultFilterOptions(),
+                            registry);
 
   DCHECK_OK(registry->AddFunction(MakeFilterMetaFunction()));
 
@@ -345,8 +345,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   take_base.init = TakeState::Init;
   take_base.can_execute_chunkwise = false;
   RegisterSelectionFunction("array_take", array_take_doc, take_base,
-                            /*selection_type=*/match::Integer(), take_kernels,
-                            GetDefaultTakeOptions(), registry);
+                            std::move(take_kernels), GetDefaultTakeOptions(), registry);
 
   DCHECK_OK(registry->AddFunction(MakeTakeMetaFunction()));
 
