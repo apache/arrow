@@ -1335,7 +1335,7 @@ class TestFloatStatistics : public ::testing::Test {
 
   template <typename Stats, typename Values>
   void CheckMinMaxZeroesSign(Stats stats, const Values& values) {
-    stats->Update(values.data(), values.size(), 0);
+    stats->Update(values.data(), values.size(), /*null_count=*/0);
     ASSERT_TRUE(stats->HasMinMax());
 
     this->CheckEq(stats->min(), positive_zero_);
