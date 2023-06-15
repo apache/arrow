@@ -78,7 +78,7 @@
 
 %define have_lz4_libs (%{_rhel} >= 8 || %{is_amazon_linux})
 %define have_rapidjson (%{_rhel} != 8)
-%define have_re2 (%{_rhel} >= 8 || %{is_amazon_linux})
+%define have_re2 (%{_rhel} >= 8 || %{_amzn} >= 2023)
 %define have_thrift (%{_rhel} >= 8)
 %define have_utf8proc (%{_rhel} >= 9 || %{_amzn} >= 2023)
 %define have_zstd (%{_amzn} != 2)
