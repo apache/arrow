@@ -472,8 +472,26 @@ install(TARGETS arrow_matlab mexcall
 get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
 get_filename_component(ARROW_SHARED_LIB_FILENAME ${ARROW_SHARED_LIB} NAME_WE)
 
-# On macOS, use the RPATH values below for runtime dependency resolution. This enables
-# relocation of the installation directory.
+## On macOS, use the RPATH values below for runtime dependency resolution. This enables
+## relocation of the installation directory.
+#if(APPLE)
+#  # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
+#  # to the RPATH of arrow_matlab and mexcall, including the MATLAB dependencies.
+#  # If Arrow_FOUND is true, this also includes the path to arrow_shared.
+#  set_target_properties(arrow_matlab mexcall PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+#
+#  # Add @loader_path to the RPATH of mexcall so that libarrow_matlab.dylib can be found
+#  # at runtime.
+#  set_target_properties(mexcall PROPERTIES INSTALL_RPATH "@loader_path")
+#
+#  # Add @loader_path to the RPATH of arrow_matlab so that libarrow.dylib can be found
+#  # at runtime.
+#  set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH "@loader_path")
+#
+#  # Create the regular expression to match arraw shared library
+#  set(ARROW_SHARED_LIB_FILES "${ARROW_SHARED_LIB_FILENAME}\\.*${CMAKE_SHARED_LIBRARY_SUFFIX}")
+#endif()
+
 if(APPLE)
   # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
   # to the RPATH of arrow_matlab and mexcall, including the MATLAB dependencies.
@@ -542,22 +560,43 @@ if(UNIX
   endif()
 endif()
 
+#if(WIN32)
+#  if(NOT Arrow_FOUND)
+#    # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
+#    # to be copied to CMAKE_PACKAGED_INSTALL_DIR.
+#    #
+#    # The subfolder cmake is excluded as it will be empty.
+#    # Note: The following CMake Issue suggests enabling an option to exclude all
+#    # folders that would be empty after installation:
+#    # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
+#    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
+#            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
+#            FILES_MATCHING
+#            REGEX "${ARROW_SHARED_LIB_FILENAME}\\..*dll"
+#            PATTERN "cmake" EXCLUDE)
+#  endif()
+#endif()
+
+message(STATUS "=================ARROW_SHARED_LIB: ${ARROW_SHARED_LIB}")
 if(WIN32)
   if(NOT Arrow_FOUND)
     # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-    # to be copied to CMAKE_PACKAGED_INSTALL_DIR.
+    # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
+    # install libarrow.dylib (symlink) and the real files it points to.
     #
-    # The subfolder cmake is excluded as it will be empty.
+    # The subfolders cmake and pkgconfig are excluded as they will be empty.
     # Note: The following CMake Issue suggests enabling an option to exclude all
     # folders that would be empty after installation:
     # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
     install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
             DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
             FILES_MATCHING
-            REGEX "${ARROW_SHARED_LIB_FILENAME}\\..*dll"
-            PATTERN "cmake" EXCLUDE)
+            REGEX ARROW_SHARED_LIB
+            PATTERN "cmake" EXCLUDE
+            PATTERN "pkgconfig" EXCLUDE)
   endif()
 endif()
+
 
 # MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE toggles whether an addpath command to add the install
 # directory path to the MATLAB Search Path is added to the startup.m file located in the MATLAB
