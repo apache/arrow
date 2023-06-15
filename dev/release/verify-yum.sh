@@ -95,6 +95,8 @@ case "${distribution}-${distribution_version}" in
     ;;
   amzn-2023)
     distribution_prefix="amazon-linux"
+    install_command="dnf install -y"
+    info_command="dnf info"
     ;;
   centos-7)
     distribution_prefix="centos"
