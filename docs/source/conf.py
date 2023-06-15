@@ -90,7 +90,7 @@ try:
     except ImportError:
         parquet_encryption_enabled = False
         pyarrow.parquet.encryption = sys.modules['pyarrow.parquet.encryption'] = mock.Mock()
-except:
+except (ImportError, LookupError):
     exclude_patterns = ['python']
     cuda_enabled = False
     flight_enabled = False
