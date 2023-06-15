@@ -94,6 +94,16 @@ BinaryViewArray::BinaryViewArray(const std::shared_ptr<ArrayData>& data) {
   SetData(data);
 }
 
+BinaryViewArray::BinaryViewArray(int64_t length, std::shared_ptr<Buffer> headers,
+                                 BufferVector char_buffers,
+                                 std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
+                                 int64_t offset)
+    : PrimitiveArray(binary_view(), length, std::move(headers), std::move(null_bitmap),
+                     null_count, offset) {
+  data_->buffers.resize(char_buffers.size() + 2);
+  std::move(char_buffers.begin(), char_buffers.end(), data_->buffers.begin() + 2);
+}
+
 StringViewArray::StringViewArray(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::STRING_VIEW);
   SetData(data);

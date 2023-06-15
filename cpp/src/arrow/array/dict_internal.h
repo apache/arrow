@@ -162,6 +162,9 @@ struct DictionaryTraits<T, enable_if_binary_view_like<T>> {
 
   static_assert(std::is_same_v<MemoTableType, BinaryMemoTable<BinaryBuilder>>);
 
+  // Instead of defining a custom memo table for StringView we reuse BinaryType's.
+  // This is less efficient since it needs to output offsets, so we must allocate
+  // one, convert the offsets to string views, then discard the offsets buffer.
   static Status GetDictionaryArrayData(MemoryPool* pool,
                                        const std::shared_ptr<DataType>& type,
                                        const MemoTableType& memo_table,
@@ -169,43 +172,18 @@ struct DictionaryTraits<T, enable_if_binary_view_like<T>> {
                                        std::shared_ptr<ArrayData>* out) {
     DCHECK(type->id() == Type::STRING_VIEW || type->id() == Type::BINARY_VIEW);
 
-    auto dict_length = static_cast<int64_t>(memo_table.size() - start_offset);
-
-    // Create an offsets buffer
-    // TODO(bkietz) this could be skipped with a custom memo table for StringView
-    ARROW_ASSIGN_OR_RAISE(auto dict_offsets,
-                          AllocateBuffer(sizeof(int32_t) * (dict_length + 1), pool));
-    auto* offsets = reinterpret_cast<int32_t*>(dict_offsets->mutable_data());
-    memo_table.CopyOffsets(static_cast<int32_t>(start_offset), offsets);
-
-    // Create the data buffer
-    auto values_size = memo_table.values_size();
-    ARROW_ASSIGN_OR_RAISE(auto dict_data, AllocateBuffer(values_size, pool));
-    if (values_size > 0) {
-      memo_table.CopyValues(static_cast<int32_t>(start_offset), dict_data->size(),
-                            dict_data->mutable_data());
+    BinaryViewBuilder builder(pool);
+    RETURN_NOT_OK(builder.Resize(memo_table.size() - start_offset));
+    RETURN_NOT_OK(builder.ReserveData(memo_table.values_size()));
+    memo_table.VisitValues(static_cast<int32_t>(start_offset), [&](std::string_view s) {
+      builder.UnsafeAppend(s);
+    });
+    RETURN_NOT_OK(builder.FinishInternal(out));
+    if (checked_cast<const BinaryViewType&>(*type).has_raw_pointers()) {
+      // the builder produces index/offset string views, so swap to raw pointers
+      RETURN_NOT_OK(SwapStringHeaderPointers(**out, (*out)->GetMutableValues<StringHeader>(1)));
     }
-    auto* data = dict_data->template data_as<char>();
-
-    ARROW_ASSIGN_OR_RAISE(auto dict_headers,
-                          AllocateBuffer(sizeof(StringHeader) * dict_length, pool));
-    auto* headers = dict_headers->mutable_data_as<StringHeader>();
-    for (int64_t i = 0; i < dict_length; ++i) {
-      auto size = static_cast<uint32_t>(offsets[i + 1] - offsets[i]);
-      auto offset = static_cast<uint32_t>(offsets[i]);
-      new (headers++) StringHeader{data + offset, size, 0, data};
-    }
-
-    int64_t null_count = 0;
-    std::shared_ptr<Buffer> null_bitmap = nullptr;
-    RETURN_NOT_OK(
-        ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
-
-    *out = ArrayData::Make(
-        type, dict_length,
-        {std::move(null_bitmap), std::move(dict_headers), std::move(dict_data)},
-        null_count);
-
+    (*out)->type = type;
     return Status::OK();
   }
 };

@@ -230,15 +230,10 @@ class ARROW_EXPORT BinaryViewArray : public PrimitiveArray {
 
   explicit BinaryViewArray(const std::shared_ptr<ArrayData>& data);
 
-  BinaryViewArray(int64_t length, std::shared_ptr<Buffer> data, BufferVector char_buffers,
+  BinaryViewArray(int64_t length, std::shared_ptr<Buffer> headers,
+                  BufferVector char_buffers,
                   std::shared_ptr<Buffer> null_bitmap = NULLPTR,
-                  int64_t null_count = kUnknownNullCount, int64_t offset = 0)
-      : PrimitiveArray(binary_view(), length, std::move(data), std::move(null_bitmap),
-                       null_count, offset) {
-    for (auto& char_buffer : char_buffers) {
-      data_->buffers.push_back(std::move(char_buffer));
-    }
-  }
+                  int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   const StringHeader* raw_values() const {
     return reinterpret_cast<const StringHeader*>(raw_values_) + data_->offset;
@@ -258,7 +253,6 @@ class ARROW_EXPORT BinaryViewArray : public PrimitiveArray {
             s.size()};
   }
 
-  // EXPERIMENTAL
   std::optional<std::string_view> operator[](int64_t i) const {
     return *IteratorType(*this, i);
   }

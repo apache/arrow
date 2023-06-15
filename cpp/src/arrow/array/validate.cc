@@ -629,7 +629,9 @@ struct ValidateArrayImpl {
     }
 
     if (type.has_raw_pointers()) {
-      // TODO(bkietz) validate as with conversions?
+      // TODO(bkietz) It may be preferable to extract the validation logic which is in
+      // the raw pointer - index/offset view array conversion functions and actually
+      // validate raw pointer view arrays, rather than giving up here
       return Status::OK();
     }
 

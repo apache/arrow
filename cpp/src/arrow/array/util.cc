@@ -272,7 +272,7 @@ class ArrayDataEndianSwapper {
 
   Status Visit(const BinaryViewType& type) {
     if (type.has_raw_pointers()) {
-      return Status::NotImplemented(
+      return Status::Invalid(
           "Swapping endianness of binary / string view with raw pointers");
     }
 

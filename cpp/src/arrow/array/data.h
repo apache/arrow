@@ -551,21 +551,6 @@ struct ARROW_EXPORT ArraySpan {
 
 namespace internal {
 
-template <typename F>
-Status VisitSlices(ArraySpan input, int64_t slice_size, const F& f) {
-  int64_t num_slices = input.length / slice_size;
-  int64_t trailing_slice_size = input.length % slice_size;
-  int64_t offset = input.offset;
-
-  for (int64_t i = 0; i < num_slices; ++i) {
-    input.SetSlice(offset, slice_size);
-    ARROW_RETURN_NOT_OK(f(input));
-    offset += slice_size;
-  }
-  input.SetSlice(offset, trailing_slice_size);
-  return f(input);
-}
-
 void FillZeroLengthArray(const DataType* type, ArraySpan* span);
 
 /// Construct a zero-copy view of this ArrayData with the given type.
