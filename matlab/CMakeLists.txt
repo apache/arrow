@@ -511,12 +511,12 @@ if(APPLE)
     # Note: The following CMake Issue suggests enabling an option to exclude all
     # folders that would be empty after installation:
     # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
-    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-            FILES_MATCHING
-            REGEX "${ARROW_SHARED_LIB_FILENAME}\\..*dylib"
-            PATTERN "cmake" EXCLUDE
-            PATTERN "pkgconfig" EXCLUDE)
+#    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
+#            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
+#            FILES_MATCHING
+#            REGEX "${ARROW_SHARED_LIB_FILENAME}\\..*dylib"
+#            PATTERN "cmake" EXCLUDE
+#            PATTERN "pkgconfig" EXCLUDE)
 
     # Add @loader_path to the RPATH of arrow_matlab so that libarrow.dylib can be found
     # at runtime.
@@ -547,12 +547,12 @@ if(UNIX
     # Note: The following CMake Issue suggests enabling an option to exclude all
     # folders that would be empty after installation:
     # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
-    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-            FILES_MATCHING
-            REGEX "${ARROW_SHARED_LIB_FILENAME}\\.so.*"
-            PATTERN "cmake" EXCLUDE
-            PATTERN "pkgconfig" EXCLUDE)
+#    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
+#            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
+#            FILES_MATCHING
+#            REGEX "${ARROW_SHARED_LIB_FILENAME}\\.so.*"
+#            PATTERN "cmake" EXCLUDE
+#            PATTERN "pkgconfig" EXCLUDE)
 
     # Add $ORIGIN to the RUNPATH of arrow_matlab so that libarrow.so can be found
     # at runtime.
@@ -577,7 +577,14 @@ endif()
 #  endif()
 #endif()
 
+#if(WIN32)
+#  # Create the regular expression to match arraw shared library
+#  # set(ARROW_SHARED_LIB_FILES "${ARROW_SHARED_LIB_FILENAME}\\.*${CMAKE_SHARED_LIBRARY_SUFFIX}")
+#  set(ARROW_SHARED_LIB_FILES "${ARROW_SHARED_LIB_FILENAME}\\..*dll")
+#endif()
+
 message(STATUS "=================ARROW_SHARED_LIB: ${ARROW_SHARED_LIB}")
+
 if(WIN32)
   if(NOT Arrow_FOUND)
     # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
@@ -591,7 +598,7 @@ if(WIN32)
     install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
             DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
             FILES_MATCHING
-            REGEX ARROW_SHARED_LIB
+            REGEX ${ARROW_SHARED_LIB}
             PATTERN "cmake" EXCLUDE
             PATTERN "pkgconfig" EXCLUDE)
   endif()
