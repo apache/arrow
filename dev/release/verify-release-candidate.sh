@@ -321,7 +321,7 @@ install_nodejs() {
   if [ -n "${node_major_version}" ] && [ "${node_major_version}" -ge ${required_node_major_version} ]; then
     show_info "Found NodeJS installation with major version ${node_major_version}"
   else
-    export NVM_DIR="`pwd`/.nvm"
+    export NVM_DIR="$(pwd)/.nvm"
     mkdir -p $NVM_DIR
     curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | \
       PROFILE=/dev/null bash
