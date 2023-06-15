@@ -638,7 +638,7 @@ func (r *Reader) parseFloat16(field array.Builder, str string) {
 		return
 	}
 
-	v, err := strconv.ParseFloat(str, 16)
+	v, err := strconv.ParseFloat(str, 32)
 	if err != nil && r.err == nil {
 		r.err = err
 		field.AppendNull()
