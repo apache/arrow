@@ -76,7 +76,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                 auto maybe_array = builder.Finish();
                 MATLAB_ERROR_IF_NOT_OK(maybe_array.status(), error::BUILD_ARRAY_ERROR_ID);
 
-                return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(std::move(maybe_array).ValueUnsafe());
+                return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(*maybe_array);
 
             } else {
                 const auto data_type = arrow::CTypeTraits<CType>::type_singleton();
@@ -89,7 +89,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                 // Pack the validity bitmap values.
                 auto maybe_buffer = arrow::matlab::bit::bitPackMatlabLogicalArray(valid_mda);
                 MATLAB_ERROR_IF_NOT_OK(maybe_buffer.status(), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
-                auto packed_validity_bitmap = std::move(maybe_buffer).ValueUnsafe();
+                auto packed_validity_bitmap = *maybe_buffer;
 
                 auto array_data = arrow::ArrayData::Make(data_type, length, {packed_validity_bitmap, data_buffer});
                 return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(arrow::MakeArray(array_data));
