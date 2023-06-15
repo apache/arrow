@@ -315,21 +315,21 @@ install_nodejs() {
     return 0
   fi
 
-  required_node_major_version=16
   node_major_version=$(node --version 2>&1 | grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
-
-  if [ -n "${node_major_version}" ] && [ "${node_major_version}" -ge ${required_node_major_version} ]; then
-    show_info "Found NodeJS installation with major version ${node_major_version}"
+  node_minor_version=$(node --version 2>&1 | grep -o '^v[0-9]*\.[0-9]*' | sed -e 's/^v[0-9]*\.//g' || :)
+  if [[ -n "${node_major_version}" && -n "${node_minor_version}" &&
+      ("${node_major_version}" -eq 16 ||
+        ("${node_major_version}" -eq 18 && "${node_minor_version}" -ge 14) ||
+        "${node_major_version}" -ge 20) ]]; then
+    show_info "Found NodeJS installation with version v${node_major_version}.${node_minor_version}.x"
   else
-    export NVM_DIR="`pwd`/.nvm"
+    export NVM_DIR="$(pwd)/.nvm"
     mkdir -p $NVM_DIR
-    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | \
+    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | \
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-    # ARROW-18335: "gulp bundle" failed with Node.js 18.
-    # nvm install --lts
-    nvm install 16
+    nvm install --lts
     show_info "Installed NodeJS $(node --version)"
   fi
 
@@ -837,7 +837,7 @@ test_js() {
   show_header "Build and test JavaScript libraries"
 
   maybe_setup_nodejs || exit 1
-  maybe_setup_conda nodejs=16 || exit 1
+  maybe_setup_conda nodejs=18 || exit 1
 
   if ! command -v yarn &> /dev/null; then
     npm install yarn
