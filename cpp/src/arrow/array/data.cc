@@ -353,7 +353,6 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     const auto& scalar = checked_cast<const BaseListScalar&>(value);
 
     int64_t value_length = 0;
-    (void)value_length;
     this->child_data.resize(1);
     if (scalar.value != nullptr) {
       // When the scalar is null, scalar.value can also be null
