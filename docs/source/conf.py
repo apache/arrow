@@ -206,18 +206,10 @@ author = u'Apache Software Foundation'
 # built documents.
 #
 # The short X.Y version.
-try:
-    version = os.environ.get('ARROW_DOCS_VERSION',
-                             pyarrow.__version__)
-except:
-    version = '0.0.0-local-docs-build'
+version = os.environ.get('ARROW_DOCS_VERSION',"")
 
 # The full version, including alpha/beta/rc tags.
-try:
-    release = os.environ.get('ARROW_DOCS_VERSION',
-                             pyarrow.__version__)
-except:
-    release = '0.0.0-local-docs-build'
+release = os.environ.get('ARROW_DOCS_VERSION',"")
 
 if "+" in release:
     release = release.split(".dev")[0] + " (dev)"
