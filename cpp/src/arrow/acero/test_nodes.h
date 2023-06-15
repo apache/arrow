@@ -72,6 +72,7 @@ class Gate {
   GateImpl* impl_;
 };
 
+// A node that holds all input batches until a given gate is released
 struct GatedNodeOptions : public ExecNodeOptions {
   explicit GatedNodeOptions(Gate* gate) : gate(gate) {}
   Gate* gate;
