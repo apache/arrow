@@ -323,7 +323,7 @@ install_nodejs() {
   else
     export NVM_DIR="`pwd`/.nvm"
     mkdir -p $NVM_DIR
-    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | \
+    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | \
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
