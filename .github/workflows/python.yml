@@ -72,7 +72,7 @@ jobs:
             image: conda-python-pandas
             title: AMD64 Conda Python 3.8 Pandas 1.0
             python: 3.8
-            pandas: 1.0
+            pandas: "1.0"
             numpy: 1.16
           - name: conda-python-3.10-pandas-latest
             cache: conda-python-3.10
@@ -82,7 +82,7 @@ jobs:
             pandas: latest
     env:
       PYTHON: ${{ matrix.python || 3.8 }}
-      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      UBUNTU: ${{ matrix.ubuntu || 20.04 }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       NUMPY: ${{ matrix.numpy || 'latest' }}
     steps:
