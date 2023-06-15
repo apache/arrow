@@ -116,6 +116,7 @@ csharp/src/Apache.Arrow.Flight.AspNetCore/Apache.Arrow.Flight.AspNetCore.csproj
 csharp/src/Apache.Arrow.Compression/Apache.Arrow.Compression.csproj
 csharp/test/Apache.Arrow.Benchmarks/Apache.Arrow.Benchmarks.csproj
 csharp/test/Apache.Arrow.Flight.Tests/Apache.Arrow.Flight.Tests.csproj
+csharp/test/Apache.Arrow.Flight.Sql.Tests/Apache.Arrow.Flight.Sql.Tests.csproj
 csharp/test/Apache.Arrow.Flight.TestWeb/Apache.Arrow.Flight.TestWeb.csproj
 csharp/test/Apache.Arrow.IntegrationTest/Apache.Arrow.IntegrationTest.csproj
 csharp/test/Apache.Arrow.Tests/Apache.Arrow.Tests.csproj
