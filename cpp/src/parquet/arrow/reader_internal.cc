@@ -487,8 +487,9 @@ Status TransferBinary(RecordReader* reader, MemoryPool* pool,
   auto chunks = binary_reader->GetBuilderChunks();
   for (auto& chunk : chunks) {
     if (!chunk->type()->Equals(*logical_type_field->type())) {
-      // XXX: if a LargeBinary chunk is larger than 2GB, the MSBs of offsets
-      // will be lost because they are first created as int32 and then cast to int64.
+      // XXX: if a LargeBinary chunk is larger than 2GB and use_large_binary_variants
+      // is not set, the MSBs of offsets will be lost because they are first created
+      // as int32 and then cast to int64.
       ARROW_ASSIGN_OR_RAISE(
           chunk,
           ::arrow::compute::Cast(*chunk, logical_type_field->type(), cast_options, &ctx));

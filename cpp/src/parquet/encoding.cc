@@ -1531,11 +1531,9 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
     using offset_type = typename EncodingTraits<Type>::ArrowType::offset_type;
 
-    int32_t total_size = 0;
+    offset_type total_size = 0;
     for (int i = 0; i < dictionary_length_; ++i) {
-      if (AddWithOverflow(total_size, dict_values[i].len, &total_size)) {
-        throw ParquetException("String/Binary length to large");
-      }
+      total_size += dict_values[i].len;
     }
     PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
                                                   /*shrink_to_fit=*/false));
