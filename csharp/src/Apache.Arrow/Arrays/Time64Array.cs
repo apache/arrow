@@ -155,7 +155,7 @@ namespace Apache.Arrow
             {
                 TimeUnit.Microsecond => new TimeOnly(value.Value * TicksPerMicrosecond),
                 TimeUnit.Nanosecond => new TimeOnly(value.Value / NanosecondsPerTick),
-                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
+                _ => throw new InvalidDataException($"Unsupported time unit for Time64Type: {unit}")
             };
         }
 #endif

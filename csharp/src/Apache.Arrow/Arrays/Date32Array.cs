@@ -118,5 +118,21 @@ namespace Apache.Arrow
                 ? new DateTimeOffset(_epochDate.AddDays(value.Value), TimeSpan.Zero)
                 : default(DateTimeOffset?);
         }
+
+#if NET6_0_OR_GREATER
+        /// <summary>
+        /// Get the date at the specified index
+        /// </summary>
+        /// <param name="index">Index at which to get the date.</param>
+        /// <returns>Returns a <see cref="DateOnly" />, or <c>null</c> if there is no object at that index.
+        /// </returns>
+        public DateOnly? GetDateOnly(int index)
+        {
+            int? value = GetValue(index);
+            return value.HasValue
+                ? _epochDateOnly.AddDays(value.Value)
+                : default(DateOnly?);
+        }
+#endif
     }
 }
