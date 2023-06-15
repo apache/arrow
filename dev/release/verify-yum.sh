@@ -55,7 +55,6 @@ have_flight=yes
 have_gandiva=yes
 have_glib=yes
 have_parquet=yes
-have_python=yes
 have_ruby=yes
 have_vala=yes
 ruby_devel_packages=(ruby-devel)
@@ -87,13 +86,15 @@ case "${distribution}-${distribution_version}" in
     fi
     have_flight=no
     have_gandiva=no
-    have_python=no
     have_ruby=no
     install_command="yum install -y"
     uninstall_command="yum remove -y"
     clean_command="yum clean"
     info_command="yum info"
     amazon-linux-extras install epel -y
+    ;;
+  amzn-2023)
+    distribution_prefix="amazon-linux"
     ;;
   centos-7)
     distribution_prefix="centos"
@@ -104,7 +105,6 @@ case "${distribution}-${distribution_version}" in
     have_arrow_libs=yes
     have_flight=no
     have_gandiva=no
-    have_python=no
     have_ruby=no
     have_vala=no
     install_command="yum install -y"
