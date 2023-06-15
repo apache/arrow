@@ -68,7 +68,7 @@ namespace Apache.Arrow.Flight.Server
             throw new NotImplementedException();
         }
 
-        public virtual Task Handshake(FlightHandshakeStreamReader requestStream, IAsyncStreamWriter<FlightHandshakeResponse> responseStream, ServerCallContext context)
+        public virtual Task Handshake(IAsyncStreamReader<FlightHandshakeRequest> requestStream, IAsyncStreamWriter<FlightHandshakeResponse> responseStream, ServerCallContext context)
         {
             throw new NotImplementedException();
         }

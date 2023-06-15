@@ -87,11 +87,11 @@ namespace Apache.Arrow.Flight.TestWeb
             throw new RpcException(new Status(StatusCode.NotFound, "Flight not found"));
         }
 
-        public override async Task Handshake(FlightHandshakeStreamReader requestStream, IAsyncStreamWriter<FlightHandshakeResponse> responseStream, ServerCallContext context)
+        public override async Task Handshake(IAsyncStreamReader<FlightHandshakeRequest> requestStream, IAsyncStreamWriter<FlightHandshakeResponse> responseStream, ServerCallContext context)
         {
             while (await requestStream.MoveNext().ConfigureAwait(false))
             {
-                if (requestStream.Payload.ToStringUtf8() == "Hello")
+                if (requestStream.Current.Payload.ToStringUtf8() == "Hello")
                 {
                     await responseStream.WriteAsync(new(ByteString.CopyFromUtf8("Hello handshake"))).ConfigureAwait(false);
                 }

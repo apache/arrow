@@ -2,18 +2,18 @@ using Google.Protobuf;
 
 namespace Apache.Arrow.Flight;
 
-public class FlightHandshake
+public class FlightHandshakeRequest
 {
     private readonly Protocol.HandshakeRequest _result;
     public ByteString Payload => _result.Payload;
     public ulong ProtocolVersion => _result.ProtocolVersion;
 
-    internal FlightHandshake(Protocol.HandshakeRequest result)
+    internal FlightHandshakeRequest(Protocol.HandshakeRequest result)
     {
         _result = result;
     }
 
-    public FlightHandshake(ByteString payload, ulong protocolVersion = 1)
+    public FlightHandshakeRequest(ByteString payload, ulong protocolVersion = 1)
     {
         _result = new Protocol.HandshakeRequest
         {
@@ -29,7 +29,7 @@ public class FlightHandshake
 
     public override bool Equals(object obj)
     {
-        if(obj is FlightHandshake other)
+        if(obj is FlightHandshakeRequest other)
         {
             return Equals(_result, other._result);
         }

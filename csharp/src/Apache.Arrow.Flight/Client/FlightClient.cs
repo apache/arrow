@@ -93,12 +93,12 @@ namespace Apache.Arrow.Flight.Client
                 channels.Dispose);
         }
 
-        public AsyncDuplexStreamingCall<FlightHandshake, FlightHandshakeResponse> Handshake(Metadata headers = null)
+        public AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse> Handshake(Metadata headers = null)
         {
             var channel = _client.Handshake(headers);
             var readStream = new StreamReader<HandshakeResponse, FlightHandshakeResponse>(channel.ResponseStream, response => new FlightHandshakeResponse(response));
             var writeStream = new FlightHandshakeStreamWriterAdapter(channel.RequestStream);
-            var call = new AsyncDuplexStreamingCall<FlightHandshake, FlightHandshakeResponse>(
+            var call = new AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse>(
                 writeStream,
                 readStream,
                 channel.ResponseHeadersAsync,

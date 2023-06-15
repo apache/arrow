@@ -117,7 +117,7 @@ namespace Apache.Arrow.Flight.Server.Internal
 
         public override Task Handshake(IAsyncStreamReader<HandshakeRequest> requestStream, IServerStreamWriter<HandshakeResponse> responseStream, ServerCallContext context)
         {
-            var readStream = new FlightHandshakeStreamReader(new FlightHandshakeStreamReaderAdaptor(requestStream));
+            var readStream = new StreamReader<HandshakeRequest, FlightHandshakeRequest>(requestStream, request => new FlightHandshakeRequest(request));
             var writeStream = new StreamWriter<FlightHandshakeResponse, Protocol.HandshakeResponse>(responseStream, result => result.ToProtocol());
             return _flightServer.Handshake(readStream, writeStream, context);
         }

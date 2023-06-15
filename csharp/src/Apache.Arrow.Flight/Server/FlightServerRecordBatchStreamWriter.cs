@@ -13,37 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System.Threading.Tasks;
+using Apache.Arrow.Flight.Internal;
 using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Server
 {
     public class FlightServerRecordBatchStreamWriter : FlightRecordBatchStreamWriter, IServerStreamWriter<RecordBatch>
     {
-        public FlightServerRecordBatchStreamWriter(IServerStreamWriter<FlightData> clientStreamWriter) : base(new ProtocolFlightDataStreamWriterProxy(clientStreamWriter), null)
+        public FlightServerRecordBatchStreamWriter(IServerStreamWriter<FlightData> clientStreamWriter) : base(new StreamWriter<Protocol.FlightData, FlightData>(clientStreamWriter, data => new FlightData(data)), null)
         {
         }
 
         internal FlightServerRecordBatchStreamWriter(IServerStreamWriter<Protocol.FlightData> clientStreamWriter) : base(clientStreamWriter, null)
         {
-        }
-
-        private class ProtocolFlightDataStreamWriterProxy : IServerStreamWriter<Protocol.FlightData>
-        {
-            private readonly IServerStreamWriter<FlightData> _clientStreamWriter;
-
-            internal ProtocolFlightDataStreamWriterProxy(IServerStreamWriter<FlightData> clientStreamWriter)
-            {
-                _clientStreamWriter = clientStreamWriter;
-            }
-
-            public Task WriteAsync(Protocol.FlightData message) => _clientStreamWriter.WriteAsync(new FlightData(message));
-
-            public WriteOptions WriteOptions
-            {
-                get => _clientStreamWriter.WriteOptions;
-                set => _clientStreamWriter.WriteOptions = value;
-            }
         }
     }
 }

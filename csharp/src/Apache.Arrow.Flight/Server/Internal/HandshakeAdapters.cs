@@ -5,21 +5,7 @@ using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Server.Internal;
 
-internal class FlightHandshakeStreamReaderAdaptor : IAsyncStreamReader<FlightHandshake>
-{
-    private readonly IAsyncStreamReader<HandshakeRequest> _requestStream;
-
-    public FlightHandshakeStreamReaderAdaptor(IAsyncStreamReader<HandshakeRequest> requestStream)
-    {
-        _requestStream = requestStream;
-    }
-
-    public Task<bool> MoveNext(CancellationToken cancellationToken) => _requestStream.MoveNext();
-
-    public FlightHandshake Current => new(_requestStream.Current);
-}
-
-internal class FlightHandshakeStreamWriterAdapter : IClientStreamWriter<FlightHandshake>
+internal class FlightHandshakeStreamWriterAdapter : IClientStreamWriter<FlightHandshakeRequest>
 {
     private readonly IClientStreamWriter<HandshakeRequest> _writeStream;
 
@@ -28,7 +14,7 @@ internal class FlightHandshakeStreamWriterAdapter : IClientStreamWriter<FlightHa
         _writeStream = writeStream;
     }
 
-    public Task WriteAsync(FlightHandshake message) => _writeStream.WriteAsync(message.ToProtocol());
+    public Task WriteAsync(FlightHandshakeRequest message) => _writeStream.WriteAsync(message.ToProtocol());
 
     public WriteOptions WriteOptions
     {

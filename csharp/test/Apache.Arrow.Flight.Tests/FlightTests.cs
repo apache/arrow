@@ -288,7 +288,7 @@ namespace Apache.Arrow.Flight.Tests
         {
             var duplexStreamingCall = _flightClient.Handshake();
 
-            await duplexStreamingCall.RequestStream.WriteAsync(new FlightHandshake(ByteString.Empty)).ConfigureAwait(false);
+            await duplexStreamingCall.RequestStream.WriteAsync(new FlightHandshakeRequest(ByteString.Empty)).ConfigureAwait(false);
             await duplexStreamingCall.RequestStream.CompleteAsync().ConfigureAwait(false);
             var results = await duplexStreamingCall.ResponseStream.ToListAsync().ConfigureAwait(false);
 
@@ -301,7 +301,7 @@ namespace Apache.Arrow.Flight.Tests
         {
             var duplexStreamingCall = _flightClient.Handshake();
 
-            await duplexStreamingCall.RequestStream.WriteAsync(new FlightHandshake(ByteString.CopyFromUtf8("Hello"))).ConfigureAwait(false);
+            await duplexStreamingCall.RequestStream.WriteAsync(new FlightHandshakeRequest(ByteString.CopyFromUtf8("Hello"))).ConfigureAwait(false);
             await duplexStreamingCall.RequestStream.CompleteAsync().ConfigureAwait(false);
             var results = await duplexStreamingCall.ResponseStream.ToListAsync().ConfigureAwait(false);
 
