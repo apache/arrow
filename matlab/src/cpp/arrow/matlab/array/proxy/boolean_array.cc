@@ -18,8 +18,8 @@
 #include "arrow/matlab/array/proxy/boolean_array.h"
 
 #include "arrow/matlab/error/error.h"
-#include "arrow/matlab/bit/bit_pack_matlab_logical_array.h"
-#include "arrow/matlab/bit/bit_unpack_arrow_buffer.h"
+#include "arrow/matlab/bit/pack.h"
+#include "arrow/matlab/bit/unpack.h"
 
 namespace arrow::matlab::array::proxy {
 
@@ -31,11 +31,11 @@ namespace arrow::matlab::array::proxy {
             const ::matlab::data::TypedArray<bool> validity_bitmap_mda = opts[0]["Valid"];
 
             // Pack the logical data values.
-            auto maybe_packed_logical_buffer = arrow::matlab::bit::bitPackMatlabLogicalArray(logical_mda);
+            auto maybe_packed_logical_buffer = arrow::matlab::bit::pack(logical_mda);
             MATLAB_ERROR_IF_NOT_OK(maybe_packed_logical_buffer.status(), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
 
             // Pack the validity bitmap values.
-            auto maybe_validity_bitmap_buffer = arrow::matlab::bit::bitPackMatlabLogicalArray(validity_bitmap_mda);
+            auto maybe_validity_bitmap_buffer = bit::packValid(validity_bitmap_mda);
             MATLAB_ERROR_IF_NOT_OK(maybe_validity_bitmap_buffer.status(), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
 
             const auto data_type = arrow::boolean();
@@ -50,7 +50,7 @@ namespace arrow::matlab::array::proxy {
         void BooleanArray::toMATLAB(libmexclass::proxy::method::Context& context) {
             auto array_length = array->length();
             auto packed_logical_data_buffer = std::static_pointer_cast<arrow::BooleanArray>(array)->values();
-            auto logical_array_mda = arrow::matlab::bit::bitUnpackArrowBuffer(packed_logical_data_buffer, array_length);
+            auto logical_array_mda = bit::unpack(packed_logical_data_buffer, array_length);
             context.outputs[0] = logical_array_mda;
         }
 

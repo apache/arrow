@@ -17,7 +17,7 @@
 
 #include "arrow/matlab/array/proxy/array.h"
 
-#include "arrow/matlab/bit/bit_unpack_arrow_buffer.h"
+#include "arrow/matlab/bit/unpack.h"
 
 namespace arrow::matlab::array::proxy {
 
@@ -50,7 +50,7 @@ namespace arrow::matlab::array::proxy {
 
     void Array::valid(libmexclass::proxy::method::Context& context) {
         auto array_length = static_cast<size_t>(array->length());
-        
+
         // If the Arrow array has no null values, then return a MATLAB
         // logical array that is all "true" for the validity bitmap.
         if (array->null_count() == 0) {
@@ -64,8 +64,7 @@ namespace arrow::matlab::array::proxy {
         }
 
         auto validity_bitmap = array->null_bitmap();
-        auto valid_elements_mda = arrow::matlab::bit::bitUnpackArrowBuffer(validity_bitmap, array_length);
+        auto valid_elements_mda = bit::unpack(validity_bitmap, array_length);
         context.outputs[0] = valid_elements_mda;
     }
-
 }
