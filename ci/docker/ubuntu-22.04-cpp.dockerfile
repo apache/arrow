@@ -160,11 +160,7 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # provided by the distribution:
 # - Abseil is old
 # - libc-ares-dev does not install CMake config files
-# - flatbuffer is not packaged
 # - libgtest-dev only provide sources
-# - libprotobuf-dev only provide sources
-# ARROW-17051: this build uses static Protobuf, so we must also use
-# static Arrow to run Flight/Flight SQL tests
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
     ARROW_BUILD_STATIC=ON \
@@ -199,6 +195,5 @@ ENV absl_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
-    Protobuf_SOURCE=BUNDLED \
     PYTHON=python3 \
     xsimd_SOURCE=BUNDLED

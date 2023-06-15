@@ -945,6 +945,27 @@ garrow_source_node_options_set_property(GObject *object,
 }
 
 static void
+garrow_source_node_options_get_property(GObject *object,
+                                        guint prop_id,
+                                        GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto priv = GARROW_SOURCE_NODE_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_READER:
+    g_value_set_object(value, priv->reader);
+    break;
+  case PROP_RECORD_BATCH:
+    g_value_set_object(value, priv->record_batch);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
 garrow_source_node_options_init(GArrowSourceNodeOptions *object)
 {
 }
@@ -955,6 +976,7 @@ garrow_source_node_options_class_init(GArrowSourceNodeOptionsClass *klass)
   auto gobject_class = G_OBJECT_CLASS(klass);
   gobject_class->dispose = garrow_source_node_options_dispose;
   gobject_class->set_property = garrow_source_node_options_set_property;
+  gobject_class->get_property = garrow_source_node_options_get_property;
 
   GParamSpec *spec;
   spec = g_param_spec_object("reader",
@@ -962,7 +984,7 @@ garrow_source_node_options_class_init(GArrowSourceNodeOptionsClass *klass)
                              "The GArrowRecordBatchReader that produces "
                              "record batches",
                              GARROW_TYPE_RECORD_BATCH_READER,
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_READER, spec);
 
@@ -970,7 +992,7 @@ garrow_source_node_options_class_init(GArrowSourceNodeOptionsClass *klass)
                              "Record batch",
                              "The GArrowRecordBatch to be produced",
                              GARROW_TYPE_RECORD_BATCH,
-                             static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_RECORD_BATCH, spec);
 }
@@ -1524,9 +1546,9 @@ garrow_sink_node_options_get_reader(GArrowSinkNodeOptions *options,
   if (!priv->reader) {
     auto arrow_reader =
       arrow::acero::MakeGeneratorReader(arrow_schema,
-                                          std::move(priv->generator),
-                                          arrow::default_memory_pool());
-    priv->reader = garrow_record_batch_reader_new_raw(&arrow_reader);
+                                        std::move(priv->generator),
+                                        arrow::default_memory_pool());
+    priv->reader = garrow_record_batch_reader_new_raw(&arrow_reader, nullptr);
   }
   g_object_ref(priv->reader);
   return priv->reader;
@@ -1670,12 +1692,14 @@ garrow_hash_join_node_options_set_right_outputs(
 }
 
 
-typedef struct GArrowExecuteNodePrivate_ {
+struct GArrowExecuteNodePrivate {
   arrow::acero::ExecNode *node;
-} GArrowExecuteNodePrivate;
+  GArrowExecuteNodeOptions *options;
+};
 
 enum {
   PROP_NODE = 1,
+  PROP_OPTIONS,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowExecuteNode,
@@ -1683,9 +1707,20 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowExecuteNode,
                            G_TYPE_OBJECT)
 
 #define GARROW_EXECUTE_NODE_GET_PRIVATE(object)   \
-  static_cast<GArrowExecuteNodePrivate *>(       \
-    garrow_execute_node_get_instance_private(    \
+  static_cast<GArrowExecuteNodePrivate *>(        \
+    garrow_execute_node_get_instance_private(     \
       GARROW_EXECUTE_NODE(object)))
+
+static void
+garrow_execute_node_dispose(GObject *object)
+{
+  auto priv = GARROW_EXECUTE_NODE_GET_PRIVATE(object);
+  if (priv->options) {
+    g_object_unref(priv->options);
+    priv->options = nullptr;
+  }
+  G_OBJECT_CLASS(garrow_execute_node_parent_class)->dispose(object);
+}
 
 static void
 garrow_execute_node_set_property(GObject *object,
@@ -1699,6 +1734,28 @@ garrow_execute_node_set_property(GObject *object,
   case PROP_NODE:
     priv->node =
       static_cast<arrow::acero::ExecNode *>(g_value_get_pointer(value));
+    break;
+  case PROP_OPTIONS:
+    priv->options =
+      static_cast<GArrowExecuteNodeOptions *>(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_execute_node_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto priv = GARROW_EXECUTE_NODE_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_OPTIONS:
+    g_value_set_object(value, priv->options);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1715,7 +1772,9 @@ static void
 garrow_execute_node_class_init(GArrowExecuteNodeClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->dispose = garrow_execute_node_dispose;
   gobject_class->set_property = garrow_execute_node_set_property;
+  gobject_class->get_property = garrow_execute_node_get_property;
 
   GParamSpec *spec;
   spec = g_param_spec_pointer("node",
@@ -1724,6 +1783,14 @@ garrow_execute_node_class_init(GArrowExecuteNodeClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_NODE, spec);
+
+  spec = g_param_spec_object("options",
+                             "Options",
+                             "The options of this node",
+                             GARROW_TYPE_EXECUTE_NODE_OPTIONS,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_OPTIONS, spec);
 }
 
 /**
@@ -1758,9 +1825,10 @@ garrow_execute_node_get_output_schema(GArrowExecuteNode *node)
 }
 
 
-typedef struct GArrowExecutePlanPrivate_ {
+struct GArrowExecutePlanPrivate {
   std::shared_ptr<arrow::acero::ExecPlan> plan;
-} GArrowExecutePlanPrivate;
+  GList *nodes;
+};
 
 enum {
   PROP_PLAN = 1,
@@ -1781,6 +1849,15 @@ garrow_execute_plan_finalize(GObject *object)
   auto priv = GARROW_EXECUTE_PLAN_GET_PRIVATE(object);
   priv->plan.~shared_ptr();
   G_OBJECT_CLASS(garrow_execute_plan_parent_class)->finalize(object);
+}
+
+static void
+garrow_execute_plan_dispose(GObject *object)
+{
+  auto priv = GARROW_EXECUTE_PLAN_GET_PRIVATE(object);
+  g_list_free_full(priv->nodes, g_object_unref);
+  priv->nodes = nullptr;
+  G_OBJECT_CLASS(garrow_execute_plan_parent_class)->dispose(object);
 }
 
 static void
@@ -1815,6 +1892,7 @@ garrow_execute_plan_class_init(GArrowExecutePlanClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
   gobject_class->finalize = garrow_execute_plan_finalize;
+  gobject_class->dispose = garrow_execute_plan_dispose;
   gobject_class->set_property = garrow_execute_plan_set_property;
 
   GParamSpec *spec;
@@ -1877,13 +1955,17 @@ garrow_execute_plan_build_node(GArrowExecutePlan *plan,
   }
   auto arrow_options = garrow_execute_node_options_get_raw(options);
   auto arrow_node_result = arrow::acero::MakeExecNode(factory_name,
-                                                        arrow_plan.get(),
-                                                        arrow_inputs,
-                                                        *arrow_options);
+                                                      arrow_plan.get(),
+                                                      arrow_inputs,
+                                                      *arrow_options);
   if (garrow::check(error, arrow_node_result, "[execute-plan][build-node]")) {
     auto arrow_node = *arrow_node_result;
     arrow_node->SetLabel(factory_name);
-    return garrow_execute_node_new_raw(arrow_node);
+    auto node = garrow_execute_node_new_raw(arrow_node, options);
+    g_object_ref(node);
+    auto priv = GARROW_EXECUTE_PLAN_GET_PRIVATE(plan);
+    priv->nodes = g_list_prepend(priv->nodes, node);
+    return node;
   } else {
     return NULL;
   }
@@ -2081,6 +2163,22 @@ garrow_execute_plan_build_hash_join_node(GArrowExecutePlan *plan,
                                    error);
   g_list_free(inputs);
   return node;
+}
+
+/**
+ * garrow_execute_plan_get_nodes:
+ * @plan: A #GArrowExecutePlan.
+ *
+ * Returns: (transfer none) (element-type GArrowExecuteNode): A list of
+ *   #GArrowExecuteNode of this plan.
+ *
+ * Since: 13.0.0
+ */
+GList *
+garrow_execute_plan_get_nodes(GArrowExecutePlan *plan)
+{
+  auto priv = GARROW_EXECUTE_PLAN_GET_PRIVATE(plan);
+  return priv->nodes;
 }
 
 /**
@@ -5931,10 +6029,12 @@ garrow_execute_node_options_get_raw(GArrowExecuteNodeOptions *options)
 
 
 GArrowExecuteNode *
-garrow_execute_node_new_raw(arrow::acero::ExecNode *arrow_node)
+garrow_execute_node_new_raw(arrow::acero::ExecNode *arrow_node,
+                            GArrowExecuteNodeOptions *options)
 {
   return GARROW_EXECUTE_NODE(g_object_new(GARROW_TYPE_EXECUTE_NODE,
                                           "node", arrow_node,
+                                          "options", options,
                                           NULL));
 }
 

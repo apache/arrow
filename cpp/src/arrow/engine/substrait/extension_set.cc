@@ -954,7 +954,9 @@ ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
         return Status::Invalid("Expected aggregate call ", call.id().uri, "#",
                                call.id().name, " to have at least one argument");
       }
-      case 1: {
+      default: {
+        // Handles all arity > 0
+
         std::shared_ptr<compute::FunctionOptions> options = nullptr;
         if (arrow_function_name == "stddev" || arrow_function_name == "variance") {
           // See the following URL for the spec of stddev and variance:
@@ -981,21 +983,22 @@ ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
         }
         fixed_arrow_func += arrow_function_name;
 
-        ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(0));
-        const FieldRef* arg_ref = arg.field_ref();
-        if (!arg_ref) {
-          return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
-                                 call.id().name, " to have a direct reference");
+        std::vector<FieldRef> target;
+        for (int i = 0; i < call.size(); i++) {
+          ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(i));
+          const FieldRef* arg_ref = arg.field_ref();
+          if (!arg_ref) {
+            return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
+                                   call.id().name, " to have a direct reference");
+          }
+          // Copy arg_ref here because field_ref() return const FieldRef*
+          target.emplace_back(*arg_ref);
         }
-
         return compute::Aggregate{std::move(fixed_arrow_func),
-                                  options ? std::move(options) : nullptr, *arg_ref, ""};
+                                  options ? std::move(options) : nullptr,
+                                  std::move(target), ""};
       }
-      default:
-        break;
     }
-    return Status::NotImplemented(
-        "Only nullary and unary aggregate functions are currently supported");
   };
 }
 

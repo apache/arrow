@@ -41,14 +41,22 @@ namespace {
 arrow::Result<FlightDescriptor> GetFlightDescriptorForCommand(
     const google::protobuf::Message& command) {
   google::protobuf::Any any;
+#if PROTOBUF_VERSION >= 3015000
   if (!any.PackFrom(command)) {
     return Status::SerializationError("Failed to pack ", command.GetTypeName());
   }
+#else
+  any.PackFrom(command);
+#endif
 
   std::string buf;
+#if PROTOBUF_VERSION >= 3015000
   if (!any.SerializeToString(&buf)) {
     return Status::SerializationError("Failed to serialize ", command.GetTypeName());
   }
+#else
+  any.SerializeToString(&buf);
+#endif
   return FlightDescriptor::Command(buf);
 }
 
@@ -71,16 +79,24 @@ arrow::Result<std::unique_ptr<SchemaResult>> GetSchemaForCommand(
 ::arrow::Result<Action> PackAction(const std::string& action_type,
                                    const google::protobuf::Message& message) {
   google::protobuf::Any any;
+#if PROTOBUF_VERSION >= 3015000
   if (!any.PackFrom(message)) {
     return Status::SerializationError("Could not pack ", message.GetTypeName(),
                                       " into Any");
   }
+#else
+  any.PackFrom(message);
+#endif
 
   std::string buffer;
+#if PROTOBUF_VERSION >= 3015000
   if (!any.SerializeToString(&buffer)) {
     return Status::SerializationError("Could not serialize packed ",
                                       message.GetTypeName());
   }
+#else
+  any.SerializeToString(&buffer);
+#endif
 
   Action action;
   action.type = action_type;

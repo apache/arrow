@@ -568,6 +568,26 @@ csv___ReadOptions__column_names <- function(options) {
   .Call(`_arrow_csv___ReadOptions__column_names`, options)
 }
 
+csv___ReadOptions__block_size <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__block_size`, options)
+}
+
+csv___ReadOptions__skip_rows <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__skip_rows`, options)
+}
+
+csv___ReadOptions__autogenerate_column_names <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__autogenerate_column_names`, options)
+}
+
+csv___ReadOptions__use_threads <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__use_threads`, options)
+}
+
+csv___ReadOptions__skip_rows_after_names <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__skip_rows_after_names`, options)
+}
+
 csv___ConvertOptions__initialize <- function(options) {
   .Call(`_arrow_csv___ConvertOptions__initialize`, options)
 }

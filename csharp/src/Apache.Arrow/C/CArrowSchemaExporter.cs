@@ -50,10 +50,6 @@ namespace Apache.Arrow.C
             {
                 throw new ArgumentNullException(nameof(schema));
             }
-            if (schema->release != null)
-            {
-                throw new ArgumentException("Cannot export schema to a struct that is already initialized.");
-            }
 
             schema->format = StringUtil.ToCStringUtf8(GetFormat(datatype));
             schema->name = null;
