@@ -1499,13 +1499,17 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
       DeclarationToExecBatchesAsync(asofjoin, exec_ctx);
 
   auto has_bp_been_applied = [&] {
-    int total_paused = 0;
-    for (const auto& counters : bp_counters) {
-      total_paused += counters.pause_count;
-    }
     // One of the inputs is gated.  The other two will eventually be paused by the asof
     // join node
-    return total_paused >= 2;
+    for (size_t i = 0; i < source_configs.size(); i++) {
+      const auto& counters = bp_counters[i];
+      if (source_configs[i].is_gated) {
+        if (counters.pause_count > 0) return false;
+      } else {
+        if (counters.pause_count != 1) return false;
+      }
+    }
+    return true;
   };
 
   BusyWait(10.0, has_bp_been_applied);
