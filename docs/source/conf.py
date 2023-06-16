@@ -49,6 +49,7 @@ sys.path.extend([
 try:
     import pyarrow
     exclude_patterns = []
+    pyarrow_version =  pyarrow.__version
 
     # Conditional API doc generation
 
@@ -92,6 +93,7 @@ try:
         pyarrow.parquet.encryption = sys.modules['pyarrow.parquet.encryption'] = mock.Mock()
 except (ImportError, LookupError):
     exclude_patterns = ['python']
+    pyarrow_version =  ""
     cuda_enabled = False
     flight_enabled = False
 
@@ -206,10 +208,10 @@ author = u'Apache Software Foundation'
 # built documents.
 #
 # The short X.Y version.
-version = os.environ.get('ARROW_DOCS_VERSION',"")
+version = os.environ.get('ARROW_DOCS_VERSION', pyarrow_version)
 
 # The full version, including alpha/beta/rc tags.
-release = os.environ.get('ARROW_DOCS_VERSION',"")
+release = os.environ.get('ARROW_DOCS_VERSION', pyarrow_version)
 
 if "+" in release:
     release = release.split(".dev")[0] + " (dev)"
