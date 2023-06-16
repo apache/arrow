@@ -1988,29 +1988,37 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   void InitData(int nvalues, double null_probability) {
     auto rand = ::arrow::random::RandomArrayGenerator(42);
     const int min_prefix_length = 0;
-    const int max_prefix_length = 50;
     const size_t max_element_length = 100;
 
-    ::arrow::StringBuilder builder;
-    const auto prefix_array = std::static_pointer_cast<::arrow::StringArray>(
-        rand.String(/*size*/ nvalues, /*min_length*/ min_prefix_length,
-                    /*max_length*/ max_prefix_length, /*null_percent*/ null_probability));
+    const auto suffix_array = std::static_pointer_cast<::arrow::StringArray>(rand.String(
+        /*size*/ nvalues, /*min_length*/ min_prefix_length,
+        /*max_length*/ max_element_length, /*null_probability*/ null_probability));
 
-    std::string previous_element;
-    for (int i = 0; i < nvalues; i++) {
-      auto element = prefix_array->GetString(i);
+    // First prefix length is always 0, so we manually prepend a 0 to the buffer
+    const auto prefix_lengths =
+        rand.UInt8(/*size*/ std::max(nvalues - 1, 0), /*min*/ min_prefix_length,
+                   /*max*/ max_element_length,
+                   /*null_probability*/ null_probability);
 
-      if (previous_element.length() <= max_element_length) {
-        previous_element = previous_element.append(element);
-      } else {
-        previous_element = element;
-      }
-      ASSERT_OK(builder.Append(previous_element));
+    ::arrow::BufferBuilder sink(default_memory_pool());
+    if (nvalues > 0) {
+      ::arrow::UInt8Builder uint8_builder;
+      PARQUET_THROW_NOT_OK(uint8_builder.AppendValues({uint8_t{0}}));
+      PARQUET_ASSIGN_OR_THROW(auto uint8_array, uint8_builder.Finish());
+      auto uint8_buffer = uint8_array->data()->buffers[1];
+      PARQUET_THROW_NOT_OK(sink.Append(uint8_buffer->data(), uint8_buffer->size()));
     }
 
-    std::shared_ptr<::arrow::StringArray> array;
-    ASSERT_OK(builder.Finish(&array));
-    draws_ = reinterpret_cast<c_type*>(array->value_data()->mutable_data());
+    auto prefix_lengths_buffer = prefix_lengths->data()->buffers[1];
+    auto suffix_array_buffer = suffix_array->data()->buffers[1];
+
+    PARQUET_THROW_NOT_OK(
+        sink.Append(prefix_lengths_buffer->data(), prefix_lengths_buffer->size()));
+    PARQUET_THROW_NOT_OK(
+        sink.Append(suffix_array_buffer->data(), suffix_array_buffer->size()));
+    std::shared_ptr<Buffer> buffer;
+    PARQUET_THROW_NOT_OK(sink.Finish(&buffer, true));
+    draws_ = reinterpret_cast<c_type*>(buffer->mutable_data());
   }
 
   void Execute(int nvalues, double null_probability) {
