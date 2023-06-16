@@ -1042,9 +1042,12 @@ std::unique_ptr<Function> MakeFilterMetaFunction() {
 void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
   auto plain_filter = InputType(Type::BOOL);
   auto ree_filter = InputType(match::RunEndEncoded(Type::BOOL));
+  auto ree_values = [](auto in) {
+    return InputType(match::RunEndEncoded(std::move(in)));
+  };
 
   *out = {
-      // * x Boolean
+      // Plain(*) x Plain(Boolean)
       {InputType(match::Primitive()), plain_filter, PrimitiveFilterExec},
       {InputType(match::BinaryLike()), plain_filter, BinaryFilterExec},
       {InputType(match::LargeBinaryLike()), plain_filter, BinaryFilterExec},
@@ -1062,7 +1065,7 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(Type::STRUCT), plain_filter, StructFilterExec},
       {InputType(Type::MAP), plain_filter, MapFilterExec},
 
-      // * x REE(Boolean)
+      // Plain(*) x REE(Boolean)
       {InputType(match::Primitive()), ree_filter, PrimitiveFilterExec},
       {InputType(match::BinaryLike()), ree_filter, BinaryFilterExec},
       {InputType(match::LargeBinaryLike()), ree_filter, BinaryFilterExec},
@@ -1080,13 +1083,23 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(Type::STRUCT), ree_filter, StructFilterExec},
       {InputType(Type::MAP), ree_filter, MapFilterExec},
 
-      // REE(Primitive) x REE(Boolean)
-      {InputType(match::RunEndEncoded(match::Primitive())), ree_filter,
-       REExREEFilterExec},
+      // REE(*) x REE(Boolean)
+      {ree_values(match::Primitive()), ree_filter, REExREEFilterExec},
+      {ree_values(match::BinaryLike()), ree_filter, REExREEFilterExec},
+      {ree_values(match::LargeBinaryLike()), ree_filter, REExREEFilterExec},
+      {ree_values(Type::FIXED_SIZE_BINARY), ree_filter, REExREEFilterExec},
+      {ree_values(Type::NA), ree_filter, REExREEFilterExec},
+      {ree_values(Type::DECIMAL128), ree_filter, REExREEFilterExec},
+      {ree_values(Type::DECIMAL256), ree_filter, REExREEFilterExec},
 
-      // REE(*) x Boolean filtering
-      {InputType(match::RunEndEncoded(match::Primitive())), InputType(Type::BOOL),
-       REExPlainFilterExec},
+      // REE(*) x Plain(Boolean)
+      {ree_values(match::Primitive()), plain_filter, REExPlainFilterExec},
+      {ree_values(match::BinaryLike()), plain_filter, REExPlainFilterExec},
+      {ree_values(match::LargeBinaryLike()), plain_filter, REExPlainFilterExec},
+      {ree_values(Type::FIXED_SIZE_BINARY), plain_filter, REExPlainFilterExec},
+      {ree_values(Type::NA), plain_filter, REExPlainFilterExec},
+      {ree_values(Type::DECIMAL128), plain_filter, REExPlainFilterExec},
+      {ree_values(Type::DECIMAL256), plain_filter, REExPlainFilterExec},
   };
 }
 

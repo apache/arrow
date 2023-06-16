@@ -73,6 +73,8 @@ Result<std::shared_ptr<Array>> REEncode(const std::shared_ptr<Array>& array) {
   return datum.make_array();
 }
 
+bool CanRunEndEncode(Type::type type_id) { return !is_nested(type_id); }
+
 void CheckTakeIndicesCase(const BooleanArray& filter,
                           const std::shared_ptr<Array>& expected_indices,
                           FilterOptions::NullSelectionBehavior null_selection) {
@@ -310,8 +312,23 @@ class TestFilterKernel : public ::testing::Test {
     AssertFilter(values_array, filter_array, expected_array);
 
     ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter_array));
-    ARROW_SCOPED_TRACE("for plain values and REE filter");
-    AssertFilter(values_array, ree_filter, expected_array);
+    {
+      ARROW_SCOPED_TRACE("for plain values and REE filter");
+      AssertFilter(values_array, ree_filter, expected_array);
+    }
+    if (CanRunEndEncode(type->id())) {
+      ARROW_SCOPED_TRACE("for REE values");
+      ASSERT_OK_AND_ASSIGN(auto ree_values, REEncode(values_array));
+      ASSERT_OK_AND_ASSIGN(auto ree_expected, REEncode(expected_array));
+      {
+        ARROW_SCOPED_TRACE("and REE filter");
+        AssertFilter(ree_values, ree_filter, ree_expected);
+      }
+      {
+        ARROW_SCOPED_TRACE("and plain filter");
+        AssertFilter(ree_values, filter_array, ree_expected);
+      }
+    }
   }
 
   const FilterOptions emit_null_, drop_;
