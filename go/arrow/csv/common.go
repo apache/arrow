@@ -217,7 +217,7 @@ func validate(schema *arrow.Schema) {
 		case *arrow.BooleanType:
 		case *arrow.Int8Type, *arrow.Int16Type, *arrow.Int32Type, *arrow.Int64Type:
 		case *arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type:
-		case *arrow.Float32Type, *arrow.Float64Type:
+		case *arrow.Float16Type, *arrow.Float32Type, *arrow.Float64Type:
 		case *arrow.StringType:
 		case *arrow.TimestampType:
 		case *arrow.Date32Type, *arrow.Date64Type:

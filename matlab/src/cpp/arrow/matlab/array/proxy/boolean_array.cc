@@ -24,9 +24,11 @@
 namespace arrow::matlab::array::proxy {
 
         libmexclass::proxy::MakeResult BooleanArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+            ::matlab::data::StructArray opts = constructor_arguments[0];
+
             // Get the mxArray from constructor arguments
-            const ::matlab::data::TypedArray<bool> logical_mda = constructor_arguments[0];
-            const ::matlab::data::TypedArray<bool> validity_bitmap_mda = constructor_arguments[1];
+            const ::matlab::data::TypedArray<bool> logical_mda = opts[0]["MatlabArray"];
+            const ::matlab::data::TypedArray<bool> validity_bitmap_mda = opts[0]["Valid"];
 
             // Pack the logical data values.
             auto maybe_packed_logical_buffer = arrow::matlab::bit::bitPackMatlabLogicalArray(logical_mda);

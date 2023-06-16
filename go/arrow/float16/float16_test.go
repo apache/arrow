@@ -165,7 +165,7 @@ func TestCmp(t *testing.T) {
 		want int
 	}{
 		{Num{bits: 0x3c00}, Num{bits: 0x4000}, -1}, // cmp(1, 2) = -1
-		{Num{bits: 0x4900}, Num{bits: 0x4900}, 0}, // cmp(10, 10) = 0
+		{Num{bits: 0x4900}, Num{bits: 0x4900}, 0},  // cmp(10, 10) = 0
 		{Num{bits: 0x4248}, Num{bits: 0x3245}, 1},  // cmp(3.141, 0.196) = 1
 	} {
 		t.Run("cmp", func(t *testing.T) {

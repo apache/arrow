@@ -567,7 +567,6 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
       target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARROW_BENCHMARK_LINK_LIBS})
     endif()
     add_dependencies(benchmark ${BENCHMARK_NAME})
-    set(NO_COLOR "--color_print=false")
 
     if(ARG_EXTRA_LINK_LIBS)
       target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARG_EXTRA_LINK_LIBS})
@@ -575,7 +574,6 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   else()
     # No executable, just invoke the benchmark (probably a script) directly.
     set(BENCHMARK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME})
-    set(NO_COLOR "")
   endif()
 
   # With OSX and conda, we need to set the correct RPATH so that dependencies
@@ -615,8 +613,8 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
            ${BUILD_SUPPORT_DIR}/run-test.sh
            ${CMAKE_BINARY_DIR}
            benchmark
-           ${BENCHMARK_PATH}
-           ${NO_COLOR})
+           ${BENCHMARK_PATH})
+
   set_property(TEST ${BENCHMARK_NAME}
                APPEND
                PROPERTY LABELS ${ARG_LABELS})
@@ -847,7 +845,6 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
     add_executable(${EXAMPLE_NAME} "${REL_EXAMPLE_NAME}.cc" ${ARG_EXTRA_SOURCES})
     target_link_libraries(${EXAMPLE_NAME} ${ARROW_EXAMPLE_LINK_LIBS})
     add_dependencies(runexample ${EXAMPLE_NAME})
-    set(NO_COLOR "--color_print=false")
 
     if(ARG_EXTRA_LINK_LIBS)
       target_link_libraries(${EXAMPLE_NAME} ${ARG_EXTRA_LINK_LIBS})
