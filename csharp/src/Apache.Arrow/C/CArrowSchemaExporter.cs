@@ -265,8 +265,8 @@ namespace Apache.Arrow.C
             i = 0;
             foreach (KeyValuePair<string, string> pair in metadata)
             {
-                WriteString(ref ptr, lengths[i++], pair.Key);
-                WriteString(ref ptr, lengths[i++], pair.Value);
+                WriteMetadataString(ref ptr, lengths[i++], pair.Key);
+                WriteMetadataString(ref ptr, lengths[i++], pair.Value);
             }
 
             Debug.Assert((long)(IntPtr)ptr - (long)result == size);
@@ -274,7 +274,7 @@ namespace Apache.Arrow.C
             return (byte*)result;
         }
 
-        private unsafe static void WriteString(ref byte* ptr, int length, string str)
+        private unsafe static void WriteMetadataString(ref byte* ptr, int length, string str)
         {
             Marshal.WriteInt32((IntPtr)ptr, length);
             ptr += 4;

@@ -308,7 +308,7 @@ namespace Apache.Arrow.C
 
                 IntPtr ptr = (IntPtr)metadata;
                 int count = Marshal.ReadInt32(ptr);
-                if (count == 0)
+                if (count <= 0)
                 {
                     return null;
                 }
@@ -317,14 +317,19 @@ namespace Apache.Arrow.C
                 Dictionary<string, string> result = new Dictionary<string, string>(count);
                 for (int i = 0; i < count; i++)
                 {
-                    result[ReadString(ref ptr)] = ReadString(ref ptr);
+                    result[ReadMetadataString(ref ptr)] = ReadMetadataString(ref ptr);
                 }
                 return result;
             }
 
-            private unsafe static string ReadString(ref IntPtr ptr)
+            private unsafe static string ReadMetadataString(ref IntPtr ptr)
             {
                 int length = Marshal.ReadInt32(ptr);
+                if (length < 0)
+                {
+                    throw new InvalidOperationException("unexpected negative length for metadata string");
+                }
+
                 ptr += 4;
                 string result = Encoding.UTF8.GetString((byte*)ptr, length);
                 ptr += length;

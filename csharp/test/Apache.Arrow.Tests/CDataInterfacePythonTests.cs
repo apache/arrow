@@ -72,7 +72,7 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("i64").DataType(Int64Type.Default).Nullable(true))
                     .Field(f => f.Name("u64").DataType(UInt64Type.Default).Nullable(true))
 
-                    .Field(f => f.Name("f16").DataType(HalfFloatType.Default).Nullable(true).Metadata("k1a", "v1a").Metadata("k1b", "v1b"))
+                    .Field(f => f.Name("f16").DataType(HalfFloatType.Default).Nullable(true).Metadata("k1a", "").Metadata("k1b", "断箭"))
                     .Field(f => f.Name("f32").DataType(FloatType.Default).Nullable(true))
                     .Field(f => f.Name("f64").DataType(DoubleType.Default).Nullable(true))
 
@@ -116,7 +116,7 @@ namespace Apache.Arrow.Tests
             using (Py.GIL())
             {
                 Dictionary<string, string> metadata0 = new Dictionary<string, string> { { "k0", "v0" } };
-                Dictionary<string, string> metadata1 = new Dictionary<string, string> { { "k1a", "v1a" }, { "k1b", "v1b" } };
+                Dictionary<string, string> metadata1 = new Dictionary<string, string> { { "k1a", "" }, { "k1b", "断箭" } };
 
                 dynamic pa = Py.Import("pyarrow");
                 yield return pa.field("null", pa.GetAttr("null").Invoke(), true).with_metadata(metadata0);
