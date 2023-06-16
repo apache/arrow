@@ -4295,6 +4295,7 @@ macro(build_google_cloud_cpp_storage)
   set_property(TARGET google-cloud-cpp::common
                PROPERTY INTERFACE_LINK_LIBRARIES
                         absl::base
+                        absl::cord
                         absl::memory
                         absl::optional
                         absl::span
