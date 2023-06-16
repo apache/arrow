@@ -3873,6 +3873,9 @@ TEST(TestArrowParquet, LargeByteArray) {
   TryReadDataFile(path, ::arrow::StatusCode::NotImplemented);
   ArrowReaderProperties reader_properties;
   reader_properties.set_use_large_binary_variants(true);
+  reader_properties.set_read_dictionary(0, false);
+  TryReadDataFileWithProperties(path, reader_properties);
+  reader_properties.set_read_dictionary(0, true);
   TryReadDataFileWithProperties(path, reader_properties);
 }
 

@@ -1631,11 +1631,19 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
         valid_bits, valid_bits_offset, num_values, null_count,
         [&]() { valid_bytes[i++] = 1; }, [&]() { ++i; });
 
-    auto binary_builder = checked_cast<::arrow::BinaryDictionary32Builder*>(builder);
-    PARQUET_THROW_NOT_OK(
-        binary_builder->AppendIndices(indices_buffer, num_values, valid_bytes.data()));
-    num_values_ -= num_values - null_count;
-    return num_values - null_count;
+    // It looks like this method is only called by ByteArray types. Previously,
+    // there was an unconditional cast to ::arrow::Dictionary32Builder<::arrow::BinaryType>.
+    // This won't work for LargeByteArrayType and the Type template argument can't be used
+    // unconditionally because it is not defined for several other types.
+    if constexpr (std::is_same_v<ByteArrayType, Type> || std::is_same_v<LargeByteArrayType, Type>) {
+      auto binary_builder = checked_cast<typename EncodingTraits<Type>::DictAccumulator*>(builder);
+      PARQUET_THROW_NOT_OK(
+          binary_builder->AppendIndices(indices_buffer, num_values, valid_bytes.data()));
+      num_values_ -= num_values - null_count;
+      return num_values - null_count;
+    }
+
+    ParquetException::NYI("DecodeIndicesSpaced not implemented for this type");
   }
 
   int DecodeIndices(int num_values, ::arrow::ArrayBuilder* builder) override {
@@ -1652,10 +1660,19 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     if (num_values != idx_decoder_.GetBatch(indices_buffer, num_values)) {
       ParquetException::EofException();
     }
-    auto binary_builder = checked_cast<::arrow::BinaryDictionary32Builder*>(builder);
-    PARQUET_THROW_NOT_OK(binary_builder->AppendIndices(indices_buffer, num_values));
-    num_values_ -= num_values;
-    return num_values;
+
+    // It looks like this method is only called by ByteArray types. Previously,
+    // there was an unconditional cast to ::arrow::Dictionary32Builder<::arrow::BinaryType>.
+    // This won't work for LargeByteArrayType and the Type template argument can't be used
+    // unconditionally because it is not defined for several other types.
+    if constexpr (std::is_same_v<ByteArrayType, Type> || std::is_same_v<LargeByteArrayType, Type>) {
+      auto binary_builder = checked_cast<typename EncodingTraits<Type>::DictAccumulator*>(builder);
+      PARQUET_THROW_NOT_OK(binary_builder->AppendIndices(indices_buffer, num_values));
+      num_values_ -= num_values;
+      return num_values;
+    }
+
+    ParquetException::NYI("DecodeIndices not implemented for this type");
   }
 
   int DecodeIndices(int num_values, int32_t* indices) override {
