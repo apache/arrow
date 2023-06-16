@@ -49,7 +49,7 @@ sys.path.extend([
 try:
     import pyarrow
     exclude_patterns = []
-    pyarrow_version =  pyarrow.__version
+    pyarrow_version =  pyarrow.__version__
 
     # Conditional API doc generation
 
