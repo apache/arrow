@@ -1359,7 +1359,10 @@ class TestFloatStatistics : public ::testing::Test {
   using c_type = typename ParquetType::c_type;
 
   void Init();
-  void SetUp() override { this->Init(); }
+  void SetUp() override {
+    this->Init();
+    ASSERT_NE(EncodeValue(negative_zero_), EncodeValue(positive_zero_));
+  }
 
   bool signbit(c_type val);
   void CheckEq(const c_type& l, const c_type& r);
@@ -1372,9 +1375,11 @@ class TestFloatStatistics : public ::testing::Test {
 
     this->CheckEq(stats->min(), positive_zero_);
     ASSERT_TRUE(this->signbit(stats->min()));
+    ASSERT_EQ(stats->EncodeMin(), EncodeValue(negative_zero_));
 
     this->CheckEq(stats->max(), positive_zero_);
     ASSERT_FALSE(this->signbit(stats->max()));
+    ASSERT_EQ(stats->EncodeMax(), EncodeValue(positive_zero_));
   }
 
   // ARROW-5562: Ensure that -0.0f and 0.0f values are properly handled like in
@@ -1416,9 +1421,9 @@ class TestFloatStatistics : public ::testing::Test {
     auto some_nan_stats = MakeStatistics<ParquetType>(descr);
     // Ingesting only nans should not yield valid min max
     AssertUnsetMinMax(some_nan_stats, all_nans);
-    // Ingesting a mix of NaNs and non-NaNs should not yield valid min max.
+    // Ingesting a mix of NaNs and non-NaNs should yield a valid min max.
     AssertMinMaxAre(some_nan_stats, some_nans, min, max);
-    // Ingesting only nans after a valid min/max, should have not effect
+    // Ingesting only nans after a valid min/max, should have no effect
     AssertMinMaxAre(some_nan_stats, all_nans, min, max);
 
     some_nan_stats = MakeStatistics<ParquetType>(descr);
