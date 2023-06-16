@@ -594,10 +594,15 @@ if(NOT Arrow_FOUND)
   # Note: The following CMake Issue suggests enabling an option to exclude all
   # folders that would be empty after installation:
   # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
+  if(APPLE)
+    set(ARROW_SHARED_LIB_FILES "${ARROW_SHARED_LIB_FILENAME}\\..*dylib")
+  else()
+    set(ARROW_SHARED_LIB_FILES ${ARROW_SHARED_LIB})
+  endif()
   install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
           DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
           FILES_MATCHING
-          REGEX ${ARROW_SHARED_LIB}
+          REGEX ${ARROW_SHARED_LIB_FILES}
           PATTERN "cmake" EXCLUDE
           PATTERN "pkgconfig" EXCLUDE)
 endif()
