@@ -45,15 +45,14 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware
   /// \brief Is there an existing session (either existing or new)
   bool HasSession() const;
   /// \brief Get a mutable Map of session options.
-  std::shared_ptr<std::map<std::string, SessionOption>> GetSessionOptionsMap(const std::string&);
+  std::shared_ptr<std::map<std::string, SessionOption>> GetSession(std::string*);
   /// \brief Get request headers, in lieu of a provided or created session.
   const CallHeaders& GetCallHeaders() const;
 
  private:
     friend class ServerSessionMiddlewareFactory;
   std::shared_ptr<std::map<std::string, SessionOptionValue>> session_;
-  // For use when existing_session is false but a session has been established.
-  std::shared_ptr<std::string> session_id_;
+  std::string session_id_;
   const CallHeaders& headers_;
   const bool existing_session;
   ServerSessionMiddlewareFactory* factory_;
@@ -62,7 +61,8 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware
                                    const CallHeaders& headers);
   ServerSessionMiddleware(ServerSessionMiddlewareFactory*,
                           const CallHeaders&,
-                          std::shared_ptr<std::map<std::string, SessionOptionValue>>)
+                          std::shared_ptr<std::map<std::string, SessionOptionValue>>,
+                          std::string)
 };
 
 /// \brief Returns a ServerMiddlewareFactory that handles Session option storage.

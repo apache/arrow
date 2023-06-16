@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <shared_mutex>
 #include "arrow/flight/sql/server_session_middleware.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -35,7 +36,8 @@ ServerSessionMiddleware::ServerSessionMiddleware(ServerSessionMiddlewareFactory*
 
 ServerSessionMiddleware::ServerSessionMiddleware(
     ServerSessionMiddlewareFactory* factory, const CallHeaders& headers,
-    std::shared_ptr<std::map<std::string, SessionOptionValue>> session)
+    std::shared_ptr<std::map<std::string, SessionOptionValue>> session,
+    std::string session_id)
     : factory_(factory), headers_(headers), session_(session), existing_session(true) {}
 
 void ServerSessionMiddleware::SendingHeaders(AddCallHeaders* addCallHeaders) {
@@ -65,6 +67,7 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
  private:
   std::map<std::string,
            std::shared_ptr<std::map<std::string, SessionOptionValue>>> session_store_;
+  std::share_mutex session_store_lock_;
   boost::uuids::random_generator uuid_generator_;
 
   std::vector<std::pair<std::string, std::string>> ParseCookieString(
@@ -91,7 +94,6 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
 
       const size_t val_pos = tok.find(pair_sep);
       result.emplace_back(
-        /* FIXME (does this still need fixing?!) */
         tok.substr(0, val_pos),
         tok.substr(val_pos + pair_sep_len, std::string::npos);
       );
@@ -126,9 +128,10 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
       *middleware = std::make_shared<ServerSessionMiddleware>(this, incoming_headers);
     } else {
       try {
+        const std::shared_lock<std::shared_mutex> l(session_store_lock_);
         auto session = session_store_.at(session_id);
         *middleware = std::make_shared<ServerSessionMiddleware>(
-            this, incoming_headers, session);
+            this, incoming_headers,  session, session_id);
       } catch (std::out_of_range& e) {
         return Status::Invalid("Invalid or expired " + kSessionCookieName + " cookie.")
       }
@@ -139,12 +142,14 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
 
   /// \brief Get a new, empty session option map and its id key.
   std::shared_ptr<std::map<std::string, SessionOptionValue>>
-  GetNewSession(std::shared_ptr<std::string>* session_id) {
-    auto new_id = std::make_shared<std::string>(
-        boost::lexical_cast<std::string>(uuid_generator_()));
+  GetNewSession(std::string* session_id) {
+    std::string new_id = boost::lexical_cast<std::string>(uuid_generator_());
     *session_id = new_id;
-    auto session = std::make_shared<std::map<std::string, SessionOptionValue>>()
-    session_store_[*new_id] = session;
+    auto session = std::make_shared<std::map<std::string, SessionOptionValue>>();
+
+    const std::unique_lock<std::shared_mutex> l(session_store_lock_);
+    session_store_[new_id] = session;
+    
     return session;
   }
 };
