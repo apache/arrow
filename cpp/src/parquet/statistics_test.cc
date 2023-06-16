@@ -34,13 +34,13 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/ubsan.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
-#include "parquet/float_internal.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
@@ -50,6 +50,7 @@
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
+using arrow::util::Float16;
 using arrow::util::SafeCopy;
 
 namespace bit_util = arrow::bit_util;
@@ -61,6 +62,28 @@ using schema::NodePtr;
 using schema::PrimitiveNode;
 
 namespace test {
+
+class BufferedFloat16 : public ::arrow::util::Float16Base {
+ public:
+  explicit BufferedFloat16(Float16 f16) : Float16Base(f16) {
+    buffer_ = *::arrow::AllocateBuffer(sizeof(value_));
+    ToBytes(buffer_->mutable_data());
+  }
+  explicit BufferedFloat16(uint16_t value) : BufferedFloat16(Float16(value)) {}
+
+  const uint8_t* bytes() const { return buffer_->data(); }
+  const std::shared_ptr<::arrow::Buffer>& buffer() { return buffer_; }
+
+  BufferedFloat16 operator+() const { return *this; }
+  BufferedFloat16 operator-() const { return BufferedFloat16(value_ ^ 0x8000); }
+
+  static BufferedFloat16 FromBytes(const uint8_t* src) {
+    return BufferedFloat16(Float16::FromBytes(src));
+  }
+
+ private:
+  std::shared_ptr<::arrow::Buffer> buffer_;
+};
 
 // ----------------------------------------------------------------------
 // Test comparators
@@ -1129,21 +1152,30 @@ void TestStatisticsSortOrder<Float16LogicalType>::SetValues() {
   constexpr int kValueLen = 2;
   constexpr int kNumBytes = NUM_VALUES * kValueLen;
 
-  const uint16_t packed_vals[NUM_VALUES] = {
-      0b0000000000000000, 0b0000000000000000, 0b1000000000000000, 0b1000010000000000,
-      0b0111110000001000, 0b1000000000000000, 0b0000010000000000, 0b0000000001000000,
-      0b1111110000001000, 0b1000000001000000};
+  const uint16_t u16_vals[NUM_VALUES] = {
+      0b1100010100000000,  // -5.0
+      0b1100010000000000,  // -4.0
+      0b1100001000000000,  // -3.0
+      0b1100000000000000,  // -2.0
+      0b1011110000000000,  // -1.0
+      0b0000000000000000,  // +0.0
+      0b0011110000000000,  // +1.0
+      0b0100000000000000,  // +2.0
+      0b0100001000000000,  // +3.0
+      0b0100010000000000,  // +4.0
+  };
 
   values_buf_.resize(kNumBytes);
   uint8_t* ptr = values_buf_.data();
   for (int i = 0; i < NUM_VALUES; ++i) {
-    values_[i].ptr = float16::Unpack(packed_vals[i], ptr);
+    Float16(u16_vals[i]).ToBytes(ptr);
+    values_[i].ptr = ptr;
     ptr += kValueLen;
   }
 
   stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(values_[3].ptr), kValueLen))
-      .set_max(std::string(reinterpret_cast<const char*>(values_[6].ptr), kValueLen));
+      .set_min(std::string(reinterpret_cast<const char*>(values_[0].ptr), kValueLen))
+      .set_max(std::string(reinterpret_cast<const char*>(values_[9].ptr), kValueLen));
 }
 
 TYPED_TEST_SUITE(TestStatisticsSortOrder, CompareTestTypes);
@@ -1416,8 +1448,11 @@ void TestFloatStatistics<T>::Init() {
 }
 template <>
 void TestFloatStatistics<Float16LogicalType>::Init() {
-  positive_zero_ = c_type{float16::positive_zero_ptr()};
-  negative_zero_ = c_type{float16::negative_zero_ptr()};
+  data_buf_.resize(4);
+  (+Float16(0)).ToBytes(&data_buf_[0]);
+  positive_zero_ = FLBA{&data_buf_[0]};
+  (-Float16(0)).ToBytes(&data_buf_[2]);
+  negative_zero_ = FLBA{&data_buf_[2]};
 }
 
 template <typename T>
@@ -1437,9 +1472,8 @@ void TestFloatStatistics<T>::CheckEq(const c_type& l, const c_type& r) {
 }
 template <>
 void TestFloatStatistics<Float16LogicalType>::CheckEq(const c_type& a, const c_type& b) {
-  auto l = float16::Pack(a);
-  auto r = float16::Pack(b);
-  if (float16::is_zero(l) && float16::is_zero(r)) return;
+  auto l = Float16::FromBytes(a.ptr);
+  auto r = Float16::FromBytes(b.ptr);
   ASSERT_EQ(l, r);
 }
 
@@ -1449,7 +1483,7 @@ bool TestFloatStatistics<T>::signbit(c_type val) {
 }
 template <>
 bool TestFloatStatistics<Float16LogicalType>::signbit(c_type val) {
-  return float16::signbit(float16::Pack(val));
+  return Float16::FromBytes(val.ptr).signbit();
 }
 
 template <typename T>
@@ -1477,45 +1511,39 @@ void TestFloatStatistics<T>::TestNaNs() {
 template <>
 void TestFloatStatistics<Float16LogicalType>::TestNaNs() {
   constexpr int kNumValues = 8;
-  constexpr int kValueLen = sizeof(uint16_t);
 
   NodePtr node = this->MakeNode("f", Repetition::OPTIONAL);
   ColumnDescriptor descr(node, 1, 1);
 
-  const uint16_t nan_int = 0b1111110010101010;
-  const uint16_t min_int = 0b1010010111000110;
-  const uint16_t max_int = 0b0011100011010011;
-  uint8_t min_max_data[2 * kValueLen];
-  const auto min = FLBA{float16::Unpack(min_int, &min_max_data[0 * kValueLen])};
-  const auto max = FLBA{float16::Unpack(max_int, &min_max_data[1 * kValueLen])};
+  using F16 = BufferedFloat16;
+  const auto nan_f16 = F16(std::numeric_limits<Float16>::quiet_NaN());
+  const auto min_f16 = F16(0xc400);  // -4.0
+  const auto max_f16 = F16(0x4200);  // +3.0
 
-  std::array<uint16_t, kNumValues> all_nans_packed = {nan_int, nan_int, nan_int, nan_int,
-                                                      nan_int, nan_int, nan_int, nan_int};
-  std::array<uint16_t, kNumValues> some_nans_packed = {nan_int,
-                                                       max_int,
-                                                       0b1000111000110000,
-                                                       0b1000010001000001,
-                                                       nan_int,
-                                                       0b0000100000011110,
-                                                       min_int,
-                                                       nan_int};
-  std::array<uint16_t, kNumValues> other_nans_packed = some_nans_packed;
-  other_nans_packed[0] = 0b0000010000110011;
+  const auto min = FLBA{min_f16.bytes()};
+  const auto max = FLBA{max_f16.bytes()};
 
-  std::array<uint8_t, (kNumValues * kValueLen * 3)> bytes;
-  uint8_t* at = bytes.data();
-  auto prepare_values = [&](const auto& packed_values) -> std::vector<FLBA> {
-    std::vector<FLBA> out;
-    for (uint16_t packed : packed_values) {
-      out.push_back(FLBA{float16::Unpack(packed, at)});
-      at += kValueLen;
-    }
+  std::array<F16, kNumValues> all_nans_f16 = {nan_f16, nan_f16, nan_f16, nan_f16,
+                                              nan_f16, nan_f16, nan_f16, nan_f16};
+  std::array<F16, kNumValues> some_nans_f16 = {nan_f16,     max_f16,
+                                               F16(0xc200),  // -3.0
+                                               F16(0xbc00),  // -1.0
+                                               nan_f16,
+                                               F16(0x4000),  // +2.0
+                                               min_f16,     nan_f16};
+  std::array<F16, kNumValues> other_nans_f16 = some_nans_f16;
+  other_nans_f16[0] = F16(0x3e00);  // +1.5
+
+  auto prepare_values = [](const auto& values) -> std::vector<FLBA> {
+    std::vector<FLBA> out(values.size());
+    std::transform(values.begin(), values.end(), out.begin(),
+                   [](const F16& f16) { return FLBA{f16.bytes()}; });
     return out;
   };
 
-  auto all_nans = prepare_values(all_nans_packed);
-  auto some_nans = prepare_values(some_nans_packed);
-  auto other_nans = prepare_values(other_nans_packed);
+  auto all_nans = prepare_values(all_nans_f16);
+  auto some_nans = prepare_values(some_nans_f16);
+  auto other_nans = prepare_values(other_nans_f16);
 
   uint8_t valid_bitmap = 0x7F;  // 0b01111111
   // NaNs excluded

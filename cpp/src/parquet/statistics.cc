@@ -30,18 +30,19 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
 #include "parquet/exception.h"
-#include "parquet/float_internal.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
+using arrow::util::Float16;
 using arrow::util::SafeCopy;
 using arrow::util::SafeLoad;
 
@@ -53,6 +54,25 @@ namespace {
 
 constexpr int value_length(int value_length, const ByteArray& value) { return value.len; }
 constexpr int value_length(int type_length, const FLBA& value) { return type_length; }
+
+// Static "constants" for normalizing float16 min/max values. These need to be expressed
+// as pointers because `Float16LogicalType` represents an FLBA.
+const uint8_t* float16_lowest() {
+  static const auto bytes = std::numeric_limits<Float16>::lowest().ToBytes();
+  return bytes.data();
+}
+const uint8_t* float16_max() {
+  static const auto bytes = std::numeric_limits<Float16>::max().ToBytes();
+  return bytes.data();
+}
+const uint8_t* float16_positive_zero() {
+  static const auto bytes = Float16(0).ToBytes();
+  return bytes.data();
+}
+const uint8_t* float16_negative_zero() {
+  static const auto bytes = (-Float16(0)).ToBytes();
+  return bytes.data();
+}
 
 template <typename DType, bool is_signed>
 struct CompareHelper {
@@ -281,31 +301,18 @@ struct CompareHelper<FLBAType, is_signed>
 struct Float16CompareHelper {
   using T = FLBA;
 
-  static T DefaultMin() { return T{float16::max_ptr()}; }
-  static T DefaultMax() { return T{float16::min_ptr()}; }
+  static T DefaultMin() { return T{float16_max()}; }
+  static T DefaultMax() { return T{float16_lowest()}; }
 
   static T Coalesce(T val, T fallback) {
-    return val.ptr != nullptr && float16::is_nan(float16::Pack(val)) ? fallback : val;
+    return val.ptr != nullptr && Float16::FromBytes(val.ptr).is_nan() ? fallback : val;
   }
 
   static inline bool Compare(int type_length, const T& a, const T& b) {
-    uint16_t l = float16::Pack(a);
-    uint16_t r = float16::Pack(b);
-
-    if (l & 0x8000) {
-      if (r & 0x8000) {
-        // Both are negative
-        return (l & 0x7fff) > (r & 0x7fff);
-      } else {
-        // Handle +/-0
-        return (l & 0x7fff) || r != 0;
-      }
-    } else if (r & 0x8000) {
-      return false;
-    } else {
-      // Both are positive
-      return (l & 0x7fff) < (r & 0x7fff);
-    }
+    const auto lhs = Float16::FromBytes(a.ptr);
+    const auto rhs = Float16::FromBytes(b.ptr);
+    // NaN is handled here (same behavior as native float compare)
+    return lhs < rhs;
   }
 
   static T Min(int type_length, const T& a, const T& b) {
@@ -363,27 +370,28 @@ CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
 }
 
 optional<std::pair<FLBA, FLBA>> CleanFloat16Statistic(std::pair<FLBA, FLBA> min_max) {
-  FLBA min = min_max.first;
-  FLBA max = min_max.second;
-  uint16_t min_packed = float16::Pack(min);
-  uint16_t max_packed = float16::Pack(max);
+  FLBA min_flba = min_max.first;
+  FLBA max_flba = min_max.second;
+  Float16 min = Float16::FromBytes(min_flba.ptr);
+  Float16 max = Float16::FromBytes(max_flba.ptr);
 
-  if (float16::is_nan(min_packed) || float16::is_nan(max_packed)) {
+  if (min.is_nan() || max.is_nan()) {
     return ::std::nullopt;
   }
 
-  if (min_packed == float16::max() && max_packed == float16::min()) {
+  if (min == std::numeric_limits<Float16>::max() &&
+      max == std::numeric_limits<Float16>::lowest()) {
     return ::std::nullopt;
   }
 
-  if (min_packed == float16::positive_zero()) {
-    min = FLBA{float16::negative_zero_ptr()};
+  if (min == Float16(0)) {
+    min_flba = FLBA{float16_negative_zero()};
   }
-  if (max_packed == float16::negative_zero()) {
-    max = FLBA{float16::positive_zero_ptr()};
+  if (max == -Float16(0)) {
+    max_flba = FLBA{float16_positive_zero()};
   }
 
-  return {{min, max}};
+  return {{min_flba, max_flba}};
 }
 
 optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max,
