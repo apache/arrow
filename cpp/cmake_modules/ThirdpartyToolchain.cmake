@@ -4511,6 +4511,10 @@ endif()
 
 macro(build_opentelemetry)
   message(STATUS "Building OpenTelemetry from source")
+  if(Protobuf_VERSION VERSION_GREATER_EQUAL 3.22)
+    message(FATAL_ERROR "GH-36013: Can't use bundled OpenTelemetry with Protobuf 3.22 or later. "
+                        "Protobuf is version ${Protobuf_VERSION}")
+  endif()
 
   set(OPENTELEMETRY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/opentelemetry_ep-install")
   set(OPENTELEMETRY_INCLUDE_DIR "${OPENTELEMETRY_PREFIX}/include")
