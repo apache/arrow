@@ -474,6 +474,42 @@ namespace Apache.Arrow.Tests
             }
         }
 
+        public class Set
+        {
+            [Theory]
+            [InlineData(1, "Test5")]
+            [InlineData(0, "T5")]
+            [InlineData(1, "T5")]
+            [InlineData(2, "T5")]
+            [InlineData(2, "Test3")]
+            [InlineData(1, "NewTest")]
+            [InlineData(2, "NewTest")]
+            [InlineData(0, "NewTest")]
+            public void EnsureSetsUpdatesTheCorrectBytes(int offset, string newValue)
+            {
+                // Arrange
+                var builder = new BinaryArray.Builder();
+                var defaultValues = new[] { "Test",  "Test1", "Test2"};
+                var expectedValues = (string[])defaultValues.Clone();
+                expectedValues[offset] = newValue;
+                foreach (string defaultValue in defaultValues)
+                {
+                    builder.Append(StringArray.DefaultEncoding.GetBytes(defaultValue).AsSpan());
+                }
+
+                // Act
+                builder.Set(offset, StringArray.DefaultEncoding.GetBytes(newValue));
+                var array = builder.Build();
+
+                // Assert
+                for (int i = 0; i <expectedValues.Length; i++)
+                {
+                    string actual = StringArray.DefaultEncoding.GetString(array.GetBytes(i));
+                    Assert.Equal(expectedValues[i], actual);
+                }
+            }
+        }
+
         private static void AssertArrayContents(IEnumerable<byte[]> expectedContents, BinaryArray array)
         {
             var expectedContentsArr = expectedContents.ToArray();

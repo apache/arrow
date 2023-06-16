@@ -40,8 +40,8 @@ namespace Apache.Arrow
                 {
                     return AppendNull();
                 }
-                encoding = encoding ?? DefaultEncoding;
-                byte[] span = encoding.GetBytes(value);
+
+                byte[] span = GetBytes(value, encoding);
                 return Append(span.AsSpan());
             }
 
@@ -53,6 +53,17 @@ namespace Apache.Arrow
                 }
 
                 return this;
+            }
+
+            public Builder Set(int index, string value, Encoding encoding = null)
+            {
+                return base.Set(index, GetBytes(value, encoding));
+            }
+
+            private byte[] GetBytes(string value, Encoding encoding)
+            {
+                encoding ??= DefaultEncoding;
+                return encoding.GetBytes(value);
             }
         }
 
