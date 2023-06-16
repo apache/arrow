@@ -537,7 +537,7 @@ Status BinaryFilterNonNullImpl(KernelContext* ctx, const ArraySpan& values,
     // Append offsets
     for (int64_t i = 0; i < length; ++i) {
       offset_builder.UnsafeAppend(offset);
-      offset += raw_offsets[i + position + 1] - raw_offsets[i + position + 1];
+      offset += raw_offsets[i + position + 1] - raw_offsets[i + position];
     }
     return Status::OK();
   };
@@ -843,7 +843,7 @@ Status BinaryViewFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResul
   // condition that all the values are non-null and the filter will not cause
   // any new nulls to be created.
   if (values.null_count == 0 &&
-      (null_selection == FilterOptions::DROP || filter_null_count_is_zero == 0)) {
+      (null_selection == FilterOptions::DROP || filter_null_count_is_zero)) {
     out_arr->null_count = 0;
   } else {
     out_arr->null_count = kUnknownNullCount;
@@ -852,7 +852,7 @@ Status BinaryViewFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResul
   // When neither the values nor filter is known to have any nulls, we will
   // elect the optimized ExecNonNull path where there is no need to populate a
   // validity bitmap.
-  bool allocate_validity = values.null_count != 0 || filter.null_count != 0;
+  const bool allocate_validity = values.null_count != 0 || !filter_null_count_is_zero;
 
   RETURN_NOT_OK(PreallocatePrimitiveArrayData(
       ctx, output_length, sizeof(StringHeader) * CHAR_BIT, allocate_validity, out_arr));
@@ -1096,6 +1096,8 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::Primitive()), ree_filter, PrimitiveFilterExec},
       {InputType(match::BinaryLike()), ree_filter, BinaryFilterExec},
       {InputType(match::LargeBinaryLike()), ree_filter, BinaryFilterExec},
+      {InputType(Type::BINARY_VIEW), ree_filter, BinaryViewFilterExec},
+      {InputType(Type::STRING_VIEW), ree_filter, BinaryViewFilterExec},
       {InputType(Type::FIXED_SIZE_BINARY), ree_filter, FSBFilterExec},
       {InputType(null()), ree_filter, NullFilterExec},
       {InputType(Type::DECIMAL128), ree_filter, FSBFilterExec},
