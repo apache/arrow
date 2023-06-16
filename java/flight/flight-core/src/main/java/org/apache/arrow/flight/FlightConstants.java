@@ -26,4 +26,18 @@ public interface FlightConstants {
 
   FlightServerMiddleware.Key<ServerHeaderMiddleware> HEADER_KEY =
       FlightServerMiddleware.Key.of("org.apache.arrow.flight.ServerHeaderMiddleware");
+
+  ActionType CANCEL_FLIGHT_INFO = new ActionType("CancelFlightInfo",
+      "Explicitly cancel a running FlightInfo.\n" +
+          "Request Message: FlightInfo to be canceled\n" +
+          "Response Message: ActionCancelFlightInfoResult");
+
+  ActionType CLOSE_FLIGHT_INFO = new ActionType("CloseFlightInfo",
+      "Close the given FlightInfo explicitly.\n" +
+          "Request Message: FlightInfo to be closed\n" +
+          "Response Message: N/A");
+  ActionType REFRESH_FLIGHT_ENDPOINT = new ActionType("RefreshFlightEndpoint",
+      "Extend expiration time of the given FlightEndpoint.\n" +
+          "Request Message: FlightEndpoint to be refreshed\n" +
+          "Response Message: Refreshed FlightEndpoint");
 }

@@ -59,8 +59,10 @@ import java.util.stream.Collectors;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.CancelFlightInfoResult;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
+import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.PutResult;
@@ -852,6 +854,27 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   /**
+   * Cancel execution of a distributed query.
+   *
+   * @param info The query to cancel.
+   * @param options Call options.
+   * @return The server response.
+   */
+  public CancelFlightInfoResult cancelFlightInfo(FlightInfo info, CallOption... options) {
+    return client.cancelFlightInfo(info, options);
+  }
+
+  /**
+   * Request the server to free resources associated with a query.
+   *
+   * @param info The query to close.
+   * @param options Call options.
+   */
+  public void closeFlightInfo(FlightInfo info, CallOption... options) {
+    client.closeFlightInfo(info, options);
+  }
+
+  /**
    * Explicitly cancel a running query.
    * <p>
    * This lets a single client explicitly cancel work, no matter how many clients
@@ -860,7 +883,10 @@ public class FlightSqlClient implements AutoCloseable {
    * commit or rollback as appropriate. This only indicates the client no longer
    * wishes to read the remainder of the query results or continue submitting
    * data.
+   *
+   * @deprecated Prefer {@link #cancelFlightInfo}.
    */
+  @Deprecated
   public CancelResult cancelQuery(FlightInfo info, CallOption... options) {
     ActionCancelQueryRequest request = ActionCancelQueryRequest.newBuilder()
         .setInfo(ByteString.copyFrom(info.serialize()))
@@ -886,6 +912,17 @@ public class FlightSqlClient implements AutoCloseable {
       default:
         throw CallStatus.INTERNAL.withDescription("Unknown result: " + result.getResult()).toRuntimeException();
     }
+  }
+
+  /**
+   * Request the server to extend the lifetime of a query result set.
+   *
+   * @param endpoint The result set partition.
+   * @param options Call options.
+   * @return The new endpoint with an updated expiration time.
+   */
+  public FlightEndpoint refreshFlightEndpoint(FlightEndpoint endpoint, CallOption... options) {
+    return client.refreshFlightEndpoint(endpoint, options);
   }
 
   @Override

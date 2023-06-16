@@ -40,6 +40,11 @@ final class Scenarios {
   private Scenarios() {
     scenarios = new TreeMap<>();
     scenarios.put("auth:basic_proto", AuthBasicProtoScenario::new);
+    scenarios.put("expiration_time:cancel_flight_info", ExpirationTimeCancelFlightInfoScenario::new);
+    scenarios.put("expiration_time:close_flight_info", ExpirationTimeCloseFlightInfoScenario::new);
+    scenarios.put("expiration_time:refresh_flight_endpoint", ExpirationTimeRefreshFlightEndpointScenario::new);
+    scenarios.put("expiration_time:do_get", ExpirationTimeDoGetScenario::new);
+    scenarios.put("expiration_time:list_actions", ExpirationTimeListActionsScenario::new);
     scenarios.put("middleware", MiddlewareScenario::new);
     scenarios.put("ordered", OrderedScenario::new);
     scenarios.put("flight_sql", FlightSqlScenario::new);
