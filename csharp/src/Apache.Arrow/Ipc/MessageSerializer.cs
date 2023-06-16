@@ -216,6 +216,10 @@ namespace Apache.Arrow.Ipc
                     }
                     Flatbuf.Map meta = field.Type<Flatbuf.Map>().Value;
                     return new Types.MapType(childFields[0], meta.KeysSorted);
+                case Flatbuf.Type.Utf8View:
+                    return new Types.Utf8ViewType();
+                case Flatbuf.Type.BinaryView:
+                    return new Types.BinaryViewType();
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }
