@@ -2093,11 +2093,10 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
   std::unique_ptr<::arrow::FixedSizeBinaryBuilder> builder_;
 };
 
-// TODO Below concept could be used to simplify type assertion,
-//  but it requires c++20
+// TODO: Below concept could be used to simplify type assertion in C++20.
 // template <typename T>
 // concept ByteArrayTypeConcept = std::is_same<T, ByteArrayType>::value ||
-//                               std::is_same<T, LargeByteArrayType>::value;
+//                                std::is_same<T, LargeByteArrayType>::value;
 
 template <typename T>
 struct IsByteArrayType : std::false_type {};

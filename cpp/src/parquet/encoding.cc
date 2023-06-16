@@ -1533,7 +1533,9 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
 
     offset_type total_size = 0;
     for (int i = 0; i < dictionary_length_; ++i) {
-      total_size += dict_values[i].len;
+      if (AddWithOverflow(total_size, dict_values[i].len, &total_size)) {
+        throw ParquetException("String/Binary length to large");
+      }
     }
     PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
                                                   /*shrink_to_fit=*/false));
