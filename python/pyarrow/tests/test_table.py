@@ -548,6 +548,9 @@ foo: 'bar'"""
     del batch
     assert wr() is None
 
+def test_recordbatch_dunder_init():
+    with pytest.raises(TypeError, match='RecordBatch'):
+        pa.RecordBatch()
 
 def test_recordbatch_equals():
     data1 = [
@@ -951,6 +954,9 @@ def test_table_basics():
     del table
     assert wr() is None
 
+def test_table_dunder_init():
+    with pytest.raises(TypeError, match='Table'):
+        pa.Table()
 
 def test_table_from_arrays_preserves_column_metadata():
     # Added to test https://issues.apache.org/jira/browse/ARROW-3866
