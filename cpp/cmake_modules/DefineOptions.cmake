@@ -294,6 +294,13 @@ takes precedence over ccache if a storage backend is configured" ON)
   #----------------------------------------------------------------------
   set_option_category("Project component")
 
+  define_option(ARROW_ACERO
+                "Build the Arrow Acero Engine Module"
+                OFF
+                DEPENDS
+                ARROW_COMPUTE
+                ARROW_IPC)
+
   define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 
   define_option(ARROW_COMPUTE "Build all Arrow Compute kernels" OFF)
@@ -401,13 +408,6 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_DATASET
                 ARROW_IPC
                 ARROW_PARQUET)
-
-  define_option(ARROW_ACERO
-                "Build the Arrow Acero Engine Module"
-                OFF
-                DEPENDS
-                ARROW_COMPUTE
-                ARROW_IPC)
 
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 

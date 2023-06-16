@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/array/data.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
@@ -31,13 +32,14 @@ namespace compute {
 namespace internal {
 
 struct SelectionKernelData {
-  InputType input;
+  InputType value_type;
+  InputType selection_type;
   ArrayKernelExec exec;
 };
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
-                               VectorKernel base_kernel, InputType selection_type,
-                               const std::vector<SelectionKernelData>& kernels,
+                               VectorKernel base_kernel,
+                               std::vector<SelectionKernelData>&& kernels,
                                const FunctionOptions* default_options,
                                FunctionRegistry* registry);
 
@@ -46,6 +48,25 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
 /// \param[in] bit_width 1 or a multiple of 8
 Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit_width,
                                      bool allocate_validity, ArrayData* out);
+
+/// \brief Callback type for VisitPlainxREEFilterOutputSegments.
+///
+/// position is the logical position in the values array relative to its offset.
+///
+/// segment_length is the number of elements that should be emitted.
+///
+/// filter_valid is true if the filter run value is non-NULL. This value can
+/// only be false if null_selection is NullSelectionBehavior::EMIT_NULL. For
+/// NullSelectionBehavior::DROP, NULL values from the filter are simply skipped.
+///
+/// Return true if iteration should continue, false if iteration should stop.
+using EmitREEFilterSegment =
+    std::function<bool(int64_t position, int64_t segment_length, bool filter_valid)>;
+
+void VisitPlainxREEFilterOutputSegments(
+    const ArraySpan& filter, bool filter_may_have_nulls,
+    FilterOptions::NullSelectionBehavior null_selection,
+    const EmitREEFilterSegment& emit_segment);
 
 Status FSBFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status ListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);

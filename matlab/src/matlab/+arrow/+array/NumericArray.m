@@ -37,7 +37,8 @@ classdef NumericArray < arrow.array.Array
             end
             arrow.args.validateTypeAndShape(data, type);
             validElements = arrow.args.parseValidElements(data, nullOpts);
-            obj@arrow.array.Array("Name", proxyName, "ConstructorArguments", {data, opts.DeepCopy, validElements});
+            opts = struct(MatlabArray=data, Valid=validElements, DeepCopy=opts.DeepCopy);
+            obj@arrow.array.Array("Name", proxyName, "ConstructorArguments", {opts});
             obj.MatlabArray = cast(obj.MatlabArray, type);
             % Store a reference to the array if not doing a deep copy
             if ~opts.DeepCopy, obj.MatlabArray = data; end

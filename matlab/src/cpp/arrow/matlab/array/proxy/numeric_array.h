@@ -51,12 +51,13 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             using ArrowType = typename arrow::CTypeTraits<CType>::ArrowType;
             using BuilderType = typename arrow::CTypeTraits<CType>::BuilderType;
 
+            ::matlab::data::StructArray opts = constructor_arguments[0];
+
             // Get the mxArray from constructor arguments
-            const ::matlab::data::TypedArray<CType> numeric_mda = constructor_arguments[0];
-            const ::matlab::data::TypedArray<bool> make_copy = constructor_arguments[1];
-
-            const auto has_validity_bitmap = constructor_arguments.getNumberOfElements() > 2;
-
+            const ::matlab::data::TypedArray<CType> numeric_mda = opts[0]["MatlabArray"];
+            const ::matlab::data::TypedArray<bool> valid_mda = opts[0]["Valid"];
+            const ::matlab::data::TypedArray<bool> make_copy = opts[0]["DeepCopy"];
+            
             // Get raw pointer of mxArray
             auto it(numeric_mda.cbegin());
             auto dt = it.operator->();
@@ -65,10 +66,9 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
 
             if (make_deep_copy) {
                 // Get the unpacked validity bitmap (if it exists)
-                auto unpacked_validity_bitmap = has_validity_bitmap ? getUnpackedValidityBitmap(constructor_arguments[2]) : nullptr;
+                auto unpacked_validity_bitmap = getUnpackedValidityBitmap(valid_mda);
 
                 BuilderType builder;
-
 
                 auto status = builder.AppendValues(dt, numeric_mda.getNumberOfElements(), unpacked_validity_bitmap);
                 MATLAB_ERROR_IF_NOT_OK(status, error::APPEND_VALUES_ERROR_ID);
@@ -76,7 +76,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                 auto maybe_array = builder.Finish();
                 MATLAB_ERROR_IF_NOT_OK(maybe_array.status(), error::BUILD_ARRAY_ERROR_ID);
 
-                return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(std::move(maybe_array).ValueUnsafe());
+                return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(*maybe_array);
 
             } else {
                 const auto data_type = arrow::CTypeTraits<CType>::type_singleton();
@@ -86,13 +86,11 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                 auto data_buffer = std::make_shared<arrow::Buffer>(reinterpret_cast<const uint8_t*>(dt),
                                                               sizeof(CType) * numeric_mda.getNumberOfElements());
 
-                std::shared_ptr<arrow::Buffer> packed_validity_bitmap;
-                if (has_validity_bitmap) {
-                    // Pack the validity bitmap values.
-                    auto maybe_buffer = arrow::matlab::bit::bitPackMatlabLogicalArray(constructor_arguments[2]);
-                    MATLAB_ERROR_IF_NOT_OK(maybe_buffer.status(), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
-                    packed_validity_bitmap = std::move(maybe_buffer).ValueUnsafe();
-                }
+                // Pack the validity bitmap values.
+                auto maybe_buffer = arrow::matlab::bit::bitPackMatlabLogicalArray(valid_mda);
+                MATLAB_ERROR_IF_NOT_OK(maybe_buffer.status(), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
+                auto packed_validity_bitmap = *maybe_buffer;
+
                 auto array_data = arrow::ArrayData::Make(data_type, length, {packed_validity_bitmap, data_buffer});
                 return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(arrow::MakeArray(array_data));
             }
