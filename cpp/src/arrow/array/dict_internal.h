@@ -162,9 +162,8 @@ struct DictionaryTraits<T, enable_if_binary_view_like<T>> {
 
   static_assert(std::is_same_v<MemoTableType, BinaryMemoTable<BinaryBuilder>>);
 
-  // Instead of defining a custom memo table for StringView we reuse BinaryType's.
-  // This is less efficient since it needs to output offsets, so we must allocate
-  // one, convert the offsets to string views, then discard the offsets buffer.
+  // Instead of defining a custom memo table for StringView we reuse BinaryType's,
+  // then convert to string view when we copy data out of the memo table.
   static Status GetDictionaryArrayData(MemoryPool* pool,
                                        const std::shared_ptr<DataType>& type,
                                        const MemoTableType& memo_table,
@@ -175,13 +174,13 @@ struct DictionaryTraits<T, enable_if_binary_view_like<T>> {
     BinaryViewBuilder builder(pool);
     RETURN_NOT_OK(builder.Resize(memo_table.size() - start_offset));
     RETURN_NOT_OK(builder.ReserveData(memo_table.values_size()));
-    memo_table.VisitValues(static_cast<int32_t>(start_offset), [&](std::string_view s) {
-      builder.UnsafeAppend(s);
-    });
+    memo_table.VisitValues(static_cast<int32_t>(start_offset),
+                           [&](std::string_view s) { builder.UnsafeAppend(s); });
     RETURN_NOT_OK(builder.FinishInternal(out));
     if (checked_cast<const BinaryViewType&>(*type).has_raw_pointers()) {
       // the builder produces index/offset string views, so swap to raw pointers
-      RETURN_NOT_OK(SwapStringHeaderPointers(**out, (*out)->GetMutableValues<StringHeader>(1)));
+      RETURN_NOT_OK(
+          SwapStringHeaderPointers(**out, (*out)->GetMutableValues<StringHeader>(1)));
     }
     (*out)->type = type;
     return Status::OK();
