@@ -298,7 +298,6 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
 void ArraySpan::FillFromScalar(const Scalar& value) {
   static uint8_t kTrueBit = 0x01;
   static uint8_t kFalseBit = 0x00;
-  auto* scratch_space = const_cast<Scalar&>(value).scratch_space_;
 
   this->type = value.type.get();
   this->length = 1;
@@ -330,7 +329,8 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
   } else if (is_base_binary_like(type_id)) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
-    this->buffers[1].data = scratch_space;
+
+    this->buffers[1].data = scalar.scratch_space_;
     const uint8_t* data_buffer = nullptr;
     int64_t data_size = 0;
     if (scalar.is_valid) {
@@ -338,10 +338,10 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       data_size = scalar.value->size();
     }
     if (is_binary_like(type_id)) {
-      SetOffsetsForScalar(this, scratch_space, static_cast<int32_t>(data_size));
+      SetOffsetsForScalar(this, scalar.scratch_space_, static_cast<int32_t>(data_size));
     } else {
       // is_large_binary_like
-      SetOffsetsForScalar(this, scratch_space, data_size);
+      SetOffsetsForScalar(this, scalar.scratch_space_, data_size);
     }
     this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
     this->buffers[2].size = data_size;
@@ -366,9 +366,10 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
 
     if (type_id == Type::LIST || type_id == Type::MAP) {
-      SetOffsetsForScalar(this, scratch_space, static_cast<int32_t>(value_length));
+      SetOffsetsForScalar(this, scalar.scratch_space_,
+                          static_cast<int32_t>(value_length));
     } else if (type_id == Type::LARGE_LIST) {
-      SetOffsetsForScalar(this, scratch_space, value_length);
+      SetOffsetsForScalar(this, scalar.scratch_space_, value_length);
     } else {
       // FIXED_SIZE_LIST: does not have a second buffer
       this->buffers[1] = {};
@@ -383,10 +384,12 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
   } else if (is_union(type_id)) {
     // Dense union needs scratch space to store both offsets and a type code
     struct UnionScratchSpace {
-      uint8_t type_code;
-      alignas(int32_t) uint8_t offsets[sizeof(int32_t) * 2];
+      alignas(int64_t) uint8_t type_code;
+      alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
     };
-    auto* union_scratch_space = new (scratch_space) UnionScratchSpace{};
+    static_assert(sizeof(UnionScratchSpace) <= sizeof(UnionScalar::scratch_space_));
+    auto* union_scratch_space =
+        new (checked_cast<const UnionScalar&>(value).scratch_space_) UnionScratchSpace{};
 
     // First buffer is kept null since unions have no validity vector
     this->buffers[0] = {};

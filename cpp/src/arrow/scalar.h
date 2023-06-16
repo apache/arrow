@@ -111,13 +111,6 @@ struct ARROW_EXPORT Scalar : public std::enable_shared_from_this<Scalar>,
  protected:
   Scalar(std::shared_ptr<DataType> type, bool is_valid)
       : type(std::move(type)), is_valid(is_valid) {}
-
- private:
-  // 16 bytes of scratch space to enable ArraySpan to be a view onto any
-  // Scalar- including binary scalars where we need to create a buffer
-  // that looks like two 32-bit or 64-bit offsets.
-  alignas(int64_t) mutable uint8_t scratch_space_[sizeof(int64_t) * 2];
-  friend struct ArraySpan;
 };
 
 ARROW_EXPORT void PrintTo(const Scalar& scalar, std::ostream* os);
@@ -137,6 +130,13 @@ struct ARROW_EXPORT NullScalar : public Scalar {
 /// @}
 
 namespace internal {
+
+struct ARROW_EXPORT ArraySpanFillFromScalarScratchSpace {
+  //  16 bytes of scratch space to enable ArraySpan to be a view onto any
+  //  Scalar- including binary scalars where we need to create a buffer
+  //  that looks like two 32-bit or 64-bit offsets.
+  alignas(int64_t) mutable uint8_t scratch_space_[sizeof(int64_t) * 2];
+};
 
 struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
   explicit PrimitiveScalarBase(std::shared_ptr<DataType> type)
@@ -245,7 +245,9 @@ struct ARROW_EXPORT DoubleScalar : public NumericScalar<DoubleType> {
   using NumericScalar<DoubleType>::NumericScalar;
 };
 
-struct ARROW_EXPORT BaseBinaryScalar : public internal::PrimitiveScalarBase {
+struct ARROW_EXPORT BaseBinaryScalar
+    : public internal::PrimitiveScalarBase,
+      private internal::ArraySpanFillFromScalarScratchSpace {
   using internal::PrimitiveScalarBase::PrimitiveScalarBase;
   using ValueType = std::shared_ptr<Buffer>;
 
@@ -264,6 +266,8 @@ struct ARROW_EXPORT BaseBinaryScalar : public internal::PrimitiveScalarBase {
  protected:
   BaseBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
       : internal::PrimitiveScalarBase{std::move(type), true}, value(std::move(value)) {}
+
+  friend ArraySpan;
 };
 
 struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar {
@@ -471,7 +475,9 @@ struct ARROW_EXPORT Decimal256Scalar : public DecimalScalar<Decimal256Type, Deci
   using DecimalScalar::DecimalScalar;
 };
 
-struct ARROW_EXPORT BaseListScalar : public Scalar {
+struct ARROW_EXPORT BaseListScalar
+    : public Scalar,
+      private internal::ArraySpanFillFromScalarScratchSpace {
   using Scalar::Scalar;
   using ValueType = std::shared_ptr<Array>;
 
@@ -479,6 +485,9 @@ struct ARROW_EXPORT BaseListScalar : public Scalar {
                  bool is_valid = true);
 
   std::shared_ptr<Array> value;
+
+ private:
+  friend struct ArraySpan;
 };
 
 struct ARROW_EXPORT ListScalar : public BaseListScalar {
@@ -526,7 +535,8 @@ struct ARROW_EXPORT StructScalar : public Scalar {
                                                     std::vector<std::string> field_names);
 };
 
-struct ARROW_EXPORT UnionScalar : public Scalar {
+struct ARROW_EXPORT UnionScalar : public Scalar,
+                                  private internal::ArraySpanFillFromScalarScratchSpace {
   int8_t type_code;
 
   virtual const std::shared_ptr<Scalar>& child_value() const = 0;
@@ -534,6 +544,8 @@ struct ARROW_EXPORT UnionScalar : public Scalar {
  protected:
   UnionScalar(std::shared_ptr<DataType> type, int8_t type_code, bool is_valid)
       : Scalar(std::move(type), is_valid), type_code(type_code) {}
+
+  friend struct ArraySpan;
 };
 
 struct ARROW_EXPORT SparseUnionScalar : public UnionScalar {
