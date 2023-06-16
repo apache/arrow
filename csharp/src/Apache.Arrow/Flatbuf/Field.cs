@@ -57,6 +57,8 @@ internal struct Field : IFlatbufferObject
   public LargeUtf8 TypeAsLargeUtf8() { return Type<LargeUtf8>().Value; }
   public LargeList TypeAsLargeList() { return Type<LargeList>().Value; }
   public RunEndEncoded TypeAsRunEndEncoded() { return Type<RunEndEncoded>().Value; }
+  public BinaryView TypeAsBinaryView() { return Type<BinaryView>().Value; }
+  public Utf8View TypeAsUtf8View() { return Type<Utf8View>().Value; }
   /// Present only if the field is dictionary encoded.
   public DictionaryEncoding? Dictionary { get { int o = __p.__offset(12); return o != 0 ? (DictionaryEncoding?)(new DictionaryEncoding()).__assign(__p.__indirect(o + __p.bb_pos), __p.bb) : null; } }
   /// children apply only to nested data types like Struct, List and Union. For

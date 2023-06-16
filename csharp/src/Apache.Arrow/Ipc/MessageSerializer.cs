@@ -193,6 +193,10 @@ namespace Apache.Arrow.Ipc
                 case Flatbuf.Type.Struct_:
                     Debug.Assert(childFields != null);
                     return new Types.StructType(childFields);
+                case Flatbuf.Type.Utf8View:
+                    return new Types.Utf8ViewType();
+                case Flatbuf.Type.BinaryView:
+                    return new Types.BinaryViewType();
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }

@@ -99,6 +99,12 @@ table RecordBatch {
 
   /// Optional compression of the message body
   compression: BodyCompression;
+
+  /// Some types such as Utf8View are represented using a variable number of buffers.
+  /// For each such Field in the pre-ordered flattened logical schema, there will be
+  /// an entry in variadicCounts to indicate the number of extra buffers which belong
+  /// to that Field.
+  variadicCounts: [long];
 }
 
 /// For sending dictionary encoding information. Any Field can be
