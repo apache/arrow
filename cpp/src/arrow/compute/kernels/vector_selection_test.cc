@@ -31,7 +31,6 @@
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
-#include "arrow/compute/kernels/vector_run_end_selection.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
@@ -41,7 +40,6 @@
 
 namespace arrow {
 
-using compute::internal::REEFilterExec;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using std::string_view;
@@ -1116,51 +1114,21 @@ TEST(TestFilterMetaFunction, ArityChecking) {
 
 namespace ree {
 
-std::unique_ptr<REEFilterExec> MakeREEFilterExec(const ArraySpan& values,
-                                                 const ArraySpan& filter,
-                                                 const FilterOptions& options) {
-  auto* pool = default_memory_pool();
-  Result<std::unique_ptr<REEFilterExec>> result;
-  if (values.type->id() == Type::RUN_END_ENCODED) {
-    if (filter.type->id() == Type::RUN_END_ENCODED) {
-      result = internal::MakeREExREEFilterExec(pool, values, filter, options);
-    } else {
-      result = internal::MakeREExPlainFilterExec(pool, values, filter, options);
-    }
-  } else {
-    DCHECK_EQ(filter.type->id(), Type::RUN_END_ENCODED);
-    result = internal::MakePlainxREEFilterExec(pool, values, filter, options);
-  }
-  EXPECT_OK_AND_ASSIGN(auto exec, std::move(result));
-  return exec;
-}
-
 void DoAssertFilterOutput(const std::shared_ptr<Array>& values,
                           const std::shared_ptr<Array>& filter,
                           const FilterOptions& null_options,
                           const std::shared_ptr<Array>& expected) {
-  auto values_span = ArraySpan(*values->data());
-  auto filter_span = ArraySpan(*filter->data());
-  auto filter_exec = MakeREEFilterExec(values_span, filter_span, null_options);
+  // TODO(felipecrv): enable this when all input types are supported
+  const int64_t calculated_output_size = internal::GetFilterOutputSize(
+      *filter->data(), null_options.null_selection_behavior);
+  ASSERT_EQ(calculated_output_size, expected->length());
 
-  EXPECT_OK_AND_ASSIGN(auto calculated_output_size, filter_exec->CalculateOutputSize());
-  if (values_span.type->id() == Type::RUN_END_ENCODED) {
-    ASSERT_EQ(calculated_output_size, ree_util::ValuesArray(*expected->data()).length);
-  } else {
-    ASSERT_EQ(calculated_output_size, expected->length());
-  }
+  ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, filter, null_options));
+  auto actual = out_datum.make_array();
+  ValidateOutput(*actual);
 
-  auto output = ArrayData::Make(values->type(), 0, {nullptr});
-  ASSERT_OK(filter_exec->Exec(output.get()));
-  auto output_array = MakeArray(output);
-  ValidateOutput(output_array);
-  ASSERT_ARRAYS_EQUAL(*output_array, *expected);
-
-  if (output->type->id() == Type::RUN_END_ENCODED) {
-    ASSERT_EQ(ree_util::ValuesArray(*output).length,
-              ree_util::ValuesArray(*expected->data()).length);
-  }
-  ASSERT_EQ(output->length, expected->length());
+  ASSERT_EQ(actual->length(), expected->length());
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
 void DoAssertFilterOutput(const std::shared_ptr<Array>& values,
