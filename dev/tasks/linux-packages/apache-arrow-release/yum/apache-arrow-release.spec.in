@@ -87,7 +87,9 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %{_sysconfdir}/yum.repos.d/Apache-Arrow.repo
 
 %post
-if grep -q 'Amazon Linux' /etc/system-release 2>/dev/null; then
+if grep -q 'Amazon Linux release 2023' /etc/system-release 2>/dev/null; then
+  %{yum_repository_enable apache-arrow-amazon-linux-2023}
+elif grep -q 'Amazon Linux release 2' /etc/system-release 2>/dev/null; then
   %{yum_repository_enable apache-arrow-amazon-linux}
 elif grep -q 'Red Hat Enterprise Linux Server release 7' /etc/system-release 2>/dev/null; then
   %{yum_repository_enable apache-arrow-rhel7}
