@@ -661,12 +661,12 @@ arrow::Result<Result> Result::Deserialize(std::string_view serialized) {
 
 std::string CancelFlightInfoResult::ToString() const {
   std::stringstream ss;
-  ss << "<CancelFlightInfoResult result=" << result << ">";
+  ss << "<CancelFlightInfoResult status=" << status << ">";
   return ss.str();
 }
 
 bool CancelFlightInfoResult::Equals(const CancelFlightInfoResult& other) const {
-  return result == other.result;
+  return status == other.status;
 }
 
 arrow::Result<std::string> CancelFlightInfoResult::SerializeToString() const {
@@ -698,18 +698,18 @@ arrow::Result<CancelFlightInfoResult> CancelFlightInfoResult::Deserialize(
   return out;
 }
 
-std::ostream& operator<<(std::ostream& os, CancelResult result) {
-  switch (result) {
-    case CancelResult::kUnspecified:
+std::ostream& operator<<(std::ostream& os, CancelStatus status) {
+  switch (status) {
+    case CancelStatus::kUnspecified:
       os << "Unspecified";
       break;
-    case CancelResult::kCancelled:
+    case CancelStatus::kCancelled:
       os << "Cancelled";
       break;
-    case CancelResult::kCancelling:
+    case CancelStatus::kCancelling:
       os << "Cancelling";
       break;
-    case CancelResult::kNotCancellable:
+    case CancelStatus::kNotCancellable:
       os << "NotCancellable";
       break;
   }

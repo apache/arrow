@@ -859,20 +859,20 @@ func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream 
 		for _, ep := range info.Endpoint {
 			ticket := string(ep.Ticket.Ticket)
 			index, err := tester.ExtractIndexFromTicket(ticket)
-			cancelResult := flight.CancelResultUnspecified
+			cancelStatus := flight.CancelStatusUnspecified
 			if err == nil {
 				st := tester.statuses[index]
 				if st.cancelled {
-					cancelResult = flight.CancelResultNotCancellable
+					cancelStatus = flight.CancelStatusNotCancellable
 				} else {
 					st.cancelled = true
-					cancelResult = flight.CancelResultCancelled
+					cancelStatus = flight.CancelStatusCancelled
 					tester.statuses[index] = st
 				}
 			} else {
-				cancelResult = flight.CancelResultNotCancellable
+				cancelStatus = flight.CancelStatusNotCancellable
 			}
-			result := flight.CancelFlightInfoResult{Result: cancelResult}
+			result := flight.CancelFlightInfoResult{Status: cancelStatus}
 			out, err := packActionResult(&result)
 			if err != nil {
 				return err
@@ -1150,8 +1150,8 @@ func (tester *expirationTimeCancelFlightInfoScenarioTester) RunClient(addr strin
 	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
-	if result.Result != flight.CancelResultCancelled {
-		return fmt.Errorf("invalid: CancelFlightInfo must return CANCEL_RESULT_CANCELLED: ", result.Result)
+	if result.Status != flight.CancelStatusCancelled {
+		return fmt.Errorf("invalid: CancelFlightInfo must return CANCEL_STATUS_CANCELLED: ", result.Status)
 	}
 	for _, ep := range info.Endpoint {
 		stream, err := client.DoGet(ctx, ep.Ticket)

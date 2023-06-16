@@ -513,7 +513,7 @@ func (BaseServer) BeginSavepoint(context.Context, ActionBeginSavepointRequest) (
 
 func (BaseServer) CancelFlightInfo(context.Context, flight.FlightInfo) (flight.CancelFlightInfoResult, error) {
 	var result flight.CancelFlightInfoResult
-	result.Result = flight.CancelResultUnspecified
+	result.Status = flight.CancelStatusUnspecified
 	return result, status.Error(codes.Unimplemented, "CancelFlightInfo not implemented")
 }
 

@@ -79,13 +79,13 @@ Status ToProto(const Result& result, pb::Result* pb_result) {
 
 Status FromProto(const pb::CancelFlightInfoResult& pb_result,
                  CancelFlightInfoResult* result) {
-  result->result = static_cast<CancelResult>(pb_result.result());
+  result->status = static_cast<CancelStatus>(pb_result.status());
   return Status::OK();
 }
 
 Status ToProto(const CancelFlightInfoResult& result,
                pb::CancelFlightInfoResult* pb_result) {
-  pb_result->set_result(static_cast<protocol::CancelResult>(result.result));
+  pb_result->set_status(static_cast<protocol::CancelStatus>(result.status));
   return Status::OK();
 }
 

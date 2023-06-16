@@ -251,7 +251,7 @@ struct ARROW_FLIGHT_EXPORT Result {
   static arrow::Result<Result> Deserialize(std::string_view serialized);
 };
 
-enum class CancelResult {
+enum class CancelStatus {
   /// The cancellation status is unknown. Servers should avoid using
   /// this value (send a kNotCancellable if the requested FlightInfo
   /// is not known). Clients can retry the request.
@@ -269,7 +269,7 @@ enum class CancelResult {
 
 /// \brief The result of the CancelFlightInfo action.
 struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult {
-  CancelResult result;
+  CancelStatus status;
 
   std::string ToString() const;
   bool Equals(const CancelFlightInfoResult& other) const;
@@ -291,7 +291,7 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult {
 };
 
 ARROW_FLIGHT_EXPORT
-std::ostream& operator<<(std::ostream& os, CancelResult result);
+std::ostream& operator<<(std::ostream& os, CancelStatus status);
 
 /// \brief message for simple auth
 struct ARROW_FLIGHT_EXPORT BasicAuth {

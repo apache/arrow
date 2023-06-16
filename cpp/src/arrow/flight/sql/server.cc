@@ -1068,7 +1068,7 @@ arrow::Result<CancelFlightInfoResult> FlightSqlServerBase::CancelFlightInfo(
 arrow::Result<CancelResult> FlightSqlServerBase::CancelQuery(
     const ServerCallContext& context, const ActionCancelQueryRequest& request) {
   ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, *request.info));
-  return static_cast<CancelResult>(result.result);
+  return static_cast<CancelResult>(result.status);
 }
 
 arrow::Result<ActionCreatePreparedStatementResult>
