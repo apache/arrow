@@ -1249,11 +1249,11 @@ TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compatibility) {
   ASSERT_OK(NullableArray<::arrow::UInt32Type>(LARGE_SIZE, 100, kDefaultSeed, &values));
   std::shared_ptr<Table> table = MakeSimpleTable(values, true);
 
-  // Parquet 2.4 roundtrip should yield an uint32_t column again
+  // Parquet 2.6 roundtrip should yield an uint32_t column again
   this->ResetSink();
   std::shared_ptr<::parquet::WriterProperties> properties =
       ::parquet::WriterProperties::Builder()
-          .version(ParquetVersion::PARQUET_2_4)
+          .version(ParquetVersion::PARQUET_2_6)
           ->build();
   ASSERT_OK_NO_THROW(
       WriteTable(*table, default_memory_pool(), this->sink_, 512, properties));
@@ -3334,7 +3334,7 @@ TEST(ArrowReadWrite, NestedRequiredOuterOptional) {
     auto arrow_writer_props = ArrowWriterProperties::Builder();
     arrow_writer_props.store_schema();
     if (inner_type->id() == ::arrow::Type::UINT32) {
-      writer_props.version(ParquetVersion::PARQUET_2_4);
+      writer_props.version(ParquetVersion::PARQUET_2_6);
     } else if (inner_type->id() == ::arrow::Type::TIMESTAMP) {
       // By default ns is coerced to us, override that
       ::arrow::TimeUnit::type unit =
