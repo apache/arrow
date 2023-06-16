@@ -358,8 +358,8 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] options      RPC-layer hints for this call.
   /// \param[in] info         The FlightEndpoint to refresh.
   /// \return Arrow result with a refreshed FlightEndpoint
-  ::arrow::Result<FlightEndpoint> CloseFlightEndpoint(const FlightCallOptions& options,
-                                                      const FlightEndpoint& endpoint) {
+  ::arrow::Result<FlightEndpoint> RefreshFlightEndpoint(const FlightCallOptions& options,
+                                                        const FlightEndpoint& endpoint) {
     return impl_->RefreshFlightEndpoint(options, endpoint);
   }
 
