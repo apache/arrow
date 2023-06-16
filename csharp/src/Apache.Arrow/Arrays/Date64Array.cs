@@ -73,7 +73,7 @@ namespace Apache.Arrow
 #if NET6_0_OR_GREATER
             protected override long Convert(DateOnly date)
             {
-                return (long)date.DayNumber - _epochDayNumber;
+                return ((long)date.DayNumber - _epochDayNumber) * MillisecondsPerDay;
             }
 #endif
         }

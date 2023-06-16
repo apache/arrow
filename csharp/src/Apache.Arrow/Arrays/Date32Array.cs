@@ -130,7 +130,7 @@ namespace Apache.Arrow
         {
             int? value = GetValue(index);
             return value.HasValue
-                ? _epochDateOnly.AddDays(value.Value)
+                ? DateOnly.FromDayNumber(_epochDayNumber + value.Value)
                 : default(DateOnly?);
         }
 #endif

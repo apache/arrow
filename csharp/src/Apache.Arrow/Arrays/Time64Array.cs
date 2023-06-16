@@ -65,8 +65,8 @@ namespace Apache.Arrow
                 var unit = ((TimeBuilder)InnerBuilder).DataType.Unit;
                 return unit switch
                 {
-                    TimeUnit.Microsecond => (int)(time.Ticks / TicksPerMicrosecond),
-                    TimeUnit.Nanosecond => (int)(time.Ticks * NanosecondsPerTick),
+                    TimeUnit.Microsecond => (long)(time.Ticks / TicksPerMicrosecond),
+                    TimeUnit.Nanosecond => (long)(time.Ticks * NanosecondsPerTick),
                     _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
                 };
             }
@@ -139,6 +139,9 @@ namespace Apache.Arrow
         /// <summary>
         /// Get the time at the specified index as <see cref="TimeOnly"/>
         /// </summary>
+        /// <remarks>
+        /// This may cause truncation of nanosecond values, as the resolution of TimeOnly is in 100-ns increments.
+        /// </remarks>
         /// <param name="index">Index at which to get the time.</param>
         /// <returns>Returns a <see cref="TimeOnly" />, or <c>null</c> if there is no object at that index.
         /// </returns>
