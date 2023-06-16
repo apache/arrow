@@ -308,42 +308,52 @@ std::shared_ptr<Array> CoalesceNullToFalse(std::shared_ptr<Array> filter) {
 }
 
 class TestFilterKernel : public ::testing::Test {
+ private:
+  static void DoAssertFilter(const std::shared_ptr<Array>& values,
+                             const std::shared_ptr<Array>& filter,
+                             const FilterOptions& null_options,
+                             const std::shared_ptr<Array>& expected) {
+    ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, filter, null_options));
+    auto actual = out_datum.make_array();
+    ValidateOutput(*actual);
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  }
+
  protected:
+  /// Assuming filter also contains NULLs, this will execute:
+  ///
+  ///   Filter(values, filter   w NULLs, FilterOptions::EMIT_NULL)
+  ///   Filter(values, filter w\o NULLs, FilterOptions::EMIT_NULL)
+  ///   Filter(values, filter   w NULLs, FilterOptions::DROP)
+  ///
+  /// By doing so it ensures (assuming bugs don't cancel each other out) that:
+  ///
+  /// - NULLs are emitted with FilterOptions::EMIT_NULL
+  /// - Only the NULLs from values are emitted when no NULLs in filter
+  /// - All NULLs are dropped with FilterOptions::DROP
   static void DoAssertFilter(const std::shared_ptr<Array>& values,
                              const std::shared_ptr<Array>& filter,
                              const std::shared_ptr<Array>& expected) {
-    // test with EMIT_NULL
     {
       ARROW_SCOPED_TRACE("with EMIT_NULL");
-      ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, filter, kEmitNulls));
-      auto actual = out_datum.make_array();
-      ValidateOutput(*actual);
-      AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+      DoAssertFilter(values, filter, kEmitNulls, expected);
     }
-
-    // test with DROP using EMIT_NULL and a coalesced filter
     {
       ARROW_SCOPED_TRACE("with DROP");
       auto coalesced_filter = CoalesceNullToFalse(filter);
       ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, coalesced_filter, kEmitNulls));
       auto expected_for_drop = out_datum.make_array();
-      ASSERT_OK_AND_ASSIGN(out_datum, Filter(values, filter, kDropNulls));
-      auto actual = out_datum.make_array();
-      ValidateOutput(*actual);
-      AssertArraysEqual(*expected_for_drop, *actual, /*verbose=*/true);
+      DoAssertFilter(values, filter, kDropNulls, expected_for_drop);
     }
   }
 
-  static void AssertFilter(const std::shared_ptr<Array>& values,
-                           const std::shared_ptr<Array>& filter,
-                           const std::shared_ptr<Array>& expected) {
-    DoAssertFilter(values, filter, expected);
-
+  static void DoAssertFilterSliced(const std::shared_ptr<Array>& values,
+                                   const std::shared_ptr<Array>& filter,
+                                   const std::shared_ptr<Array>& expected) {
     if (values->type_id() == Type::DENSE_UNION) {
       // Concatenation of dense union not supported
       return;
     }
-
     // Check slicing: add M(=3) dummy values at the start and end of `values`,
     // add N(=2) dummy values at the start and end of `filter`.
     ARROW_SCOPED_TRACE("for sliced values and filter");
@@ -357,6 +367,13 @@ class TestFilterKernel : public ::testing::Test {
     auto values_sliced = values_with_filler->Slice(3, values->length());
     auto filter_sliced = filter_with_filler->Slice(2, filter->length());
     DoAssertFilter(values_sliced, filter_sliced, expected);
+  }
+
+  static void AssertFilter(const std::shared_ptr<Array>& values,
+                           const std::shared_ptr<Array>& filter,
+                           const std::shared_ptr<Array>& expected) {
+    DoAssertFilter(values, filter, expected);
+    DoAssertFilterSliced(values, filter, expected);
   }
 
   static void AssertFilter(const std::shared_ptr<DataType>& type,
@@ -418,13 +435,47 @@ void ValidateFilter(const std::shared_ptr<Array>& values,
                     /*verbose=*/true);
 }
 
+const std::vector<std::shared_ptr<DataType>> common_types = {
+    null(),
+    boolean(),
+    int8(),
+    int16(),
+    int32(),
+    int64(),
+    uint8(),
+    uint16(),
+    uint32(),
+    uint64(),
+    float32(),
+    float64(),
+    decimal128(10, 2),
+    decimal256(20, 4),
+    time32(TimeUnit::MILLI),
+    time64(TimeUnit::NANO),
+    timestamp(TimeUnit::MILLI, "UTC"),
+    date64(),
+    date32(),
+    duration(TimeUnit::MILLI),
+    day_time_interval(),
+    // TODO(GH-36136): enable this when PrimitiveFilterImpl can handle 128-bit widhts
+    // month_day_nano_interval(),
+    month_interval(),
+    fixed_size_binary(10),
+    utf8(),
+    large_utf8(),
+    binary(),
+    large_binary(),
+};
+
 class TestFilterKernelWithNull : public TestFilterKernel {
  protected:
   void AssertFilter(const std::string& values, const std::string& filter,
                     const std::string& expected) {
-    TestFilterKernel::AssertFilter(ArrayFromJSON(null(), values),
-                                   ArrayFromJSON(boolean(), filter),
-                                   ArrayFromJSON(null(), expected));
+    for (auto& data_type : common_types) {
+      TestFilterKernel::AssertFilter(ArrayFromJSON(data_type, values),
+                                     ArrayFromJSON(boolean(), filter),
+                                     ArrayFromJSON(data_type, expected));
+    }
   }
 };
 
@@ -1112,9 +1163,24 @@ void DoAssertFilterOutput(const std::shared_ptr<Array>& values,
   ASSERT_EQ(output->length, expected->length());
 }
 
+void DoAssertFilterOutput(const std::shared_ptr<Array>& values,
+                          const std::shared_ptr<Array>& filter,
+                          const std::shared_ptr<Array>& expected) {
+  {
+    ARROW_SCOPED_TRACE("with EMIT_NULL");
+    DoAssertFilterOutput(values, filter, kEmitNulls, expected);
+  }
+  {
+    ARROW_SCOPED_TRACE("with DROP");
+    auto coalesced_filter = CoalesceNullToFalse(filter);
+    ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, coalesced_filter, kEmitNulls));
+    auto expected_for_drop = out_datum.make_array();
+    DoAssertFilterOutput(values, filter, kDropNulls, expected_for_drop);
+  }
+}
+
 void DoAssertFilterSlicedOutput(const std::shared_ptr<Array>& values,
                                 const std::shared_ptr<Array>& filter,
-                                const FilterOptions& null_options,
                                 const std::shared_ptr<Array>& expected) {
   constexpr auto M = 3;
   constexpr auto N = 2;
@@ -1130,97 +1196,59 @@ void DoAssertFilterSlicedOutput(const std::shared_ptr<Array>& values,
                        Concatenate({filter_filler, filter, filter_filler}));
   auto values_sliced = values_with_filler->Slice(M, values->length());
   auto filter_sliced = filter_with_filler->Slice(N, filter->length());
-  DoAssertFilterOutput(values_sliced, filter_sliced, null_options, expected);
+  DoAssertFilterOutput(values_sliced, filter_sliced, expected);
 }
 
 void DoAssertOutput(const std::shared_ptr<Array>& values,
                     const std::shared_ptr<Array>& filter,
-                    const FilterOptions& null_options,
                     const std::shared_ptr<Array>& expected) {
   ARROW_SCOPED_TRACE("assert output");
-  ARROW_SCOPED_TRACE(null_options.null_selection_behavior ==
-                             FilterOptions::NullSelectionBehavior::DROP
-                         ? "while dropping nulls"
-                         : "while emitting nulls");
   auto values_span = ArraySpan(*values->data());
   auto filter_span = ArraySpan(*filter->data());
-  auto filter_exec = MakeREEFilterExec(values_span, filter_span, null_options);
   {
     ARROW_SCOPED_TRACE("for full values and filter");
-    DoAssertFilterOutput(values, filter, null_options, expected);
+    DoAssertFilterOutput(values, filter, expected);
   }
-  DoAssertFilterSlicedOutput(values, filter, null_options, expected);
+  DoAssertFilterSlicedOutput(values, filter, expected);
 }
 
 /// \pre values is a RunEndEncodedArray
 void DoAssertOutput(const std::shared_ptr<Array>& values,
-                    const std::shared_ptr<Array>& filter,
-                    const FilterOptions& null_options, const REERep& expected_rep) {
+                    const std::shared_ptr<Array>& filter, const REERep& expected) {
   auto values_span = ArraySpan(*values->data());
   auto filter_span = ArraySpan(*filter->data());
-  ASSERT_OK_AND_ASSIGN(auto expected, REEFromRep(values->type(), expected_rep));
-  DoAssertOutput(values, filter, null_options, expected);
+  ASSERT_OK_AND_ASSIGN(auto expected_array, REEFromRep(values->type(), expected));
+  DoAssertOutput(values, filter, expected_array);
 }
-
-const std::vector<std::shared_ptr<DataType>> all_types = {
-    null(),
-    boolean(),
-    int8(),
-    int16(),
-    int32(),
-    int64(),
-    uint8(),
-    uint16(),
-    uint32(),
-    uint64(),
-    float32(),
-    float64(),
-    decimal128(10, 2),
-    decimal256(20, 4),
-    time32(TimeUnit::MILLI),
-    time64(TimeUnit::NANO),
-    timestamp(TimeUnit::MILLI, "UTC"),
-    date64(),
-    date32(),
-    duration(TimeUnit::MILLI),
-    day_time_interval(),
-    month_day_nano_interval(),
-    month_interval(),
-    fixed_size_binary(10),
-    utf8(),
-    large_utf8(),
-    binary(),
-    large_binary(),
-};
 
 struct GenericTestInvocations {
   template <class TypedTest>
   static void AllNullsOutputForEveryTypeInput(TypedTest& self) {
     const std::string one_null = "[null]";
     const std::string four_nulls = "[null, null, null, null]";
-    for (auto& data_type : all_types) {
+    for (auto& data_type : common_types) {
       // Since all values are null, the physical output size is always 0 or 1 as
       // the filtering process combines all the equal values into a single run.
 
       self.AssertOutput(data_type, "[]", "[]", {0});
       self.AssertOutput(data_type, one_null, "[1]", {1});
       self.AssertOutput(data_type, one_null, "[0]", {0});
-      self.AssertOutput(data_type, one_null, "[null]", {0}, {1});
+      self.AssertOutput(data_type, one_null, "[null]", {1});
 
       self.AssertOutput(data_type, four_nulls, "[0, 1, 1, 0]", {2});
       self.AssertOutput(data_type, four_nulls, "[1, 1, 0, 1]", {3});
 
-      self.AssertOutput(data_type, four_nulls, "[null, 0, 1, 0]", {1}, {2});
-      self.AssertOutput(data_type, four_nulls, "[1, 1, 0, null]", {2}, {3});
+      self.AssertOutput(data_type, four_nulls, "[null, 0, 1, 0]", {2});
+      self.AssertOutput(data_type, four_nulls, "[1, 1, 0, null]", {3});
 
-      self.AssertOutput(data_type, four_nulls, "[0, 0, 1, null]", {1}, {2});
-      self.AssertOutput(data_type, four_nulls, "[null, 1, 0, 1]", {2}, {3});
-      self.AssertOutput(data_type, four_nulls, "[null, 1, null, 1]", {2}, {4});
+      self.AssertOutput(data_type, four_nulls, "[0, 0, 1, null]", {2});
+      self.AssertOutput(data_type, four_nulls, "[null, 1, 0, 1]", {3});
+      self.AssertOutput(data_type, four_nulls, "[null, 1, null, 1]", {4});
 
       self.AssertOutput(data_type,  // line break for alignment
                         "[null, null, null, null, null, null, null, null, null, null]",
                         "[null,    1,    0,    1, null,    0, null,    1,    0, null]",
-                        {3}, {7});
+                        {7});
     }
   }
 
@@ -1232,8 +1260,8 @@ struct GenericTestInvocations {
 
       self.AssertOutput(data_type, "[127]", "[1]", {1, "[1]", "[127]"});
       self.AssertOutput(data_type, "[127]", "[0]", {});
-      self.AssertOutput(data_type, "[0]", "[null]", {}, {1, "[1]", "[null]"});
-      self.AssertOutput(data_type, "[127]", "[null]", {}, {1, "[1]", "[null]"});
+      self.AssertOutput(data_type, "[0]", "[null]", {1, "[1]", "[null]"});
+      self.AssertOutput(data_type, "[127]", "[null]", {1, "[1]", "[null]"});
 
       self.AssertOutput(data_type, "[127, 0, 20, 0]", "[0, 1, 1, 0]",
                         {2, "[1, 2]", "[0, 20]"});
@@ -1241,14 +1269,13 @@ struct GenericTestInvocations {
                         {3, "[1, 4]", "[0, 127]"});
 
       self.AssertOutput(data_type, "[127, 127, 127, 0]", "[null, 0, 1, 0]",
-                        {1, "[1]", "[127]"}, {2, "[1, 2]", "[null, 127]"});
+                        {2, "[1, 2]", "[null, 127]"});
       self.AssertOutput(data_type, "[0, 127, 127, 127]", "[1, 1, 0, null]",
-                        {2, "[1, 2]", "[0, 127]"}, {3, "[1, 2, 3]", "[0, 127, null]"});
+                        {3, "[1, 2, 3]", "[0, 127, null]"});
 
       self.AssertOutput(data_type,  // line break for alignment
                         "[  10, 0,    0, 10, 10,   10, null, 10, 0, 10, 0]",
                         "[null, 0, null,  1,  0, null,    1,  1, 1,  0, 1]",
-                        {5, "[1, 2, 3, 5]", "[10, null, 10, 0]"},
                         {8, "[2, 3, 5, 6, 8]", "[null, 10, null, 10, 0]"});
     }
   }
@@ -1259,30 +1286,26 @@ struct REExREEFilterTest : public ::testing::Test {
   using ValueRunEndType = typename RunEndTypes::ValueRunEndType;
   using FilterRunEndType = typename RunEndTypes::FilterRunEndType;
 
-  std::shared_ptr<DataType> _value_run_end_type;
-  std::shared_ptr<DataType> _filter_run_end_type;
+  std::shared_ptr<DataType> value_run_end_type_;
+  std::shared_ptr<DataType> filter_run_end_type_;
 
-  std::shared_ptr<DataType> _values_type;
-  std::shared_ptr<DataType> _filter_type;
+  std::shared_ptr<DataType> values_type_;
+  std::shared_ptr<DataType> filter_type_;
 
   REExREEFilterTest() {
-    _value_run_end_type = TypeTraits<ValueRunEndType>::type_singleton();
-    _filter_run_end_type = TypeTraits<FilterRunEndType>::type_singleton();
-    _filter_type = run_end_encoded(_filter_run_end_type, boolean());
+    value_run_end_type_ = TypeTraits<ValueRunEndType>::type_singleton();
+    filter_run_end_type_ = TypeTraits<FilterRunEndType>::type_singleton();
+    filter_type_ = run_end_encoded(filter_run_end_type_, boolean());
   }
 
   void AssertOutput(const std::shared_ptr<DataType>& value_type,
                     const std::string& values_json, const std::string& filter_json,
-                    const REERep& expected_with_drop_nulls,
-                    const REERep& expected_with_emit_nulls = REERep::None()) {
+                    const REERep& expected) {
     ASSERT_OK_AND_ASSIGN(
         auto values,
-        REEFromJSON(run_end_encoded(_value_run_end_type, value_type), values_json));
-    ASSERT_OK_AND_ASSIGN(auto filter, REEFromJSON(_filter_type, filter_json));
-    DoAssertOutput(values, filter, kDropNulls, expected_with_drop_nulls);
-    DoAssertOutput(values, filter, kEmitNulls,
-                   expected_with_emit_nulls == REERep::None() ? expected_with_drop_nulls
-                                                              : expected_with_emit_nulls);
+        REEFromJSON(run_end_encoded(value_run_end_type_, value_type), values_json));
+    ASSERT_OK_AND_ASSIGN(auto filter, REEFromJSON(filter_type_, filter_json));
+    DoAssertOutput(values, filter, expected);
   }
 };
 TYPED_TEST_SUITE_P(REExREEFilterTest);
@@ -1314,24 +1337,20 @@ INSTANTIATE_TYPED_TEST_SUITE_P(REExREEFilterTest, REExREEFilterTest, RunEndTypeP
 
 template <typename RunEndType>
 struct REExPlainFilterTest : public ::testing::Test {
-  std::shared_ptr<DataType> _value_run_end_type;
+  std::shared_ptr<DataType> value_run_end_type_;
 
   REExPlainFilterTest() {
-    _value_run_end_type = TypeTraits<RunEndType>::type_singleton();
+    value_run_end_type_ = TypeTraits<RunEndType>::type_singleton();
   }
 
   void AssertOutput(const std::shared_ptr<DataType>& value_type,
                     const std::string& values_json, const std::string& filter_json,
-                    const REERep& expected_with_drop_nulls,
-                    const REERep& expected_with_emit_nulls = REERep::None()) {
+                    const REERep& expected) {
     ASSERT_OK_AND_ASSIGN(
         auto values,
-        REEFromJSON(run_end_encoded(_value_run_end_type, value_type), values_json));
+        REEFromJSON(run_end_encoded(value_run_end_type_, value_type), values_json));
     auto filter = ArrayFromJSON(boolean(), filter_json);
-    DoAssertOutput(values, filter, kDropNulls, expected_with_drop_nulls);
-    DoAssertOutput(values, filter, kEmitNulls,
-                   expected_with_emit_nulls == REERep::None() ? expected_with_drop_nulls
-                                                              : expected_with_emit_nulls);
+    DoAssertOutput(values, filter, expected);
   }
 };
 TYPED_TEST_SUITE_P(REExPlainFilterTest);
@@ -1353,29 +1372,22 @@ INSTANTIATE_TYPED_TEST_SUITE_P(REExPlainFilterTest, REExPlainFilterTest,
 
 template <typename RunEndType>
 struct PlainxREEFilterTest : public ::testing::Test {
-  std::shared_ptr<DataType> _filter_run_end_type;
+  std::shared_ptr<DataType> filter_run_end_type_;
 
   PlainxREEFilterTest() {
-    _filter_run_end_type = TypeTraits<RunEndType>::type_singleton();
+    filter_run_end_type_ = TypeTraits<RunEndType>::type_singleton();
   }
 
   void AssertOutputAsString(const std::shared_ptr<DataType>& value_type,
                             const std::string& values_json,
                             const std::string& filter_json,
-                            const std::string& expected_with_drop_nulls,
-                            const std::string& expected_with_emit_nulls = "") {
+                            const std::string& expected_json) {
     auto values = ArrayFromJSON(value_type, values_json);
     ASSERT_OK_AND_ASSIGN(
         auto filter,
-        REEFromJSON(run_end_encoded(_filter_run_end_type, boolean()), filter_json));
-    auto expected_with_drop_nulls_array =
-        ArrayFromJSON(value_type, expected_with_drop_nulls);
-    auto expected_with_emit_nulls_array =
-        expected_with_emit_nulls.empty()
-            ? expected_with_drop_nulls_array
-            : ArrayFromJSON(value_type, expected_with_emit_nulls);
-    DoAssertOutput(values, filter, kDropNulls, expected_with_drop_nulls_array);
-    DoAssertOutput(values, filter, kEmitNulls, expected_with_emit_nulls_array);
+        REEFromJSON(run_end_encoded(filter_run_end_type_, boolean()), filter_json));
+    auto expected = ArrayFromJSON(value_type, expected_json);
+    DoAssertOutput(values, filter, expected);
   }
 
   /// Take a REE representation, so this can be called with the same expected
@@ -1383,26 +1395,13 @@ struct PlainxREEFilterTest : public ::testing::Test {
   /// of PlainxREE filtering is a plain array and not a REE.
   void AssertOutput(const std::shared_ptr<DataType>& value_type,
                     const std::string& values_json, const std::string& filter_json,
-                    const REERep& expected_with_drop_nulls,
-                    const REERep& expected_with_emit_nulls = REERep::None()) {
+                    const REERep& expected) {
     auto values = ArrayFromJSON(value_type, values_json);
     ASSERT_OK_AND_ASSIGN(
         auto filter,
-        REEFromJSON(run_end_encoded(_filter_run_end_type, boolean()), filter_json));
-
-    ASSERT_OK_AND_ASSIGN(auto expected_with_drop_nulls_array,
-                         PlainArrayFromREERep(value_type, expected_with_drop_nulls));
-
-    std::shared_ptr<Array> expected_with_emit_nulls_array;
-    if (expected_with_emit_nulls == REERep::None()) {
-      expected_with_emit_nulls_array = expected_with_drop_nulls_array;
-    } else {
-      ASSERT_OK_AND_ASSIGN(expected_with_emit_nulls_array,
-                           PlainArrayFromREERep(value_type, expected_with_emit_nulls));
-    }
-
-    DoAssertOutput(values, filter, kDropNulls, expected_with_drop_nulls_array);
-    DoAssertOutput(values, filter, kEmitNulls, expected_with_emit_nulls_array);
+        REEFromJSON(run_end_encoded(filter_run_end_type_, boolean()), filter_json));
+    ASSERT_OK_AND_ASSIGN(auto expected_array, PlainArrayFromREERep(value_type, expected));
+    DoAssertOutput(values, filter, expected_array);
   }
 };
 TYPED_TEST_SUITE_P(PlainxREEFilterTest);
@@ -1414,7 +1413,7 @@ TYPED_TEST_P(PlainxREEFilterTest, SimpleTest) {
   this->AssertOutputAsString(
       int8(),
       "[1, 2, 3,    4,    5, 6,    7, 8]",  // line break for alignment
-      "[1, 0, 1, null, null, 1, null, 0]", "[1, 3, 6]", "[1, 3, null, null, 6, null]");
+      "[1, 0, 1, null, null, 1, null, 0]", "[1, 3, null, null, 6, null]");
 }
 
 TYPED_TEST_P(PlainxREEFilterTest, AllNullsOutputForEveryTypeInput) {
