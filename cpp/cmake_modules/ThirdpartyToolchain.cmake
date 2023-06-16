@@ -4361,6 +4361,7 @@ macro(build_google_cloud_cpp_storage)
          absl::bad_variant_access
          absl::base
          absl::civil_time
+         absl::cord
          absl::int128
          absl::log_severity
          absl::raw_logging_internal
