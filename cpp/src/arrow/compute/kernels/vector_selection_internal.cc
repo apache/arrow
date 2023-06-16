@@ -82,6 +82,37 @@ Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit
   return Status::OK();
 }
 
+Status PreallocateDataRLE(KernelContext* ctx, int64_t physical_length, int bit_width,
+                          bool allocate_validity, ArrayData* out) {
+  // Preallocate memory
+  out->buffers = {NULLPTR};
+  out->child_data = {NULLPTR, NULLPTR};
+
+  auto& ree_type = checked_cast<RunEndEncodedType&>(*out->type);
+  auto values_array = std::make_shared<ArrayData>(ree_type.value_type(), physical_length);
+  values_array->buffers = {NULLPTR, NULLPTR};
+  auto run_ends_array = std::make_shared<ArrayData>(ree_type.run_end_type(),
+                                                    physical_length, /*null_count=*/0);
+  run_ends_array->buffers = {NULLPTR, NULLPTR};
+
+  if (allocate_validity) {
+    ARROW_ASSIGN_OR_RAISE(values_array->buffers[0], ctx->AllocateBitmap(physical_length));
+  }
+  if (bit_width == 1) {
+    ARROW_ASSIGN_OR_RAISE(values_array->buffers[1], ctx->AllocateBitmap(physical_length));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(values_array->buffers[1],
+                          ctx->Allocate(physical_length * bit_width / 8));
+  }
+  ARROW_ASSIGN_OR_RAISE(
+      run_ends_array->buffers[1],
+      ctx->Allocate(physical_length * ree_type.run_end_type()->bit_width() / 8));
+
+  out->child_data[0] = std::move(run_ends_array);
+  out->child_data[1] = std::move(values_array);
+  return Status::OK();
+}
+
 namespace {
 
 /// \brief Iterate over a REE filter, emitting ranges of a plain values array that

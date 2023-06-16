@@ -51,6 +51,9 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
 Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit_width,
                                      bool allocate_validity, ArrayData* out);
 
+Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit_width,
+                                     bool allocate_validity, ArrayData* out);
+
 /// \brief Callback type for VisitPlainxREEFilterOutputSegments.
 ///
 /// position is the logical position in the values array relative to its offset.
