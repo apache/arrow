@@ -149,9 +149,9 @@ public abstract class BaseValueVector implements ValueVector {
 
   /**
    * Each vector has a different reader that implements the FieldReader interface. Overridden methods must make
-   * sure to return the correct type of the reader implementation to instantiate the reader properly.
+   * sure to return the correct concrete reader implementation.
    *
-   * @return Returns the implementation class type of the vector's reader.
+   * @return Returns a lambda that initializes a reader when called.
    */
   protected abstract Supplier<FieldReader> getReaderImpl();
 
@@ -159,7 +159,7 @@ public abstract class BaseValueVector implements ValueVector {
    * Default implementation to create a reader for the vector. Depends on the individual vector
    * class' implementation of {@link #getReaderImpl} to initialize the reader appropriately.
    *
-   * @return Concrete instance of FieldReader by using lazy initialization.
+   * @return Concrete instance of FieldReader by using double-checked locking.
    */
   public FieldReader getReader() {
     FieldReader reader = fieldReader;
