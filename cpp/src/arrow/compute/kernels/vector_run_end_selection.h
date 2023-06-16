@@ -52,8 +52,14 @@ Result<std::unique_ptr<REEFilterExec>> MakeREExPlainFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection);
 
+Result<std::unique_ptr<REEFilterExec>> MakePlainxREEFilterExec(
+    MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
+    FilterOptions::NullSelectionBehavior null_selection);
+
 Status REExREEFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result);
 
 Status REExPlainFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result);
+
+Status PlainxREEFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result);
 
 }  // namespace arrow::compute::internal
