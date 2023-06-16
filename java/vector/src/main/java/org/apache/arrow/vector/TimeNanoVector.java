@@ -19,6 +19,8 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import java.util.function.Supplier;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeNanoReaderImpl;
@@ -73,8 +75,8 @@ public final class TimeNanoVector extends BaseFixedWidthVector {
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
-    return TimeNanoReaderImpl.class;
+  protected Supplier<FieldReader> getReaderImpl() {
+    return () -> new TimeNanoReaderImpl(TimeNanoVector.this);
   }
 
   /**

@@ -17,9 +17,9 @@
 
 package org.apache.arrow.vector;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -153,11 +153,11 @@ public abstract class BaseValueVector implements ValueVector {
    *
    * @return Returns the implementation class type of the vector's reader.
    */
-  protected abstract Class<? extends FieldReader> getReaderImplClass();
+  protected abstract Supplier<FieldReader> getReaderImpl();
 
   /**
    * Default implementation to create a reader for the vector. Depends on the individual vector
-   * class' implementation of {@link #getReaderImplClass} to initialize the reader appropriately.
+   * class' implementation of {@link #getReaderImpl} to initialize the reader appropriately.
    *
    * @return Concrete instance of FieldReader by using lazy initialization.
    */
@@ -169,13 +169,7 @@ public abstract class BaseValueVector implements ValueVector {
     }
     synchronized (this) {
       if (fieldReader == null) {
-        try {
-          fieldReader = getReaderImplClass().getDeclaredConstructor(getClass()).newInstance(this);
-        } catch (NoSuchMethodException | InstantiationException | IllegalAccessException |
-                 InvocationTargetException e) {
-          logger.error("Unable to instantiate FieldReader for {} because of: ", getClass().getSimpleName(), e);
-          throw new RuntimeException(e);
-        }
+        fieldReader = getReaderImpl().get();
       }
 
       return fieldReader;

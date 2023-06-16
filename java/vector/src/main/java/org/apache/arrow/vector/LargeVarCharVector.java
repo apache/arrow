@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import java.util.function.Supplier;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.LargeVarCharReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -71,8 +73,8 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
-    return LargeVarCharReaderImpl.class;
+  protected Supplier<FieldReader> getReaderImpl() {
+    return () -> new LargeVarCharReaderImpl(LargeVarCharVector.this);
   }
 
   /**

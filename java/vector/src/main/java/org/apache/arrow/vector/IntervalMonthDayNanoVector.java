@@ -47,7 +47,6 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 16;
   private static final byte DAY_OFFSET = 4;
   private static final byte NANOSECOND_OFFSET = 8;
-  private Supplier<FieldReader> reader;
 
 
   /**
@@ -85,8 +84,8 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
-    return IntervalMonthDayNanoReaderImpl.class;
+  protected Supplier<FieldReader> getReaderImpl() {
+    return () -> new IntervalMonthDayNanoReaderImpl(IntervalMonthDayNanoVector.this);
   }
 
   /**

@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.LocalDateTime;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -76,8 +77,8 @@ public final class TimeMilliVector extends BaseFixedWidthVector {
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
-    return TimeMilliReaderImpl.class;
+  protected Supplier<FieldReader> getReaderImpl() {
+    return () -> new TimeMilliReaderImpl(TimeMilliVector.this);
   }
 
   /**

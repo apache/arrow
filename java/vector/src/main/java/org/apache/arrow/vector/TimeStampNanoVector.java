@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.LocalDateTime;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampNanoReaderImpl;
@@ -74,8 +75,8 @@ public final class TimeStampNanoVector extends TimeStampVector {
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
-    return TimeStampNanoReaderImpl.class;
+  protected Supplier<FieldReader> getReaderImpl() {
+    return () -> new TimeStampNanoReaderImpl(TimeStampNanoVector.this);
   }
 
   /**

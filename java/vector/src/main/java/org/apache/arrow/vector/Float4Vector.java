@@ -19,6 +19,8 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import java.util.function.Supplier;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.Float4ReaderImpl;
@@ -73,8 +75,8 @@ public final class Float4Vector extends BaseFixedWidthVector implements Floating
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
-    return Float4ReaderImpl.class;
+  protected Supplier<FieldReader> getReaderImpl() {
+    return () -> new Float4ReaderImpl(Float4Vector.this);
   }
 
   /**

@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.math.BigDecimal;
 import java.nio.ByteOrder;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -88,8 +89,8 @@ public final class DecimalVector extends BaseFixedWidthVector {
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
-    return DecimalReaderImpl.class;
+  protected Supplier<FieldReader> getReaderImpl() {
+    return () -> new DecimalReaderImpl(DecimalVector.this);
   }
 
   /**

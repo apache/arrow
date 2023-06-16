@@ -42,7 +42,6 @@ import org.apache.arrow.vector.util.TransferPair;
 public final class IntervalDayVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 8;
   private static final byte MILLISECOND_OFFSET = 4;
-  private Supplier<FieldReader> reader;
 
   /**
    * Instantiate a IntervalDayVector. This doesn't allocate any memory for
@@ -76,19 +75,11 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
    */
   public IntervalDayVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = () -> {
-      final FieldReader fieldReader;
-      synchronized (this) {
-        fieldReader = new IntervalDayReaderImpl(IntervalDayVector.this);
-        reader = () -> fieldReader;
-      }
-      return fieldReader;
-    };
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
-    return IntervalDayReaderImpl.class;
+  protected Supplier<FieldReader> getReaderImpl() {
+    return () -> new IntervalDayReaderImpl(IntervalDayVector.this);
   }
 
   /**

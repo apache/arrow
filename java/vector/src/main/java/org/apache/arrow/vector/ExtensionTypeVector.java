@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -131,7 +132,7 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> e
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
+  protected Supplier<FieldReader> getReaderImpl() {
     throw new UnsupportedOperationException("Readers for extension types depend on the underlying vector, " +
         "asking for a concrete implementation class of the reader type is invalid.");
   }

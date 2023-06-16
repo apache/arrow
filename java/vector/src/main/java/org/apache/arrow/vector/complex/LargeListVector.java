@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -696,8 +697,8 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
-    return UnionLargeListReader.class;
+  protected Supplier<FieldReader> getReaderImpl() {
+    return () -> new UnionLargeListReader(this);
   }
 
   @Override

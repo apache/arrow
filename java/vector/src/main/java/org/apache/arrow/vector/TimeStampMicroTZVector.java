@@ -39,7 +39,6 @@ import org.apache.arrow.vector.util.TransferPair;
  * (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class TimeStampMicroTZVector extends TimeStampVector {
-  private Supplier<FieldReader> reader;
   private final String timeZone;
 
   /**
@@ -81,8 +80,8 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
-    return TimeStampMicroTZReaderImpl.class;
+  protected Supplier<FieldReader> getReaderImpl() {
+    return () -> new TimeStampMicroTZReaderImpl(TimeStampMicroTZVector.this);
   }
 
   /**

@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.math.BigInteger;
+import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -65,8 +66,8 @@ public final class UInt8Vector extends BaseFixedWidthVector implements BaseIntVe
   }
 
   @Override
-  protected Class<? extends FieldReader> getReaderImplClass() {
-    return UInt8ReaderImpl.class;
+  protected Supplier<FieldReader> getReaderImpl() {
+    return () -> new UInt8ReaderImpl(UInt8Vector.this);
   }
 
   @Override
