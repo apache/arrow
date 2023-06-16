@@ -1457,12 +1457,6 @@ cdef class _Tabular(_PandasConvertible):
         raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
                         f"one of the `{self.__class__.__name__}.from_*` functions instead.")
 
-    def _is_initialized(self):
-        raise NotImplementedError
-
-    def _column(self, int i):
-        raise NotImplementedError
-
     def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True):
         """
         Return the dataframe interchange object implementing the interchange protocol.
@@ -1528,6 +1522,9 @@ cdef class _Tabular(_PandasConvertible):
                              "use any methods or attributes on this object")
         return self.to_string(preview_cols=10)
 
+    def _column(self, int i):
+        raise NotImplementedError
+
     def _ensure_integer_index(self, i):
         """
         Ensure integer index (convert string column name to integer if needed).
@@ -1547,6 +1544,9 @@ cdef class _Tabular(_PandasConvertible):
             return i
         else:
             raise TypeError("Index must either be string or integer")
+
+    def _is_initialized(self):
+        raise NotImplementedError
 
     def column(self, i):
         """
