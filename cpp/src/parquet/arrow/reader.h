@@ -369,6 +369,12 @@ PARQUET_EXPORT
                          ::arrow::MemoryPool* allocator,
                          std::unique_ptr<FileReader>* reader);
 
+PARQUET_EXPORT
+::arrow::Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile>,
+                         ::arrow::MemoryPool* allocator,
+                         const ArrowReaderProperties& arrow_reader_properties,
+                         std::unique_ptr<FileReader>* reader);
+
 /// @}
 
 PARQUET_EXPORT
