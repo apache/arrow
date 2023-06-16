@@ -309,15 +309,13 @@ std::shared_ptr<Array> CoalesceNullToFalse(std::shared_ptr<Array> filter) {
 
 class TestFilterKernel : public ::testing::Test {
  protected:
-  TestFilterKernel() : emit_null_(FilterOptions::EMIT_NULL), drop_(FilterOptions::DROP) {}
-
-  void DoAssertFilter(const std::shared_ptr<Array>& values,
-                      const std::shared_ptr<Array>& filter,
-                      const std::shared_ptr<Array>& expected) {
+  static void DoAssertFilter(const std::shared_ptr<Array>& values,
+                             const std::shared_ptr<Array>& filter,
+                             const std::shared_ptr<Array>& expected) {
     // test with EMIT_NULL
     {
       ARROW_SCOPED_TRACE("with EMIT_NULL");
-      ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, filter, emit_null_));
+      ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, filter, kEmitNulls));
       auto actual = out_datum.make_array();
       ValidateOutput(*actual);
       AssertArraysEqual(*expected, *actual, /*verbose=*/true);
@@ -327,18 +325,18 @@ class TestFilterKernel : public ::testing::Test {
     {
       ARROW_SCOPED_TRACE("with DROP");
       auto coalesced_filter = CoalesceNullToFalse(filter);
-      ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, coalesced_filter, emit_null_));
+      ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, coalesced_filter, kEmitNulls));
       auto expected_for_drop = out_datum.make_array();
-      ASSERT_OK_AND_ASSIGN(out_datum, Filter(values, filter, drop_));
+      ASSERT_OK_AND_ASSIGN(out_datum, Filter(values, filter, kDropNulls));
       auto actual = out_datum.make_array();
       ValidateOutput(*actual);
       AssertArraysEqual(*expected_for_drop, *actual, /*verbose=*/true);
     }
   }
 
-  void AssertFilter(const std::shared_ptr<Array>& values,
-                    const std::shared_ptr<Array>& filter,
-                    const std::shared_ptr<Array>& expected) {
+  static void AssertFilter(const std::shared_ptr<Array>& values,
+                           const std::shared_ptr<Array>& filter,
+                           const std::shared_ptr<Array>& expected) {
     DoAssertFilter(values, filter, expected);
 
     if (values->type_id() == Type::DENSE_UNION) {
@@ -361,8 +359,9 @@ class TestFilterKernel : public ::testing::Test {
     DoAssertFilter(values_sliced, filter_sliced, expected);
   }
 
-  void AssertFilter(const std::shared_ptr<DataType>& type, const std::string& values,
-                    const std::string& filter, const std::string& expected) {
+  static void AssertFilter(const std::shared_ptr<DataType>& type,
+                           const std::string& values, const std::string& filter,
+                           const std::string& expected) {
     auto values_array = ArrayFromJSON(type, values);
     auto filter_array = ArrayFromJSON(boolean(), filter);
     auto expected_array = ArrayFromJSON(type, expected);
@@ -387,8 +386,6 @@ class TestFilterKernel : public ::testing::Test {
       }
     }
   }
-
-  const FilterOptions emit_null_, drop_;
 };
 
 void ValidateFilter(const std::shared_ptr<Array>& values,
@@ -501,9 +498,9 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
                      ArrayFromJSON(type, "[7, 9]"));
 
   ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
-                                ArrayFromJSON(boolean(), "[]"), this->emit_null_));
+                                ArrayFromJSON(boolean(), "[]"), kEmitNulls));
   ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
-                                ArrayFromJSON(boolean(), "[]"), this->drop_));
+                                ArrayFromJSON(boolean(), "[]"), kDropNulls));
 }
 
 template <typename CType>
@@ -662,9 +659,9 @@ TYPED_TEST(TestFilterKernelWithDecimal, FilterNumeric) {
                      ArrayFromJSON(type, R"(["7.12", "9.87"])"));
 
   ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, R"(["7.12", "8.00", "9.87"])"),
-                                ArrayFromJSON(boolean(), "[]"), this->emit_null_));
+                                ArrayFromJSON(boolean(), "[]"), kEmitNulls));
   ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, R"(["7.12", "8.00", "9.87"])"),
-                                ArrayFromJSON(boolean(), "[]"), this->drop_));
+                                ArrayFromJSON(boolean(), "[]"), kDropNulls));
 }
 
 TEST(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
@@ -895,7 +892,7 @@ TEST_F(TestFilterKernelWithRecordBatch, FilterRecordBatch) {
     {"a": 2, "b": "hello"},
     {"a": 4, "b": "eh"}
   ])";
-  for (auto options : {this->emit_null_, this->drop_}) {
+  for (auto options : {kEmitNulls, kDropNulls}) {
     this->AssertFilter(schm, batch_json, "[0, 0, 0, 0]", options, "[]");
     this->AssertFilter(schm, batch_json, "[1, 1, 1, 1]", options, batch_json);
     this->AssertFilter(schm, batch_json, "[1, 0, 1, 0]", options, R"([
@@ -904,12 +901,12 @@ TEST_F(TestFilterKernelWithRecordBatch, FilterRecordBatch) {
     ])");
   }
 
-  this->AssertFilter(schm, batch_json, "[0, 1, 1, null]", this->drop_, R"([
+  this->AssertFilter(schm, batch_json, "[0, 1, 1, null]", kDropNulls, R"([
     {"a": 1, "b": ""},
     {"a": 2, "b": "hello"}
   ])");
 
-  this->AssertFilter(schm, batch_json, "[0, 1, 1, null]", this->emit_null_, R"([
+  this->AssertFilter(schm, batch_json, "[0, 1, 1, null]", kEmitNulls, R"([
     {"a": 1, "b": ""},
     {"a": 2, "b": "hello"},
     {"a": null, "b": null}
@@ -1033,7 +1030,7 @@ TEST_F(TestFilterKernelWithTable, FilterTable) {
       {"a": 2, "b": "hello"},
       {"a": 4, "b": "eh"}
     ])"};
-  for (auto options : {this->emit_null_, this->drop_}) {
+  for (auto options : {kEmitNulls, kDropNulls}) {
     this->AssertFilter(schm, table_json, "[0, 0, 0, 0]", options, {});
     this->AssertChunkedFilter(schm, table_json, {"[0]", "[0, 0, 0]"}, options, {});
     this->AssertFilter(schm, table_json, "[1, 1, 1, 1]", options, table_json);
@@ -1048,15 +1045,14 @@ TEST_F(TestFilterKernelWithTable, FilterTable) {
     {"a": 2, "b": "hello"},
     {"a": null, "b": null}
   ])"};
-  this->AssertFilter(schm, table_json, "[0, 1, 1, null]", this->emit_null_,
-                     expected_emit_null);
-  this->AssertChunkedFilter(schm, table_json, {"[0, 1, 1]", "[null]"}, this->emit_null_,
+  this->AssertFilter(schm, table_json, "[0, 1, 1, null]", kEmitNulls, expected_emit_null);
+  this->AssertChunkedFilter(schm, table_json, {"[0, 1, 1]", "[null]"}, kEmitNulls,
                             expected_emit_null);
 
   std::vector<std::string> expected_drop = {R"([{"a": 1, "b": ""}])",
                                             R"([{"a": 2, "b": "hello"}])"};
-  this->AssertFilter(schm, table_json, "[0, 1, 1, null]", this->drop_, expected_drop);
-  this->AssertChunkedFilter(schm, table_json, {"[0, 1, 1]", "[null]"}, this->drop_,
+  this->AssertFilter(schm, table_json, "[0, 1, 1, null]", kDropNulls, expected_drop);
+  this->AssertChunkedFilter(schm, table_json, {"[0, 1, 1]", "[null]"}, kDropNulls,
                             expected_drop);
 }
 
