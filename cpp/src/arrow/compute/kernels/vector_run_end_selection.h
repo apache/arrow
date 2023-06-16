@@ -31,12 +31,29 @@
 
 namespace arrow::compute::internal {
 
-/// \brief Calculate the physical size of the output REE array when filtering a REE array
-/// with a REE filter array.
-Result<int64_t> CalculateREExREEFilterOutputSize(
+/// \brief Common virtual base class for filter functions that involve run-end
+/// encoded arrays on one or both operands.
+class REEFilterExec {
+ public:
+  virtual ~REEFilterExec() = default;
+
+  /// \brief Calculate the physical size of the values nested in the run-end
+  /// encoded output.
+  virtual Result<int64_t> CalculateOutputSize() = 0;
+
+  virtual Status Exec(ArrayData* out) = 0;
+};
+
+Result<std::unique_ptr<REEFilterExec>> MakeREExREEFilterExec(
+    MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
+    FilterOptions::NullSelectionBehavior null_selection);
+
+Result<std::unique_ptr<REEFilterExec>> MakeREExPlainFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection);
 
 Status REExREEFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result);
+
+Status REExPlainFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result);
 
 }  // namespace arrow::compute::internal

@@ -1083,6 +1083,10 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       // REE(Primitive) x REE(Boolean)
       {InputType(match::RunEndEncoded(match::Primitive())), ree_filter,
        REExREEFilterExec},
+
+      // REE(*) x Boolean filtering
+      {InputType(match::RunEndEncoded(match::Primitive())), InputType(Type::BOOL),
+       REExPlainFilterExec},
   };
 }
 

@@ -24,6 +24,8 @@
 #include "arrow/compute/kernels/ree_util_internal.h"
 #include "arrow/compute/kernels/vector_run_end_selection.h"
 #include "arrow/result.h"
+#include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
 
@@ -292,7 +294,225 @@ int64_t CountREEFilterEmits(const ArraySpan& filter,
   return logical_count;
 }
 
-// This is called from a template with many instantiations, so we don't want to inline it.
+/// \brief Counts how many logical values are emitted by a plain boolean filter
+///
+/// This is used when we know that the values array is only NULLs (Type::NA
+/// arrays). The buffers allocated here are not reused and that is OK because,
+/// for Type::NA arrays, counting is all that the kernel has to do.
+[[maybe_unused]] Result<int64_t> CountPlainFilterEmits(
+    MemoryPool* pool, const ArraySpan& filter,
+    FilterOptions::NullSelectionBehavior null_selection) {
+  DCHECK_EQ(filter.type->id(), Type::BOOL);
+  if (filter.length == 0) {
+    return 0;
+  }
+
+  int64_t logical_count = 0;
+  const uint8_t* filter_is_valid = filter.buffers[0].data;
+  const uint8_t* filter_selection = filter.buffers[1].data;
+  const bool filter_may_have_nulls =
+      filter_is_valid != NULLPTR && filter.GetNullCount() != 0;
+
+  if (filter_may_have_nulls) {
+    if (null_selection == FilterOptions::EMIT_NULL) {
+      // candidates_bitmap = filter_selection | ~filter_is_valid
+      ARROW_ASSIGN_OR_RAISE(auto candidates_bitmap,
+                            arrow::internal::BitmapOrNot(
+                                pool, filter_selection, filter.offset, filter_is_valid,
+                                filter.offset, filter.length, filter.offset));
+      return arrow::internal::CountSetBits(candidates_bitmap->data(), filter.offset,
+                                           filter.length);
+    } else {  // DROP_NULLS
+      // selection_bitmap = filter_selection & filter_is_valid
+      ARROW_ASSIGN_OR_RAISE(auto selection_bitmap,
+                            arrow::internal::BitmapAnd(
+                                pool, filter_selection, filter.offset, filter_is_valid,
+                                filter.offset, filter.length, filter.offset));
+      return arrow::internal::CountSetBits(selection_bitmap->data(), filter.offset,
+                                           filter.length);
+    }
+  } else {
+    return arrow::internal::CountSetBits(filter_selection, filter.offset, filter.length);
+  }
+  return logical_count;
+}
+
+/// \brief Iterate over REE values and a plain filter, emitting fragments of runs that
+/// pass the filter.
+///
+/// The filtering process can emit runs of the same value close to each other,
+/// so to ensure the output of the filter takes advantage of run-end encoding,
+/// these fragments should be combined by the caller.
+///
+/// \see VisitREExAnyFilterCombinedOutputRuns
+template <typename ValuesRunEndType>
+struct VisitREExPlainFilterOutputFragments {
+  template <typename EmitFragment>
+  Status operator()(MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
+                    FilterOptions::NullSelectionBehavior null_selection,
+                    const EmitFragment& emit_fragment) {
+    using arrow::internal::BitBlockCount;
+    using arrow::internal::BitBlockCounter;
+    using ValueRunEndCType = typename ValuesRunEndType::c_type;
+
+    DCHECK_EQ(values.length, filter.length);
+
+    const int64_t values_offset = arrow::ree_util::ValuesArray(values).offset;
+    const uint8_t* filter_is_valid = filter.buffers[0].data;
+    const uint8_t* filter_selection = filter.buffers[1].data;
+    const bool filter_may_have_nulls =
+        filter_is_valid != NULLPTR && filter.GetNullCount() != 0;
+
+    const arrow::ree_util::RunEndEncodedArraySpan<ValueRunEndCType> values_span(values);
+    auto it = values_span.begin();
+    if (filter_may_have_nulls) {
+      if (null_selection == FilterOptions::EMIT_NULL) {
+        // candidates_bitmap = filter_selection | ~filter_is_valid
+        ARROW_ASSIGN_OR_RAISE(auto candidates_bitmap,
+                              arrow::internal::BitmapOrNot(
+                                  pool, filter_selection, filter.offset, filter_is_valid,
+                                  filter.offset, filter.length, filter.offset));
+        const uint8_t* candidates_bitmap_data = candidates_bitmap->data();
+        // For each run in values, process the bitmaps and emit fragments accordingly.
+        while (!it.is_end(values_span)) {
+          int64_t offset = it.logical_position();
+          const int64_t run_end = it.run_end();
+          BitBlockCounter candidates_bit_counter{
+              candidates_bitmap_data, filter.offset + offset, run_end - offset};
+          BitBlockCounter filter_validity_bit_counter{
+              filter_is_valid, filter.offset + offset, run_end - offset};
+          const int64_t values_physical_position = values_offset + it.index_into_array();
+          while (offset < run_end) {
+            BitBlockCount candidates_block = candidates_bit_counter.NextWord();
+            if (candidates_block.AllSet()) {
+              // filter_selection | ~filter_is_valid can mean two things:
+              //
+              //   1. ~filter_is_valid: The filter value is NULL and a NULL
+              //      should be emitted.
+              //   2. filter_is_valid: The filter value is non-NULL and that
+              //      implies filter_selection is true, so the values should be
+              //      emitted.
+              //
+              // We never have to check filter_selection because its value can be
+              // inferred from candidates_block and filter_validity_block.
+              BitBlockCount filter_validity_block =
+                  filter_validity_bit_counter.NextWord();
+              if (filter_validity_block.NoneSet()) {
+                emit_fragment(values_physical_position, candidates_block.length, false);
+              } else if (filter_validity_block.AllSet()) {
+                emit_fragment(values_physical_position, candidates_block.length, true);
+              } else {
+                for (int64_t i = 0; i < candidates_block.length; ++i) {
+                  const int64_t j = filter.offset + offset + i;
+                  const bool valid = bit_util::GetBit(filter_is_valid, j);
+                  emit_fragment(values_physical_position, 1, valid);
+                  // We don't complicate this loop by trying to emit longer runs of values
+                  // here because the caller already has to combine runs of values anyway
+                  // and it can even skip value comparisons when the
+                  // values_physical_position is the same as in the previous
+                  // emit_fragment() call.
+                }
+              }
+            } else if (candidates_block.NoneSet()) {
+              // ~(filter_selection | ~filter_is_valid) implies
+              // ~filter_selection & filter_is_valid, so we have a non-NULL false
+              // in the filter. Nothing needs to be emitted in this case.
+              filter_validity_bit_counter.NextWord();
+            } else {
+              filter_validity_bit_counter.NextWord();
+              for (int64_t i = 0; i < candidates_block.length; ++i) {
+                const int64_t j = filter.offset + offset + i;
+                const bool candidate = bit_util::GetBit(candidates_bitmap_data, j);
+                const bool valid = bit_util::GetBit(filter_is_valid, j);
+                if (candidate) {
+                  emit_fragment(values_physical_position, 1, valid);
+                }
+              }
+            }
+            offset += candidates_block.length;
+          }
+          ++it;
+        }
+      } else {  // DROP nulls
+        // For each run in values, process the bitmap and emit fragments accordingly.
+        while (!it.is_end(values_span)) {
+          int64_t offset = it.logical_position();
+          const int64_t run_end = it.run_end();
+          BitBlockCounter filter_bit_counter{filter_selection, filter.offset + offset,
+                                             run_end - offset};
+          BitBlockCounter filter_validity_bit_counter{
+              filter_is_valid, filter.offset + offset, run_end - offset};
+          const int64_t values_physical_position = values_offset + it.index_into_array();
+          while (offset < run_end) {
+            BitBlockCount filter_block = filter_bit_counter.NextWord();
+            if (filter_block.AllSet()) {
+              BitBlockCount filter_validity_block =
+                  filter_validity_bit_counter.NextWord();
+              if (filter_validity_block.AllSet()) {
+                emit_fragment(values_physical_position, filter_block.length, true);
+              } else if (filter_validity_block.NoneSet()) {
+                // Drop all the nulls.
+              } else {
+                for (int64_t i = 0; i < filter_block.length; ++i) {
+                  const int64_t j = filter.offset + offset + i;
+                  const bool emit = bit_util::GetBit(filter_selection, j) &&
+                                    bit_util::GetBit(filter_is_valid, j);
+                  if (emit) {
+                    emit_fragment(values_physical_position, 1, false);
+                  }
+                }
+              }
+            } else if (filter_block.NoneSet()) {
+              // Skip.
+              filter_validity_bit_counter.NextWord();
+            } else {
+              filter_validity_bit_counter.NextWord();
+              for (int64_t i = 0; i < filter_block.length; ++i) {
+                const int64_t j = filter.offset + offset + i;
+                const bool emit = bit_util::GetBit(filter_selection, j) &&
+                                  bit_util::GetBit(filter_is_valid, j);
+                if (emit) {
+                  emit_fragment(values_physical_position, 1, true);
+                }
+              }
+            }
+            offset += filter_block.length;
+          }
+          ++it;
+        }
+      }
+    } else {
+      // For each run in values, process the bitmap and emit fragments accordingly.
+      while (!it.is_end(values_span)) {
+        int64_t offset = it.logical_position();
+        const int64_t run_end = it.run_end();
+        BitBlockCounter selection_bit_counter{filter_selection, filter.offset + offset,
+                                              run_end - offset};
+        const int64_t values_physical_position = values_offset + it.index_into_array();
+        while (offset < run_end) {
+          BitBlockCount selection_block = selection_bit_counter.NextWord();
+          if (selection_block.AllSet()) {
+            emit_fragment(values_physical_position, selection_block.length, true);
+          } else if (selection_block.NoneSet()) {
+            // Skip.
+          } else {
+            for (int64_t i = 0; i < selection_block.length; ++i) {
+              const int64_t j = filter.offset + offset + i;
+              if (bit_util::GetBit(filter_selection, j)) {
+                emit_fragment(values_physical_position, 1, true);
+              }
+            }
+          }
+          offset += selection_block.length;
+        }
+        ++it;
+      }
+    }
+    return Status::OK();
+  }
+};
+
+// This is called from templates with many instantiations, so we don't want to inline it.
 ARROW_NOINLINE Status MakeNullREEData(int64_t logical_length, MemoryPool* pool,
                                       ArrayData* out) {
   const auto* ree_type = checked_cast<RunEndEncodedType*>(out->type.get());
@@ -313,7 +533,7 @@ ARROW_NOINLINE Status MakeNullREEData(int64_t logical_length, MemoryPool* pool,
   return Status::OK();
 }
 
-// This is called from a template with many instantiations, so we don't want to inline it.
+// This is called from templates with many instantiations, so we don't want to inline it.
 ARROW_NOINLINE Status PreallocateREEData(int64_t physical_length, bool allocate_validity,
                                          int64_t data_buffer_size, MemoryPool* pool,
                                          ArrayData* out) {
@@ -333,15 +553,6 @@ ARROW_NOINLINE Status PreallocateREEData(int64_t physical_length, bool allocate_
   out->child_data = {std::move(run_ends_data), std::move(values_data)};
   return Status::OK();
 }
-
-/// \brief Common virtual base class for filter functions that involve run-end
-/// encoded arrays on one side or another
-class REEFilterExec {
- public:
-  virtual ~REEFilterExec() = default;
-  virtual Result<int64_t> CalculateOutputSize() = 0;
-  virtual Status Exec(ArrayData* out) = 0;
-};
 
 template <typename ValuesRunEndType, typename ValuesValueType, typename FilterRunEndType>
 class REExREEFilterExecImpl final : public REEFilterExec {
@@ -448,8 +659,113 @@ class REExREEFilterExecImpl final : public REEFilterExec {
   }
 };
 
+template <typename ValuesRunEndType, typename ValuesValueType>
+class REExPlainFilterExecImpl final : public REEFilterExec {
+ private:
+  using ValuesRunEndCType = typename ValuesRunEndType::c_type;
+
+  MemoryPool* pool_;
+  const ArraySpan& values_;
+  const ArraySpan& filter_;
+  const FilterOptions::NullSelectionBehavior null_selection_;
+
+ public:
+  REExPlainFilterExecImpl(MemoryPool* pool, const ArraySpan& values,
+                          const ArraySpan& filter,
+                          FilterOptions::NullSelectionBehavior null_selection)
+      : pool_(pool), values_(values), filter_(filter), null_selection_(null_selection) {}
+
+  ~REExPlainFilterExecImpl() override = default;
+
+  Result<int64_t> CalculateOutputSize() final {
+    if constexpr (std::is_same<ValuesValueType, NullType>::value) {
+      ARROW_ASSIGN_OR_RAISE(int64_t logical_count,
+                            CountPlainFilterEmits(pool_, filter_, null_selection_));
+      return logical_count > 0 ? 1 : 0;
+    } else {
+      int64_t num_output_runs = 0;
+      auto status = VisitREExAnyFilterCombinedOutputRuns<
+          ValuesRunEndType, ValuesValueType,
+          VisitREExPlainFilterOutputFragments<ValuesRunEndType>>(
+          pool_, values_, filter_, null_selection_,
+          [&num_output_runs](int64_t, int64_t run_length, bool) {
+            num_output_runs += run_length > 0;
+          });
+      RETURN_NOT_OK(status);
+      return num_output_runs;
+    }
+  }
+
+ private:
+  /// \tparam out_has_validity_buffer whether the output has a validity buffer that
+  /// needs to be populated by the filtering process
+  /// \param[out] out the pre-allocated output array data
+  /// \return the logical length of the output
+  template <bool out_has_validity_buffer>
+  Result<int64_t> ExecInternal(ArrayData* out) {
+    // in_has_validity_buffer is false because all calls to ReadWriteValue::ReadValue()
+    // below are already guarded by a validity check based on the values provided by
+    // VisitREExAnyFilterCombinedOutputRuns() when it calls the EmitRun.
+    using ReadWriteValue =
+        ree_util::ReadWriteValue<ValuesValueType, /*in_has_validity_buffer=*/false,
+                                 out_has_validity_buffer>;
+    using ValueRepr = typename ReadWriteValue::ValueRepr;
+
+    const auto& values_array = arrow::ree_util::ValuesArray(values_);
+    ReadWriteValue read_write{values_array, out->child_data[1].get()};
+    auto* out_run_ends = out->child_data[0]->GetMutableValues<ValuesRunEndCType>(1);
+
+    int64_t logical_length = 0;
+    int64_t write_offset = 0;
+    ValueRepr value;
+    auto status = VisitREExAnyFilterCombinedOutputRuns<
+        ValuesRunEndType, ValuesValueType,
+        VisitREExPlainFilterOutputFragments<ValuesRunEndType>>(
+        pool_, values_, filter_, null_selection_,
+        [&](int64_t i, int64_t run_length, bool valid) {
+          logical_length += run_length;
+          if (run_length > 0) {
+            out_run_ends[write_offset] = static_cast<ValuesRunEndCType>(logical_length);
+            if (valid) {
+              (void)read_write.ReadValue(&value, i);
+            }
+            read_write.WriteValue(write_offset, valid, value);
+            write_offset += 1;
+          }
+        });
+    RETURN_NOT_OK(status);
+    return logical_length;
+  }
+
+ public:
+  Status Exec(ArrayData* out) final {
+    if constexpr (std::is_same<ValuesValueType, NullType>::value) {
+      ARROW_ASSIGN_OR_RAISE(const int64_t logical_length,
+                            CountPlainFilterEmits(pool_, filter_, null_selection_));
+      RETURN_NOT_OK(MakeNullREEData(logical_length, pool_, out));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(const int64_t physical_length, CalculateOutputSize());
+      const auto& values_values_array = arrow::ree_util::ValuesArray(values_);
+
+      const bool in_has_validity_buffer = values_values_array.MayHaveNulls();
+      const bool out_has_validity_buffer =
+          in_has_validity_buffer ||
+          (null_selection_ == FilterOptions::EMIT_NULL && filter_.MayHaveNulls());
+
+      RETURN_NOT_OK(
+          PreallocateREEData(physical_length, out_has_validity_buffer, 0, pool_, out));
+      // The length is set after the filtering process makes it known to us
+      // (PreallocateREEData filled all the other fields)
+      ARROW_ASSIGN_OR_RAISE(out->length, out_has_validity_buffer
+                                             ? ExecInternal<true>(out)
+                                             : ExecInternal<false>(out));
+    }
+    return Status::OK();
+  }
+};
+
 template <template <typename ArrowType> class FactoryFunctor>
-Result<std::unique_ptr<REEFilterExec>> MakeREExAnyFilterExec(
+Result<std::unique_ptr<REEFilterExec>> MakeREEFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection) {
   switch (arrow::ree_util::ValuesArray(values).type->id()) {
@@ -498,8 +814,8 @@ Result<std::unique_ptr<REEFilterExec>> MakeREExAnyFilterExec(
       return FactoryFunctor<LargeBinaryType>{}(pool, values, filter, null_selection);
     default:
       DCHECK(false);
-      return Status::NotImplemented("Filtering the run-end encoded array of type ",
-                                    values.type->ToString(), " is not supported");
+      return Status::NotImplemented(
+          "MakeREEFilterExec: ArrowType=", values.type->ToString(), ".");
   }
 }
 
@@ -575,23 +891,44 @@ struct REExREEFilterExecFactory {
   }
 };
 
+/// \tparam ArrowType The DataType of the physical values array nested in values
+template <typename ArrowType>
+struct REExPlainFilterExecFactory {
+  Result<std::unique_ptr<REEFilterExec>> operator()(
+      MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
+      FilterOptions::NullSelectionBehavior null_selection) {
+    using ValuesValueType = ArrowType;
+    switch (arrow::ree_util::RunEndsArray(values).type->id()) {
+      case Type::INT16:
+        return std::make_unique<REExPlainFilterExecImpl<Int16Type, ValuesValueType>>(
+            pool, values, filter, null_selection);
+      case Type::INT32:
+        return std::make_unique<REExPlainFilterExecImpl<Int32Type, ValuesValueType>>(
+            pool, values, filter, null_selection);
+      default:
+        return std::make_unique<REExPlainFilterExecImpl<Int64Type, ValuesValueType>>(
+            pool, values, filter, null_selection);
+    }
+  }
+};
+
+}  // namespace
+
 Result<std::unique_ptr<REEFilterExec>> MakeREExREEFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection) {
   RETURN_NOT_OK(ValidateRunEndType(values));
   RETURN_NOT_OK(ValidateRunEndType(filter));
-  return MakeREExAnyFilterExec<REExREEFilterExecFactory>(pool, values, filter,
-                                                         null_selection);
+  return MakeREEFilterExec<REExREEFilterExecFactory>(pool, values, filter,
+                                                     null_selection);
 }
 
-}  // namespace
-
-Result<int64_t> CalculateREExREEFilterOutputSize(
+Result<std::unique_ptr<REEFilterExec>> MakeREExPlainFilterExec(
     MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
     FilterOptions::NullSelectionBehavior null_selection) {
-  ARROW_ASSIGN_OR_RAISE(auto exec,
-                        MakeREExREEFilterExec(pool, values, filter, null_selection));
-  return exec->CalculateOutputSize();
+  RETURN_NOT_OK(ValidateRunEndType(values));
+  return MakeREEFilterExec<REExPlainFilterExecFactory>(pool, values, filter,
+                                                       null_selection);
 }
 
 Status REExREEFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
@@ -603,6 +940,18 @@ Status REExREEFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* r
   const auto null_selection = FilterState::Get(ctx).null_selection_behavior;
   ARROW_ASSIGN_OR_RAISE(auto exec, MakeREExREEFilterExec(ctx->memory_pool(), values,
                                                          filter, null_selection));
+  return exec->Exec(out);
+}
+
+Status REExPlainFilterExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+  using FilterState = OptionsWrapper<FilterOptions>;
+  const auto& values = span.values[0].array;
+  const auto& filter = span.values[1].array;
+  ArrayData* out = result->array_data().get();
+  DCHECK(out->type->Equals(*values.type));
+  const auto null_selection = FilterState::Get(ctx).null_selection_behavior;
+  ARROW_ASSIGN_OR_RAISE(auto exec, MakeREExPlainFilterExec(ctx->memory_pool(), values,
+                                                           filter, null_selection));
   return exec->Exec(out);
 }
 
