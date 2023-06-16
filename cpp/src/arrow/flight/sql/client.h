@@ -327,7 +327,8 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   ///
   /// \param[in] options      RPC-layer hints for this call.
   /// \param[in] info         The FlightInfo to cancel.
-  ::arrow::Result<std::unique_ptr<CancelFlightInfoResult>> CancelFlightInfo(
+  /// \return Arrow result with a canceled result.
+  ::arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
       const FlightCallOptions& options, const FlightInfo& info) {
     return impl_->CancelFlightInfo(options, info);
   }
@@ -342,6 +343,25 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   ARROW_DEPRECATED("Deprecated in 13.0.0. Use CancelFlightInfo() instead.")
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
+
+  /// \brief Explicitly close a FlightInfo.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] info         The FlightInfo to close.
+  /// \return Arrow status
+  Status CloseFlightInfo(const FlightCallOptions& options, const FlightInfo& info) {
+    return impl_->CloseFlightInfo(options, info);
+  }
+
+  /// \brief Explicitly refresh a FlightEndpoint.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] info         The FlightEndpoint to refresh.
+  /// \return Arrow result with a refreshed FlightEndpoint
+  ::arrow::Result<FlightEndpoint> CloseFlightEndpoint(const FlightCallOptions& options,
+                                                      const FlightEndpoint& endpoint) {
+    return impl_->RefreshFlightEndpoint(options, endpoint);
+  }
 
   /// \brief Explicitly shut down and clean up the client.
   Status Close();

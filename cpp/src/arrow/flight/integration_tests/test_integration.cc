@@ -731,9 +731,9 @@ class ExpirationTimeCancelFlightInfoScenario : public Scenario {
     ARROW_ASSIGN_OR_RAISE(auto info,
                           client->GetFlightInfo(FlightDescriptor::Command("expiration")));
     ARROW_ASSIGN_OR_RAISE(auto cancel_result, client->CancelFlightInfo(*info));
-    if (cancel_result->status != CancelStatus::kCancelled) {
+    if (cancel_result.status != CancelStatus::kCancelled) {
       return Status::Invalid("CancelFlightInfo must return CANCEL_STATUS_CANCELLED: ",
-                             cancel_result->ToString());
+                             cancel_result.ToString());
     }
     for (const auto& endpoint : info->endpoints()) {
       auto reader = client->DoGet(endpoint.ticket);
@@ -798,7 +798,7 @@ class ExpirationTimeRefreshFlightEndpointScenario : public Scenario {
       tables.push_back(table);
     }
     // Refresh all endpoints that have expiration time
-    std::vector<std::unique_ptr<FlightEndpoint>> refreshed_endpoints;
+    std::vector<FlightEndpoint> refreshed_endpoints;
     Timestamp max_expiration_time;
     for (const auto& endpoint : info->endpoints()) {
       if (!endpoint.expiration_time.has_value()) {
@@ -810,15 +810,15 @@ class ExpirationTimeRefreshFlightEndpointScenario : public Scenario {
       }
       ARROW_ASSIGN_OR_RAISE(auto refreshed_endpoint,
                             client->RefreshFlightEndpoint(endpoint));
-      if (!refreshed_endpoint->expiration_time.has_value()) {
+      if (!refreshed_endpoint.expiration_time.has_value()) {
         return Status::Invalid("Refreshed endpoint must have expiration time: ",
-                               refreshed_endpoint->ToString());
+                               refreshed_endpoint.ToString());
       }
-      const auto& refreshed_expiration_time = refreshed_endpoint->expiration_time.value();
+      const auto& refreshed_expiration_time = refreshed_endpoint.expiration_time.value();
       if (refreshed_expiration_time <= expiration_time) {
         return Status::Invalid("Refreshed endpoint must have newer expiration time\n",
                                "Original:\n", endpoint.ToString(), "Refreshed:\n",
-                               refreshed_endpoint->ToString());
+                               refreshed_endpoint.ToString());
       }
       refreshed_endpoints.push_back(std::move(refreshed_endpoint));
     }
@@ -826,7 +826,7 @@ class ExpirationTimeRefreshFlightEndpointScenario : public Scenario {
     {
       std::vector<Timestamp> refreshed_expiration_times;
       for (const auto& endpoint : refreshed_endpoints) {
-        refreshed_expiration_times.push_back(endpoint->expiration_time.value());
+        refreshed_expiration_times.push_back(endpoint.expiration_time.value());
       }
       std::sort(refreshed_expiration_times.begin(), refreshed_expiration_times.end());
       if (refreshed_expiration_times[0] < max_expiration_time) {
@@ -843,7 +843,7 @@ class ExpirationTimeRefreshFlightEndpointScenario : public Scenario {
     }
     // Re-reads only from refreshed endpoints
     for (const auto& endpoint : refreshed_endpoints) {
-      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint->ticket));
+      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint.ticket));
       ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
       tables.push_back(table);
     }

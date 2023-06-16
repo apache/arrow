@@ -610,6 +610,20 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
   virtual arrow::Result<CancelResult> CancelQuery(
       const ServerCallContext& context, const ActionCancelQueryRequest& request);
 
+  /// \brief Attempt to explicitly close a FlightInfo.
+  /// \param[in] context  The call context.
+  /// \param[in] info     The FlightInfo to close.
+  /// \return             The close status.
+  virtual Status CloseFlightInfo(const ServerCallContext& context,
+                                 const FlightInfo& info);
+
+  /// \brief Attempt to explicitly refresh a FlightEndpoint.
+  /// \param[in] context  The call context.
+  /// \param[in] info     The FlightEndpoint to refresh.
+  /// \return             The refresh result.
+  virtual arrow::Result<FlightEndpoint> RefreshFlightEndpoint(
+      const ServerCallContext& context, const FlightEndpoint& endpoint);
+
   /// @}
 
   /// \name Utility methods

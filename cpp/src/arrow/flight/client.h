@@ -253,10 +253,9 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] info The FlightInfo to be cancelled
   /// \return Arrow result with a CancelFlightInfoResult
-  arrow::Result<std::unique_ptr<CancelFlightInfoResult>> CancelFlightInfo(
-      const FlightCallOptions& options, const FlightInfo& info);
-  arrow::Result<std::unique_ptr<CancelFlightInfoResult>> CancelFlightInfo(
-      const FlightInfo& info) {
+  arrow::Result<CancelFlightInfoResult> CancelFlightInfo(const FlightCallOptions& options,
+                                                         const FlightInfo& info);
+  arrow::Result<CancelFlightInfoResult> CancelFlightInfo(const FlightInfo& info) {
     return CancelFlightInfo({}, info);
   }
 
@@ -274,10 +273,9 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] endpoint The FlightEndpoint to be refreshed
   /// \return Arrow result with a refreshed FlightEndpoint
-  arrow::Result<std::unique_ptr<FlightEndpoint>> RefreshFlightEndpoint(
-      const FlightCallOptions& options, const FlightEndpoint& endpoint);
-  arrow::Result<std::unique_ptr<FlightEndpoint>> RefreshFlightEndpoint(
-      const FlightEndpoint& endpoint) {
+  arrow::Result<FlightEndpoint> RefreshFlightEndpoint(const FlightCallOptions& options,
+                                                      const FlightEndpoint& endpoint);
+  arrow::Result<FlightEndpoint> RefreshFlightEndpoint(const FlightEndpoint& endpoint) {
     return RefreshFlightEndpoint({}, endpoint);
   }
 

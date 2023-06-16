@@ -569,7 +569,7 @@ Status FlightClient::DoAction(const FlightCallOptions& options, const Action& ac
   return DoAction(options, action).Value(results);
 }
 
-arrow::Result<std::unique_ptr<CancelFlightInfoResult>> FlightClient::CancelFlightInfo(
+arrow::Result<CancelFlightInfoResult> FlightClient::CancelFlightInfo(
     const FlightCallOptions& options, const FlightInfo& info) {
   ARROW_ASSIGN_OR_RAISE(auto body, info.SerializeToString());
   Action action{ActionType::kCancelFlightInfo.type, Buffer::FromString(body)};
@@ -578,10 +578,10 @@ arrow::Result<std::unique_ptr<CancelFlightInfoResult>> FlightClient::CancelFligh
   ARROW_ASSIGN_OR_RAISE(auto cancel_result, CancelFlightInfoResult::Deserialize(
                                                 std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
-  return std::make_unique<CancelFlightInfoResult>(std::move(cancel_result));
+  return std::move(cancel_result);
 }
 
-arrow::Result<std::unique_ptr<FlightEndpoint>> FlightClient::RefreshFlightEndpoint(
+arrow::Result<FlightEndpoint> FlightClient::RefreshFlightEndpoint(
     const FlightCallOptions& options, const FlightEndpoint& endpoint) {
   ARROW_ASSIGN_OR_RAISE(auto body, endpoint.SerializeToString());
   Action action{ActionType::kRefreshFlightEndpoint.type, Buffer::FromString(body)};
@@ -590,7 +590,7 @@ arrow::Result<std::unique_ptr<FlightEndpoint>> FlightClient::RefreshFlightEndpoi
   ARROW_ASSIGN_OR_RAISE(auto refreshed_endpoint,
                         FlightEndpoint::Deserialize(std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
-  return std::make_unique<FlightEndpoint>(std::move(refreshed_endpoint));
+  return std::move(refreshed_endpoint);
 }
 
 Status FlightClient::CloseFlightInfo(const FlightCallOptions& options,
