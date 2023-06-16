@@ -58,10 +58,10 @@ have_parquet=yes
 have_ruby=yes
 have_vala=yes
 ruby_devel_packages=(ruby-devel)
-install_command="dnf install -y --enablerepo=crb"
+install_command="dnf install -y --enablerepo=crb --enablerepo=epel"
 uninstall_command="dnf remove -y"
 clean_command="dnf clean"
-info_command="dnf info --enablerepo=crb"
+info_command="dnf info --enablerepo=crb --enablerepo=epel"
 
 echo "::group::Prepare repository"
 
@@ -70,8 +70,8 @@ case "${distribution}-${distribution_version}" in
     distribution_prefix="almalinux"
     have_arrow_libs=yes
     ruby_devel_packages+=(redhat-rpm-config)
-    install_command="dnf install -y --enablerepo=powertools"
-    info_command="dnf info --enablerepo=powertools"
+    install_command="dnf install -y --enablerepo=powertools --enablerepo=epel"
+    info_command="dnf info --enablerepo=powertools --enablerepo=epel"
     ;;
   almalinux-*)
     distribution_prefix="almalinux"
@@ -87,10 +87,10 @@ case "${distribution}-${distribution_version}" in
     have_flight=no
     have_gandiva=no
     have_ruby=no
-    install_command="yum install -y"
+    install_command="yum install -y --enablerepo=epel"
     uninstall_command="yum remove -y"
     clean_command="yum clean"
-    info_command="yum info"
+    info_command="yum info --enablerepo=epel"
     amazon-linux-extras install epel -y
     ;;
   amzn-2023)
@@ -109,17 +109,17 @@ case "${distribution}-${distribution_version}" in
     have_gandiva=no
     have_ruby=no
     have_vala=no
-    install_command="yum install -y"
+    install_command="yum install -y --enablerepo=epel"
     uninstall_command="yum remove -y"
     clean_command="yum clean"
-    info_command="yum info"
+    info_command="yum info --enablerepo=epel"
     ;;
   centos-8)
     distribution_prefix="centos"
     repository_version+="-stream"
     ruby_devel_packages+=(redhat-rpm-config)
-    install_command="dnf install -y --enablerepo=powertools"
-    info_command="dnf info --enablerepo=powertools"
+    install_command="dnf install -y --enablerepo=powertools --enablerepo=epel"
+    info_command="dnf info --enablerepo=powertools --enablerepo=epel"
     ;;
   centos-*)
     distribution_prefix="centos"
@@ -200,7 +200,7 @@ echo "::endgroup::"
 
 
 echo "::group::Test Apache Arrow C++"
-${install_command} --enablerepo=epel arrow-devel-${package_version}
+${install_command} arrow-devel-${package_version}
 if [ -n "${devtoolset}" ]; then
   ${install_command} ${scl_package}
 fi
@@ -234,8 +234,8 @@ if [ "${have_glib}" = "yes" ]; then
   echo "::group::Test Apache Arrow GLib"
   export G_DEBUG=fatal-warnings
 
-  ${install_command} --enablerepo=epel arrow-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
+  ${install_command} arrow-glib-devel-${package_version}
+  ${install_command} arrow-glib-doc-${package_version}
 
   if [ "${have_vala}" = "yes" ]; then
     ${install_command} vala
@@ -256,16 +256,16 @@ fi
 
 if [ "${have_flight}" = "yes" ]; then
   echo "::group::Test Apache Arrow Flight"
-  ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
+  ${install_command} arrow-flight-glib-devel-${package_version}
+  ${install_command} arrow-flight-glib-doc-${package_version}
   if [ "${have_ruby}" = "yes" ]; then
     ruby -r gi -e "p GI.load('ArrowFlight')"
   fi
   echo "::endgroup::"
 
   echo "::group::Test Apache Arrow Flight SQL"
-  ${install_command} --enablerepo=epel arrow-flight-sql-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel arrow-flight-sql-glib-doc-${package_version}
+  ${install_command} arrow-flight-sql-glib-devel-${package_version}
+  ${install_command} arrow-flight-sql-glib-doc-${package_version}
   if [ "${have_ruby}" = "yes" ]; then
     ruby -r gi -e "p GI.load('ArrowFlightSQL')"
   fi
@@ -275,13 +275,13 @@ fi
 if [ "${have_gandiva}" = "yes" ]; then
   echo "::group::Test Gandiva"
   if [ "${have_glib}" = "yes" ]; then
-    ${install_command} --enablerepo=epel gandiva-glib-devel-${package_version}
-    ${install_command} --enablerepo=epel gandiva-glib-doc-${package_version}
+    ${install_command} gandiva-glib-devel-${package_version}
+    ${install_command} gandiva-glib-doc-${package_version}
     if [ "${have_ruby}" = "yes" ]; then
       ruby -r gi -e "p GI.load('Gandiva')"
     fi
   else
-    ${install_command} --enablerepo=epel gandiva-devel-${package_version}
+    ${install_command} gandiva-devel-${package_version}
   fi
   echo "::endgroup::"
 fi
@@ -289,13 +289,13 @@ fi
 if [ "${have_parquet}" = "yes" ]; then
   echo "::group::Test Apache Parquet"
   if [ "${have_glib}" = "yes" ]; then
-    ${install_command} --enablerepo=epel parquet-glib-devel-${package_version}
-    ${install_command} --enablerepo=epel parquet-glib-doc-${package_version}
+    ${install_command} parquet-glib-devel-${package_version}
+    ${install_command} parquet-glib-doc-${package_version}
     if [ "${have_ruby}" = "yes" ]; then
       ruby -r gi -e "p GI.load('Parquet')"
     fi
   else
-    ${install_command} --enablerepo=epel parquet-devel-${package_version}
+    ${install_command} parquet-devel-${package_version}
   fi
   echo "::endgroup::"
 fi
