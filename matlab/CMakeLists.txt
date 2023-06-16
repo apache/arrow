@@ -472,26 +472,8 @@ install(TARGETS arrow_matlab mexcall
 get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
 get_filename_component(ARROW_SHARED_LIB_FILENAME ${ARROW_SHARED_LIB} NAME_WE)
 
-## On macOS, use the RPATH values below for runtime dependency resolution. This enables
-## relocation of the installation directory.
-#if(APPLE)
-#  # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
-#  # to the RPATH of arrow_matlab and mexcall, including the MATLAB dependencies.
-#  # If Arrow_FOUND is true, this also includes the path to arrow_shared.
-#  set_target_properties(arrow_matlab mexcall PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-#
-#  # Add @loader_path to the RPATH of mexcall so that libarrow_matlab.dylib can be found
-#  # at runtime.
-#  set_target_properties(mexcall PROPERTIES INSTALL_RPATH "@loader_path")
-#
-#  # Add @loader_path to the RPATH of arrow_matlab so that libarrow.dylib can be found
-#  # at runtime.
-#  set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH "@loader_path")
-#
-#  # Create the regular expression to match arraw shared library
-#  set(ARROW_SHARED_LIB_FILES "${ARROW_SHARED_LIB_FILENAME}\\.*${CMAKE_SHARED_LIBRARY_SUFFIX}")
-#endif()
-
+# On macOS, use the RPATH values below for runtime dependency resolution. This enables
+# relocation of the installation directory.
 if(APPLE)
   # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
   # to the RPATH of arrow_matlab and mexcall, including the MATLAB dependencies.
@@ -502,26 +484,9 @@ if(APPLE)
   # at runtime.
   set_target_properties(mexcall PROPERTIES INSTALL_RPATH "@loader_path")
 
-  if(NOT Arrow_FOUND)
-    # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-    # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
-    # install libarrow.dylib (symlink) and the real files it points to.
-    #
-    # The subfolders cmake and pkgconfig are excluded as they will be empty.
-    # Note: The following CMake Issue suggests enabling an option to exclude all
-    # folders that would be empty after installation:
-    # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
-#    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-#            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-#            FILES_MATCHING
-#            REGEX "${ARROW_SHARED_LIB_FILENAME}\\..*dylib"
-#            PATTERN "cmake" EXCLUDE
-#            PATTERN "pkgconfig" EXCLUDE)
-
-    # Add @loader_path to the RPATH of arrow_matlab so that libarrow.dylib can be found
-    # at runtime.
-    set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH "@loader_path")
-  endif()
+  # Add @loader_path to the RPATH of arrow_matlab so that libarrow.dylib can be found
+  # at runtime.
+  set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH "@loader_path")
 endif()
 
 # On Linux, use the RUNPATH values below for runtime dependency resolution. This enables
@@ -538,71 +503,38 @@ if(UNIX
   # at runtime.
   set_target_properties(mexcall PROPERTIES INSTALL_RPATH $ORIGIN)
 
-  if(NOT Arrow_FOUND)
-    # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-    # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
-    # install libarrow.so (symlink) and the real files it points to.
-    #
-    # The subfolders cmake and pkgconfig are excluded as they will be empty.
-    # Note: The following CMake Issue suggests enabling an option to exclude all
-    # folders that would be empty after installation:
-    # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
-#    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-#            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-#            FILES_MATCHING
-#            REGEX "${ARROW_SHARED_LIB_FILENAME}\\.so.*"
-#            PATTERN "cmake" EXCLUDE
-#            PATTERN "pkgconfig" EXCLUDE)
-
-    # Add $ORIGIN to the RUNPATH of arrow_matlab so that libarrow.so can be found
-    # at runtime.
-    set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH $ORIGIN)
-  endif()
+  # Add $ORIGIN to the RUNPATH of arrow_matlab so that libarrow.so can be found
+  # at runtime.
+  set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH $ORIGIN)
 endif()
-
-#if(WIN32)
-#  if(NOT Arrow_FOUND)
-#    # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-#    # to be copied to CMAKE_PACKAGED_INSTALL_DIR.
-#    #
-#    # The subfolder cmake is excluded as it will be empty.
-#    # Note: The following CMake Issue suggests enabling an option to exclude all
-#    # folders that would be empty after installation:
-#    # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
-#    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-#            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-#            FILES_MATCHING
-#            REGEX "${ARROW_SHARED_LIB_FILENAME}\\..*dll"
-#            PATTERN "cmake" EXCLUDE)
-#  endif()
-#endif()
-
-#if(WIN32)
-#  # Create the regular expression to match arraw shared library
-#  # set(ARROW_SHARED_LIB_FILES "${ARROW_SHARED_LIB_FILENAME}\\.*${CMAKE_SHARED_LIBRARY_SUFFIX}")
-#  set(ARROW_SHARED_LIB_FILES "${ARROW_SHARED_LIB_FILENAME}\\..*dll")
-#endif()
-
-message(STATUS "=================ARROW_SHARED_LIB: ${ARROW_SHARED_LIB}")
 
 if(NOT Arrow_FOUND)
   # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-  # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
-  # install libarrow.dylib (symlink) and the real files it points to.
-  #
+  # to be copied to CMAKE_PACKAGED_INSTALL_DIR.
+
+  if(APPLE)
+    # Install libarrow.dylib (symlink) and the real files it points to.
+    set(ARROW_SHARED_FILES "${ARROW_SHARED_LIB_FILENAME}([.][0-9]+){0,3}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  elseif(UNIX 
+         AND NOT APPLE
+         AND NOT CYGWIN)
+    # Install libarrow.so (symlink) and the real files it points to.
+    set(ARROW_SHARED_FILES "${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX}([.][0-9]+){0,3}")
+  else()
+    set(ARROW_SHARED_FILES ${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+  endif()
+
+  message(STATUS "=================ARROW_SHARED_LIB_FILENAME: ${ARROW_SHARED_LIB_FILENAME}")
+  message(STATUS "=================ARROW_SHARED_FILES: ${ARROW_SHARED_FILES}")
+
   # The subfolders cmake and pkgconfig are excluded as they will be empty.
   # Note: The following CMake Issue suggests enabling an option to exclude all
   # folders that would be empty after installation:
   # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
-  if(APPLE)
-    set(ARROW_SHARED_LIB_FILES "${ARROW_SHARED_LIB_FILENAME}\\..*dylib")
-  else()
-    set(ARROW_SHARED_LIB_FILES ${ARROW_SHARED_LIB})
-  endif()
   install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
           DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
           FILES_MATCHING
-          REGEX ${ARROW_SHARED_LIB_FILES}
+          REGEX ${ARROW_SHARED_FILES}
           PATTERN "cmake" EXCLUDE
           PATTERN "pkgconfig" EXCLUDE)
 endif()
