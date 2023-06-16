@@ -82,7 +82,7 @@ Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit
   return Status::OK();
 }
 
-Status PreallocateDataRLE(KernelContext* ctx, int64_t physical_length, int bit_width,
+Status PreallocateDataREE(KernelContext* ctx, int64_t physical_length, int bit_width,
                           bool allocate_validity, ArrayData* out) {
   // Preallocate memory
   out->buffers = {NULLPTR};

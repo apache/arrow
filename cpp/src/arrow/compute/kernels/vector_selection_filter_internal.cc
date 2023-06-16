@@ -101,7 +101,7 @@ int64_t GetREEFilterOutputSize(const ArraySpan& filter,
 }
 
 template <typename RunEndsType>
-int64_t GetFilterOutputSizeRLE(const ArraySpan& values, const ArraySpan& filter,
+int64_t GetFilterOutputSizeREE(const ArraySpan& values, const ArraySpan& filter,
                                FilterOptions::NullSelectionBehavior null_selection) {
   int64_t output_size = 0;
 
@@ -527,12 +527,12 @@ Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
 /// implementation here for boolean and fixed-byte-size inputs with some
 /// template specialization.
 template <typename RunEndsType, typename ArrowType>
-class RLEPrimitiveFilterImpl {
+class REEPrimitiveFilterImpl {
  public:
   using T = typename std::conditional<std::is_same<ArrowType, BooleanType>::value,
                                       uint8_t, typename ArrowType::c_type>::type;
 
-  RLEPrimitiveFilterImpl(const ArraySpan& values, const ArraySpan& filter,
+  REEPrimitiveFilterImpl(const ArraySpan& values, const ArraySpan& filter,
                          FilterOptions::NullSelectionBehavior null_selection,
                          ArrayData* out_arr)
       : values_{values},
@@ -711,7 +711,7 @@ class RLEPrimitiveFilterImpl {
 };
 
 template <typename RunEndsType>
-Status RLEPrimitiveFilterForRunEndsType(KernelContext* ctx, const ExecSpan& span,
+Status REEPrimitiveFilterForRunEndsType(KernelContext* ctx, const ExecSpan& span,
                                         ExecResult* result) {
   auto values = span.values[0].array;
   auto filter = span.values[1].array;
@@ -719,10 +719,10 @@ Status RLEPrimitiveFilterForRunEndsType(KernelContext* ctx, const ExecSpan& span
       FilterState::Get(ctx).null_selection_behavior;
 
   int64_t output_length =
-      GetFilterOutputSizeRLE<RunEndsType>(values, filter, null_selection);
+      GetFilterOutputSizeREE<RunEndsType>(values, filter, null_selection);
 
   ArrayData* out_arr = result->array_data().get();
-  // RLE parent arrays always have a null count of 0
+  // REE parent arrays always have a null count of 0
   out_arr->null_count = 0;
 
   bool allocate_validity = ree_util::ValuesArray(values).MayHaveNulls() ||
@@ -732,51 +732,51 @@ Status RLEPrimitiveFilterForRunEndsType(KernelContext* ctx, const ExecSpan& span
   const int bit_width =
       checked_cast<const RunEndEncodedType*>(values.type)->value_type()->bit_width();
   RETURN_NOT_OK(
-      PreallocateDataRLE(ctx, output_length, bit_width, allocate_validity, out_arr));
+      PreallocateDataREE(ctx, output_length, bit_width, allocate_validity, out_arr));
 
   switch (bit_width) {
     case 1:
-      RLEPrimitiveFilterImpl<RunEndsType, BooleanType>(values, filter, null_selection,
+      REEPrimitiveFilterImpl<RunEndsType, BooleanType>(values, filter, null_selection,
                                                        out_arr)
           .Exec();
       break;
     case 8:
-      RLEPrimitiveFilterImpl<RunEndsType, UInt8Type>(values, filter, null_selection,
+      REEPrimitiveFilterImpl<RunEndsType, UInt8Type>(values, filter, null_selection,
                                                      out_arr)
           .Exec();
       break;
     case 16:
-      RLEPrimitiveFilterImpl<RunEndsType, UInt16Type>(values, filter, null_selection,
+      REEPrimitiveFilterImpl<RunEndsType, UInt16Type>(values, filter, null_selection,
                                                       out_arr)
           .Exec();
       break;
     case 32:
-      RLEPrimitiveFilterImpl<RunEndsType, UInt32Type>(values, filter, null_selection,
+      REEPrimitiveFilterImpl<RunEndsType, UInt32Type>(values, filter, null_selection,
                                                       out_arr)
           .Exec();
       break;
     case 64:
-      RLEPrimitiveFilterImpl<RunEndsType, UInt64Type>(values, filter, null_selection,
+      REEPrimitiveFilterImpl<RunEndsType, UInt64Type>(values, filter, null_selection,
                                                       out_arr)
           .Exec();
       break;
     default:
-      return Status::NotImplemented(std::string("RLEFilter of fixed bit width ") +
+      return Status::NotImplemented(std::string("REEFilter of fixed bit width ") +
                                     std::to_string(bit_width));
   }
   return Status::OK();
 }
 
-Status RLEPrimitiveFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+Status REEPrimitiveFilter(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
   auto& run_end_type =
       checked_cast<const RunEndEncodedType&>(*span.GetTypes()[0]).run_end_type();
   switch (run_end_type->id()) {
     case Type::INT16:
-      return RLEPrimitiveFilterForRunEndsType<int16_t>(ctx, span, result);
+      return REEPrimitiveFilterForRunEndsType<int16_t>(ctx, span, result);
     case Type::INT32:
-      return RLEPrimitiveFilterForRunEndsType<int32_t>(ctx, span, result);
+      return REEPrimitiveFilterForRunEndsType<int32_t>(ctx, span, result);
     case Type::INT64:
-      return RLEPrimitiveFilterForRunEndsType<int64_t>(ctx, span, result);
+      return REEPrimitiveFilterForRunEndsType<int64_t>(ctx, span, result);
     default:
       return Status::Invalid("Invalid run ends type: ", *run_end_type);
   }
@@ -1382,7 +1382,7 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
 
       // REE(Primitive) x REE(Boolean)
       {InputType(match::RunEndEncoded(match::Primitive())), ree_filter,
-       RLEPrimitiveFilter},
+       REEPrimitiveFilter},
   };
 }
 
