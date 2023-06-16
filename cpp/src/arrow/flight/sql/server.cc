@@ -771,74 +771,77 @@ Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
 Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
                                      const Action& action,
                                      std::unique_ptr<ResultStream>* result_stream) {
-  google::protobuf::Any any;
-  if (!any.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()))) {
-    return Status::Invalid("Unable to parse action");
-  }
-
   std::vector<Result> results;
-  if (action.type == FlightSqlServerBase::kBeginSavepointActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionBeginSavepointRequest internal_command,
-                          ParseActionBeginSavepointRequest(any));
-    ARROW_ASSIGN_OR_RAISE(ActionBeginSavepointResult result,
-                          BeginSavepoint(context, internal_command));
-    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
-
-    results.push_back(std::move(packed_result));
-  } else if (action.type == FlightSqlServerBase::kBeginTransactionActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionBeginTransactionRequest internal_command,
-                          ParseActionBeginTransactionRequest(any));
-    ARROW_ASSIGN_OR_RAISE(ActionBeginTransactionResult result,
-                          BeginTransaction(context, internal_command));
-    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
-
-    results.push_back(std::move(packed_result));
-  } else if (action.type == ActionType::kCancelFlightInfo.type) {
+  if (action.type == ActionType::kCancelFlightInfo.type) {
     std::string_view body(*action.body);
     ARROW_ASSIGN_OR_RAISE(auto info, FlightInfo::Deserialize(body));
     ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, *info));
     ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
-  } else if (action.type == FlightSqlServerBase::kCancelQueryActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionCancelQueryRequest internal_command,
-                          ParseActionCancelQueryRequest(any));
-    ARROW_ASSIGN_OR_RAISE(CancelResult result, CancelQuery(context, internal_command));
-    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(result));
-
-    results.push_back(std::move(packed_result));
-  } else if (action.type ==
-             FlightSqlServerBase::kCreatePreparedStatementActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementRequest internal_command,
-                          ParseActionCreatePreparedStatementRequest(any));
-    ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementResult result,
-                          CreatePreparedStatement(context, internal_command));
-    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
-
-    results.push_back(std::move(packed_result));
-  } else if (action.type ==
-             FlightSqlServerBase::kCreatePreparedSubstraitPlanActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedSubstraitPlanRequest internal_command,
-                          ParseActionCreatePreparedSubstraitPlanRequest(any));
-    ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementResult result,
-                          CreatePreparedSubstraitPlan(context, internal_command));
-    ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
-
-    results.push_back(std::move(packed_result));
-  } else if (action.type == FlightSqlServerBase::kClosePreparedStatementActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionClosePreparedStatementRequest internal_command,
-                          ParseActionClosePreparedStatementRequest(any));
-    ARROW_RETURN_NOT_OK(ClosePreparedStatement(context, internal_command));
-  } else if (action.type == FlightSqlServerBase::kEndSavepointActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionEndSavepointRequest internal_command,
-                          ParseActionEndSavepointRequest(any));
-    ARROW_RETURN_NOT_OK(EndSavepoint(context, internal_command));
-  } else if (action.type == FlightSqlServerBase::kEndTransactionActionType.type) {
-    ARROW_ASSIGN_OR_RAISE(ActionEndTransactionRequest internal_command,
-                          ParseActionEndTransactionRequest(any));
-    ARROW_RETURN_NOT_OK(EndTransaction(context, internal_command));
   } else {
-    return Status::NotImplemented("Action not implemented: ", action.type);
+    google::protobuf::Any any;
+    if (!any.ParseFromArray(action.body->data(), static_cast<int>(action.body->size()))) {
+      return Status::Invalid("Unable to parse action");
+    }
+
+    if (action.type == FlightSqlServerBase::kBeginSavepointActionType.type) {
+      ARROW_ASSIGN_OR_RAISE(ActionBeginSavepointRequest internal_command,
+                            ParseActionBeginSavepointRequest(any));
+      ARROW_ASSIGN_OR_RAISE(ActionBeginSavepointResult result,
+                            BeginSavepoint(context, internal_command));
+      ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
+
+      results.push_back(std::move(packed_result));
+    } else if (action.type == FlightSqlServerBase::kBeginTransactionActionType.type) {
+      ARROW_ASSIGN_OR_RAISE(ActionBeginTransactionRequest internal_command,
+                            ParseActionBeginTransactionRequest(any));
+      ARROW_ASSIGN_OR_RAISE(ActionBeginTransactionResult result,
+                            BeginTransaction(context, internal_command));
+      ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
+
+      results.push_back(std::move(packed_result));
+    } else if (action.type == FlightSqlServerBase::kCancelQueryActionType.type) {
+      ARROW_ASSIGN_OR_RAISE(ActionCancelQueryRequest internal_command,
+                            ParseActionCancelQueryRequest(any));
+      ARROW_ASSIGN_OR_RAISE(CancelResult result, CancelQuery(context, internal_command));
+      ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(result));
+
+      results.push_back(std::move(packed_result));
+    } else if (action.type ==
+               FlightSqlServerBase::kCreatePreparedStatementActionType.type) {
+      ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementRequest internal_command,
+                            ParseActionCreatePreparedStatementRequest(any));
+      ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementResult result,
+                            CreatePreparedStatement(context, internal_command));
+      ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
+
+      results.push_back(std::move(packed_result));
+    } else if (action.type ==
+               FlightSqlServerBase::kCreatePreparedSubstraitPlanActionType.type) {
+      ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedSubstraitPlanRequest internal_command,
+                            ParseActionCreatePreparedSubstraitPlanRequest(any));
+      ARROW_ASSIGN_OR_RAISE(ActionCreatePreparedStatementResult result,
+                            CreatePreparedSubstraitPlan(context, internal_command));
+      ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(std::move(result)));
+
+      results.push_back(std::move(packed_result));
+    } else if (action.type ==
+               FlightSqlServerBase::kClosePreparedStatementActionType.type) {
+      ARROW_ASSIGN_OR_RAISE(ActionClosePreparedStatementRequest internal_command,
+                            ParseActionClosePreparedStatementRequest(any));
+      ARROW_RETURN_NOT_OK(ClosePreparedStatement(context, internal_command));
+    } else if (action.type == FlightSqlServerBase::kEndSavepointActionType.type) {
+      ARROW_ASSIGN_OR_RAISE(ActionEndSavepointRequest internal_command,
+                            ParseActionEndSavepointRequest(any));
+      ARROW_RETURN_NOT_OK(EndSavepoint(context, internal_command));
+    } else if (action.type == FlightSqlServerBase::kEndTransactionActionType.type) {
+      ARROW_ASSIGN_OR_RAISE(ActionEndTransactionRequest internal_command,
+                            ParseActionEndTransactionRequest(any));
+      ARROW_RETURN_NOT_OK(EndTransaction(context, internal_command));
+    } else {
+      return Status::NotImplemented("Action not implemented: ", action.type);
+    }
   }
   *result_stream = std::make_unique<SimpleResultStream>(std::move(results));
   return Status::OK();
