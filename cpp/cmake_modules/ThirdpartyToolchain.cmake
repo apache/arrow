@@ -5134,10 +5134,15 @@ macro(build_azuresdk)
 
   find_curl()
   add_custom_target(azure_sdk_dependencies)
+  
+  if(NOT OpenSSL_FOUND)
+    resolve_dependency(OpenSSL HAVE_ALT REQUIRED_VERSION
+                        ${ARROW_OPENSSL_REQUIRED_VERSION})
+  endif()
+
   if(XML2_VENDORED)
     add_dependencies(azure_sdk_dependencies xml2_ep)
   endif()
-  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
 
   set(AZURESDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/azuresdk_ep-install")
   set(AZURESDK_INCLUDE_DIR "${AZURESDK_PREFIX}/include")
@@ -5242,6 +5247,7 @@ macro(build_azuresdk)
   target_link_libraries(Azure::azure-storage-files-datalake INTERFACE Azure::azure-core Azure::azure-identity Azure::azure-storage-common Azure::azure-storage-blobs)
   add_dependencies(Azure::azure-storage-files-datalake azuresdk_ep)
 
+  set(AZURE_SDK_VENDORED TRUE)
   set(AZURESDK_LIBRARIES)
   list(APPEND
        AZURESDK_LIBRARIES
@@ -5262,7 +5268,8 @@ macro(build_azuresdk)
 endmacro()
 
 if(ARROW_AZURE)
-  build_azuresdk()
+  resolve_dependency(AZURE_SDK)
+
   message(STATUS "Found Azure SDK headers: ${AZURESDK_INCLUDE_DIR}")
   message(STATUS "Found Azure SDK libraries: ${AZURESDK_LINK_LIBRARIES}")
 endif()
