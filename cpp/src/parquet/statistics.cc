@@ -463,7 +463,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  public:
   using T = typename DType::c_type;
 
-  // Currently, this function will be called by ColumnWriter to create the
+  // Currently, this function will tend to be called by ColumnWriter to create the
   // statistics collector during write.
   TypedStatisticsImpl(const ColumnDescriptor* descr, MemoryPool* pool)
       : descr_(descr),
@@ -477,7 +477,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     has_distinct_count_ = false;
   }
 
-  // Currently, this function will be only called by testing.
+  // Currently, this function will tend to be called by testing.
   TypedStatisticsImpl(const T& min, const T& max, int64_t num_values, int64_t null_count,
                       int64_t distinct_count)
       : pool_(default_memory_pool()),
@@ -492,7 +492,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     has_min_max_ = true;
   }
 
-  // Currently, this function will be called by ColumnChunkMetaData during read.
+  // Currently, this function will tend to be called by ColumnChunkMetaData during read.
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
@@ -562,15 +562,13 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->num_values_ += other.num_values();
     // Merge always runs when Merge builder's page statistics
     // into column chunk statistics, so it tent to have null count.
-    if (ARROW_PREDICT_TRUE(other.HasNullCount())) {
+    if (other.HasNullCount()) {
       this->statistics_.null_count += other.null_count();
     } else {
       this->has_null_count_ = false;
     }
     // Distinct count cannot be merged.
-    if (has_distinct_count_) {
-      has_distinct_count_ = false;
-    }
+    has_distinct_count_ = false;
     // If !other.HasMinMax, might be all-nulls or nulls and nan,
     // so, not clear `this->has_min_max_` here.
     if (other.HasMinMax()) {
@@ -617,7 +615,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   EncodedStatistics Encode() override {
-    // Currently, distinct_count will never be set in EncodedStatistics.
     EncodedStatistics s;
     if (HasMinMax()) {
       s.set_min(this->EncodeMin());
@@ -625,6 +622,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
     if (HasNullCount()) {
       s.set_null_count(this->null_count());
+    }
+    if (HasDistinctCount()) {
+      s.set_distinct_count(this->distinct_count());
     }
     // num_values_ is reliable and it means number of non-null values.
     s.all_null_value = num_values_ == 0;
@@ -653,7 +653,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
 
-  void SetDistinctCount(int64_t n) {
+  void SetDistinctCount(int64_t n) override {
     statistics_.distinct_count = n;
     has_distinct_count_ = true;
   }

@@ -1346,7 +1346,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   EncodedStatistics GetChunkStatistics() override {
     EncodedStatistics result;
-    if (chunk_statistics_) result = chunk_statistics_->Encode();
+    if (chunk_statistics_) {
+      if (has_dictionary_ && !fallback_) {
+        chunk_statistics_->SetDistinctCount(current_dict_encoder_->num_entries());
+      }
+      result = chunk_statistics_->Encode();
+    }
     return result;
   }
 
