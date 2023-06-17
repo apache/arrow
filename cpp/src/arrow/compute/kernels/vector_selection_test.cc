@@ -311,13 +311,17 @@ class TestFilterKernel : public ::testing::Test {
                              const std::shared_ptr<Array>& filter,
                              const FilterOptions& null_options,
                              const std::shared_ptr<Array>& expected) {
+    const int64_t calculated_output_size = internal::GetFilterOutputSize(
+        *filter->data(), null_options.null_selection_behavior);
+    ASSERT_EQ(calculated_output_size, expected->length());
+
     ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, filter, null_options));
     auto actual = out_datum.make_array();
     ValidateOutput(*actual);
     AssertArraysEqual(*expected, *actual, /*verbose=*/true);
   }
 
- protected:
+ public:
   /// Assuming filter also contains NULLs, this will execute:
   ///
   ///   Filter(values, filter   w NULLs, FilterOptions::EMIT_NULL)
@@ -370,7 +374,11 @@ class TestFilterKernel : public ::testing::Test {
   static void AssertFilter(const std::shared_ptr<Array>& values,
                            const std::shared_ptr<Array>& filter,
                            const std::shared_ptr<Array>& expected) {
-    DoAssertFilter(values, filter, expected);
+    ARROW_SCOPED_TRACE("assert filter");
+    {
+      ARROW_SCOPED_TRACE("for full values and filter");
+      DoAssertFilter(values, filter, expected);
+    }
     DoAssertFilterSliced(values, filter, expected);
   }
 
@@ -1114,81 +1122,6 @@ TEST(TestFilterMetaFunction, ArityChecking) {
 
 namespace ree {
 
-void DoAssertFilterOutput(const std::shared_ptr<Array>& values,
-                          const std::shared_ptr<Array>& filter,
-                          const FilterOptions& null_options,
-                          const std::shared_ptr<Array>& expected) {
-  // TODO(felipecrv): enable this when all input types are supported
-  const int64_t calculated_output_size = internal::GetFilterOutputSize(
-      *filter->data(), null_options.null_selection_behavior);
-  ASSERT_EQ(calculated_output_size, expected->length());
-
-  ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, filter, null_options));
-  auto actual = out_datum.make_array();
-  ValidateOutput(*actual);
-
-  ASSERT_EQ(actual->length(), expected->length());
-  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
-}
-
-void DoAssertFilterOutput(const std::shared_ptr<Array>& values,
-                          const std::shared_ptr<Array>& filter,
-                          const std::shared_ptr<Array>& expected) {
-  {
-    ARROW_SCOPED_TRACE("with EMIT_NULL");
-    DoAssertFilterOutput(values, filter, kEmitNulls, expected);
-  }
-  {
-    ARROW_SCOPED_TRACE("with DROP");
-    auto coalesced_filter = CoalesceNullToFalse(filter);
-    ASSERT_OK_AND_ASSIGN(Datum out_datum, Filter(values, coalesced_filter, kEmitNulls));
-    auto expected_for_drop = out_datum.make_array();
-    DoAssertFilterOutput(values, filter, kDropNulls, expected_for_drop);
-  }
-}
-
-void DoAssertFilterSlicedOutput(const std::shared_ptr<Array>& values,
-                                const std::shared_ptr<Array>& filter,
-                                const std::shared_ptr<Array>& expected) {
-  constexpr auto M = 3;
-  constexpr auto N = 2;
-  // Check slicing: add M dummy values at the start and end of `values`,
-  // add N dummy values at the start and end of `filter`.
-  ARROW_SCOPED_TRACE("for sliced values and filter");
-  ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(values->type(), M));
-  ASSERT_OK_AND_ASSIGN(auto filter_filler,
-                       FilterFromJSON(filter->type(), "[true, false]"));
-  ASSERT_OK_AND_ASSIGN(auto values_with_filler,
-                       Concatenate({values_filler, values, values_filler}));
-  ASSERT_OK_AND_ASSIGN(auto filter_with_filler,
-                       Concatenate({filter_filler, filter, filter_filler}));
-  auto values_sliced = values_with_filler->Slice(M, values->length());
-  auto filter_sliced = filter_with_filler->Slice(N, filter->length());
-  DoAssertFilterOutput(values_sliced, filter_sliced, expected);
-}
-
-void DoAssertOutput(const std::shared_ptr<Array>& values,
-                    const std::shared_ptr<Array>& filter,
-                    const std::shared_ptr<Array>& expected) {
-  ARROW_SCOPED_TRACE("assert output");
-  auto values_span = ArraySpan(*values->data());
-  auto filter_span = ArraySpan(*filter->data());
-  {
-    ARROW_SCOPED_TRACE("for full values and filter");
-    DoAssertFilterOutput(values, filter, expected);
-  }
-  DoAssertFilterSlicedOutput(values, filter, expected);
-}
-
-/// \pre values is a RunEndEncodedArray
-void DoAssertOutput(const std::shared_ptr<Array>& values,
-                    const std::shared_ptr<Array>& filter, const REERep& expected) {
-  auto values_span = ArraySpan(*values->data());
-  auto filter_span = ArraySpan(*filter->data());
-  ASSERT_OK_AND_ASSIGN(auto expected_array, REEFromRep(values->type(), expected));
-  DoAssertOutput(values, filter, expected_array);
-}
-
 struct GenericTestInvocations {
   template <class TypedTest>
   static void AllNullsOutputForEveryTypeInput(TypedTest& self) {
@@ -1273,7 +1206,8 @@ struct REExREEFilterTest : public ::testing::Test {
         auto values,
         REEFromJSON(run_end_encoded(value_run_end_type_, value_type), values_json));
     ASSERT_OK_AND_ASSIGN(auto filter, REEFromJSON(filter_type_, filter_json));
-    DoAssertOutput(values, filter, expected);
+    ASSERT_OK_AND_ASSIGN(auto expected_array, REEFromRep(values->type(), expected));
+    TestFilterKernel::AssertFilter(values, filter, expected_array);
   }
 };
 TYPED_TEST_SUITE_P(REExREEFilterTest);
@@ -1318,7 +1252,8 @@ struct REExPlainFilterTest : public ::testing::Test {
         auto values,
         REEFromJSON(run_end_encoded(value_run_end_type_, value_type), values_json));
     auto filter = ArrayFromJSON(boolean(), filter_json);
-    DoAssertOutput(values, filter, expected);
+    ASSERT_OK_AND_ASSIGN(auto expected_array, REEFromRep(values->type(), expected));
+    TestFilterKernel::AssertFilter(values, filter, expected_array);
   }
 };
 TYPED_TEST_SUITE_P(REExPlainFilterTest);
@@ -1355,7 +1290,7 @@ struct PlainxREEFilterTest : public ::testing::Test {
         auto filter,
         REEFromJSON(run_end_encoded(filter_run_end_type_, boolean()), filter_json));
     auto expected = ArrayFromJSON(value_type, expected_json);
-    DoAssertOutput(values, filter, expected);
+    TestFilterKernel::AssertFilter(values, filter, expected);
   }
 
   /// Take a REE representation, so this can be called with the same expected
@@ -1369,7 +1304,7 @@ struct PlainxREEFilterTest : public ::testing::Test {
         auto filter,
         REEFromJSON(run_end_encoded(filter_run_end_type_, boolean()), filter_json));
     ASSERT_OK_AND_ASSIGN(auto expected_array, PlainArrayFromREERep(value_type, expected));
-    DoAssertOutput(values, filter, expected_array);
+    TestFilterKernel::AssertFilter(values, filter, expected_array);
   }
 };
 TYPED_TEST_SUITE_P(PlainxREEFilterTest);
