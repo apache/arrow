@@ -514,12 +514,12 @@ if(NOT Arrow_FOUND)
 
   if(APPLE)
     # Install libarrow.dylib (symlink) and the real files it points to.
-    set(ARROW_SHARED_FILES "${ARROW_SHARED_LIB_FILENAME}([.][0-9]+){0,3}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    set(ARROW_SHARED_FILES "${ARROW_SHARED_LIB_FILENAME}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)${CMAKE_SHARED_LIBRARY_SUFFIX}")
   elseif(UNIX 
          AND NOT APPLE
          AND NOT CYGWIN)
     # Install libarrow.so (symlink) and the real files it points to.
-    set(ARROW_SHARED_FILES "${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX}([.][0-9]+){0,3}")
+    set(ARROW_SHARED_FILES "${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)")
   else()
     set(ARROW_SHARED_FILES ${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
   endif()
