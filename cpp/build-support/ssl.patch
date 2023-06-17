@@ -1,0 +1,16 @@
+diff --git a/sdk/core/azure-core/src/http/curl/curl.cpp b/sdk/core/azure-core/src/http/curl/curl.cpp
+index 80309f89..b34c9b77 100644
+--- a/sdk/core/azure-core/src/http/curl/curl.cpp
++++ b/sdk/core/azure-core/src/http/curl/curl.cpp
+@@ -39,11 +39,7 @@
+ 
+ #if defined(AZ_PLATFORM_POSIX)
+ #include <openssl/opensslv.h>
+-#if OPENSSL_VERSION_NUMBER < 0x30000000L
+ #define USE_OPENSSL_1
+-#else
+-#define USE_OPENSSL_3
+-#endif // OPENSSL_VERSION_NUMBER < 0x30000000L
+ 
+ #include <openssl/asn1t.h>
+ #include <openssl/err.h>
