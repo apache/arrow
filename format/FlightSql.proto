@@ -1825,6 +1825,7 @@ message ActionCancelQueryRequest {
  * The result should be wrapped in a google.protobuf.Any message.
  */
 message ActionCancelQueryResult {
+  option deprecated = true;
   option (experimental) = true;
 
   enum CancelResult {
