@@ -19,7 +19,6 @@ package org.apache.arrow.vector;
 
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
