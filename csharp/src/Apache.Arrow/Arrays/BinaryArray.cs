@@ -263,23 +263,28 @@ namespace Apache.Arrow
                 return Instance;
             }
 
+            public TBuilder SetNull(int offset)
+            {
+                int index = ValueOffsets.Span[offset];
+                int length = GetOffsetValueLength(offset);
+
+                for (int i = 0; i < length; i++)
+                {
+                    ValueBuffer.Span[index + i] = 0;
+                }
+
+                ValidityBuffer.Set(offset, false);
+
+                return Instance;
+            }
+
             public TBuilder Set(int offset, ReadOnlySpan<byte> values)
             {
 #if NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
                 byte[] newValues = values.ToArray();
                 int index = ValueOffsets.Span[offset];
-                int existingValueLength;
+                int existingValueLength = GetOffsetValueLength(offset);
                 int newValueLength = newValues.Length;
-
-                if (offset + 1 < ValueOffsets.Length)
-                {
-                    int nextIndex = ValueOffsets.Span[offset + 1];
-                    existingValueLength = nextIndex - index;
-                }
-                else
-                {
-                    existingValueLength = ValueBuffer.Length - ValueOffsets.Span[offset];
-                }
 
                 // Resize and shift the value and offset buffers
                 if (existingValueLength != newValueLength)
@@ -318,6 +323,13 @@ namespace Apache.Arrow
                 //Given .NetStandard past EOL, keep existing functionality the same for those users.
                 throw new NotImplementedException();
 #endif
+            }
+
+            private int GetOffsetValueLength(int offset)
+            {
+                int index = ValueOffsets.Span[offset];
+                int nextIndex = offset + 1 < ValueOffsets.Length ? ValueOffsets.Span[offset + 1] : ValueBuffer.Length;
+                return nextIndex - index;
             }
 
             /// <summary>

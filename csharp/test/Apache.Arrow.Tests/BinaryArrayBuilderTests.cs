@@ -508,6 +508,35 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(expectedValues[i], actual);
                 }
             }
+
+            [Theory]
+            [InlineData(0)]
+            [InlineData(1)]
+            [InlineData(2)]
+            public void EnsureSetNullUpdatesTheCorrectBytes(int offset)
+            {
+                // Arrange
+                var builder = new BinaryArray.Builder();
+                var defaultValues = new[] { "Test",  "Test1", "Test2"};
+                var expectedValues = (string[])defaultValues.Clone();
+                expectedValues[offset] = null;
+                foreach (string defaultValue in defaultValues)
+                {
+                    builder.Append(StringArray.DefaultEncoding.GetBytes(defaultValue).AsSpan());
+                }
+
+                // Act
+                builder.SetNull(offset);
+                var array = builder.Build();
+
+                // Assert
+                for (int i = 0; i <expectedValues.Length; i++)
+                {
+                    ReadOnlySpan<byte> byteValue = array.GetBytes(i);
+                    string actual = byteValue == null ? null : StringArray.DefaultEncoding.GetString(byteValue);
+                    Assert.Equal(expectedValues[i], actual);
+                }
+            }
         }
 
         private static void AssertArrayContents(IEnumerable<byte[]> expectedContents, BinaryArray array)

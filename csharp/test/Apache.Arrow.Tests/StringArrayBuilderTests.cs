@@ -53,5 +53,33 @@ public class StringArrayBuilderTests
                 Assert.Equal(expectedValues[i], actual);
             }
         }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        public void EnsureSetNullUpdatesTheCorrectStrings(int offset)
+        {
+            // Arrange
+            var builder = new StringArray.Builder();
+            var defaultValues = new[] { "Test",  "Test1", "Test2"};
+            var expectedValues = (string[])defaultValues.Clone();
+            expectedValues[offset] = null;
+            foreach (string defaultValue in defaultValues)
+            {
+                builder.Append(defaultValue);
+            }
+
+            // Act
+            builder.SetNull(offset);
+            var array = builder.Build();
+
+            // Assert
+            for (int i = 0; i <expectedValues.Length; i++)
+            {
+                string actual = array.GetString(i);
+                Assert.Equal(expectedValues[i], actual);
+            }
+        }
     }
 }
