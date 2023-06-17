@@ -236,7 +236,7 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r0_batches,
                     const BatchesWithSchema& r1_batches,
                     const BatchesWithSchema& exp_batches,
-                    const AsofJoinNodeOptions join_options,
+                    const AsofJoinNodeOptions& join_options,
                     std::function<void(const Table&, const Table&)> check_tables) {
   Declaration join{"asofjoin", join_options};
 
@@ -459,12 +459,11 @@ struct BasicTest {
 
 #undef CHECK_RUN_OUTPUT
 #undef EXPAND_BY_KEY_TYPE
-
   void CheckRunOutput(const BatchesWithSchema& l_batches,
                       const BatchesWithSchema& r0_batches,
                       const BatchesWithSchema& r1_batches,
                       const BatchesWithSchema& exp_batches,
-                      const AsofJoinNodeOptions join_options) {
+                      const AsofJoinNodeOptions& join_options) {
 #ifndef NDEBUG
     auto debug_sstr = dynamic_cast<std::stringstream*>(join_options.debug_opts->os);
     if (debug_sstr) debug_sstr->str("");

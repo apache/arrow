@@ -114,7 +114,7 @@ AsofJoinNodeOptions GetRepeatedOptions(size_t repeat, FieldRef on_key,
 }
 
 static void AsOfJoinOverhead(benchmark::State& state) {
-  int64_t tolerance = 0;
+  int64_t tolerance = state.range(8);
   auto options = std::make_shared<AsofJoinNodeOptions>(
       GetRepeatedOptions(int(state.range(4) + 1), kTimeCol, {kKeyCol}, tolerance));
   TableJoinOverhead(
@@ -133,7 +133,7 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
   bench
       ->ArgNames({"left_freq", "left_cols", "left_ids", "left_batch_size",
                   "num_right_tables", "right_freq", "right_cols", "right_ids",
-                  "right_batch_size"})
+                  "right_batch_size", "tolerance"})
       ->UseRealTime();
 
   int default_freq = 400;
@@ -141,26 +141,33 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
   int default_ids = 500;
   int default_num_tables = 1;
   int default_batch_size = 4000;
+  int default_tolerance = 0;
 
   for (int freq : {200, 400, 1000}) {
     bench->Args({freq, default_cols, default_ids, default_batch_size, default_num_tables,
-                 freq, default_cols, default_ids});
+                 freq, default_cols, default_ids, default_batch_size, default_tolerance});
   }
   for (int cols : {10, 20, 100}) {
     bench->Args({default_freq, cols, default_ids, default_batch_size, default_num_tables,
-                 default_freq, cols, default_ids});
+                 default_freq, cols, default_ids, default_batch_size, default_tolerance});
   }
   for (int ids : {100, 500, 1000}) {
     bench->Args({default_freq, default_cols, ids, default_batch_size, default_num_tables,
-                 default_freq, default_cols, ids});
+                 default_freq, default_cols, ids, default_batch_size, default_tolerance});
   }
   for (int num_tables : {1, 10, 50}) {
     bench->Args({default_freq, default_cols, default_ids, default_batch_size, num_tables,
-                 default_freq, default_cols, default_ids});
+                 default_freq, default_cols, default_ids, default_batch_size,
+                 default_tolerance});
   }
   for (int batch_size : {1000, 4000, 32000}) {
     bench->Args({default_freq, default_cols, default_ids, batch_size, default_num_tables,
-                 default_freq, default_cols, default_ids});
+                 default_freq, default_cols, default_ids, batch_size, default_tolerance});
+  }
+  for (int tolerance : {-1500, -500, 0, 500, 1500}) {
+    bench->Args({default_freq, default_cols, default_ids, default_batch_size,
+                 default_num_tables, default_freq, default_cols, default_ids,
+                 default_batch_size, tolerance});
   }
 }
 

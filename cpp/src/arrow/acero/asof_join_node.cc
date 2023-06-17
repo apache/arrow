@@ -23,6 +23,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <queue>
 #include <string_view>
 #include <thread>
 #include <unordered_map>
@@ -241,7 +242,7 @@ class DebugSync {
     if (debug_os_) {
       std::ios state(NULL);
       state.copyfmt(*debug_os_);
-      (*debug_os_) << "AsofjoinNode(" << std::hex << &node << "): ";
+      (*debug_os_) << "AsofJoinNode(" << std::hex << node << "): ";
       debug_os_->copyfmt(state);
     }
   }
@@ -306,13 +307,14 @@ struct MemoStore {
   //
   // A key's value is captured in an entry, which describes a row of the input's batch.
 
-  struct Entry {
-    Entry() = default;
+  // A `BaseEntry` references a row in a batch and keeps its time
+  struct BaseEntry {
+    BaseEntry() = default;
 
-    Entry(OnType time, std::shared_ptr<arrow::RecordBatch> batch, row_index_t row)
+    BaseEntry(OnType time, std::shared_ptr<arrow::RecordBatch> batch, row_index_t row)
         : time(time), batch(batch), row(row) {}
 
-    void swap(Entry& other) {
+    void swap(BaseEntry& other) {
       std::swap(time, other.time);
       std::swap(batch, other.batch);
       std::swap(row, other.row);
@@ -327,6 +329,49 @@ struct MemoStore {
 
     // Row associated with the entry
     row_index_t row;
+  };
+
+  // A `FutureEntry` is a `BaseEntry` that also keeps its key and references the next
+  // `FutureEntry` for the same key in a linked-list
+  struct FutureEntry : public BaseEntry {
+    FutureEntry(OnType time, ByType key, std::shared_ptr<arrow::RecordBatch> batch,
+                row_index_t row)
+        : BaseEntry(time, batch, row), key(key) {}
+
+    void swap(FutureEntry& other) {
+      BaseEntry::swap(other);
+      std::swap(key, other.key);
+      std::swap(next, other.next);
+    }
+
+    // Key associated with the entry
+    ByType key;
+
+    // Next future entry for the key - useful when removing this future entry from the
+    // linked-list of future entries of the associated key
+    FutureEntry* next = nullptr;
+  };
+
+  // An `Entry` is a `BaseEntry	 that also keeps the next and last `FutureEntry` for the
+  // key it is associated with. The entry is the head of the linked-list for the key that
+  // is followed by future entries. The entry does not keep the key because the entry is
+  // reached using a map by-key (see `entries_` below), so the key is already available.
+  struct Entry : public BaseEntry {
+    using BaseEntry::BaseEntry;
+
+    void swap(Entry& other) {
+      BaseEntry::swap(other);
+      std::swap(next, other.next);
+      std::swap(last, other.last);
+    }
+
+    // Next future entry for the key - the current entry is the head of the linked-list
+    // followed by future entries
+    FutureEntry* next = nullptr;
+
+    // Last future entry for the key, if this is a current entry - useful for adding
+    // future entries to the linked-list of the associated key
+    FutureEntry* last = nullptr;
   };
 
   NDEBUG_EXPLICIT MemoStore(DEBUG_ADD(bool no_future, AsofJoinNode* node, size_t index))
@@ -344,13 +389,22 @@ struct MemoStore {
   // the time of the current entry, defaulting to 0.
   // when entries with a time less than T are removed, the current time is updated to the
   // time of the next (by-time) and now-current entry or to T if no such entry exists.
-  std::atomic<OnType> current_time_;
-  // current entry per key
+  OnType current_time_;
+  // current entry per key.
+  // the entry also points to the linked-list of the associated key.
   std::unordered_map<ByType, Entry> entries_;
-  // future entries per key
-  std::unordered_map<ByType, std::queue<Entry>> future_entries_;
-  // current and future (distinct) times of existing entries
-  std::deque<OnType> times_;
+  // order of keys stored.
+  // when entries with time less than a removal time need to be removed, the order of keys
+  // stored determines which keys are considered for removal. the next key in the order is
+  // considered if the entry associated with the key has a time less than the removal one.
+  // this optimizes for the common case of frequent removal, i.e., in which on average few
+  // entries are considered for each removal time relative to the number of stored keys at
+  // that moment. moreover, this is a linear-time process, with respect to the input size,
+  // whereas considering all stored keys per removal time is a super-linear-time process.
+  std::deque<ByType> key_order_;
+  // future entries.
+  // a future entry also points to the next one in the linked-list of the associated key.
+  std::queue<FutureEntry> future_entries_;
 #ifndef NDEBUG
   // Owning node
   AsofJoinNode* node_;
@@ -358,28 +412,13 @@ struct MemoStore {
   size_t index_;
 #endif
 
-  void swap(MemoStore& memo) {
-#ifndef NDEBUG
-    std::swap(node_, memo.node_);
-    std::swap(index_, memo.index_);
-#endif
-    std::swap(no_future_, memo.no_future_);
-    current_time_ = memo.current_time_.exchange(static_cast<OnType>(current_time_));
-    entries_.swap(memo.entries_);
-    future_entries_.swap(memo.future_entries_);
-    times_.swap(memo.times_);
-  }
+  bool Empty() const { return entries_.empty() && future_entries_.empty(); }
 
-  // Updates the current time to `ts` if it is less. A different thread may win the race
-  // to update the current time to more than `ts` but not to less. Returns whether the
-  // current time was changed from its value at the beginning of this invocation.
+  // Updates the current time to `ts` if it is less. Returns true if updated.
   bool UpdateTime(OnType ts) {
-    OnType prev_time = current_time_;
-    bool update = prev_time < ts;
-    while (prev_time < ts && !current_time_.compare_exchange_weak(prev_time, ts)) {
-      // intentionally empty - standard CAS loop
-    }
-    return update;
+    bool updated = current_time_ < ts;
+    if (updated) current_time_ = ts;
+    return updated;
   }
 
   void Store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, OnType time,
@@ -394,20 +433,17 @@ struct MemoStore {
       if (e.batch != batch) e.batch = batch;
       e.row = row;
       e.time = time;
+      e.next = e.last = nullptr;
     } else {
-      future_entries_[key].emplace(time, batch, row);
+      auto& e = entries_[key];
+      future_entries_.emplace(time, key, batch, row);
+      FutureEntry* last = &future_entries_.back();
+      if (e.last) e.last->next = last;  // appends after `last`
+      if (!e.next) e.next = last;       // sets `last` as the only future entry
+      e.last = last;                    // updated `e.last` to the new linked-list tail
     }
-    // Maintain distinct times:
-    // If no times are currently maintained then the given time is distinct and hence
-    // pushed. Otherwise, the invariant is that the latest time is at the back. If no
-    // future times are maintained, then only one time is maintained, and hence it is
-    // overwritten with the given time. Otherwise, the given time must be no less than the
-    // latest time, due to time ordering, so it is pushed back only if it is distinct.
-    if (times_.empty() || (!no_future_ && times_.back() != time)) {
-      times_.push_back(time);
-    } else {
-      times_.back() = time;
-    }
+    DEBUG_SYNC(node_, "pushing ", index_, " key ", key, DEBUG_MANIP(std::endl));
+    key_order_.push_back(key);
     // `time` is the most advanced seen yet - `UpdateTime(time)` would work but not needed
     current_time_ = time;
   }
@@ -419,43 +455,65 @@ struct MemoStore {
 
   bool RemoveEntriesWithLesserTime(OnType ts) {
     DEBUG_SYNC(node_, "memo ", index_, " remove: ts=", ts, DEBUG_MANIP(std::endl));
-    bool updated = false;
+    size_t init_size = entries_.size() + future_entries_.size();
     // remove future entries with lesser time
-    for (auto fe = future_entries_.begin(); fe != future_entries_.end();) {
-      auto& queue = fe->second;
-      while (!queue.empty() && queue.front().time < ts) {
-        queue.pop();
-        updated = true;  // queue changed
-      }
-      // remove entry if its queue was just emptied
-      if (queue.empty()) {
-        fe = future_entries_.erase(fe);
-      } else {
-        ++fe;
-      }
-    }
-    // remove last-known entries with lesser time
-    for (auto e = entries_.begin(); e != entries_.end();) {
-      if (e->second.time < ts) {
-        // drop last-known entry and move next future entry, if exists, in its place
-        auto fe = future_entries_.find(e->first);
-        if (fe != future_entries_.end() && !fe->second.empty()) {
-          auto& queue = fe->second;
-          e->second.swap(queue.front());
-          queue.pop();
-          ++e;
+    // algorithm:
+    // * future entries are scanned by time order
+    // * a future entry is removed if its time is lesser
+    // * removal is by disconnecting the future entry from the linked-list of the key
+    // complexity: linear-time because future entry are scanned and removed in time-order
+    while (!future_entries_.empty()) {
+      auto& fe = future_entries_.front();
+      if (fe.time >= ts) break;
+      DCHECK_NE(0, entries_.count(fe.key));
+      auto& e = entries_[fe.key];
+      if (e.next && e.next == &fe) {  // otherwise fe is already disconnected
+        if (!fe.next) {
+          DCHECK_EQ(e.last, &fe);
+          e.last = e.next = nullptr;  // no future entries remaining for the key
         } else {
-          e = entries_.erase(e);
+          e.next = fe.next;  // disconnect fe
         }
-        updated = true;  // entry changed
+      }
+      future_entries_.pop();
+    }
+    // remove entries with lesser time
+    // algorithm:
+    // * keys are scanned by their order (of storing)
+    // * an entry associated with the key may be found
+    // * the found entries are known to be in time order
+    // * the scan is broken if a found entry's time is not lesser
+    // * the found entry is replaced by the next future entry, if exists, or else removed
+    // complexity: linear-time because entries and future entries remaining in the linked
+    // list of the key are scanned and removed in time-order
+    while (!key_order_.empty()) {
+      ByType key = key_order_.front();
+      if (0 == entries_.count(key)) {
+        key_order_.pop_front();
+        continue;
+      }
+      auto e = entries_.find(key);
+      auto& entry = e->second;
+      DCHECK_NE(entry.batch, nullptr);
+      if (entry.time < ts) {
+        if (entry.next) {
+          DCHECK(entry.last);
+          auto& to_erase = *entry.next;
+          entry.time = to_erase.time;
+          if (entry.batch != to_erase.batch) entry.batch = to_erase.batch;
+          entry.row = to_erase.row;
+          entry.next = to_erase.next;  // disconnect to_erase
+          if (!entry.next) entry.last = nullptr;
+        } else {
+          entries_.erase(e);
+        }
+        DEBUG_SYNC(node_, "popping ", index_, " key ", key, DEBUG_MANIP(std::endl));
+        key_order_.pop_front();
       } else {
-        ++e;
+        break;
       }
     }
-    // remove known lesser times
-    while (!times_.empty() && times_.front() < ts) {
-      times_.pop_front();
-    }
+    bool updated = init_size > entries_.size() + future_entries_.size();
     // update current time
     return UpdateTime(ts) || updated;
   }
@@ -714,7 +772,7 @@ class InputState {
   // positive tolerance), when the memo is empty.
   // used when checking whether RHS is up to date with LHS.
   bool CurrentEmpty() const {
-    return memo_.no_future_ ? Empty() : memo_.times_.empty() && Empty();
+    return memo_.no_future_ ? Empty() : memo_.Empty() && Empty();
   }
 
   // in case memo may not have future entries (the case of a non-positive tolerance),
@@ -821,8 +879,11 @@ class InputState {
         ++batches_processed_;
         latest_ref_row_ = 0;
         have_active_batch &= !queue_.TryPop();
-        if (have_active_batch)
+        if (have_active_batch) {
           DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
+          key_hasher_->Invalidate();  // batch changed - invalidate key hasher's cache
+          memo_.UpdateTime(GetTime(queue_.UnsyncFront().get(), 0));  // time changed
+        }
       }
     }
     return have_active_batch;
@@ -880,26 +941,28 @@ class InputState {
 
   void Rehash() {
     DEBUG_SYNC(node_, "rehashing for input ", index_, ":", DEBUG_MANIP(std::endl));
-    MemoStore new_memo(DEBUG_ADD(memo_.no_future_, node_, index_));
-    new_memo.current_time_ = (OnType)memo_.current_time_;
+    std::unordered_map<ByType, ByType> key_map;
+    decltype(memo_.entries_) new_entries;
     for (auto e = memo_.entries_.begin(); e != memo_.entries_.end(); ++e) {
       auto& entry = e->second;
       auto new_key = GetKey(entry.batch.get(), entry.row);
+      key_map[e->first] = new_key;
       DEBUG_SYNC(node_, "  ", e->first, " to ", new_key, DEBUG_MANIP(std::endl));
-      new_memo.entries_[new_key].swap(entry);
-      auto fe = memo_.future_entries_.find(e->first);
-      if (fe != memo_.future_entries_.end()) {
-        new_memo.future_entries_[new_key].swap(fe->second);
+      for (auto fe = entry.next; fe; fe = fe->next) {
+        fe->key = new_key;
       }
+      new_entries[new_key].swap(entry);
     }
-    memo_.times_.swap(new_memo.times_);
-    memo_.swap(new_memo);
+    memo_.entries_.swap(new_entries);
+    for (auto i = memo_.key_order_.begin(); i != memo_.key_order_.end(); i++) {
+      ByType key = *i;
+      DCHECK_EQ(1, key_map.count(key));
+      *i = key_map[key];
+    }
   }
 
   Status Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
     if (rb->num_rows() > 0) {
-      key_hasher_->Invalidate();  // batch changed - invalidate key hasher's cache
-      memo_.UpdateTime(GetTime(rb.get(), 0));  // time changed - update in MemoStore
       queue_.Push(rb);  // only after above updates - push batch for processing
     } else {
       ++batches_processed_;  // don't enqueue empty batches, just record as processed
@@ -1132,9 +1195,7 @@ class CompositeReferenceTable {
 
     // Build the result
     DCHECK_LE(n_rows, (uint64_t)std::numeric_limits<int64_t>::max());
-    std::shared_ptr<arrow::RecordBatch> r =
-        arrow::RecordBatch::Make(output_schema, (int64_t)n_rows, arrays);
-    return r;
+    return arrow::RecordBatch::Make(output_schema, (int64_t)n_rows, arrays);
   }
 
   // Returns true if there are no rows
@@ -1686,10 +1747,10 @@ class AsofJoinNode : public ExecNode {
     size_t k = std_find(inputs_, input) - inputs_.begin();
 
     // Put into the queue
-    auto rb = *batch.ToRecordBatch(input->output_schema());
+    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(input->output_schema()));
     DEBUG_SYNC(this, "received batch from input ", k, ":", DEBUG_MANIP(std::endl),
                rb->ToString(), DEBUG_MANIP(std::endl));
-    ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
+    ARROW_RETURN_NOT_OK(state_.at(k)->Push(std::move(rb)));
     process_.Push(true);
     return Status::OK();
   }
