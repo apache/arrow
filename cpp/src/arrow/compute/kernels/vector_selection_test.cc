@@ -52,8 +52,10 @@ const auto kEmitNulls = FilterOptions{FilterOptions::EMIT_NULL};
 const auto kDropNulls = FilterOptions{FilterOptions::DROP};
 
 template <typename T>
-Result<std::shared_ptr<Array>> REEncode(const T& array) {
-  ARROW_ASSIGN_OR_RAISE(auto datum, RunEndEncode(array));
+Result<std::shared_ptr<Array>> REEncode(const T& array,
+                                        std::shared_ptr<DataType> run_end_type) {
+  RunEndEncodeOptions options(std::move(run_end_type));
+  ARROW_ASSIGN_OR_RAISE(auto datum, RunEndEncode(array, options));
   return datum.make_array();
 }
 
@@ -139,7 +141,7 @@ void CheckTakeIndicesCase(const BooleanArray& filter,
   ValidateOutput(indices);
   AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
 
-  ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter));
+  ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter, int32()));
   ASSERT_OK_AND_ASSIGN(auto indices_from_ree,
                        internal::GetTakeIndices(*ree_filter->data(), null_selection));
   auto indices_from_ree_array = MakeArray(indices);
@@ -185,7 +187,7 @@ TEST(GetTakeIndices, NullValidityBuffer) {
 template <typename IndexArrayType>
 void CheckGetTakeIndicesCase(const Array& untyped_filter) {
   const auto& filter = checked_cast<const BooleanArray&>(untyped_filter);
-  ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(*filter.data()));
+  ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(*filter.data(), int32()));
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayData> drop_indices,
                        internal::GetTakeIndices(*filter.data(), FilterOptions::DROP));
@@ -390,15 +392,15 @@ class TestFilterKernel : public ::testing::Test {
     auto expected_array = ArrayFromJSON(type, expected);
     AssertFilter(values_array, filter_array, expected_array);
 
-    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter_array));
+    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter_array, int32()));
     {
       ARROW_SCOPED_TRACE("for plain values and REE filter");
       AssertFilter(values_array, ree_filter, expected_array);
     }
     if (CanRunEndEncode(type->id())) {
       ARROW_SCOPED_TRACE("for REE values");
-      ASSERT_OK_AND_ASSIGN(auto ree_values, REEncode(values_array));
-      ASSERT_OK_AND_ASSIGN(auto ree_expected, REEncode(expected_array));
+      ASSERT_OK_AND_ASSIGN(auto ree_values, REEncode(values_array, int32()));
+      ASSERT_OK_AND_ASSIGN(auto ree_expected, REEncode(expected_array, int32()));
       {
         ARROW_SCOPED_TRACE("and REE filter");
         AssertFilter(ree_values, ree_filter, ree_expected);
@@ -1122,34 +1124,44 @@ TEST(TestFilterMetaFunction, ArityChecking) {
 
 namespace ree {
 
-struct GenericTestInvocations {
+struct GenericTestInvocationsWithREE {
   template <class TypedTest>
   static void AllNullsOutputForEveryTypeInput(TypedTest& self) {
-    const std::string one_null = "[null]";
-    const std::string four_nulls = "[null, null, null, null]";
+    static auto b = TypeTraits<BooleanType>::type_singleton();
+    static auto filter_e = ArrayFromJSON(b, "[]");
+    static auto filter_1 = ArrayFromJSON(b, "[1]");
+    static auto filter_0 = ArrayFromJSON(b, "[0]");
+    static auto filter_n = ArrayFromJSON(b, "[null]");
+    static auto filter_0110 = ArrayFromJSON(b, "[0, 1, 1, 0]");
+    static auto filter_1101 = ArrayFromJSON(b, "[1, 1, 0, 1]");
+    static auto filter_n010 = ArrayFromJSON(b, "[null, 0, 1, 0]");
+    static auto filter_110n = ArrayFromJSON(b, "[1, 1, 0, null]");
+    static auto filter_001n = ArrayFromJSON(b, "[0, 0, 1, null]");
+    static auto filter_n101 = ArrayFromJSON(b, "[null, 1, 0, 1]");
+    static auto filter_n1n1 = ArrayFromJSON(b, "[null, 1, null, 1]");
+    static auto long_filter =
+        ArrayFromJSON(b, "[null, 1, 0, 1, null, 0, null, 1, 0, null]");
+
     for (auto& data_type : common_types) {
       // Since all values are null, the physical output size is always 0 or 1 as
       // the filtering process combines all the equal values into a single run.
 
-      self.AssertOutput(data_type, "[]", "[]", {0});
-      self.AssertOutput(data_type, one_null, "[1]", {1});
-      self.AssertOutput(data_type, one_null, "[0]", {0});
-      self.AssertOutput(data_type, one_null, "[null]", {1});
+      self.AssertFilterNullValues(data_type, 0, filter_e, 0);
+      self.AssertFilterNullValues(data_type, 1, filter_1, 1);
+      self.AssertFilterNullValues(data_type, 1, filter_0, 0);
+      self.AssertFilterNullValues(data_type, 1, filter_n, 1);
 
-      self.AssertOutput(data_type, four_nulls, "[0, 1, 1, 0]", {2});
-      self.AssertOutput(data_type, four_nulls, "[1, 1, 0, 1]", {3});
+      self.AssertFilterNullValues(data_type, 4, filter_0110, 2);
+      self.AssertFilterNullValues(data_type, 4, filter_1101, 3);
 
-      self.AssertOutput(data_type, four_nulls, "[null, 0, 1, 0]", {2});
-      self.AssertOutput(data_type, four_nulls, "[1, 1, 0, null]", {3});
+      self.AssertFilterNullValues(data_type, 4, filter_n010, 2);
+      self.AssertFilterNullValues(data_type, 4, filter_110n, 3);
 
-      self.AssertOutput(data_type, four_nulls, "[0, 0, 1, null]", {2});
-      self.AssertOutput(data_type, four_nulls, "[null, 1, 0, 1]", {3});
-      self.AssertOutput(data_type, four_nulls, "[null, 1, null, 1]", {4});
+      self.AssertFilterNullValues(data_type, 4, filter_001n, 2);
+      self.AssertFilterNullValues(data_type, 4, filter_n101, 3);
+      self.AssertFilterNullValues(data_type, 4, filter_n1n1, 4);
 
-      self.AssertOutput(data_type,  // line break for alignment
-                        "[null, null, null, null, null, null, null, null, null, null]",
-                        "[null,    1,    0,    1, null,    0, null,    1,    0, null]",
-                        {7});
+      self.AssertFilterNullValues(data_type, 10, long_filter, 7);
     }
   }
 
@@ -1209,15 +1221,28 @@ struct REExREEFilterTest : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto expected_array, REEFromRep(values->type(), expected));
     TestFilterKernel::AssertFilter(values, filter, expected_array);
   }
+
+  void AssertFilterNullValues(const std::shared_ptr<DataType>& value_type,
+                              int number_of_nulls, const std::shared_ptr<Array>& filter,
+                              int number_of_trues_and_nulls) {
+    REERep values_rep{number_of_nulls};
+    REERep expected_rep{number_of_trues_and_nulls};
+
+    auto ree_type = run_end_encoded(value_run_end_type_, value_type);
+    ASSERT_OK_AND_ASSIGN(auto ree_values, REEFromRep(ree_type, values_rep));
+    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter, filter_run_end_type_));
+    ASSERT_OK_AND_ASSIGN(auto ree_expected, REEFromRep(ree_type, expected_rep));
+    TestFilterKernel::AssertFilter(ree_values, ree_filter, ree_expected);
+  }
 };
 TYPED_TEST_SUITE_P(REExREEFilterTest);
 
 TYPED_TEST_P(REExREEFilterTest, AllNullsOutputForEveryTypeInput) {
-  GenericTestInvocations::AllNullsOutputForEveryTypeInput(*this);
+  GenericTestInvocationsWithREE::AllNullsOutputForEveryTypeInput(*this);
 }
 
 TYPED_TEST_P(REExREEFilterTest, FilterPrimitiveTypeArrays) {
-  GenericTestInvocations::FilterPrimitiveTypeArrays(*this);
+  GenericTestInvocationsWithREE::FilterPrimitiveTypeArrays(*this);
 }
 
 REGISTER_TYPED_TEST_SUITE_P(REExREEFilterTest, AllNullsOutputForEveryTypeInput,
@@ -1229,12 +1254,16 @@ struct RunEndTypes {
   using FilterRunEndType = F;
 };
 
-using RunEndTypePairs =
-    testing::Types<RunEndTypes<Int16Type, Int16Type>, RunEndTypes<Int16Type, Int32Type>,
-                   RunEndTypes<Int16Type, Int64Type>, RunEndTypes<Int32Type, Int16Type>,
-                   RunEndTypes<Int32Type, Int32Type>, RunEndTypes<Int32Type, Int64Type>,
-                   RunEndTypes<Int64Type, Int16Type>, RunEndTypes<Int64Type, Int32Type>,
-                   RunEndTypes<Int64Type, Int64Type>>;
+// Not all pairs are enabled because some tests are expensive.
+using RunEndTypePairs = testing::Types<RunEndTypes<Int16Type, Int16Type>,
+                                       // RunEndTypes<Int16Type, Int32Type>,
+                                       RunEndTypes<Int16Type, Int64Type>,
+                                       // RunEndTypes<Int32Type, Int16Type>,
+                                       // RunEndTypes<Int32Type, Int32Type>,
+                                       // RunEndTypes<Int32Type, Int64Type>,
+                                       RunEndTypes<Int64Type, Int16Type>,
+                                       // RunEndTypes<Int64Type, Int32Type>,
+                                       RunEndTypes<Int64Type, Int64Type>>;
 INSTANTIATE_TYPED_TEST_SUITE_P(REExREEFilterTest, REExREEFilterTest, RunEndTypePairs);
 
 template <typename RunEndType>
@@ -1255,15 +1284,27 @@ struct REExPlainFilterTest : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto expected_array, REEFromRep(values->type(), expected));
     TestFilterKernel::AssertFilter(values, filter, expected_array);
   }
+
+  void AssertFilterNullValues(const std::shared_ptr<DataType>& value_type,
+                              int number_of_nulls, const std::shared_ptr<Array>& filter,
+                              int number_of_trues_and_nulls) {
+    REERep values_rep{number_of_nulls};
+    REERep expected_rep{number_of_trues_and_nulls};
+
+    auto ree_type = run_end_encoded(value_run_end_type_, value_type);
+    ASSERT_OK_AND_ASSIGN(auto ree_values, REEFromRep(ree_type, values_rep));
+    ASSERT_OK_AND_ASSIGN(auto ree_expected, REEFromRep(ree_type, expected_rep));
+    TestFilterKernel::AssertFilter(ree_values, filter, ree_expected);
+  }
 };
 TYPED_TEST_SUITE_P(REExPlainFilterTest);
 
 TYPED_TEST_P(REExPlainFilterTest, AllNullsOutputForEveryTypeInput) {
-  GenericTestInvocations::AllNullsOutputForEveryTypeInput(*this);
+  GenericTestInvocationsWithREE::AllNullsOutputForEveryTypeInput(*this);
 }
 
 TYPED_TEST_P(REExPlainFilterTest, FilterPrimitiveTypeArrays) {
-  GenericTestInvocations::FilterPrimitiveTypeArrays(*this);
+  GenericTestInvocationsWithREE::FilterPrimitiveTypeArrays(*this);
 }
 
 REGISTER_TYPED_TEST_SUITE_P(REExPlainFilterTest, AllNullsOutputForEveryTypeInput,
@@ -1306,6 +1347,18 @@ struct PlainxREEFilterTest : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto expected_array, PlainArrayFromREERep(value_type, expected));
     TestFilterKernel::AssertFilter(values, filter, expected_array);
   }
+
+  void AssertFilterNullValues(const std::shared_ptr<DataType>& value_type,
+                              int number_of_nulls, const std::shared_ptr<Array>& filter,
+                              int number_of_trues_and_nulls) {
+    REERep expected_rep{number_of_trues_and_nulls};
+
+    ASSERT_OK_AND_ASSIGN(auto values, MakeArrayOfNull(value_type, number_of_nulls));
+    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter, filter_run_end_type_));
+    ASSERT_OK_AND_ASSIGN(auto expected,
+                         MakeArrayOfNull(value_type, number_of_trues_and_nulls));
+    TestFilterKernel::AssertFilter(values, ree_filter, expected);
+  }
 };
 TYPED_TEST_SUITE_P(PlainxREEFilterTest);
 
@@ -1320,11 +1373,11 @@ TYPED_TEST_P(PlainxREEFilterTest, SimpleTest) {
 }
 
 TYPED_TEST_P(PlainxREEFilterTest, AllNullsOutputForEveryTypeInput) {
-  GenericTestInvocations::AllNullsOutputForEveryTypeInput(*this);
+  GenericTestInvocationsWithREE::AllNullsOutputForEveryTypeInput(*this);
 }
 
 TYPED_TEST_P(PlainxREEFilterTest, FilterPrimitiveTypeArrays) {
-  GenericTestInvocations::FilterPrimitiveTypeArrays(*this);
+  GenericTestInvocationsWithREE::FilterPrimitiveTypeArrays(*this);
 }
 
 REGISTER_TYPED_TEST_SUITE_P(PlainxREEFilterTest, SimpleTest,
