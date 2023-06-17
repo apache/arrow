@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.UInt2ReaderImpl;
@@ -65,8 +63,8 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
   }
 
   @Override
-  protected Supplier<FieldReader> getReaderImpl() {
-    return () -> new UInt2ReaderImpl(UInt2Vector.this);
+  protected FieldReader getReaderImpl() {
+    return new UInt2ReaderImpl(UInt2Vector.this);
   }
 
   @Override

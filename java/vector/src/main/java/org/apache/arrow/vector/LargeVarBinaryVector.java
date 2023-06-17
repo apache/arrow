@@ -17,8 +17,6 @@
 
 package org.apache.arrow.vector;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.LargeVarBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -72,8 +70,8 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
   }
 
   @Override
-  protected Supplier<FieldReader> getReaderImpl() {
-    return () -> new LargeVarBinaryReaderImpl(LargeVarBinaryVector.this);
+  protected FieldReader getReaderImpl() {
+    return new LargeVarBinaryReaderImpl(LargeVarBinaryVector.this);
   }
 
   /**

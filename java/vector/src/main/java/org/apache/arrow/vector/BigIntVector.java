@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.BigIntReaderImpl;
@@ -75,8 +73,8 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   @Override
-  protected Supplier<FieldReader> getReaderImpl() {
-    return () -> new BigIntReaderImpl(BigIntVector.this);
+  protected FieldReader getReaderImpl() {
+    return new BigIntReaderImpl(BigIntVector.this);
   }
 
   /**

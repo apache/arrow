@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.VarBinaryReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -73,8 +71,8 @@ public final class VarBinaryVector extends BaseVariableWidthVector {
   }
 
   @Override
-  protected Supplier<FieldReader> getReaderImpl() {
-    return () -> new VarBinaryReaderImpl(VarBinaryVector.this);
+  protected FieldReader getReaderImpl() {
+    return new VarBinaryReaderImpl(VarBinaryVector.this);
   }
 
   /**

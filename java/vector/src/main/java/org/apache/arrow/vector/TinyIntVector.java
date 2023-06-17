@@ -75,8 +75,8 @@ public final class TinyIntVector extends BaseFixedWidthVector implements BaseInt
   }
 
   @Override
-  protected Supplier<FieldReader> getReaderImpl() {
-    return () -> new TinyIntReaderImpl(TinyIntVector.this);
+  protected FieldReader getReaderImpl() {
+    return new TinyIntReaderImpl(TinyIntVector.this);
   }
 
   /**

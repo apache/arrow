@@ -153,7 +153,7 @@ public abstract class BaseValueVector implements ValueVector {
    *
    * @return Returns a lambda that initializes a reader when called.
    */
-  protected abstract Supplier<FieldReader> getReaderImpl();
+  protected abstract FieldReader getReaderImpl();
 
   /**
    * Default implementation to create a reader for the vector. Depends on the individual vector
@@ -169,7 +169,7 @@ public abstract class BaseValueVector implements ValueVector {
     }
     synchronized (this) {
       if (fieldReader == null) {
-        fieldReader = getReaderImpl().get();
+        fieldReader = getReaderImpl();
       }
 
       return fieldReader;

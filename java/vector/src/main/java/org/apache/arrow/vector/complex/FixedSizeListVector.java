@@ -29,7 +29,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -184,8 +183,8 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   }
 
   @Override
-  protected Supplier<FieldReader> getReaderImpl() {
-    return () -> new UnionFixedSizeListReader(this);
+  protected FieldReader getReaderImpl() {
+    return new UnionFixedSizeListReader(this);
   }
 
   @Override

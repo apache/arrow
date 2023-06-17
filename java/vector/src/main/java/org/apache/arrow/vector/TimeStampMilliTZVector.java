@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampMilliTZReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -80,8 +78,8 @@ public final class TimeStampMilliTZVector extends TimeStampVector {
   }
 
   @Override
-  protected Supplier<FieldReader> getReaderImpl() {
-    return () -> new TimeStampMilliTZReaderImpl(TimeStampMilliTZVector.this);
+  protected FieldReader getReaderImpl() {
+    return new TimeStampMilliTZReaderImpl(TimeStampMilliTZVector.this);
   }
 
   /**

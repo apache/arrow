@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeSecReaderImpl;
@@ -75,8 +73,8 @@ public final class TimeSecVector extends BaseFixedWidthVector {
   }
 
   @Override
-  protected Supplier<FieldReader> getReaderImpl() {
-    return () -> new TimeSecReaderImpl(TimeSecVector.this);
+  protected FieldReader getReaderImpl() {
+    return new TimeSecReaderImpl(TimeSecVector.this);
   }
 
   /**

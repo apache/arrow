@@ -19,8 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.function.Supplier;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -79,8 +77,8 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   }
 
   @Override
-  protected Supplier<FieldReader> getReaderImpl() {
-    return () -> new FixedSizeBinaryReaderImpl(FixedSizeBinaryVector.this);
+  protected FieldReader getReaderImpl() {
+    return new FixedSizeBinaryReaderImpl(FixedSizeBinaryVector.this);
   }
 
   /**

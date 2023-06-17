@@ -20,7 +20,6 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.Duration;
-import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -78,8 +77,8 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
   }
 
   @Override
-  protected Supplier<FieldReader> getReaderImpl() {
-    return () -> new IntervalDayReaderImpl(IntervalDayVector.this);
+  protected FieldReader getReaderImpl() {
+    return new IntervalDayReaderImpl(IntervalDayVector.this);
   }
 
   /**

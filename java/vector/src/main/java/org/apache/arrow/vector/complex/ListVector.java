@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -568,8 +567,8 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   @Override
-  protected Supplier<FieldReader> getReaderImpl() {
-    return () -> new UnionListReader(this);
+  protected FieldReader getReaderImpl() {
+    return new UnionListReader(this);
   }
 
   @Override
