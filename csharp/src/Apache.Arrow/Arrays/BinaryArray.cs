@@ -263,7 +263,7 @@ namespace Apache.Arrow
                 return Instance;
             }
 
-            public TBuilder Set(int offset, IEnumerable<byte> values)
+            public TBuilder Set(int offset, ReadOnlySpan<byte> values)
             {
 #if NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
                 byte[] newValues = values.ToArray();
