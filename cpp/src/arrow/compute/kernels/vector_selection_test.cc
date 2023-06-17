@@ -1305,7 +1305,7 @@ REGISTER_TYPED_TEST_SUITE_P(REExREEFilterTest, AllNullsOutputForEveryTypeInput,
 template <typename V, typename F>
 struct RunEndTypes {
   using ValueRunEndType = V;
-  using FilterRunEndType = V;
+  using FilterRunEndType = F;
 };
 
 using RunEndTypePairs =
