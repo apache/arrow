@@ -29,7 +29,8 @@ classdef BooleanArray < arrow.array.Array
             end
             arrow.args.validateTypeAndShape(data, "logical");
             validElements = arrow.args.parseValidElements(data, opts);
-            obj@arrow.array.Array("Name", "arrow.array.proxy.BooleanArray", "ConstructorArguments", {data, validElements});
+            opts = struct(MatlabArray=data, Valid=validElements);
+            obj@arrow.array.Array("Name", "arrow.array.proxy.BooleanArray", "ConstructorArguments", {opts});
         end
 
         function data = logical(obj)

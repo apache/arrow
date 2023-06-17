@@ -14,8 +14,47 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
-## supported types: bool;int8;int16;int32;int64;uint8;uint16;uint32;uint64;float16;float32;float64;string;timestamp;binary;uuid
-true;-1;-1;-1;-1;1;1;1;1;1.1;1.1;1.1;str-1;2022-05-09T00:01:01;{1,2,3};AAEC;00000000-0000-0000-0000-000000000001
-false;-2;-2;-2;-2;2;2;2;2;2.2;2.2;2.2;;2022-05-09T23:59:59;{};;00000000-0000-0000-0000-000000000002
-null;NULL;null;N/A;;null;null;null;null;null;null;null;null;null;null;null;null
+
+ARG FROM=amazonlinux:2023
+FROM ${FROM}
+
+ARG DEBUG
+
+RUN \
+  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
+  dnf update -y ${quiet} && \
+  dnf install -y ${quiet} \
+    bison \
+    boost-devel \
+    brotli-devel \
+    bzip2-devel \
+    c-ares-devel \
+    clang \
+    cmake \
+    curl-devel \
+    flex \
+    gcc-c++ \
+    git \
+    gobject-introspection-devel \
+    grpc-devel \
+    grpc-plugins \
+    gtk-doc \
+    libzstd-devel \
+    llvm-devel \
+    lz4-devel \
+    ninja-build \
+    make \
+    meson \
+    openssl-devel \
+    pkg-config \
+    protobuf-compiler \
+    protobuf-devel \
+    rapidjson-devel \
+    re2-devel \
+    rpmdevtools \
+    snappy-devel \
+    tar \
+    utf8proc-devel \
+    vala \
+    zlib-devel && \
+  dnf clean ${quiet} all

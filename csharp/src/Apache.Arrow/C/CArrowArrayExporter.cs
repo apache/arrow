@@ -49,10 +49,6 @@ namespace Apache.Arrow.C
             {
                 throw new ArgumentNullException(nameof(cArray));
             }
-            if (cArray->release != null)
-            {
-                throw new ArgumentException("Cannot export array to a struct that is already initialized.", nameof(cArray));
-            }
 
             ExportedAllocationOwner allocationOwner = new ExportedAllocationOwner();
             try

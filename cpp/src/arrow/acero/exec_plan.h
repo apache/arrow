@@ -325,7 +325,7 @@ class ARROW_ACERO_EXPORT ExecNode {
   ///
   /// This is not a pause.  There will be no way to start the source again after this has
   /// been called.
-  Status StopProducing();
+  virtual Status StopProducing();
 
   std::string ToString(int indent = 0) const;
 

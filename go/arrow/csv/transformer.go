@@ -113,6 +113,15 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				res[i] = w.nullValue
 			}
 		}
+	case *arrow.Float16Type:
+		arr := col.(*array.Float16)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = arr.Value(i).String()
+			} else {
+				res[i] = w.nullValue
+			}
+		}
 	case *arrow.Float32Type:
 		arr := col.(*array.Float32)
 		for i := 0; i < arr.Len(); i++ {
@@ -218,7 +227,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 		}
 	case *arrow.BinaryType:
 		arr := col.(*array.Binary)
-		for i :=0 ; i < arr.Len(); i++ {
+		for i := 0; i < arr.Len(); i++ {
 			if arr.IsValid(i) {
 				res[i] = base64.StdEncoding.EncodeToString(arr.Value(i))
 			} else {

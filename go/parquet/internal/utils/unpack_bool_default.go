@@ -14,10 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !noasm
+//go:build !noasm && !amd64 && !arm64
+// +build !noasm,!amd64,!arm64
 
 package utils
 
-import "io"
-
-var unpack32 func(io.Reader, []uint32, int) int = unpack32Default
+// BytesToBools when built with the noasm tag will direct to the pure go implementation
+// for converting a bitmap to a slice of bools
+func BytesToBools(in []byte, out []bool) {
+	bytesToBoolsGo(in, out)
+}

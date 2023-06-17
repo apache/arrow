@@ -254,12 +254,18 @@ namespace internal {
 // These internal functions are implemented in kernels/vector_selection.cc
 
 /// \brief Return the number of selected indices in the boolean filter
+///
+/// \param filter a plain or run-end encoded boolean array with or without nulls
+/// \param null_selection how to handle nulls in the filter
 ARROW_EXPORT
 int64_t GetFilterOutputSize(const ArraySpan& filter,
                             FilterOptions::NullSelectionBehavior null_selection);
 
 /// \brief Compute uint64 selection indices for use with Take given a boolean
 /// filter
+///
+/// \param filter a plain or run-end encoded boolean array with or without nulls
+/// \param null_selection how to handle nulls in the filter
 ARROW_EXPORT
 Result<std::shared_ptr<ArrayData>> GetTakeIndices(
     const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
