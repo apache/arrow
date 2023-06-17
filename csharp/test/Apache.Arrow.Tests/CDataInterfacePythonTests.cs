@@ -61,7 +61,7 @@ namespace Apache.Arrow.Tests
             using (Py.GIL())
             {
                 var schema = new Schema.Builder()
-                    .Field(f => f.Name("null").DataType(NullType.Default).Nullable(true))
+                    .Field(f => f.Name("null").DataType(NullType.Default).Nullable(true).Metadata("k0", "v0"))
                     .Field(f => f.Name("bool").DataType(BooleanType.Default).Nullable(true))
                     .Field(f => f.Name("i8").DataType(Int8Type.Default).Nullable(true))
                     .Field(f => f.Name("u8").DataType(UInt8Type.Default).Nullable(true))
@@ -72,7 +72,7 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("i64").DataType(Int64Type.Default).Nullable(true))
                     .Field(f => f.Name("u64").DataType(UInt64Type.Default).Nullable(true))
 
-                    .Field(f => f.Name("f16").DataType(HalfFloatType.Default).Nullable(true))
+                    .Field(f => f.Name("f16").DataType(HalfFloatType.Default).Nullable(true).Metadata("k1a", "").Metadata("k1b", "断箭"))
                     .Field(f => f.Name("f32").DataType(FloatType.Default).Nullable(true))
                     .Field(f => f.Name("f64").DataType(DoubleType.Default).Nullable(true))
 
@@ -105,6 +105,7 @@ namespace Apache.Arrow.Tests
                     // Checking wider characters.
                     .Field(f => f.Name("hello 你好 😄").DataType(BooleanType.Default).Nullable(true))
 
+                    .Metadata("k2a", "v2abc").Metadata("k2b", "v2abc").Metadata("k2c", "v2abc")
                     .Build();
                 return schema;
             }
@@ -114,8 +115,11 @@ namespace Apache.Arrow.Tests
         {
             using (Py.GIL())
             {
+                Dictionary<string, string> metadata0 = new Dictionary<string, string> { { "k0", "v0" } };
+                Dictionary<string, string> metadata1 = new Dictionary<string, string> { { "k1a", "" }, { "k1b", "断箭" } };
+
                 dynamic pa = Py.Import("pyarrow");
-                yield return pa.field("null", pa.GetAttr("null").Invoke(), true);
+                yield return pa.field("null", pa.GetAttr("null").Invoke(), true).with_metadata(metadata0);
                 yield return pa.field("bool", pa.bool_(), true);
                 yield return pa.field("i8", pa.int8(), true);
                 yield return pa.field("u8", pa.uint8(), true);
@@ -126,7 +130,7 @@ namespace Apache.Arrow.Tests
                 yield return pa.field("i64", pa.int64(), true);
                 yield return pa.field("u64", pa.uint64(), true);
 
-                yield return pa.field("f16", pa.float16(), true);
+                yield return pa.field("f16", pa.float16(), true).with_metadata(metadata1);
                 yield return pa.field("f32", pa.float32(), true);
                 yield return pa.field("f64", pa.float64(), true);
 
@@ -164,8 +168,10 @@ namespace Apache.Arrow.Tests
         {
             using (Py.GIL())
             {
+                Dictionary<string, string> metadata = new Dictionary<string, string> { { "k2a", "v2abc" }, { "k2b", "v2abc" }, { "k2c", "v2abc" } };
+
                 dynamic pa = Py.Import("pyarrow");
-                return pa.schema(GetPythonFields().ToList());
+                return pa.schema(GetPythonFields().ToList()).with_metadata(metadata);
             }
         }
 

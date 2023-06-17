@@ -15,27 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "aws-sdk-cpp"
-brew "bash"
-brew "boost"
-brew "brotli"
-brew "c-ares"
-brew "ccache"
-brew "cmake"
-brew "flatbuffers"
-brew "git"
-brew "glog"
-brew "googletest"
-brew "grpc"
-brew "llvm@14"
-brew "lz4"
-brew "ninja"
-brew "openssl@1.1"
-brew "protobuf"
-brew "python"
-brew "rapidjson"
-brew "snappy"
-brew "thrift"
-brew "wget"
-brew "xsimd"
-brew "zstd"
+FROM amazonlinux:2023
+
+ARG DEBUG
+
+RUN \
+  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
+  dnf install -y ${quiet} \
+    rpmdevtools && \
+  dnf clean ${quiet} all

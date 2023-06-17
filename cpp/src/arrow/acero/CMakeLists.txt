@@ -158,6 +158,7 @@ add_arrow_acero_test(plan_test
                      plan_test.cc
                      test_nodes_test.cc
                      test_nodes.cc)
+add_arrow_acero_test(source_node_test SOURCES source_node_test.cc test_nodes.cc)
 add_arrow_acero_test(fetch_node_test SOURCES fetch_node_test.cc test_nodes.cc)
 add_arrow_acero_test(order_by_node_test SOURCES order_by_node_test.cc test_nodes.cc)
 add_arrow_acero_test(hash_join_node_test SOURCES hash_join_node_test.cc
