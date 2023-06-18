@@ -1151,7 +1151,7 @@ func (tester *expirationTimeCancelFlightInfoScenarioTester) RunClient(addr strin
 		return err
 	}
 	if result.Status != flight.CancelStatusCancelled {
-		return fmt.Errorf("invalid: CancelFlightInfo must return CANCEL_STATUS_CANCELLED: ", result.Status)
+		return fmt.Errorf("invalid: CancelFlightInfo must return CANCEL_STATUS_CANCELLED: %s", result.Status)
 	}
 	for _, ep := range info.Endpoint {
 		stream, err := client.DoGet(ctx, ep.Ticket)
@@ -1295,7 +1295,7 @@ func (tester *expirationTimeRefreshFlightEndpointScenarioTester) RunClient(addr 
 				"one or more refreshed expiration time "+
 					"are shorter than original expiration time\n"+
 					"Original:  %s\n"+
-					"Refreshed: %s\n",
+					"Refreshed: %s",
 				maxExpirationTime,
 				refreshedExpirationTimes[0])
 		}

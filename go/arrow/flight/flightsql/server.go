@@ -1019,7 +1019,9 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 		}
 
 		var (
+			//lint:ignore SA1019 for backward compatibility
 			request pb.ActionCancelQueryRequest
+			//lint:ignore SA1019 for backward compatibility
 			result  pb.ActionCancelQueryResult
 			info    flight.FlightInfo
 			err     error

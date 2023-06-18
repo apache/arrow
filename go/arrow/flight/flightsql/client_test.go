@@ -60,15 +60,15 @@ func (m *FlightServiceClientMock) AuthenticateBasicToken(_ context.Context, user
 	return args.Get(0).(context.Context), args.Error(1)
 }
 
-func (m *FlightServiceClientMock) CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (CancelFlightInfoResult, error) {
+func (m *FlightServiceClientMock) CancelFlightInfo(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *FlightServiceClientMock) CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) error {
+func (m *FlightServiceClientMock) CloseFlightInfo(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) error {
 	panic("not implemented") // TODO: Implement
 }
 
-func (m *FlightServiceClientMock) RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error) {
+func (m *FlightServiceClientMock) RefreshFlightEndpoint(ctx context.Context, endpoint *flight.FlightEndpoint, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
 	panic("not implemented") // TODO: Implement
 }
 

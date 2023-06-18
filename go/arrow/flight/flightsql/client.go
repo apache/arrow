@@ -502,7 +502,9 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 	const actionType = CancelQueryActionType
 
 	var (
+		//lint:ignore SA1019 for backward compatibility
 		req       pb.ActionCancelQueryRequest
+		//lint:ignore SA1019 for backward compatibility
 		result    pb.ActionCancelQueryResult
 		action    pb.Action
 		stream    pb.FlightService_DoActionClient
