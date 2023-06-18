@@ -15,13 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <array>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace util {
@@ -129,6 +132,36 @@ using OperatorTypes =
 TYPED_TEST_SUITE(Float16OperatorTest, OperatorTypes);
 
 TYPED_TEST(Float16OperatorTest, Compare) { this->TestCompare(g_test_values); }
+
+TEST(Float16Test, ToBytes) {
+  constexpr auto f16 = Float16(0xd01c);
+  auto bytes = f16.ToBytes();
+  ASSERT_EQ(SafeLoadAs<uint16_t>(bytes.data()), 0xd01c);
+#if ARROW_LITTLE_ENDIAN
+  bytes = f16.ToLittleEndian();
+  ASSERT_EQ(SafeLoadAs<uint16_t>(bytes.data()), 0xd01c);
+  bytes = f16.ToBigEndian();
+  ASSERT_EQ(SafeLoadAs<uint16_t>(bytes.data()), 0x1cd0);
+#else
+  bytes = f16.ToLittleEndian();
+  ASSERT_EQ(SafeLoadAs<uint16_t>(bytes.data()), 0x1cd0);
+  bytes = f16.ToBigEndian();
+  ASSERT_EQ(SafeLoadAs<uint16_t>(bytes.data()), 0xd01c);
+#endif
+}
+
+TEST(Float16Test, FromBytes) {
+  constexpr uint16_t u16 = 0xd01c;
+  const auto* data = reinterpret_cast<const uint8_t*>(&u16);
+  ASSERT_EQ(Float16::FromBytes(data), Float16(0xd01c));
+#if ARROW_LITTLE_ENDIAN
+  ASSERT_EQ(Float16::FromLittleEndian(data), Float16(0xd01c));
+  ASSERT_EQ(Float16::FromBigEndian(data), Float16(0x1cd0));
+#else
+  ASSERT_EQ(Float16::FromLittleEndian(data), Float16(0x1cd0));
+  ASSERT_EQ(Float16::FromBigEndian(data), Float16(0xd01c));
+#endif
+}
 
 }  // namespace
 }  // namespace util

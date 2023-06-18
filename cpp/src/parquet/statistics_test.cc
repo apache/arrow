@@ -67,7 +67,7 @@ class BufferedFloat16 : public ::arrow::util::Float16Base {
  public:
   explicit BufferedFloat16(Float16 f16) : Float16Base(f16) {
     buffer_ = *::arrow::AllocateBuffer(sizeof(value_));
-    ToBytes(buffer_->mutable_data());
+    ToLittleEndian(buffer_->mutable_data());
   }
   explicit BufferedFloat16(uint16_t value) : BufferedFloat16(Float16(value)) {}
 
@@ -76,10 +76,6 @@ class BufferedFloat16 : public ::arrow::util::Float16Base {
 
   BufferedFloat16 operator+() const { return *this; }
   BufferedFloat16 operator-() const { return BufferedFloat16(value_ ^ 0x8000); }
-
-  static BufferedFloat16 FromBytes(const uint8_t* src) {
-    return BufferedFloat16(Float16::FromBytes(src));
-  }
 
  private:
   std::shared_ptr<::arrow::Buffer> buffer_;
@@ -1168,7 +1164,7 @@ void TestStatisticsSortOrder<Float16LogicalType>::SetValues() {
   values_buf_.resize(kNumBytes);
   uint8_t* ptr = values_buf_.data();
   for (int i = 0; i < NUM_VALUES; ++i) {
-    Float16(u16_vals[i]).ToBytes(ptr);
+    Float16(u16_vals[i]).ToLittleEndian(ptr);
     values_[i].ptr = ptr;
     ptr += kValueLen;
   }
@@ -1454,9 +1450,9 @@ void TestFloatStatistics<T>::Init() {
 template <>
 void TestFloatStatistics<Float16LogicalType>::Init() {
   data_buf_.resize(4);
-  (+Float16(0)).ToBytes(&data_buf_[0]);
+  (+Float16(0)).ToLittleEndian(&data_buf_[0]);
   positive_zero_ = FLBA{&data_buf_[0]};
-  (-Float16(0)).ToBytes(&data_buf_[2]);
+  (-Float16(0)).ToLittleEndian(&data_buf_[2]);
   negative_zero_ = FLBA{&data_buf_[2]};
 }
 
@@ -1477,8 +1473,8 @@ void TestFloatStatistics<T>::CheckEq(const c_type& l, const c_type& r) {
 }
 template <>
 void TestFloatStatistics<Float16LogicalType>::CheckEq(const c_type& a, const c_type& b) {
-  auto l = Float16::FromBytes(a.ptr);
-  auto r = Float16::FromBytes(b.ptr);
+  auto l = Float16::FromLittleEndian(a.ptr);
+  auto r = Float16::FromLittleEndian(b.ptr);
   ASSERT_EQ(l, r);
 }
 
@@ -1488,7 +1484,7 @@ bool TestFloatStatistics<T>::signbit(c_type val) {
 }
 template <>
 bool TestFloatStatistics<Float16LogicalType>::signbit(c_type val) {
-  return Float16::FromBytes(val.ptr).signbit();
+  return Float16::FromLittleEndian(val.ptr).signbit();
 }
 
 template <typename T>

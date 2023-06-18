@@ -58,19 +58,19 @@ constexpr int value_length(int type_length, const FLBA& value) { return type_len
 // Static "constants" for normalizing float16 min/max values. These need to be expressed
 // as pointers because `Float16LogicalType` represents an FLBA.
 const uint8_t* float16_lowest() {
-  static const auto bytes = std::numeric_limits<Float16>::lowest().ToBytes();
+  static const auto bytes = std::numeric_limits<Float16>::lowest().ToLittleEndian();
   return bytes.data();
 }
 const uint8_t* float16_max() {
-  static const auto bytes = std::numeric_limits<Float16>::max().ToBytes();
+  static const auto bytes = std::numeric_limits<Float16>::max().ToLittleEndian();
   return bytes.data();
 }
 const uint8_t* float16_positive_zero() {
-  static const auto bytes = Float16(0).ToBytes();
+  static const auto bytes = Float16(0).ToLittleEndian();
   return bytes.data();
 }
 const uint8_t* float16_negative_zero() {
-  static const auto bytes = (-Float16(0)).ToBytes();
+  static const auto bytes = (-Float16(0)).ToLittleEndian();
   return bytes.data();
 }
 
@@ -305,12 +305,13 @@ struct Float16CompareHelper {
   static T DefaultMax() { return T{float16_lowest()}; }
 
   static T Coalesce(T val, T fallback) {
-    return val.ptr != nullptr && Float16::FromBytes(val.ptr).is_nan() ? fallback : val;
+    return val.ptr != nullptr && Float16::FromLittleEndian(val.ptr).is_nan() ? fallback
+                                                                             : val;
   }
 
   static inline bool Compare(int type_length, const T& a, const T& b) {
-    const auto lhs = Float16::FromBytes(a.ptr);
-    const auto rhs = Float16::FromBytes(b.ptr);
+    const auto lhs = Float16::FromLittleEndian(a.ptr);
+    const auto rhs = Float16::FromLittleEndian(b.ptr);
     // NaN is handled here (same behavior as native float compare)
     return lhs < rhs;
   }
@@ -372,8 +373,8 @@ CleanStatistic(std::pair<T, T> min_max, LogicalType::Type::type) {
 optional<std::pair<FLBA, FLBA>> CleanFloat16Statistic(std::pair<FLBA, FLBA> min_max) {
   FLBA min_flba = min_max.first;
   FLBA max_flba = min_max.second;
-  Float16 min = Float16::FromBytes(min_flba.ptr);
-  Float16 max = Float16::FromBytes(max_flba.ptr);
+  Float16 min = Float16::FromLittleEndian(min_flba.ptr);
+  Float16 max = Float16::FromLittleEndian(max_flba.ptr);
 
   if (min.is_nan() || max.is_nan()) {
     return ::std::nullopt;
