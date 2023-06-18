@@ -352,13 +352,25 @@ func (c *client) Authenticate(ctx context.Context, opts ...grpc.CallOption) erro
 	return c.authHandler.Authenticate(ctx, &clientAuthConn{stream})
 }
 
+// Ensure the result of a DoAction is fully consumed
+func ReadUntilEOF(stream FlightService_DoActionClient) error {
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return err
+		}
+	}
+}
+
 func (c *client) CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (result CancelFlightInfoResult, err error) {
 	var action flight.Action
 	action.Type = CancelFlightInfoActionType
-	if action.Body, err = proto.Marshal(info); err != nil {
+	action.Body, err = proto.Marshal(info)
+	if err != nil {
 		return
 	}
-
 	stream, err := c.DoAction(ctx, &action, opts...)
 	if err != nil {
 		return
@@ -370,50 +382,33 @@ func (c *client) CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ..
 	if err = proto.Unmarshal(res.Body, &result); err != nil {
 		return
 	}
-	for {
-		_, err = stream.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return
-		}
-	}
+	err = ReadUntilEOF(stream)
 	return
 }
 
 func (c *client) CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (err error) {
 	var action flight.Action
 	action.Type = CloseFlightInfoActionType
-	if action.Body, err = proto.Marshal(info); err != nil {
+	action.Body, err = proto.Marshal(info)
+	if err != nil {
 		return
 	}
-
 	stream, err := c.DoAction(ctx, &action, opts...)
 	if err != nil {
 		return
 	}
-	for {
-		_, err = stream.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return
-		}
-	}
+	err = ReadUntilEOF(stream)
 	return
 }
 
 func (c *client) RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error) {
 	var err error
-
 	var action flight.Action
 	action.Type = RefreshFlightEndpointActionType
-	if action.Body, err = proto.Marshal(endpoint); err != nil {
+	action.Body, err = proto.Marshal(endpoint)
+	if err != nil {
 		return nil, err
 	}
-
 	stream, err := c.DoAction(ctx, &action, opts...)
 	if err != nil {
 		return nil, err
@@ -423,17 +418,13 @@ func (c *client) RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndp
 		return nil, err
 	}
 	var refreshedEndpoint FlightEndpoint
-	if err = proto.Unmarshal(res.Body, &refreshedEndpoint); err != nil {
+	err = proto.Unmarshal(res.Body, &refreshedEndpoint)
+	if err != nil {
 		return nil, err
 	}
-	for {
-		_, err = stream.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
+	err = ReadUntilEOF(stream)
+	if err != nil {
+		return nil, err
 	}
 	return &refreshedEndpoint, nil
 }
