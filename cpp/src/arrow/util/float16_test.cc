@@ -95,33 +95,25 @@ template <typename Operator>
 class Float16OperatorTest : public ::testing::Test {
  public:
   void TestCompare(const std::vector<TestValue>& test_values) {
-    // Check all combinations of operands in both directions
-    for (size_t i = 0; i < test_values.size(); ++i) {
-      this->TestCompare(test_values, static_cast<int>(i));
-    }
-  }
-
-  void TestCompare(const std::vector<TestValue>& test_values, int offset) {
     const auto num_values = static_cast<int>(test_values.size());
-    ASSERT_TRUE(offset >= 0 && offset < num_values);
 
-    int i = 0;
-    int j = offset;
-    while (i < num_values) {
-      ARROW_SCOPED_TRACE(i, ",", j);
+    // Check all combinations of operands in both directions
+    for (int offset = 0; offset < num_values; ++offset) {
+      int i = 0;
+      int j = offset;
+      while (i < num_values) {
+        ARROW_SCOPED_TRACE(i, ",", j);
 
-      auto a = test_values[i];
-      auto b = test_values[j];
-      std::pair<bool, bool> ret;
+        auto a = test_values[i];
+        auto b = test_values[j];
 
-      // Results for float16 and float32 should be the same
-      ret = Operator{}(a, b);
-      ASSERT_EQ(ret.first, ret.second);
-      ret = Operator{}(b, a);
-      ASSERT_EQ(ret.first, ret.second);
+        // Results for float16 and float32 should be the same
+        auto ret = Operator{}(a, b);
+        ASSERT_EQ(ret.first, ret.second);
 
-      ++i;
-      j = (j + 1) % num_values;
+        ++i;
+        j = (j + 1) % num_values;
+      }
     }
   }
 };

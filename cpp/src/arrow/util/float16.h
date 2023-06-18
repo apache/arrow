@@ -66,23 +66,17 @@ class Float16Base {
   }
 
   void ToLittleEndian(uint8_t* dest) const {
-    auto value = bit_util::ToLittleEndian(value_);
-    std::memcpy(dest, &value, sizeof(value));
+    Float16Base{bit_util::ToLittleEndian(value_)}.ToBytes(dest);
   }
   std::array<uint8_t, 2> ToLittleEndian() const {
-    std::array<uint8_t, 2> bytes;
-    ToLittleEndian(bytes.data());
-    return bytes;
+    return Float16Base{bit_util::ToLittleEndian(value_)}.ToBytes();
   }
 
   void ToBigEndian(uint8_t* dest) const {
-    auto value = bit_util::ToBigEndian(value_);
-    std::memcpy(dest, &value, sizeof(value));
+    Float16Base{bit_util::ToBigEndian(value_)}.ToBytes(dest);
   }
   std::array<uint8_t, 2> ToBigEndian() const {
-    std::array<uint8_t, 2> bytes;
-    ToBigEndian(bytes.data());
-    return bytes;
+    return Float16Base{bit_util::ToBigEndian(value_)}.ToBytes();
   }
 
   friend constexpr bool operator==(Float16Base lhs, Float16Base rhs) {
