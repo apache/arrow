@@ -543,14 +543,8 @@ cdef class SortingColumn:
 
     >>> import pyarrow.parquet as pq
     >>> [pq.SortingColumn(0), pq.SortingColumn(1, descending=True)]
-    [<pyarrow._parquet.SortingColumn object at 0x102c19cd0>
-      column_index: 0
-      descending: False
-      nulls_first: False,
-     <pyarrow._parquet.SortingColumn object at 0x102c191d0>
-      column_index: 1
-      descending: True
-      nulls_first: False]
+    [SortingColumn(column_index=0, descending=False, nulls_first=False),
+     SortingColumn(column_index=1, descending=True, nulls_first=False)]
 
     Convert the sort_order into the list of sorting columns with 
     ``from_sort_order`` (note that the schema must be provided as well):
@@ -559,14 +553,8 @@ cdef class SortingColumn:
     >>> schema = pa.schema([('id', pa.int64()), ('timestamp', pa.timestamp('ms'))])
     >>> sorting_columns = pq.SortingColumn.from_sort_order(schema, sort_order)
     >>> sorting_columns
-    (<pyarrow._parquet.SortingColumn object at 0x10598bf70>
-      column_index: 0
-      descending: False
-      nulls_first: False,
-     <pyarrow._parquet.SortingColumn object at 0x102c18cd0>
-      column_index: 1
-      descending: True
-      nulls_first: False)
+    (SortingColumn(column_index=0, descending=False, nulls_first=False),
+     SortingColumn(column_index=1, descending=True, nulls_first=False))
 
     Convert back to the sort order with ``to_sort_order``:
 
@@ -575,7 +563,7 @@ cdef class SortingColumn:
 
     See Also
     --------
-    RowGroupMetaData.sorting_columns, ParquetFile.sort_order
+    RowGroupMetaData.sorting_columns
     """
     cdef int column_index
     cdef c_bool descending
@@ -691,11 +679,8 @@ cdef class SortingColumn:
         return tuple(sort_keys), null_placement
 
     def __repr__(self):
-        return """{}
-  column_index: {}
-  descending: {}
-  nulls_first: {}""".format(
-            object.__repr__(self),
+        return """{}(column_index={}, descending={}, nulls_first={})""".format(
+            self.__class__.__name__,
             self.column_index, self.descending, self.nulls_first)
 
     def __eq__(self, SortingColumn other):
