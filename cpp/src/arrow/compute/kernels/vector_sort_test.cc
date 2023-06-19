@@ -2116,20 +2116,21 @@ INSTANTIATE_TEST_SUITE_P(AllNull, TestTableSortIndicesRandom,
 class TestNestedSortIndices : public ::testing::Test {
  protected:
   static std::shared_ptr<Array> GetArray() {
-    auto struct_type =
-        struct_({field("a", struct_({field("a", uint8()), field("b", uint32())})),
-                 field("b", int32())});
+    auto struct_type = struct_({field(
+        "a",
+        struct_({field("a", uint8()),
+                 field("b", struct_({field("a", int32()), field("b", uint32())}))}))});
     auto struct_array = checked_pointer_cast<StructArray>(
         ArrayFromJSON(struct_type,
-                      R"([{"a": {"a": 5,    "b": null}, "b": 8   },
-                          {"a": {"a": null, "b": 7   }, "b": 3   },
-                          {"a": {"a": null, "b": 9   }, "b": 3   },
-                          {"a": {"a": 2,    "b": 4   }, "b": 6   },
-                          {"a": {"a": 5,    "b": 1   }, "b": null},
-                          {"a": {"a": 3,    "b": null}, "b": 2   },
-                          {"a": {"a": 2,    "b": 3   }, "b": 0   },
-                          {"a": {"a": 2,    "b": 4   }, "b": 1   },
-                          {"a": {"a": null, "b": 7   }, "b": null}])"));
+                      R"([{"a": {"a": 5,    "b": {"a": null, "b": 8   }}},
+                          {"a": {"a": null, "b": {"a": 8,    "b": null}}},
+                          {"a": {"a": null, "b": {"a": 9,    "b": 0   }}},
+                          {"a": {"a": 2,    "b": {"a": 4,    "b": null}}},
+                          {"a": {"a": 5,    "b": {"a": 1,    "b": 8   }}},
+                          {"a": {"a": 3,    "b": {"a": null, "b": 0   }}},
+                          {"a": {"a": 2,    "b": {"a": 4,    "b": 2   }}},
+                          {"a": {"a": 2,    "b": {"a": 4,    "b": 4   }}},
+                          {"a": {"a": null, "b": {"a": 7,    "b": 7   }}}])"));
 
     // The top-level validity bitmap is created independently to test null inheritance for
     // child fields.
@@ -2170,33 +2171,29 @@ class TestNestedSortIndices : public ::testing::Test {
 
   void TestSort(const Datum& datum) const {
     std::vector<SortKey> sort_keys = {SortKey(FieldRef("a", "a"), SortOrder::Ascending),
-                                      SortKey(FieldRef("a", "b"), SortOrder::Descending),
-                                      SortKey(FieldRef("b"), SortOrder::Ascending)};
+                                      SortKey(FieldRef("a", "b"), SortOrder::Descending)};
 
     SortOptions options(sort_keys, NullPlacement::AtEnd);
-    AssertSortIndices(datum, options, "[7, 3, 6, 4, 0, 2, 1, 8, 5]");
+    AssertSortIndices(datum, options, "[7, 6, 3, 4, 0, 2, 1, 8, 5]");
     options.null_placement = NullPlacement::AtStart;
-    AssertSortIndices(datum, options, "[5, 2, 8, 1, 7, 3, 6, 0, 4]");
-
-    options.sort_keys = {SortKey(FieldRef("a"), SortOrder::Ascending),
-                         SortKey(FieldRef("b"), SortOrder::Ascending)};
-    options.null_placement = NullPlacement::AtEnd;
-    AssertSortIndices(datum, options, "[6, 7, 3, 4, 0, 1, 8, 2, 5]");
-    options.null_placement = NullPlacement::AtStart;
-    AssertSortIndices(datum, options, "[5, 8, 1, 2, 6, 7, 3, 0, 4]");
+    AssertSortIndices(datum, options, "[5, 2, 1, 8, 3, 7, 6, 0, 4]");
 
     // Implementations may have an optimized path for cases with one sort key.
+    // Additionally, this key references a struct containing another struct, which should
+    // work recursively
     options.sort_keys = {SortKey(FieldRef("a"), SortOrder::Ascending)};
     options.null_placement = NullPlacement::AtEnd;
-    AssertSortIndices(datum, options, "[6, 3, 7, 4, 0, 1, 8, 2, 5]");
+    AssertSortIndices(datum, options, "[6, 7, 3, 4, 0, 8, 1, 2, 5]");
+    options.null_placement = NullPlacement::AtStart;
+    AssertSortIndices(datum, options, "[5, 8, 1, 2, 3, 6, 7, 0, 4]");
   }
 
   void TestArraySort() const {
     auto array = GetArray();
     AssertSortIndices(array, SortOrder::Ascending, NullPlacement::AtEnd,
-                      "[6, 7, 3, 4, 0, 1, 8, 2, 5]");
+                      "[6, 7, 3, 4, 0, 8, 1, 2, 5]");
     AssertSortIndices(array, SortOrder::Ascending, NullPlacement::AtStart,
-                      "[5, 8, 1, 2, 6, 7, 3, 0, 4]");
+                      "[5, 8, 1, 2, 3, 6, 7, 0, 4]");
   }
 };
 
