@@ -1360,6 +1360,31 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compatibility) {
 
 using TestStringParquetIO = TestParquetIO<::arrow::StringType>;
 
+TEST_F(TestStringParquetIO, Basics) {
+  std::shared_ptr<Array> values;
+
+  ::arrow::StringBuilder builder;
+  for (size_t i = 0; i < SMALL_SIZE; i++) {
+    ASSERT_OK(builder.Append("abc"));
+  }
+  ASSERT_OK(builder.Finish(&values));
+
+  // Input is narrow array, but expected output is large array, opposite of the above tests.
+  // This validates narrow arrays can be read as large arrays.
+  this->RoundTripSingleColumn(values, values,
+                              default_arrow_writer_properties());
+
+  ArrowReaderProperties arrow_reader_properties;
+  arrow_reader_properties.set_use_large_binary_variants(true);
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> casted,
+                       ::arrow::compute::Cast(*values, ::arrow::large_utf8()));
+
+  this->RoundTripSingleColumn(values, casted,
+                              default_arrow_writer_properties(),
+                              arrow_reader_properties);
+}
+
 TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
   std::shared_ptr<Array> values;
   ::arrow::StringBuilder builder;
