@@ -214,7 +214,8 @@ class MiddlewareServer : public FlightServerBase {
       std::shared_ptr<Schema> schema = arrow::schema({});
       // Return a fake location - the test doesn't read it
       ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp("localhost", 10010));
-      std::vector<FlightEndpoint> endpoints{FlightEndpoint{{"foo"}, {location}}};
+      std::vector<FlightEndpoint> endpoints{
+          FlightEndpoint{{"foo"}, {location}, std::nullopt}};
       ARROW_ASSIGN_OR_RAISE(
           auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
       *result = std::make_unique<FlightInfo>(info);
@@ -295,13 +296,13 @@ class OrderedServer : public FlightServerBase {
     auto schema = BuildSchema();
     std::vector<FlightEndpoint> endpoints;
     if (ordered) {
-      endpoints.push_back(FlightEndpoint{{"1"}, {}});
-      endpoints.push_back(FlightEndpoint{{"2"}, {}});
-      endpoints.push_back(FlightEndpoint{{"3"}, {}});
+      endpoints.push_back(FlightEndpoint{{"1"}, {}, std::nullopt});
+      endpoints.push_back(FlightEndpoint{{"2"}, {}, std::nullopt});
+      endpoints.push_back(FlightEndpoint{{"3"}, {}, std::nullopt});
     } else {
-      endpoints.push_back(FlightEndpoint{{"1"}, {}});
-      endpoints.push_back(FlightEndpoint{{"3"}, {}});
-      endpoints.push_back(FlightEndpoint{{"2"}, {}});
+      endpoints.push_back(FlightEndpoint{{"1"}, {}, std::nullopt});
+      endpoints.push_back(FlightEndpoint{{"3"}, {}, std::nullopt});
+      endpoints.push_back(FlightEndpoint{{"2"}, {}, std::nullopt});
     }
     ARROW_ASSIGN_OR_RAISE(
         auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, ordered));
@@ -986,7 +987,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
       schema = GetQueryWithTransactionSchema().get();
     }
     ARROW_ASSIGN_OR_RAISE(auto handle, sql::CreateStatementQueryTicket(ticket));
-    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}}};
+    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}, std::nullopt}};
     ARROW_ASSIGN_OR_RAISE(
         auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     return std::make_unique<FlightInfo>(result);
@@ -1011,7 +1012,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
       schema = GetQueryWithTransactionSchema().get();
     }
     ARROW_ASSIGN_OR_RAISE(auto handle, sql::CreateStatementQueryTicket(ticket));
-    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}}};
+    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}, std::nullopt}};
     ARROW_ASSIGN_OR_RAISE(
         auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     return std::make_unique<FlightInfo>(result);
@@ -1468,7 +1469,8 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
  private:
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
       const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema) {
-    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{descriptor.cmd}, {}}};
+    std::vector<FlightEndpoint> endpoints{
+        FlightEndpoint{{descriptor.cmd}, {}, std::nullopt}};
     ARROW_ASSIGN_OR_RAISE(auto result,
                           FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false))
 
