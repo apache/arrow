@@ -179,9 +179,9 @@ TEST(FlightTypes, FlightEndpoint) {
   ASSERT_OK_AND_ASSIGN(auto location1, Location::ForGrpcTcp("localhost", 1024));
   ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTls("localhost", 1024));
   // 2023-06-19 03:14:06
-  auto expiration_time_seconds = std::chrono::seconds{1687144446};
-  auto expiration_time_nanoseconds = std::chrono::nanoseconds{4330106};
-  Timestamp expiration_time(expiration_time_seconds + expiration_time_nanoseconds);
+  const auto expiration_time_duration =
+      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4330106};
+  Timestamp expiration_time(expiration_time_duration);
   std::vector<FlightEndpoint> values = {
       {{""}, {}, std::nullopt},
       {{"foo"}, {}, std::nullopt},
