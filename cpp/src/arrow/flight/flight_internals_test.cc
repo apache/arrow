@@ -185,7 +185,7 @@ TEST(FlightTypes, FlightEndpoint) {
       {{""}, {}, std::nullopt},
       {{"foo"}, {}, std::nullopt},
       {{"bar"}, {}, std::nullopt},
-      {{"foo"}, {}, Timestamp{timestamp_seconds + timestamp_nanoseconds}},
+      {{"foo"}, {}, Timestamp(timestamp_seconds + timestamp_nanoseconds)},
       {{"foo"}, {location1}, std::nullopt},
       {{"bar"}, {location1}, std::nullopt},
       {{"foo"}, {location2}, std::nullopt},
