@@ -450,17 +450,38 @@ std::string FlightEndpoint::ToString() const {
     first = false;
   }
   ss << "]";
-  auto type = timestamp(TimeUnit::SECOND);
+  auto type = timestamp(TimeUnit::NANO);
   arrow::internal::StringFormatter<TimestampType> formatter(type.get());
-  auto expiration_time_t = Timestamp::clock::to_time_t(expiration_time.value());
   ss << " expiration_time=";
-  formatter(expiration_time_t, [&ss](std::string_view formatted) { ss << formatted; });
+  if (expiration_time) {
+    auto expiration_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                    expiration_time.value().time_since_epoch())
+                                    .count();
+    formatter(expiration_timestamp,
+              [&ss](std::string_view formatted) { ss << formatted; });
+  } else {
+    ss << "null";
+  }
   ss << ">";
   return ss.str();
 }
 
 bool FlightEndpoint::Equals(const FlightEndpoint& other) const {
-  return ticket == other.ticket && locations == other.locations;
+  if (ticket != other.ticket) {
+    return false;
+  }
+  if (locations != other.locations) {
+    return false;
+  }
+  if (expiration_time.has_value() != other.expiration_time.has_value()) {
+    return false;
+  }
+  if (expiration_time) {
+    if (expiration_time.value() != other.expiration_time.value()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 arrow::Result<std::string> FlightEndpoint::SerializeToString() const {

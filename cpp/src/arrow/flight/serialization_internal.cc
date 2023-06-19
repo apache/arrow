@@ -167,7 +167,7 @@ Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint) 
   for (const Location& location : endpoint.locations) {
     RETURN_NOT_OK(ToProto(location, pb_endpoint->add_location()));
   }
-  if (endpoint.expiration_time.has_value()) {
+  if (endpoint.expiration_time) {
     const auto expiration_time = endpoint.expiration_time.value();
     const auto since_epoch = expiration_time.time_since_epoch();
     const auto since_epoch_ns =
