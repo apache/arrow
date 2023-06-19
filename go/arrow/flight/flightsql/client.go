@@ -487,15 +487,13 @@ func (c *Client) getSchema(ctx context.Context, desc *flight.FlightDescriptor, o
 func (c *Client) Close() error { return c.Client.Close() }
 
 // Deprecated: Since 13.0.0. Use CancelFlightInfo instead if you can
-// assume that server use 13.0.0 or later. Otherwise, you may need to
-// use CancelQuery and/or CancelFlightInfo.
+// assume that server requires 13.0.0 or later. Otherwise, you may
+// need to use CancelQuery and/or CancelFlightInfo.
 func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) (cancelResult CancelResult, err error) {
 	const actionType = CancelQueryActionType
 
 	var (
-		//lint:ignore SA1019 for backward compatibility
-		req pb.ActionCancelQueryRequest
-		//lint:ignore SA1019 for backward compatibility
+		req       pb.ActionCancelQueryRequest
 		result    pb.ActionCancelQueryResult
 		action    pb.Action
 		stream    pb.FlightService_DoActionClient

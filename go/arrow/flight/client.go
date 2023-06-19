@@ -67,9 +67,9 @@ type Client interface {
 	Authenticate(context.Context, ...grpc.CallOption) error
 	AuthenticateBasicToken(ctx context.Context, username string, password string, opts ...grpc.CallOption) (context.Context, error)
 	CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (CancelFlightInfoResult, error)
+	Close() error
 	CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) error
 	RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error)
-	Close() error
 	// join the interface from the FlightServiceClient instead of re-defining all
 	// the endpoints here.
 	FlightServiceClient
@@ -386,6 +386,14 @@ func (c *client) CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ..
 	return
 }
 
+func (c *client) Close() error {
+	c.FlightServiceClient = nil
+	if cl, ok := c.conn.(io.Closer); ok {
+		return cl.Close()
+	}
+	return nil
+}
+
 func (c *client) CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (err error) {
 	var action flight.Action
 	action.Type = CloseFlightInfoActionType
@@ -427,12 +435,4 @@ func (c *client) RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndp
 		return nil, err
 	}
 	return &refreshedEndpoint, nil
-}
-
-func (c *client) Close() error {
-	c.FlightServiceClient = nil
-	if cl, ok := c.conn.(io.Closer); ok {
-		return cl.Close()
-	}
-	return nil
 }

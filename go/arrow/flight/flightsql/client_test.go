@@ -617,20 +617,11 @@ func (s *FlightSqlClientSuite) TestGetSqlInfo() {
 }
 
 func (s *FlightSqlClientSuite) TestCancelFlightInfo() {
-	sqlInfo := []flightsql.SqlInfo{
-		flightsql.SqlInfoFlightSqlServerName,
-		flightsql.SqlInfoFlightSqlServerVersion,
-		flightsql.SqlInfoFlightSqlServerArrowVersion,
-	}
-
-	cmd := &pb.CommandGetSqlInfo{Info: make([]uint32, len(sqlInfo))}
-	for i, info := range sqlInfo {
-		cmd.Info[i] = uint32(info)
-	}
+	query := "SELECT * FROM data"
+	cmd := &pb.CommandStatementQuery{Query: query}
 	desc := getDesc(cmd)
-
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
-	info, err := s.sqlClient.GetSqlInfo(context.TODO(), sqlInfo, s.callOpts...)
+	info, err := s.sqlClient.Execute(context.Background(), query, s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 	mockedCancelResult := flight.CancelFlightInfoResult{
@@ -643,20 +634,11 @@ func (s *FlightSqlClientSuite) TestCancelFlightInfo() {
 }
 
 func (s *FlightSqlClientSuite) TestCloseFlightInfo() {
-	sqlInfo := []flightsql.SqlInfo{
-		flightsql.SqlInfoFlightSqlServerName,
-		flightsql.SqlInfoFlightSqlServerVersion,
-		flightsql.SqlInfoFlightSqlServerArrowVersion,
-	}
-
-	cmd := &pb.CommandGetSqlInfo{Info: make([]uint32, len(sqlInfo))}
-	for i, info := range sqlInfo {
-		cmd.Info[i] = uint32(info)
-	}
+	query := "SELECT * FROM data"
+	cmd := &pb.CommandStatementQuery{Query: query}
 	desc := getDesc(cmd)
-
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
-	info, err := s.sqlClient.GetSqlInfo(context.TODO(), sqlInfo, s.callOpts...)
+	info, err := s.sqlClient.Execute(context.Background(), query, s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
 	s.mockClient.On("CloseFlightInfo", info, s.callOpts).Return(nil)
@@ -664,24 +646,15 @@ func (s *FlightSqlClientSuite) TestCloseFlightInfo() {
 }
 
 func (s *FlightSqlClientSuite) TestRefreshFlightEndpoint() {
-	sqlInfo := []flightsql.SqlInfo{
-		flightsql.SqlInfoFlightSqlServerName,
-		flightsql.SqlInfoFlightSqlServerVersion,
-		flightsql.SqlInfoFlightSqlServerArrowVersion,
-	}
-
-	cmd := &pb.CommandGetSqlInfo{Info: make([]uint32, len(sqlInfo))}
-	for i, info := range sqlInfo {
-		cmd.Info[i] = uint32(info)
-	}
+	query := "SELECT * FROM data"
+	cmd := &pb.CommandStatementQuery{Query: query}
 	desc := getDesc(cmd)
-
 	var mockedEndpoint flight.FlightEndpoint
 	mockedInfo := flight.FlightInfo{
 		Endpoint: []*flight.FlightEndpoint{&mockedEndpoint},
 	}
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&mockedInfo, nil)
-	info, err := s.sqlClient.GetSqlInfo(context.TODO(), sqlInfo, s.callOpts...)
+	info, err := s.sqlClient.Execute(context.Background(), query, s.callOpts...)
 	s.NoError(err)
 	s.Equal(&mockedInfo, info)
 	var mockedRefreshedEndpoint flight.FlightEndpoint

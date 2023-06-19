@@ -516,9 +516,8 @@ func (BaseServer) CancelQuery(context.Context, ActionCancelQueryRequest) (Cancel
 }
 
 func (BaseServer) CancelFlightInfo(context.Context, *flight.FlightInfo) (flight.CancelFlightInfoResult, error) {
-	var result flight.CancelFlightInfoResult
-	result.Status = flight.CancelStatusUnspecified
-	return result, status.Error(codes.Unimplemented, "CancelFlightInfo not implemented")
+	return flight.CancelFlightInfoResult{Status: flight.CancelStatusUnspecified},
+		status.Error(codes.Unimplemented, "CancelFlightInfo not implemented")
 }
 
 func (BaseServer) CloseFlightInfo(context.Context, *flight.FlightInfo) error {
@@ -654,7 +653,10 @@ type Server interface {
 	// EndTransaction commits or rollsback a transaction
 	EndTransaction(context.Context, ActionEndTransactionRequest) error
 	// CancelQuery attempts to explicitly cancel a query
-	// Deprecated since 13.0.0. Use CancelFlightInfo instead.
+	// Deprecated: Since 13.0.0. If you can require all clients
+	// use 13.0.0 or later, you can use only CancelFlightInfo and
+	// you don't need to use CancelQuery. Otherwise, you may need
+	// to use CancelQuery and/or CancelFlightInfo.
 	CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error)
 	// CancelFlightInfo attempts to explicitly cancel a FlightInfo
 	CancelFlightInfo(context.Context, *flight.FlightInfo) (flight.CancelFlightInfoResult, error)

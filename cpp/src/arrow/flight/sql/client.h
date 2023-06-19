@@ -342,7 +342,11 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// instead. If you can assume that a server requires 13.0.0 or
   /// later, you can always use CancelFlightInfo(). Otherwise, you may
   /// need to use CancelQuery() and/or CancelFlightInfo().
-  ARROW_DEPRECATED("Deprecated in 13.0.0. Use CancelFlightInfo() instead.")
+  ARROW_DEPRECATED(
+      "Deprecated in 13.0.0. Use CancelFlightInfo() instead. "
+      "If you can assume that a server requires 13.0.0 or later, "
+      "you can always use CancelFLightInfo(). Otherwise, you "
+      "may need to use CancelQuery() and/or CancelFlightInfo()")
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
 
