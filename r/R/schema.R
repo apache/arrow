@@ -265,7 +265,7 @@ schema <- function(...) {
 }
 
 #' @export
-infer_schema <- function(...) {
+infer_schema <- function(x) {
   UseMethod("infer_schema")
 }
 
