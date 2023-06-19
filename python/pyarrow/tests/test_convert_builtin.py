@@ -2364,6 +2364,7 @@ def test_array_from_pylist_offset_overflow():
     assert len(arr) == 2**31
     assert len(arr.chunks) > 1
 
+
 @parametrize_with_collections_types
 @pytest.mark.parametrize(('data', 'scalar_data'), [
     ([True, False, None], [pa.scalar(True), pa.scalar(False), None]),
@@ -2373,8 +2374,9 @@ def test_array_from_pylist_offset_overflow():
     ([1., 2., None], [pa.scalar(1.), pa.scalar(2.), None]),
     ([None, datetime.date.today()], [None, pa.scalar(datetime.date.today())]),
     ([datetime.time(1, 1, 1), None], [pa.scalar(datetime.time(1, 1, 1)), None]),
-    ([datetime.timedelta(seconds=10)],[pa.scalar(datetime.timedelta(seconds=10))]),
-    ([None, datetime.datetime(2014,1,1)], [None, pa.scalar(datetime.datetime(2014,1,1))]),
+    ([datetime.timedelta(seconds=10)], [pa.scalar(datetime.timedelta(seconds=10))]),
+    ([None, datetime.datetime(2014, 1, 1)], [
+     None, pa.scalar(datetime.datetime(2014, 1, 1))]),
     ([pa.MonthDayNano([1, -1, -10100])], [pa.scalar(pa.MonthDayNano([1, -1, -10100]))]),
     (["a", "b"], [pa.scalar("a"), pa.scalar("b")]),
     ([b"a", b"b"], [pa.scalar(b"a"), pa.scalar(b"b")]),
@@ -2391,9 +2393,11 @@ def test_array_accepts_pyarrow_scalar(seq, data, scalar_data):
 
 @parametrize_with_collections_types
 @pytest.mark.parametrize(('data', 'scalar_data', 'value_type'), [
-    ([1, 2, None], [pa.scalar(1, type=pa.int8()), pa.scalar(2, type=pa.int8()), None], pa.int8()),
+    ([1, 2, None], [pa.scalar(1, type=pa.int8()),
+     pa.scalar(2, type=pa.int8()), None], pa.int8()),
     ([1, None], [pa.scalar(1.0, type=pa.int32()), None], pa.int32()),
-    (["aaa", "bbb"], [pa.scalar("aaa", type=pa.binary(3)), pa.scalar("bbb", type=pa.binary(3))], pa.binary(3)),
+    (["aaa", "bbb"], [pa.scalar("aaa", type=pa.binary(3)),
+     pa.scalar("bbb", type=pa.binary(3))], pa.binary(3)),
     ([b"a"], [pa.scalar("a", type=pa.large_binary())], pa.large_binary()),
     (["a"], [pa.scalar("a", type=pa.large_string())], pa.large_string()),
     (
@@ -2403,7 +2407,8 @@ def test_array_accepts_pyarrow_scalar(seq, data, scalar_data):
     ),
     (
         ["a", "b"],
-        [pa.scalar("a", pa.dictionary(pa.int64(), pa.string())), pa.scalar("b", pa.dictionary(pa.int64(), pa.string()))],
+        [pa.scalar("a", pa.dictionary(pa.int64(), pa.string())),
+         pa.scalar("b", pa.dictionary(pa.int64(), pa.string()))],
         pa.dictionary(pa.int64(), pa.string())
     ),
     (
@@ -2413,12 +2418,14 @@ def test_array_accepts_pyarrow_scalar(seq, data, scalar_data):
     ),
     (
         [(1, 2)],
-        [pa.scalar([('a', 1), ('b', 2)], type=pa.struct([('a', pa.int8()), ('b', pa.int8())]))],
+        [pa.scalar([('a', 1), ('b', 2)], type=pa.struct(
+            [('a', pa.int8()), ('b', pa.int8())]))],
         pa.struct([('a', pa.int8()), ('b', pa.int8())])
     ),
     (
         [(1, 'bar')],
-        [pa.scalar([('a', 1), ('b', 'bar')], type=pa.struct([('a', pa.int8()), ('b', pa.string())]))],
+        [pa.scalar([('a', 1), ('b', 'bar')], type=pa.struct(
+            [('a', pa.int8()), ('b', pa.string())]))],
         pa.struct([('a', pa.int8()), ('b', pa.string())])
     )
 ])
@@ -2443,19 +2450,19 @@ def test_array_accepts_pyarrow_scalar_errors(seq):
     with pytest.raises(pa.ArrowInvalid,
                        match="cannot mix scalars with different types"):
         pa.array(sequence)
-    
+
     sequence = seq([1, pa.scalar("a"), None])
     with pytest.raises(pa.ArrowInvalid,
                        match="pyarrow scalars cannot be mixed with other "
                              "Python scalar values currently"):
         pa.array(sequence)
-    
+
     sequence = seq([np.float16("0.1"), pa.scalar("a"), None])
     with pytest.raises(pa.ArrowInvalid,
                        match="pyarrow scalars cannot be mixed with other "
                              "Python scalar values currently"):
         pa.array(sequence)
-    
+
     sequence = seq([pa.scalar("a"), np.float16("0.1"), None])
     with pytest.raises(pa.ArrowInvalid,
                        match="pyarrow scalars cannot be mixed with other "
