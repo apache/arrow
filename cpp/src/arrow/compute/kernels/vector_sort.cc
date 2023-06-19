@@ -1032,54 +1032,67 @@ class SortIndicesMetaFunction : public MetaFunction {
   }
 };
 
-void AddLeafFields(const FieldVector& fields, SortOrder order,
-                   std::vector<SortField>* out, std::vector<int>* tmp_indices) {
-  if (fields.empty()) {
-    return;
-  }
+// Helper for processing a vector of `SortKeys` into a vector of `SortFields`
+struct SortFieldPopulator {
+ public:
+  // Process sort keys with the given schema. Note that the output vector may be larger
+  // than the input, as keys referencing a struct are recursively "expanded" into leaf
+  // fields.
+  Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
+                                              const std::vector<SortKey>& sort_keys) {
+    sort_fields_.reserve(sort_keys.size());
+    seen_.reserve(sort_keys.size());
 
-  tmp_indices->push_back(0);
-  for (const auto& f : fields) {
-    const auto& type = *f->type();
-    if (type.id() == Type::STRUCT) {
-      AddLeafFields(type.fields(), order, out, tmp_indices);
-    } else {
-      out->emplace_back(FieldPath(*tmp_indices), order, &type);
+    for (const auto& sort_key : sort_keys) {
+      ARROW_ASSIGN_OR_RAISE(auto match,
+                            PrependInvalidColumn(sort_key.target.FindOne(schema)));
+      if (seen_.insert(match).second) {
+        ARROW_ASSIGN_OR_RAISE(auto schema_field, match.Get(schema));
+        AddField(*schema_field->type(), match, sort_key.order);
+      }
     }
-    ++tmp_indices->back();
-  }
-  tmp_indices->pop_back();
-}
 
-void AddField(const DataType& type, const FieldPath& path, SortOrder order,
-              std::vector<SortField>* out, std::vector<int>* tmp_indices) {
-  if (type.id() == Type::STRUCT) {
-    *tmp_indices = path.indices();
-    AddLeafFields(type.fields(), order, out, tmp_indices);
-  } else {
-    out->emplace_back(path, order, &type);
+    return std::move(sort_fields_);
   }
-}
+
+ protected:
+  void AddLeafFields(const FieldVector& fields, SortOrder order) {
+    if (fields.empty()) {
+      return;
+    }
+
+    tmp_indices_.push_back(0);
+    for (const auto& f : fields) {
+      const auto& type = *f->type();
+      if (type.id() == Type::STRUCT) {
+        AddLeafFields(type.fields(), order);
+      } else {
+        sort_fields_.emplace_back(FieldPath(tmp_indices_), order, &type);
+      }
+      ++tmp_indices_.back();
+    }
+    tmp_indices_.pop_back();
+  }
+
+  void AddField(const DataType& type, const FieldPath& path, SortOrder order) {
+    if (type.id() == Type::STRUCT) {
+      tmp_indices_ = path.indices();
+      AddLeafFields(type.fields(), order);
+    } else {
+      sort_fields_.emplace_back(path, order, &type);
+    }
+  }
+
+  std::vector<SortField> sort_fields_;
+  std::unordered_set<FieldPath> seen_;
+  std::vector<int> tmp_indices_;
+};
 
 }  // namespace
 
 Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
                                             const std::vector<SortKey>& sort_keys) {
-  std::vector<SortField> fields;
-  std::unordered_set<FieldPath> seen;
-  fields.reserve(sort_keys.size());
-  seen.reserve(sort_keys.size());
-
-  std::vector<int> tmp_indices;
-  for (const auto& sort_key : sort_keys) {
-    ARROW_ASSIGN_OR_RAISE(auto match,
-                          PrependInvalidColumn(sort_key.target.FindOne(schema)));
-    if (seen.insert(match).second) {
-      ARROW_ASSIGN_OR_RAISE(auto schema_field, match.Get(schema));
-      AddField(*schema_field->type(), match, sort_key.order, &fields, &tmp_indices);
-    }
-  }
-  return fields;
+  return SortFieldPopulator{}.FindSortKeys(schema, sort_keys);
 }
 
 Result<NullPartitionResult> SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin,
