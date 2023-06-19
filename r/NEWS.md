@@ -17,7 +17,9 @@
   under the License.
 -->
 
-# arrow 12.0.0.9000
+# arrow 12.0.1.9000
+
+# arrow 12.0.1
 
 * Update the version of the date library vendored with Arrow C++ library 
   for compatibility with tzdb 0.4.0 (#35594, #35612).

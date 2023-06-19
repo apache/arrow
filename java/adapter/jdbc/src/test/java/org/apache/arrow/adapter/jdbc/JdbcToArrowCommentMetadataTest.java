@@ -29,6 +29,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,18 +38,18 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.util.ObjectMapperFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.fasterxml.jackson.databind.ObjectWriter;
-
 public class JdbcToArrowCommentMetadataTest {
 
   private static final String COMMENT = "comment"; //use this metadata key for interoperability with Spark StructType
-  private final ObjectWriter schemaSerializer = ObjectMapperFactory.newObjectMapper().writerWithDefaultPrettyPrinter();
   private Connection conn = null;
 
   /**
@@ -73,26 +74,85 @@ public class JdbcToArrowCommentMetadataTest {
     }
   }
 
+  private static Field field(String name, boolean nullable, ArrowType type, Map<String, String> metadata) {
+    return new Field(name, new FieldType(nullable, type, null, metadata), Collections.emptyList());
+  }
+
+  private static Map<String, String> metadata(String... entries) {
+    if (entries.length % 2 != 0) {
+      throw new IllegalArgumentException("Map must have equal number of keys and values");
+    }
+
+    final Map<String, String> result = new HashMap<>();
+    for (int i = 0; i < entries.length; i += 2) {
+      result.put(entries[i], entries[i + 1]);
+    }
+    return result;
+  }
+
   @Test
   public void schemaComment() throws Exception {
     boolean includeMetadata = false;
-    String schemaJson = schemaSerializer.writeValueAsString(getSchemaWithCommentFromQuery(includeMetadata));
-    String expectedSchema = getExpectedSchema("/h2/expectedSchemaWithComments.json");
-    assertThat(schemaJson).isEqualTo(expectedSchema);
+    Schema schema = getSchemaWithCommentFromQuery(includeMetadata);
+    Schema expectedSchema = new Schema(Arrays.asList(
+        field("ID", false, Types.MinorType.BIGINT.getType(),
+            metadata("comment", "Record identifier")),
+        field("NAME", true, Types.MinorType.VARCHAR.getType(),
+            metadata("comment", "Name of record")),
+        field("COLUMN1", true, Types.MinorType.BIT.getType(),
+            metadata()),
+        field("COLUMNN", true, Types.MinorType.INT.getType(),
+            metadata("comment", "Informative description of columnN"))
+        ), metadata("comment", "This is super special table with valuable data"));
+    assertThat(schema).isEqualTo(expectedSchema);
   }
 
   @Test
   public void schemaCommentWithDatabaseMetadata() throws Exception {
     boolean includeMetadata = true;
-    String schemaJson = schemaSerializer.writeValueAsString(getSchemaWithCommentFromQuery(includeMetadata));
-    String expectedSchema = getExpectedSchema("/h2/expectedSchemaWithCommentsAndJdbcMeta.json");
+    Schema schema = getSchemaWithCommentFromQuery(includeMetadata);
+    Schema expectedSchema = new Schema(Arrays.asList(
+        field("ID", false, Types.MinorType.BIGINT.getType(),
+            metadata(
+                "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+                "SQL_SCHEMA_NAME", "PUBLIC",
+                "SQL_TABLE_NAME", "TABLE1",
+                "SQL_COLUMN_NAME", "ID",
+                "SQL_TYPE", "BIGINT",
+                "comment", "Record identifier"
+            )),
+        field("NAME", true, Types.MinorType.VARCHAR.getType(),
+            metadata(
+                "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+                "SQL_SCHEMA_NAME", "PUBLIC",
+                "SQL_TABLE_NAME", "TABLE1",
+                "SQL_COLUMN_NAME", "NAME",
+                "SQL_TYPE", "VARCHAR",
+                "comment", "Name of record")),
+        field("COLUMN1", true, Types.MinorType.BIT.getType(),
+            metadata(
+                "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+                "SQL_SCHEMA_NAME", "PUBLIC",
+                "SQL_TABLE_NAME", "TABLE1",
+                "SQL_COLUMN_NAME", "COLUMN1",
+                "SQL_TYPE", "BOOLEAN")),
+        field("COLUMNN", true, Types.MinorType.INT.getType(),
+            metadata(
+                "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+                "SQL_SCHEMA_NAME", "PUBLIC",
+                "SQL_TABLE_NAME", "TABLE1",
+                "SQL_COLUMN_NAME", "COLUMNN",
+                "SQL_TYPE", "INTEGER",
+                "comment", "Informative description of columnN"))
+    ), metadata("comment", "This is super special table with valuable data"));
+    assertThat(schema).isEqualTo(expectedSchema);
     /* corresponding Apache Spark DDL after conversion:
         ID BIGINT NOT NULL COMMENT 'Record identifier',
         NAME STRING COMMENT 'Name of record',
         COLUMN1 BOOLEAN,
         COLUMNN INT COMMENT 'Informative description of columnN'
      */
-    assertThat(schemaJson).isEqualTo(expectedSchema);
+    assertThat(schema).isEqualTo(expectedSchema);
   }
 
   private Schema getSchemaWithCommentFromQuery(boolean includeMetadata) throws SQLException {

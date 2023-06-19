@@ -42,6 +42,8 @@ namespace Apache.Arrow.C
         /// IArrowArrayStream importedStream = CArrowArrayStreamImporter.ImportStream(importedPtr);
         /// </code>
         /// </examples>
+        /// <param name="ptr">The pointer to the stream being imported</param>
+        /// <returns>The imported C# array stream</returns>
         public static unsafe IArrowArrayStream ImportArrayStream(CArrowArrayStream* ptr)
         {
             return new ImportedArrowArrayStream(ptr);
@@ -49,7 +51,7 @@ namespace Apache.Arrow.C
 
         private sealed unsafe class ImportedArrowArrayStream : IArrowArrayStream
         {
-            private readonly CArrowArrayStream* _cArrayStream;
+            private readonly CArrowArrayStream _cArrayStream;
             private readonly Schema _schema;
             private bool _disposed;
 
@@ -59,29 +61,21 @@ namespace Apache.Arrow.C
                 {
                     throw new ArgumentNullException(nameof(cArrayStream));
                 }
-                _cArrayStream = cArrayStream;
-                if (_cArrayStream->release == null)
+                if (cArrayStream->release == null)
                 {
                     throw new ArgumentException("Tried to import an array stream that has already been released.", nameof(cArrayStream));
                 }
 
-                CArrowSchema* cSchema = CArrowSchema.Create();
-                try
+                CArrowSchema cSchema = new CArrowSchema();
+                int errno = cArrayStream->get_schema(cArrayStream, &cSchema);
+                if (errno != 0)
                 {
-                    int errno = _cArrayStream->get_schema(_cArrayStream, cSchema);
-                    if (errno != 0)
-                    {
-                        throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
-                    }
-                    _schema = CArrowSchemaImporter.ImportSchema(cSchema);
+                    throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
                 }
-                finally
-                {
-                    if (_schema == null)
-                    {
-                        CArrowSchema.Free(cSchema);
-                    }
-                }
+                _schema = CArrowSchemaImporter.ImportSchema(&cSchema);
+
+                _cArrayStream = *cArrayStream;
+                cArrayStream->release = null;
             }
 
             ~ImportedArrowArrayStream()
@@ -99,24 +93,17 @@ namespace Apache.Arrow.C
                 }
 
                 RecordBatch result = null;
-                CArrowArray* cArray = CArrowArray.Create();
-                try
+                CArrowArray cArray = new CArrowArray();
+                fixed (CArrowArrayStream* cArrayStream = &_cArrayStream)
                 {
-                    int errno = _cArrayStream->get_next(_cArrayStream, cArray);
+                    int errno = cArrayStream->get_next(cArrayStream, &cArray);
                     if (errno != 0)
                     {
                         throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
                     }
-                    if (cArray->release != null)
+                    if (cArray.release != null)
                     {
-                        result = CArrowArrayImporter.ImportRecordBatch(cArray, _schema);
-                    }
-                }
-                finally
-                {
-                    if (result == null)
-                    {
-                        CArrowArray.Free(cArray);
+                        result = CArrowArrayImporter.ImportRecordBatch(&cArray, _schema);
                     }
                 }
 
@@ -125,10 +112,13 @@ namespace Apache.Arrow.C
 
             public void Dispose()
             {
-                if (!_disposed && _cArrayStream->release != null)
+                if (!_disposed && _cArrayStream.release != null)
                 {
                     _disposed = true;
-                    _cArrayStream->release(_cArrayStream);
+                    fixed (CArrowArrayStream * cArrayStream = &_cArrayStream)
+                    {
+                        cArrayStream->release(cArrayStream);
+                    }
                 }
                 GC.SuppressFinalize(this);
             }

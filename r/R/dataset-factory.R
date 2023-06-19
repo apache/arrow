@@ -39,7 +39,7 @@ DatasetFactory <- R6Class("DatasetFactory",
 )
 DatasetFactory$create <- function(x,
                                   filesystem = NULL,
-                                  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
+                                  format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text", "json"),
                                   partitioning = NULL,
                                   hive_style = NA,
                                   factory_options = list(),

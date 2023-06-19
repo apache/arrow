@@ -80,6 +80,7 @@ target environment.**
    format/Integration
    format/CDataInterface
    format/CStreamInterface
+   format/CDeviceDataInterface
    format/ADBC
    format/Other
    format/Changing

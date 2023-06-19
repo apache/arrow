@@ -14,8 +14,8 @@
 % permissions and limitations under the License.
 
 function validateTypeAndShape(data, type)
-    % Validates data has the expected type and is a vector or empty 2D
-    % matrix. If data is numeric, validates is real and nonsparse.
+% Validates data has the expected type and is a vector or empty 2D
+% matrix. If data is numeric, validates is real and nonsparse.
 
     arguments
         data
