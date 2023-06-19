@@ -257,8 +257,8 @@ print_schema_fields <- function(s) {
 schema <- function(...) {
   dots <- list2(...)
 
-  if (length(dots) == 1 && !is.list(dots[[1]]) && is.null(names(dots))) {
-    return(infer_schema(...))
+  if (length(dots) == 1 && !is.list(dots[[1]]) && is.null(names(dots)) && !inherits(dots[[1]], "Field")) {
+    return(infer_schema(dots[[1]]))
   }
 
   Schema$create(...)
