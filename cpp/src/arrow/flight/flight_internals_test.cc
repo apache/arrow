@@ -204,7 +204,7 @@ TEST(FlightTypes, FlightEndpoint) {
       "<FlightEndpoint ticket=<Ticket ticket='bar'> locations=[] "
       "expiration_time=null>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
-      "expiration_time=2023-06-19 03:14:06.004330106>",
+      "expiration_time=2023-06-19 03:14:06.004330100>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
       "[grpc+tcp://localhost:1024] expiration_time=null>",
       "<FlightEndpoint ticket=<Ticket ticket='bar'> locations="
