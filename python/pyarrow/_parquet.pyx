@@ -543,8 +543,7 @@ cdef class SortingColumn:
 
     >>> import pyarrow.parquet as pq
     >>> [pq.SortingColumn(0), pq.SortingColumn(1, descending=True)]
-    [SortingColumn(column_index=0, descending=False, nulls_first=False),
-     SortingColumn(column_index=1, descending=True, nulls_first=False)]
+    [SortingColumn(column_index=0, descending=False, nulls_first=False), SortingColumn(column_index=1, descending=True, nulls_first=False)]
 
     Convert the sort_order into the list of sorting columns with 
     ``from_sort_order`` (note that the schema must be provided as well):
@@ -553,8 +552,7 @@ cdef class SortingColumn:
     >>> schema = pa.schema([('id', pa.int64()), ('timestamp', pa.timestamp('ms'))])
     >>> sorting_columns = pq.SortingColumn.from_sort_order(schema, sort_order)
     >>> sorting_columns
-    (SortingColumn(column_index=0, descending=False, nulls_first=False),
-     SortingColumn(column_index=1, descending=True, nulls_first=False))
+    (SortingColumn(column_index=0, descending=False, nulls_first=False), SortingColumn(column_index=1, descending=True, nulls_first=False))
 
     Convert back to the sort order with ``to_sort_order``:
 
