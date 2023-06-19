@@ -378,7 +378,7 @@ StringHeader Inline(std::string_view chars) {
 
 StringHeader NotInline(std::string_view prefix, size_t length, size_t buffer_index,
                        size_t offset) {
-  DCHECK(prefix.size() == 4);
+  DCHECK_EQ(prefix.size(), 4);
   DCHECK(!StringHeader::IsInline(length));
   StringHeader s{prefix.data(), length};
   s.SetIndexOffset(static_cast<uint32_t>(buffer_index), static_cast<uint32_t>(offset));
