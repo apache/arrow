@@ -179,13 +179,14 @@ TEST(FlightTypes, FlightEndpoint) {
   ASSERT_OK_AND_ASSIGN(auto location1, Location::ForGrpcTcp("localhost", 1024));
   ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTls("localhost", 1024));
   // 2023-06-19 03:14:06
-  auto timestamp_seconds = std::chrono::seconds{1687144446};
-  auto timestamp_nanoseconds = std::chrono::nanoseconds{4330106};
+  auto expiration_time_seconds = std::chrono::seconds{1687144446};
+  auto expiration_time_nanoseconds = std::chrono::nanoseconds{4330106};
+  Timestamp expiration_time(expiration_time_seconds + expiration_time_nanoseconds);
   std::vector<FlightEndpoint> values = {
       {{""}, {}, std::nullopt},
       {{"foo"}, {}, std::nullopt},
       {{"bar"}, {}, std::nullopt},
-      {{"foo"}, {}, Timestamp(timestamp_seconds + timestamp_nanoseconds)},
+      {{"foo"}, {}, expiration_time},
       {{"foo"}, {location1}, std::nullopt},
       {{"bar"}, {location1}, std::nullopt},
       {{"foo"}, {location2}, std::nullopt},
