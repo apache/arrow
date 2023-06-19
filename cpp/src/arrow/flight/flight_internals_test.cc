@@ -181,7 +181,8 @@ TEST(FlightTypes, FlightEndpoint) {
   // 2023-06-19 03:14:06
   const auto expiration_time_duration =
       std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4330106};
-  Timestamp expiration_time(expiration_time_duration);
+  Timestamp expiration_time(
+      std::chrono::duration_cast<Timestamp::duration>(expiration_time_duration));
   std::vector<FlightEndpoint> values = {
       {{""}, {}, std::nullopt},
       {{"foo"}, {}, std::nullopt},
