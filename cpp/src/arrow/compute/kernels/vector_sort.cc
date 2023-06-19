@@ -1044,7 +1044,7 @@ void AddLeafFields(const FieldVector& fields, SortOrder order,
     if (type.id() == Type::STRUCT) {
       AddLeafFields(type.fields(), order, out, tmp_indices);
     } else {
-      out->emplace_back(FieldPath(*tmp_indices), order);
+      out->emplace_back(FieldPath(*tmp_indices), order, &type);
     }
     ++tmp_indices->back();
   }
@@ -1057,7 +1057,7 @@ void AddField(const DataType& type, const FieldPath& path, SortOrder order,
     *tmp_indices = path.indices();
     AddLeafFields(type.fields(), order, out, tmp_indices);
   } else {
-    out->emplace_back(path, order);
+    out->emplace_back(path, order, &type);
   }
 }
 

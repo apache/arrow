@@ -475,13 +475,16 @@ Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_
 
 struct SortField {
   SortField() = default;
-  SortField(FieldPath path, SortOrder order) : path(std::move(path)), order(order) {}
-  SortField(int index, SortOrder order) : SortField(FieldPath({index}), order) {}
+  SortField(FieldPath path, SortOrder order, const DataType* type)
+      : path(std::move(path)), order(order), type(type) {}
+  SortField(int index, SortOrder order, const DataType* type)
+      : SortField(FieldPath({index}), order, type) {}
 
   bool is_nested() const { return path.indices().size() > 1; }
 
   FieldPath path;
   SortOrder order;
+  const DataType* type;
 };
 
 inline Status CheckNonNested(const FieldRef& ref) {
@@ -762,9 +765,6 @@ struct ResolvedTableSortKey {
       const Table& table, const RecordBatchVector& batches,
       const std::vector<SortKey>& sort_keys) {
     auto factory = [&](const SortField& f) -> Result<ResolvedTableSortKey> {
-      ARROW_ASSIGN_OR_RAISE(auto schema_field, f.path.Get(*table.schema()));
-      const auto& type = schema_field->type();
-
       // We must expose a homogenous chunking for all ResolvedSortKey,
       // so we can't simply access the column from the table directly.
       ArrayVector chunks;
@@ -776,7 +776,8 @@ struct ResolvedTableSortKey {
         chunks.push_back(std::move(child));
       }
 
-      return ResolvedTableSortKey(type, std::move(chunks), f.order, null_count);
+      return ResolvedTableSortKey(f.type->GetSharedPtr(), std::move(chunks), f.order,
+                                  null_count);
     };
 
     return ::arrow::compute::internal::ResolveSortKeys<ResolvedTableSortKey>(
