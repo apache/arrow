@@ -254,24 +254,32 @@ print_schema_fields <- function(s) {
 #' tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
 #' schema(tab2)
 #' @export
-schema <- function(...){
-  UseMethod("schema")
+schema <- function(...) {
+  dots <- list2(...)
+
+  if (length(dots) == 1 && !is.list(dots[[1]]) && is.null(names(dots))) {
+    return(infer_schema(...))
+  }
+
+  Schema$create(...)
 }
 
 #' @export
-schema.default <- Schema$create
+infer_schema <- function(...) {
+  UseMethod("infer_schema")
+}
 
 #' @export
-schema.ArrowTabular <- function(x) x$schema
+infer_schema.ArrowTabular <- function(x) x$schema
 
 #' @export
-schema.RecordBatchReader <- function(x) x$schema
+infer_schema.RecordBatchReader <- function(x) x$schema
 
 #' @export
-schema.Dataset <- function(x) x$schema
+infer_schema.Dataset <- function(x) x$schema
 
 #' @export
-schema.arrow_dplyr_query <- function(x) implicit_schema(x)
+infer_schema.arrow_dplyr_query <- function(x) implicit_schema(x)
 
 #' @export
 names.Schema <- function(x) x$names
