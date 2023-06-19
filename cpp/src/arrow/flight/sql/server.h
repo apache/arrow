@@ -623,7 +623,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
 
   /// \brief Attempt to explicitly refresh a FlightEndpoint.
   /// \param[in] context  The call context.
-  /// \param[in] info     The FlightEndpoint to refresh.
+  /// \param[in] endpoint The FlightEndpoint to refresh.
   /// \return             The refresh result.
   virtual arrow::Result<FlightEndpoint> RefreshFlightEndpoint(
       const ServerCallContext& context, const FlightEndpoint& endpoint);
