@@ -75,7 +75,7 @@
 #'   Files with compressed metadata are readable by older versions of arrow, but
 #'   the metadata is dropped.
 #'
-#' @rdname Schema
+#' @rdname schema-class
 #' @name Schema
 #' @export
 Schema <- R6Class("Schema",
@@ -264,6 +264,9 @@ schema <- function(...) {
   Schema$create(...)
 }
 
+#' Create a schema or extract one from an object.
+#'
+#' @param x An object which has a schema, e.g. a `Dataset`
 #' @export
 infer_schema <- function(x) {
   UseMethod("infer_schema")
