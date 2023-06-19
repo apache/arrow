@@ -146,14 +146,14 @@ std::string WideStringToUTF8Internal(const std::wstring& source) {
   return s;
 }
 
-std::string UTF16StringToUTF8Internal(const std::basic_string<char16_t>& source) {
+std::string UTF16StringToUTF8Internal(const std::u16string& source) {
   std::string s;
   ::utf8::utf16to8(source.begin(), source.end(), std::back_inserter(s));
   return s;
 }
 
-std::basic_string<char16_t> UTF8StringToUTF16Internal(const std::string& source) {
-  std::basic_string<char16_t> s;
+std::u16string UTF8StringToUTF16Internal(const std::string& source) {
+  std::u16string s;
   ::utf8::utf8to16(source.begin(), source.end(), std::back_inserter(s));
   return s;
 }
@@ -176,7 +176,7 @@ ARROW_EXPORT Result<std::string> WideStringToUTF8(const std::wstring& source) {
   }
 }
 
-ARROW_EXPORT Result<std::string> UTF16StringToUTF8(const std::basic_string<char16_t>& source) {
+ARROW_EXPORT Result<std::string> UTF16StringToUTF8(const std::u16string& source) {
   try {
     return UTF16StringToUTF8Internal(source);
   } catch (std::exception& e) {
@@ -184,7 +184,7 @@ ARROW_EXPORT Result<std::string> UTF16StringToUTF8(const std::basic_string<char1
   }
 }
 
-ARROW_EXPORT Result<std::basic_string<char16_t>> UTF8StringToUTF16(const std::string& source) {
+ARROW_EXPORT Result<std::u16string> UTF8StringToUTF16(const std::string& source) {
   try {
     return UTF8StringToUTF16Internal(source);
   } catch (std::exception& e) {

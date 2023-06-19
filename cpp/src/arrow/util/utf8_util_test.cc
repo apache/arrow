@@ -398,9 +398,9 @@ TEST(WideStringToUTF8, Basics) {
 }
 
 TEST(UTF8StringToUTF16, Basics) {
-  auto CheckOk = [](const std::string& s, const std::basic_string<char16_t>& expected) -> void {
-    ASSERT_OK_AND_ASSIGN(std::basic_string<char16_t> utf16String, UTF8StringToUTF16(s));
-    ASSERT_EQ(utf16String, expected);
+  auto CheckOk = [](const std::string& s, const std::u16string& expected) -> void {
+    ASSERT_OK_AND_ASSIGN(std::u16string u16s, UTF8StringToUTF16(s));
+    ASSERT_EQ(u16s, expected);
   };
 
   auto CheckInvalid = [](const std::string& s) -> void {
@@ -419,13 +419,13 @@ TEST(UTF8StringToUTF16, Basics) {
 }
 
 TEST(UTF16StringToUTF8, Basics) {
-  auto CheckOk = [](const std::basic_string<char16_t>& utf16String, const std::string& expected) -> void {
-    ASSERT_OK_AND_ASSIGN(std::string s, UTF16StringToUTF8(utf16String));
+  auto CheckOk = [](const std::u16string& u16s, const std::string& expected) -> void {
+    ASSERT_OK_AND_ASSIGN(std::string s, UTF16StringToUTF8(u16s));
     ASSERT_EQ(s, expected);
   };
 
-  auto CheckInvalid = [](const std::basic_string<char16_t>& utf16String) -> void {
-    ASSERT_RAISES(Invalid, UTF16StringToUTF8(utf16String));
+  auto CheckInvalid = [](const std::u16string& u16s) -> void {
+    ASSERT_RAISES(Invalid, UTF16StringToUTF8(u16s));
   };
 
   CheckOk(u"", "");
