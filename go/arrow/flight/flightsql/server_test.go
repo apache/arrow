@@ -357,7 +357,37 @@ func (s *UnimplementedFlightSqlServerSuite) TestDoAction() {
 	st, ok := status.FromError(err)
 	s.True(ok)
 	s.Equal(codes.Unimplemented, st.Code())
-	s.Equal(st.Message(), "CreatePreparedStatement not implemented")
+	s.Equal("CreatePreparedStatement not implemented", st.Message())
+}
+
+func (s *UnimplementedFlightSqlServerSuite) TestCancelFlightInfo() {
+	info := flight.FlightInfo{}
+	result, err := s.cl.CancelFlightInfo(context.TODO(), &info)
+	s.Equal(flight.CancelFlightInfoResult{Status: flight.CancelStatusUnspecified},
+		result)
+	st, ok := status.FromError(err)
+	s.True(ok)
+	s.Equal(codes.Unimplemented, st.Code())
+	s.Equal("CancelFlightInfo not implemented", st.Message())
+}
+
+func (s *UnimplementedFlightSqlServerSuite) TestCloseFlightInfo() {
+	info := flight.FlightInfo{}
+	err := s.cl.CloseFlightInfo(context.TODO(), &info)
+	st, ok := status.FromError(err)
+	s.True(ok)
+	s.Equal(codes.Unimplemented, st.Code())
+	s.Equal("CloseFlightInfo not implemented", st.Message())
+}
+
+func (s *UnimplementedFlightSqlServerSuite) TestRefreshFlightEndpoint() {
+	endpoint := flight.FlightEndpoint{}
+	refreshedEndpoint, err := s.cl.RefreshFlightEndpoint(context.TODO(), &endpoint)
+	s.Nil(refreshedEndpoint)
+	st, ok := status.FromError(err)
+	s.True(ok)
+	s.Equal(codes.Unimplemented, st.Code())
+	s.Equal("RefreshFlightEndpoint not implemented", st.Message())
 }
 
 func TestBaseServer(t *testing.T) {
