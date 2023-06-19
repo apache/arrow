@@ -511,8 +511,23 @@ func (BaseServer) BeginSavepoint(context.Context, ActionBeginSavepointRequest) (
 	return nil, status.Error(codes.Unimplemented, "BeginSavepoint not implemented")
 }
 
-func (BaseServer) CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error) {
-	return CancelResultUnspecified, status.Error(codes.Unimplemented, "CancelQuery not implemented")
+func (b *BaseServer) CancelQuery(context context.Context, request ActionCancelQueryRequest) (CancelResult, error) {
+	result, err := b.CancelFlightInfo(context, request.GetInfo())
+	if err != nil {
+		return CancelResultUnspecified, err
+	}
+	switch result.Status {
+	case flight.CancelStatusUnspecified:
+		return CancelResultUnspecified, nil
+	case flight.CancelStatusCancelled:
+		return CancelResultCancelled, nil
+	case flight.CancelStatusCancelling:
+		return CancelResultCancelling, nil
+	case flight.CancelStatusNotCancellable:
+		return CancelResultNotCancellable, nil
+	default:
+		return CancelResultUnspecified, nil
+	}
 }
 
 func (BaseServer) CancelFlightInfo(context.Context, *flight.FlightInfo) (flight.CancelFlightInfoResult, error) {
