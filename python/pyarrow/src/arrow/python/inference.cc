@@ -396,7 +396,7 @@ class TypeInferrer {
     } else if (PyUnicode_Check(obj)) {
       ++unicode_count_;
       *keep_going = make_unions_;
-    } else if(arrow::py::is_scalar(obj)) {
+    } else if (arrow::py::is_scalar(obj)) {
       RETURN_NOT_OK(VisitArrowScalar(obj, keep_going));
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       RETURN_NOT_OK(VisitDType(PyArray_DescrFromScalar(obj), keep_going));
@@ -462,10 +462,10 @@ class TypeInferrer {
 
     RETURN_NOT_OK(Validate());
 
-    if (arrow_scalar_count_ > 0 and arrow_scalar_count_ + none_count_ != total_count_){
+    if (arrow_scalar_count_ > 0 and arrow_scalar_count_ + none_count_ != total_count_) {
       return Status::Invalid(
-              "pyarrow scalars cannot be mixed "
-              "with other Python scalar values currently");
+          "pyarrow scalars cannot be mixed "
+          "with other Python scalar values currently");
     }
 
     if (numpy_dtype_count_ > 0) {
@@ -579,8 +579,7 @@ class TypeInferrer {
     ARROW_ASSIGN_OR_RAISE(auto scalar, arrow::py::unwrap_scalar(obj));
     // Check that all the scalar types for the sequence are the same
     if (arrow_scalar_count_ > 0 and *scalar->type != *scalar_type_) {
-      return internal::InvalidValue(obj,
-                                    "cannot mix scalars with different types");
+      return internal::InvalidValue(obj, "cannot mix scalars with different types");
     }
     scalar_type_ = scalar->type;
     ++arrow_scalar_count_;

@@ -627,7 +627,8 @@ class PyPrimitiveConverter<
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
     } else if (arrow::py::is_scalar(value)){
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, arrow::py::unwrap_scalar(value));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
       ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_ASSIGN_OR_RAISE(
@@ -647,7 +648,8 @@ class PyPrimitiveConverter<
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
     } else if (arrow::py::is_scalar(value)){
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, arrow::py::unwrap_scalar(value));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
       ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_ASSIGN_OR_RAISE(
@@ -672,7 +674,8 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
     } else if (arrow::py::is_scalar(value)){
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, arrow::py::unwrap_scalar(value));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
       ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_RETURN_NOT_OK(
@@ -697,7 +700,8 @@ class PyPrimitiveConverter<T, enable_if_base_binary<T>>
     if (PyValue::IsNull(this->options_, value)) {
       this->primitive_builder_->UnsafeAppendNull();
     } else if (arrow::py::is_scalar(value)){
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, arrow::py::unwrap_scalar(value));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
       ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
     } else {
       ARROW_RETURN_NOT_OK(
@@ -740,7 +744,8 @@ class PyDictionaryConverter<U, enable_if_has_c_type<U>>
     if (PyValue::IsNull(this->options_, value)) {
       return this->value_builder_->AppendNull();
     } else if (arrow::py::is_scalar(value)){
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, arrow::py::unwrap_scalar(value));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
       return this->value_builder_->AppendScalar(*scalar, 1);
     } else {
       ARROW_ASSIGN_OR_RAISE(auto converted,
@@ -758,7 +763,8 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
     if (PyValue::IsNull(this->options_, value)) {
       return this->value_builder_->AppendNull();
     } else if (arrow::py::is_scalar(value)){
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, arrow::py::unwrap_scalar(value));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
       return this->value_builder_->AppendScalar(*scalar, 1);
     } else {
       ARROW_RETURN_NOT_OK(
@@ -910,7 +916,8 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       return this->struct_builder_->AppendNull();
     }
     else if (arrow::py::is_scalar(value)){
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, arrow::py::unwrap_scalar(value));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
       return this->struct_builder_->AppendScalar(*scalar);
     }
     switch (input_kind_) {
