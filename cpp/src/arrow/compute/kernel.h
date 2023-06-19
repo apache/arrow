@@ -134,6 +134,9 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> BinaryLike();
 // Match types using 64-bit varbinary representation
 ARROW_EXPORT std::shared_ptr<TypeMatcher> LargeBinaryLike();
 
+// Match types using the view varbinary representation
+ARROW_EXPORT std::shared_ptr<TypeMatcher> BinaryViewLike();
+
 // Match any fixed binary type
 ARROW_EXPORT std::shared_ptr<TypeMatcher> FixedSizeBinaryLike();
 

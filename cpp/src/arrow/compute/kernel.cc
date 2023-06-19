@@ -175,7 +175,7 @@ std::shared_ptr<TypeMatcher> DurationTypeUnit(TimeUnit::type unit) {
 
 class IntegerMatcher : public TypeMatcher {
  public:
-  IntegerMatcher() {}
+  IntegerMatcher() = default;
 
   bool Matches(const DataType& type) const override { return is_integer(type.id()); }
 
@@ -194,7 +194,7 @@ std::shared_ptr<TypeMatcher> Integer() { return std::make_shared<IntegerMatcher>
 
 class PrimitiveMatcher : public TypeMatcher {
  public:
-  PrimitiveMatcher() {}
+  PrimitiveMatcher() = default;
 
   bool Matches(const DataType& type) const override { return is_primitive(type.id()); }
 
@@ -213,7 +213,7 @@ std::shared_ptr<TypeMatcher> Primitive() { return std::make_shared<PrimitiveMatc
 
 class BinaryLikeMatcher : public TypeMatcher {
  public:
-  BinaryLikeMatcher() {}
+  BinaryLikeMatcher() = default;
 
   bool Matches(const DataType& type) const override { return is_binary_like(type.id()); }
 
@@ -233,7 +233,7 @@ std::shared_ptr<TypeMatcher> BinaryLike() {
 
 class LargeBinaryLikeMatcher : public TypeMatcher {
  public:
-  LargeBinaryLikeMatcher() {}
+  LargeBinaryLikeMatcher() = default;
 
   bool Matches(const DataType& type) const override {
     return is_large_binary_like(type.id());
@@ -249,9 +249,35 @@ class LargeBinaryLikeMatcher : public TypeMatcher {
   std::string ToString() const override { return "large-binary-like"; }
 };
 
+std::shared_ptr<TypeMatcher> LargeBinaryLike() {
+  return std::make_shared<LargeBinaryLikeMatcher>();
+}
+
+class BinaryViewLikeMatcher : public TypeMatcher {
+ public:
+  BinaryViewLikeMatcher() = default;
+
+  bool Matches(const DataType& type) const override {
+    return type.id() == Type::BINARY_VIEW || type.id() == Type::STRING_VIEW;
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const BinaryViewLikeMatcher*>(&other);
+    return casted != nullptr;
+  }
+  std::string ToString() const override { return "binary-view-like"; }
+};
+
+std::shared_ptr<TypeMatcher> BinaryViewLike() {
+  return std::make_shared<BinaryViewLikeMatcher>();
+}
+
 class FixedSizeBinaryLikeMatcher : public TypeMatcher {
  public:
-  FixedSizeBinaryLikeMatcher() {}
+  FixedSizeBinaryLikeMatcher() = default;
 
   bool Matches(const DataType& type) const override {
     return is_fixed_size_binary(type.id());
@@ -266,10 +292,6 @@ class FixedSizeBinaryLikeMatcher : public TypeMatcher {
   }
   std::string ToString() const override { return "fixed-size-binary-like"; }
 };
-
-std::shared_ptr<TypeMatcher> LargeBinaryLike() {
-  return std::make_shared<LargeBinaryLikeMatcher>();
-}
 
 std::shared_ptr<TypeMatcher> FixedSizeBinaryLike() {
   return std::make_shared<FixedSizeBinaryLikeMatcher>();
