@@ -105,7 +105,7 @@ func (fw *FileWriter) NewRowGroup() {
 
 // NewBufferedRowGroup starts a new memory Buffered Row Group to allow writing columns / records
 // without immediately flushing them to disk. This allows using WriteBuffered to write records
-// and decide where to break your rowgroup based on the TotalBytesWritten rather than on the max
+// and decide where to break your row group based on the TotalBytesWritten rather than on the max
 // row group len. If using Records, this should be paired with WriteBuffered, while
 // Write will always write a new record as a row group in and of itself.
 func (fw *FileWriter) NewBufferedRowGroup() {
@@ -134,6 +134,13 @@ func (fw *FileWriter) RowGroupTotalBytesWritten() int64 {
 	return 0
 }
 
+// WriteBuffered allows to write records and decide where to break your row group
+// based on the TotalBytesWritten rather than on the max row group len.
+// If using Records, this should be paired with NewBufferedRowGroup,
+// while Write will always write a new record as a row group in and of itself.
+//
+// Performance-wise WriteBuffered might be more favorable than Write
+// especially if dealing with lots of records that have only a small amount of rows.
 func (fw *FileWriter) WriteBuffered(rec arrow.Record) error {
 	if !rec.Schema().Equal(fw.schema) {
 		return fmt.Errorf("record schema does not match writer's. \nrecord: %s\nwriter: %s", rec.Schema(), fw.schema)
@@ -181,7 +188,10 @@ func (fw *FileWriter) WriteBuffered(rec arrow.Record) error {
 }
 
 // Write an arrow Record Batch to the file, respecting the MaxRowGroupLength in the writer
-// properties to determine whether or not a new row group is created while writing.
+// properties to determine whether a new row group is created or not while writing.
+//
+// Performance-wise Write might be more favorable than WriteBuffered
+// especially if dealing with records that have a lot of rows.
 func (fw *FileWriter) Write(rec arrow.Record) error {
 	if !rec.Schema().Equal(fw.schema) {
 		return fmt.Errorf("record schema does not match writer's. \nrecord: %s\nwriter: %s", rec.Schema(), fw.schema)
