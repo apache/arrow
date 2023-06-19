@@ -183,7 +183,7 @@ TEST(FlightTypes, FlightEndpoint) {
   // std::chrono::system_clock::time_point may not provide nanosecond
   // resolution on some platforms such as Windows.
   const auto expiration_time_duration =
-      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4330100};
+      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4339000};
   Timestamp expiration_time(
       std::chrono::duration_cast<Timestamp::duration>(expiration_time_duration));
   std::vector<FlightEndpoint> values = {
@@ -204,7 +204,7 @@ TEST(FlightTypes, FlightEndpoint) {
       "<FlightEndpoint ticket=<Ticket ticket='bar'> locations=[] "
       "expiration_time=null>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
-      "expiration_time=2023-06-19 03:14:06.004330100>",
+      "expiration_time=2023-06-19 03:14:06.004339000>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
       "[grpc+tcp://localhost:1024] expiration_time=null>",
       "<FlightEndpoint ticket=<Ticket ticket='bar'> locations="
