@@ -394,6 +394,41 @@ services:
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
     command: *cpp-command
 
+  ubuntu-cpp-crosstool:
+    # Usage:
+    #   docker-compose build ubuntu-cpp-crosstool
+    #   docker-compose run --rm ubuntu-cpp
+    # Parameters:
+    #   ARCH: amd64, arm64v8
+    #   UBUNTU: 20.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-crosstool
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp-crosstool.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp-crosstool
+      args:
+        arch: ${ARCH}
+        repo: ${REPO}
+        ubuntu: ${UBUNTU}
+        config: arm-be.config
+    shm_size: *shm-size
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - "/dev/fuse:/dev/fuse"
+    security_opt:
+      - apparmor:unconfined
+    ulimits: *ulimits
+    environment:
+      <<: [*ccache, *sccache]
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_MIMALLOC: "ON"
+    volumes: &ubuntu-volumes
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
+    command: *cpp-command
+
   ubuntu-cpp-static:
     # Usage:
     #   docker-compose build ubuntu-cpp-static

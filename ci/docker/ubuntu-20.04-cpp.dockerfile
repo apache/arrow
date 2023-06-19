@@ -65,27 +65,14 @@ RUN latest_system_llvm=10 && \
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
-        automake \
         ca-certificates \
         ccache \
         cmake \
         curl \
-        flex \
-        texinfo \
-        xz-utils  \
-        unzip \
-        help2man \
-        file \
-        patch \
-        gawk \
-        libtool-bin \
-        bison \
-        libncurses5-dev \
         g++ \
         gcc \
         gdb \
         git \
-        vim \
         libbenchmark-dev \
         libboost-filesystem-dev \
         libboost-system-dev \
@@ -128,26 +115,6 @@ RUN apt-get update -y -q && \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
-
-# Crosstool-ng complains if run by root
-RUN mkdir -p /opt && mkdir -p /home/gcc-user && useradd gcc-user && chown gcc-user:gcc-user /opt /home/gcc-user
-
-## Move this to install_crosstool
-RUN CROSSTOOL_NG_VERSION=1.25.0 && \
-    curl -sL https://github.com/crosstool-ng/crosstool-ng/archive/refs/tags/crosstool-ng-${CROSSTOOL_NG_VERSION}.tar.gz --output crosstool-ng-${CROSSTOOL_NG_VERSION}.tar.gz  && \
-    tar -zxf crosstool-ng-${CROSSTOOL_NG_VERSION}.tar.gz && \
-    cd crosstool-ng-crosstool-ng-${CROSSTOOL_NG_VERSION} && \
-    ./bootstrap && \
-    ./configure --prefix=/opt/crosstool-ng && \
-    make -j$(nproc) && \
-    make install
-
-#RUN git clone https://github.com/crosstool-ng/crosstool-ng.git && \
-#    cd crosstool-ng && \
-#    ./bootstrap && \
-#    ./configure --prefix=/opt/crosstool-ng && \
-#    make -j$(nproc) && \
-#    make install    
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
@@ -209,6 +176,3 @@ ENV absl_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3 \
     xsimd_SOURCE=BUNDLED
-
-RUN chown -R gcc-user:gcc-user /opt
-USER gcc-user
