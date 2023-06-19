@@ -339,7 +339,9 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] info         The FlightInfo of the query to cancel.
   ///
   /// \deprecated Deprecated since 13.0.0. Use CancelFlightInfo()
-  /// instead.
+  /// instead. If you can assume that a server requires 13.0.0 or
+  /// later, you can always use CancelFlightInfo(). Otherwise, you may
+  /// need to use CancelQuery() and/or CancelFlightInfo().
   ARROW_DEPRECATED("Deprecated in 13.0.0. Use CancelFlightInfo() instead.")
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
@@ -353,7 +355,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
     return impl_->CloseFlightInfo(options, info);
   }
 
-  /// \brief Explicitly refresh a FlightEndpoint.
+  /// \brief Extends the expiration of a FlightEndpoint.
   ///
   /// \param[in] options      RPC-layer hints for this call.
   /// \param[in] info         The FlightEndpoint to refresh.
