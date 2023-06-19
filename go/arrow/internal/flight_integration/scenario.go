@@ -1041,21 +1041,11 @@ func (tester *expirationTimeDoGetScenarioTester) RunClient(addr string, opts ...
 		nil,
 	)
 	expectedTable, _ := array.TableFromJSON(mem, schema, []string{
-		`[
-                   {"number": 0}
-                 ]`,
-		`[
-                   {"number": 1}
-                 ]`,
-		`[
-                   {"number": 2}
-                 ]`,
-		`[
-                   {"number": 1}
-                 ]`,
-		`[
-                   {"number": 2}
-                 ]`,
+		`[{"number": 0}]`,
+		`[{"number": 1}]`,
+		`[{"number": 2}]`,
+		`[{"number": 1}]`,
+		`[{"number": 2}]`,
 	})
 	defer expectedTable.Release()
 
@@ -1337,21 +1327,11 @@ func (tester *expirationTimeRefreshFlightEndpointScenarioTester) RunClient(addr 
 		nil,
 	)
 	expectedTable, _ := array.TableFromJSON(mem, schema, []string{
-		`[
-                   {"number": 0}
-                 ]`,
-		`[
-                   {"number": 1}
-                 ]`,
-		`[
-                   {"number": 2}
-                 ]`,
-		`[
-                   {"number": 1}
-                 ]`,
-		`[
-                   {"number": 2}
-                 ]`,
+		`[{"number": 0}]`,
+		`[{"number": 1}]`,
+		`[{"number": 2}]`,
+		`[{"number": 1}]`,
+		`[{"number": 2}]`,
 	})
 	defer expectedTable.Release()
 
