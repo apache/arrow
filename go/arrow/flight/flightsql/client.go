@@ -486,6 +486,9 @@ func (c *Client) getSchema(ctx context.Context, desc *flight.FlightDescriptor, o
 // Close will close the underlying flight Client in use by this flightsql.Client
 func (c *Client) Close() error { return c.Client.Close() }
 
+// Deprecated: Since 13.0.0. Use CancelFlightInfo instead if you can
+// assume that server use 13.0.0 or later. Otherwise, you may need to
+// use CancelQuery and/or CancelFlightInfo.
 func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) (cancelResult CancelResult, err error) {
 	const actionType = CancelQueryActionType
 
@@ -531,6 +534,18 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 
 	cancelResult = result.GetResult()
 	return
+}
+
+func (c *Client) CancelFlightInfo(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
+	return c.Client.CancelFlightInfo(ctx, info, opts...)
+}
+
+func (c *Client) CloseFlightInfo(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) error {
+	return c.Client.CloseFlightInfo(ctx, info, opts...)
+}
+
+func (c *Client) RefreshFlightEndpoint(ctx context.Context, endpoint *flight.FlightEndpoint, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
+	return c.Client.RefreshFlightEndpoint(ctx, endpoint, opts...)
 }
 
 func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) (*Txn, error) {
