@@ -17,6 +17,7 @@
 
 #include "arrow/type.h"
 
+#include "arrow/util/utf8.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/error/error.h"
@@ -35,8 +36,15 @@ namespace arrow::matlab::tabular::proxy {
     void RecordBatch::toString(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
-        // TODO: handle non-ascii characters
-        auto str_mda = factory.createScalar(record_batch->ToString());
+        const auto maybe_utf16_string = arrow::util::UTF8StringToUTF16(record_batch->ToString());
+        // TODO: Add a helper macro to avoid having to write out an explicit if-statement here when handling errors.
+        if (!maybe_utf16_string.ok()) {
+            libmexclass::error::ErrorBuilder builder;
+            // TODO: This error message could probably be improved.
+            context.error = libmexclass::error::Error{error::UNICODE_CONVERSION_ERROR_ID, maybe_utf16_string.status().message()};
+            return;
+        }
+        auto str_mda = factory.createScalar(*maybe_utf16_string);
         context.outputs[0] = str_mda;
     }
 
@@ -59,9 +67,9 @@ namespace arrow::matlab::tabular::proxy {
         for (size_t i = 0; i < arrow_arrays.size(); ++i) {
             const auto type = arrow_arrays[i]->type();
             const auto column_name_str = std::u16string(column_names[i]);
-            const auto name = std::string{reinterpret_cast<const char*>(column_name_str.c_str())};
-            // TODO: This is not safe. Only works for ASCII. Should use UTF16 -> UTF8 conversion utility.
-            fields.push_back(std::make_shared<arrow::Field>(name, type));
+            const auto maybe_column_name_str = arrow::util::UTF16StringToUTF8(column_name_str);
+            MATLAB_ERROR_IF_NOT_OK(maybe_column_name_str.status(), error::UNICODE_CONVERSION_ERROR_ID);
+            fields.push_back(std::make_shared<arrow::Field>(maybe_column_name_str.ValueOrDie(), type));
         }
 
         arrow::SchemaBuilder schema_builder;
@@ -93,10 +101,16 @@ namespace arrow::matlab::tabular::proxy {
         std::vector<mda::MATLABString> column_names;
         for (int i = 0; i < num_columns; ++i) {
             const auto column_name_utf8 = record_batch->column_name(i);
-            // TODO: This is only a safe conversion when using ASCII strings.
-            //       We need to use a proper UTF8 -> UTF16 conversion funciton here (e.g. utfcpp).
-            const auto column_name_utf16 = mda::MATLABString{reinterpret_cast<const char16_t*>(column_name_utf8.c_str())};
-            column_names.push_back(column_name_utf16);
+            auto maybe_column_name_utf16 = arrow::util::UTF8StringToUTF16(column_name_utf8);
+            // TODO: Add a helper macro to avoid having to write out an explicit if-statement here when handling errors.
+            if (!maybe_column_name_utf16.ok()) {
+                // TODO: This error message could probably be improved.
+                context.error = libmexclass::error::Error{error::UNICODE_CONVERSION_ERROR_ID, maybe_column_name_utf16.status().message()};
+                return;
+            }
+            std::u16string column_name_utf16 = maybe_column_name_utf16.ValueOrDie();
+            const mda::MATLABString matlab_string = mda::MATLABString(std::move(column_name_utf16));
+            column_names.push_back(matlab_string);
         }
         auto column_names_mda = factory.createArray({size_t{1}, static_cast<size_t>(num_columns)}, column_names.begin(), column_names.end());
         context.outputs[0] = column_names_mda;
