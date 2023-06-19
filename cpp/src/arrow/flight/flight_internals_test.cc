@@ -243,7 +243,7 @@ TEST(FlightTypes, FlightInfo) {
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='bar'> "
       "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
       "expiration_time=null>, <FlightEndpoint ticket=<Ticket ticket='foo'> "
-      "locations=[grpc+tcp://localhost:1234] expiration_time=null]> "
+      "locations=[grpc+tcp://localhost:1234] expiration_time=null>] "
       "total_records=64 total_bytes=-1 ordered=false>",
   };
 
