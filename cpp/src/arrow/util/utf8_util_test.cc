@@ -397,6 +397,49 @@ TEST(WideStringToUTF8, Basics) {
 #endif
 }
 
+TEST(UTF8StringToUTF16, Basics) {
+  auto CheckOk = [](const std::string& s, const std::basic_string<char16_t>& expected) -> void {
+    ASSERT_OK_AND_ASSIGN(std::basic_string<char16_t> utf16String, UTF8StringToUTF16(s));
+    ASSERT_EQ(utf16String, expected);
+  };
+
+  auto CheckInvalid = [](const std::string& s) -> void {
+    ASSERT_RAISES(Invalid, UTF8StringToUTF16(s));
+  };
+
+  CheckOk("", u"");
+  CheckOk("foo", u"foo");
+  CheckOk("h\xc3\xa9h\xc3\xa9", u"h\u00e9h\u00e9");
+  CheckOk("\xf0\x9f\x98\x80", u"\U0001F600");
+  CheckOk("\xf4\x8f\xbf\xbf", u"\U0010FFFF");
+  CheckOk({0, 'x'}, {0, u'x'});
+
+  CheckInvalid("\xff");
+  CheckInvalid("h\xc3");
+}
+
+TEST(UTF16StringToUTF8, Basics) {
+  auto CheckOk = [](const std::basic_string<char16_t>& utf16String, const std::string& expected) -> void {
+    ASSERT_OK_AND_ASSIGN(std::string s, UTF16StringToUTF8(utf16String));
+    ASSERT_EQ(s, expected);
+  };
+
+  auto CheckInvalid = [](const std::basic_string<char16_t>& utf16String) -> void {
+    ASSERT_RAISES(Invalid, UTF16StringToUTF8(utf16String));
+  };
+
+  CheckOk(u"", "");
+  CheckOk(u"foo", "foo");
+  CheckOk(u"h\u00e9h\u00e9", "h\xc3\xa9h\xc3\xa9");
+  CheckOk(u"\U0001F600", "\xf0\x9f\x98\x80");
+  CheckOk(u"\U0010FFFF", "\xf4\x8f\xbf\xbf");
+  CheckOk({0, u'x'}, {0, 'x'});
+
+  // Lone surrogate
+  CheckInvalid({0xD800});
+  CheckInvalid({0xDFFF});
+}
+
 TEST(UTF8DecodeReverse, Basics) {
   auto CheckOk = [](const std::string& s) -> void {
     const uint8_t* begin = reinterpret_cast<const uint8_t*>(s.c_str());
