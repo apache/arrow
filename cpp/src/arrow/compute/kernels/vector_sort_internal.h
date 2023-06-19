@@ -522,6 +522,10 @@ Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
       *table_or_batch.schema(), sort_keys,
       [&](const SortField& f) -> Result<ResolvedSortKey> {
         if (f.is_nested()) {
+          // TODO: Some room for improvement here, as we potentially duplicate some of the
+          // null-flattening work for nested sort keys. For instance, given two keys with
+          // paths [0,0,0,0] and [0,0,0,1], we shouldn't need to flatten the first three
+          // components more than once.
           ARROW_ASSIGN_OR_RAISE(auto child, f.path.GetFlattened(table_or_batch));
           return ResolvedSortKey{std::move(child), f.order};
         }
@@ -758,28 +762,18 @@ struct ResolvedTableSortKey {
       const Table& table, const RecordBatchVector& batches,
       const std::vector<SortKey>& sort_keys) {
     auto factory = [&](const SortField& f) -> Result<ResolvedTableSortKey> {
-      std::shared_ptr<DataType> type;
-      int64_t null_count = 0;
-      ArrayVector chunks;
-      chunks.reserve(batches.size());
+      ARROW_ASSIGN_OR_RAISE(auto schema_field, f.path.Get(*table.schema()));
+      const auto& type = schema_field->type();
 
       // We must expose a homogenous chunking for all ResolvedSortKey,
       // so we can't simply access the column from the table directly.
-      if (f.is_nested()) {
-        ARROW_ASSIGN_OR_RAISE(auto schema_field, f.path.Get(*table.schema()));
-        type = schema_field->type();
-        for (const auto& batch : batches) {
-          ARROW_ASSIGN_OR_RAISE(auto child, f.path.GetFlattened(*batch));
-          null_count += child->null_count();
-          chunks.push_back(std::move(child));
-        }
-      } else {
-        null_count = table.column(f.path[0])->null_count();
-        type = table.schema()->field(f.path[0])->type();
-        std::transform(batches.begin(), batches.end(), std::back_inserter(chunks),
-                       [&](const std::shared_ptr<RecordBatch>& batch) {
-                         return batch->column(f.path[0]);
-                       });
+      ArrayVector chunks;
+      chunks.reserve(batches.size());
+      int64_t null_count = 0;
+      for (const auto& batch : batches) {
+        ARROW_ASSIGN_OR_RAISE(auto child, f.path.GetFlattened(*batch));
+        null_count += child->null_count();
+        chunks.push_back(std::move(child));
       }
 
       return ResolvedTableSortKey(type, std::move(chunks), f.order, null_count);

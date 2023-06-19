@@ -356,6 +356,11 @@ std::vector<ResolvedRecordBatchSortKey> ResolveRecordBatchSortKeys(
   return *std::move(maybe_resolved);
 }
 
+// Radix sorting is consistently faster except when there is a large number of sort keys,
+// in which case it can end up degrading catastrophically. This establishes a cutoff point
+// where we should use a different strategy.
+constexpr int kMaxRadixSortKeys = 8;
+
 // Sort a batch using a single-pass left-to-right radix sort.
 class RadixRecordBatchSorter {
  public:
@@ -442,7 +447,7 @@ class RadixRecordBatchSorter {
     return ::arrow::compute::internal::ResolveSortKeys<ResolvedSortKey>(batch, sort_keys);
   }
 
-  std::vector<ResolvedSortKey> sort_keys_;
+  const std::vector<ResolvedSortKey> sort_keys_;
   const SortOptions& options_;
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
@@ -990,10 +995,7 @@ class SortIndicesMetaFunction : public MetaFunction {
     auto out_end = out_begin + length;
     std::iota(out_begin, out_end, 0);
 
-    // Radix sorting is consistently faster except when there is a large number
-    // of sort keys, in which case it can end up degrading catastrophically.
-    // Cut off above 8 sort keys.
-    if (n_sort_keys <= 8) {
+    if (n_sort_keys <= kMaxRadixSortKeys) {
       RadixRecordBatchSorter sorter(out_begin, out_end, std::move(sort_keys), options);
       ARROW_RETURN_NOT_OK(sorter.Sort());
     } else {
@@ -1120,7 +1122,7 @@ Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_
 
   ARROW_ASSIGN_OR_RAISE(auto sort_keys,
                         ResolveRecordBatchSortKeys(*batch, options.sort_keys));
-  if (sort_keys.size() <= 8) {
+  if (sort_keys.size() <= kMaxRadixSortKeys) {
     RadixRecordBatchSorter sorter(indices_begin, indices_end, std::move(sort_keys),
                                   options);
     return sorter.Sort();
