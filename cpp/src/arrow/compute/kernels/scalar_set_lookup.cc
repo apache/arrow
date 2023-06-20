@@ -31,12 +31,15 @@ namespace arrow {
 using internal::checked_cast;
 using internal::HashTraits;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 namespace {
 
+struct SetLookupStateBase : public KernelState {
+  std::shared_ptr<DataType> value_set_type;
+};
+
 template <typename Type>
-struct SetLookupState : public KernelState {
+struct SetLookupState : public SetLookupStateBase {
   explicit SetLookupState(MemoryPool* pool) : memory_pool(pool) {}
 
   Status Init(const SetLookupOptions& options) {
@@ -65,6 +68,7 @@ struct SetLookupState : public KernelState {
     if (!options.skip_nulls && lookup_table->GetNull() >= 0) {
       null_index = memo_index_to_value_index[lookup_table->GetNull()];
     }
+    value_set_type = options.value_set.type();
     return Status::OK();
   }
 
@@ -115,11 +119,12 @@ struct SetLookupState : public KernelState {
 };
 
 template <>
-struct SetLookupState<NullType> : public KernelState {
+struct SetLookupState<NullType> : public SetLookupStateBase {
   explicit SetLookupState(MemoryPool*) {}
 
   Status Init(const SetLookupOptions& options) {
     value_set_has_null = (options.value_set.length() > 0) && !options.skip_nulls;
+    value_set_type = null();
     return Status::OK();
   }
 
@@ -215,16 +220,26 @@ struct InitStateVisitor {
       return Status::Invalid("Array type didn't match type of values set: ", *arg_type,
                              " vs ", *options.value_set.type());
     }
+
+    auto hash_table_type = arg_type;
     if (!options.value_set.is_arraylike()) {
       return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
     } else if (!options.value_set.type()->Equals(*arg_type)) {
-      ARROW_ASSIGN_OR_RAISE(
-          options.value_set,
+      auto cast_result =
           Cast(options.value_set, CastOptions::Safe(arg_type.GetSharedPtr()),
-               ctx->exec_context()));
+               ctx->exec_context());
+      if (cast_result.ok()) {
+        options.value_set = *cast_result;
+      } else if (CanCast(*arg_type.type, *options.value_set.type())) {
+        // Will try to cast input array to value set type during kernel exec
+        hash_table_type = options.value_set.type();
+      } else {
+        return Status::Invalid("Input type doesn't match type of values set: ", *arg_type,
+                               " vs ", *options.value_set.type());
+      }
     }
 
-    RETURN_NOT_OK(VisitTypeInline(*arg_type, this));
+    RETURN_NOT_OK(VisitTypeInline(*hash_table_type, this));
     return std::move(result);
   }
 };
@@ -263,11 +278,8 @@ struct IndexInVisitor {
   }
 
   template <typename Type>
-  Status ProcessIndexIn() {
+  Status ProcessIndexIn(const SetLookupState<Type>& state, const ArraySpan& data) {
     using T = typename GetViewType<Type>::T;
-
-    const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
-
     FirstTimeBitmapWriter bitmap_writer(out_bitmap, out->offset, out->length);
     int32_t* out_data = out->GetValues<int32_t>(1);
     VisitArraySpanInline<Type>(
@@ -304,6 +316,19 @@ struct IndexInVisitor {
   }
 
   template <typename Type>
+  Status ProcessIndexIn() {
+    const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
+    if (!data.type->Equals(state.value_set_type)) {
+      auto materized_input = data.ToArrayData();
+      ARROW_ASSIGN_OR_RAISE(auto casted_input,
+                            Cast(*materized_input, state.value_set_type,
+                                 CastOptions::Safe(), ctx->exec_context()));
+      return ProcessIndexIn(state, *casted_input.array());
+    }
+    return ProcessIndexIn(state, data);
+  }
+
+  template <typename Type>
   enable_if_boolean<Type, Status> Visit(const Type&) {
     return ProcessIndexIn<BooleanType>();
   }
@@ -331,7 +356,10 @@ struct IndexInVisitor {
     return ProcessIndexIn<MonthDayNanoIntervalType>();
   }
 
-  Status Execute() { return VisitTypeInline(*data.type, this); }
+  Status Execute() {
+    const auto& state = checked_cast<const SetLookupStateBase&>(*ctx->state());
+    return VisitTypeInline(*state.value_set_type, this);
+  }
 };
 
 Status ExecIndexIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -359,13 +387,11 @@ struct IsInVisitor {
   }
 
   template <typename Type>
-  Status ProcessIsIn() {
+  Status ProcessIsIn(const SetLookupState<Type>& state, const ArraySpan& data) {
     using T = typename GetViewType<Type>::T;
-    const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
-
     FirstTimeBitmapWriter writer(out->buffers[1].data, out->offset, out->length);
     VisitArraySpanInline<Type>(
-        this->data,
+        data,
         [&](T v) {
           if (state.lookup_table->Get(v) != -1) {
             writer.Set();
@@ -384,6 +410,20 @@ struct IsInVisitor {
         });
     writer.Finish();
     return Status::OK();
+  }
+
+  template <typename Type>
+  Status ProcessIsIn() {
+    const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
+
+    if (!data.type->Equals(state.value_set_type)) {
+      auto materialized_data = data.ToArrayData();
+      ARROW_ASSIGN_OR_RAISE(auto casted_data,
+                            Cast(*materialized_data, state.value_set_type,
+                                 CastOptions::Safe(), ctx->exec_context()));
+      return ProcessIsIn(state, *casted_data.array());
+    }
+    return ProcessIsIn(state, data);
   }
 
   template <typename Type>
@@ -413,7 +453,10 @@ struct IsInVisitor {
     return ProcessIsIn<MonthDayNanoIntervalType>();
   }
 
-  Status Execute() { return VisitTypeInline(*data.type, this); }
+  Status Execute() {
+    const auto& state = checked_cast<const SetLookupStateBase&>(*ctx->state());
+    return VisitTypeInline(*state.value_set_type, this);
+  }
 };
 
 Status ExecIsIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -566,6 +609,5 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   }
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow
