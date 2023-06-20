@@ -124,7 +124,7 @@ struct CumulativeKernel {
     if (options.start.has_value()) {
       accumulator.current_value = UnboxScalar<OutType>::Unbox(*(options.start.value()));
     } else {
-      accumulator.current_value = Op::template Identity<OutValue>();
+      accumulator.current_value = Identity<Op>::template value<OutValue>;
     }
     accumulator.skip_nulls = options.skip_nulls;
 
@@ -147,7 +147,7 @@ struct CumulativeKernelChunked {
     if (options.start.has_value()) {
       accumulator.current_value = UnboxScalar<OutType>::Unbox(*(options.start.value()));
     } else {
-      accumulator.current_value = Op::template Identity<OutValue>();
+      accumulator.current_value = Identity<Op>::template value<OutValue>;
     }
     accumulator.skip_nulls = options.skip_nulls;
 
@@ -204,7 +204,7 @@ const FunctionDoc cumulative_max_doc{
     "Compute the cumulative max over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
      "cumulative max computed over `values`. The default start is the minimum\n"
-     "value of input type (so that any other value will replace the\n
+     "value of input type (so that any other value will replace the\n"
      "start as the new maximum)."),
     {"values"},
     "CumulativeOptions"};
@@ -213,8 +213,8 @@ const FunctionDoc cumulative_min_doc{
     "Compute the cumulative min over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
      "cumulative min computed over `values`. The default start is the maximum\n"
-     "value of input type (so that any other value will replace the\n
-	     "start as the new minimum)."),
+     "value of input type (so that any other value will replace the\n"
+     "start as the new minimum)."),
     {"values"},
     "CumulativeOptions"};
 }  // namespace

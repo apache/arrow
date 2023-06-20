@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <limits>
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
@@ -60,11 +61,6 @@ struct Add {
   static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + right;
   }
-
-  template <typename T>
-  static constexpr T Identity() {
-    return static_cast<T>(0);
-  }
 };
 
 struct AddChecked {
@@ -89,11 +85,6 @@ struct AddChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + right;
-  }
-
-  template <typename T>
-  static constexpr T Identity() {
-    return static_cast<T>(0);
   }
 };
 
@@ -341,11 +332,6 @@ struct Multiply {
   static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left * right;
   }
-
-  template <typename T>
-  static constexpr T Identity() {
-    return static_cast<T>(1);
-  }
 };
 
 struct MultiplyChecked {
@@ -370,11 +356,6 @@ struct MultiplyChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left * right;
-  }
-
-  template <typename T>
-  static constexpr T Identity() {
-    return static_cast<T>(1);
   }
 };
 
@@ -650,11 +631,6 @@ struct Max {
   static constexpr enable_if_decimal_value<T, T> Identity() {
     return T::GetMinSentinel();
   }
-
-  template <typename T>
-  static constexpr T Identity() {
-    return std::numeric_limits<T>::min();
-  }
 };
 
 struct Min {
@@ -682,11 +658,42 @@ struct Min {
   static constexpr enable_if_decimal_value<T, T> Identity() {
     return T::GetMaxSentinel();
   }
+};
 
-  template <typename T>
-  static constexpr T Identity() {
-    return std::numeric_limits<T>::max();
-  }
+/// The term identity is from the mathematical notation monoid.
+/// For any associative binary operation, identity is defined as:
+///     Op(identity, x) = x for all x.
+template <typename Op>
+struct Identity;
+
+template <>
+struct Identity<Add> {
+  template <typename Value>
+  static constexpr Value value{0};
+};
+
+template <>
+struct Identity<AddChecked> : Identity<Add> {};
+
+template <>
+struct Identity<Multiply> {
+  template <typename Value>
+  static constexpr Value value{1};
+};
+
+template <>
+struct Identity<MultiplyChecked> : Identity<Multiply> {};
+
+template <>
+struct Identity<Max> {
+  template <typename Value>
+  static constexpr Value value{std::numeric_limits<Value>::min()};
+};
+
+template <>
+struct Identity<Min> {
+  template <typename Value>
+  static constexpr Value value{std::numeric_limits<Value>::max()};
 };
 
 }  // namespace internal
