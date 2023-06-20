@@ -34,6 +34,7 @@ using internal::HashTraits;
 namespace compute::internal {
 namespace {
 
+// This base class enables non-templated access to the value set type
 struct SetLookupStateBase : public KernelState {
   std::shared_ptr<DataType> value_set_type;
 };
@@ -221,7 +222,6 @@ struct InitStateVisitor {
                              " vs ", *options.value_set.type());
     }
 
-    auto hash_table_type = arg_type;
     if (!options.value_set.is_arraylike()) {
       return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
     } else if (!options.value_set.type()->Equals(*arg_type)) {
@@ -232,14 +232,13 @@ struct InitStateVisitor {
         options.value_set = *cast_result;
       } else if (CanCast(*arg_type.type, *options.value_set.type())) {
         // Will try to cast input array to value set type during kernel exec
-        hash_table_type = options.value_set.type();
       } else {
         return Status::Invalid("Input type doesn't match type of values set: ", *arg_type,
                                " vs ", *options.value_set.type());
       }
     }
 
-    RETURN_NOT_OK(VisitTypeInline(*hash_table_type, this));
+    RETURN_NOT_OK(VisitTypeInline(*options.value_set.type(), this));
     return std::move(result);
   }
 };
@@ -319,9 +318,9 @@ struct IndexInVisitor {
   Status ProcessIndexIn() {
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
     if (!data.type->Equals(state.value_set_type)) {
-      auto materized_input = data.ToArrayData();
+      auto materialized_input = data.ToArrayData();
       ARROW_ASSIGN_OR_RAISE(auto casted_input,
-                            Cast(*materized_input, state.value_set_type,
+                            Cast(*materialized_input, state.value_set_type,
                                  CastOptions::Safe(), ctx->exec_context()));
       return ProcessIndexIn(state, *casted_input.array());
     }
