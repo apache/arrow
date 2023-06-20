@@ -658,16 +658,33 @@ def test_udt_datasource1_exception():
 
 def test_agg_basic(unary_agg_func_fixture):
     arr = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
-    result = pc.call_function("y=avg(x)", [arr])
+    result = pc.call_function("mean_udf", [arr])
     expected = pa.scalar(30.0)
     assert result == expected
 
+
+def test_hash_agg_basic(unary_agg_func_fixture):
+    arr1 = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
+    arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
+
+    arr3 = pa.array([60.0, 70.0, 80.0, 90.0, 100.0], pa.float64())
+    arr4 = pa.array([5, 1, 1, 4, 1], pa.int32())
+
+    table1 = pa.table([arr2, arr1], names=["id", "value"])
+    table2 = pa.table([arr4, arr3], names=["id", "value"])
+    table = pa.concat_tables([table1, table2])
+
+    breakpoint()
+    result = table.group_by("id").aggregate([("value", "mean_udf")])
+    expected = table.group_by("id").aggregate([("value", "mean")]).rename_columns(['id', 'value_mean_udf'])
+
+    assert result.sort_by('id') == expected.sort_by('id')
 
 def test_agg_empty(unary_agg_func_fixture):
     empty = pa.array([], pa.float64())
 
     with pytest.raises(pa.ArrowInvalid, match='empty inputs'):
-        pc.call_function("y=avg(x)", [empty])
+        pc.call_function("mean_udf", [empty])
 
 
 def test_agg_wrong_output_dtype(wrong_output_dtype_agg_func_fixture):
@@ -698,3 +715,4 @@ def test_agg_exception(exception_agg_func_fixture):
 
     with pytest.raises(RuntimeError, match='Oops'):
         pc.call_function("y=exception_len(x)", [arr])
+

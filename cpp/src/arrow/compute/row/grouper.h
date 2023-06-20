@@ -149,7 +149,7 @@ class ARROW_EXPORT Grouper {
   ///       []
   ///   ]
   static Result<std::shared_ptr<ListArray>> MakeGroupings(
-      const UInt32Array& ids, uint32_t num_groups,
+      const UInt32Array& ids, uint32_t  ,
       ExecContext* ctx = default_exec_context());
 
   /// \brief Produce a ListArray whose slots are selections of `array` which correspond to

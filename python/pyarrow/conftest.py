@@ -288,13 +288,14 @@ def unary_agg_func_fixture():
     from pyarrow import compute as pc
     import numpy as np
 
-    def func(ctx, x):
+    def func(ctx, x, *args):
         return pa.scalar(np.nanmean(x))
 
-    func_name = "y=avg(x)"
+    func_name = "mean_udf"
     func_doc = {"summary": "y=avg(x)",
                 "description": "find mean of x"}
 
+    breakpoint()
     pc.register_aggregate_function(func,
                                    func_name,
                                    func_doc,
