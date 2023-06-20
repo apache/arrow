@@ -153,6 +153,7 @@ IteratorVisitor.prototype.visitFloat16 = vectorIterator;
 IteratorVisitor.prototype.visitFloat32 = vectorIterator;
 IteratorVisitor.prototype.visitFloat64 = vectorIterator;
 IteratorVisitor.prototype.visitUtf8 = vectorIterator;
+IteratorVisitor.prototype.visitLargeUtf8 = vectorIterator;
 IteratorVisitor.prototype.visitBinary = vectorIterator;
 IteratorVisitor.prototype.visitFixedSizeBinary = vectorIterator;
 IteratorVisitor.prototype.visitDate = vectorIterator;

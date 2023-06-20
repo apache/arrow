@@ -42,11 +42,11 @@ export class BinaryBuilder<TNull = any> extends VariableWidthBuilder<Binary, TNu
         let offset = 0;
         for (const [index, value] of pending) {
             if (value === undefined) {
-                offsets.set(index, 0);
+                offsets.set(index, offsets.toNumber(0));
             } else {
                 const length = value.length;
                 data.set(value, offset);
-                offsets.set(index, length);
+                offsets.set(index, offsets.toNumber(length));
                 offset += length;
             }
         }
