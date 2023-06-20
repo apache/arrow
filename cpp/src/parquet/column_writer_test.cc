@@ -118,7 +118,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
-        sink_, column_properties.compression(), std::make_shared<CodecOptions>(),
+        sink_, column_properties.compression(), Codec::UseDefaultCompressionLevel(),
         metadata_.get(),
         /* row_group_ordinal */ -1, /* column_chunk_ordinal*/ -1,
         ::arrow::default_memory_pool(), /* buffered_row_group */ false,
@@ -163,19 +163,13 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
   }
 
-  void TestRequiredWithCodecOptions(
-      Encoding::type encoding, Compression::type compression, bool enable_dictionary,
-      bool enable_statistics, int64_t num_rows = SMALL_SIZE,
-      int compression_level = Codec::UseDefaultCompressionLevel(),
-      ::arrow::util::GZipFormat::type format = ::arrow::util::GZipFormat::GZIP,
-      int window_bits = ::arrow::util::kGZipDefaultWindowBits,
-      bool enable_checksum = false) {
+  void TestRequiredWithCodecOptions(Encoding::type encoding,
+                                    Compression::type compression, bool enable_dictionary,
+                                    bool enable_statistics, int64_t num_rows = SMALL_SIZE,
+                                    const ::arrow::util::CodecOptions& codec_options = {},
+                                    bool enable_checksum = false) {
     this->GenerateData(num_rows);
 
-    auto codec_options =
-        std::make_shared<::arrow::util::GZipCodecOptions>(compression_level);
-    codec_options->gzip_format = format;
-    codec_options->window_bits = window_bits;
     this->WriteRequiredWithCodecOptions(encoding, compression, enable_dictionary,
                                         enable_statistics, codec_options, num_rows,
                                         enable_checksum);
@@ -562,8 +556,11 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndGzipCompression) {
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCodecOptions) {
+  auto codec_options = std::make_shared<::arrow::util::GZipCodecOptions>(10);
+  codec_options->gzip_format = ::arrow::util::GZipFormat::GZIP;
+  codec_options->window_bits = 12;
   this->TestRequiredWithCodecOptions(Encoding::PLAIN, Compression::GZIP, false, false,
-                                     LARGE_SIZE, 10, ::arrow::util::GZipFormat::GZIP, 12);
+                                     LARGE_SIZE, codec_options);
 }
 #endif
 
@@ -859,8 +856,8 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   auto props = WriterProperties::Builder().build();
 
   auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
-  std::unique_ptr<PageWriter> pager = PageWriter::Open(
-      sink, Compression::UNCOMPRESSED, std::make_shared<CodecOptions>(), metadata.get());
+  std::unique_ptr<PageWriter> pager =
+      PageWriter::Open(sink, Compression::UNCOMPRESSED, metadata.get());
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(metadata.get(), std::move(pager), props.get());
   auto typed_writer = std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);
@@ -1391,7 +1388,7 @@ class ColumnWriterTestSizeEstimated : public ::testing::Test {
                                                  schema_descriptor_->Column(0));
 
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
-        sink_, compression, std::make_shared<CodecOptions>(), metadata_.get(),
+        sink_, compression, metadata_.get(),
         /* row_group_ordinal */ -1, /* column_chunk_ordinal*/ -1,
         ::arrow::default_memory_pool(), /* buffered_row_group */ buffered,
         /* header_encryptor */ NULLPTR, /* data_encryptor */ NULLPTR,

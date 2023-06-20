@@ -119,21 +119,19 @@ class ARROW_EXPORT CodecOptions {
 };
 
 // ----------------------------------------------------------------------
-// gzip codec options implementation
+// GZip codec options implementation
 
-struct GZipFormat {
-  enum type {
-    ZLIB,
-    DEFLATE,
-    GZIP,
-  };
+enum class GZipFormat {
+  ZLIB,
+  DEFLATE,
+  GZIP,
 };
 
 constexpr int kGZipDefaultWindowBits = 15;
 
 class ARROW_EXPORT GZipCodecOptions : public CodecOptions {
  public:
-  GZipFormat::type gzip_format = GZipFormat::GZIP;
+  GZipFormat gzip_format = GZipFormat::GZIP;
   int window_bits = kGZipDefaultWindowBits;
 };
 

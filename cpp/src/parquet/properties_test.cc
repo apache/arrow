@@ -76,7 +76,7 @@ TEST(TestWriterProperties, SetCodecOptions) {
   builder.compression("zstd", Compression::ZSTD);
   builder.compression("brotli", Compression::BROTLI);
   auto gzip_codec_options = std::make_shared<::arrow::util::GZipCodecOptions>();
-  gzip_codec_options->compression_level_ = 9;
+  gzip_codec_options->compression_level_ = 5;
   gzip_codec_options->window_bits = 12;
   builder.codec_options("gzip", gzip_codec_options);
   auto codec_options = std::make_shared<CodecOptions>();
@@ -87,7 +87,7 @@ TEST(TestWriterProperties, SetCodecOptions) {
   builder.codec_options("brotli", brotli_codec_options);
   std::shared_ptr<WriterProperties> props = builder.build();
 
-  ASSERT_EQ(9,
+  ASSERT_EQ(5,
             props->codec_options(ColumnPath::FromDotString("gzip"))->compression_level_);
   ASSERT_EQ(12, std::dynamic_pointer_cast<::arrow::util::GZipCodecOptions>(
                     props->codec_options(ColumnPath::FromDotString("gzip")))

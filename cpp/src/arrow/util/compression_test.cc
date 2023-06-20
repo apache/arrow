@@ -407,7 +407,7 @@ TEST(TestCodecMisc, SpecifyCodecOptionsGZip) {
   // specific codec options if needed.
   struct CombinationOption {
     int level;
-    GZipFormat::type format;
+    GZipFormat format;
     int window_bits;
     bool expect_success;
   };

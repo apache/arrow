@@ -47,7 +47,7 @@ std::unique_ptr<Codec> MakeBZ2Codec(int compression_level = kBZ2DefaultCompressi
 constexpr int kGZipDefaultCompressionLevel = 9;
 
 std::unique_ptr<Codec> MakeGZipCodec(int compression_level = kGZipDefaultCompressionLevel,
-                                     GZipFormat::type format = GZipFormat::GZIP,
+                                     GZipFormat format = GZipFormat::GZIP,
                                      int window_bits = kGZipDefaultWindowBits);
 
 // Snappy

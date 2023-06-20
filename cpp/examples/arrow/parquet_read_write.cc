@@ -165,44 +165,11 @@ arrow::Status WriteInBatches(std::string path_to_file) {
   return arrow::Status::OK();
 }
 
-arrow::Status WriteWithCodecOptions(std::string path_to_file) {
-  using parquet::ArrowWriterProperties;
-  using parquet::WriterProperties;
-
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> table, GetTable());
-
-  // Customize codec options with compression level and window bits
-  // the default window bits is 15, here we set a small number of 12 for some use scenario
-  // with limited hisotry buffer size
-  auto codec_options = std::make_shared<arrow::util::GZipCodecOptions>();
-  codec_options->compression_level_ = 9;
-  codec_options->window_bits = 12;
-
-  // Choose compression
-  std::shared_ptr<WriterProperties> props = WriterProperties::Builder()
-                                                .compression(arrow::Compression::GZIP)
-                                                ->codec_options(codec_options)
-                                                ->build();
-
-  // Opt to store Arrow schema for easier reads back into Arrow
-  std::shared_ptr<ArrowWriterProperties> arrow_props =
-      ArrowWriterProperties::Builder().store_schema()->build();
-
-  std::shared_ptr<arrow::io::FileOutputStream> outfile;
-  ARROW_ASSIGN_OR_RAISE(outfile, arrow::io::FileOutputStream::Open(path_to_file));
-
-  ARROW_RETURN_NOT_OK(parquet::arrow::WriteTable(*table.get(),
-                                                 arrow::default_memory_pool(), outfile,
-                                                 /*chunk_size=*/3, props, arrow_props));
-  return arrow::Status::OK();
-}
-
 arrow::Status RunExamples(std::string path_to_file) {
   ARROW_RETURN_NOT_OK(WriteFullFile(path_to_file));
   ARROW_RETURN_NOT_OK(ReadFullFile(path_to_file));
   ARROW_RETURN_NOT_OK(WriteInBatches(path_to_file));
   ARROW_RETURN_NOT_OK(ReadInBatches(path_to_file));
-  ARROW_RETURN_NOT_OK(WriteWithCodecOptions(path_to_file));
   return arrow::Status::OK();
 }
 

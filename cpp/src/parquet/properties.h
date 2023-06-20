@@ -153,8 +153,6 @@ class PARQUET_EXPORT ColumnProperties {
         dictionary_enabled_(dictionary_enabled),
         statistics_enabled_(statistics_enabled),
         max_stats_size_(max_stats_size),
-        compression_level_(Codec::UseDefaultCompressionLevel()),
-        codec_options_(std::make_shared<CodecOptions>()),
         page_index_enabled_(DEFAULT_IS_PAGE_INDEX_ENABLED) {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
@@ -174,17 +172,14 @@ class PARQUET_EXPORT ColumnProperties {
   }
 
   void set_compression_level(int compression_level) {
-    compression_level_ = compression_level;
     codec_options_->compression_level_ = compression_level;
   }
 
   void set_codec_options(const std::shared_ptr<CodecOptions>& codec_options) {
+    if (!codec_options_) {
+      codec_options_ = std::make_shared<CodecOptions>();
+    }
     codec_options_ = codec_options;
-    // reset compression_level if not default value
-    compression_level_ =
-        codec_options->compression_level_ == Codec::UseDefaultCompressionLevel()
-            ? compression_level_
-            : codec_options->compression_level_;
   }
 
   void set_page_index_enabled(bool page_index_enabled) {
@@ -201,7 +196,7 @@ class PARQUET_EXPORT ColumnProperties {
 
   size_t max_statistics_size() const { return max_stats_size_; }
 
-  int compression_level() const { return compression_level_; }
+  int compression_level() const { return codec_options_->compression_level_; }
 
   const std::shared_ptr<CodecOptions>& codec_options() const { return codec_options_; }
 
@@ -213,7 +208,6 @@ class PARQUET_EXPORT ColumnProperties {
   bool dictionary_enabled_;
   bool statistics_enabled_;
   size_t max_stats_size_;
-  int compression_level_;
   std::shared_ptr<CodecOptions> codec_options_;
   bool page_index_enabled_;
 };
@@ -408,6 +402,9 @@ class PARQUET_EXPORT WriterProperties {
     /// level is selected by the user or if the special
     /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
     /// compression level.
+    ///
+    /// If other compressor-specific options need to be set in addition to the compression
+    /// level, use the codec_options method.
     Builder* compression_level(int compression_level) {
       default_column_properties_.set_compression_level(compression_level);
       return this;
@@ -425,7 +422,7 @@ class PARQUET_EXPORT WriterProperties {
     /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
     /// compression level.
     Builder* compression_level(const std::string& path, int compression_level) {
-      codecs_compression_level_[path] = compression_level;
+      codec_options_[path]->compression_level_ = compression_level;
       return this;
     }
 
@@ -446,25 +443,10 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// \brief Specify the default codec options for the compressor in
-    /// every column. Previously only compression level is supported to be customized,
-    /// with CodecOptions, more specific properties could be set by users.
+    /// every column.
     ///
-    /// For compression level, it could be set by codec_options.compression_level. In
-    /// case a column does not have an explicitly specified compression level, the default
-    /// one would be used.
-    ///
-    /// The provided compression level is compressor specific. The user would
-    /// have to familiarize oneself with the available levels for the selected
-    /// compressor.  If the compressor does not allow for selecting different
-    /// compression levels, calling this function would not have any effect.
-    /// Parquet and Arrow do not validate the passed compression level.  If no
-    /// level is selected by the user or if the special
-    /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
-    /// compression level.
-    ///
-    /// For GZip Codec, users could set window_bits and format with GZipCodecOptions.
-    /// For other Codecs, CodecOptions could be used to set compression_level. More
-    /// specific codec options to be added.
+    /// The codec options allow configuring the compression level as well
+    /// as other codec-specific options.
     Builder* codec_options(
         const std::shared_ptr<::arrow::util::CodecOptions>& codec_options) {
       default_column_properties_.set_codec_options(codec_options);
@@ -636,8 +618,6 @@ class PARQUET_EXPORT WriterProperties {
 
       for (const auto& item : encodings_) get(item.first).set_encoding(item.second);
       for (const auto& item : codecs_) get(item.first).set_compression(item.second);
-      for (const auto& item : codecs_compression_level_)
-        get(item.first).set_compression_level(item.second);
       for (const auto& item : codec_options_)
         get(item.first).set_codec_options(item.second);
       for (const auto& item : dictionary_enabled_)
@@ -676,7 +656,6 @@ class PARQUET_EXPORT WriterProperties {
     ColumnProperties default_column_properties_;
     std::unordered_map<std::string, Encoding::type> encodings_;
     std::unordered_map<std::string, Compression::type> codecs_;
-    std::unordered_map<std::string, int32_t> codecs_compression_level_;
     std::unordered_map<std::string, std::shared_ptr<CodecOptions>> codec_options_;
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;

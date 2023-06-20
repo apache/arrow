@@ -21,7 +21,6 @@
 #include <cstring>
 #include <memory>
 
-#include "arrow/type_fwd.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -88,7 +87,6 @@ class PARQUET_EXPORT PageWriter {
 
   static std::unique_ptr<PageWriter> Open(
       std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
-      const std::shared_ptr<CodecOptions>& codec_options,
       ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal = -1,
       int16_t column_chunk_ordinal = -1,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
@@ -99,7 +97,8 @@ class PARQUET_EXPORT PageWriter {
       // column_index_builder MUST outlive the PageWriter
       ColumnIndexBuilder* column_index_builder = NULLPTR,
       // offset_index_builder MUST outlive the PageWriter
-      OffsetIndexBuilder* offset_index_builder = NULLPTR);
+      OffsetIndexBuilder* offset_index_builder = NULLPTR,
+      const CodecOptions& codec_options = {});
 
   static std::unique_ptr<PageWriter> Open(
       std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,

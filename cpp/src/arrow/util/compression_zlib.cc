@@ -58,7 +58,7 @@ constexpr int DETECT_CODEC = 32;
 constexpr int kGZipMinCompressionLevel = 1;
 constexpr int kGZipMaxCompressionLevel = 9;
 
-int CompressionWindowBitsForFormat(GZipFormat::type format, int window_bits) {
+int CompressionWindowBitsForFormat(GZipFormat format, int window_bits) {
   switch (format) {
     case GZipFormat::DEFLATE:
       window_bits = -window_bits;
@@ -72,7 +72,7 @@ int CompressionWindowBitsForFormat(GZipFormat::type format, int window_bits) {
   return window_bits;
 }
 
-int DecompressionWindowBitsForFormat(GZipFormat::type format, int window_bits) {
+int DecompressionWindowBitsForFormat(GZipFormat format, int window_bits) {
   if (format == GZipFormat::DEFLATE) {
     return -window_bits;
   } else {
@@ -90,7 +90,7 @@ Status ZlibErrorPrefix(const char* prefix_msg, const char* msg) {
 
 class GZipDecompressor : public Decompressor {
  public:
-  explicit GZipDecompressor(GZipFormat::type format, int window_bits)
+  explicit GZipDecompressor(GZipFormat format, int window_bits)
       : format_(format),
         window_bits_(window_bits),
         initialized_(false),
@@ -166,7 +166,7 @@ class GZipDecompressor : public Decompressor {
   }
 
   z_stream stream_;
-  GZipFormat::type format_;
+  GZipFormat format_;
   int window_bits_;
   bool initialized_;
   bool finished_;
@@ -186,7 +186,7 @@ class GZipCompressor : public Compressor {
     }
   }
 
-  Status Init(GZipFormat::type format, int input_window_bits) {
+  Status Init(GZipFormat format, int input_window_bits) {
     DCHECK(!initialized_);
     memset(&stream_, 0, sizeof(stream_));
 
@@ -306,7 +306,7 @@ class GZipCompressor : public Compressor {
 
 class GZipCodec : public Codec {
  public:
-  explicit GZipCodec(int compression_level, GZipFormat::type format, int window_bits)
+  explicit GZipCodec(int compression_level, GZipFormat format, int window_bits)
       : format_(format),
         window_bits_(window_bits),
         compressor_initialized_(false),
@@ -469,7 +469,7 @@ class GZipCodec : public Codec {
 
   Status Init() override {
     if (window_bits_ < kGZipMinWindowBits || window_bits_ > kGZipMaxWindowBits) {
-      return Status::Invalid("window_bits should be between ", kGZipMinWindowBits,
+      return Status::Invalid("GZip window_bits should be between ", kGZipMinWindowBits,
                              " and ", kGZipMaxWindowBits);
     }
     const Status init_compressor_status = InitCompressor();
@@ -493,7 +493,7 @@ class GZipCodec : public Codec {
 
   // Realistically, this will always be GZIP, but we leave the option open to
   // configure
-  GZipFormat::type format_;
+  GZipFormat format_;
 
   // These variables are mutually exclusive. When the codec is in "compressor"
   // state, compressor_initialized_ is true while decompressor_initialized_ is
@@ -510,7 +510,7 @@ class GZipCodec : public Codec {
 
 }  // namespace
 
-std::unique_ptr<Codec> MakeGZipCodec(int compression_level, GZipFormat::type format,
+std::unique_ptr<Codec> MakeGZipCodec(int compression_level, GZipFormat format,
                                      int window_bits) {
   return std::make_unique<GZipCodec>(compression_level, format, window_bits);
 }

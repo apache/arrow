@@ -228,8 +228,8 @@ class BrotliCodec : public Codec {
 
   Status Init() override {
     if (window_bits_ < BROTLI_MIN_WINDOW_BITS || window_bits_ > BROTLI_MAX_WINDOW_BITS) {
-      return Status::Invalid("window_bits should be between ", BROTLI_MIN_WINDOW_BITS,
-                             " and ", BROTLI_MAX_WINDOW_BITS);
+      return Status::Invalid("Brotli window_bits should be between ",
+                             BROTLI_MIN_WINDOW_BITS, " and ", BROTLI_MAX_WINDOW_BITS);
     }
     return Status::OK();
   }
