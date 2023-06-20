@@ -15,20 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/type.h"
+#include "libmexclass/proxy/ProxyManager.h"
 
-#include "arrow/util/utf8.h"
-#include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/error/error.h"
-
-#include "libmexclass/proxy/ProxyManager.h"
+#include "arrow/matlab/tabular/proxy/record_batch.h"
+#include "arrow/type.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow::matlab::tabular::proxy {
 
     RecordBatch::RecordBatch(std::shared_ptr<arrow::RecordBatch> record_batch) : record_batch{record_batch} {
         REGISTER_METHOD(RecordBatch, toString);
-        // REGISTER_METHOD(RecordBatch, toMATLAB);
         REGISTER_METHOD(RecordBatch, numColumns);
         REGISTER_METHOD(RecordBatch, columnNames);
     }
@@ -39,7 +37,6 @@ namespace arrow::matlab::tabular::proxy {
         const auto maybe_utf16_string = arrow::util::UTF8StringToUTF16(record_batch->ToString());
         // TODO: Add a helper macro to avoid having to write out an explicit if-statement here when handling errors.
         if (!maybe_utf16_string.ok()) {
-            libmexclass::error::ErrorBuilder builder;
             // TODO: This error message could probably be improved.
             context.error = libmexclass::error::Error{error::UNICODE_CONVERSION_ERROR_ID, maybe_utf16_string.status().message()};
             return;
@@ -78,6 +75,7 @@ namespace arrow::matlab::tabular::proxy {
         MATLAB_ERROR_IF_NOT_OK(maybe_schema.status(), error::SCHEMA_BUILDER_FINISH_ERROR_ID);
 
         const auto schema = *maybe_schema;
+        // TODO: Handle empty case where there are no arrays.
         const auto num_rows = arrow_arrays[0]->length();
         const auto record_batch = arrow::RecordBatch::Make(schema, num_rows, arrow_arrays);
         auto record_batch_proxy = std::make_shared<arrow::matlab::tabular::proxy::RecordBatch>(record_batch);

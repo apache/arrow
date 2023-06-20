@@ -61,9 +61,14 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                 matlabArrays{ii} = toMATLAB(obj.ArrowArrays{ii});
             end
 
-            T = table(matlabArrays{:});
+            variableNames = matlab.lang.makeUniqueStrings(matlab.lang.makeValidName(obj.ColumnNames));
+            T = table(matlabArrays{:}, VariableNames=variableNames);
         end
 
+        function T = toMATLAB(obj)
+            T = obj.table();
+        end
+        
     end
 
     methods (Static)
