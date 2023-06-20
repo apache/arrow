@@ -1951,7 +1951,10 @@ class CumulativeOptions(_CumulativeOptions):
 
     - cumulative_sum
     - cumulative_sum_checked
-    ...
+    - cumulative_prod
+    - cumulative_prod_checked
+    - cumulative_max
+    - cumulative_min
 
     Parameters
     ----------

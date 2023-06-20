@@ -626,11 +626,6 @@ struct Max {
       return std::max(left, right);
     }
   }
-
-  template <typename T>
-  static constexpr enable_if_decimal_value<T, T> Identity() {
-    return T::GetMinSentinel();
-  }
 };
 
 struct Min {
@@ -652,11 +647,6 @@ struct Min {
     } else {
       return std::min(left, right);
     }
-  }
-
-  template <typename T>
-  static constexpr enable_if_decimal_value<T, T> Identity() {
-    return T::GetMaxSentinel();
   }
 };
 
