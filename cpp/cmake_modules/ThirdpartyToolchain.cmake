@@ -4365,6 +4365,7 @@ macro(build_google_cloud_cpp_storage)
          absl::cord_internal
          absl::cordz_functions
          absl::cordz_info
+         absl::cordz_handle
          absl::int128
          absl::log_severity
          absl::raw_logging_internal
