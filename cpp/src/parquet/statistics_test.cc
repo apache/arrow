@@ -379,10 +379,9 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
 
   void TestMergeEmpty() {
     EncodedStatistics encoded_statistics1;
-    encoded_statistics1.has_distinct_count = false;
     // NOTE: currently, has_null_count_ in Statistics is always true.
-    auto statistics1 =
-        Statistics::Make(this->schema_.Column(0), &encoded_statistics1, 1000);
+    auto statistics1 = Statistics::Make(this->schema_.Column(0), &encoded_statistics1,
+                                        /*num_values=*/1000);
     auto s1 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(statistics1);
 
     EXPECT_FALSE(statistics1->HasMinMax());
@@ -391,8 +390,8 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     EncodedStatistics encoded_statistics2;
     encoded_statistics2.has_distinct_count = true;
     encoded_statistics2.distinct_count = 500;
-    auto statistics2 =
-        Statistics::Make(this->schema_.Column(0), &encoded_statistics2, 1000);
+    auto statistics2 = Statistics::Make(this->schema_.Column(0), &encoded_statistics2,
+                                        /*num_values=*/1000);
 
     EXPECT_FALSE(statistics2->HasMinMax());
     EXPECT_TRUE(statistics2->HasDistinctCount());
@@ -403,6 +402,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     total->Merge(*s2);
 
     EXPECT_FALSE(total->HasDistinctCount());
+    EXPECT_FALSE(total->HasMinMax());
     EXPECT_EQ(2000, total->num_values());
   }
 
