@@ -267,10 +267,10 @@ Several build types are possible:
    ``-DARROW_CXX_FLAGS_RELWITHDEBINFO=...``) for the ``RelWithDebInfo``
    build type.
 
-   For example, you can use ``-O3`` as an optimization flag by
-   specifying ``-DARROW_CXX_FLAGS_RELEASE=-O3`` for the ``Release``
-   build type. You can use ``-g3`` as a debug flag by specifying
-   ``-DARROW_CXX_FLAGS_DEBUG=-g3`` for the ``Debug`` build type.
+   For example, you can use ``-O3`` as an optimization flag for the ``Release``
+   build type by passing ``-DARROW_CXX_FLAGS_RELEASE=-O3`` .
+   You can use ``-g3`` as a debug flag for the ``Debug`` build type
+   by passing ``-DARROW_CXX_FLAGS_DEBUG=-g3`` .
 
    You can also use the standard ``CMAKE_C_FLAGS_${BUILD_TYPE}``
    and ``CMAKE_CXX_FLAGS_${BUILD_TYPE}`` variables but
