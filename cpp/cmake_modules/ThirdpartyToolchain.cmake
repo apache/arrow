@@ -983,6 +983,9 @@ macro(build_boost)
          "--with-libraries=${BOOST_CONFIGURE_LIBRARIES}")
     set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
                             "variant=${BOOST_BUILD_VARIANT}")
+    #if(${CMAKE_CROSSCOMPILING})
+    #  list(APPEND BOOST_CONFIGURE_COMMAND  "--with-toolset=${CMAKE_CXX_COMPILER}")
+    #endif()
     if(MSVC)
       string(REGEX REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION
                            ${MSVC_TOOLSET_VERSION})
