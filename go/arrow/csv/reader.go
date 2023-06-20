@@ -508,7 +508,7 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		}
 	case *arrow.FixedSizeBinaryType:
 		return func(s string) {
-			r.parseFixedSizeBinaryType(bldr, s, dt.BitWidth())
+			r.parseFixedSizeBinaryType(bldr, s, dt.Bytes())
 		}
 	case arrow.ExtensionType:
 		return func(s string) {
@@ -912,7 +912,7 @@ func (r *Reader) parseFixedSizeBinaryType(field array.Builder, str string, bitWi
 	if err != nil {
 		panic("cannot decode base64 string " + str)
 	}
-	if len(decodedVal)*8 == bitWidth {
+	if len(decodedVal) == bitWidth {
 		field.(*array.FixedSizeBinaryBuilder).Append(decodedVal)
 	} else {
 		r.err = errors.New("invalid fixed size binary format. the bytes of the value should be equal the bit width of the fixed size binary")
