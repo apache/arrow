@@ -61,7 +61,9 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                 matlabArrays{ii} = toMATLAB(obj.ArrowArrays{ii});
             end
 
-            variableNames = matlab.lang.makeUniqueStrings(matlab.lang.makeValidName(obj.ColumnNames));
+            variableNames = matlab.lang.makeUniqueStrings(obj.ColumnNames);
+            % NOTE: Does not currently handle edge cases like ColumnNames
+            %       matching the table DimensionNames.
             T = table(matlabArrays{:}, VariableNames=variableNames);
         end
 
