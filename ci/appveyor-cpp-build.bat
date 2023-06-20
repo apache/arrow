@@ -60,6 +60,7 @@ pushd cpp\build
 
 cmake -G "%GENERATOR%" %ARROW_CMAKE_ARGS% ^
       -DARROW_ACERO=ON ^
+      -DARROW_AZURE=OFF ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_EXAMPLES=ON ^
       -DARROW_BUILD_STATIC=OFF ^
