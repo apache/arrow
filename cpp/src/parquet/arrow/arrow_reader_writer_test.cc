@@ -438,13 +438,13 @@ void CheckConfiguredRoundtrip(
 void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
                        int64_t row_group_size, const std::vector<int>& column_subset,
                        std::shared_ptr<Table>* out,
-                       const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+                       const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
                            default_arrow_writer_properties(),
                        const ArrowReaderProperties& arrow_reader_properties =
                            default_arrow_reader_properties()) {
   std::shared_ptr<Buffer> buffer;
   ASSERT_NO_FATAL_FAILURE(
-      WriteTableToBuffer(table, row_group_size, arrow_properties, &buffer));
+      WriteTableToBuffer(table, row_group_size, arrow_writer_properties, &buffer));
 
   std::unique_ptr<FileReader> reader;
   ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
@@ -670,20 +670,19 @@ class ParquetIOTestBase : public ::testing::Test {
 
   void RoundTripSingleColumn(
       const std::shared_ptr<Array>& values, const std::shared_ptr<Array>& expected,
-      const std::shared_ptr<::parquet::ArrowWriterProperties>& arrow_properties,
+      const std::shared_ptr<::parquet::ArrowWriterProperties>& arrow_writer_properties,
       const ArrowReaderProperties& arrow_reader_properties = default_arrow_reader_properties(),
       bool nullable = true) {
     std::shared_ptr<Table> table = MakeSimpleTable(values, nullable);
     this->ResetSink();
-
     ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), this->sink_,
                                   values->length(), default_writer_properties(),
-                                  arrow_properties));
+                                  arrow_writer_properties));
 
     std::shared_ptr<Table> out;
     std::unique_ptr<FileReader> reader;
     ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader, arrow_reader_properties));
-    const bool expect_metadata = arrow_properties->store_schema();
+    const bool expect_metadata = arrow_writer_properties->store_schema();
     ASSERT_NO_FATAL_FAILURE(
         this->ReadTableFromFile(std::move(reader), expect_metadata, &out));
     ASSERT_EQ(1, out->num_columns());
@@ -1369,8 +1368,6 @@ TEST_F(TestStringParquetIO, Basics) {
   }
   ASSERT_OK(builder.Finish(&values));
 
-  // Input is narrow array, but expected output is large array, opposite of the above tests.
-  // This validates narrow arrays can be read as large arrays.
   this->RoundTripSingleColumn(values, values,
                               default_arrow_writer_properties());
 
