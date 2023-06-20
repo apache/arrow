@@ -4373,6 +4373,7 @@ macro(build_google_cloud_cpp_storage)
          absl::str_format_internal
          absl::strings
          absl::strings_internal
+         absl::symbolize
          absl::synchronization
          absl::throw_delegate
          absl::time
