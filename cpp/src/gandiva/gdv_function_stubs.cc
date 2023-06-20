@@ -332,6 +332,7 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
     std::string err_msg =
         "Could not allocate memory for returning aes encrypt cypher text";
     gdv_fn_context_set_error_msg(context, err_msg.data());
+     *out_len = 0;
     return nullptr;
   }
 
@@ -340,6 +341,7 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
                                     reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
+     *out_len = 0;
     return nullptr;
   }
 
@@ -372,6 +374,7 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
     std::string err_msg =
         "Could not allocate memory for returning aes encrypt cypher text";
     gdv_fn_context_set_error_msg(context, err_msg.data());
+     *out_len = 0;
     return nullptr;
   }
 
@@ -380,6 +383,7 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
                                     reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
+     *out_len = 0;
     return nullptr;
   }
   ret[*out_len] = '\0';
