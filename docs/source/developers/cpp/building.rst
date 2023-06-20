@@ -254,6 +254,34 @@ Several build types are possible:
 * ``Release``: applies compiler optimizations and removes debug information
   from the binary.
 
+.. note::
+
+   These built types provide suitable optimization/debug flags by
+   default but you can change them by specifying
+   ``-DARROW_C_FLAGS_${BUILD_TYPE}=...`` and/or
+   ``-DARROW_CXX_FLAGS_${BUILD_TYPE}=...``. ``${BUILD_TYPE}`` is upper
+   case of build type. For example, ``DEBUG``
+   (``-DARROW_C_FLAGS_DEBUG=...`` / ``-DARROW_CXX_FLAGS_DEBUG=...``) for the
+   ``Debug`` build type and ``RELWITHDEBINFO``
+   (``-DARROW_C_FLAGS_RELWITHDEBINFO=...`` /
+   ``-DARROW_CXX_FLAGS_RELWITHDEBINFO=...``) for the ``RelWithDebInfo``
+   build type.
+
+   For example, you can use ``-O3`` as an optimization flag by
+   specifying ``-DARROW_CXX_FLAGS_RELEASE=-O3`` for the ``Release``
+   build type. You can use ``-g3`` as a debug flag by specifying
+   ``-DARROW_CXX_FLAGS_DEBUG=-g3`` for the ``Debug`` build type.
+
+   You can also use the standard ``-DCMAKE_C_FLAGS_${BUILD_TYPE}=...``
+   and ``-DCMAKE_CXX_FLAGS_${BUILD_TYPE}=...`` style but
+   ``-DARROW_C_FLAGS_${BUILD_TYPE`` and
+   ``-DARROW_CXX_FLAGS_${BUILD_TYPE}=...`` style is
+   recommended. Because ``-DCMAKE_C_FLAGS_${BUILD_TYPE}=...`` and
+   ``-DCMAKE_CXX_FLAGS_${BUILD_TYPE}=...`` style replaces all default
+   flags provided by CMake. ``-DARROW_C_FLAGS_${BUILD_TYPE`` and
+   ``-DARROW_CXX_FLAGS_${BUILD_TYPE}=...`` style just overrides the
+   default flags specified instead of replacing them.
+
 You can also run default build with flag ``-DARROW_EXTRA_ERROR_CONTEXT=ON``, see
 :ref:`cpp-extra-debugging`.
 
