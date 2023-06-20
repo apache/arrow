@@ -33,6 +33,7 @@ import {
     wrapChunkedIndexOf,
     sliceChunks,
 } from './util/chunk.js';
+import { IndexAccessProxyHandler } from './util/proxyhandler.js'
 
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
@@ -151,6 +152,13 @@ export class Table<T extends TypeMap = any> {
      * The contiguous {@link RecordBatch `RecordBatch`} chunks of the Table rows.
      */
     declare public readonly batches: RecordBatch<T>[];
+
+    /**
+     * Index access of the table elements. While equivalent to
+     * {@link * Table.get}, * it is 1-2 orders of magnitude slower than
+     * {@link * Table.get}.
+     */
+    [index: number]: T['TValue'] | null;
 
     /**
      * The contiguous {@link RecordBatch `RecordBatch`} chunks of the Table rows.
@@ -389,6 +397,13 @@ export class Table<T extends TypeMap = any> {
         (proto as any)['set'] = wrapChunkedCall2(setVisitor.getVisitFn(Type.Struct));
         (proto as any)['indexOf'] = wrapChunkedIndexOf(indexOfVisitor.getVisitFn(Type.Struct));
         (proto as any)['getByteLength'] = wrapChunkedCall1(byteLengthVisitor.getVisitFn(Type.Struct));
+
+        // The Proxy object will slow down all method access if it is returned
+        // from the constructor. By putting it at the root of the prototype
+        // chain, we do not affect the speed of normal access. That said, index
+        // access will be much slower than `.get()`.
+        Object.setPrototypeOf(proto, new Proxy({}, new IndexAccessProxyHandler()))
+
         return 'Table';
     })(Table.prototype);
 }

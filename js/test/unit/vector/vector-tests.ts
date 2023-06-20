@@ -73,7 +73,12 @@ describe(`StructVector`, () => {
 
     test(`get value`, () => {
         for (const [i, value] of values.entries()) {
-            expect(vector.get(i)!.toJSON()).toEqual(value);
+            const row = vector.get(i);
+            expect(row).not.toBeNull();
+            expect(row!.toJSON()).toEqual(value);
+
+            const row2 = vector[i];
+            expect(row2).toEqual(row);
         }
     });
 });

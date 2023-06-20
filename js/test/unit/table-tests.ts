@@ -291,6 +291,10 @@ describe(`Table`, () => {
                     expect(row.f32).toEqual(expected[F32]);
                     expect(row.i32).toEqual(expected[I32]);
                     expect(row.dictionary).toEqual(expected[DICT]);
+
+                    // Test index access as well
+                    const row2 = table[i];
+                    expect(row2).toEqual(row)
                 }
             });
             test(`iterates expected values`, () => {

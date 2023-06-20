@@ -31,6 +31,7 @@ import {
     wrapChunkedIndexOf,
 } from './util/chunk.js';
 import { BigInt64Array, BigUint64Array } from './util/compat.js';
+import { IndexAccessProxyHandler } from './util/proxyhandler.js'
 
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
@@ -102,6 +103,12 @@ export class Vector<T extends DataType = any> {
     declare protected _offsets: number[] | Uint32Array;
     declare protected _nullCount: number;
     declare protected _byteLength: number;
+
+    /**
+     * Index access of the vector elements. While equivalent to {@link * Vector.get},
+     * it is 1-2 orders of magnitude slower than {@link * Vector.get}.
+     */
+    [index: number]: T['TValue'] | null;
 
     /**
      * The {@link DataType `DataType`} of this Vector.
@@ -358,6 +365,30 @@ export class Vector<T extends DataType = any> {
         (proto as any)._offsets = new Uint32Array([0]);
         (proto as any)[Symbol.isConcatSpreadable] = true;
 
+        // The prototype chain of the Vector object is complex to get the best
+        // possible performance:
+        //
+        // - The Proxy object is quite slow, so we put it at the bottom of the
+        //   prototype chain. This means that known access such as functions
+        //   like `vector.get` will be immediately resolved and is fast. Unknown
+        //   access such as index notation (`vector[0]`) will bubble up to the
+        //   proxy object and be resolved. Experimentally, this is about 1-2
+        //   orders of magnitude slower than using `vector.get(index)`.
+        // - When the Vector object has multiple chunks in it, we need to find
+        //   the appropriate chunk to iterate through when using methods like
+        //   `.get()`. To do this, in the Vector constructor, it sets the
+        //   prototype of `this` to `vectorPrototypesByTypeId[typeId]`, which
+        //   defines the appropriate methods to find the appropriate chunk.
+        //   The prototypes provided by `vectorPrototypesByTypeId` is also
+        //   chained from the Proxy object, which means Vector objects with
+        //   multiple chunks also retain the index access API.
+        //   - As a note, using `vector.get(i)` is slow as it needs to perform a
+        //     binary search while looking for the right chunk. So operations
+        //     that loop through the array with an index (i.e. `(for i=0; i<n;
+        //     i++) vector.get(i)`) becomes an O(nlogn) operation as opposed to
+        //     O(n).
+        Object.setPrototypeOf(proto, new Proxy({}, new IndexAccessProxyHandler()));
+
         const typeIds: Type[] = Object.keys(Type)
             .map((T: any) => Type[T] as any)
             .filter((T: any) => typeof T === 'number' && T !== Type.NONE);
@@ -370,6 +401,10 @@ export class Vector<T extends DataType = any> {
 
             visitorsByTypeId[typeId] = { get, set, indexOf, byteLength };
             vectorPrototypesByTypeId[typeId] = Object.create(proto, {
+                // These object keys are equivalent to string keys. However, by
+                // putting them in [] (which makes them computed property
+                // names), the Closure compiler we use to compile this library
+                // will not optimize out the function names.
                 ['isValid']: { value: wrapChunkedCall1(isChunkedValid) },
                 ['get']: { value: wrapChunkedCall1(getVisitor.getVisitFnByTypeId(typeId)) },
                 ['set']: { value: wrapChunkedCall2(setVisitor.getVisitFnByTypeId(typeId)) },
