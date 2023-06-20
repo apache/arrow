@@ -695,9 +695,21 @@ func (b *dictionaryBuilder) AppendNull() {
 	b.idxBuilder.AppendNull()
 }
 
+func (b *dictionaryBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *dictionaryBuilder) AppendEmptyValue() {
 	b.length += 1
 	b.idxBuilder.AppendEmptyValue()
+}
+
+func (b *dictionaryBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *dictionaryBuilder) Reserve(n int) {

@@ -120,8 +120,7 @@ func (b *NullBuilder) AppendNull() {
 
 func (b *NullBuilder) AppendNulls(n int) {
 	for i := 0; i < n; i++ {
-		b.builder.length++
-		b.builder.nulls++
+		b.AppendNull()
 	}
 }
 
