@@ -147,16 +147,21 @@ reference:
       - write_dataset
       - dataset_factory
       - hive_partition
-      - Dataset
-      - Partitioning
-      - Expression
-      - Scanner
-      - FileFormat
-      - CsvFileFormat
-      - JsonFileFormat
-      - FileWriteOptions
-      - FragmentScanOptions
       - map_batches
+
+    - title: Multi-file datasets - R6 classes
+      desc: >
+        R6 classes useful for when working with multi-file datases in Arrow.
+      contents:
+        - Dataset
+        - Partitioning
+        - Expression
+        - Scanner
+        - FileFormat
+        - CsvFileFormat
+        - JsonFileFormat
+        - FileWriteOptions
+        - FragmentScanOptions
 
   - title: Reading and writing files
     contents:
@@ -167,9 +172,10 @@ reference:
       - read_json_arrow
       - write_feather
       - write_ipc_stream
-      - write_to_raw
       - write_parquet
       - write_csv_arrow
+      - write_to_raw
+
 
   - title: C++ reader/writer interface
     contents:
