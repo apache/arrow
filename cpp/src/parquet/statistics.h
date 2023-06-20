@@ -333,9 +333,6 @@ class TypedStatistics : public Statistics {
   /// \brief Increments the number of values directly
   /// The same note on IncrementNullCount applies here
   virtual void IncrementNumValues(int64_t n) = 0;
-
-  /// \brief Set the number of distinct count directly
-  virtual void SetDistinctCount(int64_t n) = 0;
 };
 
 using BoolStatistics = TypedStatistics<BooleanType>;

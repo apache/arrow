@@ -653,7 +653,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
 
-  void SetDistinctCount(int64_t n) override {
+  void SetDistinctCount(int64_t n) {
     statistics_.distinct_count = n;
     has_distinct_count_ = true;
   }
