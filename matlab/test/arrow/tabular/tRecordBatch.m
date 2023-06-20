@@ -18,7 +18,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
 
     methods(Test)
 
-        function BasicTest(tc)
+        function Basic(tc)
             T = table([1, 2, 3]');
             arrowRecordBatch = arrow.tabular.RecordBatch(T);
             className = string(class(arrowRecordBatch));
@@ -99,5 +99,5 @@ classdef tRecordBatch < matlab.unittest.TestCase
         end
 
     end
-    
+
 end
