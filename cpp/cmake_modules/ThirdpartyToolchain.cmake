@@ -1989,6 +1989,9 @@ macro(build_jemalloc)
     # Enable jemalloc debug checks when Arrow itself has debugging enabled
     list(APPEND JEMALLOC_CONFIGURE_COMMAND "--enable-debug")
   endif()
+  if(${CMAKE_CROSSCOMPILING})
+    list(APPEND JEMALLOC_CONFIGURE_COMMAND "--host=${CMAKE_SYSTEM_PROCESSOR}")
+  endif()
   set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
@@ -2783,6 +2786,9 @@ macro(build_cares)
 
   set(CARES_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}"
                        -DCARES_SHARED=OFF -DCARES_STATIC=ON)
+  if(${CMAKE_CROSSCOMPILING})
+    list(APPEND CARES_CMAKE_ARGS  "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+  endif()
 
   externalproject_add(cares_ep
                       ${EP_COMMON_OPTIONS}
@@ -2852,6 +2858,10 @@ macro(build_absl)
                       "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
   set(ABSL_BUILD_BYPRODUCTS)
   set(ABSL_LIBRARIES)
+
+  if(${CMAKE_CROSSCOMPILING})
+    list(APPEND ABSL_CMAKE_ARGS  "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+  endif()
 
   # Abseil produces the following libraries, each is fairly small, but there
   # are (as you can see), many of them. We need to add the libraries first,
@@ -3909,6 +3919,10 @@ macro(build_grpc)
       -DgRPC_ZLIB_PROVIDER=package)
   if(PROTOBUF_VENDORED)
     list(APPEND GRPC_CMAKE_ARGS -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG)
+  endif()
+
+  if(${CMAKE_CROSSCOMPILING})
+    list(APPEND GRPC_CMAKE_ARGS  "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
   endif()
 
   # XXX the gRPC git checkout is huge and takes a long time

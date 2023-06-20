@@ -424,6 +424,7 @@ services:
       <<: [*ccache, *sccache]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
+      CMAKE_ARGS: "-DCMAKE_TOOLCHAIN_FILE=/arrow/ci/crosstool/crosstool.cmake"
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
