@@ -1,5 +1,4 @@
 % Licensed to the Apache Software Foundation (ASF) under one or more
->>>>>>> b27d47fde (Add abstract NumericArray class)
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
 % The ASF licenses this file to you under the Apache License, Version
