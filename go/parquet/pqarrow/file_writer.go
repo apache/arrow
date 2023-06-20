@@ -135,7 +135,7 @@ func (fw *FileWriter) RowGroupTotalBytesWritten() int64 {
 }
 
 // WriteBuffered will either append to an existing row group or create a new one
-// based on the record length and RowGroupTotalBytesWritten.
+// based on the record length and max row group length.
 //
 // Additionally, it allows to manually break your row group by
 // checking RowGroupTotalBytesWritten and calling NewBufferedRowGroup,
