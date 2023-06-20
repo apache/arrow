@@ -4368,6 +4368,7 @@ macro(build_google_cloud_cpp_storage)
          absl::cordz_handle
          absl::debugging_internal
          absl::demangle_internal
+         absl::exponential_biased
          absl::int128
          absl::log_severity
          absl::malloc_internal
