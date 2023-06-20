@@ -683,6 +683,26 @@ func TestStringDictionaryBuilderBigDelta(t *testing.T) {
 	assert.True(t, array.ArrayEqual(strarr3, delta3))
 }
 
+func TestStringDictionaryBuilderIsNull(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: arrow.BinaryTypes.String}
+	bldr := array.NewDictionaryBuilder(mem, dictType)
+	defer bldr.Release()
+
+	builder := bldr.(*array.BinaryDictionaryBuilder)
+	assert.NoError(t, builder.AppendString("test"))
+	builder.AppendNull()
+	assert.NoError(t, builder.AppendString("test2"))
+	assert.NoError(t, builder.AppendString("test"))
+
+	assert.False(t, bldr.IsNull(0))
+	assert.True(t, bldr.IsNull(1))
+	assert.False(t, bldr.IsNull(2))
+	assert.False(t, bldr.IsNull(3))
+}
+
 func TestFixedSizeBinaryDictionaryBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
