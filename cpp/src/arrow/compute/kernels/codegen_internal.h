@@ -886,6 +886,10 @@ struct ScalarBinaryNotNull {
   }
 };
 
+// A kernel exec generator for binary kernels where arg orders are reversed
+template <typename OutType, typename Arg0Type, typename Arg1Type, typename Op>
+using ScalarBinaryReverse = ScalarBinary<OutType, Arg1Type, Arg0Type, Op>;
+
 // A kernel exec generator for binary kernels where both input types are the
 // same
 template <typename OutType, typename ArgType, typename Op>

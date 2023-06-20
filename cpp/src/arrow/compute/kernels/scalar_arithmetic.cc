@@ -26,6 +26,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
@@ -50,6 +51,7 @@ using applicator::ScalarBinary;
 using applicator::ScalarBinaryEqualTypes;
 using applicator::ScalarBinaryNotNull;
 using applicator::ScalarBinaryNotNullEqualTypes;
+using applicator::ScalarBinaryReverse;
 using applicator::ScalarUnary;
 using applicator::ScalarUnaryNotNull;
 using applicator::ScalarUnaryNotNullStateful;
@@ -1469,9 +1471,19 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add multiply(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
-    DCHECK_OK(multiply->AddKernel({duration(unit), int64()}, duration(unit), exec));
-    DCHECK_OK(multiply->AddKernel({int64(), duration(unit)}, duration(unit), exec));
+    for (auto numeric : NumericTypes()) {
+      if (!is_integer(numeric->id())) continue;
+
+      auto exec =
+          GenerateInteger<ScalarBinary, Int64Type, Int64Type, Multiply>(numeric->id());
+      DCHECK_OK(multiply->AddKernel({numeric, duration(unit)}, duration(unit), exec));
+
+      auto reverse_exec =
+          GenerateInteger<ScalarBinaryReverse, Int64Type, Int64Type, Multiply>(
+              numeric->id());
+      DCHECK_OK(
+          multiply->AddKernel({duration(unit), numeric}, duration(unit), reverse_exec));
+    }
   }
 
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
