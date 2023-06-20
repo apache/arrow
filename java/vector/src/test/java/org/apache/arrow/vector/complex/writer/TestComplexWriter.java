@@ -48,8 +48,10 @@ import org.apache.arrow.vector.complex.impl.SingleStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
+import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.impl.UnionReader;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
+import org.apache.arrow.vector.complex.reader.BaseReader;
 import org.apache.arrow.vector.complex.reader.BaseReader.StructReader;
 import org.apache.arrow.vector.complex.reader.BigIntReader;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -1399,6 +1401,109 @@ public class TestComplexWriter {
       FieldReader childListReader = structReader.reader("childList4");
       int size = childListReader.size();
       Assert.assertEquals(0, size);
+    }
+  }
+  @Test
+  public void testMap() {
+    try (MapVector mapVector = MapVector.empty("map", allocator, false)) {
+      mapVector.allocateNew();
+      UnionMapWriter mapWriter = new UnionMapWriter(mapVector);
+      for (int i = 0; i < COUNT; i++) {
+        mapWriter.startMap();
+        for (int j = 0; j < i % 7; j++) {
+          mapWriter.startEntry();
+          if (j % 2 == 0) {
+            mapWriter.key().integer().writeInt(j);
+            mapWriter.value().integer().writeInt(j+1);
+          } else {
+            IntHolder keyHolder = new IntHolder();
+            keyHolder.value = j;
+            IntHolder valueHolder = new IntHolder();
+            valueHolder.value = j + 1;
+            mapWriter.key().integer().write(keyHolder);
+            mapWriter.value().integer().write(valueHolder);
+          }
+          mapWriter.endEntry();
+        }
+        mapWriter.endMap();
+      }
+      mapWriter.setValueCount(COUNT);
+      UnionMapReader mapReader = new UnionMapReader(mapVector);
+      for (int i = 0; i < COUNT; i++) {
+        mapReader.setPosition(i);
+        for (int j = 0; j < i % 7; j++) {
+          mapReader.next();
+          assertEquals(j, mapReader.key().readInteger().intValue());
+          assertEquals(j+1, mapReader.value().readInteger().intValue());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testMapWithNulls() {
+    try (MapVector mapVector = MapVector.empty("map", allocator, false)) {
+      mapVector.allocateNew();
+      UnionMapWriter mapWriter = new UnionMapWriter(mapVector);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().integer().writeNull();
+      mapWriter.value().integer().writeInt(1);
+      mapWriter.endEntry();
+      mapWriter.endMap();
+      mapWriter.setValueCount(1);
+      UnionMapReader mapReader = new UnionMapReader(mapVector);
+      Assert.assertNull(mapReader.key().readInteger());
+      assertEquals(1, mapReader.value().readInteger().intValue());
+    }
+  }
+
+    @Test
+    public void testMapWithListKey() {
+      try (MapVector mapVector = MapVector.empty("map", allocator, false)) {
+        mapVector.allocateNew();
+        UnionMapWriter mapWriter = new UnionMapWriter(mapVector);
+        mapWriter.startMap();
+        mapWriter.startEntry();
+        mapWriter.key().list().startList();
+        for (int i = 0; i < 3; i++) {
+          mapWriter.key().list().integer().writeInt(i);
+        }
+        mapWriter.key().list().endList();
+        mapWriter.value().integer().writeInt(1);
+        mapWriter.endEntry();
+        mapWriter.endMap();
+        mapWriter.setValueCount(1);
+        UnionMapReader mapReader = new UnionMapReader(mapVector);
+        mapReader.key().next();
+        assertEquals(0, mapReader.key().reader().readInteger().intValue());
+        mapReader.key().next();
+        assertEquals(1, mapReader.key().reader().readInteger().intValue());
+        mapReader.key().next();
+        assertEquals(2, mapReader.key().reader().readInteger().intValue());
+        assertEquals(1, mapReader.value().readInteger().intValue());
+      }
+    }
+
+  @Test
+  public void testMapWithStruckKey() {
+    try (MapVector mapVector = MapVector.empty("map", allocator, false)) {
+      mapVector.allocateNew();
+      UnionMapWriter mapWriter = new UnionMapWriter(mapVector);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().struct().start();
+      mapWriter.key().struct().integer("value1").writeInt(1);
+      mapWriter.key().struct().integer("value2").writeInt(2);
+      mapWriter.key().struct().end();
+      mapWriter.value().integer().writeInt(1);
+      mapWriter.endEntry();
+      mapWriter.endMap();
+      mapWriter.setValueCount(1);
+      UnionMapReader mapReader = new UnionMapReader(mapVector);
+      assertEquals(1, mapReader.key().reader("value1").readInteger().intValue());
+      assertEquals(2, mapReader.key().reader("value2").readInteger().intValue());
+      assertEquals(1, mapReader.value().readInteger().intValue());
     }
   }
 }
