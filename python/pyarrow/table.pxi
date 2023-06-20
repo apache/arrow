@@ -1600,6 +1600,28 @@ cdef class _Tabular(_PandasConvertible):
         return self._column(self._ensure_integer_index(i))
 
     @property
+    def column_names(self):
+        """
+        Names of the Table or RecordBatch columns.
+
+        Returns
+        -------
+        list of str
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> table = pa.Table.from_arrays([[2, 4, 5, 100],
+        ...                               ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
+        ...                               names=['n_legs', 'animals'])
+        >>> table.column_names
+        ['n_legs', 'animals']
+        """
+        return [self.field(i).name for i in range(self.num_columns)]
+
+    @property
     def columns(self):
         """
         List of all columns in numerical order.
@@ -1749,6 +1771,18 @@ cdef class _Tabular(_PandasConvertible):
         animals: string
         -- schema metadata --
         n_legs: 'Number of legs per animal'
+
+        Construct a Table from a dictionary of arrays with pyarrow schema:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> pa.Table.from_pydict(pydict, schema=my_schema).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
         """
 
         return _from_pydict(cls=cls,
@@ -1780,10 +1814,8 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
         >>> pylist = [{'n_legs': 2, 'animals': 'Flamingo'},
-        ...           {'year': 2021, 'animals': 'Centipede'}]
+        ...           {'n_legs': 4, 'animals': 'Dog'}]
 
         Construct a Table from a list of rows:
 
@@ -1792,22 +1824,29 @@ cdef class _Tabular(_PandasConvertible):
         n_legs: int64
         animals: string
         ----
-        n_legs: [[2,null]]
-        animals: [["Flamingo","Centipede"]]
+        n_legs: [[2,4]]
+        animals: [["Flamingo","Dog"]]
+
+       Construct a Table from a list of rows with metadata:
+
+        >>> my_metadata={"n_legs": "Number of legs per animal"}
+        >>> pa.Table.from_pylist(pylist, metadata=my_metadata).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
 
         Construct a Table from a list of rows with pyarrow schema:
 
         >>> my_schema = pa.schema([
-        ...     pa.field('year', pa.int64()),
         ...     pa.field('n_legs', pa.int64()),
         ...     pa.field('animals', pa.string())],
-        ...     metadata={"year": "Year of entry"})
+        ...     metadata={"n_legs": "Number of legs per animal"})
         >>> pa.Table.from_pylist(pylist, schema=my_schema).schema
-        year: int64
         n_legs: int64
         animals: string
         -- schema metadata --
-        year: 'Year of entry'
+        n_legs: 'Number of legs per animal'
         """
 
         return _from_pylist(cls=cls,
@@ -1942,7 +1981,30 @@ cdef class _Tabular(_PandasConvertible):
         return _pc().take(self, indices)
 
     def to_pydict(self):
-        raise NotImplementedError
+        """
+        Convert the Table or RecordBatch to a dict or OrderedDict.
+
+        Returns
+        -------
+        dict
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> table = pa.Table.from_arrays([n_legs, animals], names=["n_legs", "animals"])
+        >>> table.to_pydict()
+        {'n_legs': [2, 2, 4, 4, 5, 100], 'animals': ['Flamingo', 'Parrot', ..., 'Centipede']}
+        """
+        entries = []
+        for i in range(self.num_columns):
+            name = self.field(i).name
+            column = self[i].to_pylist()
+            entries.append((name, column))
+        return ordered_dict(entries)
 
     def to_pylist(self):
         """
@@ -1957,10 +2019,9 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
+        >>> data = [[2, 4, 5, 100],
+        ...         ["Flamingo", "Horse", "Brittle stars", "Centipede"]]
+        >>> table = pa.table(data, names=["n_legs", "animals"])
         >>> table.to_pylist()
         [{'n_legs': 2, 'animals': 'Flamingo'}, {'n_legs': 4, 'animals': 'Horse'}, ...
         """
@@ -2593,31 +2654,6 @@ cdef class RecordBatch(_Tabular):
             c_batch = GetResultValue(self.batch.SelectColumns(move(c_indices)))
 
         return pyarrow_wrap_batch(c_batch)
-
-    def to_pydict(self):
-        """
-        Convert the RecordBatch to a dict or OrderedDict.
-
-        Returns
-        -------
-        dict
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.to_pydict()
-        {'n_legs': [2, 2, 4, 4, 5, 100], 'animals': ['Flamingo', 'Parrot', ..., 'Centipede']}
-        """
-        entries = []
-        for i in range(self.batch.num_columns()):
-            name = bytes(self.batch.column_name(i)).decode('utf8')
-            column = self[i].to_pylist()
-            entries.append((name, column))
-        return ordered_dict(entries)
 
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
@@ -4040,36 +4076,6 @@ cdef class Table(_Tabular):
             types_mapper=types_mapper)
         return pandas_api.data_frame(mgr)
 
-    def to_pydict(self):
-        """
-        Convert the Table to a dict or OrderedDict.
-
-        Returns
-        -------
-        dict
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.to_pydict()
-        {'n_legs': [2, 4, 5, 100], 'animals': ['Flamingo', 'Horse', 'Brittle stars', 'Centipede']}
-        """
-        cdef:
-            size_t i
-            size_t num_columns = self.table.num_columns()
-            list entries = []
-            ChunkedArray column
-
-        for i in range(num_columns):
-            column = self.column(i)
-            entries.append((self.field(i).name, column.to_pylist()))
-
-        return ordered_dict(entries)
-
     @property
     def schema(self):
         """
@@ -4449,28 +4455,6 @@ cdef class Table(_Tabular):
                 i, c_field.sp_field, c_arr.sp_chunked_array))
 
         return pyarrow_wrap_table(c_table)
-
-    @property
-    def column_names(self):
-        """
-        Names of the table's columns.
-
-        Returns
-        -------
-        list of str
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.column_names
-        ['n_legs', 'animals']
-        """
-        names = self.table.ColumnNames()
-        return [frombytes(name) for name in names]
 
     def rename_columns(self, names):
         """
