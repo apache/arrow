@@ -603,10 +603,10 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
 
   /// \brief Attempt to explicitly cancel a query.
   ///
-  /// Deprecated since 13.0.0. If your client may use older Flight
-  /// SQL, you may need to implement both of this and
-  /// CancelFlightInfo(). If all your clients use 13.0.0 and
-  /// CancelFlightInfo(), you can implement only CancelFlightInfo().
+  /// Deprecated since 13.0.0. You just need to implement
+  /// CancelFlightInfo() to support both the CancelFlightInfo action
+  /// (for newer clients) and the CancelQuery action (for older
+  /// clients).
   ///
   /// \param[in] context  The call context.
   /// \param[in] request  The query to cancel.
