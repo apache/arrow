@@ -344,6 +344,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool, stringsCanBeN
 			{Name: "u16", Type: arrow.PrimitiveTypes.Uint16},
 			{Name: "u32", Type: arrow.PrimitiveTypes.Uint32},
 			{Name: "u64", Type: arrow.PrimitiveTypes.Uint64},
+			{Name: "f16", Type: arrow.FixedWidthTypes.Float16},
 			{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
 			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
 			{Name: "str", Type: arrow.BinaryTypes.String},
@@ -401,6 +402,7 @@ rec[0]["u8"]: [1]
 rec[0]["u16"]: [1]
 rec[0]["u32"]: [1]
 rec[0]["u64"]: [1]
+rec[0]["f16"]: [1.0996094]
 rec[0]["f32"]: [1.1]
 rec[0]["f64"]: [1.1]
 rec[0]["str"]: ["str-1"]
@@ -417,6 +419,7 @@ rec[1]["u8"]: [2]
 rec[1]["u16"]: [2]
 rec[1]["u32"]: [2]
 rec[1]["u64"]: [2]
+rec[1]["f16"]: [2.1992188]
 rec[1]["f32"]: [2.2]
 rec[1]["f64"]: [2.2]
 rec[1]["str"]: [%s]
@@ -433,6 +436,7 @@ rec[2]["u8"]: [(null)]
 rec[2]["u16"]: [(null)]
 rec[2]["u32"]: [(null)]
 rec[2]["u64"]: [(null)]
+rec[2]["f16"]: [(null)]
 rec[2]["f32"]: [(null)]
 rec[2]["f64"]: [(null)]
 rec[2]["str"]: [%s]

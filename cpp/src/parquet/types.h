@@ -34,7 +34,6 @@ namespace arrow {
 namespace util {
 
 class Codec;
-class CodecOptions;
 
 }  // namespace util
 }  // namespace arrow

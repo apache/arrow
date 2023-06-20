@@ -22,7 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // Map represents an immutable sequence of Key/Value structs. It is a
@@ -209,6 +209,11 @@ func (b *MapBuilder) Cap() int { return b.listBuilder.Cap() }
 
 // NullN returns the number of null values in the array builder.
 func (b *MapBuilder) NullN() int { return b.listBuilder.NullN() }
+
+// IsNull returns if a previously appended value at a given index is null or not.
+func (b *MapBuilder) IsNull(i int) bool {
+	return b.listBuilder.IsNull(i)
+}
 
 // Append adds a new Map element to the array, calling Append(false) is
 // equivalent to calling AppendNull.

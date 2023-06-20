@@ -27,7 +27,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // Struct represents an ordered sequence of relative types.

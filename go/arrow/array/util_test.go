@@ -31,7 +31,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/decimal256"
 	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

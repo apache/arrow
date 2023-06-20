@@ -14,10 +14,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !noasm
+package pqarrow
 
-package utils
+import (
+	"github.com/apache/arrow/go/v13/arrow"
+)
 
-import "io"
+func releaseArrays(arrays []arrow.Array) {
+	for _, a := range arrays {
+		if a != nil {
+			a.Release()
+		}
+	}
+}
 
-var unpack32 func(io.Reader, []uint32, int) int = unpack32Default
+func releaseArrayData(data []arrow.ArrayData) {
+	for _, d := range data {
+		if d != nil {
+			d.Release()
+		}
+	}
+}
+
+func releaseColumns(columns []arrow.Column) {
+	for _, col := range columns {
+		col.Release()
+	}
+}

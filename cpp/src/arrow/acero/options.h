@@ -339,7 +339,7 @@ class ARROW_ACERO_EXPORT AggregateNodeOptions : public ExecNodeOptions {
         keys(std::move(keys)),
         segment_keys(std::move(segment_keys)) {}
 
-  // aggregations which will be applied to the targetted fields
+  // aggregations which will be applied to the targeted fields
   std::vector<Aggregate> aggregates;
   // keys by which aggregations will be grouped (optional)
   std::vector<FieldRef> keys;

@@ -1306,3 +1306,19 @@ def test_extension_to_pandas_storage_type(registered_period_type):
         # Check the usage of types_mapper
         result = table.to_pandas(types_mapper=pd.ArrowDtype)
         assert isinstance(result["ext"].dtype, pd.ArrowDtype)
+
+
+def test_tensor_type_is_picklable():
+    # GH-35599
+
+    expected_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
+    result = pickle.loads(pickle.dumps(expected_type))
+
+    assert result == expected_type
+
+    arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+    storage = pa.array(arr, pa.list_(pa.int32(), 4))
+    expected_arr = pa.ExtensionArray.from_storage(expected_type, storage)
+    result = pickle.loads(pickle.dumps(expected_arr))
+
+    assert result == expected_arr

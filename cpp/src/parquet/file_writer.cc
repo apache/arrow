@@ -146,7 +146,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     auto data_encryptor =
         file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path->ToDotString())
                         : nullptr;
-    auto ci_builder = page_index_builder_ && properties_->page_index_enabled(path)
+    auto ci_builder = page_index_builder_ && properties_->page_index_enabled(path) &&
+                              properties_->statistics_enabled(path)
                           ? page_index_builder_->GetColumnIndexBuilder(column_ordinal)
                           : nullptr;
     auto oi_builder = page_index_builder_ && properties_->page_index_enabled(path)

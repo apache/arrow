@@ -176,9 +176,6 @@ class PARQUET_EXPORT ColumnProperties {
   }
 
   void set_codec_options(const std::shared_ptr<CodecOptions>& codec_options) {
-    if (!codec_options_) {
-      codec_options_ = std::make_shared<CodecOptions>();
-    }
     codec_options_ = codec_options;
   }
 
@@ -198,7 +195,12 @@ class PARQUET_EXPORT ColumnProperties {
 
   int compression_level() const { return codec_options_->compression_level_; }
 
-  const std::shared_ptr<CodecOptions>& codec_options() const { return codec_options_; }
+  const std::shared_ptr<CodecOptions>& codec_options() const {
+    if (!codec_options_) {
+      return std::make_shared<CodecOptions>();
+    }
+    return codec_options_;
+  }
 
   bool page_index_enabled() const { return page_index_enabled_; }
 

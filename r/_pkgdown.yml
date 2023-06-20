@@ -153,6 +153,7 @@ reference:
       - Scanner
       - FileFormat
       - CsvFileFormat
+      - JsonFileFormat
       - FileWriteOptions
       - FragmentScanOptions
       - map_batches

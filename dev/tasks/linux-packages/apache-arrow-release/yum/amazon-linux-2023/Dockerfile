@@ -15,16 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-ARG go=1.17
-ARG staticcheck=v0.2.2
-FROM ${arch}/golang:${go}-buster
+FROM amazonlinux:2023
 
-# FROM collects all the args, get back the staticcheck version arg
-ARG staticcheck
+ARG DEBUG
 
-RUN GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@${staticcheck}
-
-# Copy the go.mod and go.sum over and pre-download all the dependencies
-COPY go/ /arrow/go
-RUN cd /arrow/go && go mod download
+RUN \
+  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
+  dnf install -y ${quiet} \
+    rpmdevtools && \
+  dnf clean ${quiet} all

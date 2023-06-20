@@ -15,19 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-ARG node=16
-FROM ${arch}/node:${node}
+module Parquet
+  class ArrowFileReader
+    def each_row_group
+      return to_enum(__method__) {n_row_groups} unless block_given?
 
-ENV NODE_NO_WARNINGS=1
-
-# install rsync for copying the generated documentation
-RUN apt-get update -y -q && \
-    apt-get install -y -q --no-install-recommends rsync && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# TODO(kszucs):
-# 1. add the files required to install the dependencies to .dockerignore
-# 2. copy these files to their appropriate path
-# 3. download and compile the dependencies
+      n_row_groups.times do |i|
+        yield(read_row_group(i))
+      end
+    end
+  end
+end

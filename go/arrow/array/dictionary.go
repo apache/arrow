@@ -33,8 +33,8 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/apache/arrow/go/v13/internal/hashing"
+	"github.com/apache/arrow/go/v13/internal/json"
 	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/goccy/go-json"
 )
 
 // Dictionary represents the type for dictionary-encoded data with a data
