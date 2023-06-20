@@ -352,7 +352,8 @@ func (c *client) Authenticate(ctx context.Context, opts ...grpc.CallOption) erro
 	return c.authHandler.Authenticate(ctx, &clientAuthConn{stream})
 }
 
-// Ensure the result of a DoAction is fully consumed
+// ReadUntilEOF will drain a stream until either an error is returned
+// or EOF is encountered and nil is returned.
 func ReadUntilEOF(stream FlightService_DoActionClient) error {
 	for {
 		_, err := stream.Recv()
