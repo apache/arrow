@@ -37,7 +37,6 @@ import org.apache.arrow.vector.util.TransferPair;
  * (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class TimeStampSecTZVector extends TimeStampVector {
-  private final FieldReader reader;
   private final String timeZone;
 
   /**
@@ -63,7 +62,6 @@ public final class TimeStampSecTZVector extends TimeStampVector {
     super(name, fieldType, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) fieldType.getType();
     timeZone = arrowType.getTimezone();
-    reader = new TimeStampSecTZReaderImpl(TimeStampSecTZVector.this);
   }
 
   /**
@@ -77,17 +75,11 @@ public final class TimeStampSecTZVector extends TimeStampVector {
     super(field, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) field.getFieldType().getType();
     timeZone = arrowType.getTimezone();
-    reader = new TimeStampSecTZReaderImpl(TimeStampSecTZVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new TimeStampSecTZReaderImpl(TimeStampSecTZVector.this);
   }
 
   /**
@@ -239,6 +231,20 @@ public final class TimeStampSecTZVector extends TimeStampVector {
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     TimeStampSecTZVector to = new TimeStampSecTZVector(ref,
             field.getFieldType(), allocator);
+    return new TransferImpl(to);
+  }
+
+  /**
+   * Construct a TransferPair comprising of this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    TimeStampSecTZVector to = new TimeStampSecTZVector(field, allocator);
     return new TransferImpl(to);
   }
 
