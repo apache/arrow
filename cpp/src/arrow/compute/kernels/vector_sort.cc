@@ -1012,6 +1012,17 @@ class SortIndicesMetaFunction : public MetaFunction {
     if (n_sort_keys == 0) {
       return Status::Invalid("Must specify one or more sort keys");
     }
+    if (n_sort_keys == 1) {
+      // The single-key approach here differs from the record batch one as pre-resolving
+      // the table sort keys involves processing the table into batches, which we don't
+      // need to do here.
+      ARROW_ASSIGN_OR_RAISE(
+          auto chunked_array,
+          PrependInvalidColumn(options.sort_keys[0].target.GetOneFlattened(table)));
+      if (chunked_array->type()->id() != Type::STRUCT) {
+        return SortIndices(*chunked_array, options, ctx);
+      }
+    }
 
     auto out_type = uint64();
     auto length = table.num_rows();
