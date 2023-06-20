@@ -856,30 +856,32 @@ func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream 
 			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
 		}
 
+		cancelStatus := flight.CancelStatusUnspecified
 		for _, ep := range info.Endpoint {
 			ticket := string(ep.Ticket.Ticket)
 			index, err := tester.ExtractIndexFromTicket(ticket)
-			cancelStatus := flight.CancelStatusUnspecified
 			if err == nil {
 				st := tester.statuses[index]
 				if st.cancelled {
 					cancelStatus = flight.CancelStatusNotCancellable
 				} else {
 					st.cancelled = true
-					cancelStatus = flight.CancelStatusCancelled
+					if cancelStatus == flight.CancelStatusUnspecified {
+						cancelStatus = flight.CancelStatusCancelled
+					}
 					tester.statuses[index] = st
 				}
 			} else {
 				cancelStatus = flight.CancelStatusNotCancellable
 			}
-			result := flight.CancelFlightInfoResult{Status: cancelStatus}
-			out, err := packActionResult(&result)
-			if err != nil {
-				return err
-			}
-			if err = stream.Send(out); err != nil {
-				return err
-			}
+		}
+		result := flight.CancelFlightInfoResult{Status: cancelStatus}
+		out, err := packActionResult(&result)
+		if err != nil {
+			return err
+		}
+		if err = stream.Send(out); err != nil {
+			return err
 		}
 		return nil
 	case flight.CloseFlightInfoActionType:

@@ -512,24 +512,26 @@ class ExpirationTimeServer : public FlightServerBase {
     if (action.type == ActionType::kCancelFlightInfo.type) {
       ARROW_ASSIGN_OR_RAISE(auto info,
                             FlightInfo::Deserialize(std::string_view(*action.body)));
+      auto cancel_status = CancelStatus::kUnspecified;
       for (const auto& endpoint : info->endpoints()) {
         auto index_result = ExtractIndexFromTicket(endpoint.ticket.ticket);
-        auto cancel_status = CancelStatus::kUnspecified;
         if (index_result.ok()) {
           auto index = *index_result;
           if (statuses_[index].cancelled) {
             cancel_status = CancelStatus::kNotCancellable;
           } else {
             statuses_[index].cancelled = true;
-            cancel_status = CancelStatus::kCancelled;
+            if (cancel_status == CancelStatus::kUnspecified) {
+              cancel_status = CancelStatus::kCancelled;
+            }
           }
         } else {
           cancel_status = CancelStatus::kNotCancellable;
         }
-        auto cancel_result = CancelFlightInfoResult{cancel_status};
-        ARROW_ASSIGN_OR_RAISE(auto serialized, cancel_result.SerializeToString());
-        results.push_back(Result{Buffer::FromString(std::move(serialized))});
       }
+      auto cancel_result = CancelFlightInfoResult{cancel_status};
+      ARROW_ASSIGN_OR_RAISE(auto serialized, cancel_result.SerializeToString());
+      results.push_back(Result{Buffer::FromString(std::move(serialized))});
     } else if (action.type == ActionType::kCloseFlightInfo.type) {
       ARROW_ASSIGN_OR_RAISE(auto info,
                             FlightInfo::Deserialize(std::string_view(*action.body)));
