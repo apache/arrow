@@ -4368,6 +4368,7 @@ macro(build_google_cloud_cpp_storage)
          absl::cordz_handle
          absl::int128
          absl::log_severity
+         absl::malloc_internal
          absl::raw_logging_internal
          absl::spinlock_wait
          absl::str_format_internal
