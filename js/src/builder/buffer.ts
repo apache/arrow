@@ -16,16 +16,8 @@
 // under the License.
 
 import { memcpy } from '../util/buffer.js';
-import {
-    TypedArray, TypedArrayConstructor,
-    BigIntArray, BigIntArrayConstructor
-} from '../interfaces.js';
+import { TypedArray, BigIntArray, ArrayCtor } from '../interfaces.js';
 import { DataType } from '../type.js';
-
-/** @ignore */ type ArrayCtor<T extends TypedArray | BigIntArray> =
-    T extends TypedArray ? TypedArrayConstructor<T> :
-    T extends BigIntArray ? BigIntArrayConstructor<T> :
-    any;
 
 /** @ignore */
 const roundLengthUpToNearest64Bytes = (len: number, BPE: number) => ((((Math.ceil(len) * BPE) + 63) & ~63) || 64) / BPE;

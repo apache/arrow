@@ -99,6 +99,12 @@ export interface BigIntArrayConstructor<T extends BigIntArray> {
 }
 
 /** @ignore */
+export type ArrayCtor<T extends TypedArray | BigIntArray> =
+    T extends TypedArray ? TypedArrayConstructor<T> :
+    T extends BigIntArray ? BigIntArrayConstructor<T> :
+    any;
+
+/** @ignore */
 export type BuilderCtorArgs<
     T extends BuilderType<R, any>,
     R extends DataType = any,
