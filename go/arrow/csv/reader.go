@@ -496,7 +496,7 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		}
 	case *arrow.FixedSizeListType:
 		return func(s string) {
-			r.parseFixedSizeList(bldr, s)
+			r.parseFixedSizeList(bldr, s, int(dt.Len()))
 		}
 	case *arrow.BinaryType:
 		return func(s string) {
@@ -508,7 +508,7 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		}
 	case *arrow.FixedSizeBinaryType:
 		return func(s string) {
-			r.parseFixedSizeBinaryType(bldr, s)
+			r.parseFixedSizeBinaryType(bldr, s, dt.BitWidth())
 		}
 	case arrow.ExtensionType:
 		return func(s string) {
@@ -843,7 +843,7 @@ func (r *Reader) parseLargeList(field array.Builder, str string) {
 	}
 }
 
-func (r *Reader) parseFixedSizeList(field array.Builder, str string) {
+func (r *Reader) parseFixedSizeList(field array.Builder, str string, n int) {
 	if r.isNull(str) {
 		field.AppendNull()
 		return
@@ -867,8 +867,12 @@ func (r *Reader) parseFixedSizeList(field array.Builder, str string) {
 		r.err = err
 		return
 	}
-	for _, str := range items {
-		r.initFieldConverter(valueBldr)(str)
+	if len(items) == n {
+		for _, str := range items {
+			r.initFieldConverter(valueBldr)(str)
+		}
+	} else {
+		r.err = errors.New("invalid fixed size list format. the length of the items should be equal the length of the fixed size list")
 	}
 }
 
@@ -898,7 +902,7 @@ func (r *Reader) parseLargeBinaryType(field array.Builder, str string) {
 	field.(*array.BinaryBuilder).Append(decodedVal)
 }
 
-func (r *Reader) parseFixedSizeBinaryType(field array.Builder, str string) {
+func (r *Reader) parseFixedSizeBinaryType(field array.Builder, str string, bitWidth int) {
 	// specialize the implementation when we know we cannot have nulls
 	if r.isNull(str) {
 		field.AppendNull()
@@ -908,7 +912,11 @@ func (r *Reader) parseFixedSizeBinaryType(field array.Builder, str string) {
 	if err != nil {
 		panic("cannot decode base64 string " + str)
 	}
-	field.(*array.FixedSizeBinaryBuilder).Append(decodedVal)
+	if len(decodedVal)*8 == bitWidth {
+		field.(*array.FixedSizeBinaryBuilder).Append(decodedVal)
+	} else {
+		r.err = errors.New("invalid fixed size binary format. the bytes of the value should be equal the bit width of the fixed size binary")
+	}
 }
 
 func (r *Reader) parseExtension(field array.Builder, str string) {

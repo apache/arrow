@@ -225,7 +225,7 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 			{Name: "dec256", Type: &arrow.Decimal256Type{Precision: 5, Scale: 2}},
 			{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
 			{Name: "large_list(i64)", Type: arrow.LargeListOf(arrow.PrimitiveTypes.Int64)},
-			{Name: "fixed_size_list(i64)", Type: arrow.FixedSizeListOf(6, arrow.PrimitiveTypes.Int64)},
+			{Name: "fixed_size_list(i64)", Type: arrow.FixedSizeListOf(3, arrow.PrimitiveTypes.Int64)},
 			{Name: "binary", Type: arrow.BinaryTypes.Binary},
 			{Name: "large_binary", Type: arrow.BinaryTypes.LargeBinary},
 			{Name: "fixed_size_binary", Type: &arrow.FixedSizeBinaryType{ByteWidth: 3}},
