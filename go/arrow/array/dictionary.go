@@ -717,6 +717,8 @@ func (b *dictionaryBuilder) ResetFull() {
 
 func (b *dictionaryBuilder) Cap() int { return b.idxBuilder.Cap() }
 
+func (b *dictionaryBuilder) IsNull(i int) bool { return b.idxBuilder.IsNull(i) }
+
 func (b *dictionaryBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
