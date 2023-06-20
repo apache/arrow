@@ -867,6 +867,13 @@ def test_generic_ext_type_equality():
     assert not period_type == period_type3
 
 
+def test_generic_ext_type_pickling():
+    # GH-36038
+    period_type = PeriodType('D')
+    period_type_pickled = pickle.loads(pickle.dumps(period_type))
+    assert period_type == period_type_pickled
+
+
 def test_generic_ext_type_register(registered_period_type):
     # test that trying to register other type does not segfault
     with pytest.raises(TypeError):
