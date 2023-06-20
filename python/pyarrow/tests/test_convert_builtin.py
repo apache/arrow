@@ -2380,8 +2380,8 @@ def test_array_from_pylist_offset_overflow():
     ([pa.MonthDayNano([1, -1, -10100])], [pa.scalar(pa.MonthDayNano([1, -1, -10100]))]),
     (["a", "b"], [pa.scalar("a"), pa.scalar("b")]),
     ([b"a", b"b"], [pa.scalar(b"a"), pa.scalar(b"b")]),
-    ([1, 2, 3], pa.scalar([1, 2, 3])),
-    (["a", "b"], pa.scalar(["a", "b"])),
+    ([[1, 2, 3]], [pa.scalar([1, 2, 3])]),
+    ([["a", "b"]], [pa.scalar(["a", "b"])]),
 ])
 def test_array_accepts_pyarrow_scalar(seq, data, scalar_data):
     if type(seq(scalar_data)) == set:
