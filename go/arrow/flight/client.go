@@ -406,8 +406,7 @@ func (c *client) CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...
 	if err != nil {
 		return
 	}
-	err = ReadUntilEOF(stream)
-	return
+	return ReadUntilEOF(stream)
 }
 
 func (c *client) RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error) {
