@@ -16,17 +16,13 @@
 classdef tRecordBatch < matlab.unittest.TestCase
 % Test class containing tests for arrow.tabular.RecordBatch
 
-    properties
-        ClassName = "arrow.tabular.RecordBatch";
-    end
-
     methods(Test)
 
         function BasicTest(tc)
             T = table([1, 2, 3]');
             arrowRecordBatch = arrow.tabular.RecordBatch(T);
             className = string(class(arrowRecordBatch));
-            tc.verifyEqual(className, tc.ClassName);
+            tc.verifyEqual(className, "arrow.tabular.RecordBatch");
         end
 
         function SupportedTypes(tc)
@@ -96,10 +92,12 @@ classdef tRecordBatch < matlab.unittest.TestCase
         end
 
         function EmptyTable(tc)
-            % TODO: Handle construction of RecordBatch
-            %       from empty MATLAB table.
-            tc.verifyFail();
+            TOriginal = table();
+            arrowRecordBatch = arrow.tabular.RecordBatch(TOriginal);
+            TConverted = arrowRecordBatch.toMATLAB();
+            tc.verifyEqual(TOriginal, TConverted);
         end
 
     end
+    
 end

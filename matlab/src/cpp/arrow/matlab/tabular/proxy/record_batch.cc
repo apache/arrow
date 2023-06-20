@@ -75,8 +75,7 @@ namespace arrow::matlab::tabular::proxy {
         MATLAB_ERROR_IF_NOT_OK(maybe_schema.status(), error::SCHEMA_BUILDER_FINISH_ERROR_ID);
 
         const auto schema = *maybe_schema;
-        // TODO: Handle empty case where there are no arrays.
-        const auto num_rows = arrow_arrays[0]->length();
+        const auto num_rows = arrow_arrays.size() == 0 ? 0 : arrow_arrays[0]->length();
         const auto record_batch = arrow::RecordBatch::Make(schema, num_rows, arrow_arrays);
         auto record_batch_proxy = std::make_shared<arrow::matlab::tabular::proxy::RecordBatch>(record_batch);
 
