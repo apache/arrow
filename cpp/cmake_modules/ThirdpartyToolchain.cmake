@@ -4372,6 +4372,7 @@ macro(build_google_cloud_cpp_storage)
          absl::malloc_internal
          absl::raw_logging_internal
          absl::spinlock_wait
+         absl::stacktrace
          absl::str_format_internal
          absl::strings
          absl::strings_internal
