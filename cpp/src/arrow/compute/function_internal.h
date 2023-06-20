@@ -382,8 +382,8 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(std::nullopt_t) {
 }
 
 template <typename T>
-static inline auto GenericToScalar(
-    const std::optional<T>& value) -> Result<decltype(MakeScalar(value.value()))> {
+static inline auto GenericToScalar(const std::optional<T>& value)
+    -> Result<decltype(MakeScalar(value.value()))> {
   return value.has_value() ? MakeScalar(value.value()) : std::make_shared<NullScalar>();
 }
 
@@ -496,11 +496,11 @@ static inline enable_if_same_result<T, Datum> GenericFromScalar(
 }
 
 template <typename>
-constexpr bool is_optional_v = false;
+constexpr inline bool is_optional_v = false;
 template <typename T>
-constexpr bool is_optional_v<std::optional<T>> = true;
+constexpr inline bool is_optional_v<std::optional<T>> = true;
 template <>
-constexpr bool is_optional_v<std::nullopt_t> = true;
+constexpr inline bool is_optional_v<std::nullopt_t> = true;
 
 template <typename T>
 static inline std::enable_if_t<is_optional_v<T>, Result<T>> GenericFromScalar(
