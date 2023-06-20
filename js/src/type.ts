@@ -568,7 +568,7 @@ export class FixedSizeBinary extends DataType<Type.FixedSizeBinary> {
     protected static [Symbol.toStringTag] = ((proto: FixedSizeBinary) => {
         (<any>proto).byteWidth = null;
         (<any>proto).ArrayType = Uint8Array;
-        (<any>proto).OffsetType = Uint32Array;
+        (<any>proto).OffsetType = Int32Array;
         return proto[Symbol.toStringTag] = 'FixedSizeBinary';
     })(FixedSizeBinary.prototype);
 }

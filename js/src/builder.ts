@@ -202,7 +202,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     declare protected _offsets: DataBufferBuilder<Int32Array | BigInt64Array>;
     public get valueOffsets() { return this._offsets ? this._offsets.buffer : null; }
 
-    declare protected _values: BufferBuilder<T['TArray'], any>;
+    declare protected _values: BufferBuilder<T['TArray']>;
     public get values() { return this._values ? this._values.buffer : null; }
 
     declare protected _nulls: BitmapBufferBuilder;
