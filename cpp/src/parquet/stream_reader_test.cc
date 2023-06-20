@@ -947,5 +947,77 @@ TEST_F(TestReadingDataFiles, ByteArrayDecimal) {
   EXPECT_EQ(i, 25);
 }
 
+class TestMultiRowGroupStreamReader : public ::testing::Test {
+ public:
+  TestMultiRowGroupStreamReader() { createTestFile(); }
+
+ protected:
+  const char* GetDataFile() const { return "stream_reader_multirowgroup_test.parquet"; }
+
+  void SetUp() {
+    PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(GetDataFile()));
+    auto file_reader = parquet::ParquetFileReader::Open(infile);
+    reader_ = StreamReader{std::move(file_reader)};
+  }
+
+  void TearDown() { reader_ = StreamReader{}; }
+
+  std::shared_ptr<schema::GroupNode> GetSchema() {
+    schema::NodeVector fields;
+    fields.push_back(schema::PrimitiveNode::Make("row_group_number", Repetition::REQUIRED,
+                                                 Type::INT32, ConvertedType::UINT_16));
+
+    fields.push_back(schema::PrimitiveNode::Make("row_number", Repetition::REQUIRED,
+                                                 Type::INT64, ConvertedType::UINT_64));
+
+    return std::static_pointer_cast<schema::GroupNode>(
+        schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  }
+
+  void createTestFile() {
+    PARQUET_ASSIGN_OR_THROW(auto outfile,
+                            ::arrow::io::FileOutputStream::Open(GetDataFile()));
+
+    auto file_writer = ParquetFileWriter::Open(outfile, GetSchema());
+
+    StreamWriter os{std::move(file_writer)};
+
+    int nrows = 0;
+    for (auto group = 0; group < num_row_groups; ++group) {
+        for (auto i = 0; i < num_rows_per_group; ++i) {
+          os << static_cast<uint16_t>(group);
+          os << static_cast<uint64_t>(nrows);
+          os << EndRow;
+          nrows++;
+        }
+        os.EndRowGroup();
+    }
+  }
+
+  StreamReader reader_;
+  static constexpr int num_row_groups = 5;
+  static constexpr int num_rows_per_group = 10;
+};
+
+TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
+  // skip somewhere in the middle that is a few row groups in to the file
+  auto num_rows_to_skip = 33;
+
+  auto retval = reader_.SkipRows(num_rows_to_skip);
+  ASSERT_GE(retval, 0);
+
+  // there are 50 total rows, so definitely not EOF
+  ASSERT_FALSE(reader_.eof());
+
+  // make sure we skipped to where we expected
+  uint16_t current_row_group = 0;
+  uint64_t current_global_row = 0;
+  reader_ >> current_row_group;
+  EXPECT_EQ(current_row_group, num_rows_to_skip/10);
+
+  reader_ >> current_global_row;
+  EXPECT_EQ(current_global_row, num_rows_to_skip);
+}
+
 }  // namespace test
 }  // namespace parquet
