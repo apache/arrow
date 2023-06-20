@@ -4370,9 +4370,10 @@ macro(build_google_cloud_cpp_storage)
          absl::log_severity
          absl::raw_logging_internal
          absl::spinlock_wait
+         absl::str_format_internal
          absl::strings
          absl::strings_internal
-         absl::str_format_internal
+         absl::synchronization
          absl::throw_delegate
          absl::time
          absl::time_zone
