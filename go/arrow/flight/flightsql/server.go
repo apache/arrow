@@ -511,25 +511,6 @@ func (BaseServer) BeginSavepoint(context.Context, ActionBeginSavepointRequest) (
 	return nil, status.Error(codes.Unimplemented, "BeginSavepoint not implemented")
 }
 
-func (b *BaseServer) CancelQuery(context context.Context, request ActionCancelQueryRequest) (CancelResult, error) {
-	result, err := b.CancelFlightInfo(context, request.GetInfo())
-	if err != nil {
-		return CancelResultUnspecified, err
-	}
-	switch result.Status {
-	case flight.CancelStatusUnspecified:
-		return CancelResultUnspecified, nil
-	case flight.CancelStatusCancelled:
-		return CancelResultCancelled, nil
-	case flight.CancelStatusCancelling:
-		return CancelResultCancelling, nil
-	case flight.CancelStatusNotCancellable:
-		return CancelResultNotCancellable, nil
-	default:
-		return CancelResultUnspecified, nil
-	}
-}
-
 func (BaseServer) CancelFlightInfo(context.Context, *flight.FlightInfo) (flight.CancelFlightInfoResult, error) {
 	return flight.CancelFlightInfoResult{Status: flight.CancelStatusUnspecified},
 		status.Error(codes.Unimplemented, "CancelFlightInfo not implemented")
@@ -667,12 +648,6 @@ type Server interface {
 	EndSavepoint(context.Context, ActionEndSavepointRequest) error
 	// EndTransaction commits or rollsback a transaction
 	EndTransaction(context.Context, ActionEndTransactionRequest) error
-	// CancelQuery attempts to explicitly cancel a query
-	// Deprecated: Since 13.0.0. If you can require all clients
-	// use 13.0.0 or later, you can use only CancelFlightInfo and
-	// you don't need to use CancelQuery. Otherwise, you may need
-	// to use CancelQuery and/or CancelFlightInfo.
-	CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error)
 	// CancelFlightInfo attempts to explicitly cancel a FlightInfo
 	CancelFlightInfo(context.Context, *flight.FlightInfo) (flight.CancelFlightInfoResult, error)
 	// CloseFlightInfo attempts to explicitly close a FlightInfo
@@ -968,6 +943,21 @@ func (f *flightSqlServer) ListActions(_ *flight.Empty, stream flight.FlightServi
 	return nil
 }
 
+func cancelStatusToCancelResult(status flight.CancelStatus) CancelResult {
+	switch status {
+	case flight.CancelStatusUnspecified:
+		return CancelResultUnspecified
+	case flight.CancelStatusCancelled:
+		return CancelResultCancelled
+	case flight.CancelStatusCancelling:
+		return CancelResultCancelling
+	case flight.CancelStatusNotCancellable:
+		return CancelResultNotCancellable
+	default:
+		return CancelResultUnspecified
+	}
+}
+
 func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightService_DoActionServer) error {
 	var anycmd anypb.Any
 
@@ -1097,9 +1087,11 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 			return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightInfo for CancelQuery: %s", err)
 		}
 
-		if result.Result, err = f.srv.CancelQuery(stream.Context(), &cancelQueryRequest{&info}); err != nil {
+		cancelFlightInfoResult, err := f.srv.CancelFlightInfo(stream.Context(), &info)
+		if err != nil {
 			return err
 		}
+		result.Result = cancelStatusToCancelResult(cancelFlightInfoResult.Status)
 
 		out, err := packActionResult(&result)
 		if err != nil {
