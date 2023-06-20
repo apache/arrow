@@ -295,7 +295,6 @@ def unary_agg_func_fixture():
     func_doc = {"summary": "y=avg(x)",
                 "description": "find mean of x"}
 
-    breakpoint()
     pc.register_aggregate_function(func,
                                    func_name,
                                    func_doc,

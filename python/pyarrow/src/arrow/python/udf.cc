@@ -329,7 +329,8 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
   }
 
   Status Finalize(KernelContext* ctx, Datum* out) {
-      const int num_args = input_schema->num_fields();
+      // Exclude the last column which is the group id
+      const int num_args = input_schema->num_fields() - 1;
 
       ARROW_ASSIGN_OR_RAISE(auto groups_buffer, groups.Finish());
       ARROW_ASSIGN_OR_RAISE(
@@ -355,7 +356,6 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
           OwnedRef arg_tuple(PyTuple_New(num_args));
           RETURN_NOT_OK(CheckPyError());
 
-          // Exclude the last column which is the group id
           for (int arg_id = 0; arg_id < num_args; arg_id++) {
             // Since we combined chunks there is only one chunk
             std::shared_ptr<Array> c_data = group_rb->column(arg_id);

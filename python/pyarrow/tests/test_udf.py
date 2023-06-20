@@ -674,7 +674,6 @@ def test_hash_agg_basic(unary_agg_func_fixture):
     table2 = pa.table([arr4, arr3], names=["id", "value"])
     table = pa.concat_tables([table1, table2])
 
-    breakpoint()
     result = table.group_by("id").aggregate([("value", "mean_udf")])
     expected = table.group_by("id").aggregate([("value", "mean")]).rename_columns(['id', 'value_mean_udf'])
 
