@@ -82,7 +82,7 @@ export abstract class DataType<TType extends Type = Type, TChildren extends Type
     protected static [Symbol.toStringTag] = ((proto: DataType) => {
         (<any>proto).children = null;
         (<any>proto).ArrayType = Array;
-        (<any>proto).OffsetType = Array;
+        (<any>proto).OffsetType = Int32Array;
         return proto[Symbol.toStringTag] = 'DataType';
     })(DataType.prototype);
 }
@@ -260,7 +260,6 @@ export class Utf8 extends DataType<Type.Utf8> {
     public toString() { return `Utf8`; }
     protected static [Symbol.toStringTag] = ((proto: Utf8) => {
         (<any>proto).ArrayType = Uint8Array;
-        (<any>proto).OffsetType = Int32Array;
         return proto[Symbol.toStringTag] = 'Utf8';
     })(Utf8.prototype);
 }
