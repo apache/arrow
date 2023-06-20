@@ -251,7 +251,7 @@ func (d *Dictionary) CanCompareIndices(other *Dictionary) bool {
 	}
 
 	minlen := int64(min(d.data.dictionary.length, other.data.dictionary.length))
-	return ArraySliceEqual(d.Dictionary(), 0, minlen, other.Dictionary(), 0, minlen)
+	return SliceEqual(d.Dictionary(), 0, minlen, other.Dictionary(), 0, minlen)
 }
 
 func (d *Dictionary) ValueStr(i int) string {
@@ -306,7 +306,7 @@ func (d *Dictionary) MarshalJSON() ([]byte, error) {
 }
 
 func arrayEqualDict(l, r *Dictionary) bool {
-	return ArrayEqual(l.Dictionary(), r.Dictionary()) && ArrayEqual(l.indices, r.indices)
+	return Equal(l.Dictionary(), r.Dictionary()) && Equal(l.indices, r.indices)
 }
 
 func arrayApproxEqualDict(l, r *Dictionary, opt equalOption) bool {
