@@ -24,7 +24,7 @@ import {
     Bool,
     Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64,
     Float, Float16, Float32, Float64,
-    Utf8,
+    Utf8, LargeUtf8,
     Binary,
     FixedSizeBinary,
     Date_, DateDay, DateMillisecond,
@@ -98,6 +98,7 @@ TestDataVectorGenerator.prototype.visitInt64 = generateBigInt;
 TestDataVectorGenerator.prototype.visitUint64 = generateBigInt;
 TestDataVectorGenerator.prototype.visitFloat = generateFloat;
 TestDataVectorGenerator.prototype.visitUtf8 = generateUtf8;
+TestDataVectorGenerator.prototype.visitLargeUtf8 = generateLargeUtf8;
 TestDataVectorGenerator.prototype.visitBinary = generateBinary;
 TestDataVectorGenerator.prototype.visitFixedSizeBinary = generateFixedSizeBinary;
 TestDataVectorGenerator.prototype.visitDate = generateDate;
@@ -211,6 +212,7 @@ export const float16 = (length = 100, nullCount = Math.trunc(length * 0.2)) => v
 export const float32 = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new Float32(), length, nullCount);
 export const float64 = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new Float64(), length, nullCount);
 export const utf8 = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new Utf8(), length, nullCount);
+export const largeUtf8 = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new LargeUtf8(), length, nullCount);
 export const binary = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new Binary(), length, nullCount);
 export const fixedSizeBinary = (length = 100, nullCount = Math.trunc(length * 0.2), byteWidth = 8) => vectorGenerator.visit(new FixedSizeBinary(byteWidth), length, nullCount);
 export const dateDay = (length = 100, nullCount = Math.trunc(length * 0.2)) => vectorGenerator.visit(new DateDay(), length, nullCount);
