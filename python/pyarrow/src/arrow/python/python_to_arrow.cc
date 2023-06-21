@@ -83,8 +83,6 @@ struct MonthDayNanoAttrData {
   const int64_t multiplier;
 };
 
-int import_pyarrow();
-
 template <>
 struct MonthDayNanoTraits<MonthDayNanoField::kMonths> {
   using c_type = int32_t;
@@ -914,7 +912,7 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
   Status Append(PyObject* value) override {
     if (PyValue::IsNull(this->options_, value)) {
       return this->struct_builder_->AppendNull();
-    } else if (arrow::py::is_scalar(value)){
+    } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
       return this->struct_builder_->AppendScalar(*scalar);

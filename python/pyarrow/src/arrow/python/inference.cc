@@ -79,8 +79,6 @@ Status ImportPresentIntervalTypes(OwnedRefNoGIL* interval_types_tuple) {
 
 }  // namespace
 
-import_pyarrow();
-
 #define _NUMPY_UNIFY_NOOP(DTYPE) \
   case NPY_##DTYPE:              \
     return OK;
