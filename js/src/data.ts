@@ -29,7 +29,7 @@ import { popcnt_bit_range, truncateBitmap } from './util/bit.js';
 
 /** @ignore */ export type NullBuffer = Uint8Array | null | undefined;
 /** @ignore */ export type TypeIdsBuffer = Int8Array | ArrayLike<number> | Iterable<number> | undefined;
-/** @ignore */ export type ValueOffsetsBuffer = Int32Array | BigInt64Array | ArrayLike<number> | Iterable<number> | undefined;
+/** @ignore */ export type ValueOffsetsBuffer = Int32Array | ArrayLike<number> | Iterable<number> | undefined;
 /** @ignore */ export type DataBuffer<T extends DataType> = T['TArray'] | ArrayLike<number> | Iterable<number> | undefined;
 
 /** @ignore */
