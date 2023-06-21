@@ -2,7 +2,7 @@
 % Please edit documentation in R/schema.R
 \name{infer_schema}
 \alias{infer_schema}
-\title{Create a schema or extract one from an object.}
+\title{Extract a schema from an object}
 \usage{
 infer_schema(x)
 }
@@ -10,5 +10,5 @@ infer_schema(x)
 \item{x}{An object which has a schema, e.g. a \code{Dataset}}
 }
 \description{
-Create a schema or extract one from an object.
+Extract a schema from an object
 }
