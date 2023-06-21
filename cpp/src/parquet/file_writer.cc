@@ -153,11 +153,14 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     auto oi_builder = page_index_builder_ && properties_->page_index_enabled(path)
                           ? page_index_builder_->GetOffsetIndexBuilder(column_ordinal)
                           : nullptr;
+    auto codec_options = properties_->codec_options(path)
+                             ? *properties_->codec_options(path)
+                             : CodecOptions();
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
         sink_, properties_->compression(path), col_meta, row_group_ordinal_,
         static_cast<int16_t>(column_ordinal), properties_->memory_pool(), false,
         meta_encryptor, data_encryptor, properties_->page_checksum_enabled(), ci_builder,
-        oi_builder, *properties_->codec_options(path));
+        oi_builder, codec_options);
     column_writers_[0] = ColumnWriter::Make(col_meta, std::move(pager), properties_);
     return column_writers_[0].get();
   }
@@ -291,12 +294,14 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       auto oi_builder = page_index_builder_ && properties_->page_index_enabled(path)
                             ? page_index_builder_->GetOffsetIndexBuilder(column_ordinal)
                             : nullptr;
+      auto codec_options = properties_->codec_options(path)
+                               ? *properties_->codec_options(path)
+                               : CodecOptions();
       std::unique_ptr<PageWriter> pager = PageWriter::Open(
           sink_, properties_->compression(path), col_meta,
           static_cast<int16_t>(row_group_ordinal_), static_cast<int16_t>(column_ordinal),
           properties_->memory_pool(), buffered_row_group_, meta_encryptor, data_encryptor,
-          properties_->page_checksum_enabled(), ci_builder, oi_builder,
-          *properties_->codec_options(path));
+          properties_->page_checksum_enabled(), ci_builder, oi_builder, codec_options);
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_));
     }
