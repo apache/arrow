@@ -22,7 +22,7 @@ on:
 
 permissions:
   contents: read
-  
+
 env:
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"
@@ -30,13 +30,60 @@ env:
 jobs:
 
   complete:
-    name: AMD64 Ubuntu 20.04 Complete Documentation
+    name: AMD64 Ubuntu 22.04 Complete Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 150
     env:
-      UBUNTU: "20.04"
+      UBUNTU: "22.04"
     steps:
+      - name: Free up disk space
+        run: |
+          df -h
+          echo "::group::/usr/local/*"
+          du -hsc /usr/local/*
+          echo "::endgroup::"
+          echo "::group::/usr/local/bin/*"
+          du -hsc /usr/local/bin/*
+          echo "::endgroup::"
+          # ~1GB (From 1.2GB to 214MB)
+          sudo rm -rf \
+            /usr/local/bin/aliyun \
+            /usr/local/bin/azcopy \
+            /usr/local/bin/bicep \
+            /usr/local/bin/cmake-gui \
+            /usr/local/bin/cpack \
+            /usr/local/bin/helm \
+            /usr/local/bin/hub \
+            /usr/local/bin/kubectl \
+            /usr/local/bin/minikube \
+            /usr/local/bin/node \
+            /usr/local/bin/packer \
+            /usr/local/bin/pulumi* \
+            /usr/local/bin/stack \
+            /usr/local/bin/terraform || :
+          echo "::group::/usr/local/share/*"
+          du -hsc /usr/local/share/*
+          echo "::endgroup::"
+          # 1.3GB
+          sudo rm -rf /usr/local/share/powershell || :
+          echo "::group::/opt/*"
+          du -hsc /opt/*
+          echo "::endgroup::"
+          echo "::group::/opt/hostedtoolcache/*"
+          du -hsc /opt/hostedtoolcache/*
+          echo "::endgroup::"
+          # 5.3GB
+          sudo rm -rf /opt/hostedtoolcache/CodeQL || :
+          # 1.4GB
+          sudo rm -rf /opt/hostedtoolcache/go || :
+          # 489MB
+          sudo rm -rf /opt/hostedtoolcache/PyPy || :
+          # 1.2GB
+          sudo rm -rf /opt/hostedtoolcache/Python || :
+          # 376MB
+          sudo rm -rf /opt/hostedtoolcache/node || :
+          df -h
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
