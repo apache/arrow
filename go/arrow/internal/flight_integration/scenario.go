@@ -2179,22 +2179,24 @@ func (m *flightSqlScenarioTester) BeginTransaction(context.Context, flightsql.Ac
 	return []byte(transactionID), nil
 }
 
-func (m *flightSqlScenarioTester) CancelQuery(_ context.Context, request flightsql.ActionCancelQueryRequest) (flightsql.CancelResult, error) {
-	if err := assertEq(1, len(request.GetInfo().Endpoint)); err != nil {
-		return flightsql.CancelResultUnspecified, fmt.Errorf("%w: expected 1 endpoint for CancelQuery", err)
+func (m *flightSqlScenarioTester) CancelFlightInfo(_ context.Context, info *flight.FlightInfo) (flight.CancelFlightInfoResult, error) {
+	result := flight.CancelFlightInfoResult{Status: flight.CancelStatusUnspecified}
+	if err := assertEq(1, len(info.Endpoint)); err != nil {
+		return result, fmt.Errorf("%w: expected 1 endpoint for CancelQuery", err)
 	}
 
-	endpoint := request.GetInfo().Endpoint[0]
+	endpoint := info.Endpoint[0]
 	tkt, err := flightsql.GetStatementQueryTicket(endpoint.Ticket)
 	if err != nil {
-		return flightsql.CancelResultUnspecified, err
+		return result, err
 	}
 
 	if err := assertEq([]byte("PLAN HANDLE"), tkt.GetStatementHandle()); err != nil {
-		return flightsql.CancelResultUnspecified, fmt.Errorf("%w: unexpected ticket in CancelQuery", err)
+		return result, fmt.Errorf("%w: unexpected ticket in CancelQuery", err)
 	}
 
-	return flightsql.CancelResultCancelled, nil
+	result.Status = flight.CancelStatusCancelled
+	return result, nil
 }
 
 func (m *flightSqlScenarioTester) EndSavepoint(_ context.Context, request flightsql.ActionEndSavepointRequest) error {
