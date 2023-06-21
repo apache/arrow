@@ -51,7 +51,7 @@ struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
 
     const auto& start = options->start;
 
-    // Ensure `start` option, if given, matches input type,
+    // Ensure `start` option, if given, matches input type
     if (start.has_value() && !start.value()->type->Equals(*args.inputs[0])) {
       ARROW_ASSIGN_OR_RAISE(auto casted_start,
                             Cast(Datum(start.value()), args.inputs[0],
