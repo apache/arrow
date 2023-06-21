@@ -457,7 +457,38 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    */
   @Deprecated
   default void cancelQuery(FlightInfo info, CallContext context, StreamListener<CancelResult> listener) {
-    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+    cancelFlightInfo(info, context, new StreamListener<CancelStatus>() {
+      @Override
+      public void onNext(CancelStatus val) {
+        switch (val) {
+          case UNSPECIFIED:
+            listener.onNext(CancelResult.UNSPECIFIED);
+            break;
+          case CANCELLED:
+            listener.onNext(CancelResult.CANCELLED);
+            break;
+          case CANCELLING:
+            listener.onNext(CancelResult.CANCELLING);
+            break;
+          case NOT_CANCELLABLE:
+            listener.onNext(CancelResult.NOT_CANCELLABLE);
+            break;
+          default:
+            // XXX: CheckStyle requires a default clause which arguably makes the code worse.
+            throw new AssertionError("Unknown enum variant " + val);
+        }
+      }
+
+      @Override
+      public void onError(Throwable t) {
+        listener.onError(t);
+      }
+
+      @Override
+      public void onCompleted() {
+        listener.onCompleted();
+      }
+    });
   }
 
   /**

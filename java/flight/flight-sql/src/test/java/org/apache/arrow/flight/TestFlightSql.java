@@ -26,6 +26,8 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -990,5 +992,34 @@ public class TestFlightSql {
           }
       );
     }
+  }
+
+  @Test
+  public void testCancelFlightInfo() {
+    FlightInfo info = sqlClient.getSqlInfo();
+    FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, () -> sqlClient.cancelFlightInfo(info));
+    assertEquals(FlightStatusCode.UNIMPLEMENTED, fre.status().code());
+  }
+
+  @Test
+  public void testCancelQuery() {
+    FlightInfo info = sqlClient.getSqlInfo();
+    FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, () -> sqlClient.cancelQuery(info));
+    assertEquals(FlightStatusCode.UNIMPLEMENTED, fre.status().code());
+  }
+
+  @Test
+  public void testCloseInfo() {
+    FlightInfo info = sqlClient.getSqlInfo();
+    FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, () -> sqlClient.closeFlightInfo(info));
+    assertEquals(FlightStatusCode.UNIMPLEMENTED, fre.status().code());
+  }
+
+  @Test
+  public void testRefreshEndpoint() {
+    FlightInfo info = sqlClient.getSqlInfo();
+    FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,
+        () -> sqlClient.refreshFlightEndpoint(info.getEndpoints().get(0)));
+    assertEquals(FlightStatusCode.UNIMPLEMENTED, fre.status().code());
   }
 }
