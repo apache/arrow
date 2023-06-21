@@ -524,9 +524,6 @@ if(NOT Arrow_FOUND)
     set(ARROW_SHARED_FILES ${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
   endif()
 
-  message(STATUS "=================ARROW_SHARED_LIB_FILENAME: ${ARROW_SHARED_LIB_FILENAME}")
-  message(STATUS "=================ARROW_SHARED_FILES: ${ARROW_SHARED_FILES}")
-
   # The subfolders cmake and pkgconfig are excluded as they will be empty.
   # Note: The following CMake Issue suggests enabling an option to exclude all
   # folders that would be empty after installation:
