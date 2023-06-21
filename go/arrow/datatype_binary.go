@@ -111,8 +111,10 @@ func (*StringViewType) view()                 {}
 func (t *StringViewType) Fingerprint() string { return typeFingerprint(t) }
 func (*StringViewType) Layout() DataTypeLayout {
 	variadic := SpecVariableWidth()
-	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
-		SpecFixedWidth(StringHeaderSizeBytes)}, VariadicSpec: &variadic}
+	return DataTypeLayout{
+		Buffers:      []BufferSpec{SpecBitmap(), SpecFixedWidth(StringHeaderSizeBytes)},
+		VariadicSpec: &variadic,
+	}
 }
 
 var (
