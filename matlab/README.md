@@ -125,7 +125,7 @@ $ ctest --test-dir build
 
 Included below are some example code snippets that illustrate how to use the MATLAB interface.
 
-### `Array`
+### Arrow `Array` classes (i.e. `arrow.array.<Array>`)
 
 #### Create an Arrow `Float64Array` from a MATLAB `double` array
 
@@ -159,6 +159,7 @@ arrowArray =
   false,
   true
 ]
+
 >> matlabArray = toMATLAB(arrowArray)
 
 matlabArray =
@@ -190,7 +191,7 @@ validElements =
 
    1   0   1   0   1
 
-% Specify which values are Null/Valid by supplying a `logical` validity "mask"
+% Specify which values are Null/Valid by supplying a logical validity "mask"
 >> arrowArray = arrow.array.Int8Array(matlabArray, Valid=validElements)
 
 arrowArray = 
