@@ -17,7 +17,6 @@ classdef tFloat32Type < hPrimitiveType
 % Test class for arrow.type.Float32Type
 
     properties
-        ArrowTypeClassName = "arrow.type.Float32Type"
         ArrowType = arrow.type.Float32Type
         TypeID = arrow.type.ID.Float32
         BitWidth = 32;

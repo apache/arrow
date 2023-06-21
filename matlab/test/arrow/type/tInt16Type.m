@@ -17,7 +17,6 @@ classdef tInt16Type < hPrimitiveType
 % Test class for arrow.type.Int16Type
 
     properties
-        ArrowTypeClassName = "arrow.type.Int16Type"
         ArrowType = arrow.type.Int16Type
         TypeID = arrow.type.ID.Int16
         BitWidth = 16;

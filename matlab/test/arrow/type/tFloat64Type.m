@@ -17,7 +17,6 @@ classdef tFloat64Type < hPrimitiveType
 % Test class for arrow.type.Float64Type
 
     properties
-        ArrowTypeClassName = "arrow.type.Float64Type"
         ArrowType = arrow.type.Float64Type
         TypeID = arrow.type.ID.Float64
         BitWidth = 64;

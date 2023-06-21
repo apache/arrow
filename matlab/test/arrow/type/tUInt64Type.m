@@ -17,7 +17,6 @@ classdef tUInt64Type < hPrimitiveType
 % Test class for arrow.type.UInt64Type
 
     properties
-        ArrowTypeClassName = "arrow.type.Int64Type"
         ArrowType = arrow.type.UInt64Type
         TypeID = arrow.type.ID.UInt64
         BitWidth = 64;

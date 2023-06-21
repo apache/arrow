@@ -17,7 +17,6 @@ classdef tInt8Type < hPrimitiveType
 % Test class for arrow.type.Int8Type
 
     properties
-        ArrowTypeClassName = "arrow.type.Int8Type"
         ArrowType = arrow.type.Int8Type
         TypeID = arrow.type.ID.Int8
         BitWidth = 8;

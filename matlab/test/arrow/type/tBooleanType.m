@@ -17,7 +17,6 @@ classdef tBooleanType < hPrimitiveType
 % Test class for arrow.type.BooleanType
 
     properties
-        ArrowTypeClassName = "arrow.type.BooleanType"
         ArrowType = arrow.type.BooleanType
         TypeID = arrow.type.ID.Boolean
         BitWidth = 1;
