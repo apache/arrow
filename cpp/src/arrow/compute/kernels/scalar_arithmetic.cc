@@ -642,6 +642,16 @@ struct ArithmeticFunction : ScalarFunction {
           ReplaceTypes(type, types);
         }
       }
+
+      if (name_ == "multiply_checked") {
+        // Multiply_checked requires the same type for both operands, so we can't easily
+        // make kernels for duration * integers, so we just cast the integers to int64
+        if ((*types)[0].id() == Type::DURATION && is_integer((*types)[1].id())) {
+          ReplaceTypes(int64(), &(*types)[1], 1);
+        } else if ((*types)[1].id() == Type::DURATION && is_integer((*types)[0].id())) {
+          ReplaceTypes(int64(), &(*types)[0], 1);
+        }
+      }
     }
 
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;

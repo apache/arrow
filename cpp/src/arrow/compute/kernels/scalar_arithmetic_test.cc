@@ -1165,8 +1165,38 @@ TEST(TestBinaryArithmetic, MultiplyDuration) {
       CheckScalarBinary("multiply", ArrayFromJSON(duration(time_unit), "[1, 2, 3, 4]"),
                         ArrayFromJSON(numeric, "[1, 2, 3, null]"),
                         ArrayFromJSON(duration(time_unit), "[1, 4, 9, null]"));
+      CheckScalarBinary("multiply_checked", ArrayFromJSON(numeric, "[1, 2, 3, null]"),
+                        ArrayFromJSON(duration(time_unit), "[1, 2, 3, 4]"),
+                        ArrayFromJSON(duration(time_unit), "[1, 4, 9, null]"));
+      CheckScalarBinary("multiply_checked",
+                        ArrayFromJSON(duration(time_unit), "[1, 2, 3, 4]"),
+                        ArrayFromJSON(numeric, "[1, 2, 3, null]"),
+                        ArrayFromJSON(duration(time_unit), "[1, 4, 9, null]"));
     }
   }
+
+  // and overflows are properly handled
+  ASSERT_RAISES(
+      Invalid,
+      CallFunction("multiply_checked",
+                   {ArrayFromJSON(uint8(), "[2]"),
+                    ArrayFromJSON(duration(TimeUnit::SECOND), "[4611686018427387904]")}));
+  ASSERT_RAISES(
+      Invalid, CallFunction("multiply_checked", {ArrayFromJSON(duration(TimeUnit::SECOND),
+                                                               "[4611686018427387904]"),
+                                                 ArrayFromJSON(uint8(), "[2]")}));
+  ASSERT_RAISES(Invalid,
+                CallFunction("multiply_checked",
+                             {ArrayFromJSON(duration(TimeUnit::SECOND), "[1]"),
+                              ArrayFromJSON(uint64(), "[18446744073709551615]")}));
+
+  CheckScalarBinary("multiply",
+                    ArrayFromJSON(duration(TimeUnit::SECOND), "[4611686018427387904]"),
+                    ArrayFromJSON(uint8(), "[2]"),
+                    ArrayFromJSON(duration(TimeUnit::SECOND), "[-9223372036854775808]"));
+  CheckScalarBinary("multiply", ArrayFromJSON(uint8(), "[2]"),
+                    ArrayFromJSON(duration(TimeUnit::SECOND), "[4611686018427387904]"),
+                    ArrayFromJSON(duration(TimeUnit::SECOND), "[-9223372036854775808]"));
 }
 
 TEST(TestUnaryArithmetic, DispatchBest) {
