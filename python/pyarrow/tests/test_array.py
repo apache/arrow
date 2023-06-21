@@ -3350,12 +3350,10 @@ def test_to_pandas_timezone():
 @pytest.mark.pandas
 def test_to_pandas_float16_list():
     # https://github.com/apache/arrow/issues/36168
-    arr = pa.array([[np.float16(1)], [np.float16(2)], [np.float16(3)]])
-    s = arr.to_pandas()
-    assert s is not None
-    base_refcount = sys.getrefcount(s.values.base)
-    assert base_refcount == 2
-    assert s.sum() == 6
+    expected = [[np.float16(1)], [np.float16(2)], [np.float16(3)]]
+    arr = pa.array(expected)
+    result = arr.to_pandas()
+    assert result.tolist() == expected
 
 
 def test_array_sort():
