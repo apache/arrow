@@ -97,14 +97,94 @@ if(ARROW_BUILD_STATIC AND WIN32)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static arrow_dataset_testing_static ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared arrow_dataset_testing_shared ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DS_EXPORTING)
 endforeach()
+
+# Define arrow_dataset_testing library
+if(ARROW_TESTING)
+  if(ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+    set(ARROW_DATASET_TESTING_SHARED_LINK_LIBS arrow_dataset_shared)
+    set(ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_dataset_static)
+    set(ARROW_DATASET_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+        ArrowDataset::arrow_dataset_shared)
+    set(ARROW_DATASET_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+    ArrowDataset::arrow_dataset_static)
+  elseif(ARROW_BUILD_SHARED)
+    set(ARROW_DATASET_TESTING_SHARED_LINK_LIBS arrow_dataset_shared)
+    set(ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_dataset_shared)
+    set(ARROW_DATASET_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+    ArrowDataset::arrow_dataset_shared)
+    set(ARROW_DATASET_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+    ArrowDataset::arrow_dataset_shared)
+  else()
+    set(ARROW_DATASET_TESTING_SHARED_LINK_LIBS arrow_dataset_static)
+    set(ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_dataset_static)
+    set(ARROW_DATASET_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+    ArrowDataset::arrow_dataset_static)
+    set(ARROW_DATASET_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+    ArrowDataset::arrow_dataset_static)
+  endif()
+  if(ARROW_ACERO_TEST_LINKAGE STREQUAL "shared")
+    list(APPEND ARROW_DATASET_TESTING_SHARED_LINK_LIBS arrow_testing_shared)
+    list(APPEND ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_testing_shared)
+    list(APPEND ARROW_DATASET_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+         ArrowTesting::arrow_testing_shared)
+    list(APPEND ARROW_DATASET_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+         ArrowTesting::arrow_testing_shared)
+    list(APPEND ARROW_DATASET_TESTING_SHARED_LINK_LIBS arrow_acero_testing_shared)
+    list(APPEND ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_acero_testing_shared)
+    list(APPEND ARROW_DATASET_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+         ArrowAcero::arrow_acero_testing_shared)
+    list(APPEND ARROW_DATASET_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+         ArrowAcero::arrow_acero_testing_shared)
+  else()
+    list(APPEND ARROW_DATASET_TESTING_SHARED_LINK_LIBS arrow_testing_static)
+    list(APPEND ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_testing_static)
+    list(APPEND ARROW_DATASET_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+         ArrowTesting::arrow_testing_static)
+    list(APPEND ARROW_DATASET_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+         ArrowTesting::arrow_testing_static)
+    list(APPEND ARROW_DATASET_TESTING_SHARED_LINK_LIBS arrow_acero_testing_static)
+    list(APPEND ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_acero_testing_static)
+    list(APPEND ARROW_DATASET_TESTING_SHARED_INSTALL_INTERFACE_LIBS
+        ArrowAcero::arrow_acero_testing_static)
+    list(APPEND ARROW_DATASET_TESTING_STATIC_INSTALL_INTERFACE_LIBS
+        ArrowAcero::arrow_acero_testing_static)
+  endif()
+  list(APPEND ARROW_DATASET_TESTING_SHARED_LINK_LIBS ${ARROW_DATASET_TEST_INTERFACE_LIBS})
+  list(APPEND ARROW_DATASET_TESTING_STATIC_LINK_LIBS ${ARROW_DATASET_TEST_INTERFACE_LIBS})
+  add_arrow_lib(arrow_dataset_testing
+                CMAKE_PACKAGE_NAME
+                ArrowDatasetTesting
+                PKG_CONFIG_NAME
+                arrow-dataset-testing
+                OUTPUTS
+                ARROW_DATASET_TESTING_LIBRARIES
+                SOURCES
+                test_util_internal.cc
+                DEPENDENCIES
+                ${ARROW_GTEST_GTEST}
+                arrow_dependencies
+                SHARED_LINK_LIBS
+                ${ARROW_DATASET_TESTING_SHARED_LINK_LIBS}
+                SHARED_INSTALL_INTERFACE_LIBS
+                ${ARROW_DATASET_TESTING_SHARED_INSTALL_INTERFACE_LIBS}
+                STATIC_LINK_LIBS
+                ${ARROW_DATASET_TESTING_STATIC_LINK_LIBS}
+                STATIC_INSTALL_INTERFACE_LIBS
+                ${ARROW_DATASET_TESTING_STATIC_INSTALL_INTERFACE_LIBS})
+
+  foreach(LIB_TARGET ${ARROW_DATASET_TESTING_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DATASET_EXPORTING)
+  endforeach()
+endif()
+
 
 # Adding unit tests part of the "dataset" portion of the test suite
 function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
@@ -134,10 +214,6 @@ function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
                  ${ARROW_DATASET_TEST_LINK_LIBS}
                  PREFIX
                  ${PREFIX}
-                 SOURCES
-                 ${REL_TEST_NAME}.cc
-                 test_util_internal.cc
-                 ../acero/test_util_internal.cc
                  LABELS
                  ${LABELS}
                  ${ARG_UNPARSED_ARGUMENTS})
