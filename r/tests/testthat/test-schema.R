@@ -140,6 +140,22 @@ test_that("Schema modification", {
   expect_error(schm[[c(2, 4)]] <- int32(), "length(i) not equal to 1", fixed = TRUE)
 })
 
+test_that("Metadata can be reassigned as a whole", {
+  schm <- schema(b = double(), c = string(), d = int8())
+
+  # Check named character vector
+  schm$metadata <- c("foo" = "bar")
+  expect_identical(schm$metadata, list(foo = "bar"))
+
+  # Check list()
+  schm$metadata <- list("foo" = "bar")
+  expect_identical(schm$metadata, list(foo = "bar"))
+
+  # Check NULL for removal
+  schm$metadata <- NULL
+  expect_identical(schm$metadata, set_names(list(), character()))
+})
+
 test_that("Metadata is preserved when modifying Schema", {
   schm <- schema(b = double(), c = string(), d = int8())
   schm$metadata$foo <- "bar"

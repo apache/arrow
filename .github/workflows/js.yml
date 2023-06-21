@@ -41,7 +41,7 @@ permissions:
 jobs:
 
   docker:
-    name: AMD64 Debian 11 NodeJS 16
+    name: AMD64 Debian 11 NodeJS 18
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -80,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [16]
+        node: [18]
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
@@ -104,7 +104,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [16]
+        node: [18]
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3

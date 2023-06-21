@@ -37,7 +37,6 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public final class SmallIntVector extends BaseFixedWidthVector implements BaseIntVector {
   public static final byte TYPE_WIDTH = 2;
-  private final FieldReader reader;
 
   /**
    * Instantiate a SmallIntVector. This doesn't allocate any memory for
@@ -71,17 +70,11 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
    */
   public SmallIntVector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = new SmallIntReaderImpl(SmallIntVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new SmallIntReaderImpl(SmallIntVector.this);
   }
 
   /**
@@ -317,7 +310,7 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
    *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
@@ -327,6 +320,19 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     return new TransferImpl(ref, allocator);
+  }
+
+  /**
+   * Construct a TransferPair comprising this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
   }
 
   /**
@@ -360,6 +366,10 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new SmallIntVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new SmallIntVector(field, allocator);
     }
 
     public TransferImpl(SmallIntVector to) {

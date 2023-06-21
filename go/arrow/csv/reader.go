@@ -33,6 +33,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/decimal128"
 	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/float16"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 )
@@ -423,6 +424,10 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(str string) {
 			r.parseUint64(bldr, str)
 		}
+	case *arrow.Float16Type:
+		return func(str string) {
+			r.parseFloat16(bldr, str)
+		}
 	case *arrow.Float32Type:
 		return func(str string) {
 			r.parseFloat32(bldr, str)
@@ -627,6 +632,21 @@ func (r *Reader) parseUint64(field array.Builder, str string) {
 	field.(*array.Uint64Builder).Append(v)
 }
 
+func (r *Reader) parseFloat16(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	v, err := strconv.ParseFloat(str, 32)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+	field.(*array.Float16Builder).Append(float16.New(float32(v)))
+}
+
 func (r *Reader) parseFloat32(field array.Builder, str string) {
 	if r.isNull(str) {
 		field.AppendNull()
@@ -640,7 +660,6 @@ func (r *Reader) parseFloat32(field array.Builder, str string) {
 		return
 	}
 	field.(*array.Float32Builder).Append(float32(v))
-
 }
 
 func (r *Reader) parseFloat64(field array.Builder, str string) {

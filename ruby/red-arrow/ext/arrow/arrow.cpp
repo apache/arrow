@@ -43,6 +43,26 @@ namespace red_arrow {
     VALUE month;
     VALUE nanosecond;
   }
+
+  void
+  record_batch_reader_mark(gpointer object)
+  {
+    auto reader = GARROW_RECORD_BATCH_READER(object);
+    auto sources = garrow_record_batch_reader_get_sources(reader);
+    for (auto source = sources; sources; sources = g_list_next(sources)) {
+      rbgobj_gc_mark_instance(source->data);
+    }
+  }
+
+  void
+  execute_plan_mark(gpointer object)
+  {
+    auto plan = GARROW_EXECUTE_PLAN(object);
+    auto nodes = garrow_execute_plan_get_nodes(plan);
+    for (auto node = nodes; nodes; nodes = g_list_next(nodes)) {
+      rbgobj_gc_mark_instance(node->data);
+    }
+  }
 }
 
 extern "C" void Init_arrow() {
@@ -93,4 +113,9 @@ extern "C" void Init_arrow() {
   red_arrow::symbols::millisecond = ID2SYM(rb_intern("millisecond"));
   red_arrow::symbols::month = ID2SYM(rb_intern("month"));
   red_arrow::symbols::nanosecond = ID2SYM(rb_intern("nanosecond"));
+
+  rbgobj_register_mark_func(GARROW_TYPE_RECORD_BATCH_READER,
+                            red_arrow::record_batch_reader_mark);
+  rbgobj_register_mark_func(GARROW_TYPE_EXECUTE_PLAN,
+                            red_arrow::execute_plan_mark);
 }

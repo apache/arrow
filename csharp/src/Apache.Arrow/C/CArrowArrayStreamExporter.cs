@@ -69,10 +69,6 @@ namespace Apache.Arrow.C
             {
                 throw new ArgumentNullException(nameof(arrayStream));
             }
-            if (cArrayStream->release != null)
-            {
-                throw new ArgumentException("Cannot export array to a struct that is already initialized.", nameof(cArrayStream));
-            }
 
             cArrayStream->private_data = ExportedArrayStream.Export(arrayStream);
             cArrayStream->get_schema = GetSchemaPtr;

@@ -340,7 +340,7 @@ func (BooleanStatistics) defaultMin() bool { return true }
 func (BooleanStatistics) defaultMax() bool { return false }
 func (s *Int32Statistics) defaultMin() int32 {
 	if s.order == schema.SortUNSIGNED {
-		val := math.MaxUint32
+		val := uint32(math.MaxUint32)
 		return int32(val)
 	}
 	return math.MaxInt32

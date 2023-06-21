@@ -16,6 +16,7 @@
 // under the License.
 
 #include <mutex>
+#include <utility>
 #include <unordered_map>
 
 #include "arrow/array.h"
@@ -25,6 +26,7 @@
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/ipc/api.h"
 #include "arrow/util/iterator.h"
@@ -569,7 +571,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_releaseBuffe
  * Signature: (Ljava/lang/String;II)J
  */
 JNIEXPORT jlong JNICALL
-Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
+Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory__Ljava_lang_String_2I(
     JNIEnv* env, jobject, jstring uri, jint file_format_id) {
   JNI_METHOD_START
   std::shared_ptr<arrow::dataset::FileFormat> file_format =
@@ -578,6 +580,50 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory(
   std::shared_ptr<arrow::dataset::DatasetFactory> d =
       JniGetOrThrow(arrow::dataset::FileSystemDatasetFactory::Make(
           JStringToCString(env, uri), file_format, options));
+  return CreateNativeRef(d);
+  JNI_METHOD_END(-1L)
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_file_JniWrapper
+ * Method:    makeFileSystemDatasetFactory
+ * Signature: ([Ljava/lang/String;II)J
+ */
+JNIEXPORT jlong JNICALL
+Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory___3Ljava_lang_String_2I(
+    JNIEnv* env, jobject, jobjectArray uris, jint file_format_id) {
+  JNI_METHOD_START
+
+  std::shared_ptr<arrow::dataset::FileFormat> file_format =
+      JniGetOrThrow(GetFileFormat(file_format_id));
+  arrow::dataset::FileSystemFactoryOptions options;
+
+  std::vector<std::string> uri_vec = ToStringVector(env, uris);
+  if (uri_vec.size() == 0) {
+    JniThrow("No URIs provided.");
+  }
+
+  // If not all URIs, throw exception
+  if (auto elem = std::find_if_not(uri_vec.begin(), uri_vec.end(), arrow::fs::internal::IsLikelyUri);
+      elem != uri_vec.end()) {
+    JniThrow("Unrecognized file type in URI: " + *elem);
+  }
+
+  std::vector<std::string> output_paths;
+  std::string first_path;
+  // We know that uri_vec isn't empty, from the conditional above
+  auto fs = JniGetOrThrow(arrow::fs::FileSystemFromUri(uri_vec[0], &first_path));
+  output_paths.push_back(first_path);
+
+  std::transform(uri_vec.begin() + 1, uri_vec.end(), std::back_inserter(output_paths),
+    [&](const auto& s) -> std::string {
+    auto result = JniGetOrThrow(fs->PathFromUri(s));
+    return std::move(result);
+  });
+
+  std::shared_ptr<arrow::dataset::DatasetFactory> d =
+      JniGetOrThrow(arrow::dataset::FileSystemDatasetFactory::Make(
+        std::move(fs), std::move(output_paths), file_format, options));
   return CreateNativeRef(d);
   JNI_METHOD_END(-1L)
 }

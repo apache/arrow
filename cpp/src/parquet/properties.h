@@ -154,7 +154,7 @@ class PARQUET_EXPORT ColumnProperties {
         statistics_enabled_(statistics_enabled),
         max_stats_size_(max_stats_size),
         compression_level_(Codec::UseDefaultCompressionLevel()),
-        page_index_enabled_(DEFAULT_IS_PAGE_INDEX_ENABLED) {}
+        page_index_enabled_(page_index_enabled) {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
@@ -524,8 +524,11 @@ class PARQUET_EXPORT WriterProperties {
 
     /// Enable writing page index in general for all columns. Default disabled.
     ///
-    /// Page index contains statistics for data pages and can be used to skip pages
-    /// when scanning data in ordered and unordered columns.
+    /// Writing statistics to the page index disables the old method of writing
+    /// statistics to each data page header.
+    /// The page index makes filtering more efficient than the page header, as
+    /// it gathers all the statistics for a Parquet file in a single place,
+    /// avoiding scattered I/O.
     ///
     /// Please check the link below for more details:
     /// https://github.com/apache/parquet-format/blob/master/PageIndex.md

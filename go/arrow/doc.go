@@ -32,6 +32,8 @@ Requirements
 
 Despite the go.mod stating go1.18, everything except for the compute package
 is able to be built with go1.17 (and most is also compatible with go1.16).
+
+To build with tinygo include the noasm build tag.
 */
 package arrow
 

@@ -46,7 +46,7 @@
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 
-#include "generated/parquet_types.h"  // IYWU pragma: export
+#include "generated/parquet_types.h"  // IWYU pragma: export
 
 namespace parquet {
 

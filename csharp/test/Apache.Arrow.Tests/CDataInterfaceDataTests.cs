@@ -85,6 +85,7 @@ namespace Apache.Arrow.Tests
                 CArrowArrayImporter.ImportArray(cArray, GetTestArray().Data.DataType);
             });
             Assert.True(wasCalled);
+
             CArrowArray.Free(cArray);
 
             GC.KeepAlive(releaseCallback);
