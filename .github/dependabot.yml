@@ -22,4 +22,4 @@ updates:
     schedule:
       interval: "weekly"
     commit-message:
-      prefix: "MINOR: [CI]"
+      prefix: "MINOR: [CI] "
