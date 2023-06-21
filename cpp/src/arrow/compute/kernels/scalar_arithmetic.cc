@@ -617,21 +617,6 @@ ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) 
   }
 }
 
-void PromoteIntegerForDurationArithmetic(std::vector<TypeHolder>* types) {
-  bool has_duration = std::any_of(types->begin(), types->end(), [](const TypeHolder& t) {
-    return t.id() == Type::DURATION;
-  });
-
-  if (!has_duration) return;
-
-  // Require implicit casts to int64 to match duration's bit width
-  for (auto& type : *types) {
-    if (is_integer(type.id())) {
-      type = int64();
-    }
-  }
-}
-
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
