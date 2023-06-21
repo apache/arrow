@@ -21,9 +21,9 @@
 
 ## Status
 
-This is a very early stage MATLAB interface to the Apache Arrow C++ libraries.
-
 > **Warning** The MATLAB interface is under active development and should be considered experimental.
+
+This is a very early stage MATLAB interface to the Apache Arrow C++ libraries.
 
 Currently, the MATLAB interface supports:
 
@@ -32,7 +32,7 @@ Currently, the MATLAB interface supports:
 
 Supported `arrow.array.Array` types are included in the table below.
 
-**NOTE**: All Arrow Array classes are part of the package `arrow.array` package (e.g. `arrow.array.Float64Array`).
+**NOTE**: All Arrow `Array` classes are part of the package `arrow.array` package (e.g. `arrow.array.Float64Array`).
 
 | MATLAB Array Type | Arrow Array Type |
 | ----------------- | ---------------- |
