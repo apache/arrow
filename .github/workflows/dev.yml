@@ -92,7 +92,7 @@ jobs:
         with:
           ruby-version: '2.7'
       - name: Install .NET
-        uses: actions/setup-dotnet@v2
+        uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '7.0.x'
       - name: Install Dependencies
