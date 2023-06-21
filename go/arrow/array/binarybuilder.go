@@ -490,9 +490,21 @@ func (b *BinaryViewBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *BinaryViewBuilder) AppendNulls(n int) {
+	b.Reserve(n)
+	for i := 0; i < n; i++ {
+		b.UnsafeAppendBoolToBitmap(false)
+	}
+}
+
 func (b *BinaryViewBuilder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(true)
+}
+
+func (b *BinaryViewBuilder) AppendEmptyValues(n int) {
+	b.Reserve(n)
+	b.unsafeAppendBoolsToBitmap(nil, n)
 }
 
 func (b *BinaryViewBuilder) UnsafeAppend(v []byte) {
