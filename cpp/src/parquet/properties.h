@@ -172,6 +172,9 @@ class PARQUET_EXPORT ColumnProperties {
   }
 
   void set_compression_level(int compression_level) {
+    if (!codec_options_) {
+      codec_options_ = std::make_shared<CodecOptions>();
+    }
     codec_options_->compression_level_ = compression_level;
   }
 
