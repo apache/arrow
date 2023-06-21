@@ -57,9 +57,49 @@ struct GetBytesProcessed<Type, enable_if_base_binary<Type>> {
   }
 };
 
+template <typename DataType>
+struct GetBytesProcessed<DataType, enable_if_list_view_like<DataType>> {
+  static int64_t Get(const std::shared_ptr<Array>& arr) {
+    using OffsetType = typename TypeTraits<DataType>::OffsetType::c_type;
+
+    int64_t total_bytes = 0;
+    if constexpr (DataType::type_id == Type::LIST ||
+                  DataType::type_id == Type::LARGE_LIST) {
+      total_bytes += (arr->length() + 1) * sizeof(OffsetType);
+    } else if constexpr (DataType::type_id == Type::LIST_VIEW) {
+      // ListView has an extra buffer for the sizes and it uses the same type as the
+      // offsets buffer.
+      total_bytes += 2 * arr->length() * sizeof(OffsetType);
+    } else {
+      ADD_FAILURE() << "GetBytesProcessed dispatching not implemented for "
+                    << arr->type()->ToString();
+    }
+
+    auto child_array = std::static_pointer_cast<ListArray>(arr)->values();
+    switch (child_array->type_id()) {
+      case Type::UINT32:
+        total_bytes += GetBytesProcessed<UInt32Type>::Get(child_array);
+        break;
+      case Type::UINT64:
+        total_bytes += GetBytesProcessed<UInt64Type>::Get(child_array);
+        break;
+      case Type::STRING:
+        total_bytes += GetBytesProcessed<StringType>::Get(child_array);
+        break;
+      case Type::LARGE_STRING:
+        total_bytes += GetBytesProcessed<LargeStringType>::Get(child_array);
+        break;
+      default:
+        ADD_FAILURE() << "GetBytesProcessed dispatching not implemented for "
+                      << child_array->type()->ToString();
+        break;
+    }
+    return total_bytes;
+  }
+};
+
 template <typename Type>
-static void IfElseBench(benchmark::State& state) {
-  auto type = TypeTraits<Type>::type_singleton();
+static void IfElseBench(benchmark::State& state, const std::shared_ptr<DataType>& type) {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
   int64_t len = state.range(0);
@@ -85,11 +125,25 @@ static void IfElseBench(benchmark::State& state) {
                           (GetBytesProcessed<BooleanType>::Get(cond) +
                            GetBytesProcessed<Type>::Get(left) +
                            GetBytesProcessed<Type>::Get(right)));
+  state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
 template <typename Type>
-static void IfElseBenchContiguous(benchmark::State& state) {
+static void IfElseBench(benchmark::State& state) {
   auto type = TypeTraits<Type>::type_singleton();
+  return IfElseBench<Type>(state, type);
+}
+
+template <typename ListType, typename ValueType>
+static void IfElseBenchList(benchmark::State& state) {
+  auto value_type = TypeTraits<ValueType>::type_singleton();
+  auto list_type = std::make_shared<ListType>(value_type);
+  return IfElseBench<ListType>(state, list_type);
+}
+
+template <typename Type>
+static void IfElseBenchContiguous(benchmark::State& state,
+                                  const std::shared_ptr<DataType>& type) {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
   int64_t len = state.range(0);
@@ -117,6 +171,20 @@ static void IfElseBenchContiguous(benchmark::State& state) {
                           (GetBytesProcessed<BooleanType>::Get(cond) +
                            GetBytesProcessed<Type>::Get(left) +
                            GetBytesProcessed<Type>::Get(right)));
+  state.SetItemsProcessed(state.iterations() * (len - offset));
+}
+
+template <typename Type>
+static void IfElseBenchContiguous(benchmark::State& state) {
+  auto type = TypeTraits<Type>::type_singleton();
+  return IfElseBenchContiguous<Type>(state, type);
+}
+
+template <typename ListType, typename ValueType>
+static void IfElseBenchListContiguous(benchmark::State& state) {
+  auto value_type = TypeTraits<ValueType>::type_singleton();
+  auto list_type = std::make_shared<ListType>(value_type);
+  return IfElseBenchContiguous<ListType>(state, list_type);
 }
 
 static void IfElseBench64(benchmark::State& state) {
@@ -125,6 +193,22 @@ static void IfElseBench64(benchmark::State& state) {
 
 static void IfElseBench32(benchmark::State& state) {
   return IfElseBench<UInt32Type>(state);
+}
+
+static void IfElseBenchListUInt32(benchmark::State& state) {
+  return IfElseBenchList<ListType, UInt32Type>(state);
+}
+
+static void IfElseBenchListUInt64(benchmark::State& state) {
+  return IfElseBenchList<ListType, UInt64Type>(state);
+}
+
+static void IfElseBenchListString32(benchmark::State& state) {
+  return IfElseBenchList<ListType, StringType>(state);
+}
+
+static void IfElseBenchListString64(benchmark::State& state) {
+  return IfElseBenchList<ListType, LargeStringType>(state);
 }
 
 static void IfElseBenchString32(benchmark::State& state) {
@@ -141,6 +225,22 @@ static void IfElseBench64Contiguous(benchmark::State& state) {
 
 static void IfElseBench32Contiguous(benchmark::State& state) {
   return IfElseBenchContiguous<UInt32Type>(state);
+}
+
+static void IfElseBenchListUInt32Contiguous(benchmark::State& state) {
+  return IfElseBenchListContiguous<ListType, UInt32Type>(state);
+}
+
+static void IfElseBenchListUInt64Contiguous(benchmark::State& state) {
+  return IfElseBenchListContiguous<ListType, UInt64Type>(state);
+}
+
+static void IfElseBenchListString32Contiguous(benchmark::State& state) {
+  return IfElseBenchListContiguous<ListType, StringType>(state);
+}
+
+static void IfElseBenchListString64Contiguous(benchmark::State& state) {
+  return IfElseBenchListContiguous<ListType, LargeStringType>(state);
 }
 
 static void IfElseBenchString64Contiguous(benchmark::State& state) {
@@ -403,36 +503,45 @@ static void ChooseBench64(benchmark::State& state) {
   return ChooseBench<Int64Type>(state);
 }
 
+// IfElse: Numerics
 BENCHMARK(IfElseBench32)->Args({kNumItems, 0});
 BENCHMARK(IfElseBench64)->Args({kNumItems, 0});
-
 BENCHMARK(IfElseBench32)->Args({kNumItems, 99});
 BENCHMARK(IfElseBench64)->Args({kNumItems, 99});
-
 BENCHMARK(IfElseBench32Contiguous)->Args({kNumItems, 0});
 BENCHMARK(IfElseBench64Contiguous)->Args({kNumItems, 0});
-
 BENCHMARK(IfElseBench32Contiguous)->Args({kNumItems, 99});
 BENCHMARK(IfElseBench64Contiguous)->Args({kNumItems, 99});
 
+// IfElse: Lists
+BENCHMARK(IfElseBenchListUInt32)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchListUInt64)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchListString32)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchListString64)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchListUInt32Contiguous)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchListUInt64Contiguous)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchListString32Contiguous)->Args({kNumItems, 0});
+BENCHMARK(IfElseBenchListString64Contiguous)->Args({kNumItems, 0});
+
+// IfElse: Strings
 BENCHMARK(IfElseBenchString32)->Args({kNumItems, 0});
 BENCHMARK(IfElseBenchString64)->Args({kNumItems, 0});
-
 BENCHMARK(IfElseBenchString32Contiguous)->Args({kNumItems, 99});
 BENCHMARK(IfElseBenchString64Contiguous)->Args({kNumItems, 99});
 
+// CaseWhen: Numerics
 BENCHMARK(CaseWhenBench64)->Args({kNumItems, 0});
 BENCHMARK(CaseWhenBench64)->Args({kNumItems, 99});
-
 BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 0});
 BENCHMARK(CaseWhenBench64Contiguous)->Args({kNumItems, 99});
 
+// CaseWhen: Lists
 BENCHMARK(CaseWhenBenchList)->Args({kFewItems, 0});
 BENCHMARK(CaseWhenBenchList)->Args({kFewItems, 99});
 
+// CaseWhen: Strings
 BENCHMARK(CaseWhenBenchString)->Args({kFewItems, 0});
 BENCHMARK(CaseWhenBenchString)->Args({kFewItems, 99});
-
 BENCHMARK(CaseWhenBenchStringContiguous)->Args({kFewItems, 0});
 BENCHMARK(CaseWhenBenchStringContiguous)->Args({kFewItems, 99});
 
