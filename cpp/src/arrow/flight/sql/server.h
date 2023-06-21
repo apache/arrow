@@ -603,14 +603,14 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
 
   /// \brief Attempt to explicitly cancel a query.
   ///
-  /// Deprecated since 13.0.0. You just need to implement
-  /// CancelFlightInfo() to support both the CancelFlightInfo action
-  /// (for newer clients) and the CancelQuery action (for older
-  /// clients).
-  ///
   /// \param[in] context  The call context.
   /// \param[in] request  The query to cancel.
   /// \return             The cancellation result.
+  /// \deprecated Deprecated in 13.0.0. You just need to implement
+  /// CancelFlightInfo() to support both the CancelFlightInfo action
+  /// (for newer clients) and the CancelQuery action (for older
+  /// clients).
+  ARROW_DEPRECATED("Deprecated in 13.0.0. Implement CancelFlightInfo() instead.")
   virtual arrow::Result<CancelResult> CancelQuery(
       const ServerCallContext& context, const ActionCancelQueryRequest& request);
 

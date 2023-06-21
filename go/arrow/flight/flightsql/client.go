@@ -486,7 +486,7 @@ func (c *Client) getSchema(ctx context.Context, desc *flight.FlightDescriptor, o
 // Close will close the underlying flight Client in use by this flightsql.Client
 func (c *Client) Close() error { return c.Client.Close() }
 
-// Deprecated: Since 13.0.0. Use CancelFlightInfo instead if you can
+// Deprecated: In 13.0.0. Use CancelFlightInfo instead if you can
 // assume that server requires 13.0.0 or later. Otherwise, you may
 // need to use CancelQuery and/or CancelFlightInfo.
 func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) (cancelResult CancelResult, err error) {

@@ -823,7 +823,9 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     } else if (action.type == FlightSqlServerBase::kCancelQueryActionType.type) {
       ARROW_ASSIGN_OR_RAISE(ActionCancelQueryRequest internal_command,
                             ParseActionCancelQueryRequest(any));
+      ARROW_SUPPRESS_DEPRECATION_WARNING
       ARROW_ASSIGN_OR_RAISE(CancelResult result, CancelQuery(context, internal_command));
+      ARROW_UNSUPPRESS_DEPRECATION_WARNING
       ARROW_ASSIGN_OR_RAISE(Result packed_result, PackActionResult(result));
 
       results.push_back(std::move(packed_result));

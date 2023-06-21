@@ -1411,8 +1411,6 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     return sql::ActionBeginTransactionResult{kTransactionId};
   }
 
-  // TODO: This isn't used yet because some implementations don't
-  // support CancelFlightInfo yet.
   arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
       const ServerCallContext& context, const FlightInfo& info) override {
     ARROW_RETURN_NOT_OK(AssertEq<size_t>(1, info.endpoints().size(),
@@ -1423,19 +1421,6 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     ARROW_RETURN_NOT_OK(AssertEq<std::string>("PLAN HANDLE", ticket.statement_handle,
                                               "Unexpected ticket in CancelFlightInfo"));
     return CancelFlightInfoResult{CancelStatus::kCancelled};
-  }
-
-  arrow::Result<sql::CancelResult> CancelQuery(
-      const ServerCallContext& context,
-      const sql::ActionCancelQueryRequest& request) override {
-    ARROW_RETURN_NOT_OK(AssertEq<size_t>(1, request.info->endpoints().size(),
-                                         "Expected 1 endpoint for CancelQuery"));
-    const FlightEndpoint& endpoint = request.info->endpoints()[0];
-    ARROW_ASSIGN_OR_RAISE(auto ticket,
-                          sql::StatementQueryTicket::Deserialize(endpoint.ticket.ticket));
-    ARROW_RETURN_NOT_OK(AssertEq<std::string>("PLAN HANDLE", ticket.statement_handle,
-                                              "Unexpected ticket in CancelQuery"));
-    return sql::CancelResult::kCancelled;
   }
 
   Status EndSavepoint(const ServerCallContext& context,
