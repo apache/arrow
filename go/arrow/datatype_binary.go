@@ -133,4 +133,7 @@ var (
 		BinaryView:  &BinaryViewType{},
 		StringView:  &StringViewType{},
 	}
+
+	_ BinaryViewDataType = (*StringViewType)(nil)
+	_ BinaryViewDataType = (*BinaryViewType)(nil)
 )

@@ -367,6 +367,8 @@ func (a *BinaryView) Value(i int) []byte {
 	return buf.Bytes()[start : start+uint32(s.Len())]
 }
 
+// ValueString returns the value at index i as a string instead of
+// a byte slice, without copying the underlying data.
 func (a *BinaryView) ValueString(i int) string {
 	b := a.Value(i)
 	return *(*string)(unsafe.Pointer(&b))
@@ -390,6 +392,14 @@ func (a *BinaryView) String() string {
 	return o.String()
 }
 
+// ValueStr is paired with AppendValueFromString in that it returns
+// the value at index i as a string: Semantically this means that for
+// a null value it will return the string "(null)", otherwise it will
+// return the value as a base64 encoded string suitable for CSV/JSON.
+//
+// This is always going to be less performant than just using ValueString
+// and exists to fulfill the Array interface to provide a method which
+// can produce a human readable string for a given index.
 func (a *BinaryView) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr

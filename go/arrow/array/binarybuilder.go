@@ -467,6 +467,14 @@ func (b *BinaryViewBuilder) Append(v []byte) {
 	b.UnsafeAppend(v)
 }
 
+// AppendString is identical to Append, only accepting a string instead
+// of a byte slice, avoiding the extra copy that would occur if you simply
+// did []byte(v).
+//
+// This is different than AppendValueFromString which exists for the
+// Builder interface, in that this expects raw binary data which is
+// appended as such. AppendValueFromString expects base64 encoded binary
+// data instead.
 func (b *BinaryViewBuilder) AppendString(v string) {
 	// create a []byte without copying the bytes
 	// in go1.20 this would be unsafe.StringData
@@ -562,6 +570,12 @@ func (b *BinaryViewBuilder) AppendStringValues(v []string, valid []bool) {
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
 }
 
+// AppendValueFromString is paired with ValueStr for fulfilling the
+// base Builder interface. This is intended to read in a human-readable
+// string such as from CSV or JSON and append it to the array.
+//
+// For Binary values are expected to be base64 encoded (and will be
+// decoded as such before being appended).
 func (b *BinaryViewBuilder) AppendValueFromString(s string) error {
 	if s == NullValueStr {
 		b.AppendNull()
