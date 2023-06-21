@@ -18,9 +18,9 @@
 #pragma once
 
 #include <assert.h>
-#include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "arrow/c/abi.h"
 
@@ -61,8 +61,8 @@ inline void ArrowSchemaMove(struct ArrowSchema* src, struct ArrowSchema* dest) {
 inline void ArrowSchemaRelease(struct ArrowSchema* schema) {
   if (!ArrowSchemaIsReleased(schema)) {
     schema->release(schema);
-    CHECK_OR_DIE(ArrowSchemaIsReleased(schema), 
-      "ArrowSchemaRelease did not cleanup release callback");    
+    CHECK_OR_DIE(ArrowSchemaIsReleased(schema),
+                 "ArrowSchemaRelease did not cleanup release callback");
   }
 }
 
@@ -89,8 +89,8 @@ inline void ArrowArrayMove(struct ArrowArray* src, struct ArrowArray* dest) {
 inline void ArrowArrayRelease(struct ArrowArray* array) {
   if (!ArrowArrayIsReleased(array)) {
     array->release(array);
-    CHECK_OR_DIE(ArrowArrayIsReleased(array), 
-      "ArrowArrayRelease did not cleanup release callback");    
+    CHECK_OR_DIE(ArrowArrayIsReleased(array),
+                 "ArrowArrayRelease did not cleanup release callback");
   }
 }
 
@@ -120,8 +120,8 @@ inline void ArrowArrayStreamMove(struct ArrowArrayStream* src,
 inline void ArrowArrayStreamRelease(struct ArrowArrayStream* stream) {
   if (!ArrowArrayStreamIsReleased(stream)) {
     stream->release(stream);
-    CHECK_OR_DIE(ArrowArrayStreamIsReleased(stream), 
-      "ArrowArrayStreamRelease did not cleanup release callback");
+    CHECK_OR_DIE(ArrowArrayStreamIsReleased(stream),
+                 "ArrowArrayStreamRelease did not cleanup release callback");
   }
 }
 
