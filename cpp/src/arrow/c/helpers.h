@@ -19,8 +19,18 @@
 
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "arrow/c/abi.h"
+
+#define CHECK_OR_DIE(condition, msg)                          \
+  do {                                                        \
+    if (!(condition)) {                                       \
+      fprintf(stderr, "%s:%d:: %s", __FILE__, __LINE__, msg); \
+      std::abort();                                           \
+    }                                                         \
+  } while (0)
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,7 +61,8 @@ inline void ArrowSchemaMove(struct ArrowSchema* src, struct ArrowSchema* dest) {
 inline void ArrowSchemaRelease(struct ArrowSchema* schema) {
   if (!ArrowSchemaIsReleased(schema)) {
     schema->release(schema);
-    assert(ArrowSchemaIsReleased(schema));
+    CHECK_OR_DIE(ArrowSchemaIsReleased(schema), 
+      "ArrowSchemaRelease did not cleanup release callback");    
   }
 }
 
@@ -78,7 +89,8 @@ inline void ArrowArrayMove(struct ArrowArray* src, struct ArrowArray* dest) {
 inline void ArrowArrayRelease(struct ArrowArray* array) {
   if (!ArrowArrayIsReleased(array)) {
     array->release(array);
-    assert(ArrowArrayIsReleased(array));
+    CHECK_OR_DIE(ArrowArrayIsReleased(array), 
+      "ArrowArrayRelease did not cleanup release callback");    
   }
 }
 
@@ -108,7 +120,8 @@ inline void ArrowArrayStreamMove(struct ArrowArrayStream* src,
 inline void ArrowArrayStreamRelease(struct ArrowArrayStream* stream) {
   if (!ArrowArrayStreamIsReleased(stream)) {
     stream->release(stream);
-    assert(ArrowArrayStreamIsReleased(stream));
+    CHECK_OR_DIE(ArrowArrayStreamIsReleased(stream), 
+      "ArrowArrayStreamRelease did not cleanup release callback");
   }
 }
 
