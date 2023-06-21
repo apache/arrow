@@ -32,7 +32,7 @@ Currently, the MATLAB interface supports:
 
 Supported `arrow.array.Array` types are included in the table below.
 
-**NOTE**: All Arrow `Array` classes are part of the package `arrow.array` package (e.g. `arrow.array.Float64Array`).
+**NOTE**: All Arrow `Array` classes are part of the `arrow.array` package (e.g. `arrow.array.Float64Array`).
 
 | MATLAB Array Type | Arrow Array Type |
 | ----------------- | ---------------- |
