@@ -3920,8 +3920,9 @@ TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   TryReadDataFile(path, ::arrow::StatusCode::IOError);
 }
 
+#ifdef ARROW_WITH_BROTLI
 TEST(TestArrowParquet, LargeByteArray) {
-  auto path = test::get_data_file("chunked_string_map.parquet");
+  auto path = test::get_data_file("large_string_map.brotli.parquet");
   TryReadDataFile(path, ::arrow::StatusCode::NotImplemented);
   ArrowReaderProperties reader_properties;
   reader_properties.set_use_large_binary_variants(true);
@@ -3930,6 +3931,7 @@ TEST(TestArrowParquet, LargeByteArray) {
   reader_properties.set_read_dictionary(0, true);
   TryReadDataFileWithProperties(path, reader_properties);
 }
+#endif
 
 TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   // ARROW-3762
