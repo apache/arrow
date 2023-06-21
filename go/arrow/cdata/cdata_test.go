@@ -487,7 +487,7 @@ func TestPrimitiveArrs(t *testing.T) {
 
 			imported, err := ImportCArrayWithType(carr, arr.DataType())
 			assert.NoError(t, err)
-			assert.True(t, array.ArrayEqual(arr, imported))
+			assert.True(t, array.Equal(arr, imported))
 			assert.True(t, isReleased(carr))
 
 			imported.Release()
@@ -507,7 +507,7 @@ func TestPrimitiveSliced(t *testing.T) {
 
 	imported, err := ImportCArrayWithType(carr, arr.DataType())
 	assert.NoError(t, err)
-	assert.True(t, array.ArrayEqual(sl, imported))
+	assert.True(t, array.Equal(sl, imported))
 	assert.True(t, array.SliceEqual(arr, 1, 2, imported, 0, int64(imported.Len())))
 	assert.True(t, isReleased(carr))
 
@@ -673,7 +673,7 @@ func TestNestedArrays(t *testing.T) {
 
 			imported, err := ImportCArrayWithType(carr, arr.DataType())
 			assert.NoError(t, err)
-			assert.True(t, array.ArrayEqual(arr, imported))
+			assert.True(t, array.Equal(arr, imported))
 			assert.True(t, isReleased(carr))
 
 			imported.Release()
