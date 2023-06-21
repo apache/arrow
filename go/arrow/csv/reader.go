@@ -872,7 +872,7 @@ func (r *Reader) parseFixedSizeList(field array.Builder, str string, n int) {
 			r.initFieldConverter(valueBldr)(str)
 		}
 	} else {
-		r.err = errors.New("invalid fixed size list format. the length of the items should be equal the length of the fixed size list")
+		r.err = fmt.Errorf("%w: fixed size list items should match the fixed size list length, expected %d, got %d", arrow.ErrInvalid, n, len(items))
 	}
 }
 
@@ -884,7 +884,7 @@ func (r *Reader) parseBinaryType(field array.Builder, str string) {
 	}
 	decodedVal, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
-		panic("cannot decode base64 string " + str)
+		r.err = fmt.Errorf("cannot decode base64 string %s", str)
 	}
 	field.(*array.BinaryBuilder).Append(decodedVal)
 }
@@ -897,12 +897,12 @@ func (r *Reader) parseLargeBinaryType(field array.Builder, str string) {
 	}
 	decodedVal, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
-		panic("cannot decode base64 string " + str)
+		r.err = fmt.Errorf("cannot decode base64 string %s", str)
 	}
 	field.(*array.BinaryBuilder).Append(decodedVal)
 }
 
-func (r *Reader) parseFixedSizeBinaryType(field array.Builder, str string, bitWidth int) {
+func (r *Reader) parseFixedSizeBinaryType(field array.Builder, str string, byteWidth int) {
 	// specialize the implementation when we know we cannot have nulls
 	if r.isNull(str) {
 		field.AppendNull()
@@ -910,12 +910,12 @@ func (r *Reader) parseFixedSizeBinaryType(field array.Builder, str string, bitWi
 	}
 	decodedVal, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
-		panic("cannot decode base64 string " + str)
+		r.err = fmt.Errorf("cannot decode base64 string %s", str)
 	}
-	if len(decodedVal) == bitWidth {
+	if len(decodedVal) == byteWidth {
 		field.(*array.FixedSizeBinaryBuilder).Append(decodedVal)
 	} else {
-		r.err = errors.New("invalid fixed size binary format. the bytes of the value should be equal the bit width of the fixed size binary")
+		r.err = fmt.Errorf("%w: the length of fixed size binary value should match the fixed size binary byte width, expected %d, got %d", arrow.ErrInvalid, byteWidth, len(decodedVal))
 	}
 }
 
