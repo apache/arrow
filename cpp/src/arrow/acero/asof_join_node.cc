@@ -495,9 +495,9 @@ class KeyHasher {
                        4 * kMiniBatchLength * sizeof(uint32_t));
   }
 
-  void Invalidate() {
-    batch_ = NULLPTR;  // invalidate cached hashes for batch - required when it changes
-  }
+  // invalidate cached hashes for batch - required when it changes
+  // only this method can be called concurrently with HashesFor
+  void Invalidate() { batch_ = NULLPTR; }
 
   // compute and cache a hash for each row of the given batch
   const std::vector<HashType>& HashesFor(const RecordBatch* batch) {
@@ -668,18 +668,19 @@ class InputState {
 
   static Result<std::unique_ptr<InputState>> Make(
       size_t index, TolType tolerance, bool must_hash, bool may_rehash,
-      KeyHasher* key_hasher, ExecNode* node, AsofJoinNode* output,
+      KeyHasher* key_hasher, ExecNode* asof_input, AsofJoinNode* asof_node,
       std::atomic<int32_t>& backpressure_counter,
       const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
       const std::vector<col_index_t>& key_col_index) {
     constexpr size_t low_threshold = 4, high_threshold = 8;
     std::unique_ptr<BackpressureControl> backpressure_control =
-        std::make_unique<BackpressureController>(node, output, backpressure_counter);
+        std::make_unique<BackpressureController>(
+            /*node=*/asof_input, /*output=*/asof_node, backpressure_counter);
     ARROW_ASSIGN_OR_RAISE(auto handler,
                           BackpressureHandler::Make(low_threshold, high_threshold,
                                                     std::move(backpressure_control)));
     return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
-                                        key_hasher, output, std::move(handler), schema,
+                                        key_hasher, asof_node, std::move(handler), schema,
                                         time_col_index, key_col_index);
   }
 
