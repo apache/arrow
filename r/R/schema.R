@@ -264,7 +264,7 @@ schema <- function(...) {
   Schema$create(...)
 }
 
-#' Create a schema or extract one from an object.
+#' Extract a schema from an object
 #'
 #' @param x An object which has a schema, e.g. a `Dataset`
 #' @export
