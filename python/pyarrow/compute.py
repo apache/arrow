@@ -34,6 +34,7 @@ from pyarrow._compute import (  # noqa
     CastOptions,
     CountOptions,
     CumulativeOptions,
+    CumulativeOptions as CumulativeSumOptions,
     DayOfWeekOptions,
     DictionaryEncodeOptions,
     RunEndEncodeOptions,

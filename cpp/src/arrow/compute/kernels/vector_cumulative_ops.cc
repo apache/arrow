@@ -204,7 +204,8 @@ const FunctionDoc cumulative_max_doc{
     "Compute the cumulative max over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
      "cumulative max computed over `values`. The default start is the minimum\n"
-     "value of input type."),
+     "value of input type (so that any other value will replace the\n
+     "start as the new maximum)."),
     {"values"},
     "CumulativeOptions"};
 
@@ -212,7 +213,8 @@ const FunctionDoc cumulative_min_doc{
     "Compute the cumulative min over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
      "cumulative min computed over `values`. The default start is the maximum\n"
-     "value of input type."),
+     "value of input type (so that any other value will replace the\n
+	     "start as the new minimum)."),
     {"values"},
     "CumulativeOptions"};
 }  // namespace

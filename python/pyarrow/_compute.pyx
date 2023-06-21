@@ -1947,7 +1947,11 @@ cdef class _CumulativeOptions(FunctionOptions):
 
 class CumulativeOptions(_CumulativeOptions):
     """
-    Options for `cumulative` functions.
+    Options for `cumulative_*` functions.
+    
+    - cumulative_sum
+    - cumulative_sum_checked
+    ...
 
     Parameters
     ----------
