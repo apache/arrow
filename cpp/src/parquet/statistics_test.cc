@@ -404,6 +404,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     EXPECT_FALSE(total->HasDistinctCount());
     EXPECT_FALSE(total->HasMinMax());
     EXPECT_EQ(2000, total->num_values());
+    EXPECT_FALSE(total->HasNullCount());
   }
 
   void TestEquals() {
