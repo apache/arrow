@@ -51,7 +51,6 @@ using applicator::ScalarBinary;
 using applicator::ScalarBinaryEqualTypes;
 using applicator::ScalarBinaryNotNull;
 using applicator::ScalarBinaryNotNullEqualTypes;
-using applicator::ScalarBinaryReverse;
 using applicator::ScalarUnary;
 using applicator::ScalarUnaryNotNull;
 using applicator::ScalarUnaryNotNullStateful;
