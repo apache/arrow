@@ -166,14 +166,14 @@ class PARQUET_EXPORT EncodedStatistics {
 
   void set_is_signed(bool is_signed) { is_signed_ = is_signed; }
 
-  EncodedStatistics& set_max(const std::string& value) {
-    max_ = value;
+  EncodedStatistics& set_max(std::string value) {
+    max_ = std::move(value);
     has_max = true;
     return *this;
   }
 
-  EncodedStatistics& set_min(const std::string& value) {
-    min_ = value;
+  EncodedStatistics& set_min(std::string value) {
+    min_ = std::move(value);
     has_min = true;
     return *this;
   }
