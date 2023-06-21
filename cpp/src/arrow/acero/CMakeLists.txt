@@ -158,10 +158,6 @@ if(ARROW_TESTING)
   list(APPEND ARROW_ACERO_TESTING_SHARED_LINK_LIBS ${ARROW_ACERO_TEST_INTERFACE_LIBS})
   list(APPEND ARROW_ACERO_TESTING_STATIC_LINK_LIBS ${ARROW_ACERO_TEST_INTERFACE_LIBS})
   add_arrow_lib(arrow_acero_testing
-                CMAKE_PACKAGE_NAME
-                ArrowAceroTesting
-                PKG_CONFIG_NAME
-                arrow-acero-testing
                 OUTPUTS
                 ARROW_ACERO_TESTING_LIBRARIES
                 SOURCES

@@ -160,10 +160,6 @@ if(ARROW_TESTING)
   list(APPEND ARROW_DATASET_TESTING_SHARED_LINK_LIBS ${ARROW_DATASET_TEST_INTERFACE_LIBS})
   list(APPEND ARROW_DATASET_TESTING_STATIC_LINK_LIBS ${ARROW_DATASET_TEST_INTERFACE_LIBS})
   add_arrow_lib(arrow_dataset_testing
-                CMAKE_PACKAGE_NAME
-                ArrowDatasetTesting
-                PKG_CONFIG_NAME
-                arrow-dataset-testing
                 OUTPUTS
                 ARROW_DATASET_TESTING_LIBRARIES
                 SOURCES
