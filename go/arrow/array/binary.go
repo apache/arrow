@@ -331,8 +331,7 @@ type BinaryView struct {
 }
 
 func NewBinaryViewData(data arrow.ArrayData) *BinaryView {
-	a := &BinaryView{}
-	a.refCount = 1
+	a := &BinaryView{refCount: 1}
 	a.setData(data.(*Data))
 	return a
 }
