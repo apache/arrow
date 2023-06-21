@@ -107,76 +107,35 @@ if(ARROW_BUILD_STATIC AND WIN32)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_ACERO_TEST_LINK_LIBS arrow_acero_static arrow_acero_testing_static ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_ACERO_TEST_LINK_LIBS arrow_acero_static ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
-  set(ARROW_ACERO_TEST_LINK_LIBS arrow_acero_shared arrow_acero_testing_shared ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_ACERO_TEST_LINK_LIBS arrow_acero_shared ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_ACERO_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ACERO_EXPORTING)
 endforeach()
 
-# Define arrow_acero_testing library
+# Define arrow_acero_testing object library for common test files
 if(ARROW_TESTING)
   if(ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
-    set(ARROW_ACERO_TESTING_SHARED_LINK_LIBS arrow_acero_shared)
     set(ARROW_ACERO_TESTING_STATIC_LINK_LIBS arrow_acero_static)
-    set(ARROW_ACERO_TESTING_SHARED_INSTALL_INTERFACE_LIBS
-        ArrowAcero::arrow_acero_shared)
-    set(ARROW_ACERO_TESTING_STATIC_INSTALL_INTERFACE_LIBS
-        ArrowAcero::arrow_acero_static)
   elseif(ARROW_BUILD_SHARED)
-    set(ARROW_ACERO_TESTING_SHARED_LINK_LIBS arrow_acero_shared)
     set(ARROW_ACERO_TESTING_STATIC_LINK_LIBS arrow_acero_shared)
-    set(ARROW_ACERO_TESTING_SHARED_INSTALL_INTERFACE_LIBS
-        ArrowAcero::arrow_acero_shared)
-    set(ARROW_ACERO_TESTING_STATIC_INSTALL_INTERFACE_LIBS
-        ArrowAcero::arrow_acero_shared)
   else()
-    set(ARROW_ACERO_TESTING_SHARED_LINK_LIBS arrow_acero_static)
     set(ARROW_ACERO_TESTING_STATIC_LINK_LIBS arrow_acero_static)
-    set(ARROW_ACERO_TESTING_SHARED_INSTALL_INTERFACE_LIBS
-        ArrowAcero::arrow_acero_static)
-    set(ARROW_ACERO_TESTING_STATIC_INSTALL_INTERFACE_LIBS
-        ArrowAcero::arrow_acero_static)
   endif()
   if(ARROW_ACERO_TEST_LINKAGE STREQUAL "shared")
-    list(APPEND ARROW_ACERO_TESTING_SHARED_LINK_LIBS arrow_testing_shared)
     list(APPEND ARROW_ACERO_TESTING_STATIC_LINK_LIBS arrow_testing_shared)
-    list(APPEND ARROW_ACERO_TESTING_SHARED_INSTALL_INTERFACE_LIBS
-         ArrowTesting::arrow_testing_shared)
-    list(APPEND ARROW_ACERO_TESTING_STATIC_INSTALL_INTERFACE_LIBS
-         ArrowTesting::arrow_testing_shared)
   else()
-    list(APPEND ARROW_ACERO_TESTING_SHARED_LINK_LIBS arrow_testing_static)
     list(APPEND ARROW_ACERO_TESTING_STATIC_LINK_LIBS arrow_testing_static)
-    list(APPEND ARROW_ACERO_TESTING_SHARED_INSTALL_INTERFACE_LIBS
-         ArrowTesting::arrow_testing_static)
-    list(APPEND ARROW_ACERO_TESTING_STATIC_INSTALL_INTERFACE_LIBS
-         ArrowTesting::arrow_testing_static)
   endif()
-  list(APPEND ARROW_ACERO_TESTING_SHARED_LINK_LIBS ${ARROW_ACERO_TEST_INTERFACE_LIBS})
-  list(APPEND ARROW_ACERO_TESTING_STATIC_LINK_LIBS ${ARROW_ACERO_TEST_INTERFACE_LIBS})
-  add_arrow_lib(arrow_acero_testing
-                OUTPUTS
-                ARROW_ACERO_TESTING_LIBRARIES
-                SOURCES
-                test_util_internal.cc
-                DEPENDENCIES
-                ${ARROW_GTEST_GTEST}
-                arrow_dependencies
-                SHARED_LINK_LIBS
-                ${ARROW_ACERO_TESTING_SHARED_LINK_LIBS}
-                SHARED_INSTALL_INTERFACE_LIBS
-                ${ARROW_ACERO_TESTING_SHARED_INSTALL_INTERFACE_LIBS}
-                STATIC_LINK_LIBS
-                ${ARROW_ACERO_TESTING_STATIC_LINK_LIBS}
-                STATIC_INSTALL_INTERFACE_LIBS
-                ${ARROW_ACERO_TESTING_STATIC_INSTALL_INTERFACE_LIBS})
-
-  foreach(LIB_TARGET ${ARROW_ACERO_TESTING_LIBRARIES})
-    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ACERO_EXPORTING)
-  endforeach()
+  add_library(arrow_acero_testing OBJECT test_util_internal.cc)
+  # Even though this is still just an object library we still need to "link" our
+  # dependencies so that include paths are configured correctly
+  target_link_libraries(arrow_acero_testing ${ARROW_ACERO_TESTING_STATIC_LINK_LIBS})
+  target_link_libraries(arrow_acero_testing ${ARROW_GTEST_GTEST})
+  list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing)
 endif()
 
 # Adding unit tests part of the "dataset" portion of the test suite
