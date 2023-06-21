@@ -621,8 +621,12 @@ class ParquetIOTestBase : public ::testing::Test {
   void ReaderFromSink(std::unique_ptr<FileReader>* out,
                       const ArrowReaderProperties& arrow_reader_properties) {
     ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
-    ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
-                                ::arrow::default_memory_pool(), arrow_reader_properties, out));
+
+    FileReaderBuilder builder;
+
+    ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
+
+    ASSERT_OK_NO_THROW(builder.properties(arrow_reader_properties)->memory_pool(::arrow::default_memory_pool())->Build(out));
   }
 
   void ReadSingleColumnFile(std::unique_ptr<FileReader> file_reader,
