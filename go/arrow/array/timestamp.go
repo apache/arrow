@@ -171,8 +171,20 @@ func (b *TimestampBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *TimestampBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *TimestampBuilder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *TimestampBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *TimestampBuilder) UnsafeAppend(v arrow.Timestamp) {

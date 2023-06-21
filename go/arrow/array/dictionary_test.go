@@ -964,9 +964,7 @@ func TestNullDictionaryBuilderBasic(t *testing.T) {
 	defer bldr.Release()
 
 	builder := bldr.(*array.NullDictionaryBuilder)
-	builder.AppendNull()
-	builder.AppendNull()
-	builder.AppendNull()
+	builder.AppendNulls(3)
 	assert.Equal(t, 3, builder.Len())
 	assert.Equal(t, 3, builder.NullN())
 

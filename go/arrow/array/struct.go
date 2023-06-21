@@ -275,10 +275,22 @@ func (b *StructBuilder) AppendValues(valids []bool) {
 
 func (b *StructBuilder) AppendNull() { b.Append(false) }
 
+func (b *StructBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *StructBuilder) AppendEmptyValue() {
 	b.Append(true)
 	for _, f := range b.fields {
 		f.AppendEmptyValue()
+	}
+}
+
+func (b *StructBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
 	}
 }
 
