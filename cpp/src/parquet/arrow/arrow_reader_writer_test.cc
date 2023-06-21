@@ -1363,7 +1363,7 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compatibility) {
 
 using TestStringParquetIO = TestParquetIO<::arrow::StringType>;
 
-TEST_F(TestStringParquetIO, Basics) {
+TEST_F(TestStringParquetIO, NonOverflowStringWithUseLargeBinaryVariantsSetting) {
   std::shared_ptr<Array> values;
 
   ::arrow::StringBuilder builder;
