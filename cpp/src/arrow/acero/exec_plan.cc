@@ -951,6 +951,7 @@ struct BatchConverter {
     if (exec_plan->finished().is_finished()) {
       return;
     }
+    exec_plan->StopProducing();
     Status abandoned_status = exec_plan->finished().status();
     if (!abandoned_status.ok()) {
       abandoned_status.Warn();
@@ -998,6 +999,10 @@ struct BatchConverter {
   std::shared_ptr<ExecPlan> exec_plan;
 };
 
+// Convert a `Declaration` using `QueryOptions` to a `RecordBatch` generator.
+// Additional outputs:
+// * `out_schema` is the schema for the generated record batches
+// * `out_plan` is the backing `ExecPlan`, which may be stopped to cancel the generation
 Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> DeclarationToRecordBatchGenerator(
     Declaration declaration, QueryOptions options,
     ::arrow::internal::Executor* cpu_executor, std::shared_ptr<Schema>* out_schema,
@@ -1067,7 +1072,11 @@ Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(Declaration decla
       plan_->StopProducing();
       std::shared_ptr<RecordBatch> batch;
       do {
-        ARROW_RETURN_NOT_OK(ReadNext(&batch));
+        Status st = ReadNext(&batch);
+        if (!st.ok()) {
+          if (st.IsCancelled()) break;  // plan cancelled, so closing is done
+          return st;
+        }
       } while (batch != nullptr);
       iterator_.reset();
       return Status::OK();

@@ -779,9 +779,8 @@ TEST(ExecPlanExecution, DeclarationToReaderWithEarlyClose) {
     ASSERT_OK(reader->Next());
   }
   // then close
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, HasSubstr("Plan was cancelled early"),
-                                  reader->Close());
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, HasSubstr("Plan was cancelled early"),
+  ASSERT_OK(reader->Close());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("already closed reader"),
                                   reader->Next());
 }
 
