@@ -1372,7 +1372,6 @@ Result<std::unique_ptr<FileReader>> FileReaderBuilder::Build() {
   return out;
 }
 
-
 Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,
                 std::unique_ptr<FileReader>* reader) {
   FileReaderBuilder builder;

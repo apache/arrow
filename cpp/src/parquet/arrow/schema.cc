@@ -462,8 +462,9 @@ struct SchemaTreeContext {
 
 bool IsDictionaryReadSupported(const ArrowType& type) {
   // Only supported currently for BYTE_ARRAY types
-  return type.id() == ::arrow::Type::BINARY || type.id() == ::arrow::Type::STRING
-      || type.id() == ::arrow::Type::LARGE_BINARY || type.id() == ::arrow::Type::LARGE_STRING;
+  return type.id() == ::arrow::Type::BINARY || type.id() == ::arrow::Type::STRING ||
+         type.id() == ::arrow::Type::LARGE_BINARY ||
+         type.id() == ::arrow::Type::LARGE_STRING;
 }
 
 // ----------------------------------------------------------------------

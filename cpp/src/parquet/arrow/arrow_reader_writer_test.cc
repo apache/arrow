@@ -438,8 +438,8 @@ void CheckConfiguredRoundtrip(
 void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
                        int64_t row_group_size, const std::vector<int>& column_subset,
                        std::shared_ptr<Table>* out,
-                       const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
-                           default_arrow_writer_properties(),
+                       const std::shared_ptr<ArrowWriterProperties>&
+                           arrow_writer_properties = default_arrow_writer_properties(),
                        const ArrowReaderProperties& arrow_reader_properties =
                            default_arrow_reader_properties()) {
   std::shared_ptr<Buffer> buffer;
@@ -490,17 +490,15 @@ void DoRoundTripWithBatches(
   ASSERT_OK_AND_ASSIGN(*out, Table::FromRecordBatchReader(batch_reader.get()));
 }
 
-void CheckSimpleRoundtrip(
-    const std::shared_ptr<Table>& table, int64_t row_group_size,
-    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
-        default_arrow_writer_properties(),
-    const ArrowReaderProperties& arrow_reader_properties =
-        default_arrow_reader_properties()) {
+void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
+                          const std::shared_ptr<ArrowWriterProperties>&
+                              arrow_writer_properties = default_arrow_writer_properties(),
+                          const ArrowReaderProperties& arrow_reader_properties =
+                              default_arrow_reader_properties()) {
   std::shared_ptr<Table> result;
-  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, false /* use_threads */,
-                                            row_group_size, {}, &result,
-                                            arrow_writer_properties,
-                                            arrow_reader_properties));
+  ASSERT_NO_FATAL_FAILURE(
+      DoSimpleRoundtrip(table, false /* use_threads */, row_group_size, {}, &result,
+                        arrow_writer_properties, arrow_reader_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
   ASSERT_OK(result->ValidateFull());
@@ -626,7 +624,9 @@ class ParquetIOTestBase : public ::testing::Test {
 
     ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
 
-    ASSERT_OK_NO_THROW(builder.properties(arrow_reader_properties)->memory_pool(::arrow::default_memory_pool())->Build(out));
+    ASSERT_OK_NO_THROW(builder.properties(arrow_reader_properties)
+                           ->memory_pool(::arrow::default_memory_pool())
+                           ->Build(out));
   }
 
   void ReadSingleColumnFile(std::unique_ptr<FileReader> file_reader,
@@ -675,7 +675,8 @@ class ParquetIOTestBase : public ::testing::Test {
   void RoundTripSingleColumn(
       const std::shared_ptr<Array>& values, const std::shared_ptr<Array>& expected,
       const std::shared_ptr<::parquet::ArrowWriterProperties>& arrow_writer_properties,
-      const ArrowReaderProperties& arrow_reader_properties = default_arrow_reader_properties(),
+      const ArrowReaderProperties& arrow_reader_properties =
+          default_arrow_reader_properties(),
       bool nullable = true) {
     std::shared_ptr<Table> table = MakeSimpleTable(values, nullable);
     this->ResetSink();
@@ -724,10 +725,12 @@ class ParquetIOTestBase : public ::testing::Test {
     CheckSimpleRoundtrip(table, table->num_rows());
   }
 
-  void CheckRoundTrip(const std::shared_ptr<Table>& table,
-                      const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties,
-                      const ArrowReaderProperties& arrow_reader_properties) {
-    CheckSimpleRoundtrip(table, table->num_rows(), arrow_writer_properties, arrow_reader_properties);
+  void CheckRoundTrip(
+      const std::shared_ptr<Table>& table,
+      const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties,
+      const ArrowReaderProperties& arrow_reader_properties) {
+    CheckSimpleRoundtrip(table, table->num_rows(), arrow_writer_properties,
+                         arrow_reader_properties);
   }
 
   template <typename ArrayType>
@@ -1372,8 +1375,7 @@ TEST_F(TestStringParquetIO, NonOverflowStringWithUseLargeBinaryVariantsSetting) 
   }
   ASSERT_OK(builder.Finish(&values));
 
-  this->RoundTripSingleColumn(values, values,
-                              default_arrow_writer_properties());
+  this->RoundTripSingleColumn(values, values, default_arrow_writer_properties());
 
   ArrowReaderProperties arrow_reader_properties;
   arrow_reader_properties.set_use_large_binary_variants(true);
@@ -1381,8 +1383,7 @@ TEST_F(TestStringParquetIO, NonOverflowStringWithUseLargeBinaryVariantsSetting) 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> casted,
                        ::arrow::compute::Cast(*values, ::arrow::large_utf8()));
 
-  this->RoundTripSingleColumn(values, casted,
-                              default_arrow_writer_properties(),
+  this->RoundTripSingleColumn(values, casted, default_arrow_writer_properties(),
                               arrow_reader_properties);
 }
 
@@ -1435,11 +1436,10 @@ TEST_F(TestLargeBinaryParquetIO, Basics) {
 
   ArrowReaderProperties arrow_reader_properties;
   arrow_reader_properties.set_use_large_binary_variants(true);
-  // Input is narrow array, but expected output is large array, opposite of the above tests.
-  // This validates narrow arrays can be read as large arrays.
+  // Input is narrow array, but expected output is large array, opposite of the above
+  // tests. This validates narrow arrays can be read as large arrays.
   this->RoundTripSingleColumn(narrow_array, large_array,
-                              default_arrow_writer_properties(),
-                              arrow_reader_properties);
+                              default_arrow_writer_properties(), arrow_reader_properties);
 }
 
 using TestLargeStringParquetIO = TestParquetIO<::arrow::LargeStringType>;

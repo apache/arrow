@@ -1632,11 +1632,14 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
         [&]() { valid_bytes[i++] = 1; }, [&]() { ++i; });
 
     // It looks like this method is only called by ByteArray types. Previously,
-    // there was an unconditional cast to ::arrow::Dictionary32Builder<::arrow::BinaryType>.
-    // This won't work for LargeByteArrayType and the Type template argument can't be used
-    // unconditionally because it is not defined for several other types.
-    if constexpr (std::is_same_v<ByteArrayType, Type> || std::is_same_v<LargeByteArrayType, Type>) {
-      auto binary_builder = checked_cast<typename EncodingTraits<Type>::DictAccumulator*>(builder);
+    // there was an unconditional cast to
+    // ::arrow::Dictionary32Builder<::arrow::BinaryType>. This won't work for
+    // LargeByteArrayType and the Type template argument can't be used unconditionally
+    // because it is not defined for several other types.
+    if constexpr (std::is_same_v<ByteArrayType, Type> ||
+                  std::is_same_v<LargeByteArrayType, Type>) {
+      auto binary_builder =
+          checked_cast<typename EncodingTraits<Type>::DictAccumulator*>(builder);
       PARQUET_THROW_NOT_OK(
           binary_builder->AppendIndices(indices_buffer, num_values, valid_bytes.data()));
       num_values_ -= num_values - null_count;
@@ -1662,11 +1665,14 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
     }
 
     // It looks like this method is only called by ByteArray types. Previously,
-    // there was an unconditional cast to ::arrow::Dictionary32Builder<::arrow::BinaryType>.
-    // This won't work for LargeByteArrayType and the Type template argument can't be used
-    // unconditionally because it is not defined for several other types.
-    if constexpr (std::is_same_v<ByteArrayType, Type> || std::is_same_v<LargeByteArrayType, Type>) {
-      auto binary_builder = checked_cast<typename EncodingTraits<Type>::DictAccumulator*>(builder);
+    // there was an unconditional cast to
+    // ::arrow::Dictionary32Builder<::arrow::BinaryType>. This won't work for
+    // LargeByteArrayType and the Type template argument can't be used unconditionally
+    // because it is not defined for several other types.
+    if constexpr (std::is_same_v<ByteArrayType, Type> ||
+                  std::is_same_v<LargeByteArrayType, Type>) {
+      auto binary_builder =
+          checked_cast<typename EncodingTraits<Type>::DictAccumulator*>(builder);
       PARQUET_THROW_NOT_OK(binary_builder->AppendIndices(indices_buffer, num_values));
       num_values_ -= num_values;
       return num_values;
@@ -3609,7 +3615,8 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
       return std::make_unique<DictDecoderImpl<DoubleType>>(descr, pool);
     case Type::BYTE_ARRAY:
       if (use_large_binary_variants) {
-        return std::make_unique<DictByteArrayDecoderImpl<LargeByteArrayType>>(descr, pool);
+        return std::make_unique<DictByteArrayDecoderImpl<LargeByteArrayType>>(descr,
+                                                                              pool);
       } else {
         return std::make_unique<DictByteArrayDecoderImpl<ByteArrayType>>(descr, pool);
       }
