@@ -97,9 +97,9 @@ if(ARROW_BUILD_STATIC AND WIN32)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static arrow_acero_testing ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared arrow_acero_testing ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
@@ -108,25 +108,12 @@ endforeach()
 
 # Define arrow_dataset_testing object library for common test files
 if(ARROW_TESTING)
-  if(ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
-    set(ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_dataset_static)
-  elseif(ARROW_BUILD_SHARED)
-    set(ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_dataset_shared)
-  else()
-    set(ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_dataset_static)
-  endif()
-  if(ARROW_ACERO_TEST_LINKAGE STREQUAL "shared")
-    list(APPEND ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_testing_shared)
-  else()
-    list(APPEND ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_testing_static)
-  endif()
-  list(APPEND ARROW_DATASET_TESTING_STATIC_LINK_LIBS arrow_acero_testing)
   add_library(arrow_dataset_testing OBJECT test_util_internal.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_dataset_testing ${ARROW_DATASET_TESTING_STATIC_LINK_LIBS})
+  target_link_libraries(arrow_dataset_testing ${ARROW_DATASET_TEST_LINK_LIBS})
   target_link_libraries(arrow_dataset_testing ${ARROW_GTEST_GTEST})
-  list(APPEND ARROW_DATASET_TEST_LINK_LIBS arrow_acero_testing arrow_dataset_testing)
+  list(APPEND ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_testing)
 endif()
 
 

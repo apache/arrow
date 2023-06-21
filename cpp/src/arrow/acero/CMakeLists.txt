@@ -118,22 +118,10 @@ endforeach()
 
 # Define arrow_acero_testing object library for common test files
 if(ARROW_TESTING)
-  if(ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
-    set(ARROW_ACERO_TESTING_STATIC_LINK_LIBS arrow_acero_static)
-  elseif(ARROW_BUILD_SHARED)
-    set(ARROW_ACERO_TESTING_STATIC_LINK_LIBS arrow_acero_shared)
-  else()
-    set(ARROW_ACERO_TESTING_STATIC_LINK_LIBS arrow_acero_static)
-  endif()
-  if(ARROW_ACERO_TEST_LINKAGE STREQUAL "shared")
-    list(APPEND ARROW_ACERO_TESTING_STATIC_LINK_LIBS arrow_testing_shared)
-  else()
-    list(APPEND ARROW_ACERO_TESTING_STATIC_LINK_LIBS arrow_testing_static)
-  endif()
   add_library(arrow_acero_testing OBJECT test_util_internal.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_acero_testing ${ARROW_ACERO_TESTING_STATIC_LINK_LIBS})
+  target_link_libraries(arrow_acero_testing ${ARROW_ACERO_TEST_LINK_LIBS})
   target_link_libraries(arrow_acero_testing ${ARROW_GTEST_GTEST})
   list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing)
 endif()
@@ -217,8 +205,6 @@ if(ARROW_BUILD_BENCHMARKS)
                         ${ARROW_ACERO_TEST_LINK_LIBS}
                         PREFIX
                         ${PREFIX}
-                        SOURCES
-                        test_util_internal.cc
                         LABELS
                         ${LABELS}
                         ${ARG_UNPARSED_ARGUMENTS})
