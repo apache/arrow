@@ -61,8 +61,8 @@ struct SetLookupState : public KernelState {
     } else {
       return Status::Invalid("value_set should be an array or chunked array");
     }
-    if (!options.skip_nulls && lookup_table.value().GetNull() >= 0) {
-      null_index = memo_index_to_value_index[lookup_table.value().GetNull()];
+    if (!options.skip_nulls && lookup_table->GetNull() >= 0) {
+      null_index = memo_index_to_value_index[lookup_table->GetNull()];
     }
     return Status::OK();
   }
@@ -82,7 +82,7 @@ struct SetLookupState : public KernelState {
         DCHECK_EQ(memo_index, memo_size);
         memo_index_to_value_index.push_back(index);
       };
-      RETURN_NOT_OK(lookup_table.value().GetOrInsert(
+      RETURN_NOT_OK(lookup_table->GetOrInsert(
           v, std::move(on_found), std::move(on_not_found), &unused_memo_index));
       ++index;
       return Status::OK();
@@ -96,7 +96,7 @@ struct SetLookupState : public KernelState {
         DCHECK_EQ(memo_index, memo_size);
         memo_index_to_value_index.push_back(index);
       };
-      lookup_table.value().GetOrInsertNull(std::move(on_found), std::move(on_not_found));
+      lookup_table->GetOrInsertNull(std::move(on_found), std::move(on_not_found));
       ++index;
       return Status::OK();
     };
@@ -272,7 +272,7 @@ struct IndexInVisitor {
     VisitArraySpanInline<Type>(
         data,
         [&](T v) {
-          int32_t index = state.lookup_table.value().Get(v);
+          int32_t index = state.lookup_table->Get(v);
           if (index != -1) {
             bitmap_writer.Set();
 
@@ -366,7 +366,7 @@ struct IsInVisitor {
     VisitArraySpanInline<Type>(
         this->data,
         [&](T v) {
-          if (state.lookup_table.value().Get(v) != -1) {
+          if (state.lookup_table->Get(v) != -1) {
             writer.Set();
           } else {
             writer.Clear();
