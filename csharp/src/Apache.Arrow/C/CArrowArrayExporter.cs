@@ -24,7 +24,7 @@ namespace Apache.Arrow.C
     public static class CArrowArrayExporter
     {
 #if NET5_0_OR_GREATER
-        private static unsafe delegate* unmanaged[Stdcall]<CArrowArray*, void> ReleaseArrayPtr => &ReleaseArray;
+        private static unsafe delegate* unmanaged<CArrowArray*, void> ReleaseArrayPtr => &ReleaseArray;
 #else
         private unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowArray> s_releaseArray = new NativeDelegate<ReleaseArrowArray>(ReleaseArray);
@@ -186,7 +186,7 @@ namespace Apache.Arrow.C
         }
 
 #if NET5_0_OR_GREATER
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
+        [UnmanagedCallersOnly]
 #endif
         private unsafe static void ReleaseArray(CArrowArray* cArray)
         {

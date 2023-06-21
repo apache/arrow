@@ -38,7 +38,11 @@ namespace Apache.Arrow.C
         public byte** buffers;
         public CArrowArray** children;
         public CArrowArray* dictionary;
-        internal delegate* unmanaged[Stdcall]<CArrowArray*, void> release;
+        internal delegate* unmanaged
+#if !NET5_0_OR_GREATER
+            [Stdcall]
+#endif
+            <CArrowArray*, void> release;
         public void* private_data;
 
         /// <summary>

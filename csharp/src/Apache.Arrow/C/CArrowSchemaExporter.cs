@@ -28,7 +28,7 @@ namespace Apache.Arrow.C
     public static class CArrowSchemaExporter
     {
 #if NET5_0_OR_GREATER
-        private static unsafe delegate* unmanaged[Stdcall]<CArrowSchema*, void> ReleaseSchemaPtr => &ReleaseCArrowSchema;
+        private static unsafe delegate* unmanaged<CArrowSchema*, void> ReleaseSchemaPtr => &ReleaseCArrowSchema;
 #else
         private unsafe delegate void ReleaseArrowSchema(CArrowSchema* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowSchema> s_releaseSchema = new NativeDelegate<ReleaseArrowSchema>(ReleaseCArrowSchema);
@@ -292,7 +292,7 @@ namespace Apache.Arrow.C
         }
 
 #if NET5_0_OR_GREATER
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
+        [UnmanagedCallersOnly]
 #endif
         private static unsafe void ReleaseCArrowSchema(CArrowSchema* schema)
         {

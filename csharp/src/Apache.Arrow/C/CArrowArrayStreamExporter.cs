@@ -24,10 +24,10 @@ namespace Apache.Arrow.C
     public static class CArrowArrayStreamExporter
     {
 #if NET5_0_OR_GREATER
-        private static unsafe delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowSchema*, int> GetSchemaPtr => &GetSchema;
-        private static unsafe delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowArray*, int> GetNextPtr => &GetNext;
-        private static unsafe delegate* unmanaged[Stdcall]<CArrowArrayStream*, byte*> GetLastErrorPtr => &GetLastError;
-        private static unsafe delegate* unmanaged[Stdcall]<CArrowArrayStream*, void> ReleasePtr => &Release;
+        private static unsafe delegate* unmanaged<CArrowArrayStream*, CArrowSchema*, int> GetSchemaPtr => &GetSchema;
+        private static unsafe delegate* unmanaged<CArrowArrayStream*, CArrowArray*, int> GetNextPtr => &GetNext;
+        private static unsafe delegate* unmanaged<CArrowArrayStream*, byte*> GetLastErrorPtr => &GetLastError;
+        private static unsafe delegate* unmanaged<CArrowArrayStream*, void> ReleasePtr => &Release;
 #else
         private unsafe delegate int GetSchemaArrayStream(CArrowArrayStream* cArrayStream, CArrowSchema* cSchema);
         private static unsafe NativeDelegate<GetSchemaArrayStream> s_getSchemaArrayStream = new NativeDelegate<GetSchemaArrayStream>(GetSchema);
@@ -78,7 +78,7 @@ namespace Apache.Arrow.C
         }
 
 #if NET5_0_OR_GREATER
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
+        [UnmanagedCallersOnly]
 #endif
         private unsafe static int GetSchema(CArrowArrayStream* cArrayStream, CArrowSchema* cSchema)
         {
@@ -96,7 +96,7 @@ namespace Apache.Arrow.C
         }
 
 #if NET5_0_OR_GREATER
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
+        [UnmanagedCallersOnly]
 #endif
         private unsafe static int GetNext(CArrowArrayStream* cArrayStream, CArrowArray* cArray)
         {
@@ -119,7 +119,7 @@ namespace Apache.Arrow.C
         }
 
 #if NET5_0_OR_GREATER
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
+        [UnmanagedCallersOnly]
 #endif
         private unsafe static byte* GetLastError(CArrowArrayStream* cArrayStream)
         {
@@ -135,7 +135,7 @@ namespace Apache.Arrow.C
         }
 
 #if NET5_0_OR_GREATER
-        [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
+        [UnmanagedCallersOnly]
 #endif
         private unsafe static void Release(CArrowArrayStream* cArrayStream)
         {
