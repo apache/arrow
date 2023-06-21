@@ -167,8 +167,20 @@ func (b *Decimal256Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Decimal256Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Decimal256Builder) AppendEmptyValue() {
 	b.Append(decimal256.Num{})
+}
+
+func (b *Decimal256Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Decimal256Builder) Type() arrow.DataType { return b.dtype }

@@ -77,9 +77,21 @@ func (b *BooleanBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *BooleanBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *BooleanBuilder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.UnsafeAppend(false)
+}
+
+func (b *BooleanBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *BooleanBuilder) AppendValueFromString(s string) error {

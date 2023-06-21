@@ -149,6 +149,15 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				res[i] = w.nullValue
 			}
 		}
+	case *arrow.LargeStringType:
+		arr := col.(*array.LargeString)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = arr.Value(i)
+			} else {
+				res[i] = w.nullValue
+			}
+		}
 	case *arrow.Date32Type:
 		arr := col.(*array.Date32)
 		for i := 0; i < arr.Len(); i++ {
@@ -225,8 +234,64 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				res[i] = w.nullValue
 			}
 		}
+	case *arrow.LargeListType:
+		arr := col.(*array.LargeList)
+		listVals, offsets := arr.ListValues(), arr.Offsets()
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				list := array.NewSlice(listVals, int64(offsets[i]), int64(offsets[i+1]))
+				var b bytes.Buffer
+				b.Write([]byte{'{'})
+				writer := csv.NewWriter(&b)
+				writer.Write(w.transformColToStringArr(list.DataType(), list))
+				writer.Flush()
+				b.Truncate(b.Len() - 1)
+				b.Write([]byte{'}'})
+				res[i] = b.String()
+				list.Release()
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.FixedSizeListType:
+		arr := col.(*array.FixedSizeList)
+		listVals := arr.ListValues()
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				list := array.NewSlice(listVals, int64((arr.Len()-1)*i), int64((arr.Len()-1)*(i+1)))
+				var b bytes.Buffer
+				b.Write([]byte{'{'})
+				writer := csv.NewWriter(&b)
+				writer.Write(w.transformColToStringArr(list.DataType(), list))
+				writer.Flush()
+				b.Truncate(b.Len() - 1)
+				b.Write([]byte{'}'})
+				res[i] = b.String()
+				list.Release()
+			} else {
+				res[i] = w.nullValue
+			}
+		}
 	case *arrow.BinaryType:
 		arr := col.(*array.Binary)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = base64.StdEncoding.EncodeToString(arr.Value(i))
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.LargeBinaryType:
+		arr := col.(*array.LargeBinary)
+		for i := 0; i < arr.Len(); i++ {
+			if arr.IsValid(i) {
+				res[i] = base64.StdEncoding.EncodeToString(arr.Value(i))
+			} else {
+				res[i] = w.nullValue
+			}
+		}
+	case *arrow.FixedSizeBinaryType:
+		arr := col.(*array.FixedSizeBinary)
 		for i := 0; i < arr.Len(); i++ {
 			if arr.IsValid(i) {
 				res[i] = base64.StdEncoding.EncodeToString(arr.Value(i))
