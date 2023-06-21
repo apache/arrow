@@ -460,7 +460,7 @@ class TypeInferrer {
 
     RETURN_NOT_OK(Validate());
 
-    if (arrow_scalar_count_ > 0 and arrow_scalar_count_ + none_count_ != total_count_) {
+    if (arrow_scalar_count_ > 0 && arrow_scalar_count_ + none_count_ != total_count_) {
       return Status::Invalid(
           "pyarrow scalars cannot be mixed "
           "with other Python scalar values currently");
