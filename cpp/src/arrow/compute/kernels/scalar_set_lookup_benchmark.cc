@@ -111,7 +111,8 @@ static void IndexInInt64SmallSet(benchmark::State& state) {
 }
 
 static void IndexInInt32LargeSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int32Type>(state, "index_in_meta_binary", state.range(0), 10);
+  SetLookupBenchmarkNumeric<Int32Type>(state, "index_in_meta_binary", state.range(0),
+                                       1000);
 }
 
 static void IsInInt8SmallSet(benchmark::State& state) {
@@ -135,7 +136,7 @@ static void IsInInt64SmallSet(benchmark::State& state) {
 }
 
 static void IsInInt32LargeSet(benchmark::State& state) {
-  SetLookupBenchmarkNumeric<Int32Type>(state, "is_in_meta_binary", state.range(0), 10);
+  SetLookupBenchmarkNumeric<Int32Type>(state, "is_in_meta_binary", state.range(0), 1000);
 }
 
 BENCHMARK(IndexInStringSmallSet)->RangeMultiplier(4)->Range(2, 64);
