@@ -557,7 +557,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     ResetCounts();
     has_min_max_ = false;
     has_distinct_count_ = false;
-    has_null_count_ = false;
+    has_null_count_ = true;
   }
 
   void SetMinMax(const T& arg_min, const T& arg_max) override {
@@ -629,11 +629,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (HasNullCount()) {
       s.set_null_count(this->null_count());
     }
-    if (HasDistinctCount()) {
-      s.set_distinct_count(this->distinct_count());
+    if (HasNullCount()) {
+      // num_values_ is reliable and it means number of non-null values.
+      s.all_null_value = num_values_ == 0;
     }
-    // num_values_ is reliable and it means number of non-null values.
-    s.all_null_value = num_values_ == 0;
+    // Currently, distinct count would not be written.
+    // So, not call set_distinct_count.
     return s;
   }
 
@@ -649,7 +650,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   T min_;
   T max_;
   ::arrow::MemoryPool* pool_;
-  int64_t num_values_ = 0;  // # of non-null values.
+  // # of non-null values.
+  // num_values_ would be reliable when has_null_count_.
+  int64_t num_values_ = 0;
   EncodedStatistics statistics_;
   std::shared_ptr<TypedComparator<DType>> comparator_;
   std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
