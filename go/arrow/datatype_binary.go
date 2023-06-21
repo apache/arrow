@@ -94,8 +94,10 @@ func (*BinaryViewType) view()                 {}
 func (t *BinaryViewType) Fingerprint() string { return typeFingerprint(t) }
 func (*BinaryViewType) Layout() DataTypeLayout {
 	variadic := SpecVariableWidth()
-	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(),
-		SpecFixedWidth(StringHeaderSizeBytes)}, VariadicSpec: &variadic}
+	return DataTypeLayout{
+		Buffers:      []BufferSpec{SpecBitmap(), SpecFixedWidth(StringHeaderSizeBytes)},
+		VariadicSpec: &variadic,
+	}
 }
 
 type StringViewType struct{}
