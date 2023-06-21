@@ -98,10 +98,8 @@ class Float16OperatorTest : public ::testing::Test {
     const auto num_values = static_cast<int>(test_values.size());
 
     // Check all combinations of operands in both directions
-    for (int offset = 0; offset < num_values; ++offset) {
-      int i = 0;
-      int j = offset;
-      while (i < num_values) {
+    for (int i = 0; i < num_values; ++i) {
+      for (int j = 0; j < num_values; ++j) {
         ARROW_SCOPED_TRACE(i, ",", j);
 
         auto a = test_values[i];
@@ -110,9 +108,6 @@ class Float16OperatorTest : public ::testing::Test {
         // Results for float16 and float32 should be the same
         auto ret = Operator{}(a, b);
         ASSERT_EQ(ret.first, ret.second);
-
-        ++i;
-        j = (j + 1) % num_values;
       }
     }
   }
@@ -127,19 +122,32 @@ TYPED_TEST(Float16OperatorTest, Compare) { this->TestCompare(g_test_values); }
 
 TEST(Float16Test, ToBytes) {
   constexpr auto f16 = Float16(0xd01c);
-  auto bytes = f16.ToBytes();
-  ASSERT_EQ(SafeLoadAs<uint16_t>(bytes.data()), 0xd01c);
+  std::array<uint8_t, 2> bytes;
+  auto load = [&bytes]() { return SafeLoadAs<uint16_t>(bytes.data()); };
+
+  // Test native-endian
+  f16.ToBytes(bytes.data());
+  ASSERT_EQ(load(), 0xd01c);
+  bytes = f16.ToBytes();
+  ASSERT_EQ(load(), 0xd01c);
+
 #if ARROW_LITTLE_ENDIAN
-  bytes = f16.ToLittleEndian();
-  ASSERT_EQ(SafeLoadAs<uint16_t>(bytes.data()), 0xd01c);
-  bytes = f16.ToBigEndian();
-  ASSERT_EQ(SafeLoadAs<uint16_t>(bytes.data()), 0x1cd0);
+  constexpr uint16_t expected_le = 0xd01c;
+  constexpr uint16_t expected_be = 0x1cd0;
 #else
-  bytes = f16.ToLittleEndian();
-  ASSERT_EQ(SafeLoadAs<uint16_t>(bytes.data()), 0x1cd0);
-  bytes = f16.ToBigEndian();
-  ASSERT_EQ(SafeLoadAs<uint16_t>(bytes.data()), 0xd01c);
+  constexpr uint16_t expected_le = 0x1cd0;
+  constexpr uint16_t expected_be = 0xd01c;
 #endif
+  // Test little-endian
+  f16.ToLittleEndian(bytes.data());
+  ASSERT_EQ(load(), expected_le);
+  bytes = f16.ToLittleEndian();
+  ASSERT_EQ(load(), expected_le);
+  // Test big-endian
+  f16.ToBigEndian(bytes.data());
+  ASSERT_EQ(load(), expected_be);
+  bytes = f16.ToBigEndian();
+  ASSERT_EQ(load(), expected_be);
 }
 
 TEST(Float16Test, FromBytes) {

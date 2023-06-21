@@ -57,22 +57,20 @@ constexpr int value_length(int type_length, const FLBA& value) { return type_len
 
 // Static "constants" for normalizing float16 min/max values. These need to be expressed
 // as pointers because `Float16LogicalType` represents an FLBA.
-const uint8_t* float16_lowest() {
-  static const auto bytes = std::numeric_limits<Float16>::lowest().ToLittleEndian();
-  return bytes.data();
-}
-const uint8_t* float16_max() {
-  static const auto bytes = std::numeric_limits<Float16>::max().ToLittleEndian();
-  return bytes.data();
-}
-const uint8_t* float16_positive_zero() {
-  static const auto bytes = Float16(0).ToLittleEndian();
-  return bytes.data();
-}
-const uint8_t* float16_negative_zero() {
-  static const auto bytes = (-Float16(0)).ToLittleEndian();
-  return bytes.data();
-}
+struct Float16Constants {
+  static constexpr const uint8_t* lowest() { return lowest_.data(); }
+  static constexpr const uint8_t* max() { return max_.data(); }
+  static constexpr const uint8_t* positive_zero() { return positive_zero_.data(); }
+  static constexpr const uint8_t* negative_zero() { return negative_zero_.data(); }
+
+ private:
+  using Bytes = std::array<uint8_t, 2>;
+  static constexpr Bytes lowest_ =
+      std::numeric_limits<Float16>::lowest().ToLittleEndian();
+  static constexpr Bytes max_ = std::numeric_limits<Float16>::max().ToLittleEndian();
+  static constexpr Bytes positive_zero_ = (+Float16(0)).ToLittleEndian();
+  static constexpr Bytes negative_zero_ = (-Float16(0)).ToLittleEndian();
+};
 
 template <typename DType, bool is_signed>
 struct CompareHelper {
@@ -301,12 +299,12 @@ struct CompareHelper<FLBAType, is_signed>
 struct Float16CompareHelper {
   using T = FLBA;
 
-  static T DefaultMin() { return T{float16_max()}; }
-  static T DefaultMax() { return T{float16_lowest()}; }
+  static T DefaultMin() { return T{Float16Constants::max()}; }
+  static T DefaultMax() { return T{Float16Constants::lowest()}; }
 
   static T Coalesce(T val, T fallback) {
-    return val.ptr != nullptr && Float16::FromLittleEndian(val.ptr).is_nan() ? fallback
-                                                                             : val;
+    return (val.ptr == nullptr || Float16::FromLittleEndian(val.ptr).is_nan()) ? fallback
+                                                                               : val;
   }
 
   static inline bool Compare(int type_length, const T& a, const T& b) {
@@ -386,10 +384,10 @@ optional<std::pair<FLBA, FLBA>> CleanFloat16Statistic(std::pair<FLBA, FLBA> min_
   }
 
   if (min == Float16(0)) {
-    min_flba = FLBA{float16_negative_zero()};
+    min_flba = FLBA{Float16Constants::negative_zero()};
   }
   if (max == -Float16(0)) {
-    max_flba = FLBA{float16_positive_zero()};
+    max_flba = FLBA{Float16Constants::positive_zero()};
   }
 
   return {{min_flba, max_flba}};
@@ -540,13 +538,13 @@ std::pair<ByteArray, ByteArray> TypedComparatorImpl<false, ByteArrayType>::GetMi
   return GetMinMaxBinaryHelper<false>(*this, values);
 }
 
-static LogicalType::Type::type LogicalTypeId(const ColumnDescriptor* descr) {
+LogicalType::Type::type LogicalTypeId(const ColumnDescriptor* descr) {
   if (const auto& logical_type = descr->logical_type()) {
     return logical_type->type();
   }
   return LogicalType::Type::NONE;
 }
-static LogicalType::Type::type LogicalTypeId(const Statistics& stats) {
+LogicalType::Type::type LogicalTypeId(const Statistics& stats) {
   return LogicalTypeId(stats.descr());
 }
 
@@ -618,20 +616,26 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void IncrementNumValues(int64_t n) override { num_values_ += n; }
 
+  static bool IsMeaningfulLogicalType(LogicalType::Type::type type) {
+    switch (type) {
+      case LogicalType::Type::FLOAT16:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   bool Equals(const Statistics& raw_other) const override {
     if (physical_type() != raw_other.physical_type()) return false;
 
     const auto logical_id = LogicalTypeId(*this);
-    switch (logical_id) {
-      // Only compare against logical types that influence the interpretation of the
-      // physical type
-      case LogicalType::Type::FLOAT16:
-        if (LogicalTypeId(raw_other) != logical_id) {
-          return false;
-        }
-        break;
-      default:
-        break;
+    const auto other_logical_id = LogicalTypeId(raw_other);
+    // Only compare against logical types that influence the interpretation of the
+    // physical type
+    if (IsMeaningfulLogicalType(logical_id)) {
+      if (logical_id != other_logical_id) return false;
+    } else if (IsMeaningfulLogicalType(other_logical_id)) {
+      return false;
     }
 
     const auto& other = checked_cast<const TypedStatisticsImpl&>(raw_other);
@@ -922,7 +926,7 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
       case Type::FIXED_LEN_BYTE_ARRAY:
         if (logical_type == LogicalType::Type::FLOAT16) {
           return std::make_shared<
-              TypedComparatorImpl<true, FLBAType, Float16CompareHelper>>();
+              TypedComparatorImpl<true, FLBAType, Float16CompareHelper>>(type_length);
         }
         return std::make_shared<TypedComparatorImpl<true, FLBAType>>(type_length);
       default:
