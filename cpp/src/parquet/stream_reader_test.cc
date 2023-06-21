@@ -1000,10 +1000,10 @@ class TestMultiRowGroupStreamReader : public ::testing::Test {
 };
 
 TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
-  // skip somewhere in the middle that is a few row groups in to the file
-  auto num_rows_to_skip = 33;
+  // skip somewhere into the middle of a row group somewhere in the middle of the file
+  auto current_row = 33;
 
-  auto retval = reader_.SkipRows(num_rows_to_skip);
+  auto retval = reader_.SkipRows(current_row);
   ASSERT_GE(retval, 0);
 
   // there are 50 total rows, so definitely not EOF
@@ -1013,10 +1013,44 @@ TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
   uint16_t current_row_group = 0;
   uint64_t current_global_row = 0;
   reader_ >> current_row_group;
-  EXPECT_EQ(current_row_group, num_rows_to_skip/10);
+  EXPECT_EQ(current_row_group, current_row/10);
 
   reader_ >> current_global_row;
-  EXPECT_EQ(current_global_row, num_rows_to_skip);
+  EXPECT_EQ(current_global_row, current_row);
+  reader_.EndRow();
+
+  // skip a few more rows but stay inside of this row group
+  retval = reader_.SkipRows(4);
+  ASSERT_GE(retval, 0);
+
+  // we read row 33 (were at 34, then skipped 4 => 38)
+  current_row = 38;
+  reader_ >> current_row_group;
+  EXPECT_EQ(current_row_group, current_row/10);
+
+  reader_ >> current_global_row;
+  EXPECT_EQ(current_global_row, current_row);
+  reader_.EndRow();
+
+  // skip to the exact start of the next row group 4
+  // read 38 (were at 39, then skip 1 => 40)
+  retval = reader_.SkipRows(1);
+  ASSERT_GE(retval, 0);
+
+  current_row = 40;
+  reader_ >> current_row_group;
+  EXPECT_EQ(current_row_group, 4);
+
+  reader_ >> current_global_row;
+  EXPECT_EQ(current_global_row, 40);
+  reader_.EndRow();
+
+  // finally, skip off the end of the file
+  retval = reader_.SkipRows(10);
+  ASSERT_GE(retval, 0);
+
+  EXPECT_TRUE(reader_.eof());
+
 }
 
 }  // namespace test
