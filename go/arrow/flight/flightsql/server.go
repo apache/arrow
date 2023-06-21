@@ -176,12 +176,6 @@ type ActionCancelQueryRequest interface {
 	GetInfo() *flight.FlightInfo
 }
 
-type cancelQueryRequest struct {
-	info *flight.FlightInfo
-}
-
-func (c *cancelQueryRequest) GetInfo() *flight.FlightInfo { return c.info }
-
 type ActionEndTransactionRequest interface {
 	GetTransactionId() []byte
 	GetAction() EndTransactionRequestType
