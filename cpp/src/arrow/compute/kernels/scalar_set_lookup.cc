@@ -36,7 +36,7 @@ namespace {
 
 template <typename Type>
 struct SetLookupState : public KernelState {
-  explicit SetLookupState(MemoryPool* pool) : lookup_table(), memory_pool(pool) {}
+  explicit SetLookupState(MemoryPool* pool) : memory_pool(pool) {}
 
   Status Init(const SetLookupOptions& options) {
     if (options.value_set.is_array()) {
@@ -105,7 +105,7 @@ struct SetLookupState : public KernelState {
   }
 
   using MemoTable = typename HashTraits<Type>::MemoTableType;
-  std::optional<MemoTable> lookup_table;
+  std::optional<MemoTable> lookup_table;  // use optional for delayed initialization
   MemoryPool* memory_pool;
   // When there are duplicates in value_set, the MemoTable indices must
   // be mapped back to indices in the value_set.
