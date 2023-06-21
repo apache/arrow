@@ -411,7 +411,7 @@ services:
         arch: ${ARCH}
         repo: ${REPO}
         ubuntu: ${UBUNTU}
-        config: arm-be.config
+        config: "arm-be.config"
     shm_size: *shm-size
     cap_add:
       - SYS_ADMIN

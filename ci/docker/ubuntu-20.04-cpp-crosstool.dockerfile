@@ -73,7 +73,9 @@ RUN chown -R gcc-user /opt
 USER gcc-user
 
 COPY ci/scripts/build_crosstool_toolchain.sh /arrow/ci/scripts/
-COPY ci/crosstool/${config} /opt/crosstool-ng/.config
+# TODO pass config
+#COPY ci/crosstool/${config} /opt/crosstool-ng/.config
+COPY ci/crosstool/arm-be.config /opt/crosstool-ng/.config
 RUN /arrow/ci/scripts/build_crosstool_toolchain.sh
 
 USER root
