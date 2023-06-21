@@ -885,7 +885,10 @@ func (r *Reader) parseBinaryType(field array.Builder, str string) {
 	decodedVal, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		r.err = fmt.Errorf("cannot decode base64 string %s", str)
+		field.AppendNull()
+		return
 	}
+
 	field.(*array.BinaryBuilder).Append(decodedVal)
 }
 
@@ -898,7 +901,10 @@ func (r *Reader) parseLargeBinaryType(field array.Builder, str string) {
 	decodedVal, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		r.err = fmt.Errorf("cannot decode base64 string %s", str)
+		field.AppendNull()
+		return
 	}
+
 	field.(*array.BinaryBuilder).Append(decodedVal)
 }
 
@@ -911,7 +917,10 @@ func (r *Reader) parseFixedSizeBinaryType(field array.Builder, str string, byteW
 	decodedVal, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		r.err = fmt.Errorf("cannot decode base64 string %s", str)
+		field.AppendNull()
+		return
 	}
+
 	if len(decodedVal) == byteWidth {
 		field.(*array.FixedSizeBinaryBuilder).Append(decodedVal)
 	} else {
