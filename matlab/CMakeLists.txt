@@ -514,14 +514,22 @@ if(NOT Arrow_FOUND)
 
   if(APPLE)
     # Install libarrow.dylib (symlink) and the real files it points to.
-    set(ARROW_SHARED_FILES "${ARROW_SHARED_LIB_FILENAME}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)${CMAKE_SHARED_LIBRARY_SUFFIX}")
+    # on MacOS, we need to match these files: libarrow.dylib
+    #                                         libarrow.1300.dylib
+    #                                         libarrow.1300.0.0.dylib
+    # where the version number might change.
+    set(SHARED_LIBRARY_VERSION_REGEX "${ARROW_SHARED_LIB_FILENAME}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)${CMAKE_SHARED_LIBRARY_SUFFIX}")
   elseif(UNIX 
          AND NOT APPLE
          AND NOT CYGWIN)
     # Install libarrow.so (symlink) and the real files it points to.
-    set(ARROW_SHARED_FILES "${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)")
+    # On Linux, we need to match these files: libarrow.so
+    #                                         libarrow.so.1200
+    #                                         libarrow.so.1200.0.0
+    # where the version number might change.
+    set(SHARED_LIBRARY_VERSION_REGEX "${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)")
   else()
-    set(ARROW_SHARED_FILES ${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+    set(SHARED_LIBRARY_VERSION_REGEX ${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
   endif()
 
   # The subfolders cmake and pkgconfig are excluded as they will be empty.
@@ -531,7 +539,7 @@ if(NOT Arrow_FOUND)
   install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
           DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
           FILES_MATCHING
-          REGEX ${ARROW_SHARED_FILES}
+          REGEX ${SHARED_LIBRARY_VERSION_REGEX}
           PATTERN "cmake" EXCLUDE
           PATTERN "pkgconfig" EXCLUDE)
 endif()
