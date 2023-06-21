@@ -97,9 +97,11 @@ if(ARROW_BUILD_STATIC AND WIN32)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static arrow_acero_testing ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static arrow_acero_testing
+                                   ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared arrow_acero_testing ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared arrow_acero_testing
+                                   ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
@@ -115,7 +117,6 @@ if(ARROW_TESTING)
   target_link_libraries(arrow_dataset_testing ${ARROW_GTEST_GTEST})
   list(APPEND ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_testing)
 endif()
-
 
 # Adding unit tests part of the "dataset" portion of the test suite
 function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
