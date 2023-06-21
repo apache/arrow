@@ -618,6 +618,21 @@ ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) 
   }
 }
 
+void PromoteIntegerForDurationArithmetic(std::vector<TypeHolder>* types) {
+  bool has_duration = std::any_of(types->begin(), types->end(), [](const TypeHolder& t) {
+    return t.id() == Type::DURATION;
+  });
+
+  if (!has_duration) return;
+
+  // Require implicit casts to int64 to match duration's bit width
+  for (auto& type : *types) {
+    if (is_integer(type.id())) {
+      type = int64();
+    }
+  }
+}
+
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -643,21 +658,9 @@ struct ArithmeticFunction : ScalarFunction {
         }
       }
 
-      if (name_ == "multiply_checked") {
-        // MultiplyChecked requires the same type for both operands, therefore we can't
-        // easily make kernels for integers other than int64, so we just cast integers to
-        // int64
-        if ((*types)[0].id() == Type::DURATION && is_integer((*types)[1].id())) {
-          ReplaceTypes(int64(), &(*types)[1], 1);
-        } else if ((*types)[1].id() == Type::DURATION && is_integer((*types)[0].id())) {
-          ReplaceTypes(int64(), &(*types)[0], 1);
-        }
-      } else if (name_ == "divide" || name_ == "divide_checked") {
-        // Similar to MultipyChecked, Divide and DivideChecked require both operands to
-        // have the same type
-        if ((*types)[0].id() == Type::DURATION && is_integer((*types)[1].id())) {
-          ReplaceTypes(int64(), &(*types)[1], 1);
-        }
+      if (name_ == "multiply" || name_ == "multiply_checked" || name_ == "divide" ||
+          name_ == "divide_checked") {
+        PromoteIntegerForDurationArithmetic(types);
       }
     }
 
@@ -1488,19 +1491,9 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add multiply(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
-    for (auto numeric : NumericTypes()) {
-      if (!is_integer(numeric->id())) continue;
-
-      auto exec =
-          GenerateInteger<ScalarBinary, Int64Type, Int64Type, Multiply>(numeric->id());
-      DCHECK_OK(multiply->AddKernel({numeric, duration(unit)}, duration(unit), exec));
-
-      auto reverse_exec =
-          GenerateInteger<ScalarBinaryReverse, Int64Type, Int64Type, Multiply>(
-              numeric->id());
-      DCHECK_OK(
-          multiply->AddKernel({duration(unit), numeric}, duration(unit), reverse_exec));
-    }
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
+    DCHECK_OK(multiply->AddKernel({duration(unit), int64()}, duration(unit), exec));
+    DCHECK_OK(multiply->AddKernel({int64(), duration(unit)}, duration(unit), exec));
   }
 
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
