@@ -18,6 +18,8 @@
 
 import pytest
 
+import numpy as np
+
 import pyarrow as pa
 from pyarrow import compute as pc
 
@@ -41,6 +43,27 @@ def mock_udf_context(batch_length=10):
 class MyError(RuntimeError):
     pass
 
+
+@pytest.fixture(scope="session")
+def sum_agg_func_fixture():
+    """
+    Register a unary aggregate function (mean)
+    """
+    def func(ctx, x, *args):
+        return pa.scalar(np.nansum(x))
+
+    func_name = "sum_udf"
+    func_doc = empty_udf_doc
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.float64(),
+                                   },
+                                   pa.float64()
+                                   )
+    return func, func_name
 
 @pytest.fixture(scope="session")
 def exception_agg_func_fixture():
@@ -679,6 +702,26 @@ def test_hash_agg_basic(unary_agg_func_fixture):
 
     assert result.sort_by('id') == expected.sort_by('id')
 
+def test_hash_agg_random(sum_agg_func_fixture):
+    """Test hash aggregate udf with randomly sampled data"""
+
+    value_num = 1000000
+    group_num = 1000
+    seed = 1
+
+    rng = np.random.default_rng(seed=seed)
+
+    arr1 = pa.array(np.repeat(1, value_num), pa.float64())
+    arr2 = pa.array(rng.choice(group_num, value_num), pa.int32())
+
+    table = pa.table([arr2, arr1], names=['id', 'value'])
+
+    result = table.group_by("id").aggregate([("value", "sum_udf")])
+    expected = table.group_by("id").aggregate([("value", "sum")]).rename_columns(['id', 'value_sum_udf'])
+
+    assert result.sort_by('id') == expected.sort_by('id')
+
+
 def test_agg_empty(unary_agg_func_fixture):
     empty = pa.array([], pa.float64())
 
@@ -703,7 +746,7 @@ def test_agg_varargs(varargs_agg_func_fixture):
     arr2 = pa.array([1.0, 2.0, 3.0, 4.0, 5.0], pa.float64())
 
     result = pc.call_function(
-        "y=sum_mean(x...)", [arr1, arr2]
+        "sum_mean", [arr1, arr2]
     )
     expected = pa.scalar(33.0)
     assert result == expected
