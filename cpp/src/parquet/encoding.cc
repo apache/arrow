@@ -2821,10 +2821,11 @@ std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
 // ----------------------------------------------------------------------
 // DeltaLengthByteArrayDecoder
 
-class DeltaLengthByteArrayDecoder : public DecoderImpl,
-                                    virtual public TypedDecoder<ByteArrayType> {
+template <typename BAT>
+class DeltaLengthByteArrayDecoderBase : public DecoderImpl,
+                                    virtual public TypedDecoder<BAT> {
  public:
-  explicit DeltaLengthByteArrayDecoder(const ColumnDescriptor* descr,
+  explicit DeltaLengthByteArrayDecoderBase(const ColumnDescriptor* descr,
                                        MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY),
         len_decoder_(nullptr, pool),
@@ -2875,7 +2876,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
+                  typename EncodingTraits<BAT>::Accumulator* out) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
                                           valid_bits_offset, out, &result));
@@ -2884,7 +2885,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  typename EncodingTraits<ByteArrayType>::DictAccumulator* out) override {
+                  typename EncodingTraits<BAT>::DictAccumulator* out) override {
     ParquetException::NYI(
         "DecodeArrow of DictAccumulator for DeltaLengthByteArrayDecoder");
   }
@@ -2910,9 +2911,9 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
-                          typename EncodingTraits<ByteArrayType>::Accumulator* out,
+                          typename EncodingTraits<BAT>::Accumulator* out,
                           int* out_num_values) {
-    ArrowBinaryHelper helper(out);
+    ArrowBinaryHelperBase<BAT> helper(out);
 
     std::vector<ByteArray> values(num_values - null_count);
     const int num_valid_values = Decode(values.data(), num_values - null_count);
@@ -2952,6 +2953,9 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   uint32_t length_idx_;
   std::shared_ptr<ResizableBuffer> buffered_length_;
 };
+
+using DeltaLengthByteArrayDecoder = DeltaLengthByteArrayDecoderBase<ByteArrayType>;
+using DeltaLengthLargeByteArrayDecoder = DeltaLengthByteArrayDecoderBase<LargeByteArrayType>;
 
 // ----------------------------------------------------------------------
 // RLE_BOOLEAN_ENCODER
@@ -3143,10 +3147,11 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
 // ----------------------------------------------------------------------
 // DELTA_BYTE_ARRAY
 
-class DeltaByteArrayDecoder : public DecoderImpl,
-                              virtual public TypedDecoder<ByteArrayType> {
+template <typename BAT>
+class DeltaByteArrayDecoderBase : public DecoderImpl,
+                              virtual public TypedDecoder<BAT> {
  public:
-  explicit DeltaByteArrayDecoder(const ColumnDescriptor* descr,
+  explicit DeltaByteArrayDecoderBase(const ColumnDescriptor* descr,
                                  MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_BYTE_ARRAY),
         prefix_len_decoder_(nullptr, pool),
@@ -3189,7 +3194,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
+                  typename EncodingTraits<BAT>::Accumulator* out) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
                                           valid_bits_offset, out, &result));
@@ -3199,7 +3204,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
   int DecodeArrow(
       int num_values, int null_count, const uint8_t* valid_bits,
       int64_t valid_bits_offset,
-      typename EncodingTraits<ByteArrayType>::DictAccumulator* builder) override {
+      typename EncodingTraits<BAT>::DictAccumulator* builder) override {
     ParquetException::NYI("DecodeArrow of DictAccumulator for DeltaByteArrayDecoder");
   }
 
@@ -3261,9 +3266,9 @@ class DeltaByteArrayDecoder : public DecoderImpl,
 
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
-                          typename EncodingTraits<ByteArrayType>::Accumulator* out,
+                          typename EncodingTraits<BAT>::Accumulator* out,
                           int* out_num_values) {
-    ArrowBinaryHelper helper(out);
+    ArrowBinaryHelperBase<BAT> helper(out);
 
     std::vector<ByteArray> values(num_values);
     const int num_valid_values = GetInternal(values.data(), num_values - null_count);
@@ -3305,6 +3310,9 @@ class DeltaByteArrayDecoder : public DecoderImpl,
   std::shared_ptr<ResizableBuffer> buffered_prefix_length_;
   std::shared_ptr<ResizableBuffer> buffered_data_;
 };
+
+using DeltaByteArrayDecoder = DeltaByteArrayDecoderBase<ByteArrayType>;
+using DeltaLargeByteArrayDecoder = DeltaByteArrayDecoderBase<LargeByteArrayType>;
 
 // ----------------------------------------------------------------------
 // BYTE_STREAM_SPLIT
@@ -3576,12 +3584,20 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
     }
   } else if (encoding == Encoding::DELTA_BYTE_ARRAY) {
     if (type_num == Type::BYTE_ARRAY) {
-      return std::make_unique<DeltaByteArrayDecoder>(descr, pool);
+      if (use_large_binary_variants) {
+        return std::make_unique<DeltaByteArrayDecoder>(descr);
+      } else {
+        return std::make_unique<DeltaLargeByteArrayDecoder>(descr);
+      }
     }
     throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
     if (type_num == Type::BYTE_ARRAY) {
-      return std::make_unique<DeltaLengthByteArrayDecoder>(descr, pool);
+      if (use_large_binary_variants) {
+        return std::make_unique<DeltaLengthByteArrayDecoder>(descr, pool);
+      } else {
+        return std::make_unique<DeltaLengthLargeByteArrayDecoder>(descr, pool);
+      }
     }
     throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::RLE) {
