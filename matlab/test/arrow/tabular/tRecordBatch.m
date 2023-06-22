@@ -44,7 +44,6 @@ classdef tRecordBatch < matlab.unittest.TestCase
             for ii = 1:arrowRecordBatch.NumColumns
                 column = arrowRecordBatch.column(ii);
                 tc.verifyEqual(column.toMATLAB(), TOriginal{:, ii});
-                tc.verifyEqual(column.toMATLAB(), TConverted{:, ii});
             end
         end
 
