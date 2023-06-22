@@ -502,8 +502,7 @@ tasks:
 {% for target in ["debian-bullseye",
                   "debian-bookworm",
                   "ubuntu-focal",
-                  "ubuntu-jammy",
-                  "ubuntu-kinetic"] %}
+                  "ubuntu-jammy"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
     ci: github
