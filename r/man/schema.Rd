@@ -7,7 +7,8 @@
 schema(...)
 }
 \arguments{
-\item{...}{\link[=field]{fields}, field name/\link[=data-type]{data type} pairs, or object from which to extract a schema}
+\item{...}{\link[=field]{fields}, field name/\link[=data-type]{data type} pairs (or a list of), or object from which to extract
+a schema}
 }
 \description{
 Create a schema or extract one from an object.
@@ -15,6 +16,9 @@ Create a schema or extract one from an object.
 \examples{
 # Create schema using pairs of field names and data types
 schema(a = int32(), b = float64())
+
+# Create a schema using a list of pairs of field names and data types
+schema(list(a = int8(), b = string()))
 
 # Create schema using fields
 schema(
