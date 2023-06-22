@@ -256,7 +256,6 @@ def test_parquet_writer_chunk_size(tempdir):
     check_chunk_size(default_chunk_size + 1, None, 2)
 
 
-
 @pytest.mark.pandas
 @pytest.mark.parametrize("filesystem", [
     None,
