@@ -406,16 +406,18 @@ func (b *BinaryViewBuilder) Type() arrow.DataType { return b.dtype }
 func (b *BinaryViewBuilder) Release() {
 	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
 
-	if atomic.AddInt64(&b.refCount, -1) == 0 {
-		if b.nullBitmap != nil {
-			b.nullBitmap.Release()
-			b.nullBitmap = nil
-		}
-		if b.data != nil {
-			b.data.Release()
-			b.data = nil
-			b.rawData = nil
-		}
+	if atomic.AddInt64(&b.refCount, -1) != 0 {
+		return
+	}
+
+	if b.nullBitmap != nil {
+		b.nullBitmap.Release()
+		b.nullBitmap = nil
+	}
+	if b.data != nil {
+		b.data.Release()
+		b.data = nil
+		b.rawData = nil
 	}
 }
 
