@@ -439,9 +439,7 @@ void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
                        int64_t row_group_size, const std::vector<int>& column_subset,
                        std::shared_ptr<Table>* out,
                        const std::shared_ptr<ArrowWriterProperties>&
-                           arrow_writer_properties = default_arrow_writer_properties(),
-                       const ArrowReaderProperties& arrow_reader_properties =
-                           default_arrow_reader_properties()) {
+                           arrow_writer_properties = default_arrow_writer_properties()) {
   std::shared_ptr<Buffer> buffer;
   ASSERT_NO_FATAL_FAILURE(
       WriteTableToBuffer(table, row_group_size, arrow_writer_properties, &buffer));
@@ -492,13 +490,11 @@ void DoRoundTripWithBatches(
 
 void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
                           const std::shared_ptr<ArrowWriterProperties>&
-                              arrow_writer_properties = default_arrow_writer_properties(),
-                          const ArrowReaderProperties& arrow_reader_properties =
-                              default_arrow_reader_properties()) {
+                              arrow_writer_properties = default_arrow_writer_properties()) {
   std::shared_ptr<Table> result;
   ASSERT_NO_FATAL_FAILURE(
       DoSimpleRoundtrip(table, false /* use_threads */, row_group_size, {}, &result,
-                        arrow_writer_properties, arrow_reader_properties));
+                        arrow_writer_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
   ASSERT_OK(result->ValidateFull());
@@ -723,14 +719,6 @@ class ParquetIOTestBase : public ::testing::Test {
 
   void CheckRoundTrip(const std::shared_ptr<Table>& table) {
     CheckSimpleRoundtrip(table, table->num_rows());
-  }
-
-  void CheckRoundTrip(
-      const std::shared_ptr<Table>& table,
-      const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties,
-      const ArrowReaderProperties& arrow_reader_properties) {
-    CheckSimpleRoundtrip(table, table->num_rows(), arrow_writer_properties,
-                         arrow_reader_properties);
   }
 
   template <typename ArrayType>
@@ -1366,14 +1354,8 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compatibility) {
 
 using TestStringParquetIO = TestParquetIO<::arrow::StringType>;
 
-TEST_F(TestStringParquetIO, NonOverflowStringWithUseLargeBinaryVariantsSetting) {
-  std::shared_ptr<Array> values;
-
-  ::arrow::StringBuilder builder;
-  for (size_t i = 0; i < SMALL_SIZE; i++) {
-    ASSERT_OK(builder.Append("abc"));
-  }
-  ASSERT_OK(builder.Finish(&values));
+TEST_F(TestStringParquetIO, SmallStringWithLargeBinaryVariantSetting) {
+  auto values = ArrayFromJSON(::arrow::utf8(), R"(["foo", "", null, "bar"])");
 
   this->RoundTripSingleColumn(values, values, default_arrow_writer_properties());
 
