@@ -118,7 +118,8 @@ jobs:
           success() &&
           matrix.arch == 'amd64' &&
           github.event_name == 'push' &&
-          github.repository == 'apache/arrow'
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           CONBENCH_URL: https://conbench.ursa.dev
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
