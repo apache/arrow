@@ -41,7 +41,7 @@ const (
 
 // The result of a cancel operation.
 //
-// This is used by CancelFLightInfoResult.status.
+// This is used by CancelFlightInfoResult.status.
 type CancelStatus int32
 
 const (

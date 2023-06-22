@@ -194,7 +194,7 @@ message Result {
 /*
  * The result of a cancel operation.
  *
- * This is used by CancelFLightInfoResult.status.
+ * This is used by CancelFlightInfoResult.status.
  */
 enum CancelStatus {
   // The cancellation status is unknown. Servers should avoid using
