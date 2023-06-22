@@ -680,11 +680,48 @@ def test_udt_datasource1_exception():
         _test_datasource1_udt(datasource1_exception)
 
 
-def test_agg_basic(unary_agg_func_fixture):
+def test_scalar_agg_basic(unary_agg_func_fixture):
     arr = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
     result = pc.call_function("mean_udf", [arr])
     expected = pa.scalar(30.0)
     assert result == expected
+
+
+def test_scalar_agg_empty(unary_agg_func_fixture):
+    empty = pa.array([], pa.float64())
+
+    with pytest.raises(pa.ArrowInvalid, match='empty inputs'):
+        pc.call_function("mean_udf", [empty])
+
+
+def test_scalar_agg_wrong_output_dtype(wrong_output_dtype_agg_func_fixture):
+    arr = pa.array([10, 20, 30, 40, 50], pa.int64())
+    with pytest.raises(pa.ArrowTypeError, match="output datatype"):
+        pc.call_function("y=wrong_output_dtype(x)", [arr])
+
+
+def test_scalar_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
+    arr = pa.array([10, 20, 30, 40, 50], pa.int64())
+    with pytest.raises(pa.ArrowTypeError, match="output type"):
+        pc.call_function("y=wrong_output_type(x)", [arr])
+
+
+def test_scalar_agg_varargs(varargs_agg_func_fixture):
+    arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
+    arr2 = pa.array([1.0, 2.0, 3.0, 4.0, 5.0], pa.float64())
+
+    result = pc.call_function(
+        "sum_mean", [arr1, arr2]
+    )
+    expected = pa.scalar(33.0)
+    assert result == expected
+
+
+def test_scalar_agg_exception(exception_agg_func_fixture):
+    arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
+
+    with pytest.raises(RuntimeError, match='Oops'):
+        pc.call_function("y=exception_len(x)", [arr])
 
 
 def test_hash_agg_basic(unary_agg_func_fixture):
@@ -705,17 +742,50 @@ def test_hash_agg_basic(unary_agg_func_fixture):
     assert result.sort_by('id') == expected.sort_by('id')
 
 
+def test_hash_agg_empty(unary_agg_func_fixture):
+    arr1 = pa.array([], pa.float64())
+    arr2 = pa.array([], pa.int32())
+    table = pa.table([arr2, arr1], names=["id", "value"])
+
+    with pytest.raises(pa.ArrowInvalid, match='empty inputs'):
+        result = table.group_by("id").aggregate([("value", "mean_udf")])
+
+
+def test_hash_agg_wrong_output_dtype(wrong_output_dtype_agg_func_fixture):
+    arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
+    arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
+
+    table = pa.table([arr2, arr1], names=["id", "value"])
+    with pytest.raises(pa.ArrowTypeError, match="output datatype"):
+        result = table.group_by("id").aggregate([("value", "y=wrong_output_dtype(x)")])
+
+
+def test_hash_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
+    arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
+    arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
+    table = pa.table([arr2, arr1], names=["id", "value"])
+
+    with pytest.raises(pa.ArrowTypeError, match="output type"):
+        result = table.group_by("id").aggregate([("value", "y=wrong_output_type(x)")])
+
+
+def test_hash_agg_exception(exception_agg_func_fixture):
+    arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
+    arr2 = pa.array([4, 2, 1, 2, 1], pa.int32())
+    table = pa.table([arr2, arr1], names=["id", "value"])
+
+    with pytest.raises(RuntimeError, match='Oops'):
+        result = table.group_by("id").aggregate([("value", "y=exception_len(x)")])
+
+
 def test_hash_agg_random(sum_agg_func_fixture):
     """Test hash aggregate udf with randomly sampled data"""
 
     value_num = 1000000
     group_num = 1000
-    seed = 1
-
-    rng = np.random.default_rng(seed=seed)
 
     arr1 = pa.array(np.repeat(1, value_num), pa.float64())
-    arr2 = pa.array(rng.choice(group_num, value_num), pa.int32())
+    arr2 = pa.array(np.random.choice(group_num, value_num), pa.int32())
 
     table = pa.table([arr2, arr1], names=['id', 'value'])
 
@@ -724,40 +794,3 @@ def test_hash_agg_random(sum_agg_func_fixture):
         [("value", "sum")]).rename_columns(['id', 'value_sum_udf'])
 
     assert result.sort_by('id') == expected.sort_by('id')
-
-
-def test_agg_empty(unary_agg_func_fixture):
-    empty = pa.array([], pa.float64())
-
-    with pytest.raises(pa.ArrowInvalid, match='empty inputs'):
-        pc.call_function("mean_udf", [empty])
-
-
-def test_agg_wrong_output_dtype(wrong_output_dtype_agg_func_fixture):
-    arr = pa.array([10, 20, 30, 40, 50], pa.int64())
-    with pytest.raises(pa.ArrowTypeError, match="output datatype"):
-        pc.call_function("y=wrong_output_dtype(x)", [arr])
-
-
-def test_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
-    arr = pa.array([10, 20, 30, 40, 50], pa.int64())
-    with pytest.raises(pa.ArrowTypeError, match="output type"):
-        pc.call_function("y=wrong_output_type(x)", [arr])
-
-
-def test_agg_varargs(varargs_agg_func_fixture):
-    arr1 = pa.array([10, 20, 30, 40, 50], pa.int64())
-    arr2 = pa.array([1.0, 2.0, 3.0, 4.0, 5.0], pa.float64())
-
-    result = pc.call_function(
-        "sum_mean", [arr1, arr2]
-    )
-    expected = pa.scalar(33.0)
-    assert result == expected
-
-
-def test_agg_exception(exception_agg_func_fixture):
-    arr = pa.array([10, 20, 30, 40, 50, 60], pa.int64())
-
-    with pytest.raises(RuntimeError, match='Oops'):
-        pc.call_function("y=exception_len(x)", [arr])
