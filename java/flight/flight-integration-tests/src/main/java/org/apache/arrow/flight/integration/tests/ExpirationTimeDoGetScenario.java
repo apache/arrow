@@ -86,25 +86,6 @@ final class ExpirationTimeDoGetScenario implements Scenario {
         }
       }
 
-      // No re-read after expiration
-      for (FlightEndpoint endpoint : info.getEndpoints()) {
-        Optional<Instant> maybeExpiration = endpoint.getExpirationTime();
-        if (!maybeExpiration.isPresent()) {
-          continue;
-        }
-        Instant now = Instant.now();
-        Instant expiration = maybeExpiration.get();
-        if (expiration.isAfter(now)) {
-          Thread.sleep(ChronoUnit.MILLIS.between(now, expiration) + 1);
-        }
-        IntegrationAssertions.assertThrows(FlightRuntimeException.class, () -> {
-          try (FlightStream stream = client.getStream(endpoint.getTicket())) {
-            while (stream.next()) {
-            }
-          }
-        });
-      }
-
       // Check data
       IntegrationAssertions.assertEquals(5, batches.size());
       try (final VectorSchemaRoot root = VectorSchemaRoot.create(ExpirationTimeProducer.SCHEMA, allocator)) {

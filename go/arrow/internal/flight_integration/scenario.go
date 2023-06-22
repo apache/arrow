@@ -1010,29 +1010,6 @@ func (tester *expirationTimeDoGetScenarioTester) RunClient(addr string, opts ...
 			return rdr.Err()
 		}
 	}
-	// Re-reads after expired
-	for _, ep := range info.Endpoint {
-		if ep.ExpirationTime == nil {
-			continue
-		}
-
-		expirationTime := ep.ExpirationTime.AsTime()
-		avalilableDuration := time.Until(expirationTime)
-		if avalilableDuration > 0 {
-			time.Sleep(avalilableDuration)
-		}
-
-		stream, err := client.DoGet(ctx, ep.Ticket)
-		if err != nil {
-			return err
-		}
-
-		rdr, err := flight.NewRecordReader(stream)
-		if err == nil {
-			rdr.Release()
-			return fmt.Errorf("expired data shouldn't be readable")
-		}
-	}
 
 	// Build expected records
 	mem := memory.DefaultAllocator

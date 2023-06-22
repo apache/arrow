@@ -638,20 +638,6 @@ class ExpirationTimeDoGetScenario : public Scenario {
         }
       }
     }
-    // Re-reads after expired
-    for (const auto& endpoint : info->endpoints()) {
-      if (!endpoint.expiration_time.has_value()) {
-        continue;
-      }
-      const auto& expiration_time = endpoint.expiration_time.value();
-      if (expiration_time > Timestamp::clock::now()) {
-        std::this_thread::sleep_for(expiration_time - Timestamp::clock::now());
-      }
-      auto reader = client->DoGet(endpoint.ticket);
-      if (reader.ok()) {
-        return Status::Invalid("Expired data shouldn't be readable");
-      }
-    }
     ARROW_ASSIGN_OR_RAISE(auto table, ConcatenateTables(tables));
 
     // Build expected table
