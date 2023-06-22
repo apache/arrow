@@ -36,7 +36,7 @@ func IsStringHeaderInline(length int) bool {
 
 // StringHeader is a variable length string (utf8) or byte slice with
 // a 4 byte prefix and inline optimization for small values (12 bytes
-// or fewer). This is similar to Go's standard string  but limited by
+// or fewer). This is similar to Go's standard string but limited by
 // a length of Uint32Max and up to the first four bytes of the string
 // are copied into the struct. This prefix allows failing comparisons
 // early and can reduce CPU cache working set when dealing with short
