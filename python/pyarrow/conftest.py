@@ -289,7 +289,7 @@ def unary_agg_func_fixture():
     """
     from pyarrow import compute as pc
 
-    def func(ctx, x, *args):
+    def func(ctx, x):
         return pa.scalar(np.nanmean(x))
 
     func_name = "mean_udf"
