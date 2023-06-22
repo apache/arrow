@@ -473,7 +473,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     auto comp = Comparator::Make(descr);
     comparator_ = std::static_pointer_cast<TypedComparator<DType>>(comp);
     TypedStatisticsImpl::Reset();
-    // Currently, writer will always write `distinct_count` to EncodedStatistics.
+    // Currently, writer will always write `null_count` to EncodedStatistics.
     // So, enable it by default.
     has_null_count_ = true;
     // Currently, writer will write `distinct_count` to EncodedStatistics.

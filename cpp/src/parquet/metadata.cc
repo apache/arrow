@@ -87,29 +87,20 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
-  DCHECK(metadata.__isset.statistics);
-  int64_t num_non_null_values = 0;
-  if (metadata.statistics.__isset.null_count) {
-    num_non_null_values = metadata.num_values - metadata.statistics.null_count;
-  } else {
-    // NOTE: statistics should `metadata.statistics.__isset.null_count`
-    // has a invalid non-null value number.
-    num_non_null_values = metadata.num_values;
-  }
-
   // If ColumnOrder is defined, return max_value and min_value
   if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
     return MakeStatistics<DType>(
         descr, metadata.statistics.min_value, metadata.statistics.max_value,
-        num_non_null_values, metadata.statistics.null_count,
-        metadata.statistics.distinct_count,
+        metadata.num_values - metadata.statistics.null_count,
+        metadata.statistics.null_count, metadata.statistics.distinct_count,
         metadata.statistics.__isset.max_value || metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
         metadata.statistics.__isset.distinct_count);
   }
   // Default behavior
   return MakeStatistics<DType>(
-      descr, metadata.statistics.min, metadata.statistics.max, num_non_null_values,
+      descr, metadata.statistics.min, metadata.statistics.max,
+      metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max || metadata.statistics.__isset.min,
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
