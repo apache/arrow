@@ -26,33 +26,28 @@ namespace arrow {
 namespace flight {
 namespace sql {
 
-// FIXME there isn't a sensible public client/server common header to move this to(?)
-static constexpr char const kSessionCookieName[] =
-    "flight_sql_session_id";
-
 ServerSessionMiddleware::ServerSessionMiddleware(ServerSessionMiddlewareFactory* factory,
                                                  const CallHeaders& headers)
     : factory_(factory), headers_(headers), existing_session(false) {}
 
 ServerSessionMiddleware::ServerSessionMiddleware(
     ServerSessionMiddlewareFactory* factory, const CallHeaders& headers,
-    std::shared_ptr<std::map<std::string, SessionOptionValue>> session,
+    std::shared_ptr<FlightSqlSession> session,
     std::string session_id)
     : factory_(factory), headers_(headers), session_(session), existing_session(true) {}
 
 void ServerSessionMiddleware::SendingHeaders(AddCallHeaders* addCallHeaders) {
   if (!existing_session && session_) {
-    // FIXME impl
-    // add Set-Cookie header w/ flight_sql_session_id
-    // FIXME I also need to know my own session key... (same fixme as header)
+    addCallHeaders->AddHeader("cookie", kSessionCookieName + "=" + session_id_;);
   }
 }
+
 void ServerSessionMiddleware::CallCompleted(const Status&) {}
 
 bool ServerSessionMiddleware::HasSession() {
-  return static_cast<bool> session_;
+  return static_cast<bool>(session_);
 }
-std::shared_ptr<std::map<std::string, SessionOptionValue>>&
+std::shared_ptr<FlightSqlSession>&
 ServerSessionMiddleware::GetSession() {
   if (!session_)
     session_ = factory_->GetNewSession(&session_id_);
@@ -64,10 +59,9 @@ const CallHeaders& ServerSessionMiddleware::GetCallHeaders() {
 
 /// \brief A factory for ServerSessionMiddleware, itself storing session data.
 class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
- private:
-  std::map<std::string,
-           std::shared_ptr<std::map<std::string, SessionOptionValue>>> session_store_;
-  std::share_mutex session_store_lock_;
+ protected:
+  std::map<std::string, std::shared_ptr<FlightSqlSession>> session_store_;
+  std::shared_mutex session_store_lock_;
   boost::uuids::random_generator uuid_generator_;
 
   std::vector<std::pair<std::string, std::string>> ParseCookieString(
@@ -141,15 +135,15 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
   }
 
   /// \brief Get a new, empty session option map and its id key.
-  std::shared_ptr<std::map<std::string, SessionOptionValue>>
+  std::shared_ptr<FlightSqlSession>
   GetNewSession(std::string* session_id) {
     std::string new_id = boost::lexical_cast<std::string>(uuid_generator_());
     *session_id = new_id;
-    auto session = std::make_shared<std::map<std::string, SessionOptionValue>>();
+    auto session = std::make_shared<FlightSqlSession>();
 
     const std::unique_lock<std::shared_mutex> l(session_store_lock_);
     session_store_[new_id] = session;
-    
+
     return session;
   }
 };
@@ -157,6 +151,27 @@ class ServerSessionMiddlewareFactory : public ServerMiddlewareFactory {
 std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory() {
   return std::make_shared<ServerSessionMiddlewareFactory>();
 }
+
+class FlightSqlSession {
+ protected:
+  std::map<std::string, SessionOptionValue> map_;
+  std::shared_mutex lock_;
+ public:
+  /// \brief Get session option by key
+  SessionOptionValue GetSessionOption(const std::string& k) const {
+    const std::shared_lock<std::shared_mutex> l(lock_);
+    return map_.at(k);
+  }
+  void SetSessionOption(const std::string& k, const SessionOptionValue& v) {
+    const std::unique_lock<std::shared_mutex> l(lock_):
+    map_[k] = v;
+  }
+  /// \brief Idempotently remove key from this call's Session, if Session & key exist
+  void EraseSessionOption(const std::string& k) {
+    const std::unique_lock<std::shared_mutex> l(lock_);
+    map_.erase(k);
+  }
+};
 
 } // namespace sql
 } // namespace flight

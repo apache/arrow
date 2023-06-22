@@ -29,7 +29,21 @@ namespace sql {
 
 class ServerSessionMiddlewareFactory;
 
-// FIXME put the cookie name somewhere static out here
+static constexpr char const kSessionCookieName[] =
+    "flight_sql_session_id";
+
+class FlightSqlSession {
+ protected:
+  std::map<std::string, SessionOptionValue> map_;
+  std::shared_mutex lock_;
+ public:
+  /// \brief Get session option by key
+  SessionOptionValue GetSessionOption(const std::string&) const;
+  /// \brief Set session option by key to given value
+  void SetSessionOption(const std::string&, const SessionOptionValue&);
+  /// \brief Idempotently remove key from this call's Session, if Session & key exist
+  void EraseSessionOption(const std::string&);
+};
 
 /// \brief A middleware to handle Session option persistence and related *Cookie headers.
 class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware
@@ -44,25 +58,25 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware
 
   /// \brief Is there an existing session (either existing or new)
   bool HasSession() const;
-  /// \brief Get a mutable Map of session options.
-  std::shared_ptr<std::map<std::string, SessionOption>> GetSession(std::string*);
+  /// \brief Get existing or new call-associated session
+  std::shared_ptr<FlightSqlSession> GetSession();
   /// \brief Get request headers, in lieu of a provided or created session.
   const CallHeaders& GetCallHeaders() const;
 
- private:
+ protected:
     friend class ServerSessionMiddlewareFactory;
-  std::shared_ptr<std::map<std::string, SessionOptionValue>> session_;
+  std::shared_ptr<FlightSqlSession> session_;
   std::string session_id_;
   const CallHeaders& headers_;
   const bool existing_session;
   ServerSessionMiddlewareFactory* factory_;
 
-  explicit ServerSessionMiddleware(ServerSessionMiddlewareFactory*,
-                                   const CallHeaders& headers);
+  ServerSessionMiddleware(ServerSessionMiddlewareFactory*,
+                          const CallHeaders&);
   ServerSessionMiddleware(ServerSessionMiddlewareFactory*,
                           const CallHeaders&,
-                          std::shared_ptr<std::map<std::string, SessionOptionValue>>,
-                          std::string)
+                          std::shared_ptr<FlightSqlSession>,
+                          std::string session_id)
 };
 
 /// \brief Returns a ServerMiddlewareFactory that handles Session option storage.
