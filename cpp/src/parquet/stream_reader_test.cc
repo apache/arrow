@@ -984,13 +984,13 @@ class TestMultiRowGroupStreamReader : public ::testing::Test {
 
     int nrows = 0;
     for (auto group = 0; group < num_row_groups; ++group) {
-        for (auto i = 0; i < num_rows_per_group; ++i) {
-          os << static_cast<uint16_t>(group);
-          os << static_cast<uint64_t>(nrows);
-          os << EndRow;
-          nrows++;
-        }
-        os.EndRowGroup();
+      for (auto i = 0; i < num_rows_per_group; ++i) {
+        os << static_cast<uint16_t>(group);
+        os << static_cast<uint64_t>(nrows);
+        os << EndRow;
+        nrows++;
+      }
+      os.EndRowGroup();
     }
   }
 
@@ -1013,7 +1013,7 @@ TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
   uint16_t current_row_group = 0;
   uint64_t current_global_row = 0;
   reader_ >> current_row_group;
-  EXPECT_EQ(current_row_group, current_row/10);
+  EXPECT_EQ(current_row_group, current_row / 10);
 
   reader_ >> current_global_row;
   EXPECT_EQ(current_global_row, current_row);
@@ -1026,7 +1026,7 @@ TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
   // we read row 33 (were at 34, then skipped 4 => 38)
   current_row = 38;
   reader_ >> current_row_group;
-  EXPECT_EQ(current_row_group, current_row/10);
+  EXPECT_EQ(current_row_group, current_row / 10);
 
   reader_ >> current_global_row;
   EXPECT_EQ(current_global_row, current_row);
@@ -1050,7 +1050,6 @@ TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
   ASSERT_GE(retval, 0);
 
   EXPECT_TRUE(reader_.eof());
-
 }
 
 }  // namespace test
