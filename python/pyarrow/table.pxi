@@ -1487,6 +1487,16 @@ cdef class _Tabular(_PandasConvertible):
 
         return _PyArrowDataFrame(self, nan_as_null, allow_copy)
 
+    def __array__(self, dtype=None):
+        column_arrays = [
+            np.asarray(self.column(i), dtype=dtype) for i in range(self.num_columns)
+        ]
+        if column_arrays:
+            arr = np.stack(column_arrays, axis=1)
+        else:
+            arr = np.empty((self.num_rows, 0), dtype=dtype)
+        return arr
+
     def __eq__(self, other):
         try:
             return self.equals(other)
