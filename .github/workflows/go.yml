@@ -106,7 +106,8 @@ jobs:
           success() &&
           matrix.arch == 'amd64' &&
           github.event_name == 'push' &&
-          github.repository == 'apache/arrow'
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
@@ -132,13 +133,13 @@ jobs:
     name: Go Cross-build for 386
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 20    
+    timeout-minutes: 20
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0          
-      - name: Install Go        
+          fetch-depth: 0
+      - name: Install Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.18
@@ -311,12 +312,20 @@ jobs:
         shell: bash
         run: ci/scripts/go_test.sh $(pwd)
       - name: Setup Python
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       - name: Run Benchmarks
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         shell: bash
         env:
           CONBENCH_URL: 'https://conbench.ursa.dev'
