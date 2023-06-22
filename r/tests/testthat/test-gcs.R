@@ -155,7 +155,7 @@ gcs_path <- function(...) {
   paste(now, ..., sep = "/")
 }
 gcs_uri <- function(...) {
-  template <- "gs://anonymous@%s?scheme=http&endpoint_override=localhost%s%s&retry_limit_seconds=1"
+  template <- "gs://anonymous@%s?scheme=http&endpoint_override=localhost%s%s&retry_limit_seconds=1&project_id=test-project-id"
   sprintf(template, gcs_path(...), "%3A", testbench_port)
 }
 
