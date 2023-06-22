@@ -120,7 +120,7 @@ struct RoundUtil {
   // Calculate powers of ten with arbitrary integer exponent
   template <typename T>
   static enable_if_integer_value<T> Pow10(int64_t power) {
-    DCHECK(power >= 0);
+    DCHECK_GE(power, 0);
 
     static constexpr uint64_t lut[] = {
         Pow10Struct<0>::value,  Pow10Struct<1>::value,  Pow10Struct<2>::value,
