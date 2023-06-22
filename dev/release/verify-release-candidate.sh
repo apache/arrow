@@ -192,9 +192,7 @@ test_apt() {
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
-                "arm64v8/ubuntu:jammy" \
-                "ubuntu:kinetic" \
-                "arm64v8/ubuntu:kinetic"; do \
+                "arm64v8/ubuntu:jammy"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
