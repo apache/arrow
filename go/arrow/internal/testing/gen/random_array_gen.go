@@ -375,11 +375,11 @@ func (r *RandomArrayGenerator) generateBinaryView(dt arrow.DataType, size int64,
 	}
 
 	for i := 0; i < lengths.Len(); i++ {
-		if lengths.IsValid(i) {
-			bldr.Append(gen(lengths.Value(i)))
-		} else {
+		if lengths.IsNull(i) {
 			bldr.AppendNull()
+			continue
 		}
+		bldr.Append(gen(lengths.Value(i)))
 	}
 
 	return bldr.NewArray()
