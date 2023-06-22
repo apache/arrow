@@ -176,10 +176,7 @@ func (b *multiBufferBuilder) Release() {
 	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
 
 	if atomic.AddInt64(&b.refCount, -1) == 0 {
-		for i, buf := range b.blocks {
-			buf.Release()
-			b.blocks[i] = nil
-		}
+		b.Reset()
 	}
 }
 
