@@ -92,8 +92,9 @@ static void IsInStringLargeSet(benchmark::State& state) {
   SetLookupBenchmarkString(state, "is_in_meta_binary", 1 << 10);
 }
 
-constexpr int64_t kArrayLengthWithSmallSet = 1 << 18;
-constexpr int64_t kArrayLengthWithLargeSet = 1000;
+static constexpr int64_t kArrayLengthWithSmallSet = 1 << 18;
+static constexpr int64_t kArrayLengthWithLargeSet = 1000;
+
 static void IndexInInt8SmallSet(benchmark::State& state) {
   SetLookupBenchmarkNumeric<Int8Type>(state, "index_in_meta_binary", state.range(0),
                                       kArrayLengthWithSmallSet);
@@ -156,12 +157,12 @@ BENCHMARK(IndexInInt8SmallSet)->RangeMultiplier(4)->Range(2, 8);
 BENCHMARK(IndexInInt16SmallSet)->RangeMultiplier(4)->Range(2, 64);
 BENCHMARK(IndexInInt32SmallSet)->RangeMultiplier(4)->Range(2, 64);
 BENCHMARK(IndexInInt64SmallSet)->RangeMultiplier(4)->Range(2, 64);
-BENCHMARK(IndexInInt32LargeSet)->RangeMultiplier(100)->Range(100, 1000000);
+BENCHMARK(IndexInInt32LargeSet)->RangeMultiplier(100)->Range(1000, 1000000);
 BENCHMARK(IsInInt8SmallSet)->RangeMultiplier(4)->Range(2, 8);
 BENCHMARK(IsInInt16SmallSet)->RangeMultiplier(4)->Range(2, 64);
 BENCHMARK(IsInInt32SmallSet)->RangeMultiplier(4)->Range(2, 64);
 BENCHMARK(IsInInt64SmallSet)->RangeMultiplier(4)->Range(2, 64);
-BENCHMARK(IsInInt32LargeSet)->RangeMultiplier(100)->Range(100, 1000000);
+BENCHMARK(IsInInt32LargeSet)->RangeMultiplier(100)->Range(1000, 1000000);
 
 }  // namespace compute
 }  // namespace arrow
