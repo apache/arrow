@@ -17,19 +17,18 @@
 
 #pragma once
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "arrow/c/abi.h"
 
-#define CHECK_OR_DIE(condition, msg)                          \
-  do {                                                        \
-    if (!(condition)) {                                       \
+#define ARROW_C_ASSERT(condition, msg)                          \
+  do {                                                          \
+    if (!(condition)) {                                         \      
       fprintf(stderr, "%s:%d:: %s", __FILE__, __LINE__, (msg)); \
-      std::abort();                                           \
-    }                                                         \
+      abort();                                                  \
+    }                                                           \
   } while (0)
 
 #ifdef __cplusplus
@@ -61,7 +60,7 @@ inline void ArrowSchemaMove(struct ArrowSchema* src, struct ArrowSchema* dest) {
 inline void ArrowSchemaRelease(struct ArrowSchema* schema) {
   if (!ArrowSchemaIsReleased(schema)) {
     schema->release(schema);
-    CHECK_OR_DIE(ArrowSchemaIsReleased(schema),
+    ARROW_C_ASSERT(ArrowSchemaIsReleased(schema),
                  "ArrowSchemaRelease did not cleanup release callback");
   }
 }
@@ -89,7 +88,7 @@ inline void ArrowArrayMove(struct ArrowArray* src, struct ArrowArray* dest) {
 inline void ArrowArrayRelease(struct ArrowArray* array) {
   if (!ArrowArrayIsReleased(array)) {
     array->release(array);
-    CHECK_OR_DIE(ArrowArrayIsReleased(array),
+    ARROW_C_ASSERT(ArrowArrayIsReleased(array),
                  "ArrowArrayRelease did not cleanup release callback");
   }
 }
@@ -120,7 +119,7 @@ inline void ArrowArrayStreamMove(struct ArrowArrayStream* src,
 inline void ArrowArrayStreamRelease(struct ArrowArrayStream* stream) {
   if (!ArrowArrayStreamIsReleased(stream)) {
     stream->release(stream);
-    CHECK_OR_DIE(ArrowArrayStreamIsReleased(stream),
+    ARROW_C_ASSERT(ArrowArrayStreamIsReleased(stream),
                  "ArrowArrayStreamRelease did not cleanup release callback");
   }
 }
