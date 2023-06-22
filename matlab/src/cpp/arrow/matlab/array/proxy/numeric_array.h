@@ -94,7 +94,6 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                 auto maybe_buffer = bit::packValid(valid_mda);
                 MATLAB_ERROR_IF_NOT_OK(maybe_buffer.status(), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
                 auto packed_validity_bitmap = *maybe_buffer;
-       
                 auto array_data = arrow::ArrayData::Make(data_type, length, {packed_validity_bitmap, data_buffer});
                 return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(arrow::MakeArray(array_data));
             }
