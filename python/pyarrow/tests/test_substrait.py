@@ -754,6 +754,7 @@ def test_scalar_aggregate_udf_basic(varargs_agg_func_fixture):
 
     assert res_tb == expected_tb
 
+
 def test_hash_aggregate_udf_basic(varargs_agg_func_fixture):
 
     test_table = pa.Table.from_pydict(

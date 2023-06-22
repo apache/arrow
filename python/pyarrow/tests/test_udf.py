@@ -65,6 +65,7 @@ def sum_agg_func_fixture():
                                    )
     return func, func_name
 
+
 @pytest.fixture(scope="session")
 def exception_agg_func_fixture():
     def func(ctx, x):
@@ -698,9 +699,11 @@ def test_hash_agg_basic(unary_agg_func_fixture):
     table = pa.concat_tables([table1, table2])
 
     result = table.group_by("id").aggregate([("value", "mean_udf")])
-    expected = table.group_by("id").aggregate([("value", "mean")]).rename_columns(['id', 'value_mean_udf'])
+    expected = table.group_by("id").aggregate(
+        [("value", "mean")]).rename_columns(['id', 'value_mean_udf'])
 
     assert result.sort_by('id') == expected.sort_by('id')
+
 
 def test_hash_agg_random(sum_agg_func_fixture):
     """Test hash aggregate udf with randomly sampled data"""
@@ -717,7 +720,8 @@ def test_hash_agg_random(sum_agg_func_fixture):
     table = pa.table([arr2, arr1], names=['id', 'value'])
 
     result = table.group_by("id").aggregate([("value", "sum_udf")])
-    expected = table.group_by("id").aggregate([("value", "sum")]).rename_columns(['id', 'value_sum_udf'])
+    expected = table.group_by("id").aggregate(
+        [("value", "sum")]).rename_columns(['id', 'value_sum_udf'])
 
     assert result.sort_by('id') == expected.sort_by('id')
 
@@ -757,4 +761,3 @@ def test_agg_exception(exception_agg_func_fixture):
 
     with pytest.raises(RuntimeError, match='Oops'):
         pc.call_function("y=exception_len(x)", [arr])
-

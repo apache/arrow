@@ -17,25 +17,25 @@
 
 #include <iostream>
 
-#include "arrow/python/udf.h"
-#include "arrow/compute/api_aggregate.h"
-#include "arrow/buffer_builder.h"
 #include "arrow/array/builder_base.h"
+#include "arrow/buffer_builder.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/function.h"
-#include "arrow/compute/row/grouper.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/row/grouper.h"
 #include "arrow/python/common.h"
-#include "arrow/util/logging.h"
+#include "arrow/python/udf.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
-using internal::checked_cast;
-using compute::KernelState;
-using compute::KernelContext;
 using compute::ExecSpan;
 using compute::Grouper;
+using compute::KernelContext;
+using compute::KernelState;
+using internal::checked_cast;
 
 namespace py {
 namespace {
@@ -107,15 +107,17 @@ arrow::Status AggregateUdfFinalize(compute::KernelContext* ctx, arrow::Datum* ou
 }
 
 arrow::Status HashAggregateUdfResize(KernelContext* ctx, int64_t size) {
-    return checked_cast<HashUdfAggregator*>(ctx->state())->Resize(ctx, size);
+  return checked_cast<HashUdfAggregator*>(ctx->state())->Resize(ctx, size);
 }
 
 arrow::Status HashAggregateUdfConsume(KernelContext* ctx, const ExecSpan& batch) {
-    return checked_cast<HashUdfAggregator*>(ctx->state())->Consume(ctx, batch);
+  return checked_cast<HashUdfAggregator*>(ctx->state())->Consume(ctx, batch);
 }
 
-arrow::Status HashAggregateUdfMerge(KernelContext* ctx, KernelState&& src, const ArrayData& group_id_mapping) {
-  return checked_cast<HashUdfAggregator*>(ctx->state())->Merge(ctx, std::move(src), group_id_mapping);
+arrow::Status HashAggregateUdfMerge(KernelContext* ctx, KernelState&& src,
+                                    const ArrayData& group_id_mapping) {
+  return checked_cast<HashUdfAggregator*>(ctx->state())
+      ->Merge(ctx, std::move(src), group_id_mapping);
 }
 
 arrow::Status HashAggregateUdfFinalize(KernelContext* ctx, Datum* out) {
@@ -259,9 +261,9 @@ struct PythonUdfScalarAggregatorImpl : public ScalarUdfAggregator {
 
 struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
   PythonUdfHashAggregatorImpl(UdfWrapperCallback agg_cb,
-                                std::shared_ptr<OwnedRefNoGIL> function,
-                                std::vector<std::shared_ptr<DataType>> input_types,
-                                std::shared_ptr<DataType> output_type)
+                              std::shared_ptr<OwnedRefNoGIL> function,
+                              std::vector<std::shared_ptr<DataType>> input_types,
+                              std::shared_ptr<DataType> output_type)
       : agg_cb(std::move(agg_cb)),
         function(function),
         output_type(std::move(output_type)) {
@@ -280,19 +282,19 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
   }
 
   static Result<RecordBatchVector> ApplyGroupings(
-    const ListArray& groupings, const std::shared_ptr<RecordBatch>& batch) {
-  ARROW_ASSIGN_OR_RAISE(Datum sorted,
-                        compute::Take(batch, groupings.data()->child_data[0]));
+      const ListArray& groupings, const std::shared_ptr<RecordBatch>& batch) {
+    ARROW_ASSIGN_OR_RAISE(Datum sorted,
+                          compute::Take(batch, groupings.data()->child_data[0]));
 
-  const auto& sorted_batch = *sorted.record_batch();
+    const auto& sorted_batch = *sorted.record_batch();
 
-  RecordBatchVector out(static_cast<size_t>(groupings.length()));
-  for (size_t i = 0; i < out.size(); ++i) {
-    out[i] = sorted_batch.Slice(groupings.value_offset(i), groupings.value_length(i));
+    RecordBatchVector out(static_cast<size_t>(groupings.length()));
+    for (size_t i = 0; i < out.size(); ++i) {
+      out[i] = sorted_batch.Slice(groupings.value_offset(i), groupings.value_length(i));
+    }
+
+    return out;
   }
-
-  return out;
-}
 
   Status Resize(KernelContext* ctx, int64_t new_num_groups) {
     num_groups = new_num_groups;
@@ -301,7 +303,8 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
   Status Consume(KernelContext* ctx, const ExecSpan& batch) {
     // last array is the group id
     ARROW_ASSIGN_OR_RAISE(
-        std::shared_ptr<RecordBatch> rb, batch.ToExecBatch().ToRecordBatch(input_schema, ctx->memory_pool()));
+        std::shared_ptr<RecordBatch> rb,
+        batch.ToExecBatch().ToRecordBatch(input_schema, ctx->memory_pool()));
 
     const ArraySpan& groups_array_data = batch[batch.num_values() - 1].array;
     int64_t batch_num_values = groups_array_data.length;
@@ -312,7 +315,8 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
     num_values += batch_num_values;
     return Status::OK();
   }
-  Status Merge(KernelContext* ctx, KernelState&& other_state, const ArrayData& group_id_mapping) {
+  Status Merge(KernelContext* ctx, KernelState&& other_state,
+               const ArrayData& group_id_mapping) {
     auto& other = checked_cast<PythonUdfHashAggregatorImpl&>(other_state);
     auto& other_values = other.values;
     const uint32_t* other_raw_groups = other.groups.data();
@@ -320,7 +324,8 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
                   std::make_move_iterator(other_values.end()));
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
-    for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < other.num_values; ++other_g) {
+    for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < other.num_values;
+         ++other_g) {
       RETURN_NOT_OK(groups.Append(g[other_raw_groups[other_g]]));
     }
 
@@ -329,61 +334,63 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
   }
 
   Status Finalize(KernelContext* ctx, Datum* out) {
-      // Exclude the last column which is the group id
-      const int num_args = input_schema->num_fields() - 1;
+    // Exclude the last column which is the group id
+    const int num_args = input_schema->num_fields() - 1;
 
-      ARROW_ASSIGN_OR_RAISE(auto groups_buffer, groups.Finish());
-      ARROW_ASSIGN_OR_RAISE(
-        auto groupings,
-        Grouper::MakeGroupings(UInt32Array(num_values, groups_buffer), static_cast<uint32_t>(num_groups))
-      );
+    ARROW_ASSIGN_OR_RAISE(auto groups_buffer, groups.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto groupings,
+                          Grouper::MakeGroupings(UInt32Array(num_values, groups_buffer),
+                                                 static_cast<uint32_t>(num_groups)));
 
-      ARROW_ASSIGN_OR_RAISE(auto table,
-                            arrow::Table::FromRecordBatches(input_schema, values));
-      ARROW_ASSIGN_OR_RAISE(auto rb, table->CombineChunksToBatch(ctx->memory_pool()));
-      UdfContext udf_context{ctx->memory_pool(), table->num_rows()};
+    ARROW_ASSIGN_OR_RAISE(auto table,
+                          arrow::Table::FromRecordBatches(input_schema, values));
+    ARROW_ASSIGN_OR_RAISE(auto rb, table->CombineChunksToBatch(ctx->memory_pool()));
+    UdfContext udf_context{ctx->memory_pool(), table->num_rows()};
 
-      if (rb->num_rows() == 0) {
-        return Status::Invalid("Finalized is called with empty inputs");
-      }
+    if (rb->num_rows() == 0) {
+      return Status::Invalid("Finalized is called with empty inputs");
+    }
 
-      ARROW_ASSIGN_OR_RAISE(RecordBatchVector rbs, ApplyGroupings(*groupings, rb));
+    ARROW_ASSIGN_OR_RAISE(RecordBatchVector rbs, ApplyGroupings(*groupings, rb));
 
-      return SafeCallIntoPython([&] {
-        ARROW_ASSIGN_OR_RAISE(std::unique_ptr<ArrayBuilder> builder, MakeBuilder(output_type, ctx->memory_pool()));
-        for (auto& group_rb : rbs) {
-          std::unique_ptr<OwnedRef> result;
-          OwnedRef arg_tuple(PyTuple_New(num_args));
-          RETURN_NOT_OK(CheckPyError());
+    return SafeCallIntoPython([&] {
+      ARROW_ASSIGN_OR_RAISE(std::unique_ptr<ArrayBuilder> builder,
+                            MakeBuilder(output_type, ctx->memory_pool()));
+      for (auto& group_rb : rbs) {
+        std::unique_ptr<OwnedRef> result;
+        OwnedRef arg_tuple(PyTuple_New(num_args));
+        RETURN_NOT_OK(CheckPyError());
 
-          for (int arg_id = 0; arg_id < num_args; arg_id++) {
-            // Since we combined chunks there is only one chunk
-            std::shared_ptr<Array> c_data = group_rb->column(arg_id);
-            PyObject* data = wrap_array(c_data);
-            PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
-          }
-
-          result = std::make_unique<OwnedRef>(agg_cb(function->obj(), udf_context, arg_tuple.obj()));
-          RETURN_NOT_OK(CheckPyError());
-
-          // unwrapping the output for expected output type
-          if (is_scalar(result->obj())) {
-            ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> val, unwrap_scalar(result->obj()));
-            if (*output_type != *val->type) {
-              return Status::TypeError("Expected output datatype ", output_type->ToString(),
-                                       ", but function returned datatype ",
-                                       val->type->ToString());
-            }
-            ARROW_RETURN_NOT_OK(builder->AppendScalar(std::move(*val)));
-          } else {
-            return Status::TypeError("Unexpected output type: ",
-                                     Py_TYPE(result->obj())->tp_name, " (expected Scalar)");
-          }
+        for (int arg_id = 0; arg_id < num_args; arg_id++) {
+          // Since we combined chunks there is only one chunk
+          std::shared_ptr<Array> c_data = group_rb->column(arg_id);
+          PyObject* data = wrap_array(c_data);
+          PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
         }
-        ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
-        out->value = std::move(result->data());
-        return Status::OK();
-      });
+
+        result = std::make_unique<OwnedRef>(
+            agg_cb(function->obj(), udf_context, arg_tuple.obj()));
+        RETURN_NOT_OK(CheckPyError());
+
+        // unwrapping the output for expected output type
+        if (is_scalar(result->obj())) {
+          ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> val,
+                                unwrap_scalar(result->obj()));
+          if (*output_type != *val->type) {
+            return Status::TypeError("Expected output datatype ", output_type->ToString(),
+                                     ", but function returned datatype ",
+                                     val->type->ToString());
+          }
+          ARROW_RETURN_NOT_OK(builder->AppendScalar(std::move(*val)));
+        } else {
+          return Status::TypeError("Unexpected output type: ",
+                                   Py_TYPE(result->obj())->tp_name, " (expected Scalar)");
+        }
+      }
+      ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
+      out->value = std::move(result->data());
+      return Status::OK();
+    });
   }
 
   int64_t num_groups = 0;
@@ -529,9 +536,10 @@ Status RegisterTabularFunction(PyObject* user_function, UdfWrapperCallback wrapp
       wrapper, options, registry);
 }
 
-Status RegisterScalarAggregateFunction(PyObject* agg_function, UdfWrapperCallback agg_wrapper,
-                                 const UdfOptions& options,
-                                 compute::FunctionRegistry* registry) {
+Status RegisterScalarAggregateFunction(PyObject* agg_function,
+                                       UdfWrapperCallback agg_wrapper,
+                                       const UdfOptions& options,
+                                       compute::FunctionRegistry* registry) {
   if (!PyCallable_Check(agg_function)) {
     return Status::TypeError("Expected a callable Python object.");
   }
@@ -567,7 +575,7 @@ Status RegisterScalarAggregateFunction(PyObject* agg_function, UdfWrapperCallbac
   };
 
   auto sig = compute::KernelSignature::Make(
-    std::move(input_types), std::move(output_type), options.arity.is_varargs);
+      std::move(input_types), std::move(output_type), options.arity.is_varargs);
   compute::ScalarAggregateKernel kernel(std::move(sig), std::move(init),
                                         AggregateUdfConsume, AggregateUdfMerge,
                                         AggregateUdfFinalize, /*ordered=*/false);
@@ -603,9 +611,10 @@ UdfOptions AdjustForHashAggregate(const UdfOptions& options) {
   return hash_options;
 }
 
-Status RegisterHashAggregateFunction(PyObject* agg_function, UdfWrapperCallback agg_wrapper,
-                                 const UdfOptions& options,
-                                 compute::FunctionRegistry* registry) {
+Status RegisterHashAggregateFunction(PyObject* agg_function,
+                                     UdfWrapperCallback agg_wrapper,
+                                     const UdfOptions& options,
+                                     compute::FunctionRegistry* registry) {
   if (!PyCallable_Check(agg_function)) {
     return Status::TypeError("Expected a callable Python object.");
   }
@@ -637,16 +646,16 @@ Status RegisterHashAggregateFunction(PyObject* agg_function, UdfWrapperCallback 
                                  const compute::KernelInitArgs& args)
       -> Result<std::unique_ptr<compute::KernelState>> {
     return std::make_unique<PythonUdfHashAggregatorImpl>(
-        agg_wrapper, std::make_shared<OwnedRefNoGIL>(agg_function), hash_options.input_types,
-        hash_options.output_type);
+        agg_wrapper, std::make_shared<OwnedRefNoGIL>(agg_function),
+        hash_options.input_types, hash_options.output_type);
   };
 
-  auto sig = compute::KernelSignature::Make(std::move(input_types), std::move(output_type),
-                                     hash_options.arity.is_varargs);
+  auto sig = compute::KernelSignature::Make(
+      std::move(input_types), std::move(output_type), hash_options.arity.is_varargs);
 
-  compute::HashAggregateKernel kernel(std::move(sig), std::move(init),
-                                      HashAggregateUdfResize, HashAggregateUdfConsume,
-                                      HashAggregateUdfMerge, HashAggregateUdfFinalize, /*ordered=*/false);
+  compute::HashAggregateKernel kernel(
+      std::move(sig), std::move(init), HashAggregateUdfResize, HashAggregateUdfConsume,
+      HashAggregateUdfMerge, HashAggregateUdfFinalize, /*ordered=*/false);
   RETURN_NOT_OK(hash_aggregate_func->AddKernel(std::move(kernel)));
   RETURN_NOT_OK(registry->AddFunction(std::move(hash_aggregate_func)));
   return Status::OK();
