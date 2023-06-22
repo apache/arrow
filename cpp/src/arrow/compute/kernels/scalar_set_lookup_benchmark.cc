@@ -51,7 +51,7 @@ static void SetLookupBenchmarkString(benchmark::State& state,
   }
   state.SetItemsProcessed(state.iterations() * array_length);
   state.SetBytesProcessed(state.iterations() * values->data()->buffers[2]->size());
-  state.counters["value_set_length"] = value_set_length;
+  state.counters["value_set_length"] = static_cast<double>(value_set_length);
 }
 
 template <typename Type>
@@ -73,7 +73,7 @@ static void SetLookupBenchmarkNumeric(benchmark::State& state,
   }
   state.SetItemsProcessed(state.iterations() * array_length);
   state.SetBytesProcessed(state.iterations() * values->data()->buffers[1]->size());
-  state.counters["value_set_length"] = value_set_length;
+  state.counters["value_set_length"] = static_cast<double>(value_set_length);
 }
 
 static void IndexInStringSmallSet(benchmark::State& state) {
