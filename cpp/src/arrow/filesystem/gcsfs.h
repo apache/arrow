@@ -77,6 +77,13 @@ struct ARROW_EXPORT GcsOptions {
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
   std::shared_ptr<const KeyValueMetadata> default_metadata;
 
+  /// \brief The project to use for creating buckets.
+  ///
+  /// If not set, the library uses the GOOGLE_CLOUD_PROJECT environment
+  /// variable. Most I/O operations do not need a project id, only applications
+  /// that create new buckets need a project id.
+  std::optional<std::string> project_id;
+
   bool Equals(const GcsOptions& other) const;
 
   /// \brief Initialize with Google Default Credentials

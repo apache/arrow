@@ -35,12 +35,6 @@
 
 namespace arrow {
 namespace fs {
-struct GcsCredentialsHolder {
-  // Constructor needed for make_shared
-  explicit GcsCredentialsHolder(std::shared_ptr<google::cloud::Credentials> credentials)
-      : credentials(std::move(credentials)) {}
-  std::shared_ptr<google::cloud::Credentials> credentials;
-};
 
 bool GcsCredentials::Equals(const GcsCredentials& other) const {
   if (holder_->credentials == other.holder_->credentials) {
@@ -57,14 +51,6 @@ namespace {
 namespace gcs = google::cloud::storage;
 using GcsCode = google::cloud::StatusCode;
 using GcsStatus = google::cloud::Status;
-
-// Change the default upload buffer size. In general, sending larger buffers is more
-// efficient with GCS, as each buffer requires a roundtrip to the service. With formatted
-// output (when using `operator<<`), keeping a larger buffer in memory before uploading
-// makes sense.  With unformatted output (the only choice given gcs::io::OutputStream's
-// API) it is better to let the caller provide as large a buffer as they want. The GCS C++
-// client library will upload this buffer with zero copies if possible.
-auto constexpr kUploadBufferSize = 256 * 1024;
 
 struct GcsPath {
   std::string full_path;
@@ -334,40 +320,12 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   std::shared_ptr<GcsInputStream> mutable stream_;
 };
 
-google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
-  auto options = google::cloud::Options{};
-  std::string scheme = o.scheme;
-  if (scheme.empty()) scheme = "https";
-  if (scheme == "https") {
-    options.set<google::cloud::UnifiedCredentialsOption>(
-        google::cloud::MakeGoogleDefaultCredentials());
-  } else {
-    options.set<google::cloud::UnifiedCredentialsOption>(
-        google::cloud::MakeInsecureCredentials());
-  }
-  options.set<gcs::UploadBufferSizeOption>(kUploadBufferSize);
-  if (!o.endpoint_override.empty()) {
-    options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
-  }
-  if (o.credentials.holder() && o.credentials.holder()->credentials) {
-    options.set<google::cloud::UnifiedCredentialsOption>(
-        o.credentials.holder()->credentials);
-  }
-  if (o.retry_limit_seconds.has_value()) {
-    options.set<gcs::RetryPolicyOption>(
-        gcs::LimitedTimeRetryPolicy(
-            std::chrono::milliseconds(static_cast<int>(*o.retry_limit_seconds * 1000)))
-            .clone());
-  }
-  return options;
-}
-
 }  // namespace
 
 class GcsFileSystem::Impl {
  public:
   explicit Impl(GcsOptions o)
-      : options_(std::move(o)), client_(AsGoogleCloudOptions(options_)) {}
+      : options_(std::move(o)), client_(internal::AsGoogleCloudOptions(options_)) {}
 
   const GcsOptions& options() const { return options_; }
 
@@ -740,7 +698,8 @@ bool GcsOptions::Equals(const GcsOptions& other) const {
   return credentials.Equals(other.credentials) &&
          endpoint_override == other.endpoint_override && scheme == other.scheme &&
          default_bucket_location == other.default_bucket_location &&
-         retry_limit_seconds == other.retry_limit_seconds;
+         retry_limit_seconds == other.retry_limit_seconds &&
+         project_id == other.project_id;
 }
 
 GcsOptions GcsOptions::Defaults() {
@@ -844,6 +803,8 @@ Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
                                kv.second, "'");
       }
       options.retry_limit_seconds = parsed_seconds;
+    } else if (kv.first == "project_id") {
+      options.project_id = kv.second;
     } else {
       return Status::Invalid("Unexpected query parameter in GCS URI: '", kv.first, "'");
     }
