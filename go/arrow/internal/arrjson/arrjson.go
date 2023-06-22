@@ -1087,22 +1087,10 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 		bldr.AppendValues(data, valids)
 		return returnNewArrayData(bldr)
 
-	case *arrow.BinaryViewType:
+	case arrow.BinaryViewDataType:
 		valids := validsToBitmap(validsFromJSON(arr.Valids), mem)
 		nulls := arr.Count - bitutil.CountSetBits(valids.Bytes(), 0, arr.Count)
-		headers := stringHeadersFromJSON(mem, true, arr.Data)
-		extraBufs := variadicBuffersFromJSON(arr.Variadic)
-		defer valids.Release()
-		defer headers.Release()
-
-		return array.NewData(dt, arr.Count,
-			append([]*memory.Buffer{valids, headers}, extraBufs...),
-			nil, nulls, 0)
-
-	case *arrow.StringViewType:
-		valids := validsToBitmap(validsFromJSON(arr.Valids), mem)
-		nulls := arr.Count - bitutil.CountSetBits(valids.Bytes(), 0, arr.Count)
-		headers := stringHeadersFromJSON(mem, false, arr.Data)
+		headers := stringHeadersFromJSON(mem, !dt.IsUtf8(), arr.Data)
 		extraBufs := variadicBuffersFromJSON(arr.Variadic)
 		defer valids.Release()
 		defer headers.Release()
@@ -2456,16 +2444,17 @@ func stringHeadersToJSON(arr array.ViewLike, isBinary bool) []interface{} {
 				Size:    hdr.Len(),
 				Inlined: &data,
 			}
-		} else {
-			idx, off := int(hdr.BufferIndex()), int(hdr.BufferOffset())
-			prefix := hdr.Prefix()
-			encodedPrefix := strings.ToUpper(hex.EncodeToString(prefix[:]))
-			o[i] = StringHeader{
-				Size:      hdr.Len(),
-				Prefix:    &encodedPrefix,
-				BufferIdx: &idx,
-				BufferOff: &off,
-			}
+			continue
+		}
+
+		idx, off := int(hdr.BufferIndex()), int(hdr.BufferOffset())
+		prefix := hdr.Prefix()
+		encodedPrefix := strings.ToUpper(hex.EncodeToString(prefix[:]))
+		o[i] = StringHeader{
+			Size:      hdr.Len(),
+			Prefix:    &encodedPrefix,
+			BufferIdx: &idx,
+			BufferOff: &off,
 		}
 	}
 	return o

@@ -613,10 +613,10 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		switch {
 		case needTruncate(int64(data.Offset()), values, minLength):
 			// non-zero offset: slice the buffer
-			offset := int64(data.Offset()) * typeWidth
+			offset := data.Offset() * int(typeWidth)
 			// send padding if available
-			len := minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(values.Len())-offset)
-			values = memory.NewBufferBytes(values.Bytes()[offset : offset+len])
+			len := int(minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(values.Len()-offset)))
+			values = memory.SliceBuffer(values, offset, len)
 		default:
 			if values != nil {
 				values.Retain()
