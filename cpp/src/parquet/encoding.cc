@@ -3585,18 +3585,18 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
   } else if (encoding == Encoding::DELTA_BYTE_ARRAY) {
     if (type_num == Type::BYTE_ARRAY) {
       if (use_large_binary_variants) {
-        return std::make_unique<DeltaByteArrayDecoder>(descr);
-      } else {
         return std::make_unique<DeltaLargeByteArrayDecoder>(descr);
+      } else {
+        return std::make_unique<DeltaByteArrayDecoder>(descr);
       }
     }
     throw ParquetException("DELTA_BYTE_ARRAY only supports BYTE_ARRAY");
   } else if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
     if (type_num == Type::BYTE_ARRAY) {
       if (use_large_binary_variants) {
-        return std::make_unique<DeltaLengthByteArrayDecoder>(descr, pool);
-      } else {
         return std::make_unique<DeltaLengthLargeByteArrayDecoder>(descr, pool);
+      } else {
+        return std::make_unique<DeltaLengthByteArrayDecoder>(descr, pool);
       }
     }
     throw ParquetException("DELTA_LENGTH_BYTE_ARRAY only supports BYTE_ARRAY");
