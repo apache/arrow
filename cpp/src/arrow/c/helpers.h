@@ -27,7 +27,7 @@
 #define CHECK_OR_DIE(condition, msg)                          \
   do {                                                        \
     if (!(condition)) {                                       \
-      fprintf(stderr, "%s:%d:: %s", __FILE__, __LINE__, msg); \
+      fprintf(stderr, "%s:%d:: %s", __FILE__, __LINE__, (msg)); \
       std::abort();                                           \
     }                                                         \
   } while (0)
