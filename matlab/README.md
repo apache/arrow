@@ -76,7 +76,7 @@ $ cd arrow/matlab
 To build the MATLAB interface, use [CMake](https://cmake.org/cmake/help/latest/):
 
 ```console
-$ cmake -S . -B -D MATLAB_ARROW_INTERFACE=ON build 
+$ cmake -S . -B build -D MATLAB_ARROW_INTERFACE=ON
 $ cmake --build build --config Release
 ```
 
