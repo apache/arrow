@@ -261,7 +261,7 @@ schema <- function(...) {
     return(infer_schema(dots[[1]]))
   }
 
-  Schema$create(...)
+  Schema$create(!!!dots)
 }
 
 #' Extract a schema from an object
