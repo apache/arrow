@@ -44,6 +44,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          repository: apache/arrow
+          ref: main
+          persist-credentials: false
 
       - name: Comment JIRA link
         if: |
