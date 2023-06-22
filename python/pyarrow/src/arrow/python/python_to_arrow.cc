@@ -602,7 +602,14 @@ class PyPrimitiveConverter<T, enable_if_null<T>>
     if (PyValue::IsNull(this->options_, value)) {
       return this->primitive_builder_->AppendNull();
     } else if (arrow::py::is_scalar(value)) {
-      return this->primitive_builder_->AppendNull();
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                            arrow::py::unwrap_scalar(value));
+      if (scalar->is_valid) {
+        return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
+                               " to builder for type null");
+      } else {
+        return this->primitive_builder_->AppendNull();
+      }
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));

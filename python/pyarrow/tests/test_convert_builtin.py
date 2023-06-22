@@ -2437,7 +2437,7 @@ def test_array_accepts_pyarrow_scalar_with_type(seq, data, scalar_data, value_ty
     assert expect.equals(result)
 
 
-def test_array_accepts_pyarrow_scalar_something():
+def test_array_accepts_pyarrow_scalar_from_compute():
     arr = pa.array([1, 2, 3])
     result = pa.array([arr.sum()])
     expect = pa.array([6])
@@ -2473,3 +2473,8 @@ def test_array_accepts_pyarrow_scalar_errors(seq):
                        match="Cannot append scalar of type string "
                              "to builder for type int32"):
         pa.array([pa.scalar("a")], type=pa.int32())
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Cannot append scalar of type int64 "
+                             "to builder for type null"):
+        pa.array([pa.scalar(1)], type=pa.null())
