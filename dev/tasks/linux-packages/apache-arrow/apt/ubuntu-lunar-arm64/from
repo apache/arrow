@@ -15,4 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arm64v8/ubuntu:kinetic
+arm64v8/ubuntu:lunar
