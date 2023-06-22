@@ -437,11 +437,12 @@ func (b *BinaryViewBuilder) Resize(n int) {
 
 	if b.capacity == 0 {
 		b.init(n)
-	} else {
-		b.builder.resize(nbuild, b.init)
-		b.data.Resize(arrow.StringHeaderTraits.BytesRequired(n))
-		b.rawData = arrow.StringHeaderTraits.CastFromBytes(b.data.Bytes())
+		return
 	}
+	
+	b.builder.resize(nbuild, b.init)
+	b.data.Resize(arrow.StringHeaderTraits.BytesRequired(n))
+	b.rawData = arrow.StringHeaderTraits.CastFromBytes(b.data.Bytes())
 }
 
 func (b *BinaryViewBuilder) ReserveData(length int) {
