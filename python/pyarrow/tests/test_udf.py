@@ -748,7 +748,7 @@ def test_hash_agg_empty(unary_agg_func_fixture):
     table = pa.table([arr2, arr1], names=["id", "value"])
 
     with pytest.raises(pa.ArrowInvalid, match='empty inputs'):
-        result = table.group_by("id").aggregate([("value", "mean_udf")])
+        table.group_by("id").aggregate([("value", "mean_udf")])
 
 
 def test_hash_agg_wrong_output_dtype(wrong_output_dtype_agg_func_fixture):
@@ -757,7 +757,7 @@ def test_hash_agg_wrong_output_dtype(wrong_output_dtype_agg_func_fixture):
 
     table = pa.table([arr2, arr1], names=["id", "value"])
     with pytest.raises(pa.ArrowTypeError, match="output datatype"):
-        result = table.group_by("id").aggregate([("value", "y=wrong_output_dtype(x)")])
+        table.group_by("id").aggregate([("value", "y=wrong_output_dtype(x)")])
 
 
 def test_hash_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
@@ -766,7 +766,7 @@ def test_hash_agg_wrong_output_type(wrong_output_type_agg_func_fixture):
     table = pa.table([arr2, arr1], names=["id", "value"])
 
     with pytest.raises(pa.ArrowTypeError, match="output type"):
-        result = table.group_by("id").aggregate([("value", "y=wrong_output_type(x)")])
+        table.group_by("id").aggregate([("value", "y=wrong_output_type(x)")])
 
 
 def test_hash_agg_exception(exception_agg_func_fixture):
@@ -775,7 +775,7 @@ def test_hash_agg_exception(exception_agg_func_fixture):
     table = pa.table([arr2, arr1], names=["id", "value"])
 
     with pytest.raises(RuntimeError, match='Oops'):
-        result = table.group_by("id").aggregate([("value", "y=exception_len(x)")])
+        table.group_by("id").aggregate([("value", "y=exception_len(x)")])
 
 
 def test_hash_agg_random(sum_agg_func_fixture):
