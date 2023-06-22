@@ -32,16 +32,16 @@
 
 namespace arrow {
 namespace fs {
+struct GcsOptions;
+
+namespace internal {
+
 struct GcsCredentialsHolder {
   // Constructor needed for make_shared
   explicit GcsCredentialsHolder(std::shared_ptr<google::cloud::Credentials> credentials)
       : credentials(std::move(credentials)) {}
   std::shared_ptr<google::cloud::Credentials> credentials;
 };
-
-struct GcsOptions;
-
-namespace internal {
 
 ARROW_EXPORT Status ToArrowStatus(const google::cloud::Status& s);
 

@@ -27,9 +27,13 @@
 
 namespace arrow {
 namespace fs {
+namespace internal {
 
 // Opaque wrapper for GCS's library credentials to avoid exposing in Arrow headers.
 struct GcsCredentialsHolder;
+
+}  // namespace internal
+
 class GcsFileSystem;
 
 /// \brief Container for GCS Credentials and information necessary to recreate them.
@@ -41,7 +45,9 @@ class ARROW_EXPORT GcsCredentials {
   TimePoint expiration() const { return expiration_; }
   const std::string& target_service_account() const { return target_service_account_; }
   const std::string& json_credentials() const { return json_credentials_; }
-  const std::shared_ptr<GcsCredentialsHolder>& holder() const { return holder_; }
+  const std::shared_ptr<internal::GcsCredentialsHolder>& holder() const {
+    return holder_;
+  }
 
  private:
   GcsCredentials() = default;
@@ -50,7 +56,7 @@ class ARROW_EXPORT GcsCredentials {
   TimePoint expiration_;
   std::string target_service_account_;
   std::string json_credentials_;
-  std::shared_ptr<GcsCredentialsHolder> holder_;
+  std::shared_ptr<internal::GcsCredentialsHolder> holder_;
   friend class GcsFileSystem;
   friend struct GcsOptions;
 };
