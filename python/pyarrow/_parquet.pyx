@@ -42,6 +42,8 @@ from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
 
 cimport cpython as cp
 
+_DEFAULT_ROW_GROUP_SIZE = 1024*1024
+_MAX_ROW_GROUP_SIZE = 64*1024*1024
 
 cdef class Statistics(_Weakrefable):
     """Statistics for a single column in a single row group."""
@@ -1595,7 +1597,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     # The user can always specify a smaller row group size (and the default
     # is smaller) when calling write_table.  If the call to write_table uses
     # a size larger than this then it will be latched to this value.
-    props.max_row_group_length(64*1024*1024)
+    props.max_row_group_length(_MAX_ROW_GROUP_SIZE)
 
     properties = props.build()
 
@@ -1767,7 +1769,7 @@ cdef class ParquetWriter(_Weakrefable):
             int64_t c_row_group_size
 
         if row_group_size is None or row_group_size == -1:
-            c_row_group_size = ctable.num_rows()
+            c_row_group_size = min(ctable.num_rows(), _DEFAULT_ROW_GROUP_SIZE)
         elif row_group_size == 0:
             raise ValueError('Row group size cannot be 0')
         else:
