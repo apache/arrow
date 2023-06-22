@@ -418,11 +418,11 @@ class GitHubAPI(object):
         }
         response = requests.put(url, headers=self.headers, json=payload)
         result = response.json()
-        if response.status_code != 200 and 'merged' not in result:
-            result['merged'] = False
-            result['message'] += f': {url}'
-        else:
+        if response.status_code == 200 and 'merged' in result:
             self.clear_pr_state_labels(number)
+        else:
+            result['merged'] = False
+            result['message'] += f': {url}'            
         return result
 
     def clear_pr_state_labels(self, number):
@@ -430,9 +430,10 @@ class GitHubAPI(object):
         response = requests.get(url, headers=self.headers)
         labels = response.json()
         for label in labels:
+            # All PR workflow state labes starts with "awaiting"
             if label['name'].startswith('awaiting'):
                 label_url = f"{url}/{label['name']}"
-                response = requests.delete(label_url, headers=self.headers)
+                requests.delete(label_url, headers=self.headers)
 
 
 class CommandInput(object):
