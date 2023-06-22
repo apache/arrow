@@ -66,7 +66,7 @@ namespace arrow::matlab::tabular::proxy {
             const auto column_name_str = std::u16string(column_names[i]);
             const auto maybe_column_name_str = arrow::util::UTF16StringToUTF8(column_name_str);
             MATLAB_ERROR_IF_NOT_OK(maybe_column_name_str.status(), error::UNICODE_CONVERSION_ERROR_ID);
-            fields.push_back(std::make_shared<arrow::Field>(maybe_column_name_str.ValueOrDie(), type));
+            fields.push_back(std::make_shared<arrow::Field>(*maybe_column_name_str, type));
         }
 
         arrow::SchemaBuilder schema_builder;
