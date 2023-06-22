@@ -132,7 +132,7 @@ struct RoundUtil {
         Pow10Struct<18>::value, Pow10Struct<19>::value};
 
     auto digits10 = std::numeric_limits<T>::digits10;
-    return lut[std::min(power, static_cast<int64_t>(digits10))];
+    return static_cast<T>(lut[std::min(power, static_cast<int64_t>(digits10))]);
   }
 };
 
