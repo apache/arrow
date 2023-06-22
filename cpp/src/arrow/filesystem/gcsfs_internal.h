@@ -39,7 +39,7 @@ struct GcsCredentialsHolder {
   std::shared_ptr<google::cloud::Credentials> credentials;
 };
 
-struct ARROW_EXPORT GcsOptions;
+struct GcsOptions;
 
 namespace internal {
 
