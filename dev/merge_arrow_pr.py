@@ -422,7 +422,7 @@ class GitHubAPI(object):
             self.clear_pr_state_labels(number)
         else:
             result['merged'] = False
-            result['message'] += f': {url}'            
+            result['message'] += f': {url}'
         return result
 
     def clear_pr_state_labels(self, number):
