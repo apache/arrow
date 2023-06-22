@@ -79,8 +79,6 @@ jobs:
           sudo rm -rf /opt/hostedtoolcache/go || :
           # 489MB
           sudo rm -rf /opt/hostedtoolcache/PyPy || :
-          # 1.2GB
-          sudo rm -rf /opt/hostedtoolcache/Python || :
           # 376MB
           sudo rm -rf /opt/hostedtoolcache/node || :
           df -h
