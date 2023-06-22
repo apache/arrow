@@ -105,7 +105,7 @@ namespace arrow::matlab::tabular::proxy {
                 context.error = libmexclass::error::Error{error::UNICODE_CONVERSION_ERROR_ID, maybe_column_name_utf16.status().message()};
                 return;
             }
-            std::u16string column_name_utf16 = maybe_column_name_utf16.ValueOrDie();
+            auto column_name_utf16 = *maybe_column_name_utf16;
             const mda::MATLABString matlab_string = mda::MATLABString(std::move(column_name_utf16));
             column_names.push_back(matlab_string);
         }
