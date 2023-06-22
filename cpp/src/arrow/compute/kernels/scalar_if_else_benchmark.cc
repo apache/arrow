@@ -58,7 +58,7 @@ struct GetBytesProcessed<Type, enable_if_base_binary<Type>> {
 };
 
 template <typename DataType>
-struct GetBytesProcessed<DataType, enable_if_list_view_like<DataType>> {
+struct GetBytesProcessed<DataType, enable_if_list_like<DataType>> {
   static int64_t Get(const std::shared_ptr<Array>& arr) {
     using OffsetType = typename TypeTraits<DataType>::OffsetType::c_type;
 
@@ -66,10 +66,6 @@ struct GetBytesProcessed<DataType, enable_if_list_view_like<DataType>> {
     if constexpr (DataType::type_id == Type::LIST ||
                   DataType::type_id == Type::LARGE_LIST) {
       total_bytes += (arr->length() + 1) * sizeof(OffsetType);
-    } else if constexpr (DataType::type_id == Type::LIST_VIEW) {
-      // ListView has an extra buffer for the sizes and it uses the same type as the
-      // offsets buffer.
-      total_bytes += 2 * arr->length() * sizeof(OffsetType);
     } else {
       ADD_FAILURE() << "GetBytesProcessed dispatching not implemented for "
                     << arr->type()->ToString();
