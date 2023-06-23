@@ -15,4 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arm64v8/ubuntu:kinetic
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "MINOR: [CI] "

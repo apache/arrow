@@ -53,6 +53,7 @@ Suggests:
     dplyr,
     duckdb (>= 0.2.8),
     hms,
+    jsonlite,
     knitr,
     lubridate,
     pillar,

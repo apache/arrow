@@ -214,6 +214,9 @@ template <typename T, typename R = T>
 using enable_if_floating_value = enable_if_t<std::is_floating_point<T>::value, R>;
 
 template <typename T, typename R = T>
+using enable_if_not_floating_value = enable_if_t<!std::is_floating_point<T>::value, R>;
+
+template <typename T, typename R = T>
 using enable_if_decimal_value =
     enable_if_t<std::is_same<Decimal128, T>::value || std::is_same<Decimal256, T>::value,
                 R>;

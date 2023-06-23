@@ -3,9 +3,9 @@
 \docType{class}
 \name{DataType}
 \alias{DataType}
-\title{class arrow::DataType}
+\title{DataType class}
 \description{
-class arrow::DataType
+DataType class
 }
 \section{R6 Methods}{
 

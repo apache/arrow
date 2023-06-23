@@ -131,7 +131,7 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> e
   }
 
   @Override
-  public FieldReader getReader() {
+  protected FieldReader getReaderImpl() {
     return underlyingVector.getReader();
   }
 

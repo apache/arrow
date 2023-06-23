@@ -24,6 +24,7 @@ classdef tFloat32Array < hNumericArray
         MaxValue = realmax("single")
         MinValue = realmin("single")
         NullSubstitutionValue = single(NaN)
+        ArrowType = arrow.type.Float32Type
     end
 
     methods(Test)

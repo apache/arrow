@@ -344,8 +344,19 @@ if(${CLANG_TIDY_FOUND})
 endif()
 
 if(UNIX)
-  add_custom_target(iwyu ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
-  add_custom_target(iwyu-all ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh all)
+  add_custom_target(iwyu
+                    ${CMAKE_COMMAND}
+                    -E
+                    env
+                    "PYTHON=${PYTHON_EXECUTABLE}"
+                    ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
+  add_custom_target(iwyu-all
+                    ${CMAKE_COMMAND}
+                    -E
+                    env
+                    "PYTHON=${PYTHON_EXECUTABLE}"
+                    ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh
+                    all)
 endif(UNIX)
 
 # datetime code used by iOS requires zlib support

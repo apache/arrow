@@ -153,6 +153,7 @@ reference:
       - Scanner
       - FileFormat
       - CsvFileFormat
+      - JsonFileFormat
       - FileWriteOptions
       - FragmentScanOptions
       - map_batches
@@ -186,9 +187,10 @@ reference:
 
   - title: Arrow data containers
     contents:
+      - scalar
       - array
       - ChunkedArray
-      - Scalar
+      - Scalar-class
       - RecordBatch
       - Table
       - ArrayData
@@ -205,7 +207,9 @@ reference:
 
   - title: Arrow data types and schema
     contents:
-      - Schema
+      - schema
+      - infer_schema
+      - schema-class
       - unify_schemas
       - infer_type
       - dictionary

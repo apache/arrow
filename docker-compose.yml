@@ -817,7 +817,7 @@ services:
     #   docker-compose run --rm conda-python
     # Parameters:
     #   ARCH: amd64, arm32v7
-    #   PYTHON: 3.7, 3.8, 3.9, 3.10
+    #   PYTHON: 3.8, 3.9, 3.10, 3.11
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}
     build:
       context: .
