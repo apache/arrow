@@ -1025,7 +1025,7 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 	case flight.RenewFlightEndpointActionType:
 		var (
 			request flight.RenewFlightEndpointRequest
-			err      error
+			err     error
 		)
 
 		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
