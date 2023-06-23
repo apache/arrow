@@ -426,7 +426,7 @@ print.arrow_r_metadata <- function(x, ...) {
   invisible(x)
 }
 
-#' Convert an object to an Arrow DataType
+#' Convert an object to an Arrow Schema
 #'
 #' @param x An object to convert to a [schema()]
 #' @param ... Passed to S3 methods.
