@@ -88,7 +88,7 @@
 #define MATLAB_ASSIGN_OR_ERROR_IMPL(result_name, lhs, rexpr, id) \
     auto&& result_name = (rexpr);                                \
     MATLAB_ERROR_IF_NOT_OK(result_name.status(), id);            \
-    lhs = std::move(result_name).ValueUnsafe();                  \
+    lhs = std::move(result_name).ValueUnsafe();
 
 //
 // MATLAB_ASSIGN_OR_ERROR(lhs, rexpr, id)
