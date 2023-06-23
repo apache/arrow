@@ -31,6 +31,44 @@
         }                                                              \
     } while (0)
 
+
+//
+// MATLAB_ASSIGN_OR_ERROR(lhs, rexpr, id)
+//
+//  --- Description ---
+//
+// A macro used to extract and assign an underlying value of type T
+// from an expression that returns an arrow::Result<T> to a variable.
+//
+// If the arrow::Status associated with the arrow::Result is "OK" (i.e. no error),
+// then the value of type T is assigned to the specified lhs.
+//
+// If the arrow::Status associated with the arrow::Result is not "OK" (i.e. error),
+// then the specified error ID is returned to MATLAB.
+//
+// --- Arguments ---
+//
+// lhs - variable name to assign to (e.g. auto array)
+// rexpr - expression that returns an arrow::Result<T> (e.g. MakeArray())
+// id - MATLAB error ID string (const char* - "arrow:matlab:proxy:make:FailedConstruction")
+//
+// --- Example ---
+//
+// MATLAB_ASSIGN_OR_ERROR(auto array, make_array(), error::FAILED_TO_MAKE_ARRAY);
+//
+
+#define MATLAB_ASSIGN_OR_ERROR(lhs, rexpr, id)                                                  \
+    MATLAB_ASSIGN_OR_ERROR_IMPL(MATLAB_ASSIGN_OR_RAISE_NAME(_matlab_error_or_value, __COUNTER), \
+                                lhs, rexpr, id);                                                \
+
+#define MATLAB_ASSIGN_OR_RAISE_NAME(x, y) \
+    ARROW_CONCAT(x, y)                    \
+
+#define MATLAB_ASSIGN_OR_ERROR_IMPL(result_name, lhs, rexpr, id) \
+    auto&& result_name = (rexpr);                                \
+    MATLAB_ERROR_IF_NOT_OK(result_name.status(), id);            \
+    lhs = std::move(result_name).ValueUnsafe();                  \
+
 namespace arrow::matlab::error {
     // TODO: Make Error ID Enum class to avoid defining static constexpr
     static const char* APPEND_VALUES_ERROR_ID = "arrow:matlab:proxy:make:FailedToAppendValues";
