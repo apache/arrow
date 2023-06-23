@@ -135,7 +135,7 @@ ServerSessionMiddleware::ServerSessionMiddleware(
 void ServerSessionMiddleware::SendingHeaders(AddCallHeaders* addCallHeaders) {
   if (!existing_session && session_) {
     addCallHeaders->AddHeader(
-        "cookie",
+        "set-cookie",
         static_cast<std::string>(kSessionCookieName) + "=" + session_id_);
   }
 }
