@@ -3301,7 +3301,7 @@ class DeltaByteArrayDecoderBase : public DecoderImpl,
 
   std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> prefix_len_decoder_;
-  DeltaLengthByteArrayDecoder suffix_decoder_;
+  DeltaLengthByteArrayDecoderBase<BAT> suffix_decoder_;
   std::string last_value_;
   // string buffer for last value in previous page
   std::string last_value_in_previous_page_;
