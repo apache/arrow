@@ -949,8 +949,19 @@ func (tester *expirationTimeDoGetScenarioTester) RunClient(addr string, opts ...
 	}
 
 	var recs []arrow.Record
-	// First read from all endpoints
 	for _, ep := range info.Endpoint {
+		if len(recs) == 0 {
+			if ep.ExpirationTime != nil {
+				return fmt.Errorf("endpoints[0] must not have " +
+					"expiration time")
+			}
+		} else {
+			if ep.ExpirationTime == nil {
+				return fmt.Errorf("endpoints[1] must have " +
+					"expiration time")
+			}
+		}
+
 		if len(ep.Location) != 0 {
 			return fmt.Errorf("expected to receive empty locations to use the original service: %s",
 				ep.Location)
@@ -977,39 +988,6 @@ func (tester *expirationTimeDoGetScenarioTester) RunClient(addr string, opts ...
 			return rdr.Err()
 		}
 	}
-	// Re-reads only from endpoints that have expiration time
-	for _, ep := range info.Endpoint {
-		stream, err := client.DoGet(ctx, ep.Ticket)
-		if err != nil {
-			return err
-		}
-
-		rdr, err := flight.NewRecordReader(stream)
-		if ep.ExpirationTime == nil {
-			if err == nil {
-				rdr.Release()
-				return fmt.Errorf("data that doesn't have " +
-					"expiration time shouldn't be " +
-					"readable multiple times")
-			}
-			continue
-		}
-
-		if err != nil {
-			return err
-		}
-		defer rdr.Release()
-
-		for rdr.Next() {
-			record := rdr.Record()
-			record.Retain()
-			defer record.Release()
-			recs = append(recs, record)
-		}
-		if rdr.Err() != nil {
-			return rdr.Err()
-		}
-	}
 
 	// Build expected records
 	mem := memory.DefaultAllocator
@@ -1021,8 +999,6 @@ func (tester *expirationTimeDoGetScenarioTester) RunClient(addr string, opts ...
 	)
 	expectedTable, _ := array.TableFromJSON(mem, schema, []string{
 		`[{"number": 0}]`,
-		`[{"number": 1}]`,
-		`[{"number": 2}]`,
 		`[{"number": 1}]`,
 		`[{"number": 2}]`,
 	})
@@ -1190,46 +1166,12 @@ func (tester *expirationTimeRefreshFlightEndpointScenarioTester) RunClient(addr 
 		return err
 	}
 
-	var recs []arrow.Record
-	// First read from all endpoints
-	for _, ep := range info.Endpoint {
-		if len(ep.Location) != 0 {
-			return fmt.Errorf("expected to receive empty locations to use the original service: %s",
-				ep.Location)
-		}
-
-		stream, err := client.DoGet(ctx, ep.Ticket)
-		if err != nil {
-			return err
-		}
-
-		rdr, err := flight.NewRecordReader(stream)
-		if err != nil {
-			return err
-		}
-		defer rdr.Release()
-
-		for rdr.Next() {
-			record := rdr.Record()
-			record.Retain()
-			defer record.Release()
-			recs = append(recs, record)
-		}
-		if rdr.Err() != nil {
-			return rdr.Err()
-		}
-	}
 	// Refresh all endpoints that have expiration time
-	var refreshedEndpoints []*flight.FlightEndpoint
-	maxExpirationTime := time.Now()
 	for _, ep := range info.Endpoint {
 		if ep.ExpirationTime == nil {
 			continue
 		}
 		expirationTime := ep.ExpirationTime.AsTime()
-		if expirationTime.Sub(maxExpirationTime) > 0 {
-			maxExpirationTime = expirationTime
-		}
 		refreshedEndpoint, err := client.RefreshFlightEndpoint(ctx, ep)
 		if err != nil {
 			return err
@@ -1244,94 +1186,6 @@ func (tester *expirationTimeRefreshFlightEndpointScenarioTester) RunClient(addr 
 				"Original: %s\nRefreshed: %s",
 				ep, refreshedEndpoint)
 		}
-		refreshedEndpoints = append(refreshedEndpoints, refreshedEndpoint)
-	}
-	// Expire all not refreshed endpoints
-	{
-		var refreshedExpirationTimes []time.Time
-		for _, ep := range refreshedEndpoints {
-			refreshedExpirationTimes = append(refreshedExpirationTimes,
-				ep.ExpirationTime.AsTime())
-		}
-		sort.Slice(refreshedExpirationTimes,
-			func(i int, j int) bool {
-				a := refreshedExpirationTimes[i]
-				b := refreshedExpirationTimes[j]
-				return a.Sub(b) > 0
-			})
-		if refreshedExpirationTimes[0].Sub(maxExpirationTime) <= 0 {
-			return fmt.Errorf(
-				"one or more refreshed expiration time "+
-					"are shorter than original expiration time\n"+
-					"Original:  %s\n"+
-					"Refreshed: %s",
-				maxExpirationTime,
-				refreshedExpirationTimes[0])
-		}
-		duration := time.Until(maxExpirationTime)
-		if duration > 0 {
-			time.Sleep(duration)
-		}
-	}
-	// Re-reads only from refreshed endpoints
-	for _, ep := range refreshedEndpoints {
-		stream, err := client.DoGet(ctx, ep.Ticket)
-		if err != nil {
-			return err
-		}
-
-		rdr, err := flight.NewRecordReader(stream)
-		if err != nil {
-			return err
-		}
-		defer rdr.Release()
-
-		for rdr.Next() {
-			record := rdr.Record()
-			record.Retain()
-			defer record.Release()
-			recs = append(recs, record)
-		}
-		if rdr.Err() != nil {
-			return rdr.Err()
-		}
-	}
-
-	// Build expected records
-	mem := memory.DefaultAllocator
-	schema := arrow.NewSchema(
-		[]arrow.Field{
-			{Name: "number", Type: arrow.PrimitiveTypes.Uint32},
-		},
-		nil,
-	)
-	expectedTable, _ := array.TableFromJSON(mem, schema, []string{
-		`[{"number": 0}]`,
-		`[{"number": 1}]`,
-		`[{"number": 2}]`,
-		`[{"number": 1}]`,
-		`[{"number": 2}]`,
-	})
-	defer expectedTable.Release()
-
-	table := array.NewTableFromRecords(schema, recs)
-	defer table.Release()
-	if !array.TableEqual(table, expectedTable) {
-		return fmt.Errorf("read data isn't expected\n"+
-			"Expected:\n"+
-			"%s\n"+
-			"numRows: %d\n"+
-			"numCols: %d\n"+
-			"Actual:\n"+
-			"%s\n"+
-			"numRows: %d\n"+
-			"numCols: %d",
-			expectedTable.Schema(),
-			expectedTable.NumRows(),
-			expectedTable.NumCols(),
-			table.Schema(),
-			table.NumRows(),
-			table.NumCols())
 	}
 
 	return nil

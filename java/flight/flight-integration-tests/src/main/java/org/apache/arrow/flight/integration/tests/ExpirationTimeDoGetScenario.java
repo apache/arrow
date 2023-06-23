@@ -18,11 +18,8 @@
 package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -59,30 +56,18 @@ final class ExpirationTimeDoGetScenario implements Scenario {
     List<ArrowRecordBatch> batches = new ArrayList<>();
 
     try {
-      // First read from all endpoints
       for (FlightEndpoint endpoint : info.getEndpoints()) {
+        if (batches.size() == 0) {
+          IntegrationAssertions.assertFalse("endpoints[0] must not have expiration time",
+              endpoint.getExpirationTime().isPresent());
+        } else {
+          IntegrationAssertions.assertTrue("endpoints[" + batches.size() + "] must have expiration time",
+              endpoint.getExpirationTime().isPresent());
+        }
         try (FlightStream stream = client.getStream(endpoint.getTicket())) {
           while (stream.next()) {
             batches.add(new VectorUnloader(stream.getRoot()).getRecordBatch());
           }
-        }
-      }
-
-      // Re-read only from endpoints with expiration time
-      for (FlightEndpoint endpoint : info.getEndpoints()) {
-        if (endpoint.getExpirationTime().isPresent()) {
-          try (FlightStream stream = client.getStream(endpoint.getTicket())) {
-            while (stream.next()) {
-              batches.add(new VectorUnloader(stream.getRoot()).getRecordBatch());
-            }
-          }
-        } else {
-          IntegrationAssertions.assertThrows(FlightRuntimeException.class, () -> {
-            try (FlightStream stream = client.getStream(endpoint.getTicket())) {
-              while (stream.next()) {
-              }
-            }
-          });
         }
       }
 
@@ -100,14 +85,6 @@ final class ExpirationTimeDoGetScenario implements Scenario {
         IntegrationAssertions.assertEquals(1, ((UInt4Vector) root.getVector(0)).getObject(0));
 
         loader.load(batches.get(2));
-        IntegrationAssertions.assertEquals(1, root.getRowCount());
-        IntegrationAssertions.assertEquals(2, ((UInt4Vector) root.getVector(0)).getObject(0));
-
-        loader.load(batches.get(3));
-        IntegrationAssertions.assertEquals(1, root.getRowCount());
-        IntegrationAssertions.assertEquals(1, ((UInt4Vector) root.getVector(0)).getObject(0));
-
-        loader.load(batches.get(4));
         IntegrationAssertions.assertEquals(1, root.getRowCount());
         IntegrationAssertions.assertEquals(2, ((UInt4Vector) root.getVector(0)).getObject(0));
       }

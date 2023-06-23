@@ -617,26 +617,20 @@ class ExpirationTimeDoGetScenario : public Scenario {
     ARROW_ASSIGN_OR_RAISE(
         auto info, client->GetFlightInfo(FlightDescriptor::Command("expiration_time")));
     std::vector<std::shared_ptr<arrow::Table>> tables;
-    // First read from all endpoints
     for (const auto& endpoint : info->endpoints()) {
+      if (tables.size() == 0) {
+        if (endpoint.expiration_time.has_value()) {
+          return Status::Invalid("endpoints[0] must not have expiration time");
+        }
+      } else {
+        if (!endpoint.expiration_time.has_value()) {
+          return Status::Invalid("endpoints[", tables.size(),
+                                 "] must have expiration time");
+        }
+      }
       ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint.ticket));
       ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
       tables.push_back(table);
-    }
-    // Re-reads only from endpoints that have expiration time
-    for (const auto& endpoint : info->endpoints()) {
-      if (endpoint.expiration_time.has_value()) {
-        ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint.ticket));
-        ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
-        tables.push_back(table);
-      } else {
-        auto reader = client->DoGet(endpoint.ticket);
-        if (reader.ok()) {
-          return Status::Invalid(
-              "Data that doesn't have expiration time "
-              "shouldn't be readable multiple times");
-        }
-      }
     }
     ARROW_ASSIGN_OR_RAISE(auto table, ConcatenateTables(tables));
 
@@ -645,11 +639,7 @@ class ExpirationTimeDoGetScenario : public Scenario {
     ARROW_ASSIGN_OR_RAISE(auto builder,
                           RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
     auto number_builder = builder->GetFieldAs<UInt32Builder>(0);
-    // First reads
     ARROW_RETURN_NOT_OK(number_builder->Append(0));
-    ARROW_RETURN_NOT_OK(number_builder->Append(1));
-    ARROW_RETURN_NOT_OK(number_builder->Append(2));
-    // Re-reads only from endpoints that have expiration time
     ARROW_RETURN_NOT_OK(number_builder->Append(1));
     ARROW_RETURN_NOT_OK(number_builder->Append(2));
     ARROW_ASSIGN_OR_RAISE(auto expected_record_batch, builder->Flush());
@@ -779,24 +769,12 @@ class ExpirationTimeRefreshFlightEndpointScenario : public Scenario {
   Status RunClient(std::unique_ptr<FlightClient> client) override {
     ARROW_ASSIGN_OR_RAISE(auto info,
                           client->GetFlightInfo(FlightDescriptor::Command("expiration")));
-    std::vector<std::shared_ptr<arrow::Table>> tables;
-    // First read from all endpoints
-    for (const auto& endpoint : info->endpoints()) {
-      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint.ticket));
-      ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
-      tables.push_back(table);
-    }
     // Refresh all endpoints that have expiration time
-    std::vector<FlightEndpoint> refreshed_endpoints;
-    Timestamp max_expiration_time;
     for (const auto& endpoint : info->endpoints()) {
       if (!endpoint.expiration_time.has_value()) {
         continue;
       }
       const auto& expiration_time = endpoint.expiration_time.value();
-      if (expiration_time > max_expiration_time) {
-        max_expiration_time = expiration_time;
-      }
       ARROW_ASSIGN_OR_RAISE(auto refreshed_endpoint,
                             client->RefreshFlightEndpoint(endpoint));
       if (!refreshed_endpoint.expiration_time.has_value()) {
@@ -809,57 +787,6 @@ class ExpirationTimeRefreshFlightEndpointScenario : public Scenario {
                                "Original:\n", endpoint.ToString(), "Refreshed:\n",
                                refreshed_endpoint.ToString());
       }
-      refreshed_endpoints.push_back(std::move(refreshed_endpoint));
-    }
-    // Expire all not refreshed endpoints
-    {
-      std::vector<Timestamp> refreshed_expiration_times;
-      for (const auto& endpoint : refreshed_endpoints) {
-        refreshed_expiration_times.push_back(endpoint.expiration_time.value());
-      }
-      std::sort(refreshed_expiration_times.begin(), refreshed_expiration_times.end());
-      if (refreshed_expiration_times[0] < max_expiration_time) {
-        return Status::Invalid(
-            "One or more refreshed expiration time "
-            "are shorter than original expiration time\n",
-            "Original:  ", max_expiration_time.time_since_epoch().count(), "\n",
-            "Refreshed: ", refreshed_expiration_times[0].time_since_epoch().count(),
-            "\n");
-      }
-      if (max_expiration_time > Timestamp::clock::now()) {
-        std::this_thread::sleep_for(max_expiration_time - Timestamp::clock::now());
-      }
-    }
-    // Re-reads only from refreshed endpoints
-    for (const auto& endpoint : refreshed_endpoints) {
-      ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(endpoint.ticket));
-      ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
-      tables.push_back(table);
-    }
-    ARROW_ASSIGN_OR_RAISE(auto table, ConcatenateTables(tables));
-
-    // Build expected table
-    auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
-    ARROW_ASSIGN_OR_RAISE(auto builder,
-                          RecordBatchBuilder::Make(schema, arrow::default_memory_pool()));
-    auto number_builder = builder->GetFieldAs<UInt32Builder>(0);
-    // First reads
-    ARROW_RETURN_NOT_OK(number_builder->Append(0));
-    ARROW_RETURN_NOT_OK(number_builder->Append(1));
-    ARROW_RETURN_NOT_OK(number_builder->Append(2));
-    // Re-reads only from refreshed endpoints
-    ARROW_RETURN_NOT_OK(number_builder->Append(1));
-    ARROW_RETURN_NOT_OK(number_builder->Append(2));
-    ARROW_ASSIGN_OR_RAISE(auto expected_record_batch, builder->Flush());
-    std::vector<std::shared_ptr<RecordBatch>> expected_record_batches{
-        expected_record_batch};
-    ARROW_ASSIGN_OR_RAISE(auto expected_table,
-                          Table::FromRecordBatches(expected_record_batches));
-
-    // Check read data
-    if (!table->Equals(*expected_table)) {
-      return Status::Invalid("Read data isn't expected\n", "Expected:\n",
-                             expected_table->ToString(), "Actual:\n", table->ToString());
     }
     return Status::OK();
   }

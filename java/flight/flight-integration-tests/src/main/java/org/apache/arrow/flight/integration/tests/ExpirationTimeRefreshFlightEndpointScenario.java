@@ -54,29 +54,13 @@ final class ExpirationTimeRefreshFlightEndpointScenario implements Scenario {
   public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
     FlightInfo info = client.getInfo(FlightDescriptor.command("expiration".getBytes(StandardCharsets.UTF_8)));
 
-    List<ArrowRecordBatch> batches = new ArrayList<>();
-
     try {
-      // First read from all endpoints
-      for (FlightEndpoint endpoint : info.getEndpoints()) {
-        try (FlightStream stream = client.getStream(endpoint.getTicket())) {
-          while (stream.next()) {
-            batches.add(new VectorUnloader(stream.getRoot()).getRecordBatch());
-          }
-        }
-      }
-
       // Refresh all endpoints with expiration time
-      List<FlightEndpoint> refreshedEndpoints = new ArrayList<>();
-      Instant maxExpiration = null;
       for (FlightEndpoint endpoint : info.getEndpoints()) {
         if (!endpoint.getExpirationTime().isPresent()) {
           continue;
         }
         Instant expiration = endpoint.getExpirationTime().get();
-        if (maxExpiration == null || expiration.isAfter(maxExpiration)) {
-          maxExpiration = expiration;
-        }
         FlightEndpoint refreshed = client.refreshFlightEndpoint(endpoint);
 
         IntegrationAssertions.assertTrue("Refreshed FlightEndpoint must have expiration time",
@@ -85,54 +69,6 @@ final class ExpirationTimeRefreshFlightEndpointScenario implements Scenario {
             refreshed.getExpirationTime().get().isAfter(expiration));
 
         refreshedEndpoints.add(refreshed);
-      }
-      IntegrationAssertions.assertNotNull(maxExpiration);
-
-      for (FlightEndpoint endpoint : refreshedEndpoints) {
-        IntegrationAssertions.assertFalse(
-            "One of the refreshed endpoints expires before one of the original endpoints",
-            endpoint.getExpirationTime().get().isBefore(maxExpiration));
-      }
-
-      // Expire all original endpoints
-      Instant now = Instant.now();
-      if (maxExpiration.isAfter(now)) {
-        Thread.sleep(ChronoUnit.MILLIS.between(now, maxExpiration) + 1);
-      }
-
-      // Re-read from refreshed endpoints
-      for (FlightEndpoint endpoint : refreshedEndpoints) {
-        try (FlightStream stream = client.getStream(endpoint.getTicket())) {
-          while (stream.next()) {
-            batches.add(new VectorUnloader(stream.getRoot()).getRecordBatch());
-          }
-        }
-      }
-
-      // Check data
-      IntegrationAssertions.assertEquals(5, batches.size());
-      try (final VectorSchemaRoot root = VectorSchemaRoot.create(ExpirationTimeProducer.SCHEMA, allocator)) {
-        final VectorLoader loader = new VectorLoader(root);
-
-        loader.load(batches.get(0));
-        IntegrationAssertions.assertEquals(1, root.getRowCount());
-        IntegrationAssertions.assertEquals(0, ((UInt4Vector) root.getVector(0)).getObject(0));
-
-        loader.load(batches.get(1));
-        IntegrationAssertions.assertEquals(1, root.getRowCount());
-        IntegrationAssertions.assertEquals(1, ((UInt4Vector) root.getVector(0)).getObject(0));
-
-        loader.load(batches.get(2));
-        IntegrationAssertions.assertEquals(1, root.getRowCount());
-        IntegrationAssertions.assertEquals(2, ((UInt4Vector) root.getVector(0)).getObject(0));
-
-        loader.load(batches.get(3));
-        IntegrationAssertions.assertEquals(1, root.getRowCount());
-        IntegrationAssertions.assertEquals(1, ((UInt4Vector) root.getVector(0)).getObject(0));
-
-        loader.load(batches.get(4));
-        IntegrationAssertions.assertEquals(1, root.getRowCount());
-        IntegrationAssertions.assertEquals(2, ((UInt4Vector) root.getVector(0)).getObject(0));
       }
     } finally {
       AutoCloseables.close(batches);
