@@ -82,7 +82,6 @@ jobs:
           # 376MB
           sudo rm -rf /opt/hostedtoolcache/node || :
           df -h
-          df -h
       - name: Set up Ruby
         run: |
           sudo apt update
