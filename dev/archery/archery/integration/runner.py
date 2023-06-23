@@ -461,9 +461,9 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             skip={"JS", "C#", "Rust"},
         ),
         Scenario(
-            "expiration_time:refresh_flight_endpoint",
+            "expiration_time:renew_flight_endpoint",
             description=("Ensure FlightEndpoint.expiration_time and "
-                         "RefreshFlightEndpoint are working as expected."),
+                         "RenewFlightEndpoint are working as expected."),
             skip={"JS", "C#", "Rust"},
         ),
         Scenario(

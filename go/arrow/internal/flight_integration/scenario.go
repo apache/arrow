@@ -68,8 +68,8 @@ func GetScenario(name string, args ...string) Scenario {
 		return &expirationTimeCancelFlightInfoScenarioTester{}
 	case "expiration_time:close_flight_info":
 		return &expirationTimeCloseFlightInfoScenarioTester{}
-	case "expiration_time:refresh_flight_endpoint":
-		return &expirationTimeRefreshFlightEndpointScenarioTester{}
+	case "expiration_time:renew_flight_endpoint":
+		return &expirationTimeRenewFlightEndpointScenarioTester{}
 	case "flight_sql":
 		return &flightSqlScenarioTester{}
 	case "flight_sql:extension":
@@ -827,7 +827,7 @@ func (tester *expirationTimeScenarioTester) ListActions(_ *flight.Empty, stream 
 	actions := []string{
 		flight.CancelFlightInfoActionType,
 		flight.CloseFlightInfoActionType,
-		flight.RefreshFlightEndpointActionType,
+		flight.RenewFlightEndpointActionType,
 	}
 
 	for _, a := range actions {
@@ -901,7 +901,7 @@ func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream 
 			tester.statuses[index] = st
 		}
 		return nil
-	case flight.RefreshFlightEndpointActionType:
+	case flight.RenewFlightEndpointActionType:
 		var endpoint flight.FlightEndpoint
 		if err := proto.Unmarshal(cmd.Body, &endpoint); err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
@@ -912,11 +912,11 @@ func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream 
 		if err != nil {
 			return err
 		}
-		endpoint.Ticket.Ticket = []byte(string(endpoint.Ticket.Ticket) + ": refreshed (+ 10 seconds)")
-		refreshedExpirationTime := time.Now().Add(time.Second * 10)
-		endpoint.ExpirationTime = timestamppb.New(refreshedExpirationTime)
+		endpoint.Ticket.Ticket = []byte(string(endpoint.Ticket.Ticket) + ": renewed (+ 10 seconds)")
+		renewedExpirationTime := time.Now().Add(time.Second * 10)
+		endpoint.ExpirationTime = timestamppb.New(renewedExpirationTime)
 		st := tester.statuses[index]
-		st.expirationTime = &refreshedExpirationTime
+		st.expirationTime = &renewedExpirationTime
 		tester.statuses[index] = st
 		out, err := packActionResult(&endpoint)
 		if err != nil {
@@ -1059,7 +1059,7 @@ func (tester *expirationTimeListActionsScenarioTester) RunClient(addr string, op
 	expectedActionTypeNames := []string{
 		"CancelFlightInfo",
 		"CloseFlightInfo",
-		"RefreshFlightEndpoint",
+		"RenewFlightEndpoint",
 	}
 	if !reflect.DeepEqual(actionTypeNames, expectedActionTypeNames) {
 		return fmt.Errorf("action types aren't expected\n"+
@@ -1149,11 +1149,11 @@ func (tester *expirationTimeCloseFlightInfoScenarioTester) RunClient(addr string
 	return nil
 }
 
-type expirationTimeRefreshFlightEndpointScenarioTester struct {
+type expirationTimeRenewFlightEndpointScenarioTester struct {
 	expirationTimeScenarioTester
 }
 
-func (tester *expirationTimeRefreshFlightEndpointScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+func (tester *expirationTimeRenewFlightEndpointScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
 	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
 	if err != nil {
 		return err
@@ -1166,25 +1166,25 @@ func (tester *expirationTimeRefreshFlightEndpointScenarioTester) RunClient(addr 
 		return err
 	}
 
-	// Refresh all endpoints that have expiration time
+	// Renew all endpoints that have expiration time
 	for _, ep := range info.Endpoint {
 		if ep.ExpirationTime == nil {
 			continue
 		}
 		expirationTime := ep.ExpirationTime.AsTime()
-		refreshedEndpoint, err := client.RefreshFlightEndpoint(ctx, ep)
+		renewedEndpoint, err := client.RenewFlightEndpoint(ctx, ep)
 		if err != nil {
 			return err
 		}
-		if refreshedEndpoint.ExpirationTime == nil {
-			return fmt.Errorf("refreshed endpoint must have expiration time: %s",
-				refreshedEndpoint)
+		if renewedEndpoint.ExpirationTime == nil {
+			return fmt.Errorf("renewed endpoint must have expiration time: %s",
+				renewedEndpoint)
 		}
-		refreshedExpirationTime := refreshedEndpoint.ExpirationTime.AsTime()
-		if refreshedExpirationTime.Sub(expirationTime) <= 0 {
-			return fmt.Errorf("refreshed endpoint must have newer expiration time\n"+
-				"Original: %s\nRefreshed: %s",
-				ep, refreshedEndpoint)
+		renewedExpirationTime := renewedEndpoint.ExpirationTime.AsTime()
+		if renewedExpirationTime.Sub(expirationTime) <= 0 {
+			return fmt.Errorf("renewed endpoint must have newer expiration time\n"+
+				"Original: %s\nRenewed: %s",
+				ep, renewedEndpoint)
 		}
 	}
 

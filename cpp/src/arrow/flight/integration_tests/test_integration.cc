@@ -433,7 +433,7 @@ class OrderedScenario : public Scenario {
 /// even within 3 seconds after the action.
 ///
 /// The client can extend the expiration time of a FlightEndpoint in
-/// a returned FlightInfo by pre-defined RefreshFlightEndpoint
+/// a returned FlightInfo by pre-defined RenewFlightEndpoint
 /// action. The client can read data from endpoints multiple times
 /// within more 10 seconds after the action.
 ///
@@ -543,14 +543,14 @@ class ExpirationTimeServer : public FlightServerBase {
         auto index = *index_result;
         statuses_[index].closed = true;
       }
-    } else if (action.type == ActionType::kRefreshFlightEndpoint.type) {
+    } else if (action.type == ActionType::kRenewFlightEndpoint.type) {
       ARROW_ASSIGN_OR_RAISE(auto endpoint,
                             FlightEndpoint::Deserialize(std::string_view(*action.body)));
       ARROW_ASSIGN_OR_RAISE(auto index, ExtractIndexFromTicket(endpoint.ticket.ticket));
       if (statuses_[index].cancelled) {
         return Status::Invalid("Invalid flight: canceled: ", endpoint.ticket.ticket);
       }
-      endpoint.ticket.ticket += ": refreshed (+ 10 seconds)";
+      endpoint.ticket.ticket += ": renewed (+ 10 seconds)";
       endpoint.expiration_time = Timestamp::clock::now() + std::chrono::seconds{10};
       statuses_[index].expiration_time = endpoint.expiration_time.value();
       ARROW_ASSIGN_OR_RAISE(auto serialized, endpoint.SerializeToString());
@@ -567,7 +567,7 @@ class ExpirationTimeServer : public FlightServerBase {
     *actions = {
         ActionType::kCancelFlightInfo,
         ActionType::kCloseFlightInfo,
-        ActionType::kRefreshFlightEndpoint,
+        ActionType::kRenewFlightEndpoint,
     };
     return Status::OK();
   }
@@ -680,7 +680,7 @@ class ExpirationTimeListActionsScenario : public Scenario {
     std::vector<std::string> expected_action_types = {
         "CancelFlightInfo",
         "CloseFlightInfo",
-        "RefreshFlightEndpoint",
+        "RenewFlightEndpoint",
     };
     if (actual_action_types != expected_action_types) {
       return Status::Invalid(
@@ -752,12 +752,12 @@ class ExpirationTimeCloseFlightInfoScenario : public Scenario {
   }
 };
 
-/// \brief The expiration time scenario - RefreshFlightEndpoint.
+/// \brief The expiration time scenario - RenewFlightEndpoint.
 ///
-/// This tests that the client can refresh a FlightEndpoint and read
-/// data in refreshed expiration time even when the original
+/// This tests that the client can renew a FlightEndpoint and read
+/// data in renewed expiration time even when the original
 /// expiration time is over.
-class ExpirationTimeRefreshFlightEndpointScenario : public Scenario {
+class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
   Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                     FlightServerOptions* options) override {
     *server = std::make_unique<ExpirationTimeServer>();
@@ -769,23 +769,23 @@ class ExpirationTimeRefreshFlightEndpointScenario : public Scenario {
   Status RunClient(std::unique_ptr<FlightClient> client) override {
     ARROW_ASSIGN_OR_RAISE(auto info,
                           client->GetFlightInfo(FlightDescriptor::Command("expiration")));
-    // Refresh all endpoints that have expiration time
+    // Renew all endpoints that have expiration time
     for (const auto& endpoint : info->endpoints()) {
       if (!endpoint.expiration_time.has_value()) {
         continue;
       }
       const auto& expiration_time = endpoint.expiration_time.value();
-      ARROW_ASSIGN_OR_RAISE(auto refreshed_endpoint,
-                            client->RefreshFlightEndpoint(endpoint));
-      if (!refreshed_endpoint.expiration_time.has_value()) {
-        return Status::Invalid("Refreshed endpoint must have expiration time: ",
-                               refreshed_endpoint.ToString());
+      ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint,
+                            client->RenewFlightEndpoint(endpoint));
+      if (!renewed_endpoint.expiration_time.has_value()) {
+        return Status::Invalid("Renewed endpoint must have expiration time: ",
+                               renewed_endpoint.ToString());
       }
-      const auto& refreshed_expiration_time = refreshed_endpoint.expiration_time.value();
-      if (refreshed_expiration_time <= expiration_time) {
-        return Status::Invalid("Refreshed endpoint must have newer expiration time\n",
-                               "Original:\n", endpoint.ToString(), "Refreshed:\n",
-                               refreshed_endpoint.ToString());
+      const auto& renewed_expiration_time = renewed_endpoint.expiration_time.value();
+      if (renewed_expiration_time <= expiration_time) {
+        return Status::Invalid("Renewed endpoint must have newer expiration time\n",
+                               "Original:\n", endpoint.ToString(), "Renewed:\n",
+                               renewed_endpoint.ToString());
       }
     }
     return Status::OK();
@@ -1870,8 +1870,8 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
   } else if (scenario_name == "expiration_time:close_flight_info") {
     *out = std::make_shared<ExpirationTimeCloseFlightInfoScenario>();
     return Status::OK();
-  } else if (scenario_name == "expiration_time:refresh_flight_endpoint") {
-    *out = std::make_shared<ExpirationTimeRefreshFlightEndpointScenario>();
+  } else if (scenario_name == "expiration_time:renew_flight_endpoint") {
+    *out = std::make_shared<ExpirationTimeRenewFlightEndpointScenario>();
     return Status::OK();
   } else if (scenario_name == "flight_sql") {
     *out = std::make_shared<FlightSqlScenario>();

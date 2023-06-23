@@ -54,8 +54,8 @@ class IntegrationTest {
   }
 
   @Test
-  void expirationTimeRefreshFlightEndpoint() throws Exception {
-    testScenario("expiration_time:refresh_flight_endpoint");
+  void expirationTimeRenewFlightEndpoint() throws Exception {
+    testScenario("expiration_time:renew_flight_endpoint");
   }
 
   @Test

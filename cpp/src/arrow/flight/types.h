@@ -180,7 +180,7 @@ struct ARROW_FLIGHT_EXPORT ActionType {
 
   static const ActionType kCancelFlightInfo;
   static const ActionType kCloseFlightInfo;
-  static const ActionType kRefreshFlightEndpoint;
+  static const ActionType kRenewFlightEndpoint;
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC

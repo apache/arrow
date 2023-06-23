@@ -267,16 +267,16 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   Status CloseFlightInfo(const FlightCallOptions& options, const FlightInfo& info);
   Status CloseFlightInfo(const FlightInfo& info) { return CloseFlightInfo({}, info); }
 
-  /// \brief Perform the RefreshFlightEndpoint action, returning a refreshed
+  /// \brief Perform the RenewFlightEndpoint action, returning a renewed
   /// FlightEndpoint
   ///
   /// \param[in] options Per-RPC options
-  /// \param[in] endpoint The FlightEndpoint to be refreshed
-  /// \return Arrow result with a refreshed FlightEndpoint
-  arrow::Result<FlightEndpoint> RefreshFlightEndpoint(const FlightCallOptions& options,
-                                                      const FlightEndpoint& endpoint);
-  arrow::Result<FlightEndpoint> RefreshFlightEndpoint(const FlightEndpoint& endpoint) {
-    return RefreshFlightEndpoint({}, endpoint);
+  /// \param[in] endpoint The FlightEndpoint to be renewed
+  /// \return Arrow result with a renewed FlightEndpoint
+  arrow::Result<FlightEndpoint> RenewFlightEndpoint(const FlightCallOptions& options,
+                                                    const FlightEndpoint& endpoint);
+  arrow::Result<FlightEndpoint> RenewFlightEndpoint(const FlightEndpoint& endpoint) {
+    return RenewFlightEndpoint({}, endpoint);
   }
 
   /// \brief Retrieve a list of available Action types

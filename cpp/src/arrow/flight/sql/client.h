@@ -362,11 +362,11 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \brief Extends the expiration of a FlightEndpoint.
   ///
   /// \param[in] options      RPC-layer hints for this call.
-  /// \param[in] endpoint     The FlightEndpoint to refresh.
-  /// \return Arrow result with a refreshed FlightEndpoint
-  ::arrow::Result<FlightEndpoint> RefreshFlightEndpoint(const FlightCallOptions& options,
-                                                        const FlightEndpoint& endpoint) {
-    return impl_->RefreshFlightEndpoint(options, endpoint);
+  /// \param[in] endpoint     The FlightEndpoint to renew.
+  /// \return Arrow result with a renewed FlightEndpoint
+  ::arrow::Result<FlightEndpoint> RenewFlightEndpoint(const FlightCallOptions& options,
+                                                      const FlightEndpoint& endpoint) {
+    return impl_->RenewFlightEndpoint(options, endpoint);
   }
 
   /// \brief Explicitly shut down and clean up the client.

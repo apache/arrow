@@ -542,8 +542,8 @@ func (c *Client) CloseFlightInfo(ctx context.Context, info *flight.FlightInfo, o
 	return c.Client.CloseFlightInfo(ctx, info, opts...)
 }
 
-func (c *Client) RefreshFlightEndpoint(ctx context.Context, endpoint *flight.FlightEndpoint, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
-	return c.Client.RefreshFlightEndpoint(ctx, endpoint, opts...)
+func (c *Client) RenewFlightEndpoint(ctx context.Context, endpoint *flight.FlightEndpoint, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
+	return c.Client.RenewFlightEndpoint(ctx, endpoint, opts...)
 }
 
 func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) (*Txn, error) {

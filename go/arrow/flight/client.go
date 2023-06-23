@@ -69,7 +69,7 @@ type Client interface {
 	CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (CancelFlightInfoResult, error)
 	Close() error
 	CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) error
-	RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error)
+	RenewFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error)
 	// join the interface from the FlightServiceClient instead of re-defining all
 	// the endpoints here.
 	FlightServiceClient
@@ -409,10 +409,10 @@ func (c *client) CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...
 	return ReadUntilEOF(stream)
 }
 
-func (c *client) RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error) {
+func (c *client) RenewFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error) {
 	var err error
 	var action flight.Action
-	action.Type = RefreshFlightEndpointActionType
+	action.Type = RenewFlightEndpointActionType
 	action.Body, err = proto.Marshal(endpoint)
 	if err != nil {
 		return nil, err
@@ -425,8 +425,8 @@ func (c *client) RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndp
 	if err != nil {
 		return nil, err
 	}
-	var refreshedEndpoint FlightEndpoint
-	err = proto.Unmarshal(res.Body, &refreshedEndpoint)
+	var renewedEndpoint FlightEndpoint
+	err = proto.Unmarshal(res.Body, &renewedEndpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -434,5 +434,5 @@ func (c *client) RefreshFlightEndpoint(ctx context.Context, endpoint *FlightEndp
 	if err != nil {
 		return nil, err
 	}
-	return &refreshedEndpoint, nil
+	return &renewedEndpoint, nil
 }

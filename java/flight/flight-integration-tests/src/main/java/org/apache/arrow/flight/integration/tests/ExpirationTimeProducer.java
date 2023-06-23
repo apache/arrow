@@ -69,7 +69,7 @@ import org.apache.arrow.vector.types.pojo.Schema;
  * even within 3 seconds after the action.
  * <p>
  * The client can extend the expiration time of a FlightEndpoint in
- * a returned FlightInfo by pre-defined RefreshFlightEndpoint
+ * a returned FlightInfo by pre-defined RenewFlightEndpoint
  * action. The client can read data from endpoints multiple times
  * within more 10 seconds after the action.
  * <p>
@@ -163,7 +163,7 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
           int index = parseIndexFromTicket(endpoint.getTicket());
           statuses.get(index).closed = true;
         }
-      } else if (action.getType().equals(FlightConstants.REFRESH_FLIGHT_ENDPOINT.getType())) {
+      } else if (action.getType().equals(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType())) {
         FlightEndpoint endpoint = FlightEndpoint.deserialize(ByteBuffer.wrap(action.getBody()));
         int index = parseIndexFromTicket(endpoint.getTicket());
         EndpointStatus status = statuses.get(index);
@@ -175,7 +175,7 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
         }
 
         String ticketBody = new String(endpoint.getTicket().getBytes(), StandardCharsets.UTF_8);
-        ticketBody += ": refreshed (+ 10 seconds)";
+        ticketBody += ": renewed (+ 10 seconds)";
         Ticket ticket = new Ticket(ticketBody.getBytes(StandardCharsets.UTF_8));
         Instant expiration = Instant.now().plus(10, ChronoUnit.SECONDS);
         status.expirationTime = expiration;
@@ -199,7 +199,7 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
   public void listActions(CallContext context, StreamListener<ActionType> listener) {
     listener.onNext(FlightConstants.CANCEL_FLIGHT_INFO);
     listener.onNext(FlightConstants.CLOSE_FLIGHT_INFO);
-    listener.onNext(FlightConstants.REFRESH_FLIGHT_ENDPOINT);
+    listener.onNext(FlightConstants.RENEW_FLIGHT_ENDPOINT);
     listener.onCompleted();
   }
 

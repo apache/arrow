@@ -51,7 +51,7 @@ final class ExpirationTimeListActionsScenario implements Scenario {
 
     IntegrationAssertions.assertTrue("Expected 3 actions", actions.hasNext());
     action = actions.next();
-    IntegrationAssertions.assertEquals(FlightConstants.REFRESH_FLIGHT_ENDPOINT.getType(), action.getType());
+    IntegrationAssertions.assertEquals(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType(), action.getType());
 
     IntegrationAssertions.assertFalse("Expected 3 actions", actions.hasNext());
   }

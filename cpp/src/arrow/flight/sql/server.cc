@@ -762,7 +762,7 @@ Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
   *actions = {
       ActionType::kCancelFlightInfo,
       ActionType::kCloseFlightInfo,
-      ActionType::kRefreshFlightEndpoint,
+      ActionType::kRenewFlightEndpoint,
       FlightSqlServerBase::kBeginSavepointActionType,
       FlightSqlServerBase::kBeginTransactionActionType,
       FlightSqlServerBase::kCancelQueryActionType,
@@ -790,12 +790,12 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     std::string_view body(*action.body);
     ARROW_ASSIGN_OR_RAISE(auto info, FlightInfo::Deserialize(body));
     ARROW_RETURN_NOT_OK(CloseFlightInfo(context, *info));
-  } else if (action.type == ActionType::kRefreshFlightEndpoint.type) {
+  } else if (action.type == ActionType::kRenewFlightEndpoint.type) {
     std::string_view body(*action.body);
     ARROW_ASSIGN_OR_RAISE(auto endpoint, FlightEndpoint::Deserialize(body));
-    ARROW_ASSIGN_OR_RAISE(auto refreshed_result,
-                          RefreshFlightEndpoint(context, endpoint));
-    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(refreshed_result));
+    ARROW_ASSIGN_OR_RAISE(auto renewed_result,
+                          RenewFlightEndpoint(context, endpoint));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(renewed_result));
 
     results.push_back(std::move(packed_result));
   } else {
@@ -1101,9 +1101,9 @@ Status FlightSqlServerBase::CloseFlightInfo(const ServerCallContext& context,
   return Status::NotImplemented("CloseFlightInfo not implemented");
 }
 
-arrow::Result<FlightEndpoint> FlightSqlServerBase::RefreshFlightEndpoint(
+arrow::Result<FlightEndpoint> FlightSqlServerBase::RenewFlightEndpoint(
     const ServerCallContext& context, const FlightEndpoint& info) {
-  return Status::NotImplemented("CancelFlightEndpoint not implemented");
+  return Status::NotImplemented("RenewFlightEndpoint not implemented");
 }
 
 arrow::Result<ActionCreatePreparedStatementResult>

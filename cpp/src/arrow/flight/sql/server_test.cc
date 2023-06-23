@@ -780,11 +780,11 @@ TEST_F(TestFlightSqlServer, CloseFlightInfo) {
   ASSERT_RAISES(NotImplemented, sql_client->CloseFlightInfo({}, *flight_info));
 }
 
-TEST_F(TestFlightSqlServer, RefreshFlightEndpoint) {
+TEST_F(TestFlightSqlServer, RenewFlightEndpoint) {
   // Not supported
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo({}, {}));
   ASSERT_RAISES(NotImplemented,
-                sql_client->RefreshFlightEndpoint({}, flight_info->endpoints()[0]));
+                sql_client->RenewFlightEndpoint({}, flight_info->endpoints()[0]));
 }
 
 TEST_F(TestFlightSqlServer, Transactions) {

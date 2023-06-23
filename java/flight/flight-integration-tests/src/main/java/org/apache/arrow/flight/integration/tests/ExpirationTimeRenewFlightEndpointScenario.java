@@ -30,8 +30,8 @@ import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 
-/** Test RefreshFlightEndpoint. */
-final class ExpirationTimeRefreshFlightEndpointScenario implements Scenario {
+/** Test RenewFlightEndpoint. */
+final class ExpirationTimeRenewFlightEndpointScenario implements Scenario {
   @Override
   public FlightProducer producer(BufferAllocator allocator, Location location) throws Exception {
     return new ExpirationTimeProducer(allocator);
@@ -45,18 +45,18 @@ final class ExpirationTimeRefreshFlightEndpointScenario implements Scenario {
   public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
     FlightInfo info = client.getInfo(FlightDescriptor.command("expiration".getBytes(StandardCharsets.UTF_8)));
 
-    // Refresh all endpoints with expiration time
+    // Renew all endpoints with expiration time
     for (FlightEndpoint endpoint : info.getEndpoints()) {
       if (!endpoint.getExpirationTime().isPresent()) {
         continue;
       }
       Instant expiration = endpoint.getExpirationTime().get();
-      FlightEndpoint refreshed = client.refreshFlightEndpoint(endpoint);
+      FlightEndpoint renewed = client.renewFlightEndpoint(endpoint);
 
-      IntegrationAssertions.assertTrue("Refreshed FlightEndpoint must have expiration time",
-          refreshed.getExpirationTime().isPresent());
-      IntegrationAssertions.assertTrue("Refreshed FlightEndpoint must have newer expiration time",
-          refreshed.getExpirationTime().get().isAfter(expiration));
+      IntegrationAssertions.assertTrue("Renewed FlightEndpoint must have expiration time",
+          renewed.getExpirationTime().isPresent());
+      IntegrationAssertions.assertTrue("Renewed FlightEndpoint must have newer expiration time",
+          renewed.getExpirationTime().get().isAfter(expiration));
 
     }
   }
