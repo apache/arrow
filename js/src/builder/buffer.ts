@@ -126,21 +126,21 @@ export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 }
 
 /** @ignore */
-export class OffsetsBufferBuilder<T extends DataType> extends DataBufferBuilder<T['TOffset']> {
+export class OffsetsBufferBuilder<T extends DataType> extends DataBufferBuilder<T['TOffsetArray']> {
     constructor(type: T) {
-        super(new type.OffsetType(1), 1);
-        this.toNumber = type.OffsetType === BigInt64Array ? BigInt : bigIntToNumber as any;
+        super(new type.OffsetArrayType(1), 1);
+        this.toNumber = type.OffsetArrayType === BigInt64Array ? BigInt : bigIntToNumber as any;
     }
 
     /**
      * The correct number constructor for the buffer type.
      */
-    public toNumber: ((number: number | bigint) => T['TOffset'] extends BigInt64Array ? bigint : number);
+    public toNumber: ((number: number | bigint) => T['TOffsetArray'] extends BigInt64Array ? bigint : number);
 
-    public append(value: T['TOffset'][0]) {
+    public append(value: T['TOffsetArray'][0]) {
         return this.set(this.length - 1, value);
     }
-    public set(index: number, value: T['TOffset'][0]) {
+    public set(index: number, value: T['TOffsetArray'][0]) {
         const offset = this.length - 1;
         const buffer = this.reserve(index - offset + 1).buffer;
         if (offset < index++ && offset >= 0) {

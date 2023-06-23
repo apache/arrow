@@ -19,7 +19,7 @@ import { Field } from './schema.js';
 import { Vector } from './vector.js';
 import { MapRow } from './row/map.js';
 import { StructRow, StructRowProxy } from './row/struct.js';
-import { BigIntArrayConstructor, TypedArrayConstructor } from './interfaces.js';
+import { ArrayCtor, BigIntArrayConstructor, TypedArrayConstructor } from './interfaces.js';
 import { bigIntToNumber } from './util/bigint.js';
 
 import {
@@ -38,11 +38,11 @@ export type IsSigned = { 'true': true; 'false': false };
 export interface DataType<TType extends Type = Type, TChildren extends TypeMap = any> {
     readonly TType: TType;
     readonly TArray: any;
-    readonly TOffset: any;
+    readonly TOffsetArray: any;
     readonly TValue: any;
     readonly TChildren: TChildren;
     readonly ArrayType: any;
-    readonly OffsetType: TypedArrayConstructor<Int32Array> | BigIntArrayConstructor<BigInt64Array>;
+    readonly OffsetArrayType: ArrayCtor<Int32Array | BigInt64Array>;
     readonly children: Field<TChildren[keyof TChildren]>[];
 }
 
@@ -82,7 +82,7 @@ export abstract class DataType<TType extends Type = Type, TChildren extends Type
     protected static [Symbol.toStringTag] = ((proto: DataType) => {
         (<any>proto).children = null;
         (<any>proto).ArrayType = Array;
-        (<any>proto).OffsetType = Int32Array;
+        (<any>proto).OffsetArrayType = Int32Array;
         return proto[Symbol.toStringTag] = 'DataType';
     })(DataType.prototype);
 }
@@ -250,7 +250,7 @@ export class Binary extends DataType<Type.Binary> {
 }
 
 /** @ignore */
-export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TOffset: Int32Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetType: TypedArrayConstructor<Int32Array> }
+export interface Utf8 extends DataType<Type.Utf8> { TArray: Uint8Array; TOffsetArray: Int32Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetArrayType: TypedArrayConstructor<Int32Array> }
 /** @ignore */
 export class Utf8 extends DataType<Type.Utf8> {
     constructor() {
@@ -265,7 +265,7 @@ export class Utf8 extends DataType<Type.Utf8> {
 }
 
 /** @ignore */
-export interface LargeUtf8 extends DataType<Type.LargeUtf8> { TArray: Uint8Array; TOffset: BigInt64Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetType: BigIntArrayConstructor<BigInt64Array> }
+export interface LargeUtf8 extends DataType<Type.LargeUtf8> { TArray: Uint8Array; TOffsetArray: BigInt64Array; TValue: string; ArrayType: TypedArrayConstructor<Uint8Array>; OffsetArrayType: BigIntArrayConstructor<BigInt64Array> }
 /** @ignore */
 export class LargeUtf8 extends DataType<Type.LargeUtf8> {
     constructor() {
@@ -275,7 +275,7 @@ export class LargeUtf8 extends DataType<Type.LargeUtf8> {
     public toString() { return `LargeUtf8`; }
     protected static [Symbol.toStringTag] = ((proto: LargeUtf8) => {
         (<any>proto).ArrayType = Uint8Array;
-        (<any>proto).OffsetType = BigInt64Array;
+        (<any>proto).OffsetArrayType = BigInt64Array;
         return proto[Symbol.toStringTag] = 'LargeUtf8';
     })(LargeUtf8.prototype);
 }
@@ -567,7 +567,7 @@ export class FixedSizeBinary extends DataType<Type.FixedSizeBinary> {
     protected static [Symbol.toStringTag] = ((proto: FixedSizeBinary) => {
         (<any>proto).byteWidth = null;
         (<any>proto).ArrayType = Uint8Array;
-        (<any>proto).OffsetType = Int32Array;
+        (<any>proto).OffsetArrayType = Int32Array;
         return proto[Symbol.toStringTag] = 'FixedSizeBinary';
     })(FixedSizeBinary.prototype);
 }

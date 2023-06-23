@@ -34,7 +34,7 @@ import { popcnt_bit_range, truncateBitmap } from './util/bit.js';
 
 /** @ignore */
 export interface Buffers<T extends DataType> {
-    [BufferType.OFFSET]: T['TOffset'];
+    [BufferType.OFFSET]: T['TOffsetArray'];
     [BufferType.DATA]: T['TArray'];
     [BufferType.VALIDITY]: Uint8Array;
     [BufferType.TYPE]: T['TArray'];

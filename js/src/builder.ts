@@ -163,7 +163,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     public toVector() { return new Vector([this.flush()]); }
 
     public get ArrayType() { return this.type.ArrayType; }
-    public get OffsetType() { return this.type.OffsetType; }
+    public get OffsetArrayType() { return this.type.OffsetArrayType; }
     public get nullCount() { return this._nulls.numInvalid; }
     public get numChildren() { return this.children.length; }
 
@@ -199,7 +199,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         return this.children.reduce((size, child) => size + child.reservedByteLength, size);
     }
 
-    declare protected _offsets: DataBufferBuilder<T['TOffset']>;
+    declare protected _offsets: DataBufferBuilder<T['TOffsetArray']>;
     public get valueOffsets() { return this._offsets ? this._offsets.buffer : null; }
 
     declare protected _values: BufferBuilder<T['TArray']>;
