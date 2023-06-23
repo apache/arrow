@@ -45,24 +45,19 @@ final class ExpirationTimeRefreshFlightEndpointScenario implements Scenario {
   public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
     FlightInfo info = client.getInfo(FlightDescriptor.command("expiration".getBytes(StandardCharsets.UTF_8)));
 
-    try {
-      // Refresh all endpoints with expiration time
-      for (FlightEndpoint endpoint : info.getEndpoints()) {
-        if (!endpoint.getExpirationTime().isPresent()) {
-          continue;
-        }
-        Instant expiration = endpoint.getExpirationTime().get();
-        FlightEndpoint refreshed = client.refreshFlightEndpoint(endpoint);
-
-        IntegrationAssertions.assertTrue("Refreshed FlightEndpoint must have expiration time",
-            refreshed.getExpirationTime().isPresent());
-        IntegrationAssertions.assertTrue("Refreshed FlightEndpoint must have newer expiration time",
-            refreshed.getExpirationTime().get().isAfter(expiration));
-
-        refreshedEndpoints.add(refreshed);
+    // Refresh all endpoints with expiration time
+    for (FlightEndpoint endpoint : info.getEndpoints()) {
+      if (!endpoint.getExpirationTime().isPresent()) {
+        continue;
       }
-    } finally {
-      AutoCloseables.close(batches);
+      Instant expiration = endpoint.getExpirationTime().get();
+      FlightEndpoint refreshed = client.refreshFlightEndpoint(endpoint);
+
+      IntegrationAssertions.assertTrue("Refreshed FlightEndpoint must have expiration time",
+          refreshed.getExpirationTime().isPresent());
+      IntegrationAssertions.assertTrue("Refreshed FlightEndpoint must have newer expiration time",
+          refreshed.getExpirationTime().get().isAfter(expiration));
+
     }
   }
 }
