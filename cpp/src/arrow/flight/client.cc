@@ -582,8 +582,8 @@ arrow::Result<CancelFlightInfoResult> FlightClient::CancelFlightInfo(
 }
 
 arrow::Result<FlightEndpoint> FlightClient::RenewFlightEndpoint(
-    const FlightCallOptions& options, const FlightEndpoint& endpoint) {
-  ARROW_ASSIGN_OR_RAISE(auto body, endpoint.SerializeToString());
+    const FlightCallOptions& options, const RenewFlightEndpointRequest& request) {
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
   Action action{ActionType::kRenewFlightEndpoint.type, Buffer::FromString(body)};
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());

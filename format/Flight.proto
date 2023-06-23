@@ -184,6 +184,15 @@ message Action {
 }
 
 /*
+ * The request of the RenewFlightEndpoint action.
+ *
+ * The request should be stored in Action.body.
+ */
+message RenewFlightEndpointRequest {
+  FlightEndpoint endpoint = 1;
+}
+
+/*
  * An opaque result returned after executing an action.
  */
 message Result {

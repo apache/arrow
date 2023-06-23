@@ -524,7 +524,7 @@ func (BaseServer) CloseFlightInfo(context.Context, *flight.FlightInfo) error {
 	return status.Error(codes.Unimplemented, "CloseFlightInfo not implemented")
 }
 
-func (BaseServer) RenewFlightEndpoint(context.Context, *flight.FlightEndpoint) (*flight.FlightEndpoint, error) {
+func (BaseServer) RenewFlightEndpoint(context.Context, *flight.RenewFlightEndpointRequest) (*flight.FlightEndpoint, error) {
 	return nil, status.Error(codes.Unimplemented, "RenewFlightEndpoint not implemented")
 }
 
@@ -657,7 +657,7 @@ type Server interface {
 	// CloseFlightInfo attempts to explicitly close a FlightInfo
 	CloseFlightInfo(context.Context, *flight.FlightInfo) error
 	// RenewFlightEndpoint attempts to extend the expiration of a FlightEndpoint
-	RenewFlightEndpoint(context.Context, *flight.FlightEndpoint) (*flight.FlightEndpoint, error)
+	RenewFlightEndpoint(context.Context, *flight.RenewFlightEndpointRequest) (*flight.FlightEndpoint, error)
 
 	mustEmbedBaseServer()
 }
@@ -1024,15 +1024,15 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 		return f.srv.CloseFlightInfo(stream.Context(), &info)
 	case flight.RenewFlightEndpointActionType:
 		var (
-			endpoint flight.FlightEndpoint
+			request flight.RenewFlightEndpointRequest
 			err      error
 		)
 
-		if err = proto.Unmarshal(cmd.Body, &endpoint); err != nil {
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightEndpoint for RenewFlightEndpoint: %s", err.Error())
 		}
 
-		renewedEndpoint, err := f.srv.RenewFlightEndpoint(stream.Context(), &endpoint)
+		renewedEndpoint, err := f.srv.RenewFlightEndpoint(stream.Context(), &request)
 		if err != nil {
 			return err
 		}

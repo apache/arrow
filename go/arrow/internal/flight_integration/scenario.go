@@ -902,11 +902,12 @@ func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream 
 		}
 		return nil
 	case flight.RenewFlightEndpointActionType:
-		var endpoint flight.FlightEndpoint
-		if err := proto.Unmarshal(cmd.Body, &endpoint); err != nil {
+		var request flight.RenewFlightEndpointRequest
+		if err := proto.Unmarshal(cmd.Body, &request); err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
 		}
 
+		endpoint := request.Endpoint
 		ticket := string(endpoint.Ticket.Ticket)
 		index, err := tester.ExtractIndexFromTicket(ticket)
 		if err != nil {
@@ -918,7 +919,7 @@ func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream 
 		st := tester.statuses[index]
 		st.expirationTime = &renewedExpirationTime
 		tester.statuses[index] = st
-		out, err := packActionResult(&endpoint)
+		out, err := packActionResult(endpoint)
 		if err != nil {
 			return err
 		}
@@ -1172,7 +1173,8 @@ func (tester *expirationTimeRenewFlightEndpointScenarioTester) RunClient(addr st
 			continue
 		}
 		expirationTime := ep.ExpirationTime.AsTime()
-		renewedEndpoint, err := client.RenewFlightEndpoint(ctx, ep)
+		request := flight.RenewFlightEndpointRequest{Endpoint: ep}
+		renewedEndpoint, err := client.RenewFlightEndpoint(ctx, &request)
 		if err != nil {
 			return err
 		}

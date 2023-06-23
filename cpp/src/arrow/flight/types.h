@@ -525,6 +525,30 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
   static arrow::Result<FlightEndpoint> Deserialize(std::string_view serialized);
 };
 
+/// \brief The request of the RenewFlightEndpoint action.
+struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest {
+  FlightEndpoint endpoint;
+
+  std::string ToString() const;
+  bool Equals(const RenewFlightEndpointRequest& other) const;
+
+  friend bool operator==(const RenewFlightEndpointRequest& left,
+                         const RenewFlightEndpointRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const RenewFlightEndpointRequest& left,
+                         const RenewFlightEndpointRequest& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<RenewFlightEndpointRequest> Deserialize(
+      std::string_view serialized);
+};
+
 /// \brief Staging data structure for messages about to be put on the wire
 ///
 /// This structure corresponds to FlightData in the protocol.

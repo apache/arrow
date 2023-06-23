@@ -623,10 +623,10 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
 
   /// \brief Attempt to explicitly renew a FlightEndpoint.
   /// \param[in] context  The call context.
-  /// \param[in] endpoint The FlightEndpoint to renew.
+  /// \param[in] request  The RenewFlightEndpointRequest.
   /// \return             The renew result.
   virtual arrow::Result<FlightEndpoint> RenewFlightEndpoint(
-      const ServerCallContext& context, const FlightEndpoint& endpoint);
+      const ServerCallContext& context, const RenewFlightEndpointRequest& request);
 
   /// @}
 

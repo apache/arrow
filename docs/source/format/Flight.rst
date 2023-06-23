@@ -141,9 +141,11 @@ A client that wishes to download the data would:
    represented as `google.protobuf.Timestamp`_.
 
    If the expiration time is short, the client may be able to extend
-   the expiration time by ``RefreshFlightEndpoint`` action. The client
-   need to use ``DoAction`` with ``RefreshFlightEndpoint`` action
-   type to extend the expiration time.
+   the expiration time by ``RenewFlightEndpoint`` action. The client
+   need to use ``DoAction`` with ``RenewFlightEndpoint`` action type
+   to extend the expiration time. ``Action.body`` must be
+   ``RenewFlightEndpointRequest`` that has ``FlightEndpoint`` to be
+   renewed.
 
    The client may be able to cancel the returned ``FlightInfo`` by
    ``CancelFlightInfo`` action. The client need to use ``DoAction``

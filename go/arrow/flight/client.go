@@ -69,7 +69,7 @@ type Client interface {
 	CancelFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (CancelFlightInfoResult, error)
 	Close() error
 	CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) error
-	RenewFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error)
+	RenewFlightEndpoint(ctx context.Context, request *RenewFlightEndpointRequest, opts ...grpc.CallOption) (*FlightEndpoint, error)
 	// join the interface from the FlightServiceClient instead of re-defining all
 	// the endpoints here.
 	FlightServiceClient
@@ -409,11 +409,11 @@ func (c *client) CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...
 	return ReadUntilEOF(stream)
 }
 
-func (c *client) RenewFlightEndpoint(ctx context.Context, endpoint *FlightEndpoint, opts ...grpc.CallOption) (*FlightEndpoint, error) {
+func (c *client) RenewFlightEndpoint(ctx context.Context, request *RenewFlightEndpointRequest, opts ...grpc.CallOption) (*FlightEndpoint, error) {
 	var err error
 	var action flight.Action
 	action.Type = RenewFlightEndpointActionType
-	action.Body, err = proto.Marshal(endpoint)
+	action.Body, err = proto.Marshal(request)
 	if err != nil {
 		return nil, err
 	}

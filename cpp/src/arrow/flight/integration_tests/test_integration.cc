@@ -544,8 +544,9 @@ class ExpirationTimeServer : public FlightServerBase {
         statuses_[index].closed = true;
       }
     } else if (action.type == ActionType::kRenewFlightEndpoint.type) {
-      ARROW_ASSIGN_OR_RAISE(auto endpoint,
-                            FlightEndpoint::Deserialize(std::string_view(*action.body)));
+      ARROW_ASSIGN_OR_RAISE(auto request, RenewFlightEndpointRequest::Deserialize(
+                                              std::string_view(*action.body)));
+      auto& endpoint = request.endpoint;
       ARROW_ASSIGN_OR_RAISE(auto index, ExtractIndexFromTicket(endpoint.ticket.ticket));
       if (statuses_[index].cancelled) {
         return Status::Invalid("Invalid flight: canceled: ", endpoint.ticket.ticket);
@@ -775,8 +776,8 @@ class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
         continue;
       }
       const auto& expiration_time = endpoint.expiration_time.value();
-      ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint,
-                            client->RenewFlightEndpoint(endpoint));
+      auto request = RenewFlightEndpointRequest{endpoint};
+      ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint, client->RenewFlightEndpoint(request));
       if (!renewed_endpoint.expiration_time.has_value()) {
         return Status::Invalid("Renewed endpoint must have expiration time: ",
                                renewed_endpoint.ToString());

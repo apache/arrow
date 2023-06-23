@@ -792,10 +792,9 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_RETURN_NOT_OK(CloseFlightInfo(context, *info));
   } else if (action.type == ActionType::kRenewFlightEndpoint.type) {
     std::string_view body(*action.body);
-    ARROW_ASSIGN_OR_RAISE(auto endpoint, FlightEndpoint::Deserialize(body));
-    ARROW_ASSIGN_OR_RAISE(auto renewed_result,
-                          RenewFlightEndpoint(context, endpoint));
-    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(renewed_result));
+    ARROW_ASSIGN_OR_RAISE(auto request, RenewFlightEndpointRequest::Deserialize(body));
+    ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint, RenewFlightEndpoint(context, request));
+    ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(renewed_endpoint));
 
     results.push_back(std::move(packed_result));
   } else {
@@ -1102,7 +1101,7 @@ Status FlightSqlServerBase::CloseFlightInfo(const ServerCallContext& context,
 }
 
 arrow::Result<FlightEndpoint> FlightSqlServerBase::RenewFlightEndpoint(
-    const ServerCallContext& context, const FlightEndpoint& info) {
+    const ServerCallContext& context, const RenewFlightEndpointRequest& request) {
   return Status::NotImplemented("RenewFlightEndpoint not implemented");
 }
 

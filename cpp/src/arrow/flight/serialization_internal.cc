@@ -182,6 +182,20 @@ Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint) 
   return Status::OK();
 }
 
+// RenewFlightEndpointRequest
+
+Status FromProto(const pb::RenewFlightEndpointRequest& pb_request,
+                 RenewFlightEndpointRequest* request) {
+  RETURN_NOT_OK(FromProto(pb_request.endpoint(), &request->endpoint));
+  return Status::OK();
+}
+
+Status ToProto(const RenewFlightEndpointRequest& request,
+               pb::RenewFlightEndpointRequest* pb_request) {
+  RETURN_NOT_OK(ToProto(request.endpoint, pb_request->mutable_endpoint()));
+  return Status::OK();
+}
+
 // FlightDescriptor
 
 Status FromProto(const pb::FlightDescriptor& pb_descriptor,

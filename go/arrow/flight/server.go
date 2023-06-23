@@ -48,6 +48,7 @@ type (
 	SchemaResult                    = flight.SchemaResult
 	Action                          = flight.Action
 	ActionType                      = flight.ActionType
+	RenewFlightEndpointRequest      = flight.RenewFlightEndpointRequest
 	Result                          = flight.Result
 	CancelFlightInfoResult          = flight.CancelFlightInfoResult
 	CancelStatus                    = flight.CancelStatus

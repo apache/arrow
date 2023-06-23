@@ -657,9 +657,10 @@ func (s *FlightSqlClientSuite) TestRenewFlightEndpoint() {
 	info, err := s.sqlClient.Execute(context.Background(), query, s.callOpts...)
 	s.NoError(err)
 	s.Equal(&mockedInfo, info)
+	var mockedRequest flight.RenewFlightEndpointRequest{Endpoint: info.Endpoint[0]}
 	var mockedRenewedEndpoint flight.FlightEndpoint
-	s.mockClient.On("RenewFlightEndpoint", &mockedEndpoint, s.callOpts).Return(&mockedRenewedEndpoint, nil)
-	renewedEndpoint, err := s.sqlClient.RenewFlightEndpoint(context.TODO(), info.Endpoint[0], s.callOpts...)
+	s.mockClient.On("RenewFlightEndpoint", &mockedRequest, s.callOpts).Return(&mockedRenewedEndpoint, nil)
+	renewedEndpoint, err := s.sqlClient.RenewFlightEndpoint(context.TODO(), mockedRequest, s.callOpts...)
 	s.NoError(err)
 	s.Equal(&mockedRenewedEndpoint, renewedEndpoint)
 }

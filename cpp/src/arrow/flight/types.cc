@@ -510,6 +510,44 @@ arrow::Result<FlightEndpoint> FlightEndpoint::Deserialize(std::string_view seria
   return out;
 }
 
+std::string RenewFlightEndpointRequest::ToString() const {
+  std::stringstream ss;
+  ss << "<RenewFlightEndpointRequest endpoint=" << endpoint.ToString() << ">";
+  return ss.str();
+}
+
+bool RenewFlightEndpointRequest::Equals(const RenewFlightEndpointRequest& other) const {
+  return endpoint == other.endpoint;
+}
+
+arrow::Result<std::string> RenewFlightEndpointRequest::SerializeToString() const {
+  pb::RenewFlightEndpointRequest pb_request;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
+
+  std::string out;
+  if (!pb_request.SerializeToString(&out)) {
+    return Status::IOError("Serialized RenewFlightEndpointRequest exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<RenewFlightEndpointRequest> RenewFlightEndpointRequest::Deserialize(
+    std::string_view serialized) {
+  pb::RenewFlightEndpointRequest pb_request;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized RenewFlightEndpointRequest size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_request.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid RenewFlightEndpointRequest");
+  }
+  RenewFlightEndpointRequest out;
+  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
+  return out;
+}
+
 std::string ActionType::ToString() const {
   return arrow::util::StringBuilder("<ActionType type='", type, "' description='",
                                     description, "'>");
@@ -528,7 +566,7 @@ const ActionType ActionType::kCloseFlightInfo =
 const ActionType ActionType::kRenewFlightEndpoint =
     ActionType{"RenewFlightEndpoint",
                "Extend expiration time of the given FlightEndpoint.\n"
-               "Request Message: FlightEndpoint to be renewed\n"
+               "Request Message: RenewFlightEndpointRequest\n"
                "Response Message: Renewed FlightEndpoint"};
 
 bool ActionType::Equals(const ActionType& other) const {

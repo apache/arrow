@@ -271,12 +271,13 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// FlightEndpoint
   ///
   /// \param[in] options Per-RPC options
-  /// \param[in] endpoint The FlightEndpoint to be renewed
+  /// \param[in] request The RenewFlightEndpointRequest
   /// \return Arrow result with a renewed FlightEndpoint
-  arrow::Result<FlightEndpoint> RenewFlightEndpoint(const FlightCallOptions& options,
-                                                    const FlightEndpoint& endpoint);
-  arrow::Result<FlightEndpoint> RenewFlightEndpoint(const FlightEndpoint& endpoint) {
-    return RenewFlightEndpoint({}, endpoint);
+  arrow::Result<FlightEndpoint> RenewFlightEndpoint(
+      const FlightCallOptions& options, const RenewFlightEndpointRequest& request);
+  arrow::Result<FlightEndpoint> RenewFlightEndpoint(
+      const RenewFlightEndpointRequest& request) {
+    return RenewFlightEndpoint({}, request);
   }
 
   /// \brief Retrieve a list of available Action types
