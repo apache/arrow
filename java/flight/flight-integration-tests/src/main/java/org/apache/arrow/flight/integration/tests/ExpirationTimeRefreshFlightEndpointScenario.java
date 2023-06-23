@@ -19,9 +19,6 @@ package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -29,15 +26,9 @@ import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
-import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.vector.UInt4Vector;
-import org.apache.arrow.vector.VectorLoader;
-import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.VectorUnloader;
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 /** Test RefreshFlightEndpoint. */
 final class ExpirationTimeRefreshFlightEndpointScenario implements Scenario {

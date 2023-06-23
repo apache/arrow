@@ -26,7 +26,6 @@ import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightProducer;
-import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
