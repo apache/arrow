@@ -6,8 +6,8 @@ classdef TimestampArray < arrow.array.Array
         NullSubstitutionValue = NaT;
     end
 
-    properties(SetAccess = private)
-        Type
+    properties(SetAccess=private, GetAccess=public)
+        Type = arrow.type.TimestampType % temporarily default value
     end
 
     methods
@@ -38,6 +38,10 @@ classdef TimestampArray < arrow.array.Array
             
             dates = datetime(time, ConvertFrom="epochtime", Epoch=epoch, ...
                 TimeZone=tz, TicksPerSecond=ticsPerSecond);
+        end
+
+        function dates = datetime(obj)
+            dates = toMATLAB(obj);
         end
     end
 
