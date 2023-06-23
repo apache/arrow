@@ -263,7 +263,7 @@ import {
 } from './type.js';
 
 import { Visitor } from './visitor.js';
-import { toArrayBufferView, toInt32Array, toUint8Array } from './util/buffer.js';
+import { toArrayBufferView, toBigInt64Array, toInt32Array, toUint8Array } from './util/buffer.js';
 
 class MakeDataVisitor extends Visitor {
     public visit<T extends DataType>(props: any): Data<T> {
@@ -310,7 +310,7 @@ class MakeDataVisitor extends Visitor {
         const { ['type']: type, ['offset']: offset = 0 } = props;
         const data = toUint8Array(props['data']);
         const nullBitmap = toUint8Array(props['nullBitmap']);
-        const valueOffsets = toInt32Array(props['valueOffsets']);
+        const valueOffsets = toBigInt64Array(props['valueOffsets']);
         const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
         return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
     }

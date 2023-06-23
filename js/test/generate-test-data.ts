@@ -51,6 +51,7 @@ interface TestDataVectorGenerator extends Visitor {
     visit<T extends Int>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Float>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Utf8>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
+    visit<T extends LargeUtf8>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Binary>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends FixedSizeBinary>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
     visit<T extends Date_>(type: T, length?: number, nullCount?: number): GeneratedVector<T>;
