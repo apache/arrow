@@ -157,6 +157,14 @@ classdef hNumericArray < matlab.unittest.TestCase
             tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
             tc.verifyEqual(toMATLAB(arrowArray), expectedData);
             tc.verifyEqual(arrowArray.Valid, [false; true; false; true]);
+
+            % Make sure the optimization where the valid-bitmap is stored
+            % as a nullptr works as expected.
+            expectedData = data';
+            arrowArray = tc.ArrowArrayConstructor(data, Valid=[1, 2, 3, 4]);
+            tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
+            tc.verifyEqual(toMATLAB(arrowArray), expectedData);
+            tc.verifyEqual(arrowArray.Valid, [true; true; true; true]);
         end
 
         function TestArrowType(tc)

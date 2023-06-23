@@ -121,6 +121,15 @@ classdef tBooleanArray < matlab.unittest.TestCase
             tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
             tc.verifyEqual(toMATLAB(arrowArray), expectedData);
             tc.verifyEqual(arrowArray.Valid, [true; true; false]);
+
+
+            % Make sure the optimization where the valid-bitmap is stored as
+            % a nullptr works as expected.
+            expectedData = data;
+            arrowArray = tc.ArrowArrayConstructor(data, Valid=[1, 2, 3]);
+            tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
+            tc.verifyEqual(toMATLAB(arrowArray), expectedData);
+            tc.verifyEqual(arrowArray.Valid, [true; true; true]);
         end
 
         function ErrorIfNonVector(tc)
