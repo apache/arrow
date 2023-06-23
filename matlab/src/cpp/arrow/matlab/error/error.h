@@ -28,7 +28,7 @@
 // A macro used to return an error to MATLAB if the arrow::Status returned
 // by the specified expression is not "OK" (i.e. error).
 //
-// **NOTE**: This macro should be used inside of the static Make() member function for a
+// **NOTE**: This macro should be used inside of the static make() member function for a
 //           Proxy class. Use MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT inside of a non-static
 //           Proxy member function.
 //
@@ -60,7 +60,7 @@
 //
 // **NOTE**: This macro should be used inside of a non-static member function of a
 //           Proxy class which has a libmexclass::proxy::method::Context as an input argument.
-//           Use MATLAB_ERROR_IF_NOT_OK inside of a Proxy static Make() member function.
+//           Use MATLAB_ERROR_IF_NOT_OK inside of a Proxy static make() member function.
 //
 // --- Arguments ---
 //
@@ -104,7 +104,7 @@
 // If the arrow::Status associated with the arrow::Result is not "OK" (i.e. error),
 // then the specified error ID is returned to MATLAB.
 //
-// **NOTE**: This macro should be used inside of the static Make() member function for a
+// **NOTE**: This macro should be used inside of the static make() member function for a
 //           Proxy class. Use MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT inside of a non-static
 //           Proxy member function.
 //
@@ -149,7 +149,7 @@
 //
 // **NOTE**: This macro should be used inside of a non-static member function of a
 //           Proxy class which has a libmexclass::proxy::method::Context as an input argument.
-//           Use MATLAB_ASSIGN_OR_ERROR inside of a Proxy static Make() member function.
+//           Use MATLAB_ASSIGN_OR_ERROR inside of a Proxy static make() member function.
 //
 // --- Arguments ---
 //
