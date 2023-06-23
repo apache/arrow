@@ -3,14 +3,7 @@
 \docType{class}
 \name{Schema}
 \alias{Schema}
-\alias{schema}
 \title{Schema class}
-\usage{
-schema(...)
-}
-\arguments{
-\item{...}{\link[=field]{fields} or field name/\link[=data-type]{data type} pairs}
-}
 \description{
 A \code{Schema} is an Arrow object containing \link{Field}s, which map names to
 Arrow \link[=data-type]{data types}. Create a \code{Schema} when you
@@ -74,18 +67,3 @@ Files with compressed metadata are readable by older versions of arrow, but
 the metadata is dropped.
 }
 
-\examples{
-schema(a = int32(), b = float64())
-
-schema(
-  field("b", double()),
-  field("c", bool(), nullable = FALSE),
-  field("d", string())
-)
-
-df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
-tab1 <- arrow_table(df)
-tab1$schema
-tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
-tab2$schema
-}
