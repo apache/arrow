@@ -47,7 +47,8 @@ set(ARROW_FLIGHT_SQL_SRCS
     sql_info_internal.cc
     column_metadata.cc
     client.cc
-    protocol_internal.cc)
+    protocol_internal.cc
+    server_session_middleware.cc)
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME

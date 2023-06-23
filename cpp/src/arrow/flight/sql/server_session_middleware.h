@@ -35,10 +35,10 @@ static constexpr char const kSessionCookieName[] =
 class FlightSqlSession {
  protected:
   std::map<std::string, SessionOptionValue> map_;
-  std::shared_mutex lock_;
+  std::shared_mutex map_lock_;
  public:
   /// \brief Get session option by key
-  SessionOptionValue GetSessionOption(const std::string&) const;
+  SessionOptionValue GetSessionOption(const std::string&);
   /// \brief Set session option by key to given value
   void SetSessionOption(const std::string&, const SessionOptionValue&);
   /// \brief Idempotently remove key from this call's Session, if Session & key exist
@@ -65,18 +65,18 @@ class ARROW_FLIGHT_SQL_EXPORT ServerSessionMiddleware
 
  protected:
     friend class ServerSessionMiddlewareFactory;
+  ServerSessionMiddlewareFactory* factory_;
+  const CallHeaders& headers_;
   std::shared_ptr<FlightSqlSession> session_;
   std::string session_id_;
-  const CallHeaders& headers_;
   const bool existing_session;
-  ServerSessionMiddlewareFactory* factory_;
 
   ServerSessionMiddleware(ServerSessionMiddlewareFactory*,
                           const CallHeaders&);
   ServerSessionMiddleware(ServerSessionMiddlewareFactory*,
                           const CallHeaders&,
                           std::shared_ptr<FlightSqlSession>,
-                          std::string session_id)
+                          std::string session_id);
 };
 
 /// \brief Returns a ServerMiddlewareFactory that handles Session option storage.
