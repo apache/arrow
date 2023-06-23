@@ -47,6 +47,9 @@ class ArrowReaderProperties;
 class WriterProperties;
 class ArrowWriterProperties;
 
+class RowGroupBloomFilterReader;
+class BloomFilter;
+
 namespace arrow {
 class FileReader;
 class FileWriter;
@@ -87,6 +90,8 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     /// @{
     std::unordered_set<std::string> dict_columns;
     arrow::TimeUnit::type coerce_int96_timestamp_unit = arrow::TimeUnit::NANO;
+
+    bool use_bloom_filter = false;
     /// @}
   } reader_options;
 
@@ -167,6 +172,12 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// \brief Ensure this fragment's FileMetaData is in memory.
   Status EnsureCompleteMetadata(parquet::arrow::FileReader* reader = NULLPTR);
 
+  /// \brief Ensure this fragment's filtering info is in memory.
+  ///
+  /// Filters includes bloom filter and row group statistics, and might including column
+  /// indexes in the future.
+  Status EnsureCompleteFilterInfo();
+
   /// \brief Return fragment which selects a filtered subset of this fragment's RowGroups.
   Result<std::shared_ptr<Fragment>> Subset(compute::Expression predicate);
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
@@ -180,8 +191,11 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
                       std::shared_ptr<Schema> physical_schema,
                       std::optional<std::vector<int>> row_groups);
 
-  Status SetMetadata(std::shared_ptr<parquet::FileMetaData> metadata,
-                     std::shared_ptr<parquet::arrow::SchemaManifest> manifest);
+  Status SetMetadata(
+      std::shared_ptr<parquet::FileMetaData> metadata,
+      std::shared_ptr<parquet::arrow::SchemaManifest> manifest,
+      std::optional<std::vector<std::vector<std::shared_ptr<parquet::BloomFilter>>>>
+          parquet_bloom_filter = std::nullopt);
 
   // Overridden to opportunistically set metadata since a reader must be opened anyway.
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
@@ -209,6 +223,9 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   std::shared_ptr<parquet::FileMetaData> metadata_;
   std::shared_ptr<parquet::arrow::SchemaManifest> manifest_;
 
+  std::optional<std::vector<std::vector<std::shared_ptr<parquet::BloomFilter>>>>
+      parquet_bloom_filter_;
+
   friend class ParquetFileFormat;
   friend class ParquetDatasetFactory;
 };
@@ -226,6 +243,8 @@ class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
   /// ScanOptions. Additionally, dictionary columns come from
   /// ParquetFileFormat::ReaderOptions::dict_columns.
   std::shared_ptr<parquet::ArrowReaderProperties> arrow_reader_properties;
+  /// Indicates that should Parquet Scan using bloom filter.
+  bool use_bloom_filter = false;
 };
 
 class ARROW_DS_EXPORT ParquetFileWriteOptions : public FileWriteOptions {

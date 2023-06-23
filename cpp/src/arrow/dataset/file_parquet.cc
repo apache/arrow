@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/util.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/filesystem/path_util.h"
@@ -38,6 +39,8 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/writer.h"
+#include "parquet/bloom_filter.h"
+#include "parquet/bloom_filter_reader.h"
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
@@ -665,16 +668,43 @@ Status ParquetFileFragment::EnsureCompleteMetadata(parquet::arrow::FileReader* r
   ARROW_ASSIGN_OR_RAISE(
       auto manifest,
       GetSchemaManifest(*reader->parquet_reader()->metadata(), reader->properties()));
-  return SetMetadata(reader->parquet_reader()->metadata(), std::move(manifest));
+
+  std::optional<std::vector<std::vector<std::shared_ptr<parquet::BloomFilter>>>>
+      bloom_filters;
+  auto num_fields_in_parquet_file = physical_schema_->num_fields();
+  if (parquet_format_.reader_options.use_bloom_filter &&
+      !parquet_bloom_filter_.has_value()) {
+    const auto& row_groups = *row_groups_;
+    auto& bloom_filter_reader = reader->parquet_reader()->GetBloomFilterReader();
+    std::vector<std::vector<std::shared_ptr<parquet::BloomFilter>>> parquet_bloom_filters;
+    parquet_bloom_filters.resize(row_groups.size());
+    for (size_t i = 0; i < row_groups.size(); ++i) {
+      std::vector<std::shared_ptr<parquet::BloomFilter>> row_group_bloom_filters;
+      row_group_bloom_filters.resize(num_fields_in_parquet_file);
+      auto row_group_bloom_filter_reader = bloom_filter_reader.RowGroup(row_groups[i]);
+      for (int j = 0; j < num_fields_in_parquet_file; ++j) {
+        row_group_bloom_filters[j] =
+            row_group_bloom_filter_reader->GetColumnBloomFilter(j);
+      }
+      parquet_bloom_filters[i] = std::move(row_group_bloom_filters);
+    }
+    bloom_filters = std::move(parquet_bloom_filters);
+  }
+  RETURN_NOT_OK(SetMetadata(reader->parquet_reader()->metadata(), std::move(manifest),
+                            std::move(bloom_filters)));
+  return Status::OK();
 }
 
 Status ParquetFileFragment::SetMetadata(
     std::shared_ptr<parquet::FileMetaData> metadata,
-    std::shared_ptr<parquet::arrow::SchemaManifest> manifest) {
+    std::shared_ptr<parquet::arrow::SchemaManifest> manifest,
+    std::optional<std::vector<std::vector<std::shared_ptr<parquet::BloomFilter>>>>
+        parquet_bloom_filter) {
   DCHECK(row_groups_.has_value());
 
   metadata_ = std::move(metadata);
   manifest_ = std::move(manifest);
+  parquet_bloom_filter_ = std::move(parquet_bloom_filter);
 
   statistics_expressions_.resize(row_groups_->size(), compute::literal(true));
   statistics_expressions_complete_.resize(physical_schema_->num_fields(), false);
@@ -686,6 +716,12 @@ Status ParquetFileFragment::SetMetadata(
     return Status::IndexError("ParquetFileFragment references row group ", row_group,
                               " but ", source_.path(), " only has ",
                               metadata_->num_row_groups(), " row groups");
+  }
+  if (parquet_bloom_filter_.has_value() &&
+      parquet_bloom_filter_->size() != row_groups_->size()) {
+    return Status::IndexError("ParquetFileFragment has bloom filter size ",
+                              parquet_bloom_filter_->size(), " row groups but input has ",
+                              row_groups_->size(), " row groups");
   }
 
   return Status::OK();
@@ -702,8 +738,14 @@ Result<FragmentVector> ParquetFileFragment::SplitByRowGroup(
     ARROW_ASSIGN_OR_RAISE(auto fragment,
                           parquet_format_.MakeFragment(source_, partition_expression(),
                                                        physical_schema_, {row_group}));
-
-    RETURN_NOT_OK(fragment->SetMetadata(metadata_, manifest_));
+    std::optional<std::vector<std::vector<std::shared_ptr<parquet::BloomFilter>>>>
+        bloom_filters_opt;
+    if (parquet_format_.reader_options.use_bloom_filter) {
+      auto& bloom_filters = bloom_filters_opt.emplace();
+      bloom_filters.push_back(this->parquet_bloom_filter_.value()[i]);
+    }
+    RETURN_NOT_OK(
+        fragment->SetMetadata(metadata_, manifest_, std::move(bloom_filters_opt)));
     fragments[i++] = std::move(fragment);
   }
 
@@ -723,8 +765,23 @@ Result<std::shared_ptr<Fragment>> ParquetFileFragment::Subset(
   ARROW_ASSIGN_OR_RAISE(auto new_fragment, parquet_format_.MakeFragment(
                                                source_, partition_expression(),
                                                physical_schema_, std::move(row_groups)));
-
-  RETURN_NOT_OK(new_fragment->SetMetadata(metadata_, manifest_));
+  std::optional<std::vector<std::vector<std::shared_ptr<parquet::BloomFilter>>>>
+      bloom_filters_opt;
+  if (parquet_format_.reader_options.use_bloom_filter) {
+    auto& bloom_filters = bloom_filters_opt.emplace();
+    const auto& self_row_groups = *row_groups_;
+    const auto& self_row_groups_bloom = *parquet_bloom_filter_;
+    for (auto row_group_id : row_groups) {
+      auto iter = std::find(self_row_groups.begin(), self_row_groups.end(), row_group_id);
+      if (iter == self_row_groups.end()) {
+        return Status::Invalid("invalid row_group");
+      }
+      bloom_filters.push_back(
+          self_row_groups_bloom[std::distance(self_row_groups.begin(), iter)]);
+    }
+  }
+  RETURN_NOT_OK(
+      new_fragment->SetMetadata(metadata_, manifest_, std::move(bloom_filters_opt)));
   return new_fragment;
 }
 
@@ -792,6 +849,95 @@ Result<std::vector<compute::Expression>> ParquetFileFragment::TestRowGroups(
                           SimplifyWithGuarantee(predicate, statistics_expressions_[i]));
     row_groups[i] = std::move(row_group_predicate);
   }
+  for (size_t i = 0; i < row_groups_->size(); ++i) {
+    if (row_groups[i].IsSatisfiable() &&
+        parquet_format_.reader_options.use_bloom_filter) {
+      ARROW_ASSIGN_OR_RAISE(
+          row_groups[i],
+          ModifyExpression(
+              std::move(row_groups[i]), [](compute::Expression expr) { return expr; },
+              [&](compute::Expression expr, ...) -> Result<Expression> {
+                auto call = expr.call();
+                if (!call) return expr;
+                // Only matches equal currently
+                if (call->function_name != "equal") {
+                  return expr;
+                }
+                auto target = call->arguments[0].field_ref();
+                if (!target) return expr;
+
+                auto schema_opt = target->FindOneOrNone(*physical_schema_);
+                if (!schema_opt.ok()) return expr;
+                // schema_opt.
+                auto column = (*schema_opt)[0];
+                auto arrow_field = manifest_->column_index_to_field[column]->field;
+                auto parquet_field = metadata_->schema()->Column(column);
+                if (parquet_field->physical_type() == ::parquet::Type::BOOLEAN ||
+                    parquet_field->physical_type() == ::parquet::Type::INT96 ||
+                    parquet_field->physical_type() ==
+                        ::parquet::Type::FIXED_LEN_BYTE_ARRAY)
+                  return expr;
+
+                auto bound = call->arguments[1].literal();
+                if (!bound || !bound->is_scalar()) return expr;
+                const auto& scalar = bound->scalar();
+                if (scalar->type->Equals(arrow_field->type())) return expr;
+
+                auto bf = parquet_bloom_filter_.value()[i][column];
+                if (bf == nullptr) {
+                  return expr;
+                }
+                uint64_t hash = 0;
+                // FIXME: This was totally wrong, just for poc.
+                switch (parquet_field->physical_type()) {
+                  case parquet::Type::BOOLEAN:
+                  case parquet::Type::INT96:
+                  case parquet::Type::UNDEFINED:
+                    // unreachable
+                    break;
+                  case parquet::Type::INT32: {
+                    auto valueScalar =
+                        arrow::internal::checked_cast<const Int32Scalar&>(*scalar);
+                    hash = bf->Hash(valueScalar.value);
+                    break;
+                  }
+                  case parquet::Type::INT64: {
+                    auto valueScalar =
+                        arrow::internal::checked_cast<const Int64Scalar&>(*scalar);
+                    hash = bf->Hash(valueScalar.value);
+                    break;
+                  }
+                  case parquet::Type::FLOAT: {
+                    auto valueScalar =
+                        arrow::internal::checked_cast<const FloatScalar&>(*scalar);
+                    hash = bf->Hash(valueScalar.value);
+                    break;
+                  }
+                  case parquet::Type::DOUBLE: {
+                    auto valueScalar =
+                        arrow::internal::checked_cast<const DoubleScalar&>(*scalar);
+                    hash = bf->Hash(valueScalar.value);
+                    break;
+                  }
+                  case parquet::Type::BYTE_ARRAY: {
+                    auto valueScalar =
+                        arrow::internal::checked_cast<const BinaryScalar&>(*scalar);
+                    ::parquet::ByteArray ba{
+                        static_cast<uint32_t>(valueScalar.value->size()),
+                        valueScalar.value->data()};
+                    hash = bf->Hash(&ba);
+                    break;
+                  }
+                  case parquet::Type::FIXED_LEN_BYTE_ARRAY:
+                    break;
+                }
+                if (!bf->FindHash(hash)) {
+                  return literal(false);
+                }
+                return expr;
+              }));
+    }
+  }
   return row_groups;
 }
 
@@ -823,6 +969,7 @@ ParquetFragmentScanOptions::ParquetFragmentScanOptions() {
   reader_properties = std::make_shared<parquet::ReaderProperties>();
   arrow_reader_properties =
       std::make_shared<parquet::ArrowReaderProperties>(/*use_threads=*/false);
+  use_bloom_filter = false;
 }
 
 //
