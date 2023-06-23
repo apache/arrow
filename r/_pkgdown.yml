@@ -187,9 +187,10 @@ reference:
 
   - title: Arrow data containers
     contents:
+      - scalar
       - array
       - ChunkedArray
-      - Scalar
+      - Scalar-class
       - RecordBatch
       - Table
       - ArrayData
