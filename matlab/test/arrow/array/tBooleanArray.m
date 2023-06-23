@@ -21,7 +21,8 @@ classdef tBooleanArray < matlab.unittest.TestCase
         ArrowArrayConstructor = @arrow.array.BooleanArray
         MatlabArrayFcn = @logical
         MatlabConversionFcn = @logical
-        NullSubstitutionValue(1, 1) = false
+        NullSubstitutionValue = false
+        ArrowType = arrow.type.BooleanType
     end
 
     methods(TestClassSetup)
@@ -139,6 +140,13 @@ classdef tBooleanArray < matlab.unittest.TestCase
             data = tc.MatlabArrayFcn(sparse([true false true]));
             fcn = @() tc.ArrowArrayConstructor(data);
             tc.verifyError(fcn, "MATLAB:expectedNonsparse");
+        end
+
+        function TestArrowType(tc)
+        % Verify the array has the expected arrow.type.Type object
+            data = tc.MatlabArrayFcn([true false]);
+            arrowArray = tc.ArrowArrayConstructor(data);
+            tc.verifyEqual(arrowArray.Type, tc.ArrowType);
         end
     end
 end

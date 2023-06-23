@@ -23,6 +23,8 @@ classdef tInt16Array < hNumericArray
         MatlabArrayFcn = @int16 % int16 function
         MaxValue = intmax("int16")
         MinValue = intmin("int16")
+        NullSubstitutionValue = int16(0)
+        ArrowType = arrow.type.Int16Type
     end
 
 end
