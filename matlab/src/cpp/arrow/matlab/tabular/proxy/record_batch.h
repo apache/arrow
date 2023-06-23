@@ -17,31 +17,26 @@
 
 #pragma once
 
-#include "arrow/array.h"
+#include "arrow/record_batch.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
-namespace arrow::matlab::array::proxy {
+namespace arrow::matlab::tabular::proxy {
 
-class Array : public libmexclass::proxy::Proxy {
-    public:
-        Array();
+    class RecordBatch : public libmexclass::proxy::Proxy {
+        public:
+            RecordBatch(std::shared_ptr<arrow::RecordBatch> record_batch);
+        
+            virtual ~RecordBatch() {}
+
+            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
     
-        virtual ~Array() {}
-
-        std::shared_ptr<arrow::Array> getArray();
-
-    protected:
-
-        void toString(libmexclass::proxy::method::Context& context);
-
-        void length(libmexclass::proxy::method::Context& context);
-
-        void valid(libmexclass::proxy::method::Context& context);
-
-        virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
-
-        std::shared_ptr<arrow::Array> array;
-};
+        protected:
+            void toString(libmexclass::proxy::method::Context& context);
+            void numColumns(libmexclass::proxy::method::Context& context);
+            void columnNames(libmexclass::proxy::method::Context& context);
+    
+            std::shared_ptr<arrow::RecordBatch> record_batch;
+    };
 
 }

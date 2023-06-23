@@ -30,6 +30,10 @@ namespace arrow::matlab::array::proxy {
         REGISTER_METHOD(Array, valid);
     }
 
+    std::shared_ptr<arrow::Array> Array::getArray() {
+        return array;
+    }
+
     void Array::toString(libmexclass::proxy::method::Context& context) {
         ::matlab::data::ArrayFactory factory;
 
