@@ -2824,7 +2824,7 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     >>> answer
     <pyarrow.DoubleScalar: 30.0>
     >>> table = pa.table([pa.array([1, 1, 2, 2]), pa.array([10, 20, 30, 40])], names=['k', 'v'])
-    >>> result = table.group_by('k').aggregate(['v', 'py_compute_median'])
+    >>> result = table.group_by('k').aggregate([('v', 'py_compute_median')])
     >>> result
     pyarrow.Table
     k: int64
