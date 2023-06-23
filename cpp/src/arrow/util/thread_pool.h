@@ -389,7 +389,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   static bool RunTasksOnAllExecutors(bool once_only = false);
   static SerialExecutor* GetCurrentExecutor();
 
-  virtual bool IsCurrentExecutor() { return current_executor == this; }
+  virtual bool IsCurrentExecutor();
 
 #endif
 
