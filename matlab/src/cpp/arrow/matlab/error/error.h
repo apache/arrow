@@ -47,7 +47,7 @@
         if (!_status.ok()) {                                           \
             return libmexclass::error::Error{(id), _status.message()}; \
         }                                                              \
-    } while (0)                                                        \
+    } while (0)
 
 //
 // MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(expr, context, id)
