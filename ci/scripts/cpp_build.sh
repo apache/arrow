@@ -43,8 +43,10 @@ fi
 if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
   case "$(uname)" in
     Linux|Darwin|MINGW*)
-      : ${ARROW_C_FLAGS_DEBUG:=-g1}
-      : ${ARROW_CXX_FLAGS_DEBUG:=-g1}
+      if [ "${ARROW_GDB:-OFF}" != "ON" ]; then
+        : ${ARROW_C_FLAGS_DEBUG:=-g1}
+        : ${ARROW_CXX_FLAGS_DEBUG:=-g1}
+      fi
       ;;
     *)
   esac
