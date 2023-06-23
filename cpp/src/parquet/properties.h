@@ -852,10 +852,12 @@ class PARQUET_EXPORT ArrowReaderProperties {
     return coerce_int96_timestamp_unit_;
   }
 
+  /// Set whether to use large binary variants for binary data
+  /// (default is false).
   void set_use_large_binary_variants(bool use_large_binary_variants) {
     use_large_binary_variants_ = use_large_binary_variants;
   }
-
+  /// Return whether use large binary variants is enabled.
   bool use_large_binary_variants() const { return use_large_binary_variants_; }
 
  private:
