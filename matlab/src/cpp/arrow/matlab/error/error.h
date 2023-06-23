@@ -83,7 +83,7 @@
 //     } while (0)                                                               \
 
 #define MATLAB_ASSIGN_OR_ERROR_NAME(x, y) \
-    ARROW_CONCAT(x, y)                    \
+    ARROW_CONCAT(x, y)
 
 #define MATLAB_ASSIGN_OR_ERROR_IMPL(result_name, lhs, rexpr, id) \
     auto&& result_name = (rexpr);                                \
