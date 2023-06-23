@@ -34,7 +34,6 @@
 //
 // --- Arguments ---
 //
-// lhs - variable name to assign to (e.g. auto array)
 // expr - expression that returns an arrow::Status (e.g. builder.Append(...))
 // id - MATLAB error ID string (const char* - "arrow:matlab:proxy:make:FailedConstruction")
 //
