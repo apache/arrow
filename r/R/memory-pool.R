@@ -17,7 +17,7 @@
 
 #' @include arrow-object.R
 #'
-#' @title class arrow::MemoryPool
+#' @title MemoryPool class
 #'
 #' @usage NULL
 #' @format NULL
