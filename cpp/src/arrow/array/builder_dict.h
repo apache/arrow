@@ -725,6 +725,7 @@ using StringDictionaryBuilder = DictionaryBuilder<StringType>;
 using BinaryDictionary32Builder = Dictionary32Builder<BinaryType>;
 using StringDictionary32Builder = Dictionary32Builder<StringType>;
 using LargeBinaryDictionary32Builder = Dictionary32Builder<LargeBinaryType>;
+using LargeStringDictionary32Builder = Dictionary32Builder<LargeStringType>;
 
 /// @}
 
