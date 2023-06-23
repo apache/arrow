@@ -102,7 +102,7 @@ SerialExecutor::~SerialExecutor() {
 
 int SerialExecutor::GetNumTasks() {
   auto state = state_;
-  return (int)(state_->task_queue.size());
+  return static_cast<int>(state_->task_queue.size());
 }
 
 #ifdef ARROW_ENABLE_THREADING
