@@ -195,7 +195,7 @@ public class BinaryArray: ArrowArray<Data> {
     public var options = Options()
     
     public override subscript(_ index: UInt) -> Data? {
-        get{
+        get {
             let offsetIndex = MemoryLayout<Int32>.stride * Int(index)
             if self.arrowData.isNull(index) {
                 return nil
