@@ -944,6 +944,7 @@ def test_serializing_expressions(expr):
     assert len(returned.expressions) == 1
     assert "test_expr" in returned.expressions
 
+
 def test_serializing_multiple_expressions():
     schema = pa.schema([
         pa.field("x", pa.int32()),

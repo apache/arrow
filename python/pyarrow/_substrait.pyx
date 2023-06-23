@@ -20,12 +20,11 @@ from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
 
 from pyarrow import Buffer, py_buffer
-from pyarrow._compute cimport Expression, _bind
+from pyarrow._compute cimport Expression
 from pyarrow.lib import frombytes, tobytes
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_substrait cimport *
-from pyarrow.util import _is_iterable
 
 
 cdef CDeclaration _create_named_table_provider(
@@ -244,6 +243,7 @@ cdef class BoundExpressions(_Weakrefable):
         self.init(bound_expressions)
         return self
 
+
 def deserialize_expressions(buf):
     cdef:
         shared_ptr[CBuffer] c_buffer
@@ -257,7 +257,7 @@ def deserialize_expressions(buf):
     else:
         raise TypeError(
             f"Expected 'pyarrow.Buffer' or bytes, got '{type(buf)}'")
-    
+
     c_res_bound_exprs = DeserializeExpressions(deref(c_buffer))
     with nogil:
         c_bound_exprs = GetResultValue(c_res_bound_exprs)
