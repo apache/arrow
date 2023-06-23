@@ -66,6 +66,7 @@ import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.PutResult;
+import org.apache.arrow.flight.RenewFlightEndpointRequest;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.SyncPutListener;
@@ -917,12 +918,12 @@ public class FlightSqlClient implements AutoCloseable {
   /**
    * Request the server to extend the lifetime of a query result set.
    *
-   * @param endpoint The result set partition.
+   * @param request The result set partition.
    * @param options Call options.
    * @return The new endpoint with an updated expiration time.
    */
-  public FlightEndpoint refreshFlightEndpoint(FlightEndpoint endpoint, CallOption... options) {
-    return client.refreshFlightEndpoint(endpoint, options);
+  public FlightEndpoint renewFlightEndpoint(RenewFlightEndpointRequest request, CallOption... options) {
+    return client.renewFlightEndpoint(request, options);
   }
 
   @Override

@@ -36,8 +36,8 @@ public interface FlightConstants {
       "Close the given FlightInfo explicitly.\n" +
           "Request Message: FlightInfo to be closed\n" +
           "Response Message: N/A");
-  ActionType REFRESH_FLIGHT_ENDPOINT = new ActionType("RefreshFlightEndpoint",
+  ActionType RENEW_FLIGHT_ENDPOINT = new ActionType("RenewFlightEndpoint",
       "Extend expiration time of the given FlightEndpoint.\n" +
-          "Request Message: FlightEndpoint to be refreshed\n" +
-          "Response Message: Refreshed FlightEndpoint");
+          "Request Message: FlightEndpoint to be renewed\n" +
+          "Response Message: Renewed FlightEndpoint");
 }

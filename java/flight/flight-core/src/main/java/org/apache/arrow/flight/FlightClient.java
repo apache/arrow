@@ -537,12 +537,12 @@ public class FlightClient implements AutoCloseable {
   /**
    * Request the server to extend the lifetime of a query result set.
    *
-   * @param endpoint The result set partition.
+   * @param request The result set partition.
    * @param options Call options.
    * @return The new endpoint with an updated expiration time.
    */
-  public FlightEndpoint refreshFlightEndpoint(FlightEndpoint endpoint, CallOption... options) {
-    Action action = new Action(FlightConstants.REFRESH_FLIGHT_ENDPOINT.getType(), endpoint.serialize().array());
+  public FlightEndpoint renewFlightEndpoint(RenewFlightEndpointRequest request, CallOption... options) {
+    Action action = new Action(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType(), request.serialize().array());
     Iterator<Result> results = doAction(action, options);
     if (!results.hasNext()) {
       throw CallStatus.INTERNAL

@@ -62,6 +62,7 @@ import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.PutResult;
+import org.apache.arrow.flight.RenewFlightEndpointRequest;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
@@ -381,10 +382,10 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
         return;
       }
       closeFlightInfo(info, context, new NoResultListener(listener));
-    } else if (actionType.equals(FlightConstants.REFRESH_FLIGHT_ENDPOINT.getType())) {
-      final FlightEndpoint endpoint;
+    } else if (actionType.equals(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType())) {
+      final RenewFlightEndpointRequest request;
       try {
-        endpoint = FlightEndpoint.deserialize(ByteBuffer.wrap(action.getBody()));
+        request = RenewFlightEndpointRequest.deserialize(ByteBuffer.wrap(action.getBody()));
       } catch (IOException | URISyntaxException e) {
         listener.onError(CallStatus.INTERNAL
             .withDescription("Could not unpack FlightInfo: " + e)
@@ -392,7 +393,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
             .toRuntimeException());
         return;
       }
-      refreshFlightEndpoint(endpoint, context, new FlightEndpointListener(listener));
+      renewFlightEndpoint(request, context, new FlightEndpointListener(listener));
     } else {
       throw CallStatus.INVALID_ARGUMENT
           .withDescription("Unrecognized request: " + action.getType())
@@ -909,14 +910,14 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
                              ServerStreamListener listener);
 
   /**
-   * Refresh the duration of the given endpoint.
+   * Renew the duration of the given endpoint.
    *
-   * @param endpoint The endpoint to refresh.
+   * @param request The endpoint to renew.
    * @param context Per-call context.
    * @param listener An interface for sending data back to the client.
    */
-  default void refreshFlightEndpoint(FlightEndpoint endpoint, CallContext context,
-                                     StreamListener<FlightEndpoint> listener) {
+  default void renewFlightEndpoint(RenewFlightEndpointRequest request, CallContext context,
+                                   StreamListener<FlightEndpoint> listener) {
     listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
   }
 

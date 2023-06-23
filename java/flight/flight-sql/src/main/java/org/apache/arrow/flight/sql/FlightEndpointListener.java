@@ -21,7 +21,7 @@ import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.Result;
 
-/** Typed StreamListener for refreshFlightEndpoint. */
+/** Typed StreamListener for renewFlightEndpoint. */
 public class FlightEndpointListener implements FlightProducer.StreamListener<FlightEndpoint> {
   private final FlightProducer.StreamListener<Result> listener;
 

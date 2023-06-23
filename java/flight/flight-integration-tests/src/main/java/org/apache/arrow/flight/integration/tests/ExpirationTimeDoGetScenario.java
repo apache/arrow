@@ -71,7 +71,7 @@ final class ExpirationTimeDoGetScenario implements Scenario {
       }
 
       // Check data
-      IntegrationAssertions.assertEquals(5, batches.size());
+      IntegrationAssertions.assertEquals(3, batches.size());
       try (final VectorSchemaRoot root = VectorSchemaRoot.create(ExpirationTimeProducer.SCHEMA, allocator)) {
         final VectorLoader loader = new VectorLoader(root);
 

@@ -27,6 +27,7 @@ import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.RenewFlightEndpointRequest;
 import org.apache.arrow.memory.BufferAllocator;
 
 /** Test RenewFlightEndpoint. */
@@ -50,7 +51,7 @@ final class ExpirationTimeRenewFlightEndpointScenario implements Scenario {
         continue;
       }
       Instant expiration = endpoint.getExpirationTime().get();
-      FlightEndpoint renewed = client.renewFlightEndpoint(endpoint);
+      FlightEndpoint renewed = client.renewFlightEndpoint(new RenewFlightEndpointRequest(endpoint));
 
       IntegrationAssertions.assertTrue("Renewed FlightEndpoint must have expiration time",
           renewed.getExpirationTime().isPresent());

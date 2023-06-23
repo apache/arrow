@@ -38,6 +38,7 @@ import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.NoOpFlightProducer;
+import org.apache.arrow.flight.RenewFlightEndpointRequest;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
@@ -164,7 +165,8 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
           statuses.get(index).closed = true;
         }
       } else if (action.getType().equals(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType())) {
-        FlightEndpoint endpoint = FlightEndpoint.deserialize(ByteBuffer.wrap(action.getBody()));
+        RenewFlightEndpointRequest request = RenewFlightEndpointRequest.deserialize(ByteBuffer.wrap(action.getBody()));
+        FlightEndpoint endpoint = request.getFlightEndpoint();
         int index = parseIndexFromTicket(endpoint.getTicket());
         EndpointStatus status = statuses.get(index);
         if (status.closed) {
