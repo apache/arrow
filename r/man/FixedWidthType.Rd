@@ -3,9 +3,9 @@
 \docType{class}
 \name{FixedWidthType}
 \alias{FixedWidthType}
-\title{class arrow::FixedWidthType}
+\title{FixedWidthType class}
 \description{
-class arrow::FixedWidthType
+FixedWidthType class
 }
 \section{Methods}{
 
