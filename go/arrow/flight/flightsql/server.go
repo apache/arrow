@@ -176,6 +176,16 @@ type ActionCancelQueryRequest interface {
 	GetInfo() *flight.FlightInfo
 }
 
+type cancelQueryRequest struct {
+	info *flight.FlightInfo
+}
+
+func (c *cancelQueryRequest) GetInfo() *flight.FlightInfo { return c.info }
+
+type cancelQueryServer interface {
+	CancelQuery(context.Context, ActionCancelQueryRequest) (CancelResult, error)
+}
+
 type ActionEndTransactionRequest interface {
 	GetTransactionId() []byte
 	GetAction() EndTransactionRequestType
@@ -937,6 +947,21 @@ func (f *flightSqlServer) ListActions(_ *flight.Empty, stream flight.FlightServi
 	return nil
 }
 
+func cancelResultToCancelStatus(result CancelResult) flight.CancelStatus {
+	switch result {
+	case CancelResultUnspecified:
+		return flight.CancelStatusUnspecified
+	case CancelResultCancelled:
+		return flight.CancelStatusCancelled
+	case CancelResultCancelling:
+		return flight.CancelStatusCancelling
+	case CancelResultNotCancellable:
+		return flight.CancelStatusNotCancellable
+	default:
+		return flight.CancelStatusUnspecified
+	}
+}
+
 func cancelStatusToCancelResult(status flight.CancelStatus) CancelResult {
 	switch status {
 	case flight.CancelStatusUnspecified:
@@ -967,8 +992,17 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 			return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightInfo for CancelFlightInfo: %s", err.Error())
 		}
 
-		if result, err = f.srv.CancelFlightInfo(stream.Context(), &info); err != nil {
-			return err
+		if cancel, ok := f.srv.(cancelQueryServer); ok {
+			cancelResult, err := cancel.CancelQuery(stream.Context(), &cancelQueryRequest{&info})
+			if err != nil {
+				return err
+			}
+			result.Status = cancelResultToCancelStatus(cancelResult)
+		} else {
+			result, err = f.srv.CancelFlightInfo(stream.Context(), &info)
+			if err != nil {
+				return err
+			}
 		}
 
 		out := &pb.Result{}
@@ -1081,11 +1115,18 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 			return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightInfo for CancelQuery: %s", err)
 		}
 
-		cancelFlightInfoResult, err := f.srv.CancelFlightInfo(stream.Context(), &info)
-		if err != nil {
-			return err
+		if cancel, ok := f.srv.(cancelQueryServer); ok {
+			result.Result, err = cancel.CancelQuery(stream.Context(), &cancelQueryRequest{&info})
+			if err != nil {
+				return err
+			}
+		} else {
+			cancelFlightInfoResult, err := f.srv.CancelFlightInfo(stream.Context(), &info)
+			if err != nil {
+				return err
+			}
+			result.Result = cancelStatusToCancelResult(cancelFlightInfoResult.Status)
 		}
-		result.Result = cancelStatusToCancelResult(cancelFlightInfoResult.Status)
 
 		out, err := packActionResult(&result)
 		if err != nil {
