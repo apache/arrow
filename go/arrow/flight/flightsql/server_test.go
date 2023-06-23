@@ -382,7 +382,7 @@ func (s *UnimplementedFlightSqlServerSuite) TestCloseFlightInfo() {
 
 func (s *UnimplementedFlightSqlServerSuite) TestRenewFlightEndpoint() {
 	endpoint := flight.FlightEndpoint{}
-	request := flight.RenewFlightEndpointRequest{Endpoint: endpoint}
+	request := flight.RenewFlightEndpointRequest{Endpoint: &endpoint}
 	renewedEndpoint, err := s.cl.RenewFlightEndpoint(context.TODO(), &request)
 	s.Nil(renewedEndpoint)
 	st, ok := status.FromError(err)

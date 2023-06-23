@@ -69,8 +69,8 @@ func (m *FlightServiceClientMock) CloseFlightInfo(ctx context.Context, info *fli
 	return m.Called(info, opts).Error(0)
 }
 
-func (m *FlightServiceClientMock) RenewFlightEndpoint(ctx context.Context, endpoint *flight.FlightEndpoint, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
-	args := m.Called(endpoint, opts)
+func (m *FlightServiceClientMock) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
+	args := m.Called(request, opts)
 	return args.Get(0).(*flight.FlightEndpoint), args.Error(1)
 }
 
@@ -657,10 +657,10 @@ func (s *FlightSqlClientSuite) TestRenewFlightEndpoint() {
 	info, err := s.sqlClient.Execute(context.Background(), query, s.callOpts...)
 	s.NoError(err)
 	s.Equal(&mockedInfo, info)
-	var mockedRequest flight.RenewFlightEndpointRequest{Endpoint: info.Endpoint[0]}
+	request := flight.RenewFlightEndpointRequest{Endpoint: info.Endpoint[0]}
 	var mockedRenewedEndpoint flight.FlightEndpoint
-	s.mockClient.On("RenewFlightEndpoint", &mockedRequest, s.callOpts).Return(&mockedRenewedEndpoint, nil)
-	renewedEndpoint, err := s.sqlClient.RenewFlightEndpoint(context.TODO(), mockedRequest, s.callOpts...)
+	s.mockClient.On("RenewFlightEndpoint", &request, s.callOpts).Return(&mockedRenewedEndpoint, nil)
+	renewedEndpoint, err := s.sqlClient.RenewFlightEndpoint(context.TODO(), &request, s.callOpts...)
 	s.NoError(err)
 	s.Equal(&mockedRenewedEndpoint, renewedEndpoint)
 }
