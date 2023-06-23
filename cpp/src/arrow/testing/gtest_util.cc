@@ -735,7 +735,6 @@ void SleepFor(double seconds) {
   auto end_time = start_time + secs_left;
   while (std::chrono::steady_clock::now() < end_time) {
     bool run_task = arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
-    now = std::chrono::steady_clock::now();
     if (!run_task) {
       // all executors are empty, just sleep for the rest of the time
       std::this_thread::sleep_for(end_time - std::chrono::steady_clock::now());
