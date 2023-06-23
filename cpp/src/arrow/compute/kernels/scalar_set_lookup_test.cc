@@ -253,11 +253,11 @@ TEST_F(TestIsInKernel, TimeDuration) {
               "[true, false, false, true, true]", /*skip_nulls=*/true);
   }
 
-  // Different units, invalid cast
-  ASSERT_RAISES(Invalid, IsIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 2]"),
-                              ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 2]")));
+  // Different units, cast value_set to values
+  CheckIsIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"),
+            ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"), "[true, true]");
 
-  // Different units, valid cast
+  // Different units, cast value_set to values
   CheckIsIn(ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"),
             ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"), "[true, false, true]");
 }
@@ -779,11 +779,11 @@ TEST_F(TestIndexInKernel, TimeDuration) {
   CheckIndexIn(duration(TimeUnit::SECOND), "[null, null, null, null]", "[null]",
                "[0, 0, 0, 0]");
 
-  // Different units, invalid cast
-  ASSERT_RAISES(Invalid, IndexIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 2]"),
-                                 ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 2]")));
+  // Different units, cast value_set to values
+  CheckIndexIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"),
+               ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"), "[0, 2]");
 
-  // Different units, valid cast
+  // Different units, cast value_set to values
   CheckIndexIn(ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"),
                ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"), "[0, null, 1]");
 }
