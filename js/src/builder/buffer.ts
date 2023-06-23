@@ -143,7 +143,7 @@ export class OffsetsBufferBuilder<T extends DataType> extends DataBufferBuilder<
     public set(index: number, value: T['TOffset'][0]) {
         const offset = this.length - 1;
         const buffer = this.reserve(index - offset + 1).buffer;
-        if (offset < index++) {
+        if (offset < index++ && offset >= 0) {
             buffer.fill(buffer[offset], offset, index);
         }
         buffer[index] = buffer[index - 1] + value;
