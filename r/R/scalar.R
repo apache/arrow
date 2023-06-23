@@ -52,7 +52,7 @@
 #'     to a different type
 #'
 #' @name Scalar
-#' @rdname Scalar
+#' @rdname Scalar-class
 #' @examples
 #' Scalar$create(pi)
 #' Scalar$create(404)
@@ -103,6 +103,21 @@ Scalar$create <- function(x, type = NULL) {
   }
   Array__GetScalar(Array$create(x, type = type), 0)
 }
+
+#' @title Create an Arrow Scalar
+#'
+#' @name scalar
+#' @rdname scalar
+#' @examples
+#' scalar(pi)
+#' scalar(404)
+#' # If you pass a vector into scalar(), you get a list containing your items
+#' scalar(c(1, 2, 3))
+#'
+#' scalar(9) == scalar(10)
+#'
+#' @export
+scalar <- Scalar$create
 
 #' @rdname array
 #' @usage NULL
