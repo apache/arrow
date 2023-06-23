@@ -28,7 +28,6 @@ import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.util.AutoCloseables;
 
 /** Test RenewFlightEndpoint. */
 final class ExpirationTimeRenewFlightEndpointScenario implements Scenario {
