@@ -114,7 +114,6 @@ final class IPCFileReaderTests: XCTestCase {
         case .failure(let error):
             throw error
         }
-        
         //write file record batches to another file
         let outputUrl = currentDirectory().appendingPathComponent("../../testfilewriter_bool.arrow")
         switch arrowWriter.toFile(outputUrl, info: writerInfo) {
@@ -124,7 +123,6 @@ final class IPCFileReaderTests: XCTestCase {
             throw error
         }
     }
-    
     func makeSchema() -> ArrowSchema {
         let schemaBuilder = ArrowSchema.Builder();
         return schemaBuilder.addField("col1", type: ArrowType(ArrowType.ArrowUInt8), isNullable: true)
@@ -132,7 +130,6 @@ final class IPCFileReaderTests: XCTestCase {
             .addField("col3", type: ArrowType(ArrowType.ArrowDate32), isNullable: false)
             .finish()
     }
-    
     func makeRecordBatch() throws -> RecordBatch {
         let uint8Builder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder();
         uint8Builder.append(10)
