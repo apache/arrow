@@ -20,6 +20,10 @@ classdef UInt64Array < arrow.array.NumericArray
         NullSubstitutionValue = uint64(0)
     end
 
+    properties(SetAccess=private, GetAccess=public)
+        Type = arrow.type.UInt64Type
+    end
+
     methods
         function obj = UInt64Array(data, varargin)
             obj@arrow.array.NumericArray(data, "uint64", ...
