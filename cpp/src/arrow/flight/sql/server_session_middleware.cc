@@ -155,20 +155,18 @@ std::shared_ptr<ServerMiddlewareFactory> MakeServerSessionMiddlewareFactory() {
 class FlightSqlSession {
  protected:
   std::map<std::string, SessionOptionValue> map_;
-  std::shared_mutex lock_;
+  std::shared_mutex map_lock_;
  public:
-  /// \brief Get session option by key
   SessionOptionValue GetSessionOption(const std::string& k) const {
-    const std::shared_lock<std::shared_mutex> l(lock_);
+    const std::shared_lock<std::shared_mutex> l(map_lock_);
     return map_.at(k);
   }
   void SetSessionOption(const std::string& k, const SessionOptionValue& v) {
-    const std::unique_lock<std::shared_mutex> l(lock_):
+    const std::unique_lock<std::shared_mutex> l(map_lock_):
     map_[k] = v;
   }
-  /// \brief Idempotently remove key from this call's Session, if Session & key exist
   void EraseSessionOption(const std::string& k) {
-    const std::unique_lock<std::shared_mutex> l(lock_);
+    const std::unique_lock<std::shared_mutex> l(map_lock_);
     map_.erase(k);
   }
 };
