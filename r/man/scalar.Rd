@@ -6,6 +6,11 @@
 \usage{
 scalar(x, type = NULL)
 }
+\arguments{
+\item{x}{An R vector, list, or \code{data.frame}}
+
+\item{type}{An optional \link[=data-type]{data type} for \code{x}. If omitted, the type will be inferred from the data.}
+}
 \description{
 Create an Arrow Scalar
 }

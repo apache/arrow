@@ -108,6 +108,9 @@ Scalar$create <- function(x, type = NULL) {
 #'
 #' @name scalar
 #' @rdname scalar
+#'
+#' @param x An R vector, list, or `data.frame`
+#' @param type An optional [data type][data-type] for `x`. If omitted, the type will be inferred from the data.
 #' @examples
 #' scalar(pi)
 #' scalar(404)
