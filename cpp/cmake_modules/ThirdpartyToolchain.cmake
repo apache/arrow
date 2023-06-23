@@ -4268,7 +4268,13 @@ macro(build_google_cloud_cpp_storage)
 
   # Remove unused directories to save build directory storage.
   # 141MB -> 79MB
-  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND ${CMAKE_COMMAND} -E rm -rf ci)
+  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND ${CMAKE_COMMAND} -E)
+  if(CMAKE_VERSION VERSION_LESS 3.17)
+    list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND remove_directory)
+  else()
+    list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND rm -rf)
+  endif()
+  list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND ci)
 
   externalproject_add(google_cloud_cpp_ep
                       ${EP_COMMON_OPTIONS}
@@ -4758,7 +4764,13 @@ macro(build_awssdk)
       -DMINIMIZE_SIZE=ON)
   # Remove unused directories to save build directory storage.
   # 807MB -> 31MB
-  set(AWSSDK_PATCH_COMMAND ${CMAKE_COMMAND} -E rm -rf ${AWSSDK_UNUSED_DIRECTORIES})
+  set(AWSSDK_PATCH_COMMAND ${CMAKE_COMMAND} -E)
+  if(CMAKE_VERSION VERSION_LESS 3.17)
+    list(APPEND AWSSDK_PATCH_COMMAND remove_directory)
+  else()
+    list(APPEND AWSSDK_PATCH_COMMAND rm -rf)
+  endif()
+  list(APPEND AWSSDK_PATCH_COMMAND ${AWSSDK_UNUSED_DIRECTORIES})
 
   if(UNIX)
     # on Linux and macOS curl seems to be required
@@ -4877,7 +4889,13 @@ macro(build_awssdk)
   if("s2n-tls" IN_LIST _AWSSDK_LIBS)
     # Remove unused directories to save build directory storage.
     # 169MB -> 105MB
-    set(AWS_LC_PATCH_COMMAND ${CMAKE_COMMAND} -E rm -rf fuzz generated-src)
+    set(AWS_LC_PATCH_COMMAND ${CMAKE_COMMAND} -E)
+    if(CMAKE_VERSION VERSION_LESS 3.17)
+      list(APPEND AWS_LC_PATCH_COMMAND remove_directory)
+    else()
+      list(APPEND AWS_LC_PATCH_COMMAND rm -rf)
+    endif()
+    list(APPEND AWS_LC_PATCH_COMMAND fuzz)
 
     set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
     string(APPEND AWS_LC_C_FLAGS " -Wno-error=overlength-strings -Wno-error=pedantic")
