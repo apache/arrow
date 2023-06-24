@@ -436,10 +436,6 @@ class OrderedScenario : public Scenario {
 /// a returned FlightInfo by pre-defined RenewFlightEndpoint
 /// action. The client can read data from endpoints multiple times
 /// within more 10 seconds after the action.
-///
-/// The client can close a returned FlightInfo explicitly by
-/// pre-defined CloseFlightInfo action. The client can't read data
-/// from endpoints even within 3 seconds after the action.
 class ExpirationTimeServer : public FlightServerBase {
  private:
   struct EndpointStatus {
@@ -449,7 +445,6 @@ class ExpirationTimeServer : public FlightServerBase {
     std::optional<Timestamp> expiration_time;
     uint32_t num_gets = 0;
     bool cancelled = false;
-    bool closed = false;
   };
 
  public:
@@ -476,9 +471,6 @@ class ExpirationTimeServer : public FlightServerBase {
                std::unique_ptr<FlightDataStream>* stream) override {
     ARROW_ASSIGN_OR_RAISE(auto index, ExtractIndexFromTicket(request.ticket));
     auto& status = statuses_[index];
-    if (status.closed) {
-      return Status::KeyError("Invalid flight: closed: ", request.ticket);
-    }
     if (status.cancelled) {
       return Status::KeyError("Invalid flight: canceled: ", request.ticket);
     }
@@ -532,17 +524,6 @@ class ExpirationTimeServer : public FlightServerBase {
       auto cancel_result = CancelFlightInfoResult{cancel_status};
       ARROW_ASSIGN_OR_RAISE(auto serialized, cancel_result.SerializeToString());
       results.push_back(Result{Buffer::FromString(std::move(serialized))});
-    } else if (action.type == ActionType::kCloseFlightInfo.type) {
-      ARROW_ASSIGN_OR_RAISE(auto info,
-                            FlightInfo::Deserialize(std::string_view(*action.body)));
-      for (const auto& endpoint : info->endpoints()) {
-        auto index_result = ExtractIndexFromTicket(endpoint.ticket.ticket);
-        if (!index_result.ok()) {
-          continue;
-        }
-        auto index = *index_result;
-        statuses_[index].closed = true;
-      }
     } else if (action.type == ActionType::kRenewFlightEndpoint.type) {
       ARROW_ASSIGN_OR_RAISE(auto request, RenewFlightEndpointRequest::Deserialize(
                                               std::string_view(*action.body)));
@@ -567,7 +548,6 @@ class ExpirationTimeServer : public FlightServerBase {
                      std::vector<ActionType>* actions) override {
     *actions = {
         ActionType::kCancelFlightInfo,
-        ActionType::kCloseFlightInfo,
         ActionType::kRenewFlightEndpoint,
     };
     return Status::OK();
@@ -680,7 +660,6 @@ class ExpirationTimeListActionsScenario : public Scenario {
     std::sort(actual_action_types.begin(), actual_action_types.end());
     std::vector<std::string> expected_action_types = {
         "CancelFlightInfo",
-        "CloseFlightInfo",
         "RenewFlightEndpoint",
     };
     if (actual_action_types != expected_action_types) {
@@ -721,34 +700,6 @@ class ExpirationTimeCancelFlightInfoScenario : public Scenario {
       auto reader = client->DoGet(endpoint.ticket);
       if (reader.ok()) {
         return Status::Invalid("DoGet after CancelFlightInfo must be failed");
-      }
-    }
-    return Status::OK();
-  }
-};
-
-/// \brief The expiration time scenario - CloseFlightInfo.
-///
-/// This tests that the client can close a FlightInfo explicitly and
-/// the server returns an error for DoGet against endpoints in the
-/// closed FlightInfo.
-class ExpirationTimeCloseFlightInfoScenario : public Scenario {
-  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
-                    FlightServerOptions* options) override {
-    *server = std::make_unique<ExpirationTimeServer>();
-    return Status::OK();
-  }
-
-  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
-
-  Status RunClient(std::unique_ptr<FlightClient> client) override {
-    ARROW_ASSIGN_OR_RAISE(auto info,
-                          client->GetFlightInfo(FlightDescriptor::Command("expiration")));
-    ARROW_RETURN_NOT_OK(client->CloseFlightInfo(*info));
-    for (const auto& endpoint : info->endpoints()) {
-      auto reader = client->DoGet(endpoint.ticket);
-      if (reader.ok()) {
-        return Status::Invalid("DoGet after CloseFlightInfo must be failed");
       }
     }
     return Status::OK();
@@ -1870,9 +1821,6 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
     return Status::OK();
   } else if (scenario_name == "expiration_time:cancel_flight_info") {
     *out = std::make_shared<ExpirationTimeCancelFlightInfoScenario>();
-    return Status::OK();
-  } else if (scenario_name == "expiration_time:close_flight_info") {
-    *out = std::make_shared<ExpirationTimeCloseFlightInfoScenario>();
     return Status::OK();
   } else if (scenario_name == "expiration_time:renew_flight_endpoint") {
     *out = std::make_shared<ExpirationTimeRenewFlightEndpointScenario>();

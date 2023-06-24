@@ -538,10 +538,6 @@ func (c *Client) CancelFlightInfo(ctx context.Context, request *flight.CancelFli
 	return c.Client.CancelFlightInfo(ctx, request, opts...)
 }
 
-func (c *Client) CloseFlightInfo(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) error {
-	return c.Client.CloseFlightInfo(ctx, info, opts...)
-}
-
 func (c *Client) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
 	return c.Client.RenewFlightEndpoint(ctx, request, opts...)
 }

@@ -593,15 +593,6 @@ arrow::Result<FlightEndpoint> FlightClient::RenewFlightEndpoint(
   return std::move(renewed_endpoint);
 }
 
-Status FlightClient::CloseFlightInfo(const FlightCallOptions& options,
-                                     const FlightInfo& info) {
-  ARROW_ASSIGN_OR_RAISE(auto body, info.SerializeToString());
-  Action action{ActionType::kCloseFlightInfo.type, Buffer::FromString(body)};
-  ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
-  ARROW_RETURN_NOT_OK(stream->Drain());
-  return Status::OK();
-}
-
 arrow::Result<std::vector<ActionType>> FlightClient::ListActions(
     const FlightCallOptions& options) {
   std::vector<ActionType> actions;

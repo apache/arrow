@@ -371,15 +371,6 @@ func (s *UnimplementedFlightSqlServerSuite) TestCancelFlightInfo() {
 	s.Equal("CancelFlightInfo not implemented", st.Message())
 }
 
-func (s *UnimplementedFlightSqlServerSuite) TestCloseFlightInfo() {
-	info := flight.FlightInfo{}
-	err := s.cl.CloseFlightInfo(context.TODO(), &info)
-	st, ok := status.FromError(err)
-	s.True(ok)
-	s.Equal(codes.Unimplemented, st.Code())
-	s.Equal("CloseFlightInfo not implemented", st.Message())
-}
-
 func (s *UnimplementedFlightSqlServerSuite) TestRenewFlightEndpoint() {
 	endpoint := flight.FlightEndpoint{}
 	request := flight.RenewFlightEndpointRequest{Endpoint: &endpoint}

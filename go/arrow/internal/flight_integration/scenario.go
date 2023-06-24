@@ -66,8 +66,6 @@ func GetScenario(name string, args ...string) Scenario {
 		return &expirationTimeListActionsScenarioTester{}
 	case "expiration_time:cancel_flight_info":
 		return &expirationTimeCancelFlightInfoScenarioTester{}
-	case "expiration_time:close_flight_info":
-		return &expirationTimeCloseFlightInfoScenarioTester{}
 	case "expiration_time:renew_flight_endpoint":
 		return &expirationTimeRenewFlightEndpointScenarioTester{}
 	case "flight_sql":
@@ -826,7 +824,6 @@ func (tester *expirationTimeScenarioTester) DoGet(tkt *flight.Ticket, fs flight.
 func (tester *expirationTimeScenarioTester) ListActions(_ *flight.Empty, stream flight.FlightService_ListActionsServer) error {
 	actions := []string{
 		flight.CancelFlightInfoActionType,
-		flight.CloseFlightInfoActionType,
 		flight.RenewFlightEndpointActionType,
 	}
 
@@ -882,23 +879,6 @@ func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream 
 		}
 		if err = stream.Send(out); err != nil {
 			return err
-		}
-		return nil
-	case flight.CloseFlightInfoActionType:
-		var info flight.FlightInfo
-		if err := proto.Unmarshal(cmd.Body, &info); err != nil {
-			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
-		}
-
-		for _, ep := range info.Endpoint {
-			ticket := string(ep.Ticket.Ticket)
-			index, err := tester.ExtractIndexFromTicket(ticket)
-			if err != nil {
-				continue
-			}
-			st := tester.statuses[index]
-			st.closed = true
-			tester.statuses[index] = st
 		}
 		return nil
 	case flight.RenewFlightEndpointActionType:
@@ -1059,7 +1039,6 @@ func (tester *expirationTimeListActionsScenarioTester) RunClient(addr string, op
 	sort.Strings(actionTypeNames)
 	expectedActionTypeNames := []string{
 		"CancelFlightInfo",
-		"CloseFlightInfo",
 		"RenewFlightEndpoint",
 	}
 	if !reflect.DeepEqual(actionTypeNames, expectedActionTypeNames) {
@@ -1109,42 +1088,6 @@ func (tester *expirationTimeCancelFlightInfoScenarioTester) RunClient(addr strin
 		if err == nil {
 			rdr.Release()
 			return fmt.Errorf("invalid: DoGet after CancelFlightInfo must be failed")
-		}
-	}
-
-	return nil
-}
-
-type expirationTimeCloseFlightInfoScenarioTester struct {
-	expirationTimeScenarioTester
-}
-
-func (tester *expirationTimeCloseFlightInfoScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
-	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	ctx := context.Background()
-	info, err := client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD, Cmd: []byte("expiration_time")})
-	if err != nil {
-		return err
-	}
-
-	err = client.CloseFlightInfo(ctx, info)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return err
-	}
-	for _, ep := range info.Endpoint {
-		stream, err := client.DoGet(ctx, ep.Ticket)
-		if err != nil {
-			return err
-		}
-		rdr, err := flight.NewRecordReader(stream)
-		if err == nil {
-			rdr.Release()
-			return fmt.Errorf("DoGet after CloseFlightInfo must be failed")
 		}
 	}
 

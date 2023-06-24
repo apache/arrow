@@ -775,12 +775,6 @@ TEST_F(TestFlightSqlServer, CancelQuery) {
   ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
-TEST_F(TestFlightSqlServer, CloseFlightInfo) {
-  // Not supported
-  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo({}, {}));
-  ASSERT_RAISES(NotImplemented, sql_client->CloseFlightInfo({}, *flight_info));
-}
-
 TEST_F(TestFlightSqlServer, RenewFlightEndpoint) {
   // Not supported
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo({}, {}));

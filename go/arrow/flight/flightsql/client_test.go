@@ -65,10 +65,6 @@ func (m *FlightServiceClientMock) CancelFlightInfo(ctx context.Context, request 
 	return args.Get(0).(flight.CancelFlightInfoResult), args.Error(1)
 }
 
-func (m *FlightServiceClientMock) CloseFlightInfo(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) error {
-	return m.Called(info, opts).Error(0)
-}
-
 func (m *FlightServiceClientMock) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
 	args := m.Called(request, opts)
 	return args.Get(0).(*flight.FlightEndpoint), args.Error(1)
@@ -632,18 +628,6 @@ func (s *FlightSqlClientSuite) TestCancelFlightInfo() {
 	cancelResult, err := s.sqlClient.CancelFlightInfo(context.TODO(), &request, s.callOpts...)
 	s.NoError(err)
 	s.Equal(mockedCancelResult, cancelResult)
-}
-
-func (s *FlightSqlClientSuite) TestCloseFlightInfo() {
-	query := "SELECT * FROM data"
-	cmd := &pb.CommandStatementQuery{Query: query}
-	desc := getDesc(cmd)
-	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
-	info, err := s.sqlClient.Execute(context.Background(), query, s.callOpts...)
-	s.NoError(err)
-	s.Equal(&emptyFlightInfo, info)
-	s.mockClient.On("CloseFlightInfo", info, s.callOpts).Return(nil)
-	s.NoError(s.sqlClient.CloseFlightInfo(context.TODO(), info, s.callOpts...))
 }
 
 func (s *FlightSqlClientSuite) TestRenewFlightEndpoint() {

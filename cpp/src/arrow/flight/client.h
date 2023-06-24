@@ -259,14 +259,6 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return CancelFlightInfo({}, request);
   }
 
-  /// \brief Perform the CloseFlightInfo action
-  ///
-  /// \param[in] options Per-RPC options
-  /// \param[in] info The FlightInfo to be closed
-  /// \return Arrow status
-  Status CloseFlightInfo(const FlightCallOptions& options, const FlightInfo& info);
-  Status CloseFlightInfo(const FlightInfo& info) { return CloseFlightInfo({}, info); }
-
   /// \brief Perform the RenewFlightEndpoint action, returning a renewed
   /// FlightEndpoint
   ///

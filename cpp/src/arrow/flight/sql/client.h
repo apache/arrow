@@ -350,15 +350,6 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
 
-  /// \brief Explicitly close a FlightInfo.
-  ///
-  /// \param[in] options      RPC-layer hints for this call.
-  /// \param[in] info         The FlightInfo to close.
-  /// \return Arrow status
-  Status CloseFlightInfo(const FlightCallOptions& options, const FlightInfo& info) {
-    return impl_->CloseFlightInfo(options, info);
-  }
-
   /// \brief Extends the expiration of a FlightEndpoint.
   ///
   /// \param[in] options      RPC-layer hints for this call.

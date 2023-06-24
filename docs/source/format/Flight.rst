@@ -151,12 +151,6 @@ A client that wishes to download the data would:
    ``CancelFlightInfo`` action. The client need to use ``DoAction``
    with ``CancelFlightInfo`` action type to cancel the ``FlightInfo``.
 
-   The client may be able to close the returned ``FlightInfo``
-   explicitly by ``CloseFlightInfo`` action. The client need to use
-   ``DoAction`` with ``CloseFlightInfo`` action type to cancel the
-   ``FlightInfo``. In general, the client don't need to close the
-   returned ``FlightInfo`` explicitly.
-
 .. _google.protobuf.Timestamp: https://protobuf.dev/reference/protobuf/google.protobuf/#timestamp
 
 Uploading Data

@@ -761,7 +761,6 @@ Status FlightSqlServerBase::ListActions(const ServerCallContext& context,
                                         std::vector<ActionType>* actions) {
   *actions = {
       ActionType::kCancelFlightInfo,
-      ActionType::kCloseFlightInfo,
       ActionType::kRenewFlightEndpoint,
       FlightSqlServerBase::kBeginSavepointActionType,
       FlightSqlServerBase::kBeginTransactionActionType,
@@ -786,10 +785,6 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
     ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
-  } else if (action.type == ActionType::kCloseFlightInfo.type) {
-    std::string_view body(*action.body);
-    ARROW_ASSIGN_OR_RAISE(auto info, FlightInfo::Deserialize(body));
-    ARROW_RETURN_NOT_OK(CloseFlightInfo(context, *info));
   } else if (action.type == ActionType::kRenewFlightEndpoint.type) {
     std::string_view body(*action.body);
     ARROW_ASSIGN_OR_RAISE(auto request, RenewFlightEndpointRequest::Deserialize(body));
@@ -1095,11 +1090,6 @@ arrow::Result<CancelResult> FlightSqlServerBase::CancelQuery(
   cancel_flight_info_request.info = std::make_unique<FlightInfo>(*request.info);
   ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, cancel_flight_info_request));
   return static_cast<CancelResult>(result.status);
-}
-
-Status FlightSqlServerBase::CloseFlightInfo(const ServerCallContext& context,
-                                            const FlightInfo& info) {
-  return Status::NotImplemented("CloseFlightInfo not implemented");
 }
 
 arrow::Result<FlightEndpoint> FlightSqlServerBase::RenewFlightEndpoint(

@@ -455,12 +455,6 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             skip={"JS", "C#", "Rust"},
         ),
         Scenario(
-            "expiration_time:close_flight_info",
-            description=("Ensure FlightEndpoint.expiration_time and "
-                         "CloseFlightInfo are working as expected."),
-            skip={"JS", "C#", "Rust"},
-        ),
-        Scenario(
             "expiration_time:renew_flight_endpoint",
             description=("Ensure FlightEndpoint.expiration_time and "
                          "RenewFlightEndpoint are working as expected."),

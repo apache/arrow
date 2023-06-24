@@ -67,10 +67,6 @@ TEST(FlightIntegration, ExpirationTimeCancelFlightInfo) {
   ASSERT_OK(RunScenario("expiration_time:cancel_flight_info"));
 }
 
-TEST(FlightIntegration, ExpirationTimeCloseFlightInfo) {
-  ASSERT_OK(RunScenario("expiration_time:close_flight_info"));
-}
-
 TEST(FlightIntegration, ExpirationTimeRenewFlightEndpoint) {
   ASSERT_OK(RunScenario("expiration_time:renew_flight_endpoint"));
 }

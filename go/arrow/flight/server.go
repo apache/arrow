@@ -59,7 +59,6 @@ type (
 // Constants for Action types
 const (
 	CancelFlightInfoActionType    = "CancelFlightInfo"
-	CloseFlightInfoActionType     = "CloseFlightInfo"
 	RenewFlightEndpointActionType = "RenewFlightEndpoint"
 )
 

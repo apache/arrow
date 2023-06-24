@@ -68,7 +68,6 @@ type Client interface {
 	AuthenticateBasicToken(ctx context.Context, username string, password string, opts ...grpc.CallOption) (context.Context, error)
 	CancelFlightInfo(ctx context.Context, request *CancelFlightInfoRequest, opts ...grpc.CallOption) (CancelFlightInfoResult, error)
 	Close() error
-	CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) error
 	RenewFlightEndpoint(ctx context.Context, request *RenewFlightEndpointRequest, opts ...grpc.CallOption) (*FlightEndpoint, error)
 	// join the interface from the FlightServiceClient instead of re-defining all
 	// the endpoints here.
@@ -393,20 +392,6 @@ func (c *client) Close() error {
 		return cl.Close()
 	}
 	return nil
-}
-
-func (c *client) CloseFlightInfo(ctx context.Context, info *FlightInfo, opts ...grpc.CallOption) (err error) {
-	var action flight.Action
-	action.Type = CloseFlightInfoActionType
-	action.Body, err = proto.Marshal(info)
-	if err != nil {
-		return
-	}
-	stream, err := c.DoAction(ctx, &action, opts...)
-	if err != nil {
-		return
-	}
-	return ReadUntilEOF(stream)
 }
 
 func (c *client) RenewFlightEndpoint(ctx context.Context, request *RenewFlightEndpointRequest, opts ...grpc.CallOption) (*FlightEndpoint, error) {

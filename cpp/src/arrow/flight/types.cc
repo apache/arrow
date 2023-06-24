@@ -596,11 +596,6 @@ const ActionType ActionType::kCancelFlightInfo =
                "Explicitly cancel a running FlightInfo.\n"
                "Request Message: CancelFlightInfoRequest\n"
                "Response Message: CancelFlightInfoResult"};
-const ActionType ActionType::kCloseFlightInfo =
-    ActionType{"CloseFlightInfo",
-               "Close the given FlightInfo explicitly.\n"
-               "Request Message: FlightInfo to be closed\n"
-               "Response Message: N/A"};
 const ActionType ActionType::kRenewFlightEndpoint =
     ActionType{"RenewFlightEndpoint",
                "Extend expiration time of the given FlightEndpoint.\n"

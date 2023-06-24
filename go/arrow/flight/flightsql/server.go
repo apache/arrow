@@ -520,10 +520,6 @@ func (BaseServer) CancelFlightInfo(context.Context, *flight.CancelFlightInfoRequ
 		status.Error(codes.Unimplemented, "CancelFlightInfo not implemented")
 }
 
-func (BaseServer) CloseFlightInfo(context.Context, *flight.FlightInfo) error {
-	return status.Error(codes.Unimplemented, "CloseFlightInfo not implemented")
-}
-
 func (BaseServer) RenewFlightEndpoint(context.Context, *flight.RenewFlightEndpointRequest) (*flight.FlightEndpoint, error) {
 	return nil, status.Error(codes.Unimplemented, "RenewFlightEndpoint not implemented")
 }
@@ -654,8 +650,6 @@ type Server interface {
 	EndTransaction(context.Context, ActionEndTransactionRequest) error
 	// CancelFlightInfo attempts to explicitly cancel a FlightInfo
 	CancelFlightInfo(context.Context, *flight.CancelFlightInfoRequest) (flight.CancelFlightInfoResult, error)
-	// CloseFlightInfo attempts to explicitly close a FlightInfo
-	CloseFlightInfo(context.Context, *flight.FlightInfo) error
 	// RenewFlightEndpoint attempts to extend the expiration of a FlightEndpoint
 	RenewFlightEndpoint(context.Context, *flight.RenewFlightEndpointRequest) (*flight.FlightEndpoint, error)
 
@@ -927,7 +921,6 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 func (f *flightSqlServer) ListActions(_ *flight.Empty, stream flight.FlightService_ListActionsServer) error {
 	actions := []string{
 		flight.CancelFlightInfoActionType,
-		flight.CloseFlightInfoActionType,
 		flight.RenewFlightEndpointActionType,
 		CreatePreparedStatementActionType,
 		ClosePreparedStatementActionType,
@@ -1011,17 +1004,6 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 			return err
 		}
 		return stream.Send(out)
-	case flight.CloseFlightInfoActionType:
-		var (
-			info flight.FlightInfo
-			err  error
-		)
-
-		if err = proto.Unmarshal(cmd.Body, &info); err != nil {
-			return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightInfo for CloseFlightInfo: %s", err.Error())
-		}
-
-		return f.srv.CloseFlightInfo(stream.Context(), &info)
 	case flight.RenewFlightEndpointActionType:
 		var (
 			request flight.RenewFlightEndpointRequest
