@@ -126,7 +126,7 @@ TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
                                             "true, false, true, false]"));
   AssertArraysEqual(*expected, *out.make_array());
 
-  // value_set cannot be cast to int8, but int8 is castable to float
+  // value_set cannot be casted to int8, but int8 is castable to float
   CheckIsIn(input, ArrayFromJSON(float32(), "[1.0, 2.5, 3.1, 5.0]"),
             "[false, true, false, false, false, true, false, false, false]");
 
@@ -134,17 +134,32 @@ TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
   CheckIsIn(ArrayFromJSON(binary(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
             ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb"])"),
             "[true, true, false, false, true]");
+  CheckIsIn(ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+            ArrayFromJSON(binary(), R"(["aaa", "bbb"])"),
+            "[true, true, false, false, true]");
   CheckIsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
             ArrayFromJSON(large_utf8(), R"(["aaa", "bbb"])"),
             "[true, true, false, false, true]");
+  CheckIsIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+            ArrayFromJSON(utf8(), R"(["aaa", "bbb"])"),
+            "[true, true, false, false, true]");
+
   // But explicitly deny implicit casts from non-binary to utf8 to
   // avoid surprises
   ASSERT_RAISES(Invalid,
                 IsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                      SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
+  ASSERT_RAISES(Invalid, IsIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
+                              SetLookupOptions(ArrayFromJSON(
+                                  utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
+
   ASSERT_RAISES(Invalid,
                 IsIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                      SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
+  ASSERT_RAISES(Invalid,
+                IsIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
+                     SetLookupOptions(ArrayFromJSON(
+                         large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
 }
 
 template <typename Type>
@@ -255,7 +270,7 @@ TEST_F(TestIsInKernel, TimeDuration) {
 
   // Different units, cast value_set to values
   CheckIsIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"),
-            ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"), "[true, true]");
+            ArrayFromJSON(duration(TimeUnit::MILLI), "[1, 2, 2000]"), "[false, true]");
 
   // Different units, cast value_set to values
   CheckIsIn(ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"),
@@ -781,7 +796,7 @@ TEST_F(TestIndexInKernel, TimeDuration) {
 
   // Different units, cast value_set to values
   CheckIndexIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"),
-               ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"), "[0, 2]");
+               ArrayFromJSON(duration(TimeUnit::MILLI), "[1, 2, 2000]"), "[null, 2]");
 
   // Different units, cast value_set to values
   CheckIndexIn(ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"),
@@ -840,17 +855,30 @@ TEST_F(TestIndexInKernel, ImplicitlyCastValueSet) {
   CheckIndexIn(ArrayFromJSON(binary(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb"])"),
                "[0, 1, null, null, 1]");
+  CheckIndexIn(
+      ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+      ArrayFromJSON(binary(), R"(["aaa", "bbb"])"), "[0, 1, null, null, 1]");
   CheckIndexIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                ArrayFromJSON(large_utf8(), R"(["aaa", "bbb"])"), "[0, 1, null, null, 1]");
+  CheckIndexIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+               ArrayFromJSON(utf8(), R"(["aaa", "bbb"])"), "[0, 1, null, null, 1]");
   // But explicitly deny implicit casts from non-binary to utf8 to
   // avoid surprises
   ASSERT_RAISES(Invalid,
                 IndexIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                         SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
+  ASSERT_RAISES(Invalid, IndexIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
+                                 SetLookupOptions(ArrayFromJSON(
+                                     utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
+
   ASSERT_RAISES(
       Invalid,
       IndexIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
               SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
+  ASSERT_RAISES(Invalid,
+                IndexIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
+                        SetLookupOptions(ArrayFromJSON(
+                            large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
 }
 
 template <typename Type>

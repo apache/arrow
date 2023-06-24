@@ -231,9 +231,16 @@ struct InitStateVisitor {
       if (cast_result.ok()) {
         options.value_set = *cast_result;
       } else if (CanCast(*arg_type.type, *options.value_set.type())) {
-        // Will try to cast input array to value set type during kernel exec
+        // Avoid casting from non binary types to string like above
+        // Otherwise, will try to cast input array to value set type during kernel exec
+        if ((options.value_set.type()->id() == Type::STRING ||
+             options.value_set.type()->id() == Type::LARGE_STRING) &&
+            !is_base_binary_like(arg_type.id())) {
+          return Status::Invalid("Array type didn't match type of values set: ",
+                                 *arg_type, " vs ", *options.value_set.type());
+        }
       } else {
-        return Status::Invalid("Input type doesn't match type of values set: ", *arg_type,
+        return Status::Invalid("Array type doesn't match type of values set: ", *arg_type,
                                " vs ", *options.value_set.type());
       }
     }
@@ -277,12 +284,12 @@ struct IndexInVisitor {
   }
 
   template <typename Type>
-  Status ProcessIndexIn(const SetLookupState<Type>& state, const ArraySpan& data) {
+  Status ProcessIndexIn(const SetLookupState<Type>& state, const ArraySpan& input) {
     using T = typename GetViewType<Type>::T;
     FirstTimeBitmapWriter bitmap_writer(out_bitmap, out->offset, out->length);
     int32_t* out_data = out->GetValues<int32_t>(1);
     VisitArraySpanInline<Type>(
-        data,
+        input,
         [&](T v) {
           int32_t index = state.lookup_table->Get(v);
           if (index != -1) {
@@ -386,11 +393,11 @@ struct IsInVisitor {
   }
 
   template <typename Type>
-  Status ProcessIsIn(const SetLookupState<Type>& state, const ArraySpan& data) {
+  Status ProcessIsIn(const SetLookupState<Type>& state, const ArraySpan& input) {
     using T = typename GetViewType<Type>::T;
     FirstTimeBitmapWriter writer(out->buffers[1].data, out->offset, out->length);
     VisitArraySpanInline<Type>(
-        data,
+        input,
         [&](T v) {
           if (state.lookup_table->Get(v) != -1) {
             writer.Set();
