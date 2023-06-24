@@ -59,8 +59,8 @@ Status PairwiseExecImpl(KernelContext* ctx, const ArraySpan& input,
   auto computed_length = input.length - margin_length;
   auto margin_start = periods > 0 ? 0 : computed_length;
   auto computed_start = periods > 0 ? margin_length : 0;
-  auto left_start = periods > 0 ? margin_length : 0;
-  auto right_start = periods > 0 ? 0 : margin_length;
+  auto left_start = computed_start;
+  auto right_start = margin_length - computed_start;
   // prepare bitmap
   bit_util::ClearBitmap(result->buffers[0]->mutable_data(), margin_start, margin_length);
   for (int64_t i = computed_start; i < computed_start + computed_length; i++) {
