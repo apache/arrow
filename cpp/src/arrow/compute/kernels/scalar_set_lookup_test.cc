@@ -131,12 +131,12 @@ TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
             "[false, true, false, false, false, true, false, false, false]");
 
   // Allow implicit casts between binary types...
-  CheckIsIn(ArrayFromJSON(binary(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+  CheckIsIn(ArrayFromJSON(binary(), R"(["aaa", "bb", "ccc", null, "bbb"])"),
             ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb"])"),
-            "[true, true, false, false, true]");
+            "[true, false, false, false, true]");
   CheckIsIn(ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
-            ArrayFromJSON(binary(), R"(["aaa", "bbb"])"),
-            "[true, true, false, false, true]");
+            ArrayFromJSON(binary(), R"(["aa", "bbb"])"),
+            "[false, true, false, false, true]");
   CheckIsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
             ArrayFromJSON(large_utf8(), R"(["aaa", "bbb"])"),
             "[true, true, false, false, true]");
@@ -268,9 +268,10 @@ TEST_F(TestIsInKernel, TimeDuration) {
               "[true, false, false, true, true]", /*skip_nulls=*/true);
   }
 
-  // Different units, cast value_set to values
-  CheckIsIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"),
-            ArrayFromJSON(duration(TimeUnit::MILLI), "[1, 2, 2000]"), "[false, true]");
+  // Different units, cast value_set to values will fail, then cast values to value_set
+  CheckIsIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 2]"),
+            ArrayFromJSON(duration(TimeUnit::MILLI), "[1, 2, 2000]"),
+            "[false, false, true]");
 
   // Different units, cast value_set to values
   CheckIsIn(ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"),
@@ -794,9 +795,10 @@ TEST_F(TestIndexInKernel, TimeDuration) {
   CheckIndexIn(duration(TimeUnit::SECOND), "[null, null, null, null]", "[null]",
                "[0, 0, 0, 0]");
 
-  // Different units, cast value_set to values
-  CheckIndexIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"),
-               ArrayFromJSON(duration(TimeUnit::MILLI), "[1, 2, 2000]"), "[null, 2]");
+  // Different units, cast value_set to values will fail, then cast values to value_set
+  CheckIndexIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 2]"),
+               ArrayFromJSON(duration(TimeUnit::MILLI), "[1, 2, 2000]"),
+               "[null, null, 2]");
 
   // Different units, cast value_set to values
   CheckIndexIn(ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"),
@@ -852,12 +854,12 @@ TEST_F(TestIndexInKernel, ImplicitlyCastValueSet) {
                "[null, 0, null, null, null, 3, null, null, null]");
 
   // Allow implicit casts between binary types...
-  CheckIndexIn(ArrayFromJSON(binary(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+  CheckIndexIn(ArrayFromJSON(binary(), R"(["aaa", "bb", "ccc", null, "bbb"])"),
                ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb"])"),
-               "[0, 1, null, null, 1]");
+               "[0, null, null, null, 1]");
   CheckIndexIn(
       ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
-      ArrayFromJSON(binary(), R"(["aaa", "bbb"])"), "[0, 1, null, null, 1]");
+      ArrayFromJSON(binary(), R"(["aa", "bbb"])"), "[null, 1, null, null, 1]");
   CheckIndexIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                ArrayFromJSON(large_utf8(), R"(["aaa", "bbb"])"), "[0, 1, null, null, 1]");
   CheckIndexIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
