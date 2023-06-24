@@ -211,6 +211,7 @@ class GcsIntegrationTest : public ::testing::Test {
     auto options = GcsOptions::Anonymous();
     options.endpoint_override = "127.0.0.1:" + Testbench()->port();
     options.retry_limit_seconds = 60;
+    options.project_id = "test-only-invalid-project-id";
     return options;
   }
 
@@ -373,7 +374,8 @@ TEST(GcsFileSystem, OptionsFromUri) {
       options,
       GcsOptions::FromUri("gs://mybucket/foo/bar/"
                           "?endpoint_override=localhost&scheme=http&location=us-west2"
-                          "&retry_limit_seconds=40.5",
+                          "&retry_limit_seconds=40.5"
+                          "&project_id=test-project-id",
                           &path));
   EXPECT_EQ(options.default_bucket_location, "us-west2");
   EXPECT_EQ(options.scheme, "http");
@@ -381,6 +383,8 @@ TEST(GcsFileSystem, OptionsFromUri) {
   EXPECT_EQ(path, "mybucket/foo/bar");
   ASSERT_TRUE(options.retry_limit_seconds.has_value());
   EXPECT_EQ(*options.retry_limit_seconds, 40.5);
+  ASSERT_TRUE(options.project_id.has_value());
+  EXPECT_EQ(*options.project_id, "test-project-id");
 
   // Missing bucket name
   ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs:///foo/bar/", &path));
@@ -441,6 +445,32 @@ TEST(GcsFileSystem, OptionsServiceAccountCredentials) {
   EXPECT_EQ(a.scheme, "https");
 }
 
+TEST(GcsFileSystem, OptionsAsGoogleCloudOptions) {
+  auto a = GcsOptions::Anonymous();
+  a.scheme = "http";
+  a.endpoint_override = "localhost:8080";
+  a.default_bucket_location = "us-central1";
+  a.retry_limit_seconds = 40.5;
+  a.project_id = "test-only-invalid-project-id";
+
+  auto const o1 = internal::AsGoogleCloudOptions(a);
+  EXPECT_TRUE(o1.has<google::cloud::UnifiedCredentialsOption>());
+  EXPECT_TRUE(o1.has<gcs::RetryPolicyOption>());
+  EXPECT_EQ(o1.get<gcs::RestEndpointOption>(), "http://localhost:8080");
+  EXPECT_EQ(o1.get<gcs::ProjectIdOption>(), "test-only-invalid-project-id");
+
+  a.scheme.clear();
+  a.endpoint_override.clear();
+  a.retry_limit_seconds.reset();
+  a.project_id.reset();
+
+  auto const o2 = internal::AsGoogleCloudOptions(a);
+  EXPECT_TRUE(o2.has<google::cloud::UnifiedCredentialsOption>());
+  EXPECT_FALSE(o2.has<gcs::RetryPolicyOption>());
+  EXPECT_FALSE(o2.has<gcs::RestEndpointOption>());
+  EXPECT_FALSE(o2.has<gcs::ProjectIdOption>());
+}
+
 TEST(GcsFileSystem, ToArrowStatusOK) {
   Status actual = internal::ToArrowStatus(google::cloud::Status());
   EXPECT_TRUE(actual.ok());
@@ -486,6 +516,7 @@ TEST(GcsFileSystem, ToArrowStatus) {
 TEST(GcsFileSystem, FileSystemCompare) {
   GcsOptions a_options;
   a_options.scheme = "http";
+  a_options.project_id = "test-only-invalid-project-id";
   auto a = GcsFileSystem::Make(a_options);
   EXPECT_THAT(a, NotNull());
   EXPECT_TRUE(a->Equals(*a));
@@ -493,6 +524,7 @@ TEST(GcsFileSystem, FileSystemCompare) {
   GcsOptions b_options;
   b_options.scheme = "http";
   b_options.endpoint_override = "localhost:1234";
+  b_options.project_id = "test-only-invalid-project-id";
   auto b = GcsFileSystem::Make(b_options);
   EXPECT_THAT(b, NotNull());
   EXPECT_TRUE(b->Equals(*b));

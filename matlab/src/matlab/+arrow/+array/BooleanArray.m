@@ -20,6 +20,10 @@ classdef BooleanArray < arrow.array.Array
         NullSubstitionValue = false;
     end
 
+    properties(SetAccess=private, GetAccess=public)
+        Type = arrow.type.BooleanType
+    end
+
     methods
         function obj = BooleanArray(data, opts)
             arguments

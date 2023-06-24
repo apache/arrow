@@ -37,4 +37,7 @@ namespace arrow::matlab::error {
     static const char* BUILD_ARRAY_ERROR_ID = "arrow:matlab:proxy:make:FailedToAppendValues";
     static const char* BITPACK_VALIDITY_BITMAP_ERROR_ID = "arrow:matlab:proxy:make:FailedToBitPackValidityBitmap";
     static const char* UNKNOWN_PROXY_ERROR_ID = "arrow:matlab:proxy:UnknownProxy";
+    static const char* SCHEMA_BUILDER_FINISH_ERROR_ID = "arrow:matlab:tabular:proxy:SchemaBuilderAddFields";
+    static const char* SCHEMA_BUILDER_ADD_FIELDS_ERROR_ID = "arrow:matlab:tabular:proxy:SchemaBuilderFinish";
+    static const char* UNICODE_CONVERSION_ERROR_ID = "arrow:matlab:unicode:UnicodeConversion";
 }

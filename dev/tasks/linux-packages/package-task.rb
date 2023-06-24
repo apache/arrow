@@ -275,8 +275,8 @@ class PackageTask
       # "ubuntu-focal-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
-      "ubuntu-kinetic",
-      # "ubuntu-kinetic-arm64",
+      "ubuntu-lunar",
+      # "ubuntu-lunar-arm64",
     ]
   end
 

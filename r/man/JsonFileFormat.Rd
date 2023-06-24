@@ -14,6 +14,20 @@ read and parse the files included in a JSON \code{Dataset}.
 
 \code{JsonFileFormat$create()} can take options in the form of lists passed through as \code{parse_options},
 or \code{read_options} parameters.
+
+Available \code{read_options} parameters:
+\itemize{
+\item \code{use_threads}: Whether to use the global CPU thread pool. Default \code{TRUE}. If \code{FALSE}, JSON input must end with an
+empty line.
+\item \code{block_size}: Block size we request from the IO layer; also determines size of chunks when \code{use_threads}
+is \code{TRUE}.
+}
+
+Available \code{parse_options} parameters:
+\itemize{
+\item \code{newlines_in_values}:Logical: are values allowed to contain CR (\code{0x0d} or \verb{\\r}) and LF (\code{0x0a} or \verb{\\n})
+characters? (default \code{FALSE})
+}
 }
 
 \examples{

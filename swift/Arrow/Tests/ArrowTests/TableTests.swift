@@ -21,15 +21,15 @@ import XCTest
 final class TableTests: XCTestCase {
     func testSchema() throws {
         let schemaBuilder = ArrowSchema.Builder();
-        let schema = schemaBuilder.addField("col1", type: ArrowType.ArrowInt8, isNullable: true)
-            .addField("col2", type: ArrowType.ArrowBool, isNullable: false)
+        let schema = schemaBuilder.addField("col1", type: ArrowType(ArrowType.ArrowInt8), isNullable: true)
+            .addField("col2", type: ArrowType(ArrowType.ArrowBool), isNullable: false)
             .finish()
         XCTAssertEqual(schema.fields.count, 2)
         XCTAssertEqual(schema.fields[0].name, "col1")
-        XCTAssertEqual(schema.fields[0].type, ArrowType.ArrowInt8)
+        XCTAssertEqual(schema.fields[0].type.info, ArrowType.ArrowInt8)
         XCTAssertEqual(schema.fields[0].isNullable, true)
         XCTAssertEqual(schema.fields[1].name, "col2")
-        XCTAssertEqual(schema.fields[1].type, ArrowType.ArrowBool)
+        XCTAssertEqual(schema.fields[1].type.info, ArrowType.ArrowBool)
         XCTAssertEqual(schema.fields[1].isNullable, false)
     }
     
@@ -55,13 +55,13 @@ final class TableTests: XCTestCase {
         let schema = table.schema
         XCTAssertEqual(schema.fields.count, 3)
         XCTAssertEqual(schema.fields[0].name, "col1")
-        XCTAssertEqual(schema.fields[0].type, ArrowType.ArrowUInt8)
+        XCTAssertEqual(schema.fields[0].type.info, ArrowType.ArrowUInt8)
         XCTAssertEqual(schema.fields[0].isNullable, false)
         XCTAssertEqual(schema.fields[1].name, "col2")
-        XCTAssertEqual(schema.fields[1].type, ArrowType.ArrowString)
+        XCTAssertEqual(schema.fields[1].type.info, ArrowType.ArrowString)
         XCTAssertEqual(schema.fields[1].isNullable, false)
         XCTAssertEqual(schema.fields[1].name, "col2")
-        XCTAssertEqual(schema.fields[1].type, ArrowType.ArrowString)
+        XCTAssertEqual(schema.fields[1].type.info, ArrowType.ArrowString)
         XCTAssertEqual(schema.fields[1].isNullable, false)
         XCTAssertEqual(table.columns.count, 3)
         let col1: ChunkedArray<UInt8> = table.columns[0].data();
@@ -107,13 +107,13 @@ final class TableTests: XCTestCase {
         let schema = table.schema
         XCTAssertEqual(schema.fields.count, 3)
         XCTAssertEqual(schema.fields[0].name, "col1")
-        XCTAssertEqual(schema.fields[0].type, ArrowType.ArrowUInt8)
+        XCTAssertEqual(schema.fields[0].type.info, ArrowType.ArrowUInt8)
         XCTAssertEqual(schema.fields[0].isNullable, false)
         XCTAssertEqual(schema.fields[1].name, "col2")
-        XCTAssertEqual(schema.fields[1].type, ArrowType.ArrowString)
+        XCTAssertEqual(schema.fields[1].type.info, ArrowType.ArrowString)
         XCTAssertEqual(schema.fields[1].isNullable, false)
         XCTAssertEqual(schema.fields[1].name, "col2")
-        XCTAssertEqual(schema.fields[1].type, ArrowType.ArrowString)
+        XCTAssertEqual(schema.fields[1].type.info, ArrowType.ArrowString)
         XCTAssertEqual(schema.fields[1].isNullable, false)
         XCTAssertEqual(table.columns.count, 3)
         let col1: ChunkedArray<UInt8> = table.columns[0].data();
@@ -149,10 +149,10 @@ final class TableTests: XCTestCase {
             let schema = table.schema
             XCTAssertEqual(schema.fields.count, 2)
             XCTAssertEqual(schema.fields[0].name, "col1")
-            XCTAssertEqual(schema.fields[0].type, ArrowType.ArrowUInt8)
+            XCTAssertEqual(schema.fields[0].type.info, ArrowType.ArrowUInt8)
             XCTAssertEqual(schema.fields[0].isNullable, false)
             XCTAssertEqual(schema.fields[1].name, "col2")
-            XCTAssertEqual(schema.fields[1].type, ArrowType.ArrowString)
+            XCTAssertEqual(schema.fields[1].type.info, ArrowType.ArrowString)
             XCTAssertEqual(schema.fields[1].isNullable, false)
             XCTAssertEqual(table.columns.count, 2)
             let col1: ChunkedArray<UInt8> = table.columns[0].data();

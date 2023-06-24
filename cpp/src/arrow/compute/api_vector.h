@@ -210,21 +210,29 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   NullPlacement null_placement;
 };
 
-/// \brief Options for cumulative sum function
-class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
+/// \brief Options for cumulative functions
+/// \note Also aliased as CumulativeSumOptions for backward compatibility
+class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
  public:
-  explicit CumulativeSumOptions(double start = 0, bool skip_nulls = false);
-  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false);
-  static constexpr char const kTypeName[] = "CumulativeSumOptions";
-  static CumulativeSumOptions Defaults() { return CumulativeSumOptions(); }
+  explicit CumulativeOptions(bool skip_nulls = false);
+  explicit CumulativeOptions(double start, bool skip_nulls = false);
+  explicit CumulativeOptions(std::shared_ptr<Scalar> start, bool skip_nulls = false);
+  static constexpr char const kTypeName[] = "CumulativeOptions";
+  static CumulativeOptions Defaults() { return CumulativeOptions(); }
 
-  /// Optional starting value for cumulative operation computation
-  std::shared_ptr<Scalar> start;
+  /// Optional starting value for cumulative operation computation, default depends on the
+  /// operation and input type.
+  /// - sum: 0
+  /// - prod: 1
+  /// - min: maximum of the input type
+  /// - max: minimum of the input type
+  std::optional<std::shared_ptr<Scalar>> start;
 
   /// If true, nulls in the input are ignored and produce a corresponding null output.
   /// When false, the first null encountered is propagated through the remaining output.
   bool skip_nulls = false;
 };
+using CumulativeSumOptions = CumulativeOptions;  // For backward compatibility
 
 /// @}
 
@@ -607,9 +615,40 @@ Result<Datum> RunEndDecode(const Datum& value, ExecContext* ctx = NULLPTR);
 /// \param[in] ctx the function execution context, optional
 ARROW_EXPORT
 Result<Datum> CumulativeSum(
-    const Datum& values,
-    const CumulativeSumOptions& options = CumulativeSumOptions::Defaults(),
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
     bool check_overflow = false, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative product of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative prod behavior
+/// \param[in] check_overflow whether to check for overflow, if true, return Invalid
+/// status on overflow, otherwise wrap around on overflow
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeProd(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    bool check_overflow = false, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative max of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative max behavior
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeMax(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative min of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative min behavior
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeMin(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
 // Deprecated functions

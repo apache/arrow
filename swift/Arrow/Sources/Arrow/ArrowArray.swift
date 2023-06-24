@@ -18,7 +18,7 @@
 import Foundation
 
 public class ArrowArrayHolder {
-    public let type: ArrowType.Info
+    public let type: ArrowType
     public let length: UInt
     public let nullCount: UInt
     public let array: Any
@@ -89,7 +89,7 @@ public class ArrowArray<T>: AsString {
     }
 
     public subscript(_ index: UInt) -> T? {
-        get{
+        get {
             fatalError("subscript() has not been implemented")
         }
     }
@@ -105,7 +105,7 @@ public class ArrowArray<T>: AsString {
 
 public class FixedArray<T>: ArrowArray<T> {
     public override subscript(_ index: UInt) -> T? {
-        get{
+        get {
             if self.arrowData.isNull(index) {
                 return nil
             }
@@ -118,7 +118,7 @@ public class FixedArray<T>: ArrowArray<T> {
 
 public class StringArray: ArrowArray<String> {
     public override subscript(_ index: UInt) -> String? {
-        get{
+        get {
             let offsetIndex = MemoryLayout<Int32>.stride * Int(index)
             if self.arrowData.isNull(index) {
                 return nil
@@ -144,7 +144,7 @@ public class StringArray: ArrowArray<String> {
 
 public class BoolArray: ArrowArray<Bool> {
     public override subscript(_ index: UInt) -> Bool? {
-        get{
+        get {
             if self.arrowData.isNull(index) {
                 return nil
             }
@@ -157,7 +157,7 @@ public class BoolArray: ArrowArray<Bool> {
 
 public class Date32Array: ArrowArray<Date> {
     public override subscript(_ index: UInt) -> Date? {
-        get{
+        get {
             if self.arrowData.isNull(index) {
                 return nil
             }
@@ -171,7 +171,7 @@ public class Date32Array: ArrowArray<Date> {
 
 public class Date64Array: ArrowArray<Date> {
     public override subscript(_ index: UInt) -> Date? {
-        get{
+        get {
             if self.arrowData.isNull(index) {
                 return nil
             }
@@ -179,6 +179,55 @@ public class Date64Array: ArrowArray<Date> {
             let byteOffset = self.arrowData.stride * Int(index);
             let milliseconds = self.arrowData.buffers[1].rawPointer.advanced(by: byteOffset).load(as: UInt64.self)
             return Date(timeIntervalSince1970: TimeInterval(milliseconds / 1000))
+        }
+    }
+}
+
+public class Time32Array: FixedArray<Time32> {}
+public class Time64Array: FixedArray<Time64> {}
+
+public class BinaryArray: ArrowArray<Data> {
+    public struct Options {
+        public var printAsHex = false
+        public var printEncoding: String.Encoding = .utf8;
+    }
+    
+    public var options = Options()
+    
+    public override subscript(_ index: UInt) -> Data? {
+        get {
+            let offsetIndex = MemoryLayout<Int32>.stride * Int(index)
+            if self.arrowData.isNull(index) {
+                return nil
+            }
+            
+            let offsets = self.arrowData.buffers[1]
+            let values = self.arrowData.buffers[2]
+
+            var startIndex: Int32 = 0
+            if index > 0 {
+                startIndex = offsets.rawPointer.advanced(by: offsetIndex).load(as: Int32.self)
+            }
+
+            let endIndex = offsets.rawPointer.advanced(by: offsetIndex + MemoryLayout<Int32>.stride ).load(as: Int32.self)
+            let arrayLength = Int(endIndex - startIndex);
+            let rawPointer =  values.rawPointer.advanced(by: Int(startIndex)).bindMemory(to: UInt8.self, capacity: arrayLength)
+            let buffer = UnsafeBufferPointer<UInt8>(start: rawPointer, count: arrayLength);
+            let byteArray = Array(buffer)
+            return Data(byteArray)
+        }
+    }
+    
+    public override func asString(_ index: UInt) -> String {
+        if self[index] == nil {
+            return ""
+        }
+        
+        let data = self[index]!
+        if options.printAsHex {
+            return data.hexEncodedString()
+        } else {
+            return String(data: data, encoding: .utf8)!
         }
     }
 }

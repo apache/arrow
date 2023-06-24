@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/bit/bit_unpack_arrow_buffer.h"
+#include "arrow/matlab/bit/unpack.h"
 
 #include "arrow/util/bitmap_visit.h"
 
 namespace arrow::matlab::bit {
-    ::matlab::data::TypedArray<bool> bitUnpackArrowBuffer(const std::shared_ptr<arrow::Buffer>& packed_buffer, int64_t length) {
+    ::matlab::data::TypedArray<bool> unpack(const std::shared_ptr<arrow::Buffer>& packed_buffer, int64_t length) {
         const auto packed_buffer_ptr = packed_buffer->data();
 
         ::matlab::data::ArrayFactory factory;

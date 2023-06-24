@@ -17,6 +17,7 @@
 
 #include "arrow/matlab/array/proxy/boolean_array.h"
 #include "arrow/matlab/array/proxy/numeric_array.h"
+#include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/error/error.h"
 
 #include "factory.h"
@@ -39,6 +40,8 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.array.proxy.Int64Array  , arrow::matlab::array::proxy::NumericArray<int64_t>);
     // Register MATLAB Proxy class for boolean arrays
     REGISTER_PROXY(arrow.array.proxy.BooleanArray, arrow::matlab::array::proxy::BooleanArray);
+    
+    REGISTER_PROXY(arrow.tabular.proxy.RecordBatch  , arrow::matlab::tabular::proxy::RecordBatch);
 
     return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID, "Did not find matching C++ proxy for " + class_name};
 };
