@@ -286,20 +286,13 @@ class ARROW_EXPORT OutputType {
   using Resolver =
       std::function<Result<TypeHolder>(KernelContext*, const std::vector<TypeHolder>&)>;
 
-  // For backward compatibility
-  using ResolverFuncPtr = Result<TypeHolder> (*)(KernelContext*,
-                                                 const std::vector<TypeHolder>&);
-
   /// \brief Output an exact type
   OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
       : kind_(FIXED), type_(std::move(type)) {}
 
   /// \brief Output a computed type depending on actual input types
-  OutputType(Resolver resolver)  // NOLINT implicit construction
-      : kind_(COMPUTED), resolver_(std::move(resolver)) {}
-
-  /// \brief For backward compatibility
-  OutputType(ResolverFuncPtr resolver)  // NOLINT implicit construction
+  template <typename Fn>
+  OutputType(Fn resolver)  // NOLINT implicit construction
       : kind_(COMPUTED), resolver_(std::move(resolver)) {}
 
   OutputType(const OutputType& other) {
