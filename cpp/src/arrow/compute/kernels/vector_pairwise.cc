@@ -146,7 +146,7 @@ void RegisterPairwiseDiffKernels(std::string_view func_name,
   auto base_func_result = registry->GetFunction(std::string(base_func_name));
   DCHECK_OK(base_func_result.status());
   const auto& base_func = checked_cast<const ScalarFunction&>(**base_func_result);
-  DCHECK(base_func.arity().num_args == 2);
+  DCHECK_EQ(base_func.arity().num_args, 2);
 
   for (const auto& base_func_kernel : base_func.kernels()) {
     const auto& base_func_kernel_sig = base_func_kernel->signature;
