@@ -38,6 +38,8 @@ classdef TimestampArray < arrow.array.Array
             
             dates = datetime(time, ConvertFrom="epochtime", Epoch=epoch, ...
                 TimeZone=tz, TicksPerSecond=ticsPerSecond);
+
+            dates(~obj.Valid) = obj.NullSubstitutionValue;
         end
 
         function dates = datetime(obj)
