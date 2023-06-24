@@ -168,7 +168,6 @@ void RegisterPairwiseDiffKernels(std::string_view func_name,
       return std::make_unique<PairwiseState>(
           checked_cast<const PairwiseOptions&>(*args.options), scalar_exec);
     };
-    ;
     DCHECK_OK(func->AddKernel(kernel));
   }
 
