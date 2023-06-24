@@ -63,7 +63,7 @@ Result<std::shared_ptr<DataType>> GetOutputType(
   }
 }
 
-class TestDiffKernel : public ::testing::Test {
+class TestPairwiseDiff : public ::testing::Test {
  public:
   void SetUp() override {
     test_numerical_types_ = NumericTypes();
@@ -85,7 +85,7 @@ class TestDiffKernel : public ::testing::Test {
   std::vector<std::shared_ptr<DataType>> test_input_types_;
 };
 
-TEST_F(TestDiffKernel, Empty) {
+TEST_F(TestPairwiseDiff, Empty) {
   for (int64_t period = -2; period <= 2; ++period) {
     PairwiseOptions options(period);
     for (auto input_type : test_input_types_) {
@@ -97,7 +97,7 @@ TEST_F(TestDiffKernel, Empty) {
   }
 }
 
-TEST_F(TestDiffKernel, AllNull) {
+TEST_F(TestPairwiseDiff, AllNull) {
   for (int64_t period = -2; period <= 2; ++period) {
     PairwiseOptions options(period);
     for (auto input_type : test_input_types_) {
@@ -109,7 +109,7 @@ TEST_F(TestDiffKernel, AllNull) {
   }
 }
 
-TEST_F(TestDiffKernel, Numeric) {
+TEST_F(TestPairwiseDiff, Numeric) {
   {
     PairwiseOptions options(1);
     for (auto input_type : test_numerical_types_) {
@@ -151,7 +151,7 @@ TEST_F(TestDiffKernel, Numeric) {
   }
 }
 
-TEST_F(TestDiffKernel, Overflow) {
+TEST_F(TestPairwiseDiff, Overflow) {
   {
     PairwiseOptions options(1);
     auto input = ArrayFromJSON(uint8(), "[3, 2, 1]");
@@ -169,7 +169,7 @@ TEST_F(TestDiffKernel, Overflow) {
   }
 }
 
-TEST_F(TestDiffKernel, Temporal) {
+TEST_F(TestPairwiseDiff, Temporal) {
   {
     PairwiseOptions options(1);
     for (auto input_type : test_temporal_types_) {
@@ -185,7 +185,7 @@ TEST_F(TestDiffKernel, Temporal) {
   }
 }
 
-TEST_F(TestDiffKernel, Decimal) {
+TEST_F(TestPairwiseDiff, Decimal) {
   {
     PairwiseOptions options(1);
     auto input = ArrayFromJSON(decimal(4, 2), R"(["11.00", "22.11", "-10.25", "33.45"])");
