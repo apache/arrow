@@ -218,7 +218,7 @@ struct InitStateVisitor {
       // This is a bit of a hack, but don't implicitly cast from a non-binary
       // type to string, since most types support casting to string and that
       // may lead to surprises. However, we do want most other implicit casts.
-      return Status::TypeError("Array type didn't match type of values set: ", *arg_type,
+      return Status::TypeError("Array type doesn't match type of values set: ", *arg_type,
                                " vs ", *options.value_set.type());
     }
 
@@ -236,7 +236,7 @@ struct InitStateVisitor {
         if ((options.value_set.type()->id() == Type::STRING ||
              options.value_set.type()->id() == Type::LARGE_STRING) &&
             !is_base_binary_like(arg_type.id())) {
-          return Status::TypeError("Array type didn't match type of values set: ",
+          return Status::TypeError("Array type doesn't match type of values set: ",
                                    *arg_type, " vs ", *options.value_set.type());
         }
       } else {
@@ -330,7 +330,7 @@ struct IndexInVisitor {
                               CastOptions::Safe(), ctx->exec_context());
       if (ARROW_PREDICT_FALSE(!cast_result.ok())) {
         if (cast_result.status().IsNotImplemented()) {
-          return Status::TypeError("Array type didn't match type of values set: ",
+          return Status::TypeError("Array type doesn't match type of values set: ",
                                    *data.type, " vs ", *state.value_set_type);
         }
         return cast_result.status();
@@ -435,7 +435,7 @@ struct IsInVisitor {
                               CastOptions::Safe(), ctx->exec_context());
       if (ARROW_PREDICT_FALSE(!cast_result.ok())) {
         if (cast_result.status().IsNotImplemented()) {
-          return Status::TypeError("Array type didn't match type of values set: ",
+          return Status::TypeError("Array type doesn't match type of values set: ",
                                    *data.type, " vs ", *state.value_set_type);
         }
         return cast_result.status();
