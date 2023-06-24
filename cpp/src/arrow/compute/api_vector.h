@@ -670,7 +670,8 @@ Result<Datum> CumulativeMin(
 ///   Diff([1, 4, 9, 10, 15]) = [null, 3, 5, 1, 5].
 /// With p = 2,
 ///   Diff([1, 4, 9, 10, 15]) = [null, null, 8, 6, 6]
-///
+/// p can also be negative, in which case the diff is computed in
+/// the opposite direction.
 /// \param[in] array array input
 /// \param[in] options options, specifying overflow behavior and period
 /// \param[in] check_overflow whether to return error on overflow
