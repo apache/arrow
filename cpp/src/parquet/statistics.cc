@@ -557,6 +557,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     ResetCounts();
     has_min_max_ = false;
     has_distinct_count_ = false;
+    // Currently, writer will always write `null_count` to EncodedStatistics.
+    // So, enable it when reset.
     has_null_count_ = true;
   }
 
@@ -651,7 +653,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   T max_;
   ::arrow::MemoryPool* pool_;
   // # of non-null values.
-  // num_values_ would be reliable when has_null_count_.
+  // num_values_ would be reliable when has_null_count_,
+  // if it's created from a page thrift statistics, and statistics
+  // doesn't have null_count, but page has null data, `num_values_`
+  // would be equal to value including nulls.
   int64_t num_values_ = 0;
   EncodedStatistics statistics_;
   std::shared_ptr<TypedComparator<DType>> comparator_;
@@ -663,6 +668,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
 
   void SetDistinctCount(int64_t n) {
+    // distinct count can only be "set", and cannot be increment.
     statistics_.distinct_count = n;
     has_distinct_count_ = true;
   }
