@@ -49,25 +49,21 @@ struct PairwiseState : KernelState {
   const ArrayKernelExec& scalar_exec;
 };
 
-KernelInit GeneratePairwiseInit(const ArrayKernelExec& scalar_exec) {
-  return [&scalar_exec](KernelContext* ctx, const KernelInitArgs& args) {
-    return std::make_unique<PairwiseState>(
-        checked_cast<const PairwiseOptions&>(*args.options), scalar_exec);
-  };
-}
-
 /// A generic pairwise implementation that can be reused by different ops.
 Status PairwiseExecImpl(KernelContext* ctx, const ArraySpan& input,
                         const ArrayKernelExec& scalar_exec, int64_t periods,
                         ArrayData* result) {
-  auto offset = abs(periods);
-  offset = std::min(offset, input.length);
-  auto exec_length = input.length - offset;
+  // We only compute values in the region where the input-with-offset overlaps
+  // the original input. The margin where these do not overlap gets filled with null.
+  auto margin_length = std::min(abs(periods), input.length);
+  auto computed_length = input.length - margin_length;
+  auto margin_start = periods > 0 ? 0 : computed_length;
+  auto computed_start = periods > 0 ? margin_length : 0;
+  auto left_start = periods > 0 ? margin_length : 0;
+  auto right_start = periods > 0 ? 0 : margin_length;
   // prepare bitmap
-  auto null_start = periods > 0 ? 0 : exec_length;
-  auto non_null_start = periods > 0 ? offset : 0;
-  bit_util::ClearBitmap(result->buffers[0]->mutable_data(), null_start, offset);
-  for (int64_t i = non_null_start; i < non_null_start + exec_length; i++) {
+  bit_util::ClearBitmap(result->buffers[0]->mutable_data(), margin_start, margin_length);
+  for (int64_t i = computed_start; i < computed_start + computed_length; i++) {
     if (input.IsValid(i) && input.IsValid(i - periods)) {
       bit_util::SetBit(result->buffers[0]->mutable_data(), i);
     } else {
@@ -76,17 +72,17 @@ Status PairwiseExecImpl(KernelContext* ctx, const ArraySpan& input,
   }
   // prepare input span
   ArraySpan left(input);
-  left.SetSlice(periods > 0 ? offset : 0, exec_length);
+  left.SetSlice(left_start, computed_length);
   ArraySpan right(input);
-  right.SetSlice(periods > 0 ? 0 : offset, exec_length);
+  right.SetSlice(right_start, computed_length);
   // prepare output span
   ArraySpan output_span;
   output_span.SetMembers(*result);
-  output_span.offset = periods > 0 ? offset : 0;
-  output_span.length = exec_length;
+  output_span.offset = computed_start;
+  output_span.length = computed_length;
   ExecResult output{output_span};
   // execute scalar function
-  RETURN_NOT_OK(scalar_exec(ctx, ExecSpan({left, right}, exec_length), &output));
+  RETURN_NOT_OK(scalar_exec(ctx, ExecSpan({left, right}, computed_length), &output));
 
   return Status::OK();
 }
@@ -135,11 +131,11 @@ struct PairwiseKernelData {
 void RegisterPairwiseDiffKernels(std::string_view func_name,
                                  std::string_view base_func_name, const FunctionDoc& doc,
                                  FunctionRegistry* registry) {
-  VectorKernel base_kernel;
-  base_kernel.can_execute_chunkwise = false;
-  base_kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
-  base_kernel.mem_allocation = MemAllocation::PREALLOCATE;
-  base_kernel.init = OptionsWrapper<PairwiseOptions>::Init;
+  VectorKernel kernel;
+  kernel.can_execute_chunkwise = false;
+  kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::PREALLOCATE;
+  kernel.init = OptionsWrapper<PairwiseOptions>::Init;
   auto func = std::make_shared<VectorFunction>(std::string(func_name), Arity::Unary(),
                                                doc, GetDefaultPairwiseOptions());
 
@@ -150,24 +146,30 @@ void RegisterPairwiseDiffKernels(std::string_view func_name,
 
   for (const auto& base_func_kernel : base_func.kernels()) {
     const auto& base_func_kernel_sig = base_func_kernel->signature;
-    if (base_func_kernel_sig->in_types()[0].Equals(base_func_kernel_sig->in_types()[1])) {
-      OutputType out_type(base_func_kernel_sig->out_type());
-      // Need to wrap base output resolver
-      if (out_type.kind() == OutputType::COMPUTED) {
-        const auto& base_resolver = base_func_kernel_sig->out_type().resolver();
-        auto resolver = [&base_resolver](KernelContext* ctx,
-                                         const std::vector<TypeHolder>& input_types) {
-          return base_resolver(ctx, {input_types[0], input_types[0]});
-        };
-        out_type = OutputType(resolver);
-      }
-
-      base_kernel.signature =
-          KernelSignature::Make({base_func_kernel_sig->in_types()[0]}, out_type);
-      base_kernel.exec = PairwiseExec;
-      base_kernel.init = GeneratePairwiseInit(base_func_kernel->exec);
-      DCHECK_OK(func->AddKernel(base_kernel));
+    if (!base_func_kernel_sig->in_types()[0].Equals(
+            base_func_kernel_sig->in_types()[1])) {
+      continue;
     }
+    OutputType out_type(base_func_kernel_sig->out_type());
+    // Need to wrap base output resolver
+    if (out_type.kind() == OutputType::COMPUTED) {
+      out_type =
+          OutputType([base_resolver = base_func_kernel_sig->out_type().resolver()](
+                         KernelContext* ctx, const std::vector<TypeHolder>& input_types) {
+            return base_resolver(ctx, {input_types[0], input_types[0]});
+          });
+    }
+
+    kernel.signature =
+        KernelSignature::Make({base_func_kernel_sig->in_types()[0]}, out_type);
+    kernel.exec = PairwiseExec;
+    kernel.init = [scalar_exec = base_func_kernel->exec](KernelContext* ctx,
+                                                         const KernelInitArgs& args) {
+      return std::make_unique<PairwiseState>(
+          checked_cast<const PairwiseOptions&>(*args.options), scalar_exec);
+    };
+    ;
+    DCHECK_OK(func->AddKernel(kernel));
   }
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
