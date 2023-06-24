@@ -329,8 +329,11 @@ struct IndexInVisitor {
       auto cast_result = Cast(*materialized_input, state.value_set_type,
                               CastOptions::Safe(), ctx->exec_context());
       if (ARROW_PREDICT_FALSE(!cast_result.ok())) {
-        return Status::TypeError("Array type didn't match type of values set: ",
-                                 *data.type, " vs ", *state.value_set_type);
+        if (cast_result.status().IsNotImplemented()) {
+          return Status::TypeError("Array type didn't match type of values set: ",
+                                   *data.type, " vs ", *state.value_set_type);
+        }
+        return cast_result.status();
       }
       auto casted_input = *cast_result;
       return ProcessIndexIn(state, *casted_input.array());
@@ -431,8 +434,11 @@ struct IsInVisitor {
       auto cast_result = Cast(*materialized_input, state.value_set_type,
                               CastOptions::Safe(), ctx->exec_context());
       if (ARROW_PREDICT_FALSE(!cast_result.ok())) {
-        return Status::TypeError("Array type didn't match type of values set: ",
-                                 *data.type, " vs ", *state.value_set_type);
+        if (cast_result.status().IsNotImplemented()) {
+          return Status::TypeError("Array type didn't match type of values set: ",
+                                   *data.type, " vs ", *state.value_set_type);
+        }
+        return cast_result.status();
       }
       auto casted_input = *cast_result;
       return ProcessIsIn(state, *casted_input.array());

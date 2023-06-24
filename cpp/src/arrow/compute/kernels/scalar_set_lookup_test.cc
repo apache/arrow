@@ -353,7 +353,7 @@ TEST_F(TestIsInKernel, FixedSizeBinary) {
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
 
-  ASSERT_RAISES(TypeError,
+  ASSERT_RAISES(Invalid,
                 IsIn(ArrayFromJSON(fixed_size_binary(3), R"(["abc"])"),
                      SetLookupOptions(ArrayFromJSON(fixed_size_binary(2), R"(["ab"])"))));
 }
@@ -1013,7 +1013,7 @@ TEST_F(TestIndexInKernel, FixedSizeBinary) {
   CheckIndexIn(fixed_size_binary(0), R"([])", R"([])", R"([])");
 
   ASSERT_RAISES(
-      TypeError,
+      Invalid,
       IndexIn(ArrayFromJSON(fixed_size_binary(3), R"(["abc"])"),
               SetLookupOptions(ArrayFromJSON(fixed_size_binary(2), R"(["ab"])"))));
 }
