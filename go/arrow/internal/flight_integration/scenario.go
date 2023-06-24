@@ -851,13 +851,13 @@ func packActionResult(msg proto.Message) (*flight.Result, error) {
 func (tester *expirationTimeScenarioTester) DoAction(cmd *flight.Action, stream flight.FlightService_DoActionServer) error {
 	switch cmd.Type {
 	case flight.CancelFlightInfoActionType:
-		var info flight.FlightInfo
-		if err := proto.Unmarshal(cmd.Body, &info); err != nil {
+		var request flight.CancelFlightInfoRequest
+		if err := proto.Unmarshal(cmd.Body, &request); err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to parse command: %s", err.Error())
 		}
 
 		cancelStatus := flight.CancelStatusUnspecified
-		for _, ep := range info.Endpoint {
+		for _, ep := range request.Info.Endpoint {
 			ticket := string(ep.Ticket.Ticket)
 			index, err := tester.ExtractIndexFromTicket(ticket)
 			if err == nil {
@@ -1092,7 +1092,8 @@ func (tester *expirationTimeCancelFlightInfoScenarioTester) RunClient(addr strin
 		return err
 	}
 
-	result, err := client.CancelFlightInfo(ctx, info)
+	request := flight.CancelFlightInfoRequest{Info: info}
+	result, err := client.CancelFlightInfo(ctx, &request)
 	if err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
@@ -2012,13 +2013,13 @@ func (m *flightSqlScenarioTester) BeginTransaction(context.Context, flightsql.Ac
 	return []byte(transactionID), nil
 }
 
-func (m *flightSqlScenarioTester) CancelFlightInfo(_ context.Context, info *flight.FlightInfo) (flight.CancelFlightInfoResult, error) {
+func (m *flightSqlScenarioTester) CancelFlightInfo(_ context.Context, request *flight.CancelFlightInfoRequest) (flight.CancelFlightInfoResult, error) {
 	result := flight.CancelFlightInfoResult{Status: flight.CancelStatusUnspecified}
-	if err := assertEq(1, len(info.Endpoint)); err != nil {
+	if err := assertEq(1, len(request.Info.Endpoint)); err != nil {
 		return result, fmt.Errorf("%w: expected 1 endpoint for CancelQuery", err)
 	}
 
-	endpoint := info.Endpoint[0]
+	endpoint := request.Info.Endpoint[0]
 	tkt, err := flightsql.GetStatementQueryTicket(endpoint.Ticket)
 	if err != nil {
 		return result, err

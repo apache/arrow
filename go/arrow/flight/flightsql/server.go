@@ -515,7 +515,7 @@ func (BaseServer) BeginSavepoint(context.Context, ActionBeginSavepointRequest) (
 	return nil, status.Error(codes.Unimplemented, "BeginSavepoint not implemented")
 }
 
-func (BaseServer) CancelFlightInfo(context.Context, *flight.FlightInfo) (flight.CancelFlightInfoResult, error) {
+func (BaseServer) CancelFlightInfo(context.Context, *flight.CancelFlightInfoRequest) (flight.CancelFlightInfoResult, error) {
 	return flight.CancelFlightInfoResult{Status: flight.CancelStatusUnspecified},
 		status.Error(codes.Unimplemented, "CancelFlightInfo not implemented")
 }
@@ -653,7 +653,7 @@ type Server interface {
 	// EndTransaction commits or rollsback a transaction
 	EndTransaction(context.Context, ActionEndTransactionRequest) error
 	// CancelFlightInfo attempts to explicitly cancel a FlightInfo
-	CancelFlightInfo(context.Context, *flight.FlightInfo) (flight.CancelFlightInfoResult, error)
+	CancelFlightInfo(context.Context, *flight.CancelFlightInfoRequest) (flight.CancelFlightInfoResult, error)
 	// CloseFlightInfo attempts to explicitly close a FlightInfo
 	CloseFlightInfo(context.Context, *flight.FlightInfo) error
 	// RenewFlightEndpoint attempts to extend the expiration of a FlightEndpoint
@@ -983,23 +983,23 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 	switch cmd.Type {
 	case flight.CancelFlightInfoActionType:
 		var (
-			info   flight.FlightInfo
+			request flight.CancelFlightInfoRequest
 			result flight.CancelFlightInfoResult
 			err    error
 		)
 
-		if err = proto.Unmarshal(cmd.Body, &info); err != nil {
-			return status.Errorf(codes.InvalidArgument, "unable to unmarshal FlightInfo for CancelFlightInfo: %s", err.Error())
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal CancelFlightInfoRequest for CancelFlightInfo: %s", err.Error())
 		}
 
 		if cancel, ok := f.srv.(cancelQueryServer); ok {
-			cancelResult, err := cancel.CancelQuery(stream.Context(), &cancelQueryRequest{&info})
+			cancelResult, err := cancel.CancelQuery(stream.Context(), &cancelQueryRequest{request.Info})
 			if err != nil {
 				return err
 			}
 			result.Status = cancelResultToCancelStatus(cancelResult)
 		} else {
-			result, err = f.srv.CancelFlightInfo(stream.Context(), &info)
+			result, err = f.srv.CancelFlightInfo(stream.Context(), &request)
 			if err != nil {
 				return err
 			}
@@ -1121,7 +1121,8 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 				return err
 			}
 		} else {
-			cancelFlightInfoResult, err := f.srv.CancelFlightInfo(stream.Context(), &info)
+			cancelFlightInfoRequest := flight.CancelFlightInfoRequest{Info: &info}
+			cancelFlightInfoResult, err := f.srv.CancelFlightInfo(stream.Context(), &cancelFlightInfoRequest)
 			if err != nil {
 				return err
 			}

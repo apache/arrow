@@ -570,8 +570,8 @@ Status FlightClient::DoAction(const FlightCallOptions& options, const Action& ac
 }
 
 arrow::Result<CancelFlightInfoResult> FlightClient::CancelFlightInfo(
-    const FlightCallOptions& options, const FlightInfo& info) {
-  ARROW_ASSIGN_OR_RAISE(auto body, info.SerializeToString());
+    const FlightCallOptions& options, const CancelFlightInfoRequest& request) {
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
   Action action{ActionType::kCancelFlightInfo.type, Buffer::FromString(body)};
   ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
   ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());

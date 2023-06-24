@@ -596,10 +596,10 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlServerBase : public FlightServerBase {
 
   /// \brief Attempt to explicitly cancel a FlightInfo.
   /// \param[in] context  The call context.
-  /// \param[in] info     The FlightInfo to cancel.
+  /// \param[in] request  The CancelFlightInfoRequest.
   /// \return             The cancellation result.
   virtual arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
-      const ServerCallContext& context, const FlightInfo& info);
+      const ServerCallContext& context, const CancelFlightInfoRequest& request);
 
   /// \brief Attempt to explicitly cancel a query.
   ///

@@ -184,6 +184,15 @@ message Action {
 }
 
 /*
+ * The request of the CancelFlightInfo action.
+ *
+ * The request should be stored in Action.body.
+ */
+message CancelFlightInfoRequest {
+  FlightInfo info = 1;
+}
+
+/*
  * The request of the RenewFlightEndpoint action.
  *
  * The request should be stored in Action.body.

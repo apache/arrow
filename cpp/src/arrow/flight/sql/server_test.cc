@@ -763,7 +763,8 @@ TEST_F(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
 TEST_F(TestFlightSqlServer, CancelFlightInfo) {
   // Not supported
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo({}, {}));
-  ASSERT_RAISES(NotImplemented, sql_client->CancelFlightInfo({}, *flight_info));
+  CancelFlightInfoRequest request{std::move(flight_info)};
+  ASSERT_RAISES(NotImplemented, sql_client->CancelFlightInfo({}, request));
 }
 
 TEST_F(TestFlightSqlServer, CancelQuery) {

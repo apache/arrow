@@ -510,10 +510,10 @@ class ExpirationTimeServer : public FlightServerBase {
                   std::unique_ptr<ResultStream>* result_stream) override {
     std::vector<Result> results;
     if (action.type == ActionType::kCancelFlightInfo.type) {
-      ARROW_ASSIGN_OR_RAISE(auto info,
-                            FlightInfo::Deserialize(std::string_view(*action.body)));
+      ARROW_ASSIGN_OR_RAISE(auto request,
+                            CancelFlightInfoRequest::Deserialize(std::string_view(*action.body)));
       auto cancel_status = CancelStatus::kUnspecified;
-      for (const auto& endpoint : info->endpoints()) {
+      for (const auto& endpoint : request.info->endpoints()) {
         auto index_result = ExtractIndexFromTicket(endpoint.ticket.ticket);
         if (index_result.ok()) {
           auto index = *index_result;
@@ -710,11 +710,13 @@ class ExpirationTimeCancelFlightInfoScenario : public Scenario {
   Status RunClient(std::unique_ptr<FlightClient> client) override {
     ARROW_ASSIGN_OR_RAISE(auto info,
                           client->GetFlightInfo(FlightDescriptor::Command("expiration")));
-    ARROW_ASSIGN_OR_RAISE(auto cancel_result, client->CancelFlightInfo(*info));
+    CancelFlightInfoRequest request{std::move(info)};
+    ARROW_ASSIGN_OR_RAISE(auto cancel_result, client->CancelFlightInfo(request));
     if (cancel_result.status != CancelStatus::kCancelled) {
       return Status::Invalid("CancelFlightInfo must return CANCEL_STATUS_CANCELLED: ",
                              cancel_result.ToString());
     }
+    info = std::move(request.info);
     for (const auto& endpoint : info->endpoints()) {
       auto reader = client->DoGet(endpoint.ticket);
       if (reader.ok()) {
@@ -1326,10 +1328,11 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
   }
 
   arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
-      const ServerCallContext& context, const FlightInfo& info) override {
-    ARROW_RETURN_NOT_OK(AssertEq<size_t>(1, info.endpoints().size(),
+      const ServerCallContext& context, const CancelFlightInfoRequest& request) override {
+    const auto& info = request.info;
+    ARROW_RETURN_NOT_OK(AssertEq<size_t>(1, info->endpoints().size(),
                                          "Expected 1 endpoint for CancelFlightInfo"));
-    const FlightEndpoint& endpoint = info.endpoints()[0];
+    const auto& endpoint = info->endpoints()[0];
     ARROW_ASSIGN_OR_RAISE(auto ticket,
                           sql::StatementQueryTicket::Deserialize(endpoint.ticket.ticket));
     ARROW_RETURN_NOT_OK(AssertEq<std::string>("PLAN HANDLE", ticket.statement_handle,

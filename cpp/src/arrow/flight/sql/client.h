@@ -329,8 +329,8 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] info         The FlightInfo to cancel.
   /// \return Arrow result with a canceled result.
   ::arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
-      const FlightCallOptions& options, const FlightInfo& info) {
-    return impl_->CancelFlightInfo(options, info);
+      const FlightCallOptions& options, const CancelFlightInfoRequest& request) {
+    return impl_->CancelFlightInfo(options, request);
   }
 
   /// \brief Explicitly cancel a query.

@@ -361,8 +361,8 @@ func (s *UnimplementedFlightSqlServerSuite) TestDoAction() {
 }
 
 func (s *UnimplementedFlightSqlServerSuite) TestCancelFlightInfo() {
-	info := flight.FlightInfo{}
-	result, err := s.cl.CancelFlightInfo(context.TODO(), &info)
+	request := flight.CancelFlightInfoRequest{}
+	result, err := s.cl.CancelFlightInfo(context.TODO(), &request)
 	s.Equal(flight.CancelFlightInfoResult{Status: flight.CancelStatusUnspecified},
 		result)
 	st, ok := status.FromError(err)

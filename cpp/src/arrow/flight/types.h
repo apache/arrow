@@ -696,6 +696,30 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   mutable bool reconstructed_schema_;
 };
 
+/// \brief The request of the CancelFlightInfoRequest action.
+struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
+  std::unique_ptr<FlightInfo> info;
+
+  std::string ToString() const;
+  bool Equals(const CancelFlightInfoRequest& other) const;
+
+  friend bool operator==(const CancelFlightInfoRequest& left,
+                         const CancelFlightInfoRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const CancelFlightInfoRequest& left,
+                         const CancelFlightInfoRequest& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<CancelFlightInfoRequest> Deserialize(
+      std::string_view serialized);
+};
+
 /// \brief An iterator to FlightInfo instances returned by ListFlights.
 class ARROW_FLIGHT_EXPORT FlightListing {
  public:

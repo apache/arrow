@@ -372,6 +372,44 @@ bool FlightInfo::Equals(const FlightInfo& other) const {
          data_.ordered == other.data_.ordered;
 }
 
+std::string CancelFlightInfoRequest::ToString() const {
+  std::stringstream ss;
+  ss << "<CancelFlightInfoRequest info=" << info->ToString() << ">";
+  return ss.str();
+}
+
+bool CancelFlightInfoRequest::Equals(const CancelFlightInfoRequest& other) const {
+  return info == other.info;
+}
+
+arrow::Result<std::string> CancelFlightInfoRequest::SerializeToString() const {
+  pb::CancelFlightInfoRequest pb_request;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
+
+  std::string out;
+  if (!pb_request.SerializeToString(&out)) {
+    return Status::IOError("Serialized CancelFlightInfoRequest exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
+    std::string_view serialized) {
+  pb::CancelFlightInfoRequest pb_request;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized CancelFlightInfoRequest size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_request.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid CancelFlightInfoRequest");
+  }
+  CancelFlightInfoRequest out;
+  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
+  return out;
+}
+
 Location::Location() { uri_ = std::make_shared<arrow::internal::Uri>(); }
 
 Status FlightListing::Next(std::unique_ptr<FlightInfo>* info) {
@@ -556,8 +594,8 @@ std::string ActionType::ToString() const {
 const ActionType ActionType::kCancelFlightInfo =
     ActionType{"CancelFlightInfo",
                "Explicitly cancel a running FlightInfo.\n"
-               "Request Message: FlightInfo to be canceled\n"
-               "Response Message: ActionCancelFlightInfoResult"};
+               "Request Message: CancelFlightInfoRequest\n"
+               "Response Message: CancelFlightInfoResult"};
 const ActionType ActionType::kCloseFlightInfo =
     ActionType{"CloseFlightInfo",
                "Close the given FlightInfo explicitly.\n"

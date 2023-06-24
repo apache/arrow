@@ -781,8 +781,8 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
   std::vector<Result> results;
   if (action.type == ActionType::kCancelFlightInfo.type) {
     std::string_view body(*action.body);
-    ARROW_ASSIGN_OR_RAISE(auto info, FlightInfo::Deserialize(body));
-    ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, *info));
+    ARROW_ASSIGN_OR_RAISE(auto request, CancelFlightInfoRequest::Deserialize(body));
+    ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, request));
     ARROW_ASSIGN_OR_RAISE(auto packed_result, PackActionResult(std::move(result)));
 
     results.push_back(std::move(packed_result));
@@ -1085,13 +1085,15 @@ arrow::Result<ActionBeginTransactionResult> FlightSqlServerBase::BeginTransactio
 }
 
 arrow::Result<CancelFlightInfoResult> FlightSqlServerBase::CancelFlightInfo(
-    const ServerCallContext& context, const FlightInfo& info) {
+    const ServerCallContext& context, const CancelFlightInfoRequest& request) {
   return Status::NotImplemented("CancelFlightInfo not implemented");
 }
 
 arrow::Result<CancelResult> FlightSqlServerBase::CancelQuery(
     const ServerCallContext& context, const ActionCancelQueryRequest& request) {
-  ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, *request.info));
+  CancelFlightInfoRequest cancel_flight_info_request;
+  cancel_flight_info_request.info = std::make_unique<FlightInfo>(*request.info);
+  ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, cancel_flight_info_request));
   return static_cast<CancelResult>(result.status);
 }
 

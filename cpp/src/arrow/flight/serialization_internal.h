@@ -60,6 +60,8 @@ Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint
 Status FromProto(const pb::RenewFlightEndpointRequest& pb_request,
                  RenewFlightEndpointRequest* request);
 Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info);
+Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
+                 CancelFlightInfoRequest* request);
 Status FromProto(const pb::SchemaResult& pb_result, std::string* result);
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* info);
 
@@ -68,6 +70,8 @@ Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint);
 Status ToProto(const RenewFlightEndpointRequest& request,
                pb::RenewFlightEndpointRequest* pb_request);
 Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info);
+Status ToProto(const CancelFlightInfoRequest& request,
+               pb::CancelFlightInfoRequest* pb_request);
 Status ToProto(const ActionType& type, pb::ActionType* pb_type);
 Status ToProto(const Action& action, pb::Action* pb_action);
 Status ToProto(const Result& result, pb::Result* pb_result);
