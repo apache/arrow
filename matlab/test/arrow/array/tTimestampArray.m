@@ -31,7 +31,17 @@ classdef tTimestampArray < matlab.unittest.TestCase
         end
 
         function TestLength(testCase, TimeZone)
+        % Verify the Length property.
             import arrow.array.TimestampArray
+
+            dates = datetime.empty(0, 1);
+            dates.TimeZone = TimeZone;
+            arrowArray = TimestampArray(dates);
+            testCase.verifyEqual(arrowArray.Length, int64(0));
+
+            dates = datetime(2023, 6, 22, TimeZone=TimeZone);
+            arrowArray = TimestampArray(dates);
+            testCase.verifyEqual(arrowArray.Length, int64(1));
 
             dates = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
             arrowArray = TimestampArray(dates);
@@ -39,6 +49,8 @@ classdef tTimestampArray < matlab.unittest.TestCase
         end
 
         function TestDefaultTimestampType(testCase, TimeZone)
+        % Verify the TimestampArray's units is Microsecond by default and
+        % its TimeZone value is taken from the input datetime.
             import arrow.array.TimestampArray
 
             dates = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
@@ -47,9 +59,11 @@ classdef tTimestampArray < matlab.unittest.TestCase
         end
 
         function TestSupplyTimeUnit(testCase, TimeZone)
+        % Supply the TimeUnit name-value pair at construction.
             import arrow.array.TimestampArray
 
             dates = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
+
             arrowArray = TimestampArray(dates, TimeUnit="Second");
             testCase.verifyTimestampType(arrowArray.Type, arrow.type.TimeUnit.Second, TimeZone);
 
@@ -64,6 +78,7 @@ classdef tTimestampArray < matlab.unittest.TestCase
         end
 
         function TestToMATLAB(testCase, TimeUnit, TimeZone)
+        % Verify toMATLAB() round-trips the original datetime array.
             import arrow.array.TimestampArray
 
             dates = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
@@ -74,6 +89,7 @@ classdef tTimestampArray < matlab.unittest.TestCase
         end
 
         function TestDatetime(testCase, TimeUnit, TimeZone)
+        % Verify datetime() round-trips the original datetime array.
             import arrow.array.TimestampArray
 
             dates = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
@@ -83,6 +99,7 @@ classdef tTimestampArray < matlab.unittest.TestCase
         end
 
         function TestValid(testCase, TimeZone)
+        % Verify the Valid property returns the expected logical vector.
             import arrow.array.TimestampArray
             dates = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
             dates([2 4]) = NaT;
@@ -98,11 +115,14 @@ classdef tTimestampArray < matlab.unittest.TestCase
             dates = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
             dates([2 4]) = NaT;
 
+            % Verify NaT is treated as a null value if InferNulls=true.
             expectedDates = dates';
             arrowArray = arrow.array.TimestampArray(dates, TimeUnit=TimeUnit, InferNulls=true);
             testCase.verifyEqual(arrowArray.Valid, [true; false; true; false; true]);
             testCase.verifyEqual(toMATLAB(arrowArray), expectedDates);
 
+            % Verify NaT is not treated as a null value if InferNulls=false.
+            % The NaT values are mapped to int64(0).
             arrowArray = arrow.array.TimestampArray(dates, TimeUnit=TimeUnit, InferNulls=false);
             testCase.verifyEqual(arrowArray.Valid, [true; true; true; true; true]);
             
@@ -119,6 +139,7 @@ classdef tTimestampArray < matlab.unittest.TestCase
             dates = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
             dates([2 4]) = NaT;
             
+            % Supply the Valid name-value pair as vector of indices.
             arrowArray = arrow.array.TimestampArray(dates, TimeUnit=TimeUnit, Valid=[1 2 5]);
             testCase.verifyEqual(arrowArray.Valid, [true; true; false; false; true]);
             expectedDates = dates';
@@ -126,6 +147,7 @@ classdef tTimestampArray < matlab.unittest.TestCase
             expectedDates([3 4]) = NaT;
             testCase.verifyEqual(toMATLAB(arrowArray), expectedDates);
 
+            % Supply the Valid name-value pair as a logical scalar.
             arrowArray = arrow.array.TimestampArray(dates, TimeUnit=TimeUnit, Valid=false);
             testCase.verifyEqual(arrowArray.Valid, [false; false; false; false; false]);
             expectedDates(:) = NaT;
