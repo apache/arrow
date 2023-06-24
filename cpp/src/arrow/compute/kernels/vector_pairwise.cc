@@ -42,11 +42,11 @@ namespace arrow::compute::internal {
 // We reuse the kernel exec function of a scalar binary function to compute pairwise
 // results. For example, for pairwise_diff, we reuse subtract's kernel exec.
 struct PairwiseState : KernelState {
-  PairwiseState(const PairwiseOptions& options, const ArrayKernelExec& scalar_exec)
+  PairwiseState(const PairwiseOptions& options, ArrayKernelExec scalar_exec)
       : periods(options.periods), scalar_exec(scalar_exec) {}
 
   int64_t periods;
-  const ArrayKernelExec& scalar_exec;
+  ArrayKernelExec scalar_exec;
 };
 
 /// A generic pairwise implementation that can be reused by different ops.
