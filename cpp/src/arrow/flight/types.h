@@ -715,8 +715,7 @@ struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
   arrow::Result<std::string> SerializeToString() const;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<CancelFlightInfoRequest> Deserialize(
-      std::string_view serialized);
+  static arrow::Result<CancelFlightInfoRequest> Deserialize(std::string_view serialized);
 };
 
 /// \brief An iterator to FlightInfo instances returned by ListFlights.

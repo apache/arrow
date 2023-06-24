@@ -502,8 +502,8 @@ class ExpirationTimeServer : public FlightServerBase {
                   std::unique_ptr<ResultStream>* result_stream) override {
     std::vector<Result> results;
     if (action.type == ActionType::kCancelFlightInfo.type) {
-      ARROW_ASSIGN_OR_RAISE(auto request,
-                            CancelFlightInfoRequest::Deserialize(std::string_view(*action.body)));
+      ARROW_ASSIGN_OR_RAISE(auto request, CancelFlightInfoRequest::Deserialize(
+                                              std::string_view(*action.body)));
       auto cancel_status = CancelStatus::kUnspecified;
       for (const auto& endpoint : request.info->endpoints()) {
         auto index_result = ExtractIndexFromTicket(endpoint.ticket.ticket);

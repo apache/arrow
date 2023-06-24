@@ -253,9 +253,10 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] request The CancelFlightInfoRequest
   /// \return Arrow result with a CancelFlightInfoResult
-  arrow::Result<CancelFlightInfoResult> CancelFlightInfo(const FlightCallOptions& options,
-                                                         const CancelFlightInfoRequest& request);
-  arrow::Result<CancelFlightInfoResult> CancelFlightInfo(const CancelFlightInfoRequest& request) {
+  arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
+      const FlightCallOptions& options, const CancelFlightInfoRequest& request);
+  arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
+      const CancelFlightInfoRequest& request) {
     return CancelFlightInfo({}, request);
   }
 

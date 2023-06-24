@@ -1088,7 +1088,8 @@ arrow::Result<CancelResult> FlightSqlServerBase::CancelQuery(
     const ServerCallContext& context, const ActionCancelQueryRequest& request) {
   CancelFlightInfoRequest cancel_flight_info_request;
   cancel_flight_info_request.info = std::make_unique<FlightInfo>(*request.info);
-  ARROW_ASSIGN_OR_RAISE(auto result, CancelFlightInfo(context, cancel_flight_info_request));
+  ARROW_ASSIGN_OR_RAISE(auto result,
+                        CancelFlightInfo(context, cancel_flight_info_request));
   return static_cast<CancelResult>(result.status);
 }
 
