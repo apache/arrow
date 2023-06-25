@@ -705,7 +705,6 @@ type expirationTimeEndpointStatus struct {
 	expirationTime *time.Time
 	numGets        uint32
 	cancelled      bool
-	closed         bool
 }
 
 type expirationTimeScenarioTester struct {
@@ -734,7 +733,6 @@ func (tester *expirationTimeScenarioTester) AppendGetFlightInfo(endpoints []*fli
 		expirationTime: expirationTime,
 		numGets:        0,
 		cancelled:      false,
-		closed:         false,
 	}
 	return endpoints
 }
@@ -781,10 +779,6 @@ func (tester *expirationTimeScenarioTester) DoGet(tkt *flight.Ticket, fs flight.
 		return err
 	}
 	st := tester.statuses[index]
-	if st.closed {
-		return status.Errorf(codes.InvalidArgument,
-			"Invalid flight: closed: %s", ticket)
-	}
 	if st.cancelled {
 		return status.Errorf(codes.InvalidArgument,
 			"Invalid flight: cancelled: %s", ticket)

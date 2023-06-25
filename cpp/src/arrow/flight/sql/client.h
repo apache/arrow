@@ -326,7 +326,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \brief Explicitly cancel a FlightInfo.
   ///
   /// \param[in] options      RPC-layer hints for this call.
-  /// \param[in] info         The FlightInfo to cancel.
+  /// \param[in] request      The CancelFlightInfoRequest.
   /// \return Arrow result with a canceled result.
   ::arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
       const FlightCallOptions& options, const CancelFlightInfoRequest& request) {

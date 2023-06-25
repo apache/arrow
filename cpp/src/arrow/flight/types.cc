@@ -783,7 +783,7 @@ arrow::Result<CancelFlightInfoResult> CancelFlightInfoResult::Deserialize(
   google::protobuf::io::ArrayInputStream input(serialized.data(),
                                                static_cast<int>(serialized.size()));
   if (!pb_result.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid ActionCancelFlightInfoResult");
+    return Status::Invalid("Not a valid CancelFlightInfoResult");
   }
   CancelFlightInfoResult out;
   RETURN_NOT_OK(internal::FromProto(pb_result, &out));

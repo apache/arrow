@@ -977,25 +977,17 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 	case flight.CancelFlightInfoActionType:
 		var (
 			request flight.CancelFlightInfoRequest
-			result flight.CancelFlightInfoResult
-			err    error
+			result  flight.CancelFlightInfoResult
+			err     error
 		)
 
 		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
 			return status.Errorf(codes.InvalidArgument, "unable to unmarshal CancelFlightInfoRequest for CancelFlightInfo: %s", err.Error())
 		}
 
-		if cancel, ok := f.srv.(cancelQueryServer); ok {
-			cancelResult, err := cancel.CancelQuery(stream.Context(), &cancelQueryRequest{request.Info})
-			if err != nil {
-				return err
-			}
-			result.Status = cancelResultToCancelStatus(cancelResult)
-		} else {
-			result, err = f.srv.CancelFlightInfo(stream.Context(), &request)
-			if err != nil {
-				return err
-			}
+		result, err = f.srv.CancelFlightInfo(stream.Context(), &request)
+		if err != nil {
+			return err
 		}
 
 		out := &pb.Result{}

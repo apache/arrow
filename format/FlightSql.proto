@@ -1823,6 +1823,9 @@ message ActionCancelQueryRequest {
  * The result of cancelling a query.
  *
  * The result should be wrapped in a google.protobuf.Any message.
+ *
+ * This command is deprecated since 13.0.0. Use the "CancelFlightInfo"
+ * action with DoAction instead.
  */
 message ActionCancelQueryResult {
   option deprecated = true;

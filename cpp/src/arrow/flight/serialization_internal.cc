@@ -246,16 +246,6 @@ Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
   return Status::OK();
 }
 
-// CancelFlightInfoRequest
-
-Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
-                 CancelFlightInfoRequest* request) {
-  FlightInfo::Data data;
-  RETURN_NOT_OK(FromProto(pb_request.info(), &data));
-  request->info = std::make_unique<FlightInfo>(std::move(data));
-  return Status::OK();
-}
-
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
   basic_auth->password = pb_basic_auth.password();
   basic_auth->username = pb_basic_auth.username();
@@ -294,6 +284,16 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
   pb_info->set_total_records(info.total_records());
   pb_info->set_total_bytes(info.total_bytes());
   pb_info->set_ordered(info.ordered());
+  return Status::OK();
+}
+
+// CancelFlightInfoRequest
+
+Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
+                 CancelFlightInfoRequest* request) {
+  FlightInfo::Data data;
+  RETURN_NOT_OK(FromProto(pb_request.info(), &data));
+  request->info = std::make_unique<FlightInfo>(std::move(data));
   return Status::OK();
 }
 

@@ -521,7 +521,7 @@ class ExpirationTimeServer : public FlightServerBase {
           cancel_status = CancelStatus::kNotCancellable;
         }
       }
-      auto cancel_result = CancelFlightInfoResult{cancel_status};
+      CancelFlightInfoResult cancel_result{cancel_status};
       ARROW_ASSIGN_OR_RAISE(auto serialized, cancel_result.SerializeToString());
       results.push_back(Result{Buffer::FromString(std::move(serialized))});
     } else if (action.type == ActionType::kRenewFlightEndpoint.type) {
@@ -1653,9 +1653,9 @@ class FlightSqlExtensionScenario : public FlightSqlScenario {
     ARROW_RETURN_NOT_OK(ValidateSchema(GetQuerySchema(), *schema));
 
     ARROW_ASSIGN_OR_RAISE(info, sql_client->ExecuteSubstrait({}, kSubstraitPlan));
-    // TODO: Use CancelQuery() instead of CancelFlightInfo() here
-    // because some Flight SQL implementations still don't support
-    // CancelFlightInfo yet.
+    // TODO: Use CancelFLightInfo() instead of CancelQuery() here. We
+    // use CancelQuery() here for now because some Flight SQL
+    // implementations still don't support CancelFlightInfo yet.
     ARROW_SUPPRESS_DEPRECATION_WARNING
     ARROW_ASSIGN_OR_RAISE(auto cancel_result, sql_client->CancelQuery({}, *info));
     ARROW_UNSUPPRESS_DEPRECATION_WARNING
