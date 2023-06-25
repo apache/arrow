@@ -532,6 +532,7 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         CStatus WriteTable(const CTable& table, int64_t chunk_size)
         CStatus NewRowGroup(int64_t chunk_size)
         CStatus Close()
+        CStatus WriteRecordBatch(const CRecordBatch& batch)
 
         const shared_ptr[CFileMetaData] metadata() const
 
