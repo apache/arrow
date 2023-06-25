@@ -2384,11 +2384,12 @@ TEST(TestArrowReadWrite, WaitCoalescedReads) {
 
 // Use coalesced reads and non-coaleasced reads for different column chunks.
 TEST(TestArrowReadWrite, CoalescedReadsAndNonCoalescedReads) {
-  const int num_columns = 5;
-  const int num_rows = 128;
+  constexpr int num_columns = 5;
+  constexpr int num_rows = 128;
 
   std::shared_ptr<Table> expected;
-  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &expected));
+  ASSERT_NO_FATAL_FAILURE(
+      MakeDoubleTable(num_columns, num_rows, /*nchunks=*/1, &expected));
 
   std::shared_ptr<Buffer> buffer;
   ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(expected, num_rows / 2,
@@ -2401,9 +2402,12 @@ TEST(TestArrowReadWrite, CoalescedReadsAndNonCoalescedReads) {
   ASSERT_EQ(2, reader->num_row_groups());
 
   // Pre-buffer 3 columns in the 2nd row group.
-  reader->parquet_reader()->PreBuffer({1}, {0, 1, 4}, ::arrow::io::IOContext(),
+  const std::vector<int> row_groups = {1};
+  const std::vector<int> column_indices = {0, 1, 4};
+  reader->parquet_reader()->PreBuffer(row_groups, column_indices,
+                                      ::arrow::io::IOContext(),
                                       ::arrow::io::CacheOptions::Defaults());
-  ASSERT_OK(reader->parquet_reader()->WhenBuffered({1}, {0, 1, 4}).status());
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
 
   ASSERT_OK_AND_ASSIGN(auto actual, ReadTableManually(reader.get()));
 

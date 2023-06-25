@@ -179,7 +179,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                      std::shared_ptr<::arrow::io::internal::ReadRangeCache> cached_source,
                      int64_t source_size, FileMetaData* file_metadata,
                      int row_group_number, const ReaderProperties& props,
-                     const std::unordered_set<int>& prebuffered_column_chunks,
+                     std::unordered_set<int> prebuffered_column_chunks,
                      std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
       : source_(std::move(source)),
         cached_source_(std::move(cached_source)),
@@ -187,7 +187,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         file_metadata_(file_metadata),
         properties_(props),
         row_group_ordinal_(row_group_number),
-        prebuffered_column_chunks_(prebuffered_column_chunks),
+        prebuffered_column_chunks_(std::move(prebuffered_column_chunks)),
         file_decryptor_(file_decryptor) {
     row_group_metadata_ = file_metadata->RowGroup(row_group_number);
   }
@@ -312,7 +312,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
     std::unique_ptr<SerializedRowGroup> contents = std::make_unique<SerializedRowGroup>(
         source_, cached_source_, source_size_, file_metadata_.get(), i, properties_,
-        prebuffered_column_chunks, file_decryptor_);
+        std::move(prebuffered_column_chunks), file_decryptor_);
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
