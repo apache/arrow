@@ -422,6 +422,9 @@ class PARQUET_EXPORT WriterProperties {
     /// std::numeric_limits<int>::min() value is passed, then Arrow selects the
     /// compression level.
     Builder* compression_level(const std::string& path, int compression_level) {
+      if (!codec_options_[path]) {
+        codec_options_[path] = std::make_shared<CodecOptions>();
+      }
       codec_options_[path]->compression_level_ = compression_level;
       return this;
     }
