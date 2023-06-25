@@ -300,6 +300,10 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         c_bool encrypted_with_footer_key() const
         const c_string& key_metadata() const
 
+    cdef cppclass ParquetIndexLocation" parquet::IndexLocation":
+        int64_t offset
+        int32_t length
+
     cdef cppclass CColumnChunkMetaData" parquet::ColumnChunkMetaData":
         int64_t file_offset() const
         const c_string& file_path() const
@@ -321,6 +325,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t total_compressed_size() const
         int64_t total_uncompressed_size() const
         unique_ptr[CColumnCryptoMetaData] crypto_metadata() const
+        optional[ParquetIndexLocation] GetColumnIndexLocation() const
+        optional[ParquetIndexLocation] GetOffsetIndexLocation() const
 
     cdef cppclass CRowGroupMetaData" parquet::RowGroupMetaData":
         c_bool Equals(const CRowGroupMetaData&) const
