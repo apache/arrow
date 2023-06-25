@@ -501,6 +501,7 @@ tasks:
 
 {% for target in ["debian-bullseye",
                   "debian-bookworm",
+                  "debian-trixie",
                   "ubuntu-focal",
                   "ubuntu-jammy",
                   "ubuntu-lunar"] %}

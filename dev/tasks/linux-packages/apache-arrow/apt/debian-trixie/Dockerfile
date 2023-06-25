@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=debian:bookworm
+ARG FROM=debian:trixie
 FROM ${FROM}
 
 RUN \
@@ -37,6 +37,7 @@ RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
+    base-files \
     build-essential \
     clang \
     cmake \
