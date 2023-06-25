@@ -420,6 +420,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* max_row_group_length(int64_t size)
             Builder* write_batch_size(int64_t batch_size)
             Builder* dictionary_pagesize_limit(int64_t dictionary_pagesize_limit)
+            Builder* enable_write_page_index()
+            Builder* disable_write_page_index()
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:

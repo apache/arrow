@@ -1455,7 +1455,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         data_page_version=None,
         FileEncryptionProperties encryption_properties=None,
         write_batch_size=None,
-        dictionary_pagesize_limit=None) except *:
+        dictionary_pagesize_limit=None,
+        write_page_index=False) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1598,6 +1599,14 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     # is smaller) when calling write_table.  If the call to write_table uses
     # a size larger than this then it will be latched to this value.
     props.max_row_group_length(_MAX_ROW_GROUP_SIZE)
+
+    # page index
+
+    if isinstance(write_page_index, bool):
+        if write_page_index:
+            props.enable_write_page_index()
+        else:
+            props.disable_write_page_index()
 
     properties = props.build()
 
