@@ -23,7 +23,7 @@ from pyarrow.includes.libarrow cimport (CChunkedArray, CScalar, CSchema, CStatus
                                         CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata,
                                         CRandomAccessFile, COutputStream,
-                                        TimeUnit, CRecordBatchReader)
+                                        TimeUnit, CRecordBatchReader, CRecordBatch)
 from pyarrow.lib cimport _Weakrefable
 
 
