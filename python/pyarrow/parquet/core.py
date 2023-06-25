@@ -3118,7 +3118,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_batch_size=write_batch_size,
                 dictionary_pagesize_limit=dictionary_pagesize_limit,
                 store_schema=store_schema,
-                write_page_index,
+                write_page_index=write_page_index,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

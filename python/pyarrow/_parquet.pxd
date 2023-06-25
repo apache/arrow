@@ -575,7 +575,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     data_page_version=*,
     FileEncryptionProperties encryption_properties=*,
     write_batch_size=*,
-    dictionary_pagesize_limit=*) except *
+    dictionary_pagesize_limit=*,
+    write_page_index=*) except *
 
 
 cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(

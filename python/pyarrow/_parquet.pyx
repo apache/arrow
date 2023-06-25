@@ -1701,6 +1701,7 @@ cdef class ParquetWriter(_Weakrefable):
         int64_t write_batch_size
         int64_t dictionary_pagesize_limit
         object store_schema
+        object write_page_index
 
     def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
@@ -1719,7 +1720,8 @@ cdef class ParquetWriter(_Weakrefable):
                   encryption_properties=None,
                   write_batch_size=None,
                   dictionary_pagesize_limit=None,
-                  store_schema=True):
+                  store_schema=True,
+                  write_page_index=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1749,7 +1751,8 @@ cdef class ParquetWriter(_Weakrefable):
             data_page_version=data_page_version,
             encryption_properties=encryption_properties,
             write_batch_size=write_batch_size,
-            dictionary_pagesize_limit=dictionary_pagesize_limit
+            dictionary_pagesize_limit=dictionary_pagesize_limit,
+            write_page_index=write_page_index
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
