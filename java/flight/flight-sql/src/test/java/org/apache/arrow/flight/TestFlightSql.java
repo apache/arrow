@@ -997,7 +997,8 @@ public class TestFlightSql {
   @Test
   public void testCancelFlightInfo() {
     FlightInfo info = sqlClient.getSqlInfo();
-    FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, () -> sqlClient.cancelFlightInfo(info));
+    CancelFlightInfoRequest request = new CancelFlightInfoRequest(info);
+    FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, () -> sqlClient.cancelFlightInfo(request));
     assertEquals(FlightStatusCode.UNIMPLEMENTED, fre.status().code());
   }
 

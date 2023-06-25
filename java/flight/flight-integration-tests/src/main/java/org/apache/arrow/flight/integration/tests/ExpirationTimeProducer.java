@@ -30,6 +30,7 @@ import java.util.List;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.CancelFlightInfoRequest;
 import org.apache.arrow.flight.CancelFlightInfoResult;
 import org.apache.arrow.flight.CancelStatus;
 import org.apache.arrow.flight.FlightConstants;
@@ -143,9 +144,9 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
   public void doAction(CallContext context, Action action, StreamListener<Result> listener) {
     try {
       if (action.getType().equals(FlightConstants.CANCEL_FLIGHT_INFO.getType())) {
-        FlightInfo info = FlightInfo.deserialize(ByteBuffer.wrap(action.getBody()));
+        CancelFlightInfoRequest request = CancelFlightInfoRequest.deserialize(ByteBuffer.wrap(action.getBody()));
         CancelStatus cancelStatus = CancelStatus.UNSPECIFIED;
-        for (FlightEndpoint endpoint : info.getEndpoints()) {
+        for (FlightEndpoint endpoint : request.getInfo().getEndpoints()) {
           int index = parseIndexFromTicket(endpoint.getTicket());
           EndpointStatus status = statuses.get(index);
           if (status.cancelled) {

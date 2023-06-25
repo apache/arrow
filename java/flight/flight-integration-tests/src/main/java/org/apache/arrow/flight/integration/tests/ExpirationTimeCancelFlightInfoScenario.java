@@ -19,6 +19,7 @@ package org.apache.arrow.flight.integration.tests;
 
 import java.nio.charset.StandardCharsets;
 
+import org.apache.arrow.flight.CancelFlightInfoRequest;
 import org.apache.arrow.flight.CancelFlightInfoResult;
 import org.apache.arrow.flight.CancelStatus;
 import org.apache.arrow.flight.FlightClient;
@@ -46,7 +47,8 @@ final class ExpirationTimeCancelFlightInfoScenario implements Scenario {
   @Override
   public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
     FlightInfo info = client.getInfo(FlightDescriptor.command("expiration".getBytes(StandardCharsets.UTF_8)));
-    CancelFlightInfoResult result = client.cancelFlightInfo(info);
+    CancelFlightInfoRequest request = new CancelFlightInfoRequest(info);
+    CancelFlightInfoResult result = client.cancelFlightInfo(request);
     IntegrationAssertions.assertEquals(CancelStatus.CANCELLED, result.getStatus());
 
     // All requests should fail

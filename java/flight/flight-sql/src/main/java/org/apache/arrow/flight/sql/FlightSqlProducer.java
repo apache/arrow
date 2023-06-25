@@ -54,6 +54,7 @@ import java.util.List;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.CancelFlightInfoRequest;
 import org.apache.arrow.flight.CancelStatus;
 import org.apache.arrow.flight.FlightConstants;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -359,9 +360,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
           FlightSqlUtils.unpackAndParseOrThrow(action.getBody(), ActionEndTransactionRequest.class);
       endTransaction(request, context, new NoResultListener(listener));
     } else if (actionType.equals(FlightConstants.CANCEL_FLIGHT_INFO.getType())) {
-      final FlightInfo info;
+      final CancelFlightInfoRequest request;
       try {
-        info = FlightInfo.deserialize(ByteBuffer.wrap(action.getBody()));
+        request = CancelFlightInfoRequest.deserialize(ByteBuffer.wrap(action.getBody()));
       } catch (IOException | URISyntaxException e) {
         listener.onError(CallStatus.INTERNAL
             .withDescription("Could not unpack FlightInfo: " + e)
@@ -369,7 +370,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
             .toRuntimeException());
         return;
       }
-      cancelFlightInfo(info, context, new CancelStatusListener(listener));
+      cancelFlightInfo(request, context, new CancelStatusListener(listener));
     } else if (actionType.equals(FlightConstants.CLOSE_FLIGHT_INFO.getType())) {
       final FlightInfo info;
       try {
@@ -428,11 +429,12 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   /**
    * Explicitly cancel a query.
    *
-   * @param info    The FlightInfo of the query to cancel.
+   * @param request The CancelFlightInfoRequest for the query to cancel.
    * @param context Per-call context.
    * @param listener An interface for sending data back to the client.
    */
-  default void cancelFlightInfo(FlightInfo info, CallContext context, StreamListener<CancelStatus> listener) {
+  default void cancelFlightInfo(CancelFlightInfoRequest request, CallContext context,
+                                StreamListener<CancelStatus> listener) {
     listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
   }
 
@@ -458,7 +460,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    */
   @Deprecated
   default void cancelQuery(FlightInfo info, CallContext context, StreamListener<CancelResult> listener) {
-    cancelFlightInfo(info, context, new StreamListener<CancelStatus>() {
+    CancelFlightInfoRequest request = new CancelFlightInfoRequest(info);
+    cancelFlightInfo(request, context, new StreamListener<CancelStatus>() {
       @Override
       public void onNext(CancelStatus val) {
         switch (val) {

@@ -494,12 +494,12 @@ public class FlightClient implements AutoCloseable {
   /**
    * Cancel execution of a distributed query.
    *
-   * @param info The query to cancel.
+   * @param request The query to cancel.
    * @param options Call options.
    * @return The server response.
    */
-  public CancelFlightInfoResult cancelFlightInfo(FlightInfo info, CallOption... options) {
-    Action action = new Action(FlightConstants.CANCEL_FLIGHT_INFO.getType(), info.serialize().array());
+  public CancelFlightInfoResult cancelFlightInfo(CancelFlightInfoRequest request, CallOption... options) {
+    Action action = new Action(FlightConstants.CANCEL_FLIGHT_INFO.getType(), request.serialize().array());
     Iterator<Result> results = doAction(action, options);
     if (!results.hasNext()) {
       throw CallStatus.INTERNAL

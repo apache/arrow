@@ -59,6 +59,7 @@ import java.util.stream.Collectors;
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.CancelFlightInfoRequest;
 import org.apache.arrow.flight.CancelFlightInfoResult;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -857,12 +858,12 @@ public class FlightSqlClient implements AutoCloseable {
   /**
    * Cancel execution of a distributed query.
    *
-   * @param info The query to cancel.
+   * @param request The query to cancel.
    * @param options Call options.
    * @return The server response.
    */
-  public CancelFlightInfoResult cancelFlightInfo(FlightInfo info, CallOption... options) {
-    return client.cancelFlightInfo(info, options);
+  public CancelFlightInfoResult cancelFlightInfo(CancelFlightInfoRequest request, CallOption... options) {
+    return client.cancelFlightInfo(request, options);
   }
 
   /**
