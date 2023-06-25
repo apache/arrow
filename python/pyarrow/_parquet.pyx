@@ -1779,6 +1779,19 @@ cdef class ParquetWriter(_Weakrefable):
             check_status(self.writer.get()
                          .WriteTable(deref(ctable), c_row_group_size))
 
+    def write_record_batch(self, RecordBatch record_batch):
+        """
+        Write RecordBatch.
+
+        Parameters
+        ----------
+        record_batch : RecordBatch
+        """
+
+        with nogil:
+            check_status(self.writer.get()
+                         .WriteRecordBatch(deref(record_batch.batch)))
+
     @property
     def metadata(self):
         cdef:
