@@ -634,6 +634,7 @@ if(DEFINED ENV{ARROW_GOOGLE_CLOUD_CPP_URL})
 else()
   set_urls(google_cloud_cpp_storage_SOURCE_URL
            "https://github.com/googleapis/google-cloud-cpp/archive/${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/google-cloud-cpp-${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz"
   )
 endif()
 
