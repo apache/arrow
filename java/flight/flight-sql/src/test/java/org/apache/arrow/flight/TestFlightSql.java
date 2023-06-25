@@ -1010,13 +1010,6 @@ public class TestFlightSql {
   }
 
   @Test
-  public void testCloseInfo() {
-    FlightInfo info = sqlClient.getSqlInfo();
-    FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, () -> sqlClient.closeFlightInfo(info));
-    assertEquals(FlightStatusCode.UNIMPLEMENTED, fre.status().code());
-  }
-
-  @Test
   public void testRenewEndpoint() {
     FlightInfo info = sqlClient.getSqlInfo();
     FlightRuntimeException fre = assertThrows(FlightRuntimeException.class,

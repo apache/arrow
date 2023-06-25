@@ -74,10 +74,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
  * a returned FlightInfo by pre-defined RenewFlightEndpoint
  * action. The client can read data from endpoints multiple times
  * within more 10 seconds after the action.
- * <p>
- * The client can close a returned FlightInfo explicitly by
- * pre-defined CloseFlightInfo action. The client can't read data
- * from endpoints even within 3 seconds after the action.
  */
 final class ExpirationTimeProducer extends NoOpFlightProducer {
   public static final Schema SCHEMA = new Schema(
@@ -107,12 +103,7 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
     // Obviously, not safe (since we don't lock), but we assume calls are not concurrent
     int index = parseIndexFromTicket(ticket);
     EndpointStatus status = statuses.get(index);
-    if (status.closed) {
-      listener.error(CallStatus.NOT_FOUND
-          .withDescription("Invalid flight: closed")
-          .toRuntimeException());
-      return;
-    } else if (status.cancelled) {
+    if (status.cancelled) {
       listener.error(CallStatus.NOT_FOUND
           .withDescription("Invalid flight: cancelled")
           .toRuntimeException());
@@ -159,18 +150,12 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
           }
         }
         listener.onNext(new Result(new CancelFlightInfoResult(cancelStatus).serialize().array()));
-      } else if (action.getType().equals(FlightConstants.CLOSE_FLIGHT_INFO.getType())) {
-        FlightInfo info = FlightInfo.deserialize(ByteBuffer.wrap(action.getBody()));
-        for (FlightEndpoint endpoint : info.getEndpoints()) {
-          int index = parseIndexFromTicket(endpoint.getTicket());
-          statuses.get(index).closed = true;
-        }
       } else if (action.getType().equals(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType())) {
         RenewFlightEndpointRequest request = RenewFlightEndpointRequest.deserialize(ByteBuffer.wrap(action.getBody()));
         FlightEndpoint endpoint = request.getFlightEndpoint();
         int index = parseIndexFromTicket(endpoint.getTicket());
         EndpointStatus status = statuses.get(index);
-        if (status.closed) {
+        if (status.cancelled) {
           listener.onError(CallStatus.INVALID_ARGUMENT
               .withDescription("Invalid flight: cancelled")
               .toRuntimeException());
@@ -201,7 +186,6 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
   @Override
   public void listActions(CallContext context, StreamListener<ActionType> listener) {
     listener.onNext(FlightConstants.CANCEL_FLIGHT_INFO);
-    listener.onNext(FlightConstants.CLOSE_FLIGHT_INFO);
     listener.onNext(FlightConstants.RENEW_FLIGHT_ENDPOINT);
     listener.onCompleted();
   }
@@ -230,13 +214,11 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
     Instant expirationTime;
     int numGets;
     boolean cancelled;
-    boolean closed;
 
     EndpointStatus(Instant expirationTime) {
       this.expirationTime = expirationTime;
       this.numGets = 0;
       this.cancelled = false;
-      this.closed = false;
     }
   }
 }

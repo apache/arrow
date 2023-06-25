@@ -39,11 +39,6 @@ class IntegrationTest {
   }
 
   @Test
-  void expirationTimeCloseFlightInfo() throws Exception {
-    testScenario("expiration_time:close_flight_info");
-  }
-
-  @Test
   void expirationTimeDoGet() throws Exception {
     testScenario("expiration_time:do_get");
   }

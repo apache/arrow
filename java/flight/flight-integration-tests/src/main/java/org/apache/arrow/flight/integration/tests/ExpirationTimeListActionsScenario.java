@@ -41,18 +41,14 @@ final class ExpirationTimeListActionsScenario implements Scenario {
   @Override
   public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
     Iterator<ActionType> actions = client.listActions().iterator();
-    IntegrationAssertions.assertTrue("Expected 3 actions", actions.hasNext());
+    IntegrationAssertions.assertTrue("Expected 2 actions", actions.hasNext());
     ActionType action = actions.next();
     IntegrationAssertions.assertEquals(FlightConstants.CANCEL_FLIGHT_INFO.getType(), action.getType());
 
-    IntegrationAssertions.assertTrue("Expected 3 actions", actions.hasNext());
-    action = actions.next();
-    IntegrationAssertions.assertEquals(FlightConstants.CLOSE_FLIGHT_INFO.getType(), action.getType());
-
-    IntegrationAssertions.assertTrue("Expected 3 actions", actions.hasNext());
+    IntegrationAssertions.assertTrue("Expected 2 actions", actions.hasNext());
     action = actions.next();
     IntegrationAssertions.assertEquals(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType(), action.getType());
 
-    IntegrationAssertions.assertFalse("Expected 3 actions", actions.hasNext());
+    IntegrationAssertions.assertFalse("Expected 2 actions", actions.hasNext());
   }
 }

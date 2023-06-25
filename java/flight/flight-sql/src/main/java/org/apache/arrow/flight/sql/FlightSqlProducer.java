@@ -371,18 +371,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
         return;
       }
       cancelFlightInfo(request, context, new CancelStatusListener(listener));
-    } else if (actionType.equals(FlightConstants.CLOSE_FLIGHT_INFO.getType())) {
-      final FlightInfo info;
-      try {
-        info = FlightInfo.deserialize(ByteBuffer.wrap(action.getBody()));
-      } catch (IOException | URISyntaxException e) {
-        listener.onError(CallStatus.INTERNAL
-            .withDescription("Could not unpack FlightInfo: " + e)
-            .withCause(e)
-            .toRuntimeException());
-        return;
-      }
-      closeFlightInfo(info, context, new NoResultListener(listener));
     } else if (actionType.equals(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType())) {
       final RenewFlightEndpointRequest request;
       try {
@@ -438,17 +426,6 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
   }
 
-
-  /**
-   * Explicitly free resources associated with a query.
-   *
-   * @param info    The FlightInfo of the query to close.
-   * @param context Per-call context.
-   * @param listener An interface for sending data back to the client.
-   */
-  default void closeFlightInfo(FlightInfo info, CallContext context, StreamListener<Result> listener) {
-    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
-  }
 
   /**
    * Explicitly cancel a query.

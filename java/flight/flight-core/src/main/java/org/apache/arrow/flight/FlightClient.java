@@ -522,19 +522,6 @@ public class FlightClient implements AutoCloseable {
   }
 
   /**
-   * Request the server to free resources associated with a query.
-   *
-   * @param info The query to close.
-   * @param options Call options.
-   */
-  public void closeFlightInfo(FlightInfo info, CallOption... options) {
-    Action action = new Action(FlightConstants.CLOSE_FLIGHT_INFO.getType(), info.serialize().array());
-    Iterator<Result> results = doAction(action, options);
-    results.forEachRemaining((ignored) -> {
-    });
-  }
-
-  /**
    * Request the server to extend the lifetime of a query result set.
    *
    * @param request The result set partition.

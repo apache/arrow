@@ -867,16 +867,6 @@ public class FlightSqlClient implements AutoCloseable {
   }
 
   /**
-   * Request the server to free resources associated with a query.
-   *
-   * @param info The query to close.
-   * @param options Call options.
-   */
-  public void closeFlightInfo(FlightInfo info, CallOption... options) {
-    client.closeFlightInfo(info, options);
-  }
-
-  /**
    * Explicitly cancel a running query.
    * <p>
    * This lets a single client explicitly cancel work, no matter how many clients

@@ -31,11 +31,6 @@ public interface FlightConstants {
       "Explicitly cancel a running FlightInfo.\n" +
           "Request Message: CancelFlightInfoRequest\n" +
           "Response Message: CancelFlightInfoResult");
-
-  ActionType CLOSE_FLIGHT_INFO = new ActionType("CloseFlightInfo",
-      "Close the given FlightInfo explicitly.\n" +
-          "Request Message: FlightInfo to be closed\n" +
-          "Response Message: N/A");
   ActionType RENEW_FLIGHT_ENDPOINT = new ActionType("RenewFlightEndpoint",
       "Extend expiration time of the given FlightEndpoint.\n" +
           "Request Message: RenewFlightEndpointRequest\n" +
