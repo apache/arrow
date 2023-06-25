@@ -940,21 +940,6 @@ func (f *flightSqlServer) ListActions(_ *flight.Empty, stream flight.FlightServi
 	return nil
 }
 
-func cancelResultToCancelStatus(result CancelResult) flight.CancelStatus {
-	switch result {
-	case CancelResultUnspecified:
-		return flight.CancelStatusUnspecified
-	case CancelResultCancelled:
-		return flight.CancelStatusCancelled
-	case CancelResultCancelling:
-		return flight.CancelStatusCancelling
-	case CancelResultNotCancellable:
-		return flight.CancelStatusNotCancellable
-	default:
-		return flight.CancelStatusUnspecified
-	}
-}
-
 func cancelStatusToCancelResult(status flight.CancelStatus) CancelResult {
 	switch status {
 	case flight.CancelStatusUnspecified:
