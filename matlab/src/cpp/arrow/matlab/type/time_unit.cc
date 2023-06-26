@@ -31,7 +31,7 @@ namespace arrow::matlab::type {
             return arrow::TimeUnit::type::NANO;
         } else {
             auto maybe_utf8 = arrow::util::UTF16StringToUTF8(unit_str);
-            auto msg = maybe_utf8.ok() ? "Invalid time unit string: " + *maybe_utf8 : "Invalid time unit string";
+            auto msg = maybe_utf8.ok() ? "Unknown time unit string: " + *maybe_utf8 : "Unknown time unit string";
             return arrow::Status::Invalid(msg);
         }
     }

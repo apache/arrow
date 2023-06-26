@@ -50,12 +50,12 @@ namespace arrow::matlab::array::proxy {
 
         // extra the time zone string
         auto maybe_timezone = arrow::util::UTF16StringToUTF8(timezone_mda[0]);
-        MATLAB_ERROR_IF_NOT_OK(maybe_timezone.status(), "arrow:matlab:InvalidUTF16");
+        MATLAB_ERROR_IF_NOT_OK(maybe_timezone.status(), arrow:matlab:error:UNICODE_CONVERSION_ERROR_ID);
         const auto timezone = *maybe_timezone;
 
         // extra the time unit
         auto maybe_time_unit = arrow::matlab::type::timeUnitFromString(units_mda[0]);
-        MATLAB_ERROR_IF_NOT_OK(maybe_time_unit.status(), "arrow:matlab:UnknownTimeUnit");
+        MATLAB_ERROR_IF_NOT_OK(maybe_time_unit.status(), arrow:matlab:error:UKNOWN_TIME_UNIT_ERROR_ID);
         const auto time_unit = *maybe_time_unit;
 
         // create the timestamp_type
