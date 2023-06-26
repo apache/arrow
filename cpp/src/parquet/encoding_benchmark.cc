@@ -102,6 +102,18 @@ static void BM_PlainEncodingInt64(benchmark::State& state) {
 
 BENCHMARK(BM_PlainEncodingInt64)->Range(MIN_RANGE, MAX_RANGE);
 
+static void BM_DictEncodingInt64(benchmark::State& state) {
+  std::vector<int64_t> values(state.range(0), 64);
+  auto encoder = MakeTypedEncoder<Int64Type>(Encoding::RLE_DICTIONARY, true);
+  for (auto _ : state) {
+    encoder->Put(values.data(), static_cast<int>(values.size()));
+    encoder->FlushValues();
+  }
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
+}
+
+BENCHMARK(BM_DictEncodingInt64)->Range(MIN_RANGE, MAX_RANGE);
+
 static void BM_PlainDecodingInt64(benchmark::State& state) {
   std::vector<int64_t> values(state.range(0), 64);
   auto encoder = MakeTypedEncoder<Int64Type>(Encoding::PLAIN);
