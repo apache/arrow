@@ -20,6 +20,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/hashing.h"
@@ -441,6 +442,7 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   AddKernels(BaseBinaryTypes());
   AddKernels(NumericTypes());
   AddKernels(TemporalTypes());
+  AddKernels(DurationTypes());
   AddKernels({month_day_nano_interval()});
 
   std::vector<Type::type> other_types = {Type::BOOL, Type::DECIMAL128, Type::DECIMAL256,
