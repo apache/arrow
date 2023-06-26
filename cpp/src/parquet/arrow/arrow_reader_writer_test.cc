@@ -4647,6 +4647,24 @@ TEST_F(TestArrowReadDeltaEncoding, DeltaBinaryPacked) {
   ::arrow::AssertTablesEqual(*actual_table, *expect_table);
 }
 
+TEST_F(TestArrowReadDeltaEncoding, DeltaBinaryPackedWithLargeBinaryVariant) {
+  std::shared_ptr<::arrow::Table> actual_table, expect_table;
+  ArrowReaderProperties properties;
+  properties.set_use_large_binary_variants(true);
+
+  ReadTableFromParquetFile("delta_binary_packed.parquet", properties, &actual_table);
+
+  auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
+  for (int i = 0; i <= 64; ++i) {
+    std::string column_name = "bitwidth" + std::to_string(i);
+    convert_options.column_types[column_name] = ::arrow::int64();
+  }
+  convert_options.column_types["int_value"] = ::arrow::int32();
+  ReadTableFromCSVFile("delta_binary_packed_expect.csv", convert_options, &expect_table);
+
+  ::arrow::AssertTablesEqual(*actual_table, *expect_table);
+}
+
 TEST_F(TestArrowReadDeltaEncoding, DeltaByteArray) {
   std::shared_ptr<::arrow::Table> actual_table, expect_table;
   ReadTableFromParquetFile("delta_byte_array.parquet", &actual_table);
