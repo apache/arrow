@@ -1051,7 +1051,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
     return unlocked_future_;
   }
 
-  void _WaitForEndOrUnlocked(std::chrono::time_point<std::chrono::steady_clock> end_time,
+  void WaitForEndOrUnlocked(std::chrono::time_point<std::chrono::steady_clock> end_time,
                              arrow::internal::Executor* executor, Future<> future) {
     if (unlocked_) {
       num_finished_++;
@@ -1067,7 +1067,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
       } else {
         SleepABit();
         auto spawn_status = executor->Spawn([this, end_time, executor, future]() {
-          _WaitForEndOrUnlocked(end_time, executor, future);
+          WaitForEndOrUnlocked(end_time, executor, future);
         });
         if (!spawn_status.ok()) {
           status_ &= Status::Invalid("Couldn't spawn gating task unlock waiter");
@@ -1094,7 +1094,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
     arrow::internal::Executor* executor = arrow::internal::GetCpuThreadPool();
     Future<> future = Future<>::Make();
     auto spawn_status = executor->Spawn([this, end_time, executor, future]() {
-      _WaitForEndOrUnlocked(end_time, executor, future);
+      WaitForEndOrUnlocked(end_time, executor, future);
     });
     if (!spawn_status.ok()) {
       status_ &= Status::Invalid("Couldn't spawn gating task unlock waiter");
