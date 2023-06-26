@@ -337,17 +337,23 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
 }
 
 MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
+                   BufferVector buffers, const std::shared_ptr<Array>& keys,
+                   const std::shared_ptr<Array>& items, int64_t null_count,
+                   int64_t offset) {
+  auto pair_data = ArrayData::Make(type->fields()[0]->type(), keys->data()->length,
+                                   {nullptr}, {keys->data(), items->data()}, 0, offset);
+  auto map_data =
+      ArrayData::Make(type, length, std::move(buffers), {pair_data}, null_count, offset);
+  SetData(map_data);
+}
+
+MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
                    const std::shared_ptr<Buffer>& offsets,
                    const std::shared_ptr<Array>& keys,
                    const std::shared_ptr<Array>& items,
                    const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
-                   int64_t offset) {
-  auto pair_data = ArrayData::Make(type->fields()[0]->type(), keys->data()->length,
-                                   {nullptr}, {keys->data(), items->data()}, 0, offset);
-  auto map_data = ArrayData::Make(type, length, {null_bitmap, offsets}, {pair_data},
-                                  null_count, offset);
-  SetData(map_data);
-}
+                   int64_t offset)
+    : MapArray(type, length, {null_bitmap, offsets}, keys, items, null_count, offset) {}
 
 Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
     std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
