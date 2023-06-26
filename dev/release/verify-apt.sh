@@ -49,6 +49,7 @@ APT_INSTALL="apt install -y -V --no-install-recommends"
 
 apt update
 ${APT_INSTALL} \
+  base-files \
   ca-certificates \
   curl \
   lsb-release
