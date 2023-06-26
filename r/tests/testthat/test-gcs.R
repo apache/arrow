@@ -132,7 +132,8 @@ fs <- GcsFileSystem$create(
   endpoint_override = sprintf("localhost:%s", testbench_port),
   retry_limit_seconds = 1,
   scheme = "http",
-  anonymous = TRUE # Will fail to resolve host name if anonymous isn't TRUE
+  anonymous = TRUE, # Will fail to resolve host name if anonymous isn't TRUE
+  project_id = "test-project-id"
 )
 
 now <- as.character(as.numeric(Sys.time()))
