@@ -1852,6 +1852,10 @@ RecordBatchReader__Head <- function(reader, num_rows) {
   .Call(`_arrow_RecordBatchReader__Head`, reader, num_rows)
 }
 
+MakeSafeRecordBatchReader <- function(reader) {
+  .Call(`_arrow_MakeSafeRecordBatchReader`, reader)
+}
+
 ipc___RecordBatchStreamReader__Open <- function(stream) {
   .Call(`_arrow_ipc___RecordBatchStreamReader__Open`, stream)
 }
