@@ -20,11 +20,21 @@
 set -ex
 
 source_dir=${1}/js
+shard=${2}
 
 pushd ${source_dir}
 
-yarn lint
-yarn test
-yarn test:bundle
+if [ -n "${shard}" ]; then
+  # Run only when `1/n`.
+  if [ "${shard:0:1}" = "1" ]; then
+    yarn lint
+    yarn test:bundle
+  fi
+  yarn test -- --shard=${shard}
+else
+  yarn lint
+  yarn test
+  yarn test:bundle
+fi
 
 popd

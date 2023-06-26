@@ -75,6 +75,9 @@ export const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, fu
     if (format === 'esm' || target === 'ts' || target === 'src' || target === npmPkgName) {
         args.unshift(`--experimental-vm-modules`);
     }
+    if (argv.shard) {
+        args.push(`--shard=${argv.shard}`);
+    }
     if (argv.coverage) {
         args.push(`-c`, `jestconfigs/jest.coverage.config.js`);
     } else {

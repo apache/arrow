@@ -22,6 +22,7 @@ export const argv = args([
     { name: `target`, type: String, defaultValue: `` },
     { name: `module`, type: String, defaultValue: `` },
     { name: `coverage`, type: Boolean, defaultValue: false },
+    { name: `shard`, type: String, defaultValue: `` },
     { name: `targets`, alias: `t`, type: String, multiple: true, defaultValue: [] },
     { name: `modules`, alias: `m`, type: String, multiple: true, defaultValue: [] },
 ], { partial: true });
