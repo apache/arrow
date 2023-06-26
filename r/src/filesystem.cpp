@@ -496,7 +496,7 @@ cpp11::list fs___GcsFileSystem__options(const std::shared_ptr<fs::GcsFileSystem>
     out.push_back({"default_metadata"_nm = metadata});
   }
 
-  if (opts.project_is.has_value()) {
+  if (opts.project_id.has_value()) {
     out.push_back({"project_id"_nm = opts.project_id.value()});
   }
 
