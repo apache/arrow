@@ -24,8 +24,13 @@ import pytest
 import numpy as np
 import pyarrow as pa
 
-from pyarrow.lib import _pandas_api
 import pyarrow.tests.util as test_util
+from pyarrow.vendored.version import Version
+
+try:
+    import pandas as pd
+except ImportError:
+    pass
 
 
 def test_schema_constructor_errors():
@@ -47,8 +52,7 @@ def test_type_integers():
 
 def test_type_to_pandas_dtype():
     M8 = np.dtype('datetime64[ms]')
-    if _pandas_api.is_v1():
-        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
+    if Version(pd.__version__) < Version("2.0.0"):
         M8 = np.dtype('datetime64[ns]')
     cases = [
         (pa.null(), np.object_),

@@ -75,6 +75,10 @@ def _alltypes_example(size=100):
                                   dtype='datetime64[us]'),
         'datetime[ns]': np.arange("2016-01-01T00:00:00.001", size,
                                   dtype='datetime64[ns]'),
+        'timedelta64[s]' : np.arange(0, size, dtype='timedelta64[s]'),
+        'timedelta64[ms]' : np.arange(0, size, dtype='timedelta64[ms]'),
+        'timedelta64[us]' : np.arange(0, size, dtype='timedelta64[us]'),
+        'timedelta64[ns]' : np.arange(0, size, dtype='timedelta64[ns]'),
         'str': [str(x) for x in range(size)],
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'empty_str': [''] * size
@@ -1023,9 +1027,8 @@ class TestConvertDateTimeLikeTypes:
 
     @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
     def test_timestamps_with_timezone(self, unit):
-        if Version(pd.__version__) < Version("2.0.0"):
-            # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
-            unit = 'ns'
+        if Version(pd.__version__) < Version("2.0.0") and unit != 'ns':
+            pytest.skip("pandas < 2.0 only supports nanosecond datetime64")
         df = pd.DataFrame({
             'datetime64': np.array([
                 '2007-07-13T01:23:34.123',
@@ -1038,14 +1041,14 @@ class TestConvertDateTimeLikeTypes:
 
         _check_series_roundtrip(df['datetime64'])
 
-        # drop-in a null and ns instead of ms
+        # drop-in a null
         df = pd.DataFrame({
             'datetime64': np.array([
                 '2007-07-13T01:23:34.123456789',
                 None,
                 '2006-01-13T12:34:56.432539784',
                 '2010-08-13T05:46:57.437699912'],
-                dtype='datetime64[ns]')
+                dtype=f'datetime64[{unit}]')
         })
         df['datetime64'] = df['datetime64'].dt.tz_localize('US/Eastern')
 
@@ -1185,7 +1188,11 @@ class TestConvertDateTimeLikeTypes:
 
         assert arr.equals(expected)
 
-    def test_array_types_date_as_object(self):
+
+    @pytest.mark.parametrize("coerce_to_ns,expected_dtype",
+                             [(False, 'datetime64[ms]'),
+                              (True, 'datetime64[ns]')])
+    def test_array_types_date_as_object(self, coerce_to_ns, expected_dtype):
         data = [date(2000, 1, 1),
                 None,
                 date(1970, 1, 1),
@@ -1193,7 +1200,6 @@ class TestConvertDateTimeLikeTypes:
         expected_days = np.array(['2000-01-01', None, '1970-01-01',
                                   '2040-02-26'], dtype='datetime64[D]')
 
-        expected_dtype = 'datetime64[ms]'
         if Version(pd.__version__) < Version("2.0.0"):
             # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
             expected_dtype = 'datetime64[ns]'
@@ -1205,12 +1211,12 @@ class TestConvertDateTimeLikeTypes:
                    pa.chunked_array([data])]
 
         for obj in objects:
-            result = obj.to_pandas()
+            result = obj.to_pandas(coerce_temporal_nanoseconds=coerce_to_ns)
             expected_obj = expected_days.astype(object)
             assert result.dtype == expected_obj.dtype
             npt.assert_array_equal(result, expected_obj)
 
-            result = obj.to_pandas(date_as_object=False)
+            result = obj.to_pandas(date_as_object=False, coerce_temporal_nanoseconds=coerce_to_ns)
             assert result.dtype == expected.dtype
             npt.assert_array_equal(result, expected)
 
@@ -1234,16 +1240,42 @@ class TestConvertDateTimeLikeTypes:
                               check_dtype=True)
         tm.assert_frame_equal(df, df_object, check_dtype=True)
 
-    def test_table_coerce_temporal_nanoseconds(self):
-        df = pd.DataFrame({'date': [date(2000, 1, 1)]}, dtype='datetime64[ms]')
-        table = pa.Table.from_pandas(df)
+    @pytest.mark.parametrize("arrow_type",
+                             [pa.date32(), pa.date64(), pa.timestamp('s'),
+                              pa.timestamp('ms'), pa.timestamp('us'),
+                              pa.timestamp('ns'), pa.timestamp('s', 'UTC'),
+                              pa.timestamp('ms', 'UTC'), pa.timestamp('us', 'UTC'),
+                              pa.timestamp('ns', 'UTC')])
+    def test_array_coerce_temporal_nanoseconds(self, arrow_type):
+        data = [date(2000, 1, 1), datetime(2001, 1, 1)]
+        expected = pd.Series(data)
+        arr = pa.array(data).cast(arrow_type)
+        result = arr.to_pandas(
+            coerce_temporal_nanoseconds=True, date_as_object=False)
+        expected_tz = None
+        if hasattr(arrow_type, 'tz') and arrow_type.tz is not None:
+            expected_tz = 'UTC'
+        expected_type = pa.timestamp('ns', expected_tz).to_pandas_dtype()
+        tm.assert_series_equal(result, expected.astype(expected_type))
+
+    @pytest.mark.parametrize("arrow_type",
+                             [pa.date32(), pa.date64(), pa.timestamp('s'),
+                              pa.timestamp('ms'), pa.timestamp('us'),
+                              pa.timestamp('ns'), pa.timestamp('s', 'UTC'),
+                              pa.timestamp('ms', 'UTC'), pa.timestamp('us', 'UTC'),
+                              pa.timestamp('ns', 'UTC')])
+    def test_table_coerce_temporal_nanoseconds(self, arrow_type):
+        data = [date(2000, 1, 1), datetime(2001, 1, 1)]
+        schema = pa.schema([pa.field('date', arrow_type)])
+        expected_df = pd.DataFrame({'date': data})
+        table = pa.table([pa.array(data)], schema=schema)
         result_df = table.to_pandas(
             coerce_temporal_nanoseconds=True, date_as_object=False)
-        expected_df = df.astype('datetime64[ns]')
-        tm.assert_frame_equal(result_df, expected_df)
-        result_df = table.to_pandas(
-            coerce_temporal_nanoseconds=False, date_as_object=False)
-        tm.assert_frame_equal(result_df, df)
+        expected_tz = None
+        if hasattr(arrow_type, 'tz') and arrow_type.tz is not None:
+            expected_tz = 'UTC'
+        expected_type = pa.timestamp('ns', expected_tz).to_pandas_dtype()
+        tm.assert_frame_equal(result_df, expected_df.astype(expected_type))
 
     def test_date_infer(self):
         df = pd.DataFrame({
@@ -1490,7 +1522,7 @@ class TestConvertDateTimeLikeTypes:
 
                 msg = "would result in out of bounds timestamp"
                 with pytest.raises(ValueError, match=msg):
-                    print(arr.to_pandas(coerce_temporal_nanoseconds=True))
+                    arr.to_pandas(coerce_temporal_nanoseconds=True)
 
                 with pytest.raises(ValueError, match=msg):
                     table.to_pandas(coerce_temporal_nanoseconds=True)
@@ -1552,24 +1584,30 @@ class TestConvertDateTimeLikeTypes:
         # TODO remove if https://github.com/apache/arrow/issues/15047 is fixed
         _check_pandas_roundtrip(df, check_dtype=False)
 
-    def test_timedeltas_no_nulls(self):
+    @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
+    def test_timedeltas_no_nulls(self, unit):
+        if Version(pd.__version__) < Version("2.0.0"):
+            unit = 'ns'
         df = pd.DataFrame({
             'timedelta64': np.array([0, 3600000000000, 7200000000000],
-                                    dtype='timedelta64[ns]')
+                                    dtype=f'timedelta64[{unit}]')
         })
-        field = pa.field('timedelta64', pa.duration('ns'))
+        field = pa.field('timedelta64', pa.duration(unit))
         schema = pa.schema([field])
         _check_pandas_roundtrip(
             df,
             expected_schema=schema,
         )
 
-    def test_timedeltas_nulls(self):
+    @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
+    def test_timedeltas_nulls(self, unit):
+        if Version(pd.__version__) < Version("2.0.0"):
+            unit = 'ns'
         df = pd.DataFrame({
             'timedelta64': np.array([0, None, 7200000000000],
-                                    dtype='timedelta64[ns]')
+                                    dtype=f'timedelta64[{unit}]')
         })
-        field = pa.field('timedelta64', pa.duration('ns'))
+        field = pa.field('timedelta64', pa.duration(unit))
         schema = pa.schema([field])
         _check_pandas_roundtrip(
             df,

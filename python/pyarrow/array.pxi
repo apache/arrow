@@ -722,11 +722,15 @@ cdef class _PandasConvertible(_Weakrefable):
         integer_object_nulls : bool, default False
             Cast integers with nulls to objects
         date_as_object : bool, default True
-            Cast dates to objects. If False, convert to datetime64 dtype.
+            Cast dates to objects. If False, convert to datetime64 dtype with
+            the equivalent time unit (if supported). Note: in pandas version
+            < 2.0, only datetime64[ns] conversion is supported.
+            dtype.
         timestamp_as_object : bool, default False
             Cast non-nanosecond timestamps (np.datetime64) to objects. This is
-            useful if you have timestamps that don't fit in the normal date
-            range of nanosecond timestamps (1678 CE-2262 CE).
+            useful in pandas version 1.x if you have timestamps that don't fit
+            in the normal date range of nanosecond timestamps (1678 CE-2262 CE).
+            Non-nanosecond timestamps are supported in pandas version 2.0.
             If False, all timestamps are converted to datetime64 dtype.
         use_threads : bool, default True
             Whether to parallelize the conversion using multiple threads.
@@ -778,7 +782,7 @@ cdef class _PandasConvertible(_Weakrefable):
             a dictionary mapping, you can pass ``dict.get`` as function.
         coerce_temporal_nanoseconds : bool, default False
             Only applicable to pandas version >= 2.0.
-            A legacy option to coerce date32, date64, datetime, and timestamp
+            A legacy option to coerce date32, date64, duration, and timestamp
             time units to nanoseconds when converting to pandas. This is the
             default behavior in pandas version 1.x. Set this option to True if
             you'd like to use this coercion when using pandas version >= 2.0
