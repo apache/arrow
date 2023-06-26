@@ -2823,10 +2823,10 @@ std::shared_ptr<Buffer> DeltaLengthByteArrayEncoder<DType>::FlushValues() {
 
 template <typename BAT>
 class DeltaLengthByteArrayDecoderBase : public DecoderImpl,
-                                    virtual public TypedDecoder<BAT> {
+                                        virtual public TypedDecoder<BAT> {
  public:
-  explicit DeltaLengthByteArrayDecoderBase(const ColumnDescriptor* descr,
-                                       MemoryPool* pool = ::arrow::default_memory_pool())
+  explicit DeltaLengthByteArrayDecoderBase(
+      const ColumnDescriptor* descr, MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY),
         len_decoder_(nullptr, pool),
         buffered_length_(AllocateBuffer(pool, 0)) {}
@@ -2955,7 +2955,8 @@ class DeltaLengthByteArrayDecoderBase : public DecoderImpl,
 };
 
 using DeltaLengthByteArrayDecoder = DeltaLengthByteArrayDecoderBase<ByteArrayType>;
-using DeltaLengthLargeByteArrayDecoder = DeltaLengthByteArrayDecoderBase<LargeByteArrayType>;
+using DeltaLengthLargeByteArrayDecoder =
+    DeltaLengthByteArrayDecoderBase<LargeByteArrayType>;
 
 // ----------------------------------------------------------------------
 // RLE_BOOLEAN_ENCODER
@@ -3148,11 +3149,10 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
 // DELTA_BYTE_ARRAY
 
 template <typename BAT>
-class DeltaByteArrayDecoderBase : public DecoderImpl,
-                              virtual public TypedDecoder<BAT> {
+class DeltaByteArrayDecoderBase : public DecoderImpl, virtual public TypedDecoder<BAT> {
  public:
   explicit DeltaByteArrayDecoderBase(const ColumnDescriptor* descr,
-                                 MemoryPool* pool = ::arrow::default_memory_pool())
+                                     MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_BYTE_ARRAY),
         prefix_len_decoder_(nullptr, pool),
         suffix_decoder_(nullptr, pool),
@@ -3201,10 +3201,9 @@ class DeltaByteArrayDecoderBase : public DecoderImpl,
     return result;
   }
 
-  int DecodeArrow(
-      int num_values, int null_count, const uint8_t* valid_bits,
-      int64_t valid_bits_offset,
-      typename EncodingTraits<BAT>::DictAccumulator* builder) override {
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<BAT>::DictAccumulator* builder) override {
     ParquetException::NYI("DecodeArrow of DictAccumulator for DeltaByteArrayDecoder");
   }
 

@@ -488,13 +488,14 @@ void DoRoundTripWithBatches(
   ASSERT_OK_AND_ASSIGN(*out, Table::FromRecordBatchReader(batch_reader.get()));
 }
 
-void CheckSimpleRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
-                          const std::shared_ptr<ArrowWriterProperties>&
-                              arrow_writer_properties = default_arrow_writer_properties()) {
+void CheckSimpleRoundtrip(
+    const std::shared_ptr<Table>& table, int64_t row_group_size,
+    const std::shared_ptr<ArrowWriterProperties>& arrow_writer_properties =
+        default_arrow_writer_properties()) {
   std::shared_ptr<Table> result;
-  ASSERT_NO_FATAL_FAILURE(
-      DoSimpleRoundtrip(table, false /* use_threads */, row_group_size, {}, &result,
-                        arrow_writer_properties));
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(table, false /* use_threads */,
+                                            row_group_size, {}, &result,
+                                            arrow_writer_properties));
   ::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
                              /*check_metadata=*/false);
   ASSERT_OK(result->ValidateFull());
@@ -4606,8 +4607,8 @@ class TestArrowReadDeltaEncoding : public ::testing::Test {
     auto file = test::get_data_file(file_name);
     auto pool = ::arrow::default_memory_pool();
     std::unique_ptr<FileReader> parquet_reader;
-    ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false),
-                               properties, &parquet_reader));
+    ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), properties,
+                               &parquet_reader));
     ASSERT_OK(parquet_reader->ReadTable(out));
     ASSERT_OK((*out)->ValidateFull());
   }
