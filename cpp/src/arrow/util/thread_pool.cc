@@ -84,13 +84,13 @@ struct SerialExecutorGlobalState {
   SerialExecutor* last_called_executor = NULL;
 };
 
-static SerialExecutorGlobalState& GetSerialExecutorGlobalState() {
+static SerialExecutorGlobalState* GetSerialExecutorGlobalState() {
   static SerialExecutorGlobalState state;
-  return state;
+  return &state;
 }
 
 SerialExecutor* SerialExecutor::GetCurrentExecutor() {
-  return GetSerialExecutorGlobalState().current_executor;
+  return GetSerialExecutorGlobalState()->current_executor;
 }
 
 bool SerialExecutor::IsCurrentExecutor() { return GetCurrentExecutor() == this; }
@@ -99,14 +99,14 @@ bool SerialExecutor::IsCurrentExecutor() { return GetCurrentExecutor() == this; 
 
 SerialExecutor::SerialExecutor() : state_(std::make_shared<State>()) {
 #ifndef ARROW_ENABLE_THREADING
-  GetSerialExecutorGlobalState().all_executors.insert(this);
+  GetSerialExecutorGlobalState()->all_executors.insert(this);
   state_->max_tasks_running = 1;
 #endif
 }
 
 SerialExecutor::~SerialExecutor() {
 #ifndef ARROW_ENABLE_THREADING
-  GetSerialExecutorGlobalState().all_executors.erase(this);
+  GetSerialExecutorGlobalState()->all_executors.erase(this);
 #endif
   auto state = state_;
   std::unique_lock<std::mutex> lk(state->mutex);
@@ -271,26 +271,26 @@ void SerialExecutor::RunLoop() {
 bool SerialExecutor::RunTasksOnAllExecutors(bool once_only) {
   auto globalState = GetSerialExecutorGlobalState();
   // if the previously called executor was deleted, ignore last_called_executor
-  if (globalState.last_called_executor != NULL &&
-      globalState.all_executors.count(globalState.last_called_executor) == 0) {
-    globalState.last_called_executor = NULL;
+  if (globalState->last_called_executor != NULL &&
+      globalState->all_executors.count(globalState->last_called_executor) == 0) {
+    globalState->last_called_executor = NULL;
   }
   bool run_task = true;
   bool keep_going = true;
   while (keep_going) {
     run_task = false;
     keep_going = false;
-    for (auto it = globalState.all_executors.begin();
-         it != globalState.all_executors.end(); ++it) {
-      if (globalState.last_called_executor != NULL) {
+    for (auto it = globalState->all_executors.begin();
+         it != globalState->all_executors.end(); ++it) {
+      if (globalState->last_called_executor != NULL) {
         // always rerun loop if we have a last_called_executor, otherwise
         // we drop out before everything is
         keep_going = true;
-        if (globalState.all_executors.count(globalState.last_called_executor) == 0 ||
-            globalState.last_called_executor == *it) {
+        if (globalState->all_executors.count(globalState->last_called_executor) == 0 ||
+            globalState->last_called_executor == *it) {
           // found the last one (or it doesn't exist ih the set any more)
           // now we can start running things
-          globalState.last_called_executor = NULL;
+          globalState->last_called_executor = NULL;
         }
         // skip until after we have seen the last executor we called
         // so that we do things nicely in turn
@@ -303,8 +303,8 @@ bool SerialExecutor::RunTasksOnAllExecutors(bool once_only) {
         continue;
       }
       if (exe->state_->paused == false && exe->state_->task_queue.empty() == false) {
-        SerialExecutor* old_exe = globalState.current_executor;
-        globalState.current_executor = exe;
+        SerialExecutor* old_exe = globalState->current_executor;
+        globalState->current_executor = exe;
         Task task = std::move(exe->state_->task_queue.front());
         exe->state_->task_queue.pop_front();
         run_task = true;
@@ -317,10 +317,10 @@ bool SerialExecutor::RunTasksOnAllExecutors(bool once_only) {
           }
         }
         exe->state_->tasks_running -= 1;
-        globalState.current_executor = old_exe;
+        globalState->current_executor = old_exe;
 
         if (once_only) {
-          globalState.last_called_executor = exe;
+          globalState->last_called_executor = exe;
           keep_going = false;
           break;
         } else {
@@ -346,8 +346,8 @@ void SerialExecutor::RunLoop() {
       while (!state_->paused && !state_->task_queue.empty()) {
         Task task = std::move(state_->task_queue.front());
         state_->task_queue.pop_front();
-        auto last_executor = globalState.current_executor;
-        globalState.current_executor = this;
+        auto last_executor = globalState->current_executor;
+        globalState->current_executor = this;
         state_->tasks_running += 1;
         if (!task.stop_token.IsStopRequested()) {
           std::move(task.callable)();
@@ -357,7 +357,7 @@ void SerialExecutor::RunLoop() {
           }
         }
         state_->tasks_running -= 1;
-        globalState.current_executor = last_executor;
+        globalState->current_executor = last_executor;
       }
       if (state_->paused || (state_->finished && state_->task_queue.empty())) {
         break;
