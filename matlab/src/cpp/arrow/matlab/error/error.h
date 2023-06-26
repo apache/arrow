@@ -57,9 +57,9 @@
 // MATLAB_ASSIGN_OR_ERROR(auto array, make_array(), error::FAILED_TO_MAKE_ARRAY);
 //
 
-#define MATLAB_ASSIGN_OR_ERROR(lhs, rexpr, id)                                                  \
-    MATLAB_ASSIGN_OR_ERROR_IMPL(MATLAB_ASSIGN_OR_RAISE_NAME(_matlab_error_or_value, __COUNTER), \
-                                lhs, rexpr, id);                                                \
+#define MATLAB_ASSIGN_OR_ERROR(lhs, rexpr, id)                                                    \
+    MATLAB_ASSIGN_OR_ERROR_IMPL(MATLAB_ASSIGN_OR_RAISE_NAME(_matlab_error_or_value, __COUNTER__), \
+                                lhs, rexpr, id);                                                  \
 
 #define MATLAB_ASSIGN_OR_RAISE_NAME(x, y) \
     ARROW_CONCAT(x, y)                    \
