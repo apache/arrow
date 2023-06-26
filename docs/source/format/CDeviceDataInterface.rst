@@ -282,7 +282,7 @@ has the following fields:
     data.
 
 .. seealso::
-    The :ref:`synchronization event types <_c-device-data-interface-event-types>`
+    The :ref:`synchronization event types <c-device-data-interface-event-types>`
     section below.
 
 .. c:member:: int64_t ArrowDeviceArray.reserved[3]
@@ -563,7 +563,7 @@ streaming source of Arrow arrays. It has the following fields:
 .. c:member:: ArrowDeviceType device_type
 
     *Mandatory.* The device type that this stream produces data on. All
-    ``ArrowDeviceArray``s that are produced by this stream should have the
+    ``ArrowDeviceArray`` s that are produced by this stream should have the
     same device type as is set here. This is a convenience for the consumer
     to not have to check every array that is retrieved and instead allows
     higher-level coding constructs for streams.
@@ -675,7 +675,7 @@ is frozen. This means that the ``ArrowDeviceArray`` structure definition
 should not change in any way -- including adding new members.
 
 Backwards-compatible changes are allowed, for example new macro values for
-:c:typedef:`ArrowDeviceType` or converting the reserved 24 bytes into a
+:c:type:`ArrowDeviceType` or converting the reserved 24 bytes into a
 different type/member without changing the size of the structure.
 
 Any incompatible changes should be part of a new specification, for example

@@ -195,7 +195,7 @@ CMake
 
 - To build all JNI libraries (MacOS / Linux) except the JNI C Data Interface library:
 
-  .. code-block::
+  .. code-block:: text
 
       $ cd arrow
       $ brew bundle --file=cpp/Brewfile
