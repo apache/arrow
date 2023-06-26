@@ -102,18 +102,6 @@ static void BM_PlainEncodingInt64(benchmark::State& state) {
 
 BENCHMARK(BM_PlainEncodingInt64)->Range(MIN_RANGE, MAX_RANGE);
 
-static void BM_DictEncodingInt64(benchmark::State& state) {
-  std::vector<int64_t> values(state.range(0), 64);
-  auto encoder = MakeTypedEncoder<Int64Type>(Encoding::RLE_DICTIONARY, true);
-  for (auto _ : state) {
-    encoder->Put(values.data(), static_cast<int>(values.size()));
-    encoder->FlushValues();
-  }
-  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(int64_t));
-}
-
-BENCHMARK(BM_DictEncodingInt64)->Range(MIN_RANGE, MAX_RANGE);
-
 static void BM_PlainDecodingInt64(benchmark::State& state) {
   std::vector<int64_t> values(state.range(0), 64);
   auto encoder = MakeTypedEncoder<Int64Type>(Encoding::PLAIN);
@@ -795,6 +783,27 @@ static void BM_RleDecodingSpacedBoolean(benchmark::State& state) {
 BENCHMARK(BM_RleDecodingSpacedBoolean)->Apply(BM_SpacedArgs);
 
 template <typename Type>
+static void EncodeDict(std::vector<typename Type::c_type>& values,
+                       benchmark::State& state) {
+  using T = typename Type::c_type;
+  int num_values = static_cast<int>(values.size());
+
+  MemoryPool* allocator = default_memory_pool();
+  std::shared_ptr<ColumnDescriptor> descr = Int64Schema(Repetition::REQUIRED);
+
+  auto base_encoder = MakeEncoder(Type::type_num, Encoding::RLE_DICTIONARY,
+                                  /*use_dictionary=*/true, descr.get(), allocator);
+  auto encoder =
+      dynamic_cast<typename EncodingTraits<Type>::Encoder*>(base_encoder.get());
+  for (auto _ : state) {
+    encoder->Put(values.data(), num_values);
+    encoder->FlushValues();
+  }
+
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(T));
+}
+
+template <typename Type>
 static void DecodeDict(std::vector<typename Type::c_type>& values,
                        benchmark::State& state) {
   typedef typename Type::c_type T;
@@ -846,6 +855,16 @@ static void BM_DictDecodingInt64_repeats(benchmark::State& state) {
 
 BENCHMARK(BM_DictDecodingInt64_repeats)->Range(MIN_RANGE, MAX_RANGE);
 
+static void BM_DictEncodingInt64_repeats(benchmark::State& state) {
+  typedef Int64Type Type;
+  typedef typename Type::c_type T;
+
+  std::vector<T> values(state.range(0), 64);
+  EncodeDict<Type>(values, state);
+}
+
+BENCHMARK(BM_DictEncodingInt64_repeats)->Range(MIN_RANGE, MAX_RANGE);
+
 static void BM_DictDecodingInt64_literals(benchmark::State& state) {
   typedef Int64Type Type;
   typedef typename Type::c_type T;
@@ -858,6 +877,19 @@ static void BM_DictDecodingInt64_literals(benchmark::State& state) {
 }
 
 BENCHMARK(BM_DictDecodingInt64_literals)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_DictEncodingInt64_literals(benchmark::State& state) {
+  using Type = Int64Type;
+  using T = typename Type::c_type;
+
+  std::vector<T> values(state.range(0));
+  for (size_t i = 0; i < values.size(); ++i) {
+    values[i] = i;
+  }
+  EncodeDict<Type>(values, state);
+}
+
+BENCHMARK(BM_DictEncodingInt64_literals)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_DictDecodingByteArray(benchmark::State& state) {
   ::arrow::random::RandomArrayGenerator rag(0);
