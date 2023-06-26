@@ -419,18 +419,18 @@ class OrderedScenario : public Scenario {
 /// three FlightEndpoints:
 ///
 /// 1. No expiration time
-/// 2. 2 seconds expiration time
-/// 3. 3 seconds expiration time
+/// 2. 5 seconds expiration time
+/// 3. 6 seconds expiration time
 ///
 /// The client can't read data from the first endpoint multiple times
 /// but can read data from the second and third endpoints. The client
-/// can't re-read data from the second endpoint 2 seconds later. The
-/// client can't re-read data from the third endpoint 3 seconds
+/// can't re-read data from the second endpoint 5 seconds later. The
+/// client can't re-read data from the third endpoint 6 seconds
 /// later.
 ///
 /// The client can cancel a returned FlightInfo by pre-defined
 /// CancelFlightInfo action. The client can't read data from endpoints
-/// even within 3 seconds after the action.
+/// even within 6 seconds after the action.
 ///
 /// The client can extend the expiration time of a FlightEndpoint in
 /// a returned FlightInfo by pre-defined RenewFlightEndpoint
@@ -457,10 +457,10 @@ class ExpirationTimeServer : public FlightServerBase {
     auto schema = BuildSchema();
     std::vector<FlightEndpoint> endpoints;
     AddEndpoint(endpoints, "No expiration time", std::nullopt);
-    AddEndpoint(endpoints, "2 seconds",
-                Timestamp::clock::now() + std::chrono::seconds{2});
-    AddEndpoint(endpoints, "3 seconds",
-                Timestamp::clock::now() + std::chrono::seconds{3});
+    AddEndpoint(endpoints, "5 seconds",
+                Timestamp::clock::now() + std::chrono::seconds{5});
+    AddEndpoint(endpoints, "6 seconds",
+                Timestamp::clock::now() + std::chrono::seconds{6});
     ARROW_ASSIGN_OR_RAISE(
         auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     *result = std::make_unique<FlightInfo>(info);

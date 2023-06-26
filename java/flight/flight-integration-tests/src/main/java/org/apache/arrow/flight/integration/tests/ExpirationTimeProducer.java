@@ -56,19 +56,19 @@ import org.apache.arrow.vector.types.pojo.Schema;
  *
  * <ol>
  * <li>No expiration time</li>
- * <li>2 seconds expiration time</li>
- * <li>3 seconds expiration time</li>
+ * <li>5 seconds expiration time</li>
+ * <li>6 seconds expiration time</li>
  * </ol>
  *
  * The client can't read data from the first endpoint multiple times
  * but can read data from the second and third endpoints. The client
- * can't re-read data from the second endpoint 2 seconds later. The
- * client can't re-read data from the third endpoint 3 seconds
+ * can't re-read data from the second endpoint 5 seconds later. The
+ * client can't re-read data from the third endpoint 6 seconds
  * later.
  * <p>
  * The client can cancel a returned FlightInfo by pre-defined
  * CancelFlightInfo action. The client can't read data from endpoints
- * even within 3 seconds after the action.
+ * even within 6 seconds after the action.
  * <p>
  * The client can extend the expiration time of a FlightEndpoint in
  * a returned FlightInfo by pre-defined RenewFlightEndpoint
@@ -93,8 +93,8 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
     List<FlightEndpoint> endpoints = new ArrayList<>();
     Instant now = Instant.now();
     endpoints.add(addEndpoint("No expiration time", null));
-    endpoints.add(addEndpoint("2 seconds", now.plus(2, ChronoUnit.SECONDS)));
-    endpoints.add(addEndpoint("3 seconds", now.plus(3, ChronoUnit.SECONDS)));
+    endpoints.add(addEndpoint("5 seconds", now.plus(5, ChronoUnit.SECONDS)));
+    endpoints.add(addEndpoint("6 seconds", now.plus(6, ChronoUnit.SECONDS)));
     return new FlightInfo(SCHEMA, descriptor, endpoints, -1, -1);
   }
 
