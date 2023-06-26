@@ -463,7 +463,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  public:
   using T = typename DType::c_type;
 
-  // Currently, this constructor will tend to be called by ColumnWriter to create the
+  // This constructor would likely be called by ColumnWriter to create the
   // statistics collector during write.
   TypedStatisticsImpl(const ColumnDescriptor* descr, MemoryPool* pool)
       : descr_(descr),
@@ -473,16 +473,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     auto comp = Comparator::Make(descr);
     comparator_ = std::static_pointer_cast<TypedComparator<DType>>(comp);
     TypedStatisticsImpl::Reset();
-    // Currently, writer will always write `null_count` to EncodedStatistics.
-    // So, enable it by default.
-    has_null_count_ = true;
-    // Currently, writer will write `distinct_count` to EncodedStatistics.
-    // So, disable it by default.
-    has_distinct_count_ = false;
   }
 
-  // Currently, this constructor will tend to be called by testing,
-  // it is used to create stats from provided values.
+  // Create stats from provided values.
   TypedStatisticsImpl(const T& min, const T& max, int64_t num_values, int64_t null_count,
                       int64_t distinct_count)
       : pool_(default_memory_pool()),
@@ -497,8 +490,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     has_min_max_ = true;
   }
 
-  // Currently, this constructor will tend to be called by ColumnChunkMetaData during
-  // read, it is used to create stats from a thrift Statistics object.
+  // Create stats from a thrift Statistics object.
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
@@ -555,11 +547,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Reset() override {
     ResetCounts();
-    has_min_max_ = false;
-    has_distinct_count_ = false;
-    // Currently, writer will always write `null_count` to EncodedStatistics.
-    // So, enable it when reset.
-    has_null_count_ = true;
+    ResetHasFlags();
   }
 
   void SetMinMax(const T& arg_min, const T& arg_max) override {
@@ -569,7 +557,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void Merge(const TypedStatistics<DType>& other) override {
     this->num_values_ += other.num_values();
     // Merge always runs when Merge builder's page statistics
-    // into column chunk statistics, so it tent to have null count.
+    // into column chunk statistics, so it usually has null count.
     if (other.HasNullCount()) {
       this->statistics_.null_count += other.null_count();
     } else {
@@ -677,6 +665,16 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->statistics_.null_count = 0;
     this->statistics_.distinct_count = 0;
     this->num_values_ = 0;
+  }
+
+  void ResetHasFlags() {
+    this->has_min_max_ = false;
+    // writer will write `distinct_count` to EncodedStatistics.
+    // So, disable it when reset.
+    this->has_distinct_count_ = false;
+    // writer will always write `null_count` to EncodedStatistics.
+    // So, enable it when reset.
+    this->has_null_count_ = true;
   }
 
   void SetMinMaxPair(std::pair<T, T> min_max) {
