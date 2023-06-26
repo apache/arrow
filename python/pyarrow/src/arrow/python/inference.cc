@@ -573,7 +573,7 @@ class TypeInferrer {
     return Status::OK();
   }
 
-  Status VisitArrowScalar(PyObject* obj, bool* keep_going) {
+  Status VisitArrowScalar(PyObject* obj, bool* keep_going /* unused */) {
     ARROW_ASSIGN_OR_RAISE(auto scalar, arrow::py::unwrap_scalar(obj));
     // Check that all the scalar types for the sequence are the same
     if (arrow_scalar_count_ > 0 && *scalar->type != *scalar_type_) {

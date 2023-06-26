@@ -2375,15 +2375,23 @@ def test_array_from_pylist_offset_overflow():
     (
         [None, datetime.date.today()],
         [None, pa.scalar(datetime.date.today())],
-        pa.date32()),
+        pa.date32()
+    ),
+    (
+        [None, datetime.date.today()],
+        [None, pa.scalar(datetime.date.today(), pa.date64())],
+        pa.date64()
+    ),
     (
         [datetime.time(1, 1, 1), None],
         [pa.scalar(datetime.time(1, 1, 1)), None],
-        pa.time64('us')),
+        pa.time64('us')
+    ),
     (
         [datetime.timedelta(seconds=10)],
         [pa.scalar(datetime.timedelta(seconds=10))],
-        pa.duration('us')),
+        pa.duration('us')
+    ),
     (
         [None, datetime.datetime(2014, 1, 1)],
         [None, pa.scalar(datetime.datetime(2014, 1, 1))],
