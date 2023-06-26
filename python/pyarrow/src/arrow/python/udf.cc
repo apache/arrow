@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <iostream>
 
 #include "arrow/array/builder_base.h"
 #include "arrow/buffer_builder.h"
@@ -264,6 +263,7 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
       : function(function), cb(std::move(cb)), output_type(std::move(output_type)) {
     Py_INCREF(function->obj());
     std::vector<std::shared_ptr<Field>> fields;
+    fields.reserve(input_types.size());
     for (size_t i = 0; i < input_types.size(); i++) {
       fields.push_back(field("", input_types[i]));
     }
@@ -276,8 +276,8 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
     }
   }
 
-  /// @brief Same as ApplyGrouping in parition.cc
-  /// Replicated the code here to avoid complicating the dependencies
+  // same as ApplyGrouping in parition.cc
+  // replicated the code here to avoid complicating the dependencies
   static Result<RecordBatchVector> ApplyGroupings(
       const ListArray& groupings, const std::shared_ptr<RecordBatch>& batch) {
     ARROW_ASSIGN_OR_RAISE(Datum sorted,
@@ -587,8 +587,8 @@ Status RegisterScalarAggregateFunction(PyObject* function, UdfWrapperCallback cb
   return Status::OK();
 }
 
-/// @brief Create a new UdfOptions with adjustment for hash kernel
-/// @param options User provided udf options
+/// \brief Create a new UdfOptions with adjustment for hash kernel
+/// \param options User provided udf options
 UdfOptions AdjustForHashAggregate(const UdfOptions& options) {
   UdfOptions hash_options;
   // Append hash_ before the function name to seperate from the scalar
