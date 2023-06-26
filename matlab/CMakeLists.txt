@@ -514,13 +514,12 @@ if(NOT Arrow_FOUND)
 
   if(APPLE)
     # Install libarrow.dylib (symlink) and the real files it points to.
-    # on MacOS, we need to match these files: libarrow.dylib
+    # on macOS, we need to match these files: libarrow.dylib
     #                                         libarrow.1300.dylib
     #                                         libarrow.1300.0.0.dylib
     # where the version number might change.
     set(SHARED_LIBRARY_VERSION_REGEX "${ARROW_SHARED_LIB_FILENAME}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  elseif(UNIX 
-         AND NOT APPLE
+  elseif(UNIX
          AND NOT CYGWIN)
     # Install libarrow.so (symlink) and the real files it points to.
     # On Linux, we need to match these files: libarrow.so
