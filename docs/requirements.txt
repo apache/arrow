@@ -9,5 +9,6 @@ pydata-sphinx-theme==0.8
 sphinx-autobuild
 sphinx-design
 sphinx-copybutton
+sphinxcontrib-jquery
 sphinx>=4.2,<7
 pandas
