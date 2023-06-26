@@ -617,9 +617,7 @@ class ParquetIOTestBase : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
 
     FileReaderBuilder builder;
-
     ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
-
     ASSERT_OK_NO_THROW(builder.properties(arrow_reader_properties)
                            ->memory_pool(::arrow::default_memory_pool())
                            ->Build(out));
@@ -4603,14 +4601,20 @@ TEST(TestArrowWriteDictionaries, NestedSubfield) {
 class TestArrowReadDeltaEncoding : public ::testing::Test {
  public:
   void ReadTableFromParquetFile(const std::string& file_name,
+                                const ArrowReaderProperties& properties,
                                 std::shared_ptr<Table>* out) {
     auto file = test::get_data_file(file_name);
     auto pool = ::arrow::default_memory_pool();
     std::unique_ptr<FileReader> parquet_reader;
     ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false),
-                               &parquet_reader));
+                               properties, &parquet_reader));
     ASSERT_OK(parquet_reader->ReadTable(out));
     ASSERT_OK((*out)->ValidateFull());
+  }
+
+  void ReadTableFromParquetFile(const std::string& file_name,
+                                std::shared_ptr<Table>* out) {
+    return ReadTableFromParquetFile(file_name, default_arrow_reader_properties(), out);
   }
 
   void ReadTableFromCSVFile(const std::string& file_name,
@@ -4653,6 +4657,27 @@ TEST_F(TestArrowReadDeltaEncoding, DeltaByteArray) {
       "c_login",       "c_email_address",       "c_last_review_date"};
   for (auto name : column_names) {
     convert_options.column_types[name] = ::arrow::utf8();
+  }
+  convert_options.strings_can_be_null = true;
+  ReadTableFromCSVFile("delta_byte_array_expect.csv", convert_options, &expect_table);
+
+  ::arrow::AssertTablesEqual(*actual_table, *expect_table, false);
+}
+
+TEST_F(TestArrowReadDeltaEncoding, DeltaByteArrayWithLargeBinaryVariant) {
+  std::shared_ptr<::arrow::Table> actual_table, expect_table;
+  ArrowReaderProperties properties;
+  properties.set_use_large_binary_variants(true);
+
+  ReadTableFromParquetFile("delta_byte_array.parquet", properties, &actual_table);
+
+  auto convert_options = ::arrow::csv::ConvertOptions::Defaults();
+  std::vector<std::string> column_names = {
+      "c_customer_id", "c_salutation",          "c_first_name",
+      "c_last_name",   "c_preferred_cust_flag", "c_birth_country",
+      "c_login",       "c_email_address",       "c_last_review_date"};
+  for (auto name : column_names) {
+    convert_options.column_types[name] = ::arrow::large_utf8();
   }
   convert_options.strings_can_be_null = true;
   ReadTableFromCSVFile("delta_byte_array_expect.csv", convert_options, &expect_table);
