@@ -20,6 +20,7 @@
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
 #include "arrow/matlab/bit/unpack.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow::matlab::array::proxy {
 
@@ -36,8 +37,8 @@ namespace arrow::matlab::array::proxy {
 
             // Convert UTF-16 encoded MATLAB string values to UTF-8 encoded Arrow string values.
             strings.reserve(array_length);
-            for (const str_utf16 : array_mda) {
-                const auto str_utf8 = arrow::util::UTF16StringToUTF8(str_utf16);
+            for (const auto str_utf16 : array_mda) {
+                MATLAB_ASSIGN_OR_ERROR(auto str_utf8, arrow::util::UTF16StringToUTF8(str_utf16), error::UNICODE_CONVERSION_ERROR_ID);
                 strings.push_back(str_utf8);
             }
 
