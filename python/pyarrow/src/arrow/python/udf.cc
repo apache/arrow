@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
+#include "arrow/python/udf.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api_aggregate.h"
@@ -24,7 +24,6 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/python/common.h"
-#include "arrow/python/udf.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
@@ -310,7 +309,7 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
     const ArraySpan& groups_array_data = batch[batch.num_values() - 1].array;
     DCHECK_EQ(groups_array_data.offset, 0);
     int64_t batch_num_values = groups_array_data.length;
-    const auto* batch_groups = groups_array_data.GetValues<uint32_t>(1, 0);
+    const auto* batch_groups = groups_array_data.GetValues<uint32_t>(1);
     RETURN_NOT_OK(groups.Append(batch_groups, batch_num_values));
     values.push_back(std::move(rb));
     num_values += batch_num_values;
@@ -352,7 +351,8 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
     UdfContext udf_context{ctx->memory_pool(), table->num_rows()};
 
     if (rb->num_rows() == 0) {
-      return Status::Invalid("Finalized is called with empty inputs");
+      *out = Datum();
+      return Status::OK();
     }
 
     ARROW_ASSIGN_OR_RAISE(RecordBatchVector rbs, ApplyGroupings(*groupings, rb));

@@ -747,8 +747,11 @@ def test_hash_agg_empty(unary_agg_func_fixture):
     arr2 = pa.array([], pa.int32())
     table = pa.table([arr2, arr1], names=["id", "value"])
 
-    with pytest.raises(pa.ArrowInvalid, match='empty inputs'):
-        table.group_by("id").aggregate([("value", "mean_udf")])
+    result = table.group_by("id").aggregate([("value", "mean_udf")])
+    expected = pa.table([pa.array([], pa.int32()), pa.array(
+        [], pa.float64())], names=['id', 'value_mean_udf'])
+
+    assert result == expected
 
 
 def test_hash_agg_wrong_output_dtype(wrong_output_dtype_agg_func_fixture):
