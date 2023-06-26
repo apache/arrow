@@ -233,7 +233,6 @@ test_yum() {
                 "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2023" \
-                "amazonlinux:2" \
                 "quay.io/centos/centos:stream9" \
                 "quay.io/centos/centos:stream8" \
                 "centos:7"; do
