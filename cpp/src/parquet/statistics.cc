@@ -618,8 +618,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
     if (HasNullCount()) {
       s.set_null_count(this->null_count());
-    }
-    if (HasNullCount()) {
       // num_values_ is reliable and it means number of non-null values.
       s.all_null_value = num_values_ == 0;
     }
@@ -640,11 +638,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   T min_;
   T max_;
   ::arrow::MemoryPool* pool_;
-  // # of non-null values.
-  // num_values_ would be reliable when has_null_count_,
-  // if it's created from a page thrift statistics, and statistics
-  // doesn't have null_count, but page has null data, `num_values_`
-  // would be equal to value including nulls.
+  // Number of non-null values.
+  // num_values_ would be reliable when has_null_count_.
+  // If statistics is created from a page thrift statistics, and statistics
+  // doesn't have null_count, `num_values_` may include null values.
   int64_t num_values_ = 0;
   EncodedStatistics statistics_;
   std::shared_ptr<TypedComparator<DType>> comparator_;
@@ -656,7 +653,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
 
   void SetDistinctCount(int64_t n) {
-    // distinct count can only be "set", and cannot be increment.
+    // distinct count can only be "set", and cannot be incremented.
     statistics_.distinct_count = n;
     has_distinct_count_ = true;
   }
