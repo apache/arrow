@@ -63,18 +63,14 @@ namespace arrow::matlab::tabular::proxy {
         std::vector<std::shared_ptr<Field>> fields;
         for (size_t i = 0; i < arrow_arrays.size(); ++i) {
             const auto type = arrow_arrays[i]->type();
-            const auto column_name_str = std::u16string(column_names[i]);
-            const auto maybe_column_name_str = arrow::util::UTF16StringToUTF8(column_name_str);
-            MATLAB_ERROR_IF_NOT_OK(maybe_column_name_str.status(), error::UNICODE_CONVERSION_ERROR_ID);
-            fields.push_back(std::make_shared<arrow::Field>(*maybe_column_name_str, type));
+            const auto column_name_utf16 = std::u16string(column_names[i]);
+            MATLAB_ASSIGN_OR_ERROR(const auto column_name_utf8, arrow::util::UTF16StringToUTF8(column_name_utf16), error::UNICODE_CONVERSION_ERROR_ID);
+            fields.push_back(std::make_shared<arrow::Field>(column_name_utf8, type));
         }
 
         arrow::SchemaBuilder schema_builder;
         MATLAB_ERROR_IF_NOT_OK(schema_builder.AddFields(fields), error::SCHEMA_BUILDER_ADD_FIELDS_ERROR_ID);
-        auto maybe_schema = schema_builder.Finish();
-        MATLAB_ERROR_IF_NOT_OK(maybe_schema.status(), error::SCHEMA_BUILDER_FINISH_ERROR_ID);
-
-        const auto schema = *maybe_schema;
+        MATLAB_ASSIGN_OR_ERROR(const auto schema, schema_builder.Finish(), error::SCHEMA_BUILDER_FINISH_ERROR_ID);
         const auto num_rows = arrow_arrays.size() == 0 ? 0 : arrow_arrays[0]->length();
         const auto record_batch = arrow::RecordBatch::Make(schema, num_rows, arrow_arrays);
         auto record_batch_proxy = std::make_shared<arrow::matlab::tabular::proxy::RecordBatch>(record_batch);
