@@ -1,0 +1,5 @@
+```{r}
+#| results: asis
+cat("###", bm_name, "\n")
+plot_comparison(conbench_list[[lang]][[bm_name]])
+```

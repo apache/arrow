@@ -1,0 +1,365 @@
+---
+title: "Arrow Release Benchmark Report"
+execute: 
+  warning: false
+format: 
+  html:
+    self-contained: true
+    page-layout: full
+    toc: true
+    toc-depth: 3
+    link-external-newwindow: true
+---
+
+
+```{r setup}
+#| include: false
+
+## Unset DOT_CONBENCH env var to default back to public conbench
+Sys.unsetenv("DOT_CONBENCH")
+Sys.unsetenv("CONBENCH_EMAIL")
+Sys.unsetenv("CONBENCH_URL")
+Sys.unsetenv("CONBENCH_PASSWORD")
+
+baseline_git_commit <- Sys.getenv("BASELINE_GIT_COMMIT", "9736dde84bb2e6996d1d12f6a044c33398e3c3a3") 
+contender_git_commit <-  Sys.getenv("CONTENDER_GIT_COMMIT", "6af660f48472b8b45a5e01b7136b9b040b185eb1")
+hardware_name <- "ursa-i9-9960x"
+
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(glue)
+library(purrr)
+library(knitr)
+library(conbenchcoms)
+library(cli)
+library(lubridate)
+library(gt)
+library(forcats)
+library(showtext)
+library(ggiraph)
+
+## add fonts for ggplot2
+## TODO: add for tooltip font
+font_add_google('Roboto Mono', 'roboto')
+showtext_auto()
+
+
+fig_width <- 16
+fig_height <- 7
+
+## tweaks to theme
+theme_set(theme_minimal(base_size = 24, base_family = "roboto") %+replace%
+  theme(
+    plot.title.position = "plot",
+    strip.text.y = element_text(angle = -90),
+    panel.border = element_rect(colour = "grey80", fill = NA, size = 1),
+    legend.title = element_blank(),
+    legend.position = "top"
+  ))
+  
+knitr::opts_chunk$set(
+  cache = FALSE,
+  echo = FALSE
+  )
+
+baseline_git_commit_short <- substr(baseline_git_commit, 1, 7)
+contender_git_commit_short <- substr(contender_git_commit, 1, 7)
+```
+
+
+```{r compute-runs}
+#| include: false
+run_comp <- runs(c(baseline_git_commit, contender_git_commit)) %>% 
+  filter(hardware.name == hardware_name) %>% 
+  mutate(run_type = case_when(
+    commit.sha == contender_git_commit ~ "contender",
+    commit.sha == baseline_git_commit ~ "baseline"
+  )) %>% 
+  mutate(links.self = url_cleaner(links.self))
+
+hardware_summary <- run_comp %>% 
+  mutate(commit.timestamp = ymd_hms(commit.timestamp)) %>% 
+  distinct(run_type, links.self, commit.sha, commit.timestamp, commit.url, hardware.cpu_model_name)
+```
+
+
+```{r message-missing-hardware}
+#| results='asis'
+
+if (nrow(hardware_summary) != 2) {
+  ## fail early and informatively with when not using correct hardware
+  missing_commits <- setdiff(c(contender_git_commit, baseline_git_commit), hardware_summary$commit.sha)
+  cat(pluralize("Commit{?s} {missing_commits} w{?as/ere} not benchmarked with {hardware_name} hardware. This report only tests that hardware."))
+  knitr::knit_exit()
+}
+```
+
+
+```{r message-same-day-commit}
+#| results='asis'
+
+if (Sys.Date() %in% as.Date(hardware_summary$commit.timestamp)) {
+  ## fail early and informatively with when not using correct hardware
+  cat("**You are trying to examine commits that were made today. It is possible that not all benchmarks have been completed yet and plots below may show unexpected results. Setting `contender_git_commit` to 'latest completed' should find a suitable commit**")
+}
+```
+
+# Benchmark Run Summary
+```{r table-run-summary}
+hardware_summary %>% 
+  mutate(
+    commit.sha = glue("[{substr(commit.sha, 1, 7)}]({commit.url})"),
+    run_type = glue("[{run_type}]({links.self})"),
+    commit.timestamp = ymd_hms(commit.timestamp)
+    ) %>% 
+  select(run_type, commit.sha, commit.timestamp, hardware.cpu_model_name) %>% 
+  gt() %>% 
+  fmt_markdown(c("commit.sha", "run_type")) %>% 
+  gt::cols_label(
+    run_type = "Run Type",
+    commit.sha = "Commit SHA",
+    commit.timestamp = "Time of Commit",
+    hardware.cpu_model_name = "Hardware"
+  )
+```
+
+
+
+
+# Benchmark Percent Changes
+
+- Benchmarks are plotted using the percent change from baseline to contender. 
+- Additional information on each benchmark is available by hovering over the relevant bar.
+
+```{r function-plots}
+#| include: false
+
+change_cols <- viridisLite::mako(2, begin = 0.5, end = 0.75)
+names(change_cols) <- c(glue("{contender_git_commit_short} (contender) faster"), glue("{baseline_git_commit_short} (baseline) faster"))
+
+
+plot_comparison <- function(plot_df, alpha = 0.7) {
+  tag_names <- unlist(plot_df$tags_used)
+  x_facets <- c("compression", "format", "file_type", "use_legacy_dataset", "dataset_uri")
+  # TODO: add others?
+  x_facets <- x_facets[x_facets %in% tag_names]
+
+  y_facets <- c("output_type", "input_type", "streaming", "pre_buffer", "async", "selectivity", "scale_factor")
+  y_facets <- y_facets[y_facets %in% tag_names]
+
+  maybe_vars <- function(variables) {
+    if (length(variables) == 0) {
+      return(NULL)
+    }
+
+    vars(!!!syms(variables))
+  }
+
+  title <- glue::glue("{unique(plot_df$language)}: {unique(plot_df$benchmark_name)}")
+
+  p <- plot_df %>%
+    mutate(change_lab = change * 1.05) %>%
+    ggplot() +
+    aes(y = forcats::fct_reorder(dataset, pn_lab, .desc = TRUE), x = change, fill = pn_lab) +
+    geom_col_interactive(
+      aes(
+        tooltip = glue(
+          "Percent change: {round(change, 2)}%\n",
+          "Difference: {difference}\n",
+          "Dataset: {dataset}"
+        )
+      ),
+      position = "dodge", alpha = 0.75, width = 0.75, colour = "grey 40"
+    ) +
+    geom_vline(xintercept = 0, colour = "grey50") +
+    geom_text(aes(x = change_lab, hjust = ifelse(change >= 0, 0, 1), label = difference, colour = pn_lab), size = 7) +
+    facet_grid(rows = maybe_vars(x_facets), cols = maybe_vars(y_facets), labeller = label_both) +
+    scale_fill_manual(values = change_cols) +
+    scale_colour_manual(values = change_cols) +
+    scale_x_continuous(expand = expansion(mult = 0.6)) +
+    guides(colour = "none") +
+    ylab("Dataset") +
+    xlab("% change")
+  
+  ## Some height adjustments
+  g_heights <- 6
+  g_widths <- 14
+
+  if (length(x_facets) > 0) {
+    g_heights <- g_heights*(n_distinct(plot_df[, x_facets, drop = TRUE])/2)
+  }
+  girafe(
+    ggobj = p,
+    options = list(
+      opts_tooltip(use_fill = TRUE),
+      opts_sizing(width = .7)
+    ),
+    width_svg = g_widths,
+    height_svg = g_heights
+  )
+}
+```
+
+
+```{r compute-process-data}
+#| results='asis'
+
+# grab the run comparison from the API
+conbench_df <- compare(
+  type = "runs",
+  run_comp$id[run_comp$run_type == "baseline"],
+  run_comp$id[run_comp$run_type == "contender"],
+  simplifyVector = TRUE
+) %>%
+  as_tibble()
+
+## which properties are guaranteed to be the same?
+conbench_df <- conbench_df %>%
+  filter(baseline$language %in% c("Python", "R"))
+
+conbench_proced <- conbench_df %>%
+  # csv-read had very different kinds of runs
+  filter(baseline$benchmark_name != "csv-read") %>%
+  # Remove the "TPCH-" prefix and any 0 at the start of the number
+  mutate(baseline_tags = mutate(baseline$tags, query_id = gsub("^0", "", gsub("TPCH-", "", query_id)))) %>%
+  mutate(dataset = case_when(
+    baseline$benchmark_name == "tpch" ~ glue("Query id: {baseline_tags$query_id}"),
+    baseline$benchmark_name == "wide-dataframe" ~ "wide-dataframe",
+    baseline$benchmark_name == "partitioned-dataset-filter" ~ glue("{baseline$benchmark_name}: {baseline_tags$query} query"),
+    TRUE ~ baseline_tags$dataset
+  )) %>%
+  group_by(baseline$language, baseline$benchmark_name) %>%
+  group_map(~ {
+    # only keep the tags that are not all NA
+    tags <- .x$baseline_tags[colSums(!is.na(.x$baseline_tags)) > 0]
+
+    if (length(unique(tags$name)) > 1) {
+      browser()
+    }
+
+    tag_names <- colnames(tags)
+    tag_names <- tag_names[!tag_names %in% c("name", "query_id", "language", "engine", "memory_map", "query", "async")]
+
+    plot_df <- .x %>%
+      jsonlite::flatten() %>%
+      as_tibble() %>%
+      select(-baseline_tags.dataset, -baseline_tags.language) %>%
+      rename_with(~ gsub("baseline_tags.", "", .)) %>%
+      mutate(change = analysis.pairwise.percent_change) %>%
+      #   mutate(across(c(baseline, contender), ~as.numeric(gsub("s", "", .x)))) %>%
+      mutate(difference = paste0(round((baseline.single_value_summary - contender.single_value_summary) * 1000, 4), " ms")) %>%
+      mutate(
+        pn_lab = case_when(
+          analysis.pairwise.percent_change == 0 ~ "no change",
+          analysis.pairwise.percent_change > 0 ~ paste0(contender_git_commit_short, " (contender) faster"),
+          analysis.pairwise.percent_change < 0 ~ paste0(baseline_git_commit_short, " (baseline) faster")
+        )
+      ) %>%
+      mutate(
+        tags_used = list(tag_names),
+        language = .y$`baseline$language`,
+        benchmark_name = .y$`baseline$benchmark_name`
+      )
+  })
+
+conbench_list <- list()
+for (i in seq_len(length(conbench_proced))) {
+  one_conbench <- conbench_proced[[i]]
+  lang <- unique(one_conbench$language)
+  benchmark_name <- unique(one_conbench$benchmark_name)
+  conbench_list[[lang]][[benchmark_name]] <- one_conbench
+}
+
+tpch_data <- conbench_list[["R"]][["tpch"]]
+
+conbench_list[["R"]][which(names(conbench_list[["R"]]) %in% c("tpch"))] <- NULL
+```
+
+## Python
+```{r plot-python}
+#| echo: FALSE
+#| results: 'asis'
+#| warning: FALSE
+ 
+#names(conbench_list)
+lang <- "Python"
+plots <- map_chr(names(conbench_list[[lang]]), \(bm_name) {
+  knit_child(
+    "_plots.qmd",
+    envir = environment(),
+    quiet = TRUE
+  )
+})
+
+cat(plots, sep = "\n")
+```
+
+
+## R
+```{r plot-r}
+#| echo: FALSE
+#| results: 'asis'
+#| warning: FALSE
+ 
+lang <- "R"
+plots  <- map_chr(names(conbench_list[[lang]]), \(bm_name) {
+  knit_child(
+    "_plots.qmd",
+    envir = environment(),
+    quiet = TRUE
+  )
+})
+
+cat(plots, sep = "\n")
+```
+
+
+```{r plot-tpch}
+#| echo: FALSE
+#| results: 'asis'
+#| warning: FALSE
+
+tpch_p <- tpch_data %>%
+  mutate(change_lab = change * 1.05) %>%
+  mutate(query_id = as.numeric(query_id)) %>%
+  ggplot() +
+  aes(y = fct_reorder(dataset, query_id, .desc = TRUE), x = change, fill = pn_lab) +
+  geom_col_interactive(
+    aes(
+      tooltip = glue(
+        "Percent change: {round(change, 2)}%\n",
+        "Difference: {difference}\n",
+        "Dataset: {dataset}"
+      )
+    ),
+    position = "dodge", alpha = 0.75
+  ) +
+  geom_text(aes(x = change_lab, hjust = ifelse(change >= 0, 0, 1), label = difference, colour = pn_lab), size = 7) +
+  geom_vline(xintercept = 0, colour = "grey80") +
+  facet_grid(rows = vars(format), cols = vars(scale_factor), labeller = label_both) +
+  scale_fill_manual(values = change_cols) +
+  scale_colour_manual(values = change_cols) +
+  ggtitle("TPCH") +
+  scale_x_continuous(expand = expansion(mult = 0.6)) +
+  guides(colour = "none") +
+  ylab("Dataset") +
+  xlab("% change")
+
+girafe(
+  ggobj = tpch_p,
+  options = list(
+    opts_tooltip(use_fill = TRUE),
+    opts_sizing(width = .7)
+  ),
+  width_svg = 16,
+  height_svg = 20
+)
+```
+
+
+```{css, echo=FALSE}
+div.main-container {
+  max-width: 2000px;
+}
+```
