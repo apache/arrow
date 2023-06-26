@@ -24,6 +24,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
@@ -31,68 +32,68 @@ namespace compute {
 const int64_t kNumItems = 1024 * 1024;
 const int64_t kFewItems = 64 * 1024;
 
-template <typename Type, typename Enable = void>
-struct GetBytesProcessed {};
+struct GetBytesProcessedVisitor {
+  const Array* arr;
+  int64_t total_bytes = 0;
 
-template <>
-struct GetBytesProcessed<BooleanType> {
-  static int64_t Get(const std::shared_ptr<Array>& arr) { return arr->length() / 8; }
-};
+  explicit GetBytesProcessedVisitor(const Array* arr) : arr(arr) {}
 
-template <typename Type>
-struct GetBytesProcessed<Type, enable_if_number<Type>> {
-  static int64_t Get(const std::shared_ptr<Array>& arr) {
-    using CType = typename Type::c_type;
-    return arr->length() * sizeof(CType);
+  Status RecurseInto(const Array* child_arr) {
+    // return VisitTypeInline(*child_arr->type(), this);
+    return Status::OK();
   }
-};
 
-template <typename Type>
-struct GetBytesProcessed<Type, enable_if_base_binary<Type>> {
-  static int64_t Get(const std::shared_ptr<Array>& arr) {
+  Status Visit(const BooleanType& type) {
+    total_bytes = arr->length() / 8;
+    return Status::OK();
+  }
+
+  template <typename Type>
+  std::enable_if_t<is_number_type<Type>::value, Status> Visit(const Type& type) {
+    using CType = typename Type::c_type;
+    total_bytes += arr->length() * sizeof(CType);
+    return Status::OK();
+  }
+
+  template <typename Type>
+  std::enable_if_t<is_base_binary_type<Type>::value, Status> Visit(const Type& type) {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     using OffsetType = typename TypeTraits<Type>::OffsetType::c_type;
-    return arr->length() * sizeof(OffsetType) +
-           std::static_pointer_cast<ArrayType>(arr)->total_values_length();
+    total_bytes += arr->length() * sizeof(OffsetType) +
+                   internal::checked_cast<const ArrayType*>(arr)->total_values_length();
+    return Status::OK();
   }
-};
 
-template <typename DataType>
-struct GetBytesProcessed<DataType, enable_if_list_like<DataType>> {
-  static int64_t Get(const std::shared_ptr<Array>& arr) {
-    using OffsetType = typename TypeTraits<DataType>::OffsetType::c_type;
+  template <typename ArrowType>
+  std::enable_if_t<is_list_like_type<ArrowType>::value &&
+                       !is_fixed_size_list_type<ArrowType>::value,
+                   Status>
+  Visit(const ArrowType& type) {
+    using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+    using OffsetType = typename TypeTraits<ArrowType>::OffsetType::c_type;
 
-    int64_t total_bytes = 0;
-    if constexpr (DataType::type_id == Type::LIST ||
-                  DataType::type_id == Type::LARGE_LIST) {
+    if constexpr (ArrowType::type_id == Type::LIST ||
+                  ArrowType::type_id == Type::LARGE_LIST) {
       total_bytes += (arr->length() + 1) * sizeof(OffsetType);
+      auto child_array = internal::checked_cast<const ArrayType*>(arr)->values();
+      return RecurseInto(child_array.get());
     } else {
-      ADD_FAILURE() << "GetBytesProcessed dispatching not implemented for "
-                    << arr->type()->ToString();
+      return Unimplemented(type);
     }
+  }
 
-    auto child_array = std::static_pointer_cast<ListArray>(arr)->values();
-    switch (child_array->type_id()) {
-      case Type::UINT32:
-        total_bytes += GetBytesProcessed<UInt32Type>::Get(child_array);
-        break;
-      case Type::UINT64:
-        total_bytes += GetBytesProcessed<UInt64Type>::Get(child_array);
-        break;
-      case Type::STRING:
-        total_bytes += GetBytesProcessed<StringType>::Get(child_array);
-        break;
-      case Type::LARGE_STRING:
-        total_bytes += GetBytesProcessed<LargeStringType>::Get(child_array);
-        break;
-      default:
-        ADD_FAILURE() << "GetBytesProcessed dispatching not implemented for "
-                      << child_array->type()->ToString();
-        break;
-    }
-    return total_bytes;
+  Status Visit(const DataType& type) { return Unimplemented(type); }
+
+  Status Unimplemented(const DataType& type) {
+    return Status::NotImplemented("GetBytesProcessed not implemented for ", type);
   }
 };
+
+int64_t GetBytesProcessed(const Array& arr) {
+  GetBytesProcessedVisitor visitor(&arr);
+  ARROW_EXPECT_OK(VisitTypeInline(*arr.type(), &visitor));
+  return visitor.total_bytes;
+}
 
 template <typename Type>
 static void IfElseBench(benchmark::State& state, const std::shared_ptr<DataType>& type) {
@@ -117,11 +118,11 @@ static void IfElseBench(benchmark::State& state, const std::shared_ptr<DataType>
     ABORT_NOT_OK(IfElse(cond, left, right));
   }
 
-  state.SetBytesProcessed(state.iterations() *
-                          (GetBytesProcessed<BooleanType>::Get(cond) +
-                           GetBytesProcessed<Type>::Get(left) +
-                           GetBytesProcessed<Type>::Get(right)));
+  state.SetBytesProcessed(
+      state.iterations() *
+      (GetBytesProcessed(*cond) + GetBytesProcessed(*left) + GetBytesProcessed(*right)));
   state.SetItemsProcessed(state.iterations() * (len - offset));
+  state.counters["offset"] = static_cast<double>(offset);
 }
 
 template <typename Type>
@@ -163,11 +164,11 @@ static void IfElseBenchContiguous(benchmark::State& state,
     ABORT_NOT_OK(IfElse(cond, left, right));
   }
 
-  state.SetBytesProcessed(state.iterations() *
-                          (GetBytesProcessed<BooleanType>::Get(cond) +
-                           GetBytesProcessed<Type>::Get(left) +
-                           GetBytesProcessed<Type>::Get(right)));
+  state.SetBytesProcessed(
+      state.iterations() *
+      (GetBytesProcessed(*cond) + GetBytesProcessed(*left) + GetBytesProcessed(*right)));
   state.SetItemsProcessed(state.iterations() * (len - offset));
+  state.counters["offset"] = static_cast<double>(offset);
 }
 
 template <typename Type>
@@ -195,16 +196,8 @@ static void IfElseBenchListUInt32(benchmark::State& state) {
   return IfElseBenchList<ListType, UInt32Type>(state);
 }
 
-static void IfElseBenchListUInt64(benchmark::State& state) {
-  return IfElseBenchList<ListType, UInt64Type>(state);
-}
-
 static void IfElseBenchListString32(benchmark::State& state) {
   return IfElseBenchList<ListType, StringType>(state);
-}
-
-static void IfElseBenchListString64(benchmark::State& state) {
-  return IfElseBenchList<ListType, LargeStringType>(state);
 }
 
 static void IfElseBenchString32(benchmark::State& state) {
@@ -227,16 +220,8 @@ static void IfElseBenchListUInt32Contiguous(benchmark::State& state) {
   return IfElseBenchListContiguous<ListType, UInt32Type>(state);
 }
 
-static void IfElseBenchListUInt64Contiguous(benchmark::State& state) {
-  return IfElseBenchListContiguous<ListType, UInt64Type>(state);
-}
-
 static void IfElseBenchListString32Contiguous(benchmark::State& state) {
   return IfElseBenchListContiguous<ListType, StringType>(state);
-}
-
-static void IfElseBenchListString64Contiguous(benchmark::State& state) {
-  return IfElseBenchListContiguous<ListType, LargeStringType>(state);
 }
 
 static void IfElseBenchString64Contiguous(benchmark::State& state) {
@@ -280,7 +265,7 @@ static void CaseWhenBench(benchmark::State& state) {
   }
 
   // Set bytes processed to ~length of output
-  state.SetBytesProcessed(state.iterations() * GetBytesProcessed<Type>::Get(val1));
+  state.SetBytesProcessed(state.iterations() * GetBytesProcessed(*val1));
   state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
@@ -309,9 +294,9 @@ static void CaseWhenBenchList(benchmark::State& state) {
   }
 
   // Set bytes processed to ~length of output
-  state.SetBytesProcessed(state.iterations() *
-                          GetBytesProcessed<Int64Type>::Get(
-                              std::static_pointer_cast<ListArray>(val1)->values()));
+  state.SetBytesProcessed(
+      state.iterations() *
+      GetBytesProcessed(*std::static_pointer_cast<ListArray>(val1)->values()));
   state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
@@ -352,7 +337,7 @@ static void CaseWhenBenchContiguous(benchmark::State& state) {
   }
 
   // Set bytes processed to ~length of output
-  state.SetBytesProcessed(state.iterations() * GetBytesProcessed<Type>::Get(val1));
+  state.SetBytesProcessed(state.iterations() * GetBytesProcessed(*val1));
   state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
@@ -418,7 +403,7 @@ static void CoalesceBench(benchmark::State& state) {
   }
 
   state.SetBytesProcessed(state.iterations() *
-                          GetBytesProcessed<Type>::Get(arguments.front().make_array()));
+                          GetBytesProcessed(*arguments.front().make_array()));
   state.SetItemsProcessed(state.iterations() * params.length);
 }
 
@@ -439,7 +424,7 @@ static void CoalesceScalarBench(benchmark::State& state) {
   }
 
   state.SetBytesProcessed(state.iterations() *
-                          GetBytesProcessed<Type>::Get(arguments.front().make_array()));
+                          GetBytesProcessed(*arguments.front().make_array()));
   state.SetItemsProcessed(state.iterations() * params.length);
 }
 
@@ -454,8 +439,8 @@ static void CoalesceScalarStringBench(benchmark::State& state) {
     ABORT_NOT_OK(CallFunction("coalesce", arguments));
   }
 
-  state.SetBytesProcessed(state.iterations() * GetBytesProcessed<StringType>::Get(
-                                                   arguments.front().make_array()));
+  state.SetBytesProcessed(state.iterations() *
+                          GetBytesProcessed(*arguments.front().make_array()));
   state.SetItemsProcessed(state.iterations() * params.length);
 }
 
@@ -491,7 +476,7 @@ static void ChooseBench(benchmark::State& state) {
   }
 
   state.SetBytesProcessed(state.iterations() *
-                          GetBytesProcessed<Type>::Get(arguments[1].make_array()));
+                          GetBytesProcessed(*arguments[1].make_array()));
   state.SetItemsProcessed(state.iterations() * (len - offset));
 }
 
@@ -511,13 +496,9 @@ BENCHMARK(IfElseBench64Contiguous)->Args({kNumItems, 99});
 
 // IfElse: Lists
 BENCHMARK(IfElseBenchListUInt32)->Args({kNumItems, 0});
-BENCHMARK(IfElseBenchListUInt64)->Args({kNumItems, 0});
 BENCHMARK(IfElseBenchListString32)->Args({kNumItems, 0});
-BENCHMARK(IfElseBenchListString64)->Args({kNumItems, 0});
 BENCHMARK(IfElseBenchListUInt32Contiguous)->Args({kNumItems, 0});
-BENCHMARK(IfElseBenchListUInt64Contiguous)->Args({kNumItems, 0});
 BENCHMARK(IfElseBenchListString32Contiguous)->Args({kNumItems, 0});
-BENCHMARK(IfElseBenchListString64Contiguous)->Args({kNumItems, 0});
 
 // IfElse: Strings
 BENCHMARK(IfElseBenchString32)->Args({kNumItems, 0});
