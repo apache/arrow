@@ -49,6 +49,7 @@ if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
       fi
       ;;
     *)
+      ;;
   esac
 fi
 
