@@ -105,17 +105,20 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
     EndpointStatus status = statuses.get(index);
     if (status.cancelled) {
       listener.error(CallStatus.NOT_FOUND
-          .withDescription("Invalid flight: cancelled")
+          .withDescription("Invalid flight: cancelled: " +
+                           new String(ticket.getBytes(), StandardCharsets.UTF_8))
           .toRuntimeException());
       return;
     } else if (status.expirationTime != null && Instant.now().isAfter(status.expirationTime)) {
       listener.error(CallStatus.NOT_FOUND
-          .withDescription("Invalid flight: expired")
+          .withDescription("Invalid flight: expired: " +
+                           new String(ticket.getBytes(), StandardCharsets.UTF_8))
           .toRuntimeException());
       return;
     } else if (status.expirationTime == null && status.numGets > 0) {
       listener.error(CallStatus.NOT_FOUND
-          .withDescription("Invalid flight: can't read multiple times")
+          .withDescription("Invalid flight: can't read multiple times: " +
+                           new String(ticket.getBytes(), StandardCharsets.UTF_8))
           .toRuntimeException());
       return;
     }
@@ -157,7 +160,7 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
         EndpointStatus status = statuses.get(index);
         if (status.cancelled) {
           listener.onError(CallStatus.INVALID_ARGUMENT
-              .withDescription("Invalid flight: cancelled")
+              .withDescription("Invalid flight: cancelled: " + index)
               .toRuntimeException());
           return;
         }
@@ -191,7 +194,7 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
   }
 
   private FlightEndpoint addEndpoint(String ticket, Instant expirationTime) {
-    Ticket flightTicket = new Ticket(String.format("%d:%s", statuses.size(), ticket).getBytes(StandardCharsets.UTF_8));
+    Ticket flightTicket = new Ticket(String.format("%d: %s", statuses.size(), ticket).getBytes(StandardCharsets.UTF_8));
     statuses.add(new EndpointStatus(expirationTime));
     return new FlightEndpoint(flightTicket, expirationTime);
   }
@@ -200,7 +203,10 @@ final class ExpirationTimeProducer extends NoOpFlightProducer {
     final String contents = new String(ticket.getBytes(), StandardCharsets.UTF_8);
     int index = contents.indexOf(':');
     if (index == -1) {
-      throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid ticket").toRuntimeException();
+      throw CallStatus.INVALID_ARGUMENT
+          .withDescription("Invalid ticket: " +
+                           new String(ticket.getBytes(), StandardCharsets.UTF_8))
+          .toRuntimeException();
     }
     int endpointIndex = Integer.parseInt(contents.substring(0, index));
     if (endpointIndex < 0 || endpointIndex >= statuses.size()) {
