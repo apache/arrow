@@ -110,7 +110,7 @@ class ARROW_EXPORT Decompressor {
 /// \brief Compression codec options
 class ARROW_EXPORT CodecOptions {
  public:
-  CodecOptions(int compression_level = kUseDefaultCompressionLevel) {
+  explicit CodecOptions(int compression_level = kUseDefaultCompressionLevel) {
     compression_level_ = compression_level;
   }
   virtual ~CodecOptions() = default;
@@ -161,8 +161,8 @@ class ARROW_EXPORT Codec {
   static Result<Compression::type> GetCompressionType(const std::string& name);
 
   /// \brief Create a codec for the given compression algorithm with CodecOptions
-  static Result<std::unique_ptr<Codec>> Create(Compression::type codec,
-                                               const CodecOptions& codec_options = {});
+  static Result<std::unique_ptr<Codec>> Create(
+      Compression::type codec, const CodecOptions& codec_options = CodecOptions{});
 
   /// \brief Create a codec for the given compression algorithm
   static Result<std::unique_ptr<Codec>> Create(Compression::type codec,

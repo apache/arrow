@@ -98,7 +98,7 @@ class PARQUET_EXPORT PageWriter {
       ColumnIndexBuilder* column_index_builder = NULLPTR,
       // offset_index_builder MUST outlive the PageWriter
       OffsetIndexBuilder* offset_index_builder = NULLPTR,
-      const CodecOptions& codec_options = {});
+      const CodecOptions& codec_options = CodecOptions{});
 
   static std::unique_ptr<PageWriter> Open(
       std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,

@@ -256,7 +256,7 @@ class SerializedPageWriter : public PageWriter {
                        std::shared_ptr<Encryptor> data_encryptor = nullptr,
                        ColumnIndexBuilder* column_index_builder = nullptr,
                        OffsetIndexBuilder* offset_index_builder = nullptr,
-                       const CodecOptions& codec_options = {})
+                       const CodecOptions& codec_options = CodecOptions{})
       : sink_(std::move(sink)),
         metadata_(metadata),
         pool_(pool),
@@ -625,7 +625,7 @@ class BufferedPageWriter : public PageWriter {
                      std::shared_ptr<Encryptor> data_encryptor = nullptr,
                      ColumnIndexBuilder* column_index_builder = nullptr,
                      OffsetIndexBuilder* offset_index_builder = nullptr,
-                     const CodecOptions& codec_options = {})
+                     const CodecOptions& codec_options = CodecOptions{})
       : final_sink_(std::move(sink)), metadata_(metadata), has_dictionary_pages_(false) {
     in_memory_sink_ = CreateOutputStream(pool);
     pager_ = std::make_unique<SerializedPageWriter>(
