@@ -1127,19 +1127,14 @@ Status CastImpl(const StructScalar& from, StringScalar* to) {
   return Status::OK();
 }
 
-template <typename T>
-using is_list_or_list_view_type =
-    std::integral_constant<bool, std::is_same<T, ListType>::value ||
-                                     std::is_same<T, ListViewType>::value ||
-                                     std::is_same<T, LargeListType>::value ||
-                                     std::is_same<T, FixedSizeListType>::value>;
-
-// casts between list and list-view types
+// casts between variable-length and fixed-length list types
 template <typename ToScalar>
-enable_if_t<is_list_or_list_view_type<typename ToScalar::TypeClass>::value, Status>
+enable_if_t<is_list_like_type<typename ToScalar::TypeClass>::value &&
+                ToScalar::TypeClass::type_id != Type::MAP,
+            Status>
 CastImpl(const BaseListScalar& from, ToScalar* to) {
   DCHECK(from.type->id() == Type::LIST || from.type->id() == Type::LARGE_LIST ||
-         from.type->id() == Type::LIST_VIEW || from.type->id() == Type::FIXED_SIZE_LIST);
+         from.type->id() == Type::FIXED_SIZE_LIST);
 
   if constexpr (sizeof(typename ToScalar::TypeClass::offset_type) < sizeof(int64_t)) {
     if (from.value->length() >
@@ -1216,23 +1211,19 @@ struct FromTypeVisitor : CastImplVisitor {
     return Status::OK();
   }
 
-  Status CastFromListViewLike(const BaseListType& base_list_type) {
+  Status CastFromListLike(const BaseListType& base_list_type) {
     return CastImpl(checked_cast<const BaseListScalar&>(from_),
                     checked_cast<ToScalar*>(out_));
   }
 
-  Status Visit(const ListType& list_type) { return CastFromListViewLike(list_type); }
+  Status Visit(const ListType& list_type) { return CastFromListLike(list_type); }
 
   Status Visit(const LargeListType& large_list_type) {
-    return CastFromListViewLike(large_list_type);
-  }
-
-  Status Visit(const ListViewType& list_view_type) {
-    return CastFromListViewLike(list_view_type);
+    return CastFromListLike(large_list_type);
   }
 
   Status Visit(const FixedSizeListType& fixed_size_list_type) {
-    return CastFromListViewLike(fixed_size_list_type);
+    return CastFromListLike(fixed_size_list_type);
   }
 
   Status Visit(const NullType&) { return NotImplemented(); }

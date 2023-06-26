@@ -392,8 +392,6 @@ class TestRealScalar : public ::testing::Test {
 
   void TestListOf() { TestListOf<ListScalar>(list(type_)); }
 
-  void TestListViewOf() { TestListOf<ListViewScalar>(list_view(type_)); }
-
  protected:
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Scalar> scalar_val_, scalar_other_, scalar_nan_, scalar_other_nan_,
@@ -411,8 +409,6 @@ TYPED_TEST(TestRealScalar, ApproxEquals) { this->TestApproxEquals(); }
 TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 
 TYPED_TEST(TestRealScalar, ListOf) { this->TestListOf(); }
-
-TYPED_TEST(TestRealScalar, ListViewOf) { this->TestListViewOf(); }
 
 template <typename T>
 class TestDecimalScalar : public ::testing::Test {
@@ -1155,7 +1151,6 @@ class TestListScalar : public ::testing::Test {
     ScalarType scalar(value_);
     TestCast(scalar, list(value_->type()));
     TestCast(scalar, large_list(value_->type()));
-    TestCast(scalar, list_view(value_->type()));
     TestCast(scalar,
              fixed_size_list(value_->type(), static_cast<int32_t>(value_->length())));
   }
@@ -1165,8 +1160,7 @@ class TestListScalar : public ::testing::Test {
   std::shared_ptr<Array> value_;
 };
 
-using ListScalarTestTypes =
-    ::testing::Types<ListType, LargeListType, ListViewType, FixedSizeListType>;
+using ListScalarTestTypes = ::testing::Types<ListType, LargeListType, FixedSizeListType>;
 
 TYPED_TEST_SUITE(TestListScalar, ListScalarTestTypes);
 
