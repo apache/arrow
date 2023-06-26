@@ -20,8 +20,10 @@
 
 #include <string>
 
+#include "arrow/matlab/api/visibility.h"
+
 namespace arrow::matlab::type {
 
-    arrow::Result<arrow::TimeUnit::type> timeUnitFromString(const std::u16string& unit_str);
+    arrow::Result<arrow::TimeUnit::type> ARROW_MATLAB_EXPORT timeUnitFromString(const std::u16string& unit_str);
 
 }

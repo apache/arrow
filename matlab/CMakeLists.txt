@@ -380,10 +380,14 @@ if(MATLAB_BUILD_TESTS)
   # just for testing GoogleTest integration.
   add_executable(placeholder_test ${CMAKE_SOURCE_DIR}/src/placeholder_test.cc)
   add_executable(mex_util_test ${CPP_SOURCE_DIR}/arrow/matlab/mex/mex_util_test.cc)
+  add_executable(time_unit_test ${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/time_unit_test.cc)
 
   # Declare a dependency on the GTest::gtest and GTest::gtest_main IMPORTED
   # targets.
   target_link_libraries(placeholder_test GTest::gtest GTest::gtest_main)
+  target_link_libraries(time_unit_test GTest::gtest GTest::gtest_main)
+  target_link_libraries(time_unit_test arrow_matlab)
+  target_link_libraries(time_unit_test arrowproxy)
 
   # Declare a dependency on the GTest::gtest and GTest::gtest_main IMPORTED
   # targets.
@@ -394,9 +398,11 @@ if(MATLAB_BUILD_TESTS)
   target_include_directories(mex_util_test PRIVATE ${Matlab_INCLUDE_DIRS})
   # Include the C++ source headers.
   target_include_directories(mex_util_test PRIVATE ${CPP_SOURCE_DIR})
+  target_include_directories(time_unit_test PRIVATE ${CPP_SOURCE_DIR})
 
   # Add test targets for C++ tests.
   add_test(PlaceholderTestTarget placeholder_test)
+  add_test(TimeUnitTestTarget time_unit_test)
   add_test(CheckNumArgsTestTarget mex_util_test)
 
   # On macOS, add the directory of libarrow.dylib to the $DYLD_LIBRARY_PATH for
@@ -426,6 +432,10 @@ if(MATLAB_BUILD_TESTS)
     get_filename_component(GTEST_MAIN_SHARED_LIB_DIR ${GTEST_MAIN_SHARED_LIB} DIRECTORY)
 
     set_tests_properties(PlaceholderTestTarget
+                         PROPERTIES ENVIRONMENT
+                                    "PATH=${GTEST_SHARED_LIB_DIR}\;${GTEST_MAIN_SHARED_LIB_DIR}\;$ENV{PATH}"
+    )
+    set_tests_properties(TimeUnitTestTarget
                          PROPERTIES ENVIRONMENT
                                     "PATH=${GTEST_SHARED_LIB_DIR}\;${GTEST_MAIN_SHARED_LIB_DIR}\;$ENV{PATH}"
     )
