@@ -760,9 +760,9 @@ func (tester *expirationTimeScenarioTester) GetFlightInfo(ctx context.Context, d
 	var endpoints []*flight.FlightEndpoint
 	endpoints = tester.AppendGetFlightInfo(endpoints, "No expiration time", nil)
 	expirationTime5 := time.Now().Add(time.Second * 5)
-	endpoints = tester.AppendGetFlightInfo(endpoints, "5 seconds", &expirationTime2)
+	endpoints = tester.AppendGetFlightInfo(endpoints, "5 seconds", &expirationTime5)
 	expirationTime6 := time.Now().Add(time.Second * 6)
-	endpoints = tester.AppendGetFlightInfo(endpoints, "6 seconds", &expirationTime3)
+	endpoints = tester.AppendGetFlightInfo(endpoints, "6 seconds", &expirationTime6)
 	return &flight.FlightInfo{
 		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
 		FlightDescriptor: desc,
