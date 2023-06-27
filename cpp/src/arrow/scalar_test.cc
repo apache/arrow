@@ -392,6 +392,8 @@ class TestRealScalar : public ::testing::Test {
 
   void TestListOf() { TestListOf<ListScalar>(list(type_)); }
 
+  void TestLargeListOf() { TestListOf<LargeListScalar>(large_list(type_)); }
+
  protected:
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Scalar> scalar_val_, scalar_other_, scalar_nan_, scalar_other_nan_,
@@ -409,6 +411,8 @@ TYPED_TEST(TestRealScalar, ApproxEquals) { this->TestApproxEquals(); }
 TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 
 TYPED_TEST(TestRealScalar, ListOf) { this->TestListOf(); }
+
+TYPED_TEST(TestRealScalar, LargeListOf) { this->TestLargeListOf(); }
 
 template <typename T>
 class TestDecimalScalar : public ::testing::Test {
@@ -1059,6 +1063,18 @@ std::shared_ptr<DataType> MakeListType<FixedSizeListType>(
   return fixed_size_list(std::move(value_type), list_size);
 }
 
+template <typename ScalarType>
+void CheckListCast(const ScalarType& scalar, const std::shared_ptr<DataType>& to_type) {
+  EXPECT_OK_AND_ASSIGN(auto cast_scalar, scalar.CastTo(to_type));
+  ASSERT_OK(cast_scalar->ValidateFull());
+  ASSERT_EQ(*cast_scalar->type, *to_type);
+
+  ASSERT_EQ(scalar.is_valid, cast_scalar->is_valid);
+  ASSERT_TRUE(scalar.is_valid);
+  ASSERT_ARRAYS_EQUAL(*scalar.value,
+                      *checked_cast<const BaseListScalar&>(*cast_scalar).value);
+}
+
 template <typename T>
 class TestListScalar : public ::testing::Test {
  public:
@@ -1136,23 +1152,12 @@ class TestListScalar : public ::testing::Test {
     ASSERT_NE(a0->hash(), b0->hash());
   }
 
-  void TestCast(ScalarType& scalar, const std::shared_ptr<DataType>& to_type) {
-    EXPECT_OK_AND_ASSIGN(auto cast_scalar, scalar.CastTo(to_type));
-    ASSERT_OK(cast_scalar->ValidateFull());
-    ASSERT_EQ(*cast_scalar->type, *to_type);
-
-    ASSERT_EQ(scalar.is_valid, cast_scalar->is_valid);
-    ASSERT_TRUE(scalar.is_valid);
-    ASSERT_ARRAYS_EQUAL(*scalar.value,
-                        *checked_cast<const BaseListScalar&>(*cast_scalar).value);
-  }
-
   void TestCast() {
     ScalarType scalar(value_);
-    TestCast(scalar, list(value_->type()));
-    TestCast(scalar, large_list(value_->type()));
-    TestCast(scalar,
-             fixed_size_list(value_->type(), static_cast<int32_t>(value_->length())));
+    CheckListCast(scalar, list(value_->type()));
+    CheckListCast(scalar, large_list(value_->type()));
+    CheckListCast(
+        scalar, fixed_size_list(value_->type(), static_cast<int32_t>(value_->length())));
   }
 
  protected:
@@ -1196,6 +1201,17 @@ TEST(TestMapScalar, Basics) {
 
 TEST(TestMapScalar, NullScalar) {
   CheckMakeNullScalar(map(utf8(), field("value", int8())));
+}
+
+TEST(TestMapScalar, Cast) {
+  auto key_value_type = struct_({field("key", utf8(), false), field("value", int8())});
+  auto value = ArrayFromJSON(key_value_type,
+                             R"([{"key": "a", "value": 1}, {"key": "b", "value": 2}])");
+  auto scalar = MapScalar(value);
+
+  CheckListCast(scalar, list(key_value_type));
+  CheckListCast(scalar, large_list(key_value_type));
+  CheckListCast(scalar, fixed_size_list(key_value_type, 2));
 }
 
 TEST(TestStructScalar, FieldAccess) {
