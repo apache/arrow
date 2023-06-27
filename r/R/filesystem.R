@@ -181,6 +181,7 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `retry_limit_seconds`: the maximum amount of time to spend retrying if
 #'   the filesystem encounters errors. Default is 15 seconds.
 #' - `default_metadata`: default metadata to write in new objects.
+#' - `project_id`: the project to use for creating buckets.
 #'
 #' @section Methods:
 #'
@@ -562,7 +563,7 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
 
   valid_opts <- c(
     "access_token", "expiration", "json_credentials", "endpoint_override",
-    "scheme", "default_bucket_location", "default_metadata"
+    "scheme", "default_bucket_location", "default_metadata", "project_id"
   )
 
   invalid_opts <- setdiff(names(options), valid_opts)

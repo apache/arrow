@@ -623,6 +623,7 @@ if(DEFINED ENV{ARROW_GOOGLE_CLOUD_CPP_URL})
 else()
   set_urls(google_cloud_cpp_storage_SOURCE_URL
            "https://github.com/googleapis/google-cloud-cpp/archive/${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/google-cloud-cpp-${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -4188,6 +4189,7 @@ macro(build_google_cloud_cpp_storage)
   set_property(TARGET google-cloud-cpp::common
                PROPERTY INTERFACE_LINK_LIBRARIES
                         absl::base
+                        absl::cord
                         absl::memory
                         absl::optional
                         absl::span
@@ -4253,13 +4255,25 @@ macro(build_google_cloud_cpp_storage)
          absl::bad_variant_access
          absl::base
          absl::civil_time
+         absl::cord
+         absl::cord_internal
+         absl::cordz_functions
+         absl::cordz_info
+         absl::cordz_handle
+         absl::debugging_internal
+         absl::demangle_internal
+         absl::exponential_biased
          absl::int128
          absl::log_severity
+         absl::malloc_internal
          absl::raw_logging_internal
          absl::spinlock_wait
+         absl::stacktrace
+         absl::str_format_internal
          absl::strings
          absl::strings_internal
-         absl::str_format_internal
+         absl::symbolize
+         absl::synchronization
          absl::throw_delegate
          absl::time
          absl::time_zone
