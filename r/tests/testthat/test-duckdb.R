@@ -34,7 +34,7 @@ test_that("meaningful error message when duckdb is not installed", {
   )
 })
 
-skip_if_not_installed("duckdb", minimum_version = "0.3.1")
+skip_if_not_installed("duckdb", minimum_version = "0.3.2")
 skip_if_not_installed("dbplyr")
 
 library(duckdb, quietly = TRUE)
@@ -138,9 +138,6 @@ test_that("to_duckdb then to_arrow", {
 })
 
 test_that("to_arrow roundtrip, with dataset", {
-  # these will continue to error until 0.3.2 is released
-  # https://github.com/duckdb/duckdb/pull/2957
-  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
   # With a multi-part dataset
   tf <- tempfile()
   new_ds <- rbind(
@@ -174,9 +171,6 @@ test_that("to_arrow roundtrip, with dataset", {
 })
 
 test_that("to_arrow roundtrip, with dataset (without wrapping)", {
-  # these will continue to error until 0.3.2 is released
-  # https://github.com/duckdb/duckdb/pull/2957
-  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
   # With a multi-part dataset
   tf <- tempfile()
   new_ds <- rbind(
