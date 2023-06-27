@@ -162,7 +162,16 @@ classdef tStringArray < matlab.unittest.TestCase
             matlabArray = tc.MatlabArrayFcn([smiley; tree; mango]);
             arrowArray = tc.ArrowArrayConstructor(matlabArray);
             matlabArrayConverted = toMATLAB(arrowArray);
-            tc.verifyEqual(matlabArray, matlabArrayConverted);
+            tc.verifyEqual(matlabArrayConverted, matlabArray);
+        end
+
+        function Missing(tc)
+        % Verify that string(missing) values get mapped to the empty
+        % string value when InferNulls=false.
+            matlabArray = tc.MatlabArrayFcn(["A"; string(missing); string(missing)]);
+            arrowArray = tc.ArrowArrayConstructor(matlabArray, InferNulls=false);
+            matlabArrayConverted = toMATLAB(arrowArray);
+            tc.verifyEqual(matlabArrayConverted, ["A"; ""; ""]);
         end
     end
 end
