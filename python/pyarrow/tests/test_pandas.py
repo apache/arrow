@@ -75,10 +75,10 @@ def _alltypes_example(size=100):
                                   dtype='datetime64[us]'),
         'datetime[ns]': np.arange("2016-01-01T00:00:00.001", size,
                                   dtype='datetime64[ns]'),
-        'timedelta64[s]' : np.arange(0, size, dtype='timedelta64[s]'),
-        'timedelta64[ms]' : np.arange(0, size, dtype='timedelta64[ms]'),
-        'timedelta64[us]' : np.arange(0, size, dtype='timedelta64[us]'),
-        'timedelta64[ns]' : np.arange(0, size, dtype='timedelta64[ns]'),
+        'timedelta64[s]': np.arange(0, size, dtype='timedelta64[s]'),
+        'timedelta64[ms]': np.arange(0, size, dtype='timedelta64[ms]'),
+        'timedelta64[us]': np.arange(0, size, dtype='timedelta64[us]'),
+        'timedelta64[ns]': np.arange(0, size, dtype='timedelta64[ns]'),
         'str': [str(x) for x in range(size)],
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],
         'empty_str': [''] * size
@@ -1188,7 +1188,6 @@ class TestConvertDateTimeLikeTypes:
 
         assert arr.equals(expected)
 
-
     @pytest.mark.parametrize("coerce_to_ns,expected_dtype",
                              [(False, 'datetime64[ms]'),
                               (True, 'datetime64[ns]')])
@@ -1216,7 +1215,8 @@ class TestConvertDateTimeLikeTypes:
             assert result.dtype == expected_obj.dtype
             npt.assert_array_equal(result, expected_obj)
 
-            result = obj.to_pandas(date_as_object=False, coerce_temporal_nanoseconds=coerce_to_ns)
+            result = obj.to_pandas(date_as_object=False,
+                                   coerce_temporal_nanoseconds=coerce_to_ns)
             assert result.dtype == expected.dtype
             npt.assert_array_equal(result, expected)
 
