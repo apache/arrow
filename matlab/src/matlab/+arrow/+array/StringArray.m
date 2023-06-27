@@ -31,8 +31,8 @@ classdef StringArray < arrow.array.Array
                 opts.InferNulls(1,1) logical = true
                 opts.Valid
             end
-            % Support constructing StringArray from a cell array of strings,
-            % or a string array, but not a char vector.
+            % Support constructing a StringArray from a cell array of strings (i.e. cellstr),
+            % or a string array, but not a char array.
             if ~ischar(data)
                 data = convertCharsToStrings(data);
             end

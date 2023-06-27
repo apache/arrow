@@ -27,7 +27,7 @@ classdef tStringArray < matlab.unittest.TestCase
 
     methods(TestClassSetup)
         function verifyOnMatlabPath(tc)
-        % Verify the arrow array class is on the MATLAB Search Path.
+            % Verify the arrow array class is on the MATLAB Search Path.
             tc.assertTrue(~isempty(which(tc.ArrowArrayClassName)), ...
                 """" + tc.ArrowArrayClassName + """must be on the MATLAB path. " + ...
                 "Use ""addpath"" to add folders to the MATLAB path.");
@@ -69,7 +69,7 @@ classdef tStringArray < matlab.unittest.TestCase
         end
 
         function MatlabConversion(tc)
-        % Tests the type-specific conversion method (i.e. string)
+            % Tests the type-specific conversion method (i.e. string)
 
             % Create array from a scalar
             A1 = tc.ArrowArrayConstructor(tc.MatlabArrayFcn("A"));
@@ -146,15 +146,15 @@ classdef tStringArray < matlab.unittest.TestCase
         end
 
         function TestArrowType(tc)
-        % Verify the array has the expected arrow.type.Type object
+            % Verify the array has the expected arrow.type.Type object
             data = tc.MatlabArrayFcn(["A", "B"]);
             arrowArray = tc.ArrowArrayConstructor(data);
             tc.verifyEqual(arrowArray.Type, tc.ArrowType);
         end
 
         function Unicode(tc)
-        % Verify that Unicode characters are preserved during round-trip
-        % conversion.
+            % Verify that Unicode characters are preserved during round-trip
+            % conversion.
             smiley = "😀";
             tree =  "🌲";
             mango = "🥭";
@@ -166,12 +166,66 @@ classdef tStringArray < matlab.unittest.TestCase
         end
 
         function Missing(tc)
-        % Verify that string(missing) values get mapped to the empty
-        % string value when InferNulls=false.
+            % Verify that string(missing) values get mapped to the empty
+            % string value when InferNulls=false.
             matlabArray = tc.MatlabArrayFcn(["A"; string(missing); string(missing)]);
             arrowArray = tc.ArrowArrayConstructor(matlabArray, InferNulls=false);
             matlabArrayConverted = toMATLAB(arrowArray);
             tc.verifyEqual(matlabArrayConverted, ["A"; ""; ""]);
+        end
+
+        function CellStr(tc)
+            % Verify that a StringArray can be constructed from
+            % a cell array of character vectors (i.e. cellstr).
+
+            % Row vector
+            matlabArray = {'A', 'B', 'C'};
+            arrowArray = tc.ArrowArrayConstructor(matlabArray);
+            matlabArrayConverted = toMATLAB(arrowArray);
+            tc.verifyEqual(matlabArrayConverted, string(matlabArray'));
+
+            % Column vector
+            matlabArray = {'A'; 'B'; 'C'};
+            arrowArray = tc.ArrowArrayConstructor(matlabArray);
+            matlabArrayConverted = toMATLAB(arrowArray);
+            tc.verifyEqual(matlabArrayConverted, string(matlabArray));
+
+            % One element cellstr
+            matlabArray = {''};
+            arrowArray = tc.ArrowArrayConstructor(matlabArray);
+            matlabArrayConverted = toMATLAB(arrowArray);
+            tc.verifyEqual(matlabArrayConverted, string(matlabArray));
+
+            % Empty cell
+            matlabArray = {};
+            arrowArray = tc.ArrowArrayConstructor(matlabArray);
+            matlabArrayConverted = toMATLAB(arrowArray);
+            tc.verifyEqual(matlabArrayConverted, string.empty(0, 1));
+        end
+
+        function ErrorIfChar(tc)
+            % Verify that an error is thrown when a char array
+            % is passed to the StringArray constructor.
+
+            % Row vector
+            matlabArray = 'abc';
+            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "MATLAB:invalidType");
+
+            % Column vector
+            matlabArray = ['a';'b';'c'];
+            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "MATLAB:invalidType");
+
+            % Empty char (0x0)
+            matlabArray = '';
+            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "MATLAB:invalidType");
+
+            % Empty char (0x1)
+            matlabArray = char.empty(0, 1);
+            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "MATLAB:invalidType");
+
+            % Empty char (1x0)
+            matlabArray = char.empty(1, 0);
+            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "MATLAB:invalidType");
         end
     end
 end
