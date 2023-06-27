@@ -2173,7 +2173,8 @@ def test_array_roundtrip_from_numpy_datetimeD():
     expected = pa.array([None, datetime.date(2017, 4, 4)], type=pa.date32())
     assert result.equals(expected)
     result = result.to_numpy(zero_copy_only=False)
-    np.testing.assert_array_equal(result, arr, strict=True)
+    np.testing.assert_array_equal(result, arr)
+    assert result.dtype == arr.dtype
 
 
 def test_array_from_naive_datetimes():
