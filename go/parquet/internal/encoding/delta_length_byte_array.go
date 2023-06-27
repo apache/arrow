@@ -117,7 +117,7 @@ func (d *DeltaLengthByteArrayDecoder) SetData(nvalues int, data []byte) error {
 	if err := dec.SetData(nvalues, data); err != nil {
 		return err
 	}
-	d.lengths = make([]int32, nvalues)
+	d.lengths = make([]int32, dec.totalValues)
 	dec.Decode(d.lengths)
 
 	return d.decoder.SetData(nvalues, data[int(dec.bytesRead()):])

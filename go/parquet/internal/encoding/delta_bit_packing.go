@@ -156,7 +156,7 @@ func (d *DeltaBitPackInt32Decoder) unpackNextMini() error {
 // Decode retrieves min(remaining values, len(out)) values from the data and returns the number
 // of values actually decoded and any errors encountered.
 func (d *DeltaBitPackInt32Decoder) Decode(out []int32) (int, error) {
-	max := shared_utils.MinInt(len(out), d.nvals)
+	max := shared_utils.MinInt(len(out), int(d.totalValues))
 	if max == 0 {
 		return 0, nil
 	}
@@ -315,7 +315,7 @@ const (
 // Consists of a header followed by blocks of delta encoded values binary packed.
 //
 //	Format
-// 		[header] [block 1] [block 2] ... [block N]
+//		[header] [block 1] [block 2] ... [block N]
 //
 //	Header
 //		[block size] [number of mini blocks per block] [total value count] [first value]
