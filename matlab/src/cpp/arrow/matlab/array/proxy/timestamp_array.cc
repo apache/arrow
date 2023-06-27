@@ -48,15 +48,13 @@ namespace arrow::matlab::array::proxy {
         const mda::TypedArray<mda::MATLABString> timezone_mda = opts[0]["TimeZone"];
         const mda::TypedArray<mda::MATLABString> units_mda = opts[0]["TimeUnit"];
 
-        // extra the time zone string
-        auto maybe_timezone = arrow::util::UTF16StringToUTF8(timezone_mda[0]);
-        MATLAB_ERROR_IF_NOT_OK(maybe_timezone.status(), error::UNICODE_CONVERSION_ERROR_ID);
-        const auto timezone = *maybe_timezone;
+        // extract the time zone string
+        MATLAB_ASSIGN_OR_ERROR(const auto timezone, arrow::util::UTF16StringToUTF8(timezone_mda[0]),
+                               error::UNICODE_CONVERSION_ERROR_ID);
 
-        // extra the time unit
-        auto maybe_time_unit = arrow::matlab::type::timeUnitFromString(units_mda[0]);
-        MATLAB_ERROR_IF_NOT_OK(maybe_time_unit.status(), error::UKNOWN_TIME_UNIT_ERROR_ID);
-        const auto time_unit = *maybe_time_unit;
+        // extract the time unit
+        MATLAB_ASSIGN_OR_ERROR(const auto time_unit, arrow::matlab::type::timeUnitFromString(units_mda[0]),
+                               error::UKNOWN_TIME_UNIT_ERROR_ID)
 
         // create the timestamp_type
         auto data_type = arrow::timestamp(time_unit, timezone);
@@ -68,14 +66,13 @@ namespace arrow::matlab::array::proxy {
 
         // Pack the validity bitmap values.
         const uint8_t* valid_mask = getUnpackedValidityBitmap(validity_bitmap_mda);
+        const auto num_elements = timestamp_mda.getNumberOfElements();
+        
+        // Append values
+        MATLAB_ERROR_IF_NOT_OK(builder.AppendValues(dt, num_elements, valid_mask), error::APPEND_VALUES_ERROR_ID);
+        MATLAB_ASSIGN_OR_ERROR(auto timestamp_array, builder.Finish(), error::BUILD_ARRAY_ERROR_ID);
 
-        auto status = builder.AppendValues(dt, timestamp_mda.getNumberOfElements(), valid_mask);
-        MATLAB_ERROR_IF_NOT_OK(status, error::APPEND_VALUES_ERROR_ID);
-
-        auto maybe_array = builder.Finish();
-        MATLAB_ERROR_IF_NOT_OK(maybe_array.status(), error::BUILD_ARRAY_ERROR_ID);
-
-        return std::make_shared<arrow::matlab::array::proxy::TimestampArray>(*maybe_array);
+        return std::make_shared<arrow::matlab::array::proxy::TimestampArray>(timestamp_array);
     }
 
     void TimestampArray::toMATLAB(libmexclass::proxy::method::Context& context) {
