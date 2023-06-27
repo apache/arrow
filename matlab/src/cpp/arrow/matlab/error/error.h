@@ -17,12 +17,30 @@
 
 #pragma once
 
-
 #include "arrow/status.h"
 #include "libmexclass/error/Error.h"
 
-#include <string_view>
-
+//
+// MATLAB_ERROR_IF_NOT_OK(expr, id)
+//
+//  --- Description ---
+//
+// A macro used to return an error to MATLAB if the arrow::Status returned
+// by the specified expression is not "OK" (i.e. error).
+//
+// **NOTE**: This macro should be used inside of the static make() member function for a
+//           Proxy class. Use MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT inside of a non-static
+//           Proxy member function.
+//
+// --- Arguments ---
+//
+// expr - expression that returns an arrow::Status (e.g. builder.Append(...))
+// id - MATLAB error ID string (const char* - "arrow:matlab:proxy:make:FailedConstruction")
+//
+// --- Example ---
+//
+// MATLAB_ERROR_IF_NOT_OK(builder.Append(...), error::BUILDER_FAILED_TO_APPEND);
+//
 #define MATLAB_ERROR_IF_NOT_OK(expr, id)                               \
     do {                                                               \
         arrow::Status _status = (expr);                                \
@@ -30,6 +48,116 @@
             return libmexclass::error::Error{(id), _status.message()}; \
         }                                                              \
     } while (0)
+
+//
+// MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(expr, context, id)
+//
+//  --- Description ---
+//
+// A macro used to return an error to MATLAB if the arrow::Status returned
+// by the specified expression is not "OK" (i.e. error).
+//
+// **NOTE**: This macro should be used inside of a non-static member function of a
+//           Proxy class which has a libmexclass::proxy::method::Context as an input argument.
+//           Use MATLAB_ERROR_IF_NOT_OK inside of a Proxy static make() member function.
+//
+// --- Arguments ---
+//
+// expr - expression that returns an arrow::Status (e.g. builder.Append(...))
+// context - libmexclass::proxy::method::Context context input to a Proxy method
+// id - MATLAB error ID string (const char* - "arrow:matlab:proxy:make:FailedConstruction")
+//
+// --- Example ---
+//
+// MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(builder.Append(...), context, error::BUILDER_FAILED_TO_APPEND);
+//
+#define MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(expr, context, id)                \
+    do {                                                                      \
+        arrow::Status _status = (expr);                                       \
+        if (!_status.ok()) {                                                  \
+            context.error = libmexclass::error::Error{id, _status.message()}; \
+            return;                                                           \
+        }                                                                     \
+    } while (0)
+
+#define MATLAB_ASSIGN_OR_ERROR_NAME(x, y) \
+    ARROW_CONCAT(x, y)
+
+#define MATLAB_ASSIGN_OR_ERROR_IMPL(result_name, lhs, rexpr, id) \
+    auto&& result_name = (rexpr);                                \
+    MATLAB_ERROR_IF_NOT_OK(result_name.status(), id);            \
+    lhs = std::move(result_name).ValueUnsafe();
+
+//
+// MATLAB_ASSIGN_OR_ERROR(lhs, rexpr, id)
+//
+//  --- Description ---
+//
+// A macro used to extract and assign an underlying value of type T
+// from an expression that returns an arrow::Result<T> to a variable.
+//
+// If the arrow::Status associated with the arrow::Result is "OK" (i.e. no error),
+// then the value of type T is assigned to the specified lhs.
+//
+// If the arrow::Status associated with the arrow::Result is not "OK" (i.e. error),
+// then the specified error ID is returned to MATLAB.
+//
+// **NOTE**: This macro should be used inside of the static make() member function for a
+//           Proxy class. Use MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT inside of a non-static
+//           Proxy member function.
+//
+// --- Arguments ---
+//
+// lhs - variable name to assign to (e.g. auto array)
+// rexpr - expression that returns an arrow::Result<T> (e.g. builder.Finish())
+// id - MATLAB error ID string (const char* - "arrow:matlab:proxy:make:FailedConstruction")
+//
+// --- Example ---
+//
+// MATLAB_ASSIGN_OR_ERROR(auto array, builder.Finish(), error::FAILED_TO_BUILD_ARRAY);
+//
+#define MATLAB_ASSIGN_OR_ERROR(lhs, rexpr, id)                                                    \
+    MATLAB_ASSIGN_OR_ERROR_IMPL(MATLAB_ASSIGN_OR_ERROR_NAME(_matlab_error_or_value, __COUNTER__), \
+                                lhs, rexpr, id);
+
+
+#define MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT_IMPL(result_name, lhs, rexpr, context, id) \
+    auto&& result_name = (rexpr);                                                      \
+    MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(result_name.status(), context, id);            \
+    lhs = std::move(result_name).ValueUnsafe();
+
+//
+// MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(lhs, rexpr, context, id)
+//
+//  --- Description ---
+//
+// A macro used to extract and assign an underlying value of type T
+// from an expression that returns an arrow::Result<T> to a variable.
+//
+// If the arrow::Status associated with the arrow::Result is "OK" (i.e. no error),
+// then the value of type T is assigned to the specified lhs.
+//
+// If the arrow::Status associated with the arrow::Result is not "OK" (i.e. error),
+// then the specified error ID is returned to MATLAB.
+//
+// **NOTE**: This macro should be used inside of a non-static member function of a
+//           Proxy class which has a libmexclass::proxy::method::Context as an input argument.
+//           Use MATLAB_ASSIGN_OR_ERROR inside of a Proxy static make() member function.
+//
+// --- Arguments ---
+//
+// lhs - variable name to assign to (e.g. auto array)
+// rexpr - expression that returns an arrow::Result<T> (e.g. builder.Finish())
+// context - libmexclass::proxy::method::Context context input to a Proxy method
+// id - MATLAB error ID string (const char* - "arrow:matlab:proxy:make:FailedConstruction")
+//
+// --- Example ---
+//
+// MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array, builder.Finish(), error::FAILED_TO_BUILD_ARRAY);
+//
+#define MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(lhs, rexpr, context, id)                                           \
+    MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT_IMPL(MATLAB_ASSIGN_OR_ERROR_NAME(_matlab_error_or_value, __COUNTER__), \
+                                             lhs, rexpr, context, id);
 
 namespace arrow::matlab::error {
     // TODO: Make Error ID Enum class to avoid defining static constexpr
