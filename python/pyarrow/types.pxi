@@ -137,7 +137,8 @@ def _get_pandas_type(arrow_type, coerce_to_ns=False):
         return np.dtype('datetime64[ns]')
     pandas_type = _pandas_type_map[type_id]
     if isinstance(pandas_type, dict):
-        pandas_type = pandas_type.get(arrow_type.unit, None)
+        unit = getattr(arrow_type, 'unit', None)
+        pandas_type = pandas_type.get(unit, None)
     return pandas_type
 
 
