@@ -39,7 +39,9 @@ struct GetBytesProcessedVisitor {
   explicit GetBytesProcessedVisitor(const Array* arr) : arr(arr) {}
 
   Status RecurseInto(const Array* child_arr) {
-    // return VisitTypeInline(*child_arr->type(), this);
+    GetBytesProcessedVisitor visitor(child_arr);
+    RETURN_NOT_OK(VisitTypeInline(*child_arr->type(), &visitor));
+    total_bytes += visitor.total_bytes;
     return Status::OK();
   }
 
