@@ -1139,6 +1139,15 @@ enable_if_list_type<typename ToScalar::TypeClass, Status> CastImpl(
     }
   }
 
+  if constexpr (is_fixed_size_list_type<typename ToScalar::TypeClass>::value) {
+    const auto& fixed_size_list_type = checked_cast<const FixedSizeListType&>(*to->type);
+    if (from.value->length() != fixed_size_list_type.list_size()) {
+      return Status::Invalid("Cannot cast ", from.type->ToString(), " of length ",
+                             from.value->length(), " to fixed size list of length ",
+                             fixed_size_list_type.list_size());
+    }
+  }
+
   DCHECK_EQ(from.is_valid, to->is_valid);
   to->value = from.value;
   return Status::OK();

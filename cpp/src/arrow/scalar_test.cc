@@ -1075,6 +1075,15 @@ void CheckListCast(const ScalarType& scalar, const std::shared_ptr<DataType>& to
                       *checked_cast<const BaseListScalar&>(*cast_scalar).value);
 }
 
+template <typename ScalarType>
+void CheckInvalidListCast(const ScalarType& scalar,
+                          const std::shared_ptr<DataType>& to_type,
+                          std::string_view expected_message) {
+  EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(StatusCode::Invalid,
+                                           ::testing::HasSubstr(expected_message),
+                                           scalar.CastTo(to_type));
+}
+
 template <typename T>
 class TestListScalar : public ::testing::Test {
  public:
@@ -1158,6 +1167,11 @@ class TestListScalar : public ::testing::Test {
     CheckListCast(scalar, large_list(value_->type()));
     CheckListCast(
         scalar, fixed_size_list(value_->type(), static_cast<int32_t>(value_->length())));
+
+    CheckInvalidListCast(scalar, fixed_size_list(value_->type(), 5),
+                         "Cannot cast " + scalar.type->ToString() + " of length " +
+                             std::to_string(value_->length()) +
+                             " to fixed size list of length 5");
   }
 
  protected:
@@ -1212,6 +1226,11 @@ TEST(TestMapScalar, Cast) {
   CheckListCast(scalar, list(key_value_type));
   CheckListCast(scalar, large_list(key_value_type));
   CheckListCast(scalar, fixed_size_list(key_value_type, 2));
+
+  CheckInvalidListCast(scalar, fixed_size_list(key_value_type, 5),
+                       "Cannot cast " + scalar.type->ToString() + " of length " +
+                           std::to_string(value->length()) +
+                           " to fixed size list of length 5");
 }
 
 TEST(TestStructScalar, FieldAccess) {
