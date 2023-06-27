@@ -107,6 +107,7 @@ RUN apt-get update -y -q && \
         protobuf-compiler-grpc \
         python3-dev \
         python3-pip \
+        python3-venv \
         rapidjson-dev \
         rsync \
         tzdata \
