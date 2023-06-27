@@ -23,13 +23,11 @@ on:
       - '.github/workflows/csharp.yml'
       - 'ci/scripts/csharp_*'
       - 'csharp/**'
-      - 'cpp/src/arrow/c/**'  # for C Data Interface integration tests
   pull_request:
     paths:
       - '.github/workflows/csharp.yml'
       - 'ci/scripts/csharp_*'
       - 'csharp/**'
-      - 'cpp/src/arrow/c/**'  # for C Data Interface integration tests
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
