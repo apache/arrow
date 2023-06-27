@@ -56,7 +56,7 @@ namespace arrow::matlab::array::proxy {
             namespace mda = ::matlab::data;
 
             // Convert UTF-8 encoded Arrow string values to UTF-16 encoded MATLAB string values.
-            auto array_length = array->length();
+            auto array_length = static_cast<size_t>(array->length());
             std::vector<mda::MATLABString> strings;
             strings.reserve(array_length);
             for (size_t i = 0; i < array_length; ++i) {
@@ -69,7 +69,7 @@ namespace arrow::matlab::array::proxy {
 
             // Create a MATLAB String array from a vector of UTF-16 encoded strings.
             mda::ArrayFactory factory;
-            auto array_mda = factory.createArray({size_t{array_length}, static_cast<size_t>(1)}, strings.begin(), strings.end());
+            auto array_mda = factory.createArray({array_length, 1}, strings.begin(), strings.end());
             context.outputs[0] = array_mda;
         }
 
