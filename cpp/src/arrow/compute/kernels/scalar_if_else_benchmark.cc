@@ -67,21 +67,13 @@ struct GetBytesProcessedVisitor {
   }
 
   template <typename ArrowType>
-  std::enable_if_t<is_list_like_type<ArrowType>::value &&
-                       !is_fixed_size_list_type<ArrowType>::value,
-                   Status>
-  Visit(const ArrowType& type) {
+  enable_if_var_size_list<ArrowType, Status> Visit(const ArrowType& type) {
     using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
     using OffsetType = typename TypeTraits<ArrowType>::OffsetType::c_type;
 
-    if constexpr (ArrowType::type_id == Type::LIST ||
-                  ArrowType::type_id == Type::LARGE_LIST) {
-      total_bytes += (arr->length() + 1) * sizeof(OffsetType);
-      auto child_array = internal::checked_cast<const ArrayType*>(arr)->values();
-      return RecurseInto(child_array.get());
-    } else {
-      return Unimplemented(type);
-    }
+    total_bytes += (arr->length() + 1) * sizeof(OffsetType);
+    auto child_array = internal::checked_cast<const ArrayType*>(arr)->values();
+    return RecurseInto(child_array.get());
   }
 
   Status Visit(const DataType& type) { return Unimplemented(type); }
