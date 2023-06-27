@@ -35,7 +35,6 @@ import org.apache.arrow.vector.util.TransferPair;
  * to track which elements in the vector are null.
  */
 public final class VarBinaryVector extends BaseVariableWidthVector {
-  private final FieldReader reader;
 
   /**
    * Instantiate a VarBinaryVector. This doesn't allocate any memory for
@@ -69,17 +68,11 @@ public final class VarBinaryVector extends BaseVariableWidthVector {
    */
   public VarBinaryVector(Field field, BufferAllocator allocator) {
     super(field, allocator);
-    reader = new VarBinaryReaderImpl(VarBinaryVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new VarBinaryReaderImpl(VarBinaryVector.this);
   }
 
   /**

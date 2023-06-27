@@ -3,7 +3,7 @@
 \name{match_arrow}
 \alias{match_arrow}
 \alias{is_in}
-\title{\code{match} and \code{\%in\%} for Arrow objects}
+\title{Value matching for Arrow objects}
 \usage{
 match_arrow(x, table, ...)
 
@@ -23,8 +23,8 @@ and type as \code{x} with the (0-based) indexes into \code{table}. \code{is_in()
 per element of \code{x} it it is present in \code{table}.
 }
 \description{
-\code{base::match()} is not a generic, so we can't just define Arrow methods for
-it. This function exposes the analogous functions in the Arrow C++ library.
+\code{base::match()} and \verb{base::\%in\%} are not generics, so we can't just define Arrow methods for
+them. These functions expose the analogous functions in the Arrow C++ library.
 }
 \examples{
 # note that the returned value is 0-indexed

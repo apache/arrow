@@ -604,7 +604,7 @@ static inline void PrintToImpl(const std::string& factory_name,
       *os << ",";
       *os << "name=" << agg.name;
     }
-    *os << "},";
+    *os << "}";
 
     if (!o->keys.empty()) {
       *os << ",keys={";
@@ -640,8 +640,8 @@ void PrintTo(const Declaration& decl, std::ostream* os) {
 
   *os << "{";
   for (const auto& input : decl.inputs) {
-    if (auto decl = std::get_if<Declaration>(&input)) {
-      PrintTo(*decl, os);
+    if (auto idecl = std::get_if<Declaration>(&input)) {
+      PrintTo(*idecl, os);
     }
   }
   *os << "}";

@@ -154,7 +154,7 @@ class PARQUET_EXPORT ColumnProperties {
         statistics_enabled_(statistics_enabled),
         max_stats_size_(max_stats_size),
         compression_level_(Codec::UseDefaultCompressionLevel()),
-        page_index_enabled_(DEFAULT_IS_PAGE_INDEX_ENABLED) {}
+        page_index_enabled_(page_index_enabled) {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
@@ -524,8 +524,11 @@ class PARQUET_EXPORT WriterProperties {
 
     /// Enable writing page index in general for all columns. Default disabled.
     ///
-    /// Page index contains statistics for data pages and can be used to skip pages
-    /// when scanning data in ordered and unordered columns.
+    /// Writing statistics to the page index disables the old method of writing
+    /// statistics to each data page header.
+    /// The page index makes filtering more efficient than the page header, as
+    /// it gathers all the statistics for a Parquet file in a single place,
+    /// avoiding scattered I/O.
     ///
     /// Please check the link below for more details:
     /// https://github.com/apache/parquet-format/blob/master/PageIndex.md
@@ -879,8 +882,7 @@ class PARQUET_EXPORT ArrowWriterProperties {
           coerce_timestamps_unit_(::arrow::TimeUnit::SECOND),
           truncated_timestamps_allowed_(false),
           store_schema_(false),
-          // TODO: At some point we should flip this.
-          compliant_nested_types_(false),
+          compliant_nested_types_(true),
           engine_version_(V2),
           use_threads_(kArrowDefaultUseThreads),
           executor_(NULLPTR) {}
@@ -935,16 +937,16 @@ class PARQUET_EXPORT ArrowWriterProperties {
     /// \brief When enabled, will not preserve Arrow field names for list types.
     ///
     /// Instead of using the field names Arrow uses for the values array of
-    /// list types (default "item"), will use "entries", as is specified in
+    /// list types (default "item"), will use "element", as is specified in
     /// the Parquet spec.
     ///
-    /// This is disabled by default, but will be enabled by default in future.
+    /// This is enabled by default.
     Builder* enable_compliant_nested_types() {
       compliant_nested_types_ = true;
       return this;
     }
 
-    /// Preserve Arrow list field name (default behavior).
+    /// Preserve Arrow list field name.
     Builder* disable_compliant_nested_types() {
       compliant_nested_types_ = false;
       return this;

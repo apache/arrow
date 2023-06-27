@@ -184,24 +184,25 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ASSERT_EQ(VERY_LARGE_SIZE, this->values_read_);
     this->values_.resize(VERY_LARGE_SIZE);
     ASSERT_EQ(this->values_, this->values_out_);
-    std::vector<Encoding::type> encodings = this->metadata_encodings();
+    std::vector<Encoding::type> encodings_vector = this->metadata_encodings();
+    std::set<Encoding::type> encodings(encodings_vector.begin(), encodings_vector.end());
 
     if (this->type_num() == Type::BOOLEAN) {
       // Dictionary encoding is not allowed for boolean type
       // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case
-      std::vector<Encoding::type> expected({Encoding::PLAIN, Encoding::RLE});
+      std::set<Encoding::type> expected({Encoding::PLAIN, Encoding::RLE});
       ASSERT_EQ(encodings, expected);
     } else if (version == ParquetVersion::PARQUET_1_0) {
-      // There are 4 encodings (PLAIN_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case
+      // There are 3 encodings (PLAIN_DICTIONARY, PLAIN, RLE) in a fallback case
       // for version 1.0
-      std::vector<Encoding::type> expected(
-          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      std::set<Encoding::type> expected(
+          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::RLE});
       ASSERT_EQ(encodings, expected);
     } else {
-      // There are 4 encodings (RLE_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case for
+      // There are 3 encodings (RLE_DICTIONARY, PLAIN, RLE) in a fallback case for
       // version 2.0
-      std::vector<Encoding::type> expected(
-          {Encoding::RLE_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      std::set<Encoding::type> expected(
+          {Encoding::RLE_DICTIONARY, Encoding::PLAIN, Encoding::RLE});
       ASSERT_EQ(encodings, expected);
     }
 

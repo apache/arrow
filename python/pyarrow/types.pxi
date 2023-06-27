@@ -1586,6 +1586,10 @@ cdef class FixedShapeTensorType(BaseExtensionType):
     def __arrow_ext_class__(self):
         return FixedShapeTensorArray
 
+    def __reduce__(self):
+        return fixed_shape_tensor, (self.value_type, self.shape,
+                                    self.dim_names, self.permutation)
+
 
 cdef class PyExtensionType(ExtensionType):
     """

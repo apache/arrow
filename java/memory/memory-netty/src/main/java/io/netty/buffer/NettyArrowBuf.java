@@ -110,7 +110,14 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public ByteBuf unwrap() {
-    throw new UnsupportedOperationException("Unwrap not supported.");
+
+    // According to Netty's ByteBuf interface, unwrap() should return null if the buffer cannot be unwrapped
+    // https://github.com/netty/netty/blob/9fe796e10a433b6cd20ad78b2c39cd56b86ccd2e/buffer/src/main/java/io/netty/buffer/ByteBuf.java#L305
+
+    // Throwing here breaks toString() in AbstractByteBuf
+    // Since toString() is used to build debug / error messages, this can cause strange behavior
+
+    return null;
   }
 
   @Override

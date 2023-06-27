@@ -33,7 +33,7 @@
 namespace arrow {
 namespace compute {
 
-/// \defgroup expression-core Expressions to describe transformations in execution plans
+/// \defgroup expression-core Expressions to describe data transformations
 ///
 /// @{
 
@@ -256,7 +256,7 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression&);
 ARROW_EXPORT
 Result<Expression> Deserialize(std::shared_ptr<Buffer>);
 
-/// \defgroup expression-convenience Functions convenient expression creation
+/// \defgroup expression-convenience Helpers for convenient expression creation
 ///
 /// @{
 

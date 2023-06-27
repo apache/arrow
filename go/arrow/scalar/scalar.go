@@ -386,7 +386,7 @@ func (s *Decimal256) CastTo(to arrow.DataType) (Scalar, error) {
 		return NewStringScalar(val.Quo(val, scale).Text('g', int(dt.Precision))), nil
 	}
 
-	return nil, fmt.Errorf("cannot cast non-nil decimal128 scalar to type %s", to)
+	return nil, fmt.Errorf("cannot cast non-nil decimal256 scalar to type %s", to)
 }
 
 func NewDecimal256Scalar(val decimal256.Num, typ arrow.DataType) *Decimal256 {

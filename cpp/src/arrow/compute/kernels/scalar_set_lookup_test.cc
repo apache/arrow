@@ -39,6 +39,7 @@
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 
 namespace arrow {
@@ -236,6 +237,29 @@ TEST_F(TestIsInKernel, TimeTimestamp) {
   CheckIsIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
             ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), "[0, 2]"),
             "[true, false, true]");
+}
+
+TEST_F(TestIsInKernel, TimeDuration) {
+  for (const auto& type : DurationTypes()) {
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
+              "[true, true, false, true, true]", /*skip_nulls=*/false);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
+              "[true, false, false, true, true]", /*skip_nulls=*/true);
+
+    // Duplicates in right array
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, true, false, true, true]", /*skip_nulls=*/false);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, false, false, true, true]", /*skip_nulls=*/true);
+  }
+
+  // Different units, invalid cast
+  ASSERT_RAISES(Invalid, IsIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 2]"),
+                              ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 2]")));
+
+  // Different units, valid cast
+  CheckIsIn(ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"),
+            ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"), "[true, false, true]");
 }
 
 TEST_F(TestIsInKernel, Boolean) {
@@ -712,6 +736,56 @@ TEST_F(TestIndexInKernel, TimeTimestamp) {
   CheckIndexIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
                ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), "[0, 2]"),
                "[0, null, 1]");
+}
+
+TEST_F(TestIndexInKernel, TimeDuration) {
+  CheckIndexIn(duration(TimeUnit::SECOND),
+               /* input= */ "[1, null, 5, 1, 2]",
+               /* value_set= */ "[2, 1, null]",
+               /* expected= */ "[1, 2, null, 1, 0]");
+
+  // Duplicates in value_set
+  CheckIndexIn(duration(TimeUnit::SECOND),
+               /* input= */ "[1, null, 5, 1, 2]",
+               /* value_set= */ "[2, 2, 1, 1, null, null]",
+               /* expected= */ "[2, 4, null, 2, 0]");
+
+  // Needles array has no nulls
+  CheckIndexIn(duration(TimeUnit::SECOND),
+               /* input= */ "[2, null, 5, 1]",
+               /* value_set= */ "[2, 1]",
+               /* expected= */ "[0, null, null, 1]");
+
+  // No match
+  CheckIndexIn(duration(TimeUnit::SECOND), "[3, null, 5, 3]", "[2, 1]",
+               "[null, null, null, null]");
+
+  // Empty arrays
+  CheckIndexIn(duration(TimeUnit::SECOND), "[]", "[]", "[]");
+
+  CheckIndexIn(duration(TimeUnit::NANO), "[2, null, 2, 1]", "[2, null, 1]",
+               "[0, 1, 0, 2]");
+
+  CheckIndexIn(duration(TimeUnit::NANO), "[2, null, 2, 1]", "[2, null, 1]",
+               "[0, 1, 0, 2]");
+
+  // Empty input array
+  CheckIndexIn(duration(TimeUnit::NANO), "[]", "[2, null, 1]", "[]");
+
+  // Empty value_set array
+  CheckIndexIn(duration(TimeUnit::NANO), "[2, null, 1]", "[]", "[null, null, null]");
+
+  // Both array are all null
+  CheckIndexIn(duration(TimeUnit::SECOND), "[null, null, null, null]", "[null]",
+               "[0, 0, 0, 0]");
+
+  // Different units, invalid cast
+  ASSERT_RAISES(Invalid, IndexIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 2]"),
+                                 ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 2]")));
+
+  // Different units, valid cast
+  CheckIndexIn(ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"),
+               ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"), "[0, null, 1]");
 }
 
 TEST_F(TestIndexInKernel, Boolean) {
