@@ -1988,37 +1988,40 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   void InitData(int nvalues, double null_probability) {
     auto rand = ::arrow::random::RandomArrayGenerator(42);
     const int min_prefix_length = 0;
-    const size_t max_element_length = 100;
+    const int max_prefix_length = 50;
+    const int max_element_length = 100;
+    const double prefixed_probability = 0.9;
 
-    const auto suffix_array = std::static_pointer_cast<::arrow::StringArray>(rand.String(
-        /*size*/ nvalues, /*min_length*/ min_prefix_length,
-        /*max_length*/ max_element_length, /*null_probability*/ null_probability));
+    ::arrow::StringBuilder builder;
+    const auto prefix_array = std::static_pointer_cast<::arrow::StringArray>(
+        rand.String(/*size*/ nvalues, /*min_length*/ min_prefix_length,
+                    /*max_length*/ max_prefix_length, /*null_percent*/
+                    null_probability));
 
-    // First prefix length is always 0, so we manually prepend a 0 to the buffer
-    const auto prefix_lengths =
-        rand.UInt8(/*size*/ std::max(nvalues - 1, 0), /*min*/ min_prefix_length,
-                   /*max*/ max_element_length,
-                   /*null_probability*/ null_probability);
+    const auto is_prefixed = std::dynamic_pointer_cast<::arrow::BooleanArray>(
+        rand.Boolean(std::max(nvalues - 1, 0),
+                     /*true_probability=*/prefixed_probability,
+                     /*null_probability=*/0.0));
 
-    ::arrow::BufferBuilder sink(default_memory_pool());
-    if (nvalues > 0) {
-      ::arrow::UInt8Builder uint8_builder;
-      PARQUET_THROW_NOT_OK(uint8_builder.AppendValues({uint8_t{0}}));
-      PARQUET_ASSIGN_OR_THROW(auto uint8_array, uint8_builder.Finish());
-      auto uint8_buffer = uint8_array->data()->buffers[1];
-      PARQUET_THROW_NOT_OK(sink.Append(uint8_buffer->data(), uint8_buffer->size()));
+    int i = 0;
+    std::string previous_element = "";
+
+    while (i < nvalues) {
+      const auto element = prefix_array->GetString(i);
+      const bool concatenate =
+          is_prefixed->GetView(i++) &&
+          (element.length() + previous_element.length() <= max_element_length);
+      if (concatenate) {
+        previous_element = previous_element.append(element);
+      } else {
+        previous_element = element;
+      }
+      ASSERT_OK(builder.Append(previous_element));
     }
 
-    auto prefix_lengths_buffer = prefix_lengths->data()->buffers[1];
-    auto suffix_array_buffer = suffix_array->data()->buffers[1];
-
-    PARQUET_THROW_NOT_OK(
-        sink.Append(prefix_lengths_buffer->data(), prefix_lengths_buffer->size()));
-    PARQUET_THROW_NOT_OK(
-        sink.Append(suffix_array_buffer->data(), suffix_array_buffer->size()));
-    std::shared_ptr<Buffer> buffer;
-    PARQUET_THROW_NOT_OK(sink.Finish(&buffer, true));
-    draws_ = reinterpret_cast<c_type*>(buffer->mutable_data());
+    std::shared_ptr<::arrow::StringArray> array;
+    ASSERT_OK(builder.Finish(&array));
+    draws_ = reinterpret_cast<c_type*>(array->value_data()->mutable_data());
   }
 
   void Execute(int nvalues, double null_probability) {
@@ -2086,14 +2089,14 @@ TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(250, /*null_probability*/ 0.1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(250, /*null_probability*/ 0));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_probability*/ 0));
 
-  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, /*null_probability*/ 0.1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, /*null_probability*/ 0));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 10, /*valid_bits_offset*/ 64,
-      /*null_probability*/ 0.1));
+      /*null_probability*/ 0));
 }
 
 TEST(DeltaByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
