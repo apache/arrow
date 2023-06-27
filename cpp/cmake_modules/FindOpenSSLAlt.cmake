@@ -22,17 +22,24 @@ endif()
 if(APPLE AND NOT OPENSSL_ROOT_DIR)
   find_program(BREW brew)
   if(BREW)
-    execute_process(COMMAND ${BREW} --prefix "openssl@1.1"
-                    OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
+    execute_process(COMMAND ${BREW} --prefix "openssl"
+                    OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(OPENSSL11_BREW_PREFIX)
-      set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
+    if(OPENSSL_BREW_PREFIX)
+      set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
     else()
-      execute_process(COMMAND ${BREW} --prefix "openssl"
-                      OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
+      execute_process(COMMAND ${BREW} --prefix "openssl@3.0"
+                      OUTPUT_VARIABLE OPENSSL3_BREW_PREFIX
                       OUTPUT_STRIP_TRAILING_WHITESPACE)
-      if(OPENSSL_BREW_PREFIX)
-        set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
+      if(OPENSSL11_BREW_PREFIX)
+        set(OPENSSL_ROOT_DIR ${OPENSSL3_BREW_PREFIX})
+      else()
+        execute_process(COMMAND ${BREW} --prefix "openssl@1.1"
+                        OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+        if(OPENSSL11_BREW_PREFIX)
+          set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
+        endif()
       endif()
     endif()
   endif()
