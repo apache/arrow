@@ -378,28 +378,31 @@ def test_parquet_version_timestamp_differences():
     a_us = pa.array(d_us, type=pa.timestamp('us'))
     a_ns = pa.array(d_ns, type=pa.timestamp('ns'))
 
+    all_versions = ['1.0', '2.4', '2.6']
+
     names = ['ts:s', 'ts:ms', 'ts:us', 'ts:ns']
     table = pa.Table.from_arrays([a_s, a_ms, a_us, a_ns], names)
 
-    # Using Parquet version 1.0, seconds should be coerced to milliseconds
+    # Using Parquet version 1.0 and 2.4, seconds should be coerced to milliseconds
     # and nanoseconds should be coerced to microseconds by default
     expected = pa.Table.from_arrays([a_ms, a_ms, a_us, a_us], names)
-    _check_roundtrip(table, expected)
+    _check_roundtrip(table, expected, version='1.0')
+    _check_roundtrip(table, expected, version='2.4')
 
-    # Using Parquet version 2.0, seconds should be coerced to milliseconds
+    # Using Parquet version 2.6, seconds should be coerced to milliseconds
     # and nanoseconds should be retained by default
     expected = pa.Table.from_arrays([a_ms, a_ms, a_us, a_ns], names)
     _check_roundtrip(table, expected, version='2.6')
 
-    # Using Parquet version 1.0, coercing to milliseconds or microseconds
+    # For either Parquet version coercing to milliseconds or microseconds
     # is allowed
     expected = pa.Table.from_arrays([a_ms, a_ms, a_ms, a_ms], names)
-    _check_roundtrip(table, expected, coerce_timestamps='ms')
+    for ver in all_versions:
+        _check_roundtrip(table, expected, coerce_timestamps='ms', version=ver)
 
-    # Using Parquet version 2.0, coercing to milliseconds or microseconds
-    # is allowed
     expected = pa.Table.from_arrays([a_us, a_us, a_us, a_us], names)
-    _check_roundtrip(table, expected, version='2.6', coerce_timestamps='us')
+    for ver in all_versions:
+        _check_roundtrip(table, expected, version=ver, coerce_timestamps='us')
 
     # TODO: after pyarrow allows coerce_timestamps='ns', tests like the
     # following should pass ...
@@ -416,10 +419,9 @@ def test_parquet_version_timestamp_differences():
     # For either Parquet version, coercing to nanoseconds is allowed
     # if Int96 storage is used
     expected = pa.Table.from_arrays([a_ns, a_ns, a_ns, a_ns], names)
-    _check_roundtrip(table, expected,
-                     use_deprecated_int96_timestamps=True)
-    _check_roundtrip(table, expected, version='2.6',
-                     use_deprecated_int96_timestamps=True)
+    for ver in all_versions:
+        _check_roundtrip(table, expected, version=ver,
+                         use_deprecated_int96_timestamps=True)
 
 
 @pytest.mark.pandas
