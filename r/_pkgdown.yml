@@ -196,9 +196,7 @@ reference:
   - concat_arrays
   - concat_tables
 
-- title: Arrow data types and schemas
-  desc: >
-    These functions allow you to create Arrow data types and schemas
+- title: Arrow data types
   contents:
   - data-type
   - dictionary
@@ -206,6 +204,9 @@ reference:
   - vctrs_extension_type
   - as_data_type
   - infer_type
+
+- title: Fields and schemas
+  contents:
   - Field
   - schema
   - unify_schemas
@@ -215,7 +216,7 @@ reference:
 
 - title: Computation
   desc: >
-    Functions for computing values on Arrow data objects.
+    Functionality for computing values on Arrow data objects.
   contents:
   - acero
   - arrow-functions
@@ -292,6 +293,7 @@ reference:
   desc: >
     R6 classes for Arrow data types.
   contents:
+  - Scalar
   - Schema
   - DataType
   - ArrayData
