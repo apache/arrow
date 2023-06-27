@@ -1129,13 +1129,8 @@ Status CastImpl(const StructScalar& from, StringScalar* to) {
 
 // casts between variable-length and fixed-length list types
 template <typename ToScalar>
-enable_if_t<is_list_like_type<typename ToScalar::TypeClass>::value &&
-                ToScalar::TypeClass::type_id != Type::MAP,
-            Status>
-CastImpl(const BaseListScalar& from, ToScalar* to) {
-  DCHECK(from.type->id() == Type::LIST || from.type->id() == Type::LARGE_LIST ||
-         from.type->id() == Type::FIXED_SIZE_LIST);
-
+enable_if_list_type<typename ToScalar::TypeClass, Status> CastImpl(
+    const BaseListScalar& from, ToScalar* to) {
   if constexpr (sizeof(typename ToScalar::TypeClass::offset_type) < sizeof(int64_t)) {
     if (from.value->length() >
         std::numeric_limits<typename ToScalar::TypeClass::offset_type>::max()) {
