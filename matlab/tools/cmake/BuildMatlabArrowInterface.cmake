@@ -34,8 +34,7 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_FETCH_CONTENT_SOURCE_SUBDIR "libmexclass/cpp
 
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME arrowproxy)
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_ROOT_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp")
-set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/api"
-                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy"
+set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy"
                                                       "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit"
                                                       "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/error"
                                                       "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type")
