@@ -1652,7 +1652,7 @@ class DatetimeTZWriter : public BASE {
                    int64_t num_rows)
       : BASE(options, num_rows, 1), timezone_(timezone) {}
 
-  protected:
+ protected:
   Status GetResultBlock(PyObject** out) override {
     RETURN_NOT_OK(this->MakeBlock1D());
     *out = this->block_arr_.obj();
