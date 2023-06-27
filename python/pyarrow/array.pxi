@@ -1539,6 +1539,7 @@ cdef class Array(_PandasConvertible):
         # so it can't be done if the user requested a zero_copy.
         c_options.decode_dictionaries = not zero_copy_only
         c_options.zero_copy_only = zero_copy_only
+        c_options.to_numpy = True
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,

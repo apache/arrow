@@ -2094,7 +2094,18 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::INTERVAL_MONTH_DAY_NANO:  // fall through
       *output_type = PandasWriter::OBJECT;
       break;
-    case Type::DATE32:  // fall through
+    case Type::DATE32:
+      if (options.date_as_object) {
+        *output_type = PandasWriter::OBJECT;
+      } else if (options.coerce_temporal_nanoseconds) {
+        *output_type = PandasWriter::DATETIME_NANO;
+      } else if (options.to_numpy) {
+        // Numpy supports Day, but Pandas does not
+        *output_type = PandasWriter::DATETIME_DAY;
+      } else {
+        *output_type = PandasWriter::DATETIME_MILLI;
+      }
+      break;
     case Type::DATE64:
       if (options.date_as_object) {
         *output_type = PandasWriter::OBJECT;

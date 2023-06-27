@@ -2166,12 +2166,14 @@ def test_pandas_null_sentinels_index():
     assert result.equals(expected)
 
 
-def test_array_from_numpy_datetimeD():
+def test_array_roundtrip_from_numpy_datetimeD():
     arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
 
     result = pa.array(arr)
     expected = pa.array([None, datetime.date(2017, 4, 4)], type=pa.date32())
     assert result.equals(expected)
+    result = result.to_numpy(zero_copy_only=False)
+    np.testing.assert_array_equal(result, arr, strict=True)
 
 
 def test_array_from_naive_datetimes():

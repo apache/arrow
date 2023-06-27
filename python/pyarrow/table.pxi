@@ -480,6 +480,8 @@ cdef class ChunkedArray(_PandasConvertible):
             PandasOptions c_options
             object values
 
+        c_options.to_numpy = True
+
         with nogil:
             check_status(
                 ConvertChunkedArrayToPandas(
