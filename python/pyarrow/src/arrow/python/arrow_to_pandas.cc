@@ -1645,10 +1645,11 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
   }
 };
 
-template<typename BASE>
+template <typename BASE>
 class DatetimeTZWriter : public BASE {
-  public:
-  DatetimeTZWriter(const PandasOptions& options, const std::string& timezone, int64_t num_rows)
+ public:
+  DatetimeTZWriter(const PandasOptions& options, const std::string& timezone,
+                   int64_t num_rows)
       : BASE(options, num_rows, 1), timezone_(timezone) {}
 
   protected:
@@ -1667,7 +1668,7 @@ class DatetimeTZWriter : public BASE {
     return Status::OK();
   }
 
-  private:
+ private:
   std::string timezone_;
 };
 
