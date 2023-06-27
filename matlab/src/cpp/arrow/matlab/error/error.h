@@ -71,14 +71,14 @@
 //
 // MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(builder.Append(...), context, error::BUILDER_FAILED_TO_APPEND);
 //
-// #define MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(expr, context, id)                \
-//     do {                                                                      \
-//         arrow::Status _status = (expr);                                       \
-//         if (!_status.ok()) {                                                  \
-//             context.error = libmexclass::error::Error{id, _status.message()}; \
-//             return;                                                           \
-//         }                                                                     \
-//     } while (0)
+#define MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(expr, context, id)                \
+    do {                                                                      \
+        arrow::Status _status = (expr);                                       \
+        if (!_status.ok()) {                                                  \
+            context.error = libmexclass::error::Error{id, _status.message()}; \
+            return;                                                           \
+        }                                                                     \
+    } while (0)
 
 #define MATLAB_ASSIGN_OR_ERROR_NAME(x, y) \
     ARROW_CONCAT(x, y)
@@ -121,15 +121,10 @@
                                 lhs, rexpr, id);
 
 
-// #define MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT_IMPL(result_name, lhs, rexpr, context, id) \
-//     auto&& result_name = (rexpr);                                                      \
-//     do {                                                                               \
-//         if (!result_name.status().ok()) {                                              \
-//             context.error = libmexclass::error::Error{id, _status.message()};          \
-//             return;                                                                    \
-//         }                                                                              \
-//     } while (0)                                                                        \
-//     lhs = std::move(result_name).ValueUnsafe();
+#define MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT_IMPL(result_name, lhs, rexpr, context, id) \
+    auto&& result_name = (rexpr);                                                      \
+    MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(result_name.status(), context, id);            \
+    lhs = std::move(result_name).ValueUnsafe();
 
 //
 // MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(lhs, rexpr, context, id)
@@ -160,9 +155,9 @@
 //
 // MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array, builder.Finish(), error::FAILED_TO_BUILD_ARRAY);
 //
-// #define MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(lhs, rexpr, context, id)                                           \
-//     MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT_IMPL(MATLAB_ASSIGN_OR_ERROR_NAME(_matlab_error_or_value, __COUNTER__), \
-//                                              lhs, rexpr, context, id);
+#define MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(lhs, rexpr, context, id)                                           \
+    MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT_IMPL(MATLAB_ASSIGN_OR_ERROR_NAME(_matlab_error_or_value, __COUNTER__), \
+                                             lhs, rexpr, context, id);
 
 namespace arrow::matlab::error {
     // TODO: Make Error ID Enum class to avoid defining static constexpr
