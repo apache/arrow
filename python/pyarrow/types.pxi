@@ -126,19 +126,40 @@ def _is_primitive(Type type):
     return is_primitive(type)
 
 
-def _get_pandas_type(type, unit=None):
-    if type not in _pandas_type_map:
+def _get_pandas_type(arrow_type, coerce_to_ns=False):
+    cdef Type type_id = arrow_type.id
+    if type_id not in _pandas_type_map:
         return None
-    if (_pandas_api.is_v1() and type in
-            [_Type_DATE32, _Type_DATE64, _Type_TIMESTAMP, _Type_DURATION]):
+    if coerce_to_ns:
         # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
-        if type == _Type_DURATION:
+        if type_id == _Type_DURATION:
             return np.dtype('timedelta64[ns]')
         return np.dtype('datetime64[ns]')
-    pandas_type = _pandas_type_map[type]
+    pandas_type = _pandas_type_map[type_id]
     if isinstance(pandas_type, dict):
-        pandas_type = pandas_type.get(unit, None)
+        pandas_type = pandas_type.get(arrow_type.unit, None)
     return pandas_type
+
+
+def _get_pandas_tz_type(arrow_type, coerce_to_ns=False):
+    from pyarrow.pandas_compat import make_datetimetz
+    unit = 'ns' if coerce_to_ns else arrow_type.unit
+    return make_datetimetz(unit, arrow_type.tz)
+
+
+def _to_pandas_dtype(arrow_type, options=None):
+    coerce_to_ns = (options and options.get('coerce_temporal_nanoseconds', False)) or (
+        _pandas_api.is_v1() and type in [_Type_DATE32, _Type_DATE64, _Type_TIMESTAMP, _Type_DURATION])
+
+    if getattr(arrow_type, 'tz', None):
+        dtype = _get_pandas_tz_type(arrow_type, coerce_to_ns)
+    else:
+        dtype = _get_pandas_type(arrow_type, coerce_to_ns)
+
+    if not dtype:
+        raise NotImplementedError(str(arrow_type))
+
+    return dtype
 
 
 # Workaround for Cython parsing bug
@@ -300,11 +321,7 @@ cdef class DataType(_Weakrefable):
         >>> pa.int64().to_pandas_dtype()
         <class 'numpy.int64'>
         """
-        cdef Type type_id = self.type.id()
-        dtype = _get_pandas_type(type_id)
-        if not dtype:
-            raise NotImplementedError(str(self))
-        return dtype
+        return _to_pandas_dtype(self)
 
     def _export_to_c(self, out_ptr):
         """
@@ -1031,24 +1048,6 @@ cdef class TimestampType(DataType):
         else:
             return None
 
-    def to_pandas_dtype(self):
-        """
-        Return the equivalent NumPy / Pandas dtype.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> t = pa.timestamp('ms', tz='UTC')
-        >>> t.to_pandas_dtype()
-        datetime64[ms, UTC]
-        """
-        if self.tz is None:
-            return _get_pandas_type(_Type_TIMESTAMP, self.unit)
-        else:
-            # Return DatetimeTZ
-            from pyarrow.pandas_compat import make_datetimetz
-            return make_datetimetz(self.unit, self.tz)
-
     def __reduce__(self):
         return timestamp, (self.unit, self.tz)
 
@@ -1147,19 +1146,6 @@ cdef class DurationType(DataType):
         's'
         """
         return timeunit_to_string(self.duration_type.unit())
-
-    def to_pandas_dtype(self):
-        """
-        Return the equivalent NumPy / Pandas dtype.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> d = pa.duration('ms')
-        >>> d.to_pandas_dtype()
-        dtype('<m8[ms]')
-        """
-        return _get_pandas_type(_Type_DURATION, self.unit)
 
 
 cdef class FixedSizeBinaryType(DataType):

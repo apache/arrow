@@ -4258,20 +4258,21 @@ def test_to_pandas_extension_dtypes_mapping():
     assert isinstance(result['a'].dtype, pd.PeriodDtype)
 
 
-def test_array_to_pandas():
+@pytest.mark.parametrize("arr",
+                         [pd.period_range("2012-01-01", periods=3, freq="D").array,
+                          pd.interval_range(1, 4).array])
+def test_array_to_pandas(arr):
     if Version(pd.__version__) < Version("1.1"):
         pytest.skip("ExtensionDtype to_pandas method missing")
 
-    for arr in [pd.period_range("2012-01-01", periods=3, freq="D").array,
-                pd.interval_range(1, 4).array]:
-        result = pa.array(arr).to_pandas()
-        expected = pd.Series(arr)
-        tm.assert_series_equal(result, expected)
+    result = pa.array(arr).to_pandas()
+    expected = pd.Series(arr)
+    tm.assert_series_equal(result, expected)
 
-        # TODO implement proper conversion for chunked array
-        # result = pa.table({"col": arr})["col"].to_pandas()
-        # expected = pd.Series(arr, name="col")
-        # tm.assert_series_equal(result, expected)
+    # TODO implement proper conversion for chunked array
+    # result = pa.table({"col": arr})["col"].to_pandas()
+    # expected = pd.Series(arr, name="col")
+    # tm.assert_series_equal(result, expected)
 
 
 def test_roundtrip_empty_table_with_extension_dtype_index():

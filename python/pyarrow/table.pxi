@@ -458,6 +458,23 @@ cdef class ChunkedArray(_PandasConvertible):
         return result
 
     def _to_pandas(self, options, types_mapper=None, **kwargs):
+<<<<<<< HEAD
+=======
+        pandas_dtype = None
+        try:
+            if issubclass(type(self.type), ExtensionType):
+                pandas_dtype = self.type.to_pandas_dtype()
+            else:
+                pandas_dtype = _to_pandas_dtype(self.type, options)
+        except NotImplementedError:
+            pass
+
+        # pandas ExtensionDtype that implements conversion from pyarrow
+        if hasattr(pandas_dtype, '__from_arrow__'):
+            arr = pandas_dtype.__from_arrow__(self)
+            return pandas_api.series(arr, name=self._name)
+
+>>>>>>> 18ebf4e91 (Coerce to ns in to_pandas_dtype for non-extension types)
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def to_numpy(self):
