@@ -1,0 +1,129 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#include <cstddef>
+
+#include <gtest/gtest.h>
+
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
+#include "arrow/util/span.h"
+
+using testing::ElementsAre;
+using testing::ElementsAreArray;
+
+namespace arrow::util {
+
+TEST(Span, Construction) {
+  int arr[] = {1, 2, 3};
+  constexpr int const_arr[] = {7, 8, 9};
+  static_assert(std::is_constructible_v<span<int>, decltype(arr)&>);
+  static_assert(std::is_constructible_v<span<const int>, decltype(arr)&>);
+  static_assert(std::is_constructible_v<span<const int>, decltype(const_arr)&>);
+  static_assert(std::is_constructible_v<span<const int>, span<int>>);
+
+  static_assert(std::is_constructible_v<span<int>, std::vector<int>&>);
+  static_assert(std::is_constructible_v<span<const int>, std::vector<int>&>);
+  static_assert(std::is_constructible_v<span<const int>, const std::vector<int>&>);
+
+  EXPECT_THAT(span<const int>(const_arr), ElementsAreArray(const_arr));
+  EXPECT_THAT(span<int>(arr), ElementsAreArray(arr));
+
+  static_assert(!std::is_constructible_v<span<int>, decltype(const_arr)&>);
+  static_assert(!std::is_constructible_v<span<int>, const std::vector<int>&>);
+  static_assert(!std::is_constructible_v<span<int>, span<const int>>);
+
+  static_assert(!std::is_constructible_v<span<const unsigned>, decltype(const_arr)&>);
+  static_assert(!std::is_constructible_v<span<const std::byte>, decltype(const_arr)&>);
+}
+
+TEST(Span, TemplateArgumentDeduction) {
+  int arr[3];
+  const int const_arr[] = {1, 2, 3};
+  std::vector<int> vec;
+  const std::vector<int> const_vec;
+  static_assert(std::is_same_v<decltype(span(arr)), span<int>>);
+  static_assert(std::is_same_v<decltype(span(vec)), span<int>>);
+  static_assert(std::is_same_v<decltype(span(const_arr)), span<const int>>);
+  static_assert(std::is_same_v<decltype(span(const_vec)), span<const int>>);
+}
+
+TEST(Span, Size) {
+  int arr[] = {1, 2, 3};
+  EXPECT_EQ(span(arr).size(), 3);
+  EXPECT_EQ(span(arr).size_bytes(), sizeof(int) * 3);
+
+  std::vector<int> vec;
+  EXPECT_TRUE(span(vec).empty());
+  EXPECT_EQ(span(vec).size(), 0);
+  EXPECT_EQ(span(vec).size_bytes(), 0);
+
+  vec.resize(999);
+  EXPECT_FALSE(span(vec).empty());
+  EXPECT_EQ(span(vec).size(), 999);
+  EXPECT_EQ(span(vec).size_bytes(), sizeof(int) * 999);
+}
+
+MATCHER_P(IsSpan, expected, "") {
+  return arg.data() == expected.data() && arg.size() == expected.size();
+}
+
+TEST(Span, SubSpan) {
+  int arr[] = {1, 2, 3};
+  span s(arr);
+
+  EXPECT_THAT(s.subspan(0), IsSpan(s));
+  EXPECT_THAT(s.subspan(0, s.size()), IsSpan(s));
+
+  for (size_t offset = 0; offset < s.size(); ++offset) {
+    span expected(arr + offset, s.size() - offset);
+    EXPECT_THAT(s.subspan(offset), IsSpan(expected));
+    EXPECT_THAT(s.subspan(offset, s.size() * 3), IsSpan(expected));
+  }
+  EXPECT_TRUE(s.subspan(s.size()).empty());
+  EXPECT_TRUE(s.subspan(s.size() * 3).empty());
+
+  for (size_t length = 0; length < s.size(); ++length) {
+    span expected(arr, length);
+    EXPECT_THAT(s.subspan(0, length), IsSpan(expected));
+  }
+
+  EXPECT_THAT(s.subspan(1, 1), IsSpan(span(arr + 1, 1)));
+}
+
+TEST(Span, Mutation) {
+  size_t arr[] = {9, 9, 9, 9, 9};
+
+  span s(arr);
+  for (size_t i = 0; i < s.size(); ++i) {
+    s[i] = i * i;
+  }
+
+  EXPECT_THAT(arr, ElementsAre(0, 1, 4, 9, 16));
+
+  auto set = [](span<size_t> lhs, size_t rhs) {
+    for (size_t& i : lhs) {
+      i = rhs;
+    }
+  };
+  set(span(arr), 0);
+  set(span(arr).subspan(1), 1);
+  set(span(arr).subspan(2, 2), 23);
+  EXPECT_THAT(arr, ElementsAre(0, 1, 23, 23, 1));
+}
+
+}  // namespace arrow::util
