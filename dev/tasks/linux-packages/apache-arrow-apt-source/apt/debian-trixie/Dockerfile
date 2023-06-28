@@ -15,8 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=ubuntu:kinetic
-FROM ${FROM}
+FROM debian:trixie
 
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
@@ -27,59 +26,16 @@ RUN \
     /etc/apt/apt.conf.d/disable-install-recommends
 
 ARG DEBUG
+
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
+    base-files \
     build-essential \
-    clang \
-    clang-tools \
-    cmake \
     debhelper \
     devscripts \
-    git \
-    gtk-doc-tools \
-    libboost-filesystem-dev \
-    libboost-system-dev \
-    libbrotli-dev \
-    libbz2-dev \
-    libc-ares-dev \
-    libcurl4-openssl-dev \
-    libgirepository1.0-dev \
-    libglib2.0-doc \
-    libgmock-dev \
-    libgoogle-glog-dev \
-    libgrpc++-dev \
-    libgtest-dev \
-    liblz4-dev \
-    libmlir-15-dev \
-    libprotobuf-dev \
-    libprotoc-dev \
-    libre2-dev \
-    libsnappy-dev \
-    libssl-dev \
-    libthrift-dev \
-    libutf8proc-dev \
-    libzstd-dev \
-    llvm-dev \
-    lsb-release \
-    meson \
-    mlir-15-tools \
-    ninja-build \
-    nlohmann-json3-dev \
-    pkg-config \
-    protobuf-compiler-grpc \
-    python3-dev \
-    python3-pip \
-    python3-setuptools \
-    rapidjson-dev \
-    tzdata \
-    valac \
-    zlib1g-dev && \
-  if apt list | grep -q '^libcuda1'; then \
-    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
-  else \
-    :; \
-  fi && \
-  apt clean && \
-  rm -rf /var/lib/apt/lists/*
+    fakeroot \
+    gnupg \
+    lsb-release && \
+  apt clean

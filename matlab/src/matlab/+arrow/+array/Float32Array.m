@@ -20,6 +20,10 @@ classdef Float32Array < arrow.array.NumericArray
         NullSubstitutionValue = single(NaN);
     end
 
+    properties(SetAccess=private, GetAccess=public)
+        Type = arrow.type.Float32Type
+    end
+
     methods
         function obj = Float32Array(data, varargin)
             obj@arrow.array.NumericArray(data, "single", ...

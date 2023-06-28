@@ -29,6 +29,8 @@ class Array : public libmexclass::proxy::Proxy {
     
         virtual ~Array() {}
 
+        std::shared_ptr<arrow::Array> getArray();
+
     protected:
 
         void toString(libmexclass::proxy::method::Context& context);

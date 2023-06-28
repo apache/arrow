@@ -15,12 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM amazonlinux:2
-
-ARG DEBUG
-
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  yum install -y ${quiet} \
-    rpmdevtools && \
-  yum clean ${quiet} all
+arm64v8/debian:trixie

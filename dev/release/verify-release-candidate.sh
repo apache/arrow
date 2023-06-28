@@ -189,12 +189,14 @@ test_apt() {
                 "arm64v8/debian:bullseye" \
                 "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
+                "debian:trixie" \
+                "arm64v8/debian:trixie" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy" \
-                "ubuntu:kinetic" \
-                "arm64v8/ubuntu:kinetic"; do \
+                "ubuntu:lunar" \
+                "arm64v8/ubuntu:lunar"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
@@ -233,7 +235,6 @@ test_yum() {
                 "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2023" \
-                "amazonlinux:2" \
                 "quay.io/centos/centos:stream9" \
                 "quay.io/centos/centos:stream8" \
                 "centos:7"; do

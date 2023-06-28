@@ -20,26 +20,35 @@
 #include <arrow/util/bit_util.h>
 #include <arrow/util/bitmap_generate.h>
 
-#include "arrow/matlab/bit/bit_pack_matlab_logical_array.h"
+#include "arrow/matlab/bit/pack.h"
 
 namespace arrow::matlab::bit {
 
     // Calculate the number of bytes required in the bit-packed validity buffer.
-    int64_t bitPackedLength(int64_t num_elements) {
+    int64_t packedLength(int64_t num_elements) {
         // Since MATLAB logical values are encoded using a full byte (8 bits),
         // we can divide the number of elements in the logical array by 8 to get
         // the bit packed length.
         return static_cast<int64_t>(std::ceil(num_elements / 8.0));
     }
 
+    arrow::Result<std::shared_ptr<arrow::Buffer>> packValid(const ::matlab::data::TypedArray<bool> matlab_logical_array) {
+        const auto unpacked_buffer_length = matlab_logical_array.getNumberOfElements();
+        if (unpacked_buffer_length > 0) {
+            return arrow::matlab::bit::pack(matlab_logical_array);
+        } else {
+            return nullptr;
+        }
+    }
+
     // Pack an unpacked MATLAB logical array into into a bit-packed arrow::Buffer.
-    arrow::Result<std::shared_ptr<arrow::Buffer>> bitPackMatlabLogicalArray(const ::matlab::data::TypedArray<bool> matlab_logical_array) {
+    arrow::Result<std::shared_ptr<arrow::Buffer>> pack(const ::matlab::data::TypedArray<bool> matlab_logical_array) {
         // Validate that the input arrow::Buffer has sufficient size to store a full bit-packed
         // representation of the input MATLAB logical array.
         const auto unpacked_buffer_length = matlab_logical_array.getNumberOfElements();
 
         // Compute the bit packed length from the unpacked length.
-        const auto packed_buffer_length = bitPackedLength(unpacked_buffer_length);
+        const auto packed_buffer_length = packedLength(unpacked_buffer_length);
 
         ARROW_ASSIGN_OR_RAISE(auto packed_validity_bitmap_buffer,  arrow::AllocateResizableBuffer(packed_buffer_length));
 

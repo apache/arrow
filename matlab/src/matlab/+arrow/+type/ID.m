@@ -28,6 +28,12 @@ classdef ID < uint64
         % Float16 (10) not yet supported
         Float32 (11)
         Float64 (12)
+        % String (13)
+        % Binary (14)
+        % FixedSizeBinary (15)
+        % Date32 (16)
+        % Date64 (17)
+        Timestamp (18)
     end
 
     methods
@@ -42,7 +48,7 @@ classdef ID < uint64
                     bitWidth = 16;
                 case {ID.UInt32, ID.Int32, ID.Float32}
                     bitWidth = 32;
-                case {ID.UInt64, ID.Int64, ID.Float64}
+                case {ID.UInt64, ID.Int64, ID.Float64, ID.Timestamp}
                     bitWidth = 64;
                 otherwise
                     bitWidth = NaN;

@@ -20,9 +20,6 @@
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 
-template <>
-struct std::hash<arrow::FieldPath> : public arrow::FieldPath::Hash {};
-
 namespace arrow {
 
 using internal::checked_cast;
@@ -1095,7 +1092,7 @@ struct SortFieldPopulator {
   }
 
   std::vector<SortField> sort_fields_;
-  std::unordered_set<FieldPath> seen_;
+  std::unordered_set<FieldPath, FieldPath::Hash> seen_;
   std::vector<int> tmp_indices_;
 };
 
