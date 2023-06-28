@@ -126,25 +126,40 @@ TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
                                             "true, false, true, false]"));
   AssertArraysEqual(*expected, *out.make_array());
 
-  // fails; value_set cannot be cast to int8
-  opts = SetLookupOptions{ArrayFromJSON(float32(), "[2.5, 3.1, 5.0]")};
-  ASSERT_RAISES(Invalid, CallFunction("is_in", {input}, &opts));
+  // value_set cannot be casted to int8, but int8 is castable to float
+  CheckIsIn(input, ArrayFromJSON(float32(), "[1.0, 2.5, 3.1, 5.0]"),
+            "[false, true, false, false, false, true, false, false, false]");
 
   // Allow implicit casts between binary types...
-  CheckIsIn(ArrayFromJSON(binary(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+  CheckIsIn(ArrayFromJSON(binary(), R"(["aaa", "bb", "ccc", null, "bbb"])"),
             ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb"])"),
-            "[true, true, false, false, true]");
+            "[true, false, false, false, true]");
+  CheckIsIn(ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+            ArrayFromJSON(binary(), R"(["aa", "bbb"])"),
+            "[false, true, false, false, true]");
   CheckIsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
             ArrayFromJSON(large_utf8(), R"(["aaa", "bbb"])"),
             "[true, true, false, false, true]");
+  CheckIsIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+            ArrayFromJSON(utf8(), R"(["aaa", "bbb"])"),
+            "[true, true, false, false, true]");
+
   // But explicitly deny implicit casts from non-binary to utf8 to
   // avoid surprises
   ASSERT_RAISES(Invalid,
                 IsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                      SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
+  ASSERT_RAISES(Invalid, IsIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
+                              SetLookupOptions(ArrayFromJSON(
+                                  utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
+
   ASSERT_RAISES(Invalid,
                 IsIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                      SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
+  ASSERT_RAISES(Invalid,
+                IsIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
+                     SetLookupOptions(ArrayFromJSON(
+                         large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
 }
 
 template <typename Type>
@@ -253,11 +268,12 @@ TEST_F(TestIsInKernel, TimeDuration) {
               "[true, false, false, true, true]", /*skip_nulls=*/true);
   }
 
-  // Different units, invalid cast
-  ASSERT_RAISES(Invalid, IsIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 2]"),
-                              ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 2]")));
+  // Different units, cast value_set to values will fail, then cast values to value_set
+  CheckIsIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 2]"),
+            ArrayFromJSON(duration(TimeUnit::MILLI), "[1, 2, 2000]"),
+            "[false, false, true]");
 
-  // Different units, valid cast
+  // Different units, cast value_set to values
   CheckIsIn(ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"),
             ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"), "[true, false, true]");
 }
@@ -779,11 +795,12 @@ TEST_F(TestIndexInKernel, TimeDuration) {
   CheckIndexIn(duration(TimeUnit::SECOND), "[null, null, null, null]", "[null]",
                "[0, 0, 0, 0]");
 
-  // Different units, invalid cast
-  ASSERT_RAISES(Invalid, IndexIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 2]"),
-                                 ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 2]")));
+  // Different units, cast value_set to values will fail, then cast values to value_set
+  CheckIndexIn(ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 1, 2]"),
+               ArrayFromJSON(duration(TimeUnit::MILLI), "[1, 2, 2000]"),
+               "[null, null, 2]");
 
-  // Different units, valid cast
+  // Different units, cast value_set to values
   CheckIndexIn(ArrayFromJSON(duration(TimeUnit::MILLI), "[0, 1, 2000]"),
                ArrayFromJSON(duration(TimeUnit::SECOND), "[0, 2]"), "[0, null, 1]");
 }
@@ -820,6 +837,50 @@ TEST_F(TestIndexInKernel, Boolean) {
 
   // Both array have Nulls
   CheckIndexIn(boolean(), "[null, null, null, null]", "[null]", "[0, 0, 0, 0]");
+}
+
+TEST_F(TestIndexInKernel, ImplicitlyCastValueSet) {
+  auto input = ArrayFromJSON(int8(), "[0, 1, 2, 3, 4, 5, 6, 7, 8]");
+
+  SetLookupOptions opts{ArrayFromJSON(int32(), "[2, 3, 5, 7]")};
+  ASSERT_OK_AND_ASSIGN(Datum out, CallFunction("index_in", {input}, &opts));
+
+  auto expected = ArrayFromJSON(int32(), ("[null, null, 0, 1, null,"
+                                          "2, null, 3, null]"));
+  AssertArraysEqual(*expected, *out.make_array());
+
+  // Although value_set cannot be cast to int8, but int8 is castable to float
+  CheckIndexIn(input, ArrayFromJSON(float32(), "[1.0, 2.5, 3.1, 5.0]"),
+               "[null, 0, null, null, null, 3, null, null, null]");
+
+  // Allow implicit casts between binary types...
+  CheckIndexIn(ArrayFromJSON(binary(), R"(["aaa", "bb", "ccc", null, "bbb"])"),
+               ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb"])"),
+               "[0, null, null, null, 1]");
+  CheckIndexIn(
+      ArrayFromJSON(fixed_size_binary(3), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+      ArrayFromJSON(binary(), R"(["aa", "bbb"])"), "[null, 1, null, null, 1]");
+  CheckIndexIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+               ArrayFromJSON(large_utf8(), R"(["aaa", "bbb"])"), "[0, 1, null, null, 1]");
+  CheckIndexIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+               ArrayFromJSON(utf8(), R"(["aaa", "bbb"])"), "[0, 1, null, null, 1]");
+  // But explicitly deny implicit casts from non-binary to utf8 to
+  // avoid surprises
+  ASSERT_RAISES(Invalid,
+                IndexIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+                        SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
+  ASSERT_RAISES(Invalid, IndexIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
+                                 SetLookupOptions(ArrayFromJSON(
+                                     utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
+
+  ASSERT_RAISES(
+      Invalid,
+      IndexIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
+              SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
+  ASSERT_RAISES(Invalid,
+                IndexIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
+                        SetLookupOptions(ArrayFromJSON(
+                            large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
 }
 
 template <typename Type>
