@@ -19,6 +19,6 @@ classdef tFloat64Type < hPrimitiveType
     properties
         ArrowType = arrow.type.Float64Type
         TypeID = arrow.type.ID.Float64
-        BitWidth = 64;
+        BitWidth = int32(64);
     end
 end

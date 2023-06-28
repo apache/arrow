@@ -19,6 +19,6 @@ classdef tInt32Type < hPrimitiveType
     properties
         ArrowType = arrow.type.Int32Type
         TypeID = arrow.type.ID.Int32
-        BitWidth = 32;
+        BitWidth = int32(32);
     end
 end

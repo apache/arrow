@@ -19,6 +19,6 @@ classdef tUInt8Type < hPrimitiveType
     properties
         ArrowType = arrow.type.UInt8Type
         TypeID = arrow.type.ID.UInt8
-        BitWidth = 8;
+        BitWidth = int32(8);
     end
 end

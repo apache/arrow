@@ -19,6 +19,6 @@ classdef tUInt16Type < hPrimitiveType
     properties
         ArrowType = arrow.type.UInt16Type
         TypeID = arrow.type.ID.UInt16
-        BitWidth = 16;
+        BitWidth = int32(16);
     end
 end

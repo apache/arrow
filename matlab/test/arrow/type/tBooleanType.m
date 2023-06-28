@@ -19,6 +19,6 @@ classdef tBooleanType < hPrimitiveType
     properties
         ArrowType = arrow.type.BooleanType
         TypeID = arrow.type.ID.Boolean
-        BitWidth = 1;
+        BitWidth = int32(1);
     end
 end

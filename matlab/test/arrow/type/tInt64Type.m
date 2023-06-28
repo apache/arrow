@@ -19,6 +19,6 @@ classdef tInt64Type < hPrimitiveType
     properties
         ArrowType = arrow.type.Int64Type
         TypeID = arrow.type.ID.Int64
-        BitWidth = 64;
+        BitWidth = int32(64);
     end
 end
