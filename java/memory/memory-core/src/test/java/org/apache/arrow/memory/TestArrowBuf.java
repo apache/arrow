@@ -20,6 +20,7 @@ package org.apache.arrow.memory;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import java.lang.reflect.Field;
@@ -146,8 +147,8 @@ public class TestArrowBuf {
   public void testEnabledAssertion() {
     ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(Level.TRACE);
     try (BufferAllocator allocator = new RootAllocator(128)) {
-      ArrowBuf buf = allocator.buffer(2);
-    } catch (Exception e) {
+      allocator.buffer(2);
+      Exception e = assertThrows(IllegalStateException.class, () -> allocator.close());
       assertFalse(e.getMessage().contains("event log for:"));
     } finally {
       ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
@@ -165,14 +166,14 @@ public class TestArrowBuf {
       modifiersDebug.setInt(fieldDebug, fieldDebug.getModifiers() & ~Modifier.FINAL);
       fieldDebug.set(null, true);
       try (BufferAllocator allocator = new RootAllocator(128)) {
-        ArrowBuf buf = allocator.buffer(2);
-      } catch (Exception e) {
+        allocator.buffer(2);
+        Exception e = assertThrows(IllegalStateException.class, () -> allocator.close());
         assertTrue(e.getMessage().contains("event log for:")); // JDK8, JDK11
       } finally {
         fieldDebug.set(null, false);
       }
     } catch (Exception e) {
-      assertTrue(e.toString().contains("java.lang.NoSuchFieldException: modifiers")); // JDK17+
+      assertTrue(e.toString().equals("java.lang.NoSuchFieldException: modifiers")); // JDK17+
     } finally {
       ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
     }
