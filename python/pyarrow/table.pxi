@@ -1457,6 +1457,16 @@ cdef class _Tabular(_PandasConvertible):
         raise TypeError("This object is not instantiable, "
                         "use a subclass instead.")
 
+    def __array__(self, dtype=None):
+        column_arrays = [
+            np.asarray(self.column(i), dtype=dtype) for i in range(self.num_columns)
+        ]
+        if column_arrays:
+            arr = np.stack(column_arrays, axis=1)
+        else:
+            arr = np.empty((self.num_rows, 0), dtype=dtype)
+        return arr
+
     def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True):
         """
         Return the dataframe interchange object implementing the interchange protocol.
@@ -1486,16 +1496,6 @@ cdef class _Tabular(_PandasConvertible):
         from pyarrow.interchange.dataframe import _PyArrowDataFrame
 
         return _PyArrowDataFrame(self, nan_as_null, allow_copy)
-
-    def __array__(self, dtype=None):
-        column_arrays = [
-            np.asarray(self.column(i), dtype=dtype) for i in range(self.num_columns)
-        ]
-        if column_arrays:
-            arr = np.stack(column_arrays, axis=1)
-        else:
-            arr = np.empty((self.num_rows, 0), dtype=dtype)
-        return arr
 
     def __eq__(self, other):
         try:
