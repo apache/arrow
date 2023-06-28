@@ -2767,8 +2767,8 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     This is often used with ordered or segmented aggregation where groups
     can be emit before accumulating all of the input data.
 
-    Note that currently size of any input column can not exceed 2 GB limit
-    (all groups combined).
+    Note that currently the size of any input column can not exceed 2 GB
+    for a single segment (all groups combined).
 
     Parameters
     ----------
