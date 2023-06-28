@@ -39,7 +39,7 @@ import pyarrow.tests.strategies as past
 
 
 def test_total_bytes_allocated():
-    code = f"""if 1:
+    code = """if 1:
     import pyarrow as pa
 
     assert pa.total_allocated_bytes() == 0
