@@ -350,7 +350,7 @@ def dictionary_decode(arr, memory_pool=None):
     >>> x = pa.array(["a", "a", "b"], pa.dictionary(pa.int8(), pa.string()))
     >>> x
     <pyarrow.lib.DictionaryArray object at ...>
-
+    <BLANKLINE>
     -- dictionary:
     [
         "a",
