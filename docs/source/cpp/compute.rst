@@ -1850,7 +1850,7 @@ replaced, based on the remaining inputs.
 
 Pairwise functions
 ~~~~~~~~~~~~~~~~~~~~
-Pairwise functions are unary vector functions that performs a binary operation on 
+Pairwise functions are unary vector functions that perform a binary operation on 
 a pair of elements in the input array, typically on adjacent elements. The n-th
 output is computed by applying the binary operation on the n-th and (n-p)-th, 
 where p is the period. The default period is 1. The period can also be negative.
