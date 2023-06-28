@@ -17,6 +17,8 @@
 
 #include "arrow/matlab/array/proxy/string_array.h"
 
+#include "arrow/array/builder_binary.h"
+
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
 #include "arrow/matlab/bit/unpack.h"
@@ -31,11 +33,9 @@ namespace arrow::matlab::array::proxy {
             const mda::StringArray array_mda = opts[0]["MatlabArray"];
             const mda::TypedArray<bool> unpacked_validity_bitmap_mda = opts[0]["Valid"];
 
-            const auto array_length = array_mda.getNumberOfElements();
-
-            std::vector<std::string> strings;
-
             // Convert UTF-16 encoded MATLAB string values to UTF-8 encoded Arrow string values.
+            const auto array_length = array_mda.getNumberOfElements();
+            std::vector<std::string> strings;
             strings.reserve(array_length);
             for (const auto str_utf16 : array_mda) {
                 MATLAB_ASSIGN_OR_ERROR(auto str_utf8, arrow::util::UTF16StringToUTF8(str_utf16), error::UNICODE_CONVERSION_ERROR_ID);
@@ -49,17 +49,27 @@ namespace arrow::matlab::array::proxy {
             MATLAB_ERROR_IF_NOT_OK(builder.AppendValues(strings, unpacked_validity_bitmap_ptr), error::STRING_BUILDER_APPEND_FAILED);
             MATLAB_ASSIGN_OR_ERROR(auto array, builder.Finish(), error::STRING_BUILDER_FINISH_FAILED);
 
-            // Note: the "type constructor function" for String is "utf8" and not "string".
-            auto array_data = arrow::ArrayData::Make(data_type, array_length, {validity_bitmap_buffer, data_buffer});
-            return std::make_shared<arrow::matlab::array::proxy::StringArray>(arrow::MakeArray(array_data));
+            return std::make_shared<arrow::matlab::array::proxy::StringArray>(array);
         }
 
         void StringArray::toMATLAB(libmexclass::proxy::method::Context& context) {
+            namespace mda = ::matlab::data;
+
+            // Convert UTF-8 encoded Arrow string values to UTF-16 encoded MATLAB string values.
             auto array_length = array->length();
-            // TODO: Figure out how to get the raw data from an arrow::StringArray
-            auto data_buffer = std::static_pointer_cast<arrow::BooleanArray>(array)->values();
-            auto array_mda = // TODO: Make an MDA String Array from the string data buffer. 
-            // TODO: Transcode from UTF-8 Arrow String to UTF-16 MATLAB String.
+            std::vector<mda::MATLABString> strings;
+            strings.reserve(array_length);
+            for (size_t i = 0; i < array_length; ++i) {
+                auto string_array = std::static_pointer_cast<arrow::StringArray>(array);
+                const auto& str_utf8 = string_array->GetString(i);
+                MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto str_utf16, arrow::util::UTF8StringToUTF16(str_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
+                const mda::MATLABString matlab_string = mda::MATLABString(std::move(str_utf16));
+                strings.push_back(matlab_string);
+            }
+
+            // Create a MATLAB String array from a vector of UTF-16 encoded strings.
+            mda::ArrayFactory factory;
+            auto array_mda = factory.createArray({size_t{1}, static_cast<size_t>(array_length)}, strings.begin(), strings.end());
             context.outputs[0] = array_mda;
         }
 
