@@ -125,6 +125,90 @@ final class ArrayTests: XCTestCase {
         XCTAssertEqual(date64Array.length, 3)
         XCTAssertEqual(date64Array[1], date2)
         XCTAssertEqual(date64Array[0]!, date1)
+    }
+    
+    func testBinaryArray() throws {
+        let binaryBuilder = try ArrowArrayBuilders.loadBinaryArrayBuilder();
+        for i in 0..<100 {
+            if i % 10 == 9 {
+                binaryBuilder.append(nil)
+            } else {
+                binaryBuilder.append(("test" + String(i)).data(using:.utf8))
+            }
+        }
         
+        XCTAssertEqual(binaryBuilder.nullCount, 10)
+        XCTAssertEqual(binaryBuilder.length, 100)
+        XCTAssertEqual(binaryBuilder.capacity, 648)
+        let binaryArray = try binaryBuilder.finish()
+        XCTAssertEqual(binaryArray.length, 100)
+        for i in 0..<binaryArray.length {
+            if i % 10 == 9 {
+                XCTAssertEqual(try binaryArray.isNull(i), true)
+            } else {
+                let stringData = String(bytes: binaryArray[i]!, encoding: .utf8)
+                XCTAssertEqual(stringData, "test" + String(i))
+            }
+        }
+    }
+    
+    func testTime32Array() throws {
+        let milliBuilder = try ArrowArrayBuilders.loadTime32ArrayBuilder(.Milliseconds);
+        milliBuilder.append(100)
+        milliBuilder.append(1000000)
+        milliBuilder.append(nil)
+        XCTAssertEqual(milliBuilder.nullCount, 1)
+        XCTAssertEqual(milliBuilder.length, 3)
+        XCTAssertEqual(milliBuilder.capacity, 136)
+        let milliArray = try milliBuilder.finish()
+        let milliType = milliArray.arrowData.type as! ArrowTypeTime32
+        XCTAssertEqual(milliType.unit, .Milliseconds)
+        XCTAssertEqual(milliArray.length, 3)
+        XCTAssertEqual(milliArray[1], 1000000)
+        XCTAssertEqual(milliArray[2], nil)
+
+        let secBuilder = try ArrowArrayBuilders.loadTime32ArrayBuilder(.Seconds);
+        secBuilder.append(200)
+        secBuilder.append(nil)
+        secBuilder.append(2000011)
+        XCTAssertEqual(secBuilder.nullCount, 1)
+        XCTAssertEqual(secBuilder.length, 3)
+        XCTAssertEqual(secBuilder.capacity, 136)
+        let secArray = try secBuilder.finish()
+        let secType = secArray.arrowData.type as! ArrowTypeTime32
+        XCTAssertEqual(secType.unit, .Seconds)
+        XCTAssertEqual(secArray.length, 3)
+        XCTAssertEqual(secArray[1], nil)
+        XCTAssertEqual(secArray[2], 2000011)
+    }
+    
+    func testTime64Array() throws {
+        let nanoBuilder = try ArrowArrayBuilders.loadTime64ArrayBuilder(.Nanoseconds);
+        nanoBuilder.append(10000)
+        nanoBuilder.append(nil)
+        nanoBuilder.append(123456789)
+        XCTAssertEqual(nanoBuilder.nullCount, 1)
+        XCTAssertEqual(nanoBuilder.length, 3)
+        XCTAssertEqual(nanoBuilder.capacity, 264)
+        let nanoArray = try nanoBuilder.finish()
+        let nanoType = nanoArray.arrowData.type as! ArrowTypeTime64
+        XCTAssertEqual(nanoType.unit, .Nanoseconds)
+        XCTAssertEqual(nanoArray.length, 3)
+        XCTAssertEqual(nanoArray[1], nil)
+        XCTAssertEqual(nanoArray[2], 123456789)
+
+        let microBuilder = try ArrowArrayBuilders.loadTime64ArrayBuilder(.Microseconds);
+        microBuilder.append(nil)
+        microBuilder.append(20000)
+        microBuilder.append(987654321)
+        XCTAssertEqual(microBuilder.nullCount, 1)
+        XCTAssertEqual(microBuilder.length, 3)
+        XCTAssertEqual(microBuilder.capacity, 264)
+        let microArray = try microBuilder.finish()
+        let microType = microArray.arrowData.type as! ArrowTypeTime64
+        XCTAssertEqual(microType.unit, .Microseconds)
+        XCTAssertEqual(microArray.length, 3)
+        XCTAssertEqual(microArray[1], 20000)
+        XCTAssertEqual(microArray[2], 987654321)
     }
 }

@@ -16,7 +16,7 @@
 # under the License.
 
 #' @include arrow-object.R
-#' @title class arrow::DataType
+#' @title DataType class
 #'
 #' @usage NULL
 #' @format NULL
@@ -143,7 +143,7 @@ infer_type.Expression <- function(x, ...) x$type()
 
 #----- metadata
 
-#' @title class arrow::FixedWidthType
+#' @title FixedWidthType class
 #'
 #' @usage NULL
 #' @format NULL

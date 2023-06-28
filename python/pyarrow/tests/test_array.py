@@ -3347,6 +3347,16 @@ def test_to_pandas_timezone():
     assert s.dt.tz is not None
 
 
+@pytest.mark.pandas
+def test_to_pandas_float16_list():
+    # https://github.com/apache/arrow/issues/36168
+    expected = [[np.float16(1)], [np.float16(2)], [np.float16(3)]]
+    arr = pa.array(expected)
+    result = arr.to_pandas()
+    assert result[0].dtype == "float16"
+    assert result.tolist() == expected
+
+
 def test_array_sort():
     arr = pa.array([5, 7, 35], type=pa.int64())
     sorted_arr = arr.sort("descending")

@@ -16,8 +16,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.C
@@ -83,8 +85,7 @@ namespace Apache.Arrow.C
         {
             ExportType(field.DataType, schema);
             schema->name = StringUtil.ToCStringUtf8(field.Name);
-            // TODO: field metadata
-            schema->metadata = null;
+            schema->metadata = ConstructMetadata(field.Metadata);
             schema->flags = GetFlags(field.DataType, field.IsNullable);
         }
 
@@ -104,8 +105,8 @@ namespace Apache.Arrow.C
         public static unsafe void ExportSchema(Schema schema, CArrowSchema* out_schema)
         {
             var structType = new StructType(schema.FieldsList);
-            // TODO: top-level metadata
             ExportType(structType, out_schema);
+            out_schema->metadata = ConstructMetadata(schema.Metadata);
         }
 
         private static char FormatTimeUnit(TimeUnit unit) => unit switch
@@ -237,6 +238,51 @@ namespace Apache.Arrow.C
             {
                 return null;
             }
+        }
+
+        private unsafe static byte* ConstructMetadata(IReadOnlyDictionary<string, string> metadata)
+        {
+            if (metadata == null || metadata.Count == 0)
+            {
+                return null;
+            }
+
+            int size = 4;
+            int[] lengths = new int[metadata.Count * 2];
+            int i = 0;
+            foreach (KeyValuePair<string, string> pair in metadata)
+            {
+                size += 8;
+                lengths[i] = Encoding.UTF8.GetByteCount(pair.Key);
+                size += lengths[i++];
+                lengths[i] = Encoding.UTF8.GetByteCount(pair.Value);
+                size += lengths[i++];
+            }
+
+            IntPtr result = Marshal.AllocHGlobal(size);
+            Marshal.WriteInt32(result, metadata.Count);
+            byte* ptr = (byte*)result + 4;
+            i = 0;
+            foreach (KeyValuePair<string, string> pair in metadata)
+            {
+                WriteMetadataString(ref ptr, lengths[i++], pair.Key);
+                WriteMetadataString(ref ptr, lengths[i++], pair.Value);
+            }
+
+            Debug.Assert((long)(IntPtr)ptr - (long)result == size);
+
+            return (byte*)result;
+        }
+
+        private unsafe static void WriteMetadataString(ref byte* ptr, int length, string str)
+        {
+            Marshal.WriteInt32((IntPtr)ptr, length);
+            ptr += 4;
+            fixed (char* s = str)
+            {
+                Encoding.UTF8.GetBytes(s, str.Length, ptr, length);
+            }
+            ptr += length;
         }
 
         private static unsafe void ReleaseCArrowSchema(CArrowSchema* schema)

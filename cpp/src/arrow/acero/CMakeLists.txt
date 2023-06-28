@@ -118,6 +118,16 @@ foreach(LIB_TARGET ${ARROW_ACERO_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ACERO_EXPORTING)
 endforeach()
 
+# Define arrow_acero_testing object library for common test files
+if(ARROW_TESTING)
+  add_library(arrow_acero_testing OBJECT test_util_internal.cc)
+  # Even though this is still just an object library we still need to "link" our
+  # dependencies so that include paths are configured correctly
+  target_link_libraries(arrow_acero_testing ${ARROW_ACERO_TEST_LINK_LIBS})
+  target_link_libraries(arrow_acero_testing ${ARROW_GTEST_GTEST})
+  list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing)
+endif()
+
 # Adding unit tests part of the "dataset" portion of the test suite
 function(add_arrow_acero_test REL_TEST_NAME)
   set(options)
@@ -146,8 +156,6 @@ function(add_arrow_acero_test REL_TEST_NAME)
                  ${ARROW_ACERO_TEST_LINK_LIBS}
                  PREFIX
                  ${PREFIX}
-                 SOURCES
-                 test_util_internal.cc
                  LABELS
                  ${LABELS}
                  ${ARG_UNPARSED_ARGUMENTS})
@@ -158,6 +166,7 @@ add_arrow_acero_test(plan_test
                      plan_test.cc
                      test_nodes_test.cc
                      test_nodes.cc)
+add_arrow_acero_test(source_node_test SOURCES source_node_test.cc test_nodes.cc)
 add_arrow_acero_test(fetch_node_test SOURCES fetch_node_test.cc test_nodes.cc)
 add_arrow_acero_test(order_by_node_test SOURCES order_by_node_test.cc test_nodes.cc)
 add_arrow_acero_test(hash_join_node_test SOURCES hash_join_node_test.cc
@@ -199,8 +208,6 @@ if(ARROW_BUILD_BENCHMARKS)
                         ${ARROW_ACERO_TEST_LINK_LIBS}
                         PREFIX
                         ${PREFIX}
-                        SOURCES
-                        test_util_internal.cc
                         LABELS
                         ${LABELS}
                         ${ARG_UNPARSED_ARGUMENTS})

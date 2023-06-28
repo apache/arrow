@@ -20,7 +20,7 @@ import Foundation
 public class ArrowColumn {
     public let field: ArrowField
     fileprivate let dataHolder: ChunkedArrayHolder
-    public var type: ArrowType.Info {get{return self.dataHolder.type}}
+    public var type: ArrowType {get{return self.dataHolder.type}}
     public var length: UInt {get{return self.dataHolder.length}}
     public var nullCount: UInt {get{return self.dataHolder.nullCount}}
 

@@ -24,6 +24,7 @@ classdef hNumericArray < matlab.unittest.TestCase
         MaxValue (1, 1)
         MinValue (1, 1)
         NullSubstitutionValue(1, 1)
+        ArrowType(1, 1)
     end
 
     properties (TestParameter)
@@ -156,6 +157,21 @@ classdef hNumericArray < matlab.unittest.TestCase
             tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
             tc.verifyEqual(toMATLAB(arrowArray), expectedData);
             tc.verifyEqual(arrowArray.Valid, [false; true; false; true]);
+
+            % Make sure the optimization where the valid-bitmap is stored
+            % as a nullptr works as expected.
+            expectedData = data';
+            arrowArray = tc.ArrowArrayConstructor(data, Valid=[1, 2, 3, 4]);
+            tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
+            tc.verifyEqual(toMATLAB(arrowArray), expectedData);
+            tc.verifyEqual(arrowArray.Valid, [true; true; true; true]);
+        end
+
+        function TestArrowType(tc)
+        % Verify the array has the expected arrow.type.Type object
+            data = tc.MatlabArrayFcn([1 2 3 4]);
+            arrowArray = tc.ArrowArrayConstructor(data);
+            tc.verifyEqual(arrowArray.Type, tc.ArrowType);
         end
     end
 end

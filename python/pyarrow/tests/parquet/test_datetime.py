@@ -359,7 +359,7 @@ def test_timestamp_restore_timezone_nanosecond():
 def test_list_of_datetime_time_roundtrip():
     # ARROW-4135
     times = pd.to_datetime(['09:00', '09:30', '10:00', '10:30', '11:00',
-                            '11:30', '12:00'])
+                            '11:30', '12:00'], format="%H:%M")
     df = pd.DataFrame({'time': [times.time]})
     _roundtrip_pandas_dataframe(df, write_kwargs={})
 
