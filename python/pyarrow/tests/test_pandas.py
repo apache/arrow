@@ -4824,13 +4824,14 @@ def test_table_column_conversion_for_datetime():
     # but we choose to do the conversion in Arrow instead.
     # https://github.com/pandas-dev/pandas/pull/52201
     series = pd.Series(pd.date_range("2012", periods=2, tz="Europe/Brussels"),
-                    name="datetime_column")
+                       name="datetime_column")
     table = pa.table({"datetime_column": pa.array(series)})
     table_col = table.column("datetime_column")
 
     result = table_col.to_pandas()
     assert result.name == "datetime_column"
     tm.assert_series_equal(result, series)
+
 
 def test_array_conversion_for_datetime():
     # GH-35235
