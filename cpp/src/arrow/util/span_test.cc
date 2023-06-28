@@ -25,6 +25,7 @@
 
 using testing::ElementsAre;
 using testing::ElementsAreArray;
+using testing::PrintToString;
 
 namespace arrow::util {
 
@@ -78,8 +79,15 @@ TEST(Span, Size) {
   EXPECT_EQ(span(vec).size_bytes(), sizeof(int) * 999);
 }
 
-MATCHER_P(IsSpan, expected, "") {
-  return arg.data() == expected.data() && arg.size() == expected.size();
+template <typename T>
+std::string PrintSpanDataSize(span<T> s) {
+  return "data=" + PrintToString(s.data()) + " and size=" + PrintToString(s.size());
+}
+
+MATCHER_P(IsSpan, expected, PrintSpanDataSize(expected)) {
+  if (arg.data() == expected.data() && arg.size() == expected.size()) return true;
+  *result_listener << PrintSpanDataSize(arg);
+  return false;
 }
 
 TEST(Span, SubSpan) {
