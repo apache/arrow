@@ -1479,7 +1479,7 @@ cdef class Array(_PandasConvertible):
 
         if types_mapper:
             pandas_dtype = types_mapper(self.type)
-        elif issubclass(type(self.type), ExtensionType):
+        elif self.type.id == _Type_EXTENSION:
             try:
                 pandas_dtype = self.type.to_pandas_dtype()
             except NotImplementedError:
