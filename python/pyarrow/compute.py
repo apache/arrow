@@ -367,9 +367,9 @@ def dictionary_decode(arr, memory_pool=None):
     >>> x_decode
     <pyarrow.lib.StringArray object at ...>
     [
-    "a",
-    "a",
-    "b"
+      "a",
+      "a",
+      "b"
     ]
 
     The dictionary_decode actually call Cast in the deep implementation.
@@ -379,9 +379,9 @@ def dictionary_decode(arr, memory_pool=None):
     >>> x_decode_2
     <pyarrow.lib.StringArray object at ...>
     [
-    "a",
-    "a",
-    "b"
+      "a",
+      "a",
+      "b"
     ]
 
     Returns
