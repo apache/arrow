@@ -33,8 +33,8 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/apache/arrow/go/v13/internal/hashing"
+	"github.com/apache/arrow/go/v13/internal/json"
 	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/goccy/go-json"
 )
 
 // Dictionary represents the type for dictionary-encoded data with a data
@@ -251,7 +251,7 @@ func (d *Dictionary) CanCompareIndices(other *Dictionary) bool {
 	}
 
 	minlen := int64(min(d.data.dictionary.length, other.data.dictionary.length))
-	return ArraySliceEqual(d.Dictionary(), 0, minlen, other.Dictionary(), 0, minlen)
+	return SliceEqual(d.Dictionary(), 0, minlen, other.Dictionary(), 0, minlen)
 }
 
 func (d *Dictionary) ValueStr(i int) string {
@@ -306,7 +306,7 @@ func (d *Dictionary) MarshalJSON() ([]byte, error) {
 }
 
 func arrayEqualDict(l, r *Dictionary) bool {
-	return ArrayEqual(l.Dictionary(), r.Dictionary()) && ArrayEqual(l.indices, r.indices)
+	return Equal(l.Dictionary(), r.Dictionary()) && Equal(l.indices, r.indices)
 }
 
 func arrayApproxEqualDict(l, r *Dictionary, opt equalOption) bool {
@@ -695,9 +695,21 @@ func (b *dictionaryBuilder) AppendNull() {
 	b.idxBuilder.AppendNull()
 }
 
+func (b *dictionaryBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *dictionaryBuilder) AppendEmptyValue() {
 	b.length += 1
 	b.idxBuilder.AppendEmptyValue()
+}
+
+func (b *dictionaryBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *dictionaryBuilder) Reserve(n int) {
@@ -716,6 +728,8 @@ func (b *dictionaryBuilder) ResetFull() {
 }
 
 func (b *dictionaryBuilder) Cap() int { return b.idxBuilder.Cap() }
+
+func (b *dictionaryBuilder) IsNull(i int) bool { return b.idxBuilder.IsNull(i) }
 
 func (b *dictionaryBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))

@@ -22,7 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // ExtensionArray is the interface that needs to be implemented to handle
@@ -104,10 +104,9 @@ func NewExtensionData(data arrow.ArrayData) ExtensionArray {
 // ExtensionArrayBase is the base struct for user-defined Extension Array types
 // and must be embedded in any user-defined extension arrays like so:
 //
-//   type UserDefinedArray struct {
-//       array.ExtensionArrayBase
-//   }
-//
+//	type UserDefinedArray struct {
+//	    array.ExtensionArrayBase
+//	}
 type ExtensionArrayBase struct {
 	array
 	storage arrow.Array
@@ -196,18 +195,18 @@ type ExtensionBuilder struct {
 // the appropriate extension array type and set the storage correctly, resetting the builder for
 // reuse.
 //
-// Example
+// # Example
 //
 // Simple example assuming an extension type of a UUID defined as a FixedSizeBinary(16) was registered
 // using the type name "uuid":
 //
-//   uuidType := arrow.GetExtensionType("uuid")
-//   bldr := array.NewExtensionBuilder(memory.DefaultAllocator, uuidType)
-//   defer bldr.Release()
-//   uuidBldr := bldr.StorageBuilder().(*array.FixedSizeBinaryBuilder)
-//   /* build up the fixed size binary array as usual via Append/AppendValues */
-//   uuidArr := bldr.NewExtensionArray()
-//   defer uuidArr.Release()
+//	uuidType := arrow.GetExtensionType("uuid")
+//	bldr := array.NewExtensionBuilder(memory.DefaultAllocator, uuidType)
+//	defer bldr.Release()
+//	uuidBldr := bldr.StorageBuilder().(*array.FixedSizeBinaryBuilder)
+//	/* build up the fixed size binary array as usual via Append/AppendValues */
+//	uuidArr := bldr.NewExtensionArray()
+//	defer uuidArr.Release()
 //
 // Because the storage builder is embedded in the Extension builder it also means
 // that any of the functions available on the Builder interface can be called on

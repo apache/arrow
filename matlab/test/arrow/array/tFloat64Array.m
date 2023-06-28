@@ -23,6 +23,8 @@ classdef tFloat64Array < hNumericArray
         MatlabArrayFcn = @double % double function
         MaxValue = realmax("double")
         MinValue = realmin("double")
+        NullSubstitutionValue = NaN
+        ArrowType = arrow.type.Float64Type
     end
 
     methods(Test)

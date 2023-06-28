@@ -16,13 +16,15 @@
 classdef hNumericArray < matlab.unittest.TestCase
 % Test class containing shared tests for numeric arrays.
 
-      properties (Abstract)
+    properties (Abstract)
         ArrowArrayClassName(1, 1) string
         ArrowArrayConstructor
         MatlabArrayFcn
         MatlabConversionFcn
         MaxValue (1, 1)
         MinValue (1, 1)
+        NullSubstitutionValue(1, 1)
+        ArrowType(1, 1)
     end
 
     properties (TestParameter)
@@ -129,6 +131,47 @@ classdef hNumericArray < matlab.unittest.TestCase
             data = tc.MatlabArrayFcn(reshape([], [1 0 0]));
             fcn = @() tc.ArrowArrayConstructor(data, DeepCopy=MakeDeepCopy);
             tc.verifyError(fcn, "MATLAB:expected2D");
+        end
+
+        function LogicalValidNVPair(tc, MakeDeepCopy)
+            % Verify the expected elements are treated as null when Valid
+            % is provided as a logical array
+            data = tc.MatlabArrayFcn([1 2 3 4]);
+            arrowArray = tc.ArrowArrayConstructor(data, Valid=[false true true false], DeepCopy=MakeDeepCopy);
+        
+            expectedData = data';
+            expectedData([1 4]) = tc.NullSubstitutionValue;
+            tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
+            tc.verifyEqual(toMATLAB(arrowArray), expectedData);
+            tc.verifyEqual(arrowArray.Valid, [false; true; true; false]);
+        end
+
+        function NumericValidNVPair(tc, MakeDeepCopy)
+            % Verify the expected elements are treated as null when Valid
+            % is provided as a array of indices
+            data = tc.MatlabArrayFcn([1 2 3 4]);
+            arrowArray = tc.ArrowArrayConstructor(data, Valid=[2 4], DeepCopy=MakeDeepCopy);
+        
+            expectedData = data';
+            expectedData([1 3]) = tc.NullSubstitutionValue;
+            tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
+            tc.verifyEqual(toMATLAB(arrowArray), expectedData);
+            tc.verifyEqual(arrowArray.Valid, [false; true; false; true]);
+
+            % Make sure the optimization where the valid-bitmap is stored
+            % as a nullptr works as expected.
+            expectedData = data';
+            arrowArray = tc.ArrowArrayConstructor(data, Valid=[1, 2, 3, 4]);
+            tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
+            tc.verifyEqual(toMATLAB(arrowArray), expectedData);
+            tc.verifyEqual(arrowArray.Valid, [true; true; true; true]);
+        end
+
+        function TestArrowType(tc)
+        % Verify the array has the expected arrow.type.Type object
+            data = tc.MatlabArrayFcn([1 2 3 4]);
+            arrowArray = tc.ArrowArrayConstructor(data);
+            tc.verifyEqual(arrowArray.Type, tc.ArrowType);
         end
     end
 end

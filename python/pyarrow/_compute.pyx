@@ -1928,31 +1928,44 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
-cdef class _CumulativeSumOptions(FunctionOptions):
+cdef class _CumulativeOptions(FunctionOptions):
     def _set_options(self, start, skip_nulls):
-        if not isinstance(start, Scalar):
+        if start is None:
+            self.wrapped.reset(new CCumulativeOptions(skip_nulls))
+        elif isinstance(start, Scalar):
+            self.wrapped.reset(new CCumulativeOptions(
+                pyarrow_unwrap_scalar(start), skip_nulls))
+        else:
             try:
                 start = lib.scalar(start)
+                self.wrapped.reset(new CCumulativeOptions(
+                    pyarrow_unwrap_scalar(start), skip_nulls))
             except Exception:
                 _raise_invalid_function_option(
                     start, "`start` type for CumulativeSumOptions", TypeError)
 
-        self.wrapped.reset(new CCumulativeSumOptions((<Scalar> start).unwrap(), skip_nulls))
 
-
-class CumulativeSumOptions(_CumulativeSumOptions):
+class CumulativeOptions(_CumulativeOptions):
     """
-    Options for `cumulative_sum` function.
+    Options for `cumulative_*` functions.
+
+    - cumulative_sum
+    - cumulative_sum_checked
+    - cumulative_prod
+    - cumulative_prod_checked
+    - cumulative_max
+    - cumulative_min
 
     Parameters
     ----------
-    start : Scalar, default 0.0
-        Starting value for sum computation
+    start : Scalar, default None
+        Starting value for the cumulative operation. If none is given, 
+        a default value depending on the operation and input type is used.
     skip_nulls : bool, default False
         When false, the first encountered null is propagated.
     """
 
-    def __init__(self, start=0.0, *, skip_nulls=False):
+    def __init__(self, start=None, *, skip_nulls=False):
         self._set_options(start, skip_nulls)
 
 

@@ -28,7 +28,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // Timestamp represents an immutable sequence of arrow.Timestamp values.
@@ -171,8 +171,20 @@ func (b *TimestampBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *TimestampBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *TimestampBuilder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *TimestampBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *TimestampBuilder) UnsafeAppend(v arrow.Timestamp) {

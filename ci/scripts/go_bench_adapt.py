@@ -41,7 +41,7 @@ if os.environ.get("CONBENCH_REF") == "main":
     # Assume GitHub Actions CI. The environment variable lookups below are
     # expected to fail when not running in GitHub Actions.
     github_commit_info = {
-        "repository": os.environ["GITHUB_REPOSITORY"],
+        "repository": f'{os.environ["GITHUB_SERVER_URL"]}/{os.environ["GITHUB_REPOSITORY"]}',
         "commit": os.environ["GITHUB_SHA"],
         "pr_number": None,  # implying default branch
     }

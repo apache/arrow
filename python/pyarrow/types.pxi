@@ -1487,6 +1487,9 @@ cdef class ExtensionType(BaseExtensionType):
         """
         return NotImplementedError
 
+    def __reduce__(self):
+        return self.__arrow_ext_deserialize__, (self.storage_type, self.__arrow_ext_serialize__())
+
     def __arrow_ext_class__(self):
         """Return an extension array class to be used for building or
         deserializing arrays with this extension type.
@@ -1585,6 +1588,10 @@ cdef class FixedShapeTensorType(BaseExtensionType):
 
     def __arrow_ext_class__(self):
         return FixedShapeTensorArray
+
+    def __reduce__(self):
+        return fixed_shape_tensor, (self.value_type, self.shape,
+                                    self.dim_names, self.permutation)
 
 
 cdef class PyExtensionType(ExtensionType):

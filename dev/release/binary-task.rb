@@ -1085,9 +1085,10 @@ class BinaryTask
     [
       ["debian", "bullseye", "main"],
       ["debian", "bookworm", "main"],
+      ["debian", "trixie", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "jammy", "main"],
-      ["ubuntu", "kinetic", "main"],
+      ["ubuntu", "lunar", "main"],
     ]
   end
 
@@ -1460,7 +1461,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     [
       ["almalinux", "9"],
       ["almalinux", "8"],
-      ["amazon-linux", "2"],
+      ["amazon-linux", "2023"],
       ["centos", "9-stream"],
       ["centos", "8-stream"],
       ["centos", "7"],
@@ -2104,16 +2105,18 @@ class LocalBinaryTask < BinaryTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
-      "debian-buster",
-      # "debian-buster-arm64",
       "debian-bullseye",
       # "debian-bullseye-arm64",
       "debian-bookworm",
       # "debian-bookworm-arm64",
+      "debian-trixie",
+      # "debian-trixie-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
-      "ubuntu-impish",
-      # "ubuntu-impish-arm64",
+      "ubuntu-jammy",
+      # "ubuntu-jammy-arm64",
+      "ubuntu-lunar",
+      # "ubuntu-lunar-arm64",
     ]
   end
 
@@ -2164,8 +2167,8 @@ class LocalBinaryTask < BinaryTask
       # "almalinux-9-aarch64",
       "almalinux-8",
       # "almalinux-8-aarch64",
-      "amazon-linux-2",
-      # "amazon-linux-2-aarch64",
+      "amazon-linux-2023",
+      # "amazon-linux-2023-aarch64",
       "centos-9-stream",
       # "centos-9-stream-aarch64",
       "centos-8-stream",
