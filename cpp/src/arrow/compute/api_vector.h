@@ -663,10 +663,13 @@ Result<Datum> CumulativeMin(
 
 /// \brief Return the first order difference of an array.
 ///
-/// Computes the first order difference of an array, i.e. output[i] = input[i] - input[i -
-/// p] if i >= p, otherwise output[i] = null, where p is the period. For example, with p =
-/// 1, Diff([1, 4, 9, 10, 15]) = [null, 3, 5, 1, 5]. With p = 2, Diff([1, 4, 9, 10, 15]) =
-/// [null, null, 8, 6, 6]
+/// Computes the first order difference of an array, i.e.
+///   output[i] = input[i] - input[i - p]  if i >= p
+///   output[i] = null                     otherwise
+/// where p is the period. For example, with p = 1,
+///   Diff([1, 4, 9, 10, 15]) = [null, 3, 5, 1, 5].
+/// With p = 2,
+///   Diff([1, 4, 9, 10, 15]) = [null, null, 8, 6, 6]
 ///
 /// \param[in] array array input
 /// \param[in] options options, specifying overflow behavior and period
