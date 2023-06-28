@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
@@ -1123,7 +1124,9 @@ public class TestBaseAllocator {
           break;
         }
       }
-      assertTrue(result);
+      assertTrue("Log messages are:\n" +
+          memoryLogsAppender.list.stream().map(ILoggingEvent::toString).collect(Collectors.joining("\n")),
+          result);
     } finally {
       memoryLogsAppender.stop();
       logger.detachAppender(memoryLogsAppender);
