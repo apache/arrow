@@ -450,15 +450,6 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \brief Get the scheme of this URI.
   std::string scheme() const;
 
-  /// \brief Get the path of this URI.
-  std::string path() const;
-
-  /// \brief Get the query parameters of this URI.
-  arrow::Result<std::vector<std::pair<std::string, std::string>>> QueryItems() const;
-
-  /// \brief Convert URI path and parameters to headers.
-  arrow::Result<std::vector<std::pair<std::string, std::string>>> AsHeaders() const;
-
   bool Equals(const Location& other) const;
 
   friend bool operator==(const Location& left, const Location& right) {
