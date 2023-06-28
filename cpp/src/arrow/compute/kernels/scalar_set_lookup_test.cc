@@ -126,7 +126,7 @@ TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
                                             "true, false, true, false]"));
   AssertArraysEqual(*expected, *out.make_array());
 
-  // Although value_set cannot be cast to int8, but int8 is castable to float
+  // value_set cannot be cast to int8, but int8 is castable to float
   CheckIsIn(input, ArrayFromJSON(float32(), "[1.0, 2.5, 3.1, 5.0]"),
             "[false, true, false, false, false, true, false, false, false]");
 
