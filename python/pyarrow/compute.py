@@ -352,16 +352,16 @@ def dictionary_decode(arr, memory_pool=None):
     <pyarrow.lib.DictionaryArray object at ...>
     <BLANKLINE>
     -- dictionary:
-    [
+      [
         "a",
         "b"
-    ]
+      ]
     -- indices:
-    [
+      [
         0,
         0,
         1
-    ]
+      ]
 
     >>> x_decode = pc.dictionary_decode(x)
     >>> x_decode
