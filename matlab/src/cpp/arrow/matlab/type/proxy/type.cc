@@ -21,7 +21,7 @@ namespace arrow::matlab::type::proxy {
 
     Type::Type() {
         // Register Proxy methods.
-        REGISTER_METHOD(Type, typeNumber);
+        REGISTER_METHOD(Type, typeID);
         REGISTER_METHOD(Type, numFields);
 
     }
@@ -30,7 +30,7 @@ namespace arrow::matlab::type::proxy {
         return data_type;
     }
 
-    void Type::typeNumber(libmexclass::proxy::method::Context& context) {
+    void Type::typeID(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
         

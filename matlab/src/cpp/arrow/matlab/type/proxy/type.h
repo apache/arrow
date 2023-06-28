@@ -33,8 +33,8 @@ class Type : public libmexclass::proxy::Proxy {
 
     protected:
 
-        void typeNumber(libmexclass::proxy::method::Context& context);
-    
+        void typeID(libmexclass::proxy::method::Context& context);
+
         void numFields(libmexclass::proxy::method::Context& context);
 
         std::shared_ptr<arrow::DataType> data_type;

@@ -42,7 +42,8 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.array.proxy.StringArray   , arrow::matlab::array::proxy::StringArray);
     REGISTER_PROXY(arrow.array.proxy.TimestampArray, arrow::matlab::array::proxy::TimestampArray);
     REGISTER_PROXY(arrow.tabular.proxy.RecordBatch , arrow::matlab::tabular::proxy::RecordBatch);
-    REGISTER_PROXY(arrow.type.proxy.Float64Type    , arrow::matlab::type::proxy::PrimitiveCType<arrow::DoubleType>);
+    REGISTER_PROXY(arrow.type.proxy.Float32Type    , arrow::matlab::type::proxy::PrimitiveCType<float>);
+    REGISTER_PROXY(arrow.type.proxy.Float64Type    , arrow::matlab::type::proxy::PrimitiveCType<double>);
 
     return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID, "Did not find matching C++ proxy for " + class_name};
 };

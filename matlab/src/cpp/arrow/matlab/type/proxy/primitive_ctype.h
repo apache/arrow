@@ -25,10 +25,11 @@
 
 namespace arrow::matlab::type::proxy {
 
-template <typename T,  std::enable_if_t<ARROW::is_primitive_ctype<T>::value, bool>, true>
+template<typename CType, std::enable_if_t<std::is_base_of_v<arrow::PrimitiveCType, typename arrow::CTypeTraits<CType>::ArrowType>, bool> = true> 
 class PrimitiveCType : public arrow::matlab::type::proxy::Type {
+    using ArrowDataType = typename arrow::CTypeTraits<CType>::ArrowType;
     public:
-        PrimitiveCType(const std::shared_ptr<T> primitive_type) {
+        PrimitiveCType(const std::shared_ptr<ArrowDataType> primitive_type) {
             data_type = primitive_type;
 
             REGISTER_METHOD(PrimitiveCType, bitWidth);
@@ -37,8 +38,8 @@ class PrimitiveCType : public arrow::matlab::type::proxy::Type {
         ~PrimitiveCType() {}
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-            auto data_type = typename arrow::TypeTraits<T>::type_singleton();
-            return std::make_shared<PrimitiveCType>(data_type);
+            auto data_type = arrow::CTypeTraits<CType>::type_singleton();
+            return std::make_shared<PrimitiveCType>(std::static_pointer_cast<ArrowDataType>(data_type));
         }
 
     protected:
