@@ -25,9 +25,21 @@
 
 namespace arrow::matlab::type::proxy {
 
-template<typename CType, std::enable_if_t<std::is_base_of_v<arrow::PrimitiveCType, typename arrow::CTypeTraits<CType>::ArrowType>, bool> = true> 
+
+template <typename CType>
+using arrow_type_t = typename arrow::CTypeTraits<CType>::ArrowType;
+
+template <typename CType>
+using is_primitive = arrow::is_primitive_ctype<arrow_type_t<CType>>;
+
+template<typename CType>
+using enable_if_primitive = std::enable_if_t<is_primitive<CType>::value, bool>; 
+
+template<typename CType, enable_if_primitive<CType> = true>
 class PrimitiveCType : public arrow::matlab::type::proxy::Type {
-    using ArrowDataType = typename arrow::CTypeTraits<CType>::ArrowType;
+    
+    using ArrowDataType = arrow_type_t<CType>;
+    
     public:
         PrimitiveCType(const std::shared_ptr<ArrowDataType> primitive_type) {
             data_type = primitive_type;
