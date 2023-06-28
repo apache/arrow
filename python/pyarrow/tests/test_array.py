@@ -3353,6 +3353,7 @@ def test_to_pandas_float16_list():
     expected = [[np.float16(1)], [np.float16(2)], [np.float16(3)]]
     arr = pa.array(expected)
     result = arr.to_pandas()
+    assert result[0].dtype == "float16"
     assert result.tolist() == expected
 
 
