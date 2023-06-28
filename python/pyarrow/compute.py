@@ -389,7 +389,7 @@ def dictionary_decode(arr, memory_pool=None):
     array : decoded Array
         The dictionary_decode result as a new Array
     """
-    if(not isinstance(arr.type, pa.DictionaryType)):
+    if (not isinstance(arr.type, pa.DictionaryType)):
         raise TypeError("Must pass a dictionary array")
 
     return call_function("dictionary_decode", [arr], memory_pool)
