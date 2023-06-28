@@ -16,7 +16,9 @@
 classdef UInt8Type < arrow.type.PrimitiveType
 %UINT8TYPE Type class for uint8 data.
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.UInt8
+    methods 
+        function obj = UInt8Type()
+            obj@arrow.type.PrimitiveType("Name", "arrow.type.proxy.UInt8Type", "ConstructorArguments", {})
+        end
     end
 end

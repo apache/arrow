@@ -16,8 +16,10 @@
 classdef Int16Type < arrow.type.PrimitiveType
 %INT16TYPE Type class for int8 data. 
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Int16
+    methods 
+        function obj = Int16Type()
+            obj@arrow.type.PrimitiveType("Name", "arrow.type.proxy.Int16Type", "ConstructorArguments", {})
+        end
     end
 end
 

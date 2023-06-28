@@ -16,7 +16,9 @@
 classdef Float64Type < arrow.type.PrimitiveType
 %FLOAT64Type Type class for float64 data. 
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Float64
+    methods 
+        function obj = Float64Type()
+            obj@arrow.type.PrimitiveType("Name", "arrow.type.proxy.Float64Type", "ConstructorArguments", {})
+        end
     end
 end

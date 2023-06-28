@@ -39,13 +39,7 @@ classdef hPrimitiveType < matlab.unittest.TestCase
         function TestNumFields(testCase)
         % Verify NumFields is set to 0 for primitive types.
             arrowType = testCase.ArrowType;
-            testCase.verifyEqual(arrowType.NumFields, 0);
-        end
-
-        function TestNumBuffers(testCase)
-        % Verify NumBuffers is set to 2 for primitive types.
-            arrowType = testCase.ArrowType;
-            testCase.verifyEqual(arrowType.NumBuffers, 2);
+            testCase.verifyEqual(arrowType.NumFields, int32(0));
         end
     end
 end

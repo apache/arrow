@@ -16,7 +16,9 @@
 classdef Float32Type < arrow.type.PrimitiveType
 %FLOAT32TYPE Type class for float32 data.
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Float32
+    methods 
+        function obj = Float32Type()
+            obj@arrow.type.PrimitiveType("Name", "arrow.type.proxy.Float32Type", "ConstructorArguments", {})
+        end
     end
 end

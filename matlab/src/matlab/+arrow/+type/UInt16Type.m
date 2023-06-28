@@ -16,7 +16,9 @@
 classdef UInt16Type < arrow.type.PrimitiveType
 %UINT16TYPE Type class for uint16 data.
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.UInt16
+    methods 
+        function obj = UInt16Type()
+            obj@arrow.type.PrimitiveType("Name", "arrow.type.proxy.UInt16Type", "ConstructorArguments", {})
+        end
     end
 end

@@ -25,7 +25,6 @@
 
 namespace arrow::matlab::type::proxy {
 
-
 template <typename CType>
 using arrow_type_t = typename arrow::CTypeTraits<CType>::ArrowType;
 
@@ -41,9 +40,7 @@ class PrimitiveCType : public arrow::matlab::type::proxy::Type {
     using ArrowDataType = arrow_type_t<CType>;
     
     public:
-        PrimitiveCType(const std::shared_ptr<ArrowDataType> primitive_type) {
-            data_type = primitive_type;
-
+        PrimitiveCType(const std::shared_ptr<ArrowDataType> primitive_type) : Type(primitive_type) {
             REGISTER_METHOD(PrimitiveCType, bitWidth);
         }
 

@@ -25,7 +25,7 @@ namespace arrow::matlab::type::proxy {
 
 class Type : public libmexclass::proxy::Proxy {
     public:
-        Type();
+        Type(std::shared_ptr<arrow::DataType> type);
     
         virtual ~Type() {}
 

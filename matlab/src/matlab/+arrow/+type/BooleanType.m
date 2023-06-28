@@ -16,7 +16,9 @@
 classdef BooleanType < arrow.type.PrimitiveType
 %BOOLEANTYPE Type class for boolean data.
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Boolean
+    methods 
+        function obj = BooleanType()
+            obj@arrow.type.PrimitiveType("Name", "arrow.type.proxy.BooleanType", "ConstructorArguments", {})
+        end
     end
 end

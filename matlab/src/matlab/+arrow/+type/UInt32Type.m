@@ -16,7 +16,9 @@
 classdef UInt32Type < arrow.type.PrimitiveType
 %UINT32TYPE Type class for uint32 data.
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.UInt32
+    methods 
+        function obj = UInt32Type()
+            obj@arrow.type.PrimitiveType("Name", "arrow.type.proxy.UInt32Type", "ConstructorArguments", {})
+        end
     end
 end

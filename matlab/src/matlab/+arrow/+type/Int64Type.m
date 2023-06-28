@@ -16,7 +16,9 @@
 classdef Int64Type < arrow.type.PrimitiveType
 %INT64TYPE Type class for int64 data.
 
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Int64
+    methods 
+        function obj = Int64Type()
+            obj@arrow.type.PrimitiveType("Name", "arrow.type.proxy.Int64Type", "ConstructorArguments", {})
+        end
     end
 end

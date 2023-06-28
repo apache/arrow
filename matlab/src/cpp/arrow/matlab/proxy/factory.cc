@@ -44,6 +44,15 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.tabular.proxy.RecordBatch , arrow::matlab::tabular::proxy::RecordBatch);
     REGISTER_PROXY(arrow.type.proxy.Float32Type    , arrow::matlab::type::proxy::PrimitiveCType<float>);
     REGISTER_PROXY(arrow.type.proxy.Float64Type    , arrow::matlab::type::proxy::PrimitiveCType<double>);
+    REGISTER_PROXY(arrow.type.proxy.UInt8Type      , arrow::matlab::type::proxy::PrimitiveCType<uint8_t>);
+    REGISTER_PROXY(arrow.type.proxy.UInt16Type     , arrow::matlab::type::proxy::PrimitiveCType<uint16_t>);
+    REGISTER_PROXY(arrow.type.proxy.UInt32Type     , arrow::matlab::type::proxy::PrimitiveCType<uint32_t>);
+    REGISTER_PROXY(arrow.type.proxy.UInt64Type     , arrow::matlab::type::proxy::PrimitiveCType<uint64_t>);
+    REGISTER_PROXY(arrow.type.proxy.Int8Type       , arrow::matlab::type::proxy::PrimitiveCType<int8_t>);
+    REGISTER_PROXY(arrow.type.proxy.Int16Type      , arrow::matlab::type::proxy::PrimitiveCType<int16_t>);
+    REGISTER_PROXY(arrow.type.proxy.Int32Type      , arrow::matlab::type::proxy::PrimitiveCType<int32_t>);
+    REGISTER_PROXY(arrow.type.proxy.Int64Type      , arrow::matlab::type::proxy::PrimitiveCType<int64_t>);
+    REGISTER_PROXY(arrow.type.proxy.BooleanType    , arrow::matlab::type::proxy::PrimitiveCType<bool>);
 
     return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID, "Did not find matching C++ proxy for " + class_name};
 };
