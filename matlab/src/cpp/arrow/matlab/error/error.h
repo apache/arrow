@@ -168,4 +168,6 @@ namespace arrow::matlab::error {
     static const char* SCHEMA_BUILDER_FINISH_ERROR_ID = "arrow:matlab:tabular:proxy:SchemaBuilderAddFields";
     static const char* SCHEMA_BUILDER_ADD_FIELDS_ERROR_ID = "arrow:matlab:tabular:proxy:SchemaBuilderFinish";
     static const char* UNICODE_CONVERSION_ERROR_ID = "arrow:matlab:unicode:UnicodeConversion";
+    static const char* UKNOWN_TIME_UNIT_ERROR_ID = "arrow:matlab:UnknownTimeUnit";
+
 }
