@@ -13,16 +13,28 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef StringType < arrow.type.Type
-%STRINGTYPE Type class for string data.
+classdef tStringType < matlab.unittest.TestCase
+%TSTRINGTYPE Test class for arrow.type.StringType
 
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.String
-    end
+    methods (Test)
 
-    properties(Constant)
-        NumFields = 0
-        NumBuffers = 3
+        function Basic(tc)
+            type = arrow.type.StringType;
+            className = string(class(type));
+            tc.verifyEqual(className, "arrow.type.StringType");
+            tc.verifyEqual(type.ID, arrow.type.ID.String);
+        end
+
+        function NumBuffers(tc)
+            type = arrow.type.StringType;
+            tc.verifyEqual(type.NumBuffers, 3);
+        end
+
+        function NumFields(tc)
+            type = arrow.type.StringType;
+            tc.verifyEqual(type.NumFields, 0);
+        end
+
     end
 
 end
