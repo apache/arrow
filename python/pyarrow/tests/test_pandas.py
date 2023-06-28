@@ -4820,7 +4820,8 @@ def test_unhashable_map_keys_with_pydicts():
 
 def test_table_column_conversion_for_datetime():
     # GH-35235
-    # pandas implemented __from_arrow__ for DatetimeTZDtype
+    # pandas implemented __from_arrow__ for DatetimeTZDtype,
+    # but we choose to do the conversion in Arrow instead.
     # https://github.com/pandas-dev/pandas/pull/52201
     series = pd.Series(pd.date_range("2012", periods=2, tz="Europe/Brussels"),
                     name="datetime_column")
@@ -4833,7 +4834,8 @@ def test_table_column_conversion_for_datetime():
 
 def test_array_conversion_for_datetime():
     # GH-35235
-    # pandas implemented __from_arrow__ for DatetimeTZDtype
+    # pandas implemented __from_arrow__ for DatetimeTZDtype,
+    # but we choose to do the conversion in Arrow instead.
     # https://github.com/pandas-dev/pandas/pull/52201
     series = pd.Series(pd.date_range("2012", periods=2, tz="Europe/Brussels"))
     arr = pa.array(series)

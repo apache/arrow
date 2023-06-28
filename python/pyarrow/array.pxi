@@ -1476,12 +1476,17 @@ cdef class Array(_PandasConvertible):
 
     def _to_pandas(self, options, types_mapper=None, **kwargs):
         pandas_dtype = None
-        try:
-            pandas_dtype = self.type.to_pandas_dtype()
-        except NotImplementedError:
-            pass
 
-        # pandas ExtensionDtype that implements conversion from pyarrow
+        if types_mapper:
+            pandas_dtype = types_mapper(self.type)
+        elif issubclass(type(self.type), ExtensionType):
+            try:
+                pandas_dtype = self.type.to_pandas_dtype()
+            except NotImplementedError:
+                pass
+
+        # Only call __from_arrow__ for Arrow extension types or when explicitly
+        # overridden via types_mapper
         if hasattr(pandas_dtype, '__from_arrow__'):
             arr = pandas_dtype.__from_arrow__(self)
             return pandas_api.series(arr, copy=False)
@@ -3104,12 +3109,18 @@ cdef class ExtensionArray(Array):
 
     def _to_pandas(self, options, **kwargs):
         pandas_dtype = None
-        try:
-            pandas_dtype = self.type.to_pandas_dtype()
-        except NotImplementedError:
-            pass
+        types_mapper = kwargs.get('types_mapper', None)
 
-        # pandas ExtensionDtype that implements conversion from pyarrow
+        if types_mapper:
+            pandas_dtype = types_mapper(self.type)
+        elif issubclass(type(self.type), ExtensionType):
+            try:
+                pandas_dtype = self.type.to_pandas_dtype()
+            except NotImplementedError:
+                pass
+
+        # Only call __from_arrow__ for Arrow extension types or when explicitly
+        # overridden via types_mapper
         if hasattr(pandas_dtype, '__from_arrow__'):
             arr = pandas_dtype.__from_arrow__(self)
             return pandas_api.series(arr, copy=False)
