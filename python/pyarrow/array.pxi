@@ -3107,13 +3107,12 @@ cdef class ExtensionArray(Array):
         result.validate()
         return result
 
-    def _to_pandas(self, options, **kwargs):
+    def _to_pandas(self, options, types_mapper=None, **kwargs):
         pandas_dtype = None
-        types_mapper = kwargs.get('types_mapper', None)
 
         if types_mapper:
             pandas_dtype = types_mapper(self.type)
-        elif issubclass(type(self.type), ExtensionType):
+        else:
             try:
                 pandas_dtype = self.type.to_pandas_dtype()
             except NotImplementedError:
@@ -3126,7 +3125,7 @@ cdef class ExtensionArray(Array):
             return pandas_api.series(arr, copy=False)
 
         # otherwise convert the storage array with the base implementation
-        return Array._to_pandas(self.storage, options, **kwargs)
+        return Array._to_pandas(self.storage, options, types_mapper, **kwargs)
 
 
 class FixedShapeTensorArray(ExtensionArray):
