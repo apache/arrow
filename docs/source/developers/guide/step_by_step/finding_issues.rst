@@ -69,6 +69,8 @@ in the comments.
    When you find a GitHub issue you would like to work on, please mention
    your interest in the comment section of that issue; that way we will know
    you are working on it.
+   To assign yourself to the issue type 'take' (and nothing else) in a comment
+   on that issue.
 
 Also, do not hesitate to ask questions in the comment. You can get some
 pointers about where to start and similar issues already solved.
