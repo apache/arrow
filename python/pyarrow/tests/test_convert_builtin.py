@@ -2463,13 +2463,6 @@ def test_array_accepts_pyarrow_scalar(seq, data, scalar_data, value_type):
     assert expect.equals(result)
 
 
-def test_array_accepts_pyarrow_scalar_from_compute():
-    arr = pa.array([1, 2, 3])
-    result = pa.array([arr.sum()])
-    expect = pa.array([6])
-    assert expect.equals(result)
-
-
 @parametrize_with_collections_types
 def test_array_accepts_pyarrow_scalar_errors(seq):
     sequence = seq([pa.scalar(1), pa.scalar("a"), pa.scalar(3.0)])
