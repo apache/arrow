@@ -10,5 +10,5 @@ sphinx-autobuild
 sphinx-design
 sphinx-copybutton
 sphinxcontrib-jquery
-sphinx>=4.2
+sphinx==6.2
 pandas
