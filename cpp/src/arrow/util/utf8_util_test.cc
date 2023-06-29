@@ -421,7 +421,7 @@ TEST(UTF8StringToUTF16, Basics) {
   CheckInvalid("\xed\xa0\x80");
 
   // lone low-code point
-  CheckInvalid("\xed\0xb0\x81");
+  CheckInvalid("\xed\xb0\x81");
 }
 
 TEST(UTF16StringToUTF8, Basics) {
