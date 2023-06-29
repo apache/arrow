@@ -141,7 +141,7 @@ cdef class GcsFileSystem(FileSystem):
             time_limit_seconds = retry_time_limit.total_seconds()
             options.retry_limit_seconds = time_limit_seconds
         if project_id is not None:
-            options.project_id = tobytes(project_id)
+            options.project_id = <c_string>tobytes(project_id)
 
         with nogil:
             wrapped = GetResultValue(CGcsFileSystem.Make(options))
