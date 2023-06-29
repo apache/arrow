@@ -4980,6 +4980,34 @@ class TestBufferedParquetIO : public TestParquetIO<TestType> {
     ASSERT_OK_NO_THROW(writer->Close());
   }
 
+  void WriteBufferedTable(const std::shared_ptr<Array>& values, int64_t batch_size,
+                         int* num_row_groups) {
+    std::shared_ptr<GroupNode> schema =
+        MakeSimpleSchema(*values->type(), Repetition::OPTIONAL);
+    SchemaDescriptor descriptor;
+    ASSERT_NO_THROW(descriptor.Init(schema));
+    std::shared_ptr<::arrow::Schema> arrow_schema;
+    ArrowReaderProperties props;
+    ASSERT_OK_NO_THROW(FromParquetSchema(&descriptor, props, &arrow_schema));
+
+    std::unique_ptr<FileWriter> writer;
+    ASSERT_OK_NO_THROW(FileWriter::Make(::arrow::default_memory_pool(),
+                                        this->MakeWriter(schema), arrow_schema,
+                                        default_arrow_writer_properties(), &writer));
+    *num_row_groups = 0;
+    for (int i = 0; i < 4; i++) {
+      if (i % 2 == 0) {
+        ASSERT_OK_NO_THROW(writer->NewBufferedRowGroup());
+        (*num_row_groups)++;
+      }
+      std::shared_ptr<Array> sliced_array = values->Slice(i * batch_size, batch_size);
+      std::vector<std::shared_ptr<Array>> arrays = {sliced_array};
+      auto table = ::arrow::Table::Make(arrow_schema, arrays, batch_size);
+      ASSERT_OK_NO_THROW(writer->WriteTable(*table, DEFAULT_MAX_ROW_GROUP_LENGTH, true));
+    }
+    ASSERT_OK_NO_THROW(writer->Close());
+  }
+
   void ReadAndCheckSingleColumnFile(const Array& values, int num_row_groups) {
     std::shared_ptr<Array> out;
 
@@ -5027,6 +5055,24 @@ TYPED_TEST(TestBufferedParquetIO, SingleColumnOptionalBufferedWriteLarge) {
   ASSERT_OK(NullableArray<TypeParam>(LARGE_SIZE, 100, kDefaultSeed, &values));
   int num_row_groups = 0;
   this->WriteBufferedFile(values, batch_size, &num_row_groups);
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnTable(values, num_row_groups));
+}
+
+TYPED_TEST(TestBufferedParquetIO, SingleColumnOptionalBufferedWriteSmallTable) {
+  constexpr int64_t batch_size = SMALL_SIZE / 4;
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(SMALL_SIZE, 10, kDefaultSeed, &values));
+  int num_row_groups = 0;
+  this->WriteBufferedTable(values, batch_size, &num_row_groups);
+  ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnFile(*values, num_row_groups));
+}
+
+TYPED_TEST(TestBufferedParquetIO, SingleColumnOptionalBufferedWriteLargeTable) {
+  constexpr int64_t batch_size = LARGE_SIZE / 4;
+  std::shared_ptr<Array> values;
+  ASSERT_OK(NullableArray<TypeParam>(LARGE_SIZE, 100, kDefaultSeed, &values));
+  int num_row_groups = 0;
+  this->WriteBufferedTable(values, batch_size, &num_row_groups);
   ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnTable(values, num_row_groups));
 }
 
