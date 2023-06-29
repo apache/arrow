@@ -380,79 +380,6 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     ASSERT_EQ(total->max(), std::max(statistics1->max(), statistics2->max()));
   }
 
-  void TestMergeEmpty() {
-    EncodedStatistics encoded_statistics1;
-    auto statistics1 = Statistics::Make(this->schema_.Column(0), &encoded_statistics1,
-                                        /*num_values=*/1000);
-    auto s1 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(statistics1);
-
-    EXPECT_FALSE(statistics1->HasMinMax());
-    EXPECT_FALSE(statistics1->HasDistinctCount());
-    EXPECT_FALSE(statistics1->HasNullCount());
-
-    EncodedStatistics encoded_statistics2;
-    encoded_statistics2.has_distinct_count = true;
-    encoded_statistics2.distinct_count = 500;
-    auto statistics2 = Statistics::Make(this->schema_.Column(0), &encoded_statistics2,
-                                        /*num_values=*/1000);
-
-    EXPECT_FALSE(statistics2->HasMinMax());
-    EXPECT_TRUE(statistics2->HasDistinctCount());
-    EXPECT_FALSE(s1->HasNullCount());
-    auto s2 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(statistics2);
-
-    auto total = MakeStatistics<TestType>(this->schema_.Column(0));
-    total->Merge(*s1);
-    total->Merge(*s2);
-
-    EXPECT_FALSE(total->HasDistinctCount());
-    EXPECT_FALSE(total->HasMinMax());
-    EXPECT_EQ(2000, total->num_values());
-    EXPECT_FALSE(total->HasNullCount());
-  }
-
-  void TestNotHasNullValue() {
-    EncodedStatistics encoded_statistics1;
-    encoded_statistics1.has_null_count = false;
-    auto statistics1 = Statistics::Make(this->schema_.Column(0), &encoded_statistics1,
-                                        /*num_values=*/1000);
-    auto s1 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(statistics1);
-    EXPECT_FALSE(s1->HasNullCount());
-    auto encoded = s1->Encode();
-    EXPECT_FALSE(encoded.all_null_value);
-  }
-
-  void TestMergeMinMax() {
-    this->GenerateData(1000);
-
-    auto chunk_statistics = MakeStatistics<TestType>(this->schema_.Column(0));
-
-    {
-      auto page_statistics1 = MakeStatistics<TestType>(this->schema_.Column(0));
-      std::vector<uint8_t> valid_bits(
-          bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 0);
-      page_statistics1->Update(this->values_ptr_, /*num_values=*/0,
-                               /*null_count*/ this->values_.size());
-      auto encoded_stats1 = page_statistics1->Encode();
-      EXPECT_FALSE(encoded_stats1.has_min);
-      EXPECT_FALSE(encoded_stats1.has_max);
-
-      chunk_statistics->Merge(*page_statistics1);
-      encoded_stats1 = chunk_statistics->Encode();
-      EXPECT_FALSE(encoded_stats1.has_min);
-      EXPECT_FALSE(encoded_stats1.has_max);
-    }
-    {
-      auto page_statistics2 = MakeStatistics<TestType>(this->schema_.Column(0));
-      page_statistics2->Update(this->values_ptr_, this->values_.size(), 0);
-
-      chunk_statistics->Merge(*page_statistics2);
-      auto encoded_stats2 = chunk_statistics->Encode();
-      EXPECT_TRUE(encoded_stats2.has_min);
-      EXPECT_TRUE(encoded_stats2.has_max);
-    }
-  }
-
   void TestEquals() {
     const auto n_values = 1;
     auto statistics_have_minmax1 = MakeStatistics<TestType>(this->schema_.Column(0));
@@ -661,24 +588,176 @@ TYPED_TEST(TestNumericStatistics, Merge) {
   ASSERT_NO_FATAL_FAILURE(this->TestMerge());
 }
 
-TYPED_TEST(TestNumericStatistics, MergeEmpty) {
-  this->SetUpSchema(Repetition::OPTIONAL);
-  ASSERT_NO_FATAL_FAILURE(this->TestMergeEmpty());
-}
-
-TYPED_TEST(TestNumericStatistics, NotHasNullValues) {
-  this->SetUpSchema(Repetition::OPTIONAL);
-  ASSERT_NO_FATAL_FAILURE(this->TestNotHasNullValue());
-}
-
-TYPED_TEST(TestNumericStatistics, TestMergeMinMax) {
-  this->SetUpSchema(Repetition::OPTIONAL);
-  ASSERT_NO_FATAL_FAILURE(this->TestMergeMinMax());
-}
-
 TYPED_TEST(TestNumericStatistics, Equals) {
   this->SetUpSchema(Repetition::OPTIONAL);
   ASSERT_NO_FATAL_FAILURE(this->TestEquals());
+}
+
+template <typename TestType>
+class TestStatisticsHasFlag : public TestStatistics<TestType> {
+ public:
+  void SetUp() override {
+    TestStatistics<TestType>::SetUp();
+    this->SetUpSchema(Repetition::OPTIONAL);
+  }
+
+  std::shared_ptr<TypedStatistics<TestType>> BuildMergedStatistics(
+      const TypedStatistics<TestType>& stats1, const TypedStatistics<TestType>& stats2) {
+    auto chunk_statistics = MakeStatistics<TestType>(this->schema_.Column(0));
+    chunk_statistics->Merge(stats1);
+    chunk_statistics->Merge(stats2);
+    return chunk_statistics;
+  }
+
+  void VerifyMergedStatistics(const TypedStatistics<TestType>& stats1,
+                              const TypedStatistics<TestType>& stats2,
+                              const std::function<void(TypedStatistics<TestType>*)>& fn) {
+    fn(BuildMergedStatistics(stats1, stats2).get());
+    fn(BuildMergedStatistics(stats2, stats1).get());
+  }
+
+  // Distinct count should set to false when Merge is called.
+  void TestMergeDistinctCount() {
+    // Create a statistics object with distinct count.
+    std::shared_ptr<TypedStatistics<TestType>> statistics1;
+    {
+      EncodedStatistics encoded_statistics1;
+      statistics1 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(
+          Statistics::Make(this->schema_.Column(0), &encoded_statistics1,
+                           /*num_values=*/1000));
+      EXPECT_FALSE(statistics1->HasDistinctCount());
+    }
+
+    // Create a statistics object with distinct count.
+    std::shared_ptr<TypedStatistics<TestType>> statistics2;
+    {
+      EncodedStatistics encoded_statistics2;
+      encoded_statistics2.has_distinct_count = true;
+      encoded_statistics2.distinct_count = 500;
+      statistics2 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(
+          Statistics::Make(this->schema_.Column(0), &encoded_statistics2,
+                           /*num_values=*/1000));
+      EXPECT_TRUE(statistics2->HasDistinctCount());
+    }
+
+    VerifyMergedStatistics(*statistics1, *statistics2,
+                           [](TypedStatistics<TestType>* merged_statistics) {
+                             EXPECT_FALSE(merged_statistics->HasDistinctCount());
+                             EXPECT_FALSE(merged_statistics->Encode().has_distinct_count);
+                           });
+  }
+
+  // If a page is all nulls or nan, min and max should be set to null.
+  // And the all-null page being merged with a page having min-max,
+  // the result should have min-max.
+  void TestMergeMinMax() {
+    this->GenerateData(1000);
+    // Create a statistics object without min-max.
+    std::shared_ptr<TypedStatistics<TestType>> statistics1;
+    {
+      statistics1 = MakeStatistics<TestType>(this->schema_.Column(0));
+      statistics1->Update(this->values_ptr_, /*num_values=*/0,
+                          /*null_count*/ this->values_.size());
+      auto encoded_stats1 = statistics1->Encode();
+      EXPECT_FALSE(statistics1->HasMinMax());
+      EXPECT_FALSE(encoded_stats1.has_min);
+      EXPECT_FALSE(encoded_stats1.has_max);
+    }
+    // Create a statistics object with min-max.
+    std::shared_ptr<TypedStatistics<TestType>> statistics2;
+    {
+      statistics2 = MakeStatistics<TestType>(this->schema_.Column(0));
+      statistics2->Update(this->values_ptr_, this->values_.size(), 0);
+      auto encoded_stats2 = statistics2->Encode();
+      EXPECT_TRUE(statistics2->HasMinMax());
+      EXPECT_TRUE(encoded_stats2.has_min);
+      EXPECT_TRUE(encoded_stats2.has_max);
+    }
+    VerifyMergedStatistics(*statistics1, *statistics2,
+                           [](TypedStatistics<TestType>* merged_statistics) {
+                             EXPECT_TRUE(merged_statistics->HasMinMax());
+                             EXPECT_TRUE(merged_statistics->Encode().has_min);
+                             EXPECT_TRUE(merged_statistics->Encode().has_max);
+                           });
+  }
+
+  // Default statistics should have null_count even if no nulls is written.
+  // However, if statistics read from thrift, it might not have null_count,
+  // and page merge with it should also not have null_count.
+  void TestMergeNullCount() {
+    this->GenerateData(1000);
+
+    // Page should have null-count even if no nulls
+    std::shared_ptr<TypedStatistics<TestType>> statistics1;
+    {
+      statistics1 = MakeStatistics<TestType>(this->schema_.Column(0));
+      statistics1->Update(this->values_ptr_, /*num_values=*/this->values_.size(),
+                          /*null_count*/ 0);
+      auto encoded_stats1 = statistics1->Encode();
+      EXPECT_TRUE(statistics1->HasNullCount());
+      EXPECT_EQ(0, statistics1->null_count());
+      EXPECT_TRUE(statistics1->Encode().has_null_count);
+    }
+    // Merge with null-count should also have null count
+    VerifyMergedStatistics(*statistics1, *statistics1,
+                           [](TypedStatistics<TestType>* merged_statistics) {
+                             EXPECT_TRUE(merged_statistics->HasNullCount());
+                             EXPECT_EQ(0, merged_statistics->null_count());
+                             auto encoded = merged_statistics->Encode();
+                             EXPECT_TRUE(encoded.has_null_count);
+                             EXPECT_EQ(0, encoded.null_count);
+                           });
+
+    // When loaded from thrift, might not have null count.
+    std::shared_ptr<TypedStatistics<TestType>> statistics2;
+    {
+      EncodedStatistics encoded_statistics2;
+      encoded_statistics2.has_null_count = false;
+      statistics2 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(
+          Statistics::Make(this->schema_.Column(0), &encoded_statistics2,
+                           /*num_values=*/1000));
+      EXPECT_FALSE(statistics2->Encode().has_null_count);
+      EXPECT_FALSE(statistics2->HasNullCount());
+    }
+
+    // Merge without null-count should not have null count
+    VerifyMergedStatistics(*statistics1, *statistics2,
+                           [](TypedStatistics<TestType>* merged_statistics) {
+                             EXPECT_FALSE(merged_statistics->HasNullCount());
+                             EXPECT_FALSE(merged_statistics->Encode().has_null_count);
+                           });
+  }
+
+  // statistics.all_null_value is used to build the page index.
+  // If statistics doesn't have null count, all_null_value should be false.
+  void TestNotHasNullValue() {
+    EncodedStatistics encoded_statistics1;
+    encoded_statistics1.has_null_count = false;
+    auto statistics1 = Statistics::Make(this->schema_.Column(0), &encoded_statistics1,
+                                        /*num_values=*/1000);
+    auto s1 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(statistics1);
+    EXPECT_FALSE(s1->HasNullCount());
+    auto encoded = s1->Encode();
+    EXPECT_FALSE(encoded.all_null_value);
+  }
+};
+
+TYPED_TEST_SUITE(TestStatisticsHasFlag, Types);
+
+TYPED_TEST(TestStatisticsHasFlag, MergeDistinctCount) {
+  ASSERT_NO_FATAL_FAILURE(this->TestMergeDistinctCount());
+}
+
+TYPED_TEST(TestStatisticsHasFlag, MergeNullCount) {
+  ASSERT_NO_FATAL_FAILURE(this->TestMergeNullCount());
+}
+
+TYPED_TEST(TestStatisticsHasFlag, TestMergeMinMax) {
+  ASSERT_NO_FATAL_FAILURE(this->TestMergeMinMax());
+}
+
+TYPED_TEST(TestStatisticsHasFlag, NotHasNullValues) {
+  ASSERT_NO_FATAL_FAILURE(this->TestNotHasNullValue());
 }
 
 // Helper for basic statistics tests below
