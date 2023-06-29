@@ -2799,6 +2799,9 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     This is often used with ordered or segmented aggregation where groups
     can be emit before accumulating all of the input data.
 
+    Note that currently the size of any input column can not exceed 2 GB
+    for a single segment (all groups combined).
+
     Parameters
     ----------
     func : callable
@@ -2855,6 +2858,15 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     >>> answer = pc.call_function(func_name, [pa.array([20, 40])])
     >>> answer
     <pyarrow.DoubleScalar: 30.0>
+    >>> table = pa.table([pa.array([1, 1, 2, 2]), pa.array([10, 20, 30, 40])], names=['k', 'v'])
+    >>> result = table.group_by('k').aggregate([('v', 'py_compute_median')])
+    >>> result
+    pyarrow.Table
+    k: int64
+    v_py_compute_median: double
+    ----
+    k: [[1,2]]
+    v_py_compute_median: [[15,35]]
     """
     return _register_user_defined_function(get_register_aggregate_function(),
                                            func, function_name, function_doc, in_types,
