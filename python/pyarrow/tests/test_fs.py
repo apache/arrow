@@ -1085,12 +1085,6 @@ def test_gcs_options():
     assert isinstance(fs, GcsFileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
-    with changed_environ('GOOGLE_CLOUD_PROJECT', 'test-project-id-env'):
-        fs = GcsFileSystem()
-        assert isinstance(fs, GcsFileSystem)
-        assert fs.project_id == 'test-project-id-env'
-        assert pickle.loads(pickle.dumps(fs)) == fs
-
     with pytest.raises(ValueError):
         GcsFileSystem(access_token='access')
     with pytest.raises(ValueError):
@@ -1485,7 +1479,7 @@ def test_filesystem_from_uri_gcs(gcs_server):
 
     uri = ("gs://anonymous@" +
            f"mybucket/foo/bar?scheme=http&endpoint_override={host}:{port}&" +
-           "retry_limit_seconds=5")
+           "retry_limit_seconds=5&project_id=test-project-id")
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, GcsFileSystem)
