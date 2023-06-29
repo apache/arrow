@@ -19,6 +19,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <iterator>
 #include <type_traits>
 
@@ -92,11 +93,15 @@ writing code which would break when it is replaced by std::span.)");
   constexpr bool operator==(span const& other) const {
     if (size_ != other.size_) return false;
 
-    T* ptr = data_;
-    for (T const& e : other) {
-      if (*ptr++ != e) return false;
+    if constexpr (std::is_integral_v<T>) {
+      return std::memcmp(data_, other.data_, size_) == 0;
+    } else {
+      T* ptr = data_;
+      for (T const& e : other) {
+        if (*ptr++ != e) return false;
+      }
+      return true;
     }
-    return true;
   }
   constexpr bool operator!=(span const& other) const { return !(*this == other); }
 
