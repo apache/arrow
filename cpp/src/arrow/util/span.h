@@ -94,7 +94,7 @@ writing code which would break when it is replaced by std::span.)");
     if (size_ != other.size_) return false;
 
     if constexpr (std::is_integral_v<T>) {
-      return std::memcmp(data_, other.data_, size_) == 0;
+      return std::memcmp(data_, other.data_, size_bytes()) == 0;
     } else {
       T* ptr = data_;
       for (T const& e : other) {
