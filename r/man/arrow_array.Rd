@@ -7,7 +7,7 @@
 arrow_array(x, type = NULL)
 }
 \arguments{
-\item{x}{An R vector, list, or \code{data.frame}}
+\item{x}{An R object representable as an Arrow array, e.g. a vector, list, or \code{data.frame}.}
 
 \item{type}{An optional \link[=data-type]{data type} for \code{x}. If omitted, the type will be inferred from the data.}
 }

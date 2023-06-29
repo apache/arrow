@@ -551,7 +551,7 @@ MapArray <- R6Class("MapArray",
 
 #' Create an Arrow Array
 #'
-#' @param x An R vector, list, or `data.frame`
+#' @param x An R object representable as an Arrow array, e.g. a vector, list, or `data.frame`.
 #' @param type An optional [data type][data-type] for `x`. If omitted, the type will be inferred from the data.
 #' @rdname arrow_array
 #' @examples
