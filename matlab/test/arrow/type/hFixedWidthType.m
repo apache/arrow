@@ -13,9 +13,9 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef hPrimitiveType < matlab.unittest.TestCase
+classdef hFixedWidthType < matlab.unittest.TestCase
 % Test class that defines shared unit tests for classes that inherit from
-% arrow.type.PrimitiveType
+% arrow.type.FixedWidthType
 
     properties(Abstract)
         ArrowType

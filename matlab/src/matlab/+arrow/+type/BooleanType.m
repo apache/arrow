@@ -13,12 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef BooleanType < arrow.type.PrimitiveType
+classdef BooleanType < arrow.type.FixedWidthType
 %BOOLEANTYPE Type class for boolean data.
     
     methods 
         function obj = BooleanType()
-            obj@arrow.type.PrimitiveType("Name", "arrow.type.proxy.BooleanType", "ConstructorArguments", {})
+            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.BooleanType", "ConstructorArguments", {})
         end
     end
 end

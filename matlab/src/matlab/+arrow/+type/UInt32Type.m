@@ -13,12 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef UInt32Type < arrow.type.PrimitiveType
+classdef UInt32Type < arrow.type.FixedWidthType
 %UINT32TYPE Type class for uint32 data.
     
     methods 
         function obj = UInt32Type()
-            obj@arrow.type.PrimitiveType("Name", "arrow.type.proxy.UInt32Type", "ConstructorArguments", {})
+            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.UInt32Type", "ConstructorArguments", {})
         end
     end
 end

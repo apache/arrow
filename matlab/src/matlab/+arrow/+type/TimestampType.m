@@ -13,13 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef TimestampType < arrow.type.Type
+classdef TimestampType < arrow.type.FixedWidthType
 %TIMESTAMPTYPE Type class for timestamp data.
 
     properties(Dependent, SetAccess=private, GetAccess=public)
         TimeZone
         TimeUnit
-        BitWidth
     end
 
     methods
@@ -30,11 +29,7 @@ classdef TimestampType < arrow.type.Type
                 opts.TimeZone(1, 1) string {mustBeNonmissing} = "" 
             end
             args = struct(TimeUnit=string(opts.TimeUnit), TimeZone=opts.TimeZone);
-            obj@arrow.type.Type("Name", "arrow.type.proxy.TimestampType", "ConstructorArguments", {args});
-        end
-
-        function bitWidth = get.BitWidth(obj)
-            bitWidth = obj.Proxy.bitWidth();
+            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.TimestampType", "ConstructorArguments", {args});
         end
 
         function unit = get.TimeUnit(obj)

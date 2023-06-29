@@ -13,7 +13,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tUInt8Type < hPrimitiveType
+classdef tUInt8Type < hFixedWidthType
 % Test class for arrow.type.UInt64Type
 
     properties

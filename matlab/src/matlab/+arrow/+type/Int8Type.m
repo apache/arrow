@@ -13,12 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Int8Type < arrow.type.PrimitiveType
+classdef Int8Type < arrow.type.FixedWidthType
 %INT8TYPE Type class for int8 data. 
     
     methods 
         function obj = Int8Type()
-            obj@arrow.type.PrimitiveType("Name", "arrow.type.proxy.Int8Type", "ConstructorArguments", {})
+            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.Int8Type", "ConstructorArguments", {})
         end
     end
 end
