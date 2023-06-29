@@ -178,7 +178,7 @@ reference:
    Classes and functions for creating Arrow data containers.
   contents:
     - scalar
-    - array
+    - arrow_array
     - ChunkedArray
     - RecordBatch
     - Table
@@ -294,6 +294,7 @@ reference:
     R6 classes for Arrow data types.
   contents:
   - Scalar
+  - Array
   - Schema
   - DataType
   - ArrayData

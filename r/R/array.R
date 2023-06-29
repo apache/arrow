@@ -17,7 +17,7 @@
 
 #' @include arrow-datum.R
 
-#' @title Arrow Arrays
+#' @title Array Classes
 #' @description An `Array` is an immutable data array with some logical type
 #' and some length. Most logical types are contained in the base
 #' `Array` class; there are also subclasses for `DictionaryArray`, `ListArray`,
