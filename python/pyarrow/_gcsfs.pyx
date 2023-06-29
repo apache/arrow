@@ -75,6 +75,9 @@ cdef class GcsFileSystem(FileSystem):
     retry_time_limit : timedelta, default None
         Set the maximum amount of time the GCS client will attempt to retry
         transient errors. Subsecond granularity is ignored.
+    project_id : str, default None
+        GCP project identifier. If not set the GOOGLE_CLOUD_PROJECT environment variable
+        will be used.
     """
 
     cdef:
@@ -86,7 +89,8 @@ cdef class GcsFileSystem(FileSystem):
                  scheme=None,
                  endpoint_override=None,
                  default_metadata=None,
-                 retry_time_limit=None):
+                 retry_time_limit=None,
+                 project_id=None):
         cdef:
             CGcsOptions options
             shared_ptr[CGcsFileSystem] wrapped
@@ -136,6 +140,8 @@ cdef class GcsFileSystem(FileSystem):
         if retry_time_limit is not None:
             time_limit_seconds = retry_time_limit.total_seconds()
             options.retry_limit_seconds = time_limit_seconds
+        if project_id is not None:
+            options.project_id = tobytes(project_id)
 
         with nogil:
             wrapped = GetResultValue(CGcsFileSystem.Make(options))
@@ -176,7 +182,8 @@ cdef class GcsFileSystem(FileSystem):
                 default_bucket_location=frombytes(
                     opts.default_bucket_location),
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
-                retry_time_limit=retry_time_limit
+                retry_time_limit=retry_time_limit,
+                project_id=from_bytes(opts.project_id)
             ),))
 
     @property
@@ -185,3 +192,10 @@ cdef class GcsFileSystem(FileSystem):
         The GCP location this filesystem will write to.
         """
         return frombytes(self.gcsfs.options().default_bucket_location)
+
+    @property
+    def project_id(self):
+        """
+        The GCP project id this filesystem will use.
+        """
+        return frombytes(self.gcsfs.options().project_id)

@@ -27,7 +27,7 @@ import weakref
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
 from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
-                                _configure_s3_limited_user)
+                                _configure_s3_limited_user, changed_environ)
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
@@ -213,7 +213,8 @@ def gcsfs(request, gcs_server):
         scheme='http',
         # Mock endpoint doesn't check credentials.
         anonymous=True,
-        retry_time_limit=timedelta(seconds=45)
+        retry_time_limit=timedelta(seconds=45),
+        project_id='test-project-id'
     )
     try:
         fs.create_dir(bucket)
@@ -1064,9 +1065,11 @@ def test_gcs_options():
                        target_service_account='service_account@apache',
                        credential_token_expiration=dt,
                        default_bucket_location='us-west2',
-                       scheme='https', endpoint_override='localhost:8999')
+                       scheme='https', endpoint_override='localhost:8999',
+                       project_id='test-project-id')
     assert isinstance(fs, GcsFileSystem)
     assert fs.default_bucket_location == 'us-west2'
+    assert fs.project_id == 'test-project-id'
     assert pickle.loads(pickle.dumps(fs)) == fs
 
     fs = GcsFileSystem()
@@ -1081,6 +1084,12 @@ def test_gcs_options():
                                          "Content-Type": "text/plain"})
     assert isinstance(fs, GcsFileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
+
+    with changed_environ('GOOGLE_CLOUD_PROJECT', 'test-project-id-env'):
+        fs = GcsFileSystem()
+        assert isinstance(fs, GcsFileSystem)
+        assert fs.project_id == 'test-project-id-env'
+        assert pickle.loads(pickle.dumps(fs)) == fs
 
     with pytest.raises(ValueError):
         GcsFileSystem(access_token='access')
