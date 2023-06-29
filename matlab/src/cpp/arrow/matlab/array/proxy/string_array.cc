@@ -69,7 +69,7 @@ namespace arrow::matlab::array::proxy {
 
             // Create a MATLAB String array from a vector of UTF-16 encoded strings.
             mda::ArrayFactory factory;
-            auto array_mda = factory.createArray({size_t{1}, static_cast<size_t>(array_length)}, strings.begin(), strings.end());
+            auto array_mda = factory.createArray({size_t{array_length}, static_cast<size_t>(1)}, strings.begin(), strings.end());
             context.outputs[0] = array_mda;
         }
 
