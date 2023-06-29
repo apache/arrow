@@ -179,7 +179,7 @@ reference:
   contents:
     - scalar
     - arrow_array
-    - ChunkedArray
+    - chunked_array
     - RecordBatch
     - Table
     - buffer
@@ -295,6 +295,7 @@ reference:
   contents:
   - Scalar
   - Array
+  - ChunkedArray
   - Schema
   - DataType
   - ArrayData
