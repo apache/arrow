@@ -1852,8 +1852,11 @@ Pairwise functions
 ~~~~~~~~~~~~~~~~~~~~
 Pairwise functions are unary vector functions that perform a binary operation on 
 a pair of elements in the input array, typically on adjacent elements. The n-th
-output is computed by applying the binary operation on the n-th and (n-p)-th, 
-where p is the period. The default period is 1. The period can also be negative.
+output is computed by applying the binary operation to the n-th and (n-p)-th inputs, 
+where p is the period. The default period is 1, in which case the binary
+operation is applied to adjacent pairs of inputs. The period can also be
+negative, in which case the n-th output is computed by applying the binary
+operation to the n-th and (n+abs(p))-th inputs.
 
 +------------------------+-------+----------------------+----------------------+--------------------------------+----------+
 | Function name          | Arity | Input types          | Output type          | Options class                  | Notes    |
