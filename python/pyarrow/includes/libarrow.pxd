@@ -2407,6 +2407,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         optional[shared_ptr[CScalar]] start
         c_bool skip_nulls
 
+    cdef cppclass CPairwiseOptions \
+            "arrow::compute::PairwiseOptions"(CFunctionOptions):
+        CPairwiseOptions(int64_t period)
+        int64_t period
+
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
         CArraySortOptions(CSortOrder, CNullPlacement)
