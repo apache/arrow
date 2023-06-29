@@ -285,7 +285,7 @@ class FinishableDataStream : public internal::ClientDataStream {
     // reader finishes, so it's OK to assume the client no longer
     // wants to read and drain the read side. (If the client wants to
     // indicate that it is done writing, but not done reading, it
-    // should use DoneWriting.
+    // should use DoneWriting.)
     ReadPayloadType message;
     while (ReadPayload(stream_.get(), &message)) {
       // Drain the read side to avoid gRPC hanging in Finish()
@@ -740,11 +740,24 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
     // Explicitly close our side of the connection
     bool finished_writes = stream->WritesDone();
-    RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
     if (!finished_writes) {
       return MakeFlightError(FlightStatusCode::Internal,
                              "Could not finish writing before closing");
     }
+    // Drain the read side, as otherwise gRPC Finish() will hang. We
+    // only call Finish() when the client closes the writer or the
+    // reader finishes, so it's OK to assume the client no longer
+    // wants to read and drain the read side.
+    pb::HandshakeResponse response;
+    if (!stream->Read(&response)) {
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "No handshake response from server");
+    }
+    if (stream->Read(&response)) {
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "Too much handshake response from server");
+    }
+    RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
     return Status::OK();
   }
 
@@ -759,11 +772,24 @@ class GrpcClientImpl : public internal::ClientTransport {
         stream = stub_->Handshake(&rpc.context);
     // Explicitly close our side of the connection.
     bool finished_writes = stream->WritesDone();
-    RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
     if (!finished_writes) {
       return MakeFlightError(FlightStatusCode::Internal,
                              "Could not finish writing before closing");
     }
+    // Drain the read side, as otherwise gRPC Finish() will hang. We
+    // only call Finish() when the client closes the writer or the
+    // reader finishes, so it's OK to assume the client no longer
+    // wants to read and drain the read side.
+    pb::HandshakeResponse response;
+    if (!stream->Read(&response)) {
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "No handshake response from server");
+    }
+    if (stream->Read(&response)) {
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "Too much handshake response from server");
+    }
+    RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
     // Grab bearer token from incoming headers.
     return GetBearerTokenHeader(rpc.context);
   }
