@@ -16,14 +16,16 @@
 // under the License.
 
 #include "arrow/python/udf.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/python/common.h"
+#include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
+using internal::checked_cast;
 namespace py {
-
 namespace {
 
 struct PythonUdfKernelState : public compute::KernelState {
@@ -65,6 +67,26 @@ struct PythonUdfKernelInit {
   std::shared_ptr<OwnedRefNoGIL> function;
 };
 
+struct ScalarUdfAggregator : public compute::KernelState {
+  virtual Status Consume(compute::KernelContext* ctx, const compute::ExecSpan& batch) = 0;
+  virtual Status MergeFrom(compute::KernelContext* ctx, compute::KernelState&& src) = 0;
+  virtual Status Finalize(compute::KernelContext* ctx, Datum* out) = 0;
+};
+
+arrow::Status AggregateUdfConsume(compute::KernelContext* ctx,
+                                  const compute::ExecSpan& batch) {
+  return checked_cast<ScalarUdfAggregator*>(ctx->state())->Consume(ctx, batch);
+}
+
+arrow::Status AggregateUdfMerge(compute::KernelContext* ctx, compute::KernelState&& src,
+                                compute::KernelState* dst) {
+  return checked_cast<ScalarUdfAggregator*>(dst)->MergeFrom(ctx, std::move(src));
+}
+
+arrow::Status AggregateUdfFinalize(compute::KernelContext* ctx, arrow::Datum* out) {
+  return checked_cast<ScalarUdfAggregator*>(ctx->state())->Finalize(ctx, out);
+}
+
 struct PythonTableUdfKernelInit {
   PythonTableUdfKernelInit(std::shared_ptr<OwnedRefNoGIL> function_maker,
                            UdfWrapperCallback cb)
@@ -82,24 +104,122 @@ struct PythonTableUdfKernelInit {
 
   Result<std::unique_ptr<compute::KernelState>> operator()(
       compute::KernelContext* ctx, const compute::KernelInitArgs&) {
-    ScalarUdfContext scalar_udf_context{ctx->memory_pool(), /*batch_length=*/0};
+    UdfContext udf_context{ctx->memory_pool(), /*batch_length=*/0};
     std::unique_ptr<OwnedRefNoGIL> function;
-    RETURN_NOT_OK(SafeCallIntoPython([this, &scalar_udf_context, &function] {
+    RETURN_NOT_OK(SafeCallIntoPython([this, &udf_context, &function] {
       OwnedRef empty_tuple(PyTuple_New(0));
       function = std::make_unique<OwnedRefNoGIL>(
-          cb(function_maker->obj(), scalar_udf_context, empty_tuple.obj()));
+          cb(function_maker->obj(), udf_context, empty_tuple.obj()));
       RETURN_NOT_OK(CheckPyError());
       return Status::OK();
     }));
     if (!PyCallable_Check(function->obj())) {
       return Status::TypeError("Expected a callable Python object.");
     }
-    return std::make_unique<PythonUdfKernelState>(
-        std::move(function));
+    return std::make_unique<PythonUdfKernelState>(std::move(function));
   }
 
   std::shared_ptr<OwnedRefNoGIL> function_maker;
   UdfWrapperCallback cb;
+};
+
+struct PythonUdfScalarAggregatorImpl : public ScalarUdfAggregator {
+  PythonUdfScalarAggregatorImpl(UdfWrapperCallback agg_cb,
+                                std::shared_ptr<OwnedRefNoGIL> agg_function,
+                                std::vector<std::shared_ptr<DataType>> input_types,
+                                std::shared_ptr<DataType> output_type)
+      : agg_cb(std::move(agg_cb)),
+        agg_function(agg_function),
+        output_type(std::move(output_type)) {
+    Py_INCREF(agg_function->obj());
+    std::vector<std::shared_ptr<Field>> fields;
+    for (size_t i = 0; i < input_types.size(); i++) {
+      fields.push_back(field("", input_types[i]));
+    }
+    input_schema = schema(std::move(fields));
+  };
+
+  ~PythonUdfScalarAggregatorImpl() override {
+    if (_Py_IsFinalizing()) {
+      agg_function->detach();
+    }
+  }
+
+  Status Consume(compute::KernelContext* ctx, const compute::ExecSpan& batch) override {
+    ARROW_ASSIGN_OR_RAISE(
+        auto rb, batch.ToExecBatch().ToRecordBatch(input_schema, ctx->memory_pool()));
+    values.push_back(std::move(rb));
+    return Status::OK();
+  }
+
+  Status MergeFrom(compute::KernelContext* ctx, compute::KernelState&& src) override {
+    auto& other_values = checked_cast<PythonUdfScalarAggregatorImpl&>(src).values;
+    values.insert(values.end(), std::make_move_iterator(other_values.begin()),
+                  std::make_move_iterator(other_values.end()));
+
+    other_values.erase(other_values.begin(), other_values.end());
+    return Status::OK();
+  }
+
+  Status Finalize(compute::KernelContext* ctx, Datum* out) override {
+    auto state =
+        arrow::internal::checked_cast<PythonUdfScalarAggregatorImpl*>(ctx->state());
+    std::shared_ptr<OwnedRefNoGIL>& function = state->agg_function;
+    const int num_args = input_schema->num_fields();
+
+    // Note: The way that batches are concatenated together
+    // would result in using double amount of the memory.
+    // This is OK for now because non decomposable aggregate
+    // UDF is supposed to be used with segmented aggregation
+    // where the size of the segment is more or less constant
+    // so doubling that is not a big deal. This can be also
+    // improved in the future to use more efficient way to
+    // concatenate.
+    ARROW_ASSIGN_OR_RAISE(auto table,
+                          arrow::Table::FromRecordBatches(input_schema, values));
+    ARROW_ASSIGN_OR_RAISE(table, table->CombineChunks(ctx->memory_pool()));
+    UdfContext udf_context{ctx->memory_pool(), table->num_rows()};
+
+    if (table->num_rows() == 0) {
+      return Status::Invalid("Finalized is called with empty inputs");
+    }
+
+    RETURN_NOT_OK(SafeCallIntoPython([&] {
+      std::unique_ptr<OwnedRef> result;
+      OwnedRef arg_tuple(PyTuple_New(num_args));
+      RETURN_NOT_OK(CheckPyError());
+
+      for (int arg_id = 0; arg_id < num_args; arg_id++) {
+        // Since we combined chunks there is only one chunk
+        std::shared_ptr<Array> c_data = table->column(arg_id)->chunk(0);
+        PyObject* data = wrap_array(c_data);
+        PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
+      }
+      result = std::make_unique<OwnedRef>(
+          agg_cb(function->obj(), udf_context, arg_tuple.obj()));
+      RETURN_NOT_OK(CheckPyError());
+      // unwrapping the output for expected output type
+      if (is_scalar(result->obj())) {
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> val, unwrap_scalar(result->obj()));
+        if (*output_type != *val->type) {
+          return Status::TypeError("Expected output datatype ", output_type->ToString(),
+                                   ", but function returned datatype ",
+                                   val->type->ToString());
+        }
+        out->value = std::move(val);
+        return Status::OK();
+      }
+      return Status::TypeError("Unexpected output type: ",
+                               Py_TYPE(result->obj())->tp_name, " (expected Scalar)");
+    }));
+    return Status::OK();
+  }
+
+  UdfWrapperCallback agg_cb;
+  std::vector<std::shared_ptr<RecordBatch>> values;
+  std::shared_ptr<OwnedRefNoGIL> agg_function;
+  std::shared_ptr<Schema> input_schema;
+  std::shared_ptr<DataType> output_type;
 };
 
 struct PythonUdf : public PythonUdfKernelState {
@@ -131,7 +251,7 @@ struct PythonUdf : public PythonUdfKernelState {
     auto state = arrow::internal::checked_cast<PythonUdfKernelState*>(ctx->state());
     std::shared_ptr<OwnedRefNoGIL>& function = state->function;
     const int num_args = batch.num_values();
-    ScalarUdfContext scalar_udf_context{ctx->memory_pool(), batch.length};
+    UdfContext udf_context{ctx->memory_pool(), batch.length};
 
     OwnedRef arg_tuple(PyTuple_New(num_args));
     RETURN_NOT_OK(CheckPyError());
@@ -147,7 +267,7 @@ struct PythonUdf : public PythonUdfKernelState {
       }
     }
 
-    OwnedRef result(cb(function->obj(), scalar_udf_context, arg_tuple.obj()));
+    OwnedRef result(cb(function->obj(), udf_context, arg_tuple.obj()));
     RETURN_NOT_OK(CheckPyError());
     // unwrapping the output for expected output type
     if (is_array(result.obj())) {
@@ -215,10 +335,9 @@ Status RegisterUdf(PyObject* user_function, compute::KernelInit kernel_init,
 Status RegisterScalarFunction(PyObject* user_function, UdfWrapperCallback wrapper,
                               const UdfOptions& options,
                               compute::FunctionRegistry* registry) {
-  return RegisterUdf(
-      user_function,
-      PythonUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function)}, wrapper,
-      options, registry);
+  return RegisterUdf(user_function,
+                     PythonUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function)},
+                     wrapper, options, registry);
 }
 
 Status RegisterTabularFunction(PyObject* user_function, UdfWrapperCallback wrapper,
@@ -234,6 +353,61 @@ Status RegisterTabularFunction(PyObject* user_function, UdfWrapperCallback wrapp
       user_function,
       PythonTableUdfKernelInit{std::make_shared<OwnedRefNoGIL>(user_function), wrapper},
       wrapper, options, registry);
+}
+
+Status AddAggKernel(std::shared_ptr<compute::KernelSignature> sig,
+                    compute::KernelInit init, compute::ScalarAggregateFunction* func) {
+  compute::ScalarAggregateKernel kernel(std::move(sig), std::move(init),
+                                        AggregateUdfConsume, AggregateUdfMerge,
+                                        AggregateUdfFinalize, /*ordered=*/false);
+  RETURN_NOT_OK(func->AddKernel(std::move(kernel)));
+  return Status::OK();
+}
+
+Status RegisterAggregateFunction(PyObject* agg_function, UdfWrapperCallback agg_wrapper,
+                                 const UdfOptions& options,
+                                 compute::FunctionRegistry* registry) {
+  if (!PyCallable_Check(agg_function)) {
+    return Status::TypeError("Expected a callable Python object.");
+  }
+
+  if (registry == NULLPTR) {
+    registry = compute::GetFunctionRegistry();
+  }
+
+  // Py_INCREF here so that once a function is registered
+  // its refcount gets increased by 1 and doesn't get gced
+  // if all existing refs are gone
+  Py_INCREF(agg_function);
+
+  static auto default_scalar_aggregate_options =
+      compute::ScalarAggregateOptions::Defaults();
+  auto aggregate_func = std::make_shared<compute::ScalarAggregateFunction>(
+      options.func_name, options.arity, options.func_doc,
+      &default_scalar_aggregate_options);
+
+  std::vector<compute::InputType> input_types;
+  for (const auto& in_dtype : options.input_types) {
+    input_types.emplace_back(in_dtype);
+  }
+  compute::OutputType output_type(options.output_type);
+
+  compute::KernelInit init = [agg_wrapper, agg_function, options](
+                                 compute::KernelContext* ctx,
+                                 const compute::KernelInitArgs& args)
+      -> Result<std::unique_ptr<compute::KernelState>> {
+    return std::make_unique<PythonUdfScalarAggregatorImpl>(
+        agg_wrapper, std::make_shared<OwnedRefNoGIL>(agg_function), options.input_types,
+        options.output_type);
+  };
+
+  RETURN_NOT_OK(AddAggKernel(
+      compute::KernelSignature::Make(std::move(input_types), std::move(output_type),
+                                     options.arity.is_varargs),
+      init, aggregate_func.get()));
+
+  RETURN_NOT_OK(registry->AddFunction(std::move(aggregate_func)));
+  return Status::OK();
 }
 
 Result<std::shared_ptr<RecordBatchReader>> CallTabularFunction(
@@ -272,9 +446,8 @@ Result<std::shared_ptr<RecordBatchReader>> CallTabularFunction(
   std::vector<TypeHolder> in_types;
   ARROW_ASSIGN_OR_RAISE(auto func_exec,
                         GetFunctionExecutor(func_name, in_types, NULLPTR, registry));
-  auto next_func =
-      [schema,
-       func_exec = std::move(func_exec)]() -> Result<std::shared_ptr<RecordBatch>> {
+  auto next_func = [schema, func_exec = std::move(
+                                func_exec)]() -> Result<std::shared_ptr<RecordBatch>> {
     std::vector<Datum> args;
     // passed_length of -1 or 0 with args.size() of 0 leads to an empty ExecSpanIterator
     // in exec.cc and to never invoking the source function, so 1 is passed instead

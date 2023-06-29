@@ -17,13 +17,14 @@
 package array_test
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -253,6 +254,51 @@ func TestRunEndEncodedBuilder(t *testing.T) {
 	assert.Equal(t, "Hello", strValues.ValueStr(0))
 }
 
+func TestRunEndEncodedStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	defer b.Release()
+
+	valBldr := b.ValueBuilder().(*array.StringBuilder)
+
+	b.Append(100)
+	valBldr.Append("Hello")
+	b.Append(100)
+	valBldr.Append("beautiful")
+	b.Append(50)
+	valBldr.Append("world")
+	b.ContinueRun(50)
+	b.Append(100)
+	valBldr.Append("of")
+	b.Append(100)
+	valBldr.Append("RLE")
+	b.AppendNull()
+
+	arr := b.NewArray().(*array.RunEndEncoded)
+	defer arr.Release()
+	logical := arr.LogicalValuesArray()
+	defer logical.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewRunEndEncodedBuilder(mem, arrow.PrimitiveTypes.Int16, arrow.BinaryTypes.String)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.RunEndEncoded)
+	defer arr1.Release()
+	logical1 := arr1.LogicalValuesArray()
+	defer logical1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+	assert.True(t, array.Equal(logical, logical1))
+}
+
 func TestREEBuilderOverflow(t *testing.T) {
 	for _, typ := range []arrow.DataType{arrow.PrimitiveTypes.Int16, arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int64} {
 		t.Run("run_ends="+typ.String(), func(t *testing.T) {
@@ -390,7 +436,7 @@ func TestRunEndEncodedUnmarshalNestedJSON(t *testing.T) {
 	defer bldr.Release()
 
 	const testJSON = `
-		[null, [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, null, 3], [4, 5, null], null, null, 
+		[null, [1, 2, 3], [1, 2, 3], [1, 2, 3], [1, null, 3], [4, 5, null], null, null,
 		[4, 5, null], [4, 5, null], [4, 5, null]]
 	`
 

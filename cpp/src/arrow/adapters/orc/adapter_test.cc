@@ -506,6 +506,135 @@ TEST(TestAdapterRead, ReadCharAndVarcharType) {
   ASSERT_EQ(nullptr, record_batch);
 }
 
+TEST(TestAdapterRead, ReadFieldAttributes) {
+  const std::string id_key = "iceberg.id";
+  const std::string required_key = "iceberg.required";
+
+  auto set_attributes = [&](liborc::Type* type, const std::string& id,
+                            const std::string& required) {
+    type->setAttribute(id_key, id);
+    type->setAttribute(required_key, required);
+  };
+
+  auto check_attributes = [&](const std::shared_ptr<arrow::Field>& field,
+                              const std::string& expect_id,
+                              const std::string& expect_required) {
+    auto field_metadata = field->metadata();
+    ASSERT_NE(field_metadata, nullptr);
+    ASSERT_EQ(expect_id, field_metadata->Get(id_key));
+    ASSERT_EQ(expect_required, field_metadata->Get(required_key));
+  };
+
+  auto c1_type = liborc::createPrimitiveType(liborc::TypeKind::INT);
+  set_attributes(c1_type.get(), "1", "true");
+
+  auto c2_elem_type = liborc::createPrimitiveType(liborc::TypeKind::INT);
+  set_attributes(c2_elem_type.get(), "3", "false");
+  auto c2_type = liborc::createListType(std::move(c2_elem_type));
+  set_attributes(c2_type.get(), "2", "false");
+
+  auto c3_key_type = liborc::createPrimitiveType(liborc::TypeKind::INT);
+  set_attributes(c3_key_type.get(), "5", "true");
+  auto c3_value_type = liborc::createPrimitiveType(liborc::TypeKind::INT);
+  set_attributes(c3_value_type.get(), "6", "false");
+  auto c3_type = liborc::createMapType(std::move(c3_key_type), std::move(c3_value_type));
+  set_attributes(c3_type.get(), "4", "false");
+
+  auto c4_sub_type = liborc::createPrimitiveType(liborc::TypeKind::INT);
+  set_attributes(c4_sub_type.get(), "8", "false");
+  auto c4_type = liborc::createStructType();
+  c4_type->addStructField("c4_1", std::move(c4_sub_type));
+  set_attributes(c4_type.get(), "7", "false");
+
+  auto orc_type = liborc::createStructType();
+  orc_type->addStructField("c1", std::move(c1_type));
+  orc_type->addStructField("c2", std::move(c2_type));
+  orc_type->addStructField("c3", std::move(c3_type));
+  orc_type->addStructField("c4", std::move(c4_type));
+
+  MemoryOutputStream mem_stream(kDefaultMemStreamSize);
+  auto writer = CreateWriter(/*stripe_size=*/1024, *orc_type, &mem_stream);
+  writer->close();
+
+  std::shared_ptr<io::RandomAccessFile> in_stream(std::make_shared<io::BufferReader>(
+      reinterpret_cast<const uint8_t*>(mem_stream.getData()),
+      static_cast<int64_t>(mem_stream.getLength())));
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  ASSERT_EQ(0, reader->NumberOfRows());
+
+  ASSERT_OK_AND_ASSIGN(auto schema, reader->ReadSchema());
+  ASSERT_EQ(4, schema->num_fields());
+
+  // check top level fields
+  check_attributes(schema->field(0), "1", "true");
+  check_attributes(schema->field(1), "2", "false");
+  check_attributes(schema->field(2), "4", "false");
+  check_attributes(schema->field(3), "7", "false");
+
+  // check list element type
+  auto list_type = checked_pointer_cast<arrow::ListType>(schema->field(1)->type());
+  check_attributes(list_type->value_field(), "3", "false");
+
+  // check map key/value types
+  auto map_type = checked_pointer_cast<arrow::MapType>(schema->field(2)->type());
+  check_attributes(map_type->key_field(), "5", "true");
+  check_attributes(map_type->item_field(), "6", "false");
+
+  // check struct sub-field type
+  auto struct_type = checked_pointer_cast<arrow::StructType>(schema->field(3)->type());
+  check_attributes(struct_type->field(0), "8", "false");
+}
+
+TEST(TestAdapterReadWrite, FieldAttributesRoundTrip) {
+  EXPECT_OK_AND_ASSIGN(auto buffer_output_stream, io::BufferOutputStream::Create(1024));
+  auto write_options = adapters::orc::WriteOptions();
+  write_options.compression = Compression::UNCOMPRESSED;
+  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
+                                        buffer_output_stream.get(), write_options));
+
+  auto schema = ::arrow::schema(
+      {::arrow::field("c0", ::arrow::int64(), /*nullable=*/true,
+                      key_value_metadata({"k0"}, {"v0"})),
+       ::arrow::field("c1", ::arrow::utf8(), /*nullable=*/true,
+                      key_value_metadata({"k1"}, {"v1"})),
+       ::arrow::field(
+           "c2", ::arrow::list(::arrow::field("item", ::arrow::int64(), /*nullable=*/true,
+                                              key_value_metadata({"k2"}, {"v2"})))),
+       ::arrow::field("c3",
+                      std::make_shared<MapType>(
+                          ::arrow::field("key", ::arrow::utf8(), /*nullable=*/false,
+                                         key_value_metadata({"k3"}, {"v3"})),
+                          ::arrow::field("value", ::arrow::int64(), /*nullable=*/true,
+                                         key_value_metadata({"k4"}, {"v4"})))),
+       ::arrow::field("c4", ::arrow::struct_({::arrow::field(
+                                "sub", ::arrow::int64(),
+                                /*nullable=*/true, key_value_metadata({"k5"}, {"v5"}))})),
+       ::arrow::field("c5",
+                      ::arrow::sparse_union(
+                          {::arrow::field("_union_0", ::arrow::int64(), /*nullable=*/true,
+                                          key_value_metadata({"k6"}, {"v6"})),
+                           ::arrow::field("_union_1", ::arrow::utf8(), /*nullable=*/true,
+                                          key_value_metadata({"k7"}, {"v7"}))},
+                          {0, 1}))});
+  auto expected_output_table = ::arrow::TableFromJSON(
+      schema, {R"([[1, "a", [1, 2], [["a", 1]], {"sub": 1}, null]])"});
+  ARROW_EXPECT_OK(writer->Write(*expected_output_table));
+  ARROW_EXPECT_OK(writer->Close());
+
+  EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
+  EXPECT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
+  ASSERT_OK(actual_output_table->ValidateFull());
+  AssertTablesEqual(*expected_output_table, *actual_output_table);
+
+  // Check schema equality with metadata.
+  EXPECT_OK_AND_ASSIGN(auto read_schema, reader->ReadSchema());
+  AssertSchemaEqual(schema, read_schema, /*check_metadata=*/true);
+}
+
 // Trivial
 
 class TestORCWriterTrivialNoWrite : public ::testing::Test {};

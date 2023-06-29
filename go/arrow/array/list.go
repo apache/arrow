@@ -26,7 +26,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 type ListLike interface {
@@ -69,7 +69,7 @@ func (a *List) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -191,6 +191,7 @@ func (a *LargeList) ValueStr(i int) string {
 	}
 	return string(a.GetOneForMarshal(i).(json.RawMessage))
 }
+
 func (a *LargeList) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -199,7 +200,7 @@ func (a *LargeList) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -427,8 +428,20 @@ func (b *baseListBuilder) AppendNull() {
 	b.appendNextOffset()
 }
 
+func (b *baseListBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *baseListBuilder) AppendEmptyValue() {
 	b.Append(true)
+}
+
+func (b *baseListBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *ListBuilder) AppendValues(offsets []int32, valid []bool) {
@@ -547,8 +560,12 @@ func (b *baseListBuilder) newData() (data *Data) {
 }
 
 func (b *baseListBuilder) AppendValueFromString(s string) error {
-	dec := json.NewDecoder(strings.NewReader(s))
-	return b.UnmarshalOne(dec)
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	return b.UnmarshalOne(json.NewDecoder(strings.NewReader(s)))
 }
 
 func (b *baseListBuilder) UnmarshalOne(dec *json.Decoder) error {
@@ -606,4 +623,14 @@ var (
 	_ arrow.Array = (*LargeList)(nil)
 	_ Builder     = (*ListBuilder)(nil)
 	_ Builder     = (*LargeListBuilder)(nil)
+
+	_ ListLike = (*List)(nil)
+	_ ListLike = (*LargeList)(nil)
+	_ ListLike = (*FixedSizeList)(nil)
+	_ ListLike = (*Map)(nil)
+
+	_ ListLikeBuilder = (*ListBuilder)(nil)
+	_ ListLikeBuilder = (*LargeListBuilder)(nil)
+	_ ListLikeBuilder = (*FixedSizeListBuilder)(nil)
+	_ ListLikeBuilder = (*MapBuilder)(nil)
 )

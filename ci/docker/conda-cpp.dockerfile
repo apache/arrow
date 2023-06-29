@@ -35,7 +35,10 @@ RUN mamba install -q -y \
         --file arrow/ci/conda_env_gandiva.txt \
         compilers \
         doxygen \
+        libnuma \
         python=${python} \
+        ucx \
+        ucx-proc=*=cpu \
         valgrind && \
     mamba clean --all
 

@@ -47,6 +47,13 @@ Some of the issues can be automatically fixed by passing the ``--fix`` option:
 
    $ archery lint --python --fix
 
+The Python code base also includes some C++ files. To fix formatting in those
+files, add the ``--clang-format`` option:
+
+.. code-block::
+
+   $ archery lint --python --clang-format --fix
+
 .. _python-unit-testing:
 
 Unit Testing
@@ -366,12 +373,6 @@ Python executable which you are using.
    ``-DARROW_DEPENDENCY_SOURCE=AUTO`` or some other value (described
    :ref:`here <cpp-build-dependency-management>`)
    to explicitly tell CMake not to use conda.
-
-.. note::
-
-   With older versions of CMake (<3.15) you might need to pass ``-DPYTHON_EXECUTABLE``
-   instead of ``-DPython3_EXECUTABLE``. See `cmake documentation <https://cmake.org/cmake/help/latest/module/FindPython3.html#artifacts-specification>`_
-   for more details.
 
 For any other C++ build challenges, see :ref:`cpp-development`.
 

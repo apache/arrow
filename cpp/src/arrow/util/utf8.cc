@@ -146,6 +146,18 @@ std::string WideStringToUTF8Internal(const std::wstring& source) {
   return s;
 }
 
+std::string UTF16StringToUTF8Internal(const std::u16string& source) {
+  std::string s;
+  ::utf8::utf16to8(source.begin(), source.end(), std::back_inserter(s));
+  return s;
+}
+
+std::u16string UTF8StringToUTF16Internal(const std::string& source) {
+  std::u16string s;
+  ::utf8::utf8to16(source.begin(), source.end(), std::back_inserter(s));
+  return s;
+}
+
 }  // namespace
 
 Result<std::wstring> UTF8ToWideString(std::string_view source) {
@@ -159,6 +171,22 @@ Result<std::wstring> UTF8ToWideString(std::string_view source) {
 ARROW_EXPORT Result<std::string> WideStringToUTF8(const std::wstring& source) {
   try {
     return WideStringToUTF8Internal(source);
+  } catch (std::exception& e) {
+    return Status::Invalid(e.what());
+  }
+}
+
+ARROW_EXPORT Result<std::string> UTF16StringToUTF8(const std::u16string& source) {
+  try {
+    return UTF16StringToUTF8Internal(source);
+  } catch (std::exception& e) {
+    return Status::Invalid(e.what());
+  }
+}
+
+ARROW_EXPORT Result<std::u16string> UTF8StringToUTF16(const std::string& source) {
+  try {
+    return UTF8StringToUTF16Internal(source);
   } catch (std::exception& e) {
     return Status::Invalid(e.what());
   }

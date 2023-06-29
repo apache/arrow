@@ -18,6 +18,9 @@
 # CMake files
 CMakeFiles/*
 CMakeCache.txt
+build/
 
 # MEX files
 *.mex*
+# MATLAB autosave files
+*.asv

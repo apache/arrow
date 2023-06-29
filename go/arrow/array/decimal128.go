@@ -30,7 +30,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/decimal128"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // A type which represents an immutable sequence of 128-bit decimal values.
@@ -48,12 +48,12 @@ func NewDecimal128Data(data arrow.ArrayData) *Decimal128 {
 }
 
 func (a *Decimal128) Value(i int) decimal128.Num { return a.values[i] }
+
 func (a *Decimal128) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
-	}	else {
-		return a.GetOneForMarshal(i).(string)
 	}
+	return a.GetOneForMarshal(i).(string)
 }
 
 func (a *Decimal128) Values() []decimal128.Num { return a.values }
@@ -67,7 +67,7 @@ func (a *Decimal128) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", a.Value(i))
 		}
@@ -170,8 +170,20 @@ func (b *Decimal128Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Decimal128Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Decimal128Builder) AppendEmptyValue() {
 	b.Append(decimal128.Num{})
+}
+
+func (b *Decimal128Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Decimal128Builder) UnsafeAppendBoolToBitmap(isValid bool) {

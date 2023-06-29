@@ -56,6 +56,8 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import com.google.common.base.Charsets;
 import com.google.protobuf.ByteString;
@@ -119,10 +121,25 @@ public class TestBasicOperation {
                 new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"),
                 forGrpcInsecure("localhost", 50051))
         ), 200, 500);
+    final FlightInfo info4 = new FlightInfo(schema, FlightDescriptor.path("a", "b"),
+            Arrays.asList(new FlightEndpoint(
+                            new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock")),
+                    new FlightEndpoint(
+                            new Ticket(new byte[10]), Location.forGrpcDomainSocket("/tmp/test.sock"),
+                            forGrpcInsecure("localhost", 50051))
+            ), 200, 500, /*ordered*/ true, IpcOption.DEFAULT);
 
     Assertions.assertEquals(info1, FlightInfo.deserialize(info1.serialize()));
     Assertions.assertEquals(info2, FlightInfo.deserialize(info2.serialize()));
     Assertions.assertEquals(info3, FlightInfo.deserialize(info3.serialize()));
+    Assertions.assertEquals(info4, FlightInfo.deserialize(info4.serialize()));
+
+    Assertions.assertNotEquals(info3, info4);
+
+    Assertions.assertFalse(info1.getOrdered());
+    Assertions.assertFalse(info2.getOrdered());
+    Assertions.assertFalse(info3.getOrdered());
+    Assertions.assertTrue(info4.getOrdered());
   }
 
   @Test
@@ -270,6 +287,7 @@ public class TestBasicOperation {
 
   /** Ensure the client is configured to accept large messages. */
   @Test
+  @DisabledOnOs(value = {OS.WINDOWS}, disabledReason = "https://github.com/apache/arrow/issues/33237: flaky test")
   public void getStreamLargeBatch() throws Exception {
     test(c -> {
       try (final FlightStream stream = c.getStream(new Ticket(Producer.TICKET_LARGE_BATCH))) {

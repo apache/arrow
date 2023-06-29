@@ -5252,16 +5252,33 @@ class ParquetPageIndexRoundTripTest : public ::testing::Test {
       auto row_group_index_reader = page_index_reader->RowGroup(rg);
       ASSERT_NE(row_group_index_reader, nullptr);
 
+      auto row_group_reader = reader->RowGroup(rg);
+      ASSERT_NE(row_group_reader, nullptr);
+
       for (int col = 0; col < metadata->num_columns(); ++col) {
         auto column_index = row_group_index_reader->GetColumnIndex(col);
         column_indexes_.emplace_back(column_index.get());
 
+        bool expect_no_page_index =
+            expect_columns_without_index.find(col) != expect_columns_without_index.cend();
+
         auto offset_index = row_group_index_reader->GetOffsetIndex(col);
-        if (expect_columns_without_index.find(col) !=
-            expect_columns_without_index.cend()) {
+        if (expect_no_page_index) {
           ASSERT_EQ(offset_index, nullptr);
         } else {
           CheckOffsetIndex(offset_index.get(), expect_num_pages, &offset_lower_bound);
+        }
+
+        // Verify page stats are not written to page header if page index is enabled.
+        auto page_reader = row_group_reader->GetColumnPageReader(col);
+        ASSERT_NE(page_reader, nullptr);
+        std::shared_ptr<Page> page = nullptr;
+        while ((page = page_reader->NextPage()) != nullptr) {
+          if (page->type() == PageType::DATA_PAGE ||
+              page->type() == PageType::DATA_PAGE_V2) {
+            ASSERT_EQ(std::static_pointer_cast<DataPage>(page)->statistics().is_set(),
+                      expect_no_page_index);
+          }
         }
       }
     }
@@ -5325,6 +5342,70 @@ TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTrip) {
           ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(5)},
                             /*max_values=*/{encode_int64(6)}, BoundaryOrder::Ascending,
                             /*null_counts=*/{0}},
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{"f"},
+                            /*max_values=*/{"f"}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{1}},
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(3)},
+                            /*max_values=*/{encode_int64(3)}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{1}}));
+}
+
+TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTripWithStatsDisabled) {
+  auto writer_properties = WriterProperties::Builder()
+                               .enable_write_page_index()
+                               ->disable_statistics()
+                               ->build();
+  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
+                                 ::arrow::field("c1", ::arrow::utf8()),
+                                 ::arrow::field("c2", ::arrow::list(::arrow::int64()))});
+  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([
+      [1,     "a",  [1]      ],
+      [2,     "b",  [1, 2]   ],
+      [3,     "c",  [null]   ],
+      [null,  "d",  []       ],
+      [5,     null, [3, 3, 3]],
+      [6,     "f",  null     ]
+    ])"}));
+
+  ReadPageIndexes(/*expect_num_row_groups=*/1, /*expect_num_pages=*/1);
+  for (auto& column_index : column_indexes_) {
+    // Means page index is empty.
+    EXPECT_EQ(ColumnIndexObject{}, column_index);
+  }
+}
+
+TEST_F(ParquetPageIndexRoundTripTest, SimpleRoundTripWithColumnStatsDisabled) {
+  auto writer_properties = WriterProperties::Builder()
+                               .enable_write_page_index()
+                               ->disable_statistics("c0")
+                               ->max_row_group_length(4)
+                               ->build();
+  auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
+                                 ::arrow::field("c1", ::arrow::utf8()),
+                                 ::arrow::field("c2", ::arrow::list(::arrow::int64()))});
+  WriteFile(writer_properties, ::arrow::TableFromJSON(schema, {R"([
+      [1,     "a",  [1]      ],
+      [2,     "b",  [1, 2]   ],
+      [3,     "c",  [null]   ],
+      [null,  "d",  []       ],
+      [5,     null, [3, 3, 3]],
+      [6,     "f",  null     ]
+    ])"}));
+
+  ReadPageIndexes(/*expect_num_row_groups=*/2, /*expect_num_pages=*/1);
+
+  ColumnIndexObject empty_column_index{};
+  EXPECT_THAT(
+      column_indexes_,
+      ::testing::ElementsAre(
+          empty_column_index,
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{"a"},
+                            /*max_values=*/{"d"}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{0}},
+          ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(1)},
+                            /*max_values=*/{encode_int64(2)}, BoundaryOrder::Ascending,
+                            /*null_counts=*/{2}},
+          empty_column_index,
           ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{"f"},
                             /*max_values=*/{"f"}, BoundaryOrder::Ascending,
                             /*null_counts=*/{1}},

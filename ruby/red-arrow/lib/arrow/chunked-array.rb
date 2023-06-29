@@ -29,7 +29,11 @@ module Arrow
     end
 
     def to_arrow_array
-      combine
+      if n_chunks.zero?
+        value_data_type.build_array([])
+      else
+        combine
+      end
     end
 
     def to_arrow_chunked_array

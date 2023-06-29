@@ -27,7 +27,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // A BinaryBuilder is used to build a Binary array using the Append methods.
@@ -125,10 +125,22 @@ func (b *BinaryBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *BinaryBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *BinaryBuilder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.appendNextOffset()
 	b.UnsafeAppendBoolToBitmap(true)
+}
+
+func (b *BinaryBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 // AppendValues will append the values in the v slice. The valid slice determines which values
@@ -294,18 +306,17 @@ func (b *BinaryBuilder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	switch b.dtype.ID() {
-	case arrow.BINARY, arrow.LARGE_BINARY:
-		decodedVal, err := base64.StdEncoding.DecodeString(s)
-		if err != nil {
-			return fmt.Errorf("could not decode base64 string: %w", err)
-		}
-		b.Append(decodedVal)
-	case arrow.STRING, arrow.LARGE_STRING:
+
+	if b.dtype.IsUtf8() {
 		b.Append([]byte(s))
-	default:
-		return fmt.Errorf("cannot append string to type %s", b.dtype)
+		return nil
 	}
+
+	decodedVal, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return fmt.Errorf("could not decode base64 string: %w", err)
+	}
+	b.Append(decodedVal)
 	return nil
 }
 

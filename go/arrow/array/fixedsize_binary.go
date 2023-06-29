@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // A type which represents an immutable sequence of fixed-length binary strings.
@@ -68,7 +68,7 @@ func (a *FixedSizeBinary) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.Value(i))
 		}

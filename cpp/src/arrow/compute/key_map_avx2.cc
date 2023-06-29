@@ -18,6 +18,7 @@
 #include <immintrin.h>
 
 #include "arrow/compute/key_map.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
@@ -62,7 +63,8 @@ int SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* h
     __m256i voffset_B = _mm256_srli_epi64(vblock_offset, 32);
     __m256i vstamp_B = _mm256_srli_epi64(vstamp, 32);
 
-    auto blocks_i64 = reinterpret_cast<arrow::util::int64_for_gather_t*>(blocks_);
+    auto blocks_i64 =
+        reinterpret_cast<arrow::util::int64_for_gather_t*>(blocks_->mutable_data());
     auto vblock_A = _mm256_i64gather_epi64(blocks_i64, voffset_A, 1);
     auto vblock_B = _mm256_i64gather_epi64(blocks_i64, voffset_B, 1);
     __m256i vblock_highbits_A =
@@ -234,7 +236,7 @@ int SwissTable::early_filter_imp_avx2_x32(const int num_hashes, const uint32_t* 
   const int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
   for (int i = 0; i < (1 << log_blocks_); ++i) {
     uint64_t in_blockbytes =
-        *reinterpret_cast<const uint64_t*>(blocks_ + (8 + num_groupid_bits) * i);
+        *reinterpret_cast<const uint64_t*>(blocks_->data() + (8 + num_groupid_bits) * i);
     block_bytes[i] = in_blockbytes;
   }
 
@@ -375,12 +377,12 @@ int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashe
                                        int byte_multiplier, int byte_size) const {
   ARROW_DCHECK(byte_size == 1 || byte_size == 2 || byte_size == 4);
   uint32_t mask = byte_size == 1 ? 0xFF : byte_size == 2 ? 0xFFFF : 0xFFFFFFFF;
-  auto elements = reinterpret_cast<const int*>(blocks_ + byte_offset);
+  auto elements = reinterpret_cast<const int*>(blocks_->data() + byte_offset);
   constexpr int unroll = 8;
   if (log_blocks_ == 0) {
     ARROW_DCHECK(byte_size == 1 && byte_offset == 8 && byte_multiplier == 16);
     __m256i block_group_ids =
-        _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(blocks_)[1]);
+        _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(blocks_->data())[1]);
     for (int i = 0; i < num_keys / unroll; ++i) {
       __m256i local_slot =
           _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(local_slots)[i]);

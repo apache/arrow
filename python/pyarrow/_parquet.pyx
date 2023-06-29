@@ -42,6 +42,8 @@ from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
 
 cimport cpython as cp
 
+_DEFAULT_ROW_GROUP_SIZE = 1024*1024
+_MAX_ROW_GROUP_SIZE = 64*1024*1024
 
 cdef class Statistics(_Weakrefable):
     """Statistics for a single column in a single row group."""
@@ -1595,7 +1597,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     # The user can always specify a smaller row group size (and the default
     # is smaller) when calling write_table.  If the call to write_table uses
     # a size larger than this then it will be latched to this value.
-    props.max_row_group_length(64*1024*1024)
+    props.max_row_group_length(_MAX_ROW_GROUP_SIZE)
 
     properties = props.build()
 
@@ -1607,7 +1609,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         coerce_timestamps=None,
         allow_truncated_timestamps=False,
         writer_engine_version=None,
-        use_compliant_nested_type=False,
+        use_compliant_nested_type=True,
         store_schema=True) except *:
     """Arrow writer properties"""
     cdef:
@@ -1691,7 +1693,7 @@ cdef class ParquetWriter(_Weakrefable):
         int64_t dictionary_pagesize_limit
         object store_schema
 
-    def __cinit__(self, where, Schema schema, use_dictionary=None,
+    def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
                   write_statistics=None,
                   MemoryPool memory_pool=None,
@@ -1704,7 +1706,7 @@ cdef class ParquetWriter(_Weakrefable):
                   column_encoding=None,
                   writer_engine_version=None,
                   data_page_version=None,
-                  use_compliant_nested_type=False,
+                  use_compliant_nested_type=True,
                   encryption_properties=None,
                   write_batch_size=None,
                   dictionary_pagesize_limit=None,
@@ -1767,7 +1769,7 @@ cdef class ParquetWriter(_Weakrefable):
             int64_t c_row_group_size
 
         if row_group_size is None or row_group_size == -1:
-            c_row_group_size = ctable.num_rows()
+            c_row_group_size = min(ctable.num_rows(), _DEFAULT_ROW_GROUP_SIZE)
         elif row_group_size == 0:
             raise ValueError('Row group size cannot be 0')
         else:

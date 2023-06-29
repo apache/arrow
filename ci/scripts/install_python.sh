@@ -25,8 +25,7 @@ platforms=([windows]=Windows
            [linux]=Linux)
 
 declare -A versions
-versions=([3.7]=3.7.9
-          [3.8]=3.8.10
+versions=([3.8]=3.8.10
           [3.9]=3.9.13
           [3.10]=3.10.8
           [3.11]=3.11.0)

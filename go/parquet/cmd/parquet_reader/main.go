@@ -18,7 +18,6 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -26,10 +25,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/apache/arrow/go/v13/internal/json"
 	"github.com/apache/arrow/go/v13/parquet"
 	"github.com/apache/arrow/go/v13/parquet/file"
 	"github.com/apache/arrow/go/v13/parquet/metadata"
 	"github.com/apache/arrow/go/v13/parquet/schema"
+
 	"github.com/docopt/docopt-go"
 )
 
