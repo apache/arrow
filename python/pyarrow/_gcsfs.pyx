@@ -183,7 +183,7 @@ cdef class GcsFileSystem(FileSystem):
                     opts.default_bucket_location),
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
                 retry_time_limit=retry_time_limit,
-                project_id=from_bytes(opts.project_id)
+                project_id=frombytes(opts.project_id.value())
             ),))
 
     @property
@@ -198,4 +198,4 @@ cdef class GcsFileSystem(FileSystem):
         """
         The GCP project id this filesystem will use.
         """
-        return frombytes(self.gcsfs.options().project_id)
+        return frombytes(self.gcsfs.options().project_id.value())
