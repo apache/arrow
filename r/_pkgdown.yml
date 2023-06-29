@@ -180,7 +180,7 @@ reference:
     - scalar
     - arrow_array
     - chunked_array
-    - RecordBatch
+    - record_batch
     - Table
     - buffer
     - vctrs_extension_array
@@ -296,6 +296,7 @@ reference:
   - Scalar
   - Array
   - ChunkedArray
+  - RecordBatch
   - Schema
   - DataType
   - ArrayData
