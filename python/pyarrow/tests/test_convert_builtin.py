@@ -2368,7 +2368,11 @@ def test_array_from_pylist_offset_overflow():
 @parametrize_with_collections_types
 @pytest.mark.parametrize(('data', 'scalar_data', 'value_type'), [
     ([True, False, None], [pa.scalar(True), pa.scalar(False), None], pa.bool_()),
-    ([1, 2, None], [pa.scalar(1), pa.scalar(2), pa.scalar(None, pa.int64())], pa.int64()),
+    (
+        [1, 2, None],
+        [pa.scalar(1), pa.scalar(2), pa.scalar(None, pa.int64())],
+        pa.int64()
+    ),
     ([1, None, None], [pa.scalar(1), None, pa.scalar(None, pa.int64())], pa.int64()),
     ([None, None], [pa.scalar(None), pa.scalar(None)], pa.null()),
     ([1., 2., None], [pa.scalar(1.), pa.scalar(2.), None], pa.float64()),
