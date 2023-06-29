@@ -29,7 +29,6 @@
 
 #include "arrow/scalar.h"
 #include "arrow/status.h"
-#include "arrow/type.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
