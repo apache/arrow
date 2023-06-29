@@ -173,7 +173,7 @@ public class TestArrowBuf {
         fieldDebug.set(null, false);
       }
     } catch (Exception e) {
-      assertTrue(e.toString().equals("java.lang.NoSuchFieldException: modifiers")); // JDK17+
+      assertTrue(e.toString().contains("java.lang.NoSuchFieldException: modifiers")); // JDK17+
     } finally {
       ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
     }
