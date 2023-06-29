@@ -916,7 +916,7 @@ class StreamDecoderInternal : public MessageDecoderListener {
                                       &out_schema_, &field_inclusion_mask_,
                                       &swap_endian_));
 
-    num_required_initial_dictionaries_ = dictionary_memo_.fields().num_fields();
+    num_required_initial_dictionaries_ = dictionary_memo_.fields().num_dicts();
     num_read_initial_dictionaries_ = 0;
     if (num_required_initial_dictionaries_ == 0) {
       state_ = State::RECORD_BATCHES;
@@ -930,7 +930,7 @@ class StreamDecoderInternal : public MessageDecoderListener {
   Status OnInitialDictionaryMessageDecoded(std::unique_ptr<Message> message) {
     if (message->type() != MessageType::DICTIONARY_BATCH) {
       return Status::Invalid("IPC stream did not have the expected number (",
-                             dictionary_memo_.fields().num_fields(),
+                             num_required_initial_dictionaries_,
                              ") of dictionaries at the start of the stream");
     }
     RETURN_NOT_OK(ReadDictionary(*message));
