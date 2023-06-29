@@ -1018,8 +1018,9 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader,
   }
 
   Result<RecordBatchWithMetadata> ReadNext() override {
-    auto collect_listener = static_cast<CollectListener*>(raw_listener());
-    while (collect_listener->num_record_batches() == 0) {
+    auto collect_listener = checked_cast<CollectListener*>(raw_listener());
+    while (collect_listener->num_record_batches() == 0 &&
+           state() != StreamDecoderInternal::State::EOS) {
       ARROW_ASSIGN_OR_RAISE(auto message, message_reader_->ReadNextMessage());
       if (!message) {  // End of stream
         if (state() == StreamDecoderInternal::State::INITIAL_DICTIONARIES) {

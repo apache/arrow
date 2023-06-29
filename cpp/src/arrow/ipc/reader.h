@@ -313,15 +313,17 @@ class ARROW_EXPORT CollectListener : public Listener {
   std::shared_ptr<Schema> schema() const { return schema_; }
 
   /// \return the all decoded record batches
-  std::vector<std::shared_ptr<RecordBatch>> record_batches() const {
+  const std::vector<std::shared_ptr<RecordBatch>>& record_batches() const {
     return record_batches_;
   }
 
   /// \return the all decoded metadatas
-  std::vector<std::shared_ptr<KeyValueMetadata>> metadatas() const { return metadatas_; }
+  const std::vector<std::shared_ptr<KeyValueMetadata>>& metadatas() const {
+    return metadatas_;
+  }
 
   /// \return the number of collected record batches
-  size_t num_record_batches() const { return record_batches_.size(); }
+  int64_t num_record_batches() const { return record_batches_.size(); }
 
   /// \return the last decoded record batch and remove it from
   /// record_batches
