@@ -337,10 +337,8 @@ class ARROW_EXPORT CollectListener : public Listener {
     if (record_batches_.empty()) {
       return record_batch_with_metadata;
     }
-    record_batch_with_metadata.batch =
-        std::move(record_batches_[record_batches_.size() - 1]);
-    record_batch_with_metadata.custom_metadata =
-        std::move(metadatas_[metadatas_.size() - 1]);
+    record_batch_with_metadata.batch = std::move(record_batches_.back());
+    record_batch_with_metadata.custom_metadata = std::move(metadatas_.back());
     record_batches_.pop_back();
     metadatas_.pop_back();
     return record_batch_with_metadata;
