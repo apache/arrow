@@ -2735,6 +2735,12 @@ def test_map_lookup():
     result_all = pa.array([[1], None, None, [5, 7], None],
                           type=pa.list_(pa.int32()))
 
+    assert pc.map_lookup(arr, 
+        'one', 'first') == result_first
+    assert pc.map_lookup(arr, 
+        'one', 'last') == result_last
+    assert pc.map_lookup(arr,
+        'one', 'all') == result_all
     assert pc.map_lookup(arr, pa.scalar(
         'one', type=pa.utf8()), 'first') == result_first
     assert pc.map_lookup(arr, pa.scalar(
