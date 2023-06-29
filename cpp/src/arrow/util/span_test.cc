@@ -79,38 +79,32 @@ TEST(Span, Size) {
   EXPECT_EQ(span(vec).size_bytes(), sizeof(int) * 999);
 }
 
-template <typename T>
-std::string PrintSpanDataSize(span<T> s) {
-  return "data=" + PrintToString(s.data()) + " and size=" + PrintToString(s.size());
-}
-
-MATCHER_P(IsSpan, expected, PrintSpanDataSize(expected)) {
-  if (arg.data() == expected.data() && arg.size() == expected.size()) return true;
-  *result_listener << PrintSpanDataSize(arg);
-  return false;
-}
-
 TEST(Span, SubSpan) {
   int arr[] = {1, 2, 3};
   span s(arr);
 
-  EXPECT_THAT(s.subspan(0), IsSpan(s));
-  EXPECT_THAT(s.subspan(0, s.size()), IsSpan(s));
+  auto ExpectIdentical = [](span<int> l, span<int> r) {
+    EXPECT_EQ(l.data(), r.data());
+    EXPECT_EQ(l.size(), r.size());
+  };
+
+  ExpectIdentical(s.subspan(0), s);
+  ExpectIdentical(s.subspan(0, s.size()), s);
 
   for (size_t offset = 0; offset < s.size(); ++offset) {
     span expected(arr + offset, s.size() - offset);
-    EXPECT_THAT(s.subspan(offset), IsSpan(expected));
-    EXPECT_THAT(s.subspan(offset, s.size() * 3), IsSpan(expected));
+    ExpectIdentical(s.subspan(offset), expected);
+    ExpectIdentical(s.subspan(offset, s.size() * 3), expected);
   }
   EXPECT_TRUE(s.subspan(s.size()).empty());
   EXPECT_TRUE(s.subspan(s.size() * 3).empty());
 
   for (size_t length = 0; length < s.size(); ++length) {
     span expected(arr, length);
-    EXPECT_THAT(s.subspan(0, length), IsSpan(expected));
+    ExpectIdentical(s.subspan(0, length), expected);
   }
 
-  EXPECT_THAT(s.subspan(1, 1), IsSpan(span(arr + 1, 1)));
+  ExpectIdentical(s.subspan(1, 1), span(arr + 1, 1));
 }
 
 TEST(Span, Mutation) {
