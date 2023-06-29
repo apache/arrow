@@ -155,5 +155,6 @@ to_arrow <- function(.data) {
   # Run the query
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
 
-  duckdb::duckdb_fetch_record_batch(res)
+  reader <- duckdb::duckdb_fetch_record_batch(res)
+  MakeSafeRecordBatchReader(reader)
 }
