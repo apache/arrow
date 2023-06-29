@@ -84,5 +84,8 @@ test/bundle/**/*-bundle.js*
 # jest snapshots (too big)
 test/__snapshots__/
 
+# jest cache
+.jest-cache/
+
 # VSCode
 !.vscode
