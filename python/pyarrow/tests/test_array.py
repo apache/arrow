@@ -24,6 +24,7 @@ import itertools
 import pickle
 import pytest
 import struct
+import subprocess
 import sys
 import weakref
 
@@ -38,7 +39,17 @@ import pyarrow.tests.strategies as past
 
 
 def test_total_bytes_allocated():
+    code = """if 1:
+    import pyarrow as pa
+
     assert pa.total_allocated_bytes() == 0
+    """
+    res = subprocess.run([sys.executable, "-c", code],
+                         universal_newlines=True, stderr=subprocess.PIPE)
+    if res.returncode != 0:
+        print(res.stderr, file=sys.stderr)
+        res.check_returncode()  # fail
+    assert len(res.stderr.splitlines()) == 0
 
 
 def test_weakref():
