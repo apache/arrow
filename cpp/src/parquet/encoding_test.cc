@@ -1986,36 +1986,40 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void InitData(int nvalues, double null_probability) {
-    auto rand = ::arrow::random::RandomArrayGenerator(42);
-    const int min_prefix_length = 10;
-    const int max_prefix_length = 50;
+    const int seed = 42;
+    auto rand = ::arrow::random::RandomArrayGenerator(seed);
+    const int min_prefix_length = 0;
+    const int max_prefix_length = 2;
     const int max_element_length = 1000;
     const double prefixed_probability = 0.9;
 
-    ::arrow::StringBuilder builder;
-    const auto prefix_array = std::static_pointer_cast<::arrow::StringArray>(
-        rand.String(/*size*/ nvalues, /*min_length*/ min_prefix_length,
-                    /*max_length*/ max_prefix_length, /*null_percent*/
-                    null_probability));
+    const auto prefix_length_array = std::dynamic_pointer_cast<::arrow::UInt8Array>(
+        rand.UInt8(nvalues, min_prefix_length, max_prefix_length, null_probability));
+    const auto null_bitmap = prefix_length_array->null_bitmap_data();
 
-    const auto is_prefixed = std::dynamic_pointer_cast<::arrow::BooleanArray>(
+    const auto do_prefix = std::dynamic_pointer_cast<::arrow::BooleanArray>(
         rand.Boolean(nvalues,
                      /*true_probability=*/prefixed_probability,
                      /*null_probability=*/0.0));
 
-    std::string previous_element = "";
-    for (int i = 0; i < nvalues; i++) {
-      const std::string element = prefix_array->GetString(i);
+    ::arrow::StringBuilder builder;
+    std::string prefix;
 
-      const bool concatenate =
-          is_prefixed->GetView(i) &&
-          (element.length() + previous_element.length() <= max_element_length);
-      if (concatenate) {
-        previous_element = previous_element.append(element);
+    for (int i = 0; i < nvalues; i++) {
+      if (null_bitmap && !::arrow::bit_util::GetBit(null_bitmap, i)) {
+        PARQUET_THROW_NOT_OK(builder.AppendNull());
       } else {
-        previous_element = element;
+        std::string element = ::arrow::random_string(prefix_length_array->Value(i), seed);
+        const bool concatenate =
+            do_prefix->GetView(i) &&
+            (prefix.length() + element.length() <= max_element_length);
+        if (concatenate) {
+          prefix = prefix + element;
+        } else {
+          prefix = element;
+        }
+        PARQUET_THROW_NOT_OK(builder.Append(prefix));
       }
-      ASSERT_OK(builder.Append(previous_element));
     }
 
     std::shared_ptr<::arrow::StringArray> array;
@@ -2088,16 +2092,16 @@ using TestDeltaByteArrayEncodingTypes = ::testing::Types<ByteArrayType>;
 TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
-  //  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
   ASSERT_NO_FATAL_FAILURE(this->Execute(250, /*null_probability*/ 0));
-  // ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
-  //     /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_probability*/
-  //     0));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_probability*/
+      0));
 
-  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, /*null_probability*/ 0));
-  // ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
-  //     /*nvalues*/ 1234, /*repeats*/ 10, /*valid_bits_offset*/ 64,
-  //     /*null_probability*/ 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, /*null_probability*/ 0.1));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 10, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 0.1));
 }
 
 TEST(DeltaByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
