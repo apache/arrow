@@ -417,12 +417,11 @@ TEST(UTF8StringToUTF16, Basics) {
   CheckInvalid("\xff");
   CheckInvalid("h\xc3");
 
-  // maps to lone high surrogate pair
+  // lone high-code point
   CheckInvalid("\xed\xa0\x80");
 
-  // maps to lone low surrogate pair
+  // lone low-code point
   CheckInvalid("\xed\0xb0\x81");
-
 }
 
 TEST(UTF16StringToUTF8, Basics) {
