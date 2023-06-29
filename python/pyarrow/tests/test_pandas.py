@@ -1069,6 +1069,8 @@ class TestConvertDateTimeLikeTypes:
     @h.given(st.none() | past.timezones)
     @h.settings(deadline=None)
     def test_python_datetime_with_pytz_timezone(self, tz):
+        if str(tz) == "build/etc/localtime":
+            pytest.skip("Localtime timezone not supported")
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
         df = pd.DataFrame({'datetime': values})
         _check_pandas_roundtrip(df, check_dtype=False)
