@@ -1,0 +1,85 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+#include "arrow/matlab/type/proxy/timestamp_type.h"
+#include "arrow/matlab/type/time_unit.h"
+#include "arrow/matlab/error/error.h"
+#include "arrow/util/utf8.h"
+
+namespace arrow::matlab::type::proxy {
+
+    TimestampType::TimestampType(std::shared_ptr<arrow::TimestampType> timestamp_type) : Type(timestamp_type) {
+        REGISTER_METHOD(TimestampType, timeUnit);
+        REGISTER_METHOD(TimestampType, timeZone);
+        REGISTER_METHOD(TimestampType, bitWidth);
+
+    }
+
+    libmexclass::proxy::MakeResult TimestampType::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        namespace mda = ::matlab::data;
+        
+        using TimestampTypeProxy = arrow::matlab::type::proxy::TimestampType;
+
+        mda::StructArray opts = constructor_arguments[0];
+
+        // Get the mxArray from constructor arguments
+        const mda::StringArray timezone_mda = opts[0]["TimeZone"];
+        const mda::StringArray timeunit_mda = opts[0]["TimeUnit"];
+
+        // extract the time zone
+        MATLAB_ASSIGN_OR_ERROR(const auto timezone, arrow::util::UTF16StringToUTF8(timezone_mda[0]),
+                               error::UNICODE_CONVERSION_ERROR_ID);
+        // extract the time unit
+        MATLAB_ASSIGN_OR_ERROR(const auto timeunit, arrow::matlab::type::timeUnitFromString(timeunit_mda[0]),
+                               error::UKNOWN_TIME_UNIT_ERROR_ID);
+
+        auto type = arrow::timestamp(timeunit, timezone);
+
+        return std::make_shared<TimestampTypeProxy>(std::static_pointer_cast<arrow::TimestampType>(type));
+    }
+
+    void TimestampType::timeZone(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        mda::ArrayFactory factory;
+
+        auto timestamp_type = std::static_pointer_cast<arrow::TimestampType>(data_type);
+        const auto timezone_utf8 = timestamp_type->timezone();
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto timezone_utf16, 
+                                            arrow::util::UTF8StringToUTF16(timezone_utf8),
+                                            context, error::UNICODE_CONVERSION_ERROR_ID);
+        auto timezone_mda = factory.createScalar(timezone_utf16);
+        context.outputs[0] = timezone_mda;
+    }
+
+    void TimestampType::timeUnit(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        mda::ArrayFactory factory;
+
+        auto timestamp_type = std::static_pointer_cast<arrow::TimestampType>(data_type);
+        const auto timeunit = timestamp_type->unit();
+        auto timeunit_mda = factory.createScalar(static_cast<int16_t>(timeunit)); 
+        context.outputs[0] = timeunit_mda;
+    }
+
+    void TimestampType::bitWidth(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        mda::ArrayFactory factory;
+    
+        auto bit_width_mda = factory.createScalar(data_type->bit_width());
+        context.outputs[0] = bit_width_mda;
+    }
+}

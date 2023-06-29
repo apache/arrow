@@ -19,7 +19,7 @@ classdef tTimestampType < hPrimitiveType
     properties
         ArrowType = arrow.type.TimestampType
         TypeID = arrow.type.ID.Timestamp
-        BitWidth = 64;
+        BitWidth = int32(64);
     end
 
     methods(Test)

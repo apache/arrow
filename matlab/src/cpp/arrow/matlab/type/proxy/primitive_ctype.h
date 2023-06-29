@@ -40,7 +40,7 @@ class PrimitiveCType : public arrow::matlab::type::proxy::Type {
     using ArrowDataType = arrow_type_t<CType>;
     
     public:
-        PrimitiveCType(const std::shared_ptr<ArrowDataType> primitive_type) : Type(primitive_type) {
+        PrimitiveCType(std::shared_ptr<ArrowDataType> primitive_type) : Type(primitive_type) {
             REGISTER_METHOD(PrimitiveCType, bitWidth);
         }
 
