@@ -71,57 +71,99 @@ TEST_F(TestLazyIter, TestPostIncrementCopy) {
 }
 
 TEST(Zip, TupleTypes) {
+  char arr[3];
+  const std::string const_arr[3];
+  for (auto tuple :
+       Zip(arr,                   // 1. mutable lvalue range
+           const_arr,             // 2. const lvalue range
+           std::vector<float>{},  // 3. rvalue range
+           std::vector<bool>{},   // 4. rvalue range dereferencing to non ref
+           Enumerate<int>)) {     // 6. Enumerate
+                                  //    (const lvalue range dereferencing to non ref)
+    static_assert(
+        std::is_same_v<decltype(tuple),
+                       std::tuple<char&,               // 1. mutable lvalue ref binding
+                                  const std::string&,  // 2. const lvalue ref binding
+                                  float&,              // 3. mutable lvalue ref binding
+                                  std::vector<bool>::reference,  // 4. by-value non ref
+                                                                 // binding (thanks STL)
+                                  int  // 5. by-value non ref binding
+                                       //    (that's fine they're just ints)
+                                  >>);
+  }
+
+  static size_t max_count;
   static size_t count = 0;
+
   struct Counted {
-    Counted() { ++count; }
+    static void increment_count() {
+      ++count;
+      EXPECT_LE(count, max_count);
+    }
+
+    Counted() { increment_count(); }
+    Counted(Counted&&) { increment_count(); }
+
     ~Counted() { --count; }
 
-    Counted(const Counted&) { ++count; }
+    Counted(const Counted&) = delete;
     Counted& operator=(const Counted&) = delete;
+    Counted& operator=(Counted&&) = delete;
   };
 
   {
-    const Counted const_arr[] = {{}, {}, {}};
-    EXPECT_EQ(count, std::size(const_arr));
+    max_count = 3;
+    const Counted const_arr[3];
+    EXPECT_EQ(count, 3);
 
     for (auto [e] : Zip(const_arr)) {
       // Putting a const reference to range into Zip results in no copies and the
       // corresponding tuple element will also be a const reference
-      EXPECT_EQ(count, std::size(const_arr));
+      EXPECT_EQ(count, 3);
       static_assert(std::is_same_v<decltype(e), const Counted&>);
     }
+    EXPECT_EQ(count, 3);
   }
 
   {
-    Counted arr[] = {{}, {}, {}};
-    EXPECT_EQ(count, std::size(arr));
+    max_count = 3;
+    Counted arr[3];
+    EXPECT_EQ(count, 3);
 
     for (auto [e] : Zip(arr)) {
       // Putting a mutable reference to range into Zip results in no copies and the
       // corresponding tuple element will also be a mutable reference
-      EXPECT_EQ(count, std::size(arr));
+      EXPECT_EQ(count, 3);
       static_assert(std::is_same_v<decltype(e), Counted&>);
     }
-  }
-
-  for (auto [e] : Zip(std::vector<Counted>{{}, {}, {}})) {
-    // Putting a prvalue vector into Zip results in no copies and keeps the temporary
-    // alive as a mutable vector so that we can move out of it if we might reuse the
-    // elements:
     EXPECT_EQ(count, 3);
-    static_assert(std::is_same_v<decltype(e), Counted&>);
   }
 
-  std::vector<bool> v{false, false, false, false};
-  for (auto [i, e] : Zip(Enumerate<int>, v)) {
-    // Testing with a range whose references aren't actually references
-    static_assert(std::is_same_v<decltype(e), decltype(v)::reference>);
-    static_assert(std::is_same_v<decltype(e), decltype(v[0])>);
-    static_assert(!std::is_reference_v<decltype(e)>);
-    e = (i % 2 == 0);
+  {
+    max_count = 3;
+    EXPECT_EQ(count, 0);
+    for (auto [e] : Zip(std::vector<Counted>(3))) {
+      // Putting a prvalue vector into Zip results in no copies and keeps the temporary
+      // alive as a mutable vector so that we can move out of it if we might reuse the
+      // elements:
+      EXPECT_EQ(count, 3);
+      static_assert(std::is_same_v<decltype(e), Counted&>);
+    }
+    EXPECT_EQ(count, 0);
   }
 
-  EXPECT_THAT(v, ElementsAre(true, false, true, false));
+  {
+    std::vector<bool> v{false, false, false, false};
+    for (auto [i, e] : Zip(Enumerate<int>, v)) {
+      // Testing with a range whose references aren't actually references
+      static_assert(std::is_same_v<decltype(e), decltype(v)::reference>);
+      static_assert(std::is_same_v<decltype(e), decltype(v[0])>);
+      static_assert(!std::is_reference_v<decltype(e)>);
+      e = (i % 2 == 0);
+    }
+
+    EXPECT_THAT(v, ElementsAre(true, false, true, false));
+  }
 }
 
 TEST(Zip, EndAfterShortestEnds) {
