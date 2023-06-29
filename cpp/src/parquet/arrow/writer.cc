@@ -274,6 +274,16 @@ class ArrowColumnWriterV2 {
   RowGroupWriter* row_group_writer_;
 };
 
+std::shared_ptr<ChunkedArray> getColumnChunkedArray(const ::arrow::RecordBatch& value,
+                                                    int column_id) {
+  return std::make_shared<::arrow::ChunkedArray>(value.column(column_id));
+}
+
+std::shared_ptr<ChunkedArray> getColumnChunkedArray(const ::arrow::Table& value,
+                                                    int column_id) {
+  return value.column(column_id);
+}
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -356,7 +366,10 @@ class FileWriterImpl : public FileWriter {
 
   std::shared_ptr<::arrow::Schema> schema() const override { return schema_; }
 
-  Status WriteTable(const Table& table, int64_t chunk_size) override {
+  template <typename T>
+  Status WriteBuffered(const T& batch, int64_t max_row_group_length);
+
+  Status WriteTable(const Table& table, int64_t chunk_size, bool use_buffering) override {
     RETURN_NOT_OK(table.Validate());
 
     if (chunk_size <= 0 && table.num_rows() > 0) {
@@ -369,6 +382,40 @@ class FileWriterImpl : public FileWriter {
       chunk_size = this->properties().max_row_group_length();
     }
 
+    if (use_buffering) {
+      return WriteBuffered(table, chunk_size);
+    }
+    return WriteTableUnbuffered(table, chunk_size);
+  }
+
+  Status NewBufferedRowGroup() override {
+    if (row_group_writer_ != nullptr) {
+      PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
+    }
+    PARQUET_CATCH_NOT_OK(row_group_writer_ = writer_->AppendBufferedRowGroup());
+    return Status::OK();
+  }
+
+  Status WriteRecordBatch(const RecordBatch& batch) override {
+    if (batch.num_rows() == 0) {
+      return Status::OK();
+    }
+
+    // Max number of rows allowed in a row group.
+    return WriteBuffered(batch, this->properties().max_row_group_length());
+  }
+
+  const WriterProperties& properties() const { return *writer_->properties(); }
+
+  ::arrow::MemoryPool* memory_pool() const override {
+    return column_write_context_.memory_pool;
+  }
+
+  const std::shared_ptr<FileMetaData> metadata() const override {
+    return writer_->metadata();
+  }
+
+  Status WriteTableUnbuffered(const Table& table, int64_t chunk_size) {
     auto WriteRowGroup = [&](int64_t offset, int64_t size) {
       RETURN_NOT_OK(NewRowGroup(size));
       for (int i = 0; i < table.num_columns(); i++) {
@@ -392,83 +439,6 @@ class FileWriterImpl : public FileWriter {
     return Status::OK();
   }
 
-  Status NewBufferedRowGroup() override {
-    if (row_group_writer_ != nullptr) {
-      PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
-    }
-    PARQUET_CATCH_NOT_OK(row_group_writer_ = writer_->AppendBufferedRowGroup());
-    return Status::OK();
-  }
-
-  Status WriteRecordBatch(const RecordBatch& batch) override {
-    if (batch.num_rows() == 0) {
-      return Status::OK();
-    }
-
-    // Max number of rows allowed in a row group.
-    const int64_t max_row_group_length = this->properties().max_row_group_length();
-
-    if (row_group_writer_ == nullptr || !row_group_writer_->buffered() ||
-        row_group_writer_->num_rows() >= max_row_group_length) {
-      RETURN_NOT_OK(NewBufferedRowGroup());
-    }
-
-    auto WriteBatch = [&](int64_t offset, int64_t size) {
-      std::vector<std::unique_ptr<ArrowColumnWriterV2>> writers;
-      int column_index_start = 0;
-
-      for (int i = 0; i < batch.num_columns(); i++) {
-        ChunkedArray chunked_array{batch.column(i)};
-        ARROW_ASSIGN_OR_RAISE(
-            std::unique_ptr<ArrowColumnWriterV2> writer,
-            ArrowColumnWriterV2::Make(chunked_array, offset, size, schema_manifest_,
-                                      row_group_writer_, column_index_start));
-        column_index_start += writer->leaf_count();
-        if (arrow_properties_->use_threads()) {
-          writers.emplace_back(std::move(writer));
-        } else {
-          RETURN_NOT_OK(writer->Write(&column_write_context_));
-        }
-      }
-
-      if (arrow_properties_->use_threads()) {
-        DCHECK_EQ(parallel_column_write_contexts_.size(), writers.size());
-        RETURN_NOT_OK(::arrow::internal::ParallelFor(
-            static_cast<int>(writers.size()),
-            [&](int i) { return writers[i]->Write(&parallel_column_write_contexts_[i]); },
-            arrow_properties_->executor()));
-      }
-
-      return Status::OK();
-    };
-
-    int64_t offset = 0;
-    while (offset < batch.num_rows()) {
-      const int64_t batch_size =
-          std::min(max_row_group_length - row_group_writer_->num_rows(),
-                   batch.num_rows() - offset);
-      RETURN_NOT_OK(WriteBatch(offset, batch_size));
-      offset += batch_size;
-
-      // Flush current row group if it is full.
-      if (row_group_writer_->num_rows() >= max_row_group_length) {
-        RETURN_NOT_OK(NewBufferedRowGroup());
-      }
-    }
-
-    return Status::OK();
-  }
-
-  const WriterProperties& properties() const { return *writer_->properties(); }
-
-  ::arrow::MemoryPool* memory_pool() const override {
-    return column_write_context_.memory_pool;
-  }
-
-  const std::shared_ptr<FileMetaData> metadata() const override {
-    return writer_->metadata();
-  }
-
  private:
   friend class FileWriter;
 
@@ -487,6 +457,58 @@ class FileWriterImpl : public FileWriter {
   /// empty and column_write_context_ above is shared by all columns.
   std::vector<ArrowWriteContext> parallel_column_write_contexts_;
 };
+
+template <typename T>
+Status FileWriterImpl::WriteBuffered(const T& batch, int64_t max_row_group_length) {
+  if (row_group_writer_ == nullptr || !row_group_writer_->buffered() ||
+      row_group_writer_->num_rows() >= max_row_group_length) {
+    RETURN_NOT_OK(NewBufferedRowGroup());
+  }
+
+  auto WriteBatch = [&](int64_t offset, int64_t size) {
+    std::vector<std::unique_ptr<ArrowColumnWriterV2>> writers;
+    int column_index_start = 0;
+
+    for (int i = 0; i < batch.num_columns(); i++) {
+      std::shared_ptr<ChunkedArray> chunked_array = getColumnChunkedArray(batch, i);
+      ARROW_ASSIGN_OR_RAISE(
+          std::unique_ptr<ArrowColumnWriterV2> writer,
+          ArrowColumnWriterV2::Make(*chunked_array, offset, size, schema_manifest_,
+                                    row_group_writer_, column_index_start));
+      column_index_start += writer->leaf_count();
+      if (arrow_properties_->use_threads()) {
+        writers.emplace_back(std::move(writer));
+      } else {
+        RETURN_NOT_OK(writer->Write(&column_write_context_));
+      }
+    }
+
+    if (arrow_properties_->use_threads()) {
+      DCHECK_EQ(parallel_column_write_contexts_.size(), writers.size());
+      RETURN_NOT_OK(::arrow::internal::ParallelFor(
+          static_cast<int>(writers.size()),
+          [&](int i) { return writers[i]->Write(&parallel_column_write_contexts_[i]); },
+          arrow_properties_->executor()));
+    }
+
+    return Status::OK();
+  };
+
+  int64_t offset = 0;
+  while (offset < batch.num_rows()) {
+    const int64_t batch_size = std::min(
+        max_row_group_length - row_group_writer_->num_rows(), batch.num_rows() - offset);
+    RETURN_NOT_OK(WriteBatch(offset, batch_size));
+    offset += batch_size;
+
+    // Flush current row group if it is full.
+    if (row_group_writer_->num_rows() >= max_row_group_length) {
+      RETURN_NOT_OK(NewBufferedRowGroup());
+    }
+  }
+
+  return Status::OK();
+}
 
 FileWriter::~FileWriter() {}
 
