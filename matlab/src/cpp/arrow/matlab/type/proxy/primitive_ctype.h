@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/matlab/type/proxy/type.h"
+#include "arrow/matlab/type/proxy/fixed_width_type.h"
 #include "arrow/type_traits.h"
 
 #include <type_traits>
@@ -35,13 +35,12 @@ template<typename CType>
 using enable_if_primitive = std::enable_if_t<is_primitive<CType>::value, bool>; 
 
 template<typename CType, enable_if_primitive<CType> = true>
-class PrimitiveCType : public arrow::matlab::type::proxy::Type {
+class PrimitiveCType : public arrow::matlab::type::proxy::FixedWidthType {
     
     using ArrowDataType = arrow_type_t<CType>;
     
     public:
-        PrimitiveCType(std::shared_ptr<ArrowDataType> primitive_type) : Type(primitive_type) {
-            REGISTER_METHOD(PrimitiveCType, bitWidth);
+        PrimitiveCType(std::shared_ptr<ArrowDataType> primitive_type) : arrow::matlab::type::proxy::FixedWidthType(primitive_type) {
         }
 
         ~PrimitiveCType() {}
@@ -49,15 +48,6 @@ class PrimitiveCType : public arrow::matlab::type::proxy::Type {
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
             auto data_type = arrow::CTypeTraits<CType>::type_singleton();
             return std::make_shared<PrimitiveCType>(std::static_pointer_cast<ArrowDataType>(data_type));
-        }
-
-    protected:
-        void bitWidth(libmexclass::proxy::method::Context& context) {
-            namespace mda = ::matlab::data;
-            mda::ArrayFactory factory;
-    
-            auto bit_width_mda = factory.createScalar(data_type->bit_width());
-            context.outputs[0] = bit_width_mda;
         }
 };
 

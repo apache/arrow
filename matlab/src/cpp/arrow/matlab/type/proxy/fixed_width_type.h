@@ -14,29 +14,21 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 #pragma once
 
-#include "arrow/matlab/type/proxy/fixed_width_type.h"
-#include "arrow/type_traits.h"
+#include "arrow/matlab/type/proxy/type.h"
 
 namespace arrow::matlab::type::proxy {
 
-class TimestampType : public arrow::matlab::type::proxy::FixedWidthType {
-        
+class FixedWidthType : public arrow::matlab::type::proxy::Type {
     public:
-        TimestampType(std::shared_ptr<arrow::TimestampType> timestamp_type);
-
-        ~TimestampType() {}
-
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+        FixedWidthType(std::shared_ptr<arrow::FixedWidthType> type);
+    
+        virtual ~FixedWidthType() {}
 
     protected:
+        void bitWidth(libmexclass::proxy::method::Context& context);
 
-        void timeZone(libmexclass::proxy::method::Context& context);
-
-        void timeUnit(libmexclass::proxy::method::Context& context);
 };
 
 }
-

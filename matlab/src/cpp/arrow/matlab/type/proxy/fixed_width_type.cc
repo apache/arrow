@@ -15,28 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
 
 #include "arrow/matlab/type/proxy/fixed_width_type.h"
-#include "arrow/type_traits.h"
 
 namespace arrow::matlab::type::proxy {
 
-class TimestampType : public arrow::matlab::type::proxy::FixedWidthType {
-        
-    public:
-        TimestampType(std::shared_ptr<arrow::TimestampType> timestamp_type);
+    FixedWidthType::FixedWidthType(std::shared_ptr<arrow::FixedWidthType> type) : Type(type) {
+        REGISTER_METHOD(FixedWidthType, bitWidth);
+    }
 
-        ~TimestampType() {}
-
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-
-    protected:
-
-        void timeZone(libmexclass::proxy::method::Context& context);
-
-        void timeUnit(libmexclass::proxy::method::Context& context);
-};
-
+    void FixedWidthType::bitWidth(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+         mda::ArrayFactory factory;
+     
+         auto bit_width_mda = factory.createScalar(data_type->bit_width());
+         context.outputs[0] = bit_width_mda;
+    }
 }
-

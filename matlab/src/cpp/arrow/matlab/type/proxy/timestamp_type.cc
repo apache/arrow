@@ -22,11 +22,9 @@
 
 namespace arrow::matlab::type::proxy {
 
-    TimestampType::TimestampType(std::shared_ptr<arrow::TimestampType> timestamp_type) : Type(timestamp_type) {
+    TimestampType::TimestampType(std::shared_ptr<arrow::TimestampType> timestamp_type) : FixedWidthType(timestamp_type) {
         REGISTER_METHOD(TimestampType, timeUnit);
         REGISTER_METHOD(TimestampType, timeZone);
-        REGISTER_METHOD(TimestampType, bitWidth);
-
     }
 
     libmexclass::proxy::MakeResult TimestampType::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
@@ -73,13 +71,5 @@ namespace arrow::matlab::type::proxy {
         const auto timeunit = timestamp_type->unit();
         auto timeunit_mda = factory.createScalar(static_cast<int16_t>(timeunit)); 
         context.outputs[0] = timeunit_mda;
-    }
-
-    void TimestampType::bitWidth(libmexclass::proxy::method::Context& context) {
-        namespace mda = ::matlab::data;
-        mda::ArrayFactory factory;
-    
-        auto bit_width_mda = factory.createScalar(data_type->bit_width());
-        context.outputs[0] = bit_width_mda;
     }
 }
