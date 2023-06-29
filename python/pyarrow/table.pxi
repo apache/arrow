@@ -458,22 +458,6 @@ cdef class ChunkedArray(_PandasConvertible):
         return result
 
     def _to_pandas(self, options, types_mapper=None, **kwargs):
-        pandas_dtype = None
-
-        if types_mapper:
-            pandas_dtype = types_mapper(self.type)
-        elif self.type.id == _Type_EXTENSION:
-            try:
-                pandas_dtype = self.type.to_pandas_dtype()
-            except NotImplementedError:
-                pass
-
-        # Only call __from_arrow__ for Arrow extension types or when explicitly
-        # overridden via types_mapper
-        if hasattr(pandas_dtype, '__from_arrow__'):
-            arr = pandas_dtype.__from_arrow__(self)
-            return pandas_api.series(arr, name=self._name)
-
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def to_numpy(self):
