@@ -749,13 +749,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     // reader finishes, so it's OK to assume the client no longer
     // wants to read and drain the read side.
     pb::HandshakeResponse response;
-    if (!stream->Read(&response)) {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "No handshake response from server");
-    }
-    if (stream->Read(&response)) {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "Too much handshake response from server");
+    while (stream->Read(&response)) {
     }
     RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
     return Status::OK();
@@ -781,13 +775,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     // reader finishes, so it's OK to assume the client no longer
     // wants to read and drain the read side.
     pb::HandshakeResponse response;
-    if (!stream->Read(&response)) {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "No handshake response from server");
-    }
-    if (stream->Read(&response)) {
-      return MakeFlightError(FlightStatusCode::Internal,
-                             "Too much handshake response from server");
+    while (stream->Read(&response)) {
     }
     RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
     // Grab bearer token from incoming headers.
