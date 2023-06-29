@@ -40,6 +40,19 @@ elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
 fi
 
+if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+  case "$(uname)" in
+    Linux|Darwin|MINGW*)
+      if [ "${ARROW_GDB:-OFF}" != "ON" ]; then
+        : ${ARROW_C_FLAGS_DEBUG:=-g1}
+        : ${ARROW_CXX_FLAGS_DEBUG:=-g1}
+      fi
+      ;;
+    *)
+      ;;
+  esac
+fi
+
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     echo -e "===\n=== ccache statistics before build\n==="
     ccache -sv 2>/dev/null || ccache -s
