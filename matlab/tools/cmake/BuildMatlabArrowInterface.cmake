@@ -36,12 +36,18 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME arrowproxy)
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_ROOT_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp")
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy"
                                                       "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit"
-                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/error")
+                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/error"
+                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type")
+
+
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/boolean_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/record_batch.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/timestamp_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit/pack.cc"
-                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit/unpack.cc")
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit/unpack.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/time_unit.cc")
+
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy")
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/factory.cc")
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_INCLUDE_DIRS ${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_ROOT_INCLUDE_DIR}

@@ -192,8 +192,9 @@ class RecordBatchSerializer {
     int64_t maximum_length = codec->MaxCompressedLen(buffer.size(), buffer.data());
     int64_t prefixed_length = buffer.size();
 
-    ARROW_ASSIGN_OR_RAISE(auto result,
-                          AllocateResizableBuffer(maximum_length + sizeof(int64_t)));
+    ARROW_ASSIGN_OR_RAISE(
+        auto result,
+        AllocateResizableBuffer(maximum_length + sizeof(int64_t), options_.memory_pool));
     ARROW_ASSIGN_OR_RAISE(auto actual_length,
                           codec->Compress(buffer.size(), buffer.data(), maximum_length,
                                           result->mutable_data() + sizeof(int64_t)));
@@ -213,6 +214,10 @@ class RecordBatchSerializer {
       actual_length = buffer.size();
       // Size of -1 indicates to the reader that the body doesn't need to be decompressed
       prefixed_length = -1;
+    } else {
+      // Shrink compressed buffer
+      RETURN_NOT_OK(
+          result->Resize(actual_length + sizeof(int64_t), /* shrink_to_fit= */ true));
     }
     *reinterpret_cast<int64_t*>(result->mutable_data()) =
         bit_util::ToLittleEndian(prefixed_length);

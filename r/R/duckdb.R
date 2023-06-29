@@ -95,7 +95,7 @@ run_duckdb_examples <- function() {
     packageVersion("duckdb") > "0.2.7" &&
     requireNamespace("dplyr", quietly = TRUE) &&
     requireNamespace("dbplyr", quietly = TRUE) &&
-    getRversion() >= 4
+    getRversion() >= "4"
 }
 
 # Adapted from dbplyr
@@ -155,5 +155,6 @@ to_arrow <- function(.data) {
   # Run the query
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
 
-  duckdb::duckdb_fetch_record_batch(res)
+  reader <- duckdb::duckdb_fetch_record_batch(res)
+  MakeSafeRecordBatchReader(reader)
 }

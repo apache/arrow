@@ -404,6 +404,13 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()
 
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "13.0" OR CMAKE_CXX_COMPILER_VERSION
+                                                        VERSION_GREATER "13.0")
+    # -Wself-move added in GCC 13 warns when a value is moved to itself
+    # See https://gcc.gnu.org/gcc-13/changes.html
+    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-self-move")
+  endif()
+
   # Disabling semantic interposition allows faster calling conventions
   # when calling global functions internally, and can also help inlining.
   # See https://stackoverflow.com/questions/35745543/new-option-in-gcc-5-3-fno-semantic-interposition

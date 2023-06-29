@@ -4876,6 +4876,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // recordbatchreader.cpp
+std::shared_ptr<arrow::RecordBatchReader> MakeSafeRecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_MakeSafeRecordBatchReader(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(MakeSafeRecordBatchReader(reader));
+END_CPP11
+}
+// recordbatchreader.cpp
 std::shared_ptr<arrow::ipc::RecordBatchStreamReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 BEGIN_CPP11
@@ -6042,6 +6050,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatchReader__from_Table", (DL_FUNC) &_arrow_RecordBatchReader__from_Table, 1}, 
 		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_RecordBatchReader__Head", (DL_FUNC) &_arrow_RecordBatchReader__Head, 2}, 
+		{ "_arrow_MakeSafeRecordBatchReader", (DL_FUNC) &_arrow_MakeSafeRecordBatchReader, 1}, 
 		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__schema, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1}, 
