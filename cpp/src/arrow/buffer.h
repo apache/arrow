@@ -49,6 +49,8 @@ namespace arrow {
 /// The following invariant is always true: Size <= Capacity
 class ARROW_EXPORT Buffer {
  public:
+  Buffer() = delete;
+
   /// \brief Construct from buffer and size without copying memory
   ///
   /// \param[in] data a memory buffer
@@ -136,6 +138,25 @@ class ARROW_EXPORT Buffer {
   /// \return a new Buffer instance
   static std::shared_ptr<Buffer> FromString(std::string data);
 
+  /// \brief Construct an immutable buffer that takes ownership of the contents
+  /// of an std::vector (without copying it).
+  ///
+  /// \param[in] data a string to own
+  /// \return a new Buffer instance
+  template <typename T>
+  static std::shared_ptr<Buffer> FromVector(std::vector<T> vec) {
+    auto* data = reinterpret_cast<uint8_t*>(vec.data());
+    auto size = static_cast<int64_t>(vec.size());
+    return std::shared_ptr<Buffer>(
+        new Buffer{data, size},
+        [vec = std::move(
+             vec)  // Keep the vector's buffer alive inside the destructor until after we
+                   // have deleted the Buffer. Note we can't use this trick in FromString
+                   // since std::string's data is inline for short strings so moving
+                   // invalidates pointers into the string's buffer.
+    ](Buffer* buffer) { delete buffer; });
+  }
+
   /// \brief Create buffer referencing typed memory with some length without
   /// copying
   /// \param[in] data the typed memory as C array
@@ -182,6 +203,15 @@ class ARROW_EXPORT Buffer {
     return ARROW_PREDICT_TRUE(is_cpu_) ? data_ : NULLPTR;
   }
 
+  /// \brief Return a pointer to the buffer's data cast to a specific type
+  ///
+  /// The buffer has to be a CPU buffer (`is_cpu()` is true).
+  /// Otherwise, an assertion may be thrown or a null pointer may be returned.
+  template <typename T>
+  const T* data_as() const {
+    return reinterpret_cast<const T*>(data());
+  }
+
   /// \brief Return a writable pointer to the buffer's data
   ///
   /// The buffer has to be a mutable CPU buffer (`is_cpu()` and `is_mutable()`
@@ -197,6 +227,16 @@ class ARROW_EXPORT Buffer {
 #endif
     return ARROW_PREDICT_TRUE(is_cpu_ && is_mutable_) ? const_cast<uint8_t*>(data_)
                                                       : NULLPTR;
+  }
+
+  /// \brief Return a writable pointer to the buffer's data cast to a specific type
+  ///
+  /// The buffer has to be a mutable CPU buffer (`is_cpu()` and `is_mutable()`
+  /// are true).  Otherwise, an assertion may be thrown or a null pointer may
+  /// be returned.
+  template <typename T>
+  T* mutable_data_as() {
+    return reinterpret_cast<T*>(mutable_data());
   }
 
   /// \brief Return the device address of the buffer's data
@@ -307,7 +347,6 @@ class ARROW_EXPORT Buffer {
   }
 
  private:
-  Buffer() = delete;
   ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
 

@@ -101,8 +101,8 @@ class ARROW_EXPORT DictionaryArray : public Array {
 
   /// \brief Return the dictionary for this array, which is stored as
   /// a member of the ArrayData internal structure
-  std::shared_ptr<Array> dictionary() const;
-  std::shared_ptr<Array> indices() const;
+  const std::shared_ptr<Array>& dictionary() const;
+  const std::shared_ptr<Array>& indices() const;
 
   /// \brief Return the ith value of indices, cast to int64_t. Not recommended
   /// for use in performance-sensitive code. Does not validate whether the

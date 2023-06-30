@@ -470,11 +470,11 @@ const FixedSizeListType* FixedSizeListArray::list_type() const {
   return checked_cast<const FixedSizeListType*>(data_->type.get());
 }
 
-std::shared_ptr<DataType> FixedSizeListArray::value_type() const {
+const std::shared_ptr<DataType>& FixedSizeListArray::value_type() const {
   return list_type()->value_type();
 }
 
-std::shared_ptr<Array> FixedSizeListArray::values() const { return values_; }
+const std::shared_ptr<Array>& FixedSizeListArray::values() const { return values_; }
 
 Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
     const std::shared_ptr<Array>& values, int32_t list_size) {
@@ -611,9 +611,10 @@ const std::shared_ptr<Array>& StructArray::field(int i) const {
   return boxed_fields_[i];
 }
 
-std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) const {
+const std::shared_ptr<Array>& StructArray::GetFieldByName(const std::string& name) const {
+  static std::shared_ptr<Array> null;
   int i = struct_type()->GetFieldIndex(name);
-  return i == -1 ? nullptr : field(i);
+  return i == -1 ? null : field(i);
 }
 
 Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {

@@ -360,6 +360,15 @@ struct ARROW_EXPORT BufferSpan {
   int64_t size = 0;
   // Pointer back to buffer that owns this memory
   const std::shared_ptr<Buffer>* owner = NULLPTR;
+
+  template <typename T>
+  const T* data_as() const {
+    return reinterpret_cast<const T*>(data);
+  }
+  template <typename T>
+  T* mutable_data_as() {
+    return reinterpret_cast<T*>(data);
+  }
 };
 
 /// \brief EXPERIMENTAL: A non-owning ArrayData reference that is cheaply
