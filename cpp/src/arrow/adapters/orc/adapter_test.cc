@@ -81,7 +81,8 @@ class MemoryOutputStream : public liborc::OutputStream {
  private:
   std::vector<char> data_;
   std::string name_;
-  uint64_t length_, natural_write_size_;
+  uint64_t length_;
+  const uint64_t natural_write_size_ = 64 * 1024;
 };
 
 std::shared_ptr<Buffer> GenerateFixedDifferenceBuffer(int32_t fixed_length,
@@ -1041,7 +1042,9 @@ std::shared_ptr<Array> FlattenSparseUnionArray(std::shared_ptr<Array> array) {
 void TestUnionConversion(std::shared_ptr<Array> array) {
   auto length = array->length();
   auto orc_type = liborc::Type::buildTypeFromString("uniontype<string,int>");
-  auto orc_batch = orc_type->createRowBatch(array->length(), *liborc::getDefaultPool());
+  auto orc_batch =
+      orc_type->createRowBatch(array->length(), *liborc::getDefaultPool(),
+                               /*encoded=*/false, /*useTightNumericVector=*/false);
 
   // Convert from arrow to orc
   int arrow_chunk_offset = 0;
