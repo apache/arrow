@@ -1989,42 +1989,46 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
     const int seed = 42;
     auto rand = ::arrow::random::RandomArrayGenerator(seed);
     const int min_prefix_length = 0;
-    const int max_prefix_length = 2;
-    const int max_element_length = 1000;
-    const double prefixed_probability = 0.9;
+    const int max_prefix_length = 20;
+    //    const int max_element_length = 1000;
+    //    const double prefixed_probability = 0.9;
+    //
+    //    const auto prefix_length_array = std::dynamic_pointer_cast<::arrow::UInt8Array>(
+    //        rand.UInt8(nvalues, min_prefix_length, max_prefix_length,
+    //        null_probability));
+    //    const auto null_bitmap = prefix_length_array->null_bitmap_data();
+    //
+    //    const auto do_prefix = std::dynamic_pointer_cast<::arrow::BooleanArray>(
+    //        rand.Boolean(nvalues,
+    //                     /*true_probability=*/prefixed_probability,
+    //                     /*null_probability=*/0.0));
+    //
+    //    ::arrow::StringBuilder builder;
+    //    std::string prefix;
+    //
+    //    for (int i = 0; i < nvalues; i++) {
+    //      if (null_bitmap && !::arrow::bit_util::GetBit(null_bitmap, i)) {
+    //        PARQUET_THROW_NOT_OK(builder.AppendNull());
+    //      } else {
+    //        std::string element = ::arrow::random_string(prefix_length_array->Value(i),
+    //        seed); const bool concatenate =
+    //            do_prefix->GetView(i) &&
+    //            (prefix.length() + element.length() <= max_element_length);
+    //        if (concatenate) {
+    //          prefix = prefix + element;
+    //        } else {
+    //          prefix = element;
+    //        }
+    //        PARQUET_THROW_NOT_OK(builder.Append(prefix));
+    //      }
+    //    }
+    //
+    //    std::shared_ptr<::arrow::StringArray> array;
+    //    ASSERT_OK(builder.Finish(&array));
+    //    ASSERT_EQ(nvalues, array->length());
 
-    const auto prefix_length_array = std::dynamic_pointer_cast<::arrow::UInt8Array>(
-        rand.UInt8(nvalues, min_prefix_length, max_prefix_length, null_probability));
-    const auto null_bitmap = prefix_length_array->null_bitmap_data();
-
-    const auto do_prefix = std::dynamic_pointer_cast<::arrow::BooleanArray>(
-        rand.Boolean(nvalues,
-                     /*true_probability=*/prefixed_probability,
-                     /*null_probability=*/0.0));
-
-    ::arrow::StringBuilder builder;
-    std::string prefix;
-
-    for (int i = 0; i < nvalues; i++) {
-      if (null_bitmap && !::arrow::bit_util::GetBit(null_bitmap, i)) {
-        PARQUET_THROW_NOT_OK(builder.AppendNull());
-      } else {
-        std::string element = ::arrow::random_string(prefix_length_array->Value(i), seed);
-        const bool concatenate =
-            do_prefix->GetView(i) &&
-            (prefix.length() + element.length() <= max_element_length);
-        if (concatenate) {
-          prefix = prefix + element;
-        } else {
-          prefix = element;
-        }
-        PARQUET_THROW_NOT_OK(builder.Append(prefix));
-      }
-    }
-
-    std::shared_ptr<::arrow::StringArray> array;
-    ASSERT_OK(builder.Finish(&array));
-    ASSERT_EQ(nvalues, array->length());
+    auto array = std::dynamic_pointer_cast<::arrow::StringArray>(
+        rand.String(0, min_prefix_length, max_prefix_length, null_probability));
     draws_ = reinterpret_cast<c_type*>(array->value_data()->mutable_data());
   }
 
@@ -2088,7 +2092,7 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 };
 
-using TestDeltaByteArrayEncodingTypes = ::testing::Types<ByteArrayType>;
+using TestDeltaByteArrayEncodingTypes = ::testing::Types<ByteArrayType, FLBAType>;
 TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {

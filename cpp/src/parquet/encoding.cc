@@ -3082,6 +3082,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
       return;
     }
     uint32_t len = descr_->type_length();
+    uint32_t len2 = len;
 
     std::string_view last_value_view = last_value_;
     constexpr int kBatchSize = 256;
@@ -3094,11 +3095,11 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
       for (int j = 0; j < batch_size; ++j) {
         auto view = visitor[i + j];
-        len = visitor.len(i + j);
+        len2 = visitor.len(i + j);
 
         uint32_t k = 0;
         const uint32_t common_length =
-            std::min(len, static_cast<uint32_t>(last_value_view.length()));
+            std::min(len2, static_cast<uint32_t>(last_value_view.length()));
         while (k < common_length) {
           if (last_value_view[k] != view[k]) {
             break;
@@ -3108,7 +3109,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
         last_value_view = view;
         prefix_lengths[j] = k;
-        const auto suffix_length = len - k;
+        const auto suffix_length = len2 - k;
         const uint8_t* suffix_ptr = src[i + j].ptr + k;
 
         // Convert to ByteArray, so it can be passed to the suffix_encoder_.
@@ -3178,7 +3179,7 @@ struct ByteArrayVisitor {
     if (ARROW_PREDICT_FALSE(src[i].len >= kMaxByteArraySize)) {
       throw ParquetException("Parquet cannot store strings with size 2GB or more");
     }
-    return std::string_view{src[i]};
+    return std::string_view{reinterpret_cast<const char*>(src[i].ptr), src[i].len};
   }
 
   uint32_t len(int i) const { return src[i].len; }
