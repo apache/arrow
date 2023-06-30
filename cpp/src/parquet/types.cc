@@ -76,7 +76,7 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec,
 
 // use compression level to create Codec
 std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
-  return GetCodec(codec, CodecOptions(compression_level));
+  return GetCodec(codec, CodecOptions{compression_level});
 }
 
 bool PageCanUseChecksum(PageType::type pageType) {

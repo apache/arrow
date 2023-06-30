@@ -118,8 +118,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
-        sink_, column_properties.compression(), Codec::UseDefaultCompressionLevel(),
-        metadata_.get(),
+        sink_, column_properties.compression(), metadata_.get(),
         /* row_group_ordinal */ -1, /* column_chunk_ordinal*/ -1,
         ::arrow::default_memory_pool(), /* buffered_row_group */ false,
         /* header_encryptor */ NULLPTR, /* data_encryptor */ NULLPTR, enable_checksum);

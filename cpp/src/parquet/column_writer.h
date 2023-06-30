@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 
+#include "arrow/util/compression.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -35,6 +36,7 @@ class BitWriter;
 
 namespace util {
 class RleEncoder;
+class CodecOptions;
 }  // namespace util
 
 }  // namespace arrow
@@ -100,6 +102,7 @@ class PARQUET_EXPORT PageWriter {
       OffsetIndexBuilder* offset_index_builder = NULLPTR,
       const CodecOptions& codec_options = CodecOptions{});
 
+  ARROW_DEPRECATED("Use the one with CodecOptions instead")
   static std::unique_ptr<PageWriter> Open(
       std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
       int compression_level, ColumnChunkMetaDataBuilder* metadata,

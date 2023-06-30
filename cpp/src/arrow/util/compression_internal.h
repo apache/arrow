@@ -36,7 +36,7 @@ constexpr int kBrotliDefaultCompressionLevel = 8;
 // Brotli codec.
 std::unique_ptr<Codec> MakeBrotliCodec(
     int compression_level = kBrotliDefaultCompressionLevel,
-    int window_bits = kBrotliDefaultWindowBits);
+    std::optional<int> window_bits = std::nullopt);
 
 // BZ2 codec.
 constexpr int kBZ2DefaultCompressionLevel = 9;
@@ -48,7 +48,7 @@ constexpr int kGZipDefaultCompressionLevel = 9;
 
 std::unique_ptr<Codec> MakeGZipCodec(int compression_level = kGZipDefaultCompressionLevel,
                                      GZipFormat format = GZipFormat::GZIP,
-                                     int window_bits = kGZipDefaultWindowBits);
+                                     std::optional<int> window_bits = std::nullopt);
 
 // Snappy
 std::unique_ptr<Codec> MakeSnappyCodec();

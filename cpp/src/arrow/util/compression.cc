@@ -172,15 +172,15 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
       auto opt = dynamic_cast<const GZipCodecOptions*>(&codec_options);
       codec = internal::MakeGZipCodec(compression_level,
                                       opt ? opt->gzip_format : GZipFormat::GZIP,
-                                      opt ? opt->window_bits : kGZipDefaultWindowBits);
+                                      opt ? opt->window_bits : std::nullopt);
 #endif
       break;
     }
     case Compression::BROTLI: {
 #ifdef ARROW_WITH_BROTLI
       auto opt = dynamic_cast<const BrotliCodecOptions*>(&codec_options);
-      codec = internal::MakeBrotliCodec(
-          compression_level, opt ? opt->window_bits : kBrotliDefaultWindowBits);
+      codec = internal::MakeBrotliCodec(compression_level,
+                                        opt ? opt->window_bits : std::nullopt);
 #endif
       break;
     }
@@ -221,7 +221,7 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
 // use compression level to create Codec
 Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
                                              int compression_level) {
-  return Codec::Create(codec_type, CodecOptions(compression_level));
+  return Codec::Create(codec_type, CodecOptions{compression_level});
 }
 
 bool Codec::IsAvailable(Compression::type codec_type) {

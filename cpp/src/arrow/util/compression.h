@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "arrow/result.h"
@@ -115,7 +116,7 @@ class ARROW_EXPORT CodecOptions {
   }
   virtual ~CodecOptions() = default;
 
-  int compression_level_;
+  int compression_level_ = kUseDefaultCompressionLevel;
 };
 
 // ----------------------------------------------------------------------
@@ -127,22 +128,18 @@ enum class GZipFormat {
   GZIP,
 };
 
-constexpr int kGZipDefaultWindowBits = 15;
-
 class ARROW_EXPORT GZipCodecOptions : public CodecOptions {
  public:
   GZipFormat gzip_format = GZipFormat::GZIP;
-  int window_bits = kGZipDefaultWindowBits;
+  std::optional<int> window_bits;
 };
 
 // ----------------------------------------------------------------------
 // brotli codec options implementation
 
-constexpr int kBrotliDefaultWindowBits = 22;
-
 class ARROW_EXPORT BrotliCodecOptions : public CodecOptions {
  public:
-  int window_bits = kBrotliDefaultWindowBits;
+  std::optional<int> window_bits;
 };
 
 /// \brief Compression codec

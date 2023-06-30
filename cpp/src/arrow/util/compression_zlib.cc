@@ -49,6 +49,9 @@ constexpr int kGZipMaxWindowBits = 15;
 // Minimum window size
 constexpr int kGZipMinWindowBits = 9;
 
+// Default window size
+constexpr int kGZipDefaultWindowBits = 15;
+
 // Output Gzip.
 constexpr int GZIP_CODEC = 16;
 
@@ -511,8 +514,9 @@ class GZipCodec : public Codec {
 }  // namespace
 
 std::unique_ptr<Codec> MakeGZipCodec(int compression_level, GZipFormat format,
-                                     int window_bits) {
-  return std::make_unique<GZipCodec>(compression_level, format, window_bits);
+                                     std::optional<int> window_bits) {
+  return std::make_unique<GZipCodec>(compression_level, format,
+                                     window_bits.value_or(kGZipDefaultWindowBits));
 }
 
 }  // namespace internal

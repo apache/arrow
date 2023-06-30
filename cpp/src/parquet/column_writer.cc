@@ -720,7 +720,7 @@ std::unique_ptr<PageWriter> PageWriter::Open(
   return PageWriter::Open(sink, codec, metadata, row_group_ordinal, column_chunk_ordinal,
                           pool, buffered_row_group, meta_encryptor, data_encryptor,
                           page_write_checksum_enabled, column_index_builder,
-                          offset_index_builder, CodecOptions(compression_level));
+                          offset_index_builder, CodecOptions{compression_level});
 }
 // ----------------------------------------------------------------------
 // ColumnWriter

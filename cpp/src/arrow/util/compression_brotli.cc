@@ -250,8 +250,10 @@ class BrotliCodec : public Codec {
 
 }  // namespace
 
-std::unique_ptr<Codec> MakeBrotliCodec(int compression_level, int window_bits) {
-  return std::make_unique<BrotliCodec>(compression_level, window_bits);
+std::unique_ptr<Codec> MakeBrotliCodec(int compression_level,
+                                       std::optional<int> window_bits) {
+  return std::make_unique<BrotliCodec>(compression_level,
+                                       window_bits.value_or(BROTLI_DEFAULT_WINDOW));
 }
 
 }  // namespace internal
