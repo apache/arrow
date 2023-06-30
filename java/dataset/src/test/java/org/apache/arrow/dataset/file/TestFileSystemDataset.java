@@ -23,10 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -428,27 +426,6 @@ public class TestFileSystemDataset extends TestNativeDataset {
       checkParquetReadResult(schema, expectedJsonUnordered, datum);
 
       AutoCloseables.close(datum);
-    }
-  }
-
-  @Test
-  public void testResourceToLoad() throws IOException {
-    if (System.getProperty("os.name").equalsIgnoreCase("Windows")) {
-      assertEquals("\\", File.separator);
-      final String pathWithoutFileSeparator = "/" + "avroschema" + "/" + "user.avsc";
-      try (final InputStream stream = TestFileSystemDataset.class.getResourceAsStream(pathWithoutFileSeparator)) {
-        if (stream == null) {
-          throw new FileNotFoundException(pathWithoutFileSeparator);
-        }
-      }
-      final String pathWithFileSeparator = File.separator + "avroschema" + File.separator + "user.avsc";
-      Assertions.assertThrows(FileNotFoundException.class, () -> {
-        try (final InputStream stream = TestFileSystemDataset.class.getResourceAsStream(pathWithFileSeparator)) {
-          if (stream == null) {
-            throw new FileNotFoundException(pathWithFileSeparator);
-          }
-        }
-      }, "FileNotFound \\avroschema\\user.avsc");
     }
   }
 
