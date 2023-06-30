@@ -94,10 +94,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: js/.jest-cache
-          key: js-jest-cache-${{ runner.os }}-${{ matrix.node }}-${{ hashFiles('js/yarn.lock') }}
-          restore-keys: |
-            js-jest-cache-${{ runner.os }}-${{ matrix.node }}-
-            js-jest-cache-${{ runner.os }}-
+          key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/yarn.lock') }}
+          restore-keys: js-jest-cache-${{ runner.os }}-
       - name: Install NodeJS
         uses: actions/setup-node@v3
         with:
@@ -126,10 +124,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: js/.jest-cache
-          key: js-jest-cache-${{ runner.os }}-${{ matrix.node }}-${{ hashFiles('js/yarn.lock') }}
-          restore-keys: |
-            js-jest-cache-${{ runner.os }}-${{ matrix.node }}-
-            js-jest-cache-${{ runner.os }}-
+          key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/yarn.lock') }}
+          restore-keys: js-jest-cache-${{ runner.os }}-
       - name: Install NodeJS
         uses: actions/setup-node@v3
         with:
