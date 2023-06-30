@@ -76,14 +76,9 @@ add_arrow_compute_test(vector_test
                        select_k_test.cc
                        test_util.cc)
 
-add_arrow_compute_test(vector_sort_test
-                       SOURCES
-                       vector_sort_test.cc
-                       test_util.cc)
+add_arrow_compute_test(vector_sort_test SOURCES vector_sort_test.cc test_util.cc)
 
-add_arrow_compute_test(vector_selection_test
-                       SOURCES
-                       vector_selection_test.cc
+add_arrow_compute_test(vector_selection_test SOURCES vector_selection_test.cc
                        test_util.cc)
 
 add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
