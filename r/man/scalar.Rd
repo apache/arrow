@@ -2,6 +2,7 @@
 % Please edit documentation in R/scalar.R
 \name{scalar}
 \alias{scalar}
+\alias{StructScalar}
 \title{Create an Arrow Scalar}
 \usage{
 scalar(x, type = NULL)
