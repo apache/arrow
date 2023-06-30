@@ -29,7 +29,6 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
-import pyarrow as pa
 
 from libcpp cimport bool as c_bool
 

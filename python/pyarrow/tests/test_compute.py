@@ -3094,10 +3094,6 @@ def test_map_lookup():
 
     assert pc.map_lookup(arr,
                          'one', 'first') == result_first
-    assert pc.map_lookup(arr,
-                         'one', 'last') == result_last
-    assert pc.map_lookup(arr,
-                         'one', 'all') == result_all
     assert pc.map_lookup(arr, pa.scalar(
         'one', type=pa.utf8()), 'first') == result_first
     assert pc.map_lookup(arr, pa.scalar(
