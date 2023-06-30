@@ -18,6 +18,7 @@
 #include "arrow/matlab/array/proxy/boolean_array.h"
 #include "arrow/matlab/array/proxy/numeric_array.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
+#include "arrow/matlab/array/proxy/timestamp_array.h"
 #include "arrow/matlab/error/error.h"
 
 #include "factory.h"
@@ -25,24 +26,19 @@
 namespace arrow::matlab::proxy {
 
 libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments) {
-    // Register MATLAB Proxy classes with corresponding C++ Proxy classes.
-    REGISTER_PROXY(arrow.array.proxy.Float32Array, arrow::matlab::array::proxy::NumericArray<float>);
-    REGISTER_PROXY(arrow.array.proxy.Float64Array, arrow::matlab::array::proxy::NumericArray<double>);
-    // Register MATLAB Proxy classes for unsigned integer arrays
-    REGISTER_PROXY(arrow.array.proxy.UInt8Array  , arrow::matlab::array::proxy::NumericArray<uint8_t>);
-    REGISTER_PROXY(arrow.array.proxy.UInt16Array , arrow::matlab::array::proxy::NumericArray<uint16_t>);
-    REGISTER_PROXY(arrow.array.proxy.UInt32Array , arrow::matlab::array::proxy::NumericArray<uint32_t>);
-    REGISTER_PROXY(arrow.array.proxy.UInt64Array , arrow::matlab::array::proxy::NumericArray<uint64_t>);
-    // Register MATLAB Proxy classes for signed integer arrays
-    REGISTER_PROXY(arrow.array.proxy.Int8Array   , arrow::matlab::array::proxy::NumericArray<int8_t>);
-    REGISTER_PROXY(arrow.array.proxy.Int16Array  , arrow::matlab::array::proxy::NumericArray<int16_t>);
-    REGISTER_PROXY(arrow.array.proxy.Int32Array  , arrow::matlab::array::proxy::NumericArray<int32_t>);
-    REGISTER_PROXY(arrow.array.proxy.Int64Array  , arrow::matlab::array::proxy::NumericArray<int64_t>);
-    // Register MATLAB Proxy class for boolean arrays
-    REGISTER_PROXY(arrow.array.proxy.BooleanArray, arrow::matlab::array::proxy::BooleanArray);
-    
-    REGISTER_PROXY(arrow.tabular.proxy.RecordBatch  , arrow::matlab::tabular::proxy::RecordBatch);
-
+    REGISTER_PROXY(arrow.array.proxy.Float32Array  , arrow::matlab::array::proxy::NumericArray<float>);
+    REGISTER_PROXY(arrow.array.proxy.Float64Array  , arrow::matlab::array::proxy::NumericArray<double>);
+    REGISTER_PROXY(arrow.array.proxy.UInt8Array    , arrow::matlab::array::proxy::NumericArray<uint8_t>);
+    REGISTER_PROXY(arrow.array.proxy.UInt16Array   , arrow::matlab::array::proxy::NumericArray<uint16_t>);
+    REGISTER_PROXY(arrow.array.proxy.UInt32Array   , arrow::matlab::array::proxy::NumericArray<uint32_t>);
+    REGISTER_PROXY(arrow.array.proxy.UInt64Array   , arrow::matlab::array::proxy::NumericArray<uint64_t>);
+    REGISTER_PROXY(arrow.array.proxy.Int8Array     , arrow::matlab::array::proxy::NumericArray<int8_t>);
+    REGISTER_PROXY(arrow.array.proxy.Int16Array    , arrow::matlab::array::proxy::NumericArray<int16_t>);
+    REGISTER_PROXY(arrow.array.proxy.Int32Array    , arrow::matlab::array::proxy::NumericArray<int32_t>);
+    REGISTER_PROXY(arrow.array.proxy.Int64Array    , arrow::matlab::array::proxy::NumericArray<int64_t>);
+    REGISTER_PROXY(arrow.array.proxy.BooleanArray  , arrow::matlab::array::proxy::BooleanArray);
+    REGISTER_PROXY(arrow.array.proxy.TimestampArray, arrow::matlab::array::proxy::TimestampArray);
+    REGISTER_PROXY(arrow.tabular.proxy.RecordBatch , arrow::matlab::tabular::proxy::RecordBatch);
     return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID, "Did not find matching C++ proxy for " + class_name};
 };
 

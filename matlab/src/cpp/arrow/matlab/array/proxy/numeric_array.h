@@ -77,10 +77,9 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                 auto status = builder.AppendValues(dt, numeric_mda.getNumberOfElements(), unpacked_validity_bitmap);
                 MATLAB_ERROR_IF_NOT_OK(status, error::APPEND_VALUES_ERROR_ID);
 
-                auto maybe_array = builder.Finish();
-                MATLAB_ERROR_IF_NOT_OK(maybe_array.status(), error::BUILD_ARRAY_ERROR_ID);
+                MATLAB_ASSIGN_OR_ERROR(auto array, builder.Finish(), error::BUILD_ARRAY_ERROR_ID);
 
-                return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(*maybe_array);
+                return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(array);
 
             } else {
                 const auto data_type = arrow::CTypeTraits<CType>::type_singleton();
@@ -90,10 +89,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
                 auto data_buffer = std::make_shared<arrow::Buffer>(reinterpret_cast<const uint8_t*>(dt),
                                                               sizeof(CType) * numeric_mda.getNumberOfElements());
                 // Pack the validity bitmap values.
-
-                auto maybe_buffer = bit::packValid(valid_mda);
-                MATLAB_ERROR_IF_NOT_OK(maybe_buffer.status(), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
-                auto packed_validity_bitmap = *maybe_buffer;
+                MATLAB_ASSIGN_OR_ERROR(auto packed_validity_bitmap, bit::packValid(valid_mda), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
                 auto array_data = arrow::ArrayData::Make(data_type, length, {packed_validity_bitmap, data_buffer});
                 return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(arrow::MakeArray(array_data));
             }

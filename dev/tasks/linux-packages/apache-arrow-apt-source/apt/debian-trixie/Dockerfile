@@ -15,12 +15,27 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM amazonlinux:2
+FROM debian:trixie
+
+RUN \
+  echo "debconf debconf/frontend select Noninteractive" | \
+    debconf-set-selections
+
+RUN \
+  echo 'APT::Install-Recommends "false";' > \
+    /etc/apt/apt.conf.d/disable-install-recommends
 
 ARG DEBUG
 
 RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  yum install -y ${quiet} \
-    rpmdevtools && \
-  yum clean ${quiet} all
+  quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
+  apt update ${quiet} && \
+  apt install -y -V ${quiet} \
+    base-files \
+    build-essential \
+    debhelper \
+    devscripts \
+    fakeroot \
+    gnupg \
+    lsb-release && \
+  apt clean

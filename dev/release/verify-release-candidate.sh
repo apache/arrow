@@ -189,6 +189,8 @@ test_apt() {
                 "arm64v8/debian:bullseye" \
                 "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
+                "debian:trixie" \
+                "arm64v8/debian:trixie" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
@@ -233,7 +235,6 @@ test_yum() {
                 "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2023" \
-                "amazonlinux:2" \
                 "quay.io/centos/centos:stream9" \
                 "quay.io/centos/centos:stream8" \
                 "centos:7"; do

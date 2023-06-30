@@ -15,4 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arm64v8/amazonlinux:2
+arm64v8/debian:trixie

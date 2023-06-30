@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
@@ -1123,11 +1124,46 @@ public class TestBaseAllocator {
           break;
         }
       }
-      assertTrue(result);
+      assertTrue("Log messages are:\n" +
+          memoryLogsAppender.list.stream().map(ILoggingEvent::toString).collect(Collectors.joining("\n")),
+          result);
     } finally {
       memoryLogsAppender.stop();
       logger.detachAppender(memoryLogsAppender);
       logger.setLevel(null);
+    }
+  }
+
+  @Test
+  public void testOverlimit() {
+    try (BufferAllocator allocator = new RootAllocator(1024)) {
+      try (BufferAllocator child1 = allocator.newChildAllocator("ChildA", 0, 1024);
+           BufferAllocator child2 = allocator.newChildAllocator("ChildB", 1024, 1024)) {
+        assertThrows(OutOfMemoryException.class, () -> {
+          ArrowBuf buf1 = child1.buffer(8);
+          buf1.close();
+        });
+        assertEquals(0, child1.getAllocatedMemory());
+        assertEquals(0, child2.getAllocatedMemory());
+        assertEquals(1024, allocator.getAllocatedMemory());
+      }
+    }
+  }
+
+  @Test
+  public void testOverlimitOverflow() {
+    // Regression test for https://github.com/apache/arrow/issues/35960
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      try (BufferAllocator child1 = allocator.newChildAllocator("ChildA", 0, Long.MAX_VALUE);
+           BufferAllocator child2 = allocator.newChildAllocator("ChildB", Long.MAX_VALUE, Long.MAX_VALUE)) {
+        assertThrows(OutOfMemoryException.class, () -> {
+          ArrowBuf buf1 = child1.buffer(1024);
+          buf1.close();
+        });
+        assertEquals(0, child1.getAllocatedMemory());
+        assertEquals(0, child2.getAllocatedMemory());
+        assertEquals(Long.MAX_VALUE, allocator.getAllocatedMemory());
+      }
     }
   }
 

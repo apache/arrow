@@ -121,6 +121,8 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                     arrowArray = arrow.array.Int64Array(matlabArray);
                 case "logical"
                     arrowArray = arrow.array.BooleanArray(matlabArray);
+                case "datetime"
+                    arrowArray = arrow.array.TimestampArray(matlabArray);
                 otherwise
                     error("arrow:tabular:recordbatch:UnsupportedMatlabArrayType", ...
                           "RecordBatch cannot be constructed from a MATLAB array of type '" + class(matlabArray) + "'.");

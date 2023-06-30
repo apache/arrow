@@ -122,7 +122,7 @@ Scalar$create <- function(x, type = NULL) {
 #' @export
 scalar <- Scalar$create
 
-#' @rdname array
+#' @rdname scalar
 #' @usage NULL
 #' @format NULL
 #' @export
