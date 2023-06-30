@@ -1042,9 +1042,12 @@ std::shared_ptr<Array> FlattenSparseUnionArray(std::shared_ptr<Array> array) {
 void TestUnionConversion(std::shared_ptr<Array> array) {
   auto length = array->length();
   auto orc_type = liborc::Type::buildTypeFromString("uniontype<string,int>");
-  auto orc_batch =
-      orc_type->createRowBatch(array->length(), *liborc::getDefaultPool(),
-                               /*encoded=*/false, /*useTightNumericVector=*/false);
+
+  // Workaround for an unfortunate breaking change introduced by ORC-1.9.0.
+  MemoryOutputStream mem_stream(/*capacity=*/1024);
+  auto writer = CreateWriter(/*stripe_size=*/1024, *orc_type, &mem_stream);
+  auto orc_batch = writer->createRowBatch(length);
+  // auto orc_batch = orc_type->createRowBatch(length, *liborc::getDefaultPool());
 
   // Convert from arrow to orc
   int arrow_chunk_offset = 0;
