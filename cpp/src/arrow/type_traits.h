@@ -709,7 +709,7 @@ using enable_if_list_type = enable_if_t<is_list_type<T>::value, R>;
 
 template <typename T>
 using is_list_like_type =
-    std::integral_constant<bool, is_base_list_type<T>::value ||
+    std::integral_constant<bool, is_var_length_list_type<T>::value ||
                                      is_fixed_size_list_type<T>::value>;
 
 template <typename T, typename R = void>
