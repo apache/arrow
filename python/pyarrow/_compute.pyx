@@ -1574,7 +1574,7 @@ class MapLookupOptions(_MapLookupOptions):
     """
 
     def __init__(self, query_key, occurrence):
-        if not issubclass(type(query_key), lib.Scalar):
+        if not isinstance(query_key, lib.Scalar):
             query_key = lib.scalar(query_key)
 
         self._set_options(query_key, occurrence)
