@@ -149,7 +149,7 @@ classdef tStringArray < matlab.unittest.TestCase
             % Verify the array has the expected arrow.type.Type object
             data = tc.MatlabArrayFcn(["A", "B"]);
             arrowArray = tc.ArrowArrayConstructor(data);
-            tc.verifyEqual(arrowArray.Type, tc.ArrowType);
+            tc.verifyEqual(arrowArray.Type.ID, tc.ArrowType.ID);
         end
 
         function Unicode(tc)

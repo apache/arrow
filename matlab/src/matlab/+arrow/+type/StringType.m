@@ -16,14 +16,10 @@
 classdef StringType < arrow.type.Type
 %STRINGTYPE Type class for string data.
 
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.String
-    end
-
-    properties(Constant)
-        NumFields = 0
-        NumBuffers = 3
-    end
-
+    methods
+        function obj = StringType()
+            obj@arrow.type.Type("Name", "arrow.type.proxy.StringType", "ConstructorArguments", {});
+        end
+   end
 end
 

@@ -22,6 +22,7 @@
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/type/proxy/primitive_ctype.h"
+#include "arrow/matlab/type/proxy/string_type.h"
 #include "arrow/matlab/type/proxy/timestamp_type.h"
 
 #include "factory.h"
@@ -54,6 +55,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.type.proxy.Int32Type      , arrow::matlab::type::proxy::PrimitiveCType<int32_t>);
     REGISTER_PROXY(arrow.type.proxy.Int64Type      , arrow::matlab::type::proxy::PrimitiveCType<int64_t>);
     REGISTER_PROXY(arrow.type.proxy.BooleanType    , arrow::matlab::type::proxy::PrimitiveCType<bool>);
+    REGISTER_PROXY(arrow.type.proxy.StringType  , arrow::matlab::type::proxy::StringType);
     REGISTER_PROXY(arrow.type.proxy.TimestampType  , arrow::matlab::type::proxy::TimestampType);
 
     return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID, "Did not find matching C++ proxy for " + class_name};
