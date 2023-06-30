@@ -1052,7 +1052,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   }
 
   void WaitForEndOrUnlocked(std::chrono::time_point<std::chrono::steady_clock> end_time,
-                             arrow::internal::Executor* executor, Future<> future) {
+                            arrow::internal::Executor* executor, Future<> future) {
     if (unlocked_) {
       num_finished_++;
       future.MarkFinished(Status::OK());
