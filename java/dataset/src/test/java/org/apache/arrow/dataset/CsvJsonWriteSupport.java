@@ -24,17 +24,18 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Random;
 
-public class CsvWriteSupport {
+public class CsvJsonWriteSupport {
   private final URI uri;
   private final Random random = new Random();
 
-  public CsvWriteSupport(File outputFolder) throws URISyntaxException {
-    uri = new URI("file", outputFolder.getPath() + File.separator + "generated-" + random.nextLong() + ".csv", null);
+  public CsvJsonWriteSupport(File outputFolder, String jsonOrCsvFileExtension) throws URISyntaxException {
+    uri = new URI("file", outputFolder.getPath() + File.separator +
+        "generated-" + random.nextLong() + jsonOrCsvFileExtension, null);
   }
 
-  public static CsvWriteSupport writeTempFile(File outputFolder, String... values)
+  public static CsvJsonWriteSupport writeTempFile(File outputFolder, String jsonOrCsvFileExtension, String... values)
       throws URISyntaxException, IOException {
-    CsvWriteSupport writer = new CsvWriteSupport(outputFolder);
+    CsvJsonWriteSupport writer = new CsvJsonWriteSupport(outputFolder, jsonOrCsvFileExtension);
     try (FileWriter addValues = new FileWriter(new File(writer.uri), true)) {
       for (Object value : values) {
         addValues.write(value + "\n");
