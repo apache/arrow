@@ -336,9 +336,10 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
     tm.assert_frame_equal(df, df_correct)
 
 
-def test_timestamp_restore_timezone():
+@pytest.mark.parametrize('unit', ['ms', 'us', 'ns'])
+def test_timestamp_restore_timezone(unit):
     # ARROW-5888, restore timezone from serialized metadata
-    ty = pa.timestamp('ms', tz='America/New_York')
+    ty = pa.timestamp(unit, tz='America/New_York')
     arr = pa.array([1, 2, 3], type=ty)
     t = pa.table([arr], names=['f0'])
     _check_roundtrip(t)
@@ -346,13 +347,13 @@ def test_timestamp_restore_timezone():
 
 def test_timestamp_restore_timezone_nanosecond():
     # ARROW-9634, also restore timezone for nanosecond data that get stored
-    # as microseconds in the parquet file
+    # as microseconds in the parquet file for Parquet ver 2.4 and less
     ty = pa.timestamp('ns', tz='America/New_York')
     arr = pa.array([1000, 2000, 3000], type=ty)
     table = pa.table([arr], names=['f0'])
     ty_us = pa.timestamp('us', tz='America/New_York')
     expected = pa.table([arr.cast(ty_us)], names=['f0'])
-    _check_roundtrip(table, expected=expected)
+    _check_roundtrip(table, expected=expected, version='2.4')
 
 
 @pytest.mark.pandas
