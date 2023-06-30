@@ -561,4 +561,5 @@ MapArray <- R6Class("MapArray",
 #' na_array <- arrow_array(c(1:5, NA))
 #' na_array2 <- na_array
 #' na_array2 == na_array # element-wise comparison
+#' @export
 arrow_array <- Array$create
