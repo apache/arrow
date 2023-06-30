@@ -383,7 +383,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// number of bits in this Bitmap
   int64_t length() const { return length_; }
 
-  /// string_view of all bytes which contain any bit in this Bitmap
+  /// span of all bytes which contain any bit in this Bitmap
   util::span<const uint8_t> bytes() const {
     auto byte_offset = offset_ / 8;
     auto byte_count = bit_util::CeilDiv(offset_ + length_, 8) - byte_offset;
@@ -391,7 +391,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   }
 
  private:
-  /// string_view of all Words which contain any bit in this Bitmap
+  /// span of all Words which contain any bit in this Bitmap
   ///
   /// For example, given Word=uint16_t and a bitmap spanning bits [20, 36)
   /// words() would span bits [16, 48).
