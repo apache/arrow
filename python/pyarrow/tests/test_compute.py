@@ -155,6 +155,7 @@ def test_option_class_equality():
         pc.ModeOptions(),
         pc.NullOptions(),
         pc.PadOptions(5),
+        pc.PairwiseOptions(period=1),
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.CumulativeOptions(start=None, skip_nulls=False),
         pc.QuantileOptions(),
@@ -3481,3 +3482,33 @@ def test_run_end_encode():
     check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int16()))
     check_run_end_encode_decode(pc.RunEndEncodeOptions('int32'))
     check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int64()))
+
+
+def test_pairwise_diff():
+    arr = pa.array([1, 2, 3, None, 4, 5])
+    expected = pa.array([None, 1, 1, None, None, 1])
+    result = pa.compute.pairwise_diff(arr, period=1)
+    assert result.equals(expected)
+
+    arr = pa.array([1, 2, 3, None, 4, 5])
+    expected = pa.array([None, None, 2, None, 1, None])
+    result = pa.compute.pairwise_diff(arr, period=2)
+    assert result.equals(expected)
+
+    # negative period
+    arr = pa.array([1, 2, 3, None, 4, 5], type=pa.int8())
+    expected = pa.array([-1, -1, None, None, -1, None], type=pa.int8())
+    result = pa.compute.pairwise_diff(arr, period=-1)
+    assert result.equals(expected)
+
+    # wrap around overflow
+    arr = pa.array([1, 2, 3, None, 4, 5], type=pa.uint8())
+    expected = pa.array([255, 255, None, None, 255, None], type=pa.uint8())
+    result = pa.compute.pairwise_diff(arr, period=-1)
+    assert result.equals(expected)
+
+    # fail on overflow
+    arr = pa.array([1, 2, 3, None, 4, 5], type=pa.uint8())
+    with pytest.raises(pa.ArrowInvalid,
+                       match="overflow"):
+        pa.compute.pairwise_diff_checked(arr, period=-1)

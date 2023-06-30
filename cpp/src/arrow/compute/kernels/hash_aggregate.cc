@@ -491,7 +491,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
 
     const CType* other_reduced = other->reduced_.data();
     const int64_t* other_counts = other->counts_.data();
-    const uint8_t* other_no_nulls = no_nulls_.mutable_data();
+    const uint8_t* other_no_nulls = other->no_nulls_.data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {

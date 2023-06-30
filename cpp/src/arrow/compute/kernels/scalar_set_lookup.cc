@@ -209,7 +209,7 @@ struct InitStateVisitor {
       const auto& ty1 = checked_cast<const TimestampType&>(*arg_type);
       const auto& ty2 = checked_cast<const TimestampType&>(*options.value_set.type());
       if (ty1.timezone().empty() ^ ty2.timezone().empty()) {
-        return Status::Invalid(
+        return Status::TypeError(
             "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
             ty1, " and ", ty2);
       }
@@ -218,8 +218,8 @@ struct InitStateVisitor {
       // This is a bit of a hack, but don't implicitly cast from a non-binary
       // type to string, since most types support casting to string and that
       // may lead to surprises. However, we do want most other implicit casts.
-      return Status::Invalid("Array type didn't match type of values set: ", *arg_type,
-                             " vs ", *options.value_set.type());
+      return Status::TypeError("Array type doesn't match type of values set: ", *arg_type,
+                               " vs ", *options.value_set.type());
     }
 
     if (!options.value_set.is_arraylike()) {
@@ -236,12 +236,12 @@ struct InitStateVisitor {
         if ((options.value_set.type()->id() == Type::STRING ||
              options.value_set.type()->id() == Type::LARGE_STRING) &&
             !is_base_binary_like(arg_type.id())) {
-          return Status::Invalid("Array type didn't match type of values set: ",
-                                 *arg_type, " vs ", *options.value_set.type());
+          return Status::TypeError("Array type doesn't match type of values set: ",
+                                   *arg_type, " vs ", *options.value_set.type());
         }
       } else {
-        return Status::Invalid("Array type doesn't match type of values set: ", *arg_type,
-                               " vs ", *options.value_set.type());
+        return Status::TypeError("Array type doesn't match type of values set: ",
+                                 *arg_type, " vs ", *options.value_set.type());
       }
     }
 
@@ -326,9 +326,16 @@ struct IndexInVisitor {
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
     if (!data.type->Equals(state.value_set_type)) {
       auto materialized_input = data.ToArrayData();
-      ARROW_ASSIGN_OR_RAISE(auto casted_input,
-                            Cast(*materialized_input, state.value_set_type,
-                                 CastOptions::Safe(), ctx->exec_context()));
+      auto cast_result = Cast(*materialized_input, state.value_set_type,
+                              CastOptions::Safe(), ctx->exec_context());
+      if (ARROW_PREDICT_FALSE(!cast_result.ok())) {
+        if (cast_result.status().IsNotImplemented()) {
+          return Status::TypeError("Array type doesn't match type of values set: ",
+                                   *data.type, " vs ", *state.value_set_type);
+        }
+        return cast_result.status();
+      }
+      auto casted_input = *cast_result;
       return ProcessIndexIn(state, *casted_input.array());
     }
     return ProcessIndexIn(state, data);
@@ -423,11 +430,18 @@ struct IsInVisitor {
     const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
 
     if (!data.type->Equals(state.value_set_type)) {
-      auto materialized_data = data.ToArrayData();
-      ARROW_ASSIGN_OR_RAISE(auto casted_data,
-                            Cast(*materialized_data, state.value_set_type,
-                                 CastOptions::Safe(), ctx->exec_context()));
-      return ProcessIsIn(state, *casted_data.array());
+      auto materialized_input = data.ToArrayData();
+      auto cast_result = Cast(*materialized_input, state.value_set_type,
+                              CastOptions::Safe(), ctx->exec_context());
+      if (ARROW_PREDICT_FALSE(!cast_result.ok())) {
+        if (cast_result.status().IsNotImplemented()) {
+          return Status::TypeError("Array type doesn't match type of values set: ",
+                                   *data.type, " vs ", *state.value_set_type);
+        }
+        return cast_result.status();
+      }
+      auto casted_input = *cast_result;
+      return ProcessIsIn(state, *casted_input.array());
     }
     return ProcessIsIn(state, data);
   }

@@ -4818,15 +4818,28 @@ def test_unhashable_map_keys_with_pydicts():
             assert tup1[1] == tup2[1]
 
 
-def test_column_conversion_for_datetime():
+def test_table_column_conversion_for_datetime():
     # GH-35235
-    # pandas implemented __from_arrow__ for DatetimeTZDtype
+    # pandas implemented __from_arrow__ for DatetimeTZDtype,
+    # but we choose to do the conversion in Arrow instead.
     # https://github.com/pandas-dev/pandas/pull/52201
-    arr = pd.Series(pd.date_range("2012", periods=2, tz="Europe/Brussels"),
-                    name="datetime_column")
-    table = pa.table({"datetime_column": pa.array(arr)})
+    series = pd.Series(pd.date_range("2012", periods=2, tz="Europe/Brussels"),
+                       name="datetime_column")
+    table = pa.table({"datetime_column": pa.array(series)})
     table_col = table.column("datetime_column")
 
     result = table_col.to_pandas()
     assert result.name == "datetime_column"
-    tm.assert_series_equal(result, arr)
+    tm.assert_series_equal(result, series)
+
+
+def test_array_conversion_for_datetime():
+    # GH-35235
+    # pandas implemented __from_arrow__ for DatetimeTZDtype,
+    # but we choose to do the conversion in Arrow instead.
+    # https://github.com/pandas-dev/pandas/pull/52201
+    series = pd.Series(pd.date_range("2012", periods=2, tz="Europe/Brussels"))
+    arr = pa.array(series)
+
+    result = arr.to_pandas()
+    tm.assert_series_equal(result, series)

@@ -22,19 +22,19 @@ endif()
 if(APPLE AND NOT OPENSSL_ROOT_DIR)
   find_program(BREW brew)
   if(BREW)
-    execute_process(COMMAND ${BREW} --prefix "openssl@1.1"
-                    OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(OPENSSL11_BREW_PREFIX)
-      set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
-    else()
-      execute_process(COMMAND ${BREW} --prefix "openssl"
-                      OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
-                      OUTPUT_STRIP_TRAILING_WHITESPACE)
-      if(OPENSSL_BREW_PREFIX)
-        set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
+    foreach(BREW_OPENSSL_VERSION "" "3" "3.0" "1.1")
+      set(BREW_OPENSSL_PACKAGE "openssl")
+      if(BREW_OPENSSL_VERSION)
+        string(APPEND BREW_OPENSSL_PACKAGE "@${BREW_OPENSSL_VERSION}")
       endif()
-    endif()
+      execute_process(COMMAND ${BREW} --prefix --installed ${BREW_OPENSSL_PACKAGE}
+                      OUTPUT_VARIABLE BREW_OPENSSL_PREFIX
+                      OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if(BREW_OPENSSL_PREFIX)
+        set(OPENSSL_ROOT_DIR ${BREW_OPENSSL_PREFIX})
+        break()
+      endif()
+    endforeach()
   endif()
 endif()
 
