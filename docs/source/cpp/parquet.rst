@@ -27,7 +27,7 @@ Reading and writing Parquet files
 .. seealso::
    :ref:`Parquet reader and writer API reference <cpp-api-parquet>`.
 
-The `Parquet format <https://parquet.apache.org/documentation/latest/>`__
+The `Parquet format <https://parquet.apache.org/docs/>`__
 is a space-efficient columnar storage format for complex data.  The Parquet
 C++ implementation is part of the Apache Arrow project and benefits
 from tight integration with the Arrow C++ classes and facilities.
@@ -304,6 +304,8 @@ Statistics are enabled by default for all columns. You can disable statistics fo
 all columns or specific columns using ``disable_statistics`` on the builder.
 There is a ``max_statistics_size`` which limits the maximum number of bytes that
 may be used for min and max values, useful for types like strings or binary blobs.
+If a column has enabled page index using ``enable_write_page_index``, then it does
+not write statistics to the page header because it is duplicated in the ColumnIndex.
 
 There are also Arrow-specific settings that can be configured with
 :class:`parquet::ArrowWriterProperties`:
@@ -317,7 +319,6 @@ There are also Arrow-specific settings that can be configured with
    std::shared_ptr<ArrowWriterProperties> arrow_props = ArrowWriterProperties::Builder()
       .enable_deprecated_int96_timestamps() // default False
       ->store_schema() // default False
-      ->enable_compliant_nested_types() // default False
       ->build();
 
 These options mostly dictate how Arrow types are converted to Parquet types.
@@ -574,13 +575,13 @@ Miscellaneous
 +--------------------------+----------+----------+---------+
 | Feature                  | Reading  | Writing  | Notes   |
 +==========================+==========+==========+=========+
-| Column Index             | ✓        |          | \(1)    |
+| Column Index             | ✓        | ✓        | \(1)    |
 +--------------------------+----------+----------+---------+
-| Offset Index             | ✓        |          | \(1)    |
+| Offset Index             | ✓        | ✓        | \(1)    |
 +--------------------------+----------+----------+---------+
 | Bloom Filter             | ✓        | ✓        | \(2)    |
 +--------------------------+----------+----------+---------+
-| CRC checksums            | ✓        | ✓        | \(3)    |
+| CRC checksums            | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
 
 * \(1) Access to the Column and Offset Index structures is provided, but
@@ -588,6 +589,3 @@ Miscellaneous
 
 * \(2) APIs are provided for creating, serializing and deserializing Bloom
   Filters, but they are not integrated into data read APIs.
-
-* \(3) For now, only the checksums of V1 Data Pages and Dictionary Pages
-  are computed.

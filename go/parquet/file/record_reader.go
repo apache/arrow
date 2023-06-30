@@ -23,14 +23,14 @@ import (
 	"unsafe"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -783,19 +783,19 @@ func newByteArrayRecordReader(descr *schema.Column, info LevelInfo, dtype arrow.
 	}}
 }
 
-func (fr *byteArrayRecordReader) ReserveValues(extra int64, hasNullable bool) error {
-	fr.bldr.Reserve(int(extra))
-	return fr.primitiveRecordReader.ReserveValues(extra, hasNullable)
+func (br *byteArrayRecordReader) ReserveValues(extra int64, hasNullable bool) error {
+	br.bldr.Reserve(int(extra))
+	return br.primitiveRecordReader.ReserveValues(extra, hasNullable)
 }
 
-func (fr *byteArrayRecordReader) Retain() {
-	fr.bldr.Retain()
-	fr.primitiveRecordReader.Retain()
+func (br *byteArrayRecordReader) Retain() {
+	br.bldr.Retain()
+	br.primitiveRecordReader.Retain()
 }
 
-func (fr *byteArrayRecordReader) Release() {
-	fr.bldr.Release()
-	fr.primitiveRecordReader.Release()
+func (br *byteArrayRecordReader) Release() {
+	br.bldr.Release()
+	br.primitiveRecordReader.Release()
 }
 
 func (br *byteArrayRecordReader) ReadValuesDense(toRead int64) error {

@@ -18,6 +18,7 @@
 library(dplyr, warn.conflicts = FALSE)
 suppressPackageStartupMessages(library(bit64))
 
+skip_if_not_available("acero")
 
 tbl <- example_data
 tbl$verses <- verses[[1]]
@@ -175,6 +176,14 @@ test_that("case_when()", {
       collect(),
     tbl
   )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(cw = case_when(int > 5 ~ 1, .default = 0)) %>%
+      collect(),
+    tbl
+  )
+
   compare_dplyr_binding(
     .input %>%
       transmute(cw = case_when(chr %in% letters[1:3] ~ 1L) + 41L) %>%
@@ -268,6 +277,29 @@ test_that("case_when()", {
         transmute(cw = case_when(dbl + 3.14159 ~ TRUE)),
       "case_when"
     )
+  )
+
+  expect_error(
+    expect_warning(
+      tbl %>%
+        arrow_table() %>%
+        mutate(cw = case_when(int > 5 ~ 1, .default = c(0, 1)))
+    ),
+    "`.default` must have size"
+  )
+
+  expect_warning(
+    tbl %>%
+      arrow_table() %>%
+      mutate(cw = case_when(int > 5 ~ 1, .ptype = integer())),
+    "not supported in Arrow"
+  )
+
+  expect_warning(
+    tbl %>%
+      arrow_table() %>%
+      mutate(cw = case_when(int > 5 ~ 1, .size = 10)),
+    "not supported in Arrow"
   )
 
   compare_dplyr_binding(
@@ -376,8 +408,11 @@ test_that("coalesce()", {
     y = c(NA_real_, 2.2, 3.3),
     z = c(1.1, 2.2, 3.3)
   )
-  compare_dplyr_binding(
-    .input %>%
+
+  # we can't use compare_dplyr_binding here as dplyr silently converts NaN to NA in coalesce()
+  # see https://github.com/tidyverse/dplyr/issues/6833
+  expect_identical(
+    arrow_table(df) %>%
       mutate(
         cw = coalesce(w),
         cz = coalesce(z),
@@ -386,21 +421,29 @@ test_that("coalesce()", {
         cwxyz = coalesce(w, x, y, z)
       ) %>%
       collect(),
-    df
+    mutate(
+      df,
+      cw = c(NA, NaN, NA),
+      cz = c(1.1, 2.2, 3.3),
+      cwx = c(NA, NaN, 3.3),
+      cwxy = c(NA, 2.2, 3.3),
+      cwxyz = c(1.1, 2.2, 3.3)
+    )
   )
+
   # NaNs stay NaN and are not converted to NA in the results
   # (testing this requires expect_identical())
   expect_identical(
     df %>% Table$create() %>% mutate(cwx = coalesce(w, x)) %>% collect(),
-    df %>% mutate(cwx = coalesce(w, x))
+    df %>% mutate(cwx = c(NA, NaN, 3.3))
   )
   expect_identical(
     df %>% Table$create() %>% transmute(cw = coalesce(w)) %>% collect(),
-    df %>% transmute(cw = coalesce(w))
+    df %>% transmute(cw = w)
   )
   expect_identical(
     df %>% Table$create() %>% transmute(cn = coalesce(NaN)) %>% collect(),
-    df %>% transmute(cn = coalesce(NaN))
+    df %>% transmute(cn = NaN)
   )
   # singles stay single
   expect_equal(
@@ -417,8 +460,8 @@ test_that("coalesce()", {
     float32()
   )
   # with R literal values
-  compare_dplyr_binding(
-    .input %>%
+  expect_identical(
+    arrow_table(df) %>%
       mutate(
         c1 = coalesce(4.4),
         c2 = coalesce(NA_real_),
@@ -428,7 +471,15 @@ test_that("coalesce()", {
         c6 = coalesce(w, x, y, NaN)
       ) %>%
       collect(),
-    df
+    mutate(
+      df,
+      c1 = 4.4,
+      c2 = NA_real_,
+      c3 = NaN,
+      c4 = c(5.5, 2.2, 3.3),
+      c5 = c(NA, 2.2, 3.3),
+      c6 = c(NaN, 2.2, 3.3)
+    )
   )
 
   # no arguments

@@ -122,7 +122,6 @@ endmacro()
 
 macro(resolve_option_dependencies)
   if(MSVC_TOOLCHAIN)
-    # Plasma using glog is not fully tested on windows.
     set(ARROW_USE_GLOG OFF)
   endif()
 
@@ -265,7 +264,8 @@ takes precedence over ccache if a storage backend is configured" ON)
                 "Build Arrow Fuzzing executables"
                 OFF
                 DEPENDS
-                ARROW_TESTING)
+                ARROW_TESTING
+                ARROW_WITH_BROTLI)
 
   define_option(ARROW_LARGE_MEMORY_TESTS "Enable unit tests which use large memory" OFF)
 
@@ -294,6 +294,13 @@ takes precedence over ccache if a storage backend is configured" ON)
   #----------------------------------------------------------------------
   set_option_category("Project component")
 
+  define_option(ARROW_ACERO
+                "Build the Arrow Acero Engine Module"
+                OFF
+                DEPENDS
+                ARROW_COMPUTE
+                ARROW_IPC)
+
   define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 
   define_option(ARROW_COMPUTE "Build all Arrow Compute kernels" OFF)
@@ -310,7 +317,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 "Build the Arrow Dataset Modules"
                 OFF
                 DEPENDS
-                ARROW_COMPUTE
+                ARROW_ACERO
                 ARROW_FILESYSTEM)
 
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
@@ -372,14 +379,11 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_WITH_ZLIB
                 ARROW_WITH_ZSTD)
 
-  define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
-
   define_option(ARROW_PYTHON
                 "Build some components needed by PyArrow.;\
 (This is a deprecated option. Use CMake presets instead.)"
                 OFF
                 DEPENDS
-                ARROW_COMPUTE
                 ARROW_CSV
                 ARROW_DATASET
                 ARROW_FILESYSTEM
@@ -426,11 +430,10 @@ takes precedence over ccache if a storage backend is configured" ON)
   #   one of the other methods, pass -D$NAME_SOURCE=BUNDLED
   # * SYSTEM: Use CMake's find_package and find_library without any custom
   #   paths. If individual packages are on non-default locations, you can pass
-  #   $NAME_ROOT arguments to CMake, or set environment variables for the same
-  #   with CMake 3.11 and higher.  If your system packages are in a non-default
-  #   location, or if you are using a non-standard toolchain, you can also pass
-  #   ARROW_PACKAGE_PREFIX to set the *_ROOT variables to look in that
-  #   directory
+  #   $NAME_ROOT arguments to CMake, or set environment variables for the same.
+  #   If your system packages are in a non-default location, or if you are using
+  #   a non-standard toolchain, you can also pass ARROW_PACKAGE_PREFIX to set
+  #   the *_ROOT variables to look in that directory
   # * CONDA: Same as SYSTEM but set all *_ROOT variables to
   #   ENV{CONDA_PREFIX}. If this is run within an active conda environment,
   #   then ENV{CONDA_PREFIX} will be used for dependencies unless
@@ -613,6 +616,13 @@ Always OFF if building binaries" OFF)
 advised that if this is enabled 'install' will fail silently on components;\
 that have not been built"
                 OFF)
+
+  define_option_string(ARROW_GDB_INSTALL_DIR
+                       "Use a custom install directory for GDB plugin.;\
+In general, you don't need to specify this because the default;\
+(CMAKE_INSTALL_FULL_BINDIR on Windows, CMAKE_INSTALL_FULL_LIBDIR otherwise);\
+is reasonable."
+                       "")
 
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)

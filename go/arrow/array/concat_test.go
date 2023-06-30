@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -56,7 +56,7 @@ func TestConcatenateValueBuffersNull(t *testing.T) {
 	assert.NoError(t, err)
 	defer actual.Release()
 
-	assert.True(t, array.ArrayEqual(actual, inputs[1]))
+	assert.True(t, array.Equal(actual, inputs[1]))
 }
 
 func TestConcatenate(t *testing.T) {
@@ -324,7 +324,7 @@ func (cts *ConcatTestSuite) TestCheckConcat() {
 					cts.NoError(err)
 					defer actual.Release()
 
-					cts.Truef(array.ArrayEqual(expected, actual), "expected: %s\ngot: %s\n", expected, actual)
+					cts.Truef(array.Equal(expected, actual), "expected: %s\ngot: %s\n", expected, actual)
 					if len(actual.Data().Buffers()) > 0 {
 						if actual.Data().Buffers()[0] != nil {
 							cts.checkTrailingBitsZeroed(actual.Data().Buffers()[0], int64(actual.Len()))

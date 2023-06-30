@@ -16,11 +16,14 @@
 // under the License.
 
 #include "./arrow_types.h"
+
+#if defined(ARROW_R_WITH_ACERO)
+
 #include "./safe-call-into-r.h"
 
+#include <arrow/acero/exec_plan.h>
 #include <arrow/buffer.h>
 #include <arrow/compute/api.h>
-#include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/expression.h>
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
@@ -30,6 +33,7 @@
 #include <iostream>
 #include <optional>
 
+namespace acero = ::arrow::acero;
 namespace compute = ::arrow::compute;
 
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
@@ -37,23 +41,24 @@ std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_
 
 std::shared_ptr<arrow::KeyValueMetadata> strings_to_kvm(cpp11::strings metadata);
 
-// [[arrow::export]]
-std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads) {
+// [[acero::export]]
+std::shared_ptr<acero::ExecPlan> ExecPlan_create(bool use_threads) {
   static compute::ExecContext threaded_context{gc_memory_pool(),
                                                arrow::internal::GetCpuThreadPool()};
   // TODO(weston) using gc_context() in this way is deprecated.  Once ordering has
   // been added we can probably entirely remove all reference to ExecPlan from R
   // in favor of DeclarationToXyz
-  auto plan = ValueOrStop(
-      compute::ExecPlan::Make(use_threads ? &threaded_context : gc_context()));
+  auto plan =
+      ValueOrStop(acero::ExecPlan::Make(use_threads ? &threaded_context : gc_context()));
+
   return plan;
 }
 
-std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
-    const std::string& factory_name, compute::ExecPlan* plan,
-    std::vector<compute::ExecNode*> inputs, const compute::ExecNodeOptions& options) {
-  return std::shared_ptr<compute::ExecNode>(
-      ValueOrStop(compute::MakeExecNode(factory_name, plan, std::move(inputs), options)),
+std::shared_ptr<acero::ExecNode> MakeExecNodeOrStop(
+    const std::string& factory_name, acero::ExecPlan* plan,
+    std::vector<acero::ExecNode*> inputs, const acero::ExecNodeOptions& options) {
+  return std::shared_ptr<acero::ExecNode>(
+      ValueOrStop(acero::MakeExecNode(factory_name, plan, std::move(inputs), options)),
       [](...) {
         // empty destructor: ExecNode lifetime is managed by an ExecPlan
       });
@@ -72,7 +77,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
  public:
   enum ExecPlanReaderStatus { PLAN_NOT_STARTED, PLAN_RUNNING, PLAN_FINISHED };
 
-  ExecPlanReader(const std::shared_ptr<arrow::compute::ExecPlan>& plan,
+  ExecPlanReader(const std::shared_ptr<arrow::acero::ExecPlan>& plan,
                  const std::shared_ptr<arrow::Schema>& schema,
                  arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen)
       : schema_(schema),
@@ -146,13 +151,13 @@ class ExecPlanReader : public arrow::RecordBatchReader {
     return arrow::Status::OK();
   }
 
-  const std::shared_ptr<arrow::compute::ExecPlan>& Plan() const { return plan_; }
+  const std::shared_ptr<arrow::acero::ExecPlan>& Plan() const { return plan_; }
 
   ~ExecPlanReader() { StopProducing(); }
 
  private:
   std::shared_ptr<arrow::Schema> schema_;
-  std::shared_ptr<arrow::compute::ExecPlan> plan_;
+  std::shared_ptr<arrow::acero::ExecPlan> plan_;
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen_;
   ExecPlanReaderStatus plan_status_;
   arrow::StopToken stop_token_;
@@ -168,7 +173,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
       // to finish and clean up after itself. To do this, we give a
       // callable with its own copy of the shared_ptr<ExecPlan> so
       // that it can delete itself when it is safe to do so.
-      std::shared_ptr<arrow::compute::ExecPlan> plan(plan_);
+      std::shared_ptr<arrow::acero::ExecPlan> plan(plan_);
       bool not_finished_yet = plan_->finished().TryAddCallback(
           [&plan] { return [plan](const arrow::Status&) {}; });
 
@@ -184,7 +189,7 @@ class ExecPlanReader : public arrow::RecordBatchReader {
   }
 };
 
-// [[arrow::export]]
+// [[acero::export]]
 cpp11::list ExecPlanReader__batches(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   auto result = RunWithCapturedRIfPossible<arrow::RecordBatchVector>(
@@ -192,7 +197,7 @@ cpp11::list ExecPlanReader__batches(
   return arrow::r::to_r_list(ValueOrStop(result));
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<arrow::Table> Table__from_ExecPlanReader(
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
@@ -201,8 +206,8 @@ std::shared_ptr<arrow::Table> Table__from_ExecPlanReader(
   return ValueOrStop(result);
 }
 
-// [[arrow::export]]
-std::shared_ptr<compute::ExecPlan> ExecPlanReader__Plan(
+// [[acero::export]]
+std::shared_ptr<acero::ExecPlan> ExecPlanReader__Plan(
     const std::shared_ptr<ExecPlanReader>& reader) {
   if (reader->PlanStatus() == "PLAN_FINISHED") {
     cpp11::stop("Can't extract ExecPlan from a finished ExecPlanReader");
@@ -211,43 +216,21 @@ std::shared_ptr<compute::ExecPlan> ExecPlanReader__Plan(
   return reader->Plan();
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::string ExecPlanReader__PlanStatus(const std::shared_ptr<ExecPlanReader>& reader) {
   return reader->PlanStatus();
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<ExecPlanReader> ExecPlan_run(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::list sort_options,
-    cpp11::strings metadata, int64_t head = -1) {
+    const std::shared_ptr<acero::ExecPlan>& plan,
+    const std::shared_ptr<acero::ExecNode>& final_node, cpp11::strings metadata) {
   // For now, don't require R to construct SinkNodes.
   // Instead, just pass the node we should collect as an argument.
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
-  // Sorting uses a different sink node; there is no general sort yet
-  if (sort_options.size() > 0) {
-    if (head >= 0) {
-      // Use the SelectK node to take only what we need
-      MakeExecNodeOrStop(
-          "select_k_sink", plan.get(), {final_node.get()},
-          compute::SelectKSinkNodeOptions{
-              arrow::compute::SelectKOptions(
-                  head, std::dynamic_pointer_cast<compute::SortOptions>(
-                            make_compute_options("sort_indices", sort_options))
-                            ->sort_keys),
-              &sink_gen});
-    } else {
-      MakeExecNodeOrStop("order_by_sink", plan.get(), {final_node.get()},
-                         compute::OrderBySinkNodeOptions{
-                             *std::dynamic_pointer_cast<compute::SortOptions>(
-                                 make_compute_options("sort_indices", sort_options)),
-                             &sink_gen});
-    }
-  } else {
-    MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
-                       compute::SinkNodeOptions{&sink_gen});
-  }
+  MakeExecNodeOrStop("sink", plan.get(), {final_node.get()},
+                     acero::SinkNodeOptions{&sink_gen});
 
   StopIfNotOk(plan->Validate());
 
@@ -261,21 +244,26 @@ std::shared_ptr<ExecPlanReader> ExecPlan_run(
   return std::make_shared<ExecPlanReader>(plan, out_schema, sink_gen);
 }
 
-// [[arrow::export]]
-std::string ExecPlan_ToString(const std::shared_ptr<compute::ExecPlan>& plan) {
+// [[acero::export]]
+std::string ExecPlan_ToString(const std::shared_ptr<acero::ExecPlan>& plan) {
   return plan->ToString();
 }
 
-// [[arrow::export]]
-void ExecPlan_UnsafeDelete(const std::shared_ptr<compute::ExecPlan>& plan) {
-  auto& plan_unsafe = const_cast<std::shared_ptr<compute::ExecPlan>&>(plan);
+// [[acero::export]]
+void ExecPlan_UnsafeDelete(const std::shared_ptr<acero::ExecPlan>& plan) {
+  auto& plan_unsafe = const_cast<std::shared_ptr<acero::ExecPlan>&>(plan);
   plan_unsafe.reset();
 }
 
-// [[arrow::export]]
+// [[acero::export]]
 std::shared_ptr<arrow::Schema> ExecNode_output_schema(
-    const std::shared_ptr<compute::ExecNode>& node) {
+    const std::shared_ptr<acero::ExecNode>& node) {
   return node->output_schema();
+}
+
+// [[acero::export]]
+bool ExecNode_has_ordered_batches(const std::shared_ptr<acero::ExecNode>& node) {
+  return !node->ordering().is_unordered();
 }
 
 #if defined(ARROW_R_WITH_DATASET)
@@ -285,8 +273,8 @@ std::shared_ptr<arrow::Schema> ExecNode_output_schema(
 #include <arrow/dataset/scanner.h>
 
 // [[dataset::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_Scan(
-    const std::shared_ptr<compute::ExecPlan>& plan,
+std::shared_ptr<acero::ExecNode> ExecNode_Scan(
+    const std::shared_ptr<acero::ExecPlan>& plan,
     const std::shared_ptr<ds::Dataset>& dataset,
     const std::shared_ptr<compute::Expression>& filter, cpp11::list projection) {
   arrow::dataset::internal::Initialize();
@@ -319,15 +307,18 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
 }
 
 // [[dataset::export]]
-void ExecPlan_Write(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    const std::shared_ptr<compute::ExecNode>& final_node, cpp11::strings metadata,
-    const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
-    const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
-    const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
-    arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions,
-    uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group,
-    uint64_t max_rows_per_group) {
+void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan,
+                    const std::shared_ptr<acero::ExecNode>& final_node,
+                    const std::shared_ptr<arrow::Schema>& schema,
+                    const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
+                    const std::shared_ptr<fs::FileSystem>& filesystem,
+                    std::string base_dir,
+                    const std::shared_ptr<ds::Partitioning>& partitioning,
+                    std::string basename_template,
+                    arrow::dataset::ExistingDataBehavior existing_data_behavior,
+                    int max_partitions, uint32_t max_open_files,
+                    uint64_t max_rows_per_file, uint64_t min_rows_per_group,
+                    uint64_t max_rows_per_group) {
   arrow::dataset::internal::Initialize();
 
   // TODO(ARROW-16200): expose FileSystemDatasetWriteOptions in R
@@ -345,9 +336,10 @@ void ExecPlan_Write(
   opts.min_rows_per_group = min_rows_per_group;
   opts.max_rows_per_group = max_rows_per_group;
 
-  auto kv = strings_to_kvm(metadata);
-  MakeExecNodeOrStop("write", final_node->plan(), {final_node.get()},
-                     ds::WriteNodeOptions{std::move(opts), std::move(kv)});
+  ds::WriteNodeOptions options(std::move(opts));
+  options.custom_schema = std::move(schema);
+
+  MakeExecNodeOrStop("write", final_node->plan(), {final_node.get()}, std::move(options));
 
   StopIfNotOk(plan->Validate());
 
@@ -361,17 +353,17 @@ void ExecPlan_Write(
 
 #endif
 
-// [[arrow::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_Filter(
-    const std::shared_ptr<compute::ExecNode>& input,
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_Filter(
+    const std::shared_ptr<acero::ExecNode>& input,
     const std::shared_ptr<compute::Expression>& filter) {
   return MakeExecNodeOrStop("filter", input->plan(), {input.get()},
-                            compute::FilterNodeOptions{*filter});
+                            acero::FilterNodeOptions{*filter});
 }
 
-// [[arrow::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_Project(
-    const std::shared_ptr<compute::ExecNode>& input,
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_Project(
+    const std::shared_ptr<acero::ExecNode>& input,
     const std::vector<std::shared_ptr<compute::Expression>>& exprs,
     std::vector<std::string> names) {
   // We have shared_ptrs of expressions but need the Expressions
@@ -381,12 +373,12 @@ std::shared_ptr<compute::ExecNode> ExecNode_Project(
   }
   return MakeExecNodeOrStop(
       "project", input->plan(), {input.get()},
-      compute::ProjectNodeOptions{std::move(expressions), std::move(names)});
+      acero::ProjectNodeOptions{std::move(expressions), std::move(names)});
 }
 
-// [[arrow::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
-    const std::shared_ptr<compute::ExecNode>& input, cpp11::list options,
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_Aggregate(
+    const std::shared_ptr<acero::ExecNode>& input, cpp11::list options,
     std::vector<std::string> key_names) {
   std::vector<arrow::compute::Aggregate> aggregates;
 
@@ -410,13 +402,13 @@ std::shared_ptr<compute::ExecNode> ExecNode_Aggregate(
   }
   return MakeExecNodeOrStop(
       "aggregate", input->plan(), {input.get()},
-      compute::AggregateNodeOptions{std::move(aggregates), std::move(keys)});
+      acero::AggregateNodeOptions{std::move(aggregates), std::move(keys)});
 }
 
-// [[arrow::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_Join(
-    const std::shared_ptr<compute::ExecNode>& input, compute::JoinType join_type,
-    const std::shared_ptr<compute::ExecNode>& right_data,
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_Join(
+    const std::shared_ptr<acero::ExecNode>& input, acero::JoinType join_type,
+    const std::shared_ptr<acero::ExecNode>& right_data,
     std::vector<std::string> left_keys, std::vector<std::string> right_keys,
     std::vector<std::string> left_output, std::vector<std::string> right_output,
     std::string output_suffix_for_left, std::string output_suffix_for_right) {
@@ -432,8 +424,8 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
   }
   // dplyr::semi_join => LEFT_SEMI; dplyr::anti_join => LEFT_ANTI
   // So ignoring RIGHT_SEMI and RIGHT_ANTI here because dplyr doesn't implement them.
-  if (join_type != compute::JoinType::LEFT_SEMI &&
-      join_type != compute::JoinType::LEFT_ANTI) {
+  if (join_type != acero::JoinType::LEFT_SEMI &&
+      join_type != acero::JoinType::LEFT_ANTI) {
     // Don't include out_refs in semi/anti join
     for (auto&& name : right_output) {
       right_out_refs.emplace_back(std::move(name));
@@ -442,37 +434,56 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
 
   return MakeExecNodeOrStop(
       "hashjoin", input->plan(), {input.get(), right_data.get()},
-      compute::HashJoinNodeOptions{
+      acero::HashJoinNodeOptions{
           join_type, std::move(left_refs), std::move(right_refs),
           std::move(left_out_refs), std::move(right_out_refs), compute::literal(true),
           std::move(output_suffix_for_left), std::move(output_suffix_for_right)});
 }
 
-// [[arrow::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_Union(
-    const std::shared_ptr<compute::ExecNode>& input,
-    const std::shared_ptr<compute::ExecNode>& right_data) {
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_Union(
+    const std::shared_ptr<acero::ExecNode>& input,
+    const std::shared_ptr<acero::ExecNode>& right_data) {
   return MakeExecNodeOrStop("union", input->plan(), {input.get(), right_data.get()}, {});
 }
 
-// [[arrow::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_SourceNode(
-    const std::shared_ptr<compute::ExecPlan>& plan,
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_Fetch(
+    const std::shared_ptr<acero::ExecNode>& input, int64_t offset, int64_t limit) {
+  return MakeExecNodeOrStop("fetch", input->plan(), {input.get()},
+                            acero::FetchNodeOptions{offset, limit});
+}
+
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_OrderBy(
+    const std::shared_ptr<acero::ExecNode>& input, cpp11::list sort_options) {
+  return MakeExecNodeOrStop(
+      "order_by", input->plan(), {input.get()},
+      acero::OrderByNodeOptions{std::dynamic_pointer_cast<compute::SortOptions>(
+                                    make_compute_options("sort_indices", sort_options))
+                                    ->AsOrdering()});
+}
+
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_SourceNode(
+    const std::shared_ptr<acero::ExecPlan>& plan,
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
-  arrow::compute::RecordBatchReaderSourceNodeOptions options{reader};
+  arrow::acero::RecordBatchReaderSourceNodeOptions options{reader};
   return MakeExecNodeOrStop("record_batch_reader_source", plan.get(), {}, options);
 }
 
-// [[arrow::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(
-    const std::shared_ptr<compute::ExecPlan>& plan,
+// [[acero::export]]
+std::shared_ptr<acero::ExecNode> ExecNode_TableSourceNode(
+    const std::shared_ptr<acero::ExecPlan>& plan,
     const std::shared_ptr<arrow::Table>& table) {
-  arrow::compute::TableSourceNodeOptions options{/*table=*/table,
-                                                 // TODO: make batch_size configurable
-                                                 /*batch_size=*/1048576};
+  arrow::acero::TableSourceNodeOptions options{/*table=*/table,
+                                               // TODO: make batch_size configurable
+                                               /*batch_size=*/1048576};
 
   return MakeExecNodeOrStop("table_source", plan.get(), {}, options);
 }
+
+#endif
 
 #if defined(ARROW_R_WITH_SUBSTRAIT)
 
@@ -480,13 +491,13 @@ std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(
 
 // Just for example usage until a C++ method is available that implements
 // a RecordBatchReader output (ARROW-15849)
-class AccumulatingConsumer : public compute::SinkNodeConsumer {
+class AccumulatingConsumer : public acero::SinkNodeConsumer {
  public:
   const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches() { return batches_; }
 
   arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema,
-                     compute::BackpressureControl* backpressure_control,
-                     compute::ExecPlan* exec_plan) override {
+                     acero::BackpressureControl* backpressure_control,
+                     acero::ExecPlan* exec_plan) override {
     schema_ = schema;
     return arrow::Status::OK();
   }
@@ -522,22 +533,22 @@ std::shared_ptr<arrow::Buffer> substrait__internal__SubstraitFromJSON(
 
 // [[substrait::export]]
 std::shared_ptr<arrow::Table> ExecPlan_run_substrait(
-    const std::shared_ptr<compute::ExecPlan>& plan,
+    const std::shared_ptr<acero::ExecPlan>& plan,
     const std::shared_ptr<arrow::Buffer>& serialized_plan) {
   std::vector<std::shared_ptr<AccumulatingConsumer>> consumers;
 
-  std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory = [&] {
+  std::function<std::shared_ptr<acero::SinkNodeConsumer>()> consumer_factory = [&] {
     consumers.emplace_back(new AccumulatingConsumer());
     return consumers.back();
   };
 
-  arrow::Result<std::vector<compute::Declaration>> maybe_decls =
+  arrow::Result<std::vector<acero::Declaration>> maybe_decls =
       ValueOrStop(arrow::engine::DeserializePlans(*serialized_plan, consumer_factory));
-  std::vector<compute::Declaration> decls = std::move(ValueOrStop(maybe_decls));
+  std::vector<acero::Declaration> decls = std::move(ValueOrStop(maybe_decls));
 
   // For now, the Substrait plan must include a 'read' that points to
   // a Parquet file (instead of using a source node create in Arrow)
-  for (const compute::Declaration& decl : decls) {
+  for (const acero::Declaration& decl : decls) {
     auto node = decl.AddToPlan(plan.get());
     StopIfNotOk(node.status());
   }

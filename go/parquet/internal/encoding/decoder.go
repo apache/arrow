@@ -20,16 +20,16 @@ import (
 	"bytes"
 	"reflect"
 
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/bitutils"
-	shared_utils "github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/debug"
-	format "github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
+	shared_utils "github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/debug"
+	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -197,8 +197,6 @@ func (d *dictDecoder) DecodeIndicesSpaced(numValues, nullCount int, validBits []
 	d.nvals -= n - nullCount
 	return n, nil
 }
-
-var empty = [1]byte{0}
 
 // spacedExpand is used to take a slice of data and utilize the bitmap provided to fill in nulls into the
 // correct slots according to the bitmap in order to produce a fully expanded result slice with nulls

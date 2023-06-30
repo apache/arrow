@@ -29,8 +29,6 @@ Here are the official Ruby bindings for Apache Arrow.
 
 [Red Gandiva](https://github.com/apache/arrow/tree/main/ruby/red-gandiva) is the Gandiva bindings.
 
-[Red Plasma](https://github.com/apache/arrow/tree/main/ruby/red-plasma) is the Plasma bindings. (This is deprecated since 10.0.0. This will be removed from 12.0.0 or so.)
-
 [Red Parquet](https://github.com/apache/arrow/tree/main/ruby/red-parquet) is the Parquet bindings.
 
 

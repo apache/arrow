@@ -47,10 +47,10 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -100,12 +100,12 @@ var formatToSimpleType = map[string]arrow.DataType{
 
 // decode metadata from C which is encoded as
 //
-//  [int32] -> number of metadata pairs
-//	for 0..n
-//		[int32] -> number of bytes in key
-//		[n bytes] -> key value
-//		[int32] -> number of bytes in value
-//		[n bytes] -> value
+//	 [int32] -> number of metadata pairs
+//		for 0..n
+//			[int32] -> number of bytes in key
+//			[n bytes] -> key value
+//			[int32] -> number of bytes in value
+//			[n bytes] -> value
 func decodeCMetadata(md *C.char) arrow.Metadata {
 	if md == nil {
 		return arrow.Metadata{}
@@ -232,14 +232,35 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 	case "d": // decimal types are d:<precision>,<scale>[,<bitsize>] size is assumed 128 if left out
 		props := typs[1]
 		propList := strings.Split(props, ",")
-		if len(propList) == 3 {
-			err = xerrors.New("only decimal128 is supported")
-			return
+		bitwidth := 128
+		var precision, scale int
+
+		if len(propList) < 2 || len(propList) > 3 {
+			return ret, xerrors.Errorf("invalid decimal spec '%s': wrong number of properties", f)
+		} else if len(propList) == 3 {
+			bitwidth, err = strconv.Atoi(propList[2])
+			if err != nil {
+				return ret, xerrors.Errorf("could not parse decimal bitwidth in '%s': %s", f, err.Error())
+			}
 		}
 
-		precision, _ := strconv.Atoi(propList[0])
-		scale, _ := strconv.Atoi(propList[1])
-		dt = &arrow.Decimal128Type{Precision: int32(precision), Scale: int32(scale)}
+		precision, err = strconv.Atoi(propList[0])
+		if err != nil {
+			return ret, xerrors.Errorf("could not parse decimal precision in '%s': %s", f, err.Error())
+		}
+
+		scale, err = strconv.Atoi(propList[1])
+		if err != nil {
+			return ret, xerrors.Errorf("could not parse decimal scale in '%s': %s", f, err.Error())
+		}
+
+		if bitwidth == 128 {
+			dt = &arrow.Decimal128Type{Precision: int32(precision), Scale: int32(scale)}
+		} else if bitwidth == 256 {
+			dt = &arrow.Decimal256Type{Precision: int32(precision), Scale: int32(scale)}
+		} else {
+			return ret, xerrors.Errorf("only decimal128 and decimal256 are supported, got '%s'", f)
+		}
 	}
 
 	if f[0] == '+' { // types with children
@@ -359,7 +380,7 @@ func (imp *cimporter) doImportChildren() error {
 			imp.children[i].importChild(imp, c)
 		}
 	case arrow.MAP: // only one child to import, it's a struct array
-		imp.children[0].dt = imp.dt.(*arrow.MapType).ValueType()
+		imp.children[0].dt = imp.dt.(*arrow.MapType).Elem()
 		if err := imp.children[0].importChild(imp, children[0]); err != nil {
 			return err
 		}
@@ -413,8 +434,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 
 	if imp.arr.n_buffers > 0 {
 		// get a view of the buffers, zero-copy. we're just looking at the pointers
-		const maxlen = 0x7fffffff
-		imp.cbuffers = (*[maxlen]*C.void)(unsafe.Pointer(imp.arr.buffers))[:imp.arr.n_buffers:imp.arr.n_buffers]
+		imp.cbuffers = unsafe.Slice((**C.void)(unsafe.Pointer(imp.arr.buffers)), imp.arr.n_buffers)
 	}
 
 	// handle each of our type cases
@@ -718,7 +738,7 @@ func importCArrayAsType(arr *CArrowArray, dt arrow.DataType) (imp *cimporter, er
 	return
 }
 
-func initReader(rdr *nativeCRecordBatchReader, stream *CArrowArrayStream) {
+func initReader(rdr *nativeCRecordBatchReader, stream *CArrowArrayStream) error {
 	rdr.stream = C.get_stream()
 	C.ArrowArrayStreamMove(stream, rdr.stream)
 	rdr.arr = C.get_arr()
@@ -731,6 +751,20 @@ func initReader(rdr *nativeCRecordBatchReader, stream *CArrowArrayStream) {
 		C.free(unsafe.Pointer(r.stream))
 		C.free(unsafe.Pointer(r.arr))
 	})
+
+	var sc CArrowSchema
+	errno := C.stream_get_schema(rdr.stream, &sc)
+	if errno != 0 {
+		return rdr.getError(int(errno))
+	}
+	defer C.ArrowSchemaRelease(&sc)
+	s, err := ImportCArrowSchema((*CArrowSchema)(&sc))
+	if err != nil {
+		return err
+	}
+	rdr.schema = s
+
+	return nil
 }
 
 // Record Batch reader that conforms to arrio.Reader for the ArrowArrayStream interface
@@ -803,20 +837,6 @@ func (n *nativeCRecordBatchReader) next() error {
 }
 
 func (n *nativeCRecordBatchReader) Schema() *arrow.Schema {
-	if n.schema == nil {
-		var sc CArrowSchema
-		errno := C.stream_get_schema(n.stream, &sc)
-		if errno != 0 {
-			panic(n.getError(int(errno)))
-		}
-		defer C.ArrowSchemaRelease(&sc)
-		s, err := ImportCArrowSchema((*CArrowSchema)(&sc))
-		if err != nil {
-			panic(err)
-		}
-
-		n.schema = s
-	}
 	return n.schema
 }
 

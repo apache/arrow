@@ -180,6 +180,7 @@ set(ARROW_SRCS
     tensor/csf_converter.cc
     tensor/csx_converter.cc
     type.cc
+    type_traits.cc
     visitor.cc
     c/bridge.cc
     io/buffered.cc
@@ -193,6 +194,7 @@ set(ARROW_SRCS
     io/slow.cc
     io/stdio.cc
     io/transform.cc
+    util/align_util.cc
     util/async_util.cc
     util/atfork_internal.cc
     util/basic_decimal.cc
@@ -214,6 +216,7 @@ set(ARROW_SRCS
     util/delimiting.cc
     util/formatting.cc
     util/future.cc
+    util/hashing.cc
     util/int_util.cc
     util/io_util.cc
     util/logging.cc
@@ -229,6 +232,7 @@ set(ARROW_SRCS
     util/time.cc
     util/tracing.cc
     util/trie.cc
+    util/union_util.cc
     util/unreachable.cc
     util/uri.cc
     util/utf8.cc
@@ -236,12 +240,12 @@ set(ARROW_SRCS
     vendored/base64.cpp
     vendored/datetime/tz.cpp
     vendored/double-conversion/bignum.cc
-    vendored/double-conversion/double-conversion.cc
     vendored/double-conversion/bignum-dtoa.cc
-    vendored/double-conversion/fast-dtoa.cc
     vendored/double-conversion/cached-powers.cc
+    vendored/double-conversion/double-to-string.cc
+    vendored/double-conversion/fast-dtoa.cc
     vendored/double-conversion/fixed-dtoa.cc
-    vendored/double-conversion/diy-fp.cc
+    vendored/double-conversion/string-to-double.cc
     vendored/double-conversion/strtod.cc)
 
 if(ARROW_JEMALLOC)
@@ -389,33 +393,7 @@ list(APPEND
      compute/api_vector.cc
      compute/cast.cc
      compute/exec.cc
-     compute/exec/groupby.cc
-     compute/exec/accumulation_queue.cc
-     compute/exec/aggregate_node.cc
-     compute/exec/asof_join_node.cc
-     compute/exec/bloom_filter.cc
-     compute/exec/exec_plan.cc
      compute/expression.cc
-     compute/exec/fetch_node.cc
-     compute/exec/filter_node.cc
-     compute/exec/hash_join.cc
-     compute/exec/hash_join_dict.cc
-     compute/exec/hash_join_node.cc
-     compute/exec/map_node.cc
-     compute/exec/options.cc
-     compute/exec/order_by_impl.cc
-     compute/exec/order_by_node.cc
-     compute/exec/partition_util.cc
-     compute/exec/pivot_longer_node.cc
-     compute/exec/project_node.cc
-     compute/exec/query_context.cc
-     compute/exec/sink_node.cc
-     compute/exec/source_node.cc
-     compute/exec/swiss_join.cc
-     compute/exec/task_util.cc
-     compute/exec/tpch_node.cc
-     compute/exec/union_node.cc
-     compute/exec/util.cc
      compute/function.cc
      compute/function_internal.cc
      compute/kernel.cc
@@ -426,6 +404,7 @@ list(APPEND
      compute/registry.cc
      compute/kernels/codegen_internal.cc
      compute/kernels/row_encoder.cc
+     compute/kernels/ree_util_internal.cc
      compute/kernels/scalar_cast_boolean.cc
      compute/kernels/scalar_cast_dictionary.cc
      compute/kernels/scalar_cast_extension.cc
@@ -437,21 +416,20 @@ list(APPEND
      compute/kernels/util_internal.cc
      compute/kernels/vector_hash.cc
      compute/kernels/vector_selection.cc
+     compute/kernels/vector_selection_filter_internal.cc
+     compute/kernels/vector_selection_internal.cc
+     compute/kernels/vector_selection_take_internal.cc
      compute/row/encode_internal.cc
      compute/row/compare_internal.cc
      compute/row/grouper.cc
      compute/row/row_internal.cc
      compute/util.cc)
 
-append_avx2_src(compute/exec/bloom_filter_avx2.cc)
 append_avx2_src(compute/key_hash_avx2.cc)
 append_avx2_src(compute/key_map_avx2.cc)
-append_avx2_src(compute/exec/swiss_join_avx2.cc)
-append_avx2_src(compute/exec/util_avx2.cc)
 append_avx2_src(compute/row/compare_internal_avx2.cc)
 append_avx2_src(compute/row/encode_internal_avx2.cc)
-
-list(APPEND ARROW_TESTING_SRCS compute/exec/test_util.cc)
+append_avx2_src(compute/util_avx2.cc)
 
 if(ARROW_COMPUTE)
   # Include the remaining kernels
@@ -478,6 +456,7 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_validity.cc
        compute/kernels/vector_array_sort.cc
        compute/kernels/vector_cumulative_ops.cc
+       compute/kernels/vector_pairwise.cc
        compute/kernels/vector_nested.cc
        compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
@@ -550,6 +529,7 @@ endif()
 if(ARROW_JSON)
   list(APPEND
        ARROW_SRCS
+       extension/fixed_shape_tensor.cc
        json/options.cc
        json/chunked_builder.cc
        json/chunker.cc
@@ -675,20 +655,27 @@ add_arrow_lib(arrow
 # So it's disabled for now.
 if(ARROW_BUILD_SHARED AND NOT WIN32)
   configure_file(libarrow_gdb.py.in "${CMAKE_CURRENT_BINARY_DIR}/libarrow_gdb.py" @ONLY)
+  if(NOT ARROW_GDB_INSTALL_DIR)
+    if(WIN32)
+      set(ARROW_GDB_INSTALL_DIR ${CMAKE_INSTALL_FULL_BINDIR})
+    else()
+      set(ARROW_GDB_INSTALL_DIR ${CMAKE_INSTALL_FULL_LIBDIR})
+    endif()
+  endif()
   set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL FALSE)
   if(WIN32)
     find_program(cygpath "cygpath")
     if(cygpath)
-      execute_process(COMMAND cygpath "${CMAKE_INSTALL_FULL_BINDIR}"
-                      OUTPUT_VARIABLE MSYS2_CMAKE_INSTALL_FULL_BINDIR
+      execute_process(COMMAND cygpath "${ARROW_GDB_INSTALL_DIR}"
+                      OUTPUT_VARIABLE MSYS2_ARROW_GDB_INSTALL_DIR
                       OUTPUT_STRIP_TRAILING_WHITESPACE)
       set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR
-          "${ARROW_GDB_AUTO_LOAD_DIR}${MSYS2_CMAKE_INSTALL_FULL_BINDIR}")
+          "${ARROW_GDB_AUTO_LOAD_DIR}${MSYS2_ARROW_GDB_INSTALL_DIR}")
       set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL TRUE)
     endif()
   else()
     set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR
-        "${ARROW_GDB_AUTO_LOAD_DIR}/${CMAKE_INSTALL_FULL_LIBDIR}")
+        "${ARROW_GDB_AUTO_LOAD_DIR}/${ARROW_GDB_INSTALL_DIR}")
     set(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL TRUE)
   endif()
   if(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL)
@@ -722,6 +709,12 @@ endif()
 
 if(ARROW_TESTING)
   # that depend on gtest
+  set(ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
+  set(ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+  if(GTest_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
+    list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
+  endif()
   add_arrow_lib(arrow_testing
                 CMAKE_PACKAGE_NAME
                 ArrowTesting
@@ -739,18 +732,16 @@ if(ARROW_TESTING)
                 arrow::flatbuffers
                 rapidjson::rapidjson
                 arrow_shared
-                GTest::gtest
+                ${ARROW_GTEST_GTEST}
                 SHARED_INSTALL_INTERFACE_LIBS
-                Arrow::arrow_shared
-                GTest::gtest
+                ${ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
                 arrow::flatbuffers
                 rapidjson::rapidjson
                 arrow_static
-                GTest::gtest
+                ${ARROW_GTEST_GTEST}
                 STATIC_INSTALL_INTERFACE_LIBS
-                Arrow::arrow_static
-                GTest::gtest)
+                ${ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS})
 
   add_custom_target(arrow_testing)
   add_dependencies(arrow_testing ${ARROW_TESTING_LIBRARIES})
@@ -811,7 +802,7 @@ set_source_files_properties(public_api_test.cc PROPERTIES SKIP_PRECOMPILE_HEADER
                                                           SKIP_UNITY_BUILD_INCLUSION ON)
 
 add_arrow_test(scalar_test)
-add_arrow_test(type_test)
+add_arrow_test(type_test SOURCES field_ref_test.cc type_test.cc)
 
 add_arrow_test(table_test
                SOURCES
@@ -853,6 +844,10 @@ if(ARROW_SUBSTRAIT)
   add_subdirectory(engine)
 endif()
 
+if(ARROW_ACERO)
+  add_subdirectory(acero)
+endif()
+
 if(ARROW_CUDA)
   add_subdirectory(gpu)
 endif()
@@ -875,6 +870,7 @@ endif()
 
 if(ARROW_JSON)
   add_subdirectory(json)
+  add_subdirectory(extension)
 endif()
 
 if(ARROW_ORC)

@@ -6,6 +6,9 @@
 {% set proc_build_number = "0" %}
 {% set llvm_version = "14" %}
 
+# see https://github.com/apache/arrow/blob/apache-arrow-10.0.1/cpp/CMakeLists.txt#L88-L90
+{% set so_version = (version.split(".")[0] | int * 100 + version.split(".")[1] | int) ~ "." ~ version.split(".")[2] ~ ".0" %}
+
 package:
   name: apache-arrow
   version: {{ version }}
@@ -30,12 +33,6 @@ outputs:
     build:
       number: {{ proc_build_number }}
       string: {{ build_ext }}
-      ignore_run_exports_from:
-        - openssl
-    requirements:
-      host:
-        # ensure we split the CI jobs per openssl version
-        - openssl
     test:
       commands:
         - exit 0
@@ -52,12 +49,7 @@ outputs:
     build:
       number: {{ proc_build_number }}
       string: {{ build_ext }}
-      ignore_run_exports_from:
-        - openssl
     requirements:
-      host:
-        # ensure we split the CI jobs per openssl version
-        - openssl
       run:
         - apache-arrow-proc ={{ build_ext_version }}={{ build_ext }}
     test:
@@ -80,29 +72,39 @@ outputs:
         - "*/nvcuda.dll"      # [win]
     requirements:
       build:
+        - {{ compiler("c") }}
+        - {{ compiler("cxx") }}
+        - {{ compiler("cuda") }}                 # [cuda_compiler_version != "None"]
         - clangdev {{ llvm_version }}            # [osx and arm64]
         - llvmdev {{ llvm_version }}             # [osx and arm64]
         - gnuconfig                              # [osx and arm64]
-        - libgrpc
-        - libprotobuf
+        # needs to run protoc & grpc_cpp_plugin
+        - libgrpc                                # [build_platform != target_platform]
+        - libprotobuf                            # [build_platform != target_platform]
         - cmake
-        - autoconf  # [unix]
         - ninja
-        - make  # [unix]
-        - {{ compiler('c') }}
-        - {{ compiler('cxx') }}
-        - {{ compiler("cuda") }}  # [cuda_compiler_version != "None"]
+        # necessary for vendored jemalloc
+        - autoconf     # [linux]
+        - make         # [linux]
       host:
+        # for required dependencies, see
+        # https://github.com/apache/arrow/blob/apache-arrow-11.0.0/cpp/cmake_modules/ThirdpartyToolchain.cmake#L46-L75
         - clangdev {{ llvm_version }}
         - llvmdev {{ llvm_version }}
+        - aws-crt-cpp  # [unix]
         - aws-sdk-cpp
         - boost-cpp >=1.70
         - brotli
         - bzip2
         - c-ares
+        # not yet: https://github.com/conda-forge/cpp-opentelemetry-sdk-feedstock/issues/38
+        # - cpp-opentelemetry-sdk
+        # - proto-opentelemetry-proto =={{ cpp_opentelemetry_sdk }}
         - gflags
         - glog
         - google-cloud-cpp
+        # arrow uses a customized jemalloc, see #944
+        # - jemalloc
         - libabseil
         # since libgoogle-cloud is static on windows, see
         # https://github.com/conda-forge/google-cloud-cpp-feedstock/pull/108,
@@ -113,13 +115,15 @@ outputs:
         - libprotobuf
         - libutf8proc
         - lz4-c
+        - nlohmann_json
         # gandiva depends on openssl
         - openssl
-        - orc          # [unix]
+        - orc
         - rapidjson
         - re2
         - snappy
         - thrift-cpp
+        - ucx          # [linux]
         - xsimd
         - zlib
         - zstd
@@ -135,7 +139,6 @@ outputs:
             "arrow/api.h", "arrow/flight/types.h", "arrow/flight/sql/api.h",
             "gandiva/engine.h", "parquet/api/reader.h"
         ] %}
-        {% set headers = headers + ["plasma/client.h"] %}  # [unix]
         {% for each_header in headers %}
         # headers
         - test -f $PREFIX/include/{{ each_header }} || (echo "{{ each_header }} not found" && exit 1)  # [unix]
@@ -146,7 +149,6 @@ outputs:
             "arrow", "arrow_dataset", "arrow_flight", "arrow_flight_sql",
             "arrow_substrait", "gandiva", "parquet"
         ] %}
-        {% set libs = libs + ["plasma"] %}  # [unix]
         {% for each_lib in libs %}
         # shared
         - test -f $PREFIX/lib/lib{{ each_lib }}.so                 # [linux]
@@ -166,6 +168,10 @@ outputs:
         - if exist %LIBRARY_LIB%\arrow_cuda.lib exit 1             # [(cuda_compiler_version == "None") and win]
         - if exist %LIBRARY_LIB%\arrow_cuda_static.lib exit 1      # [(cuda_compiler_version == "None") and win]
 
+        # gdb-wrapper (paths are stacked intentionally)
+        - test -f $PREFIX/share/gdb/auto-load/$PREFIX/lib/libarrow.so.{{ so_version }}-gdb.py     # [linux]
+        - test -f $PREFIX/share/gdb/auto-load/$PREFIX/lib/libarrow.{{ so_version }}.dylib-gdb.py  # [osx]
+
     about:
       home: http://github.com/apache/arrow
       license: Apache-2.0
@@ -182,8 +188,6 @@ outputs:
         - {{ pin_subpackage("libarrow", max_pin="x.x.x") }}
     requirements:
       host:
-        # make sure the builds for different openssl versions (with the same PKG_BUILDNUM) have different hashes
-        - openssl
         - {{ pin_subpackage('libarrow', exact=True) }}
       run:
         - {{ pin_subpackage('libarrow', exact=True) }}
@@ -199,30 +203,26 @@ outputs:
       string: py{{ CONDA_PY }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
       ignore_run_exports:
         - cudatoolkit
-      ignore_run_exports_from:
-        - openssl
       track_features: {{ "[arrow-cuda]" if cuda_enabled else "" }}
+      rpaths:
+        - lib/
+        - {{ SP_DIR }}/pyarrow
       missing_dso_whitelist:
         # not actually missing, but installed into SP_DIR, see tests
-        - "*/libarrow_python.so.*"            # [linux]
-        - "*/libarrow_python_flight.so.*"     # [linux]
-        - "*/libarrow_python.*.dylib"         # [osx]
-        - "*/libarrow_python_flight.*.dylib"  # [osx]
         - "*/arrow_python.dll"                # [win]
         - "*/arrow_python_flight.dll"         # [win]
     requirements:
       build:
+        - {{ compiler("c") }}
+        - {{ compiler("cxx") }}
+        # pyarrow does not require nvcc but it needs to link against libraries in libarrow=*=*cuda
+        - {{ compiler("cuda") }}                 # [cuda_compiler_version != "None"]
         - python                                 # [build_platform != target_platform]
         - cross-python_{{ target_platform }}     # [build_platform != target_platform]
         - cython                                 # [build_platform != target_platform]
         - numpy                                  # [build_platform != target_platform]
         - cmake
         - ninja
-        - make  # [unix]
-        - {{ compiler('c') }}
-        - {{ compiler('cxx') }}
-        # pyarrow does not require nvcc but it needs to link against libraries in libarrow=*=*cuda
-        - {{ compiler("cuda") }}  # [cuda_compiler_version != "None"]
       host:
         - {{ pin_subpackage('libarrow', exact=True) }}
         - clangdev {{ llvm_version }}
@@ -230,7 +230,6 @@ outputs:
         - cython
         - gflags  # [unix]
         - numpy
-        - openssl
         - python
         - setuptools
         - setuptools_scm
@@ -254,7 +253,6 @@ outputs:
         - pyarrow.gandiva
         - pyarrow.orc      # [unix]
         - pyarrow.parquet
-        - pyarrow.plasma   # [unix]
         - pyarrow.fs
         - pyarrow._s3fs
         - pyarrow._hdfs
@@ -297,22 +295,19 @@ outputs:
       string: py{{ CONDA_PY }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
       ignore_run_exports:
         - cudatoolkit
-      ignore_run_exports_from:
-        - openssl
       track_features: {{ "[arrow-cuda]" if cuda_enabled else "" }}
     requirements:
       build:
+        - {{ compiler("c") }}
+        - {{ compiler("cxx") }}
+        # pyarrow does not require nvcc but it needs to link against libraries in libarrow=*=*cuda
+        - {{ compiler("cuda") }}                 # [cuda_compiler_version != "None"]
         - python                                 # [build_platform != target_platform]
         - cross-python_{{ target_platform }}     # [build_platform != target_platform]
         - cython                                 # [build_platform != target_platform]
         - numpy                                  # [build_platform != target_platform]
         - cmake
         - ninja
-        - make  # [unix]
-        - {{ compiler('c') }}
-        - {{ compiler('cxx') }}
-        # pyarrow does not require nvcc but it needs to link against libraries in libarrow=*=*cuda
-        - {{ compiler("cuda") }}  # [cuda_compiler_version != "None"]
       host:
         - {{ pin_subpackage('libarrow', exact=True) }}
         - {{ pin_subpackage('pyarrow', exact=True) }}
@@ -320,7 +315,6 @@ outputs:
         - llvmdev {{ llvm_version }}
         - cython
         - numpy
-        - openssl
         - python
         - setuptools
         - setuptools_scm
@@ -333,9 +327,11 @@ outputs:
 
     test:
       requires:
+        # test_cpp_extension_in_python requires a compiler
+        - {{ compiler("cxx") }}  # [linux]
         - pytest
         - pytest-lazy-fixture
-        - backports.zoneinfo  # [py<39]
+        - backports.zoneinfo     # [py<39]
         - cffi
         - cloudpickle
         - cython
@@ -343,17 +339,17 @@ outputs:
         - fsspec
         - hypothesis
         - pandas
-        # not all arches available in conda-forge; osx-arm not tested anyway
-        - pytorch *           # [unix and not ppc64le and py<311]
         - scipy
+        # not all OSes/arches available in conda-forge
+        - pytorch *           # [unix and not ppc64le]
+        # not yet rebuilt for libabseil 20230125
+        # - tensorflow          # [unix and x86_64 and py<311]
         # we're not building java bindings
         # - jpype1
         # doesn't get picked up correctly
         # - libhdfs3
         # causes segfaults
         # - sparse
-        # not rebuilt for grpc 1.49 yet
-        # - tensorflow
       source_files:
         - testing/data
       commands:
@@ -368,6 +364,8 @@ outputs:
         # skip tests that raise SIGINT and crash the test suite
         {% set tests_to_skip = tests_to_skip + " or (test_csv and test_cancellation)" %}  # [linux]
         {% set tests_to_skip = tests_to_skip + " or (test_flight and test_interrupt)" %}  # [linux]
+        # cannot pass -D_LIBCPP_DISABLE_AVAILABILITY to test suite for our older macos sdk
+        {% set tests_to_skip = tests_to_skip + " or test_cpp_extension_in_python" %}      # [osx]
         # skip tests that make invalid(-for-conda) assumptions about the compilers setup
         {% set tests_to_skip = tests_to_skip + " or test_cython_api" %}                   # [unix]
         {% set tests_to_skip = tests_to_skip + " or test_visit_strings" %}                # [unix]
@@ -375,8 +373,14 @@ outputs:
         {% set tests_to_skip = tests_to_skip + " or test_debug_memory_pool_disabled" %}   # [aarch64 or ppc64le]
         {% set tests_to_skip = tests_to_skip + " or test_env_var_io_thread_count" %}      # [aarch64 or ppc64le]
         # vvvvvvv TESTS THAT SHOULDN'T HAVE TO BE SKIPPED vvvvvvv
-        # failing on linux with "OSError: Could not connect to socket /tmp/[...]/plasma.sock"
-        {% set tests_to_skip = tests_to_skip + " or test_plasma" %}                       # [linux]
+        # segfaults on OSX: to investigate ASAP
+        {% set tests_to_skip = tests_to_skip + " or test_flight" %}                       # [osx]
+        # gandiva tests are segfaulting on ppc
+        {% set tests_to_skip = tests_to_skip + " or test_gandiva" %}                      # [ppc64le]
+        # test failures on ppc
+        {% set tests_to_skip = tests_to_skip + " or test_safe_cast_from_float_with_nans_to_int" %}  # [ppc64le]
+        # gandiva tests are segfaulting on ppc
+        {% set tests_to_skip = tests_to_skip + " or test_float_with_null_as_integer" %}   # [ppc64le]
         # "Unsupported backend 'nonexistent' specified in ARROW_DEFAULT_MEMORY_POOL"
         {% set tests_to_skip = tests_to_skip + " or (test_memory and test_env_var)" %}    # [unix]
         # test is broken; header is in $PREFIX, not $SP_DIR
@@ -384,9 +388,7 @@ outputs:
         # ^^^^^^^ TESTS THAT SHOULDN'T HAVE TO BE SKIPPED ^^^^^^^
 
         # crossbow CI: reduce to one python version, except on (unemulated) linux, where it's fast enough
-        - pytest -v -rfEs -k "not ({{ tests_to_skip }})"  # [linux64 or ((py==310) and not ppc64le)]
-        # NOTE: test suite is skipped on ppc due to bugs in QEMU code that cause
-        # CI to fail, even though the tests would run through on native hardware
+        - pytest -v -rfEs -k "not ({{ tests_to_skip }})"  # [linux64 or (py==310 and build_platform==target_platform)]
 
     about:
       home: http://github.com/apache/arrow

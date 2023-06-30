@@ -114,7 +114,11 @@ jobs:
           ulimit -c unlimited
           archery docker run ${{ matrix.image }}
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -158,12 +162,13 @@ jobs:
       # TODO(kszucs): link error in the tests
       ARROW_ORC: OFF
       ARROW_PARQUET: ON
-      ARROW_PLASMA: ON
       ARROW_S3: ON
       ARROW_WITH_BROTLI: ON
       ARROW_WITH_BZ2: ON
       ARROW_WITH_LZ4: ON
-      ARROW_WITH_OPENTELEMETRY: ON
+      # GH-36013 disabling opentelemetry here because we can't
+      # get the patched version from conda
+      # ARROW_WITH_OPENTELEMETRY: ON
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
@@ -181,7 +186,7 @@ jobs:
           rm -f /usr/local/bin/pydoc3* || :
           rm -f /usr/local/bin/python3* || :
           rm -f /usr/local/bin/python3-config || :
-          brew update --preinstall
+          brew update --preinstall || :
           brew bundle --file=cpp/Brewfile
       - name: Install MinIO
         run: |
@@ -268,7 +273,7 @@ jobs:
             /d 1 `
             /f
       - name: Installed Packages
-        run: choco list -l
+        run: choco list
       - name: Install Dependencies
         run: choco install -y --no-progress openssl
       - name: Checkout Arrow

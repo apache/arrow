@@ -36,7 +36,13 @@ set -x
 SOURCE_DIR="$(cd "${SOURCE_DIR}" && pwd)"
 DEST_DIR="$(mkdir -p "${DEST_DIR}" && cd "${DEST_DIR}" && pwd)"
 
-: ${N_JOBS:="$(nproc)"}
+if [ "$N_JOBS" = "" ]; then
+  if [ "`uname -s`" = "Darwin" ]; then
+    N_JOBS="$(sysctl -n hw.logicalcpu)"
+  else
+    N_JOBS="$(nproc)"
+  fi
+fi
 
 # Make some env vars case-insensitive
 if [ "$LIBARROW_MINIMAL" != "" ]; then
@@ -55,6 +61,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_BUILD_TESTS=OFF \
     -DARROW_BUILD_SHARED=OFF \
     -DARROW_BUILD_STATIC=ON \
+    -DARROW_ACERO=${ARROW_ACERO:-ON} \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
     -DARROW_DATASET=${ARROW_DATASET:-ON} \

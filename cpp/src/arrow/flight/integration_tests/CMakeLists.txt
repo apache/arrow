@@ -26,7 +26,7 @@ list(APPEND
      ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS
      ${ARROW_FLIGHT_TEST_LINK_LIBS}
      ${GFLAGS_LIBRARIES}
-     GTest::gtest)
+     ${ARROW_GTEST_GTEST})
 
 add_executable(flight-test-integration-server test_integration_server.cc
                                               test_integration.cc)

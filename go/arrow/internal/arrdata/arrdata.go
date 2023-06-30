@@ -21,13 +21,14 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/float16"
-	"github.com/apache/arrow/go/v12/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
 )
 
 var (
@@ -47,6 +48,7 @@ func init() {
 	Records["intervals"] = makeIntervalsRecords()
 	Records["durations"] = makeDurationsRecords()
 	Records["decimal128"] = makeDecimal128sRecords()
+	Records["decimal256"] = makeDecimal256sRecords()
 	Records["maps"] = makeMapsRecords()
 	Records["extension"] = makeExtensionRecords()
 	Records["union"] = makeUnionRecords()
@@ -688,6 +690,7 @@ func makeDurationsRecords() []arrow.Record {
 
 var (
 	decimal128Type = &arrow.Decimal128Type{Precision: 10, Scale: 1}
+	decimal256Type = &arrow.Decimal256Type{Precision: 72, Scale: 2}
 )
 
 func makeDecimal128sRecords() []arrow.Record {
@@ -735,6 +738,51 @@ func makeDecimal128sRecords() []arrow.Record {
 	return recs
 }
 
+func makeDecimal256sRecords() []arrow.Record {
+	mem := memory.NewGoAllocator()
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "dec256s", Type: decimal256Type, Nullable: true},
+		}, nil,
+	)
+
+	dec256s := func(vs []uint64) []decimal256.Num {
+		o := make([]decimal256.Num, len(vs))
+		for i, v := range vs {
+			o[i] = decimal256.New(v, v, v, v)
+		}
+		return o
+	}
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]arrow.Array{
+		{
+			arrayOf(mem, dec256s([]uint64{21, 22, 23, 24, 25}), mask),
+		},
+		{
+			arrayOf(mem, dec256s([]uint64{31, 32, 33, 34, 35}), mask),
+		},
+		{
+			arrayOf(mem, dec256s([]uint64{41, 42, 43, 44, 45}), mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]arrow.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
+}
+
 func makeMapsRecords() []arrow.Record {
 	mem := memory.NewGoAllocator()
 	dtype := arrow.MapOf(arrow.PrimitiveTypes.Int32, arrow.BinaryTypes.String)
@@ -745,7 +793,7 @@ func makeMapsRecords() []arrow.Record {
 	chunks := [][]arrow.Array{
 		{
 			mapOf(mem, dtype.KeysSorted, []arrow.Array{
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
 						arrayOf(mem, []string{"111", "222", "333", "444", "555"}, mask[:5]),
@@ -767,7 +815,7 @@ func makeMapsRecords() []arrow.Record {
 						arrayOf(mem, []string{"4111", "4222", "4333", "4444", "4555"}, mask[:5]),
 					},
 				}, nil),
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
 						arrayOf(mem, []string{"-111", "-222", "-333", "-444", "-555"}, mask[:5]),
@@ -793,7 +841,7 @@ func makeMapsRecords() []arrow.Record {
 		},
 		{
 			mapOf(mem, dtype.KeysSorted, []arrow.Array{
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{1, 2, 3, 4, 5}, nil),
 						arrayOf(mem, []string{"-111", "-222", "-333", "-444", "-555"}, mask[:5]),
@@ -815,7 +863,7 @@ func makeMapsRecords() []arrow.Record {
 						arrayOf(mem, []string{"-4111", "-4222", "-4333", "-4444", "-4555"}, mask[:5]),
 					},
 				}, nil),
-				structOf(mem, dtype.ValueType(), [][]arrow.Array{
+				structOf(mem, dtype.Elem().(*arrow.StructType), [][]arrow.Array{
 					{
 						arrayOf(mem, []int32{-1, -2, -3, -4, -5}, nil),
 						arrayOf(mem, []string{"111", "222", "333", "444", "555"}, mask[:5]),
@@ -1165,6 +1213,14 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
 
 		bldr.AppendValues(a, valids)
 		aa := bldr.NewDecimal128Array()
+		return aa
+
+	case []decimal256.Num:
+		bldr := array.NewDecimal256Builder(mem, decimal256Type)
+		defer bldr.Release()
+
+		bldr.AppendValues(a, valids)
+		aa := bldr.NewDecimal256Array()
 		return aa
 
 	case []string:

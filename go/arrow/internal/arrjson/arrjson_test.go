@@ -19,12 +19,12 @@ package arrjson
 import (
 	"errors"
 	"io"
-	"io/ioutil"
+	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,6 +41,7 @@ func TestReadWrite(t *testing.T) {
 	wantJSONs["intervals"] = makeIntervalsWantJSONs()
 	wantJSONs["durations"] = makeDurationsWantJSONs()
 	wantJSONs["decimal128"] = makeDecimal128sWantJSONs()
+	wantJSONs["decimal256"] = makeDecimal256sWantJSONs()
 	wantJSONs["maps"] = makeMapsWantJSONs()
 	wantJSONs["extension"] = makeExtensionsWantJSONs()
 	wantJSONs["dictionary"] = makeDictionaryWantJSONs()
@@ -53,7 +54,7 @@ func TestReadWrite(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile(tempDir, "go-arrow-read-write-")
+			f, err := os.CreateTemp(tempDir, "go-arrow-read-write-")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -82,7 +83,7 @@ func TestReadWrite(t *testing.T) {
 				t.Fatalf("could not sync data to disk: %v", err)
 			}
 
-			fileBytes, _ := ioutil.ReadFile(f.Name())
+			fileBytes, _ := os.ReadFile(f.Name())
 			assert.JSONEq(t, wantJSONs[name], string(fileBytes))
 
 			_, err = f.Seek(0, io.SeekStart)
@@ -92,7 +93,7 @@ func TestReadWrite(t *testing.T) {
 
 			r, err := NewReader(f, WithAllocator(mem), WithSchema(recs[0].Schema()))
 			if err != nil {
-				raw, _ := ioutil.ReadFile(f.Name())
+				raw, _ := os.ReadFile(f.Name())
 				t.Fatalf("could not read JSON file: %v\n%v\n", err, string(raw))
 			}
 			defer r.Release()
@@ -3422,6 +3423,97 @@ func makeDecimal128sWantJSONs() string {
             "977677435906606235701",
             "996124179980315787318",
             "1014570924054025338935"
+          ]
+        }
+      ]
+    }
+  ]
+}`
+}
+
+func makeDecimal256sWantJSONs() string {
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "dec256s",
+        "type": {
+          "name": "decimal",
+          "scale": 2,
+          "precision": 72,
+          "bitWidth": 256
+        },
+        "nullable": true,
+        "children": []
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec256s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "131819136443120296047697507592700702471267712715359757795349",
+            "138096238178506976811873579382829307350851889511329270071318",
+            "144373339913893657576049651172957912230436066307298782347287",
+            "150650441649280338340225722963086517110020243103268294623256",
+            "156927543384667019104401794753215121989604419899237806899225"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec256s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "194590153796987103689458225493986751267109480675054880555039",
+            "200867255532373784453634297284115356146693657471024392831008",
+            "207144357267760465217810369074243961026277834266993905106977",
+            "213421459003147145981986440864372565905862011062963417382946",
+            "219698560738533826746162512654501170785446187858932929658915"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec256s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "257361171150853911331218943395272800062951248634750003314729",
+            "263638272886240592095395015185401404942535425430719515590698",
+            "269915374621627272859571086975530009822119602226689027866667",
+            "276192476357013953623747158765658614701703779022658540142636",
+            "282469578092400634387923230555787219581287955818628052418605"
           ]
         }
       ]

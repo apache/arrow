@@ -22,10 +22,10 @@ package cdata
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/arrio"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/arrio"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -164,10 +164,32 @@ func ImportCRecordBatch(arr *CArrowArray, sc *CArrowSchema) (arrow.Record, error
 //
 // NOTE: The reader takes ownership of the underlying memory buffers via ArrowArrayStreamMove,
 // it does not take ownership of the actual stream object itself.
+//
+// Deprecated: This will panic if importing the schema fails (which is possible).
+// Prefer ImportCRecordReader instead.
 func ImportCArrayStream(stream *CArrowArrayStream, schema *arrow.Schema) arrio.Reader {
+	reader, err := ImportCRecordReader(stream, schema)
+	if err != nil {
+		panic(err)
+	}
+	return reader
+}
+
+// ImportCStreamReader creates an arrio.Reader from an ArrowArrayStream taking ownership
+// of the underlying stream object via ArrowArrayStreamMove.
+//
+// The records returned by this reader must be released manually after they are returned.
+// The reader itself will release the stream via SetFinalizer when it is garbage collected.
+// It will return (nil, io.EOF) from the Read function when there are no more records to return.
+//
+// NOTE: The reader takes ownership of the underlying memory buffers via ArrowArrayStreamMove,
+// it does not take ownership of the actual stream object itself.
+func ImportCRecordReader(stream *CArrowArrayStream, schema *arrow.Schema) (arrio.Reader, error) {
 	out := &nativeCRecordBatchReader{schema: schema}
-	initReader(out, stream)
-	return out
+	if err := initReader(out, stream); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // ExportArrowSchema populates the passed in CArrowSchema with the schema passed in so

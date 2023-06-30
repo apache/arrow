@@ -37,6 +37,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
@@ -798,6 +799,8 @@ RunEndEncodedType::RunEndEncodedType(std::shared_ptr<DataType> run_end_type,
                std::make_shared<Field>("values", std::move(value_type), true)};
 }
 
+RunEndEncodedType::~RunEndEncodedType() = default;
+
 std::string RunEndEncodedType::ToString() const {
   std::stringstream s;
   s << name() << "<run_ends: " << run_end_type()->ToString()
@@ -1044,7 +1047,7 @@ std::string DictionaryType::ToString() const {
 std::string NullType::ToString() const { return name(); }
 
 // ----------------------------------------------------------------------
-// FieldRef
+// FieldPath
 
 size_t FieldPath::hash() const {
   return internal::ComputeStringHash<0>(indices().data(), indices().size() * sizeof(int));
@@ -1063,128 +1066,215 @@ std::string FieldPath::ToString() const {
   return repr;
 }
 
+static Status NonStructError() {
+  return Status::NotImplemented("Get child data of non-struct array");
+}
+
+// Utility class for retrieving a child field/column from a top-level Field, Array, or
+// ChunkedArray. The "root" value can either be a single parent or a vector of its
+// children.
+template <typename T, bool IsFlattening = false>
+class NestedSelector {
+ public:
+  using ArrowType = T;
+
+  explicit NestedSelector(const std::vector<std::shared_ptr<T>>& children)
+      : parent_or_children_(&children) {}
+  explicit NestedSelector(const T& parent) : parent_or_children_(&parent) {}
+  explicit NestedSelector(std::shared_ptr<T> parent)
+      : owned_parent_(std::move(parent)), parent_or_children_(owned_parent_.get()) {}
+  template <typename Arg>
+  NestedSelector(Arg&& arg, MemoryPool* pool) : NestedSelector(std::forward<Arg>(arg)) {
+    if (pool) {
+      pool_ = pool;
+    }
+  }
+
+  // If the index is out of bounds, this returns an invalid selector rather than an
+  // error.
+  Result<NestedSelector> GetChild(int i) const {
+    std::shared_ptr<T> child;
+    if (auto parent = get_parent()) {
+      ARROW_ASSIGN_OR_RAISE(child, GetChild(*parent, i, pool_));
+    } else if (auto children = get_children()) {
+      if (ARROW_PREDICT_TRUE(i >= 0 && static_cast<size_t>(i) < children->size())) {
+        child = (*children)[i];
+      }
+    }
+    return NestedSelector(std::move(child), pool_);
+  }
+
+  Result<std::shared_ptr<T>> Finish() const {
+    DCHECK(get_parent() && owned_parent_);
+    return owned_parent_;
+  }
+
+  template <typename OStream, typename U = T>
+  std::enable_if_t<std::is_same_v<U, Field>> Summarize(OStream* os) const {
+    const FieldVector* fields = get_children();
+    if (!fields && get_parent()) {
+      fields = &get_parent()->type()->fields();
+    }
+    *os << "fields: { ";
+    if (fields) {
+      for (const auto& field : *fields) {
+        *os << field->ToString() << ", ";
+      }
+    }
+    *os << "}";
+  }
+
+  template <typename OStream, typename U = T>
+  std::enable_if_t<!std::is_same_v<U, Field>> Summarize(OStream* os) const {
+    *os << "column types: { ";
+    if (auto children = get_children()) {
+      for (const auto& child : *children) {
+        *os << *child->type() << ", ";
+      }
+    } else if (auto parent = get_parent()) {
+      for (const auto& field : parent->type()->fields()) {
+        *os << *field->type() << ", ";
+      }
+    }
+    *os << "}";
+  }
+
+  bool is_valid() const { return get_parent() || get_children(); }
+  operator bool() const { return is_valid(); }
+
+ private:
+  // Accessors for the variant
+  auto get_parent() const { return get_value<const T*>(); }
+  auto get_children() const {
+    return get_value<const std::vector<std::shared_ptr<T>>*>();
+  }
+  template <typename U>
+  U get_value() const {
+    auto ptr = std::get_if<U>(&parent_or_children_);
+    return ptr ? *ptr : nullptr;
+  }
+
+  static Result<std::shared_ptr<Field>> GetChild(const Field& field, int i, MemoryPool*) {
+    if (ARROW_PREDICT_FALSE(i < 0 || i >= field.type()->num_fields())) {
+      return nullptr;
+    }
+    return field.type()->field(i);
+  }
+
+  static Result<std::shared_ptr<Array>> GetChild(const Array& array, int i,
+                                                 MemoryPool* pool) {
+    if (ARROW_PREDICT_FALSE(array.type_id() != Type::STRUCT)) {
+      return NonStructError();
+    }
+    if (ARROW_PREDICT_FALSE(i < 0 || i >= array.num_fields())) {
+      return nullptr;
+    }
+
+    const auto& struct_array = checked_cast<const StructArray&>(array);
+    if constexpr (IsFlattening) {
+      return struct_array.GetFlattenedField(i, pool);
+    } else {
+      return struct_array.field(i);
+    }
+  }
+
+  static Result<std::shared_ptr<ChunkedArray>> GetChild(const ChunkedArray& chunked_array,
+                                                        int i, MemoryPool* pool) {
+    const auto& type = *chunked_array.type();
+    if (ARROW_PREDICT_FALSE(type.id() != Type::STRUCT)) {
+      return NonStructError();
+    }
+    if (ARROW_PREDICT_FALSE(i < 0 || i >= type.num_fields())) {
+      return nullptr;
+    }
+
+    ArrayVector chunks;
+    chunks.reserve(chunked_array.num_chunks());
+    for (const auto& parent_chunk : chunked_array.chunks()) {
+      ARROW_ASSIGN_OR_RAISE(auto chunk, GetChild(*parent_chunk, i, pool));
+      if (!chunk) return nullptr;
+      chunks.push_back(std::move(chunk));
+    }
+
+    return ChunkedArray::Make(std::move(chunks), type.field(i)->type());
+  }
+
+  std::shared_ptr<T> owned_parent_;
+  std::variant<const T*, const std::vector<std::shared_ptr<T>>*> parent_or_children_;
+  MemoryPool* pool_ = default_memory_pool();
+};
+
+using FieldSelector = NestedSelector<Field>;
+template <typename T>
+using ZeroCopySelector = NestedSelector<T, false>;
+template <typename T>
+using FlatteningSelector = NestedSelector<T, true>;
+
 struct FieldPathGetImpl {
-  static const DataType& GetType(const ArrayData& data) { return *data.type; }
-
-  static void Summarize(const FieldVector& fields, std::stringstream* ss) {
-    *ss << "{ ";
-    for (const auto& field : fields) {
-      *ss << field->ToString() << ", ";
-    }
-    *ss << "}";
-  }
-
-  template <typename T>
-  static void Summarize(const std::vector<T>& columns, std::stringstream* ss) {
-    *ss << "{ ";
-    for (const auto& column : columns) {
-      *ss << GetType(*column) << ", ";
-    }
-    *ss << "}";
-  }
-
-  template <typename T>
+  template <typename Selector>
   static Status IndexError(const FieldPath* path, int out_of_range_depth,
-                           const std::vector<T>& children) {
+                           const Selector& selector) {
     std::stringstream ss;
     ss << "index out of range. ";
 
     ss << "indices=[ ";
     int depth = 0;
     for (int i : path->indices()) {
-      if (depth != out_of_range_depth) {
+      if (depth++ != out_of_range_depth) {
         ss << i << " ";
-        continue;
+      } else {
+        ss << ">" << i << "< ";
       }
-      ss << ">" << i << "< ";
-      ++depth;
     }
     ss << "] ";
 
-    if (std::is_same<T, std::shared_ptr<Field>>::value) {
-      ss << "fields were: ";
-    } else {
-      ss << "columns had types: ";
-    }
-    Summarize(children, &ss);
+    selector.Summarize(&ss);
 
     return Status::IndexError(ss.str());
   }
 
-  template <typename T, typename GetChildren>
-  static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
-                       GetChildren&& get_children, int* out_of_range_depth) {
-    if (path->indices().empty()) {
+  template <typename Selector, typename T = typename Selector::ArrowType>
+  static Result<std::shared_ptr<T>> Get(const FieldPath* path, Selector selector,
+                                        int* out_of_range_depth = nullptr) {
+    if (path->empty()) {
       return Status::Invalid("empty indices cannot be traversed");
     }
 
     int depth = 0;
-    const T* out;
-    for (int index : path->indices()) {
-      if (children == nullptr) {
-        return Status::NotImplemented("Get child data of non-struct array");
+    for (auto index : *path) {
+      ARROW_ASSIGN_OR_RAISE(auto next_selector, selector.GetChild(index));
+
+      // Handle failed bounds check
+      if (!next_selector) {
+        if (out_of_range_depth) {
+          *out_of_range_depth = depth;
+          return nullptr;
+        }
+        return IndexError(path, depth, selector);
       }
 
-      if (index < 0 || static_cast<size_t>(index) >= children->size()) {
-        *out_of_range_depth = depth;
-        return nullptr;
-      }
-
-      out = &children->at(index);
-      children = get_children(*out);
+      selector = std::move(next_selector);
       ++depth;
     }
 
-    return *out;
-  }
-
-  template <typename T, typename GetChildren>
-  static Result<T> Get(const FieldPath* path, const std::vector<T>* children,
-                       GetChildren&& get_children) {
-    int out_of_range_depth = -1;
-    ARROW_ASSIGN_OR_RAISE(auto child,
-                          Get(path, children, std::forward<GetChildren>(get_children),
-                              &out_of_range_depth));
-    if (child != nullptr) {
-      return std::move(child);
-    }
-    return IndexError(path, out_of_range_depth, *children);
-  }
-
-  static Result<std::shared_ptr<Field>> Get(const FieldPath* path,
-                                            const FieldVector& fields) {
-    return FieldPathGetImpl::Get(path, &fields, [](const std::shared_ptr<Field>& field) {
-      return &field->type()->fields();
-    });
-  }
-
-  static Result<std::shared_ptr<ArrayData>> Get(const FieldPath* path,
-                                                const ArrayDataVector& child_data) {
-    return FieldPathGetImpl::Get(
-        path, &child_data,
-        [](const std::shared_ptr<ArrayData>& data) -> const ArrayDataVector* {
-          if (data->type->id() != Type::STRUCT) {
-            return nullptr;
-          }
-          return &data->child_data;
-        });
+    return selector.Finish();
   }
 };
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const Schema& schema) const {
-  return FieldPathGetImpl::Get(this, schema.fields());
+  return Get(schema.fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const Field& field) const {
-  return FieldPathGetImpl::Get(this, field.type()->fields());
+  return Get(field.type()->fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const DataType& type) const {
-  return FieldPathGetImpl::Get(this, type.fields());
+  return Get(type.fields());
 }
 
 Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
-  return FieldPathGetImpl::Get(this, fields);
+  return FieldPathGetImpl::Get(this, FieldSelector(fields));
 }
 
 Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
@@ -1199,21 +1289,60 @@ Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
 }
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto data, FieldPathGetImpl::Get(this, batch.column_data()));
-  return MakeArray(std::move(data));
+  return FieldPathGetImpl::Get(this, ZeroCopySelector<Array>(batch.columns()));
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
+  return FieldPathGetImpl::Get(this, ZeroCopySelector<ChunkedArray>(table.columns()));
 }
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
-  ARROW_ASSIGN_OR_RAISE(auto data, Get(*array.data()));
-  return MakeArray(std::move(data));
+  return FieldPathGetImpl::Get(this, ZeroCopySelector<Array>(array));
 }
 
 Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
-  if (data.type->id() != Type::STRUCT) {
-    return Status::NotImplemented("Get child data of non-struct array");
-  }
-  return FieldPathGetImpl::Get(this, data.child_data);
+  // We indirect from ArrayData to Array rather than vice-versa because, when selecting a
+  // nested column, the StructArray::field method does the work of adjusting the data's
+  // offset/length if necessary.
+  ARROW_ASSIGN_OR_RAISE(auto array, Get(*MakeArray(data.Copy())));
+  return array->data();
 }
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(
+    const ChunkedArray& chunked_array) const {
+  return FieldPathGetImpl::Get(this, ZeroCopySelector<ChunkedArray>(chunked_array));
+}
+
+Result<std::shared_ptr<Array>> FieldPath::GetFlattened(const Array& array,
+                                                       MemoryPool* pool) const {
+  return FieldPathGetImpl::Get(this, FlatteningSelector<Array>(array, pool));
+}
+
+Result<std::shared_ptr<ArrayData>> FieldPath::GetFlattened(const ArrayData& data,
+                                                           MemoryPool* pool) const {
+  ARROW_ASSIGN_OR_RAISE(auto array, GetFlattened(*MakeArray(data.Copy()), pool));
+  return array->data();
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::GetFlattened(
+    const ChunkedArray& chunked_array, MemoryPool* pool) const {
+  return FieldPathGetImpl::Get(this,
+                               FlatteningSelector<ChunkedArray>(chunked_array, pool));
+}
+
+Result<std::shared_ptr<Array>> FieldPath::GetFlattened(const RecordBatch& batch,
+                                                       MemoryPool* pool) const {
+  return FieldPathGetImpl::Get(this, FlatteningSelector<Array>(batch.columns(), pool));
+}
+
+Result<std::shared_ptr<ChunkedArray>> FieldPath::GetFlattened(const Table& table,
+                                                              MemoryPool* pool) const {
+  return FieldPathGetImpl::Get(this,
+                               FlatteningSelector<ChunkedArray>(table.columns(), pool));
+}
+
+// ----------------------------------------------------------------------
+// FieldRef
 
 FieldRef::FieldRef(FieldPath indices) : impl_(std::move(indices)) {}
 
@@ -1444,10 +1573,8 @@ std::vector<FieldPath> FieldRef::FindAll(const FieldVector& fields) const {
     std::vector<FieldPath> operator()(const FieldPath& path) {
       // skip long IndexError construction if path is out of range
       int out_of_range_depth;
-      auto maybe_field = FieldPathGetImpl::Get(
-          &path, &fields_,
-          [](const std::shared_ptr<Field>& field) { return &field->type()->fields(); },
-          &out_of_range_depth);
+      auto maybe_field =
+          FieldPathGetImpl::Get(&path, FieldSelector(fields_), &out_of_range_depth);
 
       DCHECK_OK(maybe_field.status());
 
@@ -1533,8 +1660,16 @@ std::vector<FieldPath> FieldRef::FindAll(const Array& array) const {
   return FindAll(*array.type());
 }
 
+std::vector<FieldPath> FieldRef::FindAll(const ChunkedArray& chunked_array) const {
+  return FindAll(*chunked_array.type());
+}
+
 std::vector<FieldPath> FieldRef::FindAll(const RecordBatch& batch) const {
   return FindAll(*batch.schema());
+}
+
+std::vector<FieldPath> FieldRef::FindAll(const Table& table) const {
+  return FindAll(*table.schema());
 }
 
 void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }

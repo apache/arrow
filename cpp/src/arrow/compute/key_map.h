@@ -17,13 +17,13 @@
 
 #pragma once
 
+#include <cassert>
 #include <functional>
 
 #include "arrow/compute/util.h"
-#include "arrow/compute/util_internal.h"
-#include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace compute {
@@ -36,7 +36,7 @@ namespace compute {
 // slots, stamps) and operations provided by this class is given in the document:
 // arrow/compute/exec/doc/key_map.md.
 //
-class SwissTable {
+class ARROW_EXPORT SwissTable {
   friend class SwissTableMerge;
 
  public:
@@ -70,11 +70,39 @@ class SwissTable {
 
   int minibatch_size() const { return 1 << log_minibatch_; }
 
-  int64_t num_inserted() const { return num_inserted_; }
+  uint32_t num_inserted() const { return num_inserted_; }
 
   int64_t hardware_flags() const { return hardware_flags_; }
 
   MemoryPool* pool() const { return pool_; }
+
+  int log_blocks() const { return log_blocks_; }
+
+  void num_inserted(uint32_t i) { num_inserted_ = i; }
+
+  uint8_t* blocks() const { return blocks_->mutable_data(); }
+
+  uint32_t* hashes() const {
+    return reinterpret_cast<uint32_t*>(hashes_->mutable_data());
+  }
+
+  /// \brief Extract group id for a given slot in a given block.
+  ///
+  inline uint64_t extract_group_id(const uint8_t* block_ptr, int slot,
+                                   uint64_t group_id_mask) const;
+
+  inline void insert_into_empty_slot(uint32_t slot_id, uint32_t hash, uint32_t group_id);
+
+  static int num_groupid_bits_from_log_blocks(int log_blocks) {
+    int required_bits = log_blocks + 3;
+    return required_bits <= 8    ? 8
+           : required_bits <= 16 ? 16
+           : required_bits <= 32 ? 32
+                                 : 64;
+  }
+
+  // Use 32-bit hash for now
+  static constexpr int bits_hash_ = 32;
 
  private:
   // Lookup helpers
@@ -106,10 +134,6 @@ class SwissTable {
   inline void search_block(uint64_t block, int stamp, int start_slot, int* out_slot,
                            int* out_match_found) const;
 
-  /// \brief Extract group id for a given slot in a given block.
-  ///
-  inline uint64_t extract_group_id(const uint8_t* block_ptr, int slot,
-                                   uint64_t group_id_mask) const;
   void extract_group_ids(const int num_keys, const uint16_t* optional_selection,
                          const uint32_t* hashes, const uint8_t* local_slots,
                          uint32_t* out_group_ids) const;
@@ -160,8 +184,6 @@ class SwissTable {
   inline bool find_next_stamp_match(const uint32_t hash, const uint32_t in_slot_id,
                                     uint32_t* out_slot_id, uint32_t* out_group_id) const;
 
-  inline void insert_into_empty_slot(uint32_t slot_id, uint32_t hash, uint32_t group_id);
-
   // Slow processing of input keys in the most generic case.
   // Handles inserting new keys.
   // Pre-existing keys will be handled correctly, although the intended use is for this
@@ -178,17 +200,6 @@ class SwissTable {
   // Resize small hash tables when 50% full (up to 8KB).
   // Resize large hash tables when 75% full.
   Status grow_double();
-
-  static int num_groupid_bits_from_log_blocks(int log_blocks) {
-    int required_bits = log_blocks + 3;
-    return required_bits <= 8    ? 8
-           : required_bits <= 16 ? 16
-           : required_bits <= 32 ? 32
-                                 : 64;
-  }
-
-  // Use 32-bit hash for now
-  static constexpr int bits_hash_ = 32;
 
   // Number of hash bits stored in slots in a block.
   // The highest bits of hash determine block id.
@@ -217,12 +228,12 @@ class SwissTable {
   // ---------------------------------------------------
   // * Empty bucket has value 0x80. Non-empty bucket has highest bit set to 0.
   //
-  uint8_t* blocks_;
+  std::shared_ptr<Buffer> blocks_;
 
   // Array of hashes of values inserted into slots.
   // Undefined if the corresponding slot is empty.
   // There is 64B padding at the end.
-  uint32_t* hashes_;
+  std::shared_ptr<Buffer> hashes_;
 
   int64_t hardware_flags_;
   MemoryPool* pool_;
@@ -234,8 +245,8 @@ uint64_t SwissTable::extract_group_id(const uint8_t* block_ptr, int slot,
   // bytes. We assume here that the number of bits is rounded up to 8, 16, 32 or 64. In
   // that case we can extract group id using aligned 64-bit word access.
   int num_group_id_bits = static_cast<int>(ARROW_POPCOUNT64(group_id_mask));
-  ARROW_DCHECK(num_group_id_bits == 8 || num_group_id_bits == 16 ||
-               num_group_id_bits == 32 || num_group_id_bits == 64);
+  assert(num_group_id_bits == 8 || num_group_id_bits == 16 || num_group_id_bits == 32 ||
+         num_group_id_bits == 64);
 
   int bit_offset = slot * num_group_id_bits;
   const uint64_t* group_id_bytes =
@@ -251,8 +262,8 @@ void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
 
   // We assume here that the number of bits is rounded up to 8, 16, 32 or 64.
   // In that case we can insert group id value using aligned 64-bit word access.
-  ARROW_DCHECK(num_groupid_bits == 8 || num_groupid_bits == 16 ||
-               num_groupid_bits == 32 || num_groupid_bits == 64);
+  assert(num_groupid_bits == 8 || num_groupid_bits == 16 || num_groupid_bits == 32 ||
+         num_groupid_bits == 64);
 
   const uint64_t num_block_bytes = (8 + num_groupid_bits);
   constexpr uint64_t stamp_mask = 0x7f;
@@ -261,13 +272,13 @@ void SwissTable::insert_into_empty_slot(uint32_t slot_id, uint32_t hash,
   int stamp =
       static_cast<int>((hash >> (bits_hash_ - log_blocks_ - bits_stamp_)) & stamp_mask);
   uint64_t block_id = slot_id >> 3;
-  uint8_t* blockbase = blocks_ + num_block_bytes * block_id;
+  uint8_t* blockbase = blocks_->mutable_data() + num_block_bytes * block_id;
 
   blockbase[7 - start_slot] = static_cast<uint8_t>(stamp);
   int groupid_bit_offset = static_cast<int>(start_slot * num_groupid_bits);
 
   // Block status bytes should start at an address aligned to 8 bytes
-  ARROW_DCHECK((reinterpret_cast<uint64_t>(blockbase) & 7) == 0);
+  assert((reinterpret_cast<uint64_t>(blockbase) & 7) == 0);
   uint64_t* ptr = reinterpret_cast<uint64_t*>(blockbase) + 1 + (groupid_bit_offset >> 6);
   *ptr |= (static_cast<uint64_t>(group_id) << (groupid_bit_offset & 63));
 }

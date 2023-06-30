@@ -15,13 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//go:build cgo
+
 package mallocator_test
 
 import (
 	"fmt"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/memory/mallocator"
+	"github.com/apache/arrow/go/v13/arrow/memory/mallocator"
 	"github.com/stretchr/testify/assert"
 )
 

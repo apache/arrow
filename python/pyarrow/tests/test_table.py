@@ -529,7 +529,10 @@ def test_recordbatch_basics():
     assert batch.schema == schema
     assert str(batch) == """pyarrow.RecordBatch
 c0: int16
-c1: int32"""
+c1: int32
+----
+c0: [0,1,2,3,4]
+c1: [-10,-5,0,null,10]"""
 
     assert batch.to_string(show_metadata=True) == """\
 pyarrow.RecordBatch
@@ -544,6 +547,28 @@ foo: 'bar'"""
     assert wr() is not None
     del batch
     assert wr() is None
+
+
+def test_recordbatch_dunder_init():
+    with pytest.raises(TypeError, match='RecordBatch'):
+        pa.RecordBatch()
+
+
+def test_recordbatch_itercolumns():
+    data = [
+        pa.array(range(5), type='int16'),
+        pa.array([-10, -5, 0, None, 10], type='int32')
+    ]
+    batch = pa.record_batch(data, ['c0', 'c1'])
+
+    columns = []
+    for col in batch.itercolumns():
+        columns.append(col)
+
+    assert batch.columns == columns
+    assert batch == pa.record_batch(columns, names=batch.column_names)
+    assert batch != pa.record_batch(columns[1:], names=batch.column_names[1:])
+    assert batch != columns
 
 
 def test_recordbatch_equals():
@@ -687,7 +712,7 @@ def test_recordbatch_select_column():
     assert batch.column('a').equals(batch.column(0))
 
     with pytest.raises(
-            KeyError, match='Field "d" does not exist in record batch schema'):
+            KeyError, match='Field "d" does not exist in schema'):
         batch.column('d')
 
     with pytest.raises(TypeError):
@@ -949,6 +974,11 @@ def test_table_basics():
     assert wr() is None
 
 
+def test_table_dunder_init():
+    with pytest.raises(TypeError, match='Table'):
+        pa.Table()
+
+
 def test_table_from_arrays_preserves_column_metadata():
     # Added to test https://issues.apache.org/jira/browse/ARROW-3866
     arr0 = pa.array([1, 2])
@@ -1039,7 +1069,7 @@ def test_table_select_column():
     assert table.column('a').equals(table.column(0))
 
     with pytest.raises(KeyError,
-                       match='Field "d" does not exist in table schema'):
+                       match='Field "d" does not exist in schema'):
         table.column('d')
 
     with pytest.raises(TypeError):
@@ -1056,7 +1086,7 @@ def test_table_column_with_duplicates():
                       pa.array([7, 8, 9])], names=['a', 'b', 'a'])
 
     with pytest.raises(KeyError,
-                       match='Field "a" exists 2 times in table schema'):
+                       match='Field "a" exists 2 times in schema'):
         table.column('a')
 
 
@@ -1989,6 +2019,7 @@ def test_table_select():
     assert result.equals(expected)
 
 
+@pytest.mark.acero
 def test_table_group_by():
     def sorted_by_keys(d):
         # Ensure a guaranteed order of keys for aggregation results.
@@ -2156,7 +2187,7 @@ def test_table_to_recordbatchreader():
     assert reader.read_next_batch().num_rows == 1
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2183,7 +2214,7 @@ def test_table_join():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_unique_key():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2210,7 +2241,7 @@ def test_table_join_unique_key():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_collisions():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2234,7 +2265,7 @@ def test_table_join_collisions():
     ], names=["colA", "colB", "colVals", "colB", "colVals"])
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_filter_expression():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2258,7 +2289,7 @@ def test_table_filter_expression():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_many_columns():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2359,3 +2390,35 @@ def test_record_batch_sort():
     assert sorted_rb_dict["a"] == [5, 7, 7, 35]
     assert sorted_rb_dict["b"] == [2, 3, 4, 1]
     assert sorted_rb_dict["c"] == ["foobar", "bar", "foo", "car"]
+
+
+@pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
+def test_numpy_asarray(constructor):
+    table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])
+    result = np.asarray(table)
+    expected = np.array([[1, 4], [2, 5], [3, 6]], dtype="float64")
+    np.testing.assert_allclose(result, expected)
+
+    result = np.asarray(table, dtype="int32")
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "int32"
+
+    # no columns
+    table2 = table.select([])
+    result = np.asarray(table2)
+    expected = np.empty((3, 0))
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "float64"
+    result = np.asarray(table2, dtype="int32")
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "int32"
+
+    # no rows
+    table3 = table.slice(0, 0)
+    result = np.asarray(table3)
+    expected = np.empty((0, 2))
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "float64"
+    result = np.asarray(table3, dtype="int32")
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "int32"

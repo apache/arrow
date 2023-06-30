@@ -14,15 +14,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build mallocator
+//go:build mallocator && cgo
 
 package memory_test
 
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/arrow/memory/mallocator"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/memory/mallocator"
 	"github.com/stretchr/testify/assert"
 )
 

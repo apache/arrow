@@ -27,6 +27,9 @@ add_dependencies(gandiva-all gandiva gandiva-tests gandiva-benchmarks)
 
 find_package(LLVMAlt REQUIRED)
 provide_find_module(LLVMAlt "Gandiva")
+if(ARROW_WITH_ZSTD AND "${zstd_SOURCE}" STREQUAL "SYSTEM")
+  provide_find_module(zstdAlt "Gandiva")
+endif()
 
 add_definitions(-DGANDIVA_LLVM_VERSION=${LLVM_VERSION_MAJOR})
 

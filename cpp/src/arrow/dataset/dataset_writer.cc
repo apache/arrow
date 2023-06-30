@@ -21,6 +21,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "arrow/filesystem/path_util.h"
 #include "arrow/record_batch.h"
@@ -308,10 +309,21 @@ class DatasetWriterDirectoryQueue {
   }
 
   Result<std::string> GetNextFilename() {
-    auto basename = ::arrow::internal::Replace(write_options_.basename_template,
-                                               kIntegerToken, ToChars(file_counter_++));
+    std::optional<std::string> basename;
+    if (write_options_.basename_template_functor == nullptr) {
+      basename = ::arrow::internal::Replace(write_options_.basename_template,
+                                            kIntegerToken, ToChars(file_counter_++));
+    } else {
+      basename = ::arrow::internal::Replace(
+          write_options_.basename_template, kIntegerToken,
+          write_options_.basename_template_functor(file_counter_++));
+    }
     if (!basename) {
       return Status::Invalid("string interpolation of basename template failed");
+    }
+    if (!used_filenames_.insert(*basename).second) {
+      return Status::Invalid("filename ", *basename,
+                             " is already used before. Check basename_template_functor");
     }
     return fs::internal::ConcatAbstractPath(directory_, prefix_ + *basename);
   }
@@ -406,6 +418,7 @@ class DatasetWriterDirectoryQueue {
       latest_open_file_tasks_.reset();
       latest_open_file_ = nullptr;
     }
+    used_filenames_.clear();
     return Status::OK();
   }
 
@@ -418,6 +431,7 @@ class DatasetWriterDirectoryQueue {
   DatasetWriterState* writer_state_;
   Future<> init_future_;
   std::string current_filename_;
+  std::unordered_set<std::string> used_filenames_;
   DatasetWriterFileQueue* latest_open_file_ = nullptr;
   std::unique_ptr<util::ThrottledAsyncTaskScheduler> latest_open_file_tasks_;
   uint64_t rows_written_ = 0;

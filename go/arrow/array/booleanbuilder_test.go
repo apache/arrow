@@ -19,9 +19,9 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/internal/testing/tools"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/internal/testing/tools"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -31,16 +31,20 @@ func TestBooleanBuilder_AppendValues(t *testing.T) {
 
 	b := array.NewBooleanBuilder(mem)
 
-	exp := tools.Bools(1, 1, 0, 1, 1, 0, 1, 0)
-	got := make([]bool, len(exp))
+	exp := tools.Bools(1, 1, 0, 1, 1, 0)
+	got := make([]bool, len(exp)+2)
 
 	b.AppendValues(exp, nil)
+	assert.NoError(t, b.AppendValueFromString("true"))
+	assert.NoError(t, b.AppendValueFromString("false"))
+	exp = tools.Bools(1, 1, 0, 1, 1, 0, 1, 0)
 	a := b.NewBooleanArray()
 	b.Release()
 	for i := 0; i < a.Len(); i++ {
 		got[i] = a.Value(i)
 	}
 	assert.Equal(t, exp, got)
+
 	a.Release()
 }
 

@@ -27,8 +27,8 @@
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/sparse_tensor.h"
 #include "arrow/python/visibility.h"
+#include "arrow/sparse_tensor.h"
 
 namespace arrow {
 

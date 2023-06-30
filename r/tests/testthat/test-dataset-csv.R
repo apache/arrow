@@ -91,7 +91,7 @@ test_that("CSV scan options", {
   sb$FragmentScanOptions(options)
 
   tab <- sb$Finish()$ToTable()
-  expect_equal(as.data.frame(tab), tibble(chr = c("foo", NA)))
+  expect_equal_data_frame(tab, data.frame(chr = c("foo", NA), stringsAsFactors = FALSE))
 
   # Set default convert options in CsvFileFormat
   csv_format <- CsvFileFormat$create(
@@ -573,4 +573,23 @@ test_that("open_delim_dataset params passed through to open_dataset", {
   ds <- open_csv_dataset(dst_dir, timestamp_parsers = c(TimestampParser$create(format = "%d-%m-%y"))) %>% collect()
 
   expect_equal(ds$time, "16-01-2023")
+})
+
+test_that("CSVReadOptions printing", {
+  default_read_options <- CsvReadOptions$create()
+  custom_read_options <- CsvReadOptions$create(skip_rows = 102)
+
+  expect_output(print(default_read_options), "skip_rows: 0")
+  expect_output(print(custom_read_options), "skip_rows: 102")
+})
+
+test_that("CSVReadOptions field access", {
+  options <- CsvReadOptions$create()
+  expect_equal(options$skip_rows, 0)
+  expect_equal(options$autogenerate_column_names, FALSE)
+  expect_equal(options$skip_rows_after_names, 0)
+  expect_equal(options$use_threads, option_use_threads())
+  expect_equal(options$column_names, character(0))
+  expect_equal(options$block_size, 1048576L)
+  expect_equal(options$encoding, "UTF-8")
 })

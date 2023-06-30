@@ -18,21 +18,24 @@ package file_test
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"io"
-	"math/rand"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet/compress"
-	"github.com/apache/arrow/go/v12/parquet/file"
-	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v12/parquet/metadata"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/compress"
+	"github.com/apache/arrow/go/v13/parquet/file"
+	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v13/parquet/metadata"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	libthrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -63,6 +66,19 @@ func checkStatistics(t *testing.T, stats format.Statistics, actual metadata.Enco
 	if stats.IsSetDistinctCount() {
 		assert.Equal(t, stats.GetDistinctCount(), actual.DistinctCount)
 	}
+}
+
+type testReader struct {
+	*bytes.Reader
+}
+
+// ReadAt for testReader returns io.EOF when off + len(b) is exactly the length of the underlying input source.
+func (tr testReader) ReadAt(b []byte, off int64) (int, error) {
+	n, err := tr.Reader.ReadAt(b, off)
+	if err == nil && (int64(n)+off == tr.Size()) {
+		return n, io.EOF
+	}
+	return n, err
 }
 
 type PageSerdeSuite struct {
@@ -269,6 +285,20 @@ func (p *PageSerdeSuite) TestCompression() {
 			p.ResetStream()
 		})
 	}
+}
+
+func TestWithEOFReader(t *testing.T) {
+	root, _ := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{
+		schema.NewInt32Node("int_col", parquet.Repetitions.Required, -1)}, -1)
+	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_LATEST))
+
+	var buf bytes.Buffer
+	wr := file.NewParquetWriter(&buf, root, file.WithWriterProps(props))
+	require.NoError(t, wr.Close())
+
+	r := bytes.NewReader(buf.Bytes())
+	_, err := file.NewParquetReader(testReader{Reader: r})
+	assert.NoError(t, err)
 }
 
 func TestInvalidHeaders(t *testing.T) {

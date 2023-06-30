@@ -58,6 +58,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
@@ -185,7 +186,7 @@ class S3TestMixin : public AwsTestMixin {
     Status connect_status;
     int retries = kNumServerRetries;
     do {
-      InitServerAndClient();
+      ASSERT_OK(InitServerAndClient());
       connect_status = OutcomeToStatus("ListBuckets", client_->ListBuckets());
     } while (!connect_status.ok() && --retries > 0);
     ASSERT_OK(connect_status);
@@ -198,8 +199,8 @@ class S3TestMixin : public AwsTestMixin {
   }
 
  protected:
-  void InitServerAndClient() {
-    ASSERT_OK_AND_ASSIGN(minio_, GetMinioEnv()->GetOneServer());
+  Status InitServerAndClient() {
+    ARROW_ASSIGN_OR_RAISE(minio_, GetMinioEnv()->GetOneServer());
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     client_config_->scheme = Aws::Http::Scheme::HTTP;
@@ -211,6 +212,7 @@ class S3TestMixin : public AwsTestMixin {
         new Aws::S3::S3Client(credentials_, *client_config_,
                               Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
                               use_virtual_addressing));
+    return Status::OK();
   }
 
   // How many times to try launching a server in a row before decreeing failure
@@ -1141,6 +1143,18 @@ TEST_F(TestS3FS, FileSystemFromUri) {
   std::string path;
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(ss.str(), &path));
   ASSERT_EQ(path, "bucket/somedir/subdir/subfile");
+
+  ASSERT_OK_AND_ASSIGN(path, fs->PathFromUri(ss.str()));
+  ASSERT_EQ(path, "bucket/somedir/subdir/subfile");
+
+  // Incorrect scheme
+  ASSERT_THAT(fs->PathFromUri("file:///@bucket/somedir/subdir/subfile"),
+              Raises(StatusCode::Invalid,
+                     testing::HasSubstr("expected a URI with one of the schemes (s3)")));
+
+  // Not a URI
+  ASSERT_THAT(fs->PathFromUri("/@bucket/somedir/subdir/subfile"),
+              Raises(StatusCode::Invalid, testing::HasSubstr("Expected a URI")));
 
   // Check the filesystem has the right connection parameters
   AssertFileInfo(fs.get(), path, FileType::File, 8);

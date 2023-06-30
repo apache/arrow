@@ -23,14 +23,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/endian"
-	"github.com/apache/arrow/go/v12/arrow/internal"
-	"github.com/apache/arrow/go/v12/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/endian"
+	"github.com/apache/arrow/go/v13/arrow/internal"
+	"github.com/apache/arrow/go/v13/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 // FileReader is an Arrow file reader.
@@ -589,18 +589,13 @@ func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) arrow.ArrayData {
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)
 
-	sub := ctx.loadChild(dt.ValueType())
+	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()
 
 	return array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub}, int(field.NullCount()), 0)
 }
 
-type listLike interface {
-	arrow.DataType
-	Elem() arrow.DataType
-}
-
-func (ctx *arrayLoaderContext) loadList(dt listLike) arrow.ArrayData {
+func (ctx *arrayLoaderContext) loadList(dt arrow.ListLikeType) arrow.ArrayData {
 	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)

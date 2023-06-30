@@ -18,12 +18,12 @@ package ipc_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v12/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 func TestFile(t *testing.T) {
@@ -34,7 +34,7 @@ func TestFile(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile(tempDir, "go-arrow-file-")
+			f, err := os.CreateTemp(tempDir, "go-arrow-file-")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -61,7 +61,7 @@ func TestFileCompressed(t *testing.T) {
 					mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 					defer mem.AssertSize(t, 0)
 
-					f, err := ioutil.TempFile(tempDir, "go-arrow-file-")
+					f, err := os.CreateTemp(tempDir, "go-arrow-file-")
 					if err != nil {
 						t.Fatal(err)
 					}

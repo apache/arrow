@@ -19,9 +19,9 @@ package encoding
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/internal/bitutils"
-	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
+	"github.com/apache/arrow/go/v13/parquet"
 )
 
 // PlainFixedLenByteArrayEncoder writes the raw bytes of the byte array
@@ -84,9 +84,6 @@ func (enc *DictFixedLenByteArrayEncoder) WriteDict(out []byte) {
 // Put writes fixed length values to a dictionary encoded column
 func (enc *DictFixedLenByteArrayEncoder) Put(in []parquet.FixedLenByteArray) {
 	for _, v := range in {
-		if v == nil {
-			v = empty[:]
-		}
 		memoIdx, found, err := enc.memo.GetOrInsert(v)
 		if err != nil {
 			panic(err)

@@ -31,6 +31,7 @@ import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -41,8 +42,9 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
 import org.junit.Before;
 
+
 public abstract class TestDataset {
-  private RootAllocator allocator = null;
+  private BufferAllocator allocator = null;
 
   @Before
   public void setUp() {
@@ -54,7 +56,7 @@ public abstract class TestDataset {
     allocator.close();
   }
 
-  protected RootAllocator rootAllocator() {
+  protected BufferAllocator rootAllocator() {
     return allocator;
   }
 

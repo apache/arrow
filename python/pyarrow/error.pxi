@@ -79,7 +79,7 @@ ArrowIOError = IOError
 
 # This function could be written directly in C++ if we didn't
 # define Arrow-specific subclasses (ArrowInvalid etc.)
-cdef int check_status(const CStatus& status) nogil except -1:
+cdef int check_status(const CStatus& status) except -1 nogil:
     if status.ok():
         return 0
 
@@ -140,7 +140,7 @@ cdef int check_status(const CStatus& status) nogil except -1:
 
 # This is an API function for C++ PyArrow
 cdef api int pyarrow_internal_check_status(const CStatus& status) \
-        nogil except -1:
+        except -1 nogil:
     return check_status(status)
 
 

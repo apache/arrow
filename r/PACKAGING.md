@@ -23,26 +23,24 @@
 For a high-level overview of the release process see the
 [Apache Arrow Release Management Guide](https://arrow.apache.org/docs/developers/release.html#post-release-tasks).
 
-Before the release candidate is cut:
+## Before the release candidate is cut
 
-- [ ] [Create a GitHub issue](https://github.com/apache/arrow/issues/new/)
-  entitled `[R] CRAN packaging checklist for version X.X.X`
-  and copy this checklist to the issue.
-- [ ] Evaluate the status of any failing
-  [nightly tests and nightly packaging builds](http://crossbow.voltrondata.com). These checks
-  replicate most of the checks that CRAN runs, so we need them all to be passing
-  or to understand that the failures may (though won't necessarily) result in a rejection from CRAN.
+- [ ] [Create a GitHub issue](https://github.com/apache/arrow/issues/new/) entitled `[R] CRAN packaging checklist for version X.X.X` and copy this checklist to the issue.
+- [ ] Evaluate the status of any failing [nightly tests and nightly packaging builds](http://crossbow.voltrondata.com). These checks replicate most of the checks that CRAN runs, so we need them all to be passing or to understand that the failures may (though won't necessarily) result in a rejection from CRAN.
 - [ ] Check [current CRAN check results](https://cran.rstudio.org/web/checks/check_results_arrow.html)
-- [ ] Ensure the contents of the README are accurate and up to date
-- [ ] Run `urlchecker::url_check()` on the R directory at the release candidate
+- [ ] Ensure the contents of the README are accurate and up to date.
+- [ ] Run `urlchecker::url_check()` on the R directory at the release candidate.
   commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
 - [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later).
-- [ ] For major releases, prepare tweet thread highlighting new features
+- [ ] Run preliminary reverse dependency checks using `archery docker run r-revdepcheck`.
+- [ ] For major releases, prepare tweet thread highlighting new features.
 
 Wait for the release candidate to be cut:
 
-- [ ] Release candidate!
+## After release candidate has been cut
 - [ ] Create a CRAN-release branch from the release candidate commit
+
+## Optional: PRs for autobrew and rtools (release candidate)
 
 Make pull requests into the [autobrew](https://github.com/autobrew) and
 [rtools-packages](https://github.com/r-windows/rtools-packages) repositories
@@ -67,7 +65,7 @@ use the release candidate as the source.
   [ci/PKGBUILD](https://github.com/apache/arrow/blob/main/ci/scripts/PKGBUILD),
   uncommenting the line that says "uncomment to test the rc".
 
-Prepare and check the .tar.gz that will be released to CRAN.
+## Prepare and check the .tar.gz that will be released to CRAN.
 
 - [ ] `git fetch upstream && git checkout release-X.X.X-rcXX && git clean -f -d`
 - [ ] Run `make build`. This copies Arrow C++ into tools/cpp, prunes some
@@ -76,13 +74,22 @@ Prepare and check the .tar.gz that will be released to CRAN.
   of Arrow C++ available to the configure script is the same as the version
   that is vendored into the R package (e.g., you may need to unset `ARROW_HOME`).
 - [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally
-- [ ] Run reverse dependency checks. Currently this is a 
-  [manual process](https://gist.github.com/paleolimbot/630fdab1e204d70fea97633d8fa15ccb);
-  however, in the future it may be a crossbow nightly job.
+- [ ] Run reverse dependency checks using `archery docker run r-revdepcheck`.
 
-Wait for the official release...
-  
+## Release vote
 - [ ] Release vote passed!
+
+## PRs for autobrew and rtools (official release)
+
+Create new autobrew and r-windows PRs such that they use the *release*
+instead of the *release candidate*:
+
+- [ ] PR into autobrew/homebrew-core (apache-arrow autobrew formula)
+- [ ] PR into autobrew/homebrew-core (apache-arrow-static autobrew formula)
+- [ ] PR into autobrew/scripts
+- [ ] PR into r-windows/rtools-packages
+
+## Generate R package to submit to CRAN
 - [ ] If the release candidate commit updated, rebase the CRAN release branch
   on that commit.
 - [ ] Pick any commits that were made to main since the release commit that
@@ -95,18 +102,11 @@ Wait for the official release...
   jobs against the CRAN-specific release branch.
 - [ ] Regenerate arrow_X.X.X.tar.gz (i.e., `make build`)
 
-Create new autobrew and r-windows PRs such that they use the *release*
-instead of the *release candidate*; ensure linux binary packages are available:
-
-- [ ] PR into autobrew/homebrew-core (apache-arrow autobrew formula)
-- [ ] PR into autobrew/homebrew-core (apache-arrow-static autobrew formula)
-- [ ] PR into autobrew/scripts
-- [ ] PR into r-windows/rtools-packages
+Ensure linux binary packages are available:
 - [ ] Ensure linux binaries are available in the artifactory:
   https://apache.jfrog.io/ui/repos/tree/General/arrow/r
 
-Check binary Arrow C++ distributions specific to the R package:
-
+## Check binary Arrow C++ distributions specific to the R package
 - [ ] Upload the .tar.gz to [win-builder](https://win-builder.r-project.org/upload.aspx) (r-devel only)
   and confirm (with Nic, who will automatically receive an email about the results) that the check is clean.
   This step cannot be completed before Jeroen has put the binaries in the MinGW repository, i.e. [here](https://ftp.opencpu.org/rtools/ucrt64/), [here](https://ftp.opencpu.org/rtools/mingw64/), and [here](https://ftp.opencpu.org/rtools/mingw32/).
@@ -116,18 +116,18 @@ Check binary Arrow C++ distributions specific to the R package:
   hosted binaries are used
 - [ ] `devtools::check_built("arrow_X.X.X.tar.gz")` locally one more time (for luck)
 
-Submit!
-
+## CRAN submission
 - [ ] Upload arrow_X.X.X.tar.gz to the
   [CRAN submit page](https://xmpalantir.wu.ac.at/cransubmit/)
 - [ ] Confirm the submission email
 
 Wait for CRAN...
-
 - [ ] Accepted!
 - [ ] Tag the tip of the CRAN-specific release branch
 - [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/main/dev/tasks/r/github.linux.arrow.version.back.compat.yml)
 - [ ] (patch releases only) Update the package version in `ci/scripts/PKGBUILD`, `dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb`, `r/DESCRIPTION`, and `r/NEWS.md`
+- [ ] (CRAN-only releases) Rebuild the docs with `pkgdown::build_site(examples = FALSE, lazy = TRUE, install = FALSE)` and submit a PR to [the `asf-site` branch of the docs site](https://github.com/apache/arrow-site) with the contents of `r/docs/news/index.html`.
+- [ ] (CRAN-only releases) Bump the version number in `r/pkgdown/assets/versions.json`, and update this on the [the `asf-site` branch of the docs site](https://github.com/apache/arrow-site) too.
 - [ ] Update the packaging checklist template to reflect any new realities of the
   packaging process.
 - [ ] Wait for CRAN-hosted binaries on the

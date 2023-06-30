@@ -21,10 +21,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -69,20 +69,7 @@ func (l *List) Validate() (err error) {
 		return
 	}
 
-	var (
-		valueType arrow.DataType
-	)
-
-	switch dt := l.Type.(type) {
-	case *arrow.ListType:
-		valueType = dt.Elem()
-	case *arrow.LargeListType:
-		valueType = dt.Elem()
-	case *arrow.FixedSizeListType:
-		valueType = dt.Elem()
-	case *arrow.MapType:
-		valueType = dt.ValueType()
-	}
+	valueType := l.Type.(arrow.ListLikeType).Elem()
 	listType := l.Type
 
 	if !arrow.TypeEqual(l.Value.DataType(), valueType) {

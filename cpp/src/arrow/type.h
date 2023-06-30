@@ -1232,6 +1232,7 @@ class ARROW_EXPORT RunEndEncodedType : public NestedType {
 
   explicit RunEndEncodedType(std::shared_ptr<DataType> run_end_type,
                              std::shared_ptr<DataType> value_type);
+  ~RunEndEncodedType() override;
 
   DataTypeLayout layout() const override {
     // A lot of existing code expects at least one buffer
@@ -1689,10 +1690,30 @@ class ARROW_EXPORT FieldPath {
 
   /// \brief Retrieve the referenced column from a RecordBatch or Table
   Result<std::shared_ptr<Array>> Get(const RecordBatch& batch) const;
+  Result<std::shared_ptr<ChunkedArray>> Get(const Table& table) const;
 
   /// \brief Retrieve the referenced child from an Array or ArrayData
   Result<std::shared_ptr<Array>> Get(const Array& array) const;
   Result<std::shared_ptr<ArrayData>> Get(const ArrayData& data) const;
+
+  /// \brief Retrieve the referenced child from a ChunkedArray
+  Result<std::shared_ptr<ChunkedArray>> Get(const ChunkedArray& chunked_array) const;
+
+  /// \brief Retrieve the referenced child/column from an Array, ArrayData, ChunkedArray,
+  /// RecordBatch, or Table
+  ///
+  /// Unlike `FieldPath::Get`, these variants are not zero-copy and the retrieved child's
+  /// null bitmap is ANDed with its ancestors'
+  Result<std::shared_ptr<Array>> GetFlattened(const Array& array,
+                                              MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<ArrayData>> GetFlattened(const ArrayData& data,
+                                                  MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<ChunkedArray>> GetFlattened(const ChunkedArray& chunked_array,
+                                                     MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<Array>> GetFlattened(const RecordBatch& batch,
+                                              MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<ChunkedArray>> GetFlattened(const Table& table,
+                                                     MemoryPool* pool = NULLPTR) const;
 
  private:
   std::vector<int> indices_;
@@ -1802,6 +1823,20 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     return true;
   }
 
+  /// \brief Return true if this ref is a name or a nested sequence of only names
+  ///
+  /// Useful for determining if iteration is possible without recursion or inner loops
+  bool IsNameSequence() const {
+    if (IsName()) return true;
+    if (const auto* nested = nested_refs()) {
+      for (const auto& ref : *nested) {
+        if (!ref.IsName()) return false;
+      }
+      return !nested->empty();
+    }
+    return false;
+  }
+
   const FieldPath* field_path() const {
     return IsFieldPath() ? &std::get<FieldPath>(impl_) : NULLPTR;
   }
@@ -1823,7 +1858,9 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   /// \brief Convenience function which applies FindAll to arg's type or schema.
   std::vector<FieldPath> FindAll(const ArrayData& array) const;
   std::vector<FieldPath> FindAll(const Array& array) const;
+  std::vector<FieldPath> FindAll(const ChunkedArray& chunked_array) const;
   std::vector<FieldPath> FindAll(const RecordBatch& batch) const;
+  std::vector<FieldPath> FindAll(const Table& table) const;
 
   /// \brief Convenience function: raise an error if matches is empty.
   template <typename T>
@@ -1879,6 +1916,20 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     }
     return out;
   }
+  /// \brief Get all children matching this FieldRef.
+  ///
+  /// Unlike `FieldRef::GetAll`, this variant is not zero-copy and the retrieved
+  /// children's null bitmaps are ANDed with their ancestors'
+  template <typename T>
+  Result<std::vector<GetType<T>>> GetAllFlattened(const T& root,
+                                                  MemoryPool* pool = NULLPTR) const {
+    std::vector<GetType<T>> out;
+    for (const auto& match : FindAll(root)) {
+      ARROW_ASSIGN_OR_RAISE(auto child, match.GetFlattened(root, pool));
+      out.push_back(std::move(child));
+    }
+    return out;
+  }
 
   /// \brief Get the single child matching this FieldRef.
   /// Emit an error if none or multiple match.
@@ -1886,6 +1937,15 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   Result<GetType<T>> GetOne(const T& root) const {
     ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
     return match.Get(root).ValueOrDie();
+  }
+  /// \brief Get the single child matching this FieldRef.
+  ///
+  /// Unlike `FieldRef::GetOne`, this variant is not zero-copy and the retrieved
+  /// child's null bitmap is ANDed with its ancestors'
+  template <typename T>
+  Result<GetType<T>> GetOneFlattened(const T& root, MemoryPool* pool = NULLPTR) const {
+    ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
+    return match.GetFlattened(root, pool);
   }
 
   /// \brief Get the single child matching this FieldRef.
@@ -1897,6 +1957,20 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
       return static_cast<GetType<T>>(NULLPTR);
     }
     return match.Get(root).ValueOrDie();
+  }
+  /// \brief Get the single child matching this FieldRef.
+  ///
+  /// Return nullptr if none match, emit an error if multiple match.
+  /// Unlike `FieldRef::GetOneOrNone`, this variant is not zero-copy and the
+  /// retrieved child's null bitmap is ANDed with its ancestors'
+  template <typename T>
+  Result<GetType<T>> GetOneOrNoneFlattened(const T& root,
+                                           MemoryPool* pool = NULLPTR) const {
+    ARROW_ASSIGN_OR_RAISE(auto match, FindOneOrNone(root));
+    if (match.empty()) {
+      return static_cast<GetType<T>>(NULLPTR);
+    }
+    return match.GetFlattened(root, pool);
   }
 
  private:

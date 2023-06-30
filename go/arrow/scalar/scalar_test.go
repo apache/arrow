@@ -25,11 +25,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/arrow/scalar"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/scalar"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -114,6 +115,22 @@ func TestBasicDecimal128(t *testing.T) {
 	assert.NoError(t, pi.ValidateFull())
 	assert.True(t, pi.IsValid())
 	assert.Equal(t, decimal128.FromI64(314), pi.Value)
+
+	assert.NoError(t, null.ValidateFull())
+	assert.False(t, null.IsValid())
+
+	assert.False(t, scalar.Equals(pi, pi2))
+}
+
+func TestBasicDecimal256(t *testing.T) {
+	ty := &arrow.Decimal256Type{Precision: 3, Scale: 2}
+	pi := scalar.NewDecimal256Scalar(decimal256.New(0, 0, 0, 314), ty)
+	pi2 := scalar.NewDecimal256Scalar(decimal256.FromI64(628), ty)
+	null := checkMakeNullScalar(t, ty)
+
+	assert.NoError(t, pi.ValidateFull())
+	assert.True(t, pi.IsValid())
+	assert.Equal(t, decimal256.FromI64(314), pi.Value)
 
 	assert.NoError(t, null.ValidateFull())
 	assert.False(t, null.IsValid())
@@ -862,6 +879,7 @@ func getScalars(mem memory.Allocator) []scalar.Scalar {
 		scalar.NewBinaryScalar(hello, arrow.BinaryTypes.Binary),
 		scalar.NewFixedSizeBinaryScalar(hello, &arrow.FixedSizeBinaryType{ByteWidth: hello.Len()}),
 		scalar.NewDecimal128Scalar(decimal128.FromI64(10), &arrow.Decimal128Type{Precision: 16, Scale: 4}),
+		scalar.NewDecimal256Scalar(decimal256.FromI64(10), &arrow.Decimal256Type{Precision: 16, Scale: 4}),
 		scalar.NewStringScalarFromBuffer(hello),
 		scalar.NewListScalar(int8Arr),
 		scalar.NewMapScalar(mapArr.List.ListValues()),

@@ -38,6 +38,10 @@ import org.apache.arrow.vector.AllocationHelper;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 
+<#function is_timestamp_tz type>
+  <#return type?starts_with("TimeStamp") && type?ends_with("TZ")>
+</#function>
+
 /*
  * This class is generated using FreeMarker and the ${.template_name} template.
  */
@@ -314,7 +318,22 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     } else {
       if (writer instanceof PromotableWriter) {
         // ensure writers are initialized
+        <#if minor.class?starts_with("Decimal")>
         ((PromotableWriter)writer).getWriter(MinorType.${upperName}<#if minor.class?starts_with("Decimal")>, new ${minor.arrowType}(precision, scale, ${vectName}Vector.TYPE_WIDTH * 8)</#if>);
+        <#elseif is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+          <#if minor.arrowTypeConstructorParams??>
+            <#assign constructorParams = minor.arrowTypeConstructorParams />
+          <#else>
+            <#assign constructorParams = [] />
+            <#list minor.typeParams?reverse as typeParam>
+              <#assign constructorParams = constructorParams + [ typeParam.name ] />
+            </#list>
+          </#if>
+        ArrowType arrowType = new ${minor.arrowType}(${constructorParams?join(", ")});
+        ((PromotableWriter)writer).getWriter(MinorType.${upperName}, arrowType);
+        <#else>
+        ((PromotableWriter)writer).getWriter(MinorType.${upperName});
+        </#if>
       }
     }
     return writer;

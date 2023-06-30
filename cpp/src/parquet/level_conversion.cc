@@ -82,7 +82,7 @@ void DefRepLevelsToListInfo(const int16_t* def_levels, const int16_t* rep_levels
       // offsets until we get to the children).
       if (offsets != nullptr) {
         ++offsets;
-        // Use cumulative offsets because variable size lists are more common then
+        // Use cumulative offsets because variable size lists are more common than
         // fixed size lists so it should be cheaper to make these cumulative and
         // subtract when validating fixed size lists.
         *offsets = *(offsets - 1);
@@ -171,7 +171,7 @@ void DefRepLevelsToList(const int16_t* def_levels, const int16_t* rep_levels,
 void DefRepLevelsToBitmap(const int16_t* def_levels, const int16_t* rep_levels,
                           int64_t num_def_levels, LevelInfo level_info,
                           ValidityBitmapInputOutput* output) {
-  // DefReplevelsToListInfo assumes it for the actual list method and this
+  // DefRepLevelsToListInfo assumes it for the actual list method and this
   // method is for parent structs, so we need to bump def and ref level.
   level_info.rep_level += 1;
   level_info.def_level += 1;

@@ -23,13 +23,13 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/arrio"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/file"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/arrio"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/file"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/xerrors"
 )
@@ -356,35 +356,31 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 
 	// pass pairs of reader and column index to the channel for the
 	// goroutines to read the data
-	for idx, r := range readers {
-		defer func(r *ColumnReader) {
-			r.Release()
-		}(r)
-		ch <- readerInfo{r, idx}
+	for idx := range readers {
+		defer readers[idx].Release()
+		ch <- readerInfo{readers[idx], idx}
 	}
 	close(ch)
 
 	// output slice of columns
 	columns := make([]arrow.Column, len(sc.Fields()))
+	defer releaseColumns(columns)
 	for data := range results {
 		if data.err != nil {
 			err = data.err
 			cancel()
 			break
 		}
-		//lint:ignore SA9001 defer.
-		defer data.data.Release()
-		col := arrow.NewColumn(sc.Field(data.idx), data.data)
-		columns[data.idx] = *col
+		columns[data.idx] = *arrow.NewColumn(sc.Field(data.idx), data.data)
+		data.data.Release()
 	}
 
 	if err != nil {
 		// if we encountered an error, consume any waiting data on the channel
 		// so the goroutines don't leak and so memory can get cleaned up. we already
-		// cancelled the context so we're just consuming anything that was already queued up.
+		// cancelled the context, so we're just consuming anything that was already queued up.
 		for data := range results {
-			//lint:ignore SA9001 defer.
-			defer data.data.Release()
+			data.data.Release()
 		}
 		return nil, err
 	}
@@ -654,18 +650,13 @@ func (r *recordReader) Schema() *arrow.Schema { return r.sc }
 
 func (r *recordReader) next() bool {
 	cols := make([]arrow.Array, len(r.sc.Fields()))
-	defer func() {
-		for _, c := range cols {
-			if c != nil {
-				c.Release()
-			}
-		}
-	}()
+	defer releaseArrays(cols)
 	readField := func(idx int, rdr *ColumnReader) error {
 		data, err := rdr.NextBatch(r.batchSize)
 		if err != nil {
 			return err
 		}
+		defer data.Release()
 
 		if data.Len() == 0 {
 			return io.EOF
@@ -675,6 +666,8 @@ func (r *recordReader) next() bool {
 		if err != nil {
 			return err
 		}
+		defer arrdata.Release()
+
 		cols[idx] = array.MakeFromData(arrdata)
 		return nil
 	}

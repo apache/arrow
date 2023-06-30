@@ -23,9 +23,9 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // String represents an immutable sequence of variable-length UTF-8 strings.
@@ -54,6 +54,13 @@ func (a *String) Value(i int) string {
 	return a.values[a.offsets[i]:a.offsets[i+1]]
 }
 
+func (a *String) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.Value(i)
+}
+
 // ValueOffset returns the offset of the value at index i.
 func (a *String) ValueOffset(i int) int {
 	if i < 0 || i > a.array.data.length {
@@ -72,16 +79,13 @@ func (a *String) ValueOffsets() []int32 {
 	return a.offsets[beg:end]
 }
 
-func (a *String) ValueBytes() (ret []byte) {
+func (a *String) ValueBytes() []byte {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length
-	data := a.values[a.offsets[beg]:a.offsets[end]]
-
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&ret))
-	s.Data = (*reflect.StringHeader)(unsafe.Pointer(&data)).Data
-	s.Len = len(data)
-	s.Cap = len(data)
-	return
+	if a.array.data.buffers[2] != nil {
+		return a.array.data.buffers[2].Bytes()[a.offsets[beg]:a.offsets[end]]
+	}
+	return nil
 }
 
 func (a *String) String() string {
@@ -93,7 +97,7 @@ func (a *String) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.Value(i))
 		}
@@ -189,6 +193,13 @@ func (a *LargeString) Value(i int) string {
 	return a.values[a.offsets[i]:a.offsets[i+1]]
 }
 
+func (a *LargeString) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.Value(i)
+}
+
 // ValueOffset returns the offset of the value at index i.
 func (a *LargeString) ValueOffset(i int) int64 {
 	if i < 0 || i > a.array.data.length {
@@ -207,16 +218,13 @@ func (a *LargeString) ValueOffsets() []int64 {
 	return a.offsets[beg:end]
 }
 
-func (a *LargeString) ValueBytes() (ret []byte) {
+func (a *LargeString) ValueBytes() []byte {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length
-	data := a.values[a.offsets[beg]:a.offsets[end]]
-
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&ret))
-	s.Data = (*reflect.StringHeader)(unsafe.Pointer(&data)).Data
-	s.Len = len(data)
-	s.Cap = len(data)
-	return
+	if a.array.data.buffers[2] != nil {
+		return a.array.data.buffers[2].Bytes()[a.offsets[beg]:a.offsets[end]]
+	}
+	return nil
 }
 
 func (a *LargeString) String() string {
@@ -228,7 +236,7 @@ func (a *LargeString) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.Value(i))
 		}
@@ -277,11 +285,7 @@ func (a *LargeString) GetOneForMarshal(i int) interface{} {
 func (a *LargeString) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		if a.IsValid(i) {
-			vals[i] = a.Value(i)
-		} else {
-			vals[i] = nil
-		}
+		vals[i] = a.GetOneForMarshal(i)
 	}
 	return json.Marshal(vals)
 }
@@ -311,7 +315,9 @@ func NewStringBuilder(mem memory.Allocator) *StringBuilder {
 	return b
 }
 
-func (b *StringBuilder) Type() arrow.DataType { return arrow.BinaryTypes.String }
+func (b *StringBuilder) Type() arrow.DataType {
+	return arrow.BinaryTypes.String
+}
 
 // Append appends a string to the builder.
 func (b *StringBuilder) Append(v string) {

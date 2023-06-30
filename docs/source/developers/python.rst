@@ -47,6 +47,13 @@ Some of the issues can be automatically fixed by passing the ``--fix`` option:
 
    $ archery lint --python --fix
 
+The Python code base also includes some C++ files. To fix formatting in those
+files, add the ``--clang-format`` option:
+
+.. code-block::
+
+   $ archery lint --python --clang-format --fix
+
 .. _python-unit-testing:
 
 Unit Testing
@@ -109,8 +116,6 @@ The test groups currently include:
 * ``large_memory``: Test requiring a large amount of system RAM
 * ``orc``: Apache ORC tests
 * ``parquet``: Apache Parquet tests
-* ``plasma``: Plasma Object Store tests (deprecated since Arrow 10.0.0,
-  will be removed in 12.0.0 or so)
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
 
@@ -332,8 +337,6 @@ adding flags with ``ON``:
 * ``ARROW_ORC``: Support for Apache ORC file format
 * ``ARROW_PARQUET``: Support for Apache Parquet file format
 * ``PARQUET_REQUIRE_ENCRYPTION``: Support for Parquet Modular Encryption
-* ``ARROW_PLASMA``: Shared memory object store (deprecated since Arrow 10.0.0,
-  will be removed in 12.0.0 or so)
 
 Anything set to ``ON`` above can also be turned off. Note that some compression
 libraries are recommended for full Parquet support.
@@ -370,12 +373,6 @@ Python executable which you are using.
    ``-DARROW_DEPENDENCY_SOURCE=AUTO`` or some other value (described
    :ref:`here <cpp-build-dependency-management>`)
    to explicitly tell CMake not to use conda.
-
-.. note::
-
-   With older versions of CMake (<3.15) you might need to pass ``-DPYTHON_EXECUTABLE``
-   instead of ``-DPython3_EXECUTABLE``. See `cmake documentation <https://cmake.org/cmake/help/latest/module/FindPython3.html#artifacts-specification>`_
-   for more details.
 
 For any other C++ build challenges, see :ref:`cpp-development`.
 
@@ -583,8 +580,6 @@ Then run the unit tests with:
 
 Caveats
 -------
-
-The Plasma component is not supported on Windows.
 
 Relevant components and environment variables
 =============================================

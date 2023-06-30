@@ -24,8 +24,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/test_util_internal.h"
 #include "arrow/array/array_primitive.h"
-#include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/plan.h"
@@ -351,7 +352,7 @@ TEST_F(TestFileSystemDataset, WriteProjected) {
 }
 
 class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>> {
-  using PlanFactory = std::function<std::vector<cp::Declaration>(
+  using PlanFactory = std::function<std::vector<acero::Declaration>(
       const FileSystemDatasetWriteOptions&,
       std::function<Future<std::optional<cp::ExecBatch>>()>*)>;
 
@@ -374,30 +375,31 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
     write_options.basename_template = "{i}.feather";
     const std::string kExpectedFilename = "root/0.feather";
 
-    cp::BatchesWithSchema source_data;
+    acero::BatchesWithSchema source_data;
     source_data.batches = {
-        cp::ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
-        cp::ExecBatchFromJSON({int32(), boolean()},
-                              "[[5, null], [6, false], [7, false]]")};
+        acero::ExecBatchFromJSON({int32(), boolean()}, "[[null, true], [4, false]]"),
+        acero::ExecBatchFromJSON({int32(), boolean()},
+                                 "[[5, null], [6, false], [7, false]]")};
     source_data.schema = schema({field("i32", int32()), field("bool", boolean())});
 
     AsyncGenerator<std::optional<cp::ExecBatch>> sink_gen;
 
-    ASSERT_OK_AND_ASSIGN(auto plan, cp::ExecPlan::Make());
-    auto source_decl = cp::Declaration::Sequence(
-        {{"source", cp::SourceNodeOptions{source_data.schema,
-                                          source_data.gen(IsParallel(), IsSlow())}}});
+    ASSERT_OK_AND_ASSIGN(auto plan, acero::ExecPlan::Make());
+    auto source_decl = acero::Declaration::Sequence(
+        {{"source", acero::SourceNodeOptions{source_data.schema,
+                                             source_data.gen(IsParallel(), IsSlow())}}});
     auto declarations = plan_factory(write_options, &sink_gen);
     declarations.insert(declarations.begin(), std::move(source_decl));
-    ASSERT_OK(cp::Declaration::Sequence(std::move(declarations)).AddToPlan(plan.get()));
+    ASSERT_OK(
+        acero::Declaration::Sequence(std::move(declarations)).AddToPlan(plan.get()));
 
     if (has_output) {
       ASSERT_FINISHES_OK_AND_ASSIGN(auto out_batches,
-                                    cp::StartAndCollect(plan.get(), sink_gen));
-      cp::AssertExecBatchesEqualIgnoringOrder(source_data.schema, source_data.batches,
-                                              out_batches);
+                                    acero::StartAndCollect(plan.get(), sink_gen));
+      acero::AssertExecBatchesEqualIgnoringOrder(source_data.schema, source_data.batches,
+                                                 out_batches);
     } else {
-      ASSERT_FINISHES_OK(cp::StartAndFinish(plan.get()));
+      ASSERT_FINISHES_OK(acero::StartAndFinish(plan.get()));
     }
 
     // Read written dataset and make sure it matches
@@ -406,29 +408,29 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
     ASSERT_OK_AND_ASSIGN(auto written_dataset, dataset_factory->Finish(FinishOptions{}));
     AssertSchemaEqual(*source_data.schema, *written_dataset->schema());
 
-    ASSERT_OK_AND_ASSIGN(plan, cp::ExecPlan::Make());
+    ASSERT_OK_AND_ASSIGN(plan, acero::ExecPlan::Make());
     ASSERT_OK_AND_ASSIGN(auto scanner_builder, written_dataset->NewScan());
     ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
-    ASSERT_OK(cp::Declaration::Sequence(
+    ASSERT_OK(acero::Declaration::Sequence(
                   {
                       {"scan", ScanNodeOptions{written_dataset, scanner->options()}},
-                      {"sink", cp::SinkNodeOptions{&sink_gen}},
+                      {"sink", acero::SinkNodeOptions{&sink_gen}},
                   })
                   .AddToPlan(plan.get()));
 
     ASSERT_FINISHES_OK_AND_ASSIGN(auto written_batches,
-                                  cp::StartAndCollect(plan.get(), sink_gen));
-    cp::AssertExecBatchesEqualIgnoringOrder(source_data.schema, source_data.batches,
-                                            written_batches);
+                                  acero::StartAndCollect(plan.get(), sink_gen));
+    acero::AssertExecBatchesEqualIgnoringOrder(source_data.schema, source_data.batches,
+                                               written_batches);
   }
 };
 
 TEST_P(FileSystemWriteTest, Write) {
-  auto plan_factory =
-      [](const FileSystemDatasetWriteOptions& write_options,
-         std::function<Future<std::optional<cp::ExecBatch>>()>* sink_gen) {
-        return std::vector<cp::Declaration>{{"write", WriteNodeOptions{write_options}}};
-      };
+  auto plan_factory = [](const FileSystemDatasetWriteOptions& write_options,
+                         std::function<Future<std::optional<cp::ExecBatch>>()>*
+                             sink_gen) {
+    return std::vector<acero::Declaration>{{"write", WriteNodeOptions{write_options}}};
+  };
   TestDatasetWriteRoundTrip(plan_factory, /*has_output=*/false);
 }
 
@@ -436,9 +438,9 @@ TEST_P(FileSystemWriteTest, TeeWrite) {
   auto plan_factory =
       [](const FileSystemDatasetWriteOptions& write_options,
          std::function<Future<std::optional<cp::ExecBatch>>()>* sink_gen) {
-        return std::vector<cp::Declaration>{
+        return std::vector<acero::Declaration>{
             {"tee", WriteNodeOptions{write_options}},
-            {"sink", cp::SinkNodeOptions{sink_gen}},
+            {"sink", acero::SinkNodeOptions{sink_gen}},
         };
       };
   TestDatasetWriteRoundTrip(plan_factory, /*has_output=*/true);

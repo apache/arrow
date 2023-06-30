@@ -28,23 +28,26 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/exec"
-	"github.com/apache/arrow/go/v12/arrow/compute/internal/kernels"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/arrow/scalar"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/compute/internal/kernels"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/scalar"
 )
 
 var hashSeed = maphash.MakeSeed()
 
 // Expression is an interface for mapping one datum to another. An expression
 // is one of:
+//
 //	A literal Datum
-// 	A reference to a single (potentially nested) field of an input Datum
+//	A reference to a single (potentially nested) field of an input Datum
 //	A call to a compute function, with arguments specified by other Expressions
+//
+// Deprecated: use substrait-go expressions instead.
 type Expression interface {
 	fmt.Stringer
 	// IsBound returns true if this expression has been bound to a particular
@@ -95,6 +98,8 @@ func printDatum(datum Datum) string {
 
 // Literal is an expression denoting a literal Datum which could be any value
 // as a scalar, an array, or so on.
+//
+// Deprecated: use substrait-go expressions Literal instead.
 type Literal struct {
 	Literal Datum
 }
@@ -144,6 +149,8 @@ func (l *Literal) Release() {
 
 // Parameter represents a field reference and needs to be bound in order to determine
 // its type and shape.
+//
+// Deprecated: use substrait-go field references instead.
 type Parameter struct {
 	ref *FieldRef
 
@@ -265,6 +272,8 @@ func optionsToString(fn FunctionOptions) string {
 // Call is a function call with specific arguments which are themselves other
 // expressions. A call can also have options that are specific to the function
 // in question. It must be bound to determine the shape and type.
+//
+// Deprecated: use substrait-go expression functions instead.
 type Call struct {
 	funcName string
 	args     []Expression

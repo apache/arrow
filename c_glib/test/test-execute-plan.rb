@@ -57,9 +57,9 @@ class TestExecutePlan < Test::Unit::TestCase
         Arrow::AggregateNodeOptions.new(aggregations, ["string"])
       end
       execute(plan) do
-        assert_equal(build_table("sum(number)" => build_int64_array([9, 6]),
-                                 "count(number)" => build_int64_array([3, 2]),
-                                 "string" => build_string_array(["a", "b"])),
+        assert_equal(build_table("string" => build_string_array(["a", "b"]),
+                                 "sum(number)" => build_int64_array([9, 6]),
+                                 "count(number)" => build_int64_array([3, 2])),
                      reader.read_all)
       end
     end

@@ -55,6 +55,7 @@ package cdata
 // struct ArrowSchema** test_schema(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_union(const char** fmts, const char** names, int64_t* flags, const int n);
 // int test_exported_stream(struct ArrowArrayStream* stream);
+// void test_stream_schema_fallible(struct ArrowArrayStream* stream);
 import "C"
 import (
 	"errors"
@@ -62,8 +63,8 @@ import (
 	"io"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
 )
 
 const (
@@ -309,15 +310,43 @@ func exportedStreamTest(reader array.RecordReader) error {
 func roundTripStreamTest(reader array.RecordReader) error {
 	out := C.get_test_stream()
 	ExportRecordReader(reader, out)
-	rdr := ImportCArrayStream(out, nil)
+	rdr, err := ImportCRecordReader(out, nil)
+
+	if err != nil {
+		return err
+	}
 
 	for {
-		_, err := rdr.Read()
+		_, err = rdr.Read()
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func fallibleSchemaTestDeprecated() (err error) {
+	stream := CArrowArrayStream{}
+	C.test_stream_schema_fallible(&stream)
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Panicked: %#v", r)
+		}
+	}()
+	_ = ImportCArrayStream(&stream, nil)
+	return nil
+}
+
+func fallibleSchemaTest() error {
+	stream := CArrowArrayStream{}
+	C.test_stream_schema_fallible(&stream)
+
+	_, err := ImportCRecordReader(&stream, nil)
+	if err != nil {
+		return err
 	}
 	return nil
 }

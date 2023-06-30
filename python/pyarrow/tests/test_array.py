@@ -24,6 +24,7 @@ import itertools
 import pickle
 import pytest
 import struct
+import subprocess
 import sys
 import weakref
 
@@ -38,7 +39,17 @@ import pyarrow.tests.strategies as past
 
 
 def test_total_bytes_allocated():
+    code = """if 1:
+    import pyarrow as pa
+
     assert pa.total_allocated_bytes() == 0
+    """
+    res = subprocess.run([sys.executable, "-c", code],
+                         universal_newlines=True, stderr=subprocess.PIPE)
+    if res.returncode != 0:
+        print(res.stderr, file=sys.stderr)
+        res.check_returncode()  # fail
+    assert len(res.stderr.splitlines()) == 0
 
 
 def test_weakref():
@@ -1414,16 +1425,19 @@ def test_chunked_array_data_warns():
 
 
 def test_cast_integers_unsafe():
-    # We let NumPy do the unsafe casting
+    # We let NumPy do the unsafe casting.
+    # Note that NEP50 in the NumPy spec no longer allows
+    # the np.array() constructor to pass the dtype directly
+    # if it results in an unsafe cast.
     unsafe_cases = [
         (np.array([50000], dtype='i4'), 'int32',
-         np.array([50000], dtype='i2'), pa.int16()),
+         np.array([50000]).astype(dtype='i2'), pa.int16()),
         (np.array([70000], dtype='i4'), 'int32',
-         np.array([70000], dtype='u2'), pa.uint16()),
+         np.array([70000]).astype(dtype='u2'), pa.uint16()),
         (np.array([-1], dtype='i4'), 'int32',
-         np.array([-1], dtype='u2'), pa.uint16()),
+         np.array([-1]).astype(dtype='u2'), pa.uint16()),
         (np.array([50000], dtype='u2'), pa.uint16(),
-         np.array([50000], dtype='i2'), pa.int16())
+         np.array([50000]).astype(dtype='i2'), pa.int16())
     ]
 
     for case in unsafe_cases:
@@ -3283,6 +3297,7 @@ def test_array_protocol():
         pa.array(arr)
 
     # ARROW-7066 - allow ChunkedArray output
+    # GH-33727 - if num_chunks=1 return Array
     class MyArray2:
         def __init__(self, data):
             self.data = data
@@ -3292,7 +3307,21 @@ def test_array_protocol():
 
     arr = MyArray2(np.array([1, 2, 3], dtype='int64'))
     result = pa.array(arr)
-    expected = pa.chunked_array([[1, 2, 3]], type=pa.int64())
+    expected = pa.array([1, 2, 3], type=pa.int64())
+    assert result.equals(expected)
+
+    class MyArray3:
+        def __init__(self, data1, data2):
+            self.data1 = data1
+            self.data2 = data2
+
+        def __arrow_array__(self, type=None):
+            return pa.chunked_array([self.data1, self.data2], type=type)
+
+    np_arr = np.array([1, 2, 3], dtype='int64')
+    arr = MyArray3(np_arr, np_arr)
+    result = pa.array(arr)
+    expected = pa.chunked_array([[1, 2, 3], [1, 2, 3]], type=pa.int64())
     assert result.equals(expected)
 
 
@@ -3327,6 +3356,16 @@ def test_to_pandas_timezone():
     arr = pa.chunked_array([arr])
     s = arr.to_pandas()
     assert s.dt.tz is not None
+
+
+@pytest.mark.pandas
+def test_to_pandas_float16_list():
+    # https://github.com/apache/arrow/issues/36168
+    expected = [[np.float16(1)], [np.float16(2)], [np.float16(3)]]
+    arr = pa.array(expected)
+    result = arr.to_pandas()
+    assert result[0].dtype == "float16"
+    assert result.tolist() == expected
 
 
 def test_array_sort():

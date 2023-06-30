@@ -26,16 +26,16 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/encoded"
-	"github.com/apache/arrow/go/v12/arrow/endian"
-	"github.com/apache/arrow/go/v12/arrow/float16"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/encoded"
+	"github.com/apache/arrow/go/v13/arrow/endian"
+	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -386,7 +386,7 @@ func (s *Decimal256) CastTo(to arrow.DataType) (Scalar, error) {
 		return NewStringScalar(val.Quo(val, scale).Text('g', int(dt.Precision))), nil
 	}
 
-	return nil, fmt.Errorf("cannot cast non-nil decimal128 scalar to type %s", to)
+	return nil, fmt.Errorf("cannot cast non-nil decimal256 scalar to type %s", to)
 }
 
 func NewDecimal256Scalar(val decimal256.Num, typ arrow.DataType) *Decimal256 {

@@ -255,50 +255,6 @@ For large tables used in a multi-process "data processing pipeline", a user coul
 >> PAT = recordBatchFileReader.read_all() 
 ```
 
-##### Plasma Object Store 
-_**Note**: Plasma is informally deprecated. It may not make sense to support it._
-
-Users could also share Arrow memory across process boundaries by using the [Plasma Object Store]. 
-
-The code examples below assume a Plasma Object Store process is already running at `/tmp/plasma`. 
-
-A MATLAB user could connect to the running Plasma Object Store process from MATLAB and share an `arrow.Array`,  with an ID `"123"`. 
-
-###### Example Code: 
-``` matlab
->> AA = arrow.array([1, 2, 3]); 
-
->> ID = 123; 
-
->> plasmaClientMATLAB = arrow.plasma.PlasmaClient("/tmp/plasma"); 
-
->> plasmaClientMATLAB.put(AA, ID); 
-
->> plasmaClientMATLAB.seal(ID); 
- ```
-
-To consume the Arrow object shared from MATLAB in another process (for example, a C++ process), a user could connect to the same Plasma Object Store process using the Arrow C++ Libraries (example code based on this [tutorial]). 
-
-###### Example Code: 
-``` c++
-#include <plasma/client.h> 
-
-using namespace plasma; 
-
-int main(int argc, char** argv) { 
-  // Start up and connect a Plasma client. 
-  PlasmaClient client; 
-
-  ARROW_CHECK_OK(client.Connect("/tmp/plasma")); 
-
-  // Get from the Plasma store by Object ID. 
-  ObjectBuffer object_buffer; 
-
-  client.Get(123, 1, -1, &object_buffer); 
-  ... 
-} 
-```
-
 ## Testing 
 To ensure code quality, we would like to include the following testing infrastructure, at a minimum: 
 1. C++ APIs 
@@ -353,8 +309,6 @@ The table below provides a high-level roadmap for the development of specific ca
 [Arrow Columnar Format]: https://arrow.apache.org/docs/format/Columnar.html
 [`test_cffi.py` test cases for PyArrow]: https://github.com/apache/arrow/blob/97879eb970bac52d93d2247200b9ca7acf6f3f93/python/pyarrow/tests/test_cffi.py#L109
 [MATLAB supports running Python code in a separate process]: https://www.mathworks.com/help/matlab/matlab_external/out-of-process-execution-of-python-functionality.html
-[Plasma Object Store]: https://arrow.apache.org/docs/python/plasma.html
-[tutorial]: https://github.com/apache/arrow/blob/main/cpp/apidoc/tutorials/plasma.md#getting-an-object
 [MATLAB Class-Based Unit Tests]: https://www.mathworks.com/help/matlab/class-based-unit-tests.html
 [Integration Testing]: https://arrow.apache.org/docs/format/Integration.html
 [MATLAB Help Text]: https://www.mathworks.com/help/matlab/matlab_prog/add-help-for-your-program.html

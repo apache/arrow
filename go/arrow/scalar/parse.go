@@ -25,12 +25,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/float16"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
+	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 type TypeToScalar interface {
@@ -512,7 +512,7 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 			}
 			return NewFixedSizeListScalarWithType(v, dt), nil
 		case arrow.MAP:
-			if !arrow.TypeEqual(dt.(*arrow.MapType).ValueType(), v.DataType()) {
+			if !arrow.TypeEqual(dt.(*arrow.MapType).Elem(), v.DataType()) {
 				return nil, fmt.Errorf("inconsistent type for map scalar type")
 			}
 			return NewMapScalar(v), nil

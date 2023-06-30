@@ -35,14 +35,14 @@ handle finding the libarrow, setting up the build variables necessary, and
 writing the package Makevars file that is used to compile the C++ code in the R
 package.
 
-* `tools/nixlibs.R` - this script is sometimes called by `configure` on Linux
+* `tools/nixlibs.R` - this script is called by `configure` on Linux
 (or on any non-windows OS with the environment variable
 `FORCE_BUNDLED_BUILD=true`) if an existing libarrow installation cannot be found.
 This sets up the build process for our bundled builds (which is the default on 
 linux) and checks for binaries or downloads libarrow from source depending on 
 dependency availability and build configuration.
 
-* `tools/winlibs.R` - this script is sometimes called by `configure.win` on Windows
+* `tools/winlibs.R` - this script is called by `configure.win` on Windows
 when environment variable `ARROW_HOME` is not set.  It looks for an existing libarrow
 installation, and if it can't find one downloads an appropriate libarrow binary.
 
@@ -74,24 +74,30 @@ If no existing libarrow installations can be found, the script proceeds to try t
 
 ### Non-Windows
 
-The diagram below shows how the R package finds a libarrow installation on non-Windows systems.
+On Linux and macOS, the core logic is:
 
-```{r, echo=FALSE, out.width="70%", fig.alt = "Flowchart of libarrow installation on non-Windows systems - find full description in sections 'Using pkg-config', 'Prebuilt binaries' and 'Building from source' below"}
-knitr::include_graphics("./install_nix.png")
-```
+1. If `FORCE_BUNDLED_BUILD=true`, skip to step 3.
+2. Find libarrow on the system. If it is present, make sure that its version
+   is compatible with the R package.
+3. If no suitable libarrow is found, download it (where allowed) or build it from source.
+4. Determine what features this libarrow has and what other flags it requires, 
+   and set them in `src/Makevars` for use when compiling the bindings.
 
-More information about these steps can be found below.
+#### Finding libarrow on the system
 
-#### Using pkg-config
+The `configure` script will look for libarrow in three places:
 
-When you install the arrow R package on non-Windows systems, if no environment variables 
-relating to the location of an existing libarrow installation have already by 
-set, the installation code will attempt to find libarrow on
-your system using the `pkg-config` command.
+1. The path in environment variable `ARROW_HOME`, if set
+2. Whatever `pkg-config` finds, unless `ARROW_USE_PKG_CONFIG=false`
+3. Homebrew, if you have done `brew install apache-arrow`
 
-This will find either installed system packages or libraries you've built yourself.
-In order for `install.packages("arrow")` to work with these system packages,
-you'll need to install them before installing the R package.
+If a libarrow build is found, it will then check that the version of that C++ library
+matches that of the R package. If the versions do not match, like when you've installed
+a system package for a release version but you have a development version of the 
+R package, that libarrow will not be used. If both the C++ library and R package are
+on development versions, you will see a warning message advising you that if you do have
+trouble, you should ensure that the C++ library was built from the same commit as the R
+package, as development version numbers do not change with every commit.
 
 #### Prebuilt binaries
 
@@ -108,7 +114,7 @@ downloaded and bundled when your R package compiles.
 
 #### Building from source
 
-If no libarrow binary is found, it will attempt to build it locally.
+If no suitable libarrow binary is found, it will attempt to build it locally.
 First, it will also look to see if you are in a checkout of the `apache/arrow` 
 git repository and thus have the libarrow source files there.
 Otherwise, it builds from the source files included in the package.
@@ -126,8 +132,8 @@ See the [Arrow project installation page](https://arrow.apache.org/install/)
 to find pre-compiled binary packages for some common Linux distributions,
 including Debian, Ubuntu, and CentOS.
 
-Generally, we do not recommend this method of working with libarrow with the R 
-package unless you have a specific reason to do so. 
+If you are a developer contributing to the R package, system libarrow packages won't
+be useful because the versions will not match.
 
 # Using the R package with an existing libarrow build
 

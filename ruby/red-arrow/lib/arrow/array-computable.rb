@@ -29,6 +29,19 @@ module Arrow
       unique.values
     end
 
+    # Finds the index of the first occurrence of a given value.
+    #
+    # @param value [Object] The value to be compared.
+    #
+    # @return [Integer] The index of the first occurrence of a given
+    #   value on found, -1 on not found.
+    #
+    # @since 12.0.0
+    def index(value)
+      value = Scalar.resolve(value, value_data_type)
+      compute("index", options: {value: value}).value
+    end
+
     private
     def compute(name, options: nil)
       Function.find(name).execute([self], options).value

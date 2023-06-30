@@ -24,7 +24,7 @@ project('arrow-glib', 'c', 'cpp',
           'cpp_std=c++17',
         ])
 
-version = '12.0.0-SNAPSHOT'
+version = '13.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
   version_numbers = version.split('-')[0].split('.')
   version_tag = version.split('-')[1]
@@ -87,12 +87,13 @@ if arrow_cpp_build_lib_dir == ''
 
   have_arrow_orc = dependency('arrow-orc', required: false).found()
   arrow_cuda = dependency('arrow-cuda', required: false)
+  # we do not support compiling glib without acero engine
+  arrow_acero = dependency('arrow-acero', required: true)
   arrow_dataset = dependency('arrow-dataset', required: false)
   arrow_flight = dependency('arrow-flight', required: false)
   arrow_flight_sql = dependency('arrow-flight-sql', required: false)
   gandiva = dependency('gandiva', required: false)
   parquet = dependency('parquet', required: false)
-  plasma = dependency('plasma', required: false)
 else
   base_include_directories += [
     include_directories(join_paths(arrow_cpp_build_dir, 'src')),
@@ -117,6 +118,9 @@ main(void)
   arrow_cuda = cpp_compiler.find_library('arrow_cuda',
                                          dirs: [arrow_cpp_build_lib_dir],
                                          required: false)
+  arrow_acero = cpp_compiler.find_library('arrow_acero',
+                                          dirs: [arrow_cpp_build_lib_dir],
+                                          required: true)
   arrow_dataset = cpp_compiler.find_library('arrow_dataset',
                                             dirs: [arrow_cpp_build_lib_dir],
                                             required: false)
@@ -130,9 +134,6 @@ main(void)
                                       dirs: [arrow_cpp_build_lib_dir],
                                       required: false)
   parquet = cpp_compiler.find_library('parquet',
-                                      dirs: [arrow_cpp_build_lib_dir],
-                                      required: false)
-  plasma = cpp_compiler.find_library('plasma',
                                       dirs: [arrow_cpp_build_lib_dir],
                                       required: false)
 endif
@@ -163,9 +164,6 @@ endif
 if parquet.found()
   subdir('parquet-glib')
 endif
-if plasma.found()
-  subdir('plasma-glib')
-endif
 subdir('example')
 
 if get_option('gtk_doc')
@@ -185,9 +183,6 @@ if get_option('gtk_doc')
   if parquet.found()
     subdir('doc/parquet-glib')
   endif
-  if plasma.found()
-    subdir('doc/plasma-glib')
-  endif
 endif
 
 install_data('../LICENSE.txt',
@@ -203,5 +198,4 @@ test('unit test',
        'ARROW_DATASET_GLIB_TYPELIB_DIR=@0@/arrow-dataset-glib'.format(meson.build_root()),
        'GANDIVA_GLIB_TYPELIB_DIR=@0@/gandiva-glib'.format(meson.build_root()),
        'PARQUET_GLIB_TYPELIB_DIR=@0@/parquet-glib'.format(meson.build_root()),
-       'PLASMA_GLIB_TYPELIB_DIR=@0@/plasma-glib'.format(meson.build_root()),
      ])

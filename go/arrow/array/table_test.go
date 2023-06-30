@@ -17,13 +17,14 @@
 package array_test
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 func TestChunked(t *testing.T) {
@@ -157,7 +158,17 @@ func TestChunkedInvalid(t *testing.T) {
 		if e == nil {
 			t.Fatalf("expected a panic")
 		}
-		if got, want := e.(string), "arrow/array: mismatch data type"; got != want {
+
+		err, ok := e.(error)
+		if !ok {
+			t.Fatalf("expected an error")
+		}
+
+		if !errors.Is(err, arrow.ErrInvalid) {
+			t.Fatalf("should be an ErrInvalid")
+		}
+
+		if got, want := err.Error(), fmt.Sprintf("%s: arrow/array: mismatch data type float64 vs int32", arrow.ErrInvalid); got != want {
 			t.Fatalf("invalid error. got=%q, want=%q", got, want)
 		}
 	}()
@@ -313,7 +324,7 @@ func TestColumn(t *testing.T) {
 				return c
 			}(),
 			field: arrow.Field{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
-			err:   fmt.Errorf("arrow/array: inconsistent data type"),
+			err:   fmt.Errorf("%w: arrow/array: inconsistent data type float64 vs float32", arrow.ErrInvalid),
 		},
 	} {
 		t.Run("", func(t *testing.T) {
@@ -393,6 +404,12 @@ func TestTable(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
+	preSchema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+		},
+		nil,
+	)
 	schema := arrow.NewSchema(
 		[]arrow.Field{
 			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
@@ -458,8 +475,17 @@ func TestTable(t *testing.T) {
 
 	slices := [][]arrow.Array{col1.Data().Chunks(), col2.Data().Chunks()}
 
-	tbl := array.NewTable(schema, cols, -1)
+	preTbl := array.NewTable(preSchema, []arrow.Column{*col1}, -1)
+	defer preTbl.Release()
+	tbl, err := preTbl.AddColumn(
+		1,
+		arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+		*col2,
+	)
 	defer tbl.Release()
+	if err != nil {
+		t.Fatalf("could not add column: %+v", err)
+	}
 
 	tbl2 := array.NewTableFromSlice(schema, slices)
 	defer tbl2.Release()

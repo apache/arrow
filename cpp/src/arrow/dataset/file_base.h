@@ -33,6 +33,7 @@
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/io/file.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 
 namespace arrow {
@@ -404,6 +405,12 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// {i} will be replaced by an auto incremented integer.
   std::string basename_template;
 
+  /// A functor which will be applied on an incremented counter.  The result will be
+  /// inserted into the basename_template in place of {i}.
+  ///
+  /// This can be used, for example, to left-pad the file counter.
+  std::function<std::string(int)> basename_template_functor;
+
   /// If greater than 0 then this will limit the maximum number of files that can be left
   /// open. If an attempt is made to open too many files then the least recently used file
   /// will be closed.  If this setting is set too low you may end up fragmenting your data
@@ -455,7 +462,7 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
 };
 
 /// \brief Wraps FileSystemDatasetWriteOptions for consumption as compute::ExecNodeOptions
-class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
+class ARROW_DS_EXPORT WriteNodeOptions : public acero::ExecNodeOptions {
  public:
   explicit WriteNodeOptions(
       FileSystemDatasetWriteOptions options,
@@ -464,6 +471,15 @@ class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
 
   /// \brief Options to control how to write the dataset
   FileSystemDatasetWriteOptions write_options;
+  /// \brief Optional schema to attach to all written batches
+  ///
+  /// By default, we will use the output schema of the input.
+  ///
+  /// This can be used to alter schema metadata, field nullability, or field metadata.
+  /// However, this cannot be used to change the type of data.  If the custom schema does
+  /// not have the same number of fields and the same data types as the input then the
+  /// plan will fail.
+  std::shared_ptr<Schema> custom_schema;
   /// \brief Optional metadata to attach to written batches
   std::shared_ptr<const KeyValueMetadata> custom_metadata;
 };
@@ -471,8 +487,7 @@ class ARROW_DS_EXPORT WriteNodeOptions : public compute::ExecNodeOptions {
 /// @}
 
 namespace internal {
-ARROW_DS_EXPORT void InitializeDatasetWriter(
-    arrow::compute::ExecFactoryRegistry* registry);
+ARROW_DS_EXPORT void InitializeDatasetWriter(arrow::acero::ExecFactoryRegistry* registry);
 }
 
 }  // namespace dataset

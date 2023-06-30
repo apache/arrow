@@ -17,7 +17,7 @@
 
 #include "arrow/dataset/file_base.h"
 
-#include <arrow/compute/exec/exec_plan.h>
+#include "arrow/acero/exec_plan.h"
 
 #include <algorithm>
 #include <atomic>
@@ -26,15 +26,15 @@
 #include <variant>
 #include <vector>
 
+#include "arrow/acero/map_node.h"
+#include "arrow/acero/query_context.h"
+#include "arrow/acero/util.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/exec/forest_internal.h"
-#include "arrow/compute/exec/map_node.h"
-#include "arrow/compute/exec/query_context.h"
-#include "arrow/compute/exec/subtree_internal.h"
-#include "arrow/compute/exec/util.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/dataset_writer.h"
+#include "arrow/dataset/forest_internal.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/dataset/subtree_internal.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/io/compressed.h"
@@ -211,7 +211,7 @@ bool FileFragment::Equals(const FileFragment& other) const {
 
 struct FileSystemDataset::FragmentSubtrees {
   // Forest for skipping fragments based on extracted subtree expressions
-  compute::Forest forest;
+  Forest forest;
   // fragment indices and subtree expressions in forest order
   std::vector<std::variant<int, compute::Expression>> fragments_and_subtrees;
 };
@@ -268,13 +268,13 @@ std::string FileSystemDataset::ToString() const {
 
 void FileSystemDataset::SetupSubtreePruning() {
   subtrees_ = std::make_shared<FragmentSubtrees>();
-  compute::SubtreeImpl impl;
+  SubtreeImpl impl;
 
   auto encoded = impl.EncodeGuarantees(
       [&](int index) { return fragments_[index]->partition_expression(); },
       static_cast<int>(fragments_.size()));
 
-  std::sort(encoded.begin(), encoded.end(), compute::SubtreeImpl::ByGuarantee());
+  std::sort(encoded.begin(), encoded.end(), SubtreeImpl::ByGuarantee());
 
   for (const auto& e : encoded) {
     if (e.index) {
@@ -284,8 +284,8 @@ void FileSystemDataset::SetupSubtreePruning() {
     }
   }
 
-  subtrees_->forest = compute::Forest(static_cast<int>(encoded.size()),
-                                      compute::SubtreeImpl::IsAncestor{encoded});
+  subtrees_->forest =
+      Forest(static_cast<int>(encoded.size()), SubtreeImpl::IsAncestor{encoded});
 }
 
 Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
@@ -299,7 +299,7 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
 
   std::vector<compute::Expression> predicates{predicate};
   RETURN_NOT_OK(subtrees_->forest.Visit(
-      [&](compute::Forest::Ref ref) -> Result<bool> {
+      [&](Forest::Ref ref) -> Result<bool> {
         if (auto fragment_index =
                 std::get_if<int>(&subtrees_->fragments_and_subtrees[ref.i])) {
           fragment_indices.push_back(*fragment_index);
@@ -318,7 +318,7 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(
         predicates.push_back(std::move(simplified));
         return true;
       },
-      [&](compute::Forest::Ref ref) { predicates.pop_back(); }));
+      [&](Forest::Ref ref) { predicates.pop_back(); }));
 
   std::sort(fragment_indices.begin(), fragment_indices.end());
 
@@ -385,18 +385,18 @@ Status WriteBatch(
   return Status::OK();
 }
 
-class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
+class DatasetWritingSinkNodeConsumer : public acero::SinkNodeConsumer {
  public:
-  DatasetWritingSinkNodeConsumer(std::shared_ptr<const KeyValueMetadata> custom_metadata,
+  DatasetWritingSinkNodeConsumer(std::shared_ptr<Schema> custom_schema,
                                  FileSystemDatasetWriteOptions write_options)
-      : custom_metadata_(std::move(custom_metadata)),
+      : custom_schema_(std::move(custom_schema)),
         write_options_(std::move(write_options)) {}
 
   Status Init(const std::shared_ptr<Schema>& schema,
-              compute::BackpressureControl* backpressure_control,
-              compute::ExecPlan* plan) override {
-    if (custom_metadata_) {
-      schema_ = schema->WithMetadata(custom_metadata_);
+              acero::BackpressureControl* backpressure_control,
+              acero::ExecPlan* plan) override {
+    if (custom_schema_) {
+      schema_ = custom_schema_;
     } else {
       schema_ = schema;
     }
@@ -434,7 +434,7 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
                       });
   }
 
-  std::shared_ptr<const KeyValueMetadata> custom_metadata_;
+  std::shared_ptr<Schema> custom_schema_;
   std::unique_ptr<internal::DatasetWriter> dataset_writer_;
   FileSystemDatasetWriteOptions write_options_;
   Future<> finished_ = Future<>::Make();
@@ -453,21 +453,24 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
 
   // The projected_schema is currently used by pyarrow to preserve the custom metadata
   // when reading from a single input file.
-  const auto& custom_metadata = scanner->options()->projected_schema->metadata();
+  const auto& custom_schema = scanner->options()->projected_schema;
 
-  compute::Declaration plan = compute::Declaration::Sequence({
+  WriteNodeOptions write_node_options(write_options);
+  write_node_options.custom_schema = custom_schema;
+
+  acero::Declaration plan = acero::Declaration::Sequence({
       {"scan", ScanNodeOptions{dataset, scanner->options()}},
-      {"filter", compute::FilterNodeOptions{scanner->options()->filter}},
-      {"project", compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-      {"write", WriteNodeOptions{write_options, custom_metadata}},
+      {"filter", acero::FilterNodeOptions{scanner->options()->filter}},
+      {"project", acero::ProjectNodeOptions{std::move(exprs), std::move(names)}},
+      {"write", std::move(write_node_options)},
   });
 
-  return compute::DeclarationToStatus(std::move(plan), scanner->options()->use_threads);
+  return acero::DeclarationToStatus(std::move(plan), scanner->options()->use_threads);
 }
 
-Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
-                                         std::vector<compute::ExecNode*> inputs,
-                                         const compute::ExecNodeOptions& options) {
+Result<acero::ExecNode*> MakeWriteNode(acero::ExecPlan* plan,
+                                       std::vector<acero::ExecNode*> inputs,
+                                       const acero::ExecNodeOptions& options) {
   if (inputs.size() != 1) {
     return Status::Invalid("Write SinkNode requires exactly 1 input, got ",
                            inputs.size());
@@ -475,30 +478,64 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
 
   const WriteNodeOptions write_node_options =
       checked_cast<const WriteNodeOptions&>(options);
+  std::shared_ptr<Schema> custom_schema = write_node_options.custom_schema;
   const std::shared_ptr<const KeyValueMetadata>& custom_metadata =
       write_node_options.custom_metadata;
   const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
+
+  const std::shared_ptr<Schema>& input_schema = inputs[0]->output_schema();
+
+  if (custom_schema != nullptr) {
+    if (custom_metadata) {
+      return Status::TypeError(
+          "Do not provide both custom_metadata and custom_schema.  If custom_schema is "
+          "used then custom_schema->metadata should be used instead of custom_metadata");
+    }
+
+    if (custom_schema->num_fields() != input_schema->num_fields()) {
+      return Status::TypeError(
+          "The provided custom_schema did not have the same number of fields as the "
+          "data.  The custom schema can only be used to add metadata / nullability to "
+          "fields and cannot change the type or number of fields.");
+    }
+    for (int field_idx = 0; field_idx < input_schema->num_fields(); field_idx++) {
+      if (!input_schema->field(field_idx)->type()->Equals(
+              custom_schema->field(field_idx)->type())) {
+        return Status::TypeError("The provided custom_schema specified type ",
+                                 custom_schema->field(field_idx)->type()->ToString(),
+                                 " for field ", field_idx, "and the input data has type ",
+                                 input_schema->field(field_idx),
+                                 "The custom schema can only be used to add metadata / "
+                                 "nullability to fields and "
+                                 "cannot change the type or number of fields.");
+      }
+    }
+  }
+
+  if (custom_metadata) {
+    custom_schema = input_schema->WithMetadata(custom_metadata);
+  }
 
   if (!write_options.partitioning) {
     return Status::Invalid("Must provide partitioning");
   }
 
   std::shared_ptr<DatasetWritingSinkNodeConsumer> consumer =
-      std::make_shared<DatasetWritingSinkNodeConsumer>(custom_metadata, write_options);
+      std::make_shared<DatasetWritingSinkNodeConsumer>(custom_schema, write_options);
 
   ARROW_ASSIGN_OR_RAISE(
       auto node,
-      compute::MakeExecNode("consuming_sink", plan, std::move(inputs),
-                            compute::ConsumingSinkNodeOptions{std::move(consumer)}));
+      acero::MakeExecNode("consuming_sink", plan, std::move(inputs),
+                          acero::ConsumingSinkNodeOptions{std::move(consumer)}));
 
   return node;
 }
 
 namespace {
 
-class TeeNode : public compute::MapNode {
+class TeeNode : public acero::MapNode {
  public:
-  TeeNode(compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
+  TeeNode(acero::ExecPlan* plan, std::vector<acero::ExecNode*> inputs,
           std::shared_ptr<Schema> output_schema,
           FileSystemDatasetWriteOptions write_options)
       : MapNode(plan, std::move(inputs), std::move(output_schema)),
@@ -513,9 +550,9 @@ class TeeNode : public compute::MapNode {
     return MapNode::StartProducing();
   }
 
-  static Result<compute::ExecNode*> Make(compute::ExecPlan* plan,
-                                         std::vector<compute::ExecNode*> inputs,
-                                         const compute::ExecNodeOptions& options) {
+  static Result<acero::ExecNode*> Make(acero::ExecPlan* plan,
+                                       std::vector<acero::ExecNode*> inputs,
+                                       const acero::ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "TeeNode"));
 
     const WriteNodeOptions write_node_options =
@@ -567,7 +604,7 @@ class TeeNode : public compute::MapNode {
 }  // namespace
 
 namespace internal {
-void InitializeDatasetWriter(arrow::compute::ExecFactoryRegistry* registry) {
+void InitializeDatasetWriter(arrow::acero::ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("write", MakeWriteNode));
   DCHECK_OK(registry->AddFactory("tee", TeeNode::Make));
 }

@@ -14,12 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build mallocator
+//go:build mallocator && cgo
 
 package memory
 
 import (
-	"github.com/apache/arrow/go/v12/arrow/memory/mallocator"
+	"github.com/apache/arrow/go/v13/arrow/memory/mallocator"
 )
 
 // DefaultAllocator is a default implementation of Allocator and can be used anywhere

@@ -20,7 +20,10 @@ import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
 
+import numpy as np
+
 groups = [
+    'acero',
     'brotli',
     'bz2',
     'cython',
@@ -40,11 +43,9 @@ groups = [
     'pandas',
     'parquet',
     'parquet_encryption',
-    'plasma',
     's3',
     'snappy',
     'substrait',
-    'tensorflow',
     'flight',
     'slow',
     'requires_testing_data',
@@ -52,6 +53,7 @@ groups = [
 ]
 
 defaults = {
+    'acero': False,
     'brotli': Codec.is_available('brotli'),
     'bz2': Codec.is_available('bz2'),
     'cython': False,
@@ -72,13 +74,11 @@ defaults = {
     'pandas': False,
     'parquet': False,
     'parquet_encryption': False,
-    'plasma': False,
     'requires_testing_data': True,
     's3': False,
     'slow': False,
     'snappy': Codec.is_available('snappy'),
     'substrait': False,
-    'tensorflow': False,
     'zstd': Codec.is_available('zstd'),
 }
 
@@ -97,6 +97,12 @@ except ImportError:
 try:
     import pyarrow.gandiva  # noqa
     defaults['gandiva'] = True
+except ImportError:
+    pass
+
+try:
+    import pyarrow.acero  # noqa
+    defaults['acero'] = True
 except ImportError:
     pass
 
@@ -127,19 +133,6 @@ except ImportError:
 try:
     import pyarrow.parquet.encryption  # noqa
     defaults['parquet_encryption'] = True
-except ImportError:
-    pass
-
-
-try:
-    import pyarrow.plasma  # noqa
-    defaults['plasma'] = True
-except ImportError:
-    pass
-
-try:
-    import tensorflow  # noqa
-    defaults['tensorflow'] = True
 except ImportError:
     pass
 
@@ -186,7 +179,6 @@ def pytest_ignore_collect(path, config):
             'dataset',
             'orc',
             'parquet',
-            'plasma',
             'flight',
             'substrait',
         ]
@@ -288,3 +280,57 @@ def unary_func_fixture():
                                 {"array": pa.int64()},
                                 pa.int64())
     return unary_function, func_name
+
+
+@pytest.fixture(scope="session")
+def unary_agg_func_fixture():
+    """
+    Register a unary aggregate function (mean)
+    """
+    from pyarrow import compute as pc
+
+    def func(ctx, x):
+        return pa.scalar(np.nanmean(x))
+
+    func_name = "mean_udf"
+    func_doc = {"summary": "y=avg(x)",
+                "description": "find mean of x"}
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.float64(),
+                                   },
+                                   pa.float64()
+                                   )
+    return func, func_name
+
+
+@pytest.fixture(scope="session")
+def varargs_agg_func_fixture():
+    """
+    Register a unary aggregate function
+    """
+    from pyarrow import compute as pc
+
+    def func(ctx, *args):
+        sum = 0.0
+        for arg in args:
+            sum += np.nanmean(arg)
+        return pa.scalar(sum)
+
+    func_name = "sum_mean"
+    func_doc = {"summary": "Varargs aggregate",
+                "description": "Varargs aggregate"}
+
+    pc.register_aggregate_function(func,
+                                   func_name,
+                                   func_doc,
+                                   {
+                                       "x": pa.int64(),
+                                       "y": pa.float64()
+                                   },
+                                   pa.float64()
+                                   )
+    return func, func_name

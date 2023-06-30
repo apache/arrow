@@ -740,16 +740,16 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
   }
 }
 
-const FunctionDoc unique_doc(
-    "Compute unique elements",
-    ("Return an array with distinct values.  Nulls in the input are ignored."),
-    {"array"});
+const FunctionDoc unique_doc("Compute unique elements",
+                             ("Return an array with distinct values.\n"
+                              "Nulls are considered as a distinct value as well."),
+                             {"array"});
 
 const FunctionDoc value_counts_doc(
     "Compute counts of unique elements",
     ("For each distinct value, compute the number of times it occurs in the array.\n"
      "The result is returned as an array of `struct<input type, int64>`.\n"
-     "Nulls in the input are ignored."),
+     "Nulls in the input are counted and included in the output as well."),
     {"array"});
 
 const DictionaryEncodeOptions* GetDefaultDictionaryEncodeOptions() {

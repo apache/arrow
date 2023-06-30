@@ -23,10 +23,10 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // A FixedSizeBinaryBuilder is used to build a FixedSizeBinary array using the Append methods.
@@ -83,10 +83,22 @@ func (b *FixedSizeBinaryBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *FixedSizeBinaryBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *FixedSizeBinaryBuilder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.values.Advance(b.dtype.ByteWidth)
 	b.UnsafeAppendBoolToBitmap(true)
+}
+
+func (b *FixedSizeBinaryBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *FixedSizeBinaryBuilder) UnsafeAppend(v []byte) {
@@ -166,6 +178,21 @@ func (b *FixedSizeBinaryBuilder) newData() (data *Data) {
 	return
 }
 
+func (b *FixedSizeBinaryBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	data, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(data)
+	return nil
+}
+
 func (b *FixedSizeBinaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
@@ -175,7 +202,7 @@ func (b *FixedSizeBinaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	var val []byte
 	switch v := t.(type) {
 	case string:
-		data, err := base64.RawStdEncoding.DecodeString(v)
+		data, err := base64.StdEncoding.DecodeString(v)
 		if err != nil {
 			return err
 		}

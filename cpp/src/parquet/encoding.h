@@ -435,8 +435,9 @@ std::unique_ptr<typename EncodingTraits<DType>::Encoder> MakeTypedEncoder(
 }
 
 PARQUET_EXPORT
-std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encoding,
-                                     const ColumnDescriptor* descr = NULLPTR);
+std::unique_ptr<Decoder> MakeDecoder(
+    Type::type type_num, Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
 namespace detail {
 
@@ -458,9 +459,10 @@ std::unique_ptr<DictDecoder<DType>> MakeDictDecoder(
 
 template <typename DType>
 std::unique_ptr<typename EncodingTraits<DType>::Decoder> MakeTypedDecoder(
-    Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR) {
+    Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
   using OutType = typename EncodingTraits<DType>::Decoder;
-  std::unique_ptr<Decoder> base = MakeDecoder(DType::type_num, encoding, descr);
+  std::unique_ptr<Decoder> base = MakeDecoder(DType::type_num, encoding, descr, pool);
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
 

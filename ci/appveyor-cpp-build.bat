@@ -42,6 +42,9 @@ set CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
 @rem Enable warnings-as-errors
 set ARROW_CXXFLAGS=/WX /MP
 
+@rem Install GCS testbench
+call %CD%\ci\scripts\install_gcs_testbench.bat
+
 @rem
 @rem Build and test Arrow C++ libraries (including Parquet)
 @rem
@@ -56,6 +59,7 @@ pushd cpp\build
 @rem and enable runtime assertions.
 
 cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
+      -DARROW_ACERO=ON ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_EXAMPLES=ON ^
       -DARROW_BUILD_STATIC=OFF ^
@@ -69,6 +73,7 @@ cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
       -DARROW_FLIGHT=%ARROW_BUILD_FLIGHT% ^
       -DARROW_FLIGHT_SQL=%ARROW_BUILD_FLIGHT_SQL% ^
       -DARROW_GANDIVA=%ARROW_BUILD_GANDIVA% ^
+      -DARROW_GCS=%ARROW_GCS% ^
       -DARROW_HDFS=ON ^
       -DARROW_JSON=ON ^
       -DARROW_MIMALLOC=ON ^
@@ -96,6 +101,9 @@ cmake --build . --target install --config Release || exit /B
 @rem For ORC C++
 set TZDIR=%CONDA_PREFIX%\share\zoneinfo
 
+@rem For finding Python executable for GCS tests
+set PYTHON=python
+
 ctest --output-on-failure || exit /B
 
 popd
@@ -109,9 +117,11 @@ pushd python
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
 set PYARROW_CXXFLAGS=%ARROW_CXXFLAGS%
 set PYARROW_PARALLEL=2
+set PYARROW_WITH_ACERO=ON
 set PYARROW_WITH_DATASET=ON
 set PYARROW_WITH_FLIGHT=%ARROW_BUILD_FLIGHT%
 set PYARROW_WITH_GANDIVA=%ARROW_BUILD_GANDIVA%
+set PYARROW_WITH_GCS=%ARROW_GCS%
 set PYARROW_WITH_PARQUET=ON
 set PYARROW_WITH_PARQUET_ENCRYPTION=ON
 set PYARROW_WITH_S3=%ARROW_S3%

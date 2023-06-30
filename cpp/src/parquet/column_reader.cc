@@ -275,6 +275,11 @@ class SerializedPageReader : public PageReader {
   }
 
   // Implement the PageReader interface
+  //
+  // The returned Page contains references that aren't guaranteed to live
+  // beyond the next call to NextPage(). SerializedPageReader reuses the
+  // decryption and decompression buffers internally, so if NextPage() is
+  // called then the content of previous page might be invalidated.
   std::shared_ptr<Page> NextPage() override;
 
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
@@ -441,6 +446,8 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
                            &data_page_header_aad_);
         }
+        // Reset current page header to avoid unclearing the __isset flag.
+        current_page_header_ = format::PageHeader();
         deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(view.data()),
                                         &header_size, &current_page_header_,
                                         crypto_ctx_.meta_decryptor);
@@ -487,16 +494,16 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     const PageType::type page_type = LoadEnumSafe(&current_page_header_.type);
 
-    // TODO(PARQUET-594) crc checksum for DATA_PAGE_V2
-    if (properties_.page_checksum_verification() &&
-        (page_type == PageType::DATA_PAGE || page_type == PageType::DICTIONARY_PAGE) &&
-        current_page_header_.__isset.crc) {
+    if (properties_.page_checksum_verification() && current_page_header_.__isset.crc &&
+        PageCanUseChecksum(page_type)) {
       // verify crc
       uint32_t checksum =
           ::arrow::internal::crc32(/* prev */ 0, page_buffer->data(), compressed_len);
       if (static_cast<int32_t>(checksum) != current_page_header_.crc) {
         throw ParquetException(
-            "could not verify page integrity, CRC checksum verification failed");
+            "could not verify page integrity, CRC checksum verification failed for "
+            "page_ordinal " +
+            std::to_string(page_ordinal_));
       }
     }
 
@@ -580,10 +587,8 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
   }
 
   // Grow the uncompressed buffer if we need to.
-  if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
-    PARQUET_THROW_NOT_OK(
-        decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
-  }
+  PARQUET_THROW_NOT_OK(
+      decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
 
   if (levels_byte_len > 0) {
     // First copy the levels as-is
@@ -1349,7 +1354,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     valid_bits_ = AllocateBuffer(pool);
     def_levels_ = AllocateBuffer(pool);
     rep_levels_ = AllocateBuffer(pool);
-    Reset();
+    TypedRecordReader::Reset();
   }
 
   // Compute the values capacity in bytes for the given number of elements
@@ -1367,7 +1372,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // Delimit records, then read values at the end
     int64_t records_read = 0;
 
-    if (levels_position_ < levels_written_) {
+    if (has_values_to_process()) {
       records_read += ReadRecordData(num_records);
     }
 
@@ -1525,7 +1530,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     int64_t values_seen = 0;
     int64_t skipped_records = DelimitRecords(num_records, &values_seen);
     ReadAndThrowAwayValues(values_seen);
-    // Mark those levels and values as consumed in the the underlying page.
+    // Mark those levels and values as consumed in the underlying page.
     // This must be done before we throw away levels since it updates
     // levels_position_ and levels_written_.
     this->ConsumeBufferedValues(levels_position_ - start_levels_position);
@@ -1554,7 +1559,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // If 'at_record_start_' is false, but (skipped_records == num_records), it
     // means that for the last record that was counted, we have not seen all
-    // of it's values yet.
+    // of its values yet.
     while (!at_record_start_ || skipped_records < num_records) {
       // Is there more data to read in this row group?
       // HasNextInternal() will advance to the next page if necessary.
@@ -1579,7 +1584,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         break;
       }
 
-      // For skip we will read the levels and append them to the end
+      // For skipping we will read the levels and append them to the end
       // of the def_levels and rep_levels just like for read.
       ReserveLevels(batch_size);
 
@@ -1989,17 +1994,21 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     const T* vals = reinterpret_cast<const T*>(this->values());
 
-    std::cout << "def levels: ";
-    for (int64_t i = 0; i < total_levels_read; ++i) {
-      std::cout << def_levels[i] << " ";
+    if (leaf_info_.def_level > 0) {
+      std::cout << "def levels: ";
+      for (int64_t i = 0; i < total_levels_read; ++i) {
+        std::cout << def_levels[i] << " ";
+      }
+      std::cout << std::endl;
     }
-    std::cout << std::endl;
 
-    std::cout << "rep levels: ";
-    for (int64_t i = 0; i < total_levels_read; ++i) {
-      std::cout << rep_levels[i] << " ";
+    if (leaf_info_.rep_level > 0) {
+      std::cout << "rep levels: ";
+      for (int64_t i = 0; i < total_levels_read; ++i) {
+        std::cout << rep_levels[i] << " ";
+      }
+      std::cout << std::endl;
     }
-    std::cout << std::endl;
 
     std::cout << "values: ";
     for (int64_t i = 0; i < this->values_written(); ++i) {
