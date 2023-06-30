@@ -1179,6 +1179,22 @@ constexpr bool is_fixed_width(Type::type type_id) {
   return is_primitive(type_id) || is_dictionary(type_id) || is_fixed_size_binary(type_id);
 }
 
+/// \brief Check for a var-length list type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a var-length list type one
+constexpr bool is_var_length_list(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::MAP:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for a list-like type
 ///
 /// \param[in] type_id the type-id to check
@@ -1482,6 +1498,16 @@ static inline bool is_fixed_size_binary(const DataType& type) {
 /// Convenience for checking using the type's id
 static inline bool is_fixed_width(const DataType& type) {
   return is_fixed_width(type.id());
+}
+
+/// \brief Check for a variable-length list type
+///
+/// \param[in] type the type to check
+/// \return whether type is a variable-length list type
+///
+/// Convenience for checking using the type's id
+static inline bool is_var_length_list(const DataType& type) {
+  return is_var_length_list(type.id());
 }
 
 /// \brief Check for a list-like type
