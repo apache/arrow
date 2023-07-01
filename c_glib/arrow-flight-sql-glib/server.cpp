@@ -146,7 +146,7 @@ gaflightsql_statement_update_class_init(GAFlightSQLStatementUpdateClass *klass)
  *
  * Returns: The query to be executed.
  *
- * Since: 9.0.0
+ * Since: 13.0.0
  */
 const gchar *
 gaflightsql_statement_update_get_query(GAFlightSQLStatementUpdate *command)
