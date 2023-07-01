@@ -31,6 +31,13 @@ const arrow::flight::sql::StatementQuery *
 gaflightsql_statement_query_get_raw(
   GAFlightSQLStatementQuery *command);
 
+GAFlightSQLStatementUpdate *
+gaflightsql_statement_update_new_raw(
+  const arrow::flight::sql::StatementUpdate *flight_command);
+const arrow::flight::sql::StatementUpdate *
+gaflightsql_statement_update_get_raw(
+  GAFlightSQLStatementUpdate *command);
+
 GAFlightSQLStatementQueryTicket *
 gaflightsql_statement_query_ticket_new_raw(
   const arrow::flight::sql::StatementQueryTicket *flight_command);
