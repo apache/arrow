@@ -37,12 +37,13 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
 // -----------------------------------------------------------------------
 // AzureFilesystem Implementation
 
-class AzureFileSystem::Impl : public std::enable_shared_from_this<AzureFileSystem::Impl> {
+class AzureFileSystem::Impl {
  public:
   io::IOContext io_context_;
   std::string dfs_endpoint_url_;
   std::string blob_endpoint_url_;
   bool is_hierarchical_namespace_enabled_;
+  AzureOptions options_;
 
   explicit Impl(AzureOptions options, io::IOContext io_context)
       : io_context_(io_context), options_(std::move(options)) {}
@@ -58,12 +59,9 @@ class AzureFileSystem::Impl : public std::enable_shared_from_this<AzureFileSyste
   }
 
   const AzureOptions& options() const { return options_; }
-
- protected:
-  AzureOptions options_;
 };
 
-AzureOptions AzureFileSystem::options() const { return impl_->options(); }
+const AzureOptions& AzureFileSystem::options() const { return impl_->options(); }
 
 bool AzureFileSystem::Equals(const FileSystem& other) const {
   if (this == &other) {

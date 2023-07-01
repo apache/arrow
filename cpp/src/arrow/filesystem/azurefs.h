@@ -97,7 +97,7 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   std::string type_name() const override { return "abfs"; }
 
   /// Return the original Azure options when constructing the filesystem
-  AzureOptions options() const;
+  const AzureOptions& options() const;
 
   bool Equals(const FileSystem& other) const override;
 
