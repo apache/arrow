@@ -35,6 +35,8 @@
 #include "arrow/util/string.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
 namespace engine {
 namespace {
 
@@ -888,23 +890,23 @@ ExtensionIdRegistry::ArrowToSubstraitCall EncodeBasic(Id substrait_fn_id) {
 }
 
 ExtensionIdRegistry::ArrowToSubstraitCall EncodeIsNull(Id substrait_fn_id) {
-  return [substrait_fn_id](
-             const compute::Expression::Call& call) -> Result<SubstraitCall> {
-    if (call.options != nullptr) {
-      auto null_opts = internal::checked_pointer_cast<compute::NullOptions>(call.options);
-      if (null_opts->nan_is_null) {
-        return Status::Invalid(
-            "Substrait does not support is_null with nan_is_null=true.  You can use "
-            "is_null || is_nan instead");
-      }
-    }
-    SubstraitCall substrait_call(substrait_fn_id, call.type.GetSharedPtr(),
-                                 /*nullable=*/false);
-    for (std::size_t i = 0; i < call.arguments.size(); i++) {
-      substrait_call.SetValueArg(static_cast<int>(i), call.arguments[i]);
-    }
-    return std::move(substrait_call);
-  };
+  return
+      [substrait_fn_id](const compute::Expression::Call& call) -> Result<SubstraitCall> {
+        if (call.options != nullptr) {
+          auto null_opts = checked_pointer_cast<compute::NullOptions>(call.options);
+          if (null_opts->nan_is_null) {
+            return Status::Invalid(
+                "Substrait does not support is_null with nan_is_null=true.  You can use "
+                "is_null || is_nan instead");
+          }
+        }
+        SubstraitCall substrait_call(substrait_fn_id, call.type.GetSharedPtr(),
+                                     /*nullable=*/false);
+        for (std::size_t i = 0; i < call.arguments.size(); i++) {
+          substrait_call.SetValueArg(static_cast<int>(i), call.arguments[i]);
+        }
+        return std::move(substrait_call);
+      };
 }
 
 ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessBasicMapping(
