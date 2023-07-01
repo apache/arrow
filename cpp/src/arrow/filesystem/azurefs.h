@@ -65,7 +65,6 @@ enum class AzureBackend : bool {
 
 /// Options for the AzureFileSystem implementation.
 struct ARROW_EXPORT AzureOptions {
-  std::string scheme;
   std::string account_dfs_url;
   std::string account_blob_url;
   AzureBackend backend = AzureBackend::Azure;
@@ -88,7 +87,8 @@ struct ARROW_EXPORT AzureOptions {
 /// ABFS (Azure Blob Storage - https://azure.microsoft.com/en-us/products/storage/blobs/)
 /// object-based cloud storage system.
 ///
-/// ADLS (Azure Data Lake Storage - https://azure.microsoft.com/en-us/products/storage/data-lake-storage/)
+/// ADLS (Azure Data Lake Storage -
+/// https://azure.microsoft.com/en-us/products/storage/data-lake-storage/)
 /// is a scalable data storage system designed for big-data applications.
 /// ADLS provides filesystem semantics, file-level security, and Hadoop
 /// compatibility. Gen1 exists as a separate object that will retired

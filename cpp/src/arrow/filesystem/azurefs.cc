@@ -29,7 +29,7 @@ namespace fs {
 AzureOptions::AzureOptions() {}
 
 bool AzureOptions::Equals(const AzureOptions& other) const {
-  return (scheme == other.scheme && account_dfs_url == other.account_dfs_url &&
+  return (account_dfs_url == other.account_dfs_url &&
           account_blob_url == other.account_blob_url &&
           credentials_kind == other.credentials_kind);
 }
@@ -40,8 +40,6 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
 class AzureFileSystem::Impl {
  public:
   io::IOContext io_context_;
-  std::string dfs_endpoint_url_;
-  std::string blob_endpoint_url_;
   bool is_hierarchical_namespace_enabled_;
   AzureOptions options_;
 
@@ -49,10 +47,9 @@ class AzureFileSystem::Impl {
       : io_context_(io_context), options_(std::move(options)) {}
 
   Status Init() {
-    dfs_endpoint_url_ = options_.account_dfs_url;
-    blob_endpoint_url_ = options_.account_blob_url;
-
     if (options_.backend == AzureBackend::Azurite) {
+      // gen1Client_->GetAccountInfo().Value.IsHierarchicalNamespaceEnabled
+      // throws error in azurite
       is_hierarchical_namespace_enabled_ = false;
     }
     return Status::OK();
