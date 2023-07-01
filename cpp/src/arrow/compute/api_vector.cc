@@ -35,6 +35,7 @@
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/reflection_internal.h"
 
 namespace arrow {
 
@@ -150,6 +151,8 @@ static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("sort_keys", &RankOptions::sort_keys),
     DataMember("null_placement", &RankOptions::null_placement),
     DataMember("tiebreaker", &RankOptions::tiebreaker));
+static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
+    DataMember("periods", &PairwiseOptions::periods));
 }  // namespace
 }  // namespace internal
 
@@ -217,6 +220,10 @@ RankOptions::RankOptions(std::vector<SortKey> sort_keys, NullPlacement null_plac
       tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
 
+PairwiseOptions::PairwiseOptions(int64_t periods)
+    : FunctionOptions(internal::kPairwiseOptionsType), periods(periods) {}
+constexpr char PairwiseOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -229,6 +236,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kPairwiseOptionsType));
 }
 }  // namespace internal
 
@@ -336,6 +344,15 @@ const int32_t kCountsFieldIndex = 1;
 Result<std::shared_ptr<StructArray>> ValueCounts(const Datum& value, ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum result, CallFunction("value_counts", {value}, ctx));
   return checked_pointer_cast<StructArray>(result.make_array());
+}
+
+Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
+                                            const PairwiseOptions& options,
+                                            bool check_overflow, ExecContext* ctx) {
+  auto func_name = check_overflow ? "pairwise_diff_checked" : "pairwise_diff";
+  ARROW_ASSIGN_OR_RAISE(Datum result,
+                        CallFunction(func_name, {Datum(array)}, &options, ctx));
+  return result.make_array();
 }
 
 // ----------------------------------------------------------------------

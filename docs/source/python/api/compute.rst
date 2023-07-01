@@ -521,6 +521,14 @@ Structural Transforms
    replace_with_mask
    struct_field
 
+Pairwise Functions
+------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   pairwise_diff
+
 Compute Options
 ---------------
 
@@ -547,6 +555,7 @@ Compute Options
    ModeOptions
    NullOptions
    PadOptions
+   PairwiseOptions
    PartitionNthOptions
    QuantileOptions
    ReplaceSliceOptions

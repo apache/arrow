@@ -4160,11 +4160,22 @@ macro(build_google_cloud_cpp_storage)
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_common${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 
+  # Remove unused directories to save build directory storage.
+  # 141MB -> 79MB
+  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND ${CMAKE_COMMAND} -E)
+  if(CMAKE_VERSION VERSION_LESS 3.17)
+    list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND remove_directory)
+  else()
+    list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND rm -rf)
+  endif()
+  list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND ci)
+
   externalproject_add(google_cloud_cpp_ep
                       ${EP_COMMON_OPTIONS}
                       INSTALL_DIR ${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}
                       URL ${google_cloud_cpp_storage_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
                       CMAKE_ARGS ${GOOGLE_CLOUD_CPP_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}
                                        ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}
@@ -4616,24 +4627,16 @@ endif()
 # ----------------------------------------------------------------------
 # AWS SDK for C++
 
+include(AWSSDKVariables)
+
 macro(build_awssdk)
   message(STATUS "Building AWS C++ SDK from source")
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
 
-  if(WIN32)
-    # On Windows, need to match build types
-    set(AWSSDK_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-  else()
-    # Otherwise, always build in release mode.
-    # Especially with gcc, debug builds can fail with "asm constraint" errors:
-    # https://github.com/TileDB-Inc/TileDB/issues/1351
-    set(AWSSDK_BUILD_TYPE release)
-  endif()
-
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
-      -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
+      -DCPP_STANDARD=${CMAKE_CXX_STANDARD}
       -DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}
       -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}
       -DENABLE_TESTING=OFF
@@ -4655,6 +4658,15 @@ macro(build_awssdk)
       -DBUILD_DEPS=OFF
       -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
       -DMINIMIZE_SIZE=ON)
+  # Remove unused directories to save build directory storage.
+  # 807MB -> 31MB
+  set(AWSSDK_PATCH_COMMAND ${CMAKE_COMMAND} -E)
+  if(CMAKE_VERSION VERSION_LESS 3.17)
+    list(APPEND AWSSDK_PATCH_COMMAND remove_directory)
+  else()
+    list(APPEND AWSSDK_PATCH_COMMAND rm -rf)
+  endif()
+  list(APPEND AWSSDK_PATCH_COMMAND ${AWSSDK_UNUSED_DIRECTORIES})
 
   if(UNIX)
     # on Linux and macOS curl seems to be required
@@ -4754,16 +4766,33 @@ macro(build_awssdk)
                       BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
   add_dependencies(AWS::aws-c-common aws_c_common_ep)
 
+  set(AWS_CHECKSUMS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+  if(NOT WIN32)
+    # On non-Windows, always build in release mode.
+    # Especially with gcc, debug builds can fail with "asm constraint" errors:
+    # https://github.com/TileDB-Inc/TileDB/issues/1351
+    list(APPEND AWS_CHECKSUMS_CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release)
+  endif()
   externalproject_add(aws_checksums_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_CHECKSUMS_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWS_CHECKSUMS_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      CMAKE_ARGS ${AWS_CHECKSUMS_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY}
                       DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
   if("s2n-tls" IN_LIST _AWSSDK_LIBS)
+    # Remove unused directories to save build directory storage.
+    # 169MB -> 105MB
+    set(AWS_LC_PATCH_COMMAND ${CMAKE_COMMAND} -E)
+    if(CMAKE_VERSION VERSION_LESS 3.17)
+      list(APPEND AWS_LC_PATCH_COMMAND remove_directory)
+    else()
+      list(APPEND AWS_LC_PATCH_COMMAND rm -rf)
+    endif()
+    list(APPEND AWS_LC_PATCH_COMMAND fuzz)
+
     set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
     string(APPEND AWS_LC_C_FLAGS " -Wno-error=overlength-strings -Wno-error=pedantic")
     # Link time optimization is causing trouble like #34349
@@ -4778,6 +4807,7 @@ macro(build_awssdk)
                         ${EP_COMMON_OPTIONS}
                         URL ${AWS_LC_SOURCE_URL}
                         URL_HASH "SHA256=${ARROW_AWS_LC_BUILD_SHA256_CHECKSUM}"
+                        PATCH_COMMAND ${AWS_LC_PATCH_COMMAND}
                         CMAKE_ARGS ${AWS_LC_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${AWS_LC_STATIC_LIBRARY})
     add_dependencies(AWS::crypto aws_lc_ep)
@@ -4916,6 +4946,7 @@ macro(build_awssdk)
                       ${EP_COMMON_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}

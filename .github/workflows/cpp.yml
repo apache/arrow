@@ -186,7 +186,7 @@ jobs:
           rm -f /usr/local/bin/pydoc3* || :
           rm -f /usr/local/bin/python3* || :
           rm -f /usr/local/bin/python3-config || :
-          brew update --preinstall
+          brew update --preinstall || :
           brew bundle --file=cpp/Brewfile
       - name: Install MinIO
         run: |

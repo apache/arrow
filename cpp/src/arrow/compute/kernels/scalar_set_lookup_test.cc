@@ -146,17 +146,17 @@ TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
 
   // But explicitly deny implicit casts from non-binary to utf8 to
   // avoid surprises
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(TypeError,
                 IsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                      SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
-  ASSERT_RAISES(Invalid, IsIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
-                              SetLookupOptions(ArrayFromJSON(
-                                  utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
+  ASSERT_RAISES(TypeError, IsIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
+                                SetLookupOptions(ArrayFromJSON(
+                                    utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
 
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(TypeError,
                 IsIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                      SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(TypeError,
                 IsIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
                      SetLookupOptions(ArrayFromJSON(
                          large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
@@ -241,11 +241,11 @@ TEST_F(TestIsInKernel, TimeTimestamp) {
   }
 
   // Disallow mixing timezone-aware and timezone-naive values
-  ASSERT_RAISES(Invalid, IsIn(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 1, 2]"),
-                              SetLookupOptions(ArrayFromJSON(
-                                  timestamp(TimeUnit::SECOND, "UTC"), "[0, 2]"))));
+  ASSERT_RAISES(TypeError, IsIn(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 1, 2]"),
+                                SetLookupOptions(ArrayFromJSON(
+                                    timestamp(TimeUnit::SECOND, "UTC"), "[0, 2]"))));
   ASSERT_RAISES(
-      Invalid,
+      TypeError,
       IsIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
            SetLookupOptions(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 2]"))));
   // However, mixed timezones are allowed (underlying value is UTC)
@@ -741,11 +741,12 @@ TEST_F(TestIndexInKernel, TimeTimestamp) {
                "[0, 0, 0, 0]");
 
   // Disallow mixing timezone-aware and timezone-naive values
-  ASSERT_RAISES(Invalid, IndexIn(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 1, 2]"),
-                                 SetLookupOptions(ArrayFromJSON(
-                                     timestamp(TimeUnit::SECOND, "UTC"), "[0, 2]"))));
+  ASSERT_RAISES(TypeError,
+                IndexIn(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 1, 2]"),
+                        SetLookupOptions(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"),
+                                                       "[0, 2]"))));
   ASSERT_RAISES(
-      Invalid,
+      TypeError,
       IndexIn(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[0, 1, 2]"),
               SetLookupOptions(ArrayFromJSON(timestamp(TimeUnit::SECOND), "[0, 2]"))));
   // However, mixed timezones are allowed (underlying value is UTC)
@@ -866,18 +867,19 @@ TEST_F(TestIndexInKernel, ImplicitlyCastValueSet) {
                ArrayFromJSON(utf8(), R"(["aaa", "bbb"])"), "[0, 1, null, null, 1]");
   // But explicitly deny implicit casts from non-binary to utf8 to
   // avoid surprises
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(TypeError,
                 IndexIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                         SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
-  ASSERT_RAISES(Invalid, IndexIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
-                                 SetLookupOptions(ArrayFromJSON(
-                                     utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
+  ASSERT_RAISES(TypeError,
+                IndexIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
+                        SetLookupOptions(ArrayFromJSON(
+                            utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));
 
   ASSERT_RAISES(
-      Invalid,
+      TypeError,
       IndexIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
               SetLookupOptions(ArrayFromJSON(float64(), "[1.0, 2.0]"))));
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(TypeError,
                 IndexIn(ArrayFromJSON(float64(), "[1.0, 2.0]"),
                         SetLookupOptions(ArrayFromJSON(
                             large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"))));

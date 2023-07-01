@@ -416,6 +416,12 @@ TEST(UTF8StringToUTF16, Basics) {
 
   CheckInvalid("\xff");
   CheckInvalid("h\xc3");
+
+  // lone high-code point
+  CheckInvalid("\xed\xa0\x80");
+
+  // lone low-code point
+  CheckInvalid("\xed\xb0\x81");
 }
 
 TEST(UTF16StringToUTF8, Basics) {

@@ -1223,6 +1223,10 @@ def test_tensor_class_methods():
     result = arr.to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
+    expected = np.array([[[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
+    result = arr[:1].to_numpy_ndarray()
+    np.testing.assert_array_equal(result, expected)
+
     arr = np.array(
         [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
         dtype=np.float32, order="C")

@@ -108,6 +108,7 @@ RUN apt-get update -y -q && \
         python3-dev \
         python3-pip \
         python3-rados \
+        python3-venv \
         rados-objclass-dev \
         rapidjson-dev \
         rsync \
