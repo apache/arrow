@@ -2394,7 +2394,7 @@ cdef class Expression(_Weakrefable):
 
         Parameters
         ----------
-        buffer: bytes or Buffer
+        buffer : bytes or Buffer
             The Substrait message to deserialize
 
         Returns
@@ -2419,9 +2419,9 @@ cdef class Expression(_Weakrefable):
 
         Parameters
         ----------
-        schema: Schema
+        schema : Schema
             The input schema the expression will be bound to
-        allow_udfs: bool, default False
+        allow_udfs : bool, default False
             If False then only functions that are part of the core Substrait function
             definitions will be allowed.  Set this to True to allow pyarrow-specific functions
             but the result may not be accepted by other compute libraries.
