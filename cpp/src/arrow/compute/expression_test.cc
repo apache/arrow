@@ -461,6 +461,29 @@ TEST(Expression, IsSatisfiable) {
     // fill_na)
     EXPECT_TRUE(Bind(call("is_null", {never_true})).IsSatisfiable());
   }
+
+  for (const auto& might_true : {
+           // N.B. this is "or_kleene"
+           or_(literal(false), field_ref("bool")),
+           or_(literal(null), field_ref("bool")),
+           call("or", {literal(false), field_ref("bool")}),
+           call("or", {literal(null), field_ref("bool")}),
+       }) {
+    ARROW_SCOPED_TRACE(might_true.ToString());
+    EXPECT_TRUE(Bind(might_true).IsSatisfiable());
+  }
+
+  for (const auto& never_true : {
+           // N.B. this is "or_kleene"
+           or_(literal(false), literal(null)),
+           call("or", {literal(false), literal(null)}),
+       }) {
+    ARROW_SCOPED_TRACE(never_true.ToString());
+    EXPECT_FALSE(Bind(never_true).IsSatisfiable());
+    // ... but it may appear in satisfiable filters if coalesced (for example, wrapped in
+    // fill_na)
+    EXPECT_TRUE(Bind(call("is_null", {never_true})).IsSatisfiable());
+  }
 }
 
 TEST(Expression, FieldsInExpression) {

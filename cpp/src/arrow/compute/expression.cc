@@ -362,8 +362,20 @@ bool Expression::IsSatisfiable() const {
   }
 
   if (call->function_name == "and_kleene" || call->function_name == "and") {
-    for (const Expression& arg : call->arguments) {
-      if (!arg.IsSatisfiable()) return false;
+    bool has_unsatisfiable =
+        std::any_of(call->arguments.begin(), call->arguments.end(),
+                    [](const Expression& arg) { return !arg.IsSatisfiable(); });
+    if (has_unsatisfiable) {
+      return false;
+    }
+  }
+
+  if (call->function_name == "or_kleene" || call->function_name == "or") {
+    bool all_unsatisfiable =
+        std::all_of(call->arguments.begin(), call->arguments.end(),
+                    [](const Expression& arg) { return !arg.IsSatisfiable(); });
+    if (all_unsatisfiable) {
+      return false;
     }
   }
 
