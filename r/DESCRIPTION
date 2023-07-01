@@ -121,6 +121,7 @@ Collate:
     'dplyr-slice.R'
     'dplyr-summarize.R'
     'dplyr-union.R'
+    'dplyr-rowwise.R'
     'record-batch.R'
     'table.R'
     'dplyr.R'
