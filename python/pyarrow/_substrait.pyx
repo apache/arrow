@@ -166,7 +166,7 @@ def _parse_json_plan(plan):
 
     Parameters
     ----------
-    plan: bytes
+    plan : bytes
         Substrait plan in JSON.
 
     Returns
@@ -187,7 +187,7 @@ def _parse_json_plan(plan):
     return pyarrow_wrap_buffer(c_buf_plan)
 
 
-def serialize_expressions(exprs, names, schema, allow_udfs=False):
+def serialize_expressions(exprs, names, schema, *, allow_udfs=False):
     """
     Serialize a collection of expressions into Substrait
 
@@ -203,13 +203,13 @@ def serialize_expressions(exprs, names, schema, allow_udfs=False):
 
     Parameters
     ----------
-    exprs: List[Expression]
+    exprs : list of Expression
         The expressions to serialize
-    names: List[str]
+    names : list of str
         Names for the expressions
-    schema: Schema
+    schema : Schema
         The schema the expressions will be bound to
-    allow_udfs: bool, default False
+    allow_udfs : bool, default False
         If False then only functions that are part of the core Substrait function
         definitions will be allowed.  Set this to True to allow pyarrow-specific functions
         but the result may not be accepted by other compute libraries.
@@ -248,6 +248,11 @@ def serialize_expressions(exprs, names, schema, allow_udfs=False):
 
 
 cdef class BoundExpressions(_Weakrefable):
+    """
+    A collection of named expressions and the schema they are bound to
+
+    This is equivalent to the Substrait ExtendedExpression message
+    """
 
     cdef:
         CBoundExpressions c_bound_exprs
@@ -261,10 +266,16 @@ cdef class BoundExpressions(_Weakrefable):
 
     @property
     def schema(self):
+        """
+        The common schema that all expressions are bound to
+        """
         return pyarrow_wrap_schema(self.c_bound_exprs.schema)
 
     @property
     def expressions(self):
+        """
+        A dict from expression name to expression
+        """
         expr_dict = {}
         for named_expr in self.c_bound_exprs.named_expressions:
             name = frombytes(named_expr.name)
@@ -285,7 +296,7 @@ def deserialize_expressions(buf):
 
     Parameters
     ----------
-    buf: Buffer or bytes
+    buf : Buffer or bytes
         The message to deserialize
 
     Returns

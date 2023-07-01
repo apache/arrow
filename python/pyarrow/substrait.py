@@ -17,6 +17,7 @@
 
 try:
     from pyarrow._substrait import (  # noqa
+        BoundExpressions,
         get_supported_functions,
         run_query,
         deserialize_expressions,

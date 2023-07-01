@@ -2431,7 +2431,7 @@ cdef class Expression(_Weakrefable):
         Buffer
             A buffer containing the serialized Protobuf plan.
         """
-        return _pas().serialize_expressions([self], "expression", schema, allow_udfs)
+        return _pas().serialize_expressions([self], "expression", schema, allow_udfs=allow_udfs)
 
     @staticmethod
     def _deserialize(Buffer buffer not None):
