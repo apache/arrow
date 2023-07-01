@@ -6158,7 +6158,8 @@ TEST(Substrait, ExtendedExpressionInvalidPlans) {
     }
   )";
 
-  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(kBadOuptutNames);
+  ASSERT_OK_AND_ASSIGN(
+      auto buf, internal::SubstraitFromJSON("ExtendedExpression", kBadOuptutNames));
 
   ASSERT_THAT(DeserializeExpressions(*buf),
               Raises(StatusCode::Invalid, testing::HasSubstr("Ambiguous plan")));

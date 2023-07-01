@@ -24,7 +24,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.dataset as ds
 from pyarrow.lib import tobytes
-from pyarrow.lib import ArrowInvalid
+from pyarrow.lib import ArrowInvalid, ArrowNotImplementedError
 
 try:
     import pyarrow.substrait as substrait
@@ -955,5 +955,28 @@ def test_serializing_multiple_expressions():
     returned = pa.substrait.deserialize_expressions(buf)
     assert schema == returned.schema
     assert len(returned.expressions) == 2
-    assert "first" in returned.expressions
-    assert "second" in returned.expressions
+
+    norm_exprs = [pc.equal(ds.field(0), 7), pc.equal(ds.field(0), ds.field(1))]
+    assert str(returned.expressions["first"]) == str(norm_exprs[0])
+    assert str(returned.expressions["second"]) == str(norm_exprs[1])
+
+
+def test_serializing_udfs():
+    # Note, UDF in this context means a function that is not
+    # recognized by Substrait.  It might still be a builtin pyarrow
+    # function.
+    schema = pa.schema([
+        pa.field("x", pa.uint32())
+    ])
+    a = pc.scalar(10)
+    b = pc.scalar(4)
+    exprs = [pc.shift_left(a, b)]
+
+    with pytest.raises(ArrowNotImplementedError):
+        pa.substrait.serialize_expressions(exprs, ["expr"], schema)
+
+    buf = pa.substrait.serialize_expressions(exprs, ["expr"], schema, allow_udfs=True)
+    returned = pa.substrait.deserialize_expressions(buf)
+    assert schema == returned.schema
+    assert len(returned.expressions) == 1
+    assert str(returned.expressions["expr"]) == str(exprs[0])

@@ -131,6 +131,9 @@ class ARROW_ENGINE_EXPORT SubstraitCall {
   const std::shared_ptr<DataType>& output_type() const { return output_type_; }
   bool output_nullable() const { return output_nullable_; }
   bool is_hash() const { return is_hash_; }
+  const std::unordered_map<std::string, std::vector<std::string>>& options() const {
+    return options_;
+  }
 
   bool HasEnumArg(int index) const;
   Result<std::string_view> GetEnumArg(int index) const;

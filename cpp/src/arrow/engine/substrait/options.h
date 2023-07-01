@@ -107,7 +107,7 @@ struct ARROW_ENGINE_EXPORT ConversionOptions {
         named_table_provider(kDefaultNamedTableProvider),
         named_tap_provider(default_named_tap_provider()),
         extension_provider(default_extension_provider()),
-        allow_arrow_extensions(true) {}
+        allow_arrow_extensions(false) {}
 
   /// \brief How strictly the converter should adhere to the structure of the input.
   ConversionStrictness strictness;

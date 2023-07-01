@@ -146,6 +146,7 @@ def run_query(plan, *, table_provider=None, use_threads=True):
         }
         c_conversion_options.named_table_provider = BindFunction[CNamedTableProvider](
             &_create_named_table_provider, named_table_args)
+        c_conversion_options.allow_arrow_extensions = False
 
     with nogil:
         c_res_reader = ExecuteSerializedPlan(
@@ -186,12 +187,44 @@ def _parse_json_plan(plan):
     return pyarrow_wrap_buffer(c_buf_plan)
 
 
-def serialize_expressions(exprs, names, schema):
+def serialize_expressions(exprs, names, schema, allow_udfs=False):
+    """
+    Serialize a collection of expressions into Substrait
+
+    Substrait expressions must be bound to a schema.  For example,
+    the Substrait expression ``a_i32 + b_i32`` is different from the
+    Substrait expression ``a_i64 + b_i64``.  Pyarrow expressions are
+    typically unbound.  For example, both of the above expressions
+    would be represented as ``a + b`` in pyarrow.
+
+    This means a schema must be provided when serializing an expression.
+    It also means that the serialization may fail if a matching function
+    call cannot be found for the expression.
+
+    Parameters
+    ----------
+    exprs: List[Expression]
+        The expressions to serialize
+    names: List[str]
+        Names for the expressions
+    schema: Schema
+        The schema the expressions will be bound to
+    allow_udfs: bool, default False
+        If False then only functions that are part of the core Substrait function
+        definitions will be allowed.  Set this to True to allow pyarrow-specific functions
+        but the result may not be accepted by other compute libraries.
+
+    Returns
+    -------
+    Buffer
+        An ExtendedExpression message containing the serialized expressions
+    """
     cdef:
         CResult[shared_ptr[CBuffer]] c_res_buffer
         shared_ptr[CBuffer] c_buffer
         CNamedExpression c_named_expr
         CBoundExpressions c_bound_exprs
+        CConversionOptions c_conversion_options
 
     for i in range(len(exprs)):
         if not isinstance(exprs[i], Expression):
@@ -206,7 +239,9 @@ def serialize_expressions(exprs, names, schema):
         c_bound_exprs.named_expressions.push_back(c_named_expr)
     c_bound_exprs.schema = (<Schema> schema).sp_schema
 
-    c_res_buffer = SerializeExpressions(c_bound_exprs)
+    c_conversion_options.allow_arrow_extensions = allow_udfs
+
+    c_res_buffer = SerializeExpressions(c_bound_exprs, c_conversion_options)
     with nogil:
         c_buffer = GetResultValue(c_res_buffer)
     return pyarrow_wrap_buffer(c_buffer)
@@ -245,6 +280,19 @@ cdef class BoundExpressions(_Weakrefable):
 
 
 def deserialize_expressions(buf):
+    """
+    Deserialize an ExtendedExpression Substrait message into a BoundExpressions object
+
+    Parameters
+    ----------
+    buf: Buffer or bytes
+        The message to deserialize
+
+    Returns
+    -------
+    BoundExpressions
+        The deserialized expressions, their names, and the bound schema
+    """
     cdef:
         shared_ptr[CBuffer] c_buffer
         CResult[CBoundExpressions] c_res_bound_exprs

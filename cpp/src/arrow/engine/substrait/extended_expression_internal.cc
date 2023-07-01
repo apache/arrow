@@ -24,6 +24,7 @@
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/engine/substrait/util_internal.h"
+#include "arrow/status.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/string.h"
 
@@ -79,9 +80,21 @@ Result<NamedExpression> ExpressionFromProto(
   ARROW_ASSIGN_OR_RAISE(named_expr.expression, named_expr.expression.Bind(input_schema));
   const DataType& output_type = *named_expr.expression.type();
 
-  // An expression reference has multiple output names which is redundant given the type
-  // should contain any nested names.  We only need the final field name.  However, we
-  // should verify that the output names match the schema
+  // An expression reference has the entire DFS tree of field names for the output type
+  // which is usually redundant.  Then it has one extra name for the name of the
+  // expression which is not redundant.
+  //
+  // For example, if the base schema is [struct<foo:i32>, i32] and the expression is
+  // field(0) the the extended expression output names might be ["foo", "my_expression"].
+  // The "foo" is redundant but we can verify it matches and reject if it does not.
+  //
+  // The one exception is struct literals which have no field names.  For example, if
+  // the base schema is [i32, i64] and the expression is {7, 3}_struct<i8,i8> then the
+  // output type is struct<?:i8, ?:i8> and we do not know the names of the output type.
+  //
+  // TODO(weston) we could patch the names back in at this point using the output
+  // names field but this is rather complex and it might be easier to give names to
+  // struct literals in Substrait.
   int output_name_idx = 0;
   ARROW_RETURN_NOT_OK(VisitNestedFields(output_type, [&](const Field& field) {
     if (output_name_idx >= expression.output_names_size()) {
@@ -90,7 +103,8 @@ Result<NamedExpression> ExpressionFromProto(
                              " output names but the field in base_schema had type ",
                              output_type.ToString(), " which needs more output names");
     }
-    if (field.name() != expression.output_names(output_name_idx)) {
+    if (!field.name().empty() &&
+        field.name() != expression.output_names(output_name_idx)) {
       return Status::Invalid("Ambiguous plan.  Expression had output type ",
                              output_type.ToString(),
                              " which contains a nested field named ", field.name(),
