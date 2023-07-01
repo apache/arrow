@@ -56,12 +56,19 @@ enum class AzureCredentialsKind : int8_t {
   ConnectionString
 };
 
+enum class AzureBackend : bool {
+  /// Official Azure Remote Backend
+  Azure,
+  /// Local Simulated Storage
+  Azurite
+};
+
 /// Options for the AzureFileSystem implementation.
 struct ARROW_EXPORT AzureOptions {
   std::string scheme;
   std::string account_dfs_url;
   std::string account_blob_url;
-  bool is_azurite = false;
+  AzureBackend backend = AzureBackend::Azure;
   AzureCredentialsKind credentials_kind = AzureCredentialsKind::Anonymous;
 
   std::string sas_token;

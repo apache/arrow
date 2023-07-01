@@ -52,7 +52,7 @@ class AzureFileSystem::Impl {
     dfs_endpoint_url_ = options_.account_dfs_url;
     blob_endpoint_url_ = options_.account_blob_url;
 
-    if (options_.is_azurite) {
+    if (options_.backend == AzureBackend::Azurite) {
       is_hierarchical_namespace_enabled_ = false;
     }
     return Status::OK();
