@@ -1,34 +1,11 @@
+
 #ifndef FASTFLOAT_FAST_FLOAT_H
 #define FASTFLOAT_FAST_FLOAT_H
 
-#include <system_error>
+#include "float_common.h"
 
 namespace arrow_vendored {
 namespace fast_float {
-enum chars_format {
-    scientific = 1<<0,
-    fixed = 1<<2,
-    hex = 1<<3,
-    general = fixed | scientific
-};
-
-
-struct from_chars_result {
-  const char *ptr;
-  std::errc ec;
-};
-
-struct parse_options {
-  constexpr explicit parse_options(chars_format fmt = chars_format::general,
-                         char dot = '.')
-    : format(fmt), decimal_point(dot) {}
-
-  /** Which number formats are accepted */
-  chars_format format;
-  /** The character used as decimal point */
-  char decimal_point;
-};
-
 /**
  * This function parses the character sequence [first,last) for a number. It parses floating-point numbers expecting
  * a locale-indepent format equivalent to what is used by std::strtod in the default ("C") locale.
@@ -48,18 +25,20 @@ struct parse_options {
  * to determine whether we allow the fixed point and scientific notation respectively.
  * The default is  `fast_float::chars_format::general` which allows both `fixed` and `scientific`.
  */
-template<typename T>
-from_chars_result from_chars(const char *first, const char *last,
+template<typename T, typename UC = char>
+FASTFLOAT_CONSTEXPR20
+from_chars_result_t<UC> from_chars(UC const * first, UC const * last,
                              T &value, chars_format fmt = chars_format::general)  noexcept;
 
 /**
  * Like from_chars, but accepts an `options` argument to govern number parsing.
  */
-template<typename T>
-from_chars_result from_chars_advanced(const char *first, const char *last,
-                                      T &value, parse_options options)  noexcept;
+template<typename T, typename UC = char>
+FASTFLOAT_CONSTEXPR20
+from_chars_result_t<UC> from_chars_advanced(UC const * first, UC const * last,
+                                      T &value, parse_options_t<UC> options)  noexcept;
 
-}
+} // namespace fast_float
 } // namespace arrow_vendored
 #include "parse_number.h"
 #endif // FASTFLOAT_FAST_FLOAT_H

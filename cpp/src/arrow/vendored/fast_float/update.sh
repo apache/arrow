@@ -23,7 +23,7 @@ source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 VERSION"
-  echo " e.g.: $0 3.8.1"
+  echo " e.g.: $0 5.2.0"
   exit 1
 fi
 
@@ -37,8 +37,8 @@ git clone \
     https://github.com/fastfloat/fast_float.git
 mv fast_float/include/fast_float/* ./
 rm -rf fast_float
-sed -i.bak -E -e "s/v[0-9.]+/v${version}/g" *.h
-sed -i.bak -E \
+gsed -i.bak -E -e "s/v[0-9.]+/v${version}/g" *.h
+gsed -i.bak -E \
     -e '/^namespace fast_float \{/ i namespace arrow_vendored {' \
     -e '/^} \/\/ namespace fast_float/ a } // namespace arrow_vendored' \
     *.h
