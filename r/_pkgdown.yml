@@ -145,6 +145,7 @@ reference:
       - open_csv_dataset
       - open_tsv_dataset
       - write_dataset
+      - write_csv_dataset
       - dataset_factory
       - hive_partition
       - Dataset
