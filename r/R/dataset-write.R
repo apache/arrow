@@ -209,6 +209,45 @@ write_dataset <- function(dataset,
   )
 }
 
+#' Write a dataset into partitioned csv files.
+
+#' A wrapper around [write_dataset] to allow for easy switching between functions for writing datasets.
+
+#' @seealso [write_dataset()]
+#' @export
+write_csv_dataset <- function(dataset,
+                              path,
+                              partitioning = dplyr::group_vars(dataset),
+                              basename_template = "part-{i}.csv",
+                              hive_style = TRUE,
+                              existing_data_behavior = c("overwrite", "error", "delete_matching"),
+                              max_partitions = 1024L,
+                              max_open_files = 900L,
+                              max_rows_per_file = 0L,
+                              min_rows_per_group = 0L,
+                              max_rows_per_group = bitwShiftL(1, 20),
+                              ...) {
+  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
+    max_rows_per_group <- max_rows_per_file
+  }
+
+  write_dataset(
+    dataset = dataset,
+    path = path,
+    format = "csv",
+    partitioning = partitioning,
+    basename_template = basename_template,
+    hive_style = hive_style,
+    existing_data_behavior = existing_data_behavior,
+    max_partitions = max_partitions,
+    max_open_files = max_open_files,
+    max_rows_per_file = max_rows_per_file,
+    min_rows_per_group = min_rows_per_group,
+    max_rows_per_group = max_rows_per_group,
+    ...
+  )
+}
+
 validate_positive_int_value <- function(value, msg) {
   if (!is_integerish(value, n = 1) || is.na(value) || value < 0) {
     abort(paste(substitute(value), "must be a positive, non-missing integer"))

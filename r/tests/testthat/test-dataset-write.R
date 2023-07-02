@@ -812,3 +812,54 @@ test_that("write_dataset() errors on data.frame with NULL names", {
   names(df) <- NULL
   expect_error(write_dataset(df, tempfile()), "Input data frame columns must be named")
 })
+
+test_that("Writing a dataset using write_csv_dataset wrapper", {
+  df <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  dst_dir <- make_temp_dir()
+  write_csv_dataset(df, dst_dir)
+  expect_true(dir.exists(dst_dir))
+  new_ds <- open_dataset(dst_dir, format = "csv")
+  expect_equal(new_ds %>% collect(), df)
+
+  dst_dir <- make_temp_dir()
+  write_csv_dataset(df, dst_dir, include_header = FALSE)
+  expect_true(dir.exists(dst_dir))
+  new_ds <- open_dataset(dst_dir,
+    format = "csv",
+    column_names = c("int", "dbl", "lgl", "chr")
+  )
+  expect_equal(new_ds %>% collect(), df)
+})
+
+test_that("Writing a csv dataset: `basename_template` default behavier", {
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+
+  dst_dir <- make_temp_dir()
+  write_csv_dataset(ds, dst_dir, max_rows_per_file = 5L)
+  expect_identical(
+    dir(dst_dir, full.names = FALSE, recursive = TRUE),
+    paste0("part-", 0:3, ".csv")
+  )
+})
+
+test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file in write_csv_dataset()", {
+  skip_if_not_available("parquet")
+  df <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+  dst_dir <- make_temp_dir()
+
+  # max_rows_per_group unset adjust silently
+  expect_silent(
+    write_csv_dataset(df, dst_dir, max_rows_per_file = 5)
+  )
+})
