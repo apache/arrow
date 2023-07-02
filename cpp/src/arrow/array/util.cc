@@ -77,7 +77,9 @@ class ArrayDataWrapper {
 
 class ArrayDataEndianSwapper {
  public:
-  explicit ArrayDataEndianSwapper(const std::shared_ptr<ArrayData>& data, MemoryPool* pool) : data_(data), pool_(pool) {
+  explicit ArrayDataEndianSwapper(const std::shared_ptr<ArrayData>& data,
+                                  MemoryPool* pool)
+      : data_(data), pool_(pool) {
     out_ = data->Copy();
   }
 
@@ -149,7 +151,8 @@ class ArrayDataEndianSwapper {
 
   Status Visit(const Decimal128Type& type) {
     auto data = reinterpret_cast<const uint64_t*>(data_->buffers[1]->data());
-    ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size(), pool_));
+    ARROW_ASSIGN_OR_RAISE(auto new_buffer,
+                          AllocateBuffer(data_->buffers[1]->size(), pool_));
     auto new_data = reinterpret_cast<uint64_t*>(new_buffer->mutable_data());
     // NOTE: data_->length not trusted (see warning above)
     const int64_t length = data_->buffers[1]->size() / Decimal128Type::kByteWidth;
@@ -209,7 +212,8 @@ class ArrayDataEndianSwapper {
   Status Visit(const MonthDayNanoIntervalType& type) {
     using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
     auto data = reinterpret_cast<const MonthDayNanos*>(data_->buffers[1]->data());
-    ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateBuffer(data_->buffers[1]->size(), pool_));
+    ARROW_ASSIGN_OR_RAISE(auto new_buffer,
+                          AllocateBuffer(data_->buffers[1]->size(), pool_));
     auto new_data = reinterpret_cast<MonthDayNanos*>(new_buffer->mutable_data());
     // NOTE: data_->length not trusted (see warning above)
     const int64_t length = data_->buffers[1]->size() / sizeof(MonthDayNanos);
