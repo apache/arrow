@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -54,6 +55,21 @@ class Uri;
 }  // namespace internal
 
 namespace flight {
+
+/// \brief A timestamp compatible with Protocol Buffer's
+/// google.protobuf.Timestamp:
+///
+/// https://protobuf.dev/reference/protobuf/google.protobuf/#timestamp
+///
+/// > A Timestamp represents a point in time independent of any time
+/// > zone or calendar, represented as seconds and fractions of
+/// > seconds at nanosecond resolution in UTC Epoch time. It is
+/// > encoded using the Proleptic Gregorian Calendar which extends the
+/// > Gregorian calendar backwards to year one. It is encoded assuming
+/// > all minutes are 60 seconds long, i.e. leap seconds are "smeared"
+/// > so that no leap second table is needed for interpretation. Range
+/// > is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z.
+using Timestamp = std::chrono::system_clock::time_point;
 
 /// \brief A Flight-specific status code.
 enum class FlightStatusCode : int8_t {
@@ -161,6 +177,9 @@ struct ARROW_FLIGHT_EXPORT ActionType {
 
   /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<ActionType> Deserialize(std::string_view serialized);
+
+  static const ActionType kCancelFlightInfo;
+  static const ActionType kRenewFlightEndpoint;
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
@@ -230,6 +249,48 @@ struct ARROW_FLIGHT_EXPORT Result {
   /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<Result> Deserialize(std::string_view serialized);
 };
+
+enum class CancelStatus {
+  /// The cancellation status is unknown. Servers should avoid using
+  /// this value (send a kNotCancellable if the requested FlightInfo
+  /// is not known). Clients can retry the request.
+  kUnspecified = 0,
+  /// The cancellation request is complete. Subsequent requests with
+  /// the same payload may return kCancelled or a kNotCancellable error.
+  kCancelled = 1,
+  /// The cancellation request is in progress. The client may retry
+  /// the cancellation request.
+  kCancelling = 2,
+  // The FlightInfo is not cancellable. The client should not retry the
+  // cancellation request.
+  kNotCancellable = 3,
+};
+
+/// \brief The result of the CancelFlightInfo action.
+struct ARROW_FLIGHT_EXPORT CancelFlightInfoResult {
+  CancelStatus status;
+
+  std::string ToString() const;
+  bool Equals(const CancelFlightInfoResult& other) const;
+
+  friend bool operator==(const CancelFlightInfoResult& left,
+                         const CancelFlightInfoResult& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const CancelFlightInfoResult& left,
+                         const CancelFlightInfoResult& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<CancelFlightInfoResult> Deserialize(std::string_view serialized);
+};
+
+ARROW_FLIGHT_EXPORT
+std::ostream& operator<<(std::ostream& os, CancelStatus status);
 
 /// \brief message for simple auth
 struct ARROW_FLIGHT_EXPORT BasicAuth {
@@ -441,6 +502,11 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
   /// generated
   std::vector<Location> locations;
 
+  /// Expiration time of this stream. If present, clients may assume
+  /// they can retry DoGet requests. Otherwise, clients should avoid
+  /// retrying DoGet requests.
+  std::optional<Timestamp> expiration_time;
+
   std::string ToString() const;
   bool Equals(const FlightEndpoint& other) const;
 
@@ -456,6 +522,30 @@ struct ARROW_FLIGHT_EXPORT FlightEndpoint {
 
   /// \brief Deserialize this message from its wire-format representation.
   static arrow::Result<FlightEndpoint> Deserialize(std::string_view serialized);
+};
+
+/// \brief The request of the RenewFlightEndpoint action.
+struct ARROW_FLIGHT_EXPORT RenewFlightEndpointRequest {
+  FlightEndpoint endpoint;
+
+  std::string ToString() const;
+  bool Equals(const RenewFlightEndpointRequest& other) const;
+
+  friend bool operator==(const RenewFlightEndpointRequest& left,
+                         const RenewFlightEndpointRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const RenewFlightEndpointRequest& left,
+                         const RenewFlightEndpointRequest& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<RenewFlightEndpointRequest> Deserialize(
+      std::string_view serialized);
 };
 
 /// \brief Staging data structure for messages about to be put on the wire
@@ -605,6 +695,29 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   mutable bool reconstructed_schema_;
 };
 
+/// \brief The request of the CancelFlightInfoRequest action.
+struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
+  std::unique_ptr<FlightInfo> info;
+
+  std::string ToString() const;
+  bool Equals(const CancelFlightInfoRequest& other) const;
+
+  friend bool operator==(const CancelFlightInfoRequest& left,
+                         const CancelFlightInfoRequest& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const CancelFlightInfoRequest& left,
+                         const CancelFlightInfoRequest& right) {
+    return !(left == right);
+  }
+
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<CancelFlightInfoRequest> Deserialize(std::string_view serialized);
+};
+
 /// \brief An iterator to FlightInfo instances returned by ListFlights.
 class ARROW_FLIGHT_EXPORT FlightListing {
  public:
@@ -630,6 +743,11 @@ class ARROW_FLIGHT_EXPORT ResultStream {
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status Next(std::unique_ptr<Result>* info);
+
+  /// \brief Read and drop the remaining messages to get the error (if any) from a server.
+  /// \return Status OK if this is no error from a server, any other status if a
+  /// server returns an error.
+  Status Drain();
 };
 
 /// \brief A holder for a RecordBatch with associated Flight metadata.
