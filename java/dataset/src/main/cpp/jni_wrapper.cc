@@ -106,6 +106,10 @@ arrow::Result<std::shared_ptr<arrow::dataset::FileFormat>> GetFileFormat(
     case 3:
       return std::make_shared<arrow::dataset::CsvFileFormat>();
 #endif
+#ifdef ARROW_JSON
+    case 4:
+      return std::make_shared<arrow::dataset::JsonFileFormat>();
+#endif
     default:
       std::string error_message =
           "illegal file format id: " + std::to_string(file_format_id);
