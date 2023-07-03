@@ -37,9 +37,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.dataset.CsvJsonWriteSupport;
 import org.apache.arrow.dataset.OrcWriteSupport;
 import org.apache.arrow.dataset.ParquetWriteSupport;
+import org.apache.arrow.dataset.TextBasedWriteSupport;
 import org.apache.arrow.dataset.jni.NativeDataset;
 import org.apache.arrow.dataset.jni.NativeInstanceReleasedException;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
@@ -407,7 +407,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
 
   @Test
   public void testBaseCsvRead() throws Exception {
-    CsvJsonWriteSupport writeSupport = CsvJsonWriteSupport.writeTempFile(
+    TextBasedWriteSupport writeSupport = TextBasedWriteSupport.writeTempFile(
             TMP.newFolder(), ".csv", "Name,Language", "Juno,Java", "Peter,Python", "Celin,C++");
     String expectedJsonUnordered = "[[\"Juno\", \"Java\"], [\"Peter\", \"Python\"], [\"Celin\", \"C++\"]]";
     ScanOptions options = new ScanOptions(100);
@@ -431,7 +431,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
 
   @Test
   public void testBaseJsonRead() throws Exception {
-    CsvJsonWriteSupport writeSupport = CsvJsonWriteSupport.writeTempFile(
+    TextBasedWriteSupport writeSupport = TextBasedWriteSupport.writeTempFile(
         TMP.newFolder(), ".json",
         "{\"Type\": \"Compiled\", \"Language\": \"Java\"}",
                 "{\"Type\": \"Interpreted\", \"Language\": \"Python\"}");

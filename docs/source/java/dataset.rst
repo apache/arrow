@@ -43,6 +43,7 @@ Currently supported file formats are:
 - Apache ORC (``.orc``)
 - Apache Parquet (``.parquet``)
 - Comma-Separated Values (``.csv``)
+- Line-delimited Values JSON (``.json``)
 
 Below shows a simplest example of using Dataset to query a Parquet file in Java:
 
