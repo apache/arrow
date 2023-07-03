@@ -351,6 +351,10 @@ Status EnsureS3Initialized();
 ARROW_EXPORT
 bool IsS3Initialized();
 
+/// Whether S3 was finalized.
+ARROW_EXPORT
+bool IsS3Finalized();
+
 /// Shutdown the S3 APIs.
 ARROW_EXPORT
 Status FinalizeS3();
