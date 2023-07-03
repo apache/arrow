@@ -87,6 +87,14 @@ These two steps are mandatory and must be executed in order.
    not sufficiently comprehensive. Portions of the Python API documentation
    will also not build without CUDA support having been built.
 
+.. note::
+
+   If you are working on the Python documentation and are building the documentation
+   with ``pyarrow`` build from source on macOS Monterey, Python section of the
+   documentation might not be included in the ``_build/html`` when using the
+   ``make html`` command. In this case use ``make python`` to only build the
+   python part of the documentation.
+
 After these steps are completed, the documentation is rendered in HTML
 format in ``arrow/docs/_build/html``.  In particular, you can point your browser
 at ``arrow/docs/_build/html/index.html`` to read the docs and review any changes

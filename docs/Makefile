@@ -150,6 +150,8 @@ cpp-live:
 
 .PHONY: python
 python:
+	# Remove the following line when sphinx issue (https://github.com/sphinx-doc/sphinx/issues/10943) is closed
+	python -m pip install ../python --quiet --no-dependencies
 	$(SPHINXBUILD) -b html $(SPHINXOPTS) -c $(SOURCEDIR) $(SOURCEDIR)/python $(BUILDDIR)/html/python
 	@echo
 	@echo "Build finished. The HTML files are in $(BUILDDIR)/html/python"
