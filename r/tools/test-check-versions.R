@@ -55,6 +55,11 @@ test_that("check_versions", {
     fixed = TRUE
   )
   expect_output(
+    check_versions("10.0.0.3", "10.0.0"),
+    "*** > Using C++ library version 10.0.0 with R package 10.0.0.3",
+    fixed = TRUE
+  )
+  expect_output(
     check_versions("10.0.0.9000", "11.0.0-SNAPSHOT"),
     "*** > Packages are both on development versions (11.0.0-SNAPSHOT, 10.0.0.9000)\n",
     fixed = TRUE
