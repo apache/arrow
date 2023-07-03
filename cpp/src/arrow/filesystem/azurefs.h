@@ -94,7 +94,7 @@ struct ARROW_EXPORT AzureOptions {
 /// compatibility. Gen1 exists as a separate object that will retired
 /// on Feb 29, 2024. New ADLS accounts will use Gen2 instead, which is
 /// implemented on top of ABFS.
-/// 
+///
 /// TODO: GH-18014 Complete the internal implementation
 /// and review the documentation
 class ARROW_EXPORT AzureFileSystem : public FileSystem {
