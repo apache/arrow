@@ -1179,10 +1179,10 @@ constexpr bool is_fixed_width(Type::type type_id) {
   return is_primitive(type_id) || is_dictionary(type_id) || is_fixed_size_binary(type_id);
 }
 
-/// \brief Check for a var-length list type
+/// \brief Check for a variable-length list type
 ///
 /// \param[in] type_id the type-id to check
-/// \return whether type-id is a var-length list type one
+/// \return whether type-id is a variable-length list type one
 constexpr bool is_var_length_list(Type::type type_id) {
   switch (type_id) {
     case Type::LIST:
