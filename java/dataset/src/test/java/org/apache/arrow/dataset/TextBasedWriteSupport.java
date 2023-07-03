@@ -28,14 +28,14 @@ public class TextBasedWriteSupport {
   private final URI uri;
   private final Random random = new Random();
 
-  public TextBasedWriteSupport(File outputFolder, String jsonOrCsvFileExtension) throws URISyntaxException {
+  public TextBasedWriteSupport(File outputFolder, String fileExtension) throws URISyntaxException {
     uri = new URI("file", outputFolder.getPath() + File.separator +
-        "generated-" + random.nextLong() + jsonOrCsvFileExtension, null);
+        "generated-" + random.nextLong() + fileExtension, null);
   }
 
-  public static TextBasedWriteSupport writeTempFile(File outputFolder, String jsonOrCsvFileExtension, String... values)
+  public static TextBasedWriteSupport writeTempFile(File outputFolder, String fileExtension, String... values)
       throws URISyntaxException, IOException {
-    TextBasedWriteSupport writer = new TextBasedWriteSupport(outputFolder, jsonOrCsvFileExtension);
+    TextBasedWriteSupport writer = new TextBasedWriteSupport(outputFolder, fileExtension);
     try (FileWriter addValues = new FileWriter(new File(writer.uri), true)) {
       for (Object value : values) {
         addValues.write(value + "\n");
