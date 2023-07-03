@@ -17,32 +17,31 @@
 
 package org.apache.arrow.flight.sql;
 
-import org.apache.arrow.flight.sql.impl.FlightSql;
+import org.apache.arrow.flight.CancelFlightInfoResult;
+import org.apache.arrow.flight.CancelStatus;
+import org.apache.arrow.flight.FlightProducer;
+import org.apache.arrow.flight.Result;
 
-/**
- * The result of cancelling a query.
- *
- * @deprecated Prefer {@link org.apache.arrow.flight.CancelStatus}.
- */
-@Deprecated
-public enum CancelResult {
-  UNSPECIFIED,
-  CANCELLED,
-  CANCELLING,
-  NOT_CANCELLABLE,
-  ;
+/** Typed StreamListener for cancelFlightInfo. */
+class CancelStatusListener implements FlightProducer.StreamListener<CancelStatus> {
+  private final FlightProducer.StreamListener<Result> listener;
 
-  FlightSql.ActionCancelQueryResult.CancelResult toProtocol() {
-    switch (this) {
-      default:
-      case UNSPECIFIED:
-        return FlightSql.ActionCancelQueryResult.CancelResult.CANCEL_RESULT_UNSPECIFIED;
-      case CANCELLED:
-        return FlightSql.ActionCancelQueryResult.CancelResult.CANCEL_RESULT_CANCELLED;
-      case CANCELLING:
-        return FlightSql.ActionCancelQueryResult.CancelResult.CANCEL_RESULT_CANCELLING;
-      case NOT_CANCELLABLE:
-        return FlightSql.ActionCancelQueryResult.CancelResult.CANCEL_RESULT_NOT_CANCELLABLE;
-    }
+  CancelStatusListener(FlightProducer.StreamListener<Result> listener) {
+    this.listener = listener;
+  }
+
+  @Override
+  public void onNext(CancelStatus val) {
+    listener.onNext(new Result(new CancelFlightInfoResult(val).serialize().array()));
+  }
+
+  @Override
+  public void onError(Throwable t) {
+    listener.onError(t);
+  }
+
+  @Override
+  public void onCompleted() {
+    listener.onCompleted();
   }
 }

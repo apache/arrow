@@ -24,8 +24,7 @@ github:
     - danepitkin
     - davisusanibar
     - felipecrv
-    - milesgranger
-    - toddfarmer
+    - mapleFU
 
 notifications:
   commits:      commits@arrow.apache.org
