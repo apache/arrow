@@ -493,6 +493,16 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         """Uncompressed size in bytes (int)."""
         return self.metadata.total_uncompressed_size()
 
+    @property
+    def has_offset_index(self):
+        """Has offset index"""
+        return self.metadata.GetOffsetIndexLocation().has_value()
+
+    @property
+    def has_column_index(self):
+        """Has column index"""
+        return self.metadata.GetColumnIndexLocation().has_value()
+
 
 cdef class RowGroupMetaData(_Weakrefable):
     """Metadata for a single row group."""

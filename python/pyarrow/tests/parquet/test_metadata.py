@@ -357,6 +357,20 @@ def test_field_id_metadata():
     assert schema[5].metadata[field_id] == b'-1000'
 
 
+def test_parquet_file_page_index():
+    table = pa.table({'a': [1, 2, 3]})
+
+    writer = pa.BufferOutputStream()
+    _write_table(table, writer, write_page_index=True)
+    reader = pa.BufferReader(writer.getvalue())
+
+    # Can retrieve sorting columns from metadata
+    metadata = pq.read_metadata(reader)
+    cc = metadata.row_group(0).column(0)
+    assert cc.has_offset_index is True
+    assert cc.has_column_index is True
+
+
 @pytest.mark.pandas
 def test_multi_dataset_metadata(tempdir):
     filenames = ["ARROW-1983-dataset.0", "ARROW-1983-dataset.1"]
