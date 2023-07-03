@@ -2828,7 +2828,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> len_decoder_;
-  int num_valid_values_;
+  int num_valid_values_{0};
   uint32_t length_idx_;
   std::shared_ptr<ResizableBuffer> buffered_length_;
 };
@@ -3082,7 +3082,6 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
       return;
     }
     uint32_t len = descr_->type_length();
-    uint32_t len2 = len;
 
     std::string_view last_value_view = last_value_;
     constexpr int kBatchSize = 256;
@@ -3095,11 +3094,11 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
       for (int j = 0; j < batch_size; ++j) {
         auto view = visitor[i + j];
-        len2 = visitor.len(i + j);
+        len = visitor.len(i + j);
 
         uint32_t k = 0;
         const uint32_t common_length =
-            std::min(len2, static_cast<uint32_t>(last_value_view.length()));
+            std::min(len, static_cast<uint32_t>(last_value_view.length()));
         while (k < common_length) {
           if (last_value_view[k] != view[k]) {
             break;
@@ -3109,7 +3108,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
         last_value_view = view;
         prefix_lengths[j] = k;
-        const auto suffix_length = len2 - k;
+        const uint32_t suffix_length = len - k;
         const uint8_t* suffix_ptr = src[i + j].ptr + k;
 
         // Convert to ByteArray, so it can be passed to the suffix_encoder_.
@@ -3124,7 +3123,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    auto previous_len = static_cast<uint32_t>(last_value_.size());
+    auto previous_len = static_cast<uint32_t>(last_value_.length());
     std::string_view last_value_view = last_value_;
 
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
@@ -3137,18 +3136,19 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           const ByteArray src{view};
 
           uint32_t j = 0;
-          const uint32_t common_length = std::min(previous_len, src.len);
+          const uint32_t len = src.len;
+          const uint32_t common_length = std::min(previous_len, len);
           while (j < common_length) {
             if (last_value_view[j] != view[j]) {
               break;
             }
             j++;
           }
-          previous_len = src.len;
+          previous_len = len;
           prefix_length_encoder_.Put({static_cast<int32_t>(j)}, 1);
 
           last_value_view = view;
-          const auto suffix_length = static_cast<uint32_t>(src.len - j);
+          const auto suffix_length = static_cast<uint32_t>(len - j);
           if (suffix_length == 0) {
             suffix_encoder_.Put(&kEmpty, 1);
             return Status::OK();
@@ -3179,7 +3179,7 @@ struct ByteArrayVisitor {
     if (ARROW_PREDICT_FALSE(src[i].len >= kMaxByteArraySize)) {
       throw ParquetException("Parquet cannot store strings with size 2GB or more");
     }
-    return std::string_view{reinterpret_cast<const char*>(src[i].ptr), src[i].len};
+    return std::string_view{src[i]};
   }
 
   uint32_t len(int i) const { return src[i].len; }
@@ -3396,7 +3396,7 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
   std::string last_value_;
   // string buffer for last value in previous page
   std::string last_value_in_previous_page_;
-  int num_valid_values_;
+  int num_valid_values_{0};
   uint32_t prefix_len_offset_;
   std::shared_ptr<ResizableBuffer> buffered_prefix_length_;
   std::shared_ptr<ResizableBuffer> buffered_data_;
