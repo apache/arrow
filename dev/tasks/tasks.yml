@@ -1151,12 +1151,12 @@ tasks:
       image: fedora-cpp
 
 {% for cpp_standard in [20] %}
-  test-ubuntu-20.04-cpp-{{ cpp_standard }}:
+  test-ubuntu-22.04-cpp-{{ cpp_standard }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 20.04
+        UBUNTU: 22.04
       flags: "-e CMAKE_CXX_STANDARD={{ cpp_standard }}"
       image: ubuntu-cpp
 {% endfor %}
