@@ -31,17 +31,13 @@ namespace arrow::matlab::array::proxy {
             const ::matlab::data::TypedArray<bool> validity_bitmap_mda = opts[0]["Valid"];
 
             // Pack the logical data values.
-            auto maybe_packed_logical_buffer = arrow::matlab::bit::pack(logical_mda);
-            MATLAB_ERROR_IF_NOT_OK(maybe_packed_logical_buffer.status(), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
+            MATLAB_ASSIGN_OR_ERROR(auto data_buffer, bit::pack(logical_mda), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
 
             // Pack the validity bitmap values.
-            auto maybe_validity_bitmap_buffer = bit::packValid(validity_bitmap_mda);
-            MATLAB_ERROR_IF_NOT_OK(maybe_validity_bitmap_buffer.status(), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
+            MATLAB_ASSIGN_OR_ERROR(const auto validity_bitmap_buffer, bit::packValid(validity_bitmap_mda), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
 
             const auto data_type = arrow::boolean();
             const auto array_length = logical_mda.getNumberOfElements();
-            const auto validity_bitmap_buffer = *maybe_validity_bitmap_buffer;
-            const auto data_buffer = *maybe_packed_logical_buffer;
 
             auto array_data = arrow::ArrayData::Make(data_type, array_length, {validity_bitmap_buffer, data_buffer});
             return std::make_shared<arrow::matlab::array::proxy::BooleanArray>(arrow::MakeArray(array_data));

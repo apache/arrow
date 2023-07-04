@@ -127,14 +127,6 @@ Status ReadResult(ResultStream* results, google::protobuf::Message* message) {
   }
   return Status::OK();
 }
-
-Status DrainResultStream(ResultStream* results) {
-  while (true) {
-    ARROW_ASSIGN_OR_RAISE(auto result, results->Next());
-    if (!result) break;
-  }
-  return Status::OK();
-}
 }  // namespace
 
 const Transaction& no_transaction() {
@@ -668,7 +660,7 @@ Status PreparedStatement::Close(const FlightCallOptions& options) {
   std::unique_ptr<ResultStream> results;
   ARROW_ASSIGN_OR_RAISE(auto action, PackAction("ClosePreparedStatement", request));
   ARROW_RETURN_NOT_OK(client_->DoAction(options, action, &results));
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  ARROW_RETURN_NOT_OK(results->Drain());
 
   is_closed_ = true;
   return Status::OK();
@@ -688,7 +680,7 @@ Status PreparedStatement::Close(const FlightCallOptions& options) {
     return Status::Invalid("Server returned an empty transaction ID");
   }
 
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  ARROW_RETURN_NOT_OK(results->Drain());
   return Transaction(transaction.transaction_id());
 }
 
@@ -713,7 +705,7 @@ Status PreparedStatement::Close(const FlightCallOptions& options) {
     return Status::Invalid("Server returned an empty savepoint ID");
   }
 
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  ARROW_RETURN_NOT_OK(results->Drain());
   return Savepoint(savepoint.savepoint_id());
 }
 
@@ -731,7 +723,7 @@ Status FlightSqlClient::Commit(const FlightCallOptions& options,
   ARROW_ASSIGN_OR_RAISE(auto action, PackAction("EndTransaction", request));
   ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
 
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  ARROW_RETURN_NOT_OK(results->Drain());
   return Status::OK();
 }
 
@@ -749,7 +741,7 @@ Status FlightSqlClient::Release(const FlightCallOptions& options,
   ARROW_ASSIGN_OR_RAISE(auto action, PackAction("EndSavepoint", request));
   ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
 
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  ARROW_RETURN_NOT_OK(results->Drain());
   return Status::OK();
 }
 
@@ -768,7 +760,7 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   ARROW_ASSIGN_OR_RAISE(auto action, PackAction("EndTransaction", request));
   ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
 
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  ARROW_RETURN_NOT_OK(results->Drain());
   return Status::OK();
 }
 
@@ -786,7 +778,7 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   ARROW_ASSIGN_OR_RAISE(auto action, PackAction("EndSavepoint", request));
   ARROW_RETURN_NOT_OK(DoAction(options, action, &results));
 
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  ARROW_RETURN_NOT_OK(results->Drain());
   return Status::OK();
 }
 
@@ -802,7 +794,7 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
 
   flight_sql_pb::ActionCancelQueryResult result;
   ARROW_RETURN_NOT_OK(ReadResult(results.get(), &result));
-  ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
+  ARROW_RETURN_NOT_OK(results->Drain());
   switch (result.result()) {
     case flight_sql_pb::ActionCancelQueryResult::CANCEL_RESULT_UNSPECIFIED:
       return CancelResult::kUnspecified;

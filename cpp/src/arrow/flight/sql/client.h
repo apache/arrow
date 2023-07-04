@@ -323,12 +323,42 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] savepoint    The savepoint.
   Status Rollback(const FlightCallOptions& options, const Savepoint& savepoint);
 
+  /// \brief Explicitly cancel a FlightInfo.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] request      The CancelFlightInfoRequest.
+  /// \return Arrow result with a canceled result.
+  ::arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
+      const FlightCallOptions& options, const CancelFlightInfoRequest& request) {
+    return impl_->CancelFlightInfo(options, request);
+  }
+
   /// \brief Explicitly cancel a query.
   ///
   /// \param[in] options      RPC-layer hints for this call.
   /// \param[in] info         The FlightInfo of the query to cancel.
+  ///
+  /// \deprecated Deprecated since 13.0.0. Use CancelFlightInfo()
+  /// instead. If you can assume that a server requires 13.0.0 or
+  /// later, you can always use CancelFlightInfo(). Otherwise, you may
+  /// need to use CancelQuery() and/or CancelFlightInfo().
+  ARROW_DEPRECATED(
+      "Deprecated in 13.0.0. Use CancelFlightInfo() instead. "
+      "If you can assume that a server requires 13.0.0 or later, "
+      "you can always use CancelFLightInfo(). Otherwise, you "
+      "may need to use CancelQuery() and/or CancelFlightInfo()")
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
+
+  /// \brief Extends the expiration of a FlightEndpoint.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] request      The RenewFlightEndpointRequest.
+  /// \return Arrow result with a renewed FlightEndpoint
+  ::arrow::Result<FlightEndpoint> RenewFlightEndpoint(
+      const FlightCallOptions& options, const RenewFlightEndpointRequest& request) {
+    return impl_->RenewFlightEndpoint(options, request);
+  }
 
   /// \brief Explicitly shut down and clean up the client.
   Status Close();

@@ -227,7 +227,7 @@ class SchemaWriter {
 
   template <typename T>
   enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
-              is_base_binary_type<T>::value || is_base_list_type<T>::value ||
+              is_base_binary_type<T>::value || is_var_length_list_type<T>::value ||
               is_struct_type<T>::value || is_run_end_encoded_type<T>::value>
   WriteTypeMetadata(const T& type) {}
 
