@@ -712,6 +712,8 @@ void DisableRedirects(Aws::Client::ClientConfiguration* c) {
 // To prevent such issues, we wrap all S3Client instances in a special
 // structure (S3ClientHolder) that prevents usage of S3Client after
 // S3 was finalized.
+//
+// See: GH-36346, GH-15054.
 
 class S3ClientFinalizer;
 
