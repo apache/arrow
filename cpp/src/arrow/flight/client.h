@@ -247,6 +247,32 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return DoAction({}, action).Value(results);
   }
 
+  /// \brief Perform the CancelFlightInfo action, returning a
+  /// CancelFlightInfoResult
+  ///
+  /// \param[in] options Per-RPC options
+  /// \param[in] request The CancelFlightInfoRequest
+  /// \return Arrow result with a CancelFlightInfoResult
+  arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
+      const FlightCallOptions& options, const CancelFlightInfoRequest& request);
+  arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
+      const CancelFlightInfoRequest& request) {
+    return CancelFlightInfo({}, request);
+  }
+
+  /// \brief Perform the RenewFlightEndpoint action, returning a renewed
+  /// FlightEndpoint
+  ///
+  /// \param[in] options Per-RPC options
+  /// \param[in] request The RenewFlightEndpointRequest
+  /// \return Arrow result with a renewed FlightEndpoint
+  arrow::Result<FlightEndpoint> RenewFlightEndpoint(
+      const FlightCallOptions& options, const RenewFlightEndpointRequest& request);
+  arrow::Result<FlightEndpoint> RenewFlightEndpoint(
+      const RenewFlightEndpointRequest& request) {
+    return RenewFlightEndpoint({}, request);
+  }
+
   /// \brief Retrieve a list of available Action types
   /// \param[in] options Per-RPC options
   /// \return Arrow result with the available actions

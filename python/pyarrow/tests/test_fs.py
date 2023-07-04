@@ -20,6 +20,8 @@ import gzip
 import os
 import pathlib
 import pickle
+import subprocess
+import sys
 
 import pytest
 import weakref
@@ -213,7 +215,8 @@ def gcsfs(request, gcs_server):
         scheme='http',
         # Mock endpoint doesn't check credentials.
         anonymous=True,
-        retry_time_limit=timedelta(seconds=45)
+        retry_time_limit=timedelta(seconds=45),
+        project_id='test-project-id'
     )
     try:
         fs.create_dir(bucket)
@@ -1064,9 +1067,11 @@ def test_gcs_options():
                        target_service_account='service_account@apache',
                        credential_token_expiration=dt,
                        default_bucket_location='us-west2',
-                       scheme='https', endpoint_override='localhost:8999')
+                       scheme='https', endpoint_override='localhost:8999',
+                       project_id='test-project-id')
     assert isinstance(fs, GcsFileSystem)
     assert fs.default_bucket_location == 'us-west2'
+    assert fs.project_id == 'test-project-id'
     assert pickle.loads(pickle.dumps(fs)) == fs
 
     fs = GcsFileSystem()
@@ -1476,7 +1481,7 @@ def test_filesystem_from_uri_gcs(gcs_server):
 
     uri = ("gs://anonymous@" +
            f"mybucket/foo/bar?scheme=http&endpoint_override={host}:{port}&" +
-           "retry_limit_seconds=5")
+           "retry_limit_seconds=5&project_id=test-project-id")
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, GcsFileSystem)
@@ -1818,3 +1823,51 @@ def test_copy_files_directory(tempdir):
     destination_dir5.mkdir()
     copy_files(source_dir, destination_dir5, chunk_size=1, use_threads=False)
     check_copied_files(destination_dir5)
+
+
+@pytest.mark.s3
+def test_s3_finalize():
+    # Once finalize_s3() was called, most/all operations on S3 filesystems
+    # should raise.
+    code = """if 1:
+        import pytest
+        from pyarrow.fs import (FileSystem, S3FileSystem,
+                                ensure_s3_initialized, finalize_s3)
+
+        fs, path = FileSystem.from_uri('s3://mf-nwp-models/README.txt')
+        assert fs.region == 'eu-west-1'
+        f = fs.open_input_stream(path)
+        f.read(50)
+
+        finalize_s3()
+
+        with pytest.raises(ValueError, match="S3 .* finalized"):
+            f.read(50)
+        with pytest.raises(ValueError, match="S3 .* finalized"):
+            fs.open_input_stream(path)
+        with pytest.raises(ValueError, match="S3 .* finalized"):
+            S3FileSystem(anonymous=True)
+        with pytest.raises(ValueError, match="S3 .* finalized"):
+            FileSystem.from_uri('s3://mf-nwp-models/README.txt')
+        """
+    subprocess.check_call([sys.executable, "-c", code])
+
+
+@pytest.mark.s3
+def test_s3_finalize_region_resolver():
+    # Same as test_s3_finalize(), but exercising region resolution
+    code = """if 1:
+        import pytest
+        from pyarrow.fs import resolve_s3_region, ensure_s3_initialized, finalize_s3
+
+        resolve_s3_region('mf-nwp-models')
+
+        finalize_s3()
+
+        # Testing both cached and uncached accesses
+        with pytest.raises(ValueError, match="S3 .* finalized"):
+            resolve_s3_region('mf-nwp-models')
+        with pytest.raises(ValueError, match="S3 .* finalized"):
+            resolve_s3_region('voltrondata-labs-datasets')
+        """
+    subprocess.check_call([sys.executable, "-c", code])
