@@ -213,7 +213,8 @@ def gcsfs(request, gcs_server):
         scheme='http',
         # Mock endpoint doesn't check credentials.
         anonymous=True,
-        retry_time_limit=timedelta(seconds=45)
+        retry_time_limit=timedelta(seconds=45),
+        project_id='test-project-id'
     )
     try:
         fs.create_dir(bucket)
@@ -1064,9 +1065,11 @@ def test_gcs_options():
                        target_service_account='service_account@apache',
                        credential_token_expiration=dt,
                        default_bucket_location='us-west2',
-                       scheme='https', endpoint_override='localhost:8999')
+                       scheme='https', endpoint_override='localhost:8999',
+                       project_id='test-project-id')
     assert isinstance(fs, GcsFileSystem)
     assert fs.default_bucket_location == 'us-west2'
+    assert fs.project_id == 'test-project-id'
     assert pickle.loads(pickle.dumps(fs)) == fs
 
     fs = GcsFileSystem()
@@ -1476,7 +1479,7 @@ def test_filesystem_from_uri_gcs(gcs_server):
 
     uri = ("gs://anonymous@" +
            f"mybucket/foo/bar?scheme=http&endpoint_override={host}:{port}&" +
-           "retry_limit_seconds=5")
+           "retry_limit_seconds=5&project_id=test-project-id")
 
     fs, path = FileSystem.from_uri(uri)
     assert isinstance(fs, GcsFileSystem)
