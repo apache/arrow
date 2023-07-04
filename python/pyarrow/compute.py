@@ -372,8 +372,8 @@ def dictionary_decode(arr, memory_pool=None):
       "b"
     ]
 
-    The dictionary_decode actually call Cast in the deep implementation.
-    You can use Cast to decode DictionaryArray.
+    ``dictionary_decode`` actually calls ``pyarrow.compute.cast`` in the
+    deep implementation. You can also use `cast` function to decode a DictionaryArray.
 
     >>> x_decode_2 = pc.cast(x, pa.string())
     >>> x_decode_2
