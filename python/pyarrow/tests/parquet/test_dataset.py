@@ -1932,3 +1932,24 @@ def test_write_to_dataset_kwargs_passed(tempdir, write_dataset_kwarg):
         pq.write_to_dataset(table, path, **{key: arg})
         _name, _args, kwargs = mock_write_dataset.mock_calls[0]
         assert kwargs[key] == arg
+
+
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_write_to_dataset_category_observed(tempdir, use_legacy_dataset):
+    # if we partition on a categorical variable with "unobserved" categories
+    # (values present in the dictionary, but not in the actual data)
+    # ensure those are not creating empty files/directories
+    df = pd.DataFrame({
+        "cat": pd.Categorical(["a", "b", "a"], categories=["a", "b", "c"]),
+        "col": [1, 2, 3]
+    })
+    table = pa.table(df)
+    path = tempdir / "dataset"
+    pq.write_to_dataset(
+        table, tempdir / "dataset", partition_cols=["cat"],
+        use_legacy_dataset=use_legacy_dataset
+    )
+    subdirs = [f.name for f in path.iterdir() if f.is_dir()]
+    assert len(subdirs) == 2
+    assert "cat=c" not in subdirs
