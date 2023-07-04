@@ -69,3 +69,9 @@
     ...
     fun:_dl_allocate_tls
 }
+{
+    <OpenSSL>:Conditional jump or move depends on uninitialised value(s)
+    Memcheck:Cond
+    ...
+    fun:*gcm_cipher*
+}
