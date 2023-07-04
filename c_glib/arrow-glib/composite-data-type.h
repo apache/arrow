@@ -196,4 +196,30 @@ gboolean
 garrow_dictionary_data_type_is_ordered(GArrowDictionaryDataType *dictionary_data_type);
 
 
+#define GARROW_TYPE_RUN_END_ENCODED_DATA_TYPE   \
+  (garrow_run_end_encoded_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRunEndEncodedDataType,
+                         garrow_run_end_encoded_data_type,
+                         GARROW,
+                         RUN_END_ENCODED_DATA_TYPE,
+                         GArrowFixedWidthDataType)
+struct _GArrowRunEndEncodedDataTypeClass
+{
+  GArrowFixedWidthDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_13_0
+GArrowRunEndEncodedDataType *
+garrow_run_end_encoded_data_type_new(GArrowDataType *run_end_data_type,
+                                     GArrowDataType *value_data_type);
+GARROW_AVAILABLE_IN_13_0
+GArrowDataType *
+garrow_run_end_encoded_data_type_get_run_end_data_type(
+  GArrowRunEndEncodedDataType *data_type);
+GARROW_AVAILABLE_IN_13_0
+GArrowDataType *
+garrow_run_end_encoded_data_type_get_value_data_type(
+  GArrowRunEndEncodedDataType *data_type);
+
+
 G_END_DECLS
