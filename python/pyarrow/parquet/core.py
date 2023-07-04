@@ -875,9 +875,9 @@ store_schema : bool, default True
     timezone), or columns with duration type will be restored from the int64
     Parquet column.
 write_page_index : bool, default False
-    Parquet format supports a page index that allows page index that allows
-    Reader to skipping reading pages of data. This option enables writing
-    the page index to the file.
+    Parquet format supports page index that makes filtering when
+    reading more efficient. This option enables writing the page
+    index to the Parquet file.
 """
 
 _parquet_writer_example_doc = """\
