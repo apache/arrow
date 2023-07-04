@@ -463,8 +463,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  public:
   using T = typename DType::c_type;
 
-  // This constructor would likely be called by ColumnWriter to create the
-  // statistics collector during write.
+  // Create an empty stats.
   TypedStatisticsImpl(const ColumnDescriptor* descr, MemoryPool* pool)
       : descr_(descr),
         pool_(pool),
@@ -563,10 +562,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     } else {
       this->has_null_count_ = false;
     }
-    // Distinct count cannot be merged.
+    // Clear has_distinct_count_ as distinct count cannot be merged.
     has_distinct_count_ = false;
-    // If !other.HasMinMax, might be all-nulls or nulls and nan,
-    // so, not clear `this->has_min_max_` here.
+    // Do not clear min/max here if the other side does not provide
+    // min/max which may happen when other is an empty stats or all
+    // its values are null and/or NaN.
     if (other.HasMinMax()) {
       SetMinMax(other.min(), other.max());
     }
@@ -639,9 +639,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   T max_;
   ::arrow::MemoryPool* pool_;
   // Number of non-null values.
-  // num_values_ would be reliable when has_null_count_.
-  // If statistics is created from a page thrift statistics, and statistics
-  // doesn't have null_count, `num_values_` may include null values.
+  // Please note that num_values_ is reliable when has_null_count_ is set.
+  // When has_null_count_ is not set, e.g. a page statistics created from
+  // a statistics thrift message which doesn't have the optional null_count,
+  // `num_values_` may include null values.
   int64_t num_values_ = 0;
   EncodedStatistics statistics_;
   std::shared_ptr<TypedComparator<DType>> comparator_;
@@ -665,12 +666,13 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   void ResetHasFlags() {
+    // has_min_max_ will only be set when it meets any valid value.
     this->has_min_max_ = false;
-    // writer will write `distinct_count` to EncodedStatistics.
-    // So, disable it when reset.
+    // has_distinct_count_ will only be set once SetDistinctCount()
+    // is called because distinct count calculation is not cheap and
+    // disabled by default.
     this->has_distinct_count_ = false;
-    // writer will always write `null_count` to EncodedStatistics.
-    // So, enable it when reset.
+    // Null count calculation is cheap and enabled by default.
     this->has_null_count_ = true;
   }
 

@@ -647,9 +647,9 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
                            });
   }
 
-  // If a page is all nulls or nan, min and max should be set to null.
-  // And the all-null page being merged with a page having min-max,
-  // the result should have min-max.
+  // If all values in a page are null or nan, its stats should not set min-max.
+  // Merging its stats with another page having good min-max stats should not
+  // drop the valid min-max from the latter page.
   void TestMergeMinMax() {
     this->GenerateData(1000);
     // Create a statistics object without min-max.
@@ -692,7 +692,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     {
       statistics1 = MakeStatistics<TestType>(this->schema_.Column(0));
       statistics1->Update(this->values_ptr_, /*num_values=*/this->values_.size(),
-                          /*null_count*/ 0);
+                          /*null_count=*/0);
       auto encoded_stats1 = statistics1->Encode();
       EXPECT_TRUE(statistics1->HasNullCount());
       EXPECT_EQ(0, statistics1->null_count());
