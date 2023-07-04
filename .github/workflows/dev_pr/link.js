@@ -84,7 +84,7 @@ async function commentGitHubURL(github, context, pullRequestNumber, issueID) {
   const issueInfo = await helpers.getGitHubInfo(github, context, issueID, pullRequestNumber);
   const message = "* Closes: #" + issueInfo.number
   if (issueInfo) {
-    if (context.payload.pull_request.body.includes(message)) {
+    if (context.payload.pull_request.body != null && context.payload.pull_request.body.includes(message)) {
       return;
     }
     await github.rest.pulls.update({
