@@ -1065,6 +1065,28 @@ TEST_F(TestFlightClient, RoundTripStatus) {
   const auto descr = FlightDescriptor::Command("status-outofmemory");
   const auto status = client_->GetFlightInfo(descr).status();
   ASSERT_RAISES(OutOfMemory, status);
+
+  class Listener : public AsyncListener<FlightInfo> {
+   public:
+    void OnNext(FlightInfo info) override { info_ = std::move(info); }
+
+    void OnFinish(TransportStatus status) override {
+      // XXX: something broken here
+      if (status.ok() || status.ToStatus().ok()) {
+        future_.MarkFinished(std::move(info_));
+      } else {
+        future_.MarkFinished(status.ToStatus());
+      }
+    }
+
+    FlightInfo info_ = FlightInfo(FlightInfo::Data());
+    arrow::Future<FlightInfo> future_ = arrow::Future<FlightInfo>::Make();
+  };
+
+  auto listener = std::make_shared<Listener>();
+  client_->GetFlightInfo(descr, listener);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(UnknownError, ::testing::HasSubstr("Sentinel"),
+                                  listener->future_.status());
 }
 
 // Test setting generic transport options by configuring gRPC to fail

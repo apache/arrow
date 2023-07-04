@@ -631,15 +631,15 @@ template <typename Result, typename Request, typename Response>
 class UnaryUnaryAsyncCall : public ::grpc::ClientUnaryReactor, public internal::AsyncRpc {
  public:
   ClientRpc rpc;
-  AsyncListener<Result>* listener;
+  std::shared_ptr<AsyncListener<Result>> listener;
   FinishedFlag finished;
   Request pb_request;
   Response pb_response;
   Status client_status;
 
   explicit UnaryUnaryAsyncCall(const FlightCallOptions& options,
-                               AsyncListener<Result>* listener)
-      : rpc(options), listener(listener) {}
+                               std::shared_ptr<AsyncListener<Result>> listener)
+      : rpc(options), listener(std::move(listener)) {}
 
   void TryCancel() override { rpc.context.TryCancel(); }
 
@@ -655,9 +655,11 @@ class UnaryUnaryAsyncCall : public ::grpc::ClientUnaryReactor, public internal::
   }
 
   void Finish(const ::grpc::Status& status) {
+    finished.Finish();
+    auto listener = std::move(this->listener);
     listener->OnFinish(
         CombinedTransportStatus(status, std::move(client_status), &rpc.context));
-    finished.Finish();
+    flight::internal::ClientTransport::SetAsyncRpc(listener.get(), nullptr);
   }
 };
 
@@ -1252,7 +1254,7 @@ class GrpcClientImpl : public internal::ClientTransport {
   }
 
   void GetFlightInfo(const FlightCallOptions& options, const FlightDescriptor& descriptor,
-                     AsyncListener<FlightInfo>* listener) override {
+                     std::shared_ptr<AsyncListener<FlightInfo>> listener) override {
     using AsyncCall =
         UnaryUnaryAsyncCall<FlightInfo, pb::FlightDescriptor, pb::FlightInfo>;
     auto call = std::make_unique<AsyncCall>(options, listener);
@@ -1261,8 +1263,8 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     stub_->experimental_async()->GetFlightInfo(&call->rpc.context, &call->pb_request,
                                                &call->pb_response, call.get());
-    ClientTransport::SetAsyncRpc(listener, std::move(call));
-    static_cast<AsyncCall*>(ClientTransport::GetAsyncRpc(listener))->StartCall();
+    ClientTransport::SetAsyncRpc(listener.get(), std::move(call));
+    static_cast<AsyncCall*>(ClientTransport::GetAsyncRpc(listener.get()))->StartCall();
   }
 
   arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(

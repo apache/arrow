@@ -82,7 +82,7 @@ Status ClientTransport::GetFlightInfo(const FlightCallOptions& options,
 }
 void ClientTransport::GetFlightInfo(const FlightCallOptions& options,
                                     const FlightDescriptor& descriptor,
-                                    AsyncListener<FlightInfo>* listener) {
+                                    std::shared_ptr<AsyncListener<FlightInfo>> listener) {
   listener->OnFinish(TransportStatus{TransportStatusCode::kUnimplemented,
                                      "Async GetFlightInfo for this transport"});
 }

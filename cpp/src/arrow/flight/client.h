@@ -308,10 +308,14 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return GetFlightInfo({}, descriptor);
   }
 
+  /// \brief Asynchronous GetFlightInfo.
+  /// \param[in] options Per-RPC options
+  /// \param[in] descriptor the dataset request
+  /// \param[in] listener Callbacks for response and RPC completion
   void GetFlightInfo(const FlightCallOptions& options, const FlightDescriptor& descriptor,
-                     AsyncListener<FlightInfo>* listener);
+                     std::shared_ptr<AsyncListener<FlightInfo>> listener);
   void GetFlightInfo(const FlightDescriptor& descriptor,
-                     AsyncListener<FlightInfo>* listener) {
+                     std::shared_ptr<AsyncListener<FlightInfo>> listener) {
     return GetFlightInfo({}, descriptor, listener);
   }
 

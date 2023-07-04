@@ -633,13 +633,13 @@ Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
 
 void FlightClient::GetFlightInfo(const FlightCallOptions& options,
                                  const FlightDescriptor& descriptor,
-                                 AsyncListener<FlightInfo>* listener) {
+                                 std::shared_ptr<AsyncListener<FlightInfo>> listener) {
   if (auto status = CheckOpen(); !status.ok()) {
     listener->OnFinish(
         TransportStatus{TransportStatusCode::kInternal, status.ToString()});
     return;
   }
-  transport_->GetFlightInfo(options, descriptor, listener);
+  transport_->GetFlightInfo(options, descriptor, std::move(listener));
 }
 
 arrow::Result<std::unique_ptr<SchemaResult>> FlightClient::GetSchema(
