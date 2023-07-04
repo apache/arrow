@@ -304,7 +304,7 @@ issues. The role allows users to label and assign issues.
 
 A user can ask to become a collaborator or can be proposed by another community member
 when they have been collaborating in the project for a period of time. Collaborations
-can be but are not limited to: creating Pull requests, answering questions, creating
+can be but are not limited to: creating PRs, answering questions, creating
 issues, reviewing PRs, etcetera.
 
 In order to propose someone as a collaborator you must create a PR adding the user to
