@@ -49,7 +49,6 @@ import org.apache.arrow.vector.complex.impl.SingleStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.complex.impl.UnionMapReader;
-import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.complex.impl.UnionReader;
 import org.apache.arrow.vector.complex.impl.UnionWriter;
 import org.apache.arrow.vector.complex.reader.BaseReader.StructReader;
@@ -1567,9 +1566,9 @@ public class TestComplexWriter {
 
   @Test
   public void testMap() {
-    try (MapVector mapVector = MapVector.empty("map", allocator, false)) {
-      mapVector.allocateNew();
-      UnionMapWriter mapWriter = new UnionMapWriter(mapVector);
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
       for (int i = 0; i < COUNT; i++) {
         mapWriter.startMap();
         for (int j = 0; j < i % 7; j++) {
@@ -1589,8 +1588,8 @@ public class TestComplexWriter {
         }
         mapWriter.endMap();
       }
-      mapWriter.setValueCount(COUNT);
-      UnionMapReader mapReader = new UnionMapReader(mapVector);
+      writer.setValueCount(COUNT);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
       for (int i = 0; i < COUNT; i++) {
         mapReader.setPosition(i);
         for (int j = 0; j < i % 7; j++) {
@@ -1604,17 +1603,17 @@ public class TestComplexWriter {
 
   @Test
   public void testMapWithNulls() {
-    try (MapVector mapVector = MapVector.empty("map", allocator, false)) {
-      mapVector.allocateNew();
-      UnionMapWriter mapWriter = new UnionMapWriter(mapVector);
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
       mapWriter.startMap();
       mapWriter.startEntry();
       mapWriter.key().integer().writeNull();
       mapWriter.value().integer().writeInt(1);
       mapWriter.endEntry();
       mapWriter.endMap();
-      mapWriter.setValueCount(1);
-      UnionMapReader mapReader = new UnionMapReader(mapVector);
+      writer.setValueCount(1);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
       Assert.assertNull(mapReader.key().readInteger());
       assertEquals(1, mapReader.value().readInteger().intValue());
     }
@@ -1622,9 +1621,9 @@ public class TestComplexWriter {
 
   @Test
   public void testMapWithListKey() {
-    try (MapVector mapVector = MapVector.empty("map", allocator, false)) {
-      mapVector.allocateNew();
-      UnionMapWriter mapWriter = new UnionMapWriter(mapVector);
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
       mapWriter.startMap();
       mapWriter.startEntry();
       mapWriter.key().list().startList();
@@ -1635,8 +1634,8 @@ public class TestComplexWriter {
       mapWriter.value().integer().writeInt(1);
       mapWriter.endEntry();
       mapWriter.endMap();
-      mapWriter.setValueCount(1);
-      UnionMapReader mapReader = new UnionMapReader(mapVector);
+      writer.setValueCount(1);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
       mapReader.key().next();
       assertEquals(0, mapReader.key().reader().readInteger().intValue());
       mapReader.key().next();
@@ -1648,10 +1647,10 @@ public class TestComplexWriter {
   }
 
   @Test
-  public void testMapWithStruckKey() {
-    try (MapVector mapVector = MapVector.empty("map", allocator, false)) {
-      mapVector.allocateNew();
-      UnionMapWriter mapWriter = new UnionMapWriter(mapVector);
+  public void testMapWithStructKey() {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
       mapWriter.startMap();
       mapWriter.startEntry();
       mapWriter.key().struct().start();
@@ -1661,8 +1660,8 @@ public class TestComplexWriter {
       mapWriter.value().integer().writeInt(1);
       mapWriter.endEntry();
       mapWriter.endMap();
-      mapWriter.setValueCount(1);
-      UnionMapReader mapReader = new UnionMapReader(mapVector);
+      writer.setValueCount(1);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
       assertEquals(1, mapReader.key().reader("value1").readInteger().intValue());
       assertEquals(2, mapReader.key().reader("value2").readInteger().intValue());
       assertEquals(1, mapReader.value().readInteger().intValue());
