@@ -437,7 +437,7 @@ cdef api shared_ptr[CExpression] pyarrow_unwrap_expression(object expr):
     if pyarrow_is_expression(fs):
         expression = <Expression>(fs)
         return expression.unwrap()
-    
+
     return shared_ptr[CExpression]()
 
 
@@ -456,7 +456,7 @@ cdef api shared_ptr[CFileSystem] pyarrow_unwrap_filesystem(object fs):
     if pyarrow_is_filesystem(fs):
         filesystem = <FileSystem>(fs)
         return filesystem.unwrap()
-    
+
     return shared_ptr[CFileSystem]()
 
 
@@ -475,7 +475,7 @@ cdef api shared_ptr[CDataset] pyarrow_unwrap_dataset(object dataset):
     if pyarrow_is_dataset(dataset):
         d = <Dataset>(dataset)
         return d.unwrap()
-    
+
     return shared_ptr[CDataset]()
 
 
@@ -494,7 +494,7 @@ cdef api shared_ptr[CFragment] pyarrow_unwrap_fragment(object frag):
     if pyarrow_is_dataset(frag):
         fragment = <Fragment>(frag)
         return fragment.unwrap()
-    
+
     return shared_ptr[CFragment]()
 
 
@@ -513,7 +513,7 @@ cdef api shared_ptr[CPartitioning] pyarrow_unwrap_dataset(object part):
     if pyarrow_is_partitioning(part):
         partitioning = <Partitioning>(part)
         return partitioning.unwrap()
-    
+
     return shared_ptr[CPartitioning]()
 
 
@@ -532,7 +532,7 @@ cdef api shared_ptr[CScanner] pyarrow_unwrap_scanner(object scanner):
     if pyarrow_is_scanner(scanner):
         s = <Scanner>(scanner)
         return s.unwrap()
-    
+
     return shared_ptr[CScanner]()
 
 
@@ -551,7 +551,7 @@ cdef api shared_ptr[CRecordBatchReader] pyarrow_unwrap_record_batch_reader(objec
     if pyarrow_is_record_batch_reader(rdr):
         record_batch_reader = <RecordBatchReader>(rdr)
         return record_batch_reader.unwrap()
-    
+
     return shared_ptr[CRecordBatchReader]()
 
 
