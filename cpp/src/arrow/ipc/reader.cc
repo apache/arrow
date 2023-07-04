@@ -572,7 +572,8 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
   if (context.swap_endian) {
     for (int i = 0; i < static_cast<int>(filtered_columns.size()); ++i) {
       ARROW_ASSIGN_OR_RAISE(filtered_columns[i],
-                            arrow::internal::SwapEndianArrayData(filtered_columns[i]));
+                            arrow::internal::SwapEndianArrayData(
+                                filtered_columns[i], context.options.memory_pool));
     }
   }
   return RecordBatch::Make(std::move(filtered_schema), metadata->length(),
@@ -823,7 +824,8 @@ Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
 
   // swap endian in dict_data if necessary (swap_endian == true)
   if (context.swap_endian) {
-    ARROW_ASSIGN_OR_RAISE(dict_data, ::arrow::internal::SwapEndianArrayData(dict_data));
+    ARROW_ASSIGN_OR_RAISE(dict_data, ::arrow::internal::SwapEndianArrayData(
+                                         dict_data, context.options.memory_pool));
   }
 
   if (dictionary_batch->isDelta()) {
@@ -1667,8 +1669,9 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       // swap endian in a set of ArrayData if necessary (swap_endian == true)
       if (context.swap_endian) {
         for (int i = 0; i < static_cast<int>(filtered_columns.size()); ++i) {
-          ARROW_ASSIGN_OR_RAISE(filtered_columns[i], arrow::internal::SwapEndianArrayData(
-                                                         filtered_columns[i]));
+          ARROW_ASSIGN_OR_RAISE(filtered_columns[i],
+                                arrow::internal::SwapEndianArrayData(
+                                    filtered_columns[i], context.options.memory_pool));
         }
       }
       return RecordBatch::Make(std::move(filtered_schema), length,
