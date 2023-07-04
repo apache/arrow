@@ -386,7 +386,7 @@ def dictionary_decode(arr, memory_pool=None):
 
     Returns
     -------
-    array : decoded Array
+    decoded : Array
         The dictionary_decode result as a new Array
     """
     if (not isinstance(arr.type, pa.DictionaryType)):
