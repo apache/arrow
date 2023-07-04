@@ -305,9 +305,6 @@ Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
   if (data->offset != 0) {
     return Status::Invalid("Unsupported data format: data.offset != 0");
   }
-  if (pool == nullptr) {
-    return Status::Invalid("Unsupported pool == nullptr");
-  }
   ArrayDataEndianSwapper swapper(data, pool);
   RETURN_NOT_OK(swapper.SwapType(*data->type));
   return std::move(swapper.out_);
