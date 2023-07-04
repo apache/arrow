@@ -813,7 +813,7 @@ test_that("write_dataset() errors on data.frame with NULL names", {
   expect_error(write_dataset(df, tempfile()), "Input data frame columns must be named")
 })
 
-test_that("Writing a dataset using write_csv_dataset wrapper", {
+test_that("Writing a dataset to text files.", {
   df <- tibble(
     int = 1:10,
     dbl = as.numeric(1:10),
@@ -822,23 +822,33 @@ test_that("Writing a dataset using write_csv_dataset wrapper", {
   )
 
   dst_dir <- make_temp_dir()
+  write_delim_dataset(df, dst_dir)
+  expect_true(dir.exists(dst_dir))
+  new_ds <- open_dataset(dst_dir, format = "text")
+  expect_equal(new_ds %>% collect(), df)
+
+  dst_dir <- make_temp_dir()
   write_csv_dataset(df, dst_dir)
   expect_true(dir.exists(dst_dir))
   new_ds <- open_dataset(dst_dir, format = "csv")
   expect_equal(new_ds %>% collect(), df)
 
   dst_dir <- make_temp_dir()
-  write_csv_dataset(df, dst_dir, include_header = FALSE)
+  write_tsv_dataset(df, dst_dir)
   expect_true(dir.exists(dst_dir))
-  new_ds <- open_dataset(dst_dir,
-    format = "csv",
-    column_names = c("int", "dbl", "lgl", "chr")
-  )
+  new_ds <- open_dataset(dst_dir, format = "tsv")
   expect_equal(new_ds %>% collect(), df)
 })
 
-test_that("Writing a csv dataset: `basename_template` default behavier", {
+test_that("Writing a flat file dataset: `basename_template` default behavier", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+
+  dst_dir <- make_temp_dir()
+  write_delim_dataset(ds, dst_dir, max_rows_per_file = 5L)
+  expect_identical(
+    dir(dst_dir, full.names = FALSE, recursive = TRUE),
+    paste0("part-", 0:3, ".txt")
+  )
 
   dst_dir <- make_temp_dir()
   write_csv_dataset(ds, dst_dir, max_rows_per_file = 5L)
@@ -846,9 +856,16 @@ test_that("Writing a csv dataset: `basename_template` default behavier", {
     dir(dst_dir, full.names = FALSE, recursive = TRUE),
     paste0("part-", 0:3, ".csv")
   )
+
+  dst_dir <- make_temp_dir()
+  write_tsv_dataset(ds, dst_dir, max_rows_per_file = 5L)
+  expect_identical(
+    dir(dst_dir, full.names = FALSE, recursive = TRUE),
+    paste0("part-", 0:3, ".tsv")
+  )
 })
 
-test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file in write_csv_dataset()", {
+test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file in write_delim_dataset()", {
   skip_if_not_available("parquet")
   df <- tibble::tibble(
     int = 1:10,
@@ -856,10 +873,60 @@ test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file in w
     lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
     chr = letters[1:10],
   )
-  dst_dir <- make_temp_dir()
 
   # max_rows_per_group unset adjust silently
+  dst_dir <- make_temp_dir()
+  expect_silent(
+    write_delim_dataset(df, dst_dir, max_rows_per_file = 5)
+  )
+
+  dst_dir <- make_temp_dir()
   expect_silent(
     write_csv_dataset(df, dst_dir, max_rows_per_file = 5)
+  )
+
+  dst_dir <- make_temp_dir()
+  expect_silent(
+    write_tsv_dataset(df, dst_dir, max_rows_per_file = 5)
+  )
+})
+
+test_that("Writing a flat file dataset without a delimiter throws an error.", {
+  df <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  dst_dir <- make_temp_dir()
+  expect_error(
+    write_dataset(df, dst_dir, format = "txt"),
+    "A delimiter must be given for a txt format."
+  )
+
+  expect_error(
+    write_dataset(df, dst_dir, format = "text"),
+    "A delimiter must be given for a txt format."
+  )
+})
+
+test_that("Writing a csv or tsv dataset with a delimiter throws an error.", {
+  df <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  dst_dir <- make_temp_dir()
+  expect_error(
+    write_dataset(df, dst_dir, format = "csv", delimiter = ","),
+    "Do not set a delimiter for csv or tsv formats."
+  )
+
+  expect_error(
+    write_dataset(df, dst_dir, format = "tsv", delimiter = "\t"),
+    "Do not set a delimiter for csv or tsv formats."
   )
 })
