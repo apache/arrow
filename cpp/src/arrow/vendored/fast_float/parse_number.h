@@ -4,7 +4,6 @@
 #include "ascii_number.h"
 #include "decimal_to_binary.h"
 #include "digit_comparison.h"
-#include "float_common.h"
 
 #include <cmath>
 #include <cstring>
@@ -21,41 +20,40 @@ namespace detail {
  * The case comparisons could be made much faster given that we know that the
  * strings a null-free and fixed.
  **/
-template <typename T, typename UC>
-from_chars_result_t<UC> FASTFLOAT_CONSTEXPR14
-parse_infnan(UC const * first, UC const * last, T &value)  noexcept  {
-  from_chars_result_t<UC> answer{};
+template <typename T>
+from_chars_result parse_infnan(const char *first, const char *last, T &value)  noexcept  {
+  from_chars_result answer;
   answer.ptr = first;
   answer.ec = std::errc(); // be optimistic
   bool minusSign = false;
-  if (*first == UC('-')) { // assume first < last, so dereference without checks; C++17 20.19.3.(7.1) explicitly forbids '+' here
+  if (*first == '-') { // assume first < last, so dereference without checks; C++17 20.19.3.(7.1) explicitly forbids '+' here
       minusSign = true;
       ++first;
   }
-#ifdef FASTFLOAT_ALLOWS_LEADING_PLUS // disabled by default
-  if (*first == UC('+')) {
+#if FASTFLOAT_ALLOWS_LEADING_PLUS // disabled by default
+  if (*first == '+') {
       ++first;
   }
 #endif
   if (last - first >= 3) {
-    if (fastfloat_strncasecmp(first, str_const_nan<UC>(), 3)) {
+    if (fastfloat_strncasecmp(first, "nan", 3)) {
       answer.ptr = (first += 3);
       value = minusSign ? -std::numeric_limits<T>::quiet_NaN() : std::numeric_limits<T>::quiet_NaN();
       // Check for possible nan(n-char-seq-opt), C++17 20.19.3.7, C11 7.20.1.3.3. At least MSVC produces nan(ind) and nan(snan).
-      if(first != last && *first == UC('(')) {
-        for(UC const * ptr = first + 1; ptr != last; ++ptr) {
-          if (*ptr == UC(')')) {
+      if(first != last && *first == '(') {
+        for(const char* ptr = first + 1; ptr != last; ++ptr) {
+          if (*ptr == ')') {
             answer.ptr = ptr + 1; // valid nan(n-char-seq-opt)
             break;
           }
-          else if(!((UC('a') <= *ptr && *ptr <= UC('z')) || (UC('A') <= *ptr && *ptr <= UC('Z')) || (UC('0') <= *ptr && *ptr <= UC('9')) || *ptr == UC('_')))
+          else if(!(('a' <= *ptr && *ptr <= 'z') || ('A' <= *ptr && *ptr <= 'Z') || ('0' <= *ptr && *ptr <= '9') || *ptr == '_'))
             break; // forbidden char, not nan(n-char-seq-opt)
         }
       }
       return answer;
     }
-    if (fastfloat_strncasecmp(first, str_const_inf<UC>(), 3)) {
-      if ((last - first >= 8) && fastfloat_strncasecmp(first + 3, str_const_inf<UC>() + 3, 5)) {
+    if (fastfloat_strncasecmp(first, "inf", 3)) {
+      if ((last - first >= 8) && fastfloat_strncasecmp(first + 3, "inity", 5)) {
         answer.ptr = first + 8;
       } else {
         answer.ptr = first + 3;
@@ -111,7 +109,7 @@ fastfloat_really_inline bool rounds_to_nearest() noexcept {
   //
   // Note: This may fail to be accurate if fast-math has been
   // enabled, as rounding conventions may not apply.
-  #ifdef FASTFLOAT_VISUAL_STUDIO
+  #if FASTFLOAT_VISUAL_STUDIO
   #   pragma warning(push)
   //  todo: is there a VS warning?
   //  see https://stackoverflow.com/questions/46079446/is-there-a-warning-for-floating-point-equality-checking-in-visual-studio-2013
@@ -123,7 +121,7 @@ fastfloat_really_inline bool rounds_to_nearest() noexcept {
   #   pragma GCC diagnostic ignored "-Wfloat-equal"
   #endif
   return (fmini + 1.0f == 1.0f - fmini);
-  #ifdef FASTFLOAT_VISUAL_STUDIO
+  #if FASTFLOAT_VISUAL_STUDIO
   #   pragma warning(pop)
   #elif defined(__clang__)
   #   pragma clang diagnostic pop
@@ -134,26 +132,21 @@ fastfloat_really_inline bool rounds_to_nearest() noexcept {
 
 } // namespace detail
 
-template<typename T, typename UC>
-FASTFLOAT_CONSTEXPR20
-from_chars_result_t<UC> from_chars(UC const * first, UC const * last,
+template<typename T>
+from_chars_result from_chars(const char *first, const char *last,
                              T &value, chars_format fmt /*= chars_format::general*/)  noexcept  {
-  return from_chars_advanced(first, last, value, parse_options_t<UC>{fmt});
+  return from_chars_advanced(first, last, value, parse_options{fmt});
 }
 
-template<typename T, typename UC>
-FASTFLOAT_CONSTEXPR20
-from_chars_result_t<UC> from_chars_advanced(UC const * first, UC const * last,
-                                      T &value, parse_options_t<UC> options)  noexcept  {
+template<typename T>
+from_chars_result from_chars_advanced(const char *first, const char *last,
+                                      T &value, parse_options options)  noexcept  {
 
   static_assert (std::is_same<T, double>::value || std::is_same<T, float>::value, "only float and double are supported");
-  static_assert (std::is_same<UC, char>::value ||
-                 std::is_same<UC, wchar_t>::value ||
-                 std::is_same<UC, char16_t>::value ||
-                 std::is_same<UC, char32_t>::value , "only char, wchar_t, char16_t and char32_t are supported");
 
-  from_chars_result_t<UC> answer;
-#ifdef FASTFLOAT_SKIP_WHITE_SPACE  // disabled by default
+
+  from_chars_result answer;
+#if FASTFLOAT_SKIP_WHITE_SPACE  // disabled by default
   while ((first != last) && fast_float::is_space(uint8_t(*first))) {
     first++;
   }
@@ -163,11 +156,10 @@ from_chars_result_t<UC> from_chars_advanced(UC const * first, UC const * last,
     answer.ptr = first;
     return answer;
   }
-  parsed_number_string_t<UC> pns = parse_number_string<UC>(first, last, options);
+  parsed_number_string pns = parse_number_string(first, last, options);
   if (!pns.valid) {
     return detail::parse_infnan(first, last, value);
   }
-
   answer.ec = std::errc(); // be optimistic
   answer.ptr = pns.lastmatch;
   // The implementation of the Clinger's fast path is convoluted because
@@ -183,7 +175,7 @@ from_chars_result_t<UC> from_chars_advanced(UC const * first, UC const * last,
     // We could check it first (before the previous branch), but
     // there might be performance advantages at having the check
     // be last.
-    if(!cpp20_and_in_constexpr() && detail::rounds_to_nearest())  {
+    if(detail::rounds_to_nearest())  {
       // We have that fegetround() == FE_TONEAREST.
       // Next is Clinger's fast path.
       if (pns.mantissa <=binary_format<T>::max_mantissa_fast_path()) {
@@ -200,7 +192,7 @@ from_chars_result_t<UC> from_chars_advanced(UC const * first, UC const * last,
 #if defined(__clang__)
         // Clang may map 0 to -0.0 when fegetround() == FE_DOWNWARD
         if(pns.mantissa == 0) {
-          value = pns.negative ? -0. : 0.;
+          value = 0;
           return answer;
         }
 #endif
@@ -220,10 +212,6 @@ from_chars_result_t<UC> from_chars_advanced(UC const * first, UC const * last,
   // then we need to go the long way around again. This is very uncommon.
   if(am.power2 < 0) { am = digit_comp<T>(pns, am); }
   to_float(pns.negative, am, value);
-  // Test for over/underflow.
-  if ((pns.mantissa != 0 && am.mantissa == 0 && am.power2 == 0) || am.power2 == binary_format<T>::infinite_power()) {
-    answer.ec = std::errc::result_out_of_range;
-  }
   return answer;
 }
 
