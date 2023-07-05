@@ -1229,8 +1229,8 @@ tasks:
       image: ubuntu-python
 
   test-ubuntu-22.04-python-3:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 22.04
