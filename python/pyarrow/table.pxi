@@ -1826,7 +1826,7 @@ cdef class _Tabular(_PandasConvertible):
         n_legs: [[2,4]]
         animals: [["Flamingo","Dog"]]
 
-       Construct a Table from a list of rows with metadata:
+        Construct a Table from a list of rows with metadata:
 
         >>> my_metadata={"n_legs": "Number of legs per animal"}
         >>> pa.Table.from_pylist(pylist, metadata=my_metadata).schema
