@@ -202,7 +202,7 @@ class ARROW_EXPORT CPUDevice : public Device {
   bool Equals(const Device&) const override;
   DeviceType device_type() const override { return DeviceType::CPU; }
 
-  std::shared_ptr<MemoryManager> default_memory_manager() override;  
+  std::shared_ptr<MemoryManager> default_memory_manager() override;
 
   /// \brief Return the global CPUDevice instance
   static std::shared_ptr<Device> Instance();

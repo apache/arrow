@@ -199,8 +199,8 @@ Result<std::shared_ptr<CudaIpcMemHandle>> CudaBuffer::ExportForIpc() {
 }
 
 CudaHostBuffer::CudaHostBuffer(uint8_t* data, const int64_t size)
-  : MutableBuffer(data, size) {        
-    device_type_ = DeviceType::CUDA_HOST;
+    : MutableBuffer(data, size) {
+  device_type_ = DeviceType::CUDA_HOST;
 }
 
 CudaHostBuffer::~CudaHostBuffer() {

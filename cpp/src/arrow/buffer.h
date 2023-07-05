@@ -57,12 +57,18 @@ class ARROW_EXPORT Buffer {
   ///
   /// \note The passed memory must be kept alive through some other means
   Buffer(const uint8_t* data, int64_t size)
-      : is_mutable_(false), is_cpu_(true), data_(data), size_(size), capacity_(size), device_type_(DeviceType::CPU) {
+      : is_mutable_(false),
+        is_cpu_(true),
+        data_(data),
+        size_(size),
+        capacity_(size),
+        device_type_(DeviceType::CPU) {
     SetMemoryManager(default_cpu_memory_manager());
   }
 
   Buffer(const uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm,
-         std::shared_ptr<Buffer> parent = NULLPTR, DeviceType device_type = DeviceType::UNKNOWN)
+         std::shared_ptr<Buffer> parent = NULLPTR,
+         DeviceType device_type = DeviceType::UNKNOWN)
       : is_mutable_(false),
         data_(data),
         size_(size),

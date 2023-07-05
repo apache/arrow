@@ -111,7 +111,7 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
 class ARROW_EXPORT CudaHostBuffer : public MutableBuffer {
  public:
   CudaHostBuffer(uint8_t* data, const int64_t size);
-  
+
   ~CudaHostBuffer();
 
   /// \brief Return a device address the GPU can read this memory from.

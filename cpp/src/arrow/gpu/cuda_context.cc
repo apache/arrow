@@ -521,7 +521,7 @@ Result<std::shared_ptr<CudaContext>> CudaDeviceManager::GetSharedContext(
 Result<std::shared_ptr<CudaHostBuffer>> CudaDeviceManager::AllocateHost(int device_number,
                                                                         int64_t nbytes) {
   uint8_t* data = nullptr;
-  RETURN_NOT_OK(impl_->AllocateHost(device_number, nbytes, &data));  
+  RETURN_NOT_OK(impl_->AllocateHost(device_number, nbytes, &data));
   return std::make_shared<CudaHostBuffer>(data, nbytes);
 }
 
