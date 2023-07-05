@@ -1613,7 +1613,7 @@ TYPED_TEST(TestPrimitiveParquetIO, SingleColumnRequiredChunkedTableRead) {
   ASSERT_NO_FATAL_FAILURE(this->CheckSingleColumnRequiredTableRead(4));
 }
 
-void MakeDateTimeTypesTable(std::shared_ptr<Table>* out, bool expected = false) {
+void MakeDateTimeTypesTable(std::shared_ptr<Table>* out, bool expected_micro = false) {
   using ::arrow::ArrayFromVector;
 
   std::vector<bool> is_valid = {true, true, true, false, true, true};
@@ -1629,7 +1629,7 @@ void MakeDateTimeTypesTable(std::shared_ptr<Table>* out, bool expected = false) 
   auto f6 = field("f6", ::arrow::time64(TimeUnit::NANO));
 
   std::shared_ptr<::arrow::Schema> schema(
-      new ::arrow::Schema({f0, f1, f2, (expected ? f3_x : f3), f4, f5, f6}));
+      new ::arrow::Schema({f0, f1, f2, (expected_micro ? f3_x : f3), f4, f5, f6}));
 
   std::vector<int32_t> t32_values = {1489269000, 1489270000, 1489271000,
                                      1489272000, 1489272000, 1489273000};
@@ -1654,20 +1654,30 @@ void MakeDateTimeTypesTable(std::shared_ptr<Table>* out, bool expected = false) 
   ArrayFromVector<::arrow::Time64Type, int64_t>(f5->type(), is_valid, t64_us_values, &a5);
   ArrayFromVector<::arrow::Time64Type, int64_t>(f6->type(), is_valid, t64_ns_values, &a6);
 
-  *out = Table::Make(schema, {a0, a1, a2, expected ? a3_x : a3, a4, a5, a6});
+  *out = Table::Make(schema, {a0, a1, a2, expected_micro ? a3_x : a3, a4, a5, a6});
 }
 
 TEST(TestArrowReadWrite, DateTimeTypes) {
-  std::shared_ptr<Table> table, result;
+  std::shared_ptr<Table> table, result, expected;
 
+  // Parquet 2.6 nanoseconds are preserved
   MakeDateTimeTypesTable(&table);
   ASSERT_NO_FATAL_FAILURE(
       DoSimpleRoundtrip(table, false /* use_threads */, table->num_rows(), {}, &result));
 
-  MakeDateTimeTypesTable(&table, true);  // build expected result
-  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*table->schema(), *result->schema(),
+  MakeDateTimeTypesTable(&expected, false);
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*expected->schema(), *result->schema(),
                                                      /*check_metadata=*/false));
-  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected, *result));
+
+  // Parquet 2.4 nanoseconds are converted to microseconds
+  auto parquet_version_2_4_properties = ::parquet::WriterProperties::Builder()
+                                            .version(ParquetVersion::PARQUET_2_4)
+                                            ->build();
+  MakeDateTimeTypesTable(&expected, true);
+  ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(table, expected,
+                                                   parquet_version_2_4_properties));
+
 }
 
 TEST(TestArrowReadWrite, UseDeprecatedInt96) {
