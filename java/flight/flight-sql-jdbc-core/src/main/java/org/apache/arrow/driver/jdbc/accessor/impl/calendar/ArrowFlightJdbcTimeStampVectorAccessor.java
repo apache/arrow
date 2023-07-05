@@ -25,7 +25,8 @@ import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -67,7 +68,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
 
     this.timeZone = getTimeZoneForVector(vector);
     this.timeUnit = getTimeUnitForVector(vector);
-    this.longToLocalDateTime = getLongToLocalDateTimeForVector(vector, this.timeZone);
+    this.longToLocalDateTime = getLongToUTCDateTimeForVector(vector);
   }
 
   @Override
@@ -92,12 +93,11 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
 
     LocalDateTime localDateTime = this.longToLocalDateTime.fromLong(value);
 
-    if (calendar != null) {
-      TimeZone timeZone = calendar.getTimeZone();
-      long millis = this.timeUnit.toMillis(value);
-      localDateTime = localDateTime
-          .minus(timeZone.getOffset(millis) - this.timeZone.getOffset(millis), ChronoUnit.MILLIS);
-    }
+    ZoneId sourceTimeZone = this.timeZone != null ? this.timeZone.toZoneId() :
+            calendar == null ? TimeZone.getDefault().toZoneId() : calendar.getTimeZone().toZoneId();
+    ZonedDateTime sourceTZDateTime = localDateTime.atZone(sourceTimeZone);
+    localDateTime = sourceTZDateTime.withZoneSameInstant(TimeZone.getDefault().toZoneId()).toLocalDateTime();
+
     return localDateTime;
   }
 
@@ -149,9 +149,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
     }
   }
 
-  protected static LongToLocalDateTime getLongToLocalDateTimeForVector(TimeStampVector vector,
-                                                                       TimeZone timeZone) {
-    String timeZoneID = timeZone.getID();
+  protected static LongToLocalDateTime getLongToUTCDateTimeForVector(TimeStampVector vector) {
+    String timeZoneID = "UTC";
 
     ArrowType.Timestamp arrowType =
         (ArrowType.Timestamp) vector.getField().getFieldType().getType();
@@ -177,7 +176,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
 
     String timezoneName = arrowType.getTimezone();
     if (timezoneName == null) {
-      return TimeZone.getTimeZone("UTC");
+      return null;
     }
 
     return TimeZone.getTimeZone(timezoneName);

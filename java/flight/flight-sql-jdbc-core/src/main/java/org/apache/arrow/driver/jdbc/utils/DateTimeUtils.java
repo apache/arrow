@@ -20,9 +20,11 @@ package org.apache.arrow.driver.jdbc.utils;
 import static org.apache.calcite.avatica.util.DateTimeUtils.MILLIS_PER_DAY;
 
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -42,15 +44,11 @@ public class DateTimeUtils {
     if (calendar == null) {
       calendar = Calendar.getInstance();
     }
-
-    final TimeZone tz = calendar.getTimeZone();
-    final TimeZone defaultTz = TimeZone.getDefault();
-
-    if (tz != defaultTz) {
-      milliseconds -= tz.getOffset(milliseconds) - defaultTz.getOffset(milliseconds);
-    }
-
-    return milliseconds;
+    Instant currInstant = Instant.ofEpochMilli(milliseconds);
+    LocalDateTime getTimestampWithoutTZ = LocalDateTime.ofInstant(currInstant,
+            TimeZone.getTimeZone("UTC").toZoneId());
+    ZonedDateTime parsedTime = getTimestampWithoutTZ.atZone(calendar.getTimeZone().toZoneId());
+    return parsedTime.toEpochSecond() * 1000;
   }
 
 
