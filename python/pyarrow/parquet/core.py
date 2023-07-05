@@ -3468,7 +3468,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         if len(partition_keys) == 1:
             partition_keys = partition_keys[0]
 
-        for keys, subgroup in data_df.groupby(partition_keys):
+        for keys, subgroup in data_df.groupby(partition_keys, observed=True):
             if not isinstance(keys, tuple):
                 keys = (keys,)
             subdir = '/'.join(
