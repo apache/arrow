@@ -2384,6 +2384,44 @@ TEST(TypesTest, TestRunEndEncodedType) {
             "run_end_encoded<run_ends: int64, values: list<item: int32>>");
 }
 
+TEST(TypesTest, TestListViewType) {
+  auto int32_expected = std::make_shared<ListViewType>(int32());
+  auto int32_list_view_type = list_view(int32());
+
+  ASSERT_EQ(*int32_expected, *int32_list_view_type);
+
+  auto int32_list_view_type_cast =
+      std::dynamic_pointer_cast<ListViewType>(int32_list_view_type);
+  ASSERT_EQ(*int32_list_view_type_cast->value_type(), *int32());
+
+  ASSERT_TRUE(int32_list_view_type->field(0)->Equals(Field("item", int32(), true)));
+
+  auto int64_list_view_type = list_view(int64());
+  ASSERT_NE(*int32_list_view_type, *int64_list_view_type);
+
+  ASSERT_EQ(int32_list_view_type->ToString(), "list_view<item: int32>");
+  ASSERT_EQ(int64_list_view_type->ToString(), "list_view<item: int64>");
+}
+
+TEST(TypesTest, TestLargeListViewType) {
+  auto int32_expected = std::make_shared<LargeListViewType>(int32());
+  auto int32_list_view_type = large_list_view(int32());
+
+  ASSERT_EQ(*int32_expected, *int32_list_view_type);
+
+  auto int32_list_view_type_cast =
+      std::dynamic_pointer_cast<LargeListViewType>(int32_list_view_type);
+  ASSERT_EQ(*int32_list_view_type_cast->value_type(), *int32());
+
+  ASSERT_TRUE(int32_list_view_type->field(0)->Equals(Field("item", int32(), true)));
+
+  auto int64_list_view_type = large_list_view(int64());
+  ASSERT_NE(*int32_list_view_type, *int64_list_view_type);
+
+  ASSERT_EQ(int32_list_view_type->ToString(), "large_list_view<item: int32>");
+  ASSERT_EQ(int64_list_view_type->ToString(), "large_list_view<item: int64>");
+}
+
 #define TEST_PREDICATE(all_types, type_predicate)                 \
   for (auto type : all_types) {                                   \
     ASSERT_EQ(type_predicate(type->id()), type_predicate(*type)); \

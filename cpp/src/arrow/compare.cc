@@ -707,7 +707,8 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
-  enable_if_t<is_list_like_type<T>::value, Status> Visit(const T& left) {
+  enable_if_t<is_list_type<T>::value || is_list_view_type<T>::value, Status> Visit(
+      const T& left) {
     std::shared_ptr<Field> left_field = left.field(0);
     std::shared_ptr<Field> right_field = checked_cast<const T&>(right_).field(0);
     bool equal_names = !check_metadata_ || (left_field->name() == right_field->name());
@@ -718,14 +719,6 @@ class TypeEqualsVisitor {
               left_field->type()->Equals(*right_field->type(), check_metadata_);
 
     return Status::OK();
-  }
-
-  Status Visit(const ListViewType& left) {
-    return Status::NotImplemented("list-view type comparison");
-  }
-
-  Status Visit(const LargeListViewType& left) {
-    return Status::NotImplemented("large list-view type comparison");
   }
 
   template <typename T>
