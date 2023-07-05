@@ -2457,29 +2457,14 @@ def test_array_from_pylist_offset_overflow():
     )
 ])
 def test_array_accepts_pyarrow_scalar(seq, data, scalar_data, value_type):
+    if type(seq(scalar_data)) == set:
+        pytest.skip("The elements in the set get reordered.")
     expect = pa.array(data, type=value_type)
     result = pa.array(seq(scalar_data))
-
-    if type(seq(scalar_data)) == set:
-        try:
-            import pyarrow.compute as pc
-            expect = [expect[a] for a in pc.array_sort_indices(expect).to_pylist()]
-            result = [result[a] for a in pc.array_sort_indices(result).to_pylist()]
-            expect == result
-        except pa.lib.ArrowNotImplementedError:
-            set(expect) == set(result)
-    else:
-        assert expect.equals(result)
+    assert expect.equals(result)
 
     result = pa.array(seq(scalar_data), type=value_type)
-    if type(seq(scalar_data)) == set:
-        try:
-            result = [result[a] for a in pc.array_sort_indices(result).to_pylist()]
-            expect == result
-        except pa.lib.ArrowNotImplementedError:
-            set(expect) == set(result)
-    else:
-        assert expect.equals(result)
+    assert expect.equals(result)
 
 
 @parametrize_with_collections_types
