@@ -29,6 +29,25 @@
 
 namespace arrow {
 
+/// \brief EXPERIMENTAL: Device type enum which matches up with C Data Device types
+enum class DeviceType : char {
+  UNKNOWN = 0,
+  CPU = 1,
+  CUDA = 2,
+  CUDA_HOST = 3,
+  OPENCL = 4,
+  VULKAN = 7,
+  METAL = 8,
+  VPI = 9,
+  ROCM = 10,
+  ROCM_HOST = 11,
+  EXT_DEV = 12,
+  CUDA_MANAGED = 13,
+  ONEAPI = 14,
+  WEBGPU = 15,
+  HEXAGON = 16,
+};
+
 class MemoryManager;
 
 /// \brief EXPERIMENTAL: Abstract interface for hardware devices
@@ -58,6 +77,12 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// \brief Whether this instance points to the same device as another one.
   virtual bool Equals(const Device&) const = 0;
 
+  /// \brief A device ID to identify this device if there are multiple of this type.
+  ///
+  /// If there is no "device_id" equivalent (such as for the main CPU device)
+  /// returns -1.
+  virtual int64_t device_id() const { return -1; }
+
   /// \brief Whether this device is the main CPU device.
   ///
   /// This shorthand method is very useful when deciding whether a memory address
@@ -70,6 +95,9 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// MemoryManager implementation.  Some devices also allow constructing
   /// MemoryManager instances with non-default parameters.
   virtual std::shared_ptr<MemoryManager> default_memory_manager() = 0;
+
+  /// \brief Return the DeviceType of this device
+  virtual DeviceType device_type() const = 0;
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Device);
@@ -172,8 +200,9 @@ class ARROW_EXPORT CPUDevice : public Device {
   const char* type_name() const override;
   std::string ToString() const override;
   bool Equals(const Device&) const override;
+  DeviceType device_type() const override { return DeviceType::CPU; }
 
-  std::shared_ptr<MemoryManager> default_memory_manager() override;
+  std::shared_ptr<MemoryManager> default_memory_manager() override;  
 
   /// \brief Return the global CPUDevice instance
   static std::shared_ptr<Device> Instance();

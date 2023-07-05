@@ -198,6 +198,11 @@ Result<std::shared_ptr<CudaIpcMemHandle>> CudaBuffer::ExportForIpc() {
   return handle;
 }
 
+CudaHostBuffer::CudaHostBuffer(uint8_t* data, const int64_t size)
+  : MutableBuffer(data, size) {        
+    device_type_ = DeviceType::CUDA_HOST;
+}
+
 CudaHostBuffer::~CudaHostBuffer() {
   auto maybe_manager = CudaDeviceManager::Instance();
   ARROW_CHECK_OK(maybe_manager.status());
