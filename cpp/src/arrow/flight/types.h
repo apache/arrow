@@ -610,9 +610,9 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
     std::string schema;
     FlightDescriptor descriptor;
     std::vector<FlightEndpoint> endpoints;
-    int64_t total_records;
-    int64_t total_bytes;
-    bool ordered;
+    int64_t total_records = -1;
+    int64_t total_bytes = -1;
+    bool ordered = false;
   };
 
   explicit FlightInfo(Data data) : data_(std::move(data)), reconstructed_schema_(false) {}
