@@ -657,7 +657,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     {
       statistics1 = MakeStatistics<TestType>(this->schema_.Column(0));
       statistics1->Update(this->values_ptr_, /*num_values=*/0,
-                          /*null_count*/ this->values_.size());
+                          /*null_count=*/this->values_.size());
       auto encoded_stats1 = statistics1->Encode();
       EXPECT_FALSE(statistics1->HasMinMax());
       EXPECT_FALSE(encoded_stats1.has_min);
@@ -682,10 +682,11 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
   }
 
   // Default statistics should have null_count even if no nulls is written.
-  // However, if statistics read from thrift, it might not have null_count,
-  // and page merge with it should also not have null_count.
+  // However, if statistics is created from thrift message, it might not
+  // have null_count. Merging statistics from such page will result in an
+  // invalid null_count as well.
   void TestMergeNullCount() {
-    this->GenerateData(1000);
+    this->GenerateData(/*num_values=*/1000);
 
     // Page should have null-count even if no nulls
     std::shared_ptr<TypedStatistics<TestType>> statistics1;
@@ -731,13 +732,13 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
   // statistics.all_null_value is used to build the page index.
   // If statistics doesn't have null count, all_null_value should be false.
   void TestMissingNullCount() {
-    EncodedStatistics encoded_statistics1;
-    encoded_statistics1.has_null_count = false;
-    auto statistics1 = Statistics::Make(this->schema_.Column(0), &encoded_statistics1,
-                                        /*num_values=*/1000);
-    auto s1 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(statistics1);
-    EXPECT_FALSE(s1->HasNullCount());
-    auto encoded = s1->Encode();
+    EncodedStatistics encoded_statistics;
+    encoded_statistics.has_null_count = false;
+    auto statistics = Statistics::Make(this->schema_.Column(0), &encoded_statistics,
+                                       /*num_values=*/1000);
+    auto typed_stats = std::dynamic_pointer_cast<TypedStatistics<TestType>>(statistics);
+    EXPECT_FALSE(typed_stats->HasNullCount());
+    auto encoded = typed_stats->Encode();
     EXPECT_FALSE(encoded.all_null_value);
     EXPECT_FALSE(encoded.has_null_count);
     EXPECT_FALSE(encoded.has_distinct_count);

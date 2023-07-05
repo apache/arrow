@@ -555,8 +555,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Merge(const TypedStatistics<DType>& other) override {
     this->num_values_ += other.num_values();
-    // Merge always runs when Merge builder's page statistics
-    // into column chunk statistics, so it usually has null count.
+    // null_count is always valid when merging page statistics into
+    // column chunk statistics.
     if (other.HasNullCount()) {
       this->statistics_.null_count += other.null_count();
     } else {
@@ -621,8 +621,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       // num_values_ is reliable and it means number of non-null values.
       s.all_null_value = num_values_ == 0;
     }
-    // Currently, distinct count would not be written.
-    // So, not call set_distinct_count.
+    // FIXME(mwish): distinct count is not encoded for now.
     return s;
   }
 
