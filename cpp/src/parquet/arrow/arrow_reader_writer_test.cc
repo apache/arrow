@@ -1666,7 +1666,8 @@ TEST(TestArrowReadWrite, DateTimeTypes) {
       DoSimpleRoundtrip(table, false /* use_threads */, table->num_rows(), {}, &result));
 
   MakeDateTimeTypesTable(&expected, false);
-  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*expected->schema(), *result->schema(),
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertSchemaEqual(*expected->schema(),
+                                                     *result->schema(),
                                                      /*check_metadata=*/false));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*expected, *result));
 
@@ -1675,9 +1676,8 @@ TEST(TestArrowReadWrite, DateTimeTypes) {
                                             .version(ParquetVersion::PARQUET_2_4)
                                             ->build();
   MakeDateTimeTypesTable(&expected, true);
-  ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(table, expected,
-                                                   parquet_version_2_4_properties));
-
+  ASSERT_NO_FATAL_FAILURE(
+      CheckConfiguredRoundtrip(table, expected, parquet_version_2_4_properties));
 }
 
 TEST(TestArrowReadWrite, UseDeprecatedInt96) {
@@ -2008,7 +2008,7 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                                    field("ts:us", t_us), field("ts:ns", t_us)});
     auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_us, a_us});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                    parquet_version_1_properties));
+                                                     parquet_version_1_properties));
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_2_4_properties));
   }
