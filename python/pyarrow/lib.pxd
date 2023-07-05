@@ -23,6 +23,8 @@ from libcpp.cast cimport dynamic_cast
 from libcpp.memory cimport dynamic_pointer_cast
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_dataset cimport *
+from pyarrow.includes.libarrow_fs cimport *
 from pyarrow.includes.libarrow_python cimport *
 
 # Will be available in Cython 3, not backported

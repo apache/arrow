@@ -16,13 +16,14 @@
 # under the License.
 
 from libcpp.memory cimport shared_ptr
-from pyarrow.includes.libarrow cimport (CArray, CDataset, CDataType,
-                                        CExpression, CField, CFileSystem,
-                                        CFragment, CPartitioning,
-                                        CRecordBatch, CRecordBatchReader,
-                                        CScanner, CSchema, CTable, CTensor,
+from pyarrow.includes.libarrow cimport (CArray, CDataType, CExpression,
+                                        CField, CRecordBatch, CRecordBatchReader,
+                                        CSchema, CTable, CTensor,
                                         CSparseCOOTensor, CSparseCSRMatrix,
                                         CSparseCSCMatrix, CSparseCSFTensor)
+from pyarrow.includes.libarrow_dataset cimport (CDataset, CFragment,
+                                                CPartitioning, CScanner)
+from pyarrow.includes.libarrow_fs cimport CFileSystem
 
 # You cannot assign something to a dereferenced pointer in Cython thus these
 # methods don't use Status to indicate a successful operation.
@@ -434,8 +435,8 @@ cdef api bint pyarrow_is_expression(object expr):
 
 cdef api shared_ptr[CExpression] pyarrow_unwrap_expression(object expr):
     cdef Expression expression
-    if pyarrow_is_expression(fs):
-        expression = <Expression>(fs)
+    if pyarrow_is_expression(expr):
+        expression = <Expression>(expr)
         return expression.unwrap()
 
     return shared_ptr[CExpression]()
