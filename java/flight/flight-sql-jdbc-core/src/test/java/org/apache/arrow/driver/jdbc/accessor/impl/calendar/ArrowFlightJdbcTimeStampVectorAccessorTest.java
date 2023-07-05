@@ -25,7 +25,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -183,16 +186,18 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
     Calendar calendar = Calendar.getInstance(timeZone);
 
     TimeZone timeZoneForVector = getTimeZoneForVector(vector);
+    timeZoneForVector = timeZoneForVector == null ? TimeZone.getDefault() : timeZoneForVector;
 
-    accessorIterator.iterate(
-        vector,
-        (accessor, currentRow) -> {
-          final Timestamp resultWithoutCalendar = accessor.getTimestamp(null);
-          final Timestamp result = accessor.getTimestamp(calendar);
+    TimeZone finalTimeZoneForResultWithoutCalendar = timeZoneForVector;
 
-          long offset =
-              (long) timeZone.getOffset(resultWithoutCalendar.getTime())
-                  - timeZoneForVector.getOffset(resultWithoutCalendar.getTime());
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      final Timestamp resultWithoutCalendar = accessor.getTimestamp(null);
+      final Timestamp result = accessor.getTimestamp(calendar);
+      final TimeZone timeZoneForResult = getTimeZoneForVector(vector) == null ? timeZone :
+              finalTimeZoneForResultWithoutCalendar;
+
+      long offset = timeZoneForResult.getOffset(result.getTime()) -
+              finalTimeZoneForResultWithoutCalendar.getOffset(resultWithoutCalendar.getTime());
 
           assertThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
           assertThat(accessor.wasNull(), is(false));
@@ -231,6 +236,9 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
     Calendar calendar = Calendar.getInstance(timeZone);
 
     TimeZone timeZoneForVector = getTimeZoneForVector(vector);
+    timeZoneForVector = timeZoneForVector == null ? TimeZone.getDefault() : timeZoneForVector;
+
+    TimeZone finalTimeZoneForResultWithoutCalendar = timeZoneForVector;
 
     accessorIterator.iterate(
         vector,
@@ -238,9 +246,11 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
           final Date resultWithoutCalendar = accessor.getDate(null);
           final Date result = accessor.getDate(calendar);
 
-          long offset =
-              (long) timeZone.getOffset(resultWithoutCalendar.getTime())
-                  - timeZoneForVector.getOffset(resultWithoutCalendar.getTime());
+      final TimeZone timeZoneForResult = getTimeZoneForVector(vector) == null ? timeZone :
+              finalTimeZoneForResultWithoutCalendar;
+
+      long offset = timeZoneForResult.getOffset(result.getTime()) -
+              finalTimeZoneForResultWithoutCalendar.getOffset(resultWithoutCalendar.getTime());
 
           assertThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
           assertThat(accessor.wasNull(), is(false));
@@ -279,6 +289,9 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
     Calendar calendar = Calendar.getInstance(timeZone);
 
     TimeZone timeZoneForVector = getTimeZoneForVector(vector);
+    timeZoneForVector = timeZoneForVector == null ? TimeZone.getDefault() : timeZoneForVector;
+
+    TimeZone finalTimeZoneForResultWithoutCalendar = timeZoneForVector;
 
     accessorIterator.iterate(
         vector,
@@ -286,9 +299,11 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
           final Time resultWithoutCalendar = accessor.getTime(null);
           final Time result = accessor.getTime(calendar);
 
-          long offset =
-              (long) timeZone.getOffset(resultWithoutCalendar.getTime())
-                  - timeZoneForVector.getOffset(resultWithoutCalendar.getTime());
+      final TimeZone timeZoneForResult = getTimeZoneForVector(vector) == null ? timeZone :
+              finalTimeZoneForResultWithoutCalendar;
+
+      long offset = timeZoneForResult.getOffset(result.getTime()) -
+              finalTimeZoneForResultWithoutCalendar.getOffset(resultWithoutCalendar.getTime());
 
           assertThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
           assertThat(accessor.wasNull(), is(false));
@@ -314,8 +329,13 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
     } else if (object instanceof Long) {
       TimeUnit timeUnit = getTimeUnitForVector(vector);
       long millis = timeUnit.toMillis((Long) object);
-      long offset = TimeZone.getTimeZone(timeZone).getOffset(millis);
-      expectedTimestamp = new Timestamp(millis + offset);
+
+      Instant currInstant = Instant.ofEpochMilli(millis);
+      LocalDateTime getTimestampWithoutTZ = LocalDateTime.ofInstant(currInstant,
+              TimeZone.getTimeZone("UTC").toZoneId());
+
+      ZonedDateTime sourceTZDateTime = getTimestampWithoutTZ.atZone(TimeZone.getTimeZone(timeZone).toZoneId());
+      expectedTimestamp = new Timestamp(sourceTZDateTime.toEpochSecond() * 1000);
     }
     return expectedTimestamp;
   }
