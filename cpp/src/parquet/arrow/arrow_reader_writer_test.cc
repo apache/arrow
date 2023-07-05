@@ -1983,7 +1983,9 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                               field("ts:us", t_us), field("ts:ns", t_ns)});
   auto input_table = Table::Make(input_schema, {a_s, a_ms, a_us, a_ns});
 
-  auto parquet_version_1_properties = ::parquet::default_writer_properties();
+  auto parquet_version_1_properties = ::parquet::WriterProperties::Builder()
+                                          .version(ParquetVersion::PARQUET_1_0)
+                                          ->build();
   ARROW_SUPPRESS_DEPRECATION_WARNING
   auto parquet_version_2_0_properties = ::parquet::WriterProperties::Builder()
                                             .version(ParquetVersion::PARQUET_2_0)
@@ -2006,7 +2008,7 @@ TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
                                    field("ts:us", t_us), field("ts:ns", t_us)});
     auto expected_table = Table::Make(expected_schema, {a_ms, a_ms, a_us, a_us});
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
-                                                     parquet_version_1_properties));
+                                                    parquet_version_1_properties));
     ASSERT_NO_FATAL_FAILURE(CheckConfiguredRoundtrip(input_table, expected_table,
                                                      parquet_version_2_4_properties));
   }
