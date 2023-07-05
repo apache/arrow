@@ -601,7 +601,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     this->SetUpSchema(Repetition::OPTIONAL);
   }
 
-  std::shared_ptr<TypedStatistics<TestType>> BuildMergedStatistics(
+  std::shared_ptr<TypedStatistics<TestType>> MergedStatistics(
       const TypedStatistics<TestType>& stats1, const TypedStatistics<TestType>& stats2) {
     auto chunk_statistics = MakeStatistics<TestType>(this->schema_.Column(0));
     chunk_statistics->Merge(stats1);
@@ -609,11 +609,11 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     return chunk_statistics;
   }
 
-  void VerifyMergedStatistics(const TypedStatistics<TestType>& stats1,
-                              const TypedStatistics<TestType>& stats2,
-                              const std::function<void(TypedStatistics<TestType>*)>& fn) {
-    fn(BuildMergedStatistics(stats1, stats2).get());
-    fn(BuildMergedStatistics(stats2, stats1).get());
+  void VerifyMergedStatistics(
+      const TypedStatistics<TestType>& stats1, const TypedStatistics<TestType>& stats2,
+      const std::function<void(TypedStatistics<TestType>*)>& test_fn) {
+    ASSERT_NO_FATAL_FAILURE(test_fn(MergedStatistics(stats1, stats2).get()));
+    ASSERT_NO_FATAL_FAILURE(test_fn(MergedStatistics(stats2, stats1).get()));
   }
 
   // Distinct count should set to false when Merge is called.
@@ -730,7 +730,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
 
   // statistics.all_null_value is used to build the page index.
   // If statistics doesn't have null count, all_null_value should be false.
-  void TestNotHasNullValue() {
+  void TestMissingNullCount() {
     EncodedStatistics encoded_statistics1;
     encoded_statistics1.has_null_count = false;
     auto statistics1 = Statistics::Make(this->schema_.Column(0), &encoded_statistics1,
@@ -739,6 +739,10 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     EXPECT_FALSE(s1->HasNullCount());
     auto encoded = s1->Encode();
     EXPECT_FALSE(encoded.all_null_value);
+    EXPECT_FALSE(encoded.has_null_count);
+    EXPECT_FALSE(encoded.has_distinct_count);
+    EXPECT_FALSE(encoded.has_min);
+    EXPECT_FALSE(encoded.has_max);
   }
 };
 
@@ -752,12 +756,12 @@ TYPED_TEST(TestStatisticsHasFlag, MergeNullCount) {
   ASSERT_NO_FATAL_FAILURE(this->TestMergeNullCount());
 }
 
-TYPED_TEST(TestStatisticsHasFlag, TestMergeMinMax) {
+TYPED_TEST(TestStatisticsHasFlag, MergeMinMax) {
   ASSERT_NO_FATAL_FAILURE(this->TestMergeMinMax());
 }
 
-TYPED_TEST(TestStatisticsHasFlag, NotHasNullValues) {
-  ASSERT_NO_FATAL_FAILURE(this->TestNotHasNullValue());
+TYPED_TEST(TestStatisticsHasFlag, MissingNullValues) {
+  ASSERT_NO_FATAL_FAILURE(this->TestMissingNullCount());
 }
 
 // Helper for basic statistics tests below
