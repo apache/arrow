@@ -41,7 +41,7 @@ namespace arrow::matlab::array::proxy {
                 // Substitute MATLAB string(missing) values with the empty string value ("") before converting to Arrow format.
                 const auto str_utf16 = str ? *str : std::u16string{u""};
                 MATLAB_ASSIGN_OR_ERROR(auto str_utf8, arrow::util::UTF16StringToUTF8(str_utf16), error::UNICODE_CONVERSION_ERROR_ID);
-                strings.push_back(str_utf8);
+                strings.push_back(std::move(str_utf8));
             }
 
             auto unpacked_validity_bitmap_ptr = bit::unpacked_as_ptr(unpacked_validity_bitmap_mda);
