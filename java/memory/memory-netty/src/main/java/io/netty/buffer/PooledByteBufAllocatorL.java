@@ -161,8 +161,7 @@ public class PooledByteBufAllocatorL {
     }
 
     private UnsafeDirectLittleEndian newDirectBufferL(int initialCapacity, int maxCapacity) {
-      PoolArenasCache cache = threadCache();
-      PoolArena<ByteBuffer> directArena = cache.directArena;
+      PoolArena<ByteBuffer> directArena = threadCache().directArena;
 
       if (directArena != null) {
 
@@ -178,7 +177,7 @@ public class PooledByteBufAllocatorL {
               hugeBufferSize);
         } else {
           // within chunk, use arena.
-          ByteBuf buf = directArena.allocate(cache, initialCapacity, maxCapacity);
+          ByteBuf buf = directArena.allocate(threadCache(), initialCapacity, maxCapacity);
           if (!(buf instanceof PooledUnsafeDirectByteBuf)) {
             fail();
           }
