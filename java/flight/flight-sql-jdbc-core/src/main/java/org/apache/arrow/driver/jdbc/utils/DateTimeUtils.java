@@ -34,7 +34,7 @@ public class DateTimeUtils {
     // Prevent instantiation.
   }
 
-  /** Subtracts given Calendar's TimeZone offset from epoch milliseconds. */
+  /** Apply calendar timezone to epoch milliseconds. */
   public static long applyCalendarOffset(long milliseconds, Calendar calendar) {
     if (calendar == null) {
       calendar = Calendar.getInstance();
