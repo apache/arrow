@@ -91,9 +91,9 @@ These two steps are mandatory and must be executed in order.
 
    If you are working on the Python documentation and are building the documentation
    with ``pyarrow`` build from source on macOS Monterey, Python section of the
-   documentation might not be included in the ``_build/html`` when using the
-   ``make html`` command. In this case use ``make python`` to only build the
-   python part of the documentation.
+   documentation might not be included in the ``_build/html``. In this case run
+   ``python -m pip install ../python --quiet --no-dependencies python`` before
+   running the ``make html`` command.
 
 After these steps are completed, the documentation is rendered in HTML
 format in ``arrow/docs/_build/html``.  In particular, you can point your browser
