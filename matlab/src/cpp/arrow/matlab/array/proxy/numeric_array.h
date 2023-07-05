@@ -60,7 +60,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
 
             if (make_deep_copy) {
                 // Get the unpacked validity bitmap (if it exists)
-                auto unpacked_validity_bitmap = bit::unpacked_as_ptr(valid_mda);
+                auto unpacked_validity_bitmap = bit::extract_ptr(valid_mda);
 
                 BuilderType builder;
 

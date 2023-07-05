@@ -44,7 +44,7 @@ namespace arrow::matlab::array::proxy {
                 strings.push_back(std::move(str_utf8));
             }
 
-            auto unpacked_validity_bitmap_ptr = bit::unpacked_as_ptr(unpacked_validity_bitmap_mda);
+            auto unpacked_validity_bitmap_ptr = bit::extract_ptr(unpacked_validity_bitmap_mda);
 
             // Build up an Arrow StringArray from a vector of UTF-8 encoded strings.
             arrow::StringBuilder builder;
