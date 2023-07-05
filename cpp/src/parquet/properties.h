@@ -817,12 +817,11 @@ class PARQUET_EXPORT ArrowReaderProperties {
     }
   }
 
-  /// \brief Set the maximum number of rows to read into a arrow chunk or record batch.
+  /// \brief Set the maximum number of rows to read into a record batch.
   ///
-  /// It's only for `arrow::RecordBatchReader` or RecordBatchGenerator.
   /// Will only be fewer rows when there are no more rows in the file.
   void set_batch_size(int64_t batch_size) { batch_size_ = batch_size; }
-  /// Return the batch size for `arrow::RecordBatchReader` or RecordBatchGenerator.
+  /// Return the batch size, and it only applies to reading into RecordBatch.
   int64_t batch_size() const { return batch_size_; }
 
   /// Enable read coalescing (default false).
