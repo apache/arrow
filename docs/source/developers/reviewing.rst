@@ -308,7 +308,7 @@ can be but are not limited to: creating PRs, answering questions, creating
 issues, reviewing PRs, etcetera.
 
 In order to propose someone as a collaborator you must create a PR adding the user to
-the collaborators list on `.asf.yaml <https://github.com/apache/arrow/blob/main/.asf.yaml>`_..
+the collaborators list on `.asf.yaml <https://github.com/apache/arrow/blob/main/.asf.yaml>`_.
 Committers can review the past collaborations for the user and approve.
 
 Collaborators that have been inactive for a period of time can be removed from the
