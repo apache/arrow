@@ -3565,12 +3565,16 @@ def test_to_pandas_split_blocks():
     _check_to_pandas_memory_unchanged(t, split_blocks=True)
 
 
+def _get_mgr(df):
+    if Version(pd.__version__) < Version("1.1.0"):
+        return df._data
+    else:
+        return df._mgr
+
+
 def _check_blocks_created(t, number):
     x = t.to_pandas(split_blocks=True)
-    if Version(pd.__version__) < Version("1.1.0"):
-        assert len(x._data.blocks) == number
-    else:
-        assert len(x._mgr.blocks) == number
+    assert len(_get_mgr(x).blocks) == number
 
 
 def test_to_pandas_self_destruct():
@@ -4060,13 +4064,6 @@ def _Int64Dtype__from_arrow__(self, array):
         mask = np.ones(len(arr), dtype=bool)
     int_arr = pd.arrays.IntegerArray(data.copy(), ~mask, copy=False)
     return int_arr
-
-
-def _get_mgr(df):
-    if Version(pd.__version__) < Version("1.1.0"):
-        return df._data
-    else:
-        return df._mgr
 
 
 def test_convert_to_extension_array(monkeypatch):
