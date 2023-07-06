@@ -761,7 +761,7 @@ TYPED_TEST(TestStatisticsHasFlag, MergeMinMax) {
   ASSERT_NO_FATAL_FAILURE(this->TestMergeMinMax());
 }
 
-TYPED_TEST(TestStatisticsHasFlag, MissingNullValues) {
+TYPED_TEST(TestStatisticsHasFlag, MissingNullCount) {
   ASSERT_NO_FATAL_FAILURE(this->TestMissingNullCount());
 }
 
