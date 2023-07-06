@@ -302,9 +302,13 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
 
   Type::type type_id = value.type->id();
 
-  // Populate null count and validity bitmap (only for non-union/null types)
-  this->null_count = value.is_valid ? 0 : 1;
-  if (!is_union(type_id) && type_id != Type::NA) {
+  if (type_id == Type::NA) {
+    this->null_count = 1;
+  } else if (!HasValidityBitmap()) {
+    this->null_count = 0;
+  } else {
+    // Populate null count and validity bitmap
+    this->null_count = value.is_valid ? 0 : 1;
     this->buffers[0].data = value.is_valid ? &kTrueBit : &kFalseBit;
     this->buffers[0].size = 1;
   }
@@ -387,7 +391,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     };
     static_assert(sizeof(UnionScratchSpace) <= sizeof(UnionScalar::scratch_space_));
     auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(
-        checked_cast<const UnionScalar&>(value).scratch_space_);
+        &checked_cast<const UnionScalar&>(value).scratch_space_);
 
     // First buffer is kept null since unions have no validity vector
     this->buffers[0] = {};
@@ -399,7 +403,8 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     this->child_data.resize(this->type->num_fields());
     if (type_id == Type::DENSE_UNION) {
       const auto& scalar = checked_cast<const DenseUnionScalar&>(value);
-      this->buffers[2] = OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(1));
+      this->buffers[2] =
+          OffsetsForScalar(union_scratch_space->offsets, static_cast<int32_t>(1));
       // We can't "see" the other arrays in the union, but we put the "active"
       // union array in the right place and fill zero-length arrays for the
       // others
@@ -429,6 +434,32 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
 
     // Restore the extension type
     this->type = value.type.get();
+  } else if (type_id == Type::RUN_END_ENCODED) {
+    const auto& scalar = checked_cast<const RunEndEncodedScalar&>(value);
+    this->child_data.resize(2);
+
+    auto set_run_end = [&](auto run_end) {
+      auto& e = this->child_data[0];
+      e.type = scalar.run_end_type().get();
+      e.length = 1;
+      e.null_count = 0;
+      e.buffers[1].data = scalar.scratch_space_;
+      e.buffers[1].size = sizeof(run_end);
+      reinterpret_cast<decltype(run_end)*>(scalar.scratch_space_)[0] = run_end;
+    };
+
+    switch (scalar.run_end_type()->id()) {
+      case Type::INT16:
+        set_run_end(static_cast<int16_t>(1));
+        break;
+      case Type::INT32:
+        set_run_end(static_cast<int32_t>(1));
+        break;
+      default:
+        DCHECK_EQ(scalar.run_end_type()->id(), Type::INT64);
+        set_run_end(static_cast<int64_t>(1));
+    }
+    this->child_data[1].FillFromScalar(*scalar.value);
   } else {
     DCHECK_EQ(Type::NA, type_id) << "should be unreachable: " << *value.type;
   }

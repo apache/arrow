@@ -587,7 +587,9 @@ struct ARROW_EXPORT DenseUnionScalar : public UnionScalar {
         value(std::move(value)) {}
 };
 
-struct ARROW_EXPORT RunEndEncodedScalar : public Scalar {
+struct ARROW_EXPORT RunEndEncodedScalar
+    : public Scalar,
+      private internal::ArraySpanFillFromScalarScratchSpace {
   using TypeClass = RunEndEncodedType;
   using ValueType = std::shared_ptr<Scalar>;
 
@@ -608,6 +610,8 @@ struct ARROW_EXPORT RunEndEncodedScalar : public Scalar {
 
  private:
   const TypeClass& ree_type() const { return internal::checked_cast<TypeClass&>(*type); }
+
+  friend ArraySpan;
 };
 
 /// \brief A Scalar value for DictionaryType
