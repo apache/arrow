@@ -98,7 +98,8 @@ jobs:
           # Homebrew's RE2 is installed, its header file may be used.
           # We uninstall Homebrew's RE2 to ensure using bundled RE2.
           brew uninstall grpc || : # gRPC depends on RE2
-          brew uninstall re2 || :
+          brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
+          brew uninstall re2
 
           brew bundle --file=arrow/java/Brewfile
       - name: Build C++ libraries
