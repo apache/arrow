@@ -44,7 +44,8 @@ class PARQUET_EXPORT RowGroupReader {
   // An implementation of the Contents class is defined in the .cc file
   struct Contents {
     virtual ~Contents() {}
-    virtual std::unique_ptr<PageReader> GetColumnPageReader(int i) = 0;
+    virtual std::unique_ptr<PageReader> GetColumnPageReader(int i,
+                                                            int64_t buffer_size = -1) = 0;
     virtual const RowGroupMetaData* metadata() const = 0;
     virtual const ReaderProperties* properties() const = 0;
   };
@@ -56,7 +57,7 @@ class PARQUET_EXPORT RowGroupReader {
 
   // Construct a ColumnReader for the indicated row group-relative
   // column. Ownership is shared with the RowGroupReader.
-  std::shared_ptr<ColumnReader> Column(int i);
+  std::shared_ptr<ColumnReader> Column(int i, int64_t buffer_size = -1);
 
   // Construct a ColumnReader, trying to enable exposed encoding.
   //
@@ -70,9 +71,9 @@ class PARQUET_EXPORT RowGroupReader {
   //
   // \note API EXPERIMENTAL
   std::shared_ptr<ColumnReader> ColumnWithExposeEncoding(
-      int i, ExposedEncoding encoding_to_expose);
+      int i, ExposedEncoding encoding_to_expose, int64_t buffer_size = -1);
 
-  std::unique_ptr<PageReader> GetColumnPageReader(int i);
+  std::unique_ptr<PageReader> GetColumnPageReader(int i, int64_t buffer_size = -1);
 
  private:
   // Holds a pointer to an instance of Contents implementation
@@ -188,6 +189,9 @@ class PARQUET_EXPORT ParquetFileReader {
   /// PreBuffer must be called first. This method does not throw.
   ::arrow::Future<> WhenBuffered(const std::vector<int>& row_groups,
                                  const std::vector<int>& column_indices) const;
+
+  /// Return the range of the specified column chunk.
+  ::arrow::io::ReadRange GetColumnChunkRange(int row_group_index, int column_index);
 
  private:
   // Holds a pointer to an instance of Contents implementation

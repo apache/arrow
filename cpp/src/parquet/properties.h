@@ -64,7 +64,8 @@ class PARQUET_EXPORT ReaderProperties {
   MemoryPool* memory_pool() const { return pool_; }
 
   std::shared_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
-                                              int64_t start, int64_t num_bytes);
+                                              int64_t start, int64_t num_bytes,
+                                              int64_t buffer_size = -1);
 
   /// Buffered stream reading allows the user to control the memory usage of
   /// parquet readers. This ensure that all `RandomAccessFile::ReadAt` calls are
