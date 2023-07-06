@@ -66,7 +66,7 @@ namespace arrow::matlab::array::proxy {
             strings.reserve(array_length);
             for (size_t i = 0; i < array_length; ++i) {
                 auto string_array = std::static_pointer_cast<arrow::StringArray>(array);
-                const auto& str_utf8 = string_array->GetString(i);
+                auto str_utf8 = string_array->GetView(i);
                 MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto str_utf16, arrow::util::UTF8StringToUTF16(str_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
                 const mda::MATLABString matlab_string = mda::MATLABString(std::move(str_utf16));
                 strings.push_back(matlab_string);
