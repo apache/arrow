@@ -187,13 +187,14 @@ using ReleaseEventFunc = void (*)(void*);
 /// will be returned.
 ///
 /// If a non-null sync_event is provided, then the sync_release func must also be
-/// non-null. If the sync_event is null, then the sync_release parameter is ignored.
+/// non-null. If the sync_event is null, then the sync_release parameter is not called.
 ///
 /// \param[in] array Array object to export
 /// \param[in] sync_event A pointer to an event-like object if necessary for
-/// synchronization, otherwise null. \param[in] sync_release Function pointer to release
-/// the sync event \param[out] out C struct to export the array to \param[out] out_schema
-/// optional C struct to export the array type to
+/// synchronization, otherwise null. 
+/// \param[in] sync_release Function pointer to release the sync event 
+/// \param[out] out C struct to export the array to 
+/// \param[out] out_schema optional C struct to export the array type to
 ARROW_EXPORT
 Status ExportDeviceArray(const Array& array, void* sync_event,
                          ReleaseEventFunc sync_release, struct ArrowDeviceArray* out,

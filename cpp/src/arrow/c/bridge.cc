@@ -522,8 +522,8 @@ struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> 
 
   std::shared_ptr<ArrayData> data_;
 
-  ReleaseEventFunc sync_release_;
-  void* sync_event_;
+  ReleaseEventFunc sync_release_ = nullptr;
+  void* sync_event_ = nullptr;
 
   ExportedArrayPrivateData() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExportedArrayPrivateData);
@@ -675,7 +675,7 @@ Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
 //////////////////////////////////////////////////////////////////////////
 // C device arrays
 
-Result<std::pair<DeviceType, int64_t>> validate_device_info(const ArrayData& data) {
+Result<std::pair<DeviceType, int64_t>> ValidateDeviceInfo(const ArrayData& data) {
   DeviceType device_type = DeviceType::UNKNOWN;
   int64_t device_id = -1;
 
@@ -694,22 +694,22 @@ Result<std::pair<DeviceType, int64_t>> validate_device_info(const ArrayData& dat
 
     if (buf->device_type() != device_type) {
       return Status::Invalid(
-          "exporting device array with buffers on more than one device.");
+          "Exporting device array with buffers on more than one device.");
     }
 
     if (buf->device()->device_id() != device_id) {
       return Status::Invalid(
-          "exporting device array with buffers on multiple device ids.");
+          "Exporting device array with buffers on multiple device ids.");
     }
   }
 
   // recursively check the children
   auto info = std::make_pair(device_type, device_id);
   for (const auto& child : data.child_data) {
-    ARROW_ASSIGN_OR_RAISE(auto device_info, validate_device_info(*child));
+    ARROW_ASSIGN_OR_RAISE(auto device_info, ValidateDeviceInfo(*child));
     if (info != device_info) {
       return Status::Invalid(
-          "exporting device array with buffers on more than one device.");
+          "Exporting device array with buffers on more than one device.");
     }
   }
 
@@ -721,7 +721,7 @@ Status ExportDeviceArray(const Array& array, void* sync_event,
                          struct ArrowSchema* out_schema) {
   if (sync_event != nullptr && sync_release == nullptr) {
     return Status::Invalid(
-        "must provide a release event function if providing a non-null event");
+        "Must provide a release event function if providing a non-null event");
   }
 
   SchemaExportGuard guard(out_schema);
@@ -729,7 +729,7 @@ Status ExportDeviceArray(const Array& array, void* sync_event,
     RETURN_NOT_OK(ExportType(*array.type(), out_schema));
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto device_info, validate_device_info(*array.data()));
+  ARROW_ASSIGN_OR_RAISE(auto device_info, ValidateDeviceInfo(*array.data()));
   out->device_type = static_cast<ArrowDeviceType>(device_info.first);
   out->device_id = device_info.second;
 
@@ -752,7 +752,7 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch, void* sync_event,
                                struct ArrowSchema* out_schema) {
   if (sync_event != nullptr && sync_release == nullptr) {
     return Status::Invalid(
-        "must provide a release event function if providing a non-null event");
+        "Must provide a release event function if providing a non-null event");
   }
 
   // XXX perhaps bypass ToStructArray for speed?
@@ -764,7 +764,7 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch, void* sync_event,
     RETURN_NOT_OK(ExportSchema(*batch.schema(), out_schema));
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto device_info, validate_device_info(*array->data()));
+  ARROW_ASSIGN_OR_RAISE(auto device_info, ValidateDeviceInfo(*array->data()));
   out->device_type = static_cast<ArrowDeviceType>(device_info.first);
   out->device_id = device_info.second;
 
@@ -1408,7 +1408,9 @@ struct ArrayImporter {
     device_type_ = static_cast<DeviceType>(src->device_type);
     RETURN_NOT_OK(Import(&src->array));
     import_->sync_event_ = src->sync_event;
+    // reset internal state before next import
     memory_mgr_.reset();
+    device_type_ = DeviceType::CPU;
     return Status::OK();
   }
 
